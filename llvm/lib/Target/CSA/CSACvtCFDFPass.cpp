@@ -638,57 +638,23 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
                 //1) triangle if's fall through branch
                 //2) loop hdr phi
                 MachineInstr *DefMI = MRI->getVRegDef(Reg);
-                MachineLoop *mloop = MLI->getLoopFor(mbb);
-                MachineLoop *defloop = MLI->getLoopFor(DefMI->getParent());
-                MachineLoop *useloop = MLI->getLoopFor(succBB);
-                //mbb inside a loop,and succBB is not its header
-                if (mloop &&
-                  (!useloop || !mloop->contains(useloop))) {
-                  //mbb inside mloop which doesn't contains useloop
-                  if (defloop && mloop->contains(defloop)) {
-                    //def inside mloop => alread taken care of in loop exit handling
-                    continue;
-                  } else {
-                    //!defloop || !mloop->contains(defloop)
-                    //def outside mloop, need to bypass the mloop, restart from its preheader
-                    MachineBasicBlock *preHdr = mloop->getLoopPreheader();
-                    assert(preHdr);
-                    if (preHdr->succ_size() == 1) {
-                      insertSWITCHForOperand(mOpnd, preHdr, &*iPhi);
-                      continue;
-                    } else {
-                      MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, preHdr);
-                      unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
-                      unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-                      unsigned newVReg;
-                      if (CDG->getEdgeType(preHdr, mloop->getHeader(), true) == ControlDependenceNode::TRUE) {
-                        newVReg = switchTrueReg;
-                      } else {
-                        assert(CDG->getEdgeType(preHdr, mloop->getHeader(), true) == ControlDependenceNode::FALSE);
-                        newVReg = switchFalseReg;
-                      }
-                      mOpnd.setReg(newVReg);
-                    }
-                  }
-                } else {
 #if 1
-                  if (TII->isSwitch(DefMI) && DefMI->getParent() == mbb) {
-                    //alread switched reg from SwitchForRepeat 
-                    continue;
-                  }
-#endif
-                  MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
-                  unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
-                  unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-                  unsigned newVReg;
-                  if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
-                    newVReg = switchTrueReg;
-                  } else {
-                    assert(CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::FALSE);
-                    newVReg = switchFalseReg;
-                  }
-                  mOpnd.setReg(newVReg);
+                if (TII->isSwitch(DefMI) && DefMI->getParent() == mbb) {
+                  //alread switched reg from SwitchForRepeat 
+                  continue;
                 }
+#endif
+                MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
+                unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
+                unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
+                unsigned newVReg;
+                if (CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::TRUE) {
+                  newVReg = switchTrueReg;
+                } else {
+                  assert(CDG->getEdgeType(mbb, succBB, true) == ControlDependenceNode::FALSE);
+                  newVReg = switchFalseReg;
+                }
+                mOpnd.setReg(newVReg);
               }
             }
           }
