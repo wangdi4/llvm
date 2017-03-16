@@ -1,13 +1,15 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-complete-unroll -print-before=hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+
+; TODO: change pre-vec pass to post-vec pass after vectorizer improves its cost model.
 
 ; Verify that the profitable inner i2 loop gets unrolled.
 
-; CHECK: Dump Before HIR Complete Unroll
+; CHECK: Dump Before 
 ; CHECK: DO i1
 ; CHECK: DO i2
 
 
-; CHECK: Dump After HIR Complete Unroll
+; CHECK: Dump After 
 ; CHECK-NOT: DO i2
 
 

@@ -1,7 +1,7 @@
 
 ; Test for not performing complete unrolling due to large trip count for triangular loops.
 
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-complete-unroll-trip-threshold=50 -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=50 -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: END REGION

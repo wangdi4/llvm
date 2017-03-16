@@ -397,7 +397,7 @@ public:
     llvm_unreachable("Could not compute not expected!");
   }
 
-  bool getNumOperations() const { return NumOperations; }
+  unsigned getNumOperations() const { return NumOperations; }
 };
 
 unsigned BlobUtils::getNumOperations(BlobTy Blob) {

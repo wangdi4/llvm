@@ -1,8 +1,8 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-complete-unroll-trip-threshold=64 -print-before=hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=40 -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that we unroll both the inner loops in [8 x 8] matrix multiplication case.
 
-; CHECK: Before HIR Complete Unroll
+; CHECK: Before HIR PostVec Complete Unroll
 
 ; CHECK: + DO i1 = 0, 7, 1   <DO_LOOP>
 ; CHECK: |   + DO i2 = 0, 7, 1   <DO_LOOP>
@@ -17,7 +17,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: After HIR Complete Unroll
+; CHECK: After HIR PostVec Complete Unroll
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1

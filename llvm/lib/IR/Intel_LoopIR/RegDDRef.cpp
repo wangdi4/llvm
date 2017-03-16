@@ -947,18 +947,6 @@ bool RegDDRef::containsUndef() const {
   return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
 }
 
-bool RegDDRef::hasIV(unsigned LoopLevel) const {
-  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    CanonExpr *CE = (*I);
-
-    if (CE->hasIV(LoopLevel)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool RegDDRef::isNonLinear(void) const {
   // Check BaseCE if available
   const CanonExpr *BaseCE = getBaseCE();
@@ -1101,6 +1089,39 @@ bool RegDDRef::hasTrailingStructOffsets() const {
   }
 
   return false;
+}
+
+bool RegDDRef::hasIV(unsigned Level) const {
+
+  for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
+    if ((*CEIt)->hasIV(Level)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+unsigned RegDDRef::getDefinedAtLevel() const {
+  unsigned MaxLevel = 0;
+
+  auto BaseCE = getBaseCE();
+
+  if (BaseCE && BaseCE->isNonLinear()) {
+    return NonLinearLevel;
+  }
+
+  for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
+    auto CE = *CEIt;
+
+    if (CE->isNonLinear()) {
+      return NonLinearLevel;
+    }
+
+    MaxLevel = std::max(MaxLevel, CE->getDefinedAtLevel());
+  }
+
+  return MaxLevel;
 }
 
 void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {

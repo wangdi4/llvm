@@ -19,7 +19,8 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRTempCleanupPass(Registry);
   initializeHIRLoopInterchangePass(Registry);
   initializeHIROptPredicatePass(Registry);
-  initializeHIRCompleteUnrollPass(Registry);
+  initializeHIRPreVecCompleteUnrollPass(Registry);
+  initializeHIRPostVecCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
   initializeHIRUnrollAndJamPass(Registry);
   initializeHIRDummyTransformationPass(Registry);

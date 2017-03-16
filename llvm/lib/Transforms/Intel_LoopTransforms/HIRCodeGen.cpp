@@ -693,29 +693,40 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
 
   SmallVector<Value *, 4> IndexV;
   bool AnyVector = false;
+  bool NeedGEP = true;
   unsigned DimNum = Ref->getNumDimensions();
 
-  // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
-  for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
-       ++CEIt, --DimNum) {
-    auto IndexVal = visitCanonExpr(*CEIt);
+  // Ref either looks like t[0] or &t[0]. In such cases we don't need a GEP, we
+  // can simply use the base value. Also, for opaque (forward declared) struct
+  // types, LLVM doesn't allow any indices even if it is just a zero.
+  if ((DimNum == 1) && !Ref->hasTrailingStructOffsets() &&
+      (*Ref->canon_begin())->isZero()) {
+    NeedGEP = false;
+  } else {
 
-    if (IndexVal->getType()->isVectorTy()) {
-      AnyVector = true;
-    }
+    // stored as A[canon3][canon2][canon1], but gep requires them in reverse
+    // order
+    for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
+         ++CEIt, --DimNum) {
+      auto IndexVal = visitCanonExpr(*CEIt);
 
-    IndexV.push_back(IndexVal);
+      if (IndexVal->getType()->isVectorTy()) {
+        AnyVector = true;
+      }
 
-    // Push back indices for dimensions's trailing offsets.
-    auto Offsets = Ref->getTrailingStructOffsets(DimNum);
+      IndexV.push_back(IndexVal);
 
-    if (Offsets) {
-      // Structure fields are always i32 type.
-      auto I32Ty = Type::getInt32Ty(F->getContext());
+      // Push back indices for dimensions's trailing offsets.
+      auto Offsets = Ref->getTrailingStructOffsets(DimNum);
 
-      for (auto OffsetVal : *Offsets) {
-        auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
-        IndexV.push_back(OffsetIndex);
+      if (Offsets) {
+        // Structure fields are always i32 type.
+        auto I32Ty = Type::getInt32Ty(F->getContext());
+
+        for (auto OffsetVal : *Offsets) {
+          auto OffsetIndex = ConstantInt::get(I32Ty, OffsetVal);
+          IndexV.push_back(OffsetIndex);
+        }
       }
     }
   }
@@ -729,7 +740,10 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
   }
 
   Value *GEPVal;
-  if (Ref->isInBounds()) {
+
+  if (!NeedGEP) {
+    GEPVal = BaseV;
+  } else if (Ref->isInBounds()) {
     GEPVal = Builder->CreateInBoundsGEP(BaseV, IndexV, "arrayIdx");
   } else {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");

@@ -723,8 +723,11 @@ public:
   /// the DDRef.
   unsigned findMaxBlobLevel(unsigned BlobIndex) const;
 
-  /// Returns true if the RegDDRefs has any IV on loop level.
-  bool hasIV(unsigned LoopLevel) const;
+  /// Returns true if ref has an IV at \p Level.
+  bool hasIV(unsigned Level) const;
+
+  /// Returns the defined at level of the ref.
+  unsigned getDefinedAtLevel() const;
 
   /// \brief Replace any loop-level IV by a given constant integer.
   void replaceIVByConstant(unsigned LoopLevel, int64_t Val);

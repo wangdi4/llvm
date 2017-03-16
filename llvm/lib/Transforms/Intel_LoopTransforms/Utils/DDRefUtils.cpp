@@ -245,30 +245,27 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
   }
 
   // Check Base Canon Exprs.
-  if (Ref1->hasGEPInfo() &&
+  if (HasGEPInfo &&
       !CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
                                 RelaxedMode)) {
     return false;
   }
 
-  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+  unsigned NumDims = Ref1->getNumDimensions();
+
+  if (NumDims != Ref2->getNumDimensions()) {
     return false;
   }
 
-  unsigned DimNum = 1;
-
-  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
-            Ref2Iter = Ref2->canon_begin();
-       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter, ++DimNum) {
-
-    const CanonExpr *Ref1CE = *Ref1Iter;
-    const CanonExpr *Ref2CE = *Ref2Iter;
+  for (unsigned I = NumDims; I > 0; --I) {
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
     if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE, RelaxedMode)) {
       return false;
     }
 
-    if (HasGEPInfo && compareOffsets(Ref1, Ref2, DimNum)) {
+    if (HasGEPInfo && compareOffsets(Ref1, Ref2, I)) {
       return false;
     }
   }

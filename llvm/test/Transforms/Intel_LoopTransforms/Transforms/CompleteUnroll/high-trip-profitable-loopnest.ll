@@ -1,8 +1,8 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-complete-unroll-trip-threshold=700 -hir-complete-unroll-memref-threshold=1500 -hir-complete-unroll-ddref-threshold=10000 -print-before=hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
-; Verify that we unroll profitable i1 loopnest.
+; Verify that this highly profitable loopnest is unrolled in prevec pass.
 
-; CHECK: Before HIR Complete Unroll
+; CHECK: Before HIR PreVec Complete Unroll
 
 ; CHECK: + DO i1 = 0, 35, 1   <DO_LOOP>
 ; CHECK: |   %3 = 2 * i1 + 1  +  18;
@@ -22,7 +22,7 @@
 ; CHECK: + END LOOP
 
 
-; CHECK: After HIR Complete Unroll
+; CHECK: After HIR PreVec Complete Unroll
 
 ; CHECK-NOT: DO i1
 

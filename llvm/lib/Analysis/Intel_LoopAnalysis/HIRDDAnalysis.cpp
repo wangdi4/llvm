@@ -15,11 +15,11 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"

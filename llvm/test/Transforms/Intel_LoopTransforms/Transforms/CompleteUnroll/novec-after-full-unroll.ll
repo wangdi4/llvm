@@ -12,14 +12,14 @@
 ; }
 ; 
 ; Check that we completely unroll inner loop and that no directive is added
-; RUN: opt -S -hir-ssa-deconstruction -hir-complete-unroll -hir-vec-dir-insert -print-before=hir-complete-unroll -print-after=hir-complete-unroll -print-after=hir-vec-dir-insert 2>&1 < %s | FileCheck %s
+; RUN: opt -S -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-vec-dir-insert -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -print-after=hir-vec-dir-insert 2>&1 < %s | FileCheck %s
 ;
-; CHECK: Dump Before HIR Complete Unroll
+; CHECK: Dump Before HIR PostVec Complete Unroll
 ; CHECK: DO i1
 ; CHECK: DO i2
 
 
-; CHECK: Dump After HIR Complete Unroll
+; CHECK: Dump After HIR PostVec Complete Unroll
 ; CHECK-NOT: DO i2
 
 ; CHECK: Dump After HIR Vec Directive Insertion

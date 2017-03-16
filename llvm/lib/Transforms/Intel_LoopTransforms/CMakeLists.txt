@@ -5,6 +5,8 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRPrinter.cpp
         HIRCodeGen.cpp
         HIROptPredicate.cpp
+        HIRPreVecCompleteUnroll.cpp
+        HIRPostVecCompleteUnroll.cpp
         HIRCompleteUnroll.cpp
         HIRGeneralUnroll.cpp
         HIRUnrollAndJam.cpp

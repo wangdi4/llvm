@@ -261,7 +261,8 @@ namespace {
       (void) llvm::createHIROptVarPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRUnrollAndJamPass();
-      (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRPreVecCompleteUnrollPass();
+      (void) llvm::createHIRPostVecCompleteUnrollPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionForMemRecPass();
