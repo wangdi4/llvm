@@ -1340,21 +1340,6 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   auto LoopBody = createBasicBlock("omp.inner.for.body");
 
-#if INTEL_SPECIFIC_OPENMP
-  llvm::PHINode *LoopPHI;
-  llvm::Type *IVType;
-  if (IncomingBlock != nullptr) {
-    // Create a PHI for the loop and store its value in the iteration variable
-    auto *VD = cast<VarDecl>(cast<DeclRefExpr>(IterationVariable)->getDecl());
-    IVType = ConvertTypeForMem(VD->getType());
-    LoopPHI = Builder.CreatePHI(IVType, 2);
-    auto Zero = llvm::ConstantInt::get(IVType, 0);
-    LoopPHI->addIncoming(Zero, IncomingBlock);
-    EmitVarDecl(*VD);
-    Address A = GetAddrOfLocalVar(VD);
-    Builder.CreateStore(LoopPHI, A);
-  }
-#endif // INTEL_SPECIFIC_OPENMP
   // Emit condition.
   EmitBranchOnBoolExpr(LoopCond, LoopBody, ExitBlock, getProfileCount(&S));
   if (ExitBlock != LoopExit.getBlock()) {
@@ -1373,13 +1358,6 @@ void CodeGenFunction::EmitOMPInnerLoop(
 
   // Emit "IV = IV + 1" and a back-edge to the condition block.
   EmitBlock(Continue.getBlock());
-#if INTEL_SPECIFIC_OPENMP
-  if (IncomingBlock != nullptr) {
-    auto One = llvm::ConstantInt::get(IVType, 1);
-    llvm::Value *Add = Builder.CreateAdd(LoopPHI, One);   
-    LoopPHI->addIncoming(Add, Builder.GetInsertBlock());
-  } else
-#endif // INTEL_SPECIFIC_OPENMP
   EmitIgnoredExpr(IncExpr);
   PostIncGen(*this);
   BreakContinueStack.pop_back();
@@ -3876,6 +3854,11 @@ void CodeGenFunction::EmitOMPTargetUpdateDirective(
 #if INTEL_SPECIFIC_OPENMP
 void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                                        OpenMPDirectiveKind K) {
+  // Emit the loop iteration variable.
+  auto IVExpr = cast<DeclRefExpr>(S.getIterationVariable());
+  auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
+  EmitVarDecl(*IVDecl);
+  
   // Emit the iterations count variable.
   // If it is not a variable, Sema decided to calculate iterations count on each
   // iteration (e.g., it is foldable into a constant).
@@ -3934,7 +3917,10 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         llvm_unreachable("unexpected loop kind");
       }
       Outliner << S.clauses();
+      // Adding to explicit list so a clause is not added
+      Outliner.addExplicit(IVDecl);
 
+      EmitIgnoredExpr(S.getInit());
       // while (idx <= UB) { BODY; ++idx; }
       if (ThenBlock == nullptr)
         ThenBlock = Builder.GetInsertBlock();
@@ -3947,15 +3933,6 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
                        [](CodeGenFunction &) {}, ThenBlock,
                        S.getIterationVariable());
       EmitBlock(LoopExit.getBlock());
-      // The iteration variable is always defined inside and will be marked
-      // private when used.
-      // The original loop control variable could be defined inside or
-      // outside so treat it as an explicit private
-      for (auto *C : S.counters()) {
-        auto VD = cast<VarDecl>(cast<DeclRefExpr>(C)->getDecl());
-        Outliner.addExplicit(VD);
-        Outliner.emitImplicit(C, OMPC_private);
-      }
     }
      
     // We're now done with the loop, so jump to the continuation block.

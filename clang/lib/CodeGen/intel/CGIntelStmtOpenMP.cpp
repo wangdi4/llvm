@@ -444,6 +444,9 @@ namespace CGIntelOpenMP {
       if (VarDefs.find(I) != VarDefs.end()) {
         // Defined here = private
         emitImplicit(I, OMPC_private);
+      } else if (Counters.find(I) != Counters.end()) {
+        // Counters always private
+        emitImplicit(I, OMPC_private);
       } else if (DKind != OMPD_simd) {
         // Referenced but not definted = shared
         emitImplicit(I, OMPC_shared);
@@ -498,6 +501,8 @@ namespace CGIntelOpenMP {
     auto IDestExpr = Cl->destination_exprs().begin();
     auto IAssignOp = Cl->assignment_ops().begin();
     for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       bool IsPODType = E->getType().isPODType(CGF.getContext());
       if (!IsPODType)
         addArg("QUAL.OPND.NONPOD");
@@ -867,6 +872,12 @@ namespace CGIntelOpenMP {
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual);
     IntelListClause =
         CGF.CGM.getIntrinsic(llvm::Intrinsic::intel_directive_qual_opndlist);
+    if (auto *LoopDir = dyn_cast<OMPLoopDirective>(&D)) {
+      for (auto *E : LoopDir->counters()) {
+        auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+        addCounter(PVD);
+      }
+    }
   }
   OpenMPCodeOutliner::~OpenMPCodeOutliner() {
     addImplicitClauses();
@@ -1054,6 +1065,16 @@ namespace CGIntelOpenMP {
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
   OpenMPCodeOutliner Outliner(*this, S);
+
+  // We don't want to emit private clauses for counters in regular loops.
+  // Add to explicit to prevent that happening via the implicit rules.
+  if (auto *LoopDir = dyn_cast<OMPLoopDirective>(&S)) {
+    for (auto *E : LoopDir->counters()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      Outliner.addExplicit(PVD);
+    }
+  }
+
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();

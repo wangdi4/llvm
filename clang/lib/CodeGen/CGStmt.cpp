@@ -82,13 +82,46 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 
 #if INTEL_SPECIFIC_OPENMP
   if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
-    if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
-      return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-    else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
-      return EmitIntelOMPParallelForDirective(
+
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S)) {
+      bool NeedsCountedLoop = false;
+
+      if (auto *LoopDir = dyn_cast<OMPLoopDirective>(S)) {
+        // Determine if a counted loop is required
+        for (auto *E : LoopDir->counters()) {
+          if (E->getType()->isStructureOrClassType())
+            NeedsCountedLoop = true;
+          else {
+            auto *CVar = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+            if (!CVar->hasLocalStorage()) {
+              NeedsCountedLoop = true;
+              break;
+            }
+            for (const auto *C :
+                       LoopDir->getClausesOfKind<OMPLastprivateClause>()) {
+              for (const auto *D : C->varlists()) {
+                auto *FPVar = cast<VarDecl>(cast<DeclRefExpr>(D)->getDecl());
+                if (FPVar == CVar)
+                  NeedsCountedLoop = true;
+                if (NeedsCountedLoop)
+                  break;
+              }
+              if (NeedsCountedLoop)
+                break;
+            }
+          }
+        }
+      }
+
+      if (NeedsCountedLoop) {
+        if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
+          return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
+        else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
+          return EmitIntelOMPParallelForDirective(
                                 cast<OMPParallelForDirective>(*S));
-    else if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
-      return EmitIntelOpenMPDirective(*Dir);
+      } else
+        return EmitIntelOpenMPDirective(*Dir);
+    }
   }
 #endif // INTEL_SPECIFIC_OPENMP
 

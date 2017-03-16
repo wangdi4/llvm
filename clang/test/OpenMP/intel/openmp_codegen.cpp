@@ -233,8 +233,6 @@ int main(int argc, char **argv) {
 #pragma omp single
   n2 = n1;
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %.omp.iv
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i
 // CHECK: opnd.i32(metadata !"QUAL.OMP.ORDERED", i32 1)
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ORDERED")
@@ -332,8 +330,6 @@ int main(int argc, char **argv) {
 // CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[N1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %.omp.iv
-// CHECK: opndlist(metadata !"QUAL.OMP.PRIVATE", i32* %i
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: load i64, i64*
 // CHECK: store i64
