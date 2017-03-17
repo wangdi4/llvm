@@ -1062,6 +1062,25 @@ namespace CGIntelOpenMP {
 
 } // namespace
 
+static
+void emitPreInitStmt(CodeGenFunction &CGF, const OMPExecutableDirective &S) {
+  for (const auto *C : S.clauses()) {
+    if (auto *CPI = OMPClauseWithPreInit::get(C)) {
+      if (auto *PreInit = cast_or_null<DeclStmt>(CPI->getPreInitStmt())) {
+        for (const auto *I : PreInit->decls()) {
+          if (!I->hasAttr<OMPCaptureNoInitAttr>())
+            CGF.EmitVarDecl(cast<VarDecl>(*I));
+          else {
+            CodeGenFunction::AutoVarEmission Emission =
+                CGF.EmitAutoVarAlloca(cast<VarDecl>(*I));
+            CGF.EmitAutoVarCleanups(Emission);
+          }
+        }
+      }
+    }
+  }
+}
+
 void CodeGenFunction::EmitIntelOpenMPDirective(
     const OMPExecutableDirective &S) {
   OpenMPCodeOutliner Outliner(*this, S);
@@ -1074,6 +1093,7 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
       Outliner.addExplicit(PVD);
     }
   }
+  emitPreInitStmt(*this, S);
 
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:
