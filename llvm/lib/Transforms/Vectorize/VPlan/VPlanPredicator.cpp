@@ -20,7 +20,7 @@
 // All blocks (VPBBs or VPRegions) carry a Block Predicate which is the
 // input/output mask for the whole SESE block.
 // It can be retrieved with Block->getPredicateRecipe().
-// VPBasicBlocks also contain the Blcok Predicate recipe within their recipe
+// VPBasicBlocks also contain the Block Predicate recipe within their recipe
 // list, in order for the code generator to emit code for it.
 //
 // Connecting Predicates within a Region
@@ -55,6 +55,10 @@ static cl::opt<bool>
                           cl::desc("VPlan Predicator report for testing"));
 static cl::opt<bool> DumpVPlanDot("dump-vplan-dot", cl::init(false), cl::Hidden,
                                   cl::desc("Dump the vplan dot file"));
+static cl::opt<bool>
+    PredicateOutermostLoop("vplan-predicate-outermost", cl::init(true),
+                           cl::Hidden,
+                           cl::desc("Start predication at the outermost loop"));
 
 // Returns the first recipe in BB or NULL if empty.
 static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
@@ -102,7 +106,7 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
       assert(CI);
       VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
       // TODO: getUniqueName should happen in constructor.
-      VBR->setName(getUniqueName("VecBooleanRecipe"));
+      VBR->setName(getUniqueName("VBR"));
       // Remember that we have already generated this VBR for CBR
       CBRtoVBRMap[CBRWS] = VBR;
       VPBasicBlock *BB = CBRWS->getParent();
@@ -110,8 +114,8 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
         // Live-Ins need special treatment as they are not in a BB.
         // We emit the VecBooleanRecipe at the outer loop preheader.
         assert(isa<VPLiveInConditionBitRecipe>(CBRWS));
-        // TODO: You can use std::distance instead
-        assert(VPLI->end() - VPLI->begin() == 1 && "Multiple outer loops?");
+        assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+               "Multiple outer loops?");
         const VPLoop *Loop = *VPLI->begin();
         VPBlockBase *PreheaderBlock = Loop->getLoopPreheader();
         // TODO: assert(isa) + cast
@@ -169,7 +173,7 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
       VPIfTruePredicateRecipe *IfTrueRecipe =
           new VPIfTruePredicateRecipe(VBR, PredBB->getPredicateRecipe());
       // TODO: Set name in constructor
-      IfTrueRecipe->setName(getUniqueName("IfTrue"));
+      IfTrueRecipe->setName(getUniqueName("IfT"));
       emitRecipeIfBB(IfTrueRecipe, CurrBlock);
       IncomingPredicate = IfTrueRecipe;
     }
@@ -180,7 +184,7 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
       // FIXME: We should be using the creation utils instead
       VPIfFalsePredicateRecipe *IfFalseRecipe =
           new VPIfFalsePredicateRecipe(VBR, PredBB->getPredicateRecipe());
-      IfFalseRecipe->setName(getUniqueName("IfFalse"));
+      IfFalseRecipe->setName(getUniqueName("IfF"));
       emitRecipeIfBB(IfFalseRecipe, CurrBlock);
       IncomingPredicate = IfFalseRecipe;
     }
@@ -197,11 +201,10 @@ void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
   if (isa<VPBasicBlock>(CurrBlock)) {
     // TODO: Please, create a utility function in VPlanUtils/IntelVPlanUtils
     // (low priority)
-    VPBlockPredicateRecipe *BlockPredicate = new VPBlockPredicateRecipe();
-    // TODO: Could we print something like BP1 = Inc1 || Inc2 || Inc3?
-    BlockPredicate->setName(getUniqueName("BlockPred"));
-    emitRecipeIfBB(BlockPredicate, CurrBlock);
-    CurrBlock->setPredicateRecipe(BlockPredicate);
+    VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
+    blockPredicate->setName(getUniqueName("BP"));
+    emitRecipeIfBB(blockPredicate, CurrBlock);
+    CurrBlock->setPredicateRecipe(blockPredicate);
   }
   // A Region will simply point to its incoming predicate recipe.
   // This gets taken care of later.
@@ -261,9 +264,8 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
   raw_ostream &OS = outs();
   OS << Region->getName() << ":\n";
   VPBlockBase *EntryBlock = Region->getEntry();
-  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-            ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-       it != ite; ++it) {
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
+  for (auto it = RPOT.begin(); it != RPOT.end(); ++it) {
     VPBlockBase *Block = *it;
     // If it is a BB, print all predicate recipes within it.
     if (const VPBasicBlock *BasicBlock = dyn_cast<VPBasicBlock>(Block)) {
@@ -417,7 +419,14 @@ void VPlanPredicator::predicate(void) {
       Plan,
       "/tmp/vplan.before.dot"); // FIXME: Only for debugging. Can be removed.
 
-  VPBlockBase *EntryBlock = Plan->getEntry();
+  VPBlockBase *EntryBlock;
+  if (PredicateOutermostLoop) {
+    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+           "more than 1 loop?");
+    EntryBlock = (*VPLI->begin())->getLoopPreheader()->getParent();
+  } else {
+    EntryBlock = Plan->getEntry();
+  }
   std::vector<VPRegionBlock *> RegionsWorklist;
   appendRegionsToWorklist(EntryBlock, RegionsWorklist);
   assert(RegionsWorklist.size() == 1 && isa<VPRegionBlock>(EntryBlock) &&
@@ -445,9 +454,9 @@ void VPlanPredicator::predicate(void) {
     appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
   }
 
+  dumpVplanDot(Plan, "/tmp/vplan.after.dot"); // For debugging
+
   linearize(Plan->getEntry());
 
-  dumpVplanDot(
-      Plan,
-      "/tmp/vplan.after.dot"); // FIXME: Only for debugging. Can be removed.
+  dumpVplanDot(Plan, "/tmp/vplan.after.linearized.dot"); // For debugging
 }

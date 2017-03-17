@@ -479,11 +479,13 @@ void VPBlockPredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   // Predicate Inputs
   if (!getIncomingPredicates().empty()) {
-    O << " <- {";
+    O << " = ";
     for (VPPredicateRecipeBase *inputPredicate : getIncomingPredicates()) {
-      O << inputPredicate->getName() << " , ";
+      O << inputPredicate->getName();
+      if (inputPredicate != getIncomingPredicates().back()) {
+        O << " || ";
+      }
     }
-    O << "}";
   }
 }
 
@@ -507,19 +509,18 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
-  O << " {";
+  O << " = ";
   if (PredecessorPredicate) {
     O << PredecessorPredicate->getName();
   } else {
-    O << "-";
+    O << "NULL";
   }
-  O << "}";
 
-  O << ", Cond: ";
+  O << " & ";
   if (ConditionRecipe) {
     O << ConditionRecipe->getName();
   } else {
-    O << "-";
+    O << "NULL";
   }
 }
 
@@ -546,19 +547,18 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
 
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
-  O << " {";
+  O << " = ";
   if (PredecessorPredicate) {
     O << PredecessorPredicate->getName();
   } else {
-    O << "-";
+    O << "NULL";
   }
-  O << "}";
 
-  O << ", Cond: ";
+  O << " && ! ";
   if (ConditionRecipe) {
     O << ConditionRecipe->getName();
   } else {
-    O << "-";
+    O << "NULL";
   }
 }
 
@@ -571,6 +571,6 @@ void VPVectorizeBooleanRecipe::print(raw_ostream &O) const {
   if (ConditionValue) {
     O << *ConditionValue;
   } else {
-    O << "-";
+    O << "NULL";
   }
 }

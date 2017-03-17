@@ -12,14 +12,6 @@
 ;   v
 ;  BB8
 ;
-; CHECK-DAG: region1:
-; CHECK-DAG:   BB7:
-; CHECK-DAG:     BlockPred1 <- {AllOnes0 , }
-; CHECK-DAG:   loop11:
-; CHECK-DAG:     BlockPred1 <- {AllOnes0 , }
-; CHECK-DAG:   BB8:
-; CHECK-DAG:     BlockPred2 <- {BlockPred1 , }
-
 
 ; loop11
 ; ------
@@ -36,19 +28,17 @@
 ;   BB5
 ;
 ;
-; CHECK-DAG: loop11:
-; CHECK-DAG:   BB6:
-; CHECK-DAG:     BlockPred3 <- {BlockPred1 , }
-; CHECK-DAG:   BB2:
-; CHECK-DAG:     BlockPred4 <- {BlockPred3 , }
-; CHECK-DAG:   region12:
-; CHECK-DAG:     BlockPred4 <- {BlockPred3 , }
-; CHECK-DAG:   BB10:
-; CHECK-DAG:     BlockPred5 <- {BlockPred4 , }
-; CHECK-DAG:   BB5:
-; CHECK-DAG:     BlockPred6 <- {BlockPred5 , }
-
-
+; CHECK: loop{{[0-9]+}}:
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED1:BP[0-9]+]] = AllOnes{{[0-9]+}}
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
+; CHECK:   region{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED3:BP[0-9]+]] = [[BLOCKPRED2]]
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED4:BP[0-9]+]] = [[BLOCKPRED3]]
 
 ; region12
 ; --------
@@ -60,17 +50,15 @@
 ;   | /
 ;   BB3
 ;
-; CHECK-DAG: region12:
-; CHECK-DAG:   BB9:
-; CHECK-DAG:     BlockPred7 <- {BlockPred4 , }
-; CHECK-DAG:   BB3:
-; CHECK-DAG:     IfTrue11 {BlockPred7}, Cond: VecBooleanRecipe10
-; CHECK-DAG:     BlockPred8 <- {IfTrue11 , BlockPred9 , }
-; CHECK-DAG:   BB4:
-; CHECK-DAG:     IfFalse12 {BlockPred7}, Cond: VecBooleanRecipe10
-; CHECK-DAG:     BlockPred9 <- {IfFalse12 , }
-
-
+; CHECK: region{{[0-9]+}}:
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[BLOCKPRED5:BP[0-9]+]] = [[BLOCKPRED2]]
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[IFFALSE10:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
+; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[IFFALSE10]]
+; CHECK:   BB{{[0-9]+}}:
+; CHECK:     [[IFTRUE9:IfT[0-9]+]] = [[BLOCKPRED5]] & VBR{{[0-9]+}}
+; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE9]] || [[BLOCKPRED7]]
 
 
 
