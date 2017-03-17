@@ -844,7 +844,7 @@ static bool analyzeCallForSpecialization(Function &F, CallSite CS) {
 static void analyzeCallSitesForSpecializationCloning(Function &F) {
   if (!IPSpecializationCloning) {
     if (IPCloningTrace)
-      errs() << "   Specilization cloning disabled \n";
+      errs() << "   Specialization cloning disabled \n";
     return;
   }
   for (User *UR : F.users()) {
@@ -1145,11 +1145,20 @@ static bool applyIFHeurstic(Value *User, Value *V) {
 // nullptr.
 //
 static ICmpInst *getLoopTest(Loop *L) {
-  if (!L->getExitingBlock())
-    return nullptr;
-  if (!L->getExitingBlock()->getTerminator())
-    return nullptr;
+  if (!L->getExitingBlock()) return nullptr;
+  if (!L->getExitingBlock()->getTerminator()) return nullptr;
+
   BranchInst *BI = dyn_cast<BranchInst>(L->getExitingBlock()->getTerminator());
+
+  // Branch may not have condition in some rare cases.
+  // Ex:
+  //    for (i = 0; ; i++) {
+  //      unsigned test = EH_RETURN_DATA_REGNO (i);
+  //      if (test == INVALID_REGNUM)    break;
+  //      if (test == (unsigned) regno) return 1;
+  //    }
+  //
+  if (!BI || !BI->isConditional()) return nullptr;
   return dyn_cast<ICmpInst>(BI->getCondition());
 }
 
