@@ -66,14 +66,14 @@
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[BLOCKPRED5:BP[0-9]+]] = [[BLOCKPRED2]]
 ; CHECK:   region{{[0-9]+}}:
-; CHECK:     [[IFTRUE11:IfT[0-9]+]] = [[BLOCKPRED5]] & VBR{{[0-9]+}}
+; CHECK:     [[IFTRUE11:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE11]]
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[IFFALSE15:IfF[0-9]+]] = [[BLOCKPRED6]] && ! VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED9:BP[0-9]+]] = [[IFFALSE15]]
 ; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE13:IfT[0-9]+]] = [[BLOCKPRED6]] & VBR{{[0-9]+}}
+; CHECK:     [[IFTRUE13:IfT[0-9]+]] = [[BLOCKPRED6]] && VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[IFTRUE13]]
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[IFFALSE14:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
@@ -97,7 +97,7 @@
 ; CHECK:     [[IFFALSE22:IfF[0-9]+]] = [[BLOCKPRED16]] && ! VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED19:BP[0-9]+]] = [[IFFALSE22]]
 ; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE21:IfT[0-9]+]] = [[BLOCKPRED16]] & VBR{{[0-9]+}}
+; CHECK:     [[IFTRUE21:IfT[0-9]+]] = [[BLOCKPRED16]] && VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED17:BP[0-9]+]] = [[IFTRUE21]]
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[BLOCKPRED18:BP[0-9]+]] = [[BLOCKPRED19]] || [[BLOCKPRED17]]

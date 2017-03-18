@@ -59,7 +59,7 @@
 ; CHECK:     [[IFFALSE11:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED8:BP[0-9]+]] = [[IFFALSE11]]
 ; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE10:IfT[0-9]+]] = [[BLOCKPRED5]] & VBR{{[0-9]+}}
+; CHECK:     [[IFTRUE10:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE10]]
 ; CHECK:   BB{{[0-9]+}}:
 ; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[BLOCKPRED8]] || [[BLOCKPRED6]]

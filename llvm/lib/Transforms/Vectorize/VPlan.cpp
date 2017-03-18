@@ -549,7 +549,7 @@ void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
     O << "NULL";
   }
 
-  O << " & ";
+  O << " && ";
   if (ConditionRecipe) {
     O << ConditionRecipe->getName();
   } else {

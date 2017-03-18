@@ -60,7 +60,7 @@
 ; CHECK:     [[IFFALSE10:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[IFFALSE10]]
 ; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE9:IfT[0-9]+]] = [[BLOCKPRED5]] & VBR{{[0-9]+}}
+; CHECK:     [[IFTRUE9:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
 ; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE9]] || [[BLOCKPRED7]]
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
