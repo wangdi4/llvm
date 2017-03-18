@@ -14,22 +14,23 @@
 ;  }
 ;}
 
-; CHECK: BB2 [label = "{BB2 | Vectorize VPInstIR:\n  %i.022 = phi i64 [ %inc8, %for.inc7 ], [ 0, %for.body.preheader ]\n  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %i.022\n  %0 = load i64, i64* %arrayidx, align 8\n  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022\n  %1 = load i64, i64* %arrayidx2, align 8 | IfNotAllZero: \n  %cmp319 = icmp slt i64 %0, %1}"]
-; CHECK: BB2 -> BB11 [ label="Branch If Not All Zero Recipe"]
-; CHECK: BB11 [label = "{BB11}"]
-; CHECK: BB11 -> BB3 [ label="Branch If Not All Zero Recipe" lhead=cluster_loop15]
-; CHECK: BB11 -> BB4 [ label="!Branch If Not All Zero Recipe"]
-; CHECK: BB5 [label = "{BB5 | Vectorize VPInstIR:\n  %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ] | MaskGeneration: \n  %cmp319 = icmp slt i64 %0, %1 &   %cmp3 = icmp slt i64 %inc, %2 | Non-uniform branch condition: MaskGeneration: \n  %cmp319 = icmp slt i64 %0, %1 &   %cmp3 = icmp slt i64 %inc, %2}"]
-; CHECK: BB5 -> BB16 [ label="Non-Uniform Cond Bit Recipe"]
-; CHECK: BB5 -> BB17 [ label="!Non-Uniform Cond Bit Recipe"]
-; CHECK: BB16 [label = "{BB16 | Vectorize VPInstIR:\n  %add = add nsw i64 %j.020, %i.022\n  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022\n  store i64 %add, i64* %arrayidx6, align 8}"]
-; CHECK: BB16 -> BB17 [ label="Branch If Not All Zero Recipe"]
-; CHECK: BB17 [label = "{BB17 | Vectorize VPInstIR:\n  %inc = add nsw i64 %j.020, 1\n  %2 = load i64, i64* %arrayidx2, align 8 | IfNotAllZero: \n  %cmp3 = icmp slt i64 %inc, %2}"]
-; CHECK: BB17 -> BB13 [ label="Branch If Not All Zero Recipe"]
-; CHECK: BB13 [label = "{BB13}"]
-; CHECK: BB13 -> BB5 [ label="Branch If Not All Zero Recipe"]
-; CHECK: BB13 -> BB6 [ label="!Branch If Not All Zero Recipe"]
-; CHECK: BB6 [label = "{BB6}"]
+
+; CHECK: [[BB_2:BB[0-9]+]] [label = "{[[BB_2]] | Vectorize VPInstIR:\n  %i.022 = phi i64 [ %inc8, %for.inc7 ], [ 0, %for.body.preheader ]\n  %arrayidx = getelementptr inbounds i64, i64* %lb, i64 %i.022\n  %0 = load i64, i64* %arrayidx, align 8\n  %arrayidx2 = getelementptr inbounds i64, i64* %ub, i64 %i.022\n  %1 = load i64, i64* %arrayidx2, align 8 | IfNotAllZero: \n  %cmp319 = icmp slt i64 %0, %1}"]
+; CHECK: [[BB_2]] -> [[BB_11:BB[0-9]+]] [ label="Branch If Not All Zero Recipe"]
+; CHECK: [[BB_11]] [label = "{[[BB_11]]}"]
+; CHECK: [[BB_11]] -> [[BB_3:BB[0-9]+]] [ label="Branch If Not All Zero Recipe" lhead=[[cluster_loop_15:cluster_loop[0-9]+]]]
+; CHECK: [[BB_11]] -> [[BB_4:BB[0-9]+]] [ label="!Branch If Not All Zero Recipe"]
+; CHECK: [[BB_5:BB[0-9]+]] [label = "{[[BB_5]] | Vectorize VPInstIR:\n  %j.020 = phi i64 [ %inc, %for.body4 ], [ %0, %for.body4.preheader ] | MaskGeneration: \n  %cmp319 = icmp slt i64 %0, %1 &   %cmp3 = icmp slt i64 %inc, %2 | Non-uniform branch condition: MaskGeneration: \n  %cmp319 = icmp slt i64 %0, %1 &   %cmp3 = icmp slt i64 %inc, %2}"]
+; CHECK: [[BB_5]] -> [[BB_16:BB[0-9]+]] [ label="Non-Uniform Cond Bit Recipe"]
+; CHECK: [[BB_5]] -> [[BB_17:BB[0-9]+]] [ label="!Non-Uniform Cond Bit Recipe"]
+; CHECK: [[BB_16]] [label = "{[[BB_16]] | Vectorize VPInstIR:\n  %add = add nsw i64 %j.020, %i.022\n  %arrayidx6 = getelementptr inbounds [100 x [100 x i64]], [100 x [100 x i64]]* @A, i64 0, i64 %j.020, i64 %i.022\n  store i64 %add, i64* %arrayidx6, align 8}"]
+; CHECK: [[BB_16]] -> [[BB_17]] [ label="Branch If Not All Zero Recipe"]
+; CHECK: [[BB_17]] [label = "{[[BB_17]] | Vectorize VPInstIR:\n  %inc = add nsw i64 %j.020, 1\n  %2 = load i64, i64* %arrayidx2, align 8 | IfNotAllZero: \n  %cmp3 = icmp slt i64 %inc, %2}"]
+; CHECK: [[BB_17]] -> [[BB_13:BB[0-9]+]] [ label="Branch If Not All Zero Recipe"]
+; CHECK: [[BB_13]] [label = "{[[BB_13]]}"]
+; CHECK: [[BB_13]] -> [[BB_5]] [ label="Branch If Not All Zero Recipe"]
+; CHECK: [[BB_13]] -> [[BB_6:BB[0-9]+]] [ label="!Branch If Not All Zero Recipe"]
+; CHECK: [[BB_6]] [label = "{[[BB_6]]}"]
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

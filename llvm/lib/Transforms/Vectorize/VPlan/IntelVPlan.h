@@ -527,19 +527,6 @@ public:
     // VPlan *Plan,
     bool isScalarizing);
 
-  // TODO: This should eventually be removed and replaced with
-  // createUniqueName(). The problem is that some lit tests rely on specific BB
-  // names/ids that will change if createUniqueName() is used for predicate
-  // recipes.
-  /// Return a unique name Prefix+UniqueId
-  std::string getUniqueName(const char *Prefix) {
-    static int NextUid = 0;
-    std::string S;
-    raw_string_ostream RSO(S);
-    RSO << Prefix << NextUid++;
-    return RSO.str();
-  }
-    
   /// Creates a new recipe that represents an all zeros bypass.
   vpo::VPBranchIfNotAllZeroRecipe *createBranchIfNotAllZeroRecipe(
     Instruction *Cond);
@@ -558,7 +545,7 @@ public:
   VPUniformConditionBitRecipe *createUniformConditionBitRecipe(Value *Cond) {
     VPUniformConditionBitRecipe *newRecipe =
         new VPUniformConditionBitRecipe(Cond);
-    newRecipe->setName(getUniqueName("UniformCBR"));
+    newRecipe->setName(createUniqueName("UniformCBR"));
     return newRecipe;
   }
 
@@ -566,7 +553,7 @@ public:
   VPLiveInConditionBitRecipe *createLiveInConditionBitRecipe(Value *Cond) {
     VPLiveInConditionBitRecipe *newRecipe =
         new VPLiveInConditionBitRecipe(Cond);
-    newRecipe->setName(getUniqueName("LiveInCBR"));
+    newRecipe->setName(createUniqueName("LiveInCBR"));
     return newRecipe;
   }
 
@@ -574,7 +561,7 @@ public:
   VPVectorizeBooleanRecipe *createVectorizeBooleanRecipe(Value *Cond) {
     VPVectorizeBooleanRecipe *newRecipe =
         new VPVectorizeBooleanRecipe(VPRecipeBase::VPVectorizeBooleanSC, Cond);
-    newRecipe->setName(getUniqueName("VBR"));
+    newRecipe->setName(createUniqueName("VBR"));
     return newRecipe;
   }
 
@@ -584,7 +571,7 @@ public:
                               VPPredicateRecipeBase *PredecessorPredicate) {
     VPIfTruePredicateRecipe *newRecipe =
         new VPIfTruePredicateRecipe(VBR, PredecessorPredicate);
-    newRecipe->setName(getUniqueName("IfT"));
+    newRecipe->setName(createUniqueName("IfT"));
     return newRecipe;
   }
 
@@ -594,14 +581,14 @@ public:
                                VPPredicateRecipeBase *PredecessorPredicate) {
     VPIfFalsePredicateRecipe *newRecipe =
         new VPIfFalsePredicateRecipe(VBR, PredecessorPredicate);
-    newRecipe->setName(getUniqueName("IfF"));
+    newRecipe->setName(createUniqueName("IfF"));
     return newRecipe;
   }
 
   /// Create a new VPBlockPredicateRecipe.
   VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
     VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();
-    newRecipe->setName(getUniqueName("BP"));
+    newRecipe->setName(createUniqueName("BP"));
     return newRecipe;
   }
 
@@ -609,7 +596,7 @@ public:
   VPAllOnesPredicateRecipe *createAllOnesPredicateRecipe(void) {
     VPAllOnesPredicateRecipe *newRecipe =
         VPAllOnesPredicateRecipe::getPredicateRecipe();
-    newRecipe->setName(getUniqueName("AllOnes"));
+    newRecipe->setName(createUniqueName("AllOnes"));
     return newRecipe;
   }
 
