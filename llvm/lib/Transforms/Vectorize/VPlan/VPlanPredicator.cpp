@@ -44,7 +44,6 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include <sstream>
 
 using namespace llvm;
 using namespace vpo;
@@ -102,11 +101,8 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
     if (it == CBRtoVBRMap.end()) {
       Value *CI = CBRWS->getScalarCondition();
       VPConditionBitRecipeWithScalar *InsertBefore = CBRWS;
-      // TODO: Message? :)
-      assert(CI);
-      VBR = IntelVPlanUtils::createVPVectorizeBooleanRecipe(CI);
-      // TODO: getUniqueName should happen in constructor.
-      VBR->setName(getUniqueName("VBR"));
+      assert(CI && "CBRWS not generated properly");
+      VBR = PlanUtils.createVectorizeBooleanRecipe(CI);
       // Remember that we have already generated this VBR for CBR
       CBRtoVBRMap[CBRWS] = VBR;
       VPBasicBlock *BB = CBRWS->getParent();
@@ -118,12 +114,11 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
                "Multiple outer loops?");
         const VPLoop *Loop = *VPLI->begin();
         VPBlockBase *PreheaderBlock = Loop->getLoopPreheader();
-        // TODO: assert(isa) + cast
-        BB = dyn_cast<VPBasicBlock>(PreheaderBlock);
+        assert(isa<VPBasicBlock>(PreheaderBlock) && "Preheader must be a BB");
+        BB = cast<VPBasicBlock>(PreheaderBlock);
         InsertBefore = nullptr;
       }
-      //TODO: Message
-      assert(BB);
+      assert(BB && "Need BB to insert the condition to");
       BB->addRecipe(VBR, InsertBefore);
     }
     // Reuse the one we have already generated.
@@ -171,9 +166,8 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
     if (PredBlock->getSuccessors()[0] == CurrBlock) {
       // FIXME: We should be using the creation utils instead
       VPIfTruePredicateRecipe *IfTrueRecipe =
-          new VPIfTruePredicateRecipe(VBR, PredBB->getPredicateRecipe());
-      // TODO: Set name in constructor
-      IfTrueRecipe->setName(getUniqueName("IfT"));
+          PlanUtils.createIfTruePredicateRecipe(
+              VBR, PredBB->getPredicateRecipe());
       emitRecipeIfBB(IfTrueRecipe, CurrBlock);
       IncomingPredicate = IfTrueRecipe;
     }
@@ -181,10 +175,9 @@ VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
     // support switch statementes)
     // CurrBB is the False successor of PredBB
     if (PredBlock->getSuccessors()[1] == CurrBlock) {
-      // FIXME: We should be using the creation utils instead
       VPIfFalsePredicateRecipe *IfFalseRecipe =
-          new VPIfFalsePredicateRecipe(VBR, PredBB->getPredicateRecipe());
-      IfFalseRecipe->setName(getUniqueName("IfF"));
+          PlanUtils.createIfFalsePredicateRecipe(
+              VBR, PredBB->getPredicateRecipe());
       emitRecipeIfBB(IfFalseRecipe, CurrBlock);
       IncomingPredicate = IfFalseRecipe;
     }
@@ -199,10 +192,8 @@ void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
   // Only Basic Blocks have block predicates attached to them, as they are the
   // ones capable of generating code.
   if (isa<VPBasicBlock>(CurrBlock)) {
-    // TODO: Please, create a utility function in VPlanUtils/IntelVPlanUtils
-    // (low priority)
-    VPBlockPredicateRecipe *blockPredicate = new VPBlockPredicateRecipe();
-    blockPredicate->setName(getUniqueName("BP"));
+    VPBlockPredicateRecipe *blockPredicate =
+        PlanUtils.createBlockPredicateRecipe();
     emitRecipeIfBB(blockPredicate, CurrBlock);
     CurrBlock->setPredicateRecipe(blockPredicate);
   }
@@ -304,11 +295,10 @@ void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
 
   // 1. Generate the block predicates for all Basic Blocks in any order
   //    VPRegions' predicate will be set to nullptr.
-  // TODO: Upper-cases
-  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-            ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-       it != ite; ++it) {
-    genAndAttachEmptyBlockPredicate(*it);
+  for (auto BlockIt = df_iterator<VPBlockBase *>::begin(EntryBlock),
+            BlockItE = df_iterator<VPBlockBase *>::end(EntryBlock);
+       BlockIt != BlockItE; ++BlockIt) {
+    genAndAttachEmptyBlockPredicate(*BlockIt);
   }
 
   // 2. Propagate the Region's Block Predicate inputs to the entry block
@@ -434,8 +424,7 @@ void VPlanPredicator::predicate(void) {
 
   // The plan's entry block should have an "AllOnes" predicate.
   VPPredicateRecipeBase *AllOnes =
-      VPAllOnesPredicateRecipe::getPredicateRecipe();
-  AllOnes->setName(getUniqueName("AllOnes"));
+      PlanUtils.createAllOnesPredicateRecipe();
   genAndAttachEmptyBlockPredicate(EntryBlock);
   appendPredicateToBlock(EntryBlock, AllOnes);
 

@@ -14,18 +14,6 @@ namespace vpo {
 class VPLoop;
 class VPLoopInfo;
 
-// FIXME: Place into utils
-// Helper function generating a unique name Name+UID
-static std::string getUniqueName(const std::string &Name) {
-  static unsigned int uid = 0;
-  char buf[8];
-  snprintf(buf, 8, "%u", uid);
-  uid++;
-  return Name + buf;
-}
-
-
-
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
   friend class VPlanUtilsLoopVectorizer;
 
@@ -300,7 +288,6 @@ public:
   VPUniformConditionBitRecipe(Value *Cond)
     : VPConditionBitRecipeWithScalar(VPUniformBranchSC) {
     ScConditionBit = Cond;
-    Name = getUniqueName("UniformCBR");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -316,6 +303,9 @@ public:
   Value *getScalarCondition(void) const override{
     return ScConditionBit;
   }
+
+  /// Set name.
+  void setName(std::string Name) { this->Name = Name; }
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
@@ -351,7 +341,6 @@ public:
   VPLiveInConditionBitRecipe(Value *Cond)
     : VPConditionBitRecipeWithScalar(VPLiveInBranchSC) {
     ConditionBit = Cond;
-		Name = getUniqueName("LiveInCBR");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -368,6 +357,9 @@ public:
   Value *getScalarCondition(void) const override {
     return ConditionBit;
   }
+
+  /// Set name.
+  void setName(std::string Name) { this->Name = Name; }
 
   /// Print the recipe.
   void print(raw_ostream &O) const override {
@@ -484,7 +476,6 @@ public:
     : VPConditionBitRecipeWithScalar(VPCmpBitSC), Phi(Phi),
     ConstantValue(ConstantValue) {
     ConditionBit = nullptr;
-    Name = getUniqueName("ExactCmpCBR");
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -536,6 +527,19 @@ public:
     // VPlan *Plan,
     bool isScalarizing);
 
+  // TODO: This should eventually be removed and replaced with
+  // createUniqueName(). The problem is that some lit tests rely on specific BB
+  // names/ids that will change if createUniqueName() is used for predicate
+  // recipes.
+  /// Return a unique name Prefix+UniqueId
+  std::string getUniqueName(const char *Prefix) {
+    static int NextUid = 0;
+    std::string S;
+    raw_string_ostream RSO(S);
+    RSO << Prefix << NextUid++;
+    return RSO.str();
+  }
+    
   /// Creates a new recipe that represents an all zeros bypass.
   vpo::VPBranchIfNotAllZeroRecipe *createBranchIfNotAllZeroRecipe(
     Instruction *Cond);
@@ -551,22 +555,62 @@ public:
     const vpo::VPMaskGenerationRecipe *MaskRecipe);
 
   /// Creates a new VPUniformConditionBitRecipe.
-  VPUniformConditionBitRecipe *
-  createUniformConditionBitRecipe(Value *Cond) {
-    return new VPUniformConditionBitRecipe(Cond);
+  VPUniformConditionBitRecipe *createUniformConditionBitRecipe(Value *Cond) {
+    VPUniformConditionBitRecipe *newRecipe =
+        new VPUniformConditionBitRecipe(Cond);
+    newRecipe->setName(getUniqueName("UniformCBR"));
+    return newRecipe;
   }
 
   /// Creates a new VPLiveInConditionBitRecipe.
-  VPLiveInConditionBitRecipe *
-  createLiveInConditionBitRecipe(Value *Cond) {
-    return new VPLiveInConditionBitRecipe(Cond);
+  VPLiveInConditionBitRecipe *createLiveInConditionBitRecipe(Value *Cond) {
+    VPLiveInConditionBitRecipe *newRecipe =
+        new VPLiveInConditionBitRecipe(Cond);
+    newRecipe->setName(getUniqueName("LiveInCBR"));
+    return newRecipe;
   }
 
-  /// Create a new VPVectorizeBooleanRecipe
-  static VPVectorizeBooleanRecipe *
-  createVPVectorizeBooleanRecipe(Value *Cond) {
-	  return new VPVectorizeBooleanRecipe(VPRecipeBase::VPVectorizeBooleanSC,
-                                        Cond);
+  /// Create a new VPVectorizeBooleanRecipe.
+  VPVectorizeBooleanRecipe *createVectorizeBooleanRecipe(Value *Cond) {
+    VPVectorizeBooleanRecipe *newRecipe =
+        new VPVectorizeBooleanRecipe(VPRecipeBase::VPVectorizeBooleanSC, Cond);
+    newRecipe->setName(getUniqueName("VBR"));
+    return newRecipe;
+  }
+
+  /// Create a new VPIfTruePredicateRecipe.
+  VPIfTruePredicateRecipe *
+  createIfTruePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
+                              VPPredicateRecipeBase *PredecessorPredicate) {
+    VPIfTruePredicateRecipe *newRecipe =
+        new VPIfTruePredicateRecipe(VBR, PredecessorPredicate);
+    newRecipe->setName(getUniqueName("IfT"));
+    return newRecipe;
+  }
+
+  /// Create a new VPIfFalsePredicateRecipe.
+  VPIfFalsePredicateRecipe *
+  createIfFalsePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
+                               VPPredicateRecipeBase *PredecessorPredicate) {
+    VPIfFalsePredicateRecipe *newRecipe =
+        new VPIfFalsePredicateRecipe(VBR, PredecessorPredicate);
+    newRecipe->setName(getUniqueName("IfF"));
+    return newRecipe;
+  }
+
+  /// Create a new VPBlockPredicateRecipe.
+  VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
+    VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();
+    newRecipe->setName(getUniqueName("BP"));
+    return newRecipe;
+  }
+
+  /// Create a new VPAllOnesPredicateRecipe
+  VPAllOnesPredicateRecipe *createAllOnesPredicateRecipe(void) {
+    VPAllOnesPredicateRecipe *newRecipe =
+        VPAllOnesPredicateRecipe::getPredicateRecipe();
+    newRecipe->setName(getUniqueName("AllOnes"));
+    return newRecipe;
   }
 
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.

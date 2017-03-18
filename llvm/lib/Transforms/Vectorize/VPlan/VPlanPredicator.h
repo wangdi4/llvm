@@ -11,6 +11,7 @@ class VPlanPredicator {
 protected:
   IntelVPlan *Plan;
   VPLoopInfo *VPLI;
+  IntelVPlanUtils PlanUtils;
   // Map to remember which VBRs have already been generated
   // for corresponding CBRs.
   std::map<VPConditionBitRecipeWithScalar *, VPVectorizeBooleanRecipe *>
@@ -29,9 +30,8 @@ protected:
   void predicateRegion(VPRegionBlock *Region);
 
 public:
-  VPlanPredicator(IntelVPlan *plan) : Plan(plan), VPLI(plan->getVPLoopInfo()) {
-    ;
-  }
+  VPlanPredicator(IntelVPlan *plan)
+      : Plan(plan), VPLI(plan->getVPLoopInfo()), PlanUtils(plan) {}
   // The driver function for the predicator
   void predicate(void);
 
