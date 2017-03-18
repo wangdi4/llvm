@@ -40,6 +40,15 @@ public:
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize();
 
+  void collectLoopUniformsForAnyVF();
+
+  bool isUniformForTheLoop(Instruction *I) {
+    return UniformForAnyVF.count(I);
+  }
+
+  //iterator_range<Instruction *> uniforms() const{
+  //  return make_range(UniformForAnyVF.begin(), UniformForAnyVF.end());
+  //}
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
   typedef DenseMap<PHINode *, RecurrenceDescriptor> ReductionList;
@@ -111,6 +120,9 @@ private:
 
   /// A set of Phi nodes that may be used outside the loop.
   SmallPtrSet<Value *, 4> AllowedExit;
+public:
+  /// Holds the instructions known to be uniform after vectorization for any VF.
+  SmallPtrSet<Instruction *, 4> UniformForAnyVF;
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -142,16 +154,6 @@ public:
   // to StartIndex +  VF * Stride * TripCount. We also setup the control
   // flow such that the scalar loop is skipped.
   void createEmptyLoop();
-
-  /// Set up the values of the IVs correctly when exiting the vector loop.
-  void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
-                    Value *CountRoundDown, Value *EndValue,
-                    BasicBlock *MiddleBlock);
-
-  /// \brief The Loop exit block may have single value PHI nodes where the
-  /// incoming value is 'Undef'. While vectorizing we only handled real values
-  /// that were defined inside the loop. Here we fix the 'undef case'.
-  void fixLCSSAPHIs();
 
   // Widen the given instruction to VF wide vector instruction
   void vectorizeInstruction(Instruction *Inst);
@@ -231,6 +233,16 @@ private:
   /// vectorizing this phi node.
   void fixReduction(PHINode *Phi);
 
+  /// Set up the values of the IVs correctly when exiting the vector loop.
+  void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
+                    Value *CountRoundDown, Value *EndValue,
+                    BasicBlock *MiddleBlock);
+
+  /// \brief The Loop exit block may have single value PHI nodes where the
+  /// incoming value is 'Undef'. While vectorizing we only handled real values
+  /// that were defined inside the loop. Here we fix the 'undef case'.
+  void fixLCSSAPHIs();
+
   /// Insert the new loop to the loop hierarchy and pass manager
   /// and update the analysis passes.
   void updateAnalysis();
@@ -254,6 +266,8 @@ private:
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
   void widenNonInductionPhi(PHINode *Phi);
+
+  void fixNonInductionPhis();
 
   /// Compute scalar induction steps. \p ScalarIV is the scalar induction
   /// variable on which to base the steps, \p Step is the size of the step, and
@@ -342,6 +356,8 @@ private:
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
   DenseMap<PHINode *, Value *> IVEndValues;
+
+  SmallVector<PHINode *, 8> OrigInductionPhisToFix;
 
   // --- Vectorization state ---
 

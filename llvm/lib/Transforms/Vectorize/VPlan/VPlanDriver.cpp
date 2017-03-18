@@ -368,6 +368,10 @@ void VPlanDriver::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool VPlanDriver::runOnFunction(Function &F) {
+#ifdef INTEL_CUSTOMIZATION
+  if (skipFunction(F))
+    return false;
+#endif
 
   bool ret_val = false;
 

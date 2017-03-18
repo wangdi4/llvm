@@ -121,7 +121,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
     auto isBranchInst = [&](User *U) -> bool {
       return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
     };
-    return TheLoop->contains(I) && /*TheLoop->isLoopInvariant(I) &&*/
+    return TheLoop->contains(I) && /*Legal->isUniformForTheLoop(I)&&*/
            any_of(I->users(), isBranchInst);
   };
 

@@ -111,19 +111,24 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
   // Hook up the new basic block to its predecessors.
   for (VPBlockBase *PredVPBlock : getHierarchicalPredecessors()) {
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
-    BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
-    DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
-    if (isa<UnreachableInst>(PredBB->getTerminator())) {
-      PredBB->getTerminator()->eraseFromParent();
-      BranchInst::Create(NewBB, PredBB);
+    if (!CFG.VPBB2IRBB.count(PredVPBB)) {
+      // Back edge from inner loop
+      CFG.EdgesToFix[PredVPBB] = NewBB;
     } else {
-      // Replace old unconditional branch with new conditional branch.
-      // Note: we rely on traversing the successors in order.
-      BasicBlock *FirstSuccBB = PredBB->getSingleSuccessor();
-      PredBB->getTerminator()->eraseFromParent();
-      Value *Bit = PredVPBlock->getConditionBitRecipe()->getConditionBit();
-      assert(Bit && "Cannot create conditional branch with empty bit.");
-      BranchInst::Create(FirstSuccBB, NewBB, Bit, PredBB);
+      BasicBlock *PredBB = CFG.VPBB2IRBB[PredVPBB];
+      DEBUG(dbgs() << "LV: draw edge from" << PredBB->getName() << '\n');
+      if (isa<UnreachableInst>(PredBB->getTerminator())) {
+        PredBB->getTerminator()->eraseFromParent();
+        BranchInst::Create(NewBB, PredBB);
+      } else {
+        // Replace old unconditional branch with new conditional branch.
+        // Note: we rely on traversing the successors in order.
+        BasicBlock *FirstSuccBB = PredBB->getSingleSuccessor();
+        PredBB->getTerminator()->eraseFromParent();
+        Value *Bit = PredVPBlock->getConditionBitRecipe()->getConditionBit();
+        assert(Bit && "Cannot create conditional branch with empty bit.");
+        BranchInst::Create(FirstSuccBB, NewBB, Bit, PredBB);
+      }
     }
   }
   return NewBB;
@@ -249,6 +254,28 @@ void VPlan::vectorize(VPTransformState *State) {
     CurrentBlock->vectorize(State);
   }
 
+  // 3. Fix the back edges
+  for (auto Edge : State->CFG.EdgesToFix) {
+    VPBasicBlock *FromVPBB = Edge.first;
+    assert(State->CFG.VPBB2IRBB.count(FromVPBB) &&
+           "The IR basic block should be ready at this moment");
+    BasicBlock *FromBB = State->CFG.VPBB2IRBB[FromVPBB];
+    BasicBlock *ToBB = Edge.second;
+
+    // We should have conditional branch from FromBB to ToBB. Conditional branch
+    // is 2 edges - forward edge and backward edge.
+    // The forward edge should be in-place, we are fixing the backward
+    // edge only.
+    assert(!isa<UnreachableInst>(FromBB->getTerminator()) &&
+           "One edge should be in-place");
+
+    BasicBlock *FirstSuccBB = FromBB->getSingleSuccessor();
+    FromBB->getTerminator()->eraseFromParent();
+    Value *Bit = FromVPBB->getConditionBitRecipe()->getConditionBit();
+    assert(Bit && "Cannot create conditional branch with empty bit.");
+    BranchInst::Create(FirstSuccBB, ToBB, Bit, FromBB);
+  }
+
   // 3. Merge the temporary latch created with the last basic block filled.
   BasicBlock *LastBB = State->CFG.PrevBB;
   // Connect LastBB to VectorLatchBB to facilitate their merge.
@@ -262,7 +289,13 @@ void VPlan::vectorize(VPTransformState *State) {
   assert(merged && "Could not merge last basic block with latch.");
   VectorLatchBB = LastBB;
 
+#ifdef INTEL_CUSTOMIZATION
+// Do no try to update dominator tree as we may be generating vector loops
+// with inner loops. Right now we are not marking any analyses as
+// preserved - so this should be ok.
+#else
   updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
+#endif
   State->Builder.restoreIP(CurrIP);
 }
 

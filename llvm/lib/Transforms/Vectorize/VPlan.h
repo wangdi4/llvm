@@ -568,6 +568,7 @@ struct VPTransformState {
     // of replication, maps the BasicBlock of the last replica created.
     SmallDenseMap<class VPBasicBlock *, class BasicBlock *> VPBB2IRBB;
 
+    SmallDenseMap<class VPBasicBlock *, class BasicBlock *> EdgesToFix;
     CFGState() : PrevVPBB(nullptr), PrevBB(nullptr), LastBB(nullptr) {}
   } CFG;
 
@@ -1164,6 +1165,7 @@ public:
   // TODO: Is VPlan necessary in VPlanUtils?
 #ifdef INTEL_CUSTOMIZATION
   VPlan *getVPlan() { return Plan; }
+
 #endif
 
   /// Add a given \p Recipe as the last recipe of a given VPBasicBlock.
@@ -1705,9 +1707,11 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
 
 inline bool VPBlockBase::isInsideLoop() {
   if (auto *ParentRegion = getParent()) {
-    if (ParentRegion->getVPBlockID() == VPLoopRegionSC)
-      return (ParentRegion->getEntry() != this &&
-              ParentRegion->getExit() != this);
+    if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
+      if (ParentRegion->getEntry() != this &&
+          ParentRegion->getExit() != this)
+        return true;
+    }
     return ParentRegion->isInsideLoop();
   }
   return false;

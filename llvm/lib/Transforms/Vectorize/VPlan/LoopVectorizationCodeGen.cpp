@@ -144,6 +144,7 @@ bool VPOVectorizationLegality::canVectorize() {
     DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
     return false;
   }
+  collectLoopUniformsForAnyVF();
   return true;
 }
 
@@ -438,6 +439,8 @@ void VPOCodeGen::finalizeLoop() {
   
   fixCrossIterationPHIs();
 
+  fixNonInductionPhis();
+
   updateAnalysis();
 
   // Fix-up external users of the induction variables.
@@ -702,11 +705,18 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   if (OrigLoop->isLoopInvariant(V))
     return V;
 
-  if (ScalarMap.count(V))
-    return ScalarMap[V][Lane];
+  if (ScalarMap.count(V)) {
+    auto SV = ScalarMap[V];
+    if (SV.count(Lane))
+      return SV[Lane];
+  }
 
   Value *VecV = getVectorValue(V);
-  return Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
+  auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
+  
+  // Add to scalar map
+  ScalarMap[V][Lane] = ScalarV;
+  return ScalarV;
 }
 
 Value *VPOCodeGen::reverseVector(Value *Vec) {
@@ -1116,49 +1126,67 @@ void VPOCodeGen::widenIntInduction(PHINode *IV) {
   buildScalarSteps(ScalarIV, Step, IV);
 }
 
-static unsigned getPredecessorIdx(BasicBlock *BB, BasicBlock *PredBB) {
-  unsigned Idx = 0;
-  for (auto It : predecessors(BB)) {
-    if (PredBB == It)
-      return Idx;
-    Idx++;
-  }
-  assert(false && "Predecessor not found");
-  return -1;
-}
+void VPOCodeGen::fixNonInductionPhis() {
+  // When checking for uniformity below, we should be using the original
+  // phi in the scalar loop.
+  for (auto OrigPhi : OrigInductionPhisToFix) {
+    PHINode *NewPhi;
+    bool uniform = isUniformAfterVectorization(OrigPhi, VF);
 
-static BasicBlock *getPredecessor(BasicBlock *BB, unsigned Idx) {
-  auto It = pred_begin(BB);
-  unsigned i = 0;
-  for (pred_iterator E = pred_end(BB); It != E && i < Idx; It++, i++);
-  assert(It != pred_end(BB) && "Unexpected predecessor index");
-  return *It;
+    if (uniform) 
+      NewPhi = cast<PHINode>(getScalarValue(OrigPhi, 0));
+    else 
+      NewPhi = cast<PHINode>(getVectorValue(OrigPhi));
+    unsigned NumIncomingValues = OrigPhi->getNumIncomingValues();
+
+    SmallVector<BasicBlock *, 2> ScalarBBPredecessors;
+    for (auto BB : predecessors(OrigPhi->getParent()))
+      ScalarBBPredecessors.push_back(BB);
+    SmallVector<BasicBlock *, 2> VectorBBPredecessors;
+    for (auto BB : predecessors(NewPhi->getParent()))
+      VectorBBPredecessors.push_back(BB);
+
+    assert(ScalarBBPredecessors.size() == VectorBBPredecessors.size() &&
+           "Scalar and Vector BB should have the same number of predecessors");
+
+    // We assume that blocks layout is preserved and search the incoming BB
+    // basing on the predecessors order in scalar blocks.
+    for (unsigned i = 0; i < NumIncomingValues; ++i) {
+      auto BB = VectorBBPredecessors[i];
+
+      // When looking up the new scalar/vector values to fix up use incoming
+      // values from original phi.
+      Value *ScIncV = OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
+      Value *NewIncV;
+      if (uniform) {
+        NewIncV = getScalarValue(ScIncV, 0);
+        NewPhi->setIncomingBlock(i, BB);
+        NewPhi->setIncomingValue(i, NewIncV);
+      } else {
+        NewIncV = getVectorValue(ScIncV);
+        NewPhi->addIncoming(NewIncV, BB);
+      }
+    }
+  }
 }
 
 void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
   unsigned NumIncomingValues = Phi->getNumIncomingValues();
   Type *Ty = Phi->getType();
-  if (Legal->isLoopInvariant(Phi)) {
+  OrigInductionPhisToFix.push_back(Phi);
+  if (isUniformAfterVectorization(Phi, VF)) {
     Instruction *Cloned = Phi->clone();
     Cloned->setName(Phi->getName() + ".cloned");
     Builder.Insert(Cloned);
     ScalarMap[Phi][0] = Cloned;
+    // Set incoming values later, they may be not ready yet in case of back-edges.
     return;
   }
   Type *VecTy = VectorType::get(Ty, VF);
   PHINode *VecPhi =
     Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
 
-  // We assume that blocks layout is preserved and search the incoming BB
-  // basing on the predecessors order in scalar blocks.
-  for (unsigned i = 0; i < NumIncomingValues; ++i) {
-    Value *IncV = Phi->getIncomingValue(i);
-    BasicBlock *IncBB = Phi->getIncomingBlock(i);
-    unsigned PredecessorNo = getPredecessorIdx(Phi->getParent(), IncBB);
-    Value *VecIncV = getVectorValue(IncV);
-    BasicBlock *VecIncBB = getPredecessor(VecPhi->getParent(), PredecessorNo);
-    VecPhi->addIncoming(VecIncV, VecIncBB);
-  }
+  // Set incoming values later, they may be not ready yet in case of back-edges.
   WidenMap[Phi] = VecPhi;
 }
 
@@ -1514,6 +1542,93 @@ Value *VPOCodeGen::getOrCreateTripCount(Loop *L) {
   return TripCount;
 }
 
+void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
+  // We now know that the loop is vectorizable!
+  // Collect instructions inside the loop that will remain uniform after
+  // vectorization.
+
+  // Global values, params and instructions outside of current loop are out of
+  // scope.
+  auto isOutOfScope = [&](Value *V) -> bool {
+    Instruction *I = dyn_cast<Instruction>(V);
+    return (!I || !TheLoop->contains(I));
+  };
+
+  SetVector<Instruction *> Worklist;
+  BasicBlock *Latch = TheLoop->getLoopLatch();
+
+  // Start with the conditional branch. If the branch condition is an
+  // instruction contained in the loop that is only used by the branch, it is
+  // uniform.
+  auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
+  if (Cmp && TheLoop->contains(Cmp) && Cmp->hasOneUse()) {
+    Worklist.insert(Cmp);
+    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
+  }
+
+  for (auto *BB : TheLoop->blocks())
+    for (auto &I : *BB) {
+      auto isInnerLoopInduction = [&](PHINode *Phi, const Loop *&InnerL) -> bool {
+        if (isInductionVariable(Phi))
+          return false;
+
+        if (!PSE.getSE()->isSCEVable(Phi->getType()))
+          return false;
+
+        const SCEV *PhiScev = PSE.getSCEV(Phi);
+        if (auto AR = dyn_cast<SCEVAddRecExpr>(PhiScev)) {
+          InnerL = AR->getLoop();
+          return (InnerL != TheLoop && TheLoop->contains(InnerL));
+        }
+        return false;
+      };
+      // Add non-induction phis to the list
+      if (auto Phi = dyn_cast<PHINode>(&I)) {
+        const Loop *InnerLoop = nullptr;
+        if (isInnerLoopInduction(Phi, InnerLoop)) {
+          Worklist.insert(Phi);
+          DEBUG(dbgs() << "LV: Found uniform instruction: " << *Phi << "\n");
+          BasicBlock *InnerLoopLatch = InnerLoop->getLoopLatch();
+          BranchInst *Br = cast<BranchInst>(InnerLoopLatch->getTerminator());
+          Worklist.insert(Br);
+          auto *Cmp = dyn_cast<Instruction>(Br->getOperand(0));
+          if (Cmp && InnerLoop->contains(Cmp) && Cmp->hasOneUse()) {
+            Worklist.insert(Cmp);
+            DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
+          }
+        }
+      } else if (auto Br = dyn_cast<BranchInst>(&I)) {
+        if (!Br->isConditional())
+          continue;
+        Value *Cond = Br->getCondition();
+        if (TheLoop->isLoopInvariant(Cond))
+          Worklist.insert(Br);
+      }
+    }
+  // Expand Worklist in topological order: whenever a new instruction
+  // is added , its users should be either already inside Worklist, or
+  // out of scope. It ensures a uniform instruction will only be used
+  // by uniform instructions or out of scope instructions.
+  unsigned idx = 0;
+  while (idx != Worklist.size()) {
+    Instruction *I = Worklist[idx++];
+
+    for (auto OV : I->operand_values()) {
+      if (isOutOfScope(OV))
+        continue;
+      auto *OI = cast<Instruction>(OV);
+      if (all_of(OI->users(), [&](User *U) -> bool {
+        return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
+      })) {
+        Worklist.insert(OI);
+        DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+      }
+    }
+  }
+
+  UniformForAnyVF.insert(Worklist.begin(), Worklist.end());
+}
+
 /// A helper function that returns the pointer operand of a load or store
 /// instruction.
 static Value *getPointerOperand(Value *I) {
@@ -1550,16 +1665,10 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   };
 
   SetVector<Instruction *> Worklist;
-  BasicBlock *Latch = OrigLoop->getLoopLatch();
 
-  // Start with the conditional branch. If the branch condition is an
-  // instruction contained in the loop that is only used by the branch, it is
-  // uniform.
-  auto *Cmp = dyn_cast<Instruction>(Latch->getTerminator()->getOperand(0));
-  if (Cmp && OrigLoop->contains(Cmp) && Cmp->hasOneUse()) {
-    Worklist.insert(Cmp);
-    DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
-  }
+  // Start from Uniforms that alerady collected for any VF.
+  //for (Instruction *I : Legal->uniforms())
+    Worklist.insert(Legal->UniformForAnyVF.begin(), Legal->UniformForAnyVF.end());
 
   // Holds consecutive and consecutive-like pointers. Consecutive-like pointers
   // are pointers that are treated like consecutive pointers during
@@ -1580,7 +1689,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // the getelementptr won't remain uniform.
   for (auto *BB : OrigLoop->blocks())
     for (auto &I : *BB) {
-
+      
       // If there's no pointer operand, there's nothing to do.
       auto *Ptr = dyn_cast_or_null<Instruction>(getPointerOperand(&I));
       if (!Ptr)
@@ -1649,6 +1758,7 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
   // The code below handles both pointer and non-pointer induction variables.
   for (auto &Induction : *Legal->getInductionVars()) {
     auto *Ind = Induction.first;
+    BasicBlock *Latch = OrigLoop->getLoopLatch();
     auto *IndUpdate = cast<Instruction>(Ind->getIncomingValueForBlock(Latch));
 
     // Determine if all users of the induction variable are uniform after
