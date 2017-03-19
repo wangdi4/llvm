@@ -1247,13 +1247,6 @@ public:
     Successor->Parent = Block->Parent;
   }
 
-  /// Sets a given VPBlockBase \p Predecessor as the single predecessor of another
-  /// VPBlockBase \p Block.
-  void setPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
-    assert(Block->getPredecessors().empty() && "Block predeseccors already set.");
-    Block->appendPredecessor(Predecessor);
-  }
-
   /// Sets two given VPBlockBases \p IfTrue and \p IfFalse to be the two
   /// successors of another VPBlockBase \p Block. A given
   /// VPConditionBitRecipeBase provides the control selector. The parent of

@@ -414,7 +414,7 @@ private:
   int val;
 };
 
-/// A VPConstantRecipe is a recipe which represents a new Phi in VPlan to 
+/// A VPPhiValueRecipe is a recipe which represents a new Phi in VPlan to 
 /// facilitate the alteration of VPlan from its original source coded form.
 /// Currently the elements of the phi are constants in-order to generate the
 /// needed \phi for the single-exit loop massaging. However, this phi can be
@@ -422,7 +422,7 @@ private:
 class VPPhiValueRecipe : public VPRecipeBase {
 public:
   VPPhiValueRecipe()
-    : VPRecipeBase(VPPhiValueSC), Phi(nullptr), Incoming() {}
+    : VPRecipeBase(VPPhiValueSC), Incoming(), Phi(nullptr) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {

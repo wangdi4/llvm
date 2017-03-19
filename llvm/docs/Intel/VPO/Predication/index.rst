@@ -241,20 +241,20 @@ The predication process proceeds as follows:
 
    * The loop is first transformed to have a single exit block :math:`f`, 
      namely the multiple exits to single exit transformation or what also is 
-	 dubbed mergeLoopExits.
-	 The new merged exit-block is now the single exit-block of the loop which
-	 acts as a focal exitting point. A new Phi is attached to this block for
-	 the porpose of recording which exitting edge was engaged upon the exit 
-	 action. This information is encoded as an integer value belonging to the
-	 new focacl exit point.
-	 Next a series of cascading conditional branches are introduced. These 
-	 cascaded branches leverge the recorded exit-code to direct the control
-	 flow to the respective exit block.
-	 .. Note: The canonicalization step was split after VPlan to two sperate
-	 steps; the above step is the first transforming multiple exits into
-	 a focal exit block, and the below step the second in the dual transforming
-	 multiple exiting/latch blocks into a singular latch acting also as the only
-	 exiting block of the loop.
+     dubbed mergeLoopExits.
+     The new merged exit-block is now the single exit-block of the loop which
+     acts as a focal exitting point. A new Phi is attached to this block for
+     the porpose of recording which exitting edge was engaged upon the exit
+     action. This information is encoded as an integer value belonging to the
+     new focacl exit point.
+     Next a series of cascading conditional branches are introduced. These 
+     cascaded branches leverge the recorded exit-code to direct the control
+     flow to the respective exit block.
+     .. Note: The canonicalization step was split after VPlan to two sperate
+     steps; the above step is the first transforming multiple exits into
+     a focal exit block, and the below step the second in the dual transforming
+     multiple exiting/latch blocks into a singular latch acting also as the only
+     exiting block of the loop.
 
    * The loop is transformed to have a new single latch :math:`l` which
      coincides with a single exit. The successors of :math:`l` are the header
@@ -272,10 +272,10 @@ The predication process proceeds as follows:
          Instruction Mask of the previous predecessor.
 
        * **at each loop exit-edge**, :math:`v = 0` is introduced to a new 
-	     single block for all exit-edges. The exit-coded Phi is transferred 
+	 single block for all exit-edges. The exit-coded Phi is transferred 
          to this new block as well. This block's single successor is no other
-		 than the loops single resultant latch :math:`l`.
-		 These instructions execute on the path that remains inside the loop.
+         than the loops single resultant latch :math:`l`.
+         These instructions execute on the path that remains inside the loop.
 
        * All edges from original latches to the header are redirected to
          :math:`l`. Any lane that wishes to continue to next iteration must do
