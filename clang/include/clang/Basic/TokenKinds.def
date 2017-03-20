@@ -518,7 +518,7 @@ KEYWORD(__module_private__          , KEYALL)
 KEYWORD(__declspec                  , 0)
 
 // Microsoft Extension.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 KEYWORD(_regcall                    , KEYALL)
 #endif //INTEL_CUSTOMIZATION
 KEYWORD(__cdecl                     , KEYALL)
@@ -527,7 +527,7 @@ KEYWORD(__fastcall                  , KEYALL)
 KEYWORD(__thiscall                  , KEYALL)
 KEYWORD(__regcall                   , KEYALL)
 KEYWORD(__vectorcall                , KEYALL)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#368488 - keyword fixes for iclang.
 // CQ#367651 - keyword fix for xmain.
 KEYWORD(__unaligned                 , KEYMS|KEYINTELALL)

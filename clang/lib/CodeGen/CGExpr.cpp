@@ -445,7 +445,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
     switch (M->getStorageDuration()) {
     case SD_Automatic:
     case SD_FullExpression:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // This is a temporary "hack" to disable lifetime.start/lifetime.end
       // for cilk programs.
       // After r274385 which started lifetime.start/end on temporary markers,
@@ -1008,7 +1008,7 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   ApplyDebugLocation DL(*this, E);
   switch (E->getStmtClass()) {
   default: return EmitUnsupportedLValue(E, "l-value expression");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Expr::CEANBuiltinExprClass: {
     auto *CBE = cast<CEANBuiltinExpr>(E);
     LocalVarsDeclGuard Guard(*this);
@@ -4572,8 +4572,9 @@ static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
     CGF.LoopStack.setVectorizeEnable(true);
-    // FIXME(DLK) - use accurate DebugLoc here
-    CGF.LoopStack.push(CondBlock, llvm::DebugLoc(), llvm::DebugLoc());
+    CGF.LoopStack.push(CondBlock, 
+                       CGF.SourceLocToDebugLoc(E->getLocStart()),
+                       CGF.SourceLocToDebugLoc(E->getLocEnd()));
     llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
     llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");
     const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());

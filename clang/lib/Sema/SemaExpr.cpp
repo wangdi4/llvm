@@ -9668,6 +9668,7 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
                (RHSIsNull && RHSType->isIntegerType())) {
       if (IsRelational) {
         isError = getLangOpts().CPlusPlus;
+        isError &= !getLangOpts().IntelCompat; // INTEL
         DiagID =
           isError ? diag::err_typecheck_ordered_comparison_of_pointer_and_zero
                   : diag::ext_typecheck_ordered_comparison_of_pointer_and_zero;

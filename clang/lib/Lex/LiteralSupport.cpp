@@ -1177,6 +1177,7 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
         } else {
           HadError = true;
         }
+      } else if (PP.getLangOpts().IntelCompat){ // INTEL
       } else {
         for (; tmp_out_start < buffer_begin; ++tmp_out_start) {
           if (*tmp_out_start > largest_character_for_kind) {
@@ -1195,6 +1196,7 @@ CharLiteralParser::CharLiteralParser(const char *begin, const char *end,
                             FullSourceLoc(Loc, PP.getSourceManager()),
                             &PP.getDiagnostics(), PP.getLangOpts(), true)) {
         HadError = true;
+      } else if (PP.getLangOpts().IntelCompat){ // INTEL
       } else if (*buffer_begin > largest_character_for_kind) {
         HadError = true;
         PP.Diag(Loc, diag::err_character_too_large);
