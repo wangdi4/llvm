@@ -198,4 +198,3 @@ unsigned CSARegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
   return TFI->hasFP(MF) ? CSA::FP : CSA::SP;
 }
-

@@ -195,13 +195,15 @@ namespace {
     // source code.
     bool isParallelLoop(MachineLoop* loop) const;
 
-    // Return true if the specified basic block is the latch (last block
-    // before looping) of a parallel loop.
-    bool isParallelLoopLatch(const MachineBasicBlock& BB) const;
-
     // Return true if the specified basic block contains a .csa_parallel_loop
     // pseudo-op.
     bool findParallelLoopPseudoOp(const MachineBasicBlock& BB) const;
+
+    // Traverse the PHI nodes that were inserted by the ssa updater
+    // and mark the incoming edges that represent memory-order backedges
+    // within loops that are indicated to be parallel.
+    void markParallelLoopBackedges(MachineFunction *thisMF,
+                                   const SmallVectorImpl<MachineInstr*>& inserted_phis);
   };
 }
 
@@ -259,6 +261,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   const unsigned MemTokenMOVOpcode = TII->getMemTokenMOVOpcode();
 
   AliasSetDepchain depchains;
+  SmallVector<MachineInstr*, 16> inserted_phis;  // Phi nodes from ssa updaters
 
   // Initialize the maps.
   for (const AliasSet &set : AS->getAliasSets()) {
@@ -270,7 +273,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
         TII->get(MemTokenMOVOpcode),
         depchains[&set].start).addImm(1);
     // Initialize an SSAUpdater for each set.
-    depchains[&set].updater = std::unique_ptr<MachineSSAUpdater>(new MachineSSAUpdater(*thisMF));
+    depchains[&set].updater->reset(new MachineSSAUpdater(*thisMF, &inserted_phis));
     depchains[&set].updater->Initialize(depchains[&set].start);
     depchains[&set].updater->AddAvailableValue(entryBB, depchains[&set].start);
     depchains[&set].readonly = KillReadChains;
@@ -325,7 +328,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 
     }
 
-    DEBUG(errs() << "After memop conversion of function: " << BB << "\n");
+    DEBUG(errs() << "After memop conversion of basic block: " << BB << "\n");
   }
 
   // Create a mov to consume the end of all of each chain. We'll need one in
@@ -362,6 +365,11 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
       depchains[&set].updater->RewriteUse(*op);
     }
   }
+
+  // Traverse the PHI nodes that were inserted by the ssa updater
+  // and mark the incoming edges that represent memory-order backedges
+  // within loops that are indicated to be parallel.
+  markParallelLoopBackedges(thisMF, inserted_phis);
 }
 
 void
@@ -474,21 +482,6 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
 
     // Update the SSA updater.
     depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
-
-    // If this is the latch (last block before looping) of a parallel loop,
-    // then insert a '.memdep_sink' instruction at the end of the block's
-    // dependency chain.
-    if (isParallelLoopLatch(BB)) {
-      // Insert a .csa_parallel_memdep psuedo-op at the end of the chain to
-      // indicate that the memory-order dependencies should not extend across
-      // loop iterations.
-      unsigned prev_mem_reg = next_mem_reg;
-      next_mem_reg = MRI->createVirtualRegister(MemopRC);
-      BuildMI(BB, BB.getFirstTerminator(), DebugLoc(),
-              TII->get(CSA::CSA_PARALLEL_MEMDEP), next_mem_reg).addReg(prev_mem_reg);
-      depchain_reg[as] = next_mem_reg;
-      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
-    }
   }
 }
 
@@ -559,21 +552,6 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // evolution coming out of this BB.
     depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
 
-    // If this is the latch (last block before looping) of a parallel loop,
-    // then insert a '.memdep_sink' instruction at the end of the block's
-    // dependency chain.
-    if (isParallelLoopLatch(BB)) {
-      // Insert a .csa_parallel_memdep psuedo-op at the end of the chain to
-      // indicate that the memory-order dependencies should not extend across
-      // loop iterations.
-      unsigned prev_mem_reg = next_mem_reg;
-      next_mem_reg = MRI->createVirtualRegister(MemopRC);
-      BuildMI(BB, BB.getFirstTerminator(), DebugLoc(),
-              TII->get(CSA::CSA_PARALLEL_MEMDEP), next_mem_reg).addReg(prev_mem_reg);
-      depchain_reg[as] = next_mem_reg;
-      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
-    }
-
     // Finally, erase the old instruction.
     iterMI = BB.erase(iterMI);
   }
@@ -633,9 +611,7 @@ unsigned CSAMemopOrdering::merge_dependency_signals(MachineBasicBlock& BB,
       }
 
       // Swap next and current.
-      SmallVector<unsigned, MEMDEP_VEC_WIDTH>* tmp = current_level;
-      current_level = next_level;
-      next_level = tmp;
+      std::swap(current_level, next_level);
       next_level->clear();
 
       DEBUG(errs() << "Current level size is now " << current_level->size() << "\n");
@@ -817,29 +793,6 @@ bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
   return (numPseudoOps > 0);
 }
 
-bool CSAMemopOrdering::isParallelLoopLatch(const MachineBasicBlock& BB) const
-{
-  // Return true if the specified basic block is the latch (last block
-  // before looping) of a parallel loop.
-
-  MachineLoop* loop = MLI->getLoopFor(&BB);
-  if (! loop)
-    return false; // not in a loop
-
-  DEBUG(errs() << "%%% Found loop: " << *loop);
-
-  SmallVector<MachineBasicBlock*, 2> loopLatches;
-  loop->getLoopLatches(loopLatches);
-  if (loopLatches.end() == std::find(loopLatches.begin(), loopLatches.end(), &BB)) {
-    DEBUG(errs() << "%%% BB#" << BB.getNumber() << " is not a latch\n");
-    return false; // not a latch to the loop
-  }
-
-  DEBUG(errs() << "%%% BB#" << BB.getNumber() << " is a latch\n");
-
-  return isParallelLoop(loop);
-}
-
 bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) const {
   // Return true if the specified basic block contains a .csa_parallel_loop pseudo-op.
 
@@ -856,4 +809,103 @@ bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) con
   }
 
   return false; // Didn't find the parallel pseudo-op
+}
+
+void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
+                                                 const SmallVectorImpl<MachineInstr*>& inserted_phis)
+{
+//  DEBUG(CDG->viewMachineCFG());
+  DEBUG(errs() << "%%% Dump before mark parallel loopback\n");
+  DEBUG(thisMF->dump());
+
+  DEBUG(errs() << "%%% Inserted PHIs\n");
+  for (MachineInstr* PHI : inserted_phis) {
+    DEBUG(errs() << "    " << *PHI);
+
+    // Get the parallel loop in which the PHI was defined, if any
+    const MachineBasicBlock* BB = PHI->getParent();
+    MachineLoop* phiLoop = MLI->getLoopFor(BB);
+    if (! phiLoop) {
+      DEBUG(errs() << "        Not in a loop\n");
+      continue;  // Ignore PHIs not in a loop
+    }
+    else if (phiLoop->getHeader() != PHI->getParent()) {
+      DEBUG(errs() << "        In a loop, but not in loop header block\n");
+      continue;
+    }
+    else if (! isParallelLoop(phiLoop)) {
+      DEBUG(errs() << "        In serial " << *phiLoop);
+      continue;
+    }
+    else {
+      DEBUG(errs() << "        In parallel " << *phiLoop);
+    }
+
+    // A PHI machine instruction has 5 or more arguments as follows:
+    //  Operand 0: output
+    //  Operand 1: input register 1
+    //  Operand 2: Basic block in which register 1 (Operand 1) is defined
+    //  Operand 3: second input register
+    //  Operand 2: Basic block in which register 2 (Operand 3) is defined
+    //  ...
+    //  Operand 2*N-1: input register N
+    //  Operand 2*N:   Block in which register N (previous operand) is defined
+
+    // We are interested in edges that come from the same loop as the PHI. Those edges are the back
+    // edges that we want to label.  Because these PHIs were inserted as a result of memory
+    // ordering, it no more than one edge should come from the same loop as the PHI; if more than
+    // one edge *does* come from the same loop as the PHI, we'll ignore this PHI, for now.
+    MachineOperand*    backedgeOperand = nullptr;
+    auto operandIter = PHI->operands_begin();
+    auto operandEnd  = PHI->operands_end();
+    ++operandIter;   // Skip output operand
+    while (operandIter != operandEnd) {
+      MachineOperand& regOperand = *operandIter++;
+      assert(regOperand.isReg() && regOperand.getReg());
+
+      MachineOperand& bbOperand  = *operandIter++;
+      assert(bbOperand.isMBB());
+
+      DEBUG(errs() << "%%% regOperand = " << regOperand << ", bbOperand = " << bbOperand << "\n");
+
+      MachineLoop* fromLoop = MLI->getLoopFor(bbOperand.getMBB());
+
+      if (fromLoop == phiLoop) {
+        if (backedgeOperand != nullptr) {
+          DEBUG(errs() <<
+                "%%% Ignored PHI where more than one inputs are from the same loop as the PHI: " <<
+                *PHI);
+          continue;
+        }
+
+        backedgeOperand = &regOperand;
+      }
+    }
+
+    if (backedgeOperand == nullptr)
+      continue;  // No back edges from same loop were detected
+
+    // Found a back edge from same loop as the PHI. Get register
+    unsigned backedgeReg = backedgeOperand->getReg();
+
+    // Mark the back edge by inserting a .csa_parallel_memdep psuedo-op before it.
+    // The new instruction is inserted on the output of the operation that originally defined
+    // backedgeReg; consumers of backedgeReg are not changed. The new instruction is inserted into
+    // the same BB as the operation that originally defined it, so that the SSA form does not need
+    // to be adjusted.
+    assert(MRI->hasOneDef(backedgeReg));
+    MachineOperand&    backedgeDef      = *MRI->def_begin(backedgeReg);
+    MachineInstr*      backedgeDefInstr = backedgeDef.getParent();
+    MachineBasicBlock* backedgeDefBB    = backedgeDefInstr->getParent();
+    unsigned           newMemdepReg     = MRI->createVirtualRegister(MemopRC);
+    MRI->def_begin(backedgeReg)->ChangeToRegister(newMemdepReg, true); // Replace definition
+    BuildMI(*backedgeDefBB, backedgeDefBB->getFirstTerminator(), DebugLoc(),
+            TII->get(CSA::CSA_PARALLEL_MEMDEP), backedgeReg).addReg(newMemdepReg);
+
+    // Sanity check: all channels are 0 or 1 bit wide
+  } // end for each PHI
+
+  DEBUG(errs() << "%%% Dump after mark parallel loopback\n");
+  DEBUG(thisMF->dump());
+//  DEBUG(CDG->viewMachineCFG());
 }

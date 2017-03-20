@@ -592,7 +592,7 @@ bool CSAOptDFPass::seq_identify_header(MachineInstr* MI,
   const CSAInstrInfo &TII =
     *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
 
-  // Look for an "<picker> = INIT1 0" instruction.
+  // Look for an "<picker> = INIT1 0" or "<picker> = INIT1 1" instruction.
   unsigned pickerChannel;
   bool pickerSense = 0;
   if (seq_is_picker_init_inst(MRI, MI,
