@@ -153,7 +153,13 @@ protected:
   void handleQualOpnd(int ClauseID, Value *V);
 
   /// \brief Update WRN for clauses with operand list.
-  void handleQualOpndList(int ClauseID, IntrinsicInst* Call);
+  void handleQualOpndList(StringRef ClauseString, IntrinsicInst* Call);
+  void handleQualOpndList(const Use *Args, unsigned NumArgs, 
+                          StringRef ClauseString);
+
+  /// \brief Update WRN for clauses from the OperandBundles under the 
+  /// directive.region.entry/exit representation
+  void getClausesFromOperandBundles();
 
 public:
 

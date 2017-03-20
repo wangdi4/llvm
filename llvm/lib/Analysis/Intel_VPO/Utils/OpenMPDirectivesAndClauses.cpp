@@ -27,13 +27,18 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I) {
+StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
+  return VPOAnalysisUtils::getDirectiveString(I, true);
+}
+
+StringRef VPOAnalysisUtils::getDirectiveString(Instruction *I, bool doClauses){
   StringRef DirString;  // ctor initializes its data to nullptr
   if (I) { 
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
-      if (VPOAnalysisUtils::isIntelDirective(Id))
+      if (VPOAnalysisUtils::isIntelDirective(Id) ||
+          (doClauses && VPOAnalysisUtils::isIntelClause(Id)))
         // this is an llvm.intel.directive intrinsic
         DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
       else 
@@ -321,4 +326,61 @@ bool VPOAnalysisUtils::isMapClause(int ClauseID) {
     return true;
   }
   return false;
+}
+
+/// \brief Return 0, 1, or 2:
+///   0 for clauses that take no arguments
+///   1 for clauses that take exactly 1 argument
+///   2 for anything else (such as list type arguments)
+unsigned VPOAnalysisUtils::getClauseType(int ClauseID) {
+  switch(ClauseID) {
+
+    // Clauses that take no arguments
+    case QUAL_OMP_DEFAULT_NONE:
+    case QUAL_OMP_DEFAULT_SHARED:
+    case QUAL_OMP_DEFAULT_PRIVATE:
+    case QUAL_OMP_DEFAULT_FIRSTPRIVATE:
+    case QUAL_OMP_DEFAULTMAP_TOFROM_SCALAR:
+    case QUAL_OMP_NOWAIT:
+    case QUAL_OMP_UNTIED:
+    case QUAL_OMP_READ_SEQ_CST:
+    case QUAL_OMP_READ:
+    case QUAL_OMP_WRITE_SEQ_CST:
+    case QUAL_OMP_WRITE:
+    case QUAL_OMP_UPDATE_SEQ_CST:
+    case QUAL_OMP_UPDATE:
+    case QUAL_OMP_CAPTURE_SEQ_CST:
+    case QUAL_OMP_CAPTURE:
+    case QUAL_OMP_MERGEABLE:
+    case QUAL_OMP_NOGROUP:
+    case QUAL_OMP_PROC_BIND_MASTER:
+    case QUAL_OMP_PROC_BIND_CLOSE:
+    case QUAL_OMP_PROC_BIND_SPREAD:
+    case QUAL_OMP_ORDERED_THREADS:
+    case QUAL_OMP_ORDERED_SIMD:
+    case QUAL_OMP_DEPEND_SOURCE:
+    case QUAL_OMP_CANCEL_PARALLEL:
+    case QUAL_OMP_CANCEL_LOOP:
+    case QUAL_OMP_CANCEL_SECTIONS:
+    case QUAL_OMP_CANCEL_TASKGROUP:
+      return 0;
+
+    // Clauses that take one argument
+    case QUAL_OMP_SIMDLEN:
+    case QUAL_OMP_SAFELEN:
+    case QUAL_OMP_COLLAPSE:
+    case QUAL_OMP_IF:
+    case QUAL_OMP_NAME:
+    case QUAL_OMP_NUM_THREADS:
+    case QUAL_OMP_ORDERED:
+    case QUAL_OMP_FINAL:
+    case QUAL_OMP_GRAINSIZE:
+    case QUAL_OMP_NUM_TASKS:
+    case QUAL_OMP_PRIORITY:
+    case QUAL_OMP_NUM_TEAMS:
+    case QUAL_OMP_THREAD_LIMIT:
+    case QUAL_OMP_DEVICE:
+      return 1;
+  }
+  return 2; //everything else
 }

@@ -83,6 +83,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setShared(nullptr);
   setPriv(nullptr);
   setFpriv(nullptr);
+  setLpriv(nullptr);
   setRed(nullptr);
   setCopyin(nullptr);
   setIf(nullptr);
@@ -103,6 +104,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W)
   setShared(W->getShared());
   setPriv(W->getPriv());
   setFpriv(W->getFpriv());
+  setLpriv(W->getLpriv());
   setRed(W->getRed());
   setCopyin(W->getCopyin());
   setIf(W->getIf());

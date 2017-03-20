@@ -82,9 +82,9 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
   return true;
 }
 
-/// \brief Visit the Dom Tree to identify all W-Regions
+/// \brief Inspect the BB to identify and create W-Regions
 void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
-                                               WRStack<WRegionNode *> *S) {
+                                         WRStack<WRegionNode *> *S) {
   DEBUG(dbgs() << "\n=== getWRegionFromBB is processing this BB: " << *BB);
   WRegionNode *W;
 
@@ -98,22 +98,29 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
 
-      if (!VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId))
-        // Intrin is not intel_directive or intel_directive_qual*
-        continue;
+      // Are we dealing with the directive.region.entry/exit representation?
+      bool IsRegion = VPOAnalysisUtils::isRegionDirective(IntrinId);
 
-      if (IntrinId == Intrinsic::intel_directive) {
-        StringRef DirString = 
-                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
-        int DirID = VPOAnalysisUtils::getDirectiveID(DirString);
+      // Name of the directive or clause represented by this intrinsic
+      StringRef DirOrClause = VPOAnalysisUtils::getDirOrClauseString(Call);
+
+      DEBUG(dbgs() << "\n=== getWRegionFromBB found: " << DirOrClause << "\n");
+
+      if (VPOAnalysisUtils::isOpenMPDirective(DirOrClause)) {
+
+        int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClause);
+
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
-        W = WRegionUtils::createWRegion(DirID, BB, LI, S->size());
+        W = WRegionUtils::createWRegion(DirID, BB, LI, S->size(), IsRegion);
         if (W) {
+          // The intrinsic represents a BEGIN directive.
+          // W points to the WRN created for it.
 
-          // The intrinsic represents an intel BEGIN directive.
-          // W is a pointer to an object for the corresponding WRN.
+          assert((VPOAnalysisUtils::isBeginDirective(DirID) ||
+                  VPOAnalysisUtils::isStandAloneBeginDirective(DirID)) &&
+                 "An expected BEGIN directive is missing.");
 
           if (S->empty()) {
             // Top-level WRegionNode
@@ -127,8 +134,10 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           S->push(W);
           DEBUG(dbgs() << "\n  === New WRegion. ");
           DEBUG(dbgs() << "Stacksize after push = " << S->size() << "\n");
-        } else if (VPOAnalysisUtils::isEndDirective(DirID)) {
-          // The intrinsic represents an intel END directive
+        } else if (VPOAnalysisUtils::isEndDirective(DirID) ||
+                   VPOAnalysisUtils::isStandAloneEndDirective(DirID)) {
+          // The intrinsic represents the END directive for the WRN that is
+          // currently on S->top().
           // TODO: verify the END directive is the expected one
 
           assert(!(S->empty()) &&
@@ -146,6 +155,9 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
         } else if (VPOAnalysisUtils::isListEndDirective(DirID) && 
                  !(S->empty())) {
+          // We reach here only if using the intel_directive representation.
+          // Under this representation, stand-alone directives don't have a
+          // matchine end directive.
           W = S->top();
           if (VPOAnalysisUtils::isStandAloneBeginDirective(W->getDirID())) {
             // Current WRN is for a stand-alone directive, so
@@ -155,13 +167,16 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
             DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
-      } else { // Process clauses below
+      } else if (VPOAnalysisUtils::isOpenMPClause(DirOrClause)) {
+        // Process clauses from intel_directive_qual* intrinsics. We reach here
+        // only if using the intel_directive_qual* representation.
+        assert(!IsRegion && 
+               "Unexpected directive.region.entry/exit representation");
+
         assert(!(S->empty()) &&
                "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
-        StringRef ClauseString = 
-                            VPOAnalysisUtils::getDirectiveMetadataString(Call);
-        int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
+        int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClause);
         if (IntrinId == Intrinsic::intel_directive_qual) {
           // Handle clause with no arguments
           assert(Call->getNumArgOperands() == 1 &&
@@ -175,14 +190,13 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           W->handleQualOpnd(ClauseID, V);
         } else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
           // Handle clause with argument list
-          assert(Call->getNumArgOperands() >= 2 &&
+          assert(Call->getNumArgOperands()>=2 &&
                  "Bad number of opnds for intel_directive_qual_opndlist");
-          W->handleQualOpndList(ClauseID, Call);
+          W->handleQualOpndList(DirOrClause, Call);
         }
       }
     } // if (Call)
-  }   // for
-
+  } // for
   return;
 }
 

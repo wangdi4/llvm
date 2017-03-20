@@ -171,7 +171,8 @@ public:
   /// \brief Returns a new node derived from WRegionNode node that
   /// matches the construct type based on DirID.
   static WRegionNode *createWRegion(int DirID, BasicBlock *EntryBB,
-                                    LoopInfo *LI, unsigned NestingLevel);
+                                    LoopInfo *LI, unsigned NestingLevel,
+                                    bool IsRegionIntrinsic);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
   static WRegionNode *createWRegionHIR(int DirID,
@@ -197,17 +198,28 @@ public:
   /// \brief Extract the operands for a list-type clause.
   /// This is called by WRegionNode::handleQualOpndList()
   template <typename ClauseTy>
-  static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
-  static MapClause *extractMapOpndList(IntrinsicInst *Call, MapClause *C, 
+  static ClauseTy *extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                       StringRef ClauseString, ClauseTy *C);
+
+  /// \brief Extract operands from a map clause
+  static MapClause *extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                       StringRef ClauseString, MapClause *C,
                                        unsigned MapKind);
-  static DependClause *extractDependOpndList(IntrinsicInst *Call,
+
+  /// \brief Extract operands from a depend clause
+  static DependClause *extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                             StringRef ClauseString,
                                              DependClause *C, bool IsIn);
-  static ReductionClause *extractReductionOpndList(IntrinsicInst *Call,
-                                       ReductionClause *C, int ReductionKind);
+
+  /// \brief Extract operands from a reduction clause
+  static ReductionClause *extractReductionOpndList(const Use *Args,
+                                      unsigned NumArgs, StringRef ClauseString,
+                                      ReductionClause *C, int ReductionKind);
 
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,
-                                      IntrinsicInst *Call, 
+                                      const Use *Args, unsigned NumArgs,
+                                      StringRef ClauseString,
                                       WRNScheduleKind Kind);
 
   /// Removal Utilities

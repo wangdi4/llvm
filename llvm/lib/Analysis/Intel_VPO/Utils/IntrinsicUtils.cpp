@@ -32,14 +32,17 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+bool VPOAnalysisUtils::isRegionDirective(Intrinsic::ID Id) {
+  return  Id == Intrinsic::directive_region_entry ||
+          Id == Intrinsic::directive_region_exit;
+}
+
 bool VPOAnalysisUtils::isRegionDirective(Instruction *I) {
   if (I) {
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
-      if (Id == Intrinsic::directive_region_entry ||
-          Id == Intrinsic::directive_region_exit) 
-        return true;
+      return VPOAnalysisUtils::isRegionDirective(Id);
     }
   }
   return false;
@@ -128,9 +131,17 @@ StringRef VPOAnalysisUtils::getScheduleModifierMDString(IntrinsicInst *Call) {
   //
   // This util returns the string from arg 1.
 
-  MDString *OperandMDStr = nullptr;
   Value *Operand = Call->getArgOperand(1);
-  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
+
+  return VPOAnalysisUtils::getScheduleModifierMDString(Operand);
+}
+
+/// \brief 'Modifier' has the MDString for the schedule modifier.
+/// Extract and return the string. E.g.: "MODIFIERNONE" and "SIMD.MONOTONIC".
+StringRef VPOAnalysisUtils::getScheduleModifierMDString(Value *Modifier) {
+
+  MDString *OperandMDStr = nullptr;
+  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Modifier);
   Metadata *MD = OperandMDVal->getMetadata();
 
   if (isa<MDNode>(MD)) {

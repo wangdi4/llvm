@@ -57,8 +57,8 @@ public:
     VPOAnalysisUtils() {}
     ~VPOAnalysisUtils() {}
 
-    /// \brief Return true if the instruction is a directive_region_entry/exit
-    /// intrinsic.
+    /// \brief Return true for a directive_region_entry/exit intrinsic.
+    static bool isRegionDirective(Intrinsic::ID Id);
     static bool isRegionDirective(Instruction *I);
 
     /// \brief If the instruction is a directive_region_entry/exit intrinsic,
@@ -100,10 +100,15 @@ public:
     /// argument used in an llvm.intel.directive.qual.opndlist intrinsic
     /// that represents a schedule clause
     static StringRef getScheduleModifierMDString(IntrinsicInst *Call);
+    static StringRef getScheduleModifierMDString(Value *Modifier);
+
+    /// \brief If the instruction is an OpenMP directive or clause, return the
+    /// directive or clause name. Otherwise, return an empty StringRef.
+    static StringRef getDirOrClauseString(Instruction *I);
 
     /// \brief If the instruction is an OpenMP directive, return the directive
     /// name. Otherwise, return an empty StringRef.
-    static StringRef getDirectiveString(Instruction *I);
+    static StringRef getDirectiveString(Instruction *I, bool doClauses=false);
 
     /// \brief Returns strings corresponding to OpenMP directives.
     static StringRef getDirectiveString(int Id);
@@ -182,6 +187,14 @@ public:
 
     /// \brief True for MAP, TO, or FROM clauses
     static bool isMapClause(int ClauseID);
+
+    /// \brief Return 0, 1, or 2 based on the number of arguments that the
+    /// clause can take:
+    ///   0 for clauses that take no arguments
+    ///   1 for clauses that take exactly 1 argument
+    ///   2 for all else (such as clauses that take lists)
+    static unsigned getClauseType(int ClauseID);
+
 
     /// \brief Verify if the BB is malformed w.r.t. OpenMP directive rules.
     /// Return false if malform, true otherwise.

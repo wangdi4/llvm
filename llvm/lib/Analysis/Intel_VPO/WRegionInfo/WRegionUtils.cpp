@@ -28,13 +28,13 @@ using namespace vpo;
 /// If the string corrensponds to a BEGIN directive, then create
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
-WRegionNode *WRegionUtils::createWRegion(
-  int        DirID,
-  BasicBlock *EntryBB,
-  LoopInfo   *LI,
-  unsigned   NestingLevel
-)
-{
+///
+/// When dealing with the llvm.directive.region.entry representation
+/// (IsRegionIntrinsic==true) we call W->handleOperandBundles() to extract
+/// the clause info from the OperandBundles and update WRN accordingly.
+WRegionNode *WRegionUtils::createWRegion(int DirID, BasicBlock *EntryBB,
+                                         LoopInfo *LI, unsigned NestingLevel,
+                                         bool IsRegionIntrinsic) {
   WRegionNode *W = nullptr;
 
   switch(DirID) {
@@ -130,6 +130,9 @@ WRegionNode *WRegionUtils::createWRegion(
   if (W) {
     W->setLevel(NestingLevel);
     W->setDirID(DirID);
+    if (IsRegionIntrinsic) {
+      W->getClausesFromOperandBundles();
+    }
   }
   return W;
 }
@@ -219,7 +222,7 @@ void WRegionUtils::updateWRGraphFromHIR (
       // Handle clause with argument list
       assert (Call->getNumArgOperands()>=2 && 
               "Bad number of opnds for intel_directive_qual_opndlist");
-      W->handleQualOpndList(ClauseID, Call);
+      W->handleQualOpndList(DirOrClauseStr, Call);
     }
   }
 }

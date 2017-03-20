@@ -333,31 +333,33 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 //   llvm::IntrinsicInst*, llvm::vpo::Clause<llvm::vpo::PrivateItem>*)'
 
 template <typename ClauseTy>
-ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
+ClauseTy *WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                            StringRef ClauseString, 
+                                            ClauseTy *C) {
   if (C == nullptr) {
-    StringRef DirString = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-    int ClauseID = VPOAnalysisUtils::getClauseID(DirString);
+    int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
     C = new ClauseTy();
     C->setClauseID(ClauseID);
   }
-
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
     C->add(V);
   }
   return C;
 }
 
-void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
-                                           IntrinsicInst *Call,
-                                           WRNScheduleKind Kind) {
+void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched, 
+                                           const Use *Args, unsigned NumArgs, 
+                                           StringRef ClauseString, 
+                                           WRNScheduleKind Kind){
   // save the schedule kind
   Sched.setKind(Kind);
 
-  // extract and save the chunk size expr 
-  Value *V = Call->getArgOperand(2);
-  Sched.setChunkExpr(V);
+  Value *ModifierArg = Args[0];  // schedule modifier string
+  Value *ChunkArg    = Args[1];  // chunk size expr
+
+  // save the chunk size expr 
+  Sched.setChunkExpr(ChunkArg);
 
   // If ChunkExpr is a constant expression, extract the constant and save it
   // in ChunkSize, which is initialized to -1 (an invalid chunk size) to
@@ -370,7 +372,7 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   // Therefore, a negative ChunkSize means that the chunk expression is a
   // symbolic expr whose value is unkown at compile time.
   int64_t ChunkSize = -1;
-  ConstantInt *CI = dyn_cast<ConstantInt>(V);
+  ConstantInt *CI = dyn_cast<ConstantInt>(ChunkArg);
   if (CI != nullptr) { 
     ChunkSize = *((CI->getValue()).getRawData());
     DEBUG(dbgs() << " Schedule chunk size is constant: " << ChunkSize << "\n");
@@ -379,7 +381,7 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
 
   // extract and save the schedule modifiers 
   StringRef ModifierString = 
-                           VPOAnalysisUtils::getScheduleModifierMDString(Call);
+                   VPOAnalysisUtils::getScheduleModifierMDString(ModifierArg);
   DEBUG(dbgs() << " Schedule Modifier Argument: " << ModifierString << "\n");
 
   if (ModifierString == "MODIFIERNONE")
@@ -404,18 +406,17 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   return;
 }
 
-MapClause *WRegionUtils::extractMapOpndList(IntrinsicInst *Call, 
-                                            MapClause *C,
-                                            unsigned MapKind) {
+MapClause *WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                            StringRef ClauseString, 
+                                            MapClause *C, unsigned MapKind) {
   if (C == nullptr) {
     C = new MapClause();
     C->setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
                                      // the MapKind of each list item
   }
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
     C->add(V);
     MapItem *MI = C->back();
     MI->setMapKind(MapKind);
@@ -423,17 +424,17 @@ MapClause *WRegionUtils::extractMapOpndList(IntrinsicInst *Call,
   return C;
 }
 
-DependClause *WRegionUtils::extractDependOpndList(IntrinsicInst *Call, 
-                                                  DependClause *C,
-                                                  bool IsIn) {
+DependClause *WRegionUtils::extractDependOpndList(const Use *Args,
+                                                  unsigned NumArgs,
+                                                  StringRef ClauseString,
+                                                  DependClause *C, bool IsIn) {
   if (C == nullptr) {
     C = new DependClause();
     C->setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
   }
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
 
     //TODO: Parse array section arguments.
     //      Currently only scalar vars are supported.
@@ -444,7 +445,9 @@ DependClause *WRegionUtils::extractDependOpndList(IntrinsicInst *Call,
   return C;
 }
 
-ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call, 
+ReductionClause *WRegionUtils::extractReductionOpndList(const Use *Args,
+                                                        unsigned NumArgs,
+                                                        StringRef ClauseString,
                                                         ReductionClause *C,
                                                         int ReductionKind) {
   if (C == nullptr) {
@@ -452,9 +455,8 @@ ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call,
     C->setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
   }
 
-  // Skip argument(0) as it is the metadata
-  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
-    Value *V = Call->getArgOperand(I);
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
     C->add(V);
     ReductionItem *RI = C->back();
     RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
@@ -517,41 +519,62 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
 //        clause items. It also does not support the optional arguments at
 //        the end of linear and aligned clauses.  We'll do that later.
 //
-void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
+void WRegionNode::handleQualOpndList(StringRef ClauseString,
+                                     IntrinsicInst *Call) {
+
+  // Get argument list from the intrinsic call
+  const Use *Args = Call->getOperandList();
+
+  // Skip Args[0] as it's the clause name metadata; hence the -1 below
+  unsigned NumArgs = Call->getNumArgOperands() - 1;
+
+  WRegionNode::handleQualOpndList(&Args[1], NumArgs, ClauseString);
+}
+
+void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
+                                     StringRef ClauseString) {
+  int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
+
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
     SharedClause *C =
-      WRegionUtils::extractQualOpndList<SharedClause>(Call, getShared());
+      WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs,
+                                                   ClauseString, getShared());
     setShared(C);
     break;
   }
   case QUAL_OMP_PRIVATE: {
     PrivateClause *C =
-      WRegionUtils::extractQualOpndList<PrivateClause>(Call, getPriv());
+      WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs,
+                                                     ClauseString, getPriv());
     setPriv(C);
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
     FirstprivateClause *C =
-      WRegionUtils::extractQualOpndList<FirstprivateClause>(Call, getFpriv());
+      WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
+                                                    ClauseString, getFpriv());
     setFpriv(C);
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
     LastprivateClause *C =
-      WRegionUtils::extractQualOpndList<LastprivateClause>(Call, getLpriv());
+      WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+                                                    ClauseString, getLpriv());
     setLpriv(C);
     break;
   }
   case QUAL_OMP_COPYIN: {
     CopyinClause *C =
-      WRegionUtils::extractQualOpndList<CopyinClause>(Call, getCopyin());
+      WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs,
+                                                   ClauseString, getCopyin());
     setCopyin(C);
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
     CopyprivateClause *C =
-      WRegionUtils::extractQualOpndList<CopyprivateClause>(Call, getCpriv());
+      WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
+                                                    ClauseString, getCpriv());
     setCpriv(C);
     break;
   }
@@ -560,26 +583,28 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_DEPEND_INOUT: {
     bool IsIn = ClauseID==QUAL_OMP_DEPEND_IN;
     DependClause *C =
-      WRegionUtils::extractDependOpndList(Call, getDepend(), IsIn);
+      WRegionUtils::extractDependOpndList(Args, NumArgs, ClauseString,
+                                          getDepend(), IsIn);
     setDepend(C);
     break;
   }
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
     DepSinkClause *C =
-      WRegionUtils::extractQualOpndList<DepSinkClause>(Call, getDepSink());
+      WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs,
+                                                  ClauseString, getDepSink());
     setDepSink(C);
     break;
   }
   case QUAL_OMP_IS_DEVICE_PTR: {
     IsDevicePtrClause *C=WRegionUtils::extractQualOpndList<IsDevicePtrClause>
-                         (Call, getIsDevicePtr());
+                              (Args, NumArgs, ClauseString, getIsDevicePtr());
     setIsDevicePtr(C);
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR: {
     UseDevicePtrClause *C=WRegionUtils::extractQualOpndList<UseDevicePtrClause>
-                          (Call, getUseDevicePtr());
+                             (Args, NumArgs, ClauseString, getUseDevicePtr());
     setUseDevicePtr(C);
     break;
   }
@@ -599,58 +624,63 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_MAP_ALWAYS_DELETE: {
     unsigned MapKind = MapItem::getMapKindFromClauseId(ClauseID);
     MapClause *C =
-      WRegionUtils::extractMapOpndList(Call, getMap(), MapKind);
+      WRegionUtils::extractMapOpndList(Args, NumArgs, ClauseString, getMap(),
+                                       MapKind);
     setMap(C);
     break;
   }
   case QUAL_OMP_UNIFORM: {
     UniformClause *C =
-      WRegionUtils::extractQualOpndList<UniformClause>(Call, getUniform());
+      WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs,
+                                                  ClauseString, getUniform());
     setUniform(C);
     break;
   }
   case QUAL_OMP_LINEAR: {
     LinearClause *C =
-      WRegionUtils::extractQualOpndList<LinearClause>(Call, getLinear());
+      WRegionUtils::extractQualOpndList<LinearClause>(Args, NumArgs,
+                                                   ClauseString, getLinear());
     setLinear(C);
     break;
   }
   case QUAL_OMP_ALIGNED: {
     AlignedClause *C =
-      WRegionUtils::extractQualOpndList<AlignedClause>(Call, getAligned());
+      WRegionUtils::extractQualOpndList<AlignedClause>(Args, NumArgs,
+                                                  ClauseString, getAligned());
     setAligned(C);
     break;
   }
   case QUAL_OMP_FLUSH: {
     FlushSet *C =
-      WRegionUtils::extractQualOpndList<FlushSet>(Call, getFlush());
+      WRegionUtils::extractQualOpndList<FlushSet>(Args, NumArgs, ClauseString,
+                                                  getFlush());
     setFlush(C);
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
-                                          WRNScheduleAuto);
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, NumArgs, 
+                                               ClauseString, WRNScheduleAuto);
     break;
   }
   case QUAL_OMP_SCHEDULE_DYNAMIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
-                                          WRNScheduleDynamic);
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, NumArgs,
+                                            ClauseString, WRNScheduleDynamic);
     break;
   }
   case QUAL_OMP_SCHEDULE_GUIDED: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
-                                          WRNScheduleGuided);
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, NumArgs,
+                                             ClauseString, WRNScheduleGuided);
     break;
   }
   case QUAL_OMP_SCHEDULE_RUNTIME: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
-                                          WRNScheduleRuntime);
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, NumArgs,
+                                            ClauseString, WRNScheduleRuntime);
     break;
   }
   case QUAL_OMP_DIST_SCHEDULE_STATIC:
   case QUAL_OMP_SCHEDULE_STATIC: {
-    WRegionUtils::extractScheduleOpndList(getSchedule(), Call, 
-                                          WRNScheduleStatic);
+    WRegionUtils::extractScheduleOpndList(getSchedule(), Args, NumArgs,
+                                             ClauseString, WRNScheduleStatic);
     break;
   }
   case QUAL_OMP_REDUCTION_ADD:
@@ -665,7 +695,8 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
     ReductionClause *C =
-      WRegionUtils::extractReductionOpndList(Call, getRed(), ReductionKind);
+      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseString,
+                                             getRed(), ReductionKind);
     setRed(C);
 
     //don't call this: 
@@ -675,6 +706,57 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   default:
     llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
     break;
+  }
+}
+
+void WRegionNode::getClausesFromOperandBundles() {
+  // Under the directive.region.entry/exit representation the intrinsic
+  // is alone in the EntryBB, so EntryBB->front() is the intrinsic call
+  Instruction *I = &(getEntryBBlock()->front());
+  IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
+  assert (Call && "Call not found for directive.region.entry()");
+
+  unsigned i, NumOB = Call->getNumOperandBundles();
+
+  // Index i start from 1 (not 0) because we want to skip the first
+  // OperandBundle, which is the directive name.
+  for(i=1; i<NumOB; ++i) {
+    // BU is the ith OperandBundle 
+    OperandBundleUse BU = Call->getOperandBundleAt(i);
+
+    // The clause name is the tag name
+    StringRef ClauseString = BU.getTagName();   
+    assert(VPOAnalysisUtils::isOpenMPClause(ClauseString) &&
+           "Unknown clause string from OperandBundle.");
+    int ClauseID = VPOAnalysisUtils::getClauseID(ClauseString);
+    DEBUG(dbgs() <<"\n === Clause: "<< ClauseString <<"ID: "<<ClauseID<<"\n");
+
+    // Number of arguments in the current OperandBundle
+    unsigned NumArgs = BU.Inputs.size();   
+
+    // Classify the clause based on the number of arguments allowed by the
+    // clause, which can be 0, 1, or a list. The utility getClauseType() 
+    // returns one of these:
+    //    0: for clauses that take no arguments
+    //    1: for clauses that take one argument only
+    //    2: all other clauses (includes those that take a list)
+    unsigned ClauseNumArgs = VPOAnalysisUtils::getClauseType(ClauseID);
+
+    if (ClauseNumArgs == 0) {
+      // The clause takes no arguments
+      assert(NumArgs == 0 && "Expected no arguments in OperandBundle.");
+      handleQual(ClauseID);
+    } else if (ClauseNumArgs == 1) {
+      // The clause takes one argument only
+      assert(NumArgs == 1 && "Expected one argument in OperandBundle.");
+      Value *V = (Value*)(BU.Inputs[0]);
+      handleQualOpnd(ClauseID, V);
+    } else {
+      // The clause takes a list of arguments
+      assert(NumArgs >= 1 && "Expected one or more args in OperandBundle.");
+      ArrayRef<llvm::Use> Args = BU.Inputs;
+      handleQualOpndList(&Args[0], NumArgs, ClauseString);
+    }
   }
 }
 
