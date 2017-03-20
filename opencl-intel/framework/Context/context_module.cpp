@@ -318,7 +318,9 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
             
             static const cl_context_properties legalProperties[] = {
                 CL_CONTEXT_PLATFORM,
+#ifdef BUILD_FPGA_EMULATOR
                 CL_CONTEXT_FPGA_EMULATOR_INTEL,
+#endif //BUILD_FPGA_EMULATOR
                 CL_CONTEXT_INTEROP_USER_SYNC
 #if defined (_WIN32)
                 ,
