@@ -158,4 +158,6 @@ bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
 bool Timers();
 bool CloneKernel();
+void checkFPGAExtension();
+void checkFPGAExtensionNEGATIVE();
 //#define CUDA_DEVICE

@@ -500,6 +500,16 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
+TEST(FPGA, Test_checkFPGAExtension)
+{
+    checkFPGAExtension();
+}
+
+TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
+{
+    checkFPGAExtensionNEGATIVE();
+}
+
 TEST_F(CL, Test_CheckExtensions)
 {
     CheckExtensions();
