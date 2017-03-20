@@ -69,7 +69,7 @@ void baz(int);
 //
 // A counted loop will be generated when any loop index (counter) is:
 //   1) struct/class type (i.e. a c++ iterator)
-//   2) Is specified lastprivate
+//   2) Is specified lastprivate or private
 //   3) Is global/address taken (i.e. NOT a local variable w/o address taken)
 //
 
@@ -171,6 +171,24 @@ void two()
   // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
   // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
   #pragma omp parallel for lastprivate(i)
+  for (i=0; i < 2; ++i)
+  {
+  }
+}
+
+// CHECK-LABEL: @_Z4twoAv
+// CHECK-1: [[TWOA_I:%i.*]] = alloca i32,
+// CHECK-1: [[TWOA_IV:%.omp.iv.*]] = alloca
+void twoA()
+{
+  int i;
+  // CHECK-1: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
+  // CHECK-1: (metadata !"QUAL.OMP.PRIVATE", i32* [[TWOA_I]])
+  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
+  // CHECK-1: store {{.*}}[[TWOA_IV]]
+  // CHECK-1: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
+  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
+  #pragma omp parallel for private(i)
   for (i=0; i < 2; ++i)
   {
   }
