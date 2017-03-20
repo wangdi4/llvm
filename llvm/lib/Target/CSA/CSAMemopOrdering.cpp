@@ -208,6 +208,7 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MB : MF) {
     for (MachineInstr &MI : MB) {
       for (MachineMemOperand *op : MI.memoperands()) {
+        assert(op->getValue() && "I don't understand this memory operand!");
         AS->add(const_cast<Value*>(op->getValue()),
             op->getSize(), op->getAAInfo());
       }
