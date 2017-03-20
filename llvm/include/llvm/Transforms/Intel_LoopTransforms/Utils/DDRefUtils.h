@@ -249,17 +249,19 @@ public:
   /// Return: bool
   /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
   /// -false: otherwise
-  static bool canReplaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      CanonExpr *CE, bool RelaxedMode = true);
+  static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
+                                      const CanonExpr *CE,
+                                      bool RelaxedMode = true);
 
   /// Replace any IV in the Ref with a given CanonExpr*.
   ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
   ///
-  /// Return: bool
-  /// - true: can successfully replace every loop-level CE in Ref
-  /// -false: otherwise
-  static bool replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   CanonExpr *CE, bool RelaxedMode = true);
+  /// Note: The function asserts if the replacement fails as the Ref may be in
+  /// an inconsistent state. Caller should call canReplaceIVByCanonExpr() first
+  /// to make sure this is safe to do.
+  static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                   const CanonExpr *CE,
+                                   bool RelaxedMode = true);
 };
 
 } // End namespace loopopt

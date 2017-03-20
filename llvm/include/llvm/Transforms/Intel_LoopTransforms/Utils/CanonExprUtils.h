@@ -101,8 +101,7 @@ private:
 
   /// Implements add() functionality.
   /// This routine will return false, if the canon exprs are not mergeable.
-  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                            bool RelaxedMode);
+  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -216,10 +215,15 @@ public:
   /// CE. NestingLevel is the level where the CE is attached to HIR.
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
-  /// Replaces IV in /p CE1 at the loop /p Level by the /p CE2.
+  // Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
+  static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
+                                      const CanonExpr *CE2,
+                                      bool RelaxedMode = false);
+
+  /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
   static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                         const CanonExpr *CE2,
-                                         bool RelaxedMode = false);
+                                   const CanonExpr *CE2,
+                                   bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
   /// Distance.

@@ -97,17 +97,9 @@ struct MemRefGroup {
   // Only have Stores, and NO MemRef gap
   bool isCompleteStoreOnly(void);
 
-  // Check if the group has load (or store) refs whose largest
-  // DepDist is greater than or equal to a given Dist
-  template <bool IsLoad> bool hasDepDistGreaterEqualOneImpl(void) const;
-
-  bool hasStoreDepDistGreaterEqualOne(void) const {
-    return hasDepDistGreaterEqualOneImpl<false>();
-  }
-
-  bool hasLoadDepDistGreaterEqualOne(void) const {
-    return hasDepDistGreaterEqualOneImpl<true>();
-  }
+  // Check if the group has store refs whose largest DepDist is greater than or
+  // equal to a given Dist.
+  bool hasStoreDepDistGreaterEqualOne(void) const;
 
   // Insert a given RegDDRef into RefTupleVec
   void insert(RegDDRef *Ref) { RefTupleVec.push_back(RefTuple(Ref)); }

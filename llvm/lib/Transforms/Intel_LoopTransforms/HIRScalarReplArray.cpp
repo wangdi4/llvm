@@ -409,12 +409,9 @@ bool MemRefGroup::isProfitable(void) {
   return true;
 }
 
-template <bool IsLoad>
-bool MemRefGroup::hasDepDistGreaterEqualOneImpl(void) const {
-  // Sanity: need 2 loads (or stores) at least
-  if (IsLoad && (NumLoads <= 1)) {
-    return false;
-  } else if (!IsLoad && (NumStores <= 1)) {
+bool MemRefGroup::hasStoreDepDistGreaterEqualOne() const {
+  // Sanity: need 2 stores at least
+  if (NumStores < 2) {
     return false;
   }
 
@@ -424,10 +421,7 @@ bool MemRefGroup::hasDepDistGreaterEqualOneImpl(void) const {
   for (unsigned I = 0; I < Size; ++I) {
     RegDDRef *MemRef = RefTupleVec[I].getMemRef();
 
-    if (IsLoad && MemRef->isRval()) {
-      LowestRef = MemRef;
-      break;
-    } else if (!IsLoad && MemRef->isLval()) {
+    if (MemRef->isLval()) {
       LowestRef = MemRef;
       break;
     }
@@ -439,10 +433,7 @@ bool MemRefGroup::hasDepDistGreaterEqualOneImpl(void) const {
   for (signed I = Size - 1; I >= 0; --I) {
     RegDDRef *MemRef = RefTupleVec[I].getMemRef();
 
-    if (IsLoad && MemRef->isRval()) {
-      HighestRef = MemRef;
-      break;
-    } else if (!IsLoad && MemRef->isLval()) {
+    if (MemRef->isLval()) {
       HighestRef = MemRef;
       break;
     }
@@ -453,8 +444,7 @@ bool MemRefGroup::hasDepDistGreaterEqualOneImpl(void) const {
   int64_t DepDist = 0;
   if (DDRefUtils::getConstIterationDistance(HighestRef, LowestRef, LoopLevel,
                                             &DepDist)) {
-    assert((DepDist >= 0) && "Expect DepDist be 0 or positive\n");
-    if (DepDist >= 1) {
+    if (std::llabs(DepDist) >= 1) {
       return true;
     }
   }
@@ -467,9 +457,8 @@ bool MemRefGroup::doPostCheckOnRef(const HLLoop *Lp, bool IsLoad) {
       IsLoad ? Lp->getLowerCanonExpr() : Lp->getUpperCanonExpr();
   RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
 
-  // Check: FirstRef works for canReplaceIVByCE(.) ?
-  return DDRefUtils::canReplaceIVByCanonExpr(
-      FirstRef, LoopLevel, const_cast<CanonExpr *>(BoundCE), true);
+  return DDRefUtils::canReplaceIVByCanonExpr(FirstRef, LoopLevel, BoundCE,
+                                             true);
 }
 
 // Check: expect MaxDepDist be below a pre-defined threshold
@@ -496,13 +485,13 @@ void MemRefGroup::checkAndSetMaxDepDist(void) {
 }
 
 bool MemRefGroup::doPostChecks(const HLLoop *Lp) {
-  // If:  the loop has multiple loads with MaxLoadDepDist >=1
+  // If: the group has MaxDepDist > 0
   // Then:any outstanding (non-max-dd) load needs to be merge-able with Lp's LB
-  if (hasLoadDepDistGreaterEqualOne() && !doPostCheckOnRef(Lp, true)) {
+  if ((MaxDepDist > 0) && !doPostCheckOnRef(Lp, true)) {
     return false;
   }
 
-  // If:  the loop has multiple stores with MaxStoreDepDist >=1
+  // If: the group has multiple stores with MaxStoreDepDist >=1
   // Then:any outstanding (non-min-dd) store needs to be merge-able with Lp's UB
   if (hasStoreDepDistGreaterEqualOne() && !doPostCheckOnRef(Lp, false)) {
     return false;
@@ -531,7 +520,7 @@ void MemRefGroup::handleTemps(void) {
     // set TmpId (the Dependence Distance)
     int64_t TmpId = 0;
     DDRefUtils::getConstIterationDistance(MemRef, FirstRef, LoopLevel, &TmpId);
-    assert((TmpId >= 0) && "Expect TmpId be 0 or positive\n");
+    TmpId = std::llabs(TmpId);
     assert((TmpId <= (int64_t)MaxDepDist) && "TmpId is out of bound\n");
 
     // setup TmpId and TmpRef
@@ -614,9 +603,7 @@ void MemRefGroup::generateLoadWithMemRef(HLLoop *Lp, RegDDRef *MemRef,
   // Create a load from MemRef into Tmp
   RegDDRef *MemRef2 = IndepMemRef ? MemRef : MemRef->clone();
   RegDDRef *TmpRefClone = TmpRef->clone();
-  bool Ret = DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE);
-  assert(Ret && "Expect replace to succeed\n");
-  (void)Ret;
+  DDRefUtils::replaceIVByCanonExpr(MemRef2, LoopLevel, LBCE);
 
   // Insert the load into the Lp's preheader
   HLNodeUtils *HNU = HSRA->HNU;
@@ -1184,9 +1171,7 @@ void HIRScalarReplArray::doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
     RegDDRef *MemRefClone = MemRef->clone();
 
     // Replace IV with UBCE
-    bool Ret = DDRefUtils::replaceIVByCanonExpr(MemRefClone, LoopLevel, UBCE);
-    assert(Ret && "Expect replace to succeed\n");
-    (void)Ret;
+    DDRefUtils::replaceIVByCanonExpr(MemRefClone, LoopLevel, UBCE);
 
     // Create the StoreInst
     RegDDRef *TmpRefClone = TmpRef->clone();

@@ -135,8 +135,7 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
                                                          unsigned Level) {
   auto Blob = getBlobUtils().getBlob(Index);
 
-  assert((BlobUtils::isTempBlob(Blob) ||
-          BlobUtils::isMetadataBlob(Blob) ||
+  assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||
           BlobUtils::isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
   assert(isValidDefLevel(Level) && "Invalid level!");
@@ -426,7 +425,7 @@ bool CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
 }
 
 bool CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
-                               bool RelaxedMode) {
+                         bool RelaxedMode) {
   return addImpl(CE1, CE2, RelaxedMode);
 }
 
@@ -489,10 +488,23 @@ bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
           (DefLevel && (DefLevel >= NestingLevel)));
 }
 
+bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
+                                             unsigned Level,
+                                             const CanonExpr *CE2,
+                                             bool RelaxedMode) {
+  // Perform cheap checks here to avoid allocating memory.
+  if (!CE1->hasIV(Level) || CE2->isZero()) {
+    return true;
+  }
+
+  std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
+
+  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode);
+}
+
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                           const CanonExpr *CE2,
                                           bool RelaxedMode) {
-  assert(mergeable(CE1, CE2, RelaxedMode) && "CanonExprs are not mergeable");
 
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
@@ -506,6 +518,10 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
   if (CE2->isZero()) {
     CE1->removeIV(Level);
     return true;
+  }
+
+  if (!mergeable(CE1, CE2, RelaxedMode)) {
+    return false;
   }
 
   std::unique_ptr<CanonExpr> Term(CE2->clone());

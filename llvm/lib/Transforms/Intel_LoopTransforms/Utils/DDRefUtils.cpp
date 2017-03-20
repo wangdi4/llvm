@@ -444,28 +444,32 @@ Type *DDRefUtils::getOffsetType(Type *Ty,
   return RetTy;
 }
 
-bool DDRefUtils::canReplaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                         CanonExpr *CE, bool RelaxedMode) {
-  // TODO:
-  // A more efficient/elegant version may exist by not calling
-  // replaceIVByCanonExpr() on a ref clone, instead, just work with CE's fine
-  // details on the original Ref.
-  std::unique_ptr<RegDDRef> RefClone(Ref->clone());
-  return DDRefUtils::replaceIVByCanonExpr(RefClone.get(), LoopLevel, CE,
-                                          RelaxedMode);
-}
-
-bool DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      CanonExpr *CE, bool RelaxedMode) {
+bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
+                                         unsigned LoopLevel,
+                                         const CanonExpr *CE,
+                                         bool RelaxedMode) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
     CanonExpr *CurCE = (*I);
 
-    if (!CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE,
-                                              RelaxedMode)) {
+    if (!CanonExprUtils::canReplaceIVByCanonExpr(CurCE, LoopLevel, CE,
+                                                 RelaxedMode)) {
       return false;
     }
   }
 
   return true;
+}
+
+void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                      const CanonExpr *CE, bool RelaxedMode) {
+
+  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
+    CanonExpr *CurCE = (*I);
+
+    auto Res =
+        CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, RelaxedMode);
+    assert(Res && "Replacement failed, caller should call "
+                  "DDRefUtils::canReplaceIVByCanonExpr() first!");
+  }
 }
