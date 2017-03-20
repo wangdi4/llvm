@@ -250,6 +250,7 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
                                             Value *IsLastVal, Value *LB,
                                             Value *UB, Value *ST,
                                             Value *Inc, Value *Chunk,
+                                            int Size, bool IsUnsigned, 
                                             Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -259,54 +260,40 @@ CallInst *VPOParoptUtils::genKmpcStaticInit(WRegionNode *W,
 
   LLVMContext &C = F->getContext();
 
-  Type *IntTy = Type::getInt32Ty(C);
-
   int Flags = KMP_IDENT_KMPC;
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  Type *ArgIntTy;
-  std::string CallName;
+  Type *Int32Ty = Type::getInt32Ty(C);
+  Type *Int64Ty = Type::getInt64Ty(C);
 
-  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
-  Loop *L = WL->getLoop();
-  ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
-  bool isUnsigned = IC->isUnsigned();
+  Type *IntArgTy = (Size == 32) ? Int32Ty : Int64Ty;
 
-  if (LB->getType()->getPointerElementType()->getIntegerBitWidth() == 64) {
-    if (isUnsigned)
-      CallName = "__kmpc_for_static_init_8u";
-    else
-      CallName = "__kmpc_for_static_init_8";
+  std::string FnName;
 
-    ArgIntTy = Type::getInt64Ty(C);
-  }
-  else {
-    if (isUnsigned)
-      CallName = "__kmpc_for_static_init_4u";
-    else
-      CallName = "__kmpc_for_static_init_4";
+  if (IsUnsigned)
+    FnName = (Size == 32) ? "__kmpc_for_static_init_4u" :  
+                            "__kmpc_for_static_init_8u" ;
+  else
+    FnName = (Size == 32) ? "__kmpc_for_static_init_4" :
+                            "__kmpc_for_static_init_8" ;
 
-    ArgIntTy = IntTy;
-  }
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), 
+                      Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                      PointerType::getUnqual(IntArgTy),
+                      PointerType::getUnqual(IntArgTy),
+                      PointerType::getUnqual(IntArgTy), 
+                      IntArgTy, IntArgTy};
 
-  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), 
-                          IntTy, IntTy, PointerType::getUnqual(IntTy),
-                          PointerType::getUnqual(ArgIntTy),
-                          PointerType::getUnqual(ArgIntTy),
-                          PointerType::getUnqual(ArgIntTy), 
-                          ArgIntTy, ArgIntTy};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), 
-                                         InitParamsTy, false);
-
-  Function *FnStaticInit = M->getFunction(CallName);
+  Function *FnStaticInit = M->getFunction(FnName);
 
   if (!FnStaticInit) {
-    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage,
-                                    CallName, M);
+    FnStaticInit = Function::Create(FnTy, GlobalValue::ExternalLinkage, 
+                                    FnName, M);
     FnStaticInit->setCallingConv(CallingConv::C);
   }
 
@@ -341,7 +328,7 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
   BasicBlock *E = W->getExitBBlock();
 
   Function *F = B->getParent();
-  Module *M = F->getParent();
+  Module   *M = F->getParent();
   LLVMContext &C = F->getContext();
 
   int Flags = KMP_IDENT_KMPC;
@@ -352,10 +339,9 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
   DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), IntTy};
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C),
-                                         InitParamsTy, false);
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
 
   Function *FnStaticFini = M->getFunction("__kmpc_for_static_fini");
 
@@ -381,12 +367,12 @@ CallInst *VPOParoptUtils::genKmpcStaticFini(WRegionNode *W,
 // This function generates a call to notify the runtime system that the 
 // guided/runtime/dynamic loop scheduling is started
 //
-//   call void @__kmpc_for_dispatch_init_4{u}(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_init_4{u}(%ident_t* %loc, i32 %tid, 
 //               i32 schedtype, i32 %lb, i32 %ub, i32 %st, i32 chunk)
 // 
-//   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid, 
 //               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
-CallInst *VPOParoptUtils::genkmpcDispatchInit(WRegionNode *W,
+CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
                                               StructType *IdentTy,
                                               Value *Tid, Value *SchedType,
                                               Value *LB, Value *UB, 
@@ -416,18 +402,16 @@ CallInst *VPOParoptUtils::genkmpcDispatchInit(WRegionNode *W,
   std::string FnName;
 
   if (IsUnsigned)
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_init_4u" : 
-                            "__kmpc_for_dispatch_init_8u" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_init_4u" : 
+                            "__kmpc_dispatch_init_8u" ;
   else 
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_init_4" : 
-                            "__kmpc_for_dispatch_init_8" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_init_4" : 
+                            "__kmpc_dispatch_init_8" ;
 
-  Type *InitParamsTy[] = {PointerType::getUnqual(IdentTy),
-                          Int32Ty, Int32Ty, 
-                          IntArgTy, IntArgTy, IntArgTy, IntArgTy};
+  Type *ParamsTy[] = {PointerType::getUnqual(IdentTy), 
+                      Int32Ty, Int32Ty, IntArgTy, IntArgTy, IntArgTy, IntArgTy};
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), 
-                                         InitParamsTy, false);
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
 
   Function *FnDispatchInit = M->getFunction(FnName);
 
@@ -458,16 +442,15 @@ CallInst *VPOParoptUtils::genkmpcDispatchInit(WRegionNode *W,
 // This function generates a call to the runtime system that performs
 // loop partitioning for guided/runtime/dynamic/auto scheduling.
 //
-//   call void @__kmpc_for_dispatch_next_4{u}(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_next_4{u}(%ident_t* %loc, i32 %tid, 
 //               i32 *isLast, i32 *%lb, i32 *%ub, i32 *%st)
 // 
-//   call void @__kmpc_for_dispatch_next_8{u}(%ident_t* %loc, i32 %tid, 
+//   call void @__kmpc_dispatch_next_8{u}(%ident_t* %loc, i32 %tid, 
 //               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
 CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
                                               StructType *IdentTy,
-                                              Value *Tid, Value *SchedType,
-                                              Value *IsLastVal, Value *LB,
-                                              Value *UB, Value *ST,
+                                              Value *Tid, Value *IsLastVal, 
+                                              Value *LB, Value *UB, Value *ST,
                                               int Size, bool IsUnsigned, 
                                               Instruction *InsertPt) {
   BasicBlock *B = W->getEntryBBlock();
@@ -493,19 +476,19 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
   std::string FnName;
 
   if (IsUnsigned) 
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_next_4u" :
-                            "__kmpc_for_dispatch_next_8u" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_next_4u" :
+                            "__kmpc_dispatch_next_8u" ;
   else 
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_next_4" :
-                            "__kmpc_for_dispatch_next_8" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_next_4" :
+                            "__kmpc_dispatch_next_8" ;
 
   Type *ParamsTy[] = {PointerType::getUnqual(IdentTy),
-                      Int32Ty, Int32Ty, PointerType::getUnqual(Int32Ty),
+                      Int32Ty, PointerType::getUnqual(Int32Ty),
                       PointerType::getUnqual(IntArgTy),
                       PointerType::getUnqual(IntArgTy),
                       PointerType::getUnqual(IntArgTy)};
 
-  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ParamsTy, false);
+  FunctionType *FnTy = FunctionType::get(Int32Ty, ParamsTy, false);
 
   Function *FnDispatchNext = M->getFunction(FnName);
 
@@ -519,7 +502,6 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 
   FnDispatchNextArgs.push_back(Loc);
   FnDispatchNextArgs.push_back(Tid);
-  FnDispatchNextArgs.push_back(SchedType);
   FnDispatchNextArgs.push_back(IsLastVal);
   FnDispatchNextArgs.push_back(LB);
   FnDispatchNextArgs.push_back(UB);
@@ -535,32 +517,43 @@ CallInst *VPOParoptUtils::genKmpcDispatchNext(WRegionNode *W,
 // This function generates a call to the runtime system that informs
 // guided/runtime/dynamic/auto scheduling is done.
 //
-//   call void @__kmpc_for_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
-//   call void @__kmpc_for_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
+//   call void @__kmpc_dispatch_fini_4{u}(%ident_t* %loc, i32 %tid)
+//   call void @__kmpc_dispatch_fini_8{u}(%ident_t* %loc, i32 %tid)
 CallInst *VPOParoptUtils::genKmpcDispatchFini(WRegionNode *W, 
                                               StructType *IdentTy, 
                                               Value *Tid, int Size, 
                                               bool IsUnsigned,
                                               Instruction *InsertPt) {
+  BasicBlock  *B = W->getEntryBBlock();
+  BasicBlock  *E = W->getExitBBlock();
+
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Module *M = F->getParent();
+
   std::string FnName;
 
   if (IsUnsigned)
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_fini_4u" :
-                              "__kmpc_for_dispatch_fini_8u" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_fini_4u" :
+                            "__kmpc_dispatch_fini_8u" ;
   else
-    FnName = (Size == 32) ? "__kmpc_for_dispatch_fini_4" :
-                              "__kmpc_for_dispatch_fini_8" ;
+    FnName = (Size == 32) ? "__kmpc_dispatch_fini_4" :
+                            "__kmpc_dispatch_fini_8" ;
 
-  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
-  LoadTid->setAlignment(4);
+  int Flags = KMP_IDENT_KMPC;
 
-  // Now bundle all the function arguments together.
-  SmallVector<Value *, 3> FnArgs = {LoadTid};
+  GlobalVariable *Loc = 
+    genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  CallInst *DispatchFini =
-    VPOParoptUtils::genKmpcCall(W, IdentTy, InsertPt, FnName, nullptr, FnArgs);
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
 
-  // Now insert the calls in the IR.
+  SmallVector<Value *, 2> FnArgs {Loc, Tid};
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  // Generate __kmpc_dispatch_fini4{u}/8{u} in IR 
+  CallInst *DispatchFini = genCall(M, FnName, RetTy, FnArgs);
   DispatchFini->insertBefore(InsertPt);
 
   return DispatchFini;

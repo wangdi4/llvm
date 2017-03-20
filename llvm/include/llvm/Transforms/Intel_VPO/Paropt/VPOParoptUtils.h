@@ -161,6 +161,7 @@ public:
                                        Value *Tid, Value *SchedType, 
                                        Value *IsLastVal, Value *LB, Value *UB, 
                                        Value *ST, Value *Inc, Value *Chunk,
+                                       int Size, bool IsUnsigned,
                                        Instruction *InsertPt);
 
     /// \brief Generate a call to notify the runtime system that the static 
@@ -178,7 +179,7 @@ public:
     ///
     ///   call void @__kmpc_for_dispatch_init_8{u}4(%ident_t* %loc, i32 %tid,
     ///               i32 schedtype, i64 %lb, i64 %ub, i64 %st, i64 chunk)
-    static CallInst* genkmpcDispatchInit(WRegionNode *W,
+    static CallInst* genKmpcDispatchInit(WRegionNode *W,
                                          StructType *IdentTy,
                                          Value *Tid, Value *SchedType,
                                          Value *LB, Value *UB,
@@ -196,9 +197,8 @@ public:
     ///               i32 *isLast, i64 *%lb, i64 *%ub, i64 *%st)
     static CallInst* genKmpcDispatchNext(WRegionNode *W,
                                          StructType *IdentTy,
-                                         Value *Tid, Value *SchedType,
-                                         Value *IsLastVal, Value *LB,
-                                         Value *UB, Value *ST,
+                                         Value *Tid, Value *IsLastVal, 
+                                         Value *LB, Value *UB, Value *ST,
                                          int Size, bool IsUnsigned,
                                          Instruction *InsertPt);
 

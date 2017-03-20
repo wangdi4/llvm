@@ -223,6 +223,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
         break;
       }
+    case WRegionNode::WRNParallelSections:
     case WRegionNode::WRNParallelLoop:
       {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
@@ -238,8 +239,6 @@ bool VPOParoptTransform::paroptTransforms() {
 
         break;
       }
-    case WRegionNode::WRNParallelSections:
-      break;
 
     // Task constructs need to perform outlining
     case WRegionNode::WRNTask:
@@ -256,6 +255,7 @@ bool VPOParoptTransform::paroptTransforms() {
                                                     IdentTy, TidPtr);
         break;
       }
+    case WRegionNode::WRNSections:
     case WRegionNode::WRNWksLoop:
       { 
         DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
@@ -266,7 +266,6 @@ bool VPOParoptTransform::paroptTransforms() {
         Changed |= genPrivatizationCode(W);
         break;
       }
-    case WRegionNode::WRNSections:
     case WRegionNode::WRNVecLoop:
       break;
     case WRegionNode::WRNSingle:
@@ -457,46 +456,75 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
   ConstantInt *ValueOne  = ConstantInt::get(IndValTy, 1);
 
-  // For now, set the default schedule type static_even.     
-  // TBD: to get Schedule type and chunk information from W-Region node
-  ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, 34);
+  // Get Schedule kind and chunk information from W-Region node
+  // Default: static_even.     
+  WRNScheduleKind SchedKind = VPOParoptUtils::getLoopScheduleKind(W);
+
+  ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
 
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);
 
-  Value *RightValue = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
+  Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
 
   IRBuilder<> B(InsertPt);
-  if (RightValue->getType()->getIntegerBitWidth() != 
-      LoopIndexType->getIntegerBitWidth()) 
-    RightValue = B.CreateSExtOrTrunc(RightValue, LoopIndexType);
+  if (UpperBndVal->getType()->getIntegerBitWidth() != 
+                              LoopIndexType->getIntegerBitWidth()) 
+    UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, LoopIndexType);
 
-  StoreInst *Tmp1 = new StoreInst(RightValue, UpperBnd, false, InsertPt);
+  StoreInst *Tmp1 = new StoreInst(UpperBndVal, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
  
-  bool IsNeg;
-  Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNeg);
+  bool IsNegStride;
+  Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
   StrideVal = VPOParoptUtils::cloneLoadInstruction(StrideVal, InsertPt);
     
-  if (IsNeg) {
+  if (IsNegStride) {
     ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
     StrideVal = B.CreateSub(Zero, StrideVal);
   }
   StoreInst *Tmp2 = new StoreInst(StrideVal, Stride, false, InsertPt);
   Tmp2->setAlignment(4);
 
-  StoreInst *Tmp3 = new StoreInst(RightValue, UpperD, false, InsertPt);
+  StoreInst *Tmp3 = new StoreInst(UpperBndVal, UpperD, false, InsertPt);
   Tmp3->setAlignment(4);
 
   StoreInst *Tmp4 = new StoreInst(ValueZero, IsLastVal, false, InsertPt);
   Tmp4->setAlignment(4);
 
+  ICmpInst* LoopBottomTest = WRegionUtils::getOmpLoopBottomTest(L);
 
-  CallInst* StaticInitCall = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
+  bool IsUnsigned = LoopBottomTest->isUnsigned();
+  int Size = LowerBnd->getType()
+                     ->getPointerElementType()->getIntegerBitWidth();
+
+  CallInst* KmpcInitCI;
+  CallInst* KmpcFiniCI;
+  CallInst* KmpcNextCI;
+
+  Value *ChunkVal = (SchedKind == WRNScheduleStaticEven) ? 
+                                  ValueOne : W->getSchedule().getChunkExpr();
+
+  DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
+
+  if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) { 
+    // Geneate __kmpc__for_static_init_4{u}/8(u} Call Instruction
+    KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd, 
-                               UpperBnd, Stride, ValueOne, ValueOne, InsertPt);
+                               UpperBnd, Stride, StrideVal, ValueOne, 
+                               Size, IsUnsigned, InsertPt);
+  }
+  else {
+    // Geneate __kmpc_dispatch_init_4{u}/8(u} Call Instruction
+    KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
+                               LoadTid, SchedType, InitVal, UpperBndVal,   
+                               StrideVal, ChunkVal, Size, IsUnsigned, InsertPt);
 
-  StaticInitCall->setCallingConv(CallingConv::C);
+    // Geneate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
+    KmpcNextCI = VPOParoptUtils::genKmpcDispatchNext(W, IdentTy,
+                               LoadTid, IsLastVal, LowerBnd, 
+                               UpperBnd, Stride, Size, IsUnsigned, InsertPt);
+  } 
 
   LoadInst *LoadLB = new LoadInst(LowerBnd, "lb.new", InsertPt);
   LoadLB->setAlignment(4);
@@ -504,26 +532,20 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadInst *LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
   LoadUB->setAlignment(4);
 
-
   PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
   PN->removeIncomingValue(L->getLoopPreheader());
   PN->addIncoming(LoadLB, L->getLoopPreheader());
 
-  BasicBlock *ExitBlock = WRegionUtils::getOmpExitBlock(L);
+  BasicBlock *LoopExitBB = WRegionUtils::getOmpExitBlock(L);
 
   bool IsLeft;
-  CmpInst::Predicate PD = 
-    VPOParoptUtils::computeOmpPredicate(
-      WRegionUtils::getOmpPredicate(L, IsLeft));
-
+  CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate( 
+                                   WRegionUtils::getOmpPredicate(L, IsLeft));
   ICmpInst* CompInst;
   if (IsLeft)
     CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
   else
     CompInst = new ICmpInst(InsertPt, PD, LoadUB, LoadLB, "");
-
-  LoadUB = new LoadInst(UpperBnd, "ub.new", InsertPt);
-  LoadUB->setAlignment(4);
 
   VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
 
@@ -532,19 +554,222 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
          "Expect preheader BB has one exit!");
 
   TerminatorInst *NewTermInst = BranchInst::Create(PreHdrInst->getSuccessor(0),
-                                                   ExitBlock,
-                                                   CompInst);
+                                                   LoopExitBB, CompInst);
   ReplaceInstWithInst(InsertPt, NewTermInst);
 
-  BasicBlock *StaticInitBB = NewTermInst->getParent();
+  BasicBlock *LoopRegionExitBB = nullptr;
 
-  InsertPt = dyn_cast<Instruction>(&*ExitBlock->rbegin());
-  CallInst* StaticFiniCall = VPOParoptUtils::genKmpcStaticFini(W, IdentTy,
-                               LoadTid, InsertPt);
-  StaticFiniCall->setCallingConv(CallingConv::C);
+  if (LoopExitBB != W->getExitBBlock()) {
+    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+  }
+  else {
+    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->begin());
+    LoopRegionExitBB = SplitBlock(LoopExitBB, InsertPt, DT, LI);
+    LoopRegionExitBB->setName("loop.region.exit");
 
-  if (DT) 
-    DT->changeImmediateDominator(ExitBlock, StaticInitBB);
+    if (DT) 
+      DT->changeImmediateDominator(LoopRegionExitBB, LoopExitBB);
+
+    // After split LoopExitBB block, InsertPt is null, so we get
+    // branch instruction
+    InsertPt = dyn_cast<Instruction>(&*LoopExitBB->rbegin());
+
+    W->setExitBBlock(LoopRegionExitBB);
+  }
+
+  if (SchedKind == WRNScheduleStaticEven) {
+
+    BasicBlock *StaticInitBB = KmpcInitCI->getParent();
+
+    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W, 
+                                        IdentTy, LoadTid, InsertPt);
+    KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    if (DT) 
+      DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
+
+    // There are new BBlocks generated, so we need to re-collect BBSet 
+    W->populateBBSet();
+  }
+  else if (SchedKind == WRNScheduleStatic) {
+
+    //// DEBUG(dbgs() << "Before Loop Scheduling : " 
+    ////              << *(LoopExitBB->getParent()) << "\n\n");
+
+    BasicBlock *StaticInitBB = KmpcInitCI->getParent();
+
+    KmpcFiniCI = VPOParoptUtils::genKmpcStaticFini(W, 
+                                        IdentTy, LoadTid, InsertPt);
+    KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    //                          |
+    //                    dispatch.header <----------------+
+    //                       |       |                     |
+    //                       |   dispatch.min.ub           |
+    //                       |       |                     |
+    //   +---------------- dispatch.body                   |
+    //   |                      |                          | 
+    //   |                  loop body <------+             |
+    //   |                      |            |             |
+    //   |                    .....          |             |
+    //   |                      |            |             |
+    //   |               loop bottom test ---+             |
+    //   |                      |                          |
+    //   |                      |                          |
+    //   |                dispatch.inc                     |
+    //   |                      |                          |
+    //   |                      +--------------------------+
+    //   |                     
+    //   +--------------> dispatch.latch
+    //                          |
+
+    // Generate dispatch header BBlock
+    BasicBlock *DispatchHeaderBB = SplitBlock(StaticInitBB, LoadLB, DT, LI);
+    DispatchHeaderBB->setName("dispatch.header");
+
+    // Generate a upper bound load instruction at top of DispatchHeaderBB 
+    LoadInst *TmpUB = new LoadInst(UpperBnd, "ub.tmp", LoadLB);
+
+    BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
+    DispatchBodyBB->setName("dispatch.body");
+
+    TerminatorInst *TermInst = DispatchHeaderBB->getTerminator();
+
+    ICmpInst* MinUB;
+
+    if (IsLeft)
+      MinUB = new ICmpInst(TermInst, PD, TmpUB, UpperBndVal, "ub.min");
+    else
+      MinUB = new ICmpInst(TermInst, PD, UpperBndVal, TmpUB, "ub.min");
+
+    StoreInst *NewUB = new StoreInst(UpperBndVal, UpperBnd, false, TermInst);
+
+    BasicBlock *DispatchMinUBB = SplitBlock(DispatchHeaderBB, NewUB, DT, LI);
+    DispatchMinUBB->setName("dispatch.min.ub");
+
+    TermInst = DispatchHeaderBB->getTerminator();
+
+    // Generate branch for dispatch.cond for get MIN upper bound   
+    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB, 
+                                                     DispatchMinUBB, MinUB);
+    ReplaceInstWithInst(TermInst, NewTermInst);
+
+    // Generate dispatch chunk increment BBlock 
+    BasicBlock *DispatchLatchBB = SplitBlock(LoopExitBB, KmpcFiniCI, DT, LI);
+
+    TermInst = LoopExitBB->getTerminator();
+    LoopExitBB->setName("dispatch.inc");
+
+    // Load Stride value to st.new
+    LoadInst *StrideVal = new LoadInst(Stride, "st.inc", TermInst);
+
+    // Generate inc.lb.new = lb.new + st.new
+    BinaryOperator *IncLB = BinaryOperator::CreateAdd(
+                                            LoadLB, StrideVal, "lb.inc");
+    IncLB->insertBefore(TermInst);
+
+    // Generate inc.lb.new = lb.new + st.new
+    BinaryOperator *IncUB = BinaryOperator::CreateAdd(
+                                            LoadUB, StrideVal, "ub.inc");
+    IncUB->insertBefore(TermInst);
+
+    StoreInst *NewIncLB = new StoreInst(IncLB, LowerBnd, false, TermInst);
+    NewIncLB->setAlignment(4);
+
+    StoreInst *NewIncUB = new StoreInst(IncUB, UpperBnd, false, TermInst);
+    NewIncUB->setAlignment(4);
+
+    TermInst->setSuccessor(0, DispatchHeaderBB);
+
+    DispatchLatchBB->setName("dispatch.latch");
+
+    TermInst = DispatchBodyBB->getTerminator();
+    TermInst->setSuccessor(1, DispatchLatchBB);
+
+    if (DT) { 
+      DT->changeImmediateDominator(DispatchHeaderBB, StaticInitBB);
+
+      DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
+      DT->changeImmediateDominator(DispatchMinUBB, DispatchHeaderBB);
+
+      DT->changeImmediateDominator(DispatchLatchBB, DispatchBodyBB);
+    }
+
+    //// DEBUG(dbgs() << "After Loop Scheduling : " 
+    ////              << *(LoopExitBB->getParent()) << "\n\n");
+ 
+    // There are new BBlocks generated, so we need to re-collect BBSet 
+    W->populateBBSet();
+  }
+  else {
+    //                |
+    //      Disptach Loop HeaderBB <-----------+
+    //             lb < ub                     |
+    //              | |                        |
+    //        +-----+ |                        |
+    //        |       |                        | 
+    //        |   Loop HeaderBB: <--+          | 
+    //        |  i = phi(lb,i')     |          |
+    //        |    /  |  ...        |          |
+    //        |   /   |  ...        |          |
+    //        |  |    |             |          |
+    //        |   \   |             |          |
+    //        |    i' = i + 1 ------+          |
+    //        |     i' < ub                    |
+    //        |       |                        |
+    //        |       |                        |
+    //        |  Dispatch Loop Latch           |
+    //        |       |                        |
+    //        |       |------------------------+
+    //        |       |
+    //        +-->Loop ExitBB
+    //                |
+    KmpcFiniCI = VPOParoptUtils::genKmpcDispatchFini(W, 
+                          IdentTy, LoadTid, Size, IsUnsigned, InsertPt);
+    KmpcFiniCI->setCallingConv(CallingConv::C);
+
+    BasicBlock *DispatchInitBB = KmpcNextCI->getParent();
+
+    BasicBlock *DispatchHeaderBB = SplitBlock(DispatchInitBB, 
+                                              KmpcNextCI, DT, LI);
+    DispatchHeaderBB->setName("dispatch.header" + Twine(W->getNumber()));
+
+    BasicBlock *DispatchBodyBB = SplitBlock(DispatchHeaderBB, LoadLB, DT, LI);
+    DispatchBodyBB->setName("dispatch.body" + Twine(W->getNumber()));
+
+    TerminatorInst *TermInst = DispatchHeaderBB->getTerminator();
+
+    ICmpInst* CondInst = new ICmpInst(TermInst, ICmpInst::ICMP_NE, 
+                               KmpcNextCI, ValueZero, 
+                              "dispatch.cond" + Twine(W->getNumber()));
+
+    TerminatorInst *NewTermInst = BranchInst::Create(DispatchBodyBB, 
+                                                    LoopExitBB, CondInst);
+    ReplaceInstWithInst(TermInst, NewTermInst);
+
+    BasicBlock *DispatchFiniBB = SplitBlock(LoopExitBB, KmpcFiniCI, DT, LI);
+
+    TermInst = LoopExitBB->getTerminator();
+    TermInst->setSuccessor(0, DispatchHeaderBB);
+
+    // Update Dispatch Header BB Branch instruction
+    TermInst = DispatchHeaderBB->getTerminator();
+    TermInst->setSuccessor(1, DispatchFiniBB);
+
+    KmpcFiniCI->eraseFromParent();
+
+    if (DT) { 
+      DT->changeImmediateDominator(DispatchHeaderBB, DispatchInitBB);
+      DT->changeImmediateDominator(DispatchBodyBB, DispatchHeaderBB);
+
+      //DT->changeImmediateDominator(DispatchFiniBB, DispatchHeaderBB);
+
+      DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
+    }
+  
+    // There are new BBlocks generated, so we need to re-collect BBSet 
+    W->populateBBSet();
+  }
 
   Changed = true;
   return Changed;
@@ -1175,10 +1400,11 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 // copyin.not.master:                                ; preds = %newFuncRoot
 //   %2 = bitcast i32* %tpv_a to i8*
-//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
+//   call void @llvm.memcpy.p0i8.p0i8.i32(i8* 
+//                bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
 //   br label %copyin.not.master.end
 //
-// copyin.not.master.end:                            ; preds = %newFuncRoot, %copyin.not.master
+// copyin.not.master.end:       ; preds = %newFuncRoot, %copyin.not.master
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
@@ -1201,8 +1427,10 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // The instruction to cast the tpv pointer to int for later comparison
         // instruction. One example is as follows.
         //   %0 = ptrtoint i32* %tpv_a to i64
-        Value *TpvArg = Builder.CreatePtrToInt(&*NewArgI,Builder.getIntPtrTy(DL));
-        Value *OldTpv = Builder.CreatePtrToInt(C->getOrig(),Builder.getIntPtrTy(DL));
+        Value *TpvArg = 
+                 Builder.CreatePtrToInt(&*NewArgI,Builder.getIntPtrTy(DL));
+        Value *OldTpv = 
+                 Builder.CreatePtrToInt(C->getOrig(),Builder.getIntPtrTy(DL));
 
         // The instruction to compare between the address of tpv formal
         // arugment and the tpv accessed in the outlined function. 
