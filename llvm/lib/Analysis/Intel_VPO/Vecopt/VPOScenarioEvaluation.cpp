@@ -1022,9 +1022,8 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     int64_t StrideInBytes;
     if (Mrf && Mrf->hasAConstStride(&StrideInBytes)) {
       unsigned ElemSize = DataTy->getPrimitiveSizeInBits() / 8;
-      if (DataTy->isPointerTy()) {
-        // Avoid div-by-zero for pulldown purpose.
-        // TODO: Load can be a pointer. What do we do?
+      if (ElemSize == 0) {
+        // Avoid div-by-zero - proper fix is being checked into vpo branch
         Cost = 0;
         break; 
       }

@@ -97,7 +97,8 @@ bool VPOAnalysisUtils::isIntelDirectiveOrClause(Intrinsic::ID Id) {
   return isIntelDirective(Id) || isIntelClause(Id);
 }
 
-StringRef VPOAnalysisUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
+StringRef
+VPOAnalysisUtils::getDirectiveMetadataString(const IntrinsicInst *Call) {
   assert(isIntelDirectiveOrClause(Call->getIntrinsicID()) &&
          "Expected a call to an llvm.intel.directive* intrinsic");
 
@@ -120,7 +121,8 @@ StringRef VPOAnalysisUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
   return DirectiveStr;
 }
 
-StringRef VPOAnalysisUtils::getScheduleModifierMDString(IntrinsicInst *Call) {
+StringRef
+VPOAnalysisUtils::getScheduleModifierMDString(const IntrinsicInst *Call) {
   assert(isIntelDirectiveOrClause(Call->getIntrinsicID()) &&
          "Expected a call to an llvm.intel.directive* intrinsic");
 

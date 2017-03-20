@@ -184,19 +184,64 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   return InsertionPos;
 }
 
-bool HIRCreation::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
+void HIRCreation::populateEndBBs(
+    const BasicBlock *BB, SmallPtrSet<const BasicBlock *, 2> &EndBBs) const {
+  EndBBs.insert(BB);
 
-  if (!PDT->dominates(BB, SI->getDefaultDest())) {
-    return false;
+  auto Lp = LI->getLoopFor(BB);
+
+  if (!Lp) {
+    return;
+  }
+
+  EndBBs.insert(Lp->getHeader());
+}
+
+bool HIRCreation::isCrossLinked(const BranchInst *BI,
+                                const BasicBlock *SuccessorBB) const {
+  SmallPtrSet<const BasicBlock *, 1> FromBBs;
+  SmallPtrSet<const BasicBlock *, 2> EndBBs;
+
+  populateEndBBs(BI->getParent(), EndBBs);
+
+  if (SuccessorBB == BI->getSuccessor(0)) {
+    FromBBs.insert(BI->getSuccessor(1));
+  } else {
+    FromBBs.insert(BI->getSuccessor(0));
+  }
+
+  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
+}
+
+bool HIRCreation::isCrossLinked(const SwitchInst *SI,
+                                const BasicBlock *SuccessorBB) const {
+  SmallPtrSet<const BasicBlock *, 8> FromBBs;
+  SmallPtrSet<const BasicBlock *, 2> EndBBs;
+
+  populateEndBBs(SI->getParent(), EndBBs);
+
+  bool Skipped = false;
+
+  if (SuccessorBB != SI->getDefaultDest()) {
+    FromBBs.insert(SI->getDefaultDest());
+  } else {
+    Skipped = true;
   }
 
   for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
-    if (!PDT->dominates(BB, I.getCaseSuccessor())) {
-      return false;
+    if (SuccessorBB != I.getCaseSuccessor()) {
+      FromBBs.insert(I.getCaseSuccessor());
+
+    } else if (Skipped) {
+      // Switch has common successor bblock for some of the cases which is
+      // trivial case of cross linking.
+      return true;
+    } else {
+      Skipped = true;
     }
   }
 
-  return true;
+  return RI->isReachableFrom(SuccessorBB, EndBBs, FromBBs);
 }
 
 void HIRCreation::sortDomChildren(
@@ -208,21 +253,30 @@ void HIRCreation::sortDomChildren(
 
   // TODO: look into dom child ordering for multi-exit loops.
 
+  auto NodeBB = Node->getBlock();
+
   for (auto &I : (*Node)) {
     SortedChildren.push_back(I->getBlock());
   }
 
-  // This check orders children that post-dominate other children, before them.
+  SmallPtrSet<const BasicBlock *, 2> EndBBs;
+  EndBBs.insert(NodeBB);
+
+  // This check orders dom children that are reachable from other children,
+  // before them.
   // This is because I couldn't think of an appropriate check for sorting in the
   // reverse order. So instead the children are visited in reverse order after
   // sorting.
-  auto PostDomOrder = [this](BasicBlock *B1, BasicBlock *B2) {
+  auto ReverseLexOrder = [this, EndBBs](BasicBlock *B1, BasicBlock *B2) {
+    SmallPtrSet<const BasicBlock *, 8> FromBBs;
+    FromBBs.insert(B2);
+
     // First check satisfies the strict weak ordering requirements of
     // comparator function.
-    return ((B1 != B2) && PDT->dominates(B1, B2));
+    return ((B1 != B2) && RI->isReachableFrom(B1, EndBBs, FromBBs));
   };
 
-  std::sort(SortedChildren.begin(), SortedChildren.end(), PostDomOrder);
+  std::sort(SortedChildren.begin(), SortedChildren.end(), ReverseLexOrder);
 }
 
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
@@ -254,13 +308,22 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
       auto BI = cast<BranchInst>(BB->getTerminator());
 
       if ((DomChildBB == BI->getSuccessor(0)) &&
-          // If one of the 'if' successors post-dominates the other, it is
-          // better to link it after the 'if' instead of linking it as a child.
-          !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
+          // Other successor is a backedge, link this one after the loop to be
+          // able to get rid of the bottom test during loop formation
+          !DT->dominates(BI->getSuccessor(1), BB) &&
+          // This if successor is reachable from the other successor, link it
+          // after the 'if' to prevent jumps between the then and else case.
+          // There are couple of issues if we allow this jump-
+          // 1) If it is from the else to then case it will look like a
+          // backedge.
+          // 2) It is harder for predicate related optimizations to deal with
+          // such jumps.
+          !isCrossLinked(BI, DomChildBB)) {
         doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
         continue;
-      } else if (DomChildBB == BI->getSuccessor(1) &&
-                 !PDT->dominates(DomChildBB, BI->getSuccessor(0))) {
+      } else if ((DomChildBB == BI->getSuccessor(1)) &&
+                 !DT->dominates(BI->getSuccessor(0), BB) &&
+                 !isCrossLinked(BI, DomChildBB)) {
         doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
         continue;
       }
@@ -269,30 +332,29 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
       // Link switch's case children.
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
-      if (!postDominatesAllCases(SI, DomChildBB)) {
+      // TODO: apply the same domination logic to switches as is applied to
+      // 'ifs' to form loops with switch acting as the backedge.
+      if ((DomChildBB == SI->getDefaultDest()) &&
+          !isCrossLinked(SI, DomChildBB)) {
+        doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
+        continue;
+      }
 
-        if (DomChildBB == SI->getDefaultDest()) {
-          doPreOrderRegionWalk(DomChildBB,
-                               SwitchTerm->getLastDefaultCaseChild());
-          continue;
+      unsigned Count = 1;
+      bool IsCaseChild = false;
+
+      for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
+           ++I, ++Count) {
+        if ((DomChildBB == I.getCaseSuccessor()) &&
+            !isCrossLinked(SI, DomChildBB)) {
+          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
+          IsCaseChild = true;
+          break;
         }
+      }
 
-        unsigned Count = 1;
-        bool IsCaseChild = false;
-
-        for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
-             ++I, ++Count) {
-          if (DomChildBB == I.getCaseSuccessor()) {
-            doPreOrderRegionWalk(DomChildBB,
-                                 SwitchTerm->getLastCaseChild(Count));
-            IsCaseChild = true;
-            break;
-          }
-        }
-
-        if (IsCaseChild) {
-          continue;
-        }
+      if (IsCaseChild) {
+        continue;
       }
     }
 

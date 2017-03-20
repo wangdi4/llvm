@@ -58,6 +58,7 @@ class DDRef;
 class RegDDRef;
 class HLLoop;
 class HLNodeUtils;
+class HIRLoopStatistics;
 
 /// Dependences - This class represents a dependence between two memory
 /// memory references in a function. It contains minimal information and
@@ -116,7 +117,7 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
   /// Is DV imply INDEP for level L on
   /// e.g.  DV = (< *)   implies INDEP for innermost loop
   /// In this example, isDVIndepFromLevel(2) return true
-  bool isIndepFromLevel(unsigned FromLevel) const;
+  bool isIndepFromLevel(unsigned Level) const;
 
   /// Returns true if DV shows cross iter dependence at Level.
   bool isCrossIterDepAtLevel(unsigned Level) const {
@@ -325,8 +326,9 @@ class DDTest {
 
   AAResults &AAR;
   HLNodeUtils &HNU;
+  HIRLoopStatistics &HLS;
 
-  DDTest(AAResults &AAR, HLNodeUtils &HNU);
+  DDTest(AAResults &AAR, HLNodeUtils &HNU, HIRLoopStatistics &HLS);
   ~DDTest();
 
   /// \brief Tests for a dependence between the Src and Dst DDRefs

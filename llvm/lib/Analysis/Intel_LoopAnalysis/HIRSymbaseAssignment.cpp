@@ -41,22 +41,31 @@ FunctionPass *llvm::createHIRSymbaseAssignmentPass() {
 }
 
 namespace {
-class HIRSymbaseAssignmentVisitor final : public HLNodeVisitorBase {
+typedef SmallVector<DDRef *, 16> RefsTy;
 
-private:
+class HIRSymbaseAssignmentVisitor final : public HLNodeVisitorBase {
+  // TODO: probably change to DenseMap by lowering size of RefsTy once we
+  // disable llvm's complete unroll.
+  typedef std::map<Value *, RefsTy> PtrToRefsTy;
+
   HIRSymbaseAssignment *SA;
+  AliasSetTracker AST;
+  PtrToRefsTy PtrToRefs;
 
   void addToAST(RegDDRef *Ref);
-  Value *getRefPtr(RegDDRef *Ref);
 
 public:
-  AliasSetTracker AST;
-  HIRParser *HIRP;
-  std::map<Value *, SmallVector<DDRef *, 16>> PtrToRefs;
+  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment *CurSA, AliasAnalysis *AA)
+      : SA(CurSA), AST(*AA) {}
 
-  HIRSymbaseAssignmentVisitor(HIRSymbaseAssignment *CurSA, AliasAnalysis *AA,
-                              HIRParser *CurHIRP)
-      : SA(CurSA), AST(*AA), HIRP(CurHIRP) {}
+  const AliasSetTracker &getAST() const { return AST; }
+
+  const RefsTy &getRefs(Value *Ptr) const {
+    auto RefsIt = PtrToRefs.find(Ptr);
+    assert((RefsIt != PtrToRefs.end()) && "Pointer not found!");
+    return RefsIt->second;
+  }
+
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
   void postVisit(HLNode *) {}
@@ -64,30 +73,11 @@ public:
 };
 }
 
-// Returns a value* for base ptr of ref
-Value *HIRSymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
-  if (CanonExpr *CE = Ref->getBaseCE()) {
-    assert(CE->hasBlob());
-    for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
-      // Even if there are multiple ptr blobs, will AA make correct choice?
-      const SCEV *Blob = CE->getBlobUtils().getBlob(I->Index);
-      if (Blob->getType()->isPointerTy()) {
-        const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
-        return PtrSCEV->getValue();
-      }
-    }
-  } else {
-    assert(Ref->isTerminalRef() && "DDRef is in an inconsistent state!");
-    assert(Ref->getSymbase() && "Scalar DDRef was not assigned a symbase!");
-  }
-  return nullptr;
-}
-
 // TODO: add special handling for memrefs with undefined base pointers.
 void HIRSymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
   assert(!Ref->isTerminalRef() && "Non terminal ref is expected.");
 
-  Value *Ptr = getRefPtr(Ref);
+  Value *Ptr = SA->getGEPRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
 
@@ -123,6 +113,10 @@ void HIRSymbaseAssignment::initializeMaxSymbase() {
   DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
 }
 
+Value *HIRSymbaseAssignment::getGEPRefPtr(RegDDRef *Ref) const {
+  return HIRP->getGEPRefPtr(Ref);
+}
+
 void HIRSymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
@@ -137,29 +131,29 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
 
   // Set symbase assignment.
-  HIRP->getDDRefUtils().HIRSA = this;
+  HIRP->getBlobUtils().HIRSA = this;
 
   initializeMaxSymbase();
 
-  HIRSymbaseAssignmentVisitor SV(this, AA, HIRP);
+  // Create alias sets per region.
+  for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; ++I) {
+    HIRSymbaseAssignmentVisitor SV(this, AA);
+    HLNodeUtils::visit(SV, &*I);
 
-  // Cannot use visitAll() here as HIRFramework pointer isn't set yet.
-  HLNodeUtils::visitRange(SV, HIRP->hir_begin(), HIRP->hir_end());
-  AliasSetTracker &AST = SV.AST;
+    // Each ref in a set gets the same symbase
+    for (auto &AliasSet : SV.getAST()) {
+      unsigned CurSymbase = getNewSymbase();
+      DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
+                   << "\n");
 
-  // Each ref in a set gets the same symbase
-  for (auto &AliasSet : AST) {
-    unsigned CurSymbase = getNewSymbase();
-    DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
-                 << "\n");
-
-    for (auto AV : AliasSet) {
-      Value *Ptr = AV.getValue();
-      auto &Refs = SV.PtrToRefs[Ptr];
-      for (auto CurRef : Refs) {
-        DEBUG(CurRef->dump());
-        DEBUG(dbgs() << "\n");
-        CurRef->setSymbase(CurSymbase);
+      for (auto AV : AliasSet) {
+        Value *Ptr = AV.getValue();
+        auto &Refs = SV.getRefs(Ptr);
+        for (auto CurRef : Refs) {
+          DEBUG(CurRef->dump());
+          DEBUG(dbgs() << "\n");
+          CurRef->setSymbase(CurSymbase);
+        }
       }
     }
   }

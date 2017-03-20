@@ -5,18 +5,40 @@
 
 ; CHECK: Predicator finished:
 ; CHECK: LOOP
-; CHECK: (48) PREDICATE {P48 := }
-; CHECK: (4) if /P48/  ((5)EXPR{i1 (6)VALUE{i32 %0} icmp/slt (7)VALUE{i32 101}})   {
-; CHECK: (49) PREDICATE {P49 := (48) && (56)EXPR{i1 (54)VALUE{i1 &(5)} icmp/eq (55)VALUE{i1 true}}}
-; CHECK: (8) if /P49/  ((9)EXPR{i1 (10)VALUE{i32 %1} icmp/eq (11)VALUE{i32 0}})   {
-; CHECK: (50) PREDICATE {P50 := (49) && (59)EXPR{i1 (57)VALUE{i1 &(9)} icmp/eq (58)VALUE{i1 true}}}
-; CHECK: (53) PREDICATE {P53 := (49) && (65)EXPR{i1 (63)VALUE{i1 &(9)} icmp/eq (64)VALUE{i1 false}}}
-; CHECK: (13) ASSIGN{/P53/ (26)EXPR{i32 (27)VALUE{i32* (%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %0}}}
-; CHECK: (51) PREDICATE {P51 := (48) && (62)EXPR{i1 (60)VALUE{i1 &(5)} icmp/eq (61)VALUE{i1 false}} || (50)}
-; CHECK: (15) ASSIGN{/P51/ (30)EXPR{i32 (31)VALUE{i32* (%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %2 + 5}}}
-; CHECK: (52) PREDICATE {P52 := (51) || (53)}
-; CHECK: (16) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* (%c)[i1]}}}
-; CHECK: (17) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* (%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
+; CHECK: ([[N1:[0-9]+]]) PREDICATE {P[[N1]] := }
+; CHECK: ({{[0-9]+}}) if /P[[N1]]/  (([[N7:[0-9]+]])EXPR{i1 ({{[0-9]+}})VALUE{i32 %0} icmp/slt ({{[0-9]+}})VALUE{i32 101}})   {
+; CHECK: ([[N2:[0-9]+]]) PREDICATE {P[[N2]] := ([[N1]]) && ({{[0-9]+}})EXPR{i1 ({{[0-9]+}})VALUE{i1 &([[N7]])} icmp/eq ({{[0-9]+}})VALUE{i1 true}}}
+; CHECK: ({{[0-9]+}}) if /P[[N2]]/  (([[N8:[0-9]+]])EXPR{i1 ({{[0-9]+}})VALUE{i32 %1} icmp/ne ({{[0-9]+}})VALUE{i32 0}})   {
+; CHECK: ([[N3:[0-9]+]]) PREDICATE {P[[N3]] := ([[N2]]) && ({{[0-9]+}})EXPR{i1 ({{[0-9]+}})VALUE{i1 &([[N8]])} icmp/eq ({{[0-9]+}})VALUE{i1 true}}}
+; CHECK: ({{[0-9]+}}) ASSIGN{/P[[N3]]/ ({{[0-9]+}})EXPR{i32 ({{[0-9]+}})VALUE{i32* (%b)[i1]}} = ({{[0-9]+}})EXPR{i32 store ({{[0-9]+}})VALUE{i32 5 * %0}}}
+; CHECK: ([[N4:[0-9]+]]) PREDICATE {P[[N4]] := ([[N1]]) && ({{[0-9]+}})EXPR{i1 ({{[0-9]+}})VALUE{i1 &([[N7]])} icmp/eq ({{[0-9]+}})VALUE{i1 false}} || ([[N2]]) && ({{[0-9]+}})EXPR{i1 ({{[0-9]+}})VALUE{i1 &([[N8]])} icmp/eq ({{[0-9]+}})VALUE{i1 false}}}
+; CHECK: ({{[0-9]+}}) ASSIGN{/P[[N4]]/ ({{[0-9]+}})EXPR{i32 ({{[0-9]+}})VALUE{i32* (%a)[i1]}} = ({{[0-9]+}})EXPR{i32 store ({{[0-9]+}})VALUE{i32 %2 + 5}}}
+; CHECK: ([[N5:[0-9]+]]) PREDICATE {P[[N5]] := ([[N4]]) || ([[N3]])}
+; CHECK: ({{[0-9]+}}) ASSIGN{({{[0-9]+}})EXPR{i32 ({{[0-9]+}})VALUE{i32 %3}} = ({{[0-9]+}})EXPR{i32 load ({{[0-9]+}})VALUE{i32* (%c)[i1]}}}
+; CHECK: ({{[0-9]+}}) ASSIGN{({{[0-9]+}})EXPR{i32 ({{[0-9]+}})VALUE{i32* (%c)[i1]}} = ({{[0-9]+}})EXPR{i32 store ({{[0-9]+}})VALUE{i32 (%N * %3)}}}
+
+;Predicator finished:
+;  (1) LOOP( IV )
+;  {
+;    (2) ASSIGN{(18)EXPR{i32 (19)VALUE{i32 %0}} = (20)EXPR{i32 load (21)VALUE{i32* (%b)[i1]}}}
+;    (3) ASSIGN{(22)EXPR{i32 (23)VALUE{i32 %1}} = (24)EXPR{i32 load (25)VALUE{i32* (%a)[i1]}}}
+;    (47) PREDICATE {P47 := }
+;    (4) if /P47/  ((5)EXPR{i1 (6)VALUE{i32 %0} icmp/slt (7)VALUE{i32 101}})   {
+;    }
+;    (48) PREDICATE {P48 := (47) && (54)EXPR{i1 (52)VALUE{i1 &(5)} icmp/eq (53)VALUE{i1 true}}}
+;    (8) if /P48/  ((9)EXPR{i1 (10)VALUE{i32 %1} icmp/ne (11)VALUE{i32 0}})   {
+;    }
+;    (49) PREDICATE {P49 := (48) && (57)EXPR{i1 (55)VALUE{i1 &(9)} icmp/eq (56)VALUE{i1 true}}}
+;    (12) ASSIGN{/P49/ (26)EXPR{i32 (27)VALUE{i32* (%b)[i1]}} = (28)EXPR{i32 store (29)VALUE{i32 5 * %0}}}
+;    (51) PREDICATE {P51 := (47) && (60)EXPR{i1 (58)VALUE{i1 &(5)} icmp/eq (59)VALUE{i1 false}} || (48) && (63)EXPR{i1 (61)VALUE{i1 &(9)} icmp/eq (62)VALUE{i1 false}}}
+;    (14) ASSIGN{/P51/ (30)EXPR{i32 (31)VALUE{i32* (%a)[i1]}} = (32)EXPR{i32 store (33)VALUE{i32 %2 + 5}}}
+;    (50) PREDICATE {P50 := (51) || (49)}
+;    (15)  AVR_LABEL:<28> |   for.inc:
+;
+;      (16) ASSIGN{(34)EXPR{i32 (35)VALUE{i32 %3}} = (36)EXPR{i32 load (37)VALUE{i32* (%c)[i1]}}}
+;    (17) ASSIGN{(38)EXPR{i32 (39)VALUE{i32* (%c)[i1]}} = (40)EXPR{i32 store (41)VALUE{i32 (%N * %3)}}}
+;  }
+
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
 ; 2. opt test_noopt.ll -O2 -debug-pass=Arguments

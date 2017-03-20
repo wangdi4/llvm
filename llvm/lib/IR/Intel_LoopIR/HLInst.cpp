@@ -419,14 +419,22 @@ bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
   return true;
 }
 
-bool HLInst::isSIMDDirective() const {
+bool HLInst::isIntelDirective(int DirectiveID) const {
   Intrinsic::ID IntrinID;
-  if (!isIntrinCall(IntrinID) || 
+
+  if (!isIntrinCall(IntrinID) ||
       !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
     return false;
   }
-  // TODO: check metadata
-  return true;
+
+  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
+  auto DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(Call);
+
+  return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;
+}
+
+bool HLInst::isSIMDDirective() const {
+  return isIntelDirective(DIR_OMP_SIMD);
 }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {

@@ -58,7 +58,8 @@ RegDDRef::GEPInfo::GEPInfo()
 RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
       AddressOf(Info.AddressOf), Volatile(Info.Volatile),
-      Alignment(Info.Alignment), MDNodes(Info.MDNodes) {}
+      Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
+      MDNodes(Info.MDNodes) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -278,8 +279,9 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << ")";
     }
 
-    for (auto I = canon_rbegin(), E = canon_rend(); I != E; ++I) {
-      if (hasGEPInfo()) {
+    unsigned DimNum = getNumDimensions();
+    for (auto I = canon_rbegin(), E = canon_rend(); I != E; ++I, --DimNum) {
+      if (HasGEP) {
         OS << "[";
       }
 
@@ -287,6 +289,14 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
       if (HasGEP) {
         OS << "]";
+
+        auto Offsets = getTrailingStructOffsets(DimNum);
+
+        if (Offsets) {
+          for (auto OffsetVal : *Offsets) {
+            OS << "." << OffsetVal;
+          }
+        }
       }
     }
 
@@ -304,69 +314,56 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   DDRef::print(OS, Detailed);
 }
 
+SequentialType *RegDDRef::getDimensionType(unsigned DimensionNum) const {
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+  assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
+
+  unsigned NumDims = getNumDimensions();
+  Type *RetTy = getBaseCE()->getSrcType();
+
+  for (unsigned I = NumDims; I > DimensionNum; --I) {
+    RetTy = RetTy->getSequentialElementType();
+
+    if (RetTy->isStructTy()) {
+      auto Offsets = getTrailingStructOffsets(I);
+      RetTy = DDRefUtils::getOffsetType(RetTy, *Offsets);
+    }
+  }
+
+  assert((RetTy->isArrayTy() || RetTy->isPointerTy()) &&
+         "Dimension type should be either a pointer or an array type!");
+  return cast<SequentialType>(RetTy);
+}
+
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
   const CanonExpr *CE = nullptr;
 
   if (hasGEPInfo()) {
     CE = getBaseCE();
 
+    PointerType *BaseSrcTy = cast<PointerType>(CE->getSrcType());
     auto BaseDestTy = CE->getDestType();
 
-    // For addressof DDREF, widening sets DestType appropriately to a vector of
-    // pointers - return the same.
-    if (!IsSrc && isAddressOf() && isa<VectorType>(BaseDestTy)) {
-      return BaseDestTy;
+    // If BaseCE's dest type is different that the src type, it refers to Ref's
+    // destination type.
+    if (!IsSrc && (BaseSrcTy != BaseDestTy)) {
+      return isAddressOf() ? BaseDestTy
+                           : BaseDestTy->getSequentialElementType();
     }
 
-    PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
-                                : cast<PointerType>(BaseDestTy);
-
-    // Get base pointer's contained type.
-    // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
-    // [101 x float]].
-    Type *RetTy = BaseTy->getElementType();
-
-    unsigned I = 0;
-    // Subtract 1 for the pointer dereference.
-    unsigned NumDim = getNumDimensions() - 1;
-
-    // Recurse into the array type(s).
-    // Assuming NumDim is 2 and RetTy is [7 x [101 x float]], the following
-    // loop will set RetTy as float.
-    for (I = 0; I < NumDim; ++I) {
-      if (auto ArrTy = dyn_cast<ArrayType>(RetTy)) {
-        RetTy = ArrTy->getElementType();
-      } else {
-        break;
-      }
+    // Extract the type from the first dimension/offsets.
+    auto RefTy = getDimensionElementType(1);
+    auto Offsets = getTrailingStructOffsets(1);
+    if (Offsets) {
+      RefTy = DDRefUtils::getOffsetType(RefTy, *Offsets);
     }
-
-    // 'I' can be less than NumDim for destination type for cases like this-
-    // %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
-    // %190 = bitcast float* %arrayidx to i32*
-    // store i32 %189, i32* %190
-    //
-    // The DDRef looks like this in HIR-
-    // *(i32*)(%ex1)[0][i1]
-    //
-    // The base canon expr is stored like this-
-    // bitcast.[1001 x float]*.i32*(%ex1)
-    // The represented cast is imprecise because the actual casting occurs
-    // from float* to i32*. The stored information is enough to generate the
-    // correct code, though. This setup needs to be rethought if the
-    // transformations want to access three different types involved here-
-    // [1001 x float]*, float* and i32*. We are currently not storing the
-    // intermediate float* type but it can be computed on the fly.
-    //
-    // TODO: Rethink the setup, if required.
-    assert((!IsSrc || (I == NumDim)) && "Malformed DDRef!");
 
     // For DDRefs representing addresses, we need to return a pointer to
-    // RetTy.
+    // RefTy.
     if (isAddressOf()) {
-      return PointerType::get(RetTy, BaseTy->getAddressSpace());
+      return PointerType::get(RefTy, BaseSrcTy->getAddressSpace());
     } else {
-      return RetTy;
+      return RefTy;
     }
 
   } else {
@@ -374,6 +371,20 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     assert(CE && "DDRef is empty!");
     return IsSrc ? CE->getSrcType() : CE->getDestType();
   }
+}
+
+bool RegDDRef::accessesStruct() const {
+  if (!hasGEPInfo()) {
+    return false;
+  }
+
+  auto BaseTy = getBaseSrcType();
+
+  do {
+    BaseTy = BaseTy->getSequentialElementType();
+  } while (isa<SequentialType>(BaseTy));
+
+  return BaseTy->isStructTy();
 }
 
 bool RegDDRef::isLval() const {
@@ -553,7 +564,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     if (Index != InvalidBlobIndex) {
       StrideAtLevel->addBlob(Index, Coeff * DimStride);
     } else {
-      StrideAtLevel->addConstant(Coeff * DimStride);
+      StrideAtLevel->addConstant(Coeff * DimStride, false);
     }
   }
 
@@ -580,48 +591,10 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  SmallVector<uint64_t, 9> Strides;
-  Type *BaseTy = getBaseSrcType();
+  auto DimElemType = getDimensionType(DimensionNum)->getElementType();
+  uint64_t Stride = getCanonExprUtils().getTypeSizeInBits(DimElemType) / 8;
 
-  assert(isa<PointerType>(BaseTy) && "DDRef base type is not a pointer type!");
-
-  BaseTy = cast<PointerType>(BaseTy)->getElementType();
-
-  // Collect number of elements in each dimension.
-  for (; ArrayType *ArrType = dyn_cast<ArrayType>(BaseTy);
-       BaseTy = ArrType->getElementType()) {
-    Strides.push_back(ArrType->getNumElements());
-  }
-
-  assert((BaseTy->isIntegerTy() || BaseTy->isFloatingPointTy() ||
-          BaseTy->isPointerTy()) &&
-         "Unexpected DDRef primary element type!");
-
-  uint64_t ElementSize = getCanonExprUtils().getTypeSizeInBits(BaseTy) / 8;
-
-  // If the actual number of dimensions differ from the maximum number of
-  // dimensions we need to account for the offset. For example, suppose the base
-  // type is [10 x [10 x i32]]* which has a maximum of 3 dimensions, one for
-  // pointer and two for the arrays. If the actual number of dimensions is 3,
-  // the innermost type is i32 and its stride is 4 bytes. But if the actual
-  // number of dimensions is 2, the innermost type is [10 x i32] which has a
-  // stride of 40 bytes.
-  //
-  // Added one to include the pointer dimension.
-  unsigned Offset = (Strides.size() + 1) - getNumDimensions();
-
-  // We subtract 1 for the innermost dimension as ElementSize already represents
-  // the innermost stride.
-  unsigned Count = DimensionNum + Offset - 1;
-
-  // Multiply number of elements in each dimension by the element size.
-  // We need to do a reverse traversal from the smallest(innermost) to
-  // largest(outermost) dimension.
-  for (auto I = Strides.rbegin(); Count > 0; --Count, ++I) {
-    ElementSize *= (*I);
-  }
-
-  return ElementSize;
+  return Stride;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
@@ -720,6 +693,7 @@ bool RegDDRef::replaceTempBlob(unsigned OldIndex, unsigned NewIndex) {
 
   auto BRef = getBlobDDRef(OldIndex);
   assert(Replaced && BRef && "Inconsistent DDRef found!");
+  (void)Replaced;
 
   BRef->replaceBlob(NewIndex);
 
@@ -988,7 +962,13 @@ void RegDDRef::verify() const {
       assert(isa<PointerType>(CE->getDestType()) &&
              "Invalid BaseCE dest type!");
     }
-    assert(CE->isStandAloneBlob() && "BaseCE is not a standalone blob!");
+    assert((CE->isStandAloneBlob() || CE->isNull()) &&
+           "BaseCE is not a standalone blob!");
+
+    for (auto CEI = canon_begin(), E = canon_end(); CEI != E; ++CEI) {
+      assert((*CEI)->getSrcType()->isIntOrIntVectorTy() &&
+             "Subscript should be integer type!");
+    }
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
@@ -1012,9 +992,62 @@ void RegDDRef::verify() const {
            "Constant DDRef's symbase is incorrect!");
   }
 
-  assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
-         "GEP DDRefs should have a base canon expression!");
-
   // Verify symbase value if this DDRef is defined
   DDRef::verify();
+}
+
+void std::default_delete<RegDDRef>::operator()(RegDDRef *Ref) const {
+  Ref->getDDRefUtils().destroy(Ref);
+}
+
+void RegDDRef::setTrailingStructOffsets(
+    unsigned DimensionNum, const SmallVectorImpl<unsigned> &Offsets) {
+  createGEP();
+
+  if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
+    // Nothing to do as the incoming offsets for this dimension are empty and
+    // no offsets are currently set.
+    if (Offsets.empty()) {
+      return;
+    }
+
+    getGEPInfo()->DimensionOffsets.resize(DimensionNum);
+  }
+
+  auto &DimOffsets = getGEPInfo()->DimensionOffsets[DimensionNum - 1];
+
+  DimOffsets.clear();
+  DimOffsets.append(Offsets.begin(), Offsets.end());
+}
+
+const SmallVectorImpl<unsigned> *
+RegDDRef::getTrailingStructOffsets(unsigned DimensionNum) const {
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+  assert(hasGEPInfo() && " Offsets are not meaningful for non-GEP DDRefs!");
+
+  if (getGEPInfo()->DimensionOffsets.size() < DimensionNum) {
+    return nullptr;
+  }
+
+  if (getGEPInfo()->DimensionOffsets[DimensionNum - 1].empty()) {
+    return nullptr;
+  }
+
+  return &getGEPInfo()->DimensionOffsets[DimensionNum - 1];
+}
+
+bool RegDDRef::hasTrailingStructOffsets() const {
+  // If the offset vector is empty return false.
+  if (getGEPInfo()->DimensionOffsets.empty()) {
+    return false;
+  }
+
+  // Look for any non-empty offsets in the vector.
+  for (auto &Offsets : getGEPInfo()->DimensionOffsets) {
+    if (!Offsets.empty()) {
+      return true;
+    }
+  }
+
+  return false;
 }

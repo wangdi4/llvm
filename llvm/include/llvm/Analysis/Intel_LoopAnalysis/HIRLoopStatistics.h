@@ -111,7 +111,7 @@ public:
 
   bool runOnFunction(Function &F) override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   void releaseMemory() override;
 

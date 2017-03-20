@@ -163,7 +163,7 @@ public:
 
   DenseMap<HLNode *, DistPPNode *> &getNodeMap() { return HLToDistPPNodeMap; }
 
-  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA);
+  DistPPGraph(HLLoop *Loop, HIRDDAnalysis *DDA, HIRLoopStatistics *HLS);
 
   // TODO destruction needs to be handled carefully if we want
   // to reuse graph from inner loop dist in outer loop distribution
@@ -277,11 +277,12 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
   DDGraph *LoopDDGraph;
   DistPPGraph *DistG;
   HLLoop *Loop;
+  HIRLoopStatistics *HLS;
   unsigned EdgeCount = 0;
   typedef DenseMap<DistPPNode *, SmallVector<const DDEdge *, 16>> EdgeNodeMapTy;
   DistributionEdgeCreator(DDGraph *DDG, DistPPGraph *DistPreProcGraph,
-                          HLLoop *Loop)
-      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop) {}
+                          HLLoop *Loop, HIRLoopStatistics *HLS)
+      : LoopDDGraph(DDG), DistG(DistPreProcGraph), Loop(Loop), HLS(HLS) {}
 
   void processOutgoingEdges(DDRef *Ref, EdgeNodeMapTy &EdgeMap) {
     DenseMap<HLNode *, DistPPNode *> &HLNodeToDistPPNode = DistG->getNodeMap();
@@ -348,7 +349,7 @@ struct DistributionEdgeCreator final : public HLNodeVisitorBase {
     if (Edge->getDVAtLevel(LoopLevel) == DVKind::LE) {
       HLNode *SrcHIR = DDRefSrc->getHLDDNode();
       HLNode *DstHIR = DDRefSink->getHLDDNode();
-      if (!SrcHIR->getHLNodeUtils().dominates(SrcHIR, DstHIR)) {
+      if (!HLNodeUtils::dominates(SrcHIR, DstHIR, HLS)) {
         return true;
       }
     }

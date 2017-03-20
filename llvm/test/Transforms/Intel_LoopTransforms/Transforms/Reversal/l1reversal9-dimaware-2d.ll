@@ -53,14 +53,14 @@
 ; ===-----------------------------------===
 ; *** Run0: BEFORE HIR Loop Reversal ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	\
+; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-before=hir-loop-reversal -S 2>&1	\
 ; RUN: < %s  |	FileCheck %s -check-prefix=BEFORE 
 ;
 ;
 ; ===-----------------------------------===
 ; *** Run1: AFTER HIR Loop Reversal, DOESN'T REVERSE anything ***
 ; ===-----------------------------------===
-; RUN: opt -hir-ssa-deconstruction -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1	\
+; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-loop-reversal -print-after=hir-loop-reversal -S 2>&1	\
 ; RUN: < %s  |	FileCheck %s -check-prefix=AFTER 
 ;
 ;
@@ -68,16 +68,6 @@
 ; *** Tests0: W/O HIR Loop Reversal Output ***
 ; === -------------------------------------- ===
 ; Expected output before Loop Reversal
-; 
-;          BEGIN REGION { }
-;<23>            + DO i1 = 0, 4, 1   <DO_LOOP>
-;<4>             |   %1 = {vol}(@B)[0][-1 * i1 + 10][i1];
-;<8>             |   {vol}(@A)[0][-1 * i1 + 10][2] = -1 * i1 + %1;
-;<11>            |   %4 = {vol}(@B)[0][-1 * i1 + 20][2];
-;<16>            |   {vol}(@A)[0][1][-1 * i1 + 20] = 2 * i1 + %4;
-;<23>            + END LOOP
-;          END REGION
-;
 ; 
 ; BEFORE:  BEGIN REGION { }
 ; BEFORE:        + DO i1 = 0, 4, 1   <DO_LOOP>
@@ -94,16 +84,6 @@
 ; === -------------------------------------- ===
 ; Expected output AFTER	 Loop Reversal 
 ;
-;          BEGIN REGION { }
-;<23>            + DO i1 = 0, 4, 1   <DO_LOOP>
-;<4>             |   %1 = {vol}(@B)[0][-1 * i1 + 10][i1];
-;<8>             |   {vol}(@A)[0][-1 * i1 + 10][2] = -1 * i1 + %1;
-;<11>            |   %4 = {vol}(@B)[0][-1 * i1 + 20][2];
-;<16>            |   {vol}(@A)[0][1][-1 * i1 + 20] = 2 * i1 + %4;
-;<23>            + END LOOP
-;          END REGION
-;
-; 
 ; AFTER:  BEGIN REGION { }
 ; AFTER:        + DO i1 = 0, 4, 1   <DO_LOOP>
 ; AFTER:        |   %1 = {vol}(@B)[0][-1 * i1 + 10][i1];

@@ -42,6 +42,7 @@ class HLRegion;
 class HLDDNode;
 class HLLoop;
 class HIRFramework;
+class HIRLoopStatistics;
 struct DirectionVector;
 
 enum DDVerificationLevel {
@@ -155,20 +156,8 @@ public:
   FilterEdgeIterator outgoing_edges_end(const DDRef *Ref) const {
     return outgoing(Ref).end();
   }
-  /// \brief single edge going out of this DDRef
-  bool singleEdgeGoingOut(const DDRef *LRef) {
-
-    unsigned NumEdge = 0;
-    DDRef *Ref = const_cast<DDRef *>(LRef);
-
-    for (auto I1 = outgoing_edges_begin(Ref), E1 = outgoing_edges_end(Ref);
-         I1 != E1; ++I1) {
-      if (NumEdge++ > 1) {
-        return false;
-      }
-    }
-    return true;
-  }
+  /// Single edge going out of this DDRef.
+  bool singleEdgeGoingOut(const DDRef *LRef);
 
   void print(raw_ostream &OS) const;
 
@@ -237,13 +226,11 @@ public:
   // Note, atm the graph does not filter edges to ensure src/sink are in Node.
   // some edges may be pointing to a node that is not of interest
   DDGraph getGraph(const HLRegion *Region, bool InputEdgesReq = false) {
-    return std::move(
-        getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq));
+    return getGraphImpl(static_cast<const HLNode *>(Region), InputEdgesReq);
   }
 
   DDGraph getGraph(const HLLoop *Loop, bool InputEdgesReq = false) {
-    return std::move(
-        getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq));
+    return getGraphImpl(static_cast<const HLNode *>(Loop), InputEdgesReq);
   }
 
   /// \brief Refine DV by calling demand driven DD. Return true when RefineDV
@@ -276,6 +263,7 @@ private:
   Function *F;
   std::unique_ptr<AAResults> AAR;
   HIRFramework *HIRF;
+  HIRLoopStatistics *HLS;
 
   // GraphState initializes to NoData by default.
   enum class GraphState : unsigned char {

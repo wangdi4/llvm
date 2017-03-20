@@ -36,6 +36,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <map>
 
@@ -472,7 +473,7 @@ private:
 public:
   explicit OVLSConstant(OVLSType T, int8_t *V) : OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
-    memcpy(ConstValue, V, T.getSize());
+    memcpy(ConstValue, V, T.getSize() / BYTE);
   }
 
   static bool classof(const OVLSOperand *Operand) {
@@ -743,6 +744,97 @@ class OVLSCostModel {
       IsAlternate = Mask[i] == (int)((i & 1) ? i : MaskSize + i);
     }
     return IsAlternate;
+  }
+
+  // Returns true if Mask represents either the lower half
+  // or the upper half of the source-vector; Otherwise, returns false.
+  // For example, returns true for
+  // mask: <0, 1, -1, -1> or <2, 3, -1, -1> for a source: <0, 1, 2, 3>.
+  //
+  // This routine follows the semantics of [v]extracti128.
+  // It assumes mask size equals the source-vector size since there is no
+  // source vector size. If size of the Mask
+  // does not equal the source-vector size, this routine will compute
+  // incorrect result because the mask index will be misleading.
+  // Here is an example: A<0, 1, 2, 3>, B<4, 5, 6, 7>; if Mask is <0, 1> which
+  // contains only 2 elements, will not be considered as a lower/upper
+  // subvector.
+  // Because it does not know the size of source. Therefore, it considers 2 as
+  // source size. Where the lower subvector will be <0> and the upper subvector
+  // should be <1>.
+  // TODO: Support extracting other possible sized subvectors.
+  bool isExtractSubvectorMask(SmallVectorImpl<int> &Mask) const {
+    bool IsExtract = true;
+    int MaskSize = Mask.size();
+
+    if (MaskSize <= 1 || !isPowerOf2_32(MaskSize))
+      return false;
+
+    int Modulo = MaskSize / 2;
+    int StartElem = Mask[0];
+    if (StartElem != 0 && StartElem != Modulo)
+      return false;
+
+    // A<0, 1, 2, 3>
+    // Example of an extract vector mask <0, 1, -1, -1> or <2, 3, -1, -1>
+    for (int i = 0; i < MaskSize && IsExtract; ++i) {
+      if (i >= Modulo) {
+        if (Mask[i] < 0)
+          continue;
+        else
+          return false;
+      }
+
+      IsExtract = Mask[i] == StartElem + i;
+    }
+
+    return IsExtract;
+  }
+
+  /// Returns true if Mask represents insertion of lower half of the 2nd
+  /// src-vector into the 1st src-vector, returns false otherwise. When
+  /// returns true it updates Index and NumSubVecElems.
+  /// Index represents where in the list of subvectors to insert the new
+  /// subvector. NumSubVecElems represents the size of the inserted vector.
+  /// After insertion the new subvector at index i, the new subvector will be
+  /// the ith subvector in the list of subvectors
+  /// E.g.  Src1<0, 1, 2, 3>, Src2<4, 5, 6, 7>;
+  /// Allowed masks are <4, 5, 2, 3> and <0, 1, 4, 5>.
+  /// Strictly honors, X86 (v)insertX semantics.
+  /// TODO: Only detects masks with half-vector insertion. Support masks
+  /// inserting other-sized vectors(specially the quarter-sized).
+  bool isInsertSubvectorMask(SmallVectorImpl<int> &Mask, int &Index,
+                             unsigned &NumSubVecElems) const {
+    bool InsertIntoUpperHalf = false;
+    bool InsertIntoLowerHalf = false;
+
+    int i;
+    int Size = Mask.size();
+    int LowerHalfUB = Size / 2;
+
+    // TODO: Supports undefined.
+    for (i = 0; i < LowerHalfUB; ++i)
+      if (Mask[i] == Size + i && !InsertIntoUpperHalf)
+        InsertIntoLowerHalf = true;
+      else if (Mask[i] == i && !InsertIntoLowerHalf)
+        InsertIntoUpperHalf = true;
+      else
+        return false;
+
+    bool IsInsert = true;
+    for (; i < Size && IsInsert; ++i)
+      IsInsert =
+          InsertIntoLowerHalf ? Mask[i] == i : Mask[i] == i + LowerHalfUB;
+
+    if (IsInsert) {
+      if (InsertIntoLowerHalf)
+        Index = 0;
+      else
+        Index = 1;
+      NumSubVecElems = LowerHalfUB;
+    }
+
+    return IsInsert;
   }
 
 protected:

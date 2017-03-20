@@ -90,6 +90,9 @@ FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
+
+/// Creates pass that replaces loads and stores with memsets and memcpys.
+FunctionPass *createHIRIdiomRecognitionPass();
 }
 
 #endif

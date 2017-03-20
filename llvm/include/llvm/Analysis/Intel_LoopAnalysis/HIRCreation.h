@@ -19,6 +19,7 @@
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "llvm/IR/Dominators.h"
@@ -98,8 +99,17 @@ private:
   /// \brief Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// \brief Returns true if the passed in BB post dominates all switch cases.
-  bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
+  /// Helper to populate \p EndBBs before calling isReachableFrom().
+  void populateEndBBs(const BasicBlock *BB,
+                      SmallPtrSet<const BasicBlock *, 2> &EndBBs) const;
+
+  /// Returns true if \p SuccessorBB is cross linked to (reachable from) the
+  /// other successor of \p BI.
+  bool isCrossLinked(const BranchInst *BI, const BasicBlock *SuccessorBB) const;
+
+  /// Returns true if \p SuccessorBB is cross linked to (reachable from) any of
+  /// the other successors of \p SI.
+  bool isCrossLinked(const SwitchInst *SI, const BasicBlock *SuccessorBB) const;
 
   /// \brief Sorts the dominator children of Node using post dominator
   /// relationship.

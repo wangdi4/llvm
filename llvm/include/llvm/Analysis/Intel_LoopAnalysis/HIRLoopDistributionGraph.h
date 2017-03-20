@@ -29,6 +29,8 @@ namespace llvm {
 
 namespace loopopt {
 class PiGraph;
+class HIRLoopStatistics;
+
 // Similar to a dist node, this is in a indivisible bit of the program.
 // However a piblock is an scc of dist nodes. The scc's should be emitted
 // in lexically increasing order in order to preserve incoming program order.
@@ -161,8 +163,8 @@ class PiGraph : public HIRGraph<PiBlock, PiGraphEdge> {
   DistPPGraph *PPGraph;
 
 public:
-  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA) {
-    PPGraph = new DistPPGraph(Loop, DDA);
+  PiGraph(HLLoop *Loop, HIRDDAnalysis *DDA, HIRLoopStatistics *HLS) {
+    PPGraph = new DistPPGraph(Loop, DDA, HLS);
 
     if (!isGraphValid()) {
       return;
