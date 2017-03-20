@@ -88,6 +88,7 @@ LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
 #if INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_OPENMP
 LANGOPT(IntelOpenMP, 1, 0, "Intel specific OpenMP codegen")
+LANGOPT(IntelOpenMPRegion, 1, 0, "Intel specific OpenMP codegen with regions")
 #endif // INTEL_SPECIFIC_OPENMP
 LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")

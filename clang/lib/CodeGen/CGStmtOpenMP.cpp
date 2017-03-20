@@ -1278,7 +1278,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
                                       JumpDest LoopExit) {
   RunCleanupsScope BodyScope(*this);
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelOpenMP) {
+  if (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion) {
     // Emit variables for orignal loop controls
     for (auto *E : D.counters()) {
       auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
@@ -1296,7 +1296,7 @@ void CodeGenFunction::EmitOMPLoopBody(const OMPLoopDirective &D,
   }
   // Update the linear variables.
 #if INTEL_SPECIFIC_OPENMP
-  if (!CGM.getLangOpts().IntelOpenMP)
+  if (!CGM.getLangOpts().IntelOpenMP && !CGM.getLangOpts().IntelOpenMPRegion)
 #endif // INTEL_SPECIFIC_OPENMP
   for (const auto *C : D.getClausesOfKind<OMPLinearClause>()) {
     for (auto *U : C->updates())

@@ -123,8 +123,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   EmitStopPoint(S);
 
 #if INTEL_SPECIFIC_OPENMP
-  if (CGM.getLangOpts().IntelCompat && CGM.getLangOpts().IntelOpenMP) {
-
+  if (CGM.getLangOpts().IntelCompat &&
+      (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S)) {
       bool NeedsLoopTransform = needsLoopTransformation(Dir);
 
