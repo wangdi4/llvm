@@ -20,6 +20,7 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -52,52 +53,10 @@ RunSXU("csa-run-sxu", cl::Hidden,
   cl::desc("CSA Specific: run on sequential unit"),
   cl::init(0));
 
-
-// Flag for controlling code that deals with memory ordering.
-enum OrderMemopsMode {
-  // No extra code added at all for ordering.  Often incorrect.  
-  none = 0,
-
-  // Linear ordering of all memops.  Dumb but should be correct.  
-  linear = 1,
-  
-  //  Stores inside a basic block are totally ordered.
-  //  Loads ordered between the stores, but
-  //  unordered with respect to each other.
-  //  No reordering across basic blocks.
-  wavefront = 2,
-};
-
-static cl::opt<OrderMemopsMode>
-OrderMemopsType("csa-order-memops-type",
-                cl::Hidden,
-                cl::desc("CSA Specific: Order memory operations"),
-                cl::values(clEnumVal(none,
-                                     "No memory ordering. Possibly incorrect"),
-                           clEnumVal(linear,
-                                     "Linear ordering. Dumb but incorrect"),
-                           clEnumVal(wavefront,
-                                     "Totally ordered stores, parallel loads between stores.")),
-                cl::init(OrderMemopsMode::wavefront));
-
-//  Boolean flag.  If it is set to 0, we force "none" for memory
-//  ordering.  Otherwise, we just obey the OrderMemopsType variable.
 static cl::opt<int>
-OrderMemops("csa-order-memops",
-            cl::Hidden,
-            cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
-            cl::init(1));
-
-// The register class we are going to use for all the memory-op
-// dependencies.  Technically they could be I0, but I don't know how
-// happy LLVM will be with that.
-const TargetRegisterClass* MemopRC = &CSA::I1RegClass;
-
-
-// Width of vectors we are using for memory op calculations.
-// TBD(jsukha): As far as I know, this value only affects performance,
-// not correctness?
-#define MEMDEP_VEC_WIDTH 8
+UseDynamicPred("csa-dynamic-pred", cl::Hidden,
+  cl::desc("CSA Specific: run on sequential unit"),
+  cl::init(0));
 
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
 
@@ -132,6 +91,7 @@ namespace llvm {
       //AU.addRequired<LiveVariables>();
       AU.addRequired<MachineDominatorTree>();
       AU.addRequired<MachinePostDominatorTree>();
+      AU.addRequired<AAResultsWrapperPass>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -154,8 +114,12 @@ namespace llvm {
     bool hasStraightExitings(MachineLoop* mloop);
     void replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb);
     void generateCompletePickTreeForPhi(MachineBasicBlock *);
-    void generateDynamicPickTreeForPhi(MachineBasicBlock *);
+    void generateDynamicPickTreeForFooter(MachineBasicBlock *);
+    void generateDynamicPickTreeForHeader(MachineBasicBlock*);
+    bool needDynamicPreds();
+    bool needDynamicPreds(MachineLoop* L);
     void generateDynamicPreds();
+    void generateDynamicPreds(MachineLoop* L);
     void replacePhiForUnstructed();
     void replacePhiForUnstructedLoop(MachineLoop* L);
     unsigned getEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType);
@@ -163,10 +127,12 @@ namespace llvm {
     unsigned getBBPred(MachineBasicBlock* inBB);
     void setBBPred(MachineBasicBlock* inBB, unsigned ch);
     MachineInstr* getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2);
-    unsigned computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB);
-    unsigned computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB);
-    unsigned computeBBPred(MachineBasicBlock *inBB);
+    MachineInstr* InsertPredProp(MachineBasicBlock* mbb, unsigned bbPred=0);
+    unsigned computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB, std::list<MachineBasicBlock*> &path);
+    unsigned mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path);
+    unsigned computeBBPred(MachineBasicBlock *inBB, std::list<MachineBasicBlock*> &path);
     void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+    void CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi);
     void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr *MI);
     bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
     void replaceIfFooterPhiSeq();
@@ -180,84 +146,28 @@ namespace llvm {
     bool replaceUndefWithIgn();
     bool isUnStructured(MachineBasicBlock* mbb);
 
-    // TBD(jsukha): Experimental code for ordering of memory ops.
-    void addMemoryOrderingConstraints();
-
-    // Helper methods:
-
-    // Create a new OLD/OST instruction, to replace an existing LD /
-    // ST instruction.
-    //  issued_reg is the register to define as the extra output
-    //  ready_reg is the register which is the extra input
-    MachineInstr* convert_memop_ins(MachineInstr* memop,
-                                    unsigned new_opcode,
-                                    const CSAInstrInfo& TII,
-                                    unsigned issued_reg,
-                                    unsigned ready_reg);
-
-    // Create a dependency chain in virtual registers through the
-    // basic block BB.
-    //
-    //   mem_in_reg is the virtual register number being used as
-    //   input, i.e., the "source" for all the memory ops in this
-    //   block.
-    //
-    //   This function returns the virtual register that is the "sink"
-    //   of all the memory operations in this block.  The returned
-    //   register might be the same as the source "mem_in_reg" if
-    //   there are no memory operations in this block.
-    //
-    // This method also converts the LD/ST instructions into OLD/OST
-    // instructions, as they are encountered.
-    //
-    // linear version of this function links all memory operations in
-    // the block together in a single chain.
-    //
-    unsigned convert_block_memops_linear(MachineFunction::iterator& BB,
-                                         unsigned mem_in_reg);
-
-    // Wavefront version.   Same conceptual functionality as linear version,
-    // but more optimized.
-    //
-    // Only serializes stores in a block, but allows loads to occur in
-    // parallel between stores.
-    unsigned convert_block_memops_wavefront(MachineFunction::iterator& BB,
-                                            unsigned mem_in_reg);
-
-    // Merge all the .i1 registers stored in "current_wavefront" into
-    // a single output register.
-    // Returns the output register, or "input_mem_reg" if
-    // current_wavefront is empty.
-    //
-    // Note that this method has several side-effects:
-    //  (a) It inserts the merge instructions after
-    //      instruction MI in BB, or before the last terminator in the
-    //      block if MI == NULL, and
-    //  (b) It clears current_wavefront.
-    unsigned merge_dependency_signals(MachineFunction::iterator& BB,
-                                      MachineInstr* MI,
-                                      SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
-                                      unsigned input_mem_reg);
-
-
-    void createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
-                                 DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut);
-
-
-
   private:
     MachineFunction *thisMF;
+    const CSAInstrInfo* TII;
+    MachineRegisterInfo* MRI;
+    const TargetRegisterInfo* TRI;
+    CSAMachineFunctionInfo *LMFI;
     MachineDominatorTree *DT;
     MachinePostDominatorTree *PDT;
     ControlDependenceGraph *CDG;
     MachineLoopInfo *MLI;
+    AliasAnalysis *AA;
+    AliasSetTracker *AS;
+    MachineBasicBlock *entryBB;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2switch;  //switch for Reg added in bb
+    DenseMap<MachineBasicBlock *, unsigned> bb2predcpy;
     DenseMap<MachineBasicBlock *, DenseMap<unsigned, MachineInstr *> *> bb2pick;  //switch for Reg added in bb
     DenseMap<MachineBasicBlock*, SmallVectorImpl<unsigned>* > edgepreds;
     DenseMap<MachineBasicBlock *, unsigned> bbpreds;
     DenseMap<MachineBasicBlock*, MachineInstr*> bb2predmerge;
     DenseMap<MachineBasicBlock*, unsigned> bb2rpo;
     std::set<MachineInstr *> multiInputsPick;
+    std::set<MachineBasicBlock *> dcgBBs;
   };
 }
 
@@ -265,7 +175,9 @@ namespace llvm {
 //  To hoist init out of namespace blocks.
 char CSACvtCFDFPass::ID = 0;
 //declare CSACvtCFDFPass Pass
-INITIALIZE_PASS(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
+INITIALIZE_PASS_BEGIN(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
+INITIALIZE_PASS_END(CSACvtCFDFPass, "csa-cvt-cfdf", "CSA Convert Control Flow to Data Flow", true, true)
 
 CSACvtCFDFPass::CSACvtCFDFPass() : MachineFunctionPass(ID) {
   initializeCSACvtCFDFPassPass(*PassRegistry::getPassRegistry());
@@ -300,7 +212,14 @@ void CSACvtCFDFPass::releaseMemory() {
     delete edges;
   }
   edgepreds.clear();
-
+  bb2predcpy.clear();
+  bb2predmerge.clear();
+  bbpreds.clear();
+  bb2switch.clear();
+  bb2pick.clear();
+  bb2rpo.clear();
+  dcgBBs.clear();
+  multiInputsPick.clear();
 }
 
 
@@ -344,6 +263,11 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (CvtCFDFPass == 0) return false;
   thisMF = &MF;
 
+  TII = static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  MRI = &thisMF->getRegInfo();
+  TRI = thisMF->getSubtarget().getRegisterInfo();
+  LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
+
   DT = &getAnalysis<MachineDominatorTree>();
   PDT = &getAnalysis<MachinePostDominatorTree>();
   if (PDT->getRootNode() == nullptr) return false;
@@ -385,16 +309,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
   replaceUndefWithIgn();
 
-  // TBD(jsukha): Experimental code to add dependencies for memory
-  // operations.
-  //
-  // This step should run before the main dataflow conversion because
-  // it introduces extra dependencies through virtual registers than
-  // the dataflow conversion must also deal with.
-
-  if (OrderMemops && (OrderMemopsType > OrderMemopsMode::none)) {
-    addMemoryOrderingConstraints();
-  }
 #if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
@@ -406,6 +320,17 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   std::stack<MachineBasicBlock*> postk;
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
+#if 0
+    //remove DBG_VALUE instrutions
+    MachineBasicBlock::iterator iInstr = mbb->begin();
+    while (iInstr != mbb->end()) {
+      MachineInstr* mInstr = &*iInstr;
+      iInstr++;
+      if (mInstr->isDebugValue()) {
+        mInstr->removeFromParent();
+      }
+    }
+#endif 
     postk.push(mbb);
   }
   unsigned i = 0;
@@ -419,19 +344,20 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   //renaming using switch to seal all down rang of each definition within loop
   renameOnLoopEntry();
   insertSWITCHForLoopExit();
-  insertSWITCHForIf();
-
-  generateDynamicPreds();
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
   insertSWITCHForRepeat();
-#if 0
-  {
-    errs() << "after switch for repeat" << ":\n";
-    thisMF->print(errs(), getAnalysisIfAvailable<SlotIndexes>());
-  }
-#endif
+  //if loop hdr is also an exiting blk, repeatOperand generated loop hdr phi need to go through SWITCHforIf process
+  insertSWITCHForIf();
+  //run it twice; 
+  //non-latch exit affect def/use chain running across the loop; 
+  //new switch inserted at the exit blk need to repeated its src
+  insertSWITCHForRepeat();
 
+if (needDynamicPreds() || UseDynamicPred)
+  generateDynamicPreds();
+else
   replacePhiWithPICK();
+
   handleAllConstantInputs();
 #if 0
   {
@@ -450,6 +376,9 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     removeBranch();
     linearizeCFG();
   }
+  //destroy all the data structures for current function,
+  //after branches are removed, BB pointer are no longer valid
+  releaseMemory();
 
   return Modified;
 
@@ -457,8 +386,6 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
 
 MachineInstr* CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock *cdgpBB) {
   // generate and insert SWITCH or copy
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineInstr* result = nullptr;
   if (cdgpBB->succ_size() > 1) {
@@ -468,9 +395,9 @@ MachineInstr* CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
     assert(bi->getOperand(0).isReg());
     // generate switch op
-    const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+    const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
     MachineInstr *switchInst;
-    switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(switchOpcode),
+    switchInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII->get(switchOpcode),
       switchFalseReg).
       addReg(switchTrueReg, RegState::Define).
       addReg(bi->getOperand(0).getReg()).
@@ -483,9 +410,9 @@ MachineInstr* CSACvtCFDFPass::insertSWITCHForReg(unsigned Reg, MachineBasicBlock
     assert(MLI->getLoopFor(cdgpBB)->getLoopLatch() == cdgpBB || MLI->getLoopFor(cdgpBB)->getLoopLatch() == nullptr);
     //LLVM 3.6 buggy latch with no exit edge
     //get a wierd latch with no exit edge from LLVM 3.6 buggy loop rotation
-    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+    const unsigned moveOpcode = TII->getMoveOpcode(TRC);
     unsigned cpyReg = MRI->createVirtualRegister(TRC);
-    MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
+    MachineInstr *cpyInst = BuildMI(*cdgpBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(Reg);
     cpyInst->setFlag(MachineInstr::NonSequential);
     result = cpyInst;
   }
@@ -504,7 +431,6 @@ unsigned CSACvtCFDFPass::findSwitchingDstForReg(unsigned Reg, MachineBasicBlock*
   MachineInstr *defSwitchInstr = (*reg2switch)[Reg];
   unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
   unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   if (MRI->use_empty(switchFalseReg)) {
     return switchFalseReg;
   }
@@ -539,8 +465,6 @@ MachineInstr* CSACvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
 
 //TODO: rename for repeat
 void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     renameAcrossLoopForRepeat(*LI);
   }
@@ -569,9 +493,9 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
             //TODO:: create the landing pad if can't find one
             assert(landingPad && "can't find loop preheader as landing pad for renaming");
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-            const unsigned moveOpcode = TII.getMoveOpcode(TRC);
+            const unsigned moveOpcode = TII->getMoveOpcode(TRC);
             unsigned cpyReg = MRI->createVirtualRegister(TRC);
-            MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(Reg);
+            MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(Reg);
             cpyInst->setFlag(MachineInstr::NonSequential);
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
             while (UI != MRI->use_end()) {
@@ -592,8 +516,6 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
 
 
 void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   if (!MO.isReg() || !TargetRegisterInfo::isVirtualRegister(MO.getReg())) return;
   unsigned Reg = MO.getReg();
   // process uses
@@ -610,7 +532,7 @@ void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
       assert(dRegion);
       //use, def in different region => need switch
       if (uregion != dRegion) {
-        if (TII.isSwitch(DefMI) && unode->isParent(dnode)) {
+        if (TII->isSwitch(DefMI) && unode->isParent(dnode)) {
           //def already from a switch -- can only happen if use is an immediate child of def in CDG
           //assert(dnode->isChild(unode) || MI->isPHI());
           return;
@@ -680,8 +602,6 @@ void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
 //focus on uses
 void CSACvtCFDFPass::insertSWITCHForIf() {
   typedef po_iterator<ControlDependenceNode *> po_cdg_iterator;
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   ControlDependenceNode *root = CDG->getRoot();
   for (po_cdg_iterator DTN = po_cdg_iterator::begin(root), END = po_cdg_iterator::end(root); DTN != END; ++DTN) {
     MachineBasicBlock *mbb = DTN->getBlock();
@@ -708,10 +628,8 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
             if (MO->getMBB() == mbb) {
               //diamond if-branch input, closed loop latch input for loop hrd phi, or def across loop from outside loop
               //no switch at loop latch with exiting, which has been handled in loop exits processing
-              if (mbb->succ_size() == 1 || 
-                  (MLI->getLoopFor(mbb) && 
-                   MLI->getLoopFor(mbb)->isLoopLatch(mbb) &&
-                   MLI->getLoopFor(mbb)->getHeader() != succBB)) { //not loop hdr phi
+              if (mbb->succ_size() == 1) { //not loop hdr phi
+                //mbb can't be loop exiting blk
                 //possible multiple CDG parents
                 insertSWITCHForOperand(mOpnd, mbb, &*iPhi);
               } else {
@@ -720,10 +638,12 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
                 //1) triangle if's fall through branch
                 //2) loop hdr phi
                 MachineInstr *DefMI = MRI->getVRegDef(Reg);
-                if (TII.isSwitch(DefMI) && DefMI->getParent() == mbb) {
+#if 1
+                if (TII->isSwitch(DefMI) && DefMI->getParent() == mbb) {
                   //alread switched reg from SwitchForRepeat 
                   continue;
                 }
+#endif
                 MachineInstr *defSwitchInstr = getOrInsertSWITCHForReg(Reg, mbb);
                 unsigned switchFalseReg = defSwitchInstr->getOperand(0).getReg();
                 unsigned switchTrueReg = defSwitchInstr->getOperand(1).getReg();
@@ -816,7 +736,6 @@ unsigned CSACvtCFDFPass::SwitchOutExitingBlk(MachineBasicBlock* exitingBlk, unsi
 }
 
 void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop, MachineOperand &UseMO) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   SmallVector<MachineBasicBlock*, 2> exitingBlks;
   mloop->getExitingBlocks(exitingBlks);
   MachineInstr* UseMI = UseMO.getParent();
@@ -863,7 +782,6 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
 
 
 void CSACvtCFDFPass::SwitchDefAcrossLoops(unsigned Reg, MachineBasicBlock* mbb, MachineLoop* mloop) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
   while (UI != MRI->use_end()) {
     MachineOperand &UseMO = *UI;
@@ -908,7 +826,6 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit() {
 }
 
 void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     insertSWITCHForLoopExit(*LI, LCSwitch);
   }
@@ -924,7 +841,7 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBas
     }
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
-      if (TII.isSwitch(MI))
+      if (TII->isSwitch(MI))
         //encounter a switch just inserted in previous iter
         continue;
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
@@ -945,7 +862,7 @@ void CSACvtCFDFPass::insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBas
     //close definitions live range in exiting blk
     for (MachineBasicBlock::iterator I = exitingBlk->begin(); I != exitingBlk->end(); ++I) {
       MachineInstr *MI = &*I;
-      if (TII.isSwitch(MI)) {
+      if (TII->isSwitch(MI)) {
         assert(exitingBlk->succ_size() == 2 && "loop exiting blk's # of successor not 2");
         MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
         MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
@@ -983,8 +900,6 @@ void CSACvtCFDFPass::renameOnLoopEntry()
 
 
 unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   unsigned newVReg;
   MachineBasicBlock *latchBB = nullptr;
   MachineInstr* dMI = MRI->getVRegDef(Reg);
@@ -1006,7 +921,7 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
 
     MachineInstr *defInstr = getOrInsertSWITCHForReg(Reg, latchBB);
 
-    if (TII.isSwitch(defInstr)) {
+    if (TII->isSwitch(defInstr)) {
       unsigned switchFalseReg = defInstr->getOperand(0).getReg();
       unsigned switchTrueReg = defInstr->getOperand(1).getReg();
       if (mLatch->isFalseChild(CDG->getNode(mlphdr))) {
@@ -1018,7 +933,7 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
       }
     } else {
       //LLVM3.6 buggy latch
-      assert(TII.isMOV(defInstr));
+      assert(TII->isMOV(defInstr));
       newVReg = defInstr->getOperand(0).getReg();
     }
     SSAUpdate.AddAvailableValue(latchBB, newVReg);
@@ -1041,8 +956,6 @@ unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
 
 
 void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
-  //const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     insertSWITCHForRepeat(*LI);
   }
@@ -1053,7 +966,10 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
     if (MLI->getLoopFor(mbb) != mloop) continue;
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
-      if (MI->isPHI()) continue;
+      if (MI->isPHI() && mloop->getHeader() == mbb) {
+        //loop hdr phi's init input is used only once, no need to repeat
+        continue;
+      }
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
@@ -1085,11 +1001,11 @@ void CSACvtCFDFPass::insertSWITCHForRepeat() {
 //sequence OPT is targeting at this transform
 //single entry, single exiting, single latch, exiting blk post dominates loop hdr(always execute)
 void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineLoop* mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
+  if (mbb->getFirstNonPHI() == mbb->begin())
+    return;
+
   assert(mloop->getExitingBlock() && "can't handle multi exiting blks in this funciton");
   MachineBasicBlock *latchBB = mloop->getLoopLatch();
   ControlDependenceNode *latchNode = CDG->getNode(latchBB);
@@ -1109,8 +1025,8 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
   if (mloop->isLoopExiting(latchBB) || latchNode->isParent(exitingNode)) {
-    const unsigned moveOpcode = TII.getMoveOpcode(TRC);
-    MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(predReg);
+    const unsigned moveOpcode = TII->getMoveOpcode(TRC);
+    MachineInstr *cpyInst = BuildMI(*exitingBB, loc, DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(predReg);
     cpyInst->setFlag(MachineInstr::NonSequential);
   } else {
     //need filtering
@@ -1128,11 +1044,11 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
       unsigned filterPred = filterbi->getOperand(0).getReg();
       if (filterParentNode->isFalseChild(filterNode)) {
         unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-        BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(filterPred);
+        BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(filterPred);
         filterPred = notReg;
       }
       filterInst = BuildMI(*latchBB, filterInst ? filterInst : latchBB->getFirstTerminator(), DebugLoc(), 
-                           TII.get(CSA::PREDFILTER), filterOut).addReg(filterIn).addReg(filterPred);
+                           TII->get(CSA::PREDFILTER), filterOut).addReg(filterIn).addReg(filterPred);
       filterNode = filterParentNode;
       filterOut = filterIn;
     } while (!filterNode->isParent(exitingNode));
@@ -1140,25 +1056,25 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
     if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::TRUE) {
       //filtering predReg's false value for inner loops
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*latchBB, filterInst, DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(predReg); //fliping the exiting condition
-      filterInst->substituteRegister(filterIn, notReg, 0, TRI);
+      BuildMI(*latchBB, filterInst, DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(predReg); //fliping the exiting condition
+      filterInst->substituteRegister(filterIn, notReg, 0, *TRI);
 
       unsigned lastFilterReg = MRI->createVirtualRegister(&CSA::I1RegClass);
       MachineInstr *lastFilter = MRI->getVRegDef(cpyReg);
-      lastFilter->substituteRegister(cpyReg, lastFilterReg, 0, TRI);
-      BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), cpyReg).addReg(lastFilterReg); //fliping back
+      lastFilter->substituteRegister(cpyReg, lastFilterReg, 0, *TRI);
+      BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), cpyReg).addReg(lastFilterReg); //fliping back
     } else {
-      filterInst->substituteRegister(filterIn, predReg, 0, TRI);
+      filterInst->substituteRegister(filterIn, predReg, 0, *TRI);
     }
   }
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
-  const unsigned InitOpcode = TII.getInitOpcode(TRC);
+  const unsigned InitOpcode = TII->getInitOpcode(TRC);
   MachineInstr *initInst = nullptr;
   if (CDG->getEdgeType(exitingBB, exitBB, true) == ControlDependenceNode::FALSE) {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg).addImm(0);
   } else {
-    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(1);
+    initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg).addImm(1);
   }
   initInst->setFlag(MachineInstr::NonSequential);
 
@@ -1212,21 +1128,21 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
       pickTrue = initInput;
     }
     TRC = MRI->getRegClass(dst);
-    const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+    const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
     //generate PICK, and insert before MI
     MachineInstr *pickInst = nullptr;
     predReg = cpyReg;
     if (pickFalse->isReg() && pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addReg(pickFalse->getReg()).addOperand(*pickTrue);
     } else if (pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addOperand(*pickFalse).addReg(pickTrue->getReg());
     } else {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addOperand(*pickFalse).addOperand(*pickTrue);
     }
 
@@ -1245,8 +1161,6 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
 
 //single latch, straitht line exitings blks
 void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineLoop* mloop = MLI->getLoopFor(mbb);
   assert(mloop->getHeader() == mbb);
   MachineBasicBlock *latchBB = mloop->getLoopLatch();
@@ -1272,7 +1186,7 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
     unsigned exitReg = bi->getOperand(0).getReg();
     if (CDG->getEdgeType(exiting, exit, true) == ControlDependenceNode::TRUE) {
       unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      MachineInstr* notInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), 
+      MachineInstr* notInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), 
                                        notReg).
                                        addReg(exitReg);
       notInstr->setFlag(MachineInstr::NonSequential);
@@ -1282,7 +1196,7 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
       landSrc = exitReg;
     } else if (!landResult) {
       landResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      landInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(CSA::LAND1), 
+      landInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::LAND1), 
                           landResult).
                           addReg(landSrc).
                           addReg(exitReg);
@@ -1292,7 +1206,7 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
         landInstr->addOperand(MachineOperand::CreateReg(exitReg, false));
       } else {
         unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-        landInstr = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII.get(CSA::LAND1), 
+        landInstr = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::LAND1), 
                             newResult).
                             addReg(landResult).
                             addReg(exitReg);
@@ -1313,15 +1227,15 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
   const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(&CSA::I1RegClass);
   assert(new_LIC_RC && "Can't determine register class for register");
   unsigned cpyReg = LMFI->allocateLIC(new_LIC_RC);
-  const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
-  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addReg(landResult);
+  const unsigned moveOpcode = TII->getMoveOpcode(&CSA::I1RegClass);
+  MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(landResult);
   cpyInst->setFlag(MachineInstr::NonSequential);
 
   MachineBasicBlock *lphdr = mloop->getHeader();
   MachineBasicBlock::iterator hdrloc = lphdr->begin();
-  const unsigned InitOpcode = TII.getInitOpcode(&CSA::I1RegClass);
+  const unsigned InitOpcode = TII->getInitOpcode(&CSA::I1RegClass);
   //land ==1 means take backedge
-  MachineInstr *initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII.get(InitOpcode), cpyReg).addImm(0);
+  MachineInstr *initInst = BuildMI(*lphdr, hdrloc, DebugLoc(), TII->get(InitOpcode), cpyReg).addImm(0);
   initInst->setFlag(MachineInstr::NonSequential);
 
 
@@ -1357,20 +1271,20 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
     
     unsigned predReg = cpyReg;
     const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-    const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+    const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
     //generate PICK, and insert before MI
     MachineInstr *pickInst = nullptr;
     if (pickFalse->isReg() && pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addReg(pickFalse->getReg()).addOperand(*pickTrue);
     } else if (pickTrue->isReg()) {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addOperand(*pickFalse).addReg(pickTrue->getReg());
     } else {
-      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg).
+      pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
         addOperand(*pickFalse).addOperand(*pickTrue);
     }
 
@@ -1444,9 +1358,6 @@ void CSACvtCFDFPass::replaceLoopHdrPhi() {
  * intended to handle fixed-size frame objects. The result should still be
  * suitable for SXU execution. */
 void CSACvtCFDFPass::createFIEntryDefs() {
-  const TargetInstrInfo *TII = thisMF->getSubtarget().getInstrInfo();
-  MachineRegisterInfo &MRI = thisMF->getRegInfo();
-
   // Build a set of FI users which should be moved to the function entry.
   std::set<MachineOperand*> toReplace;
   // The set of FIs which need vregs created for them in this function.
@@ -1488,7 +1399,7 @@ void CSACvtCFDFPass::createFIEntryDefs() {
 
   // Def a virtual register for this FI index in the function entry.
   for (int index : entryFIs) {
-    unsigned vReg = MRI.createVirtualRegister(&CSA::I64RegClass);
+    unsigned vReg = MRI->createVirtualRegister(&CSA::I64RegClass);
     BuildMI(*rootBB, rootBB->getFirstInstrTerminator(), DebugLoc(),
         TII->get(CSA::MOV64), vReg).addFrameIndex(index);
 
@@ -1508,7 +1419,7 @@ void CSACvtCFDFPass::createFIEntryDefs() {
       // If the value we're replacing is just being moved into another virtual
       // register, then replace the whole instruction.
       unsigned oldVReg = oldInst->getOperand(0).getReg();
-      MRI.replaceRegWith(oldVReg, vReg);
+      MRI->replaceRegWith(oldVReg, vReg);
       oldInst->eraseFromParent();
     } else {
       // This is an assert because I'm not sure that it ever happens.
@@ -1524,10 +1435,6 @@ void CSACvtCFDFPass::createFIEntryDefs() {
 }
 
 void CSACvtCFDFPass::assignLicForDF() {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
   std::deque<unsigned> renameQueue;
   renameQueue.clear();
   std::set<unsigned> pinedVReg;
@@ -1554,13 +1461,15 @@ void CSACvtCFDFPass::assignLicForDF() {
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator MI = BB->begin(), EI = BB->end(); MI != EI; ++MI) {
       MachineInstr *mInst = &*MI;
-      if (TII.isPick(mInst) || TII.isSwitch(mInst) ||  mInst->getOpcode() == CSA::MERGE64f ||
-          TII.isFMA(mInst) || TII.isDiv(mInst) || TII.isMul(mInst) ||
-          TII.isAdd(mInst) || TII.isSub(mInst) || TII.isPickany(mInst) ||
+      if (TII->isPick(mInst) || TII->isSwitch(mInst) ||  mInst->getOpcode() == CSA::MERGE64f ||
+          TII->isFMA(mInst) || TII->isDiv(mInst) || TII->isMul(mInst) || TII->isMOV(mInst) ||
+          TII->isAdd(mInst) || TII->isSub(mInst) || TII->isPickany(mInst) ||
           mInst->getOpcode() == CSA::PREDMERGE || 
           mInst->getOpcode() == CSA::PREDPROP || 
           mInst->getOpcode() == CSA::NOT1     ||
-          mInst->getOpcode() == CSA::LAND1) {
+          mInst->getOpcode() == CSA::LAND1 ||
+          mInst->getOpcode() == CSA::LOR1  || 
+          mInst->getOpcode() == CSA::OR1) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();
@@ -1582,7 +1491,7 @@ void CSACvtCFDFPass::assignLicForDF() {
     // it to the %ign LIC rather than allocating a new one.
     assert(DefMO->isDef() && "Trying to reason about uses of a non-def.");
     if (MRI->use_empty(dReg)) {
-        DefMI->substituteRegister(dReg, CSA::IGN, 0, TRI);
+        DefMI->substituteRegister(dReg, CSA::IGN, 0, *TRI);
         continue;
     }
 
@@ -1591,14 +1500,14 @@ void CSACvtCFDFPass::assignLicForDF() {
     assert(new_LIC_RC && "unknown CSA register class");
     unsigned phyReg = LMFI->allocateLIC(new_LIC_RC);
 
-    if (TII.isSwitch(DefMI)) {
+    if (TII->isSwitch(DefMI)) {
       unsigned trueReg = DefMI->getOperand(1).getReg();
       unsigned falseReg = DefMI->getOperand(0).getReg();
       if (pinedVReg.find(trueReg) != pinedVReg.end() || pinedVReg.find(falseReg) != pinedVReg.end()) {
                 DefMI->clearFlag(MachineInstr::NonSequential);
         continue;
       }
-    } else if (TII.isMOV(DefMI)) {
+    } else if (TII->isMOV(DefMI)) {
       unsigned dstReg = DefMI->getOperand(0).getReg();
       if (pinedVReg.find(dstReg) != pinedVReg.end()) {
         DefMI->clearFlag(MachineInstr::NonSequential);
@@ -1606,7 +1515,7 @@ void CSACvtCFDFPass::assignLicForDF() {
       }
     }
 
-    DefMI->substituteRegister(dReg, phyReg, 0, TRI);
+    DefMI->substituteRegister(dReg, phyReg, 0, *TRI);
 
     MachineRegisterInfo::use_iterator UI = MRI->use_begin(dReg);
     while (UI != MRI->use_end()) {
@@ -1665,7 +1574,7 @@ void CSACvtCFDFPass::assignLicForDF() {
       if (allLics && !allImmediateUses) {
         MI->setFlag(MachineInstr::NonSequential);
       }
-      if (!allLics && TII.isSwitch(&*MI)) {
+      if (!allLics && TII->isSwitch(&*MI)) {
         MI->clearFlag(MachineInstr::NonSequential);
       }
     }
@@ -1674,9 +1583,6 @@ void CSACvtCFDFPass::assignLicForDF() {
 
 
 void CSACvtCFDFPass::handleAllConstantInputs() {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
   std::deque<unsigned> renameQueue;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = &*BB;
@@ -1684,7 +1590,7 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
     while(iterMI != BB->end()) {
       MachineInstr* MI = &*iterMI;
       ++iterMI;
-      if (!TII.isMOV(MI)) continue;
+      if (!TII->isMOV(MI)) continue;
 
       bool allConst = true;
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
@@ -1699,8 +1605,8 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
         ControlDependenceNode* mNode = CDG->getNode(mbb);
         MachineInstr *pickInst = nullptr;
         MachineInstr *switchInst = nullptr;
-        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false);
-        const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true);
+        const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false);
+        const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true);
         unsigned pickFalseReg = CSA::IGN, pickTrueReg = CSA::IGN;
         unsigned switchFalse = CSA::IGN, switchTrue = CSA::IGN;
         int parentN = 0;
@@ -1736,7 +1642,7 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
             } else {
               switchTrue = MI->getOperand(0).getReg();
             }
-            switchInst = BuildMI(*BB, MI, DebugLoc(), TII.get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
+            switchInst = BuildMI(*BB, MI, DebugLoc(), TII->get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
               addReg(predReg).addOperand(MI->getOperand(1));
             switchInst->setFlag(MachineInstr::NonSequential);
           } else {
@@ -1749,11 +1655,11 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
             }
             pickReg = MRI->createVirtualRegister(TRC);
             if (upnode->isFalseChild(mNode)) {
-              pickInst = BuildMI(*BB, MI, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
+              pickInst = BuildMI(*BB, MI, DebugLoc(), TII->get(pickOpcode), pickReg).addReg(predReg).
                 addOperand(MI->getOperand(1)).
                 addReg(pickTrueReg);
             } else {
-              pickInst = BuildMI(*BB, MI, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
+              pickInst = BuildMI(*BB, MI, DebugLoc(), TII->get(pickOpcode), pickReg).addReg(predReg).
                 addReg(pickFalseReg).
                 addOperand(MI->getOperand(1));
             }
@@ -1858,9 +1764,8 @@ MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
     }
     MachineOperand &MO = pickInstr->getOperand(ignIndex);
     MO.substVirtReg(Reg, 0, TRI);
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
     MachineInstr *DefMI = MRI->getVRegDef(Reg);
-    //if (TII.isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
+    //if (TII->isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
     if (multiInputsPick.find(DefMI) != multiInputsPick.end()) {
       //make sure input src is before the pick
       assert(DefMI->getParent() == pickInstr->getParent());
@@ -1879,8 +1784,6 @@ MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
 
 MachineInstr* CSACvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsigned Reg,
   MachineBasicBlock* inBB, MachineInstr* phi, unsigned pickReg) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   MachineBasicBlock::iterator loc = ctrlBB->getFirstTerminator();
   MachineInstr* bi = &*loc;
@@ -1891,8 +1794,8 @@ MachineInstr* CSACvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsign
   unsigned predReg = bi->getOperand(0).getReg();
   unsigned pickFalseReg = 0, pickTrueReg = 0;
   assignPICKSrcForReg(pickFalseReg, pickTrueReg, Reg, ctrlBB, inBB, phi);
-  const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-  MachineInstr *pickInst = BuildMI(*phi->getParent(), phi, DebugLoc(), TII.get(pickOpcode), pickReg).addReg(predReg).
+  const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
+  MachineInstr *pickInst = BuildMI(*phi->getParent(), phi, DebugLoc(), TII->get(pickOpcode), pickReg).addReg(predReg).
     addReg(pickFalseReg).
     addReg(pickTrueReg);
   pickInst->setFlag(MachineInstr::NonSequential);
@@ -1926,7 +1829,6 @@ void CSACvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickT
 
 
 void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
     MachineInstr *MI = &*iterI;
@@ -1999,137 +1901,191 @@ void CSACvtCFDFPass::setBBPred(MachineBasicBlock* mbb, unsigned ch) {
   bbpreds[mbb] = ch;
 }
 
-unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, MachineBasicBlock* toBB) {
-  ControlDependenceNode* fromNode = CDG->getNode(fromBB);
-  ControlDependenceNode* toNode = CDG->getNode(toBB);
-  if (fromBB->succ_size() == 1 || fromNode->isParent(fromNode) || fromNode->isChild(fromNode)) {
-    return computeBBPred(fromBB);
-  } else if (fromNode->isFalseChild(toNode)) {
-    return computeEdgePred(fromBB, ControlDependenceNode::FALSE, toBB);
-  } else if (fromNode->isTrueChild(toNode)) {
-    return computeEdgePred(fromBB, ControlDependenceNode::TRUE, toBB);
-  } else {
-    assert(toBB->isPredecessor(fromBB));
-    ControlDependenceNode::EdgeType edgeType = CDG->getEdgeType(fromBB, toBB);
-    return computeEdgePred(fromBB, edgeType, toBB);
-  }
-}
-
-  
-unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, ControlDependenceNode::EdgeType childType, MachineBasicBlock* toBB) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo* MRI = &thisMF->getRegInfo();
-
-  assert(fromBB->succ_size() == 2 && "CSA bb has more than 2 successor");
+unsigned CSACvtCFDFPass::computeEdgePred(MachineBasicBlock* fromBB, 
+                                         MachineBasicBlock* toBB,
+                                         std::list<MachineBasicBlock*> &path) {
+  assert(toBB);
+  ControlDependenceNode::EdgeType childType = CDG->getEdgeType(fromBB, toBB);
+  //make sure each edge is computed only once to avoid cycling on backedge
   if (unsigned edgeReg = getEdgePred(fromBB, childType)) {
     return edgeReg;
   }
-  unsigned bbPredReg = computeBBPred(fromBB);
-  if (!toBB) {
-    ControlDependenceNode* fromNode = CDG->getNode(fromBB);
-    ControlDependenceNode* toNode;
-    if (childType == ControlDependenceNode::FALSE) {
-      //TODO:: assert only have one false child.
-      toNode = *fromNode->false_begin();
-    } else {
-      toNode = *fromNode->true_begin();
-    }
-    toBB = toNode->getBlock();
-  }
-  //using loop as the unit of the region
-  //reaching the boundary, generate switch 
-  if (MLI->getLoopFor(toBB) && MLI->getLoopFor(toBB)->getHeader() == toBB) {
-    MachineInstr* bi = &*(fromBB->getFirstTerminator());
-    unsigned switchFalseReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-    unsigned switchTrueReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-    assert(bi->getOperand(0).isReg());
-    // generate switch op
-    const unsigned switchOpcode = TII.getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
-    //special handling for predprop/premerge in loop to avoid cycle of dependence
-    BuildMI(*fromBB, bi, DebugLoc(), TII.get(switchOpcode),
-      switchFalseReg).
-      addReg(switchTrueReg, RegState::Define).
-      addReg(bi->getOperand(0).getReg()).
-      addReg(bbPredReg);
-    setEdgePred(fromBB, ControlDependenceNode::FALSE, switchFalseReg);
-    setEdgePred(fromBB, ControlDependenceNode::TRUE, switchTrueReg);
-    if (childType == 0) {
-      return switchFalseReg;
-    } else {
-      return switchTrueReg;
-    }
-  } else {
-    unsigned falseEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
-    unsigned trueEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
-    MachineBasicBlock::iterator loc = fromBB->getFirstTerminator();
-    MachineInstr* bi = &*loc;
-    BuildMI(*fromBB, loc, DebugLoc(), TII.get(CSA::PREDPROP),
-      falseEdge).addReg(trueEdge, RegState::Define).addReg(bbPredReg).addReg(bi->getOperand(0).getReg());
-    setEdgePred(fromBB, ControlDependenceNode::FALSE, falseEdge);
-    setEdgePred(fromBB, ControlDependenceNode::TRUE, trueEdge);
-    return getEdgePred(fromBB, childType);
-  }
-}
-
-unsigned CSACvtCFDFPass::computeBBPred(MachineBasicBlock* inBB) {
-  if (unsigned c = getBBPred(inBB)) {
-    return c;
-  }
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo* MRI = &thisMF->getRegInfo();
-  MachineBasicBlock* ctrlBB = nullptr;
-  unsigned ctrlEdge;
-  unsigned predBB = 0;
-  ControlDependenceNode* inNode = CDG->getNode(inBB);
-  for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
-    ControlDependenceNode* ctrlNode = *pnode;
-    ctrlBB = ctrlNode->getBlock();
-
-    if (!ctrlBB) { //root node has no bb
-      //mov 1
+  unsigned bbPredReg = 0;
+  if (CDG->getNode(fromBB)->getNumParents() == 1 &&
+      *CDG->getNode(fromBB)->parent_begin() == CDG->getRoot()) {
+    //root level, out side any loop
+    //mov 1
+    if (!(bbPredReg = getBBPred(fromBB))) {
       MachineBasicBlock* entryBB = &*thisMF->begin();
       unsigned cpyReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
-      BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), cpyReg).addImm(1);
-      ctrlEdge = cpyReg;
-    } else if (bb2rpo[ctrlBB] < bb2rpo[inBB]) {
-      assert(ctrlBB->succ_size() == 2 && "CSA: bb has more than 2 successor");
-      computeBBPred(ctrlBB);
-      unsigned falseEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::FALSE, inBB);
-      unsigned trueEdgeReg = computeEdgePred(ctrlBB, ControlDependenceNode::TRUE, inBB);
-      if (ctrlNode->isFalseChild(inNode)) {
-        ctrlEdge = falseEdgeReg;
-      } else {
-        ctrlEdge = trueEdgeReg;
-      }
-    } else {
-      continue;
+      const unsigned moveOpcode = TII->getMoveOpcode(&CSA::I1RegClass);
+      BuildMI(*entryBB, entryBB->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addImm(1);
+      bbPredReg = cpyReg;
+      setBBPred(fromBB, bbPredReg);
     }
-    //merge predecessor if needed
-    if (!predBB) {
-      predBB = ctrlEdge;
+  } else if (MLI->getLoopFor(toBB) &&
+    MLI->getLoopFor(toBB)->getHeader() == toBB &&
+    !MLI->getLoopFor(toBB)->contains(fromBB)) {
+    //fromBB outside current loop, using loop as the unit of the region,
+    //reaching the boundary, use pre-assigned BB pred for init input of loop
+    if (bb2predcpy.find(fromBB) == bb2predcpy.end()) {
+      bbPredReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      bb2predcpy[fromBB] = bbPredReg;
     } else {
-      unsigned mergeEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
-      MachineBasicBlock::iterator loc = inBB->getFirstTerminator();
-      BuildMI(*inBB, loc, DebugLoc(), TII.get(CSA::OR1), mergeEdge).addReg(predBB).addReg(ctrlEdge);
-      predBB = mergeEdge;
+      bbPredReg = bb2predcpy[fromBB];
+    }
+    if (!MLI->getLoopFor(fromBB)) {
+      //post process after all loops are handled
+      dcgBBs.insert(fromBB);
+    }
+  } else { 
+    //non boundary -- need to compute
+    bbPredReg = computeBBPred(fromBB, path);
+  }
+  unsigned result = 0;
+  if (fromBB->succ_size() == 1) {
+    result = bbPredReg;
+  } else {
+    //calling omputeBBPred => calling computeEdgePred 
+    //=> might have insert prop due to self cycle
+    if (unsigned edgeReg = getEdgePred(fromBB, childType)) {
+      result = edgeReg;
+    } else {
+      InsertPredProp(fromBB, bbPredReg);
+      result = getEdgePred(fromBB, childType);
     }
   }
-  //be prudent and only save when necessary
-  if (inBB->pred_size() > 1 || inBB->succ_size() > 1) {
-    setBBPred(inBB, predBB);
+  return result;
+}
+
+
+
+
+unsigned CSACvtCFDFPass::mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path) {
+  unsigned mergeOp, numInputs;
+  if (MLI->getLoopFor(inBB) && MLI->getLoopFor(inBB)->getHeader() == inBB) {
+    mergeOp = CSA::LOR1;
+    numInputs = 4;
+  } else {
+    mergeOp = CSA::OR1;
+    numInputs = 2;
+  }
+
+  unsigned predBB = 0; //lor Result
+  MachineBasicBlock* ctrlBB = nullptr;
+  unsigned ctrlEdge;
+  unsigned lorSrc = 0;
+  MachineInstr *lorInstr = nullptr;
+  unsigned i = 0;
+  unsigned backedgeCtrl = 0;
+  for (MachineBasicBlock::pred_iterator ipred = inBB->pred_begin();
+    ipred != inBB->pred_end(); ipred++, i++) {
+    ctrlBB = *ipred;
+    //no need to (bb2rpo[ctrlBB] < bb2rpo[inBB]), as long as each edge is computed once.
+    //handle single edge as well as fork edge
+    ctrlEdge = computeEdgePred(ctrlBB, inBB, path);
+    if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->isLoopLatch(ctrlBB)) {
+      backedgeCtrl = ctrlEdge;
+    }
+    MachineBasicBlock::iterator loc = inBB->getFirstTerminator();
+    //merge predecessor if needed
+    if (!lorSrc) {
+      lorSrc = ctrlEdge;
+    } else if (!predBB) {
+      predBB = MRI->createVirtualRegister(&CSA::I1RegClass);
+      assert(TargetRegisterInfo::isVirtualRegister(ctrlEdge));
+      assert(TargetRegisterInfo::isVirtualRegister(lorSrc));
+      lorInstr = BuildMI(*inBB, loc, DebugLoc(), TII->get(mergeOp), predBB).addReg(lorSrc).addReg(ctrlEdge);
+      lorInstr->setFlag(MachineInstr::NonSequential);
+    } else {
+      if ((i % numInputs) && (numInputs > 2)) {
+        lorInstr->addOperand(MachineOperand::CreateReg(ctrlEdge, false));
+      } else {
+        unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+        lorInstr = BuildMI(*inBB, loc, DebugLoc(), TII->get(mergeOp),
+          newResult).
+          addReg(predBB).
+          addReg(ctrlEdge);
+        lorInstr->setFlag(MachineInstr::NonSequential);
+        predBB = newResult;
+      }
+    }
+  }
+  if (i == 1) {
+    predBB = lorSrc;
+  } else {
+    if ((i % numInputs) && (numInputs > 2)) {
+      for (unsigned j = i % numInputs; j < numInputs; j++) {
+        lorInstr->addOperand(MachineOperand::CreateImm(0));
+      }
+    }
+  }
+
+  //make sure back edge pred is the first operand of lor, otherwise exchang operands;
+  //to avoid repeat operand
+  MachineLoop* mloop = MLI->getLoopFor(inBB);
+  if (mloop && mloop->getHeader() == inBB) {
+    assert(inBB->pred_size() == 2);
+    MachineInstr *lorInstr = MRI->getVRegDef(predBB);
+    unsigned reg = lorInstr->getOperand(2).getReg();
+    if (reg == backedgeCtrl) {
+      //exchnage operands
+      MachineOperand &MO2 = lorInstr->getOperand(2);
+      MachineOperand &MO1 = lorInstr->getOperand(1);
+      MO2.setReg(MO1.getReg());
+      MO1.setReg(reg);
+    }
   }
   return predBB;
+
+}
+
+unsigned CSACvtCFDFPass::computeBBPred(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path) {
+  if (unsigned c = getBBPred(inBB)) {
+    return c;
+  } else {
+    if (std::find(path.begin(), path.end(), inBB) != path.end()) {
+      //find a cycle 
+      return bb2predcpy[inBB];
+    }
+
+    path.push_back(inBB);
+
+    unsigned result;
+    if (bb2predcpy.find(inBB) == bb2predcpy.end()) {
+      result = MRI->createVirtualRegister(&CSA::I1RegClass);
+      bb2predcpy[inBB] = result;
+    } else {
+      result = bb2predcpy[inBB];
+    }
+    
+    unsigned predBB = mergeIncomingEdgePreds(inBB, path);
+    
+    setBBPred(inBB, predBB);
+
+    path.pop_back();
+    //copy predBB to result for cycle of depencence; dead code it if not used
+    if (!MRI->use_empty(result)) {
+      MachineInstr *movPred = BuildMI(*inBB, inBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::MOV1), result).addReg(predBB);
+      MachineRegisterInfo::use_iterator UI = MRI->use_begin(result);
+      MachineInstr *usePred = UI->getParent();
+      if (usePred->getOpcode() == CSA::PREDPROP) {
+        assert(usePred->getParent() == inBB);
+        usePred->removeFromParent();
+        inBB->insertAfter(movPred, usePred);
+      }
+      return result;
+    }
+    return predBB;
+  }
 }
 
 
 MachineInstr* CSACvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, MachineInstr* loc, unsigned e1, unsigned e2) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   MachineInstr* predMergeInstr = nullptr;
   if (bb2predmerge.find(mbb) == bb2predmerge.end()) {
     unsigned indexReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-    predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII.get(CSA::PREDMERGE),
+    predMergeInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::PREDMERGE),
       CSA::IGN).    //in a two-way merge, it is %IGN to eat the BB's pred, they will be computed using "or" consistently
       addReg(indexReg, RegState::Define). 
       addReg(e1).   //last processed edge
@@ -2141,17 +2097,297 @@ MachineInstr* CSACvtCFDFPass::getOrInsertPredMerge(MachineBasicBlock* mbb, Machi
   return predMergeInstr;
 }
 
-void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+//also set up edge pred
+MachineInstr* CSACvtCFDFPass::InsertPredProp(MachineBasicBlock* mbb, unsigned bbPred) {
+  assert(mbb->succ_size() == 2);
+  if (bbPred == 0) {
+    bbPred = getBBPred(mbb);
+  }
+  unsigned falseEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
+  unsigned trueEdge = MRI->createVirtualRegister(&CSA::I1RegClass);
+  MachineBasicBlock::iterator loc = mbb->getFirstTerminator();
+  MachineInstr* bi = &*loc;
+  MachineInstr* predPropInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::PREDPROP),
+    falseEdge).
+    addReg(trueEdge, RegState::Define).
+    addReg(bbPred).
+    addReg(bi->getOperand(0).getReg());
+  setEdgePred(mbb, ControlDependenceNode::FALSE, falseEdge);
+  setEdgePred(mbb, ControlDependenceNode::TRUE, trueEdge);
+  return predPropInstr;
+}
+
+
+bool CSACvtCFDFPass::needDynamicPreds() {
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    if (needDynamicPreds(*LI)) {
+      return true;
+    }
+  }
+
+  for (MachineFunction::iterator ibb = thisMF->begin(); ibb != thisMF->end(); ibb++) {
+    MachineBasicBlock* mbb = &*ibb;
+    if (isUnStructured(mbb)) return true;
+  }
+  return false;
+}
+
+
+
+bool CSACvtCFDFPass::needDynamicPreds(MachineLoop* L) {
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    if (needDynamicPreds(*LI)) return true;
+  }
+  MachineLoop *mloop = L;
+  //multiple exiting blocks
+  if (!mloop->getExitingBlock()) return true;
+  MachineBasicBlock* lhdr = mloop->getHeader();
+
+  if (lhdr->pred_size() > 2) return true;
+  //multiple backedges
+  MachineBasicBlock* latch = mloop->getLoopLatch();
+  if (!latch) return true;
+  //loop lattch is not an exiting point
+  if (!mloop->isLoopExiting(mloop->getLoopLatch())) return true;
+
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    if (isUnStructured(mbb)) return true;
+  }
+  return false;
+}
+
+
+
+
+void CSACvtCFDFPass::generateDynamicPreds() {
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
+    generateDynamicPreds(*LI);
+  }
+
+  for (std::set<MachineBasicBlock*>::iterator ibb = dcgBBs.begin(); ibb != dcgBBs.end(); ibb++) {
+    MachineBasicBlock* mbb = *ibb;
+    std::list<MachineBasicBlock*> path;
+    computeBBPred(mbb, path);
+  }
+  for (MachineFunction::iterator ibb = thisMF->begin(); ibb != thisMF->end(); ibb++) {
+    MachineBasicBlock* mbb = &*ibb;
+    if (!MLI->getLoopFor(mbb) &&
+        mbb->getFirstNonPHI() != mbb->begin()) {
+      generateDynamicPickTreeForFooter(mbb);
+    }
+  }
+}
+
+
+
+void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    generateDynamicPreds(*LI);
+  }
+  MachineLoop *mloop = L;
+  MachineBasicBlock* lhdr = mloop->getHeader();
+  
+  generateDynamicPickTreeForHeader(lhdr);
+
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    for (MachineBasicBlock::succ_iterator psucc = mbb->succ_begin(); psucc != mbb->succ_end(); psucc++) {
+      MachineBasicBlock* msucc = *psucc;
+      //need to drive the compute for BB that is nested loop's preheader, in case the current loop missed it
+      if (MLI->getLoopFor(msucc) &&
+        MLI->getLoopFor(msucc) != mloop &&
+        MLI->getLoopFor(msucc)->getHeader() == msucc) {
+        std::list<MachineBasicBlock*> path;
+        computeBBPred(mbb, path);
+        break;
+      }
+    }
+
+    if (mbb->getFirstNonPHI() == mbb->begin()) continue;
+    generateDynamicPickTreeForFooter(mbb);
+  }
+}
+
+
+
+void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
-  unsigned predBB = 0;
-  MachineInstr* predMergeInstr = nullptr;
+  std::list<MachineBasicBlock*> path;
+  MachineLoop* mloop = MLI->getLoopFor(mbb);
+  //a loop header phi
+  assert(mloop && mloop->getHeader() == mbb);
+  MachineBasicBlock* latchBB = mloop->getLoopLatch();
+  assert(latchBB && "TODO:: handle multiple backedges not implemented yet");
+
+  unsigned backedgePred = 0;
+  for (MachineBasicBlock::pred_iterator ipred = mbb->pred_begin(); ipred != mbb->pred_end(); ipred++) {
+    MachineBasicBlock *inBB = *ipred;
+    //this will cause lhdr BBPred get evaluated due to cycle
+    unsigned edgePred = computeEdgePred(inBB, mbb, path);
+    if (inBB == latchBB) {
+      backedgePred = edgePred;
+    }
+  }
+  assert(backedgePred);
+  //incoming edge pred evaluation doesn't result in the bb pred get evaluated
+  //due to nested loop
+  if (!getBBPred(mbb)) {
+    computeBBPred(mbb, path);
+  }
+
+  unsigned pb1 = MRI->createVirtualRegister(&CSA::I1RegClass);
+  //filter 0 value backedge
+  const unsigned switchOpcode = TII->getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
+  MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+    CSA::IGN).
+    addReg(pb1, RegState::Define).
+    addReg(backedgePred).
+    addImm(1);
+  switchInst->setFlag(MachineInstr::NonSequential);
+
+  //combine exit condition's pred
+  unsigned orSrc = 0;
+  unsigned orResult = 0;
+  MachineInstr* orInstr = nullptr;
+  SmallVector<MachineBasicBlock*, 4> exitingBlks;
+  mloop->getExitingBlocks(exitingBlks);
+  for (unsigned i = 0; i < exitingBlks.size(); ++i) {
+    MachineBasicBlock* exitingBlk = exitingBlks[i];
+    assert(exitingBlk->succ_size() == 2);
+    MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+    MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+    MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+    unsigned ec = computeEdgePred(exitingBlk, exitBlk, path);
+    if (!orSrc) {
+      orSrc = ec;
+    } else if (!orResult) {
+      orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      orInstr = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::OR1),
+        orResult).
+        addReg(orSrc).
+        addReg(ec);
+      orInstr->setFlag(MachineInstr::NonSequential);
+    } else {
+      unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      orInstr = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::OR1),
+        newResult).
+        addReg(orResult).
+        addReg(ec);
+      orInstr->setFlag(MachineInstr::NonSequential);
+      orResult = newResult;
+    }
+  }
+  unsigned exitPred = orResult ? orResult : orSrc;
+
+  //assign loop pred and its reset value
+  const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(backedgePred));
+  assert(new_LIC_RC && "Can't determine register class for register");
+  unsigned loopPred = LMFI->allocateLIC(new_LIC_RC);
+
+  MachineInstr *pickPB1 = BuildMI(*latchBB, latchBB->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::PICK1),
+    loopPred).
+    addReg(exitPred).
+    addReg(pb1).
+    addImm(0);
+  pickPB1->setFlag(MachineInstr::NonSequential);
+  const unsigned InitOpcode = TII->getInitOpcode(&CSA::I1RegClass);
+  MachineBasicBlock::iterator hdrloc = mbb->begin();
+  // init loopPred 0;
+  BuildMI(*mbb, hdrloc, DebugLoc(), TII->get(InitOpcode), loopPred).addImm(0);
+
+#if 1
+  unsigned hdrPred = getBBPred(mbb);
+  assert(hdrPred);
+  MachineInstr *lorInstr = MRI->getVRegDef(hdrPred);
+  assert(lorInstr->getOpcode() == CSA::LOR1);
+  lorInstr->substituteRegister(lorInstr->getOperand(1).getReg(), loopPred, 0, *TRI);
+
+  //filter 0 value init edge
+  unsigned pi1 = MRI->createVirtualRegister(&CSA::I1RegClass);
+  MachineInstr *switchInit = BuildMI(*lorInstr->getParent(), lorInstr, DebugLoc(), TII->get(switchOpcode),
+    CSA::IGN).
+    addReg(pi1, RegState::Define).
+    addReg(lorInstr->getOperand(2).getReg()).
+    addImm(1);
+  lorInstr->substituteRegister(lorInstr->getOperand(2).getReg(), pi1, 0, *TRI);
+#endif
+
+
+  //fiiltering exit edge pred, only keep the value when exit condition is true
+  for (unsigned i = 0; i < exitingBlks.size(); ++i) {
+    MachineBasicBlock* exitingBlk = exitingBlks[i];
+    assert(exitingBlk->succ_size() == 2);
+    MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+    MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+    MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+    //switch off the exit edge value generated when exit condition is false;
+    unsigned ec = getEdgePred(exitingBlk, CDG->getEdgeType(exitingBlk, exitBlk, true));
+    unsigned ec1 = MRI->createVirtualRegister(&CSA::I1RegClass);
+    MachineInstr *switchEC = BuildMI(*exitingBlk, exitingBlk->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::SWITCH1),
+      CSA::IGN).
+      addReg(ec1, RegState::Define).
+      addReg(exitPred).
+      addReg(ec);
+    switchEC->setFlag(MachineInstr::NonSequential);
+
+    //pick exit edge value from 0 when loop is not executed, and loop exiting value(ec1) when loop is executed using loop initial condition
+    unsigned exitEdgePred = MRI->createVirtualRegister(&CSA::I1RegClass);
+    MachineInstr *pickEC1 = BuildMI(*exitingBlk, exitingBlk->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::PICK1),
+      exitEdgePred).
+      addReg(switchInit->getOperand(2).getReg()).
+      addImm(0).
+      addReg(ec1);
+    pickEC1->setFlag(MachineInstr::NonSequential);
+    //reset the exit edge pred to the value after filtering
+    setEdgePred(exitingBlk, CDG->getEdgeType(exitingBlk, exitBlk, true), exitEdgePred);
+  }
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
     MachineInstr *MI = &*iterI;
     ++iterI;
     if (!MI->isPHI()) continue;
+    unsigned initInput = 0;
+    unsigned backedgeInput = 0;
+    for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+      if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+      if (MO->isUse()) {
+        unsigned Reg = MO->getReg();
+        //move to its incoming block operand
+        ++MO;
+        MachineBasicBlock* inBB = MO->getMBB();
+        if (inBB == latchBB) {
+          backedgeInput = Reg;
+        } else {
+          initInput = Reg;
+        }
+      }
+    } 
+    unsigned dst = MI->getOperand(0).getReg();
+    //if we have two-way predMerge available, use predmerge/pick combination to generated pick directly
+    const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+    const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
+    BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(loopPred).
+                                                                   addReg(initInput).
+                                                                   addReg(backedgeInput);
+    MI->removeFromParent();
+  }
+}
+
+void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock* mbb) {
+  SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
+  unsigned predBB = 0;
+  MachineInstr* predMergeInstr = nullptr;
+  std::list<MachineBasicBlock*> path;
+  MachineBasicBlock::iterator iterI = mbb->begin();
+  while (iterI != mbb->end()) {
+    MachineInstr *MI = &*iterI;
+    ++iterI;
+    if (!MI->isPHI()) continue;
+    //not a loop header phi
+    assert(!MLI->getLoopFor(mbb) || MLI->getLoopFor(mbb)->getHeader() != mbb);
     pred2values.clear();
     for (MIOperands MO(*MI); MO.isValid(); ++MO) {
       if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
@@ -2160,7 +2396,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
         //move to its incoming block operand
         ++MO;
         MachineBasicBlock* inBB = MO->getMBB();
-        unsigned edgePred = computeEdgePred(inBB, mbb);
+        unsigned edgePred = computeEdgePred(inBB, mbb, path);
         std::pair<unsigned, unsigned>* pred2value = new std::pair<unsigned, unsigned>;
         pred2value->first = edgePred;
         pred2value->second = Reg;
@@ -2184,8 +2420,8 @@ void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
       unsigned reg2 = MI->getOperand(3).getReg();
       const TargetRegisterClass *TRC = MRI->getRegClass(reg1);
       unsigned pickPred = predMergeInstr->getOperand(1).getReg();
-      const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-      BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
+      const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
+      BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(pickPred).addReg(reg1).addReg(reg2);
     }
     else {
 #if 0
@@ -2194,7 +2430,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
       for (unsigned i = 0; i < pred2values.size(); i++) {
         std::pair<unsigned, unsigned>* pred2value = pred2values[i];
         if (i == 0) {
-          xphi = BuildMI(*mbb, MI, MI->getDebugLoc(), TII.get(CSA::XPHI), dst).addReg(pred2value->first).addReg(pred2value->second);
+          xphi = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(CSA::XPHI), dst).addReg(pred2value->first).addReg(pred2value->second);
         }
         else {
           MachineOperand edgeOp = MachineOperand::CreateReg(pred2value->first, true);
@@ -2204,6 +2440,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
         }
       }
 #else 
+      CombineDuplicatePhiInputs(pred2values, MI);
       LowerXPhi(pred2values, MI);
 #endif 
     }
@@ -2216,11 +2453,36 @@ void CSACvtCFDFPass::generateDynamicPickTreeForPhi(MachineBasicBlock* mbb) {
   }
 }
 
+void CSACvtCFDFPass::CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi) {
+  unsigned pairsLen = pred2values.size();
+  for (unsigned i = 0; i < pairsLen; i++) {
+    std::pair<unsigned, unsigned> *pair1 = pred2values[i];
+    for (unsigned j = i+1; j < pairsLen;) {
+      std::pair<unsigned, unsigned> *pair2 = pred2values[j];
+      if (pair1->second == pair2->second) {
+        unsigned orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+        MachineInstr* orInstr = BuildMI(*iPhi->getParent(), iPhi, DebugLoc(), TII->get(CSA::OR1),
+          orResult).
+          addReg(pair1->first).
+          addReg(pair2->first);
+        orInstr->setFlag(MachineInstr::NonSequential);
+        pair1->first = orResult;
+        //remove pair2
+        delete pair2;
+        for (unsigned k = j; k < pairsLen - 1; k++) {
+          pred2values[k] = pred2values[k + 1];
+        }
+        pairsLen--;
+      } else {
+        j++;
+      }
+    }
+  }
+  pred2values.set_size(pairsLen);
+}
 
 
 void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* loc) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
   if (pred2values.empty() || pred2values.size() == 1) return;
   SmallVector<std::pair<unsigned, unsigned> *, 4> vpair;
   unsigned j = pred2values.size() - 1;
@@ -2237,14 +2499,14 @@ void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
 
       unsigned indexReg = MRI->createVirtualRegister(&CSA::I1RegClass);
       unsigned bbpredReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-      BuildMI(*loc->getParent(), loc, DebugLoc(), TII.get(CSA::PREDMERGE),
+      BuildMI(*loc->getParent(), loc, DebugLoc(), TII->get(CSA::PREDMERGE),
         bbpredReg).
         addReg(indexReg, RegState::Define).
         addReg(pair1->first).   //last processed edge
         addReg(pair2->first); //current edge
 
       const TargetRegisterClass *vTRC = MRI->getRegClass(pair1->second);
-      const unsigned pickOpcode = TII.getPickSwitchOpcode(vTRC, true /*pick op*/);
+      const unsigned pickOpcode = TII->getPickSwitchOpcode(vTRC, true /*pick op*/);
       unsigned pickDst;
       if (pred2values.size() == 2) {
         pickDst = loc->getOperand(0).getReg();
@@ -2252,7 +2514,7 @@ void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
         pickDst = MRI->createVirtualRegister(vTRC);
       }
       BuildMI(*loc->getParent(), loc, loc->getDebugLoc(),
-        TII.get(pickOpcode), pickDst).
+        TII->get(pickOpcode), pickDst).
         addReg(indexReg).
         addReg(pair1->second).
         addReg(pair2->second);
@@ -2323,9 +2585,6 @@ void CSACvtCFDFPass::replacePhiForUnstructed() {
     replacePhiForUnstructedLoop(*LI);
   }
 
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = &*BB;
     if (MLI->getLoopFor(mbb) == nullptr) {
@@ -2349,8 +2608,8 @@ void CSACvtCFDFPass::replacePhiForUnstructed() {
               pickanyReg = Reg;
             } else {
               unsigned valueReg = MRI->createVirtualRegister(TRC);
-              const unsigned pickanyOpcode = TII.getPickanyOpcode(TRC);
-              pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(pickanyOpcode),
+              const unsigned pickanyOpcode = TII->getPickanyOpcode(TRC);
+              pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII->get(pickanyOpcode),
                 valueReg).
                 addReg(CSA::IGN, RegState::Define).
                 addReg(pickanyReg).
@@ -2361,7 +2620,7 @@ void CSACvtCFDFPass::replacePhiForUnstructed() {
           }
         }
         //update last pickany's register to phi's dest, and the index reg used in "ordered" switch
-        pickanyInst->substituteRegister(pickanyReg, dst, 0, TRI);
+        pickanyInst->substituteRegister(pickanyReg, dst, 0, *TRI);
         iPhi->removeFromParent();
       }
     }
@@ -2370,9 +2629,6 @@ void CSACvtCFDFPass::replacePhiForUnstructed() {
 
 
 void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
     replacePhiForUnstructedLoop(*LI);
   }
@@ -2382,13 +2638,12 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
   //pickany for ordering based on exiting condition
   if (lhdr->getFirstNonPHI() != lhdr->begin()) {
     //hdr phi's init input controller
-    CSAMachineFunctionInfo *LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
     // Look up target register class corresponding to this register.
     const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(&CSA::I1RegClass);
     assert(new_LIC_RC && "Can't determine register class for register");
     predReg = LMFI->allocateLIC(new_LIC_RC);
-    const unsigned InitOpcode = TII.getInitOpcode(&CSA::I1RegClass);
-    MachineInstr *initInst = BuildMI(*lhdr, lhdr->begin(), DebugLoc(), TII.get(InitOpcode), predReg).addImm(1);
+    const unsigned InitOpcode = TII->getInitOpcode(&CSA::I1RegClass);
+    MachineInstr *initInst = BuildMI(*lhdr, lhdr->begin(), DebugLoc(), TII->get(InitOpcode), predReg).addImm(1);
     initInst->setFlag(MachineInstr::NonSequential);
 
     SmallVector<MachineBasicBlock*, 4> latchBBs;
@@ -2410,14 +2665,14 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
       unsigned ec = bi->getOperand(0).getReg();
       if (CDG->getEdgeType(exitingBlk, exitBlk, true) == ControlDependenceNode::FALSE) {
         unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-        BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII.get(CSA::NOT1), notReg).addReg(ec);
+        BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(ec);
         ec = notReg;
       }
 
       unsigned exitTrue = MRI->createVirtualRegister(&CSA::I1RegClass);
       //generate switch op to guard input to the loop
-      const unsigned switchOpcode = TII.getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
-      MachineInstr *switchInst = BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII.get(switchOpcode),
+      const unsigned switchOpcode = TII->getPickSwitchOpcode(&CSA::I1RegClass, false /*not pick op*/);
+      MachineInstr *switchInst = BuildMI(*exitingBlk, exitingBlk->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
         CSA::IGN).
         addReg(exitTrue, RegState::Define).
         addReg(ec).
@@ -2429,8 +2684,8 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
       }
       else {
         unsigned valueReg = MRI->createVirtualRegister(&CSA::I1RegClass);
-        const unsigned pickanyOpcode = TII.getPickanyOpcode(&CSA::I1RegClass);
-        pickanyExits = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(pickanyOpcode),
+        const unsigned pickanyOpcode = TII->getPickanyOpcode(&CSA::I1RegClass);
+        pickanyExits = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(pickanyOpcode),
           valueReg).
           addReg(CSA::IGN, RegState::Define).
           addReg(anyec).
@@ -2441,13 +2696,13 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
     }
 
     if (!pickanyExits) {
-      const unsigned moveOpcode = TII.getMoveOpcode(&CSA::I1RegClass);
-      MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII.get(moveOpcode), 
+      const unsigned moveOpcode = TII->getMoveOpcode(&CSA::I1RegClass);
+      MachineInstr *cpyInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), 
                                                                                                       predReg).
                                                                                                       addReg(anyec);
       cpyInst->setFlag(MachineInstr::NonSequential);
     } else {
-      pickanyExits->substituteRegister(anyec, predReg, 0, TRI);
+      pickanyExits->substituteRegister(anyec, predReg, 0, *TRI);
     }
   }
 
@@ -2464,7 +2719,6 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
       if (!iPhi->isPHI()) continue;
       unsigned dst = iPhi->getOperand(0).getReg();
       const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-      //const unsigned pickOpcode = TII.getPickanyOpcode(TRC);
       unsigned pickanyReg = 0;
       MachineInstr *pickanyInst = nullptr;
       for (MIOperands MO(*iPhi); MO.isValid(); ++MO) {
@@ -2477,8 +2731,8 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
           if (mloop->getHeader() == mbb && !mloop->contains(inbb)) {
             unsigned switchTrueReg = MRI->createVirtualRegister(TRC);
             //generate switch op to guard input to the loop
-            const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-            MachineInstr *switchInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(switchOpcode),
+            const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
+            MachineInstr *switchInst = BuildMI(*mbb, iPhi, DebugLoc(), TII->get(switchOpcode),
               CSA::IGN).
               addReg(switchTrueReg, RegState::Define).
               addReg(predReg).
@@ -2492,8 +2746,8 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
             pickanyReg = Reg;
           } else {
             unsigned valueReg = MRI->createVirtualRegister(TRC);
-            const unsigned pickanyOpcode = TII.getPickanyOpcode(TRC);
-            pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII.get(pickanyOpcode),
+            const unsigned pickanyOpcode = TII->getPickanyOpcode(TRC);
+            pickanyInst = BuildMI(*mbb, iPhi, DebugLoc(), TII->get(pickanyOpcode),
               valueReg).
               addReg(CSA::IGN, RegState::Define).
               addReg(pickanyReg).
@@ -2504,23 +2758,10 @@ void CSACvtCFDFPass::replacePhiForUnstructedLoop(MachineLoop* L) {
         }
       }
       //update last pickany's register to phi's dest, and the index reg used in "ordered" switch
-      pickanyInst->substituteRegister(pickanyReg, dst, 0, TRI);
+      pickanyInst->substituteRegister(pickanyReg, dst, 0, *TRI);
       iPhi->removeFromParent();
     }
   }
-}
-
-
-
-void CSACvtCFDFPass::generateDynamicPreds() {
-  typedef po_iterator<MachineBasicBlock *> po_cfg_iterator;
-  MachineBasicBlock *root = &*thisMF->begin();
-  for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
-    MachineBasicBlock* mbb = *itermbb;
-    if (isUnStructured(mbb)) {
-      generateDynamicPickTreeForPhi(mbb);
-    }
-  } //end of bb
 }
 
 
@@ -2530,7 +2771,7 @@ void CSACvtCFDFPass::replaceIfFooterPhiSeq() {
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
     if (isUnStructured(mbb)) {
-      generateDynamicPickTreeForPhi(mbb);
+      generateDynamicPickTreeForFooter(mbb);
       //TODO:: use repeat to iterate pred inside the loop
     }  else {
       generateCompletePickTreeForPhi(mbb);
@@ -2591,387 +2832,8 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, 
   }
 }
 
-MachineInstr* CSACvtCFDFPass::convert_memop_ins(MachineInstr* MI,
-                                                unsigned new_opcode,
-                                                const CSAInstrInfo& TII,
-                                                unsigned issued_reg,
-                                                unsigned ready_reg) {
-  MachineInstr* new_inst = NULL;
-  DEBUG(errs() << "We want convert this instruction.\n");
-  for (unsigned i = 0; i < MI->getNumOperands(); ++i) {
-    MachineOperand& MO = MI->getOperand(i);
-    DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
-  }
-
-  // Alternative implementation would be:
-  //  1. Build an "copy" of the existing instruction,
-  //  2. Remove the operands from the clonsed instruction.
-  //  3. Add new ones, in the right order.
-  //
-  // This operation doesn't work, because the cloned instruction gets created
-  // with too few operands.
-  //
-  // MachineInstr* new_inst = thisMF->CloneMachineInstr(MI);
-  // BB->insert(iterMI, new_inst);
-  // new_inst->setDesc(TII.get(new_opcode));
-  // int k = MI->getNumOperands() - 1;
-  // while (k >= 0) {
-  //   new_inst->RemoveOperand(k);
-  //   k--;
-  // }
-  new_inst = BuildMI(*MI->getParent(),
-                     MI,
-                     MI->getDebugLoc(),
-                     TII.get(new_opcode));
-
-  unsigned opidx = 0;
-  // Create dummy operands for this instruction.
-  MachineOperand issued_op = MachineOperand::CreateReg(issued_reg, true);
-  MachineOperand ready_op = MachineOperand::CreateReg(ready_reg, false);
 
 
-  // Figure out how many "def" operands we have in this instruction.
-  // This code assumes that normal loads have exactly one definition,
-  // and normal stores have no definitions.
-  unsigned expected_def_operands = 0;
-  if (TII.isLoad(MI)) {
-    expected_def_operands = 1;
-  } else if (TII.isStore(MI)) {
-    expected_def_operands = 0;
-  } else if (TII.isAtomic(MI)) {
-    expected_def_operands = 1;
-  }
-  else {
-    assert(false && "Converting unknown type of instruction to ordered memory op");
-  }
-
-  // We should have at least as many definitions as expected operands.
-  assert(MI->getNumOperands() >= expected_def_operands);
-
-  // 1. Add all the defs to the new instruction first.
-  while(opidx < expected_def_operands) {
-    MachineOperand& MO = MI->getOperand(opidx);
-    // Sanity-check: if we have registers operands, then they had
-    // better be definitions.
-    if (MO.isReg()) {
-      assert(MO.isDef());
-    }
-    new_inst->addOperand(MO);
-    opidx++;
-  }
-
-  // 2. Add issued flag.
-  new_inst->addOperand(issued_op);
-  // Then add the remaining operands.
-  while (opidx < MI->getNumOperands()) {
-    MachineOperand& MO = MI->getOperand(opidx);
-    // In the remaining operands, there should not be any register
-    // definitions.
-    if (MO.isReg()) {
-      assert(!MO.isDef());
-    }
-    new_inst->addOperand(MO);
-    opidx++;
-  }
-  // 3. Finally, add the ready flag.
-  new_inst->addOperand(ready_op);
-
-  // 4. Now copy over remaining state in MI:
-  //      Flags
-  //      MemRefs.
-  //
-  // Ideally, we'd be able to just call this function instead,
-  // but with a different opcode that reserves more space for
-  // operands.
-  //   MachineInstr(MachineFunction &, const MachineInstr &);
-  new_inst->setFlags(MI->getFlags());
-  new_inst->setMemRefs(MI->memoperands_begin(),
-                       MI->memoperands_end());
-
-  DEBUG(errs() << "   Convert to ins: " << *new_inst << "\n");
-
-  for (unsigned i = 0; i < new_inst->getNumOperands(); ++i) {
-    MachineOperand& MO = new_inst->getOperand(i);
-    DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
-  }
-
-  DEBUG(errs() << "   Original ins modified: " << *MI << "\n");
-
-  return new_inst;
-}
-
-
-// Insert all the definitions of mem_in for each block,
-// either as:
-//   1. PHI from our predecessors, if multiple predecessors
-//   2. Direct initialization, if 1 predecessor
-//   3. mov of a constant, if 0 predecessors.
-//
-void CSACvtCFDFPass::createMemInRegisterDefs(DenseMap<MachineBasicBlock*, unsigned>& blockToMemIn,
-                                             DenseMap<MachineBasicBlock*, unsigned>& blockToMemOut) {
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();
-  
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-
-    MachineBasicBlock* BBptr = &(*BB);
-
-    assert(blockToMemIn.find(BBptr) != blockToMemIn.end());
-    unsigned mem_in_reg = blockToMemIn[BBptr];
-
-    if (BB->pred_size() > 1) {
-      // Case 1: Insert a PHI of the mem_out registers from all the
-      // predecessors.
-      MachineInstrBuilder mbuilder = BuildMI(*BB,
-                                             BB->getFirstNonPHI(),
-                                             DebugLoc(),
-                                             TII.get(TargetOpcode::PHI),
-                                             mem_in_reg);
-
-      // Scan the predecessors, and add the PHI value for each.
-      for (MachineBasicBlock::pred_iterator PI = BB->pred_begin();
-           PI != BB->pred_end();
-           ++PI) {
-        assert(blockToMemIn.find(*PI) != blockToMemIn.end());
-        unsigned target_out_reg = blockToMemOut[*PI];
-        mbuilder.addReg(target_out_reg);
-        mbuilder.addMBB(*PI);
-      }
-    }
-    else if (BB->pred_size() == 1) {
-      // Case 2: Only one predecessor.  Just use the mem_out register
-      // from the predecessor directly.
-      MachineBasicBlock::pred_iterator PI = BB->pred_begin();
-      MachineBasicBlock* PIptr = *PI;
-      assert(blockToMemIn.find(PIptr) != blockToMemIn.end());
-      unsigned target_out_reg = blockToMemOut[PIptr];
-
-      // Add in the mov of the register from the previous block.
-      BuildMI(*BB,
-              BB->getFirstNonPHI(),
-              DebugLoc(),
-              TII.get(MemTokenMOVOpcode),
-              mem_in_reg).addReg(target_out_reg);
-    }
-    else {
-      assert(BB->pred_size() == 0);
-      // Case 3: No predecessors.  Generate a simple mov of a
-      // constant, to handle the initialization.
-
-      // Add in the mov of the register from the previous block.
-      BuildMI(*BB,
-              BB->getFirstNonPHI(),
-              DebugLoc(),
-              TII.get(MemTokenMOVOpcode),
-              mem_in_reg).addImm(1);
-    }
-
-    DEBUG(errs() << "After createMemInRegisterDefs: " << *BB << "\n");
-  }
-}
-
-
-
-unsigned CSACvtCFDFPass::convert_block_memops_linear(MachineFunction::iterator& BB,
-                                                     unsigned mem_in_reg)
-
-{
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
-  unsigned current_mem_reg = mem_in_reg;
-
-  MachineBasicBlock::iterator iterMI = BB->begin();
-  while (iterMI != BB->end()) {
-    MachineInstr* MI = &*iterMI;
-    DEBUG(errs() << "Found instruction: " << *MI << "\n");
-
-    unsigned current_opcode = MI->getOpcode();
-    unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
-
-    if (current_opcode != converted_opcode) {
-      // TBD(jsukha): For now, we are just going to create a linear
-      // chain of dependencies for memory instructions within a
-      // basic block.
-      //
-      // We will want to optimize this implementation further, but
-      // this is the simple version for now.
-      unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
-
-      convert_memop_ins(MI,
-                        converted_opcode,
-                        TII,
-                        next_mem_reg,
-                        current_mem_reg);
-
-      // Erase the old instruction.
-      iterMI = BB->erase(iterMI);
-
-      // Advance the chain.
-      current_mem_reg = next_mem_reg;
-    }
-    else {
-      ++iterMI;
-    }
-  }
-
-  return current_mem_reg;
-}
-
-
-unsigned CSACvtCFDFPass::merge_dependency_signals(MachineFunction::iterator& BB,
-                                                  MachineInstr* MI,
-                                                  SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
-                                                  unsigned input_mem_reg) {
-
-  if (current_wavefront->size() > 0) {
-    const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-    MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
-    DEBUG(errs() << "Merging dependency signals from " << current_wavefront->size() << " register " << "\n");
-
-    // BFS-like algorithm for merging the registers together.
-    // Merge consecutive pairs of dependency signals together,
-    // and push the output into "next_level".
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH> tmp_buffer;
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_level;
-    SmallVector<unsigned, MEMDEP_VEC_WIDTH>* next_level;
-
-    current_level = current_wavefront;
-    next_level = &tmp_buffer;
-
-    while (current_level->size() > 1) {
-      assert(next_level->size() == 0);
-      for (unsigned i = 0; i < current_level->size(); i+=2) {
-        // Merge current_level[i] and current_level[i+1] into
-        // next_level[i/2]
-        if ((i+1) < current_level->size()) {
-
-          // Even case: we have a pair to merge.  Create a virtual
-          // register + instruction to do the merge.
-          unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
-          MachineInstr* new_inst;
-          if (MI) {
-            new_inst = BuildMI(*MI->getParent(),
-                               MI,
-                               MI->getDebugLoc(),
-                               TII.get(CSA::MERGE1),
-                               next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
-          }
-          else {
-            // Adding a merge at the end of the block.
-            new_inst = BuildMI(*BB,
-                               BB->getFirstTerminator(),
-                               DebugLoc(),
-                               TII.get(CSA::MERGE1),
-                               next_out_reg).addImm(0).addReg((*current_level)[i]).addReg((*current_level)[i+1]);
-          }
-          DEBUG(errs() << "Inserted dependecy merge instruction " << *new_inst << "\n");
-          next_level->push_back(next_out_reg);
-        }
-        else {
-          // In an odd case, just pass register through to next level.
-          next_level->push_back((*current_level)[i]);
-        }
-      }
-
-      // Swap next and current.
-      SmallVector<unsigned, MEMDEP_VEC_WIDTH>* tmp = current_level;
-      current_level = next_level;
-      next_level = tmp;
-      next_level->clear();
-
-      DEBUG(errs() << "Current level size is now " << current_level->size() << "\n");
-      DEBUG(errs() << "Next level size is now " << next_level->size() << "\n");
-    }
-
-    assert(current_level->size() == 1);
-    unsigned ans = (*current_level)[0];
-
-    // Clear both vectors, just to be certain.
-    current_level->clear();
-    next_level->clear();
-
-    return ans;
-  }
-  else {
-    return input_mem_reg;
-  }
-}
-
-
-
-unsigned CSACvtCFDFPass::convert_block_memops_wavefront(MachineFunction::iterator& BB,
-                                                        unsigned mem_in_reg)
-{
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
-  unsigned current_mem_reg = mem_in_reg;
-  SmallVector<unsigned, MEMDEP_VEC_WIDTH> current_wavefront;
-  current_wavefront.clear();
-  DEBUG(errs() << "Wavefront memory ordering for block " << &*BB << "\n");
-
-  MachineBasicBlock::iterator iterMI = BB->begin();
-  while (iterMI != BB->end()) {
-    MachineInstr* MI = &*iterMI;
-    DEBUG(errs() << "Found instruction: " << *MI << "\n");
-
-    unsigned current_opcode = MI->getOpcode();
-    unsigned converted_opcode = TII.get_ordered_opcode_for_LDST(current_opcode);
-
-    bool is_load = TII.isLoad(MI);
-
-    if (current_opcode != converted_opcode) {
-      // Create a register for the "issued" output of this memory
-      // operation.
-      unsigned next_out_reg = MRI->createVirtualRegister(MemopRC);
-
-      if (is_load) {
-        // Just a load. Build up the set of load outputs that we
-        // depend on.
-        current_wavefront.push_back(next_out_reg);
-      }
-      else {
-        // This is a store or atomic instruction.
-        // If there were any loads in the last interval, merge all
-        // their outputs into one output, and change the latest
-        // source.
-        if (current_wavefront.size() > 0) {
-          current_mem_reg = merge_dependency_signals(BB,
-                                                     MI,
-                                                     &current_wavefront,
-                                                     current_mem_reg);
-          assert(current_wavefront.size() == 0);
-        }
-      }
-
-      convert_memop_ins(MI,
-                        converted_opcode,
-                        TII,
-                        next_out_reg,
-                        current_mem_reg);
-
-      if (!is_load) {
-        current_mem_reg = next_out_reg;
-      }
-
-      // Erase the old instruction.
-      iterMI = BB->erase(iterMI);
-    }
-    else {
-      ++iterMI;
-    }
-  }
-
-  // Sink any loads at the end of the block to the end of the block.
-  current_mem_reg = merge_dependency_signals(BB,
-                                             NULL,
-                                             &current_wavefront,
-                                             current_mem_reg);
-
-  return current_mem_reg;
-}
 
 /* Find all implicitly defined vregs. These are problematic with dataflow
  * conversion: LLVM will automatically expand them to registers (LICs, in our
@@ -3022,78 +2884,5 @@ bool CSACvtCFDFPass::replaceUndefWithIgn() {
 
   DEBUG(errs() << "Finished converting implicit defs to %IGN reads.\n\n");
   return modified;
-}
-
-void CSACvtCFDFPass::addMemoryOrderingConstraints() {
-
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-
-  DenseMap<MachineBasicBlock*, unsigned> blockToMemIn;
-  DenseMap<MachineBasicBlock*, unsigned> blockToMemOut;
-
-
-  DEBUG(errs() << "Before addMemoryOrderingConstraints");
-  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
-
-    // Create a virtual register for the block input.
-    unsigned mem_in_reg = MRI->createVirtualRegister(MemopRC);
-    unsigned last_mem_reg;
-
-    // Link all the memory ops in BB together.
-    // Return the name of the last output register (which could be
-    // mem_in_reg).
-    switch (OrderMemopsType) {
-    case OrderMemopsMode::wavefront:
-      {
-        last_mem_reg = convert_block_memops_wavefront(BB,
-                                                      mem_in_reg);
-      }
-      break;
-    case OrderMemopsMode::linear:
-      {
-        last_mem_reg = convert_block_memops_linear(BB,
-                                                   mem_in_reg);
-      }
-      break;
-
-      // We should never get here.
-    case OrderMemopsMode::none:
-    default:
-      assert(0 && "Only linear and wavefront memory ordering implemented now.");
-
-    }
-
-    // Create a last (virtual) register for the output of the block.
-    unsigned mem_out_reg = MRI->createVirtualRegister(MemopRC);
-
-    // This operation creates an instruction before the terminating
-    // instruction in the block that moves the contents of the last
-    // "issued" flag in the block into the mem_out register.
-    //
-    // TBD(jsukha): For now, I'm just going to do this operation
-    // with a mov1.  I don't know if some other instruction will be
-    // better.
-    const unsigned MemTokenMOVOpcode = TII.getMemTokenMOVOpcode();    
-    MachineInstr* mem_out_def = BuildMI(*BB,
-                                        BB->getFirstTerminator(),
-                                        DebugLoc(),
-                                        TII.get(MemTokenMOVOpcode),
-                                        mem_out_reg).addReg(last_mem_reg);
-
-    DEBUG(errs() << "Inserted mem_out_def instruction " << *mem_out_def << "\n");
-
-    // Save mem_in_reg and mem_out_reg for each block into a DenseMap,
-    // so that we can create a PHI instruction as an input to the
-    // block.
-    blockToMemIn[&*BB] = mem_in_reg;
-    blockToMemOut[&*BB] = mem_out_reg;
-
-    DEBUG(errs() << "After memop conversion of function: " << *BB << "\n");
-  }
-
-  // Another walk over basic blocks: add in definitions for mem_in
-  // register for each block, based on predecessors.
-  createMemInRegisterDefs(blockToMemIn, blockToMemOut);
 }
 

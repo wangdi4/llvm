@@ -154,6 +154,10 @@ public:
     Banner = std::string("After Machine CDG Pass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createCSAMemopOrderingPass(), false);
+    Banner = std::string("After CSAMemopOrderingPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     addPass(createCSACvtCFDFPass(), false);
     Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));

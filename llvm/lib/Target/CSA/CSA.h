@@ -36,6 +36,7 @@ namespace llvm {
   MachineFunctionPass *createCSAAllocUnitPass();
   MachineFunctionPass *createCSAPrologEpilogPass();
   MachineFunctionPass *createCSAExpandInlineAsmPass();
+  MachineFunctionPass *createCSAMemopOrderingPass();
   /// \brief Creates an CSA-specific Target Transformation Info pass.
   ImmutablePass *createCSATargetTransformInfoPass(const CSATargetMachine *TM);
   //FunctionPass *createCSALowerStructArgsPass();
