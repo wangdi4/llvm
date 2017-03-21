@@ -86,7 +86,7 @@ all:
 c: $(NAME).$(EXT)
 	@echo "Running compilation stage..."
 	# Note: using csa-clang here to compile for x86_64.
-	$(CLANG) -target x86_64-unknown-linux -Wall -S -emit-llvm -fno-use-cxa-atexit $(NAME).$(EXT) -o $(NAME).ll
+	$(CLANG) -target x86_64-unknown-linux-gnu -Wall -S -emit-llvm -fno-use-cxa-atexit $(NAME).$(EXT) -o $(NAME).ll
 	$(OPT) $(OPT_FLAGS) $(COMPILE_OPT_FLAGS) -inline -inline-threshold=1073741824 -debug-only=inline $(DEBUG) < $(NAME).ll > $(NAME).opt.bc
 	$(DIS) $(NAME).opt.bc
 
