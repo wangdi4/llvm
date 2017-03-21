@@ -67,10 +67,10 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
+// CHECK: [[ARGC_VAL:%.+]] = load i32, i32* [[ARGC_ADDR]],
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8*** [[ARGV_ADDR]])
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
-// CHECK: [[ARGC_VAL:%.+]] = load i32, i32* [[ARGC_ADDR]],
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i32* [[ARGC_ADDR]], i32 [[ARGC_VAL]])
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel for shared(argv) private(s1, s2, arr1, arr2, arr3) linear(val(argc) : argc)
@@ -80,9 +80,9 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
+// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", metadata !"QUAL.OPND.NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", %struct.S2* [[S2_ADDR]], %struct.S2* (%struct.S2*)* @_ZTS2S2.omp.def_constr, void (%struct.S2*)* @_ZTS2S2.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr, metadata !"QUAL.OPND.NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr, double* [[ARR3_ADDR]])
-// CHECK: [[ARGCREF:%.+]] = load i32*, i32** [[ARGCREF_ADDR]],
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.UVAL", i32* [[ARGCREF]], i32 1)
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i8*** [[ARGV_ADDR]], i32 1)
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
@@ -234,9 +234,9 @@ int main(int argc, char **argv) {
   n2 = n1;
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: opnd.i32(metadata !"QUAL.OMP.ORDERED", i32 1)
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.ORDERED")
-// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK-NEXT: load i64, i64*
 // CHECK-NEXT: store i64
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.END.ORDERED")
@@ -314,20 +314,22 @@ int main(int argc, char **argv) {
   long input1[N];
   long **input2 = 0;
   long result[M][M][N];
-// CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.TARGET")
+// CHECK: [[VLA1:%.+]] = alloca i64
+// CHECK: [[VLA2:%.+]] = alloca i64
 // CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR:%.+]],
 // CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
 // CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
 // CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
 // CHECK-NEXT: [[N2:%.+]] = load i32, i32* [[N_ADDR]]
 // CHECK-NEXT: [[N2S:%.+]] = sext i32 [[N2]] to i64
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.TO", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 1, metadata !"QUAL.OPND.ARRSIZE", i64 [[N1S]], i64 2, i64 [[NS]], i64 1, metadata !"QUAL.OPND.ARRSECT", i64*** %{{.+}}, i64 2, i64 0, i64 [[N2S]], i64 1, i64 0, i64 10, i64 1)
-// CHECK-NEXT: [[N:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[NS:%.+]] = sext i32 [[N]] to i64
-// CHECK-NEXT: [[SIZE:%.+]] = sub i64 [[NS]], 0
-// CHECK-NEXT: [[N1:%.+]] = load i32, i32* [[N_ADDR]]
-// CHECK-NEXT: [[N1S:%.+]] = sext i32 [[N1]] to i64
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* %{{.+}}, i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[N1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
+// CHECK-NEXT: [[NA:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[NAS:%.+]] = sext i32 [[NA]] to i64
+// CHECK-NEXT: [[SIZE:%.+]] = sub i64 [[NAS]], 0
+// CHECK-NEXT: [[NA1:%.+]] = load i32, i32* [[N_ADDR]]
+// CHECK-NEXT: [[NA1S:%.+]] = sext i32 [[NA1]] to i64
+// CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.OMP.TARGET")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.TO", metadata !"QUAL.OPND.ARRSECT", i64* [[VLA1]], i64 1, metadata !"QUAL.OPND.ARRSIZE", i64 [[N1S]], i64 2, i64 [[NS]], i64 1, metadata !"QUAL.OPND.ARRSECT", i64*** %{{.+}}, i64 2, i64 0, i64 [[N2S]], i64 1, i64 0, i64 10, i64 1)
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.MAP.FROM", metadata !"QUAL.OPND.ARRSECT", i64* [[VLA2]], i64 3, metadata !"QUAL.OPND.ARRSIZE", i64 10, i64 10, i64 [[NA1S]], i64 2, i64 8, i64 1, i64 0, i64 10, i64 1, i64 0, i64 [[SIZE]], i64 1)
 // CHECK-NEXT: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")

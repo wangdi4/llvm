@@ -46,12 +46,27 @@ class OpenMPCodeOutliner {
   typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
   CodeGenFunction &CGF;
   StringRef End;
+  llvm::LLVMContext &C;
+
+  // For multiple directive implementation
   llvm::Function *IntelDirective = nullptr;
   llvm::Function *IntelSimpleClause = nullptr;
   llvm::Function *IntelListClause = nullptr;
-  llvm::LLVMContext &C;
   llvm::SmallVector<llvm::Value *, 16> Args;
-  llvm::CallInst *DirectiveInst;
+
+  // For region entry/exit implementation
+  llvm::Function *RegionEntryDirective = nullptr;
+  llvm::Function *RegionExitDirective = nullptr;
+  SmallVector<llvm::OperandBundleDef, 1> OpBundles;
+  StringRef BundleString;
+  SmallVector<llvm::Value*, 1> BundleValues;
+
+  // Used to insert instructions outside the region
+  llvm::Instruction *OutsideInsertInstruction = nullptr;
+
+  // Used to insert clauses
+  llvm::Instruction *ClauseInsertInstruction = nullptr;
+
   const OMPExecutableDirective &Directive;
 
   ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);

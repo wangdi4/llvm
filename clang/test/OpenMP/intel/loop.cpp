@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -std=c++14 -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REGION
 //
 // Checking on "regular" loops
 //
@@ -12,6 +13,7 @@ void bar(int) noexcept;
 
 // CHECK-LABEL: @_Z3fooPiPS_
 void foo(int *arr1, int **arr2) {
+  // CHECK-REGION: [[ARR2:%arr2.*]] = alloca i32**,
   // CHECK: [[ILCV:%i.*]] = alloca i32,
   // CHECK: [[JLCV:%j.*]] = alloca i32,
   // CHECK: [[KLCV:%k.*]] = alloca i32,
@@ -23,6 +25,8 @@ void foo(int *arr1, int **arr2) {
 // CHECK-NEXT: directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: directive(metadata !"DIR.OMP.END.SIMD")
 // CHECK: directive(metadata !"DIR.QUAL.LIST.END")
+// CHECK-REGION: [[TOKENVAL:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"(), "QUAL.OMP.SAFELEN"(i32 4) ]
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL]]) [ "DIR.OMP.END.SIMD"() ]
   #pragma omp simd safelen(4)
   for (iter = first1(); iter < last1(); ++iter) {
     arr1[iter] = 42+iter;
@@ -31,6 +35,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
+// CHECK-REGION: [[TOKENVAL2:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.COLLAPSE"(i32 2), "QUAL.OMP.SHARED"(i32*** [[ARR2]]) ]
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL2]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for collapse(2)
   for (i=first2(); i<last2(); ++i)
     for (j=first3(); j<last3(); ++j)
@@ -38,6 +44,8 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: directive(metadata !"DIR.OMP.END.PARALLEL.LOOP")
+// CHECK-REGION: [[TOKENVAL3:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"() ]
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL3]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
   #pragma omp parallel for
   for (int k=0; k<10; k++) {
     bar(k);
