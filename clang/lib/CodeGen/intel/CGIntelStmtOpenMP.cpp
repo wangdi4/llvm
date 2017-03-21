@@ -362,7 +362,7 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::addArg(const Expr *E) {
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection)) {
       ArraySectionTy AS;
       Address Base = emitOMPArraySectionExpr(
@@ -587,7 +587,7 @@ namespace CGIntelOpenMP {
     }
     addArg(Linear);
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     for (auto *E : Cl->varlists())
       addArg(E);
     addArg(Cl->getStep() ? CGF.EmitScalarExpr(Cl->getStep())
@@ -685,7 +685,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPOrderedClause(const OMPOrderedClause *C) {
     addArg("QUAL.OMP.ORDERED");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     if (auto *E = C->getNumForLoops())
       addArg(CGF.EmitScalarExpr(E));
     else
@@ -727,27 +727,31 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::emitOMPScheduleClause(const OMPScheduleClause *C) {
     int DefaultChunkSize = 0;
+    SmallString<64> SchedString;
     switch (C->getScheduleKind()) {
     case OMPC_SCHEDULE_static:
-      addArg("QUAL.OMP.SCHEDULE.STATIC");
+      SchedString = "QUAL.OMP.SCHEDULE.STATIC";
       break;
     case OMPC_SCHEDULE_dynamic:
       DefaultChunkSize = 1;
-      addArg("QUAL.OMP.SCHEDULE.DYNAMIC");
+      SchedString = "QUAL.OMP.SCHEDULE.DYNAMIC";
       break;
     case OMPC_SCHEDULE_guided:
       DefaultChunkSize = 1;
-      addArg("QUAL.OMP.SCHEDULE.GUIDED");
+      SchedString = "QUAL.OMP.SCHEDULE.GUIDED";
       break;
     case OMPC_SCHEDULE_auto:
-      addArg("QUAL.OMP.SCHEDULE.AUTO");
+      SchedString = "QUAL.OMP.SCHEDULE.AUTO";
       break;
     case OMPC_SCHEDULE_runtime:
-      addArg("QUAL.OMP.SCHEDULE.RUNTIME");
+      SchedString = "QUAL.OMP.SCHEDULE.RUNTIME";
       break;
     case OMPC_SCHEDULE_unknown:
       llvm_unreachable("Unknown schedule clause");
     }
+    if (!CGF.getLangOpts().IntelOpenMPRegion)
+      addArg(SchedString);
+
     SmallString<64> Modifiers;
     for (int Count = 0; Count < 2; ++Count) {
       SmallString<64> LocalModifier;
@@ -775,9 +779,14 @@ namespace CGIntelOpenMP {
     }
     if (Modifiers.empty())
       Modifiers = "MODIFIERNONE";
-    addArg(Modifiers);
+    if (CGF.getLangOpts().IntelOpenMPRegion) {
+      SchedString += ':';
+      SchedString += Modifiers;
+      addArg(SchedString);
+    } else
+      addArg(Modifiers);
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     if (auto *E = C->getChunkSize())
       addArg(CGF.EmitScalarExpr(E));
     else
@@ -807,7 +816,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPCopyinClause(const OMPCopyinClause *Cl) {
     addArg("QUAL.OMP.COPYIN");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     for (auto *E : Cl->varlists()) {
       if (!E->getType().isPODType(CGF.getContext()))
         CGF.CGM.ErrorUnsupported(E, "non-POD copyin variable");
@@ -822,7 +831,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPIfClause(const OMPIfClause *Cl) {
     addArg("QUAL.OMP.IF");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     addArg(CGF.EmitScalarExpr(Cl->getCondition()));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
@@ -832,7 +841,7 @@ namespace CGIntelOpenMP {
                                     const OMPNumThreadsClause *Cl) {
     addArg("QUAL.OMP.NUM_THREADS");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     addArg(CGF.EmitScalarExpr(Cl->getNumThreads()));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
@@ -872,7 +881,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSafelenClause(const OMPSafelenClause *Cl) {
     addArg("QUAL.OMP.SAFELEN");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     addArg(CGF.EmitScalarExpr(Cl->getSafelen()));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
@@ -881,7 +890,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPSimdlenClause(const OMPSimdlenClause *Cl) {
     addArg("QUAL.OMP.SIMDLEN");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     addArg(CGF.EmitScalarExpr(Cl->getSimdlen()));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
@@ -890,7 +899,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPCollapseClause(const OMPCollapseClause *Cl) {
     addArg("QUAL.OMP.COLLAPSE");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     addArg(CGF.EmitScalarExpr(Cl->getNumForLoops()));
     CGF.Builder.restoreIP(SavedIP);
     emitOpndClause();
@@ -899,7 +908,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPAlignedClause(const OMPAlignedClause *Cl) {
     addArg("QUAL.OMP.ALIGNED");
     auto SavedIP = CGF.Builder.saveIP();
-    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+    setOutsideInsertPoint();
     for (auto *E : Cl->varlists())
       addArg(E);
     addArg(Cl->getAlignment() ? CGF.EmitScalarExpr(Cl->getAlignment())
@@ -976,7 +985,7 @@ namespace CGIntelOpenMP {
     llvm::CallInst *call_entry;
     if (CGF.getLangOpts().IntelOpenMPRegion) {
       auto EndIP = CGF.Builder.saveIP();
-      CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+      setOutsideInsertPoint();
       SmallVector<llvm::Value*, 1> CallArgs;
       call_entry = CGF.Builder.CreateCall(RegionEntryDirective, CallArgs,
                                           OpBundles);
@@ -1215,7 +1224,10 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
       Outliner.addExplicit(PVD);
     }
   }
+  auto SavedIP = Builder.saveIP();
+  Outliner.setOutsideInsertPoint();
   emitPreInitStmt(*this, S);
+  Builder.restoreIP(SavedIP);
 
   switch (S.getDirectiveKind()) {
   case OMPD_parallel:

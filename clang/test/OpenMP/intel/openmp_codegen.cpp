@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp -triple x86_64-unknown-linux-gnu | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -o - %s -fopenmp -fintel-compatibility -fintel-openmp-region -triple x86_64-unknown-linux-gnu | FileCheck %s -check-prefix=CHECK-REG
 struct S1 {
   ~S1() {}
 };
@@ -250,62 +251,77 @@ int main(int argc, char **argv) {
   }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", metadata !"MODIFIERNONE", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC:MODIFIERNONE"(i32 0)
 #pragma omp parallel for schedule(static)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.STATIC", metadata !"MODIFIERNONE", i32 64)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.STATIC:MODIFIERNONE"(i32 64)
 #pragma omp parallel for schedule(static, 64)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MODIFIERNONE", i32 1)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MODIFIERNONE"(i32 1)
 #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MODIFIERNONE", i32 128)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MODIFIERNONE"(i32 128)
 #pragma omp parallel for schedule(dynamic, 128)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", metadata !"MODIFIERNONE", i32 1)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.GUIDED:MODIFIERNONE"(i32 1)
 #pragma omp parallel for schedule(guided)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.GUIDED", metadata !"MODIFIERNONE", i32 256)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.GUIDED:MODIFIERNONE"(i32 256)
 #pragma omp parallel for schedule(guided, 256)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.AUTO", metadata !"MODIFIERNONE", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.AUTO:MODIFIERNONE"(i32 0)
 #pragma omp parallel for schedule(auto)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.RUNTIME", metadata !"MODIFIERNONE", i32 0)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.RUNTIME:MODIFIERNONE"(i32 0)
 #pragma omp parallel for schedule(runtime)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC"(i32 16)
 #pragma omp parallel for schedule(monotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"NONMONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC"(i32 16)
 #pragma omp parallel for schedule(nonmonotonic:dynamic,16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD"(i32 16)
 #pragma omp parallel for schedule(simd:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD.MONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.MONOTONIC"(i32 16)
 #pragma omp parallel for schedule(simd,monotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"SIMD.NONMONOTONIC", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:SIMD.NONMONOTONIC"(i32 16)
 #pragma omp parallel for schedule(simd,nonmonotonic:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"MONOTONIC.SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:MONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(monotonic,simd:dynamic, 16)
   for (int i = 0; i < 10; ++i) { }
 
 //CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SCHEDULE.DYNAMIC", metadata !"NONMONOTONIC.SIMD", i32 16)
+//CHECK-REG: region.entry() [ "DIR.OMP.PARALLEL.LOOP"(), "QUAL.OMP.SCHEDULE.DYNAMIC:NONMONOTONIC.SIMD"(i32 16)
 #pragma omp parallel for schedule(nonmonotonic,simd:dynamic,16)
   for (int i = 0; i < 10; ++i) { }
 

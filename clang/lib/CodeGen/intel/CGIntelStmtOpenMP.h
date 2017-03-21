@@ -162,6 +162,9 @@ public:
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
+  void setOutsideInsertPoint() {
+    CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
+  }
 };
 
 /// Base class for handling code generation inside OpenMP regions.
