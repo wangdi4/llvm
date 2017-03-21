@@ -404,7 +404,7 @@ void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
     // successors or loop header's predecessors.
     // Current implementation doesn't work if a loop latch has a switch
     assert((!PrevBlock || !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI) ||
-            PrevBlock->getNumSuccessors() == 2) &&
+            PrevBlock->getNumSuccessors() < 3) &&
            "Linearization doesn't support switches in loop latches");
 
     if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
