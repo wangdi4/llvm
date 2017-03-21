@@ -23,7 +23,6 @@ protected:
   VPPredicateRecipeBase *genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
                                                    VPBlockBase *PredBlock);
   void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);
-  bool isBackEdge(VPBlockBase *predBlock, VPBlockBase *CurrBlock);
   void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                        VPRegionBlock *Region);
   void genLitReport(VPRegionBlock *Region);

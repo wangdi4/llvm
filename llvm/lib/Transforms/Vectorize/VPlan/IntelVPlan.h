@@ -601,19 +601,25 @@ public:
   }
 
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.
+  // TODOV: static
+  // TODOV: It won't work before creating VPLoopRegions. You can do
+  // VPLInfo->getLoopFor(FromBlock).
   static bool isBackEdge(const VPBlockBase *FromBlock,
-                         const VPBlockBase *ToBlock) {
-      assert(FromBlock->getParent() == ToBlock->getParent());
-      // A back-edge has to be within a loop region
-      const VPLoopRegion *LoopRegion = dyn_cast<VPLoopRegion>(FromBlock->getParent());
-      if (! LoopRegion) {
-          return false;
-      }
-      // A back-edge is latch->header
-      const VPLoop *Loop = LoopRegion->getVPLoop();
-      return (Loop->contains(FromBlock) && Loop->contains(ToBlock)
-              && Loop->isLoopLatch(FromBlock)
-              && (ToBlock == Loop->getHeader()));
+                  const VPBlockBase *ToBlock) {
+    //TODOV: both could be null
+    assert(FromBlock->getParent() == ToBlock->getParent());
+    // A back-edge has to be within a loop region
+    const VPLoopRegion *LoopRegion =
+        dyn_cast<VPLoopRegion>(FromBlock->getParent());
+    if (!LoopRegion) {
+      return false;
+    }
+    // A back-edge is latch->header
+    const VPLoop *Loop = LoopRegion->getVPLoop();
+    // TODOV: The first check is redundant. I think isLoopLatch is already
+    // checking that.
+    return ((ToBlock == Loop->getHeader()) && Loop->contains(FromBlock) &&
+            Loop->isLoopLatch(FromBlock));
   }
 
   /// Create a new, empty VPLoop, with no blocks.
@@ -628,11 +634,9 @@ public:
                         const VPLoopInfo *VPLInfo) const {
 
     if (const VPLoop *ParentVPL = VPLInfo->getLoopFor(Block)) {
-      SmallVector<VPBlockBase *, 2> Latches;
-      ParentVPL->getLoopLatches(Latches);
-      return std::find(Latches.begin(), Latches.end(), Block) != Latches.end();
+      return ParentVPL->isLoopLatch(Block);
     }
-   
+
     return false;
   }
 };

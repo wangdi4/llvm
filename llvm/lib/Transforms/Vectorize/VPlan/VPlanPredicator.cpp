@@ -382,23 +382,43 @@ public:
 #endif
 
 // Linearize the CFG
+// TODO: Predication and linearization need RPOT for every region.
+// This traversal is expensive. Since predication is not adding new
+// blocks, we should be able to compute RPOT once in predication and
+// reuse it here.
 void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
   typedef std::vector<VPBlockBase *>::reverse_iterator rpo_iterator;
   ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
 
   VPBlockBase *PrevBlock = nullptr;
+  // TODO: RPO is not providing the right topological order (if->else->then
+  // instead of if->then->else) but currently it works for the Q1 test cases.
   for (rpo_iterator I = RPOT.begin(); I != RPOT.end(); ++I) {
     VPBlockBase *CurrBlock = (*I);
 
     // dbgs() << "LV: VPBlock in RPO " << CurrBlock->getName() << '\n';
 
-    CurrBlock->clearEdges();
-    if (PrevBlock) {
-      VPlanUtils::addEdge(PrevBlock, CurrBlock);
+    // We have to preserve the right order of successors when a
+    // ConditionBitRecipe is kept after linearization. Currently, only loop
+    // latches' CBRs are preserved. For that reason, we keep intact loop latches'
+    // successors or loop header's predecessors.
+    // Current implementation doesn't work if a loop latch has a switch
+    assert((!PrevBlock || !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI) ||
+            PrevBlock->getNumSuccessors() == 2) &&
+           "Linearization doesn't support switches in loop latches");
+
+    if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
+        !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI)) {
+      PlanUtils.clearSuccessors(PrevBlock);
+      PlanUtils.clearPredecessors(CurrBlock);
+      PlanUtils.setSuccessor(PrevBlock, CurrBlock);
     }
+    
+    // Recurse inside region
     if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(CurrBlock)) {
       linearize(Region->getEntry());
     }
+
     PrevBlock = CurrBlock;
   }
 }

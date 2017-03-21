@@ -262,8 +262,6 @@ public:
 
 };
 
-class VPBlockBase;
-
 /// A VPBlockPredicateRecipe is a concrete VPPredicateRecipe recipe which
 /// models a block predicate. As defined above in Predicate relations (a.1.),
 /// this predicate is the union of all IncomingPredicates.
@@ -710,11 +708,6 @@ public:
   SmallVectorImpl<VPBlockBase *> &getPredecessors() { return Predecessors; }
 
 #ifdef INTEL_CUSTOMIZATION
-  void clearEdges() {
-    Successors.clear();
-    Predecessors.clear();
-  }
-
   bool isInsideLoop();
 
   VPBlockBase *getSingleSuccessor() {
@@ -1226,11 +1219,6 @@ public:
     Region->Size = Size;
   }
 
-  static void addEdge(VPBlockBase *From, VPBlockBase *To) {
-    From->Successors.push_back(To);
-    To->Predecessors.push_back(From);
-  }
-
   /// \brief Add \p Successor as the last successor to this block.
   void appendSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
     assert(Successor && "Cannot add nullptr successor!");
@@ -1273,7 +1261,19 @@ public:
   void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
     Block->Parent = Parent;
   }
- 
+
+  /// \brief Remove all the predecessor of this block.
+  void clearPredecessors(VPBlockBase *Block) {
+    Block->Predecessors.clear();
+  }
+
+  /// \brief Remove all the successors of this block and set to null its
+  /// condition bit recipe.
+  void clearSuccessors(VPBlockBase *Block) {
+    Block->Successors.clear();
+    Block->ConditionBitRecipe = nullptr;
+  }
+
   // Replace \p OldSuccessor by \p NewSuccessor in Block's successor list.
   // \p NewSuccessor will be inserted in the same position as \p OldSuccessor.
   void replaceBlockSuccessor(VPBlockBase *Block, VPBlockBase *OldSuccessor,
