@@ -80,6 +80,10 @@ static cl::opt<bool>
     EnableCodeGen("vpo-codegen", cl::init(false), cl::Hidden,
          cl::desc("Enable VPO codegen, when false, the pass stops at VPlan creation"));
 
+static cl::opt<unsigned> VPlanDefaultVF(
+    "vplan-default-vf", cl::init(4),
+    cl::desc("Default VPlan vectorization factor"));
+
 static cl::opt<bool> VPlanStressTest(
     "vplan-build-stress-test", cl::init(false),
     cl::desc("Construct VPlan for every loop (stress testing)"));
@@ -418,23 +422,26 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   LoopVectorizationPlanner *LVP = 
     new LoopVectorizationPlanner(LoopNode, Lp, LI, SE, TLI, TTI, DT, &LVL);
 
-  LVP->buildInitialVPlans(4 /*MinVF*/, 4 /*MaxVF*/);
+  LVP->buildInitialVPlans(VPlanDefaultVF /*MinVF*/, VPlanDefaultVF /*MaxVF*/);
   // Predicator changes BEGIN
   if (EnableVPlanPredicator) {
-    IntelVPlan *Plan = LVP->getVPlanForVF(4);
+    IntelVPlan *Plan = LVP->getVPlanForVF(VPlanDefaultVF);
     VPlanPredicator VPP(Plan);
     VPP.predicate();
   }
   // Predicator changes END
 
-  LVP->setBestPlan(4, 1);
+  LVP->setBestPlan(VPlanDefaultVF, 1);
 
-  DEBUG(VPlan *Plan = LVP->getVPlanForVF(4);
+  DEBUG(VPlan *Plan = LVP->getVPlanForVF(VPlanDefaultVF);
         VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("LVP: Initial VPlan for VF=4"));
+        std::string TitleString;
+        raw_string_ostream RSO(TitleString);
+        RSO << "LVP: Initial VPlan for VF=" << VPlanDefaultVF;
+        PlanPrinter.dump(RSO.str()));
 
   if (EnableCodeGen) {
-    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, 4, 1, &LVL);
+    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VPlanDefaultVF, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);
   }
 
