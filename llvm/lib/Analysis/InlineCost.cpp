@@ -34,6 +34,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Transforms/IPO/Intel_IPCloning.h" // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -1577,9 +1578,13 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
-static bool preferCloningToInlining(CallSite& CS)
-{ 
-  // TODO: Prasad will implement this.
+static bool preferCloningToInlining(CallSite& CS,
+                                    InliningLoopInfoCache& ILIC) { 
+  Function *Callee = CS.getCalledFunction();
+  if (!Callee) return false;
+  LoopInfo *LI = ILIC.getLI(Callee);
+  if (!LI) return false;
+  if (isCallCandidateForSpecialization(CS, LI)) return true;
   return false;
 } 
 
@@ -1642,8 +1647,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
 
 #ifdef INTEL_CUSTOMIZATION
-  if (preferCloningToInlining(CS)) {
-    *ReasonAddr = NinlrPreferCloning; 
+  if (preferCloningToInlining(CS, *ILIC)) {
+    *ReasonAddr = NinlrPreferCloning;
     return false; 
   } 
 #endif // INTEL_CUSTOMIZATION

@@ -91,7 +91,7 @@ static cl::opt<unsigned> IPSpeCloningCallLimit(
 
 // Maximum number of CallSites allowed for specialization for any routine.
 static cl::opt<unsigned> IPSpeCloningNumCallSitesLimit(
-        "ip-spe-cloning-num-callsites-limit", cl::init(5), cl::ReallyHidden);
+        "ip-spe-cloning-num-callsites-limit", cl::init(7), cl::ReallyHidden);
 
 // Maximum allowed number of PHI nodes at any Callsite for specialization
 // cloning.
@@ -168,6 +168,14 @@ SmallDenseMap<Value *, Value *> SpecialConstPropagatedValueMap;
 // and GEP Instruction that is used to compute address of arrays. It
 // basically helps to get NumIndices during transformation.
 SmallDenseMap<Value *,  GetElementPtrInst*> SpecialConstGEPMap;
+
+// It is mapping between Function and LoopInfo. It is used
+// to avoid recomputing LoopInfo for a function each time
+// when a CallSite of the function is analyzed.
+SmallDenseMap<Function *,  LoopInfo*> FunctionLoopInfoMap;
+
+static bool applyHeuristicsForSpecialization(Function &F, CallSite CS,
+                      SmallPtrSet<Value *, 8>& PhiValues, LoopInfo* LI);
 
 // Returns any GEP operand of 'Phi' if it finds one. Otherwise, returns
 // nullptr.
@@ -616,7 +624,7 @@ static bool isSpecializationCloningSafeArgument(Argument* Arg) {
 
   // Check for this attribute that indicates never to escape from the callee.
   if (!Arg->hasNoCaptureAttr()) return false;
-
+  
   // Check for this attribute that indicates that the function does not
   // write through this pointer argument
   if (!Arg->onlyReadsMemory()) return false;
@@ -827,11 +835,17 @@ static bool analyzeCallForSpecialization(Function &F, CallSite CS) {
   // Collect PHINodes that are passed as arguments for cloning
   // if possible.
   PhiValues.clear();
-  if (!collectPHIsForSpecialization(F, CS, PhiValues))
-    return false;
+  if (!collectPHIsForSpecialization(F, CS, PhiValues)) return false;
 
-  // Call  Loop based heuristics here later and
-  // remove PHI nodes from PhiValues if not useful.
+  // Using Loop based heuristics here and remove
+  // PHI nodes from PhiValues if not useful in callee.
+  // Reuse LoopInfo if it is already available.
+  LoopInfo *LI = FunctionLoopInfoMap[&F];
+  if (!LI) {
+    LI = new LoopInfo(DominatorTree(const_cast<Function &>(F)));
+    FunctionLoopInfoMap[&F] = LI;
+  }
+  if (!applyHeuristicsForSpecialization(F, CS, PhiValues, LI)) return false;
 
   // Collect argument sets for specialization.
   collectArgsSetsForSpecialization(F, CS, PhiValues);
@@ -847,6 +861,7 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
       errs() << "   Specialization cloning disabled \n";
     return;
   }
+  FunctionLoopInfoMap.clear();
   for (User *UR : F.users()) {
 
     if (!isa<CallInst>(UR)) continue;
@@ -857,6 +872,10 @@ static void analyzeCallSitesForSpecializationCloning(Function &F) {
 
     analyzeCallForSpecialization(F, CS);
   }
+  // All CallSites of 'F' are analyzed. Delete if 
+  // LoopInfo is computed.
+  LoopInfo* LI = FunctionLoopInfoMap[&F];
+  if (!LI) delete LI;
 }
 
 // Look at all CallSites of 'F' and collect all constant values
@@ -1173,7 +1192,7 @@ static ICmpInst *getLoopTest(Loop *L) {
 //             ...
 //          }
 //
-static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo& LI) {
+static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo* LI) {
 
   if (!IPCloningLoopHeuristic)
     return false;
@@ -1191,7 +1210,7 @@ static bool applyLoopHeuristic(Value *User, Value *V, LoopInfo& LI) {
   BasicBlock *BB = U->getParent();
   if (!BB)
     return false;
-  Loop *L = LI.getLoopFor(BB);
+  Loop *L = LI->getLoopFor(BB);
   if (L == nullptr)
     return false;
   ICmpInst *Cond = getLoopTest(L);
@@ -1237,7 +1256,7 @@ static bool applySwitchHeuristic(Value *User, Value *V) {
 
 // Returns true if any user of 'V' satisfies any heuristics.
 //
-static bool applyAllHeuristics(Value *V, LoopInfo& LI) {
+static bool applyAllHeuristics(Value *V, LoopInfo* LI) {
   for (User *U : V->users()) {
     if (applyLoopHeuristic(U, V, LI)) {
       return true;
@@ -1257,7 +1276,7 @@ static bool applyAllHeuristics(Value *V, LoopInfo& LI) {
 // constants. It returns true if any potential constant satisfies 
 // heuristics.
 //
-static bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo& LI) {
+static bool findPotentialConstsAndApplyHeuristics(Value *V, LoopInfo* LI) {
 
   PotentialConstValuesAfterCloning.clear();
   collectPotentialConstantsAfterCloning(V);
@@ -1298,7 +1317,7 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
       errs() << (f_count - 1) << "\n";
     }
     if (AfterInl) {
-      if (findPotentialConstsAndApplyHeuristics(V, LI)) {
+      if (findPotentialConstsAndApplyHeuristics(V, &LI)) {
         WorthyFormalsForCloning.insert(V);
       }
       else {
@@ -1317,6 +1336,34 @@ static bool findWorthyFormalsForCloning(Function &F, bool AfterInl) {
   if (WorthyFormalsForCloning.size() == 0)
     return false;
 
+  return true;
+}
+
+// 'PhiValues' are candidate arguments for specialization cloning at 'CS'
+// CallSite of 'F'. LoopInfo 'LI' of 'F' is used to decide whether it is
+// profitable to enable specialization cloning for candidate arguments in
+// 'PhiValues'. This routine removes candidate arguments from 'PhiValues'
+// if it finds it is not profitable to enable cloning. Returns false if
+// all candidate arguments are removed from 'PhiValues'.
+static bool applyHeuristicsForSpecialization(Function &F, CallSite CS,
+                      SmallPtrSet<Value *, 8>& PhiValues, LoopInfo* LI) {
+  CallSite::arg_iterator CAI1 = CS.arg_begin();
+  for (Function::arg_iterator AI = F.arg_begin(), E = F.arg_end();
+     AI != E; ++AI, ++CAI1) {
+
+    if (!PhiValues.count(*CAI1)) continue;
+
+    if ((&*AI)->getType()->isIntegerTy() &&
+        !findPotentialConstsAndApplyHeuristics(&*AI, LI)) {
+      PhiValues.erase(*CAI1);
+    }
+  }
+
+  if (PhiValues.size() == 0) {
+    if (IPCloningTrace)
+      errs() << "     Skip ... No PHIs selected after applying heuristics\n";
+    return false;
+  }
   return true;
 }
 
@@ -2020,6 +2067,22 @@ static bool runIPCloning(Module &M, bool AfterInl) {
   clearAllMaps(); 
 
   return Change;
+}
+
+// Return true if 'CS' is a candidate for specialization cloning.
+// 'LI', which is LoopInfo of callee, is used to apply heuristics. 
+//
+bool llvm::isCallCandidateForSpecialization(CallSite& CS, LoopInfo* LI) {
+  SmallPtrSet<Value *, 8> PhiValues;
+
+  Function *F = CS.getCalledFunction();
+  if (!F) return false;
+
+  clearAllMaps();
+  PhiValues.clear();
+  if (!collectPHIsForSpecialization(*F, CS, PhiValues)) return false;
+  if (!applyHeuristicsForSpecialization(*F, CS, PhiValues, LI)) return false;
+  return true;
 }
 
 namespace {
