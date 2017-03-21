@@ -38,6 +38,7 @@
 namespace llvm {
 
 class Type;
+class ArrayType;
 class Function;
 class PHINode;
 class SCEV;
@@ -598,6 +599,15 @@ private:
            "Could not find Ref's underlying pointer!");
     return It->second;
   }
+
+  // Tries to trace back a pointer type instruction to the array type from which
+  // it was created. This can happen if the base originated from an alloca.
+  //
+  // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
+  //
+  // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
+  //
+  ArrayType *traceBackToArrayType(const Value *Ptr) const;
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils();

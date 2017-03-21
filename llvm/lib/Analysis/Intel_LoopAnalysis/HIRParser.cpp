@@ -2129,6 +2129,15 @@ void HIRParser::parse(HLLoop *HLoop) {
     // Set the upper bound
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
+
+    unsigned MaxTC;
+
+    // Set small max trip count if available from scalar evolution.
+    if (!UpperRef->isIntConstant() &&
+        (MaxTC = SE->getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+      HLoop->setMaxTripCountEstimate(MaxTC);
+    }
+
   } else {
     // Initialize Stride to 0 for unknown loops.
     auto StrideRef = createStrideDDRef(IVType, 0);
@@ -3150,3 +3159,37 @@ void HIRParser::print(bool FrameworkDetails, raw_ostream &OS,
 
 // Verification is done by HIRVerifier.
 void HIRParser::verifyAnalysis() const {}
+
+ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
+  if (!Ptr->getType()->isPointerTy()) {
+    return nullptr;
+  }
+
+  // Trace back as far as possible, until we hit a GEP whose result type is an
+  // array type.
+  while (Ptr) {
+    if (auto Phi = dyn_cast<PHINode>(Ptr)) {
+      if (Phi->getNumIncomingValues() == 1) {
+        Ptr = Phi->getIncomingValue(0);
+
+      } else if (RI->isHeaderPhi(Phi)) {
+        Ptr = getHeaderPhiInitVal(Phi);
+
+      } else {
+        // Give up on merge phis.
+        return nullptr;
+      }
+    } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
+      if (GEPOp->getNumOperands() == 2) {
+        Ptr = GEPOp->getPointerOperand();
+      } else {
+        return dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+      }
+    } else {
+      // Give up on other value types.
+      return nullptr;
+    }
+  }
+
+  return nullptr;
+}

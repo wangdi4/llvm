@@ -57,6 +57,8 @@ private:
   /// Parser for the function.
   HIRParser *HIRP;
 
+  struct MaxTripCountEstimator;
+
   void estimateMaxTripCounts() const;
 
 public:

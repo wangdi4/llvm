@@ -73,7 +73,11 @@ bool HIRFramework::runOnFunction(Function &F) {
   return false;
 }
 
-struct MaxTripCountEstimator final : public HLNodeVisitorBase {
+struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
+  const HIRFramework *HIRF;
+
+  MaxTripCountEstimator(const HIRFramework *HIRF) : HIRF(HIRF) {}
+
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
@@ -84,7 +88,7 @@ struct MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(CanonExpr *CE, ArrayType *ArrTy, HLDDNode *Node);
 };
 
-void MaxTripCountEstimator::visit(HLLoop *Lp) {
+void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
   // This can set trip count estimate for triangular loops.
   // DO i1 = 0, 10
   // DO i2 = 0, i1 - 1  <MAX_TC_EST = 10>
@@ -98,7 +102,7 @@ void MaxTripCountEstimator::visit(HLLoop *Lp) {
   }
 }
 
-void MaxTripCountEstimator::visit(HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(HLDDNode *Node) {
 
   auto ParentLoop = Node->getLexicalParentLoop();
 
@@ -112,7 +116,7 @@ void MaxTripCountEstimator::visit(HLDDNode *Node) {
   }
 }
 
-void MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   if (!Ref->hasGEPInfo()) {
     return;
   }
@@ -122,16 +126,42 @@ void MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
     return;
   }
 
+  unsigned NumDims = Ref->getNumDimensions();
+
   // Highest dimension is intentionally skipped as it doesn't contain
   // information about number of elements.
-  for (unsigned I = 1, E = Ref->getNumDimensions(); I < E; ++I) {
+  for (unsigned I = 1; I < NumDims; ++I) {
     visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
           Node);
   }
+
+  // We try getting the information about number of elements in the highest
+  // dimension by tracing the base value back to an array type from which it may
+  // have been extracted.
+  auto HighestCE = Ref->getDimensionIndex(NumDims);
+
+  if (HighestCE->isNonLinear() || !HighestCE->hasIV()) {
+    return;
+  }
+
+  auto BaseCE = Ref->getBaseCE();
+
+  if (!BaseCE->isSelfBlob()) {
+    return;
+  }
+
+  auto BaseVal =
+      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
+
+  auto ArrTy = HIRF->HIRP->traceBackToArrayType(BaseVal);
+
+  if (ArrTy) {
+    visit(HighestCE, ArrTy, Node);
+  }
 }
 
-void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
-                                  HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
+                                                HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.
   if (CE->isNonLinear() || !CE->hasIV()) {
@@ -194,18 +224,19 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
       NonIVVal = 0;
     }
 
-    // Skip negative values, as we cannot make sense of it.
-    if (NonIVVal >= 0) {
-      // If we encounter a reference like A[5 - i], we can estimate the trip
-      // count
-      // to be 6.
-      if (!PositiveIVCoeff && NonIVVal) {
-        MaxTC = ((Denom * NonIVVal) / std::llabs(Coeff * BlobVal)) + 1;
-      } else {
-        MaxTC = ((Denom * (NumElements - NonIVVal - 1)) /
-                 std::llabs(Coeff * BlobVal)) +
-                1;
-      }
+    if (NonIVVal < 0) {
+      NonIVVal = 0;
+    }
+
+    // If we encounter a reference like A[5 - i], we can estimate the trip
+    // count
+    // to be 6.
+    if (!PositiveIVCoeff && NonIVVal) {
+      MaxTC = ((Denom * NonIVVal) / std::llabs(Coeff * BlobVal)) + 1;
+    } else {
+      MaxTC = ((Denom * (NumElements - NonIVVal - 1)) /
+               std::llabs(Coeff * BlobVal)) +
+              1;
     }
 
     // Restore CE to original state.
@@ -220,7 +251,7 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
 }
 
 void HIRFramework::estimateMaxTripCounts() const {
-  MaxTripCountEstimator MTCE;
+  MaxTripCountEstimator MTCE(this);
   getHLNodeUtils().visitAll(MTCE);
 }
 
