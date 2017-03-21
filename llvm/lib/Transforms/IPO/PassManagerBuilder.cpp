@@ -1107,6 +1107,9 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   addLoopOptCleanupPasses(PM);
 }
 
+// Get rid of INTEL_VPO_EXPERIMENTAL changes before promoting
+#define INTEL_VPO_EXPERIMENTAL
+
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
                                             bool RunVec) const {
   if (RunVPOParopt) {
@@ -1115,6 +1118,9 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
   }
   // TODO: Temporal hook-up for VPlan VPO Vectorizer
   if (EnableVPlanDriver && RunVec) {
+#ifdef INTEL_VPO_EXPERIMENTAL
+    PM.add(createLoopVectorizePass(true, LoopVectorize, true));
+#endif
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPlanDriverPass());
   }

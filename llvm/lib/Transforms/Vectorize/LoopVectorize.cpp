@@ -1534,11 +1534,19 @@ public:
       const TargetTransformInfo *TTI,
       std::function<const LoopAccessInfo &(Loop &)> *GetLAA, LoopInfo *LI,
       OptimizationRemarkEmitter *ORE, LoopVectorizationRequirements *R,
+#ifdef INTEL_VPO_EXPERIMENTAL
+      LoopVectorizeHints *H, bool OnlyLegal)
+#else
       LoopVectorizeHints *H)
+#endif
       : NumPredStores(0), TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), DT(DT),
         GetLAA(GetLAA), LAI(nullptr), ORE(ORE), InterleaveInfo(PSE, L, DT, LI),
         Induction(nullptr), WidestIndTy(nullptr), HasFunNoNaNAttr(false),
+#ifdef INTEL_VPO_EXPERIMENTAL
+        Requirements(R), Hints(H), OnlyLegal(OnlyLegal) {}
+#else
         Requirements(R), Hints(H) {}
+#endif
 
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
@@ -1828,6 +1836,11 @@ private:
   /// Used to emit an analysis of any legality issues.
   LoopVectorizeHints *Hints;
 
+#ifdef INTEL_VPO_EXPERIMENTAL
+  /// Used to mark VPlan vectorization candidates - for stress testing
+  bool OnlyLegal = false;
+#endif
+
   /// While vectorizing these instructions we have to generate a
   /// call to the appropriate masked intrinsic
   SmallPtrSet<const Instruction *, 8> MaskedOp;
@@ -2058,10 +2071,18 @@ struct LoopVectorize : public FunctionPass {
   /// Pass identification, replacement for typeid
   static char ID;
 
+#ifdef INTEL_VPO_EXPERIMENTAL
+  explicit LoopVectorize(bool NoUnrolling = false, bool AlwaysVectorize = true, 
+                         bool OnlyLegal = false)
+#else
   explicit LoopVectorize(bool NoUnrolling = false, bool AlwaysVectorize = true)
+#endif
       : FunctionPass(ID) {
     Impl.DisableUnrolling = NoUnrolling;
     Impl.AlwaysVectorize = AlwaysVectorize;
+#ifdef INTEL_VPO_EXPERIMENTAL
+    Impl.OnlyLegal = OnlyLegal;
+#endif
     initializeLoopVectorizePass(*PassRegistry::getPassRegistry());
   }
 
@@ -5636,6 +5657,18 @@ bool LoopVectorizationLegality::canVectorizeMemory() {
     return false;
   }
 
+#ifdef INTEL_VPO_EXPERIMENTAL
+  if (OnlyLegal) {
+    // No induction - bail out for now
+    if (!Induction)
+      return false;
+
+    // bail out if any runtime checks are needed
+    if (LAI->getNumRuntimePointerChecks())
+      return false;
+  }
+#endif
+
   Requirements->addRuntimePointerChecks(LAI->getNumRuntimePointerChecks());
   PSE.addPredicate(LAI->getPSE().getUnionPredicate());
 
@@ -6985,9 +7018,16 @@ INITIALIZE_PASS_DEPENDENCY(OptimizationRemarkEmitterWrapperPass)
 INITIALIZE_PASS_END(LoopVectorize, LV_NAME, lv_name, false, false)
 
 namespace llvm {
+#ifdef INTEL_VPO_EXPERIMENTAL
+Pass *createLoopVectorizePass(bool NoUnrolling, bool AlwaysVectorize,
+                              bool OnlyLegal) {
+  return new LoopVectorize(NoUnrolling, AlwaysVectorize, OnlyLegal);
+}
+#else
 Pass *createLoopVectorizePass(bool NoUnrolling, bool AlwaysVectorize) {
   return new LoopVectorize(NoUnrolling, AlwaysVectorize);
 }
+#endif
 }
 
 bool LoopVectorizationCostModel::isConsecutiveLoadOrStore(Instruction *Inst) {
@@ -7142,6 +7182,35 @@ static void AddRuntimeUnrollDisableMetaData(Loop *L) {
   }
 }
 
+#ifdef INTEL_VPO_EXPERIMENTAL
+static void setAsVPlanCandidate(Loop *L) {
+  MDNode *LoopID = L->getLoopID();
+
+  // First remove any existing loop unrolling metadata.
+  SmallVector<Metadata *, 4> MDs;
+  // Reserve first location for self reference to the LoopID metadata node.
+  MDs.push_back(nullptr);
+
+  if (LoopID) {
+    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
+      MDs.push_back(LoopID->getOperand(i));
+    }
+  }
+
+  // Add as a vplan vectorization candidate.
+  LLVMContext &Context = L->getHeader()->getContext();
+  SmallVector<Metadata *, 1> VPlanCandOperands;
+  VPlanCandOperands.push_back(MDString::get(Context, "vplan.vect.candidate"));
+  MDNode *VPlanCandNode = MDNode::get(Context, VPlanCandOperands);
+  MDs.push_back(VPlanCandNode);
+
+  MDNode *NewLoopID = MDNode::get(Context, MDs);
+  // Set operand 0 to refer to the loop id itself.
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  L->setLoopID(NewLoopID);
+}
+#endif
+
 bool LoopVectorizePass::processLoop(Loop *L) {
   assert(L->empty() && "Only process inner loops.");
 
@@ -7204,7 +7273,27 @@ bool LoopVectorizePass::processLoop(Loop *L) {
   // Check if it is legal to vectorize the loop.
   LoopVectorizationRequirements Requirements(*ORE);
   LoopVectorizationLegality LVL(L, PSE, DT, TLI, AA, F, TTI, GetLAA, LI, ORE,
+#ifdef INTEL_VPO_EXPERIMENTAL
+                                &Requirements, &Hints, OnlyLegal);
+#else
                                 &Requirements, &Hints);
+#endif
+
+#ifdef INTEL_VPO_EXPERIMENTAL
+  if (OnlyLegal) {
+    if (LVL.canVectorize()) {
+      if (const DebugLoc LoopDbgLoc = L->getStartLoc()) {
+        LoopDbgLoc.print(errs());
+      }
+
+      setAsVPlanCandidate(L);
+      errs() << ": Loop legal to vectorize - marking with vplan metadata.\n";
+    }
+    DEBUG(dbgs() << "LV: Not vectorizing: only checking legality.\n");
+    return false;
+  }
+#endif
+
   if (!LVL.canVectorize()) {
     DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
     emitMissedWarning(F, L, Hints, ORE);

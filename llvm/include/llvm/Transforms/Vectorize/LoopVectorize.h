@@ -65,6 +65,8 @@
 #include "llvm/IR/PassManager.h"
 #include <functional>
 
+// Get rid of INTEL_VPO_EXPERIMENTAL changes before promoting
+#define INTEL_VPO_EXPERIMENTAL
 namespace llvm {
 
 /// The LoopVectorize Pass.
@@ -74,6 +76,11 @@ struct LoopVectorizePass : public PassInfoMixin<LoopVectorizePass> {
   /// If false, only loops that explicitly request vectorization are
   /// considered.
   bool AlwaysVectorize = true;
+
+#ifdef INTEL_VPO_EXPERIMENTAL
+  /// If true, only do legality checks and return
+  bool OnlyLegal = false;
+#endif
 
   ScalarEvolution *SE;
   LoopInfo *LI;

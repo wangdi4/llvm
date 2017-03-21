@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -100,6 +101,13 @@ static cl::opt<bool>
 static cl::opt<bool>
     EnableVPlanPredicator("vplan-predicator", cl::init(false), cl::Hidden,
                           cl::desc("Enable VPlan predicator."));
+
+static cl::opt<unsigned> VPlanVectCand(
+    "vplan-build-vect-candidates", cl::init(0),
+    cl::desc("Construct VPlan for vectorization candidates (CG stress testing)"));
+
+STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
+
 
 namespace {
 //class VPODirectiveCleanup : public FunctionPass {
@@ -250,6 +258,30 @@ public:
 //}
 //FunctionPass *llvm::createVPODriverHIRPass() { return new VPODriverHIR(); }
 
+static void collectAllLoops(Loop &L, SmallVectorImpl<Loop *> &V) {
+  V.push_back(&L);
+  for (Loop *InnerL : L)
+    collectAllLoops(*InnerL, V);
+}
+
+static bool isVPlanCandidate(Loop *L) {
+  MDNode *LoopID = L->getLoopID();
+
+  if (LoopID) {
+    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
+      MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i));
+      if (MD) {
+        const MDString *S = dyn_cast<MDString>(MD->getOperand(0));
+        if (S && S->getString().startswith("vplan.vect.candidate")) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 bool VPlanDriverBase::runOnFunction(Function &Fn) {
 
   //  if (skipFunction(Fn))
@@ -290,7 +322,19 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     return true;
   };
 
-  if (!VPlanStressTest) {
+  if (VPlanVectCand) {
+    SmallVector<Loop *, 8> Worklist;
+    for (Loop *L : *LI)
+      collectAllLoops(*L, Worklist);
+
+    for (auto Lp : Worklist) {
+      if (CandLoopsVectorized < VPlanVectCand &&
+          isVPlanCandidate(Lp)) {
+        processLoop(Lp, Fn);
+        CandLoopsVectorized++;
+      }
+    }
+  } else if (!VPlanStressTest) {
     WRContainerImpl *WRGraph = WR->getWRGraph();
     DEBUG(dbgs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
     for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
@@ -416,7 +460,10 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   // is fully supported.
   if (!LVL.canVectorize()) {
     DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
-    return;
+    
+    // Do not bail out if we are stress testing
+    if (!VPlanVectCand && !VPlanStressTest)
+      return;
   }
 
   LoopVectorizationPlanner *LVP = 
@@ -441,6 +488,9 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
         PlanPrinter.dump(RSO.str()));
 
   if (EnableCodeGen) {
+    if (VPlanVectCand)
+      errs() << "VPlan Generating code\n"; 
+
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VPlanDefaultVF, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);
   }
