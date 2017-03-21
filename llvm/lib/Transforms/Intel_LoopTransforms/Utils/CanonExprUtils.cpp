@@ -630,7 +630,9 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
     }
   }
 
-  if ((Diff % std::llabs(Coeff1)) != 0) {
+  Coeff1 = std::llabs(Coeff1);
+
+  if ((Diff % Coeff1) != 0) {
     return false;
   }
 

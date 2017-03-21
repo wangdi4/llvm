@@ -55,6 +55,7 @@ private:
   // loopnest.
   SmallPtrSet<const HLLoop *, 32> TopLevelCandidates;
 
+private:
   // Returns true if loop is eligible for complete unrolling.
   bool isApplicable(const HLLoop *Loop) const;
 
@@ -76,6 +77,11 @@ private:
 
   /// Returns true if loop is profitable for complete unrolling.
   bool isProfitable(const HLLoop *Loop) const;
+
+  /// Computes constant upper bound of \p Loop by substituting outer loop trip
+  /// counts by their respective IVs in the upper.
+  static int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
+                           SmallVectorImpl<int64_t> &TripValues);
 
   /// Performs the complete unrolling transformation.
   static void transformLoop(HLLoop *Loop, HLLoop *OuterLoop,

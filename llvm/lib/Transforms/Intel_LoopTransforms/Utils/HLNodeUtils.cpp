@@ -2885,7 +2885,7 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     return false;
   }
 
-  if (IsExact && (CE->hasBlob() || CE->hasBlobIVCoeffs())) {
+  if (IsExact && (CE->hasBlob() || CE->hasIVBlobCoeffs())) {
     return false;
   }
 

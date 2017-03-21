@@ -1184,7 +1184,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
   unsigned LoopLevel = Loop->getNestingLevel();
   unsigned DepLevel = LoopLevel;
 
-  if (UpperCE->hasBlob() || UpperCE->hasBlobIVCoeffs() ||
+  if (UpperCE->hasBlob() || UpperCE->hasIVBlobCoeffs() ||
       (UpperCE->getDenominator() != 1)) {
     return std::make_pair(-1, DepLevel);
   }
@@ -1378,26 +1378,28 @@ void HIRCompleteUnroll::transformLoops() {
   }
 }
 
-int64_t computeUB(HLLoop *Loop, HLLoop *OuterLoop,
-                  SmallVectorImpl<int64_t> &TripValues) {
+int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, HLLoop *OuterLoop,
+                                     SmallVectorImpl<int64_t> &TripValues) {
   int64_t UBVal = 0;
 
-  CanonExpr *UBCE = Loop->getUpperCanonExpr();
+  const CanonExpr *UBCE = Loop->getUpperCanonExpr();
   if (UBCE->isIntConstant(&UBVal)) {
     return UBVal;
   }
 
-  std::unique_ptr<CanonExpr> UBClone(UBCE->clone());
-  int64_t LoopLevel = OuterLoop->getNestingLevel();
+  assert(!UBCE->hasBlob() && !UBCE->hasIVBlobCoeffs() &&
+         (UBCE->getDenominator() == 1) &&
+         "Blobs or non-unit denominator in loop upper not expected!");
+
+  UBVal = UBCE->getConstant();
+
+  auto LoopLevel = OuterLoop->getNestingLevel();
+
   for (auto TripV : TripValues) {
-    UBClone->replaceIVByConstant(LoopLevel, TripV);
-    UBClone->simplify(true);
+    UBVal += (TripV * UBCE->getIVConstCoeff(LoopLevel));
     LoopLevel++;
   }
 
-  bool IsIntConst = UBClone->isIntConstant(&UBVal);
-  (void)IsIntConst;
-  assert(IsIntConst && " Upper Bound is not a constant after IV substitution.");
   return UBVal;
 }
 

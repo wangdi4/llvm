@@ -473,9 +473,9 @@ bool CanonExpr::hasIV(unsigned Level) const {
 
 unsigned CanonExpr::numIVs() const { return numIVImpl(false, false); }
 
-bool CanonExpr::hasBlobIVCoeffs() const { return numIVImpl(true, true); }
+bool CanonExpr::hasIVBlobCoeffs() const { return numIVImpl(true, true); }
 
-unsigned CanonExpr::numBlobIVCoeffs() const { return numIVImpl(false, true); }
+unsigned CanonExpr::numIVBlobCoeffs() const { return numIVImpl(false, true); }
 
 unsigned CanonExpr::getLevel(const_iv_iterator ConstIVIter) const {
   return (ConstIVIter - iv_begin() + 1);
@@ -1488,7 +1488,7 @@ void CanonExpr::verify(unsigned NestingLevel) const {
            "Scalar type of all blobs should match canon expr scalar type!");
   }
 
-  if (!hasBlob() && !hasBlobIVCoeffs()) {
+  if (!hasBlob() && !hasIVBlobCoeffs()) {
     assert(!isNonLinear() && "CanonExpr with no blobs cannot be non-linear!");
   }
 
