@@ -79,13 +79,6 @@ public:
     FeatureBits = FeatureBits_;
   }
 
-#ifdef INTEL_CUSTOMIZATION
-  /// getProcFeatures - get the architecture's processor features array
-  const ArrayRef<SubtargetFeatureKV> getProcFeatures() const {
-    return ProcFeatures;
-  }
-#endif //INTEL_CUSTOMIZATION  
-
 protected:
   /// Initialize the scheduling model and feature bits.
   ///
