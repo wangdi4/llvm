@@ -52,6 +52,7 @@ LLVM_EXAMPLES=$(LLVM_SRC_HOME)examples/
 
 # rdtsc.ll for linking with get_rdtsc()
 RDTSC_FILE=$(LLVM_EXAMPLES)FPGA-Advisor/common/rdtsc.ll
+ROIHANDLER_SRC := $(LLVM_EXAMPLES)FPGA-Advisor/common/ROIhandler.C
 
 # set to -debug to output debug messages in opt
 #DEBUG= -debug
@@ -98,12 +99,13 @@ all:
 c: $(NAME).$(EXT)
 	@echo "Running compilation stage..."
 	# Note: using csa-clang here to compile for x86_64.
-	$(CLANG) -target x86_64-unknown-linux -Wall -S -emit-llvm -fno-use-cxa-atexit $(NAME).$(EXT) -o $(NAME).ll
+	$(CLANG) -target x86_64-unknown-linux-gnu -Wall -S -emit-llvm -fno-use-cxa-atexit $(NAME).$(EXT) -o $(NAME).ll
 	$(OPT) $(OPT_FLAGS) $(COMPILE_OPT_FLAGS) -inline -inline-threshold=1073741824 -debug-only=inline $(DEBUG) < $(NAME).ll > $(NAME).opt.bc
 	$(DIS) $(NAME).opt.bc
 
 # instrumentation stage and run instrumented code
 # we may need to deal with code that doesn't finish...
+#i: $(NAME).opt.bc ROIhandler.bc
 i: $(NAME).opt.bc
 	@echo "Running instrumentation stage..."
 	$(OPT) $(OPT_LD_FLAG) $(DEBUG) -fpga-advisor-instrument < $(NAME).opt.bc > $(NAME).opt.inst.bc
@@ -138,6 +140,11 @@ graph: $(PDF_FILES)
 # convert .dot to .pdf
 %.pdf: %.dot
 	dot -Tpdf $^ -o $@
+
+# Build ROIhandler.bc if it's not already available
+ROIhandler.bc: $(ROIHANDLER_SRC)
+	$(CLANG) -target x86_64-unknown-linux-gnu -g -emit-llvm -c $< -o $@
+	$(DIS) $@
 
 # clean up
 clean:
