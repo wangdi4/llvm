@@ -1674,6 +1674,12 @@ bool GVN::processNonLocalLoad(LoadInst *LI) {
   if (!EnablePRE || !EnableLoadPRE)
     return false;
 
+#if INTEL_CUSTOMIZATION
+  if (LI->getParent()->getParent()->isPreLoopOpt()) {
+      return false;
+  }
+#endif // INTEL_CUSTOMIZATION 
+
   return PerformLoadPRE(LI, ValuesPerBlock, UnavailableBlocks);
 }
 

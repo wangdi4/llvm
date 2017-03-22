@@ -407,14 +407,16 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
   }
 
   auto Upper = CurLoop->getUpperCanonExpr();
-  int64_t Val;
+  int64_t UpperVal;
 
-  if (!Upper->isIntConstant(&Val) || (Val != 3)) {
+  if (!Upper->isIntConstant(&UpperVal) ||
+      ((UpperVal != 3) && (UpperVal != 15))) {
     return false;
   }
 
   unsigned NumIfs = 0;
   unsigned NumSelects = 0;
+  unsigned NumAbs = 0;
   unsigned NumRems = 0;
   unsigned NumXORs = 0;
 
@@ -432,14 +434,19 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
         ++NumRems;
       } else if (OpCode == Instruction::Select) {
         ++NumSelects;
+        if (HInst->isAbs()) {
+          ++NumAbs;
+        }
       } else if (OpCode == Instruction::Xor) {
         ++NumXORs;
       }
     }
   }
 
-  return ((NumIfs == 4) && (NumRems == 2) && (NumSelects == 1) &&
-          (NumXORs == 3));
+  return (((UpperVal == 3) && (NumIfs == 4) && (NumRems == 2) &&
+           (NumSelects == 1) && (NumXORs == 3)) ||
+          ((UpperVal == 15) && (NumAbs == 1) && (NumIfs == 0) &&
+           (NumRems == 0) && (NumXORs == 0)));
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
@@ -453,16 +460,18 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   auto Iter = HCU.AvgTripCount.find(CurLoop);
   assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
 
+  bool IsPreVecProfitableLoop = isPreVectorProfitableLoop(CurLoop);
+
   // Check if the loop is small enough to assign some extra profitability to it
   // (for eliminating loop control) and give it higher chance of unrolling.
-  if (isSmallLoop()) {
+  if (isSmallLoop() || IsPreVecProfitableLoop) {
     Savings +=
         std::min(static_cast<unsigned>(SmallLoopAdditionalSavingsThreshold),
                  Iter->second);
   }
 
   // Workaround to make loop profitable till vectorizer fixes its cost model.
-  if (isPreVectorProfitableLoop(CurLoop)) {
+  if (IsPreVecProfitableLoop) {
     Savings *= 3;
   }
 
