@@ -58,7 +58,12 @@ FunctionType *clock_gettime_type;
 Function *clock_gettimeFunc;
 Function *get_rdtscFunc;
 Function *printfFunc;
-extern "C" int ROIprintf(const char *fmt, ...);
+const char* printfFuncName = "printf";
+
+static cl::opt<bool>
+UseROI("csa-use-roi", cl::Hidden,
+       cl::desc("CSA Specific: Use ROIprintf"),
+       cl::init(false));
 
 bool AdvisorInstr::runOnModule(Module &M) {
 	mod = &M;
@@ -95,9 +100,11 @@ bool AdvisorInstr::runOnModule(Module &M) {
 
 	// printf function
 	// void printf(...)
-
+        if (UseROI) {
+          printfFuncName = "ROIprintf";
+        }
 	FunctionType *printf_type = TypeBuilder<int(char *, ...), false>::get(M.getContext());
-	printfFunc = cast<Function>(mod->getOrInsertFunction("ROIprintf", printf_type, 
+	printfFunc = cast<Function>(mod->getOrInsertFunction(printfFuncName, printf_type, 
 					AttributeSet().addAttribute(mod->getContext(), 1U, Attribute::NoAlias)));
 
 	for (auto F = M.begin(), FE = M.end(); F != FE; F++) {
@@ -143,7 +150,7 @@ void AdvisorInstr::instrument_function(Function *F) {
 	printfArgs.push_back(funcNameMsg);
 
 	//ArrayRef printfArgs(printfArgs);
-	builder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 }
 
 // Function: instrument_basic_block
@@ -213,7 +220,7 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 	printfArgs.push_back(bbMsg);
 	printfArgs.push_back(bbNameMsg);
 	printfArgs.push_back(funcNameMsg);
-	builder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 	printfArgs.clear();
 
 	//===---------------------------------------------------===//
@@ -310,7 +317,7 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 
 		printfArgs.push_back(retMsg);
 		printfArgs.push_back(funcNameMsg);
-		endBuilder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+		endBuilder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 		printfArgs.clear();
 	}
 
@@ -347,7 +354,7 @@ void AdvisorInstr::instrument_rdtsc_before_instruction(Instruction *I, bool star
 
 	printfArgs.push_back(rdtscMsg);
 	printfArgs.push_back(CI);
-	CallInst::Create(printfFunc, printfArgs, llvm::Twine("ROIprintf"), I);
+	CallInst::Create(printfFunc, printfArgs, llvm::Twine(printfFuncName), I);
 }
 
 
@@ -377,7 +384,7 @@ void AdvisorInstr::instrument_rdtsc_after_instruction(Instruction *I, bool start
 
 	printfArgs.push_back(rdtscMsg);
 	printfArgs.push_back(CI);
-	CallInst *printCI = CallInst::Create(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+	CallInst *printCI = CallInst::Create(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 	printCI->insertAfter(CI);
 
 }
@@ -451,8 +458,8 @@ void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
 	printfArgs.push_back(clock_gettimeMsg);
 	printfArgs.push_back(tv_sec);
 	printfArgs.push_back(tv_nsec);
-	builder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
-	CallInst::Create(printfFunc, printfArgs, llvm::Twine("ROIprintf"), I);
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
+	CallInst::Create(printfFunc, printfArgs, llvm::Twine(printfFuncName), I);
 	printfArgs.clear();
 
 	//===--------------------------------------------------------------------------------------===//
@@ -491,7 +498,7 @@ void AdvisorInstr::instrument_load(LoadInst *LI) {
 	//printfArgs.push_back(addrMsg);
 	printfArgs.push_back(pointer);
 
-	builder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 }
 
 
@@ -527,7 +534,7 @@ void AdvisorInstr::instrument_store(StoreInst *SI) {
 	//printfArgs.push_back(addrMsg);
 	printfArgs.push_back(pointer);
 
-	builder.CreateCall(printfFunc, printfArgs, llvm::Twine("ROIprintf"));
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 }
 
 
