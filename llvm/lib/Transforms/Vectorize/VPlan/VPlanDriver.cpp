@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Pass.h"
@@ -110,6 +111,44 @@ STATISTIC(CandLoopsVectorized, "Number of candidate loops vectorized");
 
 
 namespace {
+// TODO: Not sure where to place this functions. There are utils but they are
+// BB-based not VPBB-based
+/// Check whether the edge (\p SrcBB, \p DestBB) is a backedge according to LI.
+/// I.e., check if it exists a loop that contains SrcBB and where DestBB is the
+/// loop header.
+static bool isExpectedBackedge(LoopInfo *LI, BasicBlock *SrcBB,
+                               BasicBlock *DestBB) {
+  for (Loop *Loop = LI->getLoopFor(SrcBB); Loop; Loop = Loop->getParentLoop()) {
+    if (Loop->getHeader() == DestBB)
+      return true;
+  }
+
+  return false;
+}
+
+/// Check if the CFG of \p MF is irreducible.
+static bool isIrreducibleCFG(Loop *Lp, LoopInfo *LI) {
+  LoopBlocksDFS DFS(Lp);
+  DFS.perform(LI);
+  SmallPtrSet<const BasicBlock *, 32> VisitedBB;
+
+  for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
+    VisitedBB.insert(BB);
+    for (BasicBlock *SuccBB : BB->getTerminator()->successors()) {
+      // SuccBB hasn't been visited yet
+      if (!VisitedBB.count(SuccBB))
+        continue;
+      // We already visited SuccBB, thus BB->SuccBB must be a backedge.
+      // Check that the head matches what we have in the loop information.
+      // Otherwise, we have an irreducible graph.
+      if (!isExpectedBackedge(LI, BB, SuccBB))
+        return true;
+    }
+  }
+
+  return false;
+}
+
 //class VPODirectiveCleanup : public FunctionPass {
 //public:
 //  static char ID; // Pass identification, replacement for typeid
@@ -299,22 +338,38 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   DT =  &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto *AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(Fn);
 
-  std::function<bool(Loop *)> isSupported = [&isSupported](Loop *Lp) -> bool {
+  // Auxiliary function that check only loop specific constraints. Generic loop
+  // nest constraints are in 'isSupported' function
+  std::function<bool(Loop *)> isSupportedRec = [&](Loop *Lp) -> bool {
 
     if (!Lp->getUniqueExitBlock()) {
       DEBUG(dbgs() << "Loop form is not supported: multiple exit blocks.\n");
       return false;
     }
-
     for (Loop *SubLoop : Lp->getSubLoops()) {
-      if (!isSupported(SubLoop))
+      if (!isSupportedRec(SubLoop))
         return false;
     }
+
+    return true;
+  };
+
+  // Return true if this loop is supported in VPlan
+  std::function<bool(Loop *)> isSupported = [&](Loop *Lp) -> bool {
+
+    // Check for loop specific constraints
+    if (!isSupportedRec(Lp))
+      return false;
+
+    // Check generic loop nest constraints
+
+    if (isIrreducibleCFG(Lp, LI))
+      return false;
 
     for (BasicBlock *BB : Lp->blocks()) {
       // We don't support switch statements inside loops.
       if (!isa<BranchInst>(BB->getTerminator())) {
-        DEBUG(dbgs() << "loop contains a switch statement\n");
+        DEBUG(dbgs() << "loop nest contains a switch statement\n");
         return false;
       }
     }
