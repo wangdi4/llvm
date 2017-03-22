@@ -601,25 +601,17 @@ public:
   }
 
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.
-  // TODOV: static
-  // TODOV: It won't work before creating VPLoopRegions. You can do
-  // VPLInfo->getLoopFor(FromBlock).
-  static bool isBackEdge(const VPBlockBase *FromBlock,
-                  const VPBlockBase *ToBlock) {
-    //TODOV: both could be null
-    assert(FromBlock->getParent() == ToBlock->getParent());
-    // A back-edge has to be within a loop region
-    const VPLoopRegion *LoopRegion =
-        dyn_cast<VPLoopRegion>(FromBlock->getParent());
-    if (!LoopRegion) {
+  bool isBackEdge(const VPBlockBase *FromBlock, const VPBlockBase *ToBlock,
+                  const VPLoopInfo *VPLI) {
+    assert(FromBlock->getParent() == ToBlock->getParent() &&
+           FromBlock->getParent() != nullptr && "Must be in same region");
+    const VPLoop *FromLoop = VPLI->getLoopFor(FromBlock);
+    const VPLoop *ToLoop = VPLI->getLoopFor(ToBlock);
+    if (FromLoop == nullptr || ToLoop == nullptr || FromLoop != ToLoop) {
       return false;
     }
     // A back-edge is latch->header
-    const VPLoop *Loop = LoopRegion->getVPLoop();
-    // TODOV: The first check is redundant. I think isLoopLatch is already
-    // checking that.
-    return ((ToBlock == Loop->getHeader()) && Loop->contains(FromBlock) &&
-            Loop->isLoopLatch(FromBlock));
+    return (ToBlock == ToLoop->getHeader() && ToLoop->isLoopLatch(FromBlock));
   }
 
   /// Create a new, empty VPLoop, with no blocks.

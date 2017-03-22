@@ -80,7 +80,7 @@ static void emitRecipeIfBB(VPPredicateRecipeBase *Predicate,
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!IntelVPlanUtils::isBackEdge(PredBlock, SuccBlock)) {
+      if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI)) {
       Succs.push_back(SuccBlock);
     }
   }
@@ -231,7 +231,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
   // For each input block, get the predicate and append it to BP
   for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
     // Skip back-edges
-    if (IntelVPlanUtils::isBackEdge(PredBlock, CurrBlock)) {
+    if (PlanUtils.isBackEdge(PredBlock, CurrBlock, VPLI)) {
       continue;
     }
 
