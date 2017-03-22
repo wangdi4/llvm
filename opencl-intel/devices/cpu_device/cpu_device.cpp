@@ -378,6 +378,10 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
+    if (core_index >= m_numCores) {
+      return;
+    }
+
     assert(core_index < m_numCores && "Access outside core map size");
 
     threadid_t   other_tid        = m_pCoreToThread[core_index];
