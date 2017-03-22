@@ -36,6 +36,7 @@
 // CPU specific:
 #define CL_CONFIG_CPU_VECTORIZER_MODE           "CL_CONFIG_CPU_VECTORIZER_MODE"             // cl_int
 #define CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE     "CL_CONFIG_CPU_FORCE_GLOBAL_MEM_SIZE"       // cl_ulong
+#define CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE      "CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE"        // cl_ulong
 #define CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE  "CL_CONFIG_CPU_FORCE_MAX_MEM_ALLOC_SIZE"    // cl_ulong
 #define CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR     "CL_CONFIG_CPU_RT_LOOP_UNROLL_FACTOR"       // int
 #define CL_CONFIG_USE_VECTORIZER                "CL_CONFIG_USE_VECTORIZER"                  // bool
@@ -57,6 +58,7 @@ namespace Intel { namespace OpenCL { namespace CPUDevice {
         ~CPUDeviceConfig();
 
         cl_ulong        GetForcedGlobalMemSize() const;
+        cl_ulong        GetForcedLocalMemSize() const;
         cl_ulong        GetForcedMaxMemAllocSize() const;
         cl_int          GetVectorizerMode() const;
 

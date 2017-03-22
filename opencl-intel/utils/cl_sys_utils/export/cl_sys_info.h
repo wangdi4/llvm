@@ -32,6 +32,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define GetModuleDirectory(str, strLen) GetModuleDirectoryImp(__FUNCTION__, str, strLen)
     extern unsigned long long    TotalVirtualSize();
     extern unsigned long long    TotalPhysicalSize();
+    extern unsigned long long    StackSize();
     extern unsigned long long    MaxClockFrequency();
     extern unsigned long long    ProfilingTimerResolution();
     extern unsigned long long    HostTime();
