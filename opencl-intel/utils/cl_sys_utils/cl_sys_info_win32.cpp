@@ -76,6 +76,34 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 	return psize;
 }
 
+void* GetStackStart()
+{
+#if _MSC_VER && !__INTEL_COMPILER
+#ifdef _WIN64
+    return reinterpret_cast<void*>(__readgsqword(offsetof(NT_TIB64, StackBase)));
+#else
+    return reinterpret_cast<void*>(__readfsdword(offsetof(NT_TIB, StackBase)));
+#endif
+#else
+#error "Stack frame size estimation not supported on this platform."
+#endif
+}
+
+// based on https://codereview.chromium.org/1409243011
+unsigned long long Intel::OpenCL::Utils::StackSize()
+{
+    unsigned long long stackSize;
+    MEMORY_BASIC_INFORMATION stackInfo;
+    memset(&stackInfo, 0, sizeof(MEMORY_BASIC_INFORMATION));
+    VirtualQuery(&stackInfo, &stackInfo, sizeof(MEMORY_BASIC_INFORMATION));
+
+    char* stackEnd = (char*)stackInfo.AllocationBase;
+    char* stackStart = (char*)GetStackStart();
+
+    stackSize = static_cast<size_t>(stackStart - stackEnd);
+    return stackSize;
+}
+
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;

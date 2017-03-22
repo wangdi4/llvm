@@ -99,6 +99,20 @@ unsigned long long Intel::OpenCL::Utils::TotalPhysicalSize()
 	return totalPhys;
 }
 
+unsigned long long Intel::OpenCL::Utils::StackSize()
+{
+    rlimit tLimitStruct;
+    if (getrlimit(RLIMIT_STACK, &tLimitStruct) != 0)
+    {
+        assert(false && "getrlimit return non-zero error code");
+        return 0;
+    }
+    else
+    {
+        return tLimitStruct.rlim_cur;
+    }
+}
+
 unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 {
 	static unsigned long long freq = 0;
