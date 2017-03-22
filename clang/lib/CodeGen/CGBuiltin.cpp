@@ -2981,73 +2981,13 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return emitLibraryCall(*this, FD, E,
                       cast<llvm::Constant>(EmitScalarExpr(E->getCallee())));
 
-#if INTEL_CUSTOMIZATION
-  // Xmain should not perform this check, since we allow intrinsics to be
-  // used even when not explicitly supported by the target
-  if (!getLangOpts().IntelCompat) {
-#endif // INTEL_CUSTOMIZATION
   // Check that a call to a target specific builtin has the correct target
   // features.
   // This is down here to avoid non-target specific builtins, however, if
   // generic builtins start to require generic target features then we
   // can move this up to the beginning of the function.
   checkTargetFeatures(E, FD);
-#if INTEL_CUSTOMIZATION
-  } else {
-    static std::map<StringRef, uint64_t> FeatureMapping = { 
-      {"cmov", 0x00000004ULL},
-      {"mmx", 0x00000008ULL},
-      {"sse", 0x00000020ULL},
-      {"sse2", 0x00000040ULL},
-      {"sse3", 0x00000080ULL},
-      {"ssse3", 0x00000100ULL},
-      {"sse4.1", 0x00000200ULL},
-      {"sse4.2", 0x00000400ULL},
-      {"popcnt", 0x00001000ULL},
-      {"pclmul", 0x00002000ULL},
-      {"aes", 0x00004000ULL},
-      {"f16c", 0x00008000ULL},
-      {"avx", 0x00010000ULL},
-      {"rdrand", 0x00020000ULL},
-      {"fma", 0x00040000ULL},
-      {"bmi", 0x00080000ULL},
-      {"bmi2", 0x00080000ULL},
-      {"lzcnt", 0x00100000ULL},
-      {"hle", 0x00200000ULL},
-      {"rtm", 0x00400000ULL},
-      {"avx2", 0x00800000ULL},
-      {"avx512dq", 0x01000000ULL},
-      {"avx512f", 0x08000000ULL},
-      {"adx", 0x10000000ULL},
-      {"rdseed", 0x20000000ULL},
-      {"avx512er", 0x100000000ULL},
-      {"avx512pf", 0x200000000ULL},
-      {"avx512cd", 0x400000000ULL},
-      {"sha", 0x800000000ULL},
-      {"avx512bw", 0x2000000000ULL},
-      {"avx512vl", 0x4000000000ULL},
-    };
 
-    const char *FeatureList =
-        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
-    if (FeatureList && StringRef(FeatureList) != "") {
-      SmallVector<StringRef, 1> AttrFeatures;
-      StringRef(FeatureList).split(AttrFeatures, ",");
-
-      llvm::IntegerType *IntType = IntegerType::get(CGM.getLLVMContext(), 64);
-
-      for (const auto &Feature : AttrFeatures) {
-        auto FeatureEnum = FeatureMapping.find(Feature);
-        if (FeatureEnum == FeatureMapping.end())
-          continue;
-        llvm::CallInst *HasFeature = 
-          Builder.CreateCall(CGM.getIntrinsic(Intrinsic::has_feature), 
-                              ConstantInt::get(IntType, FeatureEnum->second));
-        Builder.CreateCall(CGM.getIntrinsic(Intrinsic::assume), HasFeature);
-      }
-    }
-#endif  
-  }
   // See if we have a target specific intrinsic.
   const char *Name = getContext().BuiltinInfo.getName(BuiltinID);
   Intrinsic::ID IntrinsicID = Intrinsic::not_intrinsic;
