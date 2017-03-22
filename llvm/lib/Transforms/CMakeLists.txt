@@ -11,4 +11,4 @@ add_subdirectory(BasicBlockDumper)
 add_subdirectory(BasicBlockNumberer)
 add_subdirectory(BasicBlockProfiler)
 add_subdirectory(FPGA-Advisor)
-
+add_subdirectory(LLVMROIController)

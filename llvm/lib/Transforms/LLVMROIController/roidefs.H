@@ -36,8 +36,35 @@ END_LEGAL */
 #include <iostream>
 #include <fstream>
 #include <sstream>
+
+// Exceptions are disabled, but boost requires the ability to
+// throw an exception. Continuing from this call is undefined
+// behavior. It should never happen, so die.
+//
+// Note that the function needs to be inlined so it won't get
+// multiple definitions.
+namespace boost {
+inline void throw_exception(std::exception const & e) {
+  // Die, die, die!
+  exit(1);
+}
+}  // namespace boost
+
+// GCC is whining about an extra ";" in
+// /usr/intel/pkgs/boost/1.59.0/include/boost/archive/detail/interface_oarchive.hpp:78:6
+// I could fix it, but that would be wrong. Instead, I'll tell GCC to stop
+// being pedantic.
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
+#pragma GCC diagnostic pop
+#else
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#endif  // __GNUC__
+
 using namespace std;
 typedef uint8_t  UINT8;   //LINUX HOSTS
 typedef uint16_t UINT16;
