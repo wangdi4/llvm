@@ -749,8 +749,6 @@ namespace CGIntelOpenMP {
     case OMPC_SCHEDULE_unknown:
       llvm_unreachable("Unknown schedule clause");
     }
-    if (!CGF.getLangOpts().IntelOpenMPRegion)
-      addArg(SchedString);
 
     SmallString<64> Modifiers;
     for (int Count = 0; Count < 2; ++Count) {
@@ -777,14 +775,11 @@ namespace CGIntelOpenMP {
         Modifiers += LocalModifier;
       }
     }
-    if (Modifiers.empty())
-      Modifiers = "MODIFIERNONE";
-    if (CGF.getLangOpts().IntelOpenMPRegion) {
+    if (!Modifiers.empty()) {
       SchedString += ':';
       SchedString += Modifiers;
-      addArg(SchedString);
-    } else
-      addArg(Modifiers);
+    }
+    addArg(SchedString);
     auto SavedIP = CGF.Builder.saveIP();
     setOutsideInsertPoint();
     if (auto *E = C->getChunkSize())
