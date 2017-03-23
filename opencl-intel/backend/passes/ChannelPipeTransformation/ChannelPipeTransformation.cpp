@@ -1,9 +1,23 @@
-/*=================================================================================
-Copyright (c) 2012, Intel Corporation
-Subject to the terms and conditions of the Master Development License
-Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
-OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
-==================================================================================*/
+// Copyright (c) 2017 Intel Corporation
+// All rights reserved.
+//
+// WARRANTY DISCLAIMER
+//
+// THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL INTEL OR ITS
+// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+// OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
+// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
+// MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Intel Corporation is the author of the Materials, and requests that all
+// problem reports or change requests be submitted to it directly
+
 #include "ChannelPipeTransformation.h"
 
 #include <llvm/ADT/SmallString.h>
@@ -19,6 +33,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <OCLPassSupport.h>
 
 #include <PipeCommon.h>
+
+#include <utility>
 
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
@@ -47,7 +63,6 @@ struct PipeMetadata {
 
 typedef DenseMap<Value*, Value*> ValueToValueMap;
 typedef DenseMap<Value*, PipeMetadata> PipeMetadataMap;
-
 namespace intel {
 
 char ChannelPipeTransformation::ID = 0;
@@ -260,60 +275,71 @@ static bool createPipeGlobals(Module &M,
   return ChannelGlobals.size() > 0;
 }
 
-static bool replaceReadChannel(Function &F, Function &Replacement,
+static void insertReadPipe(Function *ReadPipe,
+                            Value *Pipe, Value *DstPtr,
+                            Instruction *BeforeInst) {
+  IRBuilder<> Builder(BeforeInst);
+  auto *ReadPipeFTy = ReadPipe->getFunctionType();
+
+  Value *PipeCallArgs[] = {
+    Builder.CreateBitCast(
+        Builder.CreateLoad(Pipe), ReadPipeFTy->getParamType(0)),
+    Builder.CreatePointerBitCastOrAddrSpaceCast(
+        DstPtr, ReadPipeFTy->getParamType(1))
+  };
+
+  Builder.CreateCall(ReadPipe, PipeCallArgs);
+}
+
+
+static bool replaceReadChannel(Function &F, Function &ReadPipe,
                                Module &M,
                                ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
 
   SmallVector<User *, 32> ReadChannelUsers(F.user_begin(), F.user_end());
+  DenseMap<std::pair<Function *, Type *>, Value *> AllocaMap;
   for (auto *U : ReadChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
     if (!ChannelCall) {
       continue;
     }
 
-    IRBuilder<> Builder(ChannelCall);
-
     auto *ReadChannelFTy = ChannelCall->getCalledFunction();
     auto ArgIt = ChannelCall->arg_begin();
 
-    Value *ResultPtr = nullptr;
-    Type *ResultTy = ReadChannelFTy->getReturnType();
-    if (ResultTy->isVoidTy()) {
+    Value *DstPtr = nullptr;
+    Type *DstTy = ReadChannelFTy->getReturnType();
+    if (DstTy->isVoidTy()) {
       // struct type result is passed by pointer as a first argument
-      ResultPtr = (ArgIt++)->get();
-      ResultTy = ResultPtr->getType();
+      // the read_channel function returns void in this case
+      DstPtr = (ArgIt++)->get();
+      DstTy = DstPtr->getType();
     }
     Value *ChanArg = (ArgIt++)->get();
 
-    if (!ResultPtr) {
+    Function *TargetFn = ChannelCall->getParent()->getParent();
+    if (!DstPtr) {
       // primitive type result is returned by value from read_channel
       // make an alloca to pass it by pointer to read_pipe
-      ResultPtr = Builder.CreateAlloca(ResultTy);
+      Value *&Alloca = AllocaMap[std::make_pair(TargetFn, DstTy)];
+      if (!Alloca) {
+        Instruction *InsertBefore =
+          &*(TargetFn->getEntryBlock().getFirstInsertionPt());
+        Alloca = new AllocaInst(DstTy, "read.dst", InsertBefore);
+      }
+
+      DstPtr = Alloca;
     }
 
     assert(ArgIt == ChannelCall->arg_end() &&
            "Unexpected number of arguments in read_channel_altera.");
 
-    auto *ReadPipe = &Replacement;
-    if (Replacement.getParent() != &M) {
-      ReadPipe = cast<Function>(
-          CompilationUtils::importFunctionDecl(&M, &Replacement));
-    }
-    auto *ReadPipeFTy = ReadPipe->getFunctionType();
-
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
-    Value *PipeCallArgs[] = {
-      Builder.CreateBitCast(
-          Builder.CreateLoad(PipeGlobal), ReadPipeFTy->getParamType(0)),
-      Builder.CreatePointerBitCastOrAddrSpaceCast(
-          ResultPtr, ReadPipeFTy->getParamType(1))
-    };
-
-    Builder.CreateCall(ReadPipe, PipeCallArgs);
+    insertReadPipe(&ReadPipe, PipeGlobal, DstPtr, ChannelCall);
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -321,7 +347,8 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
       BasicBlock::iterator II(ChannelCall);
       ReplaceInstWithValue(ChannelCall->getParent()->getInstList(),
                            II,
-                           Builder.CreateLoad(ResultPtr));
+                           new LoadInst(DstTy, DstPtr, "",
+                                        /*isVolatile=*/false, ChannelCall));
     }
 
     Changed = true;
@@ -329,11 +356,29 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
   return Changed;
 }
 
-static bool replaceWriteChannel(Function &F, Function &Replacement,
+static void insertWritePipe(Function *WritePipe,
+                            Value *Pipe, Value *SrcPtr,
+                            Instruction *BeforeInst) {
+  IRBuilder<> Builder(BeforeInst);
+  auto *WritePipeFTy = WritePipe->getFunctionType();
+
+  Value *PipeCallArgs[] = {
+    Builder.CreateBitCast(
+        Builder.CreateLoad(Pipe), WritePipeFTy->getParamType(0)),
+    Builder.CreatePointerBitCastOrAddrSpaceCast(
+        SrcPtr, WritePipeFTy->getParamType(1))
+  };
+
+  Builder.CreateCall(WritePipe, PipeCallArgs);
+}
+
+static bool replaceWriteChannel(Function &F, Function &WritePipe,
                                 Module &M,
                                 ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
+
   SmallVector<User *, 32> WriteChannelUsers(F.user_begin(), F.user_end());
+  DenseMap<std::pair<Function *, Type *>, Value *> AllocaMap;
 
   for (auto *U : WriteChannelUsers) {
     auto *ChannelCall = dyn_cast<CallInst>(U);
@@ -344,30 +389,22 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
     auto *Chan = ChannelCall->getArgOperand(0);
     auto *Val = ChannelCall->getArgOperand(1);
 
-    auto *WritePipe = &Replacement;
-    if (Replacement.getParent() != &M) {
-      WritePipe = cast<Function>(
-          CompilationUtils::importFunctionDecl(&M, &Replacement));
-    }
-    auto *WritePipeFTy = WritePipe->getFunctionType();
-
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
-    IRBuilder<> Builder(ChannelCall);
+    Function *TargetFn = ChannelCall->getParent()->getParent();
+    Type *SrcType = Val->getType();
+    Value *&SrcPtr = AllocaMap[std::make_pair(TargetFn, SrcType)];
+    if (!SrcPtr) {
+      Instruction *InsertBefore =
+        &*(TargetFn->getEntryBlock().getFirstInsertionPt());
+      SrcPtr = new AllocaInst(SrcType, "write.src", InsertBefore);
+    }
+    new StoreInst(Val, SrcPtr, ChannelCall);
 
-    Value *ValPtr = Builder.CreateAlloca(Val->getType());
-    Builder.CreateStore(Val, ValPtr);
+    insertWritePipe(&WritePipe, PipeGlobal, SrcPtr, ChannelCall);
 
-    Value *PipeCallArgs[] = {
-      Builder.CreateBitCast(
-          Builder.CreateLoad(PipeGlobal), WritePipeFTy->getParamType(0)),
-      Builder.CreatePointerBitCastOrAddrSpaceCast(
-          ValPtr, WritePipeFTy->getParamType(1))
-    };
-
-    Builder.CreateCall(WritePipe, PipeCallArgs);
     ChannelCall->eraseFromParent();
 
     Changed = true;
@@ -382,11 +419,15 @@ static bool replaceChannelBuiltins(Module &M,
   Function *WritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
-      ReadPipe = BIModule->getFunction("__read_pipe_2_bl_intel");
+      ReadPipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__read_pipe_2_bl_intel")));
     }
 
     if (!WritePipe) {
-      WritePipe = BIModule->getFunction("__write_pipe_2_bl_intel");
+      WritePipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__write_pipe_2_bl_intel")));
     }
   }
 

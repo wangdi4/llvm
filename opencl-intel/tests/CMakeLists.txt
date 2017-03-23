@@ -17,6 +17,7 @@ add_subdirectory( framework_test_type )
 add_subdirectory( clang_compiler_test_type )
 
 add_subdirectory( task_executor_test_type )
+add_subdirectory( bi_test_type )
 
 if ( INCLUDE_MIC_DEVICE )
   add_subdirectory( mic_device_test_type )

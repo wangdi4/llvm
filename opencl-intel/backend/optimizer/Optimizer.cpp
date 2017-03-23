@@ -59,6 +59,7 @@ llvm::ModulePass *createBlockToFuncPtrPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
+llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -271,8 +272,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   if (isFpgaEmulator) {
       PM.add(createChannelPipeTransformationPass());
+      PM.add(createPipeSupportPass());
   }
-
 
   // Adding module passes.
 #ifndef __APPLE__

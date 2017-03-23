@@ -273,6 +273,14 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
     }
 
+    if (const char* env_num_workers = getenv("OCL_TBB_NUM_WORKERS"))
+    {
+        gWorker_threads = std::stoi(env_num_workers);
+    } else
+    {
+        gWorker_threads = 32;
+    }
+
     unsigned long long stackSize = Intel::OpenCL::Utils::StackSize();
     // We force stack size of TBB created threads to match main thread stack size
     // TBB calls global_market constructor from market::create_arena with default
@@ -285,6 +293,7 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         LOG_ERROR(TEXT("%s"), "Failed to allocate task_scheduler_init");
         return 0;
     }
+
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
     
     LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);

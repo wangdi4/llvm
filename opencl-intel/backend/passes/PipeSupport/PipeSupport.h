@@ -18,20 +18,32 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#ifndef __CHANNEL_PIPE_TRANSFORMATION_H__
-#define __CHANNEL_PIPE_TRANSFORMATION_H__
+#ifndef __PIPE_SUPPORT_H__
+#define __PIPE_SUPPORT_H__
+
+// This pass inserts __flush_read/write_pipe calls at the end of every
+// functions, that use pipe built-in functions.
+//
+// This is important to support pipe BIs internal caching mechanism,
+// because writes and reads are not immediately committed to the pipe,
+// and we must flush them at exist to clear that cache.
+//
+// Currently it only supports pipes for FPGA emulation, so it works only
+// with the Single Call Site restriction applied to the user program:
+//   - all pipes used by the function must used only once
+//   - pipe call may be in a loop, but this loop cannot be unrolled
 
 #include <llvm/IR/Module.h>
 
 namespace intel {
 
-class ChannelPipeTransformation : public llvm::ModulePass {
+class PipeSupport : public llvm::ModulePass {
 public:
   static char ID;
-  ChannelPipeTransformation();
+  PipeSupport();
 
   virtual const char *getPassName() const {
-    return "ChannelPipeTransformation";
+    return "PipeSupport";
   }
 
   bool runOnModule(llvm::Module &M);
@@ -41,4 +53,4 @@ public:
 
 } // namespace intel
 
-#endif // __CHANNEL_PIPE_TRANSFORMATION_H__
+#endif // __PIPE_SUPPORT_H__

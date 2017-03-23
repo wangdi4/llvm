@@ -96,6 +96,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePrintfArgumentsPromotionPass(Registry);
     intel::initializeBlockToFuncPtrPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);
+    intel::initializePipeSupportPass(Registry);
 }
 
 
