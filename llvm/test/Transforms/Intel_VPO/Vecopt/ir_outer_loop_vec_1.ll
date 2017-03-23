@@ -2,7 +2,7 @@
 
 ; CHECK: vector.body:
 ; CHECK: VPlannedBB:{{.*}} preds = %VPlannedBB, %vector.body
-; CHECK:  call {{.*}} @llvm.masked.scatter{{.*}} <i1 true, i1 true, i1 true, i1 true>
+; CHECK: store volatile <4 x i32>
 ; CHECK: VPlannedBB1:{{.*}} preds = %VPlannedBB
 ; CHECK: middle.block:
 

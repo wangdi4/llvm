@@ -630,7 +630,7 @@ void VPOCodeGen::updateAnalysis() {
   DT->changeImmediateDominator(LoopScalarBody, LoopScalarPreHeader);
   DT->changeImmediateDominator(LoopExitBlock, LoopBypassBlocks[0]);
 
-  DEBUG(DT->verifyDomTree());
+  //DEBUG(DT->verifyDomTree());
 }
 
 Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
@@ -663,18 +663,11 @@ Value * VPOCodeGen::getVectorValue(Value *V) {
   // instead. If it has been scalarized, and we actually need the value in
   // vector form, we will construct the vector values on demand.
   if (ScalarMap.count(V)) {
-    bool isUniform = isUniformAfterVectorization(cast<Instruction>(V), VF);
-    unsigned LastLane = isUniform ? 0 : VF - 1;
-    auto *LastInst = cast<Instruction>(ScalarMap[V][LastLane]);
-
-    // Set the insert point after the last scalarized instruction. This ensures
-    // the insertelement sequence will directly follow the scalar definitions.
-    auto OldIP = Builder.saveIP();
-    auto NewIP = std::next(BasicBlock::iterator(LastInst));
-    Builder.SetInsertPoint(&*NewIP);
+    bool IsUniform = isUniformAfterVectorization(cast<Instruction>(V), VF) ||
+      OrigLoop->hasLoopInvariantOperands(cast<Instruction>(V));
 
     Value *VectorValue = nullptr;
-    if (isUniform) {
+    if (IsUniform) {
       Value *ScalarValue = ScalarMap[V][0];
       VectorValue = Builder.CreateVectorSplat(VF, ScalarValue, "broadcast");
     } else {
@@ -685,7 +678,6 @@ Value * VPOCodeGen::getVectorValue(Value *V) {
           VectorValue, ScalarValue, Builder.getInt32(Lane));
       }
     }
-    Builder.restoreIP(OldIP);
 
     WidenMap[V] = VectorValue;
     return VectorValue;
@@ -730,20 +722,12 @@ Value *VPOCodeGen::reverseVector(Value *Vec) {
                                      "reverse");
 }
 
-void VPOCodeGen::vectorizeLoopInvariantLoad(Instruction *Inst) {
-  Instruction *Cloned = Inst->clone();
-  Cloned->setName(Inst->getName() + ".cloned");
-  Builder.Insert(Cloned);
-  Value *Broadcast = Builder.CreateVectorSplat(VF, Cloned, "broadcast");
-  WidenMap[Inst] = Broadcast;
-}
-
 void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                           bool EmitIntrinsic) {
   LoadInst *LI = cast<LoadInst>(Inst);
   Value *Ptr = LI->getPointerOperand();
-  if (!MaskValue && Legal->isLoopInvariant(Ptr)) {
-    vectorizeLoopInvariantLoad(Inst);
+  if (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr)) {
+    serializeInstruction(Inst);
     return;
   }
 
@@ -891,7 +875,8 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr) {
 
   assert(!Instr->getType()->isAggregateType() && "Can't handle vectors");
 
-  unsigned Lanes = isUniformAfterVectorization(Instr, VF) ? 1 : VF;
+  unsigned Lanes = OrigLoop->hasLoopInvariantOperands(Instr) ||
+    isUniformAfterVectorization(Instr, VF) ? 1 : VF;
 
   // Does this instruction return a value ?
   bool IsVoidRetTy = Instr->getType()->isVoidTy();
@@ -1131,9 +1116,9 @@ void VPOCodeGen::fixNonInductionPhis() {
   // phi in the scalar loop.
   for (auto OrigPhi : OrigInductionPhisToFix) {
     PHINode *NewPhi;
-    bool uniform = isUniformAfterVectorization(OrigPhi, VF);
+    bool IsUniform = isUniformAfterVectorization(OrigPhi, VF);
 
-    if (uniform) 
+    if (IsUniform)
       NewPhi = cast<PHINode>(getScalarValue(OrigPhi, 0));
     else 
       NewPhi = cast<PHINode>(getVectorValue(OrigPhi));
@@ -1158,7 +1143,7 @@ void VPOCodeGen::fixNonInductionPhis() {
       // values from original phi.
       Value *ScIncV = OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
       Value *NewIncV;
-      if (uniform) {
+      if (IsUniform) {
         NewIncV = getScalarValue(ScIncV, 0);
         NewPhi->setIncomingBlock(i, BB);
         NewPhi->setIncomingValue(i, NewIncV);
@@ -1271,9 +1256,32 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   WidenMap[cast<Value>(Call)] = VecCall;
 }
 
+/// A helper function that returns the pointer operand of a load or store
+/// instruction.
+static Value *getPointerOperand(Value *I) {
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getPointerOperand();
+  if (auto *SI = dyn_cast<StoreInst>(I))
+    return SI->getPointerOperand();
+  return nullptr;
+}
+
 void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   switch (Inst->getOpcode()) {
   case Instruction::GetElementPtr: {
+    // Consecutive Load/Store will clone the GEP
+    if (all_of(Inst->users(), [&](User *U) -> bool {
+          return getPointerOperand(U) == Inst;
+        }) && Legal->isConsecutivePtr(Inst))
+      break;
+    if (all_of(Inst->users(), [&](User *U) -> bool {
+          return getPointerOperand(U) == Inst &&
+                 Legal->isUniformForTheLoop(U);
+      })) {
+      serializeInstruction(Inst);
+      break;
+    }
+
     // Create the vector GEP, keeping all constant arguments scalar.
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst);
     SmallVector<Value*, 4> OpsV;
@@ -1333,6 +1341,10 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::Or:
   case Instruction::Xor: {
 
+    if (isUniformAfterVectorization(Inst, VF)) {
+      serializeInstruction(Inst);
+      break;
+    }
     // Widen binary operands
     BinaryOperator *BinOp = dyn_cast<BinaryOperator>(Inst);
     Value *A = getVectorValue(Inst->getOperand(0));
@@ -1596,6 +1608,11 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
             Worklist.insert(Cmp);
             DEBUG(dbgs() << "LV: Found uniform instruction: " << *Cmp << "\n");
           }
+          auto *IndUpdate =
+            cast<Instruction>(Phi->getIncomingValueForBlock(InnerLoopLatch));
+          DEBUG(dbgs() << "LV: Found uniform instruction: " << *IndUpdate <<
+                "\n");
+          Worklist.insert(IndUpdate);
         }
       } else if (auto Br = dyn_cast<BranchInst>(&I)) {
         if (!Br->isConditional())
@@ -1603,6 +1620,15 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
         Value *Cond = Br->getCondition();
         if (TheLoop->isLoopInvariant(Cond))
           Worklist.insert(Br);
+      }
+
+      // Load with loop invariant pointer
+      if (auto Ptr = getPointerOperand(&I)) {
+        const SCEV *PtrScevAtTheLoopScope =
+          PSE.getSE()->getSCEVAtScope(Ptr, TheLoop);
+        if (PSE.getSE()->isLoopInvariant(PtrScevAtTheLoopScope, TheLoop) &&
+            isa<LoadInst>(&I))
+          Worklist.insert(&I);
       }
     }
   // Expand Worklist in topological order: whenever a new instruction
@@ -1629,15 +1655,6 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
   UniformForAnyVF.insert(Worklist.begin(), Worklist.end());
 }
 
-/// A helper function that returns the pointer operand of a load or store
-/// instruction.
-static Value *getPointerOperand(Value *I) {
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerOperand();
-  if (auto *SI = dyn_cast<StoreInst>(I))
-    return SI->getPointerOperand();
-  return nullptr;
-}
 
 void VPOCodeGen::collectLoopUniforms(unsigned VF) {
 

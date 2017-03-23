@@ -42,8 +42,8 @@ public:
 
   void collectLoopUniformsForAnyVF();
 
-  bool isUniformForTheLoop(Instruction *I) {
-    return UniformForAnyVF.count(I);
+  bool isUniformForTheLoop(Value *V) {
+    return !isa<Instruction>(V) || UniformForAnyVF.count(cast<Instruction>(V));
   }
 
   //iterator_range<Instruction *> uniforms() const{
