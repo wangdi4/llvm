@@ -473,7 +473,7 @@ private:
 public:
   explicit OVLSConstant(OVLSType T, int8_t *V) : OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
-    memcpy(ConstValue, V, T.getSize());
+    memcpy(ConstValue, V, T.getSize() / BYTE);
   }
 
   static bool classof(const OVLSOperand *Operand) {
@@ -789,6 +789,52 @@ class OVLSCostModel {
     }
 
     return IsExtract;
+  }
+
+  /// Returns true if Mask represents insertion of lower half of the 2nd
+  /// src-vector into the 1st src-vector, returns false otherwise. When
+  /// returns true it updates Index and NumSubVecElems.
+  /// Index represents where in the list of subvectors to insert the new
+  /// subvector. NumSubVecElems represents the size of the inserted vector.
+  /// After insertion the new subvector at index i, the new subvector will be
+  /// the ith subvector in the list of subvectors
+  /// E.g.  Src1<0, 1, 2, 3>, Src2<4, 5, 6, 7>;
+  /// Allowed masks are <4, 5, 2, 3> and <0, 1, 4, 5>.
+  /// Strictly honors, X86 (v)insertX semantics.
+  /// TODO: Only detects masks with half-vector insertion. Support masks
+  /// inserting other-sized vectors(specially the quarter-sized).
+  bool isInsertSubvectorMask(SmallVectorImpl<int> &Mask, int &Index,
+                             unsigned &NumSubVecElems) const {
+    bool InsertIntoUpperHalf = false;
+    bool InsertIntoLowerHalf = false;
+
+    int i;
+    int Size = Mask.size();
+    int LowerHalfUB = Size / 2;
+
+    // TODO: Supports undefined.
+    for (i = 0; i < LowerHalfUB; ++i)
+      if (Mask[i] == Size + i && !InsertIntoUpperHalf)
+        InsertIntoLowerHalf = true;
+      else if (Mask[i] == i && !InsertIntoLowerHalf)
+        InsertIntoUpperHalf = true;
+      else
+        return false;
+
+    bool IsInsert = true;
+    for (; i < Size && IsInsert; ++i)
+      IsInsert =
+          InsertIntoLowerHalf ? Mask[i] == i : Mask[i] == i + LowerHalfUB;
+
+    if (IsInsert) {
+      if (InsertIntoLowerHalf)
+        Index = 0;
+      else
+        Index = 1;
+      NumSubVecElems = LowerHalfUB;
+    }
+
+    return IsInsert;
   }
 
 protected:

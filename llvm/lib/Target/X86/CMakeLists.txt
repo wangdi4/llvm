@@ -28,7 +28,6 @@ endif()
 
 set(sources
   Intel_X86FMA.cpp        # INTEL
-  Intel_X86FeatureOutlinePass.cpp
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
   X86ExpandPseudo.cpp
