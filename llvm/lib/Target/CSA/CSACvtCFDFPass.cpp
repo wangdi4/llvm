@@ -979,7 +979,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
           if (DefBB == mbb) continue;
           //use, def in different region cross latch
           bool isDefOutsideLoop = MLI->getLoopFor(DefBB) == NULL ||
-            MLI->getLoopFor(mbb) != MLI->getLoopFor(DefBB);
+            !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop&& DT->dominates(DefBB, mbb)) {
             repeatOperandInLoop(Reg, mloop);
