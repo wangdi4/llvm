@@ -278,7 +278,7 @@ static void insertReadPipe(Function *ReadPipe,
 }
 
 
-static bool replaceReadChannel(Function &F, Function &Replacement,
+static bool replaceReadChannel(Function &F, Function &ReadPipe,
                                Module &M,
                                ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
@@ -321,17 +321,11 @@ static bool replaceReadChannel(Function &F, Function &Replacement,
     assert(ArgIt == ChannelCall->arg_end() &&
            "Unexpected number of arguments in read_channel_altera.");
 
-    auto *ReadPipe = &Replacement;
-    if (Replacement.getParent() != &M) {
-      ReadPipe = cast<Function>(
-          CompilationUtils::importFunctionDecl(&M, &Replacement));
-    }
-
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
 
-    insertReadPipe(ReadPipe, PipeGlobal, DstPtr, ChannelCall);
+    insertReadPipe(&ReadPipe, PipeGlobal, DstPtr, ChannelCall);
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -364,7 +358,7 @@ static void insertWritePipe(Function *WritePipe,
   Builder.CreateCall(WritePipe, PipeCallArgs);
 }
 
-static bool replaceWriteChannel(Function &F, Function &Replacement,
+static bool replaceWriteChannel(Function &F, Function &WritePipe,
                                 Module &M,
                                 ValueToValueMap ChannelToPipeMap) {
   bool Changed = false;
@@ -381,12 +375,6 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
     auto *Chan = ChannelCall->getArgOperand(0);
     auto *Val = ChannelCall->getArgOperand(1);
 
-    auto *WritePipe = &Replacement;
-    if (Replacement.getParent() != &M) {
-      WritePipe = cast<Function>(
-          CompilationUtils::importFunctionDecl(&M, &Replacement));
-    }
-
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
     Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
@@ -401,7 +389,7 @@ static bool replaceWriteChannel(Function &F, Function &Replacement,
     }
     new StoreInst(Val, SrcPtr, ChannelCall);
 
-    insertWritePipe(WritePipe, PipeGlobal, SrcPtr, ChannelCall);
+    insertWritePipe(&WritePipe, PipeGlobal, SrcPtr, ChannelCall);
 
     ChannelCall->eraseFromParent();
 
@@ -417,11 +405,15 @@ static bool replaceChannelBuiltins(Module &M,
   Function *WritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
-      ReadPipe = BIModule->getFunction("__read_pipe_2_bl_intel");
+      ReadPipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__read_pipe_2_bl_intel")));
     }
 
     if (!WritePipe) {
-      WritePipe = BIModule->getFunction("__write_pipe_2_bl_intel");
+      WritePipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__write_pipe_2_bl_intel")));
     }
   }
 
