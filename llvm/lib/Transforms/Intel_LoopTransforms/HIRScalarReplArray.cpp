@@ -176,8 +176,7 @@ MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA,
                          DDGraph &DDG)
     : HasRWGap(false), HSRA(HSRA), DDG(DDG), MaxDepDist(-1), NumLoads(0),
       NumStores(0), IsLegal(false), IsProfitable(false), IsPostChecksOk(false),
-      IsSuitable(false), MaxIdxLoadRT(nullptr), MinIdxStoreRT(nullptr),
-      HasNonAntiDep(false) {
+      IsSuitable(false), MaxIdxLoadRT(nullptr), MinIdxStoreRT(nullptr) {
   RegDDRef *FirstRef = const_cast<RegDDRef *>(Group[0]);
   Symbase = FirstRef->getSymbase();
   BaseCE = FirstRef->getBaseCE();
@@ -221,38 +220,6 @@ bool MemRefGroup::belongs(RegDDRef *Ref) const {
   }
 
   return false;
-}
-
-void MemRefGroup::markMaxLoad(void) {
-  if (NumLoads == 0) {
-    return;
-  }
-
-  // may find the MaxLoad if there is 1+ load
-  unsigned Size = RefTupleVec.size();
-  unsigned MinTopNum = -1; // will shrink
-
-  for (signed I = Size - 1; I >= 0; --I) { // search high index only
-    RefTuple *RT = &RefTupleVec[I];
-
-    // Only check those RefTuple with MaxDepDist
-    if (RT->getTmpId() != MaxDepDist) {
-      break;
-    }
-
-    // Only check Load(s);
-    RegDDRef *MemRef = RT->getMemRef();
-    if (MemRef->isLval()) {
-      continue;
-    }
-
-    // Find the smallest TOPO#
-    unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
-    if (CurTopNum < MinTopNum) {
-      MaxIdxLoadRT = RT;
-      MinTopNum = CurTopNum;
-    }
-  }
 }
 
 void MemRefGroup::markMinStore(void) {
@@ -344,7 +311,7 @@ bool MemRefGroup::isCompleteStoreOnly(void) {
   return !HasRWGap;
 }
 
-bool MemRefGroup::isLegal(DDGraph &DDG) {
+bool MemRefGroup::isLegal(DDGraph &DDG) const {
 
   // Check: outgoing edge(s)
   if (!areDDEdgesInSameMRG<false>(DDG)) {
@@ -359,21 +326,8 @@ bool MemRefGroup::isLegal(DDGraph &DDG) {
   return true;
 }
 
-void MemRefGroup::checkEdgeType(const DDEdge *Edge) {
-  if (hasNonAntiDep()) {
-    return;
-  }
-
-  // Not expecting any INPUTdep
-  assert(!Edge->isINPUTdep() && "not expecting DD to build INPUTdep\n");
-
-  // Mark it once we see any non ANTI Edge
-  if (Edge->isFLOWdep() || Edge->isOUTPUTdep()) {
-    HasNonAntiDep = true;
-  }
-}
-
-template <bool IsIncoming> bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) {
+template <bool IsIncoming>
+bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) const {
   DDRef *OtherRef = nullptr;
 
   for (auto &RT : RefTupleVec) {
@@ -382,8 +336,6 @@ template <bool IsIncoming> bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) {
     for (const DDEdge *Edge :
          (IsIncoming ? DDG.incoming(Ref) : DDG.outgoing(Ref))) {
       DEBUG(Edge->print(dbgs()););
-
-      checkEdgeType(Edge);
 
       if (IsIncoming) {
         OtherRef = Edge->getSrc();
@@ -401,11 +353,54 @@ template <bool IsIncoming> bool MemRefGroup::areDDEdgesInSameMRG(DDGraph &DDG) {
   return true;
 }
 
-bool MemRefGroup::isProfitable(void) {
-  // Check: seen any non-Anti Dep?
-  if (!hasNonAntiDep()) {
-    return false;
+void MemRefGroup::markMaxLoad(void) {
+  if (NumLoads == 0) {
+    return;
   }
+
+  // may find the MaxLoad if there is 1+ load
+  unsigned Size = RefTupleVec.size();
+  unsigned MinTopNum = -1; // will shrink
+  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
+  int64_t MaxDepDist = getMaxDepDist();
+  bool DepDistExist = false;
+  int64_t DepDist = 0;
+
+  for (signed I = Size - 1; I >= 0; --I) { // search high index only
+    RefTuple *RT = &RefTupleVec[I];
+    RegDDRef *MemRef = RT->getMemRef();
+    DepDistExist = DDRefUtils::getConstIterationDistance(MemRef, FirstRef,
+                                                         LoopLevel, &DepDist);
+    assert(DepDistExist && "Expect DepDist exist\n");
+    (void)DepDistExist;
+    DepDist = std::abs(DepDist);
+
+    // Only check those RefTuples with MaxDepDist
+    if (DepDist != MaxDepDist) {
+      break;
+    }
+
+    // Only check Load(s);
+    if (MemRef->isLval()) {
+      continue;
+    }
+
+    // Find the smallest TOPO#
+    unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
+    if (CurTopNum < MinTopNum) {
+      MaxIdxLoadRT = RT; // the MaxIdxLoadRT Pointer we save
+      MinTopNum = CurTopNum;
+    }
+  }
+}
+
+bool MemRefGroup::hasReuse(void) const {
+  // If the loop's trip count is available, use it
+  uint64_t TripCount = 0;
+  if (Lp->isConstTripLoop(&TripCount)) {
+    return (getMaxDepDist() < TripCount);
+  }
+
   return true;
 }
 
@@ -486,13 +481,15 @@ void MemRefGroup::checkAndSetMaxDepDist(void) {
 
 bool MemRefGroup::doPostChecks(const HLLoop *Lp) {
   // If: the group has MaxDepDist > 0
-  // Then:any outstanding (non-max-dd) load needs to be merge-able with Lp's LB
+  // Then:any outstanding (non-max-dd) load needs to be merge-able with Lp's
+  // LB
   if ((MaxDepDist > 0) && !doPostCheckOnRef(Lp, true)) {
     return false;
   }
 
   // If: the group has multiple stores with MaxStoreDepDist >=1
-  // Then:any outstanding (non-min-dd) store needs to be merge-able with Lp's UB
+  // Then:any outstanding (non-min-dd) store needs to be merge-able with Lp's
+  // UB
   if (hasStoreDepDistGreaterEqualOne() && !doPostCheckOnRef(Lp, false)) {
     return false;
   }
@@ -630,18 +627,21 @@ bool MemRefGroup::analyze(HLLoop *Lp, DDGraph &DDG) {
     }
   }
 
-  // do Legal Test:
-  if (!(IsLegal = isLegal(DDG))) {
-    return false;
-  }
+  // set MaxDepDist: markMaxLoad() needs it
+  checkAndSetMaxDepDist();
+
+  // this sets MaxIdxLoadRT, profit test needs it
+  markMaxLoad();
 
   // do Profit Test:
   if (!(IsProfitable = isProfitable())) {
     return false;
   }
 
-  // Misc setup needed
-  checkAndSetMaxDepDist();
+  // do Legal Test:
+  if (!(IsLegal = isLegal(DDG))) {
+    return false;
+  }
 
   // do PostChecks:
   if (!(IsPostChecksOk = doPostChecks(Lp))) {
@@ -1083,7 +1083,7 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   MRG.handleTemps();
   assert(MRG.verify() && "MRG verification failed\n");
 
-  MRG.markMaxLoad();
+  // markMaxLoad() is moved to analysis
   MRG.markMinStore();
 
   SmallVector<bool, 16> RWGap;

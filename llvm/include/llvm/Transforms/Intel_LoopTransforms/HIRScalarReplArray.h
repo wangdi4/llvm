@@ -78,7 +78,6 @@ struct MemRefGroup {
   bool IsLegal, IsProfitable, IsPostChecksOk, IsSuitable;
 
   RefTuple *MaxIdxLoadRT = nullptr, *MinIdxStoreRT = nullptr;
-  bool HasNonAntiDep;
 
   MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA, DDGraph &DDG);
 
@@ -159,18 +158,29 @@ struct MemRefGroup {
 
   // A MRG is legal IF&F each DDEdge is legal:
   // - for each valid DDEdge, Refs on both ends belong to the same MRG;
-  bool isLegal(DDGraph &DDG);
+  bool isLegal(DDGraph &DDG) const;
 
   // each valid DDEdge, both ends of the Edge must be in MRG
-  template <bool IsIncoming> bool areDDEdgesInSameMRG(DDGraph &DDG);
-
-  // Check if the DDEdge* has AntiDep
-  void checkEdgeType(const DDEdge *Edge);
+  template <bool IsIncoming> bool areDDEdgesInSameMRG(DDGraph &DDG) const;
 
   // A MRG is profitable IF&F it has at least 1 non anti-dependence DDEdge
-  bool isProfitable(void);
+  //
+  // This is further simplified as: a MRG is NOT profitable IF&F
+  // - it has only 2 MemRefs (1 load, 1 store)
+  // (and)
+  // - MaxLoad and MinStore both exist
+  //
+  // Since MinStore exists with 1 store, no need to check it.
+  //
+  bool isProfitable(void) const {
+    return !((NumLoads == 1) && (NumStores == 1) && MaxIdxLoadRT) && hasReuse();
+  }
 
-  bool hasNonAntiDep(void) const { return ((NumLoads >= 2) || HasNonAntiDep); }
+  // A MemRefGroup has reuse if the group's MaxDepDist is smaller than the
+  // loop's trip count.
+  // TODO: this is conservative: it treats partial reuse as no reuse.
+  // (May need to fine tune it.)
+  bool hasReuse(void) const;
 
   // Collect 1st ref (load or store) whose DistTo1stRef <MaxDD (for load)
   // or >1 (for store).
@@ -260,6 +270,7 @@ class HIRScalarReplArray : public HIRTransformPass {
   HIRLocalityAnalysis *HLA = nullptr;
   HIRLoopStatistics *HLS = nullptr;
   unsigned LoopLevel;
+
   SmallVector<MemRefGroup, 8> MRGVec;
 
   HLNodeUtils *HNU = nullptr;
@@ -331,7 +342,7 @@ public:
   // E.g. if we have suitable groups according to the following table, actions
   // will be different on 32b or 64b platforms.
   //
-  // Default GPRLimit: 4 for 32b, and 6 for 64b
+  // Default GPRLimit: 3 for 32b, and 6 for 64b
   //
   // ---------------------------------------------------------------------
   // |Suitable Group |MaxDepDist|Act(32b) GPRsUsed  | Act(64b) GPRsUsed  |
