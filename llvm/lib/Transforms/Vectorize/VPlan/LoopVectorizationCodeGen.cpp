@@ -83,6 +83,25 @@ static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
 }
 
 bool VPOVectorizationLegality::canVectorize() {
+
+  if (TheLoop->getNumBackEdges() != 1 || !TheLoop->getExitingBlock()) {
+    DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
+    return false;
+  }
+  // We only handle bottom-tested loops, i.e. loop in which the condition is
+  // checked at the end of each iteration. With that we can assume that all
+  // instructions in the loop are executed the same number of times.
+  if (TheLoop->getExitingBlock() != TheLoop->getLoopLatch()) {
+    DEBUG(dbgs() << "loop control flow is not understood by vectorizer");
+    return false;
+  }
+  // ScalarEvolution needs to be able to find the exit count.
+  const SCEV *ExitCount = PSE.getBackedgeTakenCount();
+  if (ExitCount == PSE.getSE()->getCouldNotCompute()) {
+    DEBUG(dbgs() << "LV: SCEV could not compute the loop exit count.\n");
+    return false;
+  }
+
   BasicBlock *Header = TheLoop->getHeader();
   // For each block in the loop.
   for (BasicBlock *BB : TheLoop->blocks()) {
@@ -144,6 +163,7 @@ bool VPOVectorizationLegality::canVectorize() {
     DEBUG(dbgs() << "LV: Did not find one integer induction var.\n");
     return false;
   }
+
   collectLoopUniformsForAnyVF();
   return true;
 }
