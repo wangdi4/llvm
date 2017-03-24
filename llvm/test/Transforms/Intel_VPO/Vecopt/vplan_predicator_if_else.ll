@@ -30,17 +30,6 @@
 ;  v
 ; BB6
 
-; CHECK: loop{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED1:BP[0-9]+]] = AllOnes{{[0-9]+}}
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   region{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED3:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED4:BP[0-9]+]] = [[BLOCKPRED3]]
 
 ; region13
 ; --------
@@ -52,17 +41,6 @@
 ;  v v
 ; BB5
 
-; CHECK: region{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED5:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFFALSE11:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED8:BP[0-9]+]] = [[IFFALSE11]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE10:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE10]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[BLOCKPRED8]] || [[BLOCKPRED6]]
 
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
@@ -135,3 +113,28 @@ declare void @llvm.intel.directive(metadata) #1
 
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
+
+; CHECK: [[loop_14:loop[0-9]+]]:
+; CHECK:   [[BB_9:BB[0-9]+]]:
+; CHECK:     [[BP_17:BP[0-9]+]] = [[AllOnes_16:AllOnes[0-9]+]]
+; CHECK:   [[BB_2:BB[0-9]+]]:
+; CHECK:     [[BP_18:BP[0-9]+]] = [[BP_17]]
+; CHECK:   [[region_15:region[0-9]+]]:
+; CHECK:     [[BP_18]] = [[BP_17]]
+; CHECK:   [[BB_13:BB[0-9]+]]:
+; CHECK:     [[BP_19:BP[0-9]+]] = [[BP_18]]
+; CHECK:   [[BB_8:BB[0-9]+]]:
+; CHECK:     [[BP_20:BP[0-9]+]] = [[BP_19]]
+
+; CHECK: [[region_15]]:
+; CHECK:   [[BB_12:BB[0-9]+]]:
+; CHECK:     [[BP_21:BP[0-9]+]] = [[BP_18]]
+; CHECK:     [[IfF_26:IfF[0-9]+]] = [[BP_21]] && ! [[VBR_25:VBR[0-9]+]]
+; CHECK:     [[IfT_27:IfT[0-9]+]] = [[BP_21]] && [[VBR_25]]
+; CHECK:   [[BB_5:BB[0-9]+]]:
+; CHECK:     [[BP_24:BP[0-9]+]] = [[IfF_26]]
+; CHECK:   [[BB_4:BB[0-9]+]]:
+; CHECK:     [[BP_22:BP[0-9]+]] = [[IfT_27]]
+; CHECK:   [[BB_6:BB[0-9]+]]:
+; CHECK:     [[BP_23:BP[0-9]+]] = [[BP_24]] || [[BP_22]]
+

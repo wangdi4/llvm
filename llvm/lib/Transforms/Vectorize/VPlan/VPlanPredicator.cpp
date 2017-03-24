@@ -68,19 +68,22 @@ static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
   return FirstRecipe;
 }
 
-// Emit the Predicate recipe to BLOCK if it is a BB
-static void emitRecipeIfBB(VPPredicateRecipeBase *Predicate,
-                           VPBlockBase *Block) {
-  if (VPBasicBlock *BB = dyn_cast<VPBasicBlock>(Block)) {
-    BB->addRecipe(Predicate, getFirstRecipeSafe(BB));
+// Count PredBlock's successors, skipping back-edges
+int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock) {
+  int cnt = 0;
+  for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
+    if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI)) {
+      cnt++;
+    }
   }
+  return cnt;
 }
 
 // Get the PredBlock's successors, skipping the Back-Edges
 void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
                                         SmallVector<VPBlockBase *, 2> &Succs) {
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-      if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI)) {
+    if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI)) {
       Succs.push_back(SuccBlock);
     }
   }
@@ -134,68 +137,42 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
   }
 }
 
-// Return/Generate the incoming predicate.
-// TODO: Do you mean single predecessor?
-// If a single successor, then return predBB's block predicate
-// Else generate the ifTrue/ifFalse predicates and return them
-VPPredicateRecipeBase *
-VPlanPredicator::genOrUseIncomingPredicate(VPBlockBase *CurrBlock,
-                                           VPBlockBase *PredBlock) {
-  VPPredicateRecipeBase *IncomingPredicate = nullptr;
-
-  // Get the predecessor's successors skipping the Back-Edges
-  SmallVector<VPBlockBase *, 2> PredSuccessorsNoBE;
-  getSuccessorsNoBE(PredBlock, PredSuccessorsNoBE);
-
-  // 1. Generate Edge Predicates if needed.
-  //    If there is an unconditional branch to the currBB, then we don't
-  //    create edge predicates. We use the predecessor's block predicate
-  //    instead. VPRegionBlock's should always hit here.
-  if (PredSuccessorsNoBE.size() == 1) {
-    IncomingPredicate = PredBlock->getPredicateRecipe();
+// Generate an Edge Predicate Recipe if required inside PredBB and return it.
+// Returns NULL if no recipe was created.
+VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
+                                                      EdgeType ET) {
+  VPConditionBitRecipeBase *CBR = PredBB->getConditionBitRecipe();
+  VPVectorizeBooleanRecipe *VBR = getConditionRecipe(CBR);
+  assert(VBR && "Broken getConditionRecipe() ?");
+  // CurrBB is the True successor of PredBB
+  if (ET == TRUE_EDGE) {
+    VPIfTruePredicateRecipe *IfTrueRecipe =
+        PlanUtils.createIfTruePredicateRecipe(VBR,
+                                              PredBB->getPredicateRecipe());
+    // Emit IfTrueRecipe into PredBB
+    PredBB->addRecipe(IfTrueRecipe);
+    return IfTrueRecipe;
   }
-  // If the predecessor block contains a condition
-  else if (PredSuccessorsNoBE.size() == 2) {
-    assert(isa<VPBasicBlock>(PredBlock) &&
-           "Only BBs can have more than one successsor");
-    VPBasicBlock *PredBB = cast<VPBasicBlock>(PredBlock);
-    VPConditionBitRecipeBase *CBR = PredBB->getConditionBitRecipe();
-    VPVectorizeBooleanRecipe *VBR = getConditionRecipe(CBR);
-    assert(VBR);
-    // CurrBB is the True successor of PredBB
-    if (PredBlock->getSuccessors()[0] == CurrBlock) {
-      // FIXME: We should be using the creation utils instead
-      VPIfTruePredicateRecipe *IfTrueRecipe =
-          PlanUtils.createIfTruePredicateRecipe(
-              VBR, PredBB->getPredicateRecipe());
-      emitRecipeIfBB(IfTrueRecipe, CurrBlock);
-      IncomingPredicate = IfTrueRecipe;
-    }
-    // TODO: Else? A block cannot have the same successor twice (except when we
-    // support switch statementes)
-    // CurrBB is the False successor of PredBB
-    if (PredBlock->getSuccessors()[1] == CurrBlock) {
-      VPIfFalsePredicateRecipe *IfFalseRecipe =
-          PlanUtils.createIfFalsePredicateRecipe(
-              VBR, PredBB->getPredicateRecipe());
-      emitRecipeIfBB(IfFalseRecipe, CurrBlock);
-      IncomingPredicate = IfFalseRecipe;
-    }
-  } else {
-    assert(0 && "Unreachable: Inconsistent predecessors / successors");
+  // CurrBB is the False successor of PredBB
+  else if (ET == FALSE_EDGE) {
+    VPIfFalsePredicateRecipe *IfFalseRecipe =
+        PlanUtils.createIfFalsePredicateRecipe(VBR,
+                                               PredBB->getPredicateRecipe());
+    PredBB->addRecipe(IfFalseRecipe);
+    return IfFalseRecipe;
   }
-  return IncomingPredicate;
+  llvm_unreachable("Support for switch statements ?");
+  return nullptr;
 }
 
 // Generate and attach an empty Block Predicate onto CurrBlock
 void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
   // Only Basic Blocks have block predicates attached to them, as they are the
   // ones capable of generating code.
-  if (isa<VPBasicBlock>(CurrBlock)) {
-    VPBlockPredicateRecipe *blockPredicate =
-        PlanUtils.createBlockPredicateRecipe();
-    emitRecipeIfBB(blockPredicate, CurrBlock);
-    CurrBlock->setPredicateRecipe(blockPredicate);
+  if (VPBasicBlock *CurrBB = dyn_cast<VPBasicBlock>(CurrBlock)) {
+    VPBlockPredicateRecipe *BP = PlanUtils.createBlockPredicateRecipe();
+    CurrBB->addRecipe(BP, getFirstRecipeSafe(CurrBB));
+    CurrBB->setPredicateRecipe(BP);
   }
   // A Region will simply point to its incoming predicate recipe.
   // This gets taken care of later.
@@ -220,6 +197,26 @@ static void appendPredicateToBlock(VPBlockBase *Block,
   }
 }
 
+// Return whether the edge FromBlock -> ToBlock is TRUE_EDGE are FALSE_EDGE
+VPlanPredicator::EdgeType
+VPlanPredicator::getEdgeTypeBetween(VPBlockBase *FromBlock,
+                                    VPBlockBase *ToBlock) {
+  // Get the predecessor's successors skipping the Back-Edges
+  SmallVector<VPBlockBase *, 2> FromSuccessorsNoBE;
+  getSuccessorsNoBE(FromBlock, FromSuccessorsNoBE);
+  assert(FromSuccessorsNoBE.size() == 2 && "Can only handle simple 2-exit ifs");
+
+  EdgeType ET = EDGE_TYPE_UNINIT;
+  if (ToBlock == FromSuccessorsNoBE[0]) {
+    ET = TRUE_EDGE;
+  } else if (ToBlock == FromSuccessorsNoBE[1]) {
+    ET = FALSE_EDGE;
+  } else {
+    llvm_unreachable("Broken FromSuccessorsNoBE[] ?");
+  }
+  return ET;
+}
+
 // Generate all predicates needed for CurrBB
 void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                                       VPRegionBlock *Region) {
@@ -235,14 +232,24 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
       continue;
     }
 
-    VPPredicateRecipeBase *IncomingPredicate =
-        genOrUseIncomingPredicate(CurrBlock, PredBlock);
-
-    // // Create a block predicate and append the inputs to it
-    // VPBlockPredicateRecipe *BlockPredicate
-    //   = dyn_cast<VPBlockPredicateRecipe>(CurrBlock->getPredicateRecipe());
-    // assert(blockPredicate);
-    // BlockPredicate->appendIncomingPredicate(IncomingPredicate);
+    // If there is an unconditional branch to the currBB, then we don't
+    // create edge predicates. We use the predecessor's block predicate
+    // instead. VPRegionBlocks should always hit here.
+    VPPredicateRecipeBase *IncomingPredicate = nullptr;
+    int NumPredSuccsNoBE = countSuccessorsNoBE(PredBlock);
+    if (NumPredSuccsNoBE == 1) {
+      // Get the Incoming predicate to CurrBlock (BP or Edge)
+      IncomingPredicate = PredBlock->getPredicateRecipe();
+    }
+    else if (NumPredSuccsNoBE == 2) {
+      // Emit Edge recipes into PredBlock if required
+      assert(isa<VPBasicBlock>(PredBlock) && "Only BBs have multiple exits");
+      EdgeType ET = getEdgeTypeBetween(PredBlock, CurrBlock);
+      IncomingPredicate = genEdgeRecipe(cast<VPBasicBlock>(PredBlock), ET);
+    }
+    else {
+      llvm_unreachable("FIXME: switch statement ?");
+    }
     appendPredicateToBlock(CurrBlock, IncomingPredicate);
   }
 }

@@ -911,10 +911,21 @@ public:
     Recipes.insert(Before->getIterator(), Recipe);
   }
 
-  /// Remove the recipe from VPBasicBlock's recipes.
-  void removeRecipe(VPRecipeBase *Recipe) {
-    Recipes.erase(Recipe);
+  #ifdef INTEL_CUSTOMIZATION
+  /// Add \p Recipe after \p After. If \p After is null, \p Recipe will be
+  /// inserted as the first recipe.
+  void addRecipeAfter(VPRecipeBase *Recipe, VPRecipeBase *After) {
+    Recipe->Parent = this;
+    if (! After) {
+        Recipes.insert(Recipes.begin(), Recipe);
+    } else {
+        Recipes.insertAfter(After->getIterator(), Recipe);
+    }
   }
+  #endif
+
+  /// Remove the recipe from VPBasicBlock's recipes.
+  void removeRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the

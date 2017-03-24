@@ -31,17 +31,6 @@
 ;  v
 ; BB10
 
-; CHECK: loop{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED1:BP[0-9]+]] = AllOnes{{[0-9]+}}
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   region{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED3:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED4:BP[0-9]+]] = [[BLOCKPRED3]]
 
 ; region17
 ; --------
@@ -57,29 +46,6 @@
 ;     v v v v
 ;       BB7
 
-; CHECK: region{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED5:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFFALSE18:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED10:BP[0-9]+]] = [[IFFALSE18]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFFALSE21:IfF[0-9]+]] = [[BLOCKPRED10]] && ! VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED12:BP[0-9]+]] = [[IFFALSE21]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE20:IfT[0-9]+]] = [[BLOCKPRED10]] && VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED11:BP[0-9]+]] = [[IFTRUE20]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE14:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE14]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFFALSE17:IfF[0-9]+]] = [[BLOCKPRED6]] && ! VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED9:BP[0-9]+]] = [[IFFALSE17]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE16:IfT[0-9]+]] = [[BLOCKPRED6]] && VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[IFTRUE16]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED8:BP[0-9]+]] = [[BLOCKPRED12]] || [[BLOCKPRED11]] || [[BLOCKPRED9]] || [[BLOCKPRED7]]
 
 ; 1. icx test.c -o test_noopt.ll -fopenmp -Qoption,c,-fintel-openmp -O0 -restrict -S -emit-llvm
 ; 2. opt test_noopt.ll -O2 -debug-pass=Arguments
@@ -176,3 +142,40 @@ declare void @llvm.intel.directive(metadata) #1
 
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
+
+; CHECK: [[loop_20:loop[0-9]+]]:
+; CHECK:   [[BB_15:BB[0-9]+]]:
+; CHECK:     [[BP_23:BP[0-9]+]] = [[AllOnes_22:AllOnes[0-9]+]]
+; CHECK:   [[BB_2:BB[0-9]+]]:
+; CHECK:     [[BP_24:BP[0-9]+]] = [[BP_23]]
+; CHECK:   [[region_21:region[0-9]+]]:
+; CHECK:     [[BP_24]] = [[BP_23]]
+; CHECK:   [[BB_19:BB[0-9]+]]:
+; CHECK:     [[BP_25:BP[0-9]+]] = [[BP_24]]
+; CHECK:   [[BB_14:BB[0-9]+]]:
+; CHECK:     [[BP_26:BP[0-9]+]] = [[BP_25]]
+
+; CHECK: [[region_21]]:
+; CHECK:   [[BB_18:BB[0-9]+]]:
+; CHECK:     [[BP_27:BP[0-9]+]] = [[BP_24]]
+; CHECK:     [[IfF_36:IfF[0-9]+]] = [[BP_27]] && ! [[VBR_35:VBR[0-9]+]]
+; CHECK:     [[IfT_40:IfT[0-9]+]] = [[BP_27]] && [[VBR_35]]
+; CHECK:   [[BB_5:BB[0-9]+]]:
+; CHECK:     [[BP_32:BP[0-9]+]] = [[IfF_36]]
+; CHECK:     [[IfF_38:IfF[0-9]+]] = [[BP_32]] && ! [[VBR_37:VBR[0-9]+]]
+; CHECK:     [[IfT_39:IfT[0-9]+]] = [[BP_32]] && [[VBR_37]]
+; CHECK:   [[BB_8:BB[0-9]+]]:
+; CHECK:     [[BP_34:BP[0-9]+]] = [[IfF_38]]
+; CHECK:   [[BB_7:BB[0-9]+]]:
+; CHECK:     [[BP_33:BP[0-9]+]] = [[IfT_39]]
+; CHECK:   [[BB_4:BB[0-9]+]]:
+; CHECK:     [[BP_28:BP[0-9]+]] = [[IfT_40]]
+; CHECK:     [[IfF_42:IfF[0-9]+]] = [[BP_28]] && ! [[VBR_41:VBR[0-9]+]]
+; CHECK:     [[IfT_43:IfT[0-9]+]] = [[BP_28]] && [[VBR_41]]
+; CHECK:   [[BB_12:BB[0-9]+]]:
+; CHECK:     [[BP_31:BP[0-9]+]] = [[IfF_42]]
+; CHECK:   [[BB_11:BB[0-9]+]]:
+; CHECK:     [[BP_29:BP[0-9]+]] = [[IfT_43]]
+; CHECK:   [[BB_9:BB[0-9]+]]:
+; CHECK:     [[BP_30:BP[0-9]+]] = [[BP_34]] || [[BP_33]] || [[BP_31]] || [[BP_29]]
+

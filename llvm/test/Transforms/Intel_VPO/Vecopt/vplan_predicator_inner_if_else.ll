@@ -25,17 +25,6 @@
 ;    v
 ;   BB5
 ;
-; CHECK: loop{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED1:BP[0-9]+]] = AllOnes{{[0-9]+}}
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   region{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED2:BP[0-9]+]] = [[BLOCKPRED1]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED3:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED4:BP[0-9]+]] = [[BLOCKPRED3]]
 
 
 ; region12
@@ -48,15 +37,6 @@
 ;   | /
 ;   BB3
 ;
-; CHECK: region{{[0-9]+}}:
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[BLOCKPRED5:BP[0-9]+]] = [[BLOCKPRED2]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFFALSE10:IfF[0-9]+]] = [[BLOCKPRED5]] && ! VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED7:BP[0-9]+]] = [[IFFALSE10]]
-; CHECK:   BB{{[0-9]+}}:
-; CHECK:     [[IFTRUE9:IfT[0-9]+]] = [[BLOCKPRED5]] && VBR{{[0-9]+}}
-; CHECK:     [[BLOCKPRED6:BP[0-9]+]] = [[IFTRUE9]] || [[BLOCKPRED7]]
 
 
 ; #define SIZE 1024
@@ -146,3 +126,26 @@ attributes #1 = { argmemonly nounwind }
 !3 = !{!"int", !4, i64 0}
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
+
+; CHECK: [[loop_13:loop[0-9]+]]:
+; CHECK:   [[BB_8:BB[0-9]+]]:
+; CHECK:     [[BP_16:BP[0-9]+]] = [[AllOnes_15:AllOnes[0-9]+]]
+; CHECK:   [[BB_2:BB[0-9]+]]:
+; CHECK:     [[BP_17:BP[0-9]+]] = [[BP_16]]
+; CHECK:   [[region_14:region[0-9]+]]:
+; CHECK:     [[BP_17]] = [[BP_16]]
+; CHECK:   [[BB_12:BB[0-9]+]]:
+; CHECK:     [[BP_18:BP[0-9]+]] = [[BP_17]]
+; CHECK:   [[BB_7:BB[0-9]+]]:
+; CHECK:     [[BP_19:BP[0-9]+]] = [[BP_18]]
+
+; CHECK: [[region_14]]:
+; CHECK:   [[BB_11:BB[0-9]+]]:
+; CHECK:     [[BP_20:BP[0-9]+]] = [[BP_17]]
+; CHECK:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ! [[VBR_23:VBR[0-9]+]]
+; CHECK:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[VBR_23]]
+; CHECK:   [[BB_5:BB[0-9]+]]:
+; CHECK:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
+; CHECK:   [[BB_4:BB[0-9]+]]:
+; CHECK:     [[BP_21:BP[0-9]+]] = [[IfT_25]] || [[BP_22]]
+
