@@ -202,28 +202,15 @@ void WRegionUtils::updateWRGraphFromHIR (
         }
       }
     }
-  } else { //process clauses
+  } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) {
+    //process clauses
     W = S.top();
-    int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClauseStr);
-    if (IntrinId == Intrinsic::intel_directive_qual) {
-      // Handle clause with no arguments
-      assert (Call->getNumArgOperands()==1 && 
-              "Bad number of opnds for intel_directive_qual");
-      W->handleQual(ClauseID);
-    }
-    else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
-      // Handle clause with one argument
-      assert (Call->getNumArgOperands()==2 && 
-              "Bad number of opnds for intel_directive_qual_opnd");
-      Value *V = Call->getArgOperand(1);
-      W->handleQualOpnd(ClauseID, V);
-    }
-    else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
-      // Handle clause with argument list
-      assert (Call->getNumArgOperands()>=2 && 
-              "Bad number of opnds for intel_directive_qual_opndlist");
-      W->handleQualOpndList(DirOrClauseStr, Call);
-    }
+
+    // Extract clause properties
+    ClauseSpecifier ClauseInfo(DirOrClauseStr);
+
+    // Parse the clause and update W
+    W->parseClause(ClauseInfo, Call);
   }
 }
 

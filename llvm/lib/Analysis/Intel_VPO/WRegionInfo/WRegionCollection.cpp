@@ -167,7 +167,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
             DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");
           }
         }
-      } else if (VPOAnalysisUtils::isOpenMPClause(DirOrClause)) {
+      } else if (VPOAnalysisUtils::isIntelClause(IntrinId)) { 
         // Process clauses from intel_directive_qual* intrinsics. We reach here
         // only if using the intel_directive_qual* representation.
         assert(!IsRegion && 
@@ -176,24 +176,12 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
         assert(!(S->empty()) &&
                "Unexpected empty WRN stack when seeing a clause");
         W = S->top();
-        int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClause);
-        if (IntrinId == Intrinsic::intel_directive_qual) {
-          // Handle clause with no arguments
-          assert(Call->getNumArgOperands() == 1 &&
-                 "Bad number of opnds for intel_directive_qual");
-          W->handleQual(ClauseID);
-        } else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
-          // Handle clause with one argument
-          assert(Call->getNumArgOperands() == 2 &&
-                 "Bad number of opnds for intel_directive_qual_opnd");
-          Value *V = Call->getArgOperand(1);
-          W->handleQualOpnd(ClauseID, V);
-        } else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
-          // Handle clause with argument list
-          assert(Call->getNumArgOperands()>=2 &&
-                 "Bad number of opnds for intel_directive_qual_opndlist");
-          W->handleQualOpndList(DirOrClause, Call);
-        }
+
+        // Extract clause properties 
+        ClauseSpecifier ClauseInfo(DirOrClause);
+
+        // Parse the clause and update W
+        W->parseClause(ClauseInfo, Call);
       }
     } // if (Call)
   } // for

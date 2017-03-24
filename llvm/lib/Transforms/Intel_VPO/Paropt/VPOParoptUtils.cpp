@@ -846,8 +846,10 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
-  assert(EntryBB->size() >= 3 && "Entry BBlock has invalid size.");
-  assert(ExitBB->size() >= 3 && "Exit BBlock has invalid size.");
+  unsigned BBsize = VPOAnalysisUtils::isRegionDirective(&(EntryBB->front())) ?
+                    2 : 3;
+  assert(EntryBB->size() >= BBsize && "Entry BBlock has invalid size.");
+  assert(ExitBB->size() >= BBsize && "Exit BBlock has invalid size.");
 
   // BeginInst: `br label %BB1` (EntryBB) in the above example.
   Instruction *BeginInst = &(*(EntryBB->rbegin()));

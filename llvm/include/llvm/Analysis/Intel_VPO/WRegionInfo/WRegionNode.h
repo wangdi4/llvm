@@ -142,10 +142,18 @@ protected:
   /// \brief Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
 
-  // The following three functions extract clause info from intrinsics.
-  // There are three such intrinsics: intel_directive_qual,  
-  // intel_directive_qual_opnd, and  intel_directive_qual_opndlist.
-  
+  //
+  // Routines for parsing clauses
+  //
+
+  /// \brief Parse a clause in the llvm.intel.directive.qual* representation.
+  void parseClause(const ClauseSpecifier &ClauseInfo, IntrinsicInst *Call);
+
+  /// \brief Common code to parse a clause, used for both representations:
+  /// llvm.intel.directive.qual* and directive.region.entry/exit.
+  void parseClause(const ClauseSpecifier &ClauseInfo, const Use *Args, 
+                   unsigned NumArgs);
+
   /// \brief Update WRN for clauses with no operands.
   void handleQual(int ClauseID);
 
@@ -153,9 +161,8 @@ protected:
   void handleQualOpnd(int ClauseID, Value *V);
 
   /// \brief Update WRN for clauses with operand list.
-  void handleQualOpndList(StringRef ClauseString, IntrinsicInst* Call);
   void handleQualOpndList(const Use *Args, unsigned NumArgs, 
-                          StringRef ClauseString);
+                          const ClauseSpecifier &ClauseInfo);
 
   /// \brief Update WRN for clauses from the OperandBundles under the 
   /// directive.region.entry/exit representation

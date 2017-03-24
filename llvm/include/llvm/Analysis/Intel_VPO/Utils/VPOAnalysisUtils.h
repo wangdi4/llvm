@@ -49,6 +49,75 @@ namespace vpo {
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 
+/// \brief ClauseSpecifier holds information for an OMP clause name. Fullname
+/// is the string obtained directly from the intrinsic. Its format is:
+///     FullName = BaseName[:Modifier]
+/// Most clauses don't need a the modifier so usually FullName == BaseName
+/// and Modifier is empty. 
+//
+/// The Modifier is used in the following cases:
+///
+/// 1. Schedule modifiers. Example:
+///      FullName = "QUAL.OMP.SCHEDULE.STATIC:SIMD.MONOTONIC"
+///      BaseName = "QUAL.OMP.SCHEDULE.STATIC"
+///      Modifier = "SIMD.MONOTONIC"
+///      Id = QUAL_OMP_SCHEDULE_STATIC
+///
+/// 2. Array sections. Example:
+///      FullName = "QUAL.OMP.REDUCTION.ADD:ARRSECT"
+///      BaseName = "QUAL.OMP.REDUCTION.ADD"
+///      Modifier = "ARRSECT"
+///      Id = QUAL_OMP_REDUCTION_ADD
+///      
+/// 3. NonPOD operands. Example:
+///      FullName = "QUAL.OMP.PRIVATE:NONPOD"
+///      BaseName = "QUAL.OMP.PRIVATE"
+///      Modifier = "NONPOD"
+///      Id = QUAL_OMP_PRIVATE
+/// 
+/// Id is the enum corresponding to BaseName.
+class ClauseSpecifier {
+private:
+  StringRef FullName;
+  StringRef BaseName;
+  StringRef Modifier; 
+  int  Id;
+
+  // These properties are extracted from the Modifier substring
+  bool IsArraySection:1;
+  bool IsNonPod:1;
+  bool IsScheduleMonotonic:1;
+  bool IsScheduleNonmonotonic:1;
+  bool IsScheduleSimd:1;
+
+public:
+
+  // Constructor
+  ClauseSpecifier(StringRef Name);
+
+  // Setters
+  void setFullName(StringRef S) { FullName = S; }
+  void setBaseName(StringRef S) { BaseName = S; }
+  void setModifier(StringRef S) { Modifier = S; }
+  void setId(int N) { Id = N; }
+  void setIsArraySection(bool Flag)         { IsArraySection = Flag; }
+  void setIsNonPod(bool Flag)               { IsNonPod = Flag; }
+  void setIsScheduleMonotonic(bool Flag)    { IsScheduleMonotonic = Flag; }
+  void setIsScheduleNonmonotonic(bool Flag) { IsScheduleNonmonotonic = Flag; }
+  void setIsScheduleSimd(bool Flag)         { IsScheduleSimd = Flag; }
+
+  // Getters
+  StringRef getFullName() const { return FullName; }
+  StringRef getBaseName() const { return BaseName; }
+  StringRef getModifier() const { return Modifier; }
+  int getId() const { return Id; }
+  bool getIsArraySection() const { return IsArraySection; }
+  bool getIsNonPod() const { return IsNonPod; }
+  bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
+  bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
+  bool getIsScheduleSimd() const { return IsScheduleSimd; }
+};
+
 /// \brief This class contains a set of utility functions used by VPO passes.
 class VPOAnalysisUtils {
 

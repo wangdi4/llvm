@@ -27,6 +27,70 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
+  StringRef Base;  // BaseName
+  StringRef Mod;   // Modifier
+
+  // Intialize properties to false
+  setIsArraySection(false);
+  setIsNonPod(false);
+  setIsScheduleMonotonic(false);
+  setIsScheduleNonmonotonic(false);
+  setIsScheduleSimd(false);
+
+  // Split Name into the BaseName and Modifier substrings
+  SmallVector<StringRef, 2> SubString;
+  Name.split(SubString, ":");
+  int NumSubStrings = SubString.size();
+  assert((NumSubStrings==1 || NumSubStrings==2) &&
+         "Unexpected number of substrings in a clause specifier");
+
+  // Save the BaseName and Modifier substrings
+  Base = SubString[0];
+  setBaseName(Base);
+  if (NumSubStrings == 2) {
+    Mod = SubString[1];
+    setModifier(Mod);
+  }
+
+  // Get the clause ID corresponding to BaseName
+  if (VPOAnalysisUtils::isOpenMPClause(Base))
+    setId(VPOAnalysisUtils::getClauseID(Base));
+  else
+    llvm_unreachable("String is not a clause name");
+
+  // If Modifier exists, then split it into its component substrings, and
+  // update ClauseSpecifier's properties accordingly
+  if (NumSubStrings == 2) {
+    SmallVector<StringRef, 2> ModSubString;
+    Mod.split(ModSubString, ".");
+    for (unsigned i=0; i<ModSubString.size(); i++) {
+      if (ModSubString[i] == "ARRSECT")
+        setIsArraySection(true);
+      else if (ModSubString[i] == "NONPOD")
+        setIsNonPod(true);
+      else if (ModSubString[i] == "MONOTONIC")
+        setIsScheduleMonotonic(true);
+      else if (ModSubString[i] == "NONMONOTONIC")
+        setIsScheduleNonmonotonic(true);
+      else if (ModSubString[i] == "SIMD")
+        setIsScheduleSimd(true);
+      else
+        llvm_unreachable("Unknown modifier string for clause");
+    }
+  }
+
+  DEBUG(dbgs() << "=== ClauseInfo: " << Base);
+  DEBUG(dbgs() << "  ID: " << getId());
+  DEBUG(dbgs() << "  Modifier: \"" << Mod << "\"");
+  DEBUG(dbgs() << "  ArrSect: " << getIsArraySection());
+  DEBUG(dbgs() << "  NonPod: " << getIsNonPod());
+  DEBUG(dbgs() << "  Monotonic: " << getIsScheduleMonotonic());
+  DEBUG(dbgs() << "  Nonmonotonic: " << getIsScheduleNonmonotonic());
+  DEBUG(dbgs() << "  Simd: " << getIsScheduleSimd());
+  DEBUG(dbgs() << "\n");
+}
+
 StringRef VPOAnalysisUtils::getDirOrClauseString(Instruction *I) {
   return VPOAnalysisUtils::getDirectiveString(I, true);
 }

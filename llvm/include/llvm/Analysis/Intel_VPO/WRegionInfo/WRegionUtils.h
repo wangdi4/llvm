@@ -199,27 +199,28 @@ public:
   /// This is called by WRegionNode::handleQualOpndList()
   template <typename ClauseTy>
   static ClauseTy *extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                       StringRef ClauseString, ClauseTy *C);
+                                       int ClauseID, ClauseTy *C);
 
   /// \brief Extract operands from a map clause
   static MapClause *extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                       StringRef ClauseString, MapClause *C,
-                                       unsigned MapKind);
+                                       const ClauseSpecifier &ClauseInfo,
+                                       MapClause *C, unsigned MapKind);
 
   /// \brief Extract operands from a depend clause
   static DependClause *extractDependOpndList(const Use *Args, unsigned NumArgs,
-                                             StringRef ClauseString,
+                                             const ClauseSpecifier &ClauseInfo,
                                              DependClause *C, bool IsIn);
 
   /// \brief Extract operands from a reduction clause
   static ReductionClause *extractReductionOpndList(const Use *Args,
-                                      unsigned NumArgs, StringRef ClauseString,
+                                      unsigned NumArgs, 
+                                      const ClauseSpecifier &ClauseInfo,
                                       ReductionClause *C, int ReductionKind);
 
   /// \brief Extract operands from a schedule clause
   static void extractScheduleOpndList(ScheduleClause & Sched,
-                                      const Use *Args, unsigned NumArgs,
-                                      StringRef ClauseString,
+                                      const Use *Args,
+                                      const ClauseSpecifier &ClauseInfo,
                                       WRNScheduleKind Kind);
 
   /// Removal Utilities
