@@ -209,6 +209,10 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
                                            CL_CONTEXT_FPGA_EMULATOR_INTEL);
     m_fpgaEmulator = ext != pEnd && CL_TRUE == *(ext + 1);
 
+    if (getenv("OCL_FPGA_EMU")) {
+      m_fpgaEmulator = true;
+    }
+
     m_pfnNotify = pfnNotify;
     m_pUserData = pUserData;
 
