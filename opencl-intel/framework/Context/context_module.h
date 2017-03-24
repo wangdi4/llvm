@@ -437,23 +437,23 @@ cl_mem ContextModule::CreateFromD3DResource(cl_context clContext, cl_mem_flags c
     SharedPtr<Context> pContext = NULL;
     SharedPtr<MemoryObject> pMemObj = NULL;
 
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL);
+    pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
+    
+    if (NULL == pContext)
+    {
+        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = %d"), clContext, pContext);
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, 0, 0, 0, 0, 0, 0, 0, NULL, pContext);
     if (CL_FAILED(clErr))
     {
         if (NULL != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
-        }
-        return CL_INVALID_HANDLE;
-    }
-    pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
-    
-    if (CL_FAILED(clErr) || NULL == pContext)
-    {
-        LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d, %d) = %s , pContext = %d"), clContext, pContext, ClErrTxt(clErr), pContext);
-        if (NULL != pErrcodeRet)
-        {
-            *pErrcodeRet = CL_INVALID_CONTEXT;
         }
         return CL_INVALID_HANDLE;
     }
