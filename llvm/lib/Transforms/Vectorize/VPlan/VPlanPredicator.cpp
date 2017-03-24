@@ -28,13 +28,15 @@
 // Each VPBasicBlock gets its own Block Predicate which has one or more inputs.
 // Each of the inputs is the predecessor block's block predicate.
 //
-// Predicate Propagation across the HCFG
-// -------------------------------------
-// A Region's PredicateRecipe pointer points to the incoming block's predicate
-// recipe.
-// Before a Region gets predicated by predicateRegion(), the Region's
-// Block Predicate should have already been set.
-// The top level region (VPlan's entry block) is assigned an AllOnes recipe.
+// Predicate Placement and Propagation across the HCFG
+// ---------------------------------------------------
+// - Regions cannot cannot generate code themselves (only BBs do). So their
+//   PredicateRecipe pointer points to the incoming block's predicate
+//   recipe.
+// - Before a Region gets predicated by predicateRegion(), the Region's
+//   Block Predicate should have already been set.
+// - The top level region (VPlan's entry block) is assigned an AllOnes recipe.
+// - Edge Predicates are emitted in the same BB as the condition they point to.
 
 #include "VPlanPredicator.h"
 #include "VPlan.h"
@@ -250,6 +252,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
     else {
       llvm_unreachable("FIXME: switch statement ?");
     }
+    assert(IncomingPredicate && "Wrong traversal ?");
     appendPredicateToBlock(CurrBlock, IncomingPredicate);
   }
 }
@@ -309,24 +312,16 @@ void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
   }
 
   // 2. Propagate the Region's Block Predicate inputs to the entry block
-  // VPBlockPredicateRecipe *RegionBP
-  //   = dyn_cast<VPBlockPredicateRecipe>(RegionRecipe);
-  // assert(RegionBP && "Each region should have a BP attached to it.");
   assert(EntryBlock->getPredicateRecipe() &&
          isa<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe()) &&
          "Should have been emitted by Step 1.");
   VPBlockPredicateRecipe *EntryBP =
       cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
-  // for (VPPredicateRecipeBase *Incoming : RegionBP->getIncomingPredicates()) {
   EntryBP->appendIncomingPredicate(RegionRecipe);
-  // }
 
   // 3. Generate edge predicates and append them to the block predicate
   //    RPO is necessary since nested VPRegions' predicate is null and it has to
   //    be set before it's propagated
-  //for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-  //          ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-  //     it != ite; ++it) {
   // TODO: If we have to use RPOT here, we should reuse it in step1
   ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
   for (VPBlockBase *VPB : make_range(RPOT.begin(), RPOT.end())) {
@@ -432,9 +427,7 @@ void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
 
 // Entry point. The driver function for the predicator.
 void VPlanPredicator::predicate(void) {
-  dumpVplanDot(
-      Plan,
-      "/tmp/vplan.before.dot"); // FIXME: Only for debugging. Can be removed.
+  dumpVplanDot(Plan, "/tmp/vplan.before.dot"); // For debugging
 
   VPBlockBase *EntryBlock;
   if (PredicateOutermostLoop) {
