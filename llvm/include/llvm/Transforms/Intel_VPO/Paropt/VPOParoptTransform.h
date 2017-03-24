@@ -125,6 +125,40 @@ private:
   /// \brief Generate code for privatization 
   bool genPrivatizationCode(WRegionNode *W);
 
+  /// \brief A utility to privatize the variables within the region.
+  AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, AllocaInst *PrivInst,
+                                         Instruction *InsertPt,
+                                         const StringRef VarNameSuff);
+
+  /// \brief Generate the reduction initialization code.
+  void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
+
+  /// \brief Generate the reduction update code.
+  void genReductionFini(ReductionItem *RedI, Instruction *InsertPt);
+
+  /// \brief Generate the reduction intialization instructions.
+  Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
+
+  /// \brief Generate the reduction code for reduction clause.
+  bool genReductionCode(WRegionNode *W);
+
+  /// \brief Prepare the empty basic block for the array
+  /// reduction initialization.
+  void createEmptyRedInitBB(WRegionNode *W, BasicBlock *&RedBB);
+
+  /// \brief Prepare the empty basic block for the array
+  /// reduction update.
+  void createEmptyRedFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
+
+  /// \brief Generate the reduction update instructions.
+  Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
+                                Value *Lhs, Type *ScalarTy,
+                                IRBuilder<> &Builder);
+
+  /// \brief Generate the reduction initialization/update for array.
+  void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
+                                 Instruction *InsertPt, bool IsInit);
+
   /// \brief Generate loop schdudeling code
   bool genLoopSchedulingCode(WRegionNode *W);
 

@@ -289,6 +289,37 @@ public:
     static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                                        AllocaInst *TidPtr);
 
+    /// \brief Generates a critical section around Instructions \p BeginInst
+    /// and \p EndInst. The function emits calls to `__kmpc_critical`
+    /// before \p BeginInst and `__kmpc_end_critical` after \p EndInst.
+    ///
+    /// +------< begin critical >
+    /// |    BeginInst
+    /// |    ...
+    /// |    ...
+    /// |    EndInst
+    /// +------< end critical >
+    ///
+    /// \p BeginInst is the Instruction before which the call to
+    /// `__kmpc_critical` is inserted.
+    /// \p EndInst is the Instruction after which the call to
+    /// `__kmpc_end_critical` is inserted.
+    ///
+    /// Note: Other Instructions, aside from the `__kmpc_critical` and
+    /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
+    /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
+    ///
+    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
+    /// const StringRef &) for examples of the KMPC critical calls.
+    ///
+    /// \returns `true` if the calls to `__kmpc_critical` and
+    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
+    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
+                                       AllocaInst *TidPtr,
+                                       Instruction *BeginInst,
+                                       Instruction *EndInst,
+                                       const StringRef &LockNameSuffix);
+
     /// \brief This function generates a call to query if the current thread
     /// is master thread or a call to end_master for the team of threads.
     ///   call master = @__kmpc_master(%ident_t* %loc, i32 %tid)
@@ -370,7 +401,13 @@ public:
     /// \brief Clones the load instruction and inserts before the InsertPt.
     static Value* cloneLoadInstruction(Value *V, 
                                        Instruction *InsertPt);
-private:
+
+    /// \brief Generate the pointer pointing to the head of the array.
+    static Value *genArrayLength(AllocaInst *AI, Instruction *InsertPt,
+                                 IRBuilder<> &Builder, Type *&ElementTy,
+                                 Value *&ArrayBegin);
+
+  private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{
 
@@ -444,37 +481,6 @@ private:
                                            Instruction *EndInst,
                                            GlobalVariable *LockVar);
 
-    /// \brief Generates a critical section around Instructions \p BeginInst
-    /// and \p EndInst. The function emits calls to `__kmpc_critical`
-    /// before \p BeginInst and `__kmpc_end_critical` after \p EndInst.
-    ///
-    /// +------< begin critical >
-    /// |    BeginInst
-    /// |    ...
-    /// |    ...
-    /// |    EndInst
-    /// +------< end critical >
-    ///
-    /// \p BeginInst is the Instruction before which the call to
-    /// `__kmpc_critical` is inserted.
-    /// \p EndInst is the Instruction after which the call to
-    /// `__kmpc_end_critical` is inserted.
-    ///
-    /// Note: Other Instructions, aside from the `__kmpc_critical` and
-    /// `__kmpc_end_critical` calls, which are needed for the KMPC calls,
-    /// are also inserted into the IR. \see genKmpcCallWithTid() for details.
-    /// Note: This method is currently private, but can be made public if needed.
-    ///
-    /// \see genKmpcCriticalSection(WRegionNode*, StructType*, AllocaInst*,
-    /// const StringRef &) for examples of the KMPC critical calls.
-    ///
-    /// \returns `true` if the calls to `__kmpc_critical` and
-    /// `__kmpc_end_critical` are successfully inserted, `false` otherwise.
-    static bool genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
-                                       AllocaInst *TidPtr,
-                                       Instruction *BeginInst,
-                                       Instruction *EndInst,
-                                       const StringRef &LockNameSuffix);
 
     /// @}
 

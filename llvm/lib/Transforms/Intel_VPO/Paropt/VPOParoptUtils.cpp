@@ -1200,7 +1200,10 @@ bool VPOParoptUtils::genKmpcCriticalSectionImpl(
 
   // Now insert the calls in the IR.
   BeginCritical->insertBefore(BeginInst);
-  EndCritical->insertAfter(EndInst);
+  if (EndInst->isTerminator())
+    EndCritical->insertBefore(EndInst);
+  else
+    EndCritical->insertAfter(EndInst);
 
   DEBUG(dbgs() << __FUNCTION__ << ": Critical Section generated.\n");
   return true;
@@ -1372,4 +1375,33 @@ Value* VPOParoptUtils::cloneLoadInstruction(Value *V, Instruction *InsertPt) {
   }
   else 
     return V;
+}
+
+// Generate the pointer pointing to the head of the array.
+Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Instruction *InsertPt,
+                                      IRBuilder<> &Builder, Type *&ElementTy,
+                                      Value *&ArrayBegin) {
+  Type *AllocaTy = AI->getAllocatedType();
+  Type *ScalarTy = AllocaTy->getScalarType();
+  ArrayType *ArrTy = dyn_cast<ArrayType>(ScalarTy);
+  assert(ArrTy && "Expect array type. ");
+
+  SmallVector<llvm::Value *, 8> GepIndices;
+  ConstantInt *Zero = Builder.getInt32(0);
+  GepIndices.push_back(Zero);
+  uint64_t CountFromCLAs = 1;
+
+  ArrayType *ArrayT = ArrTy;
+  while (ArrayT) {
+    GepIndices.push_back(Zero);
+    CountFromCLAs *= ArrayT->getNumElements();
+    ElementTy = ArrayT->getElementType();
+    ArrayT = dyn_cast<ArrayType>(ElementTy);
+  }
+
+  LLVMContext &C = InsertPt->getParent()->getParent()->getContext();
+  ArrayBegin = Builder.CreateInBoundsGEP(AI, GepIndices, "array.begin");
+  Value *numElements = ConstantInt::get(Type::getInt32Ty(C), CountFromCLAs);
+
+  return numElements;
 }
