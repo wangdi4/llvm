@@ -516,9 +516,10 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   if (!LVL.canVectorize()) {
     DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
     
-    // Do not bail out if we are stress testing
-    // if (!VPlanVectCand && !VPlanStressTest)
-    return;
+    // Only bail out if we are generating code, we want to continue if
+    // we are only stress testing VPlan builds below.
+    if (EnableCodeGen)
+      return;
   }
 
   LoopVectorizationPlanner *LVP = 
