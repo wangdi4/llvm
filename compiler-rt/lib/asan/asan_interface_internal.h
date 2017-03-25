@@ -23,6 +23,8 @@
 #include "asan_init_version.h"
 
 using __sanitizer::uptr;
+using __sanitizer::u64;
+using __sanitizer::u32;
 
 extern "C" {
   // This function should be called at the very beginning of the process,
@@ -170,13 +172,12 @@ extern "C" {
   SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
   /* OPTIONAL */ const char* __asan_default_options();
 
+  SANITIZER_INTERFACE_ATTRIBUTE
+  extern uptr __asan_shadow_memory_dynamic_address;
+
   // Global flag, copy of ASAN_OPTIONS=detect_stack_use_after_return
   SANITIZER_INTERFACE_ATTRIBUTE
   extern int __asan_option_detect_stack_use_after_return;
-
-// Global flag, copy of ASAN_OPTIONS=detect_stack_use_after_scope
-  SANITIZER_INTERFACE_ATTRIBUTE
-  extern int __asan_option_detect_stack_use_after_scope;
 
   SANITIZER_INTERFACE_ATTRIBUTE
   extern uptr *__asan_test_only_reported_buggy_pointer;

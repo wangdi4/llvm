@@ -55,6 +55,7 @@ define i32 @mask8_zext(i8 %x) {
 ; KNL-NEXT:    kmovw %edi, %k0
 ; KNL-NEXT:    knotw %k0, %k0
 ; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    movzbl %al, %eax
 ; KNL-NEXT:    retq
 ;
 ; SKX-LABEL: mask8_zext:
@@ -256,9 +257,9 @@ define <4 x i32> @test4(<4 x i64> %x, <4 x i64> %y, <4 x i64> %x1, <4 x i64> %y1
 ;
 ; SKX-LABEL: test4:
 ; SKX:       ## BB#0:
-; SKX-NEXT:    vpcmpgtq %ymm3, %ymm2, %k0
-; SKX-NEXT:    knotw %k0, %k1
-; SKX-NEXT:    vpcmpgtq %ymm1, %ymm0, %k0 {%k1}
+; SKX-NEXT:    vpcmpgtq %ymm1, %ymm0, %k0
+; SKX-NEXT:    vpcmpgtq %ymm3, %ymm2, %k1
+; SKX-NEXT:    kandnw %k0, %k1, %k0
 ; SKX-NEXT:    vpmovm2d %k0, %xmm0
 ; SKX-NEXT:    retq
   %x_gt_y = icmp sgt <4 x i64> %x, %y
@@ -279,8 +280,8 @@ define <2 x i64> @test5(<2 x i64> %x, <2 x i64> %y, <2 x i64> %x1, <2 x i64> %y1
 ; SKX-LABEL: test5:
 ; SKX:       ## BB#0:
 ; SKX-NEXT:    vpcmpgtq %xmm0, %xmm1, %k0
-; SKX-NEXT:    knotw %k0, %k1
-; SKX-NEXT:    vpcmpgtq %xmm3, %xmm2, %k0 {%k1}
+; SKX-NEXT:    vpcmpgtq %xmm3, %xmm2, %k1
+; SKX-NEXT:    kandnw %k1, %k0, %k0
 ; SKX-NEXT:    vpmovm2q %k0, %xmm0
 ; SKX-NEXT:    retq
   %x_gt_y = icmp slt <2 x i64> %x, %y
@@ -418,7 +419,7 @@ define <4 x i1> @test11(<4 x i1>%a, <4 x i1>%b, i32 %a1, i32 %b1) {
 ; KNL-NEXT:    cmpl %esi, %edi
 ; KNL-NEXT:    jg LBB20_2
 ; KNL-NEXT:  ## BB#1:
-; KNL-NEXT:    vmovaps %zmm1, %zmm0
+; KNL-NEXT:    vmovaps %xmm1, %xmm0
 ; KNL-NEXT:  LBB20_2:
 ; KNL-NEXT:    retq
 ;
@@ -1958,4 +1959,44 @@ define void @store_64i1(<64 x i1>* %a, <64 x i1> %v) {
 ; SKX-NEXT:    retq
   store <64 x i1> %v, <64 x i1>* %a
   ret void
+}
+
+define i32 @test_bitcast_v8i1_zext(<16 x i32> %a) {
+; KNL-LABEL: test_bitcast_v8i1_zext:
+; KNL:       ## BB#0:
+; KNL-NEXT:    vpxord %zmm1, %zmm1, %zmm1
+; KNL-NEXT:    vpcmpeqd %zmm1, %zmm0, %k0
+; KNL-NEXT:    kmovw %k0, %eax
+; KNL-NEXT:    movzbl %al, %eax
+; KNL-NEXT:    addl %eax, %eax
+; KNL-NEXT:    retq
+;
+; SKX-LABEL: test_bitcast_v8i1_zext:
+; SKX:       ## BB#0:
+; SKX-NEXT:    vpxord %zmm1, %zmm1, %zmm1
+; SKX-NEXT:    vpcmpeqd %zmm1, %zmm0, %k0
+; SKX-NEXT:    kmovb %k0, %eax
+; SKX-NEXT:    addl %eax, %eax
+; SKX-NEXT:    retq
+   %v1 = icmp eq <16 x i32> %a, zeroinitializer
+   %mask = shufflevector <16 x i1> %v1, <16 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 5, i32 6, i32 7>
+   %mask1 = bitcast <8 x i1> %mask to i8
+   %val = zext i8 %mask1 to i32
+   %val1 = add i32 %val, %val
+   ret i32 %val1
+}
+
+define i32 @test_bitcast_v16i1_zext(<16 x i32> %a) {
+; CHECK-LABEL: test_bitcast_v16i1_zext:
+; CHECK:       ## BB#0:
+; CHECK-NEXT:    vpxord %zmm1, %zmm1, %zmm1
+; CHECK-NEXT:    vpcmpeqd %zmm1, %zmm0, %k0
+; CHECK-NEXT:    kmovw %k0, %eax
+; CHECK-NEXT:    addl %eax, %eax
+; CHECK-NEXT:    retq
+   %v1 = icmp eq <16 x i32> %a, zeroinitializer
+   %mask1 = bitcast <16 x i1> %v1 to i16
+   %val = zext i16 %mask1 to i32
+   %val1 = add i32 %val, %val
+   ret i32 %val1
 }

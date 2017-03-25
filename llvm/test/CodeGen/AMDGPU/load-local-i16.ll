@@ -1,5 +1,5 @@
-; RUN: llc -march=amdgcn -verify-machineinstrs < %s | FileCheck -check-prefix=GCN -check-prefix=FUNC %s
-; RUN: llc -march=amdgcn -mcpu=tonga -verify-machineinstrs < %s | FileCheck -check-prefix=GCN -check-prefix=FUNC %s
+; RUN: llc -march=amdgcn -verify-machineinstrs < %s | FileCheck -check-prefixes=GCN,SI,FUNC %s
+; RUN: llc -march=amdgcn -mcpu=tonga -verify-machineinstrs < %s | FileCheck -check-prefixes=GCN,VI,FUNC %s
 ; RUN: llc -march=r600 -mcpu=redwood < %s | FileCheck -check-prefix=EG -check-prefix=FUNC %s
 
 ; FUNC-LABEL: {{^}}local_load_i16:
@@ -73,8 +73,8 @@ entry:
 }
 
 ; FUNC-LABEL: {{^}}local_load_v16i16:
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:2 offset1:3{{$}}
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:1{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:3{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:1 offset1:2{{$}}
 
 
 ; EG: LDS_READ_RET
@@ -287,11 +287,9 @@ define void @local_sextload_v8i16_to_v8i32(<8 x i32> addrspace(3)* %out, <8 x i1
   ret void
 }
 
-; FIXME: Should have 2 ds_read_b64
 ; FUNC-LABEL: {{^}}local_zextload_v16i16_to_v16i32:
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:1 offset1:2{{$}}
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+$}}
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset:24
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:1{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:2 offset1:3{{$}}
 
 ; GCN: ds_write2_b64
 ; GCN: ds_write2_b64
@@ -314,9 +312,9 @@ define void @local_zextload_v16i16_to_v16i32(<16 x i32> addrspace(3)* %out, <16 
 }
 
 ; FUNC-LABEL: {{^}}local_sextload_v16i16_to_v16i32:
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+$}}
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:1 offset1:3{{$}}
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset:16{{$}}
+
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:1{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:2 offset1:3{{$}}
 
 ; EG: LDS_READ_RET
 ; EG: LDS_READ_RET
@@ -379,10 +377,18 @@ define void @local_zextload_v32i16_to_v32i32(<32 x i32> addrspace(3)* %out, <32 
 }
 
 ; FUNC-LABEL: {{^}}local_sextload_v32i16_to_v32i32:
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:1 offset1:2{{$}}
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:3 offset1:4
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:5{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:2 offset1:3{{$}}
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:4 offset1:5
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:1{{$}}
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:6 offset1:7
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:14 offset1:15
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:12 offset1:13
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:10 offset1:11
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:8 offset1:9
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:6 offset1:7
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:4 offset1:5
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:2 offset1:3
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset1:1
 
 ; EG: LDS_READ_RET
 ; EG: LDS_READ_RET
@@ -407,17 +413,31 @@ define void @local_sextload_v32i16_to_v32i32(<32 x i32> addrspace(3)* %out, <32 
   ret void
 }
 
-; FIXME: Missed read2
 ; FUNC-LABEL: {{^}}local_zextload_v64i16_to_v64i32:
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:11 offset1:15
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:14 offset1:15
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset1:1{{$}}
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:2 offset1:3
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:4 offset1:5
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:6 offset1:7
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset:64
-; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:9 offset1:10
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:8 offset1:9
 ; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:12 offset1:13
-; GCN-DAG: ds_read_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset:112
+; GCN-DAG: ds_read2_b64 v{{\[[0-9]+:[0-9]+\]}}, v{{[0-9]+}} offset0:10 offset1:11
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:30 offset1:31
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:28 offset1:29
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:26 offset1:27
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:24 offset1:25
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:22 offset1:23
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:20 offset1:21
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:18 offset1:19
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:16 offset1:17
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:14 offset1:15
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:12 offset1:13
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:10 offset1:11
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:8 offset1:9
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:6 offset1:7
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:4 offset1:5
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset0:2 offset1:3
+; GCN-DAG: ds_write2_b64 v{{[0-9]+}}, v{{\[[0-9]+:[0-9]+\]}}, v{{\[[0-9]+:[0-9]+\]}} offset1:1
 
 ; EG: LDS_READ_RET
 ; EG: LDS_READ_RET
@@ -519,7 +539,13 @@ define void @local_zextload_i16_to_i64(i64 addrspace(3)* %out, i16 addrspace(3)*
 }
 
 ; FUNC-LABEL: {{^}}local_sextload_i16_to_i64:
-; GCN: ds_read_i16 v[[LO:[0-9]+]],
+; FIXME: Need to optimize this sequence to avoid an extra shift.
+;  t25: i32,ch = load<LD2[%in(addrspace=3)], anyext from i16> t12, t10, undef:i32
+;          t28: i64 = any_extend t25
+;        t30: i64 = sign_extend_inreg t28, ValueType:ch:i16
+; SI: ds_read_i16 v[[LO:[0-9]+]],
+; VI: ds_read_u16 v[[ULO:[0-9]+]]
+; VI: v_bfe_i32 v[[LO:[0-9]+]], v[[ULO]], 0, 16
 ; GCN-DAG: v_ashrrev_i32_e32 v[[HI:[0-9]+]], 31, v[[LO]]
 
 ; GCN: ds_write_b64 v{{[0-9]+}}, v{{\[}}[[LO]]:[[HI]]]

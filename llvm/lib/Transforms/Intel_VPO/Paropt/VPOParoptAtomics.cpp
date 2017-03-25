@@ -30,8 +30,7 @@
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptAtomics.h"
 
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
-
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
@@ -70,7 +69,7 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
   if (handled) {
-    bool directivesCleared = WRegionUtils::stripDirectives(AtomicNode);
+    bool directivesCleared = VPOUtils::stripDirectives(AtomicNode);
     assert(directivesCleared &&
            "Unable to strip directives from WRNAtomicNode.");
 

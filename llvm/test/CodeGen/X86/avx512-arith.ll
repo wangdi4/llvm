@@ -182,15 +182,10 @@ define <4 x i64> @imulq256(<4 x i64> %y, <4 x i64> %x) {
 ;
 ; AVX512DQ-LABEL: imulq256:
 ; AVX512DQ:       ## BB#0:
-; AVX512DQ-NEXT:    vpmuludq %ymm0, %ymm1, %ymm2
-; AVX512DQ-NEXT:    vpsrlq $32, %ymm0, %ymm3
-; AVX512DQ-NEXT:    vpmuludq %ymm3, %ymm1, %ymm3
-; AVX512DQ-NEXT:    vpsllq $32, %ymm3, %ymm3
-; AVX512DQ-NEXT:    vpsrlq $32, %ymm1, %ymm1
-; AVX512DQ-NEXT:    vpmuludq %ymm0, %ymm1, %ymm0
-; AVX512DQ-NEXT:    vpsllq $32, %ymm0, %ymm0
-; AVX512DQ-NEXT:    vpaddq %ymm0, %ymm3, %ymm0
-; AVX512DQ-NEXT:    vpaddq %ymm0, %ymm2, %ymm0
+; AVX512DQ-NEXT:    ## kill: %YMM1<def> %YMM1<kill> %ZMM1<def>
+; AVX512DQ-NEXT:    ## kill: %YMM0<def> %YMM0<kill> %ZMM0<def>
+; AVX512DQ-NEXT:    vpmullq %zmm0, %zmm1, %zmm0
+; AVX512DQ-NEXT:    ## kill: %YMM0<def> %YMM0<kill> %ZMM0<kill>
 ; AVX512DQ-NEXT:    retq
 ;
 ; SKX-LABEL: imulq256:
@@ -243,15 +238,10 @@ define <2 x i64> @imulq128(<2 x i64> %y, <2 x i64> %x) {
 ;
 ; AVX512DQ-LABEL: imulq128:
 ; AVX512DQ:       ## BB#0:
-; AVX512DQ-NEXT:    vpmuludq %xmm0, %xmm1, %xmm2
-; AVX512DQ-NEXT:    vpsrlq $32, %xmm0, %xmm3
-; AVX512DQ-NEXT:    vpmuludq %xmm3, %xmm1, %xmm3
-; AVX512DQ-NEXT:    vpsllq $32, %xmm3, %xmm3
-; AVX512DQ-NEXT:    vpsrlq $32, %xmm1, %xmm1
-; AVX512DQ-NEXT:    vpmuludq %xmm0, %xmm1, %xmm0
-; AVX512DQ-NEXT:    vpsllq $32, %xmm0, %xmm0
-; AVX512DQ-NEXT:    vpaddq %xmm0, %xmm3, %xmm0
-; AVX512DQ-NEXT:    vpaddq %xmm0, %xmm2, %xmm0
+; AVX512DQ-NEXT:    ## kill: %XMM1<def> %XMM1<kill> %ZMM1<def>
+; AVX512DQ-NEXT:    ## kill: %XMM0<def> %XMM0<kill> %ZMM0<def>
+; AVX512DQ-NEXT:    vpmullq %zmm0, %zmm1, %zmm0
+; AVX512DQ-NEXT:    ## kill: %XMM0<def> %XMM0<kill> %ZMM0<kill>
 ; AVX512DQ-NEXT:    retq
 ;
 ; SKX-LABEL: imulq128:
@@ -594,10 +584,30 @@ define <8 x i64> @addq_broadcast(<8 x i64> %a) nounwind {
 }
 
 define <8 x i64> @orq_broadcast(<8 x i64> %a) nounwind {
-; CHECK-LABEL: orq_broadcast:
-; CHECK:       ## BB#0:
-; CHECK-NEXT:    vporq {{.*}}(%rip){1to8}, %zmm0, %zmm0
-; CHECK-NEXT:    retq
+; AVX512F-LABEL: orq_broadcast:
+; AVX512F:       ## BB#0:
+; AVX512F-NEXT:    vporq {{.*}}(%rip){1to8}, %zmm0, %zmm0
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: orq_broadcast:
+; AVX512VL:       ## BB#0:
+; AVX512VL-NEXT:    vporq {{.*}}(%rip){1to8}, %zmm0, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX512BW-LABEL: orq_broadcast:
+; AVX512BW:       ## BB#0:
+; AVX512BW-NEXT:    vporq {{.*}}(%rip){1to8}, %zmm0, %zmm0
+; AVX512BW-NEXT:    retq
+;
+; AVX512DQ-LABEL: orq_broadcast:
+; AVX512DQ:       ## BB#0:
+; AVX512DQ-NEXT:    vorpd {{.*}}(%rip){1to8}, %zmm0, %zmm0
+; AVX512DQ-NEXT:    retq
+;
+; SKX-LABEL: orq_broadcast:
+; SKX:       ## BB#0:
+; SKX-NEXT:    vorpd {{.*}}(%rip){1to8}, %zmm0, %zmm0
+; SKX-NEXT:    retq
   %b = or <8 x i64> %a, <i64 2, i64 2, i64 2, i64 2, i64 2, i64 2, i64 2, i64 2>
   ret <8 x i64> %b
 }
@@ -634,10 +644,30 @@ entry:
 }
 
 define <8 x i64> @andqbrst(<8 x i64> %p1, i64* %ap) {
-; CHECK-LABEL: andqbrst:
-; CHECK:       ## BB#0: ## %entry
-; CHECK-NEXT:    vpandq (%rdi){1to8}, %zmm0, %zmm0
-; CHECK-NEXT:    retq
+; AVX512F-LABEL: andqbrst:
+; AVX512F:       ## BB#0: ## %entry
+; AVX512F-NEXT:    vpandq (%rdi){1to8}, %zmm0, %zmm0
+; AVX512F-NEXT:    retq
+;
+; AVX512VL-LABEL: andqbrst:
+; AVX512VL:       ## BB#0: ## %entry
+; AVX512VL-NEXT:    vpandq (%rdi){1to8}, %zmm0, %zmm0
+; AVX512VL-NEXT:    retq
+;
+; AVX512BW-LABEL: andqbrst:
+; AVX512BW:       ## BB#0: ## %entry
+; AVX512BW-NEXT:    vpandq (%rdi){1to8}, %zmm0, %zmm0
+; AVX512BW-NEXT:    retq
+;
+; AVX512DQ-LABEL: andqbrst:
+; AVX512DQ:       ## BB#0: ## %entry
+; AVX512DQ-NEXT:    vandpd (%rdi){1to8}, %zmm0, %zmm0
+; AVX512DQ-NEXT:    retq
+;
+; SKX-LABEL: andqbrst:
+; SKX:       ## BB#0: ## %entry
+; SKX-NEXT:    vandpd (%rdi){1to8}, %zmm0, %zmm0
+; SKX-NEXT:    retq
 entry:
   %a = load i64, i64* %ap, align 8
   %b = insertelement <8 x i64> undef, i64 %a, i32 0
@@ -945,20 +975,17 @@ define <8 x double> @test_maskz_broadcast_vaddpd(<8 x double> %i, double* %j,
 define <16 x float>  @test_fxor(<16 x float> %a) {
 ; AVX512F-LABEL: test_fxor:
 ; AVX512F:       ## BB#0:
-; AVX512F-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512F-NEXT:    vpxorq %zmm1, %zmm0, %zmm0
+; AVX512F-NEXT:    vpxord {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512F-NEXT:    retq
 ;
 ; AVX512VL-LABEL: test_fxor:
 ; AVX512VL:       ## BB#0:
-; AVX512VL-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512VL-NEXT:    vpxorq %zmm1, %zmm0, %zmm0
+; AVX512VL-NEXT:    vpxord {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512VL-NEXT:    retq
 ;
 ; AVX512BW-LABEL: test_fxor:
 ; AVX512BW:       ## BB#0:
-; AVX512BW-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512BW-NEXT:    vpxorq %zmm1, %zmm0, %zmm0
+; AVX512BW-NEXT:    vpxord {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512BW-NEXT:    retq
 ;
 ; AVX512DQ-LABEL: test_fxor:
@@ -1011,20 +1038,17 @@ define <8 x float>  @test_fxor_8f32(<8 x float> %a) {
 define <8 x double> @fabs_v8f64(<8 x double> %p)
 ; AVX512F-LABEL: fabs_v8f64:
 ; AVX512F:       ## BB#0:
-; AVX512F-NEXT:    vbroadcastsd {{.*}}(%rip), %zmm1
-; AVX512F-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512F-NEXT:    vpandq {{.*}}(%rip){1to8}, %zmm0, %zmm0
 ; AVX512F-NEXT:    retq
 ;
 ; AVX512VL-LABEL: fabs_v8f64:
 ; AVX512VL:       ## BB#0:
-; AVX512VL-NEXT:    vbroadcastsd {{.*}}(%rip), %zmm1
-; AVX512VL-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512VL-NEXT:    vpandq {{.*}}(%rip){1to8}, %zmm0, %zmm0
 ; AVX512VL-NEXT:    retq
 ;
 ; AVX512BW-LABEL: fabs_v8f64:
 ; AVX512BW:       ## BB#0:
-; AVX512BW-NEXT:    vbroadcastsd {{.*}}(%rip), %zmm1
-; AVX512BW-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512BW-NEXT:    vpandq {{.*}}(%rip){1to8}, %zmm0, %zmm0
 ; AVX512BW-NEXT:    retq
 ;
 ; AVX512DQ-LABEL: fabs_v8f64:
@@ -1045,20 +1069,17 @@ declare <8 x double> @llvm.fabs.v8f64(<8 x double> %p)
 define <16 x float> @fabs_v16f32(<16 x float> %p)
 ; AVX512F-LABEL: fabs_v16f32:
 ; AVX512F:       ## BB#0:
-; AVX512F-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512F-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512F-NEXT:    vpandd {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512F-NEXT:    retq
 ;
 ; AVX512VL-LABEL: fabs_v16f32:
 ; AVX512VL:       ## BB#0:
-; AVX512VL-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512VL-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512VL-NEXT:    vpandd {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512VL-NEXT:    retq
 ;
 ; AVX512BW-LABEL: fabs_v16f32:
 ; AVX512BW:       ## BB#0:
-; AVX512BW-NEXT:    vbroadcastss {{.*}}(%rip), %zmm1
-; AVX512BW-NEXT:    vpandq %zmm1, %zmm0, %zmm0
+; AVX512BW-NEXT:    vpandd {{.*}}(%rip){1to16}, %zmm0, %zmm0
 ; AVX512BW-NEXT:    retq
 ;
 ; AVX512DQ-LABEL: fabs_v16f32:

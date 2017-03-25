@@ -36,7 +36,8 @@ namespace vpo {  // VPO Vectorizer Namespace
 #define TabLength 2
 
 /// Abstract Layer print verbosity levels
-enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintAvrDecomp, PrintNumber };
+enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintAvrDecomp,
+                      PrintNumber, PrintCost };
 /// Assignment LHS/RHS enumeration
 enum AssignOperand { RightHand, LeftHand };
 
@@ -68,6 +69,9 @@ private:
   /// Number - Unique ID for AVR node.
   unsigned Number;
 
+  /// The cost corresponsing to this node
+  unsigned Cost = 0;
+
   /// Slev - SIMD lane evolution classification of this AVR node.
   SLEV Slev;
 
@@ -81,7 +85,6 @@ private:
 protected:
   AVR(unsigned SCID);
   AVR(const AVR &AVRObj);
-  virtual ~AVR() {}
 
   /// \brief Destroys the object.
   void destroy();
@@ -107,6 +110,8 @@ protected:
   }
 
 public:
+  virtual ~AVR() {}
+
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
 
@@ -140,6 +145,12 @@ public:
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }
 
+  /// \brief Returns the Avr node's cost
+  unsigned getCost() const { return Cost; }
+
+  /// \brief Sets the Avr node's cost
+  void setCost(unsigned C) { Cost = C; }
+
   /// \brief Returns the Avr nodes's SLEV data.
   SLEV getSLEV() const { return Slev; }
 
@@ -163,7 +174,7 @@ public:
 
   /// \brief Return an ID for the concrete type of this object.
   ///
-  /// This is used to implement the classof, etc. checks in LLVM and should't
+  /// This is used to implement the classof, etc. checks in LLVM and shouldn't
   /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
 
@@ -173,6 +184,12 @@ public:
 
 } // End VPO Vectorizer Namspace
 
+#if 0
+/// FIXME(DLK) - The ilist data structure was again changed in r281184. Make
+///              sure this is the right way to deal with it. Note that I also
+///              made ~AVR() public, which is probably not the right thing to
+///              do. You might want to talk to Pankaj & Pavel, since they had
+///              to make similar changes in loopopt.
 /// \brief Traits for iplist<AVR>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details
@@ -187,6 +204,7 @@ struct ilist_traits<vpo::AVR> : public ilist_default_traits<vpo::AVR> {
   }
   static void deleteNode(vpo::AVR *) {}
 };
+#endif
 
 namespace vpo { // VPO Vectorizer Namespace
 

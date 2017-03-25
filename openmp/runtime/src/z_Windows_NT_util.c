@@ -18,6 +18,7 @@
 #include "kmp_i18n.h"
 #include "kmp_io.h"
 #include "kmp_wait_release.h"
+#include "kmp_affinity.h"
 
 /* This code is related to NtQuerySystemInformation() function. This function
    is used in the Load balance algorithm for OMP_DYNAMIC=true to find the
@@ -127,9 +128,7 @@ HMODULE ntdll = NULL;
 
 /* End of NtQuerySystemInformation()-related code */
 
-#if KMP_GROUP_AFFINITY
 static HMODULE kernel32 = NULL;
-#endif /* KMP_GROUP_AFFINITY */
 
 /* ----------------------------------------------------------------------------------- */
 /* ----------------------------------------------------------------------------------- */
@@ -140,7 +139,9 @@ static HMODULE kernel32 = NULL;
     static int         __kmp_siginstalled[ NSIG ];
 #endif
 
+#if KMP_USE_MONITOR
 static HANDLE   __kmp_monitor_ev;
+#endif
 static kmp_int64 __kmp_win32_time;
 double __kmp_win32_tick;
 
@@ -540,227 +541,9 @@ __kmp_gtid_get_specific()
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
-#if KMP_GROUP_AFFINITY
-
-//
-// Only 1 DWORD in the mask should have any procs set.
-// Return the appropriate index, or -1 for an invalid mask.
-//
-int
-__kmp_get_proc_group( kmp_affin_mask_t const *mask )
-{
-    int i;
-    int group = -1;
-    for (i = 0; i < __kmp_num_proc_groups; i++) {
-#if KMP_USE_HWLOC
-        // On windows, the long type is always 32 bits
-        unsigned long first_32_bits = hwloc_bitmap_to_ith_ulong((hwloc_const_bitmap_t)mask, i*2);
-        unsigned long second_32_bits = hwloc_bitmap_to_ith_ulong((hwloc_const_bitmap_t)mask, i*2+1);
-        if (first_32_bits == 0 && second_32_bits == 0) {
-            continue;
-        }
-#else
-        if (mask[i] == 0) {
-            continue;
-        }
-#endif
-        if (group >= 0) {
-            return -1;
-        }
-        group = i;
-    }
-    return group;
-}
-
-#endif /* KMP_GROUP_AFFINITY */
-
-int
-__kmp_set_system_affinity( kmp_affin_mask_t const *mask, int abort_on_error )
-{
-#if KMP_USE_HWLOC
-    int retval = hwloc_set_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
-    if (retval >= 0) {
-        return 0;
-    }
-    int error = errno;
-    if (abort_on_error) {
-        __kmp_msg(
-            kmp_ms_fatal,
-            KMP_MSG( FatalSysError ),
-            KMP_ERR( error ),
-            __kmp_msg_null
-        );
-    }
-    return error;
-#else
-# if KMP_GROUP_AFFINITY
-
-    if (__kmp_num_proc_groups > 1) {
-        //
-        // Check for a valid mask.
-        //
-        GROUP_AFFINITY ga;
-        int group = __kmp_get_proc_group( mask );
-        if (group < 0) {
-            if (abort_on_error) {
-                KMP_FATAL(AffinityInvalidMask, "kmp_set_affinity");
-            }
-            return -1;
-        }
-
-        //
-        // Transform the bit vector into a GROUP_AFFINITY struct
-        // and make the system call to set affinity.
-        //
-        ga.Group = group;
-        ga.Mask = mask[group];
-        ga.Reserved[0] = ga.Reserved[1] = ga.Reserved[2] = 0;
-
-        KMP_DEBUG_ASSERT(__kmp_SetThreadGroupAffinity != NULL);
-        if (__kmp_SetThreadGroupAffinity(GetCurrentThread(), &ga, NULL) == 0) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG( CantSetThreadAffMask ),
-                    KMP_ERR( error ),
-                    __kmp_msg_null
-                );
-            }
-            return error;
-        }
-    }
-    else
-
-# endif /* KMP_GROUP_AFFINITY */
-
-    {
-        if (!SetThreadAffinityMask( GetCurrentThread(), *mask )) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG( CantSetThreadAffMask ),
-                    KMP_ERR( error ),
-                    __kmp_msg_null
-                );
-            }
-            return error;
-        }
-    }
-#endif /* KMP_USE_HWLOC */
-    return 0;
-}
-
-int
-__kmp_get_system_affinity( kmp_affin_mask_t *mask, int abort_on_error )
-{
-#if KMP_USE_HWLOC
-    int retval = hwloc_get_cpubind(__kmp_hwloc_topology, (hwloc_cpuset_t)mask, HWLOC_CPUBIND_THREAD);
-    if (retval >= 0) {
-        return 0;
-    }
-    int error = errno;
-    if (abort_on_error) {
-        __kmp_msg(
-            kmp_ms_fatal,
-            KMP_MSG( FatalSysError ),
-            KMP_ERR( error ),
-            __kmp_msg_null
-        );
-    }
-    return error;
-#else /* KMP_USE_HWLOC */
-# if KMP_GROUP_AFFINITY
-
-    if (__kmp_num_proc_groups > 1) {
-        KMP_CPU_ZERO(mask);
-        GROUP_AFFINITY ga;
-        KMP_DEBUG_ASSERT(__kmp_GetThreadGroupAffinity != NULL);
-
-        if (__kmp_GetThreadGroupAffinity(GetCurrentThread(), &ga) == 0) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG(FunctionError, "GetThreadGroupAffinity()"),
-                    KMP_ERR(error),
-                    __kmp_msg_null
-                );
-            }
-            return error;
-        }
-
-        if ((ga.Group < 0) || (ga.Group > __kmp_num_proc_groups)
-          || (ga.Mask == 0)) {
-            return -1;
-        }
-
-        mask[ga.Group] = ga.Mask;
-    }
-    else
-
-# endif /* KMP_GROUP_AFFINITY */
-
-    {
-        kmp_affin_mask_t newMask, sysMask, retval;
-
-        if (!GetProcessAffinityMask(GetCurrentProcess(), &newMask, &sysMask)) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG(FunctionError, "GetProcessAffinityMask()"),
-                    KMP_ERR(error),
-                    __kmp_msg_null
-                );
-            }
-            return error;
-        }
-        retval = SetThreadAffinityMask(GetCurrentThread(), newMask);
-        if (! retval) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG(FunctionError, "SetThreadAffinityMask()"),
-                    KMP_ERR(error),
-                    __kmp_msg_null
-                );
-            }
-            return error;
-        }
-        newMask = SetThreadAffinityMask(GetCurrentThread(), retval);
-        if (! newMask) {
-            DWORD error = GetLastError();
-            if (abort_on_error) {
-                __kmp_msg(
-                    kmp_ms_fatal,
-                    KMP_MSG(FunctionError, "SetThreadAffinityMask()"),
-                    KMP_ERR(error),
-                    __kmp_msg_null
-                );
-            }
-        }
-        *mask = retval;
-    }
-#endif /* KMP_USE_HWLOC */
-    return 0;
-}
-
 void
 __kmp_affinity_bind_thread( int proc )
 {
-#if KMP_USE_HWLOC
-    kmp_affin_mask_t *mask;
-    KMP_CPU_ALLOC_ON_STACK(mask);
-    KMP_CPU_ZERO(mask);
-    KMP_CPU_SET(proc, mask);
-    __kmp_set_system_affinity(mask, TRUE);
-    KMP_CPU_FREE_FROM_STACK(mask);
-#else /* KMP_USE_HWLOC */
-# if KMP_GROUP_AFFINITY
-
     if (__kmp_num_proc_groups > 1) {
         //
         // Form the GROUP_AFFINITY struct directly, rather than filling
@@ -785,18 +568,14 @@ __kmp_affinity_bind_thread( int proc )
                 );
             }
         }
+    } else {
+        kmp_affin_mask_t *mask;
+        KMP_CPU_ALLOC_ON_STACK(mask);
+        KMP_CPU_ZERO(mask);
+        KMP_CPU_SET(proc, mask);
+        __kmp_set_system_affinity(mask, TRUE);
+        KMP_CPU_FREE_FROM_STACK(mask);
     }
-    else
-
-# endif /* KMP_GROUP_AFFINITY */
-
-    {
-        kmp_affin_mask_t mask;
-        KMP_CPU_ZERO(&mask);
-        KMP_CPU_SET(proc, &mask);
-        __kmp_set_system_affinity(&mask, TRUE);
-    }
-#endif /* KMP_USE_HWLOC */
 }
 
 void
@@ -807,9 +586,9 @@ __kmp_affinity_determine_capable( const char *env_var )
     //
 
 #if KMP_GROUP_AFFINITY
-    KMP_AFFINITY_ENABLE(__kmp_num_proc_groups*sizeof(kmp_affin_mask_t));
+    KMP_AFFINITY_ENABLE(__kmp_num_proc_groups*sizeof(DWORD_PTR));
 #else
-    KMP_AFFINITY_ENABLE(sizeof(kmp_affin_mask_t));
+    KMP_AFFINITY_ENABLE(sizeof(DWORD_PTR));
 #endif
 
     KA_TRACE( 10, (
@@ -1195,6 +974,15 @@ __kmp_read_system_time( double *delta )
     }
 }
 
+/* Return the current time stamp in nsec */
+kmp_uint64
+__kmp_now_nsec()
+{
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    return 1e9 * __kmp_win32_tick * now.QuadPart;
+}
+
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
@@ -1253,6 +1041,7 @@ __kmp_launch_worker( void *arg )
     return exit_val;
 }
 
+#if KMP_USE_MONITOR
 /* The monitor thread controls all of the threads in the complex */
 
 void * __stdcall
@@ -1362,6 +1151,7 @@ __kmp_launch_monitor( void *arg )
     KMP_MB();
     return arg;
 }
+#endif
 
 void
 __kmp_create_worker( int gtid, kmp_info_t *th, size_t stack_size )
@@ -1455,6 +1245,7 @@ __kmp_still_running(kmp_info_t *th) {
     return (WAIT_TIMEOUT == WaitForSingleObject( th->th.th_info.ds.ds_thread, 0));
 }
 
+#if KMP_USE_MONITOR
 void
 __kmp_create_monitor( kmp_info_t *th )
 {
@@ -1525,6 +1316,7 @@ __kmp_create_monitor( kmp_info_t *th )
     KA_TRACE( 10, ("__kmp_create_monitor: monitor created %p\n",
                    (void *) th->th.th_info.ds.ds_thread ) );
 }
+#endif
 
 /*
   Check to see if thread is still alive.
@@ -1641,6 +1433,7 @@ __kmp_reap_common( kmp_info_t * th )
     KMP_MB();       /* Flush all pending memory write invalidates.  */
 }
 
+#if KMP_USE_MONITOR
 void
 __kmp_reap_monitor( kmp_info_t *th )
 {
@@ -1677,6 +1470,7 @@ __kmp_reap_monitor( kmp_info_t *th )
 
     KMP_MB();       /* Flush all pending memory write invalidates.  */
 }
+#endif
 
 void
 __kmp_reap_worker( kmp_info_t * th )

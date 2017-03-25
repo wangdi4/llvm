@@ -12,15 +12,14 @@ class ConcurrentCrashWithWatchpointBreakpointSignal(ConcurrentEventsBase):
 
     mydir = ConcurrentEventsBase.compute_mydir(__file__)
 
-    @skipIfFreeBSD # timing out on buildbot
+    @skipIfFreeBSD  # timing out on buildbot
     @skipIfRemoteDueToDeadlock
-    @expectedFailureAll(triple = '^mips') # Atomic sequences are not supported yet for MIPS in LLDB.
-    def test_crash_with_watchpoint_breakpoint_signal(self):
+    # Atomic sequences are not supported yet for MIPS in LLDB.
+    @skipIf(triple='^mips')
+    def test(self):
         """ Test a thread that crashes while other threads generate a signal and hit a watchpoint and breakpoint. """
         self.build(dictionary=self.getBuildFlags())
         self.do_thread_actions(num_crash_threads=1,
                                num_breakpoint_threads=1,
                                num_signal_threads=1,
                                num_watchpoint_threads=1)
-
-

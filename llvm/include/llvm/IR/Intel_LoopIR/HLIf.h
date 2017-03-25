@@ -73,10 +73,6 @@ protected:
   HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2,
        FastMathFlags FMF = FastMathFlags());
 
-  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLIf() override { Children.clearAndLeakNodesUnsafely(); }
-
   /// \brief Copy constructor used by cloning.
   HLIf(const HLIf &HLIfObj);
 
@@ -141,16 +137,16 @@ public:
   const_then_iterator then_end() const { return ElseBegin; }
 
   reverse_then_iterator then_rbegin() {
-    return ChildNodeTy::reverse_iterator(ElseBegin);
+    return ElseBegin.getReverse();
   }
   const_reverse_then_iterator then_rbegin() const {
-    return ChildNodeTy::const_reverse_iterator(ElseBegin);
+    return ElseBegin.getReverse();
   }
   reverse_then_iterator then_rend() { return Children.rend(); }
   const_reverse_then_iterator then_rend() const { return Children.rend(); }
 
-  else_iterator else_begin() { return ElseBegin; }
-  const_else_iterator else_begin() const { return ElseBegin; }
+  else_iterator else_begin() { return then_end(); }
+  const_else_iterator else_begin() const { return then_end(); }
   else_iterator else_end() { return Children.end(); }
   const_else_iterator else_end() const { return Children.end(); }
 
@@ -158,10 +154,10 @@ public:
   const_reverse_else_iterator else_rbegin() const { return Children.rbegin(); }
 
   reverse_else_iterator else_rend() {
-    return ChildNodeTy::reverse_iterator(ElseBegin);
+    return then_rbegin();
   }
   const_reverse_else_iterator else_rend() const {
-    return ChildNodeTy::const_reverse_iterator(ElseBegin);
+    return then_rbegin();
   }
 
   /// Children acess methods

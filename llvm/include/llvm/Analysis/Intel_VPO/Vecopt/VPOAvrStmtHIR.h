@@ -19,9 +19,9 @@
 #define LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 using namespace llvm::loopopt;
@@ -92,12 +92,12 @@ protected:
   /// LHS/RHS specifier.
   AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand AOp);
 
-  /// \brief Constructs an AVRExpressionHIR given an AVRIfHIR node and 
+  /// \brief Constructs an AVRExpressionHIR given an AVRIfHIR node and
   /// predicate iterator.
-  AVRExpressionHIR(AVRIfHIR *AIf, HLIf::const_pred_iterator& PredIt);
+  AVRExpressionHIR(AVRIfHIR *AIf, HLIf::const_pred_iterator &PredIt);
 
   /// \brief Constructs an AND AVRExpressionHIR of two given HIR expressions.
-  AVRExpressionHIR(AVRExpressionHIR* LHS, AVRExpressionHIR* RHS);
+  AVRExpressionHIR(AVRExpressionHIR *LHS, AVRExpressionHIR *RHS);
 
   /// \brief Constructs a binary AVRExpressionHIR from two given AVRs.
   AVRExpressionHIR(AVR *LHS, AVR *RHS, Type *Ty, unsigned Opcode);
@@ -131,11 +131,11 @@ public:
 class AVRValueHIR : public AVRValue {
 
 public:
-  /// Information at AVR level for an AVRValueHIR that represents an IV 
+  /// Information at AVR level for an AVRValueHIR that represents an IV
   struct IVValueInfo {
     // CanonExpr that contains the IV
     CanonExpr *CE;
-    // Level of the IV in the CanonExpr 
+    // Level of the IV in the CanonExpr
     unsigned Level;
 
     IVValueInfo(CanonExpr *CanonE, unsigned Lvl) : CE(CanonE), Level(Lvl) {}
@@ -160,8 +160,10 @@ private:
 
 protected:
   /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
-  ///  specified by DDRef.
-  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent);
+  ///  specified by DDRef. /p isMemoryOperation indicates whether the operand
+  ///  represents an address used in a memory operation (loads/store)
+  AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
+              bool isMemoryOperation);
 
   /// \brief Constructs an AVRValueHIR node for an IV
   AVRValueHIR(IVValueInfo *IVV, Type *Ty, AVR *Parent);
@@ -292,13 +294,11 @@ public:
 class AVRUnreachableHIR : public AVRUnreachable {
 
 private:
-
   /// \p Instruct - HIR node which genreated the unreachable avr.
   HLNode *Instruct;
 
 protected:
-
-  /// \brief AVRUnreachableHIR object constructor. 
+  /// \brief AVRUnreachableHIR object constructor.
   AVRUnreachableHIR(HLNode *Inst);
 
   /// \brief Object destructor.
@@ -308,7 +308,6 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   /// \brief Returns unreachable instruction.
   const HLNode *getHIRInstruction() const { return Instruct; }
 
@@ -319,7 +318,6 @@ public:
 
   /// \brief Clone method for AVRUnreachable.
   AVRUnreachableHIR *clone() const override;
-
 };
 
 } // End VPO Vectorizer Namespace

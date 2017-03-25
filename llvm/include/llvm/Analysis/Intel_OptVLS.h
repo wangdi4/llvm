@@ -36,6 +36,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 #include <map>
 
@@ -43,6 +44,7 @@ namespace llvm {
 
 class TargetTransformInfo;
 class Type;
+class LLVMContext;
 
 // OptVLS data structures
 template <typename T> class OVLSVector : public SmallVector<T, 8> {};
@@ -320,12 +322,12 @@ private:
   OVLSAccessType AccType; // Access type of the Memref, e.g {S|I}{Load|store}
 };
 
+/// OVLSGroup represents a group of adjacent gathers/scatters.
 class OVLSGroup {
 public:
   explicit OVLSGroup(int VLen, const OVLSAccessType &AType)
       : VectorLength(VLen), AccType(AType) {
     NByteAccessMask = 0;
-    ElementMask = 0;
   }
 
   typedef OVLSMemrefVector::iterator iterator;
@@ -339,10 +341,9 @@ public:
   // Returns true if the group is empty.
   bool empty() const { return MemrefVec.empty(); }
   // Insert an element into the Group and set the masks accordingly.
-  void insert(OVLSMemref *Mrf, uint64_t AMask, uint64_t EMask) {
+  void insert(OVLSMemref *Mrf, uint64_t AMask) {
     MemrefVec.push_back(Mrf);
     NByteAccessMask = AMask;
-    ElementMask = EMask;
   }
 
   // Returns group access mask.
@@ -350,9 +351,6 @@ public:
   void setAccessMask(uint64_t Mask) { NByteAccessMask = Mask; }
   OVLSAccessType getAccessType() const { return AccType; }
   uint32_t getVectorLength() const { return VectorLength; }
-  uint64_t getElementMask() const { return ElementMask; }
-  void setElementMask(uint64_t Mask) { ElementMask = Mask; }
-
   bool hasStridedAccesses() const { return AccType.isStridedAccess(); }
 
   // Gathers collectively refers to both indexed and strided loads.
@@ -391,12 +389,6 @@ public:
     return false;
   }
 
-  // Assuming all members have the same element size.
-  // TODO: Support heterogeneous types using GCD
-  uint32_t getElemSize() const {
-    return MemrefVec[0]->getType().getElementSize();
-  }
-
   // Currently, a group is formed only if the members have the same number
   // of elements.
   uint32_t getNumElems() const {
@@ -415,7 +407,11 @@ public:
 #endif
 
 private:
-  /// \brief Group element-vector
+  /// \brief MemrefVec contains the adjacent gathers/scatters by storing
+  /// them sequentially in this MemrefVec.
+  /// TODO: please note that, MemrefVec only stores the memrefs that are
+  /// physically existed. Which means, any missing memrefs are not represented
+  /// by the vector. Support gap by creating a dummy memref.
   OVLSMemrefVector MemrefVec;
 
   /// \brief Vector length in bytes, default/maximum supported length is 64.
@@ -429,16 +425,12 @@ private:
   /// Specifically, it tells us if there are any gaps in between the i-th
   /// accesses (since access pattern information is not recorded in the
   /// MemrefVec to save memory) Maximum 64 bytes can be represented.
+  /// TODO: get rid of this by representing gap using a dummy memref in the
+  /// MemrefVec.
   uint64_t NByteAccessMask;
 
   /// \brief AccessType of the group.
   OVLSAccessType AccType;
-
-  /// \brief Represents an element-wise mask for the ith elements of the
-  /// MemrefVec. Memrefs can have different element sizes but they will have
-  /// common divisors. The greatest common divisor is considered as an element
-  /// in the ElementMask.
-  uint64_t ElementMask;
 };
 
 /// OVLSOperand is used to define an operand object for OVLSInstruction.
@@ -447,7 +439,7 @@ class OVLSOperand {
 
 public:
   /// An operand can be an address or a temp.
-  enum OperandKind { OK_Address, OK_Instruction, OK_Constant };
+  enum OperandKind { OK_Undef, OK_Address, OK_Instruction, OK_Constant };
 
   explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
 
@@ -458,6 +450,7 @@ public:
 
   OperandKind getKind() const { return Kind; }
   OVLSType getType() const { return Type; }
+  void setType(OVLSType T) { Type = T; }
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
@@ -505,6 +498,15 @@ public:
       OVLSdbgs() << "Not supported\n";
       break;
     }
+  }
+};
+
+class OVLSUndef : public OVLSOperand {
+public:
+  OVLSUndef() : OVLSOperand(OK_Undef) {}
+
+  static bool classof(const OVLSOperand *Operand) {
+    return Operand->getKind() == OK_Undef;
   }
 };
 
@@ -706,8 +708,6 @@ static inline OVLSostream &operator<<(OVLSostream &OS, const OVLSOperand &Op) {
 /// defined by the underlying targets. Consequently, it's the clients that
 /// decide on the cost accuracy level.
 class OVLSCostModel {
-  const TargetTransformInfo &TTI;
-
   /// Example of a 4-element reversed-mask {3, 2, 1, 0}
   // Please note that undef elements don't prevent us from matching
   // the reverse pattern.
@@ -746,8 +746,61 @@ class OVLSCostModel {
     return IsAlternate;
   }
 
+  // Returns true if Mask represents either the lower half
+  // or the upper half of the source-vector; Otherwise, returns false.
+  // For example, returns true for
+  // mask: <0, 1, -1, -1> or <2, 3, -1, -1> for a source: <0, 1, 2, 3>.
+  //
+  // This routine follows the semantics of [v]extracti128.
+  // It assumes mask size equals the source-vector size since there is no
+  // source vector size. If size of the Mask
+  // does not equal the source-vector size, this routine will compute
+  // incorrect result because the mask index will be misleading.
+  // Here is an example: A<0, 1, 2, 3>, B<4, 5, 6, 7>; if Mask is <0, 1> which
+  // contains only 2 elements, will not be considered as a lower/upper
+  // subvector.
+  // Because it does not know the size of source. Therefore, it considers 2 as
+  // source size. Where the lower subvector will be <0> and the upper subvector
+  // should be <1>.
+  // TODO: Support extracting other possible sized subvectors.
+  bool isExtractSubvectorMask(SmallVectorImpl<int> &Mask) const {
+    bool IsExtract = true;
+    int MaskSize = Mask.size();
+
+    if (MaskSize <= 1 || !isPowerOf2_32(MaskSize))
+      return false;
+
+    int Modulo = MaskSize / 2;
+    int StartElem = Mask[0];
+    if (StartElem != 0 && StartElem != Modulo)
+      return false;
+
+    // A<0, 1, 2, 3>
+    // Example of an extract vector mask <0, 1, -1, -1> or <2, 3, -1, -1>
+    for (int i = 0; i < MaskSize && IsExtract; ++i) {
+      if (i >= Modulo) {
+        if (Mask[i] < 0)
+          continue;
+        else
+          return false;
+      }
+
+      IsExtract = Mask[i] == StartElem + i;
+    }
+
+    return IsExtract;
+  }
+
+protected:
+  /// \brief A handle to Target Information
+  const TargetTransformInfo &TTI;
+
+  /// \brief A handle to the LLVM Context
+  LLVMContext &C;
+
 public:
-  explicit OVLSCostModel(const TargetTransformInfo &TargetTI) : TTI(TargetTI) {}
+  explicit OVLSCostModel(const TargetTransformInfo &TargetTI, LLVMContext &Ctx)
+      : TTI(TargetTI), C(Ctx) {}
 
   /// \brief Returns target-specific cost for an OVLSInstruction, different
   /// cost parameters are defined by each specific target.
@@ -764,6 +817,8 @@ public:
   }
 
   virtual uint64_t getShuffleCost(SmallVectorImpl<int> &Mask, Type *Tp) const;
+
+  LLVMContext &getContext() const { return C; }
 };
 
 // OptVLS public Interface class that operates on OptVLS Abstract types.

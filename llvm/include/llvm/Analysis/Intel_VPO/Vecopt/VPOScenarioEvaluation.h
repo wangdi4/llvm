@@ -209,9 +209,20 @@ private:
   unsigned int OutOfLoopCost;
   /// @}
 
+  /// The minimum/maximum bit widths of types of values loaded/stored in the
+  /// loop. We only look at loads/stores for now.
+  unsigned int MinBitWidth;
+  unsigned int MaxBitWidth;
+
 protected:
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
+
+  /// \brief A handle to Target Library Info
+  const TargetLibraryInfo &TLI;
+
+  /// \brief A handle to Data Layout Info
+  const DataLayout &DL;
 
   /// \brief Vectorization Factor.
   unsigned int VF;
@@ -222,11 +233,25 @@ protected:
   AVRLoop *ALoop;
 
 public:
-  VPOCostGathererBase(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGathererBase(const TargetTransformInfo &TTI, 
+                      const TargetLibraryInfo &TLI,
+                      const DataLayout &DL,
+                      unsigned int VF,
                       AVRLoop *ALoop)
-      : TTI(TTI), VF(VF), ALoop(ALoop) {
+    : TTI(TTI), TLI(TLI), DL(DL), VF(VF), ALoop(ALoop) {
     LoopBodyCost = 0;
     OutOfLoopCost = 0;
+
+    // Initialize to reasonable values - a loop may not see a
+    // load/store. This avoids issues such as divide by zero.
+    // Consider the loop
+    //    DO i2 = 
+    //        %incdec.ptr = &((%workarea)[0][i2 + 1]);
+    //    END LOOP
+    // LHS exprs are currently being skipped and RHS is an address
+    // computation
+    MinBitWidth = 64;
+    MaxBitWidth = 8;
   }
   virtual ~VPOCostGathererBase() {}
 
@@ -234,6 +259,10 @@ public:
   /// under consideration.
   /// @{
   unsigned int getLoopBodyCost() { return LoopBodyCost; }
+
+  unsigned int getMinBitWidth() const { return MinBitWidth; }
+  unsigned int getMaxBitWidth() const { return MaxBitWidth; }
+
   unsigned int getOutOfLoopCost() { return OutOfLoopCost; }
   void addOutOfLoopCost(unsigned int AddCost) { OutOfLoopCost += AddCost; }
   /// @}
@@ -266,13 +295,13 @@ public:
   void visit(AVRIf *If);
   void visit(AVRSelect *Select);
   void visit(AVRCall *Call);
+  void visit(AVRPredicate *Predicate);
   /// @}
 
   /// \brief Wrapper to calling the TTI utility for gather/scatter cost.
   /// Checks whether the indexes to the gather/scatter can fit in 32bit.
-  virtual int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy,
-                                     AVRValue *Ptr, bool VariableMask,
-                                     unsigned Alignment) = 0;
+  virtual int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
+                                     bool VariableMask, unsigned Alignment) = 0;
 
   /// \brief Check whether the address computation for a non-consecutive memory
   /// access looks like an unlikely candidate for being merged into the indexing
@@ -281,7 +310,7 @@ public:
   // variable with a small enough stride, and the rest are invariant.
   // In HIR this probably translates to checking that we have an evolution
   // only in one dimension (i.e. in one subscript).
-  virtual bool isLikelyComplexAddressComputation(AVRValue *Ptr) = 0;
+  virtual bool isLikelyComplexAddressComputation(AVR *Ptr) = 0;
 
   /// \brief Return a handle to the results of VLS analysis: namely a mapping
   /// from loads/stores to the VLS Group (Group of neighbouring loads/stores)
@@ -301,16 +330,19 @@ public:
 /// LLVMIR CostGatherer
 class VPOCostGatherer : public VPOCostGathererBase {
 public:
-  VPOCostGatherer(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGatherer(const TargetTransformInfo &TTI,
+                  const TargetLibraryInfo &TLI,
+                  const DataLayout &DL, unsigned int VF,
                   AVRLoop *ALoop, OVLSTTICostModelLLVMIR *TTICM, 
                   VPOVLSInfo *VLSInfo)
-      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
+    : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
+                            VLSInfo(VLSInfo) {
     assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGatherer() {}
 
   // CHECKME: Can we rely on having the underlying LLVM value available?
-  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
+  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
                              bool VariableMask, unsigned Alignment) override {
     assert(isa<AVRValueIR>(Ptr) && "not AVRValueIR?");
     const Value *ConstPtrVal = (cast<AVRValueIR>(Ptr))->getLLVMValue();
@@ -323,7 +355,7 @@ public:
   // Legal->isInductionVariable(Opd) on the GEP indices. Also the LLVMIR
   // implementation in LoopVectorize requires ScalarEvolution Analysis. Can we
   // use SLEV instead of Leval and ScalarEvolution?
-  bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
+  bool isLikelyComplexAddressComputation(AVR *Ptr) {
     return false; // FIXME.
   }
 
@@ -342,10 +374,13 @@ private:
 /// HIR CostGatherer
 class VPOCostGathererHIR : public VPOCostGathererBase {
 public:
-  VPOCostGathererHIR(const TargetTransformInfo &TTI, unsigned int VF,
+  VPOCostGathererHIR(const TargetTransformInfo &TTI,
+                     const TargetLibraryInfo &TLI,
+                     const DataLayout &DL, unsigned int VF,
                      AVRLoop *ALoop, OVLSTTICostModelHIR *TTICM, 
                      VPOVLSInfoHIR *VLSInfo)
-      : VPOCostGathererBase(TTI, VF, ALoop), TTICM(TTICM), VLSInfo(VLSInfo) {
+    : VPOCostGathererBase(TTI, TLI, DL, VF, ALoop), TTICM(TTICM),
+                            VLSInfo(VLSInfo) {
     assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
   }
   ~VPOCostGathererHIR() {}
@@ -361,25 +396,29 @@ public:
   //
   // Alternatively, find the respective underlying LLVM Value.
   // CHECKME: Can we rely on having the underlying LLVM value available?
-  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVRValue *Ptr,
+  int getGatherScatterOpCost(unsigned Opcode, Type *SrcVTy, AVR *Ptr,
                              bool VariableMask, unsigned Alignment) override {
-    // Obtain the LLVMIR Pointer Value
-    assert(isa<AVRValueHIR>(Ptr) && "not AVRValueHIR?");
-    const HLNode *Node = (cast<AVRValueHIR>(Ptr))->getNode();
-    const HLInst *INode = dyn_cast<HLInst>(Node);
-    const Instruction *CurInst = INode->getLLVMInstruction();
-    Instruction *I = const_cast<Instruction *>(CurInst);
-    StoreInst *SI = dyn_cast<StoreInst>(I);
-    LoadInst *LI = dyn_cast<LoadInst>(I);
-    Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
 
-    // Call the TTI routine
-    return TTI.getGatherScatterOpCost(Opcode, SrcVTy, PtrVal, VariableMask,
-                                      Alignment);
+    if (AVRValueHIR *AValHIR = dyn_cast<AVRValueHIR>(Ptr)) {
+      // Obtain the LLVMIR Pointer Value
+      const HLNode *Node = AValHIR->getNode();
+      const HLInst *INode = dyn_cast<HLInst>(Node);
+      const Instruction *CurInst = INode->getLLVMInstruction();
+      Instruction *I = const_cast<Instruction *>(CurInst);
+      StoreInst *SI = dyn_cast<StoreInst>(I);
+      LoadInst *LI = dyn_cast<LoadInst>(I);
+      Value *PtrVal = SI ? SI->getPointerOperand() : LI->getPointerOperand();
+
+      // Call the TTI routine
+      return TTI.getGatherScatterOpCost(Opcode, SrcVTy, PtrVal, VariableMask,
+                                        Alignment);
+    } else { // TODO: Implicit loads
+      return 0;
+    }
   }
 
   // TODO.
-  bool isLikelyComplexAddressComputation(AVRValue *Ptr) {
+  bool isLikelyComplexAddressComputation(AVR *Ptr) {
     return false; // FIXME.
   }
 
@@ -411,10 +450,14 @@ protected:
 
   /// \brief A handle to Target Information
   const TargetTransformInfo &TTI;
-
+  const TargetLibraryInfo &TLI;
+  
+  /// \brief Cost for one iteration of ScalarLoop
+  unsigned int ScalarIterCost;
 public:
-  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI)
-      : AWrn(AWrn), TTI(TTI) {}
+  VPOCostModelBase(AVRWrn *AWrn, const TargetTransformInfo &TTI,
+                   const TargetLibraryInfo &TLI)
+    : AWrn(AWrn), TTI(TTI), TLI(TLI), ScalarIterCost(0) {}
 
   /// \brief Calculate a cost for the given \p ALoop assuming the Vectorization
   /// Factor is \p VF.
@@ -425,22 +468,26 @@ public:
   // want to encode the results of the CostModel, namely, which ALoops in the
   // region to vectorize and using which VFs (directly/explicitely in the
   // AVR?...)
-  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo);
+  // The minimum/maximum bit width of values loaded/stored are returned in
+  // MinBitWidthP/MaxBitWidthP when non-null. 
+  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
+              unsigned int *MinBitWidthP = nullptr,
+              unsigned int *MaxBitWidthP = nullptr);
 
   virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                                VPOVLSInfoBase *VLSInfo) = 0;
 
   // \brief Obtain the cost of aligning the loop trip count to the \p VF
-  virtual int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
-                                   unsigned int &ConstTripCount) = 0;
+  virtual int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) = 0;
 };
 
 /// LLVMIR CostModel
 class VPOCostModel : public VPOCostModelBase {
 public:
   VPOCostModel(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
-               LLVMContext &LLVMCntxt)
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
+               const TargetLibraryInfo &TLI, LLVMContext &LLVMCntxt)
+      : VPOCostModelBase(AWrn, TTI, TLI), CG(nullptr),
+                         VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
@@ -448,27 +495,39 @@ public:
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                        VPOVLSInfoBase *VLSInfo) override {
+    // FIXME: Find a better way to get DL! We also need to look into avoiding
+    // such duplicated code.
+    const DataLayout &DL =
+      (*cast<AVRLoopIR>(ALoop)->getLoop()->block_begin())
+      ->getParent()
+      ->getParent()
+      ->getDataLayout();
+
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, nullptr, nullptr);
+      CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop,
+                                         nullptr, nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfo>(*VLSInfo) && "VLSInfo not an LLVMIR VLSInfo");
     VPOVLSInfo *VLSInfoLLVMIR = cast<VPOVLSInfo>(VLSInfo);
     // Pass the underlying LLVMIR Loop instead
-    CostGatherer = new VPOCostGatherer(TTI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGatherer(TTI, TLI, DL, VF, ALoop, &VLSCostModel, 
                                        VLSInfoLLVMIR);
     return CostGatherer;
   }
 
-  int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF,
-                            unsigned int &ConstTripCount) override {
-    assert(isa<AVRLoopIR>(*ALoop) && "Loop not set.");
-    AVRLoopIR *AIRLoop = cast<AVRLoopIR>(ALoop);
-    Loop *L = nullptr;
-    L = const_cast<Loop *>(AIRLoop->getLoop());
-    assert(L && "Null Loop.");
+  int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) override {
     assert(CG && "CG not set.");
-    return CG->getRemainderLoopCost(L, VF, ConstTripCount);
+    ConstTripCount =  CG->getTripCount();
+
+    // Check for positive trip count and that trip count is a multiple of vector
+    // length. Otherwise a remainder loop is needed.
+    if (ConstTripCount == 0) {
+      // Assume the remainder loop executes VF/2 times in scalar fashion.
+      return ScalarIterCost * VF / 2;
+    } else {
+      return (ConstTripCount % VF) * ScalarIterCost;
+    }
   } 
 
 private:
@@ -481,8 +540,9 @@ private:
 class VPOCostModelHIR : public VPOCostModelBase {
 public:
   VPOCostModelHIR(AVRWrn *AWrn, const TargetTransformInfo &TTI, 
-                  LLVMContext &LLVMCntxt) 
-      : VPOCostModelBase(AWrn, TTI), CG(nullptr), VLSCostModel(TTI, LLVMCntxt) {
+                  const TargetLibraryInfo &TLI, LLVMContext &LLVMCntxt) 
+      : VPOCostModelBase(AWrn, TTI, TLI), CG(nullptr),
+        VLSCostModel(TTI, LLVMCntxt) {
     CostGatherer = nullptr;
   }
 
@@ -490,28 +550,41 @@ public:
 
   VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop,
                                        VPOVLSInfoBase *VLSInfo) override {
+    // FIXME: Find a better way to get DL! We also need to look into avoiding
+    // such duplicated code.
+    const DataLayout &DL =
+      (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+      ->getParent()
+      ->getParent()
+      ->getDataLayout();
+
     if (VLSInfo == nullptr) {
-      CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, nullptr, nullptr);
+      CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop, nullptr,
+                                            nullptr);
       return CostGatherer;
     }
     assert(isa<VPOVLSInfoHIR>(*VLSInfo) && "VLSInfo not a VLSInfoHIR");
     VPOVLSInfoHIR *VLSInfoHIR = cast<VPOVLSInfoHIR>(VLSInfo);
     // Pass the underlying HLLoop instead
-    CostGatherer = new VPOCostGathererHIR(TTI, VF, ALoop, &VLSCostModel, 
+    CostGatherer = new VPOCostGathererHIR(TTI, TLI, DL, VF, ALoop,
+                                          &VLSCostModel, 
                                           VLSInfoHIR);
     return CostGatherer;
   }
 
-  int getRemainderLoopCost(AVRLoop *ALoop, unsigned int VF, 
-                                unsigned int &ConstTripCount) {
-    assert(isa<AVRLoopHIR>(*ALoop) && "Loop not set.");
-    AVRLoopHIR *AHLoop = cast<AVRLoopHIR>(ALoop);
-    HLLoop *L = nullptr;
-    L = const_cast<HLLoop *>(AHLoop->getLoop());
-    assert(L && "Null HLLoop.");
+  int getRemainderLoopCost(unsigned int VF, uint64_t &ConstTripCount) override {
     assert(CG && "CG not set.");
-    return CG->getRemainderLoopCost(L, VF, ConstTripCount);
-  }
+    ConstTripCount =  CG->getTripCount();
+
+    // Check for positive trip count and that trip count is a multiple of vector
+    // length. Otherwise a remainder loop is needed.
+    if (ConstTripCount == 0) {
+      // Assume the remainder loop executes VF/2 times in scalar fashion.
+      return ScalarIterCost * VF / 2;
+    } else {
+      return (ConstTripCount % VF) * ScalarIterCost;
+    }
+  } 
 
 private:
   VPOCostGathererHIR *CostGatherer;
@@ -561,6 +634,7 @@ private:
 protected:
   /// Handle to Target Information
   const TargetTransformInfo &TTI;
+  const TargetLibraryInfo &TLI;
 
   /// AVR Region at hand.
   AVRWrn *AWrn;
@@ -573,6 +647,11 @@ protected:
   // CHECKME: per ALoop or per region?
   unsigned int ForceVF;
 
+  /// The minimum/maximum bit widths of types of values loaded/stored in the
+  /// loop. We only look at loads/stores for now.
+  unsigned int MinBitWidth;
+  unsigned int MaxBitWidth;
+
 private:
   /// AVRLoop in AVR region.
   // FIXME: Get rid of this member (given that we also pass the ALoop explicitly
@@ -581,8 +660,10 @@ private:
 
 public:
   VPOScenarioEvaluationBase(ScenarioEvaluationKind K, AVRWrn *AWrn, 
-                            const TargetTransformInfo &TTI, LLVMContext &C)
-      : Kind(K), TTI(TTI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0) {}
+                            const TargetTransformInfo &TTI, 
+                            const TargetLibraryInfo &TLI, LLVMContext &C)
+    : Kind(K), TTI(TTI), TLI(TLI), AWrn(AWrn), LLVMCntxt(C), ForceVF(0),
+      MinBitWidth(64), MaxBitWidth(8) {}
 
   virtual ~VPOScenarioEvaluationBase() {}
 
@@ -637,6 +718,9 @@ public:
   virtual SIMDLaneEvolutionAnalysisUtilBase &getSLEVUtil() = 0;
   virtual void resetLoopInfo() = 0;
   virtual VPOCostModelBase *getCM() = 0;
+  /// Perform IR-specific transformations on \p ALoop to prepare it for
+  /// later processing
+  virtual void prepareLoop(AVRLoop * ALoop) = 0;
 
   ScenarioEvaluationKind getKind() const { return Kind; }
 };
@@ -657,9 +741,11 @@ private:
 
 public:
   VPOScenarioEvaluation(AVRWrn *AvrWrn, const TargetTransformInfo &TTI, 
+                        const TargetLibraryInfo &TLI,
                         LLVMContext &C, AvrDefUse &DU)
-      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, C), SLEVUtil(DU), 
-        CM(AWrn, TTI, C), CG(nullptr) {}
+      : VPOScenarioEvaluationBase(SCEK_LLVMIR, AvrWrn, TTI, TLI, C),
+                                  SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
+                                  CG(nullptr) {}
 
   /// Obtain a handle to AVRCodeGen utilities
   void setCG(AVRCodeGen *LLVMIRCG) { CG = LLVMIRCG; } 
@@ -700,6 +786,12 @@ public:
   VPOCostModelBase *getCM() override { 
     CM.setCG(CG); 
     return &CM; 
+  }
+
+  /// Perform LLVM-IR specific transformations on \p ALoop to prepare it for
+  /// later processing. No prepare transformations are necessary for LLVM-IR
+  /// so far.
+  void prepareLoop(AVRLoop * ALoop) override {
   }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {
@@ -744,9 +836,11 @@ private:
 public:
   VPOScenarioEvaluationHIR(AVRWrn *AvrWrn, HIRDDAnalysis *DDA,
                            HIRVectVLSAnalysis *VLS, AvrDefUseHIR &DU,
-                           const TargetTransformInfo &TTI, LLVMContext &C)
-      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, C), DDA(DDA), VLS(VLS),
-        SLEVUtil(DU), CM(AWrn, TTI, C), CG(nullptr), Loop(nullptr) {}
+                           const TargetTransformInfo &TTI, 
+                           const TargetLibraryInfo &TLI, LLVMContext &C)
+      : VPOScenarioEvaluationBase(SCEK_HIR, AvrWrn, TTI, TLI, C), DDA(DDA),
+                                  VLS(VLS), SLEVUtil(DU), CM(AWrn, TTI, TLI, C),
+                                  CG(nullptr), Loop(nullptr) {}
   ~VPOScenarioEvaluationHIR() {}
 
   void setCG(AVRCodeGenHIR *HIRCG) { CG = HIRCG; } 
@@ -815,6 +909,19 @@ public:
   VPOCostModelBase *getCM() override { 
     CM.setCG(CG); 
     return &CM; 
+  }
+
+  /// Perform HIR-specific transformations on \p ALoop to prepare it for
+  /// later processing.
+  void prepareLoop(AVRLoop * ALoop) override {
+    AVRDecomposeHIR Decomposer;
+    // FIXME: Find a better way to get DL!
+    const DataLayout &DL =
+        (*cast<AVRLoopHIR>(ALoop)->getLoop()->getLLVMLoop()->block_begin())
+            ->getParent()
+            ->getParent()
+            ->getDataLayout();
+    Decomposer.runOnAvr(ALoop, DL);
   }
 
   static bool classof(const VPOScenarioEvaluationBase *EvaluationEngine) {

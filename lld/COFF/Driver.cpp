@@ -7,8 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Config.h"
 #include "Driver.h"
+#include "Config.h"
 #include "Error.h"
 #include "InputFiles.h"
 #include "SymbolTable.h"
@@ -80,6 +80,9 @@ static std::unique_ptr<InputFile> createFile(MemoryBufferRef MB) {
     return std::unique_ptr<InputFile>(new ArchiveFile(MB));
   if (Magic == file_magic::bitcode)
     return std::unique_ptr<InputFile>(new BitcodeFile(MB));
+  if (Magic == file_magic::coff_cl_gl_object)
+    fatal(MB.getBufferIdentifier() + ": is not a native COFF file. "
+          "Recompile without /GL");
   if (Config->OutputFile == "")
     Config->OutputFile = getOutputPath(MB.getBufferIdentifier());
   return std::unique_ptr<InputFile>(new ObjectFile(MB));
@@ -371,6 +374,10 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
             ? parseDebugType(Args.getLastArg(OPT_debugtype)->getValue())
             : getDefaultDebugType(Args);
   }
+
+  // Create a dummy PDB file to satisfy build sytem rules.
+  if (auto *Arg = Args.getLastArg(OPT_pdb))
+    Config->PDBPath = Arg->getValue();
 
   // Handle /noentry
   if (Args.hasArg(OPT_noentry)) {
@@ -742,10 +749,6 @@ void LinkerDriver::link(llvm::ArrayRef<const char *> ArgsArr) {
   // Windows specific -- Create a side-by-side manifest file.
   if (Config->Manifest == Configuration::SideBySide)
     createSideBySideManifest();
-
-  // Create a dummy PDB file to satisfy build sytem rules.
-  if (auto *Arg = Args.getLastArg(OPT_pdb))
-    createPDB(Arg->getValue());
 
   // Identify unreferenced COMDAT sections.
   if (Config->DoGC)

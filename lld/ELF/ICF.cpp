@@ -119,16 +119,13 @@ private:
 // Returns a hash value for S. Note that the information about
 // relocation targets is not included in the hash value.
 template <class ELFT> uint64_t ICF<ELFT>::getHash(InputSection<ELFT> *S) {
-  uint64_t Flags = S->getSectionHdr()->sh_flags;
-  uint64_t H = hash_combine(Flags, S->getSize());
-  for (const Elf_Shdr *Rel : S->RelocSections)
-    H = hash_combine(H, (uint64_t)Rel->sh_size);
-  return H;
+  uint64_t Flags = S->Flags;
+  return hash_combine(Flags, S->getSize(), S->NumRelocations);
 }
 
 // Returns true if Sec is subject of ICF.
 template <class ELFT> bool ICF<ELFT>::isEligible(InputSectionBase<ELFT> *Sec) {
-  if (!Sec || Sec == &InputSection<ELFT>::Discarded || !Sec->Live)
+  if (!Sec->Live)
     return false;
   auto *S = dyn_cast<InputSection<ELFT>>(Sec);
   if (!S)
@@ -137,22 +134,19 @@ template <class ELFT> bool ICF<ELFT>::isEligible(InputSectionBase<ELFT> *Sec) {
   // .init and .fini contains instructions that must be executed to
   // initialize and finalize the process. They cannot and should not
   // be merged.
-  StringRef Name = S->getSectionName();
+  StringRef Name = S->Name;
   if (Name == ".init" || Name == ".fini")
     return false;
 
-  const Elf_Shdr &H = *S->getSectionHdr();
-  return (H.sh_flags & SHF_ALLOC) && (~H.sh_flags & SHF_WRITE);
+  return (S->Flags & SHF_ALLOC) && !(S->Flags & SHF_WRITE);
 }
 
 template <class ELFT>
 std::vector<InputSection<ELFT> *> ICF<ELFT>::getSections() {
   std::vector<InputSection<ELFT> *> V;
-  for (const std::unique_ptr<ObjectFile<ELFT>> &F :
-       Symtab<ELFT>::X->getObjectFiles())
-    for (InputSectionBase<ELFT> *S : F->getSections())
-      if (isEligible(S))
-        V.push_back(cast<InputSection<ELFT>>(S));
+  for (InputSectionBase<ELFT> *S : Symtab<ELFT>::X->Sections)
+    if (isEligible(S))
+      V.push_back(cast<InputSection<ELFT>>(S));
   return V;
 }
 
@@ -215,26 +209,19 @@ bool ICF<ELFT>::relocationEq(ArrayRef<RelTy> RelsA, ArrayRef<RelTy> RelsB) {
 template <class ELFT>
 bool ICF<ELFT>::equalsConstant(const InputSection<ELFT> *A,
                                const InputSection<ELFT> *B) {
-  if (A->RelocSections.size() != B->RelocSections.size())
+  if (A->NumRelocations != B->NumRelocations)
     return false;
 
-  for (size_t I = 0, E = A->RelocSections.size(); I != E; ++I) {
-    const Elf_Shdr *RA = A->RelocSections[I];
-    const Elf_Shdr *RB = B->RelocSections[I];
-    ELFFile<ELFT> &FileA = A->File->getObj();
-    ELFFile<ELFT> &FileB = B->File->getObj();
-    if (RA->sh_type == SHT_RELA) {
-      if (!relocationEq(FileA.relas(RA), FileB.relas(RB)))
-        return false;
-    } else {
-      if (!relocationEq(FileA.rels(RA), FileB.rels(RB)))
-        return false;
-    }
+  if (A->AreRelocsRela) {
+    if (!relocationEq(A->relas(), B->relas()))
+      return false;
+  } else {
+    if (!relocationEq(A->rels(), B->rels()))
+      return false;
   }
 
-  return A->getSectionHdr()->sh_flags == B->getSectionHdr()->sh_flags &&
-         A->getSize() == B->getSize() &&
-         A->getSectionData() == B->getSectionData();
+  return A->Flags == B->Flags && A->getSize() == B->getSize() &&
+         A->Data == B->Data;
 }
 
 template <class ELFT>
@@ -272,20 +259,9 @@ bool ICF<ELFT>::variableEq(const InputSection<ELFT> *A,
 template <class ELFT>
 bool ICF<ELFT>::equalsVariable(const InputSection<ELFT> *A,
                                const InputSection<ELFT> *B) {
-  for (size_t I = 0, E = A->RelocSections.size(); I != E; ++I) {
-    const Elf_Shdr *RA = A->RelocSections[I];
-    const Elf_Shdr *RB = B->RelocSections[I];
-    ELFFile<ELFT> &FileA = A->File->getObj();
-    ELFFile<ELFT> &FileB = B->File->getObj();
-    if (RA->sh_type == SHT_RELA) {
-      if (!variableEq(A, B, FileA.relas(RA), FileB.relas(RB)))
-        return false;
-    } else {
-      if (!variableEq(A, B, FileA.rels(RA), FileB.rels(RB)))
-        return false;
-    }
-  }
-  return true;
+  if (A->AreRelocsRela)
+    return variableEq(A, B, A->relas(), B->relas());
+  return variableEq(A, B, A->rels(), B->rels());
 }
 
 // The main function of ICF.
@@ -331,10 +307,10 @@ template <class ELFT> void ICF<ELFT>::run() {
     });
     if (I == Bound)
       continue;
-    log("selected " + Head->getSectionName());
+    log("selected " + Head->Name);
     while (I != Bound) {
       InputSection<ELFT> *S = *I++;
-      log("  removed " + S->getSectionName());
+      log("  removed " + S->Name);
       Head->replace(S);
     }
   }

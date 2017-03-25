@@ -77,7 +77,7 @@ public:
   bool runOnFunction(Function &F);
   void visitInstruction(Instruction &I) { return; }
   void visitCallInst(CallInst &CI);
-  const char *getPassName() const override { return "TBAAPROP"; }
+  StringRef getPassName() const override { return "TBAAPROP"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
     AU.addRequired<CallGraphWrapperPass>();

@@ -7,25 +7,25 @@
 
 define i32 @main() nounwind {
 entry:
-; CHECK: movl {{[0-9]*}}(%esp), %eax
+; CHECK: movl 24(%esp), %eax
 ; CHECK-NOT: movl
-; CHECK: movl	%eax, {{[0-9]*}}(%esp)
+; CHECK: movl	%eax, 36(%esp)
 ; CHECK-NOT: movl
-; CHECK: movl {{[0-9]*}}(%esp), %ebx
+; CHECK: movl 28(%esp), %ebx
 ; CHECK-NOT: movl
-; CHECK: movl	%ebx, {{[0-9]*}}(%esp)
+; CHECK: movl	%ebx, 40(%esp)
 ; CHECK-NOT: movl
 ; CHECK: addl %ebx, %eax
 
 ; On Intel Atom the scheduler moves a movl instruction
 ; used for the printf call to follow movl 24(%esp), %eax
-; ATOM: movl {{[0-9]*}}(%esp), %eax
+; ATOM: movl 24(%esp), %eax
 ; ATOM: movl
-; ATOM: movl   %eax, {{[0-9]*}}(%esp)
+; ATOM: movl   %eax, 36(%esp)
 ; ATOM-NOT: movl
-; ATOM: movl {{[0-9]*}}(%esp), %ebx
+; ATOM: movl 28(%esp), %ebx
 ; ATOM-NOT: movl
-; ATOM: movl   %ebx, {{[0-9]*}}(%esp)
+; ATOM: movl   %ebx, 40(%esp)
 ; ATOM-NOT: movl
 ; ATOM: addl %ebx, %eax
 

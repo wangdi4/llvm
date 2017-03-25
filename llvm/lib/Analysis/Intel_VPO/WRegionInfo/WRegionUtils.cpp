@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "WRegionUtils"
 
@@ -29,28 +29,74 @@ using namespace vpo;
 /// a WRN node of WRegionNodeKind corresponding to the directive,
 /// and return a pointer to it. Otherwise; return nullptr.
 WRegionNode *WRegionUtils::createWRegion(
-  StringRef  DirString,
+  int        DirID,
   BasicBlock *EntryBB,
   LoopInfo   *LI,
   unsigned   NestingLevel
 )
 {
   WRegionNode *W = nullptr;
-  int DirID = VPOUtils::getDirectiveID(DirString);
 
   switch(DirID) {
-    // TODO: complete the list for all WRegionNodeKinds
     case DIR_OMP_PARALLEL:
       W = new WRNParallelNode(EntryBB);
       break;
     case DIR_OMP_PARALLEL_LOOP:
       W = new WRNParallelLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_PARALLEL_SECTIONS:
+      W = new WRNParallelSectionsNode(EntryBB, LI);
+      break;
+    case DIR_OMP_PARALLEL_WORKSHARE:   // Fortran only
+      W = new WRNParallelWorkshareNode(EntryBB, LI);
+      break;
+    case DIR_OMP_TEAMS:
+      W = new WRNTeamsNode(EntryBB);
+      break;
+    case DIR_OMP_DISTRIBUTE_PARLOOP:
+      W = new WRNDistributeParLoopNode(EntryBB, LI);
+      break;
+    case DIR_OMP_TARGET:
+      W = new WRNTargetNode(EntryBB);
+      break;
+    case DIR_OMP_TARGET_DATA:
+    case DIR_OMP_TARGET_ENTER_DATA:
+    case DIR_OMP_TARGET_EXIT_DATA:
+    case DIR_OMP_TARGET_UPDATE:
+      W = new WRNTargetDataNode(EntryBB);
+      break;
+    case DIR_OMP_TASK:
+      W = new WRNTaskNode(EntryBB);
+      break;
+    case DIR_OMP_TASKLOOP:
+      W = new WRNTaskloopNode(EntryBB, LI);
+      break;
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;
+    case DIR_OMP_LOOP:
+      W = new WRNWksLoopNode(EntryBB, LI);
+      break;
+    case DIR_OMP_SECTIONS:
+      W = new WRNSectionsNode(EntryBB, LI);
+      break;
+    case DIR_OMP_WORKSHARE:   // Fortran only
+      W = new WRNWorkshareNode(EntryBB, LI);
+      break;
+    case DIR_OMP_DISTRIBUTE:
+      W = new WRNDistributeNode(EntryBB, LI);
+      break;
     case DIR_OMP_ATOMIC:
       W = new WRNAtomicNode(EntryBB);
+      break;
+    case DIR_OMP_BARRIER:
+      W = new WRNBarrierNode(EntryBB);
+      break;
+    case DIR_OMP_CANCEL:
+      W = new WRNCancelNode(EntryBB, false);
+      break;
+    case DIR_OMP_CANCELLATION_POINT:
+      W = new WRNCancelNode(EntryBB, true);
       break;
     case DIR_OMP_MASTER:
       W = new WRNMasterNode(EntryBB);
@@ -64,9 +110,27 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_CRITICAL:
       W = new WRNCriticalNode(EntryBB);
       break;
+    case DIR_OMP_FLUSH:
+      W = new WRNFlushNode(EntryBB);
+      break;
+    case DIR_OMP_TASKGROUP:
+      W = new WRNTaskgroupNode(EntryBB);
+      break;
+    case DIR_OMP_TASKWAIT:
+      W = new WRNTaskwaitNode(EntryBB);
+      break;
+    case DIR_OMP_TASKYIELD:
+      W = new WRNTaskyieldNode(EntryBB);
+      break;
+    case DIR_OMP_THREADPRIVATE:
+      // #pragma omp threadprivate can be a module-level directive so we
+      // handle it outside of the WRN framework 
+      break;
   }
-  if (W)
+  if (W) {
     W->setLevel(NestingLevel);
+    W->setDirID(DirID);
+  }
   return W;
 }
 
@@ -101,10 +165,10 @@ void WRegionUtils::updateWRGraphFromHIR (
 )
 {
   WRegionNode *W = nullptr;
-  StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
+  StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
 
   if (IntrinId == Intrinsic::intel_directive) {
-    int DirID = VPOUtils::getDirectiveID(DirOrClauseStr);
+    int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
     // If the intrinsic represents a BEGIN directive for a construct 
     // needed by the vectorizer (eg: DIR.OMP.SIMD), then
     // createWRegionHIR creates a WRN for it and returns its pointer.
@@ -122,7 +186,7 @@ void WRegionUtils::updateWRGraphFromHIR (
       }
       S.push(W);
     }
-    else if (VPOUtils::isEndDirective(DirID)) {
+    else if (VPOAnalysisUtils::isEndDirective(DirID)) {
       // DEBUG(dbgs() << "\n} Ending WRegion.\n");
       if (!S.empty()) {
         W = S.top();
@@ -137,7 +201,7 @@ void WRegionUtils::updateWRGraphFromHIR (
     }
   } else { //process clauses
     W = S.top();
-    int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
+    int ClauseID = VPOAnalysisUtils::getClauseID(DirOrClauseStr);
     if (IntrinId == Intrinsic::intel_directive_qual) {
       // Handle clause with no arguments
       assert (Call->getNumArgOperands()==1 && 
@@ -183,7 +247,7 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
     IntrinsicInst* Call = dyn_cast<IntrinsicInst>(II);
     if (Call) {
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
-      if (VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
+      if (VPOAnalysisUtils::isIntelDirectiveOrClause(IntrinId)) {
         // The intrinsic is one of these: intel_directive,
         //                                intel_directive_qual, 
         //                                intel_directive_qual_opnd, 
@@ -213,19 +277,6 @@ WRContainerImpl *WRegionUtils::buildWRGraphFromHIR(HIRFramework &HIRF)
 
   HIRF.getHLNodeUtils().visitAll(Visitor);
   return Visitor.getWRGraph();
-}
-
-
-//Removal Utilities
-bool WRegionUtils::stripDirectives(WRegionNode *WRN) {
-  bool success = true;
-  BasicBlock *EntryBB = WRN->getEntryBBlock();
-  BasicBlock *ExitBB = WRN->getExitBBlock();
-
-  success = success && VPOUtils::stripDirectives(*EntryBB);
-  success = success && VPOUtils::stripDirectives(*ExitBB);
-
-  return success;
 }
 
 // Clause Utilities

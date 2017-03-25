@@ -25,6 +25,7 @@ add_llvm_library(LLVMScalarOpts
 #endif     // INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
+  LoopSink.cpp
   LoadCombine.cpp
   LoopDeletion.cpp
   LoopDataPrefetch.cpp
@@ -66,6 +67,7 @@ add_llvm_library(LLVMScalarOpts
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Scalar
-  )
 
-add_dependencies(LLVMScalarOpts intrinsics_gen)
+  DEPENDS
+  intrinsics_gen
+  )

@@ -303,7 +303,7 @@ unsigned HLNode::getMinTopSortNum() const {
 HLNode *HLNode::clone(HLNodeMapper *NodeMapper) const {
   HLContainerTy NContainer;
   getHLNodeUtils().cloneSequence(&NContainer, this, nullptr, NodeMapper);
-  return NContainer.remove(NContainer.begin());
+  return &NContainer.front();
 }
 
 HLNode *HLNode::cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,

@@ -79,28 +79,6 @@ Value *findScalarElement(Value *V, unsigned EltNo);
 const Value *getSplatValue(const Value *V);
 
 #if INTEL_CUSTOMIZATION
-/// \brief Determine if the SCEV expression is invariant with respect to the
-/// loop. This function will be called recursively for SCEV expressions that
-/// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions
-/// are also loop invariant.
-bool referenceIsLoopInvariant(const SCEV *Scev, ScalarEvolution *SE,
-                              Loop *OrigLoop);
-
-// \brief This function returns the stride of a memory reference expression.
-// If it is determined that all SCEVs analyzed in the trace back are loop
-// invariant, then the stride from the initial add recurrence is returned.
-// Otherwise, the stride is set to Undef.
-Value* getExprStride(const SCEV *Scev, ScalarEvolution *SE, Loop *OrigLoop);
-
-// \brief This function marks the CallInst VecCall with the appropriate stride
-// information determined by getExprStride(), which is used later in LLVM IR
-// generation for loads/stores. Initial use of this information is used during
-// SVML translation for sincos vectorization, but could be applicable to any
-// situation where we need to analyze memory references.
-void analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
-                                    const TargetLibraryInfo *TLI,
-                                    ScalarEvolution *SE, Loop *OrigLoop);
-
 /// \brief Compute a map of integer instructions to their minimum legal type
 /// size.
 ///
@@ -140,24 +118,6 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
 
-/// \brief Determine if the SCEV expression is invariant with respect to the
-/// loop. This function will be called recursively for SCEV expressions that
-/// consist of SCEVUnknown and SCEVAddExpr to determine if those subexpressions
-/// are also loop invariant.
-bool referenceIsLoopInvariant(const SCEV *Scev, ScalarEvolution *SE,
-                              Loop *OrigLoop);
-
-/// \brief This function returns the stride of a memory reference expression.
-/// Geps that represent each dimension of an array are analyzed to see if
-/// they are invariant with respect to the loop being vectorized, with the
-/// exception of the gep corresponding to the innermost loop level for which
-/// we will obtain a stride. So essentially, the function is looking for an
-/// address calculation of the form: base + c1 + c2, where we find the stride
-/// for base and c1, c2, ..., cn are constants. This information is useful
-/// for determining the types of vector loads/stores to generate. If this
-/// address form is not found, the stride is set to Undef.
-Value* getExprStride(const SCEV *Scev, ScalarEvolution *SE, Loop *OrigLoop);
-
 /// \brief This function marks the CallInst VecCall with the appropriate stride
 /// information determined by getExprStride(), which is used later in LLVM IR
 /// generation for loads/stores. Initial use of this information is used during
@@ -187,6 +147,12 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 /// @param funcVars Data structure to hold the declared vector variants
 /// (in string form) for each function.
 void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
+
+/// \brief Widens the Function \p F using a vector length of \p VL and
+/// inserts the appropriate function declaration if not already created.
+Function* getOrInsertVectorFunction(Function *F, unsigned VL,
+                                    SmallVectorImpl<Type*> &ArgTys,
+                                    TargetLibraryInfo *TLI);
 #endif // INTEL_CUSTOMIZATION
     
 /// Specifically, let Kinds = [MD_tbaa, MD_alias_scope, MD_noalias, MD_fpmath,

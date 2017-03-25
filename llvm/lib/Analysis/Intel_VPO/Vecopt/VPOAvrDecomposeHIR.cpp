@@ -226,9 +226,8 @@ private:
 
   AVR *decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE);
   AVR *decomposeCanonExprConv(CanonExpr *CE, AVR *SrcTree);
-  AVRExpression *decomposeMemoryOp(RegDDRef *RDDR);
+  AVRExpression *decomposeMemoryOp(AVRValueHIR *AVal);
   AVR *decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel, Type *Ty);
-  AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff);
 
 public:
   HIRDecomposer(const DataLayout &D) : DL(D) {}
@@ -244,7 +243,7 @@ public:
 bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
 
   // We don't need to decompose:
-  //   - Constants
+  //   - Constants (including null pointers)
   //   - BlobDDRefs (already decomposed)
   //   - IVs (already decomposed)
   if (AVal->isConstant() || AVal->isIVValue() ||
@@ -258,9 +257,8 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
  
   // We don't need to decompose:
   //   - Unitary blobs and standalone IVs with the same Src and Dest types
-  //   - Null pointers
   //   - Metadata
-  if (RDDR->isMetadata() || RDDR->isNull() || RDDR->isUnitaryBlob() ||
+  if (RDDR->isMetadata() || RDDR->isUnitaryBlob() ||
       RDDR->isStandAloneIV(false /*AllowConversion*/)) {
     return false;
   }
@@ -268,15 +266,15 @@ bool HIRDecomposer::needsDecomposition(AVRValueHIR *AVal) {
   return true;
 }
 
-AVR * HIRDecomposer::decompose(AVRValueHIR *AVal) {
+AVR *HIRDecomposer::decompose(AVRValueHIR *AVal) {
   assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
-  RegDDRef * RDDR = cast<RegDDRef>(AVal->getValue());
+  RegDDRef *RDDR = cast<RegDDRef>(AVal->getValue());
 
   if (RDDR->isTerminalRef()) {
     return decomposeCanonExpr(RDDR, RDDR->getSingleCanonExpr());
   } else {
     // Memory ops
-    return decomposeMemoryOp(RDDR);
+    return decomposeMemoryOp(AVal);
   }
 }
 
@@ -323,7 +321,7 @@ AVR *HIRDecomposer::decomposeCanonExpr(RegDDRef *RDDR, CanonExpr *CE) {
     int64_t BlobCoeff = CE->getBlobCoeff(BlobIdx);
     assert(BlobCoeff != 0 && "Invalid blob coefficient!");
 
-    AVR *BlobTree = decomposeBlob(RDDR, BlobIdx, BlobCoeff);
+    AVR *BlobTree = decomposeBlob(RDDR, BlobIdx, BlobCoeff, DL);
     CETree =
         combineSubTrees(CETree, BlobTree, CE->getSrcType(), Instruction::Add);
   }
@@ -356,7 +354,10 @@ AVR *HIRDecomposer::decomposeCanonExprConv(CanonExpr *CE, AVR *SrcTree) {
   return SrcTree;
 }
 
-AVRExpression *HIRDecomposer::decomposeMemoryOp(RegDDRef *RDDR) {
+AVRExpression *HIRDecomposer::decomposeMemoryOp(AVRValueHIR *AVal) {
+ 
+  assert(isa<RegDDRef>(AVal->getValue()) && "Expected a RegDDRef" );
+  RegDDRef *RDDR = cast<RegDDRef>(AVal->getValue());
 
   DEBUG(dbgs() << "  Decomposing MemOp:  ");
   DEBUG(RDDR->dump());
@@ -386,8 +387,71 @@ AVRExpression *HIRDecomposer::decomposeMemoryOp(RegDDRef *RDDR) {
 
   // This expression is representing a GEP so we use the type of the BaseCE
   // (pointer)
-  return AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
+  DEBUG(dbgs() << "  Creating GEP\n");
+  AVRExpression *Result = AVRUtils::createAVRExpression(GepOperands, Instruction::GetElementPtr,
                                        RDDR->getBaseCE()->getDestType());
+
+  // So far, loads always had explicit HLInsts in HIR that were translated to
+  // explicit load operations (expressions) in AVR. For example, in the code
+  // below, arrays 'b' and 'c' are explicit loads that load data to %0
+  // and %1 respectively.
+  //
+  // + DO i1 = 0, zext.i32.i64(%max_allocno) + -1, 1
+  // |   %0 = (@b)[0][i1];
+  // |   %1 = (@c)[0][i1];
+  // |   (@a)[0][i1] = %0 + %1;
+  // + END LOOP
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{EXPR{i32 VALUE{i32 %0}} = EXPR{i32 load VALUE{i32* (@b)[0][i1]}}}
+  //   ASSIGN{EXPR{i32 VALUE{i32 %1}} = EXPR{i32 load VALUE{i32* (@c)[0][i1]}}}
+  //   ...
+  // }
+  //
+  // However, Temp Cleanup in HIR introduced "implicit loads" by removing
+  // explicit load HLInsts in some cases. For example, in the code below, arrays
+  // 'b' and 'c' are implicit loads. As you can see, there is no load
+  // instruction generated in AVR for them.
+  //
+  // + DO i1 = 0, zext.i32.i64(%max_allocno) + -1, 1
+  // |   %add = (@b)[0][i1]  +  (@c)[0][i1];
+  // |   (@a)[0][i1] = %add;
+  // + END LOOP
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{EXPR{float VALUE{float %add}} =
+  //       EXPR{float VALUE{float (@b)[0][i1]} fadd VALUE{float (@c)[0][i1]}}}
+  //   ...
+  // }
+  //
+  // These implicit loads need special treatment in decomposer as an explicit
+  // load has to be generated to have a consistent decomposition. The example
+  // below shows how explicit loads are introduced in decomposer.
+  //
+  // LOOP( IV )
+  // {
+  //   ASSIGN{(4)EXPR{float (5)VALUE{float %add}} = ...
+  //       EXPR{float load (16)EXPR{[64 x float]* getelementptr ... }}}
+  //       fadd
+  //       EXPR{float load (21)EXPR{[64 x float]* getelementptr ... }}}
+  //   ...
+  // }
+  //
+
+  // Is this an implicit load? We need to add an explicit load.
+  // CHECKME: I don't find a cleaner way to know if a load is necessary.
+  AVRExpression *Parent;
+  if (RDDR->isRval() && !RDDR->isAddressOf() &&
+      (Parent = dyn_cast<AVRExpression>(AVal->getParent())) &&
+      Parent->getOperation() != Instruction::Load) {
+    DEBUG(dbgs() << "  Creating Load\n");
+    Result = AVRUtils::createAVRExpression(Result, Instruction::Load,
+                                           RDDR->getDestType());
+  }
+
+  return Result;
 }
 
 AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
@@ -403,7 +467,7 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
 
   // Create AVRExpression for Blob * IV
   if (IVBlobIndex != InvalidBlobIndex) {
-    AVR *IVBlobValue = decomposeBlob(RDDR, IVBlobIndex, 1 /*BlobCoeff*/);
+    AVR *IVBlobValue = decomposeBlob(RDDR, IVBlobIndex, 1 /*BlobCoeff*/, DL);
     IVSubTree = combineSubTrees(IVBlobValue, IVSubTree, Ty, Instruction::Mul);
   }
 
@@ -415,8 +479,10 @@ AVR *HIRDecomposer::decomposeIV(RegDDRef *RDDR, CanonExpr *CE, unsigned IVLevel,
   return IVSubTree;
 }
 
-AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
-                                  int64_t BlobCoeff) {
+namespace llvm {
+namespace vpo {
+AVR *decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx, int64_t BlobCoeff,
+                   const DataLayout &DL) {
   BlobTy Blob = RDDR->getBlobUtils().getBlob(BlobIdx);
   AVR *BlobSubTree;
 
@@ -456,6 +522,8 @@ AVR *HIRDecomposer::decomposeBlob(RegDDRef *RDDR, unsigned BlobIdx,
     
   return BlobSubTree;
 }
+}
+}
 
 void HIRDecomposer::visit(AVRValueHIR *AVal) {
 
@@ -470,6 +538,7 @@ void HIRDecomposer::visit(AVRValueHIR *AVal) {
     assert(SubTree && isa<AVRExpression>(SubTree) &&
            "Decomposition is unnecessary");
     AVRUtils::setDecompTree(AVal, cast<AVRExpression>(SubTree));
+    AVRUtils::setParent(SubTree, AVal);
   }
 }
 
@@ -500,9 +569,11 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
   DEBUG(dbgs() << "AVRDecomposerHIR\n");
 
-  HIRDecomposer HIRDecomp(F.getParent()->getDataLayout());
-  AVRVisitor<HIRDecomposer> AVisitor(HIRDecomp);
-  AVisitor.forwardVisitAll(AVRG);
+  const DataLayout& DL = F.getParent()->getDataLayout();
+
+  for (auto I = AVRG->begin(), E = AVRG->end(); I != E; ++I) {
+    runOnAvr(&*I, DL);
+  }
 
   DEBUG(dbgs() << "Abstract Layer After Decomposition:\n");
   DEBUG(this->dump(PrintAvrDecomp));

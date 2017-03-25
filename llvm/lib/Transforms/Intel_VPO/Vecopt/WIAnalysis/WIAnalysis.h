@@ -59,7 +59,7 @@ public:
   VectorizableLoopsAnalysis() : FunctionPass(ID) {}
   ~VectorizableLoopsAnalysis() {}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "VectorizableLoopsAnalysis";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -132,7 +132,7 @@ public:
     WIAnalysis(unsigned int vectorizationDimension);
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "WIAnalysis";
     }
 

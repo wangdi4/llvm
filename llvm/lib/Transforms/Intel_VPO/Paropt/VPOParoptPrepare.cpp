@@ -55,9 +55,7 @@ INITIALIZE_PASS_END(VPOParoptPrepare, "vpo-paropt-prepare",
 char VPOParoptPrepare::ID = 0;
 
 FunctionPass *llvm::createVPOParoptPreparePass(unsigned Mode) {
-  assert(Mode >= OmpPar && ((Mode & (Mode-1)) == 0) &&
-         "Expect the VPO Mode is OmpPar, OmpVec or OmpOffload.");
-  return new VPOParoptPrepare(ParPrepare | Mode);
+  return new VPOParoptPrepare(ParPrepare & Mode);
 }
 
 VPOParoptPrepare::VPOParoptPrepare(unsigned MyMode)

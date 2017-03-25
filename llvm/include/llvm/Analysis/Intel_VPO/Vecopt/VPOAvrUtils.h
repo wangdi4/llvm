@@ -87,6 +87,9 @@ public:
   static AVRFunction *createAVRFunction(Function *OrigF,
                                         const LoopInfo *LpInfo);
 
+  /// \brief Returns a new AVRCall node.
+  static AVRFunction *createAVRCall(Function *OrigF);
+
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop(const Loop *Lp);
 

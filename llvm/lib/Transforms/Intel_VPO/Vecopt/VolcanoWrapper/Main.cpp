@@ -771,7 +771,7 @@ public:
   RemoveVectorizationHints() : FunctionPass(ID) {}
   ~RemoveVectorizationHints() {}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "RemoveVectorizationHints";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -830,7 +830,7 @@ public:
   PrepareLoopForVectorization() : FunctionPass(ID) {}
   ~PrepareLoopForVectorization() {}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "PrepareLoopForVectorization";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -978,7 +978,7 @@ public:
   CollapseOuterLoop() : FunctionPass(ID) {}
   ~CollapseOuterLoop() {}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "CollapseOuterLoop";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
@@ -1034,7 +1034,7 @@ public:
   RemoveTempScalarizingAllocas() : FunctionPass(ID) {}
   ~RemoveTempScalarizingAllocas() {}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "RemoveTempScalarizingAllocas";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {

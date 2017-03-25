@@ -24,8 +24,10 @@
 #include "UseBoolLiteralsCheck.h"
 #include "UseDefaultCheck.h"
 #include "UseEmplaceCheck.h"
+#include "UseEqualsDeleteCheck.h"
 #include "UseNullptrCheck.h"
 #include "UseOverrideCheck.h"
+#include "UseTransparentFunctorsCheck.h"
 #include "UseUsingCheck.h"
 
 using namespace clang::ast_matchers;
@@ -37,8 +39,7 @@ namespace modernize {
 class ModernizeModule : public ClangTidyModule {
 public:
   void addCheckFactories(ClangTidyCheckFactories &CheckFactories) override {
-    CheckFactories.registerCheck<AvoidBindCheck>(
-        "modernize-avoid-bind");
+    CheckFactories.registerCheck<AvoidBindCheck>("modernize-avoid-bind");
     CheckFactories.registerCheck<DeprecatedHeadersCheck>(
         "modernize-deprecated-headers");
     CheckFactories.registerCheck<LoopConvertCheck>("modernize-loop-convert");
@@ -57,8 +58,12 @@ public:
         "modernize-use-bool-literals");
     CheckFactories.registerCheck<UseDefaultCheck>("modernize-use-default");
     CheckFactories.registerCheck<UseEmplaceCheck>("modernize-use-emplace");
+    CheckFactories.registerCheck<UseEqualsDeleteCheck>(
+        "modernize-use-equals-delete");
     CheckFactories.registerCheck<UseNullptrCheck>("modernize-use-nullptr");
     CheckFactories.registerCheck<UseOverrideCheck>("modernize-use-override");
+    CheckFactories.registerCheck<UseTransparentFunctorsCheck>(
+        "modernize-use-transparent-functors");
     CheckFactories.registerCheck<UseUsingCheck>("modernize-use-using");
   }
 

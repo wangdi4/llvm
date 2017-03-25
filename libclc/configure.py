@@ -69,8 +69,8 @@ llvm_version = string.split(string.replace(llvm_config(['--version']), 'svn', ''
 llvm_int_version = int(llvm_version[0]) * 100 + int(llvm_version[1]) * 10
 llvm_string_version = 'LLVM' + llvm_version[0] + '.' + llvm_version[1]
 
-if llvm_int_version < 390:
-    print "libclc requires LLVM >= 3.9"
+if llvm_int_version < 400:
+    print "libclc requires LLVM >= 4.0"
     sys.exit(1)
 
 llvm_system_libs = llvm_config(['--system-libs'])
@@ -96,16 +96,18 @@ available_targets = {
                 {'gpu' : 'barts',   'aliases' : ['turks', 'caicos'] },
                 {'gpu' : 'cayman',  'aliases' : ['aruba']} ]},
   'amdgcn--': { 'devices' :
-                [{'gpu' : 'tahiti', 'aliases' : ['pitcairn', 'verde', 'oland', 'hainan', 'bonaire', 'kabini', 'kaveri', 'hawaii','mullins','tonga','carrizo','iceland','fiji','stoney']} ]},
+                [{'gpu' : 'tahiti', 'aliases' : ['pitcairn', 'verde', 'oland', 'hainan', 'bonaire', 'kabini', 'kaveri', 'hawaii','mullins','tonga','carrizo','iceland','fiji','stoney','polaris10','polaris11']} ]},
   'amdgcn--amdhsa': { 'devices' :
-                      [{'gpu' : '', 'aliases' : ['bonaire', 'hawaii', 'kabini', 'kaveri', 'mullins', 'carrizo', 'stoney', 'fiji', 'iceland', 'tonga']} ]},
+                      [{'gpu' : '', 'aliases' : ['bonaire', 'hawaii', 'kabini', 'kaveri', 'mullins', 'carrizo', 'stoney', 'fiji', 'iceland', 'tonga','polaris10','polaris11']} ]},
   'nvptx--'   : { 'devices' : [{'gpu' : '', 'aliases' : []} ]},
   'nvptx64--' : { 'devices' : [{'gpu' : '', 'aliases' : []} ]},
   'nvptx--nvidiacl'   : { 'devices' : [{'gpu' : '', 'aliases' : []} ]},
   'nvptx64--nvidiacl' : { 'devices' : [{'gpu' : '', 'aliases' : []} ]},
 }
 
-default_targets = ['nvptx--nvidiacl', 'nvptx64--nvidiacl', 'r600--', 'amdgcn--', 'amdgcn--amdhsa']
+available_targets['amdgcn-mesa-mesa3d'] = available_targets['amdgcn--']
+
+default_targets = ['nvptx--nvidiacl', 'nvptx64--nvidiacl', 'r600--', 'amdgcn--', 'amdgcn--amdhsa', 'amdgcn-mesa-mesa3d']
 
 targets = args
 if not targets:
@@ -167,6 +169,8 @@ for target in targets:
   for arch in archs:
     subdirs.append("%s-%s-%s" % (arch, t_vendor, t_os))
     subdirs.append("%s-%s" % (arch, t_os))
+    if t_os == 'mesa3d':
+        subdirs.append('amdgcn-amdhsa')
     subdirs.append(arch)
     if arch == 'amdgcn' or arch == 'r600':
         subdirs.append('amdgpu')

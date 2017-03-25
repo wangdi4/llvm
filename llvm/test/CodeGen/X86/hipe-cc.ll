@@ -33,11 +33,11 @@ entry:
 
 define cc 11 void @foo(i32 %hp, i32 %p, i32 %arg0, i32 %arg1, i32 %arg2) nounwind {
 entry:
-  ; CHECK:      movl  %esi, [[OFF1:[0-9]*]](%esp)
-  ; CHECK-NEXT: movl  %ebp, [[OFF2:[0-9]*]](%esp)
-  ; CHECK-NEXT: movl  %eax, [[OFF3:[0-9]*]](%esp)
-  ; CHECK-NEXT: movl  %edx, [[OFF4:[0-9]*]](%esp)
-  ; CHECK-NEXT: movl  %ecx,   {{[0-9]*}}(%esp)
+  ; CHECK:      movl  %esi, 16(%esp)
+  ; CHECK-NEXT: movl  %ebp, 12(%esp)
+  ; CHECK-NEXT: movl  %eax,  8(%esp)
+  ; CHECK-NEXT: movl  %edx,  4(%esp)
+  ; CHECK-NEXT: movl  %ecx,   (%esp)
   %hp_var   = alloca i32
   %p_var    = alloca i32
   %arg0_var = alloca i32
@@ -49,10 +49,10 @@ entry:
   store i32 %arg1, i32* %arg1_var
   store i32 %arg2, i32* %arg2_var
 
-  ; CHECK:      movl  [[OFF1]](%esp), %esi
-  ; CHECK-NEXT: movl  [[OFF2]](%esp), %ebp
-  ; CHECK-NEXT: movl  [[OFF3]](%esp), %eax
-  ; CHECK-NEXT: movl  [[OFF4]](%esp), %edx
+  ; CHECK:      movl  16(%esp), %esi
+  ; CHECK-NEXT: movl  12(%esp), %ebp
+  ; CHECK-NEXT: movl   8(%esp), %eax
+  ; CHECK-NEXT: movl   4(%esp), %edx
   %0 = load i32, i32* %hp_var
   %1 = load i32, i32* %p_var
   %2 = load i32, i32* %arg0_var

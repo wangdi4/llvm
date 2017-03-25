@@ -44,9 +44,10 @@ enum VPOParoptMode {
   ParTrans   = 0x00000002,
   OmpPar     = 0x00000004,
   OmpVec     = 0x00000008,
-  OmpOffload = 0x00000010,
-  AutoVec    = 0x00000020,
-  AutoPar    = 0x00000040
+  OmpTpv     = 0x00000010,   // thread-private legacy mode
+  OmpOffload = 0x00000020,
+  AutoVec    = 0x00000040,
+  AutoPar    = 0x00000080
 };
 
 /// \brief VPOParopt class for performing parallelization and offloading
@@ -59,7 +60,7 @@ public:
   explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar);
   ~VPOParopt(){};
 
-  const char *getPassName() const override { return "VPO Paropt Pass"; }
+  StringRef getPassName() const override { return "VPO Paropt Pass"; }
 
   bool runOnModule(Module &M) override;
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;

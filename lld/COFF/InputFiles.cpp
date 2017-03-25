@@ -32,6 +32,7 @@
 #include <system_error>
 #include <utility>
 
+using namespace llvm;
 using namespace llvm::COFF;
 using namespace llvm::object;
 using namespace llvm::support::endian;
@@ -62,6 +63,8 @@ std::string InputFile::getShortName() {
   return StringRef(Res).lower();
 }
 
+ArchiveFile::ArchiveFile(MemoryBufferRef M) : InputFile(ArchiveKind, M) {}
+
 void ArchiveFile::parse() {
   // Parse a MemoryBufferRef as an archive file.
   File = check(Archive::create(MB), getShortName());
@@ -77,7 +80,7 @@ void ArchiveFile::parse() {
   // Seen is a map from member files to boolean values. Initially
   // all members are mapped to false, which indicates all these files
   // are not read yet.
-  Error Err;
+  Error Err = Error::success();
   for (auto &Child : File->children(Err))
     Seen[Child.getChildOffset()].clear();
   if (Err)
@@ -105,6 +108,8 @@ MemoryBufferRef ArchiveFile::getMember(const Archive::Symbol *Sym) {
 
   return MB;
 }
+
+MutableArrayRef<Lazy> ArchiveFile::getLazySymbols() { return LazySymbols; }
 
 void ObjectFile::parse() {
   // Parse a memory buffer as a COFF file.

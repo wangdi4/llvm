@@ -12,7 +12,12 @@
 
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/raw_ostream.h"
+
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+#include <unistd.h>
+#endif
 
 using namespace llvm;
 
@@ -20,21 +25,22 @@ namespace lld {
 
 bool elf::HasError;
 raw_ostream *elf::ErrorOS;
+StringRef elf::Argv0;
 
 void elf::log(const Twine &Msg) {
   if (Config->Verbose)
-    outs() << Msg << "\n";
+    outs() << Argv0 << ": " << Msg << "\n";
 }
 
-void elf::warning(const Twine &Msg) {
+void elf::warn(const Twine &Msg) {
   if (Config->FatalWarnings)
     error(Msg);
   else
-    *ErrorOS << Msg << "\n";
+    *ErrorOS << Argv0 << ": warning: " << Msg << "\n";
 }
 
 void elf::error(const Twine &Msg) {
-  *ErrorOS << Msg << "\n";
+  *ErrorOS << Argv0 << ": error: " << Msg << "\n";
   HasError = true;
 }
 
@@ -42,13 +48,24 @@ void elf::error(std::error_code EC, const Twine &Prefix) {
   error(Prefix + ": " + EC.message());
 }
 
-void elf::fatal(const Twine &Msg) {
-  *ErrorOS << Msg << "\n";
-  exit(1);
+void elf::exitLld(int Val) {
+  // Dealloc/destroy ManagedStatic variables before calling
+  // _exit(). In a non-LTO build, this is a nop. In an LTO
+  // build allows us to get the output of -time-passes.
+  llvm_shutdown();
+
+  outs().flush();
+  errs().flush();
+  _exit(Val);
 }
 
-void elf::fatal(const Twine &Msg, const Twine &Prefix) {
-  fatal(Prefix + ": " + Msg);
+void elf::fatal(const Twine &Msg) {
+  *ErrorOS << Argv0 << ": error: " << Msg << "\n";
+  exitLld(1);
+}
+
+void elf::fatal(std::error_code EC, const Twine &Prefix) {
+  fatal(Prefix + ": " + EC.message());
 }
 
 } // namespace lld

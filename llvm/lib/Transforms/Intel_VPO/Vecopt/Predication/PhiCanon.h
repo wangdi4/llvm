@@ -36,7 +36,7 @@ public:
   PhiCanon();
 
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "PhiCanon";
   }
 

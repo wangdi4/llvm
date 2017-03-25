@@ -39,7 +39,7 @@ void test_emplace_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
 
         a.emplace<Type>();
@@ -53,7 +53,7 @@ void test_emplace_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
 
         a.emplace<Type>(101);
@@ -67,7 +67,7 @@ void test_emplace_type() {
     assert(Type::count == 0);
     Type::reset();
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
 
         a.emplace<Type>(-1, 42, -1);
@@ -87,14 +87,14 @@ void test_emplace_type_tracked() {
     // constructing from a small type should perform no allocations.
     DisableAllocationGuard g(isSmallType<Type>()); ((void)g);
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
         a.emplace<Type>();
         assert(Tracked::count == 0);
         assertArgsMatch<Type>(a);
     }
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
         a.emplace<Type>(-1, 42, -1);
         assert(Tracked::count == 0);
@@ -102,7 +102,7 @@ void test_emplace_type_tracked() {
     }
     // initializer_list constructor tests
     {
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
         a.emplace<Type>({-1, 42, -1});
         assert(Tracked::count == 0);
@@ -110,7 +110,7 @@ void test_emplace_type_tracked() {
     }
     {
         int x = 42;
-        any a(std::in_place<Tracked>);
+        any a(std::in_place_type<Tracked>);
         assert(Tracked::count == 1);
         a.emplace<Type>({-1, 42, -1}, x);
         assert(Tracked::count == 0);
@@ -129,7 +129,7 @@ static_assert(IsSmallObject<SmallThrows>::value, "");
 struct LargeThrows {
   LargeThrows(int) { throw 42; }
   LargeThrows(std::initializer_list<int>, int) { throw 42; }
-  int data[10];
+  int data[sizeof(std::any)];
 };
 static_assert(!IsSmallObject<LargeThrows>::value, "");
 
@@ -236,6 +236,13 @@ void test_emplace_sfinae_constraints() {
         static_assert(!has_emplace<NoCopy>(), "");
         static_assert(!has_emplace<NoCopy, int>(), "");
         static_assert(!has_emplace_init_list<NoCopy, int, int, int>(), "");
+        static_assert(!has_emplace<NoCopy&>(), "");
+        static_assert(!has_emplace<NoCopy&, int>(), "");
+        static_assert(!has_emplace_init_list<NoCopy&, int, int, int>(), "");
+        static_assert(!has_emplace<NoCopy&&>(), "");
+        static_assert(!has_emplace<NoCopy&&, int>(), "");
+        static_assert(!has_emplace_init_list<NoCopy&&, int, int, int>(), "");
+
     }
 }
 

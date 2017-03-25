@@ -143,6 +143,7 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print AVR Value Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrDecomp:
@@ -181,6 +182,7 @@ void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Label Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -229,6 +231,7 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Phi Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -287,6 +290,7 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Call Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -359,6 +363,7 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Branch Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -417,6 +422,7 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr BackEdge Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -470,6 +476,7 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Entry Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -525,6 +532,7 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Return Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -588,6 +596,7 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Select Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:
@@ -650,6 +659,7 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Compare Node.
   switch (VLevel) {
+  case PrintCost:
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:

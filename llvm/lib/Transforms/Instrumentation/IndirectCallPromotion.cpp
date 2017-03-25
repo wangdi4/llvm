@@ -112,9 +112,7 @@ public:
         *PassRegistry::getPassRegistry());
   }
 
-  const char *getPassName() const override {
-    return "PGOIndirectCallPromotion";
-  }
+  StringRef getPassName() const override { return "PGOIndirectCallPromotion"; }
 
 #if INTEL_CUSTOMIZATION
   void getAnalysisUsage(AnalysisUsage &AU) const override {

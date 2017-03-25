@@ -18,10 +18,12 @@
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/IslExprBuilder.h"
 #include "polly/CodeGen/LoopGenerators.h"
+#include "polly/CodeGen/RuntimeDebugBuilder.h"
 #include "polly/CodeGen/Utils.h"
 #include "polly/Config/config.h"
 #include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
+#include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
 #include "polly/Support/SCEVValidator.h"
@@ -48,11 +50,20 @@
 using namespace polly;
 using namespace llvm;
 
+#define DEBUG_TYPE "polly-codegen"
+
+STATISTIC(VersionedScops, "Number of SCoPs that required versioning.");
+
 // The maximal number of dimensions we allow during invariant load construction.
 // More complex access ranges will result in very high compile time and are also
 // unlikely to result in good code. This value is very high and should only
 // trigger for corner cases (e.g., the "dct_luma" function in h264, SPEC2006).
 static int const MaxDimensionsInAccessRange = 9;
+
+static cl::opt<bool> PollyGenerateRTCPrint(
+    "polly-codegen-emit-rtc-print",
+    cl::desc("Emit code that prints the runtime check result dynamically."),
+    cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 __isl_give isl_ast_expr *
 IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
@@ -106,8 +117,8 @@ IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
   return UB;
 }
 
-/// @brief Return true if a return value of Predicate is true for the value
-/// represented by passed isl_ast_expr_int.
+/// Return true if a return value of Predicate is true for the value represented
+/// by passed isl_ast_expr_int.
 static bool checkIslAstExprInt(__isl_take isl_ast_expr *Expr,
                                isl_bool (*Predicate)(__isl_keep isl_val *)) {
   if (isl_ast_expr_get_type(Expr) != isl_ast_expr_int) {
@@ -128,7 +139,7 @@ int IslNodeBuilder::getNumberOfIterations(__isl_keep isl_ast_node *For) {
   assert(isl_ast_node_get_type(For) == isl_ast_node_for);
   auto Body = isl_ast_node_for_get_body(For);
 
-  // First, check if we can actually handle this code
+  // First, check if we can actually handle this code.
   switch (isl_ast_node_get_type(Body)) {
   case isl_ast_node_user:
     break;
@@ -177,7 +188,7 @@ int IslNodeBuilder::getNumberOfIterations(__isl_keep isl_ast_node *For) {
     return NumberIterations + 1;
 }
 
-/// @brief Extract the values and SCEVs needed to generate code for a block.
+/// Extract the values and SCEVs needed to generate code for a block.
 static int findReferencesInBlock(struct SubtreeReferences &References,
                                  const ScopStmt *Stmt, const BasicBlock *BB) {
   for (const Instruction &Inst : *BB)
@@ -235,7 +246,8 @@ isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr,
 /// @param Set     A set which references the ScopStmt we are interested in.
 /// @param UserPtr A void pointer that can be casted to a SubtreeReferences
 ///                structure.
-static isl_stat addReferencesFromStmtSet(isl_set *Set, void *UserPtr) {
+static isl_stat addReferencesFromStmtSet(__isl_take isl_set *Set,
+                                         void *UserPtr) {
   isl_id *Id = isl_set_get_tuple_id(Set);
   auto *Stmt = static_cast<const ScopStmt *>(isl_id_get_user(Id));
   isl_id_free(Id);
@@ -487,7 +499,7 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
   isl_id_free(IteratorID);
 }
 
-/// @brief Remove the BBs contained in a (sub)function from the dominator tree.
+/// Remove the BBs contained in a (sub)function from the dominator tree.
 ///
 /// This function removes the basic blocks that are part of a subfunction from
 /// the dominator tree. Specifically, when generating code it may happen that at
@@ -719,7 +731,28 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
     if (!MA->hasNewAccessRelation())
       continue;
 
+    assert(!MA->getLatestScopArrayInfo()->getBasePtrOriginSAI() &&
+           "Generating new index expressions to indirect arrays not working");
+
     auto Schedule = isl_ast_build_get_schedule(Build);
+
+#ifndef NDEBUG
+    auto Dom = Stmt->getDomain();
+    auto SchedDom = isl_set_from_union_set(
+        isl_union_map_domain(isl_union_map_copy(Schedule)));
+    auto AccDom = isl_map_domain(MA->getAccessRelation());
+    Dom = isl_set_intersect_params(Dom, Stmt->getParent()->getContext());
+    SchedDom =
+        isl_set_intersect_params(SchedDom, Stmt->getParent()->getContext());
+    assert(isl_set_is_subset(SchedDom, AccDom) &&
+           "Access relation not defined on full schedule domain");
+    assert(isl_set_is_subset(Dom, AccDom) &&
+           "Access relation not defined on full domain");
+    isl_set_free(AccDom);
+    isl_set_free(SchedDom);
+    isl_set_free(Dom);
+#endif
+
     auto PWAccRel = MA->applyScheduleToAccessRelation(Schedule);
 
     auto AccessExpr = isl_ast_build_access_from_pw_multi_aff(Build, PWAccRel);
@@ -729,8 +762,8 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
   return NewAccesses;
 }
 
-void IslNodeBuilder::createSubstitutions(isl_ast_expr *Expr, ScopStmt *Stmt,
-                                         LoopToScevMapT &LTS) {
+void IslNodeBuilder::createSubstitutions(__isl_take isl_ast_expr *Expr,
+                                         ScopStmt *Stmt, LoopToScevMapT &LTS) {
   assert(isl_ast_expr_get_type(Expr) == isl_ast_expr_op &&
          "Expression of type 'op' expected");
   assert(isl_ast_expr_get_op_type(Expr) == isl_ast_op_call &&
@@ -766,6 +799,23 @@ void IslNodeBuilder::createSubstitutionsVector(
   isl_ast_expr_free(Expr);
 }
 
+void IslNodeBuilder::generateCopyStmt(
+    ScopStmt *Stmt, __isl_keep isl_id_to_ast_expr *NewAccesses) {
+  assert(Stmt->size() == 2);
+  auto ReadAccess = Stmt->begin();
+  auto WriteAccess = ReadAccess++;
+  assert((*ReadAccess)->isRead() && (*WriteAccess)->isMustWrite());
+  assert((*ReadAccess)->getElementType() == (*WriteAccess)->getElementType() &&
+         "Accesses use the same data type");
+  assert((*ReadAccess)->isArrayKind() && (*WriteAccess)->isArrayKind());
+  auto *AccessExpr =
+      isl_id_to_ast_expr_get(NewAccesses, (*ReadAccess)->getId());
+  auto *LoadValue = ExprBuilder.create(AccessExpr);
+  AccessExpr = isl_id_to_ast_expr_get(NewAccesses, (*WriteAccess)->getId());
+  auto *StoreAddr = ExprBuilder.createAccessAddress(AccessExpr);
+  Builder.CreateStore(LoadValue, StoreAddr);
+}
+
 void IslNodeBuilder::createUser(__isl_take isl_ast_node *User) {
   LoopToScevMapT LTS;
   isl_id *Id;
@@ -780,12 +830,17 @@ void IslNodeBuilder::createUser(__isl_take isl_ast_node *User) {
 
   Stmt = (ScopStmt *)isl_id_get_user(Id);
   auto *NewAccesses = createNewAccesses(Stmt, User);
-  createSubstitutions(Expr, Stmt, LTS);
+  if (Stmt->isCopyStmt()) {
+    generateCopyStmt(Stmt, NewAccesses);
+    isl_ast_expr_free(Expr);
+  } else {
+    createSubstitutions(Expr, Stmt, LTS);
 
-  if (Stmt->isBlockStmt())
-    BlockGen.copyStmt(*Stmt, LTS, NewAccesses);
-  else
-    RegionGen.copyStmt(*Stmt, LTS, NewAccesses);
+    if (Stmt->isBlockStmt())
+      BlockGen.copyStmt(*Stmt, LTS, NewAccesses);
+    else
+      RegionGen.copyStmt(*Stmt, LTS, NewAccesses);
+  }
 
   isl_id_to_ast_expr_free(NewAccesses);
   isl_ast_node_free(User);
@@ -904,8 +959,8 @@ bool IslNodeBuilder::materializeParameters(isl_set *Set, bool All) {
   return true;
 }
 
-/// @brief Add the number of dimensions in @p BS to @p U.
-static isl_stat countTotalDims(isl_basic_set *BS, void *U) {
+/// Add the number of dimensions in @p BS to @p U.
+static isl_stat countTotalDims(__isl_take isl_basic_set *BS, void *U) {
   unsigned *NumTotalDim = static_cast<unsigned *>(U);
   *NumTotalDim += isl_basic_set_total_dim(BS);
   isl_basic_set_free(BS);
@@ -1081,6 +1136,25 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
     ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
   }
 
+  // If the size of a dimension is dependent on another class, make sure it is
+  // preloaded.
+  for (unsigned i = 1, e = SAI->getNumberOfDimensions(); i < e; ++i) {
+    const SCEV *Dim = SAI->getDimensionSize(i);
+    SetVector<Value *> Values;
+    findValues(Dim, SE, Values);
+    for (auto *Val : Values) {
+      if (auto *BaseIAClass = S.lookupInvariantEquivClass(Val)) {
+        if (!preloadInvariantEquivClass(*BaseIAClass))
+          return false;
+
+        // After we preloaded the BaseIAClass we adjusted the BaseExecutionCtx
+        // and we need to refine the ExecutionCtx.
+        isl_set *BaseExecutionCtx = isl_set_copy(BaseIAClass->ExecutionContext);
+        ExecutionCtx = isl_set_intersect(ExecutionCtx, BaseExecutionCtx);
+      }
+    }
+  }
+
   Instruction *AccInst = MA->getAccessInstruction();
   Type *AccInstTy = AccInst->getType();
 
@@ -1154,8 +1228,12 @@ void IslNodeBuilder::allocateNewArrays() {
     if (SAI->getBasePtr())
       continue;
 
+    assert(SAI->getNumberOfDimensions() > 0 && SAI->getDimensionSize(0) &&
+           "The size of the outermost dimension is used to declare newly "
+           "created arrays that require memory allocation.");
+
     Type *NewArrayType = nullptr;
-    for (unsigned i = SAI->getNumberOfDimensions() - 1; i >= 1; i--) {
+    for (int i = SAI->getNumberOfDimensions() - 1; i >= 0; i--) {
       auto *DimSize = SAI->getDimensionSize(i);
       unsigned UnsignedDimSize = static_cast<const SCEVConstant *>(DimSize)
                                      ->getAPInt()
@@ -1237,7 +1315,8 @@ Value *IslNodeBuilder::generateSCEV(const SCEV *Expr) {
          "Insert location points after last valid instruction");
   Instruction *InsertLocation = &*Builder.GetInsertPoint();
   return expandCodeFor(S, SE, DL, "polly", Expr, Expr->getType(),
-                       InsertLocation, &ValueMap);
+                       InsertLocation, &ValueMap,
+                       StartBlock->getSinglePredecessor());
 }
 
 /// The AST expression we generate to perform the run-time check assumes
@@ -1252,7 +1331,20 @@ Value *IslNodeBuilder::createRTC(isl_ast_expr *Condition) {
     RTC = Builder.CreateIsNotNull(RTC);
   Value *OverflowHappened =
       Builder.CreateNot(ExprBuilder.getOverflowState(), "polly.rtc.overflown");
+
+  if (PollyGenerateRTCPrint) {
+    auto *F = Builder.GetInsertBlock()->getParent();
+    RuntimeDebugBuilder::createCPUPrinter(
+        Builder, "F: " + F->getName().str() + " R: " +
+                     S.getRegion().getNameStr() + " __RTC: ",
+        RTC, " Overflow: ", OverflowHappened);
+  }
+
   RTC = Builder.CreateAnd(RTC, OverflowHappened, "polly.rtc.result");
   ExprBuilder.setTrackOverflow(false);
+
+  if (!isa<ConstantInt>(RTC))
+    VersionedScops++;
+
   return RTC;
 }

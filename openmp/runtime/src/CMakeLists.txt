@@ -113,6 +113,8 @@ libomp_append(LIBOMP_CFILES kmp_ftn_extra.c)
 libomp_append(LIBOMP_CFILES kmp_version.c)
 libomp_append(LIBOMP_CFILES ompt-general.c IF_TRUE LIBOMP_OMPT_SUPPORT)
 
+libomp_append(LIBOMP_CFILES tsan_annotations.c IF_TRUE LIBOMP_TSAN_SUPPORT)
+
 set(LIBOMP_SOURCE_FILES ${LIBOMP_CFILES} ${LIBOMP_CXXFILES} ${LIBOMP_ASMFILES})
 # For Windows, there is a resource file (.rc -> .res) that is also compiled
 libomp_append(LIBOMP_SOURCE_FILES libomp.rc WIN32)
@@ -305,13 +307,15 @@ else()
 
   install(TARGETS omp ${LIBOMP_INSTALL_KIND} DESTINATION lib${LIBOMP_LIBDIR_SUFFIX})
 
-  # Create aliases (symlinks) of the library for backwards compatibility
-  set(LIBOMP_ALIASES "libgomp;libiomp5")
-  foreach(alias IN LISTS LIBOMP_ALIASES)
-    install(CODE "execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E create_symlink \"${LIBOMP_LIB_FILE}\"
-      \"${alias}${LIBOMP_LIBRARY_SUFFIX}\" WORKING_DIRECTORY
-      \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib${LIBOMP_LIBDIR_SUFFIX})")
-  endforeach()
+  if(${LIBOMP_INSTALL_ALIASES})
+    # Create aliases (symlinks) of the library for backwards compatibility
+    set(LIBOMP_ALIASES "libgomp;libiomp5")
+    foreach(alias IN LISTS LIBOMP_ALIASES)
+      install(CODE "execute_process(COMMAND \"\${CMAKE_COMMAND}\" -E create_symlink \"${LIBOMP_LIB_FILE}\"
+        \"${alias}${LIBOMP_LIBRARY_SUFFIX}\" WORKING_DIRECTORY
+        \$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}/lib${LIBOMP_LIBDIR_SUFFIX})")
+    endforeach()
+  endif()
 endif()
 install(
   FILES

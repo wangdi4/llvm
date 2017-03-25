@@ -26,7 +26,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
 #define IGNORE_FEATURE_OUTLINING_STRING "ignore_for_intel_feature_outlining"
@@ -34,72 +33,16 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-bool VPOUtils::isIntelDirective(Intrinsic::ID Id) {
-  return Id == Intrinsic::intel_directive;
+bool VPOUtils::stripDirectives(WRegionNode *WRN) {
+  bool success = true;
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  BasicBlock *ExitBB = WRN->getExitBBlock();
+
+  success = success && VPOUtils::stripDirectives(*EntryBB);
+  success = success && VPOUtils::stripDirectives(*ExitBB);
+
+  return success;
 }
-
-bool VPOUtils::isIntelClause(Intrinsic::ID Id) {
-  return (Id == Intrinsic::intel_directive_qual ||
-          Id == Intrinsic::intel_directive_qual_opnd ||
-          Id == Intrinsic::intel_directive_qual_opndlist);
-}
-
-bool VPOUtils::isIntelDirectiveOrClause(Intrinsic::ID Id) {
-  return isIntelDirective(Id) || isIntelClause(Id);
-}
-
-StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
-  assert(isIntelDirectiveOrClause(Call->getIntrinsicID()) &&
-         "Expected a call to an llvm.intel.directive* intrinsic");
-
-  MDString *OperandMDStr = nullptr;
-  Value *Operand = Call->getArgOperand(0);
-  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
-  Metadata *MD = OperandMDVal->getMetadata();
-
-  if (isa<MDNode>(MD)) {
-    MDNode *OperandNode = cast<MDNode>(MD);
-    Metadata *OperandNodeMD = OperandNode->getOperand(0);
-    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
-  } else if (isa<MDString>(MD)) {
-    OperandMDStr = cast<MDString>(MD);
-  }
-
-  assert(OperandMDStr && "Expected argument to be a metadata string");
-  StringRef DirectiveStr = OperandMDStr->getString();
-
-  return DirectiveStr;
-}
-
-StringRef VPOUtils::getScheduleModifierMDString(IntrinsicInst *Call) {
-  assert(isIntelDirectiveOrClause(Call->getIntrinsicID()) &&
-         "Expected a call to an llvm.intel.directive* intrinsic");
-
-  // The llvm intrin reprsenting a schedule clause has 3 arguments:
-  // arg 0: Metadata string "QUAL.OMP.SCHEDULE.<SchduleKind>"
-  // arg 1: Metadata string for schedule modifiers
-  // arg 2: Value for the chunk size
-  //
-  // This util returns the string from arg 1.
-
-  MDString *OperandMDStr = nullptr;
-  Value *Operand = Call->getArgOperand(1);
-  MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
-  Metadata *MD = OperandMDVal->getMetadata();
-
-  if (isa<MDNode>(MD)) {
-    MDNode *OperandNode = cast<MDNode>(MD);
-    Metadata *OperandNodeMD = OperandNode->getOperand(0);
-    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
-  } else if (isa<MDString>(MD)) {
-    OperandMDStr = cast<MDString>(MD);
-  }
-
-  assert(OperandMDStr && "Expected argument to be a metadata string");
-  StringRef ModifierStr = OperandMDStr->getString();
-  return ModifierStr;
-}
-
 
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
   SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
@@ -108,7 +51,7 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
   for (Instruction &I : BB) {
     if ((IntrinCall = dyn_cast<IntrinsicInst>(&I))) {
       Intrinsic::ID Id = IntrinCall->getIntrinsicID();
-      if (isIntelDirectiveOrClause(Id)) {
+      if (VPOAnalysisUtils::isIntelDirectiveOrClause(Id)) {
         IntrinsicsToRemove.push_back(IntrinCall);
       }
     }
@@ -141,11 +84,11 @@ void VPOUtils::addNoFeatureOutline(CallInst *Call) {
 }
 
 CallInst *VPOUtils::createMaskedGatherCall(Module *M,
-                                           Value *VecPtr,
-                                           IRBuilder<> *Builder,
-                                           unsigned Alignment,
-                                           Value *Mask,
-                                           Value *PassThru)
+                                                   Value *VecPtr,
+                                                   IRBuilder<> &Builder,
+                                                   unsigned Alignment,
+                                                   Value *Mask,
+                                                   Value *PassThru)
 {
   CallInst *NewCallInst;
   Intrinsic::ID IntrinsicID = Intrinsic::masked_gather;
@@ -187,18 +130,18 @@ CallInst *VPOUtils::createMaskedGatherCall(Module *M,
 
   Arguments.push_back(PassThru);
 
-  NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
   addNoFeatureOutline(NewCallInst);
 
   return NewCallInst;
 }
 
 CallInst *VPOUtils::createMaskedScatterCall(Module *M,
-                                            Value *VecPtr,
-                                            Value *VecData,
-                                            IRBuilder<> *Builder,
-                                            unsigned Alignment,
-                                            Value *Mask)
+                                                    Value *VecPtr,
+                                                    Value *VecData,
+                                                    IRBuilder<> &Builder,
+                                                    unsigned Alignment,
+                                                    Value *Mask)
 {
   CallInst *NewCallInst;
   Intrinsic::ID IntrinsicID = Intrinsic::masked_scatter;
@@ -235,9 +178,30 @@ CallInst *VPOUtils::createMaskedScatterCall(Module *M,
 
   Arguments.push_back(Mask);
 
-  NewCallInst = Builder->CreateCall(Intrinsic, Arguments);
+  NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
   addNoFeatureOutline(NewCallInst);
 
   return NewCallInst;
 }
 
+CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
+                                         IRBuilder<> &Builder,
+                                         unsigned Alignment,
+                                         Value *Mask,
+                                         Value *PassThru) {
+  auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
+                                               PassThru);
+  addNoFeatureOutline(NewCallInst);
+  return NewCallInst;
+}
+
+CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
+                                          Value *VecData,
+                                          IRBuilder<> &Builder,
+                                          unsigned Alignment,
+                                          Value *Mask) {
+  auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
+                                                Mask);
+  addNoFeatureOutline(NewCallInst);
+  return NewCallInst;
+}

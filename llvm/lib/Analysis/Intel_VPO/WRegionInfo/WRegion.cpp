@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
@@ -32,6 +32,7 @@ using namespace llvm::vpo;
 // constructor
 WRNParallelNode::WRNParallelNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNParallel, BB) {
+  setIsPar();
   setShared(nullptr);
   setPriv(nullptr);
   setFpriv(nullptr);
@@ -45,6 +46,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
 }
 
 WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W) {
+  setAttributes(W->getAttributes());
   setShared(W->getShared());
   setPriv(W->getPriv());
   setFpriv(W->getFpriv());
@@ -77,6 +79,8 @@ void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li) {
+  setIsPar();
+  setIsLoop();
   setShared(nullptr);
   setPriv(nullptr);
   setFpriv(nullptr);
@@ -96,6 +100,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
 
 WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W)
     : WRegionNode(W) {
+  setAttributes(W->getAttributes());
   setShared(W->getShared());
   setPriv(W->getPriv());
   setFpriv(W->getFpriv());
@@ -149,6 +154,253 @@ void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
 
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNParallelLoopNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNParallelSectionsNode
+//
+
+// constructor
+WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNParallelSections, BB), LI(Li) {
+  setIsPar();
+  setIsLoop();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setRed(nullptr);
+  setCopyin(nullptr);
+  setIf(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber() << ">\n");
+}
+
+void WRNParallelSectionsNode::print(formatted_raw_ostream &OS, unsigned Depth)
+const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNParallelSectionsNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNParallelSectionsNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNParallelWorkshareNode
+//
+
+// constructor
+WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNParallelWorkshare, BB), LI(Li) {
+  setIsPar();
+  setIsLoop();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setRed(nullptr);
+  setCopyin(nullptr);
+  setIf(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber() 
+                                                        << ">\n");
+}
+
+void WRNParallelWorkshareNode::print(formatted_raw_ostream &OS, unsigned Depth)
+const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNParallelWorkshareNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNParallelWorkshareNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTeamsNode
+//
+
+// constructor
+WRNTeamsNode::WRNTeamsNode(BasicBlock *BB) 
+    : WRegionNode(WRegionNode::WRNTeams, BB) {
+  setIsTeams();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setRed(nullptr);
+  setThreadLimit(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+
+  DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");
+}
+
+void WRNTeamsNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNTeamsNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTeamsNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNDistributeParLoopNode
+//
+
+// constructor
+WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNDistributeParLoop, BB), LI(Li) {
+  setIsDistribute();
+  setIsPar();
+  setIsLoop();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setRed(nullptr);
+  setCopyin(nullptr);
+  setIf(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
+  setCollapse(0);
+  setOrdered(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
+}
+
+void WRNDistributeParLoopNode::print(formatted_raw_ostream &OS, unsigned Depth)
+const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNDistributeParLoopNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNDistributeParLoopNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTargetNode
+//
+
+// constructor
+WRNTargetNode::WRNTargetNode(BasicBlock *BB) 
+    : WRegionNode(WRegionNode::WRNTarget, BB) {
+  setIsTarget();
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setMap(nullptr);
+  setDepend(nullptr);
+  setIsDevicePtr(nullptr);
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+  setDefaultmapTofromScalar(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
+}
+
+void WRNTargetNode::print(formatted_raw_ostream &OS, unsigned Depth)
+const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNTargetNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTargetNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTargetDataNode
+//
+
+// constructor
+WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB) 
+    : WRegionNode(WRegionNode::WRNTargetData, BB) {
+  setIsTarget();
+  setMap(nullptr);
+  setDepend(nullptr);
+  setUseDevicePtr(nullptr);
+  setIf(nullptr);
+  setDevice(nullptr);
+  setNowait(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
+}
+
+void WRNTargetDataNode::print(formatted_raw_ostream &OS, unsigned Depth)
+const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNTargetDataNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTargetDataNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTaskNode
+//
+
+// constructor
+WRNTaskNode::WRNTaskNode(BasicBlock *BB) 
+    : WRegionNode(WRegionNode::WRNTask, BB) {
+  setIsTask();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setDepend(nullptr);
+  setIf(nullptr);
+  setFinal(nullptr);
+  setPriority(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setUntied(false);
+  setMergeable(false);
+
+  DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
+}
+
+void WRNTaskNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNTaskNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTaskNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTaskloopNode
+//
+
+// constructor
+WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNTaskloop, BB), LI(Li) {
+  setIsTask();
+  setIsLoop();
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setLpriv(nullptr);
+  setDepend(nullptr);
+  setFinal(nullptr);
+  setGrainsize(nullptr);
+  setIf(nullptr);
+  setNumTasks(nullptr);
+  setPriority(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setCollapse(0);
+  setUntied(false);
+  setMergeable(false);
+  setNogroup(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
+}
+
+void WRNTaskloopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNTaskloopNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTaskloopNode<" << getNumber() << ">\n";
 }
 
 //
@@ -266,6 +518,111 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 }
 
 //
+// Methods for WRNWksLoopNode
+//
+
+// constructor
+WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNWksLoop, BB), LI(Li) {
+  setIsLoop();
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setLpriv(nullptr);
+  setRed(nullptr);
+  setLinear(nullptr);
+  setCollapse(0);
+  setOrdered(0);
+  setNowait(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
+}
+
+void WRNWksLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNWksLoopNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNWksLoopNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNSectionsNode
+//
+
+// constructor
+WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNSections, BB), LI(Li) {
+  setIsLoop();
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setLpriv(nullptr);
+  setRed(nullptr);
+  setNowait(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
+}
+
+void WRNSectionsNode::print(formatted_raw_ostream &OS, unsigned Depth) const
+{
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNSectionsNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNSectionsNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNWorkshareNode
+//
+
+// constructor
+WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNWorkshare, BB), LI(Li) {
+  setIsLoop();
+  setNowait(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
+}
+
+void WRNWorkshareNode::print(formatted_raw_ostream &OS, unsigned Depth) const{
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNWorkshareNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNWorkshareNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNDistributeNode
+//
+
+// constructor
+WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNDistribute, BB), LI(Li) {
+  setIsLoop();
+  setIsDistribute();
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setLpriv(nullptr);
+  setCollapse(0);
+  setNowait(false);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
+}
+
+void WRNDistributeNode::print(formatted_raw_ostream &OS, unsigned Depth) const{
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "BEGIN WRNDistributeNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNDistributeNode<" << getNumber() << ">\n";
+}
+
+//
 // Methods for WRNAtomicNode
 //
 
@@ -290,7 +647,7 @@ void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   OS << Indent << "BEGIN WRNAtomicNode<" << getNumber() << "> {\n";
   OS << Indent << "Atomic Kind: "
-     << VPOUtils::getClauseName(
+     << VPOAnalysisUtils::getClauseName(
             WRegionUtils::getClauseIdFromAtomicKind(getAtomicKind()))
      << "\n";
   OS << Indent << "Seq_Cst Clause: " << (getHasSeqCstClause() ? "Yes" : "No")
@@ -308,6 +665,42 @@ void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << Indent << "No BBSet\n";
 
   OS << Indent << "} END WRNAtomicNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNBarrierNode
+//
+
+// constructor
+WRNBarrierNode::WRNBarrierNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNBarrier, BB) {
+  DEBUG(dbgs() << "\nCreated WRNBarrierNode <" << getNumber() << ">\n");
+}
+
+void WRNBarrierNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNBarrierNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNBarrierNode <" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNCancelNode
+//
+
+// constructor
+WRNCancelNode::WRNCancelNode(BasicBlock *BB, bool IsCP)
+    : WRegionNode(WRegionNode::WRNCancel, BB), IsCancellationPoint(IsCP) {
+  setCancelKind(WRNCancelError);
+  setIf(nullptr);
+  DEBUG(dbgs() << "\nCreated WRNCancelNode <" << getNumber() << ">\n");
+}
+
+void WRNCancelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNCancelNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNCancelNode <" << getNumber() << ">\n\n";
 }
 
 //
@@ -347,10 +740,16 @@ void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNOrdered, BB) {
+  setIsDoacross(false);
+  setIsThreads(true);
   DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 
 WRNOrderedNode::WRNOrderedNode(WRNOrderedNode *W) : WRegionNode(W) {
+  setIsDoacross(W->getIsDoacross());
+  setIsThreads(W->getIsThreads());
+  setIsDepSource(W->getIsDepSource());
+  setDepSink(W->getDepSink());
   DEBUG(dbgs() << "\nCreated WRNOrderedNode<" << getNumber() << ">\n");
 }
 
@@ -433,4 +832,79 @@ void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNCriticalNode <" << getNumber() << ">\n\n";
+}
+
+// constructor
+WRNFlushNode::WRNFlushNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNFlush, BB) {
+  setFlush(nullptr);
+  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+WRNFlushNode::WRNFlushNode(WRNFlushNode *W) : WRegionNode(W) {
+  setFlush(W->getFlush());
+  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
+}
+
+void WRNFlushNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  // TODO may need to have an extra parameter (or global) to add a fixed
+  //    space for left margin at Depth=0
+  std::string Indent(Depth * 2, ' ');
+
+  OS << Indent << "BEGIN WRNFlushNode<" << getNumber() << "> {\n";
+
+  // TODO: print data local to this Flush Set
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNFlushNode<" << getNumber() << ">\n";
+}
+
+//
+// Methods for WRNTaskgroupNode
+//
+
+// constructor
+WRNTaskgroupNode::WRNTaskgroupNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTaskgroup, BB) {
+  DEBUG(dbgs() << "\nCreated WRNTaskgroupNode <" << getNumber() << ">\n");
+}
+
+void WRNTaskgroupNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNTaskgroupNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTaskgroupNode <" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNTaskwaitNode
+//
+
+// constructor
+WRNTaskwaitNode::WRNTaskwaitNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTaskwait, BB) {
+  DEBUG(dbgs() << "\nCreated WRNTaskwaitNode <" << getNumber() << ">\n");
+}
+
+void WRNTaskwaitNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNTaskwaitNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTaskwaitNode <" << getNumber() << ">\n\n";
+}
+
+//
+// Methods for WRNTaskyieldNode
+//
+
+// constructor
+WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNTaskyield, BB) {
+  DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
+}
+
+void WRNTaskyieldNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
+  OS << Indent << "\nBEGIN WRNTaskyieldNode<" << getNumber() << "> {\n";
+  printChildren(OS, Depth + 1);
+  OS << Indent << "} END WRNTaskyieldNode <" << getNumber() << ">\n\n";
 }

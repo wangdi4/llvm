@@ -48,11 +48,11 @@ public:
   public:
     Number() :
         Defined(false), IsInteger(false), IntN(APSInt::getAllOnesValue(32)),
-        FloatN(APFloat::getAllOnesValue(32)) {}
+        FloatN(APFloat::getAllOnesValue(32, true)) {}
     Number(const APSInt& N) : Defined(true),
                               IsInteger(true),
                               IntN(N),
-                              FloatN(APFloat::getAllOnesValue(32)) {}
+                              FloatN(APFloat::getAllOnesValue(32, true)) {}
     Number(const APFloat& N) : Defined(true),
                                IsInteger(true), //CHECKME!
                                IntN(APSInt::getAllOnesValue(32)),

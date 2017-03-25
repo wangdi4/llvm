@@ -2,7 +2,7 @@
 
 ; Check parsing output for the loop verifying that %mul is reverse engineered correctly into %0 * %1.
 ; CHECK: + DO i1 = 0, 42, 1   <DO_LOOP>
-; CHECK: |   (%kk)[0][-1 * i1 + 45] = (%1 * %0);
+; CHECK: |   (%kk)[0][-1 * i1 + 45] = (%0 * %1);
 ; CHECK: |   (%kk)[0][-1 * i1 + 44] = i1 + %nd6.promoted + 18;
 ; CHECK: |   %1 = i1 + %nd6.promoted + 1;
 ; CHECK: |   %0 = i1 + %nd6.promoted + 18;

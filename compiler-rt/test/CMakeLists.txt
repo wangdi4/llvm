@@ -23,7 +23,7 @@ if(NOT ANDROID)
     # Use LLVM utils and Clang from the same build tree.
     list(APPEND SANITIZER_COMMON_LIT_TEST_DEPS
       clang clang-headers FileCheck count not llvm-config llvm-nm llvm-objdump
-      llvm-symbolizer compiler-rt-headers sancov)
+      llvm-readobj llvm-symbolizer compiler-rt-headers sancov)
     if (COMPILER_RT_HAS_PROFILE)
       list(APPEND SANITIZER_COMMON_LIT_TEST_DEPS profile)
     endif()
@@ -96,5 +96,6 @@ if(COMPILER_RT_STANDALONE_BUILD)
   if(NOT TARGET check-all)
     add_custom_target(check-all)
   endif()
+  add_custom_target(compiler-rt-test-depends DEPENDS ${LLVM_LIT_DEPENDS})
   add_dependencies(check-all check-compiler-rt)
 endif()

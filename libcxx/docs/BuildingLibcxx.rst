@@ -144,26 +144,26 @@ libc++ specific options
 
   **Default**: ``OFF``
 
-  Build libc++ as a 32 bit library. Also see :option:`LLVM_BUILD_32_BITS`.
+  Build libc++ as a 32 bit library. Also see `LLVM_BUILD_32_BITS`.
 
 .. option:: LIBCXX_ENABLE_SHARED:BOOL
 
   **Default**: ``ON``
 
-  Build libc++ as a shared library. Either :option:`LIBCXX_ENABLE_SHARED` or
-  :option:`LIBCXX_ENABLE_STATIC` has to be enabled.
+  Build libc++ as a shared library. Either `LIBCXX_ENABLE_SHARED` or
+  `LIBCXX_ENABLE_STATIC` has to be enabled.
 
 .. option:: LIBCXX_ENABLE_STATIC:BOOL
 
   **Default**: ``ON``
 
-  Build libc++ as a static library. Either :option:`LIBCXX_ENABLE_SHARED` or
-  :option:`LIBCXX_ENABLE_STATIC` has to be enabled.
+  Build libc++ as a static library. Either `LIBCXX_ENABLE_SHARED` or
+  `LIBCXX_ENABLE_STATIC` has to be enabled.
 
 .. option:: LIBCXX_LIBDIR_SUFFIX:STRING
 
   Extra suffix to append to the directory where libraries are to be installed.
-  This option overrides :option:`LLVM_LIBDIR_SUFFIX`.
+  This option overrides `LLVM_LIBDIR_SUFFIX`.
 
 
 .. _libc++experimental options:
@@ -179,7 +179,7 @@ libc++experimental Specific Options
 
 .. option:: LIBCXX_INSTALL_EXPERIMENTAL_LIBRARY:BOOL
 
-  **Default**: ``OFF``
+  **Default**: ``LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY AND LIBCXX_INSTALL_LIBRARY``
 
   Install libc++experimental.a alongside libc++.
 
@@ -251,19 +251,26 @@ libc++ Feature Options
 
 .. option:: LIBCXX_INCLUDE_BENCHMARKS:BOOL
 
-  **Default**: ``OFF``
+  **Default**: ``ON``
 
   Build the libc++ benchmark tests and the Google Benchmark library needed
   to support them.
 
-.. option:: LIBCXX_BUILD_BENCHMARK_NATIVE_STDLIB:BOOL
+.. option:: LIBCXX_BENCHMARK_NATIVE_STDLIB:STRING
 
-  **Default**:: ``OFF``
+  **Default**:: ``""``
+
+  **Values**:: ``libc++``, ``libstdc++``
 
   Build the libc++ benchmark tests and Google Benchmark library against the
-  native standard library on the platform. On linux this can be used to compare
-  libc++ to libstdc++ by building the benchmark tests against both standard
-  libraries.
+  specified standard library on the platform. On linux this can be used to
+  compare libc++ to libstdc++ by building the benchmark tests against both
+  standard libraries.
+
+.. option:: LIBCXX_BENCHMARK_NATIVE_GCC_TOOLCHAIN:STRING
+
+  Use the specified GCC toolchain and standard library when building the native
+  stdlib benchmark tests.
 
 
 libc++ ABI Feature Options

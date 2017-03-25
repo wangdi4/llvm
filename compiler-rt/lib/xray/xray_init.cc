@@ -18,6 +18,7 @@
 #include <unistd.h>
 
 #include "sanitizer_common/sanitizer_common.h"
+#include "xray_defs.h"
 #include "xray_flags.h"
 #include "xray_interface_internal.h"
 
@@ -27,6 +28,7 @@ extern const XRaySledEntry __start_xray_instr_map[] __attribute__((weak));
 extern const XRaySledEntry __stop_xray_instr_map[] __attribute__((weak));
 }
 
+using namespace __sanitizer;
 using namespace __xray;
 
 // When set to 'true' this means the XRay runtime has been initialised. We use
@@ -43,7 +45,7 @@ std::atomic<__xray::XRaySledMap> XRayInstrMap{};
 
 // __xray_init() will do the actual loading of the current process' memory map
 // and then proceed to look for the .xray_instr_map section/segment.
-void __xray_init() {
+void __xray_init() XRAY_NEVER_INSTRUMENT {
   InitializeFlags();
   if (__start_xray_instr_map == nullptr) {
     Report("XRay instrumentation map missing. Not initializing XRay.\n");

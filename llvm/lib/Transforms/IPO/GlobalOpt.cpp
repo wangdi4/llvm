@@ -1656,7 +1656,7 @@ static bool deleteIfDead(GlobalValue &GV,
                          SmallSet<const Comdat *, 8> &NotDiscardableComdats) {
   GV.removeDeadConstantUsers();
 
-  if (!GV.isDiscardableIfUnused())
+  if (!GV.isDiscardableIfUnused() && !GV.isDeclaration())
     return false;
 
   if (const Comdat *C = GV.getComdat())
@@ -1665,7 +1665,7 @@ static bool deleteIfDead(GlobalValue &GV,
 
   bool Dead;
   if (auto *F = dyn_cast<Function>(&GV))
-    Dead = F->isDefTriviallyDead();
+    Dead = (F->isDeclaration() && F->use_empty()) || F->isDefTriviallyDead();
   else
     Dead = GV.use_empty();
   if (!Dead)

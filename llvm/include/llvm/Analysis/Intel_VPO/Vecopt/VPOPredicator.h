@@ -17,6 +17,7 @@
 #define LLVM_TRANSFORMS_VPO_VPOPREDICATOR_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOCFG.h"
+#include <stack>
 
 namespace llvm {
 
@@ -30,13 +31,13 @@ class VPOPredicatorBase {
 public:
   /// Incoming AVR
   AVRGenerateBase *AVRG = nullptr;
+  void runOnAvr(AVRLoop *ALoop);
 
 protected:
   // We don't allow the base class to be constructed
   VPOPredicatorBase() {}
 
   bool runOnFunction(Function &F);
-  void runOnAvr(AVRLoop *ALoop);
 
 private:
   void predicateLoop(AVRLoop *ALoop);

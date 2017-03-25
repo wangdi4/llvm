@@ -56,7 +56,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 
 using namespace llvm;
@@ -256,8 +256,8 @@ void VPOUtils::buildParSectTreeRecursive(
       Intrinsic::ID IntrinId = Call->getIntrinsicID();
       if (IntrinId == Intrinsic::intel_directive) {
 
-        StringRef DirStr = VPOUtils::getDirectiveMetadataString(Call);
-        int DirID = VPOUtils::getDirectiveID(DirStr);
+        StringRef DirStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
+        int DirID = VPOAnalysisUtils::getDirectiveID(DirStr);
 
         if (DirID == DIR_OMP_SECTION ||
             DirID == DIR_OMP_SECTIONS ||

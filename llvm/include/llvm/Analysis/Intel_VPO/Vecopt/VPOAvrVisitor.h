@@ -210,7 +210,7 @@ bool AVRVisitor<AV>::backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
                                    bool RecurseInsideLoops,
                                    bool RecurseInsideValues) {
 
-  AVRContainerTy::reverse_iterator RI(End), RE(Begin);
+  AVRContainerTy::reverse_iterator RI(*End), RE(*Begin);
 
   /// Change direction and iterate backwards
   for (auto RNext = RI; RI != RE; RI = RNext) {

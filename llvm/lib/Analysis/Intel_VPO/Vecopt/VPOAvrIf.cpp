@@ -83,6 +83,8 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print If header
   switch (VLevel) {
+  case PrintCost:
+    OS << "$(" << getCondition()->getCost() << ") ";
   case PrintNumber:
     OS << "(" << getNumber() << ") ";
   case PrintAvrDecomp:

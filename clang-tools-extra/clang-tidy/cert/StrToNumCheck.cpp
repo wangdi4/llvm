@@ -8,9 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "StrToNumCheck.h"
-#include "clang/Analysis/Analyses/FormatString.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Analysis/Analyses/FormatString.h"
 #include "llvm/ADT/StringSwitch.h"
 #include <cassert>
 
@@ -214,7 +214,7 @@ void StrToNumCheck::check(const MatchFinder::MatchResult &Result) {
 
     // Formatted input functions need further checking of the format string to
     // determine whether a problematic conversion may be happening.
-    Conversion = ClassifyFormatString(FmtStr, Result.Context->getLangOpts(),
+    Conversion = ClassifyFormatString(FmtStr, getLangOpts(),
                                       Result.Context->getTargetInfo());
     if (Conversion != ConversionKind::None)
       FuncDecl = FFD;

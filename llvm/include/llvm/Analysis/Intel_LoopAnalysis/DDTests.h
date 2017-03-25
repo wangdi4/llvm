@@ -80,17 +80,17 @@ enum DVKind : unsigned char {
   ALL = 7,
 };
 
-inline LLVM_CONSTEXPR DVKind operator|(DVKind Lhs, DVKind Rhs) {
+inline constexpr DVKind operator|(DVKind Lhs, DVKind Rhs) {
   return static_cast<DVKind>(static_cast<unsigned char>(Lhs) |
                              static_cast<unsigned char>(Rhs));
 }
 
-inline LLVM_CONSTEXPR DVKind operator&(DVKind Lhs, DVKind Rhs) {
+inline constexpr DVKind operator&(DVKind Lhs, DVKind Rhs) {
   return static_cast<DVKind>(static_cast<unsigned char>(Lhs) &
                              static_cast<unsigned char>(Rhs));
 }
 
-inline LLVM_CONSTEXPR DVKind operator~(DVKind Arg) {
+inline constexpr DVKind operator~(DVKind Arg) {
   return static_cast<DVKind>(~static_cast<unsigned char>(Arg));
 }
 

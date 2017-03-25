@@ -121,7 +121,7 @@ public:
     // Spawn all but one of the threads in another thread as spawning threads
     // can take a while.
     std::thread([&, threadCount] {
-      for (std::size_t i = 1; i < threadCount; ++i) {
+      for (size_t i = 1; i < threadCount; ++i) {
         std::thread([=] {
           work();
         }).detach();
@@ -283,8 +283,15 @@ void parallel_for_each(Iterator begin, Iterator end, Func func) {
 #else
 template <class Iterator, class Func>
 void parallel_for_each(Iterator begin, Iterator end, Func func) {
+  // TaskGroup has a relatively high overhead, so we want to reduce
+  // the number of spawn() calls. We'll create up to 1024 tasks here.
+  // (Note that 1024 is an arbitrary number. This code probably needs
+  // improving to take the number of available cores into account.)
+  ptrdiff_t taskSize = std::distance(begin, end) / 1024;
+  if (taskSize == 0)
+    taskSize = 1;
+
   TaskGroup tg;
-  ptrdiff_t taskSize = 1024;
   while (taskSize <= std::distance(begin, end)) {
     tg.spawn([=, &func] { std::for_each(begin, begin + taskSize, func); });
     begin += taskSize;

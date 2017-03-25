@@ -856,8 +856,18 @@ HLInst *HLNodeUtils::createCall(Function *Func,
     HInst = createNonLvalHLInst(InstVal);
   }
 
+  // For non-void functions, the return DDRef position for the HLInst
+  // representing the call is at index 0 and the 1st argument DDRef is
+  // at position 1. For void functions, the DDRef for the first argument
+  // starts at 0. ArgOffset gets added to the index of the loop below to
+  // determine the correct DDRef index.
+  unsigned ArgOffset = 0;
+  if (HasReturn) {
+    ArgOffset = 1;
+  }
+
   for (unsigned I = 0; I < NumArgs; I++) {
-    HInst->setOperandDDRef(CallArgs[I], I);
+    HInst->setOperandDDRef(CallArgs[I], I + ArgOffset);
   }
   return HInst;
 }
@@ -876,7 +886,7 @@ struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
 
   void visit(const HLNode *Node) {
     CloneContainer->push_back(
-        HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
+        *HLNode::cloneBaseImpl(Node, GotoList, LabelMap, NodeMapper));
   }
 
   void postVisit(const HLNode *Node) {}
@@ -905,7 +915,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   // Check for Node2 as nullptr or a single node
   if (!Node2 || (Node1 == Node2)) {
     CloneContainer->push_back(
-        HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
+        *HLNode::cloneBaseImpl(Node1, &GotoList, &LabelMap, NodeMapper));
     updateGotos(&GotoList, &LabelMap);
     return;
   }
@@ -977,7 +987,7 @@ void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
                                  HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last) {
   if (!OrigContainer) {
-    InsertContainer.insert(Pos, &*(First));
+    InsertContainer.insert(Pos, *(First));
   } else {
     InsertContainer.splice(Pos, *OrigContainer, First, Last);
   }
@@ -1339,7 +1349,9 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
   for (auto I = First, Next = I, E = Last; I != E; I = Next) {
 
     Next++;
-    Node = Container.remove(I);
+    Node = &*I;
+
+    Container.remove(*Node);
 
     if (Erase) {
       Node->getHLNodeUtils().destroy(Node);

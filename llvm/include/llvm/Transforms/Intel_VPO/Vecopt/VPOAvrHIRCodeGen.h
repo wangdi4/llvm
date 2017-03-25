@@ -17,6 +17,8 @@
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include <map>
 
@@ -71,10 +73,11 @@ private:
 // instructions.
 class AVRCodeGenHIR {
 public:
-  AVRCodeGenHIR(AVR *Avr, HIRSafeReductionAnalysis *SRA)
-      : Avr(Avr), SRA(SRA), ALoop(nullptr), OrigLoop(nullptr),
+  AVRCodeGenHIR(AVR *Avr, TargetLibraryInfo *TLI, HIRSafeReductionAnalysis *SRA,
+                Function &Fn)
+      : Avr(Avr), TLI(TLI), SRA(SRA), Fn(Fn), ALoop(nullptr), OrigLoop(nullptr),
         MainLoop(nullptr), NeedRemainderLoop(false), TripCount(0), VL(0),
-        RHM(Avr) {}
+        RHM(Avr), WVecNode(nullptr) {}
 
   ~AVRCodeGenHIR() {}
 
@@ -85,9 +88,9 @@ public:
   // Check if loop is currently suported by AVRCodeGen.
   bool loopIsHandled(unsigned int VF);
 
-  // Return the cost of remainder loop code, if a remainder loop is needed.
-  int getRemainderLoopCost(HLLoop *Loop, unsigned int VF,
-                           unsigned int &TripCount);
+  // Return the trip count for the scalar loop. Returns 0 for unknown trip
+  // count loops
+  uint64_t getTripCount() const { return TripCount; }
 
   // Return true if \p Ref is a constant stride reference at loop
   // nesting level \p Level. Return stride coefficient in \p CoeffPtr
@@ -95,9 +98,53 @@ public:
   static bool isConstStrideRef(const RegDDRef *Ref, unsigned Level,
                                int64_t *CoeffPtr = nullptr);
 
+  Function &getFunction() const { return Fn; }
+  HLLoop *getMainLoop() const { return MainLoop; }
+  int getVL() const { return VL; };
+
+  // Return widened instruction if Symbase is in WidenMap, return nullptr
+  // otherwise.
+  HLInst *findWideInst(unsigned Symbase) {
+    if (WidenMap.find(Symbase) != WidenMap.end())
+      return WidenMap[Symbase];
+    else
+      return nullptr;
+  }
+
+  void setWideAvrRef(int AvrNum, RegDDRef *Ref) { AvrWideMap[AvrNum] = Ref; }
+
+  // Return widened ref if AvrNum is in AvrWideMap, return nullptr
+  // otherwise.
+  RegDDRef *findWideAvrRef(int AvrNum) {
+    if (AvrWideMap.find(AvrNum) != AvrWideMap.end())
+      return AvrWideMap[AvrNum];
+    else
+      return nullptr;
+  }
+
+  // Return widened ref for the given avr number
+  RegDDRef *getWideAvrRef(int AvrNum) {
+    auto WRef = findWideAvrRef(AvrNum);
+    assert(WRef && "Expected to find widened ref for avr");
+    return WRef;
+  }
+
+  // Widen Ref if needed and return the widened ref.
+  RegDDRef *widenRef(const RegDDRef *Ref);
+
+  // Return true if Ref is a reduction
+  bool isReductionRef(const RegDDRef *Ref, unsigned &Opcode);
+
 private:
   AVR *Avr;
+
+  // Target Library Info is used to check for svml.
+  TargetLibraryInfo *TLI;
+
   HIRSafeReductionAnalysis *SRA;
+
+  // Current function
+  Function &Fn;
 
   // AVRLoop in AVR region
   AVRLoop *ALoop;
@@ -123,6 +170,10 @@ private:
   // Map of DDRef symbase and widened HLInst
   std::map<int, HLInst *> WidenMap;
 
+  // Map of avr number and widened DDRef. TODO - look into combining the two
+  // maps
+  std::map<int, RegDDRef *> AvrWideMap;
+
   typedef DDRefGatherer<RegDDRef, TerminalRefs> BlobRefGatherer;
 
   BlobRefGatherer::MapTy MemRefMap;
@@ -147,7 +198,7 @@ private:
   // a constant, zero otherwise.
   bool loopIsHandledImpl(int64_t &TripCount);
 
-  void widenNode(const HLNode *Node);
+  HLInst *widenNode(AVRAssignHIR *AvrNode);
   RegDDRef *getVectorValue(const RegDDRef *Op);
   HLInst *widenReductionNode(const HLNode *Node);
 
@@ -158,7 +209,12 @@ private:
 
   void eraseLoopIntrins();
   void processLoop();
-  RegDDRef *widenRef(const RegDDRef *Ref);
+
+  /// \brief Analyzes the memory references of \p OrigCall to determine
+  /// stride. The resulting stride information is attached to the arguments
+  /// of \p WideCall in the form of attributes.
+  void analyzeCallArgMemoryReferences(const HLInst *OrigCall, HLInst *WideCall,
+                                      SmallVectorImpl<RegDDRef *> &Args);
 
   // Return true if the loop is a small loop(atmost 2 instructions)
   // with add reduction of 16-bit integer values into 32/64 bit

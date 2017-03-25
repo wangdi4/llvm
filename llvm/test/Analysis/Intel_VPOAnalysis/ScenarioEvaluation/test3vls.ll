@@ -14,12 +14,8 @@
 
 ; TODO: Only runs in debug mode
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -S -loopopt -debug 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -S -loopopt -debug -enable-vect-vls=1 2>&1 | FileCheck %s
 ;
-;
-; TODO: fix CQ413511 and remove XFAIL
-; XFAIL: *
-; 
 ; CHECK: Consecutive Stride = 0
 ; CHECK-NEXT: Stride = 3
 ; CHECK-NEXT: Found a VLS group for the access!
@@ -42,7 +38,7 @@
 ; CHECK-NEXT: Stride = 3
 ; CHECK-NEXT: Found a VLS group for the access!
 ; CHECK-NEXT: skip -- not first access of the group!
-; CHECK: VPODriver: Scenarios engine selected VF 4
+; CHECK: VPODriver: Scenarios engine selected VF {{[124]}}
 
 ; ModuleID = 'vectvls2.c'
 source_filename = "vectvls2.c"

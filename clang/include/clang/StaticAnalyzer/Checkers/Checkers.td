@@ -192,7 +192,7 @@ def NullablePassedToNonnullChecker : Checker<"NullablePassedToNonnull">,
   HelpText<"Warns when a nullable pointer is passed to a pointer which has a _Nonnull type.">,
   DescFile<"NullabilityChecker.cpp">;
 
-def NullableReturnedFromNonnullChecker : Checker<"NullablePassedToNonnull">,
+def NullableReturnedFromNonnullChecker : Checker<"NullableReturnedFromNonnull">,
   HelpText<"Warns when a nullable pointer is returned from a function that has _Nonnull return type.">,
   DescFile<"NullabilityChecker.cpp">;
 
@@ -416,6 +416,10 @@ def VforkChecker : Checker<"Vfork">,
   HelpText<"Check for proper usage of vfork">,
   DescFile<"VforkChecker.cpp">;
 
+def StdCLibraryFunctionsChecker : Checker<"StdCLibraryFunctions">,
+  HelpText<"Improve modeling of the C standard library functions">,
+  DescFile<"StdLibraryFunctionsChecker.cpp">;
+
 } // end "unix"
 
 let ParentPackage = UnixAlpha in {
@@ -435,6 +439,10 @@ def StreamChecker : Checker<"Stream">,
 def SimpleStreamChecker : Checker<"SimpleStream">,
   HelpText<"Check for misuses of stream APIs">,
   DescFile<"SimpleStreamChecker.cpp">;
+
+def BlockInCriticalSectionChecker : Checker<"BlockInCriticalSection">,
+  HelpText<"Check for calls to blocking functions inside a critical section">,
+  DescFile<"BlockInCriticalSectionChecker.cpp">;
 
 } // end "alpha.unix"
 
@@ -469,6 +477,11 @@ def CStringNotNullTerm : Checker<"NotNullTerminated">,
 //===----------------------------------------------------------------------===//
 
 let ParentPackage = OSX in {
+
+def NumberObjectConversionChecker : Checker<"NumberObjectConversion">,
+  InPackage<OSX>,
+  HelpText<"Check for erroneous conversions of objects representing numbers into numbers">,
+  DescFile<"NumberObjectConversionChecker.cpp">;
 
 def MacOSXAPIChecker : Checker<"API">,
   InPackage<OSX>,
@@ -573,8 +586,8 @@ def DirectIvarAssignmentForAnnotatedFunctions : Checker<"DirectIvarAssignmentFor
 
 let ParentPackage = CoreFoundation in {
 
-def CFNumberCreateChecker : Checker<"CFNumber">,
-  HelpText<"Check for proper uses of CFNumberCreate">,
+def CFNumberChecker : Checker<"CFNumber">,
+  HelpText<"Check for proper uses of CFNumber APIs">,
   DescFile<"BasicObjCFoundationChecks.cpp">;
 
 def CFRetainReleaseChecker : Checker<"CFRetainRelease">,
@@ -633,6 +646,10 @@ def LLVMConventionsChecker : Checker<"Conventions">,
 //===----------------------------------------------------------------------===//
 
 let ParentPackage = Debug in {
+
+def AnalysisOrderChecker : Checker<"AnalysisOrder">,
+  HelpText<"Print callbacks that are called during analysis in order">,
+  DescFile<"AnalysisOrder.cpp">;
 
 def DominatorsTreeDumper : Checker<"DumpDominators">,
   HelpText<"Print the dominance tree for a given CFG">,

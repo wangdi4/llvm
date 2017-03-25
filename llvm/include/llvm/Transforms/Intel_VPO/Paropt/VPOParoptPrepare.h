@@ -53,7 +53,7 @@ public:
   explicit VPOParoptPrepare(unsigned MyMode =0x5);
   ~VPOParoptPrepare() {}; 
 
-  const char *getPassName() const override { return "VPO Paropt Prepare Pass"; }
+  StringRef getPassName() const override { return "VPO Paropt Prepare Pass"; }
 
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;

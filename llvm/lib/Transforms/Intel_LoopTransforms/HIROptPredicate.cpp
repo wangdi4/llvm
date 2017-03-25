@@ -76,7 +76,7 @@ STATISTIC(IfsUnswitched, "Number of HLIfs optimized (hoisted)");
 // due to nested/multiple if.
 STATISTIC(IfsAnalyzed, "Number of HLIfs analyzed for loop unswitching");
 
-LLVM_CONSTEXPR unsigned DefaultNumPredicateThreshold = 3;
+constexpr unsigned DefaultNumPredicateThreshold = 3;
 
 static cl::opt<unsigned> NumPredicateThreshold(
     OPT_SWITCH "-threshold", cl::init(DefaultNumPredicateThreshold), cl::Hidden,

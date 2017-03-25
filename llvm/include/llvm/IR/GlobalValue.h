@@ -21,11 +21,12 @@
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/MD5.h"
-#include <system_error>
 
 namespace llvm {
 
 class Comdat;
+class Error;
+class GlobalObject;
 class PointerType;
 class Module;
 
@@ -72,6 +73,7 @@ protected:
         ValueType(Ty), Linkage(Linkage), Visibility(DefaultVisibility),
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
+        ThreadPrivate(0),  // INTEL
         IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
@@ -86,6 +88,12 @@ protected:
 
   unsigned ThreadLocal : 3; // Is this symbol "Thread Local", if so, what is
                             // the desired model?
+#ifdef INTEL_CUSTOMIZATION
+  unsigned ThreadPrivate : 1; // The thread_private attribute indicates 
+                              // if the global variable is associated 
+                              // with an OpenMP threadprivate directive
+                              // and the threadprivate mode is legacy.
+#endif // INTEL_CUSTOMIZATION
   static const unsigned GlobalValueSubClassDataBits = 19;
 
 private:
@@ -139,6 +147,12 @@ protected:
   }
 
   Module *Parent;             // The containing module.
+
+  // Used by SymbolTableListTraits.
+  void setParent(Module *parent) {
+    Parent = parent;
+  }
+
 public:
   enum ThreadLocalMode {
     NotThreadLocal = 0,
@@ -203,6 +217,11 @@ public:
            "local linkage requires default visibility");
     Visibility = V;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  bool isThreadPrivate() const { return ThreadPrivate; }
+  void setThreadPrivate(bool Val) { ThreadPrivate = Val; } 
+#endif // INTEL_CUSTOMIZATION
 
   /// If the value is "Thread Local", its value isn't shared by the threads.
   bool isThreadLocal() const { return getThreadLocalMode() != NotThreadLocal; }
@@ -460,10 +479,8 @@ public:
   /// function has been read in yet or not.
   bool isMaterializable() const;
 
-  /// Make sure this GlobalValue is fully read. If the module is corrupt, this
-  /// returns true and fills in the optional string with information about the
-  /// problem.  If successful, this returns false.
-  std::error_code materialize();
+  /// Make sure this GlobalValue is fully read.
+  Error materialize();
 
 /// @}
 
@@ -491,6 +508,11 @@ public:
   // Returns true if the alignment of the value can be unilaterally
   // increased.
   bool canIncreaseAlignment() const;
+
+  const GlobalObject *getBaseObject() const {
+    return const_cast<GlobalValue *>(this)->getBaseObject();
+  }
+  GlobalObject *getBaseObject();
 
   /// This method unlinks 'this' from the containing module, but does not delete
   /// it.

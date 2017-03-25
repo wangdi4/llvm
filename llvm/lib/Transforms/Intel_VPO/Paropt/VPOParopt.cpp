@@ -39,7 +39,7 @@
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 #include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
-
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTpv.h"
 #define DEBUG_TYPE "VPOParopt"
 
 
@@ -57,9 +57,7 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 char VPOParopt::ID = 0;
 
 ModulePass *llvm::createVPOParoptPass(unsigned Mode) { 
-  assert(Mode >= OmpPar && ((Mode & (Mode-1)) == 0) &&
-         "Expect the VPO Mode is OmpPar, OmpVec or OmpOffload.");
-  return new VPOParopt(ParTrans | Mode); 
+  return new VPOParopt((ParTrans | OmpPar | OmpTpv) & Mode);
 }
 
 VPOParopt::VPOParopt(unsigned MyMode)
@@ -137,6 +135,14 @@ bool VPOParopt::runOnModule(Module &M) {
     // FPM.run(*F);
 
     DEBUG(dbgs() << "\n}=== VPOParopt end func: " << F->getName() <<"\n");
+  }
+
+  // Thread private legacy mode implementation
+  if (Mode & OmpTpv) {
+    VPOParoptTpvLegacyPass VPTL;
+    ModuleAnalysisManager DummyMAM;
+    PreservedAnalyses PA = VPTL.run(M, DummyMAM);
+    Changed = Changed | !PA.areAllPreserved();
   }
 
   DEBUG(dbgs() << "\n====== End VPO Paropt Pass ======\n\n");

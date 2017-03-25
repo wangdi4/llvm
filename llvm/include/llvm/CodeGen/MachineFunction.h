@@ -20,6 +20,7 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/ilist.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/IR/DebugLoc.h"
@@ -48,14 +49,18 @@ class TargetRegisterClass;
 struct MachinePointerInfo;
 struct WinEHFuncInfo;
 
-template <>
-struct ilist_traits<MachineBasicBlock>
-    : public ilist_default_traits<MachineBasicBlock> {
+template <> struct ilist_alloc_traits<MachineBasicBlock> {
+  void deleteNode(MachineBasicBlock *MBB);
+};
+
+template <> struct ilist_callback_traits<MachineBasicBlock> {
   void addNodeToList(MachineBasicBlock* MBB);
   void removeNodeFromList(MachineBasicBlock* MBB);
-  void deleteNode(MachineBasicBlock *MBB);
-private:
-  void createNode(const MachineBasicBlock &);
+
+  template <class Iterator>
+  void transferNodesFromList(ilist_callback_traits &OldList, Iterator, Iterator) {
+    llvm_unreachable("Never transfer between lists");
+  }
 };
 
 /// MachineFunctionInfo - This class can be derived from and used by targets to
@@ -230,6 +235,9 @@ class MachineFunction {
   /// True if the function includes any inline assembly.
   bool HasInlineAsm = false;
 
+  /// True if any WinCFI instruction have been emitted in this function.
+  Optional<bool> HasWinCFI;
+
   /// Current high-level properties of the IR of the function (e.g. is in SSA
   /// form or whether registers have been allocated)
   MachineFunctionProperties Properties;
@@ -368,6 +376,12 @@ public:
     HasInlineAsm = B;
   }
 
+  bool hasWinCFI() const {
+    assert(HasWinCFI.hasValue() && "HasWinCFI not set yet!");
+    return *HasWinCFI;
+  }
+  void setHasWinCFI(bool v) { HasWinCFI = v; }
+
   /// Get the function properties
   const MachineFunctionProperties &getProperties() const { return Properties; }
   MachineFunctionProperties &getProperties() { return Properties; }
@@ -445,8 +459,8 @@ public:
   // Provide accessors for the MachineBasicBlock list...
   typedef BasicBlockListType::iterator iterator;
   typedef BasicBlockListType::const_iterator const_iterator;
-  typedef std::reverse_iterator<const_iterator> const_reverse_iterator;
-  typedef std::reverse_iterator<iterator>             reverse_iterator;
+  typedef BasicBlockListType::const_reverse_iterator const_reverse_iterator;
+  typedef BasicBlockListType::reverse_iterator reverse_iterator;
 
   /// Support for MachineBasicBlock::getNextNode().
   static BasicBlockListType MachineFunction::*
@@ -553,11 +567,13 @@ public:
   /// getMachineMemOperand - Allocate a new MachineMemOperand.
   /// MachineMemOperands are owned by the MachineFunction and need not be
   /// explicitly deallocated.
-  MachineMemOperand *getMachineMemOperand(MachinePointerInfo PtrInfo,
-                                          MachineMemOperand::Flags f,
-                                          uint64_t s, unsigned base_alignment,
-                                          const AAMDNodes &AAInfo = AAMDNodes(),
-                                          const MDNode *Ranges = nullptr);
+  MachineMemOperand *getMachineMemOperand(
+      MachinePointerInfo PtrInfo, MachineMemOperand::Flags f, uint64_t s,
+      unsigned base_alignment, const AAMDNodes &AAInfo = AAMDNodes(),
+      const MDNode *Ranges = nullptr,
+      SynchronizationScope SynchScope = CrossThread,
+      AtomicOrdering Ordering = AtomicOrdering::NotAtomic,
+      AtomicOrdering FailureOrdering = AtomicOrdering::NotAtomic);
 
   /// getMachineMemOperand - Allocate a new MachineMemOperand by copying
   /// an existing one, adjusting by an offset and using the given size.

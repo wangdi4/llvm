@@ -12,7 +12,7 @@
 ;   }
 ; }
 ;   
-; RUN: opt -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -print-after=simplifycfg -S < %s 2>&1 | FileCheck %s
+; RUN: opt -default-vpo-vf=4 -hir-ssa-deconstruction -hir-vec-dir-insert -VPODriverHIR -hir-cg -simplifycfg -print-after=simplifycfg -S < %s 2>&1 | FileCheck %s
 ;   
 ; CHECK:   store <4 x i8>
 ; CHECK-NOT: !range

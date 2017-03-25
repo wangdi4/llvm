@@ -132,8 +132,12 @@ macro(test_target_arch arch def)
       try_compile_only(CAN_TARGET_${arch} ${TARGET_${arch}_CFLAGS})
     else()
       set(argstring "${CMAKE_EXE_LINKER_FLAGS} ${argstring}")
+      set(FLAG_NO_EXCEPTIONS "")
+      if(COMPILER_RT_HAS_FNO_EXCEPTIONS_FLAG)
+        set(FLAG_NO_EXCEPTIONS " -fno-exceptions ")
+      endif()
       try_compile(CAN_TARGET_${arch} ${CMAKE_BINARY_DIR} ${SIMPLE_SOURCE}
-                  COMPILE_DEFINITIONS "${TARGET_${arch}_CFLAGS}"
+                  COMPILE_DEFINITIONS "${TARGET_${arch}_CFLAGS} ${FLAG_NO_EXCEPTIONS}"
                   OUTPUT_VARIABLE TARGET_${arch}_OUTPUT
                   CMAKE_FLAGS "-DCMAKE_EXE_LINKER_FLAGS:STRING=${argstring}")
     endif()
@@ -197,10 +201,15 @@ macro(load_llvm_config)
     message(FATAL_ERROR "llvm-config failed with status ${HAD_ERROR}")
   endif()
   string(REGEX REPLACE "[ \t]*[\r\n]+[ \t]*" ";" CONFIG_OUTPUT ${CONFIG_OUTPUT})
-  list(GET CONFIG_OUTPUT 0 LLVM_BINARY_DIR)
-  list(GET CONFIG_OUTPUT 1 LLVM_TOOLS_BINARY_DIR)
-  list(GET CONFIG_OUTPUT 2 LLVM_LIBRARY_DIR)
-  list(GET CONFIG_OUTPUT 3 LLVM_MAIN_SRC_DIR)
+  list(GET CONFIG_OUTPUT 0 BINARY_DIR)
+  list(GET CONFIG_OUTPUT 1 TOOLS_BINARY_DIR)
+  list(GET CONFIG_OUTPUT 2 LIBRARY_DIR)
+  list(GET CONFIG_OUTPUT 3 MAIN_SRC_DIR)
+
+  set(LLVM_BINARY_DIR ${BINARY_DIR} CACHE PATH "Path to LLVM build tree")
+  set(LLVM_TOOLS_BINARY_DIR ${TOOLS_BINARY_DIR} CACHE PATH "Path to llvm/bin")
+  set(LLVM_LIBRARY_DIR ${LIBRARY_DIR} CACHE PATH "Path to llvm/lib")
+  set(LLVM_MAIN_SRC_DIR ${MAIN_SRC_DIR} CACHE PATH "Path to LLVM source tree")
 
   # Make use of LLVM CMake modules.
   file(TO_CMAKE_PATH ${LLVM_BINARY_DIR} LLVM_BINARY_DIR_CMAKE_STYLE)
@@ -210,7 +219,7 @@ macro(load_llvm_config)
   include("${LLVM_CMAKE_PATH}/LLVMConfig.cmake")
 
   set(LLVM_LIBRARY_OUTPUT_INTDIR
-    ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib${LLVM_LIBDIR_SUFFIX})
+    ${LLVM_BINARY_DIR}/${CMAKE_CFG_INTDIR}/lib${LLVM_LIBDIR_SUFFIX})
 endmacro()
 
 macro(construct_compiler_rt_default_triple)

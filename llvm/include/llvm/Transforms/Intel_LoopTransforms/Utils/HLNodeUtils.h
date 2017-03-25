@@ -746,10 +746,9 @@ public:
   /// Recursive flag and Recursion inside HLLoops is specified using
   /// RecurseInsideLoops (which is only used when Recursive flag is set).
   template <bool Recursive = true, bool RecurseInsideLoops = true,
-            bool Forward = true, typename HV, typename NodeTy,
-            typename = IsHLNodeTy<NodeTy>>
-  static void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
-                  ilist_iterator<NodeTy> End) {
+            bool Forward = true, typename HV, typename It,
+            typename = IsHLNodeTy<typename It::value_type>>
+  static void visitRange(HV &Visitor, It Begin, It End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
   }
@@ -762,11 +761,9 @@ public:
             typename = IsHLNodeTy<NodeTy>>
   static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    ilist_iterator<NodeTy> BeginIter(Begin);
-    ilist_iterator<NodeTy> EndIter(End);
-    EndIter++;
-    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
-                                                       EndIter);
+    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor,
+                                                       Begin->getIterator(),
+                                                       ++(End->getIterator()));
   }
 
   /// Visits all HLNodes in the HIR. The direction is specified using Forward

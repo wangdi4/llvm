@@ -119,20 +119,32 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
-  if (TTI.isTargetSpecificShuffleMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0, nullptr);
+  if (isExtractSubvectorMask(Mask)) {
+    // TODO: Support other sized subvectors.
+    int index = Mask[0] == 0 ? 0 : 1;
+    return TTI.getShuffleCost(
+        TargetTransformInfo::SK_ExtractSubvector, Tp, index,
+        VectorType::get(Tp->getScalarType(), NumVecElems / 2));
+  } else if (TTI.isTargetSpecificShuffleMask(Mask))
+    return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
+                              nullptr);
   else if (isReverseVectorMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_Reverse, Tp, 0, nullptr);
   else if (isAlternateVectorMask(Mask))
-    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0, nullptr);
+    return TTI.getShuffleCost(TargetTransformInfo::SK_Alternate, Tp, 0,
+                              nullptr);
 
-  // TODO: Support SK_Insert, SK_Extract
-  return 2 * Mask.size();
+  // TODO: Support SK_Insert
+  uint32_t TotalElems = Mask.size();
+  for (int MaskElem : Mask)
+    if (MaskElem < 0)
+      TotalElems--;
+  return 2 * TotalElems;
 }
 
 namespace OptVLS {
 class GraphNode;
-typedef OVLSVector<GraphNode *> GraphNodeVector;
+typedef std::list<GraphNode *> GraphNodeList;
 /// Represents a range of bits using a bit-location of the leftmost bit and
 /// a number of consecutive bits immediately to the right that are included
 /// in the range. {0, 0} means undefined bit-range.
@@ -175,10 +187,11 @@ private:
   GraphNode *Src;
   GraphNode *Dst;
   BitRange BR;
+  uint32_t DstBitIndex;
 
 public:
-  Edge(GraphNode *S, GraphNode *D, BitRange BRange)
-      : Src(S), Dst(D), BR(BRange) {
+  Edge(GraphNode *S, GraphNode *D, BitRange BRange, uint32_t DBIdx)
+      : Src(S), Dst(D), BR(BRange), DstBitIndex(DBIdx) {
     BR = BitRange(BRange.getBitIndex(), BRange.getNumBits());
   }
 
@@ -187,12 +200,14 @@ public:
   BitRange getBitRange() const { return BR; }
   uint32_t getBitIndex() const { return BR.getBitIndex(); }
   uint32_t getNumBits() const { return BR.getNumBits(); }
+  uint32_t getDstBitIndex() const { return DstBitIndex; }
 
   void updateSource(GraphNode *NewSrc, uint32_t NewBIndex) {
     Src = NewSrc;
     // Update BitIndex.
     BR.updateBitIndex(NewBIndex);
   }
+  void updateDest(GraphNode *NewDest) { Dst = NewDest; }
 };
 
 /// GraphNode can be thought of as a result of some logical instruction
@@ -249,7 +264,7 @@ class GraphNode {
 
 public:
   explicit GraphNode(OVLSInstruction *I, OVLSType T) : Inst(I), Type(T) {
-    static uint32_t NodeId = 0;
+    static uint32_t NodeId = 1;
     Id = NodeId++;
     TotalIncomingBits = 0;
     TotalIncomingEdges = 0;
@@ -282,19 +297,17 @@ public:
   OVLSType type() const { return Type; }
   void setType(OVLSType T) { Type = T; }
 
-  void setTotalIncomingEdges() {
-    TotalIncomingEdges = IncomingEdges.size();
-  }
-  void decrementIncomingEdges() {
-    TotalIncomingEdges--;
-  }
-  bool hasNoIncomingEdges() const {
-    if (TotalIncomingEdges == 0)
-      return true;
+  void setTotalIncomingEdges() { TotalIncomingEdges = IncomingEdges.size(); }
+  void decrementTotalIncomingEdges() { TotalIncomingEdges--; }
 
-    return false;
-  }
+  uint32_t getTotalIncomingEdges() const { return TotalIncomingEdges; }
 
+  bool hasNoOutgoingEdges() const { return OutgoingEdges.size() == 0; }
+  uint32_t getNumIncomingEdges() const { return IncomingEdges.size(); }
+  void clearEdges() {
+    IncomingEdges.clear();
+    OutgoingEdges.clear();
+  }
   // Returns the current total number of incoming bits.
   uint32_t size() const { return TotalIncomingBits; }
 
@@ -357,7 +370,8 @@ public:
       // to fillup the gap.
       uint32_t GapSize = (BIndex - TotalIncomingBits);
 
-      Edge *Gap = new Edge(nullptr, this, BitRange(0, GapSize));
+      Edge *Gap =
+          new Edge(nullptr, this, BitRange(0, GapSize), TotalIncomingBits);
       IncomingEdges.push_back(Gap);
       TotalIncomingBits += GapSize;
     }
@@ -387,8 +401,9 @@ public:
   ///             dst
   void splitEdge(Edge *E, GraphNode *NewNode) {
     // Create an edge from src to NewNode.
-    Edge *NewEdge = new Edge(E->getSource(), NewNode, E->getBitRange());
     uint32_t NewNodeBIndex = NewNode->size();
+    Edge *NewEdge =
+        new Edge(E->getSource(), NewNode, E->getBitRange(), NewNodeBIndex);
     NewNode->addAnIncomingEdge(NewNodeBIndex, NewEdge);
 
     // Update outgoing edgelist of NewNode.
@@ -418,7 +433,7 @@ public:
   /// consecutively in the destination. Here is an example:
   /// src1(0, 1, 2, 3) src2(4, 5, 6, 7)
   /// dst could be dst(0, 3, 6) but not dst(0, 6, 3)
-  bool splitSourceNodes(GraphNodeVector &NewNodes) {
+  bool splitSourceNodes(GraphNodeList &NewNodes) {
     std::set<GraphNode *> UniqueSources;
     uint32_t NumUniqueSources = getNumUniqueSources(UniqueSources);
 
@@ -469,8 +484,9 @@ public:
 
   // Generate a shuffle instruction for this node.
   void genShuffle() {
-    OVLSInstruction *Op1 = nullptr;
-    OVLSInstruction *Op2 = nullptr;
+    OVLSOperand *Op1 = new OVLSUndef();
+    OVLSOperand *Op2 = new OVLSUndef();
+
     OVLSConstant *ShuffleMask = nullptr;
 
     // Use 'Type' which is the type of this result node to define the
@@ -484,10 +500,11 @@ public:
     int32_t IntShuffleMask[MaxNumElems];
     uint32_t MaskIndex = 0;
 
+    uint32_t Op2StartIndex;
     // Traverse through the incoming edges, collect the input vectors and the
     // correspondent vector indices
     for (Edge *E : IncomingEdges) {
-      OVLSInstruction *Src = E->getSource()->getInstruction();
+      OVLSOperand *Src = E->getSource()->getInstruction();
       BitRange BR = E->getBitRange();
 
       // Temporarily assuming each edge moves exactly 'ElemSize' number of bits
@@ -499,12 +516,13 @@ public:
       assert(BR.getNumBits() == ElemSize &&
              "Each edge should move element-size "
              "number of bits!!!");
-      if (Src == nullptr)
+      if (isa<OVLSUndef>(Src))
         IntShuffleMask[MaskIndex++] = -1;
       else {
-        if (Op1 == nullptr)
+        if (isa<OVLSUndef>(Op1)) {
           Op1 = Src;
-        else if (Src != Op1 && Op2 == nullptr)
+          Op2StartIndex = Op1->getType().getNumElements();
+        } else if (Src != Op1 && isa<OVLSUndef>(Op2))
           Op2 = Src;
         else if (Src != Op1 && Src != Op2)
           assert("Invalid number of operands for OVLSShuffle!!!");
@@ -513,11 +531,13 @@ public:
           IntShuffleMask[MaskIndex++] = BR.getBitIndex() / ElemSize;
         else
           IntShuffleMask[MaskIndex++] =
-              (BR.getBitIndex() / ElemSize) + NumElems;
+              (BR.getBitIndex() / ElemSize) + Op2StartIndex;
       }
     }
 
     assert(MaskIndex == NumElems && "IntShuffleMask got out of range!!!");
+    if (isa<OVLSUndef>(Op2))
+      Op2->setType(Op1->getType());
 
     ShuffleMask =
         new OVLSConstant(OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
@@ -540,7 +560,7 @@ class Graph {
   /// appear before a source node in the NodeVector. But each node gets an id
   /// which corresponds to the container's index. So, a node can easily be
   /// accessed by its id also.
-  GraphNodeVector Nodes;
+  GraphNodeList Nodes;
 
   uint32_t VectorLength;
 
@@ -556,14 +576,18 @@ public:
   }
   void insert(GraphNode *N) { Nodes.push_back(N); }
 
+  void removeNode(GraphNode *N) { Nodes.remove(N); }
+
+  GraphNodeList::iterator begin() { return Nodes.begin(); }
+
   // Return nodes in a topological order.
-  void getTopSortedNodes(GraphNodeVector &TopSortedNodes) const {
+  void getTopSortedNodes(GraphNodeList &TopSortedNodes) const {
     // TopSortedNodes is an empty list that will contain the sorted elements.
     std::deque<GraphNode *> NodesToProcess;
 
     // Collect all the nodes with no incoming edges.
     for (GraphNode *Node : Nodes) {
-      if (Node->hasNoIncomingEdges())
+      if (Node->getTotalIncomingEdges() == 0)
         NodesToProcess.push_back(Node);
     }
 
@@ -576,10 +600,10 @@ public:
       for (Edge *E : Node->outgoingEdges()) {
         GraphNode *Dst = E->getDest();
         // Delete Edge
-        Dst->decrementIncomingEdges();
+        Dst->decrementTotalIncomingEdges();
         // If the destination has no incoming edges push it to the
         // NodesToProcess.
-        if (Dst->hasNoIncomingEdges())
+        if (Dst->getTotalIncomingEdges() == 0)
           NodesToProcess.push_back(Dst);
       }
 
@@ -594,7 +618,7 @@ public:
   // Print the nodes in a topological order. It prints a node only if its
   // producers are printed.
   void print(OVLSostream &OS, uint32_t NumSpaces) const {
-    GraphNodeVector TopSortedNodes;
+    GraphNodeList TopSortedNodes;
     getTopSortedNodes(TopSortedNodes);
 
     for (GraphNode *N : TopSortedNodes) {
@@ -607,7 +631,7 @@ public:
   /// has no more than two unique source nodes.
   void reduceNSourcesToTwoSources() {
     for (GraphNode *N : Nodes) {
-      GraphNodeVector NewNodes;
+      GraphNodeList NewNodes;
       if (N->splitSourceNodes(NewNodes)) {
         // insert newly created nodes in to the graph.
         for (GraphNode *NewNode : NewNodes)
@@ -630,8 +654,8 @@ public:
   /// N2 N1 N2 N1, etc.
   /// It makes more sense to merge as N1 N1 N2 N2 which will most likely lead
   /// to vperm or vinsert.
-  OVLSVector<int> getShuffleMask(const GraphNode &N1,
-                                   const GraphNode &N2) const {
+  OVLSVector<int> getPossibleIncomingMask(const GraphNode &N1,
+                                          const GraphNode &N2) const {
     OVLSVector<int> Mask;
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
@@ -673,7 +697,118 @@ public:
         Mask.push_back(BIndex / ElemSize + S2StartIndex);
     }
 
+    // Mask size needs to match the source size.
+    while (Mask.size() < S2StartIndex)
+      Mask.push_back(-1);
+
     return Mask;
+  }
+
+  /// Computes the masks created by the outgoing edges of N to its
+  /// destinations. Here N's starting index starts from NodeStartIndex
+  /// (in bits)
+  ///
+  /// For example,
+  ///  V1[0:63] = N[0:63]
+  ///  V2[0:63] = N[64:127]
+  /// Computes the following two masks with NodeStartIndex 64:
+  ///   V1-Mask: <1, -1, 1, -1>
+  ///   V2-Mask: <2, -1, 1, -1>
+  void getPossibleOutgoingMasks(
+      const GraphNode &N, uint32_t NodeStartIndex,
+      std::map<int, SmallVector<int, 16>> &NodeMaskMap) const {
+    uint32_t ElemSize = N.type().getElementSize();
+    for (const auto &E : N.outgoingEdges()) {
+      GraphNode *Dst = E->getDest();
+      uint32_t Id = E->getDest()->getId();
+      BitRange BR = E->getBitRange();
+      uint32_t SrcBitIndex = BR.getBitIndex();
+      uint32_t NumBits = BR.getNumBits();
+      OVLSType DstTy = Dst->type();
+      uint32_t NumElems = DstTy.getNumElements();
+
+      // According to the destination's element size.
+      int32_t MaskIndex = E->getDstBitIndex() / DstTy.getElementSize();
+      uint32_t SrcIndex = NodeStartIndex + SrcBitIndex;
+      assert((SrcIndex % ElemSize == 0) && (NumBits % ElemSize == 0) &&
+             "Unexpected BitIndex and/or NumBits");
+
+      // According to the source's element size.
+      uint32_t MaskElem = SrcIndex / ElemSize;
+
+      std::map<int, SmallVector<int, 16>>::iterator MapIt =
+          NodeMaskMap.find(Id);
+      SmallVector<int, 16> Mask;
+      if (MapIt == NodeMaskMap.end())
+        // Mask size needs to match the source size.
+        Mask = SmallVector<int, 16>(NumElems, -1);
+      else
+        Mask = MapIt->second;
+
+      Mask[MaskIndex] = MaskElem;
+
+      // An edge can move multiple elements and they are contiguous.
+      while (NumBits -= ElemSize)
+        Mask[++MaskIndex] = ++MaskElem;
+
+      NodeMaskMap[Id] = Mask;
+    }
+  }
+
+  /// Computes the masks created by the outgoing edges of merge(N1,N2) to its
+  /// destinations.
+  ///
+  /// For example,
+  ///  V1[0:63] = N1[0:63]
+  ///  V2[128:192] = N2[0:63]
+  /// Computes the following two masks:
+  ///   V1-Mask: <0, -1, -1, -1>
+  ///   V2-Mask: <-1, -1, 1, -1> // After merging the first element of N2
+  ///                            // becomes the 2nd element of the merged N12.
+  ///
+  /// This needs to follow the merging pattern of getPossibleIncomingMask which
+  /// assumes merging of N1 and N2 happened as N1 N1 .. N2 N2..
+  SmallVector<SmallVector<int, 16>, 16>
+  getPossibleOutgoingMergeMasks(const GraphNode &N1,
+                                const GraphNode &N2) const {
+    SmallVector<SmallVector<int, 16>, 16> Masks;
+    std::map<int, SmallVector<int, 16>> NodeMaskMap;
+
+    // Compute masks that are created by the outgoing edges of N1
+    getPossibleOutgoingMasks(N1, 0, NodeMaskMap);
+
+    // Compute masks that are created by the outgoing edges of N2
+    getPossibleOutgoingMasks(N2, N1.type().getSize(), NodeMaskMap);
+
+    std::map<int, SmallVector<int, 16>>::iterator MapIt, MapItE;
+
+    for (MapIt = NodeMaskMap.begin(), MapItE = NodeMaskMap.end();
+         MapIt != MapItE; ++MapIt)
+      Masks.push_back(MapIt->second);
+
+    return Masks;
+  }
+
+  // Returns the cost of merging N1 and N2.
+  uint64_t getMergeCost(const GraphNode &N1, const GraphNode &N2) const {
+    // Assumes N1 and N2 has the same element size.
+    uint32_t ElemSize = N1.type().getElementSize();
+    Type *ElemType = Type::getIntNTy(CM.getContext(), ElemSize);
+
+    // Compute inward impact.
+    SmallVector<int, 16> Mask = getPossibleIncomingMask(N1, N2);
+    VectorType *VecTy = VectorType::get(ElemType, Mask.size());
+    uint64_t Cost = CM.getShuffleCost(Mask, VecTy);
+
+    // Compute outward impact.
+    SmallVector<SmallVector<int, 16>, 16> Masks =
+        getPossibleOutgoingMergeMasks(N1, N2);
+    for (auto Mask : Masks) {
+      VecTy = VectorType::get(ElemType, Mask.size());
+      Cost += CM.getShuffleCost(Mask, VecTy);
+    }
+
+    return Cost;
   }
 
   /// N1 and N2 can be merged if
@@ -707,6 +842,70 @@ public:
       return false;
 
     return true;
+  }
+
+  // Iterate through the WorkList once and merge two nodes if they meet
+  // the criteria of canBeMerged(). If there are too many choices
+  // for a node to be merged with, it picks the one with the lowest
+  // cost that comes first.
+  // TODO: Current approach of merging two nodes is very limited. It
+  // only estimates merging two nodes by inserting N2 at the end of N1.
+  // At some point, we should support merging two nodes in various ways.
+  void mergeNodes(GraphNodeList &WorkList) {
+    assert(WorkList.size() <= 80 && "Cannot merge, too big of a WorkList!!!");
+
+    for (GraphNodeList::iterator It1 = WorkList.begin(); It1 != WorkList.end();
+         ++It1) {
+      GraphNode *N1 = *It1;
+      GraphNodeList::iterator ToBeMergedIT = WorkList.end();
+
+      int MinCost = INT_MAX;
+
+      for (GraphNodeList::iterator It2 = std::next(It1); It2 != WorkList.end();
+           ++It2) {
+        GraphNode *N2 = *It2;
+        if (canBeMerged(*N1, *N2)) {
+          int MergingCost = getMergeCost(*N1, *N2);
+
+          // Compute the lowest cost.
+          if (MergingCost < MinCost) {
+            MinCost = MergingCost;
+            ToBeMergedIT = It2;
+          }
+        }
+      }
+      if (ToBeMergedIT != WorkList.end()) {
+        GraphNode *ToBeMerged = *ToBeMergedIT;
+        merge(N1, ToBeMerged);
+        WorkList.erase(ToBeMergedIT);
+        delete ToBeMerged;
+      }
+    }
+  }
+
+  // Merge N2 to N1, concatenate the edges of N2 at the end of N1.
+  // TODO: merge according to a mask.
+  void merge(GraphNode *N1, GraphNode *N2) {
+    // Update outgoing edges.
+    uint32_t N1BitIndex = N1->size();
+
+    for (auto &E : N2->incomingEdges()) {
+      E->updateDest(N1);
+      N1->addAnIncomingEdge(N1->size(), E);
+    }
+
+    for (auto &E : N2->outgoingEdges()) {
+      E->updateSource(N1, N1BitIndex + E->getBitIndex());
+      N1->addAnOutgoingEdge(E);
+    }
+
+    // delete N2
+    N2->clearEdges();
+    removeNode(N2);
+
+    // update type.
+    uint32_t ElementSize = N1->type().getElementSize();
+    N1->setType(OVLSType(ElementSize, N1->size() / ElementSize));
   }
 
   /// Returns false if verification fails. Verification fails if total number
@@ -755,32 +954,49 @@ public:
     return true;
   }
 
-  // Visit the graph in a topological order and push the associated
-  // instruction of a node into the InstVector.
+  // Visit the graph in a topological order and push the instruction into the
+  // InstVector. While we are at it, generate instruction if the node does not
+  // have one already.
   void getInstructions(OVLSInstructionVector &InstVector) {
-    GraphNodeVector TopSortedNodes;
+    GraphNodeList TopSortedNodes;
     getTopSortedNodes(TopSortedNodes);
 
     for (GraphNode *N : TopSortedNodes) {
+      if (N->isUndefined())
+        N->genShuffle();
+
       OVLSInstruction *I = N->getInstruction();
-      // FIXME: uncomment this once we have a call of genShuffles()
-      // assert(I != nullptr && "Inst cannot be null!!!");
-      if (I)
-        InstVector.push_back(I);
+      assert(I != nullptr && "Inst cannot be null!!!");
+      InstVector.push_back(I);
     }
   }
 
-  GraphNode *getNode(uint32_t Id) const {
-    assert(Id < Nodes.size() && "Invalid Id!!!");
-    return Nodes[Id];
+  // This is the main wrapper function. It calls multiple methods to simplify
+  // the graph so that the graph contains nodes with maximum of two sources. It
+  // also optimizes (reduces the total number of nodes) the graph by merging
+  // multiple nodes together.
+  void simplifyAndOptimize() {
+    // At this point, the graph can have nodes with more than two sources.
+    // Traverse the graph and reduce the number of sources to a maximum of 2.
+    reduceNSourcesToTwoSources();
+
+    // TODO: support a verifier that will ensure that each node has incoming
+    // edges coming from maximum of 2 nodes.
+
+    OptVLS::GraphNodeList WorkList;
+
+    for (GraphNode *N : Nodes)
+      // TODO: Support store
+      if (!N->isALoad() && !N->hasNoOutgoingEdges())
+        WorkList.push_back(N);
+
+    // TODO: support this in a loop that tries to merge until there are no
+    // changes in the graph.
+    mergeNodes(WorkList);
+
+    // TODO: Assess the optimized sequence
   }
 
-  // Generate shuffles for nodes with undefined instructions.
-  void genShuffles() {
-    for (GraphNode *N : Nodes)
-      if (N->isUndefined())
-        N->genShuffle();
-  }
 }; // end of class Graph
 
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
@@ -813,8 +1029,8 @@ dumpMemrefDistanceMapVector(OVLSostream &OS,
   }
 }
 
-static unsigned genMask(unsigned Mask, unsigned shiftcount,
-                        unsigned bitlocation) {
+static unsigned genMask(uint64_t Mask, uint32_t shiftcount,
+                        uint32_t bitlocation) {
   assert(bitlocation + shiftcount <= MAX_VECTOR_LENGTH &&
          "Invalid bit location for a bytemask");
 
@@ -865,6 +1081,7 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
          ++AdjMemrefSetIt) {
       OVLSMemref *Memref = AdjMemrefSetIt->second;
       unsigned ElemSize = Memref->getType().getElementSize() / BYTE; // in bytes
+
       int Dist = AdjMemrefSetIt->first;
 
       uint64_t AccMask = CurrGrp->getNByteAccessMask();
@@ -883,18 +1100,12 @@ static void formGroups(const MemrefDistanceMapVector &AdjMrfSetVec,
       } else
         AccMask = OptVLS::genMask(AccMask, ElemSize, Dist - GrpFirstMDist);
 
-      uint64_t ElementMask = CurrGrp->getElementMask();
-      // TODO: Support heterogeneous types. Currently, heterogeneous types
-      // are not supported, therefore, a group cannot have different element
-      // sizes.
-      ElementMask =
-          OptVLS::genMask(ElementMask, 1, (Dist - GrpFirstMDist) / ElemSize);
-
-      CurrGrp->insert(Memref, AccMask, ElementMask);
+      CurrGrp->insert(Memref, AccMask);
       if (MemrefToGroupMap)
         (*MemrefToGroupMap)
             .insert(std::pair<OVLSMemref *, OVLSGroup *>(Memref, CurrGrp));
     }
+
     OVLSGrps.push_back(CurrGrp);
   }
 
@@ -933,9 +1144,7 @@ static void splitMrfs(const OVLSMemrefVector &Memrefs,
       if ( // same access type
           Memref->getAccessType() == SetFirstSeenMrf->getAccessType() &&
           // same number of vector elements
-          // Memref->haveSameNumElements(*SetFirstSeenMrf) &&
-          // TODO: Support heterogeneous types
-          Memref->getType() == SetFirstSeenMrf->getType() &&
+          Memref->haveSameNumElements(*SetFirstSeenMrf) &&
           // are a const distance apart
           Memref->isAConstDistanceFrom(*SetFirstSeenMrf, &Dist)) {
         // Found a set
@@ -1011,8 +1220,10 @@ static bool isSupported(const OVLSGroup &Group) {
 }
 
 /// This function returns a vector of contiguous loads for a group of
-/// gathers that has a constant stride using a greedy approach. This default
-/// approach generates a contiguous vector load for each i-th elements.
+/// gathers that has a constant stride. It considers elements in each
+/// ith accesses coming in a stream and tries to fit as many elements
+/// as possible into each single load. Each load size is determined
+/// by the vector-length.
 /// It also returns a mapping of the load-elements to the gather-elements
 /// using a directed graph. Each node in the graph represents either a load or
 /// a gather and each edge shows which loaded elements contribute to which
@@ -1023,64 +1234,162 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   if (!Group.hasGathers() || !Group.hasAConstStride(Stride))
     assert("Unexpected Group!!!");
 
-  // Create a graph-node for each gather-result.
+  // Assuming the highest element size is 64.
+  uint32_t LowestElemSize = 64; // in bits
+  // Step1: Create a graph-node for each gather-result. We need to get them
+  // ready to be connected with the load-nodes during each load generation at
+  // the later phase. While we are at it, compute the lowest element size of
+  // the group. This lowest element size (which is the common divisor of all the
+  // other sizes of the memrefs in the group) will determine the load-size and
+  // load mask.
   for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
        ++I) {
     // At this point, we don't know the desired instruction/opcode,
     // initialize it(associated OVLSInstruction) to nullptr.
-    GraphNode *GatherNode = new GraphNode(nullptr, (*I)->getType());
+    OVLSType MemrefType = (*I)->getType();
+    GraphNode *GatherNode = new GraphNode(nullptr, MemrefType);
     G.insert(GatherNode);
+
+    uint32_t ElemSize = MemrefType.getElementSize(); // in bits
+    assert(ElemSize <= 64 && "Unexpected element size!!!");
+    if (ElemSize < LowestElemSize)
+      LowestElemSize = ElemSize;
   }
 
-  // Generate load mask
-  uint64_t ElementMask = Group.getElementMask();
-  int64_t Offset = 0;
+  // Access mask of the group in bytes.
+  uint64_t AccessMask = Group.getNByteAccessMask();
+  uint64_t AMask = AccessMask;
 
-  // Compute Load Type
-  uint32_t ElemSize = Group.getElemSize();
-  uint32_t NumElemsInALoad = 0;
-  uint64_t EMask = ElementMask;
-  while (EMask != 0) {
-    EMask = EMask >> 1;
-    NumElemsInALoad++;
-  }
-  OVLSType LoadType = OVLSType(ElemSize, NumElemsInALoad);
-
+  // The number of elements in each gather.
   uint32_t NumElems = Group.getNumElems();
+
+  // Load mask
+  uint64_t ElementMask = 0;
+  // Offset of the load address.
+  uint32_t Offset = 0;
+  // Holds the total number of elements in a load. It could be different
+  // between the generated loads.
+  uint32_t NumElemsInALoad = 0;
+  // Same as NumElemsInALoad. LoadType could be different between multiple
+  // generated loads.
+  OVLSType LoadType;
 
   OVLSMemref *GrpFirstMemref = Group.getFirstMemref();
 
+  uint32_t VecLen = Group.getVectorLength();
+  // Bit location of the load mask, gets computed though elements iterations
+  // of multiple gathers.
+  uint32_t BitLocation = 0;
+  // Holds each load size in bytes, is used in deciding the maximum size of
+  // an load instruction which should not exceed the vector length.
+  uint32_t LoadSize = 0; // in byte
+  // Holds the size of missing gathers, random gaps between the elements due
+  // to padding or the distance between ith accesses.
+  uint32_t GapSize = 0; // in byte
+  // Holds the distance between the last element of ith access and the first
+  // element of the ith+1 access. Distance gets computed at the end of ist
+  // access of the group.
+  uint32_t Distance;
+
+  // Step2: Generate loads for loading the contiguous bytes created by a group
+  // of
+  // gathers. The main idea is to consider an stream of elements
+  // (g1, g2, g3, ....g1, g2, g3). So, our goal to consider loading all the
+  // elements in the group (total number of gathers x n elements). While we are
+  // it, consider any gaps in between the elements.
+
+  // Generate the first load.
+  OVLSOperand *Src = new OVLSAddress(GrpFirstMemref, Offset);
+  OVLSLoad *CurrLoadInst = new OVLSLoad(LoadType, *Src, ElementMask);
+  // Create a graph-node for a load.
+  GraphNode *CurrLoadNode =
+      new GraphNode(CurrLoadInst, CurrLoadInst->getType());
+  G.insert(CurrLoadNode);
+
   uint32_t IthElem = 0;
+  // Traverse NumElems times through the list of gathers.
   while (IthElem < NumElems) {
-    // Generate a load for loading the contiguous bytes created by each
-    // i-th accesses of the adjacent gathers.
-    OVLSOperand *Src = new OVLSAddress(GrpFirstMemref, Offset);
-    OVLSInstruction *MemInst = new OVLSLoad(LoadType, *Src, ElementMask);
+    GraphNodeList::iterator It = G.begin();
+    for (unsigned i = 0; i < Group.size(); i++) {
+      // Addressed an element, find out its type.
+      GraphNode *GatherNode = *It++;
+      OVLSType GatherType = GatherNode->type();
+      uint32_t ElemSizeInBit = GatherType.getElementSize();
+      uint32_t ShiftCount = ElemSizeInBit / LowestElemSize;
+      uint32_t ElemSize = ElemSizeInBit / BYTE; // in bytes
 
-    // Create a graph-node for a load.
-    GraphNode *LoadNode = new GraphNode(MemInst, MemInst->getType());
-    G.insert(LoadNode);
+      // If this element cannot be loaded using the current load, create a new
+      // load.
+      if (LoadSize + ElemSize + GapSize > VecLen || GapSize % ElemSize != 0) {
+        // create a new Load.
+        Src = new OVLSAddress(GrpFirstMemref, Offset);
+        CurrLoadInst = new OVLSLoad(LoadType, *Src, ElementMask);
+        CurrLoadNode = new GraphNode(CurrLoadInst, CurrLoadInst->getType());
+        G.insert(CurrLoadNode);
 
-    // Draw edges from the load elements that show which load element
-    // contributes to which gather element.
-    EMask = ElementMask;
-    uint32_t GSIndex = 0;
-    BitRange LoadBR = BitRange(0, ElemSize);
-    while (EMask) {
-      if (EMask & 1) {
-        // A gather element is loaded, draw an edge from this element
-        // to its correspondent gather-element.
-        GraphNode *GatherNode = G.getNode(GSIndex);
-        Edge *E = new Edge(LoadNode, GatherNode, LoadBR);
-        GatherNode->addAnIncomingEdge(IthElem * ElemSize, E);
-        LoadNode->addAnOutgoingEdge(E);
+        // Reset all the intializers.
+        ElementMask = 0;
+        LoadSize = 0;
+        NumElemsInALoad = 0;
+        BitLocation = 0;
+        GapSize = 0;
       }
-      ++LoadBR;
-      EMask >>= 1;
-      GSIndex++;
-    }
 
-    Offset += Stride;
+      // If there is a gap preceding this element, update element mask, type etc
+      // for the gap.
+      if (GapSize != 0) {
+        uint32_t GapShiftCount = GapSize / LowestElemSize;
+        BitLocation += GapShiftCount;
+        LoadSize += GapSize;
+        ShiftCount += GapShiftCount;
+
+        // Resent gap size
+        GapSize = 0;
+      }
+
+      // Update element mask and loadtype for this element.
+      NumElemsInALoad += ShiftCount;
+      // Create element mask using lowest element size for this element..
+      ElementMask = OptVLS::genMask(ElementMask, ShiftCount, BitLocation);
+      CurrLoadInst->setMask(ElementMask);
+      LoadType = OVLSType(LowestElemSize, NumElemsInALoad);
+      CurrLoadInst->setType(LoadType);
+      CurrLoadNode->setType(LoadType);
+
+      // Draw an edge from the loaded element to the gather node.
+      BitRange LoadBR = BitRange(LoadSize * BYTE, ElemSizeInBit);
+      Edge *E =
+          new Edge(CurrLoadNode, GatherNode, LoadBR, IthElem * ElemSizeInBit);
+      GatherNode->addAnIncomingEdge(IthElem * ElemSizeInBit, E);
+      CurrLoadNode->addAnOutgoingEdge(E);
+
+      // Update
+      LoadSize += ElemSize;
+      Offset += ElemSize;
+      BitLocation += ShiftCount;
+
+      // Update AccessMask
+      uint32_t AMaskCounter = ElemSize;
+      while (AMaskCounter-- != 0)
+        AMask = AMask >> 1;
+
+      // If we have hit the end of the AccessMask, reset it.
+      if (AMask == 0) {
+        AMask = AccessMask;
+        // Compute any gap size between the accesses which will be used
+        // during the load of the 1st element of next ith accesses.
+        if (IthElem == 0)
+          Distance = abs(Stride) - LoadSize;
+
+        GapSize = Distance;
+      } else {
+        // Account any physical gap existing between the memrefs.
+        while ((AMask & 0x1) == 0) {
+          AMask = AMask >> 1;
+          GapSize++;
+        }
+      }
+    }
     IthElem++;
   }
 } // end of getDefaultLoads
@@ -1274,6 +1583,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   /// coming from no other nodes than load nodes.
   if (!G.verifyInitialGraph(Group))
     return false;
+
+  G.simplifyAndOptimize();
 
   G.getInstructions(InstVector);
   return true;

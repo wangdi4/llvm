@@ -1263,6 +1263,9 @@ struct {
 	    "i2 <= 5 + i0 and i2 >= i0 }" },
 	{ "{ [x, y] : 3y <= 2x and y >= -2 + 2x and 2y >= 2 - x }",
 	    "{ [x, y] : 1 = 0 }" },
+	{ "{ [x, y, z] : 0 <= x, y, z <= 10; [x, y, 0] : x >= 0 and y > 0; "
+	    "[x, y, 0] : x >= 0 and y < 0 }",
+	    "{ [x, y, z] : x >= 0 and 0 <= z <= 10 }" },
 };
 
 static int test_convex_hull_algo(isl_ctx *ctx, int convex)
@@ -2305,6 +2308,8 @@ struct {
 	    "[a] -> [1] }",
 	  "{ [a] -> [b = 1] : a >= 510 or a <= 0; "
 	    "[a] -> [b = 0] : 0 < a <= 509 }" },
+	{ "{ rat: [i] : 1 <= 2i <= 9 }", "{ rat: [i] : 2i = 1 }" },
+	{ "{ rat: [i] : 1 <= 2i <= 9 or i >= 10 }", "{ rat: [i] : 2i = 1 }" },
 };
 
 static int test_lexmin(struct isl_ctx *ctx)
@@ -4852,12 +4857,22 @@ int test_fixed(isl_ctx *ctx)
 struct isl_vertices_test_data {
 	const char *set;
 	int n;
-	const char *vertex[2];
+	const char *vertex[6];
 } vertices_tests[] = {
 	{ "{ A[t, i] : t = 12 and i >= 4 and i <= 12 }",
 	  2, { "{ A[12, 4] }", "{ A[12, 12] }" } },
 	{ "{ A[t, i] : t = 14 and i = 1 }",
 	  1, { "{ A[14, 1] }" } },
+	{ "[n, m] -> { [a, b, c] : b <= a and a <= n and b > 0 and c >= b and "
+				"c <= m and m <= n and m > 0 }",
+	  6, {
+		"[n, m] -> { [n, m, m] : 0 < m <= n }",
+		"[n, m] -> { [n, 1, m] : 0 < m <= n }",
+		"[n, m] -> { [n, 1, 1] : 0 < m <= n }",
+		"[n, m] -> { [m, m, m] : 0 < m <= n }",
+		"[n, m] -> { [1, 1, m] : 0 < m <= n }",
+		"[n, m] -> { [1, 1, 1] : 0 < m <= n }"
+	    } },
 };
 
 /* Check that "vertex" corresponds to one of the vertices in data->vertex.
@@ -6019,6 +6034,49 @@ static int test_ast_gen5(isl_ctx *ctx)
 	return 0;
 }
 
+/* Check that the expression
+ *
+ *	[n] -> { [n/2] : n <= 0 and n % 2 = 0; [0] : n > 0 }
+ *
+ * is not combined into
+ *
+ *	min(n/2, 0)
+ *
+ * as this would result in n/2 being evaluated in parts of
+ * the definition domain where n is not a multiple of 2.
+ */
+static int test_ast_expr(isl_ctx *ctx)
+{
+	const char *str;
+	isl_pw_aff *pa;
+	isl_ast_build *build;
+	isl_ast_expr *expr;
+	int min_max;
+	int is_min;
+
+	min_max = isl_options_get_ast_build_detect_min_max(ctx);
+	isl_options_set_ast_build_detect_min_max(ctx, 1);
+
+	str = "[n] -> { [n/2] : n <= 0 and n % 2 = 0; [0] : n > 0 }";
+	pa = isl_pw_aff_read_from_str(ctx, str);
+	build = isl_ast_build_alloc(ctx);
+	expr = isl_ast_build_expr_from_pw_aff(build, pa);
+	is_min = isl_ast_expr_get_type(expr) == isl_ast_expr_op &&
+		 isl_ast_expr_get_op_type(expr) == isl_ast_op_min;
+	isl_ast_build_free(build);
+	isl_ast_expr_free(expr);
+
+	isl_options_set_ast_build_detect_min_max(ctx, min_max);
+
+	if (!expr)
+		return -1;
+	if (is_min)
+		isl_die(ctx, isl_error_unknown,
+			"expressions should not be combined", return -1);
+
+	return 0;
+}
+
 static int test_ast_gen(isl_ctx *ctx)
 {
 	if (test_ast_gen1(ctx) < 0)
@@ -6030,6 +6088,8 @@ static int test_ast_gen(isl_ctx *ctx)
 	if (test_ast_gen4(ctx) < 0)
 		return -1;
 	if (test_ast_gen5(ctx) < 0)
+		return -1;
+	if (test_ast_expr(ctx) < 0)
 		return -1;
 	return 0;
 }

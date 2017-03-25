@@ -1,7 +1,7 @@
 .. title:: clang-tidy - Clang-Tidy Checks
 
 Clang-Tidy Checks
-=========================
+=================
 
 .. toctree::
    boost-use-to-string
@@ -10,6 +10,7 @@ Clang-Tidy Checks
    cert-dcl54-cpp (redirects to misc-new-delete-overloads) <cert-dcl54-cpp>
    cert-dcl59-cpp (redirects to google-build-namespaces) <cert-dcl59-cpp>
    cert-env33-c
+   cert-err09-cpp (redirects to misc-throw-by-value-catch-by-reference) <cert-err09-cpp>
    cert-err34-c
    cert-err52-cpp
    cert-err58-cpp
@@ -17,6 +18,8 @@ Clang-Tidy Checks
    cert-err61-cpp (redirects to misc-throw-by-value-catch-by-reference) <cert-err61-cpp>
    cert-fio38-c (redirects to misc-non-copyable-objects) <cert-fio38-c>
    cert-flp30-c
+   cert-msc30-c (redirects to cert-limited-randomness) <cert-msc30-c>
+   cert-msc50-cpp
    cert-oop11-cpp (redirects to misc-move-constructor-init) <cert-oop11-cpp>
    cppcoreguidelines-interfaces-global-init
    cppcoreguidelines-pro-bounds-array-to-pointer-decay
@@ -68,11 +71,11 @@ Clang-Tidy Checks
    misc-misplaced-widening-cast
    misc-move-const-arg
    misc-move-constructor-init
+   misc-move-forwarding-reference
    misc-multiple-statement-macro
    misc-new-delete-overloads
    misc-noexcept-move-constructor
    misc-non-copyable-objects
-   misc-pointer-and-integral-operation
    misc-redundant-expression
    misc-sizeof-container
    misc-sizeof-expression
@@ -92,6 +95,7 @@ Clang-Tidy Checks
    misc-unused-parameters
    misc-unused-raii
    misc-unused-using-decls
+   misc-use-after-move
    misc-virtual-near-miss
    modernize-avoid-bind
    modernize-deprecated-headers
@@ -107,8 +111,10 @@ Clang-Tidy Checks
    modernize-use-bool-literals
    modernize-use-default
    modernize-use-emplace
+   modernize-use-equals-delete
    modernize-use-nullptr
    modernize-use-override
+   modernize-use-transparent-functors
    modernize-use-using
    mpi-buffer-deref
    mpi-type-mismatch
@@ -127,9 +133,12 @@ Clang-Tidy Checks
    readability-identifier-naming
    readability-implicit-bool-cast
    readability-inconsistent-declaration-parameter-name
+   readability-misplaced-array-index
    readability-named-parameter
    readability-non-const-parameter
    readability-redundant-control-flow
+   readability-redundant-declaration
+   readability-redundant-member-init
    readability-redundant-smartptr-get
    readability-redundant-string-cstr
    readability-redundant-string-init

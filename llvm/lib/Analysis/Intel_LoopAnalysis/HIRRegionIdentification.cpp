@@ -32,7 +32,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -589,14 +589,14 @@ bool HIRRegionIdentification::isSIMDDirective(const Instruction *Inst,
     return false;
   }
 
-  if (!vpo::VPOUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
+  if (!vpo::VPOAnalysisUtils::isIntelDirective(IntrinInst->getIntrinsicID())) {
     return false;
   }
 
-  StringRef DirStr = vpo::VPOUtils::getDirectiveMetadataString(
+  StringRef DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(
       const_cast<IntrinsicInst *>(IntrinInst));
 
-  int DirID = vpo::VPOUtils::getDirectiveID(DirStr);
+  int DirID = vpo::VPOAnalysisUtils::getDirectiveID(DirStr);
 
   return BeginDir ? (DirID == DIR_OMP_SIMD) : (DirID == DIR_OMP_END_SIMD);
 }

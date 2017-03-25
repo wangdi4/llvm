@@ -39,7 +39,7 @@ public:
     /// @brief D'tor
     ~Vectorizer();
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
         return "Intel Vectorizer";
     }
 

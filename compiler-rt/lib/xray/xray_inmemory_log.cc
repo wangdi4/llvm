@@ -16,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
+#include <cstdio>
 #include <fcntl.h>
 #include <mutex>
 #include <sys/stat.h>
@@ -23,10 +24,18 @@
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
+
+#if defined(__x86_64__)
 #include <x86intrin.h>
+#elif defined(__arm__)
+static const int64_t NanosecondsPerSecond = 1000LL * 1000 * 1000;
+#else
+#error "Unsupported CPU Architecture"
+#endif /* CPU architecture */
 
 #include "sanitizer_common/sanitizer_libc.h"
 #include "xray/xray_records.h"
+#include "xray_defs.h"
 #include "xray_flags.h"
 #include "xray_interface_internal.h"
 
@@ -35,14 +44,16 @@
 // events. We store simple fixed-sized entries in the log for external analysis.
 
 extern "C" {
-void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type);
+void __xray_InMemoryRawLog(int32_t FuncId,
+                           XRayEntryType Type) XRAY_NEVER_INSTRUMENT;
 }
 
 namespace __xray {
 
 std::mutex LogMutex;
 
-static void retryingWriteAll(int Fd, char *Begin, char *End) {
+static void retryingWriteAll(int Fd, char *Begin,
+                             char *End) XRAY_NEVER_INSTRUMENT {
   if (Begin == End)
     return;
   auto TotalBytes = std::distance(Begin, End);
@@ -60,8 +71,9 @@ static void retryingWriteAll(int Fd, char *Begin, char *End) {
   }
 }
 
-static std::pair<ssize_t, bool> retryingReadSome(int Fd, char *Begin,
-                                                 char *End) {
+#if defined(__x86_64__)
+static std::pair<ssize_t, bool>
+retryingReadSome(int Fd, char *Begin, char *End) XRAY_NEVER_INSTRUMENT {
   auto BytesToRead = std::distance(Begin, End);
   ssize_t BytesRead;
   ssize_t TotalBytesRead = 0;
@@ -80,7 +92,8 @@ static std::pair<ssize_t, bool> retryingReadSome(int Fd, char *Begin,
   return std::make_pair(TotalBytesRead, true);
 }
 
-static bool readValueFromFile(const char *Filename, long long *Value) {
+static bool readValueFromFile(const char *Filename,
+                              long long *Value) XRAY_NEVER_INSTRUMENT {
   int Fd = open(Filename, O_RDONLY | O_CLOEXEC);
   if (Fd == -1)
     return false;
@@ -102,16 +115,21 @@ static bool readValueFromFile(const char *Filename, long long *Value) {
   return Result;
 }
 
+#endif /* CPU architecture */
+
 class ThreadExitFlusher {
   int Fd;
   XRayRecord *Start;
   size_t &Offset;
 
 public:
-  explicit ThreadExitFlusher(int Fd, XRayRecord *Start, size_t &Offset)
-      : Fd(Fd), Start(Start), Offset(Offset) {}
+  explicit ThreadExitFlusher(int Fd, XRayRecord *Start,
+                             size_t &Offset) XRAY_NEVER_INSTRUMENT
+      : Fd(Fd),
+        Start(Start),
+        Offset(Offset) {}
 
-  ~ThreadExitFlusher() {
+  ~ThreadExitFlusher() XRAY_NEVER_INSTRUMENT {
     std::lock_guard<std::mutex> L(LogMutex);
     if (Fd > 0 && Start != nullptr) {
       retryingWriteAll(Fd, reinterpret_cast<char *>(Start),
@@ -129,9 +147,12 @@ public:
 
 using namespace __xray;
 
-void PrintToStdErr(const char *Buffer) { fprintf(stderr, "%s", Buffer); }
+void PrintToStdErr(const char *Buffer) XRAY_NEVER_INSTRUMENT {
+  fprintf(stderr, "%s", Buffer);
+}
 
-void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
+void __xray_InMemoryRawLog(int32_t FuncId,
+                           XRayEntryType Type) XRAY_NEVER_INSTRUMENT {
   using Buffer =
       std::aligned_storage<sizeof(XRayRecord), alignof(XRayRecord)>::type;
   static constexpr size_t BuffLen = 1024;
@@ -163,6 +184,7 @@ void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
 
     // Get the cycle frequency from SysFS on Linux.
     long long CPUFrequency = -1;
+#if defined(__x86_64__)
     if (readValueFromFile("/sys/devices/system/cpu/cpu0/tsc_freq_khz",
                           &CPUFrequency)) {
       CPUFrequency *= 1000;
@@ -173,6 +195,20 @@ void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
     } else {
       Report("Unable to determine CPU frequency for TSC accounting.");
     }
+#elif defined(__arm__)
+    // There is no instruction like RDTSCP in user mode on ARM. ARM's CP15 does
+    //   not have a constant frequency like TSC on x86(_64), it may go faster
+    //   or slower depending on CPU turbo or power saving mode. Furthermore,
+    //   to read from CP15 on ARM a kernel modification or a driver is needed.
+    //   We can not require this from users of compiler-rt.
+    // So on ARM we use clock_gettime() which gives the result in nanoseconds.
+    //   To get the measurements per second, we scale this by the number of
+    //   nanoseconds per second, pretending that the TSC frequency is 1GHz and
+    //   one TSC tick is 1 nanosecond.
+    CPUFrequency = NanosecondsPerSecond;
+#else
+#error "Unsupported CPU Architecture"
+#endif /* CPU architecture */
 
     // Since we're here, we get to write the header. We set it up so that the
     // header will only be written once, at the start, and let the threads
@@ -200,10 +236,28 @@ void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
   // First we get the useful data, and stuff it into the already aligned buffer
   // through a pointer offset.
   auto &R = reinterpret_cast<__xray::XRayRecord *>(InMemoryBuffer)[Offset];
-  unsigned CPU;
   R.RecordType = RecordTypes::NORMAL;
-  R.TSC = __rdtscp(&CPU);
-  R.CPU = CPU;
+#if defined(__x86_64__)
+  {
+    unsigned CPU;
+    R.TSC = __rdtscp(&CPU);
+    R.CPU = CPU;
+  }
+#elif defined(__arm__)
+  {
+    timespec TS;
+    int result = clock_gettime(CLOCK_REALTIME, &TS);
+    if (result != 0) {
+      Report("clock_gettime() returned %d, errno=%d.", result, int(errno));
+      TS.tv_sec = 0;
+      TS.tv_nsec = 0;
+    }
+    R.TSC = TS.tv_sec * NanosecondsPerSecond + TS.tv_nsec;
+    R.CPU = 0;
+  }
+#else
+#error "Unsupported CPU Architecture"
+#endif /* CPU architecture */
   R.TId = TId;
   R.Type = Type;
   R.FuncId = FuncId;

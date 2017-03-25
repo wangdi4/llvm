@@ -27,6 +27,9 @@
 #include <isl_aff_private.h>
 #include <isl_equalities.h>
 
+#include <set_to_map.c>
+#include <set_from_map.c>
+
 #define STATUS_ERROR		-1
 #define STATUS_REDUNDANT	 1
 #define STATUS_VALID	 	 2
@@ -414,6 +417,9 @@ static enum isl_change fuse(int i, int j, struct isl_coalesce_info *info,
 	fused = add_valid_constraints(fused, &info[j], 1 + total);
 	if (!fused)
 		goto error;
+	if (ISL_F_ISSET(info[i].bmap, ISL_BASIC_MAP_RATIONAL) &&
+	    ISL_F_ISSET(info[j].bmap, ISL_BASIC_MAP_RATIONAL))
+		ISL_F_SET(fused, ISL_BASIC_MAP_RATIONAL);
 
 	for (k = 0; k < info[i].bmap->n_div; ++k) {
 		int l = isl_basic_map_alloc_div(fused);
@@ -444,9 +450,6 @@ static enum isl_change fuse(int i, int j, struct isl_coalesce_info *info,
 		info[i].simplify = 0;
 	}
 	fused = isl_basic_map_finalize(fused);
-	if (ISL_F_ISSET(info[i].bmap, ISL_BASIC_MAP_RATIONAL) &&
-	    ISL_F_ISSET(info[j].bmap, ISL_BASIC_MAP_RATIONAL))
-		ISL_F_SET(fused, ISL_BASIC_MAP_RATIONAL);
 
 	fused_tab = isl_tab_from_basic_map(fused, 0);
 	if (isl_tab_detect_redundant(fused_tab) < 0)
@@ -3214,5 +3217,5 @@ error:
  */
 struct isl_set *isl_set_coalesce(struct isl_set *set)
 {
-	return (struct isl_set *)isl_map_coalesce((struct isl_map *)set);
+	return set_from_map(isl_map_coalesce(set_to_map(set)));
 }

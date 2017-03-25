@@ -691,8 +691,8 @@ HLInst *HIRRuntimeDD::createIntersectionCondition(HLLoop *OrigLoop,
 
     HLInst *BCIL = HNU.createBitCast(DestType, BS->Lower);
     HLInst *BCIU = HNU.createBitCast(DestType, BS->Upper);
-    Nodes.push_back(BCIL);
-    Nodes.push_back(BCIU);
+    Nodes.push_back(*BCIL);
+    Nodes.push_back(*BCIU);
 
     BS->Lower = BCIL->getLvalDDRef()->clone();
     BS->Upper = BCIU->getLvalDDRef()->clone();
@@ -705,9 +705,9 @@ HLInst *HIRRuntimeDD::createIntersectionCondition(HLLoop *OrigLoop,
   HLInst *And = HNU.createAnd(Cmp1->getLvalDDRef()->clone(),
                               Cmp2->getLvalDDRef()->clone(), "mv.and");
 
-  Nodes.push_back(Cmp1);
-  Nodes.push_back(Cmp2);
-  Nodes.push_back(And);
+  Nodes.push_back(*Cmp1);
+  Nodes.push_back(*Cmp2);
+  Nodes.push_back(*And);
   return And;
 }
 

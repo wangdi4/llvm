@@ -306,10 +306,17 @@ Instruction *InstCombiner::SimplifyMemTransfer(MemIntrinsic *MI) {
   L->setAlignment(SrcAlign);
   if (CopyMD)
     L->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+  MDNode *LoopMemParallelMD =
+    MI->getMetadata(LLVMContext::MD_mem_parallel_loop_access);
+  if (LoopMemParallelMD)
+    L->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopMemParallelMD);
+
   StoreInst *S = Builder->CreateStore(L, Dest, MI->isVolatile());
   S->setAlignment(DstAlign);
   if (CopyMD)
     S->setMetadata(LLVMContext::MD_tbaa, CopyMD);
+  if (LoopMemParallelMD)
+    S->setMetadata(LLVMContext::MD_mem_parallel_loop_access, LoopMemParallelMD);
 
   // Set the size of the copy to 0, it will be deleted on the next iteration.
   MI->setArgOperand(2, Constant::getNullValue(MemOpLength->getType()));
@@ -365,8 +372,7 @@ static Value *simplifyX86immShift(const IntrinsicInst &II,
   bool ShiftLeft = false;
 
   switch (II.getIntrinsicID()) {
-  default:
-    return nullptr;
+  default: llvm_unreachable("Unexpected intrinsic!");
   case Intrinsic::x86_sse2_psra_d:
   case Intrinsic::x86_sse2_psra_w:
   case Intrinsic::x86_sse2_psrai_d:
@@ -375,6 +381,16 @@ static Value *simplifyX86immShift(const IntrinsicInst &II,
   case Intrinsic::x86_avx2_psra_w:
   case Intrinsic::x86_avx2_psrai_d:
   case Intrinsic::x86_avx2_psrai_w:
+  case Intrinsic::x86_avx512_psra_q_128:
+  case Intrinsic::x86_avx512_psrai_q_128:
+  case Intrinsic::x86_avx512_psra_q_256:
+  case Intrinsic::x86_avx512_psrai_q_256:
+  case Intrinsic::x86_avx512_psra_d_512:
+  case Intrinsic::x86_avx512_psra_q_512:
+  case Intrinsic::x86_avx512_psra_w_512:
+  case Intrinsic::x86_avx512_psrai_d_512:
+  case Intrinsic::x86_avx512_psrai_q_512:
+  case Intrinsic::x86_avx512_psrai_w_512:
     LogicalShift = false; ShiftLeft = false;
     break;
   case Intrinsic::x86_sse2_psrl_d:
@@ -389,6 +405,12 @@ static Value *simplifyX86immShift(const IntrinsicInst &II,
   case Intrinsic::x86_avx2_psrli_d:
   case Intrinsic::x86_avx2_psrli_q:
   case Intrinsic::x86_avx2_psrli_w:
+  case Intrinsic::x86_avx512_psrl_d_512:
+  case Intrinsic::x86_avx512_psrl_q_512:
+  case Intrinsic::x86_avx512_psrl_w_512:
+  case Intrinsic::x86_avx512_psrli_d_512:
+  case Intrinsic::x86_avx512_psrli_q_512:
+  case Intrinsic::x86_avx512_psrli_w_512:
     LogicalShift = true; ShiftLeft = false;
     break;
   case Intrinsic::x86_sse2_psll_d:
@@ -403,6 +425,12 @@ static Value *simplifyX86immShift(const IntrinsicInst &II,
   case Intrinsic::x86_avx2_pslli_d:
   case Intrinsic::x86_avx2_pslli_q:
   case Intrinsic::x86_avx2_pslli_w:
+  case Intrinsic::x86_avx512_psll_d_512:
+  case Intrinsic::x86_avx512_psll_q_512:
+  case Intrinsic::x86_avx512_psll_w_512:
+  case Intrinsic::x86_avx512_pslli_d_512:
+  case Intrinsic::x86_avx512_pslli_q_512:
+  case Intrinsic::x86_avx512_pslli_w_512:
     LogicalShift = true; ShiftLeft = true;
     break;
   }
@@ -478,10 +506,16 @@ static Value *simplifyX86varShift(const IntrinsicInst &II,
   bool ShiftLeft = false;
 
   switch (II.getIntrinsicID()) {
-  default:
-    return nullptr;
+  default: llvm_unreachable("Unexpected intrinsic!");
   case Intrinsic::x86_avx2_psrav_d:
   case Intrinsic::x86_avx2_psrav_d_256:
+  case Intrinsic::x86_avx512_psrav_q_128:
+  case Intrinsic::x86_avx512_psrav_q_256:
+  case Intrinsic::x86_avx512_psrav_d_512:
+  case Intrinsic::x86_avx512_psrav_q_512:
+  case Intrinsic::x86_avx512_psrav_w_128:
+  case Intrinsic::x86_avx512_psrav_w_256:
+  case Intrinsic::x86_avx512_psrav_w_512:
     LogicalShift = false;
     ShiftLeft = false;
     break;
@@ -489,6 +523,11 @@ static Value *simplifyX86varShift(const IntrinsicInst &II,
   case Intrinsic::x86_avx2_psrlv_d_256:
   case Intrinsic::x86_avx2_psrlv_q:
   case Intrinsic::x86_avx2_psrlv_q_256:
+  case Intrinsic::x86_avx512_psrlv_d_512:
+  case Intrinsic::x86_avx512_psrlv_q_512:
+  case Intrinsic::x86_avx512_psrlv_w_128:
+  case Intrinsic::x86_avx512_psrlv_w_256:
+  case Intrinsic::x86_avx512_psrlv_w_512:
     LogicalShift = true;
     ShiftLeft = false;
     break;
@@ -496,6 +535,11 @@ static Value *simplifyX86varShift(const IntrinsicInst &II,
   case Intrinsic::x86_avx2_psllv_d_256:
   case Intrinsic::x86_avx2_psllv_q:
   case Intrinsic::x86_avx2_psllv_q_256:
+  case Intrinsic::x86_avx512_psllv_d_512:
+  case Intrinsic::x86_avx512_psllv_q_512:
+  case Intrinsic::x86_avx512_psllv_w_128:
+  case Intrinsic::x86_avx512_psllv_w_256:
+  case Intrinsic::x86_avx512_psllv_w_512:
     LogicalShift = true;
     ShiftLeft = true;
     break;
@@ -691,7 +735,7 @@ static Value *simplifyX86extrq(IntrinsicInst &II, Value *Op0,
   // See if we're dealing with constant values.
   Constant *C0 = dyn_cast<Constant>(Op0);
   ConstantInt *CI0 =
-      C0 ? dyn_cast<ConstantInt>(C0->getAggregateElement((unsigned)0))
+      C0 ? dyn_cast_or_null<ConstantInt>(C0->getAggregateElement((unsigned)0))
          : nullptr;
 
   // Attempt to constant fold.
@@ -829,10 +873,10 @@ static Value *simplifyX86insertq(IntrinsicInst &II, Value *Op0, Value *Op1,
   Constant *C0 = dyn_cast<Constant>(Op0);
   Constant *C1 = dyn_cast<Constant>(Op1);
   ConstantInt *CI00 =
-      C0 ? dyn_cast<ConstantInt>(C0->getAggregateElement((unsigned)0))
+      C0 ? dyn_cast_or_null<ConstantInt>(C0->getAggregateElement((unsigned)0))
          : nullptr;
   ConstantInt *CI10 =
-      C1 ? dyn_cast<ConstantInt>(C1->getAggregateElement((unsigned)0))
+      C1 ? dyn_cast_or_null<ConstantInt>(C1->getAggregateElement((unsigned)0))
          : nullptr;
 
   // Constant Fold - insert bottom Length bits starting at the Index'th bit.
@@ -1830,17 +1874,9 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     break;
   }
 
-  case Intrinsic::x86_sse_add_ss:
-  case Intrinsic::x86_sse_sub_ss:
-  case Intrinsic::x86_sse_mul_ss:
-  case Intrinsic::x86_sse_div_ss:
   case Intrinsic::x86_sse_min_ss:
   case Intrinsic::x86_sse_max_ss:
   case Intrinsic::x86_sse_cmp_ss:
-  case Intrinsic::x86_sse2_add_sd:
-  case Intrinsic::x86_sse2_sub_sd:
-  case Intrinsic::x86_sse2_mul_sd:
-  case Intrinsic::x86_sse2_div_sd:
   case Intrinsic::x86_sse2_min_sd:
   case Intrinsic::x86_sse2_max_sd:
   case Intrinsic::x86_sse2_cmp_sd: {
@@ -1883,18 +1919,29 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::x86_sse2_psrai_w:
   case Intrinsic::x86_avx2_psrai_d:
   case Intrinsic::x86_avx2_psrai_w:
+  case Intrinsic::x86_avx512_psrai_q_128:
+  case Intrinsic::x86_avx512_psrai_q_256:
+  case Intrinsic::x86_avx512_psrai_d_512:
+  case Intrinsic::x86_avx512_psrai_q_512:
+  case Intrinsic::x86_avx512_psrai_w_512:
   case Intrinsic::x86_sse2_psrli_d:
   case Intrinsic::x86_sse2_psrli_q:
   case Intrinsic::x86_sse2_psrli_w:
   case Intrinsic::x86_avx2_psrli_d:
   case Intrinsic::x86_avx2_psrli_q:
   case Intrinsic::x86_avx2_psrli_w:
+  case Intrinsic::x86_avx512_psrli_d_512:
+  case Intrinsic::x86_avx512_psrli_q_512:
+  case Intrinsic::x86_avx512_psrli_w_512:
   case Intrinsic::x86_sse2_pslli_d:
   case Intrinsic::x86_sse2_pslli_q:
   case Intrinsic::x86_sse2_pslli_w:
   case Intrinsic::x86_avx2_pslli_d:
   case Intrinsic::x86_avx2_pslli_q:
   case Intrinsic::x86_avx2_pslli_w:
+  case Intrinsic::x86_avx512_pslli_d_512:
+  case Intrinsic::x86_avx512_pslli_q_512:
+  case Intrinsic::x86_avx512_pslli_w_512:
     if (Value *V = simplifyX86immShift(*II, *Builder))
       return replaceInstUsesWith(*II, V);
     break;
@@ -1903,18 +1950,29 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::x86_sse2_psra_w:
   case Intrinsic::x86_avx2_psra_d:
   case Intrinsic::x86_avx2_psra_w:
+  case Intrinsic::x86_avx512_psra_q_128:
+  case Intrinsic::x86_avx512_psra_q_256:
+  case Intrinsic::x86_avx512_psra_d_512:
+  case Intrinsic::x86_avx512_psra_q_512:
+  case Intrinsic::x86_avx512_psra_w_512:
   case Intrinsic::x86_sse2_psrl_d:
   case Intrinsic::x86_sse2_psrl_q:
   case Intrinsic::x86_sse2_psrl_w:
   case Intrinsic::x86_avx2_psrl_d:
   case Intrinsic::x86_avx2_psrl_q:
   case Intrinsic::x86_avx2_psrl_w:
+  case Intrinsic::x86_avx512_psrl_d_512:
+  case Intrinsic::x86_avx512_psrl_q_512:
+  case Intrinsic::x86_avx512_psrl_w_512:
   case Intrinsic::x86_sse2_psll_d:
   case Intrinsic::x86_sse2_psll_q:
   case Intrinsic::x86_sse2_psll_w:
   case Intrinsic::x86_avx2_psll_d:
   case Intrinsic::x86_avx2_psll_q:
-  case Intrinsic::x86_avx2_psll_w: {
+  case Intrinsic::x86_avx2_psll_w:
+  case Intrinsic::x86_avx512_psll_d_512:
+  case Intrinsic::x86_avx512_psll_q_512:
+  case Intrinsic::x86_avx512_psll_w_512: {
     if (Value *V = simplifyX86immShift(*II, *Builder))
       return replaceInstUsesWith(*II, V);
 
@@ -1936,12 +1994,29 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
   case Intrinsic::x86_avx2_psllv_d_256:
   case Intrinsic::x86_avx2_psllv_q:
   case Intrinsic::x86_avx2_psllv_q_256:
+  case Intrinsic::x86_avx512_psllv_d_512:
+  case Intrinsic::x86_avx512_psllv_q_512:
+  case Intrinsic::x86_avx512_psllv_w_128:
+  case Intrinsic::x86_avx512_psllv_w_256:
+  case Intrinsic::x86_avx512_psllv_w_512:
   case Intrinsic::x86_avx2_psrav_d:
   case Intrinsic::x86_avx2_psrav_d_256:
+  case Intrinsic::x86_avx512_psrav_q_128:
+  case Intrinsic::x86_avx512_psrav_q_256:
+  case Intrinsic::x86_avx512_psrav_d_512:
+  case Intrinsic::x86_avx512_psrav_q_512:
+  case Intrinsic::x86_avx512_psrav_w_128:
+  case Intrinsic::x86_avx512_psrav_w_256:
+  case Intrinsic::x86_avx512_psrav_w_512:
   case Intrinsic::x86_avx2_psrlv_d:
   case Intrinsic::x86_avx2_psrlv_d_256:
   case Intrinsic::x86_avx2_psrlv_q:
   case Intrinsic::x86_avx2_psrlv_q_256:
+  case Intrinsic::x86_avx512_psrlv_d_512:
+  case Intrinsic::x86_avx512_psrlv_q_512:
+  case Intrinsic::x86_avx512_psrlv_w_128:
+  case Intrinsic::x86_avx512_psrlv_w_256:
+  case Intrinsic::x86_avx512_psrlv_w_512:
     if (Value *V = simplifyX86varShift(*II, *Builder))
       return replaceInstUsesWith(*II, V);
     break;
@@ -1963,10 +2038,10 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // See if we're dealing with constant values.
     Constant *C1 = dyn_cast<Constant>(Op1);
     ConstantInt *CILength =
-        C1 ? dyn_cast<ConstantInt>(C1->getAggregateElement((unsigned)0))
+        C1 ? dyn_cast_or_null<ConstantInt>(C1->getAggregateElement((unsigned)0))
            : nullptr;
     ConstantInt *CIIndex =
-        C1 ? dyn_cast<ConstantInt>(C1->getAggregateElement((unsigned)1))
+        C1 ? dyn_cast_or_null<ConstantInt>(C1->getAggregateElement((unsigned)1))
            : nullptr;
 
     // Attempt to simplify to a constant, shuffle vector or EXTRQI call.
@@ -2026,7 +2101,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // See if we're dealing with constant values.
     Constant *C1 = dyn_cast<Constant>(Op1);
     ConstantInt *CI11 =
-        C1 ? dyn_cast<ConstantInt>(C1->getAggregateElement((unsigned)1))
+        C1 ? dyn_cast_or_null<ConstantInt>(C1->getAggregateElement((unsigned)1))
            : nullptr;
 
     // Attempt to simplify to a constant, shuffle vector or INSERTQI call.
@@ -2350,6 +2425,85 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
       return replaceInstUsesWith(CI, UndefValue::get(II->getType()));
 
     break;
+  }
+  case Intrinsic::amdgcn_class: {
+    enum  {
+      S_NAN = 1 << 0,        // Signaling NaN
+      Q_NAN = 1 << 1,        // Quiet NaN
+      N_INFINITY = 1 << 2,   // Negative infinity
+      N_NORMAL = 1 << 3,     // Negative normal
+      N_SUBNORMAL = 1 << 4,  // Negative subnormal
+      N_ZERO = 1 << 5,       // Negative zero
+      P_ZERO = 1 << 6,       // Positive zero
+      P_SUBNORMAL = 1 << 7,  // Positive subnormal
+      P_NORMAL = 1 << 8,     // Positive normal
+      P_INFINITY = 1 << 9    // Positive infinity
+    };
+
+    const uint32_t FullMask = S_NAN | Q_NAN | N_INFINITY | N_NORMAL |
+      N_SUBNORMAL | N_ZERO | P_ZERO | P_SUBNORMAL | P_NORMAL | P_INFINITY;
+
+    Value *Src0 = II->getArgOperand(0);
+    Value *Src1 = II->getArgOperand(1);
+    const ConstantInt *CMask = dyn_cast<ConstantInt>(Src1);
+    if (!CMask) {
+      if (isa<UndefValue>(Src0))
+        return replaceInstUsesWith(*II, UndefValue::get(II->getType()));
+
+      if (isa<UndefValue>(Src1))
+        return replaceInstUsesWith(*II, ConstantInt::get(II->getType(), false));
+      break;
+    }
+
+    uint32_t Mask = CMask->getZExtValue();
+
+    // If all tests are made, it doesn't matter what the value is.
+    if ((Mask & FullMask) == FullMask)
+      return replaceInstUsesWith(*II, ConstantInt::get(II->getType(), true));
+
+    if ((Mask & FullMask) == 0)
+      return replaceInstUsesWith(*II, ConstantInt::get(II->getType(), false));
+
+    if (Mask == (S_NAN | Q_NAN)) {
+      // Equivalent of isnan. Replace with standard fcmp.
+      Value *FCmp = Builder->CreateFCmpUNO(Src0, Src0);
+      FCmp->takeName(II);
+      return replaceInstUsesWith(*II, FCmp);
+    }
+
+    const ConstantFP *CVal = dyn_cast<ConstantFP>(Src0);
+    if (!CVal) {
+      if (isa<UndefValue>(Src0))
+        return replaceInstUsesWith(*II, UndefValue::get(II->getType()));
+
+      // Clamp mask to used bits
+      if ((Mask & FullMask) != Mask) {
+        CallInst *NewCall = Builder->CreateCall(II->getCalledFunction(),
+          { Src0, ConstantInt::get(Src1->getType(), Mask & FullMask) }
+        );
+
+        NewCall->takeName(II);
+        return replaceInstUsesWith(*II, NewCall);
+      }
+
+      break;
+    }
+
+    const APFloat &Val = CVal->getValueAPF();
+
+    bool Result =
+      ((Mask & S_NAN) && Val.isNaN() && Val.isSignaling()) ||
+      ((Mask & Q_NAN) && Val.isNaN() && !Val.isSignaling()) ||
+      ((Mask & N_INFINITY) && Val.isInfinity() && Val.isNegative()) ||
+      ((Mask & N_NORMAL) && Val.isNormal() && Val.isNegative()) ||
+      ((Mask & N_SUBNORMAL) && Val.isDenormal() && Val.isNegative()) ||
+      ((Mask & N_ZERO) && Val.isZero() && Val.isNegative()) ||
+      ((Mask & P_ZERO) && Val.isZero() && !Val.isNegative()) ||
+      ((Mask & P_SUBNORMAL) && Val.isDenormal() && !Val.isNegative()) ||
+      ((Mask & P_NORMAL) && Val.isNormal() && !Val.isNegative()) ||
+      ((Mask & P_INFINITY) && Val.isInfinity() && !Val.isNegative());
+
+    return replaceInstUsesWith(*II, ConstantInt::get(II->getType(), Result));
   }
   case Intrinsic::stackrestore: {
     // If the save is right next to the restore, remove the restore.  This can

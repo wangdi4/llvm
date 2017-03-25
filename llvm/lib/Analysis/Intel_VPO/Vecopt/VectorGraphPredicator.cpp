@@ -579,7 +579,7 @@ void VectorGraphPredicator::removeCFG(AVRBlock* Entry) {
 
     for (auto It = ABlock->child_rbegin();
          It != ABlock->child_rend();
-         ABlock->child_rbegin() ) {
+         It = ABlock->child_rbegin() ) {
 
       AVR* Node = &*It;
 

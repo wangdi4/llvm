@@ -188,10 +188,21 @@ class CXXCompiler(object):
         # Add -Werror to ensure that an unrecognized flag causes a non-zero
         # exit code. -Werror is supported on all known compiler types.
         if self.type is not None:
-            flags += ['-Werror']
+            flags += ['-Werror', '-fsyntax-only']
         cmd, out, err, rc = self.compile(os.devnull, out=os.devnull,
                                          flags=flags)
         return rc == 0
+
+    def addFlagIfSupported(self, flag):
+        if isinstance(flag, list):
+            flags = list(flag)
+        else:
+            flags = [flag]
+        if self.hasCompileFlag(flags):
+            self.flags += flags
+            return True
+        else:
+            return False
 
     def addCompileFlagIfSupported(self, flag):
         if isinstance(flag, list):

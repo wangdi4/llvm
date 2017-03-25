@@ -59,6 +59,10 @@ struct BlockInfoType {
   bool Live = false;
   /// True when this block ends in an unconditional branch.
   bool UnconditionalBranch = false;
+  /// True when this block is known to have live PHI nodes.
+  bool HasLivePhiNodes = false;
+  /// Control dependence sources need to be live for this block.
+  bool CFLive = false;
 
   /// Quick access to the LiveInfo for the terminator,
   /// holds the value &InstInfo[Terminator]
@@ -110,6 +114,9 @@ class AggressiveDeadCodeElimination {
   void markLiveInstructions();
   /// Mark an instruction as live.
   void markLive(Instruction *I);
+  
+  /// Mark terminators of control predecessors of a PHI node live.
+  void markPhiLive(PHINode *PN);
 
   /// Record the Debug Scopes which surround live debug information.
   void collectLiveScopes(const DILocalScope &LS);
@@ -270,15 +277,18 @@ void AggressiveDeadCodeElimination::markLiveInstructions() {
     // where we need to mark the inputs as live.
     while (!Worklist.empty()) {
       Instruction *LiveInst = Worklist.pop_back_val();
+      DEBUG(dbgs() << "work live: "; LiveInst->dump(););
 
       // Collect the live debug info scopes attached to this instruction.
       if (const DILocation *DL = LiveInst->getDebugLoc())
         collectLiveScopes(*DL);
 
-      DEBUG(dbgs() << "work live: "; LiveInst->dump(););
       for (Use &OI : LiveInst->operands())
         if (Instruction *Inst = dyn_cast<Instruction>(OI))
           markLive(Inst);
+      
+      if (auto *PN = dyn_cast<PHINode>(LiveInst))
+        markPhiLive(PN);
     }
     markLiveBranchesFromControlDependences();
 
@@ -316,7 +326,10 @@ void AggressiveDeadCodeElimination::markLive(Instruction *I) {
 
   DEBUG(dbgs() << "mark block live: " << BBInfo.BB->getName() << '\n');
   BBInfo.Live = true;
-  NewLiveBlocks.insert(BBInfo.BB);
+  if (!BBInfo.CFLive) {
+    BBInfo.CFLive = true;
+    NewLiveBlocks.insert(BBInfo.BB);
+  }
 
   // Mark unconditional branches at the end of live
   // blocks as live since there is no work to do for them later
@@ -347,6 +360,25 @@ void AggressiveDeadCodeElimination::collectLiveScopes(const DILocation &DL) {
   // Tail-recurse through the inlined-at chain.
   if (const DILocation *IA = DL.getInlinedAt())
     collectLiveScopes(*IA);
+}
+
+void AggressiveDeadCodeElimination::markPhiLive(PHINode *PN) {
+  auto &Info = BlockInfo[PN->getParent()];
+  // Only need to check this once per block.
+  if (Info.HasLivePhiNodes)
+    return;
+  Info.HasLivePhiNodes = true;
+
+  // If a predecessor block is not live, mark it as control-flow live
+  // which will trigger marking live branches upon which
+  // that block is control dependent.
+  for (auto *PredBB : predecessors(Info.BB)) {
+    auto &Info = BlockInfo[PredBB];
+    if (!Info.CFLive) {
+      Info.CFLive = true;
+      NewLiveBlocks.insert(PredBB);
+    }
+  }
 }
 
 void AggressiveDeadCodeElimination::markLiveBranchesFromControlDependences() {
@@ -383,6 +415,11 @@ void AggressiveDeadCodeElimination::markLiveBranchesFromControlDependences() {
   }
 }
 
+//===----------------------------------------------------------------------===//
+//
+//  Routines to update the CFG and SSA information before removing dead code.
+//
+//===----------------------------------------------------------------------===//
 bool AggressiveDeadCodeElimination::removeDeadInstructions() {
 
   // The inverse of the live set is the dead set.  These are those instructions

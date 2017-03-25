@@ -28,6 +28,8 @@ using namespace polly;
 
 STATISTIC(ScopFound, "Number of valid Scops");
 STATISTIC(RichScopFound, "Number of Scops containing a loop");
+STATISTIC(InfeasibleScops,
+          "Number of SCoPs with statically infeasible context.");
 
 // If the loop is nonaffine/boxed, return the first non-boxed surrounding loop
 // for Polly. If the loop is affine, return the loop itself. Do not call
@@ -182,6 +184,8 @@ bool ScopBuilder::buildAccessMultiDimFixed(MemAccInst Inst, Loop *L) {
   if (Sizes.empty())
     return false;
 
+  SizesSCEV.push_back(nullptr);
+
   for (auto V : Sizes)
     SizesSCEV.push_back(SE.getSCEV(
         ConstantInt::get(IntegerType::getInt64Ty(BasePtr->getContext()), V)));
@@ -213,9 +217,10 @@ bool ScopBuilder::buildAccessMultiDimParam(MemAccInst Inst, Loop *L) {
   if (AccItr == InsnToMemAcc.end())
     return false;
 
-  std::vector<const SCEV *> Sizes(
-      AccItr->second.Shape->DelinearizedSizes.begin(),
-      AccItr->second.Shape->DelinearizedSizes.end());
+  std::vector<const SCEV *> Sizes = {nullptr};
+
+  Sizes.insert(Sizes.end(), AccItr->second.Shape->DelinearizedSizes.begin(),
+               AccItr->second.Shape->DelinearizedSizes.end());
   // Remove the element size. This information is already provided by the
   // ElementSize parameter. In case the element size of this access and the
   // element size used for delinearization differs the delinearization is
@@ -272,8 +277,9 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   assert(DestPtrSCEV);
   DestAccFunc = SE.getMinusSCEV(DestAccFunc, DestPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::MUST_WRITE, DestPtrSCEV->getValue(),
-                 IntegerType::getInt8Ty(DestPtrVal->getContext()), false,
-                 {DestAccFunc, LengthVal}, {}, Inst.getValueOperand());
+                 IntegerType::getInt8Ty(DestPtrVal->getContext()),
+                 LengthIsAffine, {DestAccFunc, LengthVal}, {nullptr},
+                 Inst.getValueOperand());
 
   auto *MemTrans = dyn_cast<MemTransferInst>(MemIntr);
   if (!MemTrans)
@@ -293,8 +299,9 @@ bool ScopBuilder::buildAccessMemIntrinsic(MemAccInst Inst, Loop *L) {
   assert(SrcPtrSCEV);
   SrcAccFunc = SE.getMinusSCEV(SrcAccFunc, SrcPtrSCEV);
   addArrayAccess(Inst, MemoryAccess::READ, SrcPtrSCEV->getValue(),
-                 IntegerType::getInt8Ty(SrcPtrVal->getContext()), false,
-                 {SrcAccFunc, LengthVal}, {}, Inst.getValueOperand());
+                 IntegerType::getInt8Ty(SrcPtrVal->getContext()),
+                 LengthIsAffine, {SrcAccFunc, LengthVal}, {nullptr},
+                 Inst.getValueOperand());
 
   return true;
 }
@@ -312,19 +319,21 @@ bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
   auto *AF = SE.getConstant(IntegerType::getInt64Ty(CI->getContext()), 0);
   auto *CalledFunction = CI->getCalledFunction();
   switch (AA.getModRefBehavior(CalledFunction)) {
-  case llvm::FMRB_UnknownModRefBehavior:
+  case FMRB_UnknownModRefBehavior:
     llvm_unreachable("Unknown mod ref behaviour cannot be represented.");
-  case llvm::FMRB_DoesNotAccessMemory:
+  case FMRB_DoesNotAccessMemory:
     return true;
-  case llvm::FMRB_DoesNotReadMemory:
+  case FMRB_DoesNotReadMemory:
+  case FMRB_OnlyAccessesInaccessibleMem:
+  case FMRB_OnlyAccessesInaccessibleOrArgMem:
     return false;
-  case llvm::FMRB_OnlyReadsMemory:
+  case FMRB_OnlyReadsMemory:
     GlobalReads.push_back(CI);
     return true;
-  case llvm::FMRB_OnlyReadsArgumentPointees:
+  case FMRB_OnlyReadsArgumentPointees:
     ReadOnly = true;
   // Fall through
-  case llvm::FMRB_OnlyAccessesArgumentPointees:
+  case FMRB_OnlyAccessesArgumentPointees:
     auto AccType = ReadOnly ? MemoryAccess::READ : MemoryAccess::MAY_WRITE;
     for (const auto &Arg : CI->arg_operands()) {
       if (!Arg->getType()->isPointerTy())
@@ -336,7 +345,7 @@ bool ScopBuilder::buildAccessCallInst(MemAccInst Inst, Loop *L) {
 
       auto *ArgBasePtr = cast<SCEVUnknown>(SE.getPointerBase(ArgSCEV));
       addArrayAccess(Inst, AccType, ArgBasePtr->getValue(),
-                     ArgBasePtr->getType(), false, {AF}, {}, CI);
+                     ArgBasePtr->getType(), false, {AF}, {nullptr}, CI);
     }
     return true;
   }
@@ -383,7 +392,7 @@ void ScopBuilder::buildAccessSingleDim(MemAccInst Inst, Loop *L) {
     AccType = MemoryAccess::MAY_WRITE;
 
   addArrayAccess(Inst, AccType, BasePointer->getValue(), ElementType, IsAffine,
-                 {AccessFunction}, {}, Val);
+                 {AccessFunction}, {nullptr}, Val);
 }
 
 void ScopBuilder::buildMemoryAccess(MemAccInst Inst, Loop *L) {
@@ -587,13 +596,9 @@ void ScopBuilder::ensureValueRead(Value *V, BasicBlock *UserBB) {
   if (UserStmt->lookupValueReadOf(V))
     return;
 
-  // For exit PHIs use the MK_ExitPHI MemoryKind not MK_Value.
-  ScopArrayInfo::MemoryKind Kind = ScopArrayInfo::MK_Value;
-  if (!ValueStmt && isa<PHINode>(V))
-    Kind = ScopArrayInfo::MK_ExitPHI;
-
   addMemoryAccess(UserBB, nullptr, MemoryAccess::READ, V, V->getType(), true, V,
-                  ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(), Kind);
+                  ArrayRef<const SCEV *>(), ArrayRef<const SCEV *>(),
+                  ScopArrayInfo::MK_Value);
   if (ValueInst)
     ensureValueWrite(ValueInst);
 }
@@ -662,7 +667,7 @@ void ScopBuilder::buildScop(Region &R, AssumptionCache &AC) {
   for (auto *GlobalRead : GlobalReads)
     for (auto *BP : ArrayBasePointers)
       addArrayAccess(MemAccInst(GlobalRead), MemoryAccess::READ, BP,
-                     BP->getType(), false, {AF}, {}, GlobalRead);
+                     BP->getType(), false, {AF}, {nullptr}, GlobalRead);
 
   scop->init(AA, AC, DT, LI);
 }
@@ -684,6 +689,7 @@ ScopBuilder::ScopBuilder(Region *R, AssumptionCache &AC, AliasAnalysis &AA,
   DEBUG(scop->print(dbgs()));
 
   if (!scop->hasFeasibleRuntimeContext()) {
+    InfeasibleScops++;
     Msg = "SCoP ends here but was dismissed.";
     scop.reset();
   } else {

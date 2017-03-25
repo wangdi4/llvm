@@ -304,8 +304,14 @@ INTERCEPTOR(int, strncmp, const char *s1, const char *s2, uptr size) {
     c2 = (unsigned char)s2[i];
     if (c1 != c2 || c1 == '\0') break;
   }
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s1, Min(i + 1, size));
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s2, Min(i + 1, size));
+  uptr i1 = i;
+  uptr i2 = i;
+  if (common_flags()->strict_string_checks) {
+    for (; i1 < size && s1[i1]; i1++) {}
+    for (; i2 < size && s2[i2]; i2++) {}
+  }
+  COMMON_INTERCEPTOR_READ_RANGE((ctx), (s1), Min(i1 + 1, size));
+  COMMON_INTERCEPTOR_READ_RANGE((ctx), (s2), Min(i2 + 1, size));
   int result = CharCmpX(c1, c2);
   CALL_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strncmp, GET_CALLER_PC(), s1,
                              s2, size, result);
@@ -348,24 +354,30 @@ INTERCEPTOR(int, strcasecmp, const char *s1, const char *s2) {
 }
 
 DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strncasecmp, uptr called_pc,
-                              const char *s1, const char *s2, uptr n,
+                              const char *s1, const char *s2, uptr size,
                               int result)
 
-INTERCEPTOR(int, strncasecmp, const char *s1, const char *s2, SIZE_T n) {
+INTERCEPTOR(int, strncasecmp, const char *s1, const char *s2, SIZE_T size) {
   void *ctx;
-  COMMON_INTERCEPTOR_ENTER(ctx, strncasecmp, s1, s2, n);
+  COMMON_INTERCEPTOR_ENTER(ctx, strncasecmp, s1, s2, size);
   unsigned char c1 = 0, c2 = 0;
   uptr i;
-  for (i = 0; i < n; i++) {
+  for (i = 0; i < size; i++) {
     c1 = (unsigned char)s1[i];
     c2 = (unsigned char)s2[i];
     if (CharCaseCmp(c1, c2) != 0 || c1 == '\0') break;
   }
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s1, Min(i + 1, n));
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, s2, Min(i + 1, n));
+  uptr i1 = i;
+  uptr i2 = i;
+  if (common_flags()->strict_string_checks) {
+    for (; i1 < size && s1[i1]; i1++) {}
+    for (; i2 < size && s2[i2]; i2++) {}
+  }
+  COMMON_INTERCEPTOR_READ_RANGE((ctx), (s1), Min(i1 + 1, size));
+  COMMON_INTERCEPTOR_READ_RANGE((ctx), (s2), Min(i2 + 1, size));
   int result = CharCaseCmp(c1, c2);
   CALL_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strncasecmp, GET_CALLER_PC(),
-                             s1, s2, n, result);
+                             s1, s2, size, result);
   return result;
 }
 
@@ -4183,6 +4195,20 @@ INTERCEPTOR(char *, tmpnam_r, char *s) {
 #define INIT_TMPNAM_R
 #endif
 
+#if SANITIZER_INTERCEPT_TTYNAME_R
+INTERCEPTOR(int, ttyname_r, int fd, char *name, SIZE_T namesize) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, ttyname_r, fd, name, namesize);
+  int res = REAL(ttyname_r)(fd, name, namesize);
+  if (res == 0)
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, name, REAL(strlen)(name) + 1);
+  return res;
+}
+#define INIT_TTYNAME_R COMMON_INTERCEPT_FUNCTION(ttyname_r);
+#else
+#define INIT_TTYNAME_R
+#endif
+
 #if SANITIZER_INTERCEPT_TEMPNAM
 INTERCEPTOR(char *, tempnam, char *dir, char *pfx) {
   void *ctx;
@@ -6008,6 +6034,7 @@ static void InitializeCommonInterceptors() {
   INIT_PTHREAD_BARRIERATTR_GETPSHARED;
   INIT_TMPNAM;
   INIT_TMPNAM_R;
+  INIT_TTYNAME_R;
   INIT_TEMPNAM;
   INIT_PTHREAD_SETNAME_NP;
   INIT_SINCOS;

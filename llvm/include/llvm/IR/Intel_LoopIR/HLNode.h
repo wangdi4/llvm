@@ -16,8 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLNODE_H
 #define LLVM_IR_INTEL_LOOPIR_HLNODE_H
 
-#include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/simple_ilist.h"
 
 #include "llvm/Support/ErrorHandling.h"
 
@@ -45,7 +44,7 @@ class CanonExprUtils;
 class BlobUtils;
 
 // Typedef for a list of HLNodes.
-typedef iplist<HLNode> HLContainerTy;
+typedef simple_ilist<HLNode> HLContainerTy;
 
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;
@@ -239,23 +238,6 @@ public:
 };
 
 } // End loopopt namespace
-/// \brief traits for iplist<HLNode>
-///
-/// Refer to ilist_traits<Instruction> in BasicBlock.h for explanation.
-template <>
-struct ilist_traits<loopopt::HLNode>
-    : public ilist_default_traits<loopopt::HLNode> {
-
-  static loopopt::HLNode *createNode(const loopopt::HLNode &) {
-    llvm_unreachable("HLNodes should be explicitly created via HLNodeUtils"
-                     "class");
-
-    return nullptr;
-  }
-
-  // Deletion of nodes intentionally leaved empty to save compile time
-  static void deleteNode(loopopt::HLNode *Node) {}
-};
 
 } // End llvm namespace
 

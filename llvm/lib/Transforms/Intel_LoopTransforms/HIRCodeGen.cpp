@@ -765,10 +765,11 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref, Value *MaskVal) {
     Instruction *LInst;
 
     if (GEPVal->getType()->isVectorTy()) {
-      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, Builder,
+      LInst = VPOUtils::createMaskedGatherCall(F->getParent(), GEPVal, *Builder,
                                                Ref->getAlignment(), MaskVal);
     } else if (MaskVal) {
-      LInst = Builder->CreateMaskedLoad(GEPVal, Ref->getAlignment(), MaskVal);
+      LInst = VPOUtils::createMaskedLoadCall(GEPVal, *Builder,
+                                             Ref->getAlignment(), MaskVal);
     } else {
       LInst = Builder->CreateAlignedLoad(GEPVal, Ref->getAlignment(),
                                          Ref->isVolatile(), "gepload");
@@ -1208,11 +1209,11 @@ void HIRCodeGen::CGVisitor::generateLvalStore(const HLInst *HInst,
 
     if (StorePtr->getType()->isVectorTy()) {
       ResInst = VPOUtils::createMaskedScatterCall(
-          F->getParent(), StorePtr, StoreVal, Builder, LvalRef->getAlignment(),
+          F->getParent(), StorePtr, StoreVal, *Builder, LvalRef->getAlignment(),
           MaskVal);
     } else if (MaskVal) {
-      ResInst = Builder->CreateMaskedStore(StoreVal, StorePtr,
-                                           LvalRef->getAlignment(), MaskVal);
+      ResInst = VPOUtils::createMaskedStoreCall(
+          StorePtr, StoreVal, *Builder, LvalRef->getAlignment(), MaskVal);
     } else {
       ResInst = Builder->CreateAlignedStore(
           StoreVal, StorePtr, LvalRef->getAlignment(), LvalRef->isVolatile());

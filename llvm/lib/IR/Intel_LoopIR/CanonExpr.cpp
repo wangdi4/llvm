@@ -182,6 +182,16 @@ bool CanonExpr::isUndefSelfBlob() const {
       getBlobUtils().isUndefBlob(getBlobUtils().getBlob(getSingleBlobIndex())));
 }
 
+bool CanonExpr::isUnitaryBlob() const {
+  if (!isStandAloneBlob(false /*AllowConversion*/)) {
+    return false;
+  }
+
+  assert(numBlobs() == 1 && "Expected only one blob in standalone blob");
+  return !getBlobUtils().isNestedBlob(
+      getBlobUtils().getBlob(getSingleBlobIndex()));
+}
+
 void CanonExpr::setDenominator(int64_t Val) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
