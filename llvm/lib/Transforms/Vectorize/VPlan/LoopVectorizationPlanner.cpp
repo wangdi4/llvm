@@ -735,9 +735,11 @@ void LoopVectorizationPlanner::simplifyNonLoopRegions(
 }
 
 void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
+                                                LoopInfo *LI,
                                                 VPLoopInfo *VPLInfo,
                                                 VPDominatorTree &DomTree,
                                                 VPDominatorTree &PostDomTree,
+                                                IntelVPlan *Plan,
                                                 IntelVPlanUtils &PlanUtils) {
   // VPLoop simplifications
   assert((VPLInfo->getNumTopLevelLoops() == 1) &&
@@ -754,6 +756,12 @@ void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
     //DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     //DomTree.print(dbgs()));
 
+  }
+
+  if (VPlanLoopCFU) {
+    VPLoopCFU LCFU(Plan, PlanUtils, SE, LI, VPLInfo,
+                   &DomTree, &PostDomTree);
+    LCFU.makeInnerLoopControlFlowUniform();
   }
 
   splitLoopsExits(TopLoop, VPLInfo, DomTree, PostDomTree, PlanUtils);
@@ -962,6 +970,7 @@ static void verifyRegions(const VPRegionBlock *Region) {
     // Check parent
     assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
 
+errs() << "Block Name: " << VPB->getName() << "\n";
     // Check ConditionBitRecipe
     if (VPB->getNumSuccessors() > 1)
       assert(VPB->getConditionBitRecipe() && "Missing ConditionBitRecipe");
@@ -1306,7 +1315,8 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   // implementation we won't detect all non-loop SESE regions but this shouldn't
   // be critical. Algorithms should be able to work even if we only create loop
   // regions.
-  simplifyPlainCFG(TopRegion, VPLInfo, DomTree, PostDomTree, PlanUtils);
+  simplifyPlainCFG(TopRegion, LI, VPLInfo, DomTree, PostDomTree, Plan,
+                   PlanUtils);
 
   DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
         PlanPrinter.dump("LVP: After simplifyPlainCFG for VF=4"));
@@ -1327,13 +1337,6 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
         PlanPrinter.dump("LVP: After buildHierarchicalCFG for VF=4"));
 
   verifyHierarchicalCFG(TopRegion, VPLInfo);
-
-  // TODO: CFG massaging for inner loops in outer loop vectorization scenarios
-  // might happen here.
-  if (VPlanLoopCFU) {
-    VPLoopCFU LCFU(Plan, PlanUtils, SE, LI);
-    LCFU.makeLoopControlFlowUniform();
-  }
 
   // FOR STRESS TESTING, uncomment the following:
   // EndRangeVF = StartRangeVF * 2;

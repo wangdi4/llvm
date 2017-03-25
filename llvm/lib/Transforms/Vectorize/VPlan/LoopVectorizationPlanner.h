@@ -158,8 +158,9 @@ private:
   void computeVPLoopInfo(Loop *Lp, IntelVPlanUtils &PlanUtils,
                          DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB);
 
-  void simplifyPlainCFG(VPRegionBlock *TopRegion, VPLoopInfo *VPLInfo,
-                        VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
+  void simplifyPlainCFG(VPRegionBlock *TopRegion, LoopInfo *LI,
+                        VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
+                        VPDominatorTree &PostDomTree, IntelVPlan *Plan,
                         IntelVPlanUtils &PlanUtils);
 
   VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,

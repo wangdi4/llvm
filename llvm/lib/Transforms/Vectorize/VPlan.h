@@ -1235,6 +1235,12 @@ public:
     assert(Successor && "Cannot add nullptr successor!");
     Block->appendSuccessor(Successor);
   }
+
+  /// \brief Add \p Predecessor as the last predecessor to this block.
+  void appendPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
+    assert(Predecessor && "Cannot add nullptr successor!");
+    Block->appendPredecessor(Predecessor);
+  }
 #endif
   /// Sets a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of

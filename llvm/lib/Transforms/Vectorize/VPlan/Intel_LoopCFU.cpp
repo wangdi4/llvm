@@ -62,7 +62,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-//#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "Intel_LoopCFU.h"
 #include "llvm/Support/Debug.h"
 
@@ -72,23 +71,9 @@ using namespace llvm::vpo;
 
 namespace llvm {
 
-void VPLoopCFU::makeLoopControlFlowUniform() {
-  for (VPBlockBase *CurrentBlock = Plan->getEntry();
-       CurrentBlock != nullptr;
-       CurrentBlock = CurrentBlock->getSingleSuccessor())
-    visitBlock(CurrentBlock);
-}
-
-void VPLoopCFU::visitBlock(VPBlockBase *Block) {
-  if (VPBasicBlock *VPBB = dyn_cast<VPBasicBlock>(Block))
-    visitBasicBlock(VPBB);
-  else if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block))
-    visitRegion(Region);
-}
-
-void VPLoopCFU::getLoopProperties(Loop *Lp, Value **LoopIdx, Value **LoopIdxInc,
-                                  Value **LoopLB, Value **LoopUB,
-                                  Value **BackedgeCond) {
+void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
+                                  Value **LoopIdxInc, Value **LoopLB,
+                                  Value **LoopUB, Value **BackedgeCond) {
 
   // Find the value within the loop exit condition that corresponds to the loop
   // lower/upper bounds, the loop index, and the increment of the loop index.
@@ -106,32 +91,44 @@ void VPLoopCFU::getLoopProperties(Loop *Lp, Value **LoopIdx, Value **LoopIdxInc,
   // (2) - LoopIdxInc
   // (3) - LoopUB
   //
-  // Some code was pulled from Loop::getCanonicalInductionVariable(), but
-  // modified since it does not handle strides of more than 1, expects the
-  // initial loop index value to be 0, and does not handle non-uniform loop
-  // lower bounds.
 
-  BasicBlock *Header = Lp->getHeader();
-  pred_iterator PI = pred_begin(Header);
-  assert(PI != pred_end(Header) && "Loop must have at least one backedge!");
-  BasicBlock *Backedge = *PI++;
-  assert(PI != pred_end(Header) && "dead loop");
-  BasicBlock *Incoming = *PI++;
-
-  if (Lp->contains(Incoming)) {
-    if (Lp->contains(Backedge)) {
-      llvm_unreachable("Loop contains Incoming and Backedge");
+  unsigned NumBackedges = 0;
+  unsigned NumIncoming = 0;
+  const VPBasicBlock *Backedge = nullptr;
+  const VPBasicBlock *Incoming = nullptr;
+  VPBasicBlock *Header = dyn_cast<VPBasicBlock>(Lp->getHeader());
+  assert(Header && "Header should be a VPBasicBlock");
+  for (const VPBlockBase *Pred : Header->getPredecessors()) {
+    if (Lp->contains(Pred)) {
+      // Note: Lp is expected to have a single backedge.
+      Backedge = dyn_cast<VPBasicBlock>(Pred);
+      assert(Backedge && "Backedge should be a VPBasicBlock");
+      NumBackedges++;
+    } else {
+      // Note: Lp is expected to have a single incoming block.
+      Incoming = dyn_cast<VPBasicBlock>(Pred);
+      assert(Incoming && "Incoming should be a VPBasicBlock");
+      NumIncoming++;
     }
-    std::swap(Incoming, Backedge);
-  } else if (!Lp->contains(Backedge)) {
-    llvm_unreachable("Loop does not contain backedge");
   }
+  assert(Backedge && "Could not find block containing loop backedge");
+  assert(Incoming && "Could not find incoming block to loop");
+  assert(NumBackedges == 1 && "Loop expected to have a single backedge");
+  assert(NumIncoming == 1 && "Loop expected to have a single incoming block");
 
-  DEBUG(errs() << "Backedge: " << *Backedge << "\n");
-  DEBUG(errs() << "Incoming: " << *Incoming << "\n");
+  const VPBasicBlock::RecipeListTy &BackedgeRecipeList = Backedge->getRecipes();
+  const VPRecipeBase *BackedgeRecipe = &BackedgeRecipeList.back();
+  const VPUniformConditionBitRecipe *UniformCBRecipe =
+    dyn_cast<VPUniformConditionBitRecipe>(BackedgeRecipe);
+  assert(UniformCBRecipe &&
+         "Expected UniformConditionBitRecipe for loop backedge");
 
-  TerminatorInst *Term = Backedge->getTerminator();
-  *BackedgeCond = Term->getOperand(0);
+  *BackedgeCond = UniformCBRecipe->getScalarCondition();
+
+  DEBUG(dbgs() << "Incoming Loop Block: " << Incoming->getName() << "\n");
+  DEBUG(dbgs() << "Loop Header Block: " << Header->getName() << "\n");
+  DEBUG(dbgs() << "Loop Backedge Block: " << Backedge->getName() << "\n");
+  DEBUG(dbgs() << "Loop Backedge Condition: " << **BackedgeCond << "\n");
 
   // This piece of code finds the loop index and its update, which should be in
   // the form of an add instruction. This add instruction is used as the split
@@ -186,40 +183,66 @@ void VPLoopCFU::getLoopProperties(Loop *Lp, Value **LoopIdx, Value **LoopIdxInc,
   // condition for the loop backedge (%cmp1), then this is the primary
   // induction update.
 
+  SmallVector<const PHINode*, 2> PhiNodes;
+  const VPBasicBlock::RecipeListTy &HeaderRecipeList = Header->getRecipes();
+  const VPRecipeBase *HeaderRecipe = &HeaderRecipeList.front();
+  const VPVectorizeOneByOneIRRecipe *OneByOneRecipe =
+    dyn_cast<VPVectorizeOneByOneIRRecipe>(HeaderRecipe);
+  assert(OneByOneRecipe &&
+         "Expected VPVectorizeOneByOneIRRecipe as first recipe in loop header");
+
+  for (auto It = OneByOneRecipe->begin(), End = OneByOneRecipe->end();
+       It != End; ++It) {
+    const VPInstructionIR *VPInst = cast<VPInstructionIR>(It);
+    const Instruction *I = VPInst->getInstruction();
+    if (const PHINode *Phi = dyn_cast<PHINode>(I)) {
+      PhiNodes.push_back(Phi);
+    }
+  }
+
+  Instruction *CondInst = dyn_cast<Instruction>(*BackedgeCond);
+  assert(CondInst && "Expected loop backedge condition to be an instruction");
+  BasicBlock *CondParent = CondInst->getParent();
   Instruction *Inc = nullptr;
-  for (BasicBlock::iterator I = Header->begin(); isa<PHINode>(I); ++I) {
-    PHINode *PN = cast<PHINode>(I);
-    Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge));
+  for (auto PN : PhiNodes) {
+    Inc = dyn_cast<Instruction>(PN->getIncomingValueForBlock(CondParent));
     if (Inc) {
       if (Inc->getOpcode() == Instruction::Add && Inc->getOperand(0) == PN) {
-        Instruction *Cond = cast<Instruction>(*BackedgeCond);
         Instruction *IndVal =
-          dyn_cast<Instruction>(Cond->getOperand(0));
+          dyn_cast<Instruction>(CondInst->getOperand(0));
         assert(IndVal && "Expected induction value to be an instruction");
         Instruction *IncVal = dyn_cast<Instruction>(Inc->getOperand(0));
         assert(IncVal &&
                "Expected induction value incremented to be an instruction");
         if (Inc == IndVal || IncVal == IndVal) {
-          *LoopIdx = PN;
+          PHINode *Phi = const_cast<PHINode*>(PN);
+          *LoopIdx = Phi;
           *LoopIdxInc = Inc;
         }
       }
     }
   }
 
-  // Find the loop lower bound. This is the incoming Value in the Phi coming
-  // from the loop preheader.
-  PHINode *Phi = cast<PHINode>(*LoopIdx);
-  *LoopLB = Phi->getIncomingValueForBlock(Incoming);
+  // Find the loop lower bound. This is the incoming Value in the loop index Phi
+  // that is incoming from the loop preheader.
+  PHINode *LoopIdxPhi = cast<PHINode>(*LoopIdx);
+  for (unsigned i = 0; i < LoopIdxPhi->getNumIncomingValues(); i++) {
+    // It has already been asserted that there is a single incoming block and
+    // single backedge to the loop. The lower bound will come from the single
+    // incoming block. It has to be done this way because
+    // getIncomingValueForBlock() cannot be called using VPBasicBlock.
+    Value *Op = LoopIdxPhi->getIncomingValue(i);
+    BasicBlock *Block = LoopIdxPhi->getIncomingBlock(i);
+    if (Block != CondParent) {
+      *LoopLB = Op;
+    }
+  }
 
   // Find the loop upper bound. Most likely operand 1 of the comparison in
   // the backedge, but check all operands just in case ordering differs.
-  TerminatorInst *LoopTerm = Backedge->getTerminator();
-  CmpInst *Cmp = dyn_cast<CmpInst>(LoopTerm->getOperand(0));
-  assert(Cmp && "Expected cmp instruction as part of loop backedge");
-  for (unsigned i = 0; i < Cmp->getNumOperands(); i++) {
-    if (Cmp->getOperand(i) != Inc) {
-      *LoopUB = Cmp->getOperand(i); 
+  for (unsigned i = 0; i < CondInst->getNumOperands(); i++) {
+    if (CondInst->getOperand(i) != Inc) {
+      *LoopUB = CondInst->getOperand(i); 
     }
   }
 
@@ -242,8 +265,7 @@ void VPLoopCFU::createBlockAndRecipeForTruePath(
 
   // Create a new VPBasicBlock and OneByOneRecipe for the instructions that will
   // be executed when the mask is true.
-  VPBasicBlock *TrueBlock = PlanUtils.createBasicBlock();
-  PlanUtils.insertBlockAfter(TrueBlock, EntryBlock);
+  VPBasicBlock *TrueBlock = PlanUtils.splitBlock(EntryBlock, VPLI, *DT, *PDT);
 
   // Find the last phi instruction in the original OneByOneRecipe for the loop
   // entry block. This is the point where the original recipe and the mask true
@@ -318,22 +340,29 @@ void VPLoopCFU::createBlockAndRecipeForTruePath(
   EntryBlock->setConditionBitRecipe(nullptr, Plan);
 }
 
-Instruction* VPLoopCFU::getLoopPredicate(Loop *Lp) {
-  // PredBlock points to the basic block that has the predicate for the inner
-  // loop.
-  BasicBlock *LpHeader = Lp->getLoopPreheader();
-  BasicBlock *PredBlock = LpHeader->getSinglePredecessor();
+Instruction* VPLoopCFU::getLoopZtt(const VPLoop *Lp) {
+  // PredBlock points to the basic block that has the ztt for the inner loop.
+  // Here, Lp points to the outer loop.
+  VPBasicBlock *LpPreHeader = dyn_cast<VPBasicBlock>(Lp->getLoopPreheader());
+  assert(LpPreHeader && "Expected loop pre-header to be a VPBasicBlock");
+  VPBasicBlock *PredBlock =
+    dyn_cast<VPBasicBlock>(LpPreHeader->getSingleSuccessor());
   assert(PredBlock && "Could not find predicate basic block");
-  TerminatorInst *PredTerm = PredBlock->getTerminator();
-  Instruction *Pred = cast<Instruction>(PredTerm->getOperand(0));
-  return Pred;
+  VPBasicBlock::RecipeListTy &RecipeList = PredBlock->getRecipes();
+  VPRecipeBase *RecipeBase = &RecipeList.back();
+  VPUniformConditionBitRecipe *UniformCBR =
+    dyn_cast<VPUniformConditionBitRecipe>(RecipeBase);
+  assert(UniformCBR && "Expected UniformCBR for loop ztt");
+  Value *Cond = UniformCBR->getScalarCondition();
+  assert(isa<Instruction>(Cond) && "Condition should be an Instruction");
+  return cast<Instruction>(Cond);
 }
 
 void VPLoopCFU::createRecipeForMask(Instruction *Pred,
                                     Value *BackedgeCond,
                                     VPBasicBlock *EntryBlock) {
 
-  // This algorithm generates a VPBasicBlock "triangle" for mask true or false
+  // The algorithm generates a VPBasicBlock "triangle" for mask true or false
   // code paths. The selector (VPConditionBitRecipe) here points to the recipe
   // that will generate the mask.
 
@@ -405,8 +434,8 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
 
   // Create a VPBasicBlock and corresponding OneByOneRecipe for the mask false
   // path. 
-  VPBasicBlock *FalseBlock = PlanUtils.createBasicBlock();
-  PlanUtils.insertBlockAfter(FalseBlock, LastTrueBlock);
+  VPBasicBlock *FalseBlock =
+    PlanUtils.splitBlock(LastTrueBlock, VPLI, *DT, *PDT);
 
   VPInstructionIR *BeginVPInst = cast<VPInstructionIR>(SplitPtIt);
   Instruction *BeginInst = BeginVPInst->getInstruction();
@@ -422,6 +451,7 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
     PlanUtils.createOneByOneRecipe(BeginInstIt, EndInstIt, false);
   FalseBlock->addRecipe(FalseRecipe);
   PlanUtils.appendSuccessor(EntryBlock, FalseBlock);
+  PlanUtils.appendPredecessor(FalseBlock, EntryBlock);
 
   // Create a new Recipe that indicates an all zeros bypass at the end of the
   // loop. The new recipe will contain the original compare instruction from the
@@ -444,6 +474,8 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
 
   std::set<const VPBlockBase*> RecipeUsers =
     Plan->getRecipeUsers(CondCBRecipe);
+
+/*
   for (auto It = RecipeUsers.begin(), End = RecipeUsers.end(); It != End;
        ++It) {
     VPBlockBase *Block = const_cast<VPBlockBase*>(*It);
@@ -454,64 +486,52 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
     if (Block != EntryBlock)
       Block->setConditionBitRecipe(AllZeroRecipeExit, Plan);
   }
+*/
   Plan->removeRecipeUsers(CondCBRecipe);
 }
 
-void VPLoopCFU::visitRegion(VPRegionBlock *Region) {
+void VPLoopCFU::makeInnerLoopControlFlowUniform() {
+  VPLI = Plan->getVPLoopInfo();
+  for (auto It = VPLI->begin(), End = VPLI->end(); It != End; ++It) {
+    const VPLoop *Lp = *It;
+    VecLoop = Lp;
+    DEBUG(dbgs() << "Vectorizing at loop: " << *Lp << "\n");
+    const std::vector<VPLoop*> SubLoops = Lp->getSubLoops();
+    for (unsigned i = 0; i < SubLoops.size(); i++) {
+      // Get the ZTT for the inner loop.
+      Instruction *Ztt = getLoopZtt(Lp);
+      DEBUG(errs() << "Loop ZTT: " << *Ztt << "\n");
 
-  if (isa<VPLoopRegion>(Region)) {
-
-    // Should be the beginning of the loop body. Region->getEntry() points to
-    // the loop preheader.
-    VPBlockBase *Entry = Region->getEntry()->getSingleSuccessor();
-    assert(isa<VPBasicBlock>(Entry) &&
-           "Expected entry of loop to be VPBasicBlock\n");
-
-    // Get the original OneByOneRecipe in the loop entry block.
-    VPBasicBlock *EntryBlock = cast<VPBasicBlock>(Entry);
-    VPBasicBlock::RecipeListTy &RecipeList = EntryBlock->getRecipes();
-    VPRecipeBase *RecipeBase = &RecipeList.front();
-    VPVectorizeOneByOneIRRecipe *OrigRecipe =
-      dyn_cast<VPVectorizeOneByOneIRRecipe>(RecipeBase);
-    assert(OrigRecipe && "Expected OneByOneRecipe in original loop entry");
-
-    // Use the first instruction in the loop recipe to get the underlying LLVM
-    // loop it belongs to. The loop can be used to identify the loop induction
-    // and upper bound.
-    VPInstructionContainerTy::iterator LoopBeginIt = OrigRecipe->begin();
-    VPInstructionIR *VPInstBegin = cast<VPInstructionIR>(LoopBeginIt);
-    Instruction *InstBegin = VPInstBegin->getInstruction();
-    Loop *Lp = LI->getLoopFor(InstBegin->getParent());
-
-    if (Lp->getLoopDepth() == 1) {
-      VecLoop = Lp;
-      DEBUG(dbgs() << "Vectorizing at loop: " << *Lp << "\n");
-    }
-
-    if (Lp->getLoopDepth() > 1) {
       Value *LoopIdx = nullptr;
       Value *LoopIdxInc = nullptr;
       Value *LoopLB = nullptr;
       Value *LoopUB = nullptr;
       Value *BackedgeCond = nullptr;
+      // Get the important properties of the inner loop.
+      getLoopProperties(SubLoops[i], &LoopIdx, &LoopIdxInc, &LoopLB,
+                        &LoopUB, &BackedgeCond);
 
-      // Get the ZTT for the inner loop.
-      Instruction *Ztt = getLoopPredicate(Lp);
-      DEBUG(errs() << "Loop ZTT: " << *Ztt << "\n");
-
-      getLoopProperties(Lp, &LoopIdx, &LoopIdxInc, &LoopLB, &LoopUB,
-                        &BackedgeCond);
-
-      // Is the predicate controlling entry into the inner loop uniform? For
-      // now, any condition that is not constant is considered non-uniform. We
-      // can refine later.
-      const SCEV *Scev = SE->getSCEVAtScope(Ztt, Lp);
+      // Is the loop upper bound a constant? If not, assume non-uniform trip
+      // count for now. Refine later with SLEV.
+      Instruction *LoopUBInst = cast<Instruction>(LoopUB);
+      Loop *LLVMLp = LI->getLoopFor(LoopUBInst->getParent());
+      const SCEV *Scev = SE->getSCEVAtScope(LoopUB, LLVMLp);
       const SCEVConstant *ScevConst = dyn_cast<SCEVConstant>(Scev);
       if (!ScevConst) {
         createAllZeroRecipeForLoopEntry(Ztt);
-        createBlockAndRecipeForTruePath(EntryBlock, OrigRecipe);
+        VPBasicBlock *EntryBlock =
+          dyn_cast<VPBasicBlock>(SubLoops[i]->getHeader());
+        assert(EntryBlock && "Expected EntryBlock to be a VPBasicBlock");
+        VPBasicBlock::RecipeListTy &EntryRecipeList =
+          EntryBlock->getRecipes();
+        VPRecipeBase *EntryRecipe = &EntryRecipeList.front();
+        VPVectorizeOneByOneIRRecipe *OneByOneRecipe =
+          dyn_cast<VPVectorizeOneByOneIRRecipe>(EntryRecipe);
+          assert(OneByOneRecipe &&
+                 "Expected VPVectorizeOneByOneIRRecipe as first recipe in loop\
+                  header");
+        createBlockAndRecipeForTruePath(EntryBlock, OneByOneRecipe);
         createRecipeForMask(Ztt, BackedgeCond, EntryBlock); 
-
         VPInstructionContainerTy::iterator SplitPtIt;
         // LoopIdxInc is guaranteed to be an instruction here, so cast away.
         Instruction *IncInst = cast<Instruction>(LoopIdxInc);
@@ -521,7 +541,6 @@ void VPLoopCFU::visitRegion(VPRegionBlock *Region) {
         assert(ParentOBORecipe &&
                "Expected OneByOneRecipe recipe for loop index update");
         findSplitPtForTrueFalsePaths(LoopIdxInc, ParentOBORecipe, SplitPtIt);
-
         VPInstructionContainerTy::iterator End = ParentOBORecipe->end();
         createBlockAndRecipesForFalsePath(SplitPtIt, End,
                                           ParentOBORecipe->getParent(),
@@ -538,14 +557,6 @@ void VPLoopCFU::visitRegion(VPRegionBlock *Region) {
       }
     }
   }
-
-  for (VPBlockBase *Block : depth_first(Region->getEntry())) {
-    visitBlock(Block);
-  }
-}
-
-void VPLoopCFU::visitBasicBlock(VPBasicBlock *VPBB) {
-  DEBUG(errs() << "Visiting block: " << VPBB->getName() << "\n");
 }
 
 } // end llvm namespace

@@ -13,28 +13,31 @@ namespace llvm {
 class VPLoopCFU { 
   
 private: 
-  VPlan *Plan;
+  IntelVPlan *Plan;
   IntelVPlanUtils PlanUtils;
   ScalarEvolution *SE;
   LoopInfo *LI;
-  Loop *VecLoop;
+  VPLoopInfo *VPLI;
+  VPDominatorTree *DT;
+  VPDominatorTree *PDT;
+  const VPLoop *VecLoop;
   
 public: 
-  VPLoopCFU(VPlan *Plan, IntelVPlanUtils &PlanUtils, ScalarEvolution *SE,
-            LoopInfo *LI) : Plan(Plan), PlanUtils(PlanUtils), SE(SE), LI(LI) {}
+  VPLoopCFU(IntelVPlan *Plan, IntelVPlanUtils &PlanUtils, ScalarEvolution *SE,
+            LoopInfo *LI, VPLoopInfo *VPLInfo, VPDominatorTree *DomTree,
+            VPDominatorTree *PostDomTree) :
+            Plan(Plan), PlanUtils(PlanUtils), SE(SE), LI(LI), VPLI(VPLInfo),
+            DT(DomTree), PDT(PostDomTree) {}
 
-  void makeLoopControlFlowUniform();
-  void visitBlock(VPBlockBase *Block);
-  void visitRegion(VPRegionBlock *Region);
-  void visitBasicBlock(VPBasicBlock *VPBB);
+  void makeInnerLoopControlFlowUniform();
 
-  void getLoopProperties(Loop *Lp, Value **LoopIdx, Value **LoopIdxInc,
+  void getLoopProperties(VPLoop *Lp, Value **LoopIdx, Value **LoopIdxInc,
                          Value **LoopLB, Value **LoopUB, Value **BackedgeCond);
 
   void createBlockAndRecipeForTruePath(
     VPBasicBlock *EntryBlock, VPVectorizeOneByOneIRRecipe *OrigRecipe);
 
-  Instruction* getLoopPredicate(Loop *Lp);
+  Instruction* getLoopZtt(const VPLoop *Lp);
 
   void createRecipeForMask(Instruction *Pred, Value *Backedge,
                            VPBasicBlock *EntryBlock);

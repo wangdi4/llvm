@@ -9,6 +9,8 @@
 
 namespace llvm {
 
+class VPDominatorTree;
+
 namespace vpo {
 
 class VPLoop;
@@ -631,6 +633,10 @@ public:
 
     return false;
   }
+
+  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
+                           VPDominatorTree &DomTree,
+                           VPDominatorTree &PostDomTree);
 };
 
 } // End VPO Vectorizer Namespace 
