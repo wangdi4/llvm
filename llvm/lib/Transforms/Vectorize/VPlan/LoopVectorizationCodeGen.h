@@ -249,7 +249,8 @@ private:
 
   /// This function adds (StartIdx, StartIdx + Step, StartIdx + 2*Step, ...)
   /// to each vector element of Val. The sequence starts at StartIndex.
-  Value *getStepVector(Value *Val, int StartIdx, Value *Step);
+  Value *getStepVector(Value *Val, int StartIdx, Value *Step,
+                       Instruction::BinaryOps BinOp);
 
   /// Create a broadcast instruction. This method generates a broadcast
   /// instruction (shuffle) for loop invariant values and for the induction
@@ -259,9 +260,7 @@ private:
   Value *getBroadcastInstrs(Value *V);
 
   /// Create vector and scalar version of the same induction variable.
-  /// We don't need always the both, cost model may provide information
-  /// about this.
-  void widenIntInduction(PHINode *IV);
+  void widenIntOrFpInduction(PHINode *IV);
 
   /// Widen Phi node, which is not an induction variable. This Phi node
   /// is a result of merging blocks ruled out by uniform branch.
@@ -272,15 +271,12 @@ private:
   /// Compute scalar induction steps. \p ScalarIV is the scalar induction
   /// variable on which to base the steps, \p Step is the size of the step, and
   /// \p EntryVal is the value from the original loop that maps to the steps.
-  /// Note that \p EntryVal doesn't have to be an induction variable (e.g., it
-  /// can be a truncate instruction).
-  void buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal);
-
-  /// Create a vector version of FP induction.
-  void widenFpInduction(PHINode *IV);
+  void buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal,
+                        const InductionDescriptor &ID);
 
   /// Create a vector version of induction.
-  void createVectorIntInductionPHI(PHINode *IV, Instruction *& VectorInd);
+  void createVectorIntOrFpInductionPHI(const InductionDescriptor &II,
+                                       Value *Step, Instruction *&VectorInd);
 
   /// Collect the instructions that are uniform after vectorization. An
   /// instruction is uniform if we represent it with a single scalar value in
@@ -383,9 +379,6 @@ private:
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeLoadInstruction(Instruction *Inst, bool EmitIntrinsic = false);
-
-  // Vectorize the given loop invariant load.
-  void vectorizeLoopInvariantLoad(Instruction *Inst);
 
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_scatter intrinsic once we have support

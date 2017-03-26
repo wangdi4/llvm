@@ -6,7 +6,7 @@
 ; CHECK:  br i1 %cmp1, label %[[VPBB:.*]], label %[[VPBB1]]
 
 ; CHECK: [[VPBB]]:
-; CHECK:   %wide.load{{.*}} = load <4 x i32>, <4 x i32>* %6, align 4
+; CHECK:   %wide.load{{.*}} = load <4 x i32>, <4 x i32>*
 ; CHECK:   br label %[[VPBB1]]
 
 ; CHECK: [[VPBB1]]:

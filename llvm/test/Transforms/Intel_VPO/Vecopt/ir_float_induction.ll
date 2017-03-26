@@ -20,12 +20,14 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK:  %[[TMP0:.*]] = insertelement <4 x float> undef, float %0, i32 0
 ; CHECK:  %[[TMP1:.*]] = shufflevector <4 x float> %[[TMP0]], <4 x float> undef, <4 x i32> zeroinitializer
 ; CHECK:  %[[TMP2:.*]] = fmul fast <4 x float> %[[TMP1]], <float 0.000000e+00, float 1.000000e+00, float 2.000000e+00, float 3.000000e+00>
+; CHECK: %[[TMP3:.*]] = fmul fast float %0, 4.000000e+00
+; CHECK: %[[TMP4:.*]] = insertelement <4 x float> undef, float %[[TMP3]], i32 0
+; CHECK: %[[TMP5:.*]] = shufflevector <4 x float> %[[TMP4]], <4 x float> undef, <4 x i32> zeroinitializer
 ; CHECK: vector.body
 ; CHECK: %index = phi i64 [ 0,
-; CHECK: sitofp i64 %index to float
-; CHECK: %[[TMP3:.*]] = insertelement <4 x float> undef, float %fp.offset.idx, i32 0
-; CHECK: %[[TMP4:.*]] = shufflevector <4 x float> %[[TMP3]], <4 x float> undef, <4 x i32> zeroinitializer
-; CHECK: fsub fast <4 x float> %[[TMP4]], %[[TMP2]]
+; CHECK: %[[VEC_IND:.*]] = phi <4 x float>
+; CHECK: store volatile <4 x float> %[[VEC_IND]]
+; CHECK: fsub fast <4 x float> %[[VEC_IND]], %[[TMP5]]
 
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 entry:
