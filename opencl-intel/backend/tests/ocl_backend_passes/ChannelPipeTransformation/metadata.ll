@@ -12,6 +12,10 @@
 ; channel long lch __attribute__((depth(3)));
 ; channel struct st sch __attribute__((depth(0)));
 ;
+; channel int ich_arr[5];
+; channel long lch_arr[5][4] __attribute__((depth(3)));
+; channel struct st sch_arr[5][4][3] __attribute__((depth(0)));
+;
 ; __kernel void foo() {
 ; }
 ; ----------------------------------------------------
@@ -24,14 +28,23 @@ target triple = "spir"
 @ich = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 @lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8
 @sch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 16
+@ich_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
+@lch_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 8
+@sch_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 16
 
 ; CHECK-DAG: @pipe.ich.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
 ; CHECK-DAG: @pipe.lch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
 ; CHECK-DAG: @pipe.sch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
+; CHECK-DAG: @pipe.sch_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
+; CHECK-DAG: @pipe.ich_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
+; CHECK-DAG: @pipe.lch_arr.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
 
 ; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.ich.bs{{.*}} i32 4, i32 1)
 ; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.lch.bs{{.*}} i32 8, i32 3)
 ; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.sch.bs{{.*}} i32 16, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.ich_arr{{.*}} i32 5, i32 4, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.sch_arr{{.*}} i32 60, i32 16, i32 1)
+; CHECK-DAG: call {{.*}} @__pipe_init_array{{.*}}({{.*}} @pipe.lch_arr{{.*}} i32 20, i32 8, i32 3)
 
 ; Function Attrs: norecurse nounwind readnone
 define spir_kernel void @foo() #0 {
@@ -42,14 +55,14 @@ entry:
 attributes #0 = { norecurse nounwind readnone "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !opencl.kernels = !{!0}
-!opencl.channels = !{!6, !9, !13}
+!opencl.channels = !{!6, !9, !13, !17, !18, !19}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!17}
-!opencl.spir.version = !{!17}
-!opencl.used.extensions = !{!18}
-!opencl.used.optional.core.features = !{!18}
-!opencl.compiler.options = !{!18}
-!llvm.ident = !{!19}
+!opencl.ocl.version = !{!20}
+!opencl.spir.version = !{!20}
+!opencl.used.extensions = !{!21}
+!opencl.used.optional.core.features = !{!21}
+!opencl.compiler.options = !{!21}
+!llvm.ident = !{!22}
 
 !0 = !{void ()* @foo, !1, !2, !3, !4, !5}
 !1 = !{!"kernel_arg_addr_space"}
@@ -68,6 +81,9 @@ attributes #0 = { norecurse nounwind readnone "disable-tail-calls"="false" "less
 !14 = !{!"packet_size", i32 16}
 !15 = !{!"packet_align", i32 16}
 !16 = !{!"depth", i32 0}
-!17 = !{i32 2, i32 0}
-!18 = !{}
-!19 = !{!"clang version 3.8.1 "}
+!17 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @ich_arr, !7, !8}
+!18 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @lch_arr, !10, !11, !12}
+!19 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @sch_arr, !14, !15, !16}
+!20 = !{i32 2, i32 0}
+!21 = !{}
+!22 = !{!"clang version 3.8.1 "}

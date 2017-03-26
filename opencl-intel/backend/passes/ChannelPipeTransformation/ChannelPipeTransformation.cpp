@@ -34,8 +34,6 @@
 
 #include <PipeCommon.h>
 
-#include <utility>
-
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -63,6 +61,7 @@ struct PipeMetadata {
 
 typedef DenseMap<Value*, Value*> ValueToValueMap;
 typedef DenseMap<Value*, PipeMetadata> PipeMetadataMap;
+
 namespace intel {
 
 char ChannelPipeTransformation::ID = 0;
@@ -84,6 +83,7 @@ static void getPipesMetadata(const Module &M,
   auto *MDs = M.getNamedMetadata("opencl.channels");
   if (!MDs) {
     llvm_unreachable("'opencl.channels' metadata not found.");
+    return;
   }
 
   for (auto *MD : MDs->operands()) {
@@ -106,11 +106,14 @@ static void getPipesMetadata(const Module &M,
         DepthMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
       } else {
         llvm_unreachable("Unknown metadata operand key");
+        continue;
       }
     }
 
-    assert(ChanMD && PacketSizeMD && PacketAlignMD &&
-           "Invalid channel metadata");
+    if (!ChanMD || !PacketSizeMD || !PacketAlignMD) {
+      llvm_unreachable("Invalid channel metadata.");
+      continue;
+    }
 
     Value *Chan = ChanMD->getValue();
     ConstantInt *PacketSize = cast<ConstantInt>(PacketSizeMD->getValue());
@@ -137,6 +140,72 @@ static void getPipesMetadata(const Module &M,
   }
 }
 
+/**
+ * \brief Calculates the total number of elements contained in the specified
+ *        array type
+ *
+ * Examples:
+ *   arr[5] -> 5
+ *   arr[5][4] -> 20
+ *   arr[5][4][3] -> 60
+ *
+ * \return Total number of elements
+ */
+static size_t getArrayNumElements(const ArrayType *ArrTy) {
+  size_t NumElements = 1;
+  Type *Ty = cast<Type>(const_cast<ArrayType*>(ArrTy));
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(Ty)) {
+    NumElements *= InnerArrayTy->getNumElements();
+    Ty = InnerArrayTy->getElementType();
+  }
+
+  return NumElements;
+}
+
+/**
+ * \brief Returns the underlying type of the array type
+ *
+ * This function is similar to clang::ASTContext::getBaseElementType
+ *
+ * \return Underlying type of array
+ */
+static Type* getArrayElementType(const ArrayType *ArrTy) {
+  Type *ElemTy = ArrTy->getElementType();
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(ElemTy)) {
+    ElemTy = InnerArrayTy->getElementType();
+  }
+
+  return ElemTy;
+}
+
+static
+ArrayType* createMultiDimArray(const Type* Ty,
+                               const SmallVectorImpl<size_t> &Dimensions) {
+  ArrayType *MDArrayTy = nullptr;
+  for (int i = Dimensions.size() - 1; i >= 0; --i) {
+    if (!MDArrayTy) {
+      MDArrayTy = ArrayType::get(const_cast<Type*>(Ty), Dimensions[i]);
+    } else {
+      MDArrayTy = ArrayType::get(MDArrayTy, Dimensions[i]);
+    }
+  }
+
+  return MDArrayTy;
+}
+
+/**
+ * \brief Returns vector of numbers of elements in each dimension of the
+ *        array type
+ */
+static
+void getArrayTypeDimensions(const ArrayType *ArrTy,
+                            SmallVectorImpl<size_t> &Dimensions) {
+  ArrayType *InnerArrTy = const_cast<ArrayType*>(ArrTy);
+  do {
+    Dimensions.push_back(InnerArrTy->getNumElements());
+  } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
+}
+
 static void createPipeBackingStore(Module &M,
                                    const ValueToValueMap &ChannelToPipeMap,
                                    const PipeMetadataMap &PipesMD,
@@ -150,6 +219,10 @@ static void createPipeBackingStore(Module &M,
            "Pipe metadata not found.");
 
     size_t BSSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
+    if (auto *PipePtrArrayTy = dyn_cast<ArrayType>(
+            PipeOpaquePtr->getType()->getElementType())) {
+      BSSize *= getArrayNumElements(PipePtrArrayTy);
+    }
     auto *ArrayTy = ArrayType::get(Int8Ty, BSSize);
 
     SmallString<16> NameStr;
@@ -170,22 +243,129 @@ static void createPipeBackingStore(Module &M,
   }
 }
 
+/**
+ * \brief Calculates combination of indices to access the next element in a
+ *        multidimensional array
+ *
+ * Examples:
+ *   IndicesList(0, 0, 0, 0), Dimensions(5, 4, 3, 2) -> IndicesList(0, 0, 0, 1)
+ *   IndicesList(0, 1, 2, 1), Dimensions(5, 4, 3, 2) -> IndicesList(0, 2, 0, 0)
+ *
+ * \param[in,out] IndicesList Current indicies
+ * \param[in] Dimensions Number of elements in array in each dimension
+ */
+static void incrementIndicesList(SmallVectorImpl<size_t> &IndicesList,
+                                 const SmallVectorImpl<size_t> &Dimensions) {
+  size_t CurIndex = Dimensions.size() - 1;
+  // Let's find rightmost index which we should increment
+  // If index is going to overflow, reset it to zero and go to the left
+  while (IndicesList[CurIndex] + 1 >= Dimensions[CurIndex] && CurIndex > 0) {
+    IndicesList[CurIndex] = 0;
+    --CurIndex;
+  }
+  ++IndicesList[CurIndex];
+}
+
+/**
+ * \brief Converts vector of indices to vector of Value* to use it in GEP
+ *        instruction
+ *
+ * \param[in] IndicesList List of indices needs to be converted
+ * \param[in,out] GEPIndicesList Result vector of corresponding Value*. Note
+ *                               that size of GEPIndicesList must be
+ *                               IndicesList.size() + 1. 0 inserted into first
+ *                               position to use indices in GEP instruction
+ * \param[in] M Used to create int32 type which used to create Value*
+ */
+static void convertToGEPIndicesList(const SmallVectorImpl<size_t> &IndicesList,
+                                    SmallVectorImpl<Value*> &GEPIndicesList,
+                                    Module &M) {
+  GEPIndicesList[0] = ConstantInt::get(Type::getInt32Ty(M.getContext()), 0);
+  for (size_t j = 0; j < IndicesList.size(); ++j) {
+    GEPIndicesList[j + 1] = ConstantInt::get(Type::getInt32Ty(M.getContext()),
+                                             IndicesList[j]);
+  }
+}
+
+/**
+ * \brief Generates set of store instuctions which maps items of global pipe
+ *        array to elements of backing store
+ *
+ * \param[in] M Used to create int32 type in convertToGEPIndicesList function
+ * \param[in] Builder IRBuilder used to create store instructions
+ * \param[in] BS Backing store
+ * \param[in] PipeGlobal Array of pipes
+ * \param[in] PipeMD Pipe metadata
+ */
+static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
+                                            Value *BS, Value *PipeGlobal,
+                                            const PipeMetadata &PipeMD) {
+  auto *PipePtrArrayTy = cast<ArrayType>(
+      cast<PointerType>(PipeGlobal->getType())->getElementType());
+  auto *PipePtrTy = getArrayElementType(PipePtrArrayTy);
+  auto *PipePtrPtrTy = PointerType::get(PipePtrTy,
+                                        Utils::OCLAddressSpace::Global);
+
+  SmallVector<size_t, 10> Dimensions;
+  getArrayTypeDimensions(PipePtrArrayTy, Dimensions);
+
+  size_t DimensionsNum = Dimensions.size();
+  SmallVector<size_t, 10> IndicesListForPipeElem(DimensionsNum, 0);
+  SmallVector<Value*, 10> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
+
+  size_t BSItemSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
+  size_t BSItemsCount = getArrayNumElements(PipePtrArrayTy);
+
+  // iterate over all elements from backing store
+  for (size_t i = 0; i < BSItemsCount; ++i) {
+    // create GEP from backing store
+    Value *IndexListForBSElem[] = {
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), 0),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), i * BSItemSize)
+    };
+    Value *BSElemPtr = Builder.CreateGEP(
+        BS, ArrayRef<Value*>(IndexListForBSElem, 2));
+
+    // convert current indices list to GEP indices
+    convertToGEPIndicesList(IndicesListForPipeElem,
+                            GEPIndicesListForPipeElem, M);
+    // increment current indices
+    incrementIndicesList(IndicesListForPipeElem, Dimensions);
+
+    // create GEP from pipe array
+    Value *PipeElemPtr = Builder.CreateGEP(
+        PipeGlobal, ArrayRef<Value*>(GEPIndicesListForPipeElem));
+    Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
+                        Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
+
+  }
+}
+
 static
 Function *createPipesCtor(Module &M,
                           const PipeMetadataMap &PipesMD,
                           const ValueToValueMap &PipeToBSMap,
                           const SmallVectorImpl<Module *> &BuiltinModules) {
   Function *PipeInit = nullptr;
+  Function *PipeInitArray = nullptr;
   for (auto &BIModule : BuiltinModules) {
-    if ((PipeInit = BIModule->getFunction("__pipe_init_intel")))
+    if ((PipeInit = BIModule->getFunction("__pipe_init_intel"))) {
+      PipeInit = cast<Function>(
+          CompilationUtils::importFunctionDecl(&M, PipeInit));
+    }
+    if ((PipeInitArray = BIModule->getFunction("__pipe_init_array_intel"))) {
+      PipeInitArray = cast<Function>(
+          CompilationUtils::importFunctionDecl(&M, PipeInitArray));
+    }
+
+    if (PipeInit && PipeInitArray)
       break;
   }
-  if (!PipeInit) {
+
+  if (!PipeInit || !PipeInitArray) {
     assert(PipeInit && "__pipe_init_intel() not found in RTL.");
+    assert(PipeInitArray && "__pipe_init_array_intel() not found in RTL.");
     return nullptr;
-  } else {
-    PipeInit = cast<Function>(
-        CompilationUtils::importFunctionDecl(&M, PipeInit));
   }
 
   auto *CtorTy = FunctionType::get(Type::getVoidTy(M.getContext()),
@@ -204,17 +384,34 @@ Function *createPipesCtor(Module &M,
     auto PipeMD = PipesMD.lookup(PipeGlobal);
     assert(PipeMD.PacketSize && PipeMD.PacketAlign && PipeMD.Depth &&
            "Pipe metadata not found.");
+    PointerType *PipeGlobalTy = cast<PointerType>(PipeGlobal->getType());
 
-    Value *CallArgs[] = {
-      Builder.CreateBitCast(BS, PipeInit->getFunctionType()->getParamType(0)),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.Depth)
-    };
-    Builder.CreateCall(PipeInit, CallArgs);
-    Builder.CreateStore(
-        Builder.CreateBitCast(BS, cast<PointerType>(
+    if (ArrayType *PipePtrArrayTy = dyn_cast<ArrayType>(
+            PipeGlobalTy->getElementType())) {
+      generateBSItemsToPipeArrayStores(M, Builder, BS, PipeGlobal, PipeMD);
+
+      size_t BSItemsCount = getArrayNumElements(PipePtrArrayTy);
+      Value *CallArgs[] = {
+        Builder.CreateBitCast(
+            PipeGlobal, PipeInitArray->getFunctionType()->getParamType(0)),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), BSItemsCount),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.Depth)
+      };
+      Builder.CreateCall(PipeInitArray, CallArgs);
+    } else {
+      Value *CallArgs[] = {
+        Builder.CreateBitCast(
+            BS, PipeInit->getFunctionType()->getParamType(0)),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.PacketSize),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), PipeMD.Depth)
+      };
+      Builder.CreateCall(PipeInit, CallArgs);
+      Builder.CreateStore(
+          Builder.CreateBitCast(BS, cast<PointerType>(
                                   PipeGlobal->getType())->getElementType()),
-        PipeGlobal);
+                                  PipeGlobal);
+    }
   }
 
   Builder.CreateRetVoid();
@@ -229,16 +426,20 @@ static bool createPipeGlobals(Module &M,
   if (!ChannelTy) {
     return false;
   }
-  auto *ChannelPtrPtrTy = PointerType::get(
-      PointerType::get(ChannelTy, Utils::OCLAddressSpace::Global),
-      Utils::OCLAddressSpace::Global);
+  auto *ChannelPtrTy = PointerType::get(ChannelTy,
+                                        Utils::OCLAddressSpace::Global);
 
   auto *PipeTy = StructType::create(M.getContext(), "opencl.pipe_t");
   auto *PipePtrTy = PointerType::get(PipeTy, Utils::OCLAddressSpace::Global);
 
   SmallVector<GlobalVariable *, 32> ChannelGlobals;
   for (auto &GV : M.globals()) {
-    if (GV.getType() == ChannelPtrPtrTy) {
+    PointerType *GVPtrTy = GV.getType();
+    Type *GVTy = GVPtrTy->getElementType();
+    if (GVTy == ChannelPtrTy) {
+      ChannelGlobals.push_back(&GV);
+    } else if (isa<ArrayType>(GVTy) &&
+               getArrayElementType(cast<ArrayType>(GVTy)) == ChannelPtrTy) {
       ChannelGlobals.push_back(&GV);
     }
   }
@@ -246,15 +447,30 @@ static bool createPipeGlobals(Module &M,
   for (auto *GV : ChannelGlobals) {
     SmallString<16> NameStr;
     auto PipeGVName = ("pipe." + GV->getName()).toStringRef(NameStr);
+    PointerType *GVPtrTy = GV->getType();
+    Type *GVTy = GVPtrTy->getElementType();
 
     auto *PipeGV = M.getGlobalVariable(PipeGVName);
     if (!PipeGV) {
-      PipeGV = new GlobalVariable(M, PipePtrTy, /*isConstant=*/false,
-                                  GV->getLinkage(),
-                                  /*Initializer=*/0,
-                                  PipeGVName);
-      PipeGV->setAlignment(4);
-      PipeGV->setInitializer(ConstantPointerNull::get(PipePtrTy));
+      if (auto *GVArrTy = dyn_cast<ArrayType>(GVTy)) {
+        SmallVector<size_t, 10> Dimensions;
+        getArrayTypeDimensions(GVArrTy, Dimensions);
+        auto *PipeArrayTy = createMultiDimArray(PipePtrTy, Dimensions);
+        PipeGV = new GlobalVariable(M, PipeArrayTy, /*isConstant=*/false,
+            GV->getLinkage(), /*Initializer=*/0, PipeGVName, /*InsertBefore=*/0,
+            GlobalValue::ThreadLocalMode::NotThreadLocal,
+            Utils::OCLAddressSpace::Global);
+        // TODO: which alignment should be used?
+        PipeGV->setAlignment(4);
+        PipeGV->setInitializer(ConstantAggregateZero::get(PipeArrayTy));
+      } else {
+        PipeGV = new GlobalVariable(M, PipePtrTy, /*isConstant=*/false, GV->getLinkage(),
+            /*Initializer=*/0, PipeGVName, /*InsertBefore=*/0,
+            GlobalValue::ThreadLocalMode::NotThreadLocal,
+            Utils::OCLAddressSpace::Global);
+        PipeGV->setAlignment(4);
+        PipeGV->setInitializer(ConstantPointerNull::get(PipePtrTy));
+      }
     }
 
     ChannelToPipeMap[GV] = PipeGV;
@@ -275,8 +491,7 @@ static bool createPipeGlobals(Module &M,
 
 static void insertReadPipe(Function *ReadPipe,
                             Value *Pipe, Value *DstPtr,
-                            Instruction *BeforeInst) {
-  IRBuilder<> Builder(BeforeInst);
+                            IRBuilder<> &Builder) {
   auto *ReadPipeFTy = ReadPipe->getFunctionType();
 
   Value *PipeCallArgs[] = {
@@ -335,9 +550,29 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
 
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
-    Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
+    Value *PipeGlobal = nullptr;
+    Value *PipeCallZeroArg = nullptr;
+    IRBuilder<> Builder(ChannelCall);
 
-    insertReadPipe(&ReadPipe, PipeGlobal, DstPtr, ChannelCall);
+    // TODO: remove original load instruction
+    if (auto *ChanArrGEP = dyn_cast<GEPOperator>(ChanGlobal)) {
+      // ChanGlobal is a GEP, so, it is read from array of channels
+      // we need to replace GEP from array of channels
+      // with GEP from array of pipes
+      PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
+      SmallVector<Value*, 10> Indices;
+      auto IdxEnd = ChanArrGEP->idx_end();
+      for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
+        Indices.push_back(*Ind);
+      }
+      PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
+                                          ArrayRef<Value*>(Indices));
+    } else {
+      PipeGlobal = ChannelToPipeMap[ChanGlobal];
+      PipeCallZeroArg = PipeGlobal;
+    }
+
+    insertReadPipe(&ReadPipe, PipeCallZeroArg, DstPtr, Builder);
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -356,8 +591,7 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
 
 static void insertWritePipe(Function *WritePipe,
                             Value *Pipe, Value *SrcPtr,
-                            Instruction *BeforeInst) {
-  IRBuilder<> Builder(BeforeInst);
+                            IRBuilder<> &Builder) {
   auto *WritePipeFTy = WritePipe->getFunctionType();
 
   Value *PipeCallArgs[] = {
@@ -389,7 +623,9 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
 
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
-    Value *PipeGlobal = ChannelToPipeMap[ChanGlobal];
+    Value *PipeGlobal = nullptr;
+    Value *PipeCallZeroArg = nullptr;
+    IRBuilder<> Builder(ChannelCall);
 
     Function *TargetFn = ChannelCall->getParent()->getParent();
     Type *SrcType = Val->getType();
@@ -401,8 +637,25 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
     }
     new StoreInst(Val, SrcPtr, ChannelCall);
 
-    insertWritePipe(&WritePipe, PipeGlobal, SrcPtr, ChannelCall);
+    // TODO: remove original load instruction
+    if (auto *ChanArrGEP = dyn_cast<GEPOperator>(ChanGlobal)) {
+      // ChanGlobal is a GEP, so, it is read from array of channels
+      // we need to replace GEP from array of channels
+      // with GEP from array of pipes
+      PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
+      SmallVector<Value*, 10> Indices;
+      auto *IdxEnd = ChanArrGEP->idx_end();
+      for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
+        Indices.push_back(*Ind);
+      }
+      PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
+                                          ArrayRef<Value*>(Indices));
+    } else {
+      PipeGlobal = ChannelToPipeMap[ChanGlobal];
+      PipeCallZeroArg = PipeGlobal;
+    }
 
+    insertWritePipe(&WritePipe, PipeCallZeroArg, SrcPtr, Builder);
     ChannelCall->eraseFromParent();
 
     Changed = true;
