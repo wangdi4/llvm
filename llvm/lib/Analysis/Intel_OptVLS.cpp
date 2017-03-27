@@ -972,7 +972,7 @@ public:
   /// This function should only be called right after load-generation before
   /// any other optimization of the graph, otherwise, it will produce incorrect
   /// result.
-  /// FIXME: Support scatters, masked gathers;
+  /// FIXME: Support scatters, masked gathers, duplicates;
   bool verifyInitialGraph(const OVLSGroup &Group) {
     // This initial graph is considered to be invalid for a group of scatters.
     if (!Group.hasGathers())
@@ -1307,11 +1307,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   // the group. This lowest element size (which is the common divisor of all the
   // other sizes of the memrefs in the group) will determine the load-size and
   // load mask.
+  OVLSMemref *Prev = nullptr;
   for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
        ++I) {
+    OVLSMemref *Curr = *I;
+    int64_t Dist = 0;
+    // Don't create nodes for the duplicates. We will replace the duplicates with
+    // the final shuffle instruction at the end.
+    if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+      continue;
+
     // At this point, we don't know the desired instruction/opcode,
     // initialize it(associated OVLSInstruction) to nullptr.
-    OVLSType MemrefType = (*I)->getType();
+    OVLSType MemrefType = Curr->getType();
+
     GraphNode *GatherNode = new GraphNode(nullptr, MemrefType);
     G.insert(GatherNode);
 
@@ -1319,6 +1328,7 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
     assert(ElemSize <= 64 && "Unexpected element size!!!");
     if (ElemSize < LowestElemSize)
       LowestElemSize = ElemSize;
+    Prev = *I;
   }
 
   // Access mask of the group in bytes.
@@ -1372,10 +1382,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   G.insert(CurrLoadNode);
 
   uint32_t IthElem = 0;
+  Prev = nullptr;
   // Traverse NumElems times through the list of gathers.
   while (IthElem < NumElems) {
     GraphNodeList::iterator It = G.begin();
-    for (unsigned i = 0; i < Group.size(); i++) {
+    for (OVLSGroup::const_iterator I = Group.begin(), IE = Group.end(); I != IE; ++I) {
+      OVLSMemref *Curr = *I;
+      int64_t Dist = 0;
+
+      // Don't create nodes for the duplicates. We will replace the duplicates with
+      // the final shuffle instruction at the end.
+      if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+        continue;
+
+      Prev = *I;
       // Addressed an element, find out its type.
       GraphNode *GatherNode = *It++;
       OVLSType GatherType = GatherNode->type();
