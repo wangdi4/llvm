@@ -35,17 +35,31 @@ target triple = "spir"
 ; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
 
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_BAR_PIPE]]
+; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_FAR_PIPE]]
+; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_STAR_PIPE]]
+; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE]]
 
-; CHECK:      call void @__flush_write_pipe{{.*}} %[[LOAD_BAR_PIPE]]
-; CHECK-NEXT: call void @__flush_write_pipe{{.*}} %[[LOAD_FAR_PIPE]]
-; CHECK-NEXT: call void @__flush_write_pipe{{.*}} %[[LOAD_STAR_PIPE]]
+;; Now check that flushes are inserted at the end:
+
+; CHECK: %[[FLUSH_LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
+; CHECK: %[[FLUSH_CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[FLUSH_LOAD_BAR_PIPE]]
+; CHECK: call void @__flush_write_pipe{{.*}} %[[FLUSH_CAST_BAR_PIPE]]
+
+; CHECK: %[[FLUSH_LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
+; CHECK: %[[FLUSH_CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[FLUSH_LOAD_FAR_PIPE]]
+; CHECK: call void @__flush_write_pipe{{.*}} %[[FLUSH_CAST_FAR_PIPE]]
+
+; CHECK: %[[FLUSH_LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
+; CHECK: %[[FLUSH_CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[FLUSH_LOAD_STAR_PIPE]]
+; CHECK: call void @__flush_write_pipe{{.*}} %[[FLUSH_CAST_STAR_PIPE]]
+
 ; CHECK-NEXT: ret void
 
 ; Function Attrs: nounwind

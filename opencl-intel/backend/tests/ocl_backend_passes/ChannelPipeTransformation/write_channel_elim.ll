@@ -40,13 +40,16 @@ target triple = "spir"
 ; CHECK-NOT: call{{.*}}write_channel_altera
 ;
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_BAR_PIPE]]
+; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_FAR_PIPE]]
+; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[LOAD_STAR_PIPE]]
+; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE]]
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 {
