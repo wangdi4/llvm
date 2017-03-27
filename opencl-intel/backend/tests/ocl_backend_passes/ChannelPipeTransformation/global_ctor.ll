@@ -37,9 +37,9 @@ target triple = "spir"
 ; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t[[PIPE_INDEX]] addrspace(1)*
 ;
 
-; CHECK-DAG: @[[PIPE_BAR]].bs = common addrspace(1) global [48 x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_FAR]].bs = common addrspace(1) global [64 x i8] zeroinitializer, align 4
-; CHECK-DAG: @[[PIPE_STAR]].bs = common addrspace(1) global [48 x i8] zeroinitializer, align 4
+; CHECK-DAG: @[[PIPE_BAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-DAG: @[[PIPE_FAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
+; CHECK-DAG: @[[PIPE_STAR]].bs = common addrspace(1) global [{{[0-9]+}} x i8] zeroinitializer, align 4
 ;
 
 ; CHECK: @llvm.global_ctors = {{.*}} @__global_pipes_ctor

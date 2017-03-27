@@ -25,9 +25,9 @@ target triple = "spir"
 @lch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 8
 @sch = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 16
 
-; CHECK-DAG: @pipe.ich.bs = {{.*}} global [48 x i8] {{.*}} align 4
-; CHECK-DAG: @pipe.lch.bs = {{.*}} global [80 x i8] {{.*}} align 8
-; CHECK-DAG: @pipe.sch.bs = {{.*}} global [72 x i8] {{.*}} align 16
+; CHECK-DAG: @pipe.ich.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 4
+; CHECK-DAG: @pipe.lch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 8
+; CHECK-DAG: @pipe.sch.bs = {{.*}} global [{{[0-9]+}} x i8] {{.*}} align 16
 
 ; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.ich.bs{{.*}} i32 4, i32 1)
 ; CHECK-DAG: call {{.*}} @__pipe_init{{.*}} @pipe.lch.bs{{.*}} i32 8, i32 3)
