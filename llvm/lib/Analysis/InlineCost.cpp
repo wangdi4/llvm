@@ -34,6 +34,7 @@
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/Transforms/IPO/Intel_IPCloning.h" // INTEL
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -52,6 +53,10 @@ extern bool llvm::IsInlinedReason(InlineReason Reason) {
 extern bool llvm::IsNotInlinedReason(InlineReason Reason) {
   return Reason > NinlrFirst && Reason < NinlrLast;
 }
+
+static cl::opt<bool> InlineForXmain(
+    "inline-for-xmain", cl::Hidden, cl::init(true),
+    cl::desc("Xmain customization of inlining"));
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
@@ -1153,8 +1158,8 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
       }
 
       if (TTI.getFPOpCost(I->getType())
-           == TargetTransformInfo::TCC_Expensive ||  // INTEL
-          (hasSoftFloatAttr && !isLoadStore))        // INTEL
+           == TargetTransformInfo::TCC_Expensive ||                // INTEL
+          (hasSoftFloatAttr && (InlineForXmain && !isLoadStore)))  // INTEL
         Cost += InlineConstants::CallPenalty;
     }
 
@@ -1573,6 +1578,16 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
   return true;
 }
 
+static bool preferCloningToInlining(CallSite& CS,
+                                    InliningLoopInfoCache& ILIC) { 
+  Function *Callee = CS.getCalledFunction();
+  if (!Callee) return false;
+  LoopInfo *LI = ILIC.getLI(Callee);
+  if (!LI) return false;
+  if (isCallCandidateForSpecialization(CS, LI)) return true;
+  return false;
+} 
+
 #endif // INTEL_CUSTOMIZATION
 
 /// \brief Analyze a call site for potential inlining.
@@ -1631,6 +1646,13 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // the rest of the function body.
   Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
 
+#ifdef INTEL_CUSTOMIZATION
+  if (preferCloningToInlining(CS, *ILIC)) {
+    *ReasonAddr = NinlrPreferCloning;
+    return false; 
+  } 
+#endif // INTEL_CUSTOMIZATION
+
   // Give out bonuses per argument, as the instructions setting them up will
   // be gone after inlining.
   for (unsigned I = 0, E = CS.arg_size(); I != E; ++I) {
@@ -1665,15 +1687,16 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // the cost of inlining it drops dramatically.
   // INTEL CQ370998: Added link once ODR linkage case.
   bool OnlyOneCallAndLocalLinkage =
-       (F.hasLocalLinkage() || F.hasLinkOnceODRLinkage()) &&  // INTEL
-       F.hasOneUse() &&  &F == CS.getCalledFunction();        // INTEL
+       (F.hasLocalLinkage()                                     // INTEL 
+         || (InlineForXmain && F.hasLinkOnceODRLinkage())) &&   // INTEL
+       F.hasOneUse() &&  &F == CS.getCalledFunction();          // INTEL
   if (OnlyOneCallAndLocalLinkage) { // INTEL
     Cost -= InlineConstants::LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall); // INTEL
   } // INTEL
 
 #if INTEL_CUSTOMIZATION
-  else { 
+  else if (InlineForXmain) { 
     if (&F == CS.getCalledFunction()) { 
       if (isDoubleCallSite(&F)) { 
         // If there are two calls of the function, the cost of inlining it may 
@@ -1695,10 +1718,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   }
  
   // Use InlineAggressiveInfo to expose uses of global ptrs
-  if (AI != nullptr && AI->isCallInstInAggInlList(CS)) {
+  if (InlineForXmain && AI != nullptr && AI->isCallInstInAggInlList(CS)) {
     Cost -= InlineConstants::AggressiveInlineCallBonus;
     YesReasonVector.push_back(InlrAggInline);
   }
+
 #endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
@@ -1853,20 +1877,29 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // due to branches or switches which folded above will also fold after
     // inlining.
 #if INTEL_CUSTOMIZATION
-    if (TI->getNumSuccessors() > 1) {
-      if (SeekingForgivable && forgivableCondition(TI)) {
-         FoundForgivable = true;
-         Cost -= InlineConstants::InstrCost;
+    if (InlineForXmain) { 
+      if (TI->getNumSuccessors() > 1) {
+        if (SeekingForgivable && forgivableCondition(TI)) {
+          FoundForgivable = true;
+          Cost -= InlineConstants::InstrCost;
+        }
+        else {
+          if (!SubtractedBonus) {
+            SubtractedBonus = true;
+            Threshold -= SingleBBBonus;
+          }
+          FoundForgivable = false;
+        }
+        SingleBB = false;
       }
-      else {
-         if (!SubtractedBonus) {
-           SubtractedBonus = true;
-           Threshold -= SingleBBBonus;
-         }
-         FoundForgivable = false;
+    } 
+    else { 
+      if (SingleBB && TI->getNumSuccessors() > 1) {
+        // Take off the bonus we applied to the threshold.
+        Threshold -= SingleBBBonus;
+        SingleBB = false;
       }
-      SingleBB = false;
-    }
+    } 
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -2117,7 +2150,8 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // explicitly specified to set the ColdThreshold knob
   if (InlineThreshold.getNumOccurrences() == 0) {
     Params.OptMinSizeThreshold = InlineConstants::OptMinSizeThreshold;
-    Params.OptSizeThreshold = OptSizeThreshold; // INTEL
+    Params.OptSizeThreshold = InlineForXmain 
+     ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
     Params.ColdThreshold = ColdThreshold;
   } else if (ColdThreshold.getNumOccurrences() > 0) {
     Params.ColdThreshold = ColdThreshold;
@@ -2136,7 +2170,8 @@ static int computeThresholdFromOptLevels(unsigned OptLevel,
   if (OptLevel > 2)
     return InlineConstants::OptAggressiveThreshold;
   if (SizeOptLevel == 1) // -Os
-    return OptSizeThreshold; // INTEL
+    return InlineForXmain 
+      ? OptSizeThreshold : InlineConstants::OptSizeThreshold; // INTEL
   if (SizeOptLevel == 2) // -Oz
     return InlineConstants::OptMinSizeThreshold;
   return InlineThreshold;

@@ -1249,6 +1249,43 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
   const DataLayout &DL = SI.getModule()->getDataLayout();
 
   for (User *U : SI.users()) {
+#if INTEL_CUSTOMIZATION
+    /// Due to a normalization applied by InstructionCombining, loads
+    /// of floating point elements may first be bitcast to i32 types,
+    /// and then loaded. In that case, rewriting the SelectInst to choose
+    /// between 2 BitCastInst values, instead of performing the BitCastInst
+    /// on the result of the SelectInst can enable the 'load' to be
+    /// recognized by the SROA conversions.
+    ///
+    /// This code is to recognize the pattern:
+    ///   %A = alloca float, align 4
+    ///   %1 = select i1 %cmp1, float* %A, float* %0
+    ///   %2 = bitcast float* %1 to i32*
+    ///   %3 = load i32, i32* %2
+    ///
+    /// When recognized, it can transform into:
+    ///   %A = alloca float, align 4
+    ///   %1.bc.true = bitcast float* %A to i32*
+    ///   %1.bc.false = bitcast float* %0 to i32*
+    ///   %1 = select i1 %cmp1, i32* %1.bc.true, i32* %%1.bc.false
+    ///   %3 = load i32, i32* %1
+    ///
+    /// The rest of SROA can then trace the uses of %A, to determine whether
+    /// to eliminate the alloca.
+    ///
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      for (User *BCI_U : BCI->users()) {
+        /// We only need to check that the bitcast feeds a 'load'
+        /// instruction. Since the 'load' is being done unconditionally
+        /// already, there is no need to check for whether it a safe to
+        /// load unconditionally.
+        if (!isa<LoadInst>(BCI_U))
+          return false;
+      }
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     LoadInst *LI = dyn_cast<LoadInst>(U);
     if (!LI || !LI->isSimple())
       return false;
@@ -1273,6 +1310,24 @@ static void speculateSelectInstLoads(SelectInst &SI) {
   Value *FV = SI.getFalseValue();
   // Replace the loads of the select with a select of two loads.
   while (!SI.use_empty()) {
+#if INTEL_CUSTOMIZATION
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(SI.user_back())) {
+      /// Replace the BitCastInst use of the SelectInst result
+      /// with a SelectInst that chooses between two BitCastInst
+      /// instructions.
+      IRB.SetInsertPoint(BCI);
+      Value *BT = IRB.CreateBitCast(TV, BCI->getDestTy(),
+          BCI->getName() + ".sroa.speculate.bc.true");
+      Value *BF = IRB.CreateBitCast(FV, BCI->getDestTy(),
+          BCI->getName() + ".sroa.speculate.bc.false");
+      Value *V = IRB.CreateSelect(SI.getCondition(), BT, BF,
+          BCI->getName() + ".sroa.speculated");
+
+      BCI->replaceAllUsesWith(V);
+      BCI->eraseFromParent();
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
     LoadInst *LI = cast<LoadInst>(SI.user_back());
     assert(LI->isSimple() && "We only speculate simple loads");
 
