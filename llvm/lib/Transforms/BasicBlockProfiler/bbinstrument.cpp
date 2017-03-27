@@ -55,10 +55,14 @@ VOID ProcessLLVMBB(llvm::BasicBlock *bbl, BBPROFILE * bbprofile, UINT32 bblId)
     stringstream ss;
 
     const DebugLoc& DL = I->getDebugLoc();
-    unsigned Lin = DL.getLine();
-    DIScope *Scope = cast<DIScope>(DL.getScope());
-    StringRef File = Scope->getFilename();
-    ss << File.str() << ":" << dec << Lin;
+    if (! DL) {
+        ss << "nofile:0"; 
+    } else {
+        unsigned Lin = DL.getLine();
+        DIScope *Scope = cast<DIScope>(DL.getScope());
+        StringRef File = Scope->getFilename();
+        ss << File.str() << ":" << dec << Lin;
+    }
 
     block->_sourceInfo = ss.str();
     //IRBuilder<> builder(I);
