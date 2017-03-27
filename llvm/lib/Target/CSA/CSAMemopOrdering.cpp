@@ -2,8 +2,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements an interesting feature of the CSA Target: expansion of
-// INLINEASM MachineInstrs into functional MachineInstrs.
+// This file implements explicit ordering of memory operations in preparation
+// for dataflow conversion.
 //
 //===----------------------------------------------------------------------===//
 
