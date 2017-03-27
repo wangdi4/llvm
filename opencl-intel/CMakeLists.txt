@@ -122,7 +122,6 @@ if(CMAKE_CROSSCOMPILING)
                             -DBACKEND_BUILD_VERIFICATION_LIB=OFF
                             -DLLVM_PATH_BE=${LLVM_PATH_BE}/native
                             -DLLVM_PATH_FE=${LLVM_PATH_FE}/native
-                            -DLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}/native
                             -DBUILD_X64=True
                             ${CMAKE_SOURCE_DIR}
                             WORKING_DIRECTORY ${CX_NATIVE_TG_DIR}
@@ -372,8 +371,8 @@ endif()
 # we are delivering cpu bundle from master.
 # As soon as we will deliver cpu buncle from release branch to vpg
 # revert this change. CSSD100021694.
-set( PRODUCTVER_MAJOR 6 )
-set( PRODUCTVER_MINOR 9 )
+set( PRODUCTVER_MAJOR 7 )
+set( PRODUCTVER_MINOR 4 )
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
@@ -406,7 +405,7 @@ if(WIN32)
     install(FILES ${OCL_BINARY_DIR}/version.ini DESTINATION ./)
 endif()
 file(WRITE ${OCL_BINARY_DIR}/version.txt "Version=${PRODUCTVER_MAJOR}.${PRODUCTVER_MINOR}.${BUILDVER_16_BIT_MAJOR}.${BUILDVER_16_BIT_MINOR}\nInternalVersion=${GIT_REVISION}\n")
-file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_REVISION_FE=${LLVM_REVISION_FE}\nLLVM_REVISION_BE=${LLVM_REVISION_BE}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\nLLVM_PATH_SPIR12=${LLVM_PATH_SPIR12}\n")
+file(WRITE ${OCL_BINARY_DIR}/revision.txt "BUILD=${GIT_VERSION}\nREVISION=${GIT_REVISION}\nLLVM_REVISION_FE=${LLVM_REVISION_FE}\nLLVM_REVISION_BE=${LLVM_REVISION_BE}\nLLVM_PATH_BE=${LLVM_PATH_BE}\nLLVM_PATH_FE=${LLVM_PATH_FE}\n")
 install(FILES ${OCL_BINARY_DIR}/revision.txt DESTINATION ./)
 
 #copy the version file to install folder

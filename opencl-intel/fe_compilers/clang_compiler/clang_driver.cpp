@@ -161,7 +161,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
         options << " -cl-fast-relaxed-math";
     }
 
-    options << " -pch-cpu";
     std::stringstream optionsEx;
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();

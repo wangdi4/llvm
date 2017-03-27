@@ -22,8 +22,20 @@ OclBuiltinImpl sqrt_v16f32_impl = OclBuiltinImpl<sqrt, [v16f32], 0, [{
     return _mm512_sqrt_ps($Arg0VarName);
   }]>;
 
-OclBuiltinImpl native_sqrt_v16f32_impl = OclBuiltinImpl<native_sqrt, [v16f32], 0, [{
-    return __ocl_svml_$Target_sqrtf16_native($Arg0VarName);
+// native_recip
+OclBuiltinImpl native_recip_v16f32_impl = OclBuiltinImpl<native_recip, [v16f32], 0, [{
+    return _mm512_rcp14_ps($Arg0VarName);
+  }]>;
+
+// native_rsqrt
+OclBuiltinImpl native_rsqrt_v16f32_impl = OclBuiltinImpl<native_rsqrt, [v16f32], 0, [{
+    return _mm512_rsqrt14_ps($Arg0VarName);
+  }]>;
+
+// native_divide
+OclBuiltinImpl native_divide_v16f32_impl = OclBuiltinImpl<native_divide, [v16f32], 0, [{
+    $ReturnType $ReturnVarName = _mm512_rcp14_ps($Arg1VarName);
+    return $Arg0VarName * $ReturnVarName;
   }]>;
 
 // ceil float16
@@ -253,6 +265,14 @@ OclBuiltinImpl remainder_svml = OclBuiltinImpl<remainder, math_FP512_types, 0, [
     return __ocl_svml_$Target_remainder$SVMLSuffix($Arg0VarName, $Arg1VarName);
   }]>;
 
+// remquo
+code remquo_svml = [{
+    return __ocl_svml_$Target_remquo$SVMLSuffix($Arg0VarName, $Arg1VarName, ($Arg2NoASType)$Arg2VarName);
+  }];
+OclBuiltinImpl remquo_pas_svml = OclBuiltinImpl<remquo_pas, math_FP512_types, 0, remquo_svml>;
+OclBuiltinImpl remquo_las_svml = OclBuiltinImpl<remquo_las, math_FP512_types, 0, remquo_svml>;
+OclBuiltinImpl remquo_gas_svml = OclBuiltinImpl<remquo_gas, math_FP512_types, 0, remquo_svml>;
+
 // rint
 OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, math_FP512_types, 0, [{
     return __ocl_svml_$Target_rint$SVMLSuffix($Arg0VarName);
@@ -260,6 +280,11 @@ OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, math_FP512_types, 0, [{
 
 OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, math_FP512_types, 0, [{
     return __ocl_svml_$Target_rootn$SVMLSuffix($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// round
+OclBuiltinImpl round_svml = OclBuiltinImpl<round, [v16f32], 0, [{
+    return __ocl_svml_$Target_round$SVMLSuffix($Arg0VarName);
   }]>;
 
 // sin
@@ -298,72 +323,57 @@ OclBuiltinImpl tgamma_svml = OclBuiltinImpl<tgamma, math_FP512_types, 0, [{
   }]>;
 
 // half_cos
-OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, [v16i32], 0, [{
+OclBuiltinImpl half_cos_svml = OclBuiltinImpl<half_cos, [v16f32], 0, [{
     return __ocl_svml_$Target_cos$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_divide
-OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, [v16i32], 0, [{
+OclBuiltinImpl half_divide_svml = OclBuiltinImpl<half_divide, [v16f32], 0, [{
     return __ocl_svml_$Target_div$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
   }]>;
 
 // half_exp
-OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, [v16i32], 0, [{
+OclBuiltinImpl half_exp_svml = OclBuiltinImpl<half_exp, [v16f32], 0, [{
     return __ocl_svml_$Target_exp$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp2
-OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, [v16i32], 0, [{
+OclBuiltinImpl half_exp2_svml = OclBuiltinImpl<half_exp2, [v16f32], 0, [{
     return __ocl_svml_$Target_exp2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_exp10
-OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, [v16i32], 0, [{
+OclBuiltinImpl half_exp10_svml = OclBuiltinImpl<half_exp10, [v16f32], 0, [{
     return __ocl_svml_$Target_exp10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log
-OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, [v16i32], 0, [{
+OclBuiltinImpl half_log_svml = OclBuiltinImpl<half_log, [v16f32], 0, [{
     return __ocl_svml_$Target_log$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log2
-OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, [v16i32], 0, [{
+OclBuiltinImpl half_log2_svml = OclBuiltinImpl<half_log2, [v16f32], 0, [{
     return __ocl_svml_$Target_log2$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_log10
-OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, [v16i32], 0, [{
+OclBuiltinImpl half_log10_svml = OclBuiltinImpl<half_log10, [v16f32], 0, [{
     return __ocl_svml_$Target_log10$SVMLSuffix_half($Arg0VarName);
   }]>;
 
 // half_powr
-OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, [v16i32], 0, [{
+OclBuiltinImpl half_powr_svml = OclBuiltinImpl<half_powr, [v16f32], 0, [{
     return __ocl_svml_$Target_powr$SVMLSuffix_half($Arg0VarName, $Arg1VarName);
   }]>;
 
-// half_recip
-OclBuiltinImpl half_recip_svml = OclBuiltinImpl<half_recip, [v16i32], 0, [{
-    return __ocl_svml_$Target_inv$SVMLSuffix_half($Arg0VarName);
-  }]>;
-
-// half_rsqrt
-OclBuiltinImpl half_rsqrt_svml = OclBuiltinImpl<half_rsqrt, [v16i32], 0, [{
-    return __ocl_svml_$Target_rsqrt$SVMLSuffix_half($Arg0VarName);
-  }]>;
-
 // half_sin
-OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, [v16i32], 0, [{
+OclBuiltinImpl half_sin_svml = OclBuiltinImpl<half_sin, [v16f32], 0, [{
     return __ocl_svml_$Target_sin$SVMLSuffix_half($Arg0VarName);
   }]>;
 
-// half_sqrt
-OclBuiltinImpl half_sqrt_svml = OclBuiltinImpl<half_sqrt, [v16i32], 0, [{
-    return __ocl_svml_$Target_sqrt$SVMLSuffix_half($Arg0VarName);
-  }]>;
-
 // half_tan
-OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, [v16i32], 0, [{
+OclBuiltinImpl half_tan_svml = OclBuiltinImpl<half_tan, [v16f32], 0, [{
     return __ocl_svml_$Target_tan$SVMLSuffix_half($Arg0VarName);
   }]>;
 
@@ -548,3 +558,22 @@ OclBuiltinImpl native_tanpi_svml = OclBuiltinImpl<native_tanpi, math_FP512_types
     return __ocl_svml_$Target_tanpi$SVMLSuffix_native($Arg0VarName);
   }]>;
 
+// native sqrt
+OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v16f32, v8f64], 0, [{
+    return __ocl_svml_$Target_sqrt$SVMLSuffix_native($Arg0VarName);
+  }]>;
+
+// native divide double8
+OclBuiltinImpl native_divide_svml = OclBuiltinImpl<native_divide, [v8f64], 0, [{
+    return __ocl_svml_$Target_div$VecLength($Arg0VarName, $Arg1VarName);
+	}]>;
+
+// native recip double8
+OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v8f64], 0, [{
+    return __ocl_svml_$Target_inv$VecLength($Arg0VarName);
+  }]>;
+
+// native rsqrt double8
+OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
+    return __ocl_svml_$Target_rsqrt$VecLength($Arg0VarName);
+  }]>;

@@ -94,11 +94,12 @@ void INLINE_ATTRIBUTE  __ocl_gather_transpose_char_4x16(__private char4* pLoadAd
                               __private char4* pLoadAdd9, __private char4* pLoadAdd10, __private char4* pLoadAdd11, __private char4* pLoadAdd12, __private char4* pLoadAdd13,
                               __private char4* pLoadAdd14, __private char4* pLoadAdd15,
                               __private char16* xOut, __private char16* yOut, __private char16* zOut, __private char16* wOut);
+
 void INLINE_ATTRIBUTE  __ocl_transpose_scatter_char_4x16(__private char4* pStoreAdd0, __private char4* pStoreAdd1, __private char4* pStoreAdd2, __private char4* pStoreAdd3,
-                               __private char4* pStoreAdd4, __private char4* pStoreAdd5, __private char4* pStoreAdd6, __private char4* pStoreAdd7, __private char4* pLoadAdd8,
+                              __private char4* pStoreAdd4, __private char4* pStoreAdd5, __private char4* pStoreAdd6, __private char4* pStoreAdd7, __private char4* pLoadAdd8,
                               __private char4* pLoadAdd9, __private char4* pLoadAdd10, __private char4* pLoadAdd11, __private char4* pLoadAdd12, __private char4* pLoadAdd13,
                               __private char4* pLoadAdd14, __private char4* pLoadAdd15,
-                               char16 xIn, char16 yIn, char16 zIn, char16 wIn);
+                              char16 xIn, char16 yIn, char16 zIn, char16 wIn);
 
 void INLINE_ATTRIBUTE  __ocl_masked_gather_transpose_char_4x16(__private char4* pLoadAdd0, __private char4* pLoadAdd1, __private char4* pLoadAdd2, __private char4* pLoadAdd3,
                               __private char4* pLoadAdd4, __private char4* pLoadAdd5, __private char4* pLoadAdd6, __private char4* pLoadAdd7, __private char4* pLoadAdd8,
@@ -106,6 +107,11 @@ void INLINE_ATTRIBUTE  __ocl_masked_gather_transpose_char_4x16(__private char4* 
                               __private char4* pLoadAdd14, __private char4* pLoadAdd15,
                               __private char16* xOut, __private char16* yOut, __private char16* zOut, __private char16* wOut, int16 mask);
 
+void INLINE_ATTRIBUTE  __ocl_masked_transpose_scatter_char_4x16(__private char4* pStoreAdd0, __private char4* pStoreAdd1, __private char4* pStoreAdd2, __private char4* pStoreAdd3,
+                              __private char4* pStoreAdd4, __private char4* pStoreAdd5, __private char4* pStoreAdd6, __private char4* pStoreAdd7, __private char4* pLoadAdd8,
+                              __private char4* pLoadAdd9, __private char4* pLoadAdd10, __private char4* pLoadAdd11, __private char4* pLoadAdd12, __private char4* pLoadAdd13,
+                              __private char4* pLoadAdd14, __private char4* pLoadAdd15,
+                              char16 xIn, char16 yIn, char16 zIn, char16 wIn, int16 mask);
 
 // ****************************************************************************
 //                                 short_4x8
@@ -131,6 +137,17 @@ void INLINE_ATTRIBUTE  __ocl_masked_transpose_scatter_short_4x8(__private short4
                                 __private short4* pStoreAdd4, __private short4* pStoreAdd5, __private short4* pStoreAdd6, __private short4* pStoreAdd7,
                                 short8 xIn, short8 yIn, short8 zIn, short8 wIn, int8 mask);
 
+// ****************************************************************************
+//                                 short_4x16
+// ****************************************************************************
+
+void INLINE_ATTRIBUTE  __ocl_gather_transpose_short_4x16(__private short4* pLoadAdd0, __private short4* pLoadAdd1, __private short4* pLoadAdd2, __private short4* pLoadAdd3,
+                                __private short4* pLoadAdd4, __private short4* pLoadAdd5, __private short4* pLoadAdd6, __private short4* pLoadAdd7,
+                                __private short16* xOut, __private short16* yOut, __private short16* zOut, __private short16* wOut);
+
+void INLINE_ATTRIBUTE  __ocl_masked_gather_transpose_short_4x16(__private short4* pLoadAdd0, __private short4* pLoadAdd1, __private short4* pLoadAdd2, __private short4* pLoadAdd3,
+                                __private short4* pLoadAdd4, __private short4* pLoadAdd5, __private short4* pLoadAdd6, __private short4* pLoadAdd7,
+                                __private short16* xOut, __private short16* yOut, __private short16* zOut, __private short16* wOut, int16 mask);
 
 // ****************************************************************************
 //                                 int_4x4

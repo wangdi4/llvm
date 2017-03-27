@@ -144,6 +144,62 @@ OclBuiltinImpl fabs_impl = OclBuiltinImpl<fabs, fabs.Types, 0, [{
     return as_$Arg0Type(as_$Arg0igentype($Arg0VarName) & $ReturnBaseType_const_signMask);
   }]>;
 
+// OpenCL 2.0 -cl-fast-relaxed-math functions
+// float16 is excluded from shared lib since ssse3 and sse42
+// svml libs don't include v16f32 FRM functions
+// cos_rm
+OclBuiltinImpl cos_svml_rm = OclBuiltinImpl<cos_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_cos$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp_rm
+OclBuiltinImpl exp_svml_rm = OclBuiltinImpl<exp_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_exp$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp2_rm
+OclBuiltinImpl exp2_svml_rm = OclBuiltinImpl<exp2_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_exp2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// exp10_rm
+OclBuiltinImpl exp10_svml_rm = OclBuiltinImpl<exp10_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_exp10$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log_rm
+OclBuiltinImpl log_svml_rm = OclBuiltinImpl<log_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_log$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// log2_rm
+OclBuiltinImpl log2_svml_rm = OclBuiltinImpl<log2_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_log2$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// pow_rm
+OclBuiltinImpl pow_svml_rm = OclBuiltinImpl<pow_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_pow$SVMLSuffix_rm($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// sin_rm
+OclBuiltinImpl sin_svml_rm = OclBuiltinImpl<sin_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_sin$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// tan_rm
+OclBuiltinImpl tan_svml_rm = OclBuiltinImpl<tan_rm, math_shared_f32_types, 0, [{
+    return __ocl_svml_$Target_tan$SVMLSuffix_rm($Arg0VarName);
+  }]>;
+
+// sincos_rm
+code sincos_svml_rm = [{
+    return __ocl_svml_$Target_sincos$SVMLSuffix_rm($Arg0VarName, ($Arg1NoASType)$Arg1VarName);
+  }];
+OclBuiltinImpl sincos_pas_svml_rm = OclBuiltinImpl<sincos_pas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_las_svml_rm = OclBuiltinImpl<sincos_las_rm, math_shared_f32_types, 0, sincos_svml_rm>;
+OclBuiltinImpl sincos_gas_svml_rm = OclBuiltinImpl<sincos_gas_rm, math_shared_f32_types, 0, sincos_svml_rm>;
+
 // fdim scalar
 // scalar implementation is separate from vector because of select() behaviour
 // In scalar case select uses all bits in mask to check if not zero
@@ -583,12 +639,12 @@ OclBuiltinImpl native_powr_svml = OclBuiltinImpl<native_powr, math_shared_types,
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -598,7 +654,7 @@ OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, math_shared_types, 0
   }]>;
 
 // native_sqrt
-OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
     // SLOW version. assume that SVML call will be even slower
     return sqrt($Arg0VarName);
   }]>;

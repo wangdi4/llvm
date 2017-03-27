@@ -19,7 +19,6 @@ list<OclType> math_svml_vF32_expand = [v3f32];
 list<OclType> math_svml_vF32vF32_expand = [v3f32];
 list<OclType> math_svml_vF64_expand = [v16f64];
 list<OclType> math_svml_vF_expand_native = [v16f64];
-list<OclType> math_svml_vFRM_expand = [v16f32];
 
 // acos f(vXfX)
 OclBuiltinImpl acos_svml_expand = OclBuiltinImpl<acos, math_svml_vF_expand, 0, Expand1>;
@@ -341,12 +340,7 @@ OclBuiltinImpl half_sqrt_impl = OclBuiltinImpl<half_sqrt, half_sqrt.Types, 0, [{
 ///////////////////////////////////////////////////////////////////////////////////////
 // half_ functions
 // half_divide f(vXfX, vXfX)
-//OclBuiltinImpl half_divide_svml_hack_expand = OclBuiltinImpl<half_divide, math_svml_vF32vF32_expand, 0, Expand2>;
-//OclBuiltinImpl half_divide_svml_hack_promote = OclBuiltinImpl<half_divide, math_svml_vF32vF32_promote, 0, Promote2_v3_to_v4>;
-// TODO: revert to SVML when SVML DPD200306938 will be fixed
-OclBuiltinImpl half_divide_hack = OclBuiltinImpl<half_divide, half_divide.Types, 0, [{
-    return $Arg0VarName/$Arg1VarName;
-  }]>;
+OclBuiltinImpl half_divide_svml_hack_promote = OclBuiltinImpl<half_divide, math_svml_vF32vF32_expand, 0, Promote2_v3_to_v4>;
 
 // half_cos f(vXfX)
 OclBuiltinImpl half_cos_svml_expand = OclBuiltinImpl<half_cos, math_svml_vF32_expand, 0, Expand1>;
@@ -395,7 +389,14 @@ OclBuiltinImpl native_divide_f32_promote = OclBuiltinImpl<native_divide, [v1f32,
 OclBuiltinImpl native_recip_v4f32_impl = OclBuiltinImpl<native_recip, [v4f32], 0, [{
     return _mm_rcp_ps($Arg0VarName);
   }]>;
-OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v2f32, v3f32], 0, Promote1>;
+OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32], 0, Promote1>;
+
+// native_rsqrt
+OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
+    float4 tmp;
+    tmp.s0 = $Arg0VarName;
+    return as_float4(_mm_rsqrt_ss(tmp)).s0;
+  }]>;
 
 OclBuiltinImpl native_rsqrt_v4f32_impl = OclBuiltinImpl<native_rsqrt, [v4f32], 0, [{
     return _mm_rsqrt_ps($Arg0VarName);
@@ -575,32 +576,3 @@ OclBuiltinImpl native_powr_svml_promote = OclBuiltinImpl<native_powr, [v3f64], 0
 // native_tanh f(vXfX)
 OclBuiltinImpl native_tanh_svml_expand = OclBuiltinImpl<native_tanh, math_svml_vF_expand_native, 0, Expand1>;
 OclBuiltinImpl native_tanh_svml_promote = OclBuiltinImpl<native_tanh, [v3f64], 0, Promote1_v3_to_v4>;
-
-// OpenCL 2.0 -cl-fast-relax-math functions
-// cos_rm
-OclBuiltinImpl cos_svml_rm_expand = OclBuiltinImpl<cos_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp_rm
-OclBuiltinImpl exp_svml_rm_expand = OclBuiltinImpl<exp_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp2_rm
-OclBuiltinImpl exp2_svml_rm_expand = OclBuiltinImpl<exp2_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// exp10_rm
-OclBuiltinImpl exp10_svml_rm_expand = OclBuiltinImpl<exp10_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// log_rm
-OclBuiltinImpl log_svml_rm_expand = OclBuiltinImpl<log_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// log2_rm
-OclBuiltinImpl log2_svml_rm_expand = OclBuiltinImpl<log2_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// pow_rm
-OclBuiltinImpl pow_svml_rm_expand = OclBuiltinImpl<pow_rm, math_svml_vFRM_expand, 0, Expand2>;
-
-// sin_rm
-OclBuiltinImpl sin_svml_rm_expand = OclBuiltinImpl<sin_rm, math_svml_vFRM_expand, 0, Expand1>;
-
-// tan_rm
-OclBuiltinImpl tan_svml_rm_expand = OclBuiltinImpl<tan_rm, math_svml_vFRM_expand, 0, Expand1>;
-
