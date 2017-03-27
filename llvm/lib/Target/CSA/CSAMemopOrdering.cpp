@@ -59,6 +59,12 @@ OrderMemops("csa-order-memops",
             cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
             cl::init(1));
 
+static cl::opt<bool>
+KillReadChains("csa-kill-readchains",
+            cl::Hidden,
+            cl::desc("CSA-specific: kill ordering chains which only link reads"),
+            cl::init(true));
+
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
 // happy LLVM will be with that.
@@ -251,6 +257,37 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     depchains[&set].updater = std::unique_ptr<MachineSSAUpdater>(new MachineSSAUpdater(*thisMF));
     depchains[&set].updater->Initialize(depchains[&set].start);
     depchains[&set].updater->AddAvailableValue(entryBB, depchains[&set].start);
+    depchains[&set].readonly = KillReadChains;
+  }
+
+  // An extra loop over all memops to determine which alias sets consist only
+  // of reads.
+  for (MachineBasicBlock &BB : *thisMF) {
+    for (MachineInstr &MI : BB) {
+      unsigned current_opcode = MI.getOpcode();
+      unsigned converted_opcode = TII->get_ordered_opcode_for_LDST(current_opcode);
+
+      // If this is not an ordered instruction, we're done.
+      if (current_opcode == converted_opcode)
+        continue;
+
+      assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
+      const MachineMemOperand *mOp = *MI.memoperands_begin();
+
+      // Use AliasAnalysis to determine which ordering chain we should be on.
+      AliasSet *as =
+        AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
+            mOp->getSize(), mOp->getAAInfo());
+
+      // Update the chain's readonly status.
+      depchains[as].readonly &= TII->isLoad(&MI);
+    }
+  }
+
+  for (const AliasSet &set : AS->getAliasSets()) {
+    if (depchains[&set].readonly) {
+      errs() << "Note: this alias set is read-only!\n" << set;
+    }
   }
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
@@ -348,6 +385,13 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     AliasSet *as =
       AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
           mOp->getSize(), mOp->getAAInfo());
+
+    // If this chain consists only of readonly access, then it is unnecessary.
+    // This is a stronger requirement than is necessary.
+    if (depchains[as].readonly) {
+      ++iterMI;
+      continue;
+    }
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
@@ -447,6 +491,13 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     AliasSet *as =
       AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
           mOp->getSize(), mOp->getAAInfo());
+
+    // If this chain consists only of readonly access, then it is unnecessary.
+    // This is a stronger requirement than is necessary.
+    if (depchains[as].readonly) {
+      ++iterMI;
+      continue;
+    }
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
