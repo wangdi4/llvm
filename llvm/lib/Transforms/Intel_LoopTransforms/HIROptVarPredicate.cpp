@@ -427,16 +427,16 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
   CE->clear();
 
   int64_t Value;
-  if (BlobUtilsObj->isConstantIntBlob(Blob, &Value)) {
+  if (BlobUtils::isConstantIntBlob(Blob, &Value)) {
     CE->setConstant(Value);
     Ref->setSymbase(ConstantSymbase);
   } else {
     CE->setBlobCoeff(BlobIndex, 1);
 
-    if (BlobUtilsObj->isTempBlob(Blob)) {
+    if (BlobUtils::isTempBlob(Blob)) {
       Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
     } else {
-      Ref->setSymbase(HIR->getGenericRvalSymbase());
+      Ref->setSymbase(Ref->getDDRefUtils().getGenericRvalSymbase());
     }
   }
 }
@@ -615,6 +615,7 @@ void HIROptVarPredicate::splitLoop(
       ThirdLoop->getLowerDDRef()->makeConsistent(&Aux);
 
       ThirdLoop->createZtt(false, true);
+      ThirdLoop->normalize();
     }
   }
 
@@ -641,6 +642,7 @@ void HIROptVarPredicate::splitLoop(
   if (!isLoopRedundant(SecondLoop)) {
     SecondLoop->getLowerDDRef()->makeConsistent(&Aux);
     SecondLoop->createZtt(false, true);
+    SecondLoop->normalize();
   } else {
     HLNodeUtils::remove(SecondLoop);
   }
@@ -672,7 +674,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
   for (HLIf *Candidate :
-       llvm::make_range(Candidates.rbegin(), Candidates.rend())) {
+       llvm::make_range(Candidates.begin(), Candidates.end())) {
     DEBUG(dbgs() << "Processing: ");
     DEBUG(Candidate->dumpHeader());
     DEBUG(dbgs() << "\n");

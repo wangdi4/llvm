@@ -15,11 +15,11 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -317,8 +317,7 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   const HLLoop *RefParentLoop2 = cast<HLLoop>(RefParent2);
 
   const HLLoop *Ancestor =
-      RefParentLoop1->getHLNodeUtils().getLowestCommonAncestorLoop(
-          RefParentLoop1, RefParentLoop2);
+      HLNodeUtils::getLowestCommonAncestorLoop(RefParentLoop1, RefParentLoop2);
   if (Ancestor) {
     return ValidationMap[Ancestor] == GraphState::Valid;
   }

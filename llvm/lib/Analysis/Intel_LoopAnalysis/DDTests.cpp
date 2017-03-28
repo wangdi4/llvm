@@ -437,8 +437,8 @@ const CanonExpr *DDTest::getMulExpr(const CanonExpr *CE1,
   return CE;
 }
 
-const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, const APInt &apint) {
-  CanonExpr *CE = HNU.getCanonExprUtils().createCanonExpr(Ty, apint);
+const CanonExpr *DDTest::getConstantfromAPInt(Type *Ty, APInt Value) {
+  CanonExpr *CE = HNU.getCanonExprUtils().createCanonExpr(Ty, Value);
   push(CE);
   return CE;
 }
@@ -2874,22 +2874,25 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   }
 
   DEBUG(dbgs() << "    Delta = "; Delta->dump());
-
-  // TODO: Will handle later when delta is a sum of products
-  // Refer to original code
-
-  const CanonExpr *Constant = Delta;
-  if (!Constant || !(Constant->isIntConstant(&K1))) {
+  K1 = Delta->getConstant();
+  APInt ConstDelta = llvm::APInt(64, K1, true);
+  DEBUG(dbgs() << "\n ConstDelta = " << ConstDelta << "\n");
+  if (ConstDelta == 0) {
     return false;
   }
 
-  APInt ConstDelta = llvm::APInt(64, K1, true);
-  DEBUG(dbgs() << "\n ConstDelta = " << ConstDelta << "\n");
-  if (ConstDelta == 0)
-    return false;
+  for (auto Blob = Delta->blob_begin(), End = Delta->blob_end(); Blob != End;
+       ++Blob) {
+    APInt ConstCoeff = llvm::APInt(64, Delta->getBlobCoeff(Blob), true);
+    ExtraGCD = APIntOps::GreatestCommonDivisor(ExtraGCD, ConstCoeff.abs());
+  }
   RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ExtraGCD);
   DEBUG(dbgs() << "    RunningGCD = " << RunningGCD << "\n");
   APInt Remainder = ConstDelta.srem(RunningGCD);
+
+  // e.g.  A[2i + 4j +6m +8n +1],  A[16i +4j +2m+6]
+  // will derive Independence
+
   if (Remainder != 0) {
     DEBUG(dbgs() << "GCD success\n");
     ++GCDindependence;
@@ -2993,7 +2996,6 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       continue;
     }
 
-    Constant = Delta;
     APInt ConstCoeff = llvm::APInt(64, K1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\tRunningGCD = " << RunningGCD << "\n");

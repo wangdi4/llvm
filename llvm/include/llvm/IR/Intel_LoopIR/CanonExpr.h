@@ -194,8 +194,7 @@ protected:
 
   /// Returns true if the canon expr represents a constant.
   bool isConstInternal() const {
-    return (!containsUndef() && !hasIV() && !hasBlob() &&
-            (getDenominator() == 1));
+    return (!hasIV() && !hasBlob() && (getDenominator() == 1));
   }
 
   /// Returns true if canon expr is a constant integer. Integer value is
@@ -497,9 +496,9 @@ public:
 
   /// Returns true if this contains any Blob IV Coeffs.
   /// Examples: -M*i, N*j
-  bool hasBlobIVCoeffs() const;
+  bool hasIVBlobCoeffs() const;
   /// Returns the number of blobs IV Coeffs.
-  unsigned numBlobIVCoeffs() const;
+  unsigned numIVBlobCoeffs() const;
   /// Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
   /// Returns the number of blobs in the canon expr.

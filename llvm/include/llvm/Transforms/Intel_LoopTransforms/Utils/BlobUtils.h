@@ -104,51 +104,51 @@ public:
                          SmallVectorImpl<unsigned> &Indices);
 
   /// Returns blob corresponding to BlobIndex.
-  BlobTy getBlob(unsigned BlobIndex);
+  BlobTy getBlob(unsigned BlobIndex) const;
 
   /// Returns symbase corresponding to BlobIndex. Asserts if a valid symbase is
   /// not found.
-  unsigned getTempBlobSymbase(unsigned BlobIndex);
+  unsigned getTempBlobSymbase(unsigned BlobIndex) const;
 
   /// Returns true if this is a valid blob index.
-  bool isBlobIndexValid(unsigned BlobIndex);
+  bool isBlobIndexValid(unsigned BlobIndex) const;
 
   /// Prints blob.
-  void printBlob(raw_ostream &OS, BlobTy Blob);
+  void printBlob(raw_ostream &OS, BlobTy Blob) const;
 
   /// Prints scalar corresponding to symbase.
-  void printScalar(raw_ostream &OS, unsigned Symbase);
+  void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
   /// Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
-  bool isConstantIntBlob(BlobTy Blob, int64_t *Val);
+  static bool isConstantIntBlob(BlobTy Blob, int64_t *Val);
 
   /// Returns true if Blob is a temp.
-  bool isTempBlob(BlobTy Blob);
+  static bool isTempBlob(BlobTy Blob);
 
   /// Returns true if this is a nested blob(SCEV tree with > 1 node).
-  bool isNestedBlob(BlobTy Blob);
+  static bool isNestedBlob(BlobTy Blob);
 
   /// Returns true if TempBlob always has a defined at level of zero.
-  bool isGuaranteedProperLinear(BlobTy TempBlob);
+  static bool isGuaranteedProperLinear(BlobTy TempBlob);
 
   /// Returns true if Blob is a UndefValue.
-  bool isUndefBlob(BlobTy Blob);
+  static bool isUndefBlob(BlobTy Blob);
 
   /// Returns true if Blob represents a FP constant.
-  bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr);
+  static bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr);
 
   /// Returns true if Blob represents a vector of constants.
   /// If yes, returns the underlying LLVM Value in Val
-  bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
+  static bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
 
   /// Returns true if Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.
-  bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
+  static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 
   /// Returns true if \p Blob represents a signed extension value.
   /// If blob is sext, sets the return value in Val.
-  bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
+  static bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr);
 
   /// Returns a new blob created from passed in Val.
   BlobTy createBlob(Value *Val, bool Insert = true,
@@ -224,10 +224,10 @@ public:
                         unsigned *NewBlobIndex);
 
   /// Returns true if Blob contains SubBlob or if Blob == SubBlob.
-  bool contains(BlobTy Blob, BlobTy SubBlob);
+  bool contains(BlobTy Blob, BlobTy SubBlob) const;
 
   /// Returns all the temp blobs present in Blob via TempBlobs vector.
-  void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs);
+  void collectTempBlobs(BlobTy Blob, SmallVectorImpl<BlobTy> &TempBlobs) const;
 
   /// Returns all the temp blobs present in blob with index \p BlobIndex via \p
   /// TempBlobIndices vector.
@@ -240,7 +240,14 @@ public:
   bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
                        unsigned NewTempIndex, unsigned &NewBlobIndex);
 
-  Value *getTempBlobValue(unsigned BlobIndex);
+  /// Returns the number of operations in the blob. 
+  /// For example, blob = (a + 2 * b) has 2 operations.
+  static unsigned getNumOperations(BlobTy Blob);
+  unsigned getNumOperations(unsigned BlobIndex) const;
+
+  /// Returns underlying LLVM value for the temp blob.
+  static Value *getTempBlobValue(BlobTy Blob);
+  Value *getTempBlobValue(unsigned BlobIndex) const;
 };
 
 } // End namespace loopopt

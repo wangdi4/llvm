@@ -578,7 +578,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   const HLLoop *InnermostLoop = Loop;
   if (!Loop->isInnermost() &&
-      !Loop->getHLNodeUtils().isPerfectLoopNest(Loop, &InnermostLoop)) {
+      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
     return NON_PERFECT_LOOPNEST;
   }
 

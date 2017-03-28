@@ -2632,7 +2632,7 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
 
   BlobTy Blob = getBlobUtils().getBlob(BlobIdx);
   // Strip sign extend cast from Blob
-  while (getBlobUtils().isSignExtendBlob(Blob, &Blob))
+  while (BlobUtils::isSignExtendBlob(Blob, &Blob))
     ;
 
   BlobTy BoundBlob = getBlobUtils().getBlob(BoundBlobIdx);
@@ -2885,7 +2885,7 @@ bool HLNodeUtils::getMinMaxValueImpl(const CanonExpr *CE,
     return false;
   }
 
-  if (IsExact && (CE->hasBlob() || CE->hasBlobIVCoeffs())) {
+  if (IsExact && (CE->hasBlob() || CE->hasIVBlobCoeffs())) {
     return false;
   }
 

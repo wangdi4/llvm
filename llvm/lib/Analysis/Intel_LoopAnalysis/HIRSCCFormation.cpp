@@ -584,10 +584,20 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const PHINode *MergePhi,
     }
 
     auto PredBB = MergePhi->getIncomingBlock(I);
+    auto ParentBB = InstPhiOp->getParent();
 
-    // If SCC node is defined in the incoming block, it cannot cause live range
-    // overlap.
-    if (InstPhiOp->getParent() == PredBB) {
+    // If this instruction is used in a merge phi and there is a subsequent SCC
+    // instruction defined in the same bblock, we have live-range overlap.
+    for (auto Inst = std::next(InstPhiOp->getIterator()), E = ParentBB->end();
+         Inst != E; ++Inst) {
+      if (CurSCC.contains(&*Inst)) {
+        return true;
+      }
+    }
+
+    // If SCC node is defined in the incoming block, we don't require further
+    // checking.
+    if (ParentBB == PredBB) {
       continue;
     }
 

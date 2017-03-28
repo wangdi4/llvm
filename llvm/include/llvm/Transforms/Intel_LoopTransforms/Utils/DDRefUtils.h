@@ -156,6 +156,10 @@ public:
   /// Destroys the passed in DDRef.
   void destroy(DDRef *Ref);
 
+  /// Returns a generic rval symbase.
+  unsigned getGenericRvalSymbase();
+
+  /// Returns a brand new symbase.
   unsigned getNewSymbase();
 
   /// Returns true if the two DDRefs, Ref1 and Ref2, are equal.
@@ -238,6 +242,26 @@ public:
   /// This is useful for ordering DDRefs.
   static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned DimensionNum);
+
+  /// Check if replaceIVByCanonExpr(.) can actually succeed without doing it for
+  /// real.
+  ///
+  /// Return: bool
+  /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
+  /// -false: otherwise
+  static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
+                                      const CanonExpr *CE,
+                                      bool RelaxedMode = true);
+
+  /// Replace any IV in the Ref with a given CanonExpr*.
+  ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
+  ///
+  /// Note: The function asserts if the replacement fails as the Ref may be in
+  /// an inconsistent state. Caller should call canReplaceIVByCanonExpr() first
+  /// to make sure this is safe to do.
+  static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                   const CanonExpr *CE,
+                                   bool RelaxedMode = true);
 };
 
 } // End namespace loopopt

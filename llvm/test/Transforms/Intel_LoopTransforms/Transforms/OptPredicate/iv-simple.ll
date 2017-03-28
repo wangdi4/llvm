@@ -37,8 +37,8 @@
 ; CHECK:          |   (%p)[i1] = i1;
 ; CHECK:          + END LOOP
 ; 
-; CHECK:          + DO i1 = smax(0, %d), %n + -1, 1   <DO_LOOP>
-; CHECK:          |   (%q)[i1] = i1;
+; CHECK:          + DO i1 = 0, %n + -1 * smax(0, %d) + -1, 1 <DO_LOOP>
+; CHECK:          |   (%q)[i1 + smax(0, %d)] = i1 + smax(0, %d);
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
 

@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that this 2-level loopnest is completely unrolled.
 
@@ -27,12 +27,12 @@
 ; |   %g.0196.us.i.us = %g.1189.us.i.us;
 ; + END LOOP
 
-; CHECK: Dump Before HIR Complete Unroll
+; CHECK: Dump Before HIR PostVec Complete Unroll
 ; CHECK: DO i1
 ; CHECK: DO i2
 
 
-; CHECK: Dump After HIR Complete Unroll
+; CHECK: Dump After HIR PostVec Complete Unroll
 ; CHECK-NOT: DO i1
 
 

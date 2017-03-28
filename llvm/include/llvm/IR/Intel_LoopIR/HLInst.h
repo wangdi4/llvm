@@ -180,14 +180,18 @@ public:
   /// Checks if the Opcode is a reduction and returns OpCode
   bool isReductionOp(unsigned *OpCode) const;
 
-  /// Checks if instruction is a min
-  bool isMin() const;
+  /// Checks if instruction is a min.
+  bool isMin() const { return checkMinMax(true, false); }
 
-  /// Checks if instruction is a max
-  bool isMax() const;
+  /// Checks if instruction is a max.
+  bool isMax() const { return checkMinMax(false, true); }
 
-  /// Checks if instruction is a min or a max
-  bool isMinOrMax() const;
+  /// Checks if instruction is a min or a max.
+  bool isMinOrMax() const { return checkMinMax(true, true); }
+
+  /// Returns true if instruction represents an abs() operation.
+  /// TODO: Extend to handle floating point abs().
+  bool isAbs() const;
 
   /// Return the identity value corresponding to the given reduction
   /// instruction opcode and specified type.

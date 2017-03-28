@@ -32,7 +32,7 @@ namespace loopopt {
 class CanonExpr;
 class RegDDRef;
 
-/// \brief High level node representing a loop
+/// High level node representing a loop
 class HLLoop final : public HLDDNode {
 public:
   typedef HLContainerTy ChildNodeTy;
@@ -115,7 +115,7 @@ protected:
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
          RegDDRef *UpperDDRef, RegDDRef *StrideDDRef, unsigned NumEx);
 
-  /// \brief Copy constructor used by cloning.
+  /// Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone
   /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj);
@@ -129,47 +129,47 @@ protected:
   friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
                                   // to modify HLLoop internals.
 
-  /// \brief Initializes some of the members to bring the loop in a sane state.
+  /// Initializes some of the members to bring the loop in a sane state.
   void initialize();
 
-  /// \brief Returns the Ztt of the loop.
+  /// Returns the Ztt of the loop.
   HLIf *getZtt() { return Ztt; }
 
-  /// \brief Sets the nesting level of the loop.
+  /// Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
 
-  /// \brief Sets the Innermost flag to indicate if it is innermost loop.
+  /// Sets the Innermost flag to indicate if it is innermost loop.
   void setInnermost(bool IsInnermost) { this->IsInnermost = IsInnermost; }
 
-  /// \brief Returns the number of DDRefs associated with only the loop
+  /// Returns the number of DDRefs associated with only the loop
   /// without the ztt.
   /// Comes down to DDRefs for lower, tripcount and stride.
   unsigned getNumLoopDDRefs() const { return 3; }
 
-  /// \brief Returns the number of operands this loop is supposed to have.
+  /// Returns the number of operands this loop is supposed to have.
   unsigned getNumOperands() const override;
 
-  /// \brief Sets DDRefs' size to getNumLoopDDRefs().
+  /// Sets DDRefs' size to getNumLoopDDRefs().
   void resizeToNumLoopDDRefs();
 
-  /// \brief Used to implement get*CanonExpr() functionality.
+  /// Used to implement get*CanonExpr() functionality.
   CanonExpr *getLoopCanonExpr(RegDDRef *Ref);
   const CanonExpr *getLoopCanonExpr(const RegDDRef *Ref) const;
 
-  /// \brief Implements getNumOperands() functionality.
+  /// Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
-  /// \brief Returns the DDRef offset of a ztt predicate.
+  /// Returns the DDRef offset of a ztt predicate.
   unsigned getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
                                              bool IsLHS) const;
 
-  /// \brief Clone Implementation
+  /// Clone Implementation
   /// This function populates the GotoList with Goto branches within the
   /// cloned loop and LabelMap with Old and New Labels. Returns a cloned loop.
   HLLoop *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                     HLNodeMapper *NodeMapper) const override;
 
-  /// \brief Used to print members of the loop which are otherwise hidden in
+  /// Used to print members of the loop which are otherwise hidden in
   /// pretty print like ztt, innermost flag etc.
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
@@ -180,53 +180,53 @@ protected:
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
 public:
-  /// \brief Prints preheader of loop.
+  /// Prints preheader of loop.
   void printPreheader(formatted_raw_ostream &OS, unsigned Depth,
                       bool Detailed) const;
 
-  /// \brief Prints header of loop.
+  /// Prints header of loop.
   void printHeader(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const;
 
-  /// \brief Prints body of loop.
+  /// Prints body of loop.
   void printBody(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const;
 
-  /// \brief Prints footer of loop.
+  /// Prints footer of loop.
   void printFooter(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Prints postexit of loop.
+  /// Prints postexit of loop.
   void printPostexit(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed) const;
 
-  /// \brief Prints HLLoop.
+  /// Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
-  /// \brief Returns underlying LLVM loop.
+  /// Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
 
-  /// \brief Returns the underlying type of the loop IV.
+  /// Returns the underlying type of the loop IV.
   Type *getIVType() const { return IVType; }
-  /// \brief Sets the underlying type of the loop IV.
+  /// Sets the underlying type of the loop IV.
   void setIVType(Type *Ty) { IVType = Ty; }
 
-  /// \brief Returns true if loop's IV is in signed range.
+  /// Returns true if loop's IV is in signed range.
   bool isNSW() const { return IsNSW; }
-  /// \brief Sets/resets IsNSW flag.
+  /// Sets/resets IsNSW flag.
   void setNSW(bool IsNSW) { this->IsNSW = IsNSW; }
 
-  /// \brief Returns true if ztt is present.
+  /// Returns true if ztt is present.
   bool hasZtt() const { return Ztt != nullptr; }
 
-  /// \brief sets the Ztt for HLLoop.
+  /// sets the Ztt for HLLoop.
   void setZtt(HLIf *ZttIf);
 
-  /// \brief Removes and returns the Ztt for HLLoop if it exists, else returns
+  /// Removes and returns the Ztt for HLLoop if it exists, else returns
   /// nullptr.
   HLIf *removeZtt();
 
-  /// \brief Removes and returns the OrigLoop
+  /// Removes and returns the OrigLoop
   const Loop *removeLLVMLoop();
 
   /// Creates a Ztt for HLLoop. IsOverwrite flag
@@ -238,7 +238,7 @@ public:
   void createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
                  bool IsOverwrite = true);
 
-  /// \brief Hoists the Ztt out of the loop. It returns a handle to the Ztt or
+  /// Hoists the Ztt out of the loop. It returns a handle to the Ztt or
   /// nullptr if it doesn't exist.
   HLIf *extractZtt();
 
@@ -261,20 +261,20 @@ public:
     return Ztt->pred_rend();
   }
 
-  /// \brief Returns the number of predicates associated with this ZTT.
+  /// Returns the number of predicates associated with this ZTT.
   unsigned getNumZttPredicates() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->getNumPredicates();
   }
 
-  /// \brief Adds new predicate in ZTT.
+  /// Adds new predicate in ZTT.
   void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
                        FastMathFlags FMF = FastMathFlags());
 
-  /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
+  /// Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
-  /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
+  /// Replaces existing ztt predicate pointed to by CPredI, by NewPred.
   void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
 
   /// Returns the fast math flags for the existing ztt predicate pointed by \p
@@ -285,77 +285,95 @@ public:
   /// CPredI.
   void setZttPredicateFMF(const_ztt_pred_iterator CPredI, FastMathFlags FMF);
 
-  /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
+  /// Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
   RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                         bool IsLHS) const;
 
-  /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
+  /// Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
   void setZttPredicateOperandDDRef(RegDDRef *Ref,
                                    const_ztt_pred_iterator CPredI, bool IsLHS);
 
-  /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
+  /// Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
   RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                            bool IsLHS);
 
-  /// \brief Returns true if this Ref belongs to ztt.
+  /// Returns true if this Ref belongs to ztt.
   bool isZttOperandDDRef(const RegDDRef *Ref) const;
 
-  /// \brief Returns the DDRef associated with loop lower bound.
+  /// Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
-  RegDDRef *getLowerDDRef();
-  const RegDDRef *getLowerDDRef() const;
-  /// \brief Sets the DDRef associated with loop lower bound.
-  void setLowerDDRef(RegDDRef *Ref);
-  /// \brief Removes and returns the DDRef associated with loop lower bound.
+  RegDDRef *getLowerDDRef() { return getOperandDDRefImpl(0); }
+  const RegDDRef *getLowerDDRef() const {
+    return const_cast<HLLoop *>(this)->getLowerDDRef();
+  }
+
+  /// Sets the DDRef associated with loop lower bound.
+  void setLowerDDRef(RegDDRef *Ref) {
+    assert((!Ref || Ref->isTerminalRef()) && "Invalid LowerDDRef!");
+    setOperandDDRefImpl(Ref, 0);
+  }
+
+  /// Removes and returns the DDRef associated with loop lower bound.
   RegDDRef *removeLowerDDRef();
 
-  /// \brief Returns the DDRef associated with loop upper bound.
+  /// Returns the DDRef associated with loop upper bound.
   /// The second DDRef is associated with upper bound.
-  RegDDRef *getUpperDDRef();
-  const RegDDRef *getUpperDDRef() const;
+  RegDDRef *getUpperDDRef() { return getOperandDDRefImpl(1); }
+  const RegDDRef *getUpperDDRef() const {
+    return const_cast<HLLoop *>(this)->getUpperDDRef();
+  }
 
-  /// \brief Sets the DDRef associated with loop upper bound.
-  void setUpperDDRef(RegDDRef *Ref);
+  /// Sets the DDRef associated with loop upper bound.
+  void setUpperDDRef(RegDDRef *Ref){
+    assert((!Ref || Ref->isTerminalRef()) && "Invalid UpperDDRef!");
+    setOperandDDRefImpl(Ref, 1);
+  }
 
-  /// \brief Removes and returns the DDRef associated with loop upper bound.
+  /// Removes and returns the DDRef associated with loop upper bound.
   RegDDRef *removeUpperDDRef();
 
-  /// \brief Returns the DDRef associated with loop stride.
+  /// Returns the DDRef associated with loop stride.
   /// The third DDRef is associated with stride.
-  RegDDRef *getStrideDDRef();
-  const RegDDRef *getStrideDDRef() const;
+  RegDDRef *getStrideDDRef() { return getOperandDDRefImpl(2); }
+  const RegDDRef *getStrideDDRef() const {
+    return const_cast<HLLoop *>(this)->getStrideDDRef();
+  }
 
-  /// \brief Sets the LLVM OrigLoop
-  void setLLVMLoop(const Loop *OrigLoop);
+  /// Sets the underlying LLVM Loop.
+  void setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
 
-  /// \brief Sets the DDRef associated with loop stride.
-  void setStrideDDRef(RegDDRef *Ref);
+  /// Sets the DDRef associated with loop stride.
+  void setStrideDDRef(RegDDRef *Ref) {
+    assert((!Ref || Ref->isTerminalRef()) && "Invalid StrideDDRef!");
+    setOperandDDRefImpl(Ref, 2);
+  }
 
-  /// \brief Removes and returns the DDRef associated with loop stride.
+  /// Removes and returns the DDRef associated with loop stride.
   RegDDRef *removeStrideDDRef();
 
-  /// \brief Returns the CanonExpr associated with loop lower bound.
+  /// Returns the CanonExpr associated with loop lower bound.
   CanonExpr *getLowerCanonExpr();
   const CanonExpr *getLowerCanonExpr() const;
 
-  /// \brief Returns the CanonExpr associated with loop upper bound.
+  /// Returns the CanonExpr associated with loop upper bound.
   CanonExpr *getUpperCanonExpr();
   const CanonExpr *getUpperCanonExpr() const;
 
-  /// \brief Returns the CanonExpr associated with loop stride.
+  /// Returns the CanonExpr associated with loop stride.
+  // TODO: Should we keep an uint64_t stride if it is always constant?
   CanonExpr *getStrideCanonExpr();
   const CanonExpr *getStrideCanonExpr() const;
 
-  /// \brief Returns the CanonExpr associated with loop trip count.
+  /// Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
   /// directly stored so use with caution.
   /// This routine can return nullptr if the trip count cannot be computed.
   CanonExpr *getTripCountCanonExpr() const;
 
-  /// \brief Returns Trip Count DDRef of this loop.
+  /// Returns Trip Count DDRef of this loop.
   /// Note, this will create a new DDRef in each call.
   /// NestingLevel argument indicates the level at which this DDRef will be
   /// attached to HIR. The default is: (loop nesting nevel - 1).
@@ -363,48 +381,47 @@ public:
   RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
                                                        1)) const;
 
-  /// \brief Returns true if this is a constant trip count loop and sets the
+  /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
   bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
 
-  /// \brief Returns true if this is a do loop.
-  bool isDo() const {
-    auto UpperDDRef = getUpperDDRef();
-    assert(UpperDDRef && "UpperDDRef may not be null");
-    return ((NumExits == 1) && !UpperDDRef->containsUndef());
-  }
-
-  /// \brief Returns true if this is a do multi-exit loop.
-  bool isDoMultiExit() const {
-    auto UpperDDRef = getUpperDDRef();
-    assert(UpperDDRef && "UpperDDRef may not be null");
-    return ((NumExits > 1) && !UpperDDRef->containsUndef());
-  }
-
-  /// \brief Returns true if this is an unknown loop.
+  /// Returns true if this is an unknown loop.
   bool isUnknown() const {
-    auto UpperDDRef = getUpperDDRef();
-    assert(UpperDDRef && "UpperDDRef may not be null");
-    return UpperDDRef->containsUndef();
+    auto StrideRef = getStrideDDRef();
+    assert(StrideRef && "Stride ref is null!");
+    int64_t Val;
+
+    // Stride is 0 for unknown loops. 
+    return (StrideRef->isIntConstant(&Val) && (Val == 0));
   }
 
-  /// \brief Returns true if loop is normalized.
+  /// Returns true if this is a do loop.
+  bool isDo() const {
+    return ((NumExits == 1) && !isUnknown());
+  }
+
+  /// Returns true if this is a do multi-exit loop.
+  bool isDoMultiExit() const {
+    return ((NumExits > 1) && !isUnknown());
+  }
+
+  /// Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
   // constant.
   bool isNormalized() const;
 
-  /// \brief Returns the number of exits of the loop.
+  /// Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
-  /// \brief Sets the number of exits of the loop.
+  /// Sets the number of exits of the loop.
   void setNumExits(unsigned NumEx);
 
-  /// \brief Returns the nesting level of the loop.
+  /// Returns the nesting level of the loop.
   unsigned getNestingLevel() const {
     assert(getParentRegion() && "getNestingLevel() invoked on detached loop!");
     return NestingLevel;
   }
 
-  /// \brief Returns true if this is the innermost loop in the loop nest.
+  /// Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const {
     assert(getParentRegion() && "isInnermost() invoked on detached loop!");
     return IsInnermost;
@@ -428,27 +445,27 @@ public:
 
   /// Preheader access methods
 
-  /// \brief Returns the first preheader node if it exists, otherwise returns
+  /// Returns the first preheader node if it exists, otherwise returns
   /// null.
   HLNode *getFirstPreheaderNode();
   const HLNode *getFirstPreheaderNode() const {
     return const_cast<HLLoop *>(this)->getFirstPreheaderNode();
   }
-  /// \brief Returns the last preheader node if it exists, otherwise returns
+  /// Returns the last preheader node if it exists, otherwise returns
   /// null.
   HLNode *getLastPreheaderNode();
   const HLNode *getLastPreheaderNode() const {
     return const_cast<HLLoop *>(this)->getLastPreheaderNode();
   }
 
-  /// \brief Returns the number of preheader nodes.
+  /// Returns the number of preheader nodes.
   unsigned getNumPreheader() const {
     return std::distance(pre_begin(), pre_end());
   }
-  /// \brief Returns true if preheader is not empty.
+  /// Returns true if preheader is not empty.
   bool hasPreheader() const { return (pre_begin() != pre_end()); }
 
-  /// \brief Moves preheader nodes before the loop. Ztt is extracted first, if
+  /// Moves preheader nodes before the loop. Ztt is extracted first, if
   /// present.
   void extractPreheader();
 
@@ -472,31 +489,31 @@ public:
 
   /// Postexit acess methods
 
-  /// \brief Returns the first postexit node if it exists, otherwise returns
+  /// Returns the first postexit node if it exists, otherwise returns
   /// null.
   HLNode *getFirstPostexitNode();
   const HLNode *getFirstPostexitNode() const {
     return const_cast<HLLoop *>(this)->getFirstPostexitNode();
   }
-  /// \brief Returns the last postexit node if it exists, otherwise returns
+  /// Returns the last postexit node if it exists, otherwise returns
   /// null.
   HLNode *getLastPostexitNode();
   const HLNode *getLastPostexitNode() const {
     return const_cast<HLLoop *>(this)->getLastPostexitNode();
   }
 
-  /// \brief Returns the number of postexit nodes.
+  /// Returns the number of postexit nodes.
   unsigned getNumPostexit() const {
     return std::distance(post_begin(), post_end());
   }
-  /// \brief Returns true if postexit is not empty.
+  /// Returns true if postexit is not empty.
   bool hasPostexit() const { return (post_begin() != post_end()); }
 
-  /// \brief Moves postexit nodes after the loop. Ztt is extracted first, if
+  /// Moves postexit nodes after the loop. Ztt is extracted first, if
   /// present.
   void extractPostexit();
 
-  /// \brief Moves preheader nodes before the loop and postexit nodes after the
+  /// Moves preheader nodes before the loop and postexit nodes after the
   /// loop. Ztt is extracted first, if present.
   void extractPreheaderAndPostexit();
 
@@ -516,22 +533,22 @@ public:
 
   /// Children acess methods
 
-  /// \brief Returns the first child if it exists, otherwise returns null.
+  /// Returns the first child if it exists, otherwise returns null.
   HLNode *getFirstChild();
   const HLNode *getFirstChild() const {
     return const_cast<HLLoop *>(this)->getFirstChild();
   }
-  /// \brief Returns the last child if it exists, otherwise returns null.
+  /// Returns the last child if it exists, otherwise returns null.
   HLNode *getLastChild();
   const HLNode *getLastChild() const {
     return const_cast<HLLoop *>(this)->getLastChild();
   }
 
-  /// \brief Returns the number of children.
+  /// Returns the number of children.
   unsigned getNumChildren() const {
     return std::distance(child_begin(), child_end());
   }
-  /// \brief Returns true if it has children.
+  /// Returns true if it has children.
   bool hasChildren() const { return (child_begin() != child_end()); }
 
   /// ZTT DDRef iterator methods
@@ -567,7 +584,7 @@ public:
     return ddref_rend() - getNumLoopDDRefs();
   }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLLoopVal;
   }
@@ -581,27 +598,27 @@ public:
   /// inside the cloned loop.
   HLLoop *clone(HLNodeMapper *NodeMapper = nullptr) const override;
 
-  /// \brief - Clones the original loop without any of the children, preheader
+  /// - Clones the original loop without any of the children, preheader
   /// and postexit nodes. This routines copies all the original loop properties
   /// such as exits, ub, lb, etc. Data members that depend on where the cloned
   /// loop lives in HIR (like parent, nesting level) are not copied. They will
   /// be updated by HLNode insertion/removal utilities.
   HLLoop *cloneEmptyLoop() const;
 
-  /// \brief Returns the number of operands associated with the loop ztt.
+  /// Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
 
-  /// \brief Verifies HLLoop integrity.
+  /// Verifies HLLoop integrity.
   virtual void verify() const override;
 
-  /// \brief Checks whether SIMD directive is attached to the loop.
+  /// Checks whether SIMD directive is attached to the loop.
   bool isSIMD() const;
 
   unsigned getMVTag() const { return MVTag; }
 
   void setMVTag(unsigned Tag) { MVTag = Tag; }
 
-  /// \brief return true if Triangular Loop
+  /// return true if Triangular Loop
   bool isTriangularLoop() const;
 
   const_live_in_iterator live_in_begin() const { return LiveInSet.begin(); }
@@ -671,7 +688,7 @@ public:
   /// Returns !llvm.loop metadata associated with the Loop.
   MDNode *getLoopMetadata() const { return LoopMetadata; }
 
-  /// \brief Add a list of metadata \p MDs to loops !llvm.loop MDNode.
+  /// Add a list of metadata \p MDs to loops !llvm.loop MDNode.
   ///
   /// The MDNode should have the format !{!"string-identifier", Args...}
   void addLoopMetadata(ArrayRef<MDNode *> MDs) {
@@ -688,8 +705,11 @@ public:
 
   void setMaxTripCountEstimate(uint64_t MaxTC) { MaxTripCountEstimate = MaxTC; }
 
-  // \brief Marks loop to do not vectorize.
+  /// Marks loop to do not vectorize.
   void markDoNotVectorize();
+
+  bool canNormalize() const;
+  bool normalize();
 };
 
 } // End namespace loopopt

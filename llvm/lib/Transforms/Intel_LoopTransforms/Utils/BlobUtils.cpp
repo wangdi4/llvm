@@ -63,60 +63,135 @@ void BlobUtils::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
   getHIRParser().mapBlobsToIndices(Blobs, Indices);
 }
 
-BlobTy BlobUtils::getBlob(unsigned BlobIndex) {
+BlobTy BlobUtils::getBlob(unsigned BlobIndex) const {
   return getHIRParser().getBlob(BlobIndex);
 }
 
-unsigned BlobUtils::getTempBlobSymbase(unsigned BlobIndex) {
+unsigned BlobUtils::getTempBlobSymbase(unsigned BlobIndex) const {
   return getHIRParser().getTempBlobSymbase(BlobIndex);
 }
 
-bool BlobUtils::isBlobIndexValid(unsigned BlobIndex) {
+bool BlobUtils::isBlobIndexValid(unsigned BlobIndex) const {
   return getHIRParser().isBlobIndexValid(BlobIndex);
 }
 
-void BlobUtils::printBlob(raw_ostream &OS, BlobTy Blob) {
+void BlobUtils::printBlob(raw_ostream &OS, BlobTy Blob) const {
   getHIRParser().printBlob(OS, Blob);
 }
 
-void BlobUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
+void BlobUtils::printScalar(raw_ostream &OS, unsigned Symbase) const {
   getHIRParser().printScalar(OS, Symbase);
 }
 
 bool BlobUtils::isConstantIntBlob(BlobTy Blob, int64_t *Val) {
-  return getHIRParser().isConstantIntBlob(Blob, Val);
+  const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
+  if (!SConst) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = SConst->getValue()->getSExtValue();
+  }
+
+  return true;
 }
 
-bool BlobUtils::isTempBlob(BlobTy Blob) {
-  return getHIRParser().isTempBlob(Blob);
-}
-
-bool BlobUtils::isNestedBlob(BlobTy Blob) {
-  return getHIRParser().isNestedBlob(Blob);
-}
+bool BlobUtils::isTempBlob(BlobTy Blob) { return HIRParser::isTempBlob(Blob); }
 
 bool BlobUtils::isGuaranteedProperLinear(BlobTy TempBlob) {
-  return getHIRParser().isGuaranteedProperLinear(TempBlob);
+  assert(isTempBlob(TempBlob) && "Not a temp blob!");
+
+  auto UnknownSCEV = cast<SCEVUnknown>(TempBlob);
+
+  return !isa<Instruction>(UnknownSCEV->getValue());
 }
 
 bool BlobUtils::isUndefBlob(BlobTy Blob) {
-  return getHIRParser().isUndefBlob(Blob);
+  Value *Val = nullptr;
+
+  if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    Val = UnknownSCEV->getValue();
+  } else if (auto *ConstantSCEV = dyn_cast<SCEVConstant>(Blob)) {
+    Val = ConstantSCEV->getValue();
+  } else {
+    return false;
+  }
+
+  assert(Val && "Blob should have a value");
+  return isa<UndefValue>(Val);
 }
 
 bool BlobUtils::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) {
-  return getHIRParser().isConstantFPBlob(Blob, Val);
+  auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  auto FPVal = dyn_cast<ConstantFP>(UnknownSCEV->getValue());
+
+  if (!FPVal) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = FPVal;
+  }
+
+  return true;
 }
 
 bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
-  return getHIRParser().isConstantVectorBlob(Blob, Val);
+  auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  Constant *Const = nullptr;
+
+  if ((Const = dyn_cast<ConstantVector>(UnknownSCEV->getValue())) ||
+      (Const = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) ||
+      (Const = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue()))) {
+    if (Val) {
+      *Val = Const;
+    }
+    return true;
+  }
+
+  return false;
 }
 
 bool BlobUtils::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) {
-  return getHIRParser().isMetadataBlob(Blob, Val);
+
+  auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  auto MetaVal = dyn_cast<MetadataAsValue>(UnknownSCEV->getValue());
+
+  if (!MetaVal) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = MetaVal;
+  }
+
+  return true;
 }
 
 bool BlobUtils::isSignExtendBlob(BlobTy Blob, BlobTy *Val) {
-  return getHIRParser().isSignExtendBlob(Blob, Val);
+  if (auto CastSCEV = dyn_cast<SCEVSignExtendExpr>(Blob)) {
+    if (Val) {
+      *Val = CastSCEV->getOperand();
+    }
+    return true;
+  }
+
+  return false;
 }
 
 BlobTy BlobUtils::createBlob(Value *TempVal, unsigned Symbase, bool Insert,
@@ -211,12 +286,12 @@ BlobTy BlobUtils::createUMaxBlob(BlobTy BlobA, BlobTy BlobB, bool Insert,
   return getHIRParser().createUMaxBlob(BlobA, BlobB, Insert, NewBlobIndex);
 }
 
-bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) {
+bool BlobUtils::contains(BlobTy Blob, BlobTy SubBlob) const {
   return getHIRParser().contains(Blob, SubBlob);
 }
 
 void BlobUtils::collectTempBlobs(BlobTy Blob,
-                                 SmallVectorImpl<BlobTy> &TempBlobs) {
+                                 SmallVectorImpl<BlobTy> &TempBlobs) const {
   getHIRParser().collectTempBlobs(Blob, TempBlobs);
 }
 
@@ -234,8 +309,104 @@ bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
                                         NewBlobIndex);
 }
 
-Value *BlobUtils::getTempBlobValue(unsigned BlobIndex) {
-  BlobTy Blob = getBlob(BlobIndex);
+Value *BlobUtils::getTempBlobValue(BlobTy Blob) {
   assert(isTempBlob(Blob) && "BlobIndex is not a temp blob");
   return cast<SCEVUnknown>(Blob)->getValue();
+}
+
+Value *BlobUtils::getTempBlobValue(unsigned BlobIndex) const {
+  return getTempBlobValue(getBlob(BlobIndex));
+}
+
+class NestedBlobChecker {
+private:
+  unsigned NumSubBlobs;
+
+public:
+  NestedBlobChecker() : NumSubBlobs(0) {}
+
+  bool follow(const SCEV *SC) {
+    NumSubBlobs++;
+    return !isDone();
+  }
+
+  bool isDone() const { return isNestedBlob(); }
+  bool isNestedBlob() const { return NumSubBlobs > 1; }
+};
+
+bool BlobUtils::isNestedBlob(BlobTy Blob) {
+  NestedBlobChecker NBC;
+  SCEVTraversal<NestedBlobChecker> Collector(NBC);
+  Collector.visitAll(Blob);
+
+  return NBC.isNestedBlob();
+}
+
+class BlobOperationsCounter : public SCEVVisitor<BlobOperationsCounter> {
+private:
+  unsigned NumOperations;
+
+public:
+  BlobOperationsCounter() : NumOperations(0) {}
+
+  void visitConstant(const SCEVConstant *Constant) {}
+
+  void visitUnknown(const SCEVUnknown *Unknown) {}
+
+  void visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
+    ++NumOperations;
+    visit(Trunc->getOperand());
+  }
+
+  void visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
+    ++NumOperations;
+    visit(ZExt->getOperand());
+  }
+
+  void visitSignExtendExpr(const SCEVSignExtendExpr *SExt) {
+    ++NumOperations;
+    visit(SExt->getOperand());
+  }
+
+  void visitNAryExpr(const SCEVNAryExpr *NAry) {
+    NumOperations += (NAry->getNumOperands() - 1);
+    for (const auto *Op : NAry->operands()) {
+      visit(Op);
+    }
+  }
+
+  void visitAddExpr(const SCEVAddExpr *Add) { visitNAryExpr(Add); }
+
+  void visitMulExpr(const SCEVMulExpr *Mul) { visitNAryExpr(Mul); }
+
+  void visitSMaxExpr(const SCEVSMaxExpr *SMax) { visitNAryExpr(SMax); }
+
+  void visitUMaxExpr(const SCEVUMaxExpr *UMax) { visitNAryExpr(UMax); }
+
+  void visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
+    llvm_unreachable("AddRec not expected!");
+  }
+
+  void visitUDivExpr(const SCEVUDivExpr *Div) {
+    ++NumOperations;
+    visit(Div->getLHS());
+    visit(Div->getRHS());
+  }
+
+  void visitCouldNotCompute(const SCEVCouldNotCompute *SC) {
+    llvm_unreachable("Could not compute not expected!");
+  }
+
+  unsigned getNumOperations() const { return NumOperations; }
+};
+
+unsigned BlobUtils::getNumOperations(BlobTy Blob) {
+  BlobOperationsCounter BOC;
+  BOC.visit(Blob);
+
+  return BOC.getNumOperations();
+}
+
+unsigned BlobUtils::getNumOperations(unsigned BlobIndex) const {
+  return getNumOperations(getBlob(BlobIndex));
 }

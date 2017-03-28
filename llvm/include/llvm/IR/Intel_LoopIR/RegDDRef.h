@@ -538,7 +538,7 @@ public:
 
   /// Sets trailing offsets for \p DimensionNum.
   void setTrailingStructOffsets(unsigned DimensionNum,
-                          const SmallVectorImpl<unsigned> &Offsets);
+                                const SmallVectorImpl<unsigned> &Offsets);
 
   /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
   /// offsets.
@@ -722,6 +722,31 @@ public:
   /// NOTE: This function asserts if any of the temp blobs is not contained in
   /// the DDRef.
   unsigned findMaxBlobLevel(unsigned BlobIndex) const;
+
+  /// Returns true if ref has an IV at \p Level.
+  bool hasIV(unsigned Level) const;
+
+  /// Returns the defined at level of the ref.
+  unsigned getDefinedAtLevel() const;
+
+  /// \brief Replace any loop-level IV by a given constant integer.
+  void replaceIVByConstant(unsigned LoopLevel, int64_t Val);
+
+  /// \brief A RegDDRef is nonlinear if any of the following is true:
+  /// - its baseCE (if available) is nonlinear
+  /// - any CE is nonlinear
+  bool isNonLinear(void) const;
+
+  /// Shift all CE(s) in the RegDDRef* by a given Amount.
+  /// E.g.
+  /// -----------------------------------------------------
+  /// |Orig Ref  |Shift Amount  | After Shift             |
+  /// -----------------------------------------------------
+  ///  A[i]      | 1            |  A[i+1]                 |
+  ///  A[2i]     | 1            |  A[2(i+1)]  -> A[2i+2]  |
+  ///  A[2i+1]   | -1           |  A[2(i-1)+1]-> A[2i-1]  |
+  /// -----------------------------------------------------
+  void shift(unsigned LoopLevel, int64_t Amount);
 
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;

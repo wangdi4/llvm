@@ -6,11 +6,11 @@
 ; CHECK: + LiveOut symbases: 6
 ; CHECK-NOT: ,
 ; CHECK-SAME: {{$}}
-; CHECK: |   + LiveOut symbases: 3, 12
+; CHECK: |   + LiveOut symbases: 12
 ; CHECK-NOT: ,
 ; CHECK-SAME: {{$}}
 ; CHECK: |   + END LOOP
-; CHECK: |   + LiveOut symbases: 4, 6
+; CHECK: |   + LiveOut symbases: 6
 ; CHECK-NOT: ,
 ; CHECK-SAME: {{$}}
 ; CHECK: |   + END LOOP

@@ -19,8 +19,6 @@
 
 ; CHECK: region:
 ; CHECK: {{loop.[0-9]+:}}
-;First gep is uninteresting, it is for the lhs of <3>
-; CHECK: getelementptr
 ; IV is for rhs of <3>
 ; CHECK: load i64, i64* %i1.i64
 
