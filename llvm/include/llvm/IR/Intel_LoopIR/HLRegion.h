@@ -25,6 +25,7 @@
 namespace llvm {
 
 class BasicBlock;
+class DbgInfoIntrinsic;
 
 namespace loopopt {
 
@@ -48,6 +49,9 @@ public:
   typedef ChildNodeTy::const_iterator const_child_iterator;
   typedef ChildNodeTy::reverse_iterator reverse_child_iterator;
   typedef ChildNodeTy::const_reverse_iterator const_reverse_child_iterator;
+
+  typedef SmallDenseMap<unsigned, SmallVector<const DbgInfoIntrinsic *, 2>>
+      DebugIntrinMap;
 
 protected:
   HLRegion(HLNodeUtils &HNU, IRRegion &IReg);
@@ -76,7 +80,15 @@ private:
   IRRegion &IRReg;
   ChildNodeTy Children;
 
+  // Symbase to llvm.dbg.* intrinsics.
+  DebugIntrinMap DbgIntrinMap;
+
 public:
+  /// Returns the map between symbase and llvm.dbg.* intrinsics.
+  const DebugIntrinMap &getDebugIntrinMap() const {
+    return DbgIntrinMap;
+  }
+
   /// Prints header for the region.
   void printHeader(formatted_raw_ostream &OS, unsigned Depth,
                    bool PrintIRRegion, bool Detailed) const;

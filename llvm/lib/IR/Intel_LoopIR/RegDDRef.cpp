@@ -59,7 +59,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
       AddressOf(Info.AddressOf), Volatile(Info.Volatile),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      MDNodes(Info.MDNodes) {}
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 

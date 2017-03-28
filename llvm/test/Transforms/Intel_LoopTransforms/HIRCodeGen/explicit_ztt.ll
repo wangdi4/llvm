@@ -3,7 +3,7 @@
 ;;
 ; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; basic cg
-; CHECK: region:
+; CHECK: region.0:
 
 ; loop 1
 ; CHECK: br label %[[L1Label:loop.[0-9]+]]

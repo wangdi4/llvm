@@ -17,7 +17,7 @@
 ; CHECK: out.de.ssa
 
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: {{loop.[0-9]+:}}
 ; IV is for rhs of <3>
 ; CHECK: load i64, i64* %i1.i64

@@ -2,8 +2,8 @@
 
 ; RUN: opt -hir-ssa-deconstruction %s | opt -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck %s
 
-; CHECK: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
-; CHECK: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
+; CHECK-DAG: (%a)[i1 + %j] --> (%a)[i1 + %i] ANTI
+; CHECK-DAG: (%a)[i1 + %i] --> (%a)[i1 + %j] FLOW
 
 ; RUN: opt -hir-ssa-deconstruction < %s | opt -scoped-noalias -analyze -hir-dd-analysis -hir-dd-analysis-verify=Region | FileCheck --check-prefix=SCOPED-AA %s
 

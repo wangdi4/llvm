@@ -110,6 +110,12 @@ private:
 
   uint64_t MaxTripCountEstimate;
 
+  // Bottom test debug location.
+  DebugLoc CmpDbgLoc;
+
+  // Back-edge branch debug location.
+  DebugLoc BranchDbgLoc;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -173,9 +179,6 @@ protected:
   /// pretty print like ztt, innermost flag etc.
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
-
-  /// Set or replace !llvm.loop metadata.
-  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
 
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
@@ -268,22 +271,14 @@ public:
   }
 
   /// Adds new predicate in ZTT.
-  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                       FastMathFlags FMF = FastMathFlags());
+  void addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// Replaces existing ztt predicate pointed to by CPredI, by NewPred.
-  void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
-
-  /// Returns the fast math flags for the existing ztt predicate pointed by \p
-  /// CPredI.
-  FastMathFlags getZttPredicateFMF(const_ztt_pred_iterator CPredI) const;
-
-  /// Sets fast math flags for the existing ztt predicate pointed to by \p
-  /// CPredI.
-  void setZttPredicateFMF(const_ztt_pred_iterator CPredI, FastMathFlags FMF);
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                           const HLPredicate &NewPred);
 
   /// Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -685,6 +680,9 @@ public:
     addLiveOutTemp(NewSymbase);
   }
 
+  /// Set or replace !llvm.loop metadata.
+  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
+
   /// Returns !llvm.loop metadata associated with the Loop.
   MDNode *getLoopMetadata() const { return LoopMetadata; }
 
@@ -710,6 +708,14 @@ public:
 
   bool canNormalize() const;
   bool normalize();
+
+  const DebugLoc &getCmpDebugLoc() const { return CmpDbgLoc; }
+  void setCmpTestDebugLoc(const DebugLoc &Loc) { CmpDbgLoc = Loc; }
+
+  const DebugLoc &getBranchDebugLoc() const { return BranchDbgLoc; }
+  void setBranchDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
+
+  const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
 };
 
 } // End namespace loopopt

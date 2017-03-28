@@ -100,6 +100,12 @@ private:
     // getAllMetadata() in Instruction.h.
     MDNodesTy MDNodes;
 
+    // Debug location of the GEP instruction.
+    DebugLoc GepDbgLoc;
+
+    // Debug location of the load/store instruction.
+    DebugLoc MemDbgLoc;
+
     // Comparators to sort MDNodes.
     struct MDKindCompareLess;
     struct MDKindCompareEqual;
@@ -334,6 +340,19 @@ public:
   void setAlignment(unsigned Align) {
     createGEP();
     getGEPInfo()->Alignment = Align;
+  }
+
+  // Get/Set DebugLoc for the Load/Store instruction
+  const DebugLoc &getMemDebugLoc() const { return getGEPInfo()->MemDbgLoc; }
+  void setMemDebugLoc(const DebugLoc &Loc) { getGEPInfo()->MemDbgLoc = Loc; }
+
+  // Get/Set DebugLoc for the GEP instruction
+  const DebugLoc &getGepDebugLoc() const { return getGEPInfo()->GepDbgLoc; }
+  void setGepDebugLoc(const DebugLoc &Loc) { getGEPInfo()->GepDbgLoc = Loc; }
+
+  // Wrapper method to return relevant debug location.
+  const DebugLoc &getDebugLoc() const {
+    return isAddressOf() ? getGepDebugLoc() : getMemDebugLoc();
   }
 
   /// \brief Extract and submit AA metadata

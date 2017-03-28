@@ -9,7 +9,7 @@
 ;          END REGION
 ; HLIfs may have undefined predicate, which should be CG as a br with undef
 ; as first operand
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: loop.{{[0-9]+}}:
 ;CHECK-NEXT: br i1 undef, 
 

@@ -56,6 +56,27 @@ typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 typedef CmpInst::Predicate PredicateTy;
 const PredicateTy UNDEFINED_PREDICATE = PredicateTy::BAD_FCMP_PREDICATE;
 
+struct HLPredicate {
+  PredicateTy Kind;
+  FastMathFlags FMF;
+  DebugLoc DbgLoc;
+
+  HLPredicate() {}
+  HLPredicate(PredicateTy Kind, FastMathFlags FMF = FastMathFlags(),
+              const DebugLoc &Loc = DebugLoc())
+      : Kind(Kind), FMF(FMF), DbgLoc(Loc) {
+    assert((!FMF.any() || CmpInst::isFPPredicate(Kind)) &&
+           "FastMathFlags are set on non-FP predicate");
+  }
+
+  bool operator==(PredicateTy Kind) const { return this->Kind == Kind; }
+  bool operator!=(PredicateTy Kind) const { return !(*this == Kind); }
+  bool operator==(const HLPredicate &Pred) const { return *this == Pred.Kind; }
+  bool operator!=(const HLPredicate &Pred) const { return !(*this == Pred); }
+
+  operator PredicateTy() const { return Kind; }
+};
+
 /// \brief High level IR node base class
 ///
 /// This represents a node of the High level IR. It is used to represent
@@ -236,6 +257,9 @@ public:
 
   /// \brief Verifies HLNode integrity.
   virtual void verify() const;
+
+  // Returns current node debug location.
+  virtual const DebugLoc getDebugLoc() const { return DebugLoc(); }
 };
 
 } // End loopopt namespace

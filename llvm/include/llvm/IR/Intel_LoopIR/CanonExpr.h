@@ -17,6 +17,7 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -140,6 +141,8 @@ private:
   int64_t Denominator;
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
+
+  DebugLoc DbgLoc;
 
 protected:
   CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
@@ -684,6 +687,9 @@ public:
   /// Verifies that the incoming nesting level is valid for this CE, asserts
   /// otherwise.
   bool verifyNestingLevel(unsigned NestingLevel) const;
+
+  void setDebugLoc(const DebugLoc &DbgLoc) { this->DbgLoc = DbgLoc; }
+  const DebugLoc &getDebugLoc() const { return DbgLoc; }
 };
 
 } // End loopopt namespace

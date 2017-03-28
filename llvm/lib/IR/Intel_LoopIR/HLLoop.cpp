@@ -47,7 +47,7 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
+      MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -94,7 +94,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       LoopMetadata(HLLoopObj.LoopMetadata),
-      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate) {
+      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
+      CmpDbgLoc(HLLoopObj.CmpDbgLoc),
+      BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
 
   initialize();
 
@@ -373,10 +375,10 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                             FastMathFlags FMF) {
+void HLLoop::addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
+                             RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->addPredicate(Pred, Ref1, Ref2, FMF);
+  Ztt->addPredicate(Pred, Ref1, Ref2);
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
@@ -409,20 +411,9 @@ void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
 }
 
 void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                                 PredicateTy NewPred) {
+                                 const HLPredicate &NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
-}
-
-FastMathFlags HLLoop::getZttPredicateFMF(const_ztt_pred_iterator CPredI) const {
-  assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPredicateFMF(CPredI);
-}
-
-void HLLoop::setZttPredicateFMF(const_ztt_pred_iterator CPredI,
-                                FastMathFlags FMF) {
-  assert(hasZtt() && "Ztt is absent!");
-  Ztt->setPredicateFMF(CPredI, FMF);
 }
 
 RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,

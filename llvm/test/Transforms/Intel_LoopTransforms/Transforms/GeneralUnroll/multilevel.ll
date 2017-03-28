@@ -22,7 +22,7 @@
 ; CHECK: br i1 true, {{.*}}label %region
 
 ; check loop is unrolled.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: loop{{.*}}
 ; CHECK: mul i64 16
 ; CHECK: getelementptr

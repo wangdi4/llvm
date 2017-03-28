@@ -19,6 +19,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -451,6 +452,26 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
   return !CMA.isProfitable();
 }
 
+bool HIRRegionIdentification::isDebugMetadataOnly(MDNode *Node) {
+  unsigned Ops = Node->getNumOperands();
+  if (Ops == 1) {
+    return isa<DILocation>(Node) || isa<DINode>(Node);
+  }
+
+  for (unsigned I = 0; I < Ops; ++I) {
+    MDNode *OpNode = dyn_cast<MDNode>(Node->getOperand(I));
+    if (OpNode == Node) {
+      continue;
+    }
+
+    if (!OpNode || !isDebugMetadataOnly(OpNode)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool HIRRegionIdentification::isReachableFromImpl(
     const BasicBlock *BB, const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
     const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
@@ -650,8 +671,10 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // Skip loop with vectorize/unroll pragmas for now so that tests checking for
-  // these are not affected. Allow SIMD loops.
-  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && Lp.getLoopID()) {
+  // these are not affected. Allow SIMD loops and dbg metadata.
+  MDNode *LoopID = Lp.getLoopID();
+  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
+      !isDebugMetadataOnly(LoopID)) {
     DEBUG(
         dbgs()
         << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");

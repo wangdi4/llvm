@@ -12,7 +12,7 @@
 ;   }
 ; }
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: loop.{{[0-9]+}}
 ; CHECK: call i32 (i64, ...) bitcast (i32 (...)* @bar to i32 (i64, ...)*)
 

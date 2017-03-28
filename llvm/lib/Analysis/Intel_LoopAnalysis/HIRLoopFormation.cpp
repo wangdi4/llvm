@@ -319,8 +319,9 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
     return;
   }
 
-  // This function retuns false if the condition is acting like a ztt but cannot
-  // be set as one due to presence of non-HLInst nodes so we need to bail out.
+  // This function returns false if the condition is acting like a ztt but
+  // cannot be set as one due to presence of non-HLInst nodes so we need to
+  // bail out.
   if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
     return;
   }
@@ -372,6 +373,12 @@ void HIRLoopFormation::formLoops() {
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
     setIVType(HLoop);
+    HLoop->setLoopMetadata(Lp->getLoopID());
+
+    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+    HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
+    HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
+
     HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, std::next(LabelIter),
                                               BottomTestIter);
 

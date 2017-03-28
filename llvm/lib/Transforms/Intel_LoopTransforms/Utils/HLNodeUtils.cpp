@@ -94,7 +94,7 @@ HLInst *HLNodeUtils::createHLInst(Instruction *Inst) {
   return new HLInst(*this, Inst);
 }
 
-HLIf *HLNodeUtils::createHLIf(PredicateTy FirstPred, RegDDRef *Ref1,
+HLIf *HLNodeUtils::createHLIf(const HLPredicate &FirstPred, RegDDRef *Ref1,
                               RegDDRef *Ref2) {
   return new HLIf(*this, FirstPred, Ref1, Ref2);
 }
@@ -771,9 +771,9 @@ HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 false, false, nullptr);
 }
 
-HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
                                RegDDRef *OpRef2, const Twine &Name,
-                               RegDDRef *LvalRef, FastMathFlags FMF) {
+                               RegDDRef *LvalRef) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -797,7 +797,7 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred, FMF);
+  HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);
@@ -805,10 +805,10 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+HLInst *HLNodeUtils::createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                                   RegDDRef *OpRef2, RegDDRef *OpRef3,
                                   RegDDRef *OpRef4, const Twine &Name,
-                                  RegDDRef *LvalRef, FastMathFlags FMF) {
+                                  RegDDRef *LvalRef) {
   Value *InstVal;
   HLInst *HInst;
 
@@ -824,7 +824,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, DummyVal, DummyVal, Name);
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
-  HInst->setPredicate(Pred, FMF);
+  HInst->setPredicate(Pred);
 
   HInst->setOperandDDRef(OpRef1, 1);
   HInst->setOperandDDRef(OpRef2, 2);

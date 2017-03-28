@@ -31,9 +31,9 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType,
-                     bool IsSExt, unsigned DefLevel, int64_t ConstVal,
-                     int64_t Denom, bool IsSignedDiv)
+CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType,
+                     Type *DestType, bool IsSExt, unsigned DefLevel,
+                     int64_t ConstVal, int64_t Denom, bool IsSignedDiv)
     : CEU(CEU), SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv) {
   assert(CanonExprUtils::isValidDefLevel(DefLevel) && "Invalid def level!");
@@ -49,7 +49,7 @@ CanonExpr::CanonExpr(const CanonExpr &CE)
     : CEU(CE.CEU), SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
       DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
-      IsSignedDiv(CE.IsSignedDiv) {
+      IsSignedDiv(CE.IsSignedDiv), DbgLoc(CE.DbgLoc) {
 
   CEU.Objs.insert(this);
 }

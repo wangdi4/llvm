@@ -32,6 +32,8 @@ private:
   BasicBlock *TargetBBlock;
   HLLabel *TargetLabel;
 
+  DebugLoc DbgLoc;
+
 protected:
   HLGoto(HLNodeUtils &HNU, BasicBlock *TargetBB);
   HLGoto(HLNodeUtils &HNU, HLLabel *TargetL);
@@ -80,6 +82,9 @@ public:
 
   /// \brief Verifies HLGoto integrity.
   virtual void verify() const override;
+
+  const DebugLoc getDebugLoc() const override { return DbgLoc; }
+  void setDebugLoc(const DebugLoc &Loc) { DbgLoc = Loc; }
 };
 
 } // End namespace loopopt

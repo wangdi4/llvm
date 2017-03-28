@@ -146,6 +146,10 @@ private:
   /// cycle which doesn't go through backedges. This indicates irreducible CFG.
   bool containsCycle(const BasicBlock *BB, const Loop &Lp) const;
 
+  /// Returns true if metadata node \p Node contains only debug metadata or
+  /// equals null.
+  static bool isDebugMetadataOnly(MDNode *Node);
+
 public:
   static char ID; // Pass identification
   HIRRegionIdentification();

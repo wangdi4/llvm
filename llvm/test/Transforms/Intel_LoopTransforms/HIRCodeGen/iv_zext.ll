@@ -24,7 +24,7 @@
 ;          END REGION
 ;
 
-; CHECK: region:
+; CHECK: region.0:
 
 ; CHECK: {{loop.[0-9]+:}}
 ; the interesting load of iv is on rhs, which is cg'd after address

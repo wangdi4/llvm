@@ -30,6 +30,10 @@ static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
                                      cl::Hidden,
                                      cl::desc("Print HLNode TopSort numbers"));
 
+static cl::opt<bool> PrintLineNum("hir-details-line-num", cl::init(false),
+                                  cl::Hidden,
+                                  cl::desc("Print node origin line number"));
+
 HLNode::HLNode(HLNodeUtils &HNU, unsigned SCID)
     : HNU(HNU), SubClassID(SCID), Parent(nullptr), TopSortNum(0),
       MaxTopSortNum(0) {
@@ -74,15 +78,23 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 
   LoopIndentString.clear();
 
-  /// Placeholder until we can get source location.
-  if (!isa<HLRegion>(this)) {
-    OS << "<" << Number;
-    if (PrintTopSortNum) {
-      OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
-    }
-    OS << ">";
+  int Padding = 10;
+
+  OS << "<" << Number;
+  if (PrintTopSortNum) {
+    Padding += 3;
+    OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
   }
-  OS.PadToColumn(10);
+
+  if (PrintLineNum) {
+    Padding += 3;
+    if (const DebugLoc Dbg = getDebugLoc()) {
+      OS << ":" << Dbg.getLine();
+    }
+  }
+
+  OS << ">";
+  OS.PadToColumn(Padding);
 
   auto Parent = getParent();
 

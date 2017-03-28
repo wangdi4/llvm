@@ -3,7 +3,7 @@
 ; only once, before loop
 ; Also verifies loop nest is correctly nested, i1 then i2
 ; basic cg
-; CHECK: region: 
+; CHECK: region.0: 
 ;  sext.i32.i64(%n) + -1 is our ub for loop 1
 ; CHECK: [[SEXT_OP1:%[0-9]+]] = sext i32 %n to i64
 ; CHECK-NEXT:  [[UB1:%[0-9]+]] = add i64 [[SEXT_OP1]], -1

@@ -2,7 +2,7 @@
 
 ; Verify that the generated call has the same calling convention and tail marker as the original one.
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: tail call fastcc i32 @bar
 
 ; ModuleID = 'call-conv.ll'

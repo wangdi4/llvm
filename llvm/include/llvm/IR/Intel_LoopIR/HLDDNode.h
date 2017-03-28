@@ -65,6 +65,7 @@ protected:
 
   /// Implements get*OperandDDRef() functionality.
   RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const;
+
   /// Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 

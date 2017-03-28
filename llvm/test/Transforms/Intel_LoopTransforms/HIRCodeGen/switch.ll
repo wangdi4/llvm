@@ -19,7 +19,7 @@
 ;<21>         + END LOOP
 ;          END REGION
 
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: loop.[[LOOP_NUM:[0-9]+]]:
 ;CHECK-NEXT: switch i32 %c, label %[[SWITCH_NAME:hir.sw.[0-9]+]].default [
 ;CHECK-NEXT: i32 0, label %[[SWITCH_NAME]].case.0

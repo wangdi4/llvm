@@ -391,7 +391,7 @@ void HIROptPredicate::releaseMemory() {}
 unsigned HIROptPredicate::getDefinedAtLevel(const HLIf *If) {
   unsigned Level = 0;
   for (auto PI = If->pred_begin(), PE = If->pred_end(); PI != PE; ++PI) {
-    CanonExpr *CEs[] = {
+    const CanonExpr *CEs[] = {
         If->getPredicateOperandDDRef(PI, true)->getSingleCanonExpr(),
         If->getPredicateOperandDDRef(PI, false)->getSingleCanonExpr()};
 

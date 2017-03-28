@@ -502,7 +502,7 @@ public:
   HLGoto *createHLGoto(HLLabel *TargetL);
 
   /// Returns a new HLIf.
-  HLIf *createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
+  HLIf *createHLIf(const HLPredicate &FirstPred, RegDDRef *Ref1,
                    RegDDRef *Ref2);
 
   /// Returns a new HLLoop.
@@ -688,16 +688,14 @@ public:
                     const Twine &Name = "xor", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Cmp instruction.
-  HLInst *createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
-                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr,
-                    FastMathFlags FMF = FastMathFlags());
+  HLInst *createCmp(const HLPredicate &Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Select instruction.
-  HLInst *createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+  HLInst *createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
-                       RegDDRef *LvalRef = nullptr,
-                       FastMathFlags FMF = FastMathFlags());
+                       RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,

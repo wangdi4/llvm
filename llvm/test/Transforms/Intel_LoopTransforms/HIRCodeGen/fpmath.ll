@@ -23,7 +23,7 @@
 ; Verify HIR Code Generation
 
 ; CHECK: After HIR
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: fadd fast double
 ; CHECK: fmul fast double
 

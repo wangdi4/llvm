@@ -429,7 +429,7 @@ unsigned LoopResourceInfo::LoopResourceVisitor::getOperationCost(
     Cost = TTI.getOperationCost(CInst->getOpcode(), InstTy, OpTy);
 
   } else if (isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) {
-    auto Pred = HInst->getPredicate();
+    PredicateTy Pred = HInst->getPredicate();
     Cost = TTI.getOperationCost(
         CmpInst::isIntPredicate(Pred) ? Instruction::ICmp : Instruction::FCmp,
         InstTy);

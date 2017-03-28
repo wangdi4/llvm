@@ -327,20 +327,30 @@ private:
   /// FMF otherwise.
   static FastMathFlags parseFMF(const CmpInst *Cmp);
 
+  /// Parses llvm.dbg.* intrinsic and store info in the parent HLRegion.
+  bool parseDebugIntrinsic(HLInst *HInst);
+
+  /// Parses LLVM metadata and updates RegDDRef \p Ref.
+  static void parseMetadata(const Instruction *Inst, RegDDRef *Ref);
+
+  /// Parses LLVM instruction metadata and updates canon expr \p CE.
+  static void parseMetadata(const Instruction *Inst, CanonExpr *CE);
+
+  /// Helper function to call parseMetadata(const Instruction *, CanonExpr *).
+  static void parseMetadata(const Value *Val, CanonExpr *CE);
+
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions and returns predicates in \p Preds and DDRefs in \p Refs. \p
   /// AllowMultiplePreds indicates whether we should break '&&' conditions into
   /// different predicates.
   void parseCompare(const Value *Cond, unsigned Level,
-                    SmallVectorImpl<PredicateTy> &Preds,
-                    SmallVectorImpl<const CmpInst *> &CmpInsts,
+                    SmallVectorImpl<HLPredicate> &Preds,
                     SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
-  void parseCompare(const Value *Cond, unsigned Level, PredicateTy *Pred,
-                    const CmpInst **Cmp, RegDDRef **LHSDDRef,
-                    RegDDRef **RHSDDRef);
+  void parseCompare(const Value *Cond, unsigned Level, HLPredicate *Pred,
+                    RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
 
   /// Clears blob level map populated for the previous DDRef.
   void clearTempBlobLevelMap();

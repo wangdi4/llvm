@@ -20,7 +20,7 @@
 ; CHECK: br i1 true, {{.*}}label %region
 
 ; check loop is unrolled.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: loop{{.*}}
 
 ; Unroll body

@@ -11,7 +11,7 @@
 ; CHECK: br label %loop
 
 ; 
-; CHECK-NOT: region:
+; CHECK-NOT: region.0:
 ; CHECK: loop.[[NUM:.*]]:
 ; CHECK-NEXT: phi{{.*}}[ 0, %entry ] 
 
