@@ -8,7 +8,7 @@ if(WIN32)
     # As discussed with VPG (CORC-1070) OclCpuDebugging.dll won't be a part of the driver,
     # "This increases footprint of the driver and don't bring value to iGFX driver product.
     # This library should be distributed as part of SDK which is targeted for developers not final users."
-    set(TARGET_NAME OclCpuDebugging3)
+    set(TARGET_NAME OclCpuDebugging4)
 else(WIN32)
     set(TARGET_NAME OclCpuDebugging)
 endif(WIN32)
@@ -200,16 +200,3 @@ install( TARGETS ${TARGET_NAME}
 # GDB will auto-load it if it has the same name as a loaded shared object.
 set (GDB_PLUGIN libintelocl.so-gdb.py)
 install( FILES ${GDB_PLUGIN} DESTINATION bin)
-
-# This change was added in order to support the 15.33 GFX driver
-# CPU runtime (version 3.0) installation with the new SDK
-# TODO - undo this when OclCpuDebugging.dll is added to the driver
-if (WIN32)
-    if( CMAKE_SIZEOF_VOID_P EQUAL 4)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/compatibility/1533_gfx_compatible/x86/OclCpuDebugging.dll DESTINATION bin)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/compatibility/llvm34/x86/OclCpuDebugging2.dll DESTINATION bin)
-    else( CMAKE_SIZEOF_VOID_P EQUAL 4)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/compatibility/1533_gfx_compatible/x64/OclCpuDebugging.dll DESTINATION bin)
-        install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/compatibility/llvm34/x64/OclCpuDebugging2.dll DESTINATION bin)
-    endif( CMAKE_SIZEOF_VOID_P EQUAL 4)
-endif (WIN32)
