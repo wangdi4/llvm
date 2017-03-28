@@ -470,9 +470,9 @@ public:
   // AVR?...)
   // The minimum/maximum bit width of values loaded/stored are returned in
   // MinBitWidthP/MaxBitWidthP when non-null. 
-  int getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
-              unsigned int *MinBitWidthP = nullptr,
-              unsigned int *MaxBitWidthP = nullptr);
+  uint64_t getCost(AVRLoop *ALoop, unsigned int VF, VPOVLSInfoBase *VLSInfo,
+                   unsigned int *MinBitWidthP = nullptr,
+                   unsigned int *MaxBitWidthP = nullptr);
 
   virtual VPOCostGathererBase *getCostGatherer(unsigned int VF, AVRLoop *ALoop, 
                                                VPOVLSInfoBase *VLSInfo) = 0;
@@ -688,7 +688,7 @@ public:
   /// Gather loop-level information (memory references, data-dependencs) and
   /// drive the exploration of alternative Vectorization Factors for a given
   /// AVRLoop in a region.
-  VPOVecContextBase processLoop(AVRLoop *ALoop, int *Cost);
+  VPOVecContextBase processLoop(AVRLoop *ALoop, uint64_t *Cost);
 
   /// \brief Analyze a specific vectorization candidate, namely a specific
   /// \p ALoop and \p VF (Vectorization factor). Additional information
@@ -701,7 +701,8 @@ public:
   // not use VecContext for this purpose. Need to finalize what vecContext
   // will be used for. Currently it is used to pass underlying-ir level
   // information.
-  int processCandidate(AVRLoop *ALoop, unsigned int VF, VPOVecContextBase &VC);
+  uint64_t processCandidate(AVRLoop *ALoop, unsigned int VF,
+                            VPOVecContextBase &VC);
 
   /// \brief Analyze which Vectorization Factors make sense for the loop (in
   /// terms of target support and data-types operated on in the loop).

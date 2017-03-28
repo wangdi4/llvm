@@ -199,6 +199,11 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
+  // TODO - driver should not invoke VPODriver for non-vector target
+  // Until then - bail out. This should be changed to an assert later.
+  if (TTI->getRegisterBitWidth(true) == 0)
+    return false;
+
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = &*I;
     AVRWrn *AvrWrn;
