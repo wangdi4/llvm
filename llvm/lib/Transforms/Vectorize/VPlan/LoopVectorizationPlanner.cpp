@@ -651,7 +651,7 @@ void LoopVectorizationPlanner::simplifyNonLoopRegions(
 
   while (!WorkList.empty()) {
 
-    // Get CurrentVPBB and and skip it if visited.
+    // Get CurrentVPBB and skip it if visited.
     VPBlockBase *CurrentBlock = WorkList.back();
     WorkList.pop_back();
     if (Visited.count(CurrentBlock))
@@ -770,6 +770,55 @@ void LoopVectorizationPlanner::simplifyPlainCFG(VPRegionBlock *TopRegion,
   simplifyNonLoopRegions(TopRegion, VPLInfo, DomTree, PostDomTree, PlanUtils);
 }
 
+// This is a temporal implementation to detect and discard non-loop regions
+// whose entry and exit blocks are in different graph cycles. At this point, the
+// only cycles we have to care about are those created by loop latches. This
+// means that problematic potential non-loop regions will have entry and/or exit
+// blocks immediately nested inside a VPLoopRegion (i.e., block's parent will be
+// a VPLoopRegion). In order to detect such cases, we currently check whether
+// the loop header is reachable starting from region's entry block up to
+// region's exit block.
+//
+static bool regionIsBackEdgeCompliant(const VPBlockBase *Entry,
+                                      const VPBlockBase *Exit,
+                                      VPRegionBlock *ParentRegion) {
+
+  // If the immediate parent region is not a loop region, current region won't
+  // have any problem with loop cycles, so it's back edge compliant
+  if (!isa<VPLoopRegion>(ParentRegion))
+    return true;
+
+  // Expensive check: check if loop header is inside the region
+  VPLoop *ParentLoop = cast<VPLoopRegion>(ParentRegion)->getVPLoop();
+  VPBlockBase *LoopHeader = ParentLoop->getHeader();
+  assert(ParentLoop->getUniqueExitBlock() && "Only single-exit loops expected");
+  assert(ParentLoop->contains(Entry) && "Potential entry blocks should be inside the loop");
+  assert(ParentLoop->contains(Exit) && "Potential exit blocks should be inside the loop");
+
+  SmallVector<const VPBlockBase *, 32> WorkList;
+  SmallPtrSet<const VPBlockBase *, 32> Visited;
+  WorkList.push_back(Entry);
+
+  while (!WorkList.empty()) {
+    const VPBlockBase *Current = WorkList.back();
+    WorkList.pop_back();
+   
+    if (Visited.count(Current))
+      continue;
+    Visited.insert(Current);
+
+    if (Current == LoopHeader)
+      return false;
+
+    // Add successors but skip Exit successors
+    if (Current != Exit)
+      for (auto Succ : Current->getSuccessors())
+        WorkList.push_back(Succ);
+  }
+
+  return true;
+}
+
 // TODO: Split into multiple functions
 // TODO: consts
 void LoopVectorizationPlanner::buildHierarchicalCFG(
@@ -792,7 +841,7 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
 
   while (!WorkList.empty()) {
 
-    // Get CurrentVPBB and and skip it if visited.
+    // Get CurrentVPBB and skip it if visited.
     VPBlockBase *Current = WorkList.back();
     WorkList.pop_back();
     if (Visited.count(Current))
@@ -871,8 +920,10 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
               // TODO: Temporal check to skip regions that share exit node
               // with parent region.
               PostDom->getParent()->getExit() != PostDom &&
-              // Skip potential entry block if it has outgoing back-edges
-              !PlanUtils.blockIsLoopLatch(Dom, VPLInfo)) {
+              // Skip region if parent region is a loop and it contains parent
+              // loop's back-edges
+              regionIsBackEdgeCompliant(Dom /*Entry*/, PostDom /*Exit*/,
+                                        ParentRegion)) {
 
             // Create new region
             NewRegion = PlanUtils.createRegion(false /*isReplicator*/);
@@ -927,6 +978,8 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
       // New region has been created. Add NewRegion's successors. NewRegion
       // subgraph has already been visited.
       for (auto Succ : NewRegion->getSuccessors()) {
+        DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                     << "\n");
         WorkList.push_back(Succ);
       }
     } else {
@@ -935,6 +988,8 @@ void LoopVectorizationPlanner::buildHierarchicalCFG(
 
       // No new region has been created. Add CurrentVPBB's successors.
       for (auto Succ : CurrentVPBB->getSuccessors()) {
+        DEBUG(dbgs() << "Adding " << Succ->getName() << " to WorkList"
+                     << "\n");
         WorkList.push_back(Succ);
       }
     }
@@ -1223,44 +1278,61 @@ void LoopVectorizationPlanner::verifyHierarchicalCFG(
 }
 
 // It builds a VPlan with the initial Hierarchical CFG (HCFG) from the input IR.
-// The resulting HCFG won't have a one-to-one correspondence with the input CFG.
-// The algorithm applies the following steps:
+// The resulting HCFG will not have a one-to-one correspondence with the input
+// CFG. The algorithm applies the following main steps:
 //
-//// 1. buildPlainCFG: builds a plain CFG from the input IR. The plain CFG only
+// 1. buildPlainCFG: builds a plain CFG from the input IR. The plain CFG only
 // contains VPBasicBlock's with VPOneByOneRecipe's (only
 // VPVectorizeOneByOneRecipe's by now). A VPRegionBlock encloses all the
 // VPBasicBlock's of the plain CFG (topmost VPRegionBlock). Two dummy
-// VPBasicBlock's are used as topmost region's Entry
-// and Exit.
+// VPBasicBlock's are used as topmost region's Entry and Exit.
 //
 // WIP/TODOs:
-//     - Add VPScalarizeOneByOneRecipe's
-//     - Add VPConditionalBitRecipe's (Matt)
 //     - Temporal implementation: if incoming outermost loop has multiple exits,
 //     a dummy VPBasicBlock is created as landing pad for all loop exits.
 //
-// 2. simplifyPlanCFG: applies transformations to plain CFG to make it suitable
+// 2. simplifyPlainCFG: applies transformations to plain CFG to make it suitable
 // for construction of VPRegionBlock's in step 3. These transformations include:
+// TODO:
 //     - Loop preheader massaging
+//     - SEME-to-SESE loop massaging (WIP)
+//     - Inne loop non-uniform control flow massaging 
 //     - Loop exits massaging
-//     - SEME-to-SESE loop massaging (TODO, Satish)
 //     - Non-loop region Entry and Exit massaging
 //
-// VPBlockBase-based DT/PDT trees and VPLoopInfo must be consistent after this
-// step.
+// 3. buildHierarchicalCFG: traverses all the VPBasicBlocks in the plain CFG and
+// builds VPLoopRegion's and non-loop VPRegionBlock's using an outer-to-inner
+// approach. It carries out two detection steps for each VPBasicBlock: 
 //
-// WIP: Most of these massages are currently under development. This step is
-// expected to change significantly.
+//     a. VPLoopRegion detection: checks whether the VPBasicBlock is a loop
+//     preheader using VPLoopInfo analysis. If so, it creates a new VPLoopRegion
+//     with loop preheader and loop single exit as region's entry and exit,
+//     respectively. The new VPLoopRegion is then recursively processed with
+//     buildHierarchicalCFG.
 //
-// 3. buildHierarchicalCFG: builds VPLoop's and non-loop VPRegionBlock's using
-// an outer-to-inner approach. The result of this step is a HCFG.
+//     b. VPRegionBlock (non-loop region) detection: checks whether a region can
+//     be formed using the VPBasicBlock as region's entry. If so, it creates a
+//     new VPRegionBlock that is recursively processed using
+//     buildHierarchicalCFG. The following criteria is used to form a region:
+//        - Entry block must have multiple successors.
+//        - Exit block must have a single predecessor.
+//        - Exit block cannot be the parent region's exit block (temporal check
+//          to skip regions that share exit block with parent region).
+//        - An region immediately nested inside a VPLoopRegion (i.e., the parent
+//          of the region is a VPLoopRegion) cannot contain a graph cycle (i.e.,
+//          loop latch/loop header cannot be reachable from region's entry to
+//          region's exit).
 //
-// WIP/TODOs:
-//     - VPRegionBlock size is not computed appropriately.
-//     - Add VPRegionBlock's to VPLoopInfo
-//     - Revisit VPLoop detection
-//     - VPBlockBase-based DT/PDT cannot be reused after this step. We need a
-//       specific DT/PDT per regionregion of HCFG
+// TODOs:
+//     - Build VPLoopRegions more efficiently, as a separate step without
+//       traversing the plain CFG.
+//     - Improve efficiency of regionIsBackEdgeCompliant. Use dominance
+//       frontiers or any other analysis that provides information about graph
+//       cycles.
+//     - Only if previous TODO is implemented in a different way, build non-loop
+//       region from inner to outer, traversing DomTree. We would visit a
+//       smaller number of nodes in the traversal.
+//
 
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
