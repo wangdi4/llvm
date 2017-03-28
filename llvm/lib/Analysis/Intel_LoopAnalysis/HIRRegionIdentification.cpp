@@ -698,6 +698,16 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+  // This represents a trip count of 2^n while we can only handle a trip count
+  // up to 2^n-1.
+  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
+                    "IV range currently not supported.\n");
+    return false;
+  }
+
   auto LatchBB = Lp.getLoopLatch();
 
   // We cannot build lexical links if dominator/post-dominator info is absent.
