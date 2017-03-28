@@ -65,16 +65,6 @@ include_directories( AFTER
             )
 
 if (WIN32)
-    include_directories( AFTER
-        ../common/windows/headers
-    )
-else()
-    include_directories( AFTER
-        ../common/linux/headers
-    )
-endif()
-
-if (WIN32)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8)
         add_definitions( -DRESOURCE_X64 )
     endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
