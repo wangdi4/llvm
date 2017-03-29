@@ -1158,8 +1158,8 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
       }
 
       if (TTI.getFPOpCost(I->getType())
-           == TargetTransformInfo::TCC_Expensive ||                // INTEL
-          (hasSoftFloatAttr && (InlineForXmain && !isLoadStore)))  // INTEL
+           == TargetTransformInfo::TCC_Expensive ||                 // INTEL
+          (hasSoftFloatAttr && (!InlineForXmain || !isLoadStore)))  // INTEL
         Cost += InlineConstants::CallPenalty;
     }
 
@@ -1646,8 +1646,8 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // the rest of the function body.
   Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
 
-#ifdef INTEL_CUSTOMIZATION
-  if (preferCloningToInlining(CS, *ILIC)) {
+#if INTEL_CUSTOMIZATION
+  if (InlineForXmain && preferCloningToInlining(CS, *ILIC)) {
     *ReasonAddr = NinlrPreferCloning;
     return false; 
   } 
