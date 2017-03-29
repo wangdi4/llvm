@@ -172,7 +172,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
     bool IsNearPerfectLoop = false;
     if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
-                              &IsNearPerfectLoop)) {
+                                       &IsNearPerfectLoop)) {
 
       DEBUG(dbgs() << "Is  Perfect loopnest\n");
 
@@ -574,10 +574,11 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         if (RefineDV) {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
+          DistanceVector RefinedDistV;
           bool IsIndep;
-          bool IsDVRefined =
-              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-                                LIP.OutmostNestingLevel, RefinedDV, &IsIndep);
+          bool IsDVRefined = LIP.DDA->refineDV(
+              SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
+              LIP.OutmostNestingLevel, RefinedDV, RefinedDistV, &IsIndep);
           if (IsIndep) {
             continue;
           }

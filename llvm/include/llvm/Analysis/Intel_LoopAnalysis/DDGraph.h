@@ -134,6 +134,7 @@ private:
   DDRef *Src;
   DDRef *Sink;
   DirectionVector DV;
+  DistanceVector DistVector;
   bool IsLoopIndepDepTemp;
 
 public:
@@ -142,8 +143,8 @@ public:
     IsLoopIndepDepTemp = false;
   }
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DirectionVector &DirV,
-         bool IsLoopIndepDepTempIn = false)
-      : Src(SrcRef), Sink(SinkRef), DV(DirV) {
+         const DistanceVector &DistV, bool IsLoopIndepDepTempIn = false)
+      : Src(SrcRef), Sink(SinkRef), DV(DirV), DistVector(DistV) {
     IsLoopIndepDepTemp = IsLoopIndepDepTempIn;
   }
 
@@ -171,8 +172,16 @@ public:
   // Returns direction vector of the edge.
   const DirectionVector &getDV() const { return DV; }
 
+  // Returns distance vector of the edge.
+  const DistanceVector &getDistV() const { return DistVector; }
+
   // Returns DVKind element for a loop level.
   DVKind getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
+
+  // Returns Distance for a loop level.
+  DistTy getDistanceAtLevel(unsigned Level) const {
+    return DistVector[Level - 1];
+  }
 
   // Returns true if the edge is a Forward dependence
   bool isForwardDep() const {
@@ -255,6 +264,7 @@ public:
       }
     }
     DV.print(FOS, Level);
+    DistVector.print(FOS, Level);
     FOS << " \n";
     // todo
   }

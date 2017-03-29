@@ -356,8 +356,11 @@ void DDWalk::analyze(const DDEdge *Edge) {
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
     DirectionVector DV;
+    DistanceVector DistV;
+
     bool IsIndep = false;
-    if (DDA.refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, &IsIndep)) {
+    if (DDA.refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, DistV,
+                     &IsIndep)) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     } else {
