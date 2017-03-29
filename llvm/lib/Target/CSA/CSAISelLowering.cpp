@@ -46,7 +46,7 @@ EnableCSATailCalls("enable-csa-tail-calls",
                     cl::desc("CSA: Enable tail calls."));
 
 CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget &ST)
-    : TargetLowering(TM) {
+    : TargetLowering(TM), Subtarget(ST) {
 
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
@@ -568,6 +568,25 @@ bool CSATargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
   return true;
 }
 
+bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
+  if (!Subtarget.hasFMA())
+    return false;
+
+  VT = VT.getScalarType();
+
+  if (!VT.isSimple())
+    return false;
+
+  switch (VT.getSimpleVT().SimpleTy) {
+  case MVT::f32:
+  case MVT::f64:
+    return true;
+  default:
+    break;
+  }
+
+  return false;
+}
 
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.

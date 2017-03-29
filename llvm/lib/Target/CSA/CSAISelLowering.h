@@ -106,7 +106,15 @@ namespace llvm {
     /// operations of type VT1 to VT2.
     bool isNarrowingProfitable(EVT VT1, EVT VT2) const override;
 
+    /// Return true if an FMA operation is faster than a pair of fmul and fadd
+    /// instructions.
+    bool isFMAFasterThanFMulAndFAdd(EVT VT) const override;
+
   private:
+    /// Keep a reference to the CSASubtarget around so that we can
+    /// make the right decision when generating code for different targets.
+    const CSASubtarget &Subtarget;
+
     /*
     SDValue LowerCCCCallTo(SDValue Chain, SDValue Callee,
                            CallingConv::ID CallConv, bool isVarArg,

@@ -361,6 +361,12 @@ class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
     [(set oi.RC:$dst, (outer (inner oi.RCL:$op1, RCLi8:$op2), oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
+// 'fma' is a pattern already defined by LLVM.
+// Create missing equivalents for fms and fmrs.
+class TriOpFrag<dag res> : PatFrag<(ops node:$LHS, node:$MHS, node:$RHS), res>;
+def fms : TriOpFrag<(fma node:$LHS, node:$MHS, (fneg node:$RHS))>;
+def fmrs: TriOpFrag<(fma (fneg node:$LHS), node:$MHS, node:$RHS)>;
+
 class FusedOp1<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
                InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
@@ -377,6 +383,15 @@ class FusedOp2<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
     (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
     !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op2, $op3, $op1, $rm"),
     [(set oi.RC:$dst, (outer oi.RCL:$op1, (inner oi.RCL:$op2, oi.RCL:$op3)))],
+    !listconcat(preds,gen.Preds,oi.Preds), itin>;
+
+class TriOp1<GenericOp gen, SDPatternOperator node, CSAOpInfo oi,
+               InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
+  FMTGEN<
+    (outs oi.RC:$dst),
+    (ins oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3, RMODE:$rm),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $op1, $op2, $op3, $rm"),
+    [(set oi.RC:$dst, (node oi.RCL:$op1, oi.RCL:$op2, oi.RCL:$op3))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
 class CopyOp<GenericOp gen, CSAOpInfo oi,
@@ -1192,19 +1207,19 @@ def SLADD32   : ShAdd<   SLADD,shl,  add,  Ti32, IISAdd>;
 def SLADD64   : ShAdd<   SLADD,shl,  add,  Ti64, IISAdd>;
 
 def FMA       : GenericOp<"fma", [HasFMA]>;
-def FMAF16    : FusedOp1<FMA,  fmul, fadd, Tf16, IIFMAF16>;
-def FMAF32    : FusedOp1<FMA,  fmul, fadd, Tf32, IIFMAF32>;
-def FMAF64    : FusedOp1<FMA,  fmul, fadd, Tf64, IIFMAF64>;
+def FMAF16    : TriOp1<FMA,  fma, Tf16, IIFMAF16>;
+def FMAF32    : TriOp1<FMA,  fma, Tf32, IIFMAF32>;
+def FMAF64    : TriOp1<FMA,  fma, Tf64, IIFMAF64>;
 
 def FMS       : GenericOp<"fms", [HasFMA]>;
-def FMSF16    : FusedOp1<FMS,  fmul, fsub, Tf16, IIFMAF16>;
-def FMSF32    : FusedOp1<FMS,  fmul, fsub, Tf32, IIFMAF32>;
-def FMSF64    : FusedOp1<FMS,  fmul, fsub, Tf64, IIFMAF64>;
+def FMSF16    : TriOp1<FMS,  fms, Tf16, IIFMAF16>;
+def FMSF32    : TriOp1<FMS,  fms, Tf32, IIFMAF32>;
+def FMSF64    : TriOp1<FMS,  fms, Tf64, IIFMAF64>;
 
 def FMRS      : GenericOp<"fmrs", [HasFMA]>;
-def FMRSF16   : FusedOp2<FMRS, fmul, fsub, Tf16, IIFMAF16>;
-def FMRSF32   : FusedOp2<FMRS, fmul, fsub, Tf32, IIFMAF32>;
-def FMRSF64   : FusedOp2<FMRS, fmul, fsub, Tf64, IIFMAF64>;
+def FMRSF16   : TriOp1<FMRS, fmrs, Tf16, IIFMAF16>;
+def FMRSF32   : TriOp1<FMRS, fmrs, Tf32, IIFMAF32>;
+def FMRSF64   : TriOp1<FMRS, fmrs, Tf64, IIFMAF64>;
 
 def RCPA      : GenericOp<"rcpa", [HasRcpA]>;
 def RCPAF32   : RAppOp<RCPA,             Tf32, IIRcpAF32>;

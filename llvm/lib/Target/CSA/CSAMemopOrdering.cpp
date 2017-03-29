@@ -59,6 +59,12 @@ OrderMemops("csa-order-memops",
             cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
             cl::init(1));
 
+static cl::opt<bool>
+KillReadChains("csa-kill-readchains",
+            cl::Hidden,
+            cl::desc("CSA-specific: kill ordering chains which only link reads"),
+            cl::init(true));
+
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
 // happy LLVM will be with that.
@@ -108,9 +114,20 @@ namespace {
     const CSAInstrInfo *TII;
     MachineRegisterInfo *MRI;
 
+    // For each chain, maintain 4 items:
+    // start:    the first vreg in its chain
+    // updater:  a MachineSSAUpdater
+    // uses:     a collection of all of its uses
+    // readonly: a bool: are all memops reads?
+    struct depchain {
+      unsigned start;
+      std::unique_ptr<MachineSSAUpdater> updater;
+      SmallPtrSet<MachineOperand*, MEMDEP_OPS_PER_SET> uses;
+      bool readonly;
+    };
+
+    typedef DenseMap<const AliasSet*, struct depchain> AliasSetDepchain;
     typedef DenseMap<const AliasSet*, unsigned> AliasSetVReg;
-    typedef DenseMap<const AliasSet*, std::unique_ptr<MachineSSAUpdater> > AliasSetUpdater;
-    typedef DenseMap<const AliasSet*, SmallPtrSet<MachineOperand*, MEMDEP_OPS_PER_SET> > AliasSetUses;
 
     void addMemoryOrderingConstraints(MachineFunction* thisMF);
 
@@ -147,9 +164,7 @@ namespace {
     // the block together in a single chain.
     //
     void convert_block_memops_linear(MachineBasicBlock& BB,
-                                         AliasSetUpdater& depchain_updater,
-                                         AliasSetUses& depchain_uses,
-                                         AliasSetVReg& depchain_start);
+        AliasSetDepchain& depchains);
 
     // Wavefront version.   Same conceptual functionality as linear version,
     // but more optimized.
@@ -157,9 +172,7 @@ namespace {
     // Only serializes stores in a block, but allows loads to occur in
     // parallel between stores.
     void convert_block_memops_wavefront(MachineBasicBlock& BB,
-                                         AliasSetUpdater& depchain_updater,
-                                         AliasSetUses& depchain_uses,
-                                         AliasSetVReg& depchain_start);
+        AliasSetDepchain& depchains);
 
     // Merge all the .i1 registers stored in "current_wavefront" into
     // a single output register.
@@ -229,27 +242,52 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 
   const unsigned MemTokenMOVOpcode = TII->getMemTokenMOVOpcode();
 
-  // For each alias set, maintain 3 items:
-  // depchain_start:   a map from the set to the first vreg in its chain
-  // depchain_updater: a map from the set to a MachineSSAUpdater
-  // depchain_uses:    a map from the set to a collection of all of its uses
-  AliasSetVReg    depchain_start;
-  AliasSetUpdater depchain_updater;
-  AliasSetUses    depchain_uses;
+  AliasSetDepchain depchains;
 
-  // Initialize the above maps.
+  // Initialize the maps.
   for (const AliasSet &set : AS->getAliasSets()) {
     // Create the start of the chain for each alias set.
-    depchain_start[&set] = MRI->createVirtualRegister(MemopRC);
+    depchains[&set].start = MRI->createVirtualRegister(MemopRC);
     BuildMI(*entryBB,
         entryBB->getFirstNonPHI(),
         DebugLoc(),
         TII->get(MemTokenMOVOpcode),
-        depchain_start[&set]).addImm(1);
+        depchains[&set].start).addImm(1);
     // Initialize an SSAUpdater for each set.
-    depchain_updater[&set] = std::unique_ptr<MachineSSAUpdater>(new MachineSSAUpdater(*thisMF));
-    depchain_updater[&set]->Initialize(depchain_start[&set]);
-    depchain_updater[&set]->AddAvailableValue(entryBB, depchain_start[&set]);
+    depchains[&set].updater = std::unique_ptr<MachineSSAUpdater>(new MachineSSAUpdater(*thisMF));
+    depchains[&set].updater->Initialize(depchains[&set].start);
+    depchains[&set].updater->AddAvailableValue(entryBB, depchains[&set].start);
+    depchains[&set].readonly = KillReadChains;
+  }
+
+  // An extra loop over all memops to determine which alias sets consist only
+  // of reads.
+  for (MachineBasicBlock &BB : *thisMF) {
+    for (MachineInstr &MI : BB) {
+      unsigned current_opcode = MI.getOpcode();
+      unsigned converted_opcode = TII->get_ordered_opcode_for_LDST(current_opcode);
+
+      // If this is not an ordered instruction, we're done.
+      if (current_opcode == converted_opcode)
+        continue;
+
+      assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
+      const MachineMemOperand *mOp = *MI.memoperands_begin();
+
+      // Use AliasAnalysis to determine which ordering chain we should be on.
+      AliasSet *as =
+        AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
+            mOp->getSize(), mOp->getAAInfo());
+
+      // Update the chain's readonly status.
+      depchains[as].readonly &= TII->isLoad(&MI);
+    }
+  }
+
+  for (const AliasSet &set : AS->getAliasSets()) {
+    if (depchains[&set].readonly) {
+      errs() << "Note: this alias set is read-only!\n" << set;
+    }
   }
 
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
@@ -261,12 +299,12 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     switch (OrderMemopsType) {
     case OrderMemopsMode::wavefront:
       {
-        convert_block_memops_wavefront(BB, depchain_updater, depchain_uses, depchain_start);
+        convert_block_memops_wavefront(BB, depchains);
       }
       break;
     case OrderMemopsMode::linear:
       {
-        convert_block_memops_linear(BB, depchain_updater, depchain_uses, depchain_start);
+        convert_block_memops_linear(BB, depchains);
       }
       break;
 
@@ -292,16 +330,16 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
 
     for (const AliasSet &set : AS->getAliasSets()) {
       unsigned depchain_end = MRI->createVirtualRegister(&CSA::RI1RegClass);
-      unsigned prev_chain_reg = depchain_start[&set];
+      unsigned prev_chain_reg = depchains[&set].start;
       MachineInstr* endMov = BuildMI(BB, BB.getFirstTerminator(), DebugLoc(), TII->get(MemTokenMOVOpcode), depchain_end).addReg(prev_chain_reg);
-      depchain_uses[&set].insert(endMov->operands_end()-1);
+      depchains[&set].uses.insert(endMov->operands_end()-1);
     }
   }
 
   // Finally, use the updater for each set to fully rewrite to SSA. This
   // includes generating PHI nodes.
   for (const AliasSet &set : AS->getAliasSets()) {
-    for (MachineOperand *op : depchain_uses[&set]) {
+    for (MachineOperand *op : depchains[&set].uses) {
       // There is an exception here: RewriteUse is not smart enough to find new
       // values added by "AddAvailableValue" before a use in the same basic
       // block. (I.e., it can only find them if they are in a basic block which
@@ -311,16 +349,14 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
       if(op->getParent()->getParent() == entryBB)
         continue;
 
-      depchain_updater[&set]->RewriteUse(*op);
+      depchains[&set].updater->RewriteUse(*op);
     }
   }
 }
 
 void
 CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
-    AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
-    AliasSetVReg &depchain_start)
-{
+    AliasSetDepchain& depchains) {
   DEBUG(errs() << "Wavefront memory ordering for block " << BB << "\n");
 
   // Save the latest evolution of each alias set's memory chain here.
@@ -350,6 +386,13 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
       AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
           mOp->getSize(), mOp->getAAInfo());
 
+    // If this chain consists only of readonly access, then it is unnecessary.
+    // This is a stronger requirement than is necessary.
+    if (depchains[as].readonly) {
+      ++iterMI;
+      continue;
+    }
+
     // Create a new vreg which will be written to as the next link of the
     // chain.
     unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
@@ -359,7 +402,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     // updater will fix it up later. Otherwise, just use an output created in
     // this block, which won't need updating.
     if (!depchain_reg[as])
-      depchain_reg[as] = depchain_start[as];
+      depchain_reg[as] = depchains[as].start;
 
     bool is_load = TII->isLoad(MI);
     if (is_load) {
@@ -376,7 +419,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
           depchain_reg[as]);
 
       // Update the SSA updater.
-      depchain_updater[as]->AddAvailableValue(&BB, depchain_reg[as]);
+      depchains[as].updater->AddAvailableValue(&BB, depchain_reg[as]);
 
       // We have merged/consumed all pending load outputs.
       assert(wavefront[as].size() == 0);
@@ -391,8 +434,8 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     // do this later.
     MachineOperand *newOp = &newInst->getOperand(newOpNum);
     assert(newOp && newOp->isReg() && newOp->isUse());
-    if (newOp->getReg() == depchain_start[as]) {
-      depchain_uses[as].insert(newOp);
+    if (newOp->getReg() == depchains[as].start) {
+      depchains[as].uses.insert(newOp);
     }
 
     if (!is_load) {
@@ -400,7 +443,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
       depchain_reg[as] = next_mem_reg;
 
       // Update the SSA updater.
-      depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
+      depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
     }
 
     // Finally, erase the old instruction.
@@ -418,14 +461,12 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
         depchain_reg[as]);
 
     // Update the SSA updater.
-    depchain_updater[as]->AddAvailableValue(&BB, depchain_reg[as]);
+    depchains[as].updater->AddAvailableValue(&BB, depchain_reg[as]);
   }
 }
 
 void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
-    AliasSetUpdater& depchain_updater, AliasSetUses &depchain_uses,
-    AliasSetVReg& depchain_start)
-{
+    AliasSetDepchain& depchains) {
   // Save the latest evolution of each alias set's memory chain here.
   AliasSetVReg depchain_reg;
 
@@ -451,6 +492,13 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
       AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
           mOp->getSize(), mOp->getAAInfo());
 
+    // If this chain consists only of readonly access, then it is unnecessary.
+    // This is a stronger requirement than is necessary.
+    if (depchains[as].readonly) {
+      ++iterMI;
+      continue;
+    }
+
     // Create a new vreg which will be written to as the next link of the
     // chain.
     unsigned next_mem_reg = MRI->createVirtualRegister(MemopRC);
@@ -460,7 +508,7 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // updater will fix it up later. Otherwise, just use an output created in
     // this block, which won't need updating.
     if (!depchain_reg[as])
-      depchain_reg[as] = depchain_start[as];
+      depchain_reg[as] = depchains[as].start;
 
     // Hook this instruction into the chain, connecting the previous and next
     // values. The operand number using the old value is saved to newOpNum.
@@ -473,8 +521,8 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // do this later.
     MachineOperand *newOp = &newInst->getOperand(newOpNum);
     assert(newOp && newOp->isReg() && newOp->isUse());
-    if (newOp->getReg() == depchain_start[as]) {
-      depchain_uses[as].insert(newOp);
+    if (newOp->getReg() == depchains[as].start) {
+      depchains[as].uses.insert(newOp);
     }
 
     // Advance the chain.
@@ -482,7 +530,7 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
 
     // Update the SSA updater, advising it on the latest value in this
     // evolution coming out of this BB.
-    depchain_updater[as]->AddAvailableValue(&BB, next_mem_reg);
+    depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
 
     // Finally, erase the old instruction.
     iterMI = BB.erase(iterMI);
