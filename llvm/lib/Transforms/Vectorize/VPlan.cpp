@@ -123,11 +123,21 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
       } else {
         // Replace old unconditional branch with new conditional branch.
         // Note: we rely on traversing the successors in order.
-        BasicBlock *FirstSuccBB = PredBB->getSingleSuccessor();
+        BasicBlock *FirstSuccBB;
+        BasicBlock *SecondSuccBB;
+        
+        if (PredVPBB->getSuccessors()[0] == this) {
+          FirstSuccBB = NewBB;
+          SecondSuccBB = PredBB->getSingleSuccessor();
+        } else {
+          FirstSuccBB = PredBB->getSingleSuccessor();
+          SecondSuccBB = NewBB;
+        }
+
         PredBB->getTerminator()->eraseFromParent();
         Value *Bit = PredVPBlock->getConditionBitRecipe()->getConditionBit();
         assert(Bit && "Cannot create conditional branch with empty bit.");
-        BranchInst::Create(FirstSuccBB, NewBB, Bit, PredBB);
+        BranchInst::Create(FirstSuccBB, SecondSuccBB, Bit, PredBB);
       }
     }
   }
@@ -183,6 +193,21 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
 }
 
 #ifdef INTEL_CUSTOMIZATION
+void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
+  // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
+  // successor selector pointer. The ConditionBitRecipe is kept in its
+  // original VPBB recipe list.
+  if (getNumSuccessors() > 1) {
+    assert(getConditionBitRecipe() && "Missing ConditionBitRecipe");
+    ToBB->setConditionBitRecipe(getConditionBitRecipe(), Plan);
+    ToBB->setCBlock(CBlock);
+    ToBB->setTBlock(TBlock);
+    ToBB->setFBlock(FBlock);
+    setConditionBitRecipe(nullptr, Plan);
+    CBlock = TBlock = FBlock = nullptr;
+  }
+}
+
 void VPRegionBlock::recomputeSize() {
   Size = std::distance(df_iterator<const VPBlockBase *>::begin(Entry),
                        df_iterator<const VPBlockBase *>::end(Exit));

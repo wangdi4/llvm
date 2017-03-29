@@ -194,6 +194,7 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
       VPBB = PlanUtils.createBasicBlock();
       BB2VPBB[BB] = VPBB;
       VPBB2BB[VPBB] = BB;
+      VPBB->setOriginalBB(BB);
       PlanUtils.setBlockParent(VPBB, TopRegion);
       ++TopRegionSize;
     } else {
@@ -234,6 +235,9 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
       assert(SuccVPBB && "VPBB Successor not found");
 
       PlanUtils.setSuccessor(VPBB, SuccVPBB);
+      VPBB->setCBlock(BB);
+      VPBB->setTBlock(TI->getSuccessor(0));
+
     } else if (NumSuccs == 2) {
       VPBasicBlock *SuccVPBB0 =
           createOrGetVPBB(TI->getSuccessor(0), TopRegion, TopRegionSize);
@@ -257,6 +261,10 @@ VPRegionBlock *LoopVectorizationPlanner::buildPlainCFG(
       }
 
       PlanUtils.setTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
+      VPBB->setCBlock(BB);
+      VPBB->setTBlock(TI->getSuccessor(0));
+      VPBB->setFBlock(TI->getSuccessor(1));
+
     } else {
       llvm_unreachable("Number of successors not supported");
     }
@@ -1025,7 +1033,6 @@ static void verifyRegions(const VPRegionBlock *Region) {
     // Check parent
     assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
 
-errs() << "Block Name: " << VPB->getName() << "\n";
     // Check ConditionBitRecipe
     if (VPB->getNumSuccessors() > 1)
       assert(VPB->getConditionBitRecipe() && "Missing ConditionBitRecipe");

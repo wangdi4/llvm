@@ -888,7 +888,9 @@ public:
     return &VPBasicBlock::Recipes;
   }
 
-  VPBasicBlock(const std::string &Name) : VPBlockBase(VPBasicBlockSC, Name) {}
+  VPBasicBlock(const std::string &Name) 
+    : VPBlockBase(VPBasicBlockSC, Name), CBlock(nullptr), TBlock(nullptr),
+	  FBlock(nullptr), OriginalBB(nullptr) {}
 
   ~VPBasicBlock() { Recipes.clear(); }
 
@@ -922,6 +924,8 @@ public:
         Recipes.insertAfter(After->getIterator(), Recipe);
     }
   }
+
+  void moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan);
   #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
@@ -935,8 +939,25 @@ public:
   /// Retrieve the list of VPRecipes that belong to this VPBasicBlock.
   const RecipeListTy &getRecipes() const { return Recipes; }
   RecipeListTy &getRecipes() { return Recipes; }
+#ifdef INTEL_CUSTOMIZATION
+  void setCBlock(BasicBlock *CB) { CBlock = CB; }
+  void setFBlock(BasicBlock *FB) { FBlock = FB; }
+  void setTBlock(BasicBlock *TB) { TBlock = TB; }
+  BasicBlock *getCBlock() { return CBlock; }
+  BasicBlock *getTBlock() { return TBlock; }
+  BasicBlock *getFBlock() { return FBlock; }
 
+  bool hasTrueEdge()  { return CBlock && TBlock; }
+  bool hasFalseEdge() { return CBlock && FBlock; }
+
+  void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
+  BasicBlock *getOriginalBB() { return OriginalBB;  }
 private:
+  BasicBlock *OriginalBB;
+  BasicBlock *CBlock;
+  BasicBlock *TBlock;
+  BasicBlock *FBlock;
+#endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.
   BasicBlock *createEmptyBasicBlock(VPTransformState::CFGState &CFG);
@@ -1415,14 +1436,10 @@ public:
   void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
     VPRegionBlock *ParentRegion = BlockPtr->getParent();
 
-    // Set ConditionBitRecipe in NewBlock. Note that we are only setting the
-    // successor selector pointer. The ConditionBitRecipe is kept in its
-    // original VPBB recipe list.
-    if (BlockPtr->getNumSuccessors() > 1) {
-      assert(BlockPtr->getConditionBitRecipe() && "Missing ConditionBitRecipe");
-      NewBlock->setConditionBitRecipe(BlockPtr->getConditionBitRecipe(), Plan);
-      // BlockPtr will have a single successor now.
-      BlockPtr->setConditionBitRecipe(nullptr, Plan);
+    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
+      VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
+      VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
+      ThisBB->moveConditionalEOBTo(ToBB, Plan);
     }
 
     moveSuccessors(BlockPtr, NewBlock);
