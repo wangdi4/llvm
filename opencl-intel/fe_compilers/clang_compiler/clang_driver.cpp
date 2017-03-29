@@ -28,7 +28,6 @@
 #include "cache_binary_handler.h"
 #include "mic_dev_limits.h"
 #include "common_clang.h"
-#include "os_inc.h"
 
 #include <Logger.h>
 #include <cl_sys_info.h>
