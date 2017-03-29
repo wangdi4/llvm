@@ -3,7 +3,7 @@
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
 ; CHECK:  %index = phi i64 [ 0, %vector.ph ], [ %index.next, %[[VPBB1:.*]] ]
-; CHECK:  br i1 %cmp1, label %[[VPBB:.*]], label %[[VPBB1]]
+; CHECK:  br i1 %cmp1, label %[[VPBB1]], label %[[VPBB:.*]]
 
 ; CHECK: [[VPBB]]:
 ; CHECK:   %wide.load{{.*}} = load <4 x i32>, <4 x i32>*
@@ -13,7 +13,15 @@
 ; CHECK:  phi <4 x i32> [ %wide.load, %[[VPBB]] ], [ <i32 6, i32 6, i32 6, i32 6>, %vector.body ]
 ; CHECK: %wide.load{{.*}} = load <4 x i32>,
 
-
+;void foo(int *A, int *B, int N, int c) {
+;  for (int i=0: N) {
+;    if (c != 0)
+;      tmp = B[i];
+;    else
+;      tmp = 6;
+;    A[i] += tmp;
+;  }
+;}
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 entry:
   %cmp16 = icmp sgt i32 %N, 1
