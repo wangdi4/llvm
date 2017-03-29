@@ -122,7 +122,7 @@ attributes #1 = { argmemonly nounwind }
 ; CHECK:   [[BB_12:BB[0-9]+]]:
 ; CHECK:     [[BP_18:BP[0-9]+]] = [[BP_17]]
 ; CHECK:   [[BB_7:BB[0-9]+]]:
-; CHECK:     [[BP_19:BP[0-9]+]] = [[BP_18]]
+; CHECK:     [[BP_19:BP[0-9]+]] = [[BP_16]]
 
 ; CHECK: [[region_14]]:
 ; CHECK:   [[BB_11:BB[0-9]+]]:

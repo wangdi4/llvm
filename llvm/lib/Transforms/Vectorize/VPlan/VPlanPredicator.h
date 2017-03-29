@@ -24,7 +24,7 @@ protected:
   std::map<VPConditionBitRecipeWithScalar *, VPVectorizeBooleanRecipe *>
       CBRtoVBRMap;
   void initializeGenPredicates(VPBasicBlock *VPBB);
-  int countSuccessorsNoBE(VPBlockBase *PredBlock);
+  int countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE);
   void getSuccessorsNoBE(VPBlockBase *PredBlock,
                          SmallVector<VPBlockBase *, 2> &Succs);
   VPVectorizeBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);

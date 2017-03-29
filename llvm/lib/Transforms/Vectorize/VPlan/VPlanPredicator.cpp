@@ -71,12 +71,14 @@ static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
 }
 
 // Count PredBlock's successors, skipping back-edges
-int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock) {
+int VPlanPredicator::countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE) {
+  HasBE = false;
   int cnt = 0;
   for (VPBlockBase *SuccBlock : PredBlock->getSuccessors()) {
-    if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI)) {
+    if (!PlanUtils.isBackEdge(PredBlock, SuccBlock, VPLI))
       cnt++;
-    }
+    else
+      HasBE = true;
   }
   return cnt;
 }
@@ -238,10 +240,20 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
     // create edge predicates. We use the predecessor's block predicate
     // instead. VPRegionBlocks should always hit here.
     VPPredicateRecipeBase *IncomingPredicate = nullptr;
-    int NumPredSuccsNoBE = countSuccessorsNoBE(PredBlock);
+    bool HasBackEdge = false;
+    int NumPredSuccsNoBE = countSuccessorsNoBE(PredBlock, HasBackEdge);
     if (NumPredSuccsNoBE == 1) {
       // Get the Incoming predicate to CurrBlock (BP or Edge)
-      IncomingPredicate = PredBlock->getPredicateRecipe();
+      VPBlockBase *TakePredicateFrom = PredBlock;
+      if (HasBackEdge) {
+        // If the PredBlock belongs to an inner loop, the predicate of the
+        // edge between the PredBlock and CurrentBlock is a predicate of the
+        // Entry block of the loop.
+        assert(isa<VPBasicBlock>(PredBlock) && "Only BBs have multiple exits");
+        TakePredicateFrom =
+          cast<VPLoopRegion>(PredBlock->getParent())->getEntry();
+      }
+      IncomingPredicate = TakePredicateFrom->getPredicateRecipe();
     }
     else if (NumPredSuccsNoBE == 2) {
       // Emit Edge recipes into PredBlock if required

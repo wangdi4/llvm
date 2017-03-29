@@ -169,7 +169,7 @@ attributes #2 = { nounwind }
 ; CHECK:   [[BB_16:BB[0-9]+]]:
 ; CHECK:     [[BP_23:BP[0-9]+]] = [[BP_22]]
 ; CHECK:   [[BB_10:BB[0-9]+]]:
-; CHECK:     [[BP_24:BP[0-9]+]] = [[BP_23]]
+; CHECK:     [[BP_24:BP[0-9]+]] = [[BP_21]]
 
 ; CHECK: [[region_18]]:
 ; CHECK:   [[BB_14:BB[0-9]+]]:
@@ -189,5 +189,5 @@ attributes #2 = { nounwind }
 ; CHECK:   [[BB_15:BB[0-9]+]]:
 ; CHECK:     [[BP_32:BP[0-9]+]] = [[BP_31]]
 ; CHECK:   [[BB_8:BB[0-9]+]]:
-; CHECK:     [[BP_33:BP[0-9]+]] = [[BP_32]]
+; CHECK:     [[BP_33:BP[0-9]+]] = [[BP_30]]
 
