@@ -159,6 +159,10 @@ private:
   void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
                                  Instruction *InsertPt, bool IsInit);
 
+  /// \brief Generate the reduction fini code for bool and/or.
+  Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
+                                    Value *Rhs2, Value *Lhs, Type *ScalarTy,
+                                    IRBuilder<> &Builder, bool IsAnd);
   /// \brief Generate loop schdudeling code
   bool genLoopSchedulingCode(WRegionNode *W);
 
