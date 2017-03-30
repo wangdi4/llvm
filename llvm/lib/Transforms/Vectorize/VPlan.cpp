@@ -563,6 +563,24 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
     EdgeMask = VecCondMask;
 
   VectorizedPredicate.push_back(EdgeMask);
+  // Register the Edge with mask in CG
+  State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
+}
+
+void VPEdgePredicateRecipe::vectorize(VPTransformState &State) {
+  // This recipe does not produce any code. It propagates an already
+  // calculated mask value to CG.
+  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
+  State.ILV->setEdgeMask(FromBB, ToBB, PredMask);
+}
+
+void VPEdgePredicateRecipe::print(raw_ostream &O) const {
+  O << Name;
+  O << " = ";
+  if (PredecessorPredicate)
+    O << PredecessorPredicate->getName();
+  else
+    O << "NULL";
 }
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
@@ -601,6 +619,8 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
     EdgeMask = VecCondMask;
 
   VectorizedPredicate.push_back(EdgeMask);
+  // Register the Edge with mask in CG
+  State.ILV->setEdgeMask(FromBB, ToBB, EdgeMask);
 }
 
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {

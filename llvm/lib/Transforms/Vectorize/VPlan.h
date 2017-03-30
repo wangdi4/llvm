@@ -382,6 +382,29 @@ protected:
   void printDetails(raw_ostream &O) const;
 };
 
+class VPEdgePredicateRecipe : public VPEdgePredicateRecipeBase {
+
+public:
+  /// Construct a VPIfTruePredicateRecipe.
+  VPEdgePredicateRecipe(VPPredicateRecipeBase* PredecessorPredicate,
+                        BasicBlock *From, BasicBlock *To)
+    : VPEdgePredicateRecipeBase(VPBlockPredicatesRecipeSC,
+                                nullptr, PredecessorPredicate), FromBB(From), ToBB(To) {
+  }
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
+  }
+
+  void vectorize(VPTransformState &State) override;
+
+  void print(raw_ostream &O) const override;
+
+private:
+  BasicBlock *FromBB;
+  BasicBlock *ToBB;
+};
+
 /// A VPIfTruePredicateRecipe is a concrete recipe which represents the 
 /// edge-predicate of the true-edged if-statement case.
 class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
@@ -390,9 +413,10 @@ public:
   /// Construct a VPIfTruePredicateRecipe.
   #ifdef INTEL_CUSTOMIZATION
  VPIfTruePredicateRecipe(VPVectorizeBooleanRecipe* BR, 
-    VPPredicateRecipeBase* PredecessorPredicate)
+                         VPPredicateRecipeBase* PredecessorPredicate,
+                         BasicBlock *From, BasicBlock *To)
     : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
-      BR, PredecessorPredicate) {}
+      BR, PredecessorPredicate), FromBB(From), ToBB(To) {}
   #else
   VPIfTruePredicateRecipe(Value* ConditionValue, 
     VPPredicateRecipeBase* PredecessorPredicate)
@@ -407,6 +431,10 @@ public:
   void vectorize(VPTransformState &State) override;
 
   void print(raw_ostream &O) const override;
+
+private:
+  BasicBlock *FromBB;
+  BasicBlock *ToBB;
 };
 
 /// A VPIfFalsePredicateRecipe is a concrete recipe which represents the 
@@ -417,9 +445,10 @@ public:
   /// Construct a VPIfFalsePredicateRecipe.
   #ifdef INTEL_CUSTOMIZATION
   VPIfFalsePredicateRecipe(VPVectorizeBooleanRecipe* BR,
-    VPPredicateRecipeBase* PredecessorPredicate)
+                           VPPredicateRecipeBase* PredecessorPredicate,
+                           BasicBlock *From, BasicBlock *To)
     : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
-      BR, PredecessorPredicate) {}
+      BR, PredecessorPredicate), FromBB(From), ToBB(To) {}
   #else
   VPIfFalsePredicateRecipe(Value* ConditionValue,
     VPPredicateRecipeBase* PredecessorPredicate)
@@ -436,6 +465,9 @@ public:
 
   void print(raw_ostream &O) const override;
 
+private:
+  BasicBlock *FromBB;
+  BasicBlock *ToBB;
 };
 
 /// A VPConditionBitRecipeBase is a pure virtual VPRecipe which supports a
@@ -953,10 +985,10 @@ public:
   void setOriginalBB(BasicBlock *BB) { OriginalBB = BB; }
   BasicBlock *getOriginalBB() { return OriginalBB;  }
 private:
-  BasicBlock *OriginalBB;
   BasicBlock *CBlock;
   BasicBlock *TBlock;
   BasicBlock *FBlock;
+  BasicBlock *OriginalBB;
 #endif
   /// Create an IR BasicBlock to hold the instructions vectorized from this
   /// VPBasicBlock, and return it. Update the CFGState accordingly.

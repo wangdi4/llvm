@@ -29,6 +29,10 @@ protected:
                          SmallVector<VPBlockBase *, 2> &Succs);
   VPVectorizeBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB, EdgeType ET);
+  VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB,
+                                       VPPredicateRecipeBase *R,
+                                       BasicBlock *From,
+                                       BasicBlock *To);
   void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);
   void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                        VPRegionBlock *Region);

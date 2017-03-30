@@ -141,6 +141,16 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
   }
 }
 
+VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
+                                                      VPPredicateRecipeBase *R,
+                                                      BasicBlock *From,
+                                                      BasicBlock *To) {
+  VPEdgePredicateRecipe *EdgeRecipe =
+    PlanUtils.createEdgePredicateRecipe(R, From, To);
+  PredBB->addRecipe(EdgeRecipe);
+  return EdgeRecipe;
+}
+
 // Generate an Edge Predicate Recipe if required inside PredBB and return it.
 // Returns NULL if no recipe was created.
 VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
@@ -152,7 +162,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   if (ET == TRUE_EDGE) {
     VPIfTruePredicateRecipe *IfTrueRecipe =
         PlanUtils.createIfTruePredicateRecipe(VBR,
-                                              PredBB->getPredicateRecipe());
+                                              PredBB->getPredicateRecipe(),
+                                              PredBB->getCBlock(),
+                                              PredBB->getTBlock());
     // Emit IfTrueRecipe into PredBB
     PredBB->addRecipe(IfTrueRecipe);
     return IfTrueRecipe;
@@ -161,7 +173,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   else if (ET == FALSE_EDGE) {
     VPIfFalsePredicateRecipe *IfFalseRecipe =
         PlanUtils.createIfFalsePredicateRecipe(VBR,
-                                               PredBB->getPredicateRecipe());
+                                               PredBB->getPredicateRecipe(),
+                                               PredBB->getCBlock(),
+                                               PredBB->getFBlock());
     PredBB->addRecipe(IfFalseRecipe);
     return IfFalseRecipe;
   }
@@ -205,20 +219,14 @@ static void appendPredicateToBlock(VPBlockBase *Block,
 VPlanPredicator::EdgeType
 VPlanPredicator::getEdgeTypeBetween(VPBlockBase *FromBlock,
                                     VPBlockBase *ToBlock) {
-  // Get the predecessor's successors skipping the Back-Edges
-  SmallVector<VPBlockBase *, 2> FromSuccessorsNoBE;
-  getSuccessorsNoBE(FromBlock, FromSuccessorsNoBE);
-  assert(FromSuccessorsNoBE.size() == 2 && "Can only handle simple 2-exit ifs");
-
-  EdgeType ET = EDGE_TYPE_UNINIT;
-  if (ToBlock == FromSuccessorsNoBE[0]) {
-    ET = TRUE_EDGE;
-  } else if (ToBlock == FromSuccessorsNoBE[1]) {
-    ET = FALSE_EDGE;
-  } else {
-    llvm_unreachable("Broken FromSuccessorsNoBE[] ?");
+  unsigned Cnt = 0;
+  for (VPBlockBase *SuccBlock : FromBlock->getSuccessors()) {
+    if (SuccBlock == ToBlock)
+      return (Cnt == 0) ? TRUE_EDGE : FALSE_EDGE;
+    Cnt++;
   }
-  return ET;
+  llvm_unreachable("Broken FromSuccessorsNoBE[] ?");
+  return EDGE_TYPE_UNINIT;
 }
 
 // Generate all predicates needed for CurrBB
@@ -236,6 +244,9 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
       continue;
     }
 
+    VPBasicBlock *PredBasicBlock = dyn_cast<VPBasicBlock>(PredBlock);
+    VPBasicBlock *CurrBasicBlock = dyn_cast<VPBasicBlock>(CurrBlock);
+
     // If there is an unconditional branch to the currBB, then we don't
     // create edge predicates. We use the predecessor's block predicate
     // instead. VPRegionBlocks should always hit here.
@@ -249,15 +260,27 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
         // If the PredBlock belongs to an inner loop, the predicate of the
         // edge between the PredBlock and CurrentBlock is a predicate of the
         // Entry block of the loop.
-        assert(isa<VPBasicBlock>(PredBlock) && "Only BBs have multiple exits");
+        assert(PredBasicBlock && "Only BBs have multiple exits");
         TakePredicateFrom =
-          cast<VPLoopRegion>(PredBlock->getParent())->getEntry();
+          cast<VPLoopRegion>(PredBasicBlock->getParent())->getEntry();
       }
       IncomingPredicate = TakePredicateFrom->getPredicateRecipe();
+
+      if (PredBasicBlock && CurrBasicBlock && PredBasicBlock->getCBlock()) {
+        // Even if we have an unconditional branch, the branch should
+        // be in CBlock and TBlock
+        BasicBlock *FromBB = PredBasicBlock->getCBlock();
+        EdgeType ET = getEdgeTypeBetween(PredBlock, CurrBlock);
+        
+        BasicBlock *ToBB = (ET == TRUE_EDGE) ? PredBasicBlock->getTBlock() :
+          PredBasicBlock->getFBlock();
+        genEdgeRecipe(cast<VPBasicBlock>(TakePredicateFrom), IncomingPredicate,
+                      FromBB, ToBB);
+      }
     }
     else if (NumPredSuccsNoBE == 2) {
       // Emit Edge recipes into PredBlock if required
-      assert(isa<VPBasicBlock>(PredBlock) && "Only BBs have multiple exits");
+      assert(PredBasicBlock && "Only BBs have multiple exits");
       EdgeType ET = getEdgeTypeBetween(PredBlock, CurrBlock);
       IncomingPredicate = genEdgeRecipe(cast<VPBasicBlock>(PredBlock), ET);
     }

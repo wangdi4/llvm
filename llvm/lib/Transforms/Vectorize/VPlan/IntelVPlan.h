@@ -570,9 +570,10 @@ public:
   /// Create a new VPIfTruePredicateRecipe.
   VPIfTruePredicateRecipe *
   createIfTruePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
-                              VPPredicateRecipeBase *PredecessorPredicate) {
+                              VPPredicateRecipeBase *PredecessorPredicate,
+                              BasicBlock *From, BasicBlock *To) {
     VPIfTruePredicateRecipe *newRecipe =
-        new VPIfTruePredicateRecipe(VBR, PredecessorPredicate);
+        new VPIfTruePredicateRecipe(VBR, PredecessorPredicate, From, To);
     newRecipe->setName(createUniqueName("IfT"));
     return newRecipe;
   }
@@ -580,13 +581,22 @@ public:
   /// Create a new VPIfFalsePredicateRecipe.
   VPIfFalsePredicateRecipe *
   createIfFalsePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
-                               VPPredicateRecipeBase *PredecessorPredicate) {
+                               VPPredicateRecipeBase *PredecessorPredicate,
+                               BasicBlock *From, BasicBlock *To) {
     VPIfFalsePredicateRecipe *newRecipe =
-        new VPIfFalsePredicateRecipe(VBR, PredecessorPredicate);
+        new VPIfFalsePredicateRecipe(VBR, PredecessorPredicate, From, To);
     newRecipe->setName(createUniqueName("IfF"));
     return newRecipe;
   }
 
+  VPEdgePredicateRecipe *
+  createEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
+                            BasicBlock *From, BasicBlock *To) {
+    VPEdgePredicateRecipe *newRecipe =
+      new VPEdgePredicateRecipe(PredecessorPredicate, From, To);
+    newRecipe->setName("AuxEdgeForMaskSetting");
+    return newRecipe;
+  }
   /// Create a new VPBlockPredicateRecipe.
   VPBlockPredicateRecipe *createBlockPredicateRecipe(void) {
     VPBlockPredicateRecipe *newRecipe = new VPBlockPredicateRecipe();

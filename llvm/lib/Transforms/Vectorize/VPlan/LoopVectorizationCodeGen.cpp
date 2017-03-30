@@ -1197,24 +1197,65 @@ void VPOCodeGen::fixNonInductionPhis() {
   }
 }
 
+void VPOCodeGen::setEdgeMask(BasicBlock *From, BasicBlock *To, Value *Mask) {
+  EdgeToMaskMap[std::make_pair(From, To)] = Mask;
+}
+
+Value *VPOCodeGen::getEdgeMask(BasicBlock *From, BasicBlock *To) {
+  auto Edge = std::make_pair(From, To);
+  if (EdgeToMaskMap.count(Edge))
+    return EdgeToMaskMap[Edge];
+  return nullptr;
+}
+
 void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
   unsigned NumIncomingValues = Phi->getNumIncomingValues();
-  Type *Ty = Phi->getType();
-  OrigInductionPhisToFix.push_back(Phi);
+  
   if (isUniformAfterVectorization(Phi, VF)) {
     Instruction *Cloned = Phi->clone();
     Cloned->setName(Phi->getName() + ".cloned");
     Builder.Insert(Cloned);
     ScalarMap[Phi][0] = Cloned;
     // Set incoming values later, they may be not ready yet in case of back-edges.
+    OrigInductionPhisToFix.push_back(Phi);
     return;
   }
-  Type *VecTy = VectorType::get(Ty, VF);
-  PHINode *VecPhi =
-    Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
+  
+  Value *Entry;
+  bool ConvertablePhi = true;
+  // Generate a sequence of selects of the form:
+  // SELECT(Mask3, In3,
+  //      SELECT(Mask2, In2,
+  //                   ( ...)))
+  for (unsigned In = 0; In < NumIncomingValues; In++) {
+    auto IncBlock = Phi->getIncomingBlock(In);
+    Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
+    if (!Cond) {
+      ConvertablePhi = false;
+      break;
+    }
+    Value *In0 = getVectorValue(Phi->getIncomingValue(In));
+    if (In == 0)
+      Entry = In0;
+    else {
+      // Select between the current value and the previous incoming edge
+      // based on the incoming mask.
+      auto IncBlock = Phi->getIncomingBlock(In);
+      Value *Cond = getEdgeMask(IncBlock, Phi->getParent());
+      assert(Cond && "Edge not in predicate map");
+      Entry = Builder.CreateSelect(Cond, In0, Entry, "predphi");
+    }
+  }
 
-  // Set incoming values later, they may be not ready yet in case of back-edges.
-  WidenMap[Phi] = VecPhi;
+  if (!ConvertablePhi) {
+    Type *Ty = Phi->getType();
+    Type *VecTy = VectorType::get(Ty, VF);
+    Entry =
+      Builder.CreatePHI(VecTy, NumIncomingValues, Phi->getName() + ".vec");
+    // Set incoming values later, they may be not ready yet in case of back-edges.
+    OrigInductionPhisToFix.push_back(Phi);
+  }
+  WidenMap[Phi] = Entry;
 }
 
 void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {

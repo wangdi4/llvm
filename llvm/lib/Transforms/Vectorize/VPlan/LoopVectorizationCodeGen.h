@@ -186,6 +186,13 @@ public:
 
   /// MaskValue setter
   void setMaskValue(Value *MV) { MaskValue = MV; }
+
+  /// Write down the condition mask of the Edge between block \p From
+  /// and block \p To.
+  void setEdgeMask(BasicBlock *From, BasicBlock *To, Value *Mask);
+
+  /// Get a condition mask between block \p From and block \p To.
+  Value *getEdgeMask(BasicBlock *From, BasicBlock *To);
   
 private:
 
@@ -403,6 +410,9 @@ private:
   // Return a vector Vl wide: <Val, Val + Stride,
   // ... VAL + (VF - 1) * Stride>
   Value *getStrideVector(Value *Val, Value *Stride);
+
+  // Map Edge between blocks to a mask value.
+  std::map< std::pair<BasicBlock *, BasicBlock *>, Value *> EdgeToMaskMap;
 };
 
 } // End LLVM Namespace
