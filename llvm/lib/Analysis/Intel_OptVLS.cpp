@@ -1504,8 +1504,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 ///   %1 = mask.load.32.3 (<Base:0x165eca0 Offset:0>, 111)
 ///   %2 = mask.load.32.3 (<Base:0x165eca0 Offset:12>, 111)
 void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1517,14 +1516,29 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
   OptVLS::printMask(OS, getMask());
   OS << ")";
-  OS << "\n";
+}
+
+/// print the store instruction like this:
+///   mask.store.32.4 (<32x4>%1, <Base:0x165eca0 Offset:0>, 1101)
+void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
+  while (NumSpaces-- != 0)
+    OS << " ";
+
+  OS << "call void @mask.store." << getType().getElementSize() << ".";
+  OS << getType().getNumElements();
+  OS << " (";
+  Value->printAsOperand(OS);
+  OS << ", ";
+  Dst.print(OS);
+  OS << ", ";
+  OptVLS::printMask(OS, getMask());
+  OS << ")";
 }
 
 /// print the shuffle instruction like below:
 /// %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>
 void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1538,7 +1552,6 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
 
   OS << *Op3;
-  OS << "\n";
 }
 
 bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,

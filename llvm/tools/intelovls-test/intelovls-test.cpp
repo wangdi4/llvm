@@ -283,7 +283,7 @@ int main(int argc, char **argv) {
       OVLSInstructionVector InstVec;
       if (OptVLSInterface::getSequence(*Grp, CM, InstVec))
         for (OVLSInstruction *I : InstVec)
-          OVLSdbgs() << *I;
+          OVLSdbgs() << *I << "\n";
     }
   }
 
