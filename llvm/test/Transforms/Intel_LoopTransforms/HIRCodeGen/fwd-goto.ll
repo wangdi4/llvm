@@ -29,6 +29,7 @@
 ;<16>         |   %out.016 = %out.016  +  -1;
 ;<33>         + END LOOP
 ;          END REGION
+
 ;CHECK: region.0:
 ;Look for <25>, comparision against 47
 ;CHECK: icmp eq i32 {{.*}} 47

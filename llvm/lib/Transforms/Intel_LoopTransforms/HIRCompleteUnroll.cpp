@@ -47,6 +47,7 @@
 
 #include "HIRCompleteUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 
 #include "llvm/ADT/Statistic.h"
 
@@ -144,6 +145,7 @@ static cl::opt<float> MaxThresholdScalingFactor(
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -1114,6 +1116,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
 
   auto HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -1369,21 +1372,36 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
+
+    bool HasIfs = HLS->getTotalLoopStatistics(Loop).hasIfs();
+    bool EliminatedPredicates = false;
+
+    auto Reg = Loop->getParentRegion();
+
     // Generate code for the parent region and invalidate parent
-    Loop->getParentRegion()->setGenCode();
+    Reg->setGenCode();
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
-    HLNode *Parent = Loop->getParent();
     HLLoop *ParentLoop = Loop->getParentLoop();
+    HLNode *OuterParent = Loop->getOutermostParentLoop();
+
+    if (!OuterParent) {
+      OuterParent = Reg;
+    }
 
     transformLoop(Loop, Loop, TripValues);
 
-    if (ParentLoop) {
-      HIRTransformUtils::eliminateRedundantPredicates(ParentLoop->child_begin(),
-                                                      ParentLoop->child_end());
+    if (ParentLoop && HasIfs) {
+      EliminatedPredicates = HIRTransformUtils::eliminateRedundantPredicates(
+          ParentLoop->child_begin(), ParentLoop->child_end());
     }
-    // complete unroll can produce empty ifs.
-    HLNodeUtils::removeEmptyNodes(Parent);
+
+    if (HasIfs || EliminatedPredicates) {
+      // Both complete unroll and redundant predicate elimination can produce
+      // empty nodes. We need to run empty node removal on the outermost parent
+      // to be on the safe side.
+      HLNodeUtils::removeEmptyNodes(OuterParent);
+    }
   }
 }
 

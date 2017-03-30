@@ -50,6 +50,7 @@ INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnroll,
                       "hir-pre-vec-complete-unroll",
                       "HIR PreVec Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
                     "HIR PreVec Complete Unroll", false, false)
 

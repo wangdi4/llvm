@@ -895,6 +895,11 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
 
   BasicBlock *SuccBBlock = RegionSucc[Region];
   BasicBlock *NewRegionBlock = RegionEntrySplitBlock[Region];
+
+  Instruction *RegionTerminator = RegionTerminators[Region];
+  BasicBlock *LastRegionBBlock =
+      RegionTerminator ? RegionTerminator->getParent() : nullptr;
+
   for (auto I = Region->live_out_begin(), E = Region->live_out_end(); I != E;
        ++I) {
 
@@ -951,12 +956,41 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
 
     // create load before region terminator and add it as
     // incoming value to successor bblock phi
-    Instruction *RegionTerminator = RegionTerminators[Region];
-    BasicBlock *LastRegionBBlock = RegionTerminator->getParent();
     Builder->SetInsertPoint(RegionTerminator);
     for (auto I = PhiUsers.begin(), E = PhiUsers.end(); I != E; ++I) {
       Value *InRegionLoad = Builder->CreateLoad(SymSlot);
       (*I)->addIncoming(InRegionLoad, LastRegionBBlock);
+    }
+  }
+
+  if (LastRegionBBlock) {
+    // In some cases, loops exits have single operand phi where the operand is
+    // defined before the loop. These values are simply flowing through the
+    // region. We patch such phis so that the same value flows through the
+    // generated code as well.
+    for (auto Inst = SuccBBlock->begin(), E = SuccBBlock->end(); Inst != E;
+         ++Inst) {
+      auto Phi = dyn_cast<PHINode>(&*Inst);
+
+      if (!Phi) {
+        break;
+      }
+
+      if (Phi->getNumIncomingValues() != 1) {
+        continue;
+      }
+
+      auto InComingVal = Phi->getIncomingValue(0);
+
+      assert((!isa<Instruction>(InComingVal) ||
+              !Region->containsBBlock(
+                  dyn_cast<Instruction>(InComingVal)->getParent())) &&
+             "Unprocessed liveout value cannot be inside the region!");
+      assert(
+          (Phi->getIncomingBlock(0) != LastRegionBBlock) &&
+          "Single operand phi with incoming block as generated region's last "
+          "bblock not expected!");
+      Phi->addIncoming(Phi->getIncomingValue(0), LastRegionBBlock);
     }
   }
 }

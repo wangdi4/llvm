@@ -20,7 +20,7 @@
 ;<11>         |   <BLOB> LINEAR i32* %A {sb:8}
 ;<11>         |   
 ;<18>         + END LOOP
-;
+
 ;CHECK: region.0:
 
 ; CHECK: {{loop.[0-9]+:}}
