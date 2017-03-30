@@ -544,6 +544,11 @@ unsigned CSAInstrInfo::getMemTokenMOVOpcode() const {
   return CSA::MOV0;
 }
 
+const TargetRegisterClass* CSAInstrInfo::getMemTokenRC() const {
+  // This may need to change I0 one day.
+  return &CSA::I1RegClass;
+}
+
 bool CSAInstrInfo::isMemTokenMOV(MachineInstr* MI) const {
   return MI->getOpcode() == CSA::MOV0;
 }
