@@ -31,7 +31,8 @@ namespace llvm {
   MachineFunctionPass *createCSACvtCFDFPass();
   MachineFunctionPass *createCSAStatisticsPass();
   MachineFunctionPass *createCSAOptDFPass();
-  MachineFunctionPass *createCSARedundantMovElimPass();  
+  MachineFunctionPass *createCSADFParLoopPass();
+  MachineFunctionPass *createCSARedundantMovElimPass();
   MachineFunctionPass *createCSADeadInstructionElimPass();
   MachineFunctionPass *createCSAAllocUnitPass();
   MachineFunctionPass *createCSAPrologEpilogPass();

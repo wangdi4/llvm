@@ -162,6 +162,10 @@ public:
     Banner = std::string("After CSACvtCFDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createCSADFParLoopPass(), false);
+    Banner = std::string("After CSADFParLoopPass");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     addPass(createCSAOptDFPass(), false);
     Banner = std::string("After CSAOptDFPass");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
@@ -169,7 +173,7 @@ public:
     addPass(createCSARedundantMovElimPass(), false);
     Banner = std::string("After CSARedundantMovElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
-    
+
     addPass(createCSADeadInstructionElimPass(), false);
     Banner = std::string("After CSADeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));

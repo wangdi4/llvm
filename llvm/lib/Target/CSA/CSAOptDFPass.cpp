@@ -140,7 +140,7 @@ public:
   CSAOptDFPass() : MachineFunctionPass(ID) { thisMF = nullptr;}
 
   StringRef getPassName() const override {
-    return "CSA Convert Control Flow to Data Flow";
+    return "CSA (Sequence) Optimizations to Data Flow";
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override;

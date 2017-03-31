@@ -128,7 +128,7 @@ namespace {
       bool readonly;
     };
 
-    typedef DenseMap<const AliasSet*, struct depchain> AliasSetDepchain;
+    typedef DenseMap<const AliasSet*, depchain> AliasSetDepchain;
     typedef DenseMap<const AliasSet*, unsigned> AliasSetVReg;
 
     void addMemoryOrderingConstraints(MachineFunction* thisMF);
@@ -199,11 +199,13 @@ namespace {
     // pseudo-op.
     bool findParallelLoopPseudoOp(const MachineBasicBlock& BB) const;
 
-    // Traverse the PHI nodes that were inserted by the ssa updater
-    // and mark the incoming edges that represent memory-order backedges
-    // within loops that are indicated to be parallel.
+    // Traverse the PHI nodes that were inserted by the ssa updater.
+    // For PHI nodes that belong to loops that have been annotated as
+    // parallel, mark the incoming PHI edges that represent memory-order backedges
+    // by inserting a CSA_PARALLEL_MEMDEP psuedo-op between the definition of
+    // the edge and the PHI.
     void markParallelLoopBackedges(MachineFunction *thisMF,
-                                   const SmallVectorImpl<MachineInstr*>& inserted_phis);
+                                   const SmallVectorImpl<MachineInstr*>& inserted_PHIs);
   };
 }
 
@@ -261,7 +263,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   const unsigned MemTokenMOVOpcode = TII->getMemTokenMOVOpcode();
 
   AliasSetDepchain depchains;
-  SmallVector<MachineInstr*, 16> inserted_phis;  // Phi nodes from ssa updaters
+  SmallVector<MachineInstr*, 16> inserted_PHIs;  // Phi nodes from ssa updaters
 
   // Initialize the maps.
   for (const AliasSet &set : AS->getAliasSets()) {
@@ -273,7 +275,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
         TII->get(MemTokenMOVOpcode),
         depchains[&set].start).addImm(1);
     // Initialize an SSAUpdater for each set.
-    depchains[&set].updater->reset(new MachineSSAUpdater(*thisMF, &inserted_phis));
+    depchains[&set].updater.reset(new MachineSSAUpdater(*thisMF, &inserted_PHIs));
     depchains[&set].updater->Initialize(depchains[&set].start);
     depchains[&set].updater->AddAvailableValue(entryBB, depchains[&set].start);
     depchains[&set].readonly = KillReadChains;
@@ -366,10 +368,12 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     }
   }
 
-  // Traverse the PHI nodes that were inserted by the ssa updater
-  // and mark the incoming edges that represent memory-order backedges
-  // within loops that are indicated to be parallel.
-  markParallelLoopBackedges(thisMF, inserted_phis);
+  // Traverse the PHI nodes that were inserted by the ssa updater.
+  // For PHI nodes that belong to loops that have been annotated as
+  // parallel, mark the incoming PHI edges that represent memory-order backedges
+  // by inserting a CSA_PARALLEL_MEMDEP psuedo-op between the definition of
+  // the edge and the PHI.
+  markParallelLoopBackedges(thisMF, inserted_PHIs);
 }
 
 void
@@ -758,7 +762,7 @@ bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
     // There is a preheader at the top of the loop. The preheader is not
     // technically part of the loop, so it might contain the parallel pseudo
     // op. If so, then this is a parallel loop and we're done. Most of the
-    // time, however, the pseudo-op (if any) is in the predicessor of the
+    // time, however, the pseudo-op (if any) is in the predecessor of the
     // preheader, so we have to keep going.
     if (findParallelLoopPseudoOp(*looptop)) {
       DEBUG(errs() << "%%% Loop is parallel\n");
@@ -768,7 +772,7 @@ bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
   else {
     // There is a no preheader at the top of the loop; use the header of the
     // loop as the top.  Since the header is part of the loop (unlike the
-    // preheader) Do not check the header for a parallel pseudo op.
+    // preheader), we do not check the header for a parallel pseudo op.
     looptop = loop->getHeader();
   }
 
@@ -786,10 +790,7 @@ bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
   assert((0 == numPseudoOps || numPredecessors == numPseudoOps) &&
          "Expected all-or-none of the predecessors to have pseuodo-op");
 
-  if (numPseudoOps > 0)
-    DEBUG(errs() << "%%% Loop is parallel\n");
-
-  // Return true if at the predicessors contain the parallel pseudo-op.
+  // Return true if all of the predicessors contain the parallel pseudo-op.
   return (numPseudoOps > 0);
 }
 
@@ -804,7 +805,8 @@ bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) con
                              });
 
   if (MIiter != BB.end()) {
-    // BB.erase(MIiter);  // We may eventually want to eliminate the pseudo-op
+    // We may eventually want to remove the pseudo-op once we've processed it.
+    // BB.erase(MIiter);
     return true;  // Found the parallel pseudo-op
   }
 
@@ -812,14 +814,15 @@ bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) con
 }
 
 void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
-                                                 const SmallVectorImpl<MachineInstr*>& inserted_phis)
+                                                 const SmallVectorImpl<MachineInstr*>& inserted_PHIs)
 {
-//  DEBUG(CDG->viewMachineCFG());
-  DEBUG(errs() << "%%% Dump before mark parallel loopback\n");
+  DEBUG(errs() << "%%% Before markParallelLoopBackedges\n");
   DEBUG(thisMF->dump());
 
+  // Loop through the newly inserted PHI nodes, looking for the ones that are
+  // in the header of a parallel loop.
   DEBUG(errs() << "%%% Inserted PHIs\n");
-  for (MachineInstr* PHI : inserted_phis) {
+  for (MachineInstr* PHI : inserted_PHIs) {
     DEBUG(errs() << "    " << *PHI);
 
     // Get the parallel loop in which the PHI was defined, if any
@@ -844,12 +847,12 @@ void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
     // A PHI machine instruction has 5 or more arguments as follows:
     //  Operand 0: output
     //  Operand 1: input register 1
-    //  Operand 2: Basic block in which register 1 (Operand 1) is defined
+    //  Operand 2: Last basic block on  control flow breanch for register 1 definition
     //  Operand 3: second input register
-    //  Operand 2: Basic block in which register 2 (Operand 3) is defined
+    //  Operand 2: Last basic block on  control flow breanch for register 2 definition
     //  ...
     //  Operand 2*N-1: input register N
-    //  Operand 2*N:   Block in which register N (previous operand) is defined
+    //  Operand 2*N:   Last basic block on  control flow breanch for register N definition
 
     // We are interested in edges that come from the same loop as the PHI. Those edges are the back
     // edges that we want to label.  Because these PHIs were inserted as a result of memory
@@ -866,14 +869,12 @@ void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
       MachineOperand& bbOperand  = *operandIter++;
       assert(bbOperand.isMBB());
 
-      DEBUG(errs() << "%%% regOperand = " << regOperand << ", bbOperand = " << bbOperand << "\n");
-
       MachineLoop* fromLoop = MLI->getLoopFor(bbOperand.getMBB());
 
       if (fromLoop == phiLoop) {
         if (backedgeOperand != nullptr) {
           DEBUG(errs() <<
-                "%%% Ignored PHI where more than one inputs are from the same loop as the PHI: " <<
+                "%%% Ignored PHI where more than one input is from the same loop as the PHI: " <<
                 *PHI);
           continue;
         }
@@ -905,7 +906,6 @@ void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
     // Sanity check: all channels are 0 or 1 bit wide
   } // end for each PHI
 
-  DEBUG(errs() << "%%% Dump after mark parallel loopback\n");
+  DEBUG(errs() << "%%% After markParallelLoopBackedges\n");
   DEBUG(thisMF->dump());
-//  DEBUG(CDG->viewMachineCFG());
 }
