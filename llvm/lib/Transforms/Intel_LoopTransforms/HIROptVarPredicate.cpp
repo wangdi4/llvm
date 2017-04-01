@@ -94,6 +94,10 @@ static cl::opt<bool> DisablePass(
     "disable-" OPT_SWITCH, cl::init(false), cl::Hidden,
     cl::desc("Disable " OPT_DESC " pass"));
 
+static cl::opt<bool> DisableCostModel(
+    "disable-" OPT_SWITCH "-cost-model", cl::init(false), cl::Hidden,
+    cl::desc("Disable " OPT_DESC " cost model"));
+
 static cl::list<unsigned> TransformNodes(
     OPT_SWITCH "-nodes", cl::Hidden,
     cl::desc("List nodes to transform by " OPT_DESC));
@@ -248,11 +252,11 @@ public:
   }
 };
 
-static bool isStandAloneIV(const CanonExpr *CE, unsigned Level) {
-  bool OneIVOnly = (!CE->getConstant() && (CE->getDenominator() == 1) &&
-                    (CE->numBlobs() == 0) && (CE->numIVs() == 1));
+static bool hasIVAndConstOnly(const CanonExpr *CE, unsigned Level) {
+  bool OneIVAndConstant = ((CE->getDenominator() == 1) &&
+                           (CE->numBlobs() == 0) && (CE->numIVs() == 1));
 
-  if (!OneIVOnly) {
+  if (!OneIVAndConstant) {
     return false;
   }
 
@@ -260,7 +264,7 @@ static bool isStandAloneIV(const CanonExpr *CE, unsigned Level) {
   int64_t Coeff;
   CE->getIVCoeff(Level, &Index, &Coeff);
 
-  return (Coeff == 1 || Coeff == -1) && Index == InvalidBlobIndex;
+  return (Coeff == 1 || Coeff == -1) && (Index == InvalidBlobIndex);
 }
 
 static bool mayIVOverflowCE(const CanonExpr *CE, Type *IVType) {
@@ -284,10 +288,10 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
   const CanonExpr *LHS = LHSDDref->getSingleCanonExpr();
   const CanonExpr *RHS = RHSDDRef->getSingleCanonExpr();
 
-  if (isStandAloneIV(RHS, Level)) {
+  if (hasIVAndConstOnly(RHS, Level)) {
     std::swap(LHS, RHS);
     Pred = CmpInst::getSwappedPredicate(Pred);
-  } else if (!isStandAloneIV(LHS, Level)) {
+  } else if (!hasIVAndConstOnly(LHS, Level)) {
     return nullptr;
   }
 
@@ -297,6 +301,33 @@ std::unique_ptr<CanonExpr> HIROptVarPredicate::findIVSolution(
 
   // Assuming that LHS is 1*IV
   std::unique_ptr<CanonExpr> Result(RHS->clone());
+
+  int64_t LHSConst = LHS->getConstant();
+  if (LHSConst != 0) {
+    int64_t RHSConst;
+    if (!RHS->isIntConstant(&RHSConst)) {
+      return nullptr;
+    }
+
+    Type *RHSType = RHS->getSrcType();
+    Type *LHSType = LHS->getSrcType();
+
+    if (!ConstantInt::isValueValidForType(RHSType, RHSConst) ||
+        !ConstantInt::isValueValidForType(LHSType, -LHSConst)) {
+      return nullptr;
+    }
+
+    bool Overflow;
+    APInt RHSConstAP(RHSType->getPrimitiveSizeInBits(), RHSConst, true);
+    APInt LHSConstAP(LHSType->getPrimitiveSizeInBits(), -LHSConst, true);
+    RHSConstAP.sadd_ov(LHSConstAP, Overflow);
+
+    if (Overflow) {
+      return nullptr;
+    }
+
+    Result->addConstant(-LHSConst, true);
+  }
 
   int64_t Coeff = LHS->getIVConstCoeff(Level);
   if (Coeff == -1) {
@@ -353,6 +384,11 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
 
   ForPostEach<HLLoop>::visitRange(HIR->hir_begin(), HIR->hir_end(),
                                   [this](HLLoop *Loop) {
+    // Opt on non-innermost loops is likely to cause degradations.
+    if (!DisableCostModel && !Loop->isInnermost()) {
+      return;
+    }
+
     processLoop(Loop);
   });
 
@@ -391,16 +427,16 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
   CE->clear();
 
   int64_t Value;
-  if (BlobUtilsObj->isConstantIntBlob(Blob, &Value)) {
+  if (BlobUtils::isConstantIntBlob(Blob, &Value)) {
     CE->setConstant(Value);
     Ref->setSymbase(ConstantSymbase);
   } else {
     CE->setBlobCoeff(BlobIndex, 1);
 
-    if (BlobUtilsObj->isTempBlob(Blob)) {
+    if (BlobUtils::isTempBlob(Blob)) {
       Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
     } else {
-      Ref->setSymbase(HIR->getGenericRvalSymbase());
+      Ref->setSymbase(Ref->getDDRefUtils().getGenericRvalSymbase());
     }
   }
 }
@@ -579,6 +615,7 @@ void HIROptVarPredicate::splitLoop(
       ThirdLoop->getLowerDDRef()->makeConsistent(&Aux);
 
       ThirdLoop->createZtt(false, true);
+      ThirdLoop->normalize();
     }
   }
 
@@ -605,6 +642,7 @@ void HIROptVarPredicate::splitLoop(
   if (!isLoopRedundant(SecondLoop)) {
     SecondLoop->getLowerDDRef()->makeConsistent(&Aux);
     SecondLoop->createZtt(false, true);
+    SecondLoop->normalize();
   } else {
     HLNodeUtils::remove(SecondLoop);
   }
@@ -635,7 +673,8 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   IfLookup Lookup(Candidates, Level);
   HLNodeUtils::visitRange(Lookup, Loop->child_begin(), Loop->child_end());
 
-  for (HLIf *Candidate : Candidates) {
+  for (HLIf *Candidate :
+       llvm::make_range(Candidates.begin(), Candidates.end())) {
     DEBUG(dbgs() << "Processing: ");
     DEBUG(Candidate->dumpHeader());
     DEBUG(dbgs() << "\n");

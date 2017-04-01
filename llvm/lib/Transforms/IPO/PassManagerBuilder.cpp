@@ -1079,15 +1079,18 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());
-    PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRPreVecCompleteUnrollPass());
     PM.add(createHIRLMMPass());
     PM.add(createHIRLoopDistributionForMemRecPass());
+    PM.add(createHIRIdiomRecognitionPass());
     PM.add(createHIRUnrollAndJamPass());
     PM.add(createHIROptVarPredicatePass());
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRVecDirInsertPass(OptLevel == 3));
     PM.add(createVPODriverHIRPass());
+    PM.add(createHIRPostVecCompleteUnrollPass());
     PM.add(createHIRGeneralUnrollPass());
+    PM.add(createHIRScalarReplArrayPass());
   }
 
   PM.add(createHIRCodeGenPass());

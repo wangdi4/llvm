@@ -297,7 +297,6 @@ bool addILPOpts() override;
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
   void addAdvancedPatternMatchingOpts() override;  // INTEL
-  void addCodeGenPrepare() override;               // INTEL
   void addPreSched2() override;
 };
 } // namespace
@@ -399,9 +398,3 @@ void X86PassConfig::addPreEmitPass() {
   }
 }
 
-#if INTEL_CUSTOMIZATION
-void X86PassConfig::addCodeGenPrepare() {
-  addPass(createFeatureOutlinerPass(TM));
-  TargetPassConfig::addCodeGenPrepare();
-}
-#endif // INTEL_CUSTOMIZATION

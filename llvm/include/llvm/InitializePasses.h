@@ -391,8 +391,6 @@ void initializeIndirectCallConvPass(PassRegistry &);
 void initializeSNodeAnalysisPass(PassRegistry &);
 // Pass for register promotion for non escaped block scope global variables.
 void initializeNonLTOGlobalOptPass(PassRegistry &);
-// Pass for setting implied Targets for intrinsics.
-void initializeFeatureOutlinerPass(PassRegistry&);
 // Pass for math call optimization.
 void initializeMapIntrinToImlPass(PassRegistry&);
 // Pass for indicating loopopt based throttling.
@@ -419,7 +417,8 @@ void initializeHIRParDirInsertPass(PassRegistry&);
 void initializeHIRVecDirInsertPass(PassRegistry&);
 void initializeHIRVectVLSAnalysisPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
-void initializeHIRCompleteUnrollPass(PassRegistry&);
+void initializeHIRPreVecCompleteUnrollPass(PassRegistry&);
+void initializeHIRPostVecCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
 void initializeHIRLoopDistributionForMemRecPass(PassRegistry&);
 void initializeHIRLoopDistributionForLoopNestPass(PassRegistry&);
@@ -429,9 +428,11 @@ void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRLoopReversalPass(PassRegistry&);
 void initializeHIRLMMPass(PassRegistry&);
+void initializeHIRScalarReplArrayPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 void initializeHIROptVarPredicatePass(PassRegistry&);
+void initializeHIRIdiomRecognitionPass(PassRegistry&);
 // VPO WRegion Passes
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);

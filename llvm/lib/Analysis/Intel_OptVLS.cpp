@@ -116,16 +116,22 @@ void OVLSGroup::dump() const {
 
 uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
                                        Type *Tp) const {
+  int index = 0;
+  unsigned NumSubVecElems = 0;
   unsigned NumVecElems = Tp->getVectorNumElements();
   assert(NumVecElems == Mask.size() && "Mismatched vector elements!!");
 
   if (isExtractSubvectorMask(Mask)) {
     // TODO: Support other sized subvectors.
-    int index = Mask[0] == 0 ? 0 : 1;
+    index = Mask[0] == 0 ? 0 : 1;
     return TTI.getShuffleCost(
         TargetTransformInfo::SK_ExtractSubvector, Tp, index,
         VectorType::get(Tp->getScalarType(), NumVecElems / 2));
-  } else if (TTI.isTargetSpecificShuffleMask(Mask))
+  } else if (isInsertSubvectorMask(Mask, index, NumSubVecElems))
+    return TTI.getShuffleCost(
+        TargetTransformInfo::SK_InsertSubvector, Tp, index,
+        VectorType::get(Tp->getScalarType(), NumSubVecElems));
+  else if (TTI.isTargetSpecificShuffleMask(Mask))
     return TTI.getShuffleCost(TargetTransformInfo::SK_TargetSpecific, Tp, 0,
                               nullptr);
   else if (isReverseVectorMask(Mask))
@@ -139,6 +145,7 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
   for (int MaskElem : Mask)
     if (MaskElem < 0)
       TotalElems--;
+
   return 2 * TotalElems;
 }
 
@@ -482,6 +489,30 @@ public:
     return true;
   }
 
+  /// Creates a unique source for each incoming edge. An edge can be coming
+  /// from a node that contains bit-fields other than the specified
+  /// bit-filed(associated with the edge). This way simplifyEdges() creates
+  /// singularity in the graph which gives optimizer the highest flexibility
+  /// for finding the lowest cost combination.
+  /// E.g.
+  ///    V3             V3
+  ///   |  |           |  |
+  ///   |  |    =>    V4  V5
+  ///   /   \         |    |
+  ///  V1   V2        V1   V2
+  /// TODO: Consider overlapping.
+  void simplifyEdges(GraphNodeList &NewNodes) {
+    for (Edge *E : IncomingEdges) {
+      GraphNode *Src = E->getSource();
+      if (Src) {
+        OVLSType T = OVLSType(E->getNumBits(), 1);
+        GraphNode *NewNode = new GraphNode(nullptr, T);
+        splitEdge(E, NewNode);
+        NewNodes.push_back(NewNode);
+      }
+    }
+  }
+
   // Generate a shuffle instruction for this node.
   void genShuffle() {
     OVLSOperand *Op1 = new OVLSUndef();
@@ -625,6 +656,19 @@ public:
       N->print(OS, NumSpaces + 2);
       OS << "\n";
     }
+  }
+
+  /// Simplifies the graph into a singular-form. Create a unique source
+  /// for each incoming edge. This gives optimizer the highest flexibility
+  /// in order to find the lowest cost combination.
+  void simplify() {
+    GraphNodeList NewNodes;
+
+    for (GraphNode *N : Nodes)
+      N->simplifyEdges(NewNodes);
+
+    for (GraphNode *NewNode : NewNodes)
+      insert(NewNode);
   }
 
   /// Split unique source nodes of shuffle nodes recursively until each node
@@ -812,8 +856,8 @@ public:
   }
 
   /// N1 and N2 can be merged if
-  ///  - They have the same sources or one has the subset of sources of the
-  ///    others' where the sources have the same type
+  ///  - Sources have the same type
+  ///  - The total number of unique sources of N1 and N2 is no more than 2
   ///  - Total size of N1 and N2 fits into the vector register
   ///  - elem_size of N1 matches the elem_size of N2
   bool canBeMerged(const GraphNode &N1, const GraphNode &N2) const {
@@ -845,13 +889,15 @@ public:
   }
 
   // Iterate through the WorkList once and merge two nodes if they meet
-  // the criteria of canBeMerged(). If there are too many choices
-  // for a node to be merged with, it picks the one with the lowest
-  // cost that comes first.
+  // the criteria of canBeMerged() and returns true. Returns false if no
+  // merging happen. If there are too many choices for a node to be merged
+  // with, it picks the one with the lowest cost that comes first.
   // TODO: Current approach of merging two nodes is very limited. It
   // only estimates merging two nodes by inserting N2 at the end of N1.
   // At some point, we should support merging two nodes in various ways.
-  void mergeNodes(GraphNodeList &WorkList) {
+  bool mergeNodes(GraphNodeList &WorkList) {
+    bool CanbeOptimized = false;
+
     assert(WorkList.size() <= 80 && "Cannot merge, too big of a WorkList!!!");
 
     for (GraphNodeList::iterator It1 = WorkList.begin(); It1 != WorkList.end();
@@ -879,8 +925,17 @@ public:
         merge(N1, ToBeMerged);
         WorkList.erase(ToBeMergedIT);
         delete ToBeMerged;
+
+        // If size of N1 reached the vector length, there is nothing that can
+        // be optimized further.
+        // Allow another iteration of optimization only if the size is less
+        // than vector length.
+        if (N1->size() < VectorLength * BYTE)
+          CanbeOptimized = true;
       }
     }
+
+    return CanbeOptimized;
   }
 
   // Merge N2 to N1, concatenate the edges of N2 at the end of N1.
@@ -917,7 +972,7 @@ public:
   /// This function should only be called right after load-generation before
   /// any other optimization of the graph, otherwise, it will produce incorrect
   /// result.
-  /// FIXME: Support scatters, masked gathers;
+  /// FIXME: Support scatters, masked gathers, duplicates;
   bool verifyInitialGraph(const OVLSGroup &Group) {
     // This initial graph is considered to be invalid for a group of scatters.
     if (!Group.hasGathers())
@@ -954,6 +1009,17 @@ public:
     return true;
   }
 
+  // Returns false if a node in the graph has more than two source nodes.
+  bool verifyGraph() {
+    std::set<GraphNode *> UniqueSources;
+    for (GraphNode *N : Nodes) {
+      if (N->getNumUniqueSources(UniqueSources) > 2)
+        return false;
+      UniqueSources.clear();
+    }
+    return true;
+  }
+
   // Visit the graph in a topological order and push the instruction into the
   // InstVector. While we are at it, generate instruction if the node does not
   // have one already.
@@ -976,23 +1042,22 @@ public:
   // also optimizes (reduces the total number of nodes) the graph by merging
   // multiple nodes together.
   void simplifyAndOptimize() {
-    // At this point, the graph can have nodes with more than two sources.
-    // Traverse the graph and reduce the number of sources to a maximum of 2.
-    reduceNSourcesToTwoSources();
+    simplify();
 
     // TODO: support a verifier that will ensure that each node has incoming
     // edges coming from maximum of 2 nodes.
 
+    // We simplified the graph. Let's optimize it.
     OptVLS::GraphNodeList WorkList;
-
     for (GraphNode *N : Nodes)
       // TODO: Support store
       if (!N->isALoad() && !N->hasNoOutgoingEdges())
         WorkList.push_back(N);
 
-    // TODO: support this in a loop that tries to merge until there are no
-    // changes in the graph.
-    mergeNodes(WorkList);
+    bool CanbeOptimized = true;
+    // Keep merging until there are no changes in the graph.
+    while (CanbeOptimized)
+      CanbeOptimized = mergeNodes(WorkList);
 
     // TODO: Assess the optimized sequence
   }
@@ -1242,11 +1307,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   // the group. This lowest element size (which is the common divisor of all the
   // other sizes of the memrefs in the group) will determine the load-size and
   // load mask.
+  OVLSMemref *Prev = nullptr;
   for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
        ++I) {
+    OVLSMemref *Curr = *I;
+    int64_t Dist = 0;
+    // Don't create nodes for the duplicates. We will replace the duplicates with
+    // the final shuffle instruction at the end.
+    if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+      continue;
+
     // At this point, we don't know the desired instruction/opcode,
     // initialize it(associated OVLSInstruction) to nullptr.
-    OVLSType MemrefType = (*I)->getType();
+    OVLSType MemrefType = Curr->getType();
+
     GraphNode *GatherNode = new GraphNode(nullptr, MemrefType);
     G.insert(GatherNode);
 
@@ -1254,6 +1328,7 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
     assert(ElemSize <= 64 && "Unexpected element size!!!");
     if (ElemSize < LowestElemSize)
       LowestElemSize = ElemSize;
+    Prev = *I;
   }
 
   // Access mask of the group in bytes.
@@ -1307,10 +1382,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   G.insert(CurrLoadNode);
 
   uint32_t IthElem = 0;
+  Prev = nullptr;
   // Traverse NumElems times through the list of gathers.
   while (IthElem < NumElems) {
     GraphNodeList::iterator It = G.begin();
-    for (unsigned i = 0; i < Group.size(); i++) {
+    for (OVLSGroup::const_iterator I = Group.begin(), IE = Group.end(); I != IE; ++I) {
+      OVLSMemref *Curr = *I;
+      int64_t Dist = 0;
+
+      // Don't create nodes for the duplicates. We will replace the duplicates with
+      // the final shuffle instruction at the end.
+      if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+        continue;
+
+      Prev = *I;
       // Addressed an element, find out its type.
       GraphNode *GatherNode = *It++;
       OVLSType GatherType = GatherNode->type();
@@ -1419,8 +1504,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 ///   %1 = mask.load.32.3 (<Base:0x165eca0 Offset:0>, 111)
 ///   %2 = mask.load.32.3 (<Base:0x165eca0 Offset:12>, 111)
 void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1432,14 +1516,29 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
   OptVLS::printMask(OS, getMask());
   OS << ")";
-  OS << "\n";
+}
+
+/// print the store instruction like this:
+///   mask.store.32.4 (<32x4>%1, <Base:0x165eca0 Offset:0>, 1101)
+void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
+  while (NumSpaces-- != 0)
+    OS << " ";
+
+  OS << "call void @mask.store." << getType().getElementSize() << ".";
+  OS << getType().getNumElements();
+  OS << " (";
+  Value->printAsOperand(OS);
+  OS << ", ";
+  Dst.print(OS);
+  OS << ", ";
+  OptVLS::printMask(OS, getMask());
+  OS << ")";
 }
 
 /// print the shuffle instruction like below:
 /// %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>
 void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1453,7 +1552,6 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
 
   OS << *Op3;
-  OS << "\n";
 }
 
 bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,
@@ -1585,6 +1683,9 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
     return false;
 
   G.simplifyAndOptimize();
+
+  if (!G.verifyGraph())
+    return false;
 
   G.getInstructions(InstVector);
   return true;

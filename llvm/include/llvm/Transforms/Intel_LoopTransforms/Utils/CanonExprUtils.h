@@ -74,7 +74,7 @@ private:
   /// Destroys all CanonExprs. Called during HIR cleanup.
   void destroyAll();
 
-  /// Calculates the lcm of two positive inputs.
+  /// Calculates the lcm of two positive inputs. Returns zero on overflow.
   static int64_t lcm(int64_t A, int64_t B);
 
   /// Creates a non-linear self blob canon expr from the passed in \p Val.
@@ -99,10 +99,9 @@ private:
   static void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
                                   bool RelaxedMode, bool *CreatedAuxCE);
 
-  /// Implements add()/cloneAndAdd() functionality.
-  /// This routine will return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                            bool CreateNewCE, bool RelaxedMode);
+  /// Implements add() functionality.
+  /// This routine will return false, if the canon exprs are not mergeable.
+  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -135,7 +134,7 @@ public:
                                 int64_t Denom = 1, bool IsSignedDiv = false);
 
   /// Returns a new linear CanonExpr created from APInt Value.
-  CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal);
+  CanonExpr *createCanonExpr(Type *Ty, APInt APVal);
 
   /// Returns a self-blob canon expr. Level is the defined at level for the
   /// blob.
@@ -170,8 +169,8 @@ public:
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool RelaxedMode = false);
+  static bool add(CanonExpr *CE1, const CanonExpr *CE2,
+                  bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the sum of CE1 and CE2.
   /// Result = CE1 + CE2
@@ -182,8 +181,8 @@ public:
   /// Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool RelaxedMode = false);
+  static bool subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                       bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the difference of CE1 and CE2.
   /// Result = CE1 - CE2
@@ -194,6 +193,12 @@ public:
   /// Returns a canon expr which represents the negation of CE.
   /// Result = -CE
   static CanonExpr *cloneAndNegate(const CanonExpr *CE);
+
+  /// Returns true if the Loop level is in a valid range from
+  /// [1, MaxLoopNestLevel].
+  static bool isValidLoopLevel(unsigned Level) {
+    return (Level > 0 && Level <= MaxLoopNestLevel);
+  }
 
   /// Returns true if DefLevel is a valid DefinedAtLevel for any CanonExpr.
   static bool isValidDefLevel(unsigned DefLevel) {
@@ -210,12 +215,49 @@ public:
   /// CE. NestingLevel is the level where the CE is attached to HIR.
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
-  /// Replaces IV in *CE1* at a particular loop *Level* by a CanonExpr *CE2*.
-  /// Please be aware that this method can handle only CE2 with unit
-  /// denominator because b*(x/d) != (b*x)/d.
-  static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                         const CanonExpr *CE2,
-                                         bool RelaxedMode = false);
+  // Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
+  static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
+                                      const CanonExpr *CE2,
+                                      bool RelaxedMode = false);
+
+  /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
+  static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                   const CanonExpr *CE2,
+                                   bool RelaxedMode = false);
+
+  /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
+  /// Distance.
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// (i1+%t) and (i1+%t+1) even if %t is non-linear and has a different value
+  /// for the two CEs.
+  static bool getConstDistance(const CanonExpr *CE1, const CanonExpr *CE2,
+                               int64_t *Distance);
+
+  /// Returns true if CE1 - CE2 results in a constant difference w.r.t IV at \p
+  /// LoopLevel which is the distance in terms of number of loop iterations.
+  /// For example-
+  /// Returns true with distance of 1 if-
+  /// CE1 = 2*i1 + 2
+  /// CE2 = 2*i1
+  ///
+  /// Returns false if-
+  /// CE1 = 2*i1 + 1
+  /// CE2 = 2*i1
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// (i1+%t) and (i1+%t+1) even if %t is non-linear and has a different value
+  /// for the two CEs.
+  /// TODO: Fix for vector type CEs.
+  static bool getConstIterationDistance(const CanonExpr *CE1,
+                                        const CanonExpr *CE2,
+                                        unsigned LoopLevel, int64_t *Distance);
 };
 
 } // End namespace loopopt

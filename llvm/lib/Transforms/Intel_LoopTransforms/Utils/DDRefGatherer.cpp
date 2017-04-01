@@ -23,53 +23,65 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 // Compares the CanonExpr associated with a memory reference
-bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
-                                         const CanonExpr *BCanon) {
+bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *CE1,
+                                         const CanonExpr *CE2) {
   // Check the number of IV's.
-  if (ACanon->numIVs() != BCanon->numIVs())
-    return (ACanon->numIVs() < BCanon->numIVs());
+  if (CE1->numIVs() != CE2->numIVs()) {
+    return (CE1->numIVs() < CE2->numIVs());
+  }
 
-  // Check the IV's.
-  for (auto IVIt1 = ACanon->iv_begin(), IVIt2 = BCanon->iv_begin(),
-            End = ACanon->iv_end();
-       IVIt1 != End; ++IVIt1, ++IVIt2) {
-    if (IVIt1->Coeff != IVIt2->Coeff)
-      return (IVIt1->Coeff < IVIt2->Coeff);
-    if (IVIt1->Index != IVIt2->Index)
-      return (IVIt1->Index < IVIt2->Index);
+  // Check the IV's (temp fix: use level)
+  for (unsigned Lvl = 1; Lvl <= MaxLoopNestLevel; ++Lvl) {
+    int64_t Iv1Coeff, Iv2Coeff;
+    unsigned Iv1BlobIndex, Iv2BlobIndex;
+    CE1->getIVCoeff(Lvl, &Iv1BlobIndex, &Iv1Coeff);
+    CE2->getIVCoeff(Lvl, &Iv2BlobIndex, &Iv2Coeff);
+
+    if (Iv1Coeff != Iv2Coeff) {
+      return (Iv1Coeff < Iv2Coeff);
+    }
+
+    if (Iv1BlobIndex != Iv2BlobIndex) {
+      return (Iv1BlobIndex < Iv2BlobIndex);
+    }
   }
 
   // Check the number of blobs.
-  if (ACanon->numBlobs() != BCanon->numBlobs())
-    return (ACanon->numBlobs() < BCanon->numBlobs());
+  if (CE1->numBlobs() != CE2->numBlobs()) {
+    return (CE1->numBlobs() < CE2->numBlobs());
+  }
 
   // Check the Blob's.
-  for (auto It1 = ACanon->blob_begin(), End = ACanon->blob_end(),
-            It2 = BCanon->blob_begin();
-       It1 != End; ++It1, ++It2) {
+  for (auto Blob1 = CE1->blob_begin(), End = CE1->blob_end(),
+            Blob2 = CE2->blob_begin();
+       Blob1 != End; ++Blob1, ++Blob2) {
+    if (Blob1->Index != Blob2->Index) {
+      return (Blob1->Index < Blob2->Index);
+    }
 
-    if (It1->Coeff != It2->Coeff)
-      return (It1->Coeff < It2->Coeff);
-    if (It1->Index != It2->Index)
-      return (It1->Index < It2->Index);
+    if (Blob1->Coeff != Blob2->Coeff) {
+      return (Blob1->Coeff < Blob2->Coeff);
+    }
   }
 
-  if (ACanon->getConstant() != BCanon->getConstant())
-    return (ACanon->getConstant() < BCanon->getConstant());
+  if (CE1->getConstant() != CE2->getConstant()) {
+    return (CE1->getConstant() < CE2->getConstant());
+  }
 
-  if (ACanon->getDenominator() != BCanon->getDenominator())
-    return (ACanon->getDenominator() < BCanon->getDenominator());
+  if (CE1->getDenominator() != CE2->getDenominator()) {
+    return (CE1->getDenominator() < CE2->getDenominator());
+  }
 
   // Check division type for non-unit denominator.
-  if ((ACanon->getDenominator() != 1) &&
-      (ACanon->isSignedDiv() != BCanon->isSignedDiv())) {
-    return ACanon->isSignedDiv();
+  if ((CE1->getDenominator() != 1) &&
+      (CE1->isSignedDiv() != CE2->isSignedDiv())) {
+    return CE1->isSignedDiv();
   }
 
-  // If ACanon and BCanon have incompatible types, order them using type info.
-  if (!CanonExprUtils::mergeable(ACanon, BCanon)) {
-    Type *TypeA = ACanon->getDestType();
-    Type *TypeB = BCanon->getDestType();
+  // If CE1 and CE2 have incompatible types, order them using type info.
+  if (!CanonExprUtils::mergeable(CE1, CE2)) {
+    Type *TypeA = CE1->getDestType();
+    Type *TypeB = CE2->getDestType();
 
     // Get pointer element type (i32 from i32*) to make different pointer types
     // be grouped together during sorting: (i32*, i32*, i64*, i64*, ...)
@@ -87,10 +99,10 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
     return TypeA->getPrimitiveSizeInBits() < TypeB->getPrimitiveSizeInBits();
   }
 
-  if (ACanon->isNonLinear() != BCanon->isNonLinear()) {
-    return ACanon->isNonLinear();
-  } else if (!ACanon->isNonLinear()) {
-    return ACanon->getDefinedAtLevel() < BCanon->getDefinedAtLevel();
+  if (CE1->isNonLinear() != CE2->isNonLinear()) {
+    return CE1->isNonLinear();
+  } else if (!CE1->isNonLinear()) {
+    return CE1->getDefinedAtLevel() < CE2->getDefinedAtLevel();
   }
 
   // Assert, since the two canon expr should differ atleast one case,
@@ -101,11 +113,15 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
 }
 
 // Sorting comparator operator for two DDRef.
-// This sorting compares the two ddref and orders them based on
-// the dimensions, IV's, blobs and then writes.
-// For example: A[i+5][j], A[i][0] -> Read, A[i][j], A[i+k][0],
-// A[i][0] -> Write will be sorted as
-// A[i][0] -> Write, A[i][0] -> Read, A[i+k][0], A[i][j], A[i+5][j].
+// This sorting compares the two ddref and orders them based on Ref's base,
+// dimensions, IV's, blobs and then writes. Refs with equal bases (and no blobs)
+// are sorted in increasing order of address location.
+//
+// Consider this set of refs-
+// A[i+5][j], A[i][0] (Read), A[i][0] (Write), A[i][j], A[i+k][0]
+//
+// The sorting order is-
+// A[i][0] (Write), A[i][0] (Read), A[i][j], A[i+5][j], A[i+k][0]
 //
 // As a comparator, compareMemRef must meet the requirements of Compare concept:
 // For a long story see http://en.cppreference.com/w/cpp/concept/Compare
@@ -132,16 +148,19 @@ bool DDRefGathererUtils::compareMemRef(const RegDDRef *Ref1,
     return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
   }
 
-  // Check canon expr of the two ddrefs.
-  for (auto AIter = Ref1->canon_begin(), End = Ref1->canon_end(),
-            BIter = Ref2->canon_begin();
-       AIter != End; ++AIter, ++BIter) {
+  // Check dimensions from highest to lowest.
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    const CanonExpr *CE1 = Ref1->getDimensionIndex(I);
+    const CanonExpr *CE2 = Ref2->getDimensionIndex(I);
 
-    const CanonExpr *ACanon = *AIter;
-    const CanonExpr *BCanon = *BIter;
+    if (!CanonExprUtils::areEqual(CE1, CE2)) {
+      return compareMemRefCE(CE1, CE2);
+    }
 
-    if (!CanonExprUtils::areEqual(ACanon, BCanon)) {
-      return compareMemRefCE(ACanon, BCanon);
+    auto Diff = DDRefUtils::compareOffsets(Ref1, Ref2, I);
+
+    if (Diff != 0) {
+      return (Diff < 0);
     }
   }
 

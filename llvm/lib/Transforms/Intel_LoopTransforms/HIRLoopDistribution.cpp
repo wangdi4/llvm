@@ -48,6 +48,8 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   auto HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
+  auto HLS = &getAnalysis<HIRLoopStatistics>();
+
   SmallVector<HLLoop *, 64> Loops;
 
   if (DistCostModel == DistHeuristics::BreakMemRec) {
@@ -71,7 +73,7 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
       continue;
     }
 
-    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA));
+    std::unique_ptr<PiGraph> PG(new PiGraph(Lp, DDA, HLS));
 
     if (!PG->isGraphValid()) {
       if (OptReportLevel >= 3) {
@@ -161,7 +163,9 @@ void HIRLoopDistribution::distributeLoop(
   }
 
   Loop->getParentRegion()->setGenCode();
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion<HIRLoopStatistics>(
+      Loop);
+  HIRInvalidationUtils::invalidateBody(Loop);
 
   // The loop is now empty, all its children moved into new loops
   assert(!Loop->hasChildren() &&
@@ -197,8 +201,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         // perfect subloops are distributed into their own loop
         if (SingleLoop->isInnermost() ||
-            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
-                                                           &InnermostLoop)) {
+            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
           DistPoints.push_back(PiBlockList(1, Blk));
         } else {
           CurLoopPiBlkList.push_back(Blk);
@@ -214,8 +217,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
             dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->HNode);
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         if (SingleLoop->isInnermost() ||
-            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
-                                                           &InnermostLoop)) {
+            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
           // terminate our current loop and append it to loop list
           if (!CurLoopPiBlkList.empty()) {
             DistPoints.push_back(CurLoopPiBlkList);
@@ -291,7 +293,8 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
     // Why ruin perfection
     // Should we run distribution in perfect loopnest mode on innermost loops?
-    if (!Lp->isInnermost() && HNU.isPerfectLoopNest(Lp, &InnermostLoop)) {
+    if (!Lp->isInnermost() &&
+        HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
 

@@ -188,7 +188,7 @@ IVSegment::IVSegment(const RefGroupTy &Group) {
   if (DiffCE->isIntConstant(&DiffValue)) {
     assert(DiffValue >= 0 && "Segment wrong direction");
   } else {
-    llvm_unreachable("Non-constant segment length");
+    llvm_unreachable("Non-integer non-constant segment length");
   }
   UpperCE->getCanonExprUtils().destroy(DiffCE);
 #endif
@@ -280,11 +280,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
       // Have to treat bound as blob and then truncate or extend it.
       std::unique_ptr<CanonExpr> NewBoundCE(BoundCE->clone());
 
-      if (CE->getSrcType() == NewBoundCE->getSrcType()) {
-        Ret = NewBoundCE->convertToStandAloneBlob();
-      } else {
-        Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
-      }
+      Ret = NewBoundCE->castStandAloneBlob(CE->getSrcType(), false);
 
       assert(Ret && "convertToStandAloneBlob() should always succeed as we"
                     "already checked if it's convertible");
@@ -339,7 +335,11 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // usually result in gather/scatter generation.
       // For Loop Interchange we treat them as profitable.
       if (!DisableCostModel && OuterLoop == InnermostLoop &&
-          (IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
+          //(IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
+          (!(IVConstCoeff == 1 ||
+              // -1 is allowed for memcpy recognition
+             (IVConstCoeff == -1 && OuterLoop->getNumChildren() <= 2)) ||
+           IVBlobIndex != InvalidBlobIndex)) {
         return NON_PROFITABLE;
       }
 
@@ -433,6 +433,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Non DO loops are not supported";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
+  case STRUCT_ACCESS:
+    return "Struct refs not supported yet";
   default:
     llvm_unreachable("Unexpected give up reason");
   }
@@ -451,20 +453,12 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
 
 RuntimeDDResult HIRRuntimeDD::processLoopnest(
     const HLLoop *OuterLoop, const HLLoop *InnermostLoop,
-    SmallVectorImpl<IVSegment> &IVSegments,
-    SmallVectorImpl<RuntimeDDResult> &SegmentConditions,
-    bool &ShouldGenerateTripCount) {
+    SmallVectorImpl<IVSegment> &IVSegments, bool &ShouldGenerateTripCount) {
 
   assert(InnermostLoop->isInnermost() &&
          "InnermostLoop is not an innermost loop");
 
   unsigned SegmentCount = IVSegments.size();
-
-  // Check every segment for the applicability
-  for (unsigned I = 0; I < SegmentCount; ++I) {
-    SegmentConditions.push_back(
-        IVSegments[I].isSegmentSupported(OuterLoop, InnermostLoop));
-  }
 
   // TotalTripCount is used only to decide should we generate runtime small trip
   // test or not.
@@ -496,21 +490,18 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
     auto Level = LoopI->getNestingLevel();
 
     for (unsigned I = 0; I < SegmentCount; ++I) {
-      if (SegmentConditions[I] == OK) {
-        IVSegments[I].updateIVWithBounds(Level, LowerBoundRef, UpperBoundRef,
-                                         InnermostLoop);
-      }
+      IVSegments[I].updateIVWithBounds(Level, LowerBoundRef, UpperBoundRef,
+                                       InnermostLoop);
     }
   }
 
-  if (ConstantTripCount && TotalTripCount < SmallTripCountTest) {
+  if (!DisableCostModel && ConstantTripCount &&
+      TotalTripCount < SmallTripCountTest) {
     return SMALL_TRIPCOUNT;
   }
 
   for (unsigned I = 0; I < SegmentCount; ++I) {
-    if (SegmentConditions[I] == OK) {
-      IVSegments[I].makeConsistent(AuxRefs, OuterLoop->getNestingLevel() - 1);
-    }
+    IVSegments[I].makeConsistent(AuxRefs, OuterLoop->getNestingLevel() - 1);
   }
 
   return OK;
@@ -518,6 +509,13 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
 
 bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
                                              const RegDDRef *Ref2) {
+
+  // TODO: Temporary workaround to make it easier to bail out on loops with
+  // structure access.
+  if (Ref1->accessesStruct() || Ref2->accessesStruct()) {
+    return false;
+  }
+
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
@@ -551,6 +549,21 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
   return true;
 }
 
+unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups,
+                                    RegDDRef *Ref) {
+  for (auto I = Groups.begin(), E = Groups.end(); I != E; ++I) {
+    if (isGroupMemRefMatchForRTDD(I->front(), Ref)) {
+      I->push_back(Ref);
+      return std::distance(Groups.begin(), I);
+    }
+  }
+
+  unsigned NewGroupNum = Groups.size();
+  Groups.resize(Groups.size() + 1);
+  Groups.back().push_back(Ref);
+  return NewGroupNum;
+}
+
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
   Context.GenTripCountTest = true;
@@ -565,119 +578,125 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
 
   const HLLoop *InnermostLoop = Loop;
   if (!Loop->isInnermost() &&
-      !Loop->getHLNodeUtils().isPerfectLoopNest(Loop, &InnermostLoop)) {
+      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop)) {
     return NON_PERFECT_LOOPNEST;
   }
 
   // Check the loopnest for applicability
-  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop; LoopI != LoopE;
-       LoopI = LoopI->getParentLoop()) {
+  for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
+       LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
+    // TODO: add a lit test when we start to support unknown loops
     if (!LoopI->isDo()) {
       return NON_DO_LOOP;
     }
-
-    if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
-      return NON_CONSTANT_IV_STRIDE;
-    }
   }
 
-  MemRefGatherer::MapTy RefMap;
-  RefGroupMapTy Groups;
+  RefGroupVecTy &Groups = Context.Groups;
+  MemRefGatherer::VectorTy Refs;
+  SmallSetVector<std::pair<unsigned, unsigned>, ExpectedNumberOfTests> Tests;
+
+  auto &DDA = getAnalysis<HIRDDAnalysis>();
+  DDGraph DDG = DDA.getGraph(Loop);
+  DEBUG(dbgs() << "Loop DDG:\n");
+  DEBUG(DDG.dump());
+
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
-  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
-  DEBUG(MemRefGatherer::dump(RefMap));
+  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), Refs);
+  DEBUG(dbgs() << "Loop references:\n");
+  DEBUG(MemRefGatherer::dump(Refs));
 
-  MemRefGatherer::sort(RefMap);
-  DEBUG(MemRefGatherer::dump(RefMap));
+  for (RegDDRef *SrcRef : Refs) {
+    unsigned GroupA = findAndGroup(Groups, SrcRef);
 
-  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
+    for (const DDEdge *Edge : DDG.outgoing(SrcRef)) {
+      assert(!Edge->isINPUTdep() && "Input edges are unexpected");
+
+      RegDDRef *DstRef = cast<RegDDRef>(Edge->getSink());
+      unsigned GroupB = findAndGroup(Groups, DstRef);
+
+      if (GroupA != GroupB) {
+        // Skip loops with refs where base CEs are the same, as this
+        // transformation mostly for cases with different pointers.
+        if (CanonExprUtils::areEqual(SrcRef->getBaseCE(), DstRef->getBaseCE(),
+                                     true)) {
+          return SAME_BASE;
+        }
+
+        auto TestPair = GroupA > GroupB ? std::make_pair(GroupB, GroupA)
+                                        : std::make_pair(GroupA, GroupB);
+
+        Tests.insert(TestPair);
+      }
+    }
+  }
+
+  if (Tests.size() < 1) {
+    return NO_OPPORTUNITIES;
+  } else if (Tests.size() > MaximumNumberOfTests) {
+    return TOO_MANY_TESTS;
+  }
+
+  for (RefGroupTy &Group : Groups) {
+    std::sort(Group.begin(), Group.end(), DDRefGathererUtils::compareMemRef);
+  }
+
   DEBUG(DDRefGrouping::dump(Groups));
 
   unsigned GroupSize = Groups.size();
 
-  if (GroupSize < 2) {
-    return NO_OPPORTUNITIES;
-  }
-
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
-  SmallVector<RuntimeDDResult, ExpectedNumberOfTests> Supported;
   for (unsigned I = 0; I < GroupSize; ++I) {
-    IVSegments.push_back(IVSegment(Groups[I]));
+    if (Groups[I].front()->accessesStruct()) {
+      return STRUCT_ACCESS;
+    }
+    IVSegments.emplace_back(Groups[I]);
+
+    // Check every segment for the applicability
+    RuntimeDDResult Ret =
+        IVSegments.back().isSegmentSupported(Loop, InnermostLoop);
+    if (Ret != OK) {
+      return Ret;
+    }
   }
 
   RuntimeDDResult Res;
-  Res = processLoopnest(Loop, InnermostLoop, IVSegments, Supported,
+  Res = processLoopnest(Loop, InnermostLoop, IVSegments,
                         Context.GenTripCountTest);
   if (Res != OK) {
     return Res;
   }
 
-  assert(IVSegments.size() == Supported.size() && "Elements of Supported array "
-                                                  "should correspond to "
-                                                  "elements in IVSegments");
-
   // Create pairs of segments to intersect and store them into
   // Candidate.SegmentList
-  unsigned NumOfTests = 0;
-  for (unsigned I = 0, IE = IVSegments.size() - 1; I < IE; ++I) {
+  for (auto &Test : Tests) {
+    unsigned I = Test.first;
+    unsigned J = Test.second;
+
     IVSegment &S1 = IVSegments[I];
+    IVSegment &S2 = IVSegments[J];
 
-    for (unsigned J = I + 1, JE = IVSegments.size(); J < JE; ++J) {
-      IVSegment &S2 = IVSegments[J];
+    assert(S1.getLower()->getSymbase() == S2.getLower()->getSymbase() &&
+           "Segment symbases should be equal");
 
-      if (S1.getLower()->getSymbase() != S2.getLower()->getSymbase()) {
-        break;
-      }
+    // Skip Read-Read segments
+    assert((S1.isWrite() || S2.isWrite()) &&
+           "At least of the one segments should be a write segment");
 
-      // Skip Read-Read segments
-      if (!S1.isWrite() && !S2.isWrite()) {
-        continue;
-      }
-
-      // Skip loops with refs where base CEs are the same, as this
-      // transformation mostly for cases with different pointers.
-      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE(), true)) {
-        return SAME_BASE;
-      }
-
-      // Check if both segments are OK. Unsupported segment may
-      // not be a problem, if there is no another overlapped segment.
-      RuntimeDDResult Res;
-      Res = Supported[I];
-      if (Res != OK) {
-        return Res;
-      }
-      Res = Supported[J];
-      if (Res != OK) {
-        return Res;
-      }
-
-      Context.SegmentList.push_back(S1.genSegment());
-      Context.SegmentList.push_back(S2.genSegment());
-
-      NumOfTests++;
-      if (NumOfTests > MaximumNumberOfTests) {
-        return TOO_MANY_TESTS;
-      }
-    }
-  }
-
-  if (Context.SegmentList.size() == 0) {
-    return NO_OPPORTUNITIES;
+    Context.SegmentList.push_back(S1.genSegment());
+    Context.SegmentList.push_back(S2.genSegment());
   }
 
   return OK;
 }
 
-HLInst *HIRRuntimeDD::createIntersectionCondition(HLLoop *OrigLoop,
+HLInst *HIRRuntimeDD::createIntersectionCondition(HLNodeUtils &HNU,
                                                   HLContainerTy &Nodes,
                                                   Segment &S1, Segment &S2) {
   Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
-  auto &HNU = OrigLoop->getHLNodeUtils();
 
   // In case of different types, bitcast one segment bounds to another to
   // be in compliance with LLVM IR. (see ex. in lit test ptr-types.ll)
@@ -737,8 +756,8 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //   <PostExit>
   // }
 
-  HLLoop *OrigLoop = Context.Loop;
-  HLLoop *ModifiedLoop = Context.Loop->clone();
+  HLLoop *ModifiedLoop = Context.Loop;
+  HLLoop *OrigLoop = Context.Loop->clone();
 
   HLIf *MemcheckIf = nullptr;
   auto &HNU = OrigLoop->getHLNodeUtils();
@@ -763,10 +782,11 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
     auto &S1 = Context.SegmentList[i];
     auto &S2 = Context.SegmentList[i + 1];
 
-    HLInst *And = createIntersectionCondition(OrigLoop, Nodes, S1, S2);
+    HLInst *And =
+        createIntersectionCondition(OrigLoop->getHLNodeUtils(), Nodes, S1, S2);
     TestDDRefs.push_back(And->getLvalDDRef()->clone());
   }
-  HNU.insertBefore(OrigLoop, &Nodes);
+  HNU.insertBefore(Context.Loop, &Nodes);
 
   Type *Ty = TestDDRefs.front()->getDestType();
   if (!MemcheckIf) {
@@ -783,10 +803,10 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
                              HNU.getDDRefUtils().createConstDDRef(Ty, 0));
   }
 
-  HNU.insertBefore(OrigLoop, MemcheckIf);
+  HNU.insertBefore(Context.Loop, MemcheckIf);
 
-  HNU.insertAsFirstChild(MemcheckIf, ModifiedLoop, true);
-  HNU.moveAsFirstChild(MemcheckIf, OrigLoop, false);
+  HNU.moveAsFirstChild(MemcheckIf, ModifiedLoop, true);
+  HNU.insertAsFirstChild(MemcheckIf, OrigLoop, false);
 
   unsigned MVTag = ModifiedLoop->getNumber();
   ModifiedLoop->setMVTag(MVTag);
@@ -794,21 +814,24 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
 
   OrigLoop->markDoNotVectorize();
 
-  markDDRefsIndep(ModifiedLoop);
+  // Implementation Note: The transformation adds NoAlias/Scope metadata to the
+  // original loop and creates a clone for the unmodified loop.
+  // 1) When RTDD will be used on-demand the clients may continue to work
+  //    with the original loop and just ignore dependencies.
+  // 2) Adding metadata to the cloned loop will require DDG for the new loop or
+  //    creation of a mapping mechanism between original and cloned
+  //    DDRefs.
+  markDDRefsIndep(Context);
 
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Context.Loop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ModifiedLoop);
+  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(ModifiedLoop);
 }
 
-void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
-  MemRefGatherer::MapTy RefMap;
-  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
-  MemRefGatherer::sort(RefMap);
-
-  RefGroupMapTy Groups;
-  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
+void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
+  RefGroupVecTy &Groups = Context.Groups;
 
   auto Size = Groups.size();
-  MDBuilder MDB(Loop->getHLNodeUtils().getHIRFramework().getContext());
+  MDBuilder MDB(Context.Loop->getHLNodeUtils().getHIRFramework().getContext());
 
   MDNode *Domain = MDB.createAnonymousAliasScopeDomain();
   SmallVector<MDNode *, ExpectedNumberOfTests> NewScopes;
@@ -817,10 +840,10 @@ void HIRRuntimeDD::markDDRefsIndep(HLLoop *Loop) {
     NewScopes.push_back(MDB.createAnonymousAliasScope(Domain));
   }
 
-  for (auto &Pair : Groups) {
-    auto ScopeId = Pair.first;
+  for (unsigned I = 0, E = Groups.size(); I < E; ++I) {
+    auto ScopeId = I;
 
-    for (RegDDRef *Ref : Pair.second) {
+    for (RegDDRef *Ref : Groups[I]) {
       AAMDNodes AANodes;
       Ref->getAAMetadata(AANodes);
 

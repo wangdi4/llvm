@@ -1,4 +1,4 @@
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-complete-unroll -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-temp-cleanup -hir-loop-interchange -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=50 -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 ; (This test is based on Interchange/matmul-coremark.ll)
 ;
 ;[LLIMM Analysis]
@@ -41,7 +41,7 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
-; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ; CHECK:           |   |   + DO i3 = 0, 24, 1   <DO_LOOP>
 ; CHECK:           |   |   |   %mul20 = (@vy)[0][i1 + sext.i32.i64(%n) * i3]  *  (@cx)[0][25 * i1 + i2 + i3 + 1];
 ; CHECK:           |   |   |   %add21 = (@px)[0][25 * i1]  +  %mul20;
@@ -130,7 +130,7 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:           + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>  <MAX_TC_EST = 40>
-; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 1000>
+; CHECK:           |   + DO i2 = 0, %loop + -1, 1   <DO_LOOP>  <MAX_TC_EST = 999>
 ; CHECK:           |   |      %limm = (@px)[0][25 * i1];
 ; CHECK:           |   |      %limm4 = (@px)[0][25 * i1 + 1];
 ; CHECK:           |   |      %limm6 = (@px)[0][25 * i1 + 2];

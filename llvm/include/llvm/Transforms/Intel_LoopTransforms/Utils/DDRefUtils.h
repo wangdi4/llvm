@@ -49,7 +49,6 @@ private:
   std::set<DDRef *> Objs;
 
   CanonExprUtils CEU;
-  HIRSymbaseAssignment *HIRSA;
 
   DDRefUtils(HIRParser &HIRP) : CEU(HIRP) {}
 
@@ -69,8 +68,6 @@ private:
     return getCanonExprUtils().getHIRParser();
   }
 
-  HIRSymbaseAssignment &getHIRSymbaseAssignment() { return *HIRSA; }
-
   /// Destroys all DDRefs. Called during HIR cleanup.
   void destroyAll();
 
@@ -86,6 +83,10 @@ private:
 
   /// Returns true if BlobDDRef1 equals BlobDDRef2.
   static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
+
+  /// Implements getConst*Distance() functionality.
+  static bool getConstDistanceImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                   unsigned LoopLevel, int64_t *Distance);
 
 public:
   // Returns reference to CanonExprUtils object.
@@ -155,6 +156,10 @@ public:
   /// Destroys the passed in DDRef.
   void destroy(DDRef *Ref);
 
+  /// Returns a generic rval symbase.
+  unsigned getGenericRvalSymbase();
+
+  /// Returns a brand new symbase.
   unsigned getNewSymbase();
 
   /// Returns true if the two DDRefs, Ref1 and Ref2, are equal.
@@ -190,8 +195,73 @@ public:
   /// do that than to generate two separate gathers. A difference between
   /// struct accesses such as a[i].I and a[i].F where 'a' is an array of
   /// struct S {int I; float F;} will also be supported.
-  bool getConstDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                        int64_t *Distance);
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// A[i1+%t] and A[i1+%t+1] even if %t is non-linear and has a different value
+  /// for the refs.
+  static bool getConstByteDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                   int64_t *Distance);
+
+  /// Returns a constant distance in number of iterations at \p LoopLevel
+  /// between \p Ref1 and \p Ref2.
+  /// This is different that getConstDistanceInBytes() above in that the
+  /// distance should be an exact multiple of iterations of loop. For example,
+  /// it returns false for A[2*i1] and A[2*i1+1] as they do not overlap w.r.t
+  /// i1.
+  ///
+  /// NOTE: This is strictly a structural check in the sense that the utility is
+  /// context insensitive. It doesn't perform HIR based checks and so will
+  /// return a valid distance for non-linear CEs. Caller is responsible for
+  /// doing extra analysis. For example, it will return a valid distance between
+  /// A[i1+%t] and A[i1+%t+1] even if %t is non-linear and has a different value
+  /// for the refs.
+  static bool getConstIterationDistance(const RegDDRef *Ref1,
+                                        const RegDDRef *Ref2,
+                                        unsigned LoopLevel, int64_t *Distance);
+
+  /// Returns the type obtained by applying element offsets from \p Offsets to
+  /// \p Ty. This is a no-op for non-struct types.
+  static Type *getOffsetType(Type *Ty,
+                             const SmallVectorImpl<unsigned> &Offsets);
+
+  /// Given a type and field offset numbers, calculates the total byte offset.
+  static int64_t getOffsetDistance(Type *Ty, const DataLayout &DL,
+                                   const SmallVectorImpl<unsigned> &Offsets);
+
+  /// Given two sets of offsets returns negative, positive or zero value based
+  /// on whether \p Offset1 has lower, higher or equal total byte offset than \p
+  /// Offset2. This is useful for ordering DDRefs.
+  static int compareOffsets(const SmallVectorImpl<unsigned> &Offsets1,
+                            const SmallVectorImpl<unsigned> &Offsets2);
+
+  /// Returns negative, positive or zero value based on whether \p Ref1 has
+  /// lower, higher or equal total byte offset than \p Ref2 at \p DimensionNum.
+  /// This is useful for ordering DDRefs.
+  static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                            unsigned DimensionNum);
+
+  /// Check if replaceIVByCanonExpr(.) can actually succeed without doing it for
+  /// real.
+  ///
+  /// Return: bool
+  /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
+  /// -false: otherwise
+  static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
+                                      const CanonExpr *CE,
+                                      bool RelaxedMode = true);
+
+  /// Replace any IV in the Ref with a given CanonExpr*.
+  ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
+  ///
+  /// Note: The function asserts if the replacement fails as the Ref may be in
+  /// an inconsistent state. Caller should call canReplaceIVByCanonExpr() first
+  /// to make sure this is safe to do.
+  static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
+                                   const CanonExpr *CE,
+                                   bool RelaxedMode = true);
 };
 
 } // End namespace loopopt

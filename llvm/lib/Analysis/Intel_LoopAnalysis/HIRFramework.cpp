@@ -59,8 +59,6 @@ void HIRFramework::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool HIRFramework::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
-  SA = &getAnalysis<HIRSymbaseAssignment>();
-  ScalarSA = &getAnalysis<HIRScalarSymbaseAssignment>();
 
   getHLNodeUtils().HIRF = this;
   getHLNodeUtils().removeEmptyNodesRange(hir_begin(), hir_end());
@@ -75,7 +73,11 @@ bool HIRFramework::runOnFunction(Function &F) {
   return false;
 }
 
-struct MaxTripCountEstimator final : public HLNodeVisitorBase {
+struct HIRFramework::MaxTripCountEstimator final : public HLNodeVisitorBase {
+  const HIRFramework *HIRF;
+
+  MaxTripCountEstimator(const HIRFramework *HIRF) : HIRF(HIRF) {}
+
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
@@ -86,7 +88,7 @@ struct MaxTripCountEstimator final : public HLNodeVisitorBase {
   void visit(CanonExpr *CE, ArrayType *ArrTy, HLDDNode *Node);
 };
 
-void MaxTripCountEstimator::visit(HLLoop *Lp) {
+void HIRFramework::MaxTripCountEstimator::visit(HLLoop *Lp) {
   // This can set trip count estimate for triangular loops.
   // DO i1 = 0, 10
   // DO i2 = 0, i1 - 1  <MAX_TC_EST = 10>
@@ -100,7 +102,7 @@ void MaxTripCountEstimator::visit(HLLoop *Lp) {
   }
 }
 
-void MaxTripCountEstimator::visit(HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(HLDDNode *Node) {
 
   auto ParentLoop = Node->getLexicalParentLoop();
 
@@ -114,34 +116,52 @@ void MaxTripCountEstimator::visit(HLDDNode *Node) {
   }
 }
 
-void MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(RegDDRef *Ref, HLDDNode *Node) {
   if (!Ref->hasGEPInfo()) {
     return;
   }
 
   // We cannot rely on information from non-inbounds gep.
-  // Ref with a single dimension does not contain information about number of
-  // elements.
-  if (!Ref->isInBounds() || (Ref->getNumDimensions() == 1)) {
+  if (!Ref->isInBounds()) {
     return;
   }
 
-  SequentialType *BaseArrType = cast<PointerType>(Ref->getBaseSrcType());
+  unsigned NumDims = Ref->getNumDimensions();
 
-  // Traverse CEs in reverse order (highest to lowest dimension) as LLVM types
-  // are recursed into, in this order.
-  for (auto CEIt = (Ref->canon_rbegin() + 1), E = Ref->canon_rend(); CEIt != E;
-       ++CEIt) {
-    BaseArrType = cast<SequentialType>(BaseArrType->getElementType());
-    assert(isa<ArrayType>(BaseArrType) &&
-           "Found non-array type for subscripts!");
+  // Highest dimension is intentionally skipped as it doesn't contain
+  // information about number of elements.
+  for (unsigned I = 1; I < NumDims; ++I) {
+    visit(Ref->getDimensionIndex(I), cast<ArrayType>(Ref->getDimensionType(I)),
+          Node);
+  }
 
-    visit(*CEIt, cast<ArrayType>(BaseArrType), Node);
+  // We try getting the information about number of elements in the highest
+  // dimension by tracing the base value back to an array type from which it may
+  // have been extracted.
+  auto HighestCE = Ref->getDimensionIndex(NumDims);
+
+  if (HighestCE->isNonLinear() || !HighestCE->hasIV()) {
+    return;
+  }
+
+  auto BaseCE = Ref->getBaseCE();
+
+  if (!BaseCE->isSelfBlob()) {
+    return;
+  }
+
+  auto BaseVal =
+      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
+
+  auto ArrTy = HIRF->HIRP->traceBackToArrayType(BaseVal);
+
+  if (ArrTy) {
+    visit(HighestCE, ArrTy, Node);
   }
 }
 
-void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
-                                  HLDDNode *Node) {
+void HIRFramework::MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
+                                                HLDDNode *Node) {
 
   // We cannot estimate the iteration space of the IV with a varying blob.
   if (CE->isNonLinear() || !CE->hasIV()) {
@@ -191,33 +211,32 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
     // Remove IV to calculate min/max for the remaining part.
     CE->removeIV(Level);
 
-    // This is a crude way of avoiding trip count estimation based on conditions
-    // like this-
-    // if (i < 5) A[5 - i] = 0
-    // TODO : Can we refine this logic?
-    if (!HNU.postDominates(Node, Lp->getFirstChild()) ||
-        // The max value of the rest of the CE gives a better estimate on max
-        // trip count so we check max value first. For example, A[i + j] will
-        // give a tighter bound on j for max value of i. Similarly, for A[i - j]
-        // max value of i gives max estimate for j.
-        (!HNU.getMaxValue(CE, Node, NonIVVal) &&
-         !HNU.getMinValue(CE, Node, NonIVVal))) {
+    // Note: Avoiding post-domination check here to save compile time. Since
+    // this is just an estimate, it is okay to not be very accurate.
+
+    // The max value of the rest of the CE gives a better estimate on max
+    // trip count so we check max value first. For example, A[i + j] will
+    // give a tighter bound on j for max value of i. Similarly, for A[i - j]
+    // max value of i gives max estimate for j.
+    if (!HNU.getMaxValue(CE, Node, NonIVVal) &&
+        !HNU.getMinValue(CE, Node, NonIVVal)) {
       // This gets us the most conservative estimate.
       NonIVVal = 0;
     }
 
-    // Skip negative values, as we cannot make sense of it.
-    if (NonIVVal >= 0) {
-      // If we encounter a reference like A[5 - i], we can estimate the trip
-      // count
-      // to be 6.
-      if (!PositiveIVCoeff && NonIVVal) {
-        MaxTC = ((Denom * NonIVVal) / std::llabs(Coeff * BlobVal)) + 1;
-      } else {
-        MaxTC = ((Denom * (NumElements - NonIVVal - 1)) /
-                 std::llabs(Coeff * BlobVal)) +
-                1;
-      }
+    if (NonIVVal < 0) {
+      NonIVVal = 0;
+    }
+
+    // If we encounter a reference like A[5 - i], we can estimate the trip
+    // count
+    // to be 6.
+    if (!PositiveIVCoeff && NonIVVal) {
+      MaxTC = ((Denom * NonIVVal) / std::llabs(Coeff * BlobVal)) + 1;
+    } else {
+      MaxTC = ((Denom * (NumElements - NonIVVal - 1)) /
+               std::llabs(Coeff * BlobVal)) +
+              1;
     }
 
     // Restore CE to original state.
@@ -232,7 +251,7 @@ void MaxTripCountEstimator::visit(CanonExpr *CE, ArrayType *ArrTy,
 }
 
 void HIRFramework::estimateMaxTripCounts() const {
-  MaxTripCountEstimator MTCE;
+  MaxTripCountEstimator MTCE(this);
   getHLNodeUtils().visitAll(MTCE);
 }
 

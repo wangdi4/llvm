@@ -1,4 +1,7 @@
-; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -print-before=hir-opt-var-predicate -disable-output -hir-opt-var-predicate < %s 2>&1 | FileCheck %s
+; Transformation of the outer loops considered non-benificial
+
+; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate -disable-hir-opt-var-predicate-cost-model < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -S -print-after=hir-opt-var-predicate -disable-output -hir-opt-var-predicate < %s 2>&1 | FileCheck %s -check-prefix=CM-CHECK
 
 ; Source code:
 ;
@@ -31,13 +34,16 @@
 ; Function: foo
 ;
 ; CHECK:    BEGIN REGION { modified }
-; CHECK:          + DO i1 = smax(0, (1 + %d)), %n + -1, 1   <DO_LOOP>
+; CHECK:          + DO i1 = 0, %n + -1 * smax(0, (1 + %d)) + -1, 1   <DO_LOOP>
 ; CHECK:          |   + DO i2 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
 ; CHECK:          |   |   %0 = (%p)[i2];
 ; CHECK:          |   |   (%p)[i2] = %0 + 1;
 ; CHECK:          |   + END LOOP
 ; CHECK:          + END LOOP
 ; CHECK:    END REGION
+
+; CM-CHECK: *** IR Dump After
+; CM-CHECK: BEGIN REGION { }
 
 ;Module Before HIR; ModuleID = 'iv-outer.c'
 source_filename = "iv-outer.c"

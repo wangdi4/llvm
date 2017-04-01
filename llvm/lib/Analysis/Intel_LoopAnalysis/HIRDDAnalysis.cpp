@@ -15,6 +15,7 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Intel_StdContainerAA.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -26,12 +27,13 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #include <algorithm>
 #include <map>
@@ -83,8 +85,10 @@ INITIALIZE_PASS_BEGIN(HIRDDAnalysis, "hir-dd-analysis",
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScopedNoAliasAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TypeBasedAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(StdContainerAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRDDAnalysis, "hir-dd-analysis",
                     "HIR Data Dependence Analysis", false, true)
 
@@ -93,17 +97,18 @@ void HIRDDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
 
   AU.addUsedIfAvailable<ScopedNoAliasAAWrapperPass>();
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<StdContainerAAWrapperPass>();
+  AU.addUsedIfAvailable<BasicAAWrapperPass>();
   // TODO: Do we need to add scev alias analysis??
 }
 
 // \brief Because the graph is evaluated lazily, runOnFunction doesn't
 // do any analysis
 bool HIRDDAnalysis::runOnFunction(Function &F) {
-
   AAR.reset(
       new AAResults(getAnalysis<TargetLibraryInfoWrapperPass>().getTLI()));
 
@@ -119,7 +124,12 @@ bool HIRDDAnalysis::runOnFunction(Function &F) {
     AAR->addAAResult(Pass->getResult());
   }
 
+  if (auto *Pass = getAnalysisIfAvailable<BasicAAWrapperPass>()) {
+    AAR->addAAResult(Pass->getResult());
+  }
+
   HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
@@ -168,6 +178,11 @@ void HIRDDAnalysis::markNonLoopRegionModified(const HLRegion *Region) {
 
 DDGraph HIRDDAnalysis::getGraphImpl(const HLNode *Node, bool InputEdgesReq) {
   auto State = ValidationMap[Node];
+
+  // TODO: We have to treat NoData graph as Invalid if there are edges
+  // associated with the Loop/Region. For ex. the distribution pass creates new
+  // loops and populates it with old HLNodes. Calling getGraph() on NoData nodes
+  // potentially can lead to duplicated edges or invalid dependencies.
 
   // conservatively assume input edges are always invalid
   if (ForceDDA || InputEdgesReq || State == GraphState::Invalid) {
@@ -258,7 +273,7 @@ void HIRDDAnalysis::invalidateGraph(const HLLoop *Loop,
 
   if (InvalidateInnerLoops) {
     GraphStateUpdater Visitor(ValidationMap, GraphState::Invalid);
-    Loop->getHLNodeUtils().visit(Visitor, Loop);
+    HLNodeUtils::visit(Visitor, Loop);
   }
 
   const HLLoop *Node = Loop;
@@ -302,8 +317,7 @@ bool HIRDDAnalysis::isEdgeValid(const DDRef *Ref1, const DDRef *Ref2) {
   const HLLoop *RefParentLoop2 = cast<HLLoop>(RefParent2);
 
   const HLLoop *Ancestor =
-      RefParentLoop1->getHLNodeUtils().getLowestCommonAncestorLoop(
-          RefParentLoop1, RefParentLoop2);
+      HLNodeUtils::getLowestCommonAncestorLoop(RefParentLoop1, RefParentLoop2);
   if (Ancestor) {
     return ValidationMap[Ancestor] == GraphState::Valid;
   }
@@ -347,7 +361,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
 
         if (edgeNeeded(Ref1, Ref2, BuildInputEdges) &&
             !isEdgeValid(Ref1, Ref2)) {
-          DDTest DA(*AAR, Node->getHLNodeUtils());
+          DDTest DT(*AAR, Node->getHLNodeUtils(), *HLS);
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
@@ -356,7 +370,7 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
-          DA.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
+          DT.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
                              OutputDVBackward, &IsLoopIndepDepTemp);
           //  Sample code to check output:
           //  first check IsDependent
@@ -401,10 +415,10 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
   if (RegDDref && !(RegDDref->isTerminalRef())) {
-    DDTest DA(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils());
+    DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
     DirectionVector InputDV;
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
-    auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV);
     if (Result == nullptr) {
       *IsIndependent = true;
       return true;
@@ -446,6 +460,19 @@ void HIRDDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
       CurDDA->buildGraph(Loop, false);
     }
   }
+}
+
+bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
+  unsigned NumEdge = 0;
+
+  for (auto *Edge : outgoing(LRef)) {
+    (void)Edge;
+    if (NumEdge++ > 1) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 void DDGraph::print(raw_ostream &OS) const {

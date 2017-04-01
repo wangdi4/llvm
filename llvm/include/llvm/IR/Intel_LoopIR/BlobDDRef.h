@@ -26,7 +26,7 @@ namespace loopopt {
 class RegDDRef;
 class HLDDNode;
 
-/// \brief Represents a blob present in a canonical expr of a RegDDRef
+/// Represents a blob present in a canonical expr of a RegDDRef
 ///
 /// This DDRef is associated with a RegDDRef to expose data dependencies
 /// present due to blobs.
@@ -39,17 +39,17 @@ protected:
   explicit BlobDDRef(DDRefUtils &DDRU, unsigned Index, unsigned Level);
   virtual ~BlobDDRef() override {}
 
-  /// \brief Copy constructor used by cloning.
+  /// Copy constructor used by cloning.
   BlobDDRef(const BlobDDRef &BlobDDRefObj);
 
   friend class RegDDRef;
   friend class DDRefUtils;
   friend class DDUtils;
 
-  /// \brief Sets the HLDDNode of BlobDDRef.
+  /// Sets the HLDDNode of BlobDDRef.
   void setHLDDNode(HLDDNode *HNode) override;
 
-  /// \brief Sets the parent DDRef of BlobDDRef.
+  /// Sets the parent DDRef of BlobDDRef.
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
   /// Returns modifiable canonical form associated with the blob.
@@ -61,24 +61,24 @@ protected:
   using DDRef::setSymbase;
 
 public:
-  /// \brief Returns HLDDNode this DDRef is attached to.
+  /// Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;
 
-  /// \brief Prints BlobDDRef in a simple format.
+  /// Prints BlobDDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
 
-  /// \brief Returns the canonical form associated with the blob.
+  /// Returns the canonical form associated with the blob.
   const CanonExpr *getCanonExpr() const { return CE; }
 
-  /// \brief Returns the blob index associated with this BlobDDRef.
+  /// Returns the blob index associated with this BlobDDRef.
   unsigned getBlobIndex() const { return CE->getSingleBlobIndex(); }
 
-  /// \brief Returns the RegDDRef this is attached to.
+  /// Returns the RegDDRef this is attached to.
   RegDDRef *getParentDDRef() { return ParentDDRef; }
   const RegDDRef *getParentDDRef() const { return ParentDDRef; }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef *Ref) {
     return Ref->getDDRefID() == DDRef::BlobDDRefVal;
   }
@@ -88,32 +88,36 @@ public:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
 
-  /// \brief Returns the src element type associated with this DDRef.
+  /// Returns the src element type associated with this DDRef.
   Type *getSrcType() const override { return CE->getSrcType(); }
-  /// \brief Returns the dest element type associated with this DDRef.
+  /// Returns the dest element type associated with this DDRef.
   Type *getDestType() const override { return CE->getDestType(); }
 
-  /// \brief Returns true if the blob DDRef represents a self-blob like (1 * %t)
+  /// Returns true if the blob DDRef represents a self-blob like (1 * %t)
   /// which should always be true.
   bool isSelfBlob() const override { return true; }
 
   /// Returns true if this ref looks like 1 * undef. 
   bool isUndefSelfBlob() const override { return CE->isUndefSelfBlob(); }
 
-  /// \brief Returns true if this blob DDRef represents an undef blob.
+  /// Returns true if this blob DDRef represents an undef blob.
   bool containsUndef() const override { return CE->containsUndef(); }
 
-  /// \brief Used to represent a different blob by replacing the existing blob
+  /// Used to represent a different blob by replacing the existing blob
   /// index with the new one. Symbase is automatically updated.
   void replaceBlob(unsigned NewIndex);
 
-  /// \brief Sets defined at level for the blob.
+  /// Returns defined at level of the blob.
+  unsigned getDefinedAtLevel() const { return CE->getDefinedAtLevel(); }
+  /// Sets defined at level for the blob.
   void setDefinedAtLevel(unsigned Level) { CE->setDefinedAtLevel(Level); }
 
-  /// \brief Marks the blob as non-linear.
+  /// Returns true if blob is non-linear.
+  bool isNonLinear() const { return CE->isNonLinear(); }
+  /// Marks the blob as non-linear.
   void setNonLinear() { CE->setNonLinear(); }
 
-  /// \brief Verifies BlobDDRef integrity.
+  /// Verifies BlobDDRef integrity.
   virtual void verify() const override;
 };
 

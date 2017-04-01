@@ -18,12 +18,12 @@
 ; }
 
 ; CHECK: IR Dump After
-; CHECK: %mv.test = &((%vy)[25 * %n + -1]) >=u &((%px)[0]);
-; CHECK: %mv.test4 = &((%px)[%n + 599]) >=u &((%vy)[0]);
-; CHECK: %mv.and = %mv.test  &&  %mv.test4;
-; CHECK: %mv.test5 = &((%cx)[624]) >=u &((%px)[0]);
-; CHECK: %mv.test6 = &((%px)[%n + 599]) >=u &((%cx)[0]);
-; CHECK: %mv.and7 = %mv.test5  &&  %mv.test6;
+; CHECK-DAG: &((%vy)[25 * %n + -1]) >=u &((%px)[0]);
+; CHECK-DAG: &((%px)[%n + 599]) >=u &((%vy)[0]);
+; CHECK: %mv.and = 
+; CHECK-DAG: &((%cx)[624]) >=u &((%px)[0]);
+; CHECK-DAG: &((%px)[%n + 599]) >=u &((%cx)[0]);
+; CHECK: %mv.and7 =
 ; CHECK: if (%mv.and == 0 && %mv.and7 == 0)
 
 ; ModuleID = 'matmul-blob-coeff.ll'

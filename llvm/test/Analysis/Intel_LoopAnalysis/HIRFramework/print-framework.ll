@@ -1,13 +1,13 @@
 ; Check that -analyze prints framework info and -hir-details-framework turns on/off framework info in regular print.
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-framework | FileCheck %s
-; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll -hir-details-framework 2>&1 -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details-framework 2>&1 -S | FileCheck %s
 
 ; CHECK: BEGIN REGION 
 ; CHECK: EntryBB 
 ; CHECK: DO i1 = 0
 
-; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 -S | FileCheck --check-prefix=REG-CHECK %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 -S | FileCheck --check-prefix=REG-CHECK %s
 
 ; REG-CHECK: BEGIN REGION
 ; REG-CHECK-NOT: EntryBB

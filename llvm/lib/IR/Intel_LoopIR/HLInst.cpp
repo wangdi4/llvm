@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
@@ -42,8 +42,7 @@ HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred),
-      PredFMF(HLInstObj.PredFMF) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred), PredFMF(HLInstObj.PredFMF) {
 
   unsigned NumOp, Count = 0;
 
@@ -419,15 +418,21 @@ bool HLInst::isIntrinCall(Intrinsic::ID &IntrinID) const {
   return true;
 }
 
-bool HLInst::isSIMDDirective() const {
+bool HLInst::isIntelDirective(int DirectiveID) const {
   Intrinsic::ID IntrinID;
-  if (!isIntrinCall(IntrinID) || 
+
+  if (!isIntrinCall(IntrinID) ||
       !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
     return false;
   }
-  // TODO: check metadata
-  return true;
+
+  auto Call = dyn_cast<IntrinsicInst>(getLLVMInstruction());
+  auto DirStr = vpo::VPOAnalysisUtils::getDirectiveMetadataString(Call);
+
+  return vpo::VPOAnalysisUtils::getDirectiveID(DirStr) == DirectiveID;
 }
+
+bool HLInst::isSIMDDirective() const { return isIntelDirective(DIR_OMP_SIMD); }
 
 bool HLInst::isValidReductionOpCode(unsigned OpCode) {
   // Start with these initially - when adding a new opcode ensure
@@ -506,11 +511,95 @@ bool HLInst::checkMinMax(bool IsMin, bool IsMax) const {
   return false;
 }
 
-bool HLInst::isMin() const { return checkMinMax(true, false); }
+bool HLInst::isAbs() const {
 
-bool HLInst::isMax() const { return checkMinMax(false, true); }
+  if (!isa<SelectInst>(Inst)) {
+    return false;
+  }
 
-bool HLInst::isMinOrMax() const { return checkMinMax(true, true); }
+  PredicateTy Pred = getPredicate();
+
+  if (!CmpInst::isIntPredicate(Pred)) {
+    return false;
+  }
+
+  // Assume canonical form, which means in the compare instruction constant will
+  // always be the second operand. Here are the possibilities-
+  // 1) T > 0 ? T : -T
+  // 2) T >= 0 ? T : -T
+  // 3) T < 0 ? -T : T  (operand swap needed)
+  // 4) T <= 0 ? -T : T (operand swap needed)
+  // 5) T > -1 ? T : -T
+  // 6) T < 1 ? -T : T (operand swap needed)
+  auto Operand1 = getOperandDDRef(1);
+
+  if (!Operand1->isTerminalRef()) {
+    return false;
+  }
+
+  auto Operand2 = getOperandDDRef(2);
+
+  int64_t ConstVal;
+
+  if (!Operand2->isIntConstant(&ConstVal)) {
+    return false;
+  }
+
+  bool SwapOperands = false;
+
+  if (ConstVal == 0) {
+    if ((Pred != PredicateTy::ICMP_SGT) && (Pred != PredicateTy::ICMP_SGE)) {
+      if ((Pred == PredicateTy::ICMP_SLT) || (Pred == PredicateTy::ICMP_SLE)) {
+        SwapOperands = true;
+      } else {
+        return false;
+      }
+    }
+  } else if (ConstVal == -1) {
+    if (Pred != PredicateTy::ICMP_SGT) {
+      return false;
+    }
+  } else if (ConstVal == 1) {
+    if (Pred != PredicateTy::ICMP_SLT) {
+      return false;
+    }
+    SwapOperands = true;
+
+  } else {
+    return false;
+  }
+
+  auto Operand3 = getOperandDDRef(3);
+  auto Operand4 = getOperandDDRef(4);
+
+  if (SwapOperands) {
+    std::swap(Operand3, Operand4);
+  }
+
+  if (!DDRefUtils::areEqual(Operand1, Operand3)) {
+    return false;
+  }
+
+  if (!Operand4->isTerminalRef()) {
+    return false;
+  }
+
+  auto CE1 = Operand1->getSingleCanonExpr();
+  auto CE4 = Operand4->getSingleCanonExpr();
+
+  // We are cheating here by modifying CE4 to avoid cloning but we will restore
+  // it before returning.
+  // We also assume that negating a CanonExpr twice yields the original CE.
+  CanonExpr *NonConstCE4 = const_cast<CanonExpr *>(CE4);
+
+  NonConstCE4->negate();
+
+  bool Ret = CanonExprUtils::areEqual(CE1, NonConstCE4);
+
+  NonConstCE4->negate();
+
+  return Ret;
+}
 
 Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
   RecurrenceDescriptor::RecurrenceKind RDKind;

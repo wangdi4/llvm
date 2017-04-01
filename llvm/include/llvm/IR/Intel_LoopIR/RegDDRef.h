@@ -17,6 +17,7 @@
 #define LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Casting.h"
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
@@ -59,6 +60,8 @@ public:
   typedef BlobDDRefsTy::const_reverse_iterator const_reverse_blob_iterator;
 
 private:
+  typedef SmallVector<unsigned, 2> OffsetsTy;
+
   /// \brief Contains extra information required to regenerate GEP instruction
   /// at code generation.
   struct GEPInfo {
@@ -69,6 +72,23 @@ private:
     bool AddressOf;
     bool Volatile;
     unsigned Alignment;
+
+    // Stores trailing structure element offsets for each dimension of the ref.
+    // Consider the following structure GEP as an example-
+    //
+    // %struct.S = type { i32 }
+    // @arr = [100 x %struct.S]
+    // %t = GEP @arr, 0, i, 0
+    //
+    // The dimensions of this ref are as follows-
+    // [0][i]
+    //
+    // The trailing offsets are stored as follows-
+    // [[], [0]]
+    //
+    // The higher dimension has no trailing offsets. Lower dimension has a
+    // single trailing offset of 0.
+    SmallVector<OffsetsTy, 3> DimensionOffsets;
 
     // TODO: Atomic attribute is missing. Should we even build regions with
     // atomic load/stores since optimizing multi-threaded code might be
@@ -201,14 +221,64 @@ public:
     getBaseCE()->setSrcType(SrcTy);
   }
 
-  /// \brief Returns the dest type of the base CanonExpr for GEP DDRefs, returns
-  /// null for non-GEP DDRefs.
+  /// Returns the dest type of the base CanonExpr for GEP DDRefs, returns null
+  /// for non-GEP DDRefs. Base destination type represents a bitcast on the GEP
+  /// like this-
+  /// %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
+  /// %190 = bitcast float* %arrayidx to i32*
+  /// store i32 %189, i32* %190
+  ///
+  /// The DDRef looks like this in HIR-
+  /// *(i32*)(%ex1)[0][i1]
+  ///
+  /// The base canon expr is stored like this-
+  /// bitcast.[1001 x float]*.i32*(%ex1)
+  /// The represented cast is imprecise because the actual casting occurs from
+  /// float* to i32*. The stored information is enough to generate the correct
+  /// code though. This setup needs to be rethought if the transformations want
+  /// to access three different types involved here-
+  /// [1001 x float]*, float* and i32*. We are currently not storing the
+  /// intermediate float* type but it can be computed on the fly.
+  ///
+  /// TODO: Rethink the setup, if required.
   Type *getBaseDestType() const { return getBaseTypeImpl(false); }
+
   /// \brief Sets the dest type of base CE of GEP DDRefs.
   void setBaseDestType(Type *DestTy) {
     assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
     getBaseCE()->setDestType(DestTy);
   }
+
+  /// Returns the type associated with \p DimensionNum. For example, consider
+  /// this case-
+  /// %struct.S2 = type { float, [100 x %struct.S1] }
+  /// %struct.S1 = type { i32, i32 }
+  /// @obj2 = [50 x %struct.S2]
+  ///
+  /// %t = GEP @obj2, 0, i, 1, j, 1
+  /// store to %t
+  ///
+  /// This reference looks like this in HIR-
+  /// (@obj2)[0][i].1[j].1
+  ///
+  /// This reference has the following dimension types (from lower to higher)-
+  /// Dimension1 - [100 x %struct.S1]
+  /// Dimension2 - [50 x %struct.S2]
+  /// Dimension3 - [50 x %struct.S2]*
+  SequentialType *getDimensionType(unsigned DimensionNum) const;
+
+  /// Returns the element type of the dimension type associated with \p
+  /// DimensionNum. For the example in description of getDimensionType() they
+  /// are as follows-
+  /// Dimension1 - %struct.S1
+  /// Dimension2 - %struct.S2
+  /// Dimension3 - [50 x %struct.S2]
+  Type *getDimensionElementType(unsigned DimensionNum) const {
+    return getDimensionType(DimensionNum)->getElementType();
+  }
+
+  /// Returns true if the Ref accesses a structure.
+  bool accessesStruct() const;
 
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return getGEPInfo()->BaseCE; }
@@ -454,11 +524,41 @@ public:
   /// \brief Returns true if this DDRef contains undefined canon expressions.
   bool containsUndef() const override;
 
-  /// \brief Adds a dimension to the DDRef.
-  void addDimension(CanonExpr *IndexCE) {
+  /// \brief Adds a dimension to the DDRef with optional trailing offsets.
+  void
+  addDimension(CanonExpr *IndexCE,
+               const SmallVectorImpl<unsigned> *TrailingOffsets = nullptr) {
     assert(IndexCE && "IndexCE is null!");
     CanonExprs.push_back(IndexCE);
+
+    if (TrailingOffsets) {
+      setTrailingStructOffsets(getNumDimensions(), *TrailingOffsets);
+    }
   }
+
+  /// Sets trailing offsets for \p DimensionNum.
+  void setTrailingStructOffsets(unsigned DimensionNum,
+                                const SmallVectorImpl<unsigned> &Offsets);
+
+  /// Returns trailing offsets for \p DimensionNum. Returns null if there are no
+  /// offsets.
+  const SmallVectorImpl<unsigned> *
+  getTrailingStructOffsets(unsigned DimensionNum) const;
+
+  /// Removes trailing offsets for \p DimensionNum.
+  void removeTrailingStructOffsets(unsigned DimensionNum) {
+    // Sets an empty vector which is equivalent to no offsets.
+    OffsetsTy Offsets;
+    setTrailingStructOffsets(DimensionNum, Offsets);
+  }
+
+  /// Returns true if the Ref has trailing offsets for \p DimensionNum.
+  bool hasTrailingStructOffsets(unsigned DimensionNum) const {
+    return (getTrailingStructOffsets(DimensionNum) != nullptr);
+  }
+
+  /// Returns true if the Ref has trailing offsets for any dimension.
+  bool hasTrailingStructOffsets() const;
 
   /// \brief Returns the stride in number of bytes for specified dimension.
   /// This is computed on the fly. DimensionNum must be within
@@ -480,14 +580,17 @@ public:
   /// (linear access with invariant stride at Level).
   CanonExpr *getStrideAtLevel(unsigned Level) const;
 
+  /// Not sure if removeDimension() operation even makes sense. Commenting it
+  /// out for now.
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
-  void removeDimension(unsigned DimensionNum) {
-    assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
-    assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
-
-    CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
-  }
+  // void removeDimension(unsigned DimensionNum) {
+  //  assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
+  //  assert((getNumDimensions() > 1) && "Attempt to remove the only
+  //  dimension!");
+  //
+  //  CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
+  // }
 
   /// \brief Returns the index of the blob represented by this self-blob DDRef.
   unsigned getSelfBlobIndex() const {
@@ -620,6 +723,31 @@ public:
   /// the DDRef.
   unsigned findMaxBlobLevel(unsigned BlobIndex) const;
 
+  /// Returns true if ref has an IV at \p Level.
+  bool hasIV(unsigned Level) const;
+
+  /// Returns the defined at level of the ref.
+  unsigned getDefinedAtLevel() const;
+
+  /// \brief Replace any loop-level IV by a given constant integer.
+  void replaceIVByConstant(unsigned LoopLevel, int64_t Val);
+
+  /// \brief A RegDDRef is nonlinear if any of the following is true:
+  /// - its baseCE (if available) is nonlinear
+  /// - any CE is nonlinear
+  bool isNonLinear(void) const;
+
+  /// Shift all CE(s) in the RegDDRef* by a given Amount.
+  /// E.g.
+  /// -----------------------------------------------------
+  /// |Orig Ref  |Shift Amount  | After Shift             |
+  /// -----------------------------------------------------
+  ///  A[i]      | 1            |  A[i+1]                 |
+  ///  A[2i]     | 1            |  A[2(i+1)]  -> A[2i+2]  |
+  ///  A[2i+1]   | -1           |  A[2(i-1)+1]-> A[2i-1]  |
+  /// -----------------------------------------------------
+  void shift(unsigned LoopLevel, int64_t Amount);
+
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;
 };
@@ -627,5 +755,14 @@ public:
 } // End namespace loopopt
 
 } // End namespace llvm
+
+namespace std {
+
+// default_delete<RegDDRef> is a helper for destruction RegDDRef objects to
+// support std::unique_ptr<RegDDRef>.
+template <> struct default_delete<llvm::loopopt::RegDDRef> {
+  void operator()(llvm::loopopt::RegDDRef *Ref) const;
+};
+}
 
 #endif

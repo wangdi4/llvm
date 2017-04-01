@@ -38,11 +38,13 @@
 namespace llvm {
 
 class Type;
+class ArrayType;
 class Function;
 class PHINode;
 class SCEV;
 class ScalarEvolution;
 class SCEVConstant;
+class SCEVAddRecExpr;
 class SCEVUnknown;
 class GEPOperator;
 class Value;
@@ -138,13 +140,6 @@ private:
   /// RequiredSymbases - Set of symbases determined as required by parsing.
   DenseSet<unsigned> RequiredSymbases;
 
-  /// TODO:Commenting out as the usefulness of blob definition is not clear yet.
-  ///
-  /// TempBlobSymbases - Set of symbases which represent temp blobs.
-  /// This can be used to query whether an HLInst is a blob definition and needs
-  /// to be kept updated for new instructions created by HIR transformations.
-  // SmallSet<unsigned, 64> TempBlobSymbases;
-
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
   /// DDRef.
   SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
@@ -160,15 +155,17 @@ private:
   // SymbaseToIndexMap - maps temp symbases to blob indices for faster lookup.
   DenseMap<unsigned, unsigned> SymbaseToIndexMap;
 
+  /// Maps all the GEP refs to their pointer values. This allows symbase
+  /// assignment to do a better job by providing more information about the
+  /// reference.
+  DenseMap<RegDDRef *, Value *> GEPRefToPointerMap;
+
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
   class BlobProcessor;
 
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
-
-  /// NestedBlobChecker - Check to see if we have a nested blob
-  class NestedBlobChecker;
 
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
@@ -226,6 +223,10 @@ private:
   /// Returns true if this instruction is essential (e.g. load/store) and cannot
   /// be eliminated.
   bool isEssential(const Instruction *Inst) const;
+
+  /// Returns true if this SCEV represents a min/max expr with an AddRec
+  /// Operand.
+  bool isMinMaxWithAddRecOperand(const SCEV *SC) const;
 
   /// Wrapper over ScalarEvolution's getSCEVForHIR().
   const SCEV *getSCEV(Value *Val) const;
@@ -291,6 +292,11 @@ private:
   /// Calls SE->getSCEVAtScope() based on the location of CurNode.
   const SCEV *getSCEVAtScope(const SCEV *SC) const;
 
+  /// Parses an AddRec into CanonExpr. This and parseRecursive() can call each
+  /// other.
+  bool parseAddRec(const SCEVAddRecExpr *AddRec, CanonExpr *CE, unsigned Level,
+                   bool UnderCast, bool IndicateFailure);
+
   /// Recursively parses SCEV tree into CanonExpr. IsTop is true when we are at
   /// the top of the tree and UnderCast is true if we are under a cast type
   /// SCEV. If IndicateFailure is set, the function returns true/false
@@ -298,6 +304,17 @@ private:
   bool parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                       bool IsTop = true, bool UnderCast = false,
                       bool IndicateFailure = false);
+
+  /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
+  /// AddRec with the same type as \p CI's operand.
+  bool containsCastedAddRec(const CastInst *CI) const;
+
+  /// Returns true if the src type of \p CI is same as parent loop's IV type.
+  bool isCastedFromLoopIVType(const CastInst *CI) const;
+
+  /// Returns true if we should parse \p CI by explicitly hiding the cast in the
+  /// instruction and recursively parsing the cast operand.
+  bool shouldParseWithoutCast(const CastInst *CI, bool IsTop) const;
 
   /// Forces incoming value to be parsed as a blob.
   CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
@@ -317,8 +334,7 @@ private:
   void parseCompare(const Value *Cond, unsigned Level,
                     SmallVectorImpl<PredicateTy> &Preds,
                     SmallVectorImpl<const CmpInst *> &CmpInsts,
-                    SmallVectorImpl<RegDDRef *> &Refs,
-                    bool AllowMultiplePreds);
+                    SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
@@ -330,30 +346,24 @@ private:
   void clearTempBlobLevelMap();
 
   /// populates blob DDRefs for Ref based on CurTempBlobLevelMap.
-  void populateBlobDDRefs(RegDDRef *Ref);
+  void populateBlobDDRefs(RegDDRef *Ref, unsigned Level);
 
   /// Returns a RegDDRef representing loop lower (constant 0).
   RegDDRef *createLowerDDRef(Type *IVType);
 
-  /// Returns a RegDDRef representing loop stride (constant 1).
-  RegDDRef *createStrideDDRef(Type *IVType);
+  /// Returns a RegDDRef representing loop stride with value \p Val.
+  RegDDRef *createStrideDDRef(Type *IVType, unsigned Val);
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
-  /// Returns the number of dimensions for a GEP base pointer type.
-  unsigned getNumDimensions(Type *GEPType) const;
-
-  /// Returns the size of the contained type in bits. Incoming type is expected
+  /// Returns the size of the contained type in bytes. Incoming type is expected
   /// to be a pointer type.
-  unsigned getBitElementSize(Type *Ty) const;
+  unsigned getElementSize(Type *Ty) const;
 
   /// Returns the base(earliest) GEP in case there are multiple GEPs associated
   /// with this load/store.
   const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
-
-  /// Finds pointer blobs in PtrSCEV.
-  const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
 
   /// Returns either the inital or update operand of header phi corresponding to
   /// the passed in boolean argument.
@@ -367,23 +377,40 @@ private:
   /// coming from loop's backedge).
   const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const;
 
-  /// Creates a canon expr which represents the initial value of header
-  /// phi.
-  CanonExpr *createHeaderPhiInitCE(const PHINode *Phi, unsigned Level);
-
   /// Creates a canon expr which represents the index of header phi.
   CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
   /// Wrapper for merging IndexCE2 into IndexCE1.
   static void mergeIndexCE(CanonExpr *IndexCE1, const CanonExpr *IndexCE2);
 
-  /// Creates and adds dimensions for a phi base GEP into Ref.
-  /// LastIndexCE is merged with the highest phi dimension.
-  /// PhiDims is the number of dimensions in the phi type.
-  /// IsInBounds is set to true, if applicable.
-  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp, RegDDRef *Ref,
-                               CanonExpr *LastIndexCE, unsigned Level,
-                               unsigned PhiDims, bool &IsInBounds);
+  /// Populates GEPOp's indices which represent structure field offsets into
+  /// Offsets vector. Other GEP indices are marked with -1.
+  static void populateOffsets(const GEPOperator *GEPOp,
+                              SmallVectorImpl<int64_t> &Offsets);
+
+  /// Returns true if the last index of \p GEPOp is a structure offset.
+  static bool representsStructOffset(const GEPOperator *GEPOp);
+
+  /// Populates \p Ref's dimensions by processing GEPOperator starting from \p
+  /// GEPOp till we hit the base GEP. \p RequiresIndexMerging is set for phi
+  /// base GEPs to indicate that the inductive dimension of the base will be
+  /// merged into the populated highest dimension.
+  void populateRefDimensions(RegDDRef *Ref, const GEPOperator *GEPOp,
+                             unsigned Level, bool RequiresIndexMerging);
+
+  /// Creates and adds dimensions for a phi base GEP.
+  /// \p InitGEPOp is the GEPOperator obtained from base phi's initial value.
+  /// \p IndexCE is merged with the highest \p Ref dimension.
+  void addPhiBaseGEPDimensions(const GEPOperator *GEPOp,
+                               const GEPOperator *InitGEPOp, RegDDRef *Ref,
+                               CanonExpr *IndexCE, unsigned Level);
+
+  /// Given the initial value of a header phi, it returns a value which can act
+  /// as the base of the Ref formed using the header phi. A null value indicates
+  /// that the phi cannot be decomposed into intial and stride. It also returns
+  /// the GEPOperator associated with the initial value, if applicable.
+  const Value *getValidPhiBaseVal(const Value *PhiInitVal,
+                                  const GEPOperator **InitGEPOp) const;
 
   /// Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
@@ -557,43 +584,30 @@ private:
   /// Prints blob.
   void printBlob(raw_ostream &OS, BlobTy Blob) const;
 
-  /// Checks if the blob is constant or not.
-  /// If blob is constant, sets the return value in Val.
-  bool isConstantIntBlob(BlobTy Blob, int64_t *Val) const;
-
   /// Returns true if this is a temp blob.
-  bool isTempBlob(BlobTy Blob) const;
-
-  /// Returns true if this is a nested blob(SCEV tree with > 1 node).
-  bool isNestedBlob(BlobTy Blob) const;
-
-  /// Returns true if TempBlob always has a defined at level of zero.
-  bool isGuaranteedProperLinear(BlobTy TempBlob) const;
-
-  /// Returns true if this is an UndefValue blob.
-  bool isUndefBlob(BlobTy Blob) const;
-
-  /// Returns true if Blob represents a constant FP value.
-  /// If blob is FP constant, returns the underlying LLVM Value in Val
-  bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr) const;
-
-  /// Returns true if Blob represents a vector of constant values.
-  /// If yes, returns the underlying LLVM Value in Val
-  bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr) const;
-
-  /// Returns true if Blob represents a metadata value.
-  /// If blob is metadata, sets the return value in Val.
-  bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
-
-  /// Returns true if \p Blob represents a signed extension value.
-  /// If \p Val is not null, returns cast operand in \p Val.
-  bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr) const;
+  static bool isTempBlob(BlobTy Blob);
 
   /// Returns true if \p HInst is a livein copy.
   bool isLiveinCopy(const HLInst *HInst);
 
   /// Returns true if \p HInst is a liveout copy.
   bool isLiveoutCopy(const HLInst *HInst);
+
+  Value *getGEPRefPtr(RegDDRef *Ref) const {
+    auto It = GEPRefToPointerMap.find(Ref);
+    assert((It != GEPRefToPointerMap.end()) &&
+           "Could not find Ref's underlying pointer!");
+    return It->second;
+  }
+
+  // Tries to trace back a pointer type instruction to the array type from which
+  // it was created. This can happen if the base originated from an alloca.
+  //
+  // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
+  //
+  // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
+  //
+  ArrayType *traceBackToArrayType(const Value *Ptr) const;
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils();
@@ -629,6 +643,9 @@ public:
   void print(bool FrameworkDetails, raw_ostream &OS,
              const Module * = nullptr) const;
   void verifyAnalysis() const override;
+
+  /// Returns a generic rval symbase.
+  unsigned getGenericRvalSymbase() const;
 
   /// Returns Function object.
   Function &getFunction() const { return *Func; }

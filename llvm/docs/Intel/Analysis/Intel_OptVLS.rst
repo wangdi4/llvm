@@ -13,44 +13,38 @@ attempts to perform an optimization, that:
 - Replaces a set of adjacent gathers/scatters by a set of contiguous loads/stores followed by a sequence of
 register-to-register re-arrangement instructions
 
-Here is an example of this optimization:
+Example-1 - Here is an example of this optimization:
 
 .. code-block::  c++
 
   double x[1000];
   for(int k = 0; k < n; k++) {
-    const int j = n[k];
-    double p = x[j  ];
-    double q = x[j + 1];
+    double p = x[2 * k];
+    double q = x[2 * k + 1];
     ...
   }
 
-One possible scenario of the loads from multiple consecutive iterations could be thought of laid out in the
-linear memory space of x such as: p1 q1 ... p2 q2 ...
+The loads from multiple consecutive iterations are laid out in the linear memory space of
+x such as: p1 q1 p2 q2 p3 q3 p4 q4 ..
 
-A naive vectorization will generate 2 gathers for the two indirect memory references. With vector length 2,
-it will try to load p(p1, p2) using one gather, q(q1, q2) using another gather and so on.
+A naive vectorization will generate 2 gathers for the two strided memory references. With vector length 4,
+it will try to load p(p1, p2, p3, p4) using one gather, q(q1, q2, q3, q4) using another gather and so on.
 
 Pseudo vector code:
 
 .. code-block:: none
 
-  for.body: // vector length is 2
+  for.body: // vector length is 4
     ...
-    %nidx = getelementptr inbounds ..@n, i64 0, i64 %k
-    // a contiguous load is generated for n[k]
-    %j_v   = @llvm.masked.load.v2i64(nidx, ..);
+    %gather1address = getelementptr <4 x double*> %i, <4 x i64> %strided_index
+    %gather2address = getelementptr ..
+    // two gathers are generated for two strided accesses x[2 * k], x[2 * k + 1]
 
-    %gather1address = getelementptr(@x,   %j_v);
-    %gather2address = getelementptr(@x+1, %j_v);
+    // gather-1 gathering p1, p2, p3, p4
+    %p_v = call <4 x double> @llvm.masked.gather.v4f64(%gather1address, ..);
 
-    // two gathers are generated for two indirect accesses x[j], x[j+1]
-
-    // gather-1 gathering p1, p2
-    %p_v = call <2 x double> @llvm.masked.gather.v2f64(%gather1address, ..);
-
-    // gather-2 gathering q1, q2
-    %q_v = call <2 x double> @llvm.masked.gather.v2f64(%gather2address, ..);
+    // gather-2 gathering q1, q2, q3, q4
+    %q_v = call <4 x double> @llvm.masked.gather.v4f64(%gather2address, ..);
 
     ...
 
@@ -63,19 +57,25 @@ Optimized pseudo vector code:
 
 .. code-block::  none
 
-  for.body: // vector length is 2
+  for.body: // vector length is 4
     ...
-    // load p1 q1
-    %1 = @llvm.masked.load.v2f64(&x[n[k]], ..);
+    // load p1 q1 p2 q2
+    %1 = @llvm.masked.load.v4f64(&x[i], ..);
 
-    // load p2 q2
-    %2 = @llvm.masked.load.v2f64(&x[n[k+1]], ..);
+    // load p3 q3 p4 q4
+    %2 = @llvm.masked.load.v4f64(&x[i+4], ..);
 
-    // move p1 p2 to %p_v
-    %p_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 0, i32 2>;
+    // move p1 q1 p3 q3
+    %i1_v = shufflevector <4 x f64> %1, <4 x f64> %2, <4 x i32> <i32 0, i32 1, i32 4, i32 5>;
 
-    // move q1 q2 to %q_v
-    %q_v = shufflevector <2 x f64> %1, <2 x f64> %2, <2 x i32> <i32 1, i32 3>;
+    // move p2 q2 p4 q4
+    %i2_v = shufflevector <4 x f64> %1, <4 x f64> %2, <4 x i32> <i32 2, i32 3, i32 6, i32 7>;
+
+    // move p1 p2 p3 p4
+    %p_v = shufflevector <4 x f64> %i1_v, <4 x f64> %i2_v, <4 x i32> <i32 0, i32 4, i32 2, i32 6>;
+
+    // move q1 q2 q3 q4
+    %q_v = shufflevector <4 x f64> %i1_v, <4 x f64> %i2_v, <4 x i32> <i32 1, i32 5, i32 3, i32 7>;
 
     ...
 
@@ -304,9 +304,9 @@ This section describes more details for each interface function and abstract typ
 
      For our example, the following two loads get generated
 
-     %1 = mask.load.64.2 (<Base:0xf7ced0 Offset:0>, 11)
+     %1 = mask.load.64.4 (<Base:0xf7ced0 Offset:0>, 1111)
 
-     %2 = mask.load.64.2 (<Base:0xf7ced0 Offset:32>, 11)
+     %2 = mask.load.64.4 (<Base:0xf7ced0 Offset:32>, 1111)
 
   b) Generate shuffles - The result of (a) is that the elements of each gather have been loaded but are distributed
      across multiple registers. In order to produce the actual gather-output, we need to move (/rearrange) all those
@@ -328,20 +328,32 @@ This section describes more details for each interface function and abstract typ
      in efficient and legal rearrangement instruction sequences.
 
      This is how the initial graph looks like coming out of the load-generator for the above example,
-     load-nodes:{V2, V3}, gather-nodes{V0, V1}:
+     load-nodes:{V3, V4}, gather-nodes{V1, V2}:
 
 .. graphviz::
 
    digraph Initial_Graph {
 
-      V2 -> V0[label="0:63",weight="0:63"];
+      graph[ordering=in];
 
-      V2 -> V1[label="64:127",weight="64:127"];
+      V3 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V3 -> V0[label="0:63",weight="0:63"];
+      V3 -> V1[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-      V3 -> V1[label="64:127",weight="64:127"];
+      V4 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
+
+      V4 -> V1[fontcolor=red, color=red, label="128:191",weight="128:191"];
+
+      V3 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
+
+      V3 -> V2[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
+
+      V4 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
+
+      V4 -> V2[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
+
    }
+
 
 ...
 
@@ -356,15 +368,23 @@ This section describes more details for each interface function and abstract typ
        V1:
         [0:63] = V3[0:63]
 
-        [64:127] = V4[0:63]
+        [64:127] = V3[128:191]
+
+        [128:191] = V4[0:63]
+
+        [192:255] = V4[128:191]
 
        V2:
         [0:63] = V3[64:127]
 
-        [64:127] = V4[64:127]
+        [64:127] = V3[192:255]
+
+        [128:191] = V4[64:127]
+
+        [192:255] = V4[192:255]
 
 
-     In the above graph, each gather-node has two incoming edges which matches its total number of elements,
+     In the above graph, each gather-node has four incoming edges which matches its total number of elements,
      and each edge moves exactly 64 bits which is its element-size.
      Below shows the auxiliary data-structures that help building this graph:
 
@@ -442,53 +462,30 @@ This section describes more details for each interface function and abstract typ
 
 ...
 
-     In order to find an efficient sequence of rearrangement instructions genShuffles() performs two primary tasks on the initial
-     graph:
+     In order to find an efficient sequence of rearrangement instructions genShuffles()
+     performs two primary tasks on the initial graph:
 
-     1. Splitting
+     1. Simplify(Split) - simplify the graph into a singular mode where each element
+        in a gather/scatter has a single unique source.
 
-     2. Merging
+     2. Optimize(Merge) - selectively merge the single unique nodes within the
+        singular-mode graph into a new optimized graph.
 
 
-1. split()-
+1. Simplify
 ^^^^^^^^^^^
 
-     While the initial graph shows how bit fields from loads need to be rearranged to produce each gather result, the logical
-     operations needed to do the rearrangement may not correspond to any real single machine instructions or LLVM-IR(/OVLS)-Instructions.
-     A valid instruction generally have maximum 2 inputs, and this initial graph allows any number of inputs to feed a gather result,
-     thus it would take many real 2-input instruction to compute each final output result.
+     While the initial graph shows how bit fields from loads need to be rearranged to produce
+     each gather result, it often leaves the graph in an un-optimized form. The logical operations
+     that can be derived from this initial graph may not be efficient. Each move of a bit-field
+     may end up requiring a single instruction. To take advantage of data-parallelism(having to
+     move multiple bit-fields by a single instruction) we may need to pack(create a node)
+     different bit-fields of different gather nodes together. To facilitate this efficient packing
+     (done by the optimizer) over the multiple gather results, the simplifier creates a
+     single intermediate node for each bit-field. The way it does it by splitting the
+     incoming edges of each gather result.
 
-     Here is an example whose initial graph would contain gather nodes with more than 2-input source nodes. Let's call it example-2
-     for future reference:
-
-.. code-block::  c++
-
-  double x[1000];
-  for(int k = 0; k < n; k++) {
-    const int j = n[k];
-    double p = x[j  ];
-    double q = x[j + 1];
-    double r = x[j + 2];
-    double s = x[j + 3];
-    ...
-  }
-
-...
-
-     One possible scenario of the loads from multiple consecutive iterations could be thought of laid out in the
-     linear memory space of x such as: p1 q1 r1 s1... p2 q2 r2 s2... p3 q3 r3 s3... p4 q4 r4 s4...
-     With VF = 4, each gather will contain 4 elements.
-
-     genLoads() will generate 4 contiguous loads and the following initial graph:
-
-     %1 = mask.load.64.4 (<Base:0xf7ced0 Offset:0>, 1111)
-
-     %2 = mask.load.64.4 (<Base:0xf7cdd0 Offset:0>, 1111)
-
-     %3 = mask.load.64.4 (<Base:0xf7cde0 Offset:0>, 1111)
-
-     %4 = mask.load.64.4 (<Base:0xf7eed0 Offset:0>, 1111)
-
+     This is how the graph looks like after simplification.
 
 .. graphviz::
 
@@ -496,127 +493,39 @@ This section describes more details for each interface function and abstract typ
 
       graph[ordering=in];
 
-      V5 -> V4[label="192:255",weight="192:255"];
+      V5 -> V1[fontcolor=red, color=red, label="0:64",weight="0:64"];
 
-      V6 -> V4[label="192:255",weight="192:255"];
+      V6 -> V1[fontcolor=red, color=red, label="0:64",weight="0:64"];
 
-      V7 -> V4[label="192:255",weight="192:255"];
+      V7 -> V1[fontcolor=red, color=red, label="0:64",weight="0:64"];
 
-      V8 -> V4[label="192:255",weight="192:255"];
+      V8 -> V1[fontcolor=red, color=red, label="0:64",weight="0:64"];
 
-      V5 -> V1[label="0:63",weight="0:63"];
+      V9 -> V2[fontcolor=blue, color=blue, label="0:64",weight="0:64"];
 
-      V6 -> V1[label="0:63",weight="0:63"];
+      V10 -> V2[fontcolor=blue, color=blue, label="0:64",weight="0:64"];
 
-      V7 -> V1[label="0:63",weight="0:63"];
+      V11 -> V2[fontcolor=blue, color=blue, label="0:64",weight="0:64"];
 
-      V8 -> V1[label="0:63",weight="0:63"];
+      V12 -> V2[fontcolor=blue, color=blue, label="0:64",weight="0:64"];
 
-      V5 -> V2[label="64:127",weight="64:127"];
+      V3 -> V5[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V6 -> V2[label="64:127",weight="64:127"];
+      V3 -> V6[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-      V7 -> V2[label="64:127",weight="64:127"];
+      V4 -> V7[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V8 -> V2[label="64:127",weight="64:127"];
+      V4 -> V8[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-      V5 -> V3[label="128:191",weight="128:191"];
+      V3 -> V9[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V6 -> V3[label="128:191",weight="128:191"];
+      V3 -> V10[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
 
-      V7 -> V3[label="128:191",weight="128:191"];
+      V4 -> V11[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V8 -> V3[label="128:191",weight="128:191"];
-
-   }
-
-...
-
-     The first job of genShuffles() is to simplify the graph so it can be optimized. We simplify the graph by
-     splitting source nodes recursively until each node has no more than two source nodes. Each step of the
-     recursive split replaces a single node by 3 nodes, where 2 nodes each has half the source nodes of the
-     original node, and those two nodes feed the third node. Once this has been done for all nodes we have
-     transformed the initial graph into a new graph where every node operates on maximum 2 sources.
-
-     Here is the output graph after splitting:
-
-.. graphviz::
-
-   digraph Initial_Graph {
-
-      graph[ordering=in];
-
-      V5 -> V15[label="192:255",weight="192:255"];
-
-      V6 -> V15[label="192:255",weight="192:255"];
-
-      V7 -> V16[label="128:191",weight="128:191"];
-
-      V8 -> V16[label="192:255",weight="192:255"];
-
-      V5 -> V11[label="64:127",weight="64:127"];
-
-      V6 -> V11[label="64:127",weight="64:127"];
-
-      V7 -> V12[label="64:127",weight="64:127"];
-
-      V8 -> V12[label="64:127",weight="64:127"];
-
-      V5 -> V9[label="0:63",weight="0:63"];
-
-      V6 -> V9[label="0:63",weight="0:63"];
-
-      V7 -> V10[label="0:63",weight="0:63"];
-
-      V8 -> V10[label="0:63",weight="0:63"];
-
-      V5 -> V13[label="128:191",weight="128:191"];
-
-      V6 -> V13[label="128:191",weight="128:191"];
-
-      V7 -> V14[label="192:255",weight="192:255"];
-
-      V8 -> V14[label="128:191",weight="128:191"];
-
-      V15 -> V4[label="0:63",weight="0:63"];
-
-      V15 -> V4[label="64:127",weight="64:127"];
-
-      V16 -> V4[label="0:63",weight="0:63"];
-
-      V16 -> V4[label="64:127",weight="64:127"];
-
-      V11 -> V2[label="0:63",weight="0:63"];
-
-      V11 -> V2[label="64:127",weight="64:127"];
-
-      V12 -> V2[label="0:63",weight="0:63"];
-
-      V12 -> V2[label="64:127",weight="64:127"];
-
-      V9 -> V1[label="0:63",weight="0:63"];
-
-      V9 -> V1[label="64:127",weight="64:127"];
-
-      V10 -> V1[label="0:63",weight="0:63"];
-
-      V10 -> V1[label="64:127",weight="64:127"];
-
-      V13 -> V3[label="0:63",weight="0:63"];
-
-      V13 -> V3[label="64:127",weight="64:127"];
-
-      V14 -> V3[label="0:63",weight="0:63"];
-
-      V14 -> V3[label="64:127",weight="64:127"];
+      V4 -> V12[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
 
    }
-
-...
-
-     These nodes now correspond to single IR instructions (they have 1 or 2 inputs and a single output), and each could be
-     lowered to one or more machine instructions.  At this point, further optimizations can be done to prepare the IR for more
-     efficient code generation.
 
 
 2. merge()-
@@ -642,7 +551,8 @@ a. Simulation of test-merges:
      A test merge is simulated by computing a mask for the merge.
 
      Two nodes, N1 and N2 are eligible to be merged if:
-       #. They have the same sources or one has the subset of sources of the other. Sources need to have the same type.
+       #. The total number of unique sources of N1 and N2 is no more than 2
+       #. Sources need to have the same type
        #. Total size of N1 and N2 fits into the vector register
        #. elem_size of N1 matches the elem_size of N2
 
@@ -660,63 +570,388 @@ a. Simulation of test-merges:
      There are many ways N1 and N2 can be merged such as <N1 N2 N1 N2> <N1 N1.. N2 N2..> <N2 N2 .. N1 N1 ..>
      <N2 N1 .. N2 N1 ..> etc. Right now it makes sense to concatenate N2 to N1 which will most likely lead to
      vperm or vunpck. But this ordering is subject to change in the future considering some other scenerios.
-     Under the consideration, we get the following choices for example-2:
+     Under the consideration, we get the following choices for our example:
 
-       v9 can be merged with v11, mask: <0 4 1 5 >
+       V5 can be merged with V6
 
-       V9 can be merged with V13, mask: <0 4 2 6 >
+         Incoming-Mask <0, 2, -1, -1>
 
-       V9 can be merged with V15, mask: <0 4 3 7 >
+         Outgoing-Mask <0, 1, -1, -1>
 
-       V10 can be merged with V12, mask: <0 4 1 5 >
+       V5 can be merged with V7
 
-       V10 can be merged with V14, mask: <0 4 2 6 >
+         Incoming-Mask <0, 4, -1, -1>
 
-       V10 can be merged with V16, mask: <0 4 3 7 >
+         Outgoing-Mask <0, -1, 1, -1>
 
-       V11 can be merged with V13, mask: <1 5 2 6 >
+       V5 can be merged with V8
 
-       V11 can be merged with V15, mask: <1 5 3 7 >
+         Incoming-Mask <0, 6, -1, -1>
 
-       V12 can be merged with V14, mask: <1 5 2 6 >
+         Outgoing-Mask <0, -1, -1, 1>
 
-       V12 can be merged with V16, mask: <1 5 3 7 >
+       V5 can be merged with V9
 
-       V13 can be merged with V15, mask: <2 6 3 7 >
+         Incoming-Mask <0, 1, -1, -1>
 
-       V14 can be merged with V16, mask: <2 6 3 7 >
+         Outgoing-Mask <0, -1, -1, -1>
 
-     Now that we have couple of choices to merge two nodes we decide to commit the merges that have the lowers cost.
+         Outgoing-Mask <1, -1, -1, -1>
+
+       V5 can be merged with V10
+
+         Incoming-Mask <0, 3, -1, -1>
+
+         Outgoing-Mask <0, -1, -1, -1>
+
+         Outgoing-Mask <-1, 1, -1, -1>
+
+       V5 can be merged with V11
+
+         Incoming-Mask <0, 5, -1, -1>
+
+         Outgoing-Mask <0, -1, -1, -1>
+
+         Outgoing-Mask <-1, -1, 1, -1>
+
+       V5 can be merged with V12
+
+         Incoming-Mask <0, 7, -1, -1>
+
+         Outgoing-Mask <0, -1, -1, -1>
+
+         Outgoing-Mask <-1, -1, -1, 1>
+
+       V6 can be merged with V7
+
+         Incoming-Mask: <2, 4, -1, -1>
+
+         Outgoing-Mask <-1, 0, 1, -1>
+
+       V6 can be merged with V8
+
+         Incoming-Mask: <2, 6, -1, -1>
+
+         Outgoing-Mask <-1, 0, -1, 1>
+
+       V6 can be merged with V9
+
+         Incoming-Mask <2, 1, -1, -1>
+
+         Outgoing-Mask <-1, 0, -1, -1>
+
+         Outgoing-Mask <1, -1, -1, -1>
+
+       V6 can be merged with V10
+
+         Incoming-Mask: <2, 3, -1, -1>
+
+         Outgoing-Mask <-1, 0, -1, -1>
+
+         Outgoing-Mask <-1, 1, -1, -1>
+
+       V6 can be merged with V11
+
+         Incoming-Mask <2, 5, -1, -1>
+
+         Outgoing-Mask <-1, 0, -1, -1>
+
+         Outgoing-Mask <-1, -1, 1, -1>
+
+       V6 can be merged with V12
+
+         Incoming-Mask <2, 7, -1, -1>
+
+         Outgoing-Mask <-1, 0, -1, -1>
+
+         Outgoing-Mask <-1, -1, -1, 1>
+
+       V7 can be merged with V8
+
+         Incoming-Mask <0, 2, -1, -1>
+
+         Outgoing-Mask <-1, -1, 0, 1>
+
+       V7 can be merged with V9
+
+         Incoming-Mask <4, 1, -1, -1>
+
+         Outgoing-Mask <-1, -1, 0, -1>
+
+         Outgoing-Mask <1, -1, -1, -1>
+
+       V7 can be merged with V10
+
+         Incoming-Mask <4, 3, -1, -1>
+
+         Outgoing-Mask <-1, -1, 0, -1>
+
+         Outgoing-Mask <-1, 1, -1, -1>
+
+       V7 can be merged with V11
+
+         Incoming-Mask <0, 1, -1, -1>
+
+         Outgoing-Mask <-1, -1, 0, -1>
+
+         Outgoing-Mask <-1, -1, 1, -1>
+
+       V7 can be merged with V12
+
+         Incoming-Mask <0, 3, -1, -1>
+
+         Outgoing-Mask <-1, -1, 0, -1>
+
+         Outgoing_Mask <-1, -1, -1, 1>
+
+       V8 can be merged with V9
+
+         Incoming-Mask <6, 1, -1, -1>
+
+         Outgoing-Mask <-1, -1, -1, 0>
+
+         Outgoing-Mask <1, -1, -1, -1>
+
+       V8 can be merged with V10
+
+         Incoming-Mask <6, 3, -1, -1>
+
+         Outgoing-Mask <-1, -1, -1, 0>
+
+         Outgoing-Mask <-1, 1, -1, -1>
+
+       V8 can be merged with V11
+
+         Incoming-Mask <2, 1, -1, -1>
+
+         Outgoing-Mask <-1, -1, -1, 0>
+
+         Outgoing-Mask <-1, -1, 1, -1>
+
+       V8 can be merged with V12
+
+         Incoming <2, 3, -1, -1>
+
+         Outgoing <-1, -1, -1, 0>
+
+         Outgoing <-1, -1, -1, 1>
+
+     Now that we have a couple of choices to merge two nodes we decide to commit the
+     merges that shows the lowest total cost.
 
 b. Cost estimation of test-merges:
 """"""""""""""""""""""""""""""""""
 
-     In order to compute the cost of a mask first we identify the 'kind' of a mask. Depending on their kind we call the
-     TTI getShuffleCost(). Currently we get the following cost for a target with avx2:
+     In order to compute the cost of a mask first we identify the 'kind' of a mask.
+     Depending on their kind we call the TTI getShuffleCost(). Currently we get the
+     following cost for a target with avx2:
 
-     9 can be merged with 11 <0 4 1 5> COST: 8
+      V5 can be merged with V6
 
-     9 can be merged with 13 <0 4 2 6> COST: 1
+        Incoming-Mask <0, 2, -1, -1> Cost 4
 
-     9 can be merged with 15 <0 4 3 7> COST: 8
+        Outgoing-Mask <0, 1, -1, -1> Cost 1
 
-     10 can be merged with 12 <0 4 1 5> COST: 8
+        --Total-Cost-- 5
 
-     10 can be merged with 14 <0 4 2 6> COST: 1
+      V5 can be merged with V7
 
-     10 can be merged with 16 <0 4 3 7> COST: 8
+        Incoming-Mask <0, 4, -1, -1> Cost 4
 
-     11 can be merged with 13 <1 5 2 6> COST: 8
+        Outgoing-Mask <0, -1, 1, -1> Cost 4
 
-     11 can be merged with 15 <1 5 3 7> COST: 1
+        --Total-Cost-- 8
 
-     12 can be merged with 14 <1 5 2 6> COST: 8
+      V5 can be merged with V8
 
-     12 can be merged with 16 <1 5 3 7> COST: 1
+        Incoming-Mask <0, 6, -1, -1> Cost 4
 
-     13 can be merged with 15 <2 6 3 7> COST: 8
+        Outgoing-Mask <0, -1, -1, 1> Cost 4
 
-     14 can be merged with 16 <2 6 3 7> COST: 8
+        --Total-Cost-- 8
+
+      V5 can be merged with V9
+
+        Incoming-Mask <0, 1, -1, -1> Cost 1
+
+        Outgoing-Mask <0, -1, -1, -1> Cost 1
+
+        Outgoing-Mask <1, -1, -1, -1> Cost 1
+
+        --Total-Cost-- 3
+
+      V5 can be merged with V10
+
+        Incoming-Mask <0, 3, -1, -1> Cost 4
+
+        Outgoing-Mask <0, -1, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, 1, -1, -1> Cost 2
+
+        --Total-Cost-- 7
+
+      V5 can be merged with V11
+
+        Incoming-Mask <0, 5, -1, -1> Cost 4
+
+        Outgoing-Mask <0, -1, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, -1, 1, -1> Cost 3
+
+        --Total-Cost-- 8
+
+      V5 can be merged with V12
+
+        Incoming-Mask <0, 7, -1, -1> Cost 4
+
+        Outgoing-Mask <0, -1, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, -1, -1, 1> Cost 2
+
+       --Total-Cost-- 7
+
+      V6 can be merged with V7
+
+        Incoming-Mask <2, 4, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, 0, 1, -1> Cost 4
+
+        --Total-Cost-- 8
+
+      V6 can be merged with V8
+
+        Incoming-Mask <2, 6, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, 0, -1, 1> Cost 4
+
+        --Total-Cost-- 8
+
+      V6 can be merged with V9
+        Incoming-Mask <2, 1, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, 0, -1, -1> Cost 2
+
+        Outgoing-Mask <1, -1, -1, -1> Cost 1
+
+        --Total-Cost-- 7
+
+      V6 can be merged with V10
+
+        Incoming-Mask <2, 3, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, 0, -1, -1> Cost 2
+
+        Outgoing-Mask <-1, 1, -1, -1> Cost 2
+
+        --Total-Cost-- 5
+
+      V6 can be merged with V11
+
+        Incoming-Mask <2, 5, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, 0, -1, -1> Cost 2
+
+        Outgoing-Mask <-1, -1, 1, -1> Cost 3
+
+        --Total-Cost-- 9
+
+      V6 can be merged with V12
+
+        Incoming-Mask <2, 7, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, 0, -1, -1> Cost 2
+
+        Outgoing-Mask <-1, -1, -1, 1> Cost 2
+
+        --Total-Cost-- 8
+
+      V7 can be merged with V8
+
+        Incoming-Mask <0, 2, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, 0, 1> Cost 4
+
+        --Total-Cost-- 8
+
+      V7 can be merged with V9
+
+        Incoming-Mask <4, 1, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, 0, -1> Cost 2
+
+        Outgoing-Mask <1, -1, -1, -1> Cost 1
+
+        --Total-Cost-- 7
+
+      V7 can be merged with V10
+        Incoming-Mask <4, 3, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, 0, -1> Cost 2
+
+        Outgoing-Mask <-1, 1, -1, -1> Cost 2
+
+        --Total-Cost-- 8
+
+      V7 can be merged with V11
+
+        Incoming-Mask <0, 1, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, -1, 0, -1> Cost 2
+
+        Outgoing-Mask <-1, -1, 1, -1> Cost 3
+
+        --Total-Cost-- 6
+
+      V7 can be merged with V12
+
+        Incoming-Mask <0, 3, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, 0, -1> Cost 2
+
+        Outgoing-Mask <-1, -1, -1, 1> Cost 2
+
+        --Total-Cost-- 8
+
+
+      V8 can be merged with V9
+
+        Incoming-Mask <6, 1, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, -1, 0> Cost 3
+
+        Outgoing-Mask <1, -1, -1, -1> Cost 1
+
+        --Total-Cost-- 8
+
+      V8 can be merged with V10
+
+        Incoming-Mask <6, 3, -1, -1> Cost 4
+
+        Outgoing-Mask <-1, -1, -1, 0> Cost 3
+
+        Outgoing-Mask <-1, 1, -1, -1> Cost 2
+
+        --Total-Cost-- 9
+
+      V8 can be merged with V11
+
+       Incoming-Mask <2, 1, -1, -1> Cost 4
+
+       Outgoing-Mask <-1, -1, -1, 0> Cost 3
+
+       Outgoing-Mask <-1, -1, 1, -1> Cost 3
+
+       --Total-Cost-- 10
+
+      V8 can be merged with V12
+
+        Incoming-Mask <2, 3, -1, -1> Cost 1
+
+        Outgoing-Mask <-1, -1, -1, 0> Cost 3
+
+        Outgoing-Mask <-1, -1, -1, 1> Cost 2
+
+        --Total-Cost-- 6
 
 
 c. Commit test-merge:
@@ -727,16 +962,16 @@ c. Commit test-merge:
 
      So, for the above node-set, we got to merge:
 
-         Merge 13 to 9
+         Merge 5 to 9
 
-         Merge 14 to 10
+         Merge 6 to 10 (This decision does not consider 9, since it alredy got merged with 5)
 
-         Merge 15 to 11
+         Merge 7 to 11
 
-         Merge 16 with 12
+         Merge 8 with 12
 
 
-     This is how the graph looks after merging:
+     This is how the graph looks after the first round of merging:
 
 .. graphviz::
 
@@ -744,116 +979,111 @@ c. Commit test-merge:
 
       graph[ordering=in];
 
-      V5 -> V9[label="0:63",weight="0:63"];
+      V3 -> V5[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V6 -> V9[label="0:63",weight="0:63"];
+      V4 -> V7[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V7 -> V10[label="0:63",weight="0:63"];
+      V3 -> V5[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V8 -> V10[label="0:63",weight="0:63"];
+      V4 -> V7[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V5 -> V9[label="128:191",weight="128:191"];
+      V3 -> V6[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-      V6 -> V9[label="128:191",weight="128:191"];
+      V4 -> V8[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-      V7 -> V10[label="192:255",weight="192:255"];
+      V3 -> V6[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
 
-      V8 -> V10[label="128:191",weight="128:191"];
+      V4 -> V8[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
 
-      V5 -> V11[label="192:255",weight="192:255"];
+      V5 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V6 -> V11[label="192:255",weight="192:255"];
+      V6 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V7 -> V12[label="128:191",weight="128:191"];
+      V7 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V8 -> V12[label="192:255",weight="192:255"];
+      V8 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-      V5 -> V11[label="64:127",weight="64:127"];
+      V5 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V6 -> V11[label="64:127",weight="64:127"];
+      V6 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V7 -> V12[label="64:127",weight="64:127"];
+      V7 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-      V8 -> V12[label="64:127",weight="64:127"];
-
-      V9 -> V1[label="0:63",weight="0:63"];
-
-      V9 -> V1[label="64:127",weight="64:127"];
-
-      V10 -> V1[label="0:63",weight="0:63"];
-
-      V10 -> V1[label="64:127",weight="64:127"];
-
-      V11 -> V2[label="0:63",weight="0:63"];
-
-      V11 -> V2[label="64:127",weight="64:127"];
-
-      V12 -> V2[label="0:63",weight="0:63"];
-
-      V12 -> V2[label="64:127",weight="64:127"];
-
-      V9 -> V3[label="0:63",weight="0:63"];
-
-      V9 -> V3[label="64:127",weight="64:127"];
-
-      V10 -> V3[label="0:63",weight="0:63"];
-
-      V10 -> V3[label="64:127",weight="64:127"];
-
-      V11 -> V4[label="0:63",weight="0:63"];
-
-      V11 -> V4[label="64:127",weight="64:127"];
-
-      V12 -> V4[label="0:63",weight="0:63"];
-
-      V12 -> V4[label="64:127",weight="64:127"];
-
+      V8 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
    }
 
 ...
 
-     At this point we are done optimizing the nodes. We generate an instruction for each node: four contigous loads
-     (v5, v6, v7, v8)followed by 8 shuffle instructions(v9, v10, v11, v12, v1, v2, v3, v4).
+     We keep optimizing until there are no further opportunities for merge. After another round of merging
+     the following final graph:
 
-     %1 = mask.load.64.4 (<Base:0x3e1ba50 Offset:0>, 1111)
 
-     %2 = mask.load.64.4 (<Base:0x3e1ba50 Offset:32>, 1111)
 
-     %3 = mask.load.64.4 (<Base:0x3e1ba50 Offset:64>, 1111)
+.. graphviz::
 
-     %4 = mask.load.64.4 (<Base:0x3e1ba50 Offset:96>, 1111)
+   digraph Initial_Graph {
 
-     %5 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><0, 4, 2, 6>
+      graph[ordering=in];
 
-     %6 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><1, 5, 3, 7>
+      V3 -> V5[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-     %7 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><0, 4, 2, 6>
+      V3 -> V5[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-     %8 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><1, 5, 3, 7>
+      V4 -> V5[fontcolor=red, color=red, label="0:63",weight="0:63"];
 
-     %9 = shufflevector <4 x 64> %5, <4 x 64> %7, <4 x 32><0, 1, 4, 5>
+      V4 -> V5[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
 
-     %10 = shufflevector <4 x 64> %5, <4 x 64> %7, <4 x 32><2, 3, 6, 7>
+      V3 -> V6[fontcolor=red, color=red, label="128:191",weight="128:191"];
 
-     %11 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><0, 1, 4, 5>
+      V3 -> V6[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
 
-     %12 = shufflevector <4 x 64> %6, <4 x 64> %8, <4 x 32><2, 3, 6, 7>
+      V4 -> V6[fontcolor=red, color=red, label="128:191",weight="128:191"];
+
+      V4 -> V6[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
+
+      V5 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
+
+      V6 -> V1[fontcolor=red, color=red, label="0:63",weight="0:63"];
+
+      V5 -> V1[fontcolor=red, color=red, label="128:191",weight="128:191"];
+
+      V6 -> V1[fontcolor=red, color=red, label="128:191",weight="128:191"];
+
+      V5 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
+
+      V6 -> V2[fontcolor=blue, color=blue, label="64:127",weight="64:127"];
+
+      V5 -> V2[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
+
+      V6 -> V2[fontcolor=blue, color=blue, label="192:255",weight="192:255"];
+   }
 
 
 ...
 
-     For our simple example, splitting is not required since each node in the graph has maximum two input nodes. There are no
-     intermediate nodes other than the load/gather-nodes, so no room for exploiting data parallelism or additional optimization.
-     After a successful graph-verification genShuffles() traverses the graph in a topological order and translates each node (each
-     logical instruction other than the load-nodes) into an OVLSInstruction(shuffle instruction) using its incoming edges. More
-     specifically, input operands of the shuffle instruction are the set of 'sources' identified by the incoming edges. We compute
-     the shuffle mask by combining the incoming bits where each element in the mask gets specified by the bit-index of the
-     incoming bits of its input nodes. At this final stage, the graph has only two non-load nodes. Consequently, the following
-     two shuffle instructions get generated:
+     At this point we are done optimizing the nodes. We generate an instruction for
+     each node: two contigous loads (v3, v4)followed by 4 shuffle instructions(v5, v6, v1, v2).
 
-     %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>;
+     %1 = mask.load.64.4 (<Base:0x3e6dab0 Offset:0>, 1111)
 
-     %4 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><1, 3>;
+     %2 = mask.load.64.4 (<Base:0x3e6dab0 Offset:32>, 1111)
+
+     %3 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><0, 1, 4, 5>
+
+     %4 = shufflevector <4 x 64> %1, <4 x 64> %2, <4 x 32><2, 3, 6, 7>
+
+     %5 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><0, 4, 2, 6>
+
+     %6 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><1, 5, 3, 7>
+
+...
+
+     At the end, it is possible we end up having an invalid graph. A graph that has nodes with
+     more than two source nodes. These nodes do not represent any valid instructions. And this
+     could happen because the initial graph can have nodes(i.e. the output nodes) with more
+     than 2 sources, and the merge algorithm might but is not guranteed to reduce all these
+     nodes to 2 sources. Currently we bail out in such situations.
+
 
      NEXT: provide more details on the instruction cost, merging, instruction generation and complete the example.
 

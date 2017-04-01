@@ -135,7 +135,8 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
     for (auto Lp : OutermostLoops) {
 
       if (Lp->isInnermost() ||
-          !HNU.isPerfectLoopNest(Lp, nullptr, false, false, true, nullptr)) {
+          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
+                                          nullptr)) {
         continue;
       }
 
@@ -170,7 +171,7 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 }
 
 void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
-                                                 RefGroupMapTy &RefGroups) {
+                                                 RefGroupVecTy &RefGroups) {
 
   // We need to find invariant DDRefs and compute a temporal locality
   // based on the loop's trip count.
@@ -183,8 +184,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
   assert((LI.TempInv == 0) && "Temporal invariant locality already populated!");
 
   // Compute Temp. Invariant Locality.
-  for (auto &GroupVecPair : RefGroups) {
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
+  for (auto &RefVec : RefGroups) {
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     const RegDDRef *FirstRef = *(RefVec.begin());
@@ -228,36 +228,8 @@ bool HIRLocalityAnalysis::isMultipleIV(const RegDDRef *Ref, unsigned Level,
   return false;
 }
 
-// We need to find temporal reuse for cases such as A[i] and A[i+2],
-// which can be allocated to a temp registers for future use.
-bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
-                                          const RegDDRef *Ref2, unsigned IVPos,
-                                          unsigned ReuseThreshold) {
-
-  // Compare the diff at subscript Pos.
-  const CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
-  const CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
-
-  CanonExpr *Result = nullptr;
-  // Diff the CanonExprs.
-  assert(((Result = Ref1->getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE,
-                                                               true)) &&
-          !Result->hasIV() && !Result->hasBlob()) &&
-         "Refgroups incorrectly formed!");
-
-  int64_t C1 = Ref1CE->getConstant();
-  int64_t C2 = Ref2CE->getConstant();
-  int64_t D1 = Ref1CE->getDenominator();
-  int64_t D2 = Ref2CE->getDenominator();
-
-  int64_t Diff = std::llabs((C1 * D2) - (C2 * D1)) / (D1 * D2);
-
-  // If Diff is within threshold then temporal reuse exists.
-  return (Diff <= ReuseThreshold);
-}
-
 void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop,
-                                                   RefGroupMapTy &RefGroups,
+                                                   RefGroupVecTy &RefGroups,
                                                    unsigned ReuseThreshold) {
 
   unsigned Level = Loop->getNestingLevel();
@@ -265,24 +237,26 @@ void HIRLocalityAnalysis::computeTempReuseLocality(const HLLoop *Loop,
   LocalityInfo &LI = LocalityByLevel[Level - 1];
   assert((LI.TempReuse == 0) && "Temporal reuse locality already populated!");
 
-  for (auto &GroupVecPair : RefGroups) {
-
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
+  for (auto &RefVec : RefGroups) {
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // The first reference is used for comparison.
     const RegDDRef *CompareRef = *(RefVec.begin());
 
-    // No Temporal Reuse for multiple IV subscripts e.g. A[i+1][i] and A[i][i]
-    // or loop invariants e.g. A[1]
-    unsigned IVPos = 0;
-    if (isMultipleIV(CompareRef, Level, &IVPos) || IVPos == 0) {
+    if (CompareRef->isStructurallyInvariantAtLevel(Level)) {
       continue;
     }
 
     for (auto RefIt = RefVec.begin() + 1, End = RefVec.end(); RefIt != End;
          ++RefIt) {
-      if (isTemporalReuse(CompareRef, *RefIt, IVPos, ReuseThreshold)) {
+      int64_t Dist;
+
+      bool Res = DDRefUtils::getConstIterationDistance(CompareRef, *RefIt,
+                                                       Level, &Dist);
+      (void)Res;
+      assert(Res && "Invalid temporal locality group!");
+
+      if (std::llabs(Dist) <= ReuseThreshold) {
         LI.TempReuse += 1;
       }
       // We should update the compare ref unconditionally. Consider this group-
@@ -341,16 +315,14 @@ uint64_t HIRLocalityAnalysis::computeSpatialTrip(const RegDDRef *Ref,
 }
 
 void HIRLocalityAnalysis::computeSpatialLocality(const HLLoop *Loop,
-                                                 RefGroupMapTy &RefGroups) {
+                                                 RefGroupVecTy &RefGroups) {
 
   unsigned Level = Loop->getNestingLevel();
 
   LocalityInfo &LI = LocalityByLevel[Level - 1];
   assert((LI.Spatial == 0) && "Spatial locality already populated!");
 
-  for (auto &GroupVecPair : RefGroups) {
-
-    SmallVectorImpl<const RegDDRef *> &RefVec = GroupVecPair.second;
+  for (auto &RefVec : RefGroups) {
     assert(!RefVec.empty() && " Ref Group is empty.");
 
     // We need to compute spatial locality for only one from each RefGroup.
@@ -413,9 +385,9 @@ void HIRLocalityAnalysis::initTripCountByLevel(
   }
 }
 
-bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
-                                             const RegDDRef *Ref2,
-                                             unsigned Level, uint64_t MaxDiff) {
+bool HIRLocalityAnalysis::isSpatialMatch(const RegDDRef *Ref1,
+                                         const RegDDRef *Ref2, unsigned Level,
+                                         uint64_t MaxDiff) {
 
   // Put all invariant refs in one group.
   if (Ref1->isStructurallyInvariantAtLevel(Level) &&
@@ -423,28 +395,28 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
     return true;
   }
 
-  // TODO: Think about if we can delinearize the subscripts.
   if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
     return false;
   }
 
   unsigned NumConstDiff = 0;
 
-  // Compare base CE.
-  // TODO: Currently assuming it to be in different groups. Need to add
-  // support for cases such as *(ptr+i) and *(ptr+i+1).
   if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(), true)) {
-    // assert(false && " Handle Base CE for array groups.");
     return false;
   }
 
-  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
-            Ref2Iter = Ref2->canon_begin();
-       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+
+    // TODO: Investigate whether refs with different offsets for the first
+    // dimension can be placed in the same group?
+    // For example- A[i].0 and A[i].1
+    if (DDRefUtils::compareOffsets(Ref1, Ref2, I)) {
+      return false;
+    }
 
     // Check if both the CanonExprs have IV.
-    const CanonExpr *Ref1CE = *Ref1Iter;
-    const CanonExpr *Ref2CE = *Ref2Iter;
+    const CanonExpr *Ref1CE = Ref1->getDimensionIndex(I);
+    const CanonExpr *Ref2CE = Ref2->getDimensionIndex(I);
 
     // For cases such as A[i+1][j+1] and A[i][j], where j+1 and j will have
     // const diff, but need to be placed in different groups for i-loop
@@ -458,36 +430,25 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
       }
     }
 
-    // Diff the CanonExprs.
-    // TODO: Added RelaxedMode, but think about cases where src type also
-    // differs.
-    // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
-    std::unique_ptr<CanonExpr> Result(
-        Ref1CE->getCanonExprUtils().cloneAndSubtract(Ref1CE, Ref2CE, true));
-    if (!Result) {
-      return false;
-    }
-
-    // Result should not have any IV's or blobs.
-    if (Result->hasBlob() || Result->hasIV()) {
-      return false;
-    }
-
     // Difference between the two canon expr should be constant.
-    uint64_t Diff =
-        std::llabs(Result->getConstant()) / Result->getDenominator();
+    int64_t Diff;
+
+    if (!CanonExprUtils::getConstDistance(Ref1CE, Ref2CE, &Diff)) {
+      return false;
+    }
 
     // If Diff is greater than MaxDiff then place it in a
     // separate bucket.
-    if (Diff > MaxDiff) {
+    if (static_cast<uint64_t>(std::llabs(Diff)) > MaxDiff) {
       return false;
     }
 
     if (Diff != 0) {
       NumConstDiff++;
       // Multiple Const diff will be in separate groups.
-      if (NumConstDiff > 1)
+      if (NumConstDiff > 1) {
         return false;
+      }
     }
   }
 
@@ -498,11 +459,34 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
   return true;
 }
 
+bool HIRLocalityAnalysis::isTemporalMatch(const RegDDRef *Ref1,
+                                          const RegDDRef *Ref2, unsigned Level,
+                                          uint64_t MaxDiff) {
+
+  // Put all invariant refs in one group.
+  if (Ref1->isStructurallyInvariantAtLevel(Level) &&
+      Ref2->isStructurallyInvariantAtLevel(Level)) {
+    return true;
+  }
+
+  int64_t Diff;
+
+  if (!DDRefUtils::getConstIterationDistance(Ref1, Ref2, Level, &Diff)) {
+    return false;
+  }
+
+  if (static_cast<uint64_t>(std::llabs(Diff)) > MaxDiff) {
+    return false;
+  }
+
+  return true;
+}
+
 // This is a high level routine to compute different locality.
 void HIRLocalityAnalysis::computeLoopNestLocality(
     const HLLoop *Loop, const SmallVectorImpl<const HLLoop *> &LoopVec) {
 
-  RefGroupMapTy RefGroups;
+  RefGroupVecTy RefGroups;
   // Get the Symbase to Memory References.
   ConstMemRefGatherer::MapTy MemRefMap;
   ConstMemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
@@ -531,16 +515,13 @@ void HIRLocalityAnalysis::computeLoopNestLocality(
 
     // Create Groupings based on index.
 
-    DDRefGrouping::createGroups(
+    DDRefGrouping::groupMap(
         RefGroups, LoopMemRefMap,
-        std::bind(isGroupMemRefMatch, std::placeholders::_1,
-                  std::placeholders::_2, CurLoop->getNestingLevel(),
-                  NumCacheLines));
+        std::bind(isSpatialMatch, std::placeholders::_1, std::placeholders::_2,
+                  CurLoop->getNestingLevel(), NumCacheLines));
     DEBUG(DDRefGrouping::dump(RefGroups));
 
     computeTempInvLocality(CurLoop, RefGroups);
-    // This is unused by interchange so commenting out.
-    // computeTempReuseLocality(CurLoop, RefGroups, DefaultReuseThreshold);
 
     computeSpatialLocality(CurLoop, RefGroups);
 
@@ -556,8 +537,8 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
     SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
   assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
-  assert(HIRF->getHLNodeUtils().isPerfectLoopNest(OutermostLoop, nullptr, false,
-                                                  false, true, nullptr) &&
+  assert(HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false, false,
+                                        true, nullptr) &&
          "Near perfect loopnest expected!");
 
   // Clear locality by level.
@@ -582,7 +563,7 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
 
   unsigned Level = Lp->getNestingLevel();
 
-  RefGroupMapTy RefGroups;
+  RefGroupVecTy RefGroups;
   ConstMemRefGatherer::MapTy MemRefMap;
 
   // Clear existing locality and trip count info.
@@ -595,10 +576,10 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
                                    MemRefMap);
   ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
 
-  DDRefGrouping::createGroups(
-      RefGroups, MemRefMap,
-      std::bind(isGroupMemRefMatch, std::placeholders::_1,
-                std::placeholders::_2, Level, NumCacheLines));
+  // Create groups with max possible reuse distance.
+  DDRefGrouping::groupMap(RefGroups, MemRefMap,
+                          std::bind(isTemporalMatch, std::placeholders::_1,
+                                    std::placeholders::_2, Level, ~0UL));
 
   computeTempInvLocality(Lp, RefGroups);
 
@@ -606,4 +587,21 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
       Lp, RefGroups, ReuseThreshold ? ReuseThreshold : DefaultReuseThreshold);
 
   return LocalityByLevel[Level - 1].getTemporalLocality();
+}
+
+void HIRLocalityAnalysis::populateTemporalLocalityGroups(
+    const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups) {
+  assert(Lp && " Loop parameter is null!");
+
+  ConstMemRefGatherer::MapTy MemRefMap;
+
+  ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+                                   MemRefMap);
+
+  ConstMemRefGatherer::sort(MemRefMap);
+
+  DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
+                          std::bind(isTemporalMatch, std::placeholders::_1,
+                                    std::placeholders::_2,
+                                    Lp->getNestingLevel(), ReuseThreshold));
 }

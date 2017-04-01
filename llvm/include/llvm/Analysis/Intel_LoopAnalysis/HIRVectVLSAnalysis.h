@@ -46,7 +46,7 @@ public:
   static char ID;
   bool runOnFunction(Function &F) override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   void releaseMemory() override;
   void markLoopBodyModified(const HLLoop *Loop) override;
 

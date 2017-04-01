@@ -1,4 +1,4 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the addIV() operation for GEP is performed successfully.
 ; CHECK: DO i1 = 0, %vn.0.vn.0. + -1

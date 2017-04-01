@@ -38,6 +38,7 @@ class HIRCreation;
 class HIRFramework;
 class CanonExprUtils;
 class BlobUtils;
+class HIRLoopStatistics;
 
 /// Defines utilities for HLNode class and manages their creation/destruction.
 /// It contains a bunch of member functions which manipulate HLNodes.
@@ -120,7 +121,7 @@ private:
       HNU.checkHLLoopTy<T>();
       bool IsLevelVisit = (VL == VisitKind::Level);
       (void)IsLevelVisit;
-      assert((!IsLevelVisit || isLoopLevelValid(Level)) &&
+      assert((!IsLevelVisit || CanonExprUtils::isValidLoopLevel(Level)) &&
              " Level is out of range.");
     }
 
@@ -163,9 +164,7 @@ private:
     }
   };
 
-  unsigned getUniqueHLNodeNumber() {
-    return NextUniqueHLNodeNumber++;
-  }
+  unsigned getUniqueHLNodeNumber() { return NextUniqueHLNodeNumber++; }
 
   /// Updates first and last dummy inst of the function.
   void setFirstAndLastDummyInst(Instruction *Inst);
@@ -321,35 +320,37 @@ private:
                           bool isFirstChild);
 
   /// Implements get*LexicalChild() functionality.
-  const HLNode *getLexicalChildImpl(const HLNode *Parent, const HLNode *Node,
-                                    bool First);
+  static const HLNode *getLexicalChildImpl(const HLNode *Parent,
+                                           const HLNode *Node, bool First);
 
   /// Returns true if the lexical link have structured flow between Parent's
   /// first/last child and Node. The direction is dictated by UpwardTraversal
   /// flag. TargetNode is used for early termination of the traversal.
   /// Structured flow checks are different for domination and post-domination.
-  bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
-                         const HLNode *TargetNode, bool PostDomination,
-                         bool UpwardTraversal);
+  static bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
+                                const HLNode *TargetNode, bool PostDomination,
+                                bool UpwardTraversal, HIRLoopStatistics *HLS);
 
   /// Returns the outermost parent of Node1 which is safe to be used for
   /// checking domination. We move up through constant trip count loops. Last
   /// parent indicates the path used to reach to the parent.
-  const HLNode *getOutermostSafeParent(const HLNode *Node1, const HLNode *Node2,
-                                       bool PostDomination,
-                                       const HLNode **LastParent1);
+  static const HLNode *getOutermostSafeParent(const HLNode *Node1,
+                                              const HLNode *Node2,
+                                              bool PostDomination,
+                                              HIRLoopStatistics *HLS,
+                                              const HLNode **LastParent1);
 
   /// Internally used by domination utility to get to the commona dominating
   /// parent. Last parent indicates the path used to reach to the parent.
-  const HLNode *getCommonDominatingParent(const HLNode *Parent1,
-                                          const HLNode *LastParent1,
-                                          const HLNode *Node2,
-                                          bool PostDomination,
-                                          const HLNode **LastParent2);
+  static const HLNode *
+  getCommonDominatingParent(const HLNode *Parent1, const HLNode *LastParent1,
+                            const HLNode *Node2, bool PostDomination,
+                            HIRLoopStatistics *HLS, const HLNode **LastParent2);
 
   /// Implements domination/post-domination functionality.
-  bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                     bool PostDomination, bool StrictDomination);
+  static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
+                            bool PostDomination, bool StrictDomination,
+                            HIRLoopStatistics *HLS);
 
   /// Set TopSortNums for the first time
   void initTopSortNum();
@@ -435,8 +436,9 @@ private:
   /// Expects non-innermost incoming \p Lp.
   /// Sets inner loop in \p InnerLp.
   /// Return true if it has perfect/near-perfect loop properties
-  bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
-                                bool AllowNearPerfect, bool *IsNearPerfectLoop);
+  static bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
 
   template <bool IsMaxMode>
   static bool isInTopSortNumRangeImpl(const HLNode *Node,
@@ -761,9 +763,8 @@ public:
             typename = IsHLNodeTy<NodeTy>>
   static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor,
-                                                       Begin->getIterator(),
-                                                       ++(End->getIterator()));
+    visitRange<Recursive, RecurseInsideLoops, Forward>(
+        Visitor, Begin->getIterator(), ++(End->getIterator()));
   }
 
   /// Visits all HLNodes in the HIR. The direction is specified using Forward
@@ -1030,43 +1031,46 @@ public:
                                      const HLNode *FirstNode,
                                      const HLNode *LastNode);
 
-  /// Returns true if the Loop level is in a valid range from
-  /// [1, MaxLoopNestLevel].
-  static bool isLoopLevelValid(unsigned Level) {
-    return (Level > 0 && Level <= MaxLoopNestLevel);
-  }
-
   /// Returns the first lexical child of the parent w.r.t Node. For example, if
   /// parent is a loop and Node lies in postexit, the function will return the
   /// first postexit node. If Node is null, it returns the absolute first/last
   /// child in the parent's container.
-  const HLNode *getFirstLexicalChild(const HLNode *Parent,
-                                     const HLNode *Node = nullptr);
-  HLNode *getFirstLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+  static const HLNode *getFirstLexicalChild(const HLNode *Parent,
+                                            const HLNode *Node = nullptr);
+  static HLNode *getFirstLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
   /// Returns the last lexical child of the parent w.r.t Node. For example, if
   /// parent is a loop and Node lies in postexit, the function will return the
   /// last postexit node. If Node is null, it returns the absolute first/last
   /// child in the parent's container.
-  const HLNode *getLastLexicalChild(const HLNode *Parent,
-                                    const HLNode *Node = nullptr);
-  HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+  static const HLNode *getLastLexicalChild(const HLNode *Parent,
+                                           const HLNode *Node = nullptr);
+  static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
   /// Returns true if Node1 can be proven to dominate Node2, otherwise
   /// conservatively returns false.
-  bool dominates(const HLNode *Node1, const HLNode *Node2);
+  /// \p HLS is used to produce faster results. A valid value can (and should)
+  /// be passed by clients whenever the loop is in a valid state. This is true
+  /// for all analysis passes and analysis part of the transformations. Null
+  /// should be passed if the loop was modified but has not yet been invalidated
+  /// by a transformation (invalid state).
+  static bool dominates(const HLNode *Node1, const HLNode *Node2,
+                        HIRLoopStatistics *HLS);
 
   /// This is identical to dominates() except the case where Node1 == Node2, in
   /// which case it return false.
-  bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
+  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2,
+                                HIRLoopStatistics *HLS);
 
   /// Returns true if Node1 can be proven to post-dominate Node2, otherwise
   /// conservatively returns false.
-  bool postDominates(const HLNode *Node1, const HLNode *Node2);
+  static bool postDominates(const HLNode *Node1, const HLNode *Node2,
+                            HIRLoopStatistics *HLS);
 
   /// This is identical to postDominates() except the case where Node1 == Node2,
   /// in which case it return false.
-  bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
+  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2,
+                                    HIRLoopStatistics *HLS);
 
   /// Checks if \p Node1 and \p Node2 are "equivalent" in terms of CFG: namely
   /// if \p Node1 is reached/accessed anytime \p Node2 is reached/Accessed and
@@ -1076,17 +1080,13 @@ public:
   /// reached/accessed and Node2 isn't, or the other way around.
   /// Note: In the presence of complicated unstructured code (containing
   /// gotos/labels) this function will conservatively return false.
-  bool canAccessTogether(const HLNode *Node1, const HLNode *Node2);
+  static bool canAccessTogether(const HLNode *Node1, const HLNode *Node2,
+                                HIRLoopStatistics *HLS);
 
   /// Returns true if Parent contains Node. IncludePrePostHdr indicates whether
   /// loop should be considered to contain preheader/postexit nodes.
   static bool contains(const HLNode *Parent, const HLNode *Node,
                        bool IncludePrePostHdr = false);
-
-  /// get parent loop for certain level, nullptr could be returned if input is
-  /// invalid
-  const HLLoop *getParentLoopwithLevel(unsigned Level,
-                                       const HLLoop *InnermostLoop);
 
   /// Gathers the innermost loops across regions and stores them into the loop
   /// vector. If Node is not specified, it will search for all Regions
@@ -1131,7 +1131,8 @@ public:
     (void)Loop;
     assert((!Loop || !Loop->isInnermost()) &&
            " Gathering loops inside innermost loop.");
-    assert(isLoopLevelValid(Level) && " Level is out of range.");
+    assert(CanonExprUtils::isValidLoopLevel(Level) &&
+           " Level is out of range.");
     LoopLevelVisitor<T, VisitKind::Level> LoopVisit(*this, Loops, Level);
     visit(LoopVisit, Node);
   }
@@ -1171,17 +1172,17 @@ public:
   /// innermost loop.
   /// Asserts if incoming loop is innermost.
   /// TODO: AllowPrePostHdr is unused, remove it?
-  bool isPerfectLoopNest(const HLLoop *Loop,
-                         const HLLoop **InnermostLoop = nullptr,
-                         bool AllowPrePostHdr = false,
-                         bool AllowTriangularLoop = false,
-                         bool AllowNearPerfect = false,
-                         bool *IsNearPerfect = nullptr);
+  static bool isPerfectLoopNest(const HLLoop *Loop,
+                                const HLLoop **InnermostLoop = nullptr,
+                                bool AllowPrePostHdr = false,
+                                bool AllowTriangularLoop = false,
+                                bool AllowNearPerfect = false,
+                                bool *IsNearPerfect = nullptr);
 
   /// Any memref with non-unit stride?
   /// Will take innermost loop for now.
   /// Used mostly for blocking / interchange.
-  bool hasNonUnitStrideRefs(const HLLoop *Loop);
+  static bool hasNonUnitStrideRefs(const HLLoop *Loop);
 
   /// Find node receiving the load
   /// e.g.   t0 = a[i] ;
@@ -1193,9 +1194,9 @@ public:
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if
   /// there is no such parent loop.
-  const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
-                                            const HLLoop *Lp2);
-  HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+  static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                   const HLLoop *Lp2);
+  static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.

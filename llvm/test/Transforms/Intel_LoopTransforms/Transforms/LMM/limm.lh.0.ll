@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-complete-unroll -hir-lmm  -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-temp-cleanup -hir-post-vec-complete-unroll -hir-lmm  -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 ; (This test is based on CompleteUnroll/triinner.ll)
 ;
 ;// have LoopInv loads and stores

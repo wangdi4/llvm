@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll -print-after=hir-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
 
 ; Source code-
 ; for(int i=0; i<6; i++) {
@@ -9,7 +9,7 @@
 ; Check that the blob DDRefs are updated correctly after complete unroll
 
 
-; CHECK: Dump Before HIR Complete Unroll
+; CHECK: Dump Before HIR PostVec Complete Unroll
 
 ; CHECK: <RVAL-REG> LINEAR i32 %k * i1
 
@@ -17,7 +17,7 @@
 ; CHECK: <BLOB> LINEAR i32 %k {sb:[[SYM:[0-9]+]]}
 
 
-; CHECK: Dump After HIR Complete Unroll
+; CHECK: Dump After HIR PostVec Complete Unroll
 
 ; CHECK: (%A)[0] = 0
 ; Check for absence of any blob DDRefs for %k for the above statement.

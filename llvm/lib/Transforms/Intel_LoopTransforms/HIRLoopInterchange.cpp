@@ -167,24 +167,29 @@ struct HIRLoopInterchange::CollectCandidateLoops final
       SkipNode = Loop;
       return;
     }
-    auto &HNU = Loop->getHLNodeUtils();
-
     DEBUG(dbgs() << "In collect Perfect loopnest\n");
     // Last 3 arguments of next call:
     // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
     bool IsNearPerfectLoop = false;
-    if (HNU.isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
+    if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
                               &IsNearPerfectLoop)) {
+
+      DEBUG(dbgs() << "Is  Perfect loopnest\n");
+
       if (!IsNearPerfectLoop) {
         DEBUG(dbgs() << "Is Perfect");
-        if (HNU.hasNonUnitStrideRefs(InnermostLoop)) {
+        if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop)) {
           DEBUG(dbgs() << "\nHas non unit stride");
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
         } else {
           DEBUG(dbgs() << "MemRefs are in unit stride or non-linear Defs");
         }
-      } else if (HNU.hasNonUnitStrideRefs(InnermostLoop) ||
+
+        SkipNode = Loop;
+        return;
+
+      } else if (HLNodeUtils::hasNonUnitStrideRefs(InnermostLoop) ||
                  isBlockingCandidate(Loop)) {
         // Near perfect loops found
         DEBUG(dbgs() << "is NearPerfect Loop:\n");
@@ -195,16 +200,15 @@ struct HIRLoopInterchange::CollectCandidateLoops final
                                            DDG)) {
           CandidateLoops.push_back(
               std::make_pair(Loop, const_cast<HLLoop *>(InnermostLoop)));
-
+          SkipNode = Loop;
           DEBUG(dbgs() << "Perfect Loopnest enabled\n");
           DEBUG(dbgs(); Loop->dump());
           // Save & invalidate later to avoid DDRebuild and safe reduction map
           // released
           LIP->PerfectLoopsEnabled.push_back(InnermostLoop);
+          return;
         }
       }
-      SkipNode = Loop;
-      return;
     }
   }
   void visit(HLNode *Node) {}

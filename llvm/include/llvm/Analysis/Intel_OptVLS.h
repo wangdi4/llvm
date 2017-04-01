@@ -473,7 +473,7 @@ private:
 public:
   explicit OVLSConstant(OVLSType T, int8_t *V) : OVLSOperand(OK_Constant, T) {
     assert(T.getSize() <= BitWidth && "Unsupported OVLSConstant size!");
-    memcpy(ConstValue, V, T.getSize());
+    memcpy(ConstValue, V, T.getSize() / BYTE);
   }
 
   static bool classof(const OVLSOperand *Operand) {
@@ -622,6 +622,46 @@ private:
 
   /// \brief Reads a vector from memory using this mask. This mask holds a bit
   /// for each element.  When a bit is set the corresponding element in memory
+  /// is accessed.
+  uint64_t ElemMask;
+};
+
+class OVLSStore : public OVLSInstruction {
+
+public:
+  /// \brief Store V in D using \p EMask (element mask).
+  explicit OVLSStore(const OVLSOperand * const V, const OVLSOperand &D,
+                     uint64_t EMask)
+    : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
+    Dst = D;
+  }
+
+  /// \brief Return the Address (Dst) member of the store.
+  OVLSAddress getDst() const { return Dst; }
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Store;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs(), 0);
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+  uint64_t getMask() const { return ElemMask; }
+  void setMask(uint64_t Mask) { ElemMask = Mask; }
+  void updateValue(const OVLSOperand * const V) { Value = V; }
+
+private:
+  const OVLSOperand *Value;
+  OVLSAddress Dst;
+
+  /// \brief Writes a vector to memory using this mask. This mask holds a bit
+  /// for each element. When a bit is set the corresponding element in memory
   /// is accessed.
   uint64_t ElemMask;
 };
@@ -789,6 +829,52 @@ class OVLSCostModel {
     }
 
     return IsExtract;
+  }
+
+  /// Returns true if Mask represents insertion of lower half of the 2nd
+  /// src-vector into the 1st src-vector, returns false otherwise. When
+  /// returns true it updates Index and NumSubVecElems.
+  /// Index represents where in the list of subvectors to insert the new
+  /// subvector. NumSubVecElems represents the size of the inserted vector.
+  /// After insertion the new subvector at index i, the new subvector will be
+  /// the ith subvector in the list of subvectors
+  /// E.g.  Src1<0, 1, 2, 3>, Src2<4, 5, 6, 7>;
+  /// Allowed masks are <4, 5, 2, 3> and <0, 1, 4, 5>.
+  /// Strictly honors, X86 (v)insertX semantics.
+  /// TODO: Only detects masks with half-vector insertion. Support masks
+  /// inserting other-sized vectors(specially the quarter-sized).
+  bool isInsertSubvectorMask(SmallVectorImpl<int> &Mask, int &Index,
+                             unsigned &NumSubVecElems) const {
+    bool InsertIntoUpperHalf = false;
+    bool InsertIntoLowerHalf = false;
+
+    int i;
+    int Size = Mask.size();
+    int LowerHalfUB = Size / 2;
+
+    // TODO: Supports undefined.
+    for (i = 0; i < LowerHalfUB; ++i)
+      if (Mask[i] == Size + i && !InsertIntoUpperHalf)
+        InsertIntoLowerHalf = true;
+      else if (Mask[i] == i && !InsertIntoLowerHalf)
+        InsertIntoUpperHalf = true;
+      else
+        return false;
+
+    bool IsInsert = true;
+    for (; i < Size && IsInsert; ++i)
+      IsInsert =
+          InsertIntoLowerHalf ? Mask[i] == i : Mask[i] == i + LowerHalfUB;
+
+    if (IsInsert) {
+      if (InsertIntoLowerHalf)
+        Index = 0;
+      else
+        Index = 1;
+      NumSubVecElems = LowerHalfUB;
+    }
+
+    return IsInsert;
   }
 
 protected:
