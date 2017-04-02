@@ -881,7 +881,7 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
       Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
     }
     else {
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment, "wide.store");
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
     }
     return;
   }

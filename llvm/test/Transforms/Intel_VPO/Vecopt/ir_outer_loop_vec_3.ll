@@ -16,7 +16,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
 ; CHECK: %[[I:.*]] = trunc <4 x i64> %vec.ind to <4 x i32>
-; CHECK: store volatile <4 x i32>
+; CHECK: store <4 x i32>
 ; CHECK: VPlannedBB1:
 ; CHECK: phi i64 [{{.*}}, %VPlannedBB1 ], [ 0, %VPlannedBB ]
 ; CHECK: %A_val.vec = phi <4 x i32>
@@ -28,7 +28,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: VPlannedBB4:            
 ; CHECK:  %add6.lcssa.vec = phi <4 x i32> 
 ; CHECK:  getelementptr i32, i32* %A, i64 %1
-; CHECK:  store volatile <4 x i32> %add6.lcssa.vec, <4 x i32>*
+; CHECK:  store <4 x i32> %add6.lcssa.vec, <4 x i32>*
 
 
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %iCount, i32 %jCount, i32 %c) local_unnamed_addr #0 {

@@ -26,7 +26,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: vector.body
 ; CHECK: %index = phi i64 [ 0,
 ; CHECK: %[[VEC_IND:.*]] = phi <4 x float>
-; CHECK: store volatile <4 x float> %[[VEC_IND]]
+; CHECK: store <4 x float> %[[VEC_IND]]
 ; CHECK: fsub fast <4 x float> %[[VEC_IND]], %[[TMP5]]
 
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
