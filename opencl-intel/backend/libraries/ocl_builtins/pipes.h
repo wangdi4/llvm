@@ -40,18 +40,20 @@ struct __pipe_t {
   i32 packet_size;
   i32 max_packets;
 
-  atomic_i32 head;
-  atomic_i32 tail;
+  // The fields below are accessible(read, write) from different threads.
+  // Alignment needed here to avoid false sharing.
+  atomic_i32 head __attribute__((aligned(64)));
+  atomic_i32 tail __attribute__((aligned(64)));
 
-#define PIPE_READ_BUF_PREFERRED_LIMIT 64
-#define PIPE_WRITE_BUF_PREFERRED_LIMIT 64
-  struct __pipe_internal_buf read_buf;
-  struct __pipe_internal_buf write_buf;
+#define PIPE_READ_BUF_PREFERRED_LIMIT 256
+#define PIPE_WRITE_BUF_PREFERRED_LIMIT 256
+  struct __pipe_internal_buf read_buf __attribute__((aligned(64)));
+  struct __pipe_internal_buf write_buf __attribute__((aligned(64)));
 
   // Trailing buffer for packets
   //
   // char buffer[max_packets * packet_size];
-};
+} __attribute__((aligned(64)));
 
 #ifdef __OPENCL_C_VERSION__
 void __pipe_init_intel(__global struct __pipe_t* p,
