@@ -55,7 +55,6 @@ set(modified_files
   )
 
 set(special_files
-  __x86intrin_features.h
   intrin.h
   vadefs.h
   )
