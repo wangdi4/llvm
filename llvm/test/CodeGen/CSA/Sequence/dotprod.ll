@@ -1,4 +1,4 @@
-; RUN: llc -O1 -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
+; RUN: llc -O1 -fp-contract=fast -csa-opt-df-pass=1 -csa-seq-opt=2 -mtriple=csa < %s | FileCheck %s --check-prefix=CSA_CHECK
 
 ; ModuleID = 'loop_kernel.cpp'
 target datalayout = "e-m:e-i64:64-n32:64"
