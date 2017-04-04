@@ -28,7 +28,5 @@ add_llvm_loadable_module( LLVMROIController
   )
 target_link_libraries( LLVMROIController ${Boost_LIBRARIES} )
 
-#if (TARGET intrinsics_gen)
-#  add_dependencies(LLVMFPGA-Advisor intrinsics_gen)
-#endif()
+add_dependencies( LLVMROIController intrinsics_gen)
 
