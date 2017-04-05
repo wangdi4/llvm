@@ -404,9 +404,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     if (m_pVTuneListener)
         pExecEngine->RegisterJITEventListener(m_pVTuneListener);
 
-    pExecEngine->finalizeObject();
-    pExecEngine->runStaticConstructorsDestructors(*pModule, /*isDtors=*/false);
-
     return pExecEngine;
 }
 
