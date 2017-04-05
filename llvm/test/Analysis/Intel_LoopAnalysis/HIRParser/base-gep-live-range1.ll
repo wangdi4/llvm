@@ -6,18 +6,18 @@
 ; of %s.addr.1 in %s.addr.2 from tracing back incorrectly.
 
 ; CHECK: + DO i1 = 0, %dec.in + -1, 1   <DO_LOOP>
-; CHECK: |   %s.addr.out = &((%s.addr)[0]);
 ; CHECK: |   %first.addr.out = &((%first.addr)[0]);
-; CHECK: |   (%s.addr.out)[0] = %stval;
+; CHECK: |   (%s.addr)[0] = %stval;
 ; CHECK: |   %0 = (%addr.in)[-1 * i1 + %dec.in + -1];
 ; CHECK: |   %s.addr = &((%s.addr)[1]);
+; CHECK: |   %s.addr.out = &((%s.addr)[0]);
 ; CHECK: |   if (%0 > 0)
 ; CHECK: |   {
 ; CHECK: |      + DO i2 = 0, %0 + smax(-2, (-1 + (-1 * %0))) + 1, 1   <DO_LOOP>
 ; CHECK: |      |   %incdec.ptr38.i = &((%first.addr.out)[i2 + 1]);
 ; CHECK: |      |   %1 = (%first.addr.out)[i2];
-; CHECK: |      |   (%s.addr)[i2] = %1;
-; CHECK: |      |   %s.addr.3 = &((%s.addr)[i2 + 1]);
+; CHECK: |      |   (%s.addr.out)[i2] = %1;
+; CHECK: |      |   %s.addr.3 = &((%s.addr.out)[i2 + 1]);
 ; CHECK: |      + END LOOP
 ; CHECK: |
 ; CHECK: |      %first.addr = &((%incdec.ptr38.i)[0]);

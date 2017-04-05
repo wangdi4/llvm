@@ -4,15 +4,18 @@
 ; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop
-; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %a.addr.014.out = %a.addr.014
-; CHECK-NEXT: %output.1 = %b
-; CHECK-NEXT: i1 > 77
-; CHECK: (%A)[i1] = %a.addr.014
-; CHECK-NEXT: %output.1 = %a.addr.014.out
-; CHECK: (%B)[i1] = %output.1
-; CHECK-NEXT: END LOOP
+
+; CHECK: + DO i1 = 0, zext.i32.i64((-1 + %n)), 1   <DO_LOOP>
+; CHECK: |   %a.addr.014.out = %a.addr.014;
+; CHECK: |   %output.1 = %b;
+; CHECK: |   if (i1 > 77)
+; CHECK: |   {
+; CHECK: |      %a.addr.014 = %a.addr.014  +  1;
+; CHECK: |      (%A)[i1] = %a.addr.014;
+; CHECK: |      %output.1 = %a.addr.014.out;
+; CHECK: |   }
+; CHECK: |   (%B)[i1] = %output.1;
+; CHECK: + END LOOP
 
 
 ; ModuleID = 'de_ssa1.c'

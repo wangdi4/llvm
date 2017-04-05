@@ -544,7 +544,6 @@ bool TempSubstituter::isNodeEmpty(HLNode *Node) const {
 
   } else if (auto If = dyn_cast<HLIf>(Node)) {
     return (!If->hasThenChildren() && !If->hasElseChildren());
-
   }
 
   // No-op for empty region.
@@ -580,6 +579,7 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       unsigned NewSymbase = Temp.getRvalSymbase();
       HLLoop *ParentLoop = Temp.getLoop();
       HLLoop *LCALoop = nullptr;
+      bool SkipLiveouts = false;
 
       // Temp may have been substituted in some places. We need to replace it in
       // loop liveouts by its rval symbase.
@@ -590,16 +590,25 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
         // LCALoop is null in this path as the region liveout temp should be
         // replaced as loop liveout in all the parent loops.
         Reg->replaceLiveOutTemp(Symbase, NewSymbase);
-      } else {
-        auto LastUseLoop = Temp.getLastUseLoop();
-        assert(LastUseLoop && "No use found for liveout temp!");
+
+      } else if (!Temp.getLastUseRef()) {
+        // Under rare cases, it is possible for SSA deconstruction to create
+        // copies which do not have any uses. We should skip liveout processing
+        // for them.
+        SkipLiveouts = true;
+
+      } else if (auto LastUseLoop = Temp.getLastUseLoop()) {
+        // If the last use was outside the outermost loop, LastUseLoop will be
+        // null.
         LCALoop =
             HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, ParentLoop);
       }
 
-      while (ParentLoop != LCALoop) {
-        ParentLoop->replaceLiveOutTemp(Symbase, NewSymbase);
-        ParentLoop = ParentLoop->getParentLoop();
+      if (!SkipLiveouts) {
+        while (ParentLoop != LCALoop) {
+          ParentLoop->replaceLiveOutTemp(Symbase, NewSymbase);
+          ParentLoop = ParentLoop->getParentLoop();
+        }
       }
     }
 

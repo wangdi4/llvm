@@ -62,7 +62,7 @@ public:
     void add(NodeTy *Node) { Nodes.push_back(Node); }
     void remove(SCCNodesTy::const_iterator It) { Nodes.erase(It); }
 
-    bool contains(NodeTy *Node) const {
+    bool contains(const NodeTy *Node) const {
       return (std::find(Nodes.begin(), Nodes.end(), Node) != Nodes.end());
     }
 
@@ -140,9 +140,6 @@ private:
   /// another phi defined in the same bblock as itself.
   bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
 
-  /// Returns true if this is a single trip loop.
-  bool isSingleTripLoop(Loop *Lp) const;
-
   /// Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 
@@ -158,8 +155,7 @@ private:
 
   /// Removes non-phi nodes which are not directly connected to phi nodes in the
   /// SCC.
-  /// Returns false if intermediate nodes cannot be removed (invalid SCC).
-  bool removedIntermediateNodes(SCC &CurSCC) const;
+  void removeIntermediateNodes(SCC &CurSCC) const;
 
   /// Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();
@@ -178,12 +174,19 @@ private:
   /// identiy min/max patterns.
   static bool isCmpAndSelectPattern(Instruction *Inst1, Instruction *Inst2);
 
-  /// Returns true if Node has multiple uses in the SCC at the same loop level.
-  bool hasMultipleSCCUsesAtSameLevel(NodeTy *Node, const SCC &CurSCC) const;
+  /// Returns true if \p Inst1 can reach \p Inst2 in the same bblock before
+  /// encountering \p EndInst.
+  static bool dominatesInSameBB(const Instruction *Inst1,
+                                const Instruction *Inst2,
+                                const Instruction *EndInst);
 
-  /// Returns true if the SCC operands of MergePhi (non-header Phi) have
-  /// live-range overlap.
-  bool hasLiveRangeOverlap(const PHINode *MergePhi, const SCC &CurSCC) const;
+  /// Returns true if there is live range overlap on SCC edges originating from
+  /// \p Node.
+  bool hasLiveRangeOverlap(const NodeTy *Node, const SCC &CurSCC) const;
+
+  /// Returns true if \p Inst has a use outside of the loop but in an SCC
+  /// instruction.
+  bool hasLoopLiveoutUseInSCC(const Instruction *Inst, const SCC &CurSCC) const;
 
   /// Checks the validity of an SCC w.r.t assigning the same symbase to all its
   /// nodes.

@@ -1,6 +1,11 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
-; Verify that single trip i3 loop is deconstructed properly.
+; Verify that we construct the HIR properly by suppressing creation of SCC when the header phi is live outside the loop in another SCC instruction. 
+
+; CHECK: SCC1
+; CHECK-SAME: %x0.055
+
+; CHECK-NOT: SCC2
 
 ; CHECK: + DO i1 = 0, 55, 1   <DO_LOOP>
 ; CHECK: |   %x0.055.out1 = %x0.055;
