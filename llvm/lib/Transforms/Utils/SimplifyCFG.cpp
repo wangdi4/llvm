@@ -1254,7 +1254,8 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
 
 #if INTEL_CUSTOMIZATION
     // Do not hoist llvm intrinsics that represent OpenMP directives.
-    if (IntelIntrinsicUtils::isIntelDirective(I1)) return Changed;
+    if (IntelIntrinsicUtils::isIntelDirective(I1))
+      return Changed;
 #endif // INTEL_CUSTOMIZATION
 
     // For a normal instruction, we just move one to right before the branch,

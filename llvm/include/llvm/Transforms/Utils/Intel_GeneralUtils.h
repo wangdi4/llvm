@@ -44,8 +44,11 @@ public:
   template <typename T>
   static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
 
-  /// \brief Returns Loop in LoopInfo corresponding to the WRN's EntryBB
-  static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *WRNEntryBB);
+  /// \brief Returns Loop in LoopInfo corresponding to the WRN.  The initial
+  /// call to this recursive DFS function should pass in the WRN's EntryBB and
+  /// ExitBB to prevent searching for the loop header outside of the region.
+  static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *EntryBB,
+                                                 BasicBlock *ExitBB);
 
   /// \brief Generates BB set in sub CFG for a given WRegionNode.
   /// The entry basic bblock 'EntryBB' and the exit basic

@@ -102,7 +102,8 @@ bool llvm::MergeBlockIntoPredecessor(BasicBlock *BB, DominatorTree *DT,
   if (BB->hasAddressTaken()) return false;
 
 #if INTEL_CUSTOMIZATION
-  if (IntelIntrinsicUtils::isIntelDirective(&(BB->front()))) return false;
+  if (IntelIntrinsicUtils::isIntelDirective(&(BB->front())))
+    return false;
 #endif // INTEL_CUSTOMIZATION
 
   // Can't merge if there are multiple predecessors, or no predecessors.

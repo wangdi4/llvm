@@ -144,7 +144,7 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
                  "Unexpected empty WRN stack when seeing an END directive");
 
           W = S->top();
-          W->setExitBBlock(BB);
+          W->finalize(BB); // set the ExitBB and wrap up the WRN
 
           // generate BB set;
           // TODO: Remove this call later; the client should do it on demand

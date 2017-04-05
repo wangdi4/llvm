@@ -51,6 +51,9 @@ for.cond.cleanup.loopexit:                             ; preds = %for.body
 
 for.cond.cleanup:                                      ; preds = %for.cond.cleanup.loopexit, %0
   %Sum.0.lcssa = phi i32 [ %Init, %entry ], [ %add.lcssa, %for.cond.cleanup.loopexit ]
+  br label %end.simd
+
+end.simd:
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   ret i32 %Sum.0.lcssa
 

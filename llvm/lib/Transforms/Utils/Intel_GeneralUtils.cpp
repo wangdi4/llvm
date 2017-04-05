@@ -56,25 +56,31 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
 }
 
 Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
-                                             BasicBlock *WRNEntryBB) {
+                                             BasicBlock *BB,
+                                             BasicBlock *ExitBB) {
+  Loop *Lp = nullptr;
 
-  // The succssor of WRNEntryBB can be zero trip test block followed 
-  // by the preheader. 
-  BasicBlock *NextBB = *(succ_begin(WRNEntryBB));
-  while (std::distance(pred_begin(NextBB), pred_end(NextBB))==1) {
-    NextBB = *(succ_begin(NextBB));
+  // If DFS reached the region's ExitBB, go back
+  if (BB == ExitBB)
+    return nullptr;
+
+  // The first BB with 2 predecessors found in the DFS is the loop header.
+  // Return the loop associated with this BB.
+  if (std::distance(pred_begin(BB), pred_end(BB))==2) {
+    Lp = LI->getLoopFor(BB);
+    assert(Lp && "The first BB with 2 predecessors should be the loop header");
+    // dbgs() << "\n=== getLoopFromLoopInfo found loop : " << *Lp << "\n";
+    return Lp;
+  }
+    
+  // BB is not a loop header; continue DFS with BB's successors recursively
+  for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
+    Lp = getLoopFromLoopInfo(LI, *I, ExitBB);
+    if (Lp)   
+      return Lp;
   }
 
-  assert(std::distance(pred_begin(NextBB), pred_end(NextBB))==2);
-  Loop *Lp = LI->getLoopFor(NextBB);
-  assert(Lp && "must have loop");
-
-#if 0
-  dbgs() << "Checking BB for Loop:\n" << *LoopHeaderBB << "\n";
-  if (Lp)
-    dbgs() << "Found Loop: " << *Lp << "\n";
-#endif
-  return Lp;
+  return nullptr;
 }
 
 /// \brief This function ensures that EntryBB is the first item in BBSet and
@@ -160,7 +166,7 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
       NewInst->insertBefore(Phi->getIncomingBlock(OperandIndex)->getTerminator());
       User->setOperand(OperandIndex, NewInst);
     }
-    else if (DbgInfoIntrinsic* Dbg = dyn_cast<DbgInfoIntrinsic>(User))
+    else if (/* DbgInfoIntrinsic* Dbg = */ dyn_cast<DbgInfoIntrinsic>(User))
       NewInst->insertBefore(User);
     else
     {

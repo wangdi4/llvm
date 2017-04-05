@@ -92,8 +92,6 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(0);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
@@ -175,8 +173,6 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber() << ">\n");
 }
@@ -207,9 +203,6 @@ WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
-
   DEBUG(dbgs() << "\nCreated WRNParallelWorkshareNode<" << getNumber() 
                                                         << ">\n");
 }
@@ -269,8 +262,6 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
   setCollapse(0);
   setOrdered(0);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
 }
@@ -391,8 +382,6 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   setUntied(false);
   setMergeable(false);
   setNogroup(false);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
 }
@@ -411,6 +400,7 @@ void WRNTaskloopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li) {
+  setIsLoop();
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
@@ -422,15 +412,13 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setIsAutoVec(false);
 
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
-
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
     : WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN) {
+  setIsLoop();
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
@@ -449,6 +437,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
 }
 
 WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W) {
+  setAttributes(W->getAttributes());
   setPriv(W->getPriv());
   setLpriv(W->getLpriv());
   setRed(W->getRed());
@@ -503,8 +492,12 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
     OS << "\n" << Indent << "ExitHLNode:\n";
     getExitHLNode()->print(OS, 1);
   } else {
-    OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
-    OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
+    BasicBlock *EntryBB = getEntryBBlock();
+    BasicBlock *ExitBB = getExitBBlock();
+    assert (EntryBB && "Entry BB is null!");
+    assert (ExitBB && "Exit BB is null!");
+    OS << "\n" << Indent << "EntryBB:" << *EntryBB;
+    OS << "\n" << Indent << "ExitBB:" << *ExitBB;
     OS << "\n" << Indent << "BBlockSet dump:\n";
     if (!isBBSetEmpty())
       for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
@@ -534,8 +527,6 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(0);
   setNowait(false);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
@@ -560,8 +551,6 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setLpriv(nullptr);
   setRed(nullptr);
   setNowait(false);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
@@ -583,8 +572,6 @@ WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWorkshare, BB), LI(Li) {
   setIsLoop();
   setNowait(false);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
 }
@@ -610,8 +597,6 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
   setLpriv(nullptr);
   setCollapse(0);
   setNowait(false);
-  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
-  setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
 }

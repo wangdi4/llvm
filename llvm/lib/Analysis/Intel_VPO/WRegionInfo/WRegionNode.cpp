@@ -88,6 +88,22 @@ WRegionNode::WRegionNode(WRegionNode *W) : SubClassID(W->SubClassID) {
   // TODO: add code to copy Children?
 }
 
+/// \brief Wrap up the WRN creation now that we have the ExitBB.  if the WRN is
+/// a loop construct, this routine also calls finds the associated Loop from
+/// the LoopInfo.
+void WRegionNode::finalize(BasicBlock *ExitBB) {
+  setExitBBlock(ExitBB);
+  if (getIsLoop()) {
+    LoopInfo *LI = getLoopInfo();
+    assert(LI && "LoopInfo not present in a loop construct");
+    BasicBlock *EntryBB = getEntryBBlock();
+    Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
+    assert(Lp && "Loop not found for a loop construct");
+    setLoop(Lp);
+    DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
+  }
+}
+
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
 void WRegionNode::populateBBSet(void) {
   BasicBlock *EntryBB = getEntryBBlock();

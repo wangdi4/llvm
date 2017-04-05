@@ -142,6 +142,12 @@ protected:
   /// \brief Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
 
+  /// \brief Finish creating the WRN once its ExitBB is found. This routine
+  /// calls WRN->setExitBBlock(ExitBB). In addition, if the WRN is a loop
+  /// construct, this routine also calls IntelGeneralUtils::getLoopFromLoopInfo
+  /// to find the Loop from LoopInfo
+  void finalize(BasicBlock *ExitBB);
+
   //
   // Routines for parsing clauses
   //
@@ -256,6 +262,12 @@ public:
 
   virtual void setLinear(LinearClause *L)    {errorClause(QUAL_OMP_LINEAR);   }
   virtual LinearClause *getLinear()    const {errorClause(QUAL_OMP_LINEAR);
+                                              return nullptr;                 }
+  virtual void setLoop(Loop *L)              {errorClause("LOOP");            }
+  virtual Loop *getLoop()              const {errorClause("LOOP");
+                                              return nullptr;                 }
+  virtual void setLoopInfo(LoopInfo *LI)     {errorClause("LoopInfo");        }
+  virtual LoopInfo *getLoopInfo()      const {errorClause("LoopInfo");
                                               return nullptr;                 }
   virtual void setMap(MapClause *M)          {errorClause("MAP");             }
   virtual MapClause *getMap()          const {errorClause("MAP");
@@ -490,7 +502,7 @@ public:
 
     // These don't require outlining:
 
-    WRNVecLoop,
+    WRNVecLoop,                       // IsLoop
     WRNWksLoop,                       // IsLoop
     WRNSections,                      // IsLoop
     WRNWorkshare,                     // IsLoop
