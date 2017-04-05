@@ -284,12 +284,6 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     }
   }
 
-  for (const AliasSet &set : AS->getAliasSets()) {
-    if (depchains[&set].readonly) {
-      errs() << "Note: this alias set is read-only!\n" << set;
-    }
-  }
-
   DEBUG(errs() << "Before addMemoryOrderingConstraints");
   for (MachineBasicBlock &BB : *thisMF) {
 
