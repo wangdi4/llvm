@@ -3056,6 +3056,7 @@ private:
   void EmitIntelOpenMPDirective(const OMPExecutableDirective &S);
   void EmitIntelOMPLoop(const OMPLoopDirective &S, OpenMPDirectiveKind K);
   void EmitIntelOMPSimdDirective(const OMPSimdDirective &S);
+  void EmitIntelOMPForDirective(const OMPForDirective &S);
   void EmitIntelOMPParallelForDirective(const OMPParallelForDirective &S);
 #endif // INTEL_SPECIFIC_OPENMP
 public:

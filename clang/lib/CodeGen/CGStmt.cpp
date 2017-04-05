@@ -131,6 +131,8 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
       if (NeedsLoopTransform) {
         if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
           return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
+        if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
+          return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
         else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
           return EmitIntelOMPParallelForDirective(
                                 cast<OMPParallelForDirective>(*S));

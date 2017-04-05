@@ -239,3 +239,21 @@ void threeA()
   {
   }
 }
+
+// CHECK-LABEL: @_Z6threeBv
+// CHECK-1: [[THREEB_IV:%.omp.iv.*]] = alloca
+// REG-1: [[THREEB_IV:%.omp.iv.*]] = alloca
+void threeB()
+{
+  // CHECK-1: directive(metadata !"DIR.OMP.LOOP")
+  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
+  // CHECK-1: store {{.*}}[[THREEB_IV]]
+  // CHECK-1: directive(metadata !"DIR.OMP.END.LOOP")
+  // CHECK-1: directive(metadata !"DIR.QUAL.LIST.END")
+  // REG-1: region.entry() [ "DIR.OMP.LOOP"
+  #pragma omp for
+  for (glob=0; glob < 2; ++glob)
+  {
+  }
+}
+

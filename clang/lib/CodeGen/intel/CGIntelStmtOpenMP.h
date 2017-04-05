@@ -149,6 +149,7 @@ public:
   void emitOMPParallelDirective();
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();
+  void emitOMPForDirective();
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();

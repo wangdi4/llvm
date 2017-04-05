@@ -50,4 +50,12 @@ void foo(int *arr1, int **arr2) {
   for (int k=0; k<10; k++) {
     bar(k);
   }
+// CHECK: directive(metadata !"DIR.OMP.LOOP")
+// CHECK: directive(metadata !"DIR.OMP.END.LOOP")
+// CHECK-REGION: [[TOKENVAL4:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.LOOP"() ]
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL4]]) [ "DIR.OMP.END.LOOP"() ]
+  #pragma omp for
+  for (int k=0; k<10; k++) {
+    bar(k);
+  }
 }

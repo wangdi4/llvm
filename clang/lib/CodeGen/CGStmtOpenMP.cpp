@@ -3910,6 +3910,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       case OMPD_simd:
         Outliner.emitOMPSIMDDirective();
         break;
+      case OMPD_for:
+        Outliner.emitOMPForDirective();
+        break;
       case OMPD_parallel_for:
         Outliner.emitOMPParallelForDirective();
         break;
@@ -3958,6 +3961,13 @@ void CodeGenFunction::EmitIntelOMPSimdDirective(const OMPSimdDirective &S) {
     CGF.EmitIntelOMPLoop(S, OMPD_simd);
   };
   emitIntelDirective(*this, OMPD_simd, CodeGen);
+}
+
+void CodeGenFunction::EmitIntelOMPForDirective(const OMPForDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_for);
+  };
+  emitIntelDirective(*this, OMPD_for, CodeGen);
 }
 
 void CodeGenFunction::EmitIntelOMPParallelForDirective(

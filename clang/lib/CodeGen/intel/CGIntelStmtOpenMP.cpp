@@ -480,7 +480,8 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::addImplicitClauses() {
     auto DKind = Directive.getDirectiveKind();
-    if (DKind != OMPD_simd && !isOpenMPParallelDirective(DKind))
+    if (DKind != OMPD_simd && DKind != OMPD_for &&
+        !isOpenMPParallelDirective(DKind))
       return;
 
     // We need to process some DeclRefExprs without havining them affect the
@@ -497,7 +498,7 @@ namespace CGIntelOpenMP {
       } else if (Counters.find(I) != Counters.end()) {
         // Counters always private
         emitImplicit(I, OMPC_private);
-      } else if (DKind != OMPD_simd) {
+      } else if (DKind != OMPD_simd && DKind != OMPD_for) {
         // Referenced but not definted = shared
         emitImplicit(I, OMPC_shared);
       }
@@ -602,6 +603,8 @@ namespace CGIntelOpenMP {
         Cl->getNameInfo().getName().getCXXOverloadedOperator();
     auto I = Cl->reduction_ops().begin();
     for (auto *E : Cl->varlists()) {
+      auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
+      addExplicit(PVD);
       assert(isa<BinaryOperator>((*I)->IgnoreImpCasts()));
       switch (OOK) {
       case OO_Plus:
@@ -1028,6 +1031,12 @@ namespace CGIntelOpenMP {
     emitDirective();
   }
 
+  void OpenMPCodeOutliner::emitOMPForDirective() {
+    End = "DIR.OMP.END.LOOP";
+    addArg("DIR.OMP.LOOP");
+    emitDirective();
+  }
+
   void OpenMPCodeOutliner::emitOMPAtomicDirective(OMPAtomicClause ClauseKind) {
     End = "DIR.OMP.END.ATOMIC";
     addArg("DIR.OMP.ATOMIC");
@@ -1234,6 +1243,9 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_simd:
     Outliner.emitOMPSIMDDirective();
     break;
+  case OMPD_for:
+    Outliner.emitOMPForDirective();
+    break;
   case OMPD_atomic: {
     bool IsSeqCst = S.hasClausesOfKind<OMPSeqCstClause>();
     OMPAtomicClause ClauseKind = IsSeqCst ? OMP_update_seq_cst : OMP_update;
@@ -1263,7 +1275,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPTargetDirective();
     break;
   case OMPD_task:
-  case OMPD_for:
   case OMPD_sections:
   case OMPD_section:
   case OMPD_taskyield:
