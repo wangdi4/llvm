@@ -158,5 +158,4 @@ bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
 bool Timers();
 bool CloneKernel();
-bool cl_device_local_mem_size_test();
 //#define CUDA_DEVICE
