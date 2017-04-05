@@ -107,17 +107,6 @@ cl_ulong CPUDeviceConfig::GetForcedGlobalMemSize() const
     return ParseStringToSize(strForcedSize);
 }
 
-cl_ulong CPUDeviceConfig::GetForcedLocalMemSize() const
-{
-    std::string strForcedSize;
-    if (!m_pConfigFile->ReadInto(strForcedSize, CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE))
-    {
-        return 0;
-    }
-
-    return ParseStringToSize(strForcedSize);
-}
-
 cl_ulong CPUDeviceConfig::GetForcedMaxMemAllocSize() const
 {
     std::string strForcedSize;
