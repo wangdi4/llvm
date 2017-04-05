@@ -33,7 +33,7 @@
 struct __pipe_internal_buf {
   i32 end;   // index for a new element
   i32 size;  // number of elements in the buffer, -1 means a locked buffer
-  i32 limit; // max number of elements befor flush
+  i32 limit; // max number of elements before flush
 };
 
 struct __pipe_t {
