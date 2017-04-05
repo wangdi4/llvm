@@ -490,6 +490,29 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// Return a pointer to struct from a pointer to type
     static StructType* getStructFromTypePtr(Type *T);
+
+    /// @brief Calculates the total number of elements contained by ArrayType
+    ///
+    /// Examples:
+    ///   arr[5] -> 5
+    ///   arr[5][4] -> 20
+    ///   arr[5][4][3] -> 60
+    ///
+    /// @return Total number of elements
+    static size_t getArrayNumElements(const ArrayType *ArrTy);
+
+    /// @brief Returns the undelying type of the ArrayType
+    ///
+    /// Functionality is similar to clang::ASTContext::getBaseElementType
+    static Type* getArrayElementType(const ArrayType *ArrTy);
+
+    static ArrayType* createMultiDimArray(
+        const Type *Ty, const SmallVectorImpl<size_t> &Dimensions);
+
+    /// @brief Returns vector of numbers of elements in each dimension of the
+    ///        ArrayType
+    static void getArrayTypeDimensions(const ArrayType *ArrTy,
+                                       SmallVectorImpl<size_t> &Dimensions);
   };
 
   //

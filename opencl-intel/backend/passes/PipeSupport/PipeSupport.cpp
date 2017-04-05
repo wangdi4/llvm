@@ -30,6 +30,7 @@
 #include <OCLPassSupport.h>
 
 using namespace llvm;
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
 
@@ -78,38 +79,67 @@ static void findPipeCalls(Function &F,
   }
 }
 
-static bool insertFlushCall(CallInst *PipeCall,
-                            Function *FlushRead, Function *FlushWrite) {
-  using namespace Intel::OpenCL::DeviceBackend;
+static bool insertFlushCall(Module &M, CallInst *PipeCall,
+                            Function *FlushRead, Function *FlushWrite,
+                            Function *FlushReadArray,
+                            Function *FlushWriteArray) {
   Function *ReqFlush = CompilationUtils::isReadPipeBuiltin(
-      PipeCall->getCalledFunction()->getName())
-    ? FlushRead
-    : FlushWrite;
+      PipeCall->getCalledFunction()->getName()) ? FlushRead
+                                                : FlushWrite;
+
+  Function *ReqFlushArray =
+      CompilationUtils::isReadPipeBuiltin(
+          PipeCall->getCalledFunction()->getName()) ? FlushReadArray
+                                                    : FlushWriteArray;
 
   bool Changed = false;
 
   auto *F = PipeCall->getParent()->getParent();
-  for (auto &BB : *F) {
-    auto *Term = BB.getTerminator();
-    assert(Term && "Ill-formed BasicBlock.");
-    if (!isa<ReturnInst>(Term)) {
-      continue;
-    }
+  auto &LastBB = F->back();
+  auto *Term = LastBB.getTerminator();
+  assert(Term && "Ill-formed BasicBlock.");
 
-    assert(PipeCall->getNumArgOperands() > 1
-           && "Unexpected number of arguments");
+  assert(PipeCall->getNumArgOperands() > 1
+         && "Unexpected number of arguments");
 
-    Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
-    Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
+  Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
 
-    IRBuilder<> Builder(Term);
+  IRBuilder<> Builder(Term);
 
-    // pipe can either be a function argument, or a global variable
-    // for global we cannot use the PipeArg, because it can be from another block
-    if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
-      Value *PipeGlobalPtr = Load->getPointerOperand();
+  bool IsAnArrayOfPipes = false;
+  size_t NumArrayElements = 0;
+
+  // pipe can either be a function argument, or a global variable
+  // for global we cannot use the PipeArg, because it can be from another block
+  if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
+    Value *PipeGlobalPtr = Load->getPointerOperand();
+    // Pipe global variable can be either an array of pipes
+    if (auto *GEP = dyn_cast<GEPOperator>(PipeGlobalPtr)) {
+      PipeGlobalPtr = GEP->getPointerOperand();
+      PipeArg = PipeGlobalPtr;
+
+      IsAnArrayOfPipes = true;
+      ArrayType *PipeGlobalArrayTy = cast<ArrayType>(
+          cast<PointerType>(PipeGlobalPtr->getType())->getElementType());
+      NumArrayElements = CompilationUtils::getArrayNumElements(
+          PipeGlobalArrayTy);
+    } else {
       PipeArg = Builder.CreateLoad(PipeGlobalPtr);
     }
+  }
+
+  if (IsAnArrayOfPipes) {
+    Type *FlushArgTy = ReqFlushArray->getFunctionType()->getParamType(0);
+
+    Value *FlushArgs[] = {
+      Builder.CreateBitCast(PipeArg, FlushArgTy),
+      ConstantInt::get(Type::getInt32Ty(M.getContext()), NumArrayElements)
+    };
+
+    Builder.CreateCall(ReqFlushArray, FlushArgs);
+    Changed = true;
+  } else {
+    Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
 
     Value *FlushArgs[] = {
       Builder.CreateBitCast(PipeArg, FlushArgTy)
@@ -142,12 +172,23 @@ bool PipeSupport::runOnModule(Module &M) {
   Function *FlushWrite = importRTLFunctionDecl(M, BuiltinModules,
                                                "__flush_write_pipe");
 
+  Function *FlushReadArray = importRTLFunctionDecl(M, BuiltinModules,
+                                                   "__flush_read_pipe_array");
+
+  Function *FlushWriteArray = importRTLFunctionDecl(M, BuiltinModules,
+                                                    "__flush_write_pipe_array");
+
   assert(FlushRead && "no '__flush_read_pipe' built-in declared in RTL");
   assert(FlushWrite && "no '__flush_write_pipe' built-in declared in RTL");
+  assert(FlushReadArray &&
+         "no '__flush_read_pipe_array' built-in declared in RTL");
+  assert(FlushWriteArray &&
+         "no '__flush_write_pipe_array' built-in declared in RTL");
 
   bool Changed = false;
   for (auto *Call : PipeCalls) {
-    Changed |= insertFlushCall(Call, FlushRead, FlushWrite);
+    Changed |= insertFlushCall(M, Call, FlushRead, FlushWrite,
+                               FlushReadArray, FlushWriteArray);
   }
 
   return Changed;
