@@ -66,17 +66,18 @@ int VPOAnalysisUtils::getRegionDirectiveID(Instruction *I) {
   return VPOAnalysisUtils::getDirectiveID(DirString);
 } 
 
-bool VPOAnalysisUtils::isIntelDirective(Instruction *I) {
+bool VPOAnalysisUtils::isIntelDirective(Instruction *I, bool doClauses) {
   if (I) {
     IntrinsicInst *Call = dyn_cast<IntrinsicInst>(I);
     if (Call) {
       Intrinsic::ID Id = Call->getIntrinsicID();
       // Is it an intel_directive?
-      if (VPOAnalysisUtils::isIntelDirective(Id))
+      if (VPOAnalysisUtils::isIntelDirective(Id) ||
+          (doClauses && VPOAnalysisUtils::isIntelClause(Id)))
         return true;
 
-      // Is it an directive_region_entry/exit?
-      StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);  
+      // Is it a directive_region_entry/exit?
+      StringRef DirString = VPOAnalysisUtils::getRegionDirectiveString(I);
       return VPOAnalysisUtils::isOpenMPDirective(DirString);
     }
   }
@@ -91,6 +92,10 @@ bool VPOAnalysisUtils::isIntelClause(Intrinsic::ID Id) {
   return (Id == Intrinsic::intel_directive_qual ||
           Id == Intrinsic::intel_directive_qual_opnd ||
           Id == Intrinsic::intel_directive_qual_opndlist);
+}
+
+bool VPOAnalysisUtils::isIntelDirectiveOrClause(Instruction *I) {
+  return VPOAnalysisUtils::isIntelDirective(I, true);
 }
 
 bool VPOAnalysisUtils::isIntelDirectiveOrClause(Intrinsic::ID Id) {

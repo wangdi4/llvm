@@ -45,16 +45,11 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
 }
 
 bool VPOUtils::stripDirectives(BasicBlock &BB) {
-  SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
-  IntrinsicInst *IntrinCall = nullptr;
+  SmallVector<Instruction *, 4> IntrinsicsToRemove;
 
   for (Instruction &I : BB) {
-    if ((IntrinCall = dyn_cast<IntrinsicInst>(&I))) {
-      Intrinsic::ID Id = IntrinCall->getIntrinsicID();
-      if (VPOAnalysisUtils::isIntelDirectiveOrClause(Id)) {
-        IntrinsicsToRemove.push_back(IntrinCall);
-      }
-    }
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(&I))
+      IntrinsicsToRemove.push_back(&I);
   }
 
   // Remove the directive intrinsics.

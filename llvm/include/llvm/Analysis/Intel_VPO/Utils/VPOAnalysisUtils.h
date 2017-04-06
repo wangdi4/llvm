@@ -142,7 +142,7 @@ public:
     /// \brief Return true if the instruction is an intel_directive intrinsic
     /// or a directive_region_entry/exit intrinsic whose first OperandBundle's
     /// tagname matches the name of an OpenMP directive.
-    static bool isIntelDirective(Instruction *I);
+    static bool isIntelDirective(Instruction *I, bool doClauses=false);
 
     /// \brief Return true if the intrinsic Id is intel_directive.
     static bool isIntelDirective(Intrinsic::ID Id);
@@ -152,6 +152,11 @@ public:
     ///    intel_directive_qual_opnd, or 
     ///    intel_directive_qual_opndlist.
     static bool isIntelClause(Intrinsic::ID Id);
+
+    /// \brief Return true if the instruction is an intel_directive* intrinsic
+    /// or a directive_region_entry/exit intrinsic whose first OperandBundle's
+    /// tagname matches the name of an OpenMP directive.
+    static bool isIntelDirectiveOrClause(Instruction *I);
 
     /// \brief Return true if the intrinsic Id corresponds to an
     /// Intel directive or clause.
