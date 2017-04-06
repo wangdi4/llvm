@@ -454,7 +454,7 @@ public:
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
-  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << "undef"; }
+  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << " %undef"; }
 
 private:
   OperandKind Kind;
@@ -487,7 +487,7 @@ public:
 
     switch (Type.getElementSize()) {
     case 32: {
-      OS << "<" << *(reinterpret_cast<const int *>(&ConstValue[0]));
+      OS << " <" << *(reinterpret_cast<const int *>(&ConstValue[0]));
       for (uint32_t i = 1; i < NumElems; i++)
         OS << ", " << *(reinterpret_cast<const int *>(&ConstValue[i * 4]));
 
