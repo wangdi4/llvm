@@ -16,14 +16,13 @@
 ; CHECK: |      |   %3 = (@a2_p)[0][i1 + i2][i1];
 ; CHECK: |      |   %4 = (@a1_r)[0][-1 * i2 + 128];
 ; CHECK: |      |   (@a1_r)[0][-1 * i2 + 128] = %3 + %4;
-; CHECK: |      |   %xor76 = %xor76450  ^  %and65;
+; CHECK: |      |   %xor76450 = %xor76450  ^  %and65;
 ; CHECK: |      |   %5 = (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1 + i2];
 ; CHECK: |      |   (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1 + i2] = %5 + 1;
-; CHECK: |      |   %xor76450 = %xor76;
 ; CHECK: |      |   %2 = %and65;
 ; CHECK: |      + END LOOP
 ; CHECK: |
-; CHECK: |      (@a1_bl)[0][i1] = %xor76;
+; CHECK: |      (@a1_bl)[0][i1] = %xor76450;
 ; CHECK: |   }
 ; CHECK: |   (@a1_bl)[0][i1 + 64] = 0;
 ; CHECK: |   %0 = 60;
@@ -32,19 +31,21 @@
 ; CHECK: Dump After HIR PostVec Complete Unroll
 
 ; CHECK: + DO i1 = 0, 63, 1   <DO_LOOP>
-; CHECK: |   %arrayidx75.promoted = (@a1_bl)[0][i1];
-; CHECK: |   %xor76450 = %arrayidx75.promoted;
-; CHECK: |   %2 = %0;
-; CHECK: |   %and65 = %2  &&  %in;
-; CHECK: |   %3 = (@a2_p)[0][i1][i1];
-; CHECK: |   %4 = (@a1_r)[0][128];
-; CHECK: |   (@a1_r)[0][128] = %3 + %4;
-; CHECK: |   %xor76 = %xor76450  ^  %and65;
-; CHECK: |   %5 = (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1];
-; CHECK: |   (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1] = %5 + 1;
-; CHECK: |   %xor76450 = %xor76;
-; CHECK: |   %2 = %and65;
-; CHECK: |   (@a1_bl)[0][i1] = %xor76;
+; CHECK: |   if (undef true undef)
+; CHECK: |   {
+; CHECK: |     %arrayidx75.promoted = (@a1_bl)[0][i1];
+; CHECK: |     %xor76450 = %arrayidx75.promoted;
+; CHECK: |     %2 = %0;
+; CHECK: |     %and65 = %2  &&  %in;
+; CHECK: |     %3 = (@a2_p)[0][i1][i1];
+; CHECK: |     %4 = (@a1_r)[0][128];
+; CHECK: |     (@a1_r)[0][128] = %3 + %4;
+; CHECK: |     %xor76450 = %xor76450  ^  %and65;
+; CHECK: |     %5 = (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1];
+; CHECK: |     (@a3_wp)[0][-1 * i1 + 89][i1 + 20][i1] = %5 + 1;
+; CHECK: |     %2 = %and65;
+; CHECK: |     (@a1_bl)[0][i1] = %xor76450;
+; CHECK: |   }
 ; CHECK: |   (@a1_bl)[0][i1 + 64] = 0;
 ; CHECK: |   %0 = 60;
 ; CHECK: + END LOOP
