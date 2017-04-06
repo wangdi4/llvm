@@ -1896,6 +1896,10 @@ static void cloneSpecializationFunction(void) {
       BranchInst *BI = BranchInst::Create(TailBB, CallBB);
       BI->setDebugLoc(CI->getDebugLoc());
       NewClonedCallBBs.push_back(CallBB);
+      // Inlining of fallback CallSite causes huge performance regression
+      // for conven00 benchmark due to downstream optimizations. Set
+      // NoInline attribute for fallback CallSite for now.
+      NewCI->setIsNoInline();
     }
     else {
       // Branch directly to the TailBB without calling the original function
