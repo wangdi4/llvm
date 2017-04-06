@@ -307,8 +307,18 @@ void EmitAssemblyHelper::CreatePasses(legacy::PassManager &MPM,
     break;
   case CodeGenOptions::NormalInlining:
   case CodeGenOptions::OnlyHintInlining: {
-    PMBuilder.Inliner =
-        createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
+#if INTEL_CUSTOMIZATION
+    if (CodeGenOpts.PrepareForLTO) {
+      // Pass PrepareForLTO flag to Inliner when CodeGenOpts.PrepareForLTO
+      // is true.
+      PMBuilder.Inliner =
+          createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize, true);
+    }
+    else {
+      PMBuilder.Inliner =
+          createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
+    }
+#endif  // INTEL_CUSTOMIZATION
     break;
   }
   case CodeGenOptions::OnlyAlwaysInlining:
