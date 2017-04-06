@@ -1,15 +1,19 @@
-# If we don't need RTTI or EH, there's no reason to export anything
-# from the hello plugin.
-#if( NOT LLVM_REQUIRES_RTTI )
-#  if( NOT LLVM_REQUIRES_EH )
-#    set(LLVM_EXPORTED_SYMBOL_FILE ${CMAKE_CURRENT_SOURCE_DIR}/FPGA-Advisor.exports)
-#  endif()
-#endif()
+if(NOT LLVM_SPATIAL_ADVISOR)
+  message("-- Not building the Spatial Advisor")
+  message("   Define the environment variable ENABLE_SPATIAL_ADVISOR to build.")
+  return()
+endif()
+message("-- Building the Spatial Advisor")
 
 if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)
 endif()
 
+# The advisor needs C++ error handling, which in turn requires RTTI.
+# Due to CMake deficiencies, it turns out RTTI must be also enabled for the
+# entire LLVM build.
+set(LLVM_REQUIRES_EH 1)
+set(LLVM_REQUIRES_RTTI 1)
 
 # Boost lib
 set(Boost_ADDITIONAL_VERSIONS "1.39.0" "1.59.0")
