@@ -69,8 +69,10 @@ CPUCompileService::CheckProgramBinary(const void *pBinary,
     if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1)) {
         std::string strTargetTriple = (m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
 
-        if (strTargetTriple.substr(0, 4) == "spir" && strTargetTriple != SPIR_TARGET_TRIPLE)
+        if (strTargetTriple.find(SPIR_TARGET_TRIPLE) != 0) {
+            assert(strTargetTriple.substr(0, 4) == "spir" && "Unexpected non-spir triple");
             return CL_DEV_INVALID_BINARY;
+        }
 
         return CL_DEV_SUCCESS;
     }
