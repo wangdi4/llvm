@@ -133,7 +133,6 @@ entry:
 define i1 @__ocl_allZero_v4_i32(<4 x i32> %pred) nounwind readnone {
 entry:
   %a = bitcast <4 x i32> %pred to <4 x float>
-  %b = bitcast <4 x i32> <i32 -1, i32 -1, i32 -1, i32 -1> to <4 x float>
   %res = call i32 @llvm.x86.sse41.ptestz(<4 x float> %a, <4 x float> %a)
   %zero = trunc i32 %res to i1
   ret i1 %zero
