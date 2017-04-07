@@ -47,9 +47,9 @@ OCL_INITIALIZE_PASS_END(PipeSupport, "pipe-support",
 PipeSupport::PipeSupport() : ModulePass(ID) {
 }
 
-static Function *importRTLFuntionDecl(Module &TargetModule,
-                                  const SmallVectorImpl<Module *> &RTLs,
-                                  StringRef Name) {
+static Function *importRTLFunctionDecl(Module &TargetModule,
+                                       const SmallVectorImpl<Module *> &RTLs,
+                                       StringRef Name) {
   for (auto *BIModule : RTLs) {
     if (auto *F = BIModule->getFunction(Name)) {
       using namespace Intel::OpenCL::DeviceBackend;
@@ -127,11 +127,11 @@ bool PipeSupport::runOnModule(Module &M) {
     return false;
   }
 
-  Function *FlushRead = importRTLFuntionDecl(M, BuiltinModules,
-                                             "__flush_read_pipe");
+  Function *FlushRead = importRTLFunctionDecl(M, BuiltinModules,
+                                              "__flush_read_pipe");
 
-  Function *FlushWrite = importRTLFuntionDecl(M, BuiltinModules,
-                                              "__flush_write_pipe");
+  Function *FlushWrite = importRTLFunctionDecl(M, BuiltinModules,
+                                               "__flush_write_pipe");
 
   assert(FlushRead && "no '__flush_read_pipe' built-in declared in RTL");
   assert(FlushWrite && "no '__flush_write_pipe' built-in declared in RTL");
