@@ -48,27 +48,20 @@ class OpenMPCodeOutliner {
   StringRef End;
   llvm::LLVMContext &C;
 
-  // For multiple directive implementation
-  llvm::Function *IntelDirective = nullptr;
-  llvm::Function *IntelSimpleClause = nullptr;
-  llvm::Function *IntelListClause = nullptr;
-  llvm::SmallVector<llvm::Value *, 16> Args;
-
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
   SmallVector<llvm::OperandBundleDef, 1> OpBundles;
+  SmallVector<llvm::Intrinsic::ID, 4> Intrins;
   StringRef BundleString;
   SmallVector<llvm::Value*, 1> BundleValues;
 
   // Used to insert instructions outside the region
   llvm::Instruction *OutsideInsertInstruction = nullptr;
 
-  // Used to insert clauses
-  llvm::Instruction *ClauseInsertInstruction = nullptr;
-
   const OMPExecutableDirective &Directive;
 
+  void emitMultipleDirectives();
   ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
   Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
                                   ArraySectionTy &AS);
@@ -162,6 +155,7 @@ public:
   void addCounter(const VarDecl *VD) { Counters.insert(VD); }
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
+  void addExplicit(const Expr *E);
   void addExplicit(const VarDecl *VD) { ExplicitRefs.insert(VD); }
   void setOutsideInsertPoint() {
     CGF.Builder.SetInsertPoint(OutsideInsertInstruction);
