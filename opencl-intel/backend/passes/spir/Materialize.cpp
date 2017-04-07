@@ -118,7 +118,9 @@ public:
         m_isChanged |= changeCallingConv(CI);
         m_isChanged |= changeImageCall(CI, InstToRemove);
         m_isChanged |= changeAddrSpaceCastCall(CI);
+#ifdef BUILD_FPGA_EMULATOR
         m_isChanged |= changePipeCall(CI, InstToRemove);
+#endif
       }
     }
 
