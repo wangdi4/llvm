@@ -30,30 +30,40 @@
   #define atomic_i32 cl_int
 #endif
 
+#ifdef _WIN32
+  #define DECLSPEC_ALIGN(alignment) __declspec(align(alignment))
+  #define ATTR_ALIGN(alignment)
+  #define ALIGNED(decl, alignment) DECLSPEC_ALIGN(alignment) decl
+#else
+  #define DECLSPEC_ALIGN(alignment)
+  #define ATTR_ALIGN(alignment)  __attribute__((aligned(alignment)))
+  #define ALIGNED(decl, alignment) decl ATTR_ALIGN(alignment)
+#endif
+
 struct __pipe_internal_buf {
   i32 end;   // index for a new element
   i32 size;  // number of elements in the buffer, -1 means a locked buffer
   i32 limit; // max number of elements before flush
 };
 
-struct __pipe_t {
+DECLSPEC_ALIGN(64) struct __pipe_t {
   i32 packet_size;
   i32 max_packets;
 
   // The fields below are accessible(read, write) from different threads.
   // Alignment needed here to avoid false sharing.
-  atomic_i32 head __attribute__((aligned(64)));
-  atomic_i32 tail __attribute__((aligned(64)));
+  ALIGNED(atomic_i32 head, 64);
+  ALIGNED(atomic_i32 tail, 64);
 
 #define PIPE_READ_BUF_PREFERRED_LIMIT 256
 #define PIPE_WRITE_BUF_PREFERRED_LIMIT 256
-  struct __pipe_internal_buf read_buf __attribute__((aligned(64)));
-  struct __pipe_internal_buf write_buf __attribute__((aligned(64)));
+  ALIGNED(struct __pipe_internal_buf read_buf, 64);
+  ALIGNED(struct __pipe_internal_buf write_buf, 64);
 
   // Trailing buffer for packets
   //
   // char buffer[max_packets * packet_size];
-} __attribute__((aligned(64)));
+} ATTR_ALIGN(64);
 
 #ifdef __OPENCL_C_VERSION__
 void __pipe_init_intel(__global struct __pipe_t* p,
