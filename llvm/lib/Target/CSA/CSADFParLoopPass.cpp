@@ -85,7 +85,8 @@ namespace {
   class InstrMatcher {
 
   protected:
-    constexpr InstrMatcher() : m_curr(), m_end() { }
+    constexpr InstrMatcher()
+      : m_curr(), m_end(), m_channelReg(0), m_matchOpcode(0), m_matchOperandIndex(0) { }
 
     // Initialize for finding instructions in the range `[start, finish)` with
     // the specified `matchOpcode` that use or define the register specified in
