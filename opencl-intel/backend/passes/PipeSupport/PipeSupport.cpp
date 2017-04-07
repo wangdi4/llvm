@@ -86,32 +86,41 @@ static bool insertFlushCall(CallInst *PipeCall,
     ? FlushRead
     : FlushWrite;
 
+  bool Changed = false;
+
   auto *F = PipeCall->getParent()->getParent();
-  auto &LastBB = F->back();
-  auto *Term = LastBB.getTerminator();
-  assert(Term && "Ill-formed BasicBlock.");
+  for (auto &BB : *F) {
+    auto *Term = BB.getTerminator();
+    assert(Term && "Ill-formed BasicBlock.");
+    if (!isa<ReturnInst>(Term)) {
+      continue;
+    }
 
-  assert(PipeCall->getNumArgOperands() > 1
-         && "Unexpected number of arguments");
+    assert(PipeCall->getNumArgOperands() > 1
+           && "Unexpected number of arguments");
 
-  Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
-  Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
+    Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
+    Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
 
-  IRBuilder<> Builder(Term);
+    IRBuilder<> Builder(Term);
 
-  // pipe can either be a function argument, or a global variable
-  // for global we cannot use the PipeArg, because it can be from another block
-  if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
-    Value *PipeGlobalPtr = Load->getPointerOperand();
-    PipeArg = Builder.CreateLoad(PipeGlobalPtr);
+    // pipe can either be a function argument, or a global variable
+    // for global we cannot use the PipeArg, because it can be from another block
+    if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
+      Value *PipeGlobalPtr = Load->getPointerOperand();
+      PipeArg = Builder.CreateLoad(PipeGlobalPtr);
+    }
+
+    Value *FlushArgs[] = {
+      Builder.CreateBitCast(PipeArg, FlushArgTy)
+    };
+
+    Builder.CreateCall(ReqFlush, FlushArgs);
+    Changed = true;
   }
 
-  Value *FlushArgs[] = {
-    Builder.CreateBitCast(PipeArg, FlushArgTy)
-  };
-
-  Builder.CreateCall(ReqFlush, FlushArgs);
-  return true;
+  assert(Changed && "PipeSupport have not inserted a flush call!");
+  return Changed;
 }
 
 bool PipeSupport::runOnModule(Module &M) {
