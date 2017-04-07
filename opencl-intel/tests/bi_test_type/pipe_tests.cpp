@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <sstream>
+#include <map>
 
 class PipeTest : public BITest {
 protected:
@@ -32,19 +33,24 @@ protected:
 
   virtual void TearDown() {
     BITest::TearDown();
-    for (auto k : kernels) {
-      clReleaseKernel(k);
+    for (auto nameKernelPair : kernels) {
+      clReleaseKernel(nameKernelPair.second);
     }
     clReleaseProgram(program);
   }
 
   cl_kernel createKernel(const char* name) {
+    auto it = kernels.find(name);
+    if (it != kernels.end()) {
+      return it->second;
+    }
+
     cl_int error;
     cl_kernel k = clCreateKernel(program, name, &error);
     if (error != CL_SUCCESS) {
       return nullptr;
     }
-    kernels.push_back(k);
+    kernels[name] = k;
     return k;
   }
 
@@ -65,7 +71,7 @@ protected:
   }
 
   cl_program program;
-  std::vector<cl_kernel> kernels;
+  std::map<std::string, cl_kernel> kernels;
 };
 
 TEST_F(PipeTest, SinglePacket) {
