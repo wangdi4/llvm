@@ -38,9 +38,16 @@ bool VPOUtils::stripDirectives(WRegionNode *WRN) {
   BasicBlock *EntryBB = WRN->getEntryBBlock();
   BasicBlock *ExitBB = WRN->getExitBBlock();
 
-  success = success && VPOUtils::stripDirectives(*EntryBB);
+  // Under the new region representation:
+  //   %1 = call token @llvm.directive.region.entry() [...]
+  //     ...
+  //   call void @llvm.directive.region.exit(token %1) [...]
+  // We have to remove the END dir before the BEGIN dir. If not, when removing
+  // the BEGIN it will first remove the END (which is a use of the token
+  // defined by the BEGIN intrinsic) and then later stripDirectives(*ExitBB)
+  // would return false because there's nothing left in the ExitBB to remove.
   success = success && VPOUtils::stripDirectives(*ExitBB);
-
+  success = success && VPOUtils::stripDirectives(*EntryBB);
   return success;
 }
 
@@ -56,7 +63,16 @@ bool VPOUtils::stripDirectives(BasicBlock &BB) {
   // SimplifyCFG will remove any blocks that become empty.
   unsigned Idx = 0;
   for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
-    IntrinsicsToRemove[Idx]->eraseFromParent();
+    Instruction *I = IntrinsicsToRemove[Idx];
+    // Under the region representation, the BEGIN directive writes to a token
+    // that is used by the matching END directive. Therefore, before removing
+    // I, we must first remove all its uses, if any. Failing to do that
+    // will result in this assertion: "Uses remain when a value is destroyed!"
+    for (User *U : I->users())
+      if (Instruction *UI = dyn_cast<Instruction>(U)) {
+        UI->eraseFromParent();
+      }
+    I->eraseFromParent();
   }
 
   // Returns true if any elimination happens.

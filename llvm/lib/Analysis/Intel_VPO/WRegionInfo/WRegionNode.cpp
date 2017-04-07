@@ -88,9 +88,9 @@ WRegionNode::WRegionNode(WRegionNode *W) : SubClassID(W->SubClassID) {
   // TODO: add code to copy Children?
 }
 
-/// \brief Wrap up the WRN creation now that we have the ExitBB.  if the WRN is
-/// a loop construct, this routine also calls finds the associated Loop from
-/// the LoopInfo.
+/// \brief Wrap up the WRN creation now that we have the ExitBB. If the WRN is
+/// a loop construct, this routine also calls the associated Loop from the
+/// LoopInfo.
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
   if (getIsLoop()) {
