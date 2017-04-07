@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GenericAddressStaticResolution.h"
 
+#include <CompilationUtils.h>
 #include <OCLPassSupport.h>
 #include <NameMangleAPI.h>
 #include <FunctionDescriptor.h>
@@ -463,7 +464,8 @@ namespace intel {
     Function *pCallee = pCallInstr->getCalledFunction();
     assert(pCallee && "Call instruction doesn't have a callee!");
     std::string funcName = pCallee->getName().str();
-    if (isPipeBuiltin(funcName)) return nullptr;
+    using namespace Intel::OpenCL::DeviceBackend;
+    if (CompilationUtils::isPipeBuiltin(funcName)) return nullptr;
     assert((category != CallBuiltIn || isMangledName(funcName.c_str())) &&
            "Overloaded BI name should be mangled!");
 

@@ -231,6 +231,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkItemPipeBuiltin(const std::string&);
     static bool isAtomicWorkItemFenceBuiltin(const std::string&);
 
+    static bool isPipeBuiltin(const std::string&);
+    static bool isReadPipeBuiltin(const std::string&);
+    static bool isWritePipeBuiltin(const std::string&);
+
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
     static const std::string NAME_GET_SUB_GROUP_ID;

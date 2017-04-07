@@ -27,28 +27,6 @@ DriverVectorizerFunction::DriverVectorizerFunction(const std::string &s)
 
 DriverVectorizerFunction::~DriverVectorizerFunction() {}
 
-static bool isPipeBuiltin(const std::string &s) {
-  return llvm::StringSwitch<bool>(s)
-      .Case("__read_pipe_2_intel", true)
-      .Case("__read_pipe_4_intel", true)
-      .Case("__commit_read_pipe_intel", true)
-      .Case("__reserve_read_pipe_intel", true)
-      .Case("__sub_group_commit_read_pipe", true)
-      .Case("__sub_group_reserve_read_pipe", true)
-      .Case("__work_group_commit_read_pipe", true)
-      .Case("__work_group_reserve_read_pipe", true)
-      .Case("__write_pipe_2_intel", true)
-      .Case("__write_pipe_4_intel", true)
-      .Case("__commit_write_pipe_intel", true)
-      .Case("__reserve_write_pipe_intel", true)
-      .Case("__sub_group_commit_write_pipe", true)
-      .Case("__sub_group_reserve_write_pipe", true)
-      .Case("__work_group_commit_write_pipe", true)
-      .Case("__work_group_reserve_write_pipe", true)
-      .Case("__write_pipe_2_bl_intel", true)
-      .Case("__read_pipe_2_bl_intel", true)
-      .Default(false);
-}
 
 unsigned DriverVectorizerFunction::getWidth() const {
   assert(!isNull() && "Null function");
@@ -62,7 +40,7 @@ unsigned DriverVectorizerFunction::getWidth() const {
     if (m_name == sw.first)
       return sw.second;
   }
-  assert((isMangled() || isPipeBuiltin(m_name)) &&
+  assert((isMangled() || CompilationUtils::isPipeBuiltin(m_name)) &&
          "not a mangled name, cannot determine function width");
   // if we reached here, that means that function cannot be versioned, so our
   // best option is to apply the automatic width detection.

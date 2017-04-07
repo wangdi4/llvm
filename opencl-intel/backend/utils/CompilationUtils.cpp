@@ -25,6 +25,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "BlockUtils.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
@@ -1210,6 +1211,45 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
     return false;
   return stripName(funcName.c_str()) == "atomic_work_item_fence";
 
+}
+
+bool CompilationUtils::isPipeBuiltin(const std::string &Name) {
+  return llvm::StringSwitch<bool>(Name)
+    .Case("__read_pipe_2_intel", true)
+    .Case("__read_pipe_4_intel", true)
+    .Case("__commit_read_pipe_intel", true)
+    .Case("__reserve_read_pipe_intel", true)
+    .Case("__sub_group_commit_read_pipe", true)
+    .Case("__sub_group_reserve_read_pipe", true)
+    .Case("__work_group_commit_read_pipe", true)
+    .Case("__work_group_reserve_read_pipe", true)
+    .Case("__write_pipe_2_intel", true)
+    .Case("__write_pipe_4_intel", true)
+    .Case("__commit_write_pipe_intel", true)
+    .Case("__reserve_write_pipe_intel", true)
+    .Case("__sub_group_commit_write_pipe", true)
+    .Case("__sub_group_reserve_write_pipe", true)
+    .Case("__work_group_commit_write_pipe", true)
+    .Case("__work_group_reserve_write_pipe", true)
+    .Case("__write_pipe_2_bl_intel", true)
+    .Case("__read_pipe_2_bl_intel", true)
+    .Default(false);
+}
+
+bool CompilationUtils::isReadPipeBuiltin(const std::string &Name) {
+  return llvm::StringSwitch<bool>(Name)
+    .Case("__read_pipe_2_intel", true)
+    .Case("__read_pipe_4_intel", true)
+    .Case("__read_pipe_2_bl_intel", true)
+    .Default(false);
+}
+
+bool CompilationUtils::isWritePipeBuiltin(const std::string &Name) {
+  return llvm::StringSwitch<bool>(Name)
+    .Case("__write_pipe_2_intel", true)
+    .Case("__write_pipe_4_intel", true)
+    .Case("__write_pipe_2_bl_intel", true)
+    .Default(false);
 }
 
 Constant *CompilationUtils::importFunctionDecl(Module *Dst,

@@ -61,16 +61,6 @@ static Function *importRTLFuntionDecl(Module &TargetModule,
   return nullptr;
 }
 
-static bool isReadPipeBI(StringRef Name) {
-  return Name.equals("__read_pipe_2_intel") ||
-    Name.equals("__read_pipe_2_bl_intel");
-}
-
-static bool isWritePipeBI(StringRef Name) {
-  return Name.equals("__write_pipe_2_intel") ||
-    Name.equals("__write_pipe_2_bl_intel");
-}
-
 static void findPipeCalls(Function &F,
                           SmallVectorImpl<CallInst *> &Calls) {
 
@@ -78,7 +68,9 @@ static void findPipeCalls(Function &F,
     for (auto &I : BB) {
       if (auto *Call = dyn_cast<CallInst>(&I)) {
         StringRef Name = Call->getCalledFunction()->getName();
-        if (isReadPipeBI(Name) || isWritePipeBI(Name)) {
+        using namespace Intel::OpenCL::DeviceBackend;
+        if (CompilationUtils::isReadPipeBuiltin(Name) ||
+            CompilationUtils::isWritePipeBuiltin(Name)) {
           Calls.push_back(Call);
         }
       }
@@ -88,7 +80,9 @@ static void findPipeCalls(Function &F,
 
 static bool insertFlushCall(CallInst *PipeCall,
                             Function *FlushRead, Function *FlushWrite) {
-  Function *ReqFlush = isReadPipeBI(PipeCall->getCalledFunction()->getName())
+  using namespace Intel::OpenCL::DeviceBackend;
+  Function *ReqFlush = CompilationUtils::isReadPipeBuiltin(
+      PipeCall->getCalledFunction()->getName())
     ? FlushRead
     : FlushWrite;
 
