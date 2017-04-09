@@ -406,10 +406,6 @@ const CanonExpr *DDTest::getNegative(const CanonExpr *CE) {
 }
 
 const CanonExpr *DDTest::getNegativeDist(const CanonExpr *CE) {
-  // when distance is undefined, it is null.
-  if (!CE) {
-    return nullptr;
-  }
   return getNegative(CE);
 }
 
@@ -484,17 +480,16 @@ const CanonExpr *DDTest::getSMaxExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t CVal;
   if (!CE1 || !CE2) {
     return nullptr;
   }
 
-  const CanonExpr *Delta = getMinus(CE1, CE2);
-  // Note: getMinus already performed push_back for CE.
-  // No need to do it here again
-  if (Delta && Delta->isIntConstant(&CVal)) {
+  int64_t CVal;
+  
+  if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
     return ((CVal > 0) ? CE1 : CE2);
   }
+
   return nullptr;
 }
 
@@ -503,16 +498,16 @@ const CanonExpr *DDTest::getSMinExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t CVal;
   if (!CE1 || !CE2) {
     return nullptr;
   }
-  const CanonExpr *Delta = getMinus(CE2, CE1);
-  // Note: getMinus already performed push_back for CE.
-  // No need to do it here again
-  if (Delta && Delta->isIntConstant(&CVal)) {
-    return ((CVal > 0) ? CE1 : CE2);
+
+  int64_t CVal;
+  
+  if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
+    return ((CVal < 0) ? CE1 : CE2);
   }
+
   return nullptr;
 }
 

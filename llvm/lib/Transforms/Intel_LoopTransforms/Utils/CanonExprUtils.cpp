@@ -264,6 +264,7 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
   int64_t Val1 = 0, Val2 = 0;
   bool IsCE1Const = CE1->isIntConstant(&Val1);
   bool IsCE2Const = CE2->isIntConstant(&Val2);
+
   if (!IsCE1Const && !IsCE2Const) {
     return false;
   }
@@ -289,10 +290,10 @@ bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
   }
 }
 
-void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
-                                         bool RelaxedMode, bool *CreatedAuxCE) {
+void CanonExprUtils::updateSrcType(CanonExpr *CE1, const CanonExpr *CE2,
+                                   bool RelaxedMode) {
   // Sanity
-  assert((CE1 && CE2 && CreatedAuxCE) && "Not expecting any nullptr\n");
+  assert((CE1 && CE2) && "Not expecting any nullptr\n");
 
   // Skip if RelaxedMode is false
   if (!RelaxedMode) {
@@ -300,13 +301,13 @@ void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
   }
 
   // Skip if CE1 and CE2's types match
-  if (isTypeEqual(CE1, *CE2, true)) {
+  if (isTypeEqual(CE1, CE2, true)) {
     return;
   }
 
   int64_t Val1 = 0, Val2 = 0;
   bool IsCE1Const = CE1->isIntConstant(&Val1);
-  bool IsCE2Const = (*CE2)->isIntConstant(&Val2);
+  bool IsCE2Const = CE2->isIntConstant(&Val2);
 
   // Check if either is a constant
   if (!IsCE1Const && !IsCE2Const) {
@@ -315,52 +316,54 @@ void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
   }
 
   if (IsCE1Const) {
-    assert(ConstantInt::isValueValidForType((*CE2)->getSrcType(), Val1) &&
+    assert(ConstantInt::isValueValidForType(CE2->getSrcType(), Val1) &&
            ConstantInt::isValueValidForType(CE1->getDestType(), Val1) &&
            " Constant value cannot be updated.");
-    CE1->setSrcType((*CE2)->getSrcType());
+    CE1->setSrcType(CE2->getSrcType());
   } else {
     assert(ConstantInt::isValueValidForType(CE1->getSrcType(), Val2) &&
-           ConstantInt::isValueValidForType((*CE2)->getDestType(), Val2) &&
+           ConstantInt::isValueValidForType(CE2->getDestType(), Val2) &&
            " Constant value cannot be updated.");
-    // Cannot avoid cloning here.
-    *CE2 = (*CE2)->clone();
-    (*CE2)->setSrcType(CE1->getSrcType());
-    *CreatedAuxCE = true;
   }
 }
 
-bool CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool RelaxedMode) {
-
-  assert((CE1 && CE2) && " Canon Expr parameters are null!");
-
-  bool CreatedAuxCE = false;
-
-  CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
-
+bool CanonExprUtils::canAddOrSubtract(const CanonExpr *CE1,
+                                      const CanonExpr *CE2, bool RelaxedMode) {
   if (CE2->isZero()) {
     return true;
   }
 
-  bool IsMergeable = mergeable(CE1, NewCE2, RelaxedMode);
-  // assert(IsMergeable && " Canon Expr are not mergeable!");
-  // Bail out if we cannot merge the canon expr.
-  if (!IsMergeable) {
+  if (!mergeable(CE1, CE2, RelaxedMode)) {
     return false;
   }
 
-  updateConstantTypes(CE1, &NewCE2, RelaxedMode, &CreatedAuxCE);
+  if (lcm(CE1->getDenominator(), CE2->getDenominator()) == 0) {
+    return false;
+  }
+
+  return true;
+}
+
+void CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                             bool RelaxedMode) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+  assert(canAddOrSubtract(CE1, CE2, RelaxedMode) && "Cannot add CE1 and CE2");
+
+  if (CE2->isZero()) {
+    return;
+  }
+
+  updateSrcType(CE1, CE2, RelaxedMode);
+
+  CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
+  bool CreatedAuxCE = false;
 
   // Process the denoms.
   int64_t Denom1 = CE1->getDenominator();
   int64_t Denom2 = NewCE2->getDenominator();
   int64_t NewDenom = lcm(Denom1, Denom2);
 
-  // Bail out if LCM overflows signed 64 bit range.
-  if (NewDenom == 0) {
-    return false;
-  }
+  assert((NewDenom != 0) && "LCM of denominators overflows!");
 
   if (NewDenom != Denom1) {
     // Do not simplify while multiplying as this is an intermediate result of
@@ -374,10 +377,9 @@ bool CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
-    if (!CreatedAuxCE) {
-      NewCE2 = NewCE2->clone();
-      CreatedAuxCE = true;
-    }
+    NewCE2 = NewCE2->clone();
+    CreatedAuxCE = true;
+
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
     NewCE2->multiplyNumeratorByConstant(NewDenom / Denom2, false);
@@ -420,23 +422,28 @@ bool CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   if (CreatedAuxCE) {
     NewCE2->getCanonExprUtils().destroy(NewCE2);
   }
-
-  return true;
 }
 
 bool CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
                          bool RelaxedMode) {
-  return addImpl(CE1, CE2, RelaxedMode);
+  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
+    return false;
+  }
+
+  addImpl(CE1, CE2, RelaxedMode);
+  return true;
 }
 
 CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
                                        const CanonExpr *CE2, bool RelaxedMode) {
-  CanonExpr *Clone = CE1->clone();
 
-  if (!addImpl(Clone, CE2, RelaxedMode)) {
-    CE1->getCanonExprUtils().destroy(Clone);
+  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
     return nullptr;
   }
+
+  CanonExpr *Clone = CE1->clone();
+
+  addImpl(Clone, CE2, RelaxedMode);
 
   return Clone;
 }
@@ -445,12 +452,17 @@ bool CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
                               bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  // Here, we avoid cloning by doing negation twice.
-  // -(-CE1+CE2) => CE1-CE2
-  CE1->negate();
-  if (!add(CE1, CE2, RelaxedMode)) {
+  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
     return false;
   }
+
+  // Here, we avoid cloning by doing negation twice.
+  // -(-CE1+CE2) => CE1-CE2
+
+  CE1->negate();
+
+  addImpl(CE1, CE2, RelaxedMode);
+
   CE1->negate();
   return true;
 }
@@ -460,11 +472,15 @@ CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
                                             bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  // Result = -CE2 + CE1
-  CanonExpr *Result = cloneAndNegate(CE2);
-  if (!add(Result, CE1, RelaxedMode)) {
+  if (!canAddOrSubtract(CE1, CE2, RelaxedMode)) {
     return nullptr;
   }
+
+  // Result = -CE2 + CE1
+  CanonExpr *Result = cloneAndNegate(CE2);
+
+  addImpl(Result, CE1, RelaxedMode);
+
   Result->setDestType(CE1->getDestType());
 
   return Result;
@@ -570,7 +586,8 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
   CE1->getIVCoeff(LoopLevel, &Index1, &Coeff1);
   CE2->getIVCoeff(LoopLevel, &Index2, &Coeff2);
 
-  if ((Coeff1 != Coeff2) || (Index1 != Index2)) {
+  if ((Coeff1 != Coeff2) || (Index1 != Index2) ||
+      (CE1->getDenominator() != CE2->getDenominator())) {
     return false;
   }
 
@@ -581,79 +598,105 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
     return areEqual(CE1, CE2);
   }
 
-  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+  bool HasBlobCoeff = (Index1 != InvalidBlobIndex);
+  int64_t StoredCoeff1 = 0, StoredCoeff2 = 0;
 
-  // Subtraction failed, return false.
-  if (!Result) {
-    return false;
-  }
-
-  if (Result->hasIV() || (Result->getDenominator() > 1)) {
-    return false;
-  }
-
-  auto NumBlobs = Result->numBlobs();
-  int64_t Diff = Result->getConstant();
-
-  if (NumBlobs > 1) {
-    return false;
-
-  } else if (NumBlobs == 1) {
-
-    // When IV has a blob coefficient, the diff is in the form of a single
-    // blob.
+  if (HasBlobCoeff) {
+    // When IV has a blob coefficient, the diff is in the form of a single blob.
     // For example-
     // CE1 = 2*%b*i1 + 2*%b
     // CE2 = 2*%b*i1
     // CE1 - CE2 = 2*%b
     // Distance = 1
-    if (Diff != 0) {
-      return false;
-    }
-
-    auto BlobIndex = Result->getSingleBlobIndex();
-
-    if (BlobIndex != Index1) {
-      return false;
-    }
-
-    Diff = Result->getSingleBlobCoeff();
-
-  } else if (Index1 != InvalidBlobIndex) {
-    // IV has a blob coefficient so Result should have a blob term to have valid
-    // iteration distance.
-    assert((NumBlobs == 0) && "Unexpected nuumber of blobs in result!");
-
-    // Allow identical CEs to pass through.
-    if (Diff != 0) {
-      return false;
-    }
+    StoredCoeff1 = CE1->getBlobCoeff(Index1);
+    StoredCoeff2 = CE2->getBlobCoeff(Index2);
+  } else {
+    StoredCoeff1 = CE1->getConstant();
+    StoredCoeff2 = CE2->getConstant();
   }
 
+  int64_t Diff = StoredCoeff1 - StoredCoeff2;
   Coeff1 = std::llabs(Coeff1);
 
   if ((Diff % Coeff1) != 0) {
     return false;
   }
 
-  *Distance = Diff / Coeff1;
+  // We cheat to avoid cloning the CE.
+  auto NonConstCE1 = const_cast<CanonExpr *>(CE1);
+  auto NonConstCE2 = const_cast<CanonExpr *>(CE2);
 
-  return true;
+  // Reset blob or constant field and compare CEs.
+  if (HasBlobCoeff) {
+    if (StoredCoeff1) {
+      NonConstCE1->removeBlob(Index1);
+    }
+    if (StoredCoeff2) {
+      NonConstCE2->removeBlob(Index1);
+    }
+  } else {
+    NonConstCE1->setConstant(0);
+    NonConstCE2->setConstant(0);
+  }
+
+  bool Res = false;
+
+  if (areEqual(NonConstCE1, NonConstCE2)) {
+    *Distance = Diff / Coeff1;
+    Res = true;
+  }
+
+  // Restore CEs to original state.
+  if (HasBlobCoeff) {
+    if (StoredCoeff1) {
+      NonConstCE1->setBlobCoeff(Index1, StoredCoeff1);
+    }
+    if (StoredCoeff2) {
+      NonConstCE2->setBlobCoeff(Index1, StoredCoeff2);
+    }
+  } else {
+    NonConstCE1->setConstant(StoredCoeff1);
+    NonConstCE2->setConstant(StoredCoeff2);
+  }
+
+  return Res;
 }
 
 bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
                                       const CanonExpr *CE2, int64_t *Distance) {
-  std::unique_ptr<CanonExpr> Result(cloneAndSubtract(CE1, CE2));
+  int64_t Denom = CE1->getDenominator();
 
-  // Subtract operation can fail.
-  if (!Result) {
+  if (Denom != CE2->getDenominator()) {
     return false;
   }
 
-  if (Result->hasIV() || Result->hasBlob() || (Result->getDenominator() > 1)) {
+  int64_t Const1 = CE1->getConstant();
+  int64_t Const2 = CE2->getConstant();
+
+  int64_t Diff = Const1 - Const2;
+
+  if ((Diff % Denom) != 0) {
     return false;
   }
 
-  *Distance = Result->getConstant();
-  return true;
+  // We cheat to avoid cloning the CE.
+  auto NonConstCE1 = const_cast<CanonExpr *>(CE1);
+  auto NonConstCE2 = const_cast<CanonExpr *>(CE2);
+
+  // Reset constants to compare CEs.
+  NonConstCE1->setConstant(0);
+  NonConstCE2->setConstant(0);
+
+  bool Res = false;
+
+  if (areEqual(NonConstCE1, NonConstCE2)) {
+    *Distance = Diff / Denom;
+    Res = true;
+  }
+
+  // Restore CEs to original state.
+  NonConstCE1->setConstant(Const1);
+  NonConstCE2->setConstant(Const2);
+
+  return Res;
 }
