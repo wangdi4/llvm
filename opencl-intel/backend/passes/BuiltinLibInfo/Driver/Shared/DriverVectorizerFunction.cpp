@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "DriverVectorizerFunction.h"
 #include "BuiltinKeeper.h"
+#include "CompilationUtils.h"
 #include "Logger.h"
 #include "Mangler.h"
 #include "NameMangleAPI.h"
@@ -40,6 +41,7 @@ unsigned DriverVectorizerFunction::getWidth() const {
     if (m_name == sw.first)
       return sw.second;
   }
+  using namespace Intel::OpenCL::DeviceBackend;
   assert((isMangled() || CompilationUtils::isPipeBuiltin(m_name)) &&
          "not a mangled name, cannot determine function width");
   // if we reached here, that means that function cannot be versioned, so our
