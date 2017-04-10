@@ -1505,6 +1505,54 @@ const Value* BasicAAResult::getBaseValue(const Value *V1)
   }
   return BaseOperand1;
 }
+
+// This routine returns return value of a noalias call if given
+// 'U' is PHINode and all incoming values of the PHINode point to
+// the same address that is returned by the noalias call. Otherwise,
+// it returns nullptr.
+//
+// Ex: For the below example, it returns %237 if %297 is given
+// as input.
+//
+//   %237 = call noalias i8* @malloc(i64 %236)
+//   ...
+//   %297 = phi i8* [ %237, %288 ], [ %303, %295 ]
+//   ...
+//   %303 = getelementptr inbounds i8, i8* %297, i64 3
+//
+// This routine can be extended to cover more cases by making it as 
+// recursive routine and considering more IR operands.
+//
+static Value* getNoAliasPtrOfPHI(const Value* U) {
+  Value* NoAliasPtr = nullptr;
+
+  if (!isa<PHINode>(U)) return nullptr;
+
+  const PHINode *PN = cast<PHINode>(U);
+  unsigned NumIncomingValues = PN->getNumIncomingValues();
+  // Limit number of incoming values of PHI. It is considered
+  // as dead BasicBlock if NumIncomingValues is zero.
+  if (NumIncomingValues > 2 || NumIncomingValues == 0) return nullptr;
+
+  for (unsigned I = 0, E = PN->getNumIncomingValues(); I != E; ++I) {
+    Value* V = PN->getIncomingValue(I);
+    if (GEPOperator *G = dyn_cast<GEPOperator>(V)) {
+      Value* GEP1 = G->getPointerOperand(); 
+      // Skip it if PointerOperand of GEP is the PHI node
+      // that we are currently processing.
+      if (GEP1 == PN) continue;
+      V = GEP1;
+    }
+
+    if (!isNoAliasCall(V)) return nullptr;
+
+    // Makes sure here all incoming values point to same address
+    if (NoAliasPtr != nullptr && NoAliasPtr != V)  return nullptr;
+    NoAliasPtr = V;
+  }
+  return NoAliasPtr;
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// Provides a bunch of ad-hoc rules to disambiguate in common cases, such as
@@ -1619,6 +1667,20 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       return NoAlias;
     if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
       return NoAlias;
+
+    // Return NoAlias if O1 and O2 are PHINodes and they point to two
+    // different addresses that are returned by noalias functions.
+    // Ex: They point to addresses that are returned by two 
+    // different malloc calls.
+    //
+    if (isa<PHINode>(O2) && isa<PHINode>(O1)) {
+      Value* NoAliasPtr1 = getNoAliasPtrOfPHI(O1);
+      Value* NoAliasPtr2 = getNoAliasPtrOfPHI(O2);
+      if (NoAliasPtr1 != nullptr && NoAliasPtr2 != nullptr &&
+          NoAliasPtr1 != NoAliasPtr2) {
+        return NoAlias;
+      }
+    }
 #endif // INTEL_CUSTOMIZATION
   }
 

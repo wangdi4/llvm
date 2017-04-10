@@ -1,7 +1,7 @@
 
 ; Test for not performing completely unrolling for inter-dependent loop pattern.
 
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=20 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { }
 ; CHECK: END REGION
@@ -9,7 +9,7 @@
 ; Source Code
 ; int foo(int **A, int **B) {
 ;    for(int64_t k=0; k < 10; k++){
-;     for(int64_t i = 0; i < 3; i++) {
+;     for(int64_t i = 0; i < 30; i++) {
 ;       for(int64_t j=0; j<k; j++)
 ;         A[i][j] = B[j][k];
 ;     }
@@ -63,7 +63,7 @@ for.end:                                          ; preds = %for.cond4.for.end_c
 
 for.inc10:                                        ; preds = %for.end
   %inc11 = add nsw i64 %i.03, 1
-  %cmp2 = icmp slt i64 %inc11, 3
+  %cmp2 = icmp slt i64 %inc11, 30
   br i1 %cmp2, label %for.body3, label %for.end12
 
 for.end12:                                        ; preds = %for.inc10

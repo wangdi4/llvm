@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loop-trip-threshold=30 -hir-lmm -print-before=hir-lmm -print-after=hir-lmm < %s 2>&1 | FileCheck %s
 ; (This test is based on CompleteUnroll/canon-def-level.ll)
 ;
 ;  for(i=0; i<60; i++) {

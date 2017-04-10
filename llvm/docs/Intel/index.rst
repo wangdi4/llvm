@@ -19,6 +19,7 @@ Xmain
    CodeGen/index
    Clang/index
    GapAnalysis/index
+   Tools/index
 
 Introduction
 ============
@@ -98,3 +99,6 @@ Major Components
 
 :doc:`GapAnalysis <GapAnalysis/index>`
    Documents xmain performance and functional gaps for replacing ICC.
+
+:doc:`Tools <Tools/index>`
+   Container for Tools documents.

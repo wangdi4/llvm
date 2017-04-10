@@ -395,7 +395,6 @@ int main(int argc, char **argv) {
   initializeUnreachableBlockElimLegacyPassPass(Registry);
 
 #if INTEL_CUSTOMIZATION
-  initializeFeatureOutlinerPass(Registry);
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
   initializeVecClonePass(Registry);

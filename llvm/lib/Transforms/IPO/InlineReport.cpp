@@ -159,6 +159,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Microsoft EH prevents inlining",
   // NinlrSEH,
   InlPrtSimple, "Structured EH prevents inlining",
+  // NinlrPreferCloning,
+  InlPrtSimple, "Callsite preferred for cloning",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 

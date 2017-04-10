@@ -436,8 +436,9 @@ private:
   /// Expects non-innermost incoming \p Lp.
   /// Sets inner loop in \p InnerLp.
   /// Return true if it has perfect/near-perfect loop properties
-  bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
-                                bool AllowNearPerfect, bool *IsNearPerfectLoop);
+  static bool hasPerfectLoopProperties(const HLLoop *Lp, const HLLoop **InnerLp,
+                                       bool AllowNearPerfect,
+                                       bool *IsNearPerfectLoop);
 
   template <bool IsMaxMode>
   static bool isInTopSortNumRangeImpl(const HLNode *Node,
@@ -762,9 +763,8 @@ public:
             typename = IsHLNodeTy<NodeTy>>
   static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor,
-                                                       Begin->getIterator(),
-                                                       ++(End->getIterator()));
+    visitRange<Recursive, RecurseInsideLoops, Forward>(
+        Visitor, Begin->getIterator(), ++(End->getIterator()));
   }
 
   /// Visits all HLNodes in the HIR. The direction is specified using Forward
@@ -1172,17 +1172,17 @@ public:
   /// innermost loop.
   /// Asserts if incoming loop is innermost.
   /// TODO: AllowPrePostHdr is unused, remove it?
-  bool isPerfectLoopNest(const HLLoop *Loop,
-                         const HLLoop **InnermostLoop = nullptr,
-                         bool AllowPrePostHdr = false,
-                         bool AllowTriangularLoop = false,
-                         bool AllowNearPerfect = false,
-                         bool *IsNearPerfect = nullptr);
+  static bool isPerfectLoopNest(const HLLoop *Loop,
+                                const HLLoop **InnermostLoop = nullptr,
+                                bool AllowPrePostHdr = false,
+                                bool AllowTriangularLoop = false,
+                                bool AllowNearPerfect = false,
+                                bool *IsNearPerfect = nullptr);
 
   /// Any memref with non-unit stride?
   /// Will take innermost loop for now.
   /// Used mostly for blocking / interchange.
-  bool hasNonUnitStrideRefs(const HLLoop *Loop);
+  static bool hasNonUnitStrideRefs(const HLLoop *Loop);
 
   /// Find node receiving the load
   /// e.g.   t0 = a[i] ;
@@ -1194,9 +1194,9 @@ public:
 
   /// Returns the lowest common ancestor loop of Lp1 and Lp2. Returns null if
   /// there is no such parent loop.
-  const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
-                                            const HLLoop *Lp2);
-  HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
+  static const HLLoop *getLowestCommonAncestorLoop(const HLLoop *Lp1,
+                                                   const HLLoop *Lp2);
+  static HLLoop *getLowestCommonAncestorLoop(HLLoop *Lp1, HLLoop *Lp2);
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.

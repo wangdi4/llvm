@@ -1,7 +1,7 @@
 
 ; Test for completely unrolling only inner triangluar loop pattern.
 
-; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-after=hir-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-complete-unroll-loopnest-trip-threshold=20 -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
 ; CHECK: DO i1 = 0, 39, 1

@@ -100,9 +100,8 @@ private:
                                   bool RelaxedMode, bool *CreatedAuxCE);
 
   /// Implements add() functionality.
-  /// This routine will return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                            bool RelaxedMode);
+  /// This routine will return false, if the canon exprs are not mergeable.
+  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -135,7 +134,7 @@ public:
                                 int64_t Denom = 1, bool IsSignedDiv = false);
 
   /// Returns a new linear CanonExpr created from APInt Value.
-  CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal);
+  CanonExpr *createCanonExpr(Type *Ty, APInt APVal);
 
   /// Returns a self-blob canon expr. Level is the defined at level for the
   /// blob.
@@ -170,8 +169,8 @@ public:
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool RelaxedMode = false);
+  static bool add(CanonExpr *CE1, const CanonExpr *CE2,
+                  bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the sum of CE1 and CE2.
   /// Result = CE1 + CE2
@@ -182,8 +181,8 @@ public:
   /// Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
   /// This routine can return nullptr, if the canon exprs are not mergeable.
-  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool RelaxedMode = false);
+  static bool subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                       bool RelaxedMode = false);
 
   /// Returns a canon expr which represents the difference of CE1 and CE2.
   /// Result = CE1 - CE2
@@ -216,10 +215,15 @@ public:
   /// CE. NestingLevel is the level where the CE is attached to HIR.
   static bool hasNonLinearSemantics(unsigned DefLevel, unsigned NestingLevel);
 
-  /// Replaces IV in /p CE1 at the loop /p Level by the /p CE2.
-  static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
-                                         const CanonExpr *CE2,
-                                         bool RelaxedMode = false);
+  // Returns true if IV in \p CE1 at the loop \p Level by the \p CE2.
+  static bool canReplaceIVByCanonExpr(const CanonExpr *CE1, unsigned Level,
+                                      const CanonExpr *CE2,
+                                      bool RelaxedMode = false);
+
+  /// Replaces IV in \p CE1 at the loop \p Level by the \p CE2.
+  static bool replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                   const CanonExpr *CE2,
+                                   bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
   /// Distance.

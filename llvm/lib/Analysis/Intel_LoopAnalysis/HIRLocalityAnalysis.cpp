@@ -135,7 +135,8 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
     for (auto Lp : OutermostLoops) {
 
       if (Lp->isInnermost() ||
-          !HNU.isPerfectLoopNest(Lp, nullptr, false, false, true, nullptr)) {
+          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
+                                          nullptr)) {
         continue;
       }
 
@@ -536,8 +537,8 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
     SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops) {
   assert(OutermostLoop && " Loop parameter is null.");
   assert(SortedLoops.empty() && "SortedLoops vector is non-empty.");
-  assert(HIRF->getHLNodeUtils().isPerfectLoopNest(OutermostLoop, nullptr, false,
-                                                  false, true, nullptr) &&
+  assert(HLNodeUtils::isPerfectLoopNest(OutermostLoop, nullptr, false, false,
+                                        true, nullptr) &&
          "Near perfect loopnest expected!");
 
   // Clear locality by level.
@@ -577,8 +578,8 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
 
   // Create groups with max possible reuse distance.
   DDRefGrouping::groupMap(RefGroups, MemRefMap,
-                              std::bind(isTemporalMatch, std::placeholders::_1,
-                                        std::placeholders::_2, Level, ~0UL));
+                          std::bind(isTemporalMatch, std::placeholders::_1,
+                                    std::placeholders::_2, Level, ~0UL));
 
   computeTempInvLocality(Lp, RefGroups);
 
@@ -600,7 +601,7 @@ void HIRLocalityAnalysis::populateTemporalLocalityGroups(
   ConstMemRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
-                              std::bind(isTemporalMatch, std::placeholders::_1,
-                                        std::placeholders::_2,
-                                        Lp->getNestingLevel(), ReuseThreshold));
+                          std::bind(isTemporalMatch, std::placeholders::_1,
+                                    std::placeholders::_2,
+                                    Lp->getNestingLevel(), ReuseThreshold));
 }

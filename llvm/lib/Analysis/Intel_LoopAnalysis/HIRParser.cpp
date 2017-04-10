@@ -273,117 +273,17 @@ void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
   }
 }
 
-bool HIRParser::isConstantIntBlob(BlobTy Blob, int64_t *Val) const {
-
-  // Check if this Blob is of Constant Type
-  const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
-  if (!SConst)
-    return false;
-
-  if (Val)
-    *Val = getSCEVConstantValue(SConst);
-
-  return true;
-}
-
-bool HIRParser::isTempBlob(BlobTy Blob) const {
+bool HIRParser::isTempBlob(BlobTy Blob) {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     Type *Ty;
     Constant *FieldNo;
 
     if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
         !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
-        !ScalarSA->isConstant(UnknownSCEV->getValue()) &&
-        !isMetadataBlob(Blob, nullptr)) {
+        !HIRScalarSymbaseAssignment::isConstant(UnknownSCEV->getValue()) &&
+        !BlobUtils::isMetadataBlob(Blob, nullptr)) {
       return true;
     }
-  }
-
-  return false;
-}
-
-bool HIRParser::isGuaranteedProperLinear(BlobTy TempBlob) const {
-  assert(isTempBlob(TempBlob) && "Not a temp blob!");
-
-  auto UnknownSCEV = cast<SCEVUnknown>(TempBlob);
-
-  return !isa<Instruction>(UnknownSCEV->getValue());
-}
-
-bool HIRParser::isUndefBlob(BlobTy Blob) const {
-  Value *V = nullptr;
-
-  if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    V = UnknownSCEV->getValue();
-  } else if (auto *ConstantSCEV = dyn_cast<SCEVConstant>(Blob)) {
-    V = ConstantSCEV->getValue();
-  } else {
-    return false;
-  }
-
-  assert(V && "Blob should have a value");
-  return isa<UndefValue>(V);
-}
-
-bool HIRParser::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto P = dyn_cast<ConstantFP>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isConstantVectorBlob(BlobTy Blob, Constant **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto P = dyn_cast<ConstantVector>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-
-    if (auto P = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-
-    if (auto P = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = P;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const {
-  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (auto *p = dyn_cast<MetadataAsValue>(UnknownSCEV->getValue())) {
-      if (Val) {
-        *Val = p;
-      }
-      return true;
-    }
-  }
-
-  return false;
-}
-
-bool HIRParser::isSignExtendBlob(BlobTy Blob, BlobTy *Val) const {
-  if (auto CastSCEV = dyn_cast<SCEVSignExtendExpr>(Blob)) {
-    if (Val) {
-      *Val = CastSCEV->getOperand();
-    }
-    return true;
   }
 
   return false;
@@ -597,38 +497,11 @@ public:
   bool isDone() const { return false; }
 };
 
-class HIRParser::NestedBlobChecker {
-private:
-  const HIRParser &HIRP;
-  unsigned NumSubBlobs;
-
-public:
-  NestedBlobChecker(const HIRParser &HIRP) : HIRP(HIRP), NumSubBlobs(0) {}
-
-  ~NestedBlobChecker() {}
-
-  bool follow(const SCEV *SC) {
-    NumSubBlobs++;
-    return !isDone();
-  }
-
-  bool isDone() const { return isNestedBlob(); }
-  bool isNestedBlob() const { return NumSubBlobs > 1; }
-};
-
 void HIRParser::collectTempBlobs(BlobTy Blob,
                                  SmallVectorImpl<BlobTy> &TempBlobs) const {
   TempBlobCollector TBC(*this, TempBlobs);
   SCEVTraversal<TempBlobCollector> Collector(TBC);
   Collector.visitAll(Blob);
-}
-
-bool HIRParser::isNestedBlob(BlobTy Blob) const {
-  NestedBlobChecker NBC(*this);
-  SCEVTraversal<NestedBlobChecker> Collector(NBC);
-  Collector.visitAll(Blob);
-
-  return NBC.isNestedBlob();
 }
 
 bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
@@ -1496,6 +1369,10 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob) {
   return findOrInsertBlob(Blob, Symbase);
 }
 
+unsigned HIRParser::getGenericRvalSymbase() const {
+  return ScalarSA->getGenericRvalSymbase();
+}
+
 unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   const Value *OldTemp = nullptr;
 
@@ -1546,8 +1423,8 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     }
 
   } else if (DefLoop && UseLoop &&
-             (LCALoop = getHLNodeUtils().getLowestCommonAncestorLoop(
-                  DefLoop, UseLoop))) {
+             (LCALoop =
+                  HLNodeUtils::getLowestCommonAncestorLoop(DefLoop, UseLoop))) {
     // If the current node where the blob is used and the blob definition are
     // both in some HLLoop, the defined at level should be the lowest common
     // ancestor loop. For example-
@@ -1576,7 +1453,7 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
     assert(DefLoop && "Defining HLLoop of BaseInst is null!");
 
     if (UseLoop) {
-      LCALoop = getHLNodeUtils().getLowestCommonAncestorLoop(UseLoop, DefLoop);
+      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
     }
   }
 
@@ -1611,9 +1488,13 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
       DefLoop->addLiveInTemp(Symbase);
     }
 
-    while (DefLoop != LCALoop) {
-      DefLoop->addLiveOutTemp(Symbase);
-      DefLoop = DefLoop->getParentLoop();
+    // Instructions with livein metadata are deconstructed definitions (not
+    // uses). Therefore, they should not be used to mark loop liveouts.
+    if (!SE->getHIRMetadata(Inst, ScalarEvolution::HIRLiveKind::LiveIn)) {
+      while (DefLoop != LCALoop) {
+        DefLoop->addLiveOutTemp(Symbase);
+        DefLoop = DefLoop->getParentLoop();
+      }
     }
   }
 
@@ -2142,8 +2023,8 @@ RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
   return Ref;
 }
 
-RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, 1);
+RegDDRef *HIRParser::createStrideDDRef(Type *IVType, unsigned Stride) {
+  auto Ref = getDDRefUtils().createConstDDRef(IVType, Stride);
   return Ref;
 }
 
@@ -2242,13 +2123,27 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(LowerRef);
 
     // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType);
+    auto StrideRef = createStrideDDRef(IVType, 1);
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
+
+    unsigned MaxTC;
+
+    // Set small max trip count if available from scalar evolution.
+    if (!UpperRef->isIntConstant() &&
+        (MaxTC = SE->getSmallConstantMaxTripCount(const_cast<Loop *>(Lp)))) {
+      HLoop->setMaxTripCountEstimate(MaxTC);
+    }
+
+  } else {
+    // Initialize Stride to 0 for unknown loops.
+    auto StrideRef = createStrideDDRef(IVType, 0);
+    HLoop->setStrideDDRef(StrideRef);
   }
+
   // TODO: assert that SIMD loops are always DO loops.
 
   // Parse ztt.
@@ -3264,3 +3159,37 @@ void HIRParser::print(bool FrameworkDetails, raw_ostream &OS,
 
 // Verification is done by HIRVerifier.
 void HIRParser::verifyAnalysis() const {}
+
+ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
+  if (!Ptr->getType()->isPointerTy()) {
+    return nullptr;
+  }
+
+  // Trace back as far as possible, until we hit a GEP whose result type is an
+  // array type.
+  while (Ptr) {
+    if (auto Phi = dyn_cast<PHINode>(Ptr)) {
+      if (Phi->getNumIncomingValues() == 1) {
+        Ptr = Phi->getIncomingValue(0);
+
+      } else if (RI->isHeaderPhi(Phi)) {
+        Ptr = getHeaderPhiInitVal(Phi);
+
+      } else {
+        // Give up on merge phis.
+        return nullptr;
+      }
+    } else if (auto GEPOp = dyn_cast<GEPOperator>(Ptr)) {
+      if (GEPOp->getNumOperands() == 2) {
+        Ptr = GEPOp->getPointerOperand();
+      } else {
+        return dyn_cast<ArrayType>(GEPOp->getSourceElementType());
+      }
+    } else {
+      // Give up on other value types.
+      return nullptr;
+    }
+  }
+
+  return nullptr;
+}

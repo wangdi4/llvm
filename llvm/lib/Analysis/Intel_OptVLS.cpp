@@ -597,17 +597,28 @@ class Graph {
 
   const OVLSCostModel &CM;
 
+  // \brief Holds the total number of load nodes in the graph.
+  uint32_t TotalLoadNodes;
+
 public:
   explicit Graph(uint32_t VLen, const OVLSCostModel &CostModel)
-      : VectorLength(VLen), CM(CostModel) {}
+    : VectorLength(VLen), CM(CostModel), TotalLoadNodes(0) {}
 
   ~Graph() {
     for (GraphNode *N : Nodes)
       delete N;
   }
-  void insert(GraphNode *N) { Nodes.push_back(N); }
+  void insert(GraphNode *N) {
+    Nodes.push_back(N);
+    if (N->isALoad())
+      TotalLoadNodes++; 
+  }
 
-  void removeNode(GraphNode *N) { Nodes.remove(N); }
+  void removeNode(GraphNode *N) {
+    Nodes.remove(N);
+    if (N->isALoad())
+      TotalLoadNodes--;
+  }
 
   GraphNodeList::iterator begin() { return Nodes.begin(); }
 
@@ -658,17 +669,34 @@ public:
     }
   }
 
-  /// Simplifies the graph into a singular-form. Create a unique source
-  /// for each incoming edge. This gives optimizer the highest flexibility
+  /// Simplifies the graph into a singular-form and returns true, otherwise
+  /// returns false. It creates a unique source for each incoming edge.
+  /// This gives optimizer the highest flexibility
   /// in order to find the lowest cost combination.
-  void simplify() {
+  bool simplify() {
     GraphNodeList NewNodes;
+
+    // Don't simplify if the graph has a single load-node. The outcome of
+    // the simplification and then merge will be the same node as the load-node.
+    // Which leaves the graph with an extra node.
+    // Here is an exmaple of simplifying a graph with a single load-node. It leaves
+    // the final graph with v4 extra node that is same as the load-node.
+    //    V3:Load                 V3:Load                     V3:Load
+    //   |\  /|  After Simplify  |  |  |  |   After Merge      \ || /
+    //   | \/ |       = >        V4 V5 V6 V7      =>             V4
+    //   | /\ |                  | /    \/                      |/ \|
+    //   V1  V2                  V1     V2                      V1  V2
+    //
+    if (TotalLoadNodes == 1)
+      return false;
 
     for (GraphNode *N : Nodes)
       N->simplifyEdges(NewNodes);
 
     for (GraphNode *NewNode : NewNodes)
       insert(NewNode);
+
+    return true;
   }
 
   /// Split unique source nodes of shuffle nodes recursively until each node
@@ -972,7 +1000,7 @@ public:
   /// This function should only be called right after load-generation before
   /// any other optimization of the graph, otherwise, it will produce incorrect
   /// result.
-  /// FIXME: Support scatters, masked gathers;
+  /// FIXME: Support scatters, masked gathers, duplicates;
   bool verifyInitialGraph(const OVLSGroup &Group) {
     // This initial graph is considered to be invalid for a group of scatters.
     if (!Group.hasGathers())
@@ -1042,7 +1070,12 @@ public:
   // also optimizes (reduces the total number of nodes) the graph by merging
   // multiple nodes together.
   void simplifyAndOptimize() {
-    simplify();
+    if (!simplify()) {
+      // Simplification did not happen which means the graph contains only
+      // the load-nodes and the gather-nodes. There are no extra nodes that
+      // can be optimized futher, so return.
+      return;
+    }
 
     // TODO: support a verifier that will ensure that each node has incoming
     // edges coming from maximum of 2 nodes.
@@ -1307,11 +1340,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   // the group. This lowest element size (which is the common divisor of all the
   // other sizes of the memrefs in the group) will determine the load-size and
   // load mask.
+  OVLSMemref *Prev = nullptr;
   for (OVLSGroup::const_iterator I = Group.begin(), E = Group.end(); I != E;
        ++I) {
+    OVLSMemref *Curr = *I;
+    int64_t Dist = 0;
+    // Don't create nodes for the duplicates. We will replace the duplicates with
+    // the final shuffle instruction at the end.
+    if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+      continue;
+
     // At this point, we don't know the desired instruction/opcode,
     // initialize it(associated OVLSInstruction) to nullptr.
-    OVLSType MemrefType = (*I)->getType();
+    OVLSType MemrefType = Curr->getType();
+
     GraphNode *GatherNode = new GraphNode(nullptr, MemrefType);
     G.insert(GatherNode);
 
@@ -1319,6 +1361,7 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
     assert(ElemSize <= 64 && "Unexpected element size!!!");
     if (ElemSize < LowestElemSize)
       LowestElemSize = ElemSize;
+    Prev = *I;
   }
 
   // Access mask of the group in bytes.
@@ -1372,10 +1415,20 @@ static void getDefaultLoads(const OVLSGroup &Group, Graph &G) {
   G.insert(CurrLoadNode);
 
   uint32_t IthElem = 0;
+  Prev = nullptr;
   // Traverse NumElems times through the list of gathers.
   while (IthElem < NumElems) {
     GraphNodeList::iterator It = G.begin();
-    for (unsigned i = 0; i < Group.size(); i++) {
+    for (OVLSGroup::const_iterator I = Group.begin(), IE = Group.end(); I != IE; ++I) {
+      OVLSMemref *Curr = *I;
+      int64_t Dist = 0;
+
+      // Don't create nodes for the duplicates. We will replace the duplicates with
+      // the final shuffle instruction at the end.
+      if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
+        continue;
+
+      Prev = *I;
       // Addressed an element, find out its type.
       GraphNode *GatherNode = *It++;
       OVLSType GatherType = GatherNode->type();
@@ -1484,8 +1537,7 @@ void OVLSGroup::print(OVLSostream &OS, unsigned NumSpaces) const {
 ///   %1 = mask.load.32.3 (<Base:0x165eca0 Offset:0>, 111)
 ///   %2 = mask.load.32.3 (<Base:0x165eca0 Offset:12>, 111)
 void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1497,14 +1549,29 @@ void OVLSLoad::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
   OptVLS::printMask(OS, getMask());
   OS << ")";
-  OS << "\n";
+}
+
+/// print the store instruction like this:
+///   mask.store.32.4 (<32x4>%1, <Base:0x165eca0 Offset:0>, 1101)
+void OVLSStore::print(OVLSostream &OS, unsigned NumSpaces) const {
+  while (NumSpaces-- != 0)
+    OS << " ";
+
+  OS << "call void @mask.store." << getType().getElementSize() << ".";
+  OS << getType().getNumElements();
+  OS << " (";
+  Value->printAsOperand(OS);
+  OS << ", ";
+  Dst.print(OS);
+  OS << ", ";
+  OptVLS::printMask(OS, getMask());
+  OS << ")";
 }
 
 /// print the shuffle instruction like below:
 /// %3 = shufflevector <2 x 64> %1, <2 x 64> %2, <2 x 32><0, 2>
 void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
-  uint32_t Counter = 0;
-  while (Counter++ != NumSpaces)
+  while (NumSpaces-- != 0)
     OS << " ";
 
   OS << "%" << getId();
@@ -1518,7 +1585,6 @@ void OVLSShuffle::print(OVLSostream &OS, unsigned NumSpaces) const {
   OS << ", ";
 
   OS << *Op3;
-  OS << "\n";
 }
 
 bool OVLSShuffle::hasValidOperands(OVLSOperand *Op1, OVLSOperand *Op2,

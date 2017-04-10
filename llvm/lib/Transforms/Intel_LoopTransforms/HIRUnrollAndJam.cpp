@@ -532,7 +532,7 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
       HUAJ.throttle(Lp);
       return;
 
-    } else if (!Lp->getHLNodeUtils().isPerfectLoopNest(Lp)) {
+    } else if (!HLNodeUtils::isPerfectLoopNest(Lp)) {
       // TODO: Extend to handle imperfect loopnests using instruction renaming.
       HUAJ.throttleRecursively(Lp);
       return;

@@ -454,7 +454,7 @@ public:
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
-  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << "undef"; }
+  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << " %undef"; }
 
 private:
   OperandKind Kind;
@@ -487,7 +487,7 @@ public:
 
     switch (Type.getElementSize()) {
     case 32: {
-      OS << "<" << *(reinterpret_cast<const int *>(&ConstValue[0]));
+      OS << " <" << *(reinterpret_cast<const int *>(&ConstValue[0]));
       for (uint32_t i = 1; i < NumElems; i++)
         OS << ", " << *(reinterpret_cast<const int *>(&ConstValue[i * 4]));
 
@@ -622,6 +622,46 @@ private:
 
   /// \brief Reads a vector from memory using this mask. This mask holds a bit
   /// for each element.  When a bit is set the corresponding element in memory
+  /// is accessed.
+  uint64_t ElemMask;
+};
+
+class OVLSStore : public OVLSInstruction {
+
+public:
+  /// \brief Store V in D using \p EMask (element mask).
+  explicit OVLSStore(const OVLSOperand * const V, const OVLSOperand &D,
+                     uint64_t EMask)
+    : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
+    Dst = D;
+  }
+
+  /// \brief Return the Address (Dst) member of the store.
+  OVLSAddress getDst() const { return Dst; }
+
+  static bool classof(const OVLSInstruction *I) {
+    return I->getKind() == OC_Store;
+  }
+
+  void print(OVLSostream &OS, unsigned NumSpaces) const;
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  void dump() const {
+    print(OVLSdbgs(), 0);
+    OVLSdbgs() << '\n';
+  }
+#endif
+
+  uint64_t getMask() const { return ElemMask; }
+  void setMask(uint64_t Mask) { ElemMask = Mask; }
+  void updateValue(const OVLSOperand * const V) { Value = V; }
+
+private:
+  const OVLSOperand *Value;
+  OVLSAddress Dst;
+
+  /// \brief Writes a vector to memory using this mask. This mask holds a bit
+  /// for each element. When a bit is set the corresponding element in memory
   /// is accessed.
   uint64_t ElemMask;
 };

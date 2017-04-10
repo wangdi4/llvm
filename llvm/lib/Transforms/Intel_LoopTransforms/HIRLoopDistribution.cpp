@@ -201,8 +201,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         // perfect subloops are distributed into their own loop
         if (SingleLoop->isInnermost() ||
-            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
-                                                           &InnermostLoop)) {
+            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
           DistPoints.push_back(PiBlockList(1, Blk));
         } else {
           CurLoopPiBlkList.push_back(Blk);
@@ -218,8 +217,7 @@ void HIRLoopDistribution::formPerfectLoopNests(
             dyn_cast<HLLoop>((*(Blk->dist_node_begin()))->HNode);
         assert(SingleLoop && "SingleLoop piblock did not contain a loop");
         if (SingleLoop->isInnermost() ||
-            SingleLoop->getHLNodeUtils().isPerfectLoopNest(SingleLoop,
-                                                           &InnermostLoop)) {
+            HLNodeUtils::isPerfectLoopNest(SingleLoop, &InnermostLoop)) {
           // terminate our current loop and append it to loop list
           if (!CurLoopPiBlkList.empty()) {
             DistPoints.push_back(CurLoopPiBlkList);
@@ -295,7 +293,8 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
 
     // Why ruin perfection
     // Should we run distribution in perfect loopnest mode on innermost loops?
-    if (!Lp->isInnermost() && HNU.isPerfectLoopNest(Lp, &InnermostLoop)) {
+    if (!Lp->isInnermost() &&
+        HLNodeUtils::isPerfectLoopNest(Lp, &InnermostLoop)) {
       return false;
     }
 

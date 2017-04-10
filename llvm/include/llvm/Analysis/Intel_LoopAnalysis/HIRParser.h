@@ -38,6 +38,7 @@
 namespace llvm {
 
 class Type;
+class ArrayType;
 class Function;
 class PHINode;
 class SCEV;
@@ -165,9 +166,6 @@ private:
 
   /// TempBlobCollector - Collects temp blobs within a blob.
   class TempBlobCollector;
-
-  /// NestedBlobChecker - Check to see if we have a nested blob
-  class NestedBlobChecker;
 
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
@@ -353,8 +351,8 @@ private:
   /// Returns a RegDDRef representing loop lower (constant 0).
   RegDDRef *createLowerDDRef(Type *IVType);
 
-  /// Returns a RegDDRef representing loop stride (constant 1).
-  RegDDRef *createStrideDDRef(Type *IVType);
+  /// Returns a RegDDRef representing loop stride with value \p Val.
+  RegDDRef *createStrideDDRef(Type *IVType, unsigned Val);
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
@@ -586,37 +584,8 @@ private:
   /// Prints blob.
   void printBlob(raw_ostream &OS, BlobTy Blob) const;
 
-  /// Checks if the blob is constant or not.
-  /// If blob is constant, sets the return value in Val.
-  bool isConstantIntBlob(BlobTy Blob, int64_t *Val) const;
-
   /// Returns true if this is a temp blob.
-  bool isTempBlob(BlobTy Blob) const;
-
-  /// Returns true if this is a nested blob(SCEV tree with > 1 node).
-  bool isNestedBlob(BlobTy Blob) const;
-
-  /// Returns true if TempBlob always has a defined at level of zero.
-  bool isGuaranteedProperLinear(BlobTy TempBlob) const;
-
-  /// Returns true if this is an UndefValue blob.
-  bool isUndefBlob(BlobTy Blob) const;
-
-  /// Returns true if Blob represents a constant FP value.
-  /// If blob is FP constant, returns the underlying LLVM Value in Val
-  bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr) const;
-
-  /// Returns true if Blob represents a vector of constant values.
-  /// If yes, returns the underlying LLVM Value in Val
-  bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr) const;
-
-  /// Returns true if Blob represents a metadata value.
-  /// If blob is metadata, sets the return value in Val.
-  bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val) const;
-
-  /// Returns true if \p Blob represents a signed extension value.
-  /// If \p Val is not null, returns cast operand in \p Val.
-  bool isSignExtendBlob(BlobTy Blob, BlobTy *Val = nullptr) const;
+  static bool isTempBlob(BlobTy Blob);
 
   /// Returns true if \p HInst is a livein copy.
   bool isLiveinCopy(const HLInst *HInst);
@@ -630,6 +599,15 @@ private:
            "Could not find Ref's underlying pointer!");
     return It->second;
   }
+
+  // Tries to trace back a pointer type instruction to the array type from which
+  // it was created. This can happen if the base originated from an alloca.
+  //
+  // For example, if \p Ptr is %1 in the example below we will return [12 x i8].
+  //
+  // %1 = getelementptr inbounds [12 x i8], [12 x i8]* %tmpbuf.i, i32 0, i32 0
+  //
+  ArrayType *traceBackToArrayType(const Value *Ptr) const;
 
   /// Returns HLNodeUtils object.
   HLNodeUtils &getHLNodeUtils();
@@ -665,6 +643,9 @@ public:
   void print(bool FrameworkDetails, raw_ostream &OS,
              const Module * = nullptr) const;
   void verifyAnalysis() const override;
+
+  /// Returns a generic rval symbase.
+  unsigned getGenericRvalSymbase() const;
 
   /// Returns Function object.
   Function &getFunction() const { return *Func; }

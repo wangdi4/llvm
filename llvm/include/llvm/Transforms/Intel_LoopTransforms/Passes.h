@@ -38,10 +38,13 @@ FunctionPass *createHIRCodeGenPass();
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass();
 
-/// createHIRCompleteUnrollPass - This creates a pass that performs complete
-/// unrolling on small trip count HIR loops.
-FunctionPass *createHIRCompleteUnrollPass();
+/// createHIRPreVecCompleteUnrollPass - This creates a pass that performs complete
+/// unrolling before vectorizer.
+FunctionPass *createHIRPreVecCompleteUnrollPass();
 
+/// createHIRPostVecCompleteUnrollPass - This creates a pass that performs complete
+/// unrolling after vectorizer.
+FunctionPass *createHIRPostVecCompleteUnrollPass();
 
 /// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
 /// Distribution for breaking memory recurrences
@@ -87,6 +90,11 @@ FunctionPass *createHIRParDirInsertPass();
 /// createHIRVecDirInsertPass - This creates a pass that injects
 /// directives for auto vectorization candidate loops.
 FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
+
+/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs 
+/// Scalar Replacement over Array access 
+FunctionPass *createHIRScalarReplArrayPass();
+
 
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();

@@ -522,6 +522,12 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
 
+    // It's hard to compute the stride of non-unit denominator offset, so we
+    // conservatively return nullptr.
+    if (DimCE->getDenominator() != 1) {
+      return nullptr;
+    }
+
     // We want to guarantee that we return a Stride that is invariant at Level,
     // or otherwise to bail out.
     // IsLinearAtLevel guarantees that DimCE is defined at a lower (outer)
@@ -568,9 +574,10 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     }
   }
 
-  // There is no stride for invariant references, so we bail out.
+  // There is zero stride for invariant references.
   if (!StrideAtLevel) {
-    return nullptr;
+    return getCanonExprUtils().createCanonExpr(
+        Type::getInt1Ty(getDDRefUtils().getContext()), 0, 0);
   }
 
   // Collect the temp blobs of strideCE to potentially update the
@@ -833,6 +840,9 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     }
 
     return;
+  } else if (getSymbase() == ConstantSymbase) {
+    assert(!IsLvalAssumed && "Unexpected LVAL RegDDRef");
+    setSymbase(getDDRefUtils().getGenericRvalSymbase());
   }
 
   collectTempBlobIndices(BlobIndices);
@@ -858,7 +868,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
 
     // Defined at level is only applicable for instruction blobs. Other types
     // (like globals, function paramaters) are always proper linear.
-    if (!getBlobUtils().isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
+    if (!BlobUtils::isGuaranteedProperLinear(getBlobUtils().getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
   }
@@ -935,6 +945,35 @@ bool RegDDRef::containsUndef() const {
   }
 
   return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
+}
+
+bool RegDDRef::isNonLinear(void) const {
+  // Check BaseCE if available
+  const CanonExpr *BaseCE = getBaseCE();
+  if (BaseCE && BaseCE->isNonLinear()) {
+    return true;
+  }
+
+  // Check each dimension
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    CanonExpr *CE = (*I);
+
+    if (CE->isNonLinear()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void RegDDRef::replaceIVByConstant(unsigned LoopLevel, int64_t Val) {
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    CanonExpr *CE = (*I);
+
+    // Replace IV by constant Val and then simplify the CE
+    CE->replaceIVByConstant(LoopLevel, Val);
+    CE->simplify();
+  }
 }
 
 void RegDDRef::verify() const {
@@ -1050,4 +1089,49 @@ bool RegDDRef::hasTrailingStructOffsets() const {
   }
 
   return false;
+}
+
+bool RegDDRef::hasIV(unsigned Level) const {
+
+  for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
+    if ((*CEIt)->hasIV(Level)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+unsigned RegDDRef::getDefinedAtLevel() const {
+  unsigned MaxLevel = 0;
+
+  auto BaseCE = getBaseCE();
+
+  if (BaseCE && BaseCE->isNonLinear()) {
+    return NonLinearLevel;
+  }
+
+  for (auto CEIt = canon_begin(), E = canon_end(); CEIt != E; ++CEIt) {
+    auto CE = *CEIt;
+
+    if (CE->isNonLinear()) {
+      return NonLinearLevel;
+    }
+
+    MaxLevel = std::max(MaxLevel, CE->getDefinedAtLevel());
+  }
+
+  return MaxLevel;
+}
+
+void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
+  unsigned Dim = getNumDimensions();
+
+  // Examine every Dimension
+  for (unsigned I = 1; I <= Dim; ++I) {
+    CanonExpr *CE = getDimensionIndex(I);
+
+    // Shift to create target CE
+    CE->shift(LoopLevel, Amount);
+  }
 }

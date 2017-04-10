@@ -518,13 +518,52 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
+// Returns false if 'Target' is unsafe possible target for 'CS', which is
+// indirect call with 'FP' as function pointer.
+//
+static bool safePossibleTarget(Value *FP, Value* Target, CallSite CS) {
+
+  // Go conservative for now when possible target is non-function
+  if (!isa<Function>(Target)) return false;
+
+  FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
+  FunctionType *FTy = CS.getFunctionType();
+  // Treat varargs as unsafe targets for now. If required, it can be
+  // allowed as safe target later by checking number of actual arguments
+  // at CallSite, number of formals of possible targets, argument types
+  // of CallSite, and formal param types of possible target.
+  if (FTy->isVarArg() || CalleeTy->isVarArg()) return false;
+
+  if (FP->getType() == Target->getType()) {
+    // If signatures of call and possible target are same, makes sure
+    // args and formals do match. Treat the target as unsafe if they
+    // don't match.
+    if (CS.arg_size() != FTy->getNumParams()) return false;
+
+    // Not sure whether we need to check for some of Function/Parameter
+    // attributes to treat target as unsafe. Skipping those checks for
+    // now.
+    //
+    for (unsigned I = 0, E = FTy->getNumParams(); I != E; ++I) {
+      // Check types of param and arg
+      if (CS.getArgument(I)->getType() != FTy->getParamType(I)) return false;
+    }
+
+    // This check may not be needed.
+    if (CS.getCallingConv() != cast<Function>(Target)->getCallingConv())
+      return false;
+  }
+
+  return true;
+}
+
 // Interface routine to get possible targets of given function pointer 'FP'.
 // It computes all possible targets of 'FP' using points-to info and adds
 // valid targets to 'Targets' vector. Skips adding unknown/invalid targets
 // to 'Targets' vector and return false if there is any noticed.
 //
 bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
-                                      std::vector<llvm::Value*>& Targets) {
+                 std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace) {
 
   Targets.clear();
   if (ValueNodes.size() == 0) {
@@ -551,15 +590,32 @@ bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     }
     Value *V = N->getValue();
   
-    // Go conservative for now when possible target is non-function or
-    // signatures of call and possible target don't match.
-    // TODO: Need to skip these targets to improve this transformation
-    // after understanding more about vararg, MS_CDECLS, NOSTATE etc.
-    if (!isa<Function>(V) || FP->getType() != V->getType()) {
+    // Set IsComplete to false if V is unsafe target.
+    if (!safePossibleTarget(FP, V, CS)) {
+      if (Trace) {
+        if (Function *Fn = dyn_cast<Function>(V)) {
+          errs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
+        }
+        else {
+          errs() << "    Unsafe target: Skipping  " << *V << "\n";
+        }
+      }
       IsComplete = false;
       continue;
     }
-    Targets.push_back(V);
+    // Add it to the Target list only if signatures of call and possible
+    // target do match. This behavior is different from icc. For icc, unsafe
+    // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
+    // to the Target list. 
+    if (FP->getType() == V->getType()) {
+      Targets.push_back(V);
+    }
+    else {
+      if (Trace)
+        errs() << "    Args mismatch: Ignoring " <<
+                        cast<Function>(V)->getName() << "\n";
+    }
+
   }
   return IsComplete;
 }

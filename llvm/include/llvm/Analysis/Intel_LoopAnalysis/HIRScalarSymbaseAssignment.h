@@ -180,7 +180,7 @@ public:
   unsigned getGenericRvalSymbase() const { return GenericRvalSymbase; }
 
   /// \brief Returns true if this scalar is a constant.
-  bool isConstant(const Value *Scalar) const;
+  static bool isConstant(const Value *Scalar);
 
   /// \brief Returns scalar's symbase if it exists, else assigns a new symbase.
   /// If this scalar has replaced an existing base scalar, the existing scalar
