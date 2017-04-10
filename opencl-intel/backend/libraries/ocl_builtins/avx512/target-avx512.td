@@ -1,7 +1,7 @@
 // vim:ts=2:sw=2:et:
 
-include "KNLni/KNLni.td"
+include "avx512/avx512.td"
 
-def target : KNL {
+def target : AVX512 {
   let Target = "xxx"; //to be injected from the command line
 }
