@@ -55,7 +55,6 @@ set(modified_files
   )
 
 set(special_files
-  __x86intrin_features.h
   intrin.h
   vadefs.h
   )
@@ -134,11 +133,6 @@ list(APPEND out_files ${output_dir}/arm_neon.h)
 
 add_custom_target(clang-headers ALL DEPENDS ${out_files})
 set_target_properties(clang-headers PROPERTIES FOLDER "Misc")
-
-add_custom_command(TARGET clang-headers
-  POST_BUILD
-  COMMAND ${PYTHON_EXECUTABLE} ${LLVM_MAIN_SRC_DIR}/tools/clang/utils/Intel/gen_assume.py ${LLVM_MAIN_SRC_DIR}/tools/clang/utils/Intel/x86_intrin.xml ${output_dir} ${modified_files}
-  COMMENT "Adding intrinsic assume() builtins")
 
 set(intel_out_files)
 foreach( f ${intel_files} )

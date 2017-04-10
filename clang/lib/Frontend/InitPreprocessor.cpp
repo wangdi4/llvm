@@ -917,10 +917,17 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   char UserLabelPrefix[2] = {TI.getDataLayout().getGlobalPrefix(), 0};
   Builder.defineMacro("__USER_LABEL_PREFIX__", UserLabelPrefix);
 
-  if (LangOpts.FastMath || LangOpts.FiniteMathOnly)
+#if INTEL_CUSTOMIZATION
+  // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility
+  // with 'icc' and Intel runtime libraries. If this definition is set
+  // to 1, then several math library function calls will be renamed to
+  // names that do not exist within the Intel math libraries. These
+  // functions would instead by resolved by slower routines within libm.a.
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
+#endif // INTEL_CUSTOMIZATION
 
   if (!LangOpts.MSVCCompat) {
     if (LangOpts.GNUInline || LangOpts.CPlusPlus)

@@ -4266,7 +4266,6 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, const CGCallee &OrigCallee
     // the proper cpu features (and it won't cause code generation issues due to
     // function based code generation).
     if (TargetDecl->hasAttr<AlwaysInlineAttr>() &&
-        !getLangOpts().IntelCompat &&            // INTEL
         TargetDecl->hasAttr<TargetAttr>())
       checkTargetFeatures(E, FD);
 
