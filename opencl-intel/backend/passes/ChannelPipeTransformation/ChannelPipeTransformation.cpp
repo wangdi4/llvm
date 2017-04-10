@@ -439,8 +439,7 @@ static bool replaceChannelBuiltins(Module &M,
     auto Name = F.getName();
     if (Name.npos != Name.find("read_channel_altera")) {
       Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
-    } else if (Name.npos !=
-               F.getName().find("write_channel_altera")) {
+    } else if (Name.npos != Name.find("write_channel_altera")) {
       Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
     }
   }

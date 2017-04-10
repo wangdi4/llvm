@@ -251,9 +251,8 @@ public:
       .Case("__reserve_write_pipe", true)
       .Default(false);
 
-    if (!PipeBI) {
+    if (!PipeBI)
       return false;
-    }
 
     auto m_runtimeModuleList = BLI.getBuiltinModules();
 
@@ -275,7 +274,7 @@ public:
           Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Global);
 
     auto PipeArg = BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                               GlobalPipeTy, "", CI);
+                                                  GlobalPipeTy, "", CI);
     SmallVector<Value *, 4> NewArgs;
     NewArgs.push_back(PipeArg);
 
