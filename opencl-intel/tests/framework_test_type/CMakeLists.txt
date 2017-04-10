@@ -62,20 +62,23 @@ add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 
 if (NOT WIN32)
-	if( ANDROID )
-  		target_link_libraries( ${TARGET} c++ )
-        set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
-	endif( ANDROID )
-	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
+  if( ANDROID )
+    target_link_libraries( ${TARGET} c++ )
+    set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
+  endif( ANDROID )
+  target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest ${PTHREAD_LIB})
 else (NOT WIN32)
-	target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest delayimp)
-	set_target_properties(${TARGET} PROPERTIES
-		LINK_FLAGS_RELEASE	"${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll"
-		LINK_FLAGS_DEBUG	"${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll"
-	)
+  target_link_libraries( ${TARGET} intelocl${BUILD_PLATFORM} googletest delayimp)
+  set_target_properties(${TARGET} PROPERTIES
+    LINK_FLAGS_RELEASE "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll"
+    LINK_FLAGS_DEBUG "${LINK_FLAGS_DEBUG} /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll"
+  )
 
+  # set 8 MB of stack size
+  set_target_properties( ${TARGET} PROPERTIES LINK_FLAGS /STACK:"8388608" )
 endif (NOT WIN32)
 
+set_source_files_properties( cl_device_local_mem_size.cpp PROPERTIES COMPILE_DEFINITIONS STACK_SIZE=8388608 )
 
 
 set( CREATE_DIR_NAME tests/framework_test_type)

@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         TBBTaskExecutor();
         virtual ~TBBTaskExecutor();
 
-        int  Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL);
+        int  Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, unsigned long ulAdditionalRequiredStackSize = 0);
         void Finalize();
 
         Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(

@@ -222,7 +222,7 @@ TBBTaskExecutor::~TBBTaskExecutor()
     // TBB seem to have a bug in ~task_scheduler_init(), so we work around it by not deleting m_pScheduler (TBB bug #1955)
 }
 
-int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData)
+int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads, ocl_gpa_data * pGPAData, unsigned long ulAdditionalRequiredStackSize)
 {    
     g_pUserLogger = pUserLogger;    
     INIT_LOGGER_CLIENT("TBBTaskExecutor", LL_INFO);
@@ -273,13 +273,33 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
     }
 
-    m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);
+    if (ulAdditionalRequiredStackSize == 0)
+    {
+        m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);
+    }
+    else
+    {
+        // We force stack size of TBB created threads to match required value
+        const unsigned long long TBBDefaultStackSize = (sizeof(uintptr_t) <= 4 ? 2 : 4 ) * 1024 * 1024; // 2 or 4 MBytes
+        unsigned long long stackSize = TBBDefaultStackSize + (unsigned long long)ulAdditionalRequiredStackSize;
+        // align stack size to 4 bytes according to assert in tbb:task_scheduler_init constructor
+        if ((stackSize & 3u) != 0)
+        {
+            // if last 2 bits are non-zero
+            // clear it and add 4 bytes to cover the loss
+            stackSize = (stackSize & (~3u)) + 4u;
+        }
+        m_pScheduler = new tbb::task_scheduler_init(gWorker_threads, stackSize);
+    }
     if (NULL == m_pScheduler)
     {
         LOG_ERROR(TEXT("%s"), "Failed to allocate task_scheduler_init");
         return 0;
     }
-    m_pScheduler->initialize(gWorker_threads);
+    if (ulAdditionalRequiredStackSize == 0)
+    {
+        m_pScheduler->initialize(gWorker_threads);
+    }
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
     
     LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);

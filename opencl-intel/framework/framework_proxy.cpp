@@ -648,7 +648,7 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
         {
             LOG_INFO(TEXT("%s"), "Initialize Executor");
             m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
-            m_pTaskExecutor->Init(g_pUserLogger, TE_AUTO_THREADS, &m_GPAData);
+            m_pTaskExecutor->Init(g_pUserLogger, TE_AUTO_THREADS, &m_GPAData, m_pConfig->GetForcedLocalMemSize());
         }
     }
 

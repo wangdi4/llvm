@@ -98,6 +98,24 @@ cl_ulong GetGlobalMemorySize(bool* isForced = NULL)
     }
     return globalMemSize;
 }
+cl_ulong GetLocalMemorySize()
+{
+    static cl_ulong localMemSize = 0;
+    if (0 == localMemSize)
+    {
+        // check config for forced local mem size
+        CPUDeviceConfig config;
+        config.Initialize(GetConfigFilePath());
+        localMemSize = config.GetForcedLocalMemSize();
+        if (0 == localMemSize)
+        {
+            // fallback to default local memory size
+            localMemSize = CPU_DEV_LCL_MEM_SIZE;
+        }
+    }
+
+    return localMemSize;
+}
 cl_ulong GetMaxMemAllocSize(bool* isForced = NULL)
 {
     static bool forced = true;
@@ -1030,7 +1048,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                *(cl_ulong*)paramVal = CPU_DEV_LCL_MEM_SIZE;
+                *(cl_ulong*)paramVal = GetLocalMemorySize();
             }
             return CL_DEV_SUCCESS;
         }

@@ -514,7 +514,7 @@ public:
      * @param  AUTO_THREADS cannot be used if uiNumOfLevels > 1.
      * @return the number of threads initialized, if succeeded, else -1
      */
-    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL) = 0;
+    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, unsigned long ulAdditionalRequiredStackSize = 0) = 0;
 
     virtual void Finalize() = 0;
 
