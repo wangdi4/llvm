@@ -64,6 +64,8 @@ namespace intel{
         continue;
       }
 
+      // pipes ctor does not need implicit arguments, as it only called once by
+      // runStaticConstructorsDestructors function.
       if (pFunc->getName() == "__global_pipes_ctor")
         continue;
 
