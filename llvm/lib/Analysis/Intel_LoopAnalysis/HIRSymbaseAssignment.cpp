@@ -162,6 +162,8 @@ bool HIRSymbaseAssignment::runOnFunction(Function &F) {
 }
 
 void HIRSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
+  typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
+
   NonConstantRefGatherer::MapTy SymToRefs;
   NonConstantRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
                                       SymToRefs);

@@ -1074,7 +1074,6 @@ bool HLLoop::normalize() {
     llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
   }
 
-
   RegDDRef *UpperRef = getUpperDDRef();
   RegDDRef *LowerRef = getLowerDDRef();
   SmallVector<const RegDDRef *, 2> Aux = { LowerRef, UpperRef };

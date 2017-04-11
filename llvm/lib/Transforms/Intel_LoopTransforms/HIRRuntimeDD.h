@@ -84,7 +84,6 @@ struct Segment {
 // on the IV. This class is used to generate specific memory segments where
 // IV is replaced with a Lower and Upper bound.
 class IVSegment {
-  const RegDDRef *OriginalRef;
   RegDDRef *Lower;
   RegDDRef *Upper;
   const CanonExpr *BaseCE;
@@ -120,7 +119,6 @@ public:
   const RegDDRef *getLower() const { return Lower; }
   const RegDDRef *getUpper() const { return Upper; }
   const CanonExpr *getBaseCE() const { return BaseCE; }
-  const RegDDRef *getOriginalRef() const { return OriginalRef; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -150,6 +148,8 @@ struct LoopContext {
 };
 
 class HIRRuntimeDD : public HIRTransformPass {
+  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+
 public:
   static char ID;
 
@@ -194,7 +194,7 @@ private:
 
   // Finds or creates an appropriate group in \p Groups for the \p Ref. Returns
   // a group number.
-  unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
+  static unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
 
   // \brief Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);

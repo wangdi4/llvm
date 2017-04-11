@@ -700,3 +700,87 @@ bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
 
   return Res;
 }
+
+bool CanonExprUtils::compare(const CanonExpr *CE1, const CanonExpr *CE2) {
+  // Check the number of IV's.
+  if (CE1->numIVs() != CE2->numIVs()) {
+    return (CE1->numIVs() < CE2->numIVs());
+  }
+
+  // Check the IV's (temp fix: use level)
+  for (unsigned Lvl = 1; Lvl <= MaxLoopNestLevel; ++Lvl) {
+    int64_t Iv1Coeff, Iv2Coeff;
+    unsigned Iv1BlobIndex, Iv2BlobIndex;
+    CE1->getIVCoeff(Lvl, &Iv1BlobIndex, &Iv1Coeff);
+    CE2->getIVCoeff(Lvl, &Iv2BlobIndex, &Iv2Coeff);
+
+    if (Iv1Coeff != Iv2Coeff) {
+      return (Iv1Coeff < Iv2Coeff);
+    }
+
+    if (Iv1BlobIndex != Iv2BlobIndex) {
+      return (Iv1BlobIndex < Iv2BlobIndex);
+    }
+  }
+
+  // Check the number of blobs.
+  if (CE1->numBlobs() != CE2->numBlobs()) {
+    return (CE1->numBlobs() < CE2->numBlobs());
+  }
+
+  // Check the Blob's.
+  for (auto Blob1 = CE1->blob_begin(), End = CE1->blob_end(),
+            Blob2 = CE2->blob_begin();
+       Blob1 != End; ++Blob1, ++Blob2) {
+    if (Blob1->Index != Blob2->Index) {
+      return (Blob1->Index < Blob2->Index);
+    }
+
+    if (Blob1->Coeff != Blob2->Coeff) {
+      return (Blob1->Coeff < Blob2->Coeff);
+    }
+  }
+
+  if (CE1->getConstant() != CE2->getConstant()) {
+    return (CE1->getConstant() < CE2->getConstant());
+  }
+
+  if (CE1->getDenominator() != CE2->getDenominator()) {
+    return (CE1->getDenominator() < CE2->getDenominator());
+  }
+
+  // Check division type for non-unit denominator.
+  if ((CE1->getDenominator() != 1) &&
+      (CE1->isSignedDiv() != CE2->isSignedDiv())) {
+    return CE1->isSignedDiv();
+  }
+
+  // If CE1 and CE2 have incompatible types, order them using type info.
+  if (!mergeable(CE1, CE2)) {
+    Type *TypeA = CE1->getDestType();
+    Type *TypeB = CE2->getDestType();
+
+    // Get pointer element type (i32 from i32*) to make different pointer types
+    // be grouped together during sorting: (i32*, i32*, i64*, i64*, ...)
+    while (TypeA->isPointerTy() && TypeB->isPointerTy()) {
+      TypeA = TypeA->getPointerElementType();
+      TypeB = TypeB->getPointerElementType();
+    }
+
+    // Separate by type ID.
+    if (TypeA->getTypeID() != TypeB->getTypeID()) {
+      return TypeA->getTypeID() < TypeB->getTypeID();
+    }
+
+    // Separate types with the same ID by type size.
+    return TypeA->getPrimitiveSizeInBits() < TypeB->getPrimitiveSizeInBits();
+  }
+
+  if (CE1->isNonLinear() != CE2->isNonLinear()) {
+    return CE1->isNonLinear();
+  } else if (!CE1->isNonLinear()) {
+    return CE1->getDefinedAtLevel() < CE2->getDefinedAtLevel();
+  }
+
+  return false;
+}

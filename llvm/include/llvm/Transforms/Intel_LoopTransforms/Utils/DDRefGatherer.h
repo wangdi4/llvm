@@ -44,6 +44,7 @@ enum DDRefGatherMode : unsigned int {
   IsAddressOfRefs = 1 << 2,
   BlobRefs = 1 << 3,
   ConstantRefs = 1 << 4,
+  GenericRValRefs = 1 << 5,
 
   AllRefs = ~0U,
 };
@@ -129,9 +130,6 @@ class DDRefGathererUtils {
   DDRefGathererUtils &operator=(const DDRefGathererUtils &) = delete;
 
 public:
-  static bool compareMemRefCE(const CanonExpr *ACanon, const CanonExpr *BCanon);
-  static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   template <typename RefTy> static void dump(const SymToRefTy<RefTy> &RefMap) {
     for (auto &RefVec : RefMap) {
@@ -168,7 +166,7 @@ public:
 
   template <typename RefTy>
   static void sort(SymToRefTy<RefTy> &MemRefMap) {
-    sort(MemRefMap, DDRefGathererUtils::compareMemRef);
+    sort(MemRefMap, DDRefUtils::compareMemRef);
   }
 
   template <typename RefTy, typename Compare>
@@ -186,11 +184,11 @@ public:
       // Un-comment if you believe that something is wrong with the sorting, it
       // could help to catch refs on which compareMemRef fails.
       auto comp = [](const RegDDRef *R1, const RegDDRef *R2) {
-        return DDRefGathererUtils::compareMemRef(R1, R2);
+        return DDRefUtils::compareMemRef(R1, R2);
       };
       auto equv = [](const RegDDRef *R1, const RegDDRef *R2) {
-        return !DDRefGathererUtils::compareMemRef(R1, R2) &&
-               !DDRefGathererUtils::compareMemRef(R2, R1);
+        return !DDRefUtils::compareMemRef(R1, R2) &&
+               !DDRefUtils::compareMemRef(R2, R1);
       };
 
       for (auto I = RefVec.begin(), IE = RefVec.end(); I != IE; ++I) {
@@ -271,6 +269,11 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
         return false;
       }
 
+      if (!(Mode & GenericRValRefs) &&
+          Ref->getSymbase() == Ref->getDDRefUtils().getGenericRvalSymbase()) {
+        return false;
+      }
+
       return ((Mode & TerminalRefs) && Ref->isTerminalRef()) ||
              ((Mode & IsAddressOfRefs) && Ref->isAddressOf()) ||
              ((Mode & MemRefs) && Ref->isMemRef()) ||
@@ -295,10 +298,6 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
   }
 };
 
-typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
-typedef DDRefGatherer<const RegDDRef, MemRefs> ConstMemRefGatherer;
-typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs>
-    NonConstantRefGatherer;
 }
 }
 

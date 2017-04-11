@@ -559,7 +559,7 @@ unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups,
   }
 
   unsigned NewGroupNum = Groups.size();
-  Groups.resize(Groups.size() + 1);
+  Groups.resize(NewGroupNum + 1);
   Groups.back().push_back(Ref);
   return NewGroupNum;
 }
@@ -639,7 +639,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   }
 
   for (RefGroupTy &Group : Groups) {
-    std::sort(Group.begin(), Group.end(), DDRefGathererUtils::compareMemRef);
+    std::sort(Group.begin(), Group.end(), DDRefUtils::compareMemRef);
   }
 
   DEBUG(DDRefGrouping::dump(Groups));

@@ -49,7 +49,7 @@ public:
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
 
 private:
-  typedef ConstMemRefGatherer::MapTy SymToMemRefTy;
+  typedef DDRefGatherer<const RegDDRef, MemRefs> LocalityRefGatherer;
 
   struct LocalityInfo {
     // Spatial Locality.

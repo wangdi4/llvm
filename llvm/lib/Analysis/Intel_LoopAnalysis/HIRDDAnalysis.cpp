@@ -77,6 +77,10 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+typedef DDRefGatherer<DDRef, AllRefs ^
+    (ConstantRefs | GenericRValRefs | IsAddressOfRefs)>
+    DDARefGatherer;
+
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 
 char HIRDDAnalysis::ID = 0;
@@ -336,17 +340,16 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   DEBUG(dbgs() << "buildGraph() for:\n");
   DEBUG(Node->dump());
 
-  NonConstantRefGatherer::MapTy RefMap;
+  DDARefGatherer::MapTy RefMap;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-    NonConstantRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
-                                        RefMap);
+    DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
   } else {
-    NonConstantRefGatherer::gather(Node, RefMap);
+    DDARefGatherer::gather(Node, RefMap);
   }
 
   DEBUG(dbgs() << "References:\n");
-  DEBUG(NonConstantRefGatherer::dump(RefMap));
+  DEBUG(DDARefGatherer::dump(RefMap));
 
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -497,8 +500,8 @@ bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
 }
 
 void DDGraph::print(raw_ostream &OS) const {
-  NonConstantRefGatherer::MapTy Refs;
-  NonConstantRefGatherer::gather(CurNode, Refs);
+  DDARefGatherer::MapTy Refs;
+  DDARefGatherer::gather(CurNode, Refs);
 
   for (auto Pair : Refs) {
     for (DDRef *Ref : Pair.second) {

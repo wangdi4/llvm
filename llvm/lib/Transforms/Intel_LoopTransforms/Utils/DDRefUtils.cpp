@@ -444,6 +444,66 @@ Type *DDRefUtils::getOffsetType(Type *Ty,
   return RetTy;
 }
 
+// This sorting compares the two ddref and orders them based on Ref's base,
+// dimensions, IV's, blobs and then writes. Refs with equal bases (and no blobs)
+// are sorted in increasing order of address location.
+//
+// Consider this set of refs-
+// A[i+5][j], A[i][0] (Read), A[i][0] (Write), A[i][j], A[i+k][0]
+//
+// The sorting order is-
+// A[i][0] (Write), A[i][0] (Read), A[i][j], A[i+5][j], A[i+k][0]
+//
+// As a comparator, compareMemRef must meet the requirements of Compare concept:
+// For a long story see http://en.cppreference.com/w/cpp/concept/Compare
+//
+// Short story:
+// Given: comp(a, b), equiv(a, b), an expression equivalent to
+//                    !comp(a, b) && !comp(b, a)
+//
+// For any a, b, c:
+// 1) comp(a,a)==false
+// 2) if (comp(a,b)==true) comp(b,a)==false
+// 3) if (comp(a,b)==true && comp(b,c)==true) comp(a,c)==true
+// 4) equiv(a,a)==true
+// 5) if (equiv(a,b)==true) equiv(b,a)==true
+// 6) if (equiv(a,b)==true && equiv(b,c)==true) equiv(a,c)==true
+//
+bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
+  assert(Ref1->isMemRef() && Ref2->isMemRef() &&
+         "Both RegDDRefs are expected to be memory references.");
+
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
+    return CanonExprUtils::compare(Ref1->getBaseCE(), Ref2->getBaseCE());
+
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+    return (Ref1->getNumDimensions() < Ref2->getNumDimensions());
+  }
+
+  // Check dimensions from highest to lowest.
+  for (unsigned I = Ref1->getNumDimensions(); I > 0; --I) {
+    const CanonExpr *CE1 = Ref1->getDimensionIndex(I);
+    const CanonExpr *CE2 = Ref2->getDimensionIndex(I);
+
+    if (!CanonExprUtils::areEqual(CE1, CE2)) {
+      return CanonExprUtils::compare(CE1, CE2);
+    }
+
+    auto Diff = DDRefUtils::compareOffsets(Ref1, Ref2, I);
+
+    if (Diff != 0) {
+      return (Diff < 0);
+    }
+  }
+
+  // Place writes first in case everything matches.
+  if (Ref1->isLval() != Ref2->isLval()) {
+    return Ref1->isLval();
+  }
+
+  return false;
+}
+
 bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
                                          unsigned LoopLevel,
                                          const CanonExpr *CE,
@@ -473,3 +533,4 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
   }
 }
+

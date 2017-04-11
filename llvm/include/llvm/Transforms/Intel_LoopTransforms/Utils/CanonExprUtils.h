@@ -265,6 +265,10 @@ public:
   static bool getConstIterationDistance(const CanonExpr *CE1,
                                         const CanonExpr *CE2,
                                         unsigned LoopLevel, int64_t *Distance);
+
+  // Sorting comparator for two canon expressions. Returns true if \p CE1 is
+  // less then \p CE2.
+  static bool compare(const CanonExpr *CE1, const CanonExpr *CE2);
 };
 
 } // End namespace loopopt

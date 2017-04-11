@@ -41,7 +41,7 @@ public:
 private:
   DDRefGrouping() = delete;
   ~DDRefGrouping() = delete;
-  DDRefGrouping(const DDRefGathererUtils &) = delete;
+  DDRefGrouping(const DDRefGrouping &) = delete;
   DDRefGrouping &operator=(const DDRefGrouping &) = delete;
 
   template <typename GroupingPredicate, typename InVector, typename OutVec>
