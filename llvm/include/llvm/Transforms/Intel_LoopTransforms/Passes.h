@@ -95,12 +95,14 @@ FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 /// Scalar Replacement over Array access 
 FunctionPass *createHIRScalarReplArrayPass();
 
-
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
 
 /// Creates pass that replaces loads and stores with memsets and memcpys.
 FunctionPass *createHIRIdiomRecognitionPass();
+
+/// Creates pass that multiversions loop for the probable trip count value.
+FunctionPass *createHIRMVForConstUBPass();
 }
 
 #endif

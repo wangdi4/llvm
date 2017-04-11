@@ -1283,17 +1283,33 @@ public:
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 
+  // Replaces HLIf with its *then* or *else* body.
+  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
+
   /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
   /// empty HLIfs.
   ///
   /// Note: This function is placed here because the Framework uses it to
   /// get rid of incoming empty HLIfs.
-  static void removeEmptyNodes(HLNode *Node);
+  static bool removeEmptyNodes(HLNode *Node);
 
   /// Recursively traverse the HIR range [\p Begin, \p End) and remove empty
   /// HLLoops and empty HLIfs.
-  static void removeEmptyNodesRange(HLContainerTy::iterator Begin,
+  static bool removeEmptyNodesRange(HLContainerTy::iterator Begin,
                                     HLContainerTy::iterator End);
+
+  /// Removes: 1) HLIfs that always evaluates as either true or false;
+  ///          2) HLLoops those trip count is constant and equals zero.
+  ///          3) Empty HLNodes
+  /// Returns true whenever nodes were removed.
+  /// If \p RemoveEmptyParentNodes is true, the utility also removes parent
+  /// nodes if they become empty.
+  /// The utility invalidates analysis for the changed loops and regions.
+  static bool removeRedundantNodes(HLNode *Node,
+                                   bool RemoveEmptyParentNodes = true);
+  static bool removeRedundantNodes(HLContainerTy::iterator Begin,
+                                   HLContainerTy::iterator End,
+                                   bool RemoveEmptyParentNodes = true);
 };
 
 } // End namespace loopopt

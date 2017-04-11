@@ -271,6 +271,7 @@ namespace {
       (void) llvm::createHIRLMMPass();
       (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
+      (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

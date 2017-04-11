@@ -582,8 +582,15 @@ private:
 
   /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
   /// the new blob in \p NewBlobIndex. Returns true if blob was replaced.
-  bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                       unsigned NewTempIndex, unsigned &NewBlobIndex);
+  bool replaceTempBlob(unsigned BlobIndex, unsigned TempIndex, BlobTy ByBlob,
+                       unsigned &NewBlobIndex, int64_t &SimplifiedConstant);
+
+  /// Replaces \p TempIndex by \p Constant in the \p BlobIndex blob. If the blob
+  /// becomes constant the \p NewBlobIndex will be assigned to InvalidBlobIndex
+  /// and \p SimplifiedConstant will contain a constant value.
+  bool replaceTempBlobByConstant(unsigned BlobIndex, unsigned TempIndex,
+                                 int64_t Constant, unsigned &NewBlobIndex,
+                                 int64_t &SimplifiedConstant);
 
   /// Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;

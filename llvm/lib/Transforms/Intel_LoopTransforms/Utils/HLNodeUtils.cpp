@@ -13,9 +13,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
@@ -3399,39 +3401,204 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   return true;
 }
 
+void HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+  HLNodeUtils &HNU = If->getHLNodeUtils();
+
+  if (ThenBody) {
+    HNU.moveAfter(If, If->then_begin(), If->then_end());
+  } else {
+    HNU.moveAfter(If, If->else_begin(), If->else_end());
+  }
+
+  HLNodeUtils::remove(If);
+}
+
 namespace {
 
-STATISTIC(LoopsRemoved, "Empty Loops removed");
-STATISTIC(IfsRemoved, "Empty Ifs removed");
+STATISTIC(InvalidatedRegions, "Number of regions invalidated by utility");
+STATISTIC(InvalidatedLoops, "Number of loops invalidated by utility");
+STATISTIC(LoopsRemoved, "Number of empty Loops removed by utility");
+STATISTIC(IfsRemoved, "Number of empty Ifs removed by utility");
+STATISTIC(RedundantLoops, "Number of redundant loops removed by utility");
+STATISTIC(RedundantPredicates,
+          "Number of redundant predicates removed by utility");
 
-struct EmptyLoopRemoverVisitor final : HLNodeVisitorBase {
+class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
+protected:
+  SmallPtrSet<HLNode *, 32> NodesToInvalidate;
+  bool Changed = false;
+
+  void invalidateParent(HLNode *Node) {
+    if (HLLoop *ParentLoop = Node->getParentLoop()) {
+      NodesToInvalidate.insert(ParentLoop);
+    } else if (HLRegion *Region = Node->getParentRegion()) {
+      NodesToInvalidate.insert(Region);
+    }
+  }
+
+  EmptyNodeRemoverVisitorImpl() {}
+
+public:
+  void postVisit(HLRegion *Region) {
+    if (NodesToInvalidate.count(Region)) {
+      HIRInvalidationUtils::invalidateNonLoopRegion(Region);
+      InvalidatedRegions++;
+    }
+  }
+
   void postVisit(HLLoop *Loop) {
     if (!Loop->hasChildren()) {
+      invalidateParent(Loop);
+
       Loop->extractPreheaderAndPostexit();
       HLNodeUtils::remove(Loop);
       LoopsRemoved++;
+      Changed = true;
+    } else {
+      if (NodesToInvalidate.count(Loop)) {
+        HIRInvalidationUtils::invalidateBody(Loop);
+        InvalidatedLoops++;
+      }
     }
   }
 
   void postVisit(HLIf *If) {
     if (!If->hasThenChildren() && !If->hasElseChildren()) {
+      invalidateParent(If);
+
       HLNodeUtils::remove(If);
       IfsRemoved++;
+      Changed = true;
     }
   }
 
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
+
+  void removeEmptyNode(HLNode *Node) {
+    if (HLIf *If = dyn_cast<HLIf>(Node)) {
+      postVisit(If);
+    } else if (HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
+      postVisit(Loop);
+    } else if (HLRegion *Region = dyn_cast<HLRegion>(Node)) {
+      postVisit(Region);
+    }
+  }
+
+  bool isChanged() const { return Changed; }
 };
+
+struct EmptyNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {};
+
+class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
+  const HLNode *SkipNode;
+
+public:
+  RedundantNodeRemoverVisitor() : SkipNode(nullptr) {}
+
+  void visit(HLLoop *Loop) {
+    uint64_t TripCount;
+
+    bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
+    if (ConstTripLoop && TripCount == 0) {
+      RedundantLoops++;
+      invalidateParent(Loop);
+
+      SkipNode = Loop;
+      HLNodeUtils::remove(Loop);
+      Changed = true;
+    }
+  }
+
+  void visit(HLIf *If) {
+    bool IsTrue;
+    if (If->isKnownPredicate(&IsTrue)) {
+      RedundantPredicates++;
+      invalidateParent(If);
+
+      // Go over nodes that are not going to be removed. If the predicate is
+      // always TRUE the else branch will be removed.
+      if (IsTrue) {
+        HLNodeUtils::visitRange(*this, If->then_begin(), If->then_end());
+      } else {
+        HLNodeUtils::visitRange(*this, If->else_begin(), If->else_end());
+      }
+
+      SkipNode = If;
+      HLNodeUtils::replaceNodeWithBody(If, IsTrue);
+      Changed = true;
+    }
+  }
+
+  void visit(HLNode *) {}
+
+  virtual bool skipRecursion(const HLNode *Node) const {
+    return Node == SkipNode;
+  }
+
+  void removeParentEmptyNodes(HLNode *Parent) {
+    if (!Parent || isa<HLRegion>(Parent)) {
+      return;
+    }
+
+    HLRegion *Region = Parent->getParentRegion();
+
+    bool SavedChanged = Changed;
+
+    while (Parent != Region && Changed) {
+      HLNode *NextParent = Parent->getParent();
+
+      Changed = false;
+      removeEmptyNode(Parent);
+
+      Parent = NextParent;
+    }
+    removeEmptyNode(Parent);
+
+    Changed = SavedChanged;
+  }
+};
+
 }
 
-void HLNodeUtils::removeEmptyNodes(HLNode *Node) {
-  EmptyLoopRemoverVisitor V;
+bool HLNodeUtils::removeEmptyNodes(HLNode *Node) {
+  EmptyNodeRemoverVisitor V;
   HLNodeUtils::visit(V, Node);
+  return V.isChanged();
 }
 
-void HLNodeUtils::removeEmptyNodesRange(HLContainerTy::iterator Begin,
+bool HLNodeUtils::removeEmptyNodesRange(HLContainerTy::iterator Begin,
                                         HLContainerTy::iterator End) {
-  EmptyLoopRemoverVisitor V;
+  EmptyNodeRemoverVisitor V;
   HLNodeUtils::visitRange(V, Begin, End);
+  return V.isChanged();
+}
+
+bool HLNodeUtils::removeRedundantNodes(HLNode *Node,
+                                       bool RemoveEmptyParentNodes) {
+  HLNode *Parent = Node->getParent();
+
+  RedundantNodeRemoverVisitor V;
+  HLNodeUtils::visit(V, Node);
+
+  if (RemoveEmptyParentNodes) {
+    V.removeParentEmptyNodes(Parent);
+  }
+
+  return V.isChanged();
+}
+
+bool HLNodeUtils::removeRedundantNodes(HLContainerTy::iterator Begin,
+                                       HLContainerTy::iterator End,
+                                       bool RemoveEmptyParentNodes) {
+  HLNode *Parent = Begin->getParent();
+
+  RedundantNodeRemoverVisitor V;
+  HLNodeUtils::visitRange(V, Begin, End);
+
+  if (RemoveEmptyParentNodes) {
+    V.removeParentEmptyNodes(Parent);
+  }
+
+  return V.isChanged();
 }

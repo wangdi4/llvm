@@ -594,8 +594,8 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   if (!Result) {
     return nullptr;
   }
-  Result->addConstant(StrideConst, true);
   Result->divide(StrideConst);
+  Result->addConstant(StrideConst, true);
   Result->simplify(true);
   return Result;
 }
@@ -711,26 +711,40 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
-
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+  bool ConstantTripLoop = false;
   int64_t TC;
-  std::unique_ptr<CanonExpr> TripCExpr(getTripCountCanonExpr());
 
-  if (TripCExpr.get() && TripCExpr->isIntConstant(&TC)) {
-    assert((TC != 0) && " Zero Trip Loop found!");
+  if (isNormalized()) {
+    const CanonExpr *UpperBound = getUpperCanonExpr();
 
-    if (TripCnt) {
-      // This signed to unsigned conversion should be safe as all the negative
-      // trip counts which fit in signed 64 bits have been converted to postive
-      // integers by parser. Reinterpreting negative signed 64 values (which are
-      // outside the range) as an unsigned 64 bit value is correct for trip
-      // counts.
-      *TripCnt = TC;
+    if (UpperBound->isIntConstant(&TC)) {
+      ConstantTripLoop = true;
+      TC += 1;
     }
-    return true;
+  } else {
+    if (CanonExprUtils::getConstDistance(getUpperCanonExpr(),
+                                         getLowerCanonExpr(), &TC)) {
+      TC /= getStrideCanonExpr()->getConstant();
+      TC += 1;
+
+      ConstantTripLoop = true;
+    }
   }
 
-  return false;
+  assert((AllowZeroTripCnt || !ConstantTripLoop || (TC != 0)) &&
+         " Zero Trip Loop found!");
+
+  if (ConstantTripLoop && TripCnt) {
+    // This signed to unsigned conversion should be safe as all the negative
+    // trip counts which fit in signed 64 bits have been converted to postive
+    // integers by parser. Reinterpreting negative signed 64 values (which are
+    // outside the range) as an unsigned 64 bit value is correct for trip
+    // counts.
+    *TripCnt = TC;
+  }
+
+  return ConstantTripLoop;
 }
 
 void HLLoop::createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,

@@ -27,9 +27,11 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 
 #define DEBUG_TYPE "hir-dummy"
 
@@ -42,6 +44,10 @@ static cl::opt<bool>
 
 static cl::opt<bool> MarkModified("hir-dummy-cg", cl::init(false), cl::Hidden,
                                   cl::desc("Mark all HIR regions as modified"));
+
+static cl::opt<bool> RemoveIntelDirectives("hir-dummy-remove-intel-directives",
+                                           cl::init(false), cl::Hidden,
+                                           cl::desc("Remove Intel directives"));
 
 namespace {
 
@@ -109,6 +115,20 @@ bool HIRDummyTransformation::runOnFunction(Function &F) {
   auto HIRF = &getAnalysis<HIRFramework>();
   NodeVisitor V;
   HIRF->getHLNodeUtils().visitAll(V);
+
+  if (RemoveIntelDirectives) {
+    ForEach<HLInst>::visitRange(
+        HIRF->hir_begin(), HIRF->hir_end(), [](HLInst *Inst) {
+          Intrinsic::ID IntrinID;
+
+          if (!Inst->isIntrinCall(IntrinID) ||
+              !vpo::VPOAnalysisUtils::isIntelDirective(IntrinID)) {
+            return;
+          }
+
+          HLNodeUtils::remove(Inst);
+        });
+  }
 
   return false;
 }

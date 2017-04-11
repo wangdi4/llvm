@@ -378,7 +378,8 @@ public:
 
   /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr,
+                       bool AllowZeroTripCount = false) const;
 
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {

@@ -462,6 +462,9 @@ public:
   }
   const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
 
+  bool hasBlobDDRefs() const { return !BlobDDRefs.empty(); }
+  unsigned numBlobDDRefs() const { return BlobDDRefs.size(); }
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef *Ref) {
     return Ref->getDDRefID() == DDRef::RegDDRefVal;

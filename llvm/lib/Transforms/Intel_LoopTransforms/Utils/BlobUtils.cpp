@@ -303,14 +303,23 @@ void BlobUtils::collectTempBlobs(unsigned BlobIndex,
   mapBlobsToIndices(TempBlobs, TempBlobIndices);
 }
 
-bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
-  return getHIRParser().replaceTempBlob(BlobIndex, OldTempIndex, NewTempIndex,
-                                        NewBlobIndex);
+bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
+                                unsigned NewTempIndex, unsigned &NewBlobIndex,
+                                int64_t &SimplifiedConstant) {
+  return getHIRParser().replaceTempBlob(BlobIndex, TempIndex,
+                                        getBlob(NewTempIndex), NewBlobIndex,
+                                        SimplifiedConstant);
+}
+
+bool BlobUtils::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
+                                int64_t Constant, unsigned &NewBlobIndex,
+                                int64_t &SimplifiedConstant) {
+  return getHIRParser().replaceTempBlobByConstant(
+      BlobIndex, TempIndex, Constant, NewBlobIndex, SimplifiedConstant);
 }
 
 Value *BlobUtils::getTempBlobValue(BlobTy Blob) {
-  assert(isTempBlob(Blob) && "BlobIndex is not a temp blob");
+  assert(isTempBlob(Blob) && "Blob is not a temp blob");
   return cast<SCEVUnknown>(Blob)->getValue();
 }
 
@@ -409,4 +418,47 @@ unsigned BlobUtils::getNumOperations(BlobTy Blob) {
 
 unsigned BlobUtils::getNumOperations(unsigned BlobIndex) const {
   return getNumOperations(getBlob(BlobIndex));
+}
+
+bool BlobUtils::getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Val) {
+  Value *BlobVal = getTempBlobValue(Blob);
+
+  PHINode *Phi = dyn_cast<PHINode>(BlobVal);
+  if (!Phi || Phi->getNumIncomingValues() < 3) {
+    return false;
+  }
+
+  typedef DenseMap<Value *, unsigned> HistTy;
+  HistTy Hist;
+  for (Value *Op : make_range(Phi->value_op_begin(), Phi->value_op_end())) {
+    Hist[Op]++;
+  }
+
+  auto MinIter = std::max_element(
+      Hist.begin(), Hist.end(),
+      [](const HistTy::value_type &A, const HistTy::value_type &B) {
+        return A.second < B.second;
+      });
+
+  assert(MinIter != Hist.end() && "No max element?");
+
+  // Return false if the probability is less then 2/3.
+  if (3 * MinIter->second < 2 * Phi->getNumIncomingValues()) {
+    return false;
+  }
+
+  Value *ProbableValue = MinIter->first;
+
+  ConstantInt *ConstValue = dyn_cast<ConstantInt>(ProbableValue);
+  if (!ConstValue) {
+    return false;
+  }
+
+  Val = ConstValue->getValue().getSExtValue();
+  return true;
+}
+
+bool BlobUtils::getTempBlobMostProbableConstValue(unsigned BlobIndex,
+                                                  int64_t &Val) const {
+  return getTempBlobMostProbableConstValue(getBlob(BlobIndex), Val);
 }

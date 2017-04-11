@@ -234,11 +234,21 @@ public:
   void collectTempBlobs(unsigned BlobIndex,
                         SmallVectorImpl<unsigned> &TempBlobIndices);
 
-  /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
-  /// the new blob in \p NewBlobIndex. Returns true if substitution was
-  /// performed.
-  bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                       unsigned NewTempIndex, unsigned &NewBlobIndex);
+  /// Replaces \p TempIndex by \p NewTempIndex in \p BlobIndex and returns
+  /// the new blob in \p NewBlobIndex. If the blob becomes constant the
+  /// \p NewBlobIndex will be assigned to InvalidBlobIndex and
+  /// \p SimplifiedConstant will contain a constant value.
+  /// Returns true if substitution was performed.
+  bool replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
+                       unsigned NewTempIndex, unsigned &NewBlobIndex,
+                       int64_t &SimplifiedConstant);
+
+  /// Replaces \p TempIndex by \p Constant in the \p BlobIndex blob. If the blob
+  /// becomes constant the \p NewBlobIndex will be assigned to InvalidBlobIndex
+  /// and \p SimplifiedConstant will contain a constant value.
+  /// Returns true if substitution was performed.
+  bool replaceTempBlob(unsigned BlobIndex, unsigned TempIndex, int64_t Constant,
+                       unsigned &NewBlobIndex, int64_t &SimplifiedConstant);
 
   /// Returns the number of operations in the blob. 
   /// For example, blob = (a + 2 * b) has 2 operations.
@@ -248,6 +258,12 @@ public:
   /// Returns underlying LLVM value for the temp blob.
   static Value *getTempBlobValue(BlobTy Blob);
   Value *getTempBlobValue(unsigned BlobIndex) const;
+
+  /// Returns true if the \p Blob most probable constant value is available.
+  /// It will be stored in \p Value.
+  static bool getTempBlobMostProbableConstValue(BlobTy Blob, int64_t &Value);
+  bool getTempBlobMostProbableConstValue(unsigned BlobIndex,
+                                         int64_t &Val) const;
 };
 
 } // End namespace loopopt

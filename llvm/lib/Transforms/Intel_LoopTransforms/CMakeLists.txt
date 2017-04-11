@@ -24,6 +24,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRVecDirInsert.cpp
         HIROptVarPredicate.cpp
         HIRIdiomRecognition.cpp
+        HIRMVForConstUB.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

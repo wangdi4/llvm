@@ -561,8 +561,7 @@ bool HIROptPredicate::transformClones(HLLoop *TargetLoop,
 
   for (HLIf *Clone : Candidate.Clones) {
     if (HLNodeUtils::contains(Candidate.If, Clone, false)) {
-      HIRTransformUtils::replaceNodeWithBody(Clone,
-                                             Candidate.If->isThenChild(Clone));
+      HLNodeUtils::replaceNodeWithBody(Clone, Candidate.If->isThenChild(Clone));
     } else {
       if (!NewCandidatePtr) {
         DEBUG(dbgs() << "Found new candidate: ");

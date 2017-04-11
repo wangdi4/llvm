@@ -152,7 +152,6 @@ struct LoopContext {
 class HIRRuntimeDD : public HIRTransformPass {
 public:
   static char ID;
-  HIRLoopStatistics *HLS;
 
   HIRRuntimeDD() : HIRTransformPass(ID) {
     initializeHIRRuntimeDDPass(*PassRegistry::getPassRegistry());
@@ -169,11 +168,13 @@ public:
   }
 
 private:
+  HIRLoopStatistics *HLS;
+
 #ifndef NDEBUG
   static const char *getResultString(RuntimeDDResult Result);
 #endif
 
-  struct LoopAnalyzer;
+  struct MemoryAliasAnalyzer;
 
   /// Returns true if \p Loop is considered as profitable for multiversioning.
   bool isProfitable(const HLLoop *Loop);

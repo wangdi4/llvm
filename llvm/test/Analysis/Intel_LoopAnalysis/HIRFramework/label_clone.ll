@@ -29,7 +29,7 @@ target triple = "x86_64-unknown-linux-gnu"
 
 @A = internal global [5 x i32] zeroinitializer, align 16
 
-define i32 @main() {
+define i32 @main(i32 %b) {
 entry:
   br label %do.body
 
@@ -38,21 +38,21 @@ do.body:                                          ; preds = %do.cond, %entry
   %idxprom = sext i32 %i.0 to i64
   %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0, i64 %idxprom
   store i32 %i.0, i32* %arrayidx, align 4
-  %cmp = icmp eq i32 %i.0, 0
+  %cmp = icmp sgt i32 %i.0, 100
   br i1 %cmp, label %if.then, label %if.end
 
 if.then:                                          ; preds = %do.body
   br label %L1
 
 if.end:                                           ; preds = %do.body
-  %cmp1 = icmp eq i32 %i.0, 1
+  %cmp1 = icmp slt i32 %i.0, %b
   br i1 %cmp1, label %if.then.2, label %if.end.3
 
 if.then.2:                                        ; preds = %if.end
   br label %L2
 
 if.end.3:                                         ; preds = %if.end
-  %cmp4 = icmp eq i32 %i.0, 2
+  %cmp4 = icmp slt i32 %i.0, %b
   br i1 %cmp4, label %if.then.5, label %if.end.6
 
 if.then.5:                                        ; preds = %if.end.3

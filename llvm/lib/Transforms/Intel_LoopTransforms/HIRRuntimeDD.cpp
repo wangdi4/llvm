@@ -131,11 +131,11 @@ STATISTIC(LoopsMultiversioned, "Number of loops multiversioned by runtime DD");
 STATISTIC(OuterLoopsMultiversioned,
           "Number of outer loops multiversioned by runtime DD");
 
-struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
+struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
   SmallVector<LoopContext, 16> LoopContexts;
   HIRRuntimeDD *RDD;
 
-  LoopAnalyzer(HIRRuntimeDD *RDD) : RDD(RDD), SkipNode(nullptr) {}
+  MemoryAliasAnalyzer(HIRRuntimeDD *RDD) : RDD(RDD), SkipNode(nullptr) {}
 
   void visit(HLNode *) {}
   void postVisit(HLNode *) {}
@@ -867,18 +867,19 @@ bool HIRRuntimeDD::runOnFunction(Function &F) {
   }
 
   HLS = &getAnalysis<HIRLoopStatistics>();
-  auto HIRF = &getAnalysis<HIRFramework>();
+  auto &HIRF = getAnalysis<HIRFramework>();
+  auto &HNU = HIRF.getHLNodeUtils();
+
   DEBUG(dbgs() << "HIRRuntimeDD for function: " << F.getName() << "\n");
 
-  LoopAnalyzer LA(this);
-  HIRF->getHLNodeUtils().visitAll(LA);
+  // Multiversion for memory aliasing.
+  MemoryAliasAnalyzer AliasAnalyzer(this);
+  HNU.visitAll(AliasAnalyzer);
 
-  if (LA.LoopContexts.size() == 0) {
-    return false;
-  }
-
-  for (LoopContext &Candidate : LA.LoopContexts) {
-    generateDDTest(Candidate);
+  if (AliasAnalyzer.LoopContexts.size() != 0) {
+    for (LoopContext &Candidate : AliasAnalyzer.LoopContexts) {
+      generateDDTest(Candidate);
+    }
   }
 
   return true;

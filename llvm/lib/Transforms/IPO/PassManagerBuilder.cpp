@@ -1076,6 +1076,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   if (!RunLoopOptFrameworkOnly) {
     PM.add(createHIRParDirInsertPass());
     PM.add(createHIRRuntimeDDPass());
+    PM.add(createHIRMVForConstUBPass());
     PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());

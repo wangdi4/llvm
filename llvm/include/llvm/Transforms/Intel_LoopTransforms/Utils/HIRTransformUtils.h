@@ -214,15 +214,6 @@ public:
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,
                                HLNode *End);
-
-  /// Removes HLIfs that always evaluates as either true or false and
-  /// returns true whenever HLIfs were removed. The utility doesn't
-  /// invalidate analysis.
-  static bool eliminateRedundantPredicates(HLContainerTy::iterator Begin,
-                                           HLContainerTy::iterator End);
-
-  // Replaces HLIf with its *then* or *else* body.
-  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
 };
 
 } // End namespace loopopt

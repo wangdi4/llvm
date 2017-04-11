@@ -510,35 +510,60 @@ void HIRParser::collectTempBlobs(BlobTy Blob,
   Collector.visitAll(Blob);
 }
 
-bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
-  auto OldTempBlob = getBlob(OldTempIndex);
-  auto NewTempBlob = getBlob(NewTempIndex);
+bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
+                                BlobTy ByBlob, unsigned &NewBlobIndex,
+                                int64_t &SimplifiedConstant) {
+  auto TempBlob = getBlob(TempIndex);
 
-  assert(isTempBlob(OldTempBlob) && "Old Index is not a temp!");
-  assert(isTempBlob(NewTempBlob) && "New Index is not a temp!");
+  assert(isTempBlob(TempBlob) && "TempIndex is not a temp!");
 
-  if (BlobIndex == OldTempIndex) {
-    NewBlobIndex = NewTempIndex;
+  const SCEVConstant *ConstantBlob = dyn_cast<SCEVConstant>(ByBlob);
+
+  if (BlobIndex == TempIndex) {
+    if (ConstantBlob) {
+      NewBlobIndex = InvalidBlobIndex;
+      SimplifiedConstant = ConstantBlob->getAPInt().getSExtValue();
+    } else {
+      NewBlobIndex = findBlob(ByBlob);
+    }
+
     return true;
   }
 
-  auto OldBlob = getBlob(BlobIndex);
+  auto Blob = getBlob(BlobIndex);
+
+  Value *ReplaceByValue = ConstantBlob ? ConstantBlob->getValue()
+                                       : cast<SCEVUnknown>(ByBlob)->getValue();
 
   ValueToValueMap Map;
+  Map.insert(
+      std::make_pair(cast<SCEVUnknown>(TempBlob)->getValue(), ReplaceByValue));
 
-  Map.insert(std::make_pair(cast<SCEVUnknown>(OldTempBlob)->getValue(),
-                            cast<SCEVUnknown>(NewTempBlob)->getValue()));
+  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, *SE, Map, true);
 
-  auto NewBlob = SCEVParameterRewriter::rewrite(getBlob(BlobIndex), *SE, Map);
-
-  if (OldBlob == NewBlob) {
+  if (Blob == NewBlob) {
     NewBlobIndex = BlobIndex;
     return false;
   }
 
-  NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  if (const SCEVConstant *ConstantBlob = dyn_cast<SCEVConstant>(NewBlob)) {
+    NewBlobIndex = InvalidBlobIndex;
+    SimplifiedConstant = ConstantBlob->getAPInt().getSExtValue();
+  } else {
+    NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  }
+
   return true;
+}
+
+bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
+                                          unsigned TempIndex, int64_t Constant,
+                                          unsigned &NewBlobIndex,
+                                          int64_t &SimplifiedConstant) {
+  auto TempBlob = getBlob(TempIndex);
+  BlobTy ConstantBlob = SE->getConstant(TempBlob->getType(), Constant, true);
+  return replaceTempBlob(BlobIndex, TempIndex, ConstantBlob, NewBlobIndex,
+                         SimplifiedConstant);
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {

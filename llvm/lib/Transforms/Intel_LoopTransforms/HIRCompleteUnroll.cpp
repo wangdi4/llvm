@@ -1374,33 +1374,21 @@ void HIRCompleteUnroll::transformLoops() {
   for (auto &Loop : CandidateLoops) {
 
     bool HasIfs = HLS->getTotalLoopStatistics(Loop).hasIfs();
-    bool EliminatedPredicates = false;
 
     auto Reg = Loop->getParentRegion();
+    HLNode *ParentNode = Loop->getParentLoop();
+    if (!ParentNode) {
+      ParentNode = Reg;
+    }
 
     // Generate code for the parent region and invalidate parent
     Reg->setGenCode();
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
-    HLLoop *ParentLoop = Loop->getParentLoop();
-    HLNode *OuterParent = Loop->getOutermostParentLoop();
-
-    if (!OuterParent) {
-      OuterParent = Reg;
-    }
-
     transformLoop(Loop, Loop, TripValues);
 
-    if (ParentLoop && HasIfs) {
-      EliminatedPredicates = HIRTransformUtils::eliminateRedundantPredicates(
-          ParentLoop->child_begin(), ParentLoop->child_end());
-    }
-
-    if (HasIfs || EliminatedPredicates) {
-      // Both complete unroll and redundant predicate elimination can produce
-      // empty nodes. We need to run empty node removal on the outermost parent
-      // to be on the safe side.
-      HLNodeUtils::removeEmptyNodes(OuterParent);
+    if (HasIfs) {
+      HLNodeUtils::removeRedundantNodes(ParentNode);
     }
   }
 }

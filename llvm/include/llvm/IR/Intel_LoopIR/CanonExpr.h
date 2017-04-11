@@ -240,6 +240,12 @@ protected:
   void simplifyConstantDenom();
   void simplifyConstantCast();
 
+  /// Replaces temp blob with \p TempIndex by new blob with \p Operand index or
+  /// constant, depending on the \p IsConstant template argument.
+  /// Returns true if it is replaced.
+  template <bool IsConstant, typename T>
+  bool replaceTempBlobImpl(unsigned TempIndex, T Operand);
+
 public:
   /// Returns parent CanonExprUtils object.
   CanonExprUtils &getCanonExprUtils() const { return CEU; }
@@ -632,9 +638,12 @@ public:
   /// Replaces an old blob with a new one (including blob IV coeffs).
   void replaceBlob(unsigned OldIndex, unsigned NewIndex);
 
-  /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
-  /// it exists in CE. Returns true if it is replaced.
-  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
+  /// Replaces temp blob with \p OldTempIndex by new temp blob with
+  /// \p NewTempIndex, if it exists in CE. Returns true if it is replaced.
+  bool replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex);
+
+  /// Replaces the blob with \p OldTempIndex by the \p Constant value.
+  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
 
   /// Clears everything from the CanonExpr except Type. Denominator is set to 1.
   void clear();
