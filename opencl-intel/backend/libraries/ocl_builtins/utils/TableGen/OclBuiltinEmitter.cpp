@@ -96,6 +96,7 @@ OclType::OclType(const OclBuiltinDB& DB, const Record* R)
 , m_VecLength(R->getValueAsInt("VecLength"))
 , m_BitWidth(R->getValueAsInt("BitWidth"))
 , m_Suffix(R->getValueAsString("Suffix"))
+, m_VTypeSuffix(R->getValueAsString("VTypeSuffix"))
 , m_SVMLSuffix(R->getValueAsString("SVMLSuffix"))
 , m_SVMLDSuffix(R->getValueAsString("SVMLDSuffix"))
 , m_SVMLFSuffix(R->getValueAsString("SVMLFSuffix"))
@@ -1194,6 +1195,8 @@ OclBuiltinDB::rewritePattern(const OclBuiltin* OB, const OclType* OT, const std:
           val = OT->getLoSuffix();
         } else if ("$HiSuffix" == pat) {
           val = OT->getHiSuffix();
+        } else if ("$VTypeSuffix" == pat) {
+          val = OT->getVTypeSuffix();
         } else if ("$SVMLSuffix" == pat) {
           val = OT->getSVMLSuffix();
         } else if ("$SVMLDSuffix" == pat) {

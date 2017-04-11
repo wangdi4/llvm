@@ -104,7 +104,6 @@ int __ovld atomic_load_explicit(__global volatile atomic_int *object,
                                 memory_order order);
 void __ovld atomic_store_explicit(__global volatile atomic_int *object,
                                   int desired, memory_order order);
-
 // Debug switches
 #define DEBUG_ASSERTS 0
 
@@ -125,14 +124,35 @@ static bool is_buffer_full(const struct __pipe_internal_buf* b) {
   return b->size >= b->limit;
 }
 
-static __global void* get_packet_ptr(__global struct __pipe_t* p, int index) {
+int get_buffer_capacity(const struct __pipe_internal_buf* b) {
+    return b->limit - b->size;
+}
+
+__global void* get_packet_ptr(__global struct __pipe_t* p, int index) {
   // memory for packets is co-allocated *after* the __pipe_t struct
   __global char* packets_begin = (__global char*)(p + 1);
   return packets_begin + index * p->packet_size;
 }
 
+bool reserve_write_buffer(struct __pipe_internal_buf* b, int capacity) {
+  if (!(capacity >= b->limit))
+    return false; // pipe is full
+
+  b->size = 0;
+  return true;
+}
+
+bool reserve_read_buffer(struct __pipe_internal_buf* b, int capacity) {
+  b->limit = min(capacity, PIPE_READ_BUF_PREFERRED_LIMIT);
+  if (!(b->limit))
+    return false; // pipe doesn't contain enough elements to read
+
+  b->size = 0;
+  return true;
+}
+
 /// Return next nth item from circular buffer
-static int advance(__global const struct __pipe_t* p, int index, int offset) {
+int advance(__global const struct __pipe_t* p, int index, int offset) {
   ASSERT(offset < p->max_packets);
   ASSERT(offset >= 0);
   int new = index + offset;
@@ -151,8 +171,7 @@ static int dist(__global const struct __pipe_t* p,
   ASSERT(res >= 0);
   return res;
 }
-
-static int get_read_capacity(__global struct __pipe_t* p) {
+int get_read_capacity(__global struct __pipe_t* p) {
   int head = atomic_load_explicit(&p->head, memory_order_relaxed);
   int tail = atomic_load_explicit(&p->tail, memory_order_acquire);
 
@@ -160,7 +179,7 @@ static int get_read_capacity(__global struct __pipe_t* p) {
   return result;
 }
 
-static int get_write_capacity(__global struct __pipe_t* p) {
+int get_write_capacity(__global struct __pipe_t* p) {
   int head = atomic_load_explicit(&p->head, memory_order_acquire);
   int tail = atomic_load_explicit(&p->tail, memory_order_relaxed);
 
@@ -172,8 +191,12 @@ static int get_write_capacity(__global struct __pipe_t* p) {
 
 void __pipe_init_intel(__global struct __pipe_t* p,
                        int packet_size, int max_packets) {
+  // p->max_packets should be more then maximum of supported VL
+  if (max_packets <= MAX_VL_SUPPORTED_BY_PIPES)
+    max_packets = MAX_VL_SUPPORTED_BY_PIPES;
+
   p->packet_size = packet_size;
-  p->max_packets = max_packets + 1;// reserve one element b/w head and tail
+  p->max_packets = max_packets + 1; // reserve one element b/w head and tail
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -183,7 +206,10 @@ void __pipe_init_intel(__global struct __pipe_t* p,
 
   p->write_buf.end = 0;
   p->write_buf.size = -1;
-  p->write_buf.limit = min(max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT);
+
+  // Ensure that write buffer limit is a multiple of max supported vector length
+  p->write_buf.limit = min(max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT) &
+                       (- MAX_VL_SUPPORTED_BY_PIPES);
 }
 
 void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
@@ -221,15 +247,9 @@ int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
   __global struct __pipe_internal_buf* buf = &p->read_buf;
 
   if (buf->size < 0) {
-    buf->limit = min(get_read_capacity(p),
-                     PIPE_READ_BUF_PREFERRED_LIMIT);
-    if (buf->limit) {
-      // allow write to the buffer
-      buf->size = 0;
-    } else {
-      // pipe is empty
+    // Try to reserve a buffer
+    if (!reserve_read_buffer(buf, get_read_capacity(p)))
       return -1;
-    }
   }
 
   __builtin_memcpy(dst, get_packet_ptr(p, buf->end), p->packet_size);
@@ -247,13 +267,9 @@ int __write_pipe_2_intel(__global struct __pipe_t* p, void* src) {
   __global struct __pipe_internal_buf* buf = &p->write_buf;
 
   if (buf->size < 0) {
-    if (get_write_capacity(p) >= buf->limit) {
-      // allow write to the buffer
-      buf->size = 0;
-    } else {
-      // pipe is full
+    // Try to reserve a buffer
+    if (!reserve_write_buffer(buf, get_write_capacity(p)))
       return -1;
-    }
   }
 
   __builtin_memcpy(get_packet_ptr(p, buf->end), src, p->packet_size);

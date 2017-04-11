@@ -100,7 +100,7 @@ static bool insertFlushCall(Module &M, CallInst *PipeCall,
       continue;
     }
 
-    assert(PipeCall->getNumArgOperands() > 1
+    assert(PipeCall->getNumArgOperands() > 0
            && "Unexpected number of arguments");
 
     Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();

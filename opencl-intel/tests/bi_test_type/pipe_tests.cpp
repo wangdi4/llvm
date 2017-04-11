@@ -255,3 +255,193 @@ TEST_F(PipeTest, SmallMaxPackets) {
     clFinish(q2);
   }
 }
+TEST_F(PipeTest, VectorSinglePacket) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_single_packet_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 250; ++i) {
+    error = enqueueSingleWI(q1, "vector_single_packet_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_single_packet_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, VectorMultiplePackets) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_mult_packets_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_mult_packets_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_mult_packets_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, VectorReaderScalarWriter) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_vr_sw_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_vr_sw_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_vr_sw_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, ScalarReaderVectorWriter) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_sr_vw_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_sr_vw_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_sr_vw_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+// Do not run this tests set on VPO branch due to compilation fails
+TEST_F(PipeTest, CheckVectorWrapping) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_wrapping_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_wrapping_reader1");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_wrapping_writer1");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_wrapping_reader2");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_wrapping_writer2");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_wrapping_reader3");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_wrapping_writer3");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, VectorBigMaxPackets) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int vector_max_packets[] = { 128,
+                           200, 250, 256, 257, 1024, 2048,
+                           1024 * 8, 1024 * 16,
+                           1024 * 8 + 5, 1024 * 16 - 3,
+                           1024 * 32, 1024 * 64 };
+
+  cl_kernel init = createKernel("vector_max_packets_init");
+  ASSERT_TRUE(init != nullptr);
+
+  for (cl_int vector_max_p : vector_max_packets) {
+    clSetKernelArg(init, 0, sizeof(cl_int), &vector_max_p);
+    cl_int error = enqueueSingleWI(q1, init);
+    ASSERT_EQ(error, CL_SUCCESS);
+    clFinish(q1);
+
+    error = enqueueSingleWI(q1, "vector_max_packets_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_max_packets_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, VectorSmallMaxPackets) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  std::vector<cl_int> vector_max_packets;
+  for (cl_int i = 1; i < 256; ++i) {
+    vector_max_packets.push_back(i);
+  }
+
+  cl_kernel init = createKernel("vector_max_packets_init");
+  ASSERT_TRUE(init != nullptr);
+
+  for (cl_int vector_max_p : vector_max_packets) {
+    clSetKernelArg(init, 0, sizeof(cl_int), &vector_max_p);
+    cl_int error = enqueueSingleWI(q1, init);
+    ASSERT_EQ(error, CL_SUCCESS);
+    clFinish(q1);
+
+    error = enqueueSingleWI(q1, "vector_max_packets_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_max_packets_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}
+TEST_F(PipeTest, VectorBruteForce) {
+  auto q1 = createCommandQueue();
+  auto q2 = createCommandQueue();
+  ASSERT_TRUE(q1 != nullptr && q2 != nullptr);
+
+  cl_int error = enqueueSingleWI(q1, "vector_bruteforce_init");
+  ASSERT_EQ(error, CL_SUCCESS);
+  clFinish(q1);
+
+  for (int i = 0; i < 100; ++i) {
+    error = enqueueSingleWI(q1, "vector_bruteforce_reader");
+    ASSERT_EQ(error, CL_SUCCESS);
+    error = enqueueSingleWI(q2, "vector_bruteforce_writer");
+    ASSERT_EQ(error, CL_SUCCESS);
+
+    clFinish(q1);
+    clFinish(q2);
+  }
+}

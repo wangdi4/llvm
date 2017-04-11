@@ -38,6 +38,10 @@ static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
 
   memset((char*)p, 0, sizeof(__pipe_t));
 
+  // p->max_packets should be more then maximum of supported VL
+  if (max_packets <= MAX_VL_SUPPORTED_BY_PIPES)
+    max_packets = MAX_VL_SUPPORTED_BY_PIPES;
+
   p->packet_size = packet_size;
   p->max_packets = max_packets + 1;// reserve one element b/w head and tail
 
@@ -45,8 +49,10 @@ static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
   p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
 
   p->write_buf.size = -1;
+  // Ensure that write buffer limit is a multiple of max supported vector length
   p->write_buf.limit = std::min((int)max_packets,
-                                PIPE_WRITE_BUF_PREFERRED_LIMIT);
+                                PIPE_WRITE_BUF_PREFERRED_LIMIT)
+                       & (- MAX_VL_SUPPORTED_BY_PIPES);
 }
 
 #else // BUILD_FPGA_EMULATOR

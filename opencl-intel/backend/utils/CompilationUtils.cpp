@@ -1079,17 +1079,17 @@ bool CompilationUtils::isAtomicWorkItemFenceBuiltin(const std::string& funcName)
 bool CompilationUtils::isPipeBuiltin(const std::string &Name) {
   return llvm::StringSwitch<bool>(Name)
 #ifdef BUILD_FPGA_EMULATOR
-    .Case("__read_pipe_2_intel", true)
-    .Case("__read_pipe_4_intel", true)
-    .Case("__read_pipe_2_bl_intel", true)
-    .Case("__write_pipe_2_intel", true)
-    .Case("__write_pipe_4_intel", true)
-    .Case("__write_pipe_2_bl_intel", true)
+    .StartsWith("__read_pipe_2_intel", true)
+    .StartsWith("__read_pipe_4_intel", true)
+    .StartsWith("__read_pipe_2_bl_intel", true)
+    .StartsWith("__write_pipe_2_intel", true)
+    .StartsWith("__write_pipe_4_intel", true)
+    .StartsWith("__write_pipe_2_bl_intel", true)
 #else
-    .Case("__read_pipe_2", true)
-    .Case("__read_pipe_4", true)
-    .Case("__write_pipe_2", true)
-    .Case("__write_pipe_4", true)
+    .StartsWith("__read_pipe_2", true)
+    .StartsWith("__read_pipe_4", true)
+    .StartsWith("__write_pipe_2", true)
+    .StartsWith("__write_pipe_4", true)
 #endif
     .Case("__sub_group_commit_read_pipe", true)
     .Case("__sub_group_reserve_read_pipe", true)
@@ -1107,12 +1107,12 @@ bool CompilationUtils::isPipeBuiltin(const std::string &Name) {
 bool CompilationUtils::isReadPipeBuiltin(const std::string &Name) {
   return llvm::StringSwitch<bool>(Name)
 #ifdef BUILD_FPGA_EMULATOR
-    .Case("__read_pipe_2_intel", true)
-    .Case("__read_pipe_4_intel", true)
-    .Case("__read_pipe_2_bl_intel", true)
+    .StartsWith("__read_pipe_2_intel", true)
+    .StartsWith("__read_pipe_4_intel", true)
+    .StartsWith("__read_pipe_2_bl_intel", true)
 #else
-    .Case("__read_pipe_2", true)
-    .Case("__read_pipe_4", true)
+    .StartsWith("__read_pipe_2", true)
+    .StartsWith("__read_pipe_4", true)
 #endif
     .Default(false);
 }
@@ -1120,12 +1120,12 @@ bool CompilationUtils::isReadPipeBuiltin(const std::string &Name) {
 bool CompilationUtils::isWritePipeBuiltin(const std::string &Name) {
   return llvm::StringSwitch<bool>(Name)
 #ifdef BUILD_FPGA_EMULATOR
-    .Case("__write_pipe_2_intel", true)
-    .Case("__write_pipe_4_intel", true)
-    .Case("__write_pipe_2_bl_intel", true)
+    .StartsWith("__write_pipe_2_intel", true)
+    .StartsWith("__write_pipe_4_intel", true)
+    .StartsWith("__write_pipe_2_bl_intel", true)
 #else
-    .Case("__write_pipe_2", true)
-    .Case("__write_pipe_4", true)
+    .StartsWith("__write_pipe_2", true)
+    .StartsWith("__write_pipe_4", true)
 #endif
     .Default(false);
 }

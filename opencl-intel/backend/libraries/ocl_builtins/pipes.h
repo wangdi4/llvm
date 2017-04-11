@@ -40,6 +40,8 @@
   #define ALIGNED(decl, alignment) decl ATTR_ALIGN(alignment)
 #endif
 
+#define MAX_VL_SUPPORTED_BY_PIPES 16
+
 struct __pipe_internal_buf {
   i32 end;   // index for a new element
   i32 size;  // number of elements in the buffer, -1 means a locked buffer
@@ -70,10 +72,20 @@ void __pipe_init_intel(__global struct __pipe_t* p,
                        int packet_size, int max_packets);
 void __flush_read_pipe(__global struct __pipe_t* p);
 void __flush_write_pipe(__global struct __pipe_t* p);
+
 int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst);
 int __write_pipe_2_intel(__global struct __pipe_t* p, void* src);
 int __read_pipe_2_bl_intel(__global struct __pipe_t* p, void* dst);
 int __write_pipe_2_bl_intel(__global struct __pipe_t* p, void* src);
+
+int get_buffer_capacity(const struct __pipe_internal_buf* b);
+__global void* get_packet_ptr(__global struct __pipe_t* p, int index);
+bool reserve_write_buffer(struct __pipe_internal_buf* b, int capacity);
+bool reserve_read_buffer(struct __pipe_internal_buf* b, int capacity);
+int advance(__global const struct __pipe_t* p, int index, int offset);
+int get_read_capacity(__global struct __pipe_t* p);
+int get_write_capacity(__global struct __pipe_t* p);
+
 #endif // __OPENCL_VERSION__
 
 #endif // __INTEL_PIPES_H__

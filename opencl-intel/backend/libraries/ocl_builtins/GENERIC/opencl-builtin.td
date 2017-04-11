@@ -13,6 +13,29 @@ class VectorSuffixString<int len> {
                  "__invalid__"))))));
 }
 
+class VectorVTypeSuffixString<string base, int len> {
+  string Length = !if(!eq(len,  1),  "v1",
+                  !if(!eq(len,  2),  "v2",
+                  !if(!eq(len,  3),  "v3",
+                  !if(!eq(len,  4),  "v4",
+                  !if(!eq(len,  8),  "v8",
+                  !if(!eq(len, 16), "v16",
+                  "__invalid__"))))));
+  string TypeName = !subst("double",  "f64",
+                    !subst("long",    "i64",
+                    !subst("ulong",   "u64",
+                    !subst("float",   "f32",
+                    !subst("half",    "f16",
+                    !subst("int",     "i32",
+                    !subst("uint",    "u32",
+                    !subst("short",   "i16",
+                    !subst("ushort",  "u16",
+                    !subst("char",    "i8",
+                    !subst("uchar",   "u8",
+                      base)))))))))));
+  string Value = !strconcat(Length, TypeName);
+}
+
 class VectorSVMLSuffixString<string base, int len> {
   string Length = !if(!eq(len,  1),  "1",
                   !if(!eq(len,  2),  "2",
@@ -125,6 +148,7 @@ class OclType<string name, string base, int length, int width, bit ptr> {
   string SVMLSuffix = VectorSVMLSuffixString<BaseCTypeName, VecLength>.Value;
   string SVMLDSuffix = VectorSVMLDSuffixString<BaseCTypeName, VecLength>.Value;
   string SVMLFSuffix = VectorSVMLFSuffixString<BaseCTypeName, VecLength>.Value;
+  string VTypeSuffix = VectorVTypeSuffixString<BaseCTypeName, VecLength>.Value;
   string CTypeName = !strconcat(BaseCTypeName, Suffix);
   bit IsPtr = ptr;
 }
@@ -193,6 +217,7 @@ defm atom_flag  : _OCLTYPE1_<"atom_flag", 1, 32, "atomic_flag">;
 def memory_order : OclType<"memory_order", "memory_order", 1, 32, 0>;
 def memory_scope : OclType<"memory_scope", "memory_scope", 1, 32, 0>;
 def bool : OclType<"bool", "bool", 1, 32, 0>;
+def global_struct_pipe_ptr : OclType<"global_struct_pipe_ptr", "__global struct __pipe_t", 1, 0, 1>;
 
 // Custom types
 def char32 : OclType<"char32", "__v32qi", 1, 0, 0>;
@@ -878,6 +903,7 @@ class TargetImpl {
   //
   // $Suffix
   // $SVMLSuffix
+  // $VTypeSuffix
   //
   // $Pattern
   // $BitWidth

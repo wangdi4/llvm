@@ -81,6 +81,8 @@ public:
 
   const std::string& getSuffix() const { return m_Suffix; }
 
+  const std::string& getVTypeSuffix() const { return m_VTypeSuffix; }
+
   const std::string& getSVMLSuffix() const { return m_SVMLSuffix; }
 
   const std::string& getSVMLDSuffix() const { return m_SVMLDSuffix; }
@@ -104,6 +106,7 @@ protected:
   int m_VecLength;
   int m_BitWidth;
   std::string m_Suffix;
+  std::string m_VTypeSuffix;
   std::string m_SVMLSuffix;
   std::string m_SVMLDSuffix;
   std::string m_SVMLFSuffix;

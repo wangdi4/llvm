@@ -2,6 +2,7 @@ include "GENERIC/opencl-builtin.td"
 include "GENERIC/opencl-v1.2.td"
 include "GENERIC/opencl-v2.0.td"
 include "GENERIC/ll_intrinsics.td"
+include "shared/opencl-pipes.td"
 
 class Generic : TargetImpl {
 // include Promote1_v3_to_v4, Promote2_v3_to_v4 codes
@@ -10,7 +11,7 @@ include "GENERIC/code_expand_promote_common.td"
 include "GENERIC/code_conversion_sat_common.td"
 include "GENERIC/code_integer_common.td"
 include "GENERIC/math_shared.td"
-include "GENERIC/conversion_shared.td" 
+include "GENERIC/conversion_shared.td"
 include "GENERIC/conversion_sat_shared.td"
 include "GENERIC/integer_shared.td"
 include "GENERIC/common_shared.td"
@@ -27,6 +28,7 @@ code Prolog = [{
 #include <intrin.h>
 #include "generic-builtin-defines.h"
 #include "cpu-builtin-defines.h"
+#include "pipes.h"
 }];
 
 include "shared/math.td"
@@ -36,6 +38,7 @@ include "shared/integers.td"
 include "shared/common.td"
 include "shared/geometric.td"
 include "shared/relational.td"
+include "shared/pipes.td"
 }
 
 def target : Shared {
