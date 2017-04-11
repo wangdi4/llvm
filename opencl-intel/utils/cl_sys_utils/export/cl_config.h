@@ -581,7 +581,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
 	protected:
         ConfigFile * m_pConfigFile;
 
-        cl_ulong ParseStringToSize(const std::string& userStr) const;
+        unsigned long ParseStringToSize(const std::string& userStr) const;
     };
 
 }}}
