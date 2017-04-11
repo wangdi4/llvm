@@ -84,7 +84,6 @@ static void getPipesMetadata(const Module &M,
   auto *MDs = M.getNamedMetadata("opencl.channels");
   if (!MDs) {
     llvm_unreachable("'opencl.channels' metadata not found.");
-    return;
   }
 
   for (auto *MD : MDs->operands()) {
@@ -107,20 +106,19 @@ static void getPipesMetadata(const Module &M,
         DepthMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
       } else {
         llvm_unreachable("Unknown metadata operand key");
-        continue;
       }
     }
 
-    if (!ChanMD || !PacketSizeMD || !PacketAlignMD) {
-      llvm_unreachable("Invalid channel metadata.");
-      continue;
-    }
+    assert(ChanMD && PacketSizeMD && PacketAlignMD &&
+           "Invalid channel metadata");
 
     Value *Chan = ChanMD->getValue();
     ConstantInt *PacketSize = cast<ConstantInt>(PacketSizeMD->getValue());
     ConstantInt *PacketAlign = cast<ConstantInt>(PacketAlignMD->getValue());
 
     Value *Pipe = ChannelToPipeMap[Chan];
+    assert(Pipe && "No channel to pipe mapping.");
+
     if (!DepthMD) {
       PipesMD[Pipe] = PipeMetadata(
           PacketSize->getLimitedValue(),
@@ -409,7 +407,7 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
 
     Changed = true;
   }
-  return false;
+  return Changed;
 }
 
 static bool replaceChannelBuiltins(Module &M,
