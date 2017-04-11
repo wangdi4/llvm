@@ -180,7 +180,7 @@ public:
     return canAccessWith(Ref, Ref2, VectContext);
   }
 
-  bool hasAConstStride(int64_t *Stride) {
+  bool hasAConstStride(int64_t *Stride) const {
     if (!hasConstStride())
       return false;
 

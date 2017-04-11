@@ -301,7 +301,7 @@ public:
   /// bytes) is provided in \p Stride. Otherwise, returns false.
   /// Inverting the return value does not invert the functionality(false does
   /// not mean that it has a variable stride)
-  virtual bool hasAConstStride(int64_t *Stride) = 0;
+  virtual bool hasAConstStride(int64_t *Stride) const = 0;
 
   /// \brief Return the location of this in the code. The location should be
   /// relative to other Memrefs sent by the client to the VLS engine.
@@ -503,7 +503,7 @@ public:
 
 class OVLSUndef : public OVLSOperand {
 public:
-  OVLSUndef() : OVLSOperand(OK_Undef) {}
+  OVLSUndef(OVLSType T) : OVLSOperand(OK_Undef, T) {}
 
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Undef;
@@ -514,7 +514,7 @@ public:
 /// bytes from the Base(which is an address of an OVLSMemref).
 class OVLSAddress : public OVLSOperand {
 public:
-  explicit OVLSAddress(OVLSMemref *B, int64_t O)
+  explicit OVLSAddress(const OVLSMemref *B, int64_t O)
       : OVLSOperand(OK_Address), Base(B), Offset(O) {}
 
   explicit OVLSAddress() {}
@@ -582,6 +582,7 @@ public:
   void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   OperationCode getKind() const { return OPCode; }
 
+  virtual void setMask(uint64_t Mask) {}
 private:
   OperationCode OPCode;
 
