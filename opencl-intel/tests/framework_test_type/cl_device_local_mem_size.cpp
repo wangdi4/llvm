@@ -122,7 +122,7 @@ bool cl_device_local_mem_size_test_body(cl_ulong expectedLocalMemSize, const std
 
     cl_platform_id platform = nullptr;
     iRet = clGetPlatformIDs(1, &platform, nullptr);
-    bool bResult;
+    bool bResult = true;
     bResult &= Check(L"clGetPlatrormIDs", CL_SUCCESS, iRet);
     if (!bResult)
     {
