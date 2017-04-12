@@ -61,6 +61,11 @@ CommonOCLBuilder& CommonOCLBuilder::withImageSupport(bool areImagesSupported) {
   return *this;
 }
 
+CommonOCLBuilder& CommonOCLBuilder::withFpgaEmulator(bool isFpgaEmulation) {
+  m_bFpgaEmulator = isFpgaEmulation;
+  return *this;
+}
+
 void CommonOCLBuilder::close(){
   m_dynamicLoader.Close();
   if (m_pCompiler)
@@ -79,6 +84,7 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   programDescriptor.pInputHeaders = NULL;
   programDescriptor.pszInputHeadersNames = NULL;
   programDescriptor.pszOptions = m_options.c_str();
+  programDescriptor.bFpgaEmulator = m_bFpgaEmulator;
   IOCLFEBinaryResult* res;
   int rc = m_pCompiler->CompileProgram(&programDescriptor, &res);
   if (rc || NULL == res){
@@ -106,8 +112,11 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   return executableResult;
 }
 
-CommonOCLBuilder::CommonOCLBuilder(): m_pCompiler(NULL), m_bSupportFP64(true),
-m_bSupportImages(true) {
+CommonOCLBuilder::CommonOCLBuilder():
+  m_pCompiler(NULL),
+  m_bSupportFP64(true),
+  m_bSupportImages(true),
+  m_bFpgaEmulator(false){
 }
 
 IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
