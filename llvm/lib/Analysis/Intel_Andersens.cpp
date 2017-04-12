@@ -3241,7 +3241,9 @@ bool AndersensAAResult::QueryNode(unsigned Node) {
   // worklist to be processed.
   if (OurDFS == Tarjan2DFS[Node]) {
     while (!SCCStack.empty() && Tarjan2DFS[SCCStack.top()] >= OurDFS) {
-      Node = UniteNodes(Node, SCCStack.top());
+      // CQ415669: SCCStack.top() node may have been collapsed by HCD.
+      // So, get Rep of SCCStack.top().
+      Node = UniteNodes(Node, FindNode(SCCStack.top()));
 
       SCCStack.pop();
       Merged = true;
