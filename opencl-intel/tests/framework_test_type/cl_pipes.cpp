@@ -98,7 +98,7 @@ bool clPipes()
 		CheckException(L"clGetPipeInfo", CL_INVALID_VALUE, iRet);
 
         // Intel extension
-        vector<char> pipeBuf(INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets);
+        vector<char> pipeBuf(pipe_get_total_size(uiPacketSize, uiMaxPackets));
         size_t szPipeBufSize = pipeBuf.size();
         clMemWrapper pipeIntel = clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &pipeBuf[0], &szPipeBufSize, &iRet);
         CheckException(L"clCreatePipeINTEL", CL_SUCCESS, iRet);

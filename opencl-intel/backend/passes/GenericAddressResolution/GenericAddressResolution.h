@@ -61,10 +61,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @param  pOld - original instruction
   void assocDebugLocWith(Instruction *pNew, const Instruction *pOld);
 
-  /// @param  s - function name
-  /// @returns true if s is pipe built-in function name
-  bool isPipeBuiltin(const std::string& s);
-
   /// @brief  Helper for conversion of original mangled function name to that with
   /// @brief  resolved pointer address space types
   /// @param  origMangledName - original mangled name of the function

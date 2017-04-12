@@ -86,6 +86,7 @@ public:
     bool GetRelaxedMath()   const { return m_relaxedMath; }
     bool GetlibraryModule() const { return m_libraryModule; }
     int  GetAPFLevel()      const { return m_APFLevel; }
+    bool IsFpgaEmulator()   const { return m_fpgaEmulator; }
     bool GetDenormalsZero() const { return m_denormalsZero;}
 
 private:
@@ -97,6 +98,7 @@ private:
     // Sets whether optimized code is library module or a set of kernels
     // If this options is set to true then some optimization passes will be skipped
     bool m_libraryModule;
+    bool m_fpgaEmulator;
     int  m_APFLevel;
 };
 

@@ -20,6 +20,7 @@ set(OCL_BE_PASSES
     BuiltinCallToInst
     BuiltinLibInfo
     BlockToFuncPtr
+    ChannelPipeTransformation
     CloneBlockInvokeFuncToKernel
     DebugInfoPass
     DetectFunctionPtrCalls
@@ -39,6 +40,7 @@ set(OCL_BE_PASSES
     Obfuscation
     OclFunctionAttrs
     PatchCallbackArgs
+    PipeSupport
     Prefetch
     PrepareKernelArgs
     PreventDivCrashes

@@ -249,7 +249,7 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
         return CL_INVALID_VALUE;
     }
 
-    if ( uiNumEntries > 0 )
+    if ( (uiNumEntries > 0) && (NULL != pclPlatforms) )
     {
         *pclPlatforms = &m_clPlatformId;
     }

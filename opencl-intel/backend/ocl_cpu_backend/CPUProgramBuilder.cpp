@@ -229,7 +229,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     // update kernels with RuntimeService
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
-    // update kernel mapper (OCL2.0)
+    // update kernel mapper (OCL2.0) and run global ctors
     PostBuildProgramStep( pProgram, pModule, NULL );
     return true;
 }
@@ -400,5 +400,10 @@ void CPUProgramBuilder::PostBuildProgramStep(Program* pProgram, llvm::Module* pM
   assert(!pProgram->GetRuntimeService().isNull() && "RuntimeService in Program is NULL");
   // set in RuntimeService new BlockToKernelMapper object
   pProgram->GetRuntimeService()->SetBlockToKernelMapper(pMapper);
+
+  CPUProgram* pCPUProgram = static_cast<CPUProgram*>(pProgram);
+  pCPUProgram->GetExecutionEngine()->finalizeObject();
+  pCPUProgram->GetExecutionEngine()->runStaticConstructorsDestructors(
+      *pModule, /*isDtors=*/false);
 }
 }}} // namespace

@@ -217,6 +217,7 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
                                              const char**   pszInputHeaders, 
                                              const char**   pszInputHeadersNames, 
                                              const char*    szOptions, 
+                                             bool           bFpgaEmulator,
                                              OUT char**     ppBinary, 
                                              OUT size_t*    puiBinarySize, 
                                              OUT char**     pszCompileLog) const
@@ -232,6 +233,7 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
     compileDesc.pInputHeaders = pszInputHeaders;
     compileDesc.pszInputHeadersNames = pszInputHeadersNames;
     compileDesc.pszOptions = szOptions;
+    compileDesc.bFpgaEmulator = bFpgaEmulator;
 
     int err = m_pFECompiler->CompileProgram(&compileDesc, &pResult);
 

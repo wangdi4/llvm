@@ -322,6 +322,8 @@ set( BACKEND_PASSES
     ImplicitArgsAnalysis
     LLVMVectorizer
     AddImplicitArgs
+    ChannelPipeTransformation
+    PipeSupport
     OclFunctionAttrs
     BuiltInFuncImport
     BuiltinLibInfo

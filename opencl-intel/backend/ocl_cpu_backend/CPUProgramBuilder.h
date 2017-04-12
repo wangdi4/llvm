@@ -81,7 +81,8 @@ protected:
     virtual IBlockToKernelMapper * CreateBlockToKernelMapper(Program* pProgram,
       const llvm::Module* pModule) const;
 
-    /// @brief Post build step. Used for creating IBlockToKernelMapper object on CPU
+    /// @brief Post build step. For CPU it is used for creating
+    /// IBlockToKernelMapper object and running global ctors
     virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
       const ICLDevBackendOptions* pOptions) const ;
 

@@ -7,6 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "DriverVectorizerFunction.h"
 #include "BuiltinKeeper.h"
+#include "CompilationUtils.h"
 #include "Logger.h"
 #include "Mangler.h"
 #include "NameMangleAPI.h"
@@ -27,26 +28,6 @@ DriverVectorizerFunction::DriverVectorizerFunction(const std::string &s)
 
 DriverVectorizerFunction::~DriverVectorizerFunction() {}
 
-static bool isPipeBuiltin(const std::string &s) {
-  return llvm::StringSwitch<bool>(s)
-      .Case("__read_pipe_2", true)
-      .Case("__read_pipe_4", true)
-      .Case("__commit_read_pipe", true)
-      .Case("__reserve_read_pipe", true)
-      .Case("__sub_group_commit_read_pipe", true)
-      .Case("__sub_group_reserve_read_pipe", true)
-      .Case("__work_group_commit_read_pipe", true)
-      .Case("__work_group_reserve_read_pipe", true)
-      .Case("__write_pipe_2", true)
-      .Case("__write_pipe_4", true)
-      .Case("__commit_write_pipe", true)
-      .Case("__reserve_write_pipe", true)
-      .Case("__sub_group_commit_write_pipe", true)
-      .Case("__sub_group_reserve_write_pipe", true)
-      .Case("__work_group_commit_write_pipe", true)
-      .Case("__work_group_reserve_write_pipe", true)
-      .Default(false);
-}
 
 unsigned DriverVectorizerFunction::getWidth() const {
   assert(!isNull() && "Null function");
@@ -60,7 +41,8 @@ unsigned DriverVectorizerFunction::getWidth() const {
     if (m_name == sw.first)
       return sw.second;
   }
-  assert((isMangled() || isPipeBuiltin(m_name)) &&
+  using namespace Intel::OpenCL::DeviceBackend;
+  assert((isMangled() || CompilationUtils::isPipeBuiltin(m_name)) &&
          "not a mangled name, cannot determine function width");
   // if we reached here, that means that function cannot be versioned, so our
   // best option is to apply the automatic width detection.

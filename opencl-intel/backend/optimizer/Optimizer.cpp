@@ -58,6 +58,8 @@ llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBlockToFuncPtrPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
+llvm::ModulePass *createChannelPipeTransformationPass();
+llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
 llvm::ModulePass *createOclFunctionAttrsPass();
@@ -219,6 +221,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        unsigned OptLevel,
                                        const intel::OptimizerConfig *pConfig,
                                        bool isOcl20,
+                                       bool isFpgaEmulator,
                                        bool UnrollLoops) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -265,6 +268,13 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createLinearIdResolverPass());
   }
 
+  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
+
+  if (isFpgaEmulator) {
+      PM.add(createChannelPipeTransformationPass());
+      PM.add(createPipeSupportPass());
+  }
+
   // Adding module passes.
 #ifndef __APPLE__
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
@@ -283,7 +293,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     }
     PM.add(createGenericAddressStaticResolutionPass());
   }
-  PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
@@ -610,7 +619,7 @@ Optimizer::~Optimizer() {}
 Optimizer::Optimizer(llvm::Module *pModule,
                      llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
                      const intel::OptimizerConfig *pConfig)
-    : m_pModule(pModule) {
+    : m_pModule(pModule), m_pRtlModuleList(pRtlModuleList) {
 
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
@@ -623,27 +632,30 @@ Optimizer::Optimizer(llvm::Module *pModule,
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt() || debugType != intel::None)
     OptLevel = 0;
+  const bool isFpgaEmulator = pConfig->isFpgaEmulator();
 
   // Detect OCL2.0 compilation mode
   const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(
                            *pModule) >= OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
   // Add passes which will run unconditionally
-  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, pRtlModuleList,
+  populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,
-                             UnrollLoops);
+                             isFpgaEmulator, UnrollLoops);
 
   // Add passes which will be run only if hasFunctionPtrCalls() and
   // hasRecursion() will return false
   populatePassesPostFailCheck(
-      m_PostFailCheckPM, pModule, pRtlModuleList, OptLevel,
+      m_PostFailCheckPM, pModule, m_pRtlModuleList, OptLevel,
       pConfig, m_undefinedExternalFunctions, isOcl20, UnrollLoops);
 }
 
 void Optimizer::Optimize() {
 #ifndef __APPLE__
-  std::auto_ptr<llvm::ModulePass> materializer(createSpirMaterializer());
-  materializer->runOnModule(*m_pModule);
+  legacy::PassManager materializerPM;
+  materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
+  materializerPM.add(createSpirMaterializer());
+  materializerPM.run(*m_pModule);
 #endif
   m_PreFailCheckPM.run(*m_pModule);
 

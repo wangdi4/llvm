@@ -7,10 +7,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "Materialize.h"
 #include "CompilationUtils.h"
+#include "InitializePasses.h"
 #include "MetaDataApi.h"
 #include "OCLPassSupport.h"
+#include "OCLAddressSpace.h"
 #include <NameMangleAPI.h>
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
@@ -106,94 +109,18 @@ static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
 // 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
+  MaterializeBlockFunctor(BuiltinLibInfo &BLI) : BLI(BLI) {}
   void operator()(llvm::BasicBlock &BB) {
-    auto M = BB.getModule();
     llvm::SmallVector<Instruction *, 4> InstToRemove;
 
     for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
       if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
-        if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
-            (llvm::CallingConv::SPIR_KERNEL == CI->getCallingConv())) {
-          CI->setCallingConv(llvm::CallingConv::C);
-          m_isChanged = true;
-        }
-        auto *F = CI->getCalledFunction();
-        if (!F)
-          continue;
-
-        StringRef FName = F->getName();
-        if (!isMangledName(FName.data()))
-          continue;
-
-        // Update image type names with image access qualifiers
-        if (FName.find("image") != std::string::npos) {
-          auto FD = demangle(FName.data());
-          auto AccQ = StringSwitch<std::string>(FD.name)
-                          .Case("write_imagef", "wo_")
-                          .Case("write_imagei", "wo_")
-                          .Case("write_imageui", "wo_")
-                          .Default("ro_");
-          auto ImgArg = CI->getArgOperand(0);
-          auto ImgArgTy = ImgArg->getType();
-          assert(isPointerToOpaqueStructType(ImgArgTy) &&
-                 "Expect image type argument");
-          auto STName = ImgArgTy->getPointerElementType()->getStructName();
-          assert(STName.startswith("opencl.image") &&
-                 "Expect image type argument");
-          if (STName.find("_ro_t") != std::string::npos ||
-              STName.find("_wo_t") != std::string::npos ||
-              STName.find("_rw_t") != std::string::npos)
-            continue;
-          std::vector<Value *> Args;
-          std::vector<Type *> ArgTys;
-          ArgTys.push_back(
-              getOrCreateOpaquePtrType(M, updateImageTypeName(STName, AccQ)));
-          Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                                        ArgTys[0], "", CI));
-          for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
-            Args.push_back(CI->getArgOperand(i));
-            ArgTys.push_back(CI->getArgOperand(i)->getType());
-          }
-          auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
-          dyn_cast<reflection::PrimitiveType>(
-              (reflection::ParamType *)FD.parameters[0])
-              ->setPrimitive(getPrimitiveType(ArgTys[0]));
-          auto NewName = mangle(FD);
-
-          // Check if a new function is already added to the module.
-          auto NewF = F->getParent()->getFunction(NewName);
-          if (!NewF) {
-            // Create function with updated name
-            NewF = Function::Create(FT, F->getLinkage(), NewName);
-            NewF->copyAttributesFrom(F);
-
-            F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
-          }
-
-          CallInst *New = CallInst::Create(NewF, Args, "", CI);
-          //assert(New->getType() == Call->getType());
-          New->setCallingConv(CI->getCallingConv());
-          New->setAttributes(NewF->getAttributes());
-          if (CI->isTailCall())
-            New->setTailCall();
-          New->setDebugLoc(CI->getDebugLoc());
-
-          // Replace old call instruction with updated one
-          CI->replaceAllUsesWith(New);
-          InstToRemove.push_back(CI);
-
-          m_isChanged = true;
-        }
-
-        // Updates address space qualifier function names with unmangled ones
-        if (FName.find("to_global") != std::string::npos ||
-            FName.find("to_local") != std::string::npos ||
-            FName.find("to_private") != std::string::npos) {
-          reflection::FunctionDescriptor FD = demangle(FName.data());
-          F->setName("__" + FD.name);
-
-          m_isChanged = true;
-        }
+        m_isChanged |= changeCallingConv(CI);
+        m_isChanged |= changeImageCall(CI, InstToRemove);
+        m_isChanged |= changeAddrSpaceCastCall(CI);
+#ifdef BUILD_FPGA_EMULATOR
+        m_isChanged |= changePipeCall(CI, InstToRemove);
+#endif
       }
     }
 
@@ -203,6 +130,186 @@ public:
       inst->eraseFromParent();
     }
   }
+
+  bool changeCallingConv(llvm::CallInst *CI) {
+    if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
+        (llvm::CallingConv::SPIR_KERNEL == CI->getCallingConv())) {
+      CI->setCallingConv(llvm::CallingConv::C);
+      return true;
+    }
+
+    return false;
+  }
+
+  bool changeImageCall(llvm::CallInst *CI,
+                       llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+    if (!isMangledName(FName.data()))
+      return false;
+
+    // Update image type names with image access qualifiers
+    if (FName.find("image") == std::string::npos)
+      return false;
+
+    auto FD = demangle(FName.data());
+    auto AccQ = StringSwitch<std::string>(FD.name)
+      .Case("write_imagef", "wo_")
+      .Case("write_imagei", "wo_")
+      .Case("write_imageui", "wo_")
+      .Default("ro_");
+    auto ImgArg = CI->getArgOperand(0);
+    auto ImgArgTy = ImgArg->getType();
+    assert(isPointerToOpaqueStructType(ImgArgTy) &&
+           "Expect image type argument");
+    auto STName = ImgArgTy->getPointerElementType()->getStructName();
+    assert(STName.startswith("opencl.image") &&
+           "Expect image type argument");
+    if (STName.find("_ro_t") != std::string::npos ||
+        STName.find("_wo_t") != std::string::npos ||
+        STName.find("_rw_t") != std::string::npos)
+      return false;
+    std::vector<Value *> Args;
+    std::vector<Type *> ArgTys;
+    ArgTys.push_back(
+        getOrCreateOpaquePtrType(CI->getParent()->getModule(),
+                                 updateImageTypeName(STName, AccQ)));
+    Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
+                                                  ArgTys[0], "", CI));
+    for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
+      Args.push_back(CI->getArgOperand(i));
+      ArgTys.push_back(CI->getArgOperand(i)->getType());
+    }
+    auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
+    dyn_cast<reflection::PrimitiveType>(
+        (reflection::ParamType *)FD.parameters[0])
+      ->setPrimitive(getPrimitiveType(ArgTys[0]));
+    auto NewName = mangle(FD);
+
+    // Check if a new function is already added to the module.
+    auto NewF = F->getParent()->getFunction(NewName);
+    if (!NewF) {
+      // Create function with updated name
+      NewF = Function::Create(FT, F->getLinkage(), NewName);
+      NewF->copyAttributesFrom(F);
+
+      F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
+    }
+
+    CallInst *New = CallInst::Create(NewF, Args, "", CI);
+    //assert(New->getType() == Call->getType());
+    New->setCallingConv(CI->getCallingConv());
+    New->setAttributes(NewF->getAttributes());
+    if (CI->isTailCall())
+      New->setTailCall();
+    New->setDebugLoc(CI->getDebugLoc());
+
+    // Replace old call instruction with updated one
+    CI->replaceAllUsesWith(New);
+    InstToRemove.push_back(CI);
+
+    return true;
+  }
+
+  bool changeAddrSpaceCastCall(llvm::CallInst *CI) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+
+    // Updates address space qualifier function names with unmangled ones
+    if (FName.find("to_global") != std::string::npos ||
+        FName.find("to_local") != std::string::npos ||
+        FName.find("to_private") != std::string::npos) {
+      reflection::FunctionDescriptor FD = demangle(FName.data());
+      F->setName("__" + FD.name);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  bool changePipeCall(llvm::CallInst *CI,
+                      llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
+    auto *F = CI->getCalledFunction();
+    if (!F)
+      return false;
+
+    StringRef FName = F->getName();
+
+    bool PipeBI = StringSwitch<bool>(FName)
+      .Case("__read_pipe_2", true)
+      .Case("__read_pipe_4", true)
+      .Case("__write_pipe_2", true)
+      .Case("__write_pipe_4", true)
+      .Case("__reserve_read_pipe", true)
+      .Case("__reserve_write_pipe", true)
+      .Default(false);
+
+    if (!PipeBI)
+      return false;
+
+    auto m_runtimeModuleList = BLI.getBuiltinModules();
+
+    llvm::StructType *InternalPipeTy = nullptr;
+    llvm::Module *PipesModule = nullptr;
+    for (auto *M : m_runtimeModuleList) {
+      if ((InternalPipeTy = M->getTypeByName("struct.__pipe_t"))) {
+        PipesModule = M;
+        break;
+      }
+    }
+
+    if (!InternalPipeTy) {
+      llvm_unreachable("Cannot find __pipe_t struct in RTL.");
+      return false;
+    }
+
+    auto *GlobalPipeTy = PointerType::get(InternalPipeTy,
+          Intel::OpenCL::DeviceBackend::Utils::OCLAddressSpace::Global);
+
+    auto PipeArg = BitCastInst::CreatePointerCast(CI->getArgOperand(0),
+                                                  GlobalPipeTy, "", CI);
+    SmallVector<Value *, 4> NewArgs;
+    NewArgs.push_back(PipeArg);
+
+    // skip the first argument (the pipe), and the 2 last arguments (packet size
+    // and max packets, they are not used by the BIs)
+    assert(CI->getNumArgOperands() > 2 && "Unexpected number of arguments");
+    for (size_t i = 1; i < CI->getNumArgOperands() - 2; ++i) {
+      NewArgs.push_back(CI->getArgOperand(i));
+    }
+
+    llvm::SmallString<256> NewFName(FName);
+    NewFName.append("_intel");
+
+    llvm::Function *NewF = cast<Function>(
+        CompilationUtils::importFunctionDecl(CI->getParent()->getModule(),
+                                             PipesModule->getFunction(
+                                                 NewFName)));
+
+    llvm::CallInst *NewCI = llvm::CallInst::Create(NewF, NewArgs, "", CI);
+
+    NewCI->setCallingConv(CI->getCallingConv());
+    NewCI->setAttributes(CI->getAttributes());
+    if (CI->isTailCall())
+      NewCI->setTailCall();
+    NewCI->setDebugLoc(CI->getDebugLoc());
+
+    // Replace old call instruction with updated one
+    CI->replaceAllUsesWith(NewCI);
+    InstToRemove.push_back(CI);
+
+    return true;
+  }
+
+private:
+  BuiltinLibInfo &BLI;
 };
 
 // Function functor, to be applied for every function in the module.
@@ -210,8 +317,10 @@ public:
 // 2. Replaces calling conventions of function declarations.
 class MaterializeFunctionFunctor : public FunctionFunctor {
 public:
+  MaterializeFunctionFunctor(BuiltinLibInfo &BLI): BLI(BLI) {}
+
   void operator()(llvm::Function &F) {
-    MaterializeBlockFunctor bbMaterializer;
+    MaterializeBlockFunctor bbMaterializer(BLI);
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
@@ -221,6 +330,9 @@ public:
     std::for_each(F.begin(), F.end(), bbMaterializer);
     m_isChanged |= bbMaterializer.isChanged();
   }
+
+private:
+  BuiltinLibInfo &BLI;
 };
 
 //
@@ -228,6 +340,14 @@ public:
 //
 
 char SpirMaterializer::ID = 0;
+
+OCL_INITIALIZE_PASS_BEGIN(SpirMaterializer, "", "", false, true)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
+  "Prepares SPIR modules for BE consumption.",
+  false, // Not CGF only pass.
+  true
+)
 
 SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
 
@@ -238,19 +358,14 @@ const char *SpirMaterializer::getPassName() const {
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
 
-  MaterializeFunctionFunctor fMaterializer;
+  BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
+
+  MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);
 
   return Ret || fMaterializer.isChanged();
 }
-
-OCL_INITIALIZE_PASS_BEGIN(SpirMaterializer, "", "", false, false)
-OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
-  "Prepares SPIR modules for BE consumption.",
-  false, // Not CGF only pass.
-  false  // Not an analysis pass.
-)
 
 }
 

@@ -9,6 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __MATERIALIZE_H__
 
 #include "llvm/Pass.h"
+#include "BuiltinLibInfo.h"
 
 namespace intel {
 ///////////////////////////////////////////////////////////////////////////////
@@ -27,6 +28,11 @@ public:
   const char *getPassName() const;
 
   static char ID;
+
+  virtual void getAnalysisUsage(llvm::AnalysisUsage &AU) const {
+    AU.addRequired<BuiltinLibInfo>();
+  }
+
 };
 }
 

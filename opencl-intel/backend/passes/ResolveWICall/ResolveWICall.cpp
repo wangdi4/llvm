@@ -74,6 +74,10 @@ namespace intel {
           // Function is not defined inside module
           continue;
         }
+
+        if (pFunc->getName() == "__global_pipes_ctor")
+          continue;
+
         clearPerFunctionCache();
         m_F = pFunc;
         runOnFunction(pFunc);

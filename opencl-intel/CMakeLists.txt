@@ -10,6 +10,10 @@ if( BUILD_EXPERIMENTAL_21 )
     add_definitions( -DBUILD_EXPERIMENTAL_21 )
     add_definitions( -DEXPERIMENTAL_POSTFIX="_2_1" )
 endif( BUILD_EXPERIMENTAL_21 )
+
+if( BUILD_FPGA_EMULATOR )
+    add_definitions( -DBUILD_FPGA_EMULATOR  )
+endif( BUILD_FPGA_EMULATOR )
 # CMAKE variables
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}

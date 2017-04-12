@@ -178,6 +178,7 @@ bool CompileTask::Execute()
                                       m_pszHeaders,
                                       m_pszHeadersNames,
                                       m_sOptions.c_str(),
+                                      m_pProg->GetContext()->IsFPGAEmulator(),
                                       pOutBinary.getOutPtr(),
                                       &uiOutBinarySize,
                                       szOutCompileLog.getOutPtr());

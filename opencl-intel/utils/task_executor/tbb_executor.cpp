@@ -273,13 +273,27 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
     }
 
+
+#ifdef BUILD_FPGA_EMULATOR
+    if (const char* env_num_workers = getenv("OCL_TBB_NUM_WORKERS"))
+    {
+        gWorker_threads = std::stoi(env_num_workers);
+    } else
+    {
+        gWorker_threads = 32;
+    }
+#endif
+
     m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);
+
     if (NULL == m_pScheduler)
     {
         LOG_ERROR(TEXT("%s"), "Failed to allocate task_scheduler_init");
         return 0;
     }
+
     m_pScheduler->initialize(gWorker_threads);
+
     m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
     
     LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
