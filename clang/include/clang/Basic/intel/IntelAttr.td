@@ -351,3 +351,8 @@ def SIMDAssert : Attr {
   let Documentation = [Undocumented];
   int Requires = 6;
 }
+
+def Leaf : IgnoredAttr {
+  let Spellings = [GNU<"leaf">];
+  let Subjects = SubjectList<[Function]>;
+}

@@ -21,10 +21,15 @@ void test_no_clause()
 void test_invalid_clause()
 {
   int i;
-  /* expected-error@+1 {{invalid pragma simd clause}} */
+  /* expected-warning@+1 {{invalid pragma simd clause}} */
   #pragma simd foo bar
   for (i = 0; i < 16; ++i)
     ;
+
+  /* expected-warning@+1 {{invalid pragma simd clause}} */
+  #pragma simd assert
+  for (i = 0; i < 16; ++i)
+   ;
 }
 
 void test_non_identifiers()
