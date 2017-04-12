@@ -197,7 +197,8 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
 void topSortBasicBlocks(
   BasicBlock *BB,
   WRStack<BasicBlock *> &BBStack,
-  SmallPtrSetImpl<BasicBlock *> &Visited
+  SmallPtrSetImpl<BasicBlock *> &Visited,
+  bool DoVerifyBB
 )
 {
   // DEBUG(dbgs() << "\n=== topSortBasicBlocks visiting this BB: " << *BB);
@@ -206,12 +207,18 @@ void topSortBasicBlocks(
   if (Visited.count(BB))
     return;
 
+  // Verify that the directives in BB, if any, follow design rules
+  if (DoVerifyBB) {
+    bool PassedVerify = VPOAnalysisUtils::verifyBB(*BB, true);
+    assert(PassedVerify && "Malformed directives in BBlock");
+  }
+
   // Mark BB as "visited".
   Visited.insert(BB);
 
   // Visit all the successors first
   for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    topSortBasicBlocks(*I, BBStack, Visited);
+    topSortBasicBlocks(*I, BBStack, Visited, DoVerifyBB);
   }
 
   // We are only interested in BBs that start with OMP directives. Paying the
@@ -236,7 +243,10 @@ void WRegionCollection::buildWRGraphFromLLVMIR(Function &F) {
   BasicBlock *RootBB = &F.getEntryBlock();
   WRStack<BasicBlock *> BBStack;
   SmallPtrSet<BasicBlock *, 32> Visited;
-  topSortBasicBlocks(RootBB, BBStack, Visited);
+
+  // Having the last argument==true turns on the verifier by default.
+  // TODO: guard it under a flag (or debug mode) when VPO is more stable.
+  topSortBasicBlocks(RootBB, BBStack, Visited, true);
 
   // Then, visit the BBs in sorted order (by popping BBStack) to build WRNs
   while (!BBStack.empty()) {

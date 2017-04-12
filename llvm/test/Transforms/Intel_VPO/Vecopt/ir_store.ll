@@ -21,10 +21,13 @@ define void @foo(i32* nocapture %ip, i32 %N) local_unnamed_addr #0 {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %zext.trip.cnt = zext i32 %N to i64
   br label %for.body.preheader
 
-for.body.preheader:                              ; preds = %entry
+for.body.preheader:                              ; preds = %DIR.QUAL.LIST.END.2
   br label %for.body
 
 for.body:                                         

@@ -52,10 +52,13 @@ define void @foo(float** nocapture readonly %a, i32 %m, i32 %n, i32 %k) local_un
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %cmp36 = icmp sgt i32 %m, 0
   br i1 %cmp36, label %while.cond.preheader.lr.ph, label %for.end
 
-while.cond.preheader.lr.ph:                       ; preds = %entry
+while.cond.preheader.lr.ph:                       ; preds = %DIR.QUAL.LIST.END.2
   %cmp133 = icmp sle i32 %k, %n
   %0 = sext i32 %k to i64
   %1 = sext i32 %n to i64
@@ -121,7 +124,7 @@ for.end.loopexit:                                 ; preds = %for.inc
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.end
 
-for.end:                                          ; preds = %for.end.loopexit, %entry
+for.end:                                          ; preds = %for.end.loopexit, %DIR.QUAL.LIST.END.2
   ret void
 }
 

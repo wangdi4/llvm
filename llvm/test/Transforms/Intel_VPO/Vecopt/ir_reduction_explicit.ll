@@ -32,12 +32,15 @@ entry.split:
   call void @llvm.intel.directive.qual.opnd.i32(metadata !42, i32 8)
   call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !41, float* nonnull %x)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %x.promoted = load float, float* %x, align 4
   br label %for.body
 
-for.body:                                         ; preds = %for.body, %entry.split
-  %indvars.iv = phi i64 [ 0, %entry.split ], [ %indvars.iv.next, %for.body ]
-  %add7 = phi float [ %x.promoted, %entry.split ], [ %add, %for.body ]
+for.body:                                         ; preds = %for.body, %DIR.QUAL.LIST.END.2
+  %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.body ]
+  %add7 = phi float [ %x.promoted, %DIR.QUAL.LIST.END.2 ], [ %add, %for.body ]
   %add = fadd float %add7, 0.5
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 1000
@@ -46,6 +49,9 @@ for.body:                                         ; preds = %for.body, %entry.sp
 for.end:                                          ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   store float %add, float* %x, align 4
   %conv6 = fpext float %add to double
   %call = call i32 (i8*, ...) @printf(i8* nonnull getelementptr inbounds ([8 x i8], [8 x i8]* @.str, i64 0, i64 0), double %conv6) #4

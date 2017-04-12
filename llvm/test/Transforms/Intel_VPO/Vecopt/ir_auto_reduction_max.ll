@@ -33,6 +33,10 @@ define i32 @foo(i32* nocapture readonly %A, i32 %N) {
 
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %0 = load i32, i32* %A, align 4
   %cmp13 = icmp sgt i32 %N, 1
   br i1 %cmp13, label %for.body.ph, label %for.cond.cleanup
@@ -57,13 +61,16 @@ for.cond.cleanup.loopexit:                             ; preds = %for.body
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                      ; preds = %for.cond.cleanup.loopexit, %0
-  %Max.0.lcssa = phi i32 [ %0, %entry ], [ %.Max.0.lcssa, %for.cond.cleanup.loopexit ]
+  %Max.0.lcssa = phi i32 [ %0, %DIR.QUAL.LIST.END.2 ], [ %.Max.0.lcssa, %for.cond.cleanup.loopexit ]
   br label %end.simd
 
 end.simd:
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
-  ret i32 %Max.0.lcssa
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
 
+DIR.QUAL.LIST.END.3:
+  ret i32 %Max.0.lcssa
 }
 
 

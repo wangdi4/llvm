@@ -28,6 +28,7 @@ define void @load_consecutive() {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -43,6 +44,10 @@ for.body:                                         ; preds = %for.body, %entry
 
 for.end:                                          ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   ret void
 }
 
@@ -74,6 +79,7 @@ define void @load_invariant(i64* nocapture readonly %C) {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 4)
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.body
 
 for.body:                                         ; preds = %for.body, %entry
@@ -90,6 +96,10 @@ for.body:                                         ; preds = %for.body, %entry
 
 for.end:                                          ; preds = %for.body
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   ret void
 }
 

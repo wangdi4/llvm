@@ -45,10 +45,13 @@ define void @foo(i64 %N, i64* nocapture readonly %lb, i64* nocapture readonly %u
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %cmp21 = icmp sgt i64 %N, 0
   br i1 %cmp21, label %for.body.preheader, label %for.end9
 
-for.body.preheader:                               ; preds = %entry
+for.body.preheader:                               ; preds = %DIR.QUAL.LIST.END.2
   br label %for.body
 
 for.body:                                         ; preds = %for.body.preheader, %for.inc7
@@ -84,9 +87,12 @@ for.inc7:                                         ; preds = %for.inc7.loopexit, 
 for.end9.loopexit:                                ; preds = %for.inc7
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   br label %for.end9
 
-for.end9:                                         ; preds = %for.end9.loopexit, %entry
+for.end9:                                         ; preds = %DIR.QUAL.LIST.END.3, %DIR.QUAL.LIST.END.2
   ret void
 }
 

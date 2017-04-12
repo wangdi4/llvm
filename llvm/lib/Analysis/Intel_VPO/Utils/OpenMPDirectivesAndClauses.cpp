@@ -342,6 +342,76 @@ bool VPOAnalysisUtils::isListEndDirective(Instruction *I) {
   return VPOAnalysisUtils::isListEndDirective(DirID);
 }
 
+int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
+  switch(DirID) {
+  case DIR_OMP_PARALLEL:
+    return DIR_OMP_END_PARALLEL;
+  case DIR_OMP_LOOP:
+    return DIR_OMP_END_LOOP;
+  case DIR_OMP_PARALLEL_LOOP:
+    return DIR_OMP_END_PARALLEL_LOOP;
+  case DIR_OMP_SECTIONS:
+    return DIR_OMP_END_SECTIONS;
+  case DIR_OMP_PARALLEL_SECTIONS:
+    return DIR_OMP_END_PARALLEL_SECTIONS;
+  case DIR_OMP_WORKSHARE:
+    return DIR_OMP_END_WORKSHARE;
+  case DIR_OMP_PARALLEL_WORKSHARE:
+    return DIR_OMP_END_PARALLEL_WORKSHARE;
+  case DIR_OMP_SINGLE:
+    return DIR_OMP_END_SINGLE;
+  case DIR_OMP_TASK:
+    return DIR_OMP_END_TASK;
+  case DIR_OMP_MASTER:
+    return DIR_OMP_END_MASTER;
+  case DIR_OMP_CRITICAL:
+    return DIR_OMP_END_CRITICAL;
+  case DIR_OMP_ATOMIC:
+    return DIR_OMP_END_ATOMIC;
+  case DIR_OMP_ORDERED:
+    return DIR_OMP_END_ORDERED;
+  case DIR_OMP_SIMD:
+    return DIR_OMP_END_SIMD;
+  case DIR_OMP_TASKGROUP:
+    return DIR_OMP_END_TASKGROUP;
+  case DIR_OMP_TASKLOOP:
+    return DIR_OMP_END_TASKLOOP;
+  case DIR_OMP_TARGET:
+    return DIR_OMP_END_TARGET;
+  case DIR_OMP_TARGET_DATA:
+    return DIR_OMP_END_TARGET_DATA;
+  case DIR_OMP_TEAMS:
+    return DIR_OMP_END_TEAMS;
+  case DIR_OMP_DISTRIBUTE:
+    return DIR_OMP_END_DISTRIBUTE;
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+    return DIR_OMP_END_DISTRIBUTE_PARLOOP;
+
+  // StandAlone Directives
+  case DIR_OMP_BARRIER:
+    return DIR_OMP_END_BARRIER;
+  case DIR_OMP_TASKWAIT:
+    return DIR_OMP_END_TASKWAIT;
+  case DIR_OMP_TASKYIELD:
+    return DIR_OMP_END_TASKYIELD;
+  case DIR_OMP_FLUSH:
+    return DIR_OMP_END_FLUSH;
+  case DIR_OMP_SECTION:
+    return DIR_OMP_END_SECTION;
+  case DIR_OMP_TARGET_ENTER_DATA:
+    return DIR_OMP_END_TARGET_ENTER_DATA;
+  case DIR_OMP_TARGET_EXIT_DATA:
+    return DIR_OMP_END_TARGET_EXIT_DATA;
+  case DIR_OMP_TARGET_UPDATE:
+    return DIR_OMP_END_TARGET_UPDATE;
+  case DIR_OMP_CANCEL:
+    return DIR_OMP_END_CANCEL;
+  case DIR_OMP_CANCELLATION_POINT:
+    return DIR_OMP_END_CANCELLATION_POINT;
+  }
+  return -1;
+}
+
 bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
   switch(ClauseID) {
     case QUAL_OMP_REDUCTION_ADD:

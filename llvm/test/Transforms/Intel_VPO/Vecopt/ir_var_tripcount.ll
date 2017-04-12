@@ -32,10 +32,14 @@ define void @var_tripcount(i32* nocapture %ip, i32 %n) local_unnamed_addr #0 {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body.preheader, label %for.cond.cleanup
 
-for.body.preheader:                               ; preds = %entry
+for.body.preheader:                               ; preds = %DIR.QUAL.LIST.END.2
   %wide.trip.count = zext i32 %n to i64
   br label %for.body
 
@@ -48,11 +52,15 @@ for.body:                                         ; preds = %for.body.preheader,
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.end, label %for.body
 
-for.end:                                          ; preds = %for.body, %entry
+for.end:                                          ; preds = %for.body, %DIR.QUAL.LIST.END.2
   br label %for.cond.cleanup
   
 for.cond.cleanup:
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   ret void
 }
 

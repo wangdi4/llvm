@@ -33,10 +33,14 @@ define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
   call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:
   %cmp6 = icmp sgt i32 %N, 0
   br i1 %cmp6, label %for.body.lr.ph, label %for.cond.cleanup
 
-for.body.lr.ph:                                   ; preds = %entry
+for.body.lr.ph:                                   ; preds = %DIR.QUAL.LIST.END.2
   %0 = load float, float* @fp_inc, align 4
   %wide.trip.count = zext i32 %N to i64
   br label %for.body
@@ -54,8 +58,12 @@ for.body:                                         ; preds = %for.body, %for.body
 for.cond.cleanup.loopexit:                        ; preds = %for.body
   br label %for.cond.cleanup
 
-for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %DIR.QUAL.LIST.END.2
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   ret void
 }
 

@@ -251,6 +251,10 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(Instruction *I);
 
+    /// \brief Given a DirID for a BEGIN directive, return the DirID of its
+    /// corresponding END directive. 
+    static int getMatchingEndDirective(int BeginDirID);
+
     /// \brief Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD
     static bool isReductionClause(int ClauseID);
@@ -272,7 +276,7 @@ public:
 
     /// \brief Verify if the BB is malformed w.r.t. OpenMP directive rules.
     /// Return false if malform, true otherwise.
-    static bool verifyBB(BasicBlock *BB);
+    static bool verifyBB(BasicBlock &BB, bool DoAssert);
 };
 
 } // End vpo namespace

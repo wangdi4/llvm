@@ -28,6 +28,10 @@ target triple = "x86_64-unknown-linux-gnu"
 define i32 @foo(i32* nocapture readonly %A, i32 %N, i32 %Init) {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:  
   %cmp6 = icmp sgt i32 %N, 0
   br i1 %cmp6, label %for.body.ph, label %for.cond.cleanup
 
@@ -50,11 +54,15 @@ for.cond.cleanup.loopexit:                             ; preds = %for.body
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                      ; preds = %for.cond.cleanup.loopexit, %0
-  %Sum.0.lcssa = phi i32 [ %Init, %entry ], [ %add.lcssa, %for.cond.cleanup.loopexit ]
+  %Sum.0.lcssa = phi i32 [ %Init, %DIR.QUAL.LIST.END.2 ], [ %add.lcssa, %for.cond.cleanup.loopexit ]
   br label %end.simd
 
 end.simd:
   call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:
   ret i32 %Sum.0.lcssa
 
 }
