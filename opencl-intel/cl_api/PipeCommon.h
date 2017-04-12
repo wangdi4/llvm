@@ -18,6 +18,43 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directlytypedef uint _PIPE_TYPE;
 
+#ifndef __PIPE_COMMON_H__
+#define __PIPE_COMMON_H__
+
+#ifdef BUILD_FPGA_EMULATOR
+
+#include "../backend/libraries/ocl_builtins/pipes.h"
+#include <algorithm>
+
+static size_t pipe_get_total_size(cl_uint packet_size, cl_uint max_packets) {
+  size_t total = sizeof(__pipe_t)       // header
+    + packet_size * (max_packets + 1);  // packets (one extra packet
+                                        // for a begin/end border)
+  return total;
+}
+
+static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
+  if (max_packets == 1) {
+    max_packets++;
+  }
+
+  __pipe_t* p = (__pipe_t*) mem;
+
+  memset((char*)p, 0, sizeof(__pipe_t));
+
+  p->packet_size = packet_size;
+  p->max_packets = max_packets;
+
+  p->read_buf.size = -1;
+  p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
+
+  p->write_buf.size = -1;
+  p->write_buf.limit = std::min((int)max_packets - 1,
+                                PIPE_WRITE_BUF_PREFERRED_LIMIT);
+}
+
+#else // BUILD_FPGA_EMULATOR
+
 #define CACHE_LINE 64
 #define INTEL_PIPE_HEADER_RESERVED_SPACE CACHE_LINE * 2
 
@@ -49,3 +86,12 @@ typedef struct _tag_pipe_control_intel_t
     cl_int lock;
     char pad1[CACHE_LINE - sizeof(cl_int)];
 } pipe_control_intel_t;
+
+
+static size_t pipe_get_total_size(cl_uint uiPacketSize, cl_uint uiMaxPackets) {
+  return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets;
+}
+
+#endif // BUILD_FPGA_EMULATOR
+
+#endif // __PIPE_COMMON_H__

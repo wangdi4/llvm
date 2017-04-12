@@ -166,6 +166,20 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     optionsEx << " -mstackrealign";
     optionsEx << " -D__ENDIAN_LITTLE__=1";
 
+    // If working as fpga emulator, pass special triple.
+    if(m_pProgDesc->bFpgaEmulator)
+    {
+#if defined(_WIN64) || defined(__x86_64__) || defined(_M_AMD64) ||             \
+        defined(_M_X64)
+        options << " -triple spir64-unknown-unknown-intelfpga";
+#elif defined(_WIN32) || defined(i386) || defined(__i386__) ||                 \
+        defined(__x86__) || defined(__ANDROID__)
+        options << " -triple spir-unknown-unknown-intelfpga";
+#else
+#error "Can't define target triple: unknown architecture."
+#endif
+    }
+
     if(m_sDeviceInfo.bImageSupport)
     {
         optionsEx << " -D__IMAGE_SUPPORT__=1";

@@ -118,7 +118,7 @@ namespace intel {
            "Unexpected function category!");
 
     StringRef funcName = pCallInstr->getCalledFunction()->getName();
-    if (isPipeBuiltin(funcName)) return;
+    if (CompilationUtils::isPipeBuiltin(funcName)) return;
 
     // Address space enforcement: highest priority is 'global' for BI and
     // 'private' for intrinsic [we would like to have 'private' for all, however

@@ -273,6 +273,17 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
         gWorker_threads = Intel::OpenCL::Utils::GetNumberOfProcessors();
     }
 
+#ifdef BUILD_FPGA_EMULATOR
+    if (const char* env_num_workers = getenv("OCL_TBB_NUM_WORKERS"))
+    {
+        gWorker_threads = std::stoi(env_num_workers);
+    }
+    else
+    {
+        gWorker_threads = 32;
+    }
+#endif
+
     if (ulAdditionalRequiredStackSize == 0)
     {
         m_pScheduler = new tbb::task_scheduler_init(tbb::task_scheduler_init::deferred);

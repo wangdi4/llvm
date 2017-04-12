@@ -547,8 +547,19 @@ list (APPEND OCL_20_SOURCE_FILES
   cpu-builtin-defines.c
   image_functions.cpp
   extended_execution_functions.cpp
-  pipe_functions.c
   )
+
+if( BUILD_FPGA_EMULATOR )
+    list (APPEND OCL_20_SOURCE_FILES
+      pipes.cl
+    )
+else( BUILD_FPGA_EMULATOR )
+    # Use old pipe implementation for no-fpga build
+    list (APPEND OCL_20_SOURCE_FILES
+      pipe_functions.c
+    )
+endif( BUILD_FPGA_EMULATOR )
+
 
 list (APPEND C_SOURCE_FILES
   ${CL_BUILTIN_SOURCE_DIR}/cbk_helper.c
@@ -588,14 +599,13 @@ endif( (INCLUDE_ATOM) OR (WIN32 AND NOT BUILD_X64) )
 add_subdirectory (sse42)
 add_subdirectory (avx)
 add_subdirectory (avx2)
+# includes AVX-512 F, CD, BW, DQ, VL.
+add_subdirectory (avx512)
 add_subdirectory (shared)
-if (BUILD_X64 AND NOT ANDROID AND NOT WIN32)
-  if (ENABLE_KNL)
-    add_subdirectory (KNLni)
-  endif (ENABLE_KNL)
-  add_subdirectory (SKXni)
-endif (BUILD_X64 AND NOT ANDROID AND NOT WIN32)
+if (ENABLE_KNL AND BUILD_X64 AND NOT WIN32)
+    # includes AVX-512 F, CD, ER, PF.
+  add_subdirectory (avx512phi)
+endif()
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)
 endif()
-

@@ -169,11 +169,18 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     m_relaxedMath(false),
     m_denormalsZero(false),
     m_libraryModule(false),
+    m_fpgaEmulator(false),
     m_APFLevel(0)
 {
     assert(pModule);
 
     NamedMDNode* metadata = pModule->getNamedMetadata("opencl.compiler.options");
+
+    llvm::Triple triple(pModule->getTargetTriple());
+    if(triple.isINTELFPGAEnvironment())
+    {
+        m_fpgaEmulator = true;
+    }
 
     if(NULL == metadata)
     {
@@ -351,6 +358,7 @@ llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                             buildOptions.GetDisableOpt(),
                                             buildOptions.GetRelaxedMath(),
                                             buildOptions.GetlibraryModule(),
+                                            buildOptions.IsFpgaEmulator(),
                                             m_dumpHeuristicIR,
                                             buildOptions.GetAPFLevel(),
                                             m_rtLoopUnrollFactor);

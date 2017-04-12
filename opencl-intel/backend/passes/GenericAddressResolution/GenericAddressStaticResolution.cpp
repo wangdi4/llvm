@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GenericAddressStaticResolution.h"
 
+#include <CompilationUtils.h>
 #include <OCLPassSupport.h>
 #include <MetaDataApi.h>
 #include <llvm/IR/Constants.h>
@@ -306,7 +307,9 @@ namespace intel {
     // Special case: pipe built-in call which is not overloadable.
     // In such case we should preserve GAS pointer as is.
     if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr)) {
-      if (isPipeBuiltin(pCallInstr->getCalledFunction()->getName())) {
+      using namespace Intel::OpenCL::DeviceBackend;
+      if (CompilationUtils::isPipeBuiltin(
+              pCallInstr->getCalledFunction()->getName())) {
         space = OCLAddressSpace::Generic;
       }
     }

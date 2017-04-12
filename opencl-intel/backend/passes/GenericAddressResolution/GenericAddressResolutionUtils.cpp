@@ -200,19 +200,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return attr;
   }
 
-  bool isPipeBuiltin(const std::string &s) {
-    return llvm::StringSwitch<bool>(s)
-        .Case("__read_pipe_2", true)
-        .Case("__read_pipe_4", true)
-        .Case("__commit_read_pipe", true)
-        .Case("__reserve_read_pipe", true)
-        .Case("__write_pipe_2", true)
-        .Case("__write_pipe_4", true)
-        .Case("__commit_write_pipe", true)
-        .Case("__reserve_write_pipe", true)
-        .Default(false);
-  }
-
   std::string getResolvedMangledName(
       std::string origMangledName,
       const SmallVector<OCLAddressSpace::spaces, 8> &resolvedSpaces,

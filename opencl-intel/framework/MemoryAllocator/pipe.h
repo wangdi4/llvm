@@ -43,7 +43,10 @@ class Pipe : public GenericMemObject
 	 * @param uiMaxPackets the maximum number of packets this Pipe can hold
      * @return the pipe's size
      */
-    static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets) { return INTEL_PIPE_HEADER_RESERVED_SPACE + uiPacketSize * uiMaxPackets; }
+    static size_t CalcPipeSize(cl_uint uiPacketSize, cl_uint uiMaxPackets)
+    {
+        return pipe_get_total_size(uiPacketSize, uiMaxPackets);
+    }
 
 	/**
 	 * Initialize this Pipe

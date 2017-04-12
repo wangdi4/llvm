@@ -113,6 +113,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     const char**  pszInputHeaders,
                                     const char**  pszInputHeadersNames, 
                                     const char *  szOptions,
+                                    bool          bFpgaEmulator,
                                     OUT char**    ppBinary,
                                     OUT size_t*   puiBinarySize,
                                     OUT char**    pszCompileLog) const;

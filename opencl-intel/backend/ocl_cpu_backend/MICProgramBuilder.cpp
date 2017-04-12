@@ -115,7 +115,7 @@ bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     // update kernels with RuntimeService
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
-    // update kernel mapper (OCL2.0)
+    // update kernel mapper (OCL2.0) and run global ctors
     PostBuildProgramStep( pProgram, pModule, NULL );
     return true;
 }

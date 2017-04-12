@@ -203,6 +203,18 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
             MEMCPY_S(m_pclContextProperties, m_uiContextPropCount * sizeof(cl_context_properties), clProperties, m_uiContextPropCount * sizeof(cl_context_properties));
         }
     }
+
+    cl_context_properties* pEnd = m_pclContextProperties + m_uiContextPropCount;
+    cl_context_properties* ext = std::find(m_pclContextProperties, pEnd,
+                                           CL_CONTEXT_FPGA_EMULATOR_INTEL);
+    m_fpgaEmulator = ext != pEnd && CL_TRUE == *(ext + 1);
+
+#ifdef BUILD_FPGA_EMULATOR
+    if (getenv("OCL_FPGA_EMU")) {
+      m_fpgaEmulator = true;
+    }
+#endif
+
     m_pfnNotify = pfnNotify;
     m_pUserData = pUserData;
 

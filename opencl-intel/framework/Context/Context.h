@@ -248,6 +248,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // get the number of devices
         cl_uint GetDevicesCount() { return m_mapDevices.Count(); }
 
+        // Return true if context was created with fpga emulator extension.
+        cl_bool IsFPGAEmulator() { return m_fpgaEmulator; }
+
         // get the device object pointers that associated to the context
         SharedPtr<FissionableDevice>* GetDevices(cl_uint* puiNumDevices);
 
@@ -453,6 +456,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 //                                              m_mapPropertyMap;       // map to search context properties
 
         cl_uint                                 m_uiContextPropCount;
+
+        cl_bool                                 m_fpgaEmulator;
 
         logging_fn                              m_pfnNotify; // notify function's pointer
 

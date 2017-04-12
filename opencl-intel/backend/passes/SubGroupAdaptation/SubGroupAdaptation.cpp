@@ -189,32 +189,11 @@ bool SubGroupAdaptation::runOnModule(Module &M) {
   return true;
 }
 
-static bool isPipeBuiltin(const std::string& s) {
-  return llvm::StringSwitch<bool>(s)
-    .Case("__read_pipe_2", true)
-    .Case("__read_pipe_4", true)
-    .Case("__commit_read_pipe", true)
-    .Case("__reserve_read_pipe", true)
-    .Case("__sub_group_commit_read_pipe", true)
-    .Case("__sub_group_reserve_read_pipe", true)
-    .Case("__work_group_commit_read_pipe", true)
-    .Case("__work_group_reserve_read_pipe", true)
-    .Case("__write_pipe_2", true)
-    .Case("__write_pipe_4", true)
-    .Case("__commit_write_pipe", true)
-    .Case("__reserve_write_pipe", true)
-    .Case("__sub_group_commit_write_pipe", true)
-    .Case("__sub_group_reserve_write_pipe", true)
-    .Case("__work_group_commit_write_pipe", true)
-    .Case("__work_group_reserve_write_pipe", true)
-    .Default(false);
-}
-
 void SubGroupAdaptation::replaceFunction(Function *oldFunc,
                                          std::string newFuncName) {
   std::string m_name = oldFunc->getName();
   std::string newName(newFuncName);
-  if (!isPipeBuiltin(m_name)) {
+  if (!CompilationUtils::isPipeBuiltin(m_name)) {
     reflection::FunctionDescriptor fd = demangle(m_name.c_str());
     fd.name = newFuncName;
     newName = mangle(fd);
