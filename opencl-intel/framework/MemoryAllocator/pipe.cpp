@@ -26,10 +26,8 @@ cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* p
 {
     m_uiPacketSize = uiPacketSize;
     m_uiMaxPackets = uiMaxPackets;
-    // one extra packet is required by the pipe algorithm
-    const cl_uint uiMaxPacketsPlusOne = uiMaxPackets + 1;
 
-    const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPacketsPlusOne);
+    const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPackets);
     cl_err_code err = CL_SUCCESS;
     if (NULL == pHostPtr)
     {
@@ -54,7 +52,8 @@ cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* p
 #else
     pipe_control_intel_t* pipeCtrl = (pipe_control_intel_t*)pBS->GetRawData();
     memset(pipeCtrl, 0, INTEL_PIPE_HEADER_RESERVED_SPACE);
-    pipeCtrl->pipe_max_packets_plus_one = uiMaxPacketsPlusOne;
+    // one extra packet is required by the pipe implementation
+    pipeCtrl->pipe_max_packets_plus_one = uiMaxPackets + 1;
 #endif
 
     return CL_SUCCESS;
