@@ -220,6 +220,8 @@ public:
       return false;
 
     StringRef FName = F->getName();
+    if (!isMangledName(FName.data()))
+      return false;
 
     // Updates address space qualifier function names with unmangled ones
     if (FName.find("to_global") != std::string::npos ||
