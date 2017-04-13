@@ -506,11 +506,12 @@ TEST(FPGA, Test_checkFPGAExtension)
     checkFPGAExtension();
 }
 
+#endif //BUILD_FPGA_EMULATOR
+
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
 {
     checkFPGAExtensionNEGATIVE();
 }
-#endif //BUILD_FPGA_EMULATOR
 
 TEST_F(CL, Test_CheckExtensions)
 {

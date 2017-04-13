@@ -58,6 +58,27 @@ void checkFPGAExtensionNEGATIVE()
         << " contains fpga specific code without CL_CONTEXT_FPGA_EMULATOR_INTEL"
         << " property passed during context creation.";
 
+    clReleaseProgram(program);
+
+    const char* kernelValid = "\
+        __kernel void dummy_kernel()\
+        {\
+            int channel;\
+            return;\
+        }\
+        ";
+    program = clCreateProgramWithSource(context, /*count=*/1,
+                                        &kernelValid, /*length=*/nullptr,
+                                        &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithSource failed.";
+
+    iRet = clBuildProgram(program, /*num_devices=*/0, /*device_list=*/nullptr,
+                          /*options=*/"-cl-std=CL2.0", /*pfn_notify*/nullptr,
+                          /*user_data=*/nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet)
+        << " Kernel with 'channel' identifier must be successfully compiled if"
+        << " extension is not supported.";
+
     cl_mem buffer = clCreateBuffer(context, CL_MEM_BANK_5_ALTERA, /*size=*/20,
                                    /*host_ptr=*/nullptr, &iRet);
     ASSERT_EQ(CL_INVALID_VALUE, iRet)
