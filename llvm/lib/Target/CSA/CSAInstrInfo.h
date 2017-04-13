@@ -175,8 +175,6 @@ public:
   // here so that all the places which need to know which opcode is a
   // MOV of a memory token agree upon the answer.
   unsigned getMemTokenMOVOpcode()const;
-  // Gets the register class for a memory token.
-  const TargetRegisterClass* getMemTokenRC() const;
   // Returns true if this instruction is a MOV of a memory token.  
   bool isMemTokenMOV(MachineInstr *) const;
   
