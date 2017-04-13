@@ -778,6 +778,135 @@ void WRegionNode::getClausesFromOperandBundles() {
   }
 }
 
+bool WRegionNode::hasShared()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  case WRNTask:
+  case WRNTaskloop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasPrivate()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  case WRNTarget:
+  case WRNTask:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNDistribute:
+  case WRNSingle:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasFirstprivate()
+{
+  unsigned SubClassID = getWRegionKindID();
+
+  // similar to hasPrivate except for SIMD, 
+  // which has Private but not Firstprivate
+  if (SubClassID == WRNVecLoop)
+    return false;
+  return hasPrivate();
+}
+
+bool WRegionNode::hasLastprivate()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+  case WRNDistribute:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasReduction()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNTeams:
+  case WRNDistributeParLoop:
+  // TODO: support OMP5.0 task/taskloop reduction 
+  //  case WRNTask:
+  //  case WRNTaskloop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+  case WRNSections:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasCopyin()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallel:
+  case WRNParallelLoop:
+  case WRNParallelSections:
+  case WRNParallelWorkshare:
+  case WRNDistributeParLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasCopyprivate()
+{
+  unsigned SubClassID = getWRegionKindID();
+  // only SINGLE can have a Copyprivate clause
+  return SubClassID==WRNSingle;
+}
+
+bool WRegionNode::hasLinear()
+{
+  unsigned SubClassID = getWRegionKindID();
+  switch (SubClassID) {
+  case WRNParallelLoop:
+  case WRNDistributeParLoop:
+  case WRNVecLoop:
+  case WRNWksLoop:
+    return true;
+  }
+  return false;
+}
+
+bool WRegionNode::hasUniform()
+{
+  unsigned SubClassID = getWRegionKindID();
+  // only SIMD can have a Uniform clause
+  return SubClassID==WRNVecLoop;
+}
+
 StringRef WRegionNode::getName() const {
   // good return llvm::vpo::WRNName[getWRegionKindID()];
   return WRNName[getWRegionKindID()];

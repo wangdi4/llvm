@@ -176,6 +176,17 @@ protected:
 
 public:
 
+  /// \brief Functions to check if the WRN allows a given clause type
+  bool hasShared();
+  bool hasPrivate();
+  bool hasFirstprivate();
+  bool hasLastprivate();
+  bool hasReduction();
+  bool hasCopyin();
+  bool hasCopyprivate();
+  bool hasLinear();
+  bool hasUniform();
+  
   // Below are virtual functions to get/set clause information of the WRN.
   // These routines should never be called; calling them indicates intention
   // to access clause info for a WRN that does not allow such clause (eg, a 
