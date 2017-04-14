@@ -277,31 +277,6 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
   return UnrollFactor;
 }
 
-class StructAccessFinder final : public HLNodeVisitorBase {
-private:
-  bool HasStructAccess;
-
-public:
-  StructAccessFinder() : HasStructAccess(false) {}
-
-  void visit(const HLDDNode *Node) {
-
-    for (auto RefIt = Node->op_ddref_begin(), End = Node->op_ddref_end();
-         RefIt != End; ++RefIt) {
-      if ((*RefIt)->accessesStruct()) {
-        HasStructAccess = true;
-        break;
-      }
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  bool hasStructAccess() const { return HasStructAccess; }
-  bool isDone() const override { return hasStructAccess(); }
-};
-
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
   // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
@@ -319,17 +294,6 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
   if ((Loop->isConstTripLoop(&TripCount) ||
        (TripCount = Loop->getMaxTripCountEstimate())) &&
       (TripCount < MinTripCountThreshold)) {
-    return false;
-  }
-
-  StructAccessFinder SAF;
-
-  HLNodeUtils::visitRange(SAF, Loop->child_begin(), Loop->child_end());
-
-  // Temporarily disable loops with struct access to avoid perf regressions
-  // until HIR vectorizer can handle them.
-  // TODO: clean this up later.
-  if (SAF.hasStructAccess()) {
     return false;
   }
 
