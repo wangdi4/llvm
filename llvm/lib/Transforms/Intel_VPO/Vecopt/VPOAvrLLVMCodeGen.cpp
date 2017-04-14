@@ -36,10 +36,8 @@ using namespace llvm::vpo;
 // Reduction PHI is saved as "Initializer", the binary operation is saved as
 // "Combiner".
 ReductionMngr::ReductionMngr(AVR *Avr) {
-  ReductionClause *RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
-  if (!RC)
-    return;
-  for (ReductionItem *Ri : RC->items()) {
+  ReductionClause &RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
+  for (ReductionItem *Ri : RC.items()) {
     auto usedInOnlyOnePhiNode = [](Value *V) {
       PHINode *Phi = 0;
       for (auto U : V->users())

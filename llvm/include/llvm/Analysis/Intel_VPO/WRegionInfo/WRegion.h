@@ -67,6 +67,13 @@ namespace vpo {
 ///    WRNTaskwaitNode           #pragma omp taskwait
 ///    WRNTaskyieldNode          #pragma omp taskyield
 
+// Macro to define getters for list-type clauses. It creates two versions:
+//   1. a const version used primarily by dumpers
+//   2. a nonconst version used by parsing and other code
+#define DEFINE_GETTER(CLAUSETYPE, GETTER, CLAUSEOBJ)       \
+   const CLAUSETYPE &GETTER() const { return CLAUSEOBJ; }  \
+         CLAUSETYPE &GETTER()       { return CLAUSEOBJ; }
+
 
 /// WRN for 
 /// \code
@@ -74,11 +81,11 @@ namespace vpo {
 /// \endcode
 class WRNParallelNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  ReductionClause *Reduction;
-  CopyinClause *Copyin;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  ReductionClause Reduction;
+  CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -86,25 +93,20 @@ private:
 
 public:
   WRNParallelNode(BasicBlock *BB);
-  WRNParallelNode(WRNParallelNode *W);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setCopyin(CopyinClause *C) { Copyin = C; }
   void setIf(EXPR E) { IfExpr = E; }
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  CopyinClause *getCopyin() const { return Copyin; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -124,13 +126,13 @@ public:
 /// \endcode
 class WRNParallelLoopNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
-  ReductionClause *Reduction;
-  LinearClause *Linear;
-  CopyinClause *Copyin;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
+  LinearClause Linear;
+  CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -143,16 +145,8 @@ private:
 
 public:
   WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
-  WRNParallelLoopNode(WRNParallelLoopNode *W);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setCopyin(CopyinClause *C) { Copyin = C; }
-  void setLinear(LinearClause *L) { Linear = L; }
   void setIf(EXPR E) { IfExpr = E; }
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
@@ -164,13 +158,14 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  LinearClause *getLinear() const { return Linear; }
-  CopyinClause *getCopyin() const { return Copyin; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(LinearClause,       getLinear, Linear)
+  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -195,11 +190,11 @@ public:
 /// \endcode
 class WRNParallelSectionsNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  ReductionClause *Reduction;
-  CopyinClause *Copyin;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  ReductionClause Reduction;
+  CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -211,11 +206,6 @@ public:
   WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setCopyin(CopyinClause *C) { Copyin = C; }
   void setIf(EXPR E) { IfExpr = E; }
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
@@ -224,11 +214,12 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  CopyinClause *getCopyin() const { return Copyin; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -250,11 +241,11 @@ public:
 /// \endcode
 class WRNParallelWorkshareNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  ReductionClause *Reduction;
-  CopyinClause *Copyin;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  ReductionClause Reduction;
+  CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -266,11 +257,6 @@ public:
   WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setCopyin(CopyinClause *C) { Copyin = C; }
   void setIf(EXPR E) { IfExpr = E; }
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
@@ -279,11 +265,12 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  CopyinClause *getCopyin() const { return Copyin; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -305,10 +292,10 @@ public:
 /// \endcode
 class WRNTeamsNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  ReductionClause *Reduction;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  ReductionClause Reduction;
   EXPR ThreadLimit;
   EXPR NumTeams;
   WRNDefaultKind Default;
@@ -317,19 +304,16 @@ public:
   WRNTeamsNode(BasicBlock *BB);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setRed(ReductionClause *R) { Reduction = R; }
   void setThreadLimit(EXPR E) { ThreadLimit = E; }
   void setNumTeams(EXPR E) { NumTeams = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  ReductionClause *getRed() const { return Reduction; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+
   EXPR getThreadLimit() const { return ThreadLimit; }
   EXPR getNumTeams() const { return NumTeams; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -348,13 +332,13 @@ public:
 /// \endcode
 class WRNDistributeParLoopNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
-  ReductionClause *Reduction;
-  LinearClause *Linear;
-  CopyinClause *Copyin;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
+  LinearClause Linear;
+  CopyinClause Copyin;
   EXPR IfExpr;
   EXPR NumThreads;
   WRNDefaultKind Default;
@@ -370,13 +354,6 @@ public:
   WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setLinear(LinearClause *L) { Linear = L; }
-  void setCopyin(CopyinClause *C) { Copyin = C; }
   void setIf(EXPR E) { IfExpr = E; }
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
@@ -389,13 +366,14 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  LinearClause *getLinear() const { return Linear; }
-  CopyinClause *getCopyin() const { return Copyin; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+  DEFINE_GETTER(LinearClause,       getLinear, Linear)
+  DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
@@ -421,11 +399,11 @@ public:
 /// \endcode
 class WRNTargetNode : public WRegionNode {
 private:
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  MapClause *Map;
-  DependClause *Depend;
-  IsDevicePtrClause *IsDevicePtr;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  MapClause Map;
+  DependClause Depend;
+  IsDevicePtrClause IsDevicePtr;
   EXPR IfExpr;
   EXPR Device;
   bool Nowait;
@@ -435,22 +413,18 @@ public:
   WRNTargetNode(BasicBlock *BB);
 
 protected:
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setMap(MapClause *M) { Map = M; }
-  void setDepend(DependClause *D) { Depend = D; }
-  void setIsDevicePtr(IsDevicePtrClause *IDP) { IsDevicePtr = IDP; }
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setDefaultmapTofromScalar(bool Flag) { DefaultmapTofromScalar = Flag; }
 
 public:
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  MapClause *getMap() const { return Map; }
-  DependClause *getDepend() const { return Depend; }
-  IsDevicePtrClause *getIsDevicePtr() const { return IsDevicePtr; }
+  DEFINE_GETTER(PrivateClause,      getPriv,        Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,       Fpriv)
+  DEFINE_GETTER(MapClause,          getMap,         Map)
+  DEFINE_GETTER(DependClause,       getDepend,      Depend)
+  DEFINE_GETTER(IsDevicePtrClause,  getIsDevicePtr, IsDevicePtr)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
@@ -475,9 +449,9 @@ public:
 /// \endcode
 class WRNTargetDataNode : public WRegionNode {
 private:
-  MapClause *Map;  // used for the map clause and the to/from clauses
-  DependClause *Depend;
-  UseDevicePtrClause *UseDevicePtr;
+  MapClause Map;  // used for the map clause and the to/from clauses
+  DependClause Depend;
+  UseDevicePtrClause UseDevicePtr;
   EXPR IfExpr;
   EXPR Device;
   bool Nowait;
@@ -486,17 +460,15 @@ public:
   WRNTargetDataNode(BasicBlock *BB);
 
 protected:
-  void setMap(MapClause *M) { Map = M; }
-  void setDepend(DependClause *D) { Depend = D; }
-  void setUseDevicePtr(UseDevicePtrClause *UDP) { UseDevicePtr = UDP; }
   void setIf(EXPR E) { IfExpr = E; }
   void setDevice(EXPR E) { Device = E; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
-  MapClause *getMap() const { return Map; }
-  DependClause *getDepend() const { return Depend; }
-  UseDevicePtrClause *getUseDevicePtr() const { return UseDevicePtr; }
+  DEFINE_GETTER(MapClause,          getMap,          Map)
+  DEFINE_GETTER(DependClause,       getDepend,       Depend)
+  DEFINE_GETTER(UseDevicePtrClause, getUseDevicePtr, UseDevicePtr)
+
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
@@ -515,10 +487,10 @@ public:
 /// \endcode
 class WRNTaskNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  DependClause *Depend;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  DependClause Depend;
   EXPR Final;
   EXPR IfExpr;
   EXPR Priority;
@@ -530,10 +502,6 @@ public:
   WRNTaskNode(BasicBlock *BB);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setDepend(DependClause *D) { Depend = D; }
   void setFinal(EXPR E) { Final = E; }
   void setIf(EXPR E) { IfExpr = E; }
   void setPriority(EXPR E) { Priority = E; }
@@ -542,10 +510,11 @@ protected:
   void setMergeable(bool Flag) { Mergeable = Flag; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  DependClause *getDepend() const { return Depend; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(DependClause,       getDepend, Depend)
+
   EXPR getFinal() const { return Final; }
   EXPR getIf() const { return IfExpr; }
   EXPR getPriority() const { return Priority; }
@@ -567,11 +536,11 @@ public:
 /// \endcode
 class WRNTaskloopNode : public WRegionNode {
 private:
-  SharedClause *Shared;
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
-  DependClause *Depend;
+  SharedClause Shared;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
+  DependClause Depend;
   EXPR Final;
   EXPR Grainsize;
   EXPR IfExpr;
@@ -589,11 +558,6 @@ public:
   WRNTaskloopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setShared(SharedClause *S) { Shared = S; }
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setDepend(DependClause *D) { Depend = D; }
   void setFinal(EXPR E) { Final = E; }
   void setGrainsize(EXPR E) { Grainsize = E; }
   void setIf(EXPR E) { IfExpr = E; }
@@ -608,11 +572,12 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  SharedClause *getShared() const { return Shared; }
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  DependClause *getDepend() const { return Depend; }
+  DEFINE_GETTER(SharedClause,       getShared, Shared)
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(DependClause,       getDepend, Depend)
+
   EXPR getFinal() const { return Final; }
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getIf() const { return IfExpr; }
@@ -640,12 +605,12 @@ public:
 /// \endcode
 class WRNVecLoopNode : public WRegionNode {
 private:
-  PrivateClause *Priv;
-  LastprivateClause *Lpriv;
-  ReductionClause *Reduction;
-  LinearClause *Linear;
-  AlignedClause *Aligned;
-  UniformClause *Uniform; // The simd construct does not take a uniform clause,
+  PrivateClause Priv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
+  LinearClause Linear;
+  AlignedClause Aligned;
+  UniformClause Uniform; // The simd construct does not take a uniform clause,
                           // so we won't get this from the front-end, but this
                           // list can/will be populated by the vector backend
   int Simdlen;
@@ -661,15 +626,7 @@ private:
 public:
   WRNVecLoopNode(BasicBlock *BB, LoopInfo *L); // LLVM IR representation
   WRNVecLoopNode(loopopt::HLNode *EntryHLN);   // HIR representation
-  WRNVecLoopNode(WRNVecLoopNode *W);
-  // WRNVecLoopNode(const WRNVecLoopNode &W);  // copy constructor
 
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setLinear(LinearClause *L) { Linear = L; }
-  void setUniform(UniformClause *L) { Uniform = L; }
-  void setAligned(AlignedClause *A) { Aligned = A; }
   void setSimdlen(int N) { Simdlen = N; }
   void setSafelen(int N) { Safelen = N; }
   void setCollapse(int N) { Collapse = N; }
@@ -680,12 +637,13 @@ public:
   void setExitHLNode(loopopt::HLNode *X) { ExitHLNode = X; }
   void setHLLoop(loopopt::HLLoop *L) { HLp = L; }
 
-  PrivateClause *getPriv() const { return Priv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  LinearClause *getLinear() const { return Linear; }
-  UniformClause *getUniform() const { return Uniform; }
-  AlignedClause *getAligned() const { return Aligned; }
+  DEFINE_GETTER(PrivateClause,     getPriv,    Priv)
+  DEFINE_GETTER(LastprivateClause, getLpriv,   Lpriv)
+  DEFINE_GETTER(ReductionClause,   getRed,     Reduction)
+  DEFINE_GETTER(LinearClause,      getLinear,  Linear)
+  DEFINE_GETTER(AlignedClause,     getAligned, Aligned)
+  DEFINE_GETTER(UniformClause,     getUniform, Uniform)
+
   int getSimdlen() const { return Simdlen; }
   int getSafelen() const { return Safelen; }
   int getCollapse() const { return Collapse; }
@@ -709,11 +667,11 @@ public:
 /// \endcode
 class WRNWksLoopNode : public WRegionNode {
 private:
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
-  ReductionClause *Reduction;
-  LinearClause *Linear;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
+  LinearClause Linear;
   ScheduleClause Schedule;
   int Collapse;
   int Ordered;
@@ -725,11 +683,6 @@ public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setRed(ReductionClause *R) { Reduction = R; }
-  void setLinear(LinearClause *L) { Linear = L; }
   void setSchedule(ScheduleClause S) { Schedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
@@ -738,12 +691,13 @@ protected:
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ReductionClause *getRed() const { return Reduction; }
-  LinearClause *getLinear() const { return Linear; }
-  ScheduleClause & getSchedule() { return Schedule; }
+  DEFINE_GETTER(PrivateClause,      getPriv,     Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,    Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,    Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,      Reduction)
+  DEFINE_GETTER(LinearClause,       getLinear,   Linear)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   bool getNowait() const { return Nowait; }
@@ -764,10 +718,10 @@ public:
 /// \endcode
 class WRNSectionsNode : public WRegionNode {
 private:
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
-  ReductionClause *Reduction;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
+  ReductionClause Reduction;
   bool Nowait;
   LoopInfo *LI;
   Loop *Lp;
@@ -776,19 +730,16 @@ public:
   WRNSectionsNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
-  void setRed(ReductionClause *R) { Reduction = R; }
   void setNowait(bool Flag) { Nowait = Flag; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ReductionClause *getRed() const { return Reduction; }
+  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
+
   bool getNowait() const { return Nowait; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
@@ -838,9 +789,9 @@ public:
 /// \endcode
 class WRNDistributeNode : public WRegionNode {
 private:
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  LastprivateClause *Lpriv;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  LastprivateClause Lpriv;
   ScheduleClause DistSchedule;
   int Collapse;
   LoopInfo *LI;
@@ -850,19 +801,17 @@ public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setLpriv(LastprivateClause *L) { Lpriv = L; }
   void setDistSchedule(ScheduleClause S) { DistSchedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
 
 public:
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  LastprivateClause *getLpriv() const { return Lpriv; }
-  ScheduleClause & getDistSchedule() { return DistSchedule; }
+  DEFINE_GETTER(PrivateClause,      getPriv,         Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv,        Fpriv)
+  DEFINE_GETTER(LastprivateClause,  getLpriv,        Lpriv)
+  DEFINE_GETTER(ScheduleClause,     getDistSchedule, DistSchedule)
+
   int getCollapse() const { return Collapse; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
@@ -913,17 +862,12 @@ public:
 /// \endcode
 class WRNFlushNode : public WRegionNode {
 private:
-  FlushSet *FValueSet;  // qualOpndList
-
-protected:
-  void setFlush(FlushSet *FS) { FValueSet = FS; }
+  FlushSet FValueSet;  // qualOpndList
 
 public:
-
   WRNFlushNode(BasicBlock *BB);
-  WRNFlushNode(WRNFlushNode *W);
 
-  FlushSet *getFlush() const { return FValueSet; }
+  DEFINE_GETTER(FlushSet, getFlush, FValueSet)
 
   void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
@@ -988,7 +932,6 @@ public:
 class WRNMasterNode : public WRegionNode {
 public:
   WRNMasterNode(BasicBlock *BB);
-  WRNMasterNode(WRNMasterNode *W);
 
   void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
@@ -1014,7 +957,7 @@ private:
 
   // The following two fields are meaningful only if IsDoacross==true
   bool IsDepSource;        // true if the directive has depend(source)
-  DepSinkClause *DepSink;  // meaningful only when DepSource==false
+  DepSinkClause DepSink;  // meaningful only when DepSource==false
   void assertDoacrossTrue() const  { assert (IsDoacross &&
                               "This WRNOrdered represents Doacross"); }
   void assertDoacrossFalse() const { assert (!IsDoacross &&
@@ -1022,19 +965,20 @@ private:
 
 public:
   WRNOrderedNode(BasicBlock *BB);
-  WRNOrderedNode(WRNOrderedNode *W);
 
 protected:
   void setIsDoacross(bool Flag) { IsDoacross = Flag; }
   void setThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
   void setDepSource(bool Flag) { assertDoacrossTrue(); IsDepSource = Flag; }
-  void setDepSink(DepSinkClause *D) { assertDoacrossTrue(); DepSink = D; }
 
 public:
   bool getIsDoacross() const {  return IsDoacross; }
   bool getIsThreads() const { assertDoacrossFalse(); return IsThreads; }
   bool getIsDepSource() const { assertDoacrossTrue(); return IsDepSource; }
-  DepSinkClause *getDepSink() const { assertDoacrossTrue(); return DepSink; }
+
+  const DepSinkClause &getDepSink() const {assertDoacrossTrue(); 
+                                           return DepSink; }
+  DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
 
   void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
@@ -1051,25 +995,22 @@ public:
 class WRNSingleNode : public WRegionNode {
 
 private:
-  PrivateClause *Priv;
-  FirstprivateClause *Fpriv;
-  CopyprivateClause *Cpriv;
+  PrivateClause Priv;
+  FirstprivateClause Fpriv;
+  CopyprivateClause Cpriv;
   bool Nowait;
 
 public:
   WRNSingleNode(BasicBlock *BB);
-  WRNSingleNode(WRNSingleNode *W);
 
 protected:
-  void setPriv(PrivateClause *P) { Priv = P; }
-  void setFpriv(FirstprivateClause *F) { Fpriv = F; }
-  void setCpriv(CopyprivateClause *C) { Cpriv = C; }
   void setNowait(bool Flag) { Nowait = Flag; }
 
 public:
-  PrivateClause *getPriv() const { return Priv; }
-  FirstprivateClause *getFpriv() const { return Fpriv; }
-  CopyprivateClause *getCpriv() const { return Cpriv; }
+  DEFINE_GETTER(PrivateClause,      getPriv,  Priv)
+  DEFINE_GETTER(FirstprivateClause, getFpriv, Fpriv)
+  DEFINE_GETTER(CopyprivateClause,  getCpriv, Cpriv)
+
   bool getNowait() const { return Nowait; }
 
   void print(formatted_raw_ostream &OS, unsigned Depth) const;
@@ -1096,7 +1037,6 @@ protected:
 
 public:
   WRNCriticalNode(BasicBlock *BB);
-  WRNCriticalNode(WRNCriticalNode *W);
 
   StringRef getUserLockName() const { return UserLockName.str(); }
   void print(formatted_raw_ostream &OS, unsigned Depth) const;

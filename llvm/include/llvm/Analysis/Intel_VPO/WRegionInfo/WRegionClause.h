@@ -536,9 +536,12 @@ template <typename ClauseItem> class Clause
       return ConstItemsRange(begin(), end());
     }
 
-    void print(formatted_raw_ostream &OS) const {
+    void print(formatted_raw_ostream &OS, unsigned Depth) const {
+      if (!size())  // this clause was not used in the directive
+        return;
+      std::string Indent(Depth * 2, ' ');
       StringRef S = VPOAnalysisUtils::getClauseName(getClauseID());
-      OS << S << " clause, size=" << size() << ": " ;
+      OS << Indent << S << " clause, size=" << size() << ": " ;
       for (auto I=begin(); I != end(); ++I) {
         OS << "(" << *((*I)->getOrig()) << ") ";
         if (getClauseID() == QUAL_OMP_LINEAR) {

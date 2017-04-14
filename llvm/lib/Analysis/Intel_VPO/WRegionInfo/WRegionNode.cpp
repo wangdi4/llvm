@@ -77,23 +77,12 @@ WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID), Attributes(0) {
   setIsFromHIR(true);
 }
 
-WRegionNode::WRegionNode(WRegionNode *W) : SubClassID(W->SubClassID) {
-  setNextNumber(); // can't reuse the same number; get a new one
-  setParent(W->getParent());
-  setEntryBBlock(W->getEntryBBlock());
-  setExitBBlock(W->getExitBBlock());
-  setIsFromHIR(W->getIsFromHIR());
-  setAttributes(W->getAttributes());
-  resetBBSet();
-  // TODO: add code to copy Children?
-}
-
 /// \brief Wrap up the WRN creation now that we have the ExitBB. If the WRN is
 /// a loop construct, this routine also calls the associated Loop from the
 /// LoopInfo.
 void WRegionNode::finalize(BasicBlock *ExitBB) {
   setExitBBlock(ExitBB);
-  if (getIsLoop()) {
+  if (getIsOmpLoop()) {
     LoopInfo *LI = getLoopInfo();
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
@@ -393,17 +382,13 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 //   llvm::IntrinsicInst*, llvm::vpo::Clause<llvm::vpo::PrivateItem>*)'
 
 template <typename ClauseTy>
-ClauseTy *WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                            int ClauseID, ClauseTy *C) {
-  if (C == nullptr) {
-    C = new ClauseTy();
-    C->setClauseID(ClauseID);
-  }
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                            int ClauseID, ClauseTy &C) {
+  C.setClauseID(ClauseID);
   for (unsigned I = 0; I < NumArgs; ++I) {
     Value *V = (Value*) Args[I];
-    C->add(V);
+    C.add(V);
   }
-  return C;
 }
 
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
@@ -451,14 +436,11 @@ void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
   return;
 }
 
-MapClause *WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                            const ClauseSpecifier &ClauseInfo,
-                                            MapClause *C, unsigned MapKind) {
-  if (C == nullptr) {
-    C = new MapClause();
-    C->setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
-                                     // the MapKind of each list item
-  }
+void WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      MapClause &C, unsigned MapKind) {
+  C.setClauseID(QUAL_OMP_MAP_TO); // dummy map clause id; details are in 
+                                  // the MapKind of each list item
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
@@ -466,20 +448,16 @@ MapClause *WRegionUtils::extractMapOpndList(const Use *Args, unsigned NumArgs,
   else 
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
-      C->add(V);
-      MapItem *MI = C->back();
+      C.add(V);
+      MapItem *MI = C.back();
       MI->setMapKind(MapKind);
     }
-  return C;
 }
 
-DependClause *WRegionUtils::extractDependOpndList(const Use *Args,
-                           unsigned NumArgs, const ClauseSpecifier &ClauseInfo,
-                           DependClause *C, bool IsIn) {
-  if (C == nullptr) {
-    C = new DependClause();
-    C->setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
-  }
+void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                         const ClauseSpecifier &ClauseInfo,
+                                         DependClause &C, bool IsIn) {
+  C.setClauseID(QUAL_OMP_DEPEND_IN); // dummy depend clause id; 
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
@@ -487,20 +465,16 @@ DependClause *WRegionUtils::extractDependOpndList(const Use *Args,
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
-      C->add(V);
-      DependItem *DI = C->back();
+      C.add(V);
+      DependItem *DI = C.back();
       DI->setIsIn(IsIn);
     }
-  return C;
 }
 
-ReductionClause *WRegionUtils::extractReductionOpndList(const Use *Args,
-                           unsigned NumArgs, const ClauseSpecifier &ClauseInfo,
-                           ReductionClause *C, int ReductionKind) {
-  if (C == nullptr) {
-    C = new ReductionClause();
-    C->setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
-  }
+void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      ReductionClause &C, int ReductionKind) {
+  C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
@@ -508,11 +482,10 @@ ReductionClause *WRegionUtils::extractReductionOpndList(const Use *Args,
   else
     for (unsigned I = 0; I < NumArgs; ++I) {
       Value *V = (Value*) Args[I];
-      C->add(V);
-      ReductionItem *RI = C->back();
+      C.add(V);
+      ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
     }
-  return C;
 }
 #endif
 
@@ -576,75 +549,57 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
 
   switch (ClauseID) {
   case QUAL_OMP_SHARED: {
-    SharedClause *C =
-      WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs,
-                                                      ClauseID, getShared());
-    setShared(C);
+    WRegionUtils::extractQualOpndList<SharedClause>(Args, NumArgs, ClauseID,
+                                                    getShared());
     break;
   }
   case QUAL_OMP_PRIVATE: {
-    PrivateClause *C =
-      WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs,
-                                                       ClauseID, getPriv());
-    setPriv(C);
+    WRegionUtils::extractQualOpndList<PrivateClause>(Args, NumArgs, ClauseID,
+                                                     getPriv());
     break;
   }
   case QUAL_OMP_FIRSTPRIVATE: {
-    FirstprivateClause *C =
-      WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndList<FirstprivateClause>(Args, NumArgs,
                                                        ClauseID, getFpriv());
-    setFpriv(C);
     break;
   }
   case QUAL_OMP_LASTPRIVATE: {
-    LastprivateClause *C =
-      WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
                                                        ClauseID, getLpriv());
-    setLpriv(C);
     break;
   }
   case QUAL_OMP_COPYIN: {
-    CopyinClause *C =
-      WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs,
-                                                      ClauseID, getCopyin());
-    setCopyin(C);
+    WRegionUtils::extractQualOpndList<CopyinClause>(Args, NumArgs, ClauseID,
+                                                    getCopyin());
     break;
   }
   case QUAL_OMP_COPYPRIVATE: {
-    CopyprivateClause *C =
-      WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
+    WRegionUtils::extractQualOpndList<CopyprivateClause>(Args, NumArgs,
                                                        ClauseID, getCpriv());
-    setCpriv(C);
     break;
   }
   case QUAL_OMP_DEPEND_IN:
   case QUAL_OMP_DEPEND_OUT:
   case QUAL_OMP_DEPEND_INOUT: {
     bool IsIn = ClauseID==QUAL_OMP_DEPEND_IN;
-    DependClause *C =
-      WRegionUtils::extractDependOpndList(Args, NumArgs, ClauseInfo,
-                                          getDepend(), IsIn);
-    setDepend(C);
+    WRegionUtils::extractDependOpndList(Args, NumArgs, ClauseInfo, getDepend(),
+                                        IsIn);
     break;
   }
   case QUAL_OMP_DEPEND_SINK: {
     setIsDoacross(true);
-    DepSinkClause *C =
-      WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs,
-                                                       ClauseID, getDepSink());
-    setDepSink(C);
+    WRegionUtils::extractQualOpndList<DepSinkClause>(Args, NumArgs, ClauseID,
+                                                     getDepSink());
     break;
   }
   case QUAL_OMP_IS_DEVICE_PTR: {
-    IsDevicePtrClause *C=WRegionUtils::extractQualOpndList<IsDevicePtrClause>
-                                   (Args, NumArgs, ClauseID, getIsDevicePtr());
-    setIsDevicePtr(C);
+    WRegionUtils::extractQualOpndList<IsDevicePtrClause>(Args, NumArgs,
+                                                 ClauseID, getIsDevicePtr());
     break;
   }
   case QUAL_OMP_USE_DEVICE_PTR: {
-    UseDevicePtrClause *C=WRegionUtils::extractQualOpndList<UseDevicePtrClause>
-                                  (Args, NumArgs, ClauseID, getUseDevicePtr());
-    setUseDevicePtr(C);
+    WRegionUtils::extractQualOpndList<UseDevicePtrClause>(Args, NumArgs,
+                                                ClauseID, getUseDevicePtr());
     break;
   }
   case QUAL_OMP_TO:
@@ -662,38 +617,28 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_MAP_ALWAYS_RELEASE:
   case QUAL_OMP_MAP_ALWAYS_DELETE: {
     unsigned MapKind = MapItem::getMapKindFromClauseId(ClauseID);
-    MapClause *C =
-      WRegionUtils::extractMapOpndList(Args, NumArgs, ClauseInfo, getMap(),
-                                       MapKind);
-    setMap(C);
+    WRegionUtils::extractMapOpndList(Args, NumArgs, ClauseInfo, getMap(),
+                                     MapKind);
     break;
   }
   case QUAL_OMP_UNIFORM: {
-    UniformClause *C =
-      WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs,
-                                                       ClauseID, getUniform());
-    setUniform(C);
+    WRegionUtils::extractQualOpndList<UniformClause>(Args, NumArgs, ClauseID,
+                                                     getUniform());
     break;
   }
   case QUAL_OMP_LINEAR: {
-    LinearClause *C =
-      WRegionUtils::extractQualOpndList<LinearClause>(Args, NumArgs,
-                                                      ClauseID, getLinear());
-    setLinear(C);
+    WRegionUtils::extractQualOpndList<LinearClause>(Args, NumArgs, ClauseID,
+                                                    getLinear());
     break;
   }
   case QUAL_OMP_ALIGNED: {
-    AlignedClause *C =
-      WRegionUtils::extractQualOpndList<AlignedClause>(Args, NumArgs,
-                                                       ClauseID, getAligned());
-    setAligned(C);
+    WRegionUtils::extractQualOpndList<AlignedClause>(Args, NumArgs, ClauseID,
+                                                     getAligned());
     break;
   }
   case QUAL_OMP_FLUSH: {
-    FlushSet *C =
-      WRegionUtils::extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID,
-                                                  getFlush());
-    setFlush(C);
+    WRegionUtils::extractQualOpndList<FlushSet>(Args, NumArgs, ClauseID,
+                                                getFlush());
     break;
   }
   case QUAL_OMP_SCHEDULE_AUTO: {
@@ -733,13 +678,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_UDR: {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");
-    ReductionClause *C =
-      WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo,
-                                             getRed(), ReductionKind);
-    setRed(C);
-
-    //don't call this: 
-    // setReductionItem(C->back(), Call);
+    WRegionUtils::extractReductionOpndList(Args, NumArgs, ClauseInfo, getRed(),
+                                           ReductionKind);
     break;
   }
   default:

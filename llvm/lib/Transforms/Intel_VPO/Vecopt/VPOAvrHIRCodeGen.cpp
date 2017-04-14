@@ -275,10 +275,8 @@ static RegDDRef *getConstantSplatDDRef(const RegDDRef *Op, unsigned VL) {
 }
 
 ReductionHIRMngr::ReductionHIRMngr(AVR *Avr) {
-  ReductionClause *RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
-  if (!RC)
-    return;
-  for (ReductionItem *Ri : RC->items()) {
+  ReductionClause &RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
+  for (ReductionItem *Ri : RC.items()) {
 
     auto usedInOnlyOnePhiNode = [](Value *V) {
       PHINode *Phi = 0;

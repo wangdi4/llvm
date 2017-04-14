@@ -195,34 +195,6 @@ public:
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerImpl *buildWRGraphFromHIR(loopopt::HIRFramework &HIRF);
 
-  /// \brief Extract the operands for a list-type clause.
-  /// This is called by WRegionNode::handleQualOpndList()
-  template <typename ClauseTy>
-  static ClauseTy *extractQualOpndList(const Use *Args, unsigned NumArgs,
-                                       int ClauseID, ClauseTy *C);
-
-  /// \brief Extract operands from a map clause
-  static MapClause *extractMapOpndList(const Use *Args, unsigned NumArgs,
-                                       const ClauseSpecifier &ClauseInfo,
-                                       MapClause *C, unsigned MapKind);
-
-  /// \brief Extract operands from a depend clause
-  static DependClause *extractDependOpndList(const Use *Args, unsigned NumArgs,
-                                             const ClauseSpecifier &ClauseInfo,
-                                             DependClause *C, bool IsIn);
-
-  /// \brief Extract operands from a reduction clause
-  static ReductionClause *extractReductionOpndList(const Use *Args,
-                                      unsigned NumArgs, 
-                                      const ClauseSpecifier &ClauseInfo,
-                                      ReductionClause *C, int ReductionKind);
-
-  /// \brief Extract operands from a schedule clause
-  static void extractScheduleOpndList(ScheduleClause & Sched,
-                                      const Use *Args,
-                                      const ClauseSpecifier &ClauseInfo,
-                                      WRNScheduleKind Kind);
-
   /// Removal Utilities
 
   /// \brief Destroys the passed in WRegion node.
@@ -246,6 +218,32 @@ public:
   /// \brief get the Clause Id for the WRNAtomicKind \p kind.
   static int getClauseIdFromAtomicKind(WRNAtomicKind Kind);
 
+  /// \brief Extract the operands for a list-type clause.
+  /// This is called by WRegionNode::handleQualOpndList()
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  int ClauseID, ClauseTy &C);
+
+  /// \brief Extract operands from a map clause
+  static void extractMapOpndList(const Use *Args, unsigned NumArgs,
+                                 const ClauseSpecifier &ClauseInfo,
+                                 MapClause &C, unsigned MapKind);
+
+  /// \brief Extract operands from a depend clause
+  static void extractDependOpndList(const Use *Args, unsigned NumArgs,
+                                    const ClauseSpecifier &ClauseInfo,
+                                    DependClause &C, bool IsIn);
+
+  /// \brief Extract operands from a reduction clause
+  static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      ReductionClause &C, int ReductionKind);
+
+  /// \brief Extract operands from a schedule clause
+  static void extractScheduleOpndList(ScheduleClause & Sched,
+                                      const Use *Args,
+                                      const ClauseSpecifier &ClauseInfo,
+                                      WRNScheduleKind Kind);
   /// @}
 
   /// \brief Get the induction variable of the OMP loop.

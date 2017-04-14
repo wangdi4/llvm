@@ -32,29 +32,10 @@ using namespace llvm::vpo;
 WRNParallelNode::WRNParallelNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNParallel, BB) {
   setIsPar();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setRed(nullptr);
-  setCopyin(nullptr);
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
-}
-
-WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W) {
-  setAttributes(W->getAttributes());
-  setShared(W->getShared());
-  setPriv(W->getPriv());
-  setFpriv(W->getFpriv());
-  setRed(W->getRed());
-  setCopyin(W->getCopyin());
-  setIf(W->getIf());
-  setNumThreads(W->getNumThreads());
-  setDefault(W->getDefault());
-  setProcBind(W->getProcBind());
   DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
@@ -79,13 +60,7 @@ void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li) {
   setIsPar();
-  setIsLoop();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setLpriv(nullptr);
-  setRed(nullptr);
-  setCopyin(nullptr);
+  setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
@@ -93,27 +68,6 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setOrdered(0);
 
-  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
-}
-
-WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W)
-    : WRegionNode(W) {
-  setAttributes(W->getAttributes());
-  setShared(W->getShared());
-  setPriv(W->getPriv());
-  setFpriv(W->getFpriv());
-  setLpriv(W->getLpriv());
-  setRed(W->getRed());
-  setCopyin(W->getCopyin());
-  setIf(W->getIf());
-  setNumThreads(W->getNumThreads());
-  setDefault(W->getDefault());
-  setProcBind(W->getProcBind());
-  setSchedule(W->getSchedule());
-  setCollapse(W->getCollapse());
-  setOrdered(W->getOrdered());
-  setLoopInfo(W->getLoopInfo());
-  setLoop(W->getLoop());
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
 
@@ -127,18 +81,16 @@ void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
   // TODO: print data local to this ParRegion
   //       eg shared vars, priv vars, etc.
 
-  if (auto PrivC = getPriv())
-    for (PrivateItem *PrivI : PrivC->items()) {
-      StringRef PrivS = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-      OS << Indent << "PRIVATE clause: " << PrivS << " "
-         << PrivI->getOrig()->getName() << "\n";
-    }
+  const PrivateClause &PrivC = getPriv();
+  for (PrivateItem *PrivI : PrivC.items()) {
+    StringRef PrivS = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
+    OS << Indent << "PRIVATE clause: " << PrivS << " "
+       << PrivI->getOrig()->getName() << "\n";
+  }
 
-  // LinearClause *C = getLinear();
-  // if (C) {
-  //  OS << Indent;
-  //  C->print(OS);
-  // }
+  // LinearClause &C = getLinear();
+  // OS << Indent;
+  // C.print(OS);
 
   OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
   OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
@@ -163,12 +115,7 @@ void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
 WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNParallelSections, BB), LI(Li) {
   setIsPar();
-  setIsLoop();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setRed(nullptr);
-  setCopyin(nullptr);
+  setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
@@ -193,12 +140,7 @@ const {
 WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNParallelWorkshare, BB), LI(Li) {
   setIsPar();
-  setIsLoop();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setRed(nullptr);
-  setCopyin(nullptr);
+  setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
@@ -223,10 +165,6 @@ const {
 WRNTeamsNode::WRNTeamsNode(BasicBlock *BB) 
     : WRegionNode(WRegionNode::WRNTeams, BB) {
   setIsTeams();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setRed(nullptr);
   setThreadLimit(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
@@ -250,12 +188,7 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNDistributeParLoop, BB), LI(Li) {
   setIsDistribute();
   setIsPar();
-  setIsLoop();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setRed(nullptr);
-  setCopyin(nullptr);
+  setIsOmpLoop();
   setIf(nullptr);
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
@@ -282,11 +215,6 @@ const {
 WRNTargetNode::WRNTargetNode(BasicBlock *BB) 
     : WRegionNode(WRegionNode::WRNTarget, BB) {
   setIsTarget();
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setMap(nullptr);
-  setDepend(nullptr);
-  setIsDevicePtr(nullptr);
   setIf(nullptr);
   setDevice(nullptr);
   setNowait(false);
@@ -311,9 +239,6 @@ const {
 WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB) 
     : WRegionNode(WRegionNode::WRNTargetData, BB) {
   setIsTarget();
-  setMap(nullptr);
-  setDepend(nullptr);
-  setUseDevicePtr(nullptr);
   setIf(nullptr);
   setDevice(nullptr);
   setNowait(false);
@@ -337,10 +262,6 @@ const {
 WRNTaskNode::WRNTaskNode(BasicBlock *BB) 
     : WRegionNode(WRegionNode::WRNTask, BB) {
   setIsTask();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setDepend(nullptr);
   setIf(nullptr);
   setFinal(nullptr);
   setPriority(nullptr);
@@ -366,12 +287,7 @@ void WRNTaskNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNTaskloop, BB), LI(Li) {
   setIsTask();
-  setIsLoop();
-  setShared(nullptr);
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setLpriv(nullptr);
-  setDepend(nullptr);
+  setIsOmpLoop();
   setFinal(nullptr);
   setGrainsize(nullptr);
   setIf(nullptr);
@@ -400,13 +316,7 @@ void WRNTaskloopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li) {
-  setIsLoop();
-  setPriv(nullptr);
-  setLpriv(nullptr);
-  setRed(nullptr);
-  setUniform(nullptr);
-  setLinear(nullptr);
-  setAligned(nullptr);
+  setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
@@ -418,13 +328,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
     : WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN) {
-  setIsLoop();
-  setPriv(nullptr);
-  setLpriv(nullptr);
-  setRed(nullptr);
-  setUniform(nullptr);
-  setLinear(nullptr);
-  setAligned(nullptr);
+  setIsOmpLoop();
   setSimdlen(0);
   setSafelen(0);
   setCollapse(0);
@@ -436,53 +340,26 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
   DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
-WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W) {
-  setAttributes(W->getAttributes());
-  setPriv(W->getPriv());
-  setLpriv(W->getLpriv());
-  setRed(W->getRed());
-  setUniform(W->getUniform());
-  setLinear(W->getLinear());
-  setAligned(W->getAligned());
-  setSimdlen(W->getSimdlen());
-  setSafelen(W->getSafelen());
-  setCollapse(W->getCollapse());
-  setIsAutoVec(W->getIsAutoVec());
-  if (W->getIsFromHIR()) {
-    setEntryHLNode(W->getEntryHLNode());
-    setExitHLNode(W->getExitHLNode());
-    setHLLoop(W->getHLLoop());
-  } else {
-    setLoopInfo(W->getLoopInfo());
-    setLoop(W->getLoop());
-  }
-  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
-}
-
 void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   std::string Indent(Depth * 2, ' ');
   OS << Indent << "\nBEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
 
   OS << Indent << "SIMDLEN clause: " << getSimdlen() << "\n";
 
-  if (auto RC = getRed())
-    for (ReductionItem *RI : RC->items()) {
-      ReductionItem::WRNReductionKind RType = RI->getType();
-      int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
-      StringRef RedStr = VPOAnalysisUtils::getClauseString(RedClauseID);
-      OS << Indent << "REDUCTION clause: " << RedStr << " "
-         << RI->getOrig()->getName() << "\n";
-    }
-  UniformClause *CU = getUniform();
-  if (CU) {
-    OS << Indent;
-    CU->print(OS);
+  const ReductionClause &RC = getRed();
+  for (ReductionItem *RI : RC.items()) {
+    ReductionItem::WRNReductionKind RType = RI->getType();
+    int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
+    StringRef RedStr = VPOAnalysisUtils::getClauseString(RedClauseID);
+    OS << Indent << "REDUCTION clause: " << RedStr << " "
+       << RI->getOrig()->getName() << "\n";
   }
-  LinearClause *C = getLinear();
-  if (C) {
-    OS << Indent;
-    C->print(OS);
-  }
+
+  const UniformClause &UC = getUniform();
+  UC.print(OS, Depth);
+
+  const LinearClause &LC = getLinear();
+  LC.print(OS, Depth);
 
   if (getIsFromHIR()) {
     OS << "\n" << Indent << "EntryHLNode:\n";
@@ -518,12 +395,7 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWksLoop, BB), LI(Li) {
-  setIsLoop();
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setLpriv(nullptr);
-  setRed(nullptr);
-  setLinear(nullptr);
+  setIsOmpLoop();
   setCollapse(0);
   setOrdered(0);
   setNowait(false);
@@ -545,11 +417,7 @@ void WRNWksLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNSections, BB), LI(Li) {
-  setIsLoop();
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setLpriv(nullptr);
-  setRed(nullptr);
+  setIsOmpLoop();
   setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
@@ -570,7 +438,7 @@ void WRNSectionsNode::print(formatted_raw_ostream &OS, unsigned Depth) const
 // constructor
 WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNWorkshare, BB), LI(Li) {
-  setIsLoop();
+  setIsOmpLoop();
   setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
@@ -590,11 +458,8 @@ void WRNWorkshareNode::print(formatted_raw_ostream &OS, unsigned Depth) const{
 // constructor
 WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
     : WRegionNode(WRegionNode::WRNDistribute, BB), LI(Li) {
-  setIsLoop();
+  setIsOmpLoop();
   setIsDistribute();
-  setPriv(nullptr);
-  setFpriv(nullptr);
-  setLpriv(nullptr);
   setCollapse(0);
   setNowait(false);
 
@@ -617,13 +482,6 @@ WRNAtomicNode::WRNAtomicNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNAtomic, BB) {
   setAtomicKind(WRNAtomicUpdate); // Default Atomic Kind is WRNAtomicUpdate
   setHasSeqCstClause(false);
-
-  DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
-}
-
-WRNAtomicNode::WRNAtomicNode(WRNAtomicNode *W) : WRegionNode(W) {
-  setAtomicKind(W->getAtomicKind());
-  setHasSeqCstClause(W->getHasSeqCstClause());
 
   DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
 }
@@ -699,10 +557,6 @@ WRNMasterNode::WRNMasterNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
 }
 
-WRNMasterNode::WRNMasterNode(WRNMasterNode *W) : WRegionNode(W) {
-  DEBUG(dbgs() << "\nCreated WRNMasterNode<" << getNumber() << ">\n");
-}
-
 void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   std::string Indent(Depth * 2, ' ');
   OS << Indent << "\nBEGIN WRNMasterNode<" << getNumber() << "> {\n";
@@ -731,14 +585,6 @@ WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 
-WRNOrderedNode::WRNOrderedNode(WRNOrderedNode *W) : WRegionNode(W) {
-  setIsDoacross(W->getIsDoacross());
-  setIsThreads(W->getIsThreads());
-  setIsDepSource(W->getIsDepSource());
-  setDepSink(W->getDepSink());
-  DEBUG(dbgs() << "\nCreated WRNOrderedNode<" << getNumber() << ">\n");
-}
-
 void WRNOrderedNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   std::string Indent(Depth * 2, ' ');
   OS << Indent << "\nBEGIN WRNOrderedNode<" << getNumber() << "> {\n";
@@ -763,10 +609,6 @@ void WRNOrderedNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 WRNSingleNode::WRNSingleNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNSingle, BB) {
   DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
-}
-
-WRNSingleNode::WRNSingleNode(WRNSingleNode *W) : WRegionNode(W) {
-  DEBUG(dbgs() << "\nCreated WRNSingleNode<" << getNumber() << ">\n");
 }
 
 void WRNSingleNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
@@ -796,11 +638,6 @@ WRNCriticalNode::WRNCriticalNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
 }
 
-WRNCriticalNode::WRNCriticalNode(WRNCriticalNode *W)
-    : WRegionNode(W), UserLockName(W->UserLockName) {
-  DEBUG(dbgs() << "\nCreated WRNCriticalNode<" << getNumber() << ">\n");
-}
-
 void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   std::string Indent(Depth * 2, ' ');
   OS << Indent << "BEGIN WRNCriticalNode<" << getNumber() << "> {\n";
@@ -823,12 +660,6 @@ void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNFlushNode::WRNFlushNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNFlush, BB) {
-  setFlush(nullptr);
-  DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
-}
-
-WRNFlushNode::WRNFlushNode(WRNFlushNode *W) : WRegionNode(W) {
-  setFlush(W->getFlush());
   DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
 }
 

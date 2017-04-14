@@ -250,7 +250,7 @@ bool VPOParoptTransform::paroptTransforms() {
     case WRegionNode::WRNTaskgroup:
       break;
 
-    // Constructs do not need to perform outlining
+    // Constructs that do not need to perform outlining
     case WRegionNode::WRNVecLoop:
       {
         // Privatization is enabled for SIMD Transform passes
@@ -793,16 +793,15 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   if (W->isBBSetEmpty())
     return Changed;
 
-  BasicBlock *RedInitEntryBB = nullptr;
-  BasicBlock *RedUpdateEntryBB = nullptr;
-  createEmptyRedFiniBB(W, RedUpdateEntryBB);
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    BasicBlock *RedInitEntryBB = nullptr;
+    BasicBlock *RedUpdateEntryBB = nullptr;
+    createEmptyRedFiniBB(W, RedUpdateEntryBB);
 
-  if (auto RedClause = W->getRed()) {
-
-    for (ReductionItem *RedI : RedClause->items()) {
+    for (ReductionItem *RedI : RedClause.items()) {
       AllocaInst *RedInst;
       AllocaInst *NewRedInst;
-
       if ((RedInst = dyn_cast<AllocaInst>(RedI->getOrig()))) {
         NewRedInst =
             genPrivatizationCodeHelper(W, RedInst, &EntryBB->front(), ".red");
@@ -876,29 +875,28 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   if (W->isBBSetEmpty())
     return Changed;
 
-  // Process all PrivateItems in the private clause  
-  if (auto PrivClause = W->getPriv()) {
+  // Process all PrivateItems in the private clause
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.size()) {
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
-    for (PrivateItem *PrivI : PrivClause->items()) {
-
+    for (PrivateItem *PrivI : PrivClause.items()) {
       AllocaInst *PrivInst;
-
       if (isa<Argument>(PrivI->getOrig())) { 
         // PrivItem can be a function argument
         DEBUG(dbgs() << " Private Argument: " << *PrivI->getOrig() << "\n");
       } else if ((PrivInst = dyn_cast<AllocaInst>(PrivI->getOrig())))
         genPrivatizationCodeHelper(W, PrivInst, &EntryBB->front(), ".priv");
     }
+
+    // After Privatization is done, the SCEV should be re-generated.
+    // This should apply to all loop-type constructs; ie, WRNs whose
+    // "IsOmpLoop" attribute is true.
+    if (SE && W->getIsOmpLoop()) {
+      Loop *L = W->getLoop();
+      SE->forgetLoop(L);
+    }
     Changed = true;
-  }
-
-  // After Privatization is done, the SCEV should be re-generated 
-  if (isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) {
-    Loop *L = W->getLoop();
-
-    if (SE)
-       SE->forgetLoop(L);
   }
   return Changed;
 }
@@ -908,11 +906,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  Loop *L = nullptr;
+  assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
-  if (isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) {
-    L = W->getLoop();
-  }
+  Loop *L = W->getLoop();
+
+  assert(L && "genLoopSchedulingCode: Loop not found");
 
   DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
@@ -1022,19 +1020,19 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
   if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) { 
-    // Geneate __kmpc__for_static_init_4{u}/8(u} Call Instruction
+    // Generate __kmpc__for_static_init_4{u}/8(u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd, 
                                UpperBnd, Stride, StrideVal, ValueOne, 
                                Size, IsUnsigned, InsertPt);
   }
   else {
-    // Geneate __kmpc_dispatch_init_4{u}/8(u} Call Instruction
+    // Generate __kmpc_dispatch_init_4{u}/8(u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
                                LoadTid, SchedType, InitVal, UpperBndVal,   
                                StrideVal, ChunkVal, Size, IsUnsigned, InsertPt);
 
-    // Geneate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
+    // Generate __kmpc_dispatch_next_4{u}/8{u} Call Instruction
     KmpcNextCI = VPOParoptUtils::genKmpcDispatchNext(W, IdentTy,
                                LoadTid, IsLastVal, LowerBnd, 
                                UpperBnd, Stride, Size, IsUnsigned, InsertPt);
@@ -1706,10 +1704,10 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // Finally, nuke the original extracted function.
     NewF->eraseFromParent();
 
-    // Geneate __kmpc_fork_call for multithreaded execution of MTFn call
+    // Generate __kmpc_fork_call for multithreaded execution of MTFn call
     CallInst* ForkCI = genForkCallInst(W, MTFnCI);
 
-    // Geneate __kmpc_ok_to_fork test Call Instruction
+    // Generate __kmpc_ok_to_fork test Call Instruction
     CallInst* ForkTestCI = VPOParoptUtils::genKmpcForkTest(W, IdentTy, ForkCI);
 
     // 
@@ -1760,7 +1758,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
                                  ForkTestCI->getParent());
 
-    // Geneate __kmpc_push_num_threads(...) Call Instruction
+    // Generate __kmpc_push_num_threads(...) Call Instruction
     Value *NumThreads = W->getNumThreads();
  
     if (NumThreads) {
@@ -1877,37 +1875,34 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
   return ForkCallInst;
 }
 
-// Generates the acutal parameters in the outlined function for
+// Generates the actual parameters in the outlined function for
 // copyin variables.
 void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
                                           std::vector<Value *>& MTFnArgs) {
-  if (auto CP = W->getCopyin()) {
-    for (auto C : CP->items()) {
-      MTFnArgs.push_back(C->getOrig());
-    }
-  }
+  CopyinClause &CP = W->getCopyin();
+  for (auto C : CP.items())
+    MTFnArgs.push_back(C->getOrig());
 }
 
 // Generates the formal parameters in the outlined function for 
 // copyin variables. It can be extended for other variables including
-// firstprivte, shared and etc. 
+// firstprivate, shared, etc. 
 void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
                                           std::vector<Type *>& ParamsTy) {
-  if (auto CP = W->getCopyin()) {
-    for (auto C : CP->items()) {
-      ParamsTy.push_back(C->getOrig()->getType());
-    }
-  }
+  CopyinClause &CP = W->getCopyin();
+  for (auto C : CP.items()) 
+    ParamsTy.push_back(C->getOrig()->getType());
 }
 
 // Fix the name of copyin formal parameters for outlined function.
 void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
                                                         Function *NFn) {
-  if (auto CP = W->getCopyin()) {
+  CopyinClause &CP = W->getCopyin();
+  if (CP.size()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
-    for (auto C : CP->items()) {
+    for (auto C : CP.items()) {
       NewArgI->setName("tpv_"+C->getOrig()->getName());
       ++NewArgI;
     }
@@ -1929,14 +1924,15 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
-  if (auto CP = W->getCopyin()) {
+  CopyinClause &CP = W->getCopyin();
+  if (CP.size()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
     const DataLayout DL=NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
-    for (auto C : CP->items()) {
+    for (auto C : CP.items()) {
       TerminatorInst *Term;
       if (FirstArg) {
         FirstArg = false;
@@ -2083,7 +2079,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
 
-  // Geneate __kmpc_master Call Instruction
+  // Generate __kmpc_master Call Instruction
   CallInst* MasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
                          IdentTy, TidPtr, InsertPt, true);
   MasterCI->insertBefore(InsertPt);
@@ -2092,7 +2088,7 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 
   Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
 
-  // Geneate __kmpc_end_master Call Instruction
+  // Generate __kmpc_end_master Call Instruction
   CallInst* EndMasterCI = VPOParoptUtils::genKmpcMasterOrEndMasterCall(W, 
                             IdentTy, TidPtr, InsertEndPt, false);
   EndMasterCI->insertBefore(InsertEndPt);
@@ -2155,14 +2151,14 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
 
   Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
 
-  // Geneate __kmpc_single Call Instruction
+  // Generate __kmpc_single Call Instruction
   CallInst* SingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
                          IdentTy, TidPtr, InsertPt, true);
   SingleCI->insertBefore(InsertPt);
 
   Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
 
-  // Geneate __kmpc_end_single Call Instruction
+  // Generate __kmpc_end_single Call Instruction
   CallInst* EndSingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
                             IdentTy, TidPtr, InsertEndPt, false);
   EndSingleCI->insertBefore(InsertEndPt);
@@ -2239,14 +2235,14 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
 
   Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
 
-  // Geneate __kmpc_ordered Call Instruction
+  // Generate __kmpc_ordered Call Instruction
   CallInst* OrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
                           IdentTy, TidPtr, InsertPt, true);
   OrderedCI->insertBefore(InsertPt);
 
   Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
 
-  // Geneate __kmpc_end_ordered Call Instruction
+  // Generate __kmpc_end_ordered Call Instruction
   CallInst* EndOrderedCI = VPOParoptUtils::genKmpcOrderedOrEndOrderedCall(W,
                              IdentTy, TidPtr, InsertEndPt, false);
   EndOrderedCI->insertBefore(InsertEndPt);
