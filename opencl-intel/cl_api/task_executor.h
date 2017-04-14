@@ -512,9 +512,10 @@ public:
      * Init TE for specified number of threads. The first call specifies the number of threads to be used, 
      * all subsequent calls are ignored, just return number of threads from the first call.
      * @param  AUTO_THREADS cannot be used if uiNumOfLevels > 1.
+     * @param ulAdditionalRequiredStackSize can be used to increase amount of stack in threads
      * @return the number of threads initialized, if succeeded, else -1
      */
-    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, unsigned long ulAdditionalRequiredStackSize = 0) = 0;
+    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, size_t ulAdditionalRequiredStackSize = 0) = 0;
 
     virtual void Finalize() = 0;
 

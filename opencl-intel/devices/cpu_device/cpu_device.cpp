@@ -106,12 +106,9 @@ cl_ulong GetLocalMemorySize()
         // check config for forced local mem size
         CPUDeviceConfig config;
         config.Initialize(GetConfigFilePath());
-        localMemSize = config.GetForcedLocalMemSize();
-        if (0 == localMemSize)
-        {
-            // fallback to default local memory size
-            localMemSize = CPU_DEV_LCL_MEM_SIZE;
-        }
+        localMemSize = (config.GetForcedLocalMemSize() != 0)
+                       ? config.GetForcedLocalMemSize()
+                       : CPU_DEV_LCL_MEM_SIZE; // fallback to default local memory size
     }
 
     return localMemSize;
