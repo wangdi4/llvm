@@ -443,7 +443,6 @@ public:
 
   explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
 
-  explicit OVLSOperand(OperandKind K) : Kind(K) {}
   OVLSOperand() {}
 
   ~OVLSOperand() {}
@@ -454,7 +453,9 @@ public:
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
-  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << " %undef"; }
+  virtual void printAsOperand(OVLSostream &OS) const {
+    OS << Type << " %undef";
+  }
 
 private:
   OperandKind Kind;
@@ -515,7 +516,7 @@ public:
 class OVLSAddress : public OVLSOperand {
 public:
   explicit OVLSAddress(const OVLSMemref *B, int64_t O)
-      : OVLSOperand(OK_Address), Base(B), Offset(O) {}
+      : OVLSOperand(OK_Address, B->getType()), Base(B), Offset(O) {}
 
   explicit OVLSAddress() {}
 
@@ -538,7 +539,12 @@ public:
   }
 
   void print(OVLSostream &OS) const {
-    OS << "<Base:" << Base << " Offset:" << Offset << ">";
+    OS << getType() << "* "
+       << "<Base:" << Base << " Offset:" << Offset << ">";
+  }
+  void printAsOperand(OVLSostream &OS) const {
+    OS << getType() << "* "
+       << "<Base:" << Base << " Offset:" << Offset << ">";
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -583,6 +589,8 @@ public:
   OperationCode getKind() const { return OPCode; }
 
   virtual void setMask(uint64_t Mask) {}
+  virtual void setType(OVLSType T) {}
+
 private:
   OperationCode OPCode;
 
@@ -617,6 +625,10 @@ public:
 
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) { ElemMask = Mask; }
+  void setType(OVLSType T) {
+    Src.setType(T);
+    OVLSOperand::setType(T);
+  }
 
 private:
   OVLSAddress Src;
@@ -631,9 +643,9 @@ class OVLSStore : public OVLSInstruction {
 
 public:
   /// \brief Store V in D using \p EMask (element mask).
-  explicit OVLSStore(const OVLSOperand * const V, const OVLSOperand &D,
+  explicit OVLSStore(const OVLSOperand *const V, const OVLSOperand &D,
                      uint64_t EMask)
-    : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
+      : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
     Dst = D;
   }
 
@@ -655,7 +667,11 @@ public:
 
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) { ElemMask = Mask; }
-  void updateValue(const OVLSOperand * const V) { Value = V; }
+  void updateValue(const OVLSOperand *const V) { Value = V; }
+  void setType(OVLSType T) {
+    Dst.setType(T);
+    OVLSOperand::setType(T);
+  }
 
 private:
   const OVLSOperand *Value;

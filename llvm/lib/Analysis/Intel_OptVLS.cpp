@@ -300,6 +300,7 @@ public:
   uint32_t getId() const { return Id; }
   OVLSInstruction *getInstruction() const { return Inst; }
   bool isALoad() const { return Inst && isa<OVLSLoad>(Inst); }
+  bool isAStore() const { return Inst && isa<OVLSStore>(Inst); }
   bool isUndefined() const { return Inst == nullptr; }
   OVLSType type() const { return Type; }
   void setType(OVLSType T) { Type = T; }
@@ -315,6 +316,18 @@ public:
     IncomingEdges.clear();
     OutgoingEdges.clear();
   }
+
+  // Update the value of its instruction. It asserts if it's not a store
+  // instruction. Here the value is computed from the incoming node.
+  void updateStoredValue() {
+    std::set<GraphNode *> UniqueSources;
+    assert(getNumUniqueSources(UniqueSources) == 1 && "Unexpected sources!!!");
+    std::set<GraphNode *>::iterator It = UniqueSources.begin();
+    OVLSStore *StoreInst = dyn_cast<OVLSStore>(Inst);
+    assert(StoreInst && "Expected Store Inst!");
+    StoreInst->updateValue(((*It)->getInstruction()));
+  }
+
   // Returns the current total number of incoming bits.
   uint32_t size() const { return TotalIncomingBits; }
 
@@ -603,7 +616,7 @@ class Graph {
 
 public:
   explicit Graph(uint32_t VLen, const OVLSCostModel &CostModel)
-    : VectorLength(VLen), CM(CostModel), TotalLoadNodes(0) {}
+      : VectorLength(VLen), CM(CostModel), TotalLoadNodes(0) {}
 
   ~Graph() {
     for (GraphNode *N : Nodes)
@@ -612,7 +625,7 @@ public:
   void insert(GraphNode *N) {
     Nodes.push_back(N);
     if (N->isALoad())
-      TotalLoadNodes++; 
+      TotalLoadNodes++;
   }
 
   void removeNode(GraphNode *N) {
@@ -680,7 +693,8 @@ public:
     // Don't simplify if the graph has a single load-node. The outcome of
     // the simplification and then merge will be the same node as the load-node.
     // Which leaves the graph with an extra node.
-    // Here is an exmaple of simplifying a graph with a single load-node. It leaves
+    // Here is an exmaple of simplifying a graph with a single load-node. It
+    // leaves
     // the final graph with v4 extra node that is same as the load-node.
     //    V3:Load                 V3:Load                     V3:Load
     //   |\  /|  After Simplify  |  |  |  |   After Merge      \ || /
@@ -992,47 +1006,56 @@ public:
     N1->setType(OVLSType(ElementSize, N1->size() / ElementSize));
   }
 
-  /// Returns false if verification fails. Verification fails if total number
-  /// of gathers in the \p Group does not match the total number of gather-nodes
-  /// (nodes with the incoming edges) in this(graph). Verification also fails
-  /// if number of bytes in a gather-node does not match the number of bytes
-  /// of the correspondent gather in the group. We find this correspondence
-  /// assuming the order of the gathers in a group is the same as in G).
-  /// This function should only be called right after load-generation before
-  /// any other optimization of the graph, otherwise, it will produce incorrect
-  /// result.
-  /// FIXME: Support scatters, masked gathers, duplicates;
+  /// Returns false if verification fails. Verification fails if
+  ///  1. Total number of gathers/scatters in the \p Group does not match the
+  ///     total number of gather/scatter-nodes in this(graph).
+  ///  2. If the number of bytes in a gather-node does not match the number of
+  ///     bytes of the correspondent gather in the group. We find this
+  ///     correspondence assuming the order of the gathers in a group is the
+  ///     same as in G).
+  ///  3. This function should only be called right after the load/store-
+  ///     generation before any other optimization of the graph. Otherwise,
+  ///     it will produce incorrect result.
+  /// FIXME: Support masked gathers/scatters, duplicates;
   bool verifyInitialGraph(const OVLSGroup &Group) {
-    // This initial graph is considered to be invalid for a group of scatters.
-    if (!Group.hasGathers())
-      return false;
+    uint32_t TotalGSNodes = 0;
 
-    uint32_t TotalGatherNodes = 0;
+    bool GroupOfGathers = false;
+    if (Group.hasGathers())
+      GroupOfGathers = true;
+
     for (GraphNode *N : Nodes) {
-      // This initial graph has only two kinds of nodes, nodes for loads and
-      // nodes for final gather results. Therefore, a node that is not a load
-      // is a gather.
-      if (!N->isALoad()) {
-        // Found a gather-result-node
-        OVLSMemref *Gather = Group.getMemref(TotalGatherNodes);
-        // FIXME: currently assuming all elements are masked on elements.
-        // Support masked gather.
-        if (N->type().getSize() != Gather->getType().getSize())
-          // Size of the gather-node does not match the size of the actual
-          // gather memref.
+      // This initial graph has only two kinds of nodes: nodes for loads/stores
+      // and nodes for gather/scatter results. Therefore, a node that is not a
+      // load nor a store is a gather or a scatter node.
+      if (!N->isALoad() && !N->isAStore()) {
+        // Found a gather/scatter-result-node
+        OVLSMemref *GSNode = Group.getMemref(TotalGSNodes);
+        if (N->type().getSize() != GSNode->getType().getSize())
+          // Size of the gather/scatter-node does not match the size of the
+          // actual gather/scatter memref.
           return false;
 
-        // One way to verify that the elements are loaded for unmasked
-        // gather is to verify there are no gaps
+        // FIXME: currently assuming all elements are masked on elements.
+        // Support masked gather/scatter.
+        // One way to verify that the elements are loaded/stored for unmasked
+        // gather/scatter is to verify that there are no elements without valid
+        // source/destination.
+        GraphNode *Node;
         for (GraphNode::iterator I = N->begin(), E = N->end(); I != E; ++I)
-          if (!(*I)->getSource())
+          if (GroupOfGathers) {
+            // Check if gather-element comes from a load node.
+            if (!(Node = (*I)->getSource()) || !Node->isALoad())
+              return false;
+          }
+          // Check if this scatter element flows into a store node.
+          else if (!(Node = (*I)->getDest()) || !Node->isAStore())
             return false;
-
-        TotalGatherNodes++;
+        TotalGSNodes++;
       }
     }
 
-    if (TotalGatherNodes != Group.size())
+    if (TotalGSNodes != Group.size())
       return false;
 
     return true;
@@ -1059,6 +1082,14 @@ public:
     for (GraphNode *N : TopSortedNodes) {
       if (N->isUndefined())
         N->genShuffle();
+
+      // Update the stored value. Initially when we created the store the
+      // initial
+      // value was undef since instruction for the def-node was not defined at
+      // that
+      // point.
+      if (N->isAStore())
+        N->updateStoredValue();
 
       OVLSInstruction *I = N->getInstruction();
       assert(I != nullptr && "Inst cannot be null!!!");
@@ -1288,9 +1319,9 @@ static bool hasContiguousAccesses(uint64_t ByteAccessMask,
 
 static bool isSupported(const OVLSGroup &Group) {
   int64_t Stride = 0;
-  if (!Group.hasGathers() || !Group.hasAConstStride(Stride)) {
+  if (!Group.hasAConstStride(Stride)) {
     OVLSDebug(OVLSdbgs() << "Optimized sequence is only supported for a group"
-                            " of gathers that has a constant stride!!!\n");
+                            " of gathers/scatters that has a constant stride!!!\n");
     return false;
   }
 
@@ -1326,7 +1357,7 @@ static bool isSupported(const OVLSGroup &Group) {
 ///
 ///    The Equivalent shuffle would be:
 ///    Shuffle = shufflevector <2 x 64>* &Mrf, <2 x 64> %undef, <2 x 32><1, 3>
-OVLSInstruction* genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
+OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   OVLSType Ty = Mrf.getType();
 
   OVLSOperand *Op1 = new OVLSAddress(&Mrf, 0);
@@ -1345,7 +1376,6 @@ OVLSInstruction* genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   assert(Mrf.hasAConstStride(&Stride) && "Constant stride expected!!!");
   Stride = Stride / ElemSizeInByte;
 
-
   int32_t IntShuffleMask[MaxNumElems];
   for (uint32_t MaskIndex = 0; MaskIndex < NumElems; MaskIndex++) {
     IntShuffleMask[MaskIndex] = Index;
@@ -1353,7 +1383,7 @@ OVLSInstruction* genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
   }
 
   ShuffleMask =
-    new OVLSConstant(OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
+      new OVLSConstant(OVLSType(32, NumElems), (int8_t *)IntShuffleMask);
 
   return new OVLSShuffle(Op1, Op2, ShuffleMask);
 }
@@ -1395,7 +1425,8 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
        ++I) {
     OVLSMemref *Curr = *I;
     int64_t Dist = 0;
-    // Don't create nodes for the duplicates. We will replace the duplicates with
+    // Don't create nodes for the duplicates. We will replace the duplicates
+    // with
     // the final shuffle instruction at the end.
     if (Prev && Curr->isAConstDistanceFrom(*Prev, &Dist) && Dist == 0)
       continue;
@@ -1407,13 +1438,13 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
 
     GraphNode *GSNode;
     if (GroupOfGathers)
-      GSNode  = new GraphNode(nullptr, MemrefType);
+      GSNode = new GraphNode(nullptr, MemrefType);
     else {
       // TODO: Currenlty, assumes there are no gaps between the memrefs in the
       // Group, so incrementing StartIndex by 1. Support gaps between the
       // memrefs.
       OVLSInstruction *ScatterdRes = genShuffleForMemref(*Mrf, StartIndex++);
-      GSNode  = new GraphNode(ScatterdRes, MemrefType);
+      GSNode = new GraphNode(ScatterdRes, MemrefType);
     }
     G.insert(GSNode);
 
@@ -1479,8 +1510,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
     CurrLSInst = new OVLSStore(Undef, *SrcOrDst, ElementMask);
   }
   // Generate the graph-node for the load/store.
-  GraphNode *CurrLSNode =
-      new GraphNode(CurrLSInst, CurrLSInst->getType());
+  GraphNode *CurrLSNode = new GraphNode(CurrLSInst, CurrLSInst->getType());
   G.insert(CurrLSNode);
 
   uint32_t IthElem = 0;
@@ -1503,11 +1533,11 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
         if (GroupOfGathers)
           // create a new load.
           CurrLSInst = new OVLSLoad(LSType, *SrcOrDst, ElementMask);
-	else {
+        else {
           // create a new store
           OVLSOperand *Undef = new OVLSUndef(LSType);
           CurrLSInst = new OVLSStore(Undef, *SrcOrDst, ElementMask);
-	}
+        }
         CurrLSNode = new GraphNode(CurrLSInst, CurrLSInst->getType());
         G.insert(CurrLSNode);
 
@@ -1544,14 +1574,12 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
       // from the scatter node to the stored element
       if (GroupOfGathers) {
         BitRange LoadBR = BitRange(LSSize * BYTE, ElemSizeInBit);
-        Edge *E =
-          new Edge(CurrLSNode, GSNode, LoadBR, IthElem * ElemSizeInBit);
+        Edge *E = new Edge(CurrLSNode, GSNode, LoadBR, IthElem * ElemSizeInBit);
         GSNode->addAnIncomingEdge(IthElem * ElemSizeInBit, E);
         CurrLSNode->addAnOutgoingEdge(E);
       } else {
         BitRange StoreBR = BitRange(IthElem * ElemSizeInBit, ElemSizeInBit);
-        Edge *E =
-          new Edge(GSNode, CurrLSNode, StoreBR, LSSize * BYTE);
+        Edge *E = new Edge(GSNode, CurrLSNode, StoreBR, LSSize * BYTE);
         CurrLSNode->addAnIncomingEdge(LSSize * BYTE, E);
         GSNode->addAnOutgoingEdge(E);
       }
@@ -1745,7 +1773,7 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 // sequence). The main purpose of this function is to help diagnostics.
 //
 // Current implementation status:
-// Current implementation only supports a group of adjacent strided-loads
+// Current implementation only supports a group of adjacent strided-loads/stores
 // with no gaps in between the accesses. E.g. a series of strided loads like
 // below will not be supported since access to a[3i+2] is missing in this set.
 // loop:
@@ -1761,12 +1789,8 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 //   t1 = s[i].f;
 //   t2 = s[i].d;
 //
-// Only strided-loads with constant stride (a uniform distance between the
-// vector
-// elements) is supported.
-//
-// Right now, it only generates the load sequence, shuffle sequence are not
-// supported.
+// Strided-loads/stores with constant stride (a uniform distance between the
+// vector elements) is supported.
 bool OptVLSInterface::getSequence(const OVLSGroup &Group,
                                   const OVLSCostModel &CM,
                                   OVLSInstructionVector &InstVector) {
