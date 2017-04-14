@@ -243,21 +243,30 @@ bool VPOParoptTransform::paroptTransforms() {
 
         break;
       }
-
-    // Task constructs need to perform outlining
     case WRegionNode::WRNTask:
     case WRegionNode::WRNTaskloop:
+      // Task constructs need to perform outlining
       break;
     case WRegionNode::WRNTaskgroup:
       break;
 
     // Constructs do not need to perform outlining
+    case WRegionNode::WRNVecLoop:
+      {
+        // Privatization is enabled for SIMD Transform passes
+        DEBUG(dbgs() << "\n WRNSimdLoop - Transformation \n\n");
+
+        if (Mode & ParPrepare)
+           Changed = genPrivatizationCode(W);
+        break;
+      }
     case WRegionNode::WRNAtomic:
-      { DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
-      if (Mode & ParPrepare)
-        Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+      { 
+        DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
+        if (Mode & ParPrepare)
+          Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
                                                   IdentTy, TidPtr);
-      break;
+        break;
       }
     case WRegionNode::WRNSections:
     case WRegionNode::WRNWksLoop:
@@ -270,8 +279,6 @@ bool VPOParoptTransform::paroptTransforms() {
         Changed |= genPrivatizationCode(W);
         break;
       }
-    case WRegionNode::WRNVecLoop:
-      break;
     case WRegionNode::WRNSingle:
       { DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) 
@@ -887,8 +894,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   }
 
   // After Privatization is done, the SCEV should be re-generated 
-  if (WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W)) {
-    Loop *L = WL->getLoop();
+  if (isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) {
+    Loop *L = W->getLoop();
 
     if (SE)
        SE->forgetLoop(L);
@@ -901,8 +908,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
-  Loop *L = WL->getLoop();
+  Loop *L = nullptr;
+
+  if (isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) {
+    L = W->getLoop();
+  }
 
   DEBUG(dbgs() << "--- Parallel For LoopInfo: \n" << *L);
   DEBUG(dbgs() << "--- Loop Preheader: " << *(L->getLoopPreheader()) << "\n");
@@ -973,8 +983,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   IRBuilder<> B(InsertPt);
   if (UpperBndVal->getType()->getIntegerBitWidth() != 
-                              LoopIndexType->getIntegerBitWidth()) 
-    UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, LoopIndexType);
+                              IndValTy->getIntegerBitWidth()) 
+    UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, IndValTy);
 
   StoreInst *Tmp1 = new StoreInst(UpperBndVal, UpperBnd, false, InsertPt);
   Tmp1->setAlignment(4);
@@ -1696,7 +1706,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // Finally, nuke the original extracted function.
     NewF->eraseFromParent();
 
-    // Geneate _kmpc_fork_call for multithreaded execution of MTFn call
+    // Geneate __kmpc_fork_call for multithreaded execution of MTFn call
     CallInst* ForkCI = genForkCallInst(W, MTFnCI);
 
     // Geneate __kmpc_ok_to_fork test Call Instruction
@@ -1749,6 +1759,16 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     DT->changeImmediateDominator(ElseCallBB, ForkTestCI->getParent());
     DT->changeImmediateDominator(ThenForkBB->getTerminator()->getSuccessor(0),
                                  ForkTestCI->getParent());
+
+    // Geneate __kmpc_push_num_threads(...) Call Instruction
+    Value *NumThreads = W->getNumThreads();
+ 
+    if (NumThreads) {
+      LoadInst *Tid = new LoadInst(TidPtr, "my.tid", ForkCI);
+      Tid->setAlignment(4);
+      VPOParoptUtils::genKmpcPushNumThreads(W, 
+                                            IdentTy, Tid, NumThreads, ForkCI);
+    }
 
     // Remove the serial call to MTFn function from the program, reducing
     // the use-count of MTFn
@@ -1861,7 +1881,6 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 // copyin variables.
 void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
                                           std::vector<Value *>& MTFnArgs) {
-
   if (auto CP = W->getCopyin()) {
     for (auto C : CP->items()) {
       MTFnArgs.push_back(C->getOrig());
@@ -1874,7 +1893,6 @@ void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
 // firstprivte, shared and etc. 
 void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
                                           std::vector<Type *>& ParamsTy) {
-
   if (auto CP = W->getCopyin()) {
     for (auto C : CP->items()) {
       ParamsTy.push_back(C->getOrig()->getType());
@@ -1885,7 +1903,6 @@ void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
 // Fix the name of copyin formal parameters for outlined function.
 void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
                                                         Function *NFn) {
-
   if (auto CP = W->getCopyin()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
@@ -1912,7 +1929,6 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
-
   if (auto CP = W->getCopyin()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;

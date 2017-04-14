@@ -238,6 +238,44 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
   return WRNScheduleOrderedStaticEven;
 }
 
+// This function generates a call to set num_threads for the parallel
+// region and parallel loop/sections
+//
+// call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
+void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
+                                           StructType *IdentTy,
+                                           Value *Tid, Value *NumThreads,
+                                           Instruction *InsertPt) {
+  BasicBlock  *B = W->getEntryBBlock();
+  BasicBlock  *E = W->getExitBBlock();
+
+  Function    *F = B->getParent();
+  LLVMContext &C = F->getContext();
+
+  Module *M = F->getParent();
+
+  std::string FnName;
+
+  FnName = "__kmpc_push_num_threads";
+
+  int Flags = KMP_IDENT_KMPC;
+
+  GlobalVariable *Loc =
+    genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  DEBUG(dbgs() << "\n---- Loop Source Location Info: " << *Loc << "\n\n");
+
+  SmallVector<Value *, 3> FnArgs {Loc, Tid, NumThreads};
+
+  Type *RetTy = Type::getVoidTy(C);
+
+  // Generate __kmpc_push_num_threads(loc, tid, num_threads) in IR
+  CallInst *PushNumThreads = genCall(M, FnName, RetTy, FnArgs);
+  PushNumThreads->insertBefore(InsertPt);
+
+  return;
+}
+
 // This function generates a call to notify the runtime system that the static 
 // loop scheduling is started
 //

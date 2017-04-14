@@ -82,7 +82,7 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   WRegionInfo &WI = getAnalysis<WRegionInfo>();
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
-  DEBUG(dbgs() << "\n=== VPOParoptPrepare get here ...... " << F.getName() <<" {\n");
+  DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<" {\n");
 
   if (WI.WRGraphIsEmpty()) {
     DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");
@@ -107,7 +107,6 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   // VPOUtils::stripDirectives(F);
 
   DEBUG(dbgs() << "\n}=== VPOParoptPrepare End: " << F.getName() <<"\n");
-
   DEBUG(dbgs() << "\n====== Exit VPO Paropt Prepare Pass ======\n\n");
   return Changed;
 }

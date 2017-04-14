@@ -151,6 +151,16 @@ public:
                                                   int Flags, BasicBlock *BS,
                                                   BasicBlock *BE);
 
+    
+    /// \brief This function generates a call to set num_threads for the 
+    /// parallel region and parallel loop/sections
+    ///
+    /// call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
+    static void genKmpcPushNumThreads(WRegionNode *W,
+                                      StructType *IdentTy,
+                                      Value *Tid, Value *NumThreads,
+                                      Instruction *InsertPt);
+
     /// \brief Generate a call to notify the runtime system that the static 
     /// loop scheduling is started 
     /// call void @__kmpc_for_static_init_4(%ident_t* %loc, i32 %tid,
