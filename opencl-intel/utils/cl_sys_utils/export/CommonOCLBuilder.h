@@ -46,6 +46,7 @@ public:
 
   CommonOCLBuilder& withFP64Support(bool );
   CommonOCLBuilder& withImageSupport(bool );
+  CommonOCLBuilder& withFpgaEmulator(bool );
   //cleanup function
   void close();
 
@@ -78,6 +79,8 @@ private:
   bool m_bSupportFP64;
   //Indicates whether images are supported by the device
   bool m_bSupportImages;
+  // Indicates whether FPGA emulation is supported by the device
+  bool m_bFpgaEmulator;
 };
 
 }}} // Namespaces
