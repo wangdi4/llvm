@@ -58,4 +58,19 @@ void foo(int *arr1, int **arr2) {
   for (int k=0; k<10; k++) {
     bar(k);
   }
+
+// CHECK: directive(metadata !"DIR.OMP.PARALLEL.LOOP")
+// CHECK: directive(metadata !"DIR.OMP.SIMD")
+// CHECK-REGION: [[TOKENVAL0:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.PARALLEL.LOOP"()
+// CHECK-REGION-SAME: "QUAL.OMP.SHARED"(i32** %arr1
+// CHECK-REGION: [[TOKENVAL1:%[0-9]+]] = call token @llvm.directive.region.entry() [ "DIR.OMP.SIMD"()
+// CHECK-REGION-SAME: "QUAL.OMP.SAFELEN"(i32 4)
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL1]]) [ "DIR.OMP.END.SIMD"() ]
+// CHECK-REGION: call void @llvm.directive.region.exit(token [[TOKENVAL0]]) [ "DIR.OMP.END.PARALLEL.LOOP"() ]
+  #pragma omp parallel for simd safelen(4)
+  for (iter = first1(); iter < last1(); ++iter) {
+    int pr = 4;
+    arr1[iter] = 42+iter+pr;
+  }
+
 }

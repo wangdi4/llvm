@@ -44,24 +44,36 @@ class OpenMPCodeOutliner {
     llvm::Value *VLASize = nullptr;
   };
   typedef llvm::SmallVector<ArraySectionDataTy, 4> ArraySectionTy;
+
+  // Used temporarily to build a bundle
+  OpenMPClauseKind CurrentClauseKind;
+  StringRef BundleString;
+  SmallVector<llvm::Value*, 8> BundleValues;
+  void clearBundleTemps() { BundleString = ""; BundleValues.clear(); }
+
+  struct DirectiveIntrinsicSet final {
+    OpenMPDirectiveKind DKind;
+    SmallVector<llvm::OperandBundleDef, 8> OpBundles;
+    SmallVector<llvm::Intrinsic::ID, 8> Intrins;
+    StringRef End;
+    llvm::CallInst *CallEntry;
+    DirectiveIntrinsicSet(StringRef E, OpenMPDirectiveKind K)
+          : DKind(K), End(E), CallEntry(nullptr) {}
+    void clear() { OpBundles.clear(); Intrins.clear(); }
+  };
+  SmallVector<DirectiveIntrinsicSet, 4> Directives;
   CodeGenFunction &CGF;
-  StringRef End;
   llvm::LLVMContext &C;
 
   // For region entry/exit implementation
   llvm::Function *RegionEntryDirective = nullptr;
   llvm::Function *RegionExitDirective = nullptr;
-  SmallVector<llvm::OperandBundleDef, 1> OpBundles;
-  SmallVector<llvm::Intrinsic::ID, 4> Intrins;
-  StringRef BundleString;
-  SmallVector<llvm::Value*, 1> BundleValues;
 
   // Used to insert instructions outside the region
   llvm::Instruction *OutsideInsertInstruction = nullptr;
 
   const OMPExecutableDirective &Directive;
 
-  void emitMultipleDirectives();
   ArraySectionDataTy emitArraySectionData(const OMPArraySectionExpr *E);
   Address emitOMPArraySectionExpr(const OMPArraySectionExpr *E,
                                   ArraySectionTy &AS);
@@ -70,7 +82,12 @@ class OpenMPCodeOutliner {
   void addArg(StringRef Str);
   void addArg(const Expr *E);
 
-  void emitDirective();
+  void getLegalDirectives(SmallVector<DirectiveIntrinsicSet *, 4> &Dirs);
+  void startDirectiveIntrinsicSet(StringRef B, StringRef E,
+                                  OpenMPDirectiveKind K = OMPD_unknown);
+  void emitDirective(DirectiveIntrinsicSet &D, StringRef Name);
+  void emitMultipleDirectives(DirectiveIntrinsicSet &D);
+  void emitClause(llvm::Intrinsic::ID IID);
   void emitSimpleClause();
   void emitOpndClause();
   void emitListClause();
@@ -143,6 +160,7 @@ public:
   void emitOMPParallelForDirective();
   void emitOMPSIMDDirective();
   void emitOMPForDirective();
+  void emitOMPParallelForSimdDirective();
   void emitOMPAtomicDirective(OMPAtomicClause ClauseKind);
   void emitOMPSingleDirective();
   void emitOMPMasterDirective();
