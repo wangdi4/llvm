@@ -112,8 +112,6 @@ public:
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNParallel;
@@ -151,7 +149,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setSchedule(ScheduleClause S) { Schedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
@@ -165,18 +162,16 @@ public:
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(LinearClause,       getLinear, Linear)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  ScheduleClause & getSchedule() { return Schedule; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -227,8 +222,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNParallelSections;
@@ -278,8 +271,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNParallelWorkshare;
@@ -317,8 +308,6 @@ public:
   EXPR getThreadLimit() const { return ThreadLimit; }
   EXPR getNumTeams() const { return NumTeams; }
   WRNDefaultKind getDefault() const { return Default; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -358,8 +347,6 @@ protected:
   void setNumThreads(EXPR E) { NumThreads = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
   void setProcBind(WRNProcBindKind P) { ProcBind = P; }
-  void setSchedule(ScheduleClause S) { Schedule = S; }
-  void setDistSchedule(ScheduleClause S) { DistSchedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
@@ -373,19 +360,17 @@ public:
   DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(LinearClause,       getLinear, Linear)
   DEFINE_GETTER(CopyinClause,       getCopyin, Copyin)
+  DEFINE_GETTER(ScheduleClause,     getSchedule, Schedule)
+  DEFINE_GETTER(ScheduleClause,     getDistSchedule, Schedule)
 
   EXPR getIf() const { return IfExpr; }
   EXPR getNumThreads() const { return NumThreads; }
   WRNDefaultKind getDefault() const { return Default; }
   WRNProcBindKind getProcBind() const { return ProcBind; }
-  ScheduleClause & getSchedule() { return Schedule; }
-  ScheduleClause & getDistSchedule() { return DistSchedule; }
   int getCollapse() const { return Collapse; }
   int getOrdered() const { return Ordered; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -430,8 +415,6 @@ public:
   bool getNowait() const { return Nowait; }
   bool getDefaultmapTofromScalar() const { return DefaultmapTofromScalar; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTarget;
@@ -472,8 +455,6 @@ public:
   EXPR getIf() const { return IfExpr; }
   EXPR getDevice() const { return Device; }
   bool getNowait() const { return Nowait; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -521,8 +502,6 @@ public:
   WRNDefaultKind getDefault() const { return Default; }
   bool getUntied() const { return Untied; }
   bool getMergeable() const { return Mergeable; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -591,8 +570,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskloop;
@@ -654,7 +631,12 @@ public:
   loopopt::HLNode *getExitHLNode() const { return ExitHLNode; }
   loopopt::HLLoop *getHLLoop() const { return HLp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             bool Verbose=false) const;
+
+  void printEntryExitHIR(formatted_raw_ostream &OS, unsigned Depth,
+                                             bool Verbose=false) const;
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNVecLoop;
@@ -683,7 +665,6 @@ public:
   WRNWksLoopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setSchedule(ScheduleClause S) { Schedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setOrdered(int N) { Ordered = N; }
   void setNowait(bool Flag) { Nowait = Flag; }
@@ -703,8 +684,6 @@ public:
   bool getNowait() const { return Nowait; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -744,8 +723,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNSections;
@@ -775,8 +752,6 @@ public:
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNWorkshare;
@@ -801,7 +776,6 @@ public:
   WRNDistributeNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setDistSchedule(ScheduleClause S) { DistSchedule = S; }
   void setCollapse(int N) { Collapse = N; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
@@ -815,8 +789,6 @@ public:
   int getCollapse() const { return Collapse; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -848,7 +820,8 @@ public:
   WRNAtomicKind getAtomicKind() const { return AtomicKind; }
   bool getHasSeqCstClause() const { return HasSeqCstClause; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                             bool Verbose=false) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -869,8 +842,6 @@ public:
 
   DEFINE_GETTER(FlushSet, getFlush, FValueSet)
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNFlush;
@@ -884,8 +855,6 @@ public:
 class WRNBarrierNode : public WRegionNode {
 public:
   WRNBarrierNode(BasicBlock *BB);
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -917,8 +886,6 @@ public:
   WRNCancelKind getCancelKind() const { return CancelKind; }
   EXPR getIf() const { return IfExpr; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNCancel;
@@ -932,8 +899,6 @@ public:
 class WRNMasterNode : public WRegionNode {
 public:
   WRNMasterNode(BasicBlock *BB);
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -980,8 +945,6 @@ public:
                                            return DepSink; }
   DepSinkClause &getDepSink() { assertDoacrossTrue(); return DepSink; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNOrdered;
@@ -1013,8 +976,6 @@ public:
 
   bool getNowait() const { return Nowait; }
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNSingle;
@@ -1039,7 +1000,9 @@ public:
   WRNCriticalNode(BasicBlock *BB);
 
   StringRef getUserLockName() const { return UserLockName.str(); }
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
+                                             bool Verbose=false) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -1056,8 +1019,6 @@ class WRNTaskgroupNode : public WRegionNode {
 public:
   WRNTaskgroupNode(BasicBlock *BB);
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskgroup;
@@ -1073,8 +1034,6 @@ class WRNTaskwaitNode : public WRegionNode {
 public:
   WRNTaskwaitNode(BasicBlock *BB);
 
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
-
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNTaskwait;
@@ -1089,8 +1048,6 @@ class WRNTaskyieldNode : public WRegionNode {
 
 public:
   WRNTaskyieldNode(BasicBlock *BB);
-
-  void print(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {

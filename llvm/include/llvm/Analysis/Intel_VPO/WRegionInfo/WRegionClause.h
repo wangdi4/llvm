@@ -84,6 +84,12 @@ class Item
     bool getIsNonpod() const { return IsNonpod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
+
+    virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ") ";
+    }
 };
 
 //
@@ -254,6 +260,20 @@ public:
     WRNReductionKind getType() const { return Ty;        }
     RDECL getCombiner()        const { return Combiner;    }
     RDECL getInitializer()     const { return Initializer; }
+
+    // Return a string for the reduction operation, such as "ADD" and "MUL"
+    StringRef getOpName() const {
+      int ClauseId = getClauseIdFromKind(Ty);
+      return VPOAnalysisUtils::getReductionOpName(ClauseId);
+    };
+
+    // Don't use the default print() from the base class "Item", because
+    // we need to print the Reduction operation too.
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" << getOpName() << ": "; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ") ";
+    }
 };
 
 
@@ -302,6 +322,13 @@ class LinearItem : public Item
     LinearItem(VAR Orig) : Item(Orig), Step(0) {} 
     void setStep(int S) { Step = S; }
     int getStep() const { return Step; }
+
+    // Specialized print() to output the stride as well
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "("; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ", " << getStep() << ") ";
+    }
 };
 
 //
@@ -447,6 +474,12 @@ class DependItem
     EXPR getLb()        const   { return LowerBound; }
     EXPR getLength()    const   { return Length; }
     EXPR getStride()    const   { return Stride; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ") ";
+    }
 };
 
 class DepSinkItem 
@@ -465,6 +498,12 @@ class DepSinkItem
     EXPR getSinkExpr()  const   { return SinkExpr; }
     EXPR getLoopVar()   const   { return LoopVar; }
     EXPR getOffset()    const   { return Offset; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ; 
+      getSinkExpr()->printAsOperand(OS, PrintType); 
+      OS << ") ";
+    }
 };
 
 class AlignedItem 
@@ -479,8 +518,13 @@ class AlignedItem
     void setAlign(int Align) { Alignment = Align; }
     VAR  getOrig()  const { return Base; }
     int  getAlign() const { return Alignment; }
-};
 
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "("; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ", " << getAlign() << ") ";
+    }
+};
 
 class FlushItem
 {
@@ -491,6 +535,12 @@ class FlushItem
     FlushItem(VAR V=nullptr) : Var(V) {}
     void setOrig(VAR V)      { Var = V; }
     VAR  getOrig()  const { return Var; }
+
+    void print(formatted_raw_ostream &OS, bool PrintType=true) const {
+      OS << "(" ; 
+      getOrig()->printAsOperand(OS, PrintType); 
+      OS << ") ";
+    }
 };
 
 
@@ -507,6 +557,10 @@ template <typename ClauseItem> class Clause
 
     ItemArray C;
     int ClauseID;
+
+  public:
+    // Constructor
+    Clause();
 
   protected:
     // Create a new item for VAR V and append it to the clause
@@ -536,22 +590,8 @@ template <typename ClauseItem> class Clause
       return ConstItemsRange(begin(), end());
     }
 
-    void print(formatted_raw_ostream &OS, unsigned Depth) const {
-      if (!size())  // this clause was not used in the directive
-        return;
-      std::string Indent(Depth * 2, ' ');
-      StringRef S = VPOAnalysisUtils::getClauseName(getClauseID());
-      OS << Indent << S << " clause, size=" << size() << ": " ;
-      for (auto I=begin(); I != end(); ++I) {
-        OS << "(" << *((*I)->getOrig()) << ") ";
-        if (getClauseID() == QUAL_OMP_LINEAR) {
-          LinearItem *LinItem = (LinearItem*)(*I);
-          OS << ", stride = " << LinItem->getStep();
-        }
-      }
-      OS << "\n";
-    }
-
+    void print(formatted_raw_ostream &OS, unsigned Depth=0, 
+                                          bool Verbose=false) const;
     // search the clause for 
     ClauseItem *findOrig(const VAR V) { 
       for (auto I : items())
@@ -560,6 +600,27 @@ template <typename ClauseItem> class Clause
       return nullptr;
     }
 };
+
+// print routine for template Clause classes
+template <typename ClauseItem> void Clause<ClauseItem>::
+print(formatted_raw_ostream &OS, unsigned Depth, bool Verbose) const {
+
+  if (!Verbose && !size()) 
+    return;  // Don't print absent clause message if !Verbose
+
+  StringRef Name = VPOAnalysisUtils::getClauseName(getClauseID());
+  OS.indent(2*Depth) << Name << " clause ";
+  if (!size()) {  // this clause was not used in the directive
+    OS << "is ABSENT\n";
+    return;
+  }
+  OS << "(size=" << size() << "): " ;
+
+  for (auto I: items())
+    I->print(OS);
+
+  OS << "\n";
+}
 
 /*
 template <typename ClauseItem>
@@ -714,8 +775,10 @@ class ScheduleClause
     bool getIsSchedMonotonic()     const   { return IsSchedMonotonic; }
     bool getIsSchedNonmonotonic()  const   { return IsSchedNonmonotonic; }
     bool getIsSchedSimd()          const   { return IsSchedSimd; }
-};
 
+    void print(formatted_raw_ostream &OS, unsigned Depth=0, 
+                                          bool Verbose=false) const;
+};
 
 } // End namespace vpo
 

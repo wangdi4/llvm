@@ -176,15 +176,23 @@ protected:
 
 public:
   /// \brief Functions to check if the WRN allows a given clause type
-  bool hasShared();
-  bool hasPrivate();
-  bool hasFirstprivate();
-  bool hasLastprivate();
-  bool hasReduction();
-  bool hasCopyin();
-  bool hasCopyprivate();
-  bool hasLinear();
-  bool hasUniform();
+  bool hasSchedule() const;
+  bool hasShared() const;
+  bool hasPrivate() const;
+  bool hasFirstprivate() const;
+  bool hasLastprivate() const;
+  bool hasReduction() const;
+  bool hasCopyin() const;
+  bool hasCopyprivate() const;
+  bool hasLinear() const;
+  bool hasUniform() const;
+  bool hasMap() const;
+  bool hasIsDevicePtr() const;
+  bool hasUseDevicePtr() const;
+  bool hasDepend() const;
+  bool hasDepSink() const;
+  bool hasAligned() const;
+  bool hasFlush() const;
   
   // Below are virtual functions to get/set clause and other information of
   // the WRN. They should never be called; calling them indicates intention
@@ -199,7 +207,7 @@ public:
   // This way, the virtual getter functions don't need a return.
   #define WRNERROR(x) errorClause(x); llvm_unreachable("Bad Clause");
 
-  // list-type clauses (no setters)
+  // list-type clauses (getters only; no setters)
 
   virtual AlignedClause &getAligned()        {WRNERROR(QUAL_OMP_ALIGNED);     }
   virtual CopyinClause &getCopyin()          {WRNERROR(QUAL_OMP_COPYIN);      }
@@ -220,6 +228,41 @@ public:
   virtual SharedClause &getShared()          {WRNERROR(QUAL_OMP_SHARED);      }
   virtual UniformClause &getUniform()        {WRNERROR(QUAL_OMP_UNIFORM);     }
   virtual UseDevicePtrClause &getUseDevicePtr() 
+                                           {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
+
+  // list-type clauses (const getters)
+
+  virtual const AlignedClause &getAligned() const
+                                           {WRNERROR(QUAL_OMP_ALIGNED);     }
+  virtual const CopyinClause &getCopyin() const
+                                           {WRNERROR(QUAL_OMP_COPYIN);      }
+  virtual const CopyprivateClause &getCpriv() const
+                                           {WRNERROR(QUAL_OMP_COPYPRIVATE); }
+  virtual const DependClause &getDepend() const
+                                           {WRNERROR("DEPEND");             }
+  virtual const DepSinkClause &getDepSink() const
+                                           {WRNERROR("DEPEND(SINK:..)");    }
+  virtual const FirstprivateClause &getFpriv() const
+                                           {WRNERROR(QUAL_OMP_FIRSTPRIVATE);}
+  virtual const FlushSet &getFlush() const {WRNERROR(QUAL_OMP_FLUSH);       }
+  virtual const IsDevicePtrClause &getIsDevicePtr() const
+                                           {WRNERROR(QUAL_OMP_IS_DEVICE_PTR);}
+  virtual const LastprivateClause &getLpriv() const
+                                           {WRNERROR(QUAL_OMP_LASTPRIVATE); }
+  virtual const LinearClause &getLinear() const
+                                           {WRNERROR(QUAL_OMP_LINEAR);      }
+  virtual const MapClause &getMap() const  {WRNERROR("MAP");                }
+  virtual const PrivateClause &getPriv() const
+                                           {WRNERROR(QUAL_OMP_PRIVATE);     }
+  virtual const ReductionClause &getRed() const
+                                           {WRNERROR("REDUCTION");          }
+  virtual const ScheduleClause &getSchedule() const
+                                           {WRNERROR("SCHEDULE");           }
+  virtual const SharedClause &getShared() const
+                                           {WRNERROR(QUAL_OMP_SHARED);      }
+  virtual const UniformClause &getUniform() const
+                                           {WRNERROR(QUAL_OMP_UNIFORM);     }
+  virtual const UseDevicePtrClause &getUseDevicePtr() const
                                            {WRNERROR(QUAL_OMP_USE_DEVICE_PTR);}
 
   // other clauses (both getters and setters)
@@ -316,12 +359,48 @@ public:
   /// \brief Dumps WRegionNode.
   void dump() const;
 
-  /// \brief Prints WRegionNode.
-  //  Actual code from derived class only
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const = 0;
+  /// \brief Default printer for WRegionNode. The derived WRegion can define
+  /// its own print() routine to override this one.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
+                     bool Verbose=false) const;
+
+  /// \brief Prints "BEGIN  <DIRECTIVE_NAME> {"
+  void printBegin(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Prints "} END  <DIRECTIVE_NAME>" 
+  void printEnd(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief This virtual function is intended for derived WRNs to print
+  /// additional information specific to the derived WRN not covered by
+  /// printBody() below.
+  virtual void printExtra(formatted_raw_ostream &OS, unsigned Depth, 
+                          bool Verbose=false) const {}
+
+  /// \brief Prints content of the WRegionNode. 
+  void printBody(formatted_raw_ostream &OS, bool PrintChildren, unsigned Depth, 
+                 bool Verbose=false) const;
+
+  /// \brief Prints content of list-type clauses in the WRN
+  void printClauses(formatted_raw_ostream &OS, unsigned Depth, 
+                    bool Verbose=false) const;
+
+  /// \brief Prints EntryBB, ExitBB, and BBlockSet
+  void printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth, 
+                        bool Verbose=false) const;
+
+  /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
+  /// This is virtual here; the derived WRNs supporting HIR have to provide the
+  /// actual routine. Currently only WRNVecLoopNode uses HIR.
+  virtual void printEntryExitHIR(formatted_raw_ostream &OS, unsigned Depth, 
+                                 bool Verbose=false) const {}
+
+  /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
+  void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Verbose=false) const;
 
   /// \brief Prints WRegionNode children.
-  void printChildren(formatted_raw_ostream &OS, unsigned Depth) const;
+  void printChildren(formatted_raw_ostream &OS, unsigned Depth, 
+                     bool Verbose=false) const;
 
   /// \brief Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;

@@ -198,6 +198,11 @@ public:
     /// "QUAL_OMP_" prefix substring.
     static StringRef getClauseName(int Id);
 
+    /// \brief Given a ClauseId for a reduction, strip out the leading 
+    /// "QUAL_OMP_REDUCTION_" prefix substring, and return the remaining
+    /// substring which describes the reduction operation (eg "ADD", "MUL").
+    static StringRef getReductionOpName(int Id);
+
     /// \brief Returns true if the string corresponds to an OpenMP directive.
     static bool isOpenMPDirective(StringRef DirFullName);
 
@@ -254,6 +259,10 @@ public:
     /// \brief Given a DirID for a BEGIN directive, return the DirID of its
     /// corresponding END directive. 
     static int getMatchingEndDirective(int BeginDirID);
+
+    /// \brief Return true iff the ClauseID represents a DEPEND clause,
+    /// such as QUAL_OMP_DEPEND_IN
+    static bool isDependClause(int ClauseID);
 
     /// \brief Return true iff the ClauseID represents a REDUCTION clause,
     /// such as QUAL_OMP_REDUCTION_ADD

@@ -131,8 +131,26 @@ StringRef VPOAnalysisUtils::getDirectiveName(int Id) {
 }
 
 StringRef VPOAnalysisUtils::getClauseName(int Id) {
-  // skip "QUAL_OMP_"
+  // Handle special cases first: REDUCTION, DEPEND, MAP:
+  if (VPOAnalysisUtils::isDependClause(Id))
+    return "DEPEND";
+  if (VPOAnalysisUtils::isMapClause(Id))
+    return "MAP";
+  if (VPOAnalysisUtils::isReductionClause(Id))
+    return "REDUCTION";
+  if (VPOAnalysisUtils::isScheduleClause(Id))
+    return "SCHEDULE";
+  
+  // Regular cases: just skip "QUAL_OMP_"
   return VPOAnalysisUtils::getClauseString(Id).substr(9);
+}
+
+StringRef VPOAnalysisUtils::getReductionOpName(int Id) {
+  assert (VPOAnalysisUtils::isReductionClause(Id) &&
+          "Expected a QUAL_OMP_REDUCTION_<OP> clause");
+  
+  // skip "QUAL_OMP_REDUCTION_"
+  return VPOAnalysisUtils::getClauseString(Id).substr(19);
 }
 
 bool VPOAnalysisUtils::isOpenMPDirective(StringRef DirFullName) {
@@ -410,6 +428,16 @@ int VPOAnalysisUtils::getMatchingEndDirective(int DirID) {
     return DIR_OMP_END_CANCELLATION_POINT;
   }
   return -1;
+}
+
+bool VPOAnalysisUtils::isDependClause(int ClauseID) {
+  switch(ClauseID) {
+    case QUAL_OMP_DEPEND_IN:
+    case QUAL_OMP_DEPEND_INOUT:
+    case QUAL_OMP_DEPEND_OUT:
+    return true;
+  }
+  return false;
 }
 
 bool VPOAnalysisUtils::isReductionClause(int ClauseID) {

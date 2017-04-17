@@ -39,19 +39,6 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
-void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  // TODO may need to have an extra parameter (or global) to add a fixed
-  //    space for left margin at Depth=0
-  std::string Indent(Depth * 2, ' ');
-
-  OS << Indent << "BEGIN WRNParallelNode<" << getNumber() << "> {\n";
-
-  // TODO: print data local to this ParRegion
-  //       eg shared vars, priv vars, etc.
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNParallelNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNParallelLoopNode
 //
@@ -71,42 +58,6 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
-                                unsigned Depth) const {
-  // TODO may need to have an extra parameter (or global) to add a fixed
-  //    space for left margin at Depth=0
-  std::string Indent(Depth * 2, ' ');
-
-  OS << Indent << "BEGIN WRNParallelLoopNode<" << getNumber() << "> {\n";
-  // TODO: print data local to this ParRegion
-  //       eg shared vars, priv vars, etc.
-
-  const PrivateClause &PrivC = getPriv();
-  for (PrivateItem *PrivI : PrivC.items()) {
-    StringRef PrivS = VPOAnalysisUtils::getClauseString(QUAL_OMP_PRIVATE);
-    OS << Indent << "PRIVATE clause: " << PrivS << " "
-       << PrivI->getOrig()->getName() << "\n";
-  }
-
-  // LinearClause &C = getLinear();
-  // OS << Indent;
-  // C.print(OS);
-
-  OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
-  OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
-  OS << "\n" << Indent << "BBlockSet dump:\n";
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNParallelLoopNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNParallelSectionsNode
 //
@@ -122,14 +73,6 @@ WRNParallelSectionsNode::WRNParallelSectionsNode(BasicBlock *BB, LoopInfo *Li)
   setProcBind(WRNProcBindAbsent);
 
   DEBUG(dbgs() << "\nCreated WRNParallelSectionsNode<" << getNumber() << ">\n");
-}
-
-void WRNParallelSectionsNode::print(formatted_raw_ostream &OS, unsigned Depth)
-const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNParallelSectionsNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNParallelSectionsNode<" << getNumber() << ">\n";
 }
 
 //
@@ -149,14 +92,6 @@ WRNParallelWorkshareNode::WRNParallelWorkshareNode(BasicBlock *BB, LoopInfo *Li)
                                                         << ">\n");
 }
 
-void WRNParallelWorkshareNode::print(formatted_raw_ostream &OS, unsigned Depth)
-const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNParallelWorkshareNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNParallelWorkshareNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNTeamsNode
 //
@@ -170,13 +105,6 @@ WRNTeamsNode::WRNTeamsNode(BasicBlock *BB)
   setDefault(WRNDefaultAbsent);
 
   DEBUG(dbgs() << "\nCreated WRNTeamsNode<" << getNumber() << ">\n");
-}
-
-void WRNTeamsNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNTeamsNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTeamsNode<" << getNumber() << ">\n";
 }
 
 //
@@ -199,14 +127,6 @@ WRNDistributeParLoopNode::WRNDistributeParLoopNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNDistributeParLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNDistributeParLoopNode::print(formatted_raw_ostream &OS, unsigned Depth)
-const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNDistributeParLoopNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNDistributeParLoopNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNTargetNode
 //
@@ -223,14 +143,6 @@ WRNTargetNode::WRNTargetNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNTargetNode<" << getNumber() << ">\n");
 }
 
-void WRNTargetNode::print(formatted_raw_ostream &OS, unsigned Depth)
-const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNTargetNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTargetNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNTargetDataNode
 //
@@ -244,14 +156,6 @@ WRNTargetDataNode::WRNTargetDataNode(BasicBlock *BB)
   setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNTargetDataNode<" << getNumber() << ">\n");
-}
-
-void WRNTargetDataNode::print(formatted_raw_ostream &OS, unsigned Depth)
-const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNTargetDataNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTargetDataNode<" << getNumber() << ">\n";
 }
 
 //
@@ -270,13 +174,6 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
   setMergeable(false);
 
   DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
-}
-
-void WRNTaskNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNTaskNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTaskNode<" << getNumber() << ">\n";
 }
 
 //
@@ -300,13 +197,6 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   setNogroup(false);
 
   DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
-}
-
-void WRNTaskloopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNTaskloopNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTaskloopNode<" << getNumber() << ">\n";
 }
 
 //
@@ -340,52 +230,27 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
   DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
+void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                                     bool Verbose) const {
+  OS.indent(2*Depth) << "SIMDLEN: " << getSimdlen() << "\n";
+  OS.indent(2*Depth) << "SAFELEN: " << getSafelen() << "\n";
+}
 
-  OS << Indent << "SIMDLEN clause: " << getSimdlen() << "\n";
+void WRNVecLoopNode::printEntryExitHIR(formatted_raw_ostream &OS, 
+                                       unsigned Depth, bool Verbose) const {
+  if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
+    return;
 
-  const ReductionClause &RC = getRed();
-  for (ReductionItem *RI : RC.items()) {
-    ReductionItem::WRNReductionKind RType = RI->getType();
-    int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
-    StringRef RedStr = VPOAnalysisUtils::getClauseString(RedClauseID);
-    OS << Indent << "REDUCTION clause: " << RedStr << " "
-       << RI->getOrig()->getName() << "\n";
-  }
-
-  const UniformClause &UC = getUniform();
-  UC.print(OS, Depth);
-
-  const LinearClause &LC = getLinear();
-  LC.print(OS, Depth);
-
-  if (getIsFromHIR()) {
-    OS << "\n" << Indent << "EntryHLNode:\n";
-    getEntryHLNode()->print(OS, 1);
-    OS << "\n" << Indent << "HLLoop:\n";
+  OS.indent(2*Depth) << "EntryHLNode:\n";
+  getEntryHLNode()->print(OS, 1);
+  if (Verbose) {
+    OS << "\n";
+    OS.indent(2*Depth) << "HLLoop:\n";
     getHLLoop()->print(OS, 1);
-    OS << "\n" << Indent << "ExitHLNode:\n";
-    getExitHLNode()->print(OS, 1);
-  } else {
-    BasicBlock *EntryBB = getEntryBBlock();
-    BasicBlock *ExitBB = getExitBBlock();
-    assert (EntryBB && "Entry BB is null!");
-    assert (ExitBB && "Exit BB is null!");
-    OS << "\n" << Indent << "EntryBB:" << *EntryBB;
-    OS << "\n" << Indent << "ExitBB:" << *ExitBB;
-    OS << "\n" << Indent << "BBlockSet dump:\n";
-    if (!isBBSetEmpty())
-      for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-        const BasicBlock *BB = *I;
-        OS << Indent << *BB;
-      }
-    else
-      OS << Indent << "No BBSet\n";
   }
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n\n";
+  OS << "\n";
+  OS.indent(2*Depth) << "ExitHLNode:\n";
+  getExitHLNode()->print(OS, 1);
 }
 
 //
@@ -403,13 +268,6 @@ WRNWksLoopNode::WRNWksLoopNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNWksLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNWksLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNWksLoopNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNWksLoopNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNSectionsNode
 //
@@ -423,14 +281,6 @@ WRNSectionsNode::WRNSectionsNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNSectionsNode<" << getNumber() << ">\n");
 }
 
-void WRNSectionsNode::print(formatted_raw_ostream &OS, unsigned Depth) const
-{
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNSectionsNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNSectionsNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNWorkshareNode
 //
@@ -442,13 +292,6 @@ WRNWorkshareNode::WRNWorkshareNode(BasicBlock *BB, LoopInfo *Li)
   setNowait(false);
 
   DEBUG(dbgs() << "\nCreated WRNWorkshareNode<" << getNumber() << ">\n");
-}
-
-void WRNWorkshareNode::print(formatted_raw_ostream &OS, unsigned Depth) const{
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNWorkshareNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNWorkshareNode<" << getNumber() << ">\n";
 }
 
 //
@@ -466,13 +309,6 @@ WRNDistributeNode::WRNDistributeNode(BasicBlock *BB, LoopInfo *Li)
   DEBUG(dbgs() << "\nCreated WRNDistributeNode<" << getNumber() << ">\n");
 }
 
-void WRNDistributeNode::print(formatted_raw_ostream &OS, unsigned Depth) const{
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNDistributeNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNDistributeNode<" << getNumber() << ">\n";
-}
-
 //
 // Methods for WRNAtomicNode
 //
@@ -486,29 +322,14 @@ WRNAtomicNode::WRNAtomicNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNAtomicNode<" << getNumber() << ">\n");
 }
 
-void WRNAtomicNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-
-  OS << Indent << "BEGIN WRNAtomicNode<" << getNumber() << "> {\n";
-  OS << Indent << "Atomic Kind: "
+void WRNAtomicNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                                     bool Verbose) const {
+  OS.indent(2*Depth) << "Atomic Kind: "
      << VPOAnalysisUtils::getClauseName(
             WRegionUtils::getClauseIdFromAtomicKind(getAtomicKind()))
      << "\n";
-  OS << Indent << "Seq_Cst Clause: " << (getHasSeqCstClause() ? "Yes" : "No")
-     << "\n";
-  OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
-  OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
-  OS << "\n" << Indent << "BBlockSet dump:\n";
-
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  OS << Indent << "} END WRNAtomicNode<" << getNumber() << ">\n";
+  OS.indent(2*Depth) << "Seq_Cst Clause: " << 
+                        (getHasSeqCstClause() ? "Yes" : "No") << "\n";
 }
 
 //
@@ -521,12 +342,6 @@ WRNBarrierNode::WRNBarrierNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNBarrierNode <" << getNumber() << ">\n");
 }
 
-void WRNBarrierNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNBarrierNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNBarrierNode <" << getNumber() << ">\n\n";
-}
 
 //
 // Methods for WRNCancelNode
@@ -540,13 +355,6 @@ WRNCancelNode::WRNCancelNode(BasicBlock *BB, bool IsCP)
   DEBUG(dbgs() << "\nCreated WRNCancelNode <" << getNumber() << ">\n");
 }
 
-void WRNCancelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNCancelNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNCancelNode <" << getNumber() << ">\n\n";
-}
-
 //
 // Methods for WRNMasterNode
 //
@@ -555,22 +363,6 @@ void WRNCancelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 WRNMasterNode::WRNMasterNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNMaster, BB) {
   DEBUG(dbgs() << "\nCreated WRNMasterNode <" << getNumber() << ">\n");
-}
-
-void WRNMasterNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNMasterNode<" << getNumber() << "> {\n";
-
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNMasterNode <" << getNumber() << ">\n\n";
 }
 
 //
@@ -585,22 +377,6 @@ WRNOrderedNode::WRNOrderedNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNOrderedNode <" << getNumber() << ">\n");
 }
 
-void WRNOrderedNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNOrderedNode<" << getNumber() << "> {\n";
-
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNOrderedNode <" << getNumber() << ">\n\n";
-}
-
 //
 // Methods for WRNSingleNode
 //
@@ -611,22 +387,6 @@ WRNSingleNode::WRNSingleNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNSingleNode <" << getNumber() << ">\n");
 }
 
-void WRNSingleNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNSingleNode<" << getNumber() << "> {\n";
-
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNSingleNode <" << getNumber() << ">\n\n";
-}
-
 //
 // Methods for WRNCriticalNode
 //
@@ -634,45 +394,21 @@ void WRNSingleNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 // constructor
 WRNCriticalNode::WRNCriticalNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNCritical, BB), UserLockName("") {
-  // UserLockName is empty be default
+  // UserLockName is empty by default
   DEBUG(dbgs() << "\nCreated WRNCriticalNode <" << getNumber() << ">\n");
 }
 
-void WRNCriticalNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "BEGIN WRNCriticalNode<" << getNumber() << "> {\n";
-
+void WRNCriticalNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
+                                                       bool Verbose) const {
   if (!UserLockName.empty())
-    OS << Indent << "User Lock Name: " << UserLockName << "\n";
-
-  if (!isBBSetEmpty())
-    for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
-  else
-    OS << Indent << "No BBSet\n";
-
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNCriticalNode <" << getNumber() << ">\n\n";
+    OS.indent(2*Depth) << "User Lock Name: " << UserLockName << "\n";
 }
+
 
 // constructor
 WRNFlushNode::WRNFlushNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNFlush, BB) {
   DEBUG(dbgs() << "\nCreated WRNFlushNode<" << getNumber() << ">\n");
-}
-
-void WRNFlushNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  // TODO may need to have an extra parameter (or global) to add a fixed
-  //    space for left margin at Depth=0
-  std::string Indent(Depth * 2, ' ');
-
-  OS << Indent << "BEGIN WRNFlushNode<" << getNumber() << "> {\n";
-
-  // TODO: print data local to this Flush Set
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNFlushNode<" << getNumber() << ">\n";
 }
 
 //
@@ -685,13 +421,6 @@ WRNTaskgroupNode::WRNTaskgroupNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNTaskgroupNode <" << getNumber() << ">\n");
 }
 
-void WRNTaskgroupNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNTaskgroupNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTaskgroupNode <" << getNumber() << ">\n\n";
-}
-
 //
 // Methods for WRNTaskwaitNode
 //
@@ -702,13 +431,6 @@ WRNTaskwaitNode::WRNTaskwaitNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNTaskwaitNode <" << getNumber() << ">\n");
 }
 
-void WRNTaskwaitNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNTaskwaitNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTaskwaitNode <" << getNumber() << ">\n\n";
-}
-
 //
 // Methods for WRNTaskyieldNode
 //
@@ -717,11 +439,4 @@ void WRNTaskwaitNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 WRNTaskyieldNode::WRNTaskyieldNode(BasicBlock *BB)
     : WRegionNode(WRegionNode::WRNTaskyield, BB) {
   DEBUG(dbgs() << "\nCreated WRNTaskyieldNode <" << getNumber() << ">\n");
-}
-
-void WRNTaskyieldNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  std::string Indent(Depth * 2, ' ');
-  OS << Indent << "\nBEGIN WRNTaskyieldNode<" << getNumber() << "> {\n";
-  printChildren(OS, Depth + 1);
-  OS << Indent << "} END WRNTaskyieldNode <" << getNumber() << ">\n\n";
 }
