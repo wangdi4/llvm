@@ -30,6 +30,7 @@ add_llvm_library(LLVMipo
   SampleProfile.cpp
   StripDeadPrototypes.cpp
   StripSymbols.cpp
+  ThinLTOBitcodeWriter.cpp
   WholeProgramDevirt.cpp
 
   ADDITIONAL_HEADER_DIRS

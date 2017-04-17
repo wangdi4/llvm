@@ -9,7 +9,7 @@
 
 #include "ObjectContainerBSDArchive.h"
 
-#if defined(_WIN32) || defined(__ANDROID_NDK__)
+#if defined(_WIN32) || defined(__ANDROID__)
 // Defines from ar, missing on Windows
 #define ARMAG "!<arch>\n"
 #define SARMAG 8
@@ -32,10 +32,10 @@ typedef struct ar_hdr {
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;

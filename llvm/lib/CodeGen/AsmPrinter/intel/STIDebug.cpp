@@ -4592,16 +4592,16 @@ STINumeric* STIDebugImpl::createNumericAPFloat(
 
   const fltSemantics& semantics = value.getSemantics();
 
-  if (&semantics == &APFloat::IEEEsingle) {
+  if (&semantics == &APFloat::IEEEsingle()) {
     leafID = LF_REAL32;
     size   = 4;
-  } else if (&semantics == &APFloat::IEEEdouble) {
+  } else if (&semantics == &APFloat::IEEEdouble()) {
     leafID = LF_REAL64;
     size   = 8;
-  } else if (&semantics == &APFloat::x87DoubleExtended) {
+  } else if (&semantics == &APFloat::x87DoubleExtended()) {
     leafID = LF_REAL80;
     size   = 10;
-  } else if (&semantics == &APFloat::IEEEquad) {
+  } else if (&semantics == &APFloat::IEEEquad()) {
     leafID = LF_REAL128;
     size   = 16;
   } else {
@@ -4628,20 +4628,17 @@ STINumeric* STIDebugImpl::createNumericAPFloat(
 //===----------------------------------------------------------------------===//
 
 void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
-  DenseMap<const DIGlobalVariable *, const GlobalVariable *> GlobalMap;
+  DenseMap<const DIGlobalVariableExpression *, const GlobalVariable *> GlobalMap;
   for (const GlobalVariable &GV : MMI()->getModule()->globals()) {
-    SmallVector<MDNode *, 1> MDs;
-    GV.getMetadata(LLVMContext::MD_dbg, MDs);
-    for (MDNode *MD : MDs)
-      GlobalMap[cast<DIGlobalVariable>(MD)] = &GV;
+    SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+    GV.getDebugInfo(GVEs);
+    for (const auto *GVE : GVEs)
+      GlobalMap[GVE] = &GV;
   }
 
-  DINodeArray DIGVs = CU->getGlobalVariables();
-
-  for (unsigned int I = 0, E = DIGVs.size(); I < E; ++I) {
-    DIGlobalVariable *DIGV = cast<DIGlobalVariable>(DIGVs[I]);
-
-    if (const GlobalVariable* global = GlobalMap.lookup(DIGV)) {
+  for (auto *GVE : CU->getGlobalVariables()) {
+    auto *DIGV = GVE->getVariable();
+    if (const GlobalVariable* GV = GlobalMap.lookup(GVE)) {
       STISymbolVariable* variable;
       const DIScope *    scope;
 
@@ -4649,11 +4646,11 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
       // this compilation unit, so we don't emit debug information for them.
       // If we did, relocation against these symbols would fail.
       // See (DPD200375706) for more information.
-      if (global->hasAvailableExternallyLinkage()) {
+      if (GV->hasAvailableExternallyLinkage()) {
         continue;
       }
 
-      MCSymbol *label = ASM()->getSymbol(global);
+      MCSymbol *label = ASM()->getSymbol(GV);
 
       STILocation *location = DIGV->isLocalToUnit()
                             ? STILocation::createLocalSegmentedOffset(label)
@@ -4778,7 +4775,7 @@ void STIDebugImpl::collectModuleInfo() {
 }
 
 void STIDebugImpl::collectRoutineInfo() {
-  typedef MachineModuleInfo::VariableDbgInfo VariableDbgInfo;
+  typedef MachineFunction::VariableDbgInfo VariableDbgInfo;
   typedef DbgValueHistoryMap::InstrRanges InstrRanges;
   typedef DbgValueHistoryMap::InlinedVariable InlinedVariable;
   typedef std::pair<InlinedVariable, InstrRanges> VariableHistoryInfo;
@@ -4787,7 +4784,7 @@ void STIDebugImpl::collectRoutineInfo() {
 
   DenseSet<InlinedVariable> processed;
 
-  for (const VariableDbgInfo &info : MMI()->getVariableDbgInfo()) {
+  for (const VariableDbgInfo &info : ASM()->MF->getVariableDbgInfo()) {
     const DILocalVariable *llvmVar = info.Var;
 
     if (!llvmVar)
@@ -5152,7 +5149,7 @@ void STIDebugImpl::emitLabelDiff(const MCSymbol *begin,
 }
 
 void STIDebugImpl::emitSecRel32(MCSymbol *symbol) const {
-  ASM()->OutStreamer->EmitCOFFSecRel32(symbol);
+  ASM()->OutStreamer->EmitCOFFSecRel32(symbol, /*Offset=*/0);
 }
 
 void STIDebugImpl::emitSectionIndex(MCSymbol *symbol) const {

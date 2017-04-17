@@ -409,9 +409,20 @@ public:
   void completeType(const RecordDecl *RD);
   void completeRequiredType(const RecordDecl *RD);
   void completeClassData(const RecordDecl *RD);
+  void completeClass(const RecordDecl *RD);
 
   void completeTemplateDefinition(const ClassTemplateSpecializationDecl &SD);
 
+  /// Create debug info for a macro defined by a #define directive or a macro
+  /// undefined by a #undef directive.
+  llvm::DIMacro *CreateMacro(llvm::DIMacroFile *Parent, unsigned MType,
+                             SourceLocation LineLoc, StringRef Name,
+                             StringRef Value);
+
+  /// Create debug info for a file referenced by an #include directive.
+  llvm::DIMacroFile *CreateTempMacroFile(llvm::DIMacroFile *Parent,
+                                         SourceLocation LineLoc,
+                                         SourceLocation FileLoc);
 private:
   /// Emit call to llvm.dbg.declare for a variable declaration.
   void EmitDeclare(const VarDecl *decl, llvm::Value *AI,
@@ -441,6 +452,10 @@ private:
 
   /// Remap a given path with the current debug prefix map
   std::string remapDIPath(StringRef) const;
+
+  /// Compute the file checksum debug info for input file ID.
+  llvm::DIFile::ChecksumKind computeChecksum(FileID FID,
+                                             SmallString<32> &Checksum) const;
 
   /// Get the file debug info descriptor for the input location.
   llvm::DIFile *getOrCreateFile(SourceLocation Loc);
@@ -496,14 +511,14 @@ private:
   llvm::DIGlobalVariable *
   getGlobalVariableForwardDeclaration(const VarDecl *VD);
 
-  /// \brief Return a global variable that represents one of the
-  /// collection of global variables created for an anonmyous union.
+  /// Return a global variable that represents one of the collection of global
+  /// variables created for an anonmyous union.
   ///
   /// Recursively collect all of the member fields of a global
   /// anonymous decl and create static variables for them. The first
   /// time this is called it needs to be on a union and then from
   /// there we can have additional unnamed fields.
-  llvm::DIGlobalVariable *
+  llvm::DIGlobalVariableExpression *
   CollectAnonRecordDecls(const RecordDecl *RD, llvm::DIFile *Unit,
                          unsigned LineNo, StringRef LinkageName,
                          llvm::GlobalVariable *Var, llvm::DIScope *DContext);

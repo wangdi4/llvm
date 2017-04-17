@@ -8,9 +8,15 @@ include(${LLDB_PROJECT_ROOT}/cmake/LLDBDependencies.cmake)
 
 option(LLDB_BUILD_FRAMEWORK "Build the Darwin LLDB.framework" Off)
 
+if(LLDB_BUILD_FRAMEWORK AND CMAKE_VERSION VERSION_LESS 3.7)
+  message(FATAL_ERROR "LLDB_BUILD_FRAMEWORK is not supported on CMake < 3.7")
+endif()
+
 if (LLDB_BUILD_FRAMEWORK AND NOT APPLE)
   message(FATAL_ERROR "LLDB.framework cannot be generated unless targeting Apple platforms.")
 endif()
+
+get_property(LLDB_ALL_PLUGINS GLOBAL PROPERTY LLDB_PLUGINS)
 
 add_lldb_library(liblldb SHARED
   SBAddress.cpp
@@ -76,6 +82,22 @@ add_lldb_library(liblldb SHARED
   SBUnixSignals.cpp
   SystemInitializerFull.cpp
   ${LLDB_WRAP_PYTHON}
+
+  LINK_LIBS
+    lldbBase
+    lldbBreakpoint
+    lldbCore
+    lldbDataFormatters
+    lldbExpression
+    lldbHost
+    lldbInitialization
+    lldbInterpreter
+    lldbSymbol
+    lldbTarget
+    lldbUtility
+    ${LLDB_ALL_PLUGINS}
+  LINK_COMPONENTS
+    Support
   )
 
 if (LLVM_ENABLE_WERROR)
@@ -140,24 +162,11 @@ if(LLDB_BUILD_FRAMEWORK)
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${LLDB_FRAMEWORK_INSTALL_DIR}
     PUBLIC_HEADER "${public_headers}")
 
-  set(symlink_commands
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:liblldb>
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${LLDB_SOURCE_DIR}/include/lldb/API $<TARGET_FILE_DIR:liblldb>/Headers
+  add_custom_command(TARGET liblldb POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:liblldb>/Versions/${LLDB_FRAMEWORK_VERSION}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${LLDB_SOURCE_DIR}/include/lldb/API $<TARGET_FILE_DIR:liblldb>/Headers
     COMMAND ${CMAKE_COMMAND} -E create_symlink Versions/Current/Headers ${CMAKE_BINARY_DIR}/${LLDB_FRAMEWORK_INSTALL_DIR}/LLDB.framework/Headers 
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/clang/${LLDB_VERSION} $<TARGET_FILE_DIR:liblldb>/Resources/Clang
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/clang/${LLDB_VERSION} $<TARGET_FILE_DIR:liblldb>/Resources/Clang
     )
-
-  # This works around a CMake bug where POST_BUILD steps are not applied to 
-  # framework targets. This fix is merged into the CMake release branch and
-  # should be available with CMake 3.7 rc2:
-  # https://gitlab.kitware.com/cmake/cmake/issues/16363
-  if(CMAKE_VERSION VERSION_GREATER 3.6.99)
-    add_custom_command(TARGET liblldb POST_BUILD ${symlink_commands})
-  else()
-    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${LLDB_FRAMEWORK_INSTALL_DIR}/LLDB.framework/Versions/${LLDB_FRAMEWORK_VERSION}/Headers
-      ${symlink_commands})
-    add_custom_target(lldb_header_symlink
-      DEPENDS ${CMAKE_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${LLDB_FRAMEWORK_INSTALL_DIR}/LLDB.framework/Versions/${LLDB_FRAMEWORK_VERSION}/Headers)
-  endif()
 endif()
 
