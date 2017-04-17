@@ -32,7 +32,6 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @fp_iv_loop(float %init, float* noalias nocapture %A, i32 %N) local_unnamed_addr #0 {
 entry:
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void @llvm.intel.directive.qual.opnd.i32(metadata !"QUAL.OMP.SIMDLEN", i32 8)
   tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %DIR.QUAL.LIST.END.2
 

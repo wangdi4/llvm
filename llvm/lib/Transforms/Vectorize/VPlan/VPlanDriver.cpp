@@ -522,32 +522,41 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
       return;
   }
 
-  LoopVectorizationPlanner *LVP = 
-    new LoopVectorizationPlanner(LoopNode, Lp, LI, SE, TLI, TTI, DT, &LVL);
+  // Get vectorization factor
+  unsigned VF = VPlanDefaultVF;
+  if (LoopNode) {
+    unsigned Simdlen = LoopNode->getSimdlen();
+    assert(Simdlen >= 0 && Simdlen <= 64 && "Wrong Simdlen value");
+    VF = Simdlen ? Simdlen : VPlanDefaultVF;
+  }
 
-  LVP->buildInitialVPlans(VPlanDefaultVF /*MinVF*/, VPlanDefaultVF /*MaxVF*/);
+  // TODO: We don't use LoopNode in LVP. Remove it?
+  LoopVectorizationPlanner *LVP =
+      new LoopVectorizationPlanner(LoopNode, Lp, LI, SE, TLI, TTI, DT, &LVL);
+
+  LVP->buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
   // Predicator changes BEGIN
   if (EnableVPlanPredicator) {
-    IntelVPlan *Plan = LVP->getVPlanForVF(VPlanDefaultVF);
+    IntelVPlan *Plan = LVP->getVPlanForVF(VF);
     VPlanPredicator VPP(Plan);
     VPP.predicate();
   }
   // Predicator changes END
 
-  LVP->setBestPlan(VPlanDefaultVF, 1);
+  LVP->setBestPlan(VF, 1);
 
-  DEBUG(VPlan *Plan = LVP->getVPlanForVF(VPlanDefaultVF);
+  DEBUG(VPlan *Plan = LVP->getVPlanForVF(VF);
         VPlanPrinter PlanPrinter(dbgs(), *Plan);
         std::string TitleString;
         raw_string_ostream RSO(TitleString);
-        RSO << "LVP: Initial VPlan for VF=" << VPlanDefaultVF;
+        RSO << "LVP: Initial VPlan for VF=" << VF;
         PlanPrinter.dump(RSO.str()));
 
   if (EnableCodeGen) {
     if (VPlanVectCand)
       errs() << "VPlan Generating code\n"; 
 
-    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VPlanDefaultVF, 1, &LVL);
+    VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);
   }
 
