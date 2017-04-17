@@ -22,6 +22,7 @@
 namespace llvm {
 
 class ARMTargetLowering;
+class MachineInstrBuilder;
 
 class ARMCallLowering : public CallLowering {
 public:
@@ -32,6 +33,16 @@ public:
 
   bool lowerFormalArguments(MachineIRBuilder &MIRBuilder, const Function &F,
                             ArrayRef<unsigned> VRegs) const override;
+
+private:
+  bool lowerReturnVal(MachineIRBuilder &MIRBuilder, const Value *Val,
+                      unsigned VReg, MachineInstrBuilder &Ret) const;
+
+  /// Split an argument into one or more arguments that the CC lowering can cope
+  /// with (e.g. replace pointers with integers).
+  void splitToValueTypes(const ArgInfo &OrigArg,
+                         SmallVectorImpl<ArgInfo> &SplitArgs,
+                         const DataLayout &DL, MachineRegisterInfo &MRI) const;
 };
 } // End of namespace llvm
 #endif

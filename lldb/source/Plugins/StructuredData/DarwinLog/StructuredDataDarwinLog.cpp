@@ -20,7 +20,6 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -30,6 +29,7 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlanCallOnFunctionExit.h"
+#include "lldb/Utility/RegularExpression.h"
 
 #define DARWIN_LOG_TYPE_VALUE "DarwinLog"
 
@@ -1405,6 +1405,20 @@ void StructuredDataDarwinLog::ModulesDidLoad(Process &process,
   EnableNow();
 }
 
+// -----------------------------------------------------------------------------
+// public destructor
+// -----------------------------------------------------------------------------
+
+StructuredDataDarwinLog::~StructuredDataDarwinLog() {
+  if (m_breakpoint_id != LLDB_INVALID_BREAK_ID) {
+    ProcessSP process_sp(GetProcess());
+    if (process_sp) {
+      process_sp->GetTarget().RemoveBreakpointByID(m_breakpoint_id);
+      m_breakpoint_id = LLDB_INVALID_BREAK_ID;
+    }
+  }
+}
+
 #pragma mark -
 #pragma mark Private instance methods
 
@@ -1415,7 +1429,8 @@ void StructuredDataDarwinLog::ModulesDidLoad(Process &process,
 StructuredDataDarwinLog::StructuredDataDarwinLog(const ProcessWP &process_wp)
     : StructuredDataPlugin(process_wp), m_recorded_first_timestamp(false),
       m_first_timestamp_seen(0), m_is_enabled(false),
-      m_added_breakpoint_mutex(), m_added_breakpoint() {}
+      m_added_breakpoint_mutex(), m_added_breakpoint(),
+      m_breakpoint_id(LLDB_INVALID_BREAK_ID) {}
 
 // -----------------------------------------------------------------------------
 // Private static methods
@@ -1734,6 +1749,7 @@ void StructuredDataDarwinLog::AddInitCompletionHook(Process &process) {
 
   // Set our callback.
   breakpoint_sp->SetCallback(InitCompletionHookCallback, nullptr);
+  m_breakpoint_id = breakpoint_sp->GetID();
   if (log)
     log->Printf("StructuredDataDarwinLog::%s() breakpoint set in module %s,"
                 "function %s (process uid %u)",

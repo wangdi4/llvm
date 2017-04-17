@@ -229,11 +229,12 @@ public:
 
   ProgramStateRef bindLoc(Loc location,
                           SVal V,
+                          const LocationContext *LCtx,
                           bool notifyChanges = true) const;
 
-  ProgramStateRef bindLoc(SVal location, SVal V) const;
+  ProgramStateRef bindLoc(SVal location, SVal V, const LocationContext *LCtx) const;
 
-  ProgramStateRef bindDefault(SVal loc, SVal V) const;
+  ProgramStateRef bindDefault(SVal loc, SVal V, const LocationContext *LCtx) const;
 
   ProgramStateRef killBinding(Loc LV) const;
 
@@ -681,9 +682,9 @@ ProgramState::assumeInclusiveRange(DefinedOrUnknownSVal Val,
       this, Val.castAs<NonLoc>(), From, To);
 }
 
-inline ProgramStateRef ProgramState::bindLoc(SVal LV, SVal V) const {
+inline ProgramStateRef ProgramState::bindLoc(SVal LV, SVal V, const LocationContext *LCtx) const {
   if (Optional<Loc> L = LV.getAs<Loc>())
-    return bindLoc(*L, V);
+    return bindLoc(*L, V, LCtx);
   return this;
 }
 
@@ -824,8 +825,9 @@ CB ProgramState::scanReachableSymbols(const MemRegion * const *beg,
 }
 
 /// \class ScanReachableSymbols
-/// A Utility class that allows to visit the reachable symbols using a custom
-/// SymbolVisitor.
+/// A utility class that visits the reachable symbols using a custom
+/// SymbolVisitor. Terminates recursive traversal when the visitor function
+/// returns false.
 class ScanReachableSymbols {
   typedef llvm::DenseSet<const void*> VisitedItems;
 
