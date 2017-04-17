@@ -48,54 +48,6 @@ CPUDeviceConfig::~CPUDeviceConfig()
     // ~BasicCLConfigWrapper
 }
 
-// ParseStringToSize:
-//  Parse a string that represents memory size of the format: <integer><units>
-//  And convert it to single cl_ulong in bytes
-//      e.g. 128MB --> 128 * 1024 * 1024 --> 134,217,728 bytes
-cl_ulong ParseStringToSize(std::string& userStr)
-{
-    cl_ulong integer = 0;
-    std::string integerStr;
-    std::string units;
-
-    // parse the first part: the integer
-    std::istringstream iss(userStr);
-    iss >> integer;
-
-    if (0 == integer)
-    {
-        return 0;
-    }
-
-    // all the rest of userStr are the units string
-    std::stringstream ss;
-    ss << integer;
-    ss >> integerStr;
-    units = userStr.substr(integerStr.size());
-
-    // convert to bytes
-    // accepted units are: "GB", "MB", "KB", "B"
-    if (units == "GB")
-    {
-        integer = integer << 30;
-    }
-    else if (units == "MB")
-    {
-        integer = integer << 20;
-    }
-    else if (units == "KB")
-    {
-        integer = integer << 10;
-    }
-    else if (units != "B")
-    {
-        //invalid unit
-        return 0;
-    }
-
-    return integer;
-}
-
 cl_ulong CPUDeviceConfig::GetForcedGlobalMemSize() const
 {
     std::string strForcedSize;

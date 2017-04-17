@@ -1,0 +1,196 @@
+#include <CL/cl.h>
+
+#include <cstdio>
+#include <cstdlib>
+#include <climits>
+#include <string>
+#include "FrameworkTest.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/resource.h>
+#endif
+
+cl_ulong trySetLocalMemSize(cl_ulong size)
+{
+#ifdef _WIN32
+    printf("NOTE:\nDue to some strange behaviour of env variables on Windows\n");
+    printf("\tthis test works only if you specify CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE from shell\n");
+    printf("\tIn CI system it is done by .pm runner (framework_test_type.pm)\n");
+#endif
+    std::string str = std::to_string(size) + "B";
+    // set env variable to change the default value of local mem size
+    if (!SETENV("CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE", str.c_str()))
+    {
+        return 0;
+    }
+
+    return size;
+}
+
+cl_ulong trySetStackSize(cl_ulong size)
+{
+#ifdef _WIN32
+    // on windows we cannot change stack size on runtime, so, just return
+    // predefined value
+    return STACK_SIZE;
+#else
+    // another way to set stack size on Linux is to use `ulimit -s stack_size`
+    rlimit tLimitStruct;
+    tLimitStruct.rlim_cur = size;
+    tLimitStruct.rlim_max = ULLONG_MAX;
+    if (setrlimit(RLIMIT_STACK, &tLimitStruct) != 0)
+    {
+        printf("Failed to set stack size. Error code: %d\n", errno);
+        return 0;
+    }
+    else
+    {
+        return tLimitStruct.rlim_cur;
+    }
+#endif
+}
+
+cl_platform_id platform = nullptr;
+cl_device_id device = nullptr;
+cl_context context = nullptr;
+cl_command_queue queue = nullptr;
+cl_kernel kernel = nullptr;
+cl_mem buffer = nullptr;
+cl_program program = nullptr;
+
+bool cl_device_local_mem_size_test_body(cl_ulong, const std::string&);
+void cleanup();
+
+#define EXIT_IF_FAILED(expr)\
+    if (!expr)\
+    {\
+        cleanup();\
+        return false;\
+    }
+
+bool cl_device_local_mem_size_test()
+{
+    std::string programSources =
+    "__kernel void test(__global int* o)\n"
+    "{\n"
+    "    const int size = 7 * 1024 * 1024 / sizeof(int);\n" // 7 MB of local memory
+    "    __local int buf[size];\n"
+    "    int pwi = size / get_local_size(0);\n"
+    "    int lid = get_local_id(0);\n"
+    "    int gid = get_global_id(0);\n"
+    "    for (int i = lid * pwi; i < lid * pwi + pwi; ++i)\n"
+    "        buf[i] = gid;\n"
+    "    o[gid] = buf[pwi * lid + 1] + 2;\n"
+    "}";
+
+    printf("cl_device_local_mem_size_test\n");
+
+    cl_ulong stackSize = trySetStackSize(STACK_SIZE);
+    EXIT_IF_FAILED(CheckCondition(L"trySetStackSize", stackSize != 0));
+
+    cl_ulong expectedLocalMemSize = trySetLocalMemSize(STACK_SIZE);
+    EXIT_IF_FAILED(CheckCondition(L"trySetLocalMemSize", expectedLocalMemSize != 0));
+
+    return cl_device_local_mem_size_test_body(expectedLocalMemSize, programSources);
+}
+#ifndef _WIN32
+bool cl_device_local_mem_size_unlimited_stack_test()
+{
+    std::string programSources =
+    "__kernel void test(__global int* o)\n"
+    "{\n"
+    "    const int size = 7 * 1024 / sizeof(int);\n" // 7 KB of local memory
+    "    __local int buf[size];\n"
+    "    int pwi = size / get_local_size(0);\n"
+    "    int lid = get_local_id(0);\n"
+    "    int gid = get_global_id(0);\n"
+    "    for (int i = lid * pwi; i < lid * pwi + pwi; ++i)\n"
+    "        buf[i] = gid;\n"
+    "    o[gid] = buf[pwi * lid + 1] + 2;\n"
+    "}";
+
+    printf("cl_device_local_mem_size_unlimited_stack_test\n");
+
+    cl_ulong stackSize = trySetStackSize(RLIM_INFINITY);
+    EXIT_IF_FAILED(CheckCondition(L"trySetStackSize", stackSize != 0));
+
+    return cl_device_local_mem_size_test_body(32 * 1024, programSources);
+}
+#endif
+
+void cleanup()
+{
+    if (buffer)
+        clReleaseMemObject(buffer);
+    if (kernel)
+        clReleaseKernel(kernel);
+    if (queue)
+        clReleaseCommandQueue(queue);
+    if (program)
+        clReleaseProgram(program);
+    if (context)
+        clReleaseContext(context);
+}
+
+bool cl_device_local_mem_size_test_body(cl_ulong expectedLocalMemSize, const std::string &programSources)
+{
+    cl_int iRet = CL_SUCCESS;
+
+    iRet = clGetPlatformIDs(1, &platform, nullptr);
+    EXIT_IF_FAILED(Check(L"clGetPlatrormIDs", CL_SUCCESS, iRet));
+
+    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, nullptr);
+    EXIT_IF_FAILED(Check(L"clGetDeviceIDs", CL_SUCCESS, iRet));
+
+    cl_ulong localMemSize = 0;
+
+    iRet = clGetDeviceInfo(device, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &localMemSize, nullptr);
+    EXIT_IF_FAILED(Check(L"clGetDeviceInfo", CL_SUCCESS, iRet));
+    EXIT_IF_FAILED(CheckInt(L"CL_DEVICE_LOCAL_MEM_SIZE", expectedLocalMemSize, localMemSize));
+
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    context = clCreateContext(prop, 1, &device, nullptr, nullptr, &iRet);
+    EXIT_IF_FAILED(Check(L"clCreateContext", CL_SUCCESS, iRet));
+
+    queue = clCreateCommandQueueWithProperties(context, device, nullptr, &iRet);
+    EXIT_IF_FAILED(Check(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet));
+
+    const char *ps = programSources.c_str();
+    EXIT_IF_FAILED(BuildProgramSynch(context, 1, (const char**)&ps, nullptr, "", &program));
+
+    const size_t global_work_size = 100;
+    buffer = clCreateBuffer(context, CL_MEM_READ_WRITE, global_work_size * sizeof(cl_int), nullptr, &iRet);
+    EXIT_IF_FAILED(Check(L"clCreateBuffer", CL_SUCCESS, iRet));
+
+    kernel = clCreateKernel(program, "test", &iRet);
+    EXIT_IF_FAILED(Check(L"clCreateKernel", CL_SUCCESS, iRet));
+
+    iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer);
+    EXIT_IF_FAILED(Check(L"clSetKernelArg", CL_SUCCESS, iRet));
+
+    const size_t local_work_size = 10;
+    iRet = clEnqueueNDRangeKernel(queue, kernel, 1, nullptr, &global_work_size, &local_work_size, 0, nullptr, nullptr);
+    EXIT_IF_FAILED(Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet));
+
+    iRet = clFinish(queue);
+    EXIT_IF_FAILED(Check(L"clFinish", CL_SUCCESS, iRet));
+
+    cl_int data[global_work_size] = { 0 };
+
+    iRet = clEnqueueReadBuffer(queue, buffer, CL_TRUE, 0, global_work_size * sizeof(cl_int), data, 0, nullptr, nullptr);
+    EXIT_IF_FAILED(Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet));
+
+    bool bResult = true;
+    for (size_t i = 0; i < global_work_size; ++i)
+    {
+        bResult &= SilentCheckInt(L"data[i]", (cl_int)(i + 2), data[i]);
+    }
+
+    bResult = Check(L"Kernel results verification", true, bResult);
+
+    cleanup();
+
+    return bResult;
+}

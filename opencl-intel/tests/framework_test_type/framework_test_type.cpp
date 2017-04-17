@@ -726,6 +726,17 @@ TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
+TEST(FrameworkTestType, cl_device_local_mem_size_test)
+{
+    EXPECT_TRUE(cl_device_local_mem_size_test());
+}
+
+#ifndef _WIN32
+TEST(FrameworkTestType, cl_device_local_mem_size_unlimited_stack_test)
+{
+    EXPECT_TRUE(cl_device_local_mem_size_unlimited_stack_test());
+}
+#endif
 
 CommandLineOption<std::string> deviceOption("--device_type");
 

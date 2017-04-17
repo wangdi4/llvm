@@ -648,7 +648,10 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() c
         {
             LOG_INFO(TEXT("%s"), "Initialize Executor");
             m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
-            m_pTaskExecutor->Init(g_pUserLogger, TE_AUTO_THREADS, &m_GPAData);
+            // Here we pass value of CL_CONFIG_CPU_FORCE_LOCAL_MEM_SIZE env variable
+            // as additional required stack for executor threads because
+            // local variables located on stack
+            m_pTaskExecutor->Init(g_pUserLogger, TE_AUTO_THREADS, &m_GPAData, (size_t)m_pConfig->GetForcedLocalMemSize());
         }
     }
 
