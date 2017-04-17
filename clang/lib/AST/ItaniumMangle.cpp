@@ -1219,6 +1219,8 @@ void CXXNameMangler::mangleUnresolvedName(
       llvm_unreachable("Can't mangle a constructor name!");
     case DeclarationName::CXXUsingDirective:
       llvm_unreachable("Can't mangle a using directive name!");
+    case DeclarationName::CXXDeductionGuideName:
+      llvm_unreachable("Can't mangle a deduction guide name!");
     case DeclarationName::ObjCMultiArgSelector:
     case DeclarationName::ObjCOneArgSelector:
     case DeclarationName::ObjCZeroArgSelector:
@@ -1451,6 +1453,9 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
     mangleOperatorName(Name, Arity);
     writeAbiTags(ND, AdditionalAbiTags);
     break;
+
+  case DeclarationName::CXXDeductionGuideName:
+    llvm_unreachable("Can't mangle a deduction guide name!");
 
   case DeclarationName::CXXUsingDirective:
     llvm_unreachable("Can't mangle a using directive name!");
@@ -1903,6 +1908,7 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::Paren:
   case Type::Attributed:
   case Type::Auto:
+  case Type::DeducedTemplateSpecialization:
   case Type::PackExpansion:
   case Type::ObjCObject:
   case Type::ObjCInterface:
@@ -2029,6 +2035,7 @@ void CXXNameMangler::mangleOperatorName(DeclarationName Name, unsigned Arity) {
   switch (Name.getNameKind()) {
   case DeclarationName::CXXConstructorName:
   case DeclarationName::CXXDestructorName:
+  case DeclarationName::CXXDeductionGuideName:
   case DeclarationName::CXXUsingDirective:
   case DeclarationName::Identifier:
   case DeclarationName::ObjCMultiArgSelector:
@@ -3169,6 +3176,7 @@ void CXXNameMangler::mangleType(const DependentNameType *T) {
   //                   ::= Te <name> # dependent elaborated type specifier using
   //                                 # 'enum'
   switch (T->getKeyword()) {
+    case ETK_None:
     case ETK_Typename:
       break;
     case ETK_Struct:
@@ -3182,8 +3190,6 @@ void CXXNameMangler::mangleType(const DependentNameType *T) {
     case ETK_Enum:
       Out << "Te";
       break;
-    default:
-      llvm_unreachable("unexpected keyword for dependent type name");
   }
   // Typename types are always nested
   Out << 'N';
@@ -3278,6 +3284,16 @@ void CXXNameMangler::mangleType(const AutoType *T) {
            "shouldn't need to mangle __auto_type!");
     Out << (T->isDecltypeAuto() ? "Dc" : "Da");
   } else
+    mangleType(D);
+}
+
+void CXXNameMangler::mangleType(const DeducedTemplateSpecializationType *T) {
+  // FIXME: This is not the right mangling. We also need to include a scope
+  // here in some cases.
+  QualType D = T->getDeducedType();
+  if (D.isNull())
+    mangleUnscopedTemplateName(T->getTemplateName(), nullptr);
+  else
     mangleType(D);
 }
 
@@ -3436,6 +3452,8 @@ recurse:
   case Expr::AddrLabelExprClass:
   case Expr::DesignatedInitUpdateExprClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::ArrayInitLoopExprClass:
+  case Expr::ArrayInitIndexExprClass:
   case Expr::NoInitExprClass:
   case Expr::ParenListExprClass:
   case Expr::LambdaExprClass:

@@ -35,15 +35,6 @@ static cl::opt<bool> PollyAllowErrorBlocks(
     cl::desc("Allow to speculate on the execution of 'error blocks'."),
     cl::Hidden, cl::init(true), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-bool polly::hasInvokeEdge(const PHINode *PN) {
-  for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i)
-    if (InvokeInst *II = dyn_cast<InvokeInst>(PN->getIncomingValue(i)))
-      if (II->getParent() == PN->getIncomingBlock(i))
-        return true;
-
-  return false;
-}
-
 // Ensures that there is just one predecessor to the entry node from outside the
 // region.
 // The identity of the region entry node is preserved.
@@ -454,6 +445,9 @@ bool polly::isHoistableLoad(LoadInst *LInst, Region &R, LoopInfo &LI,
       continue;
 
     auto &BB = *UserI->getParent();
+    if (DT.dominates(&BB, LInst->getParent()))
+      return false;
+
     bool DominatesAllPredecessors = true;
     for (auto Pred : predecessors(R.getExit()))
       if (R.contains(Pred) && !DT.dominates(&BB, Pred))
@@ -495,8 +489,7 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
   return false;
 }
 
-bool polly::canSynthesize(const Value *V, const Scop &S,
-                          const llvm::LoopInfo *LI, ScalarEvolution *SE,
+bool polly::canSynthesize(const Value *V, const Scop &S, ScalarEvolution *SE,
                           Loop *Scope) {
   if (!V || !SE->isSCEVable(V->getType()))
     return false;
@@ -567,4 +560,18 @@ polly::getIndexExpressionsFromGEP(GetElementPtrInst *GEP, ScalarEvolution &SE) {
   }
 
   return std::make_tuple(Subscripts, Sizes);
+}
+
+llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::Loop *L, llvm::LoopInfo &LI,
+                                           const BoxedLoopsSetTy &BoxedLoops) {
+  while (BoxedLoops.count(L))
+    L = L->getParentLoop();
+  return L;
+}
+
+llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::BasicBlock *BB,
+                                           llvm::LoopInfo &LI,
+                                           const BoxedLoopsSetTy &BoxedLoops) {
+  Loop *L = LI.getLoopFor(BB);
+  return getFirstNonBoxedLoopFor(L, LI, BoxedLoops);
 }

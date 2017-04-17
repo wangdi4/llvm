@@ -528,7 +528,7 @@ public:
   SourceRange getTypeofParensRange() const { return TypeofParensRange; }
   void setTypeofParensRange(SourceRange range) { TypeofParensRange = range; }
 
-  bool containsPlaceholderType() const {
+  bool hasAutoTypeSpec() const {
     return (TypeSpecType == TST_auto || TypeSpecType == TST_auto_type ||
             TypeSpecType == TST_decltype_auto);
   }
@@ -917,7 +917,9 @@ public:
     /// \brief A template-id, e.g., f<int>.
     IK_TemplateId,
     /// \brief An implicit 'self' parameter
-    IK_ImplicitSelfParam
+    IK_ImplicitSelfParam,
+    /// \brief A deduction-guide name (a template-name)
+    IK_DeductionGuideName
   } Kind;
 
   struct OFI {
@@ -937,8 +939,8 @@ public:
   /// \brief Anonymous union that holds extra data associated with the
   /// parsed unqualified-id.
   union {
-    /// \brief When Kind == IK_Identifier, the parsed identifier, or when Kind
-    /// == IK_UserLiteralId, the identifier suffix.
+    /// \brief When Kind == IK_Identifier, the parsed identifier, or when
+    /// Kind == IK_UserLiteralId, the identifier suffix.
     IdentifierInfo *Identifier;
     
     /// \brief When Kind == IK_OperatorFunctionId, the overloaded operator
@@ -956,6 +958,9 @@ public:
     /// \brief When Kind == IK_DestructorName, the type referred to by the
     /// class-name.
     UnionParsedType DestructorName;
+
+    /// \brief When Kind == IK_DeductionGuideName, the parsed template-name.
+    UnionParsedTemplateTy TemplateName;
     
     /// \brief When Kind == IK_TemplateId or IK_ConstructorTemplateId,
     /// the template-id annotation that contains the template name and
@@ -1094,6 +1099,18 @@ public:
   /// \p TemplateId and will free it on destruction.
   void setTemplateId(TemplateIdAnnotation *TemplateId);
 
+  /// \brief Specify that this unqualified-id was parsed as a template-name for
+  /// a deduction-guide.
+  ///
+  /// \param Template The parsed template-name.
+  /// \param TemplateLoc The location of the parsed template-name.
+  void setDeductionGuideName(ParsedTemplateTy Template,
+                             SourceLocation TemplateLoc) {
+    Kind = IK_DeductionGuideName;
+    TemplateName = Template;
+    StartLocation = EndLocation = TemplateLoc;
+  }
+  
   /// \brief Return the source range that covers this unqualified-id.
   SourceRange getSourceRange() const LLVM_READONLY { 
     return SourceRange(StartLocation, EndLocation); 
@@ -1257,9 +1274,10 @@ struct DeclaratorChunk {
     /// declarator.
     unsigned NumParams;
 
-    /// NumExceptions - This is the number of types in the dynamic-exception-
-    /// decl, if the function has one.
-    unsigned NumExceptions;
+    /// NumExceptionsOrDecls - This is the number of types in the
+    /// dynamic-exception-decl, if the function has one. In C, this is the
+    /// number of declarations in the function prototype.
+    unsigned NumExceptionsOrDecls;
 
     /// \brief The location of the ref-qualifier, if any.
     ///
@@ -1309,6 +1327,11 @@ struct DeclaratorChunk {
       /// \brief Pointer to the cached tokens for an exception-specification
       /// that has not yet been parsed.
       CachedTokens *ExceptionSpecTokens;
+
+      /// Pointer to a new[]'d array of declarations that need to be available
+      /// for lookup inside the function body, if one exists. Does not exist in
+      /// C++.
+      NamedDecl **DeclsInPrototype;
     };
 
     /// \brief If HasTrailingReturnType is true, this is the trailing return
@@ -1331,10 +1354,20 @@ struct DeclaratorChunk {
     void destroy() {
       if (DeleteParams)
         delete[] Params;
-      if (getExceptionSpecType() == EST_Dynamic)
+      switch (getExceptionSpecType()) {
+      default:
+        break;
+      case EST_Dynamic:
         delete[] Exceptions;
-      else if (getExceptionSpecType() == EST_Unparsed)
+        break;
+      case EST_Unparsed:
         delete ExceptionSpecTokens;
+        break;
+      case EST_None:
+        if (NumExceptionsOrDecls != 0)
+          delete[] DeclsInPrototype;
+        break;
+      }
     }
 
     /// isKNRPrototype - Return true if this is a K&R style identifier list,
@@ -1402,6 +1435,19 @@ struct DeclaratorChunk {
     /// \brief Get the type of exception specification this function has.
     ExceptionSpecificationType getExceptionSpecType() const {
       return static_cast<ExceptionSpecificationType>(ExceptionSpecType);
+    }
+
+    /// \brief Get the number of dynamic exception specifications.
+    unsigned getNumExceptions() const {
+      assert(ExceptionSpecType != EST_None);
+      return NumExceptionsOrDecls;
+    }
+
+    /// \brief Get the non-parameter decls defined within this function
+    /// prototype. Typically these are tag declarations.
+    ArrayRef<NamedDecl *> getDeclsInPrototype() const {
+      assert(ExceptionSpecType == EST_None);
+      return llvm::makeArrayRef(DeclsInPrototype, NumExceptionsOrDecls);
     }
 
     /// \brief Determine whether this function declarator had a
@@ -1549,6 +1595,7 @@ struct DeclaratorChunk {
                                      unsigned NumExceptions,
                                      Expr *NoexceptExpr,
                                      CachedTokens *ExceptionSpecTokens,
+                                     ArrayRef<NamedDecl *> DeclsInPrototype,
                                      SourceLocation LocalRangeBegin,
                                      SourceLocation LocalRangeEnd,
                                      Declarator &TheDeclarator,
@@ -1688,6 +1735,7 @@ public:
     ObjCParameterContext,// An ObjC method parameter type.
     KNRTypeListContext,  // K&R type definition list for formals.
     TypeNameContext,     // Abstract declarator for types.
+    FunctionalCastContext, // Type in a C++ functional cast expression.
     MemberContext,       // Struct/Union field.
     BlockContext,        // Declaration within a block in a function.
     ForContext,          // Declaration within first part of a for loop.
@@ -1890,6 +1938,7 @@ public:
       return false;
 
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case PrototypeContext:
@@ -1930,6 +1979,7 @@ public:
       return true;
 
     case TypeNameContext:
+    case FunctionalCastContext:
     case CXXNewContext:
     case AliasDeclContext:
     case AliasTemplateContext:
@@ -1962,6 +2012,7 @@ public:
     case CXXCatchContext:
     case ObjCCatchContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case ConversionIdContext:
     case ObjCParameterContext:
     case ObjCResultContext:
@@ -2000,6 +2051,7 @@ public:
     // These contexts don't allow any kind of non-abstract declarator.
     case KNRTypeListContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case LambdaExprParameterContext:
@@ -2057,6 +2109,7 @@ public:
     case CXXCatchContext:
     case ObjCCatchContext:
     case TypeNameContext:
+    case FunctionalCastContext: // FIXME
     case CXXNewContext:
     case AliasDeclContext:
     case AliasTemplateContext:
@@ -2258,6 +2311,7 @@ public:
     case ConditionContext:
     case KNRTypeListContext:
     case TypeNameContext:
+    case FunctionalCastContext:
     case AliasDeclContext:
     case AliasTemplateContext:
     case PrototypeContext:
@@ -2289,6 +2343,16 @@ public:
         return false;
 
     return true;
+  }
+
+  /// \brief Determine whether a trailing return type was written (at any
+  /// level) within this declarator.
+  bool hasTrailingReturnType() const {
+    for (const auto &Chunk : type_objects())
+      if (Chunk.Kind == DeclaratorChunk::Function &&
+          Chunk.Fun.hasTrailingReturnType())
+        return true;
+    return false;
   }
 
   /// takeAttributes - Takes attributes from the given parsed-attributes
