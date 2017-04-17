@@ -124,9 +124,10 @@ private:
 
   /// \brief Generate code for privatization 
   bool genPrivatizationCode(WRegionNode *W);
+  bool genFirstOrLastPrivatizationCode(WRegionNode *W);
 
   /// \brief A utility to privatize the variables within the region.
-  AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, AllocaInst *PrivInst,
+  AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
                                          Instruction *InsertPt,
                                          const StringRef VarNameSuff);
 
@@ -143,12 +144,12 @@ private:
   bool genReductionCode(WRegionNode *W);
 
   /// \brief Prepare the empty basic block for the array
-  /// reduction initialization.
-  void createEmptyRedInitBB(WRegionNode *W, BasicBlock *&RedBB);
+  /// reduction or firstprivate initialization.
+  void createEmptyPrvInitBB(WRegionNode *W, BasicBlock *&RedBB);
 
   /// \brief Prepare the empty basic block for the array
-  /// reduction update.
-  void createEmptyRedFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
+  /// reduction or lastprivate update.
+  void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
 
   /// \brief Generate the reduction update instructions.
   Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
@@ -163,6 +164,13 @@ private:
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
                                     Value *Rhs2, Value *Lhs, Type *ScalarTy,
                                     IRBuilder<> &Builder, bool IsAnd);
+
+  /// \brief Generate the firstprivate initialization code.
+  void genFprivInit(FirstprivateItem *FprivI, Instruction *InsertPt);
+
+  /// \brief Generate the lastprivate update code.
+  void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+
   /// \brief Generate loop schdudeling code
   bool genLoopSchedulingCode(WRegionNode *W);
 

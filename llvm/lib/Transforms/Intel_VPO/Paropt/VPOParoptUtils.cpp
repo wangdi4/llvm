@@ -1278,16 +1278,12 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
 // does not match with the type i8.
 // One example of the output is as follows.
 //   call void @llvm.memcpy.p0i8.p0i8.i32(i8* bitcast (i32* @a to i8*), i8* %2, i32 4, i32 4, i1 false)
-CallInst* VPOParoptUtils::genMemcpy(Value *D, 
-                                    Value *S, 
-                                    const DataLayout &DL, 
-                                    BasicBlock *BB)
-{
+CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                                    unsigned Align, BasicBlock *BB) {
   IRBuilder<> MemcpyBuilder(BB);
   MemcpyBuilder.SetInsertPoint(BB->getTerminator());
 
   Value *Dest, *Src, *Size;
-  unsigned A;
 
   // The first two arguments of the memcpy expects the i8 operands.
   // The instruction bitcast is introduced if the incoming src or dest
@@ -1301,32 +1297,28 @@ CallInst* VPOParoptUtils::genMemcpy(Value *D,
     Dest = D;
     Src = S;
   }
-
   // For 32/64 bit architecture, the size and alignment should be
   // set accordingly.
-  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->
-      getIntegerBitWidth() == 64) {
-    Size = 
-      MemcpyBuilder.getInt64(
-            DL.getTypeAllocSize(D->getType()->getPointerElementType()));
-    A = StackAdjustedAlignment;
-  }
-  else {
-    Size = 
-      MemcpyBuilder.getInt32(DL.getTypeAllocSize(
-      D->getType()->getPointerElementType()));
-    A = StackAdjustedAlignment/4;
-  }
+  if (DL.getIntPtrType(MemcpyBuilder.getInt8PtrTy())->getIntegerBitWidth() ==
+      64)
+    Size = MemcpyBuilder.getInt64(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
+  else
+    Size = MemcpyBuilder.getInt32(
+        DL.getTypeAllocSize(D->getType()->getPointerElementType()));
 
-  return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, A);
+  return MemcpyBuilder.CreateMemCpy(Dest, Src, Size, Align);
 }
 
 // Computes the OpenMP loop upper bound so that the iteration space can be
 // closed interval.
 Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
                                             Instruction* InsertPt) {
-  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
-  Loop *L = WL->getLoop();
+  assert((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+         "Expect parallel loop or work share loop.");
+
+  Loop *L = W->getLoop();
+
   Value* RightValue = WRegionUtils::getOmpLoopUpperBound(L); 
   RightValue = VPOParoptUtils::cloneLoadInstruction(RightValue, InsertPt);
   bool IsLeft = true;
@@ -1374,8 +1366,9 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                      Value *UB, 
                                                      Instruction* InsertPt) {
-  WRNParallelLoopNode *WL = dyn_cast<WRNParallelLoopNode>(W);
-  Loop *L = WL->getLoop();
+  assert((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
+         "Expect parallel loop or work share loop.");
+  Loop *L = W->getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);

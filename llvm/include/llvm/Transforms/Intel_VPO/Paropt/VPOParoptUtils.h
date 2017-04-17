@@ -388,10 +388,8 @@ public:
     ///                                          i32 4,
     ///                                          i32 4,
     ///                                          i1 false)
-    static CallInst *genMemcpy(Value *D, 
-                               Value *S, 
-                               const DataLayout &DL, 
-                               BasicBlock *BB);
+    static CallInst *genMemcpy(Value *D, Value *S, const DataLayout &DL,
+                               unsigned Align, BasicBlock *BB);
 
     /// \brief Computes the OpenMP loop upper bound so that the loop 
     //  iteration space can be closed interval.

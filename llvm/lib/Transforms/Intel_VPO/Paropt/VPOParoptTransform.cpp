@@ -215,10 +215,10 @@ bool VPOParoptTransform::paroptTransforms() {
       {
         DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
 
-        // Privatization is enabled for both Prepare and Transform passes
-        Changed = genPrivatizationCode(W);
-
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          // Privatization is enabled for both Prepare and Transform passes
+          Changed = genPrivatizationCode(W);
+          Changed |= genFirstOrLastPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
         }
@@ -233,13 +233,11 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed |= genReductionCode(W);
           Changed = genLoopSchedulingCode(W);
-        }
-
-        // Privatization is enabled for both Prepare and Transform passes
-        Changed |= genPrivatizationCode(W);
-
-        if ((Mode & OmpPar) && (Mode & ParTrans))
+          // Privatization is enabled for both Prepare and Transform passes
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstOrLastPrivatizationCode(W);
           Changed |= genMultiThreadedCode(W);
+        }
 
         break;
       }
@@ -273,10 +271,12 @@ bool VPOParoptTransform::paroptTransforms() {
       { 
         DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
-        if ((Mode & OmpPar) && (Mode & ParTrans))
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = genLoopSchedulingCode(W);
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstOrLastPrivatizationCode(W);
+        }
 
-        Changed |= genPrivatizationCode(W);
         break;
       }
     case WRegionNode::WRNSingle:
@@ -731,6 +731,76 @@ void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
   }
 }
 
+// Generate the firstprivate initialization code.
+// Here is one example for the firstprivate initialization for the array.
+// num_type    a[100];
+// #pragma omp parallel for schedule( static, 1 ) firstprivate( a )
+// The output of the array initialization is as follows.
+//
+//    %a = alloca [100 x float]
+//    br label %DIR.OMP.PARALLEL.LOOP.1.split
+//
+// DIR.OMP.PARALLEL.LOOP.1.split:                    ; preds =
+// %DIR.OMP.PARALLEL.LOOP.1
+//    %1 = bitcast [100 x float]* %a to i8*
+//    call void @llvm.memcpy.p0i8.p0i8.i64(i8* %1, i8* bitcast ([100 x float]*
+//    @a to i8*), i64 400, i32 0, i1 false)
+//
+void VPOParoptTransform::genFprivInit(FirstprivateItem *FprivI,
+                                      Instruction *InsertPt) {
+
+  AllocaInst *AI = dyn_cast<AllocaInst>(FprivI->getNew());
+  Type *AllocaTy = AI->getAllocatedType();
+  Type *ScalarTy = AllocaTy->getScalarType();
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+
+  IRBuilder<> Builder(InsertPt);
+  if (!AllocaTy->isSingleValueType() ||
+      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0)
+    VPOParoptUtils::genMemcpy(AI, FprivI->getOrig(), DL, AI->getAlignment(),
+                              InsertPt->getParent());
+  else {
+    LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
+    Builder.CreateStore(Load, AI);
+  }
+}
+
+// Generate the lastprivate update code.
+// Here is one example for the lastprivate update for the array.
+// num_type    a[100];
+// #pragma omp parallel for schedule( static, 1 ) lastprivate( a )
+// The output of the array update is as follows.
+//
+//    %a = alloca [100 x float]
+//    br label %DIR.QUAL.LIST.END.1
+//
+//  for.end:                                          ; preds = %dispatch.latch,
+//  %DIR.QUAL.LIST.END.1
+//    %1 = bitcast [100 x float]* %a to i8*
+//    call void @llvm.memcpy.p0i8.p0i8.i64(i8* bitcast ([100 x float]* @a to
+//    i8*), i8* %1, i64 400, i32 0, i1 false)
+//    br label %for.end.split
+//
+void VPOParoptTransform::genLprivFini(LastprivateItem *LprivI,
+                                      Instruction *InsertPt) {
+  AllocaInst *AI = dyn_cast<AllocaInst>(LprivI->getNew());
+  Type *AllocaTy = AI->getAllocatedType();
+  Type *ScalarTy = AllocaTy->getScalarType();
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+
+  IRBuilder<> Builder(InsertPt);
+  if (!AllocaTy->isSingleValueType() ||
+      !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+    VPOParoptUtils::genMemcpy(LprivI->getOrig(), AI, DL, AI->getAlignment(),
+                              InsertPt->getParent());
+  } else {
+    LoadInst *Load = Builder.CreateLoad(AI);
+    Builder.CreateStore(Load, LprivI->getOrig());
+  }
+}
+
 // Generate the reduction initialization code.
 // Here is one example for the reduction initialization for scalar.
 //   sum = 4.0;
@@ -765,20 +835,20 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
 }
 
 // Prepare the empty basic block for the array reduction initialization.
-void VPOParoptTransform::createEmptyRedInitBB(WRegionNode *W,
-                                              BasicBlock *&RedBB) {
+void VPOParoptTransform::createEmptyPrvInitBB(WRegionNode *W,
+                                              BasicBlock *&PrivBB) {
   BasicBlock *EntryBB = W->getEntryBBlock();
-  RedBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
+  PrivBB = SplitBlock(EntryBB, EntryBB->getTerminator(), DT, LI);
 }
 
 // Prepare the empty basic block for the array reduction update.
-void VPOParoptTransform::createEmptyRedFiniBB(WRegionNode *W,
-                                              BasicBlock *&RedEntryBB) {
+void VPOParoptTransform::createEmptyPrivFiniBB(WRegionNode *W,
+                                               BasicBlock *&PrivEntryBB) {
   BasicBlock *ExitBlock = W->getExitBBlock();
-  BasicBlock *RedExitBB = SplitBlock(
+  BasicBlock *PrivExitBB = SplitBlock(
       ExitBlock, dyn_cast<Instruction>(&*ExitBlock->begin()), DT, LI);
-  W->setExitBBlock(RedExitBB);
-  RedEntryBB = ExitBlock;
+  W->setExitBBlock(PrivExitBB);
+  PrivEntryBB = ExitBlock;
 }
 
 // Generate the reduction code for reduction clause.
@@ -797,19 +867,19 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   if (RedClause.size()) {
     BasicBlock *RedInitEntryBB = nullptr;
     BasicBlock *RedUpdateEntryBB = nullptr;
-    createEmptyRedFiniBB(W, RedUpdateEntryBB);
+    createEmptyPrivFiniBB(W, RedUpdateEntryBB);
 
     for (ReductionItem *RedI : RedClause.items()) {
-      AllocaInst *RedInst;
       AllocaInst *NewRedInst;
-      if ((RedInst = dyn_cast<AllocaInst>(RedI->getOrig()))) {
-        NewRedInst =
-            genPrivatizationCodeHelper(W, RedInst, &EntryBB->front(), ".red");
+      if (isa<GlobalVariable>(RedI->getOrig()) ||
+          isa<AllocaInst>(RedI->getOrig())) {
+        NewRedInst = genPrivatizationCodeHelper(W, RedI->getOrig(),
+                                                &EntryBB->front(), ".red");
         RedI->setNew(NewRedInst);
-        createEmptyRedInitBB(W, RedInitEntryBB);
+        createEmptyPrvInitBB(W, RedInitEntryBB);
         genReductionInit(RedI, RedInitEntryBB->getTerminator());
         BasicBlock *BeginBB;
-        createEmptyRedFiniBB(W, BeginBB);
+        createEmptyPrivFiniBB(W, BeginBB);
         genReductionFini(RedI, BeginBB->getTerminator());
       }
     }
@@ -823,44 +893,121 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 }
 
 // A utility to privatize the variables within the region.
-AllocaInst *VPOParoptTransform::genPrivatizationCodeHelper(
-    WRegionNode *W, AllocaInst *PrivInst, Instruction *InsertPt,
-    const StringRef VarNameSuff) {
+AllocaInst *
+VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
+                                               Instruction *InsertPt,
+                                               const StringRef VarNameSuff) {
   // DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
   // Generate a new Alloca instruction as privatization action
-  AllocaInst *NewPrivInst = (AllocaInst *)PrivInst->clone();
-  SetVector<Value *> PrivUses;
+  AllocaInst *NewPrivInst;
+  SmallVector<Instruction *, 8> PrivUses;
 
-  // Add 'priv' suffix for the new alloca instruction
-  if (PrivInst->hasName())
-    NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
+  if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
+    NewPrivInst = (AllocaInst *)PrivInst->clone();
 
-  NewPrivInst->insertAfter(InsertPt);
+    // Add 'priv' suffix for the new alloca instruction
+    if (PrivInst->hasName())
+      NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
 
-  for (auto *User : PrivInst->users()) {
-    auto II = W->bbset_begin();
-    auto IE = W->bbset_end();
-
-    // Collect all USEs of PrivItems in the W-Region
-    if (std::find(II, IE, cast<Instruction>(User)->getParent()) != IE) {
-      if (!PrivUses.count(User)) {
-        // DEBUG(dbgs() << "Inst uses PrivItem: " << *UI << "\n");
-        PrivUses.insert(User);
-      }
+    NewPrivInst->insertAfter(InsertPt);
+  } else {
+    assert(isa<GlobalVariable>(PrivValue));
+    GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue);
+    Type *ElemTy = GV->getValueType();
+    NewPrivInst = new AllocaInst(ElemTy, nullptr, GV->getName());
+    NewPrivInst->insertAfter(InsertPt);
+    SmallVector<Instruction *, 8> RewriteCons;
+    for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
+      if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB))
+        for (Use &U : CE->uses()) {
+          User *UR = U.getUser();
+          Instruction *I = dyn_cast<Instruction>(UR);
+          if (W->contains(I->getParent()))
+            RewriteCons.push_back(I);
+        }
     }
+    while (!RewriteCons.empty()) {
+      Instruction *I = RewriteCons.pop_back_val();
+      IntelGeneralUtils::breakExpressions(I);
+    }
+  }
+
+  for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
+       ++IB) {
+    if (Instruction *User = dyn_cast<Instruction>(*IB))
+      if (W->contains(User->getParent()))
+        PrivUses.push_back(User);
   }
   // Replace all USEs of each PrivItem with its new PrivItem in the
   // W-Region (parallel loop/region/section ... etc.)
-  for (SetVector<Value *>::const_iterator I = PrivUses.begin(),
-                                          E = PrivUses.end();
-       I != E; ++I) {
-    Value *V = *I;
-    Instruction *UI = dyn_cast<Instruction>(V);
-    UI->replaceUsesOfWith(PrivInst, NewPrivInst);
+  while (!PrivUses.empty()) {
+    Instruction *UI = PrivUses.pop_back_val();
+    UI->replaceUsesOfWith(PrivValue, NewPrivInst);
     // DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
   }
 
   return NewPrivInst;
+}
+
+bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
+
+  bool Changed = false;
+
+  BasicBlock *EntryBB = W->getEntryBBlock();
+
+  DEBUG(dbgs() << "\n WRegionNode: Invoke Firstprivate Initialization \n\n");
+
+  if (W->isBBSetEmpty())
+    return Changed;
+
+  BasicBlock *PrivInitEntryBB = nullptr;
+  bool Transformed = false;
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+
+      if (isa<Argument>(FprivI->getOrig())) {
+      } else if (isa<GlobalVariable>(FprivI->getOrig()) ||
+                 isa<AllocaInst>(FprivI->getOrig())) {
+        AllocaInst *NewPrivInst = genPrivatizationCodeHelper(
+            W, FprivI->getOrig(), &EntryBB->front(), ".fpriv");
+        FprivI->setNew(NewPrivInst);
+        createEmptyPrvInitBB(W, PrivInitEntryBB);
+        genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+      }
+    }
+    Transformed = true;
+  }
+
+  if (W->hasLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    if (LprivClause.size()) {
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        if (isa<GlobalVariable>(LprivI->getOrig()) ||
+            isa<AllocaInst>(LprivI->getOrig())) {
+          auto Old = LprivI->getOrig();
+          auto FprivI = FprivClause.findOrig(Old);
+          if (!FprivI) {
+            AllocaInst *NewPrivInst = genPrivatizationCodeHelper(
+                W, LprivI->getOrig(), &EntryBB->front(), ".lpriv");
+            LprivI->setNew(NewPrivInst);
+          } else
+            LprivI->setNew(FprivI->getNew());
+          BasicBlock *BeginBB = nullptr;
+          createEmptyPrivFiniBB(W, BeginBB);
+          genLprivFini(LprivI, BeginBB->getTerminator());
+        }
+      }
+      Transformed = true;
+    }
+  }
+  if (Transformed) {
+    W->populateBBSet();
+    Changed = true;
+  }
+
+  return Changed;
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
@@ -881,12 +1028,13 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
-      AllocaInst *PrivInst;
       if (isa<Argument>(PrivI->getOrig())) { 
         // PrivItem can be a function argument
         DEBUG(dbgs() << " Private Argument: " << *PrivI->getOrig() << "\n");
-      } else if ((PrivInst = dyn_cast<AllocaInst>(PrivI->getOrig())))
-        genPrivatizationCodeHelper(W, PrivInst, &EntryBB->front(), ".priv");
+      } else if (isa<GlobalVariable>(PrivI->getOrig()) ||
+                 isa<AllocaInst>(PrivI->getOrig()))
+        genPrivatizationCodeHelper(W, PrivI->getOrig(), &EntryBB->front(),
+                                   ".priv");
     }
 
     // After Privatization is done, the SCEV should be re-generated.
@@ -940,6 +1088,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
           getIncomingValue(0)->getType();
 
   IntegerType *IndValTy = cast<IntegerType>(LoopIndexType);
+  assert(IndValTy->getIntegerBitWidth() >= 32 &&
+         "Omp loop index type width is equal or greater than 32 bit");
+
   Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
 
   Instruction *InsertPt = dyn_cast<Instruction>(
@@ -974,12 +1125,16 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
   ConstantInt *SchedType = ConstantInt::getSigned(Int32Ty, SchedKind);
 
+  IRBuilder<> B(InsertPt);
+  if (InitVal->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    InitVal = B.CreateSExtOrTrunc(InitVal, IndValTy);
+
   StoreInst *Tmp0 = new StoreInst(InitVal, LowerBnd, false, InsertPt);
   Tmp0->setAlignment(4);
 
   Value *UpperBndVal = VPOParoptUtils::computeOmpUpperBound(W, InsertPt);
 
-  IRBuilder<> B(InsertPt);
   if (UpperBndVal->getType()->getIntegerBitWidth() != 
                               IndValTy->getIntegerBitWidth()) 
     UpperBndVal = B.CreateSExtOrTrunc(UpperBndVal, IndValTy);
@@ -995,6 +1150,11 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
     ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
     StrideVal = B.CreateSub(Zero, StrideVal);
   }
+
+  if (StrideVal->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    StrideVal = B.CreateSExtOrTrunc(StrideVal, IndValTy);
+
   StoreInst *Tmp2 = new StoreInst(StrideVal, Stride, false, InsertPt);
   Tmp2->setAlignment(4);
 
@@ -1963,10 +2123,10 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         NFn->getEntryBlock().getTerminator()
             ->getSuccessor(1)->setName("copyin.not.master.end");
       }
-      VPOParoptUtils::genMemcpy(C->getOrig(),
-                                &*NewArgI,
-                                DL,
-                                Term->getParent());
+      VPOParoptUtils::genMemcpy(
+          C->getOrig(), &*NewArgI, DL,
+          dyn_cast<GlobalVariable>(C->getOrig())->getAlignment(),
+          Term->getParent());
 
       ++NewArgI;
     }
