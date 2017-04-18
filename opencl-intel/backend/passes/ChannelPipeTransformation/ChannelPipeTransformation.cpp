@@ -394,12 +394,24 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
     Function *TargetFn = ChannelCall->getParent()->getParent();
     Type *SrcType = Val->getType();
     Value *&SrcPtr = AllocaMap[std::make_pair(TargetFn, SrcType)];
-    if (!SrcPtr) {
-      Instruction *InsertBefore =
-        &*(TargetFn->getEntryBlock().getFirstInsertionPt());
-      SrcPtr = new AllocaInst(SrcType, "write.src", InsertBefore);
+
+    // Structs are passed by pointer, so if it is a pointer then use it as is
+    if(SrcType->isPointerTy()) {
+      assert(
+          ((llvm::PointerType*)SrcType)->getPointerElementType()->isStructTy()
+          && "Expected pointer to struct type.");
+      SrcPtr = Val;
     }
-    new StoreInst(Val, SrcPtr, ChannelCall);
+    // If it is regular value make an alloca and store
+    // the value to pass it by pointer to write_pipe
+    else {
+      if (!SrcPtr) {
+        Instruction *InsertBefore =
+          &*(TargetFn->getEntryBlock().getFirstInsertionPt());
+        SrcPtr = new AllocaInst(SrcType, "write.src", InsertBefore);
+      }
+      new StoreInst(Val, SrcPtr, ChannelCall);
+    }
 
     insertWritePipe(&WritePipe, PipeGlobal, SrcPtr, ChannelCall);
 
