@@ -79,6 +79,9 @@ set(LLVM_TEST_DEPENDS
           verify-uselistorder
           yaml-bench
           yaml2obj
+#if INTEL_CUSTOMIZATION
+          intelovls-test
+#endif
         )
 
 if(TARGET llvm-lto)
