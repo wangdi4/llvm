@@ -68,13 +68,8 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
 
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
-  if (handled) {
-    bool directivesCleared = VPOUtils::stripDirectives(AtomicNode);
-    assert(directivesCleared &&
-           "Unable to strip directives from WRNAtomicNode.");
-
+  if (handled)
     DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode successful.\n");
-  }
   else
     DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
 

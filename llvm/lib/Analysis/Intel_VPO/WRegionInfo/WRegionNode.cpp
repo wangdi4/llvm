@@ -301,6 +301,7 @@ void WRegionNode::printEntryExitBB(formatted_raw_ostream &OS, unsigned Depth,
       OS << ":\n";
       for (BasicBlock *BB : BBlockSet ) {
         OS.indent(Ind+2) << BB->getName() << "\n";
+        // OS.indent(Ind+2) << *BB << "\n";
       }
     } else
       OS << "is empty\n";
@@ -343,14 +344,13 @@ void WRegionNode::destroy() {
 void WRegionNode::destroyAll() {
   // TODO: implement this by recursive walk from top
 }
-void WRegionNode::dump() const {
+
+void WRegionNode::dump(bool Verbose) const {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());
-  print(OS, 0, false);
-  //Verbose:  print(OS, 0, true);
+  print(OS, 0, Verbose);
 #endif
 }
-
 
 //
 // functions below are used to update WRNs with clause information

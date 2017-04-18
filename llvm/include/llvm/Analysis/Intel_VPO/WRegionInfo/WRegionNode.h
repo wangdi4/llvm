@@ -357,7 +357,7 @@ public:
   bool getIsFromHIR() const { return IsFromHIR; }
 
   /// \brief Dumps WRegionNode.
-  void dump() const;
+  void dump(bool Verbose=false) const;
 
   /// \brief Default printer for WRegionNode. The derived WRegion can define
   /// its own print() routine to override this one.

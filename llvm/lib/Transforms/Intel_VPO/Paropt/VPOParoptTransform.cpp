@@ -109,7 +109,7 @@ void VPOParoptTransform::gatherWRegionNodeList() {
 bool VPOParoptTransform::paroptTransforms() {
 
   LLVMContext &C = F->getContext();
-  bool Changed = false;
+  bool RoutineChanged = false;
 
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
@@ -165,7 +165,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
   if (WI->WRGraphIsEmpty()) {
     DEBUG(dbgs() << "\n... No WRegion Candidates for Parallelization ...\n\n");
-    return Changed;
+    return RoutineChanged;
   }
 
   Type *Int32Ty = Type::getInt32Ty(C);
@@ -208,6 +208,10 @@ bool VPOParoptTransform::paroptTransforms() {
 
     WRegionNode *W = *I;
 
+    // Init 'Changed' to false before processing W;
+    // If W is transformed, set 'Changed' to true.
+    bool Changed = false;  
+
     switch (W->getWRegionKindID()) {
 
     // Parallel constructs need to perform outlining
@@ -231,8 +235,8 @@ bool VPOParoptTransform::paroptTransforms() {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed |= genReductionCode(W);
-          Changed = genLoopSchedulingCode(W);
+          Changed = genReductionCode(W);
+          Changed |= genLoopSchedulingCode(W);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstOrLastPrivatizationCode(W);
@@ -262,13 +266,13 @@ bool VPOParoptTransform::paroptTransforms() {
       { 
         DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
         if (Mode & ParPrepare)
-          Changed |= VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
-                                                  IdentTy, TidPtr);
+          Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
+                                                   IdentTy, TidPtr);
         break;
       }
     case WRegionNode::WRNSections:
     case WRegionNode::WRNWksLoop:
-      { 
+      {
         DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
@@ -288,14 +292,14 @@ bool VPOParoptTransform::paroptTransforms() {
     case WRegionNode::WRNMaster:
       { DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
       if (Mode & ParPrepare)
-        Changed |= genMasterThreadCode(W);
+        Changed = genMasterThreadCode(W);
       break;
       }
     case WRegionNode::WRNCritical:
       {
         DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
         if (Mode & ParPrepare)
-          Changed |= genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+          Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
         break;
       } 
     case WRegionNode::WRNOrdered:
@@ -311,12 +315,27 @@ bool VPOParoptTransform::paroptTransforms() {
       break;
     default: break;
     }
+
+    if (Changed) { // Code transformations happened for this WRN
+
+      // Remove calls to directive intrinsics since the LLVM back end does not
+      // know how to translate them.
+      bool DirRemoved = VPOUtils::stripDirectives(W);
+      assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
+      
+      RoutineChanged = true;
+
+      DEBUG(dbgs() << "   === WRN #" << W->getNumber() << " transformed.\n\n");
+    }
+    else 
+      DEBUG(dbgs() << "   === WRN #" << W->getNumber() 
+                                                   << " NOT transformed.\n\n");
   }
 
   for (WRegionNode *R : WRegionList)
     delete R;
   WRegionList.clear();
-  return Changed;
+  return RoutineChanged;
 }
 
 // Generate the reduction intialization instructions.
@@ -882,6 +901,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
         createEmptyPrivFiniBB(W, BeginBB);
         genReductionFini(RedI, BeginBB->getTerminator());
       }
+      // else what happens? No codegen for it?
     }
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtr, dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
@@ -961,7 +981,6 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
     return Changed;
 
   BasicBlock *PrivInitEntryBB = nullptr;
-  bool Transformed = false;
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
@@ -975,9 +994,9 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
         FprivI->setNew(NewPrivInst);
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+        Changed = true;
       }
     }
-    Transformed = true;
   }
 
   if (W->hasLastprivate()) {
@@ -986,7 +1005,7 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
         if (isa<GlobalVariable>(LprivI->getOrig()) ||
             isa<AllocaInst>(LprivI->getOrig())) {
-          auto Old = LprivI->getOrig();
+          Value *Old = LprivI->getOrig();
           auto FprivI = FprivClause.findOrig(Old);
           if (!FprivI) {
             AllocaInst *NewPrivInst = genPrivatizationCodeHelper(
@@ -997,15 +1016,14 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
           BasicBlock *BeginBB = nullptr;
           createEmptyPrivFiniBB(W, BeginBB);
           genLprivFini(LprivI, BeginBB->getTerminator());
+          Changed = true;
         }
       }
-      Transformed = true;
     }
   }
-  if (Transformed) {
+
+  if (Changed)
     W->populateBBSet();
-    Changed = true;
-  }
 
   return Changed;
 }
@@ -1032,19 +1050,20 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         // PrivItem can be a function argument
         DEBUG(dbgs() << " Private Argument: " << *PrivI->getOrig() << "\n");
       } else if (isa<GlobalVariable>(PrivI->getOrig()) ||
-                 isa<AllocaInst>(PrivI->getOrig()))
+                 isa<AllocaInst>(PrivI->getOrig())) {
         genPrivatizationCodeHelper(W, PrivI->getOrig(), &EntryBB->front(),
                                    ".priv");
+        Changed = true;
+      }
     }
 
     // After Privatization is done, the SCEV should be re-generated.
     // This should apply to all loop-type constructs; ie, WRNs whose
     // "IsOmpLoop" attribute is true.
-    if (SE && W->getIsOmpLoop()) {
+    if (Changed && SE && W->getIsOmpLoop()) {
       Loop *L = W->getLoop();
       SE->forgetLoop(L);
     }
-    Changed = true;
   }
   return Changed;
 }
@@ -1180,14 +1199,14 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   DEBUG(dbgs() << "--- Schedule Chunk Value: " << *ChunkVal << "\n\n");
 
   if (SchedKind == WRNScheduleStaticEven || SchedKind == WRNScheduleStatic) { 
-    // Generate __kmpc__for_static_init_4{u}/8(u} Call Instruction
+    // Generate __kmpc__for_static_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcStaticInit(W, IdentTy,
                                LoadTid, SchedType, IsLastVal, LowerBnd, 
                                UpperBnd, Stride, StrideVal, ValueOne, 
                                Size, IsUnsigned, InsertPt);
   }
   else {
-    // Generate __kmpc_dispatch_init_4{u}/8(u} Call Instruction
+    // Generate __kmpc_dispatch_init_4{u}/8{u} Call Instruction
     KmpcInitCI = VPOParoptUtils::genKmpcDispatchInit(W, IdentTy,
                                LoadTid, SchedType, InitVal, UpperBndVal,   
                                StrideVal, ChunkVal, Size, IsUnsigned, InsertPt);
@@ -1932,10 +1951,6 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // the use-count of MTFn
     // MTFnCI->eraseFromParent();
 
-    // Remove calls to directive intrinsics since the LLVM back end does not
-    // know how to translate them.
-    VPOUtils::stripDirectives(W);
-
     if (W->getParent())
       W->getParent()->populateBBSet();
 
@@ -2232,8 +2247,6 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(
 // Generate code for master/end master construct and update LLVM control-flow 
 // and dominator tree accordingly 
 bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
-  bool Changed = false;
-
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2292,20 +2305,12 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
                                MasterCI->getParent());
   DT->changeImmediateDominator(ThenMasterBB->getTerminator()->getSuccessor(0),
                                MasterCI->getParent());
-
-
-  // Remove calls to directive intrinsics since the LLVM back end does not
-  // know how to translate them.
-  VPOUtils::stripDirectives(W);
-
-  return Changed;
+  return true; // Changed
 }
 
 // Generate code for single/end single construct and update LLVM control-flow
 // and dominator tree accordingly
 bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
-  bool Changed = false;
-
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2365,19 +2370,12 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   DT->changeImmediateDominator(ThenSingleBB, SingleCI->getParent());
   DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
                                SingleCI->getParent());
-
-  // Remove calls to directive intrinsics since the LLVM back end does not
-  // know how to translate them.
-  VPOUtils::stripDirectives(W);
-
-  return Changed;
+  return true;  // Changed
 }
 
 // Generate code for ordered/end ordered construct for preserving ordered
 // region execution order
 bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
-  bool Changed = false;
-
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2413,11 +2411,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   //BasicBlock *EndOrderedBB = EndOrderedCI->getParent();
   //DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
 
-  // Remove calls to directive intrinsics since the LLVM back end does not
-  // know how to translate them.
-  VPOUtils::stripDirectives(W);
-
-  return Changed;
+  return true;  // Changed
 }
 
 // Generates code for the OpenMP critical construct.
@@ -2441,11 +2435,5 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 
   assert(CriticalCallsInserted && "Failed to create critical section. \n");
 
-  // Remove calls to directive intrinsics since the LLVM back end does not
-  // know how to translate them.
-  if (CriticalCallsInserted)
-    VPOUtils::stripDirectives(CriticalNode);
-
   return CriticalCallsInserted;
 }
-
