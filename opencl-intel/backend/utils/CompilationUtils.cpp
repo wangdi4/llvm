@@ -1370,7 +1370,7 @@ size_t CompilationUtils::getArrayNumElements(const ArrayType *ArrTy) {
   return NumElements;
 }
 
-Type* CompilationUtils::getArrayElementType(const ArrayType *ArrTy) {
+Type * CompilationUtils::getArrayElementType(const ArrayType *ArrTy) {
   Type *ElemTy = ArrTy->getElementType();
   while (auto *InnerArrayTy = dyn_cast<ArrayType>(ElemTy)) {
     ElemTy = InnerArrayTy->getElementType();
@@ -1379,12 +1379,12 @@ Type* CompilationUtils::getArrayElementType(const ArrayType *ArrTy) {
   return ElemTy;
 }
 
-ArrayType* CompilationUtils::createMultiDimArray(
-    const Type* Ty, const SmallVectorImpl<size_t> &Dimensions) {
+ArrayType * CompilationUtils::createMultiDimArray(
+    Type *Ty, const SmallVectorImpl<size_t> &Dimensions) {
   ArrayType *MDArrayTy = nullptr;
   for (int i = Dimensions.size() - 1; i >= 0; --i) {
     if (!MDArrayTy) {
-      MDArrayTy = ArrayType::get(const_cast<Type*>(Ty), Dimensions[i]);
+      MDArrayTy = ArrayType::get(Ty, Dimensions[i]);
     } else {
       MDArrayTy = ArrayType::get(MDArrayTy, Dimensions[i]);
     }
@@ -1395,7 +1395,7 @@ ArrayType* CompilationUtils::createMultiDimArray(
 
 void CompilationUtils::getArrayTypeDimensions(
     const ArrayType *ArrTy, SmallVectorImpl<size_t> &Dimensions) {
-  ArrayType *InnerArrTy = const_cast<ArrayType*>(ArrTy);
+  const ArrayType *InnerArrTy = ArrTy;
   do {
     Dimensions.push_back(InnerArrTy->getNumElements());
   } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));

@@ -506,8 +506,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// Functionality is similar to clang::ASTContext::getBaseElementType
     static Type* getArrayElementType(const ArrayType *ArrTy);
 
-    static ArrayType* createMultiDimArray(
-        const Type *Ty, const SmallVectorImpl<size_t> &Dimensions);
+    static ArrayType * createMultiDimArray(
+        Type *Ty, const SmallVectorImpl<size_t> &Dimensions);
 
     /// @brief Returns vector of numbers of elements in each dimension of the
     ///        ArrayType

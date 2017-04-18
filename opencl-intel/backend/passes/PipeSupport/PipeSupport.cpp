@@ -53,7 +53,6 @@ static Function *importRTLFunctionDecl(Module &TargetModule,
                                        StringRef Name) {
   for (auto *BIModule : RTLs) {
     if (auto *F = BIModule->getFunction(Name)) {
-      using namespace Intel::OpenCL::DeviceBackend;
       return cast<Function>(
           CompilationUtils::importFunctionDecl(&TargetModule, F));
     }
@@ -69,7 +68,6 @@ static void findPipeCalls(Function &F,
     for (auto &I : BB) {
       if (auto *Call = dyn_cast<CallInst>(&I)) {
         StringRef Name = Call->getCalledFunction()->getName();
-        using namespace Intel::OpenCL::DeviceBackend;
         if (CompilationUtils::isReadPipeBuiltin(Name) ||
             CompilationUtils::isWritePipeBuiltin(Name)) {
           Calls.push_back(Call);
@@ -95,58 +93,62 @@ static bool insertFlushCall(Module &M, CallInst *PipeCall,
   bool Changed = false;
 
   auto *F = PipeCall->getParent()->getParent();
-  auto &LastBB = F->back();
-  auto *Term = LastBB.getTerminator();
-  assert(Term && "Ill-formed BasicBlock.");
-
-  assert(PipeCall->getNumArgOperands() > 1
-         && "Unexpected number of arguments");
-
-  Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
-
-  IRBuilder<> Builder(Term);
-
-  bool IsAnArrayOfPipes = false;
-  size_t NumArrayElements = 0;
-
-  // pipe can either be a function argument, or a global variable
-  // for global we cannot use the PipeArg, because it can be from another block
-  if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
-    Value *PipeGlobalPtr = Load->getPointerOperand();
-    // Pipe global variable can be either an array of pipes
-    if (auto *GEP = dyn_cast<GEPOperator>(PipeGlobalPtr)) {
-      PipeGlobalPtr = GEP->getPointerOperand();
-      PipeArg = PipeGlobalPtr;
-
-      IsAnArrayOfPipes = true;
-      ArrayType *PipeGlobalArrayTy = cast<ArrayType>(
-          cast<PointerType>(PipeGlobalPtr->getType())->getElementType());
-      NumArrayElements = CompilationUtils::getArrayNumElements(
-          PipeGlobalArrayTy);
-    } else {
-      PipeArg = Builder.CreateLoad(PipeGlobalPtr);
+  for (auto &BB: *F) {
+    auto *Term = BB.getTerminator();
+    assert(Term && "Ill-formed BasicBlock.");
+    if (!isa<ReturnInst>(Term)) {
+      continue;
     }
-  }
 
-  if (IsAnArrayOfPipes) {
-    Type *FlushArgTy = ReqFlushArray->getFunctionType()->getParamType(0);
+    assert(PipeCall->getNumArgOperands() > 1
+           && "Unexpected number of arguments");
 
-    Value *FlushArgs[] = {
-      Builder.CreateBitCast(PipeArg, FlushArgTy),
-      ConstantInt::get(Type::getInt32Ty(M.getContext()), NumArrayElements)
-    };
+    Value *PipeArg = PipeCall->getArgOperand(0)->stripPointerCasts();
 
-    Builder.CreateCall(ReqFlushArray, FlushArgs);
-    Changed = true;
-  } else {
-    Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
+    IRBuilder<> Builder(Term);
 
-    Value *FlushArgs[] = {
-      Builder.CreateBitCast(PipeArg, FlushArgTy)
-    };
+    bool IsAnArrayOfPipes = false;
+    size_t NumArrayElements = 0;
 
-    Builder.CreateCall(ReqFlush, FlushArgs);
-    Changed = true;
+    // pipe can either be a function argument, or a global variable
+    // for global we cannot use the PipeArg, because it can be from another block
+    if (auto *Load = dyn_cast<LoadInst>(PipeArg)) {
+      Value *PipeGlobalPtr = Load->getPointerOperand();
+      // Pipe global variable can be either an array of pipes
+      if (auto *GEP = dyn_cast<GEPOperator>(PipeGlobalPtr)) {
+        PipeGlobalPtr = GEP->getPointerOperand();
+        PipeArg = PipeGlobalPtr;
+
+        IsAnArrayOfPipes = true;
+        ArrayType *PipeGlobalArrayTy = cast<ArrayType>(
+            cast<PointerType>(PipeGlobalPtr->getType())->getElementType());
+        NumArrayElements = CompilationUtils::getArrayNumElements(
+            PipeGlobalArrayTy);
+      } else {
+        PipeArg = Builder.CreateLoad(PipeGlobalPtr);
+      }
+    }
+
+    if (IsAnArrayOfPipes) {
+      Type *FlushArgTy = ReqFlushArray->getFunctionType()->getParamType(0);
+
+      Value *FlushArgs[] = {
+        Builder.CreateBitCast(PipeArg, FlushArgTy),
+        ConstantInt::get(Type::getInt32Ty(M.getContext()), NumArrayElements)
+      };
+
+      Builder.CreateCall(ReqFlushArray, FlushArgs);
+      Changed = true;
+    } else {
+      Type *FlushArgTy = ReqFlush->getFunctionType()->getParamType(0);
+
+      Value *FlushArgs[] = {
+        Builder.CreateBitCast(PipeArg, FlushArgTy)
+      };
+
+      Builder.CreateCall(ReqFlush, FlushArgs);
+      Changed = true;
+    }
   }
 
   assert(Changed && "PipeSupport have not inserted a flush call!");

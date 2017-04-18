@@ -49,7 +49,7 @@
 //   - head points to the beginning of elements stored in a pipe
 //   - tail points to the end, where new elements should go
 //
-//   tail         head
+//   head         tail
 //   ~~~~v        ~~~v
 // |---+---+---+---+---+---+---|
 // |   | x | x | x |   |   |   |

@@ -34,6 +34,8 @@
 
 #include <PipeCommon.h>
 
+#include <utility>
+
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -83,7 +85,6 @@ static void getPipesMetadata(const Module &M,
   auto *MDs = M.getNamedMetadata("opencl.channels");
   if (!MDs) {
     llvm_unreachable("'opencl.channels' metadata not found.");
-    return;
   }
 
   for (auto *MD : MDs->operands()) {
@@ -106,14 +107,11 @@ static void getPipesMetadata(const Module &M,
         DepthMD = dyn_cast<ConstantAsMetadata>(MDN->getOperand(1).get());
       } else {
         llvm_unreachable("Unknown metadata operand key");
-        continue;
       }
     }
 
-    if (!ChanMD || !PacketSizeMD || !PacketAlignMD) {
-      llvm_unreachable("Invalid channel metadata.");
-      continue;
-    }
+    assert(ChanMD && PacketSizeMD && PacketAlignMD &&
+           "Invalid channel metadata");
 
     Value *Chan = ChanMD->getValue();
     ConstantInt *PacketSize = cast<ConstantInt>(PacketSizeMD->getValue());
@@ -205,22 +203,21 @@ static void incrementIndicesList(SmallVectorImpl<size_t> &IndicesList,
  *        instruction
  *
  * \param[in] IndicesList List of indices needs to be converted
- * \param[in,out] GEPIndicesList Result vector of corresponding Value*. Note
- *                               that size of GEPIndicesList must be
- *                               IndicesList.size() + 1. 0 inserted into first
- *                               position to use indices in GEP instruction
+ * \param[out] GEPIndicesList Result vector of corresponding Value*. Note
+ *                            that the size of GEPIndicesList will be equal
+ *                            IndicesList.size() + 1: zero will be inserted
+ *                            into first element of GEPIndicesList to use
+ *                            this list in the GEP instruction
  * \param[in] M Used to create int32 type which used to create Value*
  */
 static void convertToGEPIndicesList(const SmallVectorImpl<size_t> &IndicesList,
-                                    SmallVectorImpl<Value*> &GEPIndicesList,
+                                    SmallVectorImpl<Value *> &GEPIndicesList,
                                     Module &M) {
-  assert(GEPIndicesList.size() == IndicesList.size() + 1
-         && "GEPInidicesList size must be equal InidicesList size + 1 to insert"
-         " zero into the first position to dereference pointer in GEP");
   Type *Int32Ty = Type::getInt32Ty(M.getContext());
-  GEPIndicesList[0] = ConstantInt::get(Int32Ty, 0);
-  for (size_t j = 0; j < IndicesList.size(); ++j) {
-    GEPIndicesList[j + 1] = ConstantInt::get(Int32Ty, IndicesList[j]);
+  GEPIndicesList.resize(0);
+  GEPIndicesList.push_back(ConstantInt::get(Int32Ty, 0));
+  for (auto i: IndicesList) {
+    GEPIndicesList.push_back(ConstantInt::get(Int32Ty, i));
   }
 }
 
@@ -246,17 +243,17 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
   SmallVector<size_t, 8> Dimensions;
   CompilationUtils::getArrayTypeDimensions(PipePtrArrayTy, Dimensions);
 
-  size_t DimensionsNum = Dimensions.size();
-  SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
-  SmallVector<Value*, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
-
-  size_t BSItemSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
-  size_t BSItemsCount = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
-
   Type *BSIndexTy = Type::getIntNTy(
       M.getContext(),
       M.getDataLayout().getPointerSizeInBits(Utils::OCLAddressSpace::Global));
   Value *ZeroConstantInt = ConstantInt::get(BSIndexTy, 0);
+
+  size_t DimensionsNum = Dimensions.size();
+  SmallVector<size_t, 8> IndicesListForPipeElem(DimensionsNum, 0);
+  SmallVector<Value *, 8> GEPIndicesListForPipeElem(DimensionsNum + 1, 0);
+
+  size_t BSItemSize = pipe_get_total_size(PipeMD.PacketSize, PipeMD.Depth);
+  size_t BSItemsCount = CompilationUtils::getArrayNumElements(PipePtrArrayTy);
 
   // iterate over all elements from backing store
   for (size_t i = 0; i < BSItemsCount; ++i) {
@@ -266,7 +263,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
       ConstantInt::get(BSIndexTy, i * BSItemSize)
     };
     Value *BSElemPtr = Builder.CreateGEP(
-        BS, ArrayRef<Value*>(IndexListForBSElem, 2));
+        BS, ArrayRef<Value *>(IndexListForBSElem, 2));
 
     // convert current indices list to GEP indices
     convertToGEPIndicesList(IndicesListForPipeElem,
@@ -276,7 +273,7 @@ static void generateBSItemsToPipeArrayStores(Module &M, IRBuilder<> &Builder,
 
     // create GEP from pipe array
     Value *PipeElemPtr = Builder.CreateGEP(
-        PipeArrayGlobal, ArrayRef<Value*>(GEPIndicesListForPipeElem));
+        PipeArrayGlobal, ArrayRef<Value *>(GEPIndicesListForPipeElem));
     Builder.CreateStore(Builder.CreateBitCast(BSElemPtr, PipePtrTy),
                         Builder.CreateBitCast(PipeElemPtr, PipePtrPtrTy));
 
@@ -434,8 +431,8 @@ static bool createPipeGlobals(Module &M,
 }
 
 static void insertReadPipe(Function *ReadPipe,
-                            Value *Pipe, Value *DstPtr,
-                            IRBuilder<> &Builder) {
+                           Value *Pipe, Value *DstPtr,
+                           IRBuilder<> &Builder) {
   auto *ReadPipeFTy = ReadPipe->getFunctionType();
 
   Value *PipeCallArgs[] = {
@@ -504,13 +501,13 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
       // we need to replace GEP from array of channels
       // with GEP from array of pipes
       PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
-      SmallVector<Value*, 8> Indices;
+      SmallVector<Value *, 8> Indices;
       auto IdxEnd = ChanArrGEP->idx_end();
       for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
         Indices.push_back(*Ind);
       }
       PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
-                                          ArrayRef<Value*>(Indices));
+                                          ArrayRef<Value *>(Indices));
     } else {
       PipeGlobal = ChannelToPipeMap[ChanGlobal];
       PipeCallZeroArg = PipeGlobal;
@@ -587,13 +584,13 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
       // we need to replace GEP from array of channels
       // with GEP from array of pipes
       PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
-      SmallVector<Value*, 8> Indices;
+      SmallVector<Value *, 8> Indices;
       auto *IdxEnd = ChanArrGEP->idx_end();
       for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
         Indices.push_back(*Ind);
       }
       PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
-                                          ArrayRef<Value*>(Indices));
+                                          ArrayRef<Value *>(Indices));
     } else {
       PipeGlobal = ChannelToPipeMap[ChanGlobal];
       PipeCallZeroArg = PipeGlobal;
