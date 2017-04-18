@@ -34,22 +34,18 @@ static size_t pipe_get_total_size(cl_uint packet_size, cl_uint max_packets) {
 }
 
 static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
-  if (max_packets == 1) {
-    max_packets++;
-  }
-
   __pipe_t* p = (__pipe_t*) mem;
 
   memset((char*)p, 0, sizeof(__pipe_t));
 
   p->packet_size = packet_size;
-  p->max_packets = max_packets;
+  p->max_packets = max_packets + 1;// reserve one element b/w head and tail
 
   p->read_buf.size = -1;
   p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
 
   p->write_buf.size = -1;
-  p->write_buf.limit = std::min((int)max_packets - 1,
+  p->write_buf.limit = std::min((int)max_packets,
                                 PIPE_WRITE_BUF_PREFERRED_LIMIT);
 }
 

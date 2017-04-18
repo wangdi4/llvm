@@ -169,11 +169,8 @@ static int get_write_capacity(__global struct __pipe_t* p) {
 
 void __pipe_init_intel(__global struct __pipe_t* p,
                        int packet_size, int max_packets) {
-  if (max_packets == 1) {
-    max_packets++; // reserve 1 element b/w head and tail
-  }
   p->packet_size = packet_size;
-  p->max_packets = max_packets;
+  p->max_packets = max_packets + 1;// reserve one element b/w head and tail
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -183,7 +180,7 @@ void __pipe_init_intel(__global struct __pipe_t* p,
 
   p->write_buf.end = 0;
   p->write_buf.size = -1;
-  p->write_buf.limit = min(max_packets - 1, PIPE_WRITE_BUF_PREFERRED_LIMIT);
+  p->write_buf.limit = min(max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT);
 }
 
 void __flush_read_pipe(__global struct __pipe_t* p) {
