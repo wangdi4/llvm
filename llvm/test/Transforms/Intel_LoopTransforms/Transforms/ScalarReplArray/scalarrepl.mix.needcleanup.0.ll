@@ -38,6 +38,11 @@
 ; CHECK:   END REGION
 ;  
 ;
+; MemRefGroup: { A[i], A[i+1], }
+;                MinST    
+; GapTracker:  { RW     W      }
+
+;
 ; CHECK: IR Dump After HIR Scalar Repl
 ;
 ; CHECK:   BEGIN REGION { }

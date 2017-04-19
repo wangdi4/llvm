@@ -34,8 +34,23 @@
 ; CHECK:   END REGION
 ;
 ;  
+; MemRefGroup: {  C[i1][0]      } 
+;                 MaxLD, MinST
+; GapTracker:  {  RW            }
+;
 ; CHECK: IR Dump After HIR Scalar Repl
 ;
+; CHECK:  BEGIN REGION { modified }
+; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:        |   %0 = (@A)[0][i1][0];
+; CHECK:        |   %1 = (@B)[0][i1][0];
+; CHECK:        |   %scalarepl = (@C)[0][i1][0];
+; CHECK:        |   %2 = %scalarepl;
+; CHECK:        |   %3 = %scalarepl;
+; CHECK:        |   %scalarepl = %0 + %1 + %2 + %3;
+; CHECK:        |   (@C)[0][i1][0] = %scalarepl;
+; CHECK:        + END LOOP
+; CHECK:  END REGION
 ;
 ;
 ; === ---------------------------------------------------------------- ===

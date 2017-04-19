@@ -62,7 +62,8 @@
 ; CHECK:        + END LOOP
 ;
 ; [stores in loop's postexit]
-; CHECK:          (@A)[0][102] = %scalarepl2;
+; CHECK:           (@A)[0][101] = %scalarepl;
+; CHECK:           (@A)[0][102] = %scalarepl1;
 ;
 ; CHECK:  END REGION
 ;

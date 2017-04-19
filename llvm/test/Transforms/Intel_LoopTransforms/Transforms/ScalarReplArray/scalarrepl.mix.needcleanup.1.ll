@@ -44,6 +44,9 @@
 ; CHECK:   END REGION
 ;
 ;  
+; MemRefGroup: { C[i2], C[i2+1]       }
+;                MinST  MaxLD
+; GapTracker:  { W      R             }
 ;
 ; CHECK: IR Dump After HIR Scalar Repl
 ;

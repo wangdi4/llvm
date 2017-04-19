@@ -42,36 +42,26 @@
 //(default is false)
 //
 // TODO:
-// 1. Handle special case using 1 Temp without ration for MaxDD == 1 (and,
-// possibly using 2 Temps for MaxDD == 2).
-//
-// 2. Remove a majority of MemRef->clone() calls within the 3-step scalar-repl
-// transformations (doPreLoopProc(), doPostLooProc(), and doInLoopProc()).
-//
-// Steps:
-// - change the order to:
-//   .doInLoopProc(): do all MemRef replacement with temps;
-//   .doPreLoopProc(): use MemRef directly without cloning;
-//   .doPostLoopProc():use MemRef directly without cloning;
-//
-// - in doInLoopProc():
-//   .do replacement, mark new insert location (once replacement happens,
-//   LoadInst/StoreInst will be replaced with CopyInst)
-//
-// - in doPreLoopProc()/doPostLoopProc():
-//   .use MemRef directly without cloning
-//
-// Note:
-// . It is not possible to completely remove all calls to MemRef->clone.
-//   However,it is possible to remove most of them.
-// . The goal of this todo item is to reduce the MemRef->clone() calls, thus
-// reduce the expensive malloc() calls at runtime.
-//
-// 3. Improve checkIV() to allow IVBlobs that are known to be positive or
+// 1. Improve checkIV() to allow IVBlobs that are known to be positive or
 // negative at compile time.
 //
 // It will help to release more groups that are potentially suitable/benefical
 // from ScalarRepl transformation.
+//
+// 2. when there is both load and store on the same index, when store comes
+// first, there is no need to generate the matching load in prehdr.
+// E.g.
+//
+// |  . = A[i+3];
+// |  A[i] = .  ;
+// |
+// |  A[i+1] = ..;
+// |  .      = A[i+1];
+// |
+//
+// Note:
+// the t1 = A[UB+1] is not needed in prehdr in this case.
+//
 //
 // -------------------------------------------------------------------
 #include "llvm/ADT/Statistic.h"
@@ -87,7 +77,6 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRScalarReplArray.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -95,6 +84,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "HIRScalarReplArray.h"
 
 #define DEBUG_TYPE "hir-scalarrepl-array"
 
@@ -172,23 +163,47 @@ LLVM_DUMP_METHOD void RefTuple::print(bool NewLine) const {
 
 typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
 
-MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA,
-                         DDGraph &DDG)
-    : HasRWGap(false), HSRA(HSRA), DDG(DDG), MaxDepDist(-1), NumLoads(0),
-      NumStores(0), IsLegal(false), IsProfitable(false), IsPostChecksOk(false),
-      IsSuitable(false), MaxIdxLoadRT(nullptr), MinIdxStoreRT(nullptr) {
-  RegDDRef *FirstRef = const_cast<RegDDRef *>(Group[0]);
+MemRefGroup::MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA)
+    : HasRWGap(false), HSRA(HSRA), MaxDepDist(-1), NumLoads(0), NumStores(0),
+      IsLegal(false), IsProfitable(false), IsPostChecksOk(false),
+      IsSuitable(false), MaxIdxLoadRT(-1), MinIdxStoreRT(-1), MaxStoreDist(0) {
+  const RegDDRef *FirstRef = Group[0];
   Symbase = FirstRef->getSymbase();
   BaseCE = FirstRef->getBaseCE();
 
-  // Save all MemRef*s from Group into RefTupleVec
   for (auto &Ref : Group) {
+    // Count: # of load(s)/store(s)
+    if (Ref->isLval()) {
+      ++NumStores;
+    } else {
+      ++NumLoads;
+    }
+
+    // Create a partially filled RefTuple and save it into RefTupleVec.
+    // E.g. (A[i], -1, nullptr)
     insert(const_cast<RegDDRef *>(Ref));
   }
 
   Lp = FirstRef->getHLDDNode()->getParentLoop();
   assert(Lp && "Lp can't be a nullptr\n");
   LoopLevel = Lp->getNestingLevel();
+
+  // Check the group's Max DepDist exist and is within bound
+  const RegDDRef *LastRef = Group[Group.size() - 1];
+  int64_t MaxDepDist = 0;
+  bool Ret = DDRefUtils::getConstIterationDistance(LastRef, FirstRef, LoopLevel,
+                                                   &MaxDepDist);
+  assert(Ret && "Expect DepDist exist\n");
+  (void)Ret;
+  uint64_t AbsMaxDepDist = std::abs(MaxDepDist);
+  assert((AbsMaxDepDist <= HSRA->ScalarReplArrayMaxDepDist) &&
+         "Expect MaxDepDist within bound\n");
+
+  // set MaxDepDist:
+  this->MaxDepDist = AbsMaxDepDist;
+
+  // set MaxIdxLoadRT, profit test needs it
+  markMaxLoad();
 }
 
 const RefTuple *MemRefGroup::getByDist(unsigned Dist) const {
@@ -270,13 +285,13 @@ void MemRefGroup::markMinStore(void) {
     // Find the largest TOPO#
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
     if (CurTopNum > MaxTopNum) {
-      MinIdxStoreRT = RT;
+      MinIdxStoreRT = I; // save index into MinIndexStoreRT
       MaxTopNum = CurTopNum;
     }
   }
 
   // must find the MinIndxStoreRT
-  assert(MinIdxStoreRT && "fail to find MinIdxStoreRT\n");
+  assert(hasMinIdxStoreRT() && "fail to find MinIdxStoreRT\n");
 }
 
 void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &RWGap) {
@@ -294,7 +309,7 @@ void MemRefGroup::identifyGaps(SmallVectorImpl<bool> &RWGap) {
     RWGap[Dist] = true;
   }
 
-  // Identify RWGap only
+  // Check: is there any gap?
   for (signed I = MaxDepDist; I >= 0; --I) {
     if (!RWGap[I]) {
       HasRWGap = true;
@@ -311,7 +326,8 @@ bool MemRefGroup::isCompleteStoreOnly(void) {
   return !HasRWGap;
 }
 
-bool MemRefGroup::isLegal(DDGraph &DDG) const {
+bool MemRefGroup::isLegal(void) const {
+  DDGraph DDG = HSRA->HDDA->getGraph(Lp, false);
 
   // Check: outgoing edge(s)
   if (!areDDEdgesInSameMRG<false>(DDG)) {
@@ -358,7 +374,7 @@ void MemRefGroup::markMaxLoad(void) {
     return;
   }
 
-  // may find the MaxLoad if there is 1+ load
+  // may find the MaxLoad if there is 1+ load(s)
   unsigned Size = RefTupleVec.size();
   unsigned MinTopNum = -1; // will shrink
   RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
@@ -388,66 +404,73 @@ void MemRefGroup::markMaxLoad(void) {
     // Find the smallest TOPO#
     unsigned CurTopNum = MemRef->getHLDDNode()->getTopSortNum();
     if (CurTopNum < MinTopNum) {
-      MaxIdxLoadRT = RT; // the MaxIdxLoadRT Pointer we save
+      MaxIdxLoadRT = I; // save the MaxIdxLoadRT index
       MinTopNum = CurTopNum;
     }
   }
 }
 
 bool MemRefGroup::hasReuse(void) const {
-  // If the loop's trip count is available, use it
   uint64_t TripCount = 0;
+  unsigned MaxDepDist = getMaxDepDist();
+
+  // If the loop's trip count is available, use it
   if (Lp->isConstTripLoop(&TripCount)) {
-    return (getMaxDepDist() < TripCount);
+    return (MaxDepDist < TripCount);
+  }
+
+  // Otherwise, check the loop's estimated trip count
+  uint64_t MaxTripCountEst = Lp->getMaxTripCountEstimate();
+  if (MaxTripCountEst) {
+    return (MaxDepDist < MaxTripCountEst);
   }
 
   return true;
 }
 
-bool MemRefGroup::hasStoreDepDistGreaterEqualOne() const {
+void MemRefGroup::markMaxStoreDist(void) {
   // Sanity: need 2 stores at least
   if (NumStores < 2) {
-    return false;
+    return;
   }
 
-  // Identify lowest-idx ref
+  // Identify lowest-idx store ref: scan from left to right
   unsigned Size = RefTupleVec.size();
-  RegDDRef *LowestRef = nullptr;
+  RegDDRef *LowestStore = nullptr;
   for (unsigned I = 0; I < Size; ++I) {
     RegDDRef *MemRef = RefTupleVec[I].getMemRef();
 
+    // Break once we find the lowest store
     if (MemRef->isLval()) {
-      LowestRef = MemRef;
+      LowestStore = MemRef;
       break;
     }
   }
-  assert(LowestRef && "Expect LowestRef available\n");
+  assert(LowestStore && "Expect LowestStore available\n");
 
-  // Identify highest-idx ref
-  RegDDRef *HighestRef = nullptr;
-  for (signed I = Size - 1; I >= 0; --I) {
+  // Identify highest-idx store: scan from right to left
+  RegDDRef *HighestStore = nullptr;
+  for (signed I = RefTupleVec.size() - 1; I >= 0; --I) {
     RegDDRef *MemRef = RefTupleVec[I].getMemRef();
 
+    // Break once we find the highest store
     if (MemRef->isLval()) {
-      HighestRef = MemRef;
+      HighestStore = MemRef;
       break;
     }
   }
-  assert(HighestRef && "Expect HighestRef available\n");
+  assert(HighestStore && "Expect HighestStore available\n");
 
-  // Compute and check the dependence distance between the 2 boundary refs
+  // Save MaxStoreDist: the max distance between 2 boundary stores
   int64_t DepDist = 0;
-  if (DDRefUtils::getConstIterationDistance(HighestRef, LowestRef, LoopLevel,
-                                            &DepDist)) {
-    if (std::llabs(DepDist) >= 1) {
-      return true;
-    }
-  }
-
-  return false;
+  bool Res = DDRefUtils::getConstIterationDistance(HighestStore, LowestStore,
+                                                   LoopLevel, &DepDist);
+  assert(Res && "MaxStoreDist must exist\n");
+  (void)Res;
+  MaxStoreDist = std::abs(DepDist);
 }
 
-bool MemRefGroup::doPostCheckOnRef(const HLLoop *Lp, bool IsLoad) {
+bool MemRefGroup::doPostCheckOnRef(const HLLoop *Lp, bool IsLoad) const {
   const CanonExpr *BoundCE =
       IsLoad ? Lp->getLowerCanonExpr() : Lp->getUpperCanonExpr();
   RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
@@ -456,41 +479,13 @@ bool MemRefGroup::doPostCheckOnRef(const HLLoop *Lp, bool IsLoad) {
                                              true);
 }
 
-// Check: expect MaxDepDist be below a pre-defined threshold
-// Notes:
-// - Since MRG is sorted, MaxDepDist is the distance between 1st and last ref.
-// - If the group has negative IVConst Coeff, the DepDist could be negative
-//   since the group had been reversed earlier.
-//   A call to std::abs() is needed in this case.
-//
-void MemRefGroup::checkAndSetMaxDepDist(void) {
-  RegDDRef *FirstRef = RefTupleVec[0].getMemRef();
-  RegDDRef *LastRef = RefTupleVec[getSize() - 1].getMemRef();
-  int64_t MaxDepDist = 0;
-  bool Ret = DDRefUtils::getConstIterationDistance(LastRef, FirstRef, LoopLevel,
-                                                   &MaxDepDist);
-  assert(Ret && "Expect DepDist exist\n");
-  (void)Ret;
-  uint64_t AbsMaxDepDist = std::abs(MaxDepDist);
-  assert((AbsMaxDepDist <= HSRA->ScalarReplArrayMaxDepDist) &&
-         "Expect MaxDepDist within bound\n");
+bool MemRefGroup::doPostChecks(const HLLoop *Lp) const {
 
-  // Save MaxDepDist:
-  setMaxDepDist(AbsMaxDepDist);
-}
-
-bool MemRefGroup::doPostChecks(const HLLoop *Lp) {
-  // If: the group has MaxDepDist > 0
-  // Then:any outstanding (non-max-dd) load needs to be merge-able with Lp's
-  // LB
-  if ((MaxDepDist > 0) && !doPostCheckOnRef(Lp, true)) {
+  if (requiresLoadInPrehdr() && !doPostCheckOnRef(Lp, true)) {
     return false;
   }
 
-  // If: the group has multiple stores with MaxStoreDepDist >=1
-  // Then:any outstanding (non-min-dd) store needs to be merge-able with Lp's
-  // UB
-  if (hasStoreDepDistGreaterEqualOne() && !doPostCheckOnRef(Lp, false)) {
+  if (requiresStoreInPostexit() && !doPostCheckOnRef(Lp, false)) {
     return false;
   }
 
@@ -517,7 +512,7 @@ void MemRefGroup::handleTemps(void) {
     // set TmpId (the Dependence Distance)
     int64_t TmpId = 0;
     DDRefUtils::getConstIterationDistance(MemRef, FirstRef, LoopLevel, &TmpId);
-    TmpId = std::llabs(TmpId);
+    TmpId = std::abs(TmpId);
     assert((TmpId <= (int64_t)MaxDepDist) && "TmpId is out of bound\n");
 
     // setup TmpId and TmpRef
@@ -551,16 +546,18 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
   formatted_raw_ostream FOS(dbgs());
 #endif
 
-  DEBUG(FOS << "BEFORE generateLoadToTmps(.): \n";; Lp->dump(); FOS << "\n");
+  DEBUG(FOS << "BEFORE generateLoadToTmps(.): \n"; Lp->dump(); FOS << "\n");
   DEBUG(printRefTupleVec(true););
   DEBUG(printTmpVec(true););
 
   // Iterate over each possible index:
-  // - NO gap: generate a load use existing MemRef;
-  // -    gap: create its matching MemRef, then generate a load with it;
+  // - NO gap: generate a load use clone() from its matching MemRef;
+  // -    gap: create a new MemRef using MemRef[0]->clone() and shift(), then
+  //           generate a load from it;
   RegDDRef *MemRef = nullptr;
   RegDDRef *TmpRef = nullptr;
   CanonExpr *LBCE = Lp->getLowerCanonExpr();
+  RegDDRef *BaseRef = RefTupleVec[0].getMemRef();
 
   // Scan in [0 .. MaxDD): NOT to generate a load for MemRef[MaxDD](R)
   for (unsigned Idx = 0; Idx < MaxDepDist; ++Idx) {
@@ -574,28 +571,23 @@ void MemRefGroup::generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap) {
       TmpRef = RT->getTmpRef();
     } else {
       // create the missing MemRef, and obtain its matching TmpRef
-      MemRef = RefTupleVec[0].getMemRef()->clone();
+      MemRef = BaseRef->clone();
       MemRef->shift(LoopLevel, Idx);
       TmpRef = TmpV[Idx];
       DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
             FOS << "\n";);
     }
 
-    // generate the load
-    generateLoadWithMemRef(Lp, MemRef, Idx, TmpRef, !HasMemRef, LBCE);
+    // generate the load in loop's prehdr:
+    generateLoadInPrehdr(Lp, MemRef, Idx, TmpRef, !HasMemRef, LBCE);
   }
 
   DEBUG(FOS << "AFTER generateLoadToTmps(.): \n"; Lp->dump(); FOS << "\n");
 }
 
-void MemRefGroup::generateLoadWithMemRef(HLLoop *Lp, RegDDRef *MemRef,
-                                         unsigned Index, RegDDRef *TmpRef,
-                                         bool IndepMemRef, CanonExpr *LBCE) {
-#ifndef NDEBUG
-  formatted_raw_ostream FOS(dbgs());
-#endif
-
-  DEBUG(FOS << "BEFORE generateLoadWithMemRef(.): \n"; Lp->dump(); FOS << "\n");
+void MemRefGroup::generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef,
+                                       unsigned Index, RegDDRef *TmpRef,
+                                       bool IndepMemRef, CanonExpr *LBCE) {
 
   // Create a load from MemRef into Tmp
   RegDDRef *MemRef2 = IndepMemRef ? MemRef : MemRef->clone();
@@ -613,25 +605,82 @@ void MemRefGroup::generateLoadWithMemRef(HLLoop *Lp, RegDDRef *MemRef,
   // Make MemRef2 consistent
   const SmallVector<const RegDDRef *, 1> AuxRefs = {Lp->getLowerDDRef()};
   MemRef2->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
-
-  DEBUG(FOS << "AFTER generateLoadWithMemRef(.): \n"; Lp->dump(); FOS << "\n");
 }
 
-bool MemRefGroup::analyze(HLLoop *Lp, DDGraph &DDG) {
-  // Count: #Loads and #Stores
-  for (auto &RT : RefTupleVec) {
-    if (RT.getMemRef()->isLval()) {
-      ++NumStores;
-    } else {
-      ++NumLoads;
-    }
+void MemRefGroup::generateStoreFromTmps(HLLoop *Lp) {
+#ifndef NDEBUG
+  formatted_raw_ostream FOS(dbgs());
+#endif
+
+  DEBUG(FOS << "BEFORE generateStoreFromTmps(.): \n"; Lp->dump(); FOS << "\n");
+  DEBUG(printRefTupleVec(true););
+  DEBUG(printTmpVec(true););
+
+  // Compute the store boundaries: [MinStorePos .. MaxStorePos]
+  // E.g. for the following MemRefGroup:
+  // ( r   ,  w   , rw  ,  w    )
+  //   0      1     2      3
+  //          ^            ^
+  //          MinStore     MaxStore, MaxStoreDist is 2 (we knew this)
+  //
+  const RefTuple *StoreRT = getMinIdxStoreRT();
+  assert(StoreRT && "Expect storeRT available\n");
+  unsigned MinStoreOffset = StoreRT->getTmpId();
+  CanonExpr *UBCE = Lp->getUpperCanonExpr();
+  RegDDRef *MemRef = nullptr, *TmpRef = nullptr;
+  signed AdjustIdx = isCompleteStoreOnly() ? 0 : (-1);
+  HLInst *StoreInst = nullptr;
+
+  // For each unique index in [MinStoreOffset+1 .. MinStoreOffset+MaxStoreDist]:
+  // - generate a store in Postexit regardless of gap situation;
+  // - temp associated with the store:
+  //   . use normally mapped temp for a CompleteStoreOnly group;
+  //   . use a skewed (-1 mapped) temp otherwise;
+  // - stores are generated in natural order;
+  //
+  RegDDRef *BaseRef = StoreRT->getMemRef();
+
+  for (unsigned Idx = 1; Idx <= MaxStoreDist; ++Idx) {
+    MemRef = BaseRef->clone();
+    MemRef->shift(LoopLevel, Idx);
+    TmpRef = TmpV[Idx + MinStoreOffset + AdjustIdx]->clone();
+
+    DEBUG(MemRef->dump(); FOS << ", " << Idx << ", "; TmpRef->dump();
+          FOS << "\n";);
+
+    StoreInst = generateStoreInPostexit(Lp, MemRef, TmpRef, UBCE, StoreInst);
   }
 
-  // set MaxDepDist: markMaxLoad() needs it
-  checkAndSetMaxDepDist();
+  DEBUG(FOS << "AFTER generateStoreFromTmps(.): \n"; Lp->dump(); FOS << "\n");
+}
 
-  // this sets MaxIdxLoadRT, profit test needs it
-  markMaxLoad();
+HLInst *MemRefGroup::generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
+                                             RegDDRef *TmpRef, CanonExpr *UBCE,
+                                             HLInst *InsertAfter) {
+
+  // Simplify: Replace IV with UBCE
+  HLNodeUtils *HNU = HSRA->HNU;
+  DDRefUtils::replaceIVByCanonExpr(MemRef, LoopLevel, UBCE);
+
+  // Create a StoreInst
+  HLInst *StoreInst = HNU->createStore(TmpRef, ScalarReplStoreName, MemRef);
+
+  if (InsertAfter) {
+    HNU->insertAfter(InsertAfter, StoreInst);
+  } else {
+    HNU->insertAsFirstPostexitNode(Lp, StoreInst);
+  }
+
+  Lp->addLiveOutTemp(TmpRef->getSymbase());
+
+  // Make MemRef consistent: remove any stale blob(s)
+  const SmallVector<const RegDDRef *, 1> AuxRefs = {Lp->getUpperDDRef()};
+  MemRef->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
+
+  return StoreInst;
+}
+
+bool MemRefGroup::analyze(HLLoop *Lp) {
 
   // do Profit Test:
   if (!(IsProfitable = isProfitable())) {
@@ -639,9 +688,12 @@ bool MemRefGroup::analyze(HLLoop *Lp, DDGraph &DDG) {
   }
 
   // do Legal Test:
-  if (!(IsLegal = isLegal(DDG))) {
+  if (!(IsLegal = isLegal())) {
     return false;
   }
+
+  // identify Store Bounds and mark MaxStoreDist (doPostChecks() needs it)
+  markMaxStoreDist();
 
   // do PostChecks:
   if (!(IsPostChecksOk = doPostChecks(Lp))) {
@@ -662,7 +714,7 @@ bool MemRefGroup::verify(void) {
 
   // Check: for each RT in RTV, all fields are populated
   for (auto &RT : RefTupleVec) {
-    // RegDDRef *MemRef = RT.getMemRef();
+
     if (!RT.getMemRef()) {
       return false;
     }
@@ -672,7 +724,6 @@ bool MemRefGroup::verify(void) {
       return false;
     }
 
-    // RegDDRef *TmpRef = RT.getTmpRef();
     if (!RT.getTmpRef()) {
       return false;
     }
@@ -727,19 +778,19 @@ void MemRefGroup::print(bool NewLine) {
   // Symbase:
   FOS << ", Symbase: " << Symbase << ", ";
 
-  // Print MaxIdxLoadRT:
+  // Print MaxIdxLoadRT: if available
   FOS << "MaxIdxLoadRT: ";
-  if (MaxIdxLoadRT) {
-    MaxIdxLoadRT->print();
+  if (hasMaxIdxLoadRT()) {
+    getMaxIdxLoadRT()->print();
   } else {
     FOS << " null ";
   }
   FOS << ", ";
 
-  // Print MinIdxStoreRT:
+  // Print MinIdxStoreRT: if available
   FOS << "MinIdxStoreRT: ";
-  if (MinIdxStoreRT) {
-    MinIdxStoreRT->print();
+  if (hasMinIdxStoreRT()) {
+    getMinIdxStoreRT()->print();
   } else {
     FOS << " null ";
   }
@@ -800,6 +851,7 @@ INITIALIZE_PASS_BEGIN(HIRScalarReplArray, "hir-scalarrepl-array",
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_END(HIRScalarReplArray, "hir-scalarrepl-array",
                     "HIR Scalar Replacement of Array ", false, false)
 
@@ -868,7 +920,7 @@ bool HIRScalarReplArray::runOnFunction(Function &F) {
 
   if (CandidateLoops.empty()) {
     DEBUG(dbgs() << F.getName()
-                 << "() has no inner-most loop for scalar replacement\n ");
+                 << "() has no inner-most loop for HIR scalar replacement\n ");
     return false;
   }
 
@@ -906,17 +958,16 @@ bool HIRScalarReplArray::doAnalysis(HLLoop *Lp) {
     return false;
   }
 
-  DDGraph DDG = HDDA->getGraph(Lp, false);
-  if (!doCollection(Lp, DDG)) {
+  if (!doCollection(Lp)) {
     DEBUG(dbgs() << "ScalarRepl: collection failed\n");
     return false;
   }
 
   bool Result = false;
 
+  // Analyze each MemRefGroup in MRGVec
   for (auto &MRG : MRGVec) {
-    // Analyze each MemRefGroup
-    if (MRG.analyze(Lp, DDG)) {
+    if (MRG.analyze(Lp)) {
       Result = true;
     }
   }
@@ -1008,7 +1059,7 @@ bool HIRScalarReplArray::checkIV(const RegDDRef *Ref,
   return false;
 }
 
-bool HIRScalarReplArray::doCollection(HLLoop *Lp, DDGraph &DDG) {
+bool HIRScalarReplArray::doCollection(HLLoop *Lp) {
   // Collect and group RegDDRefs:
   RefGroupVecTy Groups;
   HLA->populateTemporalLocalityGroups(Lp, ScalarReplArrayMaxDepDist, Groups);
@@ -1031,8 +1082,7 @@ bool HIRScalarReplArray::doCollection(HLLoop *Lp, DDGraph &DDG) {
     }
 
     // Build a MemRefGroup and insert it into MemRefVec
-    MemRefGroup MRG(Group, this, DDG);
-    insert(MRG);
+    MRGVec.emplace_back(Group, this);
 
     Result = true;
   }
@@ -1083,7 +1133,6 @@ void HIRScalarReplArray::doTransform(HLLoop *Lp, MemRefGroup &MRG) {
   MRG.handleTemps();
   assert(MRG.verify() && "MRG verification failed\n");
 
-  // markMaxLoad() is moved to analysis
   MRG.markMinStore();
 
   SmallVector<bool, 16> RWGap;
@@ -1136,54 +1185,13 @@ void HIRScalarReplArray::doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
 #ifndef NDEBUG
   formatted_raw_ostream FOS(dbgs());
 #endif
-
   DEBUG(FOS << "BEFORE doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 
-  // Check: not needed if the MRG has <=1 write
-  if (MRG.getNumStores() <= 1) {
+  if (!MRG.requiresStoreInPostexit()) {
     return;
   }
 
-  RefTuple *StoreRT = MRG.getMinIdxStoreRT();
-  assert(StoreRT && "Expect storeRT available\n");
-  unsigned SkipDepDist = StoreRT->getTmpId();
-  CanonExpr *UBCE = Lp->getUpperCanonExpr();
-
-  // Create store(s) from temp at begin of the Loop's Postexit
-  for (auto &RT : MRG.getRefTupleVec()) {
-    // skip any Load
-    if (RT.getMemRef()->isRval()) {
-      continue;
-    }
-
-    // skip any Ref whose DD is the same as SkipDepDist
-    unsigned DepDist = RT.getTmpId();
-    if (DepDist == SkipDepDist) {
-      continue;
-    }
-
-    // mask SkipDepDist with Current DepDist
-    //(avoiding future duplicates on the same DepDist)
-    SkipDepDist = DepDist;
-
-    RegDDRef *MemRef = RT.getMemRef();
-    RegDDRef *TmpRef = RT.getTmpRef();
-    RegDDRef *MemRefClone = MemRef->clone();
-
-    // Replace IV with UBCE
-    DDRefUtils::replaceIVByCanonExpr(MemRefClone, LoopLevel, UBCE);
-
-    // Create the StoreInst
-    RegDDRef *TmpRefClone = TmpRef->clone();
-    HLInst *StoreInst =
-        HNU->createStore(TmpRefClone, ScalarReplStoreName, MemRefClone);
-    HNU->insertAsFirstPostexitNode(Lp, StoreInst);
-    Lp->addLiveOutTemp(TmpRefClone->getSymbase());
-
-    // Make MemRefClone consistent: remove any stale blob(s)
-    const SmallVector<const RegDDRef *, 1> AuxRefs = {Lp->getUpperDDRef()};
-    MemRefClone->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
-  }
+  MRG.generateStoreFromTmps(Lp);
 
   DEBUG(FOS << "AFTER doPostLoopProc(.): \n"; Lp->dump(); FOS << "\n");
 }
@@ -1195,8 +1203,8 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
   DEBUG(FOS << "BEFORE doInLoopProc(.): \n"; Lp->dump(); FOS << "\n";);
 
   // Generate a load if MaxIdxLoadRT is available
-  RefTuple *MaxIdxLoadRT = MRG.getMaxIdxLoadRT();
-  if (MaxIdxLoadRT) {
+  if (MRG.hasMaxIdxLoadRT()) {
+    const RefTuple *MaxIdxLoadRT = MRG.getMaxIdxLoadRT();
     RegDDRef *MemRef = MaxIdxLoadRT->getMemRef();
     RegDDRef *MemRefClone = MemRef->clone();
     RegDDRef *TmpRefClone = MaxIdxLoadRT->getTmpRef()->clone();
@@ -1208,8 +1216,8 @@ void HIRScalarReplArray::doInLoopProc(HLLoop *Lp, MemRefGroup &MRG) {
   }
 
   // Generate a store if MinIdxStoreRT is available
-  RefTuple *MinIdxStoreRT = MRG.getMinIdxStoreRT();
-  if (MinIdxStoreRT) {
+  if (MRG.hasMinIdxStoreRT()) {
+    const RefTuple *MinIdxStoreRT = MRG.getMinIdxStoreRT();
     RegDDRef *MemRef = MinIdxStoreRT->getMemRef();
     RegDDRef *MemRefClone = MemRef->clone();
     RegDDRef *TmpRefClone = MinIdxStoreRT->getTmpRef()->clone();
