@@ -3916,12 +3916,14 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       case OMPD_parallel_for:
         Outliner.emitOMPParallelForDirective();
         break;
+      case OMPD_parallel_for_simd:
+        Outliner.emitOMPParallelForSimdDirective();
+        break;
       default:
         llvm_unreachable("unexpected loop kind");
       }
       Outliner << S.clauses();
-      // Adding to explicit list so a clause is not added
-      Outliner.addExplicit(IVDecl);
+      Outliner.setIterationVariable(IVDecl);
 
       EmitIgnoredExpr(S.getInit());
       // while (idx <= UB) { BODY; ++idx; }
@@ -3976,5 +3978,12 @@ void CodeGenFunction::EmitIntelOMPParallelForDirective(
     CGF.EmitIntelOMPLoop(S, OMPD_parallel_for);
   };
   emitIntelDirective(*this, OMPD_parallel_for, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
+                                      const OMPParallelForSimdDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_parallel_for_simd);
+  };
+  emitIntelDirective(*this, OMPD_parallel_for_simd, CodeGen);
 }
 #endif // INTEL_SPECIFIC_OPENMP

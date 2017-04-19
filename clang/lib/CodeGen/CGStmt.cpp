@@ -51,48 +51,6 @@ void CodeGenFunction::EmitStopPoint(const Stmt *S) {
   }
 }
 
-#if INTEL_SPECIFIC_OPENMP
-static bool needsLoopTransformation(const OMPExecutableDirective *Dir) {
-
-  if (auto *LoopDir = dyn_cast<OMPLoopDirective>(Dir)) {
-
-    for (auto *E : LoopDir->counters()) {
-
-      // A C++ iterator type
-      if (E->getType()->isStructureOrClassType())
-        return true;
-
-      // A non-local variable
-      auto *CVar = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-      if (!CVar->hasLocalStorage())
-        return true;
-
-      // Specified lastprivate
-      for (const auto *C : LoopDir->getClausesOfKind<OMPLastprivateClause>()) {
-        for (const auto *D : C->varlists()) {
-          auto *FPVar = cast<VarDecl>(cast<DeclRefExpr>(D)->getDecl());
-          if (FPVar == CVar)
-            return true;
-        }
-      }
-
-      // Specified private
-      for (const auto *C : LoopDir->getClausesOfKind<OMPPrivateClause>()) {
-        for (const auto *D : C->varlists()) {
-          auto *FPVar = cast<VarDecl>(cast<DeclRefExpr>(D)->getDecl());
-          if (FPVar == CVar)
-            return true;
-        }
-      }
-
-      // TODO: counter has address taken
-    }
-  }
-  // Not needed
-  return false;
-}
-#endif // INTEL_SPECIFIC_OPENMP
-
 void CodeGenFunction::EmitStmt(const Stmt *S) {
   assert(S && "Null statement?");
   PGO.setCurrentStmt(S);
@@ -125,20 +83,18 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 #if INTEL_SPECIFIC_OPENMP
   if (CGM.getLangOpts().IntelCompat &&
       (CGM.getLangOpts().IntelOpenMP || CGM.getLangOpts().IntelOpenMPRegion)) {
-    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S)) {
-      bool NeedsLoopTransform = needsLoopTransformation(Dir);
-
-      if (NeedsLoopTransform) {
-        if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
-          return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
-        if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
-          return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
-        else if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
-          return EmitIntelOMPParallelForDirective(
+    if (S->getStmtClass() == Stmt::OMPSimdDirectiveClass)
+      return EmitIntelOMPSimdDirective(cast<OMPSimdDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPForDirectiveClass)
+      return EmitIntelOMPForDirective(cast<OMPForDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPParallelForDirectiveClass)
+      return EmitIntelOMPParallelForDirective(
                                 cast<OMPParallelForDirective>(*S));
-      } else
-        return EmitIntelOpenMPDirective(*Dir);
-    }
+    if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
+      return EmitIntelOMPParallelForSimdDirective(
+                                cast<OMPParallelForSimdDirective>(*S));
+    if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
+      return EmitIntelOpenMPDirective(*Dir);
   }
 #endif // INTEL_SPECIFIC_OPENMP
 

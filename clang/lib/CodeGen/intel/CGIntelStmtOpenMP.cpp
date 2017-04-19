@@ -478,13 +478,15 @@ namespace CGIntelOpenMP {
     auto savedCSI = CGF.CapturedStmtInfo;
     CGF.CapturedStmtInfo = nullptr;
 
-    auto End = ExplicitRefs.end();
+    auto EEnd = ExplicitRefs.end();
+    auto CEnd = Counters.end();
     for (const auto *I : VarRefs) {
-      if (ExplicitRefs.find(I) != End) continue;
+      if (ExplicitRefs.find(I) != EEnd) continue;
+      if (I == IterationVariable) continue;
       if (VarDefs.find(I) != VarDefs.end()) {
         // Defined here = private
         emitImplicit(I, OMPC_private);
-      } else if (Counters.find(I) != Counters.end()) {
+      } else if (Counters.find(I) != CEnd) {
         // Counters always private
         emitImplicit(I, OMPC_private);
       } else if (DKind != OMPD_simd && DKind != OMPD_for) {
@@ -499,12 +501,18 @@ namespace CGIntelOpenMP {
 
   void OpenMPCodeOutliner::addRefsToOuter() {
     if (CGF.CapturedStmtInfo) {
-      for (const auto *I : VarDefs)
+      for (const auto *I : VarDefs) {
+        if (I == IterationVariable) continue;
         CGF.CapturedStmtInfo->recordVariableDefinition(I);
-      for (const auto *I : VarRefs)
+      }
+      for (const auto *I : VarRefs) {
+        if (I == IterationVariable) continue;
         CGF.CapturedStmtInfo->recordVariableReference(I);
-      for (const auto *I : ExplicitRefs)
+      }
+      for (const auto *I : ExplicitRefs) {
+        if (I == IterationVariable) continue;
         CGF.CapturedStmtInfo->recordVariableReference(I);
+      }
     }
   }
 

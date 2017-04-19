@@ -79,7 +79,6 @@ int main(int argc, char **argv) {
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.END.PARALLEL")
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 
-// CHECK: [[ARGC_VAL:%.+]] = load i32, i32* [[ARGC_ADDR]],
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.OMP.PARALLEL.LOOP")
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.SHARED", i8*** [[ARGV_ADDR]])
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", %struct.S1* [[S1_ADDR]], %struct.S1* (%struct.S1*)* @_ZTS2S1.omp.def_constr, void (%struct.S1*)* @_ZTS2S1.omp.destr
@@ -87,7 +86,7 @@ int main(int argc, char **argv) {
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i32* [[ARGC_ADDR]], i32 [[ARGC_VAL]])
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i32* [[ARGC_ADDR]], i32
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel for shared(argv) private(s1, s2, arr1, arr2, arr3) linear(val(argc) : argc)
   for (int i = 0; i < argc; ++i)

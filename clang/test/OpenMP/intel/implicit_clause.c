@@ -53,4 +53,14 @@ void foo()
      }
 
    }
+
+   // CHECK-ONE-NOT: "QUAL.OMP.PRIVATE"{{.*}}omp.iv
+   {
+    int j,a=3;
+    #pragma omp parallel
+    {
+      #pragma omp for schedule(static, 1) firstprivate(a)
+      for ( j = 0; j < 10; j++ ) { }
+    }
+  }
 }
