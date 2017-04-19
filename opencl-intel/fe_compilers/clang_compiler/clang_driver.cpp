@@ -166,6 +166,9 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     optionsEx << " -mstackrealign";
     optionsEx << " -D__ENDIAN_LITTLE__=1";
 
+    std::stringstream supportedExtensions;
+    supportedExtensions << m_sDeviceInfo.sExtensionStrings;
+
     // If working as fpga emulator, pass special triple.
     if(m_pProgDesc->bFpgaEmulator)
     {
@@ -178,11 +181,8 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 #else
 #error "Can't define target triple: unknown architecture."
 #endif
-        optionsEx << " -cl-ext=+cl_altera_channels";
-    }
-    else
-    {
-        optionsEx << " -cl-ext=-cl_altera_channels";
+
+        supportedExtensions << " cl_altera_channels";
     }
 
     if(m_sDeviceInfo.bImageSupport)
@@ -200,7 +200,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
                     0,
                     options.str().c_str(),   // pszOptions
                     optionsEx.str().c_str(), // pszOptionsEx
-                    m_sDeviceInfo.sExtensionStrings,
+                    supportedExtensions.str().c_str(),
                     GetOpenCLVersionStr(m_config.GetOpenCLVersion()),
                     spBinaryResult.getOutPtr());
 
