@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -o - -O1 %s | FileCheck %s
 
 __attribute__((gnu_inline)) extern inline void getline(int a, double b) {
   b = a;
@@ -7,5 +7,5 @@ __attribute__((gnu_inline)) extern inline void getline(int a, double b) {
 void getline(int a, double b) { b = a; }
 
 // CHECK: Function Attrs: {{.*}}inlinehint
-// CHECK: define void @{{.*}}getline{{.*}}(i32 %{{.*}}, double %{{.*}}) [[ATTR:#[0-9]+]]
+// CHECK: define void @{{.*}}getline{{.*}}(i32 %{{.*}}, double %{{.*}}) {{.*}} [[ATTR:#[0-9]+]]
 // CHECK: attributes [[ATTR]] = { {{.*}}inlinehint

@@ -15,7 +15,7 @@ class B {
 public:
   typedef Cake1 Cake1Typedefed; // expected-note{{declared here}}
   friend struct Cake1Typedefed; // expected-warning{{elaborated type refers to a typedef}}
-  friend struct Cake2Typedefed; // expected-error{{elaborated type refers to a typedef}}
+  friend struct Cake2Typedefed; // expected-error{{typedef 'Cake2Typedefed' cannot be referenced with a struct specifier}}
 };
 
 bool B::Cake1Typedefed::is_a_lie() {
@@ -40,7 +40,7 @@ struct E {
 template <class T>
 struct Test1 {
   friend class E<T>::ValueType1; // expected-warning{{elaborated type refers to a typedef}}
-                                 // expected-error@-1{{elaborated type refers to a typedef}}
+                                 // expected-error@-1{{typedef 'ValueType1' cannot be referenced with a class specifier}}
 };
 
 template <class T>

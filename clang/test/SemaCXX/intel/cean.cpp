@@ -1,7 +1,7 @@
 // RUN: %clang_cc1 -triple x86_64-apple-macos10.7.0 -verify -fopenmp -ferror-limit 140 -fintel-compatibility -fcilkplus %s
 // REQUIRES: cilkplus
 
-struct S { // expected-note {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to 'const S &' for 1st argument}} expected-note {{candidate function (the implicit copy assignment operator) not viable: cannot convert argument of incomplete type 'void' to 'const S'}} expected-note {{candidate function (the implicit copy assignment operator) not viable: no known conversion from 'int' to 'const S' for 1st argument}}
+struct S { // expected-note {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to 'const S' for 1st argument}} expected-note {{candidate function (the implicit copy assignment operator) not viable: cannot convert argument of incomplete type 'void' to 'const S'}} expected-note {{candidate function (the implicit copy assignment operator) not viable: no known conversion from 'int' to 'const S' for 1st argument}} expected-note {{candidate constructor (the implicit default constructor) not viable: requires 0 arguments, but 1 was provided}}
   int a;
 };
 
@@ -18,7 +18,7 @@ C test (C x[]) {
 }
 
 template <class C>
-C test2 (C x, C y) { //expected-note {{candidate function [with C = S] not viable: no known conversion from 'S *' to 'S' for 1st argument; remove &}} expected-note {{candidate template ignored: deduced conflicting types for parameter 'C' ('S *' vs. 'S')}}
+C test2 (C x, C y) { //expected-note {{candidate function not viable: no known conversion from 'S *' to 'S' for 1st argument; remove &}} expected-note {{candidate template ignored: deduced conflicting types for parameter 'C' ('S *' vs. 'S')}}
   return x;
 }
 
@@ -177,7 +177,7 @@ int main(int argc, char **argv) { // expected-note {{declared here}}
   res = __sec_reduce(sarr[:], sarr[:], test2<S>); // expected-error {{extended array notation is not allowed}}
   res = __sec_reduce(S(), sarr[:], sarr[:]); // expected-error {{extended array notation is not allowed}}
   res = __sec_reduce(S(), sarr[:], test2<S>);
-  res = __sec_reduce(0, sarr[:], test2<S>); // expected-error {{no viable conversion from 'int' to 'S'}}
+  res = __sec_reduce(0, sarr[:], test2<S>); // expected-error {{no matching constructor for initialization of 'S'}}
   res = __sec_reduce(S(), sarr[:], test2);
   res = __sec_reduce(S(), sarr[:], 0); // expected-error {{expected unqualified-id}}
   res = __sec_reduce(S(), sarr[0], test2<S>); // expected-error {{argument of the function is not an array section}}

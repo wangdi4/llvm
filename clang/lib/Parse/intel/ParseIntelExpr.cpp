@@ -92,7 +92,7 @@ bool Parser::ParseSecReduceExpressionList(
       SourceLocation TemplateKWLoc;
       UnqualifiedId Name;
       // TentativeParsingAction PA(*this);
-      if (ParseUnqualifiedId(SS, false, false, false, ParsedType(),
+      if (ParseUnqualifiedId(SS, false, false, false, false, ParsedType(),
                              TemplateKWLoc, Name)) {
         PA.Commit();
         return true;

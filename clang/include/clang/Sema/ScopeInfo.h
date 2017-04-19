@@ -177,7 +177,7 @@ public:
   SmallVector<ReturnStmt*, 4> Returns;
 
   /// \brief The promise object for this coroutine, if any.
-  VarDecl *CoroutinePromise;
+  VarDecl *CoroutinePromise = nullptr;
 
   /// \brief The list of coroutine control flow constructs (co_await, co_yield,
   /// co_return) that occur within the function or block. Empty if and only if
@@ -472,6 +472,14 @@ public:
     /// non-static data member that would hold the capture.
     QualType CaptureType;
 
+    /// \brief Whether an explicit capture has been odr-used in the body of the
+    /// lambda.
+    bool ODRUsed;
+
+    /// \brief Whether an explicit capture has been non-odr-used in the body of
+    /// the lambda.
+    bool NonODRUsed;
+
   public:
     Capture(VarDecl *Var, bool Block, bool ByRef, bool IsNested,
             SourceLocation Loc, SourceLocation EllipsisLoc,
@@ -480,7 +488,8 @@ public:
           InitExprAndCaptureKind(
               Cpy, !Var ? Cap_VLA : Block ? Cap_Block : ByRef ? Cap_ByRef
                                                               : Cap_ByCopy),
-          Loc(Loc), EllipsisLoc(EllipsisLoc), CaptureType(CaptureType) {}
+          Loc(Loc), EllipsisLoc(EllipsisLoc), CaptureType(CaptureType),
+          ODRUsed(false), NonODRUsed(false) {}
 
     enum IsThisCapture { ThisCapture };
     Capture(IsThisCapture, bool IsNested, SourceLocation Loc,
@@ -488,7 +497,8 @@ public:
         : VarAndNestedAndThis(
               nullptr, (IsThisCaptured | (IsNested ? IsNestedCapture : 0))),
           InitExprAndCaptureKind(Cpy, ByCopy ? Cap_ByCopy : Cap_ByRef),
-          Loc(Loc), EllipsisLoc(), CaptureType(CaptureType) {}
+          Loc(Loc), EllipsisLoc(), CaptureType(CaptureType), ODRUsed(false),
+          NonODRUsed(false) {}
 
     bool isThisCapture() const {
       return VarAndNestedAndThis.getInt() & IsThisCaptured;
@@ -511,6 +521,9 @@ public:
     bool isNested() const {
       return VarAndNestedAndThis.getInt() & IsNestedCapture;
     }
+    bool isODRUsed() const { return ODRUsed; }
+    bool isNonODRUsed() const { return NonODRUsed; }
+    void markUsed(bool IsODRUse) { (IsODRUse ? ODRUsed : NonODRUsed) = true; }
 
     VarDecl *getVariable() const {
       return VarAndNestedAndThis.getPointer();

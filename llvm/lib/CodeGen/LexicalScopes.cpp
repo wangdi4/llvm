@@ -181,10 +181,9 @@ LexicalScopes::getOrCreateInlinedScope(const DILocalScope *Scope,
   else
     Parent = getOrCreateLexicalScope(InlinedAt);
 
-  I = InlinedLexicalScopeMap.emplace(std::piecewise_construct,
-                                     std::forward_as_tuple(P),
-                                     std::forward_as_tuple(Parent, Scope,
-                                                           InlinedAt, false))
+  I = InlinedLexicalScopeMap
+          .emplace(std::piecewise_construct, std::forward_as_tuple(P),
+                   std::forward_as_tuple(Parent, Scope, InlinedAt, false))
           .first;
   return &I->second;
 }
@@ -299,9 +298,8 @@ bool LexicalScopes::dominates(const DILocation *DL, MachineBasicBlock *MBB) {
   return Result;
 }
 
-/// dump - Print data structures.
-void LexicalScope::dump(unsigned Indent) const {
-#ifndef NDEBUG
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void LexicalScope::dump(unsigned Indent) const {
   raw_ostream &err = dbgs();
   err.indent(Indent);
   err << "DFSIn: " << DFSIn << " DFSOut: " << DFSOut << "\n";
@@ -316,5 +314,5 @@ void LexicalScope::dump(unsigned Indent) const {
   for (unsigned i = 0, e = Children.size(); i != e; ++i)
     if (Children[i] != this)
       Children[i]->dump(Indent + 2);
-#endif
 }
+#endif

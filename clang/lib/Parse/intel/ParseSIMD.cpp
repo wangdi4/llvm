@@ -155,6 +155,7 @@ struct SIMDPrivateItemParser {
                              false, // EnteringContext
                              false, // AllowDestructorName
                              false, // AllowConstructorName,
+                             false, // AllowDeductionGuide
                              ParsedType(), TemplateKWLoc, Name))
       return false;
 

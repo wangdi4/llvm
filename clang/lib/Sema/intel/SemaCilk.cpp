@@ -822,7 +822,7 @@ StmtResult Sema::ActOnCilkForGrainsizePragma(Expr *GrainsizeExpr, Stmt *CilkFor,
       Context, CurContext, GrainSizeStart, GrainSizeStart, 0, GrainsizeTy,
       Context.getTrivialTypeSourceInfo(GrainsizeTy, GrainSizeStart), SC_None);
 
-  AddInitializerToDecl(Grainsize, GrainsizeExpr, true, false);
+  AddInitializerToDecl(Grainsize, GrainsizeExpr, true);
   if (Grainsize->isInvalidDecl()) {
     Context.Deallocate(reinterpret_cast<void *>(Grainsize));
     Diag(GrainSizeStart, diag::note_cilk_for_grainsize_conversion)
@@ -830,7 +830,9 @@ StmtResult Sema::ActOnCilkForGrainsizePragma(Expr *GrainsizeExpr, Stmt *CilkFor,
     return StmtError();
   }
 
-  GrainsizeExpr = Grainsize->getInit();
+  // Don't pick up the initializer conversion for a template argument
+  if (!GrainsizeExpr->isTypeDependent())
+    GrainsizeExpr = Grainsize->getInit();
   Context.Deallocate(reinterpret_cast<void *>(Grainsize));
   return new (Context) CilkForGrainsizeStmt(GrainsizeExpr, CilkFor, LocStart);
 }
@@ -1060,6 +1062,8 @@ bool extendsLifetimeOfTemporary(const VarDecl *VD) {
     return false;
   if (const ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(Init))
     Init = EWC->getSubExpr();
+  if (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(Init))
+    Init = ICE->getSubExpr();
   return isa<MaterializeTemporaryExpr>(Init);
 }
 
@@ -2376,7 +2380,7 @@ private:
         SemaRef.getASTContext(), SemaRef.CurContext, SourceLocation(),
         SourceLocation(), &SemaRef.getASTContext().Idents.get(".tmp."), VarTy,
         SemaRef.getASTContext().getTrivialTypeSourceInfo(VarTy), SC_Auto);
-    SemaRef.AddInitializerToDecl(TempVD, E, true, true);
+    SemaRef.AddInitializerToDecl(TempVD, E, true);
     StmtResult Res =
         SemaRef.ActOnDeclStmt(Sema::DeclGroupPtrTy::make(DeclGroupRef(TempVD)),
                               SourceLocation(), SourceLocation());
@@ -3330,7 +3334,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
           Context, CurContext, StartLoc, RParenLoc,
           &Context.Idents.get("cean.acc."), ResType,
           Context.getTrivialTypeSourceInfo(ResType, SourceLocation()), SC_Auto);
-      AddInitializerToDecl(VD, InitExpr.get(), true, false);
+      AddInitializerToDecl(VD, InitExpr.get(), true);
       Decl *Vars[2];
       Vars[0] = VD;
       int Size = 1;
