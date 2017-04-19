@@ -486,6 +486,7 @@ public:
 
   /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
   void populateBBSet();
+  void populateBBSetIfEmpty();
 
   void resetBBSet() { BBlockSet.clear(); }
 

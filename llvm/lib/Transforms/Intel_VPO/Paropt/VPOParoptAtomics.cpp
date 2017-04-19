@@ -45,6 +45,11 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
+  assert(AtomicNode->isBBSetEmpty() && 
+         "handleAtomic: BBSET should start empty");
+
+  AtomicNode->populateBBSet();
+
   switch (AtomicNode->getAtomicKind()) {
   case WRNAtomicRead:
     handled = handleAtomicRW<WRNAtomicRead>(AtomicNode, IdentTy, TidPtr);
@@ -68,8 +73,10 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
 
   assert(handled == true && "Handling of AtomicNode failed.\n");
 
-  if (handled)
+  if (handled) {
+    AtomicNode->resetBBSet(); // Invalidate BBSet if transformed
     DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode successful.\n");
+  }
   else
     DEBUG(dbgs() << __FUNCTION__ << ": Handling of AtomicNode failed.\n");
 

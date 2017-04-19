@@ -146,10 +146,6 @@ void WRegionCollection::getWRegionFromBB(BasicBlock *BB,
           W = S->top();
           W->finalize(BB); // set the ExitBB and wrap up the WRN
 
-          // generate BB set;
-          // TODO: Remove this call later; the client should do it on demand
-          W->populateBBSet();
-
           S->pop();
           DEBUG(dbgs() << "\n  === Closed WRegion. ");
           DEBUG(dbgs() << "Stacksize after pop = " << S->size() << "\n");

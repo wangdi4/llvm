@@ -104,6 +104,11 @@ void WRegionNode::populateBBSet(void) {
   IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
 }
 
+void WRegionNode::populateBBSetIfEmpty(void) {
+  if (isBBSetEmpty())
+    populateBBSet();
+}
+
 // After CFGRestructuring, the EntryBB should have a single predecessor
 BasicBlock *WRegionNode::getPredBBlock() const {
   auto PredI = pred_begin(EntryBBlock);

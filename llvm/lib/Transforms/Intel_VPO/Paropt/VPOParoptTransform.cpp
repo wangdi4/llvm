@@ -208,6 +208,9 @@ bool VPOParoptTransform::paroptTransforms() {
 
     WRegionNode *W = *I;
 
+    assert(W->isBBSetEmpty() &&
+           "WRNs should not have BBSET populated initially");
+
     // Init 'Changed' to false before processing W;
     // If W is transformed, set 'Changed' to true.
     bool Changed = false;  
@@ -235,11 +238,11 @@ bool VPOParoptTransform::paroptTransforms() {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = genReductionCode(W);
-          Changed |= genLoopSchedulingCode(W);
+          Changed = genLoopSchedulingCode(W);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstOrLastPrivatizationCode(W);
+          Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
         }
 
@@ -279,6 +282,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = genLoopSchedulingCode(W);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstOrLastPrivatizationCode(W);
+          Changed |= genReductionCode(W);
         }
 
         break;
@@ -879,11 +883,12 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   DEBUG(dbgs() << "\n WRegionNode: Invoke Reduction Initialization \n\n");
 
-  if (W->isBBSetEmpty())
-    return Changed;
-
   ReductionClause &RedClause = W->getRed();
   if (RedClause.size()) {
+
+    assert(W->isBBSetEmpty() && "genReductionCode: BBSET should start empty");
+    W->populateBBSet();
+
     BasicBlock *RedInitEntryBB = nullptr;
     BasicBlock *RedUpdateEntryBB = nullptr;
     createEmptyPrivFiniBB(W, RedUpdateEntryBB);
@@ -906,7 +911,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtr, dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
         dyn_cast<Instruction>(&*W->getExitBBlock()->begin()), "");
-    W->populateBBSet();
+    W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
   }
   return Changed;
@@ -921,6 +926,9 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
   // Generate a new Alloca instruction as privatization action
   AllocaInst *NewPrivInst;
   SmallVector<Instruction *, 8> PrivUses;
+
+  assert(!(W->isBBSetEmpty()) && 
+         "genPrivatizationCodeHelper: WRN has empty BBSet");
 
   if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
     NewPrivInst = (AllocaInst *)PrivInst->clone();
@@ -977,8 +985,13 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
 
   DEBUG(dbgs() << "\n WRegionNode: Invoke Firstprivate Initialization \n\n");
 
-  if (W->isBBSetEmpty())
-    return Changed;
+  assert(W->isBBSetEmpty() &&
+         "genFirstOrLastPrivatizationCode: BBSET should start empty");
+
+  bool hasFirstpriv = W->hasFirstprivate();
+  bool hasLastpriv  = W->hasLastprivate();
+  if (hasFirstpriv || hasLastpriv)
+    W->populateBBSet();
 
   BasicBlock *PrivInitEntryBB = nullptr;
 
@@ -999,7 +1012,7 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
     }
   }
 
-  if (W->hasLastprivate()) {
+  if (hasLastpriv) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (LprivClause.size()) {
       for (LastprivateItem *LprivI : LprivClause.items()) {
@@ -1022,9 +1035,7 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
     }
   }
 
-  if (Changed)
-    W->populateBBSet();
-
+  W->resetBBSet(); // Invalidate BBSet
   return Changed;
 }
 
@@ -1036,13 +1047,15 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   DEBUG(dbgs() << "\n WRegionNode: Invoke Privatization \n\n");
 
-  // Return false when W-Region is empty
-  if (W->isBBSetEmpty())
-    return Changed;
 
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
   if (PrivClause.size()) {
+
+    assert(W->isBBSetEmpty() &&
+           "genPrivatizationCode: BBSET should start empty");
+    W->populateBBSet();
+
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
@@ -1057,12 +1070,16 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
       }
     }
 
-    // After Privatization is done, the SCEV should be re-generated.
-    // This should apply to all loop-type constructs; ie, WRNs whose
-    // "IsOmpLoop" attribute is true.
-    if (Changed && SE && W->getIsOmpLoop()) {
-      Loop *L = W->getLoop();
-      SE->forgetLoop(L);
+    if (Changed) {
+      W->resetBBSet(); // Invalidate BBSet after transformations
+
+      // After Privatization is done, the SCEV should be re-generated.
+      // This should apply to all loop-type constructs; ie, WRNs whose
+      // "IsOmpLoop" attribute is true.
+      if (SE && W->getIsOmpLoop()) {
+        Loop *L = W->getLoop();
+        SE->forgetLoop(L);
+      }
     }
   }
   return Changed;
@@ -1070,8 +1087,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
 
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
-
-  bool Changed = false;
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
@@ -1278,9 +1293,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
     if (DT) 
       DT->changeImmediateDominator(LoopExitBB, StaticInitBB);
-
-    // There are new BBlocks generated, so we need to re-collect BBSet 
-    W->populateBBSet();
   }
   else if (SchedKind == WRNScheduleStatic) {
 
@@ -1388,9 +1400,6 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
     //// DEBUG(dbgs() << "After Loop Scheduling : " 
     ////              << *(LoopExitBB->getParent()) << "\n\n");
- 
-    // There are new BBlocks generated, so we need to re-collect BBSet 
-    W->populateBBSet();
   }
   else {
     //                |
@@ -1457,13 +1466,12 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
 
       DT->changeImmediateDominator(LoopExitBB, DispatchHeaderBB);
     }
-  
-    // There are new BBlocks generated, so we need to re-collect BBSet 
-    W->populateBBSet();
   }
+  
+  // There are new BBlocks generated, so we need to reset BBSet 
+  W->resetBBSet();
 
-  Changed = true;
-  return Changed;
+  return true;
 }
 
 // Collects the alloc stack variables where the tid stores.
@@ -1633,6 +1641,8 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
   TidAndBidInstructions.clear();
   IdMap.clear();
 
+  assert(!(W->isBBSetEmpty()) && "codeExtractorPrepare: WRN has empty BBSet");
+
   for (auto IB = W->bbset_begin(); IB != W->bbset_end(); IB++) 
     collectTidAndBidInstructionsForBB(*IB);
 
@@ -1790,6 +1800,11 @@ void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
 }
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
+
+  assert(W->isBBSetEmpty() &&
+         "genMultiThreadedCode: BBSET should start empty");
+
+  W->populateBBSet();
 
   codeExtractorPrepare(W);
 
@@ -1951,8 +1966,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     // the use-count of MTFn
     // MTFnCI->eraseFromParent();
 
-    if (W->getParent())
-      W->getParent()->populateBBSet();
+    W->resetBBSet(); // Invalidate BBSet after transformations
 
     Changed = true;
   }
@@ -2305,6 +2319,8 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
                                MasterCI->getParent());
   DT->changeImmediateDominator(ThenMasterBB->getTerminator()->getSuccessor(0),
                                MasterCI->getParent());
+
+  W->resetBBSet(); // Invalidate BBSet
   return true; // Changed
 }
 
@@ -2370,6 +2386,8 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   DT->changeImmediateDominator(ThenSingleBB, SingleCI->getParent());
   DT->changeImmediateDominator(ThenSingleBB->getTerminator()->getSuccessor(0),
                                SingleCI->getParent());
+
+  W->resetBBSet(); // Invalidate BBSet
   return true;  // Changed
 }
 
@@ -2411,6 +2429,7 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   //BasicBlock *EndOrderedBB = EndOrderedCI->getParent();
   //DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
 
+  W->resetBBSet(); // Invalidate BBSet
   return true;  // Changed
 }
 
@@ -2420,6 +2439,13 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
+
+  assert(CriticalNode->isBBSetEmpty() &&
+         "genCriticalCode: BBSET should start empty");
+
+  // genKmpcCriticalSection() needs BBSet for error checking only;
+  // In the future consider getting rid of this call to populateBBSet.
+  CriticalNode->populateBBSet();
 
   StringRef LockNameSuffix = CriticalNode->getUserLockName();
 
@@ -2435,5 +2461,6 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
 
   assert(CriticalCallsInserted && "Failed to create critical section. \n");
 
+  CriticalNode->resetBBSet(); // Invalidate BBSet
   return CriticalCallsInserted;
 }
