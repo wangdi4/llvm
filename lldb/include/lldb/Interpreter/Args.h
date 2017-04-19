@@ -21,8 +21,8 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 // Project includes
-#include "lldb/Core/Error.h"
 #include "lldb/Host/OptionParser.h"
+#include "lldb/Utility/Error.h"
 #include "lldb/lldb-private-types.h"
 #include "lldb/lldb-types.h"
 
@@ -150,8 +150,15 @@ public:
   const char *GetArgumentAtIndex(size_t idx) const;
 
   llvm::ArrayRef<ArgEntry> entries() const { return m_entries; }
-
   char GetArgumentQuoteCharAtIndex(size_t idx) const;
+
+  std::vector<ArgEntry>::const_iterator begin() const {
+    return m_entries.begin();
+  }
+  std::vector<ArgEntry>::const_iterator end() const { return m_entries.end(); }
+
+  size_t size() const { return GetArgumentCount(); }
+  const ArgEntry &operator[](size_t n) const { return m_entries[n]; }
 
   //------------------------------------------------------------------
   /// Gets the argument vector.

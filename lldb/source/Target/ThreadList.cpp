@@ -22,7 +22,6 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadList.h"
 #include "lldb/Target/ThreadPlan.h"
-#include "lldb/Utility/ConvertEnum.h"
 #include "lldb/Utility/LLDBAssert.h"
 
 using namespace lldb;
@@ -44,6 +43,7 @@ const ThreadList &ThreadList::operator=(const ThreadList &rhs) {
     // Lock both mutexes to make sure neither side changes anyone on us
     // while the assignment occurs
     std::lock_guard<std::recursive_mutex> guard(GetMutex());
+    std::lock_guard<std::recursive_mutex> rhs_guard(rhs.GetMutex());
 
     m_process = rhs.m_process;
     m_stop_id = rhs.m_stop_id;
@@ -383,18 +383,14 @@ Vote ThreadList::ShouldReportStop(Event *event_ptr) {
       if (result == eVoteNoOpinion) {
         result = eVoteNo;
       } else {
-        if (log)
-          log->Printf("ThreadList::%s thread 0x%4.4" PRIx64
-                      ": voted %s, but lost out because result was %s",
-                      __FUNCTION__, thread_sp->GetID(), GetVoteAsCString(vote),
-                      GetVoteAsCString(result));
+        LLDB_LOG(log,
+          "Thread {0:x} voted {1}, but lost out because result was {2}",
+          thread_sp->GetID(), vote, result);
       }
       break;
     }
   }
-  if (log)
-    log->Printf("ThreadList::%s returning %s", __FUNCTION__,
-                GetVoteAsCString(result));
+  LLDB_LOG(log, "Returning {0}", result);
   return result;
 }
 
@@ -749,7 +745,7 @@ void ThreadList::Flush() {
     (*pos)->Flush();
 }
 
-std::recursive_mutex &ThreadList::GetMutex() {
+std::recursive_mutex &ThreadList::GetMutex() const {
   return m_process->m_thread_mutex;
 }
 

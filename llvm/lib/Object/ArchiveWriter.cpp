@@ -45,6 +45,7 @@ NewArchiveMember::getOldMember(const object::Archive::Child &OldMember,
     return BufOrErr.takeError();
 
   NewArchiveMember M;
+  assert(M.IsNew == false);
   M.Buf = MemoryBuffer::getMemBuffer(*BufOrErr, false);
   if (!Deterministic) {
     auto ModTimeOrErr = OldMember.getLastModified();
@@ -93,6 +94,7 @@ Expected<NewArchiveMember> NewArchiveMember::getFile(StringRef FileName,
     return errorCodeToError(std::error_code(errno, std::generic_category()));
 
   NewArchiveMember M;
+  M.IsNew = true;
   M.Buf = std::move(*MemberBufferOrErr);
   if (!Deterministic) {
     M.ModTime = std::chrono::time_point_cast<std::chrono::seconds>(
@@ -231,9 +233,12 @@ static void writeStringTable(raw_fd_ostream &Out, StringRef ArcName,
     }
     StringMapIndexes.push_back(Out.tell() - StartOffset);
 
-    if (Thin)
-      Out << computeRelativePath(ArcName, Path);
-    else
+    if (Thin) {
+      if (M.IsNew)
+        Out << computeRelativePath(ArcName, Path);
+      else
+        Out << M.Buf->getBufferIdentifier();
+    } else
       Out << Name;
 
     Out << "/\n";
@@ -311,6 +316,12 @@ writeSymbolTable(raw_fd_ostream &Out, object::Archive::Kind Kind,
   if (HeaderStartOffset == 0)
     return 0;
 
+  // ld64 prefers the cctools type archive which pads its string table to a
+  // boundary of sizeof(int32_t).
+  if (Kind == object::Archive::K_BSD)
+    for (unsigned P = OffsetToAlignment(NameOS.tell(), sizeof(int32_t)); P--;)
+      NameOS << '\0';
+
   StringRef StringTable = NameOS.str();
   if (Kind == object::Archive::K_BSD)
     print32(Out, Kind, StringTable.size()); // byte count of the string table
@@ -384,18 +395,28 @@ llvm::writeArchive(StringRef ArcName,
   std::vector<unsigned> MemberOffset;
   for (const NewArchiveMember &M : NewMembers) {
     MemoryBufferRef File = M.Buf->getMemBufferRef();
+    unsigned Padding = 0;
 
     unsigned Pos = Out.tell();
     MemberOffset.push_back(Pos);
 
+    // ld64 expects the members to be 8-byte aligned for 64-bit content and at
+    // least 4-byte aligned for 32-bit content.  Opt for the larger encoding
+    // uniformly.  This matches the behaviour with cctools and ensures that ld64
+    // is happy with archives that we generate.
+    if (Kind == object::Archive::K_BSD)
+      Padding = OffsetToAlignment(M.Buf->getBufferSize(), 8);
+
     printMemberHeader(Out, Kind, Thin,
                       sys::path::filename(M.Buf->getBufferIdentifier()),
                       StringMapIndexIter, M.ModTime, M.UID, M.GID, M.Perms,
-                      M.Buf->getBufferSize());
+                      M.Buf->getBufferSize() + Padding);
 
     if (!Thin)
       Out << File.getBuffer();
 
+    while (Padding--)
+      Out << '\n';
     if (Out.tell() % 2)
       Out << '\n';
   }

@@ -48,6 +48,8 @@ enum ActionType {
   GenMAPatterns,   // INTEL
   GenAttributes,
   GenSearchableTables,
+  GenGlobalISel,
+  GenRegisterBank,
 };
 
 namespace {
@@ -103,7 +105,11 @@ namespace {
                                "Generate MUL/ADD patterns"),
 // END INTEL_CUSTOMIZATION
                     clEnumValN(GenSearchableTables, "gen-searchable-tables",
-                               "Generate generic binary-searchable table")));
+                               "Generate generic binary-searchable table"),
+                    clEnumValN(GenGlobalISel, "gen-global-isel",
+                               "Generate GlobalISel selector"),
+                    clEnumValN(GenRegisterBank, "gen-register-bank",
+                               "Generate registers bank descriptions")));
 
   cl::opt<std::string>
   Class("class", cl::desc("Print Enum list for this class"),
@@ -199,6 +205,12 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
 #endif // INTEL_CUSTOMIZATION
   case GenSearchableTables:
     EmitSearchableTables(Records, OS);
+    break;
+  case GenGlobalISel:
+    EmitGlobalISel(Records, OS);
+    break;
+  case GenRegisterBank:
+    EmitRegisterBank(Records, OS);
     break;
   }
 

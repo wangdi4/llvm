@@ -20,7 +20,7 @@ if(POLICY CMP0057)
 endif()
 
 if(NOT DEFINED LLVM_VERSION_MAJOR)
-  set(LLVM_VERSION_MAJOR 4)
+  set(LLVM_VERSION_MAJOR 5)
 endif()
 if(NOT DEFINED LLVM_VERSION_MINOR)
   set(LLVM_VERSION_MINOR 0)
@@ -56,26 +56,42 @@ endif()
 
 # This should only apply if you are both on an Apple host, and targeting Apple.
 if(CMAKE_HOST_APPLE AND APPLE)
-  if(NOT CMAKE_XCRUN)
-    find_program(CMAKE_XCRUN NAMES xcrun)
-  endif()
-  if(CMAKE_XCRUN)
-    execute_process(COMMAND ${CMAKE_XCRUN} -find libtool
-      OUTPUT_VARIABLE CMAKE_LIBTOOL
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-  endif()
+  # if CMAKE_LIBTOOL is not set, try and find it with xcrun or find_program
+  if(NOT CMAKE_LIBTOOL)
+    if(NOT CMAKE_XCRUN)
+      find_program(CMAKE_XCRUN NAMES xcrun)
+    endif()
+    if(CMAKE_XCRUN)
+      execute_process(COMMAND ${CMAKE_XCRUN} -find libtool
+        OUTPUT_VARIABLE CMAKE_LIBTOOL
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    endif()
 
-  if(NOT CMAKE_LIBTOOL OR NOT EXISTS CMAKE_LIBTOOL)
-    find_program(CMAKE_LIBTOOL NAMES libtool)
+    if(NOT CMAKE_LIBTOOL OR NOT EXISTS CMAKE_LIBTOOL)
+      find_program(CMAKE_LIBTOOL NAMES libtool)
+    endif()
   endif()
 
   get_property(languages GLOBAL PROPERTY ENABLED_LANGUAGES)
   if(CMAKE_LIBTOOL)
     set(CMAKE_LIBTOOL ${CMAKE_LIBTOOL} CACHE PATH "libtool executable")
     message(STATUS "Found libtool - ${CMAKE_LIBTOOL}")
+
+    execute_process(COMMAND ${CMAKE_LIBTOOL} -V
+      OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if("${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
+      string(REGEX REPLACE ".*cctools-([0-9.]+).*" "\\1" LIBTOOL_VERSION
+        ${LIBTOOL_V_OUTPUT})
+      if(NOT LIBTOOL_VERSION VERSION_LESS "862")
+        set(LIBTOOL_NO_WARNING_FLAG "-no_warning_for_no_symbols")
+      endif()
+    endif()
+    
     foreach(lang ${languages})
       set(CMAKE_${lang}_CREATE_STATIC_LIBRARY
-        "${CMAKE_LIBTOOL} -static -o <TARGET> <LINK_FLAGS> <OBJECTS> ")
+        "${CMAKE_LIBTOOL} -static ${LIBTOOL_NO_WARNING_FLAG} -o <TARGET> \
+        <LINK_FLAGS> <OBJECTS> ")
     endforeach()
   endif()
 
@@ -119,18 +135,6 @@ foreach(proj ${LLVM_ENABLE_PROJECTS})
   endif()
 endforeach()
 
-# The following only works with the Ninja generator in CMake >= 3.0.
-set(LLVM_PARALLEL_COMPILE_JOBS "" CACHE STRING
-  "Define the maximum number of concurrent compilation jobs.")
-if(LLVM_PARALLEL_COMPILE_JOBS)
-  if(NOT CMAKE_MAKE_PROGRAM MATCHES "ninja")
-    message(WARNING "Job pooling is only available with Ninja generators.")
-  else()
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS compile_job_pool=${LLVM_PARALLEL_COMPILE_JOBS})
-    set(CMAKE_JOB_POOL_COMPILE compile_job_pool)
-  endif()
-endif()
-
 # Build llvm with ccache if the package is present
 set(LLVM_CCACHE_BUILD OFF CACHE BOOL "Set to ON for a ccache enabled build")
 if(LLVM_CCACHE_BUILD)
@@ -165,21 +169,12 @@ if(LLVM_DEPENDENCY_DEBUGGING)
   endif()
 endif()
 
-option(LLVM_BUILD_GLOBAL_ISEL "Experimental: Build GlobalISel" OFF)
+option(LLVM_BUILD_GLOBAL_ISEL "Experimental: Build GlobalISel" ON)
 if(LLVM_BUILD_GLOBAL_ISEL)
   add_definitions(-DLLVM_BUILD_GLOBAL_ISEL)
 endif()
 
-set(LLVM_PARALLEL_LINK_JOBS "" CACHE STRING
-  "Define the maximum number of concurrent link jobs.")
-if(LLVM_PARALLEL_LINK_JOBS)
-  if(NOT CMAKE_MAKE_PROGRAM MATCHES "ninja")
-    message(WARNING "Job pooling is only available with Ninja generators.")
-  else()
-    set_property(GLOBAL APPEND PROPERTY JOB_POOLS link_job_pool=${LLVM_PARALLEL_LINK_JOBS})
-    set(CMAKE_JOB_POOL_LINK link_job_pool)
-  endif()
-endif()
+option(LLVM_ENABLE_DAGISEL_COV "Debug: Prints tablegen patterns that were used for selecting" OFF)
 
 # Add path for custom modules
 set(CMAKE_MODULE_PATH
@@ -401,6 +396,9 @@ option(LLVM_ENABLE_EXPENSIVE_CHECKS "Enable expensive checks" OFF)
 set(LLVM_ABI_BREAKING_CHECKS "WITH_ASSERTS" CACHE STRING
   "Enable abi-breaking checks.  Can be WITH_ASSERTS, FORCE_ON or FORCE_OFF.")
 
+option(LLVM_DISABLE_ABI_BREAKING_CHECKS_ENFORCING
+  "Disable abi-breaking checks mismatch detection at link-tim." OFF)
+
 option(LLVM_FORCE_USE_OLD_HOST_TOOLCHAIN
        "Set to ON to force using an old, unsupported host toolchain." OFF)
 
@@ -531,7 +529,7 @@ endif()
 option(LLVM_BUILD_LLVM_DYLIB "Build libllvm dynamic library" ${LLVM_BUILD_LLVM_DYLIB_default})
 
 option(LLVM_OPTIMIZED_TABLEGEN "Force TableGen to be built with optimization" OFF)
-if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND LLVM_ENABLE_ASSERTIONS))
+if(CMAKE_CROSSCOMPILING OR (LLVM_OPTIMIZED_TABLEGEN AND (LLVM_ENABLE_ASSERTIONS OR CMAKE_CONFIGURATION_TYPES)))
   set(LLVM_USE_HOST_TOOLS ON)
 endif()
 
@@ -715,6 +713,9 @@ configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/llvm-config.h.cmake
   ${LLVM_INCLUDE_DIR}/llvm/Config/llvm-config.h)
 configure_file(
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Config/abi-breaking.h.cmake
+  ${LLVM_INCLUDE_DIR}/llvm/Config/abi-breaking.h)
+configure_file(
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Support/DataTypes.h.cmake
   ${LLVM_INCLUDE_DIR}/llvm/Support/DataTypes.h)
 
@@ -881,7 +882,7 @@ if( LLVM_INCLUDE_TESTS )
   endif()
   add_subdirectory(test)
   add_subdirectory(unittests)
-  if (MSVC)
+  if (WIN32)
     # This utility is used to prevent crashing tests from calling Dr. Watson on
     # Windows.
     add_subdirectory(utils/KillTheDoctor)
@@ -980,4 +981,9 @@ if(LLVM_DISTRIBUTION_COMPONENTS)
       message(FATAL_ERROR "Specified distribution component '${target}' doesn't have an install target")
     endif()
   endforeach()
+endif()
+
+# This allows us to deploy the Universal CRT DLLs by passing -DCMAKE_INSTALL_UCRT_LIBRARIES=ON to CMake
+if (MSVC)
+  include(InstallRequiredSystemLibraries)
 endif()

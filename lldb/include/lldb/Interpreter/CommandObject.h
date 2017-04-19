@@ -18,7 +18,8 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Flags.h"
+#include "lldb/Utility/Flags.h"
+
 #include "lldb/Core/StringList.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandCompletions.h"
@@ -193,7 +194,7 @@ public:
 
   static const ArgumentTableEntry *GetArgumentTable();
 
-  static lldb::CommandArgumentType LookupArgumentName(const char *arg_name);
+  static lldb::CommandArgumentType LookupArgumentName(llvm::StringRef arg_name);
 
   static const ArgumentTableEntry *
   FindArgumentDataByType(lldb::CommandArgumentType arg_type);

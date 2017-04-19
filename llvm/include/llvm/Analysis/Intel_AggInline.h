@@ -1,6 +1,6 @@
 //===------- Intel_AggInline.h - Aggressive Inline Analysis -*------===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -51,6 +51,7 @@ private:
 // Analysis pass providing a never-invalidated Inline Aggressive
 // analysis result.
 class InlineAggAnalysis : public AnalysisInfoMixin<InlineAggAnalysis> {
+  static AnalysisKey Key;
   friend AnalysisInfoMixin<InlineAggAnalysis>;
   static char PassID;
 
