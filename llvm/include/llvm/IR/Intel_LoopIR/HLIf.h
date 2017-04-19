@@ -265,6 +265,9 @@ public:
 
   const DebugLoc getDebugLoc() const override { return BranchDbgLoc; }
   void setDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
+
+  /// Returns true if this is the bottom test of its parent unknown loop.
+  bool isUnknownLoopBottomTest() const;
 };
 
 } // End namespace loopopt

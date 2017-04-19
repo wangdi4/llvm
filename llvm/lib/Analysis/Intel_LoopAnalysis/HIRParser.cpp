@@ -30,8 +30,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
-#include "llvm/IR/Operator.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Operator.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -2051,16 +2051,6 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
   }
 }
 
-RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, 0);
-  return Ref;
-}
-
-RegDDRef *HIRParser::createStrideDDRef(Type *IVType, unsigned Stride) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, Stride);
-  return Ref;
-}
-
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
                                       Type *IVType) {
   const Value *Val;
@@ -2156,7 +2146,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(LowerRef);
 
     // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType, 1);
+    auto StrideRef = createStrideDDRef(IVType);
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
@@ -2173,8 +2163,14 @@ void HIRParser::parse(HLLoop *HLoop) {
 
   } else {
     // Initialize Stride to 0 for unknown loops.
-    auto StrideRef = createStrideDDRef(IVType, 0);
-    HLoop->setStrideDDRef(StrideRef);
+    auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
+
+    // Set lower, stride and upper to 0. The main check for unknown loops is
+    // having a stride of 0. Upper and lower are set to avoid ddref traversal
+    // failure for HLDDNodes (on encountering null refs).
+    HLoop->setLowerDDRef(ZeroRef);
+    HLoop->setStrideDDRef(ZeroRef->clone());
+    HLoop->setUpperDDRef(ZeroRef->clone());
   }
 
   // TODO: assert that SIMD loops are always DO loops.
@@ -2283,6 +2279,16 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   assert((Refs.size() == (2 * Preds.size())) &&
          "Mismatch between number of predicates and DDRefs!");
 
+  if (If->isUnknownLoopBottomTest()) {
+    // For unknown loop bottom test, we need to shift IV at parent loop level by
+    // -1 since the IV update is inserted just before the bottom test.
+    unsigned LoopLevel = If->getParentLoop()->getNestingLevel();
+
+    for (auto Ref : Refs) {
+      Ref->shift(LoopLevel, -1);
+    }
+  }
+
   if (HLoop) {
     if (LF->requiresZttInversion(HLoop)) {
       Preds[0].Kind = CmpInst::getInversePredicate(Preds[0].Kind);
@@ -2300,9 +2306,8 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   }
 
   for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
-    HLoop
-        ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
-        : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
+    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
+          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
   }
 }
 
@@ -3032,8 +3037,7 @@ bool HIRParser::parseDebugIntrinsic(HLInst *Inst) {
   // !{} is returned as nullptr, we have to ignore such intrinsic.
   if (Variable && isa<Instruction>(Variable)) {
     auto Symbase = getOrAssignSymbase(Variable);
-    HLRegion *Region = Inst->getParentRegion();
-    Region->DbgIntrinMap[Symbase].push_back(DbgIntrin);
+    CurRegion->DbgIntrinMap[Symbase].push_back(DbgIntrin);
   }
 
   return true;

@@ -683,10 +683,16 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   auto BECount = SE->getBackedgeTakenCount(&Lp);
 
-  // Don't handle unknown loops for now.
-  if (isa<SCEVCouldNotCompute>(BECount)) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
+  // Only handle standalone unknown loops for now. We generally only allow outer
+  // unknown loops at O3 for compile time reasons. I suppressed unknown loops
+  // embedded inside do loops because they were causing perf degradation in
+  // telecom/fft00data*. I will recheck this when we start unrolling unknown
+  // loops.
+  if (isa<SCEVCouldNotCompute>(BECount) &&
+      (!Lp.empty() || (Lp.getLoopDepth() != 1))) {
+    DEBUG(
+        dbgs()
+        << "LOOPOPT_OPTREPORT: Outer unknown loops currently not supported.\n");
     return false;
   }
 

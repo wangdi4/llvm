@@ -363,10 +363,6 @@ HIRSSADeconstruction::getPhiSCC(PHINode *Phi) const {
 bool HIRSSADeconstruction::liveoutCopyRequired(
     const PHINode *StandAlonePhi) const {
 
-  if (SCCF->isConsideredLinear(StandAlonePhi)) {
-    return false;
-  }
-
   const Value *PhiVal = StandAlonePhi;
   bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
 
@@ -426,6 +422,7 @@ bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
     if (isa<PHINode>(CurInst)) {
       return false;
     }
+
   } else if (auto SuccBB = ParentBB->getSingleSuccessor()) {
 
     // If the use is in a non-header phi in the single successor bblock,
@@ -475,6 +472,7 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
+  bool IgnoreUsesInsideLoop = false;
   bool CopyRequired = false;
   auto ParentBB = Inst->getParent();
   Loop *Lp = nullptr;
@@ -490,8 +488,22 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
       return;
     }
 
-    if (!(CopyRequired = liveoutCopyRequired(Phi))) {
+    // Ignore uses for linear phis.
+    IgnoreUsesInsideLoop = SCCF->isConsideredLinear(Phi);
+
+    if (!IgnoreUsesInsideLoop) {
+      CopyRequired = liveoutCopyRequired(Phi);
+    }
+
+    if (!CopyRequired) {
       Lp = LI->getLoopFor(ParentBB);
+
+      // We give up on non-linear phis inside unknown loops because in some
+      // cases the use can be in the bottom test of the loop and can cause live
+      // range violation.
+      IgnoreUsesInsideLoop =
+          IgnoreUsesInsideLoop ||
+          !isa<SCEVCouldNotCompute>(SE->getBackedgeTakenCount(Lp));
     }
   }
 
@@ -541,7 +553,8 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
 
       // Add a liveout copy if this phi is used outside its parent loop as these
       // uses can cause live range violation.
-      if ((ParentBB == UserBB) || Lp->contains(LI->getLoopFor(UserBB))) {
+      if (IgnoreUsesInsideLoop &&
+          ((ParentBB == UserBB) || Lp->contains(LI->getLoopFor(UserBB)))) {
         continue;
       }
     }

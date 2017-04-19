@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -151,6 +151,18 @@ void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
+
+  // First check is a workaround to skip the bottom test check until we create
+  // ddrefs in the framework otheriwise we encounter an assert for null stride
+  // ref.
+  if ((*ddref_begin()) && isUnknownLoopBottomTest()) {
+    // Print IV update for the unknown loop which will be generated during code
+    // gen.
+    auto Level = getParentLoop()->getNestingLevel();
+    indent(OS, Depth);
+    OS << "<i" << Level << " = "
+       << "i" << Level << " + 1>\n";
+  }
 
   indent(OS, Depth);
   printHeader(OS, Depth, Detailed);
@@ -324,8 +336,7 @@ void HLIf::verify() const {
          "HLIf should contain at least one predicate");
 
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
-    assert((CmpInst::isFPPredicate(*I) ||
-            CmpInst::isIntPredicate(*I) ||
+    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
             *I == UNDEFINED_PREDICATE) &&
            "Invalid predicate value, should be one of PredicateTy");
 
@@ -347,8 +358,23 @@ void HLIf::verify() const {
          "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
 
   assert((hasThenChildren() || hasElseChildren()) &&
-           "Found an empty *IF* construction, assumption that there should be no "
-           "empty HLIfs");
+         "Found an empty *IF* construction, assumption that there should be no "
+         "empty HLIfs");
+
+  if (isUnknownLoopBottomTest()) {
+    if (auto Child = getFirstThenChild()) {
+      assert(isa<HLGoto>(Child) && "Unexpected bottom test structure!");
+      assert((Child == getLastThenChild()) &&
+             "Unexpected bottom test structure!");
+      assert(!hasElseChildren() && "Unexpected bottom test structure!");
+    } else {
+      Child = getFirstElseChild();
+      assert((Child && isa<HLGoto>(Child)) &&
+             "Unexpected bottom test structure!");
+      assert((Child == getLastElseChild()) &&
+             "Unexpected bottom test structure!");
+    }
+  }
 
   HLDDNode::verify();
 }
@@ -390,4 +416,9 @@ bool HLIf::isKnownPredicate(bool *IsTrue) const {
   }
 
   return true;
+}
+
+bool HLIf::isUnknownLoopBottomTest() const {
+  auto ParentLoop = dyn_cast<HLLoop>(getParent());
+  return (ParentLoop && (ParentLoop->getBottomTest() == this));
 }

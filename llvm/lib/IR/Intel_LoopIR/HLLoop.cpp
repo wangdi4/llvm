@@ -19,8 +19,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -95,8 +95,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       LoopMetadata(HLLoopObj.LoopMetadata),
       MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
-      CmpDbgLoc(HLLoopObj.CmpDbgLoc),
-      BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
+      CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
 
   initialize();
 
@@ -796,7 +795,7 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   // The following call is required because self-blobs do not have BlobDDRefs.
   // +1 operation could make non-self blob a self-blob and wise versa.
   // For example if UB is (%b - 1) or (%b).
-  SmallVector<const RegDDRef *, 1> Aux = { getUpperDDRef() };
+  SmallVector<const RegDDRef *, 1> Aux = {getUpperDDRef()};
   UBRef->makeConsistent(&Aux);
 }
 
@@ -855,7 +854,11 @@ void HLLoop::removePostexit() {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  if (!isUnknown()) {
+  if (isUnknown()) {
+    assert(getBottomTest() && "Could not find bottom test of unknown loop!");
+    assert(!hasZtt() && "ZTT not expected for unknown loops!");
+
+  } else {
     auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
     (void)StrideCE;
 
@@ -867,7 +870,7 @@ void HLLoop::verify() const {
 
     int64_t Val;
     assert((StrideCE->isIntConstant(&Val) && (Val > 0)) &&
-         "Loop stride expected to be a postive integer!");
+           "Loop stride expected to be a postive integer!");
     (void)Val;
 
     assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
@@ -1076,7 +1079,7 @@ bool HLLoop::normalize() {
 
   RegDDRef *UpperRef = getUpperDDRef();
   RegDDRef *LowerRef = getLowerDDRef();
-  SmallVector<const RegDDRef *, 2> Aux = { LowerRef, UpperRef };
+  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRef};
 
   UpperCE->divide(Stride);
   UpperCE->simplify(true);
@@ -1133,4 +1136,17 @@ bool HLLoop::normalize() {
   LoopsNormalized++;
 
   return true;
+}
+
+HLIf *HLLoop::getBottomTest() {
+  if (!isUnknown()) {
+    return nullptr;
+  }
+
+  auto LastChild = getLastChild();
+
+  assert(LastChild && isa<HLIf>(LastChild) &&
+         "Could not find bottom test for unknown loop1");
+
+  return cast<HLIf>(LastChild);
 }

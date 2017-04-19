@@ -38,9 +38,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -142,6 +142,10 @@ private:
     }
 
   private:
+    // Adds an unconditional branch from the current insertion point to \p ToBB
+    // if the last inserted instruction is not an unconditional branch.
+    void generateBranchIfRequired(BasicBlock *ToBB);
+
     // Set the metadata for the instruction using the passed in MDNodes.
     static void setMetadata(Value *Val, const RegDDRef *Ref);
     static void setMetadata(Instruction *Inst, const RegDDRef *Ref);
@@ -317,7 +321,7 @@ private:
 
     public:
       ScopeDbgLoc(ScopeDbgLoc &&Scope) : Visitor(Scope.Visitor) {}
-      ScopeDbgLoc(const ScopeDbgLoc&) = delete;
+      ScopeDbgLoc(const ScopeDbgLoc &) = delete;
 
       ScopeDbgLoc(CGVisitor &Visitor, const DebugLoc &Loc) : Visitor(Visitor) {
         OldDbgLoc = Visitor.Builder->getCurrentDebugLocation();
@@ -327,9 +331,7 @@ private:
         }
       }
 
-      ~ScopeDbgLoc() {
-        Visitor.Builder->SetCurrentDebugLocation(OldDbgLoc);
-      }
+      ~ScopeDbgLoc() { Visitor.Builder->SetCurrentDebugLocation(OldDbgLoc); }
     };
 
     Function *F;
@@ -1003,7 +1005,8 @@ void HIRCodeGen::CGVisitor::generateDeclareValue(
   } else if (const DbgDeclareInst *DeclareInst =
                  dyn_cast<DbgDeclareInst>(DbgInfoIntrin)) {
     generateDeclareValue(Alloca, DeclareInst->getVariable(),
-        DeclareInst->getExpression(), DeclareInst->getDebugLoc());
+                         DeclareInst->getExpression(),
+                         DeclareInst->getDebugLoc());
   } else {
     llvm_unreachable("Unexpected debug intrinsic type");
   }
@@ -1039,8 +1042,7 @@ void HIRCodeGen::CGVisitor::initializeLiveIn(HLRegion *R) {
     DEBUG(dbgs() << "Symbase " << I->first << " is livein with initial value ");
     DEBUG(I->second->dump());
     DEBUG(dbgs() << " \n");
-    AllocaInst *SymSlot =
-        getSymbaseAlloca(I->first, I->second->getType(), R);
+    AllocaInst *SymSlot = getSymbaseAlloca(I->first, I->second->getType(), R);
 
     Value *Val = const_cast<Value *>(I->second);
     Builder->CreateStore(Val, SymSlot);
@@ -1156,35 +1158,56 @@ Value *HIRCodeGen::CGVisitor::generateAllPredicates(HLIf *HIf) {
   return CurPred;
 }
 
+void HIRCodeGen::CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
+  auto InsertBB = Builder->GetInsertBlock();
+
+  if (InsertBB->empty() || !isa<TerminatorInst>(InsertBB->back())) {
+    Builder->CreateBr(ToBB);
+  }
+}
+
 Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
   ScopeDbgLoc DbgLoc(*this, HIf->getDebugLoc());
 
   Value *CondV = generateAllPredicates(HIf);
 
   std::string HNumStr = std::to_string(HIf->getNumber());
-  BasicBlock *ThenBB =
-      BasicBlock::Create(F->getContext(), "then." + HNumStr, F);
-  BasicBlock *ElseBB = BasicBlock::Create(F->getContext(), "else." + HNumStr);
   BasicBlock *MergeBB =
       BasicBlock::Create(F->getContext(), "ifmerge." + HNumStr);
 
+  bool HasThenChildren = HIf->hasThenChildren();
+  bool HasElseChildren = HIf->hasElseChildren();
+
+  BasicBlock *ThenBB =
+      HasThenChildren ? BasicBlock::Create(F->getContext(), "then." + HNumStr)
+                      : MergeBB;
+  BasicBlock *ElseBB =
+      HasElseChildren ? BasicBlock::Create(F->getContext(), "else." + HNumStr)
+                      : MergeBB;
+
   Builder->CreateCondBr(CondV, ThenBB, ElseBB);
 
-  // generate then block
-  Builder->SetInsertPoint(ThenBB);
-  for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
-    visit(*It);
-  }
-  Builder->CreateBr(MergeBB);
+  if (HasThenChildren) {
+    // generate then block
+    F->getBasicBlockList().push_back(ThenBB);
+    Builder->SetInsertPoint(ThenBB);
+    for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
+      visit(*It);
+    }
 
-  // generate else block
-  F->getBasicBlockList().push_back(ElseBB);
-  Builder->SetInsertPoint(ElseBB);
-  for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
-    visit(*It);
+    generateBranchIfRequired(MergeBB);
   }
 
-  Builder->CreateBr(MergeBB);
+  if (HasElseChildren) {
+    // generate else block
+    F->getBasicBlockList().push_back(ElseBB);
+    Builder->SetInsertPoint(ElseBB);
+    for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
+      visit(*It);
+    }
+
+    generateBranchIfRequired(MergeBB);
+  }
 
   // CG resumes at merge block
   F->getBasicBlockList().push_back(MergeBB);
@@ -1197,6 +1220,8 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
   assert(!Lp->hasZtt() && "Ztt should have been extracted!");
   assert((!Lp->hasPreheader() && !Lp->hasPostexit()) &&
          "Preheader/Postexit should have been extracted!");
+
+  bool IsUnknownLoop = Lp->isUnknown();
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
@@ -1217,27 +1242,30 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
 
   Builder->CreateStore(StartVal, Alloca);
 
-  // step and upper are loop invariant, we can generate them
-  //"outside" the loop
-  Value *StepVal = visitRegDDRef(Lp->getStrideDDRef());
-
-  Value *Upper = visitRegDDRef(Lp->getUpperDDRef());
-
-  assert(StepVal->getType() == Lp->getIVType() &&
-         "IVtype does not match stepval type");
-  assert(Upper->getType() == Lp->getIVType() &&
-         "IVtype does not match upper type");
+  Value *Upper = nullptr;
+  BasicBlock *LoopBB = nullptr;
 
   std::string LName = "loop." + std::to_string(Lp->getNumber());
-  BasicBlock *LoopBB = BasicBlock::Create(F->getContext(), LName, F);
 
-  // explicit fallthru to loop, terminates current bblock
-  Builder->CreateBr(LoopBB);
-  Builder->SetInsertPoint(LoopBB);
+  if (!IsUnknownLoop) {
+    // upper is loop invariant so we can generate it outside the loop
+    Upper = visitRegDDRef(Lp->getUpperDDRef());
+
+    assert(Upper->getType() == Lp->getIVType() &&
+           "IVtype does not match upper type");
+
+    LoopBB = BasicBlock::Create(F->getContext(), LName, F);
+
+    // explicit fallthru to loop, terminates current bblock
+    Builder->CreateBr(LoopBB);
+    Builder->SetInsertPoint(LoopBB);
+  }
+
+  auto LastIt =
+      IsUnknownLoop ? Lp->getBottomTest()->getIterator() : Lp->child_end();
 
   // CG children
-  for (auto It = Lp->child_begin(), E = Lp->child_end(); It != E; ++It) {
-    // a loop might not return anything. Error checking is on callee
+  for (auto It = Lp->child_begin(); It != LastIt; ++It) {
     visit(*It);
   }
 
@@ -1245,27 +1273,46 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
 
   // increment IV
   Value *CurVar = Builder->CreateLoad(Alloca);
-  Value *NextVar =
-      Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName, true, Lp->isNSW());
+  Value *StepVal = IsUnknownLoop ? ConstantInt::getSigned(Lp->getIVType(), 1)
+                                 : visitRegDDRef(Lp->getStrideDDRef());
+
+  assert(StepVal->getType() == Lp->getIVType() &&
+         "IVtype does not match stepval type");
+
+  bool IsNSW = Lp->isNSW();
+
+  // NUW flag is applicable either if loop is not unknown or we could deduce
+  // NSW.
+  // NOTE: We do not try to deduce NUW flag for unknown loops so we may be
+  // losing info in some cases.
+  Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName,
+                                      (IsNSW || !IsUnknownLoop), IsNSW);
   Builder->CreateStore(NextVar, Alloca);
 
-  Value *EndCond =
-      Builder->CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
-                          NextVar, Upper, "cond" + LName);
+  if (IsUnknownLoop) {
+    // visit bottom test of unknown loops.
+    visit(*LastIt);
+  } else {
+    // generate bottom test.
+    Value *EndCond =
+        Builder->CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,
+                            NextVar, Upper, "cond" + LName);
 
-  BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
+    BasicBlock *AfterBB =
+        BasicBlock::Create(F->getContext(), "after" + LName, F);
 
-  ScopeDbgLoc DbgLocBranch(*this, Lp->getBranchDebugLoc());
+    ScopeDbgLoc DbgLocBranch(*this, Lp->getBranchDebugLoc());
 
-  // latch
-  BranchInst *Br = Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
+    // latch
+    BranchInst *Br = Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
 
-  if (MDNode *MD = Lp->getLoopMetadata()) {
-    Br->setMetadata(LLVMContext::MD_loop, MD);
+    if (MDNode *MD = Lp->getLoopMetadata()) {
+      Br->setMetadata(LLVMContext::MD_loop, MD);
+    }
+
+    // new code goes after loop
+    Builder->SetInsertPoint(AfterBB);
   }
-
-  // new code goes after loop
-  Builder->SetInsertPoint(AfterBB);
 
   CurIVValues.pop_back();
 
@@ -1315,6 +1362,9 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *Goto) {
   // create a br to target, ending this block
   Builder->CreateBr(TargetBBlock);
 
+  // TODO: Disable this once we start removing dead nodes and assert for them in
+  // the verifier.
+  // Example case is goto.ll in OptPredicate test dir.
   BasicBlock *ContBB = BasicBlock::Create(
       F->getContext(),
       "hir.goto." + std::to_string(Goto->getNumber()) + ".cont", F);
@@ -1322,6 +1372,7 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *Goto) {
   // set insertion point there, but nodes visited are dead code,
   // until a label is reached.
   Builder->SetInsertPoint(ContBB);
+
   return nullptr;
 }
 
@@ -1347,7 +1398,7 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
     visit(*I);
   }
 
-  Builder->CreateBr(EndBlock);
+  generateBranchIfRequired(EndBlock);
 
   // generate case blocks
   for (unsigned int I = 1; I <= S->getNumCases(); ++I) {
@@ -1365,7 +1416,7 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
       visit(*HNode);
     }
 
-    Builder->CreateBr(EndBlock);
+    generateBranchIfRequired(EndBlock);
     LLVMSwitch->addCase(CaseInt, CaseBlock);
   }
 

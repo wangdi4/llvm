@@ -232,15 +232,12 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
 
   auto IVType = IVNode->getType();
 
-  // Convert pointer IV type to integer type of same size.
-  if (IVType->isPointerTy()) {
+  // If the IVType is not an integer, assign it an integer type which is able to
+  // represent the address space.
+  if (!IVType->isIntegerTy()) {
     IVType = Type::getIntNTy(
         Func->getContext(),
-        Func->getParent()->getDataLayout().getTypeSizeInBits(IVType));
-  } else if (IVType->isFloatingPointTy()) {
-    // If found IV is floating point type use the type of loop's backedge taken
-    // count.
-    IVType = SE->getBackedgeTakenCount(Lp)->getType();
+        Func->getParent()->getDataLayout().getPointerSizeInBits());
   }
 
   HLoop->setIVType(IVType);
@@ -286,11 +283,6 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
 
   auto Lp = HLoop->getLLVMLoop();
   bool PredicateInversion = false;
-
-  // Return if trip count is a constant.
-  if (isa<SCEVConstant>(SE->getBackedgeTakenCount(Lp))) {
-    return;
-  }
 
   // Check whether loop has an if parent.
   auto Parent = HLoop->getParent();
@@ -356,6 +348,10 @@ void HIRLoopFormation::formLoops() {
     // Found a loop
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
+    auto BECount = SE->getBackedgeTakenCount(Lp);
+    bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
+    bool IsConstTripLoop = isa<SCEVConstant>(BECount);
+
     // Find HIR hook for the loop latch.
     auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
@@ -379,18 +375,27 @@ void HIRLoopFormation::formLoops() {
     HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
     HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
-    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, std::next(LabelIter),
-                                              BottomTestIter);
-
     // Hook loop into HIR.
     HIR->getHLNodeUtils().insertBefore(&*LabelIter, HLoop);
 
-    // Remove label and bottom test.
-    // Can bottom test contain anything else??? Should probably assert on it.
-    HIR->getHLNodeUtils().erase(&*LabelIter);
-    HIR->getHLNodeUtils().erase(&*BottomTestIter);
+    // Include Label and bottom test as explicit nodes inside the unknown loop.
+    auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
+    auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
-    setZtt(HLoop);
+    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+
+    if (!IsUnknownLoop) {
+      // Remove label and bottom test.
+      HIR->getHLNodeUtils().erase(&*LabelIter);
+
+      // Can bottom test contain anything else??? Should probably assert on it.
+      HIR->getHLNodeUtils().erase(&*BottomTestIter);
+
+      // TODO: Look into whether setting ztt is beneficial for unknown loops.
+      if (!IsConstTripLoop) {
+        setZtt(HLoop);
+      }
+    }
 
     // Add entry for (Lp -> HLLoop) mapping.
     insertHLLoop(Lp, HLoop);

@@ -131,7 +131,7 @@ protected:
   HLLoop &operator=(HLLoop &&Lp);
 
   friend class HLNodeUtils;
-  friend class HIRParser; // accesses ZTT
+  friend class HIRParser;         // accesses ZTT
   friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
                                   // to modify HLLoop internals.
 
@@ -322,7 +322,7 @@ public:
   }
 
   /// Sets the DDRef associated with loop upper bound.
-  void setUpperDDRef(RegDDRef *Ref){
+  void setUpperDDRef(RegDDRef *Ref) {
     assert((!Ref || Ref->isTerminalRef()) && "Invalid UpperDDRef!");
     setOperandDDRefImpl(Ref, 1);
   }
@@ -387,19 +387,15 @@ public:
     assert(StrideRef && "Stride ref is null!");
     int64_t Val;
 
-    // Stride is 0 for unknown loops. 
+    // Stride is 0 for unknown loops.
     return (StrideRef->isIntConstant(&Val) && (Val == 0));
   }
 
   /// Returns true if this is a do loop.
-  bool isDo() const {
-    return ((NumExits == 1) && !isUnknown());
-  }
+  bool isDo() const { return ((NumExits == 1) && !isUnknown()); }
 
   /// Returns true if this is a do multi-exit loop.
-  bool isDoMultiExit() const {
-    return ((NumExits > 1) && !isUnknown());
-  }
+  bool isDoMultiExit() const { return ((NumExits > 1) && !isUnknown()); }
 
   /// Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
@@ -429,9 +425,7 @@ public:
   pre_iterator pre_end() { return ChildBegin; }
   const_pre_iterator pre_end() const { return ChildBegin; }
 
-  reverse_pre_iterator pre_rbegin() {
-    return ChildBegin.getReverse();
-  }
+  reverse_pre_iterator pre_rbegin() { return ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
     return ChildBegin.getReverse();
   }
@@ -476,9 +470,7 @@ public:
 
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
-  reverse_post_iterator post_rend() {
-    return PostexitBegin.getReverse();
-  }
+  reverse_post_iterator post_rend() { return PostexitBegin.getReverse(); }
   const_reverse_post_iterator post_rend() const {
     return PostexitBegin.getReverse();
   }
@@ -717,6 +709,13 @@ public:
   void setBranchDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
 
   const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
+
+  /// Returns the bottom test node for the loop. It is null for non-unknown
+  /// loops.
+  HLIf *getBottomTest();
+  const HLIf *getBottomTest() const {
+    return const_cast<HLLoop *>(this)->getBottomTest();
+  }
 };
 
 } // End namespace loopopt

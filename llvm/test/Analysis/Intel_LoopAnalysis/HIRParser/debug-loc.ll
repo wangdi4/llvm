@@ -129,14 +129,14 @@
 ; CHECK-CG:  %hir.cmp.7 = fcmp ogt float %t3.2, 1.000000e+01, !dbg !35
 ; CHECK-CG:  %hir.cmp.8 = icmp slt i32 %9, 10, !dbg !37
 ; CHECK-CG:  %hir.cmp.10 = icmp ne i1 %t10., false, !dbg !35
-; CHECK-CG:  br i1 %hir.cmp.10, label %then.10, label %else.10, !dbg !35 
+; CHECK-CG:  br i1 %hir.cmp.10, label %then.10, label %ifmerge.10, !dbg !35 
 
 ; IF + multiple predicates
 ; CHECK-CG:  %hir.cmp.22 = icmp sgt i32 %15, 0, !dbg !47
 ; CHECK-CG:  %t15. = load i32, i32* %t15, !dbg !45
 ; CHECK-CG:  %hir.cmp.225 = icmp ne i32 %t15., 0, !dbg !45
 ; CHECK-CG:  %16 = and i1 %hir.cmp.22, %hir.cmp.225, !dbg !45
-; CHECK-CG:  br i1 %16, label %then.22, label %else.22, !dbg !45
+; CHECK-CG:  br i1 %16, label %then.22, label %ifmerge.22, !dbg !45
 
 ; Load ref + CE
 ; CHECK-CG:  %20 = load i32, i32* %i1.i32, !dbg !26

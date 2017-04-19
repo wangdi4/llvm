@@ -359,10 +359,14 @@ private:
   void populateBlobDDRefs(RegDDRef *Ref, unsigned Level);
 
   /// Returns a RegDDRef representing loop lower (constant 0).
-  RegDDRef *createLowerDDRef(Type *IVType);
+  RegDDRef *createLowerDDRef(Type *IVType) {
+    return getDDRefUtils().createConstDDRef(IVType, 0);
+  }
 
-  /// Returns a RegDDRef representing loop stride with value \p Val.
-  RegDDRef *createStrideDDRef(Type *IVType, unsigned Val);
+  /// Returns a RegDDRef representing loop stride (constant 1).
+  RegDDRef *createStrideDDRef(Type *IVType) {
+    return getDDRefUtils().createConstDDRef(IVType, 1);
+  }
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);

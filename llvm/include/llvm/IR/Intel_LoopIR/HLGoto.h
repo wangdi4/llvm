@@ -85,6 +85,9 @@ public:
 
   const DebugLoc getDebugLoc() const override { return DbgLoc; }
   void setDebugLoc(const DebugLoc &Loc) { DbgLoc = Loc; }
+
+  /// Returns true if this is the back edge of its parent unknown loop.
+  bool isUnknownLoopBackEdge() const;
 };
 
 } // End namespace loopopt
