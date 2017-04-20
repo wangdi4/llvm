@@ -106,7 +106,12 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
 
   // We expect there to be one load/store inside this BBlock, followed by a
   // branch to the next BBlock. We're concerned with the first one.
-  assert(BB->size() == 2 && "Unexpected number of instructions in BBlock.");
+  if (BB->size() != 2) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Read/Write BBlock has more than"
+                                    " 2 Instructions. Returning.\n");
+    return false; // Handle using critical section.
+  }
+
   Instruction *Inst = &(*(BB->begin()));
 
   assert(Inst != nullptr && "Inst is null.");
@@ -173,12 +178,22 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   // KMPC call is added.
   SmallVector<Instruction*, ApproxNumInstsToDeleteForUpdate> InstsToDelete;
 
+  // Make sure that the BBlock has enough Instructions to start with.
+  if (BB->size() <= 3) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic update BBlock has less than 4"
+                 << " Instructions. Returning.\n");
+    return false; // Handle using critical section.
+  }
+
   // Now, the last instruction of the BBlock will be an unconditional branch to
   // the next BBlock, and its predecessor is the a store to the Atomic Operand.
   // We start off with this Instruction to get the atomic operand.
-  assert(BB->size() >= 4 && "Unexpected number of instructions in BBlock.");
   StoreInst *OpndStore = dyn_cast<StoreInst>(&*(++(BB->rbegin())));
-  assert(OpndStore != nullptr && "Unable to find store to atomic operand");
+  if (OpndStore == nullptr) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": Unable to find store to atomic operand. Returning.\n");
+    return false; // Handle using critical section.
+  }
 
   // A call to atomic update intrinsic is of form:
   //     call void __kmpc_atomic_<...>(loc, tid, <type1*> atomic_opnd, <type2>
@@ -241,10 +256,7 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   DEBUG(dbgs() << __FUNCTION__ << ": Intrinsic call inserted.\n");
 
   // And finally, delete the instructions that are no longer needed.
-  for (auto *Inst : InstsToDelete) {
-    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-    Inst->eraseFromParent();
-  }
+  deleteInstructionsInList(InstsToDelete);
 
   return true;
 }
@@ -262,7 +274,14 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
   BasicBlock *BB = *(AtomicNode->bbset_begin() + 1);
-  assert(BB->size() >= 4 && "Unexpected number of instructions in BBlock.");
+
+  // Make sure that the BBlock has enough Instructions to start with.
+  if (BB->size() <= 3) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Atomic Capture BBlock has less than 4"
+                 << " Instructions. Returning.\n");
+    return false; // Handle using critical section.
+  }
+
   // We use the last statement of this BB as the anchor for new instructions.
   Instruction* Anchor = &*(BB->rbegin());
 
@@ -375,10 +394,7 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   CaptureStore->insertBefore(Anchor);
 
   // And finally, delete the instructions that are no longer needed.
-  for (auto *Inst : InstsToDelete) {
-    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
-    Inst->eraseFromParent();
-  }
+  deleteInstructionsInList(InstsToDelete);
 
   return true;
 }
@@ -527,11 +543,18 @@ VPOParoptAtomics::AtomicCaptureKind VPOParoptAtomics::extractAtomicCaptureOp(
     DEBUG(dbgs() << __FUNCTION__
                  << ": CaptureBeforeOp identified. Op: " << *OpInst << "\n");
     return CaptureKind;
+  } else if (UpdateOpFound) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": Skipping processing as CaptureSwap/CaptureAfterOp since "
+                    "we found an Update Operation on the operand of the last "
+                    "store ("
+                 << *AtomicOpnd << ").\n");
+    return CaptureUnknown;
   }
 
   // (B) CaptureSwap
-  // Second, try to process CaptureSwap. Here again, first store of BB will be to v, and
-  // the last store to x.
+  // Second, try to process CaptureSwap. Here again, first store of BB will be
+  // to v, and the last store to x.
   DEBUG(dbgs() << __FUNCTION__ << ": Processing as CaptureSwap...\n");
   AtomicOpnd = (*StoreCandidates.rbegin())->getPointerOperand();
   CaptureOpnd = (*StoreCandidates.begin())->getPointerOperand();
@@ -628,9 +651,9 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   auto *LoadX = dyn_cast<LoadInst>(ValV);
 
   if (LoadX != nullptr && LoadX->getPointerOperand() != AtomicOpnd) {
-    DEBUG(dbgs() << __FUNCTION__
-                 << ": Value stored to capture operand is not atomic operand: "
-                 << LoadX << " \n");
+    DEBUG(dbgs() << __FUNCTION__ << ": Value stored to capture operand ("
+                 << *(LoadX->getPointerOperand()) << ") is not atomic operand ("
+                 << *AtomicOpnd << ") \n");
     return CaptureUnknown;
   } else if (LoadX != nullptr) {
     // Match found for `v = x`. We mark the instructions which assign `x` to `v`
@@ -668,7 +691,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
     DEBUG(
         dbgs() << __FUNCTION__
                << ": Value stored to capture operand is not atomic operand: v: "
-               << ValV << "x: " << ValX << " \n");
+               << *ValV << "x: " << *ValX << " \n");
     return CaptureUnknown;
   }
 
@@ -682,7 +705,7 @@ VPOParoptAtomics::identifyNonSwapCaptureKind(
   return CaptureAfterOp;
 }
 
-// Usig a given AtomicOpnd and CaptureOpnd, try to find ValueOpnd assuming the
+// Using a given AtomicOpnd and CaptureOpnd, try to find ValueOpnd assuming the
 // capture operation is swap.
 // Example:
 //     v = x; x = expr;
@@ -949,6 +972,32 @@ bool VPOParoptAtomics::isUIToFPCast(const Value &Val) {
     return true;
 
   return false;
+}
+
+// Delete the Instructions in the vecor InstsToDelete.
+void VPOParoptAtomics::deleteInstructionsInList(
+    SmallVectorImpl<Instruction *> &InstsToDelete) {
+
+  if (InstsToDelete.empty())
+    return;
+
+  // Remove duplicate instructions first.
+  std::sort(InstsToDelete.begin(), InstsToDelete.end());
+  auto last = std::unique(InstsToDelete.begin(), InstsToDelete.end());
+  InstsToDelete.erase(last, InstsToDelete.end());
+
+#ifndef NDEBUG
+  DEBUG(dbgs() << __FUNCTION__ << ": Instructions to be deleted:\n");
+  for (auto *Inst: InstsToDelete) {
+    DEBUG(dbgs() << *Inst << "\n");
+  }
+#endif
+
+  // Now delete all Instructions in the list.
+  for (auto *Inst : InstsToDelete) {
+    Inst->replaceAllUsesWith(UndefValue::get(Inst->getType()));
+    Inst->eraseFromParent();
+  }
 }
 
 // Functions for intrinsic name lookup.

@@ -561,6 +561,10 @@ private:
   /// \brief Returns `true` if Val is a UIToFP CastInst, `false` otherwise.
   static bool isUIToFPCast(const Value &Val);
 
+  /// \brief Delete all Instructions in the SmallVector \p InstsToDelete.
+  static void
+  deleteInstructionsInList(SmallVectorImpl<Instruction *> &InstsToDelete);
+
   /// @}
 
   ///\name Constants
