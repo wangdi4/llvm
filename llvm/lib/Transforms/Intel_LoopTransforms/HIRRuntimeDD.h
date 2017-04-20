@@ -53,6 +53,7 @@ enum RuntimeDDResult {
   SAME_BASE,
   NON_DO_LOOP,
   NON_PROFITABLE,
+  NON_PROFITABLE_SUBS,
   STRUCT_ACCESS
 };
 
@@ -182,10 +183,8 @@ private:
   // \brief The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
-  static RuntimeDDResult
-  processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
-                  SmallVectorImpl<IVSegment> &IVSegments,
-                  bool &ShouldGenerateTripCount);
+  void processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
+                  SmallVectorImpl<IVSegment> &IVSegments);
 
   // \brief The predicate used in ref grouping. Returns true if two references
   // belong to the same group.

@@ -145,21 +145,34 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
     DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
 
     RuntimeDDResult Result = RDD->computeTests(Loop, Context);
+    bool IsInnermost = Loop->isInnermost();
+
     if (Result == OK) {
       SkipNode = Loop;
 
       LoopContexts.push_back(std::move(Context));
       LoopsMultiversioned++;
 
-      if (!Loop->isInnermost()) {
+      if (!IsInnermost) {
         OuterLoopsMultiversioned++;
       }
+    } else if (IsInnermost || analyzedRefs(Result)) {
+      SkipNode = Loop;
     }
+
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
                  << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
   }
 
   bool skipRecursion(const HLNode *N) const override { return N == SkipNode; }
+
+  bool analyzedRefs(RuntimeDDResult Result) const {
+    // If we have analyzed the memrefs inside this loop, we can skip recursing
+    // into it. The following result types are the ones where we haven't
+    // analyzed the memrefs.
+    return (Result != ALREADY_MV) && (Result != NON_DO_LOOP) &&
+           (Result != NON_PROFITABLE) && (Result != NON_PERFECT_LOOPNEST);
+  }
 
 private:
   const HLNode *SkipNode;
@@ -335,12 +348,11 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
       // usually result in gather/scatter generation.
       // For Loop Interchange we treat them as profitable.
       if (!DisableCostModel && OuterLoop == InnermostLoop &&
-          //(IVConstCoeff != 1 || IVBlobIndex != InvalidBlobIndex)) {
           (!(IVConstCoeff == 1 ||
-              // -1 is allowed for memcpy recognition
+             // -1 is allowed for memcpy recognition
              (IVConstCoeff == -1 && OuterLoop->getNumChildren() <= 2)) ||
            IVBlobIndex != InvalidBlobIndex)) {
-        return NON_PROFITABLE;
+        return NON_PROFITABLE_SUBS;
       }
 
       const CanonExpr *UpperBoundCE = LoopI->getUpperCanonExpr();
@@ -433,6 +445,8 @@ const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
     return "Non DO loops are not supported";
   case NON_PROFITABLE:
     return "Loop considered non-profitable";
+  case NON_PROFITABLE_SUBS:
+    return "Subscript multiversioning is non-profitable";
   case STRUCT_ACCESS:
     return "Struct refs not supported yet";
   default:
@@ -451,37 +465,20 @@ bool HIRRuntimeDD::isProfitable(const HLLoop *Loop) {
   return (!LS.hasCalls() && !LS.hasSwitches() && !LS.hasIfs());
 }
 
-RuntimeDDResult HIRRuntimeDD::processLoopnest(
-    const HLLoop *OuterLoop, const HLLoop *InnermostLoop,
-    SmallVectorImpl<IVSegment> &IVSegments, bool &ShouldGenerateTripCount) {
+void HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop,
+                                   const HLLoop *InnermostLoop,
+                                   SmallVectorImpl<IVSegment> &IVSegments) {
 
   assert(InnermostLoop->isInnermost() &&
          "InnermostLoop is not an innermost loop");
 
   unsigned SegmentCount = IVSegments.size();
 
-  // TotalTripCount is used only to decide should we generate runtime small trip
-  // test or not.
-  bool ConstantTripCount = true;
-  uint64_t TotalTripCount = 1;
-
   SmallVector<const RegDDRef *, 6> AuxRefs;
 
   // Replace every IV in segments with upper and lower bounds
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = OuterLoop->getParentLoop();
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
-    // TotalTripCount is a minimal estimation of loopnest tripcount. Non-const
-    // loops are treated as they execute at least once.
-    uint64_t TripCount;
-    if (LoopI->isConstTripLoop(&TripCount)) {
-      TotalTripCount *= TripCount;
-      if (TotalTripCount >= SmallTripCountTest) {
-        ShouldGenerateTripCount = false;
-      }
-    } else {
-      ConstantTripCount = false;
-    }
-
     auto LowerBoundRef = LoopI->getLowerDDRef();
     auto UpperBoundRef = LoopI->getUpperDDRef();
     AuxRefs.push_back(LowerBoundRef);
@@ -495,16 +492,9 @@ RuntimeDDResult HIRRuntimeDD::processLoopnest(
     }
   }
 
-  if (!DisableCostModel && ConstantTripCount &&
-      TotalTripCount < SmallTripCountTest) {
-    return SMALL_TRIPCOUNT;
-  }
-
   for (unsigned I = 0; I < SegmentCount; ++I) {
     IVSegments[I].makeConsistent(AuxRefs, OuterLoop->getNestingLevel() - 1);
   }
-
-  return OK;
 }
 
 bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
@@ -549,8 +539,7 @@ bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
   return true;
 }
 
-unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups,
-                                    RegDDRef *Ref) {
+unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
   for (auto I = Groups.begin(), E = Groups.end(); I != E; ++I) {
     if (isGroupMemRefMatchForRTDD(I->front(), Ref)) {
       I->push_back(Ref);
@@ -572,6 +561,11 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return ALREADY_MV;
   }
 
+  // TODO: add a lit test when we start to support unknown loops
+  if (!Loop->isDo()) {
+    return NON_DO_LOOP;
+  }
+
   if (!isProfitable(Loop)) {
     return NON_PROFITABLE;
   }
@@ -582,13 +576,27 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return NON_PERFECT_LOOPNEST;
   }
 
-  // Check the loopnest for applicability
+  // TotalTripCount is used only to decide should we generate runtime small trip
+  // test or not.
+  bool ConstantTripCount = true;
+  uint64_t TotalTripCount = 1;
+
   for (const HLLoop *LoopI = InnermostLoop, *LoopE = Loop->getParentLoop();
        LoopI != LoopE; LoopI = LoopI->getParentLoop()) {
-    // TODO: add a lit test when we start to support unknown loops
-    if (!LoopI->isDo()) {
-      return NON_DO_LOOP;
+    uint64_t TripCount;
+    if (LoopI->isConstTripLoop(&TripCount)) {
+      TotalTripCount *= TripCount;
+      if (TotalTripCount >= SmallTripCountTest) {
+        Context.GenTripCountTest = false;
+      }
+    } else {
+      ConstantTripCount = false;
     }
+  }
+
+  if (!DisableCostModel && ConstantTripCount &&
+      TotalTripCount < SmallTripCountTest) {
+    return SMALL_TRIPCOUNT;
   }
 
   RefGroupVecTy &Groups = Context.Groups;
@@ -599,7 +607,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   DDGraph DDG = DDA.getGraph(Loop);
   DEBUG(dbgs() << "Loop DDG:\n");
   DEBUG(DDG.dump());
-
 
   // Gather references which are only inside a loop, excepting loop bounds,
   // pre-header and post-exit.
@@ -661,12 +668,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     }
   }
 
-  RuntimeDDResult Res;
-  Res = processLoopnest(Loop, InnermostLoop, IVSegments,
-                        Context.GenTripCountTest);
-  if (Res != OK) {
-    return Res;
-  }
+  processLoopnest(Loop, InnermostLoop, IVSegments);
 
   // Create pairs of segments to intersect and store them into
   // Candidate.SegmentList
