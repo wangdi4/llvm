@@ -1317,8 +1317,7 @@ CallInst *VPOParoptUtils::genMemcpy(Value *D, Value *S, const DataLayout &DL,
 // closed interval.
 Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
                                             Instruction* InsertPt) {
-  assert((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
-         "Expect parallel loop or work share loop.");
+  assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
 
   Loop *L = W->getLoop();
 
@@ -1369,8 +1368,9 @@ CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
 void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
                                                      Value *UB, 
                                                      Instruction* InsertPt) {
-  assert((isa<WRNParallelLoopNode>(W) || isa<WRNWksLoopNode>(W)) &&
-         "Expect parallel loop or work share loop.");
+
+  assert(W->getIsOmpLoop() && "computeOmpUpperBound: not a loop-type WRN");
+
   Loop *L = W->getLoop();
   ICmpInst* IC = WRegionUtils::getOmpLoopBottomTest(L);
   bool IsLeft = true;

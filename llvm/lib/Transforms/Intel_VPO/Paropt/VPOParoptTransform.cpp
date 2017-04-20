@@ -215,6 +215,8 @@ bool VPOParoptTransform::paroptTransforms() {
     // If W is transformed, set 'Changed' to true.
     bool Changed = false;  
 
+    bool RemoveDirectives = false;
+
     switch (W->getWRegionKindID()) {
 
     // Parallel constructs need to perform outlining
@@ -228,6 +230,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstOrLastPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
+          RemoveDirectives = true;
         }
 
         break;
@@ -244,6 +247,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genFirstOrLastPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
+          RemoveDirectives = true;
         }
 
         break;
@@ -261,16 +265,21 @@ bool VPOParoptTransform::paroptTransforms() {
         // Privatization is enabled for SIMD Transform passes
         DEBUG(dbgs() << "\n WRNSimdLoop - Transformation \n\n");
 
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
            Changed = genPrivatizationCode(W);
+           // keep SIMD directives; will be processed by the Vectorizer
+           RemoveDirectives = false;
+        }
         break;
       }
     case WRegionNode::WRNAtomic:
       { 
         DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
           Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
                                                    IdentTy, TidPtr);
+          RemoveDirectives = true;
+        }
         break;
       }
     case WRegionNode::WRNSections:
@@ -283,34 +292,43 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstOrLastPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          RemoveDirectives = true;
         }
 
         break;
       }
     case WRegionNode::WRNSingle:
       { DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
-        if (Mode & ParPrepare) 
+        if (Mode & ParPrepare) {
           Changed = genSingleThreadCode(W);
+          RemoveDirectives = true;
+        }
         break;
       }
     case WRegionNode::WRNMaster:
       { DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
-      if (Mode & ParPrepare)
-        Changed = genMasterThreadCode(W);
-      break;
+        if (Mode & ParPrepare) {
+          Changed = genMasterThreadCode(W);
+          RemoveDirectives = true;
+        }
+        break;
       }
     case WRegionNode::WRNCritical:
       {
         DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
-        if (Mode & ParPrepare)
+        if (Mode & ParPrepare) {
           Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
+          RemoveDirectives = true;
+        }
         break;
       } 
     case WRegionNode::WRNOrdered:
       {
         DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
-        if (Mode & ParPrepare) 
+        if (Mode & ParPrepare) {
           Changed = genOrderedThreadCode(W);
+          RemoveDirectives = true;
+        }
         break;
       }
     case WRegionNode::WRNBarrier:
@@ -320,15 +338,15 @@ bool VPOParoptTransform::paroptTransforms() {
     default: break;
     }
 
-    if (Changed) { // Code transformations happened for this WRN
-
-      // Remove calls to directive intrinsics since the LLVM back end does not
-      // know how to translate them.
+    // Remove calls to directive intrinsics since the LLVM back end does not
+    // know how to translate them.
+    if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
-      
-      RoutineChanged = true;
+    }
 
+    if (Changed) { // Code transformations happened for this WRN
+      RoutineChanged = true;
       DEBUG(dbgs() << "   === WRN #" << W->getNumber() << " transformed.\n\n");
     }
     else 
@@ -895,18 +913,19 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
     for (ReductionItem *RedI : RedClause.items()) {
       AllocaInst *NewRedInst;
-      if (isa<GlobalVariable>(RedI->getOrig()) ||
-          isa<AllocaInst>(RedI->getOrig())) {
-        NewRedInst = genPrivatizationCodeHelper(W, RedI->getOrig(),
-                                                &EntryBB->front(), ".red");
-        RedI->setNew(NewRedInst);
-        createEmptyPrvInitBB(W, RedInitEntryBB);
-        genReductionInit(RedI, RedInitEntryBB->getTerminator());
-        BasicBlock *BeginBB;
-        createEmptyPrivFiniBB(W, BeginBB);
-        genReductionFini(RedI, BeginBB->getTerminator());
-      }
-      // else what happens? No codegen for it?
+      Value *Orig = RedI->getOrig();
+
+      assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
+             "genReductionCode: Unexpected reduction variable");
+
+      NewRedInst = genPrivatizationCodeHelper(W, Orig,
+                                              &EntryBB->front(), ".red");
+      RedI->setNew(NewRedInst);
+      createEmptyPrvInitBB(W, RedInitEntryBB);
+      genReductionInit(RedI, RedInitEntryBB->getTerminator());
+      BasicBlock *BeginBB;
+      createEmptyPrivFiniBB(W, BeginBB);
+      genReductionFini(RedI, BeginBB->getTerminator());
     }
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtr, dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
@@ -988,50 +1007,57 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
   assert(W->isBBSetEmpty() &&
          "genFirstOrLastPrivatizationCode: BBSET should start empty");
 
-  bool hasFirstpriv = W->hasFirstprivate();
-  bool hasLastpriv  = W->hasLastprivate();
-  if (hasFirstpriv || hasLastpriv)
-    W->populateBBSet();
+  // This routine assumes that W->hasFirstprivate() is true while
+  // W->hasLastprivate() may be true or false. The assumption is valid: with 
+  // the the exception of SIMD, all OMP4.5 constructs that take a lastprivate
+  // clause also take a firstprivate clause. SIMD constructs don't take a
+  // firstprivate clause, but they're not processed here but in the Vectorizer.
 
-  BasicBlock *PrivInitEntryBB = nullptr;
+  assert(W->hasFirstprivate() &&
+       "genFirstOrLastPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
+    W->populateBBSet();
+    BasicBlock *PrivInitEntryBB = nullptr;
     for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
+          "genFirstOrLastPrivatizationCode: Unexpected firstprivate variable");
 
-      if (isa<Argument>(FprivI->getOrig())) {
-      } else if (isa<GlobalVariable>(FprivI->getOrig()) ||
-                 isa<AllocaInst>(FprivI->getOrig())) {
-        AllocaInst *NewPrivInst = genPrivatizationCodeHelper(
-            W, FprivI->getOrig(), &EntryBB->front(), ".fpriv");
-        FprivI->setNew(NewPrivInst);
-        createEmptyPrvInitBB(W, PrivInitEntryBB);
-        genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
-        Changed = true;
-      }
+      AllocaInst *NewPrivInst = genPrivatizationCodeHelper(W, Orig, 
+                                                  &EntryBB->front(), ".fpriv");
+      FprivI->setNew(NewPrivInst);
+      createEmptyPrvInitBB(W, PrivInitEntryBB);
+      genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
     }
+    Changed = true;
   }
 
-  if (hasLastpriv) {
+  if (W->hasLastprivate()) {
     LastprivateClause &LprivClause = W->getLpriv();
     if (LprivClause.size()) {
+
+      if(W->isBBSetEmpty()) 
+        W->populateBBSet();
+
       for (LastprivateItem *LprivI : LprivClause.items()) {
-        if (isa<GlobalVariable>(LprivI->getOrig()) ||
-            isa<AllocaInst>(LprivI->getOrig())) {
-          Value *Old = LprivI->getOrig();
-          auto FprivI = FprivClause.findOrig(Old);
-          if (!FprivI) {
-            AllocaInst *NewPrivInst = genPrivatizationCodeHelper(
-                W, LprivI->getOrig(), &EntryBB->front(), ".lpriv");
-            LprivI->setNew(NewPrivInst);
-          } else
-            LprivI->setNew(FprivI->getNew());
-          BasicBlock *BeginBB = nullptr;
-          createEmptyPrivFiniBB(W, BeginBB);
-          genLprivFini(LprivI, BeginBB->getTerminator());
-          Changed = true;
-        }
+        Value *Old = LprivI->getOrig();
+        assert((isa<GlobalVariable>(Old) || isa<AllocaInst>(Old)) &&
+           "genFirstOrLastPrivatizationCode: Unexpected lastprivate variable");
+
+        auto FprivI = FprivClause.findOrig(Old);
+        if (!FprivI) {
+          AllocaInst *NewPrivInst = genPrivatizationCodeHelper(W, Old,
+                                                  &EntryBB->front(), ".lpriv");
+          LprivI->setNew(NewPrivInst);
+        } else
+          LprivI->setNew(FprivI->getNew());
+        BasicBlock *BeginBB = nullptr;
+        createEmptyPrivFiniBB(W, BeginBB);
+        genLprivFini(LprivI, BeginBB->getTerminator());
       }
+      Changed = true;
     }
   }
 
@@ -1059,27 +1085,23 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
-      if (isa<Argument>(PrivI->getOrig())) { 
-        // PrivItem can be a function argument
-        DEBUG(dbgs() << " Private Argument: " << *PrivI->getOrig() << "\n");
-      } else if (isa<GlobalVariable>(PrivI->getOrig()) ||
-                 isa<AllocaInst>(PrivI->getOrig())) {
-        genPrivatizationCodeHelper(W, PrivI->getOrig(), &EntryBB->front(),
-                                   ".priv");
-        Changed = true;
-      }
+      Value *Orig = PrivI->getOrig();
+
+      assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
+             "genPrivatizationCode: Unexpected private variable");
+
+      genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
     }
 
-    if (Changed) {
-      W->resetBBSet(); // Invalidate BBSet after transformations
+    Changed = true;
+    W->resetBBSet(); // Invalidate BBSet after transformations
 
-      // After Privatization is done, the SCEV should be re-generated.
-      // This should apply to all loop-type constructs; ie, WRNs whose
-      // "IsOmpLoop" attribute is true.
-      if (SE && W->getIsOmpLoop()) {
+    // After Privatization is done, the SCEV should be re-generated.
+    // This should apply to all loop-type constructs; ie, WRNs whose
+    // "IsOmpLoop" attribute is true.
+    if (SE && W->getIsOmpLoop()) {
         Loop *L = W->getLoop();
         SE->forgetLoop(L);
-      }
     }
   }
   return Changed;

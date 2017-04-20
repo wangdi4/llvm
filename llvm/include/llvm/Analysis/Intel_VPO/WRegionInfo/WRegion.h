@@ -933,8 +933,8 @@ public:
 
 protected:
   void setIsDoacross(bool Flag) { IsDoacross = Flag; }
-  void setThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
-  void setDepSource(bool Flag) { assertDoacrossTrue(); IsDepSource = Flag; }
+  void setIsThreads(bool Flag) { assertDoacrossFalse(); IsThreads = Flag; }
+  void setIsDepSource(bool Flag) { assertDoacrossTrue(); IsDepSource = Flag; }
 
 public:
   bool getIsDoacross() const {  return IsDoacross; }

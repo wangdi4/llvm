@@ -87,9 +87,23 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     assert(LI && "LoopInfo not present in a loop construct");
     BasicBlock *EntryBB = getEntryBBlock();
     Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
-    assert(Lp && "Loop not found for a loop construct");
+
+    // Do not assert for SIMD constructs (WRNVecLoopNode) because transforms
+    // before Vectorizer may optimize away the loop.
+    //
+    // TODO: In the future we should relax this assertion for all WRNs,
+    // not just SIMD, because in theory one can insert those transformation
+    // passes before VPOParopt. For now, let's keep the assertion while we're
+    // stabilizing VPO.
+    if (getWRegionKindID() != WRNVecLoop)
+      assert(Lp && "Loop not found for a loop construct");
+
     setLoop(Lp);
-    DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
+
+    if (Lp)
+      DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
+    else
+      DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
   }
 }
 
@@ -319,10 +333,14 @@ void WRegionNode::printLoopBB(formatted_raw_ostream &OS, unsigned Depth,
   if (!getIsOmpLoop())
     return;
 
-  Loop *L = getLoop();
-  assert(L && "Loop missing for a loop-type WRN");
-
   int Ind = 2*Depth;
+
+  Loop *L = getLoop();
+
+  if (!L) {
+    OS.indent(Ind) << "Loop is missing; may be optimized away.\n";
+    return;
+  }
 
   OS.indent(Ind) << "Loop Preheader: ";
   printBB(L->getLoopPreheader(), OS, Ind, Verbose);
@@ -1076,7 +1094,11 @@ bool WRegionNode::hasDepend() const {
 bool WRegionNode::hasDepSink() const {
   unsigned SubClassID = getWRegionKindID();
   // only WRNOrderedNode can have a depend(sink : vec) clause
-  return SubClassID==WRNOrdered;
+  // but only if its "IsDoacross" field is true
+  if(SubClassID==WRNOrdered)
+    return getIsDoacross();
+
+  return false;
 }
 
 bool WRegionNode::hasFlush() const {
