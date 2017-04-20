@@ -11,7 +11,7 @@ OclBuiltinImpl ceil_f32_expand = OclBuiltinImpl<ceil, [v8f32, v16f32], 0, Expand
 
 OclBuiltinImpl floor_f32_expand = OclBuiltinImpl<floor, [v16f32], 0, Expand1>;
 OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v8f64],  0, Expand1>;
-OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v8f32], 0, Expand1>;
+OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v8f32, v16f32], 0, Expand1>;
 
 // rsqrt
 OclBuiltinImpl rsqrt_svml_v64_expand = OclBuiltinImpl<rsqrt, [v8f64], 0, Expand1>;
@@ -45,7 +45,7 @@ OclBuiltinImpl sqrt_f32_expand = OclBuiltinImpl<sqrt, [v8f32, v16f32], 0, Expand
 //////////////////////////////////////////////////////////////////////////////////////////////
 OclBuiltinImpl ceil_f64_promote = OclBuiltinImpl<ceil, [v1f64], 0, Promote1>;
 OclBuiltinImpl ceil_f64_expand = OclBuiltinImpl<ceil, [v3f64, v4f64, v8f64, v16f64], 0, Expand1>;
-OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v4f64], 0, Expand1>;
+OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v4f64, v8f64], 0, Expand1>;
 // sqrt
 OclBuiltinImpl sqrt_f64_expand = OclBuiltinImpl<sqrt, [v4f64, v8f64], 0, Expand1>;
 

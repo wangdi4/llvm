@@ -312,9 +312,8 @@ OclBuiltinImpl tgamma_svml_promote = OclBuiltinImpl<tgamma, math_svml_vF_promote
 
 // trunc
 OclBuiltinImpl trunc_f32_promote = OclBuiltinImpl<trunc, [v3f32], 0, Promote1>;
-OclBuiltinImpl trunc_f32_expand = OclBuiltinImpl<trunc, [v16f32], 0, Expand1>;
 OclBuiltinImpl trunc_f64_promote = OclBuiltinImpl<trunc, [v1f64], 0, Promote1>;
-OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v8f64, v16f64], 0, Expand1>;
+OclBuiltinImpl trunc_f64_expand = OclBuiltinImpl<trunc, [v3f64, v16f64], 0, Expand1>;
 
 // half_recip
 // route call to native. Specific to CPU(not-MIC) implementation.

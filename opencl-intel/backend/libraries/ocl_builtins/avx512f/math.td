@@ -43,41 +43,30 @@ OclBuiltinImpl ceil_v16f32_impl = OclBuiltinImpl<ceil, [v16f32], 0, [{
   return _mm512_ceil_ps($Arg0VarName);
   }]>;
 
-// floor float16
-OclBuiltinImpl floor_v16f32_impl = OclBuiltinImpl<floor, [v16f32], 0, [{
-  return _mm512_floor_ps($Arg0VarName);
-  }]>;
-
 // ceil double8
 OclBuiltinImpl ceil_v8f64_impl = OclBuiltinImpl<ceil, [v8f64], 0, [{
   return _mm512_ceil_pd($Arg0VarName);
+  }]>;
+
+// floor float16
+OclBuiltinImpl floor_v16f32_impl = OclBuiltinImpl<floor, [v16f32], 0, [{
+  return _mm512_floor_ps($Arg0VarName);
   }]>;
 
 // floor double8
 OclBuiltinImpl floor_v8f64_impl = OclBuiltinImpl<floor, [v8f64], 0, [{
   return _mm512_floor_pd($Arg0VarName);
   }]>;
-// integer remainder
-OclBuiltinImpl irem_svml = OclBuiltinImpl<irem, [v16i32], 0, [{
-    return __ocl_svml_$Target_irem$VecLength($Arg0VarName, $Arg1VarName);
+
+// fma float16
+OclBuiltinImpl fma_v16f32_impl = OclBuiltinImpl<fma, [v16f32], 0, [{
+    return _mm512_fmadd_ps($Arg0VarName, $Arg1VarName, $Arg2VarName);
   }]>;
 
-// unsigned integer remainder
-OclBuiltinImpl urem_svml = OclBuiltinImpl<urem, [v16u32], 0, [{
-    return __ocl_svml_$Target_urem$VecLength($Arg0VarName, $Arg1VarName);
+// fma double8
+OclBuiltinImpl fma_v8f64_impl = OclBuiltinImpl<fma, [v8f64], 0, [{
+    return _mm512_fmadd_pd($Arg0VarName, $Arg1VarName, $Arg2VarName);
   }]>;
-
-// integer division
-OclBuiltinImpl idiv_svml = OclBuiltinImpl<idiv, [v16i32], 0, [{
-    return __ocl_svml_$Target_idiv$VecLength($Arg0VarName, $Arg1VarName);
-  }]>;
-
-// unsigned integer division
-OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
-    return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
-  }]>;
-
-
 
 // SVML calls
 
@@ -283,7 +272,7 @@ OclBuiltinImpl rootn_svml = OclBuiltinImpl<rootn, math_FP512_types, 0, [{
   }]>;
 
 // round
-OclBuiltinImpl round_svml = OclBuiltinImpl<round, [v16f32], 0, [{
+OclBuiltinImpl round_svml = OclBuiltinImpl<round, math_FP512_types, 0, [{
     return __ocl_svml_$Target_round$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -320,6 +309,25 @@ OclBuiltinImpl tanpi_svml = OclBuiltinImpl<tanpi, math_FP512_types, 0, [{
 // tgamma
 OclBuiltinImpl tgamma_svml = OclBuiltinImpl<tgamma, math_FP512_types, 0, [{
     return __ocl_svml_$Target_tgamma$SVMLSuffix($Arg0VarName);
+  }]>;
+
+// TODO: calls to trunc svml functions can be replaced with avx512f intrinsic
+// after upgrade to llvm supported it to avoid redundant calls
+/* trunc float16
+OclBuiltinImpl trunc_v16f32_impl = OclBuiltinImpl<trunc, [v16f32], 0, [{
+  // trancate, round to nearest smallest magnitude integer
+    return _mm512_roundscale_round_ps($Arg0VarName, 0x3, _MM_FROUND_TO_ZERO);
+  }]>;
+
+// trunc double
+OclBuiltinImpl trunc_v8f64_impl = OclBuiltinImpl<trunc, [v8f64], 0, [{
+  // trancate, round to nearest smallest magnitude integer
+    return _mm512_roundscale_round_pd($Arg0VarName, 0x3, _MM_FROUND_TO_ZERO);
+  }]>;
+*/
+// trunc
+OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, math_FP512_types, 0, [{
+    return __ocl_svml_$Target_trunc$SVMLSuffix($Arg0VarName);
   }]>;
 
 // half_cos
@@ -566,7 +574,7 @@ OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v16f32, v8f64], 0
 // native divide double8
 OclBuiltinImpl native_divide_svml = OclBuiltinImpl<native_divide, [v8f64], 0, [{
     return __ocl_svml_$Target_div$VecLength($Arg0VarName, $Arg1VarName);
-	}]>;
+  }]>;
 
 // native recip double8
 OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v8f64], 0, [{
@@ -576,4 +584,24 @@ OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v8f64], 0, [{
 // native rsqrt double8
 OclBuiltinImpl native_rsqrt_svml = OclBuiltinImpl<native_rsqrt, [v8f64], 0, [{
     return __ocl_svml_$Target_rsqrt$VecLength($Arg0VarName);
+  }]>;
+
+// integer remainder
+OclBuiltinImpl irem_svml = OclBuiltinImpl<irem, [v16i32], 0, [{
+    return __ocl_svml_$Target_irem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer remainder
+OclBuiltinImpl urem_svml = OclBuiltinImpl<urem, [v16u32], 0, [{
+    return __ocl_svml_$Target_urem$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// integer division
+OclBuiltinImpl idiv_svml = OclBuiltinImpl<idiv, [v16i32], 0, [{
+    return __ocl_svml_$Target_idiv$VecLength($Arg0VarName, $Arg1VarName);
+  }]>;
+
+// unsigned integer division
+OclBuiltinImpl udiv_svml = OclBuiltinImpl<udiv, [v16u32], 0, [{
+    return __ocl_svml_$Target_udiv$VecLength($Arg0VarName, $Arg1VarName);
   }]>;

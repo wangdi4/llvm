@@ -493,7 +493,7 @@ OclBuiltinImpl tgamma_svml = OclBuiltinImpl<tgamma, math_shared_types, 0, [{
   }]>;
 
 // trunc
-OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32, v1f64, v3f64, v8f64], 0, [{
+OclBuiltinImpl trunc_svml = OclBuiltinImpl<trunc, [v1f32, v2f32, v3f32, v1f64, v3f64], 0, [{
     return __ocl_svml_$Target_trunc$SVMLSuffix($Arg0VarName);
   }]>;
 
