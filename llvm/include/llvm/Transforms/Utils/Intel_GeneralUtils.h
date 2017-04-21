@@ -32,7 +32,7 @@ class DbgDeclareInst;
 class DbgValueInst;
 class DbgInfoIntrinsic;
 class ConstantExpr;
-
+class Value;
 
 /// \brief This class provides a set of general utility functions that can be
 /// used for a variety of purposes.
@@ -73,6 +73,9 @@ public:
 
   /// \brief Returns instruction I's next instruction in the same basic block.
   static Instruction* nextUniqueInstruction(Instruction *I);
+
+  /// \brief Returns true if the value V escapes.
+  static bool isEscaped(const Value *V);
 };
 
 } // end llvm namespace
