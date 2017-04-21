@@ -690,6 +690,8 @@ def fintel_openmp : Flag<["-"], "fintel-openmp">,
   HelpText<"Enable emitting of Intel specific OpenMP code">;
 def fintel_openmp_region : Flag<["-"], "fintel-openmp-region">,
   HelpText<"Enable emitting of Intel specific OpenMP code with regions">;
+def fopenmp_threadprivate_legacy : Flag<["-"], "fopenmp-threadprivate-legacy">,
+  HelpText<"Generate legacy OpenMP threadprivates">;
 def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
   HelpText<"Name of the file for communication between front-end and driver.">;
 // endif INTEL_SPECIFIC_OPENMP

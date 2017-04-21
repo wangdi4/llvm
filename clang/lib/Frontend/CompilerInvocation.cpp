@@ -1914,6 +1914,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_SPECIFIC_OPENMP
   Opts.IntelOpenMP = Args.hasArg(OPT_fintel_openmp);
   Opts.IntelOpenMPRegion = Args.hasArg(OPT_fintel_openmp_region);
+  Opts.OpenMPThreadPrivateLegacy =
+      Args.hasArg(OPT_fopenmp_threadprivate_legacy);
   Opts.IntelDriverTempfileName =
       Args.getLastArgValue(OPT_fintel_driver_tempfile_name_EQ);
 #endif // INTEL_SPECIFIC_OPENMP
@@ -2382,6 +2384,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Check if -fopenmp is specified.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 1 : 0;
   Opts.OpenMPUseTLS =
+#if INTEL_CUSTOMIZATION
+      !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&
+#endif  // INTEL_CUSTOMIZATION
       Opts.OpenMP && !Args.hasArg(options::OPT_fnoopenmp_use_tls);
   Opts.OpenMPIsDevice =
       Opts.OpenMP && Args.hasArg(options::OPT_fopenmp_is_device);
