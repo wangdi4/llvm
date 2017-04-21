@@ -2,7 +2,8 @@
 ;       for(i=0; i<N; i++) 
 ;           for(k=0; k<N; k++)     
 ;		 c[i][j] = c[i][j] + a[i][k+1] * b[k][j+1] + 1;
-; RUN: opt -O2 -loopopt -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -O2 -loopopt -debug  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 1 3 2 )  
 ; to be fixed: Need safe reduction for  t0 = t0 +  

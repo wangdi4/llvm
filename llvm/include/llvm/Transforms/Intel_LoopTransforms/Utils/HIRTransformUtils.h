@@ -209,7 +209,7 @@ public:
   /// Loops are added to \p LoopPermutation in the desired permuted order.
   static void
   permuteLoopNests(HLLoop *OutermostLoop,
-                   const SmallVectorImpl<HLLoop *> &LoopPermutation);
+                   const SmallVectorImpl<const HLLoop *> &LoopPermutation);
 
   /// Updates target HLLabel in every HLGoto node according to the mapping.
   static void remapLabelsRange(const HLNodeMapper &Mapper, HLNode *Begin,

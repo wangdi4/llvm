@@ -8,7 +8,8 @@
 ;                        A[i5][i4][i3][i2+n][i1+n] =
 ;                            A[i5][i4][i3][i2][i1] + 1 ;
 ;
-; RUN: opt -O2  -loopopt -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -O2  -loopopt -debug -hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged
 
 ; ModuleID = 'interchange6.c'

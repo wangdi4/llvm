@@ -2,7 +2,8 @@
 ;        for (j=0; j <= i ; j++) 
 ;            A[j][i] = A[j][i] + 1; 
 ;
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -hir-ssa-deconstruction -debug -hir-loop-interchange < %s 2>&1 | FileCheck %s
 ; CHECK-NOT:  Interchanged
 
 ; ModuleID = 'triangular.c'

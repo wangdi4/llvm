@@ -338,7 +338,7 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 /// Update Loop properties based on Input Permutations
 /// Used by Loop Interchange now. Will be useful for loop blocking later
 void HIRTransformUtils::permuteLoopNests(
-    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
+    HLLoop *OutermostLoop, const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
   HLLoop *DstLoop = OutermostLoop;

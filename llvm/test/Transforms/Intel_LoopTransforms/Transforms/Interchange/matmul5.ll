@@ -2,7 +2,8 @@
  ;    for(j=0; j<N; j++) 
   ;       for(i=0; i<N; i++) 
    ;          c[i][j] = c[i][j] + a[i][k] * b[k][j];
-; RUN: opt -O2 -loopopt   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -O2 -loopopt -debug  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 3 1 2 )  
 
