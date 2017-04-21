@@ -1359,4 +1359,46 @@ StructType* CompilationUtils::getStructFromTypePtr(Type *Ty) {
   return dyn_cast<StructType>(PtrTy->getElementType());
 }
 
+size_t CompilationUtils::getArrayNumElements(const ArrayType *ArrTy) {
+  size_t NumElements = 1;
+  Type *Ty = cast<Type>(const_cast<ArrayType*>(ArrTy));
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(Ty)) {
+    NumElements *= InnerArrayTy->getNumElements();
+    Ty = InnerArrayTy->getElementType();
+  }
+
+  return NumElements;
+}
+
+Type * CompilationUtils::getArrayElementType(const ArrayType *ArrTy) {
+  Type *ElemTy = ArrTy->getElementType();
+  while (auto *InnerArrayTy = dyn_cast<ArrayType>(ElemTy)) {
+    ElemTy = InnerArrayTy->getElementType();
+  }
+
+  return ElemTy;
+}
+
+ArrayType * CompilationUtils::createMultiDimArray(
+    Type *Ty, const SmallVectorImpl<size_t> &Dimensions) {
+  ArrayType *MDArrayTy = nullptr;
+  for (int i = Dimensions.size() - 1; i >= 0; --i) {
+    if (!MDArrayTy) {
+      MDArrayTy = ArrayType::get(Ty, Dimensions[i]);
+    } else {
+      MDArrayTy = ArrayType::get(MDArrayTy, Dimensions[i]);
+    }
+  }
+
+  return MDArrayTy;
+}
+
+void CompilationUtils::getArrayTypeDimensions(
+    const ArrayType *ArrTy, SmallVectorImpl<size_t> &Dimensions) {
+  const ArrayType *InnerArrTy = ArrTy;
+  do {
+    Dimensions.push_back(InnerArrTy->getNumElements());
+  } while ((InnerArrTy = dyn_cast<ArrayType>(InnerArrTy->getElementType())));
+}
+
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

@@ -2,21 +2,29 @@
 ; ----------------------------------------------------
 ; #pragma OPENCL EXTENSION cl_altera_channels : enable
 ; channel int bar __attribute__((depth(0)));
-; channel float far __attribtue__((depth(3)));
+; channel float far __attribute__((depth(3)));
 ;
 ; struct Foo {
 ;   int i;
 ; };
 ; channel struct Foo star;
 ;
+; channel int bar_arr[5] __attribute__((depth(0)));
+; channel float far_arr[5][4] __attribute__((depth(3)));
+; channel struct Foo star_arr[5][4][3];
+;
 ; __kernel void foo() {
 ;   int i = 42;
 ;   float f = 0.42f;
 ;   struct Foo st = {0};
 ;
-;   write_channel_altera(bar, 42);
+;   write_channel_altera(bar, i);
 ;   write_channel_altera(far, f);
 ;   write_channel_altera(star, st);
+;
+;   write_channel_altera(bar_arr[3], i);
+;   write_channel_altera(far_arr[3][2], f);
+;   write_channel_altera(star_arr[3][2][1], st);
 ; }
 ; ----------------------------------------------------
 ; RUNX: opt -runtimelib=%p/../../vectorizer/Full/runtime.bc -channel-pipe-transformation -pipe-support -verify %s -S | FileCheck %s
@@ -29,10 +37,16 @@ target triple = "spir"
 @bar = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 @far = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
 @star = common addrspace(1) global %opencl.channel_t addrspace(1)* null, align 4
+@bar_arr = common addrspace(1) global [5 x %opencl.channel_t addrspace(1)*] zeroinitializer, align 4
+@far_arr = common addrspace(1) global [5 x [4 x %opencl.channel_t addrspace(1)*]] zeroinitializer, align 4
+@star_arr = common addrspace(1) global [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] zeroinitializer, align 4
 
-; CHECK:      @[[PIPE_BAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_FAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
-; CHECK-NEXT: @[[PIPE_STAR:.*]] = common global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK:      @[[PIPE_BAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK-NEXT: @[[PIPE_FAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK-NEXT: @[[PIPE_STAR:.*]] = common addrspace(1) global %opencl.pipe_t{{.*}} addrspace(1)*
+; CHECK:      @[[PIPE_BAR_ARR:.*]] = common addrspace(1) global [5 x %opencl.pipe_t{{.*}} addrspace(1)*] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_FAR_ARR:.*]] = common addrspace(1) global [5 x [4 x %opencl.pipe_t{{.*}} addrspace(1)*]] zeroinitializer, align 4
+; CHECK-NEXT: @[[PIPE_STAR_ARR:.*]] = common addrspace(1) global [5 x [4 x [3 x %opencl.pipe_t{{.*}} addrspace(1)*]]] zeroinitializer, align 4
 
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE]]
@@ -45,6 +59,18 @@ target triple = "spir"
 ; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
 ; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE]]
 ; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE]]
+;
+; CHECK: %[[LOAD_BAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_BAR_ARR]]
+; CHECK: %[[CAST_BAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR]]
+;
+; CHECK: %[[LOAD_FAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_FAR_ARR]]
+; CHECK: %[[CAST_FAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR]]
+;
+; CHECK: %[[LOAD_STAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_STAR_ARR]]
+; CHECK: %[[CAST_STAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR]]
 
 ;; Now check that flushes are inserted at the end:
 
@@ -60,6 +86,12 @@ target triple = "spir"
 ; CHECK: %[[FLUSH_CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[FLUSH_LOAD_STAR_PIPE]]
 ; CHECK: call void @__flush_write_pipe{{.*}} %[[FLUSH_CAST_STAR_PIPE]]
 
+; CHECK: call void @__flush_write_pipe_array{{.*}} bitcast{{.*}} @[[PIPE_BAR_ARR]] to %struct.__pipe_t{{.*}}, i32 5
+
+; CHECK: call void @__flush_write_pipe_array{{.*}} bitcast{{.*}} @[[PIPE_FAR_ARR]] to %struct.__pipe_t{{.*}}, i32 20
+
+; CHECK: call void @__flush_write_pipe_array{{.*}} bitcast{{.*}} @[[PIPE_STAR_ARR]] to %struct.__pipe_t{{.*}}, i32 60
+
 ; CHECK-NEXT: ret void
 
 ; Function Attrs: nounwind
@@ -70,12 +102,18 @@ entry:
   call void @llvm.lifetime.start(i64 4, i8* %0) #3
   %1 = getelementptr inbounds %struct.Foo, %struct.Foo* %st, i32 0, i32 0
   store i32 0, i32* %1, align 4
-  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !16
+  %2 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @bar, align 4, !tbaa !19
   tail call void @_Z20write_channel_altera11ocl_channelii(%opencl.channel_t addrspace(1)* %2, i32 42) #3
-  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !16
+  %3 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @far, align 4, !tbaa !19
   tail call void @_Z20write_channel_altera11ocl_channelff(%opencl.channel_t addrspace(1)* %3, float 0x3FDAE147A0000000) #3
-  %4 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !16
+  %4 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* @star, align 4, !tbaa !19
   call void @_Z20write_channel_altera11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %4, %struct.Foo* byval nonnull align 4 %st) #3
+  %5 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x %opencl.channel_t addrspace(1)*], [5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, i32 0, i32 3), align 4, !tbaa !19
+  call void @_Z20write_channel_altera11ocl_channelii(%opencl.channel_t addrspace(1)* %5, i32 42) #3
+  %6 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x [4 x %opencl.channel_t addrspace(1)*]], [5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @far_arr, i32 0, i32 3, i32 2), align 4, !tbaa !19
+  call void @_Z20write_channel_altera11ocl_channelff(%opencl.channel_t addrspace(1)* %6, float 0x3FDAE147A0000000) #3
+  %7 = load %opencl.channel_t addrspace(1)*, %opencl.channel_t addrspace(1)* addrspace(1)* getelementptr inbounds ([5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]], [5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, i32 0, i32 3, i32 2, i32 1), align 4, !tbaa !19
+  call void @_Z20write_channel_altera11ocl_channel3FooS_(%opencl.channel_t addrspace(1)* %7, %struct.Foo* byval nonnull align 4 %st) #3
   call void @llvm.lifetime.end(i64 4, i8* %0) #3
   ret void
 }
@@ -98,14 +136,14 @@ attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-
 attributes #3 = { nounwind }
 
 !opencl.kernels = !{!0}
-!opencl.channels = !{!6, !10, !12}
+!opencl.channels = !{!6, !10, !12, !13, !14, !15}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.ocl.version = !{!13}
-!opencl.spir.version = !{!13}
-!opencl.used.extensions = !{!14}
-!opencl.used.optional.core.features = !{!14}
-!opencl.compiler.options = !{!14}
-!llvm.ident = !{!15}
+!opencl.ocl.version = !{!16}
+!opencl.spir.version = !{!16}
+!opencl.used.extensions = !{!17}
+!opencl.used.optional.core.features = !{!17}
+!opencl.compiler.options = !{!17}
+!llvm.ident = !{!18}
 
 !0 = !{void ()* @foo, !1, !2, !3, !4, !5}
 !1 = !{!"kernel_arg_addr_space"}
@@ -120,9 +158,12 @@ attributes #3 = { nounwind }
 !10 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @far, !7, !8, !11}
 !11 = !{!"depth", i32 3}
 !12 = !{%opencl.channel_t addrspace(1)* addrspace(1)* @star, !7, !8}
-!13 = !{i32 2, i32 0}
-!14 = !{}
-!15 = !{!"clang version 3.8.1 "}
-!16 = !{!17, !17, i64 0}
-!17 = !{!"omnipotent char", !18, i64 0}
-!18 = !{!"Simple C/C++ TBAA"}
+!13 = !{[5 x %opencl.channel_t addrspace(1)*] addrspace(1)* @bar_arr, !7, !8, !9}
+!14 = !{[5 x [4 x %opencl.channel_t addrspace(1)*]] addrspace(1)* @far_arr, !7, !8, !11}
+!15 = !{[5 x [4 x [3 x %opencl.channel_t addrspace(1)*]]] addrspace(1)* @star_arr, !7, !8}
+!16 = !{i32 2, i32 0}
+!17 = !{}
+!18 = !{!"clang version 3.8.1 "}
+!19 = !{!20, !20, i64 0}
+!20 = !{!"omnipotent char", !21, i64 0}
+!21 = !{!"Simple C/C++ TBAA"}

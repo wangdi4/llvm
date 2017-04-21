@@ -183,14 +183,35 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   p->write_buf.limit = min(max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT);
 }
 
+void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
+                             int array_size, int packet_size, int max_packets) {
+  for (int i = 0; i < array_size; ++i) {
+    __pipe_init_intel(p[i], packet_size, max_packets);
+  }
+}
+
 void __flush_read_pipe(__global struct __pipe_t* p) {
   p->read_buf.size = -1;
   atomic_store_explicit(&p->head, p->read_buf.end, memory_order_release);
 }
 
+void __flush_read_pipe_array(__global struct __pipe_t* __global* p,
+                             int array_size) {
+  for (int i = 0; i < array_size; ++i) {
+    __flush_read_pipe(p[i]);
+  }
+}
+
 void __flush_write_pipe(__global struct __pipe_t* p) {
   p->write_buf.size = -1;
   atomic_store_explicit(&p->tail, p->write_buf.end, memory_order_release);
+}
+
+void __flush_write_pipe_array(__global struct __pipe_t* __global* p,
+                             int array_size) {
+  for (int i = 0; i < array_size; ++i) {
+    __flush_write_pipe(p[i]);
+  }
 }
 
 int __read_pipe_2_intel(__global struct __pipe_t* p, void* dst) {
