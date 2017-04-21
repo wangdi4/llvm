@@ -208,6 +208,8 @@ void VPOScenarioEvaluationBase::findVFCandidates(
     MaxVF = ForceVF;
   }
 
+  assert(MinVF && MaxVF && "Unexpected zero min/max VF");
+
   for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
     VFCandidates.push_back(VF);
   }
