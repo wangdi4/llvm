@@ -926,6 +926,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
       genReductionFini(RedI, BeginBB->getTerminator());
+      DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtr, dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
@@ -1030,6 +1031,8 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
       FprivI->setNew(NewPrivInst);
       createEmptyPrvInitBB(W, PrivInitEntryBB);
       genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+      DEBUG(dbgs() << "genFirstOrLastPrivatizationCode: firstprivatized " 
+                   << *Orig << "\n");
     }
     Changed = true;
   }
@@ -1056,6 +1059,8 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
         BasicBlock *BeginBB = nullptr;
         createEmptyPrivFiniBB(W, BeginBB);
         genLprivFini(LprivI, BeginBB->getTerminator());
+        DEBUG(dbgs() << "genFirstOrLastPrivatizationCode: lastprivatized " 
+                     << *Old << "\n");
       }
       Changed = true;
     }
@@ -1087,10 +1092,12 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
-      assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
-             "genPrivatizationCode: Unexpected private variable");
-
-      genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
+      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+        genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
+        DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
+      } else
+        DEBUG(dbgs() << "genPrivatizationCode: " << *Orig 
+                     << " is already private.\n");
     }
 
     Changed = true;
