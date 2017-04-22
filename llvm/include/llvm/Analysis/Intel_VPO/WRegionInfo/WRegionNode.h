@@ -391,8 +391,8 @@ public:
   /// \brief When IsFromHIR==true, prints EntryHLNode, ExitHLNode, and HLLoop
   /// This is virtual here; the derived WRNs supporting HIR have to provide the
   /// actual routine. Currently only WRNVecLoopNode uses HIR.
-  virtual void printEntryExitHIR(formatted_raw_ostream &OS, unsigned Depth, 
-                                 bool Verbose=false) const {}
+  virtual void printHIR(formatted_raw_ostream &OS, unsigned Depth,
+                        bool Verbose=false) const {}
 
   /// \brief If IsOmpLoop==true, prints loop preheader, header, and latch BBs
   void printLoopBB(formatted_raw_ostream &OS, unsigned Depth,

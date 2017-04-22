@@ -634,7 +634,7 @@ public:
   void printExtra(formatted_raw_ostream &OS, unsigned Depth,
                                              bool Verbose=false) const;
 
-  void printEntryExitHIR(formatted_raw_ostream &OS, unsigned Depth,
+  void printHIR(formatted_raw_ostream &OS, unsigned Depth,
                                              bool Verbose=false) const;
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.

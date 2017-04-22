@@ -153,8 +153,10 @@ WRegionNode *WRegionUtils::createWRegionHIR(
       W = new WRNVecLoopNode(EntryHLNode);
       break;
   }
-  if (W)
+  if (W) {
     W->setLevel(NestingLevel);
+    W->setDirID(DirID);
+  }
   return W;
 }
 
@@ -169,7 +171,6 @@ void WRegionUtils::updateWRGraphFromHIR (
 {
   WRegionNode *W = nullptr;
   StringRef DirOrClauseStr = VPOAnalysisUtils::getDirectiveMetadataString(Call);
-
   if (IntrinId == Intrinsic::intel_directive) {
     int DirID = VPOAnalysisUtils::getDirectiveID(DirOrClauseStr);
     // If the intrinsic represents a BEGIN directive for a construct 

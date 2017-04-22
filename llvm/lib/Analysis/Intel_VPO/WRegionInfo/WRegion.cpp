@@ -236,8 +236,8 @@ void WRNVecLoopNode::printExtra(formatted_raw_ostream &OS, unsigned Depth,
   OS.indent(2*Depth) << "SAFELEN: " << getSafelen() << "\n";
 }
 
-void WRNVecLoopNode::printEntryExitHIR(formatted_raw_ostream &OS, 
-                                       unsigned Depth, bool Verbose) const {
+void WRNVecLoopNode::printHIR(formatted_raw_ostream &OS, unsigned Depth,
+                              bool Verbose) const {
   if (!getIsFromHIR()) // using LLVM-IR representation; no HIR to print
     return;
 

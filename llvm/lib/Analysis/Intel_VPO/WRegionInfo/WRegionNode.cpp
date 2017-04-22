@@ -193,12 +193,12 @@ void WRegionNode::printBody(formatted_raw_ostream &OS, bool PrintChildren,
   printClauses(OS, Depth, Verbose);
 
   if (getIsFromHIR())
-    printEntryExitHIR(OS, Depth, Verbose); // defined by derived WRN
-  else
+    printHIR(OS, Depth, Verbose); // defined by derived WRN
+  else {
     printEntryExitBB(OS, Depth, Verbose);
-
-  if (getIsOmpLoop())
-    printLoopBB(OS, Depth, Verbose);
+    if (getIsOmpLoop())
+      printLoopBB(OS, Depth, Verbose);
+  }
 
   if (PrintChildren)
     printChildren(OS, Depth, Verbose);
