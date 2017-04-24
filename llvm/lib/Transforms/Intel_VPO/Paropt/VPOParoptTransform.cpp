@@ -227,7 +227,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           // Privatization is enabled for both Prepare and Transform passes
           Changed = genPrivatizationCode(W);
-          Changed |= genFirstOrLastPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
@@ -244,7 +244,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed = genLoopSchedulingCode(W);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
-          Changed |= genFirstOrLastPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
@@ -290,7 +290,7 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           Changed = genLoopSchedulingCode(W);
           Changed |= genPrivatizationCode(W);
-          Changed |= genFirstOrLastPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           RemoveDirectives = true;
         }
@@ -997,7 +997,7 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
   return NewPrivInst;
 }
 
-bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
+bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
 
@@ -1006,7 +1006,7 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
   DEBUG(dbgs() << "\n WRegionNode: Invoke Firstprivate Initialization \n\n");
 
   assert(W->isBBSetEmpty() &&
-         "genFirstOrLastPrivatizationCode: BBSET should start empty");
+         "genFirstPrivatizationCode: BBSET should start empty");
 
   // This routine assumes that W->hasFirstprivate() is true while
   // W->hasLastprivate() may be true or false. The assumption is valid: with 
@@ -1015,59 +1015,82 @@ bool VPOParoptTransform::genFirstOrLastPrivatizationCode(WRegionNode *W) {
   // firstprivate clause, but they're not processed here but in the Vectorizer.
 
   assert(W->hasFirstprivate() &&
-       "genFirstOrLastPrivatizationCode: WRN doesn't take a firstprivate var");
+         "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
     W->populateBBSet();
     BasicBlock *PrivInitEntryBB = nullptr;
+    AllocaInst *NewPrivInst = nullptr;
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
-          "genFirstOrLastPrivatizationCode: Unexpected firstprivate variable");
+             "genFirstPrivatizationCode: Unexpected firstprivate variable");
+      if (W->hasLastprivate()) {
+        LastprivateClause &LprivClause = W->getLpriv();
+        auto LprivI = LprivClause.findOrig(Orig);
+        if (!LprivI) {
+          NewPrivInst =
+              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+          FprivI->setNew(NewPrivInst);
+        } else
+          FprivI->setNew(LprivI->getNew());
+      } else {
+        NewPrivInst =
+            genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+        FprivI->setNew(NewPrivInst);
+      }
 
-      AllocaInst *NewPrivInst = genPrivatizationCodeHelper(W, Orig, 
-                                                  &EntryBB->front(), ".fpriv");
-      FprivI->setNew(NewPrivInst);
       createEmptyPrvInitBB(W, PrivInitEntryBB);
       genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       DEBUG(dbgs() << "genFirstOrLastPrivatizationCode: firstprivatized " 
                    << *Orig << "\n");
     }
     Changed = true;
+    W->resetBBSet(); // Invalidate BBSet
   }
 
-  if (W->hasLastprivate()) {
-    LastprivateClause &LprivClause = W->getLpriv();
-    if (LprivClause.size()) {
-
-      if(W->isBBSetEmpty()) 
-        W->populateBBSet();
-
-      for (LastprivateItem *LprivI : LprivClause.items()) {
-        Value *Old = LprivI->getOrig();
-        assert((isa<GlobalVariable>(Old) || isa<AllocaInst>(Old)) &&
-           "genFirstOrLastPrivatizationCode: Unexpected lastprivate variable");
-
-        auto FprivI = FprivClause.findOrig(Old);
-        if (!FprivI) {
-          AllocaInst *NewPrivInst = genPrivatizationCodeHelper(W, Old,
-                                                  &EntryBB->front(), ".lpriv");
-          LprivI->setNew(NewPrivInst);
-        } else
-          LprivI->setNew(FprivI->getNew());
-        BasicBlock *BeginBB = nullptr;
-        createEmptyPrivFiniBB(W, BeginBB);
-        genLprivFini(LprivI, BeginBB->getTerminator());
-        DEBUG(dbgs() << "genFirstOrLastPrivatizationCode: lastprivatized " 
-                     << *Old << "\n");
-      }
-      Changed = true;
-    }
-  }
-
-  W->resetBBSet(); // Invalidate BBSet
   return Changed;
+}
+
+void VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
+                                                  AllocaInst *IsLastVal) {
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+
+    if (W->isBBSetEmpty())
+      W->populateBBSet();
+
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *BeginBB = nullptr;
+    createEmptyPrivFiniBB(W, BeginBB);
+    IRBuilder<> Builder(BeginBB);
+    Builder.SetInsertPoint(BeginBB->getTerminator());
+
+    assert(IsLastVal && "Expect the value lastIter is not empty");
+    LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);
+    ConstantInt *ValueZero =
+        ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
+    Value *LastCompare = Builder.CreateICmpNE(LastLoad, ValueZero);
+    TerminatorInst *Term = SplitBlockAndInsertIfThen(
+        LastCompare, BeginBB->getTerminator(), false, nullptr, DT, LI);
+    Term->getParent()->setName("lastprivate.then");
+    BeginBB->getTerminator()->getSuccessor(1)->setName("lastprivate.done");
+    BeginBB = Term->getParent();
+
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      Value *Old = LprivI->getOrig();
+      assert((isa<GlobalVariable>(Old) || isa<AllocaInst>(Old)) &&
+             "genLastPrivatizationCode: Unexpected lastprivate variable");
+
+      AllocaInst *NewPrivInst =
+          genPrivatizationCodeHelper(W, Old, &EntryBB->front(), ".lpriv");
+      LprivI->setNew(NewPrivInst);
+      genLprivFini(LprivI, BeginBB->getTerminator());
+    }
+    W->resetBBSet(); // Invalidate BBSet
+  }
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
@@ -1077,7 +1100,6 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   BasicBlock *EntryBB = W->getEntryBBlock();
 
   DEBUG(dbgs() << "\n WRegionNode: Invoke Privatization \n\n");
-
 
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
@@ -1162,7 +1184,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  AllocaInst *IsLastVal = new AllocaInst(Int32Ty, "is.last", InsertPt);
+  AllocaInst *IsLastVal =
+      new AllocaInst(Int32Ty, "is.last", W->getEntryBBlock()->getTerminator());
   IsLastVal->setAlignment(4);
 
   AllocaInst *LowerBnd = new AllocaInst(IndValTy, "lower.bnd", InsertPt);
@@ -1500,6 +1523,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   // There are new BBlocks generated, so we need to reset BBSet 
   W->resetBBSet();
 
+  genLastPrivatizationCode(W, IsLastVal);
   return true;
 }
 
@@ -2171,10 +2195,9 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // One example is as follows.
         //   %1 = icmp ne i64 %0, ptrtoint (i32* @a to i64)
         Value *PtrCompare = Builder.CreateICmpNE(TpvArg, OldTpv);
-        Term = 
-          SplitBlockAndInsertIfThen(PtrCompare,
-                                    NFn->getEntryBlock().getTerminator(),
-                                    false);
+        Term = SplitBlockAndInsertIfThen(PtrCompare,
+                                         NFn->getEntryBlock().getTerminator(),
+                                         false, nullptr, DT, LI);
 
         // Set the name for the newly generated basic blocks.
         Term->getParent()->setName("copyin.not.master");

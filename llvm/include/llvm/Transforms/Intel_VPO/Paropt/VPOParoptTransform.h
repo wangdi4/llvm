@@ -124,7 +124,12 @@ private:
 
   /// \brief Generate code for privatization 
   bool genPrivatizationCode(WRegionNode *W);
-  bool genFirstOrLastPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate code for first privatization
+  bool genFirstPrivatizationCode(WRegionNode *W);
+
+  /// \brief Generate code for last privatization
+  void genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
 
   /// \brief A utility to privatize the variables within the region.
   AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,

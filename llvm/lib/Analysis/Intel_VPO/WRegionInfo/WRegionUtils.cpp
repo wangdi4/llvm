@@ -314,8 +314,8 @@ PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
     if (Instruction *Inc =
         dyn_cast<Instruction>(PN->getIncomingValueForBlock(Backedge)))
       if ((Inc->getOpcode() == Instruction::Add ||
-         Inc->getOpcode() == Instruction::Sub) &&
-         Inc->getOperand(0) == PN)
+           Inc->getOpcode() == Instruction::Sub) &&
+          (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN))
         return PN;
   }
   llvm_unreachable("Omp loop must have induction variable!");
@@ -339,13 +339,16 @@ Value *WRegionUtils::getOmpLoopStride(Loop *L, bool &IsNeg) {
   if (Instruction *Inc = 
       dyn_cast<Instruction>(PN->getIncomingValueForBlock(L->getLoopLatch())))
     if ((Inc->getOpcode() == Instruction::Add ||
-       Inc->getOpcode() == Instruction::Sub) &&
-       Inc->getOperand(0) == PN) {
+         Inc->getOpcode() == Instruction::Sub) &&
+        (Inc->getOperand(0) == PN || Inc->getOperand(1) == PN)) {
       if (Inc->getOpcode() == Instruction::Sub)
         IsNeg = true;
       else
         IsNeg = false;
-      return Inc->getOperand(1);
+      if (Inc->getOperand(0) == PN)
+        return Inc->getOperand(1);
+      else
+        return Inc->getOperand(0);
     }
   llvm_unreachable("Omp loop must have stride!");
 }
