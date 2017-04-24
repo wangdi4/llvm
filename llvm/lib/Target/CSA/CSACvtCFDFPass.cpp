@@ -114,6 +114,10 @@ namespace llvm {
     bool hasStraightExitings(MachineLoop* mloop);
     void replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb);
     void generateCompletePickTreeForPhi(MachineBasicBlock *);
+    void CombineDuplicatePickTreeInput();
+    void PatchCFGLeaksFromPcikTree(unsigned phiDst);
+    unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds, MachineBasicBlock* mbb, MachineInstr *MI=nullptr);
+    unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb);
     void generateDynamicPickTreeForFooter(MachineBasicBlock *);
     void generateDynamicPickTreeForHeader(MachineBasicBlock*);
     bool needDynamicPreds();
@@ -132,6 +136,7 @@ namespace llvm {
     unsigned mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path);
     unsigned computeBBPred(MachineBasicBlock *inBB, std::list<MachineBasicBlock*> &path);
     void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+    void TraceLeak(MachineBasicBlock* ctrlBB, MachineBasicBlock* mbb, SmallVectorImpl<unsigned> &landOpnds);
     void CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi);
     void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr *MI);
     bool CheckPhiInputBB(MachineBasicBlock* inBB, MachineBasicBlock* mbb);
@@ -144,7 +149,6 @@ namespace llvm {
     void handleAllConstantInputs();
     void releaseMemory() override;
     bool replaceUndefWithIgn();
-    bool isUnStructured(MachineBasicBlock* mbb);
 
   private:
     MachineFunction *thisMF;
@@ -166,7 +170,7 @@ namespace llvm {
     DenseMap<MachineBasicBlock *, unsigned> bbpreds;
     DenseMap<MachineBasicBlock*, MachineInstr*> bb2predmerge;
     DenseMap<MachineBasicBlock*, unsigned> bb2rpo;
-    std::set<MachineInstr *> multiInputsPick;
+    DenseMap<MachineInstr *, MachineBasicBlock *> multiInputsPick;
     std::set<MachineBasicBlock *> dcgBBs;
   };
 }
@@ -1799,7 +1803,9 @@ MachineInstr* CSACvtCFDFPass::insertPICKForReg(MachineBasicBlock* ctrlBB, unsign
     addReg(pickFalseReg).
     addReg(pickTrueReg);
   pickInst->setFlag(MachineInstr::NonSequential);
-  multiInputsPick.insert(pickInst);
+  //multiInputsPick.insert(pickInst);
+  //bookkeeping pickInst and its predBB
+  multiInputsPick[pickInst] = ctrlBB;
   return pickInst;
 }
 
@@ -1855,7 +1861,7 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
           continue;
         } else {
           bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);          
-		  if (inBBFork) {
+          if (inBBFork) {
             MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
             if (!pickInstr) {
               //patched
@@ -1869,8 +1875,247 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
       }
     } //end of for MO
     MI->removeFromParent();
+    PatchCFGLeaksFromPcikTree(dst);
   }
 }
+
+
+void CSACvtCFDFPass::TraceLeak(MachineBasicBlock* inBB, MachineBasicBlock* mbb, SmallVectorImpl<unsigned> &landOpnds) {
+  if (!DT->dominates(inBB, mbb)) {
+    ControlDependenceNode* inNode = CDG->getNode(inBB);
+    for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+      ControlDependenceNode* ctrlNode = *pnode;
+      MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+      //ignore loop latch, keep looking beyond the loop
+      if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+        continue;
+      MachineInstr* bi = &*ctrlBB->getFirstInstrTerminator();
+      unsigned ec = bi->getOperand(0).getReg();
+      if (ctrlNode->isFalseChild(inNode)) {
+        unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+        BuildMI(*ctrlBB, ctrlBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(ec);
+        ec = notReg;
+      }
+      landOpnds.push_back(ec);
+
+      TraceLeak(ctrlBB, mbb, landOpnds);
+    }
+  }
+}
+
+
+
+unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds, MachineBasicBlock* mbb, MachineInstr* MI) {
+  MachineBasicBlock::instr_iterator loc = mbb->getFirstInstrTerminator();
+  unsigned landResult = 0;
+  unsigned landSrc = 0;
+  MachineInstr* landInstr;
+  unsigned i = 0;
+  for (; i < landOpnds.size(); i++) {
+    if (!landSrc) {
+      landSrc = landOpnds[i];
+    } else if (!landResult) {
+      landResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      landInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::LAND1),
+        landResult).
+        addReg(landSrc).
+        addReg(landOpnds[i]);
+      if (MI) {
+        //move landInst to after MI
+        landInstr->removeFromParent();
+        mbb->insert(MI, landInstr);
+      }
+      landInstr->setFlag(MachineInstr::NonSequential);
+    } else {
+      if (i % 4) {
+        landInstr->addOperand(MachineOperand::CreateReg(landOpnds[i], false));
+      } else {
+        unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+        landInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::LAND1),
+          newResult).
+          addReg(landResult).
+          addReg(landOpnds[i]);
+        if (MI) {
+          landInstr->removeFromParent();
+          mbb->insert(MI, landInstr);
+        }
+        landInstr->setFlag(MachineInstr::NonSequential);
+        landResult = newResult;
+      }
+    }
+  }
+  if (i % 4) {
+    for (unsigned j = i % 4; j < 4; j++) {
+      landInstr->addOperand(MachineOperand::CreateImm(1));
+    }
+  }
+  return landInstr->getOperand(0).getReg();
+}
+
+
+unsigned CSACvtCFDFPass::generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb) {
+  unsigned orSrc = 0;
+  unsigned orResult = 0;
+  MachineInstr* orInstr = nullptr;
+  for (unsigned i = 0; i < orOpnds.size(); ++i) {
+    unsigned ec = orOpnds[i];
+    if (!orSrc) {
+      orSrc = ec;
+    } else if (!orResult) {
+      orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      orInstr = BuildMI(*mbb, mbb->getFirstTerminator(), DebugLoc(), TII->get(CSA::OR1),
+        orResult).
+        addReg(orSrc).
+        addReg(ec);
+      orInstr->setFlag(MachineInstr::NonSequential);
+    } else {
+      unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
+      orInstr = BuildMI(*mbb, mbb->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::OR1),
+        newResult).
+        addReg(orResult).
+        addReg(ec);
+      orInstr->setFlag(MachineInstr::NonSequential);
+      orResult = newResult;
+    }
+  }
+  unsigned pred = orResult ? orResult : orSrc;
+  return pred;
+}
+
+
+
+void CSACvtCFDFPass::CombineDuplicatePickTreeInput() {
+  SmallVector<unsigned, 4> landOpnds;
+  DenseMap<MachineInstr *, MachineBasicBlock *> ::iterator itmp = multiInputsPick.begin();
+  while (itmp != multiInputsPick.end()) {
+    MachineInstr* pickInstr = itmp->getFirst();
+    ++itmp;
+    unsigned dst = pickInstr->getOperand(0).getReg();
+    MachineRegisterInfo::use_iterator UI = MRI->use_begin(dst);
+    //assert single use???
+    while (UI != MRI->use_end()) {
+      MachineOperand &UseMO = *UI;
+      MachineInstr *UseMI = UseMO.getParent();
+      MachineBasicBlock* UseBB = UseMI->getParent();
+      ++UI;
+      if (multiInputsPick.find(UseMI) != multiInputsPick.end()) {
+        unsigned useIndex = (dst == UseMI->getOperand(2).getReg()) ? 2 : 3;
+        assert(dst != UseMI->getOperand(1).getReg());
+        unsigned otherIndex = 5 - useIndex;
+        unsigned otherReg = UseMI->getOperand(otherIndex).getReg();
+        if (otherReg == pickInstr->getOperand(2).getReg() ||
+          otherReg == pickInstr->getOperand(3).getReg()) {
+          unsigned dupIndex = (otherReg == pickInstr->getOperand(2).getReg()) ? 2 : 3;
+          unsigned singleIndex = 5 - dupIndex;
+          unsigned c1 = UseMI->getOperand(1).getReg();
+          if (useIndex == 2) {
+            // c1 = not c1
+            unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+            BuildMI(*UseBB, UseMI, DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(c1);
+            c1 = notReg;
+          }
+          unsigned c2 = pickInstr->getOperand(1).getReg();
+          if (singleIndex == 2) {
+            // c2 = not c2
+            unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+            BuildMI(*UseBB, UseMI, DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(c2);
+            c2 = notReg;
+          }
+          landOpnds.push_back(c1);
+          landOpnds.push_back(c2);
+          unsigned c0 = generateLandSeq(landOpnds, UseBB, UseMI);
+          landOpnds.clear();
+          // c0 = land c1, c2, 1, 1, and insert before UseMI
+          // rewrite UseMI's c to c0, opnd2 to pickInstr's dupIndex, opnd3 pickInstr's singleIndex                      
+          // remove pickInstr
+          UseMI->RemoveOperand(3);
+          UseMI->RemoveOperand(2);
+          UseMI->RemoveOperand(1);
+          UseMI->addOperand(MachineOperand::CreateReg(c0, false));
+          UseMI->addOperand(MachineOperand::CreateReg(pickInstr->getOperand(dupIndex).getReg(), false));
+          UseMI->addOperand(MachineOperand::CreateReg(pickInstr->getOperand(singleIndex).getReg(), false));
+
+          pickInstr->removeFromParent();
+          //remove pickInstr from MultiInputsPick
+          multiInputsPick.erase(pickInstr);
+        }
+      }
+    }
+
+  }
+}
+
+
+//for each IGN remaining in the multiInputPick, generate an land
+void CSACvtCFDFPass::PatchCFGLeaksFromPcikTree(unsigned phiDst) {
+  CombineDuplicatePickTreeInput();
+
+  MachineBasicBlock* phiHome = nullptr;
+  SmallVector<unsigned, 4> landOpnds;
+  SmallVector<unsigned, 4> orOpnds;
+  for (DenseMap<MachineInstr *, MachineBasicBlock *> ::iterator itmp = multiInputsPick.begin();
+       itmp != multiInputsPick.end(); itmp++) {
+    MachineInstr* pickInstr = itmp->getFirst();
+    assert(pickInstr->getOperand(2).getReg() != CSA::IGN || pickInstr->getOperand(3).getReg() != CSA::IGN);
+    unsigned pickIGNInd = 0;
+    if (pickInstr->getOperand(2).getReg() == CSA::IGN) pickIGNInd = 2;
+    else if (pickInstr->getOperand(3).getReg() == CSA::IGN) pickIGNInd = 3;
+
+    if (!pickIGNInd) continue;
+    landOpnds.clear();
+    ControlDependenceNode::EdgeType childType = pickIGNInd == 2 ? 
+                                                ControlDependenceNode::FALSE :
+                                                ControlDependenceNode::TRUE;
+    phiHome = phiHome ? phiHome : pickInstr->getParent();
+    //all pick instructions in the pick tree are all in phi's home block
+    assert(phiHome == pickInstr->getParent());
+    MachineBasicBlock* ctrlBB = itmp->getSecond();
+    //start building land from ctrlBB and its child
+    unsigned ec = pickInstr->getOperand(1).getReg();
+    if (childType == ControlDependenceNode::FALSE) {
+      unsigned notReg = MRI->createVirtualRegister(&CSA::I1RegClass);
+      BuildMI(*ctrlBB, ctrlBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notReg).addReg(ec);
+      ec = notReg;
+    }
+    landOpnds.push_back(ec);
+    //now trace from CtrlBB upward till the entry of the if-tree
+    TraceLeak(ctrlBB, phiHome, landOpnds);
+    //replace IGN with 0 to be ignored later one
+    if (pickIGNInd == 3) {
+      pickInstr->RemoveOperand(3);
+      pickInstr->addOperand(MachineOperand::CreateImm(0));
+    } else {
+      unsigned pickSrc = pickInstr->getOperand(3).getReg();
+      pickInstr->RemoveOperand(3);
+      pickInstr->RemoveOperand(2);
+      pickInstr->addOperand(MachineOperand::CreateImm(0));
+      pickInstr->addOperand(MachineOperand::CreateReg(pickSrc, false));
+    }
+    std::reverse(landOpnds.begin(), landOpnds.end());
+    unsigned landSeq = generateLandSeq(landOpnds, phiHome);
+    orOpnds.push_back(landSeq);
+  }
+
+  //find non IGN in multiInputsPick tree
+  if (!phiHome) return;
+
+  unsigned orSeq = generateOrSeq(orOpnds, phiHome);
+  ////////
+  MachineInstr* finalPick = MRI->getVRegDef(phiDst);
+  assert(TII->isPick(finalPick));
+  unsigned tmpResult = MRI->createVirtualRegister(MRI->getRegClass(phiDst));
+  finalPick->getOperand(0).setReg(tmpResult);
+  const unsigned switchOpcode = TII->getPickSwitchOpcode(MRI->getRegClass(phiDst), false /*not pick op*/);
+  MachineInstr *switchInst = BuildMI(*phiHome, phiHome->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+    phiDst).
+    addReg(CSA::IGN, RegState::Define).
+    addReg(orSeq).
+    addReg(tmpResult);
+  switchInst->setFlag(MachineInstr::NonSequential);
+}
+
+
+
 
 unsigned CSACvtCFDFPass::getEdgePred(MachineBasicBlock* mbb, ControlDependenceNode::EdgeType childType) {
   if (edgepreds.find(mbb) == edgepreds.end()) return 0;
@@ -2124,11 +2369,46 @@ bool CSACvtCFDFPass::needDynamicPreds() {
       return true;
     }
   }
-
-  for (MachineFunction::iterator ibb = thisMF->begin(); ibb != thisMF->end(); ibb++) {
-    MachineBasicBlock* mbb = &*ibb;
-    if (isUnStructured(mbb)) return true;
+  std::list<ControlDependenceNode *> parents;
+  for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
+    MachineBasicBlock *mbb = &*BB;
+    ControlDependenceNode *inNode = CDG->getNode(mbb);
+    parents.clear();
+    for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+      ControlDependenceNode* ctrlNode = *pnode;
+      MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+      if (!ctrlBB) continue;
+      //ignore loop latch, keep looking beyond the loop
+      if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+        continue;
+      //sort parents using the non-transitive parent relationship
+      std::list<ControlDependenceNode *>::iterator parent = parents.begin();
+      while (parent != parents.end()) {
+        if (ctrlNode->isParent(*parent)) {
+          //insert before parent
+          break;
+        } else if ((*parent)->isParent(ctrlNode)) {
+          //insert after parent
+          parent++;
+          break;
+        }
+        parent++;
+      }
+      parents.insert(parent, ctrlNode);
+    }
+    //all parents have to form a linear control dependence relationship
+    if (parents.size() > 1) {
+      std::list<ControlDependenceNode *>::iterator parent = parents.begin();
+      std::list<ControlDependenceNode *>::iterator next = parent;
+      next++;
+      while (next != parents.end()) {
+        if (!(*parent)->isParent(*next)) return true;
+        parent = next;
+        next++;
+      }
+    }
   }
+
   return false;
 }
 
@@ -2149,11 +2429,6 @@ bool CSACvtCFDFPass::needDynamicPreds(MachineLoop* L) {
   if (!latch) return true;
   //loop lattch is not an exiting point
   if (!mloop->isLoopExiting(mloop->getLoopLatch())) return true;
-
-  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
-    MachineBasicBlock* mbb = *BI;
-    if (isUnStructured(mbb)) return true;
-  }
   return false;
 }
 
@@ -2534,52 +2809,6 @@ void CSACvtCFDFPass::LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> 
 
 
 
-
-bool CSACvtCFDFPass::isUnStructured(MachineBasicBlock* mbb) {
-  MachineBasicBlock::iterator iterI = mbb->begin();
-  while (iterI != mbb->end()) {
-    MachineInstr *MI = &*iterI;
-    ++iterI;
-    if (!MI->isPHI()) continue;
-    //check to see if needs PREDPROP/PREDMERGE
-    //loop hdr phi with multiple back edges or loop with multiple exit blocks
-    if (MLI->getLoopFor(mbb) && MLI->getLoopFor(mbb)->getHeader() == mbb) {
-      MachineLoop* mloop = MLI->getLoopFor(mbb);
-      if (mloop->getNumBackEdges() > 1) {
-        return true;
-      }
-      if (mloop->getExitingBlock() == nullptr) {
-        return !hasStraightExitings(mloop);
-      }
-#if 1 
-      MachineBasicBlock* mlatch = mloop->getLoopLatch();
-      assert(mlatch);
-      ControlDependenceNode* nlatch = CDG->getNode(mlatch);
-      bool oneAndOnly = true;
-      getNonLatchParent(nlatch, oneAndOnly);
-      if (!oneAndOnly) 
-        return true;
-#endif
-    } else {
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-        if (MO->isUse()) {
-          //move to its incoming block operand
-          ++MO;
-          MachineBasicBlock* inBB = MO->getMBB();
-          if (!PDT->dominates(mbb, inBB) || !CheckPhiInputBB(inBB, mbb)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
-
-
-
 void CSACvtCFDFPass::replacePhiForUnstructed() {
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
     replacePhiForUnstructedLoop(*LI);
@@ -2770,13 +2999,8 @@ void CSACvtCFDFPass::replaceIfFooterPhiSeq() {
   MachineBasicBlock *root = &*thisMF->begin();
   for (po_cfg_iterator itermbb = po_cfg_iterator::begin(root), END = po_cfg_iterator::end(root); itermbb != END; ++itermbb) {
     MachineBasicBlock* mbb = *itermbb;
-    if (isUnStructured(mbb)) {
-      generateDynamicPickTreeForFooter(mbb);
-      //TODO:: use repeat to iterate pred inside the loop
-    }  else {
-      generateCompletePickTreeForPhi(mbb);
-    }
-  } //end of bb
+    generateCompletePickTreeForPhi(mbb);
+  } 
 }
 
 
@@ -2831,8 +3055,6 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, 
     }
   }
 }
-
-
 
 
 /* Find all implicitly defined vregs. These are problematic with dataflow
