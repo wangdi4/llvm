@@ -5376,6 +5376,22 @@ CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
   // Linux default options to pass to cc1
   Linux::addClangTargetOptions(DriverArgs, CC1Args);
 
+  // Examine the effective (last/rightmost) optimization option given.
+  if (Arg *A = DriverArgs.getLastArg(options::OPT_O_Group)) {
+    // If -O0 is specified, disable dataflow conversion and memop ordering.
+    if (A->getOption().matches(options::OPT_O0)) {
+      CC1Args.push_back("-mllvm");
+      CC1Args.push_back("-csa-cvt-cf-df-pass=0");
+      CC1Args.push_back("-mllvm");
+      CC1Args.push_back("-csa-order-memops=0");
+    }
+  } else {
+    // If no -O option was given, then the usual default is like -O0. Instead,
+    // the CSA toolchain enables optimization by default. This is unlike other
+    // Targets.
+    CC1Args.push_back("-O");
+  }
+
   // Since we're using the CSAToolChain, we know the target is CSA.
   // If we're not compiling for an OpenMP offload target, we're done.
   Arg *targets = DriverArgs.getLastArg(options::OPT_fopenmp_targets_EQ);
