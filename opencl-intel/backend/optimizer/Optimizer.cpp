@@ -17,6 +17,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "mic_dev_limits.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
@@ -27,6 +29,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
@@ -97,7 +100,6 @@ llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
 llvm::ModulePass *createSpirMaterializer();
-void materializeSpirDataLayout(llvm::Module &);
 llvm::FunctionPass *createPrefetchPassLevel(int level);
 llvm::ModulePass *createRemovePrefetchPass();
 llvm::ModulePass *createPrintIRPass(int option, int optionLocation,
@@ -705,7 +707,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   }
 }
 
-Optimizer::~Optimizer() {}
+Optimizer::~Optimizer() { }
 
 Optimizer::Optimizer(llvm::Module *pModule,
                      llvm::SmallVector<llvm::Module *, 2> pRtlModuleList,
@@ -715,8 +717,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 
-  // Materializing the spir datalayout according to the triple.
-  materializeSpirDataLayout(*pModule);
+  TargetMachine* targetMachine = pConfig->GetTargetMachine();
+  assert(targetMachine && "Uninitialized TargetMachine!");
 
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt() || debugType != intel::None)
@@ -727,6 +729,18 @@ Optimizer::Optimizer(llvm::Module *pModule,
   const bool isOcl20 = CompilationUtils::getCLVersionFromModuleOrDefault(
                            *pModule) >= OclVersion::CL_VER_2_0;
   bool UnrollLoops = true;
+
+  // Initialize TTI
+  m_PreFailCheckPM.add(createTargetTransformInfoWrapperPass(
+    targetMachine->getTargetIRAnalysis()));
+  m_PostFailCheckPM.add(createTargetTransformInfoWrapperPass(
+    targetMachine->getTargetIRAnalysis()));
+
+  // Add an appropriate TargetLibraryInfo pass for the module's triple.
+  TargetLibraryInfoImpl TLII(Triple(pModule->getTargetTriple()));
+  m_PreFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
+  m_PostFailCheckPM.add(new TargetLibraryInfoWrapperPass(TLII));
+
   // Add passes which will run unconditionally
   populatePassesPreFailCheck(m_PreFailCheckPM, pModule, m_pRtlModuleList,
                              OptLevel, pConfig, isOcl20,

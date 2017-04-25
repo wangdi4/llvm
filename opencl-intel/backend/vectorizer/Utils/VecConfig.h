@@ -12,6 +12,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace Intel::OpenCL::DeviceBackend;
 
+namespace llvm {
+class TargetMachine;
+}
+
 namespace intel {
 
 class OptimizerConfig
@@ -21,6 +25,7 @@ public:
             std::vector<int> dumpIROptionAfter,
             std::vector<int> dumpIROptionBefore,
             std::string dumpIRDir,
+            llvm::TargetMachine* machine,
             bool debugInfo,
             bool profiling,
             bool disableOpt,
@@ -35,6 +40,7 @@ public:
       m_dumpIROptionsAfter(dumpIROptionAfter),
       m_dumpIROptionsBefore(dumpIROptionBefore),
       m_dumpIRDir(dumpIRDir),
+      m_targetMachine(machine),
       m_debugInfo(debugInfo),
       m_profiling(profiling),
       m_disableOpt(disableOpt),
@@ -52,6 +58,7 @@ public:
     const std::vector<int>* GetIRDumpOptionsAfter() const{ return &m_dumpIROptionsAfter; }
     const std::vector<int>* GetIRDumpOptionsBefore() const{ return &m_dumpIROptionsBefore; }
     const std::string& GetDumpIRDir() const{ return m_dumpIRDir; }
+    llvm::TargetMachine* GetTargetMachine() const { return m_targetMachine; }
     bool GetDisableOpt()    const { return m_disableOpt; }
     bool GetDebugInfoFlag() const { return m_debugInfo; }
     bool GetProfilingFlag() const { return m_profiling; }
@@ -71,7 +78,8 @@ private:
     std::vector<int> m_dumpIROptionsAfter;
     std::vector<int> m_dumpIROptionsBefore;
     const std::string m_dumpIRDir;
-    bool m_debugInfo; 
+    llvm::TargetMachine* m_targetMachine;
+    bool m_debugInfo;
     bool m_profiling;
     bool m_disableOpt;
     bool m_relaxedMath;

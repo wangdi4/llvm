@@ -6,11 +6,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #pragma once
 
-#include "llvm/IR/LegacyPassManager.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/LegacyPassManager.h"
 
-#include <map>
 #include <string>
+#include <vector>
 
 namespace intel {
     class OptimizerConfig;

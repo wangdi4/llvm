@@ -13,6 +13,8 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/Utils/Cloning.h"
@@ -100,6 +102,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
             std::vector<int>(),
             std::vector<int>(),
             "",
+            nullptr,
             false,
             false,
             false,
@@ -162,13 +165,14 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
     m_scalarFuncsList.push_back(F);
   }
 
+  TargetLibraryInfoImpl TLII(Triple(M.getTargetTriple()));
 
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
   legacy::FunctionPassManager vectPM(&M);
+  vectPM.add(new TargetLibraryInfoWrapperPass(TLII));
   vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "rs"));
   vectPM.add(vectCore);
-
 
   funcsVector::iterator fi = m_scalarFuncsList.begin();
   funcsVector::iterator fe = m_scalarFuncsList.end();
@@ -247,6 +251,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
             dumpIROptionAfter,
             dumpIROptionBefore,
             dumpIRDir,
+            nullptr,
             false,
             false,
             false,

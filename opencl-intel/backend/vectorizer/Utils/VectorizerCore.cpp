@@ -14,9 +14,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ChooseVectorizationDimension.h"
 #include "MetadataAPI.h"
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
@@ -163,10 +166,14 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_ASSERT(forcedVecWidth <= MAX_PACKET_WIDTH && "unssupported vector width");
 
   auto vkimd = KernelInternalMetadataAPI(&F);
-  Module *M = F.getParent();
 
   // The scalar function of the function we vectorize.
   Function* scalarFunc = vkimd.ScalarizedKernel.get();
+
+  Module *M = F.getParent();
+
+  TargetMachine* targetMachine = m_pConfig->GetTargetMachine();
+  TargetLibraryInfoImpl TLII(Triple(M->getTargetTriple()));
 
   std::map<BasicBlock*, int> preVectorizationCosts; // used for statiscal purposes.
   // Emulate the entire pass-chain right here //
@@ -175,6 +182,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Function-wide (preparations)
   {
     legacy::FunctionPassManager fpm1(M);
+    // there maybe no TargetMachine, with RenderScript for instance
+    if (targetMachine != nullptr)
+      fpm1.add(createTargetTransformInfoWrapperPass(
+                   targetMachine->getTargetIRAnalysis()));
+    fpm1.add(new TargetLibraryInfoWrapperPass(TLII));
     fpm1.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
 
     // Register lowerswitch
@@ -258,6 +270,11 @@ bool VectorizerCore::runOnFunction(Function &F) {
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
   {
     legacy::FunctionPassManager fpm2(M);
+    // there may not be TTI available, with RenderScript driver, for instance.
+    if (targetMachine != nullptr)
+      fpm2.add(createTargetTransformInfoWrapperPass(
+                   targetMachine->getTargetIRAnalysis()));
+    fpm2.add(new TargetLibraryInfoWrapperPass(TLII));
     BuiltinLibInfo* pBuiltinInfoPass = (BuiltinLibInfo*)
       createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), "");
     pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(m_packetWidth);

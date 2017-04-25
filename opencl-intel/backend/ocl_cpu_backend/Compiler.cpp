@@ -31,6 +31,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -45,6 +46,7 @@ File Name:  Compiler.cpp
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Linker/Linker.h"
 
 #include <memory>
@@ -75,6 +77,12 @@ void dumpModule(llvm::Module& m){
 TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
   return InitTargetOptionsFromCodeGenFlags();
 }
+
+
+// Supported target triples.
+const char *PC_LIN64 = "x86_64-pc-linux";          // Used for RH64/SLES64.
+const char *PC_WIN32 = "i686-pc-win32-msvc-elf";   // Win 32 bit.
+const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
 
 /*
  * Utility methods
@@ -326,30 +334,96 @@ Compiler::~Compiler()
     delete m_pLLVMContext;
 }
 
+static void materializeSpirTriple(llvm::Module *M) {
+  assert((llvm::StringRef(M->getTargetTriple())).startswith("spir")
+    && "Triple is not spir!");
+
+  llvm::StringRef Triple =
+#if defined(_M_X64)
+      PC_WIN64;
+#elif defined(__LP64__)
+      PC_LIN64;
+#elif defined(_WIN32)
+      PC_WIN32;
+#else
+#error "Unsupported host platform"
+#endif
+  M->setTargetTriple(Triple);
+}
+
+// Returns the TargetMachine instance or zero if no triple is provided.
+llvm::TargetMachine* Compiler::GetTargetMachine(
+                           llvm::Module* pModule) const {
+
+  Triple moduleTriple(pModule->getTargetTriple());
+  std::string cpuStr = std::string(m_CpuId.GetCPUName());
+  std::vector<std::string> cpuFeaturesVec = m_forcedCpuFeatures;
+  std::string cpuFeatures =
+    llvm::join(cpuFeaturesVec.begin(), cpuFeaturesVec.end(), ",");
+  llvm::TargetOptions targetOpt = ExternInitTargetOptionsFromCodeGenFlags();
+  if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
+    targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
+  }
+  else {
+    targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Standard;
+  }
+
+  std::string err;
+  const Target *pTarget =
+    TargetRegistry::lookupTarget(moduleTriple.getTriple(), err);
+
+  if (!err.empty() || pTarget == nullptr)
+    throw Exceptions::CompilerException(
+      std::string("Failed to retrieve the target for given module:") + err);
+
+  auto RM = Optional<Reloc::Model>();
+  return pTarget->createTargetMachine(
+      moduleTriple.getTriple(), cpuStr, cpuFeatures, targetOpt, RM);
+}
+
 llvm::Module* Compiler::BuildProgram(llvm::Module* pModule,
                                      ProgramBuildResult* pResult)
 {
-    assert(pModule && "pModule parameter must not be NULL");
-    assert(pResult && "Build results pointer must not be NULL");
+    assert(pModule && "pModule parameter must not be nullptr");
+    assert(pResult && "Build results pointer must not be nullptr");
 
     validateVectorizerMode(pResult->LogS());
 
     // Check if given program is valid for the target.
     if (!isProgramValid(pModule, pResult))
     {
-        throw Exceptions::CompilerException("Program is not valid for this target", CL_DEV_INVALID_BINARY);
+        throw Exceptions::CompilerException(
+          "Program is not valid for this target", CL_DEV_INVALID_BINARY);
     }
 
     CompilerBuildOptions buildOptions(pModule);
 
+    materializeSpirTriple(pModule);
+    // Create TargetMachine for X86.
+    std::unique_ptr<TargetMachine> targetMachine(GetTargetMachine(pModule));
+
+    if (nullptr == targetMachine)
+    {
+      throw Exceptions::CompilerException(
+          "Failed to create TargetMachine object");
+    }
+
+    // Materialize DataLayout from TargetMachine. It is being created inside
+    // ExecutionEngine the same way as we do in Compiler, so this guarantees that
+    // DataLayout mismatch between what ExecutionEngine expects and what we
+    // provide does not happen.
+    pModule->setDataLayout(targetMachine->createDataLayout());
+
     //
     // Apply IR=>IR optimizations
     //
+
     intel::OptimizerConfig optimizerConfig( m_CpuId,
                                             m_transposeSize,
                                             m_IRDumpAfter,
                                             m_IRDumpBefore,
                                             m_IRDumpDir,
+                                            targetMachine.get(),
                                             buildOptions.GetDebugInfoFlag(),
                                             buildOptions.GetProfilingFlag(),
                                             buildOptions.GetDisableOpt(),

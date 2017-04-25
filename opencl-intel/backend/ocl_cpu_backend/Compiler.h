@@ -20,8 +20,9 @@ File Name:  Compiler.h
 #include "cl_dev_backend_api.h"
 #include "CPUDetect.h"
 #include "ICompilerConfig.h"
-#include "llvm/Support/raw_ostream.h"
+
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <string>
 
@@ -31,6 +32,7 @@ namespace llvm {
     class LLVMContext;
     class MemoryBuffer;
     class Module;
+    class TargetMachine;
     class Type;
 }
 
@@ -191,7 +193,11 @@ public:
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 
 protected:
-    void LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
+    void LoadBuiltinModules(BuiltinLibrary* pLibrary,
+      llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const;
+
+    // Create TargetMachine for X86.
+    llvm::TargetMachine* GetTargetMachine(llvm::Module* pModule) const;
 
 protected:
     llvm::LLVMContext*       m_pLLVMContext;
@@ -218,5 +224,4 @@ private:
     void validateVectorizerMode(llvm::raw_ostream& log) const;
 };
 
-void UpdateTargetTriple(llvm::Module *pModule);
 }}}

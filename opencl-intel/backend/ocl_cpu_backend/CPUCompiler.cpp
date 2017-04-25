@@ -113,29 +113,6 @@ void SplitString( const std::string& s, const char* d, std::vector<std::string>&
     std::copy( sv.begin(), sv.end(), std::back_inserter( v ));
 }
 
-/**
- * Joins the given strings (as a vector of strings) using
- * the supplied delimiter.
- * Returns: joined string
- */
-std::string JoinStrings( const std::vector<std::string>& vs, const char* d)
-{
-    std::vector<std::string>::const_iterator i = vs.begin();
-    std::vector<std::string>::const_iterator e = vs.end();
-    std::stringstream ss;
-
-    if( i != e )
-    {
-        ss << *i++;
-        for(; i!= e; ++i)
-        {
-            ss << d << *i;
-        }
-    }
-
-    return ss.str();
-}
-
 unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::string>& forcedFeatures)
 {
     unsigned int  cpuFeatures = CFS_SSE2;
@@ -413,26 +390,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 {
     assert(pModule && "pModule parameter should be valid");
 
-    std::string err;
-    llvm::Triple triple(pModule->getTargetTriple());
-    const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
-    if( !err.empty() || nullptr == pTarget )
-    {
-        throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
-    }
-
-    // ToDo: Should this be put to MetadataAPI?
-    TargetOptions Options;
-    if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
-        Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;
-    } else {
-        Options.AllowFPOpFusion = llvm::FPOpFusion::Standard;
-    }
-
-    std::string cpuName( m_CpuId.GetCPUName());
-    std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
-    std::string cpuFeatures( Utils::JoinStrings(localCpuFeatures, ","));
-    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options, None);
+    TargetMachine* pTargetMachine = GetTargetMachine(pModule);
     if( nullptr == pTargetMachine )
     {
         throw Exceptions::CompilerException("Failed to create TargetMachine object");

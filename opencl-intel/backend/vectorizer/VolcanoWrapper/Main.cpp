@@ -10,8 +10,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetadataAPI.h"
 #include "OclTune.h"
 
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
@@ -109,7 +112,15 @@ bool Vectorizer::runOnModule(Module &M)
 
   // Create the vectorizer core pass that will do the vectotrization work.
   VectorizerCore *vectCore = (VectorizerCore *)createVectorizerCorePass(m_pConfig);
+
+  TargetMachine* targetMachine = m_pConfig->GetTargetMachine();
+  V_ASSERT(targetMachine && "Uninitialized TargetMachine!");
+
   legacy::FunctionPassManager vectPM(&M);
+  vectPM.add(createTargetTransformInfoWrapperPass(
+                 targetMachine->getTargetIRAnalysis()));
+  TargetLibraryInfoImpl TLII(Triple(M.getTargetTriple()));
+  vectPM.add(new TargetLibraryInfoWrapperPass(TLII));
   vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   vectPM.add(vectCore);
 
