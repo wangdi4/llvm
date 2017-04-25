@@ -327,16 +327,16 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
   raw_svector_ostream O(Str);
   const TargetLowering *TLI = MF->getSubtarget<CSASubtarget>().getTargetLowering();
   Function::const_arg_iterator I, E;
-  unsigned paramIndex = 0;
   MVT thePointerTy = TLI->getPointerTy(MF->getDataLayout());
 
   // Stride through parameters, putting out a .param {type} .reg %r{num}
   // This is a hack mostly taken from NVPTX.  This assumes successive
   // parameters go to successive registers, starting with the initial
   // value of paramReg.  This may be too simplistic for longer term.
-  int paramReg = 2;  // Params start in R0 - see CSACallingConv.td
+  int paramReg = 2;  // Params start in R2 - see CSACallingConv.td
+  int lastReg = 17;  // Params end (inclusive) in R17 - see CSACallingConv.td
   bool first = true;
-  for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I, paramIndex++) {
+  for (I = F->arg_begin(), E = F->arg_end(); I != E && paramReg <= lastReg; ++I, paramReg++) {
     Type *Ty = I->getType();
     unsigned sz = 0;
     std::string typeStr = ".i";
@@ -353,7 +353,7 @@ void CSAAsmPrinter::emitParamList(const Function *F) {
       O << '\n';
     }
     O << CSAInstPrinter::WrapCsaAsmLinePrefix();
-    O << "\t.param .reg " << typeStr << sz << " %r" << paramReg++;
+    O << "\t.param .reg " << typeStr << sz << " %r" << paramReg;
     O << CSAInstPrinter::WrapCsaAsmLineSuffix();
     first = false;
   }
