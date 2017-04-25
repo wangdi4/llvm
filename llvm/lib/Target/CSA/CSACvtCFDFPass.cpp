@@ -18,6 +18,7 @@
 #include "CSALicAllocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/PostOrderIterator.h"
+#include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/SparseSet.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
@@ -55,7 +56,7 @@ RunSXU("csa-run-sxu", cl::Hidden,
 
 static cl::opt<int>
 UseDynamicPred("csa-dynamic-pred", cl::Hidden,
-  cl::desc("CSA Specific: run on sequential unit"),
+  cl::desc("CSA Specific: use solely dynamic predicate to generate data flow code"),
   cl::init(0));
 
 #define DEBUG_TYPE "csa-cvt-cf-df-pass"
@@ -1703,11 +1704,14 @@ void CSACvtCFDFPass::removeBranch() {
 
 
 void CSACvtCFDFPass::linearizeCFG() {
-  typedef po_iterator<MachineBasicBlock *> po_mbb_iterator;
-  MachineBasicBlock *root = &*thisMF->begin();
   std::stack<MachineBasicBlock *> mbbStack;
-  for (po_mbb_iterator mbb = po_mbb_iterator::begin(root), END = po_mbb_iterator::end(root); mbb != END; ++mbb) {
-    mbbStack.push(*mbb);
+  MachineBasicBlock *root = &*thisMF->begin();
+  for (scc_iterator<MachineFunction *> I = scc_begin(thisMF), IE = scc_end(thisMF); I != IE; ++I) {
+    // Obtain the vector of BBs in this SCC 
+    const std::vector<MachineBasicBlock *> &SCCBBs = *I;
+    for (std::vector<MachineBasicBlock *>::const_iterator BBI = SCCBBs.begin(), BBIE = SCCBBs.end(); BBI != BBIE; ++BBI) {
+      mbbStack.push(*BBI);
+    }
   }
   MachineBasicBlock *x = mbbStack.top();
   assert(x == root);
@@ -2369,6 +2373,7 @@ bool CSACvtCFDFPass::needDynamicPreds() {
       return true;
     }
   }
+#if 1
   std::list<ControlDependenceNode *> parents;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock *mbb = &*BB;
@@ -2408,7 +2413,7 @@ bool CSACvtCFDFPass::needDynamicPreds() {
       }
     }
   }
-
+#endif
   return false;
 }
 
