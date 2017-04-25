@@ -63,7 +63,7 @@ static cl::opt<bool>
 KillReadChains("csa-kill-readchains",
             cl::Hidden,
             cl::desc("CSA-specific: kill ordering chains which only link reads"),
-            cl::init(true));
+            cl::init(false));
 
 // The register class we are going to use for all the memory-op
 // dependencies.  Technically they could be I0, but I don't know how
