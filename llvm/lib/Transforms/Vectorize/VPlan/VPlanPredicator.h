@@ -19,15 +19,14 @@ protected:
       EDGE_TYPE_MAX,
   };
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
-  // Map to remember which VBRs have already been generated
+  // Map to remember which BRs have already been generated
   // for corresponding CBRs.
-  std::map<VPConditionBitRecipeWithScalar *, VPVectorizeBooleanRecipe *>
-      CBRtoVBRMap;
+  std::map<VPConditionBitRecipeWithScalar *, VPBooleanRecipe *> CBRtoBRMap;
   void initializeGenPredicates(VPBasicBlock *VPBB);
   int countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE);
   void getSuccessorsNoBE(VPBlockBase *PredBlock,
                          SmallVector<VPBlockBase *, 2> &Succs);
-  VPVectorizeBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
+  VPBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB, EdgeType ET);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB,
                                        VPPredicateRecipeBase *R,

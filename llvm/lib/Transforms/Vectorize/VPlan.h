@@ -115,6 +115,7 @@ public:
     VPUniformBranchSC,
     VPLiveInBranchSC,
     VPVectorizeBooleanSC,
+    VPUniformBooleanSC,
     VPCmpBitSC,
     VPPhiValueSC,
     VPConstantSC,
@@ -304,29 +305,29 @@ public:
 };
 
 #ifdef INTEL_CUSTOMIZATION
-/// A VPVectorizeBooleanRecipe is a concrete recipe which works as a container
-/// for the condition value.
-class VPVectorizeBooleanRecipe : public VPRecipeBase {
+/// A VPBooleanRecipe is an abstract recipe which works as a container for the
+/// condition value.
+class VPBooleanRecipe : public VPRecipeBase {
 protected:
   /// The actual condition value.
   Value *ConditionValue;
 
-	/// Name
-	std::string Name;
+  /// Name
+  std::string Name;
+
 public:
   /// Construct a VPVectorizeBooleanRecipe
- VPVectorizeBooleanRecipe(const unsigned char SC, Value *CV)
+  VPBooleanRecipe(const unsigned char SC, Value *CV)
       : VPRecipeBase(SC), ConditionValue(CV) {}
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC;
+    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC ||
+           V->getVPRecipeID() == VPRecipeBase::VPUniformBooleanSC;
   }
 
-  /// Getter 
+  /// Getter
   Value *getConditionValue(void) { return ConditionValue; }
-
-  void vectorize(VPTransformState &State) override;
 
   // Get name.
   std::string getName() const { return Name; }
@@ -334,9 +335,46 @@ public:
   // Set name.
   void setName(std::string Name) { this->Name = Name; }
 
-  /// Printer
+  /// Printer.
   void print(raw_ostream &OS) const override;
+
 };
+
+/// A VPVectorizeBooleanRecipe is a concrete recipe which works as a container
+/// for the condition value that needs to be vectorized.
+class VPVectorizeBooleanRecipe : public VPBooleanRecipe {
+public:
+  /// Construct a VPVectorizeBooleanRecipe
+  VPVectorizeBooleanRecipe(const unsigned char SC, Value *CV)
+      : VPBooleanRecipe(SC, CV) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPVectorizeBooleanSC;
+  }
+
+  void vectorize(VPTransformState &State) override;
+};
+
+// TODO: Remove this class. When we preserve uniform control flow, we won't
+// vectorize live-in CBRs and this class won't be necessary.
+/// A VPUniformBooleanRecipe is a concrete recipe which works as a container
+/// for the condition value that is uniform and doesn't need to be
+/// vectorized.
+class VPUniformBooleanRecipe : public VPBooleanRecipe {
+public:
+  /// Construct a VPVectorizeBooleanRecipe
+  VPUniformBooleanRecipe(const unsigned char SC, Value *CV)
+      : VPBooleanRecipe(SC, CV) {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPUniformBooleanSC;
+  }
+
+  void vectorize(VPTransformState &State) override {};
+};
+
 #endif
 
 /// A VPEdgePredicateRecipeBase is a pure virtual recipe which supports 
@@ -349,7 +387,7 @@ class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
 protected:
   #ifdef INTEL_CUSTOMIZATION
   /// A pointer to the recipe closest to the condition value
-  VPVectorizeBooleanRecipe *ConditionRecipe;
+  VPBooleanRecipe *ConditionRecipe;
   #else
   /// A pointer to the source-IR condition value.
   Value *ConditionValue;
@@ -361,7 +399,7 @@ protected:
   /// Construct a VPEdgePredicateRecipeBase.
   #ifdef INTEL_CUSTOMIZATION
   VPEdgePredicateRecipeBase(const unsigned char SC,
-    VPVectorizeBooleanRecipe* CR,
+    VPBooleanRecipe* CR,
     VPPredicateRecipeBase* PredecessorPredicate)
     : VPPredicateRecipeBase(SC), ConditionRecipe(CR),
     PredecessorPredicate(PredecessorPredicate){}
@@ -412,7 +450,7 @@ class VPIfTruePredicateRecipe : public VPEdgePredicateRecipeBase {
 public:
   /// Construct a VPIfTruePredicateRecipe.
   #ifdef INTEL_CUSTOMIZATION
- VPIfTruePredicateRecipe(VPVectorizeBooleanRecipe* BR, 
+ VPIfTruePredicateRecipe(VPBooleanRecipe* BR, 
                          VPPredicateRecipeBase* PredecessorPredicate,
                          BasicBlock *From, BasicBlock *To)
     : VPEdgePredicateRecipeBase(VPIfTruePredicateRecipeSC, 
@@ -444,11 +482,12 @@ class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
 public:
   /// Construct a VPIfFalsePredicateRecipe.
   #ifdef INTEL_CUSTOMIZATION
-  VPIfFalsePredicateRecipe(VPVectorizeBooleanRecipe* BR,
-                           VPPredicateRecipeBase* PredecessorPredicate,
+  VPIfFalsePredicateRecipe(VPBooleanRecipe *BR,
+                           VPPredicateRecipeBase *PredecessorPredicate,
                            BasicBlock *From, BasicBlock *To)
-    : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, 
-      BR, PredecessorPredicate), FromBB(From), ToBB(To) {}
+      : VPEdgePredicateRecipeBase(VPIfFalsePredicateRecipeSC, BR,
+                                  PredecessorPredicate),
+        FromBB(From), ToBB(To) {}
   #else
   VPIfFalsePredicateRecipe(Value* ConditionValue,
     VPPredicateRecipeBase* PredecessorPredicate)
@@ -1110,8 +1149,11 @@ public:
 class VPlan {
   friend class VPlanUtils;
   friend class VPlanUtilsLoopVectorizer;
-
+#ifdef INTEL_CUSTOMIZATION
+protected:
+#else
 private:
+#endif
   /// Hold the single entry to the Hierarchical CFG of the VPlan.
   VPBlockBase *Entry;
 
@@ -1133,7 +1175,11 @@ public:
   }
 
   /// Generate the IR code for this VPlan.
+#ifdef INTEL_CUSTOMIZATION
+  virtual void vectorize(struct VPTransformState *State);
+#else
   void vectorize(struct VPTransformState *State);
+#endif
 
   VPBlockBase *getEntry() { return Entry; }
   const VPBlockBase *getEntry() const { return Entry; }
@@ -1766,9 +1812,10 @@ struct GraphTraits<Inverse<VPRegionBlock *>>
 
 inline bool VPBlockBase::isInsideLoop() {
   if (auto *ParentRegion = getParent()) {
+    // TODO: Use VPLoopRegion
     if (ParentRegion->getVPBlockID() == VPLoopRegionSC) {
-      if (ParentRegion->getEntry() != this &&
-          ParentRegion->getExit() != this)
+      if (/*ParentRegion->getEntry() != this &&*/
+        ParentRegion->getExit() != this)
         return true;
     }
     return ParentRegion->isInsideLoop();

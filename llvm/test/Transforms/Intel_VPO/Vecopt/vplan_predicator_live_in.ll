@@ -127,8 +127,8 @@ attributes #1 = { argmemonly nounwind }
 ; CHECK: [[region_14]]:
 ; CHECK:   [[BB_11:BB[0-9]+]]:
 ; CHECK:     [[BP_20:BP[0-9]+]] = [[BP_17]]
-; CHECK:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ! [[VBR_23:VBR[0-9]+]]
-; CHECK:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[VBR_23]]
+; CHECK:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ! [[UBR_23:UBR[0-9]+]]
+; CHECK:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[UBR_23]]
 ; CHECK:   [[BB_4:BB[0-9]+]]:
 ; CHECK:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
 ; CHECK:   [[BB_3:BB[0-9]+]]:

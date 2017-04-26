@@ -468,9 +468,10 @@ void LoopVectorizationPlanner::splitLoopsPreheader(VPLoop *VPL,
 
   // Split loop PH if:
   //    TODO: too generic. Refine?
-  //    - has multiple predecessors (it's a potential exit of another region)
-  //    - is loop H of another loop
-  if (!PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
+  //    - there is no WRLoop (auto-vectorization). We need an empty loop PH.
+  //    - has multiple predecessors (it's a potential exit of another region).
+  //    - is loop H of another loop.
+  if (!WRLoop || !PH->getSinglePredecessor() || VPLInfo->isLoopHeader(PH)) {
     splitBlock(PH, VPLInfo, DomTree, PostDomTree, PlanUtils);
   }
 

@@ -526,7 +526,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   unsigned VF = VPlanDefaultVF;
   if (LoopNode) {
     unsigned Simdlen = LoopNode->getSimdlen();
-    assert(Simdlen >= 0 && Simdlen <= 64 && "Wrong Simdlen value");
+    assert(Simdlen <= 64 && "Wrong Simdlen value");
     VF = Simdlen ? Simdlen : VPlanDefaultVF;
   }
 
@@ -554,7 +554,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
 
   if (EnableCodeGen) {
     if (VPlanVectCand)
-      errs() << "VPlan Generating code\n"; 
+      errs() << "VPlan Generating code in function: " << F.getName() << "\n";
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);

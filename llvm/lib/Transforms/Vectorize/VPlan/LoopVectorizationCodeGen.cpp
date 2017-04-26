@@ -445,14 +445,14 @@ void VPOCodeGen::createEmptyLoop() {
   // is Count - CountRoundDown. Otherwise the remainder is Count.
   emitResume(CountRoundDown);
 
-  // Get ready to start creating new instructions into the vectorized body.
-  Builder.SetInsertPoint(&*LoopVectorBody->getFirstInsertionPt());
-
   // Inform SCEV analysis to forget original loop
   PSE.getSE()->forgetLoop(OrigLoop);
 
   // Save the state.
   LoopVectorPreHeader = Lp->getLoopPreheader();
+
+  // Get ready to start creating new instructions into the vector preheader.
+  Builder.SetInsertPoint(&*LoopVectorPreHeader->getFirstInsertionPt());
 }
 
 void VPOCodeGen::finalizeLoop() {
@@ -1162,8 +1162,9 @@ void VPOCodeGen::fixNonInductionPhis() {
 
     if (IsUniform)
       NewPhi = cast<PHINode>(getScalarValue(OrigPhi, 0));
-    else 
+    else
       NewPhi = cast<PHINode>(getVectorValue(OrigPhi));
+
     unsigned NumIncomingValues = OrigPhi->getNumIncomingValues();
 
     SmallVector<BasicBlock *, 2> ScalarBBPredecessors;
@@ -1173,8 +1174,9 @@ void VPOCodeGen::fixNonInductionPhis() {
     for (auto BB : predecessors(NewPhi->getParent()))
       VectorBBPredecessors.push_back(BB);
 
-    assert(ScalarBBPredecessors.size() == VectorBBPredecessors.size() &&
-           "Scalar and Vector BB should have the same number of predecessors");
+    assert(
+      ScalarBBPredecessors.size() == VectorBBPredecessors.size() &&
+      "Scalar and Vector BB should have the same number of predecessors");
 
     // We assume that blocks layout is preserved and search the incoming BB
     // basing on the predecessors order in scalar blocks.
@@ -1183,7 +1185,8 @@ void VPOCodeGen::fixNonInductionPhis() {
 
       // When looking up the new scalar/vector values to fix up use incoming
       // values from original phi.
-      Value *ScIncV = OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
+      Value *ScIncV =
+          OrigPhi->getIncomingValueForBlock(ScalarBBPredecessors[i]);
       Value *NewIncV;
       if (IsUniform) {
         NewIncV = getScalarValue(ScIncV, 0);
@@ -1220,7 +1223,7 @@ void VPOCodeGen::widenNonInductionPhi(PHINode *Phi) {
     OrigInductionPhisToFix.push_back(Phi);
     return;
   }
-  
+
   Value *Entry;
   bool ConvertablePhi = true;
   // Generate a sequence of selects of the form:
@@ -1349,6 +1352,11 @@ static Value *getPointerOperand(Value *I) {
 }
 
 void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
+  // Diego: Why are we blindly vectorizing any instruction?
+  //if (isUniformAfterVectorization(Inst, VF)) {
+  //  return;
+  //}
+
   switch (Inst->getOpcode()) {
   case Instruction::GetElementPtr: {
     // Consecutive Load/Store will clone the GEP
@@ -1722,14 +1730,19 @@ void VPOVectorizationLegality::collectLoopUniformsForAnyVF() {
     Instruction *I = Worklist[idx++];
 
     for (auto OV : I->operand_values()) {
-      if (isOutOfScope(OV))
-        continue;
-      auto *OI = cast<Instruction>(OV);
-      if (all_of(OI->users(), [&](User *U) -> bool {
-        return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
-      })) {
-        Worklist.insert(OI);
-        DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+      if (auto *OI = dyn_cast<Instruction>(OV)) {
+        if (all_of(OI->users(), [&](User *U) -> bool {
+              return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
+            })) {
+          Worklist.insert(OI);
+          DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+          if (all_of(OV->users(), [&](User *U) -> bool {
+                return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
+              })) {
+            Worklist.insert(OI);
+            DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+          }
+        }
       }
     }
   }
@@ -1831,14 +1844,13 @@ void VPOCodeGen::collectLoopUniforms(unsigned VF) {
     Instruction *I = Worklist[idx++];
 
     for (auto OV : I->operand_values()) {
-      if (isOutOfScope(OV))
-        continue;
-      auto *OI = cast<Instruction>(OV);
-      if (all_of(OI->users(), [&](User *U) -> bool {
-        return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
-      })) {
-        Worklist.insert(OI);
-        DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+      if (auto *OI = dyn_cast<Instruction>(OV)) {
+        if (all_of(OI->users(), [&](User *U) -> bool {
+              return isOutOfScope(U) || Worklist.count(cast<Instruction>(U));
+            })) {
+          Worklist.insert(OI);
+          DEBUG(dbgs() << "LV: Found uniform instruction: " << *OI << "\n");
+        }
       }
     }
   }

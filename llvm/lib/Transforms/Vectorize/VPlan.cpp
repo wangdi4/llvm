@@ -73,7 +73,8 @@ VPBlockBase *VPBlockBase::getAncestorWithSuccessors() {
   return Parent->getAncestorWithSuccessors();
 }
 
-/// Returns the closest ancestor, starting from "this", which has predecessors.
+/// Returns the closest ancestor, starting from "this", which has
+/// predecessors.
 /// Returns the root ancestor if all ancestors have no predecessors.
 VPBlockBase *VPBlockBase::getAncestorWithPredecessors() {
   if (!Predecessors.empty() || !Parent)
@@ -102,7 +103,8 @@ void VPBlockBase::setConditionBitRecipe(VPConditionBitRecipeBase *R,
 BasicBlock *
 VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
   // BB stands for IR BasicBlocks. VPBB stands for VPlan VPBasicBlocks.
-  // Pred stands for Predessor. Prev stands for Previous, last visited/created.
+  // Pred stands for Predecessor. Prev stands for Previous, last
+  // visited/created.
   BasicBlock *PrevBB = CFG.PrevBB;
   BasicBlock *NewBB = BasicBlock::Create(PrevBB->getContext(), "VPlannedBB",
                                          PrevBB->getParent(), CFG.LastBB);
@@ -125,7 +127,7 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
         // Note: we rely on traversing the successors in order.
         BasicBlock *FirstSuccBB;
         BasicBlock *SecondSuccBB;
-        
+
         if (PredVPBB->getSuccessors()[0] == this) {
           FirstSuccBB = NewBB;
           SecondSuccBB = PredBB->getSingleSuccessor();
@@ -135,6 +137,8 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
         }
 
         PredBB->getTerminator()->eraseFromParent();
+        assert(PredVPBlock->getConditionBitRecipe() &&
+               "Expected ConditionBitRecipe.");
         Value *Bit = PredVPBlock->getConditionBitRecipe()->getConditionBit();
         assert(Bit && "Cannot create conditional branch with empty bit.");
         BranchInst::Create(FirstSuccBB, SecondSuccBB, Bit, PredBB);
@@ -144,11 +148,15 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
   return NewBB;
 }
 
-void VPBasicBlock::vectorize(VPTransformState *State) {
+#ifndef INTEL_CUSTOMIZATION
 #ifdef INTEL_CUSTOMIZATION
-  if (!isInsideLoop())
-    return;
-#endif // INTEL_CUSTOMIZATION
+// Eventually, we will remove the ifndef macro above, when we use separate
+// libraries for opensource VPlan and VPO VPlan. In the meantime, this function
+// cannot be shared by both implementations. This implementation is for
+// opensource VPlan, currently disabled in XMAIN. Implementation for VPO is in
+// IntelVPlan.cpp
+#endif
+void VPBasicBlock::vectorize(VPTransformState *State) {
   VPIterationInstance *I = State->Instance;
   bool Replica = I && !(I->Part == 0 && I->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
@@ -191,6 +199,7 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
 
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef INTEL_CUSTOMIZATION
 void VPBasicBlock::moveConditionalEOBTo(VPBasicBlock *ToBB, VPlan *Plan) {
@@ -247,6 +256,12 @@ void VPRegionBlock::vectorize(VPTransformState *State) {
 /// LoopVectorBody basic block was created for this; introduces additional
 /// basic blocks as needed, and fills them all.
 void VPlan::vectorize(VPTransformState *State) {
+
+#ifdef INTEL_CUSTOMIZATION
+// NOTE: This function is not used in VPO vectorizer. IntelVPlan::vectorize is
+// used instead.
+#endif
+
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
   assert(VectorHeaderBB && "Loop preheader does not have a single successor.");
@@ -314,13 +329,7 @@ void VPlan::vectorize(VPTransformState *State) {
   assert(merged && "Could not merge last basic block with latch.");
   VectorLatchBB = LastBB;
 
-#ifdef INTEL_CUSTOMIZATION
-// Do no try to update dominator tree as we may be generating vector loops
-// with inner loops. Right now we are not marking any analyses as
-// preserved - so this should be ok.
-#else
   updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);
-#endif
   State->Builder.restoreIP(CurrIP);
 }
 
@@ -330,7 +339,8 @@ void VPlan::updateDominatorTree(DominatorTree *DT, BasicBlock *LoopPreHeaderBB,
   assert(LoopHeaderBB && "Loop preheader does not have a single successor.");
   DT->addNewBlock(LoopHeaderBB, LoopPreHeaderBB);
   // The vector body may be more than a single basic block by this point.
-  // Update the dominator tree information inside the vector body by propagating
+  // Update the dominator tree information inside the vector body by
+  // propagating
   // it from header to latch, expecting only triangular control-flow, if any.
   BasicBlock *PostDomSucc = nullptr;
   for (auto *BB = LoopHeaderBB; BB != LoopLatchBB; BB = PostDomSucc) {
@@ -378,7 +388,8 @@ VPlanPrinter::getReplicatorString(const VPRegionBlock *Region) {
 void VPlanPrinter::dump(const std::string &Title) {
   resetDepth();
   OS << "digraph VPlan {\n";
-  OS << "graph [labelloc=t, fontsize=30, splines=spline; label=\"Vectorization "
+  OS << "graph [labelloc=t, fontsize=30, splines=spline; "
+        "label=\"Vectorization "
         "Plan";
   if (!Title.empty())
     OS << "\\n" << DOT::EscapeString(Title);
@@ -554,7 +565,8 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
   auto VecCondMask =
       State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
 
-  // Combine with the predecessor block mask if needed - a null predecessor mask
+  // Combine with the predecessor block mask if needed - a null predecessor
+  // mask
   // implies allones(predecessor is active for all lanes).
   Value *EdgeMask;
   if (PredMask)
@@ -610,7 +622,8 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
       State.ILV->getVectorValue(ConditionRecipe->getConditionValue());
   VecCondMask = State.Builder.CreateNot(VecCondMask);
 
-  // Combine with the predecessor block mask if needed - a null predecessor mask
+  // Combine with the predecessor block mask if needed - a null predecessor
+  // mask
   // implies allones(predecessor is active for all lanes).
   Value *EdgeMask;
   if (PredMask)
@@ -640,15 +653,15 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
   }
 }
 
-void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {
-  State.ILV->vectorizeInstruction(cast<Instruction>(ConditionValue));
-}
-
-void VPVectorizeBooleanRecipe::print(raw_ostream &O) const {
+void VPBooleanRecipe::print(raw_ostream &O) const {
   O << Name << " ";
   if (ConditionValue) {
     O << *ConditionValue;
   } else {
     O << "NULL";
   }
+}
+
+void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {
+  State.ILV->vectorizeInstruction(cast<Instruction>(ConditionValue));
 }

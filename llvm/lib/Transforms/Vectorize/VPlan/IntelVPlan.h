@@ -255,6 +255,8 @@ public:
       delete (VPLInfo);
   }
 
+  void vectorize(struct VPTransformState *State) override;
+
   VPLoopInfo *getVPLoopInfo() { return VPLInfo; }
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
 
@@ -561,30 +563,38 @@ public:
 
   /// Create a new VPVectorizeBooleanRecipe.
   VPVectorizeBooleanRecipe *createVectorizeBooleanRecipe(Value *Cond) {
-    VPVectorizeBooleanRecipe *newRecipe =
-        new VPVectorizeBooleanRecipe(VPRecipeBase::VPVectorizeBooleanSC, Cond);
+    VPVectorizeBooleanRecipe *newRecipe = new VPVectorizeBooleanRecipe(
+        VPRecipeBase::VPVectorizeBooleanSC, Cond);
     newRecipe->setName(createUniqueName("VBR"));
+    return newRecipe;
+  }
+
+  /// Create a new VPUniformBooleanRecipe.
+  VPUniformBooleanRecipe *createUniformBooleanRecipe(Value *Cond) {
+    VPUniformBooleanRecipe *newRecipe =
+        new VPUniformBooleanRecipe(VPRecipeBase::VPUniformBooleanSC, Cond);
+    newRecipe->setName(createUniqueName("UBR"));
     return newRecipe;
   }
 
   /// Create a new VPIfTruePredicateRecipe.
   VPIfTruePredicateRecipe *
-  createIfTruePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
+  createIfTruePredicateRecipe(VPBooleanRecipe *BR,
                               VPPredicateRecipeBase *PredecessorPredicate,
                               BasicBlock *From, BasicBlock *To) {
     VPIfTruePredicateRecipe *newRecipe =
-        new VPIfTruePredicateRecipe(VBR, PredecessorPredicate, From, To);
+        new VPIfTruePredicateRecipe(BR, PredecessorPredicate, From, To);
     newRecipe->setName(createUniqueName("IfT"));
     return newRecipe;
   }
 
   /// Create a new VPIfFalsePredicateRecipe.
   VPIfFalsePredicateRecipe *
-  createIfFalsePredicateRecipe(VPVectorizeBooleanRecipe *VBR,
+  createIfFalsePredicateRecipe(VPBooleanRecipe *BR,
                                VPPredicateRecipeBase *PredecessorPredicate,
                                BasicBlock *From, BasicBlock *To) {
     VPIfFalsePredicateRecipe *newRecipe =
-        new VPIfFalsePredicateRecipe(VBR, PredecessorPredicate, From, To);
+        new VPIfFalsePredicateRecipe(BR, PredecessorPredicate, From, To);
     newRecipe->setName(createUniqueName("IfF"));
     return newRecipe;
   }

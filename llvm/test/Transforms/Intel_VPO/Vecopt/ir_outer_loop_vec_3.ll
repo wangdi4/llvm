@@ -17,17 +17,17 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK: vector.body
 ; CHECK: %[[I:.*]] = trunc <4 x i64> %vec.ind to <4 x i32>
 ; CHECK: store <4 x i32>
-; CHECK: VPlannedBB1:
-; CHECK: phi i64 [{{.*}}, %VPlannedBB1 ], [ 0, %VPlannedBB ]
+; CHECK: [[VP1:VPlannedBB[0-9]+]]:
+; CHECK: phi i64 [{{.*}}, %[[VP1]] ], [ 0, %VPlannedBB{{[0-9]*}} ]
 ; CHECK: %A_val.vec = phi <4 x i32>
 ; CHECK: %[[B_j:.*]] = load i32, i32*
 ; CHECK: %[[B_j_insert:.*]] = insertelement <4 x i32> undef, i32 %[[B_j]], i32 0
 ; CHECK: %[[B_j_splat:.*]] = shufflevector <4 x i32> %[[B_j_insert]], <4 x i32> undef, <4 x i32> zeroinitializer
 ; CHECK: add <4 x i32> %[[B_j_splat]], %[[I]]
 ; CHECK: add <4 x i32> %{{.*}}, %A_val.vec
-; CHECK: VPlannedBB4:            
+; CHECK: [[VP2:VPlannedBB[0-9]+]]:
 ; CHECK:  %add6.lcssa.vec = phi <4 x i32> 
-; CHECK:  getelementptr i32, i32* %A, i64 %1
+; CHECK:  getelementptr i32, i32* %A, i64 {{.*}}
 ; CHECK:  store <4 x i32> %add6.lcssa.vec, <4 x i32>*
 
 

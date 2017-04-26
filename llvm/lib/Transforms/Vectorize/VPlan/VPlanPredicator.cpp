@@ -96,22 +96,28 @@ void VPlanPredicator::getSuccessorsNoBE(VPBlockBase *PredBlock,
 // FIXME: This should change once Matt introduces the recipes
 //        that point to other recipes so that we point to the one
 //        closest to the condition.
-VPVectorizeBooleanRecipe *
+VPBooleanRecipe *
 VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
   // When we have LiveIn/Uniform CBR, we remove it
   // and replace it with a VPVectorizeBoolean
   if (VPConditionBitRecipeWithScalar *CBRWS =
           dyn_cast<VPConditionBitRecipeWithScalar>(CBR)) {
-    VPVectorizeBooleanRecipe *VBR = nullptr;
+    VPBooleanRecipe *BR = nullptr;
     // If we have not generated the CBRWS recipe, generate it.
-    auto it = CBRtoVBRMap.find(CBRWS);
-    if (it == CBRtoVBRMap.end()) {
+    auto it = CBRtoBRMap.find(CBRWS);
+    if (it == CBRtoBRMap.end()) {
       Value *CI = CBRWS->getScalarCondition();
       VPConditionBitRecipeWithScalar *InsertBefore = CBRWS;
       assert(CI && "CBRWS not generated properly");
-      VBR = PlanUtils.createVectorizeBooleanRecipe(CI);
-      // Remember that we have already generated this VBR for CBR
-      CBRtoVBRMap[CBRWS] = VBR;
+
+      // Live-in CBRs don't need to be vectorized.
+      if (isa<VPLiveInConditionBitRecipe>(CBRWS))
+        BR = PlanUtils.createUniformBooleanRecipe(CI);
+      else
+        BR = PlanUtils.createVectorizeBooleanRecipe(CI);
+
+      // Remember that we have already generated this BR for CBR
+      CBRtoBRMap[CBRWS] = BR;
       VPBasicBlock *BB = CBRWS->getParent();
       if (!BB) {
         // Live-Ins need special treatment as they are not in a BB.
@@ -126,13 +132,13 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
         InsertBefore = nullptr;
       }
       assert(BB && "Need BB to insert the condition to");
-      BB->addRecipe(VBR, InsertBefore);
+      BB->addRecipe(BR, InsertBefore);
     }
     // Reuse the one we have already generated.
     else {
-      VBR = it->second;
+      BR = it->second;
     }
-    return VBR;
+    return BR;
   }
   // FIXME:
   else {
@@ -156,13 +162,12 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
 VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       EdgeType ET) {
   VPConditionBitRecipeBase *CBR = PredBB->getConditionBitRecipe();
-  VPVectorizeBooleanRecipe *VBR = getConditionRecipe(CBR);
-  assert(VBR && "Broken getConditionRecipe() ?");
+  VPBooleanRecipe *BR = getConditionRecipe(CBR);
+  assert(BR && "Broken getConditionRecipe() ?");
   // CurrBB is the True successor of PredBB
   if (ET == TRUE_EDGE) {
     VPIfTruePredicateRecipe *IfTrueRecipe =
-        PlanUtils.createIfTruePredicateRecipe(VBR,
-                                              PredBB->getPredicateRecipe(),
+        PlanUtils.createIfTruePredicateRecipe(BR, PredBB->getPredicateRecipe(),
                                               PredBB->getCBlock(),
                                               PredBB->getTBlock());
     // Emit IfTrueRecipe into PredBB
@@ -172,10 +177,9 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   // CurrBB is the False successor of PredBB
   else if (ET == FALSE_EDGE) {
     VPIfFalsePredicateRecipe *IfFalseRecipe =
-        PlanUtils.createIfFalsePredicateRecipe(VBR,
-                                               PredBB->getPredicateRecipe(),
-                                               PredBB->getCBlock(),
-                                               PredBB->getFBlock());
+        PlanUtils.createIfFalsePredicateRecipe(
+            BR, PredBB->getPredicateRecipe(), PredBB->getCBlock(),
+            PredBB->getFBlock());
     PredBB->addRecipe(IfFalseRecipe);
     return IfFalseRecipe;
   }
