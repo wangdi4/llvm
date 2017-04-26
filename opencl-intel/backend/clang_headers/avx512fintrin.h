@@ -651,4 +651,84 @@ _mm512_store_pd(void *__P, __m512d __A)
   *(__m512d*)__P = __A;
 }
 
+/* FMA */
+static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_fmadd_pd(__m512d __A, __m512d __B, __m512d __C)
+{
+  return (__m512d) __builtin_ia32_vfmaddpd512_mask ((__v8df) __A,
+                                                    (__v8df) __B,
+                                                    (__v8df) __C,
+                                                    (__mmask8) -1,
+                                                    _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_mask_fmadd_pd(__m512d __A, __mmask8 __U, __m512d __B, __m512d __C)
+{
+  return (__m512d) __builtin_ia32_vfmaddpd512_mask ((__v8df) __A,
+                                                    (__v8df) __B,
+                                                    (__v8df) __C,
+                                                    (__mmask8) __U,
+                                                    _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_mask3_fmadd_pd(__m512d __A, __m512d __B, __m512d __C, __mmask8 __U)
+{
+  return (__m512d) __builtin_ia32_vfmaddpd512_mask3 ((__v8df) __A,
+                                                     (__v8df) __B,
+                                                     (__v8df) __C,
+                                                     (__mmask8) __U,
+                                                     _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_fmadd_pd(__mmask8 __U, __m512d __A, __m512d __B, __m512d __C)
+{
+  return (__m512d) __builtin_ia32_vfmaddpd512_maskz ((__v8df) __A,
+                                                     (__v8df) __B,
+                                                     (__v8df) __C,
+                                                     (__mmask8) __U,
+                                                     _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_fmadd_ps(__m512 __A, __m512 __B, __m512 __C)
+{
+  return (__m512) __builtin_ia32_vfmaddps512_mask ((__v16sf) __A,
+                                                   (__v16sf) __B,
+                                                   (__v16sf) __C,
+                                                   (__mmask16) -1,
+                                                   _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_mask_fmadd_ps(__m512 __A, __mmask16 __U, __m512 __B, __m512 __C)
+{
+  return (__m512) __builtin_ia32_vfmaddps512_mask ((__v16sf) __A,
+                                                   (__v16sf) __B,
+                                                   (__v16sf) __C,
+                                                   (__mmask16) __U,
+                                                   _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_mask3_fmadd_ps(__m512 __A, __m512 __B, __m512 __C, __mmask16 __U)
+{
+  return (__m512) __builtin_ia32_vfmaddps512_mask3 ((__v16sf) __A,
+                                                    (__v16sf) __B,
+                                                    (__v16sf) __C,
+                                                    (__mmask16) __U,
+                                                    _MM_FROUND_CUR_DIRECTION);
+}
+
+static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
+_mm512_maskz_fmadd_ps(__mmask16 __U, __m512 __A, __m512 __B, __m512 __C)
+{
+  return (__m512) __builtin_ia32_vfmaddps512_maskz ((__v16sf) __A,
+                                                    (__v16sf) __B,
+                                                    (__v16sf) __C,
+                                                    (__mmask16) __U,
+                                                    _MM_FROUND_CUR_DIRECTION);
+}
 #endif // __AVX512FINTRIN_H

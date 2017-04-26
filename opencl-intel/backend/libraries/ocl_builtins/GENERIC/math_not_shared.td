@@ -377,7 +377,7 @@ OclBuiltinImpl rint_svml = OclBuiltinImpl<rint, [v4f32, v8f32, v2f64, v4f64], 0,
   }]>;
 
 // round
-OclBuiltinImpl round_svml_not_shared = OclBuiltinImpl<round, [v4f32, v8f32, v2f64, v4f64], 0, [{
+OclBuiltinImpl round_svml_not_shared = OclBuiltinImpl<round, [v4f32, v8f32, v16f32, v2f64, v4f64, v8f64], 0, [{
     return __ocl_svml_$Target_round$SVMLSuffix($Arg0VarName);
   }]>;
 
@@ -438,7 +438,7 @@ OclBuiltinImpl tgamma_svml_not_shared = OclBuiltinImpl<tgamma, math_not_shared_t
   }]>;
 
 // trunc
-OclBuiltinImpl trunc_svml_not_shared = OclBuiltinImpl<trunc,[v4f32, v8f32, v2f64, v4f64], 0, [{
+OclBuiltinImpl trunc_svml_not_shared = OclBuiltinImpl<trunc, [v4f32, v8f32, v16f32, v2f64, v4f64, v8f64], 0, [{
     return __ocl_svml_$Target_trunc$SVMLSuffix($Arg0VarName);
   }]>;
 
