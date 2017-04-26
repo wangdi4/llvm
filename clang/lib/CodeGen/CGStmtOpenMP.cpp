@@ -3889,7 +3889,9 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
       incrementProfileCounter(&S);
     }
 
-    if (isOpenMPWorksharingDirective(S.getDirectiveKind())) {
+    if (isOpenMPWorksharingDirective(S.getDirectiveKind()) ||
+        isOpenMPTaskLoopDirective(S.getDirectiveKind()) ||
+        isOpenMPDistributeDirective(S.getDirectiveKind())) {
       // Emit helper vars inits.
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getLowerBoundVariable()));
       EmitOMPHelperVar(*this, cast<DeclRefExpr>(S.getUpperBoundVariable()));
@@ -3918,6 +3920,12 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         break;
       case OMPD_parallel_for_simd:
         Outliner.emitOMPParallelForSimdDirective();
+        break;
+      case OMPD_taskloop:
+        Outliner.emitOMPTaskLoopDirective();
+        break;
+      case OMPD_taskloop_simd:
+        Outliner.emitOMPTaskLoopSimdDirective();
         break;
       default:
         llvm_unreachable("unexpected loop kind");
@@ -3985,5 +3993,19 @@ void CodeGenFunction::EmitIntelOMPParallelForSimdDirective(
     CGF.EmitIntelOMPLoop(S, OMPD_parallel_for_simd);
   };
   emitIntelDirective(*this, OMPD_parallel_for_simd, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPTaskLoopDirective(
+                                             const OMPTaskLoopDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_taskloop);
+  };
+  emitIntelDirective(*this, OMPD_taskloop, CodeGen);
+}
+void CodeGenFunction::EmitIntelOMPTaskLoopSimdDirective(
+                                         const OMPTaskLoopSimdDirective &S) {
+  auto &&CodeGen = [&S](CodeGenFunction &CGF, PrePostActionTy &) {
+    CGF.EmitIntelOMPLoop(S, OMPD_taskloop_simd);
+  };
+  emitIntelDirective(*this, OMPD_taskloop_simd, CodeGen);
 }
 #endif // INTEL_SPECIFIC_OPENMP

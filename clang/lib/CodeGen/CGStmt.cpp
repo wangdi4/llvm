@@ -93,6 +93,12 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     if (S->getStmtClass() == Stmt::OMPParallelForSimdDirectiveClass)
       return EmitIntelOMPParallelForSimdDirective(
                                 cast<OMPParallelForSimdDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopDirectiveClass)
+      return EmitIntelOMPTaskLoopDirective(
+                                cast<OMPTaskLoopDirective>(*S));
+    if (S->getStmtClass() == Stmt::OMPTaskLoopSimdDirectiveClass)
+      return EmitIntelOMPTaskLoopSimdDirective(
+                                cast<OMPTaskLoopSimdDirective>(*S));
     if (auto *Dir = dyn_cast<OMPExecutableDirective>(S))
       return EmitIntelOpenMPDirective(*Dir);
   }

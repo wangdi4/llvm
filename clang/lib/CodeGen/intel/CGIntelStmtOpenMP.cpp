@@ -932,12 +932,61 @@ namespace CGIntelOpenMP {
     emitListClause();
   }
 
-  void OpenMPCodeOutliner::emitOMPFinalClause(const OMPFinalClause *) {}
+  void
+  OpenMPCodeOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *Cl) {
+    addArg("QUAL.OMP.GRAINSIZE");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getGrainsize()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPNumTasksClause(const OMPNumTasksClause *Cl) {
+    addArg("QUAL.OMP.NUM_TASKS");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getNumTasks()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPPriorityClause(const OMPPriorityClause *Cl) {
+    addArg("QUAL.OMP.PRIORITY");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getPriority()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPFinalClause(const OMPFinalClause *Cl) {
+    addArg("QUAL.OMP.FINAL");
+    auto SavedIP = CGF.Builder.saveIP();
+    setOutsideInsertPoint();
+    addArg(CGF.EmitScalarExpr(Cl->getCondition()));
+    CGF.Builder.restoreIP(SavedIP);
+    emitOpndClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {
+    addArg("QUAL.OMP.NOGROUP");
+    emitSimpleClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPMergeableClause(const OMPMergeableClause *) {
+    addArg("QUAL.OMP.MERGEABLE");
+    emitSimpleClause();
+  }
+
+  void OpenMPCodeOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {
+    addArg("QUAL.OMP.UNTIED");
+    emitSimpleClause();
+  }
+
   void OpenMPCodeOutliner::emitOMPCopyprivateClause(
                                         const OMPCopyprivateClause *) {}
   void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *) {}
-  void OpenMPCodeOutliner::emitOMPUntiedClause(const OMPUntiedClause *) {}
-  void OpenMPCodeOutliner::emitOMPMergeableClause(const OMPMergeableClause *) {}
   void OpenMPCodeOutliner::emitOMPFlushClause(const OMPFlushClause *) {}
   void OpenMPCodeOutliner::emitOMPReadClause(const OMPReadClause *) {}
   void OpenMPCodeOutliner::emitOMPWriteClause(const OMPWriteClause *) {}
@@ -951,10 +1000,6 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPNumTeamsClause(const OMPNumTeamsClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadLimitClause(
                                               const OMPThreadLimitClause *) {}
-  void OpenMPCodeOutliner::emitOMPPriorityClause(const OMPPriorityClause *) {}
-  void OpenMPCodeOutliner::emitOMPGrainsizeClause(const OMPGrainsizeClause *) {}
-  void OpenMPCodeOutliner::emitOMPNogroupClause(const OMPNogroupClause *) {}
-  void OpenMPCodeOutliner::emitOMPNumTasksClause(const OMPNumTasksClause *) {}
   void OpenMPCodeOutliner::emitOMPHintClause(const OMPHintClause *) {}
   void OpenMPCodeOutliner::emitOMPDistScheduleClause(
                                               const OMPDistScheduleClause *) {}
@@ -1079,6 +1124,17 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPParallelForSimdDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.PARALLEL.LOOP",
                                "DIR.OMP.END.PARALLEL.LOOP", OMPD_parallel_for);
+    startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
+  }
+
+  void OpenMPCodeOutliner::emitOMPTaskLoopDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASKLOOP",
+                               "DIR.OMP.END.TASKLOOP", OMPD_taskloop);
+  }
+
+  void OpenMPCodeOutliner::emitOMPTaskLoopSimdDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASKLOOP",
+                               "DIR.OMP.END.TASKLOOP", OMPD_taskloop);
     startDirectiveIntrinsicSet("DIR.OMP.SIMD", "DIR.OMP.END.SIMD", OMPD_simd);
   }
 
@@ -1269,18 +1325,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_parallel:
     Outliner.emitOMPParallelDirective();
     break;
-  case OMPD_parallel_for:
-    Outliner.emitOMPParallelForDirective();
-    break;
-  case OMPD_simd:
-    Outliner.emitOMPSIMDDirective();
-    break;
-  case OMPD_for:
-    Outliner.emitOMPForDirective();
-    break;
-  case OMPD_parallel_for_simd:
-    Outliner.emitOMPParallelForSimdDirective();
-    break;
   case OMPD_atomic: {
     bool IsSeqCst = S.hasClausesOfKind<OMPSeqCstClause>();
     OMPAtomicClause ClauseKind = IsSeqCst ? OMP_update_seq_cst : OMP_update;
@@ -1323,8 +1367,6 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_parallel_sections:
   case OMPD_for_simd:
   case OMPD_cancellation_point:
-  case OMPD_taskloop:
-  case OMPD_taskloop_simd:
   case OMPD_distribute:
   case OMPD_target_enter_data:
   case OMPD_target_exit_data:
@@ -1342,6 +1384,13 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_declare_simd:
   case OMPD_unknown:
     llvm_unreachable("Wrong OpenMP directive");
+  case OMPD_simd:
+  case OMPD_for:
+  case OMPD_parallel_for:
+  case OMPD_parallel_for_simd:
+  case OMPD_taskloop:
+  case OMPD_taskloop_simd:
+    llvm_unreachable("OpenMP loops not handled here");
   }
   Outliner << S.clauses();
   if (S.hasAssociatedStmt()) {

@@ -3060,6 +3060,8 @@ private:
   void EmitIntelOMPParallelForDirective(const OMPParallelForDirective &S);
   void EmitIntelOMPParallelForSimdDirective(
                                     const OMPParallelForSimdDirective &S);
+  void EmitIntelOMPTaskLoopDirective(const OMPTaskLoopDirective &S);
+  void EmitIntelOMPTaskLoopSimdDirective(const OMPTaskLoopSimdDirective &S);
 #endif // INTEL_SPECIFIC_OPENMP
 public:
 
