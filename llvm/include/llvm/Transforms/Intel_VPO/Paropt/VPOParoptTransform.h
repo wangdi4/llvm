@@ -129,7 +129,7 @@ private:
   bool genFirstPrivatizationCode(WRegionNode *W);
 
   /// \brief Generate code for last privatization
-  void genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
+  bool genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
 
   /// \brief A utility to privatize the variables within the region.
   AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
@@ -176,8 +176,10 @@ private:
   /// \brief Generate the lastprivate update code.
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
 
-  /// \brief Generate loop schdudeling code
-  bool genLoopSchedulingCode(WRegionNode *W);
+  /// \brief Generate loop schdudeling code.
+  /// \p IsLastVal is an output from this routine and is used to emit
+  /// lastprivate code.
+  bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
 
   /// \brief Generate the actual parameters in the outlined function
   /// for copyin variables.

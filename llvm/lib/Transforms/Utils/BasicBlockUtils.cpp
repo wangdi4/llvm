@@ -655,8 +655,13 @@ llvm::SplitBlockAndInsertIfThen(Value *Cond, Instruction *SplitBefore,
 
   if (LI) {
     Loop *L = LI->getLoopFor(Head);
-    L->addBasicBlockToLoop(ThenBlock, *LI);
-    L->addBasicBlockToLoop(Tail, *LI);
+#if INTEL_CUSTOMIZATION
+    if (L)
+#endif // INTEL_CUSTOMIZATION
+    {
+      L->addBasicBlockToLoop(ThenBlock, *LI);
+      L->addBasicBlockToLoop(Tail, *LI);
+    }
   }
 
   return CheckTerm;

@@ -241,9 +241,11 @@ bool VPOParoptTransform::paroptTransforms() {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = genLoopSchedulingCode(W);
+          AllocaInst *IsLastVal = nullptr;
+          Changed = genLoopSchedulingCode(W, IsLastVal);
           // Privatization is enabled for both Prepare and Transform passes
           Changed |= genPrivatizationCode(W);
+          Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           Changed |= genMultiThreadedCode(W);
@@ -274,7 +276,7 @@ bool VPOParoptTransform::paroptTransforms() {
       }
     case WRegionNode::WRNAtomic:
       { 
-        DEBUG(dbgs() << "\nWRegionNode::WRNAtomic - Transformation \n\n");
+        DEBUG(dbgs() << "\n WRNAtomic - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = VPOParoptAtomics::handleAtomic(dyn_cast<WRNAtomicNode>(W),
                                                    IdentTy, TidPtr);
@@ -288,8 +290,10 @@ bool VPOParoptTransform::paroptTransforms() {
         DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
-          Changed = genLoopSchedulingCode(W);
+          AllocaInst *IsLastVal = nullptr;
+          Changed = genLoopSchedulingCode(W, IsLastVal);
           Changed |= genPrivatizationCode(W);
+          Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
           RemoveDirectives = true;
@@ -298,7 +302,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
     case WRegionNode::WRNSingle:
-      { DEBUG(dbgs() << "\nWRegionNode::WRNSingle - Transformation \n\n");
+      { DEBUG(dbgs() << "\n WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genSingleThreadCode(W);
           RemoveDirectives = true;
@@ -306,7 +310,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
     case WRegionNode::WRNMaster:
-      { DEBUG(dbgs() << "\nWRegionNode::WRNMaster - Transformation \n\n");
+      { DEBUG(dbgs() << "\n WRNMaster - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genMasterThreadCode(W);
           RemoveDirectives = true;
@@ -315,7 +319,7 @@ bool VPOParoptTransform::paroptTransforms() {
       }
     case WRegionNode::WRNCritical:
       {
-        DEBUG(dbgs() << "\nWRegionNode::WRNCritical - Transformation \n\n");
+        DEBUG(dbgs() << "\n WRNCritical - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genCriticalCode(dyn_cast<WRNCriticalNode>(W));
           RemoveDirectives = true;
@@ -324,7 +328,7 @@ bool VPOParoptTransform::paroptTransforms() {
       } 
     case WRegionNode::WRNOrdered:
       {
-        DEBUG(dbgs() << "\nWRegionNode::WRNOrdered - Transformation \n\n");
+        DEBUG(dbgs() << "\n WRNOrdered - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genOrderedThreadCode(W);
           RemoveDirectives = true;
@@ -899,7 +903,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
 
-  DEBUG(dbgs() << "\n WRegionNode: Invoke Reduction Initialization \n\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
 
   ReductionClause &RedClause = W->getRed();
   if (RedClause.size()) {
@@ -934,6 +938,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
   }
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genReductionCode\n");
   return Changed;
 }
 
@@ -1001,18 +1006,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
   bool Changed = false;
 
-  BasicBlock *EntryBB = W->getEntryBBlock();
-
-  DEBUG(dbgs() << "\n WRegionNode: Invoke Firstprivate Initialization \n\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genFirstPrivatizationCode\n");
 
   assert(W->isBBSetEmpty() &&
          "genFirstPrivatizationCode: BBSET should start empty");
-
-  // This routine assumes that W->hasFirstprivate() is true while
-  // W->hasLastprivate() may be true or false. The assumption is valid: with 
-  // the the exception of SIMD, all OMP4.5 constructs that take a lastprivate
-  // clause also take a firstprivate clause. SIMD constructs don't take a
-  // firstprivate clause, but they're not processed here but in the Vectorizer.
 
   assert(W->hasFirstprivate() &&
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
@@ -1020,6 +1017,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
     W->populateBBSet();
+    BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     AllocaInst *NewPrivInst = nullptr;
     for (FirstprivateItem *FprivI : FprivClause.items()) {
@@ -1043,32 +1041,39 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 
       createEmptyPrvInitBB(W, PrivInitEntryBB);
       genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
-      DEBUG(dbgs() << "genFirstOrLastPrivatizationCode: firstprivatized " 
+      DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized " 
                    << *Orig << "\n");
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet
   }
 
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genFirstPrivatizationCode\n");
   return Changed;
 }
 
-void VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
+bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                                                   AllocaInst *IsLastVal) {
+  bool Changed = false;
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
+
+  assert(W->isBBSetEmpty() &&
+         "genLastPrivatizationCode: BBSET should start empty");
+
+  assert(W->hasLastprivate() &&
+         "genLastPrivatizationCode: WRN doesn't take a lastprivate var");
 
   LastprivateClause &LprivClause = W->getLpriv();
   if (LprivClause.size()) {
-
-    if (W->isBBSetEmpty())
-      W->populateBBSet();
-
+    W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *BeginBB = nullptr;
     createEmptyPrivFiniBB(W, BeginBB);
     IRBuilder<> Builder(BeginBB);
     Builder.SetInsertPoint(BeginBB->getTerminator());
 
-    assert(IsLastVal && "Expect the value lastIter is not empty");
+    assert(IsLastVal && "genLastPrivatizationCode: IsLastVal not initialized");
     LoadInst *LastLoad = Builder.CreateLoad(IsLastVal);
     ConstantInt *ValueZero =
         ConstantInt::getSigned(Type::getInt32Ty(F->getContext()), 0);
@@ -1089,8 +1094,12 @@ void VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       LprivI->setNew(NewPrivInst);
       genLprivFini(LprivI, BeginBB->getTerminator());
     }
+    Changed = true;
     W->resetBBSet(); // Invalidate BBSet
   }
+
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
+  return Changed;
 }
 
 bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
@@ -1099,7 +1108,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   BasicBlock *EntryBB = W->getEntryBBlock();
 
-  DEBUG(dbgs() << "\n WRegionNode: Invoke Privatization \n\n");
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
 
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
@@ -1133,11 +1142,14 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         SE->forgetLoop(L);
     }
   }
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
   return Changed;
 }
 
 
-bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
+bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W, 
+                                               AllocaInst *&IsLastVal) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLoopSchedulingCode\n");
 
   assert(W->getIsOmpLoop() && "genLoopSchedulingCode: not a loop-type WRN");
 
@@ -1184,10 +1196,9 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  AllocaInst *IsLastVal =
+  IsLastVal =
       new AllocaInst(Int32Ty, "is.last", W->getEntryBBlock()->getTerminator());
   IsLastVal->setAlignment(4);
-
   AllocaInst *LowerBnd = new AllocaInst(IndValTy, "lower.bnd", InsertPt);
   LowerBnd->setAlignment(4);
 
@@ -1522,8 +1533,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W) {
   
   // There are new BBlocks generated, so we need to reset BBSet 
   W->resetBBSet();
-
-  genLastPrivatizationCode(W, IsLastVal);
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genLoopSchedulingCode\n");
   return true;
 }
 
@@ -1853,7 +1863,7 @@ void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
 }
 
 bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
-
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMultiThreadedCode\n");
   assert(W->isBBSetEmpty() &&
          "genMultiThreadedCode: BBSET should start empty");
 
@@ -2024,6 +2034,7 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
     Changed = true;
   }
 
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genMultiThreadedCode\n");
   return Changed;
 }
 
@@ -2313,6 +2324,7 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(
 // Generate code for master/end master construct and update LLVM control-flow 
 // and dominator tree accordingly 
 bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genMasterThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2373,12 +2385,14 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
                                MasterCI->getParent());
 
   W->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genMasterThreadCode\n");
   return true; // Changed
 }
 
 // Generate code for single/end single construct and update LLVM control-flow
 // and dominator tree accordingly
 bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2440,12 +2454,14 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
                                SingleCI->getParent());
 
   W->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSingleThreadCode\n");
   return true;  // Changed
 }
 
 // Generate code for ordered/end ordered construct for preserving ordered
 // region execution order
 bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genOrderedThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *ExitBB = W->getExitBBlock();
 
@@ -2482,11 +2498,13 @@ bool VPOParoptTransform::genOrderedThreadCode(WRegionNode *W) {
   //DEBUG(dbgs() << " Ordered Exit BBlock: " << *EndOrderedBB << "\n\n");
 
   W->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genOrderedThreadCode\n");
   return true;  // Changed
 }
 
 // Generates code for the OpenMP critical construct.
 bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genCriticalCode\n");
   assert(CriticalNode != nullptr && "Critical node is null.");
 
   assert(IdentTy != nullptr && "IdentTy is null.");
@@ -2514,5 +2532,6 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   assert(CriticalCallsInserted && "Failed to create critical section. \n");
 
   CriticalNode->resetBBSet(); // Invalidate BBSet
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
   return CriticalCallsInserted;
 }
