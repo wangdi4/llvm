@@ -55,7 +55,7 @@ OrderMemopsType("csa-order-memops-type",
 //  ordering.  Otherwise, we just obey the OrderMemopsType variable.
 static cl::opt<int>
 OrderMemops("csa-order-memops",
-            cl::Hidden,
+            cl::Hidden, cl::ZeroOrMore,
             cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
             cl::init(1));
 
