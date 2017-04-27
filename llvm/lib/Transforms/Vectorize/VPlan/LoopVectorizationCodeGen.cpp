@@ -470,6 +470,8 @@ void VPOCodeGen::finalizeLoop() {
                  IVEndValues[Entry.first], LoopMiddleBlock);
   
   fixLCSSAPHIs();
+
+  predicateInstructions();
 }
 
 void VPOCodeGen::fixCrossIterationPHIs() {
@@ -889,6 +891,36 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
   // SCATTER
   Value *VectorPtr = getVectorValue(Ptr);
   Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
+}
+
+void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
+  if (!MaskValue)
+    return serializeInstruction(Inst);
+
+  assert(MaskValue->getType()->isVectorTy() &&
+         MaskValue->getType()->getVectorNumElements() == VF &&
+         "Unexpected Mask Type");
+  for (unsigned Lane = 0; Lane < VF; ++Lane) {
+    Value *Cmp = Builder.CreateExtractElement(MaskValue, Lane, "Predicate");
+    Cmp = Builder.CreateICmp(ICmpInst::ICMP_EQ, Cmp,
+                             ConstantInt::get(Cmp->getType(), 1));
+    Instruction *Cloned = Inst->clone();
+    if (!Inst->getType()->isVoidTy())
+      Cloned->setName(Inst->getName() + ".cloned");
+
+    // Replace the operands of the cloned instructions with their scalar
+    // equivalents in the new loop.
+    for (unsigned op = 0, e = Inst->getNumOperands(); op != e; ++op) {
+      auto *NewOp = getScalarValue(Inst->getOperand(op), Lane);
+      Cloned->setOperand(op, NewOp);
+    }
+
+    // Place the cloned scalar in the new loop.
+    Builder.Insert(Cloned);
+    ScalarMap[Inst][Lane] = Cloned;
+
+    PredicatedInstructions.push_back(std::make_pair(Cloned, Cmp));
+  }
 }
 
 void VPOCodeGen::serializeInstruction(Instruction *Instr) {
@@ -1493,12 +1525,10 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     // about masked vector function calls yet.
     CallInst *Call = cast<CallInst>(Inst);
     StringRef CalledFunc = Call->getCalledFunction()->getName();
-    if (TLI->isFunctionVectorizable(CalledFunc)) {
+    if (TLI->isFunctionVectorizable(CalledFunc))
       vectorizeCallInstruction(Call);
-    } else {
-      errs() << "Function is serialized\n";
-      serializeInstruction(Inst);
-    }
+    else
+      serializeWithPredication(Call);
     break;
   }
 
@@ -1983,5 +2013,122 @@ void VPOCodeGen::fixLCSSAPHIs() {
     if (LCSSAPhi->getNumIncomingValues() == 1)
       LCSSAPhi->addIncoming(UndefValue::get(LCSSAPhi->getType()),
                             LoopMiddleBlock);
+  }
+}
+
+void VPOCodeGen::predicateInstructions() {
+
+  // For each instruction I marked for predication on value C, split I into its
+  // own basic block to form an if-then construct over C. Since I may be fed by
+  // an extractelement instruction or other scalar operand, we try to
+  // iteratively sink its scalar operands into the predicated block. If I feeds
+  // an insertelement instruction, we try to move this instruction into the
+  // predicated block as well. For non-void types, a phi node will be created
+  // for the resulting value (either vector or scalar).
+  //
+  // So for some predicated instruction, e.g. the conditional sdiv in:
+  //
+  // for.body:
+  //  ...
+  //  %add = add nsw i32 %mul, %0
+  //  %cmp5 = icmp sgt i32 %2, 7
+  //  br i1 %cmp5, label %if.then, label %if.end
+  //
+  // if.then:
+  //  %div = sdiv i32 %0, %1
+  //  br label %if.end
+  //
+  // if.end:
+  //  %x.0 = phi i32 [ %div, %if.then ], [ %add, %for.body ]
+  //
+  // the sdiv at this point is scalarized and if-converted using a select.
+  // The inactive elements in the vector are not used, but the predicated
+  // instruction is still executed for all vector elements, essentially:
+  //
+  // vector.body:
+  //  ...
+  //  %17 = add nsw <2 x i32> %16, %wide.load
+  //  %29 = extractelement <2 x i32> %wide.load, i32 0
+  //  %30 = extractelement <2 x i32> %wide.load51, i32 0
+  //  %31 = sdiv i32 %29, %30
+  //  %32 = insertelement <2 x i32> undef, i32 %31, i32 0
+  //  %35 = extractelement <2 x i32> %wide.load, i32 1
+  //  %36 = extractelement <2 x i32> %wide.load51, i32 1
+  //  %37 = sdiv i32 %35, %36
+  //  %38 = insertelement <2 x i32> %32, i32 %37, i32 1
+  //  %predphi = select <2 x i1> %26, <2 x i32> %38, <2 x i32> %17
+  //
+  // Predication will now re-introduce the original control flow to avoid false
+  // side-effects by the sdiv instructions on the inactive elements, yielding
+  // (after cleanup):
+  //
+  // vector.body:
+  //  ...
+  //  %5 = add nsw <2 x i32> %4, %wide.load
+  //  %8 = icmp sgt <2 x i32> %wide.load52, <i32 7, i32 7>
+  //  %9 = extractelement <2 x i1> %8, i32 0
+  //  br i1 %9, label %pred.sdiv.if, label %pred.sdiv.continue
+  //
+  // pred.sdiv.if:
+  //  %10 = extractelement <2 x i32> %wide.load, i32 0
+  //  %11 = extractelement <2 x i32> %wide.load51, i32 0
+  //  %12 = sdiv i32 %10, %11
+  //  %13 = insertelement <2 x i32> undef, i32 %12, i32 0
+  //  br label %pred.sdiv.continue
+  //
+  // pred.sdiv.continue:
+  //  %14 = phi <2 x i32> [ undef, %vector.body ], [ %13, %pred.sdiv.if ]
+  //  %15 = extractelement <2 x i1> %8, i32 1
+  //  br i1 %15, label %pred.sdiv.if54, label %pred.sdiv.continue55
+  //
+  // pred.sdiv.if54:
+  //  %16 = extractelement <2 x i32> %wide.load, i32 1
+  //  %17 = extractelement <2 x i32> %wide.load51, i32 1
+  //  %18 = sdiv i32 %16, %17
+  //  %19 = insertelement <2 x i32> %14, i32 %18, i32 1
+  //  br label %pred.sdiv.continue55
+  //
+  // pred.sdiv.continue55:
+  //  %20 = phi <2 x i32> [ %14, %pred.sdiv.continue ], [ %19, %pred.sdiv.if54 ]
+  //  %predphi = select <2 x i1> %8, <2 x i32> %20, <2 x i32> %5
+
+  for (auto KV : PredicatedInstructions) {
+    BasicBlock::iterator I(KV.first);
+    BasicBlock *Head = I->getParent();
+    auto *BB = SplitBlock(Head, &*std::next(I), DT, LI);
+    auto *T = SplitBlockAndInsertIfThen(KV.second, &*I, /*Unreachable=*/false,
+                                        /*BranchWeights=*/nullptr, DT, LI);
+    I->moveBefore(T);
+    //sinkScalarOperands(&*I);
+
+    I->getParent()->setName(Twine("pred.") + I->getOpcodeName() + ".if");
+    BB->setName(Twine("pred.") + I->getOpcodeName() + ".continue");
+
+    // If the instruction is non-void create a Phi node at reconvergence point.
+    if (!I->getType()->isVoidTy()) {
+      Value *IncomingTrue = nullptr;
+      Value *IncomingFalse = nullptr;
+
+      if (I->hasOneUse() && isa<InsertElementInst>(*I->user_begin())) {
+        // If the predicated instruction is feeding an insert-element, move it
+        // into the Then block; Phi node will be created for the vector.
+        InsertElementInst *IEI = cast<InsertElementInst>(*I->user_begin());
+        IEI->moveBefore(T);
+        IncomingTrue = IEI; // the new vector with the inserted element.
+        IncomingFalse = IEI->getOperand(0); // the unmodified vector
+      } else {
+        // Phi node will be created for the scalar predicated instruction.
+        IncomingTrue = &*I;
+        IncomingFalse = UndefValue::get(I->getType());
+      }
+
+      BasicBlock *PostDom = I->getParent()->getSingleSuccessor();
+      assert(PostDom && "Then block has multiple successors");
+      PHINode *Phi =
+        PHINode::Create(IncomingTrue->getType(), 2, "", &PostDom->front());
+      IncomingTrue->replaceAllUsesWith(Phi);
+      Phi->addIncoming(IncomingFalse, Head);
+      Phi->addIncoming(IncomingTrue, I->getParent());
+    }
   }
 }

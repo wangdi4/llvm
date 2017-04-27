@@ -226,6 +226,13 @@ private:
   /// Returns (and creates if needed) the trip count of the widened loop.
   Value *getOrCreateVectorTripCount(Loop *L);
 
+  /// Serialize instruction that requires predication.
+  void serializeWithPredication(Instruction *Inst);
+
+  /// Predicate conditional instructions that require predication on their
+  /// respective conditions.
+  void predicateInstructions();
+
   /// Reverse vector elements
   Value *reverseVector(Value *Vec);
 
@@ -413,6 +420,11 @@ private:
 
   // Map Edge between blocks to a mask value.
   std::map< std::pair<BasicBlock *, BasicBlock *>, Value *> EdgeToMaskMap;
+
+  /// Store instructions that should be predicated, as a pair
+  ///   <StoreInst, Predicate>
+  SmallVector<std::pair<Instruction *, Value *>, 4> PredicatedInstructions;
+
 };
 
 } // End LLVM Namespace
