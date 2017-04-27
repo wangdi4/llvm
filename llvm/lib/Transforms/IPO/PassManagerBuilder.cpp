@@ -179,11 +179,6 @@ static cl::opt<bool> RunMapIntrinToIml("enable-iml-trans",
 static cl::opt<bool> EnableIndirectCallConv("enable-ind-call-conv",
     cl::init(true), cl::Hidden, cl::desc("Enable Indirect Call Conv"));
 
-// Indirect call Conv at non-LTO
-static cl::opt<bool>
-  EnableNonLTOIndirectCallConv("enable-non-lto-ind-call-conv",
-  cl::init(false), cl::Hidden, cl::desc("Enable Non LTO Indirect Call Conv"));
-
 // Whole Program Analysis
 static cl::opt<bool> EnableWPA("enable-whole-program-analysis",
     cl::init(true), cl::Hidden, cl::desc("Enable Whole Program Analysis"));
@@ -549,14 +544,6 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
   addInitialAliasAnalysisPasses(MPM);
-#if INTEL_CUSTOMIZATION
-  if (OptLevel >= 2 && EnableAndersen && !PrepareForLTO) {
-    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
-    if (EnableNonLTOIndirectCallConv) {
-      MPM.add(createIndirectCallConvPass()); // Indirect Call Conv
-    }
-  }
-#endif // INTEL_CUSTOMIZATION
 
   // For ThinLTO there are two passes of indirect call promotion. The
   // first is during the compile phase when PerformThinLTO=false and
