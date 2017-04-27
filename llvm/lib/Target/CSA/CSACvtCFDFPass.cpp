@@ -313,7 +313,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   createFIEntryDefs();
 
   replaceUndefWithIgn();
-
+  handleAllConstantInputs();
 #if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
@@ -363,7 +363,6 @@ if (needDynamicPreds() || UseDynamicPred)
 else
   replacePhiWithPICK();
 
-  handleAllConstantInputs();
 #if 0
   {
     errs() << "CSACvtCFDFPass before LIC allocation" << ":\n";
@@ -1589,6 +1588,7 @@ void CSACvtCFDFPass::assignLicForDF() {
 
 void CSACvtCFDFPass::handleAllConstantInputs() {
   std::deque<unsigned> renameQueue;
+  MachineBasicBlock* entry = &*thisMF->begin();
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = &*BB;
     MachineBasicBlock::iterator iterMI = BB->begin();
@@ -1605,80 +1605,9 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
             break;
         }
       }
-      if (allConst) {
-        const TargetRegisterClass *TRC = MRI->getRegClass(MI->getOperand(0).getReg());
-        ControlDependenceNode* mNode = CDG->getNode(mbb);
-        MachineInstr *pickInst = nullptr;
-        MachineInstr *switchInst = nullptr;
-        const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false);
-        const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true);
-        unsigned pickFalseReg = CSA::IGN, pickTrueReg = CSA::IGN;
-        unsigned switchFalse = CSA::IGN, switchTrue = CSA::IGN;
-        int parentN = 0;
-        for (ControlDependenceNode::node_iterator uparent = mNode->parent_begin(), uparent_end = mNode->parent_end();
-          uparent != uparent_end; ++uparent) {
-          ControlDependenceNode *upnode = *uparent;
-          MachineBasicBlock *upbb = upnode->getBlock();
-          if (!upbb) {
-            //this is typical define inside loop, used outside loop on the main execution path
-            continue;
-          }
-          if (mbb == upbb) {
-            //mbb is a loop latch node, use inside a loop will be taken care of in HandleUseInLoop
-            continue;
-          }
-          //TBD::can't skip loop latch upbb, llvm 3.6 put "mov 0.0000" inside a loop as manifested in
-          // 022-regression/t006_HACCmk_v0_O2.s
-#if 0
-          if (MLI->getLoopFor(upbb) &&
-            MLI->getLoopFor(upbb)->getLoopLatch() == upbb) {
-            //no need to conside backedge for if-statements handling
-            continue;
-          }
-#endif
-          ++parentN;
-          MachineInstr* bi = &*(upnode->getBlock()->getFirstTerminator());
-          assert(bi->getOperand(0).isReg());
-          unsigned predReg = bi->getOperand(0).getReg();
-          unsigned pickReg = 0;
-          if (parentN == 1) {
-            if (upnode->isFalseChild(mNode)) {
-              switchFalse = MI->getOperand(0).getReg();
-            } else {
-              switchTrue = MI->getOperand(0).getReg();
-            }
-            switchInst = BuildMI(*BB, MI, DebugLoc(), TII->get(switchOpcode), switchFalse).addReg(switchTrue, RegState::Define).
-              addReg(predReg).addOperand(MI->getOperand(1));
-            switchInst->setFlag(MachineInstr::NonSequential);
-          } else {
-            if (parentN == 2) {
-              unsigned renameReg = MRI->createVirtualRegister(TRC);
-              unsigned index = (switchFalse == CSA::IGN) ? 1 : 0;
-              switchInst->getOperand(index).setReg(renameReg);
-              pickTrueReg = renameReg;
-              pickFalseReg = renameReg;
-            }
-            pickReg = MRI->createVirtualRegister(TRC);
-            if (upnode->isFalseChild(mNode)) {
-              pickInst = BuildMI(*BB, MI, DebugLoc(), TII->get(pickOpcode), pickReg).addReg(predReg).
-                addOperand(MI->getOperand(1)).
-                addReg(pickTrueReg);
-            } else {
-              pickInst = BuildMI(*BB, MI, DebugLoc(), TII->get(pickOpcode), pickReg).addReg(predReg).
-                addReg(pickFalseReg).
-                addOperand(MI->getOperand(1));
-            }
-            pickInst->setFlag(MachineInstr::NonSequential);
-            pickFalseReg = pickReg;
-            pickTrueReg = pickReg;
-          }
-        }
-        if (pickInst) {
-          pickInst->getOperand(0).setReg(MI->getOperand(0).getReg());
-        }
-        if (switchInst) {
-          MI->removeFromParent();
-        }
+      if (allConst && mbb != entry) {
+        MI->removeFromParent();
+        entry->insertAfter(entry->begin(), MI);
       }
     }
   }
