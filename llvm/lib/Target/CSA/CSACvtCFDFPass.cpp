@@ -45,7 +45,7 @@
 using namespace llvm;
 
 static cl::opt<int>
-CvtCFDFPass("csa-cvt-cf-df-pass", cl::Hidden,
+CvtCFDFPass("csa-cvt-cf-df-pass", cl::Hidden, cl::ZeroOrMore,
                cl::desc("CSA Specific: Convert control flow to data flow pass"),
                cl::init(1));
 

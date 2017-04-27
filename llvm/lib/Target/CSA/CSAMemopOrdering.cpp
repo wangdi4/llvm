@@ -55,7 +55,7 @@ OrderMemopsType("csa-order-memops-type",
 //  ordering.  Otherwise, we just obey the OrderMemopsType variable.
 static cl::opt<int>
 OrderMemops("csa-order-memops",
-            cl::Hidden,
+            cl::Hidden, cl::ZeroOrMore,
             cl::desc("CSA Specific: Disable ordering of memory operations (by setting to 0)"),
             cl::init(1));
 
@@ -86,6 +86,39 @@ const TargetRegisterClass* MemopRC = &CSA::I1RegClass;
 
 namespace {
 
+  /* This wraps AliasSetTracker, and gives a less sophisticated interface. Its
+   * advantage is that it can handle PseudoSourceValues, such as frame index
+   * pointers, which do not appear in IR and are not represented by Values. The
+   * intended usage is as follows:
+   * 1. Populate all memory ops with add()
+   * 2. Query only the total number of alias sets, or the alias set number for
+   *    a given MachineMemOperand. You cannot get an underlying AliasSet from
+   *    MachineAliasSetTracker.
+   *
+   * It is illegal to query a memory op which you have not previously add()ed.
+   *
+   * */
+  class MachineAliasSetTracker {
+    public:
+      MachineAliasSetTracker(AliasAnalysis &aa, MachineFrameInfo *mfi) :
+        AST(aa), MFI(mfi), isMerged(false), pseudosCounter(1) { }
+
+      /* Use 'add' to populate the tracker with pointers. */
+      void add(MachineMemOperand *mop);
+      /* Query the number of effective alias sets. */
+      unsigned getNumAliasSets();
+      /* Query the opaque ID of the set associated with a given mem op */
+      unsigned getAliasSetNumForMemop(const MachineMemOperand *mop);
+      void dump(){ /* TODO? */ };
+
+    private:
+      AliasSetTracker AST;
+      MachineFrameInfo *MFI;
+      bool isMerged;
+      std::map<const PseudoSourceValue*, unsigned> pseudos;
+      unsigned pseudosCounter;
+  };
+
   class CSAMemopOrdering : public MachineFunctionPass {
     bool runOnMachineFunction(MachineFunction &MF) override;
     const TargetMachine *TM;
@@ -110,7 +143,7 @@ namespace {
 
   private:
     AliasAnalysis *AA;
-    AliasSetTracker *AS;
+    MachineAliasSetTracker *AS;
     MachineBasicBlock *entryBB;
     ControlDependenceGraph *CDG;
     const CSAInstrInfo *TII;
@@ -128,8 +161,8 @@ namespace {
       bool readonly;
     };
 
-    typedef DenseMap<const AliasSet*, depchain> AliasSetDepchain;
-    typedef DenseMap<const AliasSet*, unsigned> AliasSetVReg;
+    typedef DenseMap<unsigned, depchain> AliasSetDepchain;
+    typedef DenseMap<unsigned, unsigned> AliasSetVReg;
 
     void addMemoryOrderingConstraints(MachineFunction* thisMF);
 
@@ -236,14 +269,12 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   assert(entryBB && "Couldn't determine this function's entry block");
 
   // Create the AliasSetTracker and populate with all basic blocks.
-  AliasSetTracker AST(*AA);
+  MachineAliasSetTracker AST(*AA, &MF.getFrameInfo());
   AS = &AST;
   for (MachineBasicBlock &MB : MF) {
     for (MachineInstr &MI : MB) {
       for (MachineMemOperand *op : MI.memoperands()) {
-        assert(op->getValue() && "I don't understand this memory operand!");
-        AS->add(const_cast<Value*>(op->getValue()),
-            op->getSize(), op->getAAInfo());
+        AS->add(op);
       }
     }
   }
@@ -266,19 +297,19 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   SmallVector<MachineInstr*, 16> inserted_PHIs;  // Phi nodes from ssa updaters
 
   // Initialize the maps.
-  for (const AliasSet &set : AS->getAliasSets()) {
+  for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
     // Create the start of the chain for each alias set.
-    depchains[&set].start = MRI->createVirtualRegister(MemopRC);
+    depchains[set].start = MRI->createVirtualRegister(MemopRC);
     BuildMI(*entryBB,
         entryBB->getFirstNonPHI(),
         DebugLoc(),
         TII->get(MemTokenMOVOpcode),
-        depchains[&set].start).addImm(1);
+        depchains[set].start).addImm(1);
     // Initialize an SSAUpdater for each set.
-    depchains[&set].updater.reset(new MachineSSAUpdater(*thisMF, &inserted_PHIs));
-    depchains[&set].updater->Initialize(depchains[&set].start);
-    depchains[&set].updater->AddAvailableValue(entryBB, depchains[&set].start);
-    depchains[&set].readonly = KillReadChains;
+    depchains[set].updater.reset(new MachineSSAUpdater(*thisMF, &inserted_PHIs));
+    depchains[set].updater->Initialize(depchains[set].start);
+    depchains[set].updater->AddAvailableValue(entryBB, depchains[set].start);
+    depchains[set].readonly = KillReadChains;
   }
 
   // An extra loop over all memops to determine which alias sets consist only
@@ -296,9 +327,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
       const MachineMemOperand *mOp = *MI.memoperands_begin();
 
       // Use AliasAnalysis to determine which ordering chain we should be on.
-      AliasSet *as =
-        AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
-            mOp->getSize(), mOp->getAAInfo());
+      unsigned as = AS->getAliasSetNumForMemop(mOp);
 
       // Update the chain's readonly status.
       depchains[as].readonly &= TII->isLoad(&MI);
@@ -343,18 +372,18 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
     if (!BB.isReturnBlock())
       continue;
 
-    for (const AliasSet &set : AS->getAliasSets()) {
+    for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
       unsigned depchain_end = MRI->createVirtualRegister(&CSA::RI1RegClass);
-      unsigned prev_chain_reg = depchains[&set].start;
+      unsigned prev_chain_reg = depchains[set].start;
       MachineInstr* endMov = BuildMI(BB, BB.getFirstTerminator(), DebugLoc(), TII->get(MemTokenMOVOpcode), depchain_end).addReg(prev_chain_reg);
-      depchains[&set].uses.insert(endMov->operands_end()-1);
+      depchains[set].uses.insert(endMov->operands_end()-1);
     }
   }
 
   // Finally, use the updater for each set to fully rewrite to SSA. This
   // includes generating PHI nodes.
-  for (const AliasSet &set : AS->getAliasSets()) {
-    for (MachineOperand *op : depchains[&set].uses) {
+  for (unsigned set=0, e=AS->getNumAliasSets(); set<e; ++set) {
+    for (MachineOperand *op : depchains[set].uses) {
       // There is an exception here: RewriteUse is not smart enough to find new
       // values added by "AddAvailableValue" before a use in the same basic
       // block. (I.e., it can only find them if they are in a basic block which
@@ -364,7 +393,7 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
       if(op->getParent()->getParent() == entryBB)
         continue;
 
-      depchains[&set].updater->RewriteUse(*op);
+      depchains[set].updater->RewriteUse(*op);
     }
   }
 
@@ -384,7 +413,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
   // Save the latest evolution of each alias set's memory chain here.
   AliasSetVReg depchain_reg;
   // Also save a wavefront of load output signals per alias set.
-  DenseMap<AliasSet*, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
+  DenseMap<unsigned, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
 
   MachineBasicBlock::iterator iterMI = BB.begin();
   while (iterMI != BB.end()) {
@@ -404,9 +433,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     const MachineMemOperand *mOp = *MI->memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
-    AliasSet *as =
-      AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
-          mOp->getSize(), mOp->getAAInfo());
+    unsigned as = AS->getAliasSetNumForMemop(mOp);
 
     // If this chain consists only of readonly access, then it is unnecessary.
     // This is a stronger requirement than is necessary.
@@ -473,7 +500,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
   }
 
   for (auto &pair : wavefront) {
-    AliasSet *as = pair.first;
+    unsigned as = pair.first;
     unsigned next_mem_reg = depchain_reg[as];
     assert(next_mem_reg);
 
@@ -512,9 +539,7 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     const MachineMemOperand *mOp = *MI->memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
-    AliasSet *as =
-      AS->getAliasSetForPointerIfExists(const_cast<Value*>(mOp->getValue()),
-          mOp->getSize(), mOp->getAAInfo());
+    unsigned as = AS->getAliasSetNumForMemop(mOp);
 
     // If this chain consists only of readonly access, then it is unnecessary.
     // This is a stronger requirement than is necessary.
@@ -908,4 +933,81 @@ void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
 
   DEBUG(errs() << "%%% After markParallelLoopBackedges\n");
   DEBUG(thisMF->dump());
+}
+
+void MachineAliasSetTracker::add(MachineMemOperand *mop) {
+  if (isMerged)
+    return;
+
+  /* Handle the "normal" case where we have a Value by adding the value into
+   * the real AliasSetTracker. */
+  Value *v = const_cast<Value*>(mop->getValue());
+  if (v) {
+    AST.add(v, mop->getSize(), mop->getAAInfo());
+    return;
+  }
+
+  /* Otherwise, we there is no Value, and the pointer is something like a frame
+   * object. (This is the only case I've seen so far, but there are other types
+   * of PseudoSourceValues.) */
+  const PseudoSourceValue *pv = mop->getPseudoValue();
+  assert(pv && "Memory ops are expected to have a Value or PseudoValue");
+
+  /* Ask if the PseudoValue IS aliased with a Value. If it's a
+   * FixedStackPseudoSourceValue, then this will consult MFI. If the answer is
+   * "no", then we consider the pv to be in its own alias set and can avoid
+   * giving up (by merging all of the alias sets). Note that we can't track
+   * this with an actual AliasSet. "isAliased" reports whether any Values may
+   * alias, so this also assumes that PseudoValues cannot alias one another. */
+  if (!pv->isAliased(MFI)) {
+    DEBUG(errs() << "found a non-aliasing pv.\n");
+    if (!pseudos[pv])
+      pseudos[pv] = pseudosCounter++;
+    return;
+  }
+
+  /* If we find that any pv is not in its own alias set, then we give up and
+   * consider ourselves to only have one all-encompasing alias set. */
+  DEBUG(errs() << "found a pv which may be aliased. smushing into one alias set.\n");
+  isMerged = true;
+}
+
+unsigned MachineAliasSetTracker::getNumAliasSets(void) {
+  if (isMerged)
+    return 1;
+
+  unsigned size = 0;
+  for (const AliasSet &s : AST.getAliasSets()) {
+    (void)s;
+    size++;
+  }
+  size+=pseudos.size();
+
+  return size;
+}
+
+unsigned MachineAliasSetTracker::getAliasSetNumForMemop(const MachineMemOperand *mop) {
+  if (isMerged)
+    return 0;
+
+  Value *v = const_cast<Value*>(mop->getValue());
+  if (mop->getValue()) {
+    AliasSet *as = AST.getAliasSetForPointerIfExists(v, mop->getSize(), mop->getAAInfo());
+    assert(as && "Memop must be added to MachineAliasSetTracker before querying");
+    unsigned pos = 0;
+    for (const AliasSet &s : AST.getAliasSets()) {
+      if (&s == as)
+        return pos;
+      pos++;
+    }
+  }
+
+  const PseudoSourceValue *pv = mop->getPseudoValue();
+  unsigned pos = 0;
+  for (const AliasSet &s : AST.getAliasSets()) {
+    (void)s;
+    pos++;
+  }
+  assert(pseudos[pv] && "Memop must be added to MachineAliasSetTracker before querying");
+  return pos + pseudos[pv] - 1;
 }
