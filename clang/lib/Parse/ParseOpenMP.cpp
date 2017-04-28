@@ -799,6 +799,22 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   bool HasAssociatedStatement = true;
   bool FlushHasClause = false;
 
+#if INTEL_CUSTOMIZATION
+  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPSimdDisabled) {
+    auto InSimdSubset = isAllowedInSimdSubset(DKind);
+    if ((getLangOpts().OpenMPSimdOnly && !InSimdSubset) ||
+        (getLangOpts().OpenMPSimdDisabled && InSimdSubset)) {
+      if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
+        Diag(Tok, diag::warn_pragma_omp_ignored);
+        Diags.setSeverity(diag::warn_pragma_omp_ignored,
+                          diag::Severity::Ignored, SourceLocation());
+      }
+      SkipUntil(tok::annot_pragma_openmp_end);
+      return Directive;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   switch (DKind) {
   case OMPD_threadprivate: {
     if (Allowed != ACK_Any) {

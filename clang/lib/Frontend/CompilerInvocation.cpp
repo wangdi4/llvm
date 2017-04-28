@@ -2383,6 +2383,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 
   // Check if -fopenmp is specified.
   Opts.OpenMP = Args.hasArg(options::OPT_fopenmp) ? 1 : 0;
+
+#if INTEL_CUSTOMIZATION
+  Opts.OpenMPSimdOnly = false;
+  Opts.OpenMPSimdDisabled = false;
+  if (Opts.OpenMP) {
+    // OpenMP is enabled but we want to disable OpenMP simd
+    Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fnointel_openmp_simd);
+  } else {
+    Opts.OpenMPSimdOnly = Args.hasArg(OPT_fintel_openmp_simd);
+    if (Opts.OpenMPSimdOnly)
+      Opts.OpenMP = true;
+  }
+#endif //INTEL_CUSTOMIZATION
+
   Opts.OpenMPUseTLS =
 #if INTEL_CUSTOMIZATION
       !Args.hasArg(options::OPT_fopenmp_threadprivate_legacy) &&

@@ -195,6 +195,15 @@ OPENMP_DIRECTIVE_EXT(target_simd, "target simd")
 OPENMP_DIRECTIVE_EXT(teams_distribute, "teams distribute")
 OPENMP_DIRECTIVE_EXT(teams_distribute_simd, "teams distribute simd")
 
+#if INTEL_CUSTOMIZATION
+// OpenMP directives in the -qopenmp-simd subset
+#ifndef OPENMP_DIRECTIVE_SIMD_SUBSET
+#define OPENMP_DIRECTIVE_SIMD_SUBSET(Name)
+#endif
+OPENMP_DIRECTIVE_SIMD_SUBSET(simd)
+OPENMP_DIRECTIVE_SIMD_SUBSET(declare_simd)
+#endif // INTEL_CUSTOMIZATION
+
 // OpenMP clauses.
 OPENMP_CLAUSE(if, OMPIfClause)
 OPENMP_CLAUSE(final, OMPFinalClause)
@@ -688,6 +697,9 @@ OPENMP_TEAMS_DISTRIBUTE_SIMD_CLAUSE(simdlen)
 #undef OPENMP_DEFAULT_KIND
 #undef OPENMP_DIRECTIVE
 #undef OPENMP_DIRECTIVE_EXT
+#if INTEL_CUSTOMIZATION
+#undef OPENMP_DIRECTIVE_SIMD_SUBSET
+#endif // INTEL_CUSTOMIZATION
 #undef OPENMP_CLAUSE
 #undef OPENMP_CRITICAL_CLAUSE
 #undef OPENMP_ORDERED_CLAUSE
