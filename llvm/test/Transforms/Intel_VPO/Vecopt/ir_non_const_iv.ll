@@ -13,12 +13,12 @@
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.ph:                                        ; preds = %min.iters.checked
-; CHECK:  %[[SPLAT:.*]].splat5 = shufflevector <4 x i32> {{.*}}, <4 x i32> undef, <4 x i32> zeroinitializer
+; CHECK:  %[[SPLAT:.*splat[0-9]*]] = shufflevector <4 x i32> {{.*}}, <4 x i32> undef, <4 x i32> zeroinitializer
 ; CHECK:  br label %vector.body
 ; CHECK: vector.body:                                      ; preds = %vector.body, %vector.ph
 ; CHECK:   %index = phi i64 [ 0, %vector.ph ], [ %index.next, %vector.body ]
 ; CHECK:   %[[VEC_IND:.*]] = phi <4 x i32> [ %induction, %vector.ph ], [ %[[VEC_IND_NEXT:.*]], %vector.body ]
-; CHECK:   %[[VEC_IND_NEXT]] = add <4 x i32> %[[VEC_IND]], %.splat5
+; CHECK:   %[[VEC_IND_NEXT]] = add <4 x i32> %[[VEC_IND]], %.splat
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

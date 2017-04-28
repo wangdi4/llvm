@@ -8,6 +8,10 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "intel-vplan"
 
+static cl::opt<bool> DisableHCFGVerification(
+    "vplan-disable-verification", cl::init(false),
+    cl::desc("Disable VPlan HCFG verification"));
+
 //Replicated from LoopVectorize.cpp
 
 void VPVectorizeOneByOneIRRecipe::transformIRInstruction(
@@ -55,7 +59,6 @@ VPBasicBlock *IntelVPlanUtils::splitBlock(VPBlockBase *Block,
                                           VPLoopInfo *VPLInfo,
                                           VPDominatorTree &DomTree,
                                           VPDominatorTree &PostDomTree) {
-
   VPBasicBlock *NewBlock = createBasicBlock();
   insertBlockAfter(NewBlock, Block);
 
@@ -260,6 +263,304 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
     Recipe.vectorize(*State);
 
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
+}
+
+// Verify that Top Region contains the same number of loops (VPLoopRegion) as
+// VPLoopInfo and LoopInfo
+static void verifyNumLoops(const VPRegionBlock *TopRegion, const Loop *TheLoop,
+                           const VPLoopInfo *VPLInfo, const LoopInfo *LI) {
+
+  std::function<unsigned(const VPRegionBlock *)> countLoopsInRegion =
+      [&](const VPRegionBlock *Region) -> unsigned {
+
+    unsigned NumLoops = 0;
+
+    for (const VPBlockBase *VPB :
+         make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
+                    df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
+
+      if (isa<VPLoopRegion>(VPB))
+        ++NumLoops;
+
+      // Count nested VPLoops
+      if (const VPRegionBlock *VPR = dyn_cast<VPRegionBlock>(VPB))
+        NumLoops += countLoopsInRegion(VPR);
+    }
+
+    return NumLoops;
+  };
+
+  // TODO: C++14 needed (generic lambdas). Replicating code by now
+  std::function<unsigned(const VPLoop *)> countLoopsInVPLoop =
+      [&](const VPLoop *Lp) -> unsigned {
+
+    const std::vector<VPLoop *> &SubLoops = Lp->getSubLoops();
+    unsigned NumLoops = SubLoops.size();
+
+    for (const VPLoop *SL : SubLoops)
+      NumLoops += countLoopsInVPLoop(SL);
+
+    return NumLoops;
+  };
+  std::function<unsigned(const Loop *)> countLoopsInLoop =
+      [&](const Loop *Lp) -> unsigned {
+
+    const std::vector<Loop *> &SubLoops = Lp->getSubLoops();
+    unsigned NumLoops = SubLoops.size();
+
+    for (const Loop *SL : SubLoops)
+      NumLoops += countLoopsInLoop(SL);
+
+    return NumLoops;
+  };
+
+  // Compare number of loops in HCFG with loops in VPLoopInfo and LoopInfo
+
+  unsigned NumLoopsInCFG = countLoopsInRegion(TopRegion);
+
+  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
+         "More than one top loop is not expected");
+  unsigned NumLoopsInVPLoopInfo =
+      1 /*TopLoop*/ + countLoopsInVPLoop(*VPLInfo->begin());
+  unsigned NumLoopsInLoopInfo = 1 /*TopLoop*/ + countLoopsInLoop(TheLoop);
+
+  //dbgs().indent(2) << "Verify Loops:\n";
+  //dbgs().indent(4) << "NumLoopsInCFG: " << NumLoopsInCFG << "\n";
+  //dbgs().indent(4) << "NumLoopsInVPLoopInfo: " << NumLoopsInVPLoopInfo << "\n";
+  //dbgs().indent(4) << "NumLoopsInLoopInfo: " << NumLoopsInLoopInfo << "\n";
+
+  assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
+         NumLoopsInVPLoopInfo == NumLoopsInLoopInfo &&
+         "Number of loops in HCFG, VPLoopInfo and LoopInfo don't match");
+}
+
+// Verify loop information for blocks inside a loop region
+static void verifyLoopRegions(const VPRegionBlock *TopRegion,
+                              const VPLoopInfo *VPLInfo) {
+
+  // Return true if \p Block is outside of the loop  SCC
+  auto BlockIsOutsideOfLoopSCC = [](const VPBlockBase *Block,
+                                    const VPLoopRegion *LoopR) {
+
+    // Loop PH or Region Exit are outside
+    if (LoopR->getEntry() == Block || LoopR->getExit() == Block)
+      return true;
+
+// In case we consider keeping more blocks after loop exit inside the loop
+// region
+#if 0
+    SmallVector<VPBlockBase *, 2> LoopExits;
+    LoopR->getVPLoop()->getUniqueExitBlocks(LoopExits);
+
+    // TODO: Better approach?
+    // Block is outside of loop SCC if is reachable from any loop exit
+    for (VPBlockBase *LoopExit : LoopExits) {
+      const auto &Begin = df_iterator<const VPBlockBase *>::begin(LoopExit);
+      // Please note that this works only because region exit doesn't have
+      // successors! df_iterator wouldn't stop in region exit if it had
+      // successors.
+      const auto &End = df_iterator<const VPBlockBase *>::end(LoopR->getExit());
+
+      if (std::find(Begin, End, Block) != End)
+        return true;
+    }
+#endif
+
+    return false;
+  };
+
+  // Auxiliary recursive function that implements the main functionality of
+  // verifyLoopRegions
+  typedef std::function<void(const VPRegionBlock *, const VPLoopRegion *)> RT;
+  RT verifyLoopRegionsImp = [&](const VPRegionBlock *Region,
+                                const VPLoopRegion *ParentLoopR) {
+
+    assert(Region && "Region cannot be null");
+
+    // If Region is a VPLoopRegion, Region and VPLoopRegion must be equal
+    assert((!isa<VPLoopRegion>(Region) || Region == ParentLoopR) &&
+           "Wrong Region/ParentLoopR");
+
+    const VPLoop *ParentLoop = nullptr;
+    if (ParentLoopR) {
+      ParentLoop = ParentLoopR->getVPLoop();
+      assert(ParentLoopR && "Missing VPLoop for VPLoopRegion");
+    }
+
+    // VPLoopRegion/VPLoop specific checks if visiting a Region that is a
+    // VPLoopRegion
+    if (Region == ParentLoopR) {
+      const VPBlockBase *Preheader = ParentLoopR->getEntry();
+      assert(Preheader && Preheader == ParentLoop->getLoopPreheader() &&
+             "Wrong loop preheader");
+      const VPBlockBase *Header = Preheader->getSingleSuccessor();
+      assert(Header && "Loop preheader must have a single successor");
+      assert(Header == ParentLoop->getHeader() && "Wrong loop header");
+
+      assert((VPLInfo->getLoopFor(Header) == ParentLoop) &&
+             "Unexpected loop from loop header");
+    }
+
+    // Traverse blocks in Region
+    SmallVector<const VPRegionBlock *, 4> SubRegions;
+    for (const VPBlockBase *VPB :
+         make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
+                    df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
+
+      const VPLoop *ContainerLoop;
+      // Region is a VPLoopRegion. Blocks outside of the loop SCC shouldn't be
+      // contained in this loop but in Region's parent loop (if any)
+      if (Region == ParentLoopR && BlockIsOutsideOfLoopSCC(VPB, ParentLoopR)) {
+        ContainerLoop = VPLInfo->getLoopFor(Region);
+      } else {
+        // Non-loop region, block should be contained in parent loop
+        ContainerLoop = ParentLoop;
+      }
+
+      if (ContainerLoop)
+        assert(ContainerLoop->contains(VPB) &&
+               //TODO: Redundant?
+               VPLInfo->getLoopFor(VPB) == ContainerLoop &&
+               "Block is not contained in the right loop");
+      else
+        assert(!VPLInfo->getLoopFor(VPB) &&
+               "Block should not be contained in any VPLoop");
+
+      // Collect subregions for later visit
+      if (const VPRegionBlock *SubRegion = dyn_cast<VPRegionBlock>(VPB))
+        SubRegions.push_back(SubRegion);
+    }
+
+    // Visit subregions
+    for (const VPRegionBlock *SR : SubRegions) {
+      // If subregion is a loop region, use it as ParentLoop in the visit
+      if (const VPLoopRegion *NewParentLoop = dyn_cast<VPLoopRegion>(SR)) {
+        verifyLoopRegionsImp(SR, NewParentLoop);
+      } else {
+        verifyLoopRegionsImp(SR, ParentLoopR);
+      }
+    }
+  };
+
+  verifyLoopRegionsImp(TopRegion, nullptr /*ParentLoopRegion*/);
+}
+
+// Main function for VPRegionBlock verification
+static void verifyRegions(const VPRegionBlock *Region) {
+
+  const VPBlockBase *Entry = Region->getEntry();
+  const VPBlockBase *Exit = Region->getExit();
+
+  // At this point, we don't expect Entry or Exit to be another region
+  assert(isa<VPBasicBlock>(Entry) && "Region entry is not a VPBasicBlock");
+  assert(isa<VPBasicBlock>(Exit) && "Region exit is not a VPBasicBlock");
+
+  // Entry and Exit shouldn't have any predecessor/successor, respectively
+  assert(Entry->getNumPredecessors() == 0 && "Region entry has predecessors");
+  assert(Exit->getNumSuccessors() == 0 && "Region exit has successors");
+
+  // We are not creating all possible SESE regions. At this point, Entry must
+  // have more than two successors and Exit more than two predecessors. This
+  // doesn't apply to VPLoopRegion's or TopRegion.
+  if (Region->getParent() != nullptr /*TopRegion*/ &&
+      !isa<VPLoopRegion>(Region)) {
+    assert(Entry->getNumSuccessors() > 1 &&
+           "Region entry must have more than one successors");
+    assert(Exit->getNumPredecessors() > 1 &&
+           "Region exit must have more than one predecessors");
+  }
+
+  // Traverse Region's blocks
+  SmallVector<const VPRegionBlock *, 4> SubRegions;
+  unsigned NumBlocks = 0;
+  for (const VPBlockBase *VPB :
+       make_range(df_iterator<const VPBlockBase *>::begin(Region->getEntry()),
+                  df_iterator<const VPBlockBase *>::end(Region->getExit()))) {
+    // Compute Region's size
+    ++NumBlocks;
+
+    // Check block's parent
+    assert(VPB->getParent() == Region && "VPBlockBase has wrong parent");
+
+    // Check block's ConditionBitRecipe
+    if (VPB->getNumSuccessors() > 1)
+      assert(VPB->getConditionBitRecipe() && "Missing ConditionBitRecipe");
+    else
+      assert(!VPB->getConditionBitRecipe() && "Unexpected ConditionBitRecipe");
+
+    // Check block's successors
+    const auto &Successors = VPB->getSuccessors();
+    for (const VPBlockBase *Succ : Successors) {
+      // There must be only one instance of the successor in block's successor
+      // list. TODO: This won't work for switch statements
+      assert(std::count(Successors.begin(), Successors.end(), Succ) == 1 &&
+             "Multiple instances of the same successor");
+
+      // There must be a bidirectional link between block and successor
+      const auto &SuccPreds = Succ->getPredecessors();
+      assert(std::find(SuccPreds.begin(), SuccPreds.end(), VPB) !=
+                 SuccPreds.end() &&
+             "Missing predecessor link");
+    }
+
+    // Check block's predecessors
+    const auto &Predecessors = VPB->getPredecessors();
+    for (const VPBlockBase *Pred : Predecessors) {
+
+      // Block and predecessor must be inside the same region
+      assert(Pred->getParent() == VPB->getParent() &&
+             "Predecessor is not in the same region");
+
+      // There must be only one instance of the predecessor in block's
+      // predecessor list. TODO: This won't work for switch statements
+      assert(std::count(Predecessors.begin(), Predecessors.end(), Pred) == 1 &&
+             "Multiple instances of the same predecessor");
+
+      // There must be a bidirectional link between block and predecessor
+      const auto &PredSuccs = Pred->getSuccessors();
+      assert(std::find(PredSuccs.begin(), PredSuccs.end(), VPB) !=
+                 PredSuccs.end() &&
+             "Missing successor link");
+    }
+
+    // Collect subregions for later visit
+    if (const VPRegionBlock *SubRegion = dyn_cast<VPRegionBlock>(VPB))
+      SubRegions.push_back(SubRegion);
+  }
+
+  assert(NumBlocks == Region->getSize() && "Region has a wrong size");
+
+  // Visit subregions
+  for (const VPRegionBlock *SubRegion : SubRegions)
+    verifyRegions(SubRegion);
+}
+
+
+// Main class for loop verification
+static void verifyLoops(const VPRegionBlock *TopRegion, const Loop *TheLoop,
+                        const VPLoopInfo *VPLInfo, const LoopInfo *LI) {
+
+  verifyNumLoops(TopRegion, TheLoop, VPLInfo, LI);
+  verifyLoopRegions(TopRegion, VPLInfo);
+}
+
+// Public interface to verify the hierarchical CFG
+void IntelVPlanUtils::verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
+                                            const Loop *TheLoop,
+                                            const VPLoopInfo *VPLInfo,
+                                            const LoopInfo *LI) const {
+  if (DisableHCFGVerification)
+    return;
+
+  assert(((!VPLInfo && !LI && !TheLoop) || (VPLInfo && LI && TheLoop)) &&
+         "TheLoop, VPLInfo and LI must be all set (or not)");
+
+  // dbgs() << "Verifying Hierarchical CFG:\n";
+
+  if (VPLInfo && LI && TheLoop)
+    verifyLoops(TopRegion, TheLoop, VPLInfo, LI);
+
+  verifyRegions(TopRegion);
 }
 
 template void llvm::Calculate<VPRegionBlock, VPBlockBase *>(

@@ -13,9 +13,6 @@ class VPDominatorTree;
 
 namespace vpo {
 
-class VPLoop;
-class VPLoopInfo;
-
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
   friend class VPlanUtilsLoopVectorizer;
 
@@ -247,8 +244,8 @@ class IntelVPlan : public VPlan {
 private:
   VPLoopInfo *VPLInfo;
 
-public: 
-  IntelVPlan() : VPlan(), VPLInfo(nullptr) {}
+public:
+  IntelVPlan() : VPlan(IntelVPlanSC), VPLInfo(nullptr) {}
 
   ~IntelVPlan() {
     if (VPLInfo)
@@ -261,8 +258,11 @@ public:
   const VPLoopInfo *getVPLoopInfo() const { return VPLInfo; }
 
   void setVPLoopInfo(VPLoopInfo *VPLI) { VPLInfo = VPLI; }
-};
 
+  static inline bool classof(const VPlan *V) {
+    return V->getVPlanID() == VPlan::IntelVPlanSC;
+  }
+};
 
 /// A pure virtual class that provides the getScalarCondition() interface
 /// function for accessing the scalar condition value.
@@ -521,6 +521,8 @@ class IntelVPlanUtils : public VPlanUtils {
 public:
   IntelVPlanUtils(IntelVPlan *Plan) : VPlanUtils(Plan) {}
 
+  IntelVPlan *getVPlan() { return cast<IntelVPlan>(Plan); }
+
   /// Creates a new VPScalarizeOneByOneRecipe or VPVectorizeOneByOneRecipe based
   /// on the isScalarizing parameter respectively.
   // TODO: VPlan is passed in the original interface. Why is this necessary if
@@ -657,6 +659,41 @@ public:
   VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                            VPDominatorTree &DomTree,
                            VPDominatorTree &PostDomTree);
+
+  /// Verify that HCFG is well-formed starting from TopRegion. If \p VPLInfo and
+  /// \p LI are not nullptr, it also checks that loop related information in
+  /// HCFG is consistent with information in VPLInfo and LoopInfo. The
+  /// verification process comprises two main phases:
+  ///
+  /// 1. verifyLoops: An first global verification step checks that the number
+  /// of VPLoopRegion's (HCFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo)
+  /// match. In a second step, it checks that the following invariants are met
+  /// in every VPLoopRegion:
+  ///   - VPLoopRegion has VPLoop attached.
+  ///   - Entry is loop preheader
+  ///   - Loop preheader has a single successor (loop header)
+  ///   - VPLoopInfo returns the expected VPLoop from loop preheader/header
+  ///   - VPLoop preheader and exits are contained in VPLoopRegion's parent
+  ///     VPLoop (if any)
+  ///   - Blocks in loop SCC are contained in VPLoop
+  ///
+  /// 2. verifyRegions: It checks that the following invariants are met in
+  /// every VPRegionBlock:
+  ///   - Entry/Exit is not another region.
+  ///   - Entry/Exit has no predecessors/successors, repectively.
+  ///   - Non-loop region's Entry (Exit) must have more than two successors
+  ///     (predecessors).
+  ///   - Size is correct.
+  ///   - Blocks' parent is correct.
+  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
+  ///   - Linked blocks have a bi-directional link (successor/predecessor).
+  ///   - All predecessors/successors are inside the region.
+  ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
+  ///
+  void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
+                             const Loop *TheLoop = nullptr,
+                             const VPLoopInfo *VPLInfo = nullptr,
+                             const LoopInfo *LI = nullptr) const;
 };
 
 } // End VPO Vectorizer Namespace 
@@ -693,43 +730,6 @@ public:
 //   
 // namespace llvm { // LLVM Namespace 
 // namespace vpo {  // VPO Vectorizer Namespace 
-//   
-//   
-// // VPLoop Classes 
-//   
-// class VPLoop : public VPRegion { 
-//   friend class VPlanHIR; 
-//   
-// private: 
-//   const unsigned char VLID;   // Subclass identifier (for isa/dyn_cast) 
-//   
-// public: 
-//   typedef enum { 
-//     VPLoopHIRSC,   
-//   } VPLoopTy; 
-//   
-//   VPLoop(const std::string &Name, VPLoopTy SC) 
-//       : VPRegion(Name, VPLoopSC), VLID(SC) {} 
-// }; 
-//   
-// class VPLoopHIR : public VPLoop { 
-//   friend class VPlanHIR; 
-//   
-// private: 
-//   /// Pointer to HIR loop node. 
-//   HLLoop *HIRLoop; 
-//   
-// public: 
-//   // Interface to create VPLoop from HIR loop. 
-//   VPLoopHIR(const std::string &Name, HLLoop *HLoop) 
-//       : VPLoop(Name, VPLoopHIRSC), HIRLoop(HLoop) {} 
-//   
-//   // VPLoop copy constructor. 
-//   //VPLoopHIR(VPLoopHIR &VPOrigLoop); 
-//   
-//   virtual ~VPLoopHIR() override {} 
-// }; 
-//   
 //   
 // // VPIf Classes 
 //   

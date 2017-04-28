@@ -1150,6 +1150,8 @@ class VPlan {
   friend class VPlanUtils;
   friend class VPlanUtilsLoopVectorizer;
 #ifdef INTEL_CUSTOMIZATION
+private:
+  const unsigned char VPID;
 protected:
 #else
 private:
@@ -1167,7 +1169,15 @@ private:
   DenseMap<VPConditionBitRecipeBase*, std::set<const VPBlockBase*>> RecipeUsers;
 
 public:
+#ifdef INTEL_CUSTOMIZATION
+  typedef enum {
+    IntelVPlanSC,
+  } VPlanTy;
+
+  VPlan(const unsigned char SC) : VPID(SC), Entry(nullptr) {}
+#else
   VPlan() : Entry(nullptr) {}
+#endif
 
   ~VPlan() {
     if (Entry)
@@ -1176,6 +1186,7 @@ public:
 
   /// Generate the IR code for this VPlan.
 #ifdef INTEL_CUSTOMIZATION
+  unsigned getVPlanID() const { return VPID; }
   virtual void vectorize(struct VPTransformState *State);
 #else
   void vectorize(struct VPTransformState *State);
@@ -1264,10 +1275,8 @@ public:
     return RSO.str();
   }
 
-  // For debugging.
-  // TODO: Is VPlan necessary in VPlanUtils?
 #ifdef INTEL_CUSTOMIZATION
-  VPlan *getVPlan() { return Plan; }
+//  VPlan *getVPlan() { return Plan; }
 
 #endif
 

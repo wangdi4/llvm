@@ -1,15 +1,36 @@
+//===-- LoopVectorizationPlanner.h -------------------------------*- C++ -*-===//
+//
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines LoopVectorizationPlannerBase and LoopVectorizationPlanner.
+///
+//===----------------------------------------------------------------------===//
+
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
 #include "./IntelVPlan.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
 namespace llvm {
 
 class Loop;
+class ScalarEvolution;
+class TargetLibraryInfo;
+class TargetTransformInfo;
 class VPOCodeGen;
 class VPOVectorizationLegality;
+namespace vpo {
+class WRNVecLoopNode;
+}
 
 using namespace vpo;
 
@@ -77,7 +98,7 @@ private:
   //void assignScalarVectorConversions(Instruction *PredInst, VPlan *Plan);
 
   /// The loop that we evaluate.
-  //Loop *TheLoop;
+  Loop *TheLoop;
 
   /// Loop Info analysis.
   //LoopInfo *LI;
@@ -150,79 +171,6 @@ private:
   /// the given \p EndRangeVF.
   std::shared_ptr<IntelVPlan> buildInitialVPlan(unsigned StartRangeVF,
                                                 unsigned &EndRangeVF) override;
-
-  VPRegionBlock *buildPlainCFG(IntelVPlanUtils &PlanUtils,
-                               DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                               DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
-
-  void computeVPLoopInfo(Loop *Lp, IntelVPlanUtils &PlanUtils,
-                         DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB);
-
-  void simplifyPlainCFG(VPRegionBlock *TopRegion, LoopInfo *LI,
-                        VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
-                        VPDominatorTree &PostDomTree, IntelVPlan *Plan,
-                        IntelVPlanUtils &PlanUtils);
-
-  VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
-                           VPDominatorTree &DomTree,
-                           VPDominatorTree &PostDomTree,
-                           IntelVPlanUtils &PlanUtils);
-
-  void splitLoopsPreheader(VPLoop *VPL, VPLoopInfo *VPLInfo,
-                           VPDominatorTree &DomTree,
-                           VPDominatorTree &PostDomTree,
-                           IntelVPlanUtils &PlanUtils);
-
-  void mergeLoopExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
-                      VPDominatorTree &DomTree,
-                      VPDominatorTree &PostDomTree,
-                      IntelVPlanUtils &PlanUtils);
-
-  void splitLoopsExits(VPLoop *VPL, VPLoopInfo *VPLInfo,
-                       VPDominatorTree &DomTree, VPDominatorTree &PostDomTree,
-                       IntelVPlanUtils &PlanUtils);
-
-  void simplifyNonLoopRegions(VPRegionBlock *TopRegion, VPLoopInfo *VPLInfo,
-                              VPDominatorTree &DomTree,
-                              VPDominatorTree &PostDomTree,
-                              IntelVPlanUtils &PlanUtils);
-
-  void buildHierarchicalCFG(VPBasicBlock *Entry, VPRegionBlock *ParentRegion,
-                            VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
-                            VPDominatorTree &PostDomTree,
-                            IntelVPlanUtils &PlanUtils,
-                            DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                            DenseMap<VPBasicBlock *, BasicBlock *> &VPBB2BB);
-
-  /// Verify that HCFG is well-formed starting from the topmost region. If
-  /// VPLInfo is not nullptr, it also checks that loop related information in
-  /// HCFG is consistent with information in VPLInfo and LoopInfo.
-  ///
-  /// For each VPRegionBlock, it checks that:
-  ///   - Entry/Exit is not another region.
-  ///   - Entry/Exit has no predecessors/successors, repectively.
-  ///   - Size is correct.
-  ///   - Blocks' parent is correct.
-  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
-  ///   - Linked blocks have a bi-directional link (successor/predecessor).
-  ///   - All predecessors/successors are inside the region.
-  ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
-  ///
-  /// A global verification step for loops checks that the number of
-  /// VPLoopRegion's (HCFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo) match.
-  ///
-  /// For each VPLoopRegion, it checks:
-  ///   - VPLoopRegion has VPLoop attached.
-  ///   - Entry is loop preheader
-  ///   - Loop preheader has a single successor
-  ///   - Loop preheader's successor is a loop header
-  ///   - VPLoopInfo returns the expected VPLoop from loop preheader/header
-  ///   - VPLoop preheader and exits's successors are contained in VPLoop's
-  ///   parent loop (if any)
-  ///   - Blocks in the "loop cycle" are contained in VPLoop
-  ///
-  void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
-                             const VPLoopInfo *VPLInfo = nullptr) const;
 
   /// Determine whether \p I will be scalarized in a given range of VFs.
   /// The returned value reflects the result for a prefix of the range, with

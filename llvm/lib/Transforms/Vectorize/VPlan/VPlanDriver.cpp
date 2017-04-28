@@ -13,59 +13,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
-#include "llvm/Analysis/LoopIterator.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Pass.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Utils/LoopSimplify.h"
-#include "llvm/Transforms/Vectorize.h"
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
 #include "VPlanPredicator.h"
-
-// From VPlanDriver.h"
-//#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/LoopIterator.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-//#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
-//#include "llvm/Analysis/TargetTransformInfo.h"
-//#include "llvm/Analysis/TargetLibraryInfo.h"
-
-// From VPlanDriver.cpp
-//#include "llvm/IR/Function.h"
-//#include "llvm/Analysis/LoopInfo.h"
-//#include "llvm/Analysis/TargetTransformInfo.h"
-//#include "llvm/IR/Function.h"
-//#include "llvm/IR/LegacyPassManager.h"
-//#include "llvm/IR/PassManager.h"
-//#include "llvm/InitializePasses.h"
-//#include "llvm/Pass.h"
-//#include "llvm/Transforms/Scalar.h"
-
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOSIMDLaneEvolution.h"
-//#include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
-//#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-//#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
-//#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
-
-//#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-//#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
-//#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
-
-//#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-//#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-//#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
-//#include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
-//#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Vectorize.h"
 
 #define DEBUG_TYPE "VPlanDriver"
 
@@ -78,13 +40,14 @@ using namespace llvm::vpo; //Needed for WRegionInfo
 //                               cl::Hidden,
 //                               cl::desc("Disable VPO directive cleanup"));
 
-static cl::opt<bool>
-    EnableCodeGen("vpo-codegen", cl::init(false), cl::Hidden,
-         cl::desc("Enable VPO codegen, when false, the pass stops at VPlan creation"));
+static cl::opt<bool> EnableCodeGen(
+    "vpo-codegen", cl::init(false), cl::Hidden,
+    cl::desc(
+        "Enable VPO codegen, when false, the pass stops at VPlan creation"));
 
-static cl::opt<unsigned> VPlanDefaultVF(
-    "vplan-default-vf", cl::init(4),
-    cl::desc("Default VPlan vectorization factor"));
+static cl::opt<unsigned>
+    VPlanDefaultVF("vplan-default-vf", cl::init(4),
+                   cl::desc("Default VPlan vectorization factor"));
 
 static cl::opt<bool> VPlanStressTest(
     "vplan-build-stress-test", cl::init(false),
@@ -343,7 +306,9 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   std::function<bool(Loop *)> isSupportedRec = [&](Loop *Lp) -> bool {
 
     if (!Lp->getUniqueExitBlock()) {
-      DEBUG(dbgs() << "Loop form is not supported: multiple exit blocks.\n");
+      DEBUG(dbgs() << "VD: loop form "
+                   << "(" << Lp->getName()
+                   << ") is not supported: multiple exit blocks.\n");
       return false;
     }
     for (Loop *SubLoop : Lp->getSubLoops()) {
@@ -358,21 +323,30 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
   std::function<bool(Loop *)> isSupported = [&](Loop *Lp) -> bool {
 
     // Check for loop specific constraints
-    if (!isSupportedRec(Lp))
+    if (!isSupportedRec(Lp)) {
+      DEBUG(dbgs() << "VD: loop nest "
+                   << "(" << Lp->getName() << ") is not supported.\n");
       return false;
+    }
 
     // Check generic loop nest constraints
-
-    if (isIrreducibleCFG(Lp, LI))
+    if (isIrreducibleCFG(Lp, LI)) {
+      DEBUG(dbgs() << "VD: loop nest "
+                   << "(" << Lp->getName()
+                   << ") is not supported: irreducible CFG.\n");
       return false;
+    }
 
     for (BasicBlock *BB : Lp->blocks()) {
       // We don't support switch statements inside loops.
       if (!isa<BranchInst>(BB->getTerminator())) {
-        DEBUG(dbgs() << "loop nest contains a switch statement\n");
+        DEBUG(dbgs() << "VD: loop nest contains a switch statement.\n");
         return false;
       }
     }
+    
+    DEBUG(dbgs() << "VD: loop nest "
+          << "(" << Lp->getName() << ") is supported.\n");
 
     return true;
   };
@@ -391,30 +365,29 @@ bool VPlanDriverBase::runOnFunction(Function &Fn) {
     }
   } else if (!VPlanStressTest) {
     WRContainerImpl *WRGraph = WR->getWRGraph();
-    DEBUG(dbgs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
-    for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-      DEBUG((*I)->dump());
-    }
+    DEBUG(dbgs() << "WD: WRGraph #nodes= " << WRGraph->size() << "\n");
+    //for (auto I = WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
+    //  DEBUG((*I)->dump());
+    //}
 
     for (auto WRNode : make_range(WRGraph->begin(), WRGraph->end())) {
 
-      WRNVecLoopNode *WLoopNode;
-      if ((WLoopNode = dyn_cast<WRNVecLoopNode>(WRNode))) {
-        Loop *Lp = WLoopNode->getLoop();
+      if (WRNVecLoopNode *WRLoop = dyn_cast<WRNVecLoopNode>(WRNode)) {
+        Loop *Lp = WRLoop->getLoop();
         simplifyLoop(Lp, DT, LI, SE, AC, false /* PreserveLCSSA */);
         formLCSSARecursively(*Lp, *DT, LI, SE);
 
         assert((VPlanForceBuild || isSupported(Lp)) &&
                "Loop is not supported by VPlan");
 
-        DEBUG(dbgs() << "Starting VPlan gen for \n");
+        DEBUG(dbgs() << "VD: Starting VPlan gen for \n");
         DEBUG(WRNode->dump());
 
-        processLoop(Lp, Fn, WLoopNode);
+        processLoop(Lp, Fn, WRLoop);
       }
     }
   } else {
-    DEBUG(dbgs() << "VPlan stress test mode\n");
+    DEBUG(dbgs() << "VD: VPlan stress test mode\n");
 
     // Iterate on TopLevelLoops
     SmallVector<Loop *, 2> WorkList(LI->begin(), LI->end());
@@ -493,20 +466,8 @@ bool VPlanDriver::runOnFunction(Function &F) {
 
   return ret_val;
 }
-/*
-LoopVectorizationPlannerBase *
-VPlanDriver::createLoopVecPlanner(WRNVecLoopNode *WRLoop) {
-  return new LoopVectorizationPlanner(WRLoop, WRLoop->getLoop(), LI, SE);
-}
 
-// Used only for stress mode
-LoopVectorizationPlannerBase *
-VPlanDriver::createLoopVecPlanner(Loop *Lp) {
-  return new LoopVectorizationPlanner(nullptr WRLoop, Lp, LI);
-}*/
-
-
-void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
+void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &F, LI, DT);
 
@@ -514,7 +475,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.
   if (!LVL.canVectorize()) {
-    DEBUG(dbgs() << "LV: Not vectorizing: Cannot prove legality.\n");
+    DEBUG(dbgs() << "VD: Not vectorizing: Cannot prove legality.\n");
     
     // Only bail out if we are generating code, we want to continue if
     // we are only stress testing VPlan builds below.
@@ -524,15 +485,14 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
 
   // Get vectorization factor
   unsigned VF = VPlanDefaultVF;
-  if (LoopNode) {
-    unsigned Simdlen = LoopNode->getSimdlen();
+  if (WRLoop) {
+    unsigned Simdlen = WRLoop->getSimdlen();
     assert(Simdlen <= 64 && "Wrong Simdlen value");
     VF = Simdlen ? Simdlen : VPlanDefaultVF;
   }
 
-  // TODO: We don't use LoopNode in LVP. Remove it?
   LoopVectorizationPlanner *LVP =
-      new LoopVectorizationPlanner(LoopNode, Lp, LI, SE, TLI, TTI, DT, &LVL);
+      new LoopVectorizationPlanner(WRLoop, Lp, LI, SE, TLI, TTI, DT, &LVL);
 
   LVP->buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
   // Predicator changes BEGIN
@@ -549,12 +509,12 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *LoopNode) {
         VPlanPrinter PlanPrinter(dbgs(), *Plan);
         std::string TitleString;
         raw_string_ostream RSO(TitleString);
-        RSO << "LVP: Initial VPlan for VF=" << VF;
+        RSO << "VD: Initial VPlan for VF=" << VF;
         PlanPrinter.dump(RSO.str()));
 
   if (EnableCodeGen) {
     if (VPlanVectCand)
-      errs() << "VPlan Generating code in function: " << F.getName() << "\n";
+      errs() << "VD: VPlan Generating code in function: " << F.getName() << "\n";
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
     LVP->executeBestPlan(VCodeGen);
