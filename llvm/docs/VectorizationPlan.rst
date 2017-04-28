@@ -281,11 +281,11 @@ VPlan Classes: Definitions
   terms Region and Block rather than Tile [8]_ to avoid confusion with loop
   tiling.
 
-  VPO VPlan: The topmost VPBasicBlock in the Hierarchical CFG is a
-  VPRegionBlock that encloses any other VPRegionBlock or VPBasicBlock in the
-  CFG, including the VPlan's outermost VPLoopRegion. The Entry and Exit of this
-  region are dummy VPBasicBlock’s that do not have any correspondence with
-  the incoming IR. 
+  VPO VPlan: The topmost VPBlockBase in the Hierarchical CFG is a VPRegionBlock,
+  denoted TopRegion, that encloses any other VPRegionBlock or VPBasicBlock in
+  the CFG, including the VPlan's outermost VPLoopRegion. For convenience, the
+  Entry and Exit of TopRegion are dummy VPBasicBlock’s that do not have any
+  correspondence with the incoming IR. 
 
 :VPBasicBlock:
   Serves as the leaf of the Hierarchical CFG. Represents a sequence of
@@ -382,26 +382,28 @@ VPlan Classes: Definitions
   desirable, and represent inner loops.
 
 :VPLoopRegion:
-  is a VPRegionBlock that represents a loop in the Hierarchical CFG. Entry
-  block is the loop pre-header. Exit block is a post-dominator of all loop
-  blocks. Consequently, all loop exits will be inside the VPLoopRegion.
+  is a VPRegionBlock that represents a loop in the Hierarchical CFG. Loops are
+  required to be in canonical form and have a single exit block. Loops with
+  multiple exiting blocks are supported as long as all exiting blocks land into
+  the same exit block. The Entry block of this region is the loop pre-header.
+  The Exit block is the loop single exit.
+  
   A new pre-header block may need to be constructed if one does not exist or if
-  existing pre-header has multiple successors.
-
-  TODO: Multiple-exit massaging.
-
-  A VPLoopRegion has an attached VPLoop instance that contains all the loop
-  information computed in VPLoopInfo for that VPLoopRegion.
+  existing pre-header has multiple successors. Loops with multiple exits need
+  to be transformed into loops with a single exit.
+  
+  A VPLoopRegion contains a VPLoop that holds the loop information computed by
+  VPLoopInfo for that loop.
   
 :VPLoop:
-  is a LoopBase that holds all the information computed for a natural loop
-  detected by VPLoopInfo.
+  is an instatiation of LoopBase that holds all the information computed for a
+   natural loop detected in VPLoopInfo.
 
 :VPLoopInfo:
-  is a specialization of LoopInfoBase that provides analysis of natural loops
-  for a VPBlockBase-based CFG. It is used to build VPLoop’s and keep consistent
-  all the loop metadata information throughout the CFG transformation steps of
-  VPlan construction.
+  is an instatiation of LoopInfoBase that provides analysis of natural loops
+  for a VPBlockBase-based CFG. It is used to build VPLoopRegion's and keep
+  consistent all the loop information throughout the CFG transformation steps
+  of hierarchical CFG construction.
 
 :VPBlockBase:
   The building block of the Hierarchical CFG. A VPBlockBase can be either a
