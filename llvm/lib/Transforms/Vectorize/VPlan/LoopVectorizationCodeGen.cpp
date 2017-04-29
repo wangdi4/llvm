@@ -674,8 +674,51 @@ Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
   return Shuf;
 }
 
-Value * VPOCodeGen::getVectorValue(Value *V) {
+Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
+  assert(Legal->isLoopPrivate(ScalarPrivate) && "Loop private value expected");
+
+  auto VectorV = getVectorPrivateBase(ScalarPrivate);
+  auto PtrType = cast<PointerType>(ScalarPrivate->getType());
+  VectorV = Builder.CreateCast(Instruction::BitCast, VectorV, PtrType);
+  VectorV = Builder.CreateVectorSplat(VF, VectorV, "privaddr");
+
+  SmallVector<Constant *, 8> Indices;
+  // Create a vector of consecutive numbers from zero to VF.
+  for (unsigned i = 0; i < VF; ++i) {
+    Indices.push_back(ConstantInt::get(Type::getInt32Ty(PtrType->getContext()), i));
+  }
+  // Add the consecutive indices to the vector value.
+  Constant *Cv = ConstantVector::get(Indices);
+
+  VectorV = Builder.CreateGEP(nullptr, VectorV, Cv);
+  return VectorV;
+}
+
+Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
+  assert(Legal->isLoopPrivate(V) && "Loop private value expected");
+
+  if (WidenMap.count(V))
+    return WidenMap[V];
+
+  auto OldIP = Builder.saveIP();
+  auto PtrType = cast<PointerType>(V->getType());
+  auto ElemType = PtrType->getElementType();
+  auto VecElemType = VectorType::get(ElemType, VF);
+  Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+  auto VectorValue = Builder.CreateAlloca(VecElemType, nullptr,
+                                          V->getName() + ".vec");
+  Builder.restoreIP(OldIP);
+  WidenMap[V] = VectorValue;
+  return VectorValue;
+}
+
+Value *VPOCodeGen::getVectorValue(Value *V) {
   assert(!V->getType()->isVectorTy() && "Can't widen a vector");
+
+  // Address of in memory private is needed. Construct a vector of addresses
+  // on the fly.
+  if (Legal->isLoopPrivate(V))
+    return getVectorPrivatePtrs(V);
 
   // If we have this scalar in the map, return it.
   if (WidenMap.count(V))
@@ -785,11 +828,16 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
     Ptr = Reverse ?
       Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;   
 
-    Value *VecPtr =
-      Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
+    Value *VecPtr;
+
+    if (Legal->isLoopPrivate(Ptr)) 
+      VecPtr = getVectorPrivateBase(Ptr);
+    else
+      VecPtr = Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
   
     Value *NewLI;
-    if (MaskValue) {
+    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
+      // Masking not needed for privates.
       NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, 
                                        nullptr, "wide.masked.load");
     } else {
@@ -877,10 +925,19 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
       // to reverse the order of elements in the stored value.
       VecDataOp = reverseVector(VecDataOp);
 
-    Value *VecPtr =
-      Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
-    if (MaskValue) {
+    Value *VecPtr;
+    if (Legal->isLoopPrivate(Ptr))
+      VecPtr = getVectorPrivateBase(Ptr);
+    else
+      VecPtr = Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
+    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
       Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
+    }
+    else if (MaskValue) {
+      // Private data. Load/Blend/Store.
+      auto ThruVal = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
+      auto BlendedVal = Builder.CreateSelect(MaskValue, VecDataOp, ThruVal, "blend");
+      Builder.CreateAlignedStore(BlendedVal, VecPtr, Alignment);
     }
     else {
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
@@ -1603,10 +1660,18 @@ void VPOCodeGen::collectTriviallyDeadInstructions(
 }
 
 bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
+  // Each lane gets its own copy of the private value
+  if (isLoopPrivate(V))
+    return false;
+  
   return (PSE.getSE()->isLoopInvariant(PSE.getSCEV(V), TheLoop));
 }
 
-bool VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
+int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
+  // An in memory loop private is expanded to a vector of consecutive ptrs.
+  if (isLoopPrivate(Ptr))
+    return 1;
+  
   const ValueToValueMap &Strides = ValueToValueMap();
 
   int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);

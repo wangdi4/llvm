@@ -18,6 +18,7 @@
 #include "LoopVectorizationPlanner.h"
 #include "LoopVectorizationCodeGen.h"
 #include "VPlanHCFGBuilder.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
 #define DEBUG_TYPE "LoopVectorizationPlanner"
 
@@ -122,6 +123,15 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 }
 
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
+  // Collect any SIMD loop private information
+  if (WRLoop) {
+    for (auto PrivItem : WRLoop->getPriv().items()) {
+      auto PrivVal = PrivItem->getOrig();
+      if (isa<AllocaInst>(PrivVal))
+        LB.addLoopPrivate(PrivVal);
+    }
+  }
+  
   ILV = &LB;
 
   // Perform the actual loop widening (vectorization).

@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -43,6 +44,10 @@ public:
   void collectLoopUniformsForAnyVF();
 
   bool isUniformForTheLoop(Value *V) {
+    // Each vector lane gets a different private value
+    if (isLoopPrivate(V))
+      return false;
+    
     return !isa<Instruction>(V) || UniformForAnyVF.count(cast<Instruction>(V));
   }
 
@@ -73,7 +78,7 @@ public:
   bool isLoopInvariant(Value *V);
 
   /// Returns true if the access through \p Ptr is consecutive.
-  bool isConsecutivePtr(Value *Ptr);
+  int isConsecutivePtr(Value *Ptr);
 
   /// Returns True if PN is a reduction variable in this loop.
   bool isReductionVariable(PHINode *PN) { return Reductions.count(PN); }
@@ -120,9 +125,21 @@ private:
 
   /// A set of Phi nodes that may be used outside the loop.
   SmallPtrSet<Value *, 4> AllowedExit;
+  
+  /// Vector of in memory loop private values(allocas)
+  SmallPtrSet<Value *, 8> LoopPrivates;
+  
 public:
   /// Holds the instructions known to be uniform after vectorization for any VF.
   SmallPtrSet<Instruction *, 4> UniformForAnyVF;
+
+  void addLoopPrivate(Value *PrivVal) {
+    LoopPrivates.insert(PrivVal);
+  }
+  
+  bool isLoopPrivate(Value *PrivVal) {
+    return LoopPrivates.count(PrivVal);
+  }
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -178,6 +195,13 @@ public:
   // before returning the widened value
   Value *getVectorValue(Value *V);
 
+  // Get widened base pointer of in-memory private variable
+  Value *getVectorPrivateBase(Value *V);
+
+  // Get a vector of pointers corresponding to the private variable for each
+  // vector lane.
+  Value *getVectorPrivatePtrs(Value *ScalarPrivate);
+
   /// Return a value in the new loop corresponding to \p V from the original
   /// loop at vector index \p Lane. If the value has
   /// been vectorized but not scalarized, the necessary extractelement
@@ -194,6 +218,10 @@ public:
   /// Get a condition mask between block \p From and block \p To.
   Value *getEdgeMask(BasicBlock *From, BasicBlock *To);
   
+  /// Add an in memory private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal) {
+    Legal->addLoopPrivate(PrivVal);
+  }
 private:
 
   /// Emit blocks of vector loop
