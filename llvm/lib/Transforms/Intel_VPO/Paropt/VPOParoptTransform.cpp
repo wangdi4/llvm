@@ -919,9 +919,10 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       AllocaInst *NewRedInst;
       Value *Orig = RedI->getOrig();
 
+/*
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genReductionCode: Unexpected reduction variable");
-
+*/
       NewRedInst = genPrivatizationCodeHelper(W, Orig,
                                               &EntryBB->front(), ".red");
       RedI->setNew(NewRedInst);
@@ -963,9 +964,7 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
       NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
 
     NewPrivInst->insertAfter(InsertPt);
-  } else {
-    assert(isa<GlobalVariable>(PrivValue));
-    GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue);
+  } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue)){
     Type *ElemTy = GV->getValueType();
     NewPrivInst = new AllocaInst(ElemTy, nullptr, GV->getName());
     NewPrivInst->insertAfter(InsertPt);
@@ -983,6 +982,10 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
       Instruction *I = RewriteCons.pop_back_val();
       IntelGeneralUtils::breakExpressions(I);
     }
+  } else {
+    // TODO: Privatize Value that is neither global nor alloca
+    DEBUG(dbgs() << "\ngenPrivatizationCodeHelper: TODO: Handle Arguments.\n");
+    llvm_unreachable("genPrivatizationCodeHelper: unsupported private item");
   }
 
   for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
@@ -1022,8 +1025,10 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     AllocaInst *NewPrivInst = nullptr;
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
+/*
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genFirstPrivatizationCode: Unexpected firstprivate variable");
+*/
       if (W->hasLastprivate()) {
         LastprivateClause &LprivClause = W->getLpriv();
         auto LprivI = LprivClause.findOrig(Orig);
@@ -1086,9 +1091,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
 
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Value *Old = LprivI->getOrig();
+/*
       assert((isa<GlobalVariable>(Old) || isa<AllocaInst>(Old)) &&
              "genLastPrivatizationCode: Unexpected lastprivate variable");
-
+*/
       AllocaInst *NewPrivInst =
           genPrivatizationCodeHelper(W, Old, &EntryBB->front(), ".lpriv");
       LprivI->setNew(NewPrivInst);
