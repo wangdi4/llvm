@@ -203,14 +203,14 @@ uint32_t test_rev16(uint32_t t) {
 // AArch64: [[T3:%.*]] = tail call i32 @llvm.bswap.i32(i32 [[T2]])
 // AArch64: [[T4:%.*]] = lshr i32 [[T3]], 16
 // AArch64: [[T5:%.*]] = shl i32 [[T3]], 16
-// AArch64: [[T6:%.*]] = or i32 [[T4]], [[T5]]
+// AArch64: [[T6:%.*]] = or i32 [[T5]], [[T4]]
 // AArch64: [[T7:%.*]] = zext i32 [[T6]] to i64
 // AArch64: [[T8:%.*]] = shl nuw i64 [[T7]], 32
 // AArch64: [[T9:%.*]] = trunc i64 [[IN]] to i32
 // AArch64: [[T10:%.*]] = tail call i32 @llvm.bswap.i32(i32 [[T9]])
 // AArch64: [[T11:%.*]] = lshr i32 [[T10]], 16
 // AArch64: [[T12:%.*]] = shl i32 [[T10]], 16
-// AArch64: [[T13:%.*]] = or i32 [[T11]], [[T12]]
+// AArch64: [[T13:%.*]] = or i32 [[T12]], [[T11]]
 // AArch64: [[T14:%.*]] = zext i32 [[T13]] to i64
 // AArch64: [[T15:%.*]] = or i64 [[T8]], [[T14]]
 long test_rev16l(long t) {
@@ -223,14 +223,14 @@ long test_rev16l(long t) {
 // ARM: [[T3:%.*]] = tail call i32 @llvm.bswap.i32(i32 [[T2]])
 // ARM: [[T4:%.*]] = lshr i32 [[T3]], 16
 // ARM: [[T5:%.*]] = shl i32 [[T3]], 16
-// ARM: [[T6:%.*]] = or i32 [[T4]], [[T5]]
+// ARM: [[T6:%.*]] = or i32 [[T5]], [[T4]]
 // ARM: [[T7:%.*]] = zext i32 [[T6]] to i64
 // ARM: [[T8:%.*]] = shl nuw i64 [[T7]], 32
 // ARM: [[T9:%.*]] = trunc i64 [[IN]] to i32
 // ARM: [[T10:%.*]] = tail call i32 @llvm.bswap.i32(i32 [[T9]])
 // ARM: [[T11:%.*]] = lshr i32 [[T10]], 16
 // ARM: [[T12:%.*]] = shl i32 [[T10]], 16
-// ARM: [[T13:%.*]] = or i32 [[T11]], [[T12]]
+// ARM: [[T13:%.*]] = or i32 [[T12]], [[T11]]
 // ARM: [[T14:%.*]] = zext i32 [[T13]] to i64
 // ARM: [[T15:%.*]] = or i64 [[T8]], [[T14]]
 uint64_t test_rev16ll(uint64_t t) {
