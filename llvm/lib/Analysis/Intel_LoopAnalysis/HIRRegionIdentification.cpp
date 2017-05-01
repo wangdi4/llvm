@@ -275,6 +275,16 @@ public:
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
     const BasicBlock &BB) {
+
+  auto BBInstCount = BB.size();
+
+  // Bail out early instead of analyzing each individual instruction.
+  if ((BBInstCount + InstCount) > MaxInstThreshold) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
+                    "many statements.\n");
+    return false;
+  }
+
   for (auto &Inst : BB) {
     if (!visit(const_cast<Instruction &>(Inst))) {
       return false;
