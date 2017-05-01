@@ -1079,6 +1079,9 @@ def CMPLTS8   : CmpOp<   CMPLT,  setlt,  Ts8,  IIALU>;
 def CMPLTS16  : CmpOp<   CMPLT,  setlt,  Ts16, IIALU>;
 def CMPLTS32  : CmpOp<   CMPLT,  setlt,  Ts32, IIALU>;
 def CMPLTS64  : CmpOp<   CMPLT,  setlt,  Ts64, IIALU>;
+def CMPLTF16  : CmpOp<   CMPLT,  setlt,  Tf16, IICmpF>;
+def CMPLTF32  : CmpOp<   CMPLT,  setlt,  Tf32, IICmpF>;
+def CMPLTF64  : CmpOp<   CMPLT,  setlt,  Tf64, IICmpF>;
 
 def CMPLTU8   : CmpOp<   CMPLT,  setult, Tu8,  IIALU>;
 def CMPLTU16  : CmpOp<   CMPLT,  setult, Tu16, IIALU>;
@@ -1098,6 +1101,9 @@ def CMPLES8   : CmpOp<   CMPLE,  setle,  Ts8,  IIALU>;
 def CMPLES16  : CmpOp<   CMPLE,  setle,  Ts16, IIALU>;
 def CMPLES32  : CmpOp<   CMPLE,  setle,  Ts32, IIALU>;
 def CMPLES64  : CmpOp<   CMPLE,  setle,  Ts64, IIALU>;
+def CMPLEF16  : CmpOp<   CMPLE,  setle,  Tf16, IICmpF>;
+def CMPLEF32  : CmpOp<   CMPLE,  setle,  Tf32, IICmpF>;
+def CMPLEF64  : CmpOp<   CMPLE,  setle,  Tf64, IICmpF>;
 
 def CMPLEU8   : CmpOp<   CMPLE,  setule, Tu8,  IIALU>;
 def CMPLEU16  : CmpOp<   CMPLE,  setule, Tu16, IIALU>;
@@ -1119,6 +1125,9 @@ def CMPEQ8    : CmpOp<   CMPEQ,  seteq,  Ti8,  IIALU>;
 def CMPEQ16   : CmpOp<   CMPEQ,  seteq,  Ti16, IIALU>;
 def CMPEQ32   : CmpOp<   CMPEQ,  seteq,  Ti32, IIALU>;
 def CMPEQ64   : CmpOp<   CMPEQ,  seteq,  Ti64, IIALU>;
+def CMPEQF16  : CmpOp<   CMPEQ,  seteq,  Tf16, IICmpF>;
+def CMPEQF32  : CmpOp<   CMPEQ,  seteq,  Tf32, IICmpF>;
+def CMPEQF64  : CmpOp<   CMPEQ,  seteq,  Tf64, IICmpF>;
 
 def CMPOEQF16 : CmpOp<   CMPEQ,  setoeq, Tf16, IICmpF>;
 def CMPOEQF32 : CmpOp<   CMPEQ,  setoeq, Tf32, IICmpF>;
@@ -1133,6 +1142,9 @@ def CMPGTS8   : CmpOp<   CMPGT,  setgt,  Ts8,  IIALU>;
 def CMPGTS16  : CmpOp<   CMPGT,  setgt,  Ts16, IIALU>;
 def CMPGTS32  : CmpOp<   CMPGT,  setgt,  Ts32, IIALU>;
 def CMPGTS64  : CmpOp<   CMPGT,  setgt,  Ts64, IIALU>;
+def CMPGTF16  : CmpOp<   CMPGT,  setgt,  Tf16, IICmpF>;
+def CMPGTF32  : CmpOp<   CMPGT,  setgt,  Tf32, IICmpF>;
+def CMPGTF64  : CmpOp<   CMPGT,  setgt,  Tf64, IICmpF>;
 
 def CMPGTU8   : CmpOp<   CMPGT,  setugt, Tu8,  IIALU>;
 def CMPGTU16  : CmpOp<   CMPGT,  setugt, Tu16, IIALU>;
@@ -1152,6 +1164,9 @@ def CMPGES8   : CmpOp<   CMPGE,  setge,  Ts8,  IIALU>;
 def CMPGES16  : CmpOp<   CMPGE,  setge,  Ts16, IIALU>;
 def CMPGES32  : CmpOp<   CMPGE,  setge,  Ts32, IIALU>;
 def CMPGES64  : CmpOp<   CMPGE,  setge,  Ts64, IIALU>;
+def CMPGEF16  : CmpOp<   CMPGE,  setge,  Tf16, IICmpF>;
+def CMPGEF32  : CmpOp<   CMPGE,  setge,  Tf32, IICmpF>;
+def CMPGEF64  : CmpOp<   CMPGE,  setge,  Tf64, IICmpF>;
 
 def CMPGEU8   : CmpOp<   CMPGE,  setuge, Tu8,  IIALU>;
 def CMPGEU16  : CmpOp<   CMPGE,  setuge, Tu16, IIALU>;
@@ -1173,6 +1188,9 @@ def CMPNE8    : CmpOp<   CMPNE,  setne,  Ti8,  IIALU>;
 def CMPNE16   : CmpOp<   CMPNE,  setne,  Ti16, IIALU>;
 def CMPNE32   : CmpOp<   CMPNE,  setne,  Ti32, IIALU>;
 def CMPNE64   : CmpOp<   CMPNE,  setne,  Ti64, IIALU>;
+def CMPNEF16  : CmpOp<   CMPNE,  setne,  Tf16, IICmpF>;
+def CMPNEF32  : CmpOp<   CMPNE,  setne,  Tf32, IICmpF>;
+def CMPNEF64  : CmpOp<   CMPNE,  setne,  Tf64, IICmpF>;
 
 def CMPONEF16 : CmpOp<   CMPNE,  setone, Tf16, IICmpF>;
 def CMPONEF32 : CmpOp<   CMPNE,  setone, Tf32, IICmpF>;
