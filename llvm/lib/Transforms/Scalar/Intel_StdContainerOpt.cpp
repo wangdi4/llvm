@@ -102,8 +102,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -168,7 +166,6 @@ public:
   StringRef getPassName() const override { return "StdContainerOpt"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<CallGraphWrapperPass>();
     AU.addRequired<AAResultsWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
@@ -198,7 +195,6 @@ private:
 char StdContainerOpt::ID = 0;
 INITIALIZE_PASS_BEGIN(StdContainerOpt, "std-container-opt",
                       "Propagate the TbaaMD through intrinsic", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(StdContainerOpt, "std-container-opt",
                     "Propagate the TbaaMD through intrinsic", false, false)

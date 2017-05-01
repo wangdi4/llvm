@@ -3,10 +3,6 @@
 ; REQUIRES: asserts
 ; RUN: opt < %s -S -O0 -enable-coroutines -debug-only=coro-split 2>&1 | FileCheck %s
 ; RUN: opt < %s -S -O1 -enable-coroutines -debug-only=coro-split 2>&1 | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 ; CHECK:      CoroSplit: Processing coroutine 'f' state: 0
 ; CHECK-NEXT: CoroSplit: Processing coroutine 'f' state: 1

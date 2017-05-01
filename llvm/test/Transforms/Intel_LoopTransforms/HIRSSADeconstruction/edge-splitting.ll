@@ -21,7 +21,7 @@ entry:
 
 while.body.126:                                   ; preds = %entry, %if.end.150
   %0 = phi i32 [ 0, %entry ], [ %2, %if.end.150 ]
-  %storemerge.149 = phi i32 [ 0, %entry ], [ %sub152, %if.end.150 ]
+  %storemerge.149 = phi i32 [ 0, %entry ], [ %add152, %if.end.150 ]
   %next_capture.248 = phi i32 [ 0, %entry ], [ %sub130, %if.end.150 ]
   %cmp = icmp slt i32 %storemerge.149, 0
   %sub130 = add nsw i32 %next_capture.248, -1
@@ -47,8 +47,8 @@ if.then.145:                                      ; preds = %if.else.139
 
 if.end.150:                                       ; preds = %if.then.145, %if.else.139, %if.then.134, %if.then.128
   %2 = phi i32 [ %0, %if.then.145 ], [ %1, %if.else.139 ], [ %0, %if.then.134 ], [ %1, %if.then.128 ]
-  %sub152 = sub nsw i32 0, %storemerge.149
-  %tobool125 = icmp eq i32 %sub130, 0
+  %add152 = add nsw i32 1, %storemerge.149
+  %tobool125 = icmp eq i32 %sub130, 1
   br i1 %tobool125, label %while.end.153.loopexit, label %while.body.126
 
 while.end.153.loopexit:                           ; preds = %if.end.150
