@@ -88,16 +88,8 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     BasicBlock *EntryBB = getEntryBBlock();
     Loop *Lp = IntelGeneralUtils::getLoopFromLoopInfo(LI, EntryBB, ExitBB);
 
-    // Do not assert for SIMD constructs (WRNVecLoopNode) because transforms
-    // before Vectorizer may optimize away the loop.
-    //
-    // TODO: In the future we should relax this assertion for all WRNs,
-    // not just SIMD, because in theory one can insert those transformation
-    // passes before VPOParopt. For now, let's keep the assertion while we're
-    // stabilizing VPO.
-    if (getWRegionKindID() != WRNVecLoop)
-      assert(Lp && "Loop not found for a loop construct");
-
+    // Do not assert for loop-type constructs when Lp==NULL because transforms
+    // before Paropt may have optimized away the loop.
     setLoop(Lp);
 
     if (Lp)

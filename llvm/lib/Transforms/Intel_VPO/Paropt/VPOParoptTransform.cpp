@@ -218,10 +218,18 @@ bool VPOParoptTransform::paroptTransforms() {
     bool RemoveDirectives = false;
     bool RemovePrivateClauses = false;
 
-    switch (W->getWRegionKindID()) {
+    if (W->getIsOmpLoop() && W->getLoop()==nullptr) {
+      // The WRN is a loop-type construct, but the loop is missing, most likely
+      // because it has been optimized away. We skip the code transforms for
+      // this WRN, and simply remove its directives.
+      RemoveDirectives = true;
+    }
+    else switch (W->getWRegionKindID()) {
 
-    // Parallel constructs need to perform outlining
-    case WRegionNode::WRNParallel:
+      // 1. Constructs that need to perform outlining:
+      //      Parallel [for|sections], task, taskloop, etc.
+
+      case WRegionNode::WRNParallel:
       {
         DEBUG(dbgs() << "\n WRNParallel - Transformation \n\n");
 
@@ -233,11 +241,10 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
         }
-
         break;
       }
-    case WRegionNode::WRNParallelSections:
-    case WRegionNode::WRNParallelLoop:
+      case WRegionNode::WRNParallelSections:
+      case WRegionNode::WRNParallelLoop:
       {
         DEBUG(dbgs() << "\n WRNParallelLoop - Transformation \n\n");
 
@@ -252,18 +259,21 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genMultiThreadedCode(W);
           RemoveDirectives = true;
         }
-
         break;
       }
-    case WRegionNode::WRNTask:
-    case WRegionNode::WRNTaskloop:
-      // Task constructs need to perform outlining
-      break;
-    case WRegionNode::WRNTaskgroup:
-      break;
+      case WRegionNode::WRNTask:
+      case WRegionNode::WRNTaskloop:
+        // Task constructs need to perform outlining
+        break;
 
-    // Constructs that do not need to perform outlining
-    case WRegionNode::WRNVecLoop:
+
+      // 2. Constructs that do not need to perform outlining. E.g., simd,
+      //    taskgroup, atomic, for, sections, etc.
+
+      case WRegionNode::WRNTaskgroup:
+        break;
+
+      case WRegionNode::WRNVecLoop:
       {
         // Privatization is enabled for SIMD Transform passes
         DEBUG(dbgs() << "\n WRNSimdLoop - Transformation \n\n");
@@ -276,7 +286,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-    case WRegionNode::WRNAtomic:
+      case WRegionNode::WRNAtomic:
       { 
         DEBUG(dbgs() << "\n WRNAtomic - Transformation \n\n");
         if (Mode & ParPrepare) {
@@ -286,8 +296,8 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-    case WRegionNode::WRNSections:
-    case WRegionNode::WRNWksLoop:
+      case WRegionNode::WRNSections:
+      case WRegionNode::WRNWksLoop:
       {
         DEBUG(dbgs() << "\n WRNWksLoop - Transformation \n\n");
 
@@ -303,7 +313,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
         break;
       }
-    case WRegionNode::WRNSingle:
+      case WRegionNode::WRNSingle:
       { DEBUG(dbgs() << "\n WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genSingleThreadCode(W);
@@ -311,7 +321,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-    case WRegionNode::WRNMaster:
+      case WRegionNode::WRNMaster:
       { DEBUG(dbgs() << "\n WRNMaster - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genMasterThreadCode(W);
@@ -319,7 +329,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-    case WRegionNode::WRNCritical:
+      case WRegionNode::WRNCritical:
       {
         DEBUG(dbgs() << "\n WRNCritical - Transformation \n\n");
         if (Mode & ParPrepare) {
@@ -328,7 +338,7 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       } 
-    case WRegionNode::WRNOrdered:
+      case WRegionNode::WRNOrdered:
       {
         DEBUG(dbgs() << "\n WRNOrdered - Transformation \n\n");
         if (Mode & ParPrepare) {
@@ -337,11 +347,11 @@ bool VPOParoptTransform::paroptTransforms() {
         }
         break;
       }
-    case WRegionNode::WRNBarrier:
-    case WRegionNode::WRNCancel:
-    case WRegionNode::WRNFlush:
-      break;
-    default: break;
+      case WRegionNode::WRNBarrier:
+      case WRegionNode::WRNCancel:
+      case WRegionNode::WRNFlush:
+        break;
+      default: break;
     }
 
     // Remove calls to directive intrinsics since the LLVM back end does not
