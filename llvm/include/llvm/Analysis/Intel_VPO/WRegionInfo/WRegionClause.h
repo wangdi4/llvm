@@ -65,11 +65,12 @@ class Item
     bool  IsNonpod;  // true for a C++ NONPOD var
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
+    int   ThunkIdx;  // used for task/taskloop codegen
 
   public:
     Item(VAR Orig) :
-      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
-      IsNonpod(false), IsVla(false), VlaSize(nullptr) {}
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonpod(false),
+      IsVla(false), VlaSize(nullptr), ThunkIdx(-1){}
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
@@ -77,6 +78,7 @@ class Item
     void setIsNonpod(bool Flag)  { IsNonpod = Flag; }
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
+    void setThunkIdx(int I)      { ThunkIdx = I;    }
 
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
@@ -84,6 +86,7 @@ class Item
     bool getIsNonpod() const { return IsNonpod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
+    bool getThunkIdx() const { return ThunkIdx; }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ; 

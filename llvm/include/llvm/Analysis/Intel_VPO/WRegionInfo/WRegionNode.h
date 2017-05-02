@@ -74,7 +74,7 @@ private:
   unsigned Level;
 
   /// ID to differentitate between concrete subclasses.
-  const unsigned SubClassID;
+  unsigned SubClassID;
 
   /// The OMP_DIRECTIVES enum representing the OMP construct. This is useful
   /// for opt reporting, which can't use SubClassID because multiple 
@@ -329,8 +329,10 @@ public:
   virtual void setLoopInfo(LoopInfo *LI)        {WRNERROR("LoopInfo");        }
   virtual LoopInfo *getLoopInfo()         const {WRNERROR("LoopInfo");        }
 
-  // TODO: complete the list as we implement more WRN kinds
-  
+  // Task
+
+  virtual void setTaskFlag(unsigned F)          {WRNERROR("TASK FLAG");       }
+  virtual unsigned getTaskFlag()          const {WRNERROR("TASK FLAG");       }
 
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
@@ -450,6 +452,7 @@ public:
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
   unsigned getWRegionKindID() const { return SubClassID; }
+  void setWRegionKindID(unsigned ID) { SubClassID = ID; }
 
   /// \brief Returns the name for this WRN based on its SubClassID
   StringRef getName() const;

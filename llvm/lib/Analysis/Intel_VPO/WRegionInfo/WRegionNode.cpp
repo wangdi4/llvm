@@ -445,6 +445,7 @@ void WRegionNode::handleQual(int ClauseID) {
     break;
   case QUAL_OMP_UNTIED:
     setUntied(true);
+    setTaskFlag(getTaskFlag() & ~WRNTaskFlag::Tied);
     break;
   case QUAL_OMP_READ_SEQ_CST:
     setHasSeqCstClause(true);

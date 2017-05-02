@@ -172,6 +172,7 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
   setDefault(WRNDefaultAbsent);
   setUntied(false);
   setMergeable(false);
+  setTaskFlag(WRNTaskFlag::Tied);
 
   DEBUG(dbgs() << "\nCreated WRNTaskNode<" << getNumber() << ">\n");
 }
@@ -182,19 +183,22 @@ WRNTaskNode::WRNTaskNode(BasicBlock *BB)
 
 // constructor
 WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
-    : WRegionNode(WRegionNode::WRNTaskloop, BB), LI(Li) {
+    : WRNTaskNode(BB), LI(Li) {
+  setWRegionKindID(WRegionNode::WRNTaskloop);
   setIsTask();
   setIsOmpLoop();
-  setFinal(nullptr);
   setGrainsize(nullptr);
   setIf(nullptr);
   setNumTasks(nullptr);
-  setPriority(nullptr);
-  setDefault(WRNDefaultAbsent);
   setCollapse(0);
-  setUntied(false);
-  setMergeable(false);
   setNogroup(false);
+  setTaskFlag(WRNTaskFlag::Tied | WRNTaskFlag::Final);
+  // These are done in WRNTaskNode's constructor
+  //   setFinal(nullptr);
+  //   setPriority(nullptr);
+  //   setDefault(WRNDefaultAbsent);
+  //   setUntied(false);
+  //   setMergeable(false);
 
   DEBUG(dbgs() << "\nCreated WRNTaskloopNode<" << getNumber() << ">\n");
 }

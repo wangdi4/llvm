@@ -462,6 +462,20 @@ public:
   }
 };
 
+/// \brief Task flags used to invoke tasking RTL for both Task and Taskloop
+enum WRNTaskFlag : uint32_t {
+  Tied         = 0x00000001,  // bit 1
+  Final        = 0x00000002,  // bit 2
+  MergedIf0    = 0x00000004,  // bit 3
+  DtorThunk    = 0x00000008,  // bit 4
+  Proxy        = 0x00000010   // bit 5
+
+  // bits  6-16: reserved for compiler
+  // bits 17-20: library flags
+  // bits 21-25: task state flags
+  // bits 26-32: reserved for library
+};
+
 /// WRN for 
 /// \code
 ///   #pragma omp task
@@ -478,6 +492,7 @@ private:
   WRNDefaultKind Default;
   bool Untied;
   bool Mergeable;
+  unsigned TaskFlag; // flag bit vector used to invoke tasking RTL
 
 public:
   WRNTaskNode(BasicBlock *BB);
@@ -487,8 +502,9 @@ protected:
   void setIf(EXPR E) { IfExpr = E; }
   void setPriority(EXPR E) { Priority = E; }
   void setDefault(WRNDefaultKind D) { Default = D; }
-  void setUntied(bool Flag) { Untied = Flag; }
-  void setMergeable(bool Flag) { Mergeable = Flag; }
+  void setUntied(bool B) { Untied = B; }
+  void setMergeable(bool B) { Mergeable = B; }
+  void setTaskFlag(unsigned F) { TaskFlag = F; }
 
 public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
@@ -502,6 +518,7 @@ public:
   WRNDefaultKind getDefault() const { return Default; }
   bool getUntied() const { return Untied; }
   bool getMergeable() const { return Mergeable; }
+  unsigned getTaskFlag() const { return TaskFlag; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
@@ -513,62 +530,69 @@ public:
 /// \code
 ///   #pragma omp taskloop
 /// \endcode
-class WRNTaskloopNode : public WRegionNode {
+class WRNTaskloopNode : public WRNTaskNode {
 private:
-  SharedClause Shared;
-  PrivateClause Priv;
-  FirstprivateClause Fpriv;
   LastprivateClause Lpriv;
-  DependClause Depend;
-  EXPR Final;
   EXPR Grainsize;
-  EXPR IfExpr;
   EXPR NumTasks;
-  EXPR Priority;
-  WRNDefaultKind Default;
   int Collapse;
-  bool Untied;
-  bool Mergeable;
   bool Nogroup;
   LoopInfo *LI;
   Loop *Lp;
+  // These taskloop clauses are also clauses in the parent class WRNTaskNode
+  //   SharedClause Shared;
+  //   PrivateClause Priv;
+  //   FirstprivateClause Fpriv;
+  //   DependClause Depend;
+  //   EXPR Final;
+  //   EXPR IfExpr;
+  //   EXPR Priority;
+  //   WRNDefaultKind Default;
+  //   bool Untied;
+  //   bool Mergeable;
+  //   unsigned TaskFlag; 
 
 public:
   WRNTaskloopNode(BasicBlock *BB, LoopInfo *L);
 
 protected:
-  void setFinal(EXPR E) { Final = E; }
   void setGrainsize(EXPR E) { Grainsize = E; }
-  void setIf(EXPR E) { IfExpr = E; }
   void setNumTasks(EXPR E) { NumTasks = E; }
-  void setPriority(EXPR E) { Priority = E; }
-  void setDefault(WRNDefaultKind D) { Default = D; }
   void setCollapse(int N) { Collapse = N; }
-  void setUntied(bool Flag) { Untied = Flag; }
-  void setMergeable(bool Flag) { Mergeable = Flag; }
-  void setNogroup(bool Flag) { Nogroup = Flag; }
+  void setNogroup(bool B) { Nogroup = B; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
   void setLoop(Loop *L) { Lp = L; }
 
-public:
-  DEFINE_GETTER(SharedClause,       getShared, Shared)
-  DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
-  DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
-  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
-  DEFINE_GETTER(DependClause,       getDepend, Depend)
+  // Defined in parent class WRNTaskNode
+  //   void setFinal(EXPR E) { Final = E; }
+  //   void setif(expr e) { ifexpr = e; }
+  //   void setPriority(EXPR E) { Priority = E; }
+  //   void setDefault(WRNDefaultKind D) { Default = D; }
+  //   void setUntied(bool B) { Untied = B; }
+  //   void setMergeable(bool B) { Mergeable = B; }
+  //   void setTaskFlag(unsigned F) { TaskFlag = F; }
 
-  EXPR getFinal() const { return Final; }
+public:
+  DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   EXPR getGrainsize() const { return Grainsize; }
-  EXPR getIf() const { return IfExpr; }
   EXPR getNumTasks() const { return NumTasks; }
-  EXPR getPriority() const { return Priority; }
-  WRNDefaultKind getDefault() const { return Default; }
   int getCollapse() const { return Collapse; }
-  bool getUntied() const { return Untied; }
-  bool getMergeable() const { return Mergeable; }
   bool getNogroup() const { return Nogroup; }
   LoopInfo *getLoopInfo() const { return LI; }
   Loop *getLoop() const { return Lp; }
+
+  // Defined in parent class WRNTaskNode
+  //   DEFINE_GETTER(SharedClause,       getShared, Shared)
+  //   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
+  //   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  //   DEFINE_GETTER(DependClause,       getDepend, Depend)
+  //   EXPR getFinal() const { return Final; }
+  //   EXPR getIf() const { return IfExpr; }
+  //   EXPR getPriority() const { return Priority; }
+  //   WRNDefaultKind getDefault() const { return Default; }
+  //   bool getUntied() const { return Untied; }
+  //   bool getMergeable() const { return Mergeable; }
+  //   unsigned getTaskFlag() const { return TaskFlag; }
 
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
