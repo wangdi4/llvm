@@ -80,5 +80,10 @@
 #ifdef __AVX512ER__
 #include <avx512erintrin.h>
 #endif
+
+#ifdef __AVX512DQ__
+#include <avx512dqintrin.h>
+#endif
+
 #endif
 #endif

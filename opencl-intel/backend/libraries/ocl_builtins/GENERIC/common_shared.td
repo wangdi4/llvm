@@ -53,11 +53,11 @@ OclBuiltinImpl radians_f64_generic = OclBuiltinImpl<radians,
 
 // step
 OclBuiltinImpl step_f32_generic = OclBuiltinImpl<step,
-  [v1f32, v2f32, v3f32, v4f32, v16f32] , 0, [{
+  [v1f32, v2f32, v3f32, v4f32] , 0, [{
     return ($Arg1VarName < $Arg0VarName) ? ($ReturnType)0.0f : ($ReturnType)1.0f;
   }]>;
 OclBuiltinImpl step_f64_generic = OclBuiltinImpl<step,
-  [v1f64, v2f64, v8f64, v16f64] , 0, [{
+  [v1f64, v2f64, v16f64] , 0, [{
     return ($Arg1VarName < $Arg0VarName) ? ($ReturnType)0.0 : ($ReturnType)1.0;
   }]>;
 
@@ -87,13 +87,13 @@ OclBuiltinImpl smoothstep_f64_generic = OclBuiltinImpl<smoothstep,
 
 // sign
 OclBuiltinImpl sign_f32_generic = OclBuiltinImpl<sign,
-  [v1f32, v2f32, v3f32, v4f32, v16f32] , 0, [{
+  [v1f32, v2f32, v3f32, v4f32] , 0, [{
     return isnan($Arg0VarName) ? ($ReturnType)0.0f :
            $Arg0VarName > 0.0f ? ($ReturnType)1.0f :
            $Arg0VarName < 0.0f ? ($ReturnType)-1.0f : $Arg0VarName;
   }]>;
 OclBuiltinImpl sign_f64_generic = OclBuiltinImpl<sign,
-  [v1f64, v2f64, v8f64, v16f64] , 0, [{
+  [v1f64, v2f64, v16f64] , 0, [{
     return isnan($Arg0VarName) ? ($ReturnType)0.0 :
            $Arg0VarName > 0.0 ?  ($ReturnType)1.0 :
            $Arg0VarName < 0.0 ? ($ReturnType)-1.0 : $Arg0VarName;

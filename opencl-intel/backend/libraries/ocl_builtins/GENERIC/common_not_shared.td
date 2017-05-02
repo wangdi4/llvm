@@ -37,25 +37,23 @@ OclBuiltinImpl radians_f64_generic_not_shared = OclBuiltinImpl<radians,
 
 // step
 OclBuiltinImpl step_f32_generic_not_shared = OclBuiltinImpl<step,
-  [v8f32] , 0, [{
+  [v8f32, v16f32] , 0, [{
     return ($Arg1VarName < $Arg0VarName) ? ($ReturnType)0.0f : ($ReturnType)1.0f;
   }]>;
 OclBuiltinImpl step_f64_generic_not_shared = OclBuiltinImpl<step,
-  [v3f64, v4f64] , 0, [{
+  [v3f64, v4f64, v8f64] , 0, [{
     return ($Arg1VarName < $Arg0VarName) ? ($ReturnType)0.0 : ($ReturnType)1.0;
   }]>;
 
-
-
 // sign
 OclBuiltinImpl sign_f32_generic_not_shared = OclBuiltinImpl<sign,
-  [v8f32] , 0, [{
+  [v8f32, v16f32] , 0, [{
     return isnan($Arg0VarName) ? ($ReturnType)0.0f :
            $Arg0VarName > 0.0f ? ($ReturnType)1.0f :
            $Arg0VarName < 0.0f ? ($ReturnType)-1.0f : $Arg0VarName;
   }]>;
 OclBuiltinImpl sign_f64_generic_not_shared = OclBuiltinImpl<sign,
-  [v3f64, v4f64] , 0, [{
+  [v3f64, v4f64, v8f64] , 0, [{
     return isnan($Arg0VarName) ? ($ReturnType)0.0 :
            $Arg0VarName > 0.0 ?  ($ReturnType)1.0 :
            $Arg0VarName < 0.0 ? ($ReturnType)-1.0 : $Arg0VarName;
