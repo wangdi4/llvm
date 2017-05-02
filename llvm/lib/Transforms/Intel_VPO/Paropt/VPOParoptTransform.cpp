@@ -216,6 +216,7 @@ bool VPOParoptTransform::paroptTransforms() {
     bool Changed = false;  
 
     bool RemoveDirectives = false;
+    bool RemovePrivateClauses = false;
 
     switch (W->getWRegionKindID()) {
 
@@ -271,6 +272,7 @@ bool VPOParoptTransform::paroptTransforms() {
            Changed = genPrivatizationCode(W);
            // keep SIMD directives; will be processed by the Vectorizer
            RemoveDirectives = false;
+           RemovePrivateClauses = true;
         }
         break;
       }
@@ -347,6 +349,8 @@ bool VPOParoptTransform::paroptTransforms() {
     if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
+    } else if (RemovePrivateClauses) {
+      VPOUtils::stripPrivateClauses(W);
     }
 
     if (Changed) { // Code transformations happened for this WRN

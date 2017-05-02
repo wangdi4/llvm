@@ -89,6 +89,41 @@ bool VPOUtils::stripDirectives(Function &F) {
   return changed;
 }
 
+bool VPOUtils::stripPrivateClauses(WRegionNode *WRN) {
+  BasicBlock *EntryBB = WRN->getEntryBBlock();
+  return VPOUtils::stripPrivateClauses(*EntryBB);
+}
+
+bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
+  SmallVector<Instruction *, 4> IntrinsicsToRemove;
+
+  for (Instruction &I : BB) {
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&I);
+    if (Call) {
+      Intrinsic::ID Id = Call->getIntrinsicID();
+      if (Id == Intrinsic::directive_region_entry) {
+        // TODO: add support for this representation
+        DEBUG(dbgs() << "** WARNING: stripPrivateClauses() support for the " 
+                     << "OperandBundle representation will be done later.\n");
+      }
+      else if (Id == Intrinsic::intel_directive_qual_opndlist) {
+        StringRef ClauseString = VPOAnalysisUtils::getDirOrClauseString(Call);
+        ClauseSpecifier ClauseInfo(ClauseString);
+        int ClauseID = ClauseInfo.getId();
+        if (ClauseID == QUAL_OMP_PRIVATE)
+          IntrinsicsToRemove.push_back(&I);
+      }
+    }
+  }
+
+  unsigned Idx = 0;
+  for (Idx = 0; Idx < IntrinsicsToRemove.size(); ++Idx) {
+    Instruction *I = IntrinsicsToRemove[Idx];
+    I->eraseFromParent();
+  }
+  return Idx > 0;
+}
+
 void VPOUtils::addNoFeatureOutline(CallInst *Call) {
   Call->setMetadata(IGNORE_FEATURE_OUTLINING_STRING,
                     MDNode::get(Call->getContext(), {}));
