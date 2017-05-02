@@ -1102,6 +1102,10 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_taskgroup:
   case OMPD_flush:
   case OMPD_teams:
+  case OMPD_teams_distribute:
+  case OMPD_teams_distribute_simd:
+  case OMPD_teams_distribute_parallel_for:
+  case OMPD_teams_distribute_parallel_for_simd:
   case OMPD_cancel:
   case OMPD_target_data:
   case OMPD_parallel_for_simd:
@@ -1115,7 +1119,14 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
   case OMPD_target_exit_data:
   case OMPD_target_parallel:
   case OMPD_target_parallel_for:
+  case OMPD_target_parallel_for_simd:
+  case OMPD_target_simd:
   case OMPD_target_update:
+  case OMPD_target_teams:
+  case OMPD_target_teams_distribute:
+  case OMPD_target_teams_distribute_simd:
+  case OMPD_target_teams_distribute_parallel_for:
+  case OMPD_target_teams_distribute_parallel_for_simd:
   case OMPD_distribute_parallel_for:
   case OMPD_distribute_parallel_for_simd:
   case OMPD_distribute_simd:
