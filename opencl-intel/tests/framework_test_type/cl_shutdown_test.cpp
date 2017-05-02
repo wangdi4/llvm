@@ -44,9 +44,16 @@ enum TEST_CASE
 
 void CL_CALLBACK BufferDestruct(cl_mem memobj, void *user_data)
 {
+// Disabled on Windows because it may crash.
+// The problem is that we may call BufferDestruct callback after stdout and
+// stderr handlers are destroyed. The handlers are destroyed before we get
+// process terminating notification because the test is statically linked
+// against windows runtime.
+#ifndef _WIN32
     const char* buf_name = (const char*)user_data;
     fprintf(stdout, "%s buffer destructed\n", buf_name );
     fprintf(stderr, "%s buffer destructed\n", buf_name ); // note - this output is checked by gtest
+#endif
 }
 
 bool cl_shutdown_test(TEST_CASE test_case, const char* name)
