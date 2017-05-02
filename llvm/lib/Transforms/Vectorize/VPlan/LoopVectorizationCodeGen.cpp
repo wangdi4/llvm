@@ -63,6 +63,46 @@ static Value* buildReductionTail(Value *VectorVal,
   return buildReductionTail(Result, BOpcode, Builder);
 }
 
+/// A helper function that returns value after skipping 'bitcast'.
+static Value *getPtrThruBitCast(Value *Ptr) {
+  while (isa<BitCastInst>(Ptr)) {
+    Type *DestTy = Ptr->getType();
+    Type *SrcTy = cast<BitCastInst>(Ptr)->getSrcTy();
+    if (!isa<PointerType>(DestTy) || !isa<PointerType>(SrcTy))
+      break;
+    Type *Pointee1Ty = cast<PointerType>(DestTy)->getPointerElementType();
+    Type *Pointee2Ty = cast<PointerType>(SrcTy)->getPointerElementType();
+    const DataLayout &DL = cast<BitCastInst>(Ptr)->getModule()->getDataLayout();
+    if (DL.getTypeSizeInBits(Pointee1Ty) != DL.getTypeSizeInBits(Pointee2Ty))
+      break;
+    Ptr = cast<BitCastInst>(Ptr)->getOperand(0);
+  }
+  return Ptr;
+}
+
+/// A helper function that returns GEP instruction and knows to skip a
+/// 'bitcast'. The 'bitcast' may be skipped if the source and the destination
+/// pointee types of the 'bitcast' have the same size.
+/// For example:
+///   bitcast double** %var to i64* - can be skipped
+///   bitcast double** %var to i8*  - can not
+static GetElementPtrInst *getGEPInstruction(Value *Ptr) {
+
+  if (isa<GetElementPtrInst>(Ptr))
+    return cast<GetElementPtrInst>(Ptr);
+  return dyn_cast<GetElementPtrInst>(getPtrThruBitCast(Ptr));
+}
+
+/// A helper function that returns the pointer operand of a load or store
+/// instruction.
+static Value *getPointerOperand(Value *I) {
+  if (auto *LI = dyn_cast<LoadInst>(I))
+    return LI->getPointerOperand();
+  if (auto *SI = dyn_cast<StoreInst>(I))
+    return SI->getPointerOperand();
+  return nullptr;
+}
+
 /// \brief Check that the instruction has outside loop users and is not an
 /// identified reduction variable.
 static bool hasOutsideLoopUser(const Loop *TheLoop, Instruction *Inst,
@@ -677,11 +717,13 @@ Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
 Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
   assert(Legal->isLoopPrivate(ScalarPrivate) && "Loop private value expected");
 
-  auto VectorV = getVectorPrivateBase(ScalarPrivate);
-  auto PtrType = cast<PointerType>(ScalarPrivate->getType());
-  VectorV = Builder.CreateCast(Instruction::BitCast, VectorV, PtrType);
-  VectorV = Builder.CreateVectorSplat(VF, VectorV, "privaddr");
+  if (WidenMap.count(ScalarPrivate))
+    return WidenMap[ScalarPrivate];
 
+  auto PtrToVec = getVectorPrivateBase(ScalarPrivate);
+  auto PtrType = cast<PointerType>(ScalarPrivate->getType());
+  auto Base = Builder.CreateBitCast(PtrToVec, PtrType, "privaddr");
+  // We will create a vector GEP with scalar base and a vector of indices.
   SmallVector<Constant *, 8> Indices;
   // Create a vector of consecutive numbers from zero to VF.
   for (unsigned i = 0; i < VF; ++i) {
@@ -690,39 +732,68 @@ Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
   // Add the consecutive indices to the vector value.
   Constant *Cv = ConstantVector::get(Indices);
 
-  VectorV = Builder.CreateGEP(nullptr, VectorV, Cv);
-  return VectorV;
+  return Builder.CreateGEP(nullptr, Base, Cv);
 }
 
 Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   assert(Legal->isLoopPrivate(V) && "Loop private value expected");
 
-  if (WidenMap.count(V))
-    return WidenMap[V];
+  Type *OrigTy = V->getType();
+  Type *NewType =
+    PointerType::get(VectorType::get(OrigTy->getPointerElementType(), VF),
+                                     OrigTy->getPointerAddressSpace());
 
+  V = getPtrThruBitCast(V);
+
+  if (LoopPrivateWidenMap.count(V)) {
+    Value *PtrToVec = LoopPrivateWidenMap[V];
+    return Builder.CreateBitCast(PtrToVec, NewType);
+  }
+
+  // If V is an alloca ptr for a loop private, alloca a VF wide vector and
+  // use this alloca'd ptr as the vector value.
   auto OldIP = Builder.saveIP();
   auto PtrType = cast<PointerType>(V->getType());
   auto ElemType = PtrType->getElementType();
   auto VecElemType = VectorType::get(ElemType, VF);
   Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
-  auto VectorValue = Builder.CreateAlloca(VecElemType, nullptr,
-                                          V->getName() + ".vec");
+  Value *PtrToVec = Builder.CreateAlloca(VecElemType, nullptr,
+                                         V->getName() + ".vec");
+
+  // Save alloca's result
+  LoopPrivateWidenMap[V] = PtrToVec;
+  PtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
   Builder.restoreIP(OldIP);
-  WidenMap[V] = VectorValue;
-  return VectorValue;
+  return PtrToVec;
+}
+
+void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
+  // Do not vectorize bitcast of loop-private if
+  // it is used in load/store only
+  Type *VecTy = VectorType::get(Inst->getType(), VF);
+  if (Legal->isLoopPrivate(Inst) &&
+      all_of(Inst->users(), [&](User *U) -> bool {
+        return getPointerOperand(U) == Inst;
+      }))
+    return;
+  Value *A = getVectorValue(Inst->getOperand(0));
+  WidenMap[Inst] = Builder.CreateBitCast(A, VecTy);
 }
 
 Value *VPOCodeGen::getVectorValue(Value *V) {
   assert(!V->getType()->isVectorTy() && "Can't widen a vector");
 
-  // Address of in memory private is needed. Construct a vector of addresses
-  // on the fly.
-  if (Legal->isLoopPrivate(V))
-    return getVectorPrivatePtrs(V);
-
   // If we have this scalar in the map, return it.
   if (WidenMap.count(V))
     return WidenMap[V];
+
+  // Address of in memory private is needed. Construct a vector of addresses
+  // on the fly.
+  if (Legal->isLoopPrivate(V)) {
+    Value *VectorValue = getVectorPrivatePtrs(V);
+    WidenMap[V] = VectorValue;
+    return VectorValue;
+  }
 
   // If the value has not been vectorized, check if it has been scalarized
   // instead. If it has been scalarized, and we actually need the value in
@@ -759,7 +830,7 @@ Value *VPOCodeGen::getVectorValue(Value *V) {
 Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   // If the value is not an instruction contained in the loop, it should
   // already be scalar.
-  if (OrigLoop->isLoopInvariant(V))
+  if (OrigLoop->isLoopInvariant(V) && !Legal->isLoopPrivate(V))
     return V;
 
   if (ScalarMap.count(V)) {
@@ -813,36 +884,37 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
   unsigned AddressSpace = Ptr->getType()->getPointerAddressSpace();
 
   // Handle consecutive loads.
-  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Ptr);
   if (ConsecutiveStride != 0) {
-    if (Gep) {
-      GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
-      Gep2->setName("gep.indvar");
+    bool IsPrivate = false;
+    if (Legal->isLoopPrivate(Ptr)) {
+      Ptr = getVectorPrivateBase(Ptr);
+      IsPrivate = true;
+    } else {
+      GetElementPtrInst *Gep = getGEPInstruction(Ptr);
+      if (Gep) {
+        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
+        Gep2->setName("gep.indvar");
 
-      for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
-      Ptr = Builder.Insert(Gep2);
-    } else // No GEP
-      Ptr = getScalarValue(Ptr, 0);
+        for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
+          Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
+        Ptr = Builder.Insert(Gep2);
+      } else // No GEP
+        Ptr = getScalarValue(Ptr, 0);
 
-    Ptr = Reverse ?
-      Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;   
-
-    Value *VecPtr;
-
-    if (Legal->isLoopPrivate(Ptr)) 
-      VecPtr = getVectorPrivateBase(Ptr);
-    else
-      VecPtr = Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
+      Ptr = Reverse ?
+        Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;
+    }
+    Value *VecPtr = Builder.CreateBitCast(Ptr,
+                                          DataTy->getPointerTo(AddressSpace));
   
     Value *NewLI;
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
+    if (MaskValue && !IsPrivate) {
       // Masking not needed for privates.
       NewLI = Builder.CreateMaskedLoad(VecPtr, Alignment, MaskValue, 
                                        nullptr, "wide.masked.load");
-    } else {
+    } else
       NewLI = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-    }
+
     if (Reverse)
       NewLI = reverseVector(NewLI);
     WidenMap[cast<Value>(Inst)] = NewLI;
@@ -905,43 +977,46 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
 
 
   // Handle consecutive stores.
-  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Ptr);
   if (ConsecutiveStride) {
-    if (Gep) {
-      GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
-      Gep2->setName("gep.indvar");
+    bool IsPrivate = false;
+    if (Legal->isLoopPrivate(Ptr)) {
+      Ptr = getVectorPrivateBase(Ptr);
+      IsPrivate = true;
+    } else {
+      GetElementPtrInst *Gep = getGEPInstruction(Ptr);
+      if (Gep) {
+        GetElementPtrInst *Gep2 = cast<GetElementPtrInst>(Gep->clone());
+        Gep2->setName("gep.indvar");
 
-      for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
-        Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
-      Ptr = Builder.Insert(Gep2);
-    } else // No GEP
-      Ptr = getScalarValue(Ptr, 0);
+        for (unsigned i = 0; i < Gep->getNumOperands(); ++i)
+          Gep2->setOperand(i, getScalarValue(Gep->getOperand(i), 0));
+        Ptr = Builder.Insert(Gep2);
+      } else // No GEP
+        Ptr = getScalarValue(Ptr, 0);
 
-    Ptr = Reverse ?
-      Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;
+      Ptr = Reverse ?
+        Builder.CreateGEP(nullptr, Ptr, Builder.getInt32(1 - VF)) : Ptr;
 
-    if (Reverse)
-      // If we store to reverse consecutive memory locations, then we need
-      // to reverse the order of elements in the stored value.
-      VecDataOp = reverseVector(VecDataOp);
-
-    Value *VecPtr;
-    if (Legal->isLoopPrivate(Ptr))
-      VecPtr = getVectorPrivateBase(Ptr);
-    else
-      VecPtr = Builder.CreateBitCast(Ptr, DataTy->getPointerTo(AddressSpace));
-    if (MaskValue && !Legal->isLoopPrivate(Ptr)) {
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
+      if (Reverse)
+        // If we store to reverse consecutive memory locations, then we need
+        // to reverse the order of elements in the stored value.
+        VecDataOp = reverseVector(VecDataOp);
     }
+    Value *VecPtr = Builder.CreateBitCast(Ptr,
+                                          DataTy->getPointerTo(AddressSpace));
+    if (MaskValue && !IsPrivate)
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
+
     else if (MaskValue) {
       // Private data. Load/Blend/Store.
       auto ThruVal = Builder.CreateAlignedLoad(VecPtr, Alignment, "wide.load");
-      auto BlendedVal = Builder.CreateSelect(MaskValue, VecDataOp, ThruVal, "blend");
+      auto BlendedVal = Builder.CreateSelect(MaskValue, VecDataOp, ThruVal,
+                                             "blend");
       Builder.CreateAlignedStore(BlendedVal, VecPtr, Alignment);
-    }
-    else {
+
+    } else
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-    }
+
     return;
   }
 
@@ -967,9 +1042,9 @@ void VPOCodeGen::serializeWithPredication(Instruction *Inst) {
 
     // Replace the operands of the cloned instructions with their scalar
     // equivalents in the new loop.
-    for (unsigned op = 0, e = Inst->getNumOperands(); op != e; ++op) {
-      auto *NewOp = getScalarValue(Inst->getOperand(op), Lane);
-      Cloned->setOperand(op, NewOp);
+    for (unsigned Op = 0, e = Inst->getNumOperands(); Op != e; ++Op) {
+      auto *NewOp = getScalarValue(Inst->getOperand(Op), Lane);
+      Cloned->setOperand(Op, NewOp);
     }
 
     // Place the cloned scalar in the new loop.
@@ -999,9 +1074,9 @@ void VPOCodeGen::serializeInstruction(Instruction *Instr) {
 
     // Replace the operands of the cloned instructions with their scalar
     // equivalents in the new loop.
-    for (unsigned op = 0, e = Instr->getNumOperands(); op != e; ++op) {
-      auto *NewOp = getScalarValue(Instr->getOperand(op), Lane);
-      Cloned->setOperand(op, NewOp);
+    for (unsigned Op = 0, e = Instr->getNumOperands(); Op != e; ++Op) {
+      auto *NewOp = getScalarValue(Instr->getOperand(Op), Lane);
+      Cloned->setOperand(Op, NewOp);
     }
     // Place the cloned scalar in the new loop.
     Builder.Insert(Cloned);
@@ -1430,16 +1505,6 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   WidenMap[cast<Value>(Call)] = VecCall;
 }
 
-/// A helper function that returns the pointer operand of a load or store
-/// instruction.
-static Value *getPointerOperand(Value *I) {
-  if (auto *LI = dyn_cast<LoadInst>(I))
-    return LI->getPointerOperand();
-  if (auto *SI = dyn_cast<StoreInst>(I))
-    return SI->getPointerOperand();
-  return nullptr;
-}
-
 void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   // Diego: Why are we blindly vectorizing any instruction?
   //if (isUniformAfterVectorization(Inst, VF)) {
@@ -1489,18 +1554,19 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::SIToFP:
   case Instruction::UIToFP:
   case Instruction::Trunc:
-  case Instruction::FPTrunc:
-  case Instruction::BitCast: {
+  case Instruction::FPTrunc: {
     CastInst *CI = dyn_cast<CastInst>(Inst);
 
     /// Vectorize casts.
     Type *VecTy = VectorType::get(CI->getType(), VF);
-
     Value *A = getVectorValue(Inst->getOperand(0));
     WidenMap[cast<Value>(Inst)] = Builder.CreateCast(CI->getOpcode(), A, VecTy);
     break;
   }
 
+  case Instruction::BitCast:
+    vectorizeBitCast(Inst);
+    break;
   case Instruction::Add:
   case Instruction::FAdd:
   case Instruction::Sub:
@@ -1665,6 +1731,10 @@ bool VPOVectorizationLegality::isLoopInvariant(Value *V) {
     return false;
   
   return (PSE.getSE()->isLoopInvariant(PSE.getSCEV(V), TheLoop));
+}
+
+bool VPOVectorizationLegality::isLoopPrivate(Value *V) const {
+  return LoopPrivates.count(getPtrThruBitCast(V)) != 0;
 }
 
 int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {

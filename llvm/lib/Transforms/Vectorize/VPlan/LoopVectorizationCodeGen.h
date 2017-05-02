@@ -137,9 +137,8 @@ public:
     LoopPrivates.insert(PrivVal);
   }
   
-  bool isLoopPrivate(Value *PrivVal) {
-    return LoopPrivates.count(PrivVal);
-  }
+  // Return true if the specified value \p Val is private.
+  bool isLoopPrivate(Value *Val) const;
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -391,6 +390,10 @@ private:
   // Map of scalar values.
   std::map<Value *, DenseMap<unsigned, Value *>> ScalarMap;
 
+  // Map of widened private values. Unlike WidenMap, this is
+  // pointer-to-pointer map.
+  std::map<Value *, Value *> LoopPrivateWidenMap;
+
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
   DenseMap<PHINode *, Value *> IVEndValues;
@@ -427,6 +430,9 @@ private:
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeStoreInstruction(Instruction *Inst, bool EmitIntrinsic = false);
+
+  // Widen a BitCast instruction
+  void vectorizeBitCast(Instruction *Inst);
 
   // Widen call instruction parameters and return. Currently, this is limited
   // to svml function support that is hooked in to TLI. Later, this can be
