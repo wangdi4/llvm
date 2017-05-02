@@ -282,7 +282,7 @@ bool VPOParoptTransform::paroptTransforms() {
            Changed = genPrivatizationCode(W);
            // keep SIMD directives; will be processed by the Vectorizer
            RemoveDirectives = false;
-           RemovePrivateClauses = true;
+           RemovePrivateClauses = false;
         }
         break;
       }
