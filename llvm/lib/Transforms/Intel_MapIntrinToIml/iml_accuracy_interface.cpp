@@ -359,11 +359,13 @@ static const int svml_functions_num =  _IML_ATTR_SIZEOF_TABLE(FunctionDescriptio
 
 static const char* attrGetAccuracyName(AccuracyEnum a)
 {
+    (void)attrGetAccuracyName; // Quiet unused function warning.
     return valid_accuracy_names[a];
 }
 
 static const char* attrGetConfigName(ConfigurationsEnum c)
 {
+  (void)attrGetConfigName; // Quiet unused function warning.
   if(c == c_configuration_unsupported)
     return "unsupported";
   else
@@ -489,6 +491,8 @@ static int attrExternal2InternalAttr(
     int flag = 0;
     const char* aname = NULL;
     int attr_chosen = 0;
+
+    (void)aname; // Quiet unused variable warning.
 
     // search internal_attribute name within allowed names
     flag = IML_ATTR_get_name_index(external_attribute->name, valid_attributes_names, SUPPORTED_ATTRIBUTES_NUMBER);
@@ -1223,6 +1227,7 @@ const char* get_library_function_name(const char* func_base_name,
         PRN_MSG("%-32s: Function is integer, setting its accuracy to low %d\n", "get_library_function_name", function_description_user.accuracy );
     }
 
+    (void)valid_precision_names; // Quiet unused variable warning.
     PRN_MSG("%-32s: Func precision = %s\n", "get_library_function_name", valid_precision_names[function_description_user.precision+1] );
 
     PRN_MSG("%-32s: User requested attributes:\n", "get_library_function_name");
@@ -1323,7 +1328,6 @@ int may_i_use_inline_implementation(
     int i;
     int flag = 0;
     int function_description_compiler_variants_num = 0;
-    const char* result_string_pointer = NULL;
 
     // Storage for current function information
     FunctionDescriptionType     function_description_user;

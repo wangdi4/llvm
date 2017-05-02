@@ -358,8 +358,12 @@ unsigned MemoryFlags[] = {
 			   Memory::MF_READ|Memory::MF_WRITE|Memory::MF_EXEC
 			 };
 
+#ifdef INTEL_CUSTOMIZATION
+// The extra ',' in the INSTANTIATE_TEST_CASE_P macro invocation silences a
+// warning about an empty ... list.
 INSTANTIATE_TEST_CASE_P(AllocationTests,
 			MappedMemoryTest,
-			::testing::ValuesIn(MemoryFlags));
+			::testing::ValuesIn(MemoryFlags),);
+#endif // INTEL_CUSTOMIZATION
 
 }  // anonymous namespace

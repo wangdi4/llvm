@@ -1377,7 +1377,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     return false;
 
   PredValueInfoTy PredValues;
-  bool Changed = false;
+  // bool Changed = false;                                              // INTEL
   ThreadRegionInfoTy RegionInfo;                                        // INTEL
   if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
                                        RegionInfo,                      // INTEL

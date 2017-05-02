@@ -5760,7 +5760,7 @@ static bool getFauxShuffleMask(SDValue N, SmallVectorImpl<int> &Mask,
     if (X86::isZeroNode(InScl)) {
       Ops.push_back(InVec);
       for (unsigned i = 0; i != NumElts; ++i)
-        Mask.push_back(i == InIdx ? SM_SentinelZero : i);
+        Mask.push_back(i == InIdx ? SM_SentinelZero : (int)i);
       return true;
     }
 
