@@ -438,6 +438,7 @@ struct cl_dev_cmd_desc
     void*           params;             //!< Pointer to a buffer that holds command specific parameters
     size_t          param_size;         //!< Size of the parameter buffer in bytes
     bool            profiling;          //!< Enable profiling data for this command
+    bool            isFPGAEmulator;     //!< Indicates working in FPGA env.
     void*           device_agent_data;  //!< Device Agent specific data, device agent allowed to update this field on its needs
 } ;
 
