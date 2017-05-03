@@ -430,27 +430,24 @@ static bool createPipeGlobals(Module &M,
   return ChannelGlobals.size() > 0;
 }
 
-static Value *getPipeByChannel(Value *ChanGlobal,
+static Value *getPipeByChannel(Value *ChannelGlobal,
                               ValueToValueMap ChannelToPipeMap,
                               IRBuilder<> &Builder) {
-  Value *Pipe = nullptr;
-  if (auto *ChanArrGEP = dyn_cast<GEPOperator>(ChanGlobal)) {
-    // ChanGlobal is a GEP, so, it is read from array of channels
+  if (auto *ChannelArrGEP = dyn_cast<GEPOperator>(ChannelGlobal)) {
+    // ChannelGlobal is a GEP, so, it is read from array of channels
     // we need to replace GEP from array of channels
     // with GEP from array of pipes
-    auto *PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
+    auto *PipeGlobal = ChannelToPipeMap[ChannelArrGEP->getPointerOperand()];
     SmallVector<Value *, 8> Indices;
-    auto IdxEnd = ChanArrGEP->idx_end();
-    for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
+    auto IdxEnd = ChannelArrGEP->idx_end();
+    for (auto *Ind = ChannelArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
       Indices.push_back(*Ind);
     }
 
-    Pipe = Builder.CreateGEP(PipeGlobal, ArrayRef<Value *>(Indices));
+    return Builder.CreateGEP(PipeGlobal, ArrayRef<Value *>(Indices));
   } else {
-    Pipe = ChannelToPipeMap[ChanGlobal];
+    return ChannelToPipeMap[ChannelGlobal];
   }
-
-  return Pipe;
 }
 
 static void insertReadPipe(Function *ReadPipe,
@@ -483,10 +480,10 @@ static void insertNBReadPipe(Function *NBReadPipe,
   Type *IsValidType =
       cast<PointerType>(IsValidPtr->getType())->getElementType();
 
-  Builder.CreateStore(Builder.CreateZExt(Builder.CreateICmpEQ(
-                          Builder.CreateCall(NBReadPipe, PipeCallArgs),
-                          ConstantInt::get(NBReadPipe->getReturnType(), 0)),
-                          IsValidType),
+  Value *PipeCallBoolResult = Builder.CreateICmpEQ(
+      Builder.CreateCall(NBReadPipe, PipeCallArgs),
+      ConstantInt::get(NBReadPipe->getReturnType(), 0));
+  Builder.CreateStore(Builder.CreateZExt(PipeCallBoolResult, IsValidType),
                       IsValidPtr);
 }
 
@@ -508,7 +505,6 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
     auto ArgIt = ChannelCall->arg_begin();
 
     Value *DstPtr = nullptr;
-    Value *IsValidPtr = nullptr;
     Type *DstTy = ReadChannelFTy->getReturnType();
     if (DstTy->isVoidTy()) {
       // struct type result is passed by pointer as a first argument
@@ -517,9 +513,7 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
       DstTy = DstPtr->getType();
     }
     Value *ChanArg = (ArgIt++)->get();
-    if (NonBlocking) {
-      IsValidPtr = (ArgIt++)->get();
-    }
+    Value *IsValidPtr = NonBlocking ? (ArgIt++)->get() : nullptr;
 
     Function *TargetFn = ChannelCall->getParent()->getParent();
     if (!DstPtr) {
@@ -545,11 +539,10 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
 
     Value *Pipe = getPipeByChannel(ChanGlobal, ChannelToPipeMap, Builder);
 
-    if (NonBlocking) {
+    if (NonBlocking)
       insertNBReadPipe(&ReadPipe, Pipe, DstPtr, IsValidPtr, Builder, M);
-    } else {
+    else
       insertReadPipe(&ReadPipe, Pipe, DstPtr, Builder);
-    }
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -648,7 +641,6 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
       BasicBlock::iterator II(ChannelCall);
       ReplaceInstWithValue(ChannelCall->getParent()->getInstList(),
           II, insertNBWritePipe(&WritePipe, Pipe, SrcPtr, Builder, M));
-      ;
     } else {
       insertWritePipe(&WritePipe, Pipe, SrcPtr, Builder);
       ChannelCall->eraseFromParent();
