@@ -2387,12 +2387,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.OpenMPSimdOnly = false;
   Opts.OpenMPSimdDisabled = false;
+  Opts.OpenMPTBBOnly = false;
+  Opts.OpenMPTBBDisabled = false;
   if (Opts.OpenMP) {
-    // OpenMP is enabled but we want to disable OpenMP simd
+    // OpenMP is enabled but we want to disable OpenMP subset
     Opts.OpenMPSimdDisabled = Args.hasArg(OPT_fnointel_openmp_simd);
+    Opts.OpenMPTBBDisabled = Args.hasArg(OPT_fnointel_openmp_tbb);
   } else {
     Opts.OpenMPSimdOnly = Args.hasArg(OPT_fintel_openmp_simd);
-    if (Opts.OpenMPSimdOnly)
+    Opts.OpenMPTBBOnly = Args.hasArg(OPT_fintel_openmp_tbb);
+    if (Opts.OpenMPSimdOnly || Opts.OpenMPTBBOnly)
       Opts.OpenMP = true;
   }
 #endif //INTEL_CUSTOMIZATION

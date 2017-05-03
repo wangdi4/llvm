@@ -696,6 +696,10 @@ def fintel_openmp_simd : Flag<["-"], "fopenmp-simd">,
   HelpText<"Enable OpenMP SIMD directives">;
 def fnointel_openmp_simd : Flag<["-"], "fnoopenmp-simd">,
   HelpText<"Disable OpenMP SIMD directives">;
+def fintel_openmp_tbb : Flag<["-"], "fopenmp-tbb">,
+  HelpText<"Enable OpenMP TBB directives">;
+def fnointel_openmp_tbb : Flag<["-"], "fnoopenmp-tbb">,
+  HelpText<"Disable OpenMP TBB directives">;
 def fintel_driver_tempfile_name_EQ : Joined<["-"], "fintel-driver-tempfile-name=">,
   HelpText<"Name of the file for communication between front-end and driver.">;
 // endif INTEL_SPECIFIC_OPENMP

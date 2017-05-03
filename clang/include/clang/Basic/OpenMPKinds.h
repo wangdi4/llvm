@@ -132,6 +132,7 @@ const char *getOpenMPDirectiveName(OpenMPDirectiveKind Kind);
 
 #if INTEL_CUSTOMIZATION
 bool isAllowedInSimdSubset(OpenMPDirectiveKind DKind);
+bool isAllowedInTBBSubset(OpenMPDirectiveKind DKind);
 #endif //INTEL_CUSTOMIZATION
 
 OpenMPClauseKind getOpenMPClauseKind(llvm::StringRef Str);

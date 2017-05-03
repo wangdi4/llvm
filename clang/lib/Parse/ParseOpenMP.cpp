@@ -800,18 +800,32 @@ StmtResult Parser::ParseOpenMPDeclarativeOrExecutableDirective(
   bool FlushHasClause = false;
 
 #if INTEL_CUSTOMIZATION
-  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPSimdDisabled) {
-    auto InSimdSubset = isAllowedInSimdSubset(DKind);
-    if ((getLangOpts().OpenMPSimdOnly && !InSimdSubset) ||
-        (getLangOpts().OpenMPSimdDisabled && InSimdSubset)) {
-      if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
-        Diag(Tok, diag::warn_pragma_omp_ignored);
-        Diags.setSeverity(diag::warn_pragma_omp_ignored,
-                          diag::Severity::Ignored, SourceLocation());
-      }
-      SkipUntil(tok::annot_pragma_openmp_end);
-      return Directive;
+  bool DisallowedDirective = false;
+  auto InSimdSubset = isAllowedInSimdSubset(DKind);
+  auto InTBBSubset = isAllowedInTBBSubset(DKind);
+  if (getLangOpts().OpenMPSimdOnly || getLangOpts().OpenMPTBBOnly) {
+    // If any subset flags are used the directive must be covered here  
+    if (getLangOpts().OpenMPSimdOnly && InSimdSubset) {
+      // SIMD subset
+    } else if (getLangOpts().OpenMPTBBOnly && InTBBSubset) {
+      // TBB subset
+    } else {
+      // Not in any of the subsets
+      DisallowedDirective = true;
     }
+  }
+  if ((InSimdSubset && getLangOpts().OpenMPSimdDisabled) ||
+      (InTBBSubset && getLangOpts().OpenMPTBBDisabled)) {
+    DisallowedDirective = true;
+  }
+  if (DisallowedDirective) {
+    if (!Diags.isIgnored(diag::warn_pragma_omp_ignored, Loc)) {
+      Diag(Tok, diag::warn_pragma_omp_ignored);
+      Diags.setSeverity(diag::warn_pragma_omp_ignored,
+                        diag::Severity::Ignored, SourceLocation());
+    }
+    SkipUntil(tok::annot_pragma_openmp_end);
+    return Directive;
   }
 #endif // INTEL_CUSTOMIZATION
 

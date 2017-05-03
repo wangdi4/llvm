@@ -56,6 +56,17 @@ bool clang::isAllowedInSimdSubset(OpenMPDirectiveKind DKind) {
     return false;
   }
 }
+
+bool clang::isAllowedInTBBSubset(OpenMPDirectiveKind DKind) {
+  switch (DKind) {
+#define OPENMP_DIRECTIVE_TBB_SUBSET(Name)                                     \
+  case OMPD_##Name:                                                            \
+    return true;
+#include "clang/Basic/OpenMPKinds.def"
+  default:
+    return false;
+  }
+}
 #endif // INTEL_CUSTOMIZATION
 
 OpenMPClauseKind clang::getOpenMPClauseKind(StringRef Str) {
