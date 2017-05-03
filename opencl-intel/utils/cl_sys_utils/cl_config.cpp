@@ -106,16 +106,16 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
     }
 
     if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
-	   CPUDetect::GetInstance()->isCannonlake() ||
-	   CPUDetect::GetInstance()->isIcelake()
-		)
+       CPUDetect::GetInstance()->isCannonlake() || 
+       CPUDetect::GetInstance()->isIcelake()
+       )
     {
         return OPENCL_VERSION_2_1;
     }
 
     if(CPUDetect::GetInstance()->isBroadwell() ||
        CPUDetect::GetInstance()->isSkylake() ||
-	   CPUDetect::GetInstance()->isGeminilake()
+       CPUDetect::GetInstance()->isGeminilake()
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
     //   CPUDetect::GetInstance()->isBroxton()   ||
        )
@@ -144,8 +144,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
        CPUDetect::GetInstance()->isSkylake()   ||
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
        //CPUDetect::GetInstance()->isBroxton()  ||
-       CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
-	  )
+       CPUDetect::GetInstance()->isKabylakeOrCoffeelake())
     {
         return OPENCL_VERSION_2_0;
     }
@@ -168,6 +167,55 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 #endif
 
 }}}
+
+// ParseStringToSize:
+//  Parse a string that represents memory size of the format: <integer><units>
+//  And convert it to unsigned long in bytes
+//      e.g. 128MB --> 128 * 1024 * 1024 --> 134,217,728 bytes
+unsigned long BasicCLConfigWrapper::ParseStringToSize(const std::string& userStr) const
+{
+    unsigned long integer = 0;
+    std::string integerStr;
+    std::string units;
+
+    // parse the first part: the integer
+    std::istringstream iss(userStr);
+    iss >> integer;
+
+    if (0 == integer)
+    {
+        return 0;
+    }
+
+    // all the rest of userStr are the units string
+    std::stringstream ss;
+    ss << integer;
+    ss >> integerStr;
+    units = userStr.substr(integerStr.size());
+
+    // convert to bytes
+    // accepted units are: "GB", "MB", "KB", "B"
+    if (units == "GB")
+    {
+        integer = integer << 30;
+    }
+    else if (units == "MB")
+    {
+        integer = integer << 20;
+    }
+    else if (units == "KB")
+    {
+        integer = integer << 10;
+    }
+    else if (units != "B")
+    {
+        //invalid unit
+        return 0;
+    }
+
+    return integer;
+}
+
 
 ConfigFile::ConfigFile(const string& filename, string delimiter, string comment, string sentry)
 {

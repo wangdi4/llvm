@@ -140,7 +140,7 @@ bool CPUDetect::isKabylakeOrCoffeelake()
          0x8  == m_ucStepping)
        return true;
     if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX or Coffeelake-U.
-       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO. 
+       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO.
         return true;
 
     return false;
@@ -148,30 +148,30 @@ bool CPUDetect::isKabylakeOrCoffeelake()
 
 bool CPUDetect::isGeminilake()
 {
-	if (0x706A == m_i16ProcessorSignature) // GLK Soc with Goldmont Plus CPU 
-		return true;
+    if(0x706A == m_i16ProcessorSignature) // GLK Soc with Goldmont Plus CPU
+        return true;
 
-	return false;
+    return false;
 }
 
 bool CPUDetect::isCannonlake()
 {
-	if (0x6066 == m_i16ProcessorSignature || // CNL Basic SKU which includes ULT (MCP)
-		0x6067 == m_i16ProcessorSignature)   // CNL Halo/DT 
-		return true;
+    if(0x6066 == m_i16ProcessorSignature || // CNL Basic SKU which includes ULT (MCP)
+       0x6067 == m_i16ProcessorSignature)   // CNL Halo/DT
+       return true;
 
-	return false;
+    return false;
 }
 
 bool CPUDetect::isIcelake()
 {
-	if (0x606A == m_i16ProcessorSignature || // ICX-SP 
-		0x606C == m_i16ProcessorSignature || // ICX-G
-		0x706D == m_i16ProcessorSignature || // ICL DT-Halo
-		0x706E == m_i16ProcessorSignature)   // ICL Mobile
-		return true;
+    if(0x606A == m_i16ProcessorSignature || // ICX-SP
+       0x606C == m_i16ProcessorSignature || // ICX-G
+       0x706D == m_i16ProcessorSignature || // ICL DT-Halo
+       0x706E == m_i16ProcessorSignature)   // ICL Mobile
+       return true;
 
-	return false;
+    return false;
 }
 
 // INTEL ATOM.
@@ -278,6 +278,7 @@ void CPUDetect::GetCPUInfo()
     }
 
     CPUID(viCPUInfo, 1);
+
     m_i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
     m_ucStepping = viCPUInfo[0] & 0xf;
     m_ucType = (viCPUInfo[0] >> 12) & 0x3;

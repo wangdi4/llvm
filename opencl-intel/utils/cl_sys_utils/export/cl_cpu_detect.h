@@ -81,10 +81,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
         bool isBroxton();
         bool isSkylake();
         bool isKabylakeOrCoffeelake();
-		bool isGeminilake();
-		bool isCannonlake();
-		bool isIcelake();
-		
+        bool isGeminilake();
+        bool isCannonlake();
+        bool isIcelake();
+
         bool IsFeatureSupported(ECPUFeatureSupport featureType);
 
         unsigned char GetStepping() { return m_ucStepping; }
