@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCleanup.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
@@ -34,6 +35,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopFormation, "hir-loop-formation",
                       "HIR Loop Formation", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
 INITIALIZE_PASS_END(HIRLoopFormation, "hir-loop-formation",
@@ -53,6 +55,7 @@ void HIRLoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<HIRRegionIdentification>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequired<HIRCleanup>();
 }
@@ -107,43 +110,6 @@ void HIRLoopFormation::insertHLLoop(const Loop *Lp, HLLoop *HLoop) {
 
 HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
-}
-
-const PHINode *
-HIRLoopFormation::findIVDefInHeader(const Loop *Lp,
-                                    const Instruction *Inst) const {
-
-  // Is this a phi node in the loop header?
-  if (Inst->getParent() == Lp->getHeader()) {
-    if (auto Phi = dyn_cast<PHINode>(Inst)) {
-      return Phi;
-    }
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    // Not looking at scev of the IV since in some cases it is unknown even for
-    // do loops.
-    //
-    // Example-
-    //
-    // for (i = 101; i > 1; i = i/2) {
-    // ...
-    // }
-    if (auto OPInst = dyn_cast<Instruction>(I)) {
-      // Instruction lies outside the loop.
-      if (!Lp->contains(LI->getLoopFor(OPInst->getParent()))) {
-        continue;
-      }
-
-      auto IVNode = findIVDefInHeader(Lp, OPInst);
-
-      if (IVNode) {
-        return IVNode;
-      }
-    }
-  }
-
-  return nullptr;
 }
 
 bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
@@ -227,7 +193,7 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
+  auto IVNode = RI->findIVDefInHeader(*Lp, cast<Instruction>(Cond));
   assert(IVNode && "Could not find loop IV!");
 
   auto IVType = IVNode->getType();
@@ -407,6 +373,7 @@ bool HIRLoopFormation::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  RI = &getAnalysis<HIRRegionIdentification>();
   HIR = &getAnalysis<HIRCreation>();
   HIRC = &getAnalysis<HIRCleanup>();
 

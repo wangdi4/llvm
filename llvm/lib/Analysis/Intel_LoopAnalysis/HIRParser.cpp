@@ -2274,20 +2274,12 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   auto LoopTerm = cast<BranchInst>(SrcBB->getTerminator());
   auto IfCond = LoopTerm->getCondition();
 
-  parseCompare(IfCond, CurLevel, Preds, Refs, true);
+  // Allow single predicate in unknown loop bottom test. This makes life easier
+  // for unroller.
+  parseCompare(IfCond, CurLevel, Preds, Refs, !If->isUnknownLoopBottomTest());
   assert(!Preds.empty() && "No predicates found for compare instruction!");
   assert((Refs.size() == (2 * Preds.size())) &&
          "Mismatch between number of predicates and DDRefs!");
-
-  if (If->isUnknownLoopBottomTest()) {
-    // For unknown loop bottom test, we need to shift IV at parent loop level by
-    // -1 since the IV update is inserted just before the bottom test.
-    unsigned LoopLevel = If->getParentLoop()->getNestingLevel();
-
-    for (auto Ref : Refs) {
-      Ref->shift(LoopLevel, -1);
-    }
-  }
 
   if (HLoop) {
     if (LF->requiresZttInversion(HLoop)) {
@@ -2316,13 +2308,8 @@ void HIRParser::postParse(HLIf *If) {
   auto PredIter = If->pred_begin();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) &&
-      (*PredIter != UNDEFINED_PREDICATE)) {
-
-    HLPredicate ReversePredicate = *PredIter;
-    ReversePredicate.Kind = CmpInst::getInversePredicate(PredIter->Kind);
-    If->replacePredicate(PredIter, ReversePredicate);
-
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
+    If->invertPredicate(PredIter);
     getHLNodeUtils().moveAsFirstChildren(If, If->else_begin(), If->else_end(),
                                          true);
   }

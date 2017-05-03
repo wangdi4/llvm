@@ -3,6 +3,7 @@
 ; Check that we correctly deconstruct and parse the unknown loop. The liveout copy "%hir.de.ssa.copy0.out = %0" is essential when deconstructing the header phi %0 otheriwse its use in the bottom test will cause live range violation.
 
 ; CHECK: + UNKNOWN LOOP i1
+; CHECK: |   <i1 = 0>
 ; CHECK: |   while.body:
 ; CHECK: |   %next_node.0261.out = &((%next_node.0261)[0]);
 ; CHECK: |   %hir.de.ssa.copy0.out = %0;
@@ -13,9 +14,9 @@
 ; CHECK: |   %4 = (%3)[0].1;
 ; CHECK: |   %0 = %4;
 ; CHECK: |   %next_node.0261 = &((%3)[0]);
-; CHECK: |   <i1 = i1 + 1>
 ; CHECK: |   if (%hir.de.ssa.copy0.out >u %4)
 ; CHECK: |   {
+; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto while.body;
 ; CHECK: |   }
 ; CHECK: + END LOOP

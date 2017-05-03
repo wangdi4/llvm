@@ -428,11 +428,19 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
     setVecType(SIMD);
     return; // no diag needed
   }
+
   if (Mode == VectorForVectorizerInnermost && !Loop->isInnermost()) {
     setVecType(FE_DIAG_VEC_NOT_INNERMOST);
     emitDiag();
     return;
   }
+
+  if (!Loop->isDo()) {
+    setVecType(NON_DO_LOOP);
+    emitDiag();
+    return;
+  }
+
   if (!isDone()) {
     cleanEdges();
     DDWalk DDW(*DDA, *SRA, Loop, this);      // Legality checker.

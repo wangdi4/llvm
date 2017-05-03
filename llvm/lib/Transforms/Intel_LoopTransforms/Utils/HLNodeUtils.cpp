@@ -66,6 +66,7 @@ void HLNodeUtils::reset(Function &F) {
 
   FirstDummyInst = nullptr;
   LastDummyInst = nullptr;
+  Marker = nullptr;
 }
 
 HLRegion *HLNodeUtils::createHLRegion(IRRegion &IRReg) {
@@ -1977,7 +1978,8 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
   const HLNode *AfterNode;
   bool Stop;
 
-  TopSorter(unsigned MinNum, unsigned Step = 100,
+  // Step of 2048 is sufficient to represent about 2 million nodes in a region.
+  TopSorter(unsigned MinNum, unsigned Step = 2048,
             const HLNode *AfterNode = nullptr)
       : MinNum(MinNum), TopSortNum(MinNum), AfterNode(AfterNode), Stop(false) {
     this->Step = Step ? Step : 1;

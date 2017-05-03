@@ -280,6 +280,12 @@ public:
   void replaceZttPredicate(const_ztt_pred_iterator CPredI,
                            const HLPredicate &NewPred);
 
+  /// Replaces PredicateTy in CPredI by NewPred.
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
+
+  /// Inverts PredicateTy in CPredI.
+  void invertZttPredicate(const_ztt_pred_iterator CPredI);
+
   /// Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
   RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
@@ -715,6 +721,13 @@ public:
   HLIf *getBottomTest();
   const HLIf *getBottomTest() const {
     return const_cast<HLLoop *>(this)->getBottomTest();
+  }
+
+  /// Returns the header label for the loop. It is null for non-unknown
+  /// loops.
+  HLLabel *getHeaderLabel();
+  const HLLabel *getHeaderLabel() const {
+    return const_cast<HLLoop *>(this)->getHeaderLabel();
   }
 };
 

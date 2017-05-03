@@ -232,6 +232,12 @@ public:
   /// \brief Replaces existing predicate pointed to by CPredI, by NewPred.
   void replacePredicate(const_pred_iterator CPredI, const HLPredicate &NewPred);
 
+  /// \brief Replaces existing PredicateTy in CPredI, by NewPred.
+  void replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred);
+
+  /// \brief Inverts PredicateTy in CPredI.
+  void invertPredicate(const_pred_iterator CPredI);
+
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
   RegDDRef *getPredicateOperandDDRef(const_pred_iterator CPredI,

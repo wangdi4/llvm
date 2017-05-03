@@ -415,6 +415,17 @@ void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
   Ztt->replacePredicate(CPredI, NewPred);
 }
 
+void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                                 PredicateTy NewPred) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->replacePredicate(CPredI, NewPred);
+}
+
+void HLLoop::invertZttPredicate(const_ztt_pred_iterator CPredI) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->invertPredicate(CPredI);
+}
+
 RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                               bool IsLHS) const {
   assert(hasZtt() && "Ztt is absent!");
@@ -855,6 +866,7 @@ void HLLoop::verify() const {
   HLDDNode::verify();
 
   if (isUnknown()) {
+    assert(getHeaderLabel() && "Could not find header label of unknown loop!");
     assert(getBottomTest() && "Could not find bottom test of unknown loop!");
     assert(!hasZtt() && "ZTT not expected for unknown loops!");
 
@@ -1146,7 +1158,20 @@ HLIf *HLLoop::getBottomTest() {
   auto LastChild = getLastChild();
 
   assert(LastChild && isa<HLIf>(LastChild) &&
-         "Could not find bottom test for unknown loop1");
+         "Could not find bottom test for unknown loop!");
 
   return cast<HLIf>(LastChild);
+}
+
+HLLabel *HLLoop::getHeaderLabel() {
+  if (!isUnknown()) {
+    return nullptr;
+  }
+
+  auto FirstChild = getFirstChild();
+
+  assert(FirstChild && isa<HLLabel>(FirstChild) &&
+         "Could not find bottom test for unknown loop!");
+
+  return cast<HLLabel>(FirstChild);
 }

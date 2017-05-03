@@ -67,8 +67,7 @@ public:
     Node->verify();
 
     unsigned Number = Node->getNumber();
-    assert(HLNodeNumbers.count(Number) == 0 &&
-           "Node number duplicate found!");
+    assert(HLNodeNumbers.count(Number) == 0 && "Node number duplicate found!");
     HLNodeNumbers.insert(Number);
   }
 
@@ -118,5 +117,11 @@ template <bool Recursive> void HIRVerifier::verifyNode(const HLNode *N) {
 
 void HIRVerifier::verifyAll(const HIRFramework &HIRF) {
   HIRVerifierImpl V;
-  HIRF.getHLNodeUtils().visitAll(V);
+  auto &HNU = HIRF.getHLNodeUtils();
+  auto Marker = HNU.getMarkerNode();
+
+  assert((!Marker || !Marker->isAttached()) &&
+         "Marker node is attached to HIR!");
+
+  HNU.visitAll(V);
 }

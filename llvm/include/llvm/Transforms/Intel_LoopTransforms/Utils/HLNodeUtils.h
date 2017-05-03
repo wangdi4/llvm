@@ -66,10 +66,13 @@ private:
   Instruction *FirstDummyInst;
   /// Points to last dummy instruction of the function.
   Instruction *LastDummyInst;
+  // Used as a temporary marker by transformations to keep track of where the
+  // insertion should take place.
+  HLLabel *Marker;
 
   HLNodeUtils()
       : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
-        FirstDummyInst(nullptr), LastDummyInst(nullptr) {}
+        FirstDummyInst(nullptr), LastDummyInst(nullptr), Marker(nullptr) {}
 
   /// Make class uncopyable.
   HLNodeUtils(const HLNodeUtils &) = delete;
@@ -186,7 +189,7 @@ private:
   /// Only used by framework.
   HLLoop *createHLLoop(const Loop *LLVMLoop);
 
-  /// Destroys all HLNodes, called during framework cleanup.
+  /// Destroys all allocated memory, called by framework.
   void destroyAll();
 
   /// Performs sanity checking on unary instruction operands.
@@ -454,6 +457,20 @@ public:
 
   /// Returns the last dummy instruction of the function.
   Instruction *getLastDummyInst() { return LastDummyInst; }
+
+  /// Returns marker node which is used as a placeholder by transformations. If
+  /// the marker is null, a new one is created.
+  /// NOTE: It is expected to be detached from HIR by the transformationns after
+  /// use.
+  HLNode *getOrCreateMarkerNode() {
+    if (!Marker) {
+      Marker = createHLLabel("marker");
+    }
+    return Marker;
+  }
+
+  /// Returns marker node.
+  HLNode *getMarkerNode() { return Marker; }
 
   // Returns reference to DDRefUtils object.
   DDRefUtils &getDDRefUtils() {

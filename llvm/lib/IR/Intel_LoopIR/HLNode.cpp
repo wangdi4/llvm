@@ -330,3 +330,22 @@ HLNode *HLNode::cloneBaseImpl(const HLNode *Node, GotoContainerTy *GotoList,
   }
   return Clone;
 }
+
+HLNode *HLNode::getPrevNextNodeImpl(bool Prev) {
+  assert(!isa<HLRegion>(this) && "Region not expected!");
+
+  auto FirstOrLastNode =
+      Prev ? getHLNodeUtils().getFirstLexicalChild(getParent(), this)
+           : getHLNodeUtils().getLastLexicalChild(getParent(), this);
+
+  if (FirstOrLastNode == this) {
+    return nullptr;
+  }
+
+  return Prev ? &*std::prev(this->getIterator())
+              : &*std::next(this->getIterator());
+}
+
+HLNode *HLNode::getPrevNode() { return getPrevNextNodeImpl(true); }
+
+HLNode *HLNode::getNextNode() { return getPrevNextNodeImpl(false); }

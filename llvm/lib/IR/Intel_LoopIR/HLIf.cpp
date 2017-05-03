@@ -152,18 +152,6 @@ void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
 
-  // First check is a workaround to skip the bottom test check until we create
-  // ddrefs in the framework otheriwise we encounter an assert for null stride
-  // ref.
-  if ((*ddref_begin()) && isUnknownLoopBottomTest()) {
-    // Print IV update for the unknown loop which will be generated during code
-    // gen.
-    auto Level = getParentLoop()->getNestingLevel();
-    indent(OS, Depth);
-    OS << "<i" << Level << " = "
-       << "i" << Level << " + 1>\n";
-  }
-
   indent(OS, Depth);
   printHeader(OS, Depth, Detailed);
   OS << "\n";
@@ -296,6 +284,23 @@ void HLIf::replacePredicate(const_pred_iterator CPredI,
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   *PredI = NewPred;
+}
+
+void HLIf::replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred) {
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  auto PredI = getNonConstPredIterator(CPredI);
+  PredI->Kind = NewPred;
+}
+
+void HLIf::invertPredicate(const_pred_iterator CPredI) {
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  auto PredI = getNonConstPredIterator(CPredI);
+  auto PredKind = PredI->Kind;
+  
+  // Inversion is a no-op for undef predicate.
+  if (PredKind != UNDEFINED_PREDICATE) {
+    PredI->Kind = CmpInst::getInversePredicate(PredKind);
+  }
 }
 
 RegDDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator CPredI,

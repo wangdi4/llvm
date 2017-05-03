@@ -81,7 +81,7 @@ private:
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp) const;
+  bool shouldThrottleLoop(const Loop &Lp, bool IsUnknown) const;
 
   /// Returns true if bblocks of \p Lp are generable.
   bool areBBlocksGenerable(const Loop &Lp) const;
@@ -130,10 +130,6 @@ private:
 
   /// Returns true if \p Inst contains a type not supported by HIR.
   static bool containsUnsupportedTy(const Instruction *Inst);
-
-  /// Returns IV definition PHINode of the loop.
-  const PHINode *findIVDefInHeader(const Loop &Lp,
-                                   const Instruction *Inst) const;
 
   /// Implements isReachableFrom().
   bool
@@ -187,6 +183,10 @@ public:
 
   /// Returns true if Phi occurs in the header of a loop.
   bool isHeaderPhi(const PHINode *Phi) const;
+
+  /// Returns IV definition PHINode of the loop.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
 
   /// Returns true if \p BB can be reached from any of the \p FromBBs before
   /// hitting any \p EndBBs and without going through any backedges.

@@ -207,13 +207,20 @@ HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
   }
 
   for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    if (auto OPInst = dyn_cast<Instruction>(I)) {
+    if (auto OpInst = dyn_cast<Instruction>(I)) {
+
       // Instruction lies outside the loop.
-      if (!Lp.contains(LI->getLoopFor(OPInst->getParent()))) {
+      if (!Lp.contains(LI->getLoopFor(OpInst->getParent()))) {
         continue;
       }
 
-      auto IVNode = findIVDefInHeader(Lp, OPInst);
+      // Skip backedges.
+      // This can happen for outer unknown loops.
+      if (DT->dominates(Inst, OpInst)) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OpInst);
 
       if (IVNode) {
         return IVNode;
@@ -445,7 +452,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   return true;
 }
 
-bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
+bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
+                                                 bool IsUnknown) const {
 
   if (!CostModelThrottling) {
     return false;
@@ -454,6 +462,15 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
   // SIMD loops should not be throttled.
   if (isSIMDLoop(Lp)) {
     return false;
+  }
+
+  // Only handle standalone single bblock unknown loops for now. We don't do
+  // much for outer unknown loops except prefetching which isn't ready yet.
+  // Inner unknown loops are throttled for compile time reasons.
+  if (IsUnknown && ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
+                    "time reasons.\n");
+    return true;
   }
 
   CostModelAnalyzer CMA(*this, Lp);
@@ -693,19 +710,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   auto BECount = SE->getBackedgeTakenCount(&Lp);
 
-  // Only handle standalone unknown loops for now. We generally only allow outer
-  // unknown loops at O3 for compile time reasons. I suppressed unknown loops
-  // embedded inside do loops because they were causing perf degradation in
-  // telecom/fft00data*. I will recheck this when we start unrolling unknown
-  // loops.
-  if (isa<SCEVCouldNotCompute>(BECount) &&
-      (!Lp.empty() || (Lp.getLoopDepth() != 1))) {
-    DEBUG(
-        dbgs()
-        << "LOOPOPT_OPTREPORT: Outer unknown loops currently not supported.\n");
-    return false;
-  }
-
   auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
 
   if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
@@ -781,7 +785,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  if (shouldThrottleLoop(Lp)) {
+  if (shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
     return false;
   }
 

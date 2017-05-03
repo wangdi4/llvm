@@ -127,6 +127,9 @@ private:
   virtual HLNode *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                             HLNodeMapper *NodeMapper) const = 0;
 
+  /// Implements getPrevNode()/getNextNode().
+  HLNode *getPrevNextNodeImpl(bool Prev);
+
 protected:
   HLNode(HLNodeUtils &HNU, unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
@@ -243,6 +246,18 @@ public:
 
   /// \brief Returns the maximum topological sort number across its children.
   unsigned getMaxTopSortNum() const { return MaxTopSortNum; }
+
+  /// Returns the previous node, if any, else return nullptr.
+  const HLNode *getPrevNode() const {
+    return const_cast<HLNode *>(this)->getPrevNode();
+  }
+  HLNode *getPrevNode();
+
+  /// Returns the next node, if any, else return nullptr.
+  const HLNode *getNextNode() const {
+    return const_cast<HLNode *>(this)->getNextNode();
+  }
+  HLNode *getNextNode();
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {

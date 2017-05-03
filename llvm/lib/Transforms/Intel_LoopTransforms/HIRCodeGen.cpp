@@ -97,7 +97,10 @@ private:
 
     Value *visitRegion(HLRegion *R);
     Value *visitLoop(HLLoop *L);
-    Value *visitIf(HLIf *I);
+    // IVAdd and IVAlloca are passed to generate store for the iv update inside
+    // the bottom test of unknown loops.
+    Value *visitIf(HLIf *I, Value *IVAdd = nullptr,
+                   AllocaInst *IVAlloca = nullptr);
 
     Value *visitSwitch(HLSwitch *S);
 
@@ -1166,7 +1169,8 @@ void HIRCodeGen::CGVisitor::generateBranchIfRequired(BasicBlock *ToBB) {
   }
 }
 
-Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
+Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf, Value *IVAdd,
+                                      AllocaInst *IVAlloca) {
   ScopeDbgLoc DbgLoc(*this, HIf->getDebugLoc());
 
   Value *CondV = generateAllPredicates(HIf);
@@ -1191,6 +1195,12 @@ Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
     // generate then block
     F->getBasicBlockList().push_back(ThenBB);
     Builder->SetInsertPoint(ThenBB);
+
+    if (IVAdd) {
+      // Create the IV store for unknown loops inside the bottom test.
+      Builder->CreateStore(IVAdd, IVAlloca);
+    }
+
     for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
       visit(*It);
     }
@@ -1199,6 +1209,8 @@ Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
   }
 
   if (HasElseChildren) {
+    assert(!IVAdd && "Bottom test cannot have else case!");
+
     // generate else block
     F->getBasicBlockList().push_back(ElseBB);
     Builder->SetInsertPoint(ElseBB);
@@ -1287,12 +1299,15 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
   // losing info in some cases.
   Value *NextVar = Builder->CreateAdd(CurVar, StepVal, "nextiv" + LName,
                                       (IsNSW || !IsUnknownLoop), IsNSW);
-  Builder->CreateStore(NextVar, Alloca);
 
   if (IsUnknownLoop) {
-    // visit bottom test of unknown loops.
-    visit(*LastIt);
+    // visit bottom test of unknown loop and pass in information to generate IV
+    // store inside it.
+    visitIf(cast<HLIf>(&*LastIt), NextVar, Alloca);
   } else {
+    // Create store to IV.
+    Builder->CreateStore(NextVar, Alloca);
+
     // generate bottom test.
     Value *EndCond =
         Builder->CreateICmp(Lp->isNSW() ? CmpInst::ICMP_SLE : CmpInst::ICMP_ULE,

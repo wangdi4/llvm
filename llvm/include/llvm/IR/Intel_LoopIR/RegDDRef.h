@@ -196,6 +196,10 @@ protected:
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
 
+  /// Implementes populateTempBlobIndices() and populateTempBlobSymbases().
+  void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
+                            bool GetIndices) const;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -657,6 +661,19 @@ public:
   /// \brief Collects all the unique temp blobs present in the DDRef by visiting
   /// all the contained canon exprs.
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const;
+
+  /// In contrast to collectTempBlobIndices(), this function assumes the ref is
+  /// in a consistent state. Therefore it populates the vector using blob ddrefs
+  /// attached to the ref which is a more efficient approach.
+  void populateTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const {
+    populateTempBlobImpl(Indices, true);
+  }
+
+  /// Same as populateTempBlobIndices() above except that it populates symbases
+  /// instead of indices.
+  void populateTempBlobSymbases(SmallVectorImpl<unsigned> &Symbases) const {
+    populateTempBlobImpl(Symbases, false);
+  }
 
   /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in the
   /// associated canon exprs and populates NewBlobs with BlobDDRefs which have

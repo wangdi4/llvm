@@ -27,13 +27,13 @@ class BasicBlock;
 
 namespace loopopt {
 
-/// \brief High level node representing a label.
+/// High level node representing a label.
 class HLLabel final : public HLNode {
 private:
   BasicBlock *SrcBBlock;
   SmallString<32> Name;
 
-  /// \brief Updates Name to make it unique across HLLabels
+  /// Updates Name to make it unique across HLLabels
   void makeNameUnique();
 
 protected:
@@ -41,12 +41,12 @@ protected:
   explicit HLLabel(HLNodeUtils &HNU, const Twine &Name);
   virtual ~HLLabel() override;
 
-  /// \brief Copy constructor used by cloning.
+  /// Copy constructor used by cloning.
   HLLabel(const HLLabel &LabelObj);
 
   friend class HLNodeUtils;
 
-  /// \brief Clone Implementation
+  /// Clone Implementation
   /// This function populates the LabelMap with the old Label (Before cloning)
   /// and new Label (After cloning).
   /// GotoList is ignored for this implementation. Returns the cloned Label.
@@ -54,28 +54,31 @@ protected:
                      HLNodeMapper *NodeMapper) const override;
 
 public:
-  /// \brief Prints HLLabel.
+  /// Prints HLLabel.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed = false) const override;
 
-  /// \brief Prints a basic block name, even for unnamed blocks.
+  /// Prints a basic block name, even for unnamed blocks.
   static void printBBlockName(raw_ostream &O, const BasicBlock &BB);
 
-  /// \brief Returns the underlying LLVM BBlock.
+  /// Returns the underlying LLVM BBlock.
   BasicBlock *getSrcBBlock() const { return SrcBBlock; }
 
-  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLLabelVal;
   }
 
-  // \brief Returns Unique Label name.
+  /// Returns Unique Label name.
   StringRef getName() const { return StringRef(Name); }
 
   /// clone() - Create a copy of 'this' HLLabel that is identical in all
   /// ways except the following:
   ///   * The HLLabel has no parent
   HLLabel *clone(HLNodeMapper *NodeMapper = nullptr) const override;
+
+  /// Returns true if this is the loop header label of an unknown loop.
+  bool isUnknownLoopHeaderLabel() const;
 };
 
 } // End namespace loopopt

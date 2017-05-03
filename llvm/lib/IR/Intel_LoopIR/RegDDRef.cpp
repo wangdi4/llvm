@@ -762,6 +762,21 @@ void RegDDRef::collectTempBlobIndices(
   Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
 }
 
+void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
+                                    bool GetIndices) const {
+
+  if (isSelfBlob()) {
+    Blobs.push_back(GetIndices ? getSingleCanonExpr()->getSingleBlobIndex()
+                               : getSymbase());
+    return;
+  }
+
+  for (auto BlobIt = blob_cbegin(), E = blob_cend(); BlobIt != E; ++BlobIt) {
+    Blobs.push_back(GetIndices ? (*BlobIt)->getBlobIndex()
+                               : (*BlobIt)->getSymbase());
+  }
+}
+
 void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
                               unsigned NestingLevelIfDetached) {
   SmallVector<BlobDDRef *, 8> NewBlobs;

@@ -1,8 +1,9 @@
-; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 | opt -analyze -hir-parser -hir-cost-model-throttling=0 | FileCheck %s
 
 ; Check that we correctly parse the unknown loop. The bottom test "if (i1 < %n.addr.012)" has been shifted by -1 to adjust for the IV update copy which will be generated just before it during code gen.
 
 ; CHECK: + UNKNOWN LOOP i1
+; CHECK: |   <i1 = 0>
 ; CHECK: |   for.body:
 ; CHECK: |   %0 = (%A)[i1];
 ; CHECK: |   if (%0 < 0)
@@ -10,15 +11,15 @@
 ; CHECK: |      (%A)[i1] = %0 + -1;
 ; CHECK: |      %n.addr.012 = %n.addr.012  +  -1;
 ; CHECK: |   }
-; CHECK: |   <i1 = i1 + 1>
-; CHECK: |   if (i1 < %n.addr.012)
+; CHECK: |   if (i1 + 1 < %n.addr.012)
 ; CHECK: |   {
+; CHECK: |      <i1 = i1 + 1>
 ; CHECK: |      goto for.body;
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
 ; Check CG for unknown loop
-; RUN: opt < %s -hir-ssa-deconstruction -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-cg -force-hir-cg -S | FileCheck -check-prefix=CHECK-CG %s
 
 ; CHECK-CG: region.0
 ; Get the symbase of %n
@@ -30,20 +31,22 @@
 ; Check the first merge block where the IV update and bottom test are supposed to be generated
 ; CHECK-CG: ifmerge{{.*}}:
 
-; CHECK-CG: [[IVLOAD:%[0-9]+]] = load i64, i64* %i1.i64
 ; IV update
-; CHECK-CG: %nextivloop.{{[0-9]+}} = add nuw nsw i64 [[IVLOAD]], 1
+; CHECK-CG: [[IVLOAD:%.*]] = load i64, i64* %i1.i64
+; CHECK-CG: [[NEXTIV:%.*]] = add nuw nsw i64 [[IVLOAD]], 1
 
 ; Bottom test generation
-; CHECK-CG: [[IVLOAD1:%[0-9]+]] = load i64, i64* %i1.i64
+; CHECK-CG: [[IVLOAD1:%.*]] = load i64, i64* %i1.i64
+; CHECK-CG: [[IVADD:%.*]] = add i64 [[IVLOAD1]], 1
 ; CHECK-CG: [[NLOAD:%.*]] = load i32, i32* [[NSYM]]
 ; CHECK-CG: [[NSEXT:%.*]] = sext i32 [[NLOAD]] to i64
-; CHECK-CG: [[CMP:%.*]] = icmp slt i64 [[IVLOAD1]], [[NSEXT]]
+; CHECK-CG: [[CMP:%.*]] = icmp slt i64 [[IVADD]], [[NSEXT]]
 ; CHECK-CG: br i1 [[CMP]], label %[[BEJUMP:then.[0-9]+]], label %ifmerge.{{[0-9]+}}
 
-; Check that then case jumps back to loop header
+; Check that then case updates IV and jumps back to loop header
 
 ; CHECK-CG: [[BEJUMP]]:
+; CHECK-CG-NEXT: store i64 [[NEXTIV]], i64* %i1.i64
 ; CHECK-CG-NEXT: br label %[[LOOPLABEL]]
 
 
