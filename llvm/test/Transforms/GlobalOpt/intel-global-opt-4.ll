@@ -7,7 +7,7 @@
 
 @glob2 = local_unnamed_addr global i32 0, align 4
 @glob3 = local_unnamed_addr global i32 0, align 4
-@glob1 = internal unnamed_addr global i32 20, align 4
+@glob1 = internal unnamed_addr global i32 15, align 4
 
 ; Function Attrs: nounwind uwtable
 define void @foo() local_unnamed_addr  {
