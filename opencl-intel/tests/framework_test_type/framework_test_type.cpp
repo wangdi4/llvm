@@ -506,6 +506,11 @@ TEST(FPGA, Test_checkFPGAExtension)
     checkFPGAExtension();
 }
 
+TEST(FPGA, Test_FPGAWGOrdering)
+{
+    FPGAWGOrdering();
+}
+
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
