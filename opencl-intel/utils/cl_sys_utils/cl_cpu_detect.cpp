@@ -140,7 +140,7 @@ bool CPUDetect::isKabylakeOrCoffeelake()
          0x8  == m_ucStepping)
        return true;
     if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX or Coffeelake-U.
-       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO.
+       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO or Coffeelake-S.
         return true;
 
     return false;
