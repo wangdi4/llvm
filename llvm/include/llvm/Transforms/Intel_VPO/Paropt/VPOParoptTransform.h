@@ -120,7 +120,9 @@ private:
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
-  void gatherWRegionNodeList();
+  /// If any WRN 'W' visited has W->needsTID()==true, then set NeedTID=true.
+  /// Similarly for NeedBID.
+  void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
   /// \brief Generate code for privatization 
   bool genPrivatizationCode(WRegionNode *W);

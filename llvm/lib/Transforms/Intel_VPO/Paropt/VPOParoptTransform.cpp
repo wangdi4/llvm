@@ -77,22 +77,28 @@ using namespace llvm::vpo;
 class VPOWRegionVisitor {
 
 public:
-  WRegionListTy &WRegionList;
+  WRegionListTy &WRNList;
+  bool &FoundNeedForTID; // found a WRN that needs TID
+  bool &FoundNeedForBID; // found a WRN that needs BID
 
-  VPOWRegionVisitor(WRegionListTy &WL) : WRegionList(WL) {}
+  VPOWRegionVisitor(WRegionListTy &WL, bool &T, bool &B) : 
+                    WRNList(WL), FoundNeedForTID(T), FoundNeedForBID(B) {}
 
   void preVisit(WRegionNode *W) {}
 
   // use DFS visiting of WRegionNode
-  void postVisit(WRegionNode *W) { WRegionList.push_back(W); }
+  void postVisit(WRegionNode *W) { WRNList.push_back(W); 
+                                   FoundNeedForTID |= W->needsTID();
+                                   FoundNeedForBID |= W->needsBID(); }
 
   bool quitVisit(WRegionNode *W) { return false; }
 };
 
-void VPOParoptTransform::gatherWRegionNodeList() {
+void VPOParoptTransform::gatherWRegionNodeList(bool &NeedTID, bool &NeedBID) {
   DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
 
-  VPOWRegionVisitor Visitor(WRegionList);
+  NeedTID = NeedBID = false;
+  VPOWRegionVisitor Visitor(WRegionList, NeedTID, NeedBID);
   WRegionUtils::forwardVisit(Visitor, WI->getWRGraph());
 
   DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
@@ -168,37 +174,39 @@ bool VPOParoptTransform::paroptTransforms() {
     return RoutineChanged;
   }
 
+  bool NeedTID, NeedBID;
+
+  // Collects the list of WRNs into WRegionList, and sets NeedTID and NeedBID
+  // to true/false depending on whether it finds a WRN that needs the TID or
+  // BID, respectively.
+  gatherWRegionNodeList(NeedTID, NeedBID);
+
   Type *Int32Ty = Type::getInt32Ty(C);
 
-  TidPtr = new AllocaInst(Int32Ty, "tid.addr", AI);
-  TidPtr->setAlignment(4);
+  if (NeedTID) {
+    TidPtr = new AllocaInst(Int32Ty, "tid.addr", AI);
+    TidPtr->setAlignment(4);
 
-  if ((Mode & OmpPar) && (Mode & ParTrans)) {
+    CallInst *RI;
+    RI = VPOParoptUtils::findKmpcGlobalThreadNumCall(&F->getEntryBlock());
+    if (!RI) {
+      RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
+      RI->insertBefore(AI);
+    }
+    StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, 
+                                    F->getEntryBlock().getTerminator());
+    Tmp0->setAlignment(4);
+  }
+
+  if (NeedBID && (Mode & OmpPar) && (Mode & ParTrans)) {
     BidPtr = new AllocaInst(Int32Ty, "bid.addr", AI);
     BidPtr->setAlignment(4);
-  }
 
-  CallInst *RI;
-  RI = VPOParoptUtils::findKmpcGlobalThreadNumCall(&F->getEntryBlock());
-  if (!RI) {
-    RI = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, AI, IdentTy);
-    RI->insertBefore(AI);
-  }
-
-  StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, 
-                                  F->getEntryBlock().getTerminator());
-  Tmp0->setAlignment(4);
-
-  // Constant Definitions
-  ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
-
-  if ((Mode & OmpPar) && (Mode & ParTrans)) {
+    ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
     StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, 
                                     F->getEntryBlock().getTerminator());
     Tmp1->setAlignment(4);
   }
-
-  gatherWRegionNodeList();
 
   //
   // Walk throught W-Region list, the outlining / lowering is performed from

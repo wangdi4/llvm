@@ -516,6 +516,18 @@ public:
   bool getIsTaskloop()     const { return  getIsTask() && getIsOmpLoop(); }
   bool getIsWksLoop()      const { return !getIsTask() && getIsOmpLoop(); }
 
+  /// \brief Routine to check if the WRN needs global thread-id during codegen.
+  /// Currently only SIMD and FLUSH constructs don't need the thread-id.
+  bool needsTID()          const { return SubClassID != WRNVecLoop &&
+                                          SubClassID != WRNFlush; }
+
+  /// \brief Routine to check if the WRN needs the BID during codegen.
+  /// The BID is the second parameter in a parallel entry, so this routine
+  /// is equivalent to getIsPar(). In other words, it is true only for PARALLEL
+  /// directives and combined/composite directives that have the PARALLEL
+  /// keyword.
+  bool needsBID()          const { return getIsPar(); }
+
   /// \brief Routines to set/get DirID
   void setDirID(int ID)          { DirID = ID; }
   int  getDirID()          const { return DirID; }
