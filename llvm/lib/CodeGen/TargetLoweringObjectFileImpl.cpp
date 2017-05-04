@@ -55,9 +55,9 @@ MCSymbol *TargetLoweringObjectFileELF::getCFIPersonalitySymbol(
   unsigned Encoding = getPersonalityEncoding();
   if ((Encoding & 0x80) == dwarf::DW_EH_PE_indirect)
     return getContext().getOrCreateSymbol(StringRef("DW.ref.") +
-                                          TM.getSymbol(GV, getMangler())->getName());
+                                          TM.getSymbol(GV)->getName());
   if ((Encoding & 0x70) == dwarf::DW_EH_PE_absptr)
-    return TM.getSymbol(GV, getMangler());
+    return TM.getSymbol(GV);
   report_fatal_error("We do not support this DWARF encoding yet!");
 }
 
@@ -96,7 +96,7 @@ const MCExpr *TargetLoweringObjectFileELF::getTTypeGlobalReference(
     // gets emitted by the asmprinter.
     MachineModuleInfoImpl::StubValueTy &StubSym = ELFMMI.getGVStubEntry(SSym);
     if (!StubSym.getPointer()) {
-      MCSymbol *Sym = TM.getSymbol(GV, getMangler());
+      MCSymbol *Sym = TM.getSymbol(GV);
       StubSym = MachineModuleInfoImpl::StubValueTy(Sym, !GV->hasLocalLinkage());
     }
 
@@ -180,6 +180,9 @@ static unsigned getELFSectionFlags(SectionKind K) {
 
   if (K.isText())
     Flags |= ELF::SHF_EXECINSTR;
+
+  if (K.isExecuteOnly())
+    Flags |= ELF::SHF_ARM_PURECODE;
 
   if (K.isWriteable())
     Flags |= ELF::SHF_WRITE;
@@ -312,6 +315,9 @@ selectELFSectionForGlobal(MCContext &Ctx, const GlobalObject *GO,
     UniqueID = *NextUniqueID;
     (*NextUniqueID)++;
   }
+  // Use 0 as the unique ID for execute-only text
+  if (Kind.isExecuteOnly())
+    UniqueID = 0;
   return Ctx.getELFSection(Name, getELFSectionType(Name, Kind), Flags,
                            EntrySize, Group, UniqueID);
 }
@@ -443,10 +449,9 @@ const MCExpr *TargetLoweringObjectFileELF::lowerRelativeReference(
     return nullptr;
 
   return MCBinaryExpr::createSub(
-      MCSymbolRefExpr::create(TM.getSymbol(LHS, getMangler()), PLTRelativeVariantKind,
+      MCSymbolRefExpr::create(TM.getSymbol(LHS), PLTRelativeVariantKind,
                               getContext()),
-      MCSymbolRefExpr::create(TM.getSymbol(RHS, getMangler()), getContext()),
-      getContext());
+      MCSymbolRefExpr::create(TM.getSymbol(RHS), getContext()), getContext());
 }
 
 void
@@ -712,7 +717,7 @@ const MCExpr *TargetLoweringObjectFileMachO::getTTypeGlobalReference(
     // gets emitted by the asmprinter.
     MachineModuleInfoImpl::StubValueTy &StubSym = MachOMMI.getGVStubEntry(SSym);
     if (!StubSym.getPointer()) {
-      MCSymbol *Sym = TM.getSymbol(GV, getMangler());
+      MCSymbol *Sym = TM.getSymbol(GV);
       StubSym = MachineModuleInfoImpl::StubValueTy(Sym, !GV->hasLocalLinkage());
     }
 
@@ -738,7 +743,7 @@ MCSymbol *TargetLoweringObjectFileMachO::getCFIPersonalitySymbol(
   // gets emitted by the asmprinter.
   MachineModuleInfoImpl::StubValueTy &StubSym = MachOMMI.getGVStubEntry(SSym);
   if (!StubSym.getPointer()) {
-    MCSymbol *Sym = TM.getSymbol(GV, getMangler());
+    MCSymbol *Sym = TM.getSymbol(GV);
     StubSym = MachineModuleInfoImpl::StubValueTy(Sym, !GV->hasLocalLinkage());
   }
 
@@ -914,6 +919,37 @@ static int getSelectionForCOFF(const GlobalValue *GV) {
   return 0;
 }
 
+void llvm::emitLinkerFlagsForGlobalCOFF(raw_ostream &OS, const GlobalValue *GV,
+                                        const Triple &TT, Mangler &Mangler) {
+  if (!GV->hasDLLExportStorageClass() || GV->isDeclaration())
+    return;
+
+  if (TT.isKnownWindowsMSVCEnvironment())
+    OS << " /EXPORT:";
+  else
+    OS << " -export:";
+
+  if (TT.isWindowsGNUEnvironment() || TT.isWindowsCygwinEnvironment()) {
+    std::string Flag;
+    raw_string_ostream FlagOS(Flag);
+    Mangler.getNameWithPrefix(FlagOS, GV, false);
+    FlagOS.flush();
+    if (Flag[0] == GV->getParent()->getDataLayout().getGlobalPrefix())
+      OS << Flag.substr(1);
+    else
+      OS << Flag;
+  } else {
+    Mangler.getNameWithPrefix(OS, GV, false);
+  }
+
+  if (!GV->getValueType()->isFunctionTy()) {
+    if (TT.isKnownWindowsMSVCEnvironment())
+      OS << ",DATA";
+    else
+      OS << ",data";
+  }
+}
+
 MCSection *TargetLoweringObjectFileCOFF::getExplicitSectionGlobal(
     const GlobalObject *GO, SectionKind Kind, const TargetMachine &TM) const {
   int Selection = 0;
@@ -929,7 +965,7 @@ MCSection *TargetLoweringObjectFileCOFF::getExplicitSectionGlobal(
       ComdatGV = GO;
 
     if (!ComdatGV->hasPrivateLinkage()) {
-      MCSymbol *Sym = TM.getSymbol(ComdatGV, getMangler());
+      MCSymbol *Sym = TM.getSymbol(ComdatGV);
       COMDATSymName = Sym->getName();
       Characteristics |= COFF::IMAGE_SCN_LNK_COMDAT;
     } else {
@@ -982,7 +1018,7 @@ MCSection *TargetLoweringObjectFileCOFF::SelectSectionForGlobal(
       UniqueID = NextUniqueID++;
 
     if (!ComdatGV->hasPrivateLinkage()) {
-      MCSymbol *Sym = TM.getSymbol(ComdatGV, getMangler());
+      MCSymbol *Sym = TM.getSymbol(ComdatGV);
       StringRef COMDATSymName = Sym->getName();
       return getContext().getCOFFSection(Name, Characteristics, Kind,
                                          COMDATSymName, Selection, UniqueID);
@@ -1037,7 +1073,7 @@ MCSection *TargetLoweringObjectFileCOFF::getSectionForJumpTable(
   if (F.hasPrivateLinkage())
     return ReadOnlySection;
 
-  MCSymbol *Sym = TM.getSymbol(&F, getMangler());
+  MCSymbol *Sym = TM.getSymbol(&F);
   StringRef COMDATSymName = Sym->getName();
 
   SectionKind Kind = SectionKind::getReadOnly();
@@ -1117,33 +1153,5 @@ MCSection *TargetLoweringObjectFileCOFF::getStaticDtorSection(
 
 void TargetLoweringObjectFileCOFF::emitLinkerFlagsForGlobal(
     raw_ostream &OS, const GlobalValue *GV) const {
-  if (!GV->hasDLLExportStorageClass() || GV->isDeclaration())
-    return;
-
-  const Triple &TT = getTargetTriple();
-
-  if (TT.isKnownWindowsMSVCEnvironment())
-    OS << " /EXPORT:";
-  else
-    OS << " -export:";
-
-  if (TT.isWindowsGNUEnvironment() || TT.isWindowsCygwinEnvironment()) {
-    std::string Flag;
-    raw_string_ostream FlagOS(Flag);
-    getMangler().getNameWithPrefix(FlagOS, GV, false);
-    FlagOS.flush();
-    if (Flag[0] == GV->getParent()->getDataLayout().getGlobalPrefix())
-      OS << Flag.substr(1);
-    else
-      OS << Flag;
-  } else {
-    getMangler().getNameWithPrefix(OS, GV, false);
-  }
-
-  if (!GV->getValueType()->isFunctionTy()) {
-    if (TT.isKnownWindowsMSVCEnvironment())
-      OS << ",DATA";
-    else
-      OS << ",data";
-  }
+  emitLinkerFlagsForGlobalCOFF(OS, GV, getTargetTriple(), getMangler());
 }

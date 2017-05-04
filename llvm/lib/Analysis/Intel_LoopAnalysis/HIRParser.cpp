@@ -1576,15 +1576,16 @@ void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
                                             BlobTy *NewBlob) {
 
   if (auto MulSCEV = dyn_cast<SCEVMulExpr>(Blob)) {
-    for (auto I = MulSCEV->op_begin(), E = MulSCEV->op_end(); I != E; ++I) {
-      auto ConstSCEV = dyn_cast<SCEVConstant>(*I);
 
-      if (!ConstSCEV) {
-        continue;
+    if (auto ConstSCEV = dyn_cast<SCEVConstant>(MulSCEV->getOperand(0))) {
+      SmallVector<const SCEV *, 4> Ops;
+
+      for(auto I = MulSCEV->op_begin()+1, E = MulSCEV->op_end(); I != E; ++I) {
+        Ops.push_back(*I);
       }
 
       *Multiplier = getSCEVConstantValue(ConstSCEV);
-      *NewBlob = SE->getUDivExactExpr(Blob, ConstSCEV);
+      *NewBlob = SE->getMulExpr(Ops, MulSCEV->getNoWrapFlags());
       return;
     }
   }

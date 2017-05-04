@@ -23,6 +23,7 @@
 
 namespace llvm {
 class AssumptionCacheTracker;
+class BlockFrequencyInfo;
 class CallSite;
 class DataLayout;
 class Function;
@@ -33,13 +34,13 @@ class TargetTransformInfo;
 namespace InlineConstants {
 // Various thresholds used by inline cost analysis.
 /// Use when optsize (-Os) is specified.
-const int OptSizeThreshold = 75;
+const int OptSizeThreshold = 50;
 
 /// Use when minsize (-Oz) is specified.
-const int OptMinSizeThreshold = 25;
+const int OptMinSizeThreshold = 5;
 
 /// Use when -O3 is specified.
-const int OptAggressiveThreshold = 275;
+const int OptAggressiveThreshold = 250;
 
 // Various magic constants used to adjust heuristics.
 const int InstrCost = 5;
@@ -150,6 +151,7 @@ typedef enum {
    NinlrOpBundles,
    NinlrMSVCEH,
    NinlrSEH,
+   NinlrPreferCloning,
    NinlrLast // Just a marker placed after the last non-inlining reason
 } InlineReason;
 
@@ -277,6 +279,9 @@ struct InlineParams {
 
   /// Threshold to use when the callsite is considered hot.
   Optional<int> HotCallSiteThreshold;
+
+  /// Threshold to use when the callsite is considered cold.
+  Optional<int> ColdCallSiteThreshold;
 };
 
 /// Generate the parameters to tune the inline cost analysis based only on the
@@ -311,9 +316,10 @@ InlineCost
 getInlineCost(CallSite CS, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,     // INTEL
-              ProfileSummaryInfo *PSI,         // INTEL
-              InlineAggressiveInfo *AggI);     // INTEL
+              InlineAggressiveInfo *AggI,      // INTEL
+              ProfileSummaryInfo *PSI);
 
 /// \brief Get an InlineCost with the callee explicitly specified.
 /// This allows you to calculate the cost of inlining a function via a
@@ -324,9 +330,10 @@ InlineCost
 getInlineCost(CallSite CS, Function *Callee, const InlineParams &Params,
               TargetTransformInfo &CalleeTTI,
               std::function<AssumptionCache &(Function &)> &GetAssumptionCache,
+              Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI,
               InliningLoopInfoCache *ILIC,           // INTEL
-              ProfileSummaryInfo *PSI,               // INTEL
-              InlineAggressiveInfo *AggI);           // INTEL
+              InlineAggressiveInfo *AggI,            // INTEL
+              ProfileSummaryInfo *PSI);
 
 /// \brief Minimal filter to detect invalid constructs for inlining.
 bool isInlineViable(Function &Callee,                         // INTEL

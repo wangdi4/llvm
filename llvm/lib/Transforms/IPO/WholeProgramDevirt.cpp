@@ -55,10 +55,13 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/ModuleSummaryIndexYAML.h"
 #include "llvm/Pass.h"
 #include "llvm/PassRegistry.h"
 #include "llvm/PassSupport.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Utils/Evaluator.h"
@@ -72,6 +75,26 @@ using namespace llvm;
 using namespace wholeprogramdevirt;
 
 #define DEBUG_TYPE "wholeprogramdevirt"
+
+static cl::opt<PassSummaryAction> ClSummaryAction(
+    "wholeprogramdevirt-summary-action",
+    cl::desc("What to do with the summary when running this pass"),
+    cl::values(clEnumValN(PassSummaryAction::None, "none", "Do nothing"),
+               clEnumValN(PassSummaryAction::Import, "import",
+                          "Import typeid resolutions from summary and globals"),
+               clEnumValN(PassSummaryAction::Export, "export",
+                          "Export typeid resolutions to summary and globals")),
+    cl::Hidden);
+
+static cl::opt<std::string> ClReadSummary(
+    "wholeprogramdevirt-read-summary",
+    cl::desc("Read summary from given YAML file before running pass"),
+    cl::Hidden);
+
+static cl::opt<std::string> ClWriteSummary(
+    "wholeprogramdevirt-write-summary",
+    cl::desc("Write summary to given YAML file after running pass"),
+    cl::Hidden);
 
 // Find the minimum offset that we may store a value of size Size bits at. If
 // IsAfter is set, look for an offset before the object, otherwise look for an
@@ -262,6 +285,10 @@ struct VirtualCallSite {
 
 struct DevirtModule {
   Module &M;
+
+  PassSummaryAction Action;
+  ModuleSummaryIndex *Summary;
+
   IntegerType *Int8Ty;
   PointerType *Int8PtrTy;
   IntegerType *Int32Ty;
@@ -280,8 +307,9 @@ struct DevirtModule {
   // true.
   std::map<CallInst *, unsigned> NumUnsafeUsesForTypeTest;
 
-  DevirtModule(Module &M)
-      : M(M), Int8Ty(Type::getInt8Ty(M.getContext())),
+  DevirtModule(Module &M, PassSummaryAction Action, ModuleSummaryIndex *Summary)
+      : M(M), Action(Action), Summary(Summary),
+        Int8Ty(Type::getInt8Ty(M.getContext())),
         Int8PtrTy(Type::getInt8PtrTy(M.getContext())),
         Int32Ty(Type::getInt32Ty(M.getContext())),
         RemarksEnabled(areRemarksEnabled()) {}
@@ -294,6 +322,7 @@ struct DevirtModule {
   void buildTypeIdentifierMap(
       std::vector<VTableBits> &Bits,
       DenseMap<Metadata *, std::set<TypeMemberInfo>> &TypeIdMap);
+  Constant *getPointerAtOffset(Constant *I, uint64_t Offset);
   bool
   tryFindVirtualCallTargets(std::vector<VirtualCallTarget> &TargetsForSlot,
                             const std::set<TypeMemberInfo> &TypeMemberInfos,
@@ -315,12 +344,26 @@ struct DevirtModule {
   void rebuildGlobal(VTableBits &B);
 
   bool run();
+
+  // Lower the module using the action and summary passed as command line
+  // arguments. For testing purposes only.
+  static bool runForTesting(Module &M);
 };
 
 struct WholeProgramDevirt : public ModulePass {
   static char ID;
 
-  WholeProgramDevirt() : ModulePass(ID) {
+  bool UseCommandLine = false;
+
+  PassSummaryAction Action;
+  ModuleSummaryIndex *Summary;
+
+  WholeProgramDevirt() : ModulePass(ID), UseCommandLine(true) {
+    initializeWholeProgramDevirtPass(*PassRegistry::getPassRegistry());
+  }
+
+  WholeProgramDevirt(PassSummaryAction Action, ModuleSummaryIndex *Summary)
+      : ModulePass(ID), Action(Action), Summary(Summary) {
     initializeWholeProgramDevirtPass(*PassRegistry::getPassRegistry());
   }
 
@@ -333,8 +376,9 @@ struct WholeProgramDevirt : public ModulePass {
   bool runOnModule(Module &M) override {
     if (skipModule(M))
       return false;
-
-    return DevirtModule(M).run();
+    if (UseCommandLine)
+      return DevirtModule::runForTesting(M);
+    return DevirtModule(M, Action, Summary).run();
   }
 };
 
@@ -344,19 +388,52 @@ INITIALIZE_PASS(WholeProgramDevirt, "wholeprogramdevirt",
                 "Whole program devirtualization", false, false)
 char WholeProgramDevirt::ID = 0;
 
-ModulePass *llvm::createWholeProgramDevirtPass() {
-  return new WholeProgramDevirt;
+ModulePass *llvm::createWholeProgramDevirtPass(PassSummaryAction Action,
+                                               ModuleSummaryIndex *Summary) {
+  return new WholeProgramDevirt(Action, Summary);
 }
 
 PreservedAnalyses WholeProgramDevirtPass::run(Module &M,
                                               ModuleAnalysisManager &) {
-  if (!DevirtModule(M).run())
+  if (!DevirtModule(M, PassSummaryAction::None, nullptr).run())
     return PreservedAnalyses::all();
 
   auto PA = PreservedAnalyses();        // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
 
   return PA;                            // INTEL
+}
+
+bool DevirtModule::runForTesting(Module &M) {
+  ModuleSummaryIndex Summary;
+
+  // Handle the command-line summary arguments. This code is for testing
+  // purposes only, so we handle errors directly.
+  if (!ClReadSummary.empty()) {
+    ExitOnError ExitOnErr("-wholeprogramdevirt-read-summary: " + ClReadSummary +
+                          ": ");
+    auto ReadSummaryFile =
+        ExitOnErr(errorOrToExpected(MemoryBuffer::getFile(ClReadSummary)));
+
+    yaml::Input In(ReadSummaryFile->getBuffer());
+    In >> Summary;
+    ExitOnErr(errorCodeToError(In.error()));
+  }
+
+  bool Changed = DevirtModule(M, ClSummaryAction, &Summary).run();
+
+  if (!ClWriteSummary.empty()) {
+    ExitOnError ExitOnErr(
+        "-wholeprogramdevirt-write-summary: " + ClWriteSummary + ": ");
+    std::error_code EC;
+    raw_fd_ostream OS(ClWriteSummary, EC, sys::fs::F_Text);
+    ExitOnErr(errorCodeToError(EC));
+
+    yaml::Output Out(OS);
+    Out << Summary;
+  }
+
+  return Changed;
 }
 
 void DevirtModule::buildTypeIdentifierMap(
@@ -393,6 +470,38 @@ void DevirtModule::buildTypeIdentifierMap(
   }
 }
 
+Constant *DevirtModule::getPointerAtOffset(Constant *I, uint64_t Offset) {
+  if (I->getType()->isPointerTy()) {
+    if (Offset == 0)
+      return I;
+    return nullptr;
+  }
+
+  const DataLayout &DL = M.getDataLayout();
+
+  if (auto *C = dyn_cast<ConstantStruct>(I)) {
+    const StructLayout *SL = DL.getStructLayout(C->getType());
+    if (Offset >= SL->getSizeInBytes())
+      return nullptr;
+
+    unsigned Op = SL->getElementContainingOffset(Offset);
+    return getPointerAtOffset(cast<Constant>(I->getOperand(Op)),
+                              Offset - SL->getElementOffset(Op));
+  }
+  if (auto *C = dyn_cast<ConstantArray>(I)) {
+    ArrayType *VTableTy = C->getType();
+    uint64_t ElemSize = DL.getTypeAllocSize(VTableTy->getElementType());
+
+    unsigned Op = Offset / ElemSize;
+    if (Op >= C->getNumOperands())
+      return nullptr;
+
+    return getPointerAtOffset(cast<Constant>(I->getOperand(Op)),
+                              Offset % ElemSize);
+  }
+  return nullptr;
+}
+
 bool DevirtModule::tryFindVirtualCallTargets(
     std::vector<VirtualCallTarget> &TargetsForSlot,
     const std::set<TypeMemberInfo> &TypeMemberInfos, uint64_t ByteOffset) {
@@ -400,22 +509,12 @@ bool DevirtModule::tryFindVirtualCallTargets(
     if (!TM.Bits->GV->isConstant())
       return false;
 
-    auto Init = dyn_cast<ConstantArray>(TM.Bits->GV->getInitializer());
-    if (!Init)
-      return false;
-    ArrayType *VTableTy = Init->getType();
-
-    uint64_t ElemSize =
-        M.getDataLayout().getTypeAllocSize(VTableTy->getElementType());
-    uint64_t GlobalSlotOffset = TM.Offset + ByteOffset;
-    if (GlobalSlotOffset % ElemSize != 0)
+    Constant *Ptr = getPointerAtOffset(TM.Bits->GV->getInitializer(),
+                                       TM.Offset + ByteOffset);
+    if (!Ptr)
       return false;
 
-    unsigned Op = GlobalSlotOffset / ElemSize;
-    if (Op >= Init->getNumOperands())
-      return false;
-
-    auto Fn = dyn_cast<Function>(Init->getOperand(Op)->stripPointerCasts());
+    auto Fn = dyn_cast<Function>(Ptr->stripPointerCasts());
     if (!Fn)
       return false;
 
@@ -559,12 +658,12 @@ bool DevirtModule::tryVirtualConstProp(
   if (BitWidth > 64)
     return false;
 
-  // Make sure that each function does not access memory, takes at least one
-  // argument, does not use its first argument (which we assume is 'this'),
-  // and has the same return type.
+  // Make sure that each function is defined, does not access memory, takes at
+  // least one argument, does not use its first argument (which we assume is
+  // 'this'), and has the same return type.
   for (VirtualCallTarget &Target : TargetsForSlot) {
-    if (!Target.Fn->doesNotAccessMemory() || Target.Fn->arg_empty() ||
-        !Target.Fn->arg_begin()->use_empty() ||
+    if (Target.Fn->isDeclaration() || !Target.Fn->doesNotAccessMemory() ||
+        Target.Fn->arg_empty() || !Target.Fn->arg_begin()->use_empty() ||
         Target.Fn->getReturnType() != RetType)
       return false;
   }

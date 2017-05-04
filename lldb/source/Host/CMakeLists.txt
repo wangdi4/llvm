@@ -55,6 +55,10 @@ add_host_subdirectory(posix
   posix/ConnectionFileDescriptorPosix.cpp
   )
 
+if(NOT LLDB_DISABLE_PYTHON)
+  list(APPEND LLDB_PLUGINS lldbPluginScriptInterpreterPython)
+endif()
+
 if (CMAKE_SYSTEM_NAME MATCHES "Windows")
   add_host_subdirectory(windows
     windows/ConnectionGenericFileWindows.cpp
@@ -86,9 +90,10 @@ else()
     posix/LockFilePosix.cpp
     posix/MainLoopPosix.cpp
     posix/PipePosix.cpp
+    posix/ProcessLauncherPosixFork.cpp
     )
 
-  if (NOT __ANDROID_NDK__)
+  if (NOT (CMAKE_SYSTEM_NAME MATCHES "Android"))
     add_host_subdirectory(posix
       posix/ProcessLauncherPosix.cpp
       )
@@ -110,23 +115,23 @@ else()
       macosx/cfcpp/CFCString.cpp
       )
 
-  elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    if (__ANDROID_NDK__)
-      add_host_subdirectory(android
-        android/HostInfoAndroid.cpp
-        android/LibcGlue.cpp
-        )
-    endif()
+
+  elseif (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")
     add_host_subdirectory(linux
       linux/AbstractSocket.cpp
       linux/Host.cpp
       linux/HostInfoLinux.cpp
       linux/HostThreadLinux.cpp
       linux/LibcGlue.cpp
-      linux/ProcessLauncherLinux.cpp
       linux/ThisThread.cpp
       )
-
+    list(APPEND LLDB_PLUGINS lldbPluginProcessLinux)
+    if (CMAKE_SYSTEM_NAME MATCHES "Android")
+      add_host_subdirectory(android
+        android/HostInfoAndroid.cpp
+        android/LibcGlue.cpp
+        )
+    endif()
   elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
     add_host_subdirectory(freebsd
       freebsd/Host.cpp
@@ -158,8 +163,22 @@ if (${get_python_libdir})
   endif()
 endif()
 
-add_lldb_library(lldbHost ${HOST_SOURCES})
-
 if (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-target_link_libraries(lldbHost kvm)
+ set(EXTRA_LIBS kvm)
 endif ()
+
+add_lldb_library(lldbHost
+  ${HOST_SOURCES}
+  
+  LINK_LIBS
+    lldbCore
+    lldbInterpreter
+    lldbSymbol
+    lldbTarget
+    lldbUtility
+    ${LLDB_PLUGINS}
+    ${EXTRA_LIBS}
+  
+  LINK_COMPONENTS
+    Support
+  )

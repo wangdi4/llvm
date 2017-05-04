@@ -694,7 +694,7 @@ private:
           break;
 
         // Handle a struct index, which adds its field offset to the pointer.
-        if (StructType *STy = dyn_cast<StructType>(*GTI)) {
+        if (StructType *STy = GTI.getStructTypeOrNull()) {
           unsigned ElementIdx = OpC->getZExtValue();
           const StructLayout *SL = DL.getStructLayout(STy);
           GEPOffset +=
@@ -1249,6 +1249,43 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
   const DataLayout &DL = SI.getModule()->getDataLayout();
 
   for (User *U : SI.users()) {
+#if INTEL_CUSTOMIZATION
+    /// Due to a normalization applied by InstructionCombining, loads
+    /// of floating point elements may first be bitcast to i32 types,
+    /// and then loaded. In that case, rewriting the SelectInst to choose
+    /// between 2 BitCastInst values, instead of performing the BitCastInst
+    /// on the result of the SelectInst can enable the 'load' to be
+    /// recognized by the SROA conversions.
+    ///
+    /// This code is to recognize the pattern:
+    ///   %A = alloca float, align 4
+    ///   %1 = select i1 %cmp1, float* %A, float* %0
+    ///   %2 = bitcast float* %1 to i32*
+    ///   %3 = load i32, i32* %2
+    ///
+    /// When recognized, it can transform into:
+    ///   %A = alloca float, align 4
+    ///   %1.bc.true = bitcast float* %A to i32*
+    ///   %1.bc.false = bitcast float* %0 to i32*
+    ///   %1 = select i1 %cmp1, i32* %1.bc.true, i32* %%1.bc.false
+    ///   %3 = load i32, i32* %1
+    ///
+    /// The rest of SROA can then trace the uses of %A, to determine whether
+    /// to eliminate the alloca.
+    ///
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(U)) {
+      for (User *BCI_U : BCI->users()) {
+        /// We only need to check that the bitcast feeds a 'load'
+        /// instruction. Since the 'load' is being done unconditionally
+        /// already, there is no need to check for whether it a safe to
+        /// load unconditionally.
+        if (!isa<LoadInst>(BCI_U))
+          return false;
+      }
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     LoadInst *LI = dyn_cast<LoadInst>(U);
     if (!LI || !LI->isSimple())
       return false;
@@ -1273,6 +1310,24 @@ static void speculateSelectInstLoads(SelectInst &SI) {
   Value *FV = SI.getFalseValue();
   // Replace the loads of the select with a select of two loads.
   while (!SI.use_empty()) {
+#if INTEL_CUSTOMIZATION
+    if (BitCastInst *BCI = dyn_cast<BitCastInst>(SI.user_back())) {
+      /// Replace the BitCastInst use of the SelectInst result
+      /// with a SelectInst that chooses between two BitCastInst
+      /// instructions.
+      IRB.SetInsertPoint(BCI);
+      Value *BT = IRB.CreateBitCast(TV, BCI->getDestTy(),
+          BCI->getName() + ".sroa.speculate.bc.true");
+      Value *BF = IRB.CreateBitCast(FV, BCI->getDestTy(),
+          BCI->getName() + ".sroa.speculate.bc.false");
+      Value *V = IRB.CreateSelect(SI.getCondition(), BT, BF,
+          BCI->getName() + ".sroa.speculated");
+
+      BCI->replaceAllUsesWith(V);
+      BCI->eraseFromParent();
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
     LoadInst *LI = cast<LoadInst>(SI.user_back());
     assert(LI->isSimple() && "We only speculate simple loads");
 
@@ -1827,6 +1882,7 @@ static VectorType *isVectorPromotionViable(Partition &P, const DataLayout &DL) {
     // Rank the remaining candidate vector types. This is easy because we know
     // they're all integer vectors. We sort by ascending number of elements.
     auto RankVectorTypes = [&DL](VectorType *RHSTy, VectorType *LHSTy) {
+      (void)DL;
       assert(DL.getTypeSizeInBits(RHSTy) == DL.getTypeSizeInBits(LHSTy) &&
              "Cannot have vector types of different sizes!");
       assert(RHSTy->getElementType()->isIntegerTy() &&
@@ -2878,6 +2934,17 @@ private:
     // Record this instruction for deletion.
     Pass.DeadInsts.insert(&II);
 
+    // Lifetime intrinsics are only promotable if they cover the whole alloca.
+    // Therefore, we drop lifetime intrinsics which don't cover the whole
+    // alloca.
+    // (In theory, intrinsics which partially cover an alloca could be
+    // promoted, but PromoteMemToReg doesn't handle that case.)
+    // FIXME: Check whether the alloca is promotable before dropping the
+    // lifetime intrinsics?
+    if (NewBeginOffset != NewAllocaBeginOffset ||
+        NewEndOffset != NewAllocaEndOffset)
+      return true;
+
     ConstantInt *Size =
         ConstantInt::get(cast<IntegerType>(II.getArgOperand(0)->getType()),
                          NewEndOffset - NewBeginOffset);
@@ -2891,12 +2958,7 @@ private:
     (void)New;
     DEBUG(dbgs() << "          to: " << *New << "\n");
 
-    // Lifetime intrinsics are only promotable if they cover the whole alloca.
-    // (In theory, intrinsics which partially cover an alloca could be
-    // promoted, but PromoteMemToReg doesn't handle that case.)
-    bool IsWholeAlloca = NewBeginOffset == NewAllocaBeginOffset &&
-                         NewEndOffset == NewAllocaEndOffset;
-    return IsWholeAlloca;
+    return true;
   }
 
   bool visitPHINode(PHINode &PN) {
@@ -3215,20 +3277,11 @@ static Type *getTypePartition(const DataLayout &DL, Type *Ty, uint64_t Offset,
     return nullptr;
 
   if (SequentialType *SeqTy = dyn_cast<SequentialType>(Ty)) {
-    // We can't partition pointers...
-    if (SeqTy->isPointerTy())
-      return nullptr;
-
     Type *ElementTy = SeqTy->getElementType();
     uint64_t ElementSize = DL.getTypeAllocSize(ElementTy);
     uint64_t NumSkippedElements = Offset / ElementSize;
-    if (ArrayType *ArrTy = dyn_cast<ArrayType>(SeqTy)) {
-      if (NumSkippedElements >= ArrTy->getNumElements())
-        return nullptr;
-    } else if (VectorType *VecTy = dyn_cast<VectorType>(SeqTy)) {
-      if (NumSkippedElements >= VecTy->getNumElements())
-        return nullptr;
-    }
+    if (NumSkippedElements >= SeqTy->getNumElements())
+      return nullptr;
     Offset -= NumSkippedElements * ElementSize;
 
     // First check if we need to recurse.
@@ -3987,16 +4040,16 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
   if (!IsSorted)
     std::sort(AS.begin(), AS.end());
 
-  /// \brief Describes the allocas introduced by rewritePartition
-  /// in order to migrate the debug info.
-  struct Piece {
+  /// Describes the allocas introduced by rewritePartition in order to migrate
+  /// the debug info.
+  struct Fragment {
     AllocaInst *Alloca;
     uint64_t Offset;
     uint64_t Size;
-    Piece(AllocaInst *AI, uint64_t O, uint64_t S)
+    Fragment(AllocaInst *AI, uint64_t O, uint64_t S)
       : Alloca(AI), Offset(O), Size(S) {}
   };
-  SmallVector<Piece, 4> Pieces;
+  SmallVector<Fragment, 4> Fragments;
 
   // Rewrite each partition.
   for (auto &P : AS.partitions()) {
@@ -4007,7 +4060,7 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
         uint64_t AllocaSize = DL.getTypeSizeInBits(NewAI->getAllocatedType());
         // Don't include any padding.
         uint64_t Size = std::min(AllocaSize, P.size() * SizeOfByte);
-        Pieces.push_back(Piece(NewAI, P.beginOffset() * SizeOfByte, Size));
+        Fragments.push_back(Fragment(NewAI, P.beginOffset() * SizeOfByte, Size));
       }
     }
     ++NumPartitions;
@@ -4024,32 +4077,34 @@ bool SROA::splitAlloca(AllocaInst &AI, AllocaSlices &AS) {
     auto *Expr = DbgDecl->getExpression();
     DIBuilder DIB(*AI.getModule(), /*AllowUnresolved*/ false);
     uint64_t AllocaSize = DL.getTypeSizeInBits(AI.getAllocatedType());
-    for (auto Piece : Pieces) {
-      // Create a piece expression describing the new partition or reuse AI's
+    for (auto Fragment : Fragments) {
+      // Create a fragment expression describing the new partition or reuse AI's
       // expression if there is only one partition.
-      auto *PieceExpr = Expr;
-      if (Piece.Size < AllocaSize || Expr->isBitPiece()) {
+      auto *FragmentExpr = Expr;
+      if (Fragment.Size < AllocaSize || Expr->isFragment()) {
         // If this alloca is already a scalar replacement of a larger aggregate,
-        // Piece.Offset describes the offset inside the scalar.
-        uint64_t Offset = Expr->isBitPiece() ? Expr->getBitPieceOffset() : 0;
-        uint64_t Start = Offset + Piece.Offset;
-        uint64_t Size = Piece.Size;
-        if (Expr->isBitPiece()) {
-          uint64_t AbsEnd = Expr->getBitPieceOffset() + Expr->getBitPieceSize();
+        // Fragment.Offset describes the offset inside the scalar.
+        auto ExprFragment = Expr->getFragmentInfo();
+        uint64_t Offset = ExprFragment ? ExprFragment->OffsetInBits : 0;
+        uint64_t Start = Offset + Fragment.Offset;
+        uint64_t Size = Fragment.Size;
+        if (ExprFragment) {
+          uint64_t AbsEnd =
+	    ExprFragment->OffsetInBits + ExprFragment->SizeInBits;
           if (Start >= AbsEnd)
             // No need to describe a SROAed padding.
             continue;
           Size = std::min(Size, AbsEnd - Start);
         }
-        PieceExpr = DIB.createBitPieceExpression(Start, Size);
+        FragmentExpr = DIB.createFragmentExpression(Start, Size);
       }
 
       // Remove any existing dbg.declare intrinsic describing the same alloca.
-      if (DbgDeclareInst *OldDDI = FindAllocaDbgDeclare(Piece.Alloca))
+      if (DbgDeclareInst *OldDDI = FindAllocaDbgDeclare(Fragment.Alloca))
         OldDDI->eraseFromParent();
 
-      DIB.insertDeclare(Piece.Alloca, Var, PieceExpr, DbgDecl->getDebugLoc(),
-                        &AI);
+      DIB.insertDeclare(Fragment.Alloca, Var, FragmentExpr,
+                        DbgDecl->getDebugLoc(), &AI);
     }
   }
   return Changed;
@@ -4237,9 +4292,8 @@ PreservedAnalyses SROA::runImpl(Function &F, DominatorTree &RunDT,
   if (!Changed)
     return PreservedAnalyses::all();
 
-  // FIXME: Even when promoting allocas we should preserve some abstract set of
-  // CFG-specific analyses.
   PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
   PA.preserve<GlobalsAA>();
   PA.preserve<InlineAggAnalysis>();    // INTEL
   return PA;

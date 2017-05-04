@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/GlobalSplit.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/Intel_WP.h"      // INTEL
 #include "llvm/IR/Constants.h"
@@ -167,4 +168,10 @@ char GlobalSplit::ID = 0;
 
 ModulePass *llvm::createGlobalSplitPass() {
   return new GlobalSplit;
+}
+
+PreservedAnalyses GlobalSplitPass::run(Module &M, ModuleAnalysisManager &AM) {
+  if (!splitGlobals(M))
+    return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }

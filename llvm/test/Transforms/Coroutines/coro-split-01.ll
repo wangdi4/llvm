@@ -1,9 +1,5 @@
 ; Tests that a coroutine is split, inlined into the caller and devirtualized.
 ; RUN: opt < %s -S -enable-coroutines -O2 | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 define i8* @f() {
 entry:

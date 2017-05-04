@@ -275,7 +275,7 @@ public:
   /// Dimension1 - [100 x %struct.S1]
   /// Dimension2 - [50 x %struct.S2]
   /// Dimension3 - [50 x %struct.S2]*
-  SequentialType *getDimensionType(unsigned DimensionNum) const;
+  Type *getDimensionType(unsigned DimensionNum) const;
 
   /// Returns the element type of the dimension type associated with \p
   /// DimensionNum. For the example in description of getDimensionType() they
@@ -284,7 +284,9 @@ public:
   /// Dimension2 - %struct.S2
   /// Dimension3 - [50 x %struct.S2]
   Type *getDimensionElementType(unsigned DimensionNum) const {
-    return getDimensionType(DimensionNum)->getElementType();
+    auto DimTy = getDimensionType(DimensionNum);
+    return DimTy->isPointerTy() ? DimTy->getPointerElementType()
+                                : DimTy->getArrayElementType();
   }
 
   /// Returns true if the Ref accesses a structure.

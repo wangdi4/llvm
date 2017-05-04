@@ -135,6 +135,7 @@ namespace {
       (void) llvm::createLazyValueInfoPass();
       (void) llvm::createLoopExtractorPass();
       (void) llvm::createLoopInterchangePass();
+      (void) llvm::createLoopPredicationPass();
       (void) llvm::createLoopSimplifyPass();
       (void) llvm::createLoopSimplifyCFGPass();
       (void) llvm::createLoopStrengthReducePass();
@@ -186,6 +187,7 @@ namespace {
       (void) llvm::createGVNHoistPass();
       (void) llvm::createMergedLoadStoreMotionPass();
       (void) llvm::createGVNPass();
+      (void) llvm::createNewGVNPass();
       (void) llvm::createMemCpyOptPass();
       (void) llvm::createLoopDeletionPass();
       (void) llvm::createPostDomTree();

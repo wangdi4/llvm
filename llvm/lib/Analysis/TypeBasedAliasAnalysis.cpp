@@ -470,8 +470,12 @@ MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
     --IB;
   }
 
-  if (!Ret)
+  // We either did not find a match, or the only common base "type" is
+  // the root node.  In either case, we don't have any useful TBAA
+  // metadata to attach.
+  if (!Ret || Ret->getNumOperands() < 2)
     return nullptr;
+
   // We need to convert from a type node to a tag node.
   Type *Int64 = IntegerType::get(A->getContext(), 64);
   Metadata *Ops[3] = {Ret, Ret,
@@ -625,7 +629,7 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   return false;
 }
 
-char TypeBasedAA::PassID;
+AnalysisKey TypeBasedAA::Key;
 
 TypeBasedAAResult TypeBasedAA::run(Function &F, FunctionAnalysisManager &AM) {
   return TypeBasedAAResult();

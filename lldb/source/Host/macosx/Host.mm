@@ -62,10 +62,8 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
@@ -73,7 +71,9 @@
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Utility/CleanUp.h"
+#include "lldb/Utility/Endian.h"
 #include "lldb/Utility/NameMatches.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "cfcpp/CFCBundle.h"
 #include "cfcpp/CFCMutableArray.h"
@@ -144,8 +144,8 @@ static void *AcceptPIDFromInferior(void *arg) {
     char pid_str[256];
     ::memset(pid_str, 0, sizeof(pid_str));
     ConnectionStatus status;
-    const size_t pid_str_len =
-        file_conn.Read(pid_str, sizeof(pid_str), 0, status, NULL);
+    const size_t pid_str_len = file_conn.Read(
+        pid_str, sizeof(pid_str), std::chrono::seconds(0), status, NULL);
     if (pid_str_len > 0) {
       int pid = atoi(pid_str);
       return (void *)(intptr_t)pid;
@@ -536,47 +536,6 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
 }
 
 #endif // #if !defined(__arm__) && !defined(__arm64__) && !defined(__aarch64__)
-
-// On MacOSX CrashReporter will display a string for each shared library if
-// the shared library has an exported symbol named "__crashreporter_info__".
-
-static std::mutex &GetCrashReporterMutex() {
-  static std::mutex g_mutex;
-  return g_mutex;
-}
-
-extern "C" {
-const char *__crashreporter_info__ = NULL;
-}
-
-asm(".desc ___crashreporter_info__, 0x10");
-
-void Host::SetCrashDescriptionWithFormat(const char *format, ...) {
-  static StreamString g_crash_description;
-  std::lock_guard<std::mutex> guard(GetCrashReporterMutex());
-
-  if (format) {
-    va_list args;
-    va_start(args, format);
-    g_crash_description.GetString() = llvm::StringRef("");
-    g_crash_description.PrintfVarArg(format, args);
-    va_end(args);
-    __crashreporter_info__ = g_crash_description.GetData();
-  } else {
-    __crashreporter_info__ = NULL;
-  }
-}
-
-void Host::SetCrashDescription(const char *cstr) {
-  std::lock_guard<std::mutex> guard(GetCrashReporterMutex());
-  static std::string g_crash_description;
-  if (cstr) {
-    g_crash_description.assign(cstr);
-    __crashreporter_info__ = g_crash_description.c_str();
-  } else {
-    __crashreporter_info__ = NULL;
-  }
-}
 
 bool Host::OpenFileInExternalEditor(const FileSpec &file_spec,
                                     uint32_t line_no) {
@@ -998,9 +957,7 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
     if (createStatus != errAuthorizationSuccess) {
       error.SetError(1, eErrorTypeGeneric);
       error.SetErrorString("Can't create authorizationRef.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
       return error;
     }
 
@@ -1053,9 +1010,7 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
       error.SetError(2, eErrorTypeGeneric);
       error.SetErrorStringWithFormat(
           "Launching as root needs root authorization.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
 
       if (authorizationRef) {
         AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
@@ -1091,9 +1046,7 @@ static Error LaunchProcessXPC(const char *exe_path,
       error.SetError(3, eErrorTypeGeneric);
       error.SetErrorStringWithFormat("Launching root via XPC needs to "
                                      "externalize authorization reference.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
       return error;
     }
     xpc_service = LaunchUsingXPCRightName;
@@ -1101,9 +1054,7 @@ static Error LaunchProcessXPC(const char *exe_path,
     error.SetError(4, eErrorTypeGeneric);
     error.SetErrorStringWithFormat(
         "Launching via XPC is only currently available for root.");
-    if (log) {
-      error.PutToLog(log, "%s", error.AsCString());
-    }
+    LLDB_LOG(log, "error: {0}", error);
     return error;
   }
 
@@ -1187,9 +1138,7 @@ static Error LaunchProcessXPC(const char *exe_path,
       error.SetErrorStringWithFormat(
           "Problems with launching via XPC. Error type : %i, code : %i",
           errorType, errorCode);
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
 
       if (authorizationRef) {
         AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
@@ -1201,9 +1150,7 @@ static Error LaunchProcessXPC(const char *exe_path,
     error.SetErrorStringWithFormat(
         "Problems with launching via XPC. XPC error : %s",
         xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
-    if (log) {
-      error.PutToLog(log, "%s", error.AsCString());
-    }
+    LLDB_LOG(log, "error: {0}", error);
   }
 
   return error;

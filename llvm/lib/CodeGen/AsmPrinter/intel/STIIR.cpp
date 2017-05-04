@@ -1180,12 +1180,12 @@ void STITypeBaseClass::setOffset(const STINumeric *offset) {
 
 STITypeVBaseClass::STITypeVBaseClass(bool indirect) :
     STITypeFieldListItem (STI_OBJECT_KIND_TYPE_VBASECLASS),
+    _symbolID            (indirect ? LF_IVBCLASS : LF_VBCLASS),
     _attribute           (0),
     _type                (nullptr),
     _vbpType             (nullptr),
     _vbpOffset           (nullptr),
-    _vbIndex             (nullptr),
-    _symbolID            (indirect ? LF_IVBCLASS : LF_VBCLASS) {}
+    _vbIndex             (nullptr) {}
 
 STITypeVBaseClass::~STITypeVBaseClass() {
   delete _vbpOffset;

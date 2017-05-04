@@ -37,7 +37,6 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/STLUtils.h"
 #include "lldb/Core/SearchFilter.h"
 #include "lldb/Core/Section.h"
@@ -61,9 +60,11 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/TargetList.h"
+#include "lldb/Utility/RegularExpression.h"
 
 #include "../source/Commands/CommandObjectBreakpoint.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Regex.h"
 
 using namespace lldb;
@@ -2129,7 +2130,7 @@ lldb::SBValue SBTarget::EvaluateExpression(const char *expr,
       StreamString frame_description;
       if (frame)
         frame->DumpUsingSettingsFormat(&frame_description);
-      Host::SetCrashDescriptionWithFormat(
+      llvm::PrettyStackTraceFormat stack_trace(
           "SBTarget::EvaluateExpression (expr = \"%s\", fetch_dynamic_value = "
           "%u) %s",
           expr, options.GetFetchDynamicValue(),
@@ -2139,9 +2140,6 @@ lldb::SBValue SBTarget::EvaluateExpression(const char *expr,
           target->EvaluateExpression(expr, frame, expr_value_sp, options.ref());
 
       expr_result.SetSP(expr_value_sp, options.GetFetchDynamicValue());
-#ifdef LLDB_CONFIGURATION_DEBUG
-      Host::SetCrashDescription(NULL);
-#endif
     } else {
       if (log)
         log->Printf("SBTarget::EvaluateExpression () => error: could not "

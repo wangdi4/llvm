@@ -9,16 +9,18 @@
 
 #include "SubtargetFeatureInfo.h"
 
+#include "Types.h"
 #include "llvm/TableGen/Record.h"
 
 #include <map>
 
 using namespace llvm;
 
-void SubtargetFeatureInfo::dump() const {
-  errs() << getEnumName() << " " << Index << "\n";
-  TheDef->dump();
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void SubtargetFeatureInfo::dump() const {
+  errs() << getEnumName() << " " << Index << "\n" << *TheDef;
 }
+#endif
 
 std::vector<std::pair<Record *, SubtargetFeatureInfo>>
 SubtargetFeatureInfo::getAll(const RecordKeeper &Records) {
@@ -42,12 +44,41 @@ SubtargetFeatureInfo::getAll(const RecordKeeper &Records) {
   return SubtargetFeatures;
 }
 
+void SubtargetFeatureInfo::emitSubtargetFeatureFlagEnumeration(
+    std::map<Record *, SubtargetFeatureInfo, LessRecordByID> &SubtargetFeatures,
+    raw_ostream &OS) {
+  OS << "// Flags for subtarget features that participate in "
+     << "instruction matching.\n";
+  OS << "enum SubtargetFeatureFlag : "
+     << getMinimalTypeForEnumBitfield(SubtargetFeatures.size()) << " {\n";
+  for (const auto &SF : SubtargetFeatures) {
+    const SubtargetFeatureInfo &SFI = SF.second;
+    OS << "  " << SFI.getEnumName() << " = (1ULL << " << SFI.Index << "),\n";
+  }
+  OS << "  Feature_None = 0\n";
+  OS << "};\n\n";
+}
+
+void SubtargetFeatureInfo::emitNameTable(
+    std::map<Record *, SubtargetFeatureInfo, LessRecordByID> &SubtargetFeatures,
+    raw_ostream &OS) {
+  OS << "static const char *SubtargetFeatureNames[] = {\n";
+  for (const auto &SF : SubtargetFeatures) {
+    const SubtargetFeatureInfo &SFI = SF.second;
+    OS << "  \"" << SFI.getEnumName() << "\",\n";
+  }
+  // A small number of targets have no predicates. Null terminate the array to
+  // avoid a zero-length array.
+  OS << "  nullptr\n"
+     << "};\n\n";
+}
+
 void SubtargetFeatureInfo::emitComputeAvailableFeatures(
-    StringRef TargetName, StringRef ClassName,
+    StringRef TargetName, StringRef ClassName, StringRef FuncName,
     std::map<Record *, SubtargetFeatureInfo, LessRecordByID> &SubtargetFeatures,
     raw_ostream &OS) {
   OS << "uint64_t " << TargetName << ClassName << "::\n"
-     << "ComputeAvailableFeatures(const FeatureBitset& FB) const {\n";
+     << FuncName << "(const FeatureBitset& FB) const {\n";
   OS << "  uint64_t Features = 0;\n";
   for (const auto &SF : SubtargetFeatures) {
     const SubtargetFeatureInfo &SFI = SF.second;

@@ -50,9 +50,6 @@ catch.body.2:
 ; CXX-NEXT:   .long   1
 ; CXX-NEXT:   .long   .Ltmp1@IMGREL+1
 ; CXX-NEXT:   .long   -1
-; INTEL_CUSTOMIZATION: This file contains changes to enable a cherry-picked 
-;                      revision (r289486).  If conflict arise during merging
-;                      the community file should be accepted as is.
 ; CXX-NEXT:   .long   "?catch$3@?0?test@4HA"@IMGREL
 ; CXX-NEXT:   .long   2
 ; CXX-NEXT:   .long   .Ltmp2@IMGREL+1

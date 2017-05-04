@@ -14,7 +14,7 @@
 #if INTEL_CUSTOMIZATION
 
 #include "llvm/Transforms/IPO/InlineReport.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -159,6 +159,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Microsoft EH prevents inlining",
   // NinlrSEH,
   InlPrtSimple, "Structured EH prevents inlining",
+  // NinlrPreferCloning,
+  InlPrtSimple, "Callsite preferred for cloning",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 

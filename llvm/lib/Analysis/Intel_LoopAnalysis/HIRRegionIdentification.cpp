@@ -118,13 +118,17 @@ bool HIRRegionIdentification::isHeaderPhi(const PHINode *Phi) const {
 bool HIRRegionIdentification::isSupported(Type *Ty) {
   assert(Ty && "Type is null!");
 
-  for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
-    if (SeqTy->isVectorTy()) {
-      DEBUG(dbgs()
-            << "LOOPOPT_OPTREPORT: vector types currently not supported.\n");
-      return false;
+  while (isa<SequentialType>(Ty) || isa<PointerType>(Ty)) {
+    if (auto SeqTy = dyn_cast<SequentialType>(Ty)) {
+      if (SeqTy->isVectorTy()) {
+        DEBUG(dbgs()
+              << "LOOPOPT_OPTREPORT: vector types currently not supported.\n");
+        return false;
+      }
+      Ty = SeqTy->getElementType();
+    } else {
+      Ty = Ty->getPointerElementType(); 
     }
-    Ty = SeqTy->getElementType();
   }
 
   if (Ty->isFunctionTy()) {
@@ -148,7 +152,7 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
 bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
   SmallVector<Value *, 8> Operands;
 
-  auto BaseTy = GEPOp->getPointerOperandType()->getSequentialElementType();
+  auto BaseTy = cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
 
   if (!isSupported(BaseTy)) {
     return true;

@@ -1601,11 +1601,6 @@ private:
   /// no formals.
   ParmVarDecl **ParamInfo;
 
-  /// DeclsInPrototypeScope - Array of pointers to NamedDecls for
-  /// decls defined in the function prototype that are not parameters. E.g.
-  /// 'enum Y' in 'void f(enum Y {AA} x) {}'.
-  ArrayRef<NamedDecl *> DeclsInPrototypeScope;
-
   LazyDeclStmtPtr Body;
 
   // FIXME: This can be packed into the bitfields in DeclContext.
@@ -1613,6 +1608,7 @@ private:
   unsigned SClass : 2;
   unsigned IsInline : 1;
   unsigned IsInlineSpecified : 1;
+  unsigned IsExplicitSpecified : 1;
   unsigned IsVirtualAsWritten : 1;
   unsigned IsPure : 1;
   unsigned HasInheritedPrototype : 1;
@@ -1713,8 +1709,9 @@ protected:
                        StartLoc),
         DeclContext(DK), redeclarable_base(C), ParamInfo(nullptr), Body(),
         SClass(S), IsInline(isInlineSpecified),
-        IsInlineSpecified(isInlineSpecified), IsVirtualAsWritten(false),
-        IsPure(false), HasInheritedPrototype(false), HasWrittenPrototype(true),
+        IsInlineSpecified(isInlineSpecified), IsExplicitSpecified(false),
+        IsVirtualAsWritten(false), IsPure(false),
+        HasInheritedPrototype(false), HasWrittenPrototype(true),
         IsDeleted(false), IsTrivial(false), IsDefaulted(false),
         IsExplicitlyDefaulted(false), HasImplicitReturnZero(false),
         IsLateTemplateParsed(false), IsConstexpr(isConstexprSpecified),
@@ -1858,6 +1855,19 @@ public:
   bool isVirtualAsWritten() const { return IsVirtualAsWritten; }
   void setVirtualAsWritten(bool V) { IsVirtualAsWritten = V; }
 
+  /// Whether this function is marked as explicit explicitly.
+  bool isExplicitSpecified() const { return IsExplicitSpecified; }
+  void setExplicitSpecified() {
+    assert((getKind() == CXXConstructor || getKind() == CXXConversion ||
+            isDeductionGuide()) && "cannot be explicit");
+    IsExplicitSpecified = true;
+  }
+
+  /// Whether this function is explicit.
+  bool isExplicit() const {
+    return getFirstDecl()->isExplicitSpecified();
+  }
+
   /// Whether this virtual function is pure, i.e. makes the containing class
   /// abstract.
   bool isPure() const { return IsPure; }
@@ -1935,6 +1945,12 @@ public:
   bool isDeleted() const { return getCanonicalDecl()->IsDeleted; }
   bool isDeletedAsWritten() const { return IsDeleted && !IsDefaulted; }
   void setDeletedAsWritten(bool D = true) { IsDeleted = D; }
+
+  /// \brief Determines whether this function is a deduction guide.
+  bool isDeductionGuide() const {
+    return getDeclName().getNameKind() ==
+           DeclarationName::CXXDeductionGuideName;
+  }
 
   /// \brief Determines whether this function is "main", which is the
   /// entry point into an executable program.
@@ -2050,11 +2066,6 @@ public:
     setParams(getASTContext(), NewParamInfo);
   }
 
-  ArrayRef<NamedDecl *> getDeclsInPrototypeScope() const {
-    return DeclsInPrototypeScope;
-  }
-  void setDeclsInPrototypeScope(ArrayRef<NamedDecl *> NewDecls);
-
   /// getMinRequiredArguments - Returns the minimum number of arguments
   /// needed to call this function. This may be fewer than the number of
   /// function parameters, if some of the parameters have default
@@ -2070,6 +2081,10 @@ public:
   /// function return type. This may omit qualifiers and other information with
   /// limited representation in the AST.
   SourceRange getReturnTypeSourceRange() const;
+
+  /// \brief Attempt to compute an informative source range covering the
+  /// function exception specification, if any.
+  SourceRange getExceptionSpecSourceRange() const;
 
   /// \brief Determine the type of an expression that calls this function.
   QualType getCallResultType() const {

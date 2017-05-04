@@ -2754,9 +2754,9 @@ X86GlobalFMA::genInstruction(unsigned Opcode, unsigned DstReg,
   MachineInstr *NewMI = MF->CreateMachineInstr(MCID, DL, true);
   MachineInstrBuilder MIB(*MF, NewMI);
 
-  MIB.addOperand(MachineOperand::CreateReg(DstReg, true));
+  MIB.add(MachineOperand::CreateReg(DstReg, true));
   for (auto &MO : MOs)
-    MIB.addOperand(MO);
+    MIB.add(MO);
 
   return NewMI;
 }

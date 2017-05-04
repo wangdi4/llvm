@@ -154,46 +154,60 @@ void CoverageReport::render(const FileCoverageSummary &File,
                (unsigned)File.RegionCoverage.NumRegions);
   Options.colored_ostream(OS, FileCoverageColor) << format(
       "%*u", FileReportColumns[2], (unsigned)File.RegionCoverage.NotCovered);
-  Options.colored_ostream(OS, FileCoverageColor)
-      << format("%*.2f", FileReportColumns[3] - 1,
-                File.RegionCoverage.getPercentCovered())
-      << '%';
+  if (File.RegionCoverage.NumRegions)
+    Options.colored_ostream(OS, FileCoverageColor)
+        << format("%*.2f", FileReportColumns[3] - 1,
+                  File.RegionCoverage.getPercentCovered())
+        << '%';
+  else
+    OS << column("-", FileReportColumns[3], Column::RightAlignment);
   OS << format("%*u", FileReportColumns[4],
                (unsigned)File.FunctionCoverage.NumFunctions);
   OS << format("%*u", FileReportColumns[5],
                (unsigned)(File.FunctionCoverage.NumFunctions -
                           File.FunctionCoverage.Executed));
-  Options.colored_ostream(OS, FuncCoverageColor)
-      << format("%*.2f", FileReportColumns[6] - 1,
-                File.FunctionCoverage.getPercentCovered())
-      << '%';
+  if (File.FunctionCoverage.NumFunctions)
+    Options.colored_ostream(OS, FuncCoverageColor)
+        << format("%*.2f", FileReportColumns[6] - 1,
+                  File.FunctionCoverage.getPercentCovered())
+        << '%';
+  else
+    OS << column("-", FileReportColumns[6], Column::RightAlignment);
   OS << format("%*u", FileReportColumns[7],
                (unsigned)File.InstantiationCoverage.NumFunctions);
   OS << format("%*u", FileReportColumns[8],
                (unsigned)(File.InstantiationCoverage.NumFunctions -
                           File.InstantiationCoverage.Executed));
-  Options.colored_ostream(OS, InstantiationCoverageColor)
-      << format("%*.2f", FileReportColumns[9] - 1,
-                File.InstantiationCoverage.getPercentCovered())
-      << '%';
+  if (File.InstantiationCoverage.NumFunctions)
+    Options.colored_ostream(OS, InstantiationCoverageColor)
+        << format("%*.2f", FileReportColumns[9] - 1,
+                  File.InstantiationCoverage.getPercentCovered())
+        << '%';
+  else
+    OS << column("-", FileReportColumns[9], Column::RightAlignment);
   OS << format("%*u", FileReportColumns[10],
                (unsigned)File.LineCoverage.NumLines);
   Options.colored_ostream(OS, LineCoverageColor) << format(
       "%*u", FileReportColumns[11], (unsigned)File.LineCoverage.NotCovered);
-  Options.colored_ostream(OS, LineCoverageColor)
-      << format("%*.2f", FileReportColumns[12] - 1,
-                File.LineCoverage.getPercentCovered())
-      << '%';
+  if (File.LineCoverage.NumLines)
+    Options.colored_ostream(OS, LineCoverageColor)
+        << format("%*.2f", FileReportColumns[12] - 1,
+                  File.LineCoverage.getPercentCovered())
+        << '%';
+  else
+    OS << column("-", FileReportColumns[12], Column::RightAlignment);
   OS << "\n";
 }
 
 void CoverageReport::render(const FunctionCoverageSummary &Function,
+                            const DemangleCache &DC,
                             raw_ostream &OS) const {
   auto FuncCoverageColor =
       determineCoveragePercentageColor(Function.RegionCoverage);
   auto LineCoverageColor =
       determineCoveragePercentageColor(Function.LineCoverage);
-  OS << column(Function.Name, FunctionReportColumns[0], Column::RightTrim)
+  OS << column(DC.demangle(Function.Name), FunctionReportColumns[0],
+               Column::RightTrim)
      << format("%*u", FunctionReportColumns[1],
                (unsigned)Function.RegionCoverage.NumRegions);
   Options.colored_ostream(OS, FuncCoverageColor)
@@ -218,6 +232,7 @@ void CoverageReport::render(const FunctionCoverageSummary &Function,
 }
 
 void CoverageReport::renderFunctionReports(ArrayRef<std::string> Files,
+                                           const DemangleCache &DC,
                                            raw_ostream &OS) {
   bool isFirst = true;
   for (StringRef Filename : Files) {
@@ -230,7 +245,7 @@ void CoverageReport::renderFunctionReports(ArrayRef<std::string> Files,
 
     std::vector<StringRef> Funcnames;
     for (const auto &F : Functions)
-      Funcnames.emplace_back(F.Name);
+      Funcnames.emplace_back(DC.demangle(F.Name));
     adjustColumnWidths({}, Funcnames);
 
     OS << "File '" << Filename << "':\n";
@@ -250,12 +265,12 @@ void CoverageReport::renderFunctionReports(ArrayRef<std::string> Files,
       ++Totals.ExecutionCount;
       Totals.RegionCoverage += Function.RegionCoverage;
       Totals.LineCoverage += Function.LineCoverage;
-      render(Function, OS);
+      render(Function, DC, OS);
     }
     if (Totals.ExecutionCount) {
       renderDivider(FunctionReportColumns, OS);
       OS << "\n";
-      render(Totals, OS);
+      render(Totals, DC, OS);
     }
   }
 }

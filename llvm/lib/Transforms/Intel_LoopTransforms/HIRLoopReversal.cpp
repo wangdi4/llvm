@@ -82,6 +82,7 @@
 // 2. Allow simple forward gotos in the same iteration
 // 3.
 //
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
