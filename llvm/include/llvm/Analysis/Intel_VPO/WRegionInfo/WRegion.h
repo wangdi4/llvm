@@ -485,6 +485,7 @@ private:
   SharedClause Shared;
   PrivateClause Priv;
   FirstprivateClause Fpriv;
+  ReductionClause Reduction;
   DependClause Depend;
   EXPR Final;
   EXPR IfExpr;
@@ -510,6 +511,7 @@ public:
   DEFINE_GETTER(SharedClause,       getShared, Shared)
   DEFINE_GETTER(PrivateClause,      getPriv,   Priv)
   DEFINE_GETTER(FirstprivateClause, getFpriv,  Fpriv)
+  DEFINE_GETTER(ReductionClause,    getRed,    Reduction)
   DEFINE_GETTER(DependClause,       getDepend, Depend)
 
   EXPR getFinal() const { return Final; }
