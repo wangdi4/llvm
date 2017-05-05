@@ -488,8 +488,10 @@ namespace CGIntelOpenMP {
         // Defined here = private
         emitImplicit(I, OMPC_private);
       } else if (Counters.find(I) != CEnd) {
-        // Counters always private
-        emitImplicit(I, OMPC_private);
+        // Counters always private for non-SIMD loops for now.
+        // For SIMD loops, counters will be marked as linear later.
+        if (!isOpenMPSimdDirective(DKind))
+          emitImplicit(I, OMPC_private);
       } else if (DKind != OMPD_simd && DKind != OMPD_for) {
         // Referenced but not definted = shared
         emitImplicit(I, OMPC_shared);
