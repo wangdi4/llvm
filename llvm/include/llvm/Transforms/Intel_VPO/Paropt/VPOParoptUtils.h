@@ -405,15 +405,25 @@ public:
     static void updateOmpPredicateAndUpperBound(WRegionNode *W, 
                                                 Value *Load,
                                                 Instruction *InsertPt);
-    
-    /// \brief Clones the load instruction and inserts before the InsertPt.
-    static Value* cloneLoadInstruction(Value *V, 
-                                       Instruction *InsertPt);
+
+    /// \brief Clones the instructions and inserts before the InsertPt.
+    static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
     /// \brief Generate the pointer pointing to the head of the array.
     static Value *genArrayLength(AllocaInst *AI, Instruction *InsertPt,
                                  IRBuilder<> &Builder, Type *&ElementTy,
                                  Value *&ArrayBegin);
+
+    static CallInst *
+    genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
+                     int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
+                     PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
+                     Instruction *InsertPt);
+    static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
+                                     Value *TidPtr, Value *TaskAlloc,
+                                     Value *LBVal, Value *UBVal, Value *STVal,
+                                     StructType *KmpTaskTTWithPrivatesTy,
+                                     Instruction *InsertPt);
 
   private:
     /// \name Private constructor and destructor to disable instantiation.

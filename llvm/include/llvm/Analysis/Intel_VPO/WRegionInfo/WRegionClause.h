@@ -86,7 +86,7 @@ class Item
     bool getIsNonpod() const { return IsNonpod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
-    bool getThunkIdx() const { return ThunkIdx; }
+    int getThunkIdx() const { return ThunkIdx; }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ; 

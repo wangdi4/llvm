@@ -279,6 +279,149 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   return;
 }
 
+CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
+                                          Value *TidPtr, Value *TaskAlloc,
+                                          Value *LBPtr, Value *UBPtr,
+                                          Value *STPtr,
+                                          StructType *KmpTaskTTWithPrivatesTy,
+                                          Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  int Flags = KMP_IDENT_KMPC;
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  Value *Cast = Builder.CreateBitCast(
+      TaskAlloc, PointerType::getUnqual(KmpTaskTTWithPrivatesTy));
+
+  SmallVector<Value *, 4> Indices;
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(0));
+  Value *TaskTTyGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+
+  StructType *KmpTaskTTy =
+      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
+
+  Indices.pop_back();
+  Indices.push_back(Builder.getInt32(5));
+  Value *LBGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+  Value *LBVal = Builder.CreateLoad(LBPtr);
+  if (LBVal->getType() != KmpTaskTTy->getElementType(5))
+    LBVal = Builder.CreateSExtOrTrunc(LBVal, KmpTaskTTy->getElementType(5));
+
+  Builder.CreateStore(LBVal, LBGep);
+
+  Indices.pop_back();
+  Indices.push_back(Builder.getInt32(6));
+  Value *UBGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+  Value *UBVal = Builder.CreateLoad(UBPtr);
+  if (UBVal->getType() != KmpTaskTTy->getElementType(6))
+    UBVal = Builder.CreateSExtOrTrunc(UBVal, KmpTaskTTy->getElementType(6));
+  Builder.CreateStore(UBVal, UBGep);
+
+  Indices.pop_back();
+  Indices.push_back(Builder.getInt32(7));
+  Value *STGep = Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+  Value *STVal = Builder.CreateLoad(STPtr);
+  if (STVal->getType() != KmpTaskTTy->getElementType(7))
+    STVal = Builder.CreateSExtOrTrunc(STVal, KmpTaskTTy->getElementType(7));
+  Builder.CreateStore(STVal, STGep);
+  Value *STLoad = Builder.CreateLoad(STGep);
+
+  Value *TaskLoopArgs[] = {Loc,
+                           Builder.CreateLoad(TidPtr),
+                           TaskAlloc,
+                           Builder.getInt32(1),
+                           LBGep,
+                           UBGep,
+                           STLoad,
+                           Builder.getInt32(0),
+                           Builder.getInt32(0),
+                           Builder.getInt64(0),
+                           Builder.getInt64(0)};
+  Type *TypeParams[] = {Loc->getType(),
+                        Type::getInt32Ty(C),
+                        PointerType::getUnqual(Type::getInt8Ty(C)),
+                        Type::getInt32Ty(C),
+                        PointerType::getUnqual(Type::getInt64Ty(C)),
+                        PointerType::getUnqual(Type::getInt64Ty(C)),
+                        Type::getInt64Ty(C),
+                        Type::getInt32Ty(C),
+                        Type::getInt32Ty(C),
+                        Type::getInt64Ty(C),
+                        Type::getInt64Ty(C)};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+  std::string FnName = "__kmpc_taskloop";
+  Function *FnTaskLoop = M->getFunction(FnName);
+
+  if (!FnTaskLoop) {
+    FnTaskLoop =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTaskLoop->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskLoopCall =
+      CallInst::Create(FnTaskLoop, TaskLoopArgs, "", InsertPt);
+  TaskLoopCall->setCallingConv(CallingConv::C);
+  TaskLoopCall->setTailCall(false);
+
+  return TaskLoopCall;
+}
+
+CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
+                                           Value *TidPtr,
+                                           int KmpTaskTTWithPrivatesTySz,
+                                           int KmpSharedTySz,
+                                           PointerType *KmpRoutineEntryPtrTy,
+                                           Function *MicroTaskFn,
+                                           Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  int Flags = KMP_IDENT_KMPC;
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), 1); // TODO
+  auto *KmpTaskTWithPrivatesTySize =
+      ConstantInt::get(Type::getInt64Ty(C), KmpTaskTTWithPrivatesTySz);
+  auto *SharedsSize = ConstantInt::get(Type::getInt64Ty(C), KmpSharedTySz);
+  IRBuilder<> Builder(InsertPt);
+  Value *AllocArgs[] = {
+      Loc,         Builder.CreateLoad(TidPtr),
+      TaskFlags,   KmpTaskTWithPrivatesTySize,
+      SharedsSize, Builder.CreateBitCast(MicroTaskFn, KmpRoutineEntryPtrTy)};
+  Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
+                        Type::getInt32Ty(C), Type::getInt64Ty(C),
+                        Type::getInt64Ty(C), KmpRoutineEntryPtrTy};
+  FunctionType *FnTy = FunctionType::get(
+      PointerType::getUnqual(Type::getInt8Ty(C)), TypeParams, false);
+
+  std::string FnName = "__kmpc_omp_task_alloc";
+  Function *FnTaskAlloc = M->getFunction(FnName);
+
+  if (!FnTaskAlloc) {
+    FnTaskAlloc =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTaskAlloc->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskAllocCall =
+      CallInst::Create(FnTaskAlloc, AllocArgs, "", InsertPt);
+  TaskAllocCall->setCallingConv(CallingConv::C);
+  TaskAllocCall->setTailCall(false);
+
+  return TaskAllocCall;
+}
+
 // This function generates a call to notify the runtime system that the static 
 // loop scheduling is started
 //
@@ -1321,8 +1464,8 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
 
   Loop *L = W->getLoop();
 
-  Value* RightValue = WRegionUtils::getOmpLoopUpperBound(L); 
-  RightValue = VPOParoptUtils::cloneLoadInstruction(RightValue, InsertPt);
+  Value *RightValue = WRegionUtils::getOmpLoopUpperBound(L);
+  RightValue = VPOParoptUtils::cloneInstructions(RightValue, InsertPt);
   bool IsLeft = true;
   CmpInst::Predicate PD = WRegionUtils::getOmpPredicate(L, IsLeft);
   IntegerType *UpperBoundTy = 
@@ -1402,15 +1545,56 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
     IC->setPredicate(ICmpInst::ICMP_UGE);
 }
 
-// Clones the load instruction and inserts before the InsertPt.
-Value* VPOParoptUtils::cloneLoadInstruction(Value *V, Instruction *InsertPt) {
-  if (auto *LI = dyn_cast<LoadInst>(V)) {
-    auto NewLI = LI->clone();
-    NewLI->insertBefore(&*InsertPt);
-    return NewLI;
+static Value *findChainToLoad(Value *V,
+                              SmallVectorImpl<Instruction *> &ChainToBase) {
+  if (TruncInst *Trunc = dyn_cast<TruncInst>(V)) {
+    ChainToBase.push_back(Trunc);
+    return findChainToLoad(Trunc->getOperand(0), ChainToBase);
+  } else if (SExtInst *SI = dyn_cast<SExtInst>(V)) {
+    ChainToBase.push_back(SI);
+    return findChainToLoad(SI->getOperand(0), ChainToBase);
+  } else if (ZExtInst *ZI = dyn_cast<ZExtInst>(V)) {
+    ChainToBase.push_back(ZI);
+    return findChainToLoad(ZI->getOperand(0), ChainToBase);
+  } else if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
+    ChainToBase.push_back(LI);
+    return LI;
   }
-  else 
+  llvm_unreachable("findChainToLoad: unhandled instruction");
+}
+
+// Clones the load instruction and inserts before the InsertPt.
+Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
+  if (Constant *C = dyn_cast<Constant>(V))
     return V;
+
+  SmallVector<Instruction *, 3> ChainToBase;
+  Value *RootOfChain = findChainToLoad(V, ChainToBase);
+  std::reverse(ChainToBase.begin(), ChainToBase.end());
+
+  Instruction *LastClonedValue = nullptr;
+  Instruction *LastValue = nullptr;
+
+  for (Instruction *Instr : ChainToBase) {
+    Instruction *ClonedValue = Instr->clone();
+    ClonedValue->insertBefore(InsertBefore);
+    ClonedValue->setName(Instr->getName() + ".remat");
+    if (LastClonedValue)
+      ClonedValue->replaceUsesOfWith(LastValue, LastClonedValue);
+    LastClonedValue = ClonedValue;
+    LastValue = Instr;
+  }
+  return LastClonedValue;
+
+  /*
+    if (auto *LI = dyn_cast<LoadInst>(V)) {
+      auto NewLI = LI->clone();
+      NewLI->insertBefore(&*InsertPt);
+      return NewLI;
+    }
+    else
+      return V;
+  */
 }
 
 // Generate the pointer pointing to the head of the array.

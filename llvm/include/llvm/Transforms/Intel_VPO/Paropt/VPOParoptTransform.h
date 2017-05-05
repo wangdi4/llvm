@@ -77,8 +77,9 @@ public:
   /// \brief ParoptTransform object constructor
   VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
                      LoopInfo *LI, ScalarEvolution *SE, int Mode)
-      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr), 
-        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr) {}
+      : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
+        TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
+        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -117,6 +118,8 @@ private:
   /// \brief Hold the function type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType *KmpcMicroTaskTy;
+  PointerType *KmpRoutineEntryPtrTy;
+  StructType *KmpTaskTTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -134,9 +137,12 @@ private:
   bool genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
 
   /// \brief A utility to privatize the variables within the region.
-  AllocaInst *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
-                                         Instruction *InsertPt,
-                                         const StringRef VarNameSuff);
+  Value *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
+                                    Instruction *InsertPt,
+                                    const StringRef VarNameSuff);
+  void genPrivatizationCodeTransform(WRegionNode *W, Value *PrivValue,
+                                     Value *NewPrivInst,
+                                     bool ForTaskLoop = false);
 
   /// \brief Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
@@ -183,6 +189,27 @@ private:
   /// lastprivate code.
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
 
+  bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
+                           StructType *&KmpSharedTy, Value *&LBVal,
+                           Value *&UBVal, Value *&STVal);
+  bool genTaskLoopCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
+                       StructType *KmpSharedTy, Value *LBVal, Value *UBVal,
+                       Value *STVal);
+  bool genSharedCodeForTaskLoop(WRegionNode *W);
+  AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
+                                    StructType *KmpSharedTy);
+  void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
+                                StructType *KmpSharedTy,
+                                StructType *KmpTaskTTWithPrivatesTy,
+                                Instruction *InsertPt);
+  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBVal, Value *&UBVal,
+                                  Value *&STVal);
+  void genKmpRoutineEntryT();
+  void genKmpTaskTRecordDecl();
+  StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
+                                                StructType *&KmpSharedTy,
+                                                StructType *&KmpPrivatesTy);
+
   /// \brief Generate the actual parameters in the outlined function
   /// for copyin variables.
   void genThreadedEntryActualParmList(WRegionNode *W,
@@ -203,9 +230,9 @@ private:
                     Function *NFn);
 
   /// \brief Finalize extracted MT-function argument list for runtime
-  Function *finalizeExtractedMTFunction(WRegionNode *W,
-                                        Function *Fn, 
-                                        bool IsTidArg, unsigned int TidArgNo);
+  Function *finalizeExtractedMTFunction(WRegionNode *W, Function *Fn,
+                                        bool IsTidArg, unsigned int TidArgNo,
+                                        bool hasBid = true);
 
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
   CallInst* genForkCallInst(WRegionNode *W, CallInst *CI);

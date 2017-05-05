@@ -270,10 +270,24 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNTask:
-      case WRegionNode::WRNTaskloop:
         // Task constructs need to perform outlining
         break;
 
+      case WRegionNode::WRNTaskloop:
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          StructType *KmpTaskTTWithPrivatesTy;
+          StructType *KmpSharedTy;
+          Value *LBVal, *UBVal, *STVal;
+          Changed = genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
+                                        LBVal, UBVal, STVal);
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
+          Changed |= genSharedCodeForTaskLoop(W);
+          Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
+                                     LBVal, UBVal, STVal);
+          RemoveDirectives = true;
+        }
+        break;
 
       // 2. Constructs that do not need to perform outlining. E.g., simd,
       //    taskgroup, atomic, for, sections, etc.
@@ -938,7 +952,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
     createEmptyPrivFiniBB(W, RedUpdateEntryBB);
 
     for (ReductionItem *RedI : RedClause.items()) {
-      AllocaInst *NewRedInst;
+      Value *NewRedInst;
       Value *Orig = RedI->getOrig();
 
 /*
@@ -947,6 +961,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 */
       NewRedInst = genPrivatizationCodeHelper(W, Orig,
                                               &EntryBB->front(), ".red");
+      genPrivatizationCodeTransform(W, Orig, NewRedInst);
       RedI->setNew(NewRedInst);
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(RedI, RedInitEntryBB->getTerminator());
@@ -966,14 +981,13 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 }
 
 // A utility to privatize the variables within the region.
-AllocaInst *
+Value *
 VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
                                                Instruction *InsertPt,
                                                const StringRef VarNameSuff) {
   // DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
   // Generate a new Alloca instruction as privatization action
   AllocaInst *NewPrivInst;
-  SmallVector<Instruction *, 8> PrivUses;
 
   assert(!(W->isBBSetEmpty()) && 
          "genPrivatizationCodeHelper: WRN has empty BBSet");
@@ -1010,6 +1024,14 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
     llvm_unreachable("genPrivatizationCodeHelper: unsupported private item");
   }
 
+  return NewPrivInst;
+}
+
+void VPOParoptTransform::genPrivatizationCodeTransform(WRegionNode *W,
+                                                       Value *PrivValue,
+                                                       Value *NewPrivInst,
+                                                       bool ForTaskLoop) {
+  SmallVector<Instruction *, 8> PrivUses;
   for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
        ++IB) {
     if (Instruction *User = dyn_cast<Instruction>(*IB))
@@ -1020,11 +1042,15 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
   // W-Region (parallel loop/region/section ... etc.)
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
-    UI->replaceUsesOfWith(PrivValue, NewPrivInst);
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) 
+      continue;
+    if (ForTaskLoop) {
+      IRBuilder<> Builder(UI);
+      UI->replaceUsesOfWith(PrivValue, Builder.CreateLoad(NewPrivInst));
+    } else
+      UI->replaceUsesOfWith(PrivValue, NewPrivInst);
     // DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
   }
-
-  return NewPrivInst;
 }
 
 bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
@@ -1044,7 +1070,9 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
-    AllocaInst *NewPrivInst = nullptr;
+    Value *NewPrivInst = nullptr;
+    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
+
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
 /*
@@ -1055,19 +1083,30 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         LastprivateClause &LprivClause = W->getLpriv();
         auto LprivI = LprivClause.findOrig(Orig);
         if (!LprivI) {
-          NewPrivInst =
-              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+          if (!ForTaskLoop)
+            NewPrivInst = genPrivatizationCodeHelper(W, Orig, &EntryBB->front(),
+                                                     ".fpriv");
+          else
+            NewPrivInst = FprivI->getNew();
+
+          genPrivatizationCodeTransform(W, Orig, NewPrivInst);
           FprivI->setNew(NewPrivInst);
         } else
           FprivI->setNew(LprivI->getNew());
       } else {
-        NewPrivInst =
-            genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+        if (!ForTaskLoop)
+          NewPrivInst =
+              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+        else
+          NewPrivInst = FprivI->getNew();
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
         FprivI->setNew(NewPrivInst);
       }
 
-      createEmptyPrvInitBB(W, PrivInitEntryBB);
-      genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+      if (!ForTaskLoop) {
+        createEmptyPrvInitBB(W, PrivInitEntryBB);
+        genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
+      }
       DEBUG(dbgs() << "genFirstPrivatizationCode: firstprivatized " 
                    << *Orig << "\n");
     }
@@ -1094,6 +1133,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   LastprivateClause &LprivClause = W->getLpriv();
   if (LprivClause.size()) {
     W->populateBBSet();
+    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *BeginBB = nullptr;
     createEmptyPrivFiniBB(W, BeginBB);
@@ -1112,13 +1152,18 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
     BeginBB = Term->getParent();
 
     for (LastprivateItem *LprivI : LprivClause.items()) {
-      Value *Old = LprivI->getOrig();
-/*
-      assert((isa<GlobalVariable>(Old) || isa<AllocaInst>(Old)) &&
-             "genLastPrivatizationCode: Unexpected lastprivate variable");
-*/
-      AllocaInst *NewPrivInst =
-          genPrivatizationCodeHelper(W, Old, &EntryBB->front(), ".lpriv");
+      Value *Orig = LprivI->getOrig();
+      /*
+            assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
+                   "genLastPrivatizationCode: Unexpected lastprivate variable");
+      */
+      Value *NewPrivInst;
+      if (!ForTaskLoop)
+        NewPrivInst =
+            genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".lpriv");
+      else
+        NewPrivInst = LprivI->getNew();
+      genPrivatizationCodeTransform(W, Orig, NewPrivInst);
       LprivI->setNew(NewPrivInst);
       genLprivFini(LprivI, BeginBB->getTerminator());
     }
@@ -1127,6 +1172,45 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   }
 
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genLastPrivatizationCode\n");
+  return Changed;
+}
+
+bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
+
+  bool Changed = false;
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskLoop\n");
+
+  SharedClause &ShaClause = W->getShared();
+  if (ShaClause.size()) {
+
+    assert(W->isBBSetEmpty() &&
+           "genSharedCodeForTaskLoop: BBSET should start empty");
+    W->populateBBSet();
+
+    for (SharedItem *ShaI : ShaClause.items()) {
+
+      Value *Orig = ShaI->getOrig();
+
+      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+        Value *NewPrivInst = nullptr;
+        NewPrivInst = ShaI->getNew();
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst, true);
+      }
+    }
+
+    Changed = true;
+    W->resetBBSet(); // Invalidate BBSet after transformations
+
+    // After Privatization is done, the SCEV should be re-generated.
+    // This should apply to all loop-type constructs; ie, WRNs whose
+    // "IsOmpLoop" attribute is true.
+    if (SE && W->getIsOmpLoop()) {
+      Loop *L = W->getLoop();
+      SE->forgetLoop(L);
+    }
+  }
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
   return Changed;
 }
 
@@ -1146,13 +1230,23 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
            "genPrivatizationCode: BBSET should start empty");
     W->populateBBSet();
 
+    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
+
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
+        Value *NewPrivInst = nullptr;
+        if (!ForTaskLoop)
+          NewPrivInst =
+              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
+        else
+          NewPrivInst = PrivI->getNew();
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+
+        PrivI->setNew(NewPrivInst);
         DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
       } else
         DEBUG(dbgs() << "genPrivatizationCode: " << *Orig 
@@ -1174,6 +1268,601 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   return Changed;
 }
 
+// Build typedef kmp_int32 (* kmp_routine_entry_t)(kmp_int32, void *);
+void VPOParoptTransform::genKmpRoutineEntryT() {
+  if (!KmpRoutineEntryPtrTy) {
+    LLVMContext &C = F->getContext();
+    IntegerType *Int32Ty = Type::getInt32Ty(C);
+    Type *KmpRoutineEntryTyArgs[] = {
+        Int32Ty, PointerType::getUnqual(Type::getInt8Ty(C))};
+    FunctionType *KmpRoutineEntryTy =
+        FunctionType::get(Int32Ty, KmpRoutineEntryTyArgs, false);
+    KmpRoutineEntryPtrTy = PointerType::getUnqual(KmpRoutineEntryTy);
+  }
+}
+
+// Build struct kmp_task_t {
+//            void *              shareds;
+//            kmp_routine_entry_t routine;
+//            kmp_int32           part_id;
+//            kmp_cmplrdata_t data1;
+//            kmp_cmplrdata_t data2;
+//   For taskloops additional fields:
+//            kmp_uint64          lb;
+//            kmp_uint64          ub;
+//            kmp_int64           st;
+//            kmp_int32           liter;
+//          };
+//
+void VPOParoptTransform::genKmpTaskTRecordDecl() {
+  if (KmpTaskTTy)
+    return;
+
+  LLVMContext &C = F->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  IntegerType *Int64Ty = Type::getInt64Ty(C);
+
+  Type *KmpCmplrdataTyArgs[] = {KmpRoutineEntryPtrTy};
+  StructType *KmpCmplrdataTy =
+      StructType::create(C, KmpCmplrdataTyArgs, "union.kmp_cmplrdata_t", false);
+
+  Type *KmpTaskTyArgs[] = {PointerType::getUnqual(Type::getInt8Ty(C)),
+                           KmpRoutineEntryPtrTy,
+                           Int32Ty,
+                           KmpCmplrdataTy,
+                           KmpCmplrdataTy,
+                           Int64Ty,
+                           Int64Ty,
+                           Int64Ty,
+                           Int32Ty};
+
+  KmpTaskTTy = StructType::create(C, KmpTaskTyArgs, "struct.kmp_task_t", false);
+}
+
+StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
+    WRegionNode *W, StructType *&KmpSharedTy, StructType *&KmpPrivatesTy) {
+  LLVMContext &C = F->getContext();
+  SmallVector<Type *, 4> KmpTaksTWithPrivatesTyArgs;
+  KmpTaksTWithPrivatesTyArgs.push_back(KmpTaskTTy);
+
+  SmallVector<Type *, 4> KmpPrivatesIndices;
+  SmallVector<Type *, 4> SharedIndices;
+
+  int count = 0;
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Value *Orig = FprivI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect first private "
+                   "pionter argument");
+      KmpPrivatesIndices.push_back(PT->getElementType());
+      SharedIndices.push_back(PT->getElementType());
+      FprivI->setThunkIdx(count++);
+    }
+  }
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      Value *Orig = LprivI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
+                   "pionter argument");
+      KmpPrivatesIndices.push_back(PT->getElementType());
+      SharedIndices.push_back(PT);
+      LprivI->setThunkIdx(count++);
+    }
+  }
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      Value *Orig = RedI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
+                   "pionter argument");
+      KmpPrivatesIndices.push_back(PT->getElementType());
+      SharedIndices.push_back(PT);
+      RedI->setThunkIdx(count++);
+    }
+  }
+
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.size()) {
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      Value *Orig = PrivI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(
+          PT &&
+          "genKmpTaskTWithPrivatesRecordDecl: Expect private pionter argument");
+      KmpPrivatesIndices.push_back(PT->getElementType());
+      PrivI->setThunkIdx(count++);
+    }
+  }
+
+  SharedClause &ShaClause = W->getShared();
+  if (ShaClause.size()) {
+    for (SharedItem *ShaI : ShaClause.items()) {
+      Value *Orig = ShaI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect shared "
+                   "pionter argument");
+      SharedIndices.push_back(PT);
+      ShaI->setThunkIdx(count++);
+    }
+  }
+
+  KmpPrivatesTy = StructType::create(
+      C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
+      "struct..kmp_privates.t", false);
+
+  KmpSharedTy = StructType::create(
+      C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
+      "struct.shared.t", false);
+
+  KmpTaksTWithPrivatesTyArgs.push_back(KmpPrivatesTy);
+
+  StructType *KmpTaskTTWithPrivatesTy =
+      StructType::create(C, makeArrayRef(KmpTaksTWithPrivatesTyArgs.begin(),
+                                         KmpTaksTWithPrivatesTyArgs.end()),
+                         "struct.kmp_task_t_with_privates", false);
+
+  return KmpTaskTTWithPrivatesTy;
+}
+
+bool VPOParoptTransform::genTaskLoopInitCode(
+    WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
+    StructType *&KmpSharedTy, Value *&LBVal, Value *&UBVal, Value *&STVal) {
+  Loop *L = W->getLoop();
+
+  assert(L && "genTaskLoopInitCode: Loop not found");
+  genLoopInitCodeForTaskLoop(W, LBVal, UBVal, STVal);
+
+  // Build type kmp_task_t
+  genKmpRoutineEntryT();
+  genKmpTaskTRecordDecl();
+  KmpSharedTy = nullptr;
+  StructType *KmpPrivatesTy = nullptr;
+  KmpTaskTTWithPrivatesTy =
+      genKmpTaskTWithPrivatesRecordDecl(W, KmpSharedTy, KmpPrivatesTy);
+
+  IRBuilder<> Builder(F->getEntryBlock().getTerminator());
+  AllocaInst *DummyTaskTWithPrivates = Builder.CreateAlloca(
+      KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
+
+  Builder.SetInsertPoint(L->getLoopPreheader()->getTerminator());
+
+  SmallVector<Value *, 4> Indices;
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(0));
+  Value *BaseTaskTGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates, Indices);
+  /*
+    Indices.clear();
+    Indices.push_back(Builder.getInt32(0));
+    Indices.push_back(Builder.getInt32(2));
+    Value *PartIdGep =
+        Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  */
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(0));
+  Value *SharedGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  Value *SharedLoad = Builder.CreateLoad(SharedGep);
+  Value *SharedCast =
+      Builder.CreateBitCast(SharedLoad, PointerType::getUnqual(KmpSharedTy));
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(1));
+  Value *PrivatesGep = Builder.CreateInBoundsGEP(
+      KmpTaskTTWithPrivatesTy, DummyTaskTWithPrivates, Indices);
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(5));
+  Value *LowerBoundGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  Value *LowerBoundLd = Builder.CreateLoad(LowerBoundGep);
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(6));
+  Value *UpperBoundGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  Value *UpperBoundLd = Builder.CreateLoad(UpperBoundGep);
+
+  /*The stride does not need to change since the loop is normalized by the clang
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(7));
+  Value *StrideGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  Value *StrideLd = Builder.CreateLoad(StrideGep);
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(8));
+  Value *LastIterGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+  Value *LastIterLd = Builder.CreateLoad(LastIterGep);
+  */
+  Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
+                       ->getIncomingValue(0)
+                       ->getType();
+
+  PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
+  PN->removeIncomingValue(L->getLoopPreheader());
+
+  if (LowerBoundLd->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    LowerBoundLd = Builder.CreateSExtOrTrunc(LowerBoundLd, IndValTy);
+
+  PN->addIncoming(LowerBoundLd, L->getLoopPreheader());
+
+  if (UpperBoundLd->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    UpperBoundLd = Builder.CreateSExtOrTrunc(UpperBoundLd, IndValTy);
+  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
+                                                  &*Builder.GetInsertPoint());
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.size()) {
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(PrivI->getThunkIdx()));
+      Value *ThunkPrivatesGep =
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      PrivI->setNew(ThunkPrivatesGep);
+    }
+  }
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
+      Value *ThunkPrivatesGep =
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      FprivI->setNew(ThunkPrivatesGep);
+    }
+  }
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
+      Value *ThunkPrivatesGep =
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      LprivI->setNew(ThunkPrivatesGep);
+    }
+  }
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
+      Value *ThunkPrivatesGep =
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      RedI->setNew(ThunkPrivatesGep);
+    }
+  }
+
+  SharedClause &ShaClause = W->getShared();
+  if (ShaClause.size()) {
+    for (SharedItem *ShaI : ShaClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
+      Value *ThunkSharedGep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
+      ShaI->setNew(ThunkSharedGep);
+    }
+  }
+
+  W->resetBBSet();
+  return true;
+}
+
+AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
+                                                      Instruction *InsertPt,
+                                                      StructType *KmpSharedTy) {
+  SmallVector<Value *, 4> Indices;
+
+  IRBuilder<> Builder(InsertPt);
+  AllocaInst *TaskSharedBase =
+      Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
+
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.size()) {
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(PrivI->getThunkIdx()));
+      Value *Gep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      Builder.CreateStore(PrivI->getOrig(), Gep);
+    }
+  }
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(FprivI->getThunkIdx()));
+      Value *Gep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      LoadInst *Load = Builder.CreateLoad(FprivI->getOrig());
+      Builder.CreateStore(Load, Gep);
+    }
+  }
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
+      Value *Gep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      LoadInst *Load = Builder.CreateLoad(LprivI->getOrig());
+      Builder.CreateStore(Load, Gep);
+    }
+  }
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
+      Value *Gep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      LoadInst *Load = Builder.CreateLoad(RedI->getOrig());
+      Builder.CreateStore(Load, Gep);
+    }
+  }
+
+  return TaskSharedBase;
+}
+
+void VPOParoptTransform::genSharedInitForTaskLoop(
+    WRegionNode *W, AllocaInst *Src, Value *Dst, StructType *KmpSharedTy,
+    StructType *KmpTaskTTWithPrivatesTy, Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+
+  Value *Cast = Builder.CreateBitCast(
+      Dst, PointerType::getUnqual(KmpTaskTTWithPrivatesTy));
+
+  SmallVector<Value *, 4> Indices;
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(0));
+  Value *TaskTTyGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+
+  StructType *KmpTaskTTy =
+      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
+
+  Value *SharedTyGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, TaskTTyGep, Indices);
+
+  Value *LI = Builder.CreateLoad(SharedTyGep);
+
+  LLVMContext &C = F->getContext();
+  Value *SrcCast =
+      Builder.CreateBitCast(Src, PointerType::getUnqual(Type::getInt8PtrTy(C)));
+
+  Value *Size;
+
+  const DataLayout DL = F->getParent()->getDataLayout();
+  if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
+    Size = Builder.getInt64(
+        DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+  else
+    Size = Builder.getInt32(
+        DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+
+  Builder.CreateMemCpy(LI, SrcCast, Size, 8);
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(1));
+  Value *PrivatesGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Cast, Indices);
+
+  Value *SharedBase =
+      Builder.CreateBitCast(LI, PointerType::getUnqual(KmpSharedTy));
+
+  StructType *KmpPrivatesTy =
+      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(1));
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      int TIdx = FprivI->getThunkIdx();
+
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(TIdx));
+      Value *PrivateGep =
+          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      Value *SharedGep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, SharedBase, Indices);
+
+      if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
+        Size = Builder.getInt64(
+            DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+      else
+        Size = Builder.getInt32(DL.getTypeAllocSize(
+            FprivI->getOrig()->getType()->getPointerElementType()));
+
+      Value *S = Builder.CreateBitCast(
+          SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
+      Value *D = Builder.CreateBitCast(
+          PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
+      Builder.CreateMemCpy(D, S, Size, 8);
+    }
+  }
+}
+
+void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
+                                                    Value *&LBVal,
+                                                    Value *&UBVal,
+                                                    Value *&STVal) {
+  BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
+  W->setEntryBBlock(NewEntryBB);
+  IRBuilder<> Builder(EntryBB->getTerminator());
+  Loop *L = W->getLoop();
+  Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
+                       ->getIncomingValue(0)
+                       ->getType();
+
+  AllocaInst *LowerBnd = Builder.CreateAlloca(IndValTy, nullptr, "lower.bnd");
+  Value *InitVal = WRegionUtils::getOmpLoopLowerBound(L);
+
+  InitVal = VPOParoptUtils::cloneInstructions(InitVal, &*(EntryBB->begin()));
+
+  if (InitVal->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    InitVal = Builder.CreateSExtOrTrunc(InitVal, IndValTy);
+  Builder.CreateStore(InitVal, LowerBnd);
+  LBVal = LowerBnd;
+
+  AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
+  Value *UpperBndVal =
+      VPOParoptUtils::computeOmpUpperBound(W, EntryBB->getTerminator());
+
+  if (UpperBndVal->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    UpperBndVal = Builder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
+  Builder.CreateStore(UpperBndVal, UpperBnd);
+  UBVal = UpperBnd;
+
+  AllocaInst *Stride = Builder.CreateAlloca(IndValTy, nullptr, "stride");
+  bool IsNegStride;
+  Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
+  StrideVal =
+      VPOParoptUtils::cloneInstructions(StrideVal, &*(EntryBB->begin()));
+
+  if (StrideVal->getType()->getIntegerBitWidth() !=
+      IndValTy->getIntegerBitWidth())
+    StrideVal = Builder.CreateSExtOrTrunc(StrideVal, IndValTy);
+
+  Builder.CreateStore(StrideVal, Stride);
+  STVal = Stride;
+}
+
+bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
+                                         StructType *KmpTaskTTWithPrivatesTy,
+                                         StructType *KmpSharedTy, Value *LBVal,
+                                         Value *UBVal, Value *STVal) {
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopCode\n");
+  assert(W->isBBSetEmpty() && "genTaskLoopCode: BBSET should start empty");
+
+  W->populateBBSet();
+
+  bool Changed = false;
+
+  // brief extract a W-Region to generate a function
+  CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
+
+  assert(CE.isEligible());
+
+  // Set up Fn Attr for the new function
+  if (Function *NewF = CE.extractCodeRegion()) {
+
+    // Set up the Calling Convention used by OpenMP Runtime Library
+    CallingConv::ID CC = CallingConv::C;
+
+    DT->verifyDomTree();
+
+    // Adjust the calling convention for both the function and the
+    // call site.
+    NewF->setCallingConv(CC);
+
+    assert(NewF->hasOneUse() && "New function should have one use");
+    User *U = NewF->user_back();
+
+    CallInst *NewCall = cast<CallInst>(U);
+    NewCall->setCallingConv(CC);
+
+    CallSite CS(NewCall);
+
+    unsigned int TidArgNo = 0;
+
+    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+      ++TidArgNo;
+    }
+
+    Function *MTFn =
+        finalizeExtractedMTFunction(W, NewF, false, TidArgNo, false);
+
+    std::vector<Value *> MTFnArgs;
+
+    LLVMContext &C = NewF->getContext();
+    IntegerType *Int32Ty = Type::getInt32Ty(C);
+    ConstantInt *ValueZero = ConstantInt::getSigned(Int32Ty, 0);
+    MTFnArgs.push_back(ValueZero);
+    genThreadedEntryActualParmList(W, MTFnArgs);
+
+    for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
+      MTFnArgs.push_back((*I));
+    }
+    CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
+    MTFnCI->setCallingConv(CS.getCallingConv());
+
+    // Copy isTailCall attribute
+    if (NewCall->isTailCall())
+      MTFnCI->setTailCall();
+
+    MTFnCI->setDebugLoc(NewCall->getDebugLoc());
+
+    // MTFnArgs.clear();
+
+    if (!NewCall->use_empty())
+      NewCall->replaceAllUsesWith(MTFnCI);
+
+    // Keep the orginal extraced function name after finalization
+    MTFnCI->takeName(NewCall);
+
+    AllocaInst *PrivateBase = genTaskPrivateMapping(W, NewCall, KmpSharedTy);
+    const DataLayout DL = NewF->getParent()->getDataLayout();
+    int KmpTaskTTWithPrivatesTySz =
+        DL.getTypeAllocSize(KmpTaskTTWithPrivatesTy);
+    int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
+    CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
+        W, IdentTy, TidPtr, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
+        KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall);
+
+    genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
+                             KmpTaskTTWithPrivatesTy, NewCall);
+
+    VPOParoptUtils::genKmpcTaskLoop(W, IdentTy, TidPtr, TaskAllocCI, LBVal,
+                                    UBVal, STVal, KmpTaskTTWithPrivatesTy,
+                                    NewCall);
+
+    NewCall->eraseFromParent();
+
+    NewF->eraseFromParent();
+
+    MTFnCI->eraseFromParent();
+
+    W->resetBBSet(); // Invalidate BBSet after transformations
+
+    Changed = true;
+  }
+  return Changed;
+}
 
 bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W, 
                                                AllocaInst *&IsLastVal) {
@@ -1269,8 +1958,8 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
  
   bool IsNegStride;
   Value *StrideVal = WRegionUtils::getOmpLoopStride(L, IsNegStride);
-  StrideVal = VPOParoptUtils::cloneLoadInstruction(StrideVal, InsertPt);
-    
+  StrideVal = VPOParoptUtils::cloneInstructions(StrideVal, InsertPt);
+
   if (IsNegStride) {
     ConstantInt *Zero = ConstantInt::get(IndValTy, 0);
     StrideVal = B.CreateSub(Zero, StrideVal);
@@ -2160,6 +2849,8 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
 // copyin variables.
 void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
                                           std::vector<Value *>& MTFnArgs) {
+  if (!W->hasCopyin())
+    return;
   CopyinClause &CP = W->getCopyin();
   for (auto C : CP.items())
     MTFnArgs.push_back(C->getOrig());
@@ -2170,6 +2861,8 @@ void VPOParoptTransform::genThreadedEntryActualParmList(WRegionNode *W,
 // firstprivate, shared, etc. 
 void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
                                           std::vector<Type *>& ParamsTy) {
+  if (!W->hasCopyin())
+    return;
   CopyinClause &CP = W->getCopyin();
   for (auto C : CP.items()) 
     ParamsTy.push_back(C->getOrig()->getType());
@@ -2178,6 +2871,8 @@ void VPOParoptTransform::genThreadedEntryFormalParmList(WRegionNode *W,
 // Fix the name of copyin formal parameters for outlined function.
 void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
                                                         Function *NFn) {
+  if (!W->hasCopyin())
+    return;
   CopyinClause &CP = W->getCopyin();
   if (CP.size()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
@@ -2205,6 +2900,8 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
 //
 void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
                                       Function *NFn) {
+  if (!W->hasCopyin())
+    return;
   CopyinClause &CP = W->getCopyin();
   if (CP.size()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
@@ -2253,10 +2950,11 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
   }
 }
 
-Function *VPOParoptTransform::finalizeExtractedMTFunction(
-  WRegionNode *W,
-  Function *Fn, 
-  bool IsTidArg, unsigned int TidArgNo) {
+Function *VPOParoptTransform::finalizeExtractedMTFunction(WRegionNode *W,
+                                                          Function *Fn,
+                                                          bool IsTidArg,
+                                                          unsigned int TidArgNo,
+                                                          bool hasBid) {
 
   LLVMContext &C = Fn->getContext();
 
@@ -2267,8 +2965,11 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(
 
   std::vector<Type *> ParamsTy;
 
-  ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
-  ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
+  if (hasBid) {
+    ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
+    ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
+  } else
+    ParamsTy.push_back(Type::getInt32Ty(C));
 
   genThreadedEntryFormalParmList(W, ParamsTy);
 
@@ -2310,8 +3011,10 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(
   ++NewArgI;
 
   // The second argument is *bid - binding thread id argument
-  NewArgI->setName("bid");
-  ++NewArgI;
+  if (hasBid) {
+    NewArgI->setName("bid");
+    ++NewArgI;
+  }
 
   fixThreadedEntryFormalParmName(W, NFn);
   genTpvCopyIn(W, NFn);
