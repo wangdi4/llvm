@@ -110,7 +110,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
         return OPENCL_VERSION_2_2;
     }
 
-    if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() || 
+    if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
        CPUDetect::GetInstance()->isIcelake()
        )
     {
@@ -463,11 +463,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         s_ver = OPENCL_VERSION_2_1;
         return OPENCL_VERSION_2_1;
     }
-	else if ("2.2" == ver)
-	{
-		s_ver = OPENCL_VERSION_2_2;
-		return OPENCL_VERSION_2_2;
-	}
+    else if ("2.2" == ver)
+    {
+        s_ver = OPENCL_VERSION_2_2;
+        return OPENCL_VERSION_2_2;
+    }
     // else look in registry/etc
 #ifdef _WIN32
     DWORD iVer = m_pConfigFile->GetRegistryOrEtcValue<DWORD>("ForceOCLCPUVersion", 0);
@@ -491,11 +491,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
             s_ver = OPENCL_VERSION_2_1;
             return OPENCL_VERSION_2_1;
         }
-	case 4:
-		{
-			s_ver = OPENCL_VERSION_2_2;
-			return OPENCL_VERSION_2_2;
-		}
+    case 4:
+        {
+            s_ver = OPENCL_VERSION_2_2;
+            return OPENCL_VERSION_2_2;
+        }
     default:
         break;
     }
