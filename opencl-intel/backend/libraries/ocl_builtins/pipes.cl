@@ -135,7 +135,10 @@ static __global void* get_packet_ptr(__global struct __pipe_t* p, int index) {
 static int advance(__global const struct __pipe_t* p, int index, int offset) {
   ASSERT(offset < p->max_packets);
   ASSERT(offset >= 0);
-  int new =  (index + offset) % p->max_packets;
+  int new = index + offset;
+  if (new >= p->max_packets) {
+    new -= p->max_packets;
+  }
   return new;
 }
 
