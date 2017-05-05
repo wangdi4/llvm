@@ -778,6 +778,7 @@ NDRange::NDRange(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, ITaskList* pList, K
     m_lAttaching.exchange(0);
     m_lExecuting.exchange(0);
 #endif
+    m_pImplicitArgs = nullptr;
     m_numThreads = pList->GetDeviceConcurency();
 }
 
@@ -910,6 +911,20 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 #endif
     m_lNDRangeId = s_lGlbNDRangeId++;
     return CL_DEV_SUCCESS;
+}
+
+unsigned int NDRange::PreferredSequentialItemsPerThread() const
+{
+    unsigned int preferredSize = 1;
+    if(m_pCmd->isFPGAEmulator)
+    {
+        assert(m_pImplicitArgs != nullptr && "Init should be called first.");
+        const size_t* pWGSize = m_pImplicitArgs->WGCount;
+        for (unsigned int i = 0; i < m_pImplicitArgs->WorkDim; ++i)
+          preferredSize *= pWGSize[i];
+    }
+
+    return preferredSize;
 }
 
 bool NDRange::Finish(FINISH_REASON reason)
