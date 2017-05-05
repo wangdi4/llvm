@@ -111,8 +111,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
     }
 
     if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
-       CPUDetect::GetInstance()->isIcelake()
-       )
+       CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_1;
     }
