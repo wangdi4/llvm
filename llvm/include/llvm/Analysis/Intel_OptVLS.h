@@ -301,7 +301,7 @@ public:
   /// bytes) is provided in \p Stride. Otherwise, returns false.
   /// Inverting the return value does not invert the functionality(false does
   /// not mean that it has a variable stride)
-  virtual bool hasAConstStride(int64_t *Stride) = 0;
+  virtual bool hasAConstStride(int64_t *Stride) const = 0;
 
   /// \brief Return the location of this in the code. The location should be
   /// relative to other Memrefs sent by the client to the VLS engine.
@@ -443,7 +443,6 @@ public:
 
   explicit OVLSOperand(OperandKind K, OVLSType T) : Kind(K), Type(T) {}
 
-  explicit OVLSOperand(OperandKind K) : Kind(K) {}
   OVLSOperand() {}
 
   ~OVLSOperand() {}
@@ -454,7 +453,9 @@ public:
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
-  virtual void printAsOperand(OVLSostream &OS) const { OS << Type << "undef"; }
+  virtual void printAsOperand(OVLSostream &OS) const {
+    OS << Type << " %undef";
+  }
 
 private:
   OperandKind Kind;
@@ -487,7 +488,7 @@ public:
 
     switch (Type.getElementSize()) {
     case 32: {
-      OS << "<" << *(reinterpret_cast<const int *>(&ConstValue[0]));
+      OS << " <" << *(reinterpret_cast<const int *>(&ConstValue[0]));
       for (uint32_t i = 1; i < NumElems; i++)
         OS << ", " << *(reinterpret_cast<const int *>(&ConstValue[i * 4]));
 
@@ -503,7 +504,7 @@ public:
 
 class OVLSUndef : public OVLSOperand {
 public:
-  OVLSUndef() : OVLSOperand(OK_Undef) {}
+  OVLSUndef(OVLSType T) : OVLSOperand(OK_Undef, T) {}
 
   static bool classof(const OVLSOperand *Operand) {
     return Operand->getKind() == OK_Undef;
@@ -514,8 +515,8 @@ public:
 /// bytes from the Base(which is an address of an OVLSMemref).
 class OVLSAddress : public OVLSOperand {
 public:
-  explicit OVLSAddress(OVLSMemref *B, int64_t O)
-      : OVLSOperand(OK_Address), Base(B), Offset(O) {}
+  explicit OVLSAddress(const OVLSMemref *B, int64_t O)
+      : OVLSOperand(OK_Address, B->getType()), Base(B), Offset(O) {}
 
   explicit OVLSAddress() {}
 
@@ -538,7 +539,12 @@ public:
   }
 
   void print(OVLSostream &OS) const {
-    OS << "<Base:" << Base << " Offset:" << Offset << ">";
+    OS << getType() << "* "
+       << "<Base:" << Base << " Offset:" << Offset << ">";
+  }
+  void printAsOperand(OVLSostream &OS) const {
+    OS << getType() << "* "
+       << "<Base:" << Base << " Offset:" << Offset << ">";
   }
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   void dump() const {
@@ -582,6 +588,9 @@ public:
   void printAsOperand(OVLSostream &OS) const { OS << Type << " %" << Id; }
   OperationCode getKind() const { return OPCode; }
 
+  virtual void setMask(uint64_t Mask) {}
+  virtual void setType(OVLSType T) {}
+
 private:
   OperationCode OPCode;
 
@@ -616,6 +625,10 @@ public:
 
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) { ElemMask = Mask; }
+  void setType(OVLSType T) {
+    Src.setType(T);
+    OVLSOperand::setType(T);
+  }
 
 private:
   OVLSAddress Src;
@@ -630,9 +643,9 @@ class OVLSStore : public OVLSInstruction {
 
 public:
   /// \brief Store V in D using \p EMask (element mask).
-  explicit OVLSStore(const OVLSOperand * const V, const OVLSOperand &D,
+  explicit OVLSStore(const OVLSOperand *const V, const OVLSOperand &D,
                      uint64_t EMask)
-    : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
+      : OVLSInstruction(OC_Store, V->getType()), Value(V), ElemMask(EMask) {
     Dst = D;
   }
 
@@ -654,7 +667,11 @@ public:
 
   uint64_t getMask() const { return ElemMask; }
   void setMask(uint64_t Mask) { ElemMask = Mask; }
-  void updateValue(const OVLSOperand * const V) { Value = V; }
+  void updateValue(const OVLSOperand *const V) { Value = V; }
+  void setType(OVLSType T) {
+    Dst.setType(T);
+    OVLSOperand::setType(T);
+  }
 
 private:
   const OVLSOperand *Value;

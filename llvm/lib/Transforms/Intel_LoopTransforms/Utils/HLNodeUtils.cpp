@@ -1247,8 +1247,9 @@ void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
                                     HLContainerTy::iterator First,
                                     HLContainerTy::iterator Last,
                                     unsigned CaseNum, bool isFirstChild) {
-  insertImpl(Switch, isFirstChild ? Switch->case_child_begin_internal(CaseNum)
-                                  : Switch->case_child_end_internal(CaseNum),
+  insertImpl(Switch,
+             isFirstChild ? Switch->case_child_begin_internal(CaseNum)
+                          : Switch->case_child_end_internal(CaseNum),
              OrigContainer, First, Last, true, false, CaseNum);
 }
 
@@ -1905,24 +1906,35 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   unsigned PrevNum = 0;
   auto ParentLoop = dyn_cast<HLLoop>(Parent);
 
+  // TODO: Simplify by creating getLexicalPrevNode()/getLexicalNextNode()
+  // functions.
   if (Container.begin() != First) {
     // If we inserted nodes after the loop preheader, the previous num is loop's
     // top sort num.
     if (ParentLoop && (First == ParentLoop->pre_end())) {
       PrevNum = ParentLoop->getTopSortNum();
-      // If we inserted at the begining of the first non-default switch case,
+      // If we inserted at the beginning of the first non-default switch case,
       // switch is the lexically previous node.
     } else {
       PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
     }
   } else {
-    // If we inserted at the begining of the preheader, the lexically previous
-    // node is loop's previous node.
+    // If we inserted at the beginning of the preheader, the lexically previous
+    // node is loop's lexically previous node.
     if (ParentLoop && (First != ParentLoop->child_begin())) {
-      auto PrevNode = getPrevLinkListNode(Parent);
+
+      auto OuterParent = ParentLoop->getParent();
+      auto OuterParentLoop = dyn_cast<HLLoop>(OuterParent);
+
+      // If ParentLoop is the first child of OuterParentLoop, previous node is
+      // the outer parent.
+      HLNode *PrevNode =
+          (OuterParentLoop && (OuterParentLoop->getFirstChild() == ParentLoop))
+              ? nullptr
+              : getPrevLinkListNode(Parent);
 
       PrevNum = PrevNode ? PrevNode->getMaxTopSortNum()
-                         : Parent->getParent()->getTopSortNum();
+                         : OuterParent->getTopSortNum();
     } else {
       PrevNum = Parent->getTopSortNum();
     }

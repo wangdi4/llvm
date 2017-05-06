@@ -767,15 +767,13 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
   return Result;
 }
 
+AnalysisKey AndersensAA::Key;
 
 AndersensAAResult AndersensAA::run(Module &M, AnalysisManager<Module> *AM) {
   return AndersensAAResult::analyzeModule(M,
                                       AM->getResult<TargetLibraryAnalysis>(M),
                                       AM->getResult<CallGraphAnalysis>(M));
 }
-
-
-char AndersensAA::PassID;
 
 char AndersensAAWrapperPass::ID = 0;
 
@@ -1433,6 +1431,7 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
     case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
+    case Instruction::AddrSpaceCast:
       return getNodeForConstantPointer(CE->getOperand(0));
     default:
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
@@ -1481,6 +1480,7 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
+    case Instruction::AddrSpaceCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     default:
       errs() << "Constant Expr not yet handled: " << *CE << "\n";

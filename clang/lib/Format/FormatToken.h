@@ -220,6 +220,9 @@ struct FormatToken {
   /// [], {} or <>.
   unsigned NestingLevel = 0;
 
+  /// \brief The indent level of this token. Copied from the surrounding line.
+  unsigned IndentLevel = 0;
+
   /// \brief Penalty for inserting a line break before this token.
   unsigned SplitPenalty = 0;
 
@@ -257,6 +260,11 @@ struct FormatToken {
   ///
   /// Only set if \c Type == \c TT_StartOfName.
   bool PartOfMultiVariableDeclStmt = false;
+
+  /// \brief Does this line comment continue a line comment section?
+  ///
+  /// Only set to true if \c Type == \c TT_LineComment.
+  bool ContinuesLineCommentSection = false;
 
   /// \brief If this is a bracket, this points to the matching one.
   FormatToken *MatchingParen = nullptr;
@@ -334,11 +342,15 @@ struct FormatToken {
 
   /// \brief Returns whether \p Tok is ([{ or a template opening <.
   bool opensScope() const {
+    if (is(TT_TemplateString) && TokenText.endswith("${"))
+      return true;
     return isOneOf(tok::l_paren, tok::l_brace, tok::l_square,
                    TT_TemplateOpener);
   }
   /// \brief Returns whether \p Tok is )]} or a template closing >.
   bool closesScope() const {
+    if (is(TT_TemplateString) && TokenText.startswith("}"))
+      return true;
     return isOneOf(tok::r_paren, tok::r_brace, tok::r_square,
                    TT_TemplateCloser);
   }
@@ -394,6 +406,21 @@ struct FormatToken {
     default:
       return false;
     }
+  }
+
+  /// \brief Returns \c true if this is a string literal that's like a label,
+  /// e.g. ends with "=" or ":".
+  bool isLabelString() const {
+    if (!is(tok::string_literal))
+      return false;
+    StringRef Content = TokenText;
+    if (Content.startswith("\"") || Content.startswith("'"))
+      Content = Content.drop_front(1);
+    if (Content.endswith("\"") || Content.endswith("'"))
+      Content = Content.drop_back(1);
+    Content = Content.trim();
+    return Content.size() > 1 &&
+           (Content.back() == ':' || Content.back() == '=');
   }
 
   /// \brief Returns actual token start location without leading escaped
@@ -603,6 +630,8 @@ struct AdditionalKeywords {
     kw_synchronized = &IdentTable.get("synchronized");
     kw_throws = &IdentTable.get("throws");
     kw___except = &IdentTable.get("__except");
+    kw___has_include = &IdentTable.get("__has_include");
+    kw___has_include_next = &IdentTable.get("__has_include_next");
 
     kw_mark = &IdentTable.get("mark");
 
@@ -629,6 +658,8 @@ struct AdditionalKeywords {
   IdentifierInfo *kw_NS_ENUM;
   IdentifierInfo *kw_NS_OPTIONS;
   IdentifierInfo *kw___except;
+  IdentifierInfo *kw___has_include;
+  IdentifierInfo *kw___has_include_next;
 
   // JavaScript keywords.
   IdentifierInfo *kw_as;

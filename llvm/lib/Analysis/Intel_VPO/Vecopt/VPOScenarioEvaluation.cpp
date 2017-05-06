@@ -208,6 +208,8 @@ void VPOScenarioEvaluationBase::findVFCandidates(
     MaxVF = ForceVF;
   }
 
+  assert(MinVF && MaxVF && "Unexpected zero min/max VF");
+
   for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
     VFCandidates.push_back(VF);
   }
@@ -879,7 +881,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     // FIXME: There has to be some interface to get the basic type of a
     // recursive SequentialType. Example: 'pointer to multidimensional array of
     // floats' would return 'float'
-    Type *DataTy = PtrType->getSequentialElementType();
+    Type *DataTy = PtrType->getPointerElementType();
     while (isa<SequentialType>(DataTy))
       DataTy = DataTy->getSequentialElementType();
 
@@ -951,7 +953,6 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     bool GapInElemSize = false; // FIXME
     if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
       DEBUG(errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
-      bool IsComplexComputation = isLikelyComplexAddressComputation(Op);
       Cost = 0;
       // The cost of extracting from the value vector and pointer vector.
       Type *PtrsVecTy = ToVectorTy(PtrType, VF);
@@ -967,8 +968,9 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       }
 
       // The cost of the scalar loads/stores.
+      // TODO - see if we need to account for complex address computation.
       Cost +=
-          VF * TTI.getAddressComputationCost(PtrsVecTy, IsComplexComputation);
+          VF * TTI.getAddressComputationCost(PtrsVecTy);
       Cost += VF *
               TTI.getMemoryOpCost(Expr->getOperation(), ValTy->getScalarType(),
                                   Alignment, AS);

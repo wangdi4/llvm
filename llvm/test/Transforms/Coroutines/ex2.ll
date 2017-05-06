@@ -1,9 +1,5 @@
 ; Second example from Doc/Coroutines.rst (custom alloc and free functions)
 ; RUN: opt < %s -O2 -enable-coroutines -S | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 define i8* @f(i32 %n) {
 entry:

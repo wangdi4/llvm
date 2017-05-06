@@ -12,10 +12,10 @@
 
 // Project includes
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/UUID.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Target/PathMappingList.h"
+#include "lldb/Utility/Stream.h"
 
 // Other libraries and framework includes
 #include "llvm/Support/Chrono.h"
@@ -240,7 +240,7 @@ public:
     if (m_object_mod_time != llvm::sys::TimePoint<>()) {
       if (dumped_something)
         strm.PutCString(", ");
-      strm.Printf("object_mod_time = 0x%" PRIx64,
+      strm.Format("object_mod_time = {0:x+}",
                   uint64_t(llvm::sys::toTimeT(m_object_mod_time)));
     }
   }

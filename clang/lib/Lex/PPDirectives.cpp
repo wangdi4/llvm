@@ -1866,10 +1866,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     // unavailable, diagnose the situation and bail out.
     // FIXME: Remove this; loadModule does the same check (but produces
     // slightly worse diagnostics).
-    if (!SuggestedModule.getModule()->isAvailable() &&
-        !SuggestedModule.getModule()
-             ->getTopLevelModule()
-             ->HasIncompatibleModuleFile) {
+    if (!SuggestedModule.getModule()->isAvailable()) {
       Module::Requirement Requirement;
       Module::UnresolvedHeaderDirective MissingHeader;
       Module *M = SuggestedModule.getModule();
@@ -1918,9 +1915,12 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     else if (Imported.isMissingExpected()) {
       // We failed to find a submodule that we assumed would exist (because it
       // was in the directory of an umbrella header, for instance), but no
-      // actual module exists for it (because the umbrella header is
+      // actual module containing it exists (because the umbrella header is
       // incomplete).  Treat this as a textual inclusion.
       SuggestedModule = ModuleMap::KnownHeader();
+    } else if (Imported.isConfigMismatch()) {
+      // On a configuration mismatch, enter the header textually. We still know
+      // that it's part of the corresponding module.
     } else {
       // We hit an error processing the import. Bail out.
       if (hadModuleLoaderFatalFailure()) {
@@ -1983,23 +1983,25 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
           Path.size() <= Filename.size() ? Filename[Path.size()-1] :
             (isAngled ? '>' : '"'));
       }
-      auto Replacement = Path.str().str();
       // For user files and known standard headers, by default we issue a diagnostic.
       // For other system headers, we don't. They can be controlled separately.
       auto DiagId = (FileCharacter == SrcMgr::C_User || warnByDefaultOnWrongCase(Name)) ?
           diag::pp_nonportable_path : diag::pp_nonportable_system_path;
       SourceRange Range(FilenameTok.getLocation(), CharEnd);
-      Diag(FilenameTok, DiagId) << Replacement <<
-        FixItHint::CreateReplacement(Range, Replacement);
+      Diag(FilenameTok, DiagId) << Path <<
+        FixItHint::CreateReplacement(Range, Path);
     }
   }
 
   // Ask HeaderInfo if we should enter this #include file.  If not, #including
   // this file will have no effect.
+  bool SkipHeader = false;
   if (ShouldEnter &&
       !HeaderInfo.ShouldEnterIncludeFile(*this, File, isImport,
+                                         getLangOpts().Modules,
                                          SuggestedModule.getModule())) {
     ShouldEnter = false;
+    SkipHeader = true;
     if (Callbacks)
       Callbacks->FileSkipped(*File, FilenameTok, FileCharacter);
   }
@@ -2008,6 +2010,14 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   if (!ShouldEnter) {
     // If this is a module import, make it visible if needed.
     if (auto *M = SuggestedModule.getModule()) {
+      // When building a pch, -fmodule-name tells the compiler to textually
+      // include headers in the specified module. But it is possible that
+      // ShouldEnter is false because we are skipping the header. In that
+      // case, We are not importing the specified module.
+      if (SkipHeader && getLangOpts().CompilingPCH &&
+          M->getTopLevelModuleName() == getLangOpts().CurrentModule)
+        return;
+
       makeModuleVisible(M, HashLoc);
 
       if (IncludeTok.getIdentifierInfo()->getPPKeywordID() !=
@@ -2032,6 +2042,13 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
 
   // Determine if we're switching to building a new submodule, and which one.
   if (auto *M = SuggestedModule.getModule()) {
+    // When building a pch, -fmodule-name tells the compiler to textually
+    // include headers in the specified module. We are not building the
+    // specified module.
+    if (getLangOpts().CompilingPCH &&
+        M->getTopLevelModuleName() == getLangOpts().CurrentModule)
+      return;
+
     assert(!CurSubmodule && "should not have marked this as a module yet");
     CurSubmodule = M;
 

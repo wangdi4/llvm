@@ -35,6 +35,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/InitializePasses.h"
+#include "llvm/LTO/LTO.h"
 #include "llvm/LTO/legacy/LTOModule.h"
 #include "llvm/LTO/legacy/UpdateCompilerUsed.h"
 #include "llvm/Linker/Linker.h"
@@ -91,12 +92,17 @@ cl::opt<bool> LTOStripInvalidDebugInfo(
     cl::init(false),
 #endif
     cl::Hidden);
-}
 
-static cl::opt<std::string>
-    RemarksFilename("pass-remarks-output",
-                    cl::desc("Output filename for pass remarks"),
-                    cl::value_desc("filename"));
+cl::opt<std::string>
+    LTORemarksFilename("lto-pass-remarks-output",
+                       cl::desc("Output filename for pass remarks"),
+                       cl::value_desc("filename"));
+
+cl::opt<bool> LTOPassRemarksWithHotness(
+    "lto-pass-remarks-with-hotness",
+    cl::desc("With PGO, include profile count in optimization remarks"),
+    cl::Hidden);
+}
 
 LTOCodeGenerator::LTOCodeGenerator(LLVMContext &Context)
     : Context(Context), MergedModule(new Module("ld-temp.o", Context)),
@@ -504,21 +510,6 @@ void LTOCodeGenerator::verifyMergedModuleOnce() {
     report_fatal_error("Broken module found, compilation aborted!");
 }
 
-bool LTOCodeGenerator::setupOptimizationRemarks() {
-  if (RemarksFilename != "") {
-    std::error_code EC;
-    DiagnosticOutputFile = llvm::make_unique<tool_output_file>(
-        RemarksFilename, EC, sys::fs::F_None);
-    if (EC) {
-      emitError(EC.message());
-      return false;
-    }
-    Context.setDiagnosticsOutputFile(
-        new yaml::Output(DiagnosticOutputFile->os()));
-  }
-  return true;
-}
-
 void LTOCodeGenerator::finishOptimizationRemarks() {
   if (DiagnosticOutputFile) {
     DiagnosticOutputFile->keep();
@@ -534,8 +525,13 @@ bool LTOCodeGenerator::optimize(bool DisableVerify, bool DisableInline,
   if (!this->determineTarget())
     return false;
 
-  if (!setupOptimizationRemarks())
-    return false;
+  auto DiagFileOrErr = lto::setupOptimizationRemarks(
+      Context, LTORemarksFilename, LTOPassRemarksWithHotness);
+  if (!DiagFileOrErr) {
+    errs() << "Error: " << toString(DiagFileOrErr.takeError()) << "\n";
+    report_fatal_error("Can't get an output file for the remarks");
+  }
+  DiagnosticOutputFile = std::move(*DiagFileOrErr);
 
   // We always run the verifier once on the merged module, the `DisableVerify`
   // parameter only applies to subsequent verify.
@@ -569,8 +565,6 @@ bool LTOCodeGenerator::optimize(bool DisableVerify, bool DisableInline,
 
   // Run our queue of passes all at once now, efficiently.
   passes.run(*MergedModule);
-
-  finishOptimizationRemarks();
 
   return true;
 }
@@ -606,6 +600,8 @@ bool LTOCodeGenerator::compileOptimized(ArrayRef<raw_pwrite_stream *> Out) {
   // If statistics were requested, print them out after codegen.
   if (llvm::AreStatisticsEnabled())
     llvm::PrintStatistics();
+
+  finishOptimizationRemarks();
 
   return true;
 }

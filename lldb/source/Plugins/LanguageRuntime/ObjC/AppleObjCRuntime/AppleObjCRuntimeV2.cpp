@@ -24,16 +24,12 @@
 #include "lldb/lldb-enumerations.h"
 
 #include "lldb/Core/ClangForward.h"
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/Expression/DiagnosticManager.h"
@@ -55,6 +51,10 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "AppleObjCClassDescriptorV2.h"
 #include "AppleObjCDeclVendor.h"
@@ -66,7 +66,7 @@ using namespace lldb;
 using namespace lldb_private;
 
 // 2 second timeout when running utility functions
-#define UTILITY_FUNCTION_TIMEOUT_USEC 2 * 1000 * 1000
+static constexpr std::chrono::seconds g_utility_function_timeout(2);
 
 static const char *g_get_dynamic_class_info_name =
     "__lldb_apple_objc_v2_get_dynamic_class_info";
@@ -895,6 +895,7 @@ UtilityFunction *AppleObjCRuntimeV2::CreateObjectChecker(const char *name) {
   }
 
   assert(len < (int)sizeof(check_function_code));
+  UNUSED_IF_ASSERT_DISABLED(len);
 
   Error error;
   return GetTargetRef().GetUtilityFunctionForLanguage(
@@ -1411,7 +1412,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapDynamic(
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);
@@ -1656,7 +1657,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapSharedCache() {
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);

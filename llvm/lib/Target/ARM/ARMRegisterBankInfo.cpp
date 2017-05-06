@@ -12,10 +12,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMRegisterBankInfo.h"
+#include "ARMInstrInfo.h" // For the register classes
 #include "llvm/CodeGen/GlobalISel/RegisterBank.h"
 #include "llvm/CodeGen/GlobalISel/RegisterBankInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Target/TargetRegisterInfo.h"
+
+#define GET_TARGET_REGBANK_IMPL
+#include "ARMGenRegisterBank.inc"
 
 using namespace llvm;
 
@@ -23,5 +27,109 @@ using namespace llvm;
 #error "You shouldn't build this"
 #endif
 
+// FIXME: TableGen this.
+// If it grows too much and TableGen still isn't ready to do the job, extract it
+// into an ARMGenRegisterBankInfo.def (similar to AArch64).
+namespace llvm {
+namespace ARM {
+RegisterBankInfo::PartialMapping GPRPartialMapping{0, 32, GPRRegBank};
+RegisterBankInfo::PartialMapping FPRPartialMapping{0, 32, FPRRegBank};
+
+RegisterBankInfo::ValueMapping ValueMappings[] = {
+    {&GPRPartialMapping, 1}, {&GPRPartialMapping, 1}, {&GPRPartialMapping, 1},
+    {&FPRPartialMapping, 1}, {&FPRPartialMapping, 1}, {&FPRPartialMapping, 1}};
+} // end namespace arm
+} // end namespace llvm
+
 ARMRegisterBankInfo::ARMRegisterBankInfo(const TargetRegisterInfo &TRI)
-    : RegisterBankInfo(nullptr, 0) {}
+    : ARMGenRegisterBankInfo() {
+  static bool AlreadyInit = false;
+  // We have only one set of register banks, whatever the subtarget
+  // is. Therefore, the initialization of the RegBanks table should be
+  // done only once. Indeed the table of all register banks
+  // (ARM::RegBanks) is unique in the compiler. At some point, it
+  // will get tablegen'ed and the whole constructor becomes empty.
+  if (AlreadyInit)
+    return;
+  AlreadyInit = true;
+
+  const RegisterBank &RBGPR = getRegBank(ARM::GPRRegBankID);
+  (void)RBGPR;
+  assert(&ARM::GPRRegBank == &RBGPR && "The order in RegBanks is messed up");
+
+  // Initialize the GPR bank.
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::GPRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::GPRwithAPSRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::GPRnopcRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::rGPRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::tGPRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::tcGPRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.covers(*TRI.getRegClass(ARM::tGPR_and_tcGPRRegClassID)) &&
+         "Subclass not added?");
+  assert(RBGPR.getSize() == 32 && "GPRs should hold up to 32-bit");
+}
+
+const RegisterBank &ARMRegisterBankInfo::getRegBankFromRegClass(
+    const TargetRegisterClass &RC) const {
+  using namespace ARM;
+
+  switch (RC.getID()) {
+  case GPRRegClassID:
+  case GPRnopcRegClassID:
+  case tGPR_and_tcGPRRegClassID:
+    return getRegBank(ARM::GPRRegBankID);
+  case SPR_8RegClassID:
+  case SPRRegClassID:
+    return getRegBank(ARM::FPRRegBankID);
+  default:
+    llvm_unreachable("Unsupported register kind");
+  }
+
+  llvm_unreachable("Switch should handle all register classes");
+}
+
+RegisterBankInfo::InstructionMapping
+ARMRegisterBankInfo::getInstrMapping(const MachineInstr &MI) const {
+  auto Opc = MI.getOpcode();
+
+  // Try the default logic for non-generic instructions that are either copies
+  // or already have some operands assigned to banks.
+  if (!isPreISelGenericOpcode(Opc)) {
+    InstructionMapping Mapping = getInstrMappingImpl(MI);
+    if (Mapping.isValid())
+      return Mapping;
+  }
+
+  using namespace TargetOpcode;
+
+  unsigned NumOperands = MI.getNumOperands();
+  const ValueMapping *OperandsMapping = &ARM::ValueMappings[0];
+
+  switch (Opc) {
+  case G_ADD:
+  case G_LOAD:
+  case G_SEXT:
+  case G_ZEXT:
+    // FIXME: We're abusing the fact that everything lives in a GPR for now; in
+    // the real world we would use different mappings.
+    OperandsMapping = &ARM::ValueMappings[0];
+    break;
+  case G_FADD:
+    OperandsMapping = &ARM::ValueMappings[3];
+    break;
+  case G_FRAME_INDEX:
+    OperandsMapping = getOperandsMapping({&ARM::ValueMappings[0], nullptr});
+    break;
+  default:
+    return InstructionMapping{};
+  }
+
+  return InstructionMapping{DefaultMappingID, /*Cost=*/1, OperandsMapping,
+                            NumOperands};
+}

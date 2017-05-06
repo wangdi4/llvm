@@ -50,8 +50,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
-#include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -80,7 +78,6 @@ public:
   StringRef getPassName() const override { return "TBAAPROP"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<CallGraphWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 
@@ -91,7 +88,6 @@ private:
 char TbaaMDPropagation::ID = 0;
 INITIALIZE_PASS_BEGIN(TbaaMDPropagation, "tbaa-prop",
                       "Propagate the TbaaMD through intrinsic", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(TbaaMDPropagation, "tbaa-prop",
                     "Propagate the TbaaMD through intrinsic", false, false)
 

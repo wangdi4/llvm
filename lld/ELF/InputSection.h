@@ -14,6 +14,7 @@
 #include "Relocations.h"
 #include "Thunks.h"
 #include "lld/Core/LLVM.h"
+#include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Object/ELF.h"
@@ -26,8 +27,8 @@ class DefinedCommon;
 class SymbolBody;
 struct SectionPiece;
 
-template <class ELFT> class ICF;
 template <class ELFT> class DefinedRegular;
+template <class ELFT> class MergeSyntheticSection;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class OutputSection;
 class OutputSectionBase;
@@ -45,9 +46,9 @@ public:
   // The garbage collector sets sections' Live bits.
   // If GC is disabled, all sections are considered live by default.
   InputSectionData(Kind SectionKind, StringRef Name, ArrayRef<uint8_t> Data,
-                   bool Compressed, bool Live)
-      : SectionKind(SectionKind), Live(Live), Compressed(Compressed),
-        Name(Name), Data(Data) {}
+                   bool Live)
+      : SectionKind(SectionKind), Live(Live), Assigned(false), Name(Name),
+        Data(Data) {}
 
 private:
   unsigned SectionKind : 3;
@@ -55,8 +56,8 @@ private:
 public:
   Kind kind() const { return (Kind)SectionKind; }
 
-  unsigned Live : 1; // for garbage collection
-  unsigned Compressed : 1;
+  unsigned Live : 1;       // for garbage collection
+  unsigned Assigned : 1;   // for linker script
   uint32_t Alignment;
   StringRef Name;
   ArrayRef<uint8_t> Data;
@@ -93,8 +94,7 @@ public:
   uint32_t Info;
 
   InputSectionBase()
-      : InputSectionData(Regular, "", ArrayRef<uint8_t>(), false, false),
-        Repl(this) {
+      : InputSectionData(Regular, "", ArrayRef<uint8_t>(), false), Repl(this) {
     NumRelocations = 0;
     AreRelocsRela = false;
   }
@@ -131,6 +131,8 @@ public:
   // Returns the size of this section (even if this is a common or BSS.)
   size_t getSize() const;
 
+  OutputSectionBase *getOutputSection() const;
+
   ObjectFile<ELFT> *getFile() const { return File; }
   llvm::object::ELFFile<ELFT> getObj() const { return File->getObj(); }
   uintX_t getOffset(const DefinedRegular<ELFT> &Sym) const;
@@ -141,14 +143,10 @@ public:
 
   void uncompress();
 
+  // Returns a source location string. Used to construct an error message.
+  std::string getLocation(uintX_t Offset);
+
   void relocate(uint8_t *Buf, uint8_t *BufEnd);
-
-private:
-  std::pair<ArrayRef<uint8_t>, uint64_t>
-  getElfCompressedData(ArrayRef<uint8_t> Data);
-
-  std::pair<ArrayRef<uint8_t>, uint64_t>
-  getRawCompressedData(ArrayRef<uint8_t> Data);
 };
 
 // SectionPiece represents a piece of splittable section contents.
@@ -191,15 +189,34 @@ public:
   // Splittable sections are handled as a sequence of data
   // rather than a single large blob of data.
   std::vector<SectionPiece> Pieces;
-  llvm::CachedHashStringRef getData(size_t Idx) const;
+
+  // Returns I'th piece's data. This function is very hot when
+  // string merging is enabled, so we want to inline.
+  LLVM_ATTRIBUTE_ALWAYS_INLINE
+  llvm::CachedHashStringRef getData(size_t I) const {
+    size_t Begin = Pieces[I].InputOff;
+    size_t End;
+    if (Pieces.size() - 1 == I)
+      End = this->Data.size();
+    else
+      End = Pieces[I + 1].InputOff;
+
+    StringRef S = {(const char *)(this->Data.data() + Begin), End - Begin};
+    return {S, Hashes[I]};
+  }
 
   // Returns the SectionPiece at a given input section offset.
   SectionPiece *getSectionPiece(uintX_t Offset);
   const SectionPiece *getSectionPiece(uintX_t Offset) const;
 
+  // MergeInputSections are aggregated to a synthetic input sections,
+  // and then added to an OutputSection. This pointer points to a
+  // synthetic MergeSyntheticSection which this section belongs to.
+  MergeSyntheticSection<ELFT> *MergeSec = nullptr;
+
 private:
-  std::vector<SectionPiece> splitStrings(ArrayRef<uint8_t> A, size_t Size);
-  std::vector<SectionPiece> splitNonStrings(ArrayRef<uint8_t> A, size_t Size);
+  void splitStrings(ArrayRef<uint8_t> A, size_t Size);
+  void splitNonStrings(ArrayRef<uint8_t> A, size_t Size);
 
   std::vector<uint32_t> Hashes;
 
@@ -210,14 +227,15 @@ private:
 };
 
 struct EhSectionPiece : public SectionPiece {
-  EhSectionPiece(size_t Off, ArrayRef<uint8_t> Data, unsigned FirstRelocation)
-      : SectionPiece(Off, false), Data(Data.data()), Size(Data.size()),
+  EhSectionPiece(size_t Off, InputSectionData *ID, uint32_t Size,
+                 unsigned FirstRelocation)
+      : SectionPiece(Off, false), ID(ID), Size(Size),
         FirstRelocation(FirstRelocation) {}
-  const uint8_t *Data;
+  InputSectionData *ID;
   uint32_t Size;
   uint32_t size() const { return Size; }
 
-  ArrayRef<uint8_t> data() { return {Data, Size}; }
+  ArrayRef<uint8_t> data() { return {ID->Data.data() + this->InputOff, Size}; }
   unsigned FirstRelocation;
 };
 
@@ -238,7 +256,6 @@ public:
 
 // This corresponds to a non SHF_MERGE section of an input file.
 template <class ELFT> class InputSection : public InputSectionBase<ELFT> {
-  friend ICF<ELFT>;
   typedef InputSectionBase<ELFT> Base;
   typedef typename ELFT::Shdr Elf_Shdr;
   typedef typename ELFT::Rela Elf_Rela;
@@ -271,36 +288,24 @@ public:
 
   InputSectionBase<ELFT> *getRelocatedSection();
 
-  // Register thunk related to the symbol. When the section is written
-  // to a mmap'ed file, target is requested to write an actual thunk code.
-  // Now thunks is supported for MIPS and ARM target only.
-  void addThunk(const Thunk<ELFT> *T);
-
-  // The offset of synthetic thunk code from beginning of this section.
-  uint64_t getThunkOff() const;
-
-  // Size of chunk with thunks code.
-  uint64_t getThunksSize() const;
-
   template <class RelTy>
   void relocateNonAlloc(uint8_t *Buf, llvm::ArrayRef<RelTy> Rels);
 
-private:
-  template <class RelTy>
-  void copyRelocations(uint8_t *Buf, llvm::ArrayRef<RelTy> Rels);
+  // Used by ICF.
+  uint32_t Class[2] = {0, 0};
 
   // Called by ICF to merge two input sections.
   void replace(InputSection<ELFT> *Other);
 
-  // Used by ICF.
-  uint64_t GroupId = 0;
-
-  llvm::TinyPtrVector<const Thunk<ELFT> *> Thunks;
+private:
+  template <class RelTy>
+  void copyRelocations(uint8_t *Buf, llvm::ArrayRef<RelTy> Rels);
 };
 
 template <class ELFT> InputSection<ELFT> InputSection<ELFT>::Discarded;
-
 } // namespace elf
+
+template <class ELFT> std::string toString(const elf::InputSectionBase<ELFT> *);
 } // namespace lld
 
 #endif

@@ -1,6 +1,7 @@
 ; INTEL We need to pass -inlineoptsize-threshold=75 explicitly now in this
 ; INTEL test, because we have changed the default value in xmain.  
 ; RUN: opt -S -inline -inlineoptsize-threshold=75 < %s | FileCheck %s
+; RUN: opt -S -passes='cgscc(inline)' < %s | FileCheck %s
 ; Make sure that soft float implementations are calculated as being more expensive
 ; to the inliner.
 
@@ -134,5 +135,5 @@ declare float @fabsf(float) optsize minsize
 
 declare float @llvm.pow.f32(float, float) optsize minsize
 
-attributes #0 = { minsize optsize }
-attributes #1 = { minsize optsize "use-soft-float"="true" }
+attributes #0 = { optsize }
+attributes #1 = { optsize "use-soft-float"="true" }

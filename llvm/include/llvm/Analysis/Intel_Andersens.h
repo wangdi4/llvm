@@ -448,20 +448,14 @@ private:
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.
-class AndersensAA {
+class AndersensAA : public AnalysisInfoMixin<AndersensAA> {
+  friend AnalysisInfoMixin<AndersensAA>;
+  static AnalysisKey Key;
+
 public:
   typedef AndersensAAResult Result;
 
-  /// \brief Opaque, unique identifier for this analysis pass.
-  static void *ID() { return (void *)&PassID; }
-
   AndersensAAResult run(Module &M, AnalysisManager<Module> *AM);
-
-  /// \brief Provide access to a name for this pass for debugging purposes.
-  static StringRef name() { return "AndersensAA"; }
-
-private:
-  static char PassID;
 };
 
 /// Legacy wrapper pass to provide the AndersensAAResult object.

@@ -314,7 +314,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   DDRef::print(OS, Detailed);
 }
 
-SequentialType *RegDDRef::getDimensionType(unsigned DimensionNum) const {
+Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
   assert(hasGEPInfo() && "Call is only meaningful for GEP DDRefs!");
 
@@ -322,7 +322,8 @@ SequentialType *RegDDRef::getDimensionType(unsigned DimensionNum) const {
   Type *RetTy = getBaseCE()->getSrcType();
 
   for (unsigned I = NumDims; I > DimensionNum; --I) {
-    RetTy = RetTy->getSequentialElementType();
+    RetTy = (I == NumDims) ? RetTy->getPointerElementType()
+                           : RetTy->getArrayElementType();
 
     if (RetTy->isStructTy()) {
       auto Offsets = getTrailingStructOffsets(I);
@@ -332,7 +333,7 @@ SequentialType *RegDDRef::getDimensionType(unsigned DimensionNum) const {
 
   assert((RetTy->isArrayTy() || RetTy->isPointerTy()) &&
          "Dimension type should be either a pointer or an array type!");
-  return cast<SequentialType>(RetTy);
+  return RetTy;
 }
 
 Type *RegDDRef::getTypeImpl(bool IsSrc) const {
@@ -348,7 +349,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // destination type.
     if (!IsSrc && (BaseSrcTy != BaseDestTy)) {
       return isAddressOf() ? BaseDestTy
-                           : BaseDestTy->getSequentialElementType();
+                           : BaseDestTy->getPointerElementType();
     }
 
     // Extract the type from the first dimension/offsets.
@@ -378,11 +379,11 @@ bool RegDDRef::accessesStruct() const {
     return false;
   }
 
-  auto BaseTy = getBaseSrcType();
+  auto BaseTy = getBaseSrcType()->getPointerElementType();
 
-  do {
-    BaseTy = BaseTy->getSequentialElementType();
-  } while (isa<SequentialType>(BaseTy));
+  while (isa<ArrayType>(BaseTy)) {
+    BaseTy = BaseTy->getArrayElementType();
+  };
 
   return BaseTy->isStructTy();
 }
@@ -598,7 +599,7 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
-  auto DimElemType = getDimensionType(DimensionNum)->getElementType();
+  auto DimElemType = getDimensionElementType(DimensionNum);
   uint64_t Stride = getCanonExprUtils().getTypeSizeInBits(DimElemType) / 8;
 
   return Stride;

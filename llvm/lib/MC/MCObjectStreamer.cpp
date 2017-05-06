@@ -153,8 +153,8 @@ void MCObjectStreamer::EmitCFIEndProcImpl(MCDwarfFrameInfo &Frame) {
   EmitLabel(Frame.End);
 }
 
-void MCObjectStreamer::EmitLabel(MCSymbol *Symbol) {
-  MCStreamer::EmitLabel(Symbol);
+void MCObjectStreamer::EmitLabel(MCSymbol *Symbol, SMLoc Loc) {
+  MCStreamer::EmitLabel(Symbol, Loc);
 
   getAssembler().registerSymbol(*Symbol);
 
@@ -440,8 +440,9 @@ void MCObjectStreamer::EmitCodeAlignment(unsigned ByteAlignment,
 }
 
 void MCObjectStreamer::emitValueToOffset(const MCExpr *Offset,
-                                         unsigned char Value) {
-  insert(new MCOrgFragment(*Offset, Value));
+                                         unsigned char Value,
+                                         SMLoc Loc) {
+  insert(new MCOrgFragment(*Offset, Value, Loc));
 }
 
 // Associate DTPRel32 fixup with data and resize data area

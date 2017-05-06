@@ -41,6 +41,7 @@ LegalizerInfo::LegalizerInfo() : TablesInitialized(false) {
   DefaultActions[TargetOpcode::G_STORE] = NarrowScalar;
 
   DefaultActions[TargetOpcode::G_BRCOND] = WidenScalar;
+  DefaultActions[TargetOpcode::G_INSERT] = NarrowScalar;
 }
 
 void LegalizerInfo::computeTables() {
@@ -71,6 +72,11 @@ LegalizerInfo::getAction(const InstrAspect &Aspect) const {
   // These *have* to be implemented for now, they're the fundamental basis of
   // how everything else is transformed.
 
+  // Nothing is going to go well with types that aren't a power of 2 yet, so
+  // don't even try because we might make things worse.
+  if (!isPowerOf2_64(Aspect.Type.getSizeInBits()))
+      return std::make_pair(Unsupported, LLT());
+
   // FIXME: the long-term plan calls for expansion in terms of load/store (if
   // they're not legal).
   if (Aspect.Opcode == TargetOpcode::G_SEQUENCE ||
@@ -88,7 +94,9 @@ LegalizerInfo::getAction(const InstrAspect &Aspect) const {
     if (DefaultAction != DefaultActions.end() && DefaultAction->second == Legal)
       return std::make_pair(Legal, Ty);
 
-    assert(DefaultAction->second == NarrowScalar && "unexpected default");
+    if (DefaultAction == DefaultActions.end() ||
+        DefaultAction->second != NarrowScalar)
+      return std::make_pair(Unsupported, LLT());
     return findLegalAction(Aspect, NarrowScalar);
   }
 

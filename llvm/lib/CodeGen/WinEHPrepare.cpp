@@ -521,7 +521,7 @@ void llvm::calculateClrEHStateNumbers(const Function *Fn,
 
     if (const auto *Cleanup = dyn_cast<CleanupPadInst>(Pad)) {
       // Create the entry for this cleanup with the appropriate handler
-      // properties.  Finaly and fault handlers are distinguished by arity.
+      // properties.  Finally and fault handlers are distinguished by arity.
       ClrHandlerType HandlerType =
           (Cleanup->getNumArgOperands() ? ClrHandlerType::Fault
                                         : ClrHandlerType::Finally);
@@ -708,7 +708,7 @@ void WinEHPrepare::demotePHIsOnFunclets(Function &F) {
 
 void WinEHPrepare::cloneCommonBlocks(Function &F) {
   // We need to clone all blocks which belong to multiple funclets.  Values are
-  // remapped throughout the funclet to propogate both the new instructions
+  // remapped throughout the funclet to propagate both the new instructions
   // *and* the new basic blocks themselves.
   for (auto &Funclets : FuncletBlocks) {
     BasicBlock *FuncletPadBB = Funclets.first;
@@ -1201,11 +1201,6 @@ void WinEHPrepare::replaceUseWithLoad(Value *V, Use &U, AllocaInst *&SpillSlot,
       NewBlock->getInstList().push_back(Goto);
       Goto->setSuccessor(0, PHIBlock);
       CatchRet->setSuccessor(NewBlock);
-#if INTEL_CUSTOMIZATION
-      // This cherry picks a fix from the LLVM public repository.  This
-      // customization can be deleted and any new chages accepted if there are
-      // conflicts.
-
       // Update the color mapping for the newly split edge.
       // Grab a reference to the ColorVector to be inserted before getting the
       // reference to the vector we are copying because inserting the new
@@ -1213,12 +1208,6 @@ void WinEHPrepare::replaceUseWithLoad(Value *V, Use &U, AllocaInst *&SpillSlot,
       ColorVector &ColorsForNewBlock = BlockColors[NewBlock];
       ColorVector &ColorsForPHIBlock = BlockColors[PHIBlock];
       ColorsForNewBlock = ColorsForPHIBlock;
-#else // !INTEL_CUSTOMIZATION
-      // This is the code from xmain before the cherry pick.  It can be deleted.
-      // Update the color mapping for the newly split edge.
-      ColorVector &ColorsForPHIBlock = BlockColors[PHIBlock];
-      BlockColors[NewBlock] = ColorsForPHIBlock;
-#endif // !INTEL_CUSTOMIZATION
       for (BasicBlock *FuncletPad : ColorsForPHIBlock)
         FuncletBlocks[FuncletPad].push_back(NewBlock);
       // Treat the new block as incoming for load insertion.

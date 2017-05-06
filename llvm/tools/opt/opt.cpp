@@ -99,6 +99,10 @@ static cl::opt<bool>
 OutputAssembly("S", cl::desc("Write output as LLVM assembly"));
 
 static cl::opt<bool>
+    OutputThinLTOBC("thinlto-bc",
+                    cl::desc("Write output as ThinLTO-ready bitcode"));
+
+static cl::opt<bool>
 NoVerify("disable-verify", cl::desc("Do not run the verifier"), cl::Hidden);
 
 static cl::opt<bool>
@@ -283,13 +287,8 @@ static void AddOptimizationPasses(legacy::PassManagerBase &MPM,
   Builder.SLPVectorize =
       DisableSLPVectorization ? false : OptLevel > 1 && SizeLevel < 2;
 
-  // Add target-specific passes that need to run as early as possible.
   if (TM)
-    Builder.addExtension(
-        PassManagerBuilder::EP_EarlyAsPossible,
-        [&](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
-          TM->addEarlyAsPossiblePasses(PM);
-        });
+    TM->adjustPassManager(Builder);
 
   if (Coroutines)
     addCoroutinePassesToExtensionPoints(Builder);
@@ -433,7 +432,8 @@ int main(int argc, char **argv) {
       errs() << EC.message() << '\n';
       return 1;
     }
-    Context.setDiagnosticsOutputFile(new yaml::Output(YamlFile->os()));
+    Context.setDiagnosticsOutputFile(
+        llvm::make_unique<yaml::Output>(YamlFile->os()));
   }
 
   // Load the input module...
@@ -712,7 +712,9 @@ int main(int argc, char **argv) {
       if (EmitModuleHash)
         report_fatal_error("Text output is incompatible with -module-hash");
       Passes.add(createPrintModulePass(*OS, "", PreserveAssemblyUseListOrder));
-    } else
+    } else if (OutputThinLTOBC)
+      Passes.add(createWriteThinLTOBitcodePass(*OS));
+    else
       Passes.add(createBitcodeWriterPass(*OS, PreserveBitcodeUseListOrder,
                                          EmitSummaryIndex, EmitModuleHash));
   }

@@ -99,6 +99,8 @@ def FeatureSlowBTMem : SubtargetFeature<"slow-bt-mem", "IsBTMemSlow", "true",
                                        "Bit testing of memory is slow">;
 def FeatureSlowSHLD : SubtargetFeature<"slow-shld", "IsSHLDSlow", "true",
                                        "SHLD instruction is slow">;
+def FeatureSlowPMULLD : SubtargetFeature<"slow-pmulld", "IsPMULLDSlow", "true",
+                                        "PMULLD instruction is slow">;
 // FIXME: This should not apply to CPUs that do not have SSE.
 def FeatureSlowUAMem16 : SubtargetFeature<"slow-unaligned-mem-16",
                                 "IsUAMem16Slow", "true",
@@ -185,8 +187,6 @@ def FeatureBMI2    : SubtargetFeature<"bmi2", "HasBMI2", "true",
                                       "Support BMI2 instructions">;
 def FeatureRTM     : SubtargetFeature<"rtm", "HasRTM", "true",
                                       "Support RTM instructions">;
-def FeatureHLE     : SubtargetFeature<"hle", "HasHLE", "true",
-                                      "Support HLE">;
 def FeatureADX     : SubtargetFeature<"adx", "HasADX", "true",
                                       "Support ADX instructions">;
 def FeatureSHA     : SubtargetFeature<"sha", "HasSHA", "true",
@@ -200,6 +200,8 @@ def FeatureLAHFSAHF : SubtargetFeature<"sahf", "HasLAHFSAHF", "true",
                                        "Support LAHF and SAHF instructions">;
 def FeatureMWAITX  : SubtargetFeature<"mwaitx", "HasMWAITX", "true",
                                       "Enable MONITORX/MWAITX timer functionality">;
+def FeatureCLZERO  : SubtargetFeature<"clzero", "HasCLZERO", "true",
+                                      "Enable Cache Line Zero">;
 def FeatureMPX     : SubtargetFeature<"mpx", "HasMPX", "true",
                                       "Support MPX instructions">;
 def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
@@ -207,24 +209,16 @@ def FeatureLEAForSP : SubtargetFeature<"lea-sp", "UseLeaForSP", "true",
 def FeatureSlowDivide32 : SubtargetFeature<"idivl-to-divb",
                                      "HasSlowDivide32", "true",
                                      "Use 8-bit divide for positive values less than 256">;
-def FeatureSlowDivide64 : SubtargetFeature<"idivq-to-divw",
+def FeatureSlowDivide64 : SubtargetFeature<"idivq-to-divl",
                                      "HasSlowDivide64", "true",
-                                     "Use 16-bit divide for positive values less than 65536">;
+                                     "Use 32-bit divide for positive values less than 2^32">;
 def FeaturePadShortFunctions : SubtargetFeature<"pad-short-functions",
                                      "PadShortFunctions", "true",
                                      "Pad short functions">;
-def FeatureINVPCID : SubtargetFeature<"invpcid", "HasInvPCId", "true",
-                                      "Invalidate Process-Context Identifier">;
-def FeatureVMFUNC  : SubtargetFeature<"vmfunc", "HasVMFUNC", "true",
-                                      "VM Functions">;
-def FeatureSMAP    : SubtargetFeature<"smap", "HasSMAP", "true",
-                                      "Supervisor Mode Access Protection">;
 def FeatureSGX     : SubtargetFeature<"sgx", "HasSGX", "true",
                                       "Enable Software Guard Extensions">;
 def FeatureCLFLUSHOPT : SubtargetFeature<"clflushopt", "HasCLFLUSHOPT", "true",
                                       "Flush A Cache Line Optimized">;
-def FeaturePCOMMIT : SubtargetFeature<"pcommit", "HasPCOMMIT", "true",
-                                      "Enable Persistent Commit">;
 def FeatureCLWB    : SubtargetFeature<"clwb", "HasCLWB", "true",
                                       "Cache Line Write Back">;
 // TODO: This feature ought to be renamed.
@@ -405,6 +399,7 @@ class SilvermontProc<string Name> : ProcessorModel<Name, SLMModel, [
   FeatureSlowLEA,
   FeatureSlowIncDec,
   FeatureSlowBTMem,
+  FeatureSlowPMULLD,
   FeatureLAHFSAHF
 ]>;
 def : SilvermontProc<"silvermont">;
@@ -433,7 +428,6 @@ class GoldmontProc<string Name> : ProcessorModel<Name, SLMModel, [
   FeatureSlowBTMem,
   FeatureLAHFSAHF,
   FeatureMPX,
-  FeatureSMAP,
   FeatureSHA,
   FeatureRDSEED,
   FeatureXSAVE,
@@ -497,6 +491,7 @@ def SNBFeatures : ProcessorFeatures<[], [
   FeatureCMPXCHG16B,
   FeaturePOPCNT,
   FeatureAES,
+  FeatureSlowDivide64,
   FeaturePCLMUL,
   FeatureXSAVE,
   FeatureXSAVEOPT,
@@ -533,10 +528,7 @@ def HSWFeatures : ProcessorFeatures<IVBFeatures.Value, [
   FeatureFMA,
   FeatureLZCNT,
   FeatureMOVBE,
-  FeatureINVPCID,
-  FeatureVMFUNC,
   FeatureRTM,
-  FeatureHLE,
   FeatureSlowIncDec
 ]>;
 
@@ -547,8 +539,7 @@ def : HaswellProc<"core-avx2">; // Legacy alias.
 
 def BDWFeatures : ProcessorFeatures<HSWFeatures.Value, [
   FeatureADX,
-  FeatureRDSEED,
-  FeatureSMAP
+  FeatureRDSEED
 ]>;
 class BroadwellProc<string Name> : ProcModel<Name, HaswellModel,
                                              BDWFeatures.Value, []>;
@@ -593,7 +584,6 @@ def SKXFeatures : ProcessorFeatures<SKLFeatures.Value, [
   FeatureBWI,
   FeatureVLX,
   FeaturePKU,
-  FeaturePCOMMIT,
   FeatureCLWB
 ]>;
 
@@ -796,6 +786,42 @@ def : Proc<"bdver4", [
   FeatureMWAITX
 ]>;
 
+// TODO: The scheduler model falls to BTVER2 model.
+// The znver1 model has to be put in place.
+// Zen
+def: ProcessorModel<"znver1", BtVer2Model, [
+  FeatureADX,
+  FeatureAES,
+  FeatureAVX2,
+  FeatureBMI,
+  FeatureBMI2,
+  FeatureCLFLUSHOPT,
+  FeatureCLZERO,
+  FeatureCMPXCHG16B,
+  FeatureF16C,
+  FeatureFMA,
+  FeatureFSGSBase,
+  FeatureFXSR,
+  FeatureFastLZCNT,
+  FeatureLAHFSAHF,
+  FeatureLZCNT,
+  FeatureMMX,
+  FeatureMOVBE,
+  FeatureMWAITX,
+  FeaturePCLMUL,
+  FeaturePOPCNT,
+  FeaturePRFCHW,
+  FeatureRDRAND,
+  FeatureRDSEED,
+  FeatureSHA,
+  FeatureSSE4A,
+  FeatureSlowSHLD,
+  FeatureX87,
+  FeatureXSAVE,
+  FeatureXSAVEC,
+  FeatureXSAVEOPT,
+  FeatureXSAVES]>;
+
 def : Proc<"geode",           [FeatureX87, FeatureSlowUAMem16, Feature3DNowA]>;
 
 def : Proc<"winchip-c6",      [FeatureX87, FeatureSlowUAMem16, FeatureMMX]>;
@@ -823,6 +849,7 @@ def : ProcessorModel<"x86-64", SandyBridgeModel,
 //===----------------------------------------------------------------------===//
 
 include "X86RegisterInfo.td"
+include "X86RegisterBanks.td"
 
 //===----------------------------------------------------------------------===//
 // Instruction Descriptions

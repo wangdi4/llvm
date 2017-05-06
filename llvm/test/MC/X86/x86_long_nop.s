@@ -3,7 +3,7 @@
 # RUN: llvm-mc -filetype=obj -arch=x86 -triple=x86_64-apple-darwin10.0 %s | llvm-objdump -d -no-show-raw-insn - | FileCheck %s
 # RUN: llvm-mc -filetype=obj -arch=x86 -triple=i686-apple-darwin8 %s | llvm-objdump -d -no-show-raw-insn - | FileCheck %s
 # RUN: llvm-mc -filetype=obj -arch=x86 -triple=i686-pc-linux-gnu -mcpu=slm %s | llvm-objdump -d -no-show-raw-insn - | FileCheck --check-prefix=LNOP7 %s
-# RUN: llvm-mc -filetype=obj -arch=x86 -triple=i686-pc-linux-gnu -mcpu=lakemont %s | llvm-objdump -d -no-show-raw-insn - | FileCheck --check-prefix=NOP1 %s ;INTEL
+# RUN: llvm-mc -filetype=obj -arch=x86 -triple=i686-pc-linux-gnu -mcpu=lakemont %s | llvm-objdump -d -no-show-raw-insn - | FileCheck --check-prefix=NOP1 %s
 
 # Ensure alignment directives also emit sequences of 15-byte NOPs on processors
 # capable of using long NOPs.
@@ -16,8 +16,7 @@ inc %eax
 # CHECK-NEXT: 1f:  nop
 # CHECK-NEXT: 20:  inc
 
-# On Silvermont we emit only 7 byte NOPs since longer NOPs ;INTEL
-# are not profitable.
+# On Silvermont we emit only 7 byte NOPs since longer NOPs are not profitable.
 # LNOP7: 0:  inc
 # LNOP7-NEXT: 1:  nop
 # LNOP7-NEXT: 8:  nop
@@ -26,7 +25,6 @@ inc %eax
 # LNOP7-NEXT: 1d:  nop
 # LNOP7-NEXT: 20:  inc
 
-# INTEL_CUSTOMIZATION	
 # On Lakemont we emit only 1 byte NOPs since longer NOPs are not supported/legal
 # NOP1: 0:  inc
 # NOP1-NEXT: 1:  nop
@@ -46,4 +44,3 @@ inc %eax
 # NOP1-NEXT: 1e:  nop
 # NOP1-NEXT: 1f:  nop
 # NOP1-NEXT: 20:  inc
-# END INTEL_CUSTOMIZATION

@@ -147,7 +147,7 @@ void MapIntrinToIml::splitArgs(
   for (unsigned I = 0; I < Args.size(); I++) {
 
     DEBUG(dbgs() << "Arg Name: ");
-    Args[I]->dump();
+    DEBUG(Args[I]->dump());
     DEBUG(dbgs() << "\n");
     DEBUG(dbgs() << "Arg Type: " << *Args[I]->getType() << "\n");
 

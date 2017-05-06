@@ -817,6 +817,20 @@ public:
   /// anything was changed.
   virtual bool expandPostRAPseudo(MachineInstr &MI) const { return false; }
 
+  /// Check whether the target can fold a load that feeds a subreg operand
+  /// (or a subreg operand that feeds a store).
+  /// For example, X86 may want to return true if it can fold
+  /// movl (%esp), %eax
+  /// subb, %al, ...
+  /// Into:
+  /// subb (%esp), ...
+  ///
+  /// Ideally, we'd like the target implementation of foldMemoryOperand() to
+  /// reject subregs - but since this behavior used to be enforced in the
+  /// target-independent code, moving this responsibility to the targets
+  /// has the potential of causing nasty silent breakage in out-of-tree targets.
+  virtual bool isSubregFoldable() const { return false; }
+
   /// Attempt to fold a load or store of the specified stack
   /// slot into the specified machine instruction for the specified operand(s).
   /// If this is possible, a new instruction is returned with the specified
@@ -1044,21 +1058,16 @@ public:
     return false;
   }
 
-  virtual bool enableClusterLoads() const { return false; }
-
-  virtual bool enableClusterStores() const { return false; }
-
+  /// Returns true if the two given memory operations should be scheduled
+  /// adjacent. Note that you have to add:
+  ///   DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
+  /// or
+  ///   DAG->addMutation(createStoreClusterDAGMutation(DAG->TII, DAG->TRI));
+  /// to TargetPassConfig::createMachineScheduler() to have an effect.
   virtual bool shouldClusterMemOps(MachineInstr &FirstLdSt,
                                    MachineInstr &SecondLdSt,
                                    unsigned NumLoads) const {
-    return false;
-  }
-
-  /// Can this target fuse the given instructions if they are scheduled
-  /// adjacent.
-  virtual bool shouldScheduleAdjacent(MachineInstr &First,
-                                      MachineInstr &Second) const {
-    return false;
+    llvm_unreachable("target did not implement shouldClusterMemOps()");
   }
 
   /// Reverses the branch condition of the specified condition list,
@@ -1089,25 +1098,6 @@ public:
   /// Returns true if the instruction is a
   /// terminator instruction that has not been predicated.
   virtual bool isUnpredicatedTerminator(const MachineInstr &MI) const;
-
-  /// Returns true if MI is an unconditional tail call.
-  virtual bool isUnconditionalTailCall(const MachineInstr &MI) const {
-    return false;
-  }
-
-  /// Returns true if the tail call can be made conditional on BranchCond.
-  virtual bool
-  canMakeTailCallConditional(SmallVectorImpl<MachineOperand> &Cond,
-                             const MachineInstr &TailCall) const {
-    return false;
-  }
-
-  /// Replace the conditional branch in MBB with a conditional tail call.
-  virtual void replaceBranchWithTailCall(MachineBasicBlock &MBB,
-                                         SmallVectorImpl<MachineOperand> &Cond,
-                                         const MachineInstr &TailCall) const {
-    llvm_unreachable("Target didn't implement replaceBranchWithTailCall!");
-  }
 
   /// Convert the instruction into a predicated instruction.
   /// It returns true if the operation was successful.
@@ -1489,6 +1479,13 @@ public:
 
   /// Determines whether |Inst| is a tail call instruction.
   virtual bool isTailCall(const MachineInstr &Inst) const {
+    return false;
+  }
+
+  /// True if the instruction is bound to the top of its basic block and no
+  /// other instructions shall be inserted before it. This can be implemented
+  /// to prevent register allocator to insert spills before such instructions.
+  virtual bool isBasicBlockPrologue(const MachineInstr &MI) const {
     return false;
   }
 

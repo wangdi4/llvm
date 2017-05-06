@@ -157,32 +157,18 @@ entry:
 @i32x4 = common global <4 x float> zeroinitializer, align 16
 
 define void @func32x4() #0 {
-; AVX2-LABEL: func32x4:
-; AVX2:       # BB#0: # %entry
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm0
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm1
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %xmm2
-; AVX2-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
-; AVX2-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd231ps {{.*}}(%rip), %xmm2, %xmm0
-; AVX2-NEXT:    vfmadd132ps {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd213ps %xmm0, %xmm0, %xmm1
-; AVX2-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
-; AVX2-NEXT:    retq
-;
-; AVX512-LABEL: func32x4:
-; AVX512:       # BB#0: # %entry
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %xmm0
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %xmm1
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %xmm2
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %xmm3
-; AVX512-NEXT:    vmulps %xmm0, %xmm1, %xmm0
-; AVX512-NEXT:    vaddps {{.*}}(%rip), %xmm2, %xmm1
-; AVX512-NEXT:    vfmadd231ps {{.*}}(%rip), %xmm3, %xmm0
-; AVX512-NEXT:    vfmadd132ps {{.*}}(%rip), %xmm1, %xmm1
-; AVX512-NEXT:    vfmadd213ps %xmm0, %xmm0, %xmm1
-; AVX512-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
-; AVX512-NEXT:    retq
+; ALL-LABEL: func32x4:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %xmm0
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %xmm1
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %xmm2
+; ALL-NEXT:    vmulps {{.*}}(%rip), %xmm0, %xmm0
+; ALL-NEXT:    vaddps {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd231ps {{.*}}(%rip), %xmm2, %xmm0
+; ALL-NEXT:    vfmadd132ps {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd213ps %xmm0, %xmm0, %xmm1
+; ALL-NEXT:    vmovaps %xmm1, {{.*}}(%rip)
+; ALL-NEXT:    retq
 entry:
   %load_a = load <4 x float>, <4 x float>* @a32x4, align 16
   %load_b = load <4 x float>, <4 x float>* @b32x4, align 16
@@ -234,32 +220,18 @@ entry:
 @i64x2 = common global <2 x double> zeroinitializer, align 16
 
 define void @func64x2() #0 {
-; AVX2-LABEL: func64x2:
-; AVX2:       # BB#0: # %entry
-; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm0
-; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm1
-; AVX2-NEXT:    vmovapd {{.*}}(%rip), %xmm2
-; AVX2-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
-; AVX2-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd231pd {{.*}}(%rip), %xmm2, %xmm0
-; AVX2-NEXT:    vfmadd132pd {{.*}}(%rip), %xmm1, %xmm1
-; AVX2-NEXT:    vfmadd213pd %xmm0, %xmm0, %xmm1
-; AVX2-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
-; AVX2-NEXT:    retq
-;
-; AVX512-LABEL: func64x2:
-; AVX512:       # BB#0: # %entry
-; AVX512-NEXT:    vmovapd {{.*}}(%rip), %xmm0
-; AVX512-NEXT:    vmovapd {{.*}}(%rip), %xmm1
-; AVX512-NEXT:    vmovapd {{.*}}(%rip), %xmm2
-; AVX512-NEXT:    vmovapd {{.*}}(%rip), %xmm3
-; AVX512-NEXT:    vmulpd %xmm0, %xmm1, %xmm0
-; AVX512-NEXT:    vaddpd {{.*}}(%rip), %xmm2, %xmm1
-; AVX512-NEXT:    vfmadd231pd {{.*}}(%rip), %xmm3, %xmm0
-; AVX512-NEXT:    vfmadd132pd {{.*}}(%rip), %xmm1, %xmm1
-; AVX512-NEXT:    vfmadd213pd %xmm0, %xmm0, %xmm1
-; AVX512-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
-; AVX512-NEXT:    retq
+; ALL-LABEL: func64x2:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %xmm0
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %xmm1
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %xmm2
+; ALL-NEXT:    vmulpd {{.*}}(%rip), %xmm0, %xmm0
+; ALL-NEXT:    vaddpd {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd231pd {{.*}}(%rip), %xmm2, %xmm0
+; ALL-NEXT:    vfmadd132pd {{.*}}(%rip), %xmm1, %xmm1
+; ALL-NEXT:    vfmadd213pd %xmm0, %xmm0, %xmm1
+; ALL-NEXT:    vmovapd %xmm1, {{.*}}(%rip)
+; ALL-NEXT:    retq
 entry:
   %load_a = load <2 x double>, <2 x double>* @a64x2, align 16
   %load_b = load <2 x double>, <2 x double>* @b64x2, align 16
@@ -311,33 +283,19 @@ entry:
 @i32x8 = common global <8 x float> zeroinitializer, align 32
 
 define void @func32x8() #0 {
-; AVX2-LABEL: func32x8:
-; AVX2:       # BB#0: # %entry
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm0
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm1
-; AVX2-NEXT:    vmovaps {{.*}}(%rip), %ymm2
-; AVX2-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
-; AVX2-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
-; AVX2-NEXT:    vfmadd231ps {{.*}}(%rip), %ymm2, %ymm0
-; AVX2-NEXT:    vfmadd132ps {{.*}}(%rip), %ymm1, %ymm1
-; AVX2-NEXT:    vfmadd213ps %ymm0, %ymm0, %ymm1
-; AVX2-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
-; AVX2-NEXT:    vzeroupper
-; AVX2-NEXT:    retq
-;
-; AVX512-LABEL: func32x8:
-; AVX512:       # BB#0: # %entry
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %ymm0
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %ymm1
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %ymm2
-; AVX512-NEXT:    vmovaps {{.*}}(%rip), %ymm3
-; AVX512-NEXT:    vmulps %ymm0, %ymm1, %ymm0
-; AVX512-NEXT:    vaddps {{.*}}(%rip), %ymm2, %ymm1
-; AVX512-NEXT:    vfmadd231ps {{.*}}(%rip), %ymm3, %ymm0
-; AVX512-NEXT:    vfmadd132ps {{.*}}(%rip), %ymm1, %ymm1
-; AVX512-NEXT:    vfmadd213ps %ymm0, %ymm0, %ymm1
-; AVX512-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
-; AVX512-NEXT:    retq
+; ALL-LABEL: func32x8:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %ymm0
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %ymm1
+; ALL-NEXT:    vmovaps {{.*}}(%rip), %ymm2
+; ALL-NEXT:    vmulps {{.*}}(%rip), %ymm0, %ymm0
+; ALL-NEXT:    vaddps {{.*}}(%rip), %ymm1, %ymm1
+; ALL-NEXT:    vfmadd231ps {{.*}}(%rip), %ymm2, %ymm0
+; ALL-NEXT:    vfmadd132ps {{.*}}(%rip), %ymm1, %ymm1
+; ALL-NEXT:    vfmadd213ps %ymm0, %ymm0, %ymm1
+; ALL-NEXT:    vmovaps %ymm1, {{.*}}(%rip)
+; AVX2-NEXT:   vzeroupper
+; ALL-NEXT:    retq
 entry:
   %load_a = load <8 x float>, <8 x float>* @a32x8, align 32
   %load_b = load <8 x float>, <8 x float>* @b32x8, align 32
@@ -374,6 +332,70 @@ entry:
   %mul28 = fmul fast <8 x float> %load_f, %load_g
   %add29 = fadd fast <8 x float> %add27, %mul28
   store <8 x float> %add29, <8 x float>* @dst32x8, align 32
+  ret void
+}
+
+@a64x4 = common global <4 x double> zeroinitializer, align 32
+@b64x4 = common global <4 x double> zeroinitializer, align 32
+@c64x4 = common global <4 x double> zeroinitializer, align 32
+@d64x4 = common global <4 x double> zeroinitializer, align 32
+@e64x4 = common global <4 x double> zeroinitializer, align 32
+@f64x4 = common global <4 x double> zeroinitializer, align 32
+@g64x4 = common global <4 x double> zeroinitializer, align 32
+@dst64x4 = common global <4 x double> zeroinitializer, align 32
+@h64x4 = common global <4 x double> zeroinitializer, align 32
+@i64x4 = common global <4 x double> zeroinitializer, align 32
+
+define void @func64x4() #0 {
+; ALL-LABEL: func64x4:
+; ALL:       # BB#0: # %entry
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %ymm0
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %ymm1
+; ALL-NEXT:    vmovapd {{.*}}(%rip), %ymm2
+; ALL-NEXT:    vmulpd {{.*}}(%rip), %ymm0, %ymm0
+; ALL-NEXT:    vaddpd {{.*}}(%rip), %ymm1, %ymm1
+; ALL-NEXT:    vfmadd231pd {{.*}}(%rip), %ymm2, %ymm0
+; ALL-NEXT:    vfmadd132pd {{.*}}(%rip), %ymm1, %ymm1
+; ALL-NEXT:    vfmadd213pd %ymm0, %ymm0, %ymm1
+; ALL-NEXT:    vmovapd %ymm1, {{.*}}(%rip)
+; AVX2-NEXT:   vzeroupper
+; ALL-NEXT:    retq
+entry:
+  %load_a = load <4 x double>, <4 x double>* @a64x4, align 32
+  %load_b = load <4 x double>, <4 x double>* @b64x4, align 32
+  %mul = fmul fast <4 x double> %load_a, %load_b
+  %load_c = load <4 x double>, <4 x double>* @c64x4, align 32
+  %mul1 = fmul fast <4 x double> %mul, %load_c
+  %load_d = load <4 x double>, <4 x double>* @d64x4, align 32
+  %mul2 = fmul fast <4 x double> %mul1, %load_d
+  %load_e = load <4 x double>, <4 x double>* @e64x4, align 32
+  %mul5 = fmul fast <4 x double> %mul1, %load_e
+  %add = fadd fast <4 x double> %mul2, %mul5
+  %mul6 = fmul fast <4 x double> %load_a, %load_d
+  %load_f = load <4 x double>, <4 x double>* @f64x4, align 32
+  %mul7 = fmul fast <4 x double> %mul6, %load_f
+  %load_g = load <4 x double>, <4 x double>* @g64x4, align 32
+  %mul8 = fmul fast <4 x double> %mul7, %load_g
+  %add9 = fadd fast <4 x double> %add, %mul8
+  %mul10 = fmul fast <4 x double> %load_a, %load_e
+  %mul11 = fmul fast <4 x double> %mul10, %load_f
+  %mul12 = fmul fast <4 x double> %mul11, %load_g
+  %add13 = fadd fast <4 x double> %add9, %mul12
+  %mul14 = fmul fast <4 x double> %load_b, %load_c
+  %mul15 = fmul fast <4 x double> %mul14, %load_d
+  %add16 = fadd fast <4 x double> %add13, %mul15
+  %mul18 = fmul fast <4 x double> %mul14, %load_e
+  %add19 = fadd fast <4 x double> %add16, %mul18
+  %mul20 = fmul fast <4 x double> %load_d, %load_f
+  %mul21 = fmul fast <4 x double> %mul20, %load_g
+  %add22 = fadd fast <4 x double> %add19, %mul21
+  %mul23 = fmul fast <4 x double> %load_e, %load_f
+  %mul24 = fmul fast <4 x double> %mul23, %load_g
+  %add25 = fadd fast <4 x double> %add22, %mul24
+  %add27 = fadd fast <4 x double> %add25, %mul14
+  %mul28 = fmul fast <4 x double> %load_f, %load_g
+  %add29 = fadd fast <4 x double> %add27, %mul28
+  store <4 x double> %add29, <4 x double>* @dst64x4, align 32
   ret void
 }
 

@@ -723,7 +723,7 @@ defm LOCK_DEC    : LOCK_ArithUnOp<0xFE, 0xFF, MRM1m, -1, "dec">;
 multiclass LCMPXCHG_UnOp<bits<8> Opc, Format Form, string mnemonic,
                          SDPatternOperator frag, X86MemOperand x86memop,
                          InstrItinClass itin> {
-let isCodeGenOnly = 1 in {
+let isCodeGenOnly = 1, usesCustomInserter = 1 in {
   def NAME : I<Opc, Form, (outs), (ins x86memop:$ptr),
                !strconcat(mnemonic, "\t$ptr"),
                [(frag addr:$ptr)], itin>, TB, LOCK;
@@ -1742,6 +1742,12 @@ def : Pat<(X86sub_flag 0, GR8 :$src), (NEG8r  GR8 :$src)>;
 def : Pat<(X86sub_flag 0, GR16:$src), (NEG16r GR16:$src)>;
 def : Pat<(X86sub_flag 0, GR32:$src), (NEG32r GR32:$src)>;
 def : Pat<(X86sub_flag 0, GR64:$src), (NEG64r GR64:$src)>;
+
+// sub reg, relocImm
+def : Pat<(X86sub_flag GR64:$src1, i64relocImmSExt8_su:$src2),
+          (SUB64ri8 GR64:$src1, i64relocImmSExt8_su:$src2)>;
+def : Pat<(X86sub_flag GR64:$src1, i64relocImmSExt32_su:$src2),
+          (SUB64ri32 GR64:$src1, i64relocImmSExt32_su:$src2)>;
 
 // mul reg, reg
 def : Pat<(mul GR16:$src1, GR16:$src2),

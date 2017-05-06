@@ -226,9 +226,18 @@ Error collectPGOFuncNameStrings(const std::vector<GlobalVariable *> &NameVars,
                                 std::string &Result, bool doCompression = true);
 class InstrProfSymtab;
 /// \c NameStrings is a string composed of one of more sub-strings encoded in
-/// the format described above. The substrings are seperated by 0 or more zero
+/// the format described above. The substrings are separated by 0 or more zero
 /// bytes. This method decodes the string and populates the \c Symtab.
 Error readPGOFuncNameStrings(StringRef NameStrings, InstrProfSymtab &Symtab);
+
+/// Check if INSTR_PROF_RAW_VERSION_VAR is defined. This global is only being
+/// set in IR PGO compilation.
+bool isIRPGOFlagSet(const Module *M);
+
+/// Check if we can safely rename this Comdat function. Instances of the same
+/// comdat function may have different control flows thus can not share the
+/// same counter variable.
+bool canRenameComdatFunc(const Function &F, bool CheckAddressTaken = false);
 
 enum InstrProfValueKind : uint32_t {
 #define VALUE_PROF_KIND(Enumerator, Value) Enumerator = Value,

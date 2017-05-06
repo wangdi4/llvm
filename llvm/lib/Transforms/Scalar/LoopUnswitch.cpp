@@ -78,19 +78,6 @@ static cl::opt<unsigned>
 Threshold("loop-unswitch-threshold", cl::desc("Max loop size to unswitch"),
           cl::init(100), cl::Hidden);
 
-static cl::opt<bool>
-LoopUnswitchWithBlockFrequency("loop-unswitch-with-block-frequency",
-    cl::init(false), cl::Hidden,
-    cl::desc("Enable the use of the block frequency analysis to access PGO "
-             "heuristics to minimize code growth in cold regions."));
-
-static cl::opt<unsigned>
-ColdnessThreshold("loop-unswitch-coldness-threshold", cl::init(1), cl::Hidden,
-    cl::desc("Coldness threshold in percentage. The loop header frequency "
-             "(relative to the entry frequency) is compared with this "
-             "threshold to determine if non-trivial unswitching should be "
-             "enabled."));
-
 namespace {
 
   class LUAnalysisCache {
@@ -175,13 +162,6 @@ namespace {
 
     LUAnalysisCache BranchesInfo;
 
-    bool EnabledPGO;
-
-    // BFI and ColdEntryFreq are only used when PGO and
-    // LoopUnswitchWithBlockFrequency are enabled.
-    BlockFrequencyInfo BFI;
-    BlockFrequency ColdEntryFreq;
-
     bool OptimizeForSize;
     bool redoLoop;
 
@@ -211,7 +191,7 @@ namespace {
 
     bool runOnLoop(Loop *L, LPPassManager &LPM) override;
     bool processCurrentLoop();
-
+    bool isUnreachableDueToPreviousUnswitching(BasicBlock *);
     /// This transformation requires natural loop information & requires that
     /// loop preheaders be inserted into the CFG.
     ///
@@ -459,19 +439,6 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   if (SanitizeMemory)
     computeLoopSafetyInfo(&SafetyInfo, L);
 
-  EnabledPGO = F->getEntryCount().hasValue();
-
-  if (LoopUnswitchWithBlockFrequency && EnabledPGO) {
-    BranchProbabilityInfo BPI(*F, *LI);
-    BFI.calculate(*L->getHeader()->getParent(), BPI, *LI);
-
-    // Use BranchProbability to compute a minimum frequency based on
-    // function entry baseline frequency. Loops with headers below this
-    // frequency are considered as cold.
-    const BranchProbability ColdProb(ColdnessThreshold, 100);
-    ColdEntryFreq = BlockFrequency(BFI.getEntryFreq()) * ColdProb;
-  }
-
   bool Changed = false;
   do {
     assert(currentLoop->isLCSSAForm(*DT));
@@ -483,6 +450,35 @@ bool LoopUnswitch::runOnLoop(Loop *L, LPPassManager &LPM_Ref) {
   if (Changed)
     DT->recalculate(*F);
   return Changed;
+}
+
+// Return true if the BasicBlock BB is unreachable from the loop header.
+// Return false, otherwise.
+bool LoopUnswitch::isUnreachableDueToPreviousUnswitching(BasicBlock *BB) {
+  auto *Node = DT->getNode(BB)->getIDom();
+  BasicBlock *DomBB = Node->getBlock();
+  while (currentLoop->contains(DomBB)) {
+    BranchInst *BInst = dyn_cast<BranchInst>(DomBB->getTerminator());
+
+    Node = DT->getNode(DomBB)->getIDom();
+    DomBB = Node->getBlock();
+
+    if (!BInst || !BInst->isConditional())
+      continue;
+
+    Value *Cond = BInst->getCondition();
+    if (!isa<ConstantInt>(Cond))
+      continue;
+
+    BasicBlock *UnreachableSucc =
+        Cond == ConstantInt::getTrue(Cond->getContext())
+            ? BInst->getSuccessor(1)
+            : BInst->getSuccessor(0);
+
+    if (DT->dominates(UnreachableSucc, BB))
+      return true;
+  }
+  return false;
 }
 
 /// Do actual work and unswitch loop if possible and profitable.
@@ -554,16 +550,6 @@ bool LoopUnswitch::processCurrentLoop() {
       loopHeader->getParent()->hasFnAttribute(Attribute::OptimizeForSize))
     return false;
 
-  if (LoopUnswitchWithBlockFrequency && EnabledPGO) {
-    // Compute the weighted frequency of the hottest block in the
-    // loop (loopHeader in this case since inner loops should be
-    // processed before outer loop). If it is less than ColdFrequency,
-    // we should not unswitch.
-    BlockFrequency LoopEntryFreq = BFI.getBlockFreq(loopHeader);
-    if (LoopEntryFreq < ColdEntryFreq)
-      return false;
-  }
-
   for (IntrinsicInst *Guard : Guards) {
     Value *LoopCond =
         FindLIVLoopCondition(Guard->getOperand(0), currentLoop, Changed);
@@ -595,6 +581,12 @@ bool LoopUnswitch::processCurrentLoop() {
       continue;
 
     if (BranchInst *BI = dyn_cast<BranchInst>(TI)) {
+      // Some branches may be rendered unreachable because of previous
+      // unswitching.
+      // Unswitch only those branches that are reachable.
+      if (isUnreachableDueToPreviousUnswitching(*I))
+        continue;
+ 
       // If this isn't branching on an invariant condition, we can't unswitch
       // it.
       if (BI->isConditional()) {
@@ -866,7 +858,6 @@ bool LoopUnswitch::TryTrivialLoopUnswitch(bool &Changed) {
       if (I.mayHaveSideEffects())
         return false;
 
-    // FIXME: add check for constant foldable switch instructions.
     if (BranchInst *BI = dyn_cast<BranchInst>(CurrentTerm)) {
       if (BI->isUnconditional()) {
         CurrentBB = BI->getSuccessor(0);
@@ -878,7 +869,16 @@ bool LoopUnswitch::TryTrivialLoopUnswitch(bool &Changed) {
         // Found a trivial condition candidate: non-foldable conditional branch.
         break;
       }
+    } else if (SwitchInst *SI = dyn_cast<SwitchInst>(CurrentTerm)) {
+      // At this point, any constant-foldable instructions should have probably
+      // been folded.
+      ConstantInt *Cond = dyn_cast<ConstantInt>(SI->getCondition());
+      if (!Cond)
+        break;
+      // Find the target block we are definitely going to.
+      CurrentBB = SI->findCaseValue(Cond).getCaseSuccessor();
     } else {
+      // We do not understand these terminator instructions.
       break;
     }
 
@@ -1349,8 +1349,8 @@ void LoopUnswitch::SimplifyCode(std::vector<Instruction*> &Worklist, Loop *L) {
         Pred->getInstList().splice(BI->getIterator(), Succ->getInstList(),
                                    Succ->begin(), Succ->end());
         LPM->deleteSimpleAnalysisValue(BI, L);
-        BI->eraseFromParent();
         RemoveFromWorklist(BI, Worklist);
+        BI->eraseFromParent();
 
         // Remove Succ from the loop tree.
         LI->removeBlock(Succ);

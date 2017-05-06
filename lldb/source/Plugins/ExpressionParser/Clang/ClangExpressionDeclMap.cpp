@@ -15,7 +15,6 @@
 #include "ClangPersistentVariables.h"
 
 #include "lldb/Core/Address.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -23,7 +22,6 @@
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/Expression/Materializer.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/CompilerDecl.h"
@@ -45,6 +43,8 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Error.h"
 #include "lldb/lldb-private.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
@@ -1978,11 +1978,12 @@ void ClangExpressionDeclMap::AddOneFunction(NameSearchContext &context,
   if (function) {
     Type *function_type = function->GetType();
 
-    const lldb::LanguageType comp_unit_language =
-        function->GetCompileUnit()->GetLanguage();
-    const bool extern_c = Language::LanguageIsC(comp_unit_language) ||
-                          (Language::LanguageIsObjC(comp_unit_language) &&
-                           !Language::LanguageIsCPlusPlus(comp_unit_language));
+    const auto lang = function->GetCompileUnit()->GetLanguage();
+    const auto name = function->GetMangled().GetMangledName().AsCString();
+    const bool extern_c = (Language::LanguageIsC(lang) &&
+                           !CPlusPlusLanguage::IsCPPMangledName(name)) ||
+                          (Language::LanguageIsObjC(lang) &&
+                           !Language::LanguageIsCPlusPlus(lang));
 
     if (!extern_c) {
       TypeSystem *type_system = function->GetDeclContext().GetTypeSystem();

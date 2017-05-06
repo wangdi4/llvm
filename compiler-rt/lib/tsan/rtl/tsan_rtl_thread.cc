@@ -68,7 +68,8 @@ void ThreadContext::OnCreated(void *arg) {
 
 void ThreadContext::OnReset() {
   CHECK_EQ(sync.size(), 0);
-  ReleaseMemoryToOS(GetThreadTrace(tid), TraceSize() * sizeof(Event));
+  uptr trace_p = GetThreadTrace(tid);
+  ReleaseMemoryPagesToOS(trace_p, trace_p + TraceSize() * sizeof(Event));
   //!!! ReleaseMemoryToOS(GetThreadTraceHeader(tid), sizeof(Trace));
 }
 
@@ -235,7 +236,7 @@ int ThreadCreate(ThreadState *thr, uptr pc, uptr uid, bool detached) {
   return tid;
 }
 
-void ThreadStart(ThreadState *thr, int tid, uptr os_id) {
+void ThreadStart(ThreadState *thr, int tid, uptr os_id, bool workerthread) {
   uptr stk_addr = 0;
   uptr stk_size = 0;
   uptr tls_addr = 0;
@@ -265,7 +266,7 @@ void ThreadStart(ThreadState *thr, int tid, uptr os_id) {
 
   ThreadRegistry *tr = ctx->thread_registry;
   OnStartedArgs args = { thr, stk_addr, stk_size, tls_addr, tls_size };
-  tr->StartThread(tid, os_id, &args);
+  tr->StartThread(tid, os_id, workerthread, &args);
 
   tr->Lock();
   thr->tctx = (ThreadContext*)tr->GetThreadLocked(tid);

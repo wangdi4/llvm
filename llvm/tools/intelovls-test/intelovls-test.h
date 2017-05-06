@@ -100,7 +100,7 @@ public:
   bool isAConstDistanceFrom(const OVLSMemref &Mrf, int64_t *Distance);
 
   bool canMoveTo(const OVLSMemref &MemRef) { return true; }
-  bool hasAConstStride(int64_t *Stride) {
+  bool hasAConstStride(int64_t *Stride) const {
     if (ConstVStride) {
       *Stride = VecStride;
       return true;

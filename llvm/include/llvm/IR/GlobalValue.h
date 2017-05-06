@@ -18,24 +18,31 @@
 #ifndef LLVM_IR_GLOBALVALUE_H
 #define LLVM_IR_GLOBALVALUE_H
 
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Value.h"
 #include "llvm/Support/MD5.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
+#include <cassert>
+#include <cstdint>
+#include <string>
 
 namespace llvm {
 
 class Comdat;
+class ConstantRange;
 class Error;
 class GlobalObject;
-class PointerType;
 class Module;
 
 namespace Intrinsic {
   enum ID : unsigned;
-}
+} // end namespace Intrinsic
 
 class GlobalValue : public Constant {
-  GlobalValue(const GlobalValue &) = delete;
 public:
   /// @brief An enumeration for the kinds of linkage for global values.
   enum LinkageTypes {
@@ -74,11 +81,17 @@ protected:
         UnnamedAddrVal(unsigned(UnnamedAddr::None)),
         DllStorageClass(DefaultStorageClass), ThreadLocal(NotThreadLocal),
         ThreadPrivate(0),  // INTEL
-        IntID((Intrinsic::ID)0U), Parent(nullptr) {
+        HasLLVMReservedName(false), IntID((Intrinsic::ID)0U), Parent(nullptr) {
     setName(Name);
   }
 
   Type *ValueType;
+
+  // INTEL - This needs to be one less than it is in the community version to
+  //         account for the ThreadPrivate bit.  See also the comment at the
+  //         SubClassData declaration.
+  static const unsigned GlobalValueSubClassDataBits = 17; // INTEL
+
   // All bitfields use unsigned as the underlying type so that MSVC will pack
   // them.
   unsigned Linkage : 4;       // The linkage of this global
@@ -94,14 +107,19 @@ protected:
                               // with an OpenMP threadprivate directive
                               // and the threadprivate mode is legacy.
 #endif // INTEL_CUSTOMIZATION
-  static const unsigned GlobalValueSubClassDataBits = 19;
+
+  /// True if the function's name starts with "llvm.".  This corresponds to the
+  /// value of Function::isIntrinsic(), which may be true even if
+  /// Function::intrinsicID() returns Intrinsic::not_intrinsic.
+  unsigned HasLLVMReservedName : 1;
 
 private:
+  friend class Constant;
+
   // Give subclasses access to what otherwise would be wasted padding.
-  // (19 + 4 + 2 + 2 + 2 + 3) == 32.
+  // INTEL - (17 + 4 + 2 + 2 + 3 + 1 + 1) == 32.  Extra bit for ThreadPrivate.
   unsigned SubClassData : GlobalValueSubClassDataBits;
 
-  friend class Constant;
   void destroyConstantImpl();
   Value *handleOperandChangeImpl(Value *From, Value *To);
 
@@ -161,6 +179,8 @@ public:
     InitialExecTLSModel,
     LocalExecTLSModel
   };
+
+  GlobalValue(const GlobalValue &) = delete;
 
   ~GlobalValue() override {
     removeDeadConstantUsers();   // remove any dead constants using this.
@@ -514,6 +534,13 @@ public:
   }
   GlobalObject *getBaseObject();
 
+  /// Returns whether this is a reference to an absolute symbol.
+  bool isAbsoluteSymbolRef() const;
+
+  /// If this is an absolute symbol reference, returns the range of the symbol,
+  /// otherwise returns None.
+  Optional<ConstantRange> getAbsoluteSymbolRange() const;
+
   /// This method unlinks 'this' from the containing module, but does not delete
   /// it.
   virtual void removeFromParent() = 0;
@@ -534,6 +561,6 @@ public:
   }
 };
 
-} // End llvm namespace
+} // end namespace llvm
 
-#endif
+#endif // LLVM_IR_GLOBALVALUE_H

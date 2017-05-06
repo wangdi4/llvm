@@ -412,6 +412,11 @@ public:
     return true;
   }
 
+  bool hasAndNotCompare(SDValue) const override {
+    // 'bics'
+    return true;
+  }
+
   bool hasBitPreservingFPLogic(EVT VT) const override {
     // FIXME: Is this always true? It should be true for vectors at least.
     return VT == MVT::f32 || VT == MVT::f64;
@@ -429,6 +434,9 @@ public:
   bool supportSwiftError() const override {
     return true;
   }
+
+  /// Returns the size of the platform's va_list object.
+  unsigned getVaListSizeInBits(const DataLayout &DL) const override;
 
 private:
   bool isExtFreeImpl(const Instruction *Ext) const override;

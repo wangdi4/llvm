@@ -14,6 +14,7 @@
 #include "clang/Basic/VirtualFileSystem.h"
 #include "clang/Config/config.h" // for GCC_INSTALL_PREFIX
 #include "clang/Driver/Compilation.h"
+#include "clang/Driver/Distro.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
@@ -1108,10 +1109,6 @@ Darwin::TranslateArgs(const DerivedArgList &Args, StringRef BoundArch,
                      options::OPT_fno_omit_frame_pointer, false))
       getDriver().Diag(clang::diag::warn_drv_unsupported_opt_for_target)
           << "-fomit-frame-pointer" << BoundArch;
-    if (Args.hasFlag(options::OPT_momit_leaf_frame_pointer,
-                     options::OPT_mno_omit_leaf_frame_pointer, false))
-      getDriver().Diag(clang::diag::warn_drv_unsupported_opt_for_target)
-          << "-momit-leaf-frame-pointer" << BoundArch;
   }
 
   return DAL;
@@ -1456,35 +1453,17 @@ void Generic_GCC::GCCInstallationDetector::init(
   // in /usr. This avoids accidentally enforcing the system GCC version
   // when using a custom toolchain.
   if (GCCToolchainDir == "" || GCCToolchainDir == D.SysRoot + "/usr") {
+    for (StringRef CandidateTriple : ExtraTripleAliases) {
+      if (ScanGentooGccConfig(TargetTriple, Args, CandidateTriple))
+        return;
+    }
     for (StringRef CandidateTriple : CandidateTripleAliases) {
-      llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> File =
-          D.getVFS().getBufferForFile(D.SysRoot + "/etc/env.d/gcc/config-" +
-                                      CandidateTriple.str());
-      if (File) {
-        SmallVector<StringRef, 2> Lines;
-        File.get()->getBuffer().split(Lines, "\n");
-        for (StringRef Line : Lines) {
-          // CURRENT=triple-version
-          if (Line.consume_front("CURRENT=")) {
-            const std::pair<StringRef, StringRef> ActiveVersion =
-              Line.rsplit('-');
-            // Note: Strictly speaking, we should be reading
-            // /etc/env.d/gcc/${CURRENT} now. However, the file doesn't
-            // contain anything new or especially useful to us.
-            const std::string GentooPath = D.SysRoot + "/usr/lib/gcc/" +
-                                           ActiveVersion.first.str() + "/" +
-                                           ActiveVersion.second.str();
-            if (D.getVFS().exists(GentooPath + "/crtbegin.o")) {
-              Version = GCCVersion::Parse(ActiveVersion.second);
-              GCCInstallPath = GentooPath;
-              GCCParentLibPath = GentooPath + "/../../..";
-              GCCTriple.setTriple(ActiveVersion.first);
-              IsValid = true;
-              return;
-            }
-          }
-        }
-      }
+      if (ScanGentooGccConfig(TargetTriple, Args, CandidateTriple))
+        return;
+    }
+    for (StringRef CandidateTriple : CandidateBiarchTripleAliases) {
+      if (ScanGentooGccConfig(TargetTriple, Args, CandidateTriple, true))
+        return;
     }
   }
 
@@ -1548,7 +1527,7 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
   static const char *const AArch64LibDirs[] = {"/lib64", "/lib"};
   static const char *const AArch64Triples[] = {
       "aarch64-none-linux-gnu", "aarch64-linux-gnu", "aarch64-linux-android",
-      "aarch64-redhat-linux"};
+      "aarch64-redhat-linux", "aarch64-suse-linux"};
   static const char *const AArch64beLibDirs[] = {"/lib"};
   static const char *const AArch64beTriples[] = {"aarch64_be-none-linux-gnu",
                                                  "aarch64_be-linux-gnu"};
@@ -1822,19 +1801,26 @@ static CudaVersion ParseCudaVersionFile(llvm::StringRef V) {
 }
 
 CudaInstallationDetector::CudaInstallationDetector(
-    const Driver &D, const llvm::Triple &TargetTriple,
+    const Driver &D, const llvm::Triple &HostTriple,
     const llvm::opt::ArgList &Args)
     : D(D) {
   SmallVector<std::string, 4> CudaPathCandidates;
 
-  if (Args.hasArg(options::OPT_cuda_path_EQ))
+  // In decreasing order so we prefer newer versions to older versions.
+  std::initializer_list<const char *> Versions = {"8.0", "7.5", "7.0"};
+
+  if (Args.hasArg(options::OPT_cuda_path_EQ)) {
     CudaPathCandidates.push_back(
         Args.getLastArgValue(options::OPT_cuda_path_EQ));
-  else {
+  } else if (HostTriple.isOSWindows()) {
+    for (const char *Ver : Versions)
+      CudaPathCandidates.push_back(
+          D.SysRoot + "/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v" +
+          Ver);
+  } else {
     CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda");
-    CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-8.0");
-    CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-7.5");
-    CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-7.0");
+    for (const char *Ver : Versions)
+      CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-" + Ver);
   }
 
   for (const auto &CudaPath : CudaPathCandidates) {
@@ -1857,7 +1843,7 @@ CudaInstallationDetector::CudaInstallationDetector(
     // It's sufficient for our purposes to be flexible: If both lib and lib64
     // exist, we choose whichever one matches our triple.  Otherwise, if only
     // lib exists, we use it.
-    if (TargetTriple.isArch64Bit() && FS.exists(InstallPath + "/lib64"))
+    if (HostTriple.isArch64Bit() && FS.exists(InstallPath + "/lib64"))
       LibPath = InstallPath + "/lib64";
     else if (FS.exists(InstallPath + "/lib"))
       LibPath = InstallPath + "/lib";
@@ -2715,49 +2701,89 @@ void Generic_GCC::GCCInstallationDetector::scanLibDirForGCCTripleSolaris(
   }
 }
 
+bool Generic_GCC::GCCInstallationDetector::ScanGCCForMultilibs(
+    const llvm::Triple &TargetTriple, const ArgList &Args,
+    StringRef Path, bool NeedsBiarchSuffix) {
+  llvm::Triple::ArchType TargetArch = TargetTriple.getArch();
+  DetectedMultilibs Detected;
+
+  // Android standalone toolchain could have multilibs for ARM and Thumb.
+  // Debian mips multilibs behave more like the rest of the biarch ones,
+  // so handle them there
+  if (isArmOrThumbArch(TargetArch) && TargetTriple.isAndroid()) {
+    // It should also work without multilibs in a simplified toolchain.
+    findAndroidArmMultilibs(D, TargetTriple, Path, Args, Detected);
+  } else if (isMipsArch(TargetArch)) {
+    if (!findMIPSMultilibs(D, TargetTriple, Path, Args, Detected))
+      return false;
+  } else if (!findBiarchMultilibs(D, TargetTriple, Path, Args,
+                                  NeedsBiarchSuffix, Detected)) {
+    return false;
+  }
+
+  Multilibs = Detected.Multilibs;
+  SelectedMultilib = Detected.SelectedMultilib;
+  BiarchSibling = Detected.BiarchSibling;
+
+  return true;
+}
+
 void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
     const llvm::Triple &TargetTriple, const ArgList &Args,
     const std::string &LibDir, StringRef CandidateTriple,
     bool NeedsBiarchSuffix) {
-  llvm::Triple::ArchType TargetArch = TargetTriple.getArch();
-  // There are various different suffixes involving the triple we
-  // check for. We also record what is necessary to walk from each back
-  // up to the lib directory. Specifically, the number of "up" steps
-  // in the second half of each row is 1 + the number of path separators
-  // in the first half.
-  const std::string LibAndInstallSuffixes[][2] = {
-      {"/gcc/" + CandidateTriple.str(), "/../../.."},
-
-      // Debian puts cross-compilers in gcc-cross
-      {"/gcc-cross/" + CandidateTriple.str(), "/../../.."},
-
-      {"/" + CandidateTriple.str() + "/gcc/" + CandidateTriple.str(),
-       "/../../../.."},
-
-      // The Freescale PPC SDK has the gcc libraries in
-      // <sysroot>/usr/lib/<triple>/x.y.z so have a look there as well.
-      {"/" + CandidateTriple.str(), "/../.."},
-
-      // Ubuntu has a strange mis-matched pair of triples that this happens to
-      // match.
-      // FIXME: It may be worthwhile to generalize this and look for a second
-      // triple.
-      {"/i386-linux-gnu/gcc/" + CandidateTriple.str(), "/../../../.."}};
-
   if (TargetTriple.getOS() == llvm::Triple::Solaris) {
     scanLibDirForGCCTripleSolaris(TargetTriple, Args, LibDir, CandidateTriple,
                                   NeedsBiarchSuffix);
     return;
   }
 
-  // Only look at the final, weird Ubuntu suffix for i386-linux-gnu.
-  const unsigned NumLibSuffixes = (llvm::array_lengthof(LibAndInstallSuffixes) -
-                                   (TargetArch != llvm::Triple::x86));
-  for (unsigned i = 0; i < NumLibSuffixes; ++i) {
-    StringRef LibSuffix = LibAndInstallSuffixes[i][0];
+  llvm::Triple::ArchType TargetArch = TargetTriple.getArch();
+  // Locations relative to the system lib directory where GCC's triple-specific
+  // directories might reside.
+  struct GCCLibSuffix {
+    // Path from system lib directory to GCC triple-specific directory.
+    std::string LibSuffix;
+    // Path from GCC triple-specific directory back to system lib directory.
+    // This is one '..' component per component in LibSuffix.
+    StringRef ReversePath;
+    // Whether this library suffix is relevant for the triple.
+    bool Active;
+  } Suffixes[] = {
+    // This is the normal place.
+    {"gcc/" + CandidateTriple.str(), "../..", true},
+
+    // Debian puts cross-compilers in gcc-cross.
+    {"gcc-cross/" + CandidateTriple.str(), "../..", true},
+
+    // The Freescale PPC SDK has the gcc libraries in
+    // <sysroot>/usr/lib/<triple>/x.y.z so have a look there as well. Only do
+    // this on Freescale triples, though, since some systems put a *lot* of
+    // files in that location, not just GCC installation data.
+    {CandidateTriple.str(), "..",
+      TargetTriple.getVendor() == llvm::Triple::Freescale},
+
+    // Natively multiarch systems sometimes put the GCC triple-specific
+    // directory within their multiarch lib directory, resulting in the
+    // triple appearing twice.
+    {CandidateTriple.str() + "/gcc/" + CandidateTriple.str(), "../../..", true},
+
+    // Deal with cases (on Ubuntu) where the system architecture could be i386
+    // but the GCC target architecture could be (say) i686.
+    // FIXME: It may be worthwhile to generalize this and look for a second
+    // triple.
+    {"i386-linux-gnu/gcc/" + CandidateTriple.str(), "../../..",
+      TargetArch == llvm::Triple::x86}
+  };
+
+  for (auto &Suffix : Suffixes) {
+    if (!Suffix.Active)
+      continue;
+
+    StringRef LibSuffix = Suffix.LibSuffix;
     std::error_code EC;
     for (vfs::directory_iterator
-             LI = D.getVFS().dir_begin(LibDir + LibSuffix, EC),
+             LI = D.getVFS().dir_begin(LibDir + "/" + LibSuffix, EC),
              LE;
          !EC && LI != LE; LI = LI.increment(EC)) {
       StringRef VersionText = llvm::sys::path::filename(LI->getName());
@@ -2770,36 +2796,59 @@ void Generic_GCC::GCCInstallationDetector::ScanLibDirForGCCTriple(
       if (CandidateVersion <= Version)
         continue;
 
-      DetectedMultilibs Detected;
-
-      // Android standalone toolchain could have multilibs for ARM and Thumb.
-      // Debian mips multilibs behave more like the rest of the biarch ones,
-      // so handle them there
-      if (isArmOrThumbArch(TargetArch) && TargetTriple.isAndroid()) {
-        // It should also work without multilibs in a simplified toolchain.
-        findAndroidArmMultilibs(D, TargetTriple, LI->getName(), Args, Detected);
-      } else if (isMipsArch(TargetArch)) {
-        if (!findMIPSMultilibs(D, TargetTriple, LI->getName(), Args, Detected))
-          continue;
-      } else if (!findBiarchMultilibs(D, TargetTriple, LI->getName(), Args,
-                                      NeedsBiarchSuffix, Detected)) {
+      if (!ScanGCCForMultilibs(TargetTriple, Args, LI->getName(),
+                               NeedsBiarchSuffix))
         continue;
-      }
 
-      Multilibs = Detected.Multilibs;
-      SelectedMultilib = Detected.SelectedMultilib;
-      BiarchSibling = Detected.BiarchSibling;
       Version = CandidateVersion;
       GCCTriple.setTriple(CandidateTriple);
       // FIXME: We hack together the directory name here instead of
       // using LI to ensure stable path separators across Windows and
       // Linux.
-      GCCInstallPath =
-          LibDir + LibAndInstallSuffixes[i][0] + "/" + VersionText.str();
-      GCCParentLibPath = GCCInstallPath + LibAndInstallSuffixes[i][1];
+      GCCInstallPath = (LibDir + "/" + LibSuffix + "/" + VersionText).str();
+      GCCParentLibPath = (GCCInstallPath + "/../" + Suffix.ReversePath).str();
       IsValid = true;
     }
   }
+}
+
+bool Generic_GCC::GCCInstallationDetector::ScanGentooGccConfig(
+    const llvm::Triple &TargetTriple, const ArgList &Args,
+    StringRef CandidateTriple, bool NeedsBiarchSuffix) {
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> File =
+      D.getVFS().getBufferForFile(D.SysRoot + "/etc/env.d/gcc/config-" +
+                                  CandidateTriple.str());
+  if (File) {
+    SmallVector<StringRef, 2> Lines;
+    File.get()->getBuffer().split(Lines, "\n");
+    for (StringRef Line : Lines) {
+      // CURRENT=triple-version
+      if (Line.consume_front("CURRENT=")) {
+        const std::pair<StringRef, StringRef> ActiveVersion =
+          Line.rsplit('-');
+        // Note: Strictly speaking, we should be reading
+        // /etc/env.d/gcc/${CURRENT} now. However, the file doesn't
+        // contain anything new or especially useful to us.
+        const std::string GentooPath = D.SysRoot + "/usr/lib/gcc/" +
+                                       ActiveVersion.first.str() + "/" +
+                                       ActiveVersion.second.str();
+        if (D.getVFS().exists(GentooPath + "/crtbegin.o")) {
+          if (!ScanGCCForMultilibs(TargetTriple, Args, GentooPath,
+                                   NeedsBiarchSuffix))
+            return false;
+
+          Version = GCCVersion::Parse(ActiveVersion.second);
+          GCCInstallPath = GentooPath;
+          GCCParentLibPath = GentooPath + "/../../..";
+          GCCTriple.setTriple(ActiveVersion.first);
+          IsValid = true;
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
 }
 
 Generic_GCC::Generic_GCC(const Driver &D, const llvm::Triple &Triple,
@@ -2845,7 +2894,18 @@ bool Generic_GCC::IsUnwindTablesDefault() const {
 }
 
 bool Generic_GCC::isPICDefault() const {
-  return getArch() == llvm::Triple::x86_64 && getTriple().isOSWindows();
+  switch (getArch()) {
+  case llvm::Triple::x86_64:
+    return getTriple().isOSWindows();
+  case llvm::Triple::ppc64:
+  case llvm::Triple::ppc64le:
+    return !getTriple().isOSBinFormatMachO() && !getTriple().isMacOSX();
+  case llvm::Triple::mips64:
+  case llvm::Triple::mips64el:
+    return true;
+  default:
+    return false;
+  }
 }
 
 bool Generic_GCC::isPIEDefault() const { return false; }
@@ -3025,9 +3085,6 @@ MipsLLVMToolChain::MipsLLVMToolChain(const Driver &D,
   LibSuffix = tools::mips::getMipsABILibSuffix(Args, Triple);
   getFilePaths().clear();
   getFilePaths().push_back(computeSysRoot() + "/usr/lib" + LibSuffix);
-
-  // Use LLD by default.
-  DefaultLinker = "lld";
 }
 
 void MipsLLVMToolChain::AddClangSystemIncludeArgs(
@@ -3139,8 +3196,7 @@ std::string HexagonToolChain::getHexagonTargetDir(
 Optional<unsigned> HexagonToolChain::getSmallDataThreshold(
       const ArgList &Args) {
   StringRef Gn = "";
-  if (Arg *A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
-                               options::OPT_msmall_data_threshold_EQ)) {
+  if (Arg *A = Args.getLastArg(options::OPT_G)) {
     Gn = A->getValue();
   } else if (Args.getLastArg(options::OPT_shared, options::OPT_fpic,
                              options::OPT_fPIC)) {
@@ -3766,6 +3822,7 @@ ToolChain::CXXStdlibType NetBSD::GetDefaultCXXStdlibType() const {
   if (Major >= 7 || Major == 0) {
     switch (getArch()) {
     case llvm::Triple::aarch64:
+    case llvm::Triple::aarch64_be:
     case llvm::Triple::arm:
     case llvm::Triple::armeb:
     case llvm::Triple::thumb:
@@ -3883,171 +3940,6 @@ void Solaris::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
                      Version.Text + "/" +
                      GCCInstallation.getTriple().str());
   }
-}
-
-/// Distribution (very bare-bones at the moment).
-
-enum Distro {
-  // NB: Releases of a particular Linux distro should be kept together
-  // in this enum, because some tests are done by integer comparison against
-  // the first and last known member in the family, e.g. IsRedHat().
-  ArchLinux,
-  DebianLenny,
-  DebianSqueeze,
-  DebianWheezy,
-  DebianJessie,
-  DebianStretch,
-  Exherbo,
-  RHEL5,
-  RHEL6,
-  RHEL7,
-  Fedora,
-  OpenSUSE,
-  UbuntuHardy,
-  UbuntuIntrepid,
-  UbuntuJaunty,
-  UbuntuKarmic,
-  UbuntuLucid,
-  UbuntuMaverick,
-  UbuntuNatty,
-  UbuntuOneiric,
-  UbuntuPrecise,
-  UbuntuQuantal,
-  UbuntuRaring,
-  UbuntuSaucy,
-  UbuntuTrusty,
-  UbuntuUtopic,
-  UbuntuVivid,
-  UbuntuWily,
-  UbuntuXenial,
-  UbuntuYakkety,
-  UbuntuZesty,
-  UnknownDistro
-};
-
-static bool IsRedhat(enum Distro Distro) {
-  return Distro == Fedora || (Distro >= RHEL5 && Distro <= RHEL7);
-}
-
-static bool IsOpenSUSE(enum Distro Distro) { return Distro == OpenSUSE; }
-
-static bool IsDebian(enum Distro Distro) {
-  return Distro >= DebianLenny && Distro <= DebianStretch;
-}
-
-static bool IsUbuntu(enum Distro Distro) {
-  return Distro >= UbuntuHardy && Distro <= UbuntuZesty;
-}
-
-static Distro DetectDistro(vfs::FileSystem &VFS) {
-  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> File =
-      VFS.getBufferForFile("/etc/lsb-release");
-  if (File) {
-    StringRef Data = File.get()->getBuffer();
-    SmallVector<StringRef, 16> Lines;
-    Data.split(Lines, "\n");
-    Distro Version = UnknownDistro;
-    for (StringRef Line : Lines)
-      if (Version == UnknownDistro && Line.startswith("DISTRIB_CODENAME="))
-        Version = llvm::StringSwitch<Distro>(Line.substr(17))
-                      .Case("hardy", UbuntuHardy)
-                      .Case("intrepid", UbuntuIntrepid)
-                      .Case("jaunty", UbuntuJaunty)
-                      .Case("karmic", UbuntuKarmic)
-                      .Case("lucid", UbuntuLucid)
-                      .Case("maverick", UbuntuMaverick)
-                      .Case("natty", UbuntuNatty)
-                      .Case("oneiric", UbuntuOneiric)
-                      .Case("precise", UbuntuPrecise)
-                      .Case("quantal", UbuntuQuantal)
-                      .Case("raring", UbuntuRaring)
-                      .Case("saucy", UbuntuSaucy)
-                      .Case("trusty", UbuntuTrusty)
-                      .Case("utopic", UbuntuUtopic)
-                      .Case("vivid", UbuntuVivid)
-                      .Case("wily", UbuntuWily)
-                      .Case("xenial", UbuntuXenial)
-                      .Case("yakkety", UbuntuYakkety)
-                      .Case("zesty", UbuntuZesty)
-                      .Default(UnknownDistro);
-    if (Version != UnknownDistro)
-      return Version;
-  }
-
-  File = VFS.getBufferForFile("/etc/redhat-release");
-  if (File) {
-    StringRef Data = File.get()->getBuffer();
-    if (Data.startswith("Fedora release"))
-      return Fedora;
-    if (Data.startswith("Red Hat Enterprise Linux") ||
-        Data.startswith("CentOS") ||
-        Data.startswith("Scientific Linux")) {
-      if (Data.find("release 7") != StringRef::npos)
-        return RHEL7;
-      else if (Data.find("release 6") != StringRef::npos)
-        return RHEL6;
-      else if (Data.find("release 5") != StringRef::npos)
-        return RHEL5;
-    }
-    return UnknownDistro;
-  }
-
-  File = VFS.getBufferForFile("/etc/debian_version");
-  if (File) {
-    StringRef Data = File.get()->getBuffer();
-    // Contents: < major.minor > or < codename/sid >
-    int MajorVersion;
-    if (!Data.split('.').first.getAsInteger(10, MajorVersion)) {
-      switch (MajorVersion) {
-      case 5:
-        return DebianLenny;
-      case 6:
-        return DebianSqueeze;
-      case 7:
-        return DebianWheezy;
-      case 8:
-        return DebianJessie;
-      case 9:
-        return DebianStretch;
-      default:
-        return UnknownDistro;
-      }
-    }
-    return llvm::StringSwitch<Distro>(Data.split("\n").first)
-        .Case("squeeze/sid", DebianSqueeze)
-        .Case("wheezy/sid", DebianWheezy)
-        .Case("jessie/sid", DebianJessie)
-        .Case("stretch/sid", DebianStretch)
-        .Default(UnknownDistro);
-  }
-
-  File = VFS.getBufferForFile("/etc/SuSE-release");
-  if (File) {
-    StringRef Data = File.get()->getBuffer();
-    SmallVector<StringRef, 8> Lines;
-    Data.split(Lines, "\n");
-    for (const StringRef& Line : Lines) {
-      if (!Line.trim().startswith("VERSION"))
-        continue;
-      std::pair<StringRef, StringRef> SplitLine = Line.split('=');
-      int Version;
-      // OpenSUSE/SLES 10 and older are not supported and not compatible
-      // with our rules, so just treat them as UnknownDistro.
-      if (!SplitLine.second.trim().getAsInteger(10, Version) &&
-          Version > 10)
-        return OpenSUSE;
-      return UnknownDistro;
-    }
-    return UnknownDistro;
-  }
-
-  if (VFS.exists("/etc/exherbo-release"))
-    return Exherbo;
-
-  if (VFS.exists("/etc/arch-release"))
-    return ArchLinux;
-
-  return UnknownDistro;
 }
 
 /// \brief Get our best guess at the multiarch triple for a target.
@@ -4228,9 +4120,9 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
                          GCCInstallation.getTriple().str() + "/bin")
                        .str());
 
-  Distro Distro = DetectDistro(D.getVFS());
+  Distro Distro(D.getVFS());
 
-  if (IsOpenSUSE(Distro) || IsUbuntu(Distro)) {
+  if (Distro.IsOpenSUSE() || Distro.IsUbuntu()) {
     ExtraOpts.push_back("-z");
     ExtraOpts.push_back("relro");
   }
@@ -4240,6 +4132,7 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 
   const bool IsAndroid = Triple.isAndroid();
   const bool IsMips = isMipsArch(Arch);
+  const bool IsHexagon = Arch == llvm::Triple::hexagon;
 
   if (IsMips && !SysRoot.empty())
     ExtraOpts.push_back("--sysroot=" + SysRoot);
@@ -4249,24 +4142,25 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // .gnu.hash needs symbols to be grouped by hash code whereas the MIPS
   // ABI requires a mapping between the GOT and the symbol table.
   // Android loader does not support .gnu.hash.
-  if (!IsMips && !IsAndroid) {
-    if (IsRedhat(Distro) || IsOpenSUSE(Distro) ||
-        (IsUbuntu(Distro) && Distro >= UbuntuMaverick))
+  // Hexagon linker/loader does not support .gnu.hash
+  if (!IsMips && !IsAndroid && !IsHexagon) {
+    if (Distro.IsRedhat() || Distro.IsOpenSUSE() ||
+        (Distro.IsUbuntu() && Distro >= Distro::UbuntuMaverick))
       ExtraOpts.push_back("--hash-style=gnu");
 
-    if (IsDebian(Distro) || IsOpenSUSE(Distro) || Distro == UbuntuLucid ||
-        Distro == UbuntuJaunty || Distro == UbuntuKarmic)
+    if (Distro.IsDebian() || Distro.IsOpenSUSE() || Distro == Distro::UbuntuLucid ||
+        Distro == Distro::UbuntuJaunty || Distro == Distro::UbuntuKarmic)
       ExtraOpts.push_back("--hash-style=both");
   }
 
-  if (IsRedhat(Distro) && Distro != RHEL5 && Distro != RHEL6)
+  if (Distro.IsRedhat() && Distro != Distro::RHEL5 && Distro != Distro::RHEL6)
     ExtraOpts.push_back("--no-add-needed");
 
 #ifdef ENABLE_LINKER_BUILD_ID
   ExtraOpts.push_back("--build-id");
 #endif
 
-  if (IsOpenSUSE(Distro))
+  if (Distro.IsOpenSUSE())
     ExtraOpts.push_back("--enable-new-dtags");
 
   // The selection of paths to try here is designed to match the patterns which
@@ -4432,7 +4326,7 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
   const llvm::Triple::ArchType Arch = getArch();
   const llvm::Triple &Triple = getTriple();
 
-  const enum Distro Distro = DetectDistro(getDriver().getVFS());
+  const Distro Distro(getDriver().getVFS());
 
   if (Triple.isAndroid())
     return Triple.isArch64Bit() ? "/system/bin/linker64" : "/system/bin/linker";
@@ -4550,8 +4444,8 @@ std::string Linux::getDynamicLinker(const ArgList &Args) const {
   }
   }
 
-  if (Distro == Exherbo && (Triple.getVendor() == llvm::Triple::UnknownVendor ||
-                            Triple.getVendor() == llvm::Triple::PC))
+  if (Distro == Distro::Exherbo && (Triple.getVendor() == llvm::Triple::UnknownVendor ||
+                                    Triple.getVendor() == llvm::Triple::PC))
     return "/usr/" + Triple.str() + "/lib/" + Loader;
   return "/" + LibDir + "/" + Loader;
 }
@@ -4846,7 +4740,7 @@ SanitizerMask Linux::getSupportedSanitizers() const {
   Res |= SanitizerKind::SafeStack;
   if (IsX86_64 || IsMIPS64 || IsAArch64)
     Res |= SanitizerKind::DataFlow;
-  if (IsX86_64 || IsMIPS64 || IsAArch64)
+  if (IsX86_64 || IsMIPS64 || IsAArch64 || IsX86)
     Res |= SanitizerKind::Leak;
   if (IsX86_64 || IsMIPS64 || IsAArch64 || IsPowerPC64)
     Res |= SanitizerKind::Thread;
@@ -4880,9 +4774,6 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
 
   getFilePaths().push_back(D.SysRoot + "/lib");
   getFilePaths().push_back(D.ResourceDir + "/lib/fuchsia");
-
-  // Use LLD by default.
-  DefaultLinker = "lld";
 }
 
 Tool *Fuchsia::buildAssembler() const {
@@ -4999,7 +4890,7 @@ Tool *DragonFly::buildLinker() const {
 CudaToolChain::CudaToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ToolChain &HostTC, const ArgList &Args)
     : ToolChain(D, Triple, Args), HostTC(HostTC),
-      CudaInstallation(D, Triple, Args) {
+      CudaInstallation(D, HostTC.getTriple(), Args) {
   if (CudaInstallation.isValid())
     getProgramPaths().push_back(CudaInstallation.getBinPath());
 }
@@ -5135,6 +5026,24 @@ void CudaToolChain::AddClangCXXStdlibIncludeArgs(const ArgList &Args,
 void CudaToolChain::AddIAMCUIncludeArgs(const ArgList &Args,
                                         ArgStringList &CC1Args) const {
   HostTC.AddIAMCUIncludeArgs(Args, CC1Args);
+}
+
+SanitizerMask CudaToolChain::getSupportedSanitizers() const {
+  // The CudaToolChain only supports sanitizers in the sense that it allows
+  // sanitizer arguments on the command line if they are supported by the host
+  // toolchain. The CudaToolChain will actually ignore any command line
+  // arguments for any of these "supported" sanitizers. That means that no
+  // sanitization of device code is actually supported at this time.
+  //
+  // This behavior is necessary because the host and device toolchains
+  // invocations often share the command line, so the device toolchain must
+  // tolerate flags meant only for the host toolchain.
+  return HostTC.getSupportedSanitizers();
+}
+
+VersionTuple CudaToolChain::computeMSVCVersion(const Driver *D,
+                                               const ArgList &Args) const {
+  return HostTC.computeMSVCVersion(D, Args);
 }
 
 /// XCore tool chain
@@ -5291,9 +5200,6 @@ WebAssembly::WebAssembly(const Driver &D, const llvm::Triple &Triple,
   assert(Triple.isArch32Bit() != Triple.isArch64Bit());
   getFilePaths().push_back(
       getDriver().SysRoot + "/lib" + (Triple.isArch32Bit() ? "32" : "64"));
-
-  // Use LLD by default.
-  DefaultLinker = "lld";
 }
 
 bool WebAssembly::IsMathErrnoDefault() const { return false; }
@@ -5437,3 +5343,12 @@ SanitizerMask Contiki::getSupportedSanitizers() const {
     Res |= SanitizerKind::SafeStack;
   return Res;
 }
+
+/// AVR Toolchain
+AVRToolChain::AVRToolChain(const Driver &D, const llvm::Triple &Triple,
+                           const ArgList &Args)
+  : Generic_ELF(D, Triple, Args) { }
+Tool *AVRToolChain::buildLinker() const {
+  return new tools::AVR::Linker(*this);
+}
+// End AVR

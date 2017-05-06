@@ -31,8 +31,14 @@ namespace __xray {
 // FIXME: The actual length is 11 bytes. Why was length 12 passed to mprotect()
 // ?
 static const int16_t cSledLength = 12;
+#elif defined(__aarch64__)
+static const int16_t cSledLength = 32;
 #elif defined(__arm__)
 static const int16_t cSledLength = 28;
+#elif SANITIZER_MIPS32
+static const int16_t cSledLength = 48;
+#elif SANITIZER_MIPS64
+static const int16_t cSledLength = 64;
 #else
 #error "Unsupported CPU Architecture"
 #endif /* CPU architecture */
@@ -113,14 +119,14 @@ public:
 };
 
 template <class Function>
-CleanupInvoker<Function> ScopeCleanup(Function Fn) XRAY_NEVER_INSTRUMENT {
+CleanupInvoker<Function> scopeCleanup(Function Fn) XRAY_NEVER_INSTRUMENT {
   return CleanupInvoker<Function>{Fn};
 }
 
-// ControlPatching implements the common internals of the patching/unpatching
+// controlPatching implements the common internals of the patching/unpatching
 // implementation. |Enable| defines whether we're enabling or disabling the
 // runtime XRay instrumentation.
-XRayPatchingStatus ControlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
+XRayPatchingStatus controlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
   if (!XRayInitialized.load(std::memory_order_acquire))
     return XRayPatchingStatus::NOT_INITIALIZED; // Not initialized.
 
@@ -132,7 +138,7 @@ XRayPatchingStatus ControlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
   }
 
   bool PatchingSuccess = false;
-  auto XRayPatchingStatusResetter = ScopeCleanup([&PatchingSuccess] {
+  auto XRayPatchingStatusResetter = scopeCleanup([&PatchingSuccess] {
     if (!PatchingSuccess) {
       XRayPatching.store(false, std::memory_order_release);
     }
@@ -146,7 +152,7 @@ XRayPatchingStatus ControlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
 
   const uint64_t PageSize = GetPageSizeCached();
   if ((PageSize == 0) || ((PageSize & (PageSize - 1)) != 0)) {
-    Report("System page size is not a power of two: %lld", PageSize);
+    Report("System page size is not a power of two: %lld\n", PageSize);
     return XRayPatchingStatus::FAILED;
   }
 
@@ -186,7 +192,7 @@ XRayPatchingStatus ControlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
       Success = patchFunctionTailExit(Enable, FuncId, Sled);
       break;
     default:
-      Report("Unsupported sled kind: %d", int(Sled.Kind));
+      Report("Unsupported sled kind: %d\n", int(Sled.Kind));
       continue;
     }
     (void)Success;
@@ -197,9 +203,9 @@ XRayPatchingStatus ControlPatching(bool Enable) XRAY_NEVER_INSTRUMENT {
 }
 
 XRayPatchingStatus __xray_patch() XRAY_NEVER_INSTRUMENT {
-  return ControlPatching(true);
+  return controlPatching(true);
 }
 
 XRayPatchingStatus __xray_unpatch() XRAY_NEVER_INSTRUMENT {
-  return ControlPatching(false);
+  return controlPatching(false);
 }

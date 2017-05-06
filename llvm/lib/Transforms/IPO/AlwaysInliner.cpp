@@ -26,8 +26,10 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 
 using namespace llvm;
 using namespace InlineReportTypes; // INTEL
@@ -38,6 +40,7 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
   InlineFunctionInfo IFI;
   SmallSetVector<CallSite, 16> Calls;
   bool Changed = false;
+  SmallVector<Function *, 16> InlinedFunctions;
   InlineReason Reason; // INTEL
   for (Function &F : M)
     if (!F.isDeclaration() && F.hasFnAttribute(Attribute::AlwaysInline) &&
@@ -53,7 +56,34 @@ PreservedAnalyses AlwaysInlinerPass::run(Module &M, ModuleAnalysisManager &) {
         // FIXME: We really shouldn't be able to fail to inline at this point!
         // We should do something to log or check the inline failures here.
         Changed |= InlineFunction(CS, IFI);
+
+      // Remember to try and delete this function afterward. This both avoids
+      // re-walking the rest of the module and avoids dealing with any iterator
+      // invalidation issues while deleting functions.
+      InlinedFunctions.push_back(&F);
     }
+
+  // Remove any live functions.
+  erase_if(InlinedFunctions, [&](Function *F) {
+    F->removeDeadConstantUsers();
+    return !F->isDefTriviallyDead();
+  });
+
+  // Delete the non-comdat ones from the module and also from our vector.
+  auto NonComdatBegin = partition(
+      InlinedFunctions, [&](Function *F) { return F->hasComdat(); });
+  for (Function *F : make_range(NonComdatBegin, InlinedFunctions.end()))
+    M.getFunctionList().erase(F);
+  InlinedFunctions.erase(NonComdatBegin, InlinedFunctions.end());
+
+  if (!InlinedFunctions.empty()) {
+    // Now we just have the comdat functions. Filter out the ones whose comdats
+    // are not actually dead.
+    filterDeadComdatFunctions(M, InlinedFunctions);
+    // The remaining functions are actually dead.
+    for (Function *F : InlinedFunctions)
+      M.getFunctionList().erase(F);
+  }
 
   return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
@@ -64,7 +94,7 @@ namespace {
 ///
 /// Unlike the \c AlwaysInlinerPass, this uses the more heavyweight \c Inliner
 /// base class to provide several facilities such as array alloca merging.
-class AlwaysInlinerLegacyPass : public Inliner {
+class AlwaysInlinerLegacyPass : public LegacyInlinerBase {
 
 #if INTEL_SPECIFIC_IL0_BACKEND
   // This is used to enable/disable standard inliner pass for
@@ -74,14 +104,15 @@ class AlwaysInlinerLegacyPass : public Inliner {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
 public:
-  AlwaysInlinerLegacyPass() : Inliner(ID, /*InsertLifetime*/ true) {
+  AlwaysInlinerLegacyPass() : LegacyInlinerBase(ID, /*InsertLifetime*/ true) {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
-  AlwaysInlinerLegacyPass(bool InsertLifetime) : Inliner(ID, InsertLifetime) {
+  AlwaysInlinerLegacyPass(bool InsertLifetime)
+      : LegacyInlinerBase(ID, InsertLifetime) {
     initializeAlwaysInlinerLegacyPassPass(*PassRegistry::getPassRegistry());
 #if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;

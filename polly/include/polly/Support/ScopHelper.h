@@ -293,15 +293,6 @@ template <> struct simplify_type<polly::MemAccInst> {
 
 namespace polly {
 
-/// Check if the PHINode has any incoming Invoke edge.
-///
-/// @param PN The PHINode to check.
-///
-/// @return If the PHINode has an incoming BB that jumps to the parent BB
-///         of the PHINode with an invoke instruction, return true,
-///         otherwise, return false.
-bool hasInvokeEdge(const llvm::PHINode *PN);
-
 /// Simplify the region to have a single unconditional entry edge and a
 /// single exit edge.
 ///
@@ -403,15 +394,13 @@ bool isIgnoredIntrinsic(const llvm::Value *V);
 ///
 /// @param V The value to check.
 /// @param S The current SCoP.
-/// @param LI The LoopInfo analysis.
 /// @param SE The scalar evolution database.
 /// @param Scope Location where the value would by synthesized.
 /// @return If the instruction I can be regenerated from its
 ///         scalar evolution representation, return true,
 ///         otherwise return false.
 bool canSynthesize(const llvm::Value *V, const Scop &S,
-                   const llvm::LoopInfo *LI, llvm::ScalarEvolution *SE,
-                   llvm::Loop *Scope);
+                   llvm::ScalarEvolution *SE, llvm::Loop *Scope);
 
 /// Return the block in which a value is used.
 ///
@@ -437,5 +426,24 @@ llvm::BasicBlock *getUseBlock(llvm::Use &U);
 std::tuple<std::vector<const llvm::SCEV *>, std::vector<int>>
 getIndexExpressionsFromGEP(llvm::GetElementPtrInst *GEP,
                            llvm::ScalarEvolution &SE);
+
+// If the loop is nonaffine/boxed, return the first non-boxed surrounding loop
+// for Polly. If the loop is affine, return the loop itself.
+//
+// @param L             Pointer to the Loop object to analyze.
+// @param LI            Reference to the LoopInfo.
+// @param Boxed Loops   Set of Boxed Loops we get from the SCoP.
+llvm::Loop *getFirstNonBoxedLoopFor(llvm::Loop *L, llvm::LoopInfo &LI,
+                                    const BoxedLoopsSetTy &BoxedLoops);
+
+// If the Basic Block belongs to a loop that is nonaffine/boxed, return the
+// first non-boxed surrounding loop for Polly. If the loop is affine, return
+// the loop itself.
+//
+// @param BB            Pointer to the Basic Block to analyze.
+// @param LI            Reference to the LoopInfo.
+// @param Boxed Loops   Set of Boxed Loops we get from the SCoP.
+llvm::Loop *getFirstNonBoxedLoopFor(llvm::BasicBlock *BB, llvm::LoopInfo &LI,
+                                    const BoxedLoopsSetTy &BoxedLoops);
 } // namespace polly
 #endif

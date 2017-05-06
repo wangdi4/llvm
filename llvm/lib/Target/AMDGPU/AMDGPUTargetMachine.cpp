@@ -16,24 +16,37 @@
 #include "AMDGPUTargetMachine.h"
 #include "AMDGPU.h"
 #include "AMDGPUCallLowering.h"
+#include "AMDGPUInstructionSelector.h"
+#include "AMDGPULegalizerInfo.h"
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+#include "AMDGPURegisterBankInfo.h"
+#endif
 #include "AMDGPUTargetObjectFile.h"
 #include "AMDGPUTargetTransformInfo.h"
 #include "GCNSchedStrategy.h"
-#include "R600ISelLowering.h"
-#include "R600InstrInfo.h"
 #include "R600MachineScheduler.h"
-#include "SIISelLowering.h"
-#include "SIInstrInfo.h"
 #include "SIMachineScheduler.h"
+#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
 #include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/GlobalISel/Legalizer.h"
+#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include <memory>
 
 using namespace llvm;
 
@@ -48,6 +61,11 @@ static cl::opt<bool> EnableSROA(
   cl::ReallyHidden,
   cl::init(true));
 
+static cl::opt<bool>
+EnableEarlyIfConversion("amdgpu-early-ifcvt", cl::Hidden,
+                        cl::desc("Run early if-conversion"),
+                        cl::init(false));
+
 static cl::opt<bool> EnableR600IfConvert(
   "r600-if-convert",
   cl::desc("Use if conversion pass"),
@@ -61,6 +79,20 @@ static cl::opt<bool> EnableLoadStoreVectorizer(
   cl::init(true),
   cl::Hidden);
 
+// Option to to control global loads scalarization
+static cl::opt<bool> ScalarizeGlobal(
+  "amdgpu-scalarize-global-loads",
+  cl::desc("Enable global load scalarization"),
+  cl::init(false),
+  cl::Hidden);
+
+// Option to run internalize pass.
+static cl::opt<bool> InternalizeSymbols(
+  "amdgpu-internalize-symbols",
+  cl::desc("Enable elimination of non-kernel functions and unused globals"),
+  cl::init(false),
+  cl::Hidden);
+
 extern "C" void LLVMInitializeAMDGPUTarget() {
   // Register the target
   RegisterTargetMachine<R600TargetMachine> X(getTheAMDGPUTarget());
@@ -69,14 +101,17 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
   PassRegistry *PR = PassRegistry::getPassRegistry();
   initializeSILowerI1CopiesPass(*PR);
   initializeSIFixSGPRCopiesPass(*PR);
+  initializeSIFixVGPRCopiesPass(*PR);
   initializeSIFoldOperandsPass(*PR);
   initializeSIShrinkInstructionsPass(*PR);
   initializeSIFixControlFlowLiveIntervalsPass(*PR);
   initializeSILoadStoreOptimizerPass(*PR);
   initializeAMDGPUAnnotateKernelFeaturesPass(*PR);
   initializeAMDGPUAnnotateUniformValuesPass(*PR);
+  initializeAMDGPULowerIntrinsicsPass(*PR);
   initializeAMDGPUPromoteAllocaPass(*PR);
   initializeAMDGPUCodeGenPreparePass(*PR);
+  initializeAMDGPUUnifyMetadataPass(*PR);
   initializeSIAnnotateControlFlowPass(*PR);
   initializeSIInsertWaitsPass(*PR);
   initializeSIWholeQuadModePass(*PR);
@@ -87,11 +122,11 @@ extern "C" void LLVMInitializeAMDGPUTarget() {
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
-  return make_unique<AMDGPUTargetObjectFile>();
+  return llvm::make_unique<AMDGPUTargetObjectFile>();
 }
 
 static ScheduleDAGInstrs *createR600MachineScheduler(MachineSchedContext *C) {
-  return new ScheduleDAGMILive(C, make_unique<R600SchedStrategy>());
+  return new ScheduleDAGMILive(C, llvm::make_unique<R600SchedStrategy>());
 }
 
 static ScheduleDAGInstrs *createSIMachineScheduler(MachineSchedContext *C) {
@@ -101,15 +136,9 @@ static ScheduleDAGInstrs *createSIMachineScheduler(MachineSchedContext *C) {
 static ScheduleDAGInstrs *
 createGCNMaxOccupancyMachineScheduler(MachineSchedContext *C) {
   ScheduleDAGMILive *DAG =
-      new ScheduleDAGMILive(C, make_unique<GCNMaxOccupancySchedStrategy>(C));
-
-  const SIInstrInfo *TII = static_cast<const SIInstrInfo *>(DAG->TII);
-  if (TII->enableClusterLoads())
-    DAG->addMutation(createLoadClusterDAGMutation(TII, DAG->TRI));
-
-  if (TII->enableClusterStores())
-    DAG->addMutation(createStoreClusterDAGMutation(TII, DAG->TRI));
-
+    new GCNScheduleDAGMILive(C, make_unique<GCNMaxOccupancySchedStrategy>(C));
+  DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
+  DAG->addMutation(createStoreClusterDAGMutation(DAG->TII, DAG->TRI));
   return DAG;
 }
 
@@ -166,13 +195,11 @@ AMDGPUTargetMachine::AMDGPUTargetMachine(const Target &T, const Triple &TT,
                                          CodeGenOpt::Level OptLevel)
   : LLVMTargetMachine(T, computeDataLayout(TT), TT, getGPUOrDefault(TT, CPU),
                       FS, Options, getEffectiveRelocModel(RM), CM, OptLevel),
-    TLOF(createTLOF(getTargetTriple())),
-    IntrinsicInfo() {
-  setRequiresStructuredCFG(true);
+    TLOF(createTLOF(getTargetTriple())) {
   initAsmInfo();
 }
 
-AMDGPUTargetMachine::~AMDGPUTargetMachine() { }
+AMDGPUTargetMachine::~AMDGPUTargetMachine() = default;
 
 StringRef AMDGPUTargetMachine::getGPUName(const Function &F) const {
   Attribute GPUAttr = F.getFnAttribute("target-cpu");
@@ -188,6 +215,38 @@ StringRef AMDGPUTargetMachine::getFeatureString(const Function &F) const {
     FSAttr.getValueAsString();
 }
 
+void AMDGPUTargetMachine::adjustPassManager(PassManagerBuilder &Builder) {
+  bool Internalize = InternalizeSymbols &&
+                     (getOptLevel() > CodeGenOpt::None) &&
+                     (getTargetTriple().getArch() == Triple::amdgcn);
+  Builder.addExtension(
+    PassManagerBuilder::EP_ModuleOptimizerEarly,
+    [Internalize](const PassManagerBuilder &, legacy::PassManagerBase &PM) {
+      PM.add(createAMDGPUUnifyMetadataPass());
+      if (Internalize) {
+        PM.add(createInternalizePass([=](const GlobalValue &GV) -> bool {
+          if (const Function *F = dyn_cast<Function>(&GV)) {
+            if (F->isDeclaration())
+                return true;
+            switch (F->getCallingConv()) {
+            default:
+              return false;
+            case CallingConv::AMDGPU_VS:
+            case CallingConv::AMDGPU_GS:
+            case CallingConv::AMDGPU_PS:
+            case CallingConv::AMDGPU_CS:
+            case CallingConv::AMDGPU_KERNEL:
+            case CallingConv::SPIR_KERNEL:
+              return true;
+            }
+          }
+          return !GV.use_empty();
+        }));
+        PM.add(createGlobalDCEPass());
+      }
+  });
+}
+
 //===----------------------------------------------------------------------===//
 // R600 Target Machine (R600 -> Cayman)
 //===----------------------------------------------------------------------===//
@@ -197,7 +256,9 @@ R600TargetMachine::R600TargetMachine(const Target &T, const Triple &TT,
                                      TargetOptions Options,
                                      Optional<Reloc::Model> RM,
                                      CodeModel::Model CM, CodeGenOpt::Level OL)
-  : AMDGPUTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {}
+  : AMDGPUTargetMachine(T, TT, CPU, FS, Options, RM, CM, OL) {
+  setRequiresStructuredCFG(true);
+}
 
 const R600Subtarget *R600TargetMachine::getSubtargetImpl(
   const Function &F) const {
@@ -225,13 +286,27 @@ const R600Subtarget *R600TargetMachine::getSubtargetImpl(
 
 #ifdef LLVM_BUILD_GLOBAL_ISEL
 namespace {
+
 struct SIGISelActualAccessor : public GISelAccessor {
   std::unique_ptr<AMDGPUCallLowering> CallLoweringInfo;
+  std::unique_ptr<InstructionSelector> InstSelector;
+  std::unique_ptr<LegalizerInfo> Legalizer;
+  std::unique_ptr<RegisterBankInfo> RegBankInfo;
   const AMDGPUCallLowering *getCallLowering() const override {
     return CallLoweringInfo.get();
   }
+  const InstructionSelector *getInstructionSelector() const override {
+    return InstSelector.get();
+  }
+  const LegalizerInfo *getLegalizerInfo() const override {
+    return Legalizer.get();
+  }
+  const RegisterBankInfo *getRegBankInfo() const override {
+    return RegBankInfo.get();
+  }
 };
-} // End anonymous namespace.
+
+} // end anonymous namespace
 #endif
 
 GCNTargetMachine::GCNTargetMachine(const Target &T, const Triple &TT,
@@ -262,10 +337,17 @@ const SISubtarget *GCNTargetMachine::getSubtargetImpl(const Function &F) const {
     SIGISelActualAccessor *GISel = new SIGISelActualAccessor();
     GISel->CallLoweringInfo.reset(
       new AMDGPUCallLowering(*I->getTargetLowering()));
+    GISel->Legalizer.reset(new AMDGPULegalizerInfo());
+
+    GISel->RegBankInfo.reset(new AMDGPURegisterBankInfo(*I->getRegisterInfo()));
+    GISel->InstSelector.reset(new AMDGPUInstructionSelector(*I,
+				*static_cast<AMDGPURegisterBankInfo*>(GISel->RegBankInfo.get())));
 #endif
 
     I->setGISelAccessor(*GISel);
   }
+
+  I->setScalarizeGlobalBehavior(ScalarizeGlobal);
 
   return I.get();
 }
@@ -280,7 +362,6 @@ class AMDGPUPassConfig : public TargetPassConfig {
 public:
   AMDGPUPassConfig(TargetMachine *TM, PassManagerBase &PM)
     : TargetPassConfig(TM, PM) {
-
     // Exceptions and StackMaps are not supported, so these passes will never do
     // anything.
     disablePass(&StackMapLivenessID);
@@ -289,6 +370,14 @@ public:
 
   AMDGPUTargetMachine &getAMDGPUTargetMachine() const {
     return getTM<AMDGPUTargetMachine>();
+  }
+
+  ScheduleDAGInstrs *
+  createMachineScheduler(MachineSchedContext *C) const override {
+    ScheduleDAGMILive *DAG = createGenericSchedLive(C);
+    DAG->addMutation(createLoadClusterDAGMutation(DAG->TII, DAG->TRI));
+    DAG->addMutation(createStoreClusterDAGMutation(DAG->TII, DAG->TRI));
+    return DAG;
   }
 
   void addEarlyCSEOrGVNPass();
@@ -303,7 +392,7 @@ public:
 class R600PassConfig final : public AMDGPUPassConfig {
 public:
   R600PassConfig(TargetMachine *TM, PassManagerBase &PM)
-    : AMDGPUPassConfig(TM, PM) { }
+    : AMDGPUPassConfig(TM, PM) {}
 
   ScheduleDAGInstrs *createMachineScheduler(
     MachineSchedContext *C) const override {
@@ -319,7 +408,7 @@ public:
 class GCNPassConfig final : public AMDGPUPassConfig {
 public:
   GCNPassConfig(TargetMachine *TM, PassManagerBase &PM)
-    : AMDGPUPassConfig(TM, PM) { }
+    : AMDGPUPassConfig(TM, PM) {}
 
   GCNTargetMachine &getGCNTargetMachine() const {
     return getTM<GCNTargetMachine>();
@@ -328,9 +417,9 @@ public:
   ScheduleDAGInstrs *
   createMachineScheduler(MachineSchedContext *C) const override;
 
-  void addIRPasses() override;
   bool addPreISel() override;
   void addMachineSSAOptimization() override;
+  bool addILPOpts() override;
   bool addInstSelector() override;
 #ifdef LLVM_BUILD_GLOBAL_ISEL
   bool addIRTranslator() override;
@@ -346,7 +435,7 @@ public:
   void addPreEmitPass() override;
 };
 
-} // End of anonymous namespace
+} // end anonymous namespace
 
 TargetIRAnalysis AMDGPUTargetMachine::getTargetIRAnalysis() {
   return TargetIRAnalysis([this](const Function &F) {
@@ -383,6 +472,8 @@ void AMDGPUPassConfig::addIRPasses() {
   disablePass(&FuncletLayoutID);
   disablePass(&PatchableFunctionID);
 
+  addPass(createAMDGPULowerIntrinsicsPass());
+
   // Function calls are not supported, so make sure we inline everything.
   addPass(createAMDGPUAlwaysInlinePass());
   addPass(createAlwaysInlinerLegacyPass());
@@ -393,11 +484,20 @@ void AMDGPUPassConfig::addIRPasses() {
   // without ever running any passes on the second.
   addPass(createBarrierNoopPass());
 
+  const AMDGPUTargetMachine &TM = getAMDGPUTargetMachine();
+
+  if (TM.getTargetTriple().getArch() == Triple::amdgcn) {
+    // TODO: May want to move later or split into an early and late one.
+
+    addPass(createAMDGPUCodeGenPreparePass(
+              static_cast<const GCNTargetMachine *>(&TM)));
+  }
+
   // Handle uses of OpenCL image2d_t, image3d_t and sampler_t arguments.
   addPass(createAMDGPUOpenCLImageTypeLoweringPass());
 
-  const AMDGPUTargetMachine &TM = getAMDGPUTargetMachine();
   if (TM.getOptLevel() > CodeGenOpt::None) {
+    addPass(createInferAddressSpacesPass());
     addPass(createAMDGPUPromoteAlloca(&TM));
 
     if (EnableSROA)
@@ -523,11 +623,12 @@ void GCNPassConfig::addMachineSSAOptimization() {
   addPass(&SILoadStoreOptimizerID);
 }
 
-void GCNPassConfig::addIRPasses() {
-  // TODO: May want to move later or split into an early and late one.
-  addPass(createAMDGPUCodeGenPreparePass(&getGCNTargetMachine()));
+bool GCNPassConfig::addILPOpts() {
+  if (EnableEarlyIfConversion)
+    addPass(&EarlyIfConverterID);
 
-  AMDGPUPassConfig::addIRPasses();
+  TargetPassConfig::addILPOpts();
+  return false;
 }
 
 bool GCNPassConfig::addInstSelector() {
@@ -544,16 +645,20 @@ bool GCNPassConfig::addIRTranslator() {
 }
 
 bool GCNPassConfig::addLegalizeMachineIR() {
+  addPass(new Legalizer());
   return false;
 }
 
 bool GCNPassConfig::addRegBankSelect() {
+  addPass(new RegBankSelect());
   return false;
 }
 
 bool GCNPassConfig::addGlobalInstructionSelect() {
+  addPass(new InstructionSelect());
   return false;
 }
+
 #endif
 
 void GCNPassConfig::addPreRegAlloc() {
@@ -587,6 +692,7 @@ void GCNPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
 }
 
 void GCNPassConfig::addPostRegAlloc() {
+  addPass(&SIFixVGPRCopiesID);
   addPass(&SIOptimizeExecMaskingID);
   TargetPassConfig::addPostRegAlloc();
 }

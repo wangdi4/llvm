@@ -27,6 +27,13 @@
 // CHECK-V7-NOT: __ARM_FEATURE_DIRECTED_ROUNDING
 // CHECK-V7: #define __ARM_FP 0xC
 
+// RUN: %clang -target armv7ve-none-linux-gnu -x c -E -dM %s -o - | FileCheck -match-full-lines --check-prefix=CHECK-V7VE %s
+// CHECK-V7VE: #define __ARMEL__ 1
+// CHECK-V7VE: #define __ARM_ARCH 7
+// CHECK-V7VE: #define __ARM_ARCH_7VE__ 1
+// CHECK-V7VE: #define __ARM_ARCH_EXT_IDIV__ 1
+// CHECK-V7VE: #define __ARM_FP 0xC
+
 // RUN: %clang -target x86_64-apple-macosx10.10 -arch armv7s -x c -E -dM %s -o - | FileCheck -match-full-lines --check-prefix=CHECK-V7S %s
 // CHECK-V7S: #define __ARMEL__ 1
 // CHECK-V7S: #define __ARM_ARCH 7
@@ -389,6 +396,7 @@
 // M7-THUMB:#define __ARM_ARCH_EXT_IDIV__ 1
 // M7-THUMB:#define __ARM_FEATURE_DSP 1
 // M7-THUMB:#define __ARM_FP 0xE
+// M7-THUMB:#define __ARM_FPV5__ 1
 
 // Test whether predefines are as expected when targeting krait.
 // RUN: %clang -target armv7 -mcpu=krait -x c -E -dM %s -o - | FileCheck -match-full-lines --check-prefix=KRAIT %s

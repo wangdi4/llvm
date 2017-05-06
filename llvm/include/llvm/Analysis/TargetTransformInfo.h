@@ -36,6 +36,8 @@ namespace llvm {
 class Function;
 class GlobalValue;
 class Loop;
+class ScalarEvolution;
+class SCEV;
 class Type;
 class User;
 class Value;
@@ -53,6 +55,11 @@ struct MemIntrinsicInfo {
   // Same Id is set by the target for corresponding load/store intrinsics.
   unsigned short MatchingId;
   int NumMemRefs;
+
+  /// This is the pointer that the intrinsic is loading from or storing to.
+  /// If this is non-null, then analysis/optimization passes can assume that
+  /// this intrinsic is functionally equivalent to a load/store from this
+  /// pointer.
   Value *PtrVal;
 };
 
@@ -87,7 +94,8 @@ public:
   /// When used as a result of \c TargetIRAnalysis this method will be called
   /// when the function this was computed for changes. When it returns false,
   /// the information is preserved across those changes.
-  bool invalidate(Function &, const PreservedAnalyses &) {
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
     // FIXME: We should probably in some way ensure that the subtarget
     // information for a function hasn't changed.
     return false;
@@ -218,6 +226,24 @@ public:
   /// starting with the sources of divergence.
   bool isSourceOfDivergence(const Value *V) const;
 
+  /// Returns the address space ID for a target's 'flat' address space. Note
+  /// this is not necessarily the same as addrspace(0), which LLVM sometimes
+  /// refers to as the generic address space. The flat address space is a
+  /// generic address space that can be used access multiple segments of memory
+  /// with different address spaces. Access of a memory location through a
+  /// pointer with this address space is expected to be legal but slower
+  /// compared to the same memory location accessed through a pointer with a
+  /// different address space.
+  //
+  /// This is for for targets with different pointer representations which can
+  /// be converted with the addrspacecast instruction. If a pointer is converted
+  /// to this address space, optimizations should attempt to replace the access
+  /// with the source address space.
+  ///
+  /// \returns ~0u if the target does not have such a flat address space to
+  /// optimize away.
+  unsigned getFlatAddressSpace() const;
+
   /// \brief Test whether calls to a function lower to actual program function
   /// calls.
   ///
@@ -242,13 +268,17 @@ public:
     /// profitable. Set this to UINT_MAX to disable the loop body cost
     /// restriction.
     unsigned Threshold;
-    /// If complete unrolling will reduce the cost of the loop below its
-    /// expected dynamic cost while rolled by this percentage, apply a discount
-    /// (below) to its unrolled cost.
-    unsigned PercentDynamicCostSavedThreshold;
-    /// The discount applied to the unrolled cost when the *dynamic* cost
-    /// savings of unrolling exceed the \c PercentDynamicCostSavedThreshold.
-    unsigned DynamicCostSavingsDiscount;
+    /// If complete unrolling will reduce the cost of the loop, we will boost
+    /// the Threshold by a certain percent to allow more aggressive complete
+    /// unrolling. This value provides the maximum boost percentage that we
+    /// can apply to Threshold (The value should be no less than 100).
+    /// BoostedThreshold = Threshold * min(RolledCost / UnrolledCost,
+    ///                                    MaxPercentThresholdBoost / 100)
+    /// E.g. if complete unrolling reduces the loop execution time by 50%
+    /// then we boost the threshold by the factor of 2x. If unrolling is not
+    /// expected to reduce the running time, then we do not increase the
+    /// threshold.
+    unsigned MaxPercentThresholdBoost;
     /// The cost threshold for the unrolled loop when optimizing for size (set
     /// to UINT_MAX to disable).
     unsigned OptSizeThreshold;
@@ -264,6 +294,11 @@ public:
     /// transformation will select an unrolling factor based on the current cost
     /// threshold and other factors.
     unsigned Count;
+    /// A forced peeling factor (the number of bodied of the original loop
+    /// that should be peeled off before the loop body). When set to 0, the
+    /// unrolling transformation will select a peeling factor based on profile
+    /// information and other factors.
+    unsigned PeelCount;
     /// Default unroll count for loops with run-time trip count.
     unsigned DefaultUnrollRuntimeCount;
     // Set the maximum unrolling factor. The unrolling factor may be selected
@@ -297,6 +332,8 @@ public:
     bool Force;
     /// Allow using trip count upper bound to unroll loops.
     bool UpperBound;
+    /// Allow peeling off loop iterations for loops with low dynamic tripcount.
+    bool AllowPeeling;
   };
 
   /// \brief Get target-customized preferences for the generic loop unrolling
@@ -395,6 +432,11 @@ public:
   /// containing this constant value for the target.
   bool shouldBuildLookupTablesForConstant(Constant *C) const;
 
+  unsigned getScalarizationOverhead(Type *Ty, bool Insert, bool Extract) const;
+
+  unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
+                                            unsigned VF) const;
+
   /// \brief Don't restrict interleaved unrolling to small loops.
   bool enableAggressiveInterleaving(bool LoopHasReductions) const;
 
@@ -454,12 +496,16 @@ public:
 
   /// \brief The various kinds of shuffle patterns for vector queries.
   enum ShuffleKind {
-    SK_Broadcast,        ///< Broadcast element 0 to all other elements.
-    SK_Reverse,          ///< Reverse the order of the vector.
-    SK_Alternate,        ///< Choose alternate elements from vector.
-    SK_InsertSubvector,  ///< InsertSubvector. Index indicates start offset.
-    SK_ExtractSubvector, ///< ExtractSubvector Index indicates start offset.
-    SK_TargetSpecific    ///< Defines target-specific shuffle kind. // INTEL
+    SK_Broadcast,       ///< Broadcast element 0 to all other elements.
+    SK_Reverse,         ///< Reverse the order of the vector.
+    SK_Alternate,       ///< Choose alternate elements from vector.
+    SK_InsertSubvector, ///< InsertSubvector. Index indicates start offset.
+    SK_ExtractSubvector,///< ExtractSubvector Index indicates start offset.
+    SK_PermuteTwoSrc,   ///< Merge elements from two source vectors into one
+                        ///< with any shuffle mask.
+    SK_PermuteSingleSrc,///< Shuffle elements of single source vector with any
+                        ///< shuffle mask.
+    SK_TargetSpecific   ///< Defines target-specific shuffle kind. // INTEL
   };
 
   /// \brief Additional information about an operand's possible values.
@@ -504,11 +550,15 @@ public:
   unsigned getMaxInterleaveFactor(unsigned VF) const;
 
   /// \return The expected cost of arithmetic ops, such as mul, xor, fsub, etc.
+  /// \p Args is an optional argument which holds the instruction operands  
+  /// values so the TTI can analyize those values searching for special 
+  /// cases\optimizations based on those values.
   int getArithmeticInstrCost(
       unsigned Opcode, Type *Ty, OperandValueKind Opd1Info = OK_AnyValue,
       OperandValueKind Opd2Info = OK_AnyValue,
       OperandValueProperties Opd1PropInfo = OP_None,
-      OperandValueProperties Opd2PropInfo = OP_None) const;
+      OperandValueProperties Opd2PropInfo = OP_None,
+      ArrayRef<const Value *> Args = ArrayRef<const Value *>()) const;
 
   /// \return The cost of a shuffle instruction of kind Kind and of type Tp.
   /// The index and subtype parameters are used by the subvector insertion and
@@ -601,10 +651,11 @@ public:
   /// merged into the instruction indexing mode. Some targets might want to
   /// distinguish between address computation for memory operations on vector
   /// types and scalar types. Such targets should override this function.
-  /// The 'IsComplex' parameter is a hint that the address computation is likely
-  /// to involve multiple instructions and as such unlikely to be merged into
-  /// the address indexing mode.
-  int getAddressComputationCost(Type *Ty, bool IsComplex = false) const;
+  /// The 'SE' parameter holds pointer for the scalar evolution object which
+  /// is used in order to get the Ptr step value in case of constant stride.
+  /// The 'Ptr' parameter holds SCEV of the access pointer.
+  int getAddressComputationCost(Type *Ty, ScalarEvolution *SE = nullptr,
+                                const SCEV *Ptr = nullptr) const;
 
   /// \returns The cost, if any, of keeping values of the given types alive
   /// over a callsite.
@@ -703,6 +754,7 @@ public:
   virtual int getUserCost(const User *U) = 0;
   virtual bool hasBranchDivergence() = 0;
   virtual bool isSourceOfDivergence(const Value *V) = 0;
+  virtual unsigned getFlatAddressSpace() = 0;
   virtual bool isLoweredToCall(const Function *F) = 0;
   virtual void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) = 0;
   virtual unsigned getLoopRotationDefaultThreshold(bool OptForSize) const = 0;
@@ -727,6 +779,10 @@ public:
   virtual unsigned getJumpBufSize() = 0;
   virtual bool shouldBuildLookupTables() = 0;
   virtual bool shouldBuildLookupTablesForConstant(Constant *C) = 0;
+  virtual unsigned
+  getScalarizationOverhead(Type *Ty, bool Insert, bool Extract) = 0;
+  virtual unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
+                                                    unsigned VF) = 0;
   virtual bool enableAggressiveInterleaving(bool LoopHasReductions) = 0;
   virtual bool enableInterleavedAccessVectorization() = 0;
   virtual bool isFPVectorizationPotentiallyUnsafe() = 0;
@@ -756,7 +812,8 @@ public:
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
                          OperandValueProperties Opd1PropInfo,
-                         OperandValueProperties Opd2PropInfo) = 0;
+                         OperandValueProperties Opd2PropInfo,
+                         ArrayRef<const Value *> Args) = 0;
   virtual int getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
                              Type *SubTp) = 0;
   virtual int getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src) = 0;
@@ -791,7 +848,8 @@ public:
   virtual int getCallInstrCost(Function *F, Type *RetTy,
                                ArrayRef<Type *> Tys) = 0;
   virtual unsigned getNumberOfParts(Type *Tp) = 0;
-  virtual int getAddressComputationCost(Type *Ty, bool IsComplex) = 0;
+  virtual int getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
+                                        const SCEV *Ptr) = 0;
   virtual unsigned getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) = 0;
   virtual bool getTgtMemIntrinsic(IntrinsicInst *Inst,
                                   MemIntrinsicInfo &Info) = 0;
@@ -867,6 +925,11 @@ public:
   bool isSourceOfDivergence(const Value *V) override {
     return Impl.isSourceOfDivergence(V);
   }
+
+  unsigned getFlatAddressSpace() override {
+    return Impl.getFlatAddressSpace();
+  }
+
   bool isLoweredToCall(const Function *F) override {
     return Impl.isLoweredToCall(F);
   }
@@ -924,6 +987,15 @@ public:
   bool shouldBuildLookupTablesForConstant(Constant *C) override {
     return Impl.shouldBuildLookupTablesForConstant(C);
   }
+  unsigned getScalarizationOverhead(Type *Ty, bool Insert,
+                                    bool Extract) override {
+    return Impl.getScalarizationOverhead(Ty, Insert, Extract);
+  }
+  unsigned getOperandsScalarizationOverhead(ArrayRef<const Value *> Args,
+                                            unsigned VF) override {
+    return Impl.getOperandsScalarizationOverhead(Args, VF);
+  }
+
   bool enableAggressiveInterleaving(bool LoopHasReductions) override {
     return Impl.enableAggressiveInterleaving(LoopHasReductions);
   }
@@ -985,9 +1057,10 @@ public:
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
                          OperandValueProperties Opd1PropInfo,
-                         OperandValueProperties Opd2PropInfo) override {
+                         OperandValueProperties Opd2PropInfo,
+                         ArrayRef<const Value *> Args) override {
     return Impl.getArithmeticInstrCost(Opcode, Ty, Opd1Info, Opd2Info,
-                                       Opd1PropInfo, Opd2PropInfo);
+                                       Opd1PropInfo, Opd2PropInfo, Args);
   }
   int getShuffleCost(ShuffleKind Kind, Type *Tp, int Index,
                      Type *SubTp) override {
@@ -1049,8 +1122,9 @@ public:
   unsigned getNumberOfParts(Type *Tp) override {
     return Impl.getNumberOfParts(Tp);
   }
-  int getAddressComputationCost(Type *Ty, bool IsComplex) override {
-    return Impl.getAddressComputationCost(Ty, IsComplex);
+  int getAddressComputationCost(Type *Ty, ScalarEvolution *SE,
+                                const SCEV *Ptr) override {
+    return Impl.getAddressComputationCost(Ty, SE, Ptr);
   }
   unsigned getCostOfKeepingLiveOverCall(ArrayRef<Type *> Tys) override {
     return Impl.getCostOfKeepingLiveOverCall(Tys);
@@ -1158,7 +1232,7 @@ public:
 
 private:
   friend AnalysisInfoMixin<TargetIRAnalysis>;
-  static char PassID;
+  static AnalysisKey Key;
 
   /// \brief The callback used to produce a result.
   ///
