@@ -470,7 +470,7 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::addImplicitClauses() {
     auto DKind = Directive.getDirectiveKind();
     if (DKind != OMPD_simd && DKind != OMPD_for &&
-        //DKind != OMPD_taskloop && DKind != OMPD_taskloop_simd &&
+        DKind != OMPD_taskloop && DKind != OMPD_taskloop_simd &&
         !isOpenMPParallelDirective(DKind))
       return;
 
