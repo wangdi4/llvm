@@ -1042,8 +1042,10 @@ void VPOParoptTransform::genPrivatizationCodeTransform(WRegionNode *W,
   // W-Region (parallel loop/region/section ... etc.)
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) 
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+      UI->eraseFromParent();
       continue;
+    }
     if (ForTaskLoop) {
       IRBuilder<> Builder(UI);
       UI->replaceUsesOfWith(PrivValue, Builder.CreateLoad(NewPrivInst));
@@ -1614,8 +1616,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
       Value *Gep =
           Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      LoadInst *Load = Builder.CreateLoad(LprivI->getOrig());
-      Builder.CreateStore(Load, Gep);
+      Builder.CreateStore(LprivI->getOrig(), Gep);
     }
   }
 
@@ -1627,8 +1628,19 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
       Value *Gep =
           Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      LoadInst *Load = Builder.CreateLoad(RedI->getOrig());
-      Builder.CreateStore(Load, Gep);
+      Builder.CreateStore(RedI->getOrig(), Gep);
+    }
+  }
+
+  SharedClause &ShaClause = W->getShared();
+  if (ShaClause.size()) {
+    for (SharedItem *ShaI : ShaClause.items()) {
+      Indices.clear();
+      Indices.push_back(Builder.getInt32(0));
+      Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
+      Value *Gep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+      Builder.CreateStore(ShaI->getOrig(), Gep);
     }
   }
 
@@ -1697,10 +1709,9 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
       Value *SharedGep =
           Builder.CreateInBoundsGEP(KmpSharedTy, SharedBase, Indices);
-
       if (DL.getIntPtrType(Builder.getInt8PtrTy())->getIntegerBitWidth() == 64)
-        Size = Builder.getInt64(
-            DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
+        Size = Builder.getInt64(DL.getTypeAllocSize(
+            FprivI->getOrig()->getType()->getPointerElementType()));
       else
         Size = Builder.getInt32(DL.getTypeAllocSize(
             FprivI->getOrig()->getType()->getPointerElementType()));
