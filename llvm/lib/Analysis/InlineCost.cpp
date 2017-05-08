@@ -1607,7 +1607,12 @@ static bool worthyDoubleExternalCallSite(CallSite &CS) {
 }
 
 static bool preferCloningToInlining(CallSite& CS,
-                                    InliningLoopInfoCache& ILIC) { 
+                                    InliningLoopInfoCache& ILIC,
+                                    bool PrepareForLTO) { 
+  // As a workaround, commenting out the below source line until changes
+  // in BackendUtil.cpp, which sets PrepareForLTO flag, will be checked 
+  // into xmain branch. BackendUtil.cpp is not branch on ltoprof-xmain.
+  // if (!PrepareForLTO) return false;
   Function *Callee = CS.getCalledFunction();
   if (!Callee) return false;
   LoopInfo *LI = ILIC.getLI(Callee);
@@ -1673,9 +1678,9 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // this Threshold any time, and cost cannot decrease, we can stop processing
   // the rest of the function body.
   Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
-
 #if INTEL_CUSTOMIZATION
-  if (InlineForXmain && preferCloningToInlining(CS, *ILIC)) {
+  if (InlineForXmain &&
+      preferCloningToInlining(CS, *ILIC, Params.PrepareForLTO)) {
     *ReasonAddr = NinlrPreferCloning;
     return false; 
   } 
@@ -2152,6 +2157,7 @@ bool llvm::isInlineViable(Function &F, // INTEL
 
 InlineParams llvm::getInlineParams(int Threshold) {
   InlineParams Params;
+  Params.PrepareForLTO = false;     // INTEL
 
   // This field is the threshold to use for a callee by default. This is
   // derived from one or more of:
@@ -2215,3 +2221,17 @@ static int computeThresholdFromOptLevels(unsigned OptLevel,
 InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel) {
   return getInlineParams(computeThresholdFromOptLevels(OptLevel, SizeOptLevel));
 }
+
+#if INTEL_CUSTOMIZATION
+// This routine does exactly same as what "getInlineParams(unsigned OptLevel,
+// unsigned SizeOptLevel)" function does except it also sets PrepareForLTO
+// flag in "InlineParams" based on "PrepareForLTO".
+InlineParams llvm::getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
+                                   bool PrepareForLTO) {
+  InlineParams InlParams;
+
+  InlParams = getInlineParams(OptLevel, SizeOptLevel);
+  InlParams.PrepareForLTO = PrepareForLTO;
+  return InlParams; 
+}
+#endif // INTEL_CUSTOMIZATION

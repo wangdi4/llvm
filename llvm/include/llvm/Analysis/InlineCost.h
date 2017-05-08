@@ -280,6 +280,12 @@ struct InlineParams {
   /// Threshold to use when the callsite is considered hot.
   Optional<int> HotCallSiteThreshold;
 
+#if INTEL_CUSTOMIZATION
+  /// This flag indicates that it is LTO compile phase. This flag is
+  /// set when PrepareForLTO flag in PassManagerBuilder is true. .
+  bool PrepareForLTO;
+#endif // INTEL_CUSTOMIZATION
+
   /// Threshold to use when the callsite is considered cold.
   Optional<int> ColdCallSiteThreshold;
 };
@@ -300,6 +306,15 @@ InlineParams getInlineParams(int Threshold);
 /// \p SizeOptLevel of 1 corresponds to the the -Os flag and 2 corresponds to
 /// the -Oz flag.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
+
+#if INTEL_CUSTOMIZATION
+/// Generate the parameters to tune the inline cost analysis based on command
+/// line options. It does exactly same as what "getInlineParams(unsigned
+/// OptLevel, unsigned SizeOptLevel)" routine does except it also sets
+/// PrepareForLTO flag in InlineParams based on \p PrepareForLTO.
+InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
+                             bool PrepareForLTO);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Get an InlineCost object representing the cost of inlining this
 /// callsite.
