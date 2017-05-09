@@ -171,7 +171,8 @@ struct HIRRuntimeDD::MemoryAliasAnalyzer final : public HLNodeVisitorBase {
     // into it. The following result types are the ones where we haven't
     // analyzed the memrefs.
     return (Result != ALREADY_MV) && (Result != NON_DO_LOOP) &&
-           (Result != NON_PROFITABLE) && (Result != NON_PERFECT_LOOPNEST);
+           (Result != NON_PROFITABLE) && (Result != NON_PERFECT_LOOPNEST) &&
+           (Result != BLOB_IV_COEFF);
   }
 
 private:
