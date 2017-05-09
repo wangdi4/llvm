@@ -23,7 +23,6 @@ void foo(int *arr1, int **arr2) {
 
 // CHECK: directive(metadata !"DIR.OMP.SIMD")
 // CHECK-NEXT: qual.opnd.i32(metadata !"QUAL.OMP.SAFELEN", i32 4)
-// CHECK-NEXT: "QUAL.OMP.PRIVATE", i32* [[ITER]])
 // CHECK-NEXT: directive(metadata !"DIR.QUAL.LIST.END")
 // CHECK: directive(metadata !"DIR.OMP.END.SIMD")
 // CHECK: directive(metadata !"DIR.QUAL.LIST.END")
