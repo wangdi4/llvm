@@ -76,4 +76,21 @@ void foo(int *arr1, int **arr2) {
     int pr = 4;
     arr1[iter] = 42+iter+pr;
   }
+  int zii = 0;
+// CHECK-REGION: DIR.OMP.TASKLOOP{{.*}}REDUCTION
+ #pragma omp taskloop reduction(+:zii)
+ for (iter = first1(); iter < last1(); ++iter) {
+   int pr = 4;
+   arr1[iter] = 42+iter+pr;
+   zii += 42+iter+pr;
+ }
+// CHECK-REGION: DIR.OMP.TASKLOOP{{.*}}REDUCTION
+// CHECK-REGION: DIR.OMP.SIMD
+ #pragma omp taskloop simd reduction(+:zii)
+ for (iter = first1(); iter < last1(); ++iter) {
+   int pr = 4;
+   arr1[iter] = 42+iter+pr;
+   zii += 42+iter+pr;
+ }
+
 }
