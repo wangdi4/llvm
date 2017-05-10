@@ -597,6 +597,29 @@ void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
   }
 }
 
+template <typename ClauseTy>
+void WRegionUtils::extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                       const ClauseSpecifier &ClauseInfo,
+                                       ClauseTy &C) {
+  int ClauseID = ClauseInfo.getId();
+  bool IsConditional = ClauseInfo.getIsConditional();
+
+  if (IsConditional)
+    assert(ClauseID == QUAL_OMP_LASTPRIVATE && 
+           "The CONDITIONAL keyword is for LASTPRIVATE clauses only");
+
+  C.setClauseID(ClauseID);
+
+  for (unsigned I = 0; I < NumArgs; ++I) {
+    Value *V = (Value*) Args[I];
+    C.add(V);
+    if (IsConditional) {
+      auto *I = C.back();
+      I->setIsConditional(true);
+    }
+  }
+}
+
 void WRegionUtils::extractScheduleOpndList(ScheduleClause & Sched,
                                            const Use *Args,
                                            const ClauseSpecifier &ClauseInfo,
@@ -681,6 +704,11 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       ReductionClause &C, int ReductionKind) {
   C.setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
+  bool IsUnsigned = ClauseInfo.getIsUnsigned();
+  if (IsUnsigned)
+    assert((ReductionKind==ReductionItem::WRNReductionMax ||
+            ReductionKind==ReductionItem::WRNReductionMin) &&
+            "The UNSIGNED modifier is for MIN/MAX reduction only");
 
   if (ClauseInfo.getIsArraySection()) {
     //TODO: Parse array section arguments.
@@ -691,6 +719,7 @@ void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
       C.add(V);
       ReductionItem *RI = C.back();
       RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
+      RI->setIsUnsigned(IsUnsigned);
     }
 }
 #endif
@@ -771,7 +800,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   }
   case QUAL_OMP_LASTPRIVATE: {
     WRegionUtils::extractQualOpndList<LastprivateClause>(Args, NumArgs,
-                                                       ClauseID, getLpriv());
+                                                     ClauseInfo, getLpriv());
     break;
   }
   case QUAL_OMP_COPYIN: {
@@ -881,6 +910,8 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
   case QUAL_OMP_REDUCTION_XOR:
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
+  case QUAL_OMP_REDUCTION_MAX:
+  case QUAL_OMP_REDUCTION_MIN:
   case QUAL_OMP_REDUCTION_UDR: {
     int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
     assert(ReductionKind > 0 && "Bad reduction operation");

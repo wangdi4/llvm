@@ -93,6 +93,15 @@ class Item
       getOrig()->printAsOperand(OS, PrintType); 
       OS << ") ";
     }
+
+    // Conditional lastprivate:
+    // Abort if these methods are invoked from anything but a LastprivateItem.
+    virtual void setIsConditional(bool B){ 
+     llvm_unreachable("Unexpected keyword: CONDITIONAL");
+    }
+    virtual bool getIsConditional() const {
+     llvm_unreachable("Unexpected keyword: CONDITIONAL");
+    }
 };
 
 //
@@ -158,16 +167,19 @@ class FirstprivateItem : public Item
 class LastprivateItem : public Item 
 {
   private:
+    bool  IsConditional;    // conditional lastprivate
     RDECL Constructor;
     RDECL Destructor;
     RDECL Copy;
 
   public:
-    LastprivateItem(VAR Orig) : 
-      Item(Orig), Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {} 
+    LastprivateItem(VAR Orig) : Item(Orig), IsConditional(false),
+      Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {}
+    void setIsConditional(bool B)   { IsConditional = B; }
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     void setCopy(RDECL Cpy)         { Copy = Cpy;         }
+    bool  getIsConditional() const { return IsConditional; }
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor; }
     RDECL getCopy()        const { return Copy; }
@@ -193,19 +205,20 @@ public:
     WRNReductionBor,
     WRNReductionEqv,  // Fortran; currently unsupported 
     WRNReductionNeqv, // Fortran; currently unsupported 
-    WRNReductionMax,  // Fortran; currently unsupported 
-    WRNReductionMin,  // Fortran; currently unsupported 
+    WRNReductionMax,
+    WRNReductionMin,
     WRNReductionUdr   // user-defined reduction
   } WRNReductionKind;
 
   private:
     WRNReductionKind Ty; // reduction operation
+    bool  IsUnsigned;    // for min/max reduction; default is signed min/max
     RDECL Combiner;
     RDECL Initializer;
 
   public:
-    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): 
-      Item(Orig), Ty(Op), Combiner(nullptr), Initializer(nullptr) {}
+    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): Item(Orig),
+      Ty(Op), IsUnsigned(false), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       switch(Id) {
@@ -225,6 +238,10 @@ public:
           return WRNReductionBand;
         case QUAL_OMP_REDUCTION_BOR:
           return WRNReductionBor;
+        case QUAL_OMP_REDUCTION_MAX:
+          return WRNReductionMax;
+        case QUAL_OMP_REDUCTION_MIN:
+          return WRNReductionMin;
         case QUAL_OMP_REDUCTION_UDR:
           return WRNReductionUdr;
         default: 
@@ -250,6 +267,10 @@ public:
           return QUAL_OMP_REDUCTION_BAND;
         case WRNReductionBor:
           return QUAL_OMP_REDUCTION_BOR;
+        case WRNReductionMax:
+          return QUAL_OMP_REDUCTION_MAX;
+        case WRNReductionMin:
+          return QUAL_OMP_REDUCTION_MIN;
         case WRNReductionUdr:
           return QUAL_OMP_REDUCTION_UDR;
         default: 
@@ -258,9 +279,11 @@ public:
     };
 
     void setType(WRNReductionKind Op) { Ty = Op;          }
+    void setIsUnsigned(bool B)        { IsUnsigned = B;   }
     void setCombiner(RDECL Comb)      { Combiner = Comb;    }
     void setInitializer(RDECL Init)   { Initializer = Init; }
     WRNReductionKind getType() const { return Ty;        }
+    bool getIsUnsigned()       const { return IsUnsigned;  }
     RDECL getCombiner()        const { return Combiner;    }
     RDECL getInitializer()     const { return Initializer; }
 

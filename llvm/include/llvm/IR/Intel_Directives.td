@@ -190,6 +190,8 @@ def "QUAL.OMP.REDUCTION.OR" : Clause;
 def "QUAL.OMP.REDUCTION.XOR" : Clause;
 def "QUAL.OMP.REDUCTION.BAND" : Clause;
 def "QUAL.OMP.REDUCTION.BOR" : Clause;
+def "QUAL.OMP.REDUCTION.MAX" : Clause;
+def "QUAL.OMP.REDUCTION.MIN" : Clause;
 def "QUAL.OMP.REDUCTION.UDR" : Clause;
 def "QUAL.OMP.TO" : Clause;
 def "QUAL.OMP.FROM" : Clause;

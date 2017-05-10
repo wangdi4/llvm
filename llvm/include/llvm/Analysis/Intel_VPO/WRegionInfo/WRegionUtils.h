@@ -223,6 +223,10 @@ public:
   template <typename ClauseTy>
   static void extractQualOpndList(const Use *Args, unsigned NumArgs,
                                   int ClauseID, ClauseTy &C);
+  template <typename ClauseTy>
+  static void extractQualOpndList(const Use *Args, unsigned NumArgs,
+                                  const ClauseSpecifier &ClauseInfo,
+                                  ClauseTy &C);
 
   /// \brief Extract operands from a map clause
   static void extractMapOpndList(const Use *Args, unsigned NumArgs,

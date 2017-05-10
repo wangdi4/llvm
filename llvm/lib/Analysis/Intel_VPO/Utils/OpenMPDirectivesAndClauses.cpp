@@ -34,6 +34,8 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
   // Intialize properties to false
   setIsArraySection(false);
   setIsNonPod(false);
+  setIsUnsigned(false);
+  setIsConditional(false);
   setIsScheduleMonotonic(false);
   setIsScheduleNonmonotonic(false);
   setIsScheduleSimd(false);
@@ -69,6 +71,10 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
         setIsArraySection(true);
       else if (ModSubString[i] == "NONPOD")
         setIsNonPod(true);
+      else if (ModSubString[i] == "UNSIGNED")
+        setIsUnsigned(true);
+      else if (ModSubString[i] == "CONDITIONAL")
+        setIsConditional(true);
       else if (ModSubString[i] == "MONOTONIC")
         setIsScheduleMonotonic(true);
       else if (ModSubString[i] == "NONMONOTONIC")
@@ -450,6 +456,8 @@ bool VPOAnalysisUtils::isReductionClause(int ClauseID) {
     case QUAL_OMP_REDUCTION_XOR:
     case QUAL_OMP_REDUCTION_BAND:
     case QUAL_OMP_REDUCTION_BOR:
+    case QUAL_OMP_REDUCTION_MAX:
+    case QUAL_OMP_REDUCTION_MIN:
     case QUAL_OMP_REDUCTION_UDR:
     return true;
   }

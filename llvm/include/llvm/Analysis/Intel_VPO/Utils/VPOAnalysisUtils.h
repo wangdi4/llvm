@@ -84,8 +84,16 @@ private:
   int  Id;
 
   // These properties are extracted from the Modifier substring
+
+  // Data properties
   bool IsArraySection:1;
   bool IsNonPod:1;
+  bool IsUnsigned:1;     // needed by min/max reduction
+
+  // Conditional lastprivate
+  bool IsConditional:1;
+
+  // Schedule modifiers
   bool IsScheduleMonotonic:1;
   bool IsScheduleNonmonotonic:1;
   bool IsScheduleSimd:1;
@@ -102,6 +110,8 @@ public:
   void setId(int N) { Id = N; }
   void setIsArraySection(bool Flag)         { IsArraySection = Flag; }
   void setIsNonPod(bool Flag)               { IsNonPod = Flag; }
+  void setIsUnsigned(bool Flag)             { IsUnsigned = Flag; }
+  void setIsConditional(bool Flag)          { IsConditional = Flag; }
   void setIsScheduleMonotonic(bool Flag)    { IsScheduleMonotonic = Flag; }
   void setIsScheduleNonmonotonic(bool Flag) { IsScheduleNonmonotonic = Flag; }
   void setIsScheduleSimd(bool Flag)         { IsScheduleSimd = Flag; }
@@ -113,6 +123,8 @@ public:
   int getId() const { return Id; }
   bool getIsArraySection() const { return IsArraySection; }
   bool getIsNonPod() const { return IsNonPod; }
+  bool getIsUnsigned() const { return IsUnsigned; }
+  bool getIsConditional() const { return IsConditional; }
   bool getIsScheduleMonotonic() const { return IsScheduleMonotonic; }
   bool getIsScheduleNonmonotonic() const { return IsScheduleNonmonotonic; }
   bool getIsScheduleSimd() const { return IsScheduleSimd; }
