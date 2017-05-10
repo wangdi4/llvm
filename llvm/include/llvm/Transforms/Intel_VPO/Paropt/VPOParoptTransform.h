@@ -123,8 +123,8 @@ private:
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
-  /// If any WRN 'W' visited has W->needsTID()==true, then set NeedTID=true.
-  /// Similarly for NeedBID.
+  /// \param[out] NeedTID : 'true' if any W visited has W->needsTID()==true
+  /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
   void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
   /// \brief Generate code for privatization 
@@ -150,6 +150,9 @@ private:
   /// \brief Generate the reduction update code.
   void genReductionFini(ReductionItem *RedI, Instruction *InsertPt);
 
+  /// \brief Generate the reduction initialization code for Min/Max.
+  Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
+
   /// \brief Generate the reduction intialization instructions.
   Value *genReductionScalarInit(ReductionItem *RedI, Type *ScalarTy);
 
@@ -164,6 +167,10 @@ private:
   /// reduction or lastprivate update.
   void createEmptyPrivFiniBB(WRegionNode *W, BasicBlock *&RedEntryBB);
 
+  /// \brief Generate the reduction update instructions for min/max.
+  Value* genReductionMinMaxFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
+                             Type *ScalarTy, IRBuilder<> &Builder, bool IsMax);
+
   /// \brief Generate the reduction update instructions.
   Value *genReductionScalarFini(ReductionItem *RedI, Value *Rhs1, Value *Rhs2,
                                 Value *Lhs, Type *ScalarTy,
@@ -175,7 +182,7 @@ private:
 
   /// \brief Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
-                                    Value *Rhs2, Value *Lhs, Type *ScalarTy,
+                                    Value *Rhs2, Type *ScalarTy,
                                     IRBuilder<> &Builder, bool IsAnd);
 
   /// \brief Generate the firstprivate initialization code.

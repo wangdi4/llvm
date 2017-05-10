@@ -400,6 +400,29 @@ bool VPOParoptTransform::paroptTransforms() {
   return RoutineChanged;
 }
 
+Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
+                                                  Type *Ty, bool IsMax) {
+  Value *V;
+
+  if (Ty->isIntegerTy()) {
+    LLVMContext &C = F->getContext();
+    bool IsUnsigned = RedI->getIsUnsigned();
+    V = VPOParoptUtils::getMinMaxIntVal(C, Ty, IsUnsigned, !IsMax);
+#if 0
+    uint64_t val = IsMax ? VPOParoptUtils::getMinInt(Ty, IsUnsigned) :
+                           VPOParoptUtils::getMaxInt(Ty, IsUnsigned);
+    V = ConstantInt::get(Ty, val);
+#endif
+  }
+  else if (Ty->isFloatingPointTy())
+    V = IsMax ? ConstantFP::getInfinity(Ty, true) :  // max: negative inf
+                ConstantFP::getInfinity(Ty, false);  // min: positive inf
+  else
+    llvm_unreachable("Unsupported type in OMP reduction!");
+
+  return V;
+}
+
 // Generate the reduction intialization instructions.
 Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
                                                   Type *ScalarTy) {
@@ -424,6 +447,12 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
     break;
   case ReductionItem::WRNReductionBand:
     V = ConstantInt::get(ScalarTy, -1);
+    break;
+  case ReductionItem::WRNReductionMax:
+    V = genReductionMinMaxInit(RedI, ScalarTy, true);
+    break;
+  case ReductionItem::WRNReductionMin:
+    V = genReductionMinMaxInit(RedI, ScalarTy, false);
     break;
   default:
     llvm_unreachable("Unspported reduction operator!");
@@ -522,7 +551,7 @@ Value *VPOParoptTransform::genReductionScalarInit(ReductionItem *RedI,
 //
 Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
                                           Value *Rhs1, Value *Rhs2,
-                                          Value *Lhs, Type *ScalarTy,
+                                          Type *ScalarTy,
                                           IRBuilder<> &Builder, 
                                           bool IsAnd) {
   LLVMContext &C = F->getContext();
@@ -555,6 +584,40 @@ Value* VPOParoptTransform::genReductionFiniForBoolOps(ReductionItem *RedI,
   return ConvFini; 
 }
 
+Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
+                                                  Value *Rhs1, Value *Rhs2,
+                                                  Type *ScalarTy,
+                                                  IRBuilder<> &Builder, 
+                                                  bool IsMax) {
+  Value *IsGT; // compares Rhs1 > Rhs2
+
+  if (ScalarTy->isIntegerTy())
+    if(RedI->getIsUnsigned())
+      IsGT = Builder.CreateICmpSGT(Rhs1, Rhs2, "isUGT"); // unsigned
+    else
+      IsGT = Builder.CreateICmpSGT(Rhs1, Rhs2, "isSGT"); // signed
+  else if (ScalarTy->isFloatingPointTy())
+    IsGT = Builder.CreateFCmpOGT(Rhs1, Rhs2, "isOGT");   // FP
+  else
+    llvm_unreachable("Unsupported type in OMP reduction!");
+
+  Value *Op1, *Op2;
+  const char* Name;
+  
+  if (IsMax) {
+    Op1  = Rhs1;
+    Op2  = Rhs2;
+    Name = "max";
+  } else {
+    Op1  = Rhs2;
+    Op2  = Rhs1;
+    Name = "min";
+  }
+
+  Value *minmax = Builder.CreateSelect(IsGT, Op1, Op2, Name);
+  return minmax; 
+}
+
 // Generate the reduction update instructions.
 Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
                                                   Value *Rhs1, Value *Rhs2,
@@ -582,12 +645,18 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
     Res = Builder.CreateXor(Rhs1, Rhs2);
     break;
   case ReductionItem::WRNReductionAnd:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, Lhs, ScalarTy, Builder,
+    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder,
                                      true);
     break;
   case ReductionItem::WRNReductionOr:
-    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, Lhs, ScalarTy, Builder,
+    Res = genReductionFiniForBoolOps(RedI, Rhs1, Rhs2, ScalarTy, Builder,
                                      false);
+    break;
+  case ReductionItem::WRNReductionMax:
+    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, true);
+    break;
+  case ReductionItem::WRNReductionMin:
+    Res = genReductionMinMaxFini(RedI, Rhs1, Rhs2, ScalarTy, Builder, false);
     break;
   default:
     llvm_unreachable("Reduction operator not yet supported!");

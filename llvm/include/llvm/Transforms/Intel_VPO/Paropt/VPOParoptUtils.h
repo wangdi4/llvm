@@ -425,6 +425,13 @@ public:
                                      StructType *KmpTaskTTWithPrivatesTy,
                                      Instruction *InsertPt);
 
+    /// \brief returns min/max int of the given integer type.
+    /// This can be used to initialize min/max reduction variables.
+    static ConstantInt* getMinMaxIntVal(LLVMContext &C, Type *Ty,
+                                        bool IsUnsigned, bool GetMax);
+    // static uint64_t getMinInt(Type *IntTy, bool IsUnsigned);
+    // static uint64_t getMaxInt(Type *IntTy, bool IsUnsigned);
+
   private:
     /// \name Private constructor and destructor to disable instantiation.
     /// @{

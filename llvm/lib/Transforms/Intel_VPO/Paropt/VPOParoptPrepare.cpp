@@ -74,15 +74,17 @@ bool VPOParoptPrepare::runOnFunction(Function &F) {
   DEBUG(dbgs() << "\n=== VPOParoptPrepare Start: " << F.getName() <<" {\n");
 
   // TODO: need Front-End to set F.hasOpenMPDirective()
-  if (F.isDeclaration()) // if(!F.hasOpenMPDirective()))
+  if (F.isDeclaration()) { // if(!F.hasOpenMPDirective()))
+    DEBUG(dbgs() << "\n}=== VPOParoptPrepare End (no change): " 
+                                                     << F.getName() <<"\n");
     return Changed;
-
+  }
 
   // Walk the W-Region Graph top-down, and create W-Region List
   WRegionInfo &WI = getAnalysis<WRegionInfo>();
   WI.buildWRGraph(WRegionCollection::LLVMIR);
 
-  DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<" {\n");
+  DEBUG(dbgs() << "\n=== W-Region Graph Build Done: " << F.getName() <<"\n");
 
   if (WI.WRGraphIsEmpty()) {
     DEBUG(dbgs() << "\nNo WRegion Candidates for Parallelization \n");

@@ -1565,11 +1565,11 @@ static Value *findChainToLoad(Value *V,
 
 // Clones the load instruction and inserts before the InsertPt.
 Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
-  if (Constant *C = dyn_cast<Constant>(V))
+  if (isa<Constant>(V))
     return V;
 
   SmallVector<Instruction *, 3> ChainToBase;
-  Value *RootOfChain = findChainToLoad(V, ChainToBase);
+  /* Value *RootOfChain = */ findChainToLoad(V, ChainToBase);
   std::reverse(ChainToBase.begin(), ChainToBase.end());
 
   Instruction *LastClonedValue = nullptr;
@@ -1625,3 +1625,61 @@ Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Instruction *InsertPt,
 
   return numElements;
 }
+
+ConstantInt* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
+                                             bool IsUnsigned, bool GetMax) {
+  IntegerType *IntTy = dyn_cast<IntegerType>(Ty);
+  assert(IntTy && "getMinMaxIntVal: Expected Interger type");
+  
+  unsigned BitWidth = IntTy->getBitWidth();
+  assert(BitWidth <= 64 && "getMinMaxIntVal: Expected BitWidth <= 64");
+
+  APInt MinMaxAPInt;
+
+  if (GetMax)
+    MinMaxAPInt = IsUnsigned ? APInt::getMaxValue(BitWidth) :
+                               APInt::getSignedMaxValue(BitWidth);
+  else
+    MinMaxAPInt = IsUnsigned ? APInt::getMinValue(BitWidth) :
+                               APInt::getSignedMinValue(BitWidth);
+
+  ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
+  return MinMaxVal;
+}
+
+#if 0
+uint64_t VPOParoptUtils::getMaxInt(Type *Ty, bool IsUnsigned) {
+
+  uint64_t MaxInt;
+  IntegerType *IntTy = dyn_cast<IntegerType>(Ty);
+
+  assert(IntTy && "getMaxInt: Expected Interger type");
+  assert(IntTy->getBitWidth() <= 64 && "getMaxInt: Expected BitWidth <= 64");
+
+  if (IsUnsigned)
+    MaxInt = IntTy->getBitMask();  // binary 11...111 for n-bit integers
+  else { // signed
+    MaxInt = IntTy->getSignBit();  // binary 10...000 for n-bit integers
+    MaxInt -= 1;                   // binary 01...111 for n-bit integers
+  }
+
+  return MaxInt;
+}
+
+uint64_t VPOParoptUtils::getMinInt(Type *Ty, bool IsUnsigned) {
+
+  uint64_t MinInt;
+  IntegerType *IntTy = dyn_cast<IntegerType>(Ty);
+
+  assert(IntTy && "getMinInt: Expected Interger type");
+  assert(IntTy->getBitWidth() <= 64 && "getMinInt: Expected BitWidth <= 64");
+
+  if (IsUnsigned)
+    MinInt = 0;
+  else // signed
+    MinInt = IntTy->getSignBit();  // binary 10...000 for n-bit integers
+
+  return MinInt;
+}
+#endif
+
