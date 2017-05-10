@@ -92,5 +92,16 @@ void foo(int *arr1, int **arr2) {
    arr1[iter] = 42+iter+pr;
    zii += 42+iter+pr;
  }
-
+// CHECK-REGION: DIR.OMP.PARALLEL.LOOP{{.*}}FIRSTPRIVATE{{.*}}%.omp.lb
+  #pragma omp parallel for
+  for (iter = first1(); iter < last1(); ++iter) {
+    int pr = 4;
+    arr1[iter] = 42+iter+pr;
+  }
+// CHECK-REGION: DIR.OMP.PARALLEL.LOOP{{.*}}FIRSTPRIVATE{{.*}}%.omp.ub
+  #pragma omp parallel for
+  for (iter = first1(); iter < last1(); ++iter) {
+    int pr = 4;
+    arr1[iter] = 42+iter+pr;
+  }
 }

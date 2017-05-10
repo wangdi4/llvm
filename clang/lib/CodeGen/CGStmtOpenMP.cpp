@@ -3931,7 +3931,6 @@ void CodeGenFunction::EmitIntelOMPLoop(const OMPLoopDirective &S,
         llvm_unreachable("unexpected loop kind");
       }
       Outliner << S.clauses();
-      Outliner.setIterationVariable(IVDecl);
 
       EmitIgnoredExpr(S.getInit());
       // while (idx <= UB) { BODY; ++idx; }

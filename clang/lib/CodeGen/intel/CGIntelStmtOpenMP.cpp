@@ -448,6 +448,8 @@ namespace CGIntelOpenMP {
     switch (K) {
     case OMPC_private:
       addArg("QUAL.OMP.PRIVATE"); break;
+    case OMPC_firstprivate:
+      addArg("QUAL.OMP.FIRSTPRIVATE"); break;
     case OMPC_shared: 
       addArg("QUAL.OMP.SHARED"); break;
     default:
@@ -460,11 +462,31 @@ namespace CGIntelOpenMP {
   }
 
   void OpenMPCodeOutliner::emitImplicit(const VarDecl *VD, OpenMPClauseKind K) {
+    // OMPC_unknown is used when we do not want a variable to appear in any
+    // clause list, so just return when we see it.
+    if (K == OMPC_unknown)
+      return;
+
+    // We don't want this DeclRefExpr to generate entries in the Def/Ref lists,
+    // so temporarily save and null the CapturedStmtInfo.
+    auto savedCSI = CGF.CapturedStmtInfo;
+    CGF.CapturedStmtInfo = nullptr;
+
     DeclRefExpr DRE(const_cast<VarDecl *>(VD),
                     /*RefersToEnclosingVariableOrCapture=*/false,
                     VD->getType().getNonReferenceType(), VK_LValue,
                     SourceLocation());
     emitImplicit(&DRE, K);
+
+    CGF.CapturedStmtInfo = savedCSI;
+  }
+
+  bool OpenMPCodeOutliner::isImplicit(const VarDecl *V) {
+    return ImplicitMap.find(V) != ImplicitMap.end();
+  }
+
+  bool OpenMPCodeOutliner::isExplicit(const VarDecl *V) {
+    return ExplicitRefs.find(V) != ExplicitRefs.end();
   }
 
   void OpenMPCodeOutliner::addImplicitClauses() {
@@ -474,47 +496,34 @@ namespace CGIntelOpenMP {
         !isOpenMPParallelDirective(DKind))
       return;
 
-    // We need to process some DeclRefExprs without havining them affect the
-    // Def/Ref lists so save and null the CapturedStmtInfo.
-    auto savedCSI = CGF.CapturedStmtInfo;
-    CGF.CapturedStmtInfo = nullptr;
-
-    auto EEnd = ExplicitRefs.end();
-    auto CEnd = Counters.end();
-    for (const auto *I : VarRefs) {
-      if (ExplicitRefs.find(I) != EEnd) continue;
-      if (I == IterationVariable) continue;
-      if (VarDefs.find(I) != VarDefs.end()) {
-        // Defined here = private
-        emitImplicit(I, OMPC_private);
-      } else if (Counters.find(I) != CEnd) {
-        // Counters always private for non-SIMD loops for now.
-        // For SIMD loops, counters will be marked as linear later.
-        if (!isOpenMPSimdDirective(DKind))
-          emitImplicit(I, OMPC_private);
+    for (const auto *VD : VarRefs) {
+      if (isExplicit(VD)) continue;
+      if (isImplicit(VD)) {
+        emitImplicit(VD, ImplicitMap[VD]);
+        continue;
+      }
+      if (VarDefs.find(VD) != VarDefs.end()) {
+        // Defined in the region: private
+        emitImplicit(VD, OMPC_private);
       } else if (DKind != OMPD_simd && DKind != OMPD_for) {
-        // Referenced but not definted = shared
-        emitImplicit(I, OMPC_shared);
+        // Referenced but not defined in the region: shared
+        emitImplicit(VD, OMPC_shared);
       }
     }
-
-    // Restore the CSI
-    CGF.CapturedStmtInfo = savedCSI;
   }
 
   void OpenMPCodeOutliner::addRefsToOuter() {
     if (CGF.CapturedStmtInfo) {
-      for (const auto *I : VarDefs) {
-        if (I == IterationVariable) continue;
-        CGF.CapturedStmtInfo->recordVariableDefinition(I);
+      for (const auto *VD : VarDefs) {
+        if (isImplicit(VD)) continue;
+        CGF.CapturedStmtInfo->recordVariableDefinition(VD);
       }
-      for (const auto *I : VarRefs) {
-        if (I == IterationVariable) continue;
-        CGF.CapturedStmtInfo->recordVariableReference(I);
+      for (const auto *VD : VarRefs) {
+        if (isImplicit(VD)) continue;
+        CGF.CapturedStmtInfo->recordVariableReference(VD);
       }
-      for (const auto *I : ExplicitRefs) {
-        if (I == IterationVariable) continue;
-        CGF.CapturedStmtInfo->recordVariableReference(I);
+      for (const auto *VD : ExplicitRefs) {
+        CGF.CapturedStmtInfo->recordVariableReference(VD);
       }
     }
   }
@@ -1030,9 +1039,26 @@ namespace CGIntelOpenMP {
                                                       CallArgs);
 
     if (auto *LoopDir = dyn_cast<OMPLoopDirective>(&D)) {
+      auto DKind = LoopDir->getDirectiveKind();
       for (auto *E : LoopDir->counters()) {
         auto *PVD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
-        addCounter(PVD);
+        if (isOpenMPSimdDirective(DKind))
+          ImplicitMap.insert(std::make_pair(PVD, OMPC_unknown));
+        else
+          ImplicitMap.insert(std::make_pair(PVD, OMPC_private));
+      }
+      auto IVExpr = cast<DeclRefExpr>(LoopDir->getIterationVariable());
+      auto IVDecl = cast<VarDecl>(IVExpr->getDecl());
+      ImplicitMap.insert(std::make_pair(IVDecl, OMPC_unknown));
+      if (isOpenMPWorksharingDirective(DKind) ||
+          isOpenMPTaskLoopDirective(DKind) ||
+          isOpenMPDistributeDirective(DKind)) {
+        auto LBExpr = cast<DeclRefExpr>(LoopDir->getLowerBoundVariable());
+        auto LBDecl = cast<VarDecl>(LBExpr->getDecl());
+        ImplicitMap.insert(std::make_pair(LBDecl, OMPC_firstprivate));
+        auto UBExpr = cast<DeclRefExpr>(LoopDir->getUpperBoundVariable());
+        auto UBDecl = cast<VarDecl>(UBExpr->getDecl());
+        ImplicitMap.insert(std::make_pair(UBDecl, OMPC_firstprivate));
       }
     }
   }

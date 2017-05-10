@@ -146,11 +146,12 @@ class OpenMPCodeOutliner {
                                          const Expr *DstExpr,
                                          const Expr *AssignOp);
 
+  bool isImplicit(const VarDecl *);
+  bool isExplicit(const VarDecl *);
   void addImplicitClauses();
   void addRefsToOuter();
 
-  const VarDecl *IterationVariable;
-  llvm::DenseSet<const VarDecl *> Counters;
+  llvm::MapVector<const VarDecl *, OpenMPClauseKind> ImplicitMap;
   llvm::DenseSet<const VarDecl *> ExplicitRefs;
   llvm::DenseSet<const VarDecl *> VarDefs;
   llvm::DenseSet<const VarDecl *> VarRefs;
@@ -174,8 +175,6 @@ public:
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, OpenMPClauseKind K);
   void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);
-  void setIterationVariable(const VarDecl *VD) { IterationVariable = VD; }
-  void addCounter(const VarDecl *VD) { Counters.insert(VD); }
   void addVariableDef(const VarDecl *VD) { VarDefs.insert(VD); }
   void addVariableRef(const VarDecl *VD) { VarRefs.insert(VD); }
   void addExplicit(const Expr *E);
