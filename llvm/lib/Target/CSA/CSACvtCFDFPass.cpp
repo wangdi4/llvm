@@ -103,7 +103,7 @@ namespace llvm {
     void insertSWITCHForRepeat();
     void insertSWITCHForRepeat(MachineLoop* mloop);
     unsigned repeatOperandInLoop(unsigned Reg, MachineLoop* mloop);
-    void repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred);
+    void repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred, unsigned exitPred);
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
     void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
@@ -2422,7 +2422,8 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
   }
 }
 
-void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred) {
+void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, 
+                                                unsigned backedgePred, unsigned exitPred) {
   unsigned predReg = initInst->getOperand(0).getReg();
   unsigned predConst = initInst->getOperand(1).getImm();
   assert(!predConst);
@@ -2440,7 +2441,8 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
     while (I != mbb->end()) {
       MachineInstr *MI = &*I;
       I++;
-      if (MI->isPHI() && mloop->getHeader() == mbb || repeats.find(MI) != repeats.end()) {
+      if ((MI->isPHI() && mloop->getHeader() == mbb) || 
+          (repeats.find(MI) != repeats.end())) {
         //loop hdr phi's init input is used only once, no need to repeat
         continue;
       }
@@ -2473,11 +2475,21 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
               addReg(rptIReg);
             pickInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(pickInst);
+
+
+            unsigned notExit = MRI->createVirtualRegister(&CSA::I1RegClass);
+            BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notExit).addReg(exitPred);
+
+            SmallVector<unsigned, 4> landOpnds;
+            landOpnds.push_back(notExit);
+            landOpnds.push_back(backedgePred);
+            unsigned rptPred = generateLandSeq(landOpnds, latchBB);
+
             const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
             MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
               CSA::IGN).
               addReg(rptIReg, RegState::Define).
-              addReg(backedgePred).
+              addReg(rptPred).
               addReg(rptOReg);
             switchInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(switchInst);
@@ -2634,7 +2646,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
     setEdgePred(exitingBlk, CDG->getEdgeType(exitingBlk, exitBlk, true), exitEdgePred);
   }
 
-  repeatOperandInLoopUsePred(mloop, predInit, backedgePred);
+  repeatOperandInLoopUsePred(mloop, predInit, pb1, exitPred);
 
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
