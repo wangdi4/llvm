@@ -572,16 +572,27 @@ CSAInstrInfo::getMoveOpcode(const TargetRegisterClass *RC) const {
 }
 
 unsigned
-CSAInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
-  if (RC == &CSA::I1RegClass)  return CSA::INIT1;
-  else if (RC == &CSA::I8RegClass)  return CSA::INIT8;
-  else if (RC == &CSA::I16RegClass) return CSA::INIT16;
-  else if (RC == &CSA::I32RegClass) return CSA::INIT32;
-  else if (RC == &CSA::I64RegClass) return CSA::INIT64;
+CSAInstrInfo::getRepeatOpcode(const TargetRegisterClass *RC) const {
+  if (RC == &CSA::I1RegClass || RC == &CSA::CI1RegClass || RC == &CSA::RI1RegClass)  return CSA::REPEAT1;
+  else if (RC == &CSA::I8RegClass || RC == &CSA::CI8RegClass || RC == &CSA::RI8RegClass)  return CSA::REPEAT8;
+  else if (RC == &CSA::I16RegClass || RC == &CSA::CI16RegClass || RC == &CSA::RI16RegClass) return CSA::REPEAT16;
+  else if (RC == &CSA::I32RegClass || RC == &CSA::CI32RegClass || RC == &CSA::RI32RegClass) return CSA::REPEAT32;
+  else if (RC == &CSA::I64RegClass || RC == &CSA::CI64RegClass || RC == &CSA::RI64RegClass) return CSA::REPEAT64;
   else
     llvm_unreachable("Unknown Target LIC class!");
 }
 
+
+unsigned
+CSAInstrInfo::getInitOpcode(const TargetRegisterClass *RC) const {
+  if (RC == &CSA::I1RegClass || RC == &CSA::CI1RegClass || RC == &CSA::RI1RegClass)  return CSA::INIT1;
+  else if (RC == &CSA::I8RegClass || RC == &CSA::CI8RegClass || RC == &CSA::RI8RegClass)  return CSA::INIT8;
+  else if (RC == &CSA::I16RegClass || RC == &CSA::CI16RegClass || RC == &CSA::RI16RegClass) return CSA::INIT16;
+  else if (RC == &CSA::I32RegClass || RC == &CSA::CI32RegClass || RC == &CSA::RI32RegClass) return CSA::INIT32;
+  else if (RC == &CSA::I64RegClass || RC == &CSA::CI64RegClass || RC == &CSA::RI64RegClass) return CSA::INIT64;
+  else
+    llvm_unreachable("Unknown Target LIC class!");
+}
 
 
 // TBD(jsukha): This table lookup works for now, but there must be a
