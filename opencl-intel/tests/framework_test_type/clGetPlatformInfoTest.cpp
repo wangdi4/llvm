@@ -102,15 +102,12 @@ bool clGetPlatformInfoTest()
             {
                 #ifdef _WIN32
                 case OPENCL_VERSION_2_2:
-                {
                     expectedString += "2.2 ";
                     break;
-                }
+
                 case OPENCL_VERSION_2_1:
-                {
                     expectedString += "2.1 ";
                     break;
-                }
                 #endif //_WIN32
 
                 #if defined (_WIN32) || defined (__linux__)
