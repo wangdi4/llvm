@@ -277,6 +277,7 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
       NumToBeTransformed = NumVarsThreshold;
   }
 
+  unsigned LocalNumConverted = 0;
   for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
        GVI != E;) {
     GlobalVariable *GV = &*(GVI++);
@@ -295,11 +296,12 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
     if (GV->isConstant() || !GV->hasInitializer())
       continue;
 
-    if (PossibleBailOut && NumConverted >= NumToBeTransformed)
+    if (PossibleBailOut && LocalNumConverted >= NumToBeTransformed)
       return Changed;
 
     Changed |= processInternalGlobal(GV, GS, DT);
-    NumConverted++;
+    LocalNumConverted++;
+    NumConverted++; // For statistics.
   }
   return Changed;
 }
