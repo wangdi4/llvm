@@ -105,13 +105,20 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
         return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
     }
 
-    if(CPUDetect::GetInstance()->isKabylake())
+    if (CPUDetect::GetInstance()->isCannonlake())
+    {
+        return OPENCL_VERSION_2_2;
+    }
+
+    if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
+       CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_1;
     }
 
     if(CPUDetect::GetInstance()->isBroadwell() ||
-       CPUDetect::GetInstance()->isSkylake()
+       CPUDetect::GetInstance()->isSkylake() ||
+       CPUDetect::GetInstance()->isGeminilake()
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
     //   CPUDetect::GetInstance()->isBroxton()   ||
        )
@@ -140,7 +147,9 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
        CPUDetect::GetInstance()->isSkylake()   ||
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
        //CPUDetect::GetInstance()->isBroxton()  ||
-       CPUDetect::GetInstance()->isKabylake())
+       CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
+       CPUDetect::GetInstance()->isCannonlake() ||
+       CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_0;
     }
@@ -455,6 +464,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         s_ver = OPENCL_VERSION_2_1;
         return OPENCL_VERSION_2_1;
     }
+    else if ("2.2" == ver)
+    {
+        s_ver = OPENCL_VERSION_2_2;
+        return OPENCL_VERSION_2_2;
+    }
     // else look in registry/etc
 #ifdef _WIN32
     DWORD iVer = m_pConfigFile->GetRegistryOrEtcValue<DWORD>("ForceOCLCPUVersion", 0);
@@ -477,6 +491,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         {
             s_ver = OPENCL_VERSION_2_1;
             return OPENCL_VERSION_2_1;
+        }
+    case 4:
+        {
+            s_ver = OPENCL_VERSION_2_2;
+            return OPENCL_VERSION_2_2;
         }
     default:
         break;

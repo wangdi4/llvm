@@ -80,7 +80,10 @@ namespace Intel { namespace OpenCL { namespace Utils {
         bool isBroadwell();
         bool isBroxton();
         bool isSkylake();
-        bool isKabylake();
+        bool isKabylakeOrCoffeelake();
+        bool isGeminilake();
+        bool isCannonlake();
+        bool isIcelake();
 
         bool IsFeatureSupported(ECPUFeatureSupport featureType);
 

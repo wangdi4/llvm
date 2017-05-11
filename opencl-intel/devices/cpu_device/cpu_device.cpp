@@ -579,7 +579,8 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
     static const char sOpenCL12Str[] = "OpenCL 1.2 ",
                       sOpenCL20Str[] = "OpenCL 2.0 ",
-                      sOpenCL21Str[] = "OpenCL 2.1 ";
+                      sOpenCL21Str[] = "OpenCL 2.1 ",
+                      sOpenCL22Str[] = "OpenCL 2.2 ";
 
     static const char sOpenCLC12Str[] = "OpenCL C 1.2 ",
                       sOpenCLC20Str[] = "OpenCL C 2.0 ";
@@ -1347,6 +1348,9 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                     break;
                 case OPENCL_VERSION_2_1:
                     openclVerStr = sOpenCL21Str;
+                    break;
+                case OPENCL_VERSION_2_2:
+                    openclVerStr = sOpenCL22Str;
                     break;
                 default:
                     assert("Unknown OpenCL version.");
