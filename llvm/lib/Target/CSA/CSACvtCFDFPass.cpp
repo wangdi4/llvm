@@ -103,6 +103,7 @@ namespace llvm {
     void insertSWITCHForRepeat();
     void insertSWITCHForRepeat(MachineLoop* mloop);
     unsigned repeatOperandInLoop(unsigned Reg, MachineLoop* mloop);
+    void repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred);
     MachineBasicBlock* getDominatingExitingBB(SmallVectorImpl<MachineBasicBlock*> &exitingBlks, MachineInstr* UseMI, unsigned Reg);
     void insertSWITCHForLoopExit();
     void insertSWITCHForLoopExit(MachineLoop* L, DenseMap<MachineBasicBlock *, std::set<unsigned> *> &LCSwitch);
@@ -346,23 +347,24 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
     i++;
   }
 
-  //renaming using switch to seal all down rang of each definition within loop
-  renameOnLoopEntry();
   insertSWITCHForLoopExit();
   //rename, adding lhdr phi to seal all up range of each defintions up till loop hdr
-  insertSWITCHForRepeat();
+  //insertSWITCHForRepeat();
   //if loop hdr is also an exiting blk, repeatOperand generated loop hdr phi need to go through SWITCHforIf process
   insertSWITCHForIf();
   //run it twice; 
   //non-latch exit affect def/use chain running across the loop; 
   //new switch inserted at the exit blk need to repeated its src
-  insertSWITCHForRepeat();
+  //insertSWITCHForRepeat();
 
-if (needDynamicPreds() || UseDynamicPred)
-  generateDynamicPreds();
-else
-  replacePhiWithPICK();
-
+  //renaming using switch to seal all down rang of each definition within loop
+  renameOnLoopEntry();
+  if (needDynamicPreds() || UseDynamicPred) {
+    generateDynamicPreds();
+  } else {
+    insertSWITCHForRepeat();
+    replacePhiWithPICK();
+  }
 #if 0
   {
     errs() << "CSACvtCFDFPass before LIC allocation" << ":\n";
@@ -475,7 +477,7 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
   MachineLoop *mloop = L;
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
-    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
     if (MLI->getLoopFor(mbb) != mloop) continue;
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
@@ -966,7 +968,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
   MachineLoop *mloop = L;
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
-    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
     if (MLI->getLoopFor(mbb) != mloop) continue;
     for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
       MachineInstr *MI = &*I;
@@ -2401,7 +2403,7 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
 
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
-    //only conside blocks in the  urrent loop level, blocks in the nested level are done before.
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
     if (MLI->getLoopFor(mbb) != mloop) continue;
     for (MachineBasicBlock::succ_iterator psucc = mbb->succ_begin(); psucc != mbb->succ_end(); psucc++) {
       MachineBasicBlock* msucc = *psucc;
@@ -2420,7 +2422,85 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
   }
 }
 
+void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred) {
+  unsigned predReg = initInst->getOperand(0).getReg();
+  unsigned predConst = initInst->getOperand(1).getImm();
+  assert(!predConst);
+  MachineBasicBlock* lphdr = mloop->getHeader();
+  MachineBasicBlock* latchBB = mloop->getLoopLatch();
+  assert(latchBB);
 
+  std::set<MachineInstr*> repeats;
+
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    MachineBasicBlock::iterator I = mbb->begin();
+    while (I != mbb->end()) {
+      MachineInstr *MI = &*I;
+      I++;
+      if (MI->isPHI() && mloop->getHeader() == mbb || repeats.find(MI) != repeats.end()) {
+        //loop hdr phi's init input is used only once, no need to repeat
+        continue;
+      }
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        if (MO->isUse()) {
+          MachineInstr* dMI = MRI->getVRegDef(Reg);
+          if (!dMI || dMI->getOpcode() == CSA::PREDPROP) {
+            continue;
+          }
+          MachineBasicBlock* DefBB = dMI->getParent();
+          if (DefBB == mbb) continue;
+          //use, def in different region cross latch
+          bool isDefOutsideLoop = MLI->getLoopFor(DefBB) == NULL ||
+            !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
+
+          if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
+            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+            unsigned rptIReg = MRI->createVirtualRegister(TRC);
+            unsigned rptOReg = MRI->createVirtualRegister(TRC);
+            //const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(Reg));
+            //assert(new_LIC_RC && "Can't determine register class for register");
+            //unsigned rptIReg = LMFI->allocateLIC(new_LIC_RC);
+            const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
+            MachineInstr *pickInst = BuildMI(*lphdr, lphdr->getFirstTerminator(), DebugLoc(), TII->get(pickOpcode), 
+              rptOReg).
+              addReg(predReg).
+              addReg(Reg).
+              addReg(rptIReg);
+            pickInst->setFlag(MachineInstr::NonSequential);
+            repeats.insert(pickInst);
+            const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
+            MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+              CSA::IGN).
+              addReg(rptIReg, RegState::Define).
+              addReg(backedgePred).
+              addReg(rptOReg);
+            switchInst->setFlag(MachineInstr::NonSequential);
+            repeats.insert(switchInst);
+            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+            while (UI != MRI->use_end()) {
+              MachineOperand &UseMO = *UI;
+              MachineInstr *UseMI = UseMO.getParent();
+              MachineBasicBlock* UseBB = UseMI->getParent();
+              ++UI;
+              if (UseMI != pickInst &&
+                MLI->getLoopFor(UseBB) &&
+                MLI->getLoopFor(UseBB) == mloop &&
+                //loop hdr phi's init input is used only once, no need to repeat
+                !(UseMI->isPHI() && UseBB == mloop->getHeader())) {
+                UseMO.setReg(rptOReg);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   SmallVector<std::pair<unsigned, unsigned> *, 4> pred2values;
@@ -2505,7 +2585,7 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   const unsigned InitOpcode = TII->getInitOpcode(&CSA::I1RegClass);
   MachineBasicBlock::iterator hdrloc = mbb->begin();
   // init loopPred 0;
-  BuildMI(*mbb, hdrloc, DebugLoc(), TII->get(InitOpcode), loopPred).addImm(0);
+  MachineInstr *predInit = BuildMI(*mbb, hdrloc, DebugLoc(), TII->get(InitOpcode), loopPred).addImm(0);
 
 #if 1
   unsigned hdrPred = getBBPred(mbb);
@@ -2553,6 +2633,9 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
     //reset the exit edge pred to the value after filtering
     setEdgePred(exitingBlk, CDG->getEdgeType(exitingBlk, exitBlk, true), exitEdgePred);
   }
+
+  repeatOperandInLoopUsePred(mloop, predInit, backedgePred);
+
   MachineBasicBlock::iterator iterI = mbb->begin();
   while (iterI != mbb->end()) {
     MachineInstr *MI = &*iterI;
