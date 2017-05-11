@@ -104,4 +104,19 @@ void foo(int *arr1, int **arr2) {
     int pr = 4;
     arr1[iter] = 42+iter+pr;
   }
+ #pragma unroll(4)
+ #pragma omp parallel for
+ for (iter = first1(); iter < last1(); ++iter) { }
+ // CHECK-REGION: br label {{.*}}, !llvm.loop ![[LOOP_1:.*]]
+
+ #pragma omp parallel for
+ #pragma unroll
+ for (iter = first1(); iter < last1(); ++iter) { }
+ // CHECK-REGION: br label {{.*}}, !llvm.loop ![[LOOP_2:.*]]
 }
+
+// CHECK-REGION: !llvm.ident
+// CHECK-REGION: ![[LOOP_1]] = distinct !{![[LOOP_1]], ![[UNROLL_4:.*]]}
+// CHECK-REGION: ![[UNROLL_4]] = !{!"llvm.loop.unroll.count", i32 4}
+// CHECK-REGION: ![[LOOP_2]] = distinct !{![[LOOP_2]], ![[UNROLL_ENABLE:.*]]}
+// CHECK-REGION: ![[UNROLL_ENABLE]] = !{!"llvm.loop.unroll.enable"}
