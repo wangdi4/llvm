@@ -1,4 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s -check-prefix=OPT
 
 ; region1
 ; -------
@@ -159,35 +160,70 @@ attributes #2 = { nounwind }
 !8 = distinct !{!8, !9}
 !9 = !{!"vplan.vect.candidate"}
 
-; CHECK: [[loop_17:loop[0-9]+]]:
-; CHECK:   [[BB_11:BB[0-9]+]]:
-; CHECK:     [[BP_21:BP[0-9]+]] = [[AllOnes_20:AllOnes[0-9]+]]
-; CHECK:   [[BB_2:BB[0-9]+]]:
-; CHECK:     [[BP_22:BP[0-9]+]] = [[BP_21]]
-; CHECK:   [[region_18:region[0-9]+]]:
-; CHECK:     [[BP_22]] = [[BP_21]]
-; CHECK:   [[BB_16:BB[0-9]+]]:
-; CHECK:     [[BP_23:BP[0-9]+]] = [[BP_22]]
-; CHECK:   [[BB_10:BB[0-9]+]]:
-; CHECK:     [[BP_24:BP[0-9]+]] = [[BP_21]]
+; NOOPT: [[loop_17:loop[0-9]+]]:
+; NOOPT:   [[BB_11:BB[0-9]+]]:
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[AllOnes_20:AllOnes[0-9]+]]
+; NOOPT:   [[BB_2:BB[0-9]+]]:
+; NOOPT:     [[BP_22:BP[0-9]+]] = [[BP_21]]
+; NOOPT:   [[region_18:region[0-9]+]]:
+; NOOPT:     [[BP_22]] = [[BP_21]]
+; NOOPT:   [[BB_16:BB[0-9]+]]:
+; NOOPT:     [[BP_23:BP[0-9]+]] = [[BP_22]]
+; NOOPT:   [[BB_10:BB[0-9]+]]:
+; NOOPT:     [[BP_24:BP[0-9]+]] = [[BP_21]]
 
-; CHECK: [[region_18]]:
-; CHECK:   [[BB_14:BB[0-9]+]]:
-; CHECK:     [[BP_25:BP[0-9]+]] = [[BP_22]]
-; CHECK:     [[IfF_28:IfF[0-9]+]] = [[BP_25]] && ! [[VBR_27:VBR[0-9]+]]
-; CHECK:     [[IfT_29:IfT[0-9]+]] = [[BP_25]] && [[VBR_27]]
-; CHECK:   [[loop_19:loop[0-9]+]]:
-; CHECK:     [[IfF_28]] = [[BP_25]] && ! [[VBR_27]]
-; CHECK:   [[BB_4:BB[0-9]+]]:
-; CHECK:     [[BP_26:BP[0-9]+]] = [[IfT_29]] || [[IfF_28]]
+; NOOPT: [[region_18]]:
+; NOOPT:   [[BB_14:BB[0-9]+]]:
+; NOOPT:     [[BP_25:BP[0-9]+]] = [[BP_22]]
+; NOOPT:     [[IfF_28:IfF[0-9]+]] = [[BP_25]] && ![[VBR_27:VBR[0-9]+]]
+; NOOPT:     [[IfT_29:IfT[0-9]+]] = [[BP_25]] && [[VBR_27]]
+; NOOPT:   [[loop_19:loop[0-9]+]]:
+; NOOPT:     [[IfF_28]] = [[BP_25]] && ![[VBR_27]]
+; NOOPT:   [[BB_4:BB[0-9]+]]:
+; NOOPT:     [[BP_26:BP[0-9]+]] = [[IfT_29]] || [[IfF_28]]
 
-; CHECK: [[loop_19]]:
-; CHECK:   [[BB_5:BB[0-9]+]]:
-; CHECK:     [[BP_30:BP[0-9]+]] = [[IfF_28]]
-; CHECK:   [[BB_6:BB[0-9]+]]:
-; CHECK:     [[BP_31:BP[0-9]+]] = [[BP_30]]
-; CHECK:   [[BB_15:BB[0-9]+]]:
-; CHECK:     [[BP_32:BP[0-9]+]] = [[BP_31]]
-; CHECK:   [[BB_8:BB[0-9]+]]:
-; CHECK:     [[BP_33:BP[0-9]+]] = [[BP_30]]
+; NOOPT: [[loop_19]]:
+; NOOPT:   [[BB_5:BB[0-9]+]]:
+; NOOPT:     [[BP_30:BP[0-9]+]] = [[IfF_28]]
+; NOOPT:   [[BB_6:BB[0-9]+]]:
+; NOOPT:     [[BP_31:BP[0-9]+]] = [[BP_30]]
+; NOOPT:   [[BB_15:BB[0-9]+]]:
+; NOOPT:     [[BP_32:BP[0-9]+]] = [[BP_31]]
+; NOOPT:   [[BB_8:BB[0-9]+]]:
+; NOOPT:     [[BP_33:BP[0-9]+]] = [[BP_30]]
+
+
+
+; OPT: [[loop_19:loop[0-9]+]]:
+; OPT:   [[BB_5:BB[0-9]+]]:
+; OPT:     [[BP_30:BP[0-9]+]] = [[IfF_28:IfF[0-9]+]]
+; OPT:   [[BB_6:BB[0-9]+]]:
+; OPT:     [[BP_31:BP[0-9]+]] = [[BP_30]]
+; OPT:   [[BB_15:BB[0-9]+]]:
+; OPT:     [[BP_32:BP[0-9]+]] = [[BP_31]]
+; OPT:   [[BB_8:BB[0-9]+]]:
+; OPT:     [[BP_33:BP[0-9]+]] = [[BP_30]]
+
+; OPT: [[region_18:region[0-9]+]]:
+; OPT:   [[BB_14:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:     [[IfF_28]] = ![[VBR_27:VBR[0-9]+]]
+; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_27]]
+; OPT:   [[loop_19]]:
+; OPT:     [[IfF_28]] = ![[VBR_27]]
+; OPT:   [[BB_4:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+
+; OPT: [[loop_17:loop[0-9]+]]:
+; OPT:   [[BB_11:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_2:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[region_18]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_16:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_10:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+
 

@@ -516,7 +516,7 @@ void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
 void VPAllOnesPredicateRecipe::print(raw_ostream &O) const { O << Name; }
 
 void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
-  auto IncomingPredicates = getIncomingPredicates();
+  const auto &IncomingPredicates = getIncomingPredicates();
   auto NumIncoming = IncomingPredicates.size();
   auto UF = State.UF;
 
@@ -559,7 +559,9 @@ void VPBlockPredicateRecipe::print(raw_ostream &O) const {
 }
 
 void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
-  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
+  Value *PredMask = PredecessorPredicate
+                        ? PredecessorPredicate->getVectorizedPredicate()[0]
+                        : nullptr;
 
   // Get the vector mask value of the branch condition
   auto VecCondMask =
@@ -582,7 +584,9 @@ void VPIfTruePredicateRecipe::vectorize(VPTransformState &State) {
 void VPEdgePredicateRecipe::vectorize(VPTransformState &State) {
   // This recipe does not produce any code. It propagates an already
   // calculated mask value to CG.
-  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
+  Value *PredMask = PredecessorPredicate
+                        ? PredecessorPredicate->getVectorizedPredicate()[0]
+                        : nullptr;
   State.ILV->setEdgeMask(FromBB, ToBB, PredMask);
 }
 
@@ -599,21 +603,16 @@ void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   O << " = ";
   if (PredecessorPredicate) {
-    O << PredecessorPredicate->getName();
-  } else {
-    O << "NULL";
+    O << PredecessorPredicate->getName() << " && ";
   }
 
-  O << " && ";
-  if (ConditionRecipe) {
-    O << ConditionRecipe->getName();
-  } else {
-    O << "NULL";
-  }
+  O << ConditionRecipe->getName();
 }
 
 void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
-  auto PredMask = PredecessorPredicate->getVectorizedPredicate()[0];
+  Value *PredMask = PredecessorPredicate
+                        ? PredecessorPredicate->getVectorizedPredicate()[0]
+                        : nullptr;
 
   // Get the vector mask value of the branch condition - since this
   // edge is taken if the mask value is false we compute the negation
@@ -640,17 +639,10 @@ void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   O << " = ";
   if (PredecessorPredicate) {
-    O << PredecessorPredicate->getName();
-  } else {
-    O << "NULL";
+    O << PredecessorPredicate->getName() << " && ";
   }
-
-  O << " && ! ";
-  if (ConditionRecipe) {
-    O << ConditionRecipe->getName();
-  } else {
-    O << "NULL";
-  }
+  
+  O << "!" <<  ConditionRecipe->getName();
 }
 
 void VPBooleanRecipe::print(raw_ostream &O) const {

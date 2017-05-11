@@ -111,6 +111,7 @@ public:
 	VPBlockPredicatesRecipeSC,
 	VPIfTruePredicateRecipeSC,
 	VPIfFalsePredicateRecipeSC,
+    VPEdgePredicateRecipeSC,
 #ifdef INTEL_CUSTOMIZATION
     VPUniformBranchSC,
     VPLiveInBranchSC,
@@ -287,7 +288,25 @@ public:
     IncomingPredicates.push_back(Incoming);
   }
 
-  const SmallVector<VPPredicateRecipeBase*, 2> &getIncomingPredicates(void) const {
+  /// \brief Remove Incoming Predicate.
+  void removeIncomingPredicate(VPPredicateRecipeBase *Incoming) {
+    auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(),
+                         Incoming);
+    assert(Pos && "Incoming does not exist!");
+    IncomingPredicates.erase(Pos);
+  }
+
+  /// \brief Clear list of incoming predicates
+  void clearIncomingPredicates() {
+    IncomingPredicates.clear();
+  }
+
+  const SmallVectorImpl<VPPredicateRecipeBase *> &
+  getIncomingPredicates(void) const {
+    return const_cast<VPBlockPredicateRecipe *>(this)->getIncomingPredicates();
+  }
+
+  SmallVectorImpl<VPPredicateRecipeBase *> &getIncomingPredicates(void) {
     return IncomingPredicates;
   }
 
@@ -410,25 +429,40 @@ protected:
     PredecessorPredicate(PredecessorPredicate){}
   #endif
 
+  /// A helper function which prints out the details of an edge predicate.
+  void printDetails(raw_ostream &O) const;
+
+public:
+  const VPPredicateRecipeBase *getPredecessorPredicate() const {
+    return const_cast<VPEdgePredicateRecipeBase *>(this)
+        ->getPredecessorPredicate();
+  }
+  VPPredicateRecipeBase *getPredecessorPredicate() {
+    return PredecessorPredicate;
+  }
+
+  // TODO: Private + utility
+  void setPredecessorPredicate(VPPredicateRecipeBase *Predicate) {
+    PredecessorPredicate = Predicate;
+  }
+
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
     return V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
+           V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC ||
+           V->getVPRecipeID() == VPRecipeBase::VPEdgePredicateRecipeSC;
   }
-
-  /// A helper function which prints out the details of an edge predicate.
-  void printDetails(raw_ostream &O) const;
 };
 
 class VPEdgePredicateRecipe : public VPEdgePredicateRecipeBase {
 
 public:
   /// Construct a VPIfTruePredicateRecipe.
-  VPEdgePredicateRecipe(VPPredicateRecipeBase* PredecessorPredicate,
+  VPEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
                         BasicBlock *From, BasicBlock *To)
-    : VPEdgePredicateRecipeBase(VPBlockPredicatesRecipeSC,
-                                nullptr, PredecessorPredicate), FromBB(From), ToBB(To) {
-  }
+      : VPEdgePredicateRecipeBase(VPEdgePredicateRecipeSC, nullptr,
+                                  PredecessorPredicate),
+        FromBB(From), ToBB(To) {}
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
     return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
@@ -1000,7 +1034,13 @@ public:
   #endif
 
   /// Remove the recipe from VPBasicBlock's recipes.
+  // TODO: Please, note that this is actually destroying Recipe object. We
+  // should replace 'erase' by 'remove' and revisit algorithms using
+  // 'removeRecipe'.
   void removeRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
+
+  /// Remove the recipe from VPBasicBlock's recipes and destroy Recipe object.
+  void eraseRecipe(VPRecipeBase *Recipe) { Recipes.erase(Recipe); }
 
   /// The method which generates all new IR instructions that correspond to
   /// this VPBasicBlock in the vectorized version, thereby "executing" the

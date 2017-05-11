@@ -1,4 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s -check-prefix=OPT
 ; REQUIRES: asserts
 
 ; Verify VPlan predicator: simple if-else statement.
@@ -114,27 +115,55 @@ declare void @llvm.intel.directive(metadata) #1
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
 
-; CHECK: [[loop_14:loop[0-9]+]]:
-; CHECK:   [[BB_9:BB[0-9]+]]:
-; CHECK:     [[BP_17:BP[0-9]+]] = [[AllOnes_16:AllOnes[0-9]+]]
-; CHECK:   [[BB_2:BB[0-9]+]]:
-; CHECK:     [[BP_18:BP[0-9]+]] = [[BP_17]]
-; CHECK:   [[region_15:region[0-9]+]]:
-; CHECK:     [[BP_18]] = [[BP_17]]
-; CHECK:   [[BB_13:BB[0-9]+]]:
-; CHECK:     [[BP_19:BP[0-9]+]] = [[BP_18]]
-; CHECK:   [[BB_8:BB[0-9]+]]:
-; CHECK:     [[BP_20:BP[0-9]+]] = [[BP_17]]
 
-; CHECK: [[region_15]]:
-; CHECK:   [[BB_12:BB[0-9]+]]:
-; CHECK:     [[BP_21:BP[0-9]+]] = [[BP_18]]
-; CHECK:     [[IfF_26:IfF[0-9]+]] = [[BP_21]] && ! [[VBR_25:VBR[0-9]+]]
-; CHECK:     [[IfT_27:IfT[0-9]+]] = [[BP_21]] && [[VBR_25]]
-; CHECK:   [[BB_5:BB[0-9]+]]:
-; CHECK:     [[BP_24:BP[0-9]+]] = [[IfF_26]]
-; CHECK:   [[BB_4:BB[0-9]+]]:
-; CHECK:     [[BP_22:BP[0-9]+]] = [[IfT_27]]
-; CHECK:   [[BB_6:BB[0-9]+]]:
-; CHECK:     [[BP_23:BP[0-9]+]] = [[BP_24]] || [[BP_22]]
+; NOOPT: [[loop_14:loop[0-9]+]]:
+; NOOPT:   [[BB_9:BB[0-9]+]]:
+; NOOPT:     [[BP_17:BP[0-9]+]] = [[AllOnes_16:AllOnes[0-9]+]]
+; NOOPT:   [[BB_2:BB[0-9]+]]:
+; NOOPT:     [[BP_18:BP[0-9]+]] = [[BP_17]]
+; NOOPT:   [[region_15:region[0-9]+]]:
+; NOOPT:     [[BP_18]] = [[BP_17]]
+; NOOPT:   [[BB_13:BB[0-9]+]]:
+; NOOPT:     [[BP_19:BP[0-9]+]] = [[BP_18]]
+; NOOPT:   [[BB_8:BB[0-9]+]]:
+; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_17]]
+
+; NOOPT: [[region_15]]:
+; NOOPT:   [[BB_12:BB[0-9]+]]:
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_18]]
+; NOOPT:     [[IfF_26:IfF[0-9]+]] = [[BP_21]] && ![[VBR_25:VBR[0-9]+]]
+; NOOPT:     [[IfT_27:IfT[0-9]+]] = [[BP_21]] && [[VBR_25]]
+; NOOPT:   [[BB_5:BB[0-9]+]]:
+; NOOPT:     [[BP_24:BP[0-9]+]] = [[IfF_26]]
+; NOOPT:   [[BB_4:BB[0-9]+]]:
+; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfT_27]]
+; NOOPT:   [[BB_6:BB[0-9]+]]:
+; NOOPT:     [[BP_23:BP[0-9]+]] = [[BP_24]] || [[BP_22]]
+
+
+
+; OPT: [[region_15:region[0-9]+]]:
+; OPT:   [[BB_12:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:     [[IfF_26:IfF[0-9]+]] = ![[VBR_25:VBR[0-9]+]]
+; OPT:     [[IfT_27:IfT[0-9]+]] = [[VBR_25]]
+; OPT:   [[BB_5:BB[0-9]+]]:
+; OPT:     [[BP_24:BP[0-9]+]] = [[IfF_26]]
+; OPT:   [[BB_4:BB[0-9]+]]:
+; OPT:     [[BP_22:BP[0-9]+]] = [[IfT_27]]
+; OPT:   [[BB_6:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+
+; OPT: [[loop_14:loop[0-9]+]]:
+; OPT:   [[BB_9:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_2:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[region_15]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_13:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+; OPT:   [[BB_8:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ = 
+
 

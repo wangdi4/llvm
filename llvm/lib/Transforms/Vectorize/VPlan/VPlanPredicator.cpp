@@ -33,7 +33,7 @@
 // - Regions cannot cannot generate code themselves (only BBs do). So their
 //   PredicateRecipe pointer points to the incoming block's predicate
 //   recipe.
-// - Before a Region gets predicated by predicateRegion(), the Region's
+// - Before a Region gets predicated by predicateRegionRec(), the Region's
 //   Block Predicate should have already been set.
 // - The top level region (VPlan's entry block) is assigned an AllOnes recipe.
 // - Edge Predicates are emitted in the same BB as the condition they point to.
@@ -47,6 +47,8 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 
+#define DEBUG_TYPE "VPlanPredicator"
+
 using namespace llvm;
 using namespace vpo;
 
@@ -56,10 +58,9 @@ static cl::opt<bool>
                           cl::desc("VPlan Predicator report for testing"));
 static cl::opt<bool> DumpVPlanDot("dump-vplan-dot", cl::init(false), cl::Hidden,
                                   cl::desc("Dump the vplan dot file"));
-static cl::opt<bool>
-    PredicateOutermostLoop("vplan-predicate-outermost", cl::init(true),
-                           cl::Hidden,
-                           cl::desc("Start predication at the outermost loop"));
+static cl::opt<bool> DisablePredicatorOpts(
+    "disable-predicator-opts", cl::init(false), cl::Hidden,
+    cl::desc("Disable optimizations in VPlan Predicator."));
 
 // Returns the first recipe in BB or NULL if empty.
 static VPRecipeBase *getFirstRecipeSafe(VPBasicBlock *BB) {
@@ -152,7 +153,7 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
                                                       BasicBlock *From,
                                                       BasicBlock *To) {
   VPEdgePredicateRecipe *EdgeRecipe =
-    PlanUtils.createEdgePredicateRecipe(R, From, To);
+      PlanUtils.createEdgePredicateRecipe(R, From, To);
   PredBB->addRecipe(EdgeRecipe);
   return EdgeRecipe;
 }
@@ -187,34 +188,23 @@ VPPredicateRecipeBase *VPlanPredicator::genEdgeRecipe(VPBasicBlock *PredBB,
   return nullptr;
 }
 
-// Generate and attach an empty Block Predicate onto CurrBlock
-void VPlanPredicator::genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock) {
-  // Only Basic Blocks have block predicates attached to them, as they are the
-  // ones capable of generating code.
-  if (VPBasicBlock *CurrBB = dyn_cast<VPBasicBlock>(CurrBlock)) {
-    VPBlockPredicateRecipe *BP = PlanUtils.createBlockPredicateRecipe();
-    CurrBB->addRecipe(BP, getFirstRecipeSafe(CurrBB));
-    CurrBB->setPredicateRecipe(BP);
-  }
-  // A Region will simply point to its incoming predicate recipe.
-  // This gets taken care of later.
-  else {
-    CurrBlock->setPredicateRecipe(nullptr);
-  }
-}
-
 // Helper for appending a Recipe to Block.
 // It hides the fact that we only BBs get to have a BlockPredicate.
 // Regions simply point to the input's recipe.
 static void appendPredicateToBlock(VPBlockBase *Block,
                                    VPPredicateRecipeBase *Recipe) {
+  DEBUG(errs() << "Appending " << Recipe->getName() << " to "
+               << Block->getName() << "\n");
+
   if (isa<VPBasicBlock>(Block)) {
+    assert(isa<VPBlockPredicateRecipe>(Block->getPredicateRecipe()) &&
+           "Expected VPBlockPredicateRecipe");
     VPBlockPredicateRecipe *BP =
-        dyn_cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
-    assert(BP);
+        cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
     BP->appendIncomingPredicate(Recipe);
   } else {
-    assert(Block->getPredicateRecipe() == nullptr && "Overwriting ?");
+    assert(isa<VPRegionBlock>(Block) && "Expected VPRegionBlock.");
+    assert(!Block->getPredicateRecipe() && "Overwriting ?");
     Block->setPredicateRecipe(Recipe);
   }
 }
@@ -278,6 +268,8 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
         
         BasicBlock *ToBB = (ET == TRUE_EDGE) ? PredBasicBlock->getTBlock() :
           PredBasicBlock->getFBlock();
+        // TODO: Passing TakePRedicateFrom and IncommingPredicate seem to be
+        // redundant.
         genEdgeRecipe(cast<VPBasicBlock>(TakePredicateFrom), IncomingPredicate,
                       FromBB, ToBB);
       }
@@ -323,9 +315,11 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
     else if (const VPRegionBlock *Region = dyn_cast<VPRegionBlock>(Block)) {
       OS << "  " << Region->getName() << ":\n";
       VPPredicateRecipeBase *Predicate = Region->getPredicateRecipe();
-      OS << "    ";
-      Predicate->print(OS);
-      OS << "\n";
+      if (Predicate) {
+        OS << "    ";
+        Predicate->print(OS);
+        OS << "\n";
+      }
     } else {
       llvm_unreachable("Unsupported block type");
     }
@@ -333,54 +327,239 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
   outs() << "\n";
 }
 
-// Generate all predicates within Region. We stay at the same level in
-// the HCFG and do not attempt to predicate the internals of other regions.
-void VPlanPredicator::predicateRegion(VPRegionBlock *Region) {
-  VPPredicateRecipeBase *RegionRecipe = Region->getPredicateRecipe();
-  assert(RegionRecipe && "Must have been assigned an input predicate");
+// Generate all predicates within Region and recursively predicate nested
+// regions.
+void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
+
+  DEBUG(dbgs() << "Predicating Region: " << Region->getName() << "\n");
+
   assert(isa<VPBasicBlock>(Region->getEntry()) &&
          "Region entry is not a VPBasicBlock");
-  VPBlockBase *EntryBlock = cast<VPBasicBlock>(Region->getEntry());
+  VPBasicBlock *EntryBlock = cast<VPBasicBlock>(Region->getEntry());
 
-  // 1. Generate the block predicates for all Basic Blocks in any order
-  //    VPRegions' predicate will be set to nullptr.
-  for (auto BlockIt = df_iterator<VPBlockBase *>::begin(EntryBlock),
-            BlockItE = df_iterator<VPBlockBase *>::end(EntryBlock);
-       BlockIt != BlockItE; ++BlockIt) {
-    genAndAttachEmptyBlockPredicate(*BlockIt);
+  // RPOT is reused in steps 1 and 3.
+  ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
+
+  // 1. Generate the block predicates for all VPBasicBlocks.
+  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+
+    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      VPBlockPredicateRecipe *BP = PlanUtils.createBlockPredicateRecipe();
+      VPBB->addRecipe(BP, getFirstRecipeSafe(VPBB));
+      VPBB->setPredicateRecipe(BP);
+    } else if (auto SubRegion = dyn_cast<VPRegionBlock>(Block)) {
+      DEBUG(dbgs() << "Found subregion: " << SubRegion->getName() << "\n");
+      
+      assert(!SubRegion->getPredicateRecipe() && "Region predicate must be "
+                                                 "nullptr. Input predicate "
+                                                 "hasn't been propagated yet.");
+    } else {
+      llvm_unreachable(
+          "VPBlockBase is neither a VPBasicBlock nor a VPRegionBlock.");
+    }
   }
 
-  // 2. Propagate the Region's Block Predicate inputs to the entry block
+  // 2. Propagate the Region's Block Predicate inputs to the entry block.
   assert(EntryBlock->getPredicateRecipe() &&
          isa<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe()) &&
          "Should have been emitted by Step 1.");
   VPBlockPredicateRecipe *EntryBP =
       cast<VPBlockPredicateRecipe>(EntryBlock->getPredicateRecipe());
-  EntryBP->appendIncomingPredicate(RegionRecipe);
+  VPPredicateRecipeBase *RegionInputPred = Region->getPredicateRecipe();
+  assert(RegionInputPred && "Must have been assigned an input predicate");
+  EntryBP->appendIncomingPredicate(RegionInputPred);
 
-  // 3. Generate edge predicates and append them to the block predicate
-  //    RPO is necessary since nested VPRegions' predicate is null and it has to
-  //    be set before it's propagated
-  // TODO: If we have to use RPOT here, we should reuse it in step1
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
+  // 3. Generate edge predicates and append them to the block predicate RPO is
+  //    necessary since nested VPRegions' predicate is null and it has to be set
+  //    before it's propagated.
   for (VPBlockBase *VPB : make_range(RPOT.begin(), RPOT.end())) {
-
     propagatePredicatesAcrossBlocks(VPB, Region);
+  }
+
+  // We generate only one LIT report per region. If predicator optimizations are
+  // disabled, we generate the report here. Otherwise, the report is generated
+  // in 'optimizeRegionRec'.
+  if (DisablePredicatorOpts)
+    genLitReport(Region);
+
+  // Predicate subregions
+  for (VPBlockBase *Block : make_range(RPOT.begin(), RPOT.end())) {
+    if (auto SubRegion = dyn_cast<VPRegionBlock>(Block)) {
+      predicateRegionRec(SubRegion);
+    }
   }
 }
 
-// Helper function for traversing the Hierarchical Control Flow
-// Look for region blocks within entryBlock and append them to regionWL
-static void appendRegionsToWorklist(VPBlockBase *EntryBlock,
-                                    std::vector<VPRegionBlock *> &RegionWL) {
-  for (auto it = df_iterator<VPBlockBase *>::begin(EntryBlock),
-            ite = df_iterator<VPBlockBase *>::end(EntryBlock);
-       it != ite; ++it) {
-    VPBlockBase *block = *it;
-    if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(block)) {
-      RegionWL.push_back(Region);
+// This optimization propagates the predicate in an IDom block to its IPostDom
+// block, stating from Region's Entry. This propagation will replace operations
+// that join multiple predicates in IPostDom block (e.g., BP5 = BP3 || BP4) by
+// just the predicate in IDom block (e.g., BP5 = BP2)
+// TODO: So far, we are optimizing only Region's Exit. Introduce Dom/PostDomTree
+// in Region and implement the right optimization.
+static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region) {
+
+  // Propagate Entry's predicate to Exit.
+  assert(isa<VPBasicBlock>(Region->getEntry()) &&
+         "Region Entry must be a VPBasicBlock");
+  assert(isa<VPBasicBlock>(Region->getExit()) &&
+         "Region Exit must be a VPBasicBlock");
+
+  if (VPPredicateRecipeBase *ExitPred =
+          Region->getExit()->getPredicateRecipe()) {
+    VPPredicateRecipeBase *EntryPred = Region->getEntry()->getPredicateRecipe();
+    assert(EntryPred &&
+           "Region with no Entry predicate but with Exit predicate?");
+
+    assert(isa<VPBlockPredicateRecipe>(ExitPred) &&
+           "Expected VPBlockPredicateRecipe");
+    VPBlockPredicateRecipe *ExitBlockPred =
+        cast<VPBlockPredicateRecipe>(ExitPred);
+
+    ExitBlockPred->clearIncomingPredicates();
+    ExitBlockPred->appendIncomingPredicate(EntryPred);
+  }
+}
+// It propagates all-ones predicates within Region (and its sub-regions) and
+// optimizes operations on predicates that involve an all-ones predicate.
+// TODO: Use Def-Use chains when available.
+static void optimizeAllOnesPredicates(
+    VPRegionBlock *Region,
+    SmallPtrSetImpl<VPPredicateRecipeBase *> &AllOnesPreds) {
+
+  for (auto Block : make_range(df_iterator<VPRegionBlock *>::begin(Region),
+                               df_iterator<VPRegionBlock *>::end(Region))) {
+
+    // Region's predicate is used just to propagate predecessor's predicate
+    // inside the Region and to its successor. It doesn't need to be
+    // optimized.
+    if (auto VPBB = dyn_cast<VPBasicBlock>(Block)) {
+      // A. Optimize BlockPredicate.
+      assert(isa<VPBlockPredicateRecipe>(Block->getPredicateRecipe()) &&
+             "Expected BlockPredicate.");
+      VPBlockPredicateRecipe *BlockPred =
+          cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
+
+      // Remove all AllOnesPreds predicates from Incomings
+      SmallVectorImpl<VPPredicateRecipeBase *> &BPIncomings =
+          BlockPred->getIncomingPredicates();
+      BPIncomings.erase(std::remove_if(BPIncomings.begin(), BPIncomings.end(),
+                                       [&](VPPredicateRecipeBase *Incoming) {
+                                         return AllOnesPreds.count(Incoming);
+                                       }),
+                        BPIncomings.end());
+
+      if (BPIncomings.size() == 0) {
+        DEBUG(dbgs() << BlockPred->getName() << " became AllOnes.\n");
+
+        // BlockPred is empty so it's AllOnes. Set Block's predicate to null.
+        Block->setPredicateRecipe(nullptr);
+
+        // Insert BlockPred in AllOnesPreds. Please, note that we cannot erase
+        // BlockPred from VPBB's list of recipes at this point because
+        // sub-regions may use this predicate.
+        AllOnesPreds.insert(BlockPred);
+      }
+
+      // B. Optimize EdgePredicates in this VPBB. Remove operations with
+      // AllOnes predicates.
+      for (auto &Recipe : make_range(VPBB->begin(), VPBB->end())) {
+        VPRecipeBase *RecipePtr = &Recipe;
+        if (auto EdgePred = dyn_cast<VPEdgePredicateRecipeBase>(RecipePtr)) {
+          if (AllOnesPreds.count(EdgePred->getPredecessorPredicate())) {
+            DEBUG(dbgs() << "Setting " << EdgePred->getName()
+                         << "'s PredecessorPredicate ("
+                         << EdgePred->getPredecessorPredicate()->getName()
+                         << ") to nullptr\n");
+            EdgePred->setPredecessorPredicate(nullptr);
+          }
+        }
+      }
     }
   }
+}
+
+// Set of optimizations that need to happen in pre-order of the recursion,
+// before we optimize Region's sub-regions.
+static void
+optimizeRegionPreOrder(VPRegionBlock *Region,
+                       SmallPtrSetImpl<VPPredicateRecipeBase *> &AllOnesPreds) {
+
+  // Pre-order 1. Propagate predicates to IPostDoms
+  optimizeImmediatePostdomBlocks(Region);
+
+  // Pre-order 2. Propagate/optimize away all-ones predicates. 
+  optimizeAllOnesPredicates(Region, AllOnesPreds);
+}
+
+// Set of optimizations that need to happen in post-order of the recursion,
+// after all the Region's sub-regions have been optimized.
+static void optimizeRegionPostOrder(
+    VPPredicateRecipeBase *IncomingAllOnesPred,
+    SmallPtrSetImpl<VPPredicateRecipeBase *> &AllOnesPreds) {
+
+  // Post-order 1. Destroy Region-local VPBlockPredicates from VPBB's list of
+  // recipes. These predicates are no longer used after previous recursive visit
+  // of sub-regions. Do not destroy IncomingAllOnesPred from AllOnesPreds. This
+  // predicate is destroyed in the parent region.
+  if (IncomingAllOnesPred)
+    AllOnesPreds.erase(IncomingAllOnesPred);
+
+  for (auto PredRecipe : AllOnesPreds) {
+    VPBasicBlock *ParentVPBB = PredRecipe->getParent();
+    DEBUG(dbgs() << "Destroying recipe " << PredRecipe->getName() << " from "
+                 << ParentVPBB->getName() << "\n");
+
+    assert(ParentVPBB && "Expected parent for this recipe.");
+    // Erase destroys the actual recipe opbject.
+    ParentVPBB->eraseRecipe(PredRecipe);
+  }
+}
+
+// Optimize predicates within Region. IncomingAllOnesPred holds an incoming
+// predicate that became all-ones and we have to propagate inside the
+// region. If incoming predicate didn't become all-ones, IncomingAllOnesPred is
+// null.
+// TODO: Simplify/revisit IncomingAllOnesPred after removing VPAllOnesPredicate.
+void VPlanPredicator::optimizeRegionRec(
+    VPRegionBlock *Region, VPPredicateRecipeBase *IncomingAllOnesPred) {
+
+  DEBUG(dbgs() << "Optimizing " << Region->getName()
+               << ". IncomingAllOnesPred = "
+               << (IncomingAllOnesPred ? IncomingAllOnesPred->getName()
+                                       : "nullptr")
+               << "\n");
+
+  // It contains all the predicates that are/become all-ones at this HCFG level.
+  SmallPtrSet<VPPredicateRecipeBase *, 16> AllOnesPreds;
+  if (IncomingAllOnesPred) {
+    AllOnesPreds.insert(IncomingAllOnesPred);
+  }
+
+  // Pre-order optimizations
+  optimizeRegionPreOrder(Region, AllOnesPreds);
+
+  // Recursively optimize sub-regions within Region
+  for (auto Block : make_range(df_iterator<VPRegionBlock *>::begin(Region),
+                               df_iterator<VPRegionBlock *>::end(Region))) {
+
+    if (VPRegionBlock *SubRegion = dyn_cast<VPRegionBlock>(Block)) {
+      // If Region's predicate is/became all-ones, propagate such all-ones
+      // predicate inside the region and set Region's predicate to nullptr.
+      VPPredicateRecipeBase *SRPred = SubRegion->getPredicateRecipe();
+      VPPredicateRecipeBase *SRIncomingAllOnesPred = nullptr;
+      if (AllOnesPreds.count(SRPred)) {
+        SRIncomingAllOnesPred = SRPred;
+        SubRegion->setPredicateRecipe(nullptr);
+      };
+
+      optimizeRegionRec(SubRegion, SRIncomingAllOnesPred);
+    }
+  }
+
+  // Post-order optimizations
+  optimizeRegionPostOrder(IncomingAllOnesPred, AllOnesPreds);
+
+  genLitReport(Region);
 }
 
 // FIXME: Only for debugging. Can be removed.
@@ -468,41 +647,34 @@ void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
 void VPlanPredicator::predicate(void) {
   dumpVplanDot(Plan, "/tmp/vplan.before.dot"); // For debugging
 
-  VPBlockBase *EntryBlock;
-  if (PredicateOutermostLoop) {
-    assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-           "more than 1 loop?");
-    EntryBlock = (*VPLI->begin())->getLoopPreheader()->getParent();
-  } else {
-    EntryBlock = Plan->getEntry();
-  }
-  std::vector<VPRegionBlock *> RegionsWorklist;
-  appendRegionsToWorklist(EntryBlock, RegionsWorklist);
-  assert(RegionsWorklist.size() == 1 && isa<VPRegionBlock>(EntryBlock) &&
-         "We expect a single entry block for Plan.");
+  // Get the outermost VPLoopRegion where predication will start from
+  // TODO: We should have a better way to do this. A pointer in VPlan, for
+  // example.
+  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
+         "more than 1 loop?");
+  VPLoopRegion *EntryLoopR =
+      cast<VPLoopRegion>((*VPLI->begin())->getLoopPreheader()->getParent());
 
   // The plan's entry block should have an "AllOnes" predicate.
   VPPredicateRecipeBase *AllOnes =
       PlanUtils.createAllOnesPredicateRecipe();
-  genAndAttachEmptyBlockPredicate(EntryBlock);
-  appendPredicateToBlock(EntryBlock, AllOnes);
+  appendPredicateToBlock(EntryLoopR, AllOnes);
 
-  // Iterate until there are no Regions left.
-  while (!RegionsWorklist.empty()) {
-    VPRegionBlock *Region = RegionsWorklist.back();
-    RegionsWorklist.pop_back();
-    // Predicate the blocks within Region at the same level as the
-    // Region entry. It will not dive deeper into the HCFG.
-    predicateRegion(Region);
-    // For LIT testing
-    genLitReport(Region);
-    // Add Regions within REGION into the worklist.
-    // NOTE: This could be done from within predicateRegion() to save
-    //       a second pass through the Region's blocks.
-    appendRegionsToWorklist(Region->getEntry(), RegionsWorklist);
-  }
+  // Predicate the blocks within Region and recursively predicate nested
+  // regions.
+  predicateRegionRec(EntryLoopR);
 
   dumpVplanDot(Plan, "/tmp/vplan.after.dot"); // For debugging
+
+  // Optimize predicates within Region and recursively optimize predicates in
+  // nested regions.
+  if (!DisablePredicatorOpts) {
+    optimizeRegionRec(EntryLoopR, AllOnes);
+    // Destroy entry AllOnes predicate. It's not used after optimization.
+    delete (AllOnes);
+
+    dumpVplanDot(Plan, "/tmp/vplan.optimized.dot"); // For debugging
+  }
 
   linearize(Plan->getEntry());
 

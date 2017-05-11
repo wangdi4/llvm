@@ -262,6 +262,9 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   for (VPRecipeBase &Recipe : Recipes)
     Recipe.vectorize(*State);
 
+  // Reset MaskValue after vectorizing basic block recipes.
+  State->ILV->setMaskValue(nullptr);
+
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 

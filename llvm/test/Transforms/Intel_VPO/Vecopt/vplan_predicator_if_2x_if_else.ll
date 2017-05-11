@@ -1,4 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -vplan-enable-subregions -vplan-predicator -S -o /dev/null | FileCheck %s -check-prefix=OPT
 ; REQUIRES: asserts
 
 ; Verify VPlan predicator: if with two nested if-else statements.
@@ -164,45 +165,89 @@ declare void @llvm.intel.directive(metadata) #1
 attributes #0 = { noinline nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { argmemonly nounwind }
 
-; CHECK: [[loop_21:loop[0-9]+]]:
-; CHECK:   [[BB_15:BB[0-9]+]]:
-; CHECK:     [[BP_25:BP[0-9]+]] = [[AllOnes_24:AllOnes[0-9]+]]
-; CHECK:   [[BB_2:BB[0-9]+]]:
-; CHECK:     [[BP_26:BP[0-9]+]] = [[BP_25]]
-; CHECK:   [[region_22:region[0-9]+]]:
-; CHECK:     [[BP_26]] = [[BP_25]]
-; CHECK:   [[BB_19:BB[0-9]+]]:
-; CHECK:     [[BP_27:BP[0-9]+]] = [[BP_26]]
-; CHECK:   [[BB_14:BB[0-9]+]]:
-; CHECK:     [[BP_28:BP[0-9]+]] = [[BP_25]]
+; NOOPT: [[loop_21:loop[0-9]+]]:
+; NOOPT:   [[BB_15:BB[0-9]+]]:
+; NOOPT:     [[BP_25:BP[0-9]+]] = [[AllOnes_24:AllOnes[0-9]+]]
+; NOOPT:   [[BB_2:BB[0-9]+]]:
+; NOOPT:     [[BP_26:BP[0-9]+]] = [[BP_25]]
+; NOOPT:   [[region_22:region[0-9]+]]:
+; NOOPT:     [[BP_26]] = [[BP_25]]
+; NOOPT:   [[BB_19:BB[0-9]+]]:
+; NOOPT:     [[BP_27:BP[0-9]+]] = [[BP_26]]
+; NOOPT:   [[BB_14:BB[0-9]+]]:
+; NOOPT:     [[BP_28:BP[0-9]+]] = [[BP_25]]
 
-; CHECK: [[region_22]]:
-; CHECK:   [[BB_18:BB[0-9]+]]:
-; CHECK:     [[BP_29:BP[0-9]+]] = [[BP_26]]
-; CHECK:     [[IfT_35:IfT[0-9]+]] = [[BP_29]] && [[VBR_34:VBR[0-9]+]]
-; CHECK:     [[IfF_39:IfF[0-9]+]] = [[BP_29]] && ! [[VBR_34]]
-; CHECK:   [[region_23:region[0-9]+]]:
-; CHECK:     [[IfT_35]] = [[BP_29]] && [[VBR_34]]
-; CHECK:   [[BB_20:BB[0-9]+]]:
-; CHECK:     [[BP_30:BP[0-9]+]] = [[IfT_35]]
-; CHECK:     [[IfF_37:IfF[0-9]+]] = [[BP_30]] && ! [[VBR_36:VBR[0-9]+]]
-; CHECK:     [[IfT_38:IfT[0-9]+]] = [[BP_30]] && [[VBR_36]]
-; CHECK:   [[BB_12:BB[0-9]+]]:
-; CHECK:     [[BP_33:BP[0-9]+]] = [[IfF_37]]
-; CHECK:   [[BB_11:BB[0-9]+]]:
-; CHECK:     [[BP_31:BP[0-9]+]] = [[IfT_38]]
-; CHECK:   [[BB_5:BB[0-9]+]]:
-; CHECK:     [[BP_32:BP[0-9]+]] = [[IfF_39]] || [[BP_33]] || [[BP_31]]
+; NOOPT: [[region_22]]:
+; NOOPT:   [[BB_18:BB[0-9]+]]:
+; NOOPT:     [[BP_29:BP[0-9]+]] = [[BP_26]]
+; NOOPT:     [[IfT_35:IfT[0-9]+]] = [[BP_29]] && [[VBR_34:VBR[0-9]+]]
+; NOOPT:     [[IfF_39:IfF[0-9]+]] = [[BP_29]] && ![[VBR_34]]
+; NOOPT:   [[region_23:region[0-9]+]]:
+; NOOPT:     [[IfT_35]] = [[BP_29]] && [[VBR_34]]
+; NOOPT:   [[BB_20:BB[0-9]+]]:
+; NOOPT:     [[BP_30:BP[0-9]+]] = [[IfT_35]]
+; NOOPT:     [[IfF_37:IfF[0-9]+]] = [[BP_30]] && ![[VBR_36:VBR[0-9]+]]
+; NOOPT:     [[IfT_38:IfT[0-9]+]] = [[BP_30]] && [[VBR_36]]
+; NOOPT:   [[BB_12:BB[0-9]+]]:
+; NOOPT:     [[BP_33:BP[0-9]+]] = [[IfF_37]]
+; NOOPT:   [[BB_11:BB[0-9]+]]:
+; NOOPT:     [[BP_31:BP[0-9]+]] = [[IfT_38]]
+; NOOPT:   [[BB_5:BB[0-9]+]]:
+; NOOPT:     [[BP_32:BP[0-9]+]] = [[IfF_39]] || [[BP_33]] || [[BP_31]]
 
-; CHECK: [[region_23]]:
-; CHECK:   [[BB_4:BB[0-9]+]]:
-; CHECK:     [[BP_40:BP[0-9]+]] = [[IfT_35]]
-; CHECK:     [[IfF_45:IfF[0-9]+]] = [[BP_40]] && ! [[VBR_44:VBR[0-9]+]]
-; CHECK:     [[IfT_46:IfT[0-9]+]] = [[BP_40]] && [[VBR_44]]
-; CHECK:   [[BB_8:BB[0-9]+]]:
-; CHECK:     [[BP_43:BP[0-9]+]] = [[IfF_45]]
-; CHECK:   [[BB_7:BB[0-9]+]]:
-; CHECK:     [[BP_41:BP[0-9]+]] = [[IfT_46]]
-; CHECK:   [[BB_9:BB[0-9]+]]:
-; CHECK:     [[BP_42:BP[0-9]+]] = [[BP_43]] || [[BP_41]]
+; NOOPT: [[region_23]]:
+; NOOPT:   [[BB_4:BB[0-9]+]]:
+; NOOPT:     [[BP_40:BP[0-9]+]] = [[IfT_35]]
+; NOOPT:     [[IfF_45:IfF[0-9]+]] = [[BP_40]] && ![[VBR_44:VBR[0-9]+]]
+; NOOPT:     [[IfT_46:IfT[0-9]+]] = [[BP_40]] && [[VBR_44]]
+; NOOPT:   [[BB_8:BB[0-9]+]]:
+; NOOPT:     [[BP_43:BP[0-9]+]] = [[IfF_45]]
+; NOOPT:   [[BB_7:BB[0-9]+]]:
+; NOOPT:     [[BP_41:BP[0-9]+]] = [[IfT_46]]
+; NOOPT:   [[BB_9:BB[0-9]+]]:
+; NOOPT:     [[BP_42:BP[0-9]+]] = [[BP_43]] || [[BP_41]]
+
+
+
+; OPT: [[region_23:region[0-9]+]]:
+; OPT:   [[BB_4:BB[0-9]+]]:
+; OPT:     [[BP_40:BP[0-9]+]] = [[IfT_35:IfT[0-9]+]]
+; OPT:     [[IfF_45:IfF[0-9]+]] = [[BP_40]] && ![[VBR_44:VBR[0-9]+]]
+; OPT:     [[IfT_46:IfT[0-9]+]] = [[BP_40]] && [[VBR_44]]
+; OPT:   [[BB_8:BB[0-9]+]]:
+; OPT:     [[BP_43:BP[0-9]+]] = [[IfF_45]]
+; OPT:   [[BB_7:BB[0-9]+]]:
+; OPT:     [[BP_41:BP[0-9]+]] = [[IfT_46]]
+; OPT:   [[BB_9:BB[0-9]+]]:
+; OPT:     [[BP_42:BP[0-9]+]] = [[BP_40]]
+
+; OPT: [[region_22:region[0-9]+]]:
+; OPT:   [[BB_18:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:     [[IfT_35]] = [[VBR_34:VBR[0-9]+]]
+; OPT:     [[IfF_39:IfF[0-9]+]] = ![[VBR_34]]
+; OPT:   [[region_23]]:
+; OPT:     [[IfT_35]] = [[VBR_34]]
+; OPT:   [[BB_20:BB[0-9]+]]:
+; OPT:     [[BP_30:BP[0-9]+]] = [[IfT_35]]
+; OPT:     [[IfF_37:IfF[0-9]+]] = [[BP_30]] && ![[VBR_36:VBR[0-9]+]]
+; OPT:     [[IfT_38:IfT[0-9]+]] = [[BP_30]] && [[VBR_36]]
+; OPT:   [[BB_12:BB[0-9]+]]:
+; OPT:     [[BP_33:BP[0-9]+]] = [[IfF_37]]
+; OPT:   [[BB_11:BB[0-9]+]]:
+; OPT:     [[BP_31:BP[0-9]+]] = [[IfT_38]]
+; OPT:   [[BB_5:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+
+; OPT: [[loop_21:loop[0-9]+]]:
+; OPT:   [[BB_15:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_2:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[region_22]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_19:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
+; OPT:   [[BB_14:BB[0-9]+]]:
+; OPT-NOT: BP[0-9]+ =
 

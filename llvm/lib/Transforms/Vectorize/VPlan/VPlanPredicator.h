@@ -8,7 +8,7 @@
 namespace llvm {
 namespace vpo {
 class VPlanPredicator {
-protected:
+private:
   IntelVPlan *Plan;
   VPLoopInfo *VPLI;
   IntelVPlanUtils PlanUtils;
@@ -32,20 +32,22 @@ protected:
                                        VPPredicateRecipeBase *R,
                                        BasicBlock *From,
                                        BasicBlock *To);
-  void genAndAttachEmptyBlockPredicate(VPBlockBase *CurrBlock);
   void propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                        VPRegionBlock *Region);
   void genLitReport(VPRegionBlock *Region);
-  void predicateRegion(VPRegionBlock *Region);
+
+  void predicateRegionRec(VPRegionBlock *Region);
+  void optimizeRegionRec(VPRegionBlock *Region,
+                         VPPredicateRecipeBase *IncomingAllOnesPred);
+  // Linearize the CFG
+  void linearize(VPBlockBase *);
 
 public:
   VPlanPredicator(IntelVPlan *plan)
       : Plan(plan), VPLI(plan->getVPLoopInfo()), PlanUtils(plan) {}
-  // The driver function for the predicator
+  
+  /// The driver function for the predicator
   void predicate(void);
-
-  // Linearize the CFG
-  void linearize(VPBlockBase *);
 };
 } // namespace vpo
 } // namespace llvm

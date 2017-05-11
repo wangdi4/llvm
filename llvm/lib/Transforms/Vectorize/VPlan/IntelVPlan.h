@@ -605,8 +605,8 @@ public:
   createEdgePredicateRecipe(VPPredicateRecipeBase *PredecessorPredicate,
                             BasicBlock *From, BasicBlock *To) {
     VPEdgePredicateRecipe *newRecipe =
-      new VPEdgePredicateRecipe(PredecessorPredicate, From, To);
-    newRecipe->setName("AuxEdgeForMaskSetting");
+        new VPEdgePredicateRecipe(PredecessorPredicate, From, To);
+    newRecipe->setName(createUniqueName("AuxEdgeForMaskSetting"));
     return newRecipe;
   }
   /// Create a new VPBlockPredicateRecipe.

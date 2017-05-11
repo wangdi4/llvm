@@ -833,7 +833,7 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
     // Increase ParentRegion's size
     ++ParentRegionSize;
 
-    // Pointer to a new or existing (VPLoopRegion) subregion
+    // Pointer to a new subregion or existing VPLoopRegion subregion
     VPRegionBlock *SubRegion = dyn_cast<VPLoopRegion>(Current);
     VPBlockBase *RegionExit;
 
@@ -843,12 +843,13 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
                         State.VPPostDomTree, RegionExit /*output*/)) {
 
       // Create new region and connect it to graph
+      SubRegion = PlanUtils.createRegion(false /*isReplicator*/);
+
       DEBUG(dbgs() << "Creating new VPRegion " << SubRegion->getName() << "\n"
                    << "   Entry: " << Current->getName() << "\n"
                    << "   Exit: " << RegionExit->getName() << "\n");
       assert(RegionExit && "RegionExit cannot be null");
 
-      SubRegion = PlanUtils.createRegion(false /*isReplicator*/);
       PlanUtils.insertRegion(SubRegion, Current /*Entry*/, RegionExit,
                              false /*recomputeSize*/);
 
