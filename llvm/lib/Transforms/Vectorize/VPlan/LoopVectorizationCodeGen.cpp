@@ -1528,19 +1528,29 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
 
     // Create the vector GEP, keeping all constant arguments scalar.
     GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Inst);
-    SmallVector<Value*, 4> OpsV;
-    for (Value *Op : GEP->operands()) {
-      // Mixing up scalar/vector operands trips up downstream optimizations,
-      // vectorize all operands.
-      OpsV.push_back(getVectorValue(Op));
-    }
-    Value *GepBasePtr = OpsV[0];
-    OpsV.erase(OpsV.begin());
-    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
-        Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
-    VectorGEP->setIsInBounds(GEP->isInBounds());
-    WidenMap[cast<Value>(Inst)] = VectorGEP;
+    if (all_of(GEP->operands(), [&](Value *Op) -> bool {
+          return Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op);
+      })) {
+      auto *Clone = Builder.Insert(GEP->clone());
+      WidenMap[cast<Value>(Inst)] = Builder.CreateVectorSplat(VF, Clone);
+    } else {
+      SmallVector<Value*, 4> OpsV;
 
+      for (Value *Op : GEP->operands()) {
+        // Mixing up scalar/vector operands trips up downstream optimizations,
+        // vectorize all operands.
+        if (Legal->isLoopInvariant(Op) && !Legal->isLoopPrivate(Op))
+          OpsV.push_back(Op);
+        else
+          OpsV.push_back(getVectorValue(Op));
+      }
+      Value *GepBasePtr = OpsV[0];
+      OpsV.erase(OpsV.begin());
+      GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
+          Builder.CreateGEP(GepBasePtr, OpsV, "mm_vectorGEP"));
+      VectorGEP->setIsInBounds(GEP->isInBounds());
+      WidenMap[cast<Value>(Inst)] = VectorGEP;
+    }
     break;
   }
 
