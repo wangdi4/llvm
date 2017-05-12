@@ -3436,6 +3436,8 @@ STATISTIC(IfsRemoved, "Number of empty Ifs removed by utility");
 STATISTIC(RedundantLoops, "Number of redundant loops removed by utility");
 STATISTIC(RedundantPredicates,
           "Number of redundant predicates removed by utility");
+STATISTIC(RedundantInstructions,
+          "Number of redundant instructions removed by utility");
 
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
@@ -3500,55 +3502,6 @@ public:
   }
 
   bool isChanged() const { return Changed; }
-};
-
-struct EmptyNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {};
-
-class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
-  const HLNode *SkipNode;
-
-public:
-  RedundantNodeRemoverVisitor() : SkipNode(nullptr) {}
-
-  void visit(HLLoop *Loop) {
-    uint64_t TripCount;
-
-    bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
-    if (ConstTripLoop && TripCount == 0) {
-      RedundantLoops++;
-      invalidateParent(Loop);
-
-      SkipNode = Loop;
-      HLNodeUtils::remove(Loop);
-      Changed = true;
-    }
-  }
-
-  void visit(HLIf *If) {
-    bool IsTrue;
-    if (If->isKnownPredicate(&IsTrue)) {
-      RedundantPredicates++;
-      invalidateParent(If);
-
-      // Go over nodes that are not going to be removed. If the predicate is
-      // always TRUE the else branch will be removed.
-      if (IsTrue) {
-        HLNodeUtils::visitRange(*this, If->then_begin(), If->then_end());
-      } else {
-        HLNodeUtils::visitRange(*this, If->else_begin(), If->else_end());
-      }
-
-      SkipNode = If;
-      HLNodeUtils::replaceNodeWithBody(If, IsTrue);
-      Changed = true;
-    }
-  }
-
-  void visit(HLNode *) {}
-
-  virtual bool skipRecursion(const HLNode *Node) const {
-    return Node == SkipNode;
-  }
 
   void removeParentEmptyNodes(HLNode *Parent) {
     if (!Parent || isa<HLRegion>(Parent)) {
@@ -3573,46 +3526,232 @@ public:
   }
 };
 
+struct EmptyNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {};
+
+class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
+  const HLNode *SkipNode;
+
+  // The class also implements DCE logic. When encounter visit(HLGoto) the
+  // LastNodeToRemove is set to the last node of the current container and the
+  // visitor starts to remove every node until it reaches LastNodeToRemove or
+  // HLLabel. Origin HLGoto is removed if the origin target is reached within
+  // the same parent or it is a next node after parent.
+  // HLLabels are removed when exiting the HLRegion or HLLoop.
+
+  // The visitor will remove each HLNode until LastNodeToRemove and will set it
+  // to nullptr.
+  HLNode *LastNodeToRemove;
+
+  // The goto candidate to be removed.
+  HLGoto *GotoToRemove;
+
+  // Flag that enables HLLabel removal logic.
+  bool RemoveLabels;
+
+  // Candidate labels to be removed.
+  SmallPtrSet<HLLabel *, 8> Labels;
+
+  // Number of jumps for each label.
+  SmallDenseMap<HLLabel *, unsigned, 8> LabelJumps;
+
+public:
+  RedundantNodeRemoverVisitor()
+      : SkipNode(nullptr), LastNodeToRemove(nullptr), GotoToRemove(nullptr),
+        RemoveLabels(false) {}
+
+  void visit(HLRegion *Region) {
+    RemoveLabels = true;
+
+    EmptyNodeRemoverVisitorImpl::visit(Region);
+  }
+
+  void postVisit(HLRegion *Region) {
+    EmptyNodeRemoverVisitorImpl::postVisit(Region);
+
+    if (RemoveLabels) {
+      for (HLLabel *Label : Labels) {
+        auto Iter = LabelJumps.find(Label);
+        if (Iter == LabelJumps.end() || Iter->second == 0) {
+          HLNodeUtils::remove(Label);
+        }
+      }
+
+      RemoveLabels = false;
+    }
+  }
+
+  void visit(HLLoop *Loop) {
+    uint64_t TripCount;
+
+    bool ConstTripLoop = Loop->isConstTripLoop(&TripCount, true);
+    if (ConstTripLoop && TripCount == 0) {
+      RedundantLoops++;
+      invalidateParent(Loop);
+
+      SkipNode = Loop;
+      HLNodeUtils::remove(Loop);
+      Changed = true;
+    }
+
+    visit(static_cast<HLDDNode *>(Loop));
+  }
+
+  void visit(HLIf *If) {
+    bool IsTrue;
+    if (If->isKnownPredicate(&IsTrue)) {
+      RedundantPredicates++;
+      invalidateParent(If);
+
+      // Go over nodes that are not going to be removed. If the predicate is
+      // always TRUE the else branch will be removed.
+      if (IsTrue) {
+        HLNodeUtils::visitRange(*this, If->then_begin(), If->then_end());
+      } else {
+        HLNodeUtils::visitRange(*this, If->else_begin(), If->else_end());
+      }
+
+      SkipNode = If;
+      HLNodeUtils::replaceNodeWithBody(If, IsTrue);
+      Changed = true;
+    }
+
+    visit(static_cast<HLDDNode *>(If));
+  }
+
+  void removeGotoIfPointsTo(HLNode *Node) {
+    if (GotoToRemove && GotoToRemove->getTargetLabel() == Node) {
+      RedundantInstructions++;
+      HLNodeUtils::remove(GotoToRemove);
+      LabelJumps[GotoToRemove->getTargetLabel()]--;
+    }
+  }
+
+  void visit(HLGoto *Goto) {
+    // Could remove GOTO if it's in a dead block.
+    visit(static_cast<HLNode *>(Goto));
+
+    if (LastNodeToRemove) {
+      return;
+    }
+
+    if (RemoveLabels) {
+      LabelJumps[Goto->getTargetLabel()]++;
+    }
+
+    if (!Goto->isExternal()) {
+      GotoToRemove = Goto;
+    }
+
+    HLNode *ContainerLastNode =
+        HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
+    if (ContainerLastNode != Goto) {
+      LastNodeToRemove = ContainerLastNode;
+    }
+  }
+
+  void visit(HLLabel *Label) {
+    if (RemoveLabels) {
+      Labels.insert(Label);
+    }
+
+    removeGotoIfPointsTo(Label);
+    GotoToRemove = nullptr;
+
+    LastNodeToRemove = nullptr;
+
+    visit(static_cast<HLNode *>(Label));
+  }
+
+  template <typename NodeTy>
+  void postVisit(NodeTy *Node) {
+    HLNode *NextNode = Node->getNextNode();
+    if (NextNode) {
+      removeGotoIfPointsTo(NextNode);
+      GotoToRemove = nullptr;
+    }
+
+    LastNodeToRemove = nullptr;
+
+    EmptyNodeRemoverVisitorImpl::postVisit(Node);
+  }
+
+  void visit(HLNode *Node) {
+    if (LastNodeToRemove) {
+      RedundantInstructions++;
+      HLNodeUtils::remove(Node);
+
+      // Do not recurse into removed nodes.
+      SkipNode = Node;
+
+      if (Node == LastNodeToRemove) {
+        LastNodeToRemove = nullptr;
+      }
+    }
+
+    EmptyNodeRemoverVisitorImpl::visit(Node);
+  }
+
+  virtual bool skipRecursion(const HLNode *Node) const {
+    return Node == SkipNode;
+  }
+};
+
 }
 
-bool HLNodeUtils::removeEmptyNodes(HLNode *Node) {
-  EmptyNodeRemoverVisitor V;
+template <typename VisitorTy>
+static bool removeNodesImpl(HLNode *Node, bool RemoveEmptyParentNodes) {
+  HLNode *Parent = Node->getParent();
+
+  VisitorTy V;
   HLNodeUtils::visit(V, Node);
+
+  if (RemoveEmptyParentNodes) {
+    V.removeParentEmptyNodes(Parent);
+  }
+
   return V.isChanged();
+}
+
+template <typename VisitorTy>
+static bool removeNodesRangeImpl(HLContainerTy::iterator Begin,
+                                 HLContainerTy::iterator End,
+                                 bool RemoveEmptyParentNodes) {
+  if (Begin == End) {
+    return false;
+  }
+
+  HLNode *Parent = Begin->getParent();
+
+  VisitorTy V;
+  HLNodeUtils::visitRange(V, Begin, End);
+
+  if (RemoveEmptyParentNodes) {
+    V.removeParentEmptyNodes(Parent);
+  }
+
+  return V.isChanged();
+}
+
+bool HLNodeUtils::removeEmptyNodes(HLNode *Node, bool RemoveEmptyParentNodes) {
+  return removeNodesImpl<EmptyNodeRemoverVisitor>(Node, RemoveEmptyParentNodes);
 }
 
 bool HLNodeUtils::removeEmptyNodesRange(HLContainerTy::iterator Begin,
-                                        HLContainerTy::iterator End) {
-  EmptyNodeRemoverVisitor V;
-  HLNodeUtils::visitRange(V, Begin, End);
-  return V.isChanged();
+                                        HLContainerTy::iterator End,
+                                        bool RemoveEmptyParentNodes) {
+  return removeNodesRangeImpl<EmptyNodeRemoverVisitor>(Begin, End,
+                                                       RemoveEmptyParentNodes);
 }
 
 bool HLNodeUtils::removeRedundantNodes(HLNode *Node,
                                        bool RemoveEmptyParentNodes) {
-  HLNode *Parent = Node->getParent();
-
-  RedundantNodeRemoverVisitor V;
-  HLNodeUtils::visit(V, Node);
-
-  if (RemoveEmptyParentNodes) {
-    V.removeParentEmptyNodes(Parent);
-  }
-
-  return V.isChanged();
+  return removeNodesImpl<RedundantNodeRemoverVisitor>(Node,
+                                                      RemoveEmptyParentNodes);
 }
 
-bool HLNodeUtils::removeRedundantNodes(HLContainerTy::iterator Begin,
-                                       HLContainerTy::iterator End,
-                                       bool RemoveEmptyParentNodes) {
-  HLNode *Parent = Begin->getParent();
-
-  RedundantNodeRemoverVisitor V;
-  HLNodeUtils::visitRange(V, Begin, End);
-
-  if (RemoveEmptyParentNodes) {
-    V.removeParentEmptyNodes(Parent);
-  }
-
-  return V.isChanged();
+bool HLNodeUtils::removeRedundantNodesRange(HLContainerTy::iterator Begin,
+                                            HLContainerTy::iterator End,
+                                            bool RemoveEmptyParentNodes) {
+  return removeNodesRangeImpl<RedundantNodeRemoverVisitor>(
+      Begin, End, RemoveEmptyParentNodes);
 }

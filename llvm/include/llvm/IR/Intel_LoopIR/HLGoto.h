@@ -58,9 +58,11 @@ public:
 
   /// \brief Returns the target basic block of this goto.
   BasicBlock *getTargetBBlock() const { return TargetBBlock; }
+
   /// \brief Returns the target label, if one exists. It is null
   /// for external gotos.
   HLLabel *getTargetLabel() const { return TargetLabel; }
+
   /// \brief Sets the target label.
   void setTargetLabel(HLLabel *Label) {
     TargetLabel = Label;

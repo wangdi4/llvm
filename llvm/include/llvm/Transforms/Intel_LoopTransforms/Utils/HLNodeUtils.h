@@ -1308,12 +1308,14 @@ public:
   ///
   /// Note: This function is placed here because the Framework uses it to
   /// get rid of incoming empty HLIfs.
-  static bool removeEmptyNodes(HLNode *Node);
+  static bool removeEmptyNodes(HLNode *Node,
+                               bool RemoveEmptyParentNodes = true);
 
   /// Recursively traverse the HIR range [\p Begin, \p End) and remove empty
   /// HLLoops and empty HLIfs.
   static bool removeEmptyNodesRange(HLContainerTy::iterator Begin,
-                                    HLContainerTy::iterator End);
+                                    HLContainerTy::iterator End,
+                                    bool RemoveEmptyParentNodes = true);
 
   /// Removes: 1) HLIfs that always evaluates as either true or false;
   ///          2) HLLoops those trip count is constant and equals zero.
@@ -1324,9 +1326,9 @@ public:
   /// The utility invalidates analysis for the changed loops and regions.
   static bool removeRedundantNodes(HLNode *Node,
                                    bool RemoveEmptyParentNodes = true);
-  static bool removeRedundantNodes(HLContainerTy::iterator Begin,
-                                   HLContainerTy::iterator End,
-                                   bool RemoveEmptyParentNodes = true);
+  static bool removeRedundantNodesRange(HLContainerTy::iterator Begin,
+                                        HLContainerTy::iterator End,
+                                        bool RemoveEmptyParentNodes = true);
 };
 
 } // End namespace loopopt

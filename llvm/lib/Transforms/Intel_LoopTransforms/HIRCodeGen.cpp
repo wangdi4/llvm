@@ -1350,7 +1350,7 @@ Value *HIRCodeGen::CGVisitor::visitLabel(HLLabel *L) {
   assert(LabelBBlock->empty() && "label already in use");
 
   // create a br to L's block. ending current block
-  Builder->CreateBr(LabelBBlock);
+  generateBranchIfRequired(LabelBBlock);
   Builder->SetInsertPoint(LabelBBlock);
   return nullptr;
 }
@@ -1376,17 +1376,6 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *Goto) {
   assert(TargetBBlock && "No bblock target for goto");
   // create a br to target, ending this block
   Builder->CreateBr(TargetBBlock);
-
-  // TODO: Disable this once we start removing dead nodes and assert for them in
-  // the verifier.
-  // Example case is goto.ll in OptPredicate test dir.
-  BasicBlock *ContBB = BasicBlock::Create(
-      F->getContext(),
-      "hir.goto." + std::to_string(Goto->getNumber()) + ".cont", F);
-
-  // set insertion point there, but nodes visited are dead code,
-  // until a label is reached.
-  Builder->SetInsertPoint(ContBB);
 
   return nullptr;
 }

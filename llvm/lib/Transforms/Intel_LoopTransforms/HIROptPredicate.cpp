@@ -294,16 +294,18 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
 
   bool IsCandidate = TransformLoop;
 
-  // Loop through predicates to check if they satisfy opt predicate
-  // conditions.
-  for (auto Iter = If->pred_begin(), E = If->pred_end(); Iter != E; ++Iter) {
-    const RegDDRef *LHSRef = If->getPredicateOperandDDRef(Iter, true);
-    const RegDDRef *RHSRef = If->getPredicateOperandDDRef(Iter, false);
+  if (IsCandidate) {
+    // Loop through predicates to check if they satisfy opt predicate
+    // conditions.
+    for (auto Iter = If->pred_begin(), E = If->pred_end(); Iter != E; ++Iter) {
+      const RegDDRef *LHSRef = If->getPredicateOperandDDRef(Iter, true);
+      const RegDDRef *RHSRef = If->getPredicateOperandDDRef(Iter, false);
 
-    // Check if both DDRefs satisfy all the conditions.
-    if (!isCandidate(LHSRef) || !isCandidate(RHSRef)) {
-      IsCandidate = false;
-      break;
+      // Check if both DDRefs satisfy all the conditions.
+      if (!isCandidate(LHSRef) || !isCandidate(RHSRef)) {
+        IsCandidate = false;
+        break;
+      }
     }
   }
 
@@ -421,7 +423,7 @@ bool HIROptPredicate::runOnFunction(Function &F) {
 
     if (processOptPredicate()) {
       Region->setGenCode();
-      HLNodeUtils::removeEmptyNodes(Region);
+      HLNodeUtils::removeRedundantNodes(Region, false);
     }
 
     Candidates.clear();
@@ -649,8 +651,10 @@ void HIROptPredicate::hoistIf(HLIf *If, HLLoop *OrigLoop) {
   // Hoist the If outside the loop.
   If->getHLNodeUtils().moveBefore(OrigLoop, If);
 
+  unsigned Level = OrigLoop->getNestingLevel();
+
   // Update the DDRefs inside the HLIf.
   for (auto Ref : make_range(If->ddref_begin(), If->ddref_end())) {
-    Ref->updateDefLevel();
+    Ref->updateDefLevel(Level - 1);
   }
 }

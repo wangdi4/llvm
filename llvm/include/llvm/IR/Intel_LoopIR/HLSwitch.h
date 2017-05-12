@@ -239,6 +239,10 @@ public:
     return const_cast<HLSwitch *>(this)->getLastCaseChild(CaseNum);
   }
 
+  /// Returns the CaseNum for a child \p Node. The method may return zero,
+  /// meaning the default case.
+  unsigned getChildCaseNum(const HLNode *Node) const;
+
   /// \brief Returns the DDRef which represents the switch condition.
   RegDDRef *getConditionDDRef();
   const RegDDRef *getConditionDDRef() const;

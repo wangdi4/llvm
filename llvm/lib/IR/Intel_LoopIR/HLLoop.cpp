@@ -807,7 +807,7 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   // +1 operation could make non-self blob a self-blob and wise versa.
   // For example if UB is (%b - 1) or (%b).
   SmallVector<const RegDDRef *, 1> Aux = {getUpperDDRef()};
-  UBRef->makeConsistent(&Aux);
+  UBRef->makeConsistent(&Aux, getNestingLevel());
 }
 
 HLIf *HLLoop::extractZtt() {
@@ -821,8 +821,10 @@ HLIf *HLLoop::extractZtt() {
   getHLNodeUtils().insertBefore(this, Ztt);
   getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
 
+  unsigned Level = getNestingLevel();
+
   std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
-                [](RegDDRef *Ref) { Ref->updateDefLevel(); });
+                [Level](RegDDRef *Ref) { Ref->updateDefLevel(Level - 1); });
 
   return Ztt;
 }
@@ -1123,7 +1125,8 @@ bool HLLoop::normalize() {
   };
 
   ForEach<HLDDNode>::visitRange(
-      child_begin(), child_end(), [&UpdateCE, &Aux](HLDDNode *Node) {
+      child_begin(), child_end(),
+      [this, &UpdateCE, &Aux, Level](HLDDNode *Node) {
         for (RegDDRef *Ref :
              llvm::make_range(Node->ddref_begin(), Node->ddref_end())) {
           for (CanonExpr *CE :
@@ -1131,16 +1134,16 @@ bool HLLoop::normalize() {
             UpdateCE(CE);
           }
 
-          Ref->makeConsistent(&Aux);
+          Ref->makeConsistent(&Aux, IsInnermost ? Level : NonLinearLevel);
         }
       });
 
   StrideCE->setConstant(1);
 
-  UpperRef->makeConsistent(&Aux);
+  UpperRef->makeConsistent(&Aux, Level);
 
   LowerCE->clear();
-  LowerRef->makeConsistent(nullptr);
+  LowerRef->makeConsistent(nullptr, Level);
 
   DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] After:\n");
   DEBUG_NORMALIZE(dump());

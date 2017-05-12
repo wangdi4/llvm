@@ -754,7 +754,7 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
     Lp->addLiveInTemp(TmpRef->getSymbase());
 
     // Call updateDefLevel() for the newly-created load
-    RvalRef->updateDefLevel();
+    RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
   }
   assert(LoadInPrehdr && "LoadInPrehdr can't be null\n");
 
@@ -793,7 +793,7 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
     HNU->insertAsFirstPostexitNode(Lp, StoreInPostexit);
 
     // Call updateDefLevel() for the newly-created store
-    LvalRef->updateDefLevel();
+    LvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
   }
 
   // Debug: Examine the Loop, notice the tmp in postexit

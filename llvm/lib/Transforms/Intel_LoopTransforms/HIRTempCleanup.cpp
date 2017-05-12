@@ -632,7 +632,7 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   // Parents can become recursively empty when we remove nodes so it is better
   // to scan the whole region.
   if (HasEmptyNodes) {
-    HLNodeUtils::removeEmptyNodes(Reg);
+    HLNodeUtils::removeEmptyNodes(Reg, false);
   }
 
   // Restore flags.

@@ -399,7 +399,7 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
-    HLNodeUtils::removeEmptyNodes(Node);
+    HLNodeUtils::removeEmptyNodes(Node, false);
   }
 
   return false;
@@ -563,6 +563,8 @@ void HIROptVarPredicate::splitLoop(
     removeThenElseChildren(Candidate, &ElseContainer, &ThenContainer);
   }
 
+  unsigned Level = Loop->getNestingLevel();
+
   // Split loop into two loops
   auto CloneMapper = HLNodeLambdaMapper::mapper([Candidate](
       const HLNode *Node) { return Node == Candidate || isa<HLLabel>(Node); });
@@ -601,7 +603,7 @@ void HIROptVarPredicate::splitLoop(
     HLLoop *ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
-    SecondLoop->getUpperDDRef()->makeConsistent(&Aux);
+    SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
 
     // %b + 1
     BlobTy SplitPointPlusBlob = BlobUtilsObj->createAddBlob(
@@ -612,7 +614,7 @@ void HIROptVarPredicate::splitLoop(
 
     if (!isLoopRedundant(ThirdLoop)) {
       HLNodeUtilsObj->insertAfter(SecondLoop, ThirdLoop);
-      ThirdLoop->getLowerDDRef()->makeConsistent(&Aux);
+      ThirdLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
 
       ThirdLoop->createZtt(false, true);
       ThirdLoop->normalize();
@@ -627,7 +629,7 @@ void HIROptVarPredicate::splitLoop(
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
 
   if (!isLoopRedundant(Loop)) {
-    Loop->getUpperDDRef()->makeConsistent(&Aux);
+    Loop->getUpperDDRef()->makeConsistent(&Aux, Level);
     Loop->createZtt(false, true);
 
     HIRInvalidationUtils::invalidateBounds(Loop);
@@ -640,7 +642,7 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (!isLoopRedundant(SecondLoop)) {
-    SecondLoop->getLowerDDRef()->makeConsistent(&Aux);
+    SecondLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
     SecondLoop->createZtt(false, true);
     SecondLoop->normalize();
   } else {

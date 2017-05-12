@@ -2048,7 +2048,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
 
     // Since some of the blobs cancelled out, the def level of CEs in the Ref
     // requires updation.
-    Ref->updateDefLevel(Level);
+    Ref->updateDefLevelInternal(Level);
   }
 }
 

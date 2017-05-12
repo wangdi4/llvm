@@ -209,11 +209,17 @@ void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
   }
 }
 
-void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
+void RegDDRef::updateDefLevel(unsigned Level) {
+  if (Level == NonLinearLevel) {
+    Level = getNodeLevel();
+  }
 
-  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
-  assert(getCanonExprUtils().isValidLinearDefLevel(Level) &&
-         "Nesting level not set for detached DDRef!");
+  updateDefLevelInternal(Level);
+}
+
+void RegDDRef::updateDefLevelInternal(unsigned NewLevel) {
+  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+         "Invalid nesting level.");
 
   // Update attached blob DDRefs' def level first.
   for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
@@ -224,19 +230,19 @@ void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
     }
 
     if (getCanonExprUtils().hasNonLinearSemantics(CE->getDefinedAtLevel(),
-                                                  Level)) {
+                                                  NewLevel)) {
       (*It)->setNonLinear();
     }
   }
 
   // Update base CE.
   if (hasGEPInfo()) {
-    updateCEDefLevel(getBaseCE(), Level);
+    updateCEDefLevel(getBaseCE(), NewLevel);
   }
 
   // Update CanonExprs.
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    updateCEDefLevel(*I, Level);
+    updateCEDefLevel(*I, NewLevel);
   }
 }
 
@@ -814,12 +820,17 @@ void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
 }
 
 void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
-                              unsigned NestingLevelIfDetached) {
+                              unsigned NewLevel) {
   SmallVector<BlobDDRef *, 8> NewBlobs;
 
   updateBlobDDRefs(NewBlobs);
 
-  unsigned Level = getHLDDNode() ? getNodeLevel() : NestingLevelIfDetached;
+  if (NewLevel == NonLinearLevel) {
+    NewLevel = getNodeLevel();
+  }
+
+  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+         "Invalid nesting level.");
 
   // Set def level for the new blobs.
   for (auto &BRef : NewBlobs) {
@@ -831,7 +842,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 
     for (auto &AuxRef : (*AuxRefs)) {
       if (AuxRef->findTempBlobLevel(Index, &DefLevel)) {
-        if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, Level)) {
+        if (getCanonExprUtils().hasNonLinearSemantics(DefLevel, NewLevel)) {
           BRef->setNonLinear();
         } else {
           BRef->setDefinedAtLevel(DefLevel);
@@ -846,7 +857,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
     assert(Found && "Blob was not found in any auxiliary DDRef!");
   }
 
-  updateDefLevel(NestingLevelIfDetached);
+  updateDefLevelInternal(NewLevel);
 }
 
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,

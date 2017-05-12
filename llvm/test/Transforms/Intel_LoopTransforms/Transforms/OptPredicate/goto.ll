@@ -1,6 +1,6 @@
 ; Check that label is remapped after OptPredicate pass
 
-; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S < %s 2>&1 | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-opt-predicate -print-after=hir-opt-predicate -S -disable-output -debug < %s 2>&1 | FileCheck %s
 
 ; Source:
 ; int a[1000];
@@ -53,11 +53,22 @@
 ;           END REGION
 
 ; REQUIRES: asserts
-; CHECK: BEGIN REGION { modified }
+
+; Skip one iteration
+; CHECK: Hoisting:
+
+; Capture second iteration
+; CHECK: Hoisting:
+; CHECK-SAME: if (%y < %x)
+
+; CHECK: BEGIN REGION
 ; CHECK: goto for.inc.[[NUM:[0-9]+]];
 ; CHECK-NOT: DO
 ; CHECK-NOT: END LOOP 
 ; CHECK: for.inc.[[NUM]]:
+
+; Verify that the region is modified
+; CHECK: BEGIN REGION { modified }
 
 ;Module Before HIR; ModuleID = 'goto.c'
 source_filename = "goto.c"

@@ -98,9 +98,11 @@ void HLGoto::verify() const {
 
   HLNode *Parent = getParent();
 
-// TODO: try enabling this  once we start removing redundant nodes afte goto.
-//  assert((this == getHLNodeUtils().getLastLexicalChild(Parent, this)) &&
-//         "Dead nodes encountered!");
+  // The goto should be the last node in the container or the label should be
+  // the next node.
+  assert(((getNextNode() && isa<HLLabel>(getNextNode())) ||
+          (this == getHLNodeUtils().getLastLexicalChild(Parent, this))) &&
+         "Dead nodes encountered!");
 
   if (TargetLabel) {
     assert((isUnknownLoopBackEdge() ||

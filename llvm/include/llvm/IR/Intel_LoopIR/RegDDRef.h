@@ -196,10 +196,12 @@ protected:
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
 
+  /// Implements def level update for the RegDDRef.
+  void updateDefLevelInternal(unsigned NewLevel);
+
   /// Implementes populateTempBlobIndices() and populateTempBlobSymbases().
   void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
                             bool GetIndices) const;
-
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -728,14 +730,15 @@ public:
   /// It updates CE def level for attached blob DDRefs to non-linear as well, if
   /// applicable.
   ///
-  /// NestingLevelIfDetached indicates the nesting level of this DDRef and is
-  /// only meaningful for DDRefs not yet attached to HIR.
+  /// The NewLevel argument indicates the nesting level of this DDRef.
+  /// The argument may be omitted, in this case the level of attachment in HIR
+  /// will be used.
   ///
   /// NOTE: This utility cannot handle cases where blob definitions have been
   /// moved around or where non-linear blobs can be turned into linear blobs
   /// (during sinking, for example) because we do not track blob definitions.
   /// They require customized handling.
-  void updateDefLevel(unsigned NestingLevelIfDetached = (MaxLoopNestLevel + 1));
+  void updateDefLevel(unsigned NewLevel = NonLinearLevel);
 
   /// \brief Makes a modified ref internally consistent by updating blob DDRefs
   /// and containing CanonExprs' def level. The passed in AuxRefs should contain
@@ -745,8 +748,9 @@ public:
   /// call updateBlobDDRefs(), update the level of the new blobs manually and
   /// then call updateDefLevel().
   ///
-  /// NestingLevelIfDetached indicates the nesting level of this DDRef and is
-  /// only meaningful for DDRefs not yet attached to HIR.
+  /// The NewLevel argument indicates the nesting level of this DDRef.
+  /// The argument may be omitted, in this case the level of attachment in HIR
+  /// will be used.
   ///
   /// NOTE: This utility cannot handle cases where blob definitions have been
   /// moved around or where non-linear blobs can be turned into linear blobs
@@ -756,7 +760,7 @@ public:
   /// levels.
   void
   makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs = nullptr,
-                 unsigned NestingLevelIfDetached = (MaxLoopNestLevel + 1));
+                 unsigned NewLevel = NonLinearLevel);
 
   /// \brief Returns true if the blob is present in this DDRef and returns its
   /// defined at level via DefLevel. DefLevel is expected to be non-null. The

@@ -713,7 +713,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   if (Changed) {
     // The transformation could hoist everything to the pre-header, making the
     // loop empty.
-    HLNodeUtils::removeEmptyNodes(Loop);
+    HLNodeUtils::removeEmptyNodes(Loop, false);
   }
 
   return Changed;

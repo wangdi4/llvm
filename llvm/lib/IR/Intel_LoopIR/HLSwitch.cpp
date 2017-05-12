@@ -219,6 +219,22 @@ HLNode *HLSwitch::getLastCaseChildInternal(unsigned CaseNum) {
   return nullptr;
 }
 
+unsigned HLSwitch::getChildCaseNum(const HLNode *Node) const {
+  if (getHLNodeUtils().isInTopSortNumMaxRange(Node, getFirstDefaultCaseChild(),
+                                              getLastDefaultCaseChild())) {
+    return 0;
+  }
+
+  for (int I = 1, E = getNumCases(); I < E; ++I) {
+    if (getHLNodeUtils().isInTopSortNumMaxRange(Node, getFirstCaseChild(I),
+                                                getLastCaseChild(I))) {
+      return I;
+    }
+  }
+
+  llvm_unreachable("Node is not a child of the HLSwitch");
+}
+
 RegDDRef *HLSwitch::getConditionDDRef() { return getOperandDDRefImpl(0); }
 
 const RegDDRef *HLSwitch::getConditionDDRef() const {
