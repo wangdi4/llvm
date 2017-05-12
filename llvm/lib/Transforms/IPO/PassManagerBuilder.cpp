@@ -1040,7 +1040,7 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
-      (SizeLevel == 0) && !PerformThinLTO) 
+      !PerformThinLTO) 
     return true;
 
   return false;
@@ -1072,23 +1072,39 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
-    PM.add(createHIRParDirInsertPass());
-    PM.add(createHIRRuntimeDDPass());
-    PM.add(createHIRMVForConstUBPass());
+    // TODO: refine cost model for individual transformations for code size.
+    if (SizeLevel == 0) {
+      PM.add(createHIRParDirInsertPass());
+      PM.add(createHIRRuntimeDDPass());
+      PM.add(createHIRMVForConstUBPass());
+    }
+
     PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
     PM.add(createHIRLoopReversalPass());
-    PM.add(createHIRPreVecCompleteUnrollPass());
+
+    if (SizeLevel == 0) {
+      PM.add(createHIRPreVecCompleteUnrollPass());
+    }
+
     PM.add(createHIRLMMPass());
-    PM.add(createHIRLoopDistributionForMemRecPass());
+
+    if (SizeLevel == 0) {
+      PM.add(createHIRLoopDistributionForMemRecPass());
+    }
+
     PM.add(createHIRIdiomRecognitionPass());
-    PM.add(createHIRUnrollAndJamPass());
-    PM.add(createHIROptVarPredicatePass());
-    PM.add(createHIROptPredicatePass());
-    PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-    PM.add(createVPODriverHIRPass());
-    PM.add(createHIRPostVecCompleteUnrollPass());
-    PM.add(createHIRGeneralUnrollPass());
+
+    if (SizeLevel == 0) {
+      PM.add(createHIRUnrollAndJamPass());
+      PM.add(createHIROptVarPredicatePass());
+      PM.add(createHIROptPredicatePass());
+      PM.add(createHIRVecDirInsertPass(OptLevel == 3));
+      PM.add(createVPODriverHIRPass());
+      PM.add(createHIRPostVecCompleteUnrollPass());
+      PM.add(createHIRGeneralUnrollPass());
+    }
+
     PM.add(createHIRScalarReplArrayPass());
   }
 
