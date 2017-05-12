@@ -13,7 +13,7 @@
 ; Framework considers %shl = shl i64 %ret.011, 32
 ; as 4294967296 * %ret.011 in HIR
 ; Ensure we cg such large coeffs correctly
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: mul i64 4294967296
 ; ModuleID = 'encdec/crypto/bn/bn_word.c'
 target datalayout = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128"

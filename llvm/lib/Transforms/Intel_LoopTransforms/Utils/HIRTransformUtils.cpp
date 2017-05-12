@@ -338,7 +338,7 @@ HLLoop *HIRTransformUtils::setupMainAndRemainderLoops(
 /// Update Loop properties based on Input Permutations
 /// Used by Loop Interchange now. Will be useful for loop blocking later
 void HIRTransformUtils::permuteLoopNests(
-    HLLoop *OutermostLoop, const SmallVectorImpl<HLLoop *> &LoopPermutation) {
+    HLLoop *OutermostLoop, const SmallVectorImpl<const HLLoop *> &LoopPermutation) {
 
   SmallVector<HLLoop *, MaxLoopNestLevel> SavedLoops;
   HLLoop *DstLoop = OutermostLoop;
@@ -411,94 +411,4 @@ void HIRTransformUtils::remapLabelsRange(const HLNodeMapper &Mapper,
                                          HLNode *Begin, HLNode *End) {
   LabelRemapVisitor Visitor(Mapper);
   HLNodeUtils::visitRange(Visitor, Begin, End);
-}
-
-namespace {
-
-class RedundantIfLookup final : public HLNodeVisitorBase {
-public:
-  typedef SmallVector<std::tuple<HLIf *, bool>, 16> CandidatesVector;
-
-private:
-  CandidatesVector &Candidates;
-  const HLNode *SkipNode;
-
-public:
-  RedundantIfLookup(CandidatesVector &Candidates)
-      : Candidates(Candidates), SkipNode(nullptr) {}
-
-  void visit(HLIf *If) {
-    bool IsTrue;
-    if (If->isKnownPredicate(&IsTrue)) {
-      SkipNode = If;
-
-      Candidates.emplace_back(std::make_tuple(If, IsTrue));
-
-      // Go over nodes that are not going to be removed. If the predicate is
-      // always TRUE the else branch will be removed.
-      RedundantIfLookup Lookup(Candidates);
-      if (IsTrue) {
-        HLNodeUtils::visitRange<true, false>(Lookup, If->then_begin(),
-                                             If->then_end());
-      } else {
-        HLNodeUtils::visitRange<true, false>(Lookup, If->else_begin(),
-                                             If->else_end());
-      }
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  virtual bool skipRecursion(const HLNode *Node) const {
-    return Node == SkipNode;
-  }
-};
-
-STATISTIC(RedundantPredicates, "Redundant predicates removed");
-}
-
-bool HIRTransformUtils::eliminateRedundantPredicates(
-    HLContainerTy::iterator Begin, HLContainerTy::iterator End) {
-  DEBUG(dbgs() << "Eliminating redundant predicates\n ");
-  assert(((Begin != End) || Begin->getParent() == End->getParent()) &&
-         "Both nodes should have the same parent");
-
-  RedundantIfLookup::CandidatesVector Candidates;
-  RedundantIfLookup Lookup(Candidates);
-
-  HLNodeUtils::visitRange<true, false>(Lookup, Begin, End);
-
-  for (auto Candidate : Candidates) {
-    HLIf *If = std::get<0>(Candidate);
-
-    DEBUG(dbgs() << "Eliminated: ");
-    DEBUG(If->dumpHeader());
-    DEBUG(dbgs() << "\n");
-
-    replaceNodeWithBody(If, std::get<1>(Candidate));
-
-    RedundantPredicates++;
-  }
-
-  if (Candidates.size() > 0) {
-    DEBUG(dbgs() << "While Removing redundant predicates:\n");
-    DEBUG(Begin->getParentRegion()->dump());
-    DEBUG(dbgs() << "\n");
-
-    return true;
-  }
-
-  return false;
-}
-
-void HIRTransformUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
-  HLNodeUtils &HNU = If->getHLNodeUtils();
-
-  if (ThenBody) {
-    HNU.moveAfter(If, If->then_begin(), If->then_end());
-  } else {
-    HNU.moveAfter(If, If->else_begin(), If->else_end());
-  }
-  HNU.remove(If);
 }

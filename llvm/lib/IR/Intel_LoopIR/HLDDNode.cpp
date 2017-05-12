@@ -291,3 +291,4 @@ bool HLDDNode::isLiveIntoParentLoop(unsigned SB) const {
 bool HLDDNode::isLiveOutOfParentLoop(unsigned SB) const {
   return getLexicalParentLoop()->isLiveOut(SB);
 }
+

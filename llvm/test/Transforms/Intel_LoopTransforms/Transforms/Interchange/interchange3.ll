@@ -9,7 +9,8 @@
 ;	          for (i5=1; i5 <= 95; i5++) {
 ;		    A[i5+n][i4][i3][i2][i1] += 2;
 ;
-; RUN: opt -O2  -loopopt   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -O2  -loopopt -debug   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; 

@@ -70,22 +70,25 @@ struct MemRefGroup {
 
   HIRScalarReplArray *HSRA = nullptr;
   unsigned Symbase;
-  CanonExpr *BaseCE = nullptr;
+  const CanonExpr *BaseCE = nullptr;
 
   HLLoop *Lp = nullptr;
-  DDGraph &DDG;
   unsigned MaxDepDist, NumLoads, NumStores, LoopLevel;
   bool IsLegal, IsProfitable, IsPostChecksOk, IsSuitable;
+  unsigned MaxIdxLoadRT, MinIdxStoreRT; // index to RefTupleVec
 
-  RefTuple *MaxIdxLoadRT = nullptr, *MinIdxStoreRT = nullptr;
+  unsigned MaxStoreDist; // Max Store distance among all stores in group
+                         // e.g.  ( r,  w,   g,     w,   g,   w )
+                         //         0   1    2      3    4    5
+                         //             ^StLB                 ^StUB
+                         // MaxStoreDist is 5-1 = 4
 
-  MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA, DDGraph &DDG);
+  MemRefGroup(RefGroupTy &Group, HIRScalarReplArray *HSRA);
 
   // Getters + Setters
   bool isSuitable(void) const { return IsSuitable; }
   void setSuitable(bool NewFlag) { IsSuitable = NewFlag; }
 
-  void setMaxDepDist(unsigned MDD) { MaxDepDist = MDD; }
   unsigned getMaxDepDist(void) const { return MaxDepDist; }
 
   unsigned getNumTemps(void) const { return MaxDepDist + 1; }
@@ -96,11 +99,11 @@ struct MemRefGroup {
   // Only have Stores, and NO MemRef gap
   bool isCompleteStoreOnly(void);
 
-  // Check if the group has store refs whose largest DepDist is greater than or
-  // equal to a given Dist.
-  bool hasStoreDepDistGreaterEqualOne(void) const;
+  // Identify the store bounds using MaxStoreDist
+  void markMaxStoreDist(void);
 
-  // Insert a given RegDDRef into RefTupleVec
+  // Create a partial RefTuple, e.g. (A[i], -1, nullptr), and save it into
+  // RefTupleVec
   void insert(RegDDRef *Ref) { RefTupleVec.push_back(RefTuple(Ref)); }
 
   unsigned getSize(void) const { return RefTupleVec.size(); }
@@ -108,8 +111,21 @@ struct MemRefGroup {
   SmallVector<RefTuple, 8> &getRefTupleVec(void) { return RefTupleVec; }
   SmallVector<RegDDRef *, 8> &getTmpV(void) { return TmpV; };
 
-  RefTuple *getMaxIdxLoadRT(void) const { return MaxIdxLoadRT; }
-  RefTuple *getMinIdxStoreRT(void) const { return MinIdxStoreRT; }
+  bool hasMaxIdxLoadRT(void) const { return MaxIdxLoadRT != unsigned(-1); }
+
+  const RefTuple *getMaxIdxLoadRT(void) const {
+    assert((MaxIdxLoadRT != unsigned(-1)) &&
+           "must call markMaxLoad() to set MaxIdxLoadRT first\n");
+    return &RefTupleVec[MaxIdxLoadRT];
+  }
+
+  bool hasMinIdxStoreRT(void) const { return MinIdxStoreRT != unsigned(-1); }
+
+  const RefTuple *getMinIdxStoreRT(void) const {
+    assert((MinIdxStoreRT != unsigned(-1)) &&
+           "must call markMinStore() to set MinIdxStoreRT first\n");
+    return &RefTupleVec[MinIdxStoreRT];
+  }
 
   // Obtain the 1st available RefTuple * by distance
   const RefTuple *getByDist(unsigned Dist) const;
@@ -121,7 +137,7 @@ struct MemRefGroup {
   // Inside the loop's body, within the MRG, mark if there is 1 MemRef(R) that
   // needs to generate a load right before the MemRef.
   //
-  // Mark Max-index load with MIN TOPO#: may find if #Loads >0
+  // Mark the Max-index load with MIN TOPO#: may find if #Loads >0
   // E.g. .., A[i+3](.), A[i+4](R) .. A[i+4](R) ...
   //                     ^max_index load with MinTOPO#
   //
@@ -130,6 +146,11 @@ struct MemRefGroup {
   //   . mark the one with MIN TOPO# as MaxLoad
   //
   void markMaxLoad(void);
+
+  // Check if CodeGen for load(s) is required in the loop's preheader:
+  // - MaxDepDist >0 (or MaxDepDist >=1)
+  //
+  bool requiresLoadInPrehdr(void) const { return (MaxDepDist > 0); }
 
   // Mark min-index store with MAX TOPO#: must find if #Stores >0
   // E.g. A[i](W), A[i](W), A[i](W), A[i+1](.) ...
@@ -142,23 +163,26 @@ struct MemRefGroup {
   //
   void markMinStore(void);
 
+  // Check if CodeGen for Store(s) is required in Lp's postexit:
+  // - MaxStore and MinStore can't be on the same position
+  //
+  bool requiresStoreInPostexit(void) const { return (MaxStoreDist > 0); }
+
   // Identify any missing MemRef (GAP), result is in RWGap vector
   void identifyGaps(SmallVectorImpl<bool> &RWGap);
 
   // Analyze the MRG, return true if the MRG is suitable for scalar repl
   //
   // Analysis:
-  // -Count #Loads, #Stores
   // -Legal test
   // -Profit test
-  // -Check and set MaxDepDist
   // -Post Checks
   //
-  bool analyze(HLLoop *Lp, DDGraph &DDG);
+  bool analyze(HLLoop *Lp);
 
   // A MRG is legal IF&F each DDEdge is legal:
   // - for each valid DDEdge, Refs on both ends belong to the same MRG;
-  bool isLegal(DDGraph &DDG) const;
+  bool isLegal(void) const;
 
   // each valid DDEdge, both ends of the Edge must be in MRG
   template <bool IsIncoming> bool areDDEdgesInSameMRG(DDGraph &DDG) const;
@@ -173,7 +197,8 @@ struct MemRefGroup {
   // Since MinStore exists with 1 store, no need to check it.
   //
   bool isProfitable(void) const {
-    return !((NumLoads == 1) && (NumStores == 1) && MaxIdxLoadRT) && hasReuse();
+    return !((NumLoads == 1) && (NumStores == 1) && hasMaxIdxLoadRT()) &&
+           hasReuse();
   }
 
   // A MemRefGroup has reuse if the group's MaxDepDist is smaller than the
@@ -187,19 +212,19 @@ struct MemRefGroup {
   //
   // Test the Ref:
   // can every loop-level IV be merged or replaced by its BoundCE?
-  bool doPostCheckOnRef(const HLLoop *Lp, bool IsLoad);
+  bool doPostCheckOnRef(const HLLoop *Lp, bool IsLoad) const;
 
-  // Check the group's Max DepDist exist and is within bound:
-  // - MaxDepDist must be < Threshold
-  // (and)
-  // - Set MaxDepDist
+  // Conduct post-activity checks (neither legal nor profitable related)
   //
-  void checkAndSetMaxDepDist(void);
-
-  // -postCheck on Loads if applicable
-  // -postCheck on Stores if applicable
-  // -postCheck on max DepDist:checkAndSetMaxDepDist
-  bool doPostChecks(const HLLoop *Lp);
+  // -Check Loads:
+  // If: the group has multiple loads with MaxDepDist > 0
+  // Then:any outstanding (non-max-dd) load needs to be merge-able with Lp's LB
+  //
+  // -Check Stores:
+  // If: the group has multiple stores with MaxStoreDist > 0
+  // Then:any outstanding (non-min-dd) store needs to be merge-able with Lp's UB
+  //
+  bool doPostChecks(const HLLoop *Lp) const;
 
   // handle Temp(s):
   // - create all needed temps and store them into TmpV vector
@@ -222,36 +247,95 @@ struct MemRefGroup {
   //
   void generateTempRotation(HLLoop *Lp);
 
-  // Generate Loads (from MemRef into its matching Tmp) when needed
+  // Generate Loads (from MemRef into its matching Tmp) when needed.
   //
   // Note:
-  // a load is needed if a non-max_index MemRef[i+r](R) exists in a
-  // loop's
-  // body.
+  // a load is needed if a non-max_index MemRef[i+r](R) load exists in the
+  // loop's body.
   //
   // a load is also needed even if a MemRef[i+r](R) doesn't exist in
-  // a loop's
-  // body (GAP), provided r is [0 .. max_index).
+  // a loop's body (Gap), provided r is [0 .. max_index).
   //
   // E.g.
   // i: 0, 100, 1
   // |  B[i] = A[i] + A[i+4];
   //
   // Though reads on A[i+1] .. A[i+3] are not explicitly available
-  // in the loop's
-  // body, we still need to initialize t1=A[i+1],t2=A[i+2],t3=A[i+3]
-  // for i = LB,
+  // in the loop's body, we still need to initialize
+  // t1=A[i+1],t2=A[i+2],t3=A[i+3] for i = LB in the loop's prehdr,
   // to ensure those temps are properly initialized before rotation.
   //
-  // and mark each Temp as LiveIn to the loop
+  // And, mark each Temp as LiveIn to the loop.
+  //
+  // TODO:
+  // there is a chance to remove some un-necessary load(s) generated in prehdr,
+  // for both compile time and run-time performance. Will address it in a later
+  // changeset.
   //
   void generateLoadToTmps(HLLoop *Lp, SmallVectorImpl<bool> &RWGap);
 
-  // Generate a load from MemRef to TmpRef code
+  // Generate a load from MemRef to TmpRef code in a loop's prehdr:
   // E.g. t1 = A[i+1];
-  void generateLoadWithMemRef(HLLoop *Lp, RegDDRef *MemRef, unsigned Index,
-                              RegDDRef *TmpRef, bool IndepMemRef,
-                              CanonExpr *LBCE);
+  void generateLoadInPrehdr(HLLoop *Lp, RegDDRef *MemRef, unsigned Index,
+                            RegDDRef *TmpRef, bool IndepMemRef,
+                            CanonExpr *LBCE);
+
+  // Generate Store(s) (into MemRef from a skewed Tmp) when needed.
+  //
+  // Note:
+  // a store is needed if a non-min_index MemRef[i+r](W) store exists in the
+  // loop's body.
+  //
+  // a store is also needed even if a MemRef[i+r](W) doesn't exist in
+  // a loop's body (Gap), provided r is [0 .. max_index).
+  //
+  // E.g.
+  // i: 0, 100, 1
+  // |  B[i]   = .
+  // |  B[i+4] = .
+  //
+  // Though writes on A[i+1] .. A[i+3] are not explicitly available
+  // in the loop's body, we still need to generates stores to B[i+1], B[i+2],
+  // and B[i+3],
+  // for i = UB in the loop's postexit,
+  // to ensure memory consistency are properly maintained.
+  //
+  // And, mark each Temp in postexit as LiveOut from the loop.
+  //
+  // Note:
+  // The stores in postexit are generated in sequential order for better cache
+  // locality.
+  //
+  // E.g. for the example above, the transformed loop looks like:
+  // i: 0, 100, 1
+  //   t1= B[1];
+  //   t2= B[2];
+  //   t3= B[3]
+  //
+  // |  t0     = ..;
+  // |  B[i]   = t0;
+  // |  t4     = .
+  // |  t0=t1, t1=t2, t2=t3, t3=t4;
+  //
+  //   B[101] = t0;
+  //   B[102] = t1;
+  //   B[103] = t2;
+  //   B[104] = t3;
+  //
+  void generateStoreFromTmps(HLLoop *Lp);
+
+  // Generate a store into MemRef from a mapped TmpRef in the loop's postexit,
+  // with iv replaced by UBCE.
+  // E.g. A[UBCE+1] = t1;
+  //
+  // If InsertAfter is null: insertAsFirstChild into postexit;
+  // Otherwise, insert after the HLInst*
+  //
+  // Returns the newly generated StoreInst
+  //
+  HLInst *generateStoreInPostexit(HLLoop *Lp, RegDDRef *MemRef,
+                                  RegDDRef *TmpRef, CanonExpr *UBCE,
+                                  HLInst *InsertAfter);
 
   bool verify(void);
 
@@ -301,7 +385,7 @@ public:
 
   // Collect relevant MemRefs with the same Symbase and BaseCE
   // by calling HIRLocalityAnalysis::populateTemporalLocalityGroups(.)
-  bool doCollection(HLLoop *Lp, DDGraph &DDG);
+  bool doCollection(HLLoop *Lp);
 
   // Check if a group formed by HIRLocalityAnalysis is valid:
   //
@@ -331,9 +415,6 @@ public:
   //   sign on IvCoeff to decide whether the CE has overall negative factor.
   //
   bool checkIV(const RegDDRef *MemRef, bool &HasNegIVCoeff) const;
-
-  // Insert a MemRefGroup & MRG into MRGVec
-  void insert(MemRefGroup &MRG) { MRGVec.emplace_back(MRG); }
 
   void doTransform(HLLoop *Lp);
 
@@ -369,12 +450,13 @@ public:
   void doTransform(HLLoop *Lp, MemRefGroup &MRG);
 
   // Pre-loop processing:
-  // Generate Loads (load from A[i] into its matching Tmp) when needed
-  // [GEN]
-  // i. generate a load for any unique MemRef[i+r](R) in MRG
-  //  (where r in [0..MaxDD))
-  // ii.generate a load for any unique MemRef[i+r](R) missing from MRG
-  //  (where r in [0..MaxDD))
+  //
+  // - Generate Loads (load from A[i] into its matching Tmp) in prehdr:
+  //   i. generate a load for any unique MemRef[i+r](R) in MRG
+  //   (where r in [0..MaxDD))
+  //
+  //   ii.generate a load for any unique MemRef[i+r] gap (missing from MRG)
+  //   (where r in [0..MaxDD))
   //
   // - simplify the load since IV is replaced by LBCE;
   // - mark the Temp as Loop's LiveIn;
@@ -382,10 +464,19 @@ public:
   void doPreLoopProc(HLLoop *Lp, MemRefGroup &MRG,
                      SmallVectorImpl<bool> &RWGap);
 
-  // Post process the loop: generate store(s) when needed
-  // - generate a store-from-temp for any out-standing (non-min-dd) store;
-  // - simplify the store since IV is replaced by UBCE;
-  // - mark the Temp as Loop's LiveOut;
+  // Post-loop processing:
+  //
+  // Generate store(s) in loop's postexit when needed:
+  // - generate a store for any position in [MinStorePos+1 .. MaxStorePos]
+  //   regardless of the status on that position.
+  //
+  // where:
+  //   MinStorePos: MinStore position, lowest index of store;
+  //   MaxStorePos: MaxStore position, highest index of store;
+  //
+  //  . simplify the store: replace IV with UBCE and simplify;
+  //  . mark the Temp as Loop's LiveOut;
+  //  . generate the store(s) in the loop's natural order;
   //
   void doPostLoopProc(HLLoop *Lp, MemRefGroup &MRG);
 

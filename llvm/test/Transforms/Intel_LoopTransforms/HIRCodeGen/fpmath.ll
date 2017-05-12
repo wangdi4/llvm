@@ -17,13 +17,13 @@
 
 ; CHECK: %add7 = %add4  +  1.000000e+00; <fast>
 
-; CHECK: if (%add7.add4 > 1.000000e+01 && %add7.add4 < 2.000000e+01) <fast> <fast>
+; CHECK: if (%x.041 > 1.000000e+01 && %x.041 < 2.000000e+01) <fast> <fast>
 ; CHECK: END REGION
 
 ; Verify HIR Code Generation
 
 ; CHECK: After HIR
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: fadd fast double
 ; CHECK: fmul fast double
 

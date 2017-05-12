@@ -98,6 +98,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeIndirectCallConvPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationPass(Registry); 
+  initializeLoopOptMarkerPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);

@@ -143,6 +143,10 @@ private:
   /// standalone phi.
   bool liveoutCopyRequired(const PHINode *StandAlonePhi) const;
 
+  /// Returns true if Inst has non-SCEVable uses in ParentBB. Returns the last
+  /// use in \p Inst.
+  bool hasNonSCEVableUses(Instruction **Inst, BasicBlock *ParentBB) const;
+
   /// \brief Inserts copies of Inst if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCC is null, Inst is
   /// treated as a standalone phi and this is needed to handle a special case
@@ -150,8 +154,9 @@ private:
   void processLiveouts(Instruction *Inst, const HIRSCCFormation::SCC *ParSCC,
                        StringRef Name);
 
-  /// Returns true if SCC contains only one non-phi instruction.
-  bool isSingleNonPhiSCC(const HIRSCCFormation::SCC &CurSCC);
+  /// Returns true if this an SCC with a single non-header phi instruction.
+  bool isSingleNonHeaderPhiSCC(Instruction *NonPhiInst,
+                               const HIRSCCFormation::SCC &CurSCC) const;
 
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
@@ -358,10 +363,6 @@ HIRSSADeconstruction::getPhiSCC(PHINode *Phi) const {
 bool HIRSSADeconstruction::liveoutCopyRequired(
     const PHINode *StandAlonePhi) const {
 
-  if (SCCF->isConsideredLinear(StandAlonePhi)) {
-    return false;
-  }
-
   const Value *PhiVal = StandAlonePhi;
   bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
 
@@ -410,12 +411,70 @@ bool HIRSSADeconstruction::liveoutCopyRequired(
   return false;
 }
 
+bool HIRSSADeconstruction::hasNonSCEVableUses(Instruction **Inst,
+                                              BasicBlock *ParentBB) const {
+
+  auto CurInst = *Inst;
+  auto UseBB = CurInst->getParent();
+
+  if (UseBB == ParentBB) {
+    // Cannot handle phis in the same bblock.
+    if (isa<PHINode>(CurInst)) {
+      return false;
+    }
+
+  } else if (auto SuccBB = ParentBB->getSingleSuccessor()) {
+
+    // If the use is in a non-header phi in the single successor bblock,
+    // consider it as being at the end of the bblock as the use takes place on
+    // the edge.
+    if (UseBB != SuccBB) {
+      return false;
+    }
+
+    auto Phi = dyn_cast<PHINode>(CurInst);
+
+    if (!Phi || (SE->isSCEVable(Phi->getType()) && RI->isHeaderPhi(Phi))) {
+      return false;
+    }
+
+    *Inst = ParentBB->getTerminator();
+    return true;
+
+  } else {
+    // Give up on uses outside ParentBB.
+    return false;
+  }
+
+  // If the instruction itself is non-SCEVable return true.
+  // Note that we are only checking for commonly occuring non-scevable
+  // instructions.
+  if (!SE->isSCEVable(CurInst->getType()) || isa<LoadInst>(CurInst) ||
+      isa<CallInst>(CurInst)) {
+    return true;
+  }
+
+  // Give up if instruction has more than one use.
+  if (!CurInst->hasOneUse()) {
+    return false;
+  }
+
+  auto Use = cast<Instruction>(*(CurInst->user_begin()));
+
+  // Point Inst to last use in bblock.
+  *Inst = Use;
+
+  return hasNonSCEVableUses(Inst, ParentBB);
+}
+
 void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
                                            const HIRSCCFormation::SCC *ParSCC,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
+  bool IgnoreUsesInsideLoop = false;
   bool CopyRequired = false;
+  auto ParentBB = Inst->getParent();
   Loop *Lp = nullptr;
 
   // For standalone header phis we need to create liveout copies in two cases-
@@ -429,8 +488,22 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
       return;
     }
 
-    if (!(CopyRequired = liveoutCopyRequired(Phi))) {
-      Lp = LI->getLoopFor(Phi->getParent());
+    // Ignore uses for linear phis.
+    IgnoreUsesInsideLoop = SCCF->isConsideredLinear(Phi);
+
+    if (!IgnoreUsesInsideLoop) {
+      CopyRequired = liveoutCopyRequired(Phi);
+    }
+
+    if (!CopyRequired) {
+      Lp = LI->getLoopFor(ParentBB);
+
+      // We give up on non-linear phis inside unknown loops because in some
+      // cases the use can be in the bottom test of the loop and can cause live
+      // range violation.
+      IgnoreUsesInsideLoop =
+          IgnoreUsesInsideLoop ||
+          !isa<SCEVCouldNotCompute>(SE->getBackedgeTakenCount(Lp));
     }
   }
 
@@ -450,18 +523,45 @@ void HIRSSADeconstruction::processLiveouts(Instruction *Inst,
         continue;
       }
 
+      auto LastUseInst = UserInst;
+      // Ignore use if it can be proven to not cause live-range issues.
+      // If the use is in a phi in the same bblock, it cannot be ignored.
+      // Uses in same bblock can be ignored for non-SCEVable types or
+      // non-SCEVable uses if another SCC instruction doesn't occurs between def
+      // and use.
+      if (hasNonSCEVableUses(&LastUseInst, ParentBB)) {
+
+        bool LiveRangeViolation = false;
+
+        for (auto It = std::next(Inst->getIterator()),
+                  E = LastUseInst->getIterator();
+             It != E; ++It) {
+          if (ParSCC->contains(&*It)) {
+            LiveRangeViolation = true;
+            break;
+          }
+        }
+
+        if (!LiveRangeViolation) {
+          continue;
+        }
+      }
+
     } else if (!CopyRequired) {
+
+      auto UserBB = UserInst->getParent();
 
       // Add a liveout copy if this phi is used outside its parent loop as these
       // uses can cause live range violation.
-      if (Lp->contains(LI->getLoopFor(UserInst->getParent()))) {
+      if (IgnoreUsesInsideLoop &&
+          ((ParentBB == UserBB) || Lp->contains(LI->getLoopFor(UserBB)))) {
         continue;
       }
     }
 
     // Insert copy, if it doesn't exist.
     if (!CopyInst) {
-      CopyInst = insertLiveOutCopy(Inst, Inst->getParent(), Name);
+      CopyInst = insertLiveOutCopy(Inst, ParentBB, Name);
     }
 
     // Replace liveout use by copy.
@@ -625,17 +725,27 @@ StringRef HIRSSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
-bool HIRSSADeconstruction::isSingleNonPhiSCC(
-    const HIRSCCFormation::SCC &CurSCC) {
-  unsigned Count = 0;
+bool HIRSSADeconstruction::isSingleNonHeaderPhiSCC(
+    Instruction *NonPhiInst, const HIRSCCFormation::SCC &CurSCC) const {
+
+  // If the SCC has only two instructions, at least one of them is a header phi.
+  if (CurSCC.size() == 2) {
+    return true;
+  }
 
   for (auto Inst : CurSCC) {
-    if (!isa<PHINode>(Inst)) {
-      Count++;
+    auto Phi = dyn_cast<PHINode>(Inst);
+
+    if (Phi) {
+      if (!RI->isHeaderPhi(Phi)) {
+        return false;
+      }
+    } else if ((Inst != NonPhiInst)) {
+      return false;
     }
   }
 
-  return (Count == 1);
+  return true;
 }
 
 void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
@@ -652,7 +762,8 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
     ProcessedSCCs.insert(PhiSCC);
 
     bool LiveinCopyInserted = false;
-    bool IsSingleNonPhiSCC = isSingleNonPhiSCC(*PhiSCC);
+    bool NonPhiFound = false;
+    bool ProcessNonPhiLiveouts = false;
 
     constructName(PhiSCC->getRoot(), Name);
 
@@ -673,7 +784,12 @@ void HIRSSADeconstruction::deconstructPhi(PHINode *Phi) {
 
       } else {
 
-        if (!IsSingleNonPhiSCC) {
+        if (!NonPhiFound) {
+          ProcessNonPhiLiveouts = !isSingleNonHeaderPhiSCC(SCCInst, *PhiSCC);
+          NonPhiFound = true;
+        }
+
+        if (ProcessNonPhiLiveouts) {
           processLiveouts(SCCInst, PhiSCC, Name.str());
         }
 
@@ -749,9 +865,13 @@ void HIRSSADeconstruction::deconstructSSAForRegions() {
       // Process instructions inside the basic blocks.
       for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
            ++Inst) {
-        if (auto Phi = dyn_cast<PHINode>(Inst)) {
-          deconstructPhi(const_cast<PHINode *>(Phi));
+        auto Phi = dyn_cast<PHINode>(Inst);
+
+        if (!Phi) {
+          break;
         }
+
+        deconstructPhi(const_cast<PHINode *>(Phi));
       }
     }
 

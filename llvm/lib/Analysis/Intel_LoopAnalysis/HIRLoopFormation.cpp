@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCleanup.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopFormation.h"
@@ -34,6 +35,7 @@ INITIALIZE_PASS_BEGIN(HIRLoopFormation, "hir-loop-formation",
                       "HIR Loop Formation", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRRegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
 INITIALIZE_PASS_END(HIRLoopFormation, "hir-loop-formation",
@@ -53,6 +55,7 @@ void HIRLoopFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+  AU.addRequiredTransitive<HIRRegionIdentification>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequired<HIRCleanup>();
 }
@@ -107,43 +110,6 @@ void HIRLoopFormation::insertHLLoop(const Loop *Lp, HLLoop *HLoop) {
 
 HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
-}
-
-const PHINode *
-HIRLoopFormation::findIVDefInHeader(const Loop *Lp,
-                                    const Instruction *Inst) const {
-
-  // Is this a phi node in the loop header?
-  if (Inst->getParent() == Lp->getHeader()) {
-    if (auto Phi = dyn_cast<PHINode>(Inst)) {
-      return Phi;
-    }
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    // Not looking at scev of the IV since in some cases it is unknown even for
-    // do loops.
-    //
-    // Example-
-    //
-    // for (i = 101; i > 1; i = i/2) {
-    // ...
-    // }
-    if (auto OPInst = dyn_cast<Instruction>(I)) {
-      // Instruction lies outside the loop.
-      if (!Lp->contains(LI->getLoopFor(OPInst->getParent()))) {
-        continue;
-      }
-
-      auto IVNode = findIVDefInHeader(Lp, OPInst);
-
-      if (IVNode) {
-        return IVNode;
-      }
-    }
-  }
-
-  return nullptr;
 }
 
 bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
@@ -227,20 +193,17 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
   assert(isa<Instruction>(Cond) &&
          "Loop exit condition is not an instruction!");
 
-  auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
+  auto IVNode = RI->findIVDefInHeader(*Lp, cast<Instruction>(Cond));
   assert(IVNode && "Could not find loop IV!");
 
   auto IVType = IVNode->getType();
 
-  // Convert pointer IV type to integer type of same size.
-  if (IVType->isPointerTy()) {
+  // If the IVType is not an integer, assign it an integer type which is able to
+  // represent the address space.
+  if (!IVType->isIntegerTy()) {
     IVType = Type::getIntNTy(
         Func->getContext(),
-        Func->getParent()->getDataLayout().getTypeSizeInBits(IVType));
-  } else if (IVType->isFloatingPointTy()) {
-    // If found IV is floating point type use the type of loop's backedge taken
-    // count.
-    IVType = SE->getBackedgeTakenCount(Lp)->getType();
+        Func->getParent()->getDataLayout().getPointerSizeInBits());
   }
 
   HLoop->setIVType(IVType);
@@ -287,11 +250,6 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   auto Lp = HLoop->getLLVMLoop();
   bool PredicateInversion = false;
 
-  // Return if trip count is a constant.
-  if (isa<SCEVConstant>(SE->getBackedgeTakenCount(Lp))) {
-    return;
-  }
-
   // Check whether loop has an if parent.
   auto Parent = HLoop->getParent();
 
@@ -319,8 +277,9 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
     return;
   }
 
-  // This function retuns false if the condition is acting like a ztt but cannot
-  // be set as one due to presence of non-HLInst nodes so we need to bail out.
+  // This function returns false if the condition is acting like a ztt but
+  // cannot be set as one due to presence of non-HLInst nodes so we need to
+  // bail out.
   if (!populatedPreheaderPostexitNodes(HLoop, IfParent, PredicateInversion)) {
     return;
   }
@@ -355,6 +314,10 @@ void HIRLoopFormation::formLoops() {
     // Found a loop
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
+    auto BECount = SE->getBackedgeTakenCount(Lp);
+    bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
+    bool IsConstTripLoop = isa<SCEVConstant>(BECount);
+
     // Find HIR hook for the loop latch.
     auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
@@ -372,18 +335,33 @@ void HIRLoopFormation::formLoops() {
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
     setIVType(HLoop);
-    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, std::next(LabelIter),
-                                              BottomTestIter);
+    HLoop->setLoopMetadata(Lp->getLoopID());
+
+    HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
+    HLoop->setBranchDebugLoc(BottomTest->getDebugLoc());
+    HLoop->setCmpTestDebugLoc(BottomTest->pred_begin()->DbgLoc);
 
     // Hook loop into HIR.
     HIR->getHLNodeUtils().insertBefore(&*LabelIter, HLoop);
 
-    // Remove label and bottom test.
-    // Can bottom test contain anything else??? Should probably assert on it.
-    HIR->getHLNodeUtils().erase(&*LabelIter);
-    HIR->getHLNodeUtils().erase(&*BottomTestIter);
+    // Include Label and bottom test as explicit nodes inside the unknown loop.
+    auto FirstChildIter = IsUnknownLoop ? LabelIter : std::next(LabelIter);
+    auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
-    setZtt(HLoop);
+    HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+
+    if (!IsUnknownLoop) {
+      // Remove label and bottom test.
+      HIR->getHLNodeUtils().erase(&*LabelIter);
+
+      // Can bottom test contain anything else??? Should probably assert on it.
+      HIR->getHLNodeUtils().erase(&*BottomTestIter);
+
+      // TODO: Look into whether setting ztt is beneficial for unknown loops.
+      if (!IsConstTripLoop) {
+        setZtt(HLoop);
+      }
+    }
 
     // Add entry for (Lp -> HLLoop) mapping.
     insertHLLoop(Lp, HLoop);
@@ -395,6 +373,7 @@ bool HIRLoopFormation::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  RI = &getAnalysis<HIRRegionIdentification>();
   HIR = &getAnalysis<HIRCreation>();
   HIRC = &getAnalysis<HIRCleanup>();
 

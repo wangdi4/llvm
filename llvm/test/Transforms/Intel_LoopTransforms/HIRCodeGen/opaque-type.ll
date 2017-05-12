@@ -13,7 +13,7 @@
 ; CHECK: |   }
 ; CHECK: + END LOOP
 
-; CHECK: region:
+; CHECK: region.0:
 
 ; Check the first load to opaque type which is used to store to %3.
 ; CHECK: [[OPAQ_TY_LD1:%.*]] = load %struct.stickline_t*,

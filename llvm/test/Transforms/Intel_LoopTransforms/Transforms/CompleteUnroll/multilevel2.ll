@@ -9,7 +9,7 @@
 ; CHECK: br i1 true, {{.*}}label %region
 
 ; check loop is completely unrolled.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: br label %[[LoopLabel:loop.[0-9]+]]
 ; CHECK: [[LoopLabel]]:
 ; CHECK: getelementptr

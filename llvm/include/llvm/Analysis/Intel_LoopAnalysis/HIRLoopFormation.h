@@ -32,6 +32,7 @@ namespace loopopt {
 class HLRegion;
 class HLLoop;
 class HLIf;
+class HIRRegionIdentification;
 class HIRCreation;
 class HIRCleanup;
 
@@ -51,6 +52,9 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// RI - Pointer to HIRRegionIdentification pass.
+  HIRRegionIdentification *RI;
+
   /// HIR - Pointer to HIRCreation pass.
   HIRCreation *HIR;
 
@@ -68,11 +72,6 @@ private:
 
   /// \brief Implements find()/insert() functionality.
   HLLoop *findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop, bool Insert);
-
-  /// \brief Traces back to the IV PHINode in the loop header starting from
-  /// Inst.
-  const PHINode *findIVDefInHeader(const Loop *Lp,
-                                   const Instruction *Inst) const;
 
   /// \brief Returns true if Inst represents a non-negative NSW SCEVAddRecExpr.
   bool isNonNegativeNSWIV(const Instruction *Inst) const;

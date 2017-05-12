@@ -76,9 +76,9 @@
 ; CHECK:           |   %scalarepl2 = %scalarepl3;
 ; CHECK:            + END LOOP
 ;            
-;[stores in loop's postexit]
-; CHECK:           (@A)[0][102] = %scalarepl3;
-; CHECK:           (@A)[0][101] = %scalarepl2;
+;[stores in loop's postexit]:
+; CHECK:           (@A)[0][101] = %scalarepl1;
+; CHECK:           (@A)[0][102] = %scalarepl2;
 ;
 ; CHECK:  END REGION
 

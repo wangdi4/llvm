@@ -2,7 +2,7 @@
 
 ; Verify that return instruction is correctly handled by CG.
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: loop.[[LOOPNUM:[0-9]+]]:
 ; CHECK: afterloop.[[LOOPNUM]]:
 ; CHECK: ret void

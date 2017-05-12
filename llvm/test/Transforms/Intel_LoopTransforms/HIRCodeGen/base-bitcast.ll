@@ -2,7 +2,7 @@
 
 ; Check that GEP DDRefs with bitcast in the base are CG'd properly.
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: [[B_ADDR:%.*]] = getelementptr inbounds [100 x float], [100 x float]* @B
 ; CHECK-NEXT: [[B_CAST:%.*]] = bitcast float* [[B_ADDR]] to i32*
 ; CHECK-NEXT: load i32, i32* [[B_CAST]]

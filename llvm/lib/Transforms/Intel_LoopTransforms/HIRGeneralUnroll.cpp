@@ -66,6 +66,7 @@
 //    is always executed. Investigate whether this version is better in
 //    performance as compared to the existing one.
 
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 
 #include "llvm/IR/Function.h"
@@ -165,6 +166,11 @@ private:
 
   /// Determines if Unrolling is profitable for the given Loop.
   bool isProfitable(const HLLoop *Loop, unsigned *UnrollFactor) const;
+
+  /// Returns a refined unroll factor for the loop based on reuse analysis.
+  /// Returns 0 if unrolling is not profitable.
+  unsigned refineUnrollFactorUsingReuseAnalysis(const HLLoop *Loop,
+                                                unsigned CurUnrollFactor) const;
 };
 }
 
@@ -277,59 +283,25 @@ unsigned HIRGeneralUnroll::computeUnrollFactor(const HLLoop *HLoop) const {
   return UnrollFactor;
 }
 
-class StructAccessFinder final : public HLNodeVisitorBase {
-private:
-  bool HasStructAccess;
-
-public:
-  StructAccessFinder() : HasStructAccess(false) {}
-
-  void visit(const HLDDNode *Node) {
-
-    for (auto RefIt = Node->op_ddref_begin(), End = Node->op_ddref_end();
-         RefIt != End; ++RefIt) {
-      if ((*RefIt)->accessesStruct()) {
-        HasStructAccess = true;
-        break;
-      }
-    }
-  }
-
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  bool hasStructAccess() const { return HasStructAccess; }
-  bool isDone() const override { return hasStructAccess(); }
-};
-
 bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
   // Ignore loops with SIMD directive.
   if (Loop->isSIMD()) {
     return false;
   }
 
+  bool IsUnknown = Loop->isUnknown();
+
   // Loop should be normalized before this pass
   // TODO: Decide whether we can remove this, just to save compile time.
-  if (!Loop->isNormalized() || Loop->isUnknown()) {
+  if (!IsUnknown && !Loop->isNormalized()) {
     return false;
   }
 
   uint64_t TripCount;
 
-  if ((Loop->isConstTripLoop(&TripCount) ||
+  if (((!IsUnknown && Loop->isConstTripLoop(&TripCount)) ||
        (TripCount = Loop->getMaxTripCountEstimate())) &&
       (TripCount < MinTripCountThreshold)) {
-    return false;
-  }
-
-  StructAccessFinder SAF;
-
-  HLNodeUtils::visitRange(SAF, Loop->child_begin(), Loop->child_end());
-
-  // Temporarily disable loops with struct access to avoid perf regressions
-  // until HIR vectorizer can handle them.
-  // TODO: clean this up later.
-  if (SAF.hasStructAccess()) {
     return false;
   }
 
@@ -350,5 +322,117 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
     return false;
   }
 
+  if ((*UnrollFactor =
+           refineUnrollFactorUsingReuseAnalysis(Loop, *UnrollFactor)) == 0) {
+    return false;
+  }
+
   return true;
+}
+
+// Checks if we encounter backward uses of temp copies (register moves). If so,
+// they can be eliminated by unrolling. For example, if we have the following
+// loop body-
+// t3 = t2 + A[i]
+// t1 = B[i] + C[i]
+// t2 = t1
+//
+// We can eliminate t2 = t1 by unrolling the loop and forward substituting t2 in
+// first statement.
+//
+// We need to penalize backward uses if they are not coming from copy temps.
+// This is because they may be part of a def-use chain. Unrolling def-use chains
+// can add register pressure. For example-
+// t1 = t2 + A[i]
+// t2 = t1 + B[i]
+//
+// TODO: Add temporal locality analysis?
+class ReuseAnalyzer final : public HLNodeVisitorBase {
+private:
+  SmallSet<unsigned, 16> RvalTempBlobSymbases;
+  int Reuse;
+  bool CyclicalDefUse;
+
+public:
+  ReuseAnalyzer() : Reuse(0), CyclicalDefUse(false) {}
+
+  void visit(const HLDDNode *Node);
+
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
+
+  bool hasReuse() const { return (Reuse > 0); }
+
+  bool hasCyclicalDefUse() const { return CyclicalDefUse; }
+};
+
+void ReuseAnalyzer::visit(const HLDDNode *Node) {
+
+  bool HasTerminalLval = false;
+  auto LvalRef = Node->getLvalDDRef();
+  unsigned LvalSymbase = InvalidSymbase;
+
+  if (LvalRef && LvalRef->isTerminalRef()) {
+
+    LvalSymbase = LvalRef->getSymbase();
+
+    if (cast<HLInst>(Node)->isCopyInst()) {
+      if (RvalTempBlobSymbases.count(LvalSymbase)) {
+        ++Reuse;
+      }
+      // No more processing needed for copy instructions.
+      return;
+    }
+
+    HasTerminalLval = true;
+  }
+
+  SmallVector<unsigned, 16> Symbases;
+
+  auto RefIt =
+      HasTerminalLval ? Node->rval_op_ddref_begin() : Node->op_ddref_begin();
+  auto End = HasTerminalLval ? Node->rval_op_ddref_end() : Node->op_ddref_end();
+
+  for (; RefIt != End; ++RefIt) {
+    (*RefIt)->populateTempBlobSymbases(Symbases);
+  }
+
+  for (auto SB : Symbases) {
+    RvalTempBlobSymbases.insert(SB);
+  }
+
+  // We are not really confirming a def-use cycle (in the interest of compile
+  // time). This is conservative behavior so it can lead to missed unrolling
+  // opportunities which is better than causing performance degradations.
+  // TODO: refine the logic.
+  if (HasTerminalLval && RvalTempBlobSymbases.count(LvalSymbase)) {
+    CyclicalDefUse = true;
+    --Reuse;
+  }
+}
+
+unsigned HIRGeneralUnroll::refineUnrollFactorUsingReuseAnalysis(
+    const HLLoop *Loop, unsigned CurUnrollFactor) const {
+  // Profitability for unknown loops is tighter than do loops because unlike do
+  // loops we cannot save bottom test computation for unknown loops.
+  // TODO: add similar model for do loops?
+  if (!Loop->isUnknown()) {
+    return CurUnrollFactor;
+  }
+
+  ReuseAnalyzer RA;
+
+  HLNodeUtils::visitRange(RA, Loop->child_begin(), Loop->child_end());
+
+  if (!RA.hasReuse()) {
+    // Loop is not profitable.
+    return 0;
+
+  } else if (RA.hasCyclicalDefUse()) {
+    // Unrolling can still be profitable with cyclical def use if there is more
+    // reuse. To minimize register pressure, we only unroll by 2.
+    return 2;
+  }
+
+  return CurUnrollFactor;
 }

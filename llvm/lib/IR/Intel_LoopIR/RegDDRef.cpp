@@ -59,7 +59,8 @@ RegDDRef::GEPInfo::GEPInfo(const GEPInfo &Info)
     : BaseCE(Info.BaseCE->clone()), InBounds(Info.InBounds),
       AddressOf(Info.AddressOf), Volatile(Info.Volatile),
       Alignment(Info.Alignment), DimensionOffsets(Info.DimensionOffsets),
-      MDNodes(Info.MDNodes) {}
+      MDNodes(Info.MDNodes), GepDbgLoc(Info.GepDbgLoc),
+      MemDbgLoc(Info.MemDbgLoc) {}
 
 RegDDRef::GEPInfo::~GEPInfo() {}
 
@@ -760,6 +761,21 @@ void RegDDRef::collectTempBlobIndices(
   // Make the indices unique.
   std::sort(Indices.begin(), Indices.end());
   Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
+}
+
+void RegDDRef::populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
+                                    bool GetIndices) const {
+
+  if (isSelfBlob()) {
+    Blobs.push_back(GetIndices ? getSingleCanonExpr()->getSingleBlobIndex()
+                               : getSymbase());
+    return;
+  }
+
+  for (auto BlobIt = blob_cbegin(), E = blob_cend(); BlobIt != E; ++BlobIt) {
+    Blobs.push_back(GetIndices ? (*BlobIt)->getBlobIndex()
+                               : (*BlobIt)->getSymbase());
+  }
 }
 
 void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,

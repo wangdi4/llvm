@@ -35,7 +35,7 @@
 ;}
 ;
 ;using the umax portion of CE as test, ignoring rest of CE
-;CHECK: region:
+;CHECK: region.0:
 ;other symbase shares same initial value, ignore it
 ;CHECK: store float* %row.031, float** [[ROW_SYM_DEAD:%t[0-9]+]]
 

@@ -13,7 +13,7 @@
 ; CHECK: %output.0.lcssa = phi i32 [ -1, %entry ], [ [[LIVEOUT]], %for.end.loopexit ]
 
 ; Live in value is %a, it should be immediately stored in symbase memory slot
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: store i32 %a, i32* %t
 ; CHECK: br label %loop
 

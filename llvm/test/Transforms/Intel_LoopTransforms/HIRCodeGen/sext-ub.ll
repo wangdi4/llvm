@@ -4,7 +4,7 @@
 ; Verifies UB is correctly used in bt
 
 ; basic cg
-; CHECK: region: 
+; CHECK: region.0: 
 ;  sext.i32.i64(%n) + -1 is our ub for loop
 ; should be calculated but once, before we enter loop
 ; CHECK: [[SEXT_OP1:%[0-9]+]] = sext i32 %n to i64

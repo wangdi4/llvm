@@ -19,7 +19,7 @@
 
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
-; CHECK: region:
+; CHECK: region.0:
 ; Check outer loop begin
 ; CHECK: store i64 0, i64* %i1.i64
 ; CHECK: loop.{{[0-9]+}}:

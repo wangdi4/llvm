@@ -57,6 +57,10 @@ bool ParVecDirectiveInsertion::runOnFunction(Function &Func) {
 void ParVecDirectiveInsertion::Visitor::visit(HLLoop *HLoop) {
   auto Info = PVA->getInfo(Mode, HLoop);
 
+  if (HLoop->isInnermost()) {
+    SkipNode = HLoop;
+  }
+
   // Insert vectorization directives?
   bool Insert = (Mode == ParVecInfo::VectorForVectorizer ||
                  Mode == ParVecInfo::VectorForVectorizerInnermost) &&

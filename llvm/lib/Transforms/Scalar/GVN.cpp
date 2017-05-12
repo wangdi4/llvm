@@ -1421,8 +1421,106 @@ void GVN::AnalyzeLoadAvailability(LoadInst *LI, LoadDepVect &Deps,
          "post condition violation");
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isLoadPREProfitable(LoadInst *LI, DominatorTree *DT) {
+
+  auto LoadBB = LI->getParent();
+  auto Func = LoadBB->getParent();
+
+  // If this PRE looks like scalar replacement, we want to suppress it
+  // pre-loopopt as it can make loops non-vectorizable.
+  // We are trying to check if the reference looks like A[i] without access to
+  // loops or SCEV. So we check whether the load and its address computation are
+  // in the same loop. This check is close enough to our requirements.
+  //
+  // Basically, we allow PRE to happen for loop invariant memory references.
+  
+  // We only want to suppress it pre-loopopt.
+  if (!Func->isPreLoopOpt()) {
+    return true;
+  }
+
+  auto AddressInst = dyn_cast<Instruction>(LI->getPointerOperand());
+
+  // Address is not even an instruction, it cannot have IV.
+  if (!AddressInst) {
+    return true;  
+  }
+
+  auto AddressBB = AddressInst->getParent();
+  auto EntryBB = &Func->getEntryBlock();
+
+  // Address computation is in the entry block so it cannot contain IV.
+  if (AddressBB == EntryBB) {
+    return true;
+  }
+
+  auto GepInst = dyn_cast<GetElementPtrInst>(AddressInst);
+
+  // Check whether we can conclude invariance by inspecting gep operands.
+  if (GepInst) {
+    bool IsInvariant = true;
+
+    for (unsigned I = 0, Num = GepInst->getNumOperands(); I < Num; ++I) {
+      auto Inst = dyn_cast<Instruction>(GepInst->getOperand(I));
+
+      if (Inst && (Inst->getParent() != EntryBB)) {
+        IsInvariant = false;
+        break;
+      }
+    }
+
+    if (IsInvariant) {
+      return true;
+    }
+  }
+
+  auto DomNode = DT->getNode(LoadBB);
+
+  // Look for the loop(backedge) containing this load.
+  while (DomNode) {
+    auto BB = DomNode->getBlock();
+
+    auto PI =  pred_begin(BB);
+    auto PE = pred_end(BB);
+
+    // Since no predecssors were found we must have reached the entry block
+    // without getting into a loop, return true.
+    if (PI == PE) {
+      return true;
+    }
+
+    // BB cannot be a loop header since it has single predecessor. Continue the
+    // search from its predecessor.
+    if (std::next(PI) == PE) {
+      DomNode = DT->getNode(*PI);
+      continue;
+    }
+
+    for (; PI != PE; ++PI) {
+      // If BB dominates its predecessor, we found a backedge with BB as the
+      // loop header.
+      if (DT->dominates(BB, *PI)) {
+        return !((AddressBB == LoadBB) || DT->dominates(BB, AddressBB));
+      }
+    }
+
+    DomNode = DomNode->getIDom();
+  }
+
+  // Load is not inside a loop.
+  return true;
+}
+
+#endif // INTEL_CUSTOMIZATION
+
 bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
                          UnavailBlkVect &UnavailableBlocks) {
+#if INTEL_CUSTOMIZATION
+  if (!isLoadPREProfitable(LI, DT)) {
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
   // Okay, we have *some* definitions of the value.  This means that the value
   // is available in some of our (transitive) predecessors.  Lets think about
   // doing PRE of this load.  This will involve inserting a new load into the
@@ -1739,12 +1837,6 @@ bool GVN::processNonLocalLoad(LoadInst *LI) {
   // Step 4: Eliminate partial redundancy.
   if (!EnablePRE || !EnableLoadPRE)
     return false;
-
-#if INTEL_CUSTOMIZATION
-  if (LI->getParent()->getParent()->isPreLoopOpt()) {
-      return false;
-  }
-#endif // INTEL_CUSTOMIZATION 
 
   return PerformLoadPRE(LI, ValuesPerBlock, UnavailableBlocks);
 }

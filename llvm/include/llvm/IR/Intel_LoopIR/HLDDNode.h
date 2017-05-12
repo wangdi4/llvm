@@ -65,6 +65,7 @@ protected:
 
   /// Implements get*OperandDDRef() functionality.
   RegDDRef *getOperandDDRefImpl(unsigned OperandNum) const;
+
   /// Implements set*OperandDDRef() functionality.
   void setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum);
 
@@ -278,6 +279,13 @@ public:
 
   /// Returns true if symbase is live out of parent loop.
   bool isLiveOutOfParentLoop(unsigned SB) const;
+
+  /// Shifts all ddrefs in the Node by \p Amount at level \p LoopLevel.
+  void shift(unsigned LoopLevel, int64_t Amount) {
+    for (auto RefIt = ddref_begin(), End = ddref_end(); RefIt != End; ++RefIt) {
+      (*RefIt)->shift(LoopLevel, Amount);
+    }
+  }
 };
 
 } // End namespace loopopt

@@ -77,6 +77,10 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+typedef DDRefGatherer<DDRef, AllRefs ^
+    (ConstantRefs | GenericRValRefs | IsAddressOfRefs)>
+    DDARefGatherer;
+
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
 
 char HIRDDAnalysis::ID = 0;
@@ -336,17 +340,16 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
   DEBUG(dbgs() << "buildGraph() for:\n");
   DEBUG(Node->dump());
 
-  NonConstantRefGatherer::MapTy RefMap;
+  DDARefGatherer::MapTy RefMap;
 
   if (const HLLoop *Loop = dyn_cast<HLLoop>(Node)) {
-    NonConstantRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
-                                        RefMap);
+    DDARefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
   } else {
-    NonConstantRefGatherer::gather(Node, RefMap);
+    DDARefGatherer::gather(Node, RefMap);
   }
 
   DEBUG(dbgs() << "References:\n");
-  DEBUG(NonConstantRefGatherer::dump(RefMap));
+  DEBUG(DDARefGatherer::dump(RefMap));
 
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -365,13 +368,18 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           DirectionVector InputDV;
           DirectionVector OutputDVForward;
           DirectionVector OutputDVBackward;
+          DistanceVector OutputDistVForward;
+          DistanceVector OutputDistVBackward;
+
           bool IsLoopIndepDepTemp = false;
           // TODO this is incorrect, we need a direction vector of
           //= = * for 3rd level inermost loops
           InputDV.setAsInput();
 
           DT.findDependences(Ref1, Ref2, InputDV, OutputDVForward,
-                             OutputDVBackward, &IsLoopIndepDepTemp);
+                             OutputDVBackward, OutputDistVForward,
+                             OutputDistVBackward, &IsLoopIndepDepTemp);
+
           //  Sample code to check output:
           //  first check IsDependent
           //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;
@@ -381,17 +389,30 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
           // of obliterating edges if we request outermost loop graph then
           // innermost loop graph. If refinement is not possible, we should
           // keep the previous result cached somewhere.
-          if (OutputDVForward[0] != DVKind::NONE) {
-            DDEdge Edge =
-                DDEdge(Ref1, Ref2, OutputDVForward, IsLoopIndepDepTemp);
 
+          // Sample code to check for Dep Distance
+          // flow (< >) (2 -4)
+          //
+          //  DistTy Distance = Edge->getDistanceAtLevel(Level);
+          //  if (DepDist != UnknownDistance) {
+          //     legal to unroll i1 loop with factor up to Distance
+          //  }
+          //  Assuming we want to unroll & jam for loop i2, it should not hit
+          //  the code
+          //  for checking distance -2, otherwise something is invalid
+          //  flow (< > >) (2 -2 -1)
+
+          if (OutputDVForward[0] != DVKind::NONE) {
+            DDEdge Edge = DDEdge(Ref1, Ref2, OutputDVForward,
+                                 OutputDistVForward, IsLoopIndepDepTemp);
             // DEBUG(dbgs() << "Got edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(std::move(Edge));
           }
 
           if (OutputDVBackward[0] != DVKind::NONE) {
-            DDEdge Edge = DDEdge(Ref2, Ref1, OutputDVBackward);
+            DDEdge Edge =
+                DDEdge(Ref2, Ref1, OutputDVBackward, OutputDistVBackward);
             // DEBUG(dbgs() << "Got back edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(std::move(Edge));
@@ -408,7 +429,9 @@ void HIRDDAnalysis::buildGraph(const HLNode *Node, bool BuildInputEdges) {
 bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                              unsigned InnermostNestingLevel,
                              unsigned OutermostNestingLevel,
-                             DirectionVector &RefinedDV, bool *IsIndependent) {
+                             DirectionVector &RefinedDV,
+                             DistanceVector &RefinedDistV,
+                             bool *IsIndependent) {
 
   bool IsDVRefined = false;
   *IsIndependent = false;
@@ -426,6 +449,7 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
     for (unsigned I = 1; I <= Result->getLevels(); ++I) {
       RefinedDV[I - 1] = Result->getDirection(I);
       IsDVRefined = true;
+      RefinedDistV[I - 1] = DT.mapDVToDist(RefinedDV[I - 1], I, *Result);
     }
   }
 
@@ -476,8 +500,8 @@ bool DDGraph::singleEdgeGoingOut(const DDRef *LRef) {
 }
 
 void DDGraph::print(raw_ostream &OS) const {
-  NonConstantRefGatherer::MapTy Refs;
-  NonConstantRefGatherer::gather(CurNode, Refs);
+  DDARefGatherer::MapTy Refs;
+  DDARefGatherer::gather(CurNode, Refs);
 
   for (auto Pair : Refs) {
     for (DDRef *Ref : Pair.second) {

@@ -1,6 +1,6 @@
 ;RUN: opt -hir-cg -force-hir-cg -S %s | FileCheck %s
 ;
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: fcmp olt double %a, %b
 ;
 ;          BEGIN REGION { }

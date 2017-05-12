@@ -243,6 +243,9 @@ public:
   static int compareOffsets(const RegDDRef *Ref1, const RegDDRef *Ref2,
                             unsigned DimensionNum);
 
+  // Sorting comparator operator for two Mem-RegDDRef.
+  static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
+
   /// Check if replaceIVByCanonExpr(.) can actually succeed without doing it for
   /// real.
   ///

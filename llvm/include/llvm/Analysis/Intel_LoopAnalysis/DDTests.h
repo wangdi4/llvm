@@ -40,7 +40,6 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
@@ -80,6 +79,11 @@ enum DVKind : unsigned char {
   GE = 6,
   ALL = 7,
 };
+
+typedef signed char DistTy;
+const DistTy UnknownDistance = SCHAR_MIN;
+const DistTy MaxDistance = SCHAR_MAX;
+const DistTy MinDistance = UnknownDistance + 1;
 
 inline constexpr DVKind operator|(DVKind Lhs, DVKind Rhs) {
   return static_cast<DVKind>(static_cast<unsigned char>(Lhs) |
@@ -150,6 +154,17 @@ struct DirectionVector : public std::array<DVKind, MaxLoopNestLevel> {
                   const unsigned int EndLevel = MaxLoopNestLevel);
 
   // Construct all 0
+  void setZero();
+};
+
+struct DistanceVector : public std::array<DistTy, MaxLoopNestLevel> {
+  // Print DistVec from level 1 to Level
+  void print(raw_ostream &OS, unsigned Level) const;
+
+  // Print the entire DistanceVector
+  void print(raw_ostream &OS) const;
+
+  // Set as all 0
   void setZero();
 };
 
@@ -351,7 +366,8 @@ class DDTest {
   bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                        const DirectionVector &InputDV,
                        DirectionVector &ForwardDV, DirectionVector &BackwardDV,
-                       bool *IsLoopIndepDepTemp);
+                       DistanceVector &ForwardDistV,
+                       DistanceVector &BackwardDistV, bool *IsLoopIndepDepTemp);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -408,6 +424,40 @@ class DDTest {
   /// \brief Query LLVM Alias Analysis to check if there is no aliasing between
   /// \p SrcDDRef and \p DstDDref (ex. due to TBAA or AliasScopes)
   bool queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef);
+
+  /// Set DV for various cases.
+  /// PeelFirst && Reversed
+  void setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
+                                    DirectionVector &BackwardDV,
+                                    const Dependences &Result, unsigned Levels);
+
+  ///  BiDirectional
+  void setDVForBiDirection(DirectionVector &ForwardDV,
+                           DirectionVector &BackwardDV,
+                           const Dependences &Result, unsigned Levels,
+                           unsigned LTGTLevel);
+  ///  LoopIndependent (= =)
+  void setDVForLoopIndependent(DirectionVector &ForwardDV,
+                               DirectionVector &BackwardDV,
+                               const Dependences &Result, unsigned Levels,
+                               unsigned SrcNum, unsigned DstNum);
+
+  ///  Breakup <= into <, =
+
+  void setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
+                  const Dependences &Result, unsigned Levels);
+
+  /// Distance: from CE to INT
+
+  void populateDistanceVector(const DirectionVector &ForwardDV,
+                              const DirectionVector &BackwardDV,
+                              const Dependences &Result,
+                              DistanceVector &ForwardDistV,
+                              DistanceVector &BackwardDistV, unsigned Levels);
+
+  /// Map DV to distance
+
+  DistTy mapDVToDist(DVKind DV, unsigned Level, const Dependences &Result);
 
   /// Subscript - This private struct represents a pair of subscripts from
   /// a pair of potentially multi-dimensional array references. We use a

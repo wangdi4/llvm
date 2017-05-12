@@ -9,7 +9,7 @@
 ; CHECK: br i1 true, {{.*}}label %region
 
 ; check loop is completely unrolled.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 -1)
 ; CHECK: getelementptr inbounds ([550 x i32], [550 x i32]* @A, i64 0, i64 0)
 ; CHECK: getelementptr

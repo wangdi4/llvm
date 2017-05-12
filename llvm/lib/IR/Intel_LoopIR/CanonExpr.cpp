@@ -31,9 +31,9 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType,
-                     bool IsSExt, unsigned DefLevel, int64_t ConstVal,
-                     int64_t Denom, bool IsSignedDiv)
+CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType,
+                     Type *DestType, bool IsSExt, unsigned DefLevel,
+                     int64_t ConstVal, int64_t Denom, bool IsSignedDiv)
     : CEU(CEU), SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv) {
   assert(CanonExprUtils::isValidDefLevel(DefLevel) && "Invalid def level!");
@@ -49,7 +49,7 @@ CanonExpr::CanonExpr(const CanonExpr &CE)
     : CEU(CE.CEU), SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
       DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
-      IsSignedDiv(CE.IsSignedDiv) {
+      IsSignedDiv(CE.IsSignedDiv), DbgLoc(CE.DbgLoc) {
 
   CEU.Objs.insert(this);
 }
@@ -896,12 +896,15 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
   }
 }
 
-bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
-  assert(BlobUtils::isTempBlob(getBlobUtils().getBlob(OldTempIndex)) &&
+template <bool IsConstant, typename T>
+bool CanonExpr::replaceTempBlobImpl(unsigned TempIndex, T Operand) {
+  assert(BlobUtils::isTempBlob(getBlobUtils().getBlob(TempIndex)) &&
          "Old Index is not a temp!");
-  assert(BlobUtils::isTempBlob(getBlobUtils().getBlob(NewTempIndex)) &&
-         "New Index is not a temp!");
+  assert(
+      (IsConstant || BlobUtils::isTempBlob(getBlobUtils().getBlob(Operand))) &&
+      "New Index is not a temp!");
 
+  int64_t SimplifiedConstant;
   bool Replaced = false;
   unsigned NewBlobIndex;
 
@@ -911,13 +914,25 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
       continue;
     }
 
-    if (IV.Index == OldTempIndex) {
-      IV.Index = NewTempIndex;
-      Replaced = true;
+    if (IV.Index == TempIndex) {
+      if (IsConstant) {
+        IV.Coeff *= Operand;
+        IV.Index = InvalidBlobIndex;
+      } else {
+        IV.Index = Operand;
+      }
 
-    } else if (getBlobUtils().replaceTempBlob(IV.Index, OldTempIndex,
-                                              NewTempIndex, NewBlobIndex)) {
+      Replaced = true;
+      continue;
+    }
+
+    if (getBlobUtils().replaceTempBlob(IV.Index, TempIndex, Operand,
+                                       NewBlobIndex, SimplifiedConstant)) {
       IV.Index = NewBlobIndex;
+      if (NewBlobIndex == InvalidBlobIndex) {
+        IV.Coeff *= SimplifiedConstant;
+      }
+
       Replaced = true;
     }
   }
@@ -926,14 +941,24 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
   BlobCoeffsTy NewBlobs;
 
   auto RemovePred = [&](BlobIndexToCoeff &BC) {
-    if (BC.Index == OldTempIndex) {
-      NewBlobs.emplace_back(NewTempIndex, BC.Coeff);
+    if (BC.Index == TempIndex) {
+      if (IsConstant) {
+        addConstant(BC.Coeff * Operand, false);
+      } else {
+        NewBlobs.emplace_back(Operand, BC.Coeff);
+      }
+
       return (Replaced = true);
     }
 
-    if (getBlobUtils().replaceTempBlob(BC.Index, OldTempIndex, NewTempIndex,
-                                       NewBlobIndex)) {
-      NewBlobs.emplace_back(NewBlobIndex, BC.Coeff);
+    if (getBlobUtils().replaceTempBlob(BC.Index, TempIndex, Operand,
+                                       NewBlobIndex, SimplifiedConstant)) {
+      if (NewBlobIndex == InvalidBlobIndex) {
+        addConstant(BC.Coeff * SimplifiedConstant, false);
+      } else {
+        NewBlobs.emplace_back(NewBlobIndex, BC.Coeff);
+      }
+
       return (Replaced = true);
     }
 
@@ -949,6 +974,15 @@ bool CanonExpr::replaceTempBlob(unsigned OldTempIndex, unsigned NewTempIndex) {
   }
 
   return Replaced;
+}
+
+bool CanonExpr::replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex) {
+  return replaceTempBlobImpl<false>(TempIndex, NewTempIndex);
+}
+
+bool CanonExpr::replaceTempBlobByConstant(unsigned TempIndex,
+                                          int64_t Constant) {
+  return replaceTempBlobImpl<true>(TempIndex, Constant);
 }
 
 void CanonExpr::clear() {

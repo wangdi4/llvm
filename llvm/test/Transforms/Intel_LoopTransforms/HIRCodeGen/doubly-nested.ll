@@ -4,7 +4,7 @@
 ; incremented in each loop
 
 ; basic cg occurred
-; CHECK: region:
+; CHECK: region.0:
 
 ; verify basic loop structure
 ; for loop 23 (i1)

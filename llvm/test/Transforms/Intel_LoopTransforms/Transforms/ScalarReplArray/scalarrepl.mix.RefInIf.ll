@@ -35,6 +35,11 @@
 ; CHECK:        + END LOOP
 ; CHECK:  END REGION
 ;
+;
+; MemRefGroup: { A[i], A[i+1], A[i+2] }
+;                              MinST
+; GapTracker:  { R     R       W      }
+;
 ;  
 ; CHECK: IR Dump After HIR Scalar Repl
 ;

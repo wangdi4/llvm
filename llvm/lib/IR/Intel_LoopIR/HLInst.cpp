@@ -24,6 +24,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+static cl::opt<bool>
+    ShowLLVMInst("hir-details-llvm-inst", cl::init(false), cl::Hidden,
+                 cl::desc("Show LLVM instructions instead of dummy HLInst"));
+
 void HLInst::initialize() {
   /// This call is to get around calling virtual functions in the constructor.
   unsigned NumOp = getNumOperandsInternal();
@@ -42,7 +46,7 @@ HLInst::HLInst(HLNodeUtils &HNU, Instruction *Inst)
 
 HLInst::HLInst(const HLInst &HLInstObj)
     : HLDDNode(HLInstObj), Inst(HLInstObj.Inst),
-      CmpOrSelectPred(HLInstObj.CmpOrSelectPred), PredFMF(HLInstObj.PredFMF) {
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
 
   unsigned NumOp, Count = 0;
 
@@ -181,6 +185,12 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
 
+  if (ShowLLVMInst) {
+    getLLVMInstruction()->print(OS, true);
+    OS << "\n";
+    return;
+  }
+
   for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
@@ -232,7 +242,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     FastMathFlags FMF;
 
     if (isa<SelectInst>(Inst)) {
-      FMF = PredFMF;
+      FMF = CmpOrSelectPred.FMF;
     } else if (isa<FPMathOperator>(Inst)) {
       FMF = Inst->getFastMathFlags();
     }
@@ -258,7 +268,7 @@ bool HLInst::hasLval() const {
 
 RegDDRef *HLInst::getLvalDDRef() {
   if (hasLval()) {
-    return cast<RegDDRef>(getOperandDDRefImpl(0));
+    return getOperandDDRefImpl(0);
   }
 
   return nullptr;
@@ -654,4 +664,18 @@ Constant *HLInst::getRecurrenceIdentity(unsigned RednOpCode, Type *Ty) {
   }
 
   return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
+}
+
+const DebugLoc HLInst::getDebugLoc() const {
+  auto *LRef = getLvalDDRef();
+  if (LRef && LRef->hasGEPInfo()) {
+    return LRef->getDebugLoc();
+  }
+
+  auto *RRef = getRvalDDRef();
+  if (RRef && RRef->hasGEPInfo()) {
+    return RRef->getDebugLoc();
+  }
+
+  return Inst->getDebugLoc();
 }

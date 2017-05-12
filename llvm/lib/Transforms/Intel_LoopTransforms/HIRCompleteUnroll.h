@@ -23,6 +23,7 @@
 
 namespace llvm {
 namespace loopopt {
+class HIRLoopStatistics;
 
 class HIRCompleteUnroll : public HIRTransformPass {
 public:
@@ -37,6 +38,8 @@ public:
 private:
   class CanonExprVisitor;
   class ProfitabilityAnalyzer;
+
+  HIRLoopStatistics *HLS;
 
   /// Indicates whether we are in pre or post vec mode.
   bool IsPreVec;

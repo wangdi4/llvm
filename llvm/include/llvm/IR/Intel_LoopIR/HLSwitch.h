@@ -35,13 +35,15 @@ public:
   typedef ChildNodeTy::reverse_iterator reverse_case_child_iterator;
   typedef ChildNodeTy::const_reverse_iterator const_reverse_case_child_iterator;
 
-protected:
+private:
   /// Contains all the switch cases' children. The default case is always the
   /// last one.
   ChildNodeTy Children;
   /// Iterators pointing to beginning of switch cases.
   SmallVector<case_child_iterator, 5> CaseBegin;
   case_child_iterator DefaultCaseBegin;
+
+  DebugLoc DbgLoc;
 
   /// ConditionRef represents the switch conditon.
   HLSwitch(HLNodeUtils &HNU, RegDDRef *ConditionRef);
@@ -265,6 +267,9 @@ public:
 
   /// \brief Verifies HLSwitch integrity.
   virtual void verify() const override;
+
+  const DebugLoc getDebugLoc() const override { return DbgLoc; }
+  void setDebugLoc(const DebugLoc &Loc) { DbgLoc = Loc; }
 };
 
 } // End namespace loopopt

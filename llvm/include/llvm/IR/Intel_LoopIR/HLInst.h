@@ -35,9 +35,7 @@ private:
   // once HLInst has been constructed.
   const Instruction *const Inst;
   // Only used for Cmp and Select instructions.
-  PredicateTy CmpOrSelectPred;
-
-  FastMathFlags PredFMF;
+  HLPredicate CmpOrSelectPred;
 
 protected:
   explicit HLInst(HLNodeUtils &HNU, Instruction *Inst);
@@ -135,25 +133,18 @@ public:
   bool isInPreheaderOrPostexit() const;
 
   /// Returns predicate for select instruction.
-  PredicateTy getPredicate() const {
+  const HLPredicate &getPredicate() const {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     return CmpOrSelectPred;
   }
 
-  FastMathFlags getPredicateFMF() const {
-    return PredFMF;
-  }
-
   /// Sets predicate for select instruction.
-  void setPredicate(PredicateTy Pred, FastMathFlags FMF = FastMathFlags()) {
+  void setPredicate(const HLPredicate &Pred) {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
-    CmpOrSelectPred = Pred;
 
-    assert((!FMF.any() || CmpInst::isFPPredicate(Pred)) &&
-           "FastMathFlags are set on non-FP predicate");
-    PredFMF = FMF;
+    CmpOrSelectPred = Pred;
   }
 
   /// Retuns true if this is a bitcast instruction with identical src and dest
@@ -199,6 +190,9 @@ public:
 
   /// Return true if OpCode is a valid reduction opcode.
   static bool isValidReductionOpCode(unsigned OpCode);
+
+  const DebugLoc getDebugLoc() const override;
+  void setDebugLoc(const DebugLoc &Loc);
 };
 
 } // End namespace loopopt

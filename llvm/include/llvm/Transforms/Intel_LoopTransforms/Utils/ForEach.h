@@ -27,6 +27,7 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_FOREACH_H
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 namespace llvm {
 
@@ -34,7 +35,25 @@ namespace loopopt {
 
 class HLNode;
 
-namespace internal {
+namespace detail {
+
+template <typename T, typename Func>
+struct ForEachVisitorTraits {
+  typedef T NodeType;
+  static void visit(NodeType *Node, Func F) {
+    F(Node);
+  }
+};
+
+template <typename Func>
+struct ForEachVisitorTraits<RegDDRef, Func> {
+  typedef HLDDNode NodeType;
+  static void visit(NodeType *Node, Func F) {
+    for (RegDDRef *Ref : make_range(Node->ddref_begin(), Node->ddref_end())) {
+      F(Ref);
+    }
+  }
+};
 
 /// Internal visitor that is used by ForEach, ForPostEach classes.
 /// It will call \p Func() on each visit(T*)/postVisit(T*) depending on the
@@ -44,15 +63,15 @@ struct ForEachVisitor final : public HLNodeVisitorBase {
   Func F;
   ForEachVisitor(Func F) : F(F) {}
 
-  void visit(T *Node) {
+  void visit(typename ForEachVisitorTraits<T, Func>::NodeType *Node) {
     if (!IsPostVisitor) {
-      F(Node);
+      ForEachVisitorTraits<T, Func>::visit(Node, F);
     }
   }
 
-  void postVisit(T *Node) {
+  void postVisit(typename ForEachVisitorTraits<T, Func>::NodeType *Node) {
     if (IsPostVisitor) {
-      F(Node);
+      ForEachVisitorTraits<T, Func>::visit(Node, F);
     }
   }
 
@@ -62,25 +81,29 @@ struct ForEachVisitor final : public HLNodeVisitorBase {
 
 }
 
-/// The ForEach<T> class could be used to iterate over the HIR nodes of fixed
-/// type \p T post-order using functional approach.
-template <typename T> struct ForPostEach {
+template <typename T, bool IsPostVisitor> struct ForEachImpl {
   template <typename Iter, typename Func>
   static void visitRange(Iter Begin, Iter End, Func F) {
-    internal::ForEachVisitor<T, Func, true> Visitor(F);
+    detail::ForEachVisitor<T, Func, IsPostVisitor> Visitor(F);
     HLNodeUtils::visitRange(Visitor, Begin, End);
+  }
+
+  template <typename NodeTy, typename Func>
+  static void visit(NodeTy Node, Func F) {
+    detail::ForEachVisitor<T, Func, IsPostVisitor> Visitor(F);
+    HLNodeUtils::visit(Visitor, Node);
   }
 };
 
 /// The ForEach<T> class could be used to iterate over the HIR nodes of fixed
 /// type \p T in-order using functional approach.
-template <typename T> struct ForEach {
-  template <typename Iter, typename Func>
-  static void visitRange(Iter Begin, Iter End, Func F) {
-    internal::ForEachVisitor<T, Func, false> Visitor(F);
-    HLNodeUtils::visitRange(Visitor, Begin, End);
-  }
-};
+template <typename T>
+using ForEach = ForEachImpl<T, false>;
+
+/// The ForPostEach<T> class could be used to iterate over the HIR nodes of
+/// fixed type \p T post-order using functional approach.
+template <typename T>
+using ForPostEach = ForEachImpl<T, true>;
 
 }
 

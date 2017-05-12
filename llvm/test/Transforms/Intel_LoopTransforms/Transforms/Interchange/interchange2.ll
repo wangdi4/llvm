@@ -3,8 +3,9 @@
 ;   for (i=1; i <= 1001; i++) {
 ;        for (j=1; j <= 96; j++) {
 ;            A[j][i] = A[j+m][i+n] + 1; 
-;  
-; RUN: opt -O2  -loopopt  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+;
+; REQUIRES: asserts   
+; RUN: opt -O2  -loopopt -debug -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'interchange2.c'

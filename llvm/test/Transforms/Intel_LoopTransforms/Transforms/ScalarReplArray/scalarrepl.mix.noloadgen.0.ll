@@ -36,8 +36,11 @@
 ; CHECK: IR Dump After HIR Scalar Repl
 ;
 ; CHECK:  BEGIN REGION { modified }
+; Check Prehdr:
 ; CHECK:           %scalarepl = (@A)[0][0];
 ; CHECK:           %scalarepl1 = (@A)[0][1];
+;
+; Check loop's body:
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
 ; CHECK:        |   %0 = %scalarepl;
 ; CHECK:        |   %scalarepl2 = %0 + 1;
@@ -47,7 +50,11 @@
 ; CHECK:        |   %scalarepl = %scalarepl1;
 ; CHECK:        |   %scalarepl1 = %scalarepl2;
 ; CHECK:        + END LOOP
-; CHECK:           (@A)[0][102] = %scalarepl2;
+;
+; Check Postexit:
+; CHECK:           (@A)[0][101] = %scalarepl;
+; CHECK:           (@A)[0][102] = %scalarepl1;
+;
 ; CHECK:  END REGION
 ;
 ;

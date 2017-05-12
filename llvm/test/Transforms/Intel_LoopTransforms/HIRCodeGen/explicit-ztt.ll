@@ -3,7 +3,7 @@
 ;;
 ; RUN: opt -hir-cg -force-hir-cg -S < %s | FileCheck %s
 ; basic cg
-; CHECK: region:
+; CHECK: region.0:
 
 ; loop 1
 ; CHECK: br label %[[L1Label:loop.[0-9]+]]
@@ -11,7 +11,7 @@
 
 ; if (m > 0) {do i2 ...}
 ; CHECK: %hir.cmp.[[CMP_NUM:[0-9]+]] = icmp sgt i32 %m, 0
-; CHECK-NEXT: br i1 %hir.cmp.[[CMP_NUM]], label %then.[[CMP_NUM]], label %else.[[CMP_NUM]]
+; CHECK-NEXT: br i1 %hir.cmp.[[CMP_NUM]], label %then.[[CMP_NUM]], label %ifmerge.[[CMP_NUM]]
 
 ;From here on, the bb's can be in any order
 ; assume hircgs ordering of appending doesnt change?
@@ -34,10 +34,6 @@
 
 ; after i2, we jump to if's merge point
 ; CHECK: after[[L2Label]]:
-; CHECK: br label %ifmerge.[[CMP_NUM]]
-
-; empty else, it just jumps to if's merge point
-; CHECK: else.[[CMP_NUM]]:
 ; CHECK: br label %ifmerge.[[CMP_NUM]]
 
 ;if merge should contain bt for i1 loop, just loop for label in br 

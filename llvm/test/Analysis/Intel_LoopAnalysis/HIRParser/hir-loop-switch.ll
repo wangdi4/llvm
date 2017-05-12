@@ -22,7 +22,7 @@
 
 ; Check cg for this switch.
 
-;CHECK-CG: region:
+;CHECK-CG: region.0:
 ;CHECK-CG: loop.[[LOOP_NUM:[0-9]+]]:
 ;CHECK-CG-NEXT: switch i32 %c, label %[[SWITCH_NAME:hir.sw.[0-9]+]].default [
 ;CHECK-CG-NEXT: i32 0, label %[[SWITCH_NAME]].case.0

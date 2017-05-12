@@ -16,7 +16,8 @@
 ;                        A[i5][i4][i3][i2+n][i1] =
 ;                            A[i5][i4][i3][i2+m][i1] + 1 ;
 ;
-; RUN: opt -O2 -loopopt  -hir-loop-interchange   < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts 
+; RUN: opt -O2 -loopopt -debug  -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; CHECK: Interchanged:

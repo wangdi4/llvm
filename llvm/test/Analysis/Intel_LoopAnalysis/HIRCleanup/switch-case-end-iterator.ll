@@ -31,7 +31,6 @@
 ; CHECK:        0x0 = 0x0;
 ; CHECK:        if (0x0 true 0x0)
 ; CHECK:        {
-; CHECK:           goto while.end;
 ; CHECK:        }
 ; CHECK:        else
 ; CHECK:        {

@@ -66,10 +66,13 @@ private:
   Instruction *FirstDummyInst;
   /// Points to last dummy instruction of the function.
   Instruction *LastDummyInst;
+  // Used as a temporary marker by transformations to keep track of where the
+  // insertion should take place.
+  HLLabel *Marker;
 
   HLNodeUtils()
       : NextUniqueHLNodeNumber(0), DDRU(nullptr), DummyIRBuilder(nullptr),
-        FirstDummyInst(nullptr), LastDummyInst(nullptr) {}
+        FirstDummyInst(nullptr), LastDummyInst(nullptr), Marker(nullptr) {}
 
   /// Make class uncopyable.
   HLNodeUtils(const HLNodeUtils &) = delete;
@@ -186,7 +189,7 @@ private:
   /// Only used by framework.
   HLLoop *createHLLoop(const Loop *LLVMLoop);
 
-  /// Destroys all HLNodes, called during framework cleanup.
+  /// Destroys all allocated memory, called by framework.
   void destroyAll();
 
   /// Performs sanity checking on unary instruction operands.
@@ -455,6 +458,20 @@ public:
   /// Returns the last dummy instruction of the function.
   Instruction *getLastDummyInst() { return LastDummyInst; }
 
+  /// Returns marker node which is used as a placeholder by transformations. If
+  /// the marker is null, a new one is created.
+  /// NOTE: It is expected to be detached from HIR by the transformationns after
+  /// use.
+  HLNode *getOrCreateMarkerNode() {
+    if (!Marker) {
+      Marker = createHLLabel("marker");
+    }
+    return Marker;
+  }
+
+  /// Returns marker node.
+  HLNode *getMarkerNode() { return Marker; }
+
   // Returns reference to DDRefUtils object.
   DDRefUtils &getDDRefUtils() {
     assert(DDRU && "Access to null DDRefUtils!");
@@ -502,7 +519,7 @@ public:
   HLGoto *createHLGoto(HLLabel *TargetL);
 
   /// Returns a new HLIf.
-  HLIf *createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
+  HLIf *createHLIf(const HLPredicate &FirstPred, RegDDRef *Ref1,
                    RegDDRef *Ref2);
 
   /// Returns a new HLLoop.
@@ -688,16 +705,14 @@ public:
                     const Twine &Name = "xor", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Cmp instruction.
-  HLInst *createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
-                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr,
-                    FastMathFlags FMF = FastMathFlags());
+  HLInst *createCmp(const HLPredicate &Pred, RegDDRef *OpRef1, RegDDRef *OpRef2,
+                    const Twine &Name = "cmp", RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Select instruction.
-  HLInst *createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+  HLInst *createSelect(const HLPredicate &Pred, RegDDRef *OpRef1,
                        RegDDRef *OpRef2, RegDDRef *OpRef3, RegDDRef *OpRef4,
                        const Twine &Name = "select",
-                       RegDDRef *LvalRef = nullptr,
-                       FastMathFlags FMF = FastMathFlags());
+                       RegDDRef *LvalRef = nullptr);
 
   /// Creates a new Call instruction.
   HLInst *createCall(Function *F, const SmallVectorImpl<RegDDRef *> &CallArgs,
@@ -1285,17 +1300,33 @@ public:
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 
+  // Replaces HLIf with its *then* or *else* body.
+  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
+
   /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
   /// empty HLIfs.
   ///
   /// Note: This function is placed here because the Framework uses it to
   /// get rid of incoming empty HLIfs.
-  static void removeEmptyNodes(HLNode *Node);
+  static bool removeEmptyNodes(HLNode *Node);
 
   /// Recursively traverse the HIR range [\p Begin, \p End) and remove empty
   /// HLLoops and empty HLIfs.
-  static void removeEmptyNodesRange(HLContainerTy::iterator Begin,
+  static bool removeEmptyNodesRange(HLContainerTy::iterator Begin,
                                     HLContainerTy::iterator End);
+
+  /// Removes: 1) HLIfs that always evaluates as either true or false;
+  ///          2) HLLoops those trip count is constant and equals zero.
+  ///          3) Empty HLNodes
+  /// Returns true whenever nodes were removed.
+  /// If \p RemoveEmptyParentNodes is true, the utility also removes parent
+  /// nodes if they become empty.
+  /// The utility invalidates analysis for the changed loops and regions.
+  static bool removeRedundantNodes(HLNode *Node,
+                                   bool RemoveEmptyParentNodes = true);
+  static bool removeRedundantNodes(HLContainerTy::iterator Begin,
+                                   HLContainerTy::iterator End,
+                                   bool RemoveEmptyParentNodes = true);
 };
 
 } // End namespace loopopt

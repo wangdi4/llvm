@@ -4,17 +4,21 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; CHECK: BEGIN REGION { modified }
-; CHECK: if (1 > 2)
-; CHECK: %0 = (%B)[0]
-; CHECK: %1 = (%0)[1]
-; CHECK: (%2)[0] = %1
-; CHECK: else
-; CHECK: %3 = (%A)[1]
-; CHECK-NEXT: (%3)[0] = 1
-; CHECK: if (3 > 2)
-; CHECK: %2 = (%A)[2]
-; CHECK: else
-; CHECK: (%3)[1] = 3
+
+; Iteration: {1, 0}
+; CHECK:   %3 = (%A)[1];
+; CHECK:  (%3)[0] = 1;
+
+; Iteration: {2, 0} 
+; CHECK:   %3 = (%A)[2];
+; CHECK:  (%3)[0] = 2;
+
+; Iteration: {2, 1}
+; CHECK:   %0 = (%B)[1];
+; CHECK:   %1 = (%0)[2];
+; CHECK:   %2 = (%A)[2];
+; CHECK:  (%2)[1] = %1;
+
 ; CHECK: END REGION
 
 ; Source Code
@@ -29,7 +33,6 @@
 ;     }
 ;     return A[2][3];
 ; }
-
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
