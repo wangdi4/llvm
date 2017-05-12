@@ -19,6 +19,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
+#include "llvm/IR/Metadata.h"
 
 namespace llvm {
 
@@ -66,11 +67,14 @@ class Item
     bool  IsVla;     // true for variable-length arrays (C99)
     EXPR  VlaSize;   // size of vla array can be an int expression
     int   ThunkIdx;  // used for task/taskloop codegen
+    MDNode *AliasScope; // alias info (loads)  to help registerize private vars
+    MDNode *NoAlias;    // alias info (stores) to help registerize private vars
 
   public:
     Item(VAR Orig) :
       OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr), IsNonpod(false),
-      IsVla(false), VlaSize(nullptr), ThunkIdx(-1){}
+      IsVla(false), VlaSize(nullptr), ThunkIdx(-1), AliasScope(nullptr),
+      NoAlias(nullptr) {}
 
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
@@ -79,6 +83,8 @@ class Item
     void setIsVla(bool Flag)     { IsVla = Flag;    }
     void setVlaSize(EXPR Size)   { VlaSize = Size;  }
     void setThunkIdx(int I)      { ThunkIdx = I;    }
+    void setAliasScope(MDNode *M){ AliasScope = M;  }
+    void setNoAlias(MDNode *M)   { NoAlias = M;     }
 
     VAR  getOrig()     const { return OrigItem; }
     VAR  getNew()      const { return NewItem;  }
@@ -86,7 +92,9 @@ class Item
     bool getIsNonpod() const { return IsNonpod; }
     bool getIsVla()    const { return IsVla;    }
     EXPR getVlaSize()  const { return VlaSize;  }
-    int getThunkIdx() const { return ThunkIdx; }
+    int getThunkIdx()  const { return ThunkIdx; }
+    MDNode *getAliasScope() const { return AliasScope; }
+    MDNode *getNoAlias()    const { return NoAlias; }
 
     virtual void print(formatted_raw_ostream &OS, bool PrintType=true) const {
       OS << "(" ; 
