@@ -345,7 +345,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
   // DEBUG(LS.dump(););
-  if (LS.hasCalls()) {
+  if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;
   }
 

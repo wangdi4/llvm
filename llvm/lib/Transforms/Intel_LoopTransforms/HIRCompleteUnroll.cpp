@@ -264,9 +264,6 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   unsigned computeUniqueOccurences(const RegDDRef *Ref,
                                    unsigned &BaseCost) const;
 
-  /// Returns true if \p Ref indexes into a constant array.
-  bool isConstantArrayRef(const RegDDRef *Ref) const;
-
   /// Adds additional cost associated with a GEP ref. \p CanSimplifySubs
   /// indicates that all the subscripts can be simplified to constants.
   /// Returns true if \p Ref can be simplified to a constant.
@@ -711,23 +708,6 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
   return MaxNonRemBlobLevel;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::isConstantArrayRef(
-    const RegDDRef *Ref) const {
-
-  auto BaseCE = Ref->getBaseCE();
-
-  if (!BaseCE->isSelfBlob()) {
-    return false;
-  }
-
-  auto Val =
-      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
-
-  auto GlobalVar = dyn_cast<GlobalVariable>(Val);
-
-  return (GlobalVar && GlobalVar->isConstant());
-}
-
 unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::computeUniqueOccurences(
     const RegDDRef *Ref, unsigned &BaseCost) const {
 
@@ -838,7 +818,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
   unsigned SimplifiedToConstSavings = 0;
 
   bool CanSimplifyToConst =
-      (IsMemRef && CanSimplifySubs && isConstantArrayRef(Ref));
+      (IsMemRef && CanSimplifySubs && Ref->accessesConstantArray());
 
   if (CanSimplifyToConst) {
     // Everything goes to savings for refs which can be simplified to constants.

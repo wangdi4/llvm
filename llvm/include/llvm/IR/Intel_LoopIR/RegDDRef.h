@@ -292,6 +292,9 @@ public:
   /// Returns true if the Ref accesses a structure.
   bool accessesStruct() const;
 
+  /// Returns true if the Ref accesses a constant array.
+  bool accessesConstantArray() const;
+
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return getGEPInfo()->BaseCE; }
   const CanonExpr *getBaseCE() const {
@@ -493,6 +496,15 @@ public:
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isFake() const;
 
+  /// Returns true if Ref is a fake lval DDRef. This function assumes that the
+  /// DDRef is connected to a HLDDNode.
+  bool isFakeLval() const;
+
+  /// Returns true if Ref is a fake rval DDRef. This function assumes that the
+  /// DDRef is connected to a HLDDNode.
+  bool isFakeRval() const;
+
+
   /// \brief This method checks if the DDRef is
   /// not a memory reference or a pointer reference
   /// Returns false for:
@@ -538,7 +550,7 @@ public:
   bool isUnitaryBlob() const;
 
   /// Returns true if this ref looks like 1 * undef.
-  bool isUndefSelfBlob() const override;
+  bool isStandAloneUndefBlob() const override;
 
   /// \brief Returns true if the DDRef represents a blob like (1 * %t).
   /// This is a broader check than isSelfBlob() because DDRef's symbase is not

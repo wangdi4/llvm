@@ -55,16 +55,18 @@ private:
   ParVecInfo::AnalysisMode Mode;
   /// InfoMap - Map associating HLLoops with corresponding par vec info.
   DenseMap<HLLoop *, ParVecInfo *> &InfoMap;
+  /// TLI - Target library info analysis.
+  TargetLibraryInfo *TLI;
   /// DDA - Data dependency analysis handle.
   HIRDDAnalysis *DDA;
   /// SRA - Safe reduction analysis handle
   HIRSafeReductionAnalysis *SRA;
 
 public:
-  ParVecVisitor(ParVecInfo::AnalysisMode Mode, HIRDDAnalysis *DDA,
-                HIRSafeReductionAnalysis *SRA,
+  ParVecVisitor(ParVecInfo::AnalysisMode Mode, TargetLibraryInfo *TLI,
+                HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
                 DenseMap<HLLoop *, ParVecInfo *> &InfoMap)
-      : Mode(Mode), InfoMap(InfoMap), DDA(DDA), SRA(SRA) {}
+      : Mode(Mode), InfoMap(InfoMap), TLI(TLI), DDA(DDA), SRA(SRA) {}
   /// \brief Determine parallelizability/vectorizability of the loop
   void postVisit(HLLoop *Loop);
   /// \brief Report instructions that are not suitable for auto-parallelization
@@ -83,6 +85,9 @@ public:
 /// \brief Visitor class to determine parallelizability/vectorizability of
 /// the given loop with the given DDG.
 class DDWalk final : public HLNodeVisitorBase {
+  /// TLI - Target Library Info
+  TargetLibraryInfo &TLI;
+
   /// DDA - Data dependence analysis
   HIRDDAnalysis &DDA;
 
@@ -106,9 +111,9 @@ class DDWalk final : public HLNodeVisitorBase {
   bool isSafeReductionFlowDep(const RegDDRef *SrcRef, const RegDDRef *SinkRef);
 
 public:
-  DDWalk(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
-         HLLoop *CandidateLoop, ParVecInfo *Info)
-      : DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop, false)),
+  DDWalk(TargetLibraryInfo &TLI, HIRDDAnalysis &DDA,
+         HIRSafeReductionAnalysis &SRA, HLLoop *CandidateLoop, ParVecInfo *Info)
+      : TLI(TLI), DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop, false)),
         CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false) {}
 
   /// \brief Visit all outgoing DDEdges for the given node.
@@ -176,6 +181,8 @@ FunctionPass *llvm::createHIRParVecAnalysisPass() {
 char HIRParVecAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRParVecAnalysis, "hir-parvec-analysis",
                       "HIR Parallel/Vector Candidate Analysis", false, true)
+INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
 INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
@@ -183,18 +190,31 @@ INITIALIZE_PASS_END(HIRParVecAnalysis, "hir-parvec-analysis",
 
 void ParVecVisitor::postVisit(HLLoop *Loop) {
   // Analyze parallelizability/vectorizability if not cached.
-  ParVecInfo::get(Mode, InfoMap, DDA, SRA, Loop);
+  ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
 }
 
 void ParVecVisitor::visit(HLInst *Node) {
   // Identify HLInst that is not suitable for auto-parallelization
   // and/or auto-vectorization.
   auto LIRInst = Node->getLLVMInstruction();
+  ParVecInfo::LoopType Type = ParVecInfo::Analyzing;
+
   if (isa<InvokeInst>(LIRInst) || isa<LandingPadInst>(LIRInst)) {
+    Type = ParVecInfo::EH;
+
+  } else if (auto Call = dyn_cast<CallInst>(LIRInst)) {
+    auto Func = Call->getCalledFunction();
+
+    if (!Func || !TLI->isFunctionVectorizable(Func->getName())) {
+      Type = ParVecInfo::UNKNOWN_CALL;
+    }
+  }
+
+  if (Type != ParVecInfo::Analyzing) {
     auto Loop = Node->getParentLoop();
     DebugLoc Loc = LIRInst->getDebugLoc();
     while (Loop) {
-      ParVecInfo::set(Mode, InfoMap, Loop, Mode, ParVecInfo::EH, Loc);
+      ParVecInfo::set(Mode, InfoMap, Loop, Mode, Type, Loc);
       Loop = Loop->getParentLoop();
     }
   }
@@ -202,6 +222,7 @@ void ParVecVisitor::visit(HLInst *Node) {
 
 void HIRParVecAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addRequiredTransitive<TargetLibraryInfoWrapperPass>();
   AU.addRequiredTransitive<HIRFramework>();
   AU.addRequiredTransitive<HIRDDAnalysis>();
   AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
@@ -213,6 +234,7 @@ bool HIRParVecAnalysis::runOnFunction(Function &F) {
   }
 
   Enabled = true;
+  TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   HIRF = &getAnalysis<HIRFramework>();
   DDA = &getAnalysis<HIRDDAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
@@ -233,7 +255,7 @@ const ParVecInfo *HIRParVecAnalysis::getInfo(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return nullptr;
   }
-  auto Info = ParVecInfo::get(Mode, InfoMap, DDA, SRA, Loop);
+  auto Info = ParVecInfo::get(Mode, InfoMap, TLI, DDA, SRA, Loop);
   return Info;
 }
 
@@ -241,7 +263,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
   HIRF->getHLNodeUtils().visitAllInnerToOuter(Vis);
 }
 
@@ -250,7 +272,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode,
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
   HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Region);
 }
 
@@ -258,7 +280,7 @@ void HIRParVecAnalysis::analyze(ParVecInfo::AnalysisMode Mode, HLLoop *Loop) {
   if (!Enabled) {
     return;
   }
-  ParVecVisitor Vis(Mode, DDA, SRA, InfoMap);
+  ParVecVisitor Vis(Mode, TLI, DDA, SRA, InfoMap);
   HIRF->getHLNodeUtils().visitInnerToOuter(Vis, Loop);
 }
 
@@ -383,6 +405,19 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
 }
 
 void DDWalk::visit(HLDDNode *Node) {
+
+  if (auto Inst = dyn_cast<HLInst>(Node)) {
+    if (auto Call = dyn_cast<CallInst>(Inst->getLLVMInstruction())) {
+      auto Func = Call->getCalledFunction();
+
+      if (!Func || !TLI.isFunctionVectorizable(Func->getName())) {
+        Info->setVecType(ParVecInfo::UNKNOWN_CALL);
+        Info->setParType(ParVecInfo::UNKNOWN_CALL);
+        return;
+      }
+    }
+  }
+
   // For all DDREFs
   for (auto Itr = Node->ddref_begin(), End = Node->ddref_end(); Itr != End;
        ++Itr) {
@@ -420,8 +455,8 @@ void ParVecInfo::emitDiag() {
   print(errs(), false);
 }
 
-void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
-                         HIRSafeReductionAnalysis *SRA) {
+void ParVecInfo::analyze(HLLoop *Loop, TargetLibraryInfo *TLI,
+                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA) {
   // DD Analysis is expensive. Be sure to run structural analysis first,
   // i.e., before coming here.
   if (isVectorMode() && Loop->isSIMD()) {
@@ -443,7 +478,7 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
 
   if (!isDone()) {
     cleanEdges();
-    DDWalk DDW(*DDA, *SRA, Loop, this);      // Legality checker.
+    DDWalk DDW(*TLI, *DDA, *SRA, Loop, this); // Legality checker.
     Loop->getHLNodeUtils().visit(DDW, Loop); // This can change isDone() status.
   }
   if (isDone()) {

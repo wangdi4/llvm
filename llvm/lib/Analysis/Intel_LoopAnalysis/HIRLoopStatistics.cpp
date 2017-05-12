@@ -92,12 +92,17 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
   void visit(const HLInst *HInst) {
     auto Inst = HInst->getLLVMInstruction();
 
-    if (isa<CallInst>(Inst)) {
-      if (isa<IntrinsicInst>(Inst)) {
+    auto Call = dyn_cast<CallInst>(Inst);
+
+    if (Call) {
+      if (isa<IntrinsicInst>(Call)) {
         SelfLS.NumIntrinsics++;
       } else {
         SelfLS.NumUserCalls++;
       }
+
+      SelfLS.HasUnsafeSideEffects =
+          !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
     }
   }
 

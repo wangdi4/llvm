@@ -97,8 +97,10 @@ public:
   /// which should always be true.
   bool isSelfBlob() const override { return true; }
 
-  /// Returns true if this ref looks like 1 * undef. 
-  bool isUndefSelfBlob() const override { return CE->isUndefSelfBlob(); }
+  /// Returns true if this ref looks like 1 * undef.
+  bool isStandAloneUndefBlob() const override {
+    return CE->isStandAloneUndefBlob();
+  }
 
   /// Returns true if this blob DDRef represents an undef blob.
   bool containsUndef() const override { return CE->containsUndef(); }

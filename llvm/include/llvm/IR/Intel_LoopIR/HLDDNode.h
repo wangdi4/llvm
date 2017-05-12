@@ -60,6 +60,10 @@ protected:
   /// with the first DDRef being for lval, if applicable.
   RegDDRefTy RegDDRefs;
 
+  /// Number of fake lvals in the node. This is used to separate fake lvals and
+  /// rvals.
+  unsigned NumFakeLvals;
+
   /// Sets HLDDNode for Ref.
   static void setNode(RegDDRef *Ref, HLDDNode *HNode);
 
@@ -137,6 +141,28 @@ public:
     return const_cast<HLDDNode *>(this)->fake_ddref_rend();
   }
 
+  // Fake lval DDRefs
+  ddref_iterator lval_fake_ddref_begin() { return fake_ddref_begin(); }
+  const_ddref_iterator lval_fake_ddref_begin() const {
+    return const_cast<HLDDNode *>(this)->lval_fake_ddref_begin();
+  }
+  ddref_iterator lval_fake_ddref_end() {
+    return fake_ddref_begin() + NumFakeLvals;
+  }
+  const_ddref_iterator lval_fake_ddref_end() const {
+    return const_cast<HLDDNode *>(this)->lval_fake_ddref_end();
+  }
+
+  // Fake rval DDRefs
+  ddref_iterator rval_fake_ddref_begin() { return lval_fake_ddref_end(); }
+  const_ddref_iterator rval_fake_ddref_begin() const {
+    return const_cast<HLDDNode *>(this)->rval_fake_ddref_begin();
+  }
+  ddref_iterator rval_fake_ddref_end() { return fake_ddref_end(); }
+  const_ddref_iterator rval_fake_ddref_end() const {
+    return const_cast<HLDDNode *>(this)->rval_fake_ddref_end();
+  }
+
   /// Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return (Node->getHLNodeID() == HLNode::HLLoopVal) ||
@@ -202,6 +228,25 @@ public:
   /// Returns true if Ref is a fake DDRef attached to this node.
   bool isFake(const RegDDRef *Ref) const;
 
+  /// Returns true if Ref is a fake lval DDRef attached to this node.
+  bool isFakeLval(const RegDDRef *Ref) const;
+
+  /// Returns true if Ref is a fake rval DDRef attached to this node.
+  bool isFakeRval(const RegDDRef *Ref) const;
+
+  /// Returns true if node has fake DDRefs.
+  bool hasFakeDDRefs() const { return fake_ddref_begin() != fake_ddref_end(); }
+
+  /// Returns true if node has fake lval DDRefs.
+  bool hasFakeLvalDDRefs() const {
+    return lval_fake_ddref_begin() != lval_fake_ddref_end();
+  }
+
+  /// Returns true if node has fake Rval DDRefs.
+  bool hasFakeRvalDDRefs() const {
+    return rval_fake_ddref_begin() != rval_fake_ddref_end();
+  }
+
   /// Returns the DDRef associated with the Nth operand (starting with 0).
   RegDDRef *getOperandDDRef(unsigned OperandNum);
   const RegDDRef *getOperandDDRef(unsigned OperandNum) const;
@@ -254,11 +299,15 @@ public:
   /// masked loads/stores when needed.
   void setMaskDDRef(RegDDRef *Ref);
 
-  /// Adds an extra RegDDRef which does not correspond to lval or any operand.
-  /// This DDRef might be used for exposing DD edges. The mask DDRef is also
-  /// added as a fake DDRef for exposing DD edges.
-  /// TODO: more on this later...
-  void addFakeDDRef(RegDDRef *RDDRef);
+  /// Adds an extra lval RegDDRef which does not correspond to lval or any
+  /// operand.
+  /// This DDRef might be used for exposing DD edges.
+  /// This applies to call instructions with pointer arguments. Since the
+  /// arguments can be derefenerenced and read/written to inside the call, we
+  /// need to add corresponding fake refs for them.
+  /// The mask DDRef is also added as a fake DDRef for exposing DD edges.
+  void addFakeLvalDDRef(RegDDRef *RDDRef);
+  void addFakeRvalDDRef(RegDDRef *RDDRef);
 
   /// Removes a previously inserted fake DDRef.
   void removeFakeDDRef(RegDDRef *RDDRef);

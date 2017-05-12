@@ -86,6 +86,7 @@ public:
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
   }
 
 private:
@@ -93,6 +94,7 @@ private:
   HIRDDAnalysis *DDA;
   HIRLocalityAnalysis *LA;
   HIRSafeReductionAnalysis *SRA;
+  HIRLoopStatistics *HLS;
   bool AnyLoopInterchanged;
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
@@ -135,6 +137,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
                     "HIR Loop Interchange", false, false)
 
@@ -174,6 +177,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     bool IsNearPerfectLoop = false;
     if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
                                        &IsNearPerfectLoop)) {
+
+      if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
+              .hasCallsWithUnsafeSideEffects()) {
+        DEBUG(dbgs() << "Skipping loop with calls that have side effects\n");
+        SkipNode = Loop;
+        return;
+      }
 
       DEBUG(dbgs() << "Is  Perfect loopnest\n");
 
@@ -234,6 +244,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   DDA = &getAnalysis<HIRDDAnalysis>();
   LA = &getAnalysis<HIRLocalityAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   AnyLoopInterchanged = false;
 

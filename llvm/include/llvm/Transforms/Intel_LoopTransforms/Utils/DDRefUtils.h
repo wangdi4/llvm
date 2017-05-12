@@ -27,7 +27,6 @@
 
 namespace llvm {
 
-class MetadataAsValue;
 class ConstantAggregateZero;
 class ConstantDataVector;
 class ConstantVector;
@@ -122,28 +121,10 @@ public:
   /// and attach it to the new RegDDRef.
   RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
 
-  /// Returns a new constant RegDDRef from a metadata node.
+  /// Returns a new constant RegDDRef from a value representing some form of constant.
   /// This routine will automatically create a single canon expr from metadata
   /// and attach it to the new RegDDRef.
-  RegDDRef *createMetadataDDRef(MetadataAsValue *Val);
-
-  /// Returns a new constant RegDDRef from a constant all-zero vector node. This
-  /// routine will automatically create a single canon expr from
-  /// ConstantAggregateZero and attach it to the new RegDDRef.
-  RegDDRef *createConstDDRef(ConstantAggregateZero *Val);
-
-  /// Returns a new constant RegDDRef from a constant data vector node. This
-  /// routine will automatically create a single canon expr from
-  /// ConstantDataVector and attach it to the new RegDDRef.
-  RegDDRef *createConstDDRef(ConstantDataVector *Val);
-
-  /// Returns a new constant RegDDRef from a constant vector node. This
-  /// routine will automatically create a single canon expr from
-  /// ConstantVector and attach it to the new RegDDRef.
-  RegDDRef *createConstDDRef(ConstantVector *Val);
-
-  /// Returns a new RegDDRef with given type \p Ty and undefined value.
-  RegDDRef *createUndefDDRef(Type *Ty);
+  RegDDRef *createConstDDRef(Value *Val);
 
   /// Returns a new BlobDDRef representing blob with Index. Level is the defined
   /// at level for the blob.

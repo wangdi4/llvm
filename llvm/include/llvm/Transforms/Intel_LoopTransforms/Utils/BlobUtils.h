@@ -23,6 +23,7 @@ class Value;
 class Type;
 class SCEV;
 class Constant;
+class ConstantData;
 class ConstantFP;
 class Function;
 class Module;
@@ -132,17 +133,24 @@ public:
   /// Returns true if TempBlob always has a defined at level of zero.
   static bool isGuaranteedProperLinear(BlobTy TempBlob);
 
-  /// Returns true if Blob is a UndefValue.
+  /// Returns true if \p Blob is a UndefValue.
   static bool isUndefBlob(BlobTy Blob);
 
-  /// Returns true if Blob represents a FP constant.
+  /// Returns true if \p Blob contains undef.
+  static bool containsUndef(BlobTy Blob);
+
+  /// Returns true if \p Blob represents a FP constant.
   static bool isConstantFPBlob(BlobTy Blob, ConstantFP **Val = nullptr);
 
-  /// Returns true if Blob represents a vector of constants.
-  /// If yes, returns the underlying LLVM Value in Val
+  /// Returns true if \p Blob represents ConstantData.
+  /// If yes, returns the underlying LLVM Value in Val.
+  static bool isConstantDataBlob(BlobTy Blob, ConstantData **Val = nullptr);
+
+  /// Returns true if \p Blob represents a vector of constants.
+  /// If yes, returns the underlying LLVM Value in Val.
   static bool isConstantVectorBlob(BlobTy Blob, Constant **Val = nullptr);
 
-  /// Returns true if Blob represents a metadata.
+  /// Returns true if \p Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.
   static bool isMetadataBlob(BlobTy Blob, MetadataAsValue **Val = nullptr);
 

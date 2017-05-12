@@ -313,7 +313,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop,
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Loop);
 
-  if (LS.hasSwitches() || LS.hasCalls()) {
+  if (LS.hasSwitches()) {
     return false;
   }
 

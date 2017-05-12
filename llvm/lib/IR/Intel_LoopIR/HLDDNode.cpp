@@ -30,11 +30,12 @@ static cl::opt<bool>
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(HLNodeUtils &HNU, unsigned SCID)
-    : HLNode(HNU, SCID), MaskDDRef(nullptr) {}
+    : HLNode(HNU, SCID), MaskDDRef(nullptr), NumFakeLvals(0) {}
 
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(const HLDDNode &HLDDNodeObj)
-    : HLNode(HLDDNodeObj), MaskDDRef(nullptr) {}
+    : HLNode(HLDDNodeObj), MaskDDRef(nullptr),
+      NumFakeLvals(HLDDNodeObj.NumFakeLvals) {}
 
 void HLDDNode::setNode(RegDDRef *Ref, HLDDNode *HNode) {
   Ref->setHLDDNode(HNode);
@@ -106,14 +107,25 @@ unsigned HLDDNode::getOperandNum(RegDDRef *OpRef) const {
 bool HLDDNode::isFake(const RegDDRef *Ref) const {
   assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
 
-  for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; ++I) {
+  auto It = std::find(fake_ddref_begin(), fake_ddref_end(), Ref);
 
-    if ((*I) == Ref) {
-      return true;
-    }
-  }
+  return (It != fake_ddref_end());
+}
 
-  return false;
+bool HLDDNode::isFakeLval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  auto It = std::find(lval_fake_ddref_begin(), lval_fake_ddref_end(), Ref);
+
+  return (It != lval_fake_ddref_end());
+}
+
+bool HLDDNode::isFakeRval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  auto It = std::find(rval_fake_ddref_begin(), rval_fake_ddref_end(), Ref);
+
+  return (It != rval_fake_ddref_end());
 }
 
 void HLDDNode::setMaskDDRef(RegDDRef *Ref) {
@@ -124,31 +136,55 @@ void HLDDNode::setMaskDDRef(RegDDRef *Ref) {
   MaskDDRef = Ref;
 
   if (Ref) {
-    addFakeDDRef(Ref);
+    addFakeRvalDDRef(Ref);
   }
 }
 
-void HLDDNode::addFakeDDRef(RegDDRef *RDDRef) {
-  assert(RDDRef && "Cannot add null fake DDRef!");
+void HLDDNode::addFakeLvalDDRef(RegDDRef *Ref) {
+  assert(Ref && "Cannot add null fake DDRef!");
   assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
-  assert(!RDDRef->getHLDDNode() && "DDRef attached to some other node, please "
-                                   "remove it first!");
+  assert(!Ref->getHLDDNode() && "DDRef attached to some other node, please "
+                                "remove it first!");
 
-  RegDDRefs.push_back(RDDRef);
-  setNode(RDDRef, this);
+  if (hasFakeRvalDDRefs()) {
+    // Push the first fake rval ref to the back and move Ref in its place
+    // essentially swapping them out.
+    RegDDRefs.push_back(*rval_fake_ddref_begin());
+    *rval_fake_ddref_begin() = Ref;
+  } else {
+    RegDDRefs.push_back(Ref);
+  }
+
+  ++NumFakeLvals;
+  setNode(Ref, this);
 }
 
-void HLDDNode::removeFakeDDRef(RegDDRef *RDDRef) {
-  assert(RDDRef && "Cannot remove null fake DDRef!");
-  assert(RDDRef->isFake() && "RDDRef is not a fake DDRef!");
+void HLDDNode::addFakeRvalDDRef(RegDDRef *Ref) {
+  assert(Ref && "Cannot add null fake DDRef!");
   assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
-  assert((this == RDDRef->getHLDDNode()) &&
+  assert(!Ref->getHLDDNode() && "DDRef attached to some other node, please "
+                                "remove it first!");
+
+  RegDDRefs.push_back(Ref);
+  setNode(Ref, this);
+}
+
+void HLDDNode::removeFakeDDRef(RegDDRef *Ref) {
+  assert(Ref && "Cannot remove null fake DDRef!");
+  assert(Ref->isFake() && "RDDRef is not a fake DDRef!");
+  assert(isa<HLInst>(this) && "Fake DDRef can only be attached to a HLInst!");
+  assert((this == Ref->getHLDDNode()) &&
          "RDDRef does not belong to this HLInst!");
 
+  bool IsLval = isFakeLval(Ref);
+
   for (auto I = fake_ddref_begin(), E = fake_ddref_end(); I != E; I++) {
-    if ((*I) == RDDRef) {
-      setNode(RDDRef, nullptr);
+    if ((*I) == Ref) {
+      setNode(Ref, nullptr);
       RegDDRefs.erase(I);
+      if (IsLval) {
+        --NumFakeLvals;
+      }
       return;
     }
   }
@@ -174,10 +210,17 @@ void HLDDNode::replaceOperandDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef) {
 
 void HLDDNode::replaceFakeDDRef(RegDDRef *ExistingRef, RegDDRef *NewRef) {
   assert(ExistingRef && "ExistingRef is null!");
+  assert(ExistingRef->isFake() && "ExistingRef is not a fake DDRef!");
   assert(NewRef && "NewRef is null!");
+  assert(!NewRef->getHLDDNode() && "DDRef attached to some other node, please "
+                                   "remove it first!");
 
-  removeFakeDDRef(ExistingRef);
-  addFakeDDRef(NewRef);
+  auto It = std::find(fake_ddref_begin(), fake_ddref_end(), ExistingRef);
+  assert(It != fake_ddref_end() && "ExistingRef not found!");
+
+  setNode(ExistingRef, nullptr);
+
+  *It = NewRef;
 }
 
 void HLDDNode::replaceOperandOrFakeDDRef(RegDDRef *ExistingRef,

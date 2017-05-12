@@ -127,13 +127,13 @@ void ParVecDirectiveInsertion::Visitor::insertParDirectives(
 
 RegDDRef *
 ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_DIRECTIVES Dir) {
-  return HIRF->getDDRefUtils().createMetadataDDRef(
+  return HIRF->getDDRefUtils().createConstDDRef(
       IntelIntrinsicUtils::createDirectiveMetadataAsValue(*(Func.getParent()),
                                                           Dir));
 }
 
 RegDDRef *ParVecDirectiveInsertion::Visitor::createRegDDRef(OMP_CLAUSES Qual) {
-  return HIRF->getDDRefUtils().createMetadataDDRef(
+  return HIRF->getDDRefUtils().createConstDDRef(
       IntelIntrinsicUtils::createClauseMetadataAsValue(*(Func.getParent()),
                                                        Qual));
 }

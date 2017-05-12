@@ -216,9 +216,7 @@ const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
 
 bool HIRScalarSymbaseAssignment::isConstant(const Value *Val) {
   // TODO: add other types
-  if (isa<ConstantInt>(Val) || isa<ConstantFP>(Val) ||
-      isa<ConstantVector>(Val) || isa<ConstantDataVector>(Val) ||
-      isa<ConstantAggregateZero>(Val) || isa<ConstantPointerNull>(Val)) {
+  if (isa<ConstantData>(Val) || isa<ConstantVector>(Val)) {
     return true;
   }
 

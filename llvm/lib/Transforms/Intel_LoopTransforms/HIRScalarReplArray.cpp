@@ -994,7 +994,7 @@ bool HIRScalarReplArray::doPreliminaryChecks(const HLLoop *Lp) {
   // - allow Label: label is harmless if there is no GOTO(s).
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
   // DEBUG(LS.dump(););
-  if (LS.hasCalls() || LS.hasGotos()) {
+  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasGotos()) {
     return false;
   }
 

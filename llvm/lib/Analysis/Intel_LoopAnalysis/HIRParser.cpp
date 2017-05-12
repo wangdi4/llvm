@@ -2866,19 +2866,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
 RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
-  BlobTy Blob = SE->getUnknown(UndefVal);
 
-  auto Symbase = getOrAssignSymbase(UndefVal);
-
-  RegDDRef *Ref = getDDRefUtils().createRegDDRef(Symbase);
-  CanonExpr *CE = getCanonExprUtils().createCanonExpr(Ty);
-
-  // Add an undef blob to the CE to maintain consistency.
-  parseBlob(Blob, CE, 0);
-
-  Ref->setSingleCanonExpr(CE);
-
-  return Ref;
+  return getDDRefUtils().createConstDDRef(UndefVal);
 }
 
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
@@ -3031,6 +3020,39 @@ bool HIRParser::parseDebugIntrinsic(HLInst *Inst) {
   return true;
 }
 
+void HIRParser::addFakeRef(HLInst *HInst, const RegDDRef *AddressRef,
+                           bool IsRval) {
+  auto FakeRef = AddressRef->clone();
+
+  // Reset AddressOf property as we want it to be a memref.
+  FakeRef->setAddressOf(false);
+
+  // Set all dimensions of ref to undef to make DD conservative.
+  for (unsigned I = 1, NumDims = FakeRef->getNumDimensions(); I <= NumDims;
+       ++I) {
+    auto CE = FakeRef->getDimensionIndex(I);
+
+    CE->clear();
+    CE->setSrcType(CE->getDestType());
+
+    Value *UndefVal = UndefValue::get(CE->getSrcType());
+    BlobTy UndefBlob = SE->getUnknown(UndefVal);
+
+    unsigned BlobIndex = findOrInsertBlob(UndefBlob, ConstantSymbase);
+    CE->setBlobCoeff(BlobIndex, 1);
+  }
+
+  IsRval ? HInst->addFakeRvalDDRef(FakeRef) : HInst->addFakeLvalDDRef(FakeRef);
+
+  // Need to update blobs in Ref since we cleared one of the CEs.
+  SmallVector<BlobDDRef *, 1> BlobRefs;
+  FakeRef->updateBlobDDRefs(BlobRefs);
+  assert(BlobRefs.empty() && "New blobs not expected in fake ref!");
+
+  // Copy ref -> value mapping for symbase assignment.
+  GEPRefToPointerMap.insert(std::make_pair(FakeRef, getGEPRefPtr(AddressRef)));
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -3069,6 +3091,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   }
 
   unsigned NumRvalOp = getNumRvalOperands(HInst);
+  auto Call = dyn_cast<CallInst>(Inst);
+
+  bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
+  bool IsReadOnly =
+      (FakeDDRefsRequired && Call->hasFnAttr(Attribute::ReadOnly));
 
   // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
@@ -3092,6 +3119,13 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     auto OpNum = HasLval ? (isa<SelectInst>(Inst) ? (I + 2) : (I + 1)) : I;
 
     HInst->setOperandDDRef(Ref, OpNum);
+
+    if (FakeDDRefsRequired && Ref->isAddressOf() &&
+        !Ref->accessesConstantArray() &&
+        !Call->paramHasAttr(I + 1, Attribute::ReadNone)) {
+      addFakeRef(HInst, Ref, (IsReadOnly ||
+                              Call->paramHasAttr(I + 1, Attribute::ReadOnly)));
+    }
   }
 
   if (auto CInst = dyn_cast<CmpInst>(Inst)) {

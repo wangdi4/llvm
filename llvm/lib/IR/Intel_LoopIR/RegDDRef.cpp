@@ -253,7 +253,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   // Do not print linear forms for scalar lvals
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
-  if (getHLDDNode() && isLval() && !HasGEP && !Detailed) {
+  if (getHLDDNode() && !HasGEP && !Detailed && isLval() && !isFakeLval()) {
     getBlobUtils().printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
@@ -389,6 +389,25 @@ bool RegDDRef::accessesStruct() const {
   return BaseTy->isStructTy();
 }
 
+bool RegDDRef::accessesConstantArray() const {
+  if (!hasGEPInfo()) {
+    return false;
+  }
+
+  auto BaseCE = getBaseCE();
+
+  if (!BaseCE->isStandAloneBlob()) {
+    return false;
+  }
+
+  auto Val =
+      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
+
+  auto GlobalVar = dyn_cast<GlobalVariable>(Val);
+
+  return (GlobalVar && GlobalVar->isConstant());
+}
+
 bool RegDDRef::isLval() const {
   auto HNode = getHLDDNode();
 
@@ -411,6 +430,22 @@ bool RegDDRef::isFake() const {
   assert(HNode && "DDRef is not attached to any node!");
 
   return HNode->isFake(this);
+}
+
+bool RegDDRef::isFakeLval() const {
+  auto HNode = getHLDDNode();
+
+  assert(HNode && "DDRef is not attached to any node!");
+
+  return HNode->isFakeLval(this);
+}
+
+bool RegDDRef::isFakeRval() const {
+  auto HNode = getHLDDNode();
+
+  assert(HNode && "DDRef is not attached to any node!");
+
+  return HNode->isFakeRval(this);
 }
 
 bool RegDDRef::isStructurallyInvariantAtLevel(unsigned LoopLevel) const {
@@ -466,12 +501,12 @@ bool RegDDRef::isUnitaryBlob() const {
   return getSingleCanonExpr()->isUnitaryBlob();
 }
 
-bool RegDDRef::isUndefSelfBlob() const {
-  if (!isSelfBlob()) {
+bool RegDDRef::isStandAloneUndefBlob() const {
+  if (!isStandAloneBlob()) {
     return false;
   }
 
-  return getSingleCanonExpr()->isUndefSelfBlob();
+  return getSingleCanonExpr()->isStandAloneUndefBlob();
 }
 
 bool RegDDRef::isStandAloneBlob(bool AllowConversion) const {

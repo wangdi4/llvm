@@ -82,9 +82,9 @@ private:
   /// only created by framework.
   CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
 
-  /// Creates a constant blob canon expr from the passed in MetadataAsValue. The
-  /// new blob is associated with CONSTANT_SYMBASE.
-  CanonExpr *createMetadataCanonExpr(MetadataAsValue *Val);
+  /// Returns a standalone blob canon expr representing a constant like
+  /// ConstantVector, Metadata or Undef.
+  CanonExpr *createConstStandAloneBlobCanonExpr(Value *Val);
 
   /// Returns a standalone blob canon expr. Level is the defined at level for
   /// the blob.

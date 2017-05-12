@@ -121,6 +121,34 @@ bool BlobUtils::isUndefBlob(BlobTy Blob) {
   return isa<UndefValue>(Val);
 }
 
+class UndefFinder {
+private:
+  bool Found;
+
+public:
+  UndefFinder() : Found(false) {}
+
+  bool follow(const SCEV *SC) {
+
+    if (BlobUtils::isUndefBlob(SC)) {
+      Found = true;
+    }
+
+    return !isDone();
+  }
+
+  bool foundUndef() const { return Found; }
+  bool isDone() const { return foundUndef(); }
+};
+
+bool BlobUtils::containsUndef(BlobTy Blob) {
+  UndefFinder UF;
+  SCEVTraversal<UndefFinder> Finder(UF);
+  Finder.visitAll(Blob);
+
+  return UF.foundUndef();
+}
+
 bool BlobUtils::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) {
   auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
 
@@ -141,6 +169,23 @@ bool BlobUtils::isConstantFPBlob(BlobTy Blob, ConstantFP **Val) {
   return true;
 }
 
+bool BlobUtils::isConstantDataBlob(BlobTy Blob, ConstantData **Val) {
+  auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
+
+  if (!UnknownSCEV) {
+    return false;
+  }
+
+  if (auto Const = dyn_cast<ConstantData>(UnknownSCEV->getValue())) {
+    if (Val) {
+      *Val = Const;
+    }
+    return true;
+  }
+
+  return false;
+}
+  
 bool BlobUtils::isConstantVectorBlob(BlobTy Blob, Constant **Val) {
   auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob);
 
@@ -211,19 +256,7 @@ BlobTy BlobUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
 BlobTy BlobUtils::createUndefBlob(Type *Ty, bool Insert,
                                   unsigned *NewBlobIndex) {
   Value *UndefValue = UndefValue::get(Ty);
-  auto Blob = createBlob(UndefValue, false);
-  unsigned BlobIndex = findBlob(Blob);
-
-  if (Insert && BlobIndex == InvalidBlobIndex) {
-    HIRSymbaseAssignment &HSA = getHIRSymbaseAssignment();
-    return createBlob(UndefValue, HSA.getNewSymbase(), true, NewBlobIndex);
-  }
-
-  if (NewBlobIndex) {
-    *NewBlobIndex = BlobIndex;
-  }
-
-  return Blob;
+  return createBlob(UndefValue, ConstantSymbase, Insert, NewBlobIndex);
 }
 
 BlobTy BlobUtils::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,

@@ -122,7 +122,10 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
   return CE;
 }
 
-CanonExpr *CanonExprUtils::createMetadataCanonExpr(MetadataAsValue *Val) {
+CanonExpr *CanonExprUtils::createConstStandAloneBlobCanonExpr(Value *Val) {
+  assert((isa<MetadataAsValue>(Val) || isa<ConstantData>(Val) ||
+          isa<ConstantVector>(Val)) &&
+         "Unexpected constant type!");
   unsigned Index;
 
   getBlobUtils().createBlob(Val, ConstantSymbase, true, &Index);
@@ -136,6 +139,7 @@ CanonExpr *CanonExprUtils::createStandAloneBlobCanonExpr(unsigned Index,
   auto Blob = getBlobUtils().getBlob(Index);
 
   assert((BlobUtils::isTempBlob(Blob) || BlobUtils::isMetadataBlob(Blob) ||
+          BlobUtils::isConstantDataBlob(Blob) ||
           BlobUtils::isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
   assert(isValidDefLevel(Level) && "Invalid level!");

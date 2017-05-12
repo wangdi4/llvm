@@ -16,7 +16,6 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Constants.h" // needed for UndefValue class
-#include "llvm/IR/Metadata.h"  // needed for MetadataAsValue -> Value
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -59,55 +58,13 @@ RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   return NewRegDD;
 }
 
-RegDDRef *DDRefUtils::createMetadataDDRef(MetadataAsValue *Val) {
+RegDDRef *DDRefUtils::createConstDDRef(Value *Val) {
   RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
   // Create a linear self-blob constant canon expr.
-  auto CE = getCanonExprUtils().createMetadataCanonExpr(Val);
+  auto CE = getCanonExprUtils().createConstStandAloneBlobCanonExpr(Val);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;
-}
-
-RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
-  // Create a linear self-blob constant canon expr.
-  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
-  NewRegDD->setSingleCanonExpr(CE);
-  CE->setDefinedAtLevel(0);
-
-  return NewRegDD;
-}
-
-RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
-  // Create a linear self-blob constant canon expr.
-  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
-  NewRegDD->setSingleCanonExpr(CE);
-  CE->setDefinedAtLevel(0);
-
-  return NewRegDD;
-}
-
-RegDDRef *DDRefUtils::createConstDDRef(ConstantVector *Val) {
-  RegDDRef *NewRegDD = createRegDDRef(ConstantSymbase);
-  // Create a linear self-blob constant canon expr.
-  auto CE = getCanonExprUtils().createSelfBlobCanonExpr(Val, ConstantSymbase);
-  NewRegDD->setSingleCanonExpr(CE);
-  CE->setDefinedAtLevel(0);
-
-  return NewRegDD;
-}
-
-RegDDRef *DDRefUtils::createUndefDDRef(Type *Ty) {
-  auto Blob = getBlobUtils().createBlob(UndefValue::get(Ty), false);
-  unsigned BlobIndex = getBlobUtils().findBlob(Blob);
-
-  if (BlobIndex != InvalidBlobIndex) {
-    return createSelfBlobRef(BlobIndex, 0);
-  }
-  RegDDRef *Ref = createSelfBlobRef(UndefValue::get(Ty));
-  Ref->getSingleCanonExpr()->setDefinedAtLevel(0);
-  return Ref;
 }
 
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {

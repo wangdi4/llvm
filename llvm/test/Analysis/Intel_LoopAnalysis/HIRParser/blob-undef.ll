@@ -2,8 +2,7 @@
 ; |   (%A)[0][i1] = 5 * i1 + 2 * %0 + undef;
 ; |   <LVAL-REG> (LINEAR [5 x i32]* %A)[0][LINEAR i64 i1] {sb:0}
 ; |      <BLOB> LINEAR [5 x i32]* %A {sb:12}
-; |   <RVAL-REG> NON-LINEAR i32 5 * i1 + 2 * %0 + undef {undefined} {sb:9}
-; |      <BLOB> LINEAR i32 undef {undefined} {sb:13}
+; |   <RVAL-REG> NON-LINEAR i32 5 * i1 + 2 * %0 + undef {sb:2}
 ; |      <BLOB> NON-LINEAR i32 %0 {sb:5}
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
@@ -11,8 +10,10 @@
 ; CHECK: NSW: Yes
 
 ; CHECK: = {{.*}} + undef;
-; CHECK: <RVAL-REG>{{.*}} + undef {undefined}
-; CHECK-NEXT: <BLOB> LINEAR {{.*}} undef {undefined}
+; CHECK: <RVAL-REG>{{.*}} + undef 
+; undef is assumed as a constant so we do not create blob ddrefs for it.
+; CHECK-NOT: <BLOB> {{.*}} undef
+
 
 ; ModuleID = 'blob-undef.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

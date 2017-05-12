@@ -67,7 +67,10 @@ HLInst::HLInst(const HLInst &HLInstObj)
         MaskDDRef = CloneRef;
       }
 
-      addFakeDDRef(CloneRef);
+      // Every fake ref is added as rval. The number of fake lval ddrefs will be
+      // copied by the base class so we will end up with the same number of lval
+      // and rval ddrefs.
+      addFakeRvalDDRef(CloneRef);
     }
   }
 }
@@ -326,7 +329,7 @@ RegDDRef *HLInst::removeRvalDDRef() {
 bool HLInst::isLval(const RegDDRef *Ref) const {
   assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
 
-  return (getLvalDDRef() == Ref);
+  return ((getLvalDDRef() == Ref) || isFakeLval(Ref));
 }
 
 bool HLInst::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
@@ -397,8 +400,8 @@ void HLInst::verify() const {
   HLDDNode::verify();
 
   if (IsSelectCmpTrueFalse) {
-    assert(getOperandDDRef(1)->containsUndef() &&
-           getOperandDDRef(2)->containsUndef() &&
+    assert(getOperandDDRef(1)->isStandAloneUndefBlob() &&
+           getOperandDDRef(2)->isStandAloneUndefBlob() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
   }

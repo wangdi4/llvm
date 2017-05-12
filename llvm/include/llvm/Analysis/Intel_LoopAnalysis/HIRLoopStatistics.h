@@ -40,6 +40,7 @@ private:
   unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
   unsigned NumIntrinsics = 0;
+  bool HasUnsafeSideEffects = false;
 
 public:
   LoopStatistics() {}
@@ -70,6 +71,16 @@ public:
   }
   bool hasCalls() const { return getNumCalls() > 0; }
 
+  // Unsafe side effects are the ones which cannot be exposed as data
+  // dependency. For example, performing I/O cannot be represented as simply
+  // data dependency. Any call which only accesses memory from its arguments is
+  // considered safe as we can add fake DDRefs to expose such dependencies.
+  bool hasCallsWithUnsafeSideEffects() const {
+    assert((!HasUnsafeSideEffects || hasCalls()) &&
+           "Number of calls and CallWithSideEffects are out of sync!");
+    return HasUnsafeSideEffects;
+  }
+
   /// Adds the loop statistics LS to this one.
   LoopStatistics &operator+=(const LoopStatistics &LS) {
     NumIfs += LS.NumIfs;
@@ -78,6 +89,7 @@ public:
     NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
     NumIntrinsics += LS.NumIntrinsics;
+    HasUnsafeSideEffects = HasUnsafeSideEffects || LS.HasUnsafeSideEffects;
 
     return *this;
   }

@@ -499,10 +499,6 @@ RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref,
 
   assert(UndefIndex != InvalidBlobIndex && "There should be at least one IV");
 
-  // Attach undef BlobDDRef.
-  BlobDDRef *UndefBlobDDRef = Ref->getDDRefUtils().createBlobDDRef(UndefIndex);
-  FakeRef->addBlobDDRef(UndefBlobDDRef);
-
   // Fake DDRef will be attached to the pre-header of the i*Level* loop.
   FakeRef->updateDefLevel(Level - 1);
 
@@ -564,7 +560,7 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     IsVolatile};
 
   HLInst *MemsetInst = HNU.createCall(Memset, Ops);
-  MemsetInst->addFakeDDRef(
+  MemsetInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
 
   HNU.insertAsLastPreheaderNode(Loop, MemsetInst);
@@ -636,9 +632,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
                                     Align, IsVolatile};
 
   HLInst *MemcpyInst = HNU.createCall(Memcpy, Ops);
-  MemcpyInst->addFakeDDRef(
+  MemcpyInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
-  MemcpyInst->addFakeDDRef(
+  MemcpyInst->addFakeRvalDDRef(
       createFakeDDRef(Candidate.RHS, Loop->getNestingLevel()));
 
   HNU.insertAsLastPreheaderNode(Loop, MemcpyInst);

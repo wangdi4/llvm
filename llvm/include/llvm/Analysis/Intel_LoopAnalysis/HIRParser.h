@@ -158,7 +158,7 @@ private:
   /// Maps all the GEP refs to their pointer values. This allows symbase
   /// assignment to do a better job by providing more information about the
   /// reference.
-  DenseMap<RegDDRef *, Value *> GEPRefToPointerMap;
+  DenseMap<const RegDDRef *, Value *> GEPRefToPointerMap;
 
   /// BlobProcessor - Performs necessary processing for a blob being added to a
   /// CanonExpr.
@@ -461,6 +461,9 @@ private:
   /// Updates OldBlob by NewBlob in the blob table and returns the blob index.
   unsigned updateBlob(BlobTy OldBlob, BlobTy NewBlob, unsigned Symbase);
 
+  // Adds an lval or rval fake ref to \p HInst formed by cloning \p AddressRef.
+  void addFakeRef(HLInst *HInst, const RegDDRef *AddressRef, bool IsRval);
+
   // ---------------------------------------------------------------------
   // External interface follows. The following functions are called by the
   // framework utilities or other passes.
@@ -614,7 +617,7 @@ private:
   /// Returns true if \p HInst is a liveout copy.
   bool isLiveoutCopy(const HLInst *HInst);
 
-  Value *getGEPRefPtr(RegDDRef *Ref) const {
+  Value *getGEPRefPtr(const RegDDRef *Ref) const {
     auto It = GEPRefToPointerMap.find(Ref);
     assert((It != GEPRefToPointerMap.end()) &&
            "Could not find Ref's underlying pointer!");

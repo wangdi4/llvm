@@ -354,7 +354,8 @@ void HLIf::verify() const {
 
       (void)DDRefLhs;
       (void)DDRefRhs;
-      assert(DDRefLhs->containsUndef() && DDRefRhs->containsUndef() &&
+      assert(DDRefLhs->isStandAloneUndefBlob() &&
+             DDRefRhs->isStandAloneUndefBlob() &&
              "DDRefs should be undefined for FCMP_TRUE/FCMP_FALSE predicate");
     }
   }

@@ -31,9 +31,9 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType,
-                     Type *DestType, bool IsSExt, unsigned DefLevel,
-                     int64_t ConstVal, int64_t Denom, bool IsSignedDiv)
+CanonExpr::CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType,
+                     bool IsSExt, unsigned DefLevel, int64_t ConstVal,
+                     int64_t Denom, bool IsSignedDiv)
     : CEU(CEU), SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv) {
   assert(CanonExprUtils::isValidDefLevel(DefLevel) && "Invalid def level!");
@@ -177,14 +177,12 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
 
 bool CanonExpr::isSelfBlob() const {
   return isStandAloneBlob(false /*AllowConversion*/) &&
-         BlobUtils::isTempBlob(
-             getBlobUtils().getBlob(getSingleBlobIndex()));
+         BlobUtils::isTempBlob(getBlobUtils().getBlob(getSingleBlobIndex()));
 }
 
-bool CanonExpr::isUndefSelfBlob() const {
-  return (
-      isSelfBlob() &&
-      BlobUtils::isUndefBlob(getBlobUtils().getBlob(getSingleBlobIndex())));
+bool CanonExpr::isStandAloneUndefBlob() const {
+  return (isStandAloneBlob() &&
+          BlobUtils::isUndefBlob(getBlobUtils().getBlob(getSingleBlobIndex())));
 }
 
 bool CanonExpr::isUnitaryBlob() const {
@@ -301,13 +299,22 @@ bool CanonExpr::isFPConstantSplat(ConstantFP **Val) const {
   return isFPConstantImpl(Val, true);
 }
 
+bool CanonExpr::isConstantData(ConstantData **Val) const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return BlobUtils::isConstantDataBlob(
+      getBlobUtils().getBlob(getSingleBlobIndex()), Val);
+}
+
 bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
   if (!isStandAloneBlob()) {
     return false;
   }
 
-  return BlobUtils::isMetadataBlob(
-      getBlobUtils().getBlob(getSingleBlobIndex()), Val);
+  return BlobUtils::isMetadataBlob(getBlobUtils().getBlob(getSingleBlobIndex()),
+                                   Val);
 }
 
 bool CanonExpr::isConstantVectorImpl(Constant **Val) const {
@@ -1547,10 +1554,9 @@ void std::default_delete<CanonExpr>::operator()(CanonExpr *CE) const {
 bool CanonExpr::containsUndef() const {
   SmallVector<unsigned, 8> Indices;
 
-  collectTempBlobIndices(Indices, false);
-
+  collectBlobIndices(Indices, false);
   return std::any_of(
       Indices.begin(), Indices.end(), [this](unsigned BlobIndex) {
-        return BlobUtils::isUndefBlob(getBlobUtils().getBlob(BlobIndex));
+        return BlobUtils::containsUndef(getBlobUtils().getBlob(BlobIndex));
       });
 }

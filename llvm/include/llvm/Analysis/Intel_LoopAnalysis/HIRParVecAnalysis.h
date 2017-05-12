@@ -26,6 +26,8 @@
 #include "llvm/Pass.h"
 
 namespace llvm {
+class TargetLibraryInfo;
+
 namespace loopopt {
 
 class HIRFramework;
@@ -60,6 +62,7 @@ public:
     FE_DIAG_PAROPT_VEC_VECTOR_DEPENDENCE = 15344,
     FE_DIAG_VEC_FAIL_EMPTY_LOOP = 15414,
     SWITCH_STMT = 15535,
+    UNKNOWN_CALL = 15537,
     NON_DO_LOOP = 15536,
     FE_DIAG_VEC_NOT_INNERMOST = 15553,
     EH
@@ -174,7 +177,8 @@ public:
   }
 
   /// \brief Main analysis function.
-  void analyze(HLLoop *Loop, HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA);
+  void analyze(HLLoop *Loop, TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+               HIRSafeReductionAnalysis *SRA);
 
   /// \brief Print the analysis result.
   void print(raw_ostream &OS, bool WithLoop = true) const;
@@ -182,8 +186,8 @@ public:
   /// \brief Main accessor for the ParVecInfo.
   static ParVecInfo *get(AnalysisMode Mode,
                          DenseMap<HLLoop *, ParVecInfo *> &InfoMap,
-                         HIRDDAnalysis *DDA, HIRSafeReductionAnalysis *SRA,
-                         HLLoop *Loop) {
+                         TargetLibraryInfo *TLI, HIRDDAnalysis *DDA,
+                         HIRSafeReductionAnalysis *SRA, HLLoop *Loop) {
 
     auto Info = InfoMap[Loop];
 
@@ -193,7 +197,7 @@ public:
     //       to deal with such situation.
 
     if (!Info->isDone())
-      Info->analyze(Loop, DDA, SRA);
+      Info->analyze(Loop, TLI, DDA, SRA);
 
     return Info;
   }
@@ -224,6 +228,7 @@ class HIRParVecAnalysis : public FunctionPass {
 
 private:
   bool Enabled;
+  TargetLibraryInfo *TLI;
   HIRFramework *HIRF;
   HIRDDAnalysis *DDA;
   HIRSafeReductionAnalysis *SRA;
@@ -231,8 +236,8 @@ private:
 
 public:
   HIRParVecAnalysis()
-      : FunctionPass(ID), Enabled(false), HIRF(nullptr), DDA(nullptr),
-        SRA(nullptr) {
+      : FunctionPass(ID), Enabled(false), TLI(nullptr), HIRF(nullptr),
+        DDA(nullptr), SRA(nullptr) {
     initializeHIRParVecAnalysisPass(*PassRegistry::getPassRegistry());
     InfoMap.clear();
   }

@@ -1,14 +1,55 @@
 ; Test for General Unrolling with call statement.
-; There should not be any unrolling with call stmts in body.
 
-; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -hir-cg -hir-cost-model-throttling=0 -S < %s 2>&1 | FileCheck %s 
-; HIR Test.
-; Region should not be modified.
-; CHECK: REGION { }
+; RUN: opt -hir-ssa-deconstruction -hir-general-unroll -print-before=hir-general-unroll -print-after=hir-general-unroll -hir-cost-model-throttling=0 < %s 2>&1 | FileCheck %s 
 
-; Test codegen.
-; CHECK: entry
-; CHECK-NOT: region
+; CHECK: Dump Before
+
+; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 499, 1   <DO_LOOP>
+; CHECK: |   |   %1 = (@A)[0][i2][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
+; CHECK: Dump After
+
+; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 61, 1   <DO_LOOP>
+; CHECK: |   |   %1 = (@A)[0][8 * i2][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 1][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 2][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 3][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 4][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 5][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 6][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   |   %1 = (@A)[0][8 * i2 + 7][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   + END LOOP
+; CHECK: |
+; CHECK: |
+; CHECK: |   + DO i2 = 496, 499, 1   <DO_LOOP>
+; CHECK: |   |   %1 = (@A)[0][i2][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -96,6 +96,7 @@ void BlobDDRef::verify() const {
 
   (void)Symbase;
   assert((getSymbase() == Symbase) && "blob index/symbase mismatch!");
-
+  assert((Symbase > ConstantSymbase) &&
+         "Found blob DDRef representing a constant!");
   DDRef::verify();
 }

@@ -78,12 +78,12 @@ HLLoop::HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
 
   setIVType(LowerDDRef->getDestType());
 
-  assert(((!getLowerDDRef()->isUndefSelfBlob() &&
-           !getUpperDDRef()->isUndefSelfBlob() &&
-           !getStrideDDRef()->isUndefSelfBlob()) ||
-          (getLowerDDRef()->isUndefSelfBlob() &&
-           getUpperDDRef()->isUndefSelfBlob() &&
-           getStrideDDRef()->isUndefSelfBlob())) &&
+  assert(((!getLowerDDRef()->isStandAloneUndefBlob() &&
+           !getUpperDDRef()->isStandAloneUndefBlob() &&
+           !getStrideDDRef()->isStandAloneUndefBlob()) ||
+          (getLowerDDRef()->isStandAloneUndefBlob() &&
+           getUpperDDRef()->isStandAloneUndefBlob() &&
+           getStrideDDRef()->isStandAloneUndefBlob())) &&
          "Lower, Upper and Stride DDRefs "
          "should be all defined or all undefined");
 }

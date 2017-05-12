@@ -34,6 +34,7 @@ class SCEV;
 class MetadataAsValue;
 class ConstantFP;
 class Constant;
+class ConstantData;
 
 namespace loopopt {
 
@@ -347,7 +348,7 @@ public:
 
   /// Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
+    return (isIntConstant() || isConstantData() || isNull() || isMetadata() ||
             isConstantVector() || isNullVector());
   }
 
@@ -356,19 +357,23 @@ public:
   bool isIntConstant(int64_t *Val = nullptr) const;
 
   /// Returns true if canon expr represents a floating point constant.
-  /// If yes, returns the underlying LLVM Value in \pVal
+  /// If yes, returns the underlying LLVM Value in \pVal.
   bool isFPConstant(ConstantFP **Val = nullptr) const;
 
   /// Returns true if canon expr is a vector of constant Ints.
-  /// If yes, returns the underlying LLVM Value in \pVal
+  /// If yes, returns the underlying LLVM Value in \pVal.
   bool isIntVectorConstant(Constant **Val = nullptr) const;
 
   /// Returns true if canon expr is a vector of constant FP values.
-  /// If yes, returns the underlying LLVM Value in \pVal
+  /// If yes, returns the underlying LLVM Value in \pVal.
   bool isFPVectorConstant(Constant **Val = nullptr) const;
 
+  /// Returns true if canon expr represents constant data.
+  /// If yes, returns the underlying LLVM Value in \pVal.
+  bool isConstantData(ConstantData **Val = nullptr) const;
+
   /// Returns true if canon expr is a vector of constants.
-  /// If yes, returns the underlying LLVM Value in \pVal
+  /// If yes, returns the underlying LLVM Value in \pVal.
   bool isConstantVector(Constant **Val = nullptr) const {
     return (isIntVectorConstant(Val) || isFPVectorConstant(Val));
   }
@@ -441,7 +446,7 @@ public:
   /// self-blob. Please refer to description of isSelfBlob() in DDRef.h.
   bool isSelfBlob() const;
 
-  bool isUndefSelfBlob() const;
+  bool isStandAloneUndefBlob() const;
 
   /// return true if the CanonExpr is zero
   bool isZero() const {
