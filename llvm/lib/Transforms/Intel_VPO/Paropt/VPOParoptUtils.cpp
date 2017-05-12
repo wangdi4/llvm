@@ -244,7 +244,8 @@ WRNScheduleKind VPOParoptUtils::getLoopScheduleKind(WRegionNode *W)
 // This function generates a call to set num_threads for the parallel
 // region and parallel loop/sections
 //
-// call void @__kmpc_push_num_threads(%ident_t* %loc, i32 %tid, i32 %nths)
+// call void @__kmpc_push_num_threads(%ident_t* %loc, i32
+// Builder.CreateBitCast(SharedGep, PointerType::getUnqual(%tid, i32 %nths)
 void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
                                            StructType *IdentTy,
                                            Value *Tid, Value *NumThreads,
@@ -277,6 +278,42 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   PushNumThreads->insertBefore(InsertPt);
 
   return;
+}
+
+CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
+                                               Value *SharedGep,
+                                               Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Value *RedGetNthDataArgs[] = {
+      Builder.CreateLoad(TidPtr),
+      Builder.getInt64(0), // TODO 32/64
+      Builder.CreateBitCast(SharedGep, Type::getInt8PtrTy(C))};
+
+  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt64Ty(C),
+                        Type::getInt8PtrTy(C)};
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+
+  std::string FnName = "__kmpc_task_reduction_get_th_data";
+  Function *FnRedGetNthData = M->getFunction(FnName);
+
+  if (!FnRedGetNthData) {
+    FnRedGetNthData =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnRedGetNthData->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *RedGetNthDataCall =
+      CallInst::Create(FnRedGetNthData, RedGetNthDataArgs, "", InsertPt);
+  RedGetNthDataCall->setCallingConv(CallingConv::C);
+  RedGetNthDataCall->setTailCall(false);
+
+  return RedGetNthDataCall;
 }
 
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
@@ -343,10 +380,10 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                            Builder.getInt32(0),
                            Builder.getInt32(0),
                            Builder.getInt64(0),
-                           Builder.getInt64(0)};
+                           ConstantPointerNull::get(Type::getInt8PtrTy(C))};
   Type *TypeParams[] = {Loc->getType(),
                         Type::getInt32Ty(C),
-                        PointerType::getUnqual(Type::getInt8Ty(C)),
+                        Type::getInt8PtrTy(C),
                         Type::getInt32Ty(C),
                         PointerType::getUnqual(Type::getInt64Ty(C)),
                         PointerType::getUnqual(Type::getInt64Ty(C)),
@@ -354,7 +391,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                         Type::getInt32Ty(C),
                         Type::getInt32Ty(C),
                         Type::getInt64Ty(C),
-                        Type::getInt64Ty(C)};
+                        Type::getInt8PtrTy(C)}; 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
   std::string FnName = "__kmpc_taskloop";
@@ -373,6 +410,39 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   return TaskLoopCall;
 }
+CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
+                                                   Value *TidPtr, int ParmNum,
+                                                   Value *RedRecord,
+                                                   Instruction *InsertPt) {
+  BasicBlock *B = W->getEntryBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  IRBuilder<> Builder(InsertPt);
+  Value *TaskRedInitArgs[] = {
+      Builder.CreateLoad(TidPtr), Builder.getInt32(ParmNum),
+      Builder.CreatePointerCast(RedRecord, Builder.getInt8PtrTy())};
+  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt32Ty(C),
+                        Type::getInt8PtrTy(C)};
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
+
+  std::string FnName = "__kmpc_task_reduction_init";
+  Function *FnTaskRedInit = M->getFunction(FnName);
+
+  if (!FnTaskRedInit) {
+    FnTaskRedInit =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTaskRedInit->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskRedInitCall =
+      CallInst::Create(FnTaskRedInit, TaskRedInitArgs, "", InsertPt);
+  TaskRedInitCall->setCallingConv(CallingConv::C);
+  TaskRedInitCall->setTailCall(false);
+
+  return TaskRedInitCall;
+}
 
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
@@ -390,7 +460,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   GlobalVariable *Loc =
       genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
 
-  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), 1); // TODO
+  auto *TaskFlags = ConstantInt::get(Type::getInt32Ty(C), W->getTaskFlag()); 
   auto *KmpTaskTWithPrivatesTySize =
       ConstantInt::get(Type::getInt64Ty(C), KmpTaskTTWithPrivatesTySz);
   auto *SharedsSize = ConstantInt::get(Type::getInt64Ty(C), KmpSharedTySz);
@@ -402,8 +472,8 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   Type *TypeParams[] = {Loc->getType(),      Type::getInt32Ty(C),
                         Type::getInt32Ty(C), Type::getInt64Ty(C),
                         Type::getInt64Ty(C), KmpRoutineEntryPtrTy};
-  FunctionType *FnTy = FunctionType::get(
-      PointerType::getUnqual(Type::getInt8Ty(C)), TypeParams, false);
+  FunctionType *FnTy =
+      FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
   std::string FnName = "__kmpc_omp_task_alloc";
   Function *FnTaskAlloc = M->getFunction(FnName);
@@ -1569,7 +1639,7 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
     return V;
 
   SmallVector<Instruction *, 3> ChainToBase;
-  /* Value *RootOfChain = */ findChainToLoad(V, ChainToBase);
+  findChainToLoad(V, ChainToBase);
   std::reverse(ChainToBase.begin(), ChainToBase.end());
 
   Instruction *LastClonedValue = nullptr;
@@ -1598,7 +1668,8 @@ Value *VPOParoptUtils::cloneInstructions(Value *V, Instruction *InsertBefore) {
 }
 
 // Generate the pointer pointing to the head of the array.
-Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Instruction *InsertPt,
+Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Value *BaseAddr,
+                                      Instruction *InsertPt,
                                       IRBuilder<> &Builder, Type *&ElementTy,
                                       Value *&ArrayBegin) {
   Type *AllocaTy = AI->getAllocatedType();
@@ -1620,7 +1691,7 @@ Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Instruction *InsertPt,
   }
 
   LLVMContext &C = InsertPt->getParent()->getParent()->getContext();
-  ArrayBegin = Builder.CreateInBoundsGEP(AI, GepIndices, "array.begin");
+  ArrayBegin = Builder.CreateInBoundsGEP(BaseAddr, GepIndices, "array.begin");
   Value *numElements = ConstantInt::get(Type::getInt32Ty(C), CountFromCLAs);
 
   return numElements;

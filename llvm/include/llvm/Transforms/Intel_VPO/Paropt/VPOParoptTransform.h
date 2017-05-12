@@ -79,7 +79,8 @@ public:
                      LoopInfo *LI, ScalarEvolution *SE, int Mode)
       : F(F), WI(WI), DT(DT), LI(LI), SE(SE), Mode(Mode), IdentTy(nullptr),
         TidPtr(nullptr), BidPtr(nullptr), KmpcMicroTaskTy(nullptr),
-        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr) {}
+        KmpRoutineEntryPtrTy(nullptr), KmpTaskTTy(nullptr),
+        KmpTaskTRedTy(nullptr) {}
 
   /// \brief Top level interface for parallel and prepare transformation
   bool paroptTransforms();
@@ -120,6 +121,7 @@ private:
   FunctionType *KmpcMicroTaskTy;
   PointerType *KmpRoutineEntryPtrTy;
   StructType *KmpTaskTTy;
+  StructType *KmpTaskTRedTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
   /// W-Region Graph in DFS order and perform outlining transformation.
@@ -148,7 +150,8 @@ private:
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
 
   /// \brief Generate the reduction update code.
-  void genReductionFini(ReductionItem *RedI, Instruction *InsertPt);
+  void genReductionFini(ReductionItem *RedI, Value *OldV,
+                        Instruction *InsertPt);
 
   /// \brief Generate the reduction initialization code for Min/Max.
   Value *genReductionMinMaxInit(ReductionItem *RedI, Type *Ty, bool IsMax);
@@ -178,7 +181,8 @@ private:
 
   /// \brief Generate the reduction initialization/update for array.
   void genRedAggregateInitOrFini(ReductionItem *RedI, AllocaInst *AI,
-                                 Instruction *InsertPt, bool IsInit);
+                                 Value *OldV, Instruction *InsertPt,
+                                 bool IsInit);
 
   /// \brief Generate the reduction fini code for bool and/or.
   Value *genReductionFiniForBoolOps(ReductionItem *RedI, Value *Rhs1,
@@ -203,6 +207,10 @@ private:
                        StructType *KmpSharedTy, Value *LBVal, Value *UBVal,
                        Value *STVal);
   bool genSharedCodeForTaskLoop(WRegionNode *W);
+  bool genRedCodeForTaskLoop(WRegionNode *W);
+  void genTaskTRedType();
+  void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
+
   AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
                                     StructType *KmpSharedTy);
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
@@ -211,6 +219,8 @@ private:
                                 Instruction *InsertPt);
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBVal, Value *&UBVal,
                                   Value *&STVal);
+  Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
+  Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
   void genKmpRoutineEntryT();
   void genKmpTaskTRecordDecl();
   StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
@@ -255,7 +265,7 @@ private:
   /// \brief Cleans up the generated __kmpc_global_thread_num() in the
   /// outlined function. It also cleans the genererated bid alloca 
   /// instruction in the outline function.
-  void finiCodeExtractorPrepare(Function *F);
+  void finiCodeExtractorPrepare(Function *F, bool ForTaskLoop = false);
 
   /// \brief Collects the bid alloca instructions used by the outline functions.
   void collectTidAndBidInstructionsForBB(BasicBlock *BB);
@@ -270,7 +280,8 @@ private:
 
   /// \brief Replaces the use of tid/bid with the outlined function arguments.
   void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
-                                         BasicBlock *NextBB);
+                                         BasicBlock *NextBB,
+                                         bool ForTaskLoop = false);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

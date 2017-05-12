@@ -192,7 +192,7 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   setNumTasks(nullptr);
   setCollapse(0);
   setNogroup(false);
-  setTaskFlag(WRNTaskFlag::Tied | WRNTaskFlag::Final);
+  setTaskFlag(WRNTaskFlag::Tied);
   // These are done in WRNTaskNode's constructor
   //   setFinal(nullptr);
   //   setPriority(nullptr);

@@ -283,6 +283,7 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genSharedCodeForTaskLoop(W);
+          Changed |= genRedCodeForTaskLoop(W);
           Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                      LBVal, UBVal, STVal);
           RemoveDirectives = true;
@@ -696,10 +697,9 @@ Value *VPOParoptTransform::genReductionScalarFini(ReductionItem *RedI,
 //   @.kmpc_loc.0.0.4, i32 %my.tid31, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
-void VPOParoptTransform::genReductionFini(ReductionItem *RedI,
+void VPOParoptTransform::genReductionFini(ReductionItem *RedI, Value *OldV,
                                           Instruction *InsertPt) {
   AllocaInst *NewAI = dyn_cast<AllocaInst>(RedI->getNew());
-  AllocaInst *OldAI = dyn_cast<AllocaInst>(RedI->getOrig());
   Type *AllocaTy = NewAI->getAllocatedType();
   Type *ScalarTy = AllocaTy->getScalarType();
   const DataLayout &DL = InsertPt->getModule()->getDataLayout();
@@ -708,11 +708,11 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, NewAI, InsertPt, false);
+    genRedAggregateInitOrFini(RedI, NewAI, OldV, InsertPt, false);
   } else {
-    LoadInst *OldLoad = Builder.CreateLoad(OldAI);
+    LoadInst *OldLoad = Builder.CreateLoad(OldV);
     LoadInst *NewLoad = Builder.CreateLoad(NewAI);
-    genReductionScalarFini(RedI, OldLoad, NewLoad, OldAI, ScalarTy, Builder);
+    genReductionScalarFini(RedI, OldLoad, NewLoad, OldV, ScalarTy, Builder);
   }
 }
 
@@ -794,10 +794,9 @@ void VPOParoptTransform::genReductionFini(ReductionItem *RedI,
 //   br label %DIR.QUAL.LIST.END.2.exitStub
 //
 void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
-                                                   AllocaInst *AI,
+                                                   AllocaInst *AI, Value *OldV,
                                                    Instruction *InsertPt,
                                                    bool IsInit) {
-  AllocaInst *OldAI = dyn_cast<AllocaInst>(RedI->getOrig());
 
   IRBuilder<> Builder(InsertPt);
   auto EntryBB = Builder.GetInsertBlock();
@@ -806,7 +805,7 @@ void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
   Value *DestArrayBegin = nullptr;
 
   auto NumElements = VPOParoptUtils::genArrayLength(
-      IsInit ? AI : OldAI, InsertPt, Builder, DestElementTy, DestArrayBegin);
+      AI, IsInit ? AI : OldV, InsertPt, Builder, DestElementTy, DestArrayBegin);
   auto DestAddr = Builder.CreateBitCast(DestArrayBegin,
                                         PointerType::getUnqual(DestElementTy));
 
@@ -815,7 +814,7 @@ void VPOParoptTransform::genRedAggregateInitOrFini(ReductionItem *RedI,
   Value *SrcAddr = nullptr;
 
   if (!IsInit) {
-    VPOParoptUtils::genArrayLength(AI, InsertPt, Builder, SrcElementTy,
+    VPOParoptUtils::genArrayLength(AI, AI, InsertPt, Builder, SrcElementTy,
                                    SrcArrayBegin);
     SrcAddr = Builder.CreateBitCast(SrcArrayBegin,
                                     PointerType::getUnqual(SrcElementTy));
@@ -977,7 +976,7 @@ void VPOParoptTransform::genReductionInit(ReductionItem *RedI,
   if (!AllocaTy->isSingleValueType() ||
       !DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
       DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
-    genRedAggregateInitOrFini(RedI, AI, InsertPt, true);
+    genRedAggregateInitOrFini(RedI, AI, nullptr, InsertPt, true);
   } else {
     Value *V = genReductionScalarInit(RedI, ScalarTy);
     Builder.CreateStore(V, AI);
@@ -1036,7 +1035,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genReductionInit(RedI, RedInitEntryBB->getTerminator());
       BasicBlock *BeginBB;
       createEmptyPrivFiniBB(W, BeginBB);
-      genReductionFini(RedI, BeginBB->getTerminator());
+      genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator());
       DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
     VPOParoptUtils::genKmpcCriticalSection(
@@ -1068,11 +1067,11 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
     if (PrivInst->hasName())
       NewPrivInst->setName(PrivInst->getName() + VarNameSuff);
 
-    NewPrivInst->insertAfter(InsertPt);
+    NewPrivInst->insertBefore(InsertPt);
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue)){
     Type *ElemTy = GV->getValueType();
     NewPrivInst = new AllocaInst(ElemTy, nullptr, GV->getName());
-    NewPrivInst->insertAfter(InsertPt);
+    NewPrivInst->insertBefore(InsertPt);
     SmallVector<Instruction *, 8> RewriteCons;
     for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
       if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*IB))
@@ -1246,6 +1245,37 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   return Changed;
 }
 
+bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
+
+  bool Changed = false;
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskLoop\n");
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+
+    assert(W->isBBSetEmpty() &&
+           "genRedCodeForTaskLoop: BBSET should start empty");
+    W->populateBBSet();
+
+    for (ReductionItem *RedI : RedClause.items()) {
+
+      Value *Orig = RedI->getOrig();
+
+      if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
+        Value *NewPrivInst = nullptr;
+        NewPrivInst = RedI->getNew();
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+      }
+    }
+
+    Changed = true;
+    W->resetBBSet(); // Invalidate BBSet after transformations
+  }
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedCodeForTaskLoop\n");
+  return Changed;
+}
+
 bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
 
   bool Changed = false;
@@ -1272,16 +1302,8 @@ bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
 
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet after transformations
-
-    // After Privatization is done, the SCEV should be re-generated.
-    // This should apply to all loop-type constructs; ie, WRNs whose
-    // "IsOmpLoop" attribute is true.
-    if (SE && W->getIsOmpLoop()) {
-      Loop *L = W->getLoop();
-      SE->forgetLoop(L);
-    }
   }
-  DEBUG(dbgs() << "\nExit VPOParoptTransform::genPrivatizationCode\n");
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genSharedCodeForTaskLoop\n");
   return Changed;
 }
 
@@ -1344,12 +1366,37 @@ void VPOParoptTransform::genKmpRoutineEntryT() {
   if (!KmpRoutineEntryPtrTy) {
     LLVMContext &C = F->getContext();
     IntegerType *Int32Ty = Type::getInt32Ty(C);
-    Type *KmpRoutineEntryTyArgs[] = {
-        Int32Ty, PointerType::getUnqual(Type::getInt8Ty(C))};
+    Type *KmpRoutineEntryTyArgs[] = {Int32Ty, Type::getInt8PtrTy(C)};
     FunctionType *KmpRoutineEntryTy =
         FunctionType::get(Int32Ty, KmpRoutineEntryTyArgs, false);
     KmpRoutineEntryPtrTy = PointerType::getUnqual(KmpRoutineEntryTy);
   }
+}
+
+// internal structure for reduction data item related info
+//
+// typedef struct kmp_task_red_input {
+//    void       *reduce_shar; // shared reduction item
+//    size_t      reduce_size; // size of data item
+//    void       *reduce_init; // data initialization routine
+//    void       *reduce_fini; // data finalization routine
+//    void       *reduce_comb; // data combiner routine
+//    kmp_task_red_flags_t flags; // flags for additional info from compiler
+// } kmp_task_red_input_t;
+//
+void VPOParoptTransform::genTaskTRedType() {
+  if (KmpTaskTRedTy)
+    return;
+
+  LLVMContext &C = F->getContext();
+  IntegerType *Int32Ty = Type::getInt32Ty(C);
+  IntegerType *Int64Ty = Type::getInt64Ty(C);
+
+  Type *TaskTRedTyArgs[] = {Type::getInt8PtrTy(C), Int64Ty,
+                            Type::getInt8PtrTy(C), Type::getInt8PtrTy(C),
+                            Type::getInt8PtrTy(C), Int32Ty};
+  KmpTaskTRedTy = StructType::create(C, TaskTRedTyArgs,
+                                     "struct.kmp_task_t_red_item", false);
 }
 
 // Build struct kmp_task_t {
@@ -1377,7 +1424,7 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
   StructType *KmpCmplrdataTy =
       StructType::create(C, KmpCmplrdataTyArgs, "union.kmp_cmplrdata_t", false);
 
-  Type *KmpTaskTyArgs[] = {PointerType::getUnqual(Type::getInt8Ty(C)),
+  Type *KmpTaskTyArgs[] = {Type::getInt8PtrTy(C),
                            KmpRoutineEntryPtrTy,
                            Int32Ty,
                            KmpCmplrdataTy,
@@ -1399,7 +1446,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   SmallVector<Type *, 4> KmpPrivatesIndices;
   SmallVector<Type *, 4> SharedIndices;
 
-  int count = 0;
+  unsigned Count = 0;
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
@@ -1410,7 +1457,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
                    "pionter argument");
       KmpPrivatesIndices.push_back(PT->getElementType());
       SharedIndices.push_back(PT->getElementType());
-      FprivI->setThunkIdx(count++);
+      FprivI->setThunkIdx(Count++);
     }
   }
 
@@ -1423,23 +1470,11 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
                    "pionter argument");
       KmpPrivatesIndices.push_back(PT->getElementType());
       SharedIndices.push_back(PT);
-      LprivI->setThunkIdx(count++);
+      LprivI->setThunkIdx(Count++);
     }
   }
 
-  ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      Value *Orig = RedI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
-                   "pionter argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
-      SharedIndices.push_back(PT);
-      RedI->setThunkIdx(count++);
-    }
-  }
-
+  unsigned SaveCount = Count;
   PrivateClause &PrivClause = W->getPriv();
   if (PrivClause.size()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
@@ -1449,7 +1484,21 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
           PT &&
           "genKmpTaskTWithPrivatesRecordDecl: Expect private pionter argument");
       KmpPrivatesIndices.push_back(PT->getElementType());
-      PrivI->setThunkIdx(count++);
+      PrivI->setThunkIdx(Count++);
+    }
+  }
+
+  Count = SaveCount;
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      Value *Orig = RedI->getOrig();
+      auto PT = dyn_cast<PointerType>(Orig->getType());
+      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
+                   "pionter argument");
+      SharedIndices.push_back(PT);
+      RedI->setThunkIdx(Count++);
     }
   }
 
@@ -1461,7 +1510,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect shared "
                    "pionter argument");
       SharedIndices.push_back(PT);
-      ShaI->setThunkIdx(count++);
+      ShaI->setThunkIdx(Count++);
     }
   }
 
@@ -1503,8 +1552,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   AllocaInst *DummyTaskTWithPrivates = Builder.CreateAlloca(
       KmpTaskTTWithPrivatesTy, nullptr, "taskt.withprivates");
 
-  Builder.SetInsertPoint(L->getLoopPreheader()->getTerminator());
-
+  Builder.SetInsertPoint(W->getEntryBBlock()->getTerminator());
   SmallVector<Value *, 4> Indices;
   Indices.push_back(Builder.getInt32(0));
   Indices.push_back(Builder.getInt32(0));
@@ -1621,9 +1669,12 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
       Indices.push_back(Builder.getInt32(RedI->getThunkIdx()));
-      Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
-      RedI->setNew(ThunkPrivatesGep);
+      Value *ThunkSharedGep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
+      Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+      Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
+          W, TidPtr, ThunkSharedVal, &*Builder.GetInsertPoint());
+      RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
     }
   }
 
@@ -1651,18 +1702,6 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   IRBuilder<> Builder(InsertPt);
   AllocaInst *TaskSharedBase =
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
-
-  PrivateClause &PrivClause = W->getPriv();
-  if (PrivClause.size()) {
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(PrivI->getThunkIdx()));
-      Value *Gep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      Builder.CreateStore(PrivI->getOrig(), Gep);
-    }
-  }
 
   FirstprivateClause &FprivClause = W->getFpriv();
   if (FprivClause.size()) {
@@ -1739,8 +1778,7 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
   Value *LI = Builder.CreateLoad(SharedTyGep);
 
   LLVMContext &C = F->getContext();
-  Value *SrcCast =
-      Builder.CreateBitCast(Src, PointerType::getUnqual(Type::getInt8PtrTy(C)));
+  Value *SrcCast = Builder.CreateBitCast(Src, Type::getInt8PtrTy(C));
 
   Value *Size;
 
@@ -1752,7 +1790,7 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
     Size = Builder.getInt32(
         DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-  Builder.CreateMemCpy(LI, SrcCast, Size, 8);
+  Builder.CreateMemCpy(LI, SrcCast, Size, 8); // TODO alignment
 
   Indices.clear();
   Indices.push_back(Builder.getInt32(0));
@@ -1789,7 +1827,7 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
       Value *D = Builder.CreateBitCast(
           PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      Builder.CreateMemCpy(D, S, Size, 8);
+      Builder.CreateMemCpy(D, S, Size, 8); // TODO alignment
     }
   }
 }
@@ -1842,6 +1880,148 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   STVal = Stride;
 }
 
+Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
+                                                     ReductionItem *RedI) {
+  LLVMContext &C = F->getContext();
+  Value *Orig = RedI->getOrig();
+  Module *M = F->getParent();
+
+  Type *TaskLoopRedInitParams[] = {Orig->getType()};
+  FunctionType *TaskLoopRedInitFnTy =
+      FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
+
+  Function *FnTaskLoopRedInit = Function::Create(
+      TaskLoopRedInitFnTy, GlobalValue::ExternalLinkage,
+      F->getName() + "_task_red_init_" + Twine(W->getNumber()), M);
+  FnTaskLoopRedInit->setCallingConv(CallingConv::C);
+
+  Value *Arg = &*FnTaskLoopRedInit->arg_begin();
+
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskLoopRedInit);
+
+  if (DT)
+    DT->recalculate(*FnTaskLoopRedInit);
+
+  IRBuilder<> Builder(EntryBB);
+  Builder.CreateRetVoid();
+  Value *NewRedInst =
+      genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".red");
+
+  RedI->setNew(NewRedInst);
+  genReductionInit(RedI, EntryBB->getTerminator());
+
+  NewRedInst->replaceAllUsesWith(Arg);
+
+  return FnTaskLoopRedInit;
+}
+
+Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
+                                                     ReductionItem *RedI) {
+  LLVMContext &C = F->getContext();
+  Value *Orig = RedI->getOrig();
+  Module *M = F->getParent();
+
+  Type *TaskLoopRedInitParams[] = {Orig->getType(), Orig->getType()};
+  FunctionType *TaskLoopRedInitFnTy =
+      FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
+
+  Function *FnTaskLoopRedComb = Function::Create(
+      TaskLoopRedInitFnTy, GlobalValue::ExternalLinkage,
+      F->getName() + "_task_red_comb_" + Twine(W->getNumber()), M);
+  FnTaskLoopRedComb->setCallingConv(CallingConv::C);
+
+  auto I = FnTaskLoopRedComb->arg_begin();
+  Value *DstArg = &*I;
+  I++;
+  Value *SrcArg = &*I;
+
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskLoopRedComb);
+
+  if (DT)
+    DT->recalculate(*FnTaskLoopRedComb);
+
+  IRBuilder<> Builder(EntryBB);
+  Builder.CreateRetVoid();
+
+  Value *NewRedInst = RedI->getNew();
+
+  genReductionFini(RedI, DstArg, EntryBB->getTerminator());
+
+  NewRedInst->replaceAllUsesWith(SrcArg);
+
+  cast<AllocaInst>(NewRedInst)->eraseFromParent();
+
+  return FnTaskLoopRedComb;
+}
+
+void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
+                                               Instruction *InsertBefore) {
+
+  genTaskTRedType();
+
+  SmallVector<Type *, 4> KmpTaksTRedRecTyArgs;
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size() == 0)
+    return;
+  LLVMContext &C = F->getContext();
+
+  for (int I = 0; I < RedClause.size(); I++)
+    KmpTaksTRedRecTyArgs.push_back(KmpTaskTRedTy);
+
+  StructType *KmpTaskTTRedRecTy = StructType::create(
+      C, makeArrayRef(KmpTaksTRedRecTyArgs.begin(), KmpTaksTRedRecTyArgs.end()),
+      "struct.kmp_task_t_red_rec", false);
+
+  IRBuilder<> Builder(InsertBefore);
+  AllocaInst *DummyTaskTRedRec =
+      Builder.CreateAlloca(KmpTaskTTRedRecTy, nullptr, "taskt.red.rec");
+
+  const DataLayout DL = F->getParent()->getDataLayout();
+  unsigned Count = 0;
+  for (ReductionItem *RedI : RedClause.items()) {
+
+    Value *BaseTaskTRedGep = Builder.CreateInBoundsGEP(
+        KmpTaskTTRedRecTy, DummyTaskTRedRec,
+        {Builder.getInt32(0), Builder.getInt32(Count++)});
+
+    Value *Gep =
+        Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                  {Builder.getInt32(0), Builder.getInt32(0)});
+    Builder.CreateStore(
+        Builder.CreateBitCast(RedI->getOrig(), Type::getInt8PtrTy(C)), Gep);
+
+    Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                    {Builder.getInt32(0), Builder.getInt32(1)});
+    Builder.CreateStore(
+        Builder.getInt64(DL.getTypeAllocSize(
+            RedI->getOrig()->getType()->getPointerElementType())),
+        Gep);
+
+    Function *RedInitFunc = genTaskLoopRedInitFunc(W, RedI);
+    Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                    {Builder.getInt32(0), Builder.getInt32(2)});
+    Builder.CreateStore(
+        Builder.CreateBitCast(RedInitFunc, Type::getInt8PtrTy(C)), Gep);
+
+    Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                    {Builder.getInt32(0), Builder.getInt32(3)});
+    Builder.CreateStore(ConstantPointerNull::get(Type::getInt8PtrTy(C)), Gep);
+
+    Function *RedCombFunc = genTaskLoopRedCombFunc(W, RedI);
+    Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                    {Builder.getInt32(0), Builder.getInt32(4)});
+    Builder.CreateStore(
+        Builder.CreateBitCast(RedCombFunc, Type::getInt8PtrTy(C)), Gep);
+
+    Gep = Builder.CreateInBoundsGEP(KmpTaskTRedTy, BaseTaskTRedGep,
+                                    {Builder.getInt32(0), Builder.getInt32(5)});
+    Builder.CreateStore(Builder.getInt32(0), Gep);
+  }
+  VPOParoptUtils::genKmpcTaskReductionInit(W, TidPtr, Count, DummyTaskTRedRec,
+                                           &*Builder.GetInsertPoint());
+}
+
 bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
                                          StructType *KmpTaskTTWithPrivatesTy,
                                          StructType *KmpSharedTy, Value *LBVal,
@@ -1850,6 +2030,8 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
   assert(W->isBBSetEmpty() && "genTaskLoopCode: BBSET should start empty");
 
   W->populateBBSet();
+
+  codeExtractorPrepare(W);
 
   bool Changed = false;
 
@@ -1895,6 +2077,7 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
     MTFnArgs.push_back(ValueZero);
     genThreadedEntryActualParmList(W, MTFnArgs);
 
+    finiCodeExtractorPrepare(MTFn, true);
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
       MTFnArgs.push_back((*I));
     }
@@ -1914,6 +2097,8 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     // Keep the orginal extraced function name after finalization
     MTFnCI->takeName(NewCall);
+
+    genRedInitForTaskLoop(W, NewCall);
 
     AllocaInst *PrivateBase = genTaskPrivateMapping(W, NewCall, KmpSharedTy);
     const DataLayout DL = NewF->getParent()->getDataLayout();
@@ -2390,6 +2575,14 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
   AllocaInst *NewAI = nullptr;
   CallInst *NewTid = nullptr;
   BasicBlock *WREntryBB = W->getEntryBBlock();
+  Instruction *InsertBefore = nullptr;
+
+  for (Instruction &I : *WREntryBB) {
+    if (!VPOAnalysisUtils::isIntelDirectiveOrClause(&I)) {
+      InsertBefore = &I;
+      break;
+    }
+  }
 
   for (auto &I : IdMap) {
     for (auto &J : I.second) {
@@ -2397,13 +2590,13 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
         NewTid = VPOParoptUtils::genKmpcGlobalThreadNumCall(F, 
                                 &*(WREntryBB->getFirstInsertionPt()),
                                 nullptr);
-        NewTid->insertBefore(WREntryBB->getTerminator());
+        NewTid->insertBefore(InsertBefore);
       }
       if (!NewAI) {
         if (isa<AllocaInst>(I.first)) {
-          NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()), 
-                                 IsTid?"new.tid.addr":"new.bid.addr",
-                                 WREntryBB->getTerminator());
+          NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()),
+                                 IsTid ? "new.tid.addr" : "new.bid.addr",
+                                 InsertBefore);
           NewAI->setAlignment(4);
 
           ConstantInt *ValueZero;
@@ -2415,8 +2608,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
             StValue = NewTid;
           else
             StValue = ValueZero;
-          new StoreInst(StValue, NewAI, false,
-                        WREntryBB->getTerminator());
+          new StoreInst(StValue, NewAI, false, InsertBefore);
         }
       }
       if (isa<AllocaInst>(I.first))
@@ -2592,16 +2784,18 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.5
 //
-void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
-  // Cleans the genererated bid alloca instruction in the 
-  // outline function.
-  TidAndBidInstructions.clear();
+void VPOParoptTransform::finiCodeExtractorPrepare(Function *F,
+                                                  bool ForTaskLoop) {
+  if (ForTaskLoop == false) {
+    // Cleans the genererated bid alloca instruction in the
+    // outline function.
+    TidAndBidInstructions.clear();
 
-  for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B) 
-    collectTidAndBidInstructionsForBB(&*B);
- 
-  finiCodeExtractorPrepareTransform(F, false, nullptr);
+    for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B)
+      collectTidAndBidInstructionsForBB(&*B);
 
+    finiCodeExtractorPrepareTransform(F, false, nullptr, ForTaskLoop);
+  }
   // Cleans up the generated __kmpc_global_thread_num() in the
   // outlined function. Replaces the use of the __kmpc_global_thread_num()
   // with the first argument of the outlined function.
@@ -2609,32 +2803,35 @@ void VPOParoptTransform::finiCodeExtractorPrepare(Function *F) {
   BasicBlock *NextBB = &F->getEntryBlock();
   do {
     Tid = VPOParoptUtils::findKmpcGlobalThreadNumCall(NextBB);
-    if (Tid) 
+    if (Tid)
       break;
-    if (std::distance(succ_begin(NextBB), succ_end(NextBB))==1) 
+    if (std::distance(succ_begin(NextBB), succ_end(NextBB)) == 1)
       NextBB = *(succ_begin(NextBB));
-    else 
+    else
       break;
-    if (std::distance(pred_begin(NextBB), pred_end(NextBB))!=1) 
+    if (std::distance(pred_begin(NextBB), pred_end(NextBB)) != 1)
       break;
-  }while (!Tid);
+  } while (!Tid);
 
-  if (!Tid) return;
+  if (!Tid)
+    return;
 
   TidAndBidInstructions.clear();
 
-  getAllocFromTid(Tid);
+  if (ForTaskLoop == false)
+    getAllocFromTid(Tid);
   TidAndBidInstructions.insert(Tid);
 
-  finiCodeExtractorPrepareTransform(F, true, NextBB);
+  finiCodeExtractorPrepareTransform(F, true, NextBB, ForTaskLoop);
 }
 
 // Replaces the use of tid/bid with the outlined function arguments.
 void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
-                                                          bool IsTid, 
-                                                          BasicBlock *NextBB) {
+                                                           bool IsTid,
+                                                           BasicBlock *NextBB,
+                                                           bool ForTaskLoop) {
   Value *NewAI = nullptr;
-  LoadInst *NewLoad = nullptr;
+  Value *NewLoad = nullptr;
   for (Instruction *I : TidAndBidInstructions) {
     if (isa<AllocaInst>(I)) {
       if(!NewAI) {
@@ -2643,11 +2840,15 @@ void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
           IT++;
         NewAI = &*(IT);
       }
-    }
-    else if (IsTid && NewLoad == nullptr) {
-      IRBuilder<> Builder(NextBB);
-      Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
-      NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
+    } else if (IsTid) {
+      if (ForTaskLoop == false) {
+        IRBuilder<> Builder(NextBB);
+        Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
+        NewLoad = Builder.CreateLoad(&*(F->arg_begin()));
+      } else {
+        auto IT = F->arg_begin();
+        NewLoad = &*(IT);
+      }
     }
     if (isa<AllocaInst>(I))
       I->replaceAllUsesWith(NewAI);

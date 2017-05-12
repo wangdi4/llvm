@@ -410,9 +410,9 @@ public:
     static Value *cloneInstructions(Value *V, Instruction *InsertPt);
 
     /// \brief Generate the pointer pointing to the head of the array.
-    static Value *genArrayLength(AllocaInst *AI, Instruction *InsertPt,
-                                 IRBuilder<> &Builder, Type *&ElementTy,
-                                 Value *&ArrayBegin);
+    static Value *genArrayLength(AllocaInst *AI, Value *BaseAddr,
+                                 Instruction *InsertPt, IRBuilder<> &Builder,
+                                 Type *&ElementTy, Value *&ArrayBegin);
 
     static CallInst *
     genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
@@ -424,6 +424,12 @@ public:
                                      Value *LBVal, Value *UBVal, Value *STVal,
                                      StructType *KmpTaskTTWithPrivatesTy,
                                      Instruction *InsertPt);
+    static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
+                                          Value *SharedGep,
+                                          Instruction *InsertPt);
+    static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
+                                              int ParmNum, Value *RedRecord,
+                                              Instruction *InsertPt);
 
     /// \brief returns min/max int of the given integer type.
     /// This can be used to initialize min/max reduction variables.
