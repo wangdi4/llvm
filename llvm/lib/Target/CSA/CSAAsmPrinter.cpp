@@ -230,6 +230,7 @@ void CSAAsmPrinter::recordAndEmitFilenames(Module &M) {
     if (filenameMap.find(Filename.str()) != filenameMap.end())
       continue;
     filenameMap[Filename.str()] = i;
+    OutStreamer->EmitDwarfFileDirective(i, "", Filename.str());
     ++i;
   }
 }
