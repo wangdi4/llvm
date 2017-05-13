@@ -643,8 +643,8 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
                 //mbb itself is a fork, this includes non-latch exiting blk
                 //1) triangle if's fall through branch
                 //2) loop hdr phi
-                MachineInstr *DefMI = MRI->getVRegDef(Reg);
 #if 1
+                MachineInstr *DefMI = MRI->getVRegDef(Reg);
                 if (TII->isSwitch(DefMI) && DefMI->getParent() == mbb) {
                   //alread switched reg from SwitchForRepeat 
                   continue;
@@ -752,8 +752,8 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
       !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(UseBB)));
   //only need to handle use's loop immediately encloses def's loop, otherwise, reduced to case 2 which should already have been run
   if (DefNotEncloseUse) {
-    MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
-    if (exitingBlk) {
+    if (UseMI->isPHI()) {
+      MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
       unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
       // Rewrite uses that outside of the original def's block, inside the loop
       //renameLCSSAPhi or other cross boundary uses
@@ -770,8 +770,10 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
       SSAUpdate.AddAvailableValue(mbb, Reg);
       for (unsigned i = 0; i < exitingBlks.size(); i++) {
         MachineBasicBlock* exitingBlk = exitingBlks[i];
-        unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
-        SSAUpdate.AddAvailableValue(exitingBlk, outVReg);
+        if (UseBB->isPredecessor(exitingBlk)) {
+          unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
+          SSAUpdate.AddAvailableValue(exitingBlk, outVReg);
+        }
       }
       SSAUpdate.RewriteUse(UseMO);
     }
