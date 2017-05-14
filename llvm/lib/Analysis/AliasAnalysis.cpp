@@ -472,13 +472,20 @@ ModRefInfo AAResults::getModRefInfoForMaskedScatter(const IntrinsicInst *MS,
   if (isa<ConstantAggregateZero>(Mask))
     return MRI_NoModRef;
 
-  const auto *PtrVec = MS->getArgOperand(1);
-  unsigned NumElts = PtrVec->getType()->getVectorNumElements();
+  const auto *BasePtr = MS->getArgOperand(1);
+
+  Value *DataToWrite = MS->getArgOperand(0);
+
+  // BasePtr may be vector or scalar. DataToWrite is always a vector.
+  unsigned NumElts = DataToWrite->getType()->getVectorNumElements();
   // A vector of MemoryLocation saving memory locations for all elements
   // of PtrVec.
   SmallVector<MemoryLocation, 4> PtrVecMemLocs(NumElts, MemoryLocation());
-  MemoryLocation::getForPtrVec(PtrVec, PtrVecMemLocs,
-                               PtrVectorMemLocCheckDepth);
+  if (BasePtr->getType()->isVectorTy())
+    MemoryLocation::getForPtrVec(BasePtr, PtrVecMemLocs,
+                                 PtrVectorMemLocCheckDepth);
+  else
+    PtrVecMemLocs.assign(NumElts, MemoryLocation(BasePtr));
 
   // If any pointer on an unmasked lane may alias with Loc, return MRI_Mod.
   // Treat all lanes as unmasked if Mask is not a constant vector.

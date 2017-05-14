@@ -215,16 +215,21 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
   // and safety.
   default:
     break;
-  case Instruction::GetElementPtr:
+  case Instruction::GetElementPtr: {
     // Examine the pointers to the underlying objects, and use the underlying
     // objects' memory locations. This will make the reuslts more conservative
     // by adding false positives, but will not give false negatives.
-    getMemLocsForPtrVec(Op->getOperand(0), Results, Resolved, Depth - 1);
+    Value *BasePtr = Op->getOperand(0);
+    if (BasePtr->getType()->isVectorTy())
+      getMemLocsForPtrVec(BasePtr, Results, Resolved, Depth - 1);
+    else
+      Results.assign(NumElts, MemoryLocation(BasePtr));
+    }
     break;
   case Instruction::InsertElement:
     // This is the major source of vector elements. If the insert index is a
     // constant int within the range of vector, we can get the memory location
-    // of the inserted element for that lane. If the index is a varible, set
+    // of the inserted element for that lane. If the index is a variable, set
     // all memlocs as unknown (Ptr = nullptr, Size = UnknownSize) as it could
     // be inserted to any lane.
     // Otherwise, continue to examine the source operand.
