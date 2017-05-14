@@ -279,6 +279,10 @@ private:
                     Value *CountRoundDown, Value *EndValue,
                     BasicBlock *MiddleBlock);
 
+  /// Fix instructions that use loop private values outside the vectorized loop.
+  void fixupLoopPrivates();
+
+  void writePrivateValAfterLoop(Value *OrigPrivate);
   /// \brief The Loop exit block may have single value PHI nodes where the
   /// incoming value is 'Undef'. While vectorizing we only handled real values
   /// that were defined inside the loop. Here we fix the 'undef case'.
@@ -393,6 +397,11 @@ private:
   // Map of widened private values. Unlike WidenMap, this is
   // pointer-to-pointer map.
   std::map<Value *, Value *> LoopPrivateWidenMap;
+
+  // Provides the lane inside vector of last written elt to the loop private var.
+  // The lane is provided by conditional store.
+  // If the store is unconditional, the lane is VF-1.
+  std::map<Value *, Value *> LoopPrivateLaneMap;
 
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.

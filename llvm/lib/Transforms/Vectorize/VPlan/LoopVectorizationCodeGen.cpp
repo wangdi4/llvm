@@ -21,6 +21,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "LoopVectorizationCodeGen.h"
 #include <tuple>
@@ -510,6 +511,8 @@ void VPOCodeGen::finalizeLoop() {
                  IVEndValues[Entry.first], LoopMiddleBlock);
   
   fixLCSSAPHIs();
+
+  fixupLoopPrivates();
 
   predicateInstructions();
 }
@@ -1014,9 +1017,12 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
                                              "blend");
       Builder.CreateAlignedStore(BlendedVal, VecPtr, Alignment);
 
-    } else
+    } else {
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-
+      if (IsPrivate)
+        LoopPrivateLaneMap[Ptr] =
+          ConstantInt::get(Type::getInt32Ty(Inst->getContext()), VF - 1);
+    }
     return;
   }
 
@@ -2274,6 +2280,39 @@ void VPOCodeGen::predicateInstructions() {
       IncomingTrue->replaceAllUsesWith(Phi);
       Phi->addIncoming(IncomingFalse, Head);
       Phi->addIncoming(IncomingTrue, I->getParent());
+    }
+  }
+}
+
+void VPOCodeGen::writePrivateValAfterLoop(Value *OrigPrivate) {
+  IRBuilder<> Builder(LoopMiddleBlock->getTerminator());
+  Value *PtrToVec = LoopPrivateWidenMap[OrigPrivate];
+  if (!LoopPrivateLaneMap.count(PtrToVec))
+    // The value wasn't written inside the loop.
+    return;
+  Value *LastUpdatedLane = LoopPrivateLaneMap[PtrToVec];
+  Value *PtrToFirstElt = Builder.CreateBitCast(PtrToVec, OrigPrivate->getType());
+  Value *PtrToLane = Builder.CreateGEP(PtrToFirstElt, LastUpdatedLane,
+                                       "LastUpdatedLanePtr");
+  Value *ValueToWiteIn = Builder.CreateLoad(PtrToLane, "LastVal");
+  Builder.CreateStore(ValueToWiteIn, OrigPrivate);
+}
+
+void VPOCodeGen::fixupLoopPrivates() {
+  for (auto It : LoopPrivateWidenMap) {
+    Value *OrigV = It.first;
+    // Any user ouside loop except Bitcast or Intel directive?
+    // If yes, the last written value should be stored in original location.
+    for (User *U : OrigV->users()) {
+      if (OrigLoop->isLoopInvariant(U) && isa<Instruction>(U) &&
+          !IntelIntrinsicUtils::isIntelDirective(cast<Instruction>(U))) {
+        if (isa<BitCastInst>(U) && all_of(U->users(), [&](User *BtcU) -> bool {
+          return !OrigLoop->isLoopInvariant(BtcU);
+            }))
+          continue;
+        writePrivateValAfterLoop(OrigV);
+        break;
+      }
     }
   }
 }

@@ -9,6 +9,7 @@
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %[[PRIV1]]
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %[[PRIV2_BITCAST]]
 ; CHECK-NOT: scatter
+; CHECK-NOT: LastUpdatedLanePtr
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -62,12 +63,10 @@ omp.loop.exit:                                    ; preds = %omp.inner.for.body
   br label %omp.precond.end
 
 omp.precond.end:                                  ; preds = %omp.loop.exit, %entry
-  call void @llvm.lifetime.end(i64 8, i8* nonnull %0) #3
   ret void
 }
-declare float @baz(float, i32) local_unnamed_addr #1
+declare float @baz(float, i32) #1
 
-declare void @llvm.lifetime.end(i64 , i8*)
 declare void @llvm.intel.directive(metadata)
 declare void @llvm.intel.directive.qual.opndlist(metadata , ...)
 
