@@ -721,20 +721,24 @@ Constant *CastGEPIndices(Type *SrcElemTy, ArrayRef<Constant *> Ops,
                          Type *ResultTy, Optional<unsigned> InRangeIndex,
                          const DataLayout &DL, const TargetLibraryInfo *TLI) {
   Type *IntPtrTy = DL.getIntPtrType(ResultTy);
+  Type *IntPtrScalarTy = IntPtrTy->getScalarType();
 
   bool Any = false;
   SmallVector<Constant*, 32> NewIdxs;
   for (unsigned i = 1, e = Ops.size(); i != e; ++i) {
     if ((i == 1 ||
-         !isa<StructType>(GetElementPtrInst::getIndexedType(SrcElemTy,
-             Ops.slice(1, i - 1)))) &&
-        Ops[i]->getType() != IntPtrTy) {
+         !isa<StructType>(GetElementPtrInst::getIndexedType(
+             SrcElemTy, Ops.slice(1, i - 1)))) &&
+        Ops[i]->getType()->getScalarType() != IntPtrScalarTy) {
       Any = true;
+      Type *NewType = Ops[i]->getType()->isVectorTy()
+                          ? IntPtrTy
+                          : IntPtrTy->getScalarType();
       NewIdxs.push_back(ConstantExpr::getCast(CastInst::getCastOpcode(Ops[i],
                                                                       true,
-                                                                      IntPtrTy,
+                                                                      NewType,
                                                                       true),
-                                              Ops[i], IntPtrTy));
+                                              Ops[i], NewType));
     } else
       NewIdxs.push_back(Ops[i]);
   }
