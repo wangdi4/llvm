@@ -37,12 +37,13 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/IR/Dominators.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/InstVisitor.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/IR/InstVisitor.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/MDBuilder.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
@@ -1029,7 +1030,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 */
       NewRedInst = genPrivatizationCodeHelper(W, Orig,
                                               &EntryBB->front(), ".red");
-      genPrivatizationCodeTransform(W, Orig, NewRedInst);
+      genPrivatizationCodeTransform(W, Orig, NewRedInst, RedI);
       RedI->setNew(NewRedInst);
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(RedI, RedInitEntryBB->getTerminator());
@@ -1095,10 +1096,29 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
   return NewPrivInst;
 }
 
+// Annotate the alias scope data for the references of the
+// firstprivate, lastprivate, private shared, reduction variables
+void VPOParoptTransform::annotateInstWithNoAlias(Instruction *ItemInst,
+                                                 Item *IT) {
+  LLVMContext &Context = F->getContext();
+  if (IT->getAliasScope())
+    ItemInst->setMetadata(
+        LLVMContext::MD_alias_scope,
+        MDNode::concatenate(ItemInst->getMetadata(LLVMContext::MD_alias_scope),
+                            MDNode::get(Context, IT->getAliasScope())));
+
+  if (IT->getNoAlias())
+    ItemInst->setMetadata(
+        LLVMContext::MD_noalias,
+        MDNode::concatenate(ItemInst->getMetadata(LLVMContext::MD_noalias),
+                            IT->getNoAlias()));
+}
+
+// Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationCodeTransform(WRegionNode *W,
                                                        Value *PrivValue,
                                                        Value *NewPrivInst,
-                                                       bool ForTaskLoop) {
+                                                       Item *IT) {
   SmallVector<Instruction *, 8> PrivUses;
   for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
        ++IB) {
@@ -1114,11 +1134,9 @@ void VPOParoptTransform::genPrivatizationCodeTransform(WRegionNode *W,
       UI->eraseFromParent();
       continue;
     }
-    if (ForTaskLoop) {
-      IRBuilder<> Builder(UI);
-      UI->replaceUsesOfWith(PrivValue, Builder.CreateLoad(NewPrivInst));
-    } else
-      UI->replaceUsesOfWith(PrivValue, NewPrivInst);
+    UI->replaceUsesOfWith(PrivValue, NewPrivInst);
+    if (isa<LoadInst>(UI) || isa<StoreInst>(UI))
+      annotateInstWithNoAlias(UI, IT);
     // DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
   }
 }
@@ -1159,7 +1177,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           else
             NewPrivInst = FprivI->getNew();
 
-          genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+          genPrivatizationCodeTransform(W, Orig, NewPrivInst, FprivI);
           FprivI->setNew(NewPrivInst);
         } else
           FprivI->setNew(LprivI->getNew());
@@ -1169,7 +1187,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
               genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
         else
           NewPrivInst = FprivI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst, FprivI);
         FprivI->setNew(NewPrivInst);
       }
 
@@ -1233,7 +1251,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
             genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
-      genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+      genPrivatizationCodeTransform(W, Orig, NewPrivInst, LprivI);
       LprivI->setNew(NewPrivInst);
       genLprivFini(LprivI, BeginBB->getTerminator());
     }
@@ -1245,6 +1263,8 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   return Changed;
 }
 
+// Replace the reduction variable reference with the dereference of
+// the return pointer __kmpc_task_reduction_get_th_data
 bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
 
   bool Changed = false;
@@ -1265,7 +1285,7 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Value *NewPrivInst = nullptr;
         NewPrivInst = RedI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst, RedI);
       }
     }
 
@@ -1276,6 +1296,8 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
   return Changed;
 }
 
+// Replace the shared variable reference with the thunk field
+// derefernce
 bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
 
   bool Changed = false;
@@ -1296,7 +1318,7 @@ bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Value *NewPrivInst = nullptr;
         NewPrivInst = ShaI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst, true);
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst, ShaI);
       }
     }
 
@@ -1337,7 +1359,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
               genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
         else
           NewPrivInst = PrivI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst);
+        genPrivatizationCodeTransform(W, Orig, NewPrivInst, PrivI);
 
         PrivI->setNew(NewPrivInst);
         DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
@@ -1437,6 +1459,13 @@ void VPOParoptTransform::genKmpTaskTRecordDecl() {
   KmpTaskTTy = StructType::create(C, KmpTaskTyArgs, "struct.kmp_task_t", false);
 }
 
+// Generate the struct type kmpc_task_t as well as its private data
+// area. One example is as follows.
+// %struct.kmp_task_t_with_privates = type { %struct.kmp_task_t,
+// %struct..kmp_privates.t }
+// %struct.kmp_task_t = type { i8*, i32 (i32, i8*)*, i32,
+// %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
+// %struct..kmp_privates.t = type { i64, i64, i32 }
 StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     WRegionNode *W, StructType *&KmpSharedTy, StructType *&KmpPrivatesTy) {
   LLVMContext &C = F->getContext();
@@ -1532,6 +1561,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   return KmpTaskTTWithPrivatesTy;
 }
 
+// Generate the code to replace the variables in the task loop with
+// the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
     StructType *&KmpSharedTy, Value *&LBVal, Value *&UBVal, Value *&STVal) {
@@ -1686,14 +1717,133 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       Indices.push_back(Builder.getInt32(ShaI->getThunkIdx()));
       Value *ThunkSharedGep =
           Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-      ShaI->setNew(ThunkSharedGep);
+      ShaI->setNew(Builder.CreateLoad(ThunkSharedGep));
     }
   }
+
+  prepareNoAliasMetadataInTaskLoop(W);
 
   W->resetBBSet();
   return true;
 }
 
+// Prepare the scope alias metadata for the references of the
+// firstprivate, lastprivate, private shared, reduction variables
+void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
+  LLVMContext &Context = F->getContext();
+  MDBuilder MDB(Context);
+  MDNode *Domain = MDB.createAnonymousAliasScopeDomain("ParoptDomain");
+  SmallVector<Metadata *, 4> AllScopes;
+  SmallVector<Metadata *, 4> NonAliasingScopes;
+
+  PrivateClause &PrivClause = W->getPriv();
+  if (PrivClause.size()) {
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      auto MD = MDB.createAnonymousAliasScope(Domain);
+      PrivI->setAliasScope(MD);
+      AllScopes.push_back(MD);
+    }
+  }
+
+  FirstprivateClause &FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      auto MD = MDB.createAnonymousAliasScope(Domain);
+      FprivI->setAliasScope(MD);
+      AllScopes.push_back(MD);
+    }
+  }
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      auto MD = MDB.createAnonymousAliasScope(Domain);
+      LprivI->setAliasScope(MD);
+      AllScopes.push_back(MD);
+    }
+  }
+
+  ReductionClause &RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      auto MD = MDB.createAnonymousAliasScope(Domain);
+      RedI->setAliasScope(MD);
+      AllScopes.push_back(MD);
+    }
+  }
+
+  SharedClause &ShaClause = W->getShared();
+  if (ShaClause.size()) {
+    for (SharedItem *ShaI : ShaClause.items()) {
+      auto MD = MDB.createAnonymousAliasScope(Domain);
+      ShaI->setAliasScope(MD);
+      AllScopes.push_back(MD);
+    }
+  }
+
+  PrivClause = W->getPriv();
+  if (PrivClause.size()) {
+    for (PrivateItem *PrivI : PrivClause.items()) {
+      NonAliasingScopes.clear();
+      for (auto *MD : AllScopes) {
+        if (MD != PrivI->getAliasScope())
+          NonAliasingScopes.push_back(MD);
+      }
+      PrivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
+    }
+  }
+
+  FprivClause = W->getFpriv();
+  if (FprivClause.size()) {
+    for (FirstprivateItem *FprivI : FprivClause.items()) {
+      NonAliasingScopes.clear();
+      for (auto *MD : AllScopes) {
+        if (MD != FprivI->getAliasScope())
+          NonAliasingScopes.push_back(MD);
+      }
+      FprivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
+    }
+  }
+
+  LprivClause = W->getLpriv();
+  if (LprivClause.size()) {
+    for (LastprivateItem *LprivI : LprivClause.items()) {
+      NonAliasingScopes.clear();
+      for (auto *MD : AllScopes) {
+        if (MD != LprivI->getAliasScope())
+          NonAliasingScopes.push_back(MD);
+      }
+      LprivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
+    }
+  }
+
+  RedClause = W->getRed();
+  if (RedClause.size()) {
+    for (ReductionItem *RedI : RedClause.items()) {
+      NonAliasingScopes.clear();
+      for (auto *MD : AllScopes) {
+        if (MD != RedI->getAliasScope())
+          NonAliasingScopes.push_back(MD);
+      }
+      RedI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
+    }
+  }
+
+  ShaClause = W->getShared();
+  if (ShaClause.size()) {
+    for (SharedItem *ShaI : ShaClause.items()) {
+      NonAliasingScopes.clear();
+      for (auto *MD : AllScopes) {
+        if (MD != ShaI->getAliasScope())
+          NonAliasingScopes.push_back(MD);
+      }
+      ShaI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
+    }
+  }
+}
+
+// Set up the mapping between the variables (firstprivate,
+// lastprivate, reduction and shared) and the counterparts in the thunk.
 AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
                                                       Instruction *InsertPt,
                                                       StructType *KmpSharedTy) {
@@ -1755,6 +1905,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   return TaskSharedBase;
 }
 
+// Initialize the data in the shared data area inside the thunk
 void VPOParoptTransform::genSharedInitForTaskLoop(
     WRegionNode *W, AllocaInst *Src, Value *Dst, StructType *KmpSharedTy,
     StructType *KmpTaskTTWithPrivatesTy, Instruction *InsertPt) {
@@ -1790,7 +1941,8 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
     Size = Builder.getInt32(
         DL.getTypeAllocSize(Src->getType()->getPointerElementType()));
 
-  Builder.CreateMemCpy(LI, SrcCast, Size, 8); // TODO alignment
+  Builder.CreateMemCpy(LI, SrcCast, Size,
+                       DL.getABITypeAlignment(Src->getAllocatedType()));
 
   Indices.clear();
   Indices.push_back(Builder.getInt32(0));
@@ -1827,11 +1979,14 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
           SharedGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
       Value *D = Builder.CreateBitCast(
           PrivateGep, PointerType::getUnqual(Type::getInt8PtrTy(C)));
-      Builder.CreateMemCpy(D, S, Size, 8); // TODO alignment
+      Builder.CreateMemCpy(
+          D, S, Size, DL.getABITypeAlignment(FprivI->getOrig()->getType()));
     }
   }
 }
 
+// Save the loop lower upper bound, upper bound and stride for the use
+// by the call __kmpc_taskloop
 void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
                                                     Value *&LBVal,
                                                     Value *&UBVal,
@@ -1880,6 +2035,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
   STVal = Stride;
 }
 
+// Generate the outline function of reduction initilaization
 Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
@@ -1915,6 +2071,7 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
   return FnTaskLoopRedInit;
 }
 
+// Generate the outline function for the reduction update
 Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
                                                      ReductionItem *RedI) {
   LLVMContext &C = F->getContext();
@@ -1954,6 +2111,8 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
   return FnTaskLoopRedComb;
 }
 
+// Generate the call __kmpc_task_reduction_init and the corresponding
+// preparation.
 void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
                                                Instruction *InsertBefore) {
 
@@ -2022,6 +2181,8 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
                                            &*Builder.GetInsertPoint());
 }
 
+// Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+// corresponding outlined function
 bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
                                          StructType *KmpTaskTTWithPrivatesTy,
                                          StructType *KmpSharedTy, Value *LBVal,

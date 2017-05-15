@@ -414,19 +414,32 @@ public:
                                  Instruction *InsertPt, IRBuilder<> &Builder,
                                  Type *&ElementTy, Value *&ArrayBegin);
 
+    /// \brief This function generates a call as follows.
+    ///    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
+    ///    i64, i64, i32 (i32, i8*)*)
     static CallInst *
     genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
                      int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
                      PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
                      Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
+    ///    i64*, i64*, i64, i32, i32, i64, i8*)
     static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Value *TaskAlloc,
                                      Value *LBVal, Value *UBVal, Value *STVal,
                                      StructType *KmpTaskTTWithPrivatesTy,
                                      Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
     static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
                                           Value *SharedGep,
                                           Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
     static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
                                               int ParmNum, Value *RedRecord,
                                               Instruction *InsertPt);

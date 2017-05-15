@@ -280,6 +280,8 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
   return;
 }
 
+// This function generates a call as follows.
+//    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
 CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
                                                Value *SharedGep,
                                                Instruction *InsertPt) {
@@ -291,10 +293,10 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 
   Value *RedGetNthDataArgs[] = {
       Builder.CreateLoad(TidPtr),
-      Builder.getInt64(0), // TODO 32/64
+      ConstantPointerNull::get(Type::getInt8PtrTy(C)),
       Builder.CreateBitCast(SharedGep, Type::getInt8PtrTy(C))};
 
-  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt64Ty(C),
+  Type *TypeParams[] = {Type::getInt32Ty(C), Type::getInt8PtrTy(C),
                         Type::getInt8PtrTy(C)};
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
@@ -316,6 +318,9 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
   return RedGetNthDataCall;
 }
 
+// This function generates a call as follows.
+//    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
+//    i64*, i64*, i64, i32, i32, i64, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
                                           Value *LBPtr, Value *UBPtr,
@@ -410,6 +415,9 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 
   return TaskLoopCall;
 }
+
+// This function generates a call as follows.
+//    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,
                                                    Value *RedRecord,
@@ -444,6 +452,9 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   return TaskRedInitCall;
 }
 
+// This function generates a call as follows.
+//    i8* @__kmpc_omp_task_alloc({ i32, i32, i32, i32, i8* }*, i32, i32,
+//    i64, i64, i32 (i32, i8*)*)
 CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            Value *TidPtr,
                                            int KmpTaskTTWithPrivatesTySz,

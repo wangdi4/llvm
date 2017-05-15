@@ -119,8 +119,19 @@ private:
   /// \brief Hold the function type for the function
   /// void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
   FunctionType *KmpcMicroTaskTy;
+
+  /// \brief Hold the function type for the taskloop outlined function in the
+  /// form of void @RoutineEntry (i32 %tid, %struct.kmp_task_t_with_privates*
+  /// %taskt.withprivates)
   PointerType *KmpRoutineEntryPtrTy;
+
+  /// \brief Hold the struct type in the form of %struct.kmp_task_t = type {
+  /// i8*, i32 (i32, i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t,
+  /// i64, i64, i64, i32}
   StructType *KmpTaskTTy;
+
+  /// \brief Hold the struct type in the form of %struct.kmp_task_t_red_item =
+  /// type { i8*, i64, i8*, i8*, i8*, i32 }
   StructType *KmpTaskTRedTy;
 
   /// \brief Use the WRNVisitor class (in WRegionUtils.h) to walk the
@@ -142,9 +153,10 @@ private:
   Value *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
                                     Instruction *InsertPt,
                                     const StringRef VarNameSuff);
+
+  /// \brief Replace the variable with the privatized variable
   void genPrivatizationCodeTransform(WRegionNode *W, Value *PrivValue,
-                                     Value *NewPrivInst,
-                                     bool ForTaskLoop = false);
+                                     Value *NewPrivInst, Item *IT);
 
   /// \brief Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);
@@ -200,29 +212,78 @@ private:
   /// lastprivate code.
   bool genLoopSchedulingCode(WRegionNode *W, AllocaInst *&IsLastVal);
 
+  /// \brief Generate the code to replace the variables in the task loop with
+  /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                            StructType *&KmpSharedTy, Value *&LBVal,
                            Value *&UBVal, Value *&STVal);
+
+  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
+  /// corresponding outlined function
   bool genTaskLoopCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                        StructType *KmpSharedTy, Value *LBVal, Value *UBVal,
                        Value *STVal);
+
+  /// \brief Replace the shared variable reference with the thunk field
+  /// derefernce
   bool genSharedCodeForTaskLoop(WRegionNode *W);
+
+  /// \brief Replace the reduction variable reference with the dereference of
+  /// the return pointer __kmpc_task_reduction_get_th_data
   bool genRedCodeForTaskLoop(WRegionNode *W);
+
+  /// \brief Generate the struct type kmp_task_red_input
   void genTaskTRedType();
+
+  /// \brief Generate the call __kmpc_task_reduction_init and the corresponding
+  /// preparation.
   void genRedInitForTaskLoop(WRegionNode *W, Instruction *InsertBefore);
 
+  /// \brief Set up the mapping between the variables (firstprivate,
+  /// lastprivate, reduction and shared) and the counterparts in the thunk.
   AllocaInst *genTaskPrivateMapping(WRegionNode *W, Instruction *InsertPt,
                                     StructType *KmpSharedTy);
+
+  /// \brief Initialize the data in the shared data area inside the thunk
   void genSharedInitForTaskLoop(WRegionNode *W, AllocaInst *Src, Value *Dst,
                                 StructType *KmpSharedTy,
                                 StructType *KmpTaskTTWithPrivatesTy,
                                 Instruction *InsertPt);
+
+  /// \brief Save the loop lower upper bound, upper bound and stride for the use
+  /// by the call __kmpc_taskloop
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBVal, Value *&UBVal,
                                   Value *&STVal);
+
+  /// \brief Prepare the scope alias metadata for the references of the
+  /// firstprivate, lastprivate, private shared, reduction variables
+  void prepareNoAliasMetadataInTaskLoop(WRegionNode *W);
+
+  /// \brief Generate the outline function of reduction initilaization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
+
+  /// \brief Generate the outline function for the reduction update
   Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
+
+  /// \brief Annotate the alias scope data for the references of the
+  /// firstprivate, lastprivate, private shared, reduction variables
+  void annotateInstWithNoAlias(Instruction *ItemInst, Item *IT);
+
+  /// \brief Generate the function type void @routine_entry(i32 %tid, i8*)
   void genKmpRoutineEntryT();
+
+  /// \brief Generate the struct type %struct.kmp_task_t = type { i8*, i32 (i32,
+  /// i8*)*, i32, %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64,
+  /// i32 }
   void genKmpTaskTRecordDecl();
+
+  /// \brief Generate the struct type kmpc_task_t as well as its private data
+  /// area. One example is as follows.
+  /// %struct.kmp_task_t_with_privates = type { %struct.kmp_task_t,
+  /// %struct..kmp_privates.t }
+  /// %struct.kmp_task_t = type { i8*, i32 (i32, i8*)*, i32,
+  /// %union.kmp_cmplrdata_t, %union.kmp_cmplrdata_t, i64, i64, i64, i32}
+  /// %struct..kmp_privates.t = type { i64, i64, i32 }
   StructType *genKmpTaskTWithPrivatesRecordDecl(WRegionNode *W,
                                                 StructType *&KmpSharedTy,
                                                 StructType *&KmpPrivatesTy);
