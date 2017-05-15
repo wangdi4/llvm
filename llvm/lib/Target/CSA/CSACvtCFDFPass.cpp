@@ -754,6 +754,7 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
   if (DefNotEncloseUse) {
     if (UseMI->isPHI()) {
       MachineBasicBlock* exitingBlk = getDominatingExitingBB(exitingBlks, UseMI, Reg);
+      assert(exitingBlk);
       unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
       // Rewrite uses that outside of the original def's block, inside the loop
       //renameLCSSAPhi or other cross boundary uses
@@ -770,7 +771,12 @@ void CSACvtCFDFPass::SwitchDefAcrossExits(unsigned Reg, MachineBasicBlock* mbb, 
       SSAUpdate.AddAvailableValue(mbb, Reg);
       for (unsigned i = 0; i < exitingBlks.size(); i++) {
         MachineBasicBlock* exitingBlk = exitingBlks[i];
-        if (UseBB->isPredecessor(exitingBlk)) {
+        assert(exitingBlk->succ_size() == 2);
+        MachineBasicBlock* succ1 = *exitingBlk->succ_begin();
+        MachineBasicBlock* succ2 = *exitingBlk->succ_rbegin();
+        MachineBasicBlock* exitBlk = mloop->contains(succ1) ? succ2 : succ1;
+
+        if (DT->dominates(exitBlk, UseBB)) {
           unsigned outVReg = SwitchOutExitingBlk(exitingBlk, Reg, mloop);
           SSAUpdate.AddAvailableValue(exitingBlk, outVReg);
         }
@@ -2434,7 +2440,8 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
   assert(latchBB);
 
   std::set<MachineInstr*> repeats;
-
+  unsigned notExit = 0;
+  unsigned rptPred = 0;
   for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
     MachineBasicBlock* mbb = *BI;
     //only conside blocks in the current loop level, blocks in the nested level are done before.
@@ -2466,27 +2473,25 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             unsigned rptIReg = MRI->createVirtualRegister(TRC);
             unsigned rptOReg = MRI->createVirtualRegister(TRC);
-            //const TargetRegisterClass* new_LIC_RC = LMFI->licRCFromGenRC(MRI->getRegClass(Reg));
-            //assert(new_LIC_RC && "Can't determine register class for register");
-            //unsigned rptIReg = LMFI->allocateLIC(new_LIC_RC);
             const unsigned pickOpcode = TII->getPickSwitchOpcode(TRC, true /*pick op*/);
-            MachineInstr *pickInst = BuildMI(*lphdr, lphdr->getFirstTerminator(), DebugLoc(), TII->get(pickOpcode), 
+            MachineInstr *pickInst = BuildMI(*lphdr, lphdr->getFirstTerminator(), DebugLoc(), TII->get(pickOpcode),
               rptOReg).
               addReg(predReg).
               addReg(Reg).
               addReg(rptIReg);
             pickInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(pickInst);
+            //make sure loop back condition instruction only generated once for all the blks in the loop
+            if (!notExit) {
+              assert(!rptPred);
+              notExit = MRI->createVirtualRegister(&CSA::I1RegClass);
+              BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notExit).addReg(exitPred);
 
-
-            unsigned notExit = MRI->createVirtualRegister(&CSA::I1RegClass);
-            BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notExit).addReg(exitPred);
-
-            SmallVector<unsigned, 4> landOpnds;
-            landOpnds.push_back(notExit);
-            landOpnds.push_back(backedgePred);
-            unsigned rptPred = generateLandSeq(landOpnds, latchBB);
-
+              SmallVector<unsigned, 4> landOpnds;
+              landOpnds.push_back(notExit);
+              landOpnds.push_back(backedgePred);
+              rptPred = generateLandSeq(landOpnds, latchBB);
+            }
             const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
             MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
               CSA::IGN).
