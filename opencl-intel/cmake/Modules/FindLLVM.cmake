@@ -31,7 +31,7 @@ else(BUILD_LLVM_FROM_SOURCE )
 
     # detect where the LLVMConfig should be found
     if( DEFINED CMAKE_BUILD_TYPE )
-      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH}/share/llvm/cmake)
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH}/lib/cmake/llvm)
     else()
       # we need to include some file from LLVM share, the problem is
       # that for VS the LLVM_PATH is not full but contain the ${CMAKE_CFG_INTDIR} macro
