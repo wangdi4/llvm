@@ -35,7 +35,7 @@ OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruc
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)

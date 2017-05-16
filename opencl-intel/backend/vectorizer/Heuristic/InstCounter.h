@@ -41,7 +41,7 @@ namespace intel {
       AU.addRequired<ScalarEvolutionWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<PostDominatorTree>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<PostDominanceFrontier>();
       AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesAll();

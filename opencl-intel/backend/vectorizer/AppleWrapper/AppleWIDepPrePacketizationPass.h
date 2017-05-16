@@ -47,7 +47,7 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<WIAnalysis>();
-    AU.addRequired<PostDominatorTree>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<BuiltinLibInfo>();
   }
 

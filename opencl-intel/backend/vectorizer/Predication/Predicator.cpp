@@ -62,7 +62,7 @@ OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, 
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -995,7 +995,7 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // For each BB
   // Obtain loop analysis (are we inside a loop ?)
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
 
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
@@ -1339,7 +1339,7 @@ void Predicator::collectBranchesInfo(Function* F) {
 }
 
 void Predicator::collectOptimizedMasks(Function* F,
-                                       PostDominatorTree* PDT,
+                                       PostDominatorTreeWrapperPass* PDT,
                                        DominatorTree*  DT) {
 
   // get loop info
@@ -1479,7 +1479,7 @@ bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exit
 }
 
 void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
-                                   PostDominatorTree * PDT,
+                                   PostDominatorTreeWrapperPass * PDT,
                                    DominatorTree *  DT) {
   // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
   // nested inside divergent regions.
@@ -1897,7 +1897,7 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
 }
 
 void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   for (LoopInfo::iterator it = LI->begin(), e = LI->end();
@@ -1945,7 +1945,7 @@ void Predicator::predicateFunction(Function *F) {
   m_ucfSchedulingConstraints.clear();
 
   // Get Dominator and Post-Dominator analysis passes
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
   DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();

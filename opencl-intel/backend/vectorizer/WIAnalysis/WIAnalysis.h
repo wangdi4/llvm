@@ -178,7 +178,7 @@ private:
       AU.setPreservesAll();
       AU.addRequired<SoaAllocaAnalysis>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<PostDominatorTree>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }
@@ -206,7 +206,7 @@ private:
    /// Analyses needed by the control flow divergence
    /// propagation
     DominatorTree *m_DT;
-    PostDominatorTree *m_PDT;
+    PostDominatorTreeWrapperPass *m_PDT;
     LoopInfo *m_LI;
 
     //// Fields for the control flow divergence propagation

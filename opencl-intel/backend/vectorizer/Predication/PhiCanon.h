@@ -66,7 +66,7 @@ public:
   // Need Dominator Tree and PostDominator tree prior to Phi Canonization
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.addRequired<DominatorTreeWrapperPass>();
-        AU.addRequired<PostDominatorTree>();
+        AU.addRequired<PostDominatorTreeWrapperPass>();
   }
 
 };

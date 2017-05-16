@@ -16,7 +16,7 @@ char intel::PhiCanon::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_END(PhiCanon, "phicanon", "Phi Canonicalizer path (Two-based Phi)", false, false)
 
 PhiCanon::PhiCanon() : FunctionPass(ID) {
@@ -58,7 +58,7 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
 
   DominatorTreeWrapperPass & DTPass = getAnalysis<DominatorTreeWrapperPass>();
   DominatorTree     *DT  = &DTPass.getDomTree();
-  PostDominatorTree *PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTreeWrapperPass *PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
 
   // Look for pair of BBs which comply with the following rules:
   // - none of them is dominated by the block-to-be-fixed

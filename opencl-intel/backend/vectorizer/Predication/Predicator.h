@@ -249,7 +249,7 @@ private:
   /// @param PDT Post dominator info
   /// @param DT Dominator info
   void collectOptimizedMasks(Function* F,
-                             PostDominatorTree* PDT,
+                             PostDominatorTreeWrapperPass* PDT,
                              DominatorTree*  DT);
   /// @brief Test if a given region do not have divergent control flow inside
   /// @param entryBB entry basic block
@@ -265,7 +265,7 @@ private:
   /// @param PDT Post dominator info
   /// @param DT Dominator info
   void collectUCFRegions(Function* F, LoopInfo * LI,
-                         PostDominatorTree * PDT,
+                         PostDominatorTreeWrapperPass * PDT,
                          DominatorTree *  DT);
   /// @brief for each block that ends with a divergent branch,
   /// saves the branchInfo into m_branchesInfo
@@ -415,7 +415,7 @@ public:
     // We need dominance frontier to estimate
     // the dominance for specialization
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTree>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
     // for bypasses usage

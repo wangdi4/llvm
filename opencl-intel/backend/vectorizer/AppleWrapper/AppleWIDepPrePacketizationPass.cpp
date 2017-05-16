@@ -65,7 +65,7 @@ void AppleWIDepPrePacketizationPass::handleWriteImage(CallInst *CI, std::string 
   Value *xCoord = CI->getArgOperand(1);
   Value *yCoord = CI->getArgOperand(2);
   WIAnalysis *depAnalysis = &getAnalysis<WIAnalysis>();
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   BasicBlock *curBlock = CI->getParent();
   BasicBlock &entry = curBlock->getParent()->getEntryBlock();
 

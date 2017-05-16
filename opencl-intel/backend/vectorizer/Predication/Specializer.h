@@ -71,7 +71,7 @@ public:
   /// @param PDT postdominator analysis
   /// @param DT dominator analysis
   FunctionSpecializer(Predicator* pred, Function* func, Function* all_zero,
-                      PostDominatorTree* PDT, DominatorTree*  DT,
+                      PostDominatorTreeWrapperPass* PDT, DominatorTree*  DT,
                       LoopInfo *LI, WIAnalysis *WIA, OCLBranchProbability *OBP);
 
   /// @brief Finds a single edge to specialize. This uses
@@ -194,7 +194,7 @@ private:
   /// Function which calculates the all_zero of masks
   Function* m_allzero;
   /// Post Dominator tree analysis for function
-  PostDominatorTree* m_PDT;
+  PostDominatorTreeWrapperPass* m_PDT;
   /// Dominator tree analysis for function
   DominatorTree* m_DT;
   // LoopInfo
