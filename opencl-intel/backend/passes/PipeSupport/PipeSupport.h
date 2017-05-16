@@ -42,7 +42,7 @@ public:
   static char ID;
   PipeSupport();
 
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "PipeSupport";
   }
 

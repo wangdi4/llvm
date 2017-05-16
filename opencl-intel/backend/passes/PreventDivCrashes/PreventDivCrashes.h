@@ -34,7 +34,7 @@ namespace intel {
     PreventDivCrashes() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "PreventDivCrashes";
     }
 
@@ -72,7 +72,7 @@ namespace intel {
     OptimizeIDiv() : FunctionPass(ID){}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "OptimizeIDiv";
     }
 

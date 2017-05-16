@@ -31,7 +31,7 @@ namespace intel {
     SoaAllocaAnalysis() : FunctionPass(ID) {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "SoaAllocaAnalysis";
     }
 

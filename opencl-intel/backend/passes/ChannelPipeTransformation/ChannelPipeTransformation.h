@@ -30,7 +30,7 @@ public:
   static char ID;
   ChannelPipeTransformation();
 
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "ChannelPipeTransformation";
   }
 

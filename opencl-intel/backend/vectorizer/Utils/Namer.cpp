@@ -38,7 +38,7 @@ public:
   /// @brief D'tor
   ~nameRemove(){}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "nameRemove";
   }
 

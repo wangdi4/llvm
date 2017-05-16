@@ -78,7 +78,7 @@ public:
   /// @brief D'tor
   ~IRInjectModule(){}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "IRInjectModule";
   }
 

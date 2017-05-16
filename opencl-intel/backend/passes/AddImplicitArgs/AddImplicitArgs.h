@@ -32,7 +32,7 @@ namespace intel {
     AddImplicitArgs();
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "AddImplicitArgs";
     }
 

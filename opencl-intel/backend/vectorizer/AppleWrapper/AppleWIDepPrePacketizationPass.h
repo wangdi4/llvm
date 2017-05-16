@@ -39,7 +39,7 @@ public:
   ~AppleWIDepPrePacketizationPass();
   
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "Apple WI dependaent Pre-Packetization Pass";
   }
   

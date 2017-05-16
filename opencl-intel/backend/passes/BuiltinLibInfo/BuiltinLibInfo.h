@@ -42,7 +42,7 @@ public:
     delete m_pRuntimeServices;
   }
 
-  virtual const char *getPassName() const { return "BuiltinLibInfo"; }
+  virtual StringRef getPassName() const { return "BuiltinLibInfo"; }
 
   /// @brief returns built-ins module
   /// @return the builtin library module

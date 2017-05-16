@@ -37,7 +37,7 @@ public:
   ~OCLBuiltinPreVectorizationPass();
 
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual StringRef getPassName() const {
     return "OCL Builtin Pre Vectorization Pass";
   }
 

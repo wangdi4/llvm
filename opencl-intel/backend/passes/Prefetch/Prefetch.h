@@ -92,7 +92,7 @@ namespace intel{
 
       ~Prefetch();
 
-      virtual const char *getPassName() const {
+      virtual StringRef getPassName() const {
         return "Prefetch";
       }
 

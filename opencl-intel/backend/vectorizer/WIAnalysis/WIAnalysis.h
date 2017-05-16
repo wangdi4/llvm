@@ -49,7 +49,7 @@ public:
     WIAnalysis(unsigned int vectorizationDimension);
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "WIAnalysis";
     }
 

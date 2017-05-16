@@ -36,7 +36,7 @@ namespace intel {
     BIImport(const char *CPUPrefix = "");
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "BIImport";
     }
 

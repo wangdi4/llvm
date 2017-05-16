@@ -40,7 +40,7 @@ namespace intel {
     KernelInfoWrapper() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "KernelInfoWrapper";
     }
 
@@ -73,7 +73,7 @@ namespace intel {
     }
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "KernelInfoPass";
     }
 

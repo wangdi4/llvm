@@ -28,7 +28,7 @@ public:
     /// @brief D'tor
     ~VectorizerCore();
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
         return "Intel OpenCL VectorizerCore";
     }
 

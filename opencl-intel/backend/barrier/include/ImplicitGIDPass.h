@@ -35,7 +35,7 @@ namespace intel {
     ~ImplicitGlobalIdPass() {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual StringRef getPassName() const {
       return "Intel OpenCL Implicit GID Debugging Pass";
     }
 

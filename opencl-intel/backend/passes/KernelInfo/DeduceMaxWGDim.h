@@ -42,7 +42,7 @@ public:
       : ModulePass(ID), MangledGetGID(CompilationUtils::mangledGetGID()),
         MangledGetLID(CompilationUtils::mangledGetLID()) {}
 
-  virtual const char *getPassName() const { return "DeduceMaxWGDim"; }
+  virtual StringRef getPassName() const { return "DeduceMaxWGDim"; }
 
   bool runOnModule(Module &M);
   bool runOnFunction(Function &F, Intel::MetaDataUtils &MDU);

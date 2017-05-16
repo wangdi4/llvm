@@ -24,7 +24,7 @@ public:
 
   OclFunctionAttrs();
 
-  virtual const char *getPassName() const { return "OclFunctionAttrs"; }
+  virtual StringRef getPassName() const { return "OclFunctionAttrs"; }
   virtual bool runOnModule(Module &M);
 };
 
@@ -40,7 +40,7 @@ public:
 
   OclSyncFunctionAttrs();
 
-  virtual const char *getPassName() const { return "OclSyncFunctionAttrs"; }
+  virtual StringRef getPassName() const { return "OclSyncFunctionAttrs"; }
   virtual bool runOnModule(Module &M);
 };
 
