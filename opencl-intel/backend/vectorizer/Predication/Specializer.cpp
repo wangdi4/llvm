@@ -137,7 +137,7 @@ namespace intel {
 
 FunctionSpecializer::FunctionSpecializer(Predicator* pred, Function* func,
                                          Function* all_zero,
-                                         PostDominatorTreeWrapperPass* PDT,
+                                         PostDominatorTree* PDT,
                                          DominatorTree*  DT,
                                          LoopInfo *LI,
                                          WIAnalysis *WIA,

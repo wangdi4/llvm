@@ -249,8 +249,8 @@ private:
   /// @param PDT Post dominator info
   /// @param DT Dominator info
   void collectOptimizedMasks(Function* F,
-                             PostDominatorTreeWrapperPass* PDT,
-                             DominatorTree*  DT);
+                             PostDominatorTree* PDT,
+                             DominatorTree* DT);
   /// @brief Test if a given region do not have divergent control flow inside
   /// @param entryBB entry basic block
   /// @param exitBB exit basic block
@@ -265,7 +265,7 @@ private:
   /// @param PDT Post dominator info
   /// @param DT Dominator info
   void collectUCFRegions(Function* F, LoopInfo * LI,
-                         PostDominatorTreeWrapperPass * PDT,
+                         PostDominatorTree * PDT,
                          DominatorTree *  DT);
   /// @brief for each block that ends with a divergent branch,
   /// saves the branchInfo into m_branchesInfo

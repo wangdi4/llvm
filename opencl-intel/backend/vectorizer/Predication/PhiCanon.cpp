@@ -57,8 +57,9 @@ bool PhiCanon::runOnFunction(Function &F) {
 void PhiCanon::fixBlock(BasicBlock* toFix) {
 
   DominatorTreeWrapperPass & DTPass = getAnalysis<DominatorTreeWrapperPass>();
-  DominatorTree     *DT  = &DTPass.getDomTree();
-  PostDominatorTreeWrapperPass *PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
+  DominatorTree *DT = &DTPass.getDomTree();
+  PostDominatorTreeWrapperPass & PDTPass = getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTree *PDT = &PDTPass.getPostDomTree();
 
   // Look for pair of BBs which comply with the following rules:
   // - none of them is dominated by the block-to-be-fixed
@@ -163,7 +164,8 @@ void PhiCanon::fixBlock(BasicBlock* toFix) {
       // also - add new block to the dominator and postdominator trees
       DTPass.runOnFunction(*(new_bb->getParent()));
       DT = &DTPass.getDomTree();
-      PDT->runOnFunction(*(new_bb->getParent()));
+      PDTPass.runOnFunction(*(new_bb->getParent()));
+      PDT = &PDTPass.getPostDomTree();
       pair_found = true;
       break;
     }

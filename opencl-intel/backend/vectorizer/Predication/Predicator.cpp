@@ -60,7 +60,7 @@ const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
 
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontierWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
@@ -995,7 +995,8 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // For each BB
   // Obtain loop analysis (are we inside a loop ?)
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTreeWrapperPass &PDTPass = getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTree *PDT = &PDTPass.getPostDomTree();
 
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
@@ -1339,7 +1340,7 @@ void Predicator::collectBranchesInfo(Function* F) {
 }
 
 void Predicator::collectOptimizedMasks(Function* F,
-                                       PostDominatorTreeWrapperPass* PDT,
+                                       PostDominatorTree* PDT,
                                        DominatorTree*  DT) {
 
   // get loop info
@@ -1479,8 +1480,8 @@ bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exit
 }
 
 void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
-                                   PostDominatorTreeWrapperPass * PDT,
-                                   DominatorTree *  DT) {
+                                   PostDominatorTree * PDT,
+                                   DominatorTree * DT) {
   // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
   // nested inside divergent regions.
   SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
@@ -1897,7 +1898,7 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
 }
 
 void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
-  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   for (LoopInfo::iterator it = LI->begin(), e = LI->end();
@@ -1945,7 +1946,7 @@ void Predicator::predicateFunction(Function *F) {
   m_ucfSchedulingConstraints.clear();
 
   // Get Dominator and Post-Dominator analysis passes
-  PostDominatorTreeWrapperPass* PDT = &getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -2279,7 +2280,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
     for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
-      RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingEntries);
+      RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
   }
 
   // Create conditional branch to the original and cloned UCF entry BBs
@@ -2307,7 +2308,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // Update refereneces in the outside users
   for(SmallVector<Instruction *, 16>::iterator userIt = outsideUsers.begin(), userEnd = outsideUsers.end();
         userIt != userEnd; ++userIt) {
-    RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingEntries);
+    RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingLocals);
   }
   // Unpredicate the cloned UCF region
   for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
