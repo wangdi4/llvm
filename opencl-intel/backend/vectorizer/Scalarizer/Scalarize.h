@@ -16,8 +16,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/IR/Type.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/ilist.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
@@ -128,7 +128,7 @@ private:
 
 
   /// @brief a set contains vector from original kernel that need to be used after sclarization
-  SmallPtrSet<Value*, ESTIMATED_INST_NUM> m_usedVectors;
+  DenseSet<Value*> m_usedVectors;
 
   /// @brief update museVectors set with the vectori value to be obtained at when scalarization finish
   /// @param vectorVal Vector being added to set
@@ -175,7 +175,7 @@ private:
   /// @brief Pointer to runtime service object
   const RuntimeServices *m_rtServices;
   /// @brief Set containing all the removed instructions in the function.
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM> m_removedInsts;
+  DenseSet<Instruction*> m_removedInsts;
   /// @brief Counters for "transpose" statistics
   int m_transposeCtr[Instruction::OtherOpsEnd];
 

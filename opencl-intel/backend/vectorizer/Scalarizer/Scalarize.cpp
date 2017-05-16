@@ -112,18 +112,18 @@ bool ScalarizeFunction::runOnFunction(Function &F)
   resolveDeferredInstructions();
 
   // Iterate over removed insts and delete them
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator ri = m_removedInsts.begin();
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator re = m_removedInsts.end();
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator index = ri;
+  auto ri = m_removedInsts.begin();
+  auto re = m_removedInsts.end();
+  auto indexi = ri;
 
-  for (;index != re; ++index) {
+  for (;indexi != re; ++indexi) {
     // get rid of old users
-    if (Value* val = dyn_cast<Value>(*index)) {
-      UndefValue *undefVal = UndefValue::get((*index)->getType());
+    if (Value* val = dyn_cast<Value>(*indexi)) {
+      UndefValue *undefVal = UndefValue::get((*indexi)->getType());
       (val)->replaceAllUsesWith(undefVal);
     }
-    V_ASSERT((*index)->use_empty() && "Unable to remove used instruction");
-    (*index)->eraseFromParent();
+    V_ASSERT((*indexi)->use_empty() && "Unable to remove used instruction");
+    (*indexi)->eraseFromParent();
   }
 
   V_STAT(
@@ -1272,8 +1272,8 @@ void ScalarizeFunction::obtainVectorValueWhichMightBeScalarized(Value * vectorVa
 
 void ScalarizeFunction::resolveVectorValues()
 {
-  SmallPtrSet<Value *, ESTIMATED_INST_NUM>::iterator it = m_usedVectors.begin();
-  SmallPtrSet<Value *, ESTIMATED_INST_NUM>::iterator e = m_usedVectors.end();
+  auto it = m_usedVectors.begin();
+  auto e = m_usedVectors.end();
   for (; it !=e ; ++it){
     obtainVectorValueWhichMightBeScalarizedImpl(*it);
   }

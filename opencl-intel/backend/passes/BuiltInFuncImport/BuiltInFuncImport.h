@@ -9,6 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __BUILT_IN_FUNCTION_IMPORT_H__
 
 #include "BuiltinLibInfo.h"
+
+#include <llvm/ADT/DenseSet.h>
 #include <llvm/Pass.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -74,8 +76,8 @@ namespace intel {
     /// @param [OUT] UsedGlobals global variables used by the \p Root
     void ExploreUses(Function *Root,
                      SmallVectorImpl<Module *> &Modules,
-                     SmallPtrSetImpl<GlobalValue *> &UsedFunctions,
-                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals);
+                     DenseSet<GlobalValue *> &UsedFunctions,
+                     DenseSet<GlobalVariable *> &UsedGlobals);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;

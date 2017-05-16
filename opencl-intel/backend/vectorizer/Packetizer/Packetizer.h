@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 #include "TargetArch.h"
 
-#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -468,7 +468,7 @@ private:
   SoaAllocaAnalysis *m_soaAllocaAnalysis;
 
   // Contains all the removed instructions. After packetizing completes, they are removed.
-  SmallPtrSet<Instruction *, ESTIMATED_INST_NUM> m_removedInsts;
+  DenseSet<Instruction *> m_removedInsts;
 
   /// @brief Per each value - map to vectorized and multi-scalar counterparts
   DenseMap<Value *, VCMEntry *> m_VCM;

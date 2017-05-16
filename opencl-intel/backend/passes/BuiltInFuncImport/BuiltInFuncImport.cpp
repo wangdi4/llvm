@@ -142,8 +142,8 @@ namespace intel {
 
   static void ExploreOperand(Value *Op,
                              SmallVectorImpl<Module*> &Modules,
-                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+                             DenseSet<GlobalValue*> &UsedFunctions,
+                             DenseSet<GlobalVariable*> &UsedGlobals) {
     // operand may be a ConstantExpr, so we need to recursively check its
     // operands
     if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
@@ -160,8 +160,8 @@ namespace intel {
 
   void BIImport::ExploreUses(Function *Root,
                              SmallVectorImpl<Module*> &Modules,
-                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
-                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
+                             DenseSet<GlobalValue*> &UsedFunctions,
+                             DenseSet<GlobalVariable*> &UsedGlobals) {
     assert(Root && "Invalid function.");
 
     if (Root->isDeclaration()) {
@@ -195,8 +195,8 @@ namespace intel {
 
   static std::unique_ptr<Module>
   CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
-                          SmallPtrSetImpl<GlobalValue*> &ReqFunctions,
-                          SmallPtrSetImpl<GlobalVariable*> &ReqGlobals) {
+                          DenseSet<GlobalValue*> &ReqFunctions,
+                          DenseSet<GlobalVariable*> &ReqGlobals) {
     std::unique_ptr<Module> New =
       llvm::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
 
@@ -289,8 +289,8 @@ namespace intel {
 
     const int EST_FUNCTIONS_NUM = 64;
     const int EST_GLOBALS_NUM = 64;
-    SmallPtrSet<GlobalValue*, EST_FUNCTIONS_NUM> UsedFunctions;
-    SmallPtrSet<GlobalVariable*, EST_GLOBALS_NUM> UsedGlobals;
+    DenseSet<GlobalValue*> UsedFunctions;
+    DenseSet<GlobalVariable*> UsedGlobals;
 
     for (auto &F : M) {
       ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals);
