@@ -22,10 +22,11 @@ private:
   // Map to remember which BRs have already been generated
   // for corresponding CBRs.
   std::map<VPConditionBitRecipeWithScalar *, VPBooleanRecipe *> CBRtoBRMap;
-  void initializeGenPredicates(VPBasicBlock *VPBB);
+
   int countSuccessorsNoBE(VPBlockBase *PredBlock, bool& HasBE);
   void getSuccessorsNoBE(VPBlockBase *PredBlock,
                          SmallVector<VPBlockBase *, 2> &Succs);
+
   VPBooleanRecipe *getConditionRecipe(VPConditionBitRecipeBase *CBR);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB, EdgeType ET);
   VPPredicateRecipeBase *genEdgeRecipe(VPBasicBlock *PredBB,

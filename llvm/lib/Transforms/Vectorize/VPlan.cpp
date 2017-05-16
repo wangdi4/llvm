@@ -506,15 +506,6 @@ void VPlan::printInst2Recipe() {
   }
 }
 
-void VPAllOnesPredicateRecipe::vectorize(VPTransformState &State) {
-  // Nothing to do for AllOnesPredicate case - push null to indicate
-  // that we do not need a mask value for this case.
-  for (unsigned Index = 0; Index < State.UF; ++Index)
-    VectorizedPredicate.push_back(nullptr);
-}
-
-void VPAllOnesPredicateRecipe::print(raw_ostream &O) const { O << Name; }
-
 void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
   const auto &IncomingPredicates = getIncomingPredicates();
   auto NumIncoming = IncomingPredicates.size();
@@ -545,13 +536,13 @@ void VPBlockPredicateRecipe::vectorize(VPTransformState &State) {
 }
 
 void VPBlockPredicateRecipe::print(raw_ostream &O) const {
-  O << Name;
+  O << Name << " = ";
   // Predicate Inputs
   if (!getIncomingPredicates().empty()) {
-    O << " = ";
+    VPPredicateRecipeBase *LastPred = getIncomingPredicates().back();
     for (VPPredicateRecipeBase *inputPredicate : getIncomingPredicates()) {
       O << inputPredicate->getName();
-      if (inputPredicate != getIncomingPredicates().back()) {
+      if (inputPredicate != LastPred) {
         O << " || ";
       }
     }
@@ -595,16 +586,13 @@ void VPEdgePredicateRecipe::print(raw_ostream &O) const {
   O << " = ";
   if (PredecessorPredicate)
     O << PredecessorPredicate->getName();
-  else
-    O << "NULL";
 }
 
 void VPIfTruePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   O << " = ";
-  if (PredecessorPredicate) {
+  if (PredecessorPredicate)
     O << PredecessorPredicate->getName() << " && ";
-  }
 
   O << ConditionRecipe->getName();
 }
@@ -638,20 +626,16 @@ void VPIfFalsePredicateRecipe::vectorize(VPTransformState &State) {
 void VPIfFalsePredicateRecipe::print(raw_ostream &O) const {
   O << Name;
   O << " = ";
-  if (PredecessorPredicate) {
+  if (PredecessorPredicate)
     O << PredecessorPredicate->getName() << " && ";
-  }
-  
+
   O << "!" <<  ConditionRecipe->getName();
 }
 
 void VPBooleanRecipe::print(raw_ostream &O) const {
-  O << Name << " ";
-  if (ConditionValue) {
-    O << *ConditionValue;
-  } else {
-    O << "NULL";
-  }
+  O << Name;
+  if (ConditionValue)
+    O << " " << *ConditionValue;
 }
 
 void VPVectorizeBooleanRecipe::vectorize(VPTransformState &State) {

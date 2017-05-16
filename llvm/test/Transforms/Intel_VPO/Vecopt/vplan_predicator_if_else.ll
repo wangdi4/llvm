@@ -118,7 +118,7 @@ attributes #1 = { argmemonly nounwind }
 
 ; NOOPT: [[loop_14:loop[0-9]+]]:
 ; NOOPT:   [[BB_9:BB[0-9]+]]:
-; NOOPT:     [[BP_17:BP[0-9]+]] = [[AllOnes_16:AllOnes[0-9]+]]
+; NOOPT:     [[BP_17:BP[0-9]+]] = 
 ; NOOPT:   [[BB_2:BB[0-9]+]]:
 ; NOOPT:     [[BP_18:BP[0-9]+]] = [[BP_17]]
 ; NOOPT:   [[region_15:region[0-9]+]]:

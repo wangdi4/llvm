@@ -146,7 +146,7 @@ attributes #1 = { argmemonly nounwind }
 
 ; NOOPT: [[loop_20:loop[0-9]+]]:
 ; NOOPT:   [[BB_15:BB[0-9]+]]:
-; NOOPT:     [[BP_23:BP[0-9]+]] = [[AllOnes_22:AllOnes[0-9]+]]
+; NOOPT:     [[BP_23:BP[0-9]+]] = 
 ; NOOPT:   [[BB_2:BB[0-9]+]]:
 ; NOOPT:     [[BP_24:BP[0-9]+]] = [[BP_23]]
 ; NOOPT:   [[region_21:region[0-9]+]]:

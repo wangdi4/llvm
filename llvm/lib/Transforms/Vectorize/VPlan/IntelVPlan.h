@@ -616,14 +616,6 @@ public:
     return newRecipe;
   }
 
-  /// Create a new VPAllOnesPredicateRecipe
-  VPAllOnesPredicateRecipe *createAllOnesPredicateRecipe(void) {
-    VPAllOnesPredicateRecipe *newRecipe =
-        VPAllOnesPredicateRecipe::getPredicateRecipe();
-    newRecipe->setName(createUniqueName("AllOnes"));
-    return newRecipe;
-  }
-
   /// Returns true if the edge FromBlock->ToBlock is a back-edge.
   bool isBackEdge(const VPBlockBase *FromBlock, const VPBlockBase *ToBlock,
                   const VPLoopInfo *VPLI) {

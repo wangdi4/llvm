@@ -107,7 +107,6 @@ public:
 	VPMergeScalarizeBranchSC,
 
 	// predicates
-	VPAllOnesPredicateRecipeSC,
 	VPBlockPredicatesRecipeSC,
 	VPIfTruePredicateRecipeSC,
 	VPIfFalsePredicateRecipeSC,
@@ -186,6 +185,8 @@ public:
 ///     active lanes). When the condition is void, the source-BB has only a 
 ///     single edge and its condition-predicate is set to all lanes.
 class VPPredicateRecipeBase : public VPRecipeBase {
+  friend class VPlanUtils;
+
 public:
   /// Type definition for an array of vectorized masks. One per unroll
   /// iteration.
@@ -220,8 +221,7 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPAllOnesPredicateRecipeSC ||
-           V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC  ||
+    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC  ||
            V->getVPRecipeID() == VPRecipeBase::VPIfTruePredicateRecipeSC  ||
            V->getVPRecipeID() == VPRecipeBase::VPIfFalsePredicateRecipeSC;
   }
@@ -233,54 +233,15 @@ public:
   void setName(std::string Name) { this->Name = Name; }
 };
 
-/// A VPAllOnesPredicateRecipe is a concrete VPPredicateRecipe recipe which
-/// models a special block-predicate which has all lanes active. This is the
-/// default entry and exit predicate value for any vectorized code.
-/// A VPAllOnesPredicateRecipe is a singletone, i.e. it instantiates once
-/// in the program's lifespan for all VPlans.
-/// no singletone.
-class VPAllOnesPredicateRecipe : public VPPredicateRecipeBase {
-public:
-
-  /// Construct a VPAllOnesPredicateRecipe.
-  VPAllOnesPredicateRecipe()
-    : VPPredicateRecipeBase(VPAllOnesPredicateRecipeSC) {}
-
-public:
-  inline static VPAllOnesPredicateRecipe* getPredicateRecipe() {
-    //static VPAllOnesPredicateRecipe AllOnes;
-    //return AllOnes;
-    return new VPAllOnesPredicateRecipe();
-  }
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPAllOnesPredicateRecipeSC;
-  }
-
-  void vectorize(VPTransformState &State) override;
-
-  void print(raw_ostream &O) const override;
-
-};
-
 /// A VPBlockPredicateRecipe is a concrete VPPredicateRecipe recipe which
 /// models a block predicate. As defined above in Predicate relations (a.1.),
 /// this predicate is the union of all IncomingPredicates.
 class VPBlockPredicateRecipe : public VPPredicateRecipeBase {
+  friend class VPlanUtils;
+
 private:
   /// The list of incoming edges to the block
   SmallVector<VPPredicateRecipeBase*, 2> IncomingPredicates;
-
-public:
-  /// Construct a VPPredicateRecipeBase.
-  VPBlockPredicateRecipe()
-    : VPPredicateRecipeBase(VPBlockPredicatesRecipeSC), IncomingPredicates() {}
-
-  /// Method to support type inquiry through isa, cast, and dyn_cast.
-  static inline bool classof(const VPRecipeBase *V) {
-    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
-  }
 
   /// \brief Add Incoming Predicate.
   void appendIncomingPredicate(VPPredicateRecipeBase *Incoming) {
@@ -290,6 +251,7 @@ public:
 
   /// \brief Remove Incoming Predicate.
   void removeIncomingPredicate(VPPredicateRecipeBase *Incoming) {
+    assert(Incoming && "Cannot add nullptr incoming predicate!");
     auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(),
                          Incoming);
     assert(Pos && "Incoming does not exist!");
@@ -301,6 +263,16 @@ public:
     IncomingPredicates.clear();
   }
 
+public:
+  /// Construct a VPPredicateRecipeBase.
+  VPBlockPredicateRecipe()
+    : VPPredicateRecipeBase(VPBlockPredicatesRecipeSC), IncomingPredicates() {}
+
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPRecipeBase *V) {
+    return V->getVPRecipeID() == VPRecipeBase::VPBlockPredicatesRecipeSC;
+  }
+
   const SmallVectorImpl<VPPredicateRecipeBase *> &
   getIncomingPredicates(void) const {
     return const_cast<VPBlockPredicateRecipe *>(this)->getIncomingPredicates();
@@ -310,14 +282,6 @@ public:
     return IncomingPredicates;
   }
 
-  /*
-  /// \brief Remove Incoming Predicate.
-  void removeIncomingPredicate(VPBlockBase *Incoming) {
-    auto Pos = std::find(IncomingPredicates.begin(), IncomingPredicates.end(), Incoming);
-    assert(Pos && "incoming predicate does not exist");
-    IncomingPredicates.erase(Pos);
-  }
-  */
   void vectorize(VPTransformState &State) override;
 
   void print(raw_ostream &O) const override;
@@ -327,6 +291,8 @@ public:
 /// A VPBooleanRecipe is an abstract recipe which works as a container for the
 /// condition value.
 class VPBooleanRecipe : public VPRecipeBase {
+  friend class VPlanUtils;
+
 protected:
   /// The actual condition value.
   Value *ConditionValue;
@@ -403,6 +369,8 @@ public:
 /// A VPEdgePredicateRecipeBase holds reference to edge's source-BB predicate
 /// and condition-predicate as illustrated in Predicate relations (b).
 class VPEdgePredicateRecipeBase : public VPPredicateRecipeBase {
+  friend class VPlanUtils;
+
 protected:
   #ifdef INTEL_CUSTOMIZATION
   /// A pointer to the recipe closest to the condition value
@@ -455,6 +423,7 @@ public:
 };
 
 class VPEdgePredicateRecipe : public VPEdgePredicateRecipeBase {
+  friend class VPlanUtils;
 
 public:
   /// Construct a VPIfTruePredicateRecipe.
@@ -512,6 +481,7 @@ private:
 /// A VPIfFalsePredicateRecipe is a concrete recipe which represents the 
 /// edge-predicate of the false-edged if-statement case.
 class VPIfFalsePredicateRecipe : public VPEdgePredicateRecipeBase {
+  friend class VPlanUtils;
 
 public:
   /// Construct a VPIfFalsePredicateRecipe.
@@ -1583,6 +1553,24 @@ public:
     }
   }
 
+  /// \brief Add Incoming Predicate to BlockPredicate.
+  void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,
+                                 VPPredicateRecipeBase *Incoming) {
+    if (Incoming)
+      BlockPred->appendIncomingPredicate(Incoming);
+  }
+
+  /// \brief Remove Incoming Predicate from BlockPredicate.
+  void removeIncomingFromBlockPred(VPBlockPredicateRecipe *BlockPred,
+                                   VPPredicateRecipeBase *Incoming) {
+    if (Incoming)
+      BlockPred->removeIncomingPredicate(Incoming);
+  }
+
+  /// \brief Clear list of incoming predicates from BlockPredicate.
+  void clearIncomingsFromBlockPred(VPBlockPredicateRecipe *BlockPred) {
+    BlockPred->clearIncomingPredicates();
+  }
 #endif // INTEL_CUSTOMIZATION
 };
 

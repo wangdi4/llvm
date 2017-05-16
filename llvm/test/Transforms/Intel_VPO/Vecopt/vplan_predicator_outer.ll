@@ -162,7 +162,7 @@ attributes #2 = { nounwind }
 
 ; NOOPT: [[loop_17:loop[0-9]+]]:
 ; NOOPT:   [[BB_11:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[AllOnes_20:AllOnes[0-9]+]]
+; NOOPT:     [[BP_21:BP[0-9]+]] = 
 ; NOOPT:   [[BB_2:BB[0-9]+]]:
 ; NOOPT:     [[BP_22:BP[0-9]+]] = [[BP_21]]
 ; NOOPT:   [[region_18:region[0-9]+]]:
