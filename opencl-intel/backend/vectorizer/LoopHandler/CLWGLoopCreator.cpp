@@ -475,31 +475,11 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
 */
 
 static void dropSubprogramDI (Function * func) {
-  DebugInfoFinder diFinder;
-  diFinder.processModule(*func->getParent());
-  std::unique_ptr<DIBuilder> diBuilder;
-
-  for (DICompileUnit *compileUnit : diFinder.compile_units()) {
-    bool found = false;
-    // Prepare operands for a new subprogram list excluding the specified subprogram
-    SmallVector<Metadata*, 16> operands;
-    DISubprogramArray oldSubprogList(compileUnit->getSubprograms());
-
-    for (auto diSubprogram : oldSubprogList) {
-      assert(dyn_cast<DISubprogram>(diSubprogram) && "Must be a DISuprogram descriptor");
-      if (diSubprogram->describes(func)) {
-        found = true;
-      } else {
-        operands.push_back(diSubprogram);
-      }
-    }
-
-    if (found) {
-      // Replace the old subprogram list MD node w\ the new one
-      if(!diBuilder) diBuilder.reset(new DIBuilder(*func->getParent()));
-      compileUnit->replaceSubprograms(MDTuple::get(func->getContext(), operands));
-    }
-  }
+  if (cast_or_null<DISubprogram>(func->getSubprogram())) {
+    // this should remove the appropriate metadata.
+    func->setSubprogram(nullptr);
+  } else
+    assert(false && "Not expected branch taken in dropSubprogramDI!");
 }
 
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
