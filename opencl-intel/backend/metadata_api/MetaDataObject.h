@@ -14,7 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Metadata.h"
-#include "llvm/Support/Atomic.h"
+
+#include <atomic>
 
 namespace Intel
 {
@@ -50,12 +51,12 @@ struct IMetaDataObject
 
     void addRef()
     {
-        llvm::sys::AtomicIncrement(&m_refCount);
+        m_refCount.fetch_add(1, std::memory_order_relaxed);
     }
 
     void releaseRef()
     {
-        if( llvm::sys::AtomicDecrement(&m_refCount) == 0 )
+        if( m_refCount.fetch_sub(1, std::memory_order_relaxed) == 0 )
             delete this;
     }
 
@@ -121,7 +122,7 @@ protected:
     }
 
 private:
-    llvm::sys::cas_flag m_refCount;
+    std::atomic<unsigned> m_refCount;
     MetaDataValue<std::string>  m_id;
 };
 
