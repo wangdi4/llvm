@@ -38,7 +38,7 @@ else(BUILD_LLVM_FROM_SOURCE )
       # we need to explicitly check for existence of either release or debug cmake then
       string( REPLACE  \${CMAKE_CFG_INTDIR} Debug LLVM_PATH_DEBUG "${LLVM_PATH}" )
       string( REPLACE  \${CMAKE_CFG_INTDIR} Release LLVM_PATH_RELEASE "${LLVM_PATH}" )
-      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/share/llvm/cmake ${LLVM_PATH_RELEASE}/share/llvm/cmake)
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/lib/cmake/llvm ${LLVM_PATH_RELEASE}/lib/cmake/llvm)
     endif()
     set( CMAKE_MODULE_PATH_SAVE ${CMAKE_MODULE_PATH})
     include( LLVMConfig )
