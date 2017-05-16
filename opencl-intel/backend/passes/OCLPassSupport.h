@@ -17,8 +17,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
     Registry.registerPass(*PI, true); \
     return PI; \
   } \
+  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag); \
   void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
+    llvm::call_once(Initialize##passName##PassFlag, \
+                    initialize##passName##PassOnce, std::ref(Registry)); \
   }
 
 #define OCL_INITIALIZE_PASS_BEGIN(passName, arg, name, cfg, analysis) INITIALIZE_PASS_BEGIN(passName, arg, name, cfg, analysis) 
@@ -33,8 +35,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
     Registry.registerPass(*PI, true); \
     return PI; \
   } \
+  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag); \
   void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
+    llvm::call_once(Initialize##passName##PassFlag, \
+                    initialize##passName##PassOnce, std::ref(Registry)); \
   }
 
 #define OCL_INITIALIZE_AG_PASS(passName, agName, arg, name, cfg, analysis, def) \
@@ -49,8 +53,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
                                    *AI, def, true); \
     return AI; \
   } \
+  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag); \
   void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
+    llvm::call_once(Initialize##passName##PassFlag, \
+                    initialize##passName##PassOnce, std::ref(Registry)); \
   }
 
 
@@ -68,8 +74,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
                                    *AI, def, true); \
     return AI; \
   } \
+  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag); \
   void initialize##passName##Pass(PassRegistry &Registry) { \
-    CALL_ONCE_INITIALIZATION(initialize##passName##PassOnce) \
+    llvm::call_once(Initialize##passName##PassFlag, \
+                    initialize##passName##PassOnce, std::ref(Registry)); \
   }
 
 #endif
