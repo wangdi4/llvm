@@ -1604,6 +1604,17 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
         return false;
       }
 
+#if INTEL_CUSTOMIZATION
+      // Disable splitting the loop backedge before loopopt as it disrupts the
+      // bottom tested structure of loops.
+      if (LoadBB->getParent()->isPreLoopOpt() && DT->dominates(LoadBB, Pred)) {
+        DEBUG(dbgs()
+              << "SUPPRESSING PRE TO AVOID SPLITTING LOOP BACKEDGE '"
+              << Pred->getName() << "': " << *LI << '\n');
+        return false;
+      }
+#endif // INTEL_CUSTOMIZATION
+
       CriticalEdgePred.push_back(Pred);
     } else {
       // Only add the predecessors that will not be split for now.
