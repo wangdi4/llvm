@@ -38,16 +38,32 @@ class ModulePass;
 
 namespace vpo {
 
+//
+// If OmpTbb==false, emit the regular OMP task runtime calls:
+//
+//   __kmpc_omp_task_alloc
+//   __kmpc_taskloop
+//   __kmpc_task_reduction_init
+//   __kmpc_task_reduction_get_th_data
+//
+// If OmmTbb==true, emit calls to their TBB implementations:
+//
+//   __tbb_omp_task_alloc
+//   __tbb_omp_taskloop
+//   __tbb_omp_task_reduction_init
+//   __tbb_omp_task_reduction_get_th_data
+
 enum VPOParoptMode {
   ParoptOff  = 0x00000000,
   ParPrepare = 0x00000001,
   ParTrans   = 0x00000002,
   OmpPar     = 0x00000004,
   OmpVec     = 0x00000008,
-  OmpTpv     = 0x00000010,   // thread-private legacy mode
+  OmpTpv     = 0x00000010, // thread-private legacy mode
   OmpOffload = 0x00000020,
   AutoVec    = 0x00000040,
-  AutoPar    = 0x00000080
+  AutoPar    = 0x00000080,
+  OmpTbb     = 0x00000100  // emit tbb_omp_task_* calls (instead of kmpc_task_*)
 };
 
 /// \brief VPOParopt class for performing parallelization and offloading

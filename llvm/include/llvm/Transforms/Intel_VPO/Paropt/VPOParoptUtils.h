@@ -421,7 +421,7 @@ public:
     genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy, Value *TidPtr,
                      int KmpTaskTTWithPrivatesTySz, int KmpSharedTySz,
                      PointerType *KmpRoutineEntryPtrTy, Function *MicroTaskFn,
-                     Instruction *InsertPt);
+                     Instruction *InsertPt, bool UseTbb);
 
     /// \brief This function generates a call as follows.
     ///    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
@@ -430,19 +430,20 @@ public:
                                      Value *TidPtr, Value *TaskAlloc,
                                      Value *LBVal, Value *UBVal, Value *STVal,
                                      StructType *KmpTaskTTWithPrivatesTy,
-                                     Instruction *InsertPt);
+                                     Instruction *InsertPt, bool UseTbb);
 
     /// \brief This function generates a call as follows.
     ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
     static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
                                           Value *SharedGep,
-                                          Instruction *InsertPt);
+                                          Instruction *InsertPt, bool UseTbb);
 
     /// \brief This function generates a call as follows.
     ///    i8* @__kmpc_task_reduction_init(i32, i32, i8*)
     static CallInst *genKmpcTaskReductionInit(WRegionNode *W, Value *TidPtr,
                                               int ParmNum, Value *RedRecord,
-                                              Instruction *InsertPt);
+                                              Instruction *InsertPt,
+                                              bool UseTbb);
 
     /// \brief returns min/max int of the given integer type.
     /// This can be used to initialize min/max reduction variables.

@@ -284,7 +284,8 @@ void VPOParoptUtils::genKmpcPushNumThreads(WRegionNode *W,
 //    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
 CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
                                                Value *SharedGep,
-                                               Instruction *InsertPt) {
+                                               Instruction *InsertPt,
+                                               bool UseTbb) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
   Function *F = B->getParent();
@@ -301,7 +302,10 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
-  std::string FnName = "__kmpc_task_reduction_get_th_data";
+  std::string FnName = UseTbb ? "__tbb_omp_task_reduction_get_th_data" :
+                                "__kmpc_task_reduction_get_th_data"; 
+                                
+                               
   Function *FnRedGetNthData = M->getFunction(FnName);
 
   if (!FnRedGetNthData) {
@@ -326,7 +330,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *LBPtr, Value *UBPtr,
                                           Value *STPtr,
                                           StructType *KmpTaskTTWithPrivatesTy,
-                                          Instruction *InsertPt) {
+                                          Instruction *InsertPt, bool UseTbb) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -399,7 +403,7 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                         Type::getInt8PtrTy(C)}; 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
 
-  std::string FnName = "__kmpc_taskloop";
+  std::string FnName = UseTbb ? "__tbb_omp_taskloop" : "__kmpc_taskloop";
   Function *FnTaskLoop = M->getFunction(FnName);
 
   if (!FnTaskLoop) {
@@ -421,7 +425,8 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
 CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
                                                    Value *TidPtr, int ParmNum,
                                                    Value *RedRecord,
-                                                   Instruction *InsertPt) {
+                                                   Instruction *InsertPt,
+                                                   bool UseTbb) {
   BasicBlock *B = W->getEntryBBlock();
   Function *F = B->getParent();
   Module *M = F->getParent();
@@ -435,7 +440,9 @@ CallInst *VPOParoptUtils::genKmpcTaskReductionInit(WRegionNode *W,
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
-  std::string FnName = "__kmpc_task_reduction_init";
+  std::string FnName = UseTbb ? "__tbb_omp_task_reduction_init" : 
+                                "__kmpc_task_reduction_init";
+
   Function *FnTaskRedInit = M->getFunction(FnName);
 
   if (!FnTaskRedInit) {
@@ -461,7 +468,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
                                            int KmpSharedTySz,
                                            PointerType *KmpRoutineEntryPtrTy,
                                            Function *MicroTaskFn,
-                                           Instruction *InsertPt) {
+                                           Instruction *InsertPt, bool UseTbb) {
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
   Function *F = B->getParent();
@@ -486,7 +493,7 @@ CallInst *VPOParoptUtils::genKmpcTaskAlloc(WRegionNode *W, StructType *IdentTy,
   FunctionType *FnTy =
       FunctionType::get(Type::getInt8PtrTy(C), TypeParams, false);
 
-  std::string FnName = "__kmpc_omp_task_alloc";
+  std::string FnName = UseTbb? "__tbb_omp_task_alloc" : "__kmpc_omp_task_alloc";
   Function *FnTaskAlloc = M->getFunction(FnName);
 
   if (!FnTaskAlloc) {

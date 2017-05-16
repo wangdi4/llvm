@@ -275,6 +275,7 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
 
       case WRegionNode::WRNTaskloop:
+        DEBUG(dbgs() << "\n WRNTaskloop - Transformation \n\n");
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
@@ -1566,8 +1567,10 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
     StructType *&KmpSharedTy, Value *&LBVal, Value *&UBVal, Value *&STVal) {
-  Loop *L = W->getLoop();
 
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
+
+  Loop *L = W->getLoop();
   assert(L && "genTaskLoopInitCode: Loop not found");
   genLoopInitCodeForTaskLoop(W, LBVal, UBVal, STVal);
 
@@ -1704,7 +1707,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
           Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
       Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
       Value *RedRes = VPOParoptUtils::genKmpcRedGetNthData(
-          W, TidPtr, ThunkSharedVal, &*Builder.GetInsertPoint());
+          W, TidPtr, ThunkSharedVal, &*Builder.GetInsertPoint(), Mode & OmpTbb);
       RedI->setNew(Builder.CreateBitCast(RedRes, RedI->getOrig()->getType()));
     }
   }
@@ -1724,6 +1727,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   prepareNoAliasMetadataInTaskLoop(W);
 
   W->resetBBSet();
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopInitCode\n");
   return true;
 }
 
@@ -2116,6 +2120,8 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
                                                Instruction *InsertBefore) {
 
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedInitForTaskLoop\n");
+
   genTaskTRedType();
 
   SmallVector<Type *, 4> KmpTaksTRedRecTyArgs;
@@ -2178,7 +2184,9 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
     Builder.CreateStore(Builder.getInt32(0), Gep);
   }
   VPOParoptUtils::genKmpcTaskReductionInit(W, TidPtr, Count, DummyTaskTRedRec,
-                                           &*Builder.GetInsertPoint());
+                                           &*Builder.GetInsertPoint(),
+                                           Mode & OmpTbb);
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTaskLoop\n");
 }
 
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
@@ -2187,7 +2195,9 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
                                          StructType *KmpTaskTTWithPrivatesTy,
                                          StructType *KmpSharedTy, Value *LBVal,
                                          Value *UBVal, Value *STVal) {
+
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopCode\n");
+
   assert(W->isBBSetEmpty() && "genTaskLoopCode: BBSET should start empty");
 
   W->populateBBSet();
@@ -2268,14 +2278,15 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
     int KmpSharedTySz = DL.getTypeAllocSize(KmpSharedTy);
     CallInst *TaskAllocCI = VPOParoptUtils::genKmpcTaskAlloc(
         W, IdentTy, TidPtr, KmpTaskTTWithPrivatesTySz, KmpSharedTySz,
-        KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall);
+        KmpRoutineEntryPtrTy, MTFnCI->getCalledFunction(), NewCall,
+        Mode & OmpTbb);
 
     genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
                              KmpTaskTTWithPrivatesTy, NewCall);
 
     VPOParoptUtils::genKmpcTaskLoop(W, IdentTy, TidPtr, TaskAllocCI, LBVal,
                                     UBVal, STVal, KmpTaskTTWithPrivatesTy,
-                                    NewCall);
+                                    NewCall, Mode & OmpTbb);
 
     NewCall->eraseFromParent();
 
@@ -2287,6 +2298,7 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     Changed = true;
   }
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopCode\n");
   return Changed;
 }
 
