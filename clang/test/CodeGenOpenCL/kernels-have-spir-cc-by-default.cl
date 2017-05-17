@@ -59,7 +59,9 @@ kernel void test_kernel(test_struct input, global int* output) {
 void test_function(int_pair input, global int* output) {
 // CHECK-NOT: spir_kernel
 // AMDGCN-NOT: define amdgpu_kernel void @test_function
-// CHECK: i64 %input.coerce0, i64 %input.coerce1, i32* nocapture %output
+// if INTEL_CUSTOMIZATION
+// CHECK: %struct.int_pair* nocapture readonly %input, i32* nocapture %output
+// endif INTEL_CUSTOMIZATION
  output[0] = (int)input.a;
  output[1] = (int)input.b;
 }
