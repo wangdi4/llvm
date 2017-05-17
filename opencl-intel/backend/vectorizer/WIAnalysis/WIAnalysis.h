@@ -206,7 +206,7 @@ private:
    /// Analyses needed by the control flow divergence
    /// propagation
     DominatorTree *m_DT;
-    PostDominatorTreeWrapperPass *m_PDT;
+    PostDominatorTree *m_PDT;
     LoopInfo *m_LI;
 
     //// Fields for the control flow divergence propagation
