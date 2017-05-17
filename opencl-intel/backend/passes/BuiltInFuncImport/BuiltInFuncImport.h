@@ -76,8 +76,8 @@ namespace intel {
     /// @param [OUT] UsedGlobals global variables used by the \p Root
     void ExploreUses(Function *Root,
                      SmallVectorImpl<Module *> &Modules,
-                     DenseSet<GlobalValue *> &UsedFunctions,
-                     DenseSet<GlobalVariable *> &UsedGlobals);
+                     SmallPtrSetImpl<GlobalValue *> &UsedFunctions,
+                     SmallPtrSetImpl<GlobalVariable *> &UsedGlobals);
   protected:
     /// @brief holds cpu perfix that would replace 'shared' substr in svml funcs
     const std::string m_cpuPrefix;

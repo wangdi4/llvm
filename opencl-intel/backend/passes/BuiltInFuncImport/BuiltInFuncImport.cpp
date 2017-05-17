@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include <llvm/IR/Instruction.h>
@@ -142,8 +142,8 @@ namespace intel {
 
   static void ExploreOperand(Value *Op,
                              SmallVectorImpl<Module*> &Modules,
-                             DenseSet<GlobalValue*> &UsedFunctions,
-                             DenseSet<GlobalVariable*> &UsedGlobals) {
+                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
+                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
     // operand may be a ConstantExpr, so we need to recursively check its
     // operands
     if (auto *CE = dyn_cast<ConstantExpr>(Op)) {
@@ -160,8 +160,8 @@ namespace intel {
 
   void BIImport::ExploreUses(Function *Root,
                              SmallVectorImpl<Module*> &Modules,
-                             DenseSet<GlobalValue*> &UsedFunctions,
-                             DenseSet<GlobalVariable*> &UsedGlobals) {
+                             SmallPtrSetImpl<GlobalValue*> &UsedFunctions,
+                             SmallPtrSetImpl<GlobalVariable*> &UsedGlobals) {
     assert(Root && "Invalid function.");
 
     if (Root->isDeclaration()) {
@@ -195,8 +195,8 @@ namespace intel {
 
   static std::unique_ptr<Module>
   CloneModuleOnlyRequired(const Module *M, ValueToValueMapTy &VMap,
-                          DenseSet<GlobalValue*> &ReqFunctions,
-                          DenseSet<GlobalVariable*> &ReqGlobals) {
+                          SmallPtrSetImpl<GlobalValue*> &ReqFunctions,
+                          SmallPtrSetImpl<GlobalVariable*> &ReqGlobals) {
     std::unique_ptr<Module> New =
       llvm::make_unique<Module>(M->getModuleIdentifier(), M->getContext());
 
@@ -287,10 +287,10 @@ namespace intel {
       if (!F.isDeclaration())
         UserModuleFunctions.insert(&F);
 
-    const int EST_FUNCTIONS_NUM = 64;
-    const int EST_GLOBALS_NUM = 64;
-    DenseSet<GlobalValue*> UsedFunctions;
-    DenseSet<GlobalVariable*> UsedGlobals;
+    const int EST_FUNCTIONS_NUM = 32;
+    const int EST_GLOBALS_NUM = 32;
+    SmallPtrSet<GlobalValue*, EST_GLOBALS_NUM> UsedFunctions;
+    SmallPtrSet<GlobalVariable*, EST_FUNCTIONS_NUM> UsedGlobals;
 
     for (auto &F : M) {
       ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals);
