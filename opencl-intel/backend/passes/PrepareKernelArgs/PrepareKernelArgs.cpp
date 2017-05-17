@@ -86,6 +86,9 @@ namespace intel{
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
     pNewF->setCallingConv(pFunc->getCallingConv());
 
+    // Set DISubprogram as an original function has
+    pNewF->setSubprogram(pFunc->getSubprogram());
+
     return pNewF;
   }
 
