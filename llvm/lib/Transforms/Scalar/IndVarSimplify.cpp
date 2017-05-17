@@ -2224,31 +2224,41 @@ linearFunctionTestReplace(Loop *L,
       DEBUG(dbgs() << "  Widen RHS:\t" << *ExitCnt << "\n");
     } else {
       // We try to extend trip count first. If that doesn't work we truncate IV.
-      // Zext(trunc(IV)) == IV implies equivalence of the following two:
-      // Trunc(IV) == ExitCnt and IV == zext(ExitCnt). Similarly for sext. If
+#if INTEL_CUSTOMIZATION
+      // sext(trunc(IV)) == IV implies equivalence of the following two:
+      // Trunc(IV) == ExitCnt and IV == sext(ExitCnt). Similarly for zext. If
       // one of the two holds, extend the trip count, otherwise we truncate IV.
+      //
+      // Most loops have IVs in positive signed range, which means the trip
+      // count (ExitCnt) is in signed range. Since ExitCnt is likely to be
+      // signed we should try sext before zext as it is likely to preserve more
+      // indormation.
+#endif
+
       bool Extended = false;
       const SCEV *IV = SE->getSCEV(CmpIndVar);
-      const SCEV *ZExtTrunc =
-           SE->getZeroExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
+#if INTEL_CUSTOMIZATION
+      const SCEV *SExtTrunc =
+           SE->getSignExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                      ExitCnt->getType()),
                                  CmpIndVar->getType());
 
-      if (ZExtTrunc == IV) {
+      if (SExtTrunc == IV) {
         Extended = true;
-        ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
+        ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
                                      "wide.trip.count");
       } else {
-        const SCEV *SExtTrunc =
-          SE->getSignExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
+        const SCEV *ZExtTrunc =
+          SE->getZeroExtendExpr(SE->getTruncateExpr(SE->getSCEV(CmpIndVar),
                                                     ExitCnt->getType()),
                                 CmpIndVar->getType());
-        if (SExtTrunc == IV) {
+        if (ZExtTrunc == IV) {
           Extended = true;
-          ExitCnt = Builder.CreateSExt(ExitCnt, IndVar->getType(),
+          ExitCnt = Builder.CreateZExt(ExitCnt, IndVar->getType(),
                                        "wide.trip.count");
         }
       }
+#endif // INTEL_CUSTOMIZATION
 
       if (!Extended)
         CmpIndVar = Builder.CreateTrunc(CmpIndVar, ExitCnt->getType(),

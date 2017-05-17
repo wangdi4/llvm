@@ -20,6 +20,8 @@ bb.nph:		; preds = %entry
 ; CHECK: phi i64
 ; CHECK: sext i8
 ; CHECK-NOT: sext
+; INTEL - due to change in behavior there is a sext in bb1
+; CHECK: bb1:
 bb:		; preds = %bb1, %bb.nph
 	%i.02 = phi i32 [ %5, %bb1 ], [ 0, %bb.nph ]		; <i32> [#uses=2]
 	%p.01 = phi i8 [ %4, %bb1 ], [ -1, %bb.nph ]		; <i8> [#uses=2]
