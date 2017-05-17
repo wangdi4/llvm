@@ -580,6 +580,8 @@ namespace CGIntelOpenMP {
       bool IsPODType = E->getType().isPODType(CGF.getContext());
       if (!IsPODType)
         addArg("QUAL.OMP.LASTPRIVATE:NONPOD");
+      else if (Cl->isConditional())
+        addArg("QUAL.OMP.LASTPRIVATE:CONDITIONAL");
       else
         addArg("QUAL.OMP.LASTPRIVATE");
       addArg(E);

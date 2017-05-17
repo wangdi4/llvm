@@ -1041,6 +1041,10 @@ def err_omp_unknown_map_type : Error<
   "incorrect map type, expected one of 'to', 'from', 'tofrom', 'alloc', 'release', or 'delete'">;
 def err_omp_unknown_map_type_modifier : Error<
   "incorrect map type modifier, expected 'always'">;
+// if INTEL_CUSTOMIZATION
+def err_omp_unknown_lastprivate_modifier : Error<
+  "incorrect lastprivate modifier, expected 'conditional'">;
+// endif INTEL_CUSTOMIZATION
 def err_omp_map_type_missing : Error<
   "missing map type">;
 def err_omp_declare_simd_inbranch_notinbranch : Error<

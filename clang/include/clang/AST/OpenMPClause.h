@@ -1428,18 +1428,30 @@ class OMPLastprivateClause final
   friend OMPVarListClause;
   friend class OMPClauseReader;
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Is the conditional modifier present or not.
+  bool IsConditional;
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Build clause with number of variables \a N.
   ///
   /// \param StartLoc Starting location of the clause.
   /// \param LParenLoc Location of '('.
   /// \param EndLoc Ending location of the clause.
+#if INTEL_CUSTOMIZATION
+  /// \param IsConditional Is the conditional modifier present.
+#endif // INTEL_CUSTOMIZATION
   /// \param N Number of the variables in the clause.
   ///
   OMPLastprivateClause(SourceLocation StartLoc, SourceLocation LParenLoc,
-                       SourceLocation EndLoc, unsigned N)
+#if INTEL_CUSTOMIZATION
+                       SourceLocation EndLoc, bool IsConditional, unsigned N)
+#endif // INTEL_CUSTOMIZATION
       : OMPVarListClause<OMPLastprivateClause>(OMPC_lastprivate, StartLoc,
                                                LParenLoc, EndLoc, N),
-        OMPClauseWithPostUpdate(this) {}
+#if INTEL_CUSTOMIZATION
+        OMPClauseWithPostUpdate(this), IsConditional(IsConditional) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Build an empty clause.
   ///
@@ -1449,7 +1461,9 @@ class OMPLastprivateClause final
       : OMPVarListClause<OMPLastprivateClause>(
             OMPC_lastprivate, SourceLocation(), SourceLocation(),
             SourceLocation(), N),
-        OMPClauseWithPostUpdate(this) {}
+#if INTEL_CUSTOMIZATION
+        OMPClauseWithPostUpdate(this), IsConditional(false) {}
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Get the list of helper expressions for initialization of private
   /// copies for lastprivate variables.
@@ -1531,13 +1545,20 @@ public:
   Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
          SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
          ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps,
-         Stmt *PreInit, Expr *PostUpdate);
+#if INTEL_CUSTOMIZATION
+         Stmt *PreInit, Expr *PostUpdate, bool IsConditional);
+#endif // INTEL_CUSTOMIZATION
   /// \brief Creates an empty clause with the place for \a N variables.
   ///
   /// \param C AST context.
   /// \param N The number of variables.
   ///
   static OMPLastprivateClause *CreateEmpty(const ASTContext &C, unsigned N);
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Is this a conditional firstprivate clause?
+  bool isConditional() const LLVM_READONLY { return IsConditional; }
+#endif // INTEL_CUSTOMIZATION
 
   typedef MutableArrayRef<Expr *>::iterator helper_expr_iterator;
   typedef ArrayRef<const Expr *>::iterator helper_expr_const_iterator;

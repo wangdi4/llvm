@@ -252,10 +252,15 @@ OMPLastprivateClause *OMPLastprivateClause::Create(
     const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
     SourceLocation EndLoc, ArrayRef<Expr *> VL, ArrayRef<Expr *> SrcExprs,
     ArrayRef<Expr *> DstExprs, ArrayRef<Expr *> AssignmentOps, Stmt *PreInit,
-    Expr *PostUpdate) {
+#if INTEL_CUSTOMIZATION 
+    Expr *PostUpdate, bool IsConditional) {
+#endif // INTEL_CUSTOMIZATION
   void *Mem = C.Allocate(totalSizeToAlloc<Expr *>(5 * VL.size()));
   OMPLastprivateClause *Clause =
-      new (Mem) OMPLastprivateClause(StartLoc, LParenLoc, EndLoc, VL.size());
+#if INTEL_CUSTOMIZATION
+      new (Mem) OMPLastprivateClause(StartLoc, LParenLoc, EndLoc, IsConditional,
+#endif // INTEL_CUSTOMIZATION
+                                     VL.size());
   Clause->setVarRefs(VL);
   Clause->setSourceExprs(SrcExprs);
   Clause->setDestinationExprs(DstExprs);

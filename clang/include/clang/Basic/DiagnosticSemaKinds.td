@@ -8341,6 +8341,10 @@ def err_omp_reduction_incomplete_type : Error<
   "a reduction list item with incomplete type %0">;
 def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
+// if INTEL_CUSTOMIZATION
+def err_omp_unexpected_lastprivate_conditional : Error<
+  "expected 'scalar' in OpenMP clause 'lastprivate' with conditional modifier">;
+// endif INTEL_CUSTOMIZATION
 def err_omp_expected_var_name_member_expr : Error<
   "expected variable name%select{| or data member of current class}0">;
 def err_omp_expected_var_name_member_expr_or_array_item : Error<

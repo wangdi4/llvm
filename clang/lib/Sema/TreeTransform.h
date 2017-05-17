@@ -1586,11 +1586,16 @@ public:
   /// By default, performs semantic analysis to build the new OpenMP clause.
   /// Subclasses may override this routine to provide different behavior.
   OMPClause *RebuildOMPLastprivateClause(ArrayRef<Expr *> VarList,
+#if INTEL_CUSTOMIZATION
+                                         bool IsConditional,
+#endif // INTEL_CUSTOMIZATION
                                          SourceLocation StartLoc,
                                          SourceLocation LParenLoc,
                                          SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPLastprivateClause(VarList, StartLoc, LParenLoc,
-                                                  EndLoc);
+#if INTEL_CUSTOMIZATION
+    return getSema().ActOnOpenMPLastprivateClause(VarList, IsConditional,
+#endif // INTEL_CUSTOMIZATION
+                                                  StartLoc, LParenLoc, EndLoc);
   }
 
   /// \brief Build a new OpenMP 'shared' clause.
@@ -8287,7 +8292,10 @@ TreeTransform<Derived>::TransformOMPLastprivateClause(OMPLastprivateClause *C) {
     Vars.push_back(EVar.get());
   }
   return getDerived().RebuildOMPLastprivateClause(
-      Vars, C->getLocStart(), C->getLParenLoc(), C->getLocEnd());
+#if INTEL_CUSTOMIZATION
+      Vars, C->isConditional(), C->getLocStart(), C->getLParenLoc(),
+#endif // INTEL_CUSTOMIZATION
+      C->getLocEnd());
 }
 
 template <typename Derived>

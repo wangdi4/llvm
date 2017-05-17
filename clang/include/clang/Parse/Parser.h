@@ -2855,6 +2855,9 @@ public:
     OpenMPMapClauseKind MapTypeModifier = OMPC_MAP_unknown;
     OpenMPMapClauseKind MapType = OMPC_MAP_unknown;
     bool IsMapTypeImplicit = false;
+#if INTEL_CUSTOMIZATION
+    bool IsLastprivateConditional = false;
+#endif // INTEL_CUSTOMIZATION
     SourceLocation DepLinMapLoc;
   };
 
