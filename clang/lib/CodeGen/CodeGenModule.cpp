@@ -24,6 +24,7 @@
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
 #include "CGOpenMPRuntimeNVPTX.h"
+#include "intel/CGSPIRMetadataAdder.h" // INTEL
 #include "CodeGenFunction.h"
 #include "CodeGenPGO.h"
 #include "CodeGenTBAA.h"
@@ -603,6 +604,12 @@ void CodeGenModule::Release() {
 
   if (DebugInfo)
     DebugInfo->finalize();
+
+#if INTEL_CUSTOMIZATION
+  if (llvm::StringRef(TheModule.getTargetTriple()).startswith("spir"))
+    addSPIRMetadata(TheModule, getLangOpts().OpenCLVersion,
+                    getCodeGenOpts().SPIRCompileOptions);
+#endif // INTEL_CUSTOMIZATION
 
   EmitVersionIdentMetadata();
 

@@ -847,6 +847,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   }
 
 #if INTEL_CUSTOMIZATION
+  Opts.SPIRCompileOptions = Args.getLastArgValue(OPT_cl_spir_compile_options);
+
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
     StringRef Val = A->getValue();
