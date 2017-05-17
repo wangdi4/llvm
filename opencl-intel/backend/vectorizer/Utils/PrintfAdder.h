@@ -55,7 +55,7 @@ public:
   };
   
   ~PrintfAdder()  {}
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "PrintfAdder";
   }
   

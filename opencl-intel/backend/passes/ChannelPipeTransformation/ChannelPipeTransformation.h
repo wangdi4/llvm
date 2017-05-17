@@ -30,7 +30,7 @@ public:
   static char ID;
   ChannelPipeTransformation();
 
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "ChannelPipeTransformation";
   }
 

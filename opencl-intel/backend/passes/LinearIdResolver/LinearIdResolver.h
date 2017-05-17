@@ -28,7 +28,7 @@ namespace intel {
 
     LinearIdResolver() : FunctionPass(ID) { }
 
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "LinearIdResolver";
     }
 

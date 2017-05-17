@@ -200,7 +200,7 @@ public:
   X86Resolver() : FuncResolver(ID) {}
 
   /// @brief Provides name of pass
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "X86Resolver";
   }
 

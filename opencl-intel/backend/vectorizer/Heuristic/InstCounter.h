@@ -31,7 +31,7 @@ namespace intel {
       WeightedInstCounter(bool preVec = true, Intel::CPUId cpuId = Intel::CPUId());
 
     // Provides name of pass
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "WeightedInstCounter";
     }
 

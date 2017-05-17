@@ -42,7 +42,7 @@ public:
   static char ID;
   PipeSupport();
 
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "PipeSupport";
   }
 

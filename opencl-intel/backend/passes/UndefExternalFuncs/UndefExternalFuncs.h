@@ -32,7 +32,7 @@ namespace intel {
         ModulePass(ID), m_pUndefinedExternalFunctions(&undefinedExternalFunctions) {}
 
     /// @brief Provides name of pass
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "UndefExternalFuncs";
     }
 

@@ -46,7 +46,7 @@ public:
   /// @returns True if module was modified
   virtual bool runOnModule(Module &M);
   /// @brief Provides name of pass
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "Smart GVN";
   }
   /// @brief Inform about usage/mofication/dependency of this pass

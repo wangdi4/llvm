@@ -37,7 +37,7 @@ namespace intel{
     LocalBuffAnalysis() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "LocalBuffAnalysis";
     }
 

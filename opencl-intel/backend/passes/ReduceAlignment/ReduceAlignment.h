@@ -31,7 +31,7 @@ namespace intel {
 
 
       /// @brief Provides name of pass
-      virtual StringRef getPassName() const {
+      virtual llvm::StringRef getPassName() const {
         return "ReduceAlignment";
       }
 

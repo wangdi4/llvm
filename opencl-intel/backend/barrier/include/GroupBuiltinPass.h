@@ -32,7 +32,7 @@ namespace intel {
     ~GroupBuiltin() {}
 
     /// @brief Provides name of pass
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "Intel OpenCL GroupBuiltinPass";
     }
 

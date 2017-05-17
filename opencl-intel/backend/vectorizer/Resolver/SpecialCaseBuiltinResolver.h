@@ -47,7 +47,7 @@ public:
   /// @brief D'tor
   ~SpecialCaseBuiltinResolver();
   /// @brief Provides name of pass
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "Special Case Builtin Resolver";
   }
 

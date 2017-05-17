@@ -33,7 +33,7 @@ public:
   /// @brief D'tor
   ~nameByInstType(){}
   /// @brief Provides name of pass
-  virtual StringRef getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "nameByInstType";
   }
   

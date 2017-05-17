@@ -35,7 +35,7 @@ namespace intel{
     LocalBuffers(bool isNativeDBG);
 
     /// @brief Provides name of pass
-    virtual StringRef getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "LocalBuffers";
     }
 

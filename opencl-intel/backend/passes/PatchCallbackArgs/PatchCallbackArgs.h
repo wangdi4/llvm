@@ -30,7 +30,7 @@ class PatchCallbackArgs : public ModulePass {
 public:
   static char ID;
   PatchCallbackArgs() : ModulePass(ID) {}
-  virtual StringRef getPassName() const { return "PatchCallbackArgs"; }
+  virtual llvm::StringRef getPassName() const { return "PatchCallbackArgs"; }
   bool runOnModule(Module &M);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.addRequired<ImplicitArgsAnalysis>();
