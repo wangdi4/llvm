@@ -56,24 +56,25 @@
 
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Communication.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
-#include "lldb/Host/Endian.h"
-#include "lldb/Host/FileSpec.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Utility/CleanUp.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/NameMatches.h"
+#include "lldb/Utility/StreamString.h"
+
+#include "llvm/Support/FileSystem.h"
 
 #include "cfcpp/CFCBundle.h"
 #include "cfcpp/CFCMutableArray.h"
@@ -101,7 +102,7 @@ using namespace lldb_private;
 bool Host::GetBundleDirectory(const FileSpec &file,
                               FileSpec &bundle_directory) {
 #if defined(__APPLE__)
-  if (file.GetFileType() == FileSpec::eFileTypeDirectory) {
+  if (llvm::sys::fs::is_directory(file.GetPath())) {
     char path[PATH_MAX];
     if (file.GetPath(path, sizeof(path))) {
       CFCBundle bundle(path);
@@ -118,7 +119,7 @@ bool Host::GetBundleDirectory(const FileSpec &file,
 
 bool Host::ResolveExecutableInBundle(FileSpec &file) {
 #if defined(__APPLE__)
-  if (file.GetFileType() == FileSpec::eFileTypeDirectory) {
+  if (llvm::sys::fs::is_directory(file.GetPath())) {
     char path[PATH_MAX];
     if (file.GetPath(path, sizeof(path))) {
       CFCBundle bundle(path);
@@ -139,13 +140,13 @@ bool Host::ResolveExecutableInBundle(FileSpec &file) {
 static void *AcceptPIDFromInferior(void *arg) {
   const char *connect_url = (const char *)arg;
   ConnectionFileDescriptor file_conn;
-  Error error;
+  Status error;
   if (file_conn.Connect(connect_url, &error) == eConnectionStatusSuccess) {
     char pid_str[256];
     ::memset(pid_str, 0, sizeof(pid_str));
     ConnectionStatus status;
-    const size_t pid_str_len =
-        file_conn.Read(pid_str, sizeof(pid_str), 0, status, NULL);
+    const size_t pid_str_len = file_conn.Read(
+        pid_str, sizeof(pid_str), std::chrono::seconds(0), status, NULL);
     if (pid_str_len > 0) {
       int pid = atoi(pid_str);
       return (void *)(intptr_t)pid;
@@ -309,7 +310,7 @@ static bool WaitForProcessToSIGSTOP(const lldb::pid_t pid,
 //
 //    lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
 //
-//    Error lldb_error;
+//    Status lldb_error;
 //    // Sleep and wait a bit for debugserver to start to listen...
 //    char connect_url[128];
 //    ::snprintf (connect_url, sizeof(connect_url), "unix-accept://%s",
@@ -376,10 +377,10 @@ tell application \"Terminal\"\n\
 	do script the_shell_script\n\
 end tell\n";
 
-static Error
+static Status
 LaunchInNewTerminalWithAppleScript(const char *exe_path,
                                    ProcessLaunchInfo &launch_info) {
-  Error error;
+  Status error;
   char unix_socket_name[PATH_MAX] = "/tmp/XXXXXX";
   if (::mktemp(unix_socket_name) == NULL) {
     error.SetErrorString("failed to make temporary path for a unix socket");
@@ -478,7 +479,6 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
 
   StreamString applescript_source;
 
-  const char *tty_command = command.GetString().c_str();
   //    if (tty_name && tty_name[0])
   //    {
   //        applescript_source.Printf (applscript_in_existing_tty,
@@ -487,18 +487,20 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
   //    }
   //    else
   //    {
-  applescript_source.Printf(applscript_in_new_tty, tty_command);
+  applescript_source.Printf(applscript_in_new_tty,
+                            command.GetString().str().c_str());
   //    }
 
-  const char *script_source = applescript_source.GetString().c_str();
   // puts (script_source);
   NSAppleScript *applescript = [[NSAppleScript alloc]
-      initWithSource:[NSString stringWithCString:script_source
+      initWithSource:[NSString stringWithCString:applescript_source.GetString()
+                                                     .str()
+                                                     .c_str()
                                         encoding:NSUTF8StringEncoding]];
 
   lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
 
-  Error lldb_error;
+  Status lldb_error;
   // Sleep and wait a bit for debugserver to start to listen...
   ConnectionFileDescriptor file_conn;
   char connect_url[128];
@@ -527,7 +529,7 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
     WaitForProcessToSIGSTOP(pid, 5);
   }
 
-  FileSystem::Unlink(FileSpec{unix_socket_name, false});
+  llvm::sys::fs::remove(unix_socket_name);
   [applescript release];
   if (pid != LLDB_INVALID_PROCESS_ID)
     launch_info.SetProcessID(pid);
@@ -535,47 +537,6 @@ LaunchInNewTerminalWithAppleScript(const char *exe_path,
 }
 
 #endif // #if !defined(__arm__) && !defined(__arm64__) && !defined(__aarch64__)
-
-// On MacOSX CrashReporter will display a string for each shared library if
-// the shared library has an exported symbol named "__crashreporter_info__".
-
-static std::mutex &GetCrashReporterMutex() {
-  static std::mutex g_mutex;
-  return g_mutex;
-}
-
-extern "C" {
-const char *__crashreporter_info__ = NULL;
-}
-
-asm(".desc ___crashreporter_info__, 0x10");
-
-void Host::SetCrashDescriptionWithFormat(const char *format, ...) {
-  static StreamString g_crash_description;
-  std::lock_guard<std::mutex> guard(GetCrashReporterMutex());
-
-  if (format) {
-    va_list args;
-    va_start(args, format);
-    g_crash_description.GetString().clear();
-    g_crash_description.PrintfVarArg(format, args);
-    va_end(args);
-    __crashreporter_info__ = g_crash_description.GetData();
-  } else {
-    __crashreporter_info__ = NULL;
-  }
-}
-
-void Host::SetCrashDescription(const char *cstr) {
-  std::lock_guard<std::mutex> guard(GetCrashReporterMutex());
-  static std::string g_crash_description;
-  if (cstr) {
-    g_crash_description.assign(cstr);
-    __crashreporter_info__ = g_crash_description.c_str();
-  } else {
-    __crashreporter_info__ = NULL;
-  }
-}
 
 bool Host::OpenFileInExternalEditor(const FileSpec &file_spec,
                                     uint32_t line_no) {
@@ -985,8 +946,8 @@ static void PackageXPCArguments(xpc_object_t message, const char *prefix,
  Once obtained, it will be valid for as long as the process lives.
  */
 static AuthorizationRef authorizationRef = NULL;
-static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
-  Error error;
+static Status getXPCAuthorization(ProcessLaunchInfo &launch_info) {
+  Status error;
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST |
                                                   LIBLLDB_LOG_PROCESS));
 
@@ -997,9 +958,7 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
     if (createStatus != errAuthorizationSuccess) {
       error.SetError(1, eErrorTypeGeneric);
       error.SetErrorString("Can't create authorizationRef.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
       return error;
     }
 
@@ -1052,9 +1011,7 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
       error.SetError(2, eErrorTypeGeneric);
       error.SetErrorStringWithFormat(
           "Launching as root needs root authorization.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
 
       if (authorizationRef) {
         AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
@@ -1067,11 +1024,11 @@ static Error getXPCAuthorization(ProcessLaunchInfo &launch_info) {
 }
 #endif
 
-static Error LaunchProcessXPC(const char *exe_path,
-                              ProcessLaunchInfo &launch_info,
-                              lldb::pid_t &pid) {
+static Status LaunchProcessXPC(const char *exe_path,
+                               ProcessLaunchInfo &launch_info,
+                               lldb::pid_t &pid) {
 #if !NO_XPC_SERVICES
-  Error error = getXPCAuthorization(launch_info);
+  Status error = getXPCAuthorization(launch_info);
   if (error.Fail())
     return error;
 
@@ -1090,9 +1047,7 @@ static Error LaunchProcessXPC(const char *exe_path,
       error.SetError(3, eErrorTypeGeneric);
       error.SetErrorStringWithFormat("Launching root via XPC needs to "
                                      "externalize authorization reference.");
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
       return error;
     }
     xpc_service = LaunchUsingXPCRightName;
@@ -1100,9 +1055,7 @@ static Error LaunchProcessXPC(const char *exe_path,
     error.SetError(4, eErrorTypeGeneric);
     error.SetErrorStringWithFormat(
         "Launching via XPC is only currently available for root.");
-    if (log) {
-      error.PutToLog(log, "%s", error.AsCString());
-    }
+    LLDB_LOG(log, "error: {0}", error);
     return error;
   }
 
@@ -1186,9 +1139,7 @@ static Error LaunchProcessXPC(const char *exe_path,
       error.SetErrorStringWithFormat(
           "Problems with launching via XPC. Error type : %i, code : %i",
           errorType, errorCode);
-      if (log) {
-        error.PutToLog(log, "%s", error.AsCString());
-      }
+      LLDB_LOG(log, "error: {0}", error);
 
       if (authorizationRef) {
         AuthorizationFree(authorizationRef, kAuthorizationFlagDefaults);
@@ -1200,14 +1151,12 @@ static Error LaunchProcessXPC(const char *exe_path,
     error.SetErrorStringWithFormat(
         "Problems with launching via XPC. XPC error : %s",
         xpc_dictionary_get_string(reply, XPC_ERROR_KEY_DESCRIPTION));
-    if (log) {
-      error.PutToLog(log, "%s", error.AsCString());
-    }
+    LLDB_LOG(log, "error: {0}", error);
   }
 
   return error;
 #else
-  Error error;
+  Status error;
   return error;
 #endif
 }
@@ -1228,16 +1177,16 @@ static bool ShouldLaunchUsingXPC(ProcessLaunchInfo &launch_info) {
   return result;
 }
 
-Error Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
+  Status error;
   char exe_path[PATH_MAX];
   PlatformSP host_platform_sp(Platform::GetHostPlatform());
 
   ModuleSpec exe_module_spec(launch_info.GetExecutableFile(),
                              launch_info.GetArchitecture());
 
-  FileSpec::FileType file_type = exe_module_spec.GetFileSpec().GetFileType();
-  if (file_type != FileSpec::eFileTypeRegular) {
+  if (!llvm::sys::fs::is_regular_file(
+          exe_module_spec.GetFileSpec().GetPath())) {
     lldb::ModuleSP exe_module_sp;
     error = host_platform_sp->ResolveExecutable(exe_module_spec, exe_module_sp,
                                                 NULL);
@@ -1297,8 +1246,8 @@ Error Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
   return error;
 }
 
-Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
+  Status error;
   if (launch_info.GetFlags().Test(eLaunchFlagShellExpandArguments)) {
     FileSpec expand_tool_spec;
     if (!HostInfo::GetLLDBPath(lldb::ePathTypeSupportExecutableDir,
@@ -1379,8 +1328,7 @@ Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
       if (!str_sp)
         continue;
 
-      launch_info.GetArguments().AppendArgument(
-          llvm::StringRef(str_sp->GetValue().c_str()));
+      launch_info.GetArguments().AppendArgument(str_sp->GetValue());
     }
   }
 
@@ -1497,8 +1445,4 @@ void Host::SystemLog(SystemLogType type, const char *format, va_list args) {
     // Log to ASL
     ::asl_vlog(NULL, g_aslmsg, asl_level, format, args);
   }
-}
-
-lldb::DataBufferSP Host::GetAuxvData(lldb_private::Process *process) {
-  return lldb::DataBufferSP();
 }

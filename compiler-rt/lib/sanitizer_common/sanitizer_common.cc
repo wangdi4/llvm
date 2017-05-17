@@ -199,23 +199,24 @@ const char *StripModuleName(const char *module) {
   return module;
 }
 
-void ReportErrorSummary(const char *error_message) {
+void ReportErrorSummary(const char *error_message, const char *alt_tool_name) {
   if (!common_flags()->print_summary)
     return;
   InternalScopedString buff(kMaxSummaryLength);
-  buff.append("SUMMARY: %s: %s", SanitizerToolName, error_message);
+  buff.append("SUMMARY: %s: %s",
+              alt_tool_name ? alt_tool_name : SanitizerToolName, error_message);
   __sanitizer_report_error_summary(buff.data());
 }
 
 #if !SANITIZER_GO
-void ReportErrorSummary(const char *error_type, const AddressInfo &info) {
-  if (!common_flags()->print_summary)
-    return;
+void ReportErrorSummary(const char *error_type, const AddressInfo &info,
+                        const char *alt_tool_name) {
+  if (!common_flags()->print_summary) return;
   InternalScopedString buff(kMaxSummaryLength);
   buff.append("%s ", error_type);
   RenderFrame(&buff, "%L %F", 0, info, common_flags()->symbolize_vs_style,
               common_flags()->strip_path_prefix);
-  ReportErrorSummary(buff.data());
+  ReportErrorSummary(buff.data(), alt_tool_name);
 }
 #endif
 
@@ -259,9 +260,23 @@ void LoadedModule::set(const char *module_name, uptr base_address) {
   base_address_ = base_address;
 }
 
+void LoadedModule::set(const char *module_name, uptr base_address,
+                       ModuleArch arch, u8 uuid[kModuleUUIDSize],
+                       bool instrumented) {
+  set(module_name, base_address);
+  arch_ = arch;
+  internal_memcpy(uuid_, uuid, sizeof(uuid_));
+  instrumented_ = instrumented;
+}
+
 void LoadedModule::clear() {
   InternalFree(full_name_);
+  base_address_ = 0;
+  max_executable_address_ = 0;
   full_name_ = nullptr;
+  arch_ = kModuleArchUnknown;
+  internal_memset(uuid_, 0, kModuleUUIDSize);
+  instrumented_ = false;
   while (!ranges_.empty()) {
     AddressRange *r = ranges_.front();
     ranges_.pop_front();
@@ -269,10 +284,13 @@ void LoadedModule::clear() {
   }
 }
 
-void LoadedModule::addAddressRange(uptr beg, uptr end, bool executable) {
+void LoadedModule::addAddressRange(uptr beg, uptr end, bool executable,
+                                   bool readable) {
   void *mem = InternalAlloc(sizeof(AddressRange));
-  AddressRange *r = new(mem) AddressRange(beg, end, executable);
+  AddressRange *r = new(mem) AddressRange(beg, end, executable, readable);
   ranges_.push_back(r);
+  if (executable && end > max_executable_address_)
+    max_executable_address_ = end;
 }
 
 bool LoadedModule::containsAddress(uptr address) const {
@@ -473,7 +491,8 @@ void __sanitizer_set_report_fd(void *fd) {
   report_file.fd_pid = internal_getpid();
 }
 
-void __sanitizer_report_error_summary(const char *error_summary) {
+SANITIZER_INTERFACE_WEAK_DEF(void, __sanitizer_report_error_summary,
+                             const char *error_summary) {
   Printf("%s\n", error_summary);
 }
 
@@ -488,11 +507,4 @@ int __sanitizer_install_malloc_and_free_hooks(void (*malloc_hook)(const void *,
                                               void (*free_hook)(const void *)) {
   return InstallMallocFreeHooks(malloc_hook, free_hook);
 }
-
-#if !SANITIZER_GO && !SANITIZER_SUPPORTS_WEAK_HOOKS
-SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
-void __sanitizer_print_memory_profile(int top_percent) {
-  (void)top_percent;
-}
-#endif
 } // extern "C"

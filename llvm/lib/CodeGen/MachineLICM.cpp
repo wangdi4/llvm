@@ -330,7 +330,7 @@ bool MachineLICM::runOnMachineFunction(MachineFunction &MF) {
 /// Return true if instruction stores to the specified frame.
 static bool InstructionStoresToFI(const MachineInstr *MI, int FI) {
   // If we lost memory operands, conservatively assume that the instruction
-  // writes to all slots. 
+  // writes to all slots.
   if (MI->memoperands_empty())
     return true;
   for (const MachineMemOperand *MemOp : MI->memoperands()) {
@@ -708,7 +708,7 @@ void MachineLICM::SinkIntoLoop() {
   for (MachineBasicBlock::instr_iterator I = Preheader->instr_begin();
        I != Preheader->instr_end(); ++I) {
     // We need to ensure that we can safely move this instruction into the loop.
-    // As such, it must not have side-effects, e.g. such as a call has.  
+    // As such, it must not have side-effects, e.g. such as a call has.
     if (IsLoopInvariantInst(*I) && !HasLoopPHIUse(&*I))
       Candidates.push_back(&*I);
   }
@@ -837,9 +837,9 @@ MachineLICM::calcRegisterCost(const MachineInstr *MI, bool ConsiderSeen,
 /// constant pool.
 static bool mayLoadFromGOTOrConstantPool(MachineInstr &MI) {
   assert (MI.mayLoad() && "Expected MI that loads!");
-  
+
   // If we lost memory operands, conservatively assume that the instruction
-  // reads from everything.. 
+  // reads from everything..
   if (MI.memoperands_empty())
     return true;
 
@@ -1335,6 +1335,11 @@ bool MachineLICM::Hoist(MachineInstr *MI, MachineBasicBlock *Preheader) {
   if (!EliminateCSE(MI, CI)) {
     // Otherwise, splice the instruction to the preheader.
     Preheader->splice(Preheader->getFirstTerminator(),MI->getParent(),MI);
+
+    // Since we are moving the instruction out of its basic block, we do not
+    // retain its debug location. Doing so would degrade the debugging
+    // experience and adversely affect the accuracy of profiling information.
+    MI->setDebugLoc(DebugLoc());
 
     // Update register pressure for BBs from header to this block.
     UpdateBackTraceRegPressure(MI);

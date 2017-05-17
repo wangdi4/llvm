@@ -45,6 +45,7 @@ extern "C" void __tsan_resume() {
 namespace __tsan {
 
 #if !SANITIZER_GO && !SANITIZER_MAC
+__attribute__((tls_model("initial-exec")))
 THREADLOCAL char cur_thread_placeholder[sizeof(ThreadState)] ALIGNED(64);
 #endif
 static char ctx_placeholder[sizeof(Context)] ALIGNED(64);
@@ -233,9 +234,7 @@ static void StopBackgroundThread() {
 #endif
 
 void DontNeedShadowFor(uptr addr, uptr size) {
-  uptr shadow_beg = MemToShadow(addr);
-  uptr shadow_end = MemToShadow(addr + size);
-  ReleaseMemoryToOS(shadow_beg, shadow_end - shadow_beg);
+  ReleaseMemoryPagesToOS(MemToShadow(addr), MemToShadow(addr + size));
 }
 
 void MapShadow(uptr addr, uptr size) {
@@ -382,7 +381,7 @@ void Initialize(ThreadState *thr) {
   // Initialize thread 0.
   int tid = ThreadCreate(thr, 0, 0, true);
   CHECK_EQ(tid, 0);
-  ThreadStart(thr, tid, internal_getpid());
+  ThreadStart(thr, tid, GetTid(), /*workerthread*/ false);
 #if TSAN_CONTAINS_UBSAN
   __ubsan::InitAsPlugin();
 #endif
@@ -404,6 +403,8 @@ void Initialize(ThreadState *thr) {
 
 int Finalize(ThreadState *thr) {
   bool failed = false;
+
+  if (common_flags()->print_module_map == 1) PrintModuleMap();
 
   if (flags()->atexit_sleep_ms > 0 && ThreadCount(thr) > 1)
     SleepForMillis(flags()->atexit_sleep_ms);
@@ -865,9 +866,8 @@ static void MemoryRangeSet(ThreadState *thr, uptr pc, uptr addr, uptr size,
   // Don't want to touch lots of shadow memory.
   // If a program maps 10MB stack, there is no need reset the whole range.
   size = (size + (kShadowCell - 1)) & ~(kShadowCell - 1);
-  // UnmapOrDie/MmapFixedNoReserve does not work on Windows,
-  // so we do it only for C/C++.
-  if (SANITIZER_GO || size < common_flags()->clear_shadow_mmap_threshold) {
+  // UnmapOrDie/MmapFixedNoReserve does not work on Windows.
+  if (SANITIZER_WINDOWS || size < common_flags()->clear_shadow_mmap_threshold) {
     u64 *p = (u64*)MemToShadow(addr);
     CHECK(IsShadowMem((uptr)p));
     CHECK(IsShadowMem((uptr)(p + size * kShadowCnt / kShadowCell - 1)));
@@ -979,21 +979,21 @@ void FuncExit(ThreadState *thr) {
   thr->shadow_stack_pos--;
 }
 
-void ThreadIgnoreBegin(ThreadState *thr, uptr pc) {
+void ThreadIgnoreBegin(ThreadState *thr, uptr pc, bool save_stack) {
   DPrintf("#%d: ThreadIgnoreBegin\n", thr->tid);
   thr->ignore_reads_and_writes++;
   CHECK_GT(thr->ignore_reads_and_writes, 0);
   thr->fast_state.SetIgnoreBit();
 #if !SANITIZER_GO
-  if (!ctx->after_multithreaded_fork)
+  if (save_stack && !ctx->after_multithreaded_fork)
     thr->mop_ignore_set.Add(CurrentStackId(thr, pc));
 #endif
 }
 
 void ThreadIgnoreEnd(ThreadState *thr, uptr pc) {
   DPrintf("#%d: ThreadIgnoreEnd\n", thr->tid);
+  CHECK_GT(thr->ignore_reads_and_writes, 0);
   thr->ignore_reads_and_writes--;
-  CHECK_GE(thr->ignore_reads_and_writes, 0);
   if (thr->ignore_reads_and_writes == 0) {
     thr->fast_state.ClearIgnoreBit();
 #if !SANITIZER_GO
@@ -1002,20 +1002,28 @@ void ThreadIgnoreEnd(ThreadState *thr, uptr pc) {
   }
 }
 
-void ThreadIgnoreSyncBegin(ThreadState *thr, uptr pc) {
+#if !SANITIZER_GO
+extern "C" SANITIZER_INTERFACE_ATTRIBUTE
+uptr __tsan_testonly_shadow_stack_current_size() {
+  ThreadState *thr = cur_thread();
+  return thr->shadow_stack_pos - thr->shadow_stack;
+}
+#endif
+
+void ThreadIgnoreSyncBegin(ThreadState *thr, uptr pc, bool save_stack) {
   DPrintf("#%d: ThreadIgnoreSyncBegin\n", thr->tid);
   thr->ignore_sync++;
   CHECK_GT(thr->ignore_sync, 0);
 #if !SANITIZER_GO
-  if (!ctx->after_multithreaded_fork)
+  if (save_stack && !ctx->after_multithreaded_fork)
     thr->sync_ignore_set.Add(CurrentStackId(thr, pc));
 #endif
 }
 
 void ThreadIgnoreSyncEnd(ThreadState *thr, uptr pc) {
   DPrintf("#%d: ThreadIgnoreSyncEnd\n", thr->tid);
+  CHECK_GT(thr->ignore_sync, 0);
   thr->ignore_sync--;
-  CHECK_GE(thr->ignore_sync, 0);
 #if !SANITIZER_GO
   if (thr->ignore_sync == 0)
     thr->sync_ignore_set.Reset();

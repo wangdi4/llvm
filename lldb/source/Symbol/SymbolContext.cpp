@@ -9,7 +9,6 @@
 
 #include "lldb/Symbol/SymbolContext.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Host/Host.h"
@@ -23,6 +22,7 @@
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Symbol/Variable.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Log.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -735,7 +735,7 @@ LineEntry SymbolContext::GetFunctionStartLineEntry() const {
 
 bool SymbolContext::GetAddressRangeFromHereToEndLine(uint32_t end_line,
                                                      AddressRange &range,
-                                                     Error &error) {
+                                                     Status &error) {
   if (!line_entry.IsValid()) {
     error.SetErrorString("Symbol context has no line table.");
     return false;

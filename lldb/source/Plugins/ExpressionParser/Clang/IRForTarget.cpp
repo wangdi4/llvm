@@ -25,18 +25,18 @@
 
 #include "clang/AST/ASTContext.h"
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Scalar.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/dwarf.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRInterpreter.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/CompilerType.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include <map>
 
@@ -498,42 +498,58 @@ bool IRForTarget::RewriteObjCConstString(llvm::GlobalVariable *ns_str,
   Constant *bytes_arg = cstr ? ConstantExpr::getBitCast(cstr, i8_ptr_ty)
                              : Constant::getNullValue(i8_ptr_ty);
   Constant *numBytes_arg = ConstantInt::get(
-      m_intptr_ty, cstr ? string_array->getNumElements() - 1 : 0, false);
-  Constant *encoding_arg = ConstantInt::get(
-      i32_ty, 0x0600, false); /* 0x0600 is kCFStringEncodingASCII */
-  Constant *isExternal_arg =
-      ConstantInt::get(i8_ty, 0x0, false); /* 0x0 is false */
+      m_intptr_ty, cstr ? (string_array->getNumElements() - 1) * string_array->getElementByteSize() : 0, false);
+ int encoding_flags = 0;
+ switch (cstr ? string_array->getElementByteSize() : 1) {
+ case 1:
+   encoding_flags = 0x08000100; /* 0x08000100 is kCFStringEncodingUTF8 */
+   break;
+ case 2:
+   encoding_flags = 0x0100; /* 0x0100 is kCFStringEncodingUTF16 */
+   break;
+ case 4:
+   encoding_flags = 0x0c000100; /* 0x0c000100 is kCFStringEncodingUTF32 */
+   break;
+ default:
+   encoding_flags = 0x0600; /* fall back to 0x0600, kCFStringEncodingASCII */
+   LLDB_LOG(log, "Encountered an Objective-C constant string with unusual "
+                 "element size {0}",
+            string_array->getElementByteSize());
+ }
+ Constant *encoding_arg = ConstantInt::get(i32_ty, encoding_flags, false);
+ Constant *isExternal_arg =
+     ConstantInt::get(i8_ty, 0x0, false); /* 0x0 is false */
 
-  Value *argument_array[5];
+ Value *argument_array[5];
 
-  argument_array[0] = alloc_arg;
-  argument_array[1] = bytes_arg;
-  argument_array[2] = numBytes_arg;
-  argument_array[3] = encoding_arg;
-  argument_array[4] = isExternal_arg;
+ argument_array[0] = alloc_arg;
+ argument_array[1] = bytes_arg;
+ argument_array[2] = numBytes_arg;
+ argument_array[3] = encoding_arg;
+ argument_array[4] = isExternal_arg;
 
-  ArrayRef<Value *> CFSCWB_arguments(argument_array, 5);
+ ArrayRef<Value *> CFSCWB_arguments(argument_array, 5);
 
-  FunctionValueCache CFSCWB_Caller(
-      [this, &CFSCWB_arguments](llvm::Function *function) -> llvm::Value * {
-        return CallInst::Create(
-            m_CFStringCreateWithBytes, CFSCWB_arguments,
-            "CFStringCreateWithBytes",
-            llvm::cast<Instruction>(
-                m_entry_instruction_finder.GetValue(function)));
-      });
+ FunctionValueCache CFSCWB_Caller(
+     [this, &CFSCWB_arguments](llvm::Function *function) -> llvm::Value * {
+       return CallInst::Create(
+           m_CFStringCreateWithBytes, CFSCWB_arguments,
+           "CFStringCreateWithBytes",
+           llvm::cast<Instruction>(
+               m_entry_instruction_finder.GetValue(function)));
+     });
 
-  if (!UnfoldConstant(ns_str, nullptr, CFSCWB_Caller,
-                      m_entry_instruction_finder, m_error_stream)) {
-    if (log)
-      log->PutCString(
-          "Couldn't replace the NSString with the result of the call");
+ if (!UnfoldConstant(ns_str, nullptr, CFSCWB_Caller, m_entry_instruction_finder,
+                     m_error_stream)) {
+   if (log)
+     log->PutCString(
+         "Couldn't replace the NSString with the result of the call");
 
-    m_error_stream.Printf("error [IRForTarget internal]: Couldn't replace an "
-                          "Objective-C constant string with a dynamic "
-                          "string\n");
+   m_error_stream.Printf("error [IRForTarget internal]: Couldn't replace an "
+                         "Objective-C constant string with a dynamic "
+                         "string\n");
 
-    return false;
+   return false;
   }
 
   ns_str->eraseFromParent();
@@ -642,31 +658,23 @@ bool IRForTarget::RewriteObjCConstStrings() {
         return false;
       }
 
-      if (nsstring_expr->getOpcode() != Instruction::GetElementPtr) {
-        if (log)
-          log->Printf("NSString initializer's str element is not a "
-                      "GetElementPtr expression, it's a %s",
-                      nsstring_expr->getOpcodeName());
+      GlobalVariable *cstr_global = nullptr;
 
-        m_error_stream.Printf("Internal error [IRForTarget]: An Objective-C "
-                              "constant string's string initializer is not an "
-                              "array\n");
-
-        return false;
+      if (nsstring_expr->getOpcode() == Instruction::GetElementPtr) {
+        Constant *nsstring_cstr = nsstring_expr->getOperand(0);
+        cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
+      } else if (nsstring_expr->getOpcode() == Instruction::BitCast) {
+        Constant *nsstring_cstr = nsstring_expr->getOperand(0);
+        cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
       }
-
-      Constant *nsstring_cstr = nsstring_expr->getOperand(0);
-
-      GlobalVariable *cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
 
       if (!cstr_global) {
         if (log)
           log->PutCString(
               "NSString initializer's str element is not a GlobalVariable");
 
-        m_error_stream.Printf("Internal error [IRForTarget]: An Objective-C "
-                              "constant string's string initializer doesn't "
-                              "point to a global\n");
+        m_error_stream.Printf("Internal error [IRForTarget]: Unhandled"
+                              "constant string initializer\n");
 
         return false;
       }
@@ -1255,7 +1263,7 @@ bool IRForTarget::MaterializeInitializer(uint8_t *data, Constant *initializer) {
     lldb_private::Scalar scalar = int_initializer->getValue().zextOrTrunc(
         llvm::NextPowerOf2(constant_size) * 8);
 
-    lldb_private::Error get_data_error;
+    lldb_private::Status get_data_error;
     if (!scalar.GetAsMemoryData(data, constant_size,
                                 lldb_private::endian::InlHostByteOrder(),
                                 get_data_error))
@@ -1845,9 +1853,9 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   if (!m_decl_map->GetStructInfo(num_elements, size, alignment))
     return false;
 
-  Function::arg_iterator iter(llvm_function.getArgumentList().begin());
+  Function::arg_iterator iter(llvm_function.arg_begin());
 
-  if (iter == llvm_function.getArgumentList().end()) {
+  if (iter == llvm_function.arg_end()) {
     m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes no "
                           "arguments (should take at least a struct pointer)");
 
@@ -1859,7 +1867,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   if (argument->getName().equals("this")) {
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'this' argument (should take a struct pointer "
                             "too)");
@@ -1871,7 +1879,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   } else if (argument->getName().equals("self")) {
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'self' argument (should take '_cmd' and a struct "
                             "pointer too)");
@@ -1889,7 +1897,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
 
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'self' and '_cmd' arguments (should take a struct "
                             "pointer too)");

@@ -17,12 +17,8 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/FormatEntity.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/State.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Interpreter/OptionValueFileSpecList.h"
@@ -51,6 +47,10 @@
 #include "lldb/Target/ThreadPlanStepUntil.h"
 #include "lldb/Target/ThreadSpec.h"
 #include "lldb/Target/Unwind.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/RegularExpression.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -380,24 +380,32 @@ lldb::StopInfoSP Thread::GetStopInfo() {
   if (m_destroy_called)
     return m_stop_info_sp;
 
-  ThreadPlanSP plan_sp(GetCompletedPlan());
+  ThreadPlanSP completed_plan_sp(GetCompletedPlan());
   ProcessSP process_sp(GetProcess());
   const uint32_t stop_id = process_sp ? process_sp->GetStopID() : UINT32_MAX;
-  if (plan_sp && plan_sp->PlanSucceeded()) {
-    return StopInfo::CreateStopReasonWithPlan(plan_sp, GetReturnValueObject(),
-                                              GetExpressionVariable());
+
+  // Here we select the stop info according to priorirty:
+  // - m_stop_info_sp (if not trace) - preset value
+  // - completed plan stop info - new value with plan from completed plan stack
+  // - m_stop_info_sp (trace stop reason is OK now)
+  // - ask GetPrivateStopInfo to set stop info
+
+  bool have_valid_stop_info = m_stop_info_sp &&
+      m_stop_info_sp ->IsValid() &&
+      m_stop_info_stop_id == stop_id;
+  bool have_valid_completed_plan = completed_plan_sp && completed_plan_sp->PlanSucceeded();
+  bool plan_overrides_trace =
+    have_valid_stop_info && have_valid_completed_plan
+    && (m_stop_info_sp->GetStopReason() == eStopReasonTrace);
+    
+  if (have_valid_stop_info && !plan_overrides_trace) {
+    return m_stop_info_sp;
+  } else if (have_valid_completed_plan) {
+    return StopInfo::CreateStopReasonWithPlan(
+        completed_plan_sp, GetReturnValueObject(), GetExpressionVariable());
   } else {
-    if ((m_stop_info_stop_id == stop_id) || // Stop info is valid, just return
-                                            // what we have (even if empty)
-        (m_stop_info_sp &&
-         m_stop_info_sp
-             ->IsValid())) // Stop info is valid, just return what we have
-    {
-      return m_stop_info_sp;
-    } else {
-      GetPrivateStopInfo();
-      return m_stop_info_sp;
-    }
+    GetPrivateStopInfo();
+    return m_stop_info_sp;
   }
 }
 
@@ -457,6 +465,12 @@ bool Thread::StopInfoIsUpToDate() const {
   else
     return true; // Process is no longer around so stop info is always up to
                  // date...
+}
+
+void Thread::ResetStopInfo() {
+  if (m_stop_info_sp) {
+    m_stop_info_sp.reset();
+  }
 }
 
 void Thread::SetStopInfo(const lldb::StopInfoSP &stop_info_sp) {
@@ -526,7 +540,8 @@ bool Thread::CheckpointThreadState(ThreadStateCheckpoint &saved_state) {
   if (process_sp)
     saved_state.orig_stop_id = process_sp->GetStopID();
   saved_state.current_inlined_depth = GetCurrentInlinedDepth();
-
+  saved_state.m_completed_plan_stack = m_completed_plan_stack;
+	
   return true;
 }
 
@@ -559,6 +574,7 @@ bool Thread::RestoreThreadStateFromCheckpoint(
   SetStopInfo(saved_state.stop_info_sp);
   GetStackFrameList()->SetCurrentInlinedDepth(
       saved_state.current_inlined_depth);
+  m_completed_plan_stack = saved_state.m_completed_plan_stack;
   return true;
 }
 
@@ -895,6 +911,9 @@ bool Thread::ShouldStop(Event *event_ptr) {
 
   if (should_stop) {
     ThreadPlan *plan_ptr = GetCurrentPlan();
+
+    // Discard the stale plans and all plans below them in the stack,
+    // plus move the completed plans to the completed plan stack
     while (!PlanIsBasePlan(plan_ptr)) {
       bool stale = plan_ptr->IsPlanStale();
       ThreadPlan *examined_plan = plan_ptr;
@@ -905,7 +924,15 @@ bool Thread::ShouldStop(Event *event_ptr) {
           log->Printf(
               "Plan %s being discarded in cleanup, it says it is already done.",
               examined_plan->GetName());
-        DiscardThreadPlansUpToPlan(examined_plan);
+        while (GetCurrentPlan() != examined_plan) {
+          DiscardPlan();
+        }
+        if (examined_plan->IsPlanComplete()) {
+          // plan is complete but does not explain the stop (example: step to a line
+          // with breakpoint), let us move the plan to completed_plan_stack anyway
+          PopPlan();
+        } else
+          DiscardPlan();
       }
     }
   }
@@ -1133,6 +1160,10 @@ bool Thread::WasThreadPlanDiscarded(ThreadPlan *plan) {
   return false;
 }
 
+bool Thread::CompletedPlanOverridesBreakpoint() {
+  return (!m_completed_plan_stack.empty()) ;
+}
+
 ThreadPlan *Thread::GetPreviousPlan(ThreadPlan *current_plan) {
   if (current_plan == nullptr)
     return nullptr;
@@ -1304,8 +1335,8 @@ bool Thread::PlanIsBasePlan(ThreadPlan *plan_ptr) {
     return m_plan_stack[0].get() == plan_ptr;
 }
 
-Error Thread::UnwindInnermostExpression() {
-  Error error;
+Status Thread::UnwindInnermostExpression() {
+  Status error;
   int stack_size = m_plan_stack.size();
 
   // If the input plan is nullptr, discard all plans.  Otherwise make sure this
@@ -1604,11 +1635,11 @@ lldb::StackFrameSP Thread::GetFrameWithConcreteFrameIndex(uint32_t unwind_idx) {
   return GetStackFrameList()->GetFrameWithConcreteFrameIndex(unwind_idx);
 }
 
-Error Thread::ReturnFromFrameWithIndex(uint32_t frame_idx,
-                                       lldb::ValueObjectSP return_value_sp,
-                                       bool broadcast) {
+Status Thread::ReturnFromFrameWithIndex(uint32_t frame_idx,
+                                        lldb::ValueObjectSP return_value_sp,
+                                        bool broadcast) {
   StackFrameSP frame_sp = GetStackFrameAtIndex(frame_idx);
-  Error return_error;
+  Status return_error;
 
   if (!frame_sp) {
     return_error.SetErrorStringWithFormat(
@@ -1619,10 +1650,10 @@ Error Thread::ReturnFromFrameWithIndex(uint32_t frame_idx,
   return ReturnFromFrame(frame_sp, return_value_sp, broadcast);
 }
 
-Error Thread::ReturnFromFrame(lldb::StackFrameSP frame_sp,
-                              lldb::ValueObjectSP return_value_sp,
-                              bool broadcast) {
-  Error return_error;
+Status Thread::ReturnFromFrame(lldb::StackFrameSP frame_sp,
+                               lldb::ValueObjectSP return_value_sp,
+                               bool broadcast) {
+  Status return_error;
 
   if (!frame_sp) {
     return_error.SetErrorString("Can't return to a null frame.");
@@ -1709,8 +1740,8 @@ static void DumpAddressList(Stream &s, const std::vector<Address> &list,
   }
 }
 
-Error Thread::JumpToLine(const FileSpec &file, uint32_t line,
-                         bool can_leave_function, std::string *warnings) {
+Status Thread::JumpToLine(const FileSpec &file, uint32_t line,
+                          bool can_leave_function, std::string *warnings) {
   ExecutionContext exe_ctx(GetStackFrameAtIndex(0));
   Target *target = exe_ctx.GetTargetPtr();
   TargetSP target_sp = exe_ctx.GetTargetSP();
@@ -1738,17 +1769,16 @@ Error Thread::JumpToLine(const FileSpec &file, uint32_t line,
   // Check if we got anything.
   if (candidates.empty()) {
     if (outside_function.empty()) {
-      return Error("Cannot locate an address for %s:%i.",
-                   file.GetFilename().AsCString(), line);
+      return Status("Cannot locate an address for %s:%i.",
+                    file.GetFilename().AsCString(), line);
     } else if (outside_function.size() == 1) {
-      return Error("%s:%i is outside the current function.",
-                   file.GetFilename().AsCString(), line);
+      return Status("%s:%i is outside the current function.",
+                    file.GetFilename().AsCString(), line);
     } else {
       StreamString sstr;
       DumpAddressList(sstr, outside_function, target);
-      return Error("%s:%i has multiple candidate locations:\n%s",
-                   file.GetFilename().AsCString(), line,
-                   sstr.GetString().c_str());
+      return Status("%s:%i has multiple candidate locations:\n%s",
+                    file.GetFilename().AsCString(), line, sstr.GetData());
     }
   }
 
@@ -1764,9 +1794,9 @@ Error Thread::JumpToLine(const FileSpec &file, uint32_t line,
   }
 
   if (!reg_ctx->SetPC(dest))
-    return Error("Cannot change PC to target address.");
+    return Status("Cannot change PC to target address.");
 
-  return Error();
+  return Status();
 }
 
 void Thread::DumpUsingSettingsFormat(Stream &strm, uint32_t frame_idx,
@@ -1971,8 +2001,8 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
       StructuredData::ObjectSP name = activity_dict->GetValueForKey("name");
       if (name && name->GetType() == StructuredData::Type::eTypeString && id &&
           id->GetType() == StructuredData::Type::eTypeInteger) {
-        strm.Printf("  Activity '%s', 0x%" PRIx64 "\n",
-                    name->GetAsString()->GetValue().c_str(),
+        strm.Format("  Activity '{0}', {1:x}\n",
+                    name->GetAsString()->GetValue(),
                     id->GetAsInteger()->GetValue());
       }
       printed_activity = true;
@@ -1988,8 +2018,8 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
           breadcrumb_dict->GetValueForKey("name");
       if (breadcrumb_text &&
           breadcrumb_text->GetType() == StructuredData::Type::eTypeString) {
-        strm.Printf("  Current Breadcrumb: %s\n",
-                    breadcrumb_text->GetAsString()->GetValue().c_str());
+        strm.Format("  Current Breadcrumb: {0}\n",
+                    breadcrumb_text->GetAsString()->GetValue());
       }
       printed_breadcrumb = true;
     }
@@ -2010,8 +2040,7 @@ bool Thread::GetDescription(Stream &strm, lldb::DescriptionLevel level,
                 message_dict->GetValueForKey("message");
             if (message_text &&
                 message_text->GetType() == StructuredData::Type::eTypeString) {
-              strm.Printf("    %s\n",
-                          message_text->GetAsString()->GetValue().c_str());
+              strm.Format("    {0}\n", message_text->GetAsString()->GetValue());
             }
           }
         }
@@ -2087,12 +2116,12 @@ bool Thread::IsStillAtLastBreakpointHit() {
   return false;
 }
 
-Error Thread::StepIn(bool source_step,
-                     LazyBool step_in_avoids_code_without_debug_info,
-                     LazyBool step_out_avoids_code_without_debug_info)
+Status Thread::StepIn(bool source_step,
+                      LazyBool step_in_avoids_code_without_debug_info,
+                      LazyBool step_out_avoids_code_without_debug_info)
 
 {
-  Error error;
+  Status error;
   Process *process = GetProcess().get();
   if (StateIsStoppedState(process->GetState(), true)) {
     StackFrameSP frame_sp = GetStackFrameAtIndex(0);
@@ -2123,9 +2152,9 @@ Error Thread::StepIn(bool source_step,
   return error;
 }
 
-Error Thread::StepOver(bool source_step,
-                       LazyBool step_out_avoids_code_without_debug_info) {
-  Error error;
+Status Thread::StepOver(bool source_step,
+                        LazyBool step_out_avoids_code_without_debug_info) {
+  Status error;
   Process *process = GetProcess().get();
   if (StateIsStoppedState(process->GetState(), true)) {
     StackFrameSP frame_sp = GetStackFrameAtIndex(0);
@@ -2156,8 +2185,8 @@ Error Thread::StepOver(bool source_step,
   return error;
 }
 
-Error Thread::StepOut() {
-  Error error;
+Status Thread::StepOut() {
+  Status error;
   Process *process = GetProcess().get();
   if (StateIsStoppedState(process->GetState(), true)) {
     const bool first_instruction = false;

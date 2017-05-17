@@ -63,7 +63,7 @@ static cl::opt<bool> PollyParallelForce(
 
 static cl::opt<bool> UseContext("polly-ast-use-context",
                                 cl::desc("Use context"), cl::Hidden,
-                                cl::init(false), cl::ZeroOrMore,
+                                cl::init(true), cl::ZeroOrMore,
                                 cl::cat(PollyCategory));
 
 static cl::opt<bool> DetectParallel("polly-ast-detect-parallel",
@@ -124,7 +124,7 @@ static const std::string getBrokenReductionsStr(__isl_keep isl_ast_node *Node) {
   for (MemoryAccess *MA : *BrokenReductions)
     if (MA->isWrite())
       Clauses[MA->getReductionType()] +=
-          ", " + MA->getBaseAddr()->getName().str();
+          ", " + MA->getScopArrayInfo()->getName();
 
   // Now print the reductions sorted by type. Each type will cause a clause
   // like:  reduction (+ : sum0, sum1, sum2)
@@ -351,7 +351,7 @@ IslAst::buildRunCondition(Scop *S, __isl_keep isl_ast_build *Build) {
   // Create the alias checks from the minimal/maximal accesses in each alias
   // group which consists of read only and non read only (read write) accesses.
   // This operation is by construction quadratic in the read-write pointers and
-  // linear int the read only pointers in each alias group.
+  // linear in the read only pointers in each alias group.
   for (const Scop::MinMaxVectorPairTy &MinMaxAccessPair : S->getAliasGroups()) {
     auto &MinMaxReadWrite = MinMaxAccessPair.first;
     auto &MinMaxReadOnly = MinMaxAccessPair.second;
@@ -399,6 +399,14 @@ IslAst::IslAst(Scop *Scop)
 void IslAst::init(const Dependences &D) {
   bool PerformParallelTest = PollyParallel || DetectParallel ||
                              PollyVectorizerChoice != VECTORIZER_NONE;
+
+  // We can not perform the dependence analysis and, consequently,
+  // the parallel code generation in case the schedule tree contains
+  // extension nodes.
+  auto *ScheduleTree = S->getScheduleTree();
+  PerformParallelTest =
+      PerformParallelTest && !S->containsExtensionNode(ScheduleTree);
+  isl_schedule_free(ScheduleTree);
 
   // Skip AST and code generation if there was no benefit achieved.
   if (!benefitsFromPolly(S, PerformParallelTest))

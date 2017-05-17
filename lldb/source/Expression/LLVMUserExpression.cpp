@@ -12,11 +12,8 @@
 
 // Project includes
 #include "lldb/Expression/LLVMUserExpression.h"
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/ExpressionSourceCode.h"
@@ -38,6 +35,9 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/ThreadPlanCallUserExpression.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb_private;
 
@@ -49,7 +49,10 @@ LLVMUserExpression::LLVMUserExpression(ExecutionContextScope &exe_scope,
                                        const EvaluateExpressionOptions &options)
     : UserExpression(exe_scope, expr, prefix, language, desired_type, options),
       m_stack_frame_bottom(LLDB_INVALID_ADDRESS),
-      m_stack_frame_top(LLDB_INVALID_ADDRESS), m_transformed_text(),
+      m_stack_frame_top(LLDB_INVALID_ADDRESS),
+      m_allow_cxx(false),
+      m_allow_objc(false),
+      m_transformed_text(),
       m_execution_unit_sp(), m_materializer_ap(), m_jit_module_wp(),
       m_enforce_valid_object(true), m_in_cplusplus_method(false),
       m_in_objectivec_method(false), m_in_static_method(false),
@@ -97,13 +100,13 @@ LLVMUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
       llvm::Function *function = m_execution_unit_sp->GetFunction();
 
       if (!module || !function) {
-        diagnostic_manager.PutCString(
+        diagnostic_manager.PutString(
             eDiagnosticSeverityError,
             "supposed to interpret, but nothing is there");
         return lldb::eExpressionSetupError;
       }
 
-      Error interpreter_error;
+      Status interpreter_error;
 
       std::vector<lldb::addr_t> args;
 
@@ -153,7 +156,7 @@ LLVMUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
 
       StreamString ss;
       if (!call_plan_sp || !call_plan_sp->ValidatePlan(&ss)) {
-        diagnostic_manager.PutCString(eDiagnosticSeverityError, ss.GetData());
+        diagnostic_manager.PutString(eDiagnosticSeverityError, ss.GetString());
         return lldb::eExpressionSetupError;
       }
 
@@ -198,8 +201,8 @@ LLVMUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
                                     "Execution was interrupted, reason: %s.",
                                     error_desc);
         else
-          diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                        "Execution was interrupted.");
+          diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                       "Execution was interrupted.");
 
         if ((execution_result == lldb::eExpressionInterrupted &&
              options.DoesUnwindOnError()) ||
@@ -220,7 +223,7 @@ LLVMUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
 
         return execution_result;
       } else if (execution_result == lldb::eExpressionStoppedForDebug) {
-        diagnostic_manager.PutCString(
+        diagnostic_manager.PutString(
             eDiagnosticSeverityRemark,
             "Execution was halted at the first instruction of the expression "
             "function because \"debug\" was requested.\n"
@@ -243,7 +246,7 @@ LLVMUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
       return lldb::eExpressionResultUnavailable;
     }
   } else {
-    diagnostic_manager.PutCString(
+    diagnostic_manager.PutString(
         eDiagnosticSeverityError,
         "Expression can't be run, because there is no JIT compiled function");
     return lldb::eExpressionSetupError;
@@ -267,7 +270,7 @@ bool LLVMUserExpression::FinalizeJITExecution(
     return false;
   }
 
-  Error dematerialize_error;
+  Status dematerialize_error;
 
   m_dematerializer_sp->Dematerialize(dematerialize_error, function_stack_bottom,
                                      function_stack_top);
@@ -298,7 +301,7 @@ bool LLVMUserExpression::PrepareToExecuteJITExpression(
   lldb::StackFrameSP frame;
 
   if (!LockAndCheckContext(exe_ctx, target, process, frame)) {
-    diagnostic_manager.PutCString(
+    diagnostic_manager.PutString(
         eDiagnosticSeverityError,
         "The context has changed before we could JIT the expression!");
     return false;
@@ -306,7 +309,7 @@ bool LLVMUserExpression::PrepareToExecuteJITExpression(
 
   if (m_jit_start_addr != LLDB_INVALID_ADDRESS || m_can_interpret) {
     if (m_materialized_address == LLDB_INVALID_ADDRESS) {
-      Error alloc_error;
+      Status alloc_error;
 
       IRMemoryMap::AllocationPolicy policy =
           m_can_interpret ? IRMemoryMap::eAllocationPolicyHostOnly
@@ -332,7 +335,7 @@ bool LLVMUserExpression::PrepareToExecuteJITExpression(
     struct_address = m_materialized_address;
 
     if (m_can_interpret && m_stack_frame_bottom == LLDB_INVALID_ADDRESS) {
-      Error alloc_error;
+      Status alloc_error;
 
       const size_t stack_frame_size = 512 * 1024;
 
@@ -354,7 +357,7 @@ bool LLVMUserExpression::PrepareToExecuteJITExpression(
       }
     }
 
-    Error materialize_error;
+    Status materialize_error;
 
     m_dematerializer_sp = m_materializer_ap->Materialize(
         frame, *m_execution_unit_sp, struct_address, materialize_error);

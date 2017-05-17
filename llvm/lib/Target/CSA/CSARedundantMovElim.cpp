@@ -308,7 +308,7 @@ bool CSARedundantMovElim::sxuConstantPropMovAndDisconnect(MachineInstr& MI) {
   unsigned dest_reg = dest->getReg();
   const TargetRegisterClass* dest_RC = TII->lookupLICRegClass(dest_reg);
   int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
-  int dest_bitwidth = dest_RC->getSize();
+  int dest_bitwidth = this->TRI->getRegSizeInBits(*dest_RC);
   int final_bitwidth = std::min(mov_bitwidth, dest_bitwidth);
 
   const ConstantFP* fval;
@@ -478,9 +478,9 @@ bool CSARedundantMovElim::isRedundantMov(const MachineInstr& MI) const {
     return false;
   }
 
-  int src_bitwidth = src_RC->getSize();
+  int src_bitwidth = this->TRI->getRegSizeInBits(*src_RC);
   int mov_bitwidth = TII->getMOVBitwidth(MI.getOpcode());
-  int dest_bitwidth = dest_RC->getSize();
+  int dest_bitwidth = this->TRI->getRegSizeInBits(*dest_RC);
 
   // Special case: a COPY instruction has an implicit bitwidth equal
   // to the source.

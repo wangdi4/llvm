@@ -74,6 +74,7 @@
 #include "Plugins/Platform/MacOSX/PlatformMacOSX.h"
 #include "Plugins/Platform/MacOSX/PlatformRemoteiOS.h"
 #include "Plugins/Platform/NetBSD/PlatformNetBSD.h"
+#include "Plugins/Platform/OpenBSD/PlatformOpenBSD.h"
 #include "Plugins/Platform/Windows/PlatformWindows.h"
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
 #include "Plugins/Process/elf-core/ProcessElfCore.h"
@@ -107,8 +108,8 @@
 #include "Plugins/Process/FreeBSD/ProcessFreeBSD.h"
 #endif
 
-#if defined(_MSC_VER)
-#include "Plugins/Process/Windows/Live/ProcessWindowsLive.h"
+#if defined(_WIN32)
+#include "Plugins/Process/Windows/Common/ProcessWindows.h"
 #include "lldb/Host/windows/windows.h"
 #endif
 
@@ -266,6 +267,7 @@ void SystemInitializerFull::Initialize() {
   platform_freebsd::PlatformFreeBSD::Initialize();
   platform_linux::PlatformLinux::Initialize();
   platform_netbsd::PlatformNetBSD::Initialize();
+  platform_openbsd::PlatformOpenBSD::Initialize();
   PlatformWindows::Initialize();
   PlatformKalimba::Initialize();
   platform_android::PlatformAndroid::Initialize();
@@ -332,8 +334,8 @@ void SystemInitializerFull::Initialize() {
   ObjCPlusPlusLanguage::Initialize();
   OCamlLanguage::Initialize();
 
-#if defined(_MSC_VER)
-  ProcessWindowsLive::Initialize();
+#if defined(_WIN32)
+  ProcessWindows::Initialize();
 #endif
 #if defined(__FreeBSD__)
   ProcessFreeBSD::Initialize();
@@ -398,7 +400,8 @@ void SystemInitializerFull::InitializeSWIG() {
 }
 
 void SystemInitializerFull::Terminate() {
-  Timer scoped_timer(LLVM_PRETTY_FUNCTION, LLVM_PRETTY_FUNCTION);
+  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+  Timer scoped_timer(func_cat, LLVM_PRETTY_FUNCTION);
 
   Debugger::SettingsTerminate();
 
@@ -487,6 +490,7 @@ void SystemInitializerFull::Terminate() {
   platform_freebsd::PlatformFreeBSD::Terminate();
   platform_linux::PlatformLinux::Terminate();
   platform_netbsd::PlatformNetBSD::Terminate();
+  platform_openbsd::PlatformOpenBSD::Terminate();
   PlatformWindows::Terminate();
   PlatformKalimba::Terminate();
   platform_android::PlatformAndroid::Terminate();

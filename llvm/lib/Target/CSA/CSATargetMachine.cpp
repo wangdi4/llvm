@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSATargetMachine.h"
-#include "CSATargetTransformInfo.h"
 #include "CSALowerAggrCopies.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
@@ -97,14 +96,6 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
   initAsmInfo();
   //setAsmVerbosityDefault(true);
 }
-
-
-TargetIRAnalysis CSATargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis([this](const Function &F) {
-    return TargetTransformInfo(CSATTIImpl(this, F));
-  });
-}
-
 
 
 CSATargetMachine::~CSATargetMachine() {}

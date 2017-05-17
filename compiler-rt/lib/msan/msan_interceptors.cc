@@ -45,6 +45,8 @@ using __sanitizer::atomic_uintptr_t;
 
 DECLARE_REAL(SIZE_T, strlen, const char *s)
 DECLARE_REAL(SIZE_T, strnlen, const char *s, SIZE_T maxlen)
+DECLARE_REAL(void *, memcpy, void *dest, const void *src, uptr n)
+DECLARE_REAL(void *, memset, void *dest, int c, uptr n)
 
 #if SANITIZER_FREEBSD
 #define __errno_location __error
@@ -121,14 +123,6 @@ static void *AllocateFromLocalPool(uptr size_in_bytes) {
 #define CHECK_UNPOISONED_STRING(x, n)                           \
     CHECK_UNPOISONED_STRING_OF_LEN((x), internal_strlen(x), (n))
 
-INTERCEPTOR(SIZE_T, fread, void *ptr, SIZE_T size, SIZE_T nmemb, void *file) {
-  ENSURE_MSAN_INITED();
-  SIZE_T res = REAL(fread)(ptr, size, nmemb, file);
-  if (res > 0)
-    __msan_unpoison(ptr, res *size);
-  return res;
-}
-
 #if !SANITIZER_FREEBSD
 INTERCEPTOR(SIZE_T, fread_unlocked, void *ptr, SIZE_T size, SIZE_T nmemb,
             void *file) {
@@ -152,10 +146,6 @@ INTERCEPTOR(SSIZE_T, readlink, const char *path, char *buf, SIZE_T bufsiz) {
   return res;
 }
 
-INTERCEPTOR(void *, memcpy, void *dest, const void *src, SIZE_T n) {
-  return __msan_memcpy(dest, src, n);
-}
-
 INTERCEPTOR(void *, mempcpy, void *dest, const void *src, SIZE_T n) {
   return (char *)__msan_memcpy(dest, src, n) + n;
 }
@@ -168,14 +158,6 @@ INTERCEPTOR(void *, memccpy, void *dest, const void *src, int c, SIZE_T n) {
   CHECK_UNPOISONED(src, sz);
   __msan_unpoison(dest, sz);
   return res;
-}
-
-INTERCEPTOR(void *, memmove, void *dest, const void *src, SIZE_T n) {
-  return __msan_memmove(dest, src, n);
-}
-
-INTERCEPTOR(void *, memset, void *s, int c, SIZE_T n) {
-  return __msan_memset(s, c, n);
 }
 
 INTERCEPTOR(void *, bcopy, const void *src, void *dest, SIZE_T n) {
@@ -357,33 +339,6 @@ INTERCEPTOR(char *, __strdup, char *src) {
 #define MSAN_MAYBE_INTERCEPT___STRDUP INTERCEPT_FUNCTION(__strdup)
 #else
 #define MSAN_MAYBE_INTERCEPT___STRDUP
-#endif
-
-INTERCEPTOR(char *, strndup, char *src, SIZE_T n) {
-  ENSURE_MSAN_INITED();
-  GET_STORE_STACK_TRACE;
-  // On FreeBSD strndup() leverages strnlen().
-  InterceptorScope interceptor_scope;
-  SIZE_T copy_size = REAL(strnlen)(src, n);
-  char *res = REAL(strndup)(src, n);
-  CopyShadowAndOrigin(res, src, copy_size, &stack);
-  __msan_unpoison(res + copy_size, 1); // \0
-  return res;
-}
-
-#if !SANITIZER_FREEBSD
-INTERCEPTOR(char *, __strndup, char *src, SIZE_T n) {
-  ENSURE_MSAN_INITED();
-  GET_STORE_STACK_TRACE;
-  SIZE_T copy_size = REAL(strnlen)(src, n);
-  char *res = REAL(__strndup)(src, n);
-  CopyShadowAndOrigin(res, src, copy_size, &stack);
-  __msan_unpoison(res + copy_size, 1); // \0
-  return res;
-}
-#define MSAN_MAYBE_INTERCEPT___STRNDUP INTERCEPT_FUNCTION(__strndup)
-#else
-#define MSAN_MAYBE_INTERCEPT___STRNDUP
 #endif
 
 INTERCEPTOR(char *, gcvt, double number, SIZE_T ndigit, char *buf) {
@@ -590,6 +545,13 @@ INTERCEPTOR(SIZE_T, wcslen, const wchar_t *s) {
   return res;
 }
 
+INTERCEPTOR(SIZE_T, wcsnlen, const wchar_t *s, SIZE_T n) {
+  ENSURE_MSAN_INITED();
+  SIZE_T res = REAL(wcsnlen)(s, n);
+  CHECK_UNPOISONED(s, sizeof(wchar_t) * Min(res + 1, n));
+  return res;
+}
+
 // wchar_t *wcschr(const wchar_t *wcs, wchar_t wc);
 INTERCEPTOR(wchar_t *, wcschr, void *s, wchar_t wc, void *ps) {
   ENSURE_MSAN_INITED();
@@ -604,6 +566,18 @@ INTERCEPTOR(wchar_t *, wcscpy, wchar_t *dest, const wchar_t *src) {
   wchar_t *res = REAL(wcscpy)(dest, src);
   CopyShadowAndOrigin(dest, src, sizeof(wchar_t) * (REAL(wcslen)(src) + 1),
                       &stack);
+  return res;
+}
+
+INTERCEPTOR(wchar_t *, wcsncpy, wchar_t *dest, const wchar_t *src,
+            SIZE_T n) {  // NOLINT
+  ENSURE_MSAN_INITED();
+  GET_STORE_STACK_TRACE;
+  SIZE_T copy_size = REAL(wcsnlen)(src, n);
+  if (copy_size < n) copy_size++;           // trailing \0
+  wchar_t *res = REAL(wcsncpy)(dest, src, n);  // NOLINT
+  CopyShadowAndOrigin(dest, src, copy_size * sizeof(wchar_t), &stack);
+  __msan_unpoison(dest + copy_size, (n - copy_size) * sizeof(wchar_t));
   return res;
 }
 
@@ -1354,11 +1328,30 @@ int OnExit() {
     *begin = *end = 0;                                                         \
   }
 
+#define COMMON_INTERCEPTOR_MEMSET_IMPL(ctx, block, c, size) \
+  {                                                         \
+    (void)ctx;                                              \
+    return __msan_memset(block, c, size);                   \
+  }
+#define COMMON_INTERCEPTOR_MEMMOVE_IMPL(ctx, to, from, size) \
+  {                                                          \
+    (void)ctx;                                               \
+    return __msan_memmove(to, from, size);                   \
+  }
+#define COMMON_INTERCEPTOR_MEMCPY_IMPL(ctx, to, from, size) \
+  {                                                         \
+    (void)ctx;                                              \
+    return __msan_memcpy(to, from, size);                   \
+  }
+
+#define COMMON_INTERCEPTOR_COPY_STRING(ctx, to, from, size)                    \
+  do {                                                                         \
+    GET_STORE_STACK_TRACE;                                                     \
+    CopyShadowAndOrigin(to, from, size, &stack);                               \
+    __msan_unpoison(to + size, 1);                                             \
+  } while (false)
+
 #include "sanitizer_common/sanitizer_platform_interceptors.h"
-// Msan needs custom handling of these:
-#undef SANITIZER_INTERCEPT_MEMSET
-#undef SANITIZER_INTERCEPT_MEMMOVE
-#undef SANITIZER_INTERCEPT_MEMCPY
 #include "sanitizer_common/sanitizer_common_interceptors.inc"
 
 #define COMMON_SYSCALL_PRE_READ_RANGE(p, s) CHECK_UNPOISONED(p, s)
@@ -1514,11 +1507,8 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(fread);
   MSAN_MAYBE_INTERCEPT_FREAD_UNLOCKED;
   INTERCEPT_FUNCTION(readlink);
-  INTERCEPT_FUNCTION(memcpy);
   INTERCEPT_FUNCTION(memccpy);
   INTERCEPT_FUNCTION(mempcpy);
-  INTERCEPT_FUNCTION(memset);
-  INTERCEPT_FUNCTION(memmove);
   INTERCEPT_FUNCTION(bcopy);
   INTERCEPT_FUNCTION(wmemset);
   INTERCEPT_FUNCTION(wmemcpy);
@@ -1528,8 +1518,6 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(stpcpy);  // NOLINT
   INTERCEPT_FUNCTION(strdup);
   MSAN_MAYBE_INTERCEPT___STRDUP;
-  INTERCEPT_FUNCTION(strndup);
-  MSAN_MAYBE_INTERCEPT___STRNDUP;
   INTERCEPT_FUNCTION(strncpy);  // NOLINT
   INTERCEPT_FUNCTION(gcvt);
   INTERCEPT_FUNCTION(strcat);  // NOLINT
@@ -1566,8 +1554,10 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(mbtowc);
   INTERCEPT_FUNCTION(mbrtowc);
   INTERCEPT_FUNCTION(wcslen);
+  INTERCEPT_FUNCTION(wcsnlen);
   INTERCEPT_FUNCTION(wcschr);
   INTERCEPT_FUNCTION(wcscpy);
+  INTERCEPT_FUNCTION(wcsncpy);
   INTERCEPT_FUNCTION(wcscmp);
   INTERCEPT_FUNCTION(getenv);
   INTERCEPT_FUNCTION(setenv);

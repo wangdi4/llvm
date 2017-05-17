@@ -18,9 +18,6 @@
 #include "llvm/ADT/Triple.h"
 
 // Project includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/RegisterValue.h"
@@ -32,6 +29,9 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
 
 #include "Utility/ARM64_DWARF_Registers.h"
 
@@ -1697,7 +1697,7 @@ bool ABISysV_arm64::PrepareTrivialCall(Thread &thread, addr_t sp,
 
   if (log) {
     StreamString s;
-    s.Printf("ABISysV_x86_64::PrepareTrivialCall (tid = 0x%" PRIx64
+    s.Printf("ABISysV_arm64::PrepareTrivialCall (tid = 0x%" PRIx64
              ", sp = 0x%" PRIx64 ", func_addr = 0x%" PRIx64
              ", return_addr = 0x%" PRIx64,
              thread.GetID(), (uint64_t)sp, (uint64_t)func_addr,
@@ -1706,7 +1706,7 @@ bool ABISysV_arm64::PrepareTrivialCall(Thread &thread, addr_t sp,
     for (size_t i = 0; i < args.size(); ++i)
       s.Printf(", arg%d = 0x%" PRIx64, static_cast<int>(i + 1), args[i]);
     s.PutCString(")");
-    log->PutCString(s.GetString().c_str());
+    log->PutString(s.GetString());
   }
 
   // x0 - x7 contain first 8 simple args
@@ -1813,7 +1813,7 @@ bool ABISysV_arm64::GetArgumentValues(Thread &thread, ValueList &values) const {
 
           // Arguments 5 on up are on the stack
           const uint32_t arg_byte_size = (bit_width + (8 - 1)) / 8;
-          Error error;
+          Status error;
           if (!exe_ctx.GetProcessRef().ReadScalarIntegerFromMemory(
                   sp, arg_byte_size, is_signed, value->GetScalar(), error))
             return false;
@@ -1832,9 +1832,9 @@ bool ABISysV_arm64::GetArgumentValues(Thread &thread, ValueList &values) const {
   return true;
 }
 
-Error ABISysV_arm64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
-                                          lldb::ValueObjectSP &new_value_sp) {
-  Error error;
+Status ABISysV_arm64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
+                                           lldb::ValueObjectSP &new_value_sp) {
+  Status error;
   if (!new_value_sp) {
     error.SetErrorString("Empty value object for return value.");
     return error;
@@ -1852,7 +1852,7 @@ Error ABISysV_arm64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
 
   if (reg_ctx) {
     DataExtractor data;
-    Error data_error;
+    Status data_error;
     const uint64_t byte_size = new_value_sp->GetData(data, data_error);
     if (data_error.Fail()) {
       error.SetErrorStringWithFormat(
@@ -2101,7 +2101,7 @@ static bool LoadValueFromConsecutiveGPRRegisters(
   std::unique_ptr<DataBufferHeap> heap_data_ap(
       new DataBufferHeap(byte_size, 0));
   const ByteOrder byte_order = exe_ctx.GetProcessRef().GetByteOrder();
-  Error error;
+  Status error;
 
   CompilerType base_type;
   const uint32_t homogeneous_count =
@@ -2277,7 +2277,7 @@ ValueObjectSP ABISysV_arm64::GetReturnValueObjectImpl(
                   RegisterValue x1_reg_value;
                   if (reg_ctx->ReadRegister(x0_reg_info, x0_reg_value) &&
                       reg_ctx->ReadRegister(x1_reg_info, x1_reg_value)) {
-                    Error error;
+                    Status error;
                     if (x0_reg_value.GetAsMemoryData(
                             x0_reg_info, heap_data_ap->GetBytes() + 0, 8,
                             byte_order, error) &&
@@ -2362,32 +2362,30 @@ ValueObjectSP ABISysV_arm64::GetReturnValueObjectImpl(
     if (success)
       return_valobj_sp = ValueObjectConstResult::Create(
           thread.GetStackFrameAtIndex(0).get(), value, ConstString(""));
-  } else if (type_flags & eTypeIsVector) {
+  } else if (type_flags & eTypeIsVector && byte_size <= 16) {
     if (byte_size > 0) {
       const RegisterInfo *v0_info = reg_ctx->GetRegisterInfoByName("v0", 0);
 
       if (v0_info) {
-        if (byte_size <= v0_info->byte_size) {
-          std::unique_ptr<DataBufferHeap> heap_data_ap(
-              new DataBufferHeap(byte_size, 0));
-          const ByteOrder byte_order = exe_ctx.GetProcessRef().GetByteOrder();
-          RegisterValue reg_value;
-          if (reg_ctx->ReadRegister(v0_info, reg_value)) {
-            Error error;
-            if (reg_value.GetAsMemoryData(v0_info, heap_data_ap->GetBytes(),
-                                          heap_data_ap->GetByteSize(),
-                                          byte_order, error)) {
-              DataExtractor data(DataBufferSP(heap_data_ap.release()),
-                                 byte_order,
-                                 exe_ctx.GetProcessRef().GetAddressByteSize());
-              return_valobj_sp = ValueObjectConstResult::Create(
-                  &thread, return_compiler_type, ConstString(""), data);
-            }
+        std::unique_ptr<DataBufferHeap> heap_data_ap(
+            new DataBufferHeap(byte_size, 0));
+        const ByteOrder byte_order = exe_ctx.GetProcessRef().GetByteOrder();
+        RegisterValue reg_value;
+        if (reg_ctx->ReadRegister(v0_info, reg_value)) {
+          Status error;
+          if (reg_value.GetAsMemoryData(v0_info, heap_data_ap->GetBytes(),
+                                        heap_data_ap->GetByteSize(), byte_order,
+                                        error)) {
+            DataExtractor data(DataBufferSP(heap_data_ap.release()), byte_order,
+                               exe_ctx.GetProcessRef().GetAddressByteSize());
+            return_valobj_sp = ValueObjectConstResult::Create(
+                &thread, return_compiler_type, ConstString(""), data);
           }
         }
       }
     }
-  } else if (type_flags & eTypeIsStructUnion || type_flags & eTypeIsClass) {
+  } else if (type_flags & eTypeIsStructUnion || type_flags & eTypeIsClass ||
+             (type_flags & eTypeIsVector && byte_size > 16)) {
     DataExtractor data;
 
     uint32_t NGRN = 0; // Search ABI docs for NGRN

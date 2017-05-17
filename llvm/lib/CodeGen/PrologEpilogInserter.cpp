@@ -117,6 +117,10 @@ private:
   // TRI->requiresFrameIndexScavenging() for the current function.
   bool FrameIndexVirtualScavenging;
 
+  // Flag to control whether the scavenger should be passed even though
+  // FrameIndexVirtualScavenging is used.
+  bool FrameIndexEliminationScavenging;
+
   void calculateCallFrameInfo(MachineFunction &Fn);
   void calculateSaveRestoreBlocks(MachineFunction &Fn);
 
@@ -176,6 +180,8 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
 
   RS = TRI->requiresRegisterScavenging(Fn) ? new RegScavenger() : nullptr;
   FrameIndexVirtualScavenging = TRI->requiresFrameIndexScavenging(Fn);
+  FrameIndexEliminationScavenging = (RS && !FrameIndexVirtualScavenging) ||
+    TRI->requiresFrameIndexReplacementScavenging(Fn);
 
   // Calculate the MaxCallFrameSize and AdjustsStack variables for the
   // function's frame information. Also eliminates call frame pseudo
@@ -259,11 +265,8 @@ void PEI::calculateCallFrameInfo(MachineFunction &Fn) {
   std::vector<MachineBasicBlock::iterator> FrameSDOps;
   for (MachineFunction::iterator BB = Fn.begin(), E = Fn.end(); BB != E; ++BB)
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I)
-      if (I->getOpcode() == FrameSetupOpcode ||
-          I->getOpcode() == FrameDestroyOpcode) {
-        assert(I->getNumOperands() >= 1 && "Call Frame Setup/Destroy Pseudo"
-               " instructions should have a single immediate argument!");
-        unsigned Size = I->getOperand(0).getImm();
+      if (TII.isFrameInstr(*I)) {
+        unsigned Size = TII.getFrameSize(*I);
         if (Size > MaxCallFrameSize) MaxCallFrameSize = Size;
         AdjustsStack = true;
         FrameSDOps.push_back(I);
@@ -274,6 +277,9 @@ void PEI::calculateCallFrameInfo(MachineFunction &Fn) {
           AdjustsStack = true;
       }
 
+  assert(!MFI.isMaxCallFrameSizeComputed() ||
+         (MFI.getMaxCallFrameSize() == MaxCallFrameSize &&
+          MFI.adjustsStack() == AdjustsStack));
   MFI.setAdjustsStack(AdjustsStack);
   MFI.setMaxCallFrameSize(MaxCallFrameSize);
 
@@ -330,7 +336,7 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
     return;
 
   const TargetRegisterInfo *RegInfo = F.getSubtarget().getRegisterInfo();
-  const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&F);
+  const MCPhysReg *CSRegs = F.getRegInfo().getCalleeSavedRegs();
 
   std::vector<CalleeSavedInfo> CSI;
   for (unsigned i = 0; CSRegs[i]; ++i) {
@@ -370,22 +376,22 @@ static void assignCalleeSavedSpillSlots(MachineFunction &F,
              FixedSlot->Reg != Reg)
         ++FixedSlot;
 
+      unsigned Size = RegInfo->getSpillSize(*RC);
       if (FixedSlot == FixedSpillSlots + NumFixedSpillSlots) {
         // Nope, just spill it anywhere convenient.
-        unsigned Align = RC->getAlignment();
+        unsigned Align = RegInfo->getSpillAlignment(*RC);
         unsigned StackAlign = TFI->getStackAlignment();
 
         // We may not be able to satisfy the desired alignment specification of
         // the TargetRegisterClass if the stack alignment is smaller. Use the
         // min.
         Align = std::min(Align, StackAlign);
-        FrameIdx = MFI.CreateStackObject(RC->getSize(), Align, true);
+        FrameIdx = MFI.CreateStackObject(Size, Align, true);
         if ((unsigned)FrameIdx < MinCSFrameIndex) MinCSFrameIndex = FrameIdx;
         if ((unsigned)FrameIdx > MaxCSFrameIndex) MaxCSFrameIndex = FrameIdx;
       } else {
         // Spill it to the stack where we must.
-        FrameIdx =
-            MFI.CreateFixedSpillStackObject(RC->getSize(), FixedSlot->Offset);
+        FrameIdx = MFI.CreateFixedSpillStackObject(Size, FixedSlot->Offset);
       }
 
       CS.setFrameIdx(FrameIdx);
@@ -758,6 +764,9 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
   } else if (MaxCSFrameIndex >= MinCSFrameIndex) {
     // Be careful about underflow in comparisons agains MinCSFrameIndex.
     for (unsigned i = MaxCSFrameIndex; i != MinCSFrameIndex - 1; --i) {
+      if (MFI.isDeadObjectIndex(i))
+        continue;
+
       unsigned Align = MFI.getObjectAlignment(i);
       // Adjust to alignment boundary
       Offset = alignTo(Offset, Align, Skew);
@@ -1043,20 +1052,17 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
   const TargetInstrInfo &TII = *Fn.getSubtarget().getInstrInfo();
   const TargetRegisterInfo &TRI = *Fn.getSubtarget().getRegisterInfo();
   const TargetFrameLowering *TFI = Fn.getSubtarget().getFrameLowering();
-  unsigned FrameSetupOpcode = TII.getCallFrameSetupOpcode();
-  unsigned FrameDestroyOpcode = TII.getCallFrameDestroyOpcode();
 
-  if (RS && !FrameIndexVirtualScavenging) RS->enterBasicBlock(*BB);
+  if (RS && FrameIndexEliminationScavenging)
+    RS->enterBasicBlock(*BB);
 
   bool InsideCallSequence = false;
 
   for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ) {
 
-    if (I->getOpcode() == FrameSetupOpcode ||
-        I->getOpcode() == FrameDestroyOpcode) {
-      InsideCallSequence = (I->getOpcode() == FrameSetupOpcode);
+    if (TII.isFrameInstr(*I)) {
+      InsideCallSequence = TII.isFrameSetup(*I);
       SPAdj += TII.getSPAdjust(*I);
-
       I = TFI->eliminateCallFramePseudoInstr(Fn, *BB, I);
       continue;
     }
@@ -1115,7 +1121,7 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
       // use that target machine register info object to eliminate
       // it.
       TRI.eliminateFrameIndex(MI, SPAdj, i,
-                              FrameIndexVirtualScavenging ?  nullptr : RS);
+                              FrameIndexEliminationScavenging ?  RS : nullptr);
 
       // Reset the iterator if we were at the beginning of the BB.
       if (AtBeginning) {
@@ -1131,7 +1137,7 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
     // the SP adjustment made by each instruction in the sequence.
     // This includes both the frame setup/destroy pseudos (handled above),
     // as well as other instructions that have side effects w.r.t the SP.
-    // Note that this must come after eliminateFrameIndex, because 
+    // Note that this must come after eliminateFrameIndex, because
     // if I itself referred to a frame index, we shouldn't count its own
     // adjustment.
     if (DidFinishLoop && InsideCallSequence)
@@ -1140,7 +1146,7 @@ void PEI::replaceFrameIndices(MachineBasicBlock *BB, MachineFunction &Fn,
     if (DoIncr && I != BB->end()) ++I;
 
     // Update register states.
-    if (RS && !FrameIndexVirtualScavenging && DidFinishLoop)
+    if (RS && FrameIndexEliminationScavenging && DidFinishLoop)
       RS->forward(MI);
   }
 }
@@ -1230,4 +1236,6 @@ doScavengeFrameVirtualRegs(MachineFunction &MF, RegScavenger *RS) {
         ++I;
     }
   }
+
+  MF.getProperties().set(MachineFunctionProperties::Property::NoVRegs);
 }

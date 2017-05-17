@@ -19,5 +19,5 @@
 type = Library
 name = CSADesc
 parent = CSA
-required_libraries = MC CSAAsmPrinter CSAInfo
+required_libraries = MC CSAAsmPrinter CSAInfo Support
 add_to_library_groups = CSA

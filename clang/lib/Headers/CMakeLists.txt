@@ -28,6 +28,7 @@ set(files
   __clang_cuda_intrinsics.h
   __clang_cuda_math_forward_declares.h
   __clang_cuda_runtime_wrapper.h
+  clzerointrin.h
   cpuid.h
   clflushoptintrin.h
   emmintrin.h
@@ -44,6 +45,7 @@ set(files
   inttypes.h
   iso646.h
   limits.h
+  lwpintrin.h
   lzcntintrin.h
   mm3dnow.h
   mmintrin.h

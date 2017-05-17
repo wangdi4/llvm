@@ -3,7 +3,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Threading.h"
 
@@ -15,7 +15,7 @@ char CSASaveRawBC::ID = 0;
 
 std::string CSASaveRawBC::BcData;
 
-LLVM_DEFINE_ONCE_FLAG(save_raw_bc_init_flag);
+static once_flag save_raw_bc_init_flag;
 
 static cl::opt<bool>
 DumpRawBc("csa-dump-raw-bc", cl::Hidden,

@@ -1020,13 +1020,8 @@ bool llvm::EmitAnyX86InstComments(const MCInst *MI, raw_ostream &OS,
     LLVM_FALLTHROUGH;
 
   case X86::MOVQI2PQIrm:
-  case X86::MOVZQI2PQIrm:
-  case X86::MOVZPQILo2PQIrm:
   case X86::VMOVQI2PQIrm:
   case X86::VMOVQI2PQIZrm:
-  case X86::VMOVZQI2PQIrm:
-  case X86::VMOVZPQILo2PQIrm:
-  case X86::VMOVZPQILo2PQIZrm:
     DecodeZeroMoveLowMask(MVT::v2i64, ShuffleMask);
     DestName = getRegName(MI->getOperand(0).getReg());
     break;
@@ -1194,8 +1189,6 @@ bool llvm::EmitAnyX86InstComments(const MCInst *MI, raw_ostream &OS,
     OS << ']';
     --i; // For loop increments element #.
   }
-  //MI->print(OS, 0);
-  OS << "\n";
 
   // We successfully added a comment to this instruction.
   return true;

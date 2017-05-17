@@ -1151,13 +1151,13 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addReg(pickFalse->getReg()).addOperand(*pickTrue);
+        addReg(pickFalse->getReg()).add(*pickTrue);
     } else if (pickTrue->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addReg(pickTrue->getReg());
+        add(*pickFalse).addReg(pickTrue->getReg());
     } else {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addOperand(*pickTrue);
+        add(*pickFalse).add(*pickTrue);
     }
 
     pickInst->setFlag(MachineInstr::NonSequential);
@@ -1293,13 +1293,13 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addReg(pickFalse->getReg()).addOperand(*pickTrue);
+        addReg(pickFalse->getReg()).add(*pickTrue);
     } else if (pickTrue->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addReg(pickTrue->getReg());
+        add(*pickFalse).addReg(pickTrue->getReg());
     } else {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addOperand(*pickTrue);
+        add(*pickFalse).add(*pickTrue);
     }
 
     pickInst->setFlag(MachineInstr::NonSequential);
@@ -2746,8 +2746,8 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock* mbb) {
         else {
           MachineOperand edgeOp = MachineOperand::CreateReg(pred2value->first, true);
           MachineOperand valueOp = MachineOperand::CreateReg(pred2value->second, true);
-          xphi->addOperand(edgeOp);
-          xphi->addOperand(valueOp);
+          xphi->add(edgeOp);
+          xphi->add(valueOp);
         }
       }
 #else 

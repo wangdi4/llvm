@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_CLANG_LEX_MODULEMAP_H
 #define LLVM_CLANG_LEX_MODULEMAP_H
 
@@ -20,12 +19,18 @@
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Twine.h"
+#include <algorithm>
+#include <memory>
 #include <string>
+#include <utility>
 
 namespace clang {
 
@@ -41,7 +46,7 @@ class ModuleMapParser;
 /// reads module map files.
 class ModuleMapCallbacks {
 public:
-  virtual ~ModuleMapCallbacks() {}
+  virtual ~ModuleMapCallbacks() = default;
 
   /// \brief Called when a module map file has been read.
   ///
@@ -154,7 +159,7 @@ public:
   typedef llvm::SmallPtrSet<const FileEntry *, 1> AdditionalModMapsSet;
 
 private:
-  typedef llvm::DenseMap<const FileEntry *, SmallVector<KnownHeader, 1> >
+  typedef llvm::DenseMap<const FileEntry *, SmallVector<KnownHeader, 1>>
   HeadersMap;
 
   /// \brief Mapping from each header to the module that owns the contents of
@@ -310,6 +315,14 @@ public:
   void setBuiltinIncludeDir(const DirectoryEntry *Dir) {
     BuiltinIncludeDir = Dir;
   }
+
+  /// \brief Get the directory that contains Clang-supplied include files.
+  const DirectoryEntry *getBuiltinDir() const {
+    return BuiltinIncludeDir;
+  }
+
+  /// \brief Is this a compiler builtin header?
+  static bool isBuiltinHeader(StringRef FileName);
 
   /// \brief Add a module map callback.
   void addModuleMapCallbacks(std::unique_ptr<ModuleMapCallbacks> Callback) {
@@ -533,14 +546,20 @@ public:
   /// \param HomeDir The directory in which relative paths within this module
   ///        map file will be resolved.
   ///
+  /// \param ID The FileID of the file to process, if we've already entered it.
+  ///
+  /// \param Offset [inout] On input the offset at which to start parsing. On
+  ///        output, the offset at which the module map terminated.
+  ///
   /// \param ExternModuleLoc The location of the "extern module" declaration
   ///        that caused us to load this module map file, if any.
   ///
   /// \returns true if an error occurred, false otherwise.
   bool parseModuleMapFile(const FileEntry *File, bool IsSystem,
-                          const DirectoryEntry *HomeDir,
+                          const DirectoryEntry *HomeDir, FileID ID = FileID(),
+                          unsigned *Offset = nullptr,
                           SourceLocation ExternModuleLoc = SourceLocation());
-    
+
   /// \brief Dump the contents of the module map, for debugging purposes.
   void dump();
   
@@ -549,5 +568,6 @@ public:
   module_iterator module_end()   const { return Modules.end(); }
 };
   
-}
-#endif
+} // end namespace clang
+
+#endif // LLVM_CLANG_LEX_MODULEMAP_H

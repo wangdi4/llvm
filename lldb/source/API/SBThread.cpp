@@ -15,7 +15,6 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/State.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Core/ValueObject.h"
@@ -34,6 +33,7 @@
 #include "lldb/Target/ThreadPlanStepOut.h"
 #include "lldb/Target/ThreadPlanStepRange.h"
 #include "lldb/Target/UnixSignals.h"
+#include "lldb/Utility/Stream.h"
 
 #include "lldb/API/SBAddress.h"
 #include "lldb/API/SBDebugger.h"
@@ -562,7 +562,7 @@ bool SBThread::GetInfoItemByPathAsString(const char *path, SBStream &strm) {
             info_root_sp->GetObjectForDotSeparatedPath(path);
         if (node) {
           if (node->GetType() == StructuredData::Type::eTypeString) {
-            strm.Printf("%s", node->GetAsString()->GetValue().c_str());
+            strm.Printf("%s", node->GetAsString()->GetValue().str().c_str());
             success = true;
           }
           if (node->GetType() == StructuredData::Type::eTypeInteger) {
@@ -595,8 +595,8 @@ bool SBThread::GetInfoItemByPathAsString(const char *path, SBStream &strm) {
   }
 
   if (log)
-    log->Printf("SBThread(%p)::GetInfoItemByPathAsString () => %s",
-                static_cast<void *>(exe_ctx.GetThreadPtr()), strm.GetData());
+    log->Printf("SBThread(%p)::GetInfoItemByPathAsString (\"%s\") => \"%s\"",
+                static_cast<void *>(exe_ctx.GetThreadPtr()), path, strm.GetData());
 
   return success;
 }
@@ -1037,7 +1037,7 @@ SBError SBThread::JumpToLine(lldb::SBFileSpec &file_spec, uint32_t line) {
 
   Thread *thread = exe_ctx.GetThreadPtr();
 
-  Error err = thread->JumpToLine(file_spec.get(), line, true);
+  Status err = thread->JumpToLine(file_spec.get(), line, true);
   sb_error.SetError(err);
   return sb_error;
 }

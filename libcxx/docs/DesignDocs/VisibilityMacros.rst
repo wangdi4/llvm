@@ -22,6 +22,24 @@ Visibility Macros
   Mark a symbol as being exported by the libc++ library. This attribute must
   be applied to the declaration of all functions exported by the libc++ dylib.
 
+**_LIBCPP_EXTERN_VIS**
+  Mark a symbol as being exported by the libc++ library. This attribute may
+  only be applied to objects defined in the libc++ library. On Windows this
+  macro applies `dllimport`/`dllexport` to the symbol. On all other platforms
+  this macro has no effect.
+
+**_LIBCPP_OVERRIDABLE_FUNC_VIS**
+  Mark a symbol as being exported by the libc++ library, but allow it to be
+  overridden locally. On non-Windows, this is equivalent to `_LIBCPP_FUNC_VIS`.
+  This macro is applied to all `operator new` and `operator delete` overloads.
+
+  **Windows Behavior**: Any symbol marked `dllimport` cannot be overridden
+  locally, since `dllimport` indicates the symbol should be bound to a separate
+  DLL. All `operator new` and `operator delete` overloads are required to be
+  locally overridable, and therefore must not be marked `dllimport`. On Windows,
+  this macro therefore expands to `__declspec(dllexport)` when building the
+  library and has an empty definition otherwise.
+
 **_LIBCPP_INLINE_VISIBILITY**
   Mark a function as hidden and force inlining whenever possible.
 
@@ -29,21 +47,20 @@ Visibility Macros
   A synonym for `_LIBCPP_INLINE_VISIBILITY`
 
 **_LIBCPP_TYPE_VIS**
+  Mark a type's typeinfo, vtable and members as having default visibility.
+  This attribute cannot be used on class templates.
+
+**_LIBCPP_TEMPLATE_VIS**
   Mark a type's typeinfo and vtable as having default visibility.
-  `_LIBCPP_TYPE_VIS`. This macro has no effect on the visibility of the
-  type's member functions. This attribute cannot be used on class templates.
+  This macro has no effect on the visibility of the type's member functions.
 
   **GCC Behavior**: GCC does not support Clang's `type_visibility(...)`
   attribute. With GCC the `visibility(...)` attribute is used and member
   functions are affected.
 
-**_LIBCPP_TYPE_VIS_ONLY**
-  The same as `_LIBCPP_TYPE_VIS` except that it may be applied to templates.
-
   **Windows Behavior**: DLLs do not support dllimport/export on class templates.
   The macro has an empty definition on this platform.
 
-  Note: This macro should be renamed `_LIBCPP_TEMPLATE_TYPE_VIS`.
 
 **_LIBCPP_ENUM_VIS**
   Mark the typeinfo of an enum as having default visibility. This attribute
@@ -62,14 +79,15 @@ Visibility Macros
   a `_LIBCPP_EXTERN_TEMPLATE` declaration as being exported by the libc++ library.
   This attribute must be specified on all extern class template declarations.
 
-  This macro is used to override the `_LIBCPP_TYPE_VIS_ONLY` attribute
+  This macro is used to override the `_LIBCPP_TEMPLATE_VIS` attribute
   specified on the primary template and to export the member functions produced
   by the explicit instantiation in the dylib.
 
   **GCC Behavior**: GCC ignores visibility attributes applied the type in
   extern template declarations and applying an attribute results in a warning.
-  However since `_LIBCPP_TYPE_VIS_ONLY` is the same as `_LIBCPP_TYPE_VIS` the
-  visibility is already correct. The macro has an empty definition with GCC.
+  However since `_LIBCPP_TEMPLATE_VIS` is the same as
+  `__attribute__((visibility("default"))` the visibility is already correct.
+  The macro has an empty definition with GCC.
 
   **Windows Behavior**: `extern template` and `dllexport` are fundamentally
   incompatible *on a template class* on Windows; the former suppresses
@@ -91,6 +109,35 @@ Visibility Macros
   the extern template declaration) as exported on Windows, as discussed above.
   On all other platforms, this macro has an empty definition.
 
+**_LIBCPP_METHOD_TEMPLATE_IMPLICIT_INSTANTIATION_VIS**
+  Mark a symbol as hidden so it will not be exported from shared libraries. This
+  is intended specifically for method templates of either classes marked with
+  `_LIBCPP_TYPE_VIS` or classes with an extern template instantiation
+  declaration marked with `_LIBCPP_EXTERN_TEMPLATE_TYPE_VIS`.
+
+  When building libc++ with hidden visibility, we want explicit template
+  instantiations to export members, which is consistent with existing Windows
+  behavior. We also want classes annotated with `_LIBCPP_TYPE_VIS` to export
+  their members, which is again consistent with existing Windows behavior.
+  Both these changes are necessary for clients to be able to link against a
+  libc++ DSO built with hidden visibility without encountering missing symbols.
+
+  An unfortunate side effect, however, is that method templates of classes
+  either marked `_LIBCPP_TYPE_VIS` or with extern template instantiation
+  declarations marked with `_LIBCPP_EXTERN_TEMPLATE_TYPE_VIS` also get default
+  visibility when instantiated. These methods are often implicitly instantiated
+  inside other libraries which use the libc++ headers, and will therefore end up
+  being exported from those libraries, since those implicit instantiations will
+  receive default visibility. This is not acceptable for libraries that wish to
+  control their visibility, and led to PR30642.
+
+  Consequently, all such problematic method templates are explicitly marked
+  either hidden (via this macro) or inline, so that they don't leak into client
+  libraries. The problematic methods were found by running
+  `bad-visibility-finder <https://github.com/smeenai/bad-visibility-finder>`_
+  against the libc++ headers after making `_LIBCPP_TYPE_VIS` and
+  `_LIBCPP_EXTERN_TEMPLATE_TYPE_VIS` expand to default visibility.
+
 **_LIBCPP_EXTERN_TEMPLATE_INLINE_VISIBILITY**
   Mark a member function of a class template as visible and always inline. This
   macro should only be applied to member functions of class templates that are
@@ -106,20 +153,6 @@ Visibility Macros
   Exception types should be defined directly in namespace `std` and not the
   versioning namespace. This allows throwing and catching some exception types
   between libc++ and libstdc++.
-
-**_LIBCPP_NEW_DELETE_VIS**
-  Mark a symbol as being exported by the libc++ library. This macro must be
-  applied to all `operator new` and `operator delete` overloads.
-
-  **Windows Behavior**: The `operator new` and `operator delete` overloads
-  should not be marked as `dllimport`; if they were, source files including the
-  `<new>` header (either directly or transitively) would lose the ability to use
-  local overloads of `operator new` and `operator delete`. On Windows, this
-  macro therefore expands to `__declspec(dllexport)` when building the library
-  and has an empty definition otherwise. A related caveat is that libc++ must be
-  included on the link line before `msvcrt.lib`, otherwise Microsoft's
-  definitions of `operator new` and `operator delete` inside `msvcrt.lib` will
-  end up being used instead of libc++'s.
 
 Links
 =====

@@ -14,15 +14,13 @@
 #ifndef SCUDO_ALLOCATOR_H_
 #define SCUDO_ALLOCATOR_H_
 
-#ifndef __x86_64__
-# error "The Scudo hardened allocator currently only supports x86_64."
-#endif
-
 #include "scudo_flags.h"
 
 #include "sanitizer_common/sanitizer_allocator.h"
 
-#include <atomic>
+#if !SANITIZER_LINUX
+# error "The Scudo hardened allocator is currently only supported on Linux."
+#endif
 
 namespace __scudo {
 
@@ -39,71 +37,94 @@ enum ChunkState : u8 {
   ChunkQuarantine = 2
 };
 
-#if SANITIZER_WORDSIZE == 64
-// Our header requires 128 bits of storage on 64-bit platforms, which fits
-// nicely with the alignment requirements. Having the offset saves us from
+// Our header requires 64 bits of storage. Having the offset saves us from
 // using functions such as GetBlockBegin, that is fairly costly. Our first
 // implementation used the MetaData as well, which offers the advantage of
 // being stored away from the chunk itself, but accessing it was costly as
-// well. The header will be atomically loaded and stored using the 16-byte
-// primitives offered by the platform (likely requires cmpxchg16b support).
-typedef unsigned __int128 PackedHeader;
-struct UnpackedHeader {
-  u16  Checksum      : 16;
-  uptr RequestedSize : 40; // Needed for reallocation purposes.
-  u8   State         : 2;  // available, allocated, or quarantined
-  u8   AllocType     : 2;  // malloc, new, new[], or memalign
-  u8   Unused_0_     : 4;
-  uptr Offset        : 12; // Offset from the beginning of the backend
-                           // allocation to the beginning of the chunk itself,
-                           // in multiples of MinAlignment. See comment about
-                           // its maximum value and test in init().
-  u64  Unused_1_     : 36;
-  u16  Salt          : 16;
-};
-#elif SANITIZER_WORDSIZE == 32
-// On 32-bit platforms, our header requires 64 bits.
+// well. The header will be atomically loaded and stored.
 typedef u64 PackedHeader;
 struct UnpackedHeader {
-  u16  Checksum      : 12;
-  uptr RequestedSize : 32; // Needed for reallocation purposes.
-  u8   State         : 2;  // available, allocated, or quarantined
-  u8   AllocType     : 2;  // malloc, new, new[], or memalign
-  uptr Offset        : 12; // Offset from the beginning of the backend
-                           // allocation to the beginning of the chunk itself,
-                           // in multiples of MinAlignment. See comment about
-                           // its maximum value and test in Allocator::init().
-  u16  Salt          : 4;
+  u64 Checksum          : 16;
+  u64 SizeOrUnusedBytes : 19; // Size for Primary backed allocations, amount of
+                              // unused bytes in the chunk for Secondary ones.
+  u64 FromPrimary       : 1;
+  u64 State             : 2;  // available, allocated, or quarantined
+  u64 AllocType         : 2;  // malloc, new, new[], or memalign
+  u64 Offset            : 16; // Offset from the beginning of the backend
+                              // allocation to the beginning of the chunk
+                              // itself, in multiples of MinAlignment. See
+                              // comment about its maximum value and in init().
+  u64 Salt              : 8;
 };
-#else
-# error "Unsupported SANITIZER_WORDSIZE."
-#endif  // SANITIZER_WORDSIZE
 
-typedef std::atomic<PackedHeader> AtomicPackedHeader;
+typedef atomic_uint64_t AtomicPackedHeader;
 COMPILER_CHECK(sizeof(UnpackedHeader) == sizeof(PackedHeader));
-
-const uptr ChunkHeaderSize = sizeof(PackedHeader);
 
 // Minimum alignment of 8 bytes for 32-bit, 16 for 64-bit
 const uptr MinAlignmentLog = FIRST_32_SECOND_64(3, 4);
-const uptr MaxAlignmentLog = 24; // 16 MB
+const uptr MaxAlignmentLog = 24;  // 16 MB
 const uptr MinAlignment = 1 << MinAlignmentLog;
 const uptr MaxAlignment = 1 << MaxAlignmentLog;
 
-struct AllocatorOptions {
-  u32 QuarantineSizeMb;
-  u32 ThreadLocalQuarantineSizeKb;
-  bool MayReturnNull;
-  bool DeallocationTypeMismatch;
-  bool DeleteSizeMismatch;
-  bool ZeroContents;
+const uptr ChunkHeaderSize = sizeof(PackedHeader);
+const uptr AlignedChunkHeaderSize =
+    (ChunkHeaderSize + MinAlignment - 1) & ~(MinAlignment - 1);
 
-  void setFrom(const Flags *f, const CommonFlags *cf);
-  void copyTo(Flags *f, CommonFlags *cf) const;
+#if SANITIZER_CAN_USE_ALLOCATOR64
+const uptr AllocatorSpace = ~0ULL;
+# if defined(__aarch64__) && SANITIZER_ANDROID
+const uptr AllocatorSize = 0x4000000000ULL;  // 256G.
+# elif defined(__aarch64__)
+const uptr AllocatorSize = 0x10000000000ULL;  // 1T.
+# else
+const uptr AllocatorSize = 0x40000000000ULL;  // 4T.
+# endif
+typedef DefaultSizeClassMap SizeClassMap;
+struct AP64 {
+  static const uptr kSpaceBeg = AllocatorSpace;
+  static const uptr kSpaceSize = AllocatorSize;
+  static const uptr kMetadataSize = 0;
+  typedef __scudo::SizeClassMap SizeClassMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags =
+      SizeClassAllocator64FlagMasks::kRandomShuffleChunks;
 };
+typedef SizeClassAllocator64<AP64> PrimaryAllocator;
+#else
+// Currently, the 32-bit Sanitizer allocator has not yet benefited from all the
+// security improvements brought to the 64-bit one. This makes the 32-bit
+// version of Scudo slightly less toughened.
+static const uptr RegionSizeLog = 20;
+static const uptr NumRegions = SANITIZER_MMAP_RANGE_SIZE >> RegionSizeLog;
+# if SANITIZER_WORDSIZE == 32
+typedef FlatByteMap<NumRegions> ByteMap;
+# elif SANITIZER_WORDSIZE == 64
+typedef TwoLevelByteMap<(NumRegions >> 12), 1 << 12> ByteMap;
+# endif  // SANITIZER_WORDSIZE
+typedef DefaultSizeClassMap SizeClassMap;
+struct AP32 {
+  static const uptr kSpaceBeg = 0;
+  static const u64 kSpaceSize = SANITIZER_MMAP_RANGE_SIZE;
+  static const uptr kMetadataSize = 0;
+  typedef __scudo::SizeClassMap SizeClassMap;
+  static const uptr kRegionSizeLog = RegionSizeLog;
+  typedef __scudo::ByteMap ByteMap;
+  typedef NoOpMapUnmapCallback MapUnmapCallback;
+  static const uptr kFlags =
+      SizeClassAllocator32FlagMasks::kRandomShuffleChunks;
+};
+typedef SizeClassAllocator32<AP32> PrimaryAllocator;
+#endif  // SANITIZER_CAN_USE_ALLOCATOR64
 
-void initAllocator(const AllocatorOptions &options);
-void drainQuarantine();
+#include "scudo_allocator_secondary.h"
+#include "scudo_allocator_combined.h"
+
+typedef SizeClassAllocatorLocalCache<PrimaryAllocator> AllocatorCache;
+typedef ScudoLargeMmapAllocator SecondaryAllocator;
+typedef ScudoCombinedAllocator<PrimaryAllocator, AllocatorCache,
+    SecondaryAllocator> ScudoBackendAllocator;
+
+void initScudo();
 
 void *scudoMalloc(uptr Size, AllocType Type);
 void scudoFree(void *Ptr, AllocType Type);
@@ -117,8 +138,6 @@ int scudoPosixMemalign(void **MemPtr, uptr Alignment, uptr Size);
 void *scudoAlignedAlloc(uptr Alignment, uptr Size);
 uptr scudoMallocUsableSize(void *Ptr);
 
-#include "scudo_allocator_secondary.h"
-
-} // namespace __scudo
+}  // namespace __scudo
 
 #endif  // SCUDO_ALLOCATOR_H_

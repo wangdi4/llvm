@@ -11,16 +11,16 @@
 #include <errno.h>
 #include <stdint.h>
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
-#include "lldb/Host/Endian.h"
+#include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
 #include "llvm/Support/Compiler.h"
 
-#include "Plugins/Process/elf-core/ProcessElfCore.h"
 #include "RegisterContextPOSIX_x86.h"
 #include "RegisterContext_x86.h"
 
@@ -373,11 +373,6 @@ RegisterContextPOSIX_x86::RegisterContextPOSIX_x86(
 
   ::memset(&m_fpr, 0, sizeof(FPR));
 
-  // elf-core yet to support ReadFPR()
-  ProcessSP base = CalculateProcess();
-  if (base.get()->GetPluginName() == ProcessElfCore::GetPluginNameStatic())
-    return;
-
   m_fpr_type = eNotValid;
 }
 
@@ -417,6 +412,10 @@ size_t RegisterContextPOSIX_x86::GetRegisterCount() {
 
 size_t RegisterContextPOSIX_x86::GetGPRSize() {
   return m_register_info_ap->GetGPRSize();
+}
+
+size_t RegisterContextPOSIX_x86::GetFXSAVEOffset() {
+  return GetRegisterInfo()[m_reg_info.first_fpr].byte_offset;
 }
 
 const RegisterInfo *RegisterContextPOSIX_x86::GetRegisterInfo() {

@@ -18,18 +18,34 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
 #include <windows.h>
-#include <dbghelp.h>
 #include <io.h>
 #include <psapi.h>
 #include <stdlib.h>
 
 #include "sanitizer_common.h"
+#include "sanitizer_dbghelp.h"
 #include "sanitizer_libc.h"
 #include "sanitizer_mutex.h"
 #include "sanitizer_placement_new.h"
 #include "sanitizer_procmaps.h"
 #include "sanitizer_stacktrace.h"
 #include "sanitizer_symbolizer.h"
+#include "sanitizer_win_defs.h"
+
+// A macro to tell the compiler that this part of the code cannot be reached,
+// if the compiler supports this feature. Since we're using this in
+// code that is called when terminating the process, the expansion of the
+// macro should not terminate the process to avoid infinite recursion.
+#if defined(__clang__)
+# define BUILTIN_UNREACHABLE() __builtin_unreachable()
+#elif defined(__GNUC__) && \
+    (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
+# define BUILTIN_UNREACHABLE() __builtin_unreachable()
+#elif defined(_MSC_VER)
+# define BUILTIN_UNREACHABLE() __assume(0)
+#else
+# define BUILTIN_UNREACHABLE()
+#endif
 
 namespace __sanitizer {
 
@@ -64,7 +80,7 @@ uptr internal_getpid() {
 
 // In contrast to POSIX, on Windows GetCurrentThreadId()
 // returns a system-unique identifier.
-uptr GetTid() {
+tid_t GetTid() {
   return GetCurrentThreadId();
 }
 
@@ -234,8 +250,7 @@ bool MprotectNoAccess(uptr addr, uptr size) {
   return VirtualProtect((LPVOID)addr, size, PAGE_NOACCESS, &old_protection);
 }
 
-
-void ReleaseMemoryToOS(uptr addr, uptr size) {
+void ReleaseMemoryPagesToOS(uptr beg, uptr end) {
   // This is almost useless on 32-bits.
   // FIXME: add madvise-analog when we move to 64-bits.
 }
@@ -374,6 +389,8 @@ void DumpProcessMap() {
 }
 #endif
 
+void PrintModuleMap() { }
+
 void DisableCoreDumperIfNecessary() {
   // Do nothing.
 }
@@ -425,8 +442,6 @@ u64 NanoTime() {
 }
 
 void Abort() {
-  if (::IsDebuggerPresent())
-    __debugbreak();
   internal__exit(3);
 }
 
@@ -538,7 +553,8 @@ void ListOfModules::init() {
     LoadedModule cur_module;
     cur_module.set(module_name, adjusted_base);
     // We add the whole module as one single address range.
-    cur_module.addAddressRange(base_address, end_address, /*executable*/ true);
+    cur_module.addAddressRange(base_address, end_address, /*executable*/ true,
+                               /*readable*/ true);
     modules_.push_back(cur_module);
   }
   UnmapOrDie(hmodules, modules_buffer_size);
@@ -656,7 +672,13 @@ uptr internal_sched_yield() {
 }
 
 void internal__exit(int exitcode) {
-  ExitProcess(exitcode);
+  // ExitProcess runs some finalizers, so use TerminateProcess to avoid that.
+  // The debugger doesn't stop on TerminateProcess like it does on ExitProcess,
+  // so add our own breakpoint here.
+  if (::IsDebuggerPresent())
+    __debugbreak();
+  TerminateProcess(GetCurrentProcess(), exitcode);
+  BUILTIN_UNREACHABLE();
 }
 
 uptr internal_ftruncate(fd_t fd, uptr size) {
@@ -778,8 +800,8 @@ void BufferedStackTrace::SlowUnwindStackWithContext(uptr pc, void *context,
   stack_frame.AddrFrame.Mode = AddrModeFlat;
   stack_frame.AddrStack.Mode = AddrModeFlat;
   while (StackWalk64(machine_type, GetCurrentProcess(), GetCurrentThread(),
-                     &stack_frame, &ctx, NULL, &SymFunctionTableAccess64,
-                     &SymGetModuleBase64, NULL) &&
+                     &stack_frame, &ctx, NULL, SymFunctionTableAccess64,
+                     SymGetModuleBase64, NULL) &&
          size < Min(max_depth, kStackTraceMax)) {
     trace_buffer[size++] = (uptr)stack_frame.AddrPC.Offset;
   }
@@ -813,6 +835,59 @@ void InstallDeadlySignalHandlers(SignalHandlerType handler) {
 bool IsHandledDeadlySignal(int signum) {
   // FIXME: Decide what to do on Windows.
   return false;
+}
+
+// Check based on flags if we should handle this exception.
+bool IsHandledDeadlyException(DWORD exceptionCode) {
+  switch (exceptionCode) {
+    case EXCEPTION_ACCESS_VIOLATION:
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED:
+    case EXCEPTION_STACK_OVERFLOW:
+    case EXCEPTION_DATATYPE_MISALIGNMENT:
+    case EXCEPTION_IN_PAGE_ERROR:
+      return common_flags()->handle_segv;
+    case EXCEPTION_ILLEGAL_INSTRUCTION:
+    case EXCEPTION_PRIV_INSTRUCTION:
+    case EXCEPTION_BREAKPOINT:
+      return common_flags()->handle_sigill;
+    case EXCEPTION_FLT_DENORMAL_OPERAND:
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+    case EXCEPTION_FLT_INEXACT_RESULT:
+    case EXCEPTION_FLT_INVALID_OPERATION:
+    case EXCEPTION_FLT_OVERFLOW:
+    case EXCEPTION_FLT_STACK_CHECK:
+    case EXCEPTION_FLT_UNDERFLOW:
+    case EXCEPTION_INT_DIVIDE_BY_ZERO:
+    case EXCEPTION_INT_OVERFLOW:
+      return common_flags()->handle_sigfpe;
+  }
+  return false;
+}
+
+const char *DescribeSignalOrException(int signo) {
+  unsigned code = signo;
+  // Get the string description of the exception if this is a known deadly
+  // exception.
+  switch (code) {
+    case EXCEPTION_ACCESS_VIOLATION: return "access-violation";
+    case EXCEPTION_ARRAY_BOUNDS_EXCEEDED: return "array-bounds-exceeded";
+    case EXCEPTION_STACK_OVERFLOW: return "stack-overflow";
+    case EXCEPTION_DATATYPE_MISALIGNMENT: return "datatype-misalignment";
+    case EXCEPTION_IN_PAGE_ERROR: return "in-page-error";
+    case EXCEPTION_ILLEGAL_INSTRUCTION: return "illegal-instruction";
+    case EXCEPTION_PRIV_INSTRUCTION: return "priv-instruction";
+    case EXCEPTION_BREAKPOINT: return "breakpoint";
+    case EXCEPTION_FLT_DENORMAL_OPERAND: return "flt-denormal-operand";
+    case EXCEPTION_FLT_DIVIDE_BY_ZERO: return "flt-divide-by-zero";
+    case EXCEPTION_FLT_INEXACT_RESULT: return "flt-inexact-result";
+    case EXCEPTION_FLT_INVALID_OPERATION: return "flt-invalid-operation";
+    case EXCEPTION_FLT_OVERFLOW: return "flt-overflow";
+    case EXCEPTION_FLT_STACK_CHECK: return "flt-stack-check";
+    case EXCEPTION_FLT_UNDERFLOW: return "flt-underflow";
+    case EXCEPTION_INT_DIVIDE_BY_ZERO: return "int-divide-by-zero";
+    case EXCEPTION_INT_OVERFLOW: return "int-overflow";
+  }
+  return "unknown exception";
 }
 
 bool IsAccessibleMemoryRange(uptr beg, uptr size) {
@@ -869,6 +944,10 @@ SignalContext SignalContext::Create(void *siginfo, void *context) {
                        write_flag);
 }
 
+void SignalContext::DumpAllRegisters(void *context) {
+  // FIXME: Implement this.
+}
+
 uptr ReadBinaryName(/*out*/char *buf, uptr buf_len) {
   // FIXME: Actually implement this function.
   CHECK_GT(buf_len, 0);
@@ -912,21 +991,10 @@ int WaitForProcess(pid_t pid) { return -1; }
 // FIXME implement on this platform.
 void GetMemoryProfile(fill_profile_f cb, uptr *stats, uptr stats_size) { }
 
+void CheckNoDeepBind(const char *filename, int flag) {
+  // Do nothing.
+}
 
 }  // namespace __sanitizer
-
-#if !SANITIZER_GO
-// Workaround to implement weak hooks on Windows. COFF doesn't directly support
-// weak symbols, but it does support /alternatename, which is similar. If the
-// user does not override the hook, we will use this default definition instead
-// of null.
-extern "C" void __sanitizer_print_memory_profile(int top_percent) {}
-
-#ifdef _WIN64
-#pragma comment(linker, "/alternatename:__sanitizer_print_memory_profile=__sanitizer_default_print_memory_profile") // NOLINT
-#else
-#pragma comment(linker, "/alternatename:___sanitizer_print_memory_profile=___sanitizer_default_print_memory_profile") // NOLINT
-#endif
-#endif
 
 #endif  // _WIN32

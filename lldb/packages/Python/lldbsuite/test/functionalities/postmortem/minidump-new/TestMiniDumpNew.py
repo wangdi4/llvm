@@ -23,6 +23,14 @@ class MiniDumpNewTestCase(TestBase):
     _linux_x86_64_not_crashed_pid = 29939
     _linux_x86_64_not_crashed_pid_offset = 0xD967
 
+    def setUp(self):
+        super(MiniDumpNewTestCase, self).setUp()
+        self._initial_platform = lldb.DBG.GetSelectedPlatform()
+
+    def tearDown(self):
+        lldb.DBG.SetSelectedPlatform(self._initial_platform)
+        super(MiniDumpNewTestCase, self).tearDown()
+
     def test_process_info_in_minidump(self):
         """Test that lldb can read the process information from the Minidump."""
         # target create -c linux-x86_64.dmp
@@ -108,15 +116,16 @@ class MiniDumpNewTestCase(TestBase):
         /proc/PID/status which is written in the file
         """
         shutil.copyfile(core, newcore)
-        with open(newcore, "r+") as f:
+        with open(newcore, "rb+") as f:
             f.seek(offset)
-            self.assertEqual(f.read(5), oldpid)
+            currentpid = f.read(5).decode('utf-8')
+            self.assertEqual(currentpid, oldpid)
 
             f.seek(offset)
             if len(newpid) < len(oldpid):
                 newpid += " " * (len(oldpid) - len(newpid))
             newpid += "\n"
-            f.write(newpid)
+            f.write(newpid.encode('utf-8'))
 
     def test_deeper_stack_in_minidump_with_same_pid_running(self):
         """Test that we read the information from the core correctly even if we

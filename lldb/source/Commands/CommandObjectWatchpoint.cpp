@@ -20,10 +20,9 @@
 // Project includes
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Breakpoint/WatchpointList.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectVariable.h"
-#include "lldb/Host/StringConvert.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -31,6 +30,7 @@
 #include "lldb/Symbol/VariableList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -197,9 +197,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
@@ -245,7 +245,7 @@ protected:
 
     if (target->GetProcessSP() && target->GetProcessSP()->IsAlive()) {
       uint32_t num_supported_hardware_watchpoints;
-      Error error = target->GetProcessSP()->GetWatchpointSupportInfo(
+      Status error = target->GetProcessSP()->GetWatchpointSupportInfo(
           num_supported_hardware_watchpoints);
       if (error.Success())
         result.AppendMessageWithFormat(
@@ -561,17 +561,16 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
       case 'i':
-        m_ignore_count = StringConvert::ToUInt32(option_arg, UINT32_MAX, 0);
-        if (m_ignore_count == UINT32_MAX)
+        if (option_arg.getAsInteger(0, m_ignore_count))
           error.SetErrorStringWithFormat("invalid ignore count '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
       default:
         error.SetErrorStringWithFormat("unrecognized option '%c'",
@@ -690,17 +689,14 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
       case 'c':
-        if (option_arg != nullptr)
-          m_condition.assign(option_arg);
-        else
-          m_condition.clear();
+        m_condition = option_arg;
         m_condition_passed = true;
         break;
       default:
@@ -885,7 +881,7 @@ protected:
     }
 
     // Things have checked out ok...
-    Error error;
+    Status error;
     uint32_t expr_path_options =
         StackFrame::eExpressionPathOptionCheckPtrVsMember |
         StackFrame::eExpressionPathOptionsAllowDirectIVarAccess;
@@ -899,7 +895,7 @@ protected:
       VariableList variable_list;
       ValueObjectList valobj_list;
 
-      Error error(Variable::GetValuesForVariableExpressionPath(
+      Status error(Variable::GetValuesForVariableExpressionPath(
           command.GetArgumentAtIndex(0),
           m_exe_ctx.GetBestExecutionContextScope(), GetVariableCallback, target,
           variable_list, valobj_list));
@@ -1064,7 +1060,7 @@ protected:
         if (!ParseOptions(args, result))
           return false;
 
-        Error error(m_option_group.NotifyOptionParsingFinished(&exe_ctx));
+        Status error(m_option_group.NotifyOptionParsingFinished(&exe_ctx));
         if (error.Fail()) {
           result.AppendError(error.AsCString());
           result.SetStatus(eReturnStatusFailed);
@@ -1104,7 +1100,7 @@ protected:
     options.SetUnwindOnError(true);
     options.SetKeepInMemory(false);
     options.SetTryAllThreads(true);
-    options.SetTimeoutUsec(0);
+    options.SetTimeout(llvm::None);
 
     ExpressionResults expr_result =
         target->EvaluateExpression(expr, frame, valobj_sp, options);
@@ -1139,7 +1135,7 @@ protected:
     /// of the expression, so convert to that if we  found a valid type.
     CompilerType compiler_type(valobj_sp->GetCompilerType());
 
-    Error error;
+    Status error;
     Watchpoint *wp =
         target->CreateWatchpoint(addr, size, &compiler_type, watch_type, error)
             .get();
