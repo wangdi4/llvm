@@ -1,7 +1,7 @@
 ; RUN: opt -inline -functionattrs -reassociate %s -S | FileCheck %s
 
 ; CHECK-NOT: func1
-; CHECK-LABEL: main
+; CHECK-LABEL: @main
 ; CHECK-NEXT: ret void
 
 define internal i16 @func1() noinline #0 {

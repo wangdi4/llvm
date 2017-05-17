@@ -124,6 +124,9 @@ static cl::opt<bool> EnableLoopInterchange(
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
 #if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVPOOpt("vpoopt", cl::init(true), cl::Hidden,
+                               cl::desc("Runs all VPO passes"));
+
 static cl::opt<bool> RunVPOVecopt("vecopt",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO Vecopt Pass"));
@@ -347,7 +350,7 @@ void PassManagerBuilder::populateFunctionPassManager(
     FPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
 
 #if INTEL_CUSTOMIZATION
-  if (RunVPOParopt) {
+  if (RunVPOOpt && RunVPOParopt) {
     if (OptLevel == 0) {
       FPM.add(createSROAPass());
       FPM.add(createEarlyCSEPass());
@@ -541,18 +544,21 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 #if INTEL_CUSTOMIZATION
-    if (RunVecClone) {
-      MPM.add(createVecClonePass());
+    if (RunVPOOpt) {
+      if (RunVecClone) {
+        MPM.add(createVecClonePass());
+      }
+      // Process OpenMP directives at -O0
+      addVPOPasses(MPM, true);
     }
-    // Process OpenMP directives at -O0
-    addVPOPasses(MPM, true);
 #endif // INTEL_CUSTOMIZATION
     return;
   }
 
 #if INTEL_CUSTOMIZATION
   // Process OpenMP directives at -O1 and above
-  addVPOPasses(MPM, false);
+  if (RunVPOOpt)
+    addVPOPasses(MPM, false);
 #endif // INTEL_CUSTOMIZATION
 
   // Add LibraryInfo if we have some.
@@ -1085,7 +1091,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   PM.add(createHIRTempCleanupPass());
 
   if (!RunLoopOptFrameworkOnly) {
-    PM.add(createHIRParDirInsertPass());
+    // If VPO is disabled, we don't have to insert ParVec directives.
+    if (RunVPOOpt)
+      PM.add(createHIRParDirInsertPass());
+
     PM.add(createHIRRuntimeDDPass());
     PM.add(createHIRLoopDistributionForLoopNestPass());
     PM.add(createHIRLoopInterchangePass());
@@ -1097,8 +1106,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     PM.add(createHIRUnrollAndJamPass());
     PM.add(createHIROptVarPredicatePass());
     PM.add(createHIROptPredicatePass());
-    PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-    PM.add(createVPODriverHIRPass());
+    if (RunVPOOpt) {
+      PM.add(createHIRVecDirInsertPass(OptLevel == 3));
+      PM.add(createVPODriverHIRPass());
+    }
     PM.add(createHIRGeneralUnrollPass());
   }
 
@@ -1111,7 +1122,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 #define INTEL_VPO_EXPERIMENTAL
 
 void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
-                                            bool RunVec) const {
+                                      bool RunVec) const {
   if (RunVPOParopt) {
     PM.add(createVPOCFGRestructuringPass());
     PM.add(createVPOParoptPass(RunVPOParopt));
@@ -1133,7 +1144,7 @@ void PassManagerBuilder::addVPOPasses(legacy::PassManagerBase &PM,
 void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
      legacy::PassManagerBase &PM) const {
 
-  if (RunVecClone) {
+  if (RunVPOOpt && RunVecClone) {
     PM.add(createVecClonePass());
     // VecClonePass can generate redundant geps/loads for vector parameters when
     // accessing elem[i] within the inserted simd loop. This makes DD testing
@@ -1146,14 +1157,16 @@ void PassManagerBuilder::addLoopOptAndAssociatedVPOPasses(
   // Call with RunVec==true (2nd argument) to enable Vectorizer to catch
   // any vec directives that loopopt might have missed; may change it to 
   // false in the future when loopopt is fully implemented.
-  addVPOPasses(PM, true);
+  if (RunVPOOpt)
+    addVPOPasses(PM, true);
 
   // VPO directives are no longer useful after this point. Clean up so that
   // code gen process won't be confused.
   //
   // TODO: Issue a warning for any unprocessed directives. Change to
   // assetion failure as the feature matures.
-  PM.add(createVPODirectiveCleanupPass());
+  if (RunVPOOpt)
+    PM.add(createVPODirectiveCleanupPass());
 }
 
 #endif // INTEL_CUSTOMIZATION
