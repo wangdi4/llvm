@@ -3199,7 +3199,11 @@ namespace {
     }
 
     void VisitCXXBindTemporaryExpr(const CXXBindTemporaryExpr *E) {
-      if (E->getTemporary()->getDestructor()->isTrivial()) {
+      if (
+#if INTEL_CUSTOMIZATION
+          Context.getLangOpts().MSVCCompat || 
+#endif // INTEL_CUSTOMIZATION
+          E->getTemporary()->getDestructor()->isTrivial()) {
         Inherited::VisitStmt(E);
         return;
       }
