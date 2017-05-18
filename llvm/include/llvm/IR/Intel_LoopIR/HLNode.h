@@ -46,6 +46,8 @@ class BlobUtils;
 // Typedef for a list of HLNodes.
 typedef simple_ilist<HLNode> HLContainerTy;
 
+typedef iterator_range<typename HLContainerTy::iterator> NodeRangeTy;
+
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;
 

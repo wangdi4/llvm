@@ -3415,16 +3415,34 @@ bool HLNodeUtils::areEqual(const HLIf *NodeA, const HLIf *NodeB) {
   return true;
 }
 
-void HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
+NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLIf *If, bool ThenBody) {
   HLNodeUtils &HNU = If->getHLNodeUtils();
 
-  if (ThenBody) {
-    HNU.moveAfter(If, If->then_begin(), If->then_end());
-  } else {
-    HNU.moveAfter(If, If->else_begin(), If->else_end());
-  }
+  auto NodeRange = ThenBody ? std::make_pair(If->then_begin(), If->then_end())
+                            : std::make_pair(If->else_begin(), If->else_end());
+  auto LastNode = std::prev(NodeRange.second);
 
+  HNU.moveAfter(If, NodeRange.first, NodeRange.second);
   HLNodeUtils::remove(If);
+
+  return make_range(NodeRange.first, std::next(LastNode));
+}
+
+NodeRangeTy HLNodeUtils::replaceNodeWithBody(HLSwitch *Switch,
+                                             unsigned CaseNum) {
+  HLNodeUtils &HNU = Switch->getHLNodeUtils();
+
+  auto NodeRange = (CaseNum == 0)
+                       ? std::make_pair(Switch->default_case_child_begin(),
+                                        Switch->default_case_child_end())
+                       : std::make_pair(Switch->case_child_begin(CaseNum),
+                                        Switch->case_child_end(CaseNum));
+  auto LastNode = std::prev(NodeRange.second);
+
+  HNU.moveAfter(Switch, NodeRange.first, NodeRange.second);
+  HLNodeUtils::remove(Switch);
+
+  return make_range(NodeRange.first, std::next(LastNode));
 }
 
 namespace {
@@ -3542,11 +3560,11 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   // to nullptr.
   HLNode *LastNodeToRemove;
 
-  // The goto candidate to be removed.
-  HLGoto *GotoToRemove;
+  // The goto candidates to be removed.
+  SmallVector<HLGoto *, 4> GotosToRemove;
 
   // Flag that enables HLLabel removal logic.
-  bool RemoveLabels;
+  HLNode *LabelSafeContainer;
 
   // Candidate labels to be removed.
   SmallPtrSet<HLLabel *, 8> Labels;
@@ -3556,28 +3574,22 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
 
 public:
   RedundantNodeRemoverVisitor()
-      : SkipNode(nullptr), LastNodeToRemove(nullptr), GotoToRemove(nullptr),
-        RemoveLabels(false) {}
+      : SkipNode(nullptr), LastNodeToRemove(nullptr),
+        LabelSafeContainer(nullptr) {}
 
   void visit(HLRegion *Region) {
-    RemoveLabels = true;
+    assert(LabelSafeContainer == nullptr &&
+           "LabelSafeContainer should be not defined");
+    LabelSafeContainer = Region;
 
     EmptyNodeRemoverVisitorImpl::visit(Region);
   }
 
   void postVisit(HLRegion *Region) {
+    assert(LabelSafeContainer && "LabelSafeContainer should be defined");
+    LabelSafeContainer = nullptr;
+
     EmptyNodeRemoverVisitorImpl::postVisit(Region);
-
-    if (RemoveLabels) {
-      for (HLLabel *Label : Labels) {
-        auto Iter = LabelJumps.find(Label);
-        if (Iter == LabelJumps.end() || Iter->second == 0) {
-          HLNodeUtils::remove(Label);
-        }
-      }
-
-      RemoveLabels = false;
-    }
   }
 
   void visit(HLLoop *Loop) {
@@ -3591,6 +3603,12 @@ public:
       SkipNode = Loop;
       HLNodeUtils::remove(Loop);
       Changed = true;
+
+      return;
+    }
+
+    if (LabelSafeContainer == nullptr) {
+      LabelSafeContainer = Loop;
     }
 
     visit(static_cast<HLDDNode *>(Loop));
@@ -3599,34 +3617,69 @@ public:
   void visit(HLIf *If) {
     bool IsTrue;
     if (If->isKnownPredicate(&IsTrue)) {
+      Changed = true;
       RedundantPredicates++;
       invalidateParent(If);
 
+      auto NodeRange = HLNodeUtils::replaceNodeWithBody(If, IsTrue);
+
       // Go over nodes that are not going to be removed. If the predicate is
       // always TRUE the else branch will be removed.
-      if (IsTrue) {
-        HLNodeUtils::visitRange(*this, If->then_begin(), If->then_end());
-      } else {
-        HLNodeUtils::visitRange(*this, If->else_begin(), If->else_end());
-      }
-
+      HLNodeUtils::visitRange(*this, NodeRange.begin(), NodeRange.end());
       SkipNode = If;
-      HLNodeUtils::replaceNodeWithBody(If, IsTrue);
-      Changed = true;
+      return;
     }
 
     visit(static_cast<HLDDNode *>(If));
   }
 
-  void removeGotoIfPointsTo(HLNode *Node) {
-    if (GotoToRemove && GotoToRemove->getTargetLabel() == Node) {
+  void visit(HLSwitch *Switch) {
+    int64_t ConditionConstValue;
+
+    if (Switch->getConditionDDRef()->isIntConstant(&ConditionConstValue)) {
+      Changed = true;
+      RedundantPredicates++;
+      invalidateParent(Switch);
+
+      unsigned FoundCase = 0;
+      for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+        if (Switch->getConstCaseValue(I) == ConditionConstValue) {
+          FoundCase = I;
+          break;
+        }
+      }
+
+      auto NodeRange = HLNodeUtils::replaceNodeWithBody(Switch, FoundCase);
+      HLNodeUtils::visitRange(*this, NodeRange.begin(), NodeRange.end());
+      SkipNode = Switch;
+      return;
+    }
+
+    visit(static_cast<HLDDNode *>(Switch));
+  }
+
+  void removeGotosIfPointTo(HLNode *Node) {
+    SmallVector<HLGoto *, 4> FoundGotos;
+
+    std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
+                  [Node, &FoundGotos](HLGoto *Goto) {
+                    if (Goto->getTargetLabel() == Node) {
+                      FoundGotos.push_back(Goto);
+                    }
+                  });
+
+    for (HLGoto *Goto : FoundGotos) {
       RedundantInstructions++;
-      HLNodeUtils::remove(GotoToRemove);
-      LabelJumps[GotoToRemove->getTargetLabel()]--;
+      HLNodeUtils::remove(Goto);
+      LabelJumps[Goto->getTargetLabel()]--;
     }
   }
 
   void visit(HLGoto *Goto) {
+    if (Goto->isUnknownLoopBackEdge()) {
+      return;
+    }
+
     // Could remove GOTO if it's in a dead block.
     visit(static_cast<HLNode *>(Goto));
 
@@ -3634,40 +3687,78 @@ public:
       return;
     }
 
-    if (RemoveLabels) {
-      LabelJumps[Goto->getTargetLabel()]++;
-    }
+    HLNode *ContainerLastNode =
+      HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
 
     if (!Goto->isExternal()) {
-      GotoToRemove = Goto;
+      GotosToRemove.push_back(Goto);
+
+      if (LabelSafeContainer) {
+        LabelJumps[Goto->getTargetLabel()]++;
+      }
+
+      HLLabel *Label = Goto->getTargetLabel();
+      HLNode *LabelContainerLastNode =
+          HLNodeUtils::getLastLexicalChild(Label->getParent(), Label);
+
+      if (LabelContainerLastNode == ContainerLastNode) {
+        // Label and Goto are in the same container.
+        LastNodeToRemove = Label;
+        return;
+      }
     }
 
-    HLNode *ContainerLastNode =
-        HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
     if (ContainerLastNode != Goto) {
       LastNodeToRemove = ContainerLastNode;
     }
   }
 
   void visit(HLLabel *Label) {
-    if (RemoveLabels) {
-      Labels.insert(Label);
+    if (Label->isUnknownLoopHeaderLabel()) {
+      return;
     }
 
-    removeGotoIfPointsTo(Label);
-    GotoToRemove = nullptr;
+    if (LastNodeToRemove == Label) {
+      removeGotosIfPointTo(Label);
+      GotosToRemove.clear();
+    }
 
-    LastNodeToRemove = nullptr;
+    auto MayRemoveLabel = [this](HLLabel *Label) {
+      if (!LabelSafeContainer) {
+        return false;
+      }
+
+      auto Iter = LabelJumps.find(Label);
+      return ((Iter == LabelJumps.end()) || Iter->second == 0);
+    };
+
+    if (MayRemoveLabel(Label)) {
+      if (LastNodeToRemove == nullptr) {
+        LastNodeToRemove = Label;
+      }
+    } else {
+      LastNodeToRemove = nullptr;
+    }
 
     visit(static_cast<HLNode *>(Label));
   }
 
-  template <typename NodeTy>
-  void postVisit(NodeTy *Node) {
-    HLNode *NextNode = Node->getNextNode();
-    if (NextNode) {
-      removeGotoIfPointsTo(NextNode);
-      GotoToRemove = nullptr;
+  void postVisit(HLLoop *Loop) {
+    if (LabelSafeContainer == Loop) {
+      LabelSafeContainer = nullptr;
+    }
+
+    postVisitImpl(Loop);
+  }
+
+  template <typename NodeTy> void postVisit(NodeTy *Node) {
+    postVisitImpl(Node);
+  }
+
+  template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
+    if (HLNode *NextNode = Node->getNextNode()) {
+      removeGotosIfPointTo(NextNode);
+      GotosToRemove.clear();
     }
 
     LastNodeToRemove = nullptr;
@@ -3695,7 +3786,6 @@ public:
     return Node == SkipNode;
   }
 };
-
 }
 
 template <typename VisitorTy>

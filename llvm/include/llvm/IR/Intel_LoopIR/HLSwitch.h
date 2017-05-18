@@ -261,6 +261,15 @@ public:
   /// \brief Removes and returns the DDRef which represents this case's value.
   RegDDRef *removeCaseValueDDRef(unsigned CaseNum);
 
+  /// Returns constant value associated with the case.
+  int64_t getConstCaseValue(unsigned CaseNum) const {
+    int64_t ConstValue;
+    bool Result = getCaseValueDDRef(CaseNum)->isIntConstant(&ConstValue);
+    assert(Result && "Non-constant HLSwitch case value found");
+    (void)Result;
+    return ConstValue;
+  }
+
   /// \brief Adds a new case in the switch. This invalidates the case_child
   /// iterators.
   void addCase(RegDDRef *ValueRef);

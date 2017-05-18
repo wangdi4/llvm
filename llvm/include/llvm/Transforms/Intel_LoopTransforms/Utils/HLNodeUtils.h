@@ -1300,8 +1300,16 @@ public:
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);
 
-  // Replaces HLIf with its *then* or *else* body.
-  static void replaceNodeWithBody(HLIf *If, bool ThenBody);
+  // Replaces \p If with its *then* or *else* body.
+  // Returns iterator range [FirstBodyChild, LastBodyChild) in the destination
+  // container.
+  static NodeRangeTy replaceNodeWithBody(HLIf *If, bool ThenBody);
+
+  // Replaces \p Switch with the body of the case with \p CaseNum.
+  // Zero \p CaseNum corresponds to the default case.
+  // Returns iterator range [FirstCaseChild, LastCaseChild) in the destination
+  // container.
+  static NodeRangeTy replaceNodeWithBody(HLSwitch *Switch, unsigned CaseNum);
 
   /// Recursively traverse the HIR from the /p Node and remove empty HLLoops and
   /// empty HLIfs.

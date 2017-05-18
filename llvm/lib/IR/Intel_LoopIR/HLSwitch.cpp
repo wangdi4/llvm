@@ -225,7 +225,7 @@ unsigned HLSwitch::getChildCaseNum(const HLNode *Node) const {
     return 0;
   }
 
-  for (int I = 1, E = getNumCases(); I < E; ++I) {
+  for (int I = 1, E = getNumCases(); I <= E; ++I) {
     if (getHLNodeUtils().isInTopSortNumMaxRange(Node, getFirstCaseChild(I),
                                                 getLastCaseChild(I))) {
       return I;
@@ -311,4 +311,11 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   CaseBegin.erase(CaseBegin.begin() + CaseNum - 1);
 }
 
-void HLSwitch::verify() const { HLDDNode::verify(); }
+void HLSwitch::verify() const {
+  for (unsigned I = 1, E = getNumCases(); I <= E; ++I) {
+    assert(getCaseValueDDRef(I)->isIntConstant() &&
+           "Non-constant RegDDRef in the HLSwitch case");
+  }
+
+  HLDDNode::verify();
+}
