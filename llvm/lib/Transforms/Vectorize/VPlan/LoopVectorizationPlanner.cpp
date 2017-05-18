@@ -125,7 +125,14 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
 void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   // Collect any SIMD loop private information
   if (WRLoop) {
-    for (auto PrivItem : WRLoop->getPriv().items()) {
+    LastprivateClause &LastPrivateClause = WRLoop->getLpriv();
+    for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
+      auto PrivVal = PrivItem->getOrig();
+      if (isa<AllocaInst>(PrivVal))
+        LB.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
+    }
+    PrivateClause &PrivateClause = WRLoop->getPriv();
+    for (PrivateItem *PrivItem : PrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
         LB.addLoopPrivate(PrivVal);

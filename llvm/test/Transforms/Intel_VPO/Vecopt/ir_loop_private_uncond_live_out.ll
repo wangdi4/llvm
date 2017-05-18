@@ -7,7 +7,7 @@
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %[[VEC_PRIV]]
 ; CHECK: middle.block
 ; CHECK:  %[[PTR:.*]] = bitcast <4 x i32>* %[[VEC_PRIV]] to i32*
-; CHECK:  %LastUpdatedLanePtr = getelementptr i32, i32* %[[PTR]], i32 3
+; CHECK:  %LastUpdatedLanePtr = getelementptr i32, i32* %[[PTR]], i64 3
 ; CHECK:  %LastVal = load i32, i32* %LastUpdatedLanePtr
 ; CHECK:  store i32 %LastVal, i32* %[[PRIV]]
 
@@ -23,7 +23,7 @@ entry:
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", i32* nonnull %a2)
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LASTPRIVATE", i32* nonnull %a2)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %DIR.QUAL.LIST.END.2
 

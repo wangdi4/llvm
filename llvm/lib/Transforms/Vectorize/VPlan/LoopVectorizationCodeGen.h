@@ -127,18 +127,30 @@ private:
   SmallPtrSet<Value *, 4> AllowedExit;
   
   /// Vector of in memory loop private values(allocas)
-  SmallPtrSet<Value *, 8> LoopPrivates;
-  
+  SmallPtrSet<Value *, 8> Privates;
+  SmallPtrSet<Value *, 8> LastPrivates;
+  SmallPtrSet<Value *, 8> CondLastPrivates;
+
 public:
   /// Holds the instructions known to be uniform after vectorization for any VF.
   SmallPtrSet<Instruction *, 4> UniformForAnyVF;
 
-  void addLoopPrivate(Value *PrivVal) {
-    LoopPrivates.insert(PrivVal);
+  void addLoopPrivate(Value *PrivVal, bool IsLast, bool IsConditional) {
+    Privates.insert(PrivVal);
+    if (IsConditional)
+      CondLastPrivates.insert(PrivVal);
+    else if (IsLast)
+      LastPrivates.insert(PrivVal);
   }
   
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
+
+  // Return True if the specified value \p Val is (uncoditional) last private.
+  bool isLastPrivate(Value *Val) const;
+
+  // Return True if the specified value \p Val is conditional last private.
+  bool isCondLastPrivate(Value *Val) const;
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -218,8 +230,9 @@ public:
   Value *getEdgeMask(BasicBlock *From, BasicBlock *To);
   
   /// Add an in memory private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal) {
-    Legal->addLoopPrivate(PrivVal);
+  void addLoopPrivate(Value *PrivVal, bool IsLastP = false,
+                      bool IsConditional = false) {
+    Legal->addLoopPrivate(PrivVal, IsLastP, IsConditional);
   }
 private:
 
@@ -282,7 +295,15 @@ private:
   /// Fix instructions that use loop private values outside the vectorized loop.
   void fixupLoopPrivates();
 
+  /// Write last value of unconditional private variable.
   void writePrivateValAfterLoop(Value *OrigPrivate);
+
+  /// Write last value of conditional private.
+  void writeCondPrivateValAfterLoop(Value *OrigPrivate);
+
+  /// Get an index of last written lane using Mask value.
+  Value *getLastLaneFromMask(Value *MaskPtr);
+
   /// \brief The Loop exit block may have single value PHI nodes where the
   /// incoming value is 'Undef'. While vectorizing we only handled real values
   /// that were defined inside the loop. Here we fix the 'undef case'.
@@ -398,10 +419,8 @@ private:
   // pointer-to-pointer map.
   std::map<Value *, Value *> LoopPrivateWidenMap;
 
-  // Provides the lane inside vector of last written elt to the loop private var.
-  // The lane is provided by conditional store.
-  // If the store is unconditional, the lane is VF-1.
-  std::map<Value *, Value *> LoopPrivateLaneMap;
+  // Keeps last non-zero mask
+  std::map<Value *, Value *> LoopPrivateLastMask;
 
   // Holds the end values for each induction variable. We save the end values
   // so we can later fix-up the external users of the induction variables.
