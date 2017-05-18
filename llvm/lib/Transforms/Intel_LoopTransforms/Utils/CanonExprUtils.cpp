@@ -598,8 +598,13 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
   // Both CE1 and CE2 are invariant w.r.t IV. Return distance of 0 if both are
   // equal.
   if (!Coeff1) {
-    *Distance = 0;
-    return areEqual(CE1, CE2);
+    if (areEqual(CE1, CE2)) {
+      if (Distance) {
+        *Distance = 0;
+      }
+      return true;
+    }
+    return false;
   }
 
   bool HasBlobCoeff = (Index1 != InvalidBlobIndex);
@@ -646,7 +651,9 @@ bool CanonExprUtils::getConstIterationDistance(const CanonExpr *CE1,
   bool Res = false;
 
   if (areEqual(NonConstCE1, NonConstCE2)) {
-    *Distance = Diff / Coeff1;
+    if (Distance) {
+      *Distance = Diff / Coeff1;
+    }
     Res = true;
   }
 
@@ -694,7 +701,9 @@ bool CanonExprUtils::getConstDistance(const CanonExpr *CE1,
   bool Res = false;
 
   if (areEqual(NonConstCE1, NonConstCE2)) {
-    *Distance = Diff / Denom;
+    if (Distance) {
+      *Distance = Diff / Denom;
+    }
     Res = true;
   }
 

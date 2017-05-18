@@ -1,6 +1,4 @@
 ; Test for interchange
-; Current permutation is not right 
-; this will be fixed later in locality Analysis
 ;
 ;   for (i1=1; i1 <= 99; i1++) {
 ;      for (i2=1; i2 <= 98; i2++) {
@@ -12,7 +10,7 @@
 ; REQUIRES: asserts
 ; RUN: opt -O2  -loopopt -debug   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 2 3 4 5 1 )  
+; CHECK-SAME:  ( 5 4 3 2 1 )  
 ; 
 
 ; ModuleID = 'interchange3.c'

@@ -5,8 +5,8 @@
 ;int foo(void) {
 ;  int i, j;
 ;
-;  for (j = 0; j < 100; ++j) {
-;    for (i = 0; i < 4; ++i) {
+;  for (j = 0; j < 4; ++j) {
+;    for (i = 0; i < 20; ++i) {
 ;      if (B[i]) {
 ;        A[j] = A[j] + 1;
 ;      }
@@ -19,8 +19,8 @@
 ; INPUT HIR:
 ;
 ;          BEGIN REGION { modified }
-;<31>            + DO i1 = 0, 3, 1   <DO_LOOP>
-;<32>            |   + DO i2 = 0, 99, 1   <DO_LOOP>
+;<31>            + DO i1 = 0, 19, 1   <DO_LOOP>
+;<32>            |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ;<9>             |   |   if ((@B)[0][i1] != 0)
 ;<9>             |   |   {
 ;<13>            |   |      %1 = (@A)[0][i2];
@@ -44,8 +44,8 @@
 ; CHECK: IR Dump Before HIR Loop Memory Motion
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 3, 1   <DO_LOOP>
-; CHECK:        |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; CHECK:        |   |   if ((@B)[0][i1] != 0)
 ; CHECK:        |   |   {
 ; CHECK:        |   |      %1 = (@A)[0][i2];
@@ -60,9 +60,9 @@
 ; CHECK: IR Dump After HIR Loop Memory Motion
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 3, 1   <DO_LOOP>
+; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
 ; CHECK:        |      %limm = (@B)[0][i1];
-; CHECK:        |   + DO i2 = 0, 99, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 3, 1   <DO_LOOP>
 ; CHECK:        |   |   if (%limm != 0)
 ; CHECK:        |   |   {
 ; CHECK:        |   |      %1 = (@A)[0][i2];
@@ -105,12 +105,12 @@ if.then:                                          ; preds = %for.body3
 
 for.inc:                                          ; preds = %for.body3, %if.then
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 4
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc8, label %for.body3
 
 for.inc8:                                         ; preds = %for.inc
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
-  %exitcond24 = icmp eq i64 %indvars.iv.next23, 100
+  %exitcond24 = icmp eq i64 %indvars.iv.next23, 4
   br i1 %exitcond24, label %for.end10, label %for.cond1.preheader
 
 for.end10:                                        ; preds = %for.inc8

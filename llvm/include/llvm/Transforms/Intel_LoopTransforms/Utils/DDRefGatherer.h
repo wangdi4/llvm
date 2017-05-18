@@ -150,23 +150,38 @@ public:
   }
 #endif
 
+  template <typename RefTy>
+  static void makeUnique(RefVectorTy<RefTy> &RefVec, bool RelaxedMode = false) {
+    RefVec.erase(
+          std::unique(RefVec.begin(), RefVec.end(),
+                      std::bind(DDRefUtils::areEqual, std::placeholders::_1,
+                                std::placeholders::_2, RelaxedMode)),
+          RefVec.end());
+  }
+
   /// Removes the duplicates by comparing the Ref's in sorted order.
   template <typename RefTy>
   static void makeUnique(SymToRefTy<RefTy> &RefMap, bool RelaxedMode = false) {
     for (auto &SymVecPair : RefMap) {
       auto &RefVec = SymVecPair.second;
 
-      RefVec.erase(
-          std::unique(RefVec.begin(), RefVec.end(),
-                      std::bind(DDRefUtils::areEqual, std::placeholders::_1,
-                                std::placeholders::_2, RelaxedMode)),
-          RefVec.end());
+      makeUnique(RefVec, RelaxedMode);
     }
+  }
+
+  template <typename RefTy>
+  static void sort(RefVectorTy<RefTy> &RefVec) {
+    sort(RefVec, DDRefUtils::compareMemRef);
   }
 
   template <typename RefTy>
   static void sort(SymToRefTy<RefTy> &MemRefMap) {
     sort(MemRefMap, DDRefUtils::compareMemRef);
+  }
+
+  template <typename RefTy, typename Compare>
+  static void sort(RefVectorTy<RefTy> &RefVec, Compare Cmp) {
+    std::sort(RefVec.begin(), RefVec.end(), Cmp);
   }
 
   template <typename RefTy, typename Compare>
@@ -213,8 +228,16 @@ public:
       }
 #endif
 
-      std::sort(RefVec.begin(), RefVec.end(), Cmp);
+      sort(RefVec, Cmp);
     }
+  }
+
+  /// Sorts and removes duplicates in MemRefMap.
+  template <typename RefTy>
+  static void sortAndUnique(RefVectorTy<RefTy> &RefVec,
+                            bool RelaxedMode = false) {
+    sort(RefVec);
+    makeUnique(RefVec, RelaxedMode);
   }
 
   /// Sorts and removes duplicates in MemRefMap.

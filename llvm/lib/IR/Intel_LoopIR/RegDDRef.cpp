@@ -555,8 +555,9 @@ void RegDDRef::makeSelfBlob() {
 }
 
 CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
-  const CanonExpr *BaseCE = getBaseCE();
-  if (!BaseCE || !BaseCE->isInvariantAtLevel(Level)) {
+  assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
+
+  if (getDefinedAtLevel() >= Level) {
     return nullptr;
   }
 
@@ -565,32 +566,19 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
     const CanonExpr *DimCE = getDimensionIndex(I);
 
+    int64_t Coeff;
+    unsigned Index;
+
+    DimCE->getIVCoeff(Level, &Index, &Coeff);
+
+    if (Coeff == 0) {
+      continue;
+    }
+
     // It's hard to compute the stride of non-unit denominator offset, so we
     // conservatively return nullptr.
     if (DimCE->getDenominator() != 1) {
       return nullptr;
-    }
-
-    // We want to guarantee that we return a Stride that is invariant at Level,
-    // or otherwise to bail out.
-    // IsLinearAtLevel guarantees that DimCE is defined at a lower (outer)
-    // level than where this RegDDRef is used. We also require that DimCE
-    // does not consist of any elements (blobs) that are defined at a
-    // level >= Level.
-    // Checking that DimCE->getDefinedAtLevel< Level guarantees that all the
-    // blobs of this RegDDRef are invariant in Level, which in turn means that
-    // any evolution of this RegDDRef in Level is associated with the IV of
-    // Level.
-    if (!DimCE->isLinearAtLevel() || DimCE->getDefinedAtLevel() >= Level) {
-      return nullptr;
-    }
-
-    // !hasIV(Level) does not guarantee that IV at Level does
-    // not affect this access, as it may be hiding behind a blob;
-    // Therefore this check alone is not sufficient (hence the check of the
-    // DefinedAtLevel above).
-    if (!DimCE->hasIV(Level)) {
-      continue;
     }
 
     if (StrideAtLevel) {
@@ -602,11 +590,6 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
       StrideAtLevel = getCanonExprUtils().createExtCanonExpr(
           DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
     }
-
-    int64_t Coeff;
-    unsigned Index;
-
-    DimCE->getIVCoeff(Level, &Index, &Coeff);
 
     uint64_t DimStride = getDimensionStride(I);
 
@@ -637,6 +620,41 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
   return StrideAtLevel;
 }
 
+bool RegDDRef::getConstStrideAtLevel(unsigned Level, int64_t *Stride) const {
+  assert(hasGEPInfo() && "Stride is only valid for GEP refs!");
+
+  if (getDefinedAtLevel() >= Level) {
+    return false;
+  }
+
+  int64_t StrideVal = 0;
+
+  for (unsigned I = 1, NumDims = getNumDimensions(); I <= NumDims; ++I) {
+    const CanonExpr *DimCE = getDimensionIndex(I);
+
+    int64_t Coeff;
+    unsigned Index;
+
+    DimCE->getIVCoeff(Level, &Index, &Coeff);
+
+    if (Coeff == 0) {
+      continue;
+    }
+
+    if ((Index != InvalidBlobIndex) || (DimCE->getDenominator() != 1)) {
+      return false;
+    }
+
+    StrideVal += (Coeff * getDimensionStride(I));
+  }
+
+  if (Stride) {
+    *Stride = StrideVal;
+  }
+
+  return true;
+}
+
 uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
@@ -645,6 +663,13 @@ uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
   uint64_t Stride = getCanonExprUtils().getTypeSizeInBits(DimElemType) / 8;
 
   return Stride;
+}
+
+uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
+  auto DimTy = getDimensionType(DimensionNum);
+  return DimTy->isPointerTy()
+             ? 0
+             : getCanonExprUtils().getTypeSizeInBits(DimTy) / 8;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {

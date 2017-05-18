@@ -292,10 +292,9 @@ public:
 
   /// Returns the innermost level at which some blob present in this canon expr
   /// is defined. The canon expr in linear in all the inner loop levels w.r.t
-  /// this level.
+  /// this level. 
+  /// It returns NonLinearLevel for non-linear canon exprs.
   unsigned getDefinedAtLevel() const {
-    assert(isLinearAtLevel() &&
-           "DefinedAtLevel is meaningless for non-linear types!");
     return DefinedAtLevel;
   }
   /// Sets non-negative defined at level.

@@ -19,9 +19,9 @@
 ; REQUIRES: asserts 
 ; RUN: opt -O2 -loopopt -debug  -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 2 3 4 5 1 )  
+; CHECK-SAME:  ( 5 4 3 2 1 )  
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 1 3 4 5 2 )  
+; CHECK-SAME:  ( 5 4 3 1 2 )  
 ;
 
 ; ModuleID = 'interchange4.c'

@@ -1271,9 +1271,8 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 
     AttrBuilder AttrList;
     int64_t ByteStride;
-    CanonExpr *CE = Args[I]->getStrideAtLevel(LoopLevel);
 
-    if (CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
+    if (Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)) {
       // Type of the argument will be something like <4 x double*>
       // The following code will yield a type of double. This type is used
       // to determine the stride in elements.

@@ -71,6 +71,9 @@ private:
         Groups.back().emplace_back(Ref);
       }
     }
+
+    // Update CurrentGroupIndex for next invocation of the function.
+    CurrentGroupIndex = Groups.size();
   }
 
 public:

@@ -333,9 +333,8 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   }
 
   int64_t Stride;
-  std::unique_ptr<CanonExpr> StrideCE(
-      Ref->getStrideAtLevel(Loop->getNestingLevel()));
-  if (StrideCE == nullptr || !StrideCE->isIntConstant(&Stride)) {
+  
+  if (!Ref->getConstStrideAtLevel(Loop->getNestingLevel(), &Stride)) {
     return false;
   }
 

@@ -343,7 +343,10 @@ bool DDRefUtils::getConstDistanceImpl(const RegDDRef *Ref1,
     }
   }
 
-  *Distance = Delta;
+  if (Distance) {
+    *Distance = Delta;
+  }
+
   return true;
 }
 

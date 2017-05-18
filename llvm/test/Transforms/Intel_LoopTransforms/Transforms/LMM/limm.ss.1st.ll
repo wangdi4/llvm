@@ -7,8 +7,8 @@
 ;int foo(void) {
 ;  int i, j;
 ;
-;  for (j = 0; j < 20; ++j) {
-;    for (i = 0; i < 10; ++i) {
+;  for (j = 0; j < 10; ++j) {
+;    for (i = 0; i < 20; ++i) {
 ;      if (B[i]=2*j) {
 ;        A[j] = A[j] + 1;
 ;      }
@@ -21,8 +21,8 @@
 ; INPUT HIR:
 ;
 ;          BEGIN REGION { modified }
-;<33>            + DO i1 = 0, 9, 1   <DO_LOOP>
-;<34>            |   + DO i2 = 0, 19, 1   <DO_LOOP>
+;<33>            + DO i1 = 0, 19, 1   <DO_LOOP>
+;<34>            |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ;<10>            |   |   (@B)[0][i1] = 2 * i2;
 ;<11>            |   |   if (i2 != 0)
 ;<11>            |   |   {
@@ -47,8 +47,8 @@
 ; CHECK: IR Dump Before HIR Loop Memory Motion
 ;
 ; CHECK:   BEGIN REGION { modified }
-; CHECK:         + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK:         |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:         + DO i1 = 0, 19, 1   <DO_LOOP>
+; CHECK:         |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:         |   |   (@B)[0][i1] = 2 * i2;
 ; CHECK:         |   |   if (i2 != 0)
 ; CHECK:         |   |   {
@@ -65,8 +65,8 @@
 ; CHECK: IR Dump After HIR Loop Memory Motion
 ;
 ; CHECK:   BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   %limm = 2 * i2;
 ; CHECK:        |   |   if (i2 != 0)
 ; CHECK:        |   |   {
@@ -113,12 +113,12 @@ if.then:                                          ; preds = %for.body3
 
 for.inc:                                          ; preds = %for.body3, %if.then
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 10
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc8, label %for.body3
 
 for.inc8:                                         ; preds = %for.inc
   %indvars.iv.next23 = add nuw nsw i64 %indvars.iv22, 1
-  %exitcond25 = icmp eq i64 %indvars.iv.next23, 20
+  %exitcond25 = icmp eq i64 %indvars.iv.next23, 10
   br i1 %exitcond25, label %for.end10, label %for.cond1.preheader
 
 for.end10:                                        ; preds = %for.inc8

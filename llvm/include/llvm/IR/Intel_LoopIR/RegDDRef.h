@@ -607,6 +607,11 @@ public:
   /// [1, getNumDimensions()].
   uint64_t getDimensionStride(unsigned DimensionNum) const;
 
+  /// Returns the size in number of bytes for specified dimension.
+  /// This is computed on the fly. DimensionNum must be within
+  /// [1, getNumDimensions()].
+  uint64_t getDimensionSize(unsigned DimensionNum) const;
+
   /// \brief Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].
   CanonExpr *getDimensionIndex(unsigned DimensionNum) {
@@ -621,6 +626,11 @@ public:
   /// Returns null if DDRef might not be a regular strided access
   /// (linear access with invariant stride at Level).
   CanonExpr *getStrideAtLevel(unsigned Level) const;
+
+  /// Populates constant stride of DDRef at \p Level in \p Stride, if is is not
+  /// null.
+  /// Returns false if the stride is not constant.
+  bool getConstStrideAtLevel(unsigned Level, int64_t *Stride) const;
 
   /// Not sure if removeDimension() operation even makes sense. Commenting it
   /// out for now.

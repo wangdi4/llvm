@@ -167,7 +167,8 @@ public:
   /// (followed by shuffles). The distance will tell us if we can fit two
   /// neighbors in the same vector register.
   ///
-  /// \param [out] Distance holds the constant distance in bytes if obtained.
+  /// \param [out] Distance holds the constant distance in bytes if it isn't
+  /// null.
   /// The Distance can result from a difference in any of the subscripts --
   /// not only the innermost, and even in multiple subscripts. For example,
   /// the distance between a[2*i][j] and a[2*i+1][j+1] when 'a' is int a[8][8]
@@ -186,8 +187,10 @@ public:
   static bool getConstByteDistance(const RegDDRef *Ref1, const RegDDRef *Ref2,
                                    int64_t *Distance);
 
-  /// Returns a constant distance in number of iterations at \p LoopLevel
-  /// between \p Ref1 and \p Ref2.
+  /// Returns true if there is constant distance in number of iterations at \p
+  /// LoopLevel between \p Ref1 and \p Ref2.
+  /// Populates this distance in \p Distance is it isn't null.
+  ///
   /// This is different that getConstDistanceInBytes() above in that the
   /// distance should be an exact multiple of iterations of loop. For example,
   /// it returns false for A[2*i1] and A[2*i1+1] as they do not overlap w.r.t

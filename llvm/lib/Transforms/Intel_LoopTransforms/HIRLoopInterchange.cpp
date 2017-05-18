@@ -126,7 +126,7 @@ private:
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
   void printOptReport(HLLoop *Loop);
-  bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests);
+  bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 }
 
@@ -702,7 +702,7 @@ bool HIRLoopInterchange::isLegalForPermutation(unsigned DstLevel,
 
 ///  No need to interchange if suggested Permutation is same as present order
 bool HIRLoopInterchange::isInPresentOrder(
-    SmallVectorImpl<const HLLoop *> &LoopNests) {
+    SmallVectorImpl<const HLLoop *> &LoopNests) const {
 
   unsigned PrevLevel = 1;
 

@@ -644,7 +644,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
   }
 
   // TODO: refine unroll factor using extra cache lines accessed by unrolling?
-  if (!HUAJ.HLA->getTemporalLocality(Lp, UnrollFactor - 1)) {
+  if (!HUAJ.HLA->hasTemporalLocality(Lp, UnrollFactor - 1)) {
     HUAJ.throttle(Lp);
     return;
   }

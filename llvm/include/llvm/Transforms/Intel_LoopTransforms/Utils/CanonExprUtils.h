@@ -233,7 +233,7 @@ public:
                                    bool RelaxedMode = false);
 
   /// Returns true if CE1 - CE2 is a constant and returns the diff in \p
-  /// Distance.
+  /// Distance, if it isn't null.
   ///
   /// NOTE: This is strictly a structural check in the sense that the utility is
   /// context insensitive. It doesn't perform HIR based checks and so will
@@ -246,6 +246,8 @@ public:
 
   /// Returns true if CE1 - CE2 results in a constant difference w.r.t IV at \p
   /// LoopLevel which is the distance in terms of number of loop iterations.
+  /// Populates this difference in \p Distance if it isn't null.
+  ///
   /// For example-
   /// Returns true with distance of 1 if-
   /// CE1 = 2*i1 + 2

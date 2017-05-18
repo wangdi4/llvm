@@ -6,8 +6,8 @@
 ;int foo(void) {
 ;  int i, j;
 ;
-;  for (j = 0; j < 20; ++j) {
-;    for (i = 0; i < 10; ++i) {
+;  for (j = 0; j < 10; ++j) {
+;    for (i = 0; i < 20; ++i) {
 ;      switch (B[i]) {
 ;      case 0: A[j] = A[j] + B[i] + 1; break;
 ;      case 1: A[j] = A[j] + B[i] + 2; break;
@@ -34,8 +34,8 @@
 ; CHECK: IR Dump Before HIR Loop Memory Motion
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
-; CHECK:        |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   %0 = (@B)[0][i1];
 ; CHECK:        |   |   switch(%0)
 ; CHECK:        |   |   {
@@ -61,9 +61,9 @@
 ; CHECK: IR Dump After HIR Loop Memory Motion
 ;
 ; CHECK:  BEGIN REGION { modified }
-; CHECK:        + DO i1 = 0, 9, 1   <DO_LOOP>
+; CHECK:        + DO i1 = 0, 19, 1   <DO_LOOP>
 ; CHECK:        |      %limm = (@B)[0][i1];
-; CHECK:        |   + DO i2 = 0, 19, 1   <DO_LOOP>
+; CHECK:        |   + DO i2 = 0, 9, 1   <DO_LOOP>
 ; CHECK:        |   |   %0 = %limm;
 ; CHECK:        |   |   switch(%0)
 ; CHECK:        |   |   {
@@ -132,12 +132,12 @@ sw.default:                                       ; preds = %for.body3
 
 for.inc:                                          ; preds = %sw.bb, %sw.bb11, %sw.default
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
-  %exitcond = icmp eq i64 %indvars.iv.next, 10
+  %exitcond = icmp eq i64 %indvars.iv.next, 20
   br i1 %exitcond, label %for.inc28, label %for.body3
 
 for.inc28:                                        ; preds = %for.inc
   %indvars.iv.next50 = add nuw nsw i64 %indvars.iv49, 1
-  %exitcond51 = icmp eq i64 %indvars.iv.next50, 20
+  %exitcond51 = icmp eq i64 %indvars.iv.next50, 10
   br i1 %exitcond51, label %for.end30, label %for.cond1.preheader
 
 for.end30:                                        ; preds = %for.inc28

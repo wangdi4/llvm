@@ -46,26 +46,40 @@ class HIRFramework;
 
 class HIRLocalityAnalysis final : public HIRAnalysisPass {
 public:
+  typedef DDRefGrouping::RefGroupTy<const RegDDRef> RefGroupTy;
   typedef DDRefGrouping::RefGroupVecTy<const RegDDRef> RefGroupVecTy;
 
 private:
   typedef DDRefGatherer<const RegDDRef, MemRefs> LocalityRefGatherer;
 
   struct LocalityInfo {
-    // Spatial Locality.
-    uint64_t Spatial;
-    // Temporal Invariant Locality.
-    uint64_t TempInv;
-    // Temporal Reuse Locality.
-    uint64_t TempReuse;
+    unsigned NumSpatialCacheLines;
+    unsigned NumTempInvCacheLines;
+    unsigned TotalRefs;
+    unsigned TotalLvalRefs;
+    uint64_t TotalStride;
+    uint64_t TotalLvalStride;
 
-    LocalityInfo() : Spatial(0), TempInv(0), TempReuse(0) {}
+    LocalityInfo()
+        : NumSpatialCacheLines(0), NumTempInvCacheLines(0), TotalRefs(0),
+          TotalLvalRefs(0), TotalStride(0), TotalLvalStride(0) {}
 
-    // LocalityValue is TempInv + Spatial.
-    uint64_t getLocalityValue() const { return (TempInv + Spatial); }
+    unsigned getNumCacheLines() const {
+      return NumSpatialCacheLines + NumTempInvCacheLines;
+    }
 
-    uint64_t getTemporalLocality() const { return (TempInv + TempReuse); }
-    void clear() { Spatial = TempInv = TempReuse = 0; }
+    uint64_t getAvgStride() const {
+      return (TotalRefs == 0) ? 0 : TotalStride / TotalRefs;
+    }
+
+    uint64_t getAvgLvalStride() const {
+      return (TotalLvalRefs == 0) ? 0 : TotalLvalStride / TotalLvalRefs;
+    }
+
+    void clear() {
+      NumSpatialCacheLines = NumTempInvCacheLines = TotalRefs = TotalLvalRefs =
+          TotalStride = TotalLvalStride = 0;
+    }
   };
 
   HIRFramework *HIRF;
@@ -80,34 +94,28 @@ private:
   /// Returns true if \p Ref1 and \p Ref2 belongs to the same array reference
   /// group for the purposes of computing spatial locality for interchange.
   ///
-  /// For the specific IV at \p Level and \p MaxDiff value the method returns
-  /// true
-  /// if all the following is true:
-  ///  1) The numbers of dimensions in refs are the same.
-  ///  2) Only a single canon expr containing IV is different by a constant not
-  ///  exceeding *MaxDiff*.
-  ///  3) All other canons exprs are equal.
+  /// We group together all the refs with constant distance.
   ///
-  /// It also groups together all the refs which are invariant w.r.t IV.
+  /// For example, all the following refs will be in the same group:
+  ///  A[i][j][k]
+  ///  A[i][j+1][k]
+  ///  A[i+1][j][k]
+  ///  A[i+1][j][k-1]
   ///
-  /// Examples:
-  ///  Ref1 = A[i  ][j  ][k  ]
-  ///  Ref2 = A[i  ][j+1][k  ]
-  ///  Ref3 = A[i+1][j  ][k  ]
-  ///  Ref4 = A[i+1][j  ][k-1]
+  /// They will be arranged in this order-
+  /// A[i][j][k], A[i][j+1][k], A[i+1][j][k-1], A[i+1][j][k]
   ///
-  ///  1) Level j - (Ref1, Ref2) == true
-  ///  2) Level i - (Ref1, Ref2) == false
-  ///  3) Level i - (Ref1, Ref3) == true
-  ///  4) Level k - (Ref3, Ref4) == true
-  static bool isSpatialMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                             unsigned Level, uint64_t MaxDiff);
+  /// After this grouping, we will compute the number of cache lines touched by
+  /// the group (equivalent to cache line misses) based on the stride at a
+  /// particular loop level.
+  /// The assmuption is that the first ref in the group lies at the beginning of
+  /// the cache line.
+  static bool isSpatialMatch(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
   /// Returns true if \p Ref1 and \p Ref2 belong to the same group for the
   /// purposes of computing temporal locality.
-  /// If Ref1 and Ref2 are both invariant or have a constant iteration distance
-  /// w.r.t IV at \p Level not exceeding \p MaxDiff then they belong to the same
-  /// group.
+  /// If Ref1 and Ref2 have a constant iteration distance w.r.t IV at \p Level
+  /// not exceeding \p MaxDiff then they belong to the same group.
   ///
   /// For example-
   /// A[2*i] and A[2*i+2] == true
@@ -116,39 +124,68 @@ private:
   static bool isTemporalMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               unsigned Level, uint64_t MaxDiff);
 
+  static void updateTotalStrideAndRefs(LocalityInfo &LI,
+                                       const RefGroupTy &RefGroup,
+                                       uint64_t Stride);
+
+  /// Returns true if the last cache line of PrevRef is the same as CurRef based
+  /// on distance and number of bytes accessed.
+  static bool sharesLastCacheLine(uint64_t PrevTotalDist, uint64_t CurTotalDist,
+                                  uint64_t NumRefBytesAccessed);
+
+  /// Computes extra cache lines accessed by the group using other references
+  /// except the first.
+  static unsigned computeExtraCacheLines(LocalityInfo &LI,
+                                         const RefGroupTy &RefGroup,
+                                         unsigned Level,
+                                         uint64_t NumRefBytesAccessed,
+                                         unsigned NumCacheLinesPerRef);
+
+  /// Computes total number of cache lines accessed by \p Loop using refs with
+  /// no spatial or temporal locality.
+  static void computeNumNoLocalityCacheLines(LocalityInfo &LI,
+                                             const RefGroupTy &RefGroup,
+                                             unsigned Level, unsigned TripCnt);
+
+  /// Computes total number of cache lines accessed by \p Loop using refs with
+  /// temporal invariant locality.
+  static void computeNumTempInvCacheLines(LocalityInfo &LI,
+                                          const RefGroupTy &RefGroup,
+                                          unsigned Level);
+
+  /// Computes total number of cache lines accessed by \p Loop using refs with
+  /// spatial locality.
+  static void computeNumSpatialCacheLines(LocalityInfo &LI,
+                                          const RefGroupTy &RefGroup,
+                                          unsigned Level, unsigned TripCnt,
+                                          uint64_t Stride);
+
+  /// Computes total number of cache lines accessed by \p Loop.
+  void computeNumCacheLines(const HLLoop *Loop, const RefGroupVecTy &RefGroups);
+
   /// Computes the locality for the loopnest with outermost loop \p Lp.
   void computeLoopNestLocality(const HLLoop *Lp,
                                const SmallVectorImpl<const HLLoop *> &LoopVec);
 
-  /// Computes the temporal invariant locality for a loop.
-  void computeTempInvLocality(const HLLoop *Loop, RefGroupVecTy &RefGroups);
-
-  /// Computes the temporal reuse locality for a loop.
-  void computeTempReuseLocality(const HLLoop *Loop, RefGroupVecTy &RefGroups,
-                                unsigned ReuseThreshold);
-
-  /// Computes the spatial locality for a loop.
-  void computeSpatialLocality(const HLLoop *Loop, RefGroupVecTy &RefGroups);
-
-  /// Computes the spatial trip count.
-  uint64_t computeSpatialTrip(const RegDDRef *Ref, const HLLoop *Loop);
-
   /// Returns the trip count of the loop.
-  /// If loop count is symbolic or above than threshold, it returns
+  /// If loop count is symbolic or above the threshold, it returns
   /// SymbolicConst value.
-  int64_t getTripCount(const HLLoop *Loop);
+  unsigned getTripCount(const HLLoop *Loop);
 
   /// Initializes the trip count cache for future use inside the locality
   /// computation.
   void initTripCountByLevel(const SmallVectorImpl<const HLLoop *> &Loops);
 
-  /// Returns true if multiple IV's are present inside the DDRef at given Level.
-  /// SubscriptPos specifies which dimension the IV exist.
-  bool isMultipleIV(const RegDDRef *Ref, unsigned Level,
-                    unsigned *SubscriptPos);
-
   /// Prints out the Locality Information.
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
+
+  /// Implements getTemporalLocality().
+  unsigned getTemporalLocalityImpl(const HLLoop *Lp, unsigned ReuseThreshold,
+                                   bool CheckPresence, bool ReuseOnly);
+
+  /// Implements getTemporalInvariantLocality().
+  unsigned getTemporalInvariantLocalityImpl(const HLLoop *Lp,
+                                            bool CheckPresence);
 
 public:
   HIRLocalityAnalysis()
@@ -174,9 +211,40 @@ public:
       const HLLoop *OutermostLoop,
       SmallVector<const HLLoop *, MaxLoopNestLevel> &SortedLoops);
 
-  /// Returns temporal (invariant + reuse) locality value of the loop, using \p
-  /// ReuseThreshold. Default value is used if it is not provided.
-  uint64_t getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold = 0);
+  /// Returns true if loop has any temporal (invariant + reuse) locality using
+  /// \p ReuseThreshold.
+  bool hasTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold) {
+    return getTemporalLocalityImpl(Lp, ReuseThreshold, true, false);
+  }
+
+  /// Returns a number which represents the instances of temporal (invariant +
+  /// reuse) locality inside \p Lp using \p ReuseThreshold.
+  unsigned getTemporalLocality(const HLLoop *Lp, unsigned ReuseThreshold) {
+    return getTemporalLocalityImpl(Lp, ReuseThreshold, false, false);
+  }
+
+  /// Returns true if loop has any temporal invariant locality.
+  bool hasTemporalInvariantLocality(const HLLoop *Lp) {
+    return getTemporalInvariantLocalityImpl(Lp, true);
+  }
+
+  /// Returns a number which represents the instances of temporal invariant
+  /// locality in \p Lp.
+  unsigned getTemporalInvariantLocality(const HLLoop *Lp) {
+    return getTemporalInvariantLocalityImpl(Lp, false);
+  }
+
+  /// Returns true if loop has any temporal reuse locality using \p
+  /// ReuseThreshold.
+  bool hasTemporalReuseLocality(const HLLoop *Lp, unsigned ReuseThreshold) {
+    return getTemporalLocalityImpl(Lp, ReuseThreshold, true, true);
+  }
+
+  /// Returns a number which represents the instances of temporal reuse locality
+  /// in \p Lp using \p ReuseThreshold.
+  unsigned getTemporalReuseLocality(const HLLoop *Lp, unsigned ReuseThreshold) {
+    return getTemporalLocalityImpl(Lp, ReuseThreshold, false, true);
+  }
 
   /// Populates \p TemporalGroups by populating it with memref groups which have
   /// temporal locality within \p ReuseThreshold.
