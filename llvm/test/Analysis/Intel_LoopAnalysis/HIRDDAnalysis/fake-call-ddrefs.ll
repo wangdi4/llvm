@@ -23,7 +23,6 @@
 
 ; Fake refs should lead to following edges-
 
-; CHECK-NOT: -->
 ; CHECK-DAG: (%A)[undef] --> (%A)[undef] OUTPUT (*) (?)
 ; CHECK-DAG: (%A)[undef] --> (%B)[undef] FLOW (*) (?)
 ; CHECK-DAG: (%B)[undef] --> (%A)[undef] ANTI (*) (?)
