@@ -952,7 +952,7 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
     // The SCEV form of %a might be (%b + 1). This doesn't mean that we can
     // reverse engineer %b as (%a - 1)!
     if (FirstInst) {
-      if (CurSCEV == SC) {
+      if (HIRP->parsingScalarLval() && (CurSCEV == SC)) {
         return CurInst;
       }
       // Original instruction should dominate the current instruction.
@@ -2817,6 +2817,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
   clearTempBlobLevelMap();
 
+  ParsingScalarLval = false;
+
   // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
   if (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
@@ -2875,6 +2877,8 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   CanonExpr *CE;
 
   clearTempBlobLevelMap();
+
+  ParsingScalarLval = IsLval;
 
   auto Symbase = getOrAssignSymbase(Val);
   auto Ref = getDDRefUtils().createRegDDRef(Symbase);

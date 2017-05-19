@@ -133,6 +133,9 @@ private:
   /// CurLevel - The loop level we are operating on.
   unsigned CurLevel;
 
+  /// True when we are parsing scalar lval.
+  bool ParsingScalarLval;
+
   /// UnclassifiedSymbaseInsts - Contains non-essential symbases (and associated
   /// instructions) as determined by the first phase of parsing.
   SymbaseToInstMap UnclassifiedSymbaseInsts;
@@ -188,6 +191,9 @@ private:
 
   /// Returns the instruction which best represents the current node.
   const Instruction *getCurInst() const;
+
+  // Returns true if we are in the middle of parsing scalar lval.
+  bool parsingScalarLval() const { return ParsingScalarLval; }
 
   /// Phase1 parser functions
   /// parse(HLInst *, ...) is the only function used during phase2.
