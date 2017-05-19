@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-enable-subregions -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator < %s | FileCheck %s
 
 ; CHECK: vector.body:
 ; CHECK: VPlannedBB:{{.*}} preds = %VPlannedBB, %vector.body

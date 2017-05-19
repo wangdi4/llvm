@@ -1,4 +1,4 @@
-;RUN: opt -VPlanDriver -vpo-codegen=true -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S %s | FileCheck %s
 
 ;void foo(int *ip, int n)
 ;{

@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
 
 ; Outer loop vectorization
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

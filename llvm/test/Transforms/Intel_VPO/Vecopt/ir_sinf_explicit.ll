@@ -1,4 +1,4 @@
-;RUN: opt -vector-library=SVML -vec-clone -VPODriver -S %s | FileCheck %s
+;RUN: opt -vector-library=SVML -vec-clone -VPODriver -disable-vplan-subregions -disable-vplan-predicator -disable-vplan-codegen -S %s | FileCheck %s
 
 ; CHECK: call fast <4 x float> @__svml_sinf4
 

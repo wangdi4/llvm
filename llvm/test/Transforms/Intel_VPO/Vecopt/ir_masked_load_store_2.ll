@@ -1,10 +1,12 @@
-; RUN: opt -S -VPlanDriver -vplan-build-stress-test -vplan-enable-subregions -vplan-predicator -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-build-stress-test < %s | FileCheck %s
+
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store
 ; CHECK:  %wide.masked.load{{.*}} = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store
 ; CHECK: middle.block:
+
 ; ModuleID = 'ts.c'
 source_filename = "ts.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

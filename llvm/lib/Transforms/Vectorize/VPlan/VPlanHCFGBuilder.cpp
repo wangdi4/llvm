@@ -11,18 +11,18 @@
 using namespace llvm;
 using namespace vpo;
 
-static cl::opt<bool> NonLoopSubRegionsEnabled(
-    "vplan-enable-subregions",
-    cl::init(false), // TODO: vplan-disable-subregions
-    cl::desc("Enable construction of non-loop subregions in VPlan"));
+static cl::opt<bool> DisableNonLoopSubRegions(
+    "disable-vplan-subregions", cl::init(false), cl::Hidden,
+    cl::desc("Disable construction of non-loop subregions in VPlan"));
 
 static cl::opt<bool> LoopMassagingEnabled(
     "vplan-enable-loop-massaging",
     cl::init(false), // TODO: vplan-disable-loop-massaging
+    cl::Hidden,
     cl::desc("Enable loop massaging in VPlan (Multiple to Singular Exit)"));
 
 static cl::opt<bool> VPlanLoopCFU(
-    "vplan-loop-cfu", cl::init(false),
+    "vplan-loop-cfu", cl::init(false), cl::Hidden,
     cl::desc("Perform inner loop control flow uniformity transformation"));
 
 static bool isInstructionToIgnore(Instruction *I) {
@@ -838,7 +838,7 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
     VPBlockBase *RegionExit;
 
     // Non-loop VPRegion detection.
-    if (NonLoopSubRegionsEnabled && !SubRegion /* Skip VPLoopRegions */ &&
+    if (!DisableNonLoopSubRegions && !SubRegion /* Skip VPLoopRegions */ &&
         isNonLoopRegion(Current, ParentRegion, State.VPDomTree,
                         State.VPPostDomTree, RegionExit /*output*/)) {
 

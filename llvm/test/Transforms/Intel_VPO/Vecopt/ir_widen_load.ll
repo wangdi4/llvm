@@ -1,5 +1,5 @@
-;RUN: opt -VPODriver -S %s | FileCheck %s
-;RUN: opt -VPlanDriver -S -vpo-codegen %s | FileCheck %s
+;RUN: opt -VPODriver -disable-vplan-subregions -disable-vplan-predicator -disable-vplan-codegen -S %s | FileCheck %s
+;RUN: opt -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S %s | FileCheck %s
 
 
 ;#define N 1024

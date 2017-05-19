@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-build-stress-test -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-build-stress-test -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body

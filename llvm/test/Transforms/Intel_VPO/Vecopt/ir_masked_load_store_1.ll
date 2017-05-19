@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-build-stress-test -vplan-enable-subregions -vplan-predicator -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -vplan-build-stress-test < %s | FileCheck %s
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store

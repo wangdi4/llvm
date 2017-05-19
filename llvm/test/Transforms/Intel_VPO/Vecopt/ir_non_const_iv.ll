@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vpo-codegen -vplan-build-stress-test -instcombine < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-build-stress-test -instcombine < %s | FileCheck %s
 
 ;int inc_x;
 ;int foo(int * __restrict__ A, int N, int init) {

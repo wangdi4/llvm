@@ -1,4 +1,4 @@
-; RUN: opt -S -O2 -loopopt=0 -vplan-build-stress-test -vplan-driver -vplan-build-vect-candidates=100000 -vplan-enable-subregions -vplan-predicator -vpo-codegen %s > /dev/null
+; RUN: opt -S -O2 -loopopt=0 -vplan-build-stress-test -vplan-driver -vplan-build-vect-candidates=100000 %s > /dev/null
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

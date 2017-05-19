@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -VPlanDriver -vplan-loop-cfu -debug -S < %s 2>&1 | FileCheck %s
+; RUN: opt -VPlanDriver -vplan-loop-cfu -disable-vplan-predicator -disable-vplan-subregions -disable-vplan-codegen -debug -S < %s 2>&1 | FileCheck %s
 
 ; Test the transformation of the innermost loop non-uniform control flow to uniform control flow.
 

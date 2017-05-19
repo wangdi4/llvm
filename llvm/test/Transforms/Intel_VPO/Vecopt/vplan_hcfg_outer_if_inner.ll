@@ -1,4 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-enable-subregions -debug -debug-only=VPlanDriver 2>&1 | FileCheck %s
+; RUN: opt %s -VPlanDriver -disable-vplan-predicator -disable-vplan-codegen -debug -debug-only=VPlanDriver 2>&1 | FileCheck %s
+
 ; Verify the HCFG construction of an outer loop with an if statement
 ; enclosing an inner loop.
 

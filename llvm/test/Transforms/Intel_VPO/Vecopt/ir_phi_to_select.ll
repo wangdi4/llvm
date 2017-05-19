@@ -1,4 +1,4 @@
-; RUN: opt -S %s -O2 -loopopt=0 -vplan-driver -vplan-build-stress-test -vplan-enable-subregions -vplan-predicator -vpo-codegen | FileCheck %s
+; RUN: opt -S %s -O2 -loopopt=0 -vplan-driver -vplan-build-stress-test | FileCheck %s
 
 ;void foo(int *arr1, int *__restrict__ arr2, int *__restrict__ arr3) {
 ;#pragma omp simd

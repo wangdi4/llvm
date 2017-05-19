@@ -1,4 +1,4 @@
-; RUN: opt -VPlanDriver -S -vpo-codegen -vplan-predicator %s | FileCheck %s
+; RUN: opt -VPlanDriver -S %s | FileCheck %s
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[PRIV:.*]] = alloca i32, align 4
 ; CHECK: vector.ph

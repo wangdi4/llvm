@@ -1,9 +1,11 @@
-; RUN: opt -VPlanDriver -S -vpo-codegen %s | FileCheck %s
+; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S %s | FileCheck %s
+
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK: vector.ph
 ; CHECK:  %a2.vec = alloca <4 x i32>
 ; CHECK: vector.body
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %a2.vec
+
 ; ModuleID = 'p1.c'
 source_filename = "p1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

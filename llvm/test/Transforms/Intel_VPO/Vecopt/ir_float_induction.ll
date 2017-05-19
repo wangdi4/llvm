@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vpo-codegen=true < %s  -instcombine | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions < %s  -instcombine | FileCheck %s
 
 ;float fp_inc;
 ;void fp_iv_loop(float init, float * __restrict__ A, int N) {

@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vpo-codegen < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
 ; CHECK: ._crit_edge:                                      ; preds = %middle.block, %.lr.ph

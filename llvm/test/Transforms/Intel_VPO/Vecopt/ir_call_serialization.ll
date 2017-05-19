@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vpo-codegen -vplan-predicator < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-subregions < %s | FileCheck %s
 ;void baz(int i);
 ;
 ;void foo(int *arr) {

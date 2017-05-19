@@ -40,10 +40,10 @@ using namespace llvm::vpo; //Needed for WRegionInfo
 //                               cl::Hidden,
 //                               cl::desc("Disable VPO directive cleanup"));
 
-static cl::opt<bool> EnableCodeGen(
-    "vpo-codegen", cl::init(false), cl::Hidden,
+static cl::opt<bool> DisableCodeGen(
+    "disable-vplan-codegen", cl::init(false), cl::Hidden,
     cl::desc(
-        "Enable VPO codegen, when false, the pass stops at VPlan creation"));
+        "Disable VPO codegen, when true, the pass stops at VPlan creation"));
 
 static cl::opt<unsigned>
     VPlanDefaultVF("vplan-default-vf", cl::init(4),
@@ -63,8 +63,8 @@ static cl::opt<bool>
                     cl::desc("Construct VPlan even if loop is not supported "
                              "(only for development)"));
 static cl::opt<bool>
-    EnableVPlanPredicator("vplan-predicator", cl::init(false), cl::Hidden,
-                          cl::desc("Enable VPlan predicator."));
+    DisableVPlanPredicator("disable-vplan-predicator", cl::init(false),
+                           cl::Hidden, cl::desc("Disable VPlan predicator."));
 
 static cl::opt<unsigned> VPlanVectCand(
     "vplan-build-vect-candidates", cl::init(0),
@@ -479,7 +479,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
     
     // Only bail out if we are generating code, we want to continue if
     // we are only stress testing VPlan builds below.
-    if (EnableCodeGen)
+    if (!DisableCodeGen)
       return;
   }
 
@@ -496,7 +496,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
 
   LVP->buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
   // Predicator changes BEGIN
-  if (EnableVPlanPredicator) {
+  if (!DisableVPlanPredicator) {
     IntelVPlan *Plan = LVP->getVPlanForVF(VF);
     VPlanPredicator VPP(Plan);
     VPP.predicate();
@@ -512,7 +512,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
         RSO << "VD: Initial VPlan for VF=" << VF;
         PlanPrinter.dump(RSO.str()));
 
-  if (EnableCodeGen) {
+  if (!DisableCodeGen) {
     if (VPlanVectCand)
       errs() << "VD: VPlan Generating code in function: " << F.getName() << "\n";
 
