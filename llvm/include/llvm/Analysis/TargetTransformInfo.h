@@ -678,6 +678,9 @@ public:
                                            Type *ExpectedType) const;
 
 #if INTEL_CUSTOMIZATION
+  // Returns true if AdvancedOptim is enabled.
+  bool isAdvancedOptimEnabled() const;
+
   bool adjustCallArgs(CallInst *) const;
 
   /// \return true if 'Mask' requires a target-specific shuffle
@@ -856,6 +859,7 @@ public:
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
 #if INTEL_CUSTOMIZATION
+  virtual bool isAdvancedOptimEnabled() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
 
   virtual bool
@@ -1138,6 +1142,10 @@ public:
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
 #if INTEL_CUSTOMIZATION
+  bool isAdvancedOptimEnabled() const override {
+    return Impl.isAdvancedOptimEnabled();
+  }
+
   bool adjustCallArgs(CallInst *CI) override {
     return Impl.adjustCallArgs(CI);
   }

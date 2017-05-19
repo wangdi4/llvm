@@ -440,6 +440,10 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
 }
 
 #if INTEL_CUSTOMIZATION
+bool TargetTransformInfo::isAdvancedOptimEnabled() const {
+  return TTIImpl->isAdvancedOptimEnabled();
+}
+
 bool TargetTransformInfo::adjustCallArgs(CallInst *CI) const {
   return TTIImpl->adjustCallArgs(CI);
 }
