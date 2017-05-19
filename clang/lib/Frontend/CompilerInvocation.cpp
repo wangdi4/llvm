@@ -1929,6 +1929,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
   Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
+  Opts.IntelAdvancedOptim = Args.hasArg(OPT_fintel_advanced_optim);
   // CQ381541: Parse IMF attributes
   if (Opts.IntelCompat && Args.hasArg(OPT_fintel_imf_attr_EQ)) {
     bool ImfFuncSetFilled = false;

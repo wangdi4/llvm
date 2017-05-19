@@ -93,6 +93,8 @@ LANGOPT(IntelCompat       , 1, 0,
         "Enables or disables Intel Compiler compatibility mode")
 LANGOPT(IntelMSCompat     , 1, 0,
         "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
+LANGOPT(IntelAdvancedOptim, 1, 0,
+        "Enables or disables Intel specific advanced optimizations")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")
 LANGOPT(IntelQuad, 1, 0, "Intel's 128 bit float support")

@@ -659,6 +659,8 @@ def fintel_compatibility : Flag<["-"], "fintel-compatibility">,
   HelpText<"Enable full Intel C/C++ compatibility">;
 def fintel_ms_compatibility : Flag<["-"], "fintel-ms-compatibility">,
   HelpText<"Enable Microsoft compatibility features that are not planned for clang/llvm trunk">;
+def fintel_advanced_optim : Flag<["-"], "fintel-advanced-optim">,
+  HelpText<"Enable Intel specific advanced optimizations">;
 def restrict : Flag<["-"], "restrict">,
   HelpText<"Enable the 'restrict' keyword for disambiguating pointers">;
 def no_restrict : Flag<["-"], "no-restrict">,

@@ -622,6 +622,9 @@ void EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
   Options.NoNaNsFPMath = CodeGenOpts.NoNaNsFPMath;
   Options.NoZerosInBSS = CodeGenOpts.NoZeroInitializedInBSS;
   Options.UnsafeFPMath = CodeGenOpts.UnsafeFPMath;
+#if INTEL_CUSTOMIZATION
+  Options.IntelAdvancedOptim = LangOpts.IntelAdvancedOptim;
+#endif // INTEL_CUSTOMIZATION
   Options.StackAlignmentOverride = CodeGenOpts.StackAlignment;
   Options.FunctionSections = CodeGenOpts.FunctionSections;
   Options.DataSections = CodeGenOpts.DataSections;
