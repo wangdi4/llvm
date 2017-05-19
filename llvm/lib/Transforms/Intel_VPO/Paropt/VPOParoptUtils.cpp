@@ -1583,16 +1583,13 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
 
 // Returns the predicate which includes equal for the zero trip test.
 CmpInst::Predicate VPOParoptUtils::computeOmpPredicate(CmpInst::Predicate PD) {
-  if (PD == ICmpInst::ICMP_SLT)
+  if (CmpInst::isSigned(PD))
     return ICmpInst::ICMP_SLE;
-  else if (PD == ICmpInst::ICMP_ULT)
+  else {
+    assert(CmpInst::isUnsigned(PD) &&
+         "computeOmpPredicate: Expect unsigned predicate");
     return ICmpInst::ICMP_ULE;
-  else if (PD == ICmpInst::ICMP_SGT) 
-    return ICmpInst::ICMP_SGE;
-  else if (PD == ICmpInst::ICMP_UGT) 
-    return ICmpInst::ICMP_UGE;
-  else
-    return PD;
+  }
 }
 
 // Updates the bottom test predicate to include equal predicate.
@@ -1620,17 +1617,21 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
 
   if (IsLeft)
     IC->setOperand(1, UB);
-  else 
+  else {
     IC->setOperand(0, UB);
+    cast<BinaryOperator>(IC)->swapOperands();
+  }
 
-  if (PD == ICmpInst::ICMP_SLT)
-    IC->setPredicate(ICmpInst::ICMP_SLE);
-  else if (PD == ICmpInst::ICMP_ULT)
-    IC->setPredicate(ICmpInst::ICMP_ULE);
-  else if (PD == ICmpInst::ICMP_SGT) 
-    IC->setPredicate(ICmpInst::ICMP_SGE);
-  else if (PD == ICmpInst::ICMP_UGT) 
-    IC->setPredicate(ICmpInst::ICMP_UGE);
+  IC->setPredicate(computeOmpPredicate(PD));
+
+  BasicBlock *LatchBB = L->getLoopLatch();
+  BasicBlock *HeaderBB = L->getHeader();
+  BranchInst *BR = dyn_cast<BranchInst>(LatchBB->getTerminator());
+  assert(BR &&
+      "updateOmpPredicateAndUpperBound: Expect non-empty branch instruction");
+
+  if (BR->getSuccessor(0) != HeaderBB)
+    BR->swapSuccessors();
 }
 
 static Value *findChainToLoad(Value *V,

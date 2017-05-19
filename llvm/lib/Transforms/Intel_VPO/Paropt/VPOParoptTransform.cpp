@@ -2465,10 +2465,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   CmpInst::Predicate PD = VPOParoptUtils::computeOmpPredicate( 
                                    WRegionUtils::getOmpPredicate(L, IsLeft));
   ICmpInst* CompInst;
-  if (IsLeft)
-    CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
-  else
-    CompInst = new ICmpInst(InsertPt, PD, LoadUB, LoadLB, "");
+  CompInst = new ICmpInst(InsertPt, PD, LoadLB, LoadUB, "");
 
   VPOParoptUtils::updateOmpPredicateAndUpperBound(W, LoadUB, InsertPt);
 
