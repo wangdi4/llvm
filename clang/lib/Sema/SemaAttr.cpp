@@ -742,6 +742,7 @@ void Sema::ActOnPragmaFPContract(LangOptions::FPContractModeKind FPC) {
     break;
   case LangOptions::FPC_Off:
     FPFeatures.setDisallowFPContract();
+    Context.disableFPContract(); // INTEL
     break;
   }
 }

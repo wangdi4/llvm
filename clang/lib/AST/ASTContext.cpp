@@ -751,6 +751,7 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
       cudaConfigureCallDecl(nullptr), FirstLocalImport(), LastLocalImport(),
       ExternCContext(nullptr), MakeIntegerSeqDecl(nullptr),
       TypePackElementDecl(nullptr), SourceMgr(SM), LangOpts(LOpts),
+      DisabledFPContract(false), // INTEL
       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
       XRayFilter(new XRayFunctionFilter(LangOpts.XRayAlwaysInstrumentFiles,
                                         LangOpts.XRayNeverInstrumentFiles, SM)),
