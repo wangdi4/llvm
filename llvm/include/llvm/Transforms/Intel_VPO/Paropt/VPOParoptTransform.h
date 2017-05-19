@@ -140,23 +140,24 @@ private:
   /// \param[out] NeedBID : 'true' if any W visited has W->needsBID()==true
   void gatherWRegionNodeList(bool &NeedTID, bool &NeedBID);
 
-  /// \brief Generate code for privatization 
+  /// \brief Generate code for private variables
   bool genPrivatizationCode(WRegionNode *W);
 
-  /// \brief Generate code for first privatization
+  /// \brief Generate code for firstprivate variables
   bool genFirstPrivatizationCode(WRegionNode *W);
 
-  /// \brief Generate code for last privatization
+  /// \brief Generate code for lastprivate variables
   bool genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
 
-  /// \brief A utility to privatize the variables within the region.
-  Value *genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
-                                    Instruction *InsertPt,
-                                    const StringRef VarNameSuff);
+  /// \brief A utility to privatize a variable within the region.
+  /// It creates and returns an AllocaInst for \p PrivValue.
+  Value *genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
+                                Instruction *InsertPt,
+                                const StringRef VarNameSuff);
 
   /// \brief Replace the variable with the privatized variable
-  void genPrivatizationCodeTransform(WRegionNode *W, Value *PrivValue,
-                                     Value *NewPrivInst, Item *IT);
+  void genPrivatizationReplacement(WRegionNode *W, Value *PrivValue,
+                                   Value *NewPrivInst, Item *IT);
 
   /// \brief Generate the reduction initialization code.
   void genReductionInit(ReductionItem *RedI, Instruction *InsertPt);

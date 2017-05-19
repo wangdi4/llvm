@@ -288,7 +288,9 @@ int WRegionUtils::getClauseIdFromAtomicKind(WRNAtomicKind Kind) {
 
 // gets the induction variable of the OMP loop.
 PHINode *WRegionUtils::getOmpCanonicalInductionVariable(Loop* L) {
+  assert(L && "getOmpCanonicalInductionVariable: null loop");
   BasicBlock *H = L->getHeader();
+  assert(L && "getOmpCanonicalInductionVariable: null loop header");
 
   BasicBlock *Incoming = nullptr, *Backedge = nullptr;
   pred_iterator PI = pred_begin(H);
@@ -409,21 +411,12 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
   assert(PB && "Expect to see zero trip test block.");
   for (BasicBlock::reverse_iterator J = PB->rbegin();
        J != PB->rend(); ++J) {
-     ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
-     if (CondInst &&
-      (CondInst->getPredicate() == ICmpInst::ICMP_SGT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SGE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SLT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SLE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_UGT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_UGE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_ULT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_ULE)) {
-         bool IsLeft;
-         getLoopIndexPosInPredicate(getOmpLoopLowerBound(L), CondInst, IsLeft);
-         return CondInst;
-       }
-
+    ICmpInst *CondInst = dyn_cast<ICmpInst>(&*J);
+    if (CondInst && ICmpInst::isRelational(CondInst->getPredicate())) {
+      bool IsLeft;
+      getLoopIndexPosInPredicate(getOmpLoopLowerBound(L), CondInst, IsLeft);
+      return CondInst;
+    }
   }
   llvm_unreachable("Omp loop with non-const \
     upper bound must have zero trip test!");
@@ -440,15 +433,7 @@ ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
   BranchInst *ExitBrInst;
   ExitBrInst = dyn_cast<BranchInst>(&*L->getLoopLatch()->rbegin());
   ICmpInst *CondInst = dyn_cast<ICmpInst>(ExitBrInst->getCondition());
-  if (CondInst &&
-      (CondInst->getPredicate() == ICmpInst::ICMP_SGT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SGE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SLT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_SLE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_UGT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_UGE ||
-       CondInst->getPredicate() == ICmpInst::ICMP_ULT ||
-       CondInst->getPredicate() == ICmpInst::ICMP_ULE)) 
+  if (CondInst && ICmpInst::isRelational(CondInst->getPredicate()))
     return CondInst;
   
   llvm_unreachable("Omp loop must have bottom test!");

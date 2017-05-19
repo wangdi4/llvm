@@ -603,6 +603,7 @@ template <typename ClauseItem> class Clause
   public:
     int getClauseID()               const { return ClauseID;     }
     void setClauseID(int ID)              { ClauseID = ID;       }
+    bool empty()                    const { return C.empty();    }
     int size()                      const { return C.size();     }
     int capacity()                  const { return C.capacity(); }
     const ClauseItem *front()       const { return C.front();    }

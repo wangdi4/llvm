@@ -1012,7 +1012,7 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genReductionCode\n");
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
 
     assert(W->isBBSetEmpty() && "genReductionCode: BBSET should start empty");
     W->populateBBSet();
@@ -1029,9 +1029,8 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       assert((isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) &&
              "genReductionCode: Unexpected reduction variable");
 */
-      NewRedInst = genPrivatizationCodeHelper(W, Orig,
-                                              &EntryBB->front(), ".red");
-      genPrivatizationCodeTransform(W, Orig, NewRedInst, RedI);
+      NewRedInst = genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".red");
+      genPrivatizationReplacement(W, Orig, NewRedInst, RedI);
       RedI->setNew(NewRedInst);
       createEmptyPrvInitBB(W, RedInitEntryBB);
       genReductionInit(RedI, RedInitEntryBB->getTerminator());
@@ -1052,15 +1051,15 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
 
 // A utility to privatize the variables within the region.
 Value *
-VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
-                                               Instruction *InsertPt,
-                                               const StringRef VarNameSuff) {
+VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
+                                           Instruction *InsertPt,
+                                           const StringRef VarNameSuff) {
   // DEBUG(dbgs() << "Private Instruction Defs: " << *PrivInst << "\n");
   // Generate a new Alloca instruction as privatization action
   AllocaInst *NewPrivInst;
 
   assert(!(W->isBBSetEmpty()) && 
-         "genPrivatizationCodeHelper: WRN has empty BBSet");
+         "genPrivatizationAlloca: WRN has empty BBSet");
 
   if (auto PrivInst = dyn_cast<AllocaInst>(PrivValue)) {
     NewPrivInst = (AllocaInst *)PrivInst->clone();
@@ -1090,8 +1089,8 @@ VPOParoptTransform::genPrivatizationCodeHelper(WRegionNode *W, Value *PrivValue,
     }
   } else {
     // TODO: Privatize Value that is neither global nor alloca
-    DEBUG(dbgs() << "\ngenPrivatizationCodeHelper: TODO: Handle Arguments.\n");
-    llvm_unreachable("genPrivatizationCodeHelper: unsupported private item");
+    DEBUG(dbgs() << "\ngenPrivatizationAlloca: TODO: Handle Arguments.\n");
+    llvm_unreachable("genPrivatizationAlloca: unsupported private item");
   }
 
   return NewPrivInst;
@@ -1116,10 +1115,10 @@ void VPOParoptTransform::annotateInstWithNoAlias(Instruction *ItemInst,
 }
 
 // Replace the variable with the privatized variable
-void VPOParoptTransform::genPrivatizationCodeTransform(WRegionNode *W,
-                                                       Value *PrivValue,
-                                                       Value *NewPrivInst,
-                                                       Item *IT) {
+void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
+                                                     Value *PrivValue,
+                                                     Value *NewPrivInst,
+                                                     Item *IT) {
   SmallVector<Instruction *, 8> PrivUses;
   for (auto IB = PrivValue->user_begin(), IE = PrivValue->user_end(); IB != IE;
        ++IB) {
@@ -1155,7 +1154,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
          "genFirstPrivatizationCode: WRN doesn't take a firstprivate var");
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
@@ -1173,22 +1172,22 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         auto LprivI = LprivClause.findOrig(Orig);
         if (!LprivI) {
           if (!ForTaskLoop)
-            NewPrivInst = genPrivatizationCodeHelper(W, Orig, &EntryBB->front(),
-                                                     ".fpriv");
+            NewPrivInst = genPrivatizationAlloca(W, Orig, &EntryBB->front(),
+                                                 ".fpriv");
           else
             NewPrivInst = FprivI->getNew();
 
-          genPrivatizationCodeTransform(W, Orig, NewPrivInst, FprivI);
+          genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
           FprivI->setNew(NewPrivInst);
         } else
           FprivI->setNew(LprivI->getNew());
       } else {
         if (!ForTaskLoop)
           NewPrivInst =
-              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".fpriv");
+              genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".fpriv");
         else
           NewPrivInst = FprivI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst, FprivI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
         FprivI->setNew(NewPrivInst);
       }
 
@@ -1220,7 +1219,7 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
          "genLastPrivatizationCode: WRN doesn't take a lastprivate var");
 
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     W->populateBBSet();
     bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
     BasicBlock *EntryBB = W->getEntryBBlock();
@@ -1249,10 +1248,10 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       Value *NewPrivInst;
       if (!ForTaskLoop)
         NewPrivInst =
-            genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".lpriv");
+            genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
-      genPrivatizationCodeTransform(W, Orig, NewPrivInst, LprivI);
+      genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
       LprivI->setNew(NewPrivInst);
       genLprivFini(LprivI, BeginBB->getTerminator());
     }
@@ -1273,7 +1272,7 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genRedCodeForTaskLoop\n");
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
 
     assert(W->isBBSetEmpty() &&
            "genRedCodeForTaskLoop: BBSET should start empty");
@@ -1286,7 +1285,7 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Value *NewPrivInst = nullptr;
         NewPrivInst = RedI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst, RedI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
       }
     }
 
@@ -1306,7 +1305,7 @@ bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSharedCodeForTaskLoop\n");
 
   SharedClause &ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
 
     assert(W->isBBSetEmpty() &&
            "genSharedCodeForTaskLoop: BBSET should start empty");
@@ -1319,7 +1318,7 @@ bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Value *NewPrivInst = nullptr;
         NewPrivInst = ShaI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst, ShaI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst, ShaI);
       }
     }
 
@@ -1340,7 +1339,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
   // Process all PrivateItems in the private clause
   PrivateClause &PrivClause = W->getPriv();
-  if (PrivClause.size()) {
+  if (!PrivClause.empty()) {
 
     assert(W->isBBSetEmpty() &&
            "genPrivatizationCode: BBSET should start empty");
@@ -1357,10 +1356,10 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         Value *NewPrivInst = nullptr;
         if (!ForTaskLoop)
           NewPrivInst =
-              genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".priv");
+              genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".priv");
         else
           NewPrivInst = PrivI->getNew();
-        genPrivatizationCodeTransform(W, Orig, NewPrivInst, PrivI);
+        genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
         PrivI->setNew(NewPrivInst);
         DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
@@ -1479,7 +1478,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   unsigned Count = 0;
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
@@ -1492,7 +1491,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   }
 
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Value *Orig = LprivI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
@@ -1506,7 +1505,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   unsigned SaveCount = Count;
   PrivateClause &PrivClause = W->getPriv();
-  if (PrivClause.size()) {
+  if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Value *Orig = PrivI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
@@ -1521,7 +1520,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   Count = SaveCount;
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
     for (ReductionItem *RedI : RedClause.items()) {
       Value *Orig = RedI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
@@ -1533,7 +1532,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   }
 
   SharedClause &ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       Value *Orig = ShaI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
@@ -1662,7 +1661,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
                                                   &*Builder.GetInsertPoint());
   PrivateClause &PrivClause = W->getPriv();
-  if (PrivClause.size()) {
+  if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1674,7 +1673,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   }
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1686,7 +1685,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   }
 
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1698,7 +1697,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   }
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
     for (ReductionItem *RedI : RedClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1713,7 +1712,7 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   }
 
   SharedClause &ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1741,7 +1740,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   SmallVector<Metadata *, 4> NonAliasingScopes;
 
   PrivateClause &PrivClause = W->getPriv();
-  if (PrivClause.size()) {
+  if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       auto MD = MDB.createAnonymousAliasScope(Domain);
       PrivI->setAliasScope(MD);
@@ -1750,7 +1749,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       auto MD = MDB.createAnonymousAliasScope(Domain);
       FprivI->setAliasScope(MD);
@@ -1759,7 +1758,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     for (LastprivateItem *LprivI : LprivClause.items()) {
       auto MD = MDB.createAnonymousAliasScope(Domain);
       LprivI->setAliasScope(MD);
@@ -1768,7 +1767,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
     for (ReductionItem *RedI : RedClause.items()) {
       auto MD = MDB.createAnonymousAliasScope(Domain);
       RedI->setAliasScope(MD);
@@ -1777,7 +1776,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   SharedClause &ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       auto MD = MDB.createAnonymousAliasScope(Domain);
       ShaI->setAliasScope(MD);
@@ -1786,7 +1785,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   PrivClause = W->getPriv();
-  if (PrivClause.size()) {
+  if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
       NonAliasingScopes.clear();
       for (auto *MD : AllScopes) {
@@ -1798,7 +1797,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       NonAliasingScopes.clear();
       for (auto *MD : AllScopes) {
@@ -1810,7 +1809,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     for (LastprivateItem *LprivI : LprivClause.items()) {
       NonAliasingScopes.clear();
       for (auto *MD : AllScopes) {
@@ -1822,7 +1821,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
     for (ReductionItem *RedI : RedClause.items()) {
       NonAliasingScopes.clear();
       for (auto *MD : AllScopes) {
@@ -1834,7 +1833,7 @@ void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
   }
 
   ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       NonAliasingScopes.clear();
       for (auto *MD : AllScopes) {
@@ -1858,7 +1857,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
       Builder.CreateAlloca(KmpSharedTy, nullptr, "taskt.shared.agg");
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1871,7 +1870,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   }
 
   LastprivateClause &LprivClause = W->getLpriv();
-  if (LprivClause.size()) {
+  if (!LprivClause.empty()) {
     for (LastprivateItem *LprivI : LprivClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1883,7 +1882,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   }
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size()) {
+  if (!RedClause.empty()) {
     for (ReductionItem *RedI : RedClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1895,7 +1894,7 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
   }
 
   SharedClause &ShaClause = W->getShared();
-  if (ShaClause.size()) {
+  if (!ShaClause.empty()) {
     for (SharedItem *ShaI : ShaClause.items()) {
       Indices.clear();
       Indices.push_back(Builder.getInt32(0));
@@ -1961,7 +1960,7 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
       dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(1));
 
   FirstprivateClause &FprivClause = W->getFpriv();
-  if (FprivClause.size()) {
+  if (!FprivClause.empty()) {
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       int TIdx = FprivI->getThunkIdx();
 
@@ -2065,7 +2064,7 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();
   Value *NewRedInst =
-      genPrivatizationCodeHelper(W, Orig, &EntryBB->front(), ".red");
+      genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".red");
 
   RedI->setNew(NewRedInst);
   genReductionInit(RedI, EntryBB->getTerminator());
@@ -2127,7 +2126,7 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   SmallVector<Type *, 4> KmpTaksTRedRecTyArgs;
 
   ReductionClause &RedClause = W->getRed();
-  if (RedClause.size() == 0)
+  if (RedClause.empty())
     return;
   LLVMContext &C = F->getContext();
 
@@ -3328,7 +3327,7 @@ void VPOParoptTransform::fixThreadedEntryFormalParmName(WRegionNode *W,
   if (!W->hasCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
-  if (CP.size()) {
+  if (!CP.empty()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
@@ -3357,7 +3356,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
   if (!W->hasCopyin())
     return;
   CopyinClause &CP = W->getCopyin();
-  if (CP.size()) {
+  if (!CP.empty()) {
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
