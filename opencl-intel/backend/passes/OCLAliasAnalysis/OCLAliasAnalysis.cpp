@@ -11,7 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
-#include "llvm/Analysis/CFLAliasAnalysis.h"
+#include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 
 #include "OCLAliasAnalysis.h"
 #include "OCLPassSupport.h"
@@ -28,7 +28,7 @@ OCL_INITIALIZE_PASS_BEGIN(OCLAliasAnalysis, "ocl-asaa",
                    "OpenCL Address Space Alias Analysis",
                    false, true)
 OCL_INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(CFLAAWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(CFLAndersAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
@@ -72,7 +72,7 @@ void OCLAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<TypeBasedAAWrapperPass>();
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
-  AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<CFLAndersAAWrapperPass>();
 }
 
 /// [LLVM 3.8 Upgrade] Taken from LLVM and modified.
@@ -94,7 +94,8 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
   // unregistering themselves with them. We need to carefully tear down the
   // previous object first, in this case replacing it with an empty one, before
   // registering new results.
-  OCLAAR.reset(new OCLAAResults());
+  auto &TLIWP = getAnalysis<TargetLibraryInfoWrapperPass>();
+  OCLAAR.reset(new OCLAAResults(TLIWP.getTLI()));
 
   // BasicAA is always available for function analyses. Also, we add it first
   // so that it can trump TBAA results when it proves MustAlias.
@@ -112,7 +113,7 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
     OCLAAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<SCEVAAWrapperPass>())
     OCLAAR->addAAResult(WrapperPass->getResult());
-  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAAWrapperPass>())
+  if (auto *WrapperPass = getAnalysisIfAvailable<CFLAndersAAWrapperPass>())
     OCLAAR->addAAResult(WrapperPass->getResult());
 
   // Analyses don't mutate the IR, so return false.
@@ -122,7 +123,7 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
 //                     OCLAAResults Class Implementation
 //===----------------------------------------------------------------------===//
 
-OCLAAResults::OCLAAResults() {
+OCLAAResults::OCLAAResults(const TargetLibraryInfo &TLI) : OCLAAResults(TLI) {
   m_disjointAddressSpaces = getAddressSpaceMask(OCLAddressSpace::Private) |
                             getAddressSpaceMask(OCLAddressSpace::Global) |
                             getAddressSpaceMask(OCLAddressSpace::Constant) |
