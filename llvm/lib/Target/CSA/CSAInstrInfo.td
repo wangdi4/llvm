@@ -686,6 +686,16 @@ class MullohiOp<GenericOp gen, CSAOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
+class FModOp<GenericOp gen, CSAOpInfo oi,
+               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+  FMTGEN <
+    (outs oi.RC:$intp, oi.RC:$fracp),
+    (ins  oi.RCL:$op1),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$intp, $fracp, $op1"),
+    [],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
 class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
@@ -899,6 +909,10 @@ def COS       : GenericOp<"cos", [HasMath0]>;
 def COSF16    : UnaryOp< COS,    fcos,   Tf16, IIMathF16>;
 def COSF32    : UnaryOp< COS,    fcos,   Tf32, IIMathF32>;
 def COSF64    : UnaryOp< COS,    fcos,   Tf64, IIMathF64>;
+
+def MOD       : GenericOp<"mod", [HasMath0]>;
+def MODF32    : FModOp<  MOD,            Tf32, IIMathF32>;
+def MODF64    : FModOp<  MOD,            Tf64, IIMathF64>;
 
 //def SINCOS : GenericOp<"sincos", [HasMath0]>;
 //def SINCOSF16 : UnaryOp<SINCOS,fsincos,Tf16, IIMathF16>;
