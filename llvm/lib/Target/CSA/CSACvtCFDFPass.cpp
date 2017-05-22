@@ -96,6 +96,7 @@ namespace llvm {
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
+    void insertSWITCHForConstant(MachineInstr* MI, MachineBasicBlock* mbb);
     void insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn = nullptr);
     void insertSWITCHForIf();
     void renameOnLoopEntry();
@@ -150,7 +151,8 @@ namespace llvm {
     void removeBranch();
     void linearizeCFG();
     unsigned findSwitchingDstForReg(unsigned Reg, MachineBasicBlock* mbb);
-    void handleAllConstantInputs();
+	  void handleAllConstantInputs();
+    bool hasAllConstantInputs(MachineInstr*);
     void releaseMemory() override;
     bool replaceUndefWithIgn();
 
@@ -316,7 +318,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   createFIEntryDefs();
 
   replaceUndefWithIgn();
-  handleAllConstantInputs();
+  //handleAllConstantInputs();
 #if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
@@ -471,56 +473,75 @@ MachineInstr* CSACvtCFDFPass::getOrInsertSWITCHForReg(unsigned Reg, MachineBasic
 }
 
 
-//TODO: rename for repeat
-void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
-  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
-    renameAcrossLoopForRepeat(*LI);
+
+
+
+
+void CSACvtCFDFPass::insertSWITCHForConstant(MachineInstr* MI, MachineBasicBlock* mbb) {
+  assert(TII->isMOV(MI) && hasAllConstantInputs(MI));
+  unsigned Reg = MI->getOperand(0).getReg();
+  ControlDependenceNode *unode = CDG->getNode(mbb);
+  //skip if already at top level
+  if (unode->getNumParents() == 1) {
+    ControlDependenceNode* p = *unode->parent_begin();
+    if (!p->getBlock()) return;
   }
-  MachineLoop *mloop = L;
-  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
-    MachineBasicBlock* mbb = *BI;
-    //only conside blocks in the current loop level, blocks in the nested level are done before.
-    if (MLI->getLoopFor(mbb) != mloop) continue;
-    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
-      MachineInstr *MI = &*I;
-      //if (MI->isPHI()) continue;
-      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-        unsigned Reg = MO->getReg();
-        if (MO->isUse()) {
-          MachineInstr *DefMI = MRI->getVRegDef(Reg);
-          MachineBasicBlock *dmbb = DefMI->getParent();
-          MachineLoop* dmloop = MLI->getLoopFor(dmbb);
+  SmallVector<MachineInstr*, 8> NewPHIs;
+  MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
+  const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+  unsigned switchVReg = MRI->createVirtualRegister(TRC);
+  SSAUpdate.Initialize(switchVReg);
+  //SSAUpdate.AddAvailableValue(dmbb, Reg);
+  unsigned newVReg;
+  for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
+    uparent != uparent_end; ++uparent) {
+    ControlDependenceNode *upnode = *uparent;
+    MachineBasicBlock *upbb = upnode->getBlock();
+    if (!upbb) {
+      //this is typical define inside loop, used outside loop on the main execution path
+      continue;
+    }
+    if (bb2rpo[upbb] >= bb2rpo[mbb]) {
+        continue;
+    }
+    unsigned switchFalse = MRI->createVirtualRegister(TRC);
+    unsigned switchTrue  = MRI->createVirtualRegister(TRC);
+    const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
+    MachineBasicBlock::iterator loc = upbb->getFirstTerminator();
+    assert(loc->getOperand(0).isReg());
+    MachineInstr* bi = &*loc;
+    MachineInstr *switchInst = BuildMI(*upbb, loc, DebugLoc(), TII->get(switchOpcode),
+      switchFalse).
+      addReg(switchTrue, RegState::Define).
+      addReg(bi->getOperand(0).getReg()).
+      addOperand(MI->getOperand(1));
+    switchInst->setFlag(MachineInstr::NonSequential);
 
-          //def is in immediate nesting level, this including def not in any loop at all
-          if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
+    if (upnode->isFalseChild(unode)) {
+      //rename Reg to switchFalseReg
+      newVReg = switchFalse;
+    } else {
+      //rename it to switchTrueReg
+      newVReg = switchTrue;
+    }
+    SSAUpdate.AddAvailableValue(upbb, newVReg);
+  } //end of for (parent
 
-          //def outside the loop of use, and not in the immediate nesting level
-          if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
-            MachineBasicBlock* landingPad = mloop->getLoopPreheader();
-            //TODO:: create the landing pad if can't find one
-            assert(landingPad && "can't find loop preheader as landing pad for renaming");
-            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
-            const unsigned moveOpcode = TII->getMoveOpcode(TRC);
-            unsigned cpyReg = MRI->createVirtualRegister(TRC);
-            MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(Reg);
-            cpyInst->setFlag(MachineInstr::NonSequential);
-            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-            while (UI != MRI->use_end()) {
-              MachineOperand &UseMO = *UI;
-              MachineInstr *UseMI = UseMO.getParent();
-              MachineBasicBlock* UseBB = UseMI->getParent();
-              ++UI;
-              if (MLI->getLoopFor(UseBB) && MLI->getLoopFor(UseBB) == mloop) {
-                UseMO.setReg(cpyReg);
-              }
-            }
-          }
-        }
-      }
-    }//end of for MI
+  MI->removeFromParent();
+  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+  while (UI != MRI->use_end()) {
+    MachineOperand &UseMO = *UI;
+    ++UI;
+    SSAUpdate.RewriteUse(UseMO);
   }
 }
+
+
+
+
+
+
+
 
 
 void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBlock* mbb, MachineInstr* phiIn) {
@@ -668,14 +689,21 @@ void CSACvtCFDFPass::insertSWITCHForIf() {
           }
         }
       }
-      for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineBasicBlock::iterator I = mbb->begin();
+      while (I != mbb->end()) {
         MachineInstr *MI = &*I;
+        ++I;
         //to be consistent, never handle phi in its owning block, 
         //always rename it in its input predecessor block
         if (MI->isPHI()) 
           continue; 
-        if (MI->getOpcode() == CSA::PREDPROP || MI->getOpcode() == CSA::PREDMERGE) 
+        //if (MI->getOpcode() == CSA::PREDPROP || MI->getOpcode() == CSA::PREDMERGE) 
+        //  continue;
+        if (hasAllConstantInputs(MI)) {
+          //change move literal to switch
+          insertSWITCHForConstant(MI, mbb);
           continue;
+        }
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           insertSWITCHForOperand(*MO, mbb);
         }
@@ -915,6 +943,66 @@ void CSACvtCFDFPass::renameOnLoopEntry()
 
 
 
+//TODO: rename for repeat
+void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
+  for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
+    renameAcrossLoopForRepeat(*LI);
+  }
+  MachineLoop *mloop = L;
+  for (MachineLoop::block_iterator BI = mloop->block_begin(), BE = mloop->block_end(); BI != BE; ++BI) {
+    MachineBasicBlock* mbb = *BI;
+    //only conside blocks in the current loop level, blocks in the nested level are done before.
+    if (MLI->getLoopFor(mbb) != mloop) continue;
+    for (MachineBasicBlock::iterator I = mbb->begin(); I != mbb->end(); ++I) {
+      MachineInstr *MI = &*I;
+      //if (MI->isPHI()) continue;
+      for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+        if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+        unsigned Reg = MO->getReg();
+        if (MO->isUse()) {
+          MachineInstr *DefMI = MRI->getVRegDef(Reg);
+          MachineBasicBlock *dmbb = DefMI->getParent();
+          MachineLoop* dmloop = MLI->getLoopFor(dmbb);
+          if (hasAllConstantInputs(DefMI)) {
+            //DefMI->setFlag(MachineInstr::NonSequential);
+            continue;
+          }
+          //def is in immediate nesting level, this including def not in any loop at all
+          if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
+
+          //def outside the loop of use, and not in the immediate nesting level
+          if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
+            MachineBasicBlock* landingPad = mloop->getLoopPreheader();
+            //TODO:: create the landing pad if can't find one
+            assert(landingPad && "can't find loop preheader as landing pad for renaming");
+            const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
+            const unsigned moveOpcode = TII->getMoveOpcode(TRC);
+            unsigned cpyReg = MRI->createVirtualRegister(TRC);
+            MachineInstr *cpyInst = BuildMI(*landingPad, landingPad->getFirstTerminator(), DebugLoc(), TII->get(moveOpcode), cpyReg).addReg(Reg);
+            cpyInst->setFlag(MachineInstr::NonSequential);
+            MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+            while (UI != MRI->use_end()) {
+              MachineOperand &UseMO = *UI;
+              MachineInstr *UseMI = UseMO.getParent();
+              MachineBasicBlock* UseBB = UseMI->getParent();
+              ++UI;
+              if (MLI->getLoopFor(UseBB) && MLI->getLoopFor(UseBB) == mloop) {
+                UseMO.setReg(cpyReg);
+              }
+            }
+          }
+        }
+      }
+    }//end of for MI
+  }
+}
+
+
+
+
+
+
+
 unsigned CSACvtCFDFPass::repeatOperandInLoop(unsigned Reg, MachineLoop* mloop) {
   unsigned newVReg;
   MachineBasicBlock *latchBB = nullptr;
@@ -998,6 +1086,10 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop&& DT->dominates(DefBB, mbb)) {
+            if (hasAllConstantInputs(dMI)) {
+              dMI->setFlag(MachineInstr::NonSequential);
+              continue;
+            }
             repeatOperandInLoop(Reg, mloop);
           }
         }
@@ -1554,6 +1646,8 @@ void CSACvtCFDFPass::assignLicForDF() {
 }
 
 
+
+
 void CSACvtCFDFPass::handleAllConstantInputs() {
   std::deque<unsigned> renameQueue;
   MachineBasicBlock* entry = &*thisMF->begin();
@@ -1580,6 +1674,26 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
     }
   }
 }
+
+
+bool CSACvtCFDFPass::hasAllConstantInputs(MachineInstr* MI) {
+  if (!TII->isMOV(MI)) {
+    return false;
+  }
+  bool allConst = true;
+  for (MIOperands MO(*MI); MO.isValid(); ++MO) {
+    if (MO->isReg() && MO->isDef()) continue;
+    if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
+      allConst = false;
+      break;
+    }
+  }
+  if (allConst) {
+    MI->clearFlag(MachineInstr::NonSequential);
+  }
+  return allConst;
+}
+
 
 
 
@@ -2424,6 +2538,11 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
+            if (hasAllConstantInputs(dMI)) {
+              dMI->setFlag(MachineInstr::NonSequential);
+              continue;
+            }
+
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();
               rptPred = backedgePred;
@@ -2519,11 +2638,16 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
           }
           MachineBasicBlock* DefBB = dMI->getParent();
           if (DefBB == mbb) continue;
+
           //use, def in different region cross latch
           bool isDefOutsideLoop = MLI->getLoopFor(DefBB) == NULL ||
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
+            if (hasAllConstantInputs(dMI)) {
+              dMI->setFlag(MachineInstr::NonSequential);
+              continue;
+            }
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             unsigned rptIReg = MRI->createVirtualRegister(TRC);
             unsigned rptOReg = MRI->createVirtualRegister(TRC);
