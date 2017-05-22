@@ -428,7 +428,7 @@ public:
     ///    i64*, i64*, i64, i32, i32, i64, i8*)
     static CallInst *genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                      Value *TidPtr, Value *TaskAlloc,
-                                     Value *LBVal, Value *UBVal, Value *STVal,
+                                     Value *LBPtr, Value *UBPtr, Value *STPtr,
                                      StructType *KmpTaskTTWithPrivatesTy,
                                      Instruction *InsertPt, bool UseTbb);
 

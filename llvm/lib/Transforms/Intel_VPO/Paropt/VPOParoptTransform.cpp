@@ -279,15 +279,15 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
-          Value *LBVal, *UBVal, *STVal;
+          Value *LBPtr, *UBPtr, *STPtr;
           Changed = genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
-                                        LBVal, UBVal, STVal);
+                                        LBPtr, UBPtr, STPtr);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genSharedCodeForTaskLoop(W);
           Changed |= genRedCodeForTaskLoop(W);
           Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
-                                     LBVal, UBVal, STVal);
+                                     LBPtr, UBPtr, STPtr);
           RemoveDirectives = true;
         }
         break;

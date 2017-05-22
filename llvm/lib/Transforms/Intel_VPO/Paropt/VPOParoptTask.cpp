@@ -296,13 +296,13 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-    StructType *&KmpSharedTy, Value *&LBVal, Value *&UBVal, Value *&STVal) {
+    StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
 
   Loop *L = W->getLoop();
   assert(L && "genTaskLoopInitCode: Loop not found");
-  genLoopInitCodeForTaskLoop(W, LBVal, UBVal, STVal);
+  genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
 
   // Build type kmp_task_t
   genKmpRoutineEntryT();
@@ -722,9 +722,9 @@ void VPOParoptTransform::genSharedInitForTaskLoop(
 // Save the loop lower upper bound, upper bound and stride for the use
 // by the call __kmpc_taskloop
 void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
-                                                    Value *&LBVal,
-                                                    Value *&UBVal,
-                                                    Value *&STVal) {
+                                                    Value *&LBPtr,
+                                                    Value *&UBPtr,
+                                                    Value *&STPtr) {
   BasicBlock *EntryBB = W->getEntryBBlock();
   BasicBlock *NewEntryBB = SplitBlock(EntryBB, &*(EntryBB->begin()), DT, LI);
   W->setEntryBBlock(NewEntryBB);
@@ -743,7 +743,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
       IndValTy->getIntegerBitWidth())
     InitVal = Builder.CreateSExtOrTrunc(InitVal, IndValTy);
   Builder.CreateStore(InitVal, LowerBnd);
-  LBVal = LowerBnd;
+  LBPtr = LowerBnd;
 
   AllocaInst *UpperBnd = Builder.CreateAlloca(IndValTy, nullptr, "upper.bnd");
   Value *UpperBndVal =
@@ -753,7 +753,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
       IndValTy->getIntegerBitWidth())
     UpperBndVal = Builder.CreateSExtOrTrunc(UpperBndVal, IndValTy);
   Builder.CreateStore(UpperBndVal, UpperBnd);
-  UBVal = UpperBnd;
+  UBPtr = UpperBnd;
 
   AllocaInst *Stride = Builder.CreateAlloca(IndValTy, nullptr, "stride");
   bool IsNegStride;
@@ -766,7 +766,7 @@ void VPOParoptTransform::genLoopInitCodeForTaskLoop(WRegionNode *W,
     StrideVal = Builder.CreateSExtOrTrunc(StrideVal, IndValTy);
 
   Builder.CreateStore(StrideVal, Stride);
-  STVal = Stride;
+  STPtr = Stride;
 }
 
 // Generate the outline function of reduction initilaization
@@ -923,8 +923,8 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
 // corresponding outlined function
 bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
                                          StructType *KmpTaskTTWithPrivatesTy,
-                                         StructType *KmpSharedTy, Value *LBVal,
-                                         Value *UBVal, Value *STVal) {
+                                         StructType *KmpSharedTy, Value *LBPtr,
+                                         Value *UBPtr, Value *STPtr) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopCode\n");
 
@@ -1014,8 +1014,8 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
     genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
                              KmpTaskTTWithPrivatesTy, NewCall);
 
-    VPOParoptUtils::genKmpcTaskLoop(W, IdentTy, TidPtr, TaskAllocCI, LBVal,
-                                    UBVal, STVal, KmpTaskTTWithPrivatesTy,
+    VPOParoptUtils::genKmpcTaskLoop(W, IdentTy, TidPtr, TaskAllocCI, LBPtr,
+                                    UBPtr, STPtr, KmpTaskTTWithPrivatesTy,
                                     NewCall, Mode & OmpTbb);
 
     NewCall->eraseFromParent();

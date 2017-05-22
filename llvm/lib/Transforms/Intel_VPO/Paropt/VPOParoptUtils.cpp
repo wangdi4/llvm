@@ -701,6 +701,9 @@ CallInst *VPOParoptUtils::genKmpcDispatchInit(WRegionNode *W,
   FnDispatchInitArgs.push_back(LB);
   FnDispatchInitArgs.push_back(UB);
   FnDispatchInitArgs.push_back(ST);
+
+  IRBuilder<> Builder(InsertPt);
+  Chunk = Builder.CreateSExtOrTrunc(Chunk, IntArgTy);
   FnDispatchInitArgs.push_back(Chunk);
 
   CallInst *DispatchInitCall = CallInst::Create(FnDispatchInit,

@@ -216,14 +216,14 @@ private:
   /// \brief Generate the code to replace the variables in the task loop with
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-                           StructType *&KmpSharedTy, Value *&LBVal,
-                           Value *&UBVal, Value *&STVal);
+                           StructType *&KmpSharedTy, Value *&LBPtr,
+                           Value *&UBPtr, Value *&STPtr);
 
   /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
   bool genTaskLoopCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
-                       StructType *KmpSharedTy, Value *LBVal, Value *UBVal,
-                       Value *STVal);
+                       StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
+                       Value *STPtr);
 
   /// \brief Replace the shared variable reference with the thunk field
   /// derefernce
@@ -253,8 +253,8 @@ private:
 
   /// \brief Save the loop lower upper bound, upper bound and stride for the use
   /// by the call __kmpc_taskloop
-  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBVal, Value *&UBVal,
-                                  Value *&STVal);
+  void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
+                                  Value *&STPtr);
 
   /// \brief Prepare the scope alias metadata for the references of the
   /// firstprivate, lastprivate, private shared, reduction variables
