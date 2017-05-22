@@ -53,6 +53,10 @@ const unsigned InvalidSymbase = 0;
 /// Symbase for constants.
 const unsigned ConstantSymbase = 1;
 
+/// Symbase assigned to non-constant rvals which do not create data
+/// dependencies.
+const unsigned GenericRvalSymbase = 2;
+
 class HIRSCCFormation;
 class HIRLoopFormation;
 
@@ -90,10 +94,6 @@ private:
   /// SSADeconstruction pass) to symbase.
   StringMap<unsigned> StrSymbaseMap;
 
-  /// Symbase assigned to non-constant rvals which do not create data
-  /// dependencies.
-  unsigned GenericRvalSymbase;
-
 private:
   /// Populates region liveout instruction as loop liveout in its parent loops.
   void populateLoopLiveouts(const Instruction *Inst, unsigned Symbase) const;
@@ -113,7 +113,7 @@ private:
 
   /// \brief Returns index of Symbase in BaseTemps.
   unsigned getIndex(unsigned Symbase) const {
-    return Symbase - ConstantSymbase - 1;
+    return Symbase - GenericRvalSymbase - 1;
   }
 
   /// \brief Inserts Temp into set of base temps and returns its non-zero
@@ -153,13 +153,6 @@ private:
                                         const IRRegion &IRReg, bool Assign,
                                         const Value **OldBaseScalar);
 
-  /// \brief Sets current Function as a generic value to represent loop uppers
-  /// and non self-blob temp rvals. This is a hack to set a generic loop upper
-  /// symbase which does not conflict with anything in the region as the loop
-  /// upper is parsed from loop's BackEdgeTakenCount which may not have any
-  /// Value associated with it.
-  void initGenericRvalSymbase();
-
 public:
   static char ID; // Pass identification
   HIRScalarSymbaseAssignment();
@@ -174,10 +167,9 @@ public:
   const Value *getBaseScalar(unsigned Symbase) const;
 
   /// \brief Returns the max symbase assigned to any scalar.
-  unsigned getMaxScalarSymbase() const;
-
-  /// Returns generic rval symbase.
-  unsigned getGenericRvalSymbase() const { return GenericRvalSymbase; }
+  unsigned getMaxScalarSymbase() const {
+    return BaseTemps.size() + GenericRvalSymbase;
+  }
 
   /// \brief Returns true if this scalar is a constant.
   static bool isConstant(const Value *Scalar);

@@ -149,7 +149,7 @@ bool HIRParser::foundInBlobTable(unsigned Symbase) const {
 
 bool HIRParser::validBlobSymbasePair(BlobTy Blob, unsigned Symbase) const {
   if (isTempBlob(Blob)) {
-    assert((Symbase > ConstantSymbase) && "Temp has invalid symbase!");
+    assert((Symbase > GenericRvalSymbase) && "Temp has invalid symbase!");
     assert(!foundInBlobTable(Symbase) &&
            "Symbase is already present in blob table!");
   }
@@ -199,7 +199,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
     BlobToIndexMap.insert(std::make_pair(Blob, Index));
 
     // Store symbase to blob index mapping for faster lookup.
-    if (Symbase > ConstantSymbase) {
+    if (Symbase > GenericRvalSymbase) {
       auto Ret = SymbaseToIndexMap.insert(std::make_pair(Symbase, Index));
       assert(Ret.second && "Duplicate insertion in symbase to index map!");
       (void)Ret;
@@ -1400,10 +1400,6 @@ unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob) {
   return findOrInsertBlob(Blob, Symbase);
 }
 
-unsigned HIRParser::getGenericRvalSymbase() const {
-  return ScalarSA->getGenericRvalSymbase();
-}
-
 unsigned HIRParser::getOrAssignSymbase(const Value *Temp, unsigned *BlobIndex) {
   const Value *OldTemp = nullptr;
 
@@ -2065,7 +2061,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
     Val = UnknownSCEV->getValue();
     Symbase = getOrAssignSymbase(Val);
   } else {
-    Symbase = ScalarSA->getGenericRvalSymbase();
+    Symbase = GenericRvalSymbase;
   }
 
   auto Ref = getDDRefUtils().createRegDDRef(Symbase);
@@ -2909,7 +2905,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     // Assign a generic symbase to non self-blob rvals to avoid unnecessary dd
     // edges.
     if (!IsLval) {
-      Ref->setSymbase(ScalarSA->getGenericRvalSymbase());
+      Ref->setSymbase(GenericRvalSymbase);
     }
     populateBlobDDRefs(Ref, Level);
   }

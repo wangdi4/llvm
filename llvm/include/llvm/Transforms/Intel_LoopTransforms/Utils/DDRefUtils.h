@@ -137,9 +137,6 @@ public:
   /// Destroys the passed in DDRef.
   void destroy(DDRef *Ref);
 
-  /// Returns a generic rval symbase.
-  unsigned getGenericRvalSymbase();
-
   /// Returns a brand new symbase.
   unsigned getNewSymbase();
 

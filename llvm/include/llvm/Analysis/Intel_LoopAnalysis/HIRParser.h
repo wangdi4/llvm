@@ -674,9 +674,6 @@ public:
              const Module * = nullptr) const;
   void verifyAnalysis() const override;
 
-  /// Returns a generic rval symbase.
-  unsigned getGenericRvalSymbase() const;
-
   /// Returns Function object.
   Function &getFunction() const { return *Func; }
 

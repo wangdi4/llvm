@@ -104,10 +104,6 @@ unsigned DDRefUtils::getNewSymbase() {
   return getBlobUtils().getHIRSymbaseAssignment().getNewSymbase();
 }
 
-unsigned DDRefUtils::getGenericRvalSymbase() {
-  return getHIRParser().getGenericRvalSymbase();
-}
-
 bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
 
   assert(Ref1 && Ref2 && "Ref1/Ref2 parameter is null.");

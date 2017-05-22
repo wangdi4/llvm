@@ -54,7 +54,7 @@ FunctionPass *llvm::createHIRScalarSymbaseAssignmentPass() {
 }
 
 HIRScalarSymbaseAssignment::HIRScalarSymbaseAssignment()
-    : FunctionPass(ID), GenericRvalSymbase(0) {
+    : FunctionPass(ID) {
   initializeHIRScalarSymbaseAssignmentPass(*PassRegistry::getPassRegistry());
 }
 
@@ -104,7 +104,7 @@ void HIRScalarSymbaseAssignment::updateBaseTemp(unsigned Symbase,
 
 void HIRScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                    unsigned Symbase) {
-  assert((Symbase > ConstantSymbase) && (Symbase <= getMaxScalarSymbase()) &&
+  assert((Symbase > GenericRvalSymbase) && (Symbase <= getMaxScalarSymbase()) &&
          "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
@@ -141,21 +141,13 @@ unsigned HIRScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
 }
 
 const Value *HIRScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-  assert((Symbase > ConstantSymbase) && "Symbase is out of range!");
+  assert((Symbase > GenericRvalSymbase) && "Symbase is out of range!");
   assert((Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
   auto RetVal = BaseTemps[getIndex(Symbase)];
 
   assert(RetVal && "Unexpected null value for symbase!");
   return RetVal;
-}
-
-unsigned HIRScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + ConstantSymbase;
-}
-
-void HIRScalarSymbaseAssignment::initGenericRvalSymbase() {
-  GenericRvalSymbase = assignTempSymbase(Func);
 }
 
 const Value *HIRScalarSymbaseAssignment::traceSingleOperandPhis(
@@ -449,9 +441,6 @@ bool HIRScalarSymbaseAssignment::runOnFunction(Function &F) {
   SCCF = &getAnalysis<HIRSCCFormation>();
   RI = &getAnalysis<HIRRegionIdentification>();
   LF = &getAnalysis<HIRLoopFormation>();
-
-  // Assign a generic symbase.
-  initGenericRvalSymbase();
 
   for (auto RegIt = RI->begin(), EndRegIt = RI->end(); RegIt != EndRegIt;
        ++RegIt) {

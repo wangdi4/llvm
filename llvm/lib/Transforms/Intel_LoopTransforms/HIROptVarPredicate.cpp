@@ -436,7 +436,7 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
     if (BlobUtils::isTempBlob(Blob)) {
       Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
     } else {
-      Ref->setSymbase(Ref->getDDRefUtils().getGenericRvalSymbase());
+      Ref->setSymbase(GenericRvalSymbase);
     }
   }
 }

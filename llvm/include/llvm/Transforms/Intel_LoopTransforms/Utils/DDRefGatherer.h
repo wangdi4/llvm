@@ -293,7 +293,7 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
       }
 
       if (!(Mode & GenericRValRefs) &&
-          Ref->getSymbase() == Ref->getDDRefUtils().getGenericRvalSymbase()) {
+          Ref->getSymbase() == GenericRvalSymbase) {
         return false;
       }
 
