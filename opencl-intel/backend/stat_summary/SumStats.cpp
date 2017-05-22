@@ -48,8 +48,7 @@ static cl::opt<DumpLevel> dumpLevel("l", cl::desc("Set dump detail level:"),
         clEnumVal(S, "Dump summary of all counters"),
         clEnumVal(W, "Dump counter summary per workload"),
         clEnumVal(M, "Dump counter summary per workload & module"),
-        clEnumVal(F, "Dump counter summary per workload, module & function"),
-        clEnumValEnd),
+        clEnumVal(F, "Dump counter summary per workload, module & function")),
         cl::init(W));
 
 static cl::opt<string> outFileName("o", cl::desc("Output file name"),

@@ -53,8 +53,7 @@ Action(cl::desc("Action to perform:"),
        cl::values(clEnumValN(PrintRecords, "print-records",
                              "Print all records to stdout (default)"),
                   clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-src",
-                            "Generates a source with builtins mangled names"),
-                  clEnumValEnd),
+                            "Generates a source with builtins mangled names")),
        cl::init(PrintRecords));
 
 cl::opt<std::string>
