@@ -25,7 +25,9 @@ public:
 
   bool runOnModule(llvm::Module &);
 
-  const char *getPassName() const;
+  virtual StringRef getPassName() const {
+    return "spir materializer";
+  }
 
   static char ID;
 

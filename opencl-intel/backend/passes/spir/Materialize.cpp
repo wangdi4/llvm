@@ -353,10 +353,6 @@ OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
 
 SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
 
-const char *SpirMaterializer::getPassName() const {
-  return "spir materializer";
-}
-
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
 

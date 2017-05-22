@@ -28,7 +28,7 @@ public:
 		V_PRINT("Vectorizer Destructor\n"); 
 		V_DESTROY_PRINT;
 	}
-	virtual const char *getPassName() const {
+	virtual llvm::StringRef getPassName() const {
 		return "Intel OpenCL Vectorizer";
 	}
 	virtual bool runOnModule(Module &M);
