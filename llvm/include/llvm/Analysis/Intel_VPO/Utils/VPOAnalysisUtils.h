@@ -298,6 +298,19 @@ public:
     /// \brief Verify if the BB is malformed w.r.t. OpenMP directive rules.
     /// Return false if malform, true otherwise.
     static bool verifyBB(BasicBlock &BB, bool DoAssert);
+
+
+    ///////////////////////
+    //   GENERAL UTILS   //
+    ///////////////////////
+
+    /// \brief Check whether the instruction is a call of the given \p Name
+    static bool isCallOfName(Instruction *I, StringRef Name);
+
+    /// \brief If V is an AllocaInst, return it. If V is a CastInst, trace
+    /// back the cast chain and return an AllocaInst if it's found, or nullptr
+    /// if no AllocaInst is found.
+    static AllocaInst *findAllocaInst(Value *V); 
 };
 
 } // End vpo namespace

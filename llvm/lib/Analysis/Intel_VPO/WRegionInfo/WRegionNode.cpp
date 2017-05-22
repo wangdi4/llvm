@@ -24,6 +24,10 @@
 
 #define DEBUG_TYPE "vpo-wrnnode"
 
+// Define this to 1 for OpenCL (eg, features/vpo branch)
+// Define it to 0 for vpo-xmain
+#define VPO_FOR_OPENCL 0
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -96,6 +100,42 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
       DEBUG(dbgs() << "\n=== finalize WRN: found loop : " << *Lp << "\n");
     else
       DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
+
+#if VPO_FOR_OPENCL
+    // For OpenCL, the vectorizer requires that the second operand of
+    // __read_pipe_2_bl_intel() be privatized. The code below will look at
+    // each occurrence of such a call in the WRN, and find the corresponding
+    // AllocaInst of its second operand. If the Alloca is outside of the WRN,
+    // then we add it to the PRIVATE list so it will be privatized in the
+    // VPOParoptPrepare phase.
+    if (getWRegionKindID() == WRNVecLoop) {
+      PrivateClause &PC = getPriv();
+      populateBBSet();
+      for (BasicBlock *BB : BBlockSet)
+        for (Instruction &I : *BB) 
+          if (VPOAnalysisUtils::isCallOfName(&I, "__read_pipe_2_bl_intel")) {
+            CallInst *Call = dyn_cast<CallInst>(&I);
+            // DEBUG(dbgs() << "Found Call: " << *Call << "\n");
+            assert(Call->getNumArgOperands()==2 &&
+                   "__read_pipe_2_bl_intel() is expected to have 2 operands");
+            Value *V = Call->getArgOperand(1); // second operand
+            AllocaInst *Alloca = VPOAnalysisUtils::findAllocaInst(V);
+            assert (Alloca && 
+                    "Alloca not found for __read_pipe_2_bl_intel operand");
+            if (Alloca) {
+              // DEBUG(dbgs() << "Found Alloca: " << *Alloca << "\n");
+              if (!contains(Alloca->getParent())) {
+                // Alloca is outside of the WRN, so privatize it
+                PC.add(Alloca);
+                // DEBUG(dbgs() << "Will privatize: " << *Alloca << "\n");
+              }
+              // else do nothing: the alloca is inside the WRN hence it is
+              // already private
+            }
+          }
+      resetBBSet();
+    }
+#endif VPO_FOR_OPENCL
   }
 }
 

@@ -25,6 +25,7 @@ namespace llvm {
 
 namespace vpo {
 
+class WRegionNode;
 class WRegionUtils;
 
 // for readability; VAR and EXPR match OpenMP4.1 specs
@@ -583,6 +584,7 @@ class FlushItem
 //            
 template <typename ClauseItem> class Clause
 {
+  friend class WRegionNode;
   friend class WRegionUtils;
   private:
     typedef typename std::vector<ClauseItem*>       ItemArray;

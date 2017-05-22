@@ -863,14 +863,8 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
   return genCall(M, "__kmpc_threadprivate_cached", ReturnTy, FnGetTpvArgs);
 }
 
-bool VPOParoptUtils::isKmpcGlobalThreadNumCall(Value *V) {
-  CallInst *callInst = dyn_cast<CallInst>(V);
-  if (callInst) {
-    StringRef funcName = callInst->getCalledFunction()->getName();
-    if (funcName.equals("__kmpc_global_thread_num")) 
-      return true;
-  }
-  return false;
+bool VPOParoptUtils::isKmpcGlobalThreadNumCall(Instruction *I) {
+  return VPOAnalysisUtils::isCallOfName(I, "__kmpc_global_thread_num"); 
 }
 
 CallInst *VPOParoptUtils::findKmpcGlobalThreadNumCall(BasicBlock *BB) {

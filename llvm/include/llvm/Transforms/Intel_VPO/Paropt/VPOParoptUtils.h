@@ -122,7 +122,7 @@ public:
 
     /// \brief Check whether the given instruction is the call
     /// __kmpc_global_thread_num().
-    static bool isKmpcGlobalThreadNumCall(Value *V);
+    static bool isKmpcGlobalThreadNumCall(Instruction *I);
    
     /// \brief Generate OpenMP runtime __kmpc_global_thread_num() call 
     /// The generated runtime routine call is invoked (only once) to get 

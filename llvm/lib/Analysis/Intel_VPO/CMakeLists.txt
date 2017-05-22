@@ -15,6 +15,7 @@ add_llvm_library(LLVMIntel_VPOAnalysis
   VPOAnalysis.cpp
 
   Utils/IntrinsicUtils.cpp
+  Utils/GeneralUtils.cpp
   Utils/OpenMPDirectivesAndClauses.cpp
 
   WRegionInfo/WRegionNode.cpp
