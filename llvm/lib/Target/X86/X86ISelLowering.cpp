@@ -27362,10 +27362,78 @@ static SDValue XFormVExtractWithShuffleIntoLoad(SDNode *N, SelectionDAG &DAG,
                      EltNo);
 }
 
+static SDValue combineBitcastOf1BitVector(SDNode *N, SelectionDAG &DAG,
+                                          TargetLowering::DAGCombinerInfo &DCI,
+                                          const X86Subtarget &Subtarget) {
+  if (Subtarget.hasAVX512() || !Subtarget.hasSSE2())
+    return SDValue();
+
+  if (!DCI.isBeforeLegalize())
+    return SDValue();
+
+  SDValue N0 = N->getOperand(0);
+  EVT VT = N->getValueType(0);
+  EVT VT0 = N0.getValueType();
+
+  // looking for bitcast like <8 x i1> to i8
+  if (!VT.isScalarInteger() || !VT0.isVector() ||
+      VT0.getVectorElementType() != MVT::i1 ||
+      ISD::isBuildVectorOfConstantSDNodes(N0.getNode()))
+    return SDValue();
+  SDLoc DL(N);
+  switch (VT0.getVectorNumElements()) {
+  case 2: {
+    SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v2i64, N0);
+    SDValue BitC = DAG.getBitcast(MVT::v2f64, Sext);
+    return DAG.getNode(ISD::TRUNCATE, DL, VT,
+                       DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, BitC));
+  }
+  case 4: {
+    SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v4i32, N0);
+    SDValue BitC = DAG.getBitcast(MVT::v4f32, Sext);
+    return DAG.getNode(ISD::TRUNCATE, DL, VT,
+                       DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, BitC));
+  }
+  case 8: {
+    if (Subtarget.hasInt256()) {
+      SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v8i32, N0);
+      SDValue BitC = DAG.getBitcast(MVT::v8f32, Sext);
+      return DAG.getNode(ISD::TRUNCATE, DL, VT,
+                         DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, BitC));
+    }
+    SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v8i16, N0);
+    SDValue BitC = DAG.getBitcast(MVT::v16i8, Sext);
+    SDValue Shuf =
+      DAG.getVectorShuffle(MVT::v16i8, DL, BitC,
+                           getZeroVector(MVT::v16i8, Subtarget, DAG, DL),
+                           { 0, 2, 4, 6, 8, 10, 12, 14, 16, 16, 16, 16, 16, 16, 16, 16 });
+    return DAG.getNode(ISD::TRUNCATE, DL, VT,
+                       DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, Shuf));
+  }
+  case 16: {
+    SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v16i8, N0);
+    return DAG.getNode(ISD::TRUNCATE, DL, VT,
+                       DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, Sext));
+  }
+  case 32: {
+    if (!Subtarget.hasInt256())
+      return SDValue();
+    SDValue Sext = DAG.getNode(ISD::SIGN_EXTEND, DL, MVT::v32i8, N0);
+    return DAG.getNode(X86ISD::MOVMSK, DL, MVT::i32, Sext);
+  }
+  default:
+    return SDValue();
+  }
+}
+
 static SDValue combineBitcast(SDNode *N, SelectionDAG &DAG,
+                              TargetLowering::DAGCombinerInfo &DCI,
                               const X86Subtarget &Subtarget) {
   SDValue N0 = N->getOperand(0);
   EVT VT = N->getValueType(0);
+
+  if (auto V = combineBitcastOf1BitVector(N, DAG, DCI, Subtarget))
+    return V;
 
   // Detect bitcasts between i32 to x86mmx low word. Since MMX types are
   // special and don't usually play with other vector types, it's better to
@@ -32619,7 +32687,7 @@ SDValue X86TargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::VSELECT:
   case ISD::SELECT:
   case X86ISD::SHRUNKBLEND: return combineSelect(N, DAG, DCI, Subtarget);
-  case ISD::BITCAST:        return combineBitcast(N, DAG, Subtarget);
+  case ISD::BITCAST:        return combineBitcast(N, DAG, DCI, Subtarget);
   case X86ISD::CMOV:        return combineCMov(N, DAG, DCI, Subtarget);
   case ISD::ADD:            return combineAdd(N, DAG, Subtarget);
   case ISD::SUB:            return combineSub(N, DAG, Subtarget);
