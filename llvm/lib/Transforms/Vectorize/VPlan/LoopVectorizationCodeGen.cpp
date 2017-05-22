@@ -738,16 +738,6 @@ Value *VPOCodeGen::getVectorPrivatePtrs(Value *ScalarPrivate) {
   return Builder.CreateGEP(nullptr, Base, Cv);
 }
 
-/// Store nask value which is represented as vector of i1 as one integer value.
-StoreInst *storeMaskValue(Value *Ptr, Value *MaskVal, IRBuilder<>& Builder) {
-  assert(isa<PointerType>(Ptr->getType()) && "Wrong Ptr type");
-  assert(isa<VectorType>(MaskVal->getType()) && "Wrong Mask type");
-
-  Type *MaskIntTy = IntegerType::get(cast<Instruction>(Ptr)->getContext(),
-                                     MaskVal->getType()->getVectorNumElements());
-  return Builder.CreateStore(Builder.CreateBitCast(MaskVal, MaskIntTy), Ptr);
-}
-
 Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   assert(Legal->isLoopPrivate(V) && "Loop private value expected");
   bool IsConditional = Legal->isCondLastPrivate(V);
@@ -789,8 +779,7 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
     Type *MaskTy = IntegerType::get(V->getContext(), VF);
     Value *PtrToMask = Builder.CreateAlloca(MaskTy, nullptr,
                                             V->getName() + ".mask");
-    Type *VecMaskTy = VectorType::get(Type::getInt1Ty(V->getContext()), VF);
-    storeMaskValue(PtrToMask, Constant::getAllOnesValue(VecMaskTy), Builder);
+    Builder.CreateStore(Constant::getAllOnesValue(MaskTy), PtrToMask);
     LoopPrivateLastMask[V] = PtrToMask;
   }
   PtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
@@ -987,10 +976,11 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
 
 // Return Value that indicates that the mask is not all-zero 
 // LastLane should contain the most significant masked-on lane.
-static Value *isNotAllZeroMask(IRBuilder<>& Builder, Value *MaskValue) {
+static Value *isNotAllZeroMask(IRBuilder<>& Builder, Value *MaskValue,
+                               Value *& MaskInInt) {
   unsigned VF = MaskValue->getType()->getVectorNumElements();
   Type *IntTy = IntegerType::get(MaskValue->getContext(), VF);
-  Value *MaskInInt = Builder.CreateBitCast(MaskValue, IntTy);
+  MaskInInt = Builder.CreateBitCast(MaskValue, IntTy);
   Value *NotAllZ = Builder.CreateICmp(CmpInst::ICMP_NE, MaskInInt,
                                       ConstantInt::get(IntTy, 0));
   return NotAllZ;
@@ -1052,21 +1042,22 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
     else if (MaskValue && IsCondPrivate) {
       // Private data. Should be conditional.
 
-      Value *NotAllZero = isNotAllZeroMask(Builder, MaskValue);
+      Value *MaskInInt = nullptr;
+      Value *NotAllZero = isNotAllZeroMask(Builder, MaskValue, MaskInInt);
 
       Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
       // Store the last written lane
       // We store only non-zero mask.
-      StoreInst *StoredMask = storeMaskValue(LoopPrivateLastMask[Ptr],
-                                             MaskValue, Builder);
-      PredicatedInstructions.push_back(std::make_pair(StoredMask, NotAllZero));
+      Value *PrevMask = Builder.CreateLoad(LoopPrivateLastMask[Ptr]);
+      Value *MaskToStore = Builder.CreateSelect(NotAllZero, MaskInInt, PrevMask);
+      Builder.CreateStore(MaskToStore, LoopPrivateLastMask[Ptr]);
 
     } else {
-      StoreInst *St = Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
       if (IsCondPrivate) {
-        Type *MaskTy = VectorType::get(Type::getInt1Ty(St->getContext()), VF);
-        storeMaskValue(LoopPrivateLastMask[Ptr],
-                       Constant::getAllOnesValue(MaskTy), Builder);
+        Type *MaskTy = IntegerType::get(Ptr->getContext(), VF);
+        Builder.CreateStore(Constant::getAllOnesValue(MaskTy),
+                            LoopPrivateLastMask[Ptr]);
       }
     }
     return;

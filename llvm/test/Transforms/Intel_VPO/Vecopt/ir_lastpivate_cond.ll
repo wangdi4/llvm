@@ -8,14 +8,10 @@
 ; CHECK:   %[[MASKINT:.*]] = bitcast <4 x i1> %[[MASK:.*]] to i4
 ; CHECK:   %[[NOT_ZERO:.*]] = icmp ne i4 %22, 0
 ; CHECK:   call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> {{.*}}, <4 x i32>* %tmp.vec, i32 4, <4 x i1> %[[MASK]])
-; CHECK:   %[[MASKINT2:.*]] = bitcast <4 x i1> %[[MASK:.*]] to i4
-; CHECK:   br i1 %[[NOT_ZERO]], label %pred.store.if, label 
-
-; CHECK: pred.store.if:                                    ; preds = %vector.body
-; CHECK:   store i4 %[[MASKINT2]], i4* %tmp.mask
-; CHECK:   br label 
+; CHECK: load i4, i4*
+; CHECK: %[[MASKINT2:.*]] = select i1 
+; CHECK: store i4 %[[MASKINT2]], i4* 
 ; CHECK: middle.block
-
 ; CHECK: %[[LAST_MASK:.*]] = load i4, i4* %tmp.mask
 ; CHECK: %ctlz = call i4 @llvm.ctlz.i4(i4 %[[LAST_MASK]], i1 true)
 ; CHECK: %[[IDX:.*]] = sub i4 3, %ctlz
