@@ -880,6 +880,22 @@ def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
 def SQRTF32   : UnaryOp< SQRT,   fsqrt,  Tf32, IISqrtF32>;
 def SQRTF64   : UnaryOp< SQRT,   fsqrt,  Tf64, IISqrtF64>;
 
+def FLOOR     : GenericOp<"floor", [HasMath0]>;
+def FLOORF32  : UnaryOp< FLOOR,  ffloor, Tf32, IIMathF32>;
+def FLOORF64  : UnaryOp< FLOOR,  ffloor, Tf64, IIMathF64>;
+
+def CEIL      : GenericOp<"ceil", [HasMath0]>;
+def CEILF32   : UnaryOp< CEIL,   fceil,  Tf32, IIMathF32>;
+def CEILF64   : UnaryOp< CEIL,   fceil,  Tf64, IIMathF64>;
+
+def ROUND     : GenericOp<"round", [HasMath0]>;
+def ROUNDF32  : UnaryOp< ROUND,  fround, Tf32, IIMathF32>;
+def ROUNDF64  : UnaryOp< ROUND,  fround, Tf64, IIMathF64>;
+
+def TRUNC     : GenericOp<"trunc", [HasMath0]>;
+def TRUNCF32  : UnaryOp< TRUNC,  ftrunc, Tf32, IIMathF32>;
+def TRUNCF64  : UnaryOp< TRUNC,  ftrunc, Tf64, IIMathF64>;
+
 def EXP2      : GenericOp<"exp2", [HasMath0]>;
 def EXP2F16   : UnaryOp< EXP2,   fexp2,  Tf16, IIMathF16>;
 def EXP2F32   : UnaryOp< EXP2,   fexp2,  Tf32, IIMathF32>;
