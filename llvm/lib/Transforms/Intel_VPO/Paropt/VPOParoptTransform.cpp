@@ -1130,10 +1130,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
   // W-Region (parallel loop/region/section ... etc.)
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
-    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
-      UI->eraseFromParent();
-      continue;
-    }
     UI->replaceUsesOfWith(PrivValue, NewPrivInst);
     if (isa<LoadInst>(UI) || isa<StoreInst>(UI))
       annotateInstWithNoAlias(UI, IT);
