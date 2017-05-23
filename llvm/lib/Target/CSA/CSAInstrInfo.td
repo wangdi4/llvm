@@ -686,6 +686,16 @@ class MullohiOp<GenericOp gen, CSAOpInfo oi,
     !listconcat(preds,oi.Preds), itin>
     { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
 
+class FModOp<GenericOp gen, CSAOpInfo oi,
+               InstrItinClass itin = IIALU, list<Predicate> preds = []> :
+  FMTGEN <
+    (outs oi.RC:$intp, oi.RC:$fracp),
+    (ins  oi.RCL:$op1),
+    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$intp, $fracp, $op1"),
+    [],
+    !listconcat(preds,oi.Preds), itin>
+    { let mayLoad = 0; let mayStore = 0; let hasSideEffects = 0; }
+
 class AtomicOp<GenericOp gen, SDPatternOperator opNode, CSAOpInfo oi,
                InstrItinClass itin = IIATM, list<Predicate> preds = []> :
   FMTGEN <
@@ -870,6 +880,22 @@ def SQRTF16   : UnaryOp< SQRT,   fsqrt,  Tf16, IISqrtF16>;
 def SQRTF32   : UnaryOp< SQRT,   fsqrt,  Tf32, IISqrtF32>;
 def SQRTF64   : UnaryOp< SQRT,   fsqrt,  Tf64, IISqrtF64>;
 
+def FLOOR     : GenericOp<"floor", [HasMath0]>;
+def FLOORF32  : UnaryOp< FLOOR,  ffloor, Tf32, IIMathF32>;
+def FLOORF64  : UnaryOp< FLOOR,  ffloor, Tf64, IIMathF64>;
+
+def CEIL      : GenericOp<"ceil", [HasMath0]>;
+def CEILF32   : UnaryOp< CEIL,   fceil,  Tf32, IIMathF32>;
+def CEILF64   : UnaryOp< CEIL,   fceil,  Tf64, IIMathF64>;
+
+def ROUND     : GenericOp<"round", [HasMath0]>;
+def ROUNDF32  : UnaryOp< ROUND,  fround, Tf32, IIMathF32>;
+def ROUNDF64  : UnaryOp< ROUND,  fround, Tf64, IIMathF64>;
+
+def TRUNC     : GenericOp<"trunc", [HasMath0]>;
+def TRUNCF32  : UnaryOp< TRUNC,  ftrunc, Tf32, IIMathF32>;
+def TRUNCF64  : UnaryOp< TRUNC,  ftrunc, Tf64, IIMathF64>;
+
 def EXP2      : GenericOp<"exp2", [HasMath0]>;
 def EXP2F16   : UnaryOp< EXP2,   fexp2,  Tf16, IIMathF16>;
 def EXP2F32   : UnaryOp< EXP2,   fexp2,  Tf32, IIMathF32>;
@@ -899,6 +925,10 @@ def COS       : GenericOp<"cos", [HasMath0]>;
 def COSF16    : UnaryOp< COS,    fcos,   Tf16, IIMathF16>;
 def COSF32    : UnaryOp< COS,    fcos,   Tf32, IIMathF32>;
 def COSF64    : UnaryOp< COS,    fcos,   Tf64, IIMathF64>;
+
+def MOD       : GenericOp<"mod", [HasMath0]>;
+def MODF32    : FModOp<  MOD,            Tf32, IIMathF32>;
+def MODF64    : FModOp<  MOD,            Tf64, IIMathF64>;
 
 //def SINCOS : GenericOp<"sincos", [HasMath0]>;
 //def SINCOSF16 : UnaryOp<SINCOS,fsincos,Tf16, IIMathF16>;
