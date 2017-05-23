@@ -5393,9 +5393,18 @@ CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
   }
 
   // Since we're using the CSAToolChain, we know the target is CSA.
-  // If we're not compiling for an OpenMP offload target, we're done.
+  // Check for the -fopenmp-targets=... list to see if we're compiling an
+  // offloaded statement.
   Arg *targets = DriverArgs.getLastArg(options::OPT_fopenmp_targets_EQ);
   if (nullptr == targets) {
+
+    // Include some inlined libm implementations. (This may be temporary until a
+    // real math library is in place.) Note that we only want to incur this
+    // header once, so it doesn't get run again for the -fopenmp-targets=csa
+    // invocation of cc1.
+    CC1Args.push_back("-include");
+    CC1Args.push_back("__clang_csa_math.h");
+
     return;
   }
 
