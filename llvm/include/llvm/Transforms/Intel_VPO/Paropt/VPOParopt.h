@@ -73,7 +73,7 @@ public:
   /// Pass Identification
   static char ID;
 
-  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar);
+  explicit VPOParopt(unsigned MyMode = ParTrans | OmpPar | OmpVec );
   ~VPOParopt(){};
 
   StringRef getPassName() const override { return "VPO Paropt Pass"; }

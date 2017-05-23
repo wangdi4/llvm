@@ -56,7 +56,7 @@ INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", "VPO Paropt Module Pass", false,
 char VPOParopt::ID = 0;
 
 ModulePass *llvm::createVPOParoptPass(unsigned Mode) { 
-  return new VPOParopt((ParTrans | OmpPar | OmpTpv | OmpTbb) & Mode);
+  return new VPOParopt((ParTrans | OmpPar | OmpVec | OmpTpv | OmpTbb) & Mode);
 }
 
 VPOParopt::VPOParopt(unsigned MyMode)

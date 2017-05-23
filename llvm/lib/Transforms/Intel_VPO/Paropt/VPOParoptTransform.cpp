@@ -303,7 +303,7 @@ bool VPOParoptTransform::paroptTransforms() {
         // Privatization is enabled for SIMD Transform passes
         DEBUG(dbgs() << "\n WRNSimdLoop - Transformation \n\n");
 
-        if (Mode & ParPrepare) {
+        if ((Mode & OmpVec) && (Mode & ParTrans)) {
            Changed = genPrivatizationCode(W);
            // keep SIMD directives; will be processed by the Vectorizer
            RemoveDirectives = false;
@@ -1284,10 +1284,16 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
         Value *NewPrivInst = nullptr;
-        if (!ForTaskLoop)
+        if (!ForTaskLoop) {
+          // Insert alloca for privatization right after the BEGIN directive.
+          // Note: do not hoist the following AllocaInsertPt computation out of
+          // this for-loop. AllocaInsertPt may be a clause directive that is
+          // removed by genPrivatizationReplacement(), so we need to recompute
+          // AllocaInsertPt at every iteration of this for-loop.
+          Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
           NewPrivInst =
-              genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".priv");
-        else
+              genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
+        } else
           NewPrivInst = PrivI->getNew();
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 

@@ -867,7 +867,7 @@ CallInst *VPOParoptUtils::genKmpcThreadPrivateCachedCall(
 }
 
 bool VPOParoptUtils::isKmpcGlobalThreadNumCall(Instruction *I) {
-  return VPOAnalysisUtils::isCallOfName(I, "__kmpc_global_thread_num"); 
+  return VPOAnalysisUtils::isCallOfName(I, "__kmpc_global_thread_num");
 }
 
 CallInst *VPOParoptUtils::findKmpcGlobalThreadNumCall(BasicBlock *BB) {
