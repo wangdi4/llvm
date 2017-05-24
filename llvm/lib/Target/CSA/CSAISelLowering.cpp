@@ -346,12 +346,19 @@ SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
-  // Create the TargetGlobalAddress node, folding in the constant offset.
+  // Create the TargetGlobalAddress node
+  // DO NOT fold in the constant offset for now
   SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
                                               getPointerTy(DAG.getDataLayout()),
-                                              Offset);
-  return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
+                                              0);
+  Result = DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                      getPointerTy(DAG.getDataLayout()), Result);
+  if (Offset) {
+      SDValue Remaining = DAG.getConstant(Offset, SDLoc(Op), MVT::i64);
+      Result = DAG.getNode(ISD::ADD, SDLoc(Op), MVT::i64, Result, Remaining);
+  }
+
+  return Result;
 }
 
 SDValue CSATargetLowering::LowerExternalSymbol(SDValue Op,
