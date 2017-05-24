@@ -1130,6 +1130,14 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
   // W-Region (parallel loop/region/section ... etc.)
   while (!PrivUses.empty()) {
     Instruction *UI = PrivUses.pop_back_val();
+    if (VPOAnalysisUtils::isIntelDirectiveOrClause(UI)) {
+      LLVMContext &C = F->getContext();
+      // The operand in the clause needs to be replaced to maintain the SSA
+      // version consistency.
+      UI->replaceUsesOfWith(PrivValue,
+                            ConstantPointerNull::get(Type::getInt8PtrTy(C)));
+      continue;
+    }
     UI->replaceUsesOfWith(PrivValue, NewPrivInst);
     if (isa<LoadInst>(UI) || isa<StoreInst>(UI))
       annotateInstWithNoAlias(UI, IT);
