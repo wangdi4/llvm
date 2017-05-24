@@ -103,6 +103,7 @@ namespace llvm {
           UnsafeFPMath(false), NoInfsFPMath(false), NoNaNsFPMath(false),
           NoTrappingFPMath(false), NoSignedZerosFPMath(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
+          IntelAdvancedOptim(false),               // INTEL
           IntelLibIRCAllowed(false),               // INTEL
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), UseInitArray(false),
@@ -175,6 +176,12 @@ namespace llvm {
     unsigned NoZerosInBSS : 1;
 
 #if INTEL_CUSTOMIZATION
+    /// IntelAdvancedOptim - It is set to false by default. This flag
+    /// represents whether Intel Advanced optimizations are enabled or
+    /// not depending target arch.
+
+    unsigned IntelAdvancedOptim : 1;
+
     /// IntelLibIRCAllowed - When true, this indicates that libirc is 
     /// available for the compiler to make calls to.  When false, the
     /// compiler cannot generate libirc calls.
@@ -293,6 +300,8 @@ inline bool operator==(const TargetOptions &LHS,
     ARE_EQUAL(NoTrappingFPMath) &&
     ARE_EQUAL(HonorSignDependentRoundingFPMathOption) &&
     ARE_EQUAL(NoZerosInBSS) &&
+    ARE_EQUAL(IntelAdvancedOptim) &&                // INTEL
+    ARE_EQUAL(IntelLibIRCAllowed) &&                // INTEL
     ARE_EQUAL(GuaranteedTailCallOpt) &&
     ARE_EQUAL(StackAlignmentOverride) &&
     ARE_EQUAL(EnableFastISel) &&

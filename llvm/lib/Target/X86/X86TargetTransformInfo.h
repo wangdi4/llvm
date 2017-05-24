@@ -100,6 +100,7 @@ public:
   bool isLegalMaskedGather(Type *DataType);
   bool isLegalMaskedScatter(Type *DataType);
 #if INTEL_CUSTOMIZATION
+  bool isAdvancedOptimEnabled() const;
   bool adjustCallArgs(CallInst* CI);
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION

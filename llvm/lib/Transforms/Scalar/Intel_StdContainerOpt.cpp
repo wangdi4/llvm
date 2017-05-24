@@ -14,6 +14,26 @@
 // and std.container.ptr.iter metatdata based on the input std.container
 // intrinsic. It also cleans up the intrinsic after that.
 //
+// The pass begins by visiting all intrinsic instructions to find calls to the
+// intel.std.container.ptr and intel.std.container.ptr.iter intrinsics.  For
+// each of these intrinsics, we record the load instruction whose value is
+// the argument to the intrinsic and then erase the intrinsic.
+//
+// Once all of the StdContainer load instructions have been recorded, we
+// build an NxN bit matrix (where N is the number of load instructions for
+// the intrinsic type -- ptr or iter) such that bit(i, j) is set if Insns[i]
+// and Insns[j] either may alias or must alias.
+//
+// This bit matrix is then reduced to a set of "cliques" where each clique
+// is a unique set of load instructions which all may alias with one another.
+// The clique sets are used to generate a set of metadata nodes for the load
+// instructions where metadata attribute decribing the cliques to which it
+// belongs.
+//
+// Finally, we walk the use chain for each load instruction, propogating the
+// clique sets to load, store, GEP, PHINode and IntToPtr instructions and
+// their users. 
+//
 // Here is one example.
 //
 // entry:
@@ -162,7 +182,7 @@ public:
   }
   bool runOnFunction(Function &F);
   void visitInstruction(Instruction &I) { return; }
-  void visitCallInst(CallInst &CI);
+  void visitIntrinsicInst(IntrinsicInst &II);
   StringRef getPassName() const override { return "StdContainerOpt"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
@@ -176,20 +196,16 @@ public:
   void genMDForCliques(std::vector<BitVector> &CliqueSet,
                        std::vector<Instruction *> &Insns, unsigned KindID);
   void propMD(std::vector<Instruction *> &Insns, unsigned KindID);
-  void propMDForInsn(Value *V, Instruction *II, unsigned KindID,
-                     SmallPtrSet<const PHINode *, 16> PhiUsers);
+  void propMDForInsn(Value *V, unsigned KindID, MDNode *MD,
+                     SmallPtrSetImpl<const PHINode *> &PhiUsers);
 
 private:
   friend class InstVisitor<StdContainerOpt>;
   std::vector<Instruction *> ContainerPtrIterInsns;
   std::vector<Instruction *> ContainerPtrInsns;
-  class BitMatrix BM;
+  BitMatrix BM;
   AliasAnalysis *AA;
   const DataLayout *DL;
-  bool isGEPPointerAlloc(const GetElementPtrInst *GEP);
-  bool isGEPPointerAlloc(const GEPOperator *GEPOp);
-  void processContainerIntrinsicUses(CallInst &CI, bool IsIter);
- 
 };
 }
 char StdContainerOpt::ID = 0;
@@ -215,15 +231,14 @@ bool StdContainerOpt::runOnFunction(Function &F) {
   DL = &(F.getParent()->getDataLayout());
   ContainerPtrIterInsns.clear();
   ContainerPtrInsns.clear();
+
   for (BasicBlock &BB : F) {
-
-    BasicBlock::iterator II, NextII, IE;
-
-    for (II = BB.begin(), IE = BB.end(); II != IE;) {
-      NextII = II++;
-      Instruction *I = &*NextII;
-      if (I)
-        visit(I);
+    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+      // The call to visit() may erase the instruction, so we need to
+      // increment the iterator here before we visit.
+      Instruction &I = *II;
+      ++II;
+      visit(&I);
     }
   }
 
@@ -234,28 +249,27 @@ bool StdContainerOpt::runOnFunction(Function &F) {
 
 // The metadata std.container.ptr and std.cotnainer.ptr.iter is propagated
 // along the refernce SSA chain.
-void StdContainerOpt::propMDForInsn(Value *V, Instruction *II, unsigned KindID,
-                                    SmallPtrSet<const PHINode *, 16> PhiUsers) {
+void
+StdContainerOpt::propMDForInsn(Value *V, unsigned KindID, MDNode *MD,
+                               SmallPtrSetImpl<const PHINode *> &PhiUsers) {
   for (Use &U : V->uses()) {
     User *UR = U.getUser();
     if (Instruction *I = dyn_cast<Instruction>(UR)) {
       if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
-        LI->setMetadata(KindID,
-                        MDNode::concatenate(II->getMetadata(KindID), nullptr));
-        propMDForInsn(LI, II, KindID, PhiUsers);
+        LI->setMetadata(KindID, MD);
+        propMDForInsn(LI, KindID, MD, PhiUsers);
       } else if (StoreInst *SI = dyn_cast<StoreInst>(I))
-        SI->setMetadata(KindID,
-                        MDNode::concatenate(II->getMetadata(KindID), nullptr));
+        SI->setMetadata(KindID, MD);
       else if (isa<GetElementPtrInst>(I))
-        propMDForInsn(I, II, KindID, PhiUsers);
+        propMDForInsn(I, KindID, MD, PhiUsers);
       else if (PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second)
-          propMDForInsn(I, II, KindID, PhiUsers);
+          propMDForInsn(I, KindID, MD, PhiUsers);
       }
       else if (isa<PtrToIntInst>(I)) 
-        propMDForInsn(I, II, KindID, PhiUsers);
+        propMDForInsn(I, KindID, MD, PhiUsers);
       else if (isa<IntToPtrInst>(I))
-        propMDForInsn(I, II, KindID, PhiUsers);
+        propMDForInsn(I, KindID, MD, PhiUsers);
     }
   }
 }
@@ -264,10 +278,10 @@ void StdContainerOpt::propMDForInsn(Value *V, Instruction *II, unsigned KindID,
 // given set.
 void StdContainerOpt::propMD(std::vector<Instruction *> &Insns,
                              unsigned KindID) {
-  for (unsigned I = 0; I < Insns.size(); I++) {
+  for (unsigned I = 0; I < Insns.size(); ++I) {
     SmallPtrSet<const PHINode *, 16> PhiUsers;
-    PhiUsers.clear();
-    propMDForInsn(Insns[I], Insns[I], KindID, PhiUsers);
+    MDNode *MD = Insns[I]->getMetadata(KindID);
+    propMDForInsn(Insns[I], KindID, MD, PhiUsers);
   }
 }
 
@@ -278,51 +292,54 @@ void StdContainerOpt::genMDForCliques(std::vector<BitVector> &CliqueSet,
   if (Insns.size() == 0)
     return;
   LLVMContext &C = Insns[0]->getContext();
-  MDNode *M;
-  BitVector NotIsolated;
 
-  NotIsolated.resize(Insns.size());
   unsigned Idx = 0;
 
-  for (std::vector<BitVector>::iterator IT = CliqueSet.begin();
-       IT != CliqueSet.end(); IT++) {
-    BitVector *Bv = &*IT;
-    Metadata *MDs[] = {
-        ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), Idx))};
-    M = MDNode::get(C, MDs);
-    for (unsigned I = 0; I < Bv->size(); I++)
-      if (Bv->test(I)) {
-        NotIsolated.set(I);
-        Insns[I]->setMetadata(
-            KindID, MDNode::concatenate(Insns[I]->getMetadata(KindID), M));
-      }
-    Idx++;
-  }
-  for (unsigned I = 0; I < Insns.size(); I++)
-    if (!NotIsolated.test(I)) {
-      Metadata *MDs[] = {
-          ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), Idx))};
-      M = MDNode::get(C, MDs);
-      Insns[I]->setMetadata(KindID, M);
-      Idx++;
+  DenseMap<unsigned, std::vector<Metadata*>> InstrToCliqueSetMap(Insns.size());
+
+  for (const BitVector &Bv : CliqueSet) {
+    Metadata *CliqueIdMD = 
+      ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), Idx));
+    for (unsigned I = 0; I < Bv.size(); ++I) {
+      if (Bv.test(I))
+        InstrToCliqueSetMap[I].push_back(CliqueIdMD);
     }
+    ++Idx;
+  }
+  for (unsigned I = 0; I < Insns.size(); ++I) {
+    const std::vector<Metadata*> &InstrCliques = InstrToCliqueSetMap[I];
+    if (InstrCliques.empty()) {
+      Metadata *MDs[] = {
+          ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(C), Idx))
+      };
+      MDNode *M = MDNode::get(C, MDs);
+      Insns[I]->setMetadata(KindID, M);
+      ++Idx;
+    } else {
+      MDNode *M = MDNode::get(C, InstrCliques);
+      Insns[I]->setMetadata(KindID, M);
+    }
+  }
 }
-// In order to reduce the number of metdata, the compiler caclucates
+
+// In order to reduce the number of metdata, the compiler calculates
 // the number of cliques in the alias matrix.
 void StdContainerOpt::calculateClique(std::vector<Instruction *> &Insns,
                                       unsigned KindID) {
   unsigned N = Insns.size();
   std::vector<BitVector> CliqueSet;
-  class BitMatrix CliquedMatrix;
+  BitMatrix CliquedMatrix;
   CliquedMatrix.resize(N);
-  BitVector Clique;
+  BitVector Clique(N);
 
-  for (int I = N - 1; I >= 0; I--) {
-    for (int J = I - 1; J >= 0; J--) {
+  for (int I = N - 1; I >= 0; --I) {
+    for (int J = I - 1; J >= 0; --J) {
       if (BM.bitTest(I, J) && !CliquedMatrix.bitTest(I, J)) {
-        Clique.clear();
-        Clique.resize(N);
-        for (int K = J; K >= 0; K--) {
+        // Clique is effectively local to this scope, but declaring it
+        // in the outer scope avoids having to reallocate the buffer,
+        // which is the same size every time through the loop.
+        Clique.reset();
+        for (int K = J; K >= 0; --K) {
           if (BM.bitTest(I, K))
             Clique.set(K);
         }
@@ -339,14 +356,14 @@ void StdContainerOpt::calculateClique(std::vector<Instruction *> &Insns,
 // each other.
 void StdContainerOpt::formClique(BitVector &C, int Col, int Row,
                                  class BitMatrix &CM) {
-  for (int I = Col; I >= 0; I--) {
+  for (int I = Col; I >= 0; --I) {
     if (C.test(I)) {
       CM.bitSet(Row, I);
-      for (int J = Row; J > I; J--) {
+      for (int J = Row; J > I; --J) {
         if (C.test(J))
           CM.bitSet(J, I);
       }
-      for (int K = I - 1; K >= 0; K--) {
+      for (int K = I - 1; K >= 0; --K) {
         if (C.test(K) && !BM.bitTest(I, K))
           C.flip(K);
       }
@@ -380,53 +397,42 @@ void StdContainerOpt::initAliasMatrix(std::vector<Instruction *> &Insns,
       Value *V1, *V2;
       V1 = LIA->getPointerOperand();
       V2 = LIB->getPointerOperand();
-      uint64_t I1Size = MemoryLocation::UnknownSize;
-      Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
-      if (I1ElTy->isSized())
-        I1Size = DL->getTypeStoreSize(I1ElTy);
-      uint64_t I2Size = MemoryLocation::UnknownSize;
-      Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
-      if (I2ElTy->isSized())
-        I2Size = DL->getTypeStoreSize(I2ElTy);
       if (KindID == LLVMContext::MD_std_container_ptr_iter) {
-        if (!AA->isNoAlias(V1,V2))
+        if (!AA->isNoAlias(V1, V2))
+          BM.bitSet(J, I);
+      } else {
+        uint64_t I1Size = MemoryLocation::UnknownSize;
+        Type *I1ElTy = cast<PointerType>(V1->getType())->getElementType();
+        if (I1ElTy->isSized())
+          I1Size = DL->getTypeStoreSize(I1ElTy);
+        uint64_t I2Size = MemoryLocation::UnknownSize;
+        Type *I2ElTy = cast<PointerType>(V2->getType())->getElementType();
+        if (I2ElTy->isSized())
+          I2Size = DL->getTypeStoreSize(I2ElTy);
+        if (!AA->isNoAlias(V1, I1Size, V2, I2Size))
           BM.bitSet(J, I);
       }
-      else if (AA->alias(V1, I1Size, V2, I2Size))
-        BM.bitSet(J, I);
     }
   }
   DEBUG(BM.dump(dbgs()));
 }
 
-// Collect the loads whose result is the argument of std.container
-// intrinsic.
-void StdContainerOpt::processContainerIntrinsicUses(CallInst &CI, 
-                                                        bool IsIter) {
-  CallSite CS = CallSite(&CI);
-  Value *V = CS.getArgument(0);
-  assert(V && "Expected non empty argument in std.container intrinsic");
-  if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
-    if (IsIter)
-      ContainerPtrIterInsns.push_back(LI);
-    else 
-      ContainerPtrInsns.push_back(const_cast<LoadInst *>(LI));
-  }
-}
-
-// Process every std.container instruction and clean up them later.
-void StdContainerOpt::visitCallInst(CallInst &CI) {
-  const Function *Callee = CI.getCalledFunction();
-  if (!Callee)
+// Process every std.container instruction and clean them up later.
+void StdContainerOpt::visitIntrinsicInst(IntrinsicInst &II) {
+  unsigned IntrinID = II.getIntrinsicID();
+  if ((IntrinID != Intrinsic::intel_std_container_ptr_iter) &&
+      (IntrinID != Intrinsic::intel_std_container_ptr))
     return;
-  switch (Callee->getIntrinsicID()) {
-  default: break;
-  case Intrinsic::intel_std_container_ptr_iter:
-  case Intrinsic::intel_std_container_ptr:
-    processContainerIntrinsicUses(CI,
-        Callee->getIntrinsicID() == Intrinsic::intel_std_container_ptr_iter);
-    CI.replaceAllUsesWith(CI.getOperand(0));
-    CI.eraseFromParent();
-    break;
+
+  Value *V = II.getArgOperand(0);
+  assert(V && "Expected non empty argument in std.container intrinsic");
+  // FIXME: Should we use cast<> to assert that this will be a LoadInst?
+  if (LoadInst *LI = dyn_cast<LoadInst>(V)) {
+    if (II.getIntrinsicID() == Intrinsic::intel_std_container_ptr_iter) 
+      ContainerPtrIterInsns.push_back(LI);
+    else
+      ContainerPtrInsns.push_back(LI);
   }
+  II.replaceAllUsesWith(V);
+  II.eraseFromParent();
 }

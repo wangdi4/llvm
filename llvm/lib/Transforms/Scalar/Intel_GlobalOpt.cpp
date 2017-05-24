@@ -1,10 +1,11 @@
-//===- IntelGlobalOpt.cpp - Optimize Global Variables
-//--------------------------===//
+//===- IntelGlobalOpt.cpp - Optimize Global Variables----------------------===//
 //
-//                     The LLVM Compiler Infrastructure
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -164,27 +165,16 @@ bool NonLTOGlobalOpt::isGVLegalToBePromoted(
     GlobalVariable *GV, DominatorTree &DT,
     SmallPtrSetImpl<Instruction *> &Stores,
     SmallPtrSetImpl<Instruction *> &GVUsers) {
-  bool DominateF;
   if (!analyzeUseOfGV(GV, Stores, GVUsers, false)) {
     return false;
   }
 
-  // If a load cannot be dominated by a store, the register promtion
+  // If a load cannot be dominated by a store, the register promotion
   // should give up.
-  if (!GVUsers.empty()) {
-    for (auto GVUsr : GVUsers) {
-      DominateF = false;
-      if (!Stores.empty()) {
-        for (auto St : Stores) {
-          if (DT.dominates(St, GVUsr)) {
-            DominateF = true;
-          }
-        }
-      }
-      if (DominateF == false) {
-        return false;
-      }
-    }
+  for (auto GVUsr : GVUsers) {
+    if (llvm::none_of(Stores,
+                      [&](Instruction *St) { return DT.dominates(St, GVUsr); }))
+      return false;
   }
   return true;
 }
@@ -232,19 +222,16 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   if (F.callsFunctionThatReturnsTwice())
     return Changed;
 
-  unsigned NumBBsHasMoreThanTwoIncomingEdges, 
-           NumBBsHasTwoIncomingEdges, NumInsns;
-
-  NumBBsHasMoreThanTwoIncomingEdges = 0;
-  NumBBsHasTwoIncomingEdges = 0;
-  NumInsns = 0;
-  bool BBHasTwoIncomingEdges;
+  unsigned NumBBsHasMoreThanTwoIncomingEdges = 0;
+  unsigned NumBBsHasTwoIncomingEdges = 0;
+  unsigned NumInsns = 0;
 
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
-    BBHasTwoIncomingEdges = false;
-    if (std::distance(pred_begin(&*B), pred_end(&*B)) > 2)
+    bool BBHasTwoIncomingEdges = false;
+    unsigned NumPreds = std::distance(pred_begin(&*B), pred_end(&*B));
+    if (NumPreds > 2)
       NumBBsHasMoreThanTwoIncomingEdges++;
-    else if (std::distance(pred_begin(&*B), pred_end(&*B)) == 2) {
+    else if (NumPreds == 2) {
       NumBBsHasTwoIncomingEdges++;
       BBHasTwoIncomingEdges = true;
     }
@@ -261,15 +248,14 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   // complex control flows. The code here is to inhibit the transformation under
   // this situation. This workaround should be removed after the register
   // allocation issue is fixed.
- 
+
   bool PossibleBailOut = false;
   if (NumBBsHasMoreThanTwoIncomingEdges > PhiBBsThreshold ||
       (NumBBsHasMoreThanTwoIncomingEdges == PhiBBsThreshold &&
       NumInsns<=NumInsnsThreshold))
     return Changed;
-  else if (NumInsns > 0 &&
-      (double)NumBBsHasTwoIncomingEdges/(double)NumInsns > 
-      CodeSizeRatioThreshold)
+  if (NumInsns > 0 && (double)NumBBsHasTwoIncomingEdges / (double)NumInsns >
+                          CodeSizeRatioThreshold)
     PossibleBailOut = true;
 
   AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
@@ -284,12 +270,14 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
         continue;
       NumToBeTransformed++;
     }
-    if (NumToBeTransformed < NumVarsThreshold || NumBBsHasMoreThanTwoIncomingEdges < PhiBBsThreshold) 
+    if (NumToBeTransformed < NumVarsThreshold ||
+        NumBBsHasMoreThanTwoIncomingEdges < PhiBBsThreshold)
       NumToBeTransformed = NumVarsThreshold/2;
     else
       NumToBeTransformed = NumVarsThreshold;
   }
 
+  unsigned LocalNumConverted = 0;
   for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
        GVI != E;) {
     GlobalVariable *GV = &*(GVI++);
@@ -308,13 +296,12 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
     if (GV->isConstant() || !GV->hasInitializer())
       continue;
 
-    if (PossibleBailOut == true &&
-        NumConverted >= NumToBeTransformed) 
-        return Changed;
-    
+    if (PossibleBailOut && LocalNumConverted >= NumToBeTransformed)
+      return Changed;
+
     Changed |= processInternalGlobal(GV, GS, DT);
-    NumConverted++;
-    
+    LocalNumConverted++;
+    NumConverted++; // For statistics.
   }
   return Changed;
 }

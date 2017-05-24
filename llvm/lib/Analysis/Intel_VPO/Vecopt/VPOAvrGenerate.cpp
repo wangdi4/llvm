@@ -1407,7 +1407,7 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
   // Visit loop children
   for (auto It = L->child_begin(), End = L->child_end(); It != End; ++It) {
     DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "LOOP CHILD:\n";
-          It->print(FOS, 0, PrintNumber);
+          It->print(FOS, 0, true);
           FOS << "\n-----------------------------------------------\n");
     ChildAVR = visit(*It);
 

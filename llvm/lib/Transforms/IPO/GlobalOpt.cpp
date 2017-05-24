@@ -1799,6 +1799,84 @@ static void makeAllConstantUsesInstructions(Constant *C) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Replace all uses of "GV" with "StoredOnceVal" in "F" if all uses of
+// GV are dominated by store to GV using "LookupDomTree".
+// It allows only Float and Int types for now.
+//
+static bool isStoredOnceValueUsedByAllUsesInFunction(
+    const Function *F, GlobalValue *GV, Value *StoredOnceVal,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+
+  // Make sure stored value is constant
+  Constant *SOVConstant = dyn_cast<Constant>(StoredOnceVal);
+  if (!SOVConstant) return false;
+
+  // For now, allow only Integer and float types.
+  if (!StoredOnceVal->getType()->isIntegerTy() &&
+      !StoredOnceVal->getType()->isFloatingPointTy())
+    return false;
+
+  // Collect all uses of GV. Returns false if any use of GV is other
+  // than Load/Store/BitCast instructions.
+  StoreInst* StoreI = nullptr;
+  const DataLayout &DL = GV->getParent()->getDataLayout();
+  SmallVector<LoadInst *, 8> Loads;
+  for (auto *U : GV->users()) {
+    // Get actual uses of GV by ignoring BitCast.
+    if (Operator::getOpcode(U) == Instruction::BitCast) {
+      for (auto *UU : U->users()) {
+        if (auto *LI = dyn_cast<LoadInst>(UU))
+          Loads.push_back(LI);
+        else if (auto *SI = dyn_cast<StoreInst>(UU)) {
+          // Returns false if more than one Store is found. 
+          if (StoreI != nullptr) return false;
+          StoreI = SI;
+        } else
+          return false;
+      }
+      continue;
+    }
+
+    Instruction *I = dyn_cast<Instruction>(U);
+    if (!I) return false;
+    assert(I->getParent()->getParent() == F);
+
+    if (auto *LI = dyn_cast<LoadInst>(I))
+      Loads.push_back(LI);
+    else if (auto *SI = dyn_cast<StoreInst>(I)) {
+      // Returns false if more than one Store is found. 
+      if (StoreI != nullptr) return false;
+      StoreI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (Loads.size() == 0 || StoreI == nullptr) return false;
+
+  auto &DT = LookupDomTree(*const_cast<Function *>(F));
+
+  // Check all Load Instructions  are dominated by Store Instruction
+  // and size of store is less than or equal to size of any loads.
+  auto *STy = StoreI->getValueOperand()->getType();
+  for (auto *L : Loads) {
+    auto *LTy = L->getType();
+    if (!DT.dominates(StoreI, L) ||
+        (DL.getTypeStoreSize(LTy) > DL.getTypeStoreSize(STy)))
+      return false;
+  }
+
+  // Replace all uses of Loads with constant and remove Loads. 
+  for (auto *L : Loads) {
+    L->replaceAllUsesWith(SOVConstant);
+    L->eraseFromParent();
+  }
+  // Remove Store.
+  StoreI->eraseFromParent();
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool processInternalGlobal(
@@ -1916,6 +1994,23 @@ static bool processInternalGlobal(
     // (besides its initializer) is ever stored to the global.
     if (optimizeOnceStoredGlobal(GV, GS.StoredOnceValue, GS.Ordering, DL, TLI))
       return true;
+
+#if INTEL_CUSTOMIZATION
+  // If a global variable is accessed only in one routine and all uses
+  // of the global variable is dominated by single store with a constant
+  // value, Replace all uses of the global variable with the constant value.
+  if (!GS.HasMultipleAccessingFunctions &&
+      GS.AccessingFunction &&
+      GV->getValueType()->isSingleValueType() &&
+      GV->getType()->getAddressSpace() == 0 &&
+      !GV->isExternallyInitialized() &&
+      allNonInstructionUsersCanBeMadeInstructions(GV) &&
+      isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
+                                     GS.StoredOnceValue, LookupDomTree)) {
+      DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Otherwise, if the global was not a boolean, we can shrink it to be a
     // boolean.

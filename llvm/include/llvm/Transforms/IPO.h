@@ -110,6 +110,10 @@ Pass *createFunctionInliningPass();
 Pass *createFunctionInliningPass(int Threshold);
 Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel);
 Pass *createFunctionInliningPass(InlineParams &Params);
+#if INTEL_CUSTOMIZATION
+Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel,
+                                 bool PrepareForLTO);
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 /// createPruneEHPass - Return a new pass object which transforms invoke

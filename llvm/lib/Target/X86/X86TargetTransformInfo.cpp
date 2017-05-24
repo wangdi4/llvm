@@ -2150,6 +2150,11 @@ bool X86TTIImpl::isLegalMaskedStore(Type *DataType) {
 }
 
 #if INTEL_CUSTOMIZATION
+bool X86TTIImpl::isAdvancedOptimEnabled() const {
+  const TargetMachine &TM = getTLI()->getTargetMachine();
+  return TM.Options.IntelAdvancedOptim;
+}
+
 bool X86TTIImpl::adjustCallArgs(CallInst* CI) {
   if (CI->getCallingConv() != CallingConv::Intel_OCL_BI)
     return false;

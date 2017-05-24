@@ -304,7 +304,7 @@ struct DDRefGatherer : DDRefGathererLambda<RefTy> {
     }
 
     bool operator()(const BlobDDRef *Ref) {
-      return Mode & BlobRefs;
+      return static_cast<bool>(Mode & BlobRefs);
     }
   };
 

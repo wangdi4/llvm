@@ -116,6 +116,11 @@ namespace options {
     OT_SAVE_TEMPS
   };
   static OutputType TheOutputType = OT_NORMAL;
+
+#if INTEL_CUSTOMIZATION
+  static bool AdvOptim = false;
+#endif // INTEL_CUSTOMIZATION
+
   static unsigned OptLevel = 2;
   // Default parallelism of 0 used to indicate that user did not specify.
   // Actual parallelism default value depends on implementation.
@@ -186,6 +191,10 @@ namespace options {
       extra_library_path = opt.substr(strlen("extra_library_path="));
     } else if (opt.startswith("mtriple=")) {
       triple = opt.substr(strlen("mtriple="));
+#if INTEL_CUSTOMIZATION
+    } else if (opt.startswith("fintel-advanced-optim")) {
+      AdvOptim = true;
+#endif // INTEL_CUSTOMIZATION
     } else if (opt.startswith("obj-path=")) {
       obj_path = opt.substr(strlen("obj-path="));
     } else if (opt == "emit-llvm") {
@@ -682,6 +691,10 @@ static std::unique_ptr<LTO> createLTO() {
 
   Conf.CPU = options::mcpu;
   Conf.Options = InitTargetOptionsFromCodeGenFlags();
+
+#if INTEL_CUSTOMIZATION
+  Conf.Options.IntelAdvancedOptim = options::AdvOptim;
+#endif // INTEL_CUSTOMIZATION
 
   // Disable the new X86 relax relocations since gold might not support them.
   // FIXME: Check the gold version or add a new option to enable them.

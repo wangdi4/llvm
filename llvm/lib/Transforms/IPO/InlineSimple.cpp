@@ -104,6 +104,15 @@ Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
   return new SimpleInliner(llvm::getInlineParams(OptLevel, SizeOptLevel));
 }
 
+#if INTEL_CUSTOMIZATION
+Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
+                                       unsigned SizeOptLevel,
+                                       bool PrepareForLTO) {
+  return new SimpleInliner(llvm::getInlineParams(OptLevel, SizeOptLevel,
+                                                 PrepareForLTO));
+}
+#endif // INTEL_CUSTOMIZATION
+
 Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
   return new SimpleInliner(Params);
 }

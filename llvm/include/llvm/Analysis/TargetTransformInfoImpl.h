@@ -407,6 +407,8 @@ public:
   }
 
 #if INTEL_CUSTOMIZATION
+  bool isAdvancedOptimEnabled() const { return false; }
+
   bool adjustCallArgs(CallInst *CI) { return false; }
 
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const {
