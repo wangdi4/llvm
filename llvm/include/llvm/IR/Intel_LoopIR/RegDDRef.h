@@ -202,6 +202,7 @@ protected:
   /// Implementes populateTempBlobIndices() and populateTempBlobSymbases().
   void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
                             bool GetIndices) const;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -506,7 +507,6 @@ public:
   /// DDRef is connected to a HLDDNode.
   bool isFakeRval() const;
 
-
   /// \brief This method checks if the DDRef is
   /// not a memory reference or a pointer reference
   /// Returns false for:
@@ -608,9 +608,13 @@ public:
   uint64_t getDimensionStride(unsigned DimensionNum) const;
 
   /// Returns the size in number of bytes for specified dimension.
-  /// This is computed on the fly. DimensionNum must be within
-  /// [1, getNumDimensions()].
+  /// This is computed on the fly. 0 is returned for pointer dimension.
+  /// DimensionNum must be within [1, getNumDimensions()].
   uint64_t getDimensionSize(unsigned DimensionNum) const;
+
+  /// Returns the number of elements for specified dimension. 0 is returned for
+  /// pointer dimension. DimensionNum must be within [1, getNumDimensions()].
+  uint64_t getNumDimensionElements(unsigned DimensionNum) const;
 
   /// \brief Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].

@@ -672,6 +672,12 @@ uint64_t RegDDRef::getDimensionSize(unsigned DimensionNum) const {
              : getCanonExprUtils().getTypeSizeInBits(DimTy) / 8;
 }
 
+uint64_t RegDDRef::getNumDimensionElements(unsigned DimensionNum) const {
+  auto DimTy = getDimensionType(DimensionNum);
+
+  return DimTy->isPointerTy() ? 0 : DimTy->getArrayNumElements();
+}
+
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
   assert(BlobRef && "Blob DDRef is null!");
   assert(!BlobRef->getParentDDRef() &&
