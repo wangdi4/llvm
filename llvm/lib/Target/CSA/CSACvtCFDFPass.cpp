@@ -273,9 +273,9 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   if (CvtCFDFPass == 0) return false;
   thisMF = &MF;
 
-  TII = static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  TII = static_cast<const CSAInstrInfo*>(thisMF->getSubtarget<CSASubtarget>().getInstrInfo());
   MRI = &thisMF->getRegInfo();
-  TRI = thisMF->getSubtarget().getRegisterInfo();
+  TRI = thisMF->getSubtarget<CSASubtarget>().getRegisterInfo();
   LMFI = thisMF->getInfo<CSAMachineFunctionInfo>();
 
   DT = &getAnalysis<MachineDominatorTree>();
@@ -481,18 +481,14 @@ void CSACvtCFDFPass::insertSWITCHForConstant(MachineInstr* MI, MachineBasicBlock
   assert(TII->isMOV(MI) && hasAllConstantInputs(MI));
   unsigned Reg = MI->getOperand(0).getReg();
   ControlDependenceNode *unode = CDG->getNode(mbb);
-  //skip if already at top level
-  if (unode->getNumParents() == 1) {
-    ControlDependenceNode* p = *unode->parent_begin();
-    if (!p->getBlock()) return;
-  }
+
   SmallVector<MachineInstr*, 8> NewPHIs;
   MachineSSAUpdater SSAUpdate(*thisMF, &NewPHIs);
   const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
   unsigned switchVReg = MRI->createVirtualRegister(TRC);
   SSAUpdate.Initialize(switchVReg);
   //SSAUpdate.AddAvailableValue(dmbb, Reg);
-  unsigned newVReg;
+  unsigned newVReg = 0;
   for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
     uparent != uparent_end; ++uparent) {
     ControlDependenceNode *upnode = *uparent;
@@ -526,13 +522,14 @@ void CSACvtCFDFPass::insertSWITCHForConstant(MachineInstr* MI, MachineBasicBlock
     }
     SSAUpdate.AddAvailableValue(upbb, newVReg);
   } //end of for (parent
-
-  MI->removeFromParent();
-  MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
-  while (UI != MRI->use_end()) {
-    MachineOperand &UseMO = *UI;
-    ++UI;
-    SSAUpdate.RewriteUse(UseMO);
+  if (newVReg) {
+    MI->removeFromParent();
+    MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
+    while (UI != MRI->use_end()) {
+      MachineOperand &UseMO = *UI;
+      ++UI;
+      SSAUpdate.RewriteUse(UseMO);
+    }
   }
 }
 
@@ -1086,10 +1083,7 @@ void CSACvtCFDFPass::insertSWITCHForRepeat(MachineLoop* L) {
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop&& DT->dominates(DefBB, mbb)) {
-            if (hasAllConstantInputs(dMI)) {
-              dMI->setFlag(MachineInstr::NonSequential);
-              continue;
-            }
+            assert(!hasAllConstantInputs(dMI) && "const prop failed");
             repeatOperandInLoop(Reg, mloop);
           }
         }
@@ -1749,7 +1743,7 @@ MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
   MachineInstr* phi,         //the multi-input phi
   unsigned pickReg)          //pick output
 {
-  const TargetRegisterInfo &TRI = *thisMF->getSubtarget().getRegisterInfo();
+  const TargetRegisterInfo &TRI = *thisMF->getSubtarget<CSASubtarget>().getRegisterInfo();
   MachineInstr *pickInstr = nullptr;
   bool patched = false;
   DenseMap<unsigned, MachineInstr *>* reg2pick = nullptr;
@@ -2538,10 +2532,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
-            if (hasAllConstantInputs(dMI)) {
-              dMI->setFlag(MachineInstr::NonSequential);
-              continue;
-            }
+            assert(!hasAllConstantInputs(dMI) && "const prop failed");
 
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();
@@ -2645,7 +2636,8 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
             if (hasAllConstantInputs(dMI)) {
-              dMI->setFlag(MachineInstr::NonSequential);
+			  //has to be root mov 1 pred instr
+              assert(!dMI->getFlag(MachineInstr::NonSequential));
               continue;
             }
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
@@ -3281,7 +3273,7 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, 
 bool CSACvtCFDFPass::replaceUndefWithIgn() {
   bool modified = false;
   MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
+  const CSAInstrInfo &TII = *static_cast<const CSAInstrInfo*>(thisMF->getSubtarget<CSASubtarget>().getInstrInfo());
   SmallPtrSet<MachineInstr*, 4> implicitDefs;
   DEBUG(errs() << "Finding implicit defs:\n");
   for (MachineFunction::iterator BB = thisMF->begin(); BB != thisMF->end(); ++BB) {
