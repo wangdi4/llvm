@@ -5,6 +5,7 @@ set(LLVM_LINK_COMPONENTS
 add_clang_unittest(FrontendTests
   FrontendActionTest.cpp
   CodeGenActionTest.cpp
+  IntelOutputStreamTest.cpp
   )
 target_link_libraries(FrontendTests
   clangAST
@@ -13,4 +14,5 @@ target_link_libraries(FrontendTests
   clangLex
   clangSema
   clangCodeGen
+  clangFrontendTool
   )
