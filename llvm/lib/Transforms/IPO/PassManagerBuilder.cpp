@@ -392,6 +392,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 #if INTEL_CUSTOMIZATION
   if (isLoopOptEnabled())
     MPM.add(createLoopOptMarkerPass());
+  // Propagate TBAA information before SROA so that we can remove mid-function
+  // fakeload intrinsics which would block SROA.
+  if (EnableTbaaProp)
+    MPM.add(createTbaaMDPropagationPass());
 #endif // INTEL_CUSTOMIZATION
 
   // Break up aggregate allocas, using SSAUpdater.
@@ -610,10 +614,7 @@ void PassManagerBuilder::populateModulePassManager(
 #if INTEL_CUSTOMIZATION
   if (EnableStdContainerOpt) 
     MPM.add(createStdContainerOptPass());
-  if (EnableTbaaProp) {
-    MPM.add(createTbaaMDPropagationPass());
-    MPM.add(createSROAPass());
-  }
+  MPM.add(createCleanupFakeLoadsPass());
 #endif // INTEL_CUSTOMIZATION
 
   if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&

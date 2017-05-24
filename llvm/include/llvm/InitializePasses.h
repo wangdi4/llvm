@@ -392,6 +392,8 @@ void initializeStdContainerAAWrapperPassPass(PassRegistry &);
 void initializeStdContainerOptPass(PassRegistry &);
 // Pass for TBAA metadata propagation
 void initializeTbaaMDPropagationPass(PassRegistry &);
+// Pass for removing fakeload intrinisics
+void initializeCleanupFakeLoadsPass(PassRegistry &);
 // Pass for indirect call conversion using points-to info
 void initializeIndirectCallConvPass(PassRegistry &);
 // Pass for SnodeInfo analysis

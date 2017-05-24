@@ -267,8 +267,12 @@ FunctionPass *createNonLTOGlobalOptimizerPass();
 FunctionPass *createStdContainerOptPass();
 
 // TbaaMDPropagationPass is a pass which recovers the tbaa information
-// for the return pointer dereferences.
+// for the return pointer dereferences after functions have been inlined.
 FunctionPass *createTbaaMDPropagationPass();
+
+// CleanupFakeLoadsPass is a pass which removes intel.fakeload intrinsics
+// (which are needed by TbaaMDPropagationPass) after all inlining is finished.
+FunctionPass *createCleanupFakeLoadsPass();
 
 // IndirectCallConv - Converts indirect calls to direct calls using
 // points-to info if possible 

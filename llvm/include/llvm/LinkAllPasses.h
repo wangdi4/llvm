@@ -81,6 +81,7 @@ namespace {
       (void) llvm::createAndersensAAWrapperPass(); 
       (void) llvm::createNonLTOGlobalOptimizerPass(); 
       (void) llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createStdContainerOptPass();      
       (void) llvm::createStdContainerAAWrapperPass();  
 #endif // INTEL_CUSTOMIZATION
