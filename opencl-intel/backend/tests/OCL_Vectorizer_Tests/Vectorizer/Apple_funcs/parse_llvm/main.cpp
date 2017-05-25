@@ -1,4 +1,4 @@
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Pass.h"
 #include "llvm/Type.h"

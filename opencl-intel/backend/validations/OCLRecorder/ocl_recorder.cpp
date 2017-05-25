@@ -33,7 +33,7 @@ File Name:  ocl_recorder.cpp
 #include "llvm/IR/Argument.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IR/LLVMContext.h"

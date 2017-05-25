@@ -146,9 +146,6 @@ struct _8u64 { __m128i a; __m128i b;__m128i c; __m128i d;};
 struct _16u64 { __m128i a; __m128i b;__m128i c; __m128i d;
 __m128i e; __m128i f;__m128i g; __m128i h;};
 
-#define lo a
-#define hi b
-
 typedef short half;
 
 //Double definition should be moved to cl_types when implemented

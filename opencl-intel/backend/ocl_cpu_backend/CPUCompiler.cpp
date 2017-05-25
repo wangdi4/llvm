@@ -29,7 +29,6 @@ File Name:  CPUCompiler.cpp
 
 // Reference a symbol in JIT.cpp and MCJIT.cpp so that static or global constructors are called
 #include "llvm/ADT/Triple.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITEventListener.h"
 #include "llvm/ExecutionEngine/MCJIT.h"

@@ -4,7 +4,6 @@
 #include "llvm/Instructions.h"
 #include "llvm/Constants.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Bitcode/ReaderWriter.h" 
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 

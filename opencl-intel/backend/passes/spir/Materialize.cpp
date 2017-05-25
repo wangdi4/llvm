@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <NameMangleAPI.h>
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"

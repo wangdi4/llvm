@@ -52,7 +52,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
