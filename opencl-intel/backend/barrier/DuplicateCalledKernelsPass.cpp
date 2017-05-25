@@ -52,7 +52,7 @@ namespace intel {
       changed = true;
 
       ValueToValueMapTy vMap;
-      Function* pNewFunc = CloneFunction(pFunc, vMap, true /* w\ debug metadata */);
+      Function* pNewFunc = CloneFunction(pFunc, vMap, nullptr);
       pNewFunc->setName("__internal." + (*fi)->getName());
       M.getFunctionList().push_back(pNewFunc);
 
