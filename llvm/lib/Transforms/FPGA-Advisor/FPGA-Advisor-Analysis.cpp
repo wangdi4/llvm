@@ -3122,8 +3122,9 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           auto search = resourceTable.find(BB);
           std::vector<unsigned> &resourceVector = search->second;                
           int count = resourceVector.size();
-          //std::cerr << "For job " << BB->getName().str() << "count is " << count << std::endl;               
-          if(((count > 1) || ParallelizeOneZero) && (UseThreads > 1)) {
+          //std::cerr << "For job " << BB->getName().str() << "count is " << count << std::endl;  
+		  //check for at least one thread, so the single-threaded version does not break. 
+          if(((count > 1) || ParallelizeOneZero) && (UseThreads > 0)) {
             // farm out a parallel job.    
             //std::cerr << "Issuing parallel job for " << BB->getName().str() << std::endl;               
             // Obtain structure pointers outside of the lambda scope so that pass-by-value 
