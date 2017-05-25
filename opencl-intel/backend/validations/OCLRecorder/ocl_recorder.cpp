@@ -40,7 +40,7 @@ File Name:  ocl_recorder.cpp
 #include "llvm/IR/DataLayout.h"
 
 #include <assert.h>
-
+#include <atomic>
 #include <memory>
 #include <sstream>
 
@@ -56,7 +56,7 @@ namespace Validation
     const char* DATAFILE_SUFFIX = "dat";
     const char* REFERENCE_SUFFIX = "ref";
     const char* NEAT_SUFFIX = "neat";
-    llvm::sys::cas_flag RecorderContext::s_counter = 0;
+    std::atomic<unsigned> RecorderContext::s_counter(0);
 
     namespace Utils
     {
@@ -324,7 +324,8 @@ namespace Validation
     {
         // create the unique path for current context
         std::ostringstream filename;
-        int index = (int)llvm::sys::AtomicIncrement(&s_counter);
+        s_counter++;
+        int index = s_counter.load(std::memory_order_relaxed);
 
         if( index > 1 )
         {

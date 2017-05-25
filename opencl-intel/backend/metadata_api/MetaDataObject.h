@@ -51,7 +51,7 @@ struct IMetaDataObject
 
     void addRef()
     {
-        m_refCount.fetch_add(1, std::memory_order_relaxed);
+        m_refCount++;
     }
 
     void releaseRef()
