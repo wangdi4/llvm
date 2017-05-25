@@ -84,13 +84,13 @@ namespace intel {
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
         case reflection::PRIMITIVE_HALF:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf, true));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf(), true));
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle, true));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle(), true));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble, true));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble(), true));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -112,13 +112,13 @@ namespace intel {
           pInitVal = ConstantInt::get(pInt64Type, CL_ULONG_MAX);
           break;
         case reflection::PRIMITIVE_HALF:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf, false));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEhalf(), false));
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle, false));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEsingle(), false));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble, false));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getInf(APFloat::IEEEdouble(), false));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
@@ -136,13 +136,13 @@ namespace intel {
           pInitVal = ConstantInt::get(pInt64Type, 0);
           break;
         case reflection::PRIMITIVE_HALF:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEhalf));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEhalf()));
           break;
         case reflection::PRIMITIVE_FLOAT:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEsingle));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEsingle()));
           break;
         case reflection::PRIMITIVE_DOUBLE:
-          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEdouble));
+          pInitVal = ConstantFP::get(*m_pLLVMContext, APFloat::getZero(APFloat::IEEEdouble()));
           break;
         default:
           assert(0 && "Unsupported WG argument type");
