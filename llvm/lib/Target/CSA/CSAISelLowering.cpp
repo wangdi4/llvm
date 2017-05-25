@@ -269,18 +269,18 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
     setOperationAction(ISD::FEXP,  MVT::f64, Legal);
     setOperationAction(ISD::FEXP2, MVT::f32, Legal);
     setOperationAction(ISD::FEXP2, MVT::f64, Legal);
-    //setOperationAction(ISD::FCEIL, MVT::f32, Legal);
-    //setOperationAction(ISD::FCEIL, MVT::f64, Legal);
-    //setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
-    //setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
+    setOperationAction(ISD::FCEIL, MVT::f32, Legal);
+    setOperationAction(ISD::FCEIL, MVT::f64, Legal);
+    setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
+    setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
     //setOperationAction(ISD::FRINT, MVT::f32, Legal);
     //setOperationAction(ISD::FRINT, MVT::f64, Legal);
     //setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
     //setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
-    //setOperationAction(ISD::FROUND,MVT::f32, Legal);
-    //setOperationAction(ISD::FROUND,MVT::f64, Legal);
-    //setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
-    //setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
+    setOperationAction(ISD::FROUND,MVT::f32, Legal);
+    setOperationAction(ISD::FROUND,MVT::f64, Legal);
+    setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
+    setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
     //setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
     //setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
     //setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
@@ -346,12 +346,19 @@ SDValue CSATargetLowering::LowerGlobalAddress(SDValue Op,
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
-  // Create the TargetGlobalAddress node, folding in the constant offset.
+  // Create the TargetGlobalAddress node
+  // DO NOT fold in the constant offset for now
   SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
                                               getPointerTy(DAG.getDataLayout()),
-                                              Offset);
-  return DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
+                                              0);
+  Result = DAG.getNode(CSAISD::Wrapper, SDLoc(Op),
                      getPointerTy(DAG.getDataLayout()), Result);
+  if (Offset) {
+      SDValue Remaining = DAG.getConstant(Offset, SDLoc(Op), MVT::i64);
+      Result = DAG.getNode(ISD::ADD, SDLoc(Op), MVT::i64, Result, Remaining);
+  }
+
+  return Result;
 }
 
 SDValue CSATargetLowering::LowerExternalSymbol(SDValue Op,
