@@ -176,7 +176,8 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
     // Input parameters validation
     if(NULL == pIR || 0 == stIRsize)
     {
-        throw Exception::TestReferenceRunnerException("Program container is invalid.");
+        throw Exception::TestReferenceRunnerException(
+                         "Program container is invalid.");
     }
 
     //////////////////////////////////////////////////////////////////////
@@ -184,18 +185,20 @@ llvm::Module* OpenCLProgram::ParseToModule(void) const{
 
     // Create Memory buffer to store IR data
     llvm::StringRef bitCodeStr(pIR, stIRsize);
-    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer = llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
+    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer =
+                       llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
     if (nullptr == pMemBuffer)
     {
-        throw Exception::TestReferenceRunnerException("Can't create LLVM memory buffer from\
-                                           program bytecode.");
+        throw Exception::TestReferenceRunnerException(
+          "Can't create LLVM memory buffer from program bytecode.");
     }
 
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr = parseBitcodeFile(pMemBuffer->getMemBufferRef(), *C);
+    auto pModuleOrErr = expectedToErrorOrAndEmitErrors(*C,
+                        parseBitcodeFile(pMemBuffer->getMemBufferRef(), *C));
     if (!pModuleOrErr)
     {
-        throw Exception::TestReferenceRunnerException("Unable to parse bytecode into\
-                                           LLVM module");
+        throw Exception::TestReferenceRunnerException(
+          "Unable to parse bytecode into LLVM module");
     }
     DEBUG(llvm::dbgs() << "Module LLVM error: " << pModuleOrErr.getError().value() << "\n"
                        << "            message: " << pModuleOrErr.getError().message() << "\n");
