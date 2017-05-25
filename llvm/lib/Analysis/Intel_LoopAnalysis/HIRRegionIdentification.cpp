@@ -127,7 +127,7 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
       }
       Ty = SeqTy->getElementType();
     } else {
-      Ty = Ty->getPointerElementType(); 
+      Ty = Ty->getPointerElementType();
     }
   }
 
@@ -152,7 +152,8 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
 bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
   SmallVector<Value *, 8> Operands;
 
-  auto BaseTy = cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
+  auto BaseTy =
+      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
 
   if (!isSupported(BaseTy)) {
     return true;
@@ -767,6 +768,12 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // Check whether the loop contains irreducible CFG before calling
+  // findIVDefInHeader() otherwise it may loop infinitely.
+  if (!areBBlocksGenerable(Lp)) {
+    return false;
+  }
+
   auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
   if (!IVNode) {
@@ -782,10 +789,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     // %i.08.i = phi i1 [ true, %entry ], [ false, %for.i ]
     // br i1 %i.08.i, label %for.i, label %exit
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: i1 type IV currently not handled.\n");
-    return false;
-  }
-
-  if (!areBBlocksGenerable(Lp)) {
     return false;
   }
 
