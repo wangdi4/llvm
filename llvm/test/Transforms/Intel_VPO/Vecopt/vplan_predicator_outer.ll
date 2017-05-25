@@ -202,7 +202,7 @@ attributes #2 = { nounwind }
 ; OPT:   [[BB_15:BB[0-9]+]]:
 ; OPT:     [[BP_32:BP[0-9]+]] = [[BP_31]]
 ; OPT:   [[BB_8:BB[0-9]+]]:
-; OPT:     [[BP_33:BP[0-9]+]] = [[BP_30]]
+; OPT:     [[BP_33:BP[0-9]+]] = [[BP_32]]
 
 ; OPT: [[region_18:region[0-9]+]]:
 ; OPT:   [[BB_14:BB[0-9]+]]:

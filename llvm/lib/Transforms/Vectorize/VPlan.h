@@ -33,6 +33,8 @@
 #ifdef INTEL_CUSTOMIZATION
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/IR/Dominators.h"
+#include "VPlan/VPDominatorTree.h"
 #else
 #include "llvm/Support/raw_ostream.h"
 #endif
@@ -50,6 +52,7 @@ namespace llvm {
 class VPBasicBlock;
 class VPBlockBase;
 #ifdef INTEL_CUSTOMIZATION
+
 class VPOCodeGen;
 class VPOVectorizationLegality;
 // Class names mapping to minimize the diff:
@@ -1086,6 +1089,13 @@ private:
   void recomputeSize();
 #endif
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Dominator Tree for the region
+  VPDominatorTree *RegionDT;
+  /// Post-Dominator Tree for the region
+  VPDominatorTree *RegionPDT;
+#endif
+
 public:
   /// An enumeration for keeping track of the concrete subclass of VPRegionBlock
   /// that is actually instantiated. Values of this enumeration are kept in the
@@ -1094,7 +1104,7 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   VPRegionBlock(const unsigned char SC, const std::string &Name)
       : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-        IsReplicator(false) {}
+      IsReplicator(false), RegionDT(nullptr), RegionPDT(nullptr) {}
 #else
   VPRegionBlock(const std::string &Name)
       : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
@@ -1104,6 +1114,12 @@ public:
   ~VPRegionBlock() {
     if (Entry)
       deleteCFG(Entry);
+#ifdef INTEL_CUSTOMIZATION
+    if (RegionDT)
+      delete RegionDT;
+    if (RegionPDT)
+      delete RegionPDT;
+#endif
   }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
@@ -1138,6 +1154,26 @@ public:
   bool isReplicator() const { return IsReplicator; }
 
   void setReplicator(bool ToReplicate) { IsReplicator = ToReplicate; }
+
+#ifdef INTEL_CUSTOMIZATION
+  /// Getter for Dominator Tree
+  VPDominatorTree *getDT(void) { return RegionDT; }
+  /// Getter for Post-Dominator Tree
+  VPDominatorTree *getPDT(void) { return RegionPDT; }
+
+  /// Compute the Dominator Tree for this region
+  void computeDT(void) {
+    assert(!RegionDT && "Null expected");
+    RegionDT = new VPDominatorTree(false /* Dom */);
+    RegionDT->recalculate(*this);
+  }
+  /// Compute the Post-Dominator Tree for this region
+  void computePDT(void) {
+    assert(!RegionPDT && "Null expected");
+    RegionPDT = new VPDominatorTree(true /* Post Dom */);
+    RegionPDT->recalculate(*this);
+  }
+#endif
 
   /// The method which generates the new IR instructions that correspond to
   /// this VPRegionBlock in the vectorized version, thereby "executing" the

@@ -398,30 +398,57 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
 // block, stating from Region's Entry. This propagation will replace operations
 // that join multiple predicates in IPostDom block (e.g., BP5 = BP3 || BP4) by
 // just the predicate in IDom block (e.g., BP5 = BP2)
-// TODO: So far, we are optimizing only Region's Exit. Introduce Dom/PostDomTree
-// in Region and implement the right optimization.
 static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region,
                                            IntelVPlanUtils &PlanUtils) {
+  Region->computeDT();
+  Region->computePDT();
 
-  // Propagate Entry's predicate to Exit.
-  assert(isa<VPBasicBlock>(Region->getEntry()) &&
-         "Region Entry must be a VPBasicBlock");
-  assert(isa<VPBasicBlock>(Region->getExit()) &&
-         "Region Exit must be a VPBasicBlock");
+  // Go over the nodes of the Domination Tree.
+  // For each node get the (children) nodes that it dominates.
+  // If the child node post-dominates the original node, then we propagate
+  // the predicate from the node to the childe node.
+  
+  // We iterate through the DomTree and check against all children.
+  VPDominatorTree *RegionDT = Region->getDT();
+  VPDominatorTree *RegionPDT = Region->getPDT();
+  // Walk down the nodes of the dominator graph
+  for (auto DTNode :
+       make_range(df_iterator<VPDomTreeNode *>::begin(RegionDT->getRootNode()),
+                  df_iterator<VPDomTreeNode *>::end(RegionDT->getRootNode()))) {
+      VPBlockBase *BB = DTNode->getBlock();
+      VPPredicateRecipeBase *BBPred = BB->getPredicateRecipe();
+      // For all children nodes that are dominated by DTNode
+      for (auto ChildDTNode : DTNode->getChildren()) {
+          VPBlockBase *ChildBB = ChildDTNode->getBlock();
+          auto ChildPDTNode = RegionPDT->getNode(ChildBB);
+          auto PDTNode = RegionPDT->getNode(BB);
+          // If the child node imm post-dominates the node
+          if (PDTNode->getIDom() == ChildPDTNode) {
+              VPPredicateRecipeBase *ChildBBPredBase =
+                  ChildBB->getPredicateRecipe();
+              // Skip if both parent and child is all-ones
+              if (!ChildBBPredBase && !BBPred)
+                continue;
+              // Check if only child is all-ones
+              assert((!BBPred || ChildBBPredBase) &&
+                     "Propagating non all-ones to all-ones!");
 
-  if (VPPredicateRecipeBase *ExitPred =
-          Region->getExit()->getPredicateRecipe()) {
-    VPPredicateRecipeBase *EntryPred = Region->getEntry()->getPredicateRecipe();
-    assert(EntryPred &&
-           "Region with no Entry predicate but with Exit predicate?");
-
-    assert(isa<VPBlockPredicateRecipe>(ExitPred) &&
-           "Expected VPBlockPredicateRecipe");
-    VPBlockPredicateRecipe *ExitBlockPred =
-        cast<VPBlockPredicateRecipe>(ExitPred);
-
-    PlanUtils.clearIncomingsFromBlockPred(ExitBlockPred);
-    PlanUtils.appendIncomingToBlockPred(ExitBlockPred, EntryPred);
+              assert(isa<VPBlockPredicateRecipe>(ChildBBPredBase) &&
+                     "Expected VPBlockPredicateRecipe");
+              VPBlockPredicateRecipe *ChildBBPred =
+                  cast<VPBlockPredicateRecipe>(ChildBBPredBase);
+              // Regions need special treatment. The reason is that their BP
+              // is the actual BP of a predecessor block. Therefore editing
+              // the region's BP (e.g., by appendIncoming()) will cause the
+              // remote BP to change, which is not valid.
+              if (isa<VPRegionBlock>(ChildBB)) {
+                ChildBB->setPredicateRecipe(BBPred);
+              } else {
+                PlanUtils.clearIncomingsFromBlockPred(ChildBBPred);
+                PlanUtils.appendIncomingToBlockPred(ChildBBPred, BBPred);
+              }
+          }
+      }
   }
 }
 // It propagates all-ones predicates within Region (and its sub-regions) and

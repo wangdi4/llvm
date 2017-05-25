@@ -6,9 +6,9 @@
 #include "VPLoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
+#include "VPDominatorTree.h"
 
 namespace llvm {
-
 class VPDominatorTree;
 
 namespace vpo {
@@ -689,28 +689,6 @@ public:
 };
 
 } // End VPO Vectorizer Namespace 
-
-// TODO: We may need this in VPlan.h/cpp eventually
-typedef DomTreeNodeBase<VPBlockBase> VPDomTreeNode;
-
-template <>
-struct GraphTraits<VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<VPDomTreeNode, VPDomTreeNode::iterator> {};
-
-template <>
-struct GraphTraits<const VPDomTreeNode *>
-    : public DomTreeGraphTraitsBase<const VPDomTreeNode,
-                                    VPDomTreeNode::const_iterator> {};
-
-/// \brief Template specialization of the standard LLVM dominator tree utility
-/// for VPBlocks.
-class VPDominatorTree : public DominatorTreeBase<VPBlockBase> {
-
-public:
-  VPDominatorTree(bool isPostDom) : DominatorTreeBase<VPBlockBase>(isPostDom) {}
-
-  virtual ~VPDominatorTree() {}
-};
 
 // From HIR POC
    
