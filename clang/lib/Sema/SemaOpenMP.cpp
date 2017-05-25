@@ -9634,6 +9634,11 @@ OMPClause *Sema::ActOnOpenMPReductionClause(
       Type = Type.getNonReferenceType();
     } else
       Type = Context.getBaseElementType(D->getType().getNonReferenceType());
+#if INTEL_CUSTOMIZATION
+    if ((getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion) &&
+        Type->isVectorType())
+      Type = Type->getAs<VectorType>()->getElementType();
+#endif  // INTEL_CUSTOMIZATION
     auto *VD = dyn_cast<VarDecl>(D);
 
     // OpenMP [2.9.3.3, Restrictions, C/C++, p.3]
