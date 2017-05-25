@@ -23,6 +23,7 @@ File Name:  SmartGVN.cpp
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DataLayout.h>
 #include <llvm/IR/Dominators.h>
@@ -69,8 +70,8 @@ bool SmartGVN::runOnModule(Module &M)
     legacy::PassManager pm;
     pm.add(llvm::createBasicAAWrapperPass());
     pm.add(new llvm::DominatorTreeWrapperPass());
-    pm.add(new llvm::MemoryDependenceAnalysis());
-    pm.add(llvm::createGVNPass(GVNNoLoads));
+    pm.add(new llvm::MemoryDependenceWrapperPass());
+    pm.add(createGVNPass(GVNNoLoads));
     pm.run(M);
   }
 
