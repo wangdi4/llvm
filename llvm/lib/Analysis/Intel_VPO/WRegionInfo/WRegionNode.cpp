@@ -135,7 +135,7 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
           }
       resetBBSet();
     }
-#endif VPO_FOR_OPENCL
+#endif //VPO_FOR_OPENCL
   }
 }
 
