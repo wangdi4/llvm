@@ -701,6 +701,14 @@ namespace CGIntelOpenMP {
             Op = "QUAL.OMP.REDUCTION.MAX";
           else if (II->isStr("min"))
             Op = "QUAL.OMP.REDUCTION.MIN";
+          QualType ElemType = E->getType();
+          if (ElemType->isArrayType())
+            ElemType = CGF.CGM.getContext().getBaseElementType(ElemType)
+                .getNonReferenceType();
+          if (ElemType->isVectorType())
+            ElemType = ElemType->getAs<VectorType>()->getElementType();
+          if (ElemType->isUnsignedIntegerType())
+            Op += ":UNSIGNED";
         }
         break;
       }

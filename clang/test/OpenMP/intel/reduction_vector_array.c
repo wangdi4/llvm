@@ -22,3 +22,43 @@ void foo()
   #pragma omp parallel reduction(-:distances_local_even)
   for(i=0;i<10;++i) {}
 }
+// CHECK-LABEL: foo1
+void foo1()
+{
+  int i;
+  DistSIMDType arr_of_vec[46];
+  DistSIMDType vec;
+  ushort arr[6];
+  ushort elem;
+  signed short selem;
+  // CHECK: REDUCTION.MIN:UNSIGNED{{.*}}arr_of_vec
+  #pragma omp parallel reduction(min:arr_of_vec)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MIN:UNSIGNED{{.*}}vec
+  #pragma omp parallel reduction(min:vec)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MIN:UNSIGNED{{.*}}arr
+  #pragma omp parallel reduction(min:arr)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MIN:UNSIGNED{{.*}}elem
+  #pragma omp parallel reduction(min:elem)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MAX:UNSIGNED{{.*}}arr_of_vec
+  #pragma omp parallel reduction(max:arr_of_vec)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MAX:UNSIGNED{{.*}}vec
+  #pragma omp parallel reduction(max:vec)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MAX:UNSIGNED{{.*}}arr
+  #pragma omp parallel reduction(max:arr)
+  for(i=0;i<10;++i) {}
+  // CHECK: REDUCTION.MAX:UNSIGNED{{.*}}elem
+  #pragma omp parallel reduction(max:elem)
+  for(i=0;i<10;++i) {}
+  // CHECK-NOT: REDUCTION.MIN:UNSIGNED{{.*}}selem
+  #pragma omp parallel reduction(min:selem)
+  for(i=0;i<10;++i) {}
+  // CHECK-NOT: REDUCTION.MAX:UNSIGNED{{.*}}selem
+  #pragma omp parallel reduction(max:selem)
+  for(i=0;i<10;++i) {}
+}
