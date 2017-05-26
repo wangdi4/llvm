@@ -1298,7 +1298,14 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
           // this for-loop. AllocaInsertPt may be a clause directive that is
           // removed by genPrivatizationReplacement(), so we need to recompute
           // AllocaInsertPt at every iteration of this for-loop.
-          Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
+
+          // For now, back out this change to AllocaInsertPt until we figure
+          // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
+          // when running run_gf_channels (gridfusion4.3_tuned_channels).
+          //
+          //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
+          Instruction *AllocaInsertPt = &EntryBB->front();
+
           NewPrivInst =
               genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
         } else
