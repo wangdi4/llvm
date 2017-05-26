@@ -142,20 +142,20 @@ std::vector<Attribute> getVectorVariantAttributes(Function& F);
 /// specified according to the vector function ABI.
 Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 
-/// @brief Get all functions marked for vectorization in module.
-/// @param M Module to query
-/// @param funcVars Data structure to hold the declared vector variants
-/// (in string form) for each function.
-void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
+/// \brief Get all functions marked for vectorization in module and their
+/// list of variants.
+void getFunctionsToVectorize(
+  Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars);
 
 /// \brief Widens the function \p F using a vector length of \p VL and
 /// inserts the appropriate function declaration if not already created.
-/// This function will insert functions for both library calls and
-/// intrinsics.
+/// This function will insert functions for library calls, intrinsics,
+/// and simd functions.
 Function* getOrInsertVectorFunction(Function *F, unsigned VL,
                                     SmallVectorImpl<Type*> &ArgTys,
                                     TargetLibraryInfo *TLI,
                                     Intrinsic::ID ID,
+                                    VectorVariant *VecVariant,
                                     bool Masked);
 #endif // INTEL_CUSTOMIZATION
     

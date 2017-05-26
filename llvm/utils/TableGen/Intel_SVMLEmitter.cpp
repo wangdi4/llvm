@@ -1,5 +1,5 @@
 //
-//      Copyright (c) 2016 Intel Corporation.
+//      Copyright (c) 2016-2017 Intel Corporation.
 //      All rights reserved.
 //
 //        INTEL CORPORATION PROPRIETARY INFORMATION
@@ -24,12 +24,11 @@
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/TableGen/TableGenBackend.h"
-#include <set>
+#include <vector>
 
 using namespace llvm;
 
 #define DEBUG_TYPE "SVMLVariants"
-#include "llvm/Support/Debug.h"
 
 namespace {
 
@@ -43,7 +42,6 @@ private:
 public:
   SVMLVariantsEmitter(RecordKeeper &R) : Records(R) {}
 
-  // Output the directives and clauses to an enum and enum to string map.
   void run(raw_ostream &OS);
 };
 } // End anonymous namespace

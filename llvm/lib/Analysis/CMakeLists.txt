@@ -99,6 +99,7 @@ add_llvm_library(LLVMAnalysis
   intrinsics_gen
   intel_directives_gen    #INTEL
   intel_svml_gen          #INTEL
+  intel_libmvec_gen       #INTEL
   )
 
 add_subdirectory(Intel_LoopAnalysis)  #INTEL

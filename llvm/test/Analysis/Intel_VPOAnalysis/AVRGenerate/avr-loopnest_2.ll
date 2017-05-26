@@ -10,8 +10,7 @@
 ;CHECK: simd.begin.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
-;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
-;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
+;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK-NEXT: LOOP
@@ -28,7 +27,7 @@
 
 ;CHECK: simd.loop.exit:
 ;CHECK-NEXT: %indvar =  %index add 1
-;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop
 
 ;CHECK: simd.end.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
@@ -57,7 +56,7 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind uwtable "_ZGVbM4vv_" "_ZGVbN4vv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4vv_,_ZGVbN4vv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !cilk.functions = !{!0}
 !llvm.ident = !{!6}

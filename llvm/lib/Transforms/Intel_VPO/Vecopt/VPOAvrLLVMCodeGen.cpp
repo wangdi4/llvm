@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -814,6 +814,7 @@ void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   Function *VectorF = getOrInsertVectorFunction(CalledFunc, VL, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
+                                                nullptr/*simd function*/,
                                                 false/*non-masked*/);
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);

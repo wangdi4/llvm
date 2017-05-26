@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -134,6 +134,17 @@ private:
 };
 
 class VectorVariant {
+
+public:
+  // ISA classes defined in the vector function ABI.
+  enum ISAClass {
+    XMM,  // (SSE2)
+    YMM1, // (AVX1)
+    YMM2, // (AVX2)
+    ZMM,  // (MIC)
+    ISA_CLASSES_NUM
+  };
+
 private:
   // Targets defined in the vector function ABI.
   enum TargetProcessor {
@@ -148,15 +159,6 @@ private:
     MIC,               // ISA extension = Xeon Phi, ISA class = MIC(ZMM)
     FUTURE_CPU_22,     // ISA extension = AVX512,   ISA class = ZMM
     FUTURE_CPU_23,     // ISA extension = AVX512,   ISA class = ZMM
-  };
-
-  // ISA classes defined in the vector function ABI.
-  enum ISAClass {
-    XMM,  // (SSE2)
-    YMM1, // (AVX1)
-    YMM2, // (AVX2)
-    ZMM,  // (MIC)
-    ISA_CLASSES_NUM
   };
 
   ISAClass Isa;
@@ -283,9 +285,24 @@ public:
     }
   }
 
+  /// \brief Get the maximum vector register width for the ISA class.
+  static unsigned ISAClassMaxRegisterWidth(ISAClass IsaClass) {
+    switch (IsaClass) {
+      case XMM:
+        return 128; 
+      case YMM1:
+      case YMM2:
+        return 256;
+      case ZMM:
+        return 512;
+      default:
+        llvm_unreachable("unsupported ISA class");
+    }
+  }
+
   /// \brief Get an ISA class string based on ISA class enum.
-  static std::string ISAClassToString(ISAClass isa_class) {
-    switch (isa_class) {
+  static std::string ISAClassToString(ISAClass IsaClass) {
+    switch (IsaClass) {
     case XMM:
       return "XMM";
     case YMM1:
@@ -301,14 +318,14 @@ public:
   }
 
   /// \brief Get an ISA class enum based on ISA class string.
-  static ISAClass ISAClassFromString(std::string isa_class) {
-    if (isa_class == "XMM")
+  static ISAClass ISAClassFromString(std::string IsaClass) {
+    if (IsaClass == "XMM")
       return XMM;
-    if (isa_class == "YMM1")
+    if (IsaClass == "YMM1")
       return YMM1;
-    if (isa_class == "YMM2")
+    if (IsaClass == "YMM2")
       return YMM2;
-    if (isa_class == "ZMM")
+    if (IsaClass == "ZMM")
       return ZMM;
     assert(false && "unsupported ISA class");
     return ISA_CLASSES_NUM;

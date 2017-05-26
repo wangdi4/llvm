@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -18,17 +18,17 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/MapVector.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
 namespace llvm { // LLVM Namespace
-
-class TargetTransformInfo;
 
 class VPOVectorizationLegality {
 public:
@@ -228,6 +228,15 @@ public:
 
   /// Get a condition mask between block \p From and block \p To.
   Value *getEdgeMask(BasicBlock *From, BasicBlock *To);
+
+  /// Find the best simd function variant. 
+  VectorVariant* matchVectorVariant(Function *CalledFunc, bool Masked);
+
+  /// Vectorize call arguments, or for simd functions scalarize if the arg
+  /// is linear or uniform.
+  void vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
+                         SmallVectorImpl<Value*> &VecArgs,
+                         SmallVectorImpl<Type*> &VecArgTys);
   
   /// Add an in memory private to the vector of private values.
   void addLoopPrivate(Value *PrivVal, bool IsLastP = false,

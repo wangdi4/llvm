@@ -4,7 +4,7 @@
 
 ; Begin non-masked variant checking
 
-; CHECK-LABEL: define x86_regcallcc <4 x i32> @_ZGVbM4vv_vec_sum(<4 x i32> %i, <4 x i32> %j, <4 x i32> %mask)
+; CHECK-LABEL: <4 x i32> @_ZGVbM4vv_vec_sum(<4 x i32> %i, <4 x i32> %j, <4 x i32> %mask)
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %vec.i = alloca <4 x i32>
 ; CHECK-NEXT: %vec.j = alloca <4 x i32>
@@ -23,7 +23,6 @@
 ; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: call void @llvm.intel.directive.qual.opnd
 ; CHECK-SAME: i32 4
-; CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
 ; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: br label %simd.loop
 
@@ -79,5 +78,5 @@ entry:
   ret i32 %add
 }
 
-attributes #0 = { nounwind uwtable "_ZGVbM4vv_" "_ZGVbN4vv_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4vv_,_ZGVbN4vv_" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }

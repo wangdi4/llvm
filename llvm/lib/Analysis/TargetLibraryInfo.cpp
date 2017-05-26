@@ -24,7 +24,9 @@ static cl::opt<TargetLibraryInfoImpl::VectorLibrary> ClVectorLibrary(
                clEnumValN(TargetLibraryInfoImpl::Accelerate, "Accelerate",
                           "Accelerate framework"),
                clEnumValN(TargetLibraryInfoImpl::SVML, "SVML",
-                          "Intel SVML library")));
+                          "Intel SVML library"),
+               clEnumValN(TargetLibraryInfoImpl::Libmvec, "Libmvec",
+                          "Glibc vector math library")));
 
 StringRef const TargetLibraryInfoImpl::StandardNames[LibFunc::NumLibFuncs] = {
 #define TLI_DEFINE_STRING
@@ -1084,6 +1086,17 @@ void TargetLibraryInfoImpl::addVectorizableFunctionsFromVecLib(
 #define GET_SVML_VARIANTS
 #include "llvm/IR/Intel_SVML.gen"
 #undef GET_SVML_VARIANTS
+#endif // INTEL_CUSTOMIZATION
+    };
+    addVectorizableFunctions(VecFuncs);
+    break;
+  }
+  case Libmvec: {
+    const VecDesc VecFuncs[] = {
+#if INTEL_CUSTOMIZATION
+#define GET_LIBMVEC_VARIANTS
+#include "llvm/IR/Intel_Libmvec.gen"
+#undef GET_LIBMVEC_VARIANTS
 #endif // INTEL_CUSTOMIZATION
     };
     addVectorizableFunctions(VecFuncs);

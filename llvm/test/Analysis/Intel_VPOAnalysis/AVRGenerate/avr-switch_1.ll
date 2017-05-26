@@ -10,8 +10,7 @@
 ;CHECK: simd.begin.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
-;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
-;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
+;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK-NEXT: LOOP( IV )
@@ -28,21 +27,21 @@
 ;CHECK: sw.bb:
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %ret.cast.gep{{[0-9]*}} = store %add
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 ;CHECK: break;
 
 ;CHECK: case 2:
 ;CHECK: sw.bb.1:
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %ret.cast.gep{{[0-9]*}} = store %sub
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 ;CHECK: break;
 
 ;CHECK: case 3:
 ;CHECK: sw.bb.2:
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %ret.cast.gep{{[0-9]*}} = store %sub4
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 ;CHECK: break;
 
 ;CHECK: case 4:
@@ -50,32 +49,32 @@
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %8 = load %vec.a.cast.gep{{[0-9]*}}
 ;CHECK: %ret.cast.gep{{[0-9]*}} = store %add7
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 ;CHECK: break;
 
 ;CHECK: case 5:
 ;CHECK: sw.bb.8:
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %ret.cast.gep{{[0-9]*}} = store %sub9
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 ;CHECK: break;
 
 ;CHECK: default:
 ;CHECK: sw.default:
 ;CHECK: %vec.a.cast.gep{{[0-9]*}} = %vec.a.cast getelementptr %index
 ;CHECK: %ret.cast.gep{{[0-9]+}} = store %mul
-;CHECK: br label %simd.loop.exit
+;CHECK: br label %return
 
 ;CHECK: simd.loop.else:
 ;CHECK: br label %simd.loop.exit
 
 ;CHECK: simd.loop.exit:
 ;CHECK: %indvar = %index add 1
-;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop
 
 ;CHECK: simd.end.region:
-;CHECK: call void @llvm.intel.directive(metadata !13)
-;CHECK: call void @llvm.intel.directive(metadata !10)
+;CHECK: call void @llvm.intel.directive
+;CHECK: call void @llvm.intel.directive
 
 ;CHECK: br label %return
 
@@ -160,7 +159,7 @@ return:                                           ; preds = %sw.default, %sw.bb.
   ret i32 %15
 }
 
-attributes #0 = { nounwind uwtable "_ZGVbM4vvvv_" "_ZGVbN4vvvv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4vvvv_,_ZGVbN4vvvv_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !cilk.functions = !{!0}
 !llvm.ident = !{!6}

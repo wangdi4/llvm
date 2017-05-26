@@ -1,6 +1,6 @@
 //===-- VPOAvrHIRCodeGen.cpp ----------------------------------------------===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation and may not be disclosed, examined
@@ -994,6 +994,7 @@ void AVRCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     Function *VectorF =
       getOrInsertVectorFunction(F, VL, ArgTys, TLI,
                                 Intrinsic::not_intrinsic,
+                                nullptr/*simd function*/,
                                 false/*non-masked*/);
     assert(VectorF && "Can't create vector function.");
 
@@ -1619,7 +1620,7 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
     }
 
     Function *VectorF = getOrInsertVectorFunction(Fn, VL, ArgTys, TLI, ID,
-                                                  Masked);
+                                                  nullptr, Masked);
     assert(VectorF && "Can't create vector function.");
 
     WideInst = Node->getHLNodeUtils().createCall(

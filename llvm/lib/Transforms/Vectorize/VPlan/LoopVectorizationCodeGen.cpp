@@ -1520,22 +1520,127 @@ void VPOCodeGen::vectorizePHIInstruction(Instruction *Inst) {
   }
 }
 
+VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
+                                              bool Masked) {
+
+  DEBUG(dbgs() << "\nCall VF: " << VF << "\n");
+  unsigned TargetMaxRegWidth = TTI->getRegisterBitWidth(true);
+  DEBUG(dbgs() << "Target Max Register Width: " << TargetMaxRegWidth << "\n");
+
+  VectorVariant::ISAClass TargetIsaClass;
+  switch (TargetMaxRegWidth) {
+    case 128:
+      TargetIsaClass = VectorVariant::ISAClass::XMM;
+      break;
+    case 256:
+      // Important Note: there is no way to inspect CPU or FeatureBitset from
+      // the LLVM compiler middle end (i.e., lib/Analysis, lib/Transforms). This
+      // can only be done from the front-end or from lib/Target. Thus, we select
+      // avx2 by default for 256-bit vector register targets. Plus, I don't
+      // think we currently have anything baked in to TTI to differentiate avx
+      // vs. avx2. Namely, whether or not for 256-bit register targets there is
+      // 256-bit integer support.
+      TargetIsaClass = VectorVariant::ISAClass::YMM2;
+      break;
+    case 512:
+      TargetIsaClass = VectorVariant::ISAClass::ZMM;
+      break;
+    default:
+      llvm_unreachable("Invalid target vector register width");
+  }
+  DEBUG(dbgs() << "Target ISA Class: "
+               << VectorVariant::ISAClassToString(TargetIsaClass) << "\n\n");
+
+  if (CalledFunc->hasFnAttribute("vector-variants")) {
+    Attribute Attr = CalledFunc->getFnAttribute("vector-variants");
+    StringRef VariantsStr = Attr.getValueAsString();
+    SmallVector<StringRef, 4> Variants;
+    VariantsStr.split(Variants, ",");
+    VectorVariant::ISAClass SelectedIsaClass = VectorVariant::ISAClass::XMM;
+    int VariantIdx = -1;
+    for (unsigned i = 0; i < Variants.size(); i++) {
+      VectorVariant *Variant = new VectorVariant(Variants[i]);
+      VectorVariant::ISAClass VariantIsaClass = Variant->getISA();
+      DEBUG(dbgs() << "Variant ISA Class: "
+                   << VectorVariant::ISAClassToString(VariantIsaClass) << "\n");
+      unsigned IsaClassMaxRegWidth =
+        VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
+      DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
+                   << IsaClassMaxRegWidth << "\n");
+      unsigned FuncVF = Variant->getVlen();
+      DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
+
+      // Select the largest supported ISA Class for this target.
+      if (FuncVF == VF && VariantIsaClass <= TargetIsaClass &&
+        Variant->isMasked() == Masked && VariantIsaClass >= SelectedIsaClass) {
+        DEBUG(dbgs() << "Candidate Function: " << Variant->encode() << "\n");
+        SelectedIsaClass = VariantIsaClass;
+        VariantIdx = i;
+      }
+      delete Variant;
+    }
+
+    assert(VariantIdx >= 0 && "Invalid vector variant index");
+    VectorVariant *SelectedVariant = new VectorVariant(Variants[VariantIdx]);
+    return SelectedVariant;
+  }
+
+  llvm_unreachable("Function has vector variants but could not find a match");
+}
+
+void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
+                                   SmallVectorImpl<Value*> &VecArgs,
+                                   SmallVectorImpl<Type*> &VecArgTys) {
+
+  std::vector<VectorKind> Parms;
+  if (VecVariant) {
+    Parms = VecVariant->getParameters();
+  }
+
+  for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
+    if ((VecVariant && Parms[i].isVector()) || !VecVariant) {
+      // This is a vector call arg, so vectorize it.
+      Value *Arg = Call->getArgOperand(i);
+      Value *VecArg = getVectorValue(Arg);
+      VecArgs.push_back(VecArg);
+      VecArgTys.push_back(VecArg->getType());
+    } else {
+      // Linear and uniform parameters must be passed as scalars according to
+      // the vector function abi. CodeGen currently vectorizes all instructions,
+      // so the scalar arguments for the vector function must be extracted from
+      // them. For both linear and uniform args, extract from lane 0. Linear
+      // args can use the value at lane 0 because this will be the starting
+      // value for which the stride will be added.
+      Value *Arg = Call->getArgOperand(i);
+      Value *ScalarArg = getScalarValue(Arg, 0);
+      VecArgs.push_back(ScalarArg);
+      VecArgTys.push_back(ScalarArg->getType());
+    }
+  }
+}
+
 void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   SmallVector<Value *, 2> VecArgs;
   SmallVector<Type *, 2> VecArgTys;
   Function *CalledFunc = Call->getCalledFunction();
 
-  for (Value *Arg : Call->arg_operands()) {
-    // TODO: some args may be scalar
-    Value *VecArg = getVectorValue(Arg);
-    VecArgs.push_back(VecArg);
-    VecArgTys.push_back(VecArg->getType());
+  // Don't attempt vector function matching for SVML.
+  VectorVariant *MatchedVariant = nullptr;
+  if (!TLI->isFunctionVectorizable(CalledFunc->getName())) {
+    MatchedVariant = matchVectorVariant(CalledFunc, false);
+    DEBUG(dbgs() << "Matched Variant: " << MatchedVariant->encode() << "\n");
   }
+
+  vectorizeCallArgs(Call, MatchedVariant, VecArgs, VecArgTys);
 
   Function *VectorF = getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
+                                                MatchedVariant,
                                                 false/*non-masked*/);
+  if (MatchedVariant)
+    delete MatchedVariant;
+
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
 
@@ -1695,13 +1800,16 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     vectorizeSelectInstruction(Inst);
     break;
   }
+
   case Instruction::Call: {
     // Currently, the LLVM code gen side does not let AVRIf nodes flow through
     // during loop legalization (loopIsHandled()), so we don't need to worry
     // about masked vector function calls yet.
     CallInst *Call = cast<CallInst>(Inst);
-    StringRef CalledFunc = Call->getCalledFunction()->getName();
-    if (TLI->isFunctionVectorizable(CalledFunc))
+    Function *F = Call->getCalledFunction();
+    StringRef CalledFunc = F->getName();
+    if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
+        F->hasFnAttribute("vector-variants"))
       vectorizeCallInstruction(Call);
     else
       serializeWithPredication(Call);

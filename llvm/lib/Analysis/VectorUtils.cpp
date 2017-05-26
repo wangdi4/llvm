@@ -579,17 +579,35 @@ Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
   return CharacteristicDataType;
 }
 
-void llvm::getFunctionsToVectorize(llvm::Module &M,
-                                   FunctionVariants& FuncVars) {
+void llvm::getFunctionsToVectorize(
+  llvm::Module &M, std::map<Function*, std::vector<StringRef> > &FuncVars) {
+
+  // FuncVars will contain a 1-many mapping between the original scalar
+  // function and the vector variant encoding strings (represented as
+  // attributes). The encodings correspond to functions that will be created by
+  // the caller of this function as vector versions of the original function.
+  // For example, if foo() is a function marked as a simd function, it will have
+  // several vector variant encodings like: "_ZGVbM4_foo", "_ZGVbN4_foo",
+  // "_ZGVcM8_foo", "_ZGVcN8_foo", "_ZGVdM8_foo", "_ZGVdN8_foo", "_ZGVeM16_foo",
+  // "_ZGVeN16_foo". The caller of this function will then clone foo() and name
+  // the clones using the above name manglings. The variant encodings correspond
+  // to differences in masked/non-masked execution, vector length, and target
+  // vector register size, etc. For more details, please refer to the following
+  // reference for details on the vector function encodings.
+  // https://www.cilkplus.org/sites/default/files/open_specifications/
+  // Intel-ABI-Vector-Function-2012-v0.9.5.pdf
+
   for (auto It = M.begin(), End = M.end(); It != End; ++It) {
-    Function& F = *It;
-    auto VariantAttributes = getVectorVariantAttributes(F);
-    if (VariantAttributes.empty())
-      continue;
-    FuncVars[&F] = DeclaredVariants();
-    DeclaredVariants& DeclaredFuncVariants = FuncVars[&F];
-    for (auto Attr : VariantAttributes)
-      DeclaredFuncVariants.push_back(Attr.getKindAsString());
+    Function &F = *It;
+    if (F.hasFnAttribute("vector-variants")) {
+      Attribute Attr = F.getFnAttribute("vector-variants");
+      StringRef VariantsStr = Attr.getValueAsString();
+      SmallVector<StringRef, 8> Variants;
+      VariantsStr.split(Variants, ',');
+      for (unsigned i = 0; i < Variants.size(); i++) {
+        FuncVars[&F].push_back(Variants[i]);
+      }
+    }
   }
 }
 
@@ -597,13 +615,14 @@ Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
                                           TargetLibraryInfo *TLI,
                                           Intrinsic::ID ID,
+                                          VectorVariant *VecVariant,
                                           bool Masked) {
 
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID) {
+  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant) {
     return nullptr;
   }
 
@@ -615,7 +634,16 @@ Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
     VecRetTy = VectorType::get(RetTy, VL);
   }
 
-  if (ID) {
+  if (VecVariant) {
+    std::string VFnName = VecVariant->encode() + FnName.str();
+    VectorF = M->getFunction(VFnName);
+    if (!VectorF) {
+      FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+      VectorF =
+        Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      VectorF->copyAttributesFrom(OrigF);
+    }
+  } else if (ID) {
     // Generate a vector intrinsic. Remember, all intrinsics defined in
     // Intrinsics.td that can be vectorized are those for which the return
     // type matches the call arguments. Thus, TysForDecl should only contain

@@ -36,7 +36,7 @@
 ;CHECK-NEXT: )
 
 ;CHECK:      if.then:
-;CHECK:      br label %simd.loop.exit
+;CHECK:      br label %return
 
 
 ;CHECK:      else
@@ -49,13 +49,16 @@
 ;CHECK-NEXT: br i1 %cmp, label %for.body, label %for.cond.for.end_crit_edge
 
 ;CHECK:      for.cond.for.end_crit_edge:
-;CHECk-NEXT: br label %for.end
+;CHECK-NEXT: br label %for.end
 
-;CEHCK:      else
+;CHECK:      else
 
 ;CHECK:      for.end:
-;CHECK-NEXT: %ret.cast.gep1 = %ret.cast getelementptr %index
-;CHECK:      br label %simd.loop.exit
+;CHECK-NEXT: %ret.cast.gep{{[0-9]+}} = %ret.cast getelementptr %index
+;CHECK:      br label %return
+
+;CHECK:      return:
+;CHECK-NEXT: br label %simd.loop.exit
 
 ;CHECK:      else
 
@@ -63,12 +66,12 @@
 ;CHECK-NEXT: br label %simd.loop.exit
 
 ;CHECK:      simd.loop.exit:
-;CHECK:      br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+;CHECK:      br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop
 
 ;CHECK:      simd.end.region:
 
 ;CHECK:      br label %return
-;CHECK-NEXT: return:
+;CHECK-NEXT: return{{[0-9]+}}:
 
 ;CHECK:      ret <4 x i32> %vec.ret
 
@@ -130,7 +133,7 @@ return:                                           ; preds = %for.end, %if.then
   ret i32 %7
 }
 
-attributes #0 = { nounwind uwtable "_ZGVbM4v_" "_ZGVbN4v_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "vector-variants"="_ZGVbM4v_,_ZGVbN4v_" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !cilk.functions = !{!0}
 !llvm.ident = !{!6}
