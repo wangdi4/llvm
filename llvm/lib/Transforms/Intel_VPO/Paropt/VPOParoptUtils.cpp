@@ -1713,9 +1713,9 @@ Value *VPOParoptUtils::genArrayLength(AllocaInst *AI, Value *BaseAddr,
   return numElements;
 }
 
-ConstantInt* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
+Constant* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
                                              bool IsUnsigned, bool GetMax) {
-  IntegerType *IntTy = dyn_cast<IntegerType>(Ty);
+  IntegerType *IntTy = dyn_cast<IntegerType>(Ty->getScalarType());
   assert(IntTy && "getMinMaxIntVal: Expected Interger type");
   
   unsigned BitWidth = IntTy->getBitWidth();
@@ -1731,6 +1731,8 @@ ConstantInt* VPOParoptUtils::getMinMaxIntVal(LLVMContext &C, Type *Ty,
                                APInt::getSignedMinValue(BitWidth);
 
   ConstantInt *MinMaxVal = ConstantInt::get(C, MinMaxAPInt);
+  if (VectorType *VTy = dyn_cast<VectorType>(Ty))
+    return ConstantVector::getSplat(VTy->getNumElements(), MinMaxVal);
   return MinMaxVal;
 }
 

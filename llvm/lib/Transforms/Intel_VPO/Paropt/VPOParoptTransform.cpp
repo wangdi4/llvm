@@ -407,7 +407,7 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
                                                   Type *Ty, bool IsMax) {
   Value *V;
 
-  if (Ty->isIntegerTy()) {
+  if (Ty->isIntOrIntVectorTy()) {
     LLVMContext &C = F->getContext();
     bool IsUnsigned = RedI->getIsUnsigned();
     V = VPOParoptUtils::getMinMaxIntVal(C, Ty, IsUnsigned, !IsMax);
@@ -417,7 +417,7 @@ Value *VPOParoptTransform::genReductionMinMaxInit(ReductionItem *RedI,
     V = ConstantInt::get(Ty, val);
 #endif
   }
-  else if (Ty->isFloatingPointTy())
+  else if (Ty->isFPOrFPVectorTy())
     V = IsMax ? ConstantFP::getInfinity(Ty, true) :  // max: negative inf
                 ConstantFP::getInfinity(Ty, false);  // min: positive inf
   else
@@ -594,12 +594,12 @@ Value* VPOParoptTransform::genReductionMinMaxFini(ReductionItem *RedI,
                                                   bool IsMax) {
   Value *IsGT; // compares Rhs1 > Rhs2
 
-  if (ScalarTy->isIntegerTy())
+  if (ScalarTy->isIntOrIntVectorTy())
     if(RedI->getIsUnsigned())
-      IsGT = Builder.CreateICmpSGT(Rhs1, Rhs2, "isUGT"); // unsigned
+      IsGT = Builder.CreateICmpUGT(Rhs1, Rhs2, "isUGT"); // unsigned
     else
       IsGT = Builder.CreateICmpSGT(Rhs1, Rhs2, "isSGT"); // signed
-  else if (ScalarTy->isFloatingPointTy())
+  else if (ScalarTy->isFPOrFPVectorTy())
     IsGT = Builder.CreateFCmpOGT(Rhs1, Rhs2, "isOGT");   // FP
   else
     llvm_unreachable("Unsupported type in OMP reduction!");
