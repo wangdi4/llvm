@@ -371,8 +371,6 @@ struct DebugServer::DebugServerImpl
     // was executed. 
     //
     const MDNode* m_prev_stoppoint_line;
-
-    DITypeIdentifierMap m_typeIdentifierMap;
 };
 
 
@@ -737,29 +735,31 @@ VarsMapping DebugServer::DebugServerImpl::CollectGlobalVars(
 }
 
 
-VarDescription DebugServer::DebugServerImpl::CreateVarDescription(const FunctionStackFrame::VarDeclInfo& var_info)
+VarDescription DebugServer::DebugServerImpl::CreateVarDescription(
+                            const FunctionStackFrame::VarDeclInfo& var_info)
 {
     string var_name_str;
-    // [LLVM 3.6 UPGRADE] FIXME: Initialize m_typeIdentifierMap from a llvm::Module
-    // See DebugInfoFinder::InitializeTypeMap for a reference
     DIType* di_type = nullptr;
 
     if (!var_info.expression) { // if this is a global variable declaration
-        assert(dyn_cast<DIGlobalVariable>(var_info.description) && "DIGlobalVariable is expected");
-        const DIGlobalVariable* di_global_type = cast<DIGlobalVariable>(var_info.description);
+        assert(dyn_cast<DIGlobalVariable>(var_info.description)
+               && "DIGlobalVariable is expected");
+        const DIGlobalVariable* di_global_type =
+              cast<DIGlobalVariable>(var_info.description);
         var_name_str = di_global_type->getName().str();
-        di_type = di_global_type->getType().resolve(m_typeIdentifierMap);
+        di_type = di_global_type->getType().resolve();
     }
     else {
-        assert(dyn_cast<DIVariable>(var_info.description) && "DIVariable is expected");
+        assert(dyn_cast<DIVariable>(var_info.description)
+               && "DIVariable is expected");
         const DIVariable* di_local_type = cast<DIVariable>(var_info.description);
         var_name_str = di_local_type->getName().str();
-        di_type = di_local_type->getType().resolve(m_typeIdentifierMap);
+        di_type = di_local_type->getType().resolve();
     }
 
-    string var_type_str = DescribeVarType(di_type, m_typeIdentifierMap);
-    string var_value_str = DescribeVarValue(di_type, var_info.addr, m_typeIdentifierMap, var_type_str);
-    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(*di_type, m_typeIdentifierMap);
+    string var_type_str = DescribeVarType(di_type);
+    string var_value_str = DescribeVarValue(di_type, var_info.addr, var_type_str);
+    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(*di_type);
     
     return VarDescription(
         var_name_str, 
