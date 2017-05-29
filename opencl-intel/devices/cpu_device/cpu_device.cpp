@@ -393,9 +393,16 @@ void CPUDevice::NotifyAffinity(threadid_t tid, unsigned int core_index)
 {
     Intel::OpenCL::Utils::OclAutoMutex CS(&m_ComputeUnitScoreboardMutex);
 
-    if (core_index >= m_numCores) {
-      return;
+#ifdef BUILD_FPGA_EMULATOR
+    // For FPGA emulation we allow to have more TBB workers than a
+    // number of CPU cores. This function wasn't written with this
+    // possibility in mind (we have an assert), so let's just leave
+    // extra workers without affinity settings.
+    if (core_index >= m_numCores)
+    {
+        return;
     }
+#endif
 
     assert(core_index < m_numCores && "Access outside core map size");
 
