@@ -41,7 +41,7 @@ bool Check(const wchar_t * name, cl_int expected, cl_int result)
 	{
 		printf("FAIL: %ls\n",name);
 	}
-	printf("\t\texpected = %ls, result = %ls\n", ClErrTxt(expected), ClErrTxt(result));
+	printf("\t\texpected = %s, result = %s\n", ClErrTxt(expected), ClErrTxt(result));
 	return (expected == result);
 }
 
@@ -52,7 +52,7 @@ bool SilentCheck(const wchar_t * name, cl_int expected, cl_int result)
 		return true;
 	}
 	printf("FAIL: %ls\n",name);
-	printf("\t\texpected = %ls, result = %ls\n", ClErrTxt(expected), ClErrTxt(result));
+	printf("\t\texpected = %s, result = %s\n", ClErrTxt(expected), ClErrTxt(result));
 	return false;
 }
 
@@ -98,7 +98,7 @@ bool CheckInt(const wchar_t * name, cl_long expected, cl_long result)
 	{
 		printf("FAIL: %ls\n",name);
 	}
-	printf("\t\texpected = %d, result = %d\n", expected, result);
+	printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	return bRes;
 }
 
@@ -109,7 +109,7 @@ bool SilentCheckInt(const wchar_t * name, cl_long expected, cl_long result)
 	if (!bRes)
 	{
 		printf("FAIL: %ls\n",name);
-		printf("\t\texpected = %d, result = %d\n", expected, result);
+		printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	}
 	return bRes;
 }
@@ -126,7 +126,7 @@ bool CheckSize(const wchar_t * name, size_t expected, size_t result)
 	{
 		printf("FAIL: %ls\n",name);
 	}
-	printf("\t\texpected = %d, result = %d\n", expected, result);
+	printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	return bRes;
 }
 
@@ -205,7 +205,7 @@ bool SilentCheckSize(const wchar_t * name, size_t expected, size_t result)
 	if (!bRes)
 	{
 		printf("FAIL: %ls\n",name);
-		printf("\t\texpected = %d, result = %d\n", expected, result);
+		printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	}
 	return bRes;
 }
@@ -317,7 +317,7 @@ bool BuildProgramSynch(cl_context	        context,
 	cl_program program = 0;
 
 	printf("--------------------------------------------------------------\n");
-	printf("Create and build new program (from source) for the context %p:\n", context);
+	printf("Create and build new program (from source) for the context %p:\n", (void*)context);
 	printf("--------------------------------------------------------------\n");
 	//print source
 	printf("building the following source code:\n");
@@ -357,7 +357,7 @@ bool BuildProgramSynch(cl_context	        context,
 	printf("the devices are: ");
 	for (unsigned int i=0; i<szNumDevices; ++i)
 	{
-		printf("%p", devices[i]);
+		printf("%p", (void*)devices[i]);
 		if (i < szNumDevices-1)
 		{
 			printf(", ");
@@ -372,7 +372,7 @@ bool BuildProgramSynch(cl_context	        context,
 		delete[] devices;
 		return bRes;
 	}
-	printf("program id = %p\n", program);
+	printf("program id = %p\n", (void*)program);
 	printf("check new program\n");
 
 	cl_context program_context = 0;
@@ -403,7 +403,7 @@ bool BuildProgramSynch(cl_context	        context,
 		for (unsigned int i=0; i<szNumDevices; ++i)
 		{
 			size_t szLogLenth = 0;
-			printf("build failed, error log for device %p:\n", devices[i]);
+			printf("build failed, error log for device %p:\n", (void*)devices[i]);
 			iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_LOG, 0, NULL, &szLogLenth);
 			bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_LOG) - size only", CL_SUCCESS, iRes);
 			if (!bRes)
@@ -452,7 +452,7 @@ bool BuildProgramSynch(cl_context	        context,
 		cl_build_status clBuildStatus = CL_BUILD_NONE;
 		size_t szBuildStatusRet = 0;
 
-		printf("check build for device %p:\n", devices[i]);
+		printf("check build for device %p:\n", (void*)devices[i]);
 		iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &clBuildStatus, &szBuildStatusRet);
 		bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRes);
 		if (!bRes)
