@@ -214,7 +214,7 @@ bool CleanupFakeLoads::runOnFunction(Function &F) {
       Instruction &I = *II;
       ++II;
       if (auto *Intrin = dyn_cast<IntrinsicInst>(&I)) {
-        if (!Intrin->getIntrinsicID() == Intrinsic::intel_fakeload) {
+        if (Intrin->getIntrinsicID() == Intrinsic::intel_fakeload) {
           I.replaceAllUsesWith(I.getOperand(0));
           I.eraseFromParent();
         }
