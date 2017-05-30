@@ -313,6 +313,8 @@ public:
   virtual WRNProcBindKind setProcBind()   const {WRNERROR("PROC_BIND");       }
   virtual void setSafelen(int N)                {WRNERROR(QUAL_OMP_SAFELEN);  }
   virtual int getSafelen()                const {WRNERROR(QUAL_OMP_SAFELEN);  }
+  virtual void setSchedCode(int N)              {WRNERROR("TAKSLOOP SCHED");  }
+  virtual int getSchedCode()              const {WRNERROR("TAKSLOOP SCHED");  }
   virtual void setSimdlen(int N)                {WRNERROR(QUAL_OMP_SIMDLEN);  }
   virtual int getSimdlen()                const {WRNERROR(QUAL_OMP_SIMDLEN);  }
   virtual void setThreadLimit(EXPR E)        {WRNERROR(QUAL_OMP_THREAD_LIMIT);}

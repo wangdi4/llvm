@@ -190,6 +190,7 @@ WRNTaskloopNode::WRNTaskloopNode(BasicBlock *BB, LoopInfo *Li)
   setGrainsize(nullptr);
   setIf(nullptr);
   setNumTasks(nullptr);
+  setSchedCode(0);
   setCollapse(0);
   setNogroup(false);
   setTaskFlag(WRNTaskFlag::Tied);

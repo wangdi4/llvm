@@ -101,6 +101,21 @@ void WRegionNode::finalize(BasicBlock *ExitBB) {
     else
       DEBUG(dbgs() << "\n=== finalize WRN: loop not found. Optimized away?\n");
 
+    // For taskloop, the runtime has a parameter for either Grainsize or 
+    // NumTasks, which is chosen by the parameter SchedCode:
+    //   SchedCode==1 means Grainsize is used
+    //   SchedCode==2 means NumTasks is used
+    //   SchedCode==0 means neither is used
+    // If both Grainsize and NumTasks are specified, then Grainsize prevails.
+    if (getWRegionKindID() == WRNTaskloop) {
+      if (getGrainsize() != nullptr)
+        setSchedCode(1);
+      else if (getNumTasks() != nullptr)
+        setSchedCode(2);
+      else
+        setSchedCode(0);
+    }
+
 #if VPO_FOR_OPENCL
     // For OpenCL, the vectorizer requires that the second operand of
     // __read_pipe_2_bl_intel() be privatized. The code below will look at

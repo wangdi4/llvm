@@ -537,6 +537,7 @@ private:
   LastprivateClause Lpriv;
   EXPR Grainsize;
   EXPR NumTasks;
+  int SchedCode; // 1 for Grainsize, 2 for num_tasks, 0 for none.
   int Collapse;
   bool Nogroup;
   LoopInfo *LI;
@@ -560,6 +561,7 @@ public:
 protected:
   void setGrainsize(EXPR E) { Grainsize = E; }
   void setNumTasks(EXPR E) { NumTasks = E; }
+  void setSchedCode(int N) { SchedCode = N; }
   void setCollapse(int N) { Collapse = N; }
   void setNogroup(bool B) { Nogroup = B; }
   void setLoopInfo(LoopInfo *L) { LI = L; }
@@ -578,6 +580,7 @@ public:
   DEFINE_GETTER(LastprivateClause,  getLpriv,  Lpriv)
   EXPR getGrainsize() const { return Grainsize; }
   EXPR getNumTasks() const { return NumTasks; }
+  int getSchedCode() const { return SchedCode; }
   int getCollapse() const { return Collapse; }
   bool getNogroup() const { return Nogroup; }
   LoopInfo *getLoopInfo() const { return LI; }
