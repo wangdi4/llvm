@@ -13,10 +13,10 @@
 // Other libraries and framework includes
 // Project includes
 #include "CommandObjectPlatform.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -27,9 +27,10 @@
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
-#include "lldb/Utility/Utils.h"
+#include "lldb/Utility/DataExtractor.h"
 
 #include "llvm/ADT/SmallString.h"
+#include "llvm/Support/Threading.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -84,10 +85,10 @@ public:
 
   ~OptionPermissions() override = default;
 
-  lldb_private::Error
+  lldb_private::Status
   SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                  ExecutionContext *execution_context) override {
-    Error error;
+    Status error;
     char short_option = (char)GetDefinitions()[option_idx].short_option;
     switch (short_option) {
     case 'v': {
@@ -199,7 +200,7 @@ protected:
       if (platform_name && platform_name[0]) {
         const bool select = true;
         m_platform_options.SetPlatformName(platform_name);
-        Error error;
+        Status error;
         ArchSpec platform_arch;
         PlatformSP platform_sp(m_platform_options.CreatePlatformWithOptions(
             m_interpreter, ArchSpec(), select, error, platform_arch));
@@ -328,7 +329,7 @@ protected:
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
     if (platform_sp) {
-      Error error(platform_sp->ConnectRemote(args));
+      Status error(platform_sp->ConnectRemote(args));
       if (error.Success()) {
         platform_sp->GetStatus(ostrm);
         result.SetStatus(eReturnStatusSuccessFinishResult);
@@ -381,7 +382,7 @@ protected:
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
     if (platform_sp) {
       if (args.GetArgumentCount() == 0) {
-        Error error;
+        Status error;
 
         if (platform_sp->IsConnected()) {
           // Cache the instance name if there is one since we are
@@ -497,7 +498,8 @@ public:
       else
         mode = lldb::eFilePermissionsUserRWX | lldb::eFilePermissionsGroupRWX |
                lldb::eFilePermissionsWorldRX;
-      Error error = platform_sp->MakeDirectory(FileSpec{cmd_line, false}, mode);
+      Status error =
+          platform_sp->MakeDirectory(FileSpec{cmd_line, false}, mode);
       if (error.Success()) {
         result.SetStatus(eReturnStatusSuccessFinishResult);
       } else {
@@ -538,7 +540,7 @@ public:
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
     if (platform_sp) {
-      Error error;
+      Status error;
       std::string cmd_line;
       args.GetCommandString(cmd_line);
       mode_t perms;
@@ -598,7 +600,7 @@ public:
       args.GetCommandString(cmd_line);
       const lldb::user_id_t fd =
           StringConvert::ToUInt64(cmd_line.c_str(), UINT64_MAX);
-      Error error;
+      Status error;
       bool success = platform_sp->CloseFile(fd, error);
       if (success) {
         result.AppendMessageWithFormat("file %" PRIu64 " closed.\n", fd);
@@ -645,7 +647,7 @@ public:
       const lldb::user_id_t fd =
           StringConvert::ToUInt64(cmd_line.c_str(), UINT64_MAX);
       std::string buffer(m_options.m_count, 0);
-      Error error;
+      Status error;
       uint32_t retcode = platform_sp->ReadFile(
           fd, m_options.m_offset, &buffer[0], m_options.m_count, error);
       result.AppendMessageWithFormat("Return = %d\n", retcode);
@@ -667,22 +669,21 @@ protected:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       char short_option = (char)m_getopt_table[option_idx].val;
-      bool success = false;
 
       switch (short_option) {
       case 'o':
-        m_offset = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
-          error.SetErrorStringWithFormat("invalid offset: '%s'", option_arg);
+        if (option_arg.getAsInteger(0, m_offset))
+          error.SetErrorStringWithFormat("invalid offset: '%s'",
+                                         option_arg.str().c_str());
         break;
       case 'c':
-        m_count = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
-          error.SetErrorStringWithFormat("invalid offset: '%s'", option_arg);
+        if (option_arg.getAsInteger(0, m_count))
+          error.SetErrorStringWithFormat("invalid offset: '%s'",
+                                         option_arg.str().c_str());
         break;
       default:
         error.SetErrorStringWithFormat("unrecognized option '%c'",
@@ -738,7 +739,7 @@ public:
     if (platform_sp) {
       std::string cmd_line;
       args.GetCommandString(cmd_line);
-      Error error;
+      Status error;
       const lldb::user_id_t fd =
           StringConvert::ToUInt64(cmd_line.c_str(), UINT64_MAX);
       uint32_t retcode =
@@ -762,17 +763,16 @@ protected:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       char short_option = (char)m_getopt_table[option_idx].val;
-      bool success = false;
 
       switch (short_option) {
       case 'o':
-        m_offset = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
-          error.SetErrorStringWithFormat("invalid offset: '%s'", option_arg);
+        if (option_arg.getAsInteger(0, m_offset))
+          error.SetErrorStringWithFormat("invalid offset: '%s'",
+                                         option_arg.str().c_str());
         break;
       case 'd':
         m_data.assign(option_arg);
@@ -890,8 +890,8 @@ public:
     if (platform_sp) {
       const char *remote_file_path = args.GetArgumentAtIndex(0);
       const char *local_file_path = args.GetArgumentAtIndex(1);
-      Error error = platform_sp->GetFile(FileSpec(remote_file_path, false),
-                                         FileSpec(local_file_path, false));
+      Status error = platform_sp->GetFile(FileSpec(remote_file_path, false),
+                                          FileSpec(local_file_path, false));
       if (error.Success()) {
         result.AppendMessageWithFormat(
             "successfully get-file from %s (remote) to %s (host)\n",
@@ -1000,7 +1000,7 @@ public:
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
     if (platform_sp) {
-      Error error(platform_sp->PutFile(src_fs, dst_fs));
+      Status error(platform_sp->PutFile(src_fs, dst_fs));
       if (error.Success()) {
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
       } else {
@@ -1044,7 +1044,7 @@ protected:
     }
 
     if (platform_sp) {
-      Error error;
+      Status error;
       const size_t argc = args.GetArgumentCount();
       Target *target = m_exe_ctx.GetTargetPtr();
       Module *exe_module = target->GetExecutableModulePointer();
@@ -1154,7 +1154,7 @@ protected:
     }
 
     if (platform_sp) {
-      Error error;
+      Status error;
       if (args.GetArgumentCount() == 0) {
         if (platform_sp) {
           Stream &ostrm = result.GetOutputStream();
@@ -1184,21 +1184,21 @@ protected:
                 m_options.match_info.GetProcessInfo().GetName();
             if (match_name && match_name[0]) {
               switch (m_options.match_info.GetNameMatchType()) {
-              case eNameMatchIgnore:
+              case NameMatch::Ignore:
                 break;
-              case eNameMatchEquals:
+              case NameMatch::Equals:
                 match_desc = "matched";
                 break;
-              case eNameMatchContains:
+              case NameMatch::Contains:
                 match_desc = "contained";
                 break;
-              case eNameMatchStartsWith:
+              case NameMatch::StartsWith:
                 match_desc = "started with";
                 break;
-              case eNameMatchEndsWith:
+              case NameMatch::EndsWith:
                 match_desc = "ended with";
                 break;
-              case eNameMatchRegularExpression:
+              case NameMatch::RegularExpression:
                 match_desc = "matched the regular expression";
                 break;
               }
@@ -1251,8 +1251,8 @@ protected:
   public:
     CommandOptions()
         : Options(), match_info(), show_args(false), verbose(false) {
-      static std::once_flag g_once_flag;
-      std::call_once(g_once_flag, []() {
+      static llvm::once_flag g_once_flag;
+      llvm::call_once(g_once_flag, []() {
         PosixPlatformCommandOptionValidator *posix_validator =
             new PosixPlatformCommandOptionValidator();
         for (auto &Option : g_platform_process_list_options) {
@@ -1272,59 +1272,60 @@ protected:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
       bool success = false;
 
+      uint32_t id = LLDB_INVALID_PROCESS_ID;
+      success = !option_arg.getAsInteger(0, id);
       switch (short_option) {
-      case 'p':
-        match_info.GetProcessInfo().SetProcessID(StringConvert::ToUInt32(
-            option_arg, LLDB_INVALID_PROCESS_ID, 0, &success));
+      case 'p': {
+        match_info.GetProcessInfo().SetProcessID(id);
         if (!success)
           error.SetErrorStringWithFormat("invalid process ID string: '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
-
+      }
       case 'P':
-        match_info.GetProcessInfo().SetParentProcessID(StringConvert::ToUInt32(
-            option_arg, LLDB_INVALID_PROCESS_ID, 0, &success));
+        match_info.GetProcessInfo().SetParentProcessID(id);
         if (!success)
           error.SetErrorStringWithFormat(
-              "invalid parent process ID string: '%s'", option_arg);
+              "invalid parent process ID string: '%s'",
+              option_arg.str().c_str());
         break;
 
       case 'u':
-        match_info.GetProcessInfo().SetUserID(
-            StringConvert::ToUInt32(option_arg, UINT32_MAX, 0, &success));
+        match_info.GetProcessInfo().SetUserID(success ? id : UINT32_MAX);
         if (!success)
           error.SetErrorStringWithFormat("invalid user ID string: '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
 
       case 'U':
-        match_info.GetProcessInfo().SetEffectiveUserID(
-            StringConvert::ToUInt32(option_arg, UINT32_MAX, 0, &success));
+        match_info.GetProcessInfo().SetEffectiveUserID(success ? id
+                                                               : UINT32_MAX);
         if (!success)
           error.SetErrorStringWithFormat(
-              "invalid effective user ID string: '%s'", option_arg);
+              "invalid effective user ID string: '%s'",
+              option_arg.str().c_str());
         break;
 
       case 'g':
-        match_info.GetProcessInfo().SetGroupID(
-            StringConvert::ToUInt32(option_arg, UINT32_MAX, 0, &success));
+        match_info.GetProcessInfo().SetGroupID(success ? id : UINT32_MAX);
         if (!success)
           error.SetErrorStringWithFormat("invalid group ID string: '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
 
       case 'G':
-        match_info.GetProcessInfo().SetEffectiveGroupID(
-            StringConvert::ToUInt32(option_arg, UINT32_MAX, 0, &success));
+        match_info.GetProcessInfo().SetEffectiveGroupID(success ? id
+                                                                : UINT32_MAX);
         if (!success)
           error.SetErrorStringWithFormat(
-              "invalid effective group ID string: '%s'", option_arg);
+              "invalid effective group ID string: '%s'",
+              option_arg.str().c_str());
         break;
 
       case 'a': {
@@ -1343,31 +1344,31 @@ protected:
       case 'n':
         match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
                                                                 false);
-        match_info.SetNameMatchType(eNameMatchEquals);
+        match_info.SetNameMatchType(NameMatch::Equals);
         break;
 
       case 'e':
         match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
                                                                 false);
-        match_info.SetNameMatchType(eNameMatchEndsWith);
+        match_info.SetNameMatchType(NameMatch::EndsWith);
         break;
 
       case 's':
         match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
                                                                 false);
-        match_info.SetNameMatchType(eNameMatchStartsWith);
+        match_info.SetNameMatchType(NameMatch::StartsWith);
         break;
 
       case 'c':
         match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
                                                                 false);
-        match_info.SetNameMatchType(eNameMatchContains);
+        match_info.SetNameMatchType(NameMatch::Contains);
         break;
 
       case 'r':
         match_info.GetProcessInfo().GetExecutableFile().SetFile(option_arg,
                                                                 false);
-        match_info.SetNameMatchType(eNameMatchRegularExpression);
+        match_info.SetNameMatchType(NameMatch::RegularExpression);
         break;
 
       case 'A':
@@ -1449,7 +1450,7 @@ protected:
     if (platform_sp) {
       const size_t argc = args.GetArgumentCount();
       if (argc > 0) {
-        Error error;
+        Status error;
 
         if (platform_sp->IsConnected()) {
           Stream &ostrm = result.GetOutputStream();
@@ -1515,17 +1516,16 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       char short_option = (char)m_getopt_table[option_idx].val;
-      bool success = false;
       switch (short_option) {
       case 'p': {
-        lldb::pid_t pid = StringConvert::ToUInt32(
-            option_arg, LLDB_INVALID_PROCESS_ID, 0, &success);
-        if (!success || pid == LLDB_INVALID_PROCESS_ID) {
-          error.SetErrorStringWithFormat("invalid process ID '%s'", option_arg);
+        lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
+        if (option_arg.getAsInteger(0, pid)) {
+          error.SetErrorStringWithFormat("invalid process ID '%s'",
+                                         option_arg.str().c_str());
         } else {
           attach_info.SetProcessID(pid);
         }
@@ -1587,7 +1587,7 @@ public:
           if (partial_name) {
             match_info.GetProcessInfo().GetExecutableFile().SetFile(
                 partial_name, false);
-            match_info.SetNameMatchType(eNameMatchStartsWith);
+            match_info.SetNameMatchType(NameMatch::StartsWith);
           }
           platform_sp->FindProcesses(match_info, process_infos);
           const uint32_t num_matches = process_infos.GetSize();
@@ -1625,7 +1625,7 @@ public:
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
     if (platform_sp) {
-      Error err;
+      Status err;
       ProcessSP remote_process_sp = platform_sp->Attach(
           m_options.attach_info, m_interpreter.GetDebugger(), nullptr, err);
       if (err.Fail()) {
@@ -1701,21 +1701,20 @@ public:
       return llvm::makeArrayRef(g_platform_shell_options);
     }
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_value,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const char short_option = (char)GetDefinitions()[option_idx].short_option;
 
       switch (short_option) {
-      case 't': {
-        bool success;
-        timeout = StringConvert::ToUInt32(option_value, 10, 10, &success);
-        if (!success)
+      case 't':
+        timeout = 10;
+        if (option_arg.getAsInteger(10, timeout))
           error.SetErrorStringWithFormat(
-              "could not convert \"%s\" to a numeric value.", option_value);
+              "could not convert \"%s\" to a numeric value.",
+              option_arg.str().c_str());
         break;
-      }
       default:
         error.SetErrorStringWithFormat("invalid short option character '%c'",
                                        short_option);
@@ -1749,7 +1748,7 @@ public:
 
     // Print out an usage syntax on an empty command line.
     if (raw_command_line[0] == '\0') {
-      result.GetOutputStream().Printf("%s\n", this->GetSyntax());
+      result.GetOutputStream().Printf("%s\n", this->GetSyntax().str().c_str());
       return true;
     }
 
@@ -1784,7 +1783,7 @@ public:
 
     PlatformSP platform_sp(
         m_interpreter.GetDebugger().GetPlatformList().GetSelectedPlatform());
-    Error error;
+    Status error;
     if (platform_sp) {
       FileSpec working_dir{};
       std::string output;
@@ -1863,7 +1862,7 @@ public:
       return false;
     }
 
-    Error error = platform_sp->Install(src, dst);
+    Status error = platform_sp->Install(src, dst);
     if (error.Success()) {
       result.SetStatus(eReturnStatusSuccessFinishNoResult);
     } else {

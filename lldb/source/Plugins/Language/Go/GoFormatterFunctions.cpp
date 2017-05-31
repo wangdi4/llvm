@@ -42,7 +42,7 @@ public:
         lldb::addr_t object_at_idx = m_base_data_address;
         object_at_idx += idx * m_type.GetByteSize(nullptr);
         cached = CreateValueObjectFromAddress(
-            idx_name.GetData(), object_at_idx,
+            idx_name.GetString(), object_at_idx,
             m_backend.GetExecutionContextRef(), m_type);
       }
       return cached;
@@ -96,7 +96,7 @@ bool lldb_private::formatters::GoStringSummaryProvider(
     return false;
 
   if (valobj.IsPointerType()) {
-    Error err;
+    Status err;
     ValueObjectSP deref = valobj.Dereference(err);
     if (!err.Success())
       return false;

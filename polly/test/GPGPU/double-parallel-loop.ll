@@ -18,7 +18,7 @@
 ; RUN: -disable-output < %s | \
 ; RUN: FileCheck %s -check-prefix=KERNEL-ASM
 
-; REQUIRES: pollyacc
+; REQUIRES: pollyacc,nvptx
 
 ; CHECK: Stmt_bb5
 ; CHECK-NEXT:       Domain :=
@@ -162,7 +162,7 @@
 ; KERNEL-IR-NEXT:   br label %polly.stmt.bb5
 
 ; KERNEL-IR-LABEL: polly.stmt.bb5:                                   ; preds = %polly.loop_header
-; KERNEL-IR-NEXT:   %10 = mul i64 %9, %5
+; KERNEL-IR-NEXT:   %10 = mul i64 %5, %9
 ; KERNEL-IR-NEXT:   %p_tmp6 = sitofp i64 %10 to float
 ; KERNEL-IR-NEXT:   %polly.access.cast.MemRef_A = bitcast i8* %MemRef_A to float*
 ; KERNEL-IR-NEXT:   %11 = mul nsw i64 32, %b0

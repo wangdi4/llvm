@@ -31,10 +31,7 @@
 #include "DisassemblerLLVMC.h"
 
 #include "lldb/Core/Address.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Process.h"
@@ -42,8 +39,11 @@
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
 
-#include "lldb/Core/RegularExpression.h"
+#include "lldb/Utility/RegularExpression.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -359,7 +359,7 @@ public:
             }
             break;
           }
-          m_mnemonics.swap(mnemonic_strm.GetString());
+          m_mnemonics = mnemonic_strm.GetString();
           return;
         } else {
           if (m_does_branch == eLazyBoolCalculate) {
@@ -834,7 +834,7 @@ public:
         ss.PutCString("\n");
       }
 
-      log->PutCString(ss.GetData());
+      log->PutString(ss.GetString());
     }
 
     return true;
@@ -885,9 +885,9 @@ DisassemblerLLVMC::LLVMCDisassembler::LLVMCDisassembler(
     const char *triple, const char *cpu, const char *features_str,
     unsigned flavor, DisassemblerLLVMC &owner)
     : m_is_valid(true) {
-  std::string Error;
+  std::string Status;
   const llvm::Target *curr_target =
-      llvm::TargetRegistry::lookupTarget(triple, Error);
+      llvm::TargetRegistry::lookupTarget(triple, Status);
   if (!curr_target) {
     m_is_valid = false;
     return;
@@ -1351,12 +1351,12 @@ const char *DisassemblerLLVMC::SymbolLookup(uint64_t value, uint64_t *type_ptr,
           // seen when we
           // have multiple levels of inlined functions at an address, only show
           // the first line.
-          std::string &str(ss.GetString());
+          std::string str = ss.GetString();
           size_t first_eol_char = str.find_first_of("\r\n");
           if (first_eol_char != std::string::npos) {
             str.erase(first_eol_char);
           }
-          m_inst->AppendComment(ss.GetString());
+          m_inst->AppendComment(str);
         }
       }
     }

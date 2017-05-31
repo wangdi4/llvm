@@ -19,9 +19,9 @@
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/ValueObjectPrinter.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Host/Symbols.h"
-#include "lldb/Host/TimeValue.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -50,6 +50,8 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadSpec.h"
+
+#include "llvm/Support/FileSystem.h"
 
 // C Includes
 // C++ Includes
@@ -131,6 +133,25 @@ static uint32_t DumpTargetList(TargetList &target_list,
     }
   }
   return num_targets;
+}
+
+// TODO: Remove this once llvm can pretty-print time points
+static void DumpTimePoint(llvm::sys::TimePoint<> tp, Stream &s, uint32_t width) {
+#ifndef LLDB_DISABLE_POSIX
+  char time_buf[32];
+  time_t time = llvm::sys::toTimeT(tp);
+  char *time_cstr = ::ctime_r(&time, time_buf);
+  if (time_cstr) {
+    char *newline = ::strpbrk(time_cstr, "\n\r");
+    if (newline)
+      *newline = '\0';
+    if (width > 0)
+      s.Printf("%-*s", width, time_cstr);
+    else
+      s.PutCString(time_cstr);
+  } else if (width > 0)
+    s.Printf("%-*s", width, "");
+#endif
 }
 
 #pragma mark CommandObjectTargetCreate
@@ -248,8 +269,8 @@ protected:
       }
 
       const char *file_path = command.GetArgumentAtIndex(0);
-      Timer scoped_timer(LLVM_PRETTY_FUNCTION, "(lldb) target create '%s'",
-                         file_path);
+      static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
+      Timer scoped_timer(func_cat, "(lldb) target create '%s'", file_path);
       FileSpec file_spec;
 
       if (file_path)
@@ -260,10 +281,10 @@ protected:
       Debugger &debugger = m_interpreter.GetDebugger();
 
       TargetSP target_sp;
-      const char *arch_cstr = m_arch_option.GetArchitectureName();
+      llvm::StringRef arch_cstr = m_arch_option.GetArchitectureName();
       const bool get_dependent_files =
           m_add_dependents.GetOptionValue().GetCurrentValue();
-      Error error(debugger.GetTargetList().CreateTarget(
+      Status error(debugger.GetTargetList().CreateTarget(
           debugger, file_path, arch_cstr, get_dependent_files, nullptr,
           target_sp));
 
@@ -282,7 +303,7 @@ protected:
             if (file_spec && file_spec.Exists()) {
               // if the remote file does not exist, push it there
               if (!platform_sp->GetFileExists(remote_file)) {
-                Error err = platform_sp->PutFile(file_spec, remote_file);
+                Status err = platform_sp->PutFile(file_spec, remote_file);
                 if (err.Fail()) {
                   result.AppendError(err.AsCString());
                   result.SetStatus(eReturnStatusFailed);
@@ -303,7 +324,7 @@ protected:
               }
               if (file_path) {
                 // copy the remote file to the local file
-                Error err = platform_sp->GetFile(remote_file, file_spec);
+                Status err = platform_sp->GetFile(remote_file, file_spec);
                 if (err.Fail()) {
                   result.AppendError(err.AsCString());
                   result.SetStatus(eReturnStatusFailed);
@@ -359,7 +380,7 @@ protected:
             target_sp->GetExecutableSearchPaths().Append(core_file_dir);
 
             ProcessSP process_sp(target_sp->CreateProcess(
-                m_interpreter.GetDebugger().GetListener(), nullptr,
+                m_interpreter.GetDebugger().GetListener(), llvm::StringRef(),
                 &core_file));
 
             if (process_sp) {
@@ -818,7 +839,7 @@ protected:
           matches = target->GetImages().FindGlobalVariables(
               regex, true, UINT32_MAX, variable_list);
         } else {
-          Error error(Variable::GetValuesForVariableExpressionPath(
+          Status error(Variable::GetValuesForVariableExpressionPath(
               arg, m_exe_ctx.GetBestExecutionContextScope(),
               GetVariableCallback, target, variable_list, valobj_list));
           matches = variable_list.GetSize();
@@ -1972,16 +1993,16 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
       case 's':
         m_sort_order = (SortOrder)Args::StringToOptionEnum(
-            llvm::StringRef::withNullAsEmpty(option_arg),
-            GetDefinitions()[option_idx].enum_values, eSortOrderNone, error);
+            option_arg, GetDefinitions()[option_idx].enum_values,
+            eSortOrderNone, error);
         break;
 
       default:
@@ -2445,20 +2466,20 @@ protected:
                   result.AppendErrorWithFormat(
                       "Unable to create the executable or symbol file with "
                       "UUID %s with path %s and symbol file %s",
-                      strm.GetString().c_str(),
+                      strm.GetData(),
                       module_spec.GetFileSpec().GetPath().c_str(),
                       module_spec.GetSymbolFileSpec().GetPath().c_str());
                 } else {
                   result.AppendErrorWithFormat(
                       "Unable to create the executable or symbol file with "
                       "UUID %s with path %s",
-                      strm.GetString().c_str(),
+                      strm.GetData(),
                       module_spec.GetFileSpec().GetPath().c_str());
                 }
               } else {
                 result.AppendErrorWithFormat("Unable to create the executable "
                                              "or symbol file with UUID %s",
-                                             strm.GetString().c_str());
+                                             strm.GetData());
               }
               result.SetStatus(eReturnStatusFailed);
               return false;
@@ -2468,7 +2489,7 @@ protected:
             module_spec.GetUUID().Dump(&strm);
             result.AppendErrorWithFormat(
                 "Unable to locate the executable or symbol file with UUID %s",
-                strm.GetString().c_str());
+                strm.GetData());
             result.SetStatus(eReturnStatusFailed);
             return false;
           }
@@ -2494,7 +2515,7 @@ protected:
                   m_symbol_file.GetOptionValue().GetCurrentValue();
             if (!module_spec.GetArchitecture().IsValid())
               module_spec.GetArchitecture() = target->GetArchitecture();
-            Error error;
+            Status error;
             ModuleSP module_sp(target->GetSharedModule(module_spec, &error));
             if (!module_sp) {
               const char *error_cstr = error.AsCString();
@@ -2549,6 +2570,12 @@ public:
         m_option_group(),
         m_file_option(LLDB_OPT_SET_1, false, "file", 'f', 0, eArgTypeName,
                       "Fullpath or basename for module to load.", ""),
+        m_load_option(LLDB_OPT_SET_1, false, "load", 'l',
+                      "Write file contents to the memory.", false, true),
+        m_pc_option(LLDB_OPT_SET_1, false, "--set-pc-to-entry", 'p',
+                    "Set PC to the entry point."
+                    " Only applicable with '--load' option.",
+                    false, true),
         m_slide_option(LLDB_OPT_SET_1, false, "slide", 's', 0, eArgTypeOffset,
                        "Set the load address for all sections to be the "
                        "virtual address in the file plus the offset.",
@@ -2556,6 +2583,8 @@ public:
     m_option_group.Append(&m_uuid_option_group, LLDB_OPT_SET_ALL,
                           LLDB_OPT_SET_1);
     m_option_group.Append(&m_file_option, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
+    m_option_group.Append(&m_load_option, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
+    m_option_group.Append(&m_pc_option, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
     m_option_group.Append(&m_slide_option, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
     m_option_group.Finalize();
   }
@@ -2567,6 +2596,8 @@ public:
 protected:
   bool DoExecute(Args &args, CommandReturnObject &result) override {
     Target *target = m_interpreter.GetDebugger().GetSelectedTarget().get();
+    const bool load = m_load_option.GetOptionValue().GetCurrentValue();
+    const bool set_pc = m_pc_option.GetOptionValue().GetCurrentValue();
     if (target == nullptr) {
       result.AppendError("invalid target, create a debug target using the "
                          "'target create' command");
@@ -2576,6 +2607,21 @@ protected:
       const size_t argc = args.GetArgumentCount();
       ModuleSpec module_spec;
       bool search_using_module_spec = false;
+
+      // Allow "load" option to work without --file or --uuid
+      // option.
+      if (load) {
+        if (!m_file_option.GetOptionValue().OptionWasSet() &&
+            !m_uuid_option_group.GetOptionValue().OptionWasSet()) {
+          ModuleList &module_list = target->GetImages();
+          if (module_list.GetSize() == 1) {
+            search_using_module_spec = true;
+            module_spec.GetFileSpec() =
+                module_list.GetModuleAtIndex(0)->GetFileSpec();
+          }
+        }
+      }
+
       if (m_file_option.GetOptionValue().OptionWasSet()) {
         search_using_module_spec = true;
         const char *arg_cstr = m_file_option.GetOptionValue().GetCurrentValue();
@@ -2703,6 +2749,13 @@ protected:
                   if (process)
                     process->Flush();
                 }
+                if (load) {
+                  Status error = module->LoadInMemory(*target, set_pc);
+                  if (error.Fail()) {
+                    result.AppendError(error.AsCString());
+                    return false;
+                  }
+                }
               } else {
                 module->GetFileSpec().GetPath(path, sizeof(path));
                 result.AppendErrorWithFormat(
@@ -2765,6 +2818,8 @@ protected:
   OptionGroupOptions m_option_group;
   OptionGroupUUID m_uuid_option_group;
   OptionGroupString m_file_option;
+  OptionGroupBoolean m_load_option;
+  OptionGroupBoolean m_pc_option;
   OptionGroupUInt64 m_slide_option;
 };
 
@@ -2802,9 +2857,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
       if (short_option == 'g') {
@@ -2814,8 +2869,7 @@ public:
                                               LLDB_INVALID_ADDRESS, &error);
       } else {
         unsigned long width = 0;
-        if (option_arg)
-          width = strtoul(option_arg, nullptr, 0);
+        option_arg.getAsInteger(0, width);
         m_format_array.push_back(std::make_pair(short_option, width));
       }
       return error;
@@ -3166,9 +3220,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
 
@@ -3180,7 +3234,7 @@ public:
                                        LLDB_INVALID_ADDRESS, &error);
         if (m_addr == LLDB_INVALID_ADDRESS)
           error.SetErrorStringWithFormat("invalid address string '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
       }
 
@@ -3466,9 +3520,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
 
       const int short_option = m_getopt_table[option_idx].val;
 
@@ -3480,10 +3534,9 @@ public:
       } break;
 
       case 'o':
-        m_offset = StringConvert::ToUInt64(option_arg, LLDB_INVALID_ADDRESS);
-        if (m_offset == LLDB_INVALID_ADDRESS)
+        if (option_arg.getAsInteger(0, m_offset))
           error.SetErrorStringWithFormat("invalid offset string '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         break;
 
       case 's':
@@ -3501,10 +3554,9 @@ public:
         break;
 
       case 'l':
-        m_line_number = StringConvert::ToUInt32(option_arg, UINT32_MAX);
-        if (m_line_number == UINT32_MAX)
+        if (option_arg.getAsInteger(0, m_line_number))
           error.SetErrorStringWithFormat("invalid line number string '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         else if (m_line_number == 0)
           error.SetErrorString("zero is an invalid line number");
         m_type = eLookupTypeFileLine;
@@ -4062,7 +4114,7 @@ protected:
 
               // Make sure we load any scripting resources that may be embedded
               // in the debug info files in case the platform supports that.
-              Error error;
+              Status error;
               StreamString feedback_stream;
               module_sp->LoadScriptingResourceInTarget(target, error,
                                                        &feedback_stream);
@@ -4087,20 +4139,21 @@ protected:
         module_sp->SetSymbolFileFileSpec(FileSpec());
       }
 
+      namespace fs = llvm::sys::fs;
       if (module_spec.GetUUID().IsValid()) {
         StreamString ss_symfile_uuid;
         module_spec.GetUUID().Dump(&ss_symfile_uuid);
         result.AppendErrorWithFormat(
             "symbol file '%s' (%s) does not match any existing module%s\n",
             symfile_path, ss_symfile_uuid.GetData(),
-            (symbol_fspec.GetFileType() != FileSpec::eFileTypeRegular)
+            !fs::is_regular_file(symbol_fspec.GetPath())
                 ? "\n       please specify the full path to the symbol file"
                 : "");
       } else {
         result.AppendErrorWithFormat(
             "symbol file '%s' does not match any existing module%s\n",
             symfile_path,
-            (symbol_fspec.GetFileType() != FileSpec::eFileTypeRegular)
+            !fs::is_regular_file(symbol_fspec.GetPath())
                 ? "\n       please specify the full path to the symbol file"
                 : "");
       }
@@ -4209,7 +4262,7 @@ protected:
             error_strm.PutCString(
                 "unable to find debug symbols for the current frame");
           }
-          result.AppendError(error_strm.GetData());
+          result.AppendError(error_strm.GetString());
         }
       } else {
         result.AppendError("one or more symbol file paths must be specified, "
@@ -4345,11 +4398,10 @@ public:
       return llvm::makeArrayRef(g_target_stop_hook_add_options);
     }
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
-      bool success;
 
       switch (short_option) {
       case 'c':
@@ -4358,20 +4410,18 @@ public:
         break;
 
       case 'e':
-        m_line_end = StringConvert::ToUInt32(option_arg, UINT_MAX, 0, &success);
-        if (!success) {
+        if (option_arg.getAsInteger(0, m_line_end)) {
           error.SetErrorStringWithFormat("invalid end line number: \"%s\"",
-                                         option_arg);
+                                         option_arg.str().c_str());
           break;
         }
         m_sym_ctx_specified = true;
         break;
 
       case 'l':
-        m_line_start = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success) {
+        if (option_arg.getAsInteger(0, m_line_start)) {
           error.SetErrorStringWithFormat("invalid start line number: \"%s\"",
-                                         option_arg);
+                                         option_arg.str().c_str());
           break;
         }
         m_sym_ctx_specified = true;
@@ -4398,11 +4448,9 @@ public:
         break;
 
       case 't':
-        m_thread_id =
-            StringConvert::ToUInt64(option_arg, LLDB_INVALID_THREAD_ID, 0);
-        if (m_thread_id == LLDB_INVALID_THREAD_ID)
+        if (option_arg.getAsInteger(0, m_thread_id))
           error.SetErrorStringWithFormat("invalid thread id string '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         m_thread_specified = true;
         break;
 
@@ -4417,10 +4465,9 @@ public:
         break;
 
       case 'x':
-        m_thread_index = StringConvert::ToUInt32(option_arg, UINT32_MAX, 0);
-        if (m_thread_id == UINT32_MAX)
+        if (option_arg.getAsInteger(0, m_thread_index))
           error.SetErrorStringWithFormat("invalid thread index string '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         m_thread_specified = true;
         break;
 

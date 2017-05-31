@@ -14,10 +14,12 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/FormatEntity.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Status.h"
 #include "lldb/lldb-defines.h"
+#include "lldb/lldb-private-enumerations.h"
+#include "lldb/lldb-private-interfaces.h"
 
 namespace lldb_private {
 
@@ -89,34 +91,33 @@ public:
   virtual void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                          uint32_t dump_mask) = 0;
 
-  virtual Error
+  virtual Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign);
-  Error
-  SetValueFromString(const char *,
-                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   virtual bool Clear() = 0;
 
   virtual lldb::OptionValueSP DeepCopy() const = 0;
 
-  virtual size_t AutoComplete(CommandInterpreter &interpreter, const char *s,
-                              int match_start_point, int max_return_elements,
-                              bool &word_complete, StringList &matches);
+  virtual size_t AutoComplete(CommandInterpreter &interpreter,
+                              llvm::StringRef s, int match_start_point,
+                              int max_return_elements, bool &word_complete,
+                              StringList &matches);
 
   //-----------------------------------------------------------------
   // Subclasses can override these functions
   //-----------------------------------------------------------------
   virtual lldb::OptionValueSP GetSubValue(const ExecutionContext *exe_ctx,
-                                          const char *name, bool will_modify,
-                                          Error &error) const {
-    error.SetErrorStringWithFormat("'%s' is not a value subvalue", name);
+                                          llvm::StringRef name,
+                                          bool will_modify,
+                                          Status &error) const {
+    error.SetErrorStringWithFormat("'%s' is not a value subvalue", name.str().c_str());
     return lldb::OptionValueSP();
   }
 
-  virtual Error SetSubValue(const ExecutionContext *exe_ctx,
-                            VarSetOperationType op, const char *name,
-                            const char *value);
+  virtual Status SetSubValue(const ExecutionContext *exe_ctx,
+                             VarSetOperationType op, llvm::StringRef name,
+                             llvm::StringRef value);
 
   virtual bool IsAggregateValue() const { return false; }
 
@@ -180,7 +181,7 @@ public:
 
   static lldb::OptionValueSP
   CreateValueFromCStringForTypeMask(const char *value_cstr, uint32_t type_mask,
-                                    Error &error);
+                                    Status &error);
 
   // Get this value as a uint64_t value if it is encoded as a boolean,
   // uint64_t or int64_t. Other types will cause "fail_value" to be
@@ -299,7 +300,8 @@ public:
 
   bool SetSInt64Value(int64_t new_value);
 
-  const char *GetStringValue(const char *fail_value = nullptr) const;
+  llvm::StringRef GetStringValue(llvm::StringRef fail_value) const;
+  llvm::StringRef GetStringValue() const { return GetStringValue(llvm::StringRef()); }
 
   bool SetStringValue(llvm::StringRef new_value);
 

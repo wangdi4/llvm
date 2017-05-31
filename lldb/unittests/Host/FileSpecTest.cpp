@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "lldb/Host/FileSpec.h"
+#include "lldb/Utility/FileSpec.h"
 
 using namespace lldb_private;
 
@@ -109,6 +109,28 @@ TEST(FileSpecTest, CopyByAppendingPathComponent) {
   EXPECT_STREQ("bar", fs.GetFilename().GetCString());
 }
 
+TEST(FileSpecTest, PrependPathComponent) {
+  FileSpec fs_posix("foo", false, FileSpec::ePathSyntaxPosix);
+  fs_posix.PrependPathComponent("/bar");
+  EXPECT_STREQ("/bar/foo", fs_posix.GetCString());
+
+  FileSpec fs_posix_2("foo/bar", false, FileSpec::ePathSyntaxPosix);
+  fs_posix_2.PrependPathComponent("/baz");
+  EXPECT_STREQ("/baz/foo/bar", fs_posix_2.GetCString());
+
+  FileSpec fs_windows("baz", false, FileSpec::ePathSyntaxWindows);
+  fs_windows.PrependPathComponent("F:\\bar");
+  EXPECT_STREQ("F:\\bar\\baz", fs_windows.GetCString());
+
+  FileSpec fs_posix_root("bar", false, FileSpec::ePathSyntaxPosix);
+  fs_posix_root.PrependPathComponent("/");
+  EXPECT_STREQ("/bar", fs_posix_root.GetCString());
+
+  FileSpec fs_windows_root("bar", false, FileSpec::ePathSyntaxWindows);
+  fs_windows_root.PrependPathComponent("F:\\");
+  EXPECT_STREQ("F:\\bar", fs_windows_root.GetCString());
+}
+
 static void Compare(const FileSpec &one, const FileSpec &two, bool full_match,
                     bool remove_backup_dots, bool result) {
   EXPECT_EQ(result, FileSpec::Equal(one, two, full_match, remove_backup_dots))
@@ -142,6 +164,7 @@ TEST(FileSpecTest, EqualDotsWindows) {
       {R"(C:/bar/baz)", R"(C:\foo\..\bar\baz)"},
       {R"(C:\bar)", R"(C:\foo\..\bar)"},
       {R"(C:\foo\bar)", R"(C:\foo\.\bar)"},
+      {R"(C:\foo\bar)", R"(C:\foo\bar\.)"},
   };
 
   for(const auto &test: tests) {
@@ -165,6 +188,7 @@ TEST(FileSpecTest, EqualDotsPosix) {
       {R"(/bar/baz)", R"(/foo/../bar/baz)"},
       {R"(/bar)", R"(/foo/../bar)"},
       {R"(/foo/bar)", R"(/foo/./bar)"},
+      {R"(/foo/bar)", R"(/foo/bar/.)"},
   };
 
   for(const auto &test: tests) {
@@ -206,6 +230,9 @@ TEST(FileSpecTest, GetNormalizedPath) {
       {"/foo/./bar", "/foo/bar"},
       {"/foo/..", "/"},
       {"/foo/.", "/foo"},
+      {"/foo//bar", "/foo/bar"},
+      {"/foo//bar/baz", "/foo/bar/baz"},
+      {"/foo//bar/./baz", "/foo/bar/baz"},
       {"/./foo", "/foo"},
       {"/", "/"},
       {"//", "//"},
@@ -256,4 +283,28 @@ TEST(FileSpecTest, GetNormalizedPath) {
                   .GetPath())
         << "Original path: " << test.first;
   }
+}
+
+TEST(FileSpecTest, FormatFileSpec) {
+  auto win = FileSpec::ePathSyntaxWindows;
+
+  FileSpec F;
+  EXPECT_EQ("(empty)", llvm::formatv("{0}", F).str());
+  EXPECT_EQ("(empty)", llvm::formatv("{0:D}", F).str());
+  EXPECT_EQ("(empty)", llvm::formatv("{0:F}", F).str());
+
+  F = FileSpec("C:\\foo\\bar.txt", false, win);
+  EXPECT_EQ("C:\\foo\\bar.txt", llvm::formatv("{0}", F).str());
+  EXPECT_EQ("C:\\foo\\", llvm::formatv("{0:D}", F).str());
+  EXPECT_EQ("bar.txt", llvm::formatv("{0:F}", F).str());
+
+  F = FileSpec("foo\\bar.txt", false, win);
+  EXPECT_EQ("foo\\bar.txt", llvm::formatv("{0}", F).str());
+  EXPECT_EQ("foo\\", llvm::formatv("{0:D}", F).str());
+  EXPECT_EQ("bar.txt", llvm::formatv("{0:F}", F).str());
+
+  F = FileSpec("foo", false, win);
+  EXPECT_EQ("foo", llvm::formatv("{0}", F).str());
+  EXPECT_EQ("foo", llvm::formatv("{0:F}", F).str());
+  EXPECT_EQ("(empty)", llvm::formatv("{0:D}", F).str());
 }

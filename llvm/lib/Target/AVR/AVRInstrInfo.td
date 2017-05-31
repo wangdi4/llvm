@@ -17,7 +17,7 @@ include "AVRInstrFormats.td"
 // AVR Type Profiles
 //===----------------------------------------------------------------------===//
 
-def SDT_AVRCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>]>;
+def SDT_AVRCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
 def SDT_AVRCallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
 def SDT_AVRCall : SDTypeProfile<0, -1, [SDTCisVT<0, iPTR>]>;
 def SDT_AVRWrapper : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisPtrTy<0>]>;
@@ -64,6 +64,8 @@ def AVRasr : SDNode<"AVRISD::ASR", SDTIntUnaryOp>;
 // Pseudo shift nodes for non-constant shift amounts.
 def AVRlslLoop : SDNode<"AVRISD::LSLLOOP", SDTIntShiftOp>;
 def AVRlsrLoop : SDNode<"AVRISD::LSRLOOP", SDTIntShiftOp>;
+def AVRrolLoop : SDNode<"AVRISD::ROLLOOP", SDTIntShiftOp>;
+def AVRrorLoop : SDNode<"AVRISD::RORLOOP", SDTIntShiftOp>;
 def AVRasrLoop : SDNode<"AVRISD::ASRLOOP", SDTIntShiftOp>;
 
 //===----------------------------------------------------------------------===//
@@ -183,33 +185,33 @@ def call_target : Operand<iPTR>
 // A 16-bit address (which can lead to an R_AVR_16 relocation).
 def imm16 : Operand<i16>
 {
-    let EncoderMethod = "encodeImm<AVR::fixup_16>";
+    let EncoderMethod = "encodeImm<AVR::fixup_16, 2>";
 }
 
 /// A 6-bit immediate used in the ADIW/SBIW instructions.
 def imm_arith6 : Operand<i16>
 {
-    let EncoderMethod = "encodeImm<AVR::fixup_6_adiw>";
+    let EncoderMethod = "encodeImm<AVR::fixup_6_adiw, 0>";
 }
 
 /// An 8-bit immediate inside an instruction with the same format
 /// as the `LDI` instruction (the `FRdK` format).
 def imm_ldi8 : Operand<i8>
 {
-    let EncoderMethod = "encodeImm<AVR::fixup_ldi>";
+    let EncoderMethod = "encodeImm<AVR::fixup_ldi, 0>";
 }
 
 /// A 5-bit port number used in SBIC and friends (the `FIOBIT` format).
 def imm_port5 : Operand<i8>
 {
-    let EncoderMethod = "encodeImm<AVR::fixup_port5>";
+    let EncoderMethod = "encodeImm<AVR::fixup_port5, 0>";
 }
 
 /// A 6-bit port number used in the `IN` instruction and friends (the
 /// `FIORdA` format.
 def imm_port6 : Operand<i8>
 {
-    let EncoderMethod = "encodeImm<AVR::fixup_port6>";
+    let EncoderMethod = "encodeImm<AVR::fixup_port6, 0>";
 }
 
 // Addressing mode pattern reg+imm6
@@ -331,9 +333,9 @@ let Defs = [SP, SREG],
 Uses = [SP] in
 {
   def ADJCALLSTACKDOWN : Pseudo<(outs),
-                                (ins i16imm:$amt),
+                                (ins i16imm:$amt, i16imm:$amt2),
                                 "#ADJCALLSTACKDOWN",
-                                [(AVRcallseq_start timm:$amt)]>;
+                                [(AVRcallseq_start timm:$amt, timm:$amt2)]>;
 
   // R31R30 is used to update SP, since it is a scratch reg and this instruction
   // is placed after the function call then R31R30 should be always free.
@@ -694,7 +696,7 @@ Defs = [SREG] in
 }
 
 //===----------------------------------------------------------------------===//
-// One's/Two's Compliment
+// One's/Two's Complement
 //===----------------------------------------------------------------------===//
 let Constraints = "$src = $rd",
 Defs = [SREG] in
@@ -1207,6 +1209,7 @@ Constraints = "$ptrreg = $base_wb,@earlyclobber $reg,@earlyclobber $base_wb" in
 let canFoldAsLoad = 1,
 isReMaterializable = 1 in
 {
+  let Constraints = "@earlyclobber $reg" in
   def LDDRdPtrQ : FSTDLDD<0,
                           (outs GPR8:$reg),
                           (ins memri:$memri),
@@ -1227,7 +1230,8 @@ isReMaterializable = 1 in
                    Requires<[HasSRAM]>;
 
   let mayLoad = 1,
-  hasSideEffects = 0 in
+  hasSideEffects = 0,
+  Constraints = "@earlyclobber $dst" in
   def LDDWRdYQ : Pseudo<(outs DREGS:$dst),
                         (ins memri:$memri),
                         "lddw\t$dst, $memri",
@@ -1500,7 +1504,7 @@ isReMaterializable = 1 in
                      [(set i8:$dst, (load ioaddr8:$src))]>;
 
   def INWRdA : Pseudo<(outs DREGS:$dst),
-                      (ins i16imm:$src),
+                      (ins imm_port6:$src),
                       "inw\t$dst, $src",
                       [(set i16:$dst, (load ioaddr16:$src))]>;
 }
@@ -1512,7 +1516,7 @@ def OUTARr : FIOARr<(outs),
                     [(store i8:$src, ioaddr8:$dst)]>;
 
 def OUTWARr : Pseudo<(outs),
-                     (ins i16imm:$dst, DREGS:$src),
+                     (ins imm_port6:$dst, DREGS:$src),
                      "outw\t$dst, $src",
                      [(store i16:$src, ioaddr16:$dst)]>;
 
@@ -1716,7 +1720,7 @@ Defs = [SREG] in
                      (implicit SREG)]>;
 
   // CBR Rd, K
-  // Alias for `ANDI Rd, COM(K)` where COM(K) is the compliment of K.
+  // Alias for `ANDI Rd, COM(K)` where COM(K) is the complement of K.
   // FIXME: This uses the 'complement' encoder. We need it to also use the
   // imm_ldi8 encoder. This will cause no fixups to be created on this instruction.
   def CBRRdK : FRdK<0b0111,
@@ -1930,12 +1934,39 @@ def Lsr8 : ShiftPseudo<
   [(set i8:$dst, (AVRlsrLoop i8:$src, i8:$cnt))]
 >;
 
-
 def Lsr16 : ShiftPseudo<
   (outs DREGS:$dst),
    (ins DREGS:$src, GPR8:$cnt),
    "# Lsr16 PSEUDO",
    [(set i16:$dst, (AVRlsrLoop i16:$src, i8:$cnt))]
+>;
+
+def Rol8 : ShiftPseudo<
+  (outs GPR8:$dst),
+  (ins GPR8:$src, GPR8:$cnt),
+  "# Rol8 PSEUDO",
+  [(set i8:$dst, (AVRrolLoop i8:$src, i8:$cnt))]
+>;
+
+def Rol16 : ShiftPseudo<
+  (outs DREGS:$dst),
+  (ins DREGS:$src, GPR8:$cnt),
+  "# Rol16 PSEUDO",
+  [(set i16:$dst, (AVRrolLoop i16:$src, i8:$cnt))]
+>;
+
+def Ror8 : ShiftPseudo<
+  (outs GPR8:$dst),
+  (ins GPR8:$src, GPR8:$cnt),
+  "# Ror8 PSEUDO",
+  [(set i8:$dst, (AVRrorLoop i8:$src, i8:$cnt))]
+>;
+
+def Ror16 : ShiftPseudo<
+  (outs DREGS:$dst),
+  (ins DREGS:$src, GPR8:$cnt),
+  "# Ror16 PSEUDO",
+  [(set i16:$dst, (AVRrorLoop i16:$src, i8:$cnt))]
 >;
 
 def Asr8 : ShiftPseudo<

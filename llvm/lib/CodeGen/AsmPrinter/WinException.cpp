@@ -63,12 +63,12 @@ void WinException::beginFunction(const MachineFunction *MF) {
   shouldEmitMoves = shouldEmitPersonality = shouldEmitLSDA = false;
 
   // If any landing pads survive, we need an EH table.
-  bool hasLandingPads = !MMI->getLandingPads().empty();
-  bool hasEHFunclets = MMI->hasEHFunclets();
+  bool hasLandingPads = !MF->getLandingPads().empty();
+  bool hasEHFunclets = MF->hasEHFunclets();
 
   const Function *F = MF->getFunction();
 
-  shouldEmitMoves = Asm->needsSEHMoves();
+  shouldEmitMoves = Asm->needsSEHMoves() && MF->hasWinCFI();
 
   const TargetLoweringObjectFile &TLOF = Asm->getObjFileLowering();
   unsigned PerEncoding = TLOF.getPersonalityEncoding();
@@ -94,14 +94,14 @@ void WinException::beginFunction(const MachineFunction *MF) {
 
   // If we're not using CFI, we don't want the CFI or the personality, but we
   // might want EH tables if we had EH pads.
-  if (!Asm->MAI->usesWindowsCFI() || (!MF->hasWinCFI() && !PerFn)) {
+  if (!Asm->MAI->usesWindowsCFI()) {
     if (Per == EHPersonality::MSVC_X86SEH && !hasEHFunclets) {
       // If this is 32-bit SEH and we don't have any funclets (really invokes),
       // make sure we emit the parent offset label. Some unreferenced filter
       // functions may still refer to it.
       const WinEHFuncInfo &FuncInfo = *MF->getWinEHFuncInfo();
       StringRef FLinkageName =
-          GlobalValue::getRealLinkageName(MF->getFunction()->getName());
+          GlobalValue::dropLLVMManglingEscape(MF->getFunction()->getName());
       emitEHRegistrationOffsetLabel(FuncInfo, FLinkageName);
     }
     shouldEmitLSDA = hasEHFunclets;
@@ -126,13 +126,15 @@ void WinException::endFunction(const MachineFunction *MF) {
   // Get rid of any dead landing pads if we're not using funclets. In funclet
   // schemes, the landing pad is not actually reachable. It only exists so
   // that we can emit the right table data.
-  if (!isFuncletEHPersonality(Per))
-    MMI->TidyLandingPads();
+  if (!isFuncletEHPersonality(Per)) {
+    MachineFunction *NonConstMF = const_cast<MachineFunction*>(MF);
+    NonConstMF->tidyLandingPads();
+  }
 
   endFunclet();
 
   // endFunclet will emit the necessary .xdata tables for x64 SEH.
-  if (Per == EHPersonality::MSVC_Win64SEH && MMI->hasEHFunclets())
+  if (Per == EHPersonality::MSVC_Win64SEH && MF->hasEHFunclets())
     return;
 
   if (shouldEmitPersonality || shouldEmitLSDA) {
@@ -160,7 +162,7 @@ void WinException::endFunction(const MachineFunction *MF) {
   }
 }
 
-/// Retreive the MCSymbol for a GlobalValue or MachineBasicBlock.
+/// Retrieve the MCSymbol for a GlobalValue or MachineBasicBlock.
 static MCSymbol *getMCSymbolForMBB(AsmPrinter *Asm,
                                    const MachineBasicBlock *MBB) {
   if (!MBB)
@@ -172,7 +174,7 @@ static MCSymbol *getMCSymbolForMBB(AsmPrinter *Asm,
   // their funclet entry block's number.
   const MachineFunction *MF = MBB->getParent();
   const Function *F = MF->getFunction();
-  StringRef FuncLinkageName = GlobalValue::getRealLinkageName(F->getName());
+  StringRef FuncLinkageName = GlobalValue::dropLLVMManglingEscape(F->getName());
   MCContext &Ctx = MF->getContext();
   StringRef HandlerPrefix = MBB->isCleanupFuncletEntry() ? "dtor" : "catch";
   return Ctx.getOrCreateSymbol("?" + HandlerPrefix + "$" +
@@ -206,8 +208,10 @@ void WinException::beginFunclet(const MachineBasicBlock &MBB,
   }
 
   // Mark 'Sym' as starting our funclet.
-  if (shouldEmitMoves || shouldEmitPersonality)
+  if (shouldEmitMoves || shouldEmitPersonality) {
+    CurrentFuncletTextSection = Asm->OutStreamer->getCurrentSectionOnly();
     Asm->OutStreamer->EmitWinCFIStartProc(Sym);
+  }
 
   if (shouldEmitPersonality) {
     const TargetLoweringObjectFile &TLOF = Asm->getObjFileLowering();
@@ -219,12 +223,12 @@ void WinException::beginFunclet(const MachineBasicBlock &MBB,
     const MCSymbol *PersHandlerSym =
         TLOF.getCFIPersonalitySymbol(PerFn, Asm->TM, MMI);
 
-    // Classify the personality routine so that we may reason about it.
-    EHPersonality Per = classifyEHPersonality(PerFn);
-
-    // Do not emit a .seh_handler directive if it is a C++ cleanup funclet.
-    if (Per != EHPersonality::MSVC_CXX ||
-        !CurrentFuncletEntry->isCleanupFuncletEntry())
+    // Do not emit a .seh_handler directives for cleanup funclets.
+    // FIXME: This means cleanup funclets cannot handle exceptions. Given that
+    // Clang doesn't produce EH constructs inside cleanup funclets and LLVM's
+    // inliner doesn't allow inlining them, this isn't a major problem in
+    // practice.
+    if (!CurrentFuncletEntry->isCleanupFuncletEntry())
       Asm->OutStreamer->EmitWinEHHandler(PersHandlerSym, true, true);
   }
 }
@@ -234,15 +238,12 @@ void WinException::endFunclet() {
   if (!CurrentFuncletEntry)
     return;
 
+  const MachineFunction *MF = Asm->MF;
   if (shouldEmitMoves || shouldEmitPersonality) {
-    const Function *F = Asm->MF->getFunction();
+    const Function *F = MF->getFunction();
     EHPersonality Per = EHPersonality::Unknown;
     if (F->hasPersonalityFn())
       Per = classifyEHPersonality(F->getPersonalityFn()->stripPointerCasts());
-
-    // The .seh_handlerdata directive implicitly switches section, push the
-    // current section so that we may return to it.
-    Asm->OutStreamer->PushSection();
 
     // Emit an UNWIND_INFO struct describing the prologue.
     Asm->OutStreamer->EmitWinEHHandlerData();
@@ -251,22 +252,21 @@ void WinException::endFunclet() {
         !CurrentFuncletEntry->isCleanupFuncletEntry()) {
       // If this is a C++ catch funclet (or the parent function),
       // emit a reference to the LSDA for the parent function.
-      StringRef FuncLinkageName = GlobalValue::getRealLinkageName(F->getName());
+      StringRef FuncLinkageName = GlobalValue::dropLLVMManglingEscape(F->getName());
       MCSymbol *FuncInfoXData = Asm->OutContext.getOrCreateSymbol(
           Twine("$cppxdata$", FuncLinkageName));
       Asm->OutStreamer->EmitValue(create32bitRef(FuncInfoXData), 4);
-    } else if (Per == EHPersonality::MSVC_Win64SEH && MMI->hasEHFunclets() &&
+    } else if (Per == EHPersonality::MSVC_Win64SEH && MF->hasEHFunclets() &&
                !CurrentFuncletEntry->isEHFuncletEntry()) {
       // If this is the parent function in Win64 SEH, emit the LSDA immediately
       // following .seh_handlerdata.
-      emitCSpecificHandlerTable(Asm->MF);
+      emitCSpecificHandlerTable(MF);
     }
 
-    // Switch back to the previous section now that we are done writing to
-    // .xdata.
-    Asm->OutStreamer->PopSection();
-
-    // Emit a .seh_endproc directive to mark the end of the function.
+    // Switch back to the funclet start .text section now that we are done
+    // writing to .xdata, and emit an .seh_endproc directive to mark the end of
+    // the function.
+    Asm->OutStreamer->SwitchSection(CurrentFuncletTextSection);
     Asm->OutStreamer->EmitWinCFIEndProc();
   }
 
@@ -536,7 +536,7 @@ void WinException::emitCSpecificHandlerTable(const MachineFunction *MF) {
   // Emit a label assignment with the SEH frame offset so we can use it for
   // llvm.x86.seh.recoverfp.
   StringRef FLinkageName =
-      GlobalValue::getRealLinkageName(MF->getFunction()->getName());
+      GlobalValue::dropLLVMManglingEscape(MF->getFunction()->getName());
   MCSymbol *ParentFrameOffset =
       Ctx.getOrCreateParentFrameOffsetSymbol(FLinkageName);
   const MCExpr *MCOffset =
@@ -635,7 +635,7 @@ void WinException::emitCXXFrameHandler3Table(const MachineFunction *MF) {
   auto &OS = *Asm->OutStreamer;
   const WinEHFuncInfo &FuncInfo = *MF->getWinEHFuncInfo();
 
-  StringRef FuncLinkageName = GlobalValue::getRealLinkageName(F->getName());
+  StringRef FuncLinkageName = GlobalValue::dropLLVMManglingEscape(F->getName());
 
   SmallVector<std::pair<const MCExpr *, int>, 4> IPToStateTable;
   MCSymbol *FuncInfoXData = nullptr;
@@ -942,7 +942,7 @@ void WinException::emitEHRegistrationOffsetLabel(const WinEHFuncInfo &FuncInfo,
 void WinException::emitExceptHandlerTable(const MachineFunction *MF) {
   MCStreamer &OS = *Asm->OutStreamer;
   const Function *F = MF->getFunction();
-  StringRef FLinkageName = GlobalValue::getRealLinkageName(F->getName());
+  StringRef FLinkageName = GlobalValue::dropLLVMManglingEscape(F->getName());
 
   bool VerboseAsm = OS.isVerboseAsm();
   auto AddComment = [&](const Twine &Comment) {

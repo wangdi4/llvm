@@ -10,7 +10,8 @@
 //===----------------------------------------------------------------------===//
 // Type profiles
 //===----------------------------------------------------------------------===//
-def SDT_CallSeqStart        : SDCallSeqStart<[SDTCisVT<0, i64>]>;
+def SDT_CallSeqStart        : SDCallSeqStart<[SDTCisVT<0, i64>,
+                                              SDTCisVT<1, i64>]>;
 def SDT_CallSeqEnd          : SDCallSeqEnd<[SDTCisVT<0, i64>,
                                             SDTCisVT<1, i64>]>;
 def SDT_ZCall               : SDTypeProfile<0, -1, [SDTCisPtrTy<0>]>;
@@ -569,6 +570,12 @@ class loadu<SDPatternOperator operator, SDPatternOperator load = load>
 class storeu<SDPatternOperator operator, SDPatternOperator store = store>
   : PatFrag<(ops node:$value, node:$addr),
             (store (operator node:$value), node:$addr)>;
+
+// Create a store operator that performs the given inherent operation
+// and stores the resulting value.
+class storei<SDPatternOperator operator, SDPatternOperator store = store>
+  : PatFrag<(ops node:$addr),
+            (store (operator), node:$addr)>;
 
 // Vector representation of all-zeros and all-ones.
 def z_vzero : PatFrag<(ops), (bitconvert (v16i8 (z_byte_mask (i32 0))))>;

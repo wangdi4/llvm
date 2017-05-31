@@ -7,13 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if defined(_MSC_VER) && (_HAS_EXCEPTIONS == 0)
-// Workaround for MSVC standard library bug, which fails to include <thread>
-// when
-// exceptions are disabled.
-#include <eh.h>
-#endif
-
 #include "GDBRemoteTestUtils.h"
 
 #include "lldb/Host/common/TCPSocket.h"
@@ -39,17 +32,15 @@ void GDBRemoteTest::TearDownTestCase() {
 
 void Connect(GDBRemoteCommunication &client, GDBRemoteCommunication &server) {
   bool child_processes_inherit = false;
-  Error error;
-  TCPSocket listen_socket(child_processes_inherit, error);
+  Status error;
+  TCPSocket listen_socket(true, child_processes_inherit);
   ASSERT_FALSE(error.Fail());
   error = listen_socket.Listen("127.0.0.1:0", 5);
   ASSERT_FALSE(error.Fail());
 
   Socket *accept_socket;
-  std::future<Error> accept_error = std::async(std::launch::async, [&] {
-    return listen_socket.Accept("127.0.0.1:0", child_processes_inherit,
-                                accept_socket);
-  });
+  std::future<Status> accept_error = std::async(
+      std::launch::async, [&] { return listen_socket.Accept(accept_socket); });
 
   char connect_remote_address[64];
   snprintf(connect_remote_address, sizeof(connect_remote_address),

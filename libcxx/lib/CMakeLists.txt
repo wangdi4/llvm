@@ -28,13 +28,18 @@ if(NOT LIBCXX_INSTALL_LIBRARY)
   set(exclude_from_all EXCLUDE_FROM_ALL)
 endif()
 
-#if LIBCXX_CXX_ABI_LIBRARY_PATH is defined we want to add it to the search path.
-add_link_flags_if(LIBCXX_CXX_ABI_LIBRARY_PATH "-L${LIBCXX_CXX_ABI_LIBRARY_PATH}")
+# If LIBCXX_CXX_ABI_LIBRARY_PATH is defined we want to add it to the search path.
+add_link_flags_if(LIBCXX_CXX_ABI_LIBRARY_PATH
+                  "${CMAKE_LIBRARY_PATH_FLAG}${LIBCXX_CXX_ABI_LIBRARY_PATH}")
 
+
+if (LIBCXX_GENERATE_COVERAGE AND NOT LIBCXX_COVERAGE_LIBRARY)
+  find_compiler_rt_library(profile LIBCXX_COVERAGE_LIBRARY)
+endif()
 add_library_flags_if(LIBCXX_COVERAGE_LIBRARY "${LIBCXX_COVERAGE_LIBRARY}")
 
 if (APPLE AND (LIBCXX_CXX_ABI_LIBNAME STREQUAL "libcxxabi" OR
-               LIBCXX_CXX_ABI_LIBNAME STREQUAL "none"))
+               LIBCXX_CXX_ABI_LIBNAME STREQUAL "default"))
   set(LIBCXX_OSX_REEXPORT_SYSTEM_ABI_LIBRARY ON)
 endif()
 
@@ -61,12 +66,7 @@ if (APPLE AND LLVM_USE_SANITIZER)
     message(WARNING "LLVM_USE_SANITIZER=${LLVM_USE_SANITIZER} is not supported on OS X")
   endif()
   if (LIBFILE)
-    execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=lib OUTPUT_VARIABLE LIBDIR RESULT_VARIABLE Result)
-    if (NOT ${Result} EQUAL "0")
-      message(FATAL "Failed to find library resource directory")
-    endif()
-    string(STRIP "${LIBDIR}" LIBDIR)
-    set(LIBDIR "${LIBDIR}/darwin/")
+    find_compiler_rt_dir(LIBDIR)
     if (NOT IS_DIRECTORY "${LIBDIR}")
       message(FATAL_ERROR "Cannot find compiler-rt directory on OS X required for LLVM_USE_SANITIZER")
     endif()
@@ -83,14 +83,19 @@ add_library_flags_if(LIBCXX_HAS_PTHREAD_LIB pthread)
 add_library_flags_if(LIBCXX_HAS_C_LIB c)
 add_library_flags_if(LIBCXX_HAS_M_LIB m)
 add_library_flags_if(LIBCXX_HAS_RT_LIB rt)
-add_library_flags_if(LIBCXX_HAS_GCC_S_LIB gcc_s)
+if (LIBCXX_USE_COMPILER_RT)
+  find_compiler_rt_library(builtins LIBCXX_BUILTINS_LIBRARY)
+  add_library_flags_if(LIBCXX_BUILTINS_LIBRARY "${LIBCXX_BUILTINS_LIBRARY}")
+else()
+  add_library_flags_if(LIBCXX_HAS_GCC_S_LIB gcc_s)
+endif()
 add_library_flags_if(LIBCXX_HAVE_CXX_ATOMICS_WITH_LIB atomic)
 
 # Add the unwinder library.
 if (LIBCXXABI_USE_LLVM_UNWINDER)
-  if (TARGET unwind_shared)
+  if (NOT LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_shared OR HAVE_LIBUNWIND))
     add_interface_library(unwind_shared)
-  elseif (TARGET unwind_static)
+  elseif (LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_static OR HAVE_LIBUNWIND))
     add_interface_library(unwind_static)
   else()
     add_interface_library(unwind)
@@ -101,7 +106,26 @@ endif()
 if (NOT WIN32)
   add_flags_if_supported(-fPIC)
 endif()
+
 add_link_flags_if_supported(-nodefaultlibs)
+
+if (LIBCXX_TARGETING_MSVC)
+  if (LIBCXX_DEBUG_BUILD)
+    set(LIB_SUFFIX "d")
+  else()
+    set(LIB_SUFFIX "")
+  endif()
+  add_compile_flags(/Zl)
+  add_link_flags(/nodefaultlib)
+
+  add_library_flags(ucrt${LIB_SUFFIX}) # Universal C runtime
+  add_library_flags(vcruntime${LIB_SUFFIX}) # C++ runtime
+  add_library_flags(msvcrt${LIB_SUFFIX}) # C runtime startup files
+  add_library_flags(msvcprt${LIB_SUFFIX}) # C++ standard library. Required for exception_ptr internals.
+  # Required for standards-complaint wide character formatting functions
+  # (e.g. `printfw`/`scanfw`)
+  add_library_flags(iso_stdio_wide_specifiers)
+endif()
 
 if (LIBCXX_OSX_REEXPORT_SYSTEM_ABI_LIBRARY)
   if (NOT DEFINED LIBCXX_LIBCPPABI_VERSION)
@@ -132,7 +156,7 @@ if (LIBCXX_OSX_REEXPORT_SYSTEM_ABI_LIBRARY)
       "-Wl,-unexported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/libc++unexp.exp"
       "/usr/lib/libSystem.B.dylib")
   else()
-    if (DEFINED CMAKE_OSX_SYSROOT AND NOT CMAKE_OSX_SYSROOT STREQUAL "")
+	  if (DEFINED CMAKE_OSX_SYSROOT AND NOT CMAKE_OSX_SYSROOT STREQUAL "")
       list(FIND CMAKE_OSX_ARCHITECTURES "armv7" OSX_HAS_ARMV7)
       if (NOT OSX_HAS_ARMV7 EQUAL -1)
         set(OSX_RE_EXPORT_LINE
@@ -144,8 +168,10 @@ if (LIBCXX_OSX_REEXPORT_SYSTEM_ABI_LIBRARY)
       endif()
     else()
       set(OSX_RE_EXPORT_LINE "/usr/lib/libc++abi.dylib -Wl,-reexported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/libc++abi${LIBCXX_LIBCPPABI_VERSION}.exp")
+      if (NOT LIBCXX_ENABLE_NEW_DELETE_DEFINITIONS)
+        add_link_flags("/usr/lib/libc++abi.dylib -Wl,-reexported_symbols_list,${CMAKE_CURRENT_SOURCE_DIR}/libc++abi-new-delete.exp")
+      endif()
     endif()
-
     add_link_flags(
       "-compatibility_version 1"
       "-install_name /usr/lib/libc++.1.dylib"
@@ -159,8 +185,30 @@ endif()
 split_list(LIBCXX_COMPILE_FLAGS)
 split_list(LIBCXX_LINK_FLAGS)
 
-# Add a object library that contains the compiled source files.
+# Add an object library that contains the compiled source files.
 add_library(cxx_objects OBJECT ${exclude_from_all} ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
+if(WIN32 AND NOT MINGW)
+  target_compile_definitions(cxx_objects
+                             PRIVATE
+                               # Ignore the -MSC_VER mismatch, as we may build
+                               # with a different compatibility version.
+                               _ALLOW_MSC_VER_MISMATCH
+                               # Don't check the msvcprt iterator debug levels
+                               # as we will define the iterator types; libc++
+                               # uses a different macro to identify the debug
+                               # level.
+                               _ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH
+                               # We are building the c++ runtime, don't pull in
+                               # msvcprt.
+                               _CRTBLD
+                               # Don't warn on the use of "deprecated"
+                               # "insecure" functions which are standards
+                               # specified.
+                               _CRT_SECURE_NO_WARNINGS
+                               # Use the ISO conforming behaviour for conversion
+                               # in printf, scanf.
+                               _CRT_STDIO_ISO_WIDE_SPECIFIERS)
+endif()
 
 set_target_properties(cxx_objects
   PROPERTIES
@@ -181,18 +229,54 @@ if (LIBCXX_ENABLE_SHARED)
       SOVERSION     "${LIBCXX_ABI_VERSION}"
   )
   list(APPEND LIBCXX_TARGETS "cxx_shared")
+  if(WIN32 AND NOT MINGW AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows")
+    # Since we most likely do not have a mt.exe replacement, disable the
+    # manifest bundling.  This allows a normal cmake invocation to pass which
+    # will attempt to use the manifest tool to generate the bundled manifest
+    set_target_properties(cxx_shared PROPERTIES
+                          APPEND_STRING PROPERTY LINK_FLAGS " /MANIFEST:NO")
+  endif()
 endif()
 
 # Build the static library.
 if (LIBCXX_ENABLE_STATIC)
   add_library(cxx_static STATIC $<TARGET_OBJECTS:cxx_objects>)
   target_link_libraries(cxx_static ${LIBCXX_LIBRARIES})
+  set(STATIC_OUTPUT_NAME "c++")
+  if (WIN32)
+    set(STATIC_OUTPUT_NAME "libc++")
+  endif()
   set_target_properties(cxx_static
     PROPERTIES
       LINK_FLAGS    "${LIBCXX_LINK_FLAGS}"
-      OUTPUT_NAME   "c++"
+      OUTPUT_NAME   "${STATIC_OUTPUT_NAME}"
   )
+
   list(APPEND LIBCXX_TARGETS "cxx_static")
+  # Attempt to merge the libc++.a archive and the ABI library archive into one.
+  if (LIBCXX_ENABLE_STATIC_ABI_LIBRARY)
+    set(MERGE_ARCHIVES_SEARCH_PATHS "")
+    if (LIBCXX_CXX_ABI_LIBRARY_PATH)
+      set(MERGE_ARCHIVES_SEARCH_PATHS "-L${LIBCXX_CXX_ABI_LIBRARY_PATH}")
+    endif()
+    if ((TARGET ${LIBCXX_CXX_ABI_LIBRARY}) OR
+        (${LIBCXX_CXX_ABI_LIBRARY} STREQUAL "cxxabi(_static|_shared)?" AND HAVE_LIBCXXABI))
+      set(MERGE_ARCHIVES_ABI_TARGET "$<TARGET_LINKER_FILE:${LIBCXX_CXX_ABI_LIBRARY}>")
+    else()
+      set(MERGE_ARCHIVES_ABI_TARGET
+          "${CMAKE_STATIC_LIBRARY_PREFIX}${LIBCXX_CXX_ABI_LIBRARY}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+    endif()
+    add_custom_command(TARGET cxx_static POST_BUILD
+    COMMAND
+      ${PYTHON_EXECUTABLE} ${LIBCXX_SOURCE_DIR}/utils/merge_archives.py
+    ARGS
+      -o $<TARGET_LINKER_FILE:cxx_static>
+      "$<TARGET_LINKER_FILE:cxx_static>"
+      "${MERGE_ARCHIVES_ABI_TARGET}"
+      "${MERGE_ARCHIVES_SEARCH_PATHS}"
+    WORKING_DIRECTORY ${LIBCXX_BUILD_DIR}
+    )
+  endif()
 endif()
 
 # Add a meta-target for both libraries.
@@ -222,7 +306,7 @@ if (LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY)
   )
 endif()
 
-if (LIBCXX_HAS_EXTERNAL_THREAD_API)
+if (LIBCXX_BUILD_EXTERNAL_THREAD_LIBRARY)
   file(GLOB LIBCXX_EXTERNAL_THREADING_SUPPORT_SOURCES ../test/support/external_threads.cpp)
 
   if (LIBCXX_ENABLE_SHARED)
@@ -247,7 +331,9 @@ if (LIBCXX_ENABLE_SHARED AND LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
   set(LIBCXX_INTERFACE_LIBRARY_NAMES)
   foreach(lib ${LIBCXX_INTERFACE_LIBRARIES})
     # FIXME: Handle cxxabi_static and unwind_static.
-    if (TARGET ${lib})
+    if (TARGET ${lib} OR
+        (${lib} MATCHES "cxxabi(_static|_shared)?" AND HAVE_LIBCXXABI) OR
+        (${lib} MATCHES "unwind(_static|_shared)?" AND HAVE_LIBUNWIND))
       list(APPEND LIBCXX_INTERFACE_LIBRARY_NAMES "$<TARGET_PROPERTY:${lib},OUTPUT_NAME>")
     else()
       list(APPEND LIBCXX_INTERFACE_LIBRARY_NAMES "${lib}")
@@ -258,7 +344,7 @@ if (LIBCXX_ENABLE_SHARED AND LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
   # after cxx builds.
   add_custom_command(TARGET cxx_shared POST_BUILD
     COMMAND
-      ${PYTHON_EXECUTABLE} ${LIBCXX_SOURCE_DIR}/utils/gen_link_script/gen_link_script.py
+      ${PYTHON_EXECUTABLE} ${LIBCXX_SOURCE_DIR}/utils/gen_link_script.py
     ARGS
       "$<TARGET_LINKER_FILE:cxx_shared>"
       ${LIBCXX_INTERFACE_LIBRARY_NAMES}

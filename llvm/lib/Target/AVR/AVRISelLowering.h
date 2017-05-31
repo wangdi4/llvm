@@ -43,6 +43,8 @@ enum NodeType {
   ROL,     ///< Bit rotate left.
   LSLLOOP, ///< A loop of single logical shift left instructions.
   LSRLOOP, ///< A loop of single logical shift right instructions.
+  ROLLOOP, ///< A loop of single left bit rotate instructions.
+  RORLOOP, ///< A loop of single right bit rotate instructions.
   ASRLOOP, ///< A loop of single arithmetic shift right instructions.
   /// AVR conditional branches. Operand 0 is the chain operand, operand 1
   /// is the block to branch if condition is true, operand 2 is the
@@ -115,6 +117,9 @@ public:
   void LowerAsmOperandForConstraint(SDValue Op, std::string &Constraint,
                                     std::vector<SDValue> &Ops,
                                     SelectionDAG &DAG) const override;
+
+  unsigned getRegisterByName(const char* RegName, EVT VT,
+                             SelectionDAG &DAG) const override;
 
 private:
   SDValue getAVRCmp(SDValue LHS, SDValue RHS, ISD::CondCode CC, SDValue &AVRcc,

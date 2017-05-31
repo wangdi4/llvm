@@ -13,7 +13,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/StringList.h"
+#include "lldb/Utility/StringList.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -37,7 +37,7 @@ void OptionValueEnumeration::DumpValue(const ExecutionContext *exe_ctx,
     const size_t count = m_enumerations.GetSize();
     for (size_t i = 0; i < count; ++i) {
       if (m_enumerations.GetValueAtIndexUnchecked(i).value == m_current_value) {
-        strm.PutCString(m_enumerations.GetCStringAtIndex(i));
+        strm.PutCString(m_enumerations.GetCStringAtIndex(i).GetStringRef());
         return;
       }
     }
@@ -45,9 +45,9 @@ void OptionValueEnumeration::DumpValue(const ExecutionContext *exe_ctx,
   }
 }
 
-Error OptionValueEnumeration::SetValueFromString(llvm::StringRef value,
-                                                 VarSetOperationType op) {
-  Error error;
+Status OptionValueEnumeration::SetValueFromString(llvm::StringRef value,
+                                                  VarSetOperationType op) {
+  Status error;
   switch (op) {
   case eVarSetOperationClear:
     Clear();
@@ -58,8 +58,7 @@ Error OptionValueEnumeration::SetValueFromString(llvm::StringRef value,
   case eVarSetOperationAssign: {
     ConstString const_enumerator_name(value.trim());
     const EnumerationMapEntry *enumerator_entry =
-        m_enumerations.FindFirstValueForName(
-            const_enumerator_name.GetStringRef());
+        m_enumerations.FindFirstValueForName(const_enumerator_name);
     if (enumerator_entry) {
       m_current_value = enumerator_entry->value.value;
       NotifyValueChanged();
@@ -69,13 +68,13 @@ Error OptionValueEnumeration::SetValueFromString(llvm::StringRef value,
       const size_t count = m_enumerations.GetSize();
       if (count) {
         error_strm.Printf(", valid values are: %s",
-                          m_enumerations.GetCStringAtIndex(0).str().c_str());
+                          m_enumerations.GetCStringAtIndex(0).GetCString());
         for (size_t i = 1; i < count; ++i) {
           error_strm.Printf(", %s",
-                            m_enumerations.GetCStringAtIndex(i).str().c_str());
+                            m_enumerations.GetCStringAtIndex(i).GetCString());
         }
       }
-      error.SetErrorString(error_strm.GetData());
+      error.SetErrorString(error_strm.GetString());
     }
     break;
   }
@@ -99,7 +98,7 @@ void OptionValueEnumeration::SetEnumerations(
       ConstString const_enumerator_name(enumerators[i].string_value);
       EnumeratorInfo enumerator_info = {enumerators[i].value,
                                         enumerators[i].usage};
-      m_enumerations.Append(const_enumerator_name.GetStringRef(),
+      m_enumerations.Append(const_enumerator_name,
                             enumerator_info);
     }
     m_enumerations.Sort();
@@ -111,22 +110,22 @@ lldb::OptionValueSP OptionValueEnumeration::DeepCopy() const {
 }
 
 size_t OptionValueEnumeration::AutoComplete(
-    CommandInterpreter &interpreter, const char *s, int match_start_point,
+    CommandInterpreter &interpreter, llvm::StringRef s, int match_start_point,
     int max_return_elements, bool &word_complete, StringList &matches) {
   word_complete = false;
   matches.Clear();
 
   const uint32_t num_enumerators = m_enumerations.GetSize();
-  if (s && s[0]) {
+  if (!s.empty()) {
     for (size_t i = 0; i < num_enumerators; ++i) {
-      llvm::StringRef name = m_enumerations.GetCStringAtIndex(i);
+      llvm::StringRef name = m_enumerations.GetCStringAtIndex(i).GetStringRef();
       if (name.startswith(s))
         matches.AppendString(name);
     }
   } else {
     // only suggest "true" or "false" by default
     for (size_t i = 0; i < num_enumerators; ++i)
-      matches.AppendString(m_enumerations.GetCStringAtIndex(i));
+      matches.AppendString(m_enumerations.GetCStringAtIndex(i).GetStringRef());
   }
   return matches.GetSize();
 }

@@ -15,9 +15,7 @@
 // Project includes
 #include "ObjCLanguage.h"
 
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/DataFormatters/DataVisualization.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
@@ -25,6 +23,10 @@
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/StreamString.h"
+
+#include "llvm/Support/Threading.h"
 
 #include "CF.h"
 #include "Cocoa.h"
@@ -217,7 +219,7 @@ ConstString ObjCLanguage::MethodName::GetFullNameWithoutCategory(
         strm.PutChar('-');
       strm.Printf("[%s %s]", GetClassName().GetCString(),
                   GetSelector().GetCString());
-      return ConstString(strm.GetString().c_str());
+      return ConstString(strm.GetString());
     }
 
     if (!empty_if_no_category) {
@@ -242,25 +244,25 @@ size_t ObjCLanguage::MethodName::GetFullNames(std::vector<ConstString> &names,
       if (category) {
         strm.Printf("%c[%s %s]", is_class_method ? '+' : '-',
                     GetClassName().GetCString(), GetSelector().GetCString());
-        names.push_back(ConstString(strm.GetString().c_str()));
+        names.emplace_back(strm.GetString());
       }
     } else {
       const ConstString &class_name = GetClassName();
       const ConstString &selector = GetSelector();
       strm.Printf("+[%s %s]", class_name.GetCString(), selector.GetCString());
-      names.push_back(ConstString(strm.GetString().c_str()));
+      names.emplace_back(strm.GetString());
       strm.Clear();
       strm.Printf("-[%s %s]", class_name.GetCString(), selector.GetCString());
-      names.push_back(ConstString(strm.GetString().c_str()));
+      names.emplace_back(strm.GetString());
       strm.Clear();
       if (category) {
         strm.Printf("+[%s(%s) %s]", class_name.GetCString(),
                     category.GetCString(), selector.GetCString());
-        names.push_back(ConstString(strm.GetString().c_str()));
+        names.emplace_back(strm.GetString());
         strm.Clear();
         strm.Printf("-[%s(%s) %s]", class_name.GetCString(),
                     category.GetCString(), selector.GetCString());
-        names.push_back(ConstString(strm.GetString().c_str()));
+        names.emplace_back(strm.GetString());
       }
     }
   }
@@ -857,10 +859,10 @@ static void LoadCoreMediaFormatters(TypeCategoryImplSP objc_category_sp) {
 }
 
 lldb::TypeCategoryImplSP ObjCLanguage::GetFormatters() {
-  static std::once_flag g_initialize;
+  static llvm::once_flag g_initialize;
   static TypeCategoryImplSP g_category;
 
-  std::call_once(g_initialize, [this]() -> void {
+  llvm::call_once(g_initialize, [this]() -> void {
     DataVisualization::Categories::GetCategory(GetPluginName(), g_category);
     if (g_category) {
       LoadCoreMediaFormatters(g_category);

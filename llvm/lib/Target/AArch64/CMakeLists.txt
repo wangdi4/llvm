@@ -13,6 +13,10 @@ tablegen(LLVM AArch64GenCallingConv.inc -gen-callingconv)
 tablegen(LLVM AArch64GenSubtargetInfo.inc -gen-subtarget)
 tablegen(LLVM AArch64GenDisassemblerTables.inc -gen-disassembler)
 tablegen(LLVM AArch64GenSystemOperands.inc -gen-searchable-tables)
+if(LLVM_BUILD_GLOBAL_ISEL)
+  tablegen(LLVM AArch64GenRegisterBank.inc -gen-register-bank)
+  tablegen(LLVM AArch64GenGlobalISel.inc -gen-global-isel)
+endif()
 
 add_public_tablegen_target(AArch64CommonTableGen)
 
@@ -35,7 +39,6 @@ endif()
 
 add_llvm_target(AArch64CodeGen
   AArch64A57FPLoadBalancing.cpp
-  AArch64AddressTypePromotion.cpp
   AArch64AdvSIMDScalarPass.cpp
   AArch64AsmPrinter.cpp
   AArch64CleanupLocalDynamicTLSPass.cpp
@@ -52,6 +55,7 @@ add_llvm_target(AArch64CodeGen
   AArch64ISelLowering.cpp
   AArch64InstrInfo.cpp
   AArch64LoadStoreOptimizer.cpp
+  AArch64MacroFusion.cpp
   AArch64MCInstLower.cpp
   AArch64PromoteConstant.cpp
   AArch64PBQPRegAlloc.cpp
@@ -64,9 +68,10 @@ add_llvm_target(AArch64CodeGen
   AArch64TargetTransformInfo.cpp
   AArch64VectorByElementOpt.cpp
   ${GLOBAL_ISEL_BUILD_FILES}
-)
 
-add_dependencies(LLVMAArch64CodeGen intrinsics_gen)
+  DEPENDS
+  intrinsics_gen
+)
 
 add_subdirectory(TargetInfo)
 add_subdirectory(AsmParser)

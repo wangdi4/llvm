@@ -16,16 +16,17 @@
 // Other libraries and framework includes
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Host/Debug.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/HostThread.h"
+#include "lldb/Host/linux/Support.h"
 #include "lldb/Target/MemoryRegionInfo.h"
+#include "lldb/Utility/FileSpec.h"
 #include "lldb/lldb-types.h"
 
 #include "NativeThreadLinux.h"
 #include "lldb/Host/common/NativeProcessProtocol.h"
 
 namespace lldb_private {
-class Error;
+class Status;
 class Scalar;
 
 namespace process_linux {
@@ -37,11 +38,11 @@ namespace process_linux {
 ///
 /// Changes in the inferior process state are broadcasted.
 class NativeProcessLinux : public NativeProcessProtocol {
-  friend Error NativeProcessProtocol::Launch(
+  friend Status NativeProcessProtocol::Launch(
       ProcessLaunchInfo &launch_info, NativeDelegate &native_delegate,
       MainLoop &mainloop, NativeProcessProtocolSP &process_sp);
 
-  friend Error NativeProcessProtocol::Attach(
+  friend Status NativeProcessProtocol::Attach(
       lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &native_delegate,
       MainLoop &mainloop, NativeProcessProtocolSP &process_sp);
 
@@ -49,34 +50,34 @@ public:
   // ---------------------------------------------------------------------
   // NativeProcessProtocol Interface
   // ---------------------------------------------------------------------
-  Error Resume(const ResumeActionList &resume_actions) override;
+  Status Resume(const ResumeActionList &resume_actions) override;
 
-  Error Halt() override;
+  Status Halt() override;
 
-  Error Detach() override;
+  Status Detach() override;
 
-  Error Signal(int signo) override;
+  Status Signal(int signo) override;
 
-  Error Interrupt() override;
+  Status Interrupt() override;
 
-  Error Kill() override;
+  Status Kill() override;
 
-  Error GetMemoryRegionInfo(lldb::addr_t load_addr,
-                            MemoryRegionInfo &range_info) override;
+  Status GetMemoryRegionInfo(lldb::addr_t load_addr,
+                             MemoryRegionInfo &range_info) override;
 
-  Error ReadMemory(lldb::addr_t addr, void *buf, size_t size,
-                   size_t &bytes_read) override;
+  Status ReadMemory(lldb::addr_t addr, void *buf, size_t size,
+                    size_t &bytes_read) override;
 
-  Error ReadMemoryWithoutTrap(lldb::addr_t addr, void *buf, size_t size,
-                              size_t &bytes_read) override;
+  Status ReadMemoryWithoutTrap(lldb::addr_t addr, void *buf, size_t size,
+                               size_t &bytes_read) override;
 
-  Error WriteMemory(lldb::addr_t addr, const void *buf, size_t size,
-                    size_t &bytes_written) override;
+  Status WriteMemory(lldb::addr_t addr, const void *buf, size_t size,
+                     size_t &bytes_written) override;
 
-  Error AllocateMemory(size_t size, uint32_t permissions,
-                       lldb::addr_t &addr) override;
+  Status AllocateMemory(size_t size, uint32_t permissions,
+                        lldb::addr_t &addr) override;
 
-  Error DeallocateMemory(lldb::addr_t addr) override;
+  Status DeallocateMemory(lldb::addr_t addr) override;
 
   lldb::addr_t GetSharedLibraryInfoAddress() override;
 
@@ -84,24 +85,32 @@ public:
 
   bool GetArchitecture(ArchSpec &arch) const override;
 
-  Error SetBreakpoint(lldb::addr_t addr, uint32_t size, bool hardware) override;
+  Status SetBreakpoint(lldb::addr_t addr, uint32_t size,
+                       bool hardware) override;
+
+  Status RemoveBreakpoint(lldb::addr_t addr, bool hardware = false) override;
 
   void DoStopIDBumped(uint32_t newBumpId) override;
 
-  Error GetLoadedModuleFileSpec(const char *module_path,
-                                FileSpec &file_spec) override;
+  Status GetLoadedModuleFileSpec(const char *module_path,
+                                 FileSpec &file_spec) override;
 
-  Error GetFileLoadAddress(const llvm::StringRef &file_name,
-                           lldb::addr_t &load_addr) override;
+  Status GetFileLoadAddress(const llvm::StringRef &file_name,
+                            lldb::addr_t &load_addr) override;
 
   NativeThreadLinuxSP GetThreadByID(lldb::tid_t id);
+
+  llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>>
+  GetAuxvData() const override {
+    return getProcFile(GetID(), "auxv");
+  }
 
   // ---------------------------------------------------------------------
   // Interface used by NativeRegisterContext-derived classes.
   // ---------------------------------------------------------------------
-  static Error PtraceWrapper(int req, lldb::pid_t pid, void *addr = nullptr,
-                             void *data = nullptr, size_t data_size = 0,
-                             long *result = nullptr);
+  static Status PtraceWrapper(int req, lldb::pid_t pid, void *addr = nullptr,
+                              void *data = nullptr, size_t data_size = 0,
+                              long *result = nullptr);
 
   bool SupportHardwareSingleStepping() const;
 
@@ -109,7 +118,7 @@ protected:
   // ---------------------------------------------------------------------
   // NativeProcessProtocol protected interface
   // ---------------------------------------------------------------------
-  Error
+  Status
   GetSoftwareBreakpointTrapOpcode(size_t trap_opcode_size_hint,
                                   size_t &actual_opcode_size,
                                   const uint8_t *&trap_opcode_bytes) override;
@@ -119,7 +128,7 @@ private:
   ArchSpec m_arch;
 
   LazyBool m_supports_mem_region;
-  std::vector<MemoryRegionInfo> m_mem_region_cache;
+  std::vector<std::pair<MemoryRegionInfo, FileSpec>> m_mem_region_cache;
 
   lldb::tid_t m_pending_notification_tid;
 
@@ -132,15 +141,15 @@ private:
   // ---------------------------------------------------------------------
   NativeProcessLinux();
 
-  Error LaunchInferior(MainLoop &mainloop, ProcessLaunchInfo &launch_info);
+  Status LaunchInferior(MainLoop &mainloop, ProcessLaunchInfo &launch_info);
 
   /// Attaches to an existing process.  Forms the
   /// implementation of Process::DoAttach
-  void AttachToInferior(MainLoop &mainloop, lldb::pid_t pid, Error &error);
+  void AttachToInferior(MainLoop &mainloop, lldb::pid_t pid, Status &error);
 
-  ::pid_t Attach(lldb::pid_t pid, Error &error);
+  ::pid_t Attach(lldb::pid_t pid, Status &error);
 
-  static Error SetDefaultPtraceOpts(const lldb::pid_t);
+  static Status SetDefaultPtraceOpts(const lldb::pid_t);
 
   static void *MonitorThread(void *baton);
 
@@ -159,7 +168,7 @@ private:
   void MonitorSignal(const siginfo_t &info, NativeThreadLinux &thread,
                      bool exited);
 
-  Error SetupSoftwareSingleStepping(NativeThreadLinux &thread);
+  Status SetupSoftwareSingleStepping(NativeThreadLinux &thread);
 
 #if 0
         static ::ProcessMessage::CrashReason
@@ -181,22 +190,22 @@ private:
 
   NativeThreadLinuxSP AddThread(lldb::tid_t thread_id);
 
-  Error GetSoftwareBreakpointPCOffset(uint32_t &actual_opcode_size);
+  Status GetSoftwareBreakpointPCOffset(uint32_t &actual_opcode_size);
 
-  Error FixupBreakpointPCAsNeeded(NativeThreadLinux &thread);
+  Status FixupBreakpointPCAsNeeded(NativeThreadLinux &thread);
 
   /// Writes a siginfo_t structure corresponding to the given thread ID to the
   /// memory region pointed to by @p siginfo.
-  Error GetSignalInfo(lldb::tid_t tid, void *siginfo);
+  Status GetSignalInfo(lldb::tid_t tid, void *siginfo);
 
   /// Writes the raw event message code (vis-a-vis PTRACE_GETEVENTMSG)
   /// corresponding to the given thread ID to the memory pointed to by @p
   /// message.
-  Error GetEventMessage(lldb::tid_t tid, unsigned long *message);
+  Status GetEventMessage(lldb::tid_t tid, unsigned long *message);
 
   void NotifyThreadDeath(lldb::tid_t tid);
 
-  Error Detach(lldb::tid_t tid);
+  Status Detach(lldb::tid_t tid);
 
   // This method is requests a stop on all threads which are still running. It
   // sets up a
@@ -211,12 +220,14 @@ private:
   // Resume the given thread, optionally passing it the given signal. The type
   // of resume
   // operation (continue, single-step) depends on the state parameter.
-  Error ResumeThread(NativeThreadLinux &thread, lldb::StateType state,
-                     int signo);
+  Status ResumeThread(NativeThreadLinux &thread, lldb::StateType state,
+                      int signo);
 
   void ThreadWasCreated(NativeThreadLinux &thread);
 
   void SigchldHandler();
+
+  Status PopulateMemoryRegionCache();
 };
 
 } // namespace process_linux

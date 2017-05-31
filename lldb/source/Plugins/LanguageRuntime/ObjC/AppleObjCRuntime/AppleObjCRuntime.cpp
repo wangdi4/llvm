@@ -14,15 +14,11 @@
 #include "clang/AST/Type.h"
 
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
@@ -34,13 +30,17 @@
 #include "lldb/Target/StopInfo.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/StreamString.h"
 
 #include <vector>
 
 using namespace lldb;
 using namespace lldb_private;
 
-#define PO_FUNCTION_TIMEOUT_USEC 15 * 1000 * 1000
+static constexpr std::chrono::seconds g_po_function_timeout(15);
 
 AppleObjCRuntime::~AppleObjCRuntime() {}
 
@@ -145,7 +145,7 @@ bool AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
   lldb::addr_t wrapper_struct_addr = LLDB_INVALID_ADDRESS;
 
   if (!m_print_object_caller_up) {
-    Error error;
+    Status error;
     m_print_object_caller_up.reset(
         exe_scope->CalculateTarget()->GetFunctionCallerForLanguage(
             eLanguageTypeObjC, return_compiler_type, *function_address,
@@ -169,7 +169,7 @@ bool AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
   options.SetTryAllThreads(true);
   options.SetStopOthers(true);
   options.SetIgnoreBreakpoints(true);
-  options.SetTimeoutUsec(PO_FUNCTION_TIMEOUT_USEC);
+  options.SetTimeout(g_po_function_timeout);
 
   ExpressionResults results = m_print_object_caller_up->ExecuteFunction(
       exe_ctx, &wrapper_struct_addr, options, diagnostics, ret);
@@ -185,7 +185,7 @@ bool AppleObjCRuntime::GetObjectDescription(Stream &strm, Value &value,
   size_t full_buffer_len = sizeof(buf) - 1;
   size_t curr_len = full_buffer_len;
   while (curr_len == full_buffer_len) {
-    Error error;
+    Status error;
     curr_len = process->ReadCStringFromMemory(result_ptr + cstr_len, buf,
                                               sizeof(buf), error);
     strm.Write(buf, curr_len);

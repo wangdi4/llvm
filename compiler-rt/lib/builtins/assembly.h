@@ -44,7 +44,8 @@
 #endif
 #define CONST_SECTION .section .rodata
 
-#if defined(__GNU__) || defined(__ANDROID__) || defined(__FreeBSD__)
+#if defined(__GNU__) || defined(__FreeBSD__) || defined(__Fuchsia__) || \
+    defined(__linux__)
 #define NO_EXEC_STACK_DIRECTIVE .section .note.GNU-stack,"",%progbits
 #else
 #define NO_EXEC_STACK_DIRECTIVE
@@ -70,7 +71,7 @@
 #if defined(__ARM_ARCH_4T__) || __ARM_ARCH >= 5
 #define ARM_HAS_BX
 #endif
-#if !defined(__ARM_FEATURE_CLZ) &&                                             \
+#if !defined(__ARM_FEATURE_CLZ) && __ARM_ARCH_ISA_THUMB != 1 &&                \
     (__ARM_ARCH >= 6 || (__ARM_ARCH == 5 && !defined(__ARM_ARCH_5__)))
 #define __ARM_FEATURE_CLZ
 #endif

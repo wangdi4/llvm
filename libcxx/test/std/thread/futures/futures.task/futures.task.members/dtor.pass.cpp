@@ -31,7 +31,7 @@ public:
     long operator()(long i, long j) const {return data_ + i + j;}
 };
 
-void func(std::packaged_task<double(int, char)> p)
+void func(std::packaged_task<double(int, char)>)
 {
 }
 
@@ -50,6 +50,7 @@ int main()
         try
         {
             double i = f.get();
+            ((void)i); // Prevent unused warning
             assert(false);
         }
         catch (const std::future_error& e)

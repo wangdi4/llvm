@@ -11,6 +11,7 @@
 #include "Error.h"
 #include "InputFiles.h"
 #include "Symbols.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Debug.h"
@@ -28,7 +29,7 @@ namespace lld {
 namespace coff {
 
 SectionChunk::SectionChunk(ObjectFile *F, const coff_section *H)
-    : Chunk(SectionKind), Repl(this), File(F), Header(H),
+    : Chunk(SectionKind), Repl(this), Header(H), File(F),
       Relocs(File->getCOFFObj()->getRelocations(Header)),
       NumRelocs(std::distance(Relocs.begin(), Relocs.end())) {
   // Initialize SectionName.
@@ -61,7 +62,7 @@ void SectionChunk::applyRelX64(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_AMD64_SECTION:  add16(Off, Sym->getSectionIndex()); break;
   case IMAGE_REL_AMD64_SECREL:   add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -76,7 +77,7 @@ void SectionChunk::applyRelX86(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_I386_SECTION:  add16(Off, Sym->getSectionIndex()); break;
   case IMAGE_REL_I386_SECREL:   add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -136,7 +137,7 @@ void SectionChunk::applyRelARM(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_ARM_BLX23T:    applyBranch24T(Off, S - P - 4); break;
   case IMAGE_REL_ARM_SECREL:    add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -150,7 +151,7 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
   // Apply relocations.
   for (const coff_relocation &Rel : Relocs) {
     uint8_t *Off = Buf + OutputSectionOff + Rel.VirtualAddress;
-    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex)->repl();
+    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex);
     Defined *Sym = cast<Defined>(Body);
     uint64_t P = RVA + Rel.VirtualAddress;
     switch (Config->Machine) {
@@ -203,7 +204,7 @@ void SectionChunk::getBaserels(std::vector<Baserel> *Res) {
     uint8_t Ty = getBaserelType(Rel);
     if (Ty == IMAGE_REL_BASED_ABSOLUTE)
       continue;
-    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex)->repl();
+    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex);
     if (isa<DefinedAbsolute>(Body))
       continue;
     Res->emplace_back(RVA + Rel.VirtualAddress, Ty);
@@ -226,7 +227,7 @@ void SectionChunk::printDiscardedMessage() const {
   // Removed by dead-stripping. If it's removed by ICF, ICF already
   // printed out the name, so don't repeat that here.
   if (Sym && this == Repl)
-    llvm::outs() << "Discarded " << Sym->getName() << "\n";
+    message("Discarded " + Sym->getName());
 }
 
 StringRef SectionChunk::getDebugName() {
@@ -249,7 +250,7 @@ void SectionChunk::replace(SectionChunk *Other) {
 CommonChunk::CommonChunk(const COFFSymbolRef S) : Sym(S) {
   // Common symbols are aligned on natural boundaries up to 32 bytes.
   // This is what MSVC link.exe does.
-  Align = std::min(uint64_t(32), NextPowerOf2(Sym.getValue()));
+  Align = std::min(uint64_t(32), PowerOf2Ceil(Sym.getValue()));
 }
 
 uint32_t CommonChunk::getPermissions() const {
@@ -318,8 +319,45 @@ void SEHTableChunk::writeTo(uint8_t *Buf) const {
   std::sort(Begin, Begin + Cnt);
 }
 
-// Windows-specific.
-// This class represents a block in .reloc section.
+// Windows-specific. This class represents a block in .reloc section.
+// The format is described here.
+//
+// On Windows, each DLL is linked against a fixed base address and
+// usually loaded to that address. However, if there's already another
+// DLL that overlaps, the loader has to relocate it. To do that, DLLs
+// contain .reloc sections which contain offsets that need to be fixed
+// up at runtime. If the loader finds that a DLL cannot be loaded to its
+// desired base address, it loads it to somewhere else, and add <actual
+// base address> - <desired base address> to each offset that is
+// specified by the .reloc section. In ELF terms, .reloc sections
+// contain relative relocations in REL format (as opposed to RELA.)
+//
+// This already significantly reduces the size of relocations compared
+// to ELF .rel.dyn, but Windows does more to reduce it (probably because
+// it was invented for PCs in the late '80s or early '90s.)  Offsets in
+// .reloc are grouped by page where the page size is 12 bits, and
+// offsets sharing the same page address are stored consecutively to
+// represent them with less space. This is very similar to the page
+// table which is grouped by (multiple stages of) pages.
+//
+// For example, let's say we have 0x00030, 0x00500, 0x00700, 0x00A00,
+// 0x20004, and 0x20008 in a .reloc section for x64. The uppermost 4
+// bits have a type IMAGE_REL_BASED_DIR64 or 0xA. In the section, they
+// are represented like this:
+//
+//   0x00000  -- page address (4 bytes)
+//   16       -- size of this block (4 bytes)
+//     0xA030 -- entries (2 bytes each)
+//     0xA500
+//     0xA700
+//     0xAA00
+//   0x20000  -- page address (4 bytes)
+//   12       -- size of this block (4 bytes)
+//     0xA004 -- entries (2 bytes each)
+//     0xA008
+//
+// Usually we have a lot of relocations for each page, so the number of
+// bytes for one .reloc entry is close to 2 bytes on average.
 BaserelChunk::BaserelChunk(uint32_t Page, Baserel *Begin, Baserel *End) {
   // Block header consists of 4 byte page RVA and 4 byte block size.
   // Each entry is 2 byte. Last entry may be padding.

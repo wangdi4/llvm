@@ -18,8 +18,6 @@
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Expression/UserExpression.h"
 #include "lldb/Target/Process.h"
@@ -28,6 +26,8 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/UnixSignals.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -216,7 +216,7 @@ public:
 
           strm.Printf("breakpoint ");
           bp_site_sp->GetDescription(&strm, eDescriptionLevelBrief);
-          m_description.swap(strm.GetString());
+          m_description = strm.GetString();
         } else {
           StreamString strm;
           if (m_break_id != LLDB_INVALID_BREAK_ID) {
@@ -249,7 +249,7 @@ public:
                         " which has been deleted - was at 0x%" PRIx64,
                         m_value, m_address);
 
-          m_description.swap(strm.GetString());
+          m_description = strm.GetString();
         }
       }
     }
@@ -269,6 +269,7 @@ protected:
     if (!m_should_perform_action)
       return;
     m_should_perform_action = false;
+    bool internal_breakpoint = true;
 
     ThreadSP thread_sp(m_thread_wp.lock());
 
@@ -434,7 +435,7 @@ protected:
             // shouldn't stop that will win.
 
             if (bp_loc_sp->GetConditionText() != nullptr) {
-              Error condition_error;
+              Status condition_error;
               bool condition_says_stop =
                   bp_loc_sp->ConditionSaysStop(exe_ctx, condition_error);
 
@@ -495,6 +496,9 @@ protected:
             if (callback_says_stop)
               m_should_stop = true;
 
+            if (m_should_stop && !bp_loc_sp->GetBreakpoint().IsInternal())
+              internal_breakpoint = false;
+                  
             // If we are going to stop for this breakpoint, then remove the
             // breakpoint.
             if (callback_says_stop && bp_loc_sp &&
@@ -526,6 +530,20 @@ protected:
               "Process::%s could not find breakpoint site id: %" PRId64 "...",
               __FUNCTION__, m_value);
       }
+
+      if ((m_should_stop == false || internal_breakpoint)
+          && thread_sp->CompletedPlanOverridesBreakpoint()) {
+        
+        // Override should_stop decision when we have
+        // completed step plan additionally to the breakpoint
+        m_should_stop = true;
+        
+        // Here we clean the preset stop info so the next
+        // GetStopInfo call will find the appropriate stop info,
+        // which should be the stop info related to the completed plan
+        thread_sp->ResetStopInfo();
+      }
+
       if (log)
         log->Printf("Process::%s returning from action with m_should_stop: %d.",
                     __FUNCTION__, m_should_stop);
@@ -610,7 +628,7 @@ public:
     if (m_description.empty()) {
       StreamString strm;
       strm.Printf("watchpoint %" PRIi64, m_value);
-      m_description.swap(strm.GetString());
+      m_description = strm.GetString();
     }
     return m_description.c_str();
   }
@@ -692,7 +710,13 @@ protected:
             if (process_sp->GetWatchpointSupportInfo(num, wp_triggers_after)
                     .Success()) {
               if (!wp_triggers_after) {
-                process_sp->DisableWatchpoint(wp_sp.get(), false);
+                // We need to preserve the watch_index before watchpoint 
+                // is disable. Since Watchpoint::SetEnabled will clear the
+                // watch index.
+                // This will fix TestWatchpointIter failure
+                Watchpoint *wp = wp_sp.get();
+                uint32_t watch_index = wp->GetHardwareIndex();
+                process_sp->DisableWatchpoint(wp, false);
                 StopInfoSP stored_stop_info_sp = thread_sp->GetStopInfo();
                 assert(stored_stop_info_sp.get() == this);
 
@@ -710,7 +734,8 @@ protected:
                 process_sp->GetThreadList().SetSelectedThreadByID(
                     thread_sp->GetID());
                 thread_sp->SetStopInfo(stored_stop_info_sp);
-                process_sp->EnableWatchpoint(wp_sp.get(), false);
+                process_sp->EnableWatchpoint(wp, false);
+                wp->SetHardwareIndex(watch_index);
               }
             }
           }
@@ -771,7 +796,7 @@ protected:
           expr_options.SetUnwindOnError(true);
           expr_options.SetIgnoreBreakpoints(true);
           ValueObjectSP result_value_sp;
-          Error error;
+          Status error;
           result_code = UserExpression::Evaluate(
               exe_ctx, expr_options, wp_sp->GetConditionText(),
               llvm::StringRef(), result_value_sp, error);
@@ -950,7 +975,7 @@ public:
           strm.Printf("signal %s", signal_name);
         else
           strm.Printf("signal %" PRIi64, m_value);
-        m_description.swap(strm.GetString());
+        m_description = strm.GetString();
       }
     }
     return m_description.c_str();
@@ -1021,7 +1046,7 @@ public:
     if (m_description.empty()) {
       StreamString strm;
       m_plan_sp->GetDescription(&strm, eDescriptionLevelBrief);
-      m_description.swap(strm.GetString());
+      m_description = strm.GetString();
     }
     return m_description.c_str();
   }

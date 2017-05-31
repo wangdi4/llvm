@@ -38,9 +38,7 @@ class HexagonSubtarget : public HexagonGenSubtargetInfo {
   bool ModeIEEERndNear;
 
 public:
-  enum HexagonArchEnum {
-    V4, V5, V55, V60
-  };
+#include "HexagonDepArch.h"
 
   HexagonArchEnum HexagonArchVersion;
   /// True if the target should use Back-Skip-Back scheduling. This is the
@@ -98,11 +96,15 @@ public:
   bool hasV55TOpsOnly() const { return getHexagonArchVersion() == V55; }
   bool hasV60TOps() const { return getHexagonArchVersion() >= V60; }
   bool hasV60TOpsOnly() const { return getHexagonArchVersion() == V60; }
+  bool hasV62TOps() const { return getHexagonArchVersion() >= V62; }
+  bool hasV62TOpsOnly() const { return getHexagonArchVersion() == V62; }
+
   bool modeIEEERndNear() const { return ModeIEEERndNear; }
   bool useHVXOps() const { return UseHVXOps; }
   bool useHVXDblOps() const { return UseHVXOps && UseHVXDblOps; }
   bool useHVXSglOps() const { return UseHVXOps && !UseHVXDblOps; }
   bool useLongCalls() const { return UseLongCalls; }
+  bool usePredicatedCalls() const;
 
   bool useBSBScheduling() const { return UseBSBScheduling; }
   bool enableMachineScheduler() const override;
@@ -130,6 +132,10 @@ public:
       std::vector<std::unique_ptr<ScheduleDAGMutation>> &Mutations)
       const override;
 
+  void getSMSMutations(
+      std::vector<std::unique_ptr<ScheduleDAGMutation>> &Mutations)
+      const override;
+
   /// \brief Perform target specific adjustments to the latency of a schedule
   /// dependency.
   void adjustSchedDependency(SUnit *def, SUnit *use, SDep& dep) const override;
@@ -141,11 +147,10 @@ private:
   // Helper function responsible for increasing the latency only.
   void updateLatency(MachineInstr &SrcInst, MachineInstr &DstInst, SDep &Dep)
       const;
-  void changeLatency(SUnit *Src, SmallVector<SDep, 4> &Deps, SUnit *Dst,
-      unsigned Lat) const;
-  bool isBestZeroLatency(SUnit *Src, SUnit *Dst, const HexagonInstrInfo *TII)
-      const;
-  void changePhiLatency(MachineInstr &SrcInst, SUnit *Dst, SDep &Dep) const;
+  void restoreLatency(SUnit *Src, SUnit *Dst) const;
+  void changeLatency(SUnit *Src, SUnit *Dst, unsigned Lat) const;
+  bool isBestZeroLatency(SUnit *Src, SUnit *Dst, const HexagonInstrInfo *TII,
+      SmallSet<SUnit*, 4> &ExclSrc, SmallSet<SUnit*, 4> &ExclDst) const;
 };
 
 } // end namespace llvm

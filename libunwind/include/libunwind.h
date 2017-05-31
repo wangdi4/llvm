@@ -72,7 +72,7 @@ typedef struct unw_cursor_t unw_cursor_t;
 typedef struct unw_addr_space *unw_addr_space_t;
 
 typedef int unw_regnum_t;
-#if _LIBUNWIND_ARM_EHABI
+#if defined(_LIBUNWIND_ARM_EHABI)
 typedef uint32_t unw_word_t;
 typedef uint64_t unw_fpreg_t;
 #else
@@ -165,13 +165,8 @@ enum {
   UNW_X86_ECX = 1,
   UNW_X86_EDX = 2,
   UNW_X86_EBX = 3,
-#if defined(__CloudABI__) || defined(__FreeBSD__)
-  UNW_X86_ESP = 4,
-  UNW_X86_EBP = 5,
-#else
   UNW_X86_EBP = 4,
   UNW_X86_ESP = 5,
-#endif
   UNW_X86_ESI = 6,
   UNW_X86_EDI = 7
 };

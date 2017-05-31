@@ -26,14 +26,8 @@
 // Project includes
 #include "GoUserExpression.h"
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataEncoder.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Core/ValueObjectRegister.h"
 #include "lldb/Expression/DiagnosticManager.h"
@@ -49,6 +43,12 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/ThreadPlanCallUserExpression.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataEncoder.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 #include "lldb/lldb-private.h"
 
 #include "Plugins/ExpressionParser/Go/GoAST.h"
@@ -150,7 +150,7 @@ public:
 
   CompilerType EvaluateType(const GoASTExpr *e);
 
-  Error &error() { return m_error; }
+  Status &error() { return m_error; }
 
 private:
   std::nullptr_t NotImplemented(const GoASTExpr *e) {
@@ -163,7 +163,7 @@ private:
   lldb::StackFrameSP m_frame;
   GoParser m_parser;
   DynamicValueType m_use_dynamic;
-  Error m_error;
+  Status m_error;
   llvm::StringRef m_package;
   std::vector<std::unique_ptr<GoASTStmt>> m_statements;
 };
@@ -216,7 +216,7 @@ bool GoUserExpression::Parse(DiagnosticManager &diagnostic_manager,
     return true;
   const char *error_cstr = m_interpreter->error().AsCString();
   if (error_cstr && error_cstr[0])
-    diagnostic_manager.PutCString(eDiagnosticSeverityError, error_cstr);
+    diagnostic_manager.PutString(eDiagnosticSeverityError, error_cstr);
   else
     diagnostic_manager.Printf(eDiagnosticSeverityError,
                               "expression can't be interpreted or run");
@@ -245,8 +245,8 @@ GoUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
         log->Printf("== [GoUserExpression::Evaluate] Expression may not run, "
                     "but is not constant ==");
 
-      diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                    "expression needed to run but couldn't");
+      diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                   "expression needed to run but couldn't");
 
       return execution_results;
     }
@@ -254,16 +254,16 @@ GoUserExpression::DoExecute(DiagnosticManager &diagnostic_manager,
 
   m_interpreter->set_use_dynamic(options.GetUseDynamic());
   ValueObjectSP result_val_sp = m_interpreter->Evaluate(exe_ctx);
-  Error err = m_interpreter->error();
+  Status err = m_interpreter->error();
   m_interpreter.reset();
 
   if (!result_val_sp) {
     const char *error_cstr = err.AsCString();
     if (error_cstr && error_cstr[0])
-      diagnostic_manager.PutCString(eDiagnosticSeverityError, error_cstr);
+      diagnostic_manager.PutString(eDiagnosticSeverityError, error_cstr);
     else
-      diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                    "expression can't be interpreted or run");
+      diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                   "expression can't be interpreted or run");
     return lldb::eExpressionDiscarded;
   }
   result.reset(new ExpressionVariable(ExpressionVariable::eKindGo));
@@ -509,7 +509,8 @@ ValueObjectSP GoUserExpression::GoInterpreter::VisitBasicLit(
   DataExtractor data(buf, order, addr_size);
 
   CompilerType type = LookupType(target, ConstString("int64"));
-  return ValueObject::CreateValueObjectFromData(nullptr, data, m_exe_ctx, type);
+  return ValueObject::CreateValueObjectFromData(llvm::StringRef(), data,
+                                                m_exe_ctx, type);
 }
 
 ValueObjectSP GoUserExpression::GoInterpreter::VisitIndexExpr(
@@ -565,7 +566,7 @@ GoUserExpression::GoInterpreter::VisitUnaryExpr(const GoASTUnaryExpr *e) {
   case GoLexer::OP_AMP: {
     CompilerType type = x->GetCompilerType().GetPointerType();
     uint64_t address = x->GetAddressOf();
-    return ValueObject::CreateValueObjectFromAddress(nullptr, address,
+    return ValueObject::CreateValueObjectFromAddress(llvm::StringRef(), address,
                                                      m_exe_ctx, type);
   }
   case GoLexer::OP_PLUS:

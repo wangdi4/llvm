@@ -138,12 +138,12 @@ public:
 
   virtual bool HardwareSingleStep(bool enable);
 
-  virtual Error
+  virtual Status
   ReadRegisterValueFromMemory(const lldb_private::RegisterInfo *reg_info,
                               lldb::addr_t src_addr, uint32_t src_len,
                               RegisterValue &reg_value);
 
-  virtual Error
+  virtual Status
   WriteRegisterValueToMemory(const lldb_private::RegisterInfo *reg_info,
                              lldb::addr_t dst_addr, uint32_t dst_len,
                              const RegisterValue &reg_value);
@@ -155,7 +155,7 @@ public:
 
   virtual Thread &GetThread() { return m_thread; }
 
-  const RegisterInfo *GetRegisterInfoByName(const char *reg_name,
+  const RegisterInfo *GetRegisterInfoByName(llvm::StringRef reg_name,
                                             uint32_t start_idx = 0);
 
   const RegisterInfo *GetRegisterInfo(lldb::RegisterKind reg_kind,

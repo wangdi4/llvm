@@ -149,12 +149,22 @@ class RegionAlloc;
 
 // Descriptor of user's memory block.
 struct MBlock {
-  u64  siz;
+  u64  siz : 48;
+  u64  tag : 16;
   u32  stk;
   u16  tid;
 };
 
 COMPILER_CHECK(sizeof(MBlock) == 16);
+
+enum ExternalTag : uptr {
+  kExternalTagNone = 0,
+  kExternalTagSwiftModifyingAccess = 1,
+  kExternalTagFirstUserAvailable = 2,
+  kExternalTagMax = 1024,
+  // Don't set kExternalTagMax over 65,536, since MBlock only stores tags
+  // as 16-bit values, see tsan_defs.h.
+};
 
 }  // namespace __tsan
 

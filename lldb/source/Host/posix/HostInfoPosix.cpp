@@ -11,8 +11,8 @@
 #include "Plugins/ScriptInterpreter/Python/lldb-python.h"
 #endif
 
-#include "lldb/Core/Log.h"
 #include "lldb/Host/posix/HostInfoPosix.h"
+#include "lldb/Utility/Log.h"
 
 #include "clang/Basic/Version.h"
 #include "clang/Config/config.h"
@@ -48,7 +48,7 @@ bool HostInfoPosix::GetHostname(std::string &s) {
   return false;
 }
 
-#ifdef __ANDROID_NDK__
+#ifdef __ANDROID__
 #include <android/api-level.h>
 #endif
 #if defined(__ANDROID_API__) && __ANDROID_API__ < 21

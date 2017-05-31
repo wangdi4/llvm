@@ -274,6 +274,8 @@ For API clients and LLVM developers.
    Coroutines
    GlobalISel
    XRay
+   XRayExample
+   PDB/index
 
 :doc:`WritingAnLLVMPass`
    Information on how to write LLVM transformations and analyses.
@@ -397,6 +399,12 @@ For API clients and LLVM developers.
 
 :doc:`XRay`
   High-level documentation of how to use XRay in LLVM.
+
+:doc:`XRayExample`
+  An example of how to debug an application with XRay.
+
+:doc:`The Microsoft PDB File Format <PDB/index>`
+  A detailed description of the Microsoft PDB (Program Database) file format.
 
 Development Process Documentation
 =================================

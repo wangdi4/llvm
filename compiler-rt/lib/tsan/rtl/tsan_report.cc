@@ -53,7 +53,8 @@ class Decorator: public __sanitizer::SanitizerCommonDecorator {
 };
 
 ReportDesc::ReportDesc()
-    : stacks(MBlockReportStack)
+    : tag(kExternalTagNone)
+    , stacks(MBlockReportStack)
     , mops(MBlockReportMop)
     , locs(MBlockReportLoc)
     , mutexes(MBlockReportMutex)
@@ -81,7 +82,7 @@ const char *thread_name(char *buf, int tid) {
   return buf;
 }
 
-static const char *ReportTypeString(ReportType typ) {
+static const char *ReportTypeString(ReportType typ, uptr tag) {
   if (typ == ReportTypeRace)
     return "data race";
   if (typ == ReportTypeVptrRace)
@@ -90,6 +91,9 @@ static const char *ReportTypeString(ReportType typ) {
     return "heap-use-after-free";
   if (typ == ReportTypeVptrUseAfterFree)
     return "heap-use-after-free (virtual call vs free)";
+  if (typ == ReportTypeExternalRace) {
+    return GetReportHeaderFromTag(tag) ?: "race on external object";
+  }
   if (typ == ReportTypeThreadLeak)
     return "thread leak";
   if (typ == ReportTypeMutexDestroyLocked)
@@ -152,14 +156,26 @@ static const char *MopDesc(bool first, bool write, bool atomic) {
                 : (write ? "Previous write" : "Previous read"));
 }
 
+static const char *ExternalMopDesc(bool first, bool write) {
+  return first ? (write ? "Modifying" : "Read-only")
+               : (write ? "Previous modifying" : "Previous read-only");
+}
+
 static void PrintMop(const ReportMop *mop, bool first) {
   Decorator d;
   char thrbuf[kThreadBufSize];
   Printf("%s", d.Access());
-  Printf("  %s of size %d at %p by %s",
-      MopDesc(first, mop->write, mop->atomic),
-      mop->size, (void*)mop->addr,
-      thread_name(thrbuf, mop->tid));
+  if (mop->external_tag == kExternalTagNone) {
+    Printf("  %s of size %d at %p by %s",
+           MopDesc(first, mop->write, mop->atomic), mop->size,
+           (void *)mop->addr, thread_name(thrbuf, mop->tid));
+  } else {
+    const char *object_type =
+        GetObjectTypeFromTag(mop->external_tag) ?: "external object";
+    Printf("  %s access of %s at %p by %s",
+           ExternalMopDesc(first, mop->write), object_type,
+           (void *)mop->addr, thread_name(thrbuf, mop->tid));
+  }
   PrintMutexSet(mop->mset);
   Printf(":\n");
   Printf("%s", d.EndAccess());
@@ -183,9 +199,16 @@ static void PrintLocation(const ReportLocation *loc) {
              global.module_offset);
   } else if (loc->type == ReportLocationHeap) {
     char thrbuf[kThreadBufSize];
-    Printf("  Location is heap block of size %zu at %p allocated by %s:\n",
-           loc->heap_chunk_size, loc->heap_chunk_start,
-           thread_name(thrbuf, loc->tid));
+    const char *object_type = GetObjectTypeFromTag(loc->external_tag);
+    if (!object_type) {
+      Printf("  Location is heap block of size %zu at %p allocated by %s:\n",
+             loc->heap_chunk_size, loc->heap_chunk_start,
+             thread_name(thrbuf, loc->tid));
+    } else {
+      Printf("  Location is %s of size %zu at %p allocated by %s:\n",
+             object_type, loc->heap_chunk_size, loc->heap_chunk_start,
+             thread_name(thrbuf, loc->tid));
+    }
     print_stack = true;
   } else if (loc->type == ReportLocationStack) {
     Printf("  Location is stack of %s.\n\n", thread_name(thrbuf, loc->tid));
@@ -235,9 +258,15 @@ static void PrintThread(const ReportThread *rt) {
   if (rt->name && rt->name[0] != '\0')
     Printf(" '%s'", rt->name);
   char thrbuf[kThreadBufSize];
-  Printf(" (tid=%zu, %s) created by %s",
-    rt->os_id, rt->running ? "running" : "finished",
-    thread_name(thrbuf, rt->parent_tid));
+  const char *thread_status = rt->running ? "running" : "finished";
+  if (rt->workerthread) {
+    Printf(" (tid=%zu, %s) is a GCD worker thread\n", rt->os_id, thread_status);
+    Printf("\n");
+    Printf("%s", d.EndThreadDescription());
+    return;
+  }
+  Printf(" (tid=%zu, %s) created by %s", rt->os_id, thread_status,
+         thread_name(thrbuf, rt->parent_tid));
   if (rt->stack)
     Printf(" at:");
   Printf("\n");
@@ -289,7 +318,7 @@ static SymbolizedStack *SkipTsanInternalFrames(SymbolizedStack *frames) {
 void PrintReport(const ReportDesc *rep) {
   Decorator d;
   Printf("==================\n");
-  const char *rep_typ_str = ReportTypeString(rep->typ);
+  const char *rep_typ_str = ReportTypeString(rep->typ, rep->tag);
   Printf("%s", d.Warning());
   Printf("WARNING: ThreadSanitizer: %s (pid=%d)\n", rep_typ_str,
          (int)internal_getpid());
@@ -357,6 +386,8 @@ void PrintReport(const ReportDesc *rep) {
     if (SymbolizedStack *frame = SkipTsanInternalFrames(stack->frames))
       ReportErrorSummary(rep_typ_str, frame->info);
   }
+
+  if (common_flags()->print_module_map == 2) PrintModuleMap();
 
   Printf("==================\n");
 }

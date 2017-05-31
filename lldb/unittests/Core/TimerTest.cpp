@@ -7,16 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if defined(_MSC_VER) && (_HAS_EXCEPTIONS == 0)
-// Workaround for MSVC standard library bug, which fails to include <thread>
-// when exceptions are disabled.
-#include <eh.h>
-#endif
-
 #include "lldb/Core/Timer.h"
 #include "gtest/gtest.h"
 
-#include "lldb/Core/StreamString.h"
+#include "lldb/Utility/StreamString.h"
 #include <thread>
 
 using namespace lldb_private;
@@ -24,7 +18,8 @@ using namespace lldb_private;
 TEST(TimerTest, CategoryTimes) {
   Timer::ResetCategoryTimes();
   {
-    Timer t("CAT1", "");
+    static Timer::Category tcat("CAT1");
+    Timer t(tcat, "");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   StreamString ss;
@@ -38,14 +33,18 @@ TEST(TimerTest, CategoryTimes) {
 TEST(TimerTest, CategoryTimesNested) {
   Timer::ResetCategoryTimes();
   {
-    Timer t1("CAT1", "");
+    static Timer::Category tcat1("CAT1");
+    Timer t1(tcat1, "");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    Timer t2("CAT1", "");
+    // Explicitly testing the same category as above.
+    Timer t2(tcat1, "");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   StreamString ss;
   Timer::DumpCategoryTimes(&ss);
   double seconds;
+  // It should only appear once.
+  ASSERT_EQ(ss.GetString().count("CAT1"), 1U);
   ASSERT_EQ(1, sscanf(ss.GetData(), "%lf sec for CAT1", &seconds));
   EXPECT_LT(0.002, seconds);
   EXPECT_GT(0.2, seconds);
@@ -54,9 +53,11 @@ TEST(TimerTest, CategoryTimesNested) {
 TEST(TimerTest, CategoryTimes2) {
   Timer::ResetCategoryTimes();
   {
-    Timer t1("CAT1", "");
+    static Timer::Category tcat1("CAT1");
+    Timer t1(tcat1, "");
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    Timer t2("CAT2", "");
+    static Timer::Category tcat2("CAT2");
+    Timer t2(tcat2, "");
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   StreamString ss;
@@ -64,7 +65,7 @@ TEST(TimerTest, CategoryTimes2) {
   double seconds1, seconds2;
   ASSERT_EQ(2, sscanf(ss.GetData(), "%lf sec for CAT1%*[\n ]%lf sec for CAT2",
                       &seconds1, &seconds2))
-      << "String: " << ss.GetString();
+      << "String: " << ss.GetData();
   EXPECT_LT(0.01, seconds1);
   EXPECT_GT(1, seconds1);
   EXPECT_LT(0.001, seconds2);

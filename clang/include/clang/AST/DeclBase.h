@@ -616,6 +616,14 @@ public:
   getAvailability(std::string *Message = nullptr,
                   VersionTuple EnclosingVersion = VersionTuple()) const;
 
+  /// \brief Retrieve the version of the target platform in which this
+  /// declaration was introduced.
+  ///
+  /// \returns An empty version tuple if this declaration has no 'introduced'
+  /// availability attributes, or the version tuple that's specified in the
+  /// attribute otherwise.
+  VersionTuple getVersionIntroduced() const;
+
   /// \brief Determine whether this declaration is marked 'deprecated'.
   ///
   /// \param Message If non-NULL and the declaration is deprecated,
@@ -654,20 +662,19 @@ public:
   /// a precompiled header or module) rather than having been parsed.
   bool isFromASTFile() const { return FromASTFile; }
 
-  /// \brief Retrieve the global declaration ID associated with this 
-  /// declaration, which specifies where in the 
-  unsigned getGlobalID() const { 
+  /// \brief Retrieve the global declaration ID associated with this
+  /// declaration, which specifies where this Decl was loaded from.
+  unsigned getGlobalID() const {
     if (isFromASTFile())
       return *((const unsigned*)this - 1);
     return 0;
   }
-  
+
   /// \brief Retrieve the global ID of the module that owns this particular
   /// declaration.
   unsigned getOwningModuleID() const {
     if (isFromASTFile())
       return *((const unsigned*)this - 2);
-    
     return 0;
   }
 
@@ -1030,7 +1037,7 @@ public:
   void dump() const;
   // Same as dump(), but forces color printing.
   void dumpColor() const;
-  void dump(raw_ostream &Out) const;
+  void dump(raw_ostream &Out, bool Deserialize = false) const;
 
   /// \brief Looks through the Decl's underlying type to extract a FunctionType
   /// when possible. Will return null if the type underlying the Decl does not
@@ -1811,7 +1818,8 @@ public:
 
   void dumpDeclContext() const;
   void dumpLookups() const;
-  void dumpLookups(llvm::raw_ostream &OS, bool DumpDecls = false) const;
+  void dumpLookups(llvm::raw_ostream &OS, bool DumpDecls = false,
+                   bool Deserialize = false) const;
 
 private:
   void reconcileExternalVisibleStorage() const;

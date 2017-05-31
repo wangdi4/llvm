@@ -9,6 +9,13 @@
 
 // UNSUPPORTED: c++98, c++03, c++11, c++14
 
+// XFAIL: with_system_cxx_lib=macosx10.12
+// XFAIL: with_system_cxx_lib=macosx10.11
+// XFAIL: with_system_cxx_lib=macosx10.10
+// XFAIL: with_system_cxx_lib=macosx10.9
+// XFAIL: with_system_cxx_lib=macosx10.7
+// XFAIL: with_system_cxx_lib=macosx10.8
+
 // <any>
 
 // template <class ValueType>
@@ -103,6 +110,8 @@ void checkThrows(any& a)
     } catch (...) {
         assert(false);
     }
+#else
+    ((void)a);
 #endif
 }
 
@@ -192,7 +201,6 @@ void test_cast_to_value() {
     Type::reset();
     {
         any a((Type(42)));
-        any const& ca = a;
         assert(Type::count == 1);
         assert(Type::copied == 0);
         assert(Type::moved == 1);

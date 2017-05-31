@@ -13,22 +13,23 @@
 // Project includes
 #include "Cocoa.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/Mangled.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/DataFormatters/StringPrinter.h"
 #include "lldb/DataFormatters/TypeSummary.h"
-#include "lldb/Host/Endian.h"
+#include "lldb/Host/Time.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Target/ProcessStructReader.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Utility/ProcessStructReader.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/Stream.h"
 
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntime.h"
 
@@ -217,7 +218,7 @@ bool lldb_private::formatters::NSMachPortSummaryProvider(
 
   if (!strcmp(class_name, "NSMachPort")) {
     uint64_t offset = (ptr_size == 4 ? 12 : 20);
-    Error error;
+    Status error;
     port_number = process_sp->ReadUnsignedIntegerFromMemory(
         offset + valobj_addr, 4, 0, error);
     if (error.Success()) {
@@ -266,7 +267,7 @@ bool lldb_private::formatters::NSIndexSetSummaryProvider(
   do {
     if (!strcmp(class_name, "NSIndexSet") ||
         !strcmp(class_name, "NSMutableIndexSet")) {
-      Error error;
+      Status error;
       uint32_t mode = process_sp->ReadUnsignedIntegerFromMemory(
           valobj_addr + ptr_size, 4, 0, error);
       if (error.Fail())
@@ -460,7 +461,7 @@ bool lldb_private::formatters::NSNumberSummaryProvider(
       }
       return true;
     } else {
-      Error error;
+      Status error;
       uint8_t data_type = (process_sp->ReadUnsignedIntegerFromMemory(
                                valobj_addr + ptr_size, 1, 0, error) &
                            0x1F);
@@ -559,42 +560,44 @@ bool lldb_private::formatters::NSURLSummaryProvider(
   if (!valobj_addr)
     return false;
 
-  const char *class_name = descriptor->GetClassName().GetCString();
+  llvm::StringRef class_name = descriptor->GetClassName().GetStringRef();
 
-  if (!class_name || !*class_name)
+  if (!class_name.equals("NSURL"))
     return false;
 
-  if (strcmp(class_name, "NSURL") == 0) {
-    uint64_t offset_text = ptr_size + ptr_size +
-                           8; // ISA + pointer + 8 bytes of data (even on 32bit)
-    uint64_t offset_base = offset_text + ptr_size;
-    CompilerType type(valobj.GetCompilerType());
-    ValueObjectSP text(
-        valobj.GetSyntheticChildAtOffset(offset_text, type, true));
-    ValueObjectSP base(
-        valobj.GetSyntheticChildAtOffset(offset_base, type, true));
-    if (!text)
-      return false;
-    if (text->GetValueAsUnsigned(0) == 0)
-      return false;
-    StreamString summary;
-    if (!NSStringSummaryProvider(*text, summary, options))
-      return false;
-    if (base && base->GetValueAsUnsigned(0)) {
-      if (summary.GetSize() > 0)
-        summary.GetString().resize(summary.GetSize() - 1);
-      summary.Printf(" -- ");
-      StreamString base_summary;
-      if (NSURLSummaryProvider(*base, base_summary, options) &&
-          base_summary.GetSize() > 0)
-        summary.Printf("%s", base_summary.GetSize() > 2
-                                 ? base_summary.GetData() + 2
-                                 : base_summary.GetData());
+  uint64_t offset_text = ptr_size + ptr_size +
+                         8; // ISA + pointer + 8 bytes of data (even on 32bit)
+  uint64_t offset_base = offset_text + ptr_size;
+  CompilerType type(valobj.GetCompilerType());
+  ValueObjectSP text(valobj.GetSyntheticChildAtOffset(offset_text, type, true));
+  ValueObjectSP base(valobj.GetSyntheticChildAtOffset(offset_base, type, true));
+  if (!text)
+    return false;
+  if (text->GetValueAsUnsigned(0) == 0)
+    return false;
+  StreamString summary;
+  if (!NSStringSummaryProvider(*text, summary, options))
+    return false;
+  if (base && base->GetValueAsUnsigned(0)) {
+    std::string summary_str = summary.GetString();
+
+    if (!summary_str.empty())
+      summary_str.pop_back();
+    summary_str += " -- ";
+    StreamString base_summary;
+    if (NSURLSummaryProvider(*base, base_summary, options) &&
+        !base_summary.Empty()) {
+      llvm::StringRef base_str = base_summary.GetString();
+      if (base_str.size() > 2)
+        base_str = base_str.drop_front(2);
+      summary_str += base_str;
     }
-    if (summary.GetSize()) {
-      stream.Printf("%s", summary.GetData());
-      return true;
-    }
+    summary.Clear();
+    summary.PutCString(summary_str);
+  }
+  if (!summary.Empty()) {
+    stream.PutCString(summary.GetString());
+    return true;
   }
 
   return false;
@@ -650,7 +653,7 @@ bool lldb_private::formatters::NSDateSummaryProvider(
           process_sp->GetTarget().GetArchitecture().GetTriple());
       uint32_t delta =
           (triple.isWatchOS() && triple.isWatchABI()) ? 8 : ptr_size;
-      Error error;
+      Status error;
       date_value_bits = process_sp->ReadUnsignedIntegerFromMemory(
           valobj_addr + delta, 8, 0, error);
       memcpy(&date_value, &date_value_bits, sizeof(date_value_bits));
@@ -658,7 +661,7 @@ bool lldb_private::formatters::NSDateSummaryProvider(
         return false;
     }
   } else if (class_name == g_NSCalendarDate) {
-    Error error;
+    Status error;
     date_value_bits = process_sp->ReadUnsignedIntegerFromMemory(
         valobj_addr + 2 * ptr_size, 8, 0, error);
     memcpy(&date_value, &date_value_bits, sizeof(date_value_bits));
@@ -785,14 +788,14 @@ bool lldb_private::formatters::NSDataSummaryProvider(
       !strcmp(class_name, "NSConcreteMutableData") ||
       !strcmp(class_name, "__NSCFData")) {
     uint32_t offset = (is_64bit ? 16 : 8);
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(
         valobj_addr + offset, is_64bit ? 8 : 4, 0, error);
     if (error.Fail())
       return false;
   } else if (!strcmp(class_name, "_NSInlineData")) {
     uint32_t offset = (is_64bit ? 8 : 4);
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + offset, 2,
                                                       0, error);
     if (error.Fail())
@@ -815,7 +818,7 @@ bool lldb_private::formatters::ObjCBOOLSummaryProvider(
   ValueObjectSP real_guy_sp = valobj.GetSP();
 
   if (type_info & eTypeIsPointer) {
-    Error err;
+    Status err;
     real_guy_sp = valobj.Dereference(err);
     if (err.Fail() || !real_guy_sp)
       return false;
@@ -890,7 +893,7 @@ bool lldb_private::formatters::ObjCSELSummaryProvider(
                                                           exe_ctx, charstar);
   } else {
     DataExtractor data;
-    Error error;
+    Status error;
     valobj.GetData(data, error);
     if (error.Fail())
       return false;

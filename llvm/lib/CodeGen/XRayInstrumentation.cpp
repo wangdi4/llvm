@@ -18,6 +18,8 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Target/TargetInstrInfo.h"
@@ -33,6 +35,14 @@ struct XRayInstrumentation : public MachineFunctionPass {
     initializeXRayInstrumentationPass(*PassRegistry::getPassRegistry());
   }
 
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addRequired<MachineLoopInfo>();
+    AU.addPreserved<MachineLoopInfo>();
+    AU.addPreserved<MachineDominatorTree>();
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
+
   bool runOnMachineFunction(MachineFunction &MF) override;
 
 private:
@@ -43,7 +53,8 @@ private:
   // This is the approach to go on CPUs which have a single RET instruction,
   //   like x86/x86_64.
   void replaceRetWithPatchableRet(MachineFunction &MF,
-    const TargetInstrInfo *TII);
+                                  const TargetInstrInfo *TII);
+
   // Prepend the original return instruction with the exit sled code ("patchable
   //   function exit" pseudo-instruction), preserving the original return
   //   instruction just after the exit sled code.
@@ -53,13 +64,12 @@ private:
   //   have to call the trampoline and return from it to the original return
   //   instruction of the function being instrumented.
   void prependRetWithPatchableExit(MachineFunction &MF,
-    const TargetInstrInfo *TII);
+                                   const TargetInstrInfo *TII);
 };
 } // anonymous namespace
 
-void XRayInstrumentation::replaceRetWithPatchableRet(MachineFunction &MF,
-  const TargetInstrInfo *TII)
-{
+void XRayInstrumentation::replaceRetWithPatchableRet(
+    MachineFunction &MF, const TargetInstrInfo *TII) {
   // We look for *all* terminators and returns, then replace those with
   // PATCHABLE_RET instructions.
   SmallVector<MachineInstr *, 4> Terminators;
@@ -80,7 +90,7 @@ void XRayInstrumentation::replaceRetWithPatchableRet(MachineFunction &MF,
         auto MIB = BuildMI(MBB, T, T.getDebugLoc(), TII->get(Opc))
                        .addImm(T.getOpcode());
         for (auto &MO : T.operands())
-          MIB.addOperand(MO);
+          MIB.add(MO);
         Terminators.push_back(&T);
       }
     }
@@ -90,9 +100,8 @@ void XRayInstrumentation::replaceRetWithPatchableRet(MachineFunction &MF,
     I->eraseFromParent();
 }
 
-void XRayInstrumentation::prependRetWithPatchableExit(MachineFunction &MF,
-  const TargetInstrInfo *TII)
-{
+void XRayInstrumentation::prependRetWithPatchableExit(
+    MachineFunction &MF, const TargetInstrInfo *TII) {
   for (auto &MBB : MF) {
     for (auto &T : MBB.terminators()) {
       unsigned Opc = 0;
@@ -105,7 +114,7 @@ void XRayInstrumentation::prependRetWithPatchableExit(MachineFunction &MF,
       if (Opc != 0) {
         // Prepend the return instruction with PATCHABLE_FUNCTION_EXIT or
         //   PATCHABLE_TAIL_CALL .
-        BuildMI(MBB, T, T.getDebugLoc(),TII->get(Opc));
+        BuildMI(MBB, T, T.getDebugLoc(), TII->get(Opc));
       }
     }
   }
@@ -124,30 +133,46 @@ bool XRayInstrumentation::runOnMachineFunction(MachineFunction &MF) {
       return false; // XRay threshold attribute not found.
     if (Attr.getValueAsString().getAsInteger(10, XRayThreshold))
       return false; // Invalid value for threshold.
-    if (F.size() < XRayThreshold)
-      return false; // Function is too small.
+
+    // Check if we have a loop.
+    // FIXME: Maybe make this smarter, and see whether the loops are dependent
+    // on inputs or side-effects?
+    MachineLoopInfo &MLI = getAnalysis<MachineLoopInfo>();
+    if (MLI.empty() && F.size() < XRayThreshold)
+      return false; // Function is too small and has no loops.
   }
 
-  auto &FirstMBB = *MF.begin();
+  // We look for the first non-empty MachineBasicBlock, so that we can insert
+  // the function instrumentation in the appropriate place.
+  auto MBI =
+      find_if(MF, [&](const MachineBasicBlock &MBB) { return !MBB.empty(); });
+  if (MBI == MF.end())
+    return false; // The function is empty.
+
+  auto *TII = MF.getSubtarget().getInstrInfo();
+  auto &FirstMBB = *MBI;
   auto &FirstMI = *FirstMBB.begin();
 
   if (!MF.getSubtarget().isXRaySupported()) {
     FirstMI.emitError("An attempt to perform XRay instrumentation for an"
-      " unsupported target.");
+                      " unsupported target.");
     return false;
   }
 
-  // FIXME: Do the loop triviality analysis here or in an earlier pass.
-
   // First, insert an PATCHABLE_FUNCTION_ENTER as the first instruction of the
   // MachineFunction.
-  auto *TII = MF.getSubtarget().getInstrInfo();
   BuildMI(FirstMBB, FirstMI, FirstMI.getDebugLoc(),
           TII->get(TargetOpcode::PATCHABLE_FUNCTION_ENTER));
 
   switch (MF.getTarget().getTargetTriple().getArch()) {
   case Triple::ArchType::arm:
   case Triple::ArchType::thumb:
+  case Triple::ArchType::aarch64:
+  case Triple::ArchType::ppc64le:
+  case Triple::ArchType::mips:
+  case Triple::ArchType::mipsel:
+  case Triple::ArchType::mips64:
+  case Triple::ArchType::mips64el:
     // For the architectures which don't have a single return instruction
     prependRetWithPatchableExit(MF, TII);
     break;
@@ -162,5 +187,8 @@ bool XRayInstrumentation::runOnMachineFunction(MachineFunction &MF) {
 
 char XRayInstrumentation::ID = 0;
 char &llvm::XRayInstrumentationID = XRayInstrumentation::ID;
-INITIALIZE_PASS(XRayInstrumentation, "xray-instrumentation", "Insert XRay ops",
-                false, false)
+INITIALIZE_PASS_BEGIN(XRayInstrumentation, "xray-instrumentation",
+                      "Insert XRay ops", false, false)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
+INITIALIZE_PASS_END(XRayInstrumentation, "xray-instrumentation",
+                    "Insert XRay ops", false, false)

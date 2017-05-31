@@ -1,4 +1,4 @@
-//===-- RegisterContextCorePOSIX_arm.h --------------------------*- C++ -*-===//
+//===-- RegisterContextPOSIXCore_arm.h --------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,8 +15,8 @@
 // Other libraries and framework includes
 // Project includes
 #include "Plugins/Process/Utility/RegisterContextPOSIX_arm.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
 
 class RegisterContextCorePOSIX_arm : public RegisterContextPOSIX_arm {
 public:

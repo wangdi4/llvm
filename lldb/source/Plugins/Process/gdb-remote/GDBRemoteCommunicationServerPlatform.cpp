@@ -20,25 +20,25 @@
 
 // Other libraries and framework includes
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Threading.h"
 
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StreamGDBRemote.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/Config.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/JSON.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamGDBRemote.h"
+#include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/UriParser.h"
 
 // Project includes
 #include "Utility/StringExtractorGDBRemote.h"
-#include "Utility/UriParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -82,8 +82,8 @@ GDBRemoteCommunicationServerPlatform::GDBRemoteCommunicationServerPlatform(
       &GDBRemoteCommunicationServerPlatform::Handle_jSignalsInfo);
 
   RegisterPacketHandler(StringExtractorGDBRemote::eServerPacketType_interrupt,
-                        [this](StringExtractorGDBRemote packet, Error &error,
-                               bool &interrupt, bool &quit) {
+                        [](StringExtractorGDBRemote packet, Status &error,
+                           bool &interrupt, bool &quit) {
                           error.SetErrorString("interrupt received");
                           interrupt = true;
                           return PacketResult::Success;
@@ -95,7 +95,7 @@ GDBRemoteCommunicationServerPlatform::GDBRemoteCommunicationServerPlatform(
 //----------------------------------------------------------------------
 GDBRemoteCommunicationServerPlatform::~GDBRemoteCommunicationServerPlatform() {}
 
-Error GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
+Status GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
     const lldb_private::Args &args, std::string hostname, lldb::pid_t &pid,
     uint16_t &port, std::string &socket_name) {
   if (port == UINT16_MAX)
@@ -124,10 +124,10 @@ Error GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
                 this, std::placeholders::_1),
       false);
 
-  std::string platform_scheme;
-  std::string platform_ip;
+  llvm::StringRef platform_scheme;
+  llvm::StringRef platform_ip;
   int platform_port;
-  std::string platform_path;
+  llvm::StringRef platform_path;
   bool ok = UriParser::Parse(GetConnection()->GetURI(), platform_scheme,
                              platform_ip, platform_port, platform_path);
   UNUSED_IF_ASSERT_DISABLED(ok);
@@ -140,14 +140,14 @@ Error GDBRemoteCommunicationServerPlatform::LaunchGDBServer(
 #endif
   uint16_t *port_ptr = &port;
   if (m_socket_protocol == Socket::ProtocolTcp)
-    url << platform_ip << ":" << port;
+    url << platform_ip.str() << ":" << port;
   else {
     socket_name = GetDomainSocketPath("gdbserver").GetPath();
     url << socket_name;
     port_ptr = nullptr;
   }
 
-  Error error = StartDebugserverProcess(
+  Status error = StartDebugserverProcess(
       url.str().c_str(), nullptr, debugserver_launch_info, port_ptr, &args, -1);
 
   pid = debugserver_launch_info.GetProcessID();
@@ -192,7 +192,7 @@ GDBRemoteCommunicationServerPlatform::Handle_qLaunchGDBServer(
 
   lldb::pid_t debugserver_pid = LLDB_INVALID_PROCESS_ID;
   std::string socket_name;
-  Error error =
+  Status error =
       LaunchGDBServer(Args(), hostname, debugserver_pid, port, socket_name);
   if (error.Fail()) {
     if (log)
@@ -246,7 +246,8 @@ GDBRemoteCommunicationServerPlatform::Handle_qQueryGDBServer(
   server_list.Write(response);
 
   StreamGDBRemote escaped_response;
-  escaped_response.PutEscapedBytes(response.GetData(), response.GetSize());
+  escaped_response.PutEscapedBytes(response.GetString().data(),
+                                   response.GetSize());
   return SendPacketNoLock(escaped_response.GetString());
 }
 
@@ -352,15 +353,13 @@ GDBRemoteCommunicationServerPlatform::Handle_qProcessInfo(
 GDBRemoteCommunication::PacketResult
 GDBRemoteCommunicationServerPlatform::Handle_qGetWorkingDir(
     StringExtractorGDBRemote &packet) {
-  // If this packet is sent to a platform, then change the current working
-  // directory
 
-  char cwd[PATH_MAX];
-  if (getcwd(cwd, sizeof(cwd)) == NULL)
-    return SendErrorResponse(errno);
+  llvm::SmallString<64> cwd;
+  if (std::error_code ec = llvm::sys::fs::current_path(cwd))
+    return SendErrorResponse(ec.value());
 
   StreamString response;
-  response.PutBytesAsRawHex8(cwd, strlen(cwd));
+  response.PutBytesAsRawHex8(cwd.data(), cwd.size());
   return SendPacketNoLock(response.GetString());
 }
 
@@ -371,10 +370,8 @@ GDBRemoteCommunicationServerPlatform::Handle_QSetWorkingDir(
   std::string path;
   packet.GetHexByteString(path);
 
-  // If this packet is sent to a platform, then change the current working
-  // directory
-  if (::chdir(path.c_str()) != 0)
-    return SendErrorResponse(errno);
+  if (std::error_code ec = llvm::sys::fs::set_current_path(path))
+    return SendErrorResponse(ec.value());
   return SendOKResponse();
 }
 
@@ -442,10 +439,10 @@ bool GDBRemoteCommunicationServerPlatform::DebugserverProcessReaped(
   return true;
 }
 
-Error GDBRemoteCommunicationServerPlatform::LaunchProcess() {
+Status GDBRemoteCommunicationServerPlatform::LaunchProcess() {
   if (!m_process_launch_info.GetArguments().GetArgumentCount())
-    return Error("%s: no process command line specified to launch",
-                 __FUNCTION__);
+    return Status("%s: no process command line specified to launch",
+                  __FUNCTION__);
 
   // specify the process monitor if not already set.  This should
   // generally be what happens since we need to reap started
@@ -457,7 +454,7 @@ Error GDBRemoteCommunicationServerPlatform::LaunchProcess() {
             this, std::placeholders::_1),
         false);
 
-  Error error = Host::LaunchProcess(m_process_launch_info);
+  Status error = Host::LaunchProcess(m_process_launch_info);
   if (!error.Success()) {
     fprintf(stderr, "%s: failed to launch executable %s", __FUNCTION__,
             m_process_launch_info.GetArguments().GetArgumentAtIndex(0));
@@ -531,9 +528,9 @@ bool GDBRemoteCommunicationServerPlatform::FreePortForProcess(lldb::pid_t pid) {
 
 const FileSpec &GDBRemoteCommunicationServerPlatform::GetDomainSocketDir() {
   static FileSpec g_domainsocket_dir;
-  static std::once_flag g_once_flag;
+  static llvm::once_flag g_once_flag;
 
-  std::call_once(g_once_flag, []() {
+  llvm::call_once(g_once_flag, []() {
     const char *domainsocket_dir_env =
         ::getenv("LLDB_DEBUGSERVER_DOMAINSOCKET_DIR");
     if (domainsocket_dir_env != nullptr)

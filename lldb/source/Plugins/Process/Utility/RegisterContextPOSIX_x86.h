@@ -17,8 +17,8 @@
 #include "RegisterContext_x86.h"
 #include "RegisterInfoInterface.h"
 #include "lldb-x86-register-enums.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Target/RegisterContext.h"
+#include "lldb/Utility/Log.h"
 
 class ProcessMonitor;
 
@@ -37,6 +37,8 @@ public:
   size_t GetRegisterCount() override;
 
   virtual size_t GetGPRSize();
+
+  virtual size_t GetFXSAVEOffset();
 
   virtual unsigned GetRegisterSize(unsigned reg);
 

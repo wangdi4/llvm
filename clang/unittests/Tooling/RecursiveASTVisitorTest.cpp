@@ -52,6 +52,14 @@ TEST(RecursiveASTVisitor, TraverseLambdaBodyCanBeOverridden) {
   EXPECT_TRUE(Visitor.allBodiesHaveBeenTraversed());
 }
 
+TEST(RecursiveASTVisitor, VisitsAttributedLambdaExpr) {
+  LambdaExprVisitor Visitor;
+  Visitor.ExpectMatch("", 1, 12);
+  EXPECT_TRUE(Visitor.runOver(
+      "void f() { [] () __attribute__ (( fastcall )) { return; }(); }",
+      LambdaExprVisitor::Lang_CXX14));
+}
+
 // Matches the (optional) capture-default of a lambda-introducer.
 class LambdaDefaultCaptureVisitor
   : public ExpectedLocationVisitor<LambdaDefaultCaptureVisitor> {
@@ -131,25 +139,6 @@ TEST(RecursiveASTVisitor, AttributesAreVisited) {
     "  int a __attribute__((guarded_by(mu1)));\n"
     "  void bar() __attribute__((exclusive_locks_required(mu1, mu2)));\n"
     "};\n"));
-}
-
-// Check to ensure that VarDecls are visited.
-class VarDeclVisitor : public ExpectedLocationVisitor<VarDeclVisitor> {
-public:
-  bool VisitVarDecl(VarDecl *VD) {
-    Match(VD->getNameAsString(), VD->getLocStart());
-    return true;
-  }
-};
-
-TEST(RecursiveASTVisitor, ArrayInitializersAreVisited) {
-  VarDeclVisitor Visitor;
-  Visitor.ExpectMatch("__i0", 1, 8);
-  EXPECT_TRUE(
-      Visitor.runOver("struct MyClass {\n"
-                      "  int c[1];\n"
-                      "  static MyClass Create() { return MyClass(); }\n"
-                      "};\n"));
 }
 
 // Check to ensure that implicit default argument expressions are visited.

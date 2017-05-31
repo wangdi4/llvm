@@ -19,6 +19,7 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -73,7 +74,7 @@ protected:
         } else {
           if (process->GetShouldDetach()) {
             bool keep_stopped = false;
-            Error detach_error(process->Detach(keep_stopped));
+            Status detach_error(process->Detach(keep_stopped));
             if (detach_error.Success()) {
               result.SetStatus(eReturnStatusSuccessFinishResult);
               process = nullptr;
@@ -84,7 +85,7 @@ protected:
               result.SetStatus(eReturnStatusFailed);
             }
           } else {
-            Error destroy_error(process->Destroy(false));
+            Status destroy_error(process->Destroy(false));
             if (destroy_error.Success()) {
               result.SetStatus(eReturnStatusSuccessFinishResult);
               process = nullptr;
@@ -175,7 +176,7 @@ protected:
     if (!StopProcessIfNecessary(m_exe_ctx.GetProcessPtr(), state, result))
       return false;
 
-    const char *target_settings_argv0 = target->GetArg0();
+    llvm::StringRef target_settings_argv0 = target->GetArg0();
 
     // Determine whether we will disable ASLR or leave it in the default state
     // (i.e. enabled if the platform supports it).
@@ -210,9 +211,9 @@ protected:
       m_options.launch_info.GetEnvironmentEntries().AppendArguments(
           environment);
 
-    if (target_settings_argv0) {
+    if (!target_settings_argv0.empty()) {
       m_options.launch_info.GetArguments().AppendArgument(
-          llvm::StringRef(target_settings_argv0));
+          target_settings_argv0);
       m_options.launch_info.SetExecutableFile(
           exe_module_sp->GetPlatformFileSpec(), false);
     } else {
@@ -230,7 +231,7 @@ protected:
     }
 
     StreamString stream;
-    Error error = target->Launch(m_options.launch_info, &stream);
+    Status error = target->Launch(m_options.launch_info, &stream);
 
     if (error.Success()) {
       ProcessSP process_sp(target->GetProcessSP());
@@ -242,9 +243,9 @@ protected:
         // a chance to call PushProcessIOHandler().
         process_sp->SyncIOHandler(0, 2000);
 
-        const char *data = stream.GetData();
-        if (data && strlen(data) > 0)
-          result.AppendMessage(stream.GetData());
+        llvm::StringRef data = stream.GetString();
+        if (!data.empty())
+          result.AppendMessage(data);
         const char *archname =
             exe_module_sp->GetArchitecture().GetArchitectureName();
         result.AppendMessageWithFormat(
@@ -337,21 +338,20 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
-      bool success = false;
       switch (short_option) {
       case 'c':
         attach_info.SetContinueOnceAttached(true);
         break;
 
       case 'p': {
-        lldb::pid_t pid = StringConvert::ToUInt32(
-            option_arg, LLDB_INVALID_PROCESS_ID, 0, &success);
-        if (!success || pid == LLDB_INVALID_PROCESS_ID) {
-          error.SetErrorStringWithFormat("invalid process ID '%s'", option_arg);
+        lldb::pid_t pid;
+        if (option_arg.getAsInteger(0, pid)) {
+          error.SetErrorStringWithFormat("invalid process ID '%s'",
+                                         option_arg.str().c_str());
         } else {
           attach_info.SetProcessID(pid);
         }
@@ -417,7 +417,7 @@ public:
           if (partial_name) {
             match_info.GetProcessInfo().GetExecutableFile().SetFile(
                 partial_name, false);
-            match_info.SetNameMatchType(eNameMatchStartsWith);
+            match_info.SetNameMatchType(NameMatch::StartsWith);
           }
           platform_sp->FindProcesses(match_info, process_infos);
           const size_t num_matches = process_infos.GetSize();
@@ -470,10 +470,10 @@ protected:
     if (target == nullptr) {
       // If there isn't a current target create one.
       TargetSP new_target_sp;
-      Error error;
+      Status error;
 
       error = m_interpreter.GetDebugger().GetTargetList().CreateTarget(
-          m_interpreter.GetDebugger(), nullptr, nullptr, false,
+          m_interpreter.GetDebugger(), "", "", false,
           nullptr, // No platform options
           new_target_sp);
       target = new_target_sp.get();
@@ -505,8 +505,7 @@ protected:
     if (error.Success()) {
       ProcessSP process_sp(target->GetProcessSP());
       if (process_sp) {
-        if (stream.GetData())
-          result.AppendMessage(stream.GetData());
+        result.AppendMessage(stream.GetString());
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
         result.SetDidChangeProcessState(true);
         result.SetAbnormalStopWasExpected(true);
@@ -604,18 +603,16 @@ protected:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
-      bool success = false;
       switch (short_option) {
       case 'i':
-        m_ignore = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
+        if (option_arg.getAsInteger(0, m_ignore))
           error.SetErrorStringWithFormat(
               "invalid value for ignore option: \"%s\", should be a number.",
-              option_arg);
+              option_arg.str().c_str());
         break;
 
       default:
@@ -690,7 +687,7 @@ protected:
       const uint32_t iohandler_id = process->GetIOHandlerID();
 
       StreamString stream;
-      Error error;
+      Status error;
       if (synchronous_execution)
         error = process->ResumeSynchronous(&stream);
       else
@@ -709,8 +706,7 @@ protected:
         if (synchronous_execution) {
           // If any state changed events had anything to say, add that to the
           // result
-          if (stream.GetData())
-            result.AppendMessage(stream.GetData());
+          result.AppendMessage(stream.GetString());
 
           result.SetDidChangeProcessState(true);
           result.SetStatus(eReturnStatusSuccessFinishNoResult);
@@ -755,20 +751,19 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
-      auto option_strref = llvm::StringRef::withNullAsEmpty(option_arg);
 
       switch (short_option) {
       case 's':
         bool tmp_result;
         bool success;
-        tmp_result = Args::StringToBoolean(option_strref, false, &success);
+        tmp_result = Args::StringToBoolean(option_arg, false, &success);
         if (!success)
           error.SetErrorStringWithFormat("invalid boolean option: \"%s\"",
-                                         option_arg);
+                                         option_arg.str().c_str());
         else {
           if (tmp_result)
             m_keep_stopped = eLazyBoolYes;
@@ -821,7 +816,7 @@ protected:
     else
       keep_stopped = false;
 
-    Error error(process->Detach(keep_stopped));
+    Status error(process->Detach(keep_stopped));
     if (error.Success()) {
       result.SetStatus(eReturnStatusSuccessFinishResult);
     } else {
@@ -859,9 +854,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
@@ -924,7 +919,7 @@ protected:
     if (!m_options.plugin_name.empty())
       plugin_name = m_options.plugin_name.c_str();
 
-    Error error;
+    Status error;
     Debugger &debugger = m_interpreter.GetDebugger();
     PlatformSP platform_sp = m_interpreter.GetPlatform(true);
     ProcessSP process_sp = platform_sp->ConnectProcess(
@@ -988,14 +983,14 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
       switch (short_option) {
       case 'i':
         do_install = true;
-        if (option_arg && option_arg[0])
+        if (!option_arg.empty())
           install_path.SetFile(option_arg, false);
         break;
       default:
@@ -1038,7 +1033,7 @@ protected:
     Process *process = m_exe_ctx.GetProcessPtr();
 
     for (auto &entry : command.entries()) {
-      Error error;
+      Status error;
       PlatformSP platform = process->GetTarget().GetPlatform();
       llvm::StringRef image_path = entry.ref;
       uint32_t image_token = LLDB_INVALID_IMAGE_TOKEN;
@@ -1108,7 +1103,7 @@ protected:
         result.SetStatus(eReturnStatusFailed);
         break;
       } else {
-        Error error(process->GetTarget().GetPlatform()->UnloadImage(
+        Status error(process->GetTarget().GetPlatform()->UnloadImage(
             process, image_token));
         if (error.Success()) {
           result.AppendMessageWithFormat(
@@ -1174,7 +1169,7 @@ protected:
                                      command.GetArgumentAtIndex(0));
         result.SetStatus(eReturnStatusFailed);
       } else {
-        Error error(process->Signal(signo));
+        Status error(process->Signal(signo));
         if (error.Success()) {
           result.SetStatus(eReturnStatusSuccessFinishResult);
         } else {
@@ -1220,7 +1215,7 @@ protected:
 
     if (command.GetArgumentCount() == 0) {
       bool clear_thread_plans = true;
-      Error error(process->Halt(clear_thread_plans));
+      Status error(process->Halt(clear_thread_plans));
       if (error.Success()) {
         result.SetStatus(eReturnStatusSuccessFinishResult);
       } else {
@@ -1263,7 +1258,7 @@ protected:
     }
 
     if (command.GetArgumentCount() == 0) {
-      Error error(process->Destroy(true));
+      Status error(process->Destroy(true));
       if (error.Success()) {
         result.SetStatus(eReturnStatusSuccessFinishResult);
       } else {
@@ -1303,7 +1298,7 @@ protected:
     if (process_sp) {
       if (command.GetArgumentCount() == 1) {
         FileSpec output_file(command.GetArgumentAtIndex(0), false);
-        Error error = PluginManager::SaveCore(process_sp, output_file);
+        Status error = PluginManager::SaveCore(process_sp, output_file);
         if (error.Success()) {
           result.SetStatus(eReturnStatusSuccessFinishResult);
         } else {
@@ -1382,9 +1377,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
@@ -1564,9 +1559,8 @@ protected:
     int num_signals_set = 0;
 
     if (num_args > 0) {
-      for (size_t i = 0; i < num_args; ++i) {
-        int32_t signo = signals_sp->GetSignalNumberFromName(
-            signal_args.GetArgumentAtIndex(i));
+      for (const auto &arg : signal_args) {
+        int32_t signo = signals_sp->GetSignalNumberFromName(arg.c_str());
         if (signo != LLDB_INVALID_SIGNAL_NUMBER) {
           // Casting the actions as bools here should be okay, because
           // VerifyCommandOptionValue guarantees
@@ -1582,7 +1576,7 @@ protected:
           ++num_signals_set;
         } else {
           result.AppendErrorWithFormat("Invalid signal name '%s'\n",
-                                       signal_args.GetArgumentAtIndex(i));
+                                       arg.c_str());
         }
       }
     } else {

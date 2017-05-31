@@ -43,8 +43,13 @@ public:
     CortexA73,
     Cyclone,
     ExynosM1,
+    Falkor,
     Kryo,
-    Vulcan
+    ThunderX2T99,
+    ThunderX,
+    ThunderXT81,
+    ThunderXT83,
+    ThunderXT88
   };
 
 protected:
@@ -58,10 +63,13 @@ protected:
   bool HasNEON = false;
   bool HasCrypto = false;
   bool HasCRC = false;
+  bool HasLSE = false;
   bool HasRAS = false;
+  bool HasRDM = false;
   bool HasPerfMon = false;
   bool HasFullFP16 = false;
   bool HasSPE = false;
+  bool HasLSLFast = false;
 
   // HasZeroCycleRegMove - Has zero-cycle register mov instructions.
   bool HasZeroCycleRegMove = false;
@@ -71,17 +79,25 @@ protected:
 
   // StrictAlign - Disallow unaligned memory accesses.
   bool StrictAlign = false;
-  bool MergeNarrowZeroStores = false;
+
+  // NegativeImmediates - transform instructions with negative immediates
+  bool NegativeImmediates = true;
+
+  // Enable 64-bit vectorization in SLP.
+  unsigned MinVectorRegisterBitWidth = 64;
+
   bool UseAA = false;
   bool PredictableSelectIsExpensive = false;
   bool BalanceFPOps = false;
   bool CustomAsCheapAsMove = false;
   bool UsePostRAScheduler = false;
   bool Misaligned128StoreIsSlow = false;
-  bool AvoidQuadLdStPairs = false;
+  bool Paired128IsSlow = false;
   bool UseAlternateSExtLoadCVTF32Pattern = false;
   bool HasArithmeticBccFusion = false;
   bool HasArithmeticCbzFusion = false;
+  bool HasFuseAES = false;
+  bool HasFuseLiterals = false;
   bool DisableLatencySchedHeuristic = false;
   bool UseRSqrt = false;
   uint8_t MaxInterleaveFactor = 2;
@@ -93,6 +109,7 @@ protected:
   unsigned PrefFunctionAlignment = 0;
   unsigned PrefLoopAlignment = 0;
   unsigned MaxJumpTableSize = 0;
+  unsigned WideningBaseCost = 0;
 
   // ReserveX18 - X18 is not available as a general purpose register.
   bool ReserveX18;
@@ -111,6 +128,8 @@ protected:
   /// an optional library.
   std::unique_ptr<GISelAccessor> GISel;
 
+  bool ForCodeSize;
+
 private:
   /// initializeSubtargetDependencies - Initializes using CPUString and the
   /// passed in feature string so that we can use initializer lists for
@@ -126,7 +145,7 @@ public:
   /// of the specified triple.
   AArch64Subtarget(const Triple &TT, const std::string &CPU,
                    const std::string &FS, const TargetMachine &TM,
-                   bool LittleEndian);
+                   bool LittleEndian, bool ForCodeSize);
 
   /// This object will take onwership of \p GISelAccessor.
   void setGISelAccessor(GISelAccessor &GISel) {
@@ -173,25 +192,34 @@ public:
 
   bool requiresStrictAlign() const { return StrictAlign; }
 
+  bool isXRaySupported() const override { return true; }
+
+  unsigned getMinVectorRegisterBitWidth() const {
+    return MinVectorRegisterBitWidth;
+  }
+
   bool isX18Reserved() const { return ReserveX18; }
   bool hasFPARMv8() const { return HasFPARMv8; }
   bool hasNEON() const { return HasNEON; }
   bool hasCrypto() const { return HasCrypto; }
   bool hasCRC() const { return HasCRC; }
+  bool hasLSE() const { return HasLSE; }
   bool hasRAS() const { return HasRAS; }
-  bool mergeNarrowStores() const { return MergeNarrowZeroStores; }
+  bool hasRDM() const { return HasRDM; }
   bool balanceFPOps() const { return BalanceFPOps; }
   bool predictableSelectIsExpensive() const {
     return PredictableSelectIsExpensive;
   }
   bool hasCustomCheapAsMoveHandling() const { return CustomAsCheapAsMove; }
   bool isMisaligned128StoreSlow() const { return Misaligned128StoreIsSlow; }
-  bool avoidQuadLdStPairs() const { return AvoidQuadLdStPairs; }
+  bool isPaired128Slow() const { return Paired128IsSlow; }
   bool useAlternateSExtLoadCVTF32Pattern() const {
     return UseAlternateSExtLoadCVTF32Pattern;
   }
   bool hasArithmeticBccFusion() const { return HasArithmeticBccFusion; }
   bool hasArithmeticCbzFusion() const { return HasArithmeticCbzFusion; }
+  bool hasFuseAES() const { return HasFuseAES; }
+  bool hasFuseLiterals() const { return HasFuseLiterals; }
   bool useRSqrt() const { return UseRSqrt; }
   unsigned getMaxInterleaveFactor() const { return MaxInterleaveFactor; }
   unsigned getVectorInsertExtractBaseCost() const {
@@ -208,6 +236,8 @@ public:
 
   unsigned getMaximumJumpTableSize() const { return MaxJumpTableSize; }
 
+  unsigned getWideningBaseCost() const { return WideningBaseCost; }
+
   /// CPU has TBI (top byte of addresses is ignored during HW address
   /// translation) and OS enables it.
   bool supportsAddressTopByteIgnored() const;
@@ -215,6 +245,7 @@ public:
   bool hasPerfMon() const { return HasPerfMon; }
   bool hasFullFP16() const { return HasFullFP16; }
   bool hasSPE() const { return HasSPE; }
+  bool hasLSLFast() const { return HasLSLFast; }
 
   bool isLittleEndian() const { return IsLittle; }
 
@@ -223,6 +254,7 @@ public:
   bool isTargetLinux() const { return TargetTriple.isOSLinux(); }
   bool isTargetWindows() const { return TargetTriple.isOSWindows(); }
   bool isTargetAndroid() const { return TargetTriple.isAndroid(); }
+  bool isTargetFuchsia() const { return TargetTriple.isOSFuchsia(); }
 
   bool isTargetCOFF() const { return TargetTriple.isOSBinFormatCOFF(); }
   bool isTargetELF() const { return TargetTriple.isOSBinFormatELF(); }
@@ -230,9 +262,19 @@ public:
 
   bool useAA() const override { return UseAA; }
 
-  /// getMaxInlineSizeThreshold - Returns the maximum memset / memcpy size
-  /// that still makes it profitable to inline the call.
-  unsigned getMaxInlineSizeThreshold() const { return 64; }
+  bool useSmallAddressing() const {
+    switch (TLInfo.getTargetMachine().getCodeModel()) {
+      case CodeModel::Kernel:
+        // Kernel is currently allowed only for Fuchsia targets,
+        // where it is the same as Small for almost all purposes.
+      case CodeModel::Small:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  bool getForCodeSize() const { return ForCodeSize; }
 
   /// ParseSubtargetFeatures - Parses features string setting specified
   /// subtarget options.  Definition of function is auto generated by tblgen.
@@ -242,6 +284,9 @@ public:
   /// how a global value should be referenced for the current subtarget.
   unsigned char ClassifyGlobalReference(const GlobalValue *GV,
                                         const TargetMachine &TM) const;
+
+  unsigned char classifyGlobalFunctionReference(const GlobalValue *GV,
+                                                const TargetMachine &TM) const;
 
   /// This function returns the name of a function which has an interface
   /// like the non-standard bzero function, if such a function exists on

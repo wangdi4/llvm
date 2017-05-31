@@ -33,9 +33,12 @@ struct MsanMapUnmapCallback {
 
     // We are about to unmap a chunk of user memory.
     // Mark the corresponding shadow memory as not needed.
-    ReleaseMemoryToOS(MEM_TO_SHADOW(p), size);
-    if (__msan_get_track_origins())
-      ReleaseMemoryToOS(MEM_TO_ORIGIN(p), size);
+    uptr shadow_p = MEM_TO_SHADOW(p);
+    ReleaseMemoryPagesToOS(shadow_p, shadow_p + size);
+    if (__msan_get_track_origins()) {
+      uptr origin_p = MEM_TO_ORIGIN(p);
+      ReleaseMemoryPagesToOS(origin_p, origin_p + size);
+    }
   }
 };
 
@@ -44,12 +47,18 @@ struct MsanMapUnmapCallback {
   static const uptr kRegionSizeLog = 20;
   static const uptr kNumRegions = SANITIZER_MMAP_RANGE_SIZE >> kRegionSizeLog;
   typedef TwoLevelByteMap<(kNumRegions >> 12), 1 << 12> ByteMap;
-  typedef CompactSizeClassMap SizeClassMap;
 
-  typedef SizeClassAllocator32<0, SANITIZER_MMAP_RANGE_SIZE, sizeof(Metadata),
-                               SizeClassMap, kRegionSizeLog, ByteMap,
-                               MsanMapUnmapCallback> PrimaryAllocator;
-
+  struct AP32 {
+    static const uptr kSpaceBeg = 0;
+    static const u64 kSpaceSize = SANITIZER_MMAP_RANGE_SIZE;
+    static const uptr kMetadataSize = sizeof(Metadata);
+    typedef __sanitizer::CompactSizeClassMap SizeClassMap;
+    static const uptr kRegionSizeLog = __msan::kRegionSizeLog;
+    typedef __msan::ByteMap ByteMap;
+    typedef MsanMapUnmapCallback MapUnmapCallback;
+    static const uptr kFlags = 0;
+  };
+  typedef SizeClassAllocator32<AP32> PrimaryAllocator;
 #elif defined(__x86_64__)
 #if SANITIZER_LINUX && !defined(MSAN_LINUX_X86_64_OLD_MAPPING)
   static const uptr kAllocatorSpace = 0x700000000000ULL;
@@ -87,11 +96,18 @@ struct MsanMapUnmapCallback {
   static const uptr kRegionSizeLog = 20;
   static const uptr kNumRegions = SANITIZER_MMAP_RANGE_SIZE >> kRegionSizeLog;
   typedef TwoLevelByteMap<(kNumRegions >> 12), 1 << 12> ByteMap;
-  typedef CompactSizeClassMap SizeClassMap;
 
-  typedef SizeClassAllocator32<0, SANITIZER_MMAP_RANGE_SIZE, sizeof(Metadata),
-                               SizeClassMap, kRegionSizeLog, ByteMap,
-                               MsanMapUnmapCallback> PrimaryAllocator;
+  struct AP32 {
+    static const uptr kSpaceBeg = 0;
+    static const u64 kSpaceSize = SANITIZER_MMAP_RANGE_SIZE;
+    static const uptr kMetadataSize = sizeof(Metadata);
+    typedef __sanitizer::CompactSizeClassMap SizeClassMap;
+    static const uptr kRegionSizeLog = __msan::kRegionSizeLog;
+    typedef __msan::ByteMap ByteMap;
+    typedef MsanMapUnmapCallback MapUnmapCallback;
+    static const uptr kFlags = 0;
+  };
+  typedef SizeClassAllocator32<AP32> PrimaryAllocator;
 #endif
 typedef SizeClassAllocatorLocalCache<PrimaryAllocator> AllocatorCache;
 typedef LargeMmapAllocator<MsanMapUnmapCallback> SecondaryAllocator;
@@ -103,7 +119,9 @@ static AllocatorCache fallback_allocator_cache;
 static SpinMutex fallback_mutex;
 
 void MsanAllocatorInit() {
-  allocator.Init(common_flags()->allocator_may_return_null);
+  allocator.Init(
+      common_flags()->allocator_may_return_null,
+      common_flags()->allocator_release_to_os_interval_ms);
 }
 
 AllocatorCache *GetAllocatorCache(MsanThreadLocalMallocStorage *ms) {

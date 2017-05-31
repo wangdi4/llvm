@@ -98,11 +98,13 @@ enum Kind {
   kw_ninf,
   kw_nsz,
   kw_arcp,
+  kw_contract,
   kw_fast,
   kw_nuw,
   kw_nsw,
   kw_exact,
   kw_inbounds,
+  kw_inrange,
   kw_align,
   kw_addrspace,
   kw_section,
@@ -151,6 +153,7 @@ enum Kind {
   kw_hhvm_ccc,
   kw_cxx_fast_tlscc,
   kw_amdgpu_vs,
+  kw_amdgpu_hs,
   kw_amdgpu_gs,
   kw_amdgpu_ps,
   kw_amdgpu_cs,
@@ -196,6 +199,7 @@ enum Kind {
   kw_returned,
   kw_returns_twice,
   kw_signext,
+  kw_speculatable,
   kw_ssp,
   kw_sspreq,
   kw_sspstrong,
@@ -352,6 +356,7 @@ enum Kind {
   DwarfOp,          // DW_OP_foo
   DIFlag,           // DIFlagFoo
   DwarfMacinfo,     // DW_MACINFO_foo
+  ChecksumKind,     // CSK_foo
 
   // Type valued tokens (TyVal).
   Type,

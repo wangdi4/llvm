@@ -1,5 +1,4 @@
-//====-- UserSettingsController.cpp ------------------------------*- C++
-//-*-===//
+//====-- UserSettingsController.cpp ------------------------------*- C++-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,37 +7,48 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <algorithm>
-#include <string.h>
-
-#include "lldb/Core/Error.h"
-#include "lldb/Core/RegularExpression.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/UserSettingsController.h"
-#include "lldb/Interpreter/CommandInterpreter.h"
+
 #include "lldb/Interpreter/OptionValueProperties.h"
-#include "lldb/Interpreter/OptionValueString.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/Stream.h"
+
+#include <memory> // for shared_ptr
+
+namespace lldb_private {
+class CommandInterpreter;
+}
+namespace lldb_private {
+class ConstString;
+}
+namespace lldb_private {
+class ExecutionContext;
+}
+namespace lldb_private {
+class Property;
+}
 
 using namespace lldb;
 using namespace lldb_private;
 
 lldb::OptionValueSP
-Properties::GetPropertyValue(const ExecutionContext *exe_ctx, const char *path,
-                             bool will_modify, Error &error) const {
+Properties::GetPropertyValue(const ExecutionContext *exe_ctx,
+                             llvm::StringRef path, bool will_modify,
+                             Status &error) const {
   OptionValuePropertiesSP properties_sp(GetValueProperties());
   if (properties_sp)
     return properties_sp->GetSubValue(exe_ctx, path, will_modify, error);
   return lldb::OptionValueSP();
 }
 
-Error Properties::SetPropertyValue(const ExecutionContext *exe_ctx,
-                                   VarSetOperationType op, const char *path,
-                                   const char *value) {
+Status Properties::SetPropertyValue(const ExecutionContext *exe_ctx,
+                                    VarSetOperationType op,
+                                    llvm::StringRef path,
+                                    llvm::StringRef value) {
   OptionValuePropertiesSP properties_sp(GetValueProperties());
   if (properties_sp)
     return properties_sp->SetSubValue(exe_ctx, op, path, value);
-  Error error;
+  Status error;
   error.SetErrorString("no properties");
   return error;
 }
@@ -59,21 +69,22 @@ void Properties::DumpAllDescriptions(CommandInterpreter &interpreter,
     return properties_sp->DumpAllDescriptions(interpreter, strm);
 }
 
-Error Properties::DumpPropertyValue(const ExecutionContext *exe_ctx,
-                                    Stream &strm, const char *property_path,
-                                    uint32_t dump_mask) {
+Status Properties::DumpPropertyValue(const ExecutionContext *exe_ctx,
+                                     Stream &strm,
+                                     llvm::StringRef property_path,
+                                     uint32_t dump_mask) {
   OptionValuePropertiesSP properties_sp(GetValueProperties());
   if (properties_sp) {
     return properties_sp->DumpPropertyValue(exe_ctx, strm, property_path,
                                             dump_mask);
   }
-  Error error;
+  Status error;
   error.SetErrorString("empty property list");
   return error;
 }
 
 size_t
-Properties::Apropos(const char *keyword,
+Properties::Apropos(llvm::StringRef keyword,
                     std::vector<const Property *> &matching_properties) const {
   OptionValuePropertiesSP properties_sp(GetValueProperties());
   if (properties_sp) {
@@ -93,16 +104,11 @@ Properties::GetSubProperty(const ExecutionContext *exe_ctx,
 
 const char *Properties::GetExperimentalSettingsName() { return "experimental"; }
 
-bool Properties::IsSettingExperimental(const char *setting) {
-  if (setting == nullptr)
+bool Properties::IsSettingExperimental(llvm::StringRef setting) {
+  if (setting.empty())
     return false;
 
-  const char *experimental = GetExperimentalSettingsName();
-  const char *dot_pos = strchr(setting, '.');
-  if (dot_pos == nullptr)
-    return strcmp(experimental, setting) == 0;
-  else {
-    size_t first_elem_len = dot_pos - setting;
-    return strncmp(experimental, setting, first_elem_len) == 0;
-  }
+  llvm::StringRef experimental = GetExperimentalSettingsName();
+  size_t dot_pos = setting.find_first_of('.');
+  return setting.take_front(dot_pos) == experimental;
 }

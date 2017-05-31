@@ -18,6 +18,7 @@
 #include "llvm/Support/SwapByteOrder.h"
 #include <algorithm>
 #include <cassert>
+#include <climits>
 #include <cstring>
 #include <type_traits>
 #include <limits>
@@ -112,7 +113,7 @@ std::size_t countTrailingZeros(T Val, ZeroBehavior ZB = ZB_Width) {
   static_assert(std::numeric_limits<T>::is_integer &&
                     !std::numeric_limits<T>::is_signed,
                 "Only unsigned integral types are allowed.");
-  return detail::TrailingZerosCounter<T, sizeof(T)>::count(Val, ZB);
+  return llvm::detail::TrailingZerosCounter<T, sizeof(T)>::count(Val, ZB);
 }
 
 namespace detail {
@@ -181,7 +182,7 @@ std::size_t countLeadingZeros(T Val, ZeroBehavior ZB = ZB_Width) {
   static_assert(std::numeric_limits<T>::is_integer &&
                     !std::numeric_limits<T>::is_signed,
                 "Only unsigned integral types are allowed.");
-  return detail::LeadingZerosCounter<T, sizeof(T)>::count(Val, ZB);
+  return llvm::detail::LeadingZerosCounter<T, sizeof(T)>::count(Val, ZB);
 }
 
 /// \brief Get the index of the first set bit starting from the least
@@ -196,6 +197,33 @@ template <typename T> T findFirstSet(T Val, ZeroBehavior ZB = ZB_Max) {
     return std::numeric_limits<T>::max();
 
   return countTrailingZeros(Val, ZB_Undefined);
+}
+
+/// \brief Create a bitmask with the N right-most bits set to 1, and all other
+/// bits set to 0.  Only unsigned types are allowed.
+template <typename T> T maskTrailingOnes(unsigned N) {
+  static_assert(std::is_unsigned<T>::value, "Invalid type!");
+  const unsigned Bits = CHAR_BIT * sizeof(T);
+  assert(N <= Bits && "Invalid bit index");
+  return N == 0 ? 0 : (T(-1) >> (Bits - N));
+}
+
+/// \brief Create a bitmask with the N left-most bits set to 1, and all other
+/// bits set to 0.  Only unsigned types are allowed.
+template <typename T> T maskLeadingOnes(unsigned N) {
+  return ~maskTrailingOnes<T>(CHAR_BIT * sizeof(T) - N);
+}
+
+/// \brief Create a bitmask with the N right-most bits set to 0, and all other
+/// bits set to 1.  Only unsigned types are allowed.
+template <typename T> T maskTrailingZeros(unsigned N) {
+  return maskLeadingOnes<T>(CHAR_BIT * sizeof(T) - N);
+}
+
+/// \brief Create a bitmask with the N left-most bits set to 0, and all other
+/// bits set to 1.  Only unsigned types are allowed.
+template <typename T> T maskLeadingZeros(unsigned N) {
+  return maskTrailingOnes<T>(CHAR_BIT * sizeof(T) - N);
 }
 
 /// \brief Get the index of the last set bit starting from the least
@@ -547,23 +575,19 @@ inline uint64_t GreatestCommonDivisor64(uint64_t A, uint64_t B) {
 /// BitsToDouble - This function takes a 64-bit integer and returns the bit
 /// equivalent double.
 inline double BitsToDouble(uint64_t Bits) {
-  union {
-    uint64_t L;
-    double D;
-  } T;
-  T.L = Bits;
-  return T.D;
+  double D;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Unexpected type sizes");
+  memcpy(&D, &Bits, sizeof(Bits));
+  return D;
 }
 
 /// BitsToFloat - This function takes a 32-bit integer and returns the bit
 /// equivalent float.
 inline float BitsToFloat(uint32_t Bits) {
-  union {
-    uint32_t I;
-    float F;
-  } T;
-  T.I = Bits;
-  return T.F;
+  float F;
+  static_assert(sizeof(uint32_t) == sizeof(float), "Unexpected type sizes");
+  memcpy(&F, &Bits, sizeof(Bits));
+  return F;
 }
 
 /// DoubleToBits - This function takes a double and returns the bit
@@ -571,12 +595,10 @@ inline float BitsToFloat(uint32_t Bits) {
 /// changes the bits of NaNs on some hosts, notably x86, so this
 /// routine cannot be used if these bits are needed.
 inline uint64_t DoubleToBits(double Double) {
-  union {
-    uint64_t L;
-    double D;
-  } T;
-  T.D = Double;
-  return T.L;
+  uint64_t Bits;
+  static_assert(sizeof(uint64_t) == sizeof(double), "Unexpected type sizes");
+  memcpy(&Bits, &Double, sizeof(Double));
+  return Bits;
 }
 
 /// FloatToBits - This function takes a float and returns the bit
@@ -584,12 +606,10 @@ inline uint64_t DoubleToBits(double Double) {
 /// changes the bits of NaNs on some hosts, notably x86, so this
 /// routine cannot be used if these bits are needed.
 inline uint32_t FloatToBits(float Float) {
-  union {
-    uint32_t I;
-    float F;
-  } T;
-  T.F = Float;
-  return T.I;
+  uint32_t Bits;
+  static_assert(sizeof(uint32_t) == sizeof(float), "Unexpected type sizes");
+  memcpy(&Bits, &Float, sizeof(Float));
+  return Bits;
 }
 
 /// MinAlign - A and B are either alignments or offsets.  Return the minimum
@@ -639,6 +659,14 @@ inline uint64_t NextPowerOf2(uint64_t A) {
 inline uint64_t PowerOf2Floor(uint64_t A) {
   if (!A) return 0;
   return 1ull << (63 - countLeadingZeros(A, ZB_Undefined));
+}
+
+/// Returns the power of two which is greater than or equal to the given value.
+/// Essentially, it is a ceil operation across the domain of powers of two.
+inline uint64_t PowerOf2Ceil(uint64_t A) {
+  if (!A)
+    return 0;
+  return NextPowerOf2(A - 1);
 }
 
 /// Returns the next integer (mod 2**64) that is greater than or equal to

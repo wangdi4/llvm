@@ -88,7 +88,8 @@ bool ParseFrameDescription(const char *frame_descr,
   char *p;
   // This string is created by the compiler and has the following form:
   // "n alloc_1 alloc_2 ... alloc_n"
-  // where alloc_i looks like "offset size len ObjectName".
+  // where alloc_i looks like "offset size len ObjectName"
+  // or                       "offset size len ObjectName:line".
   uptr n_objects = (uptr)internal_simple_strtoll(frame_descr, &p, 10);
   if (n_objects == 0)
     return false;
@@ -101,7 +102,14 @@ bool ParseFrameDescription(const char *frame_descr,
       return false;
     }
     p++;
-    StackVarDescr var = {beg, size, p, len};
+    char *colon_pos = internal_strchr(p, ':');
+    uptr line = 0;
+    uptr name_len = len;
+    if (colon_pos != nullptr && colon_pos < p + len) {
+      name_len = colon_pos - p;
+      line = (uptr)internal_simple_strtoll(colon_pos + 1, nullptr, 10);
+    }
+    StackVarDescr var = {beg, size, p, name_len, line};
     vars->push_back(var);
     p += len;
   }
@@ -178,6 +186,8 @@ class ScopedInErrorReport {
 
     if (common_flags()->print_cmdline)
       PrintCmdline();
+
+    if (common_flags()->print_module_map == 2) PrintModuleMap();
 
     // Copy the message buffer so that we could start logging without holding a
     // lock that gets aquired during printing.
@@ -427,7 +437,7 @@ void __asan_describe_address(uptr addr) {
 }
 
 int __asan_report_present() {
-  return ScopedInErrorReport::CurrentError().kind == kErrorKindGeneric;
+  return ScopedInErrorReport::CurrentError().kind != kErrorKindInvalid;
 }
 
 uptr __asan_get_report_pc() {
@@ -449,9 +459,11 @@ uptr __asan_get_report_sp() {
 }
 
 uptr __asan_get_report_address() {
-  if (ScopedInErrorReport::CurrentError().kind == kErrorKindGeneric)
-    return ScopedInErrorReport::CurrentError()
-        .Generic.addr_description.Address();
+  ErrorDescription &err = ScopedInErrorReport::CurrentError();
+  if (err.kind == kErrorKindGeneric)
+    return err.Generic.addr_description.Address();
+  else if (err.kind == kErrorKindDoubleFree)
+    return err.DoubleFree.addr_description.addr;
   return 0;
 }
 
@@ -470,7 +482,7 @@ uptr __asan_get_report_access_size() {
 const char *__asan_get_report_description() {
   if (ScopedInErrorReport::CurrentError().kind == kErrorKindGeneric)
     return ScopedInErrorReport::CurrentError().Generic.bug_descr;
-  return nullptr;
+  return ScopedInErrorReport::CurrentError().Base.scariness.GetDescription();
 }
 
 extern "C" {
@@ -484,9 +496,6 @@ void __sanitizer_ptr_cmp(void *a, void *b) {
 }
 } // extern "C"
 
-#if !SANITIZER_SUPPORTS_WEAK_HOOKS
 // Provide default implementation of __asan_on_error that does nothing
 // and may be overriden by user.
-SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE NOINLINE
-void __asan_on_error() {}
-#endif
+SANITIZER_INTERFACE_WEAK_DEF(void, __asan_on_error, void) {}

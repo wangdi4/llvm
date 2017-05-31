@@ -7,21 +7,27 @@ set(LLVM_LINK_COMPONENTS
   )
 
 add_llvm_tool(llvm-pdbdump
+  Analyze.cpp
+  C13DebugFragmentVisitor.cpp
+  CompactTypeDumpVisitor.cpp
+  Diff.cpp
   llvm-pdbdump.cpp
-  BuiltinDumper.cpp
-  ClassDefinitionDumper.cpp
   YamlSymbolDumper.cpp
   YamlTypeDumper.cpp
-  CompilandDumper.cpp
-  EnumDumper.cpp
-  ExternalSymbolDumper.cpp
-  FunctionDumper.cpp
   LinePrinter.cpp
   LLVMOutputStyle.cpp
   PdbYaml.cpp
-  TypeDumper.cpp
-  TypedefDumper.cpp
-  VariableDumper.cpp
+  PrettyBuiltinDumper.cpp
+  PrettyClassDefinitionDumper.cpp
+  PrettyClassLayoutGraphicalDumper.cpp
+  PrettyCompilandDumper.cpp
+  PrettyEnumDumper.cpp
+  PrettyExternalSymbolDumper.cpp
+  PrettyFunctionDumper.cpp
+  PrettyTypeDumper.cpp
+  PrettyTypedefDumper.cpp
+  PrettyVariableDumper.cpp
+  StreamUtil.cpp
   YAMLOutputStyle.cpp
   )
 

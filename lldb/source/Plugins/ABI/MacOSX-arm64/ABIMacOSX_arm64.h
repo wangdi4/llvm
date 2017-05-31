@@ -14,8 +14,8 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/ConstString.h"
 #include "lldb/Target/ABI.h"
+#include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-private.h"
 
 class ABIMacOSX_arm64 : public lldb_private::ABI {
@@ -92,7 +92,7 @@ public:
 
   uint32_t GetPluginVersion() override;
 
-  lldb_private::Error
+  lldb_private::Status
   SetReturnValueObject(lldb::StackFrameSP &frame_sp,
                        lldb::ValueObjectSP &new_value) override;
 

@@ -121,6 +121,15 @@
 #undef __cxa_vec_delete3
 #undef __cxa_pure_virtual
 
+// math_functions.hpp expects this host function be defined on MacOS, but it
+// ends up not being there because of the games we play here.  Just define it
+// ourselves; it's simple enough.
+#ifdef __APPLE__
+inline __host__ double __signbitd(double x) {
+  return std::signbit(x);
+}
+#endif
+
 // We need decls for functions in CUDA's libdevice with __device__
 // attribute only. Alas they come either as __host__ __device__ or
 // with no attributes at all. To work around that, define __CUDA_RTC__
@@ -222,6 +231,11 @@ static inline __device__ void __brkpt(int __c) { __brkpt(); }
 // [addr+imm] addressing mode, which, although it doesn't actually exist in the
 // hardware, seems to generate faster machine code because ptxas can more easily
 // reason about our code.
+
+#if CUDA_VERSION >= 8000
+#include "sm_60_atomic_functions.hpp"
+#include "sm_61_intrinsics.hpp"
+#endif
 
 #undef __MATH_FUNCTIONS_HPP__
 

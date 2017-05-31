@@ -1,22 +1,28 @@
 # Get sources
 set(LIBCXXABI_SOURCES
-  abort_message.cpp
+  # C++ABI files
   cxa_aux_runtime.cpp
   cxa_default_handlers.cpp
   cxa_demangle.cpp
   cxa_exception_storage.cpp
   cxa_guard.cpp
   cxa_handlers.cpp
-  cxa_new_delete.cpp
   cxa_unexpected.cpp
   cxa_vector.cpp
   cxa_virtual.cpp
-  exception.cpp
+  # C++ STL files
+  stdlib_exception.cpp
+  stdlib_stdexcept.cpp
+  stdlib_typeinfo.cpp
+  # Internal files
+  abort_message.cpp
   fallback_malloc.cpp
   private_typeinfo.cpp
-  stdexcept.cpp
-  typeinfo.cpp
 )
+
+if (LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
+  list(APPEND LIBCXXABI_SOURCES stdlib_new_delete.cpp)
+endif()
 
 if (LIBCXXABI_ENABLE_EXCEPTIONS)
   list(APPEND LIBCXXABI_SOURCES cxa_exception.cpp)
@@ -58,15 +64,19 @@ if (LIBCXXABI_USE_LLVM_UNWINDER)
   # Prefer using the in-tree version of libunwind, either shared or static. If
   # none are found fall back to using -lunwind.
   # FIXME: Is it correct to prefer the static version of libunwind?
-  if (TARGET unwind_shared)
+  if (NOT LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_shared OR HAVE_LIBUNWIND))
     list(APPEND libraries unwind_shared)
-  elseif(TARGET unwind_static)
+  elseif (LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_static OR HAVE_LIBUNWIND))
     list(APPEND libraries unwind_static)
   else()
     list(APPEND libraries unwind)
   endif()
 else()
   append_if(libraries LIBCXXABI_HAS_GCC_S_LIB gcc_s)
+endif()
+if (MINGW)
+  # MINGW_LIBRARIES is defined in config-ix.cmake
+  list(APPEND libraries ${MINGW_LIBRARIES})
 endif()
 
 # Setup flags.
