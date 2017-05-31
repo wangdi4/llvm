@@ -26,7 +26,7 @@ OclBuiltinImpl transpose_masked_gather_4x16_512 = OclBuiltinImpl<__ocl_masked_ga
         return;
     }
     // mask addresses to stub variable
-    $Arg0BaseType#16 stub;
+    $Arg0BaseType#4 stub;
     $Arg0VarName = mask.s0 ? $Arg0VarName : &stub;
     $Arg1VarName = mask.s1 ? $Arg1VarName : &stub;
     $Arg2VarName = mask.s2 ? $Arg2VarName : &stub;
