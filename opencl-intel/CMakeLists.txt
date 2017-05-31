@@ -372,7 +372,7 @@ endif()
 # As soon as we will deliver cpu buncle from release branch to vpg
 # revert this change. CSSD100021694.
 set( PRODUCTVER_MAJOR 7 )
-set( PRODUCTVER_MINOR 4 )
+set( PRODUCTVER_MINOR 5 )
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
