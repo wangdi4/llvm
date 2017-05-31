@@ -483,8 +483,12 @@ void HIRSafeReductionAnalysis::setSafeRedChainList(SafeRedChain &RedInsts,
   SafeRedChainList &SRCL = SafeReductionMap[Loop];
   SRCL.emplace_back(RedInsts, RedSymbase, RedOpCode);
   unsigned SRIIndex = SRCL.size() - 1;
+
+  // We should use []operator instead of insert() to overwrite the previous
+  // entry for the instruction. SafeReductionMap and SafeReductionInstMap can go
+  // out of sync due to deleted loops. Refer to comment in getSafeRedInfo().
   for (auto &Inst : RedInsts) {
-    SafeReductionInstMap.insert(std::make_pair(Inst, SRIIndex));
+    SafeReductionInstMap[Inst] = SRIIndex;
   }
 }
 
@@ -576,7 +580,19 @@ HIRSafeReductionAnalysis::getSafeRedInfo(const HLInst *Inst) const {
   const HLLoop *Loop = Inst->getLexicalParentLoop();
   // Get SafeRedChainList via Loop
   auto Iter2 = SafeReductionMap.find(Loop);
-  assert(Iter2 != SafeReductionMap.end() && "Parent loop not found!");
+
+  // SafeReductionInstMap can go out of sync with SafeReductionMap if the
+  // instruction moves from its orignal parent loop to another loop. For
+  // example, if we complete unroll the parent loop, the instruction will move
+  // to the outer parent. In such cases we should return null so that we get a
+  // new entry for the instruction if it is still a safe reduction in the new
+  // loop.
+  // Please note that safe reduction information is not invalidated for deleted
+  // loops.
+  if (Iter2 == SafeReductionMap.end()) {
+    return nullptr;
+  }
+
   auto &SRCL = Iter2->second;
 
   // Return SafeRedInfo via obtained Index and SRCL

@@ -83,17 +83,28 @@ static cl::opt<bool> DisableHIRTriCompleteUnroll(
     "disable-hir-tri-complete-unroll", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR Triangular Complete Unrolling"));
 
+static cl::opt<unsigned> CommandLineOptLevel(
+    "hir-complete-unroll-opt-level", cl::init(2), cl::Hidden,
+    cl::desc(
+        "Opt level for complete unroll (2 or 3). This affects unroll limits."));
+
+const unsigned O2LoopTripThreshold = 32;
+const unsigned O3LoopTripThreshold = 64;
+
 // The trip count threshold is intentionally set to a high value as profitablity
 // should be driven by the combination of trip count and loop resource.
-static cl::opt<unsigned> CompleteUnrollLoopTripThreshold(
-    "hir-complete-unroll-loop-trip-threshold", cl::init(64), cl::Hidden,
+static cl::opt<unsigned> LoopTripThreshold(
+    "hir-complete-unroll-loop-trip-threshold", cl::init(0), cl::Hidden,
     cl::desc("Don't unroll if trip count of any loop is bigger than this "
-             "threshold."));
+             "threshold. 0 means default threshold."));
 
-static cl::opt<unsigned> CompleteUnrollLoopnestTripThreshold(
-    "hir-complete-unroll-loopnest-trip-threshold", cl::init(128), cl::Hidden,
+const unsigned O2LoopnestTripThreshold = 64;
+const unsigned O3LoopnestTripThreshold = 128;
+
+static cl::opt<unsigned> LoopnestTripThreshold(
+    "hir-complete-unroll-loopnest-trip-threshold", cl::init(0), cl::Hidden,
     cl::desc("Don't unroll if total trip count of the loopnest is bigger than "
-             "this threshold."));
+             "this threshold. 0 means default threshold."));
 
 static cl::opt<unsigned> PreVectorSavingsThreshold(
     "hir-complete-unroll-pre-vector-savings-threshold", cl::init(80),
@@ -109,16 +120,21 @@ static cl::opt<unsigned> PostVectorSavingsThreshold(
         "Least amount of savings (in percentage) for complete unrolling "
         "of a loopnest to be deemed profitable after vectorizer kicks in."));
 
-static cl::opt<unsigned> UnrolledLoopMemRefThreshold(
-    "hir-complete-unroll-memref-threshold", cl::init(150), cl::Hidden,
-    cl::desc("Maximum number of memory refs allowed in completely unrolled "
-             "loopnest"));
+const unsigned O2UnrolledLoopMemRefThreshold = 75;
+const unsigned O3UnrolledLoopMemRefThreshold = 150;
 
-static cl::opt<unsigned>
-    UnrolledLoopDDRefThreshold("hir-complete-unroll-ddref-threshold",
-                               cl::init(1000), cl::Hidden,
-                               cl::desc("Maximum number of DDRefs allowed in "
-                                        "completely unrolled loopnest"));
+static cl::opt<unsigned> UnrolledLoopMemRefThreshold(
+    "hir-complete-unroll-memref-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Maximum number of memory refs allowed in completely unrolled "
+             "loopnest. 0 means default threshold."));
+
+const unsigned O2UnrolledLoopDDRefThreshold = 500;
+const unsigned O3UnrolledLoopDDRefThreshold = 1000;
+
+static cl::opt<unsigned> UnrolledLoopDDRefThreshold(
+    "hir-complete-unroll-ddref-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Maximum number of DDRefs allowed in "
+             "completely unrolled loopnest. 0 means default threshold."));
 
 static cl::opt<unsigned> SmallLoopMemRefThreshold(
     "hir-complete-unroll-small-memref-threshold", cl::init(16), cl::Hidden,
@@ -136,11 +152,62 @@ static cl::opt<unsigned> SmallLoopAdditionalSavingsThreshold(
     cl::desc("Threshold for extra savings added to small loops to give them "
              "higher probability of unrolling)"));
 
+const float O2MaxThresholdScalingFactor = 5.0;
+const float O3MaxThresholdScalingFactor = 10.0;
+
 static cl::opt<float> MaxThresholdScalingFactor(
-    "hir-complete-unroll-max-threshold-scaling-factor", cl::init(10.0),
+    "hir-complete-unroll-max-threshold-scaling-factor", cl::init(0.0),
     cl::Hidden,
     cl::desc("Used to scale the thresholds of the loop based on how profitable "
-             "the loop is over the base savings threshold"));
+             "the loop is over the base savings threshold. 0 means default "
+             "threshold."));
+
+HIRCompleteUnroll::HIRCompleteUnroll(char &ID, unsigned OptLevel, bool IsPreVec)
+    : HIRTransformPass(ID), IsPreVec(IsPreVec) {
+
+  Limits.SavingsThreshold =
+      IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold;
+  Limits.SmallLoopMemRefThreshold = SmallLoopMemRefThreshold;
+  Limits.SmallLoopDDRefThreshold = SmallLoopDDRefThreshold;
+  Limits.SmallLoopAdditionalSavingsThreshold =
+      SmallLoopAdditionalSavingsThreshold;
+
+  if (OptLevel == 0) {
+    OptLevel = CommandLineOptLevel;
+  }
+
+  if (OptLevel <= 2) {
+    Limits.LoopTripThreshold =
+        (LoopTripThreshold == 0) ? O2LoopTripThreshold : LoopTripThreshold;
+    Limits.LoopnestTripThreshold = (LoopnestTripThreshold == 0)
+                                       ? O2LoopnestTripThreshold
+                                       : LoopnestTripThreshold;
+    Limits.UnrolledLoopMemRefThreshold = (UnrolledLoopMemRefThreshold == 0)
+                                             ? O2UnrolledLoopMemRefThreshold
+                                             : UnrolledLoopMemRefThreshold;
+    Limits.UnrolledLoopDDRefThreshold = (UnrolledLoopDDRefThreshold == 0)
+                                            ? O2UnrolledLoopDDRefThreshold
+                                            : UnrolledLoopDDRefThreshold;
+    Limits.MaxThresholdScalingFactor = (MaxThresholdScalingFactor == 0.0)
+                                           ? O2MaxThresholdScalingFactor
+                                           : MaxThresholdScalingFactor;
+  } else {
+    Limits.LoopTripThreshold =
+        (LoopTripThreshold == 0) ? O3LoopTripThreshold : LoopTripThreshold;
+    Limits.LoopnestTripThreshold = (LoopnestTripThreshold == 0)
+                                       ? O3LoopnestTripThreshold
+                                       : LoopnestTripThreshold;
+    Limits.UnrolledLoopMemRefThreshold = (UnrolledLoopMemRefThreshold == 0)
+                                             ? O3UnrolledLoopMemRefThreshold
+                                             : UnrolledLoopMemRefThreshold;
+    Limits.UnrolledLoopDDRefThreshold = (UnrolledLoopDDRefThreshold == 0)
+                                            ? O3UnrolledLoopDDRefThreshold
+                                            : UnrolledLoopDDRefThreshold;
+    Limits.MaxThresholdScalingFactor = (MaxThresholdScalingFactor == 0.0)
+                                           ? O3MaxThresholdScalingFactor
+                                           : MaxThresholdScalingFactor;
+  }
+}
 
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
@@ -149,17 +216,15 @@ void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 /// Visitor to update the CanonExpr.
-class HIRCompleteUnroll::CanonExprVisitor final : public HLNodeVisitorBase {
-private:
-  HLLoop *OuterLoop;
-  SmallVectorImpl<int64_t> *TripValues;
+struct HIRCompleteUnroll::CanonExprUpdater final : public HLNodeVisitorBase {
+  const unsigned TopLoopLevel;
+  SmallVectorImpl<int64_t> &IVValues;
+
+  CanonExprUpdater(unsigned TopLoopLevel, SmallVectorImpl<int64_t> &IVValues)
+      : TopLoopLevel(TopLoopLevel), IVValues(IVValues) {}
 
   void processRegDDRef(RegDDRef *RegDD);
   void processCanonExpr(CanonExpr *CExpr, bool IsTerminal);
-
-public:
-  CanonExprVisitor(HLLoop *OutLoop, SmallVectorImpl<int64_t> &TripValVec)
-      : OuterLoop(OutLoop), TripValues(&TripValVec) {}
 
   void visit(HLDDNode *Node);
   void visit(HLLoop *Loop);
@@ -365,11 +430,11 @@ public:
 
 ////// CanonExpr Visitor Start
 
-void HIRCompleteUnroll::CanonExprVisitor::visit(HLLoop *Loop) {
-  transformLoop(Loop, OuterLoop, *TripValues);
+void HIRCompleteUnroll::CanonExprUpdater::visit(HLLoop *Loop) {
+  transformLoop(Loop, *this, false);
 }
 
-void HIRCompleteUnroll::CanonExprVisitor::visit(HLDDNode *Node) {
+void HIRCompleteUnroll::CanonExprUpdater::visit(HLDDNode *Node) {
 
   assert(!isa<HLLoop>(Node) && "Loop node not expected!");
 
@@ -379,9 +444,7 @@ void HIRCompleteUnroll::CanonExprVisitor::visit(HLDDNode *Node) {
   }
 }
 
-/// processRegDDRef - Processes RegDDRef to call the Canon Exprs
-/// present inside it. This is an internal helper function.
-void HIRCompleteUnroll::CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
+void HIRCompleteUnroll::CanonExprUpdater::processRegDDRef(RegDDRef *RegDD) {
   bool IsTerminal = RegDD->isTerminalRef();
 
   // Process CanonExprs inside the RegDDRefs
@@ -390,28 +453,21 @@ void HIRCompleteUnroll::CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
     processCanonExpr(*Iter, IsTerminal);
   }
 
-  RegDD->makeConsistent();
-
-  // Example of an alternative way of updating DDRef which is useful when some
-  // manual work is also involved-
-  //
-  // RegDD->updateBlobDDRefs(BlobDDRefs);
-  // assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
-  // RegDD->updateCELevel();
+  RegDD->makeConsistent(nullptr, TopLoopLevel - 1);
 }
 
-/// Processes CanonExpr to replace IV by TripVal.
-/// This is an internal helper function.
-void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr,
+void HIRCompleteUnroll::CanonExprUpdater::processCanonExpr(CanonExpr *CExpr,
                                                            bool IsTerminal) {
 
-  // Start replacing the IV's from OuterLoop level to current loop level.
-  auto LoopLevel = OuterLoop->getNestingLevel();
-  for (auto &TripV : *TripValues) {
-    CExpr->replaceIVByConstant(LoopLevel, TripV);
-    CExpr->simplify(IsTerminal);
+  // Start replacing the IV's from TopLoopLevel to current loop level.
+  auto LoopLevel = TopLoopLevel;
+
+  for (auto &Val : IVValues) {
+    CExpr->replaceIVByConstant(LoopLevel, Val);
     LoopLevel++;
   }
+
+  CExpr->simplify(IsTerminal);
 }
 
 ///// CanonExpr Visitor End
@@ -421,7 +477,7 @@ void HIRCompleteUnroll::CanonExprVisitor::processCanonExpr(CanonExpr *CExpr,
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isPreVectorProfitableLoop(
     const HLLoop *CurLoop) const {
 
-  if (!CurLoop->isInnermost()) {
+  if (!HCU.IsPreVec || !CurLoop->isInnermost()) {
     return false;
   }
 
@@ -485,8 +541,7 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
   // (for eliminating loop control) and give it higher chance of unrolling.
   if (isSmallLoop() || IsPreVecProfitableLoop) {
     Savings +=
-        std::min(static_cast<unsigned>(SmallLoopAdditionalSavingsThreshold),
-                 Iter->second);
+        std::min(HCU.Limits.SmallLoopAdditionalSavingsThreshold, Iter->second);
   }
 
   // Workaround to make loop profitable till vectorizer fixes its cost model.
@@ -508,8 +563,8 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::analyze() {
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::isSmallLoop() const {
-  return !HCU.IsPreVec && (NumMemRefs <= SmallLoopMemRefThreshold) &&
-         (NumDDRefs <= SmallLoopDDRefThreshold);
+  return !HCU.IsPreVec && (NumMemRefs <= HCU.Limits.SmallLoopMemRefThreshold) &&
+         (NumDDRefs <= HCU.Limits.SmallLoopDDRefThreshold);
 }
 
 float HIRCompleteUnroll::ProfitabilityAnalyzer::getSavingsInPercentage() const {
@@ -534,8 +589,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   DEBUG(dbgs() << "Number of ddrefs: " << NumDDRefs << "\n");
   DEBUG(dbgs() << "Loop: \n"; CurLoop->dump(); dbgs() << "\n");
 
-  if (SavingsPercentage <
-      (HCU.IsPreVec ? PreVectorSavingsThreshold : PostVectorSavingsThreshold)) {
+  if (SavingsPercentage < HCU.Limits.SavingsThreshold) {
     return false;
   }
 
@@ -543,16 +597,15 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
   // for prevec and postvec passes.
   float ScalingFactor = (SavingsPercentage / PostVectorSavingsThreshold);
 
-  ScalingFactor =
-      std::min(ScalingFactor, static_cast<float>(MaxThresholdScalingFactor));
+  ScalingFactor = std::min(ScalingFactor, HCU.Limits.MaxThresholdScalingFactor);
 
   auto Iter = HCU.TotalTripCount.find(OuterLoop);
   assert((Iter != HCU.TotalTripCount.end()) && "Trip count of loop not found!");
 
-  return (Iter->second <=
-          (ScalingFactor * CompleteUnrollLoopnestTripThreshold)) &&
-         (NumMemRefs <= (ScalingFactor * UnrolledLoopMemRefThreshold)) &&
-         (NumDDRefs <= (ScalingFactor * UnrolledLoopDDRefThreshold));
+  return (Iter->second <= (ScalingFactor * HCU.Limits.LoopnestTripThreshold)) &&
+         (NumMemRefs <=
+          (ScalingFactor * HCU.Limits.UnrolledLoopMemRefThreshold)) &&
+         (NumDDRefs <= (ScalingFactor * HCU.Limits.UnrolledLoopDDRefThreshold));
 }
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
@@ -1257,7 +1310,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
   if (UpperCE->isIntConstant(&UpperVal)) {
     int64_t TC = UpperVal + 1;
-    if (TC >= CompleteUnrollLoopTripThreshold) {
+    if (TC >= Limits.LoopTripThreshold) {
       TC = -1;
     }
 
@@ -1331,7 +1384,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
     AvgTripCnt = ((MinUpper + MaxUpper) / 2) + 1;
   }
 
-  if (AvgTripCnt > CompleteUnrollLoopTripThreshold) {
+  if (AvgTripCnt > Limits.LoopTripThreshold) {
     AvgTripCnt = -1;
   }
 
@@ -1383,8 +1436,8 @@ HIRCompleteUnroll::performTripCountAnalysis(HLLoop *Loop) {
 
   if (IsLoopCandidate) {
     TotalTripCnt = AvgTripCnt * MaxChildTripCnt;
-    IsLoopCandidate = (TotalTripCnt <= (CompleteUnrollLoopnestTripThreshold *
-                                        MaxThresholdScalingFactor));
+    IsLoopCandidate = (TotalTripCnt <= (Limits.LoopnestTripThreshold *
+                                        Limits.MaxThresholdScalingFactor));
   }
 
   if (IsLoopCandidate) {
@@ -1418,7 +1471,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop) const {
 
 // Transform (Complete Unroll) each loop inside the CandidateLoops vector
 void HIRCompleteUnroll::transformLoops() {
-  SmallVector<int64_t, MaxLoopNestLevel> TripValues;
+  SmallVector<int64_t, MaxLoopNestLevel> IVValues;
 
   LoopnestsCompletelyUnrolled += CandidateLoops.size();
 
@@ -1437,7 +1490,10 @@ void HIRCompleteUnroll::transformLoops() {
     Reg->setGenCode();
     HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
-    transformLoop(Loop, Loop, TripValues);
+    CanonExprUpdater CEUpdater(Loop->getNestingLevel(), IVValues);
+    transformLoop(Loop, CEUpdater, true);
+
+    assert(IVValues.empty() && "IV values were not cleaned up!");
 
     if (HasIfsOrSwitches) {
       HLNodeUtils::removeRedundantNodes(ParentNode);
@@ -1445,8 +1501,8 @@ void HIRCompleteUnroll::transformLoops() {
   }
 }
 
-int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, HLLoop *OuterLoop,
-                                     SmallVectorImpl<int64_t> &TripValues) {
+int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, unsigned TopLoopLevel,
+                                     SmallVectorImpl<int64_t> &IVValues) {
   int64_t UBVal = 0;
 
   const CanonExpr *UBCE = Loop->getUpperCanonExpr();
@@ -1460,10 +1516,10 @@ int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, HLLoop *OuterLoop,
 
   UBVal = UBCE->getConstant();
 
-  auto LoopLevel = OuterLoop->getNestingLevel();
+  auto LoopLevel = TopLoopLevel;
 
-  for (auto TripV : TripValues) {
-    UBVal += (TripV * UBCE->getIVConstCoeff(LoopLevel));
+  for (auto Val : IVValues) {
+    UBVal += (Val * UBCE->getIVConstCoeff(LoopLevel));
     LoopLevel++;
   }
 
@@ -1471,8 +1527,8 @@ int64_t HIRCompleteUnroll::computeUB(HLLoop *Loop, HLLoop *OuterLoop,
 }
 
 // Complete Unroll the given Loop, using provided LD as helper data
-void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
-                                      SmallVectorImpl<int64_t> &TripValues) {
+void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
+                                      bool IsTopLevelLoop) {
 
   // Guard against the scanning phase setting it appropriately.
   assert(Loop && " Loop is null.");
@@ -1481,10 +1537,10 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
   HLContainerTy LoopBody;
   HLNodeUtils &HNU = Loop->getHLNodeUtils();
 
-  CanonExprVisitor CEVisit(OuterLoop, TripValues);
+  auto &IVValues = CEUpdater.IVValues;
 
   int64_t LB = Loop->getLowerCanonExpr()->getConstant();
-  int64_t UB = computeUB(Loop, OuterLoop, TripValues);
+  int64_t UB = computeUB(Loop, CEUpdater.TopLoopLevel, IVValues);
   int64_t Step = Loop->getStrideCanonExpr()->getConstant();
 
   // At this point loop preheader has been visited already but postexit is not,
@@ -1495,38 +1551,62 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, HLLoop *OuterLoop,
     return;
   }
 
-  if (Loop != OuterLoop) {
-    HNU.visitRange(CEVisit, Loop->post_begin(), Loop->post_end());
+  HLNode *Marker = nullptr;
+
+  if (!IsTopLevelLoop) { 
+    HNU.visitRange(CEUpdater, Loop->post_begin(), Loop->post_end());
   }
 
   // Ztt is not needed since it has ateast one trip.
   Loop->removeZtt();
   Loop->extractPreheaderAndPostexit();
 
+  if (IsTopLevelLoop) {
+    Marker = HNU.getOrCreateMarkerNode();
+    // Replace top level loop of the unroll loopnest with marker node to avoid
+    // top sort num recomputation.
+    HNU.replace(Loop, Marker);
+  }
+
+  auto OrigFirstChild = Loop->getFirstChild();
+  auto OrigLastChild = Loop->getLastChild();
+
+  IVValues.push_back(LB);
+
   // Iterate over Loop Child for unrolling with trip value incremented
   // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
-  for (int64_t TripVal = LB; TripVal <= UB; TripVal += Step) {
+  for (int64_t IVVal = LB; IVVal < UB; IVVal += Step) {
     // Clone iteration
-    HNU.cloneSequence(&LoopBody, Loop->getFirstChild(), Loop->getLastChild());
+    HNU.cloneSequence(&LoopBody, OrigFirstChild, OrigLastChild);
 
     // Store references as LoopBody will be empty after insertion.
     HLNode *CurFirstChild = &(LoopBody.front());
     HLNode *CurLastChild = &(LoopBody.back());
 
-    HNU.insertBefore(Loop, &LoopBody);
+    HNU.insertBefore(OrigFirstChild, &LoopBody);
 
-    // Trip Values vector is used to store the current IV
-    // trip value for substitution inside the canon expr.
-    TripValues.push_back(TripVal);
+    // Update IV value of loop for the current unrolled iteration for
+    // substitution inside the canon expr.
+    IVValues.back() = IVVal;
 
     // Update the CanonExpr
-    CanonExprVisitor CEVisit(OuterLoop, TripValues);
-    HNU.visitRange<true, false>(CEVisit, CurFirstChild, CurLastChild);
-
-    TripValues.pop_back();
+    HNU.visitRange<true, false>(CEUpdater, CurFirstChild, CurLastChild);
   }
 
-  HNU.remove(Loop);
+  // Reuse original children for last iteration.
+  IVValues.back() = UB;
+  HNU.visitRange<true, false>(CEUpdater, OrigFirstChild, OrigLastChild);
+
+  IVValues.pop_back();
+
+  if (IsTopLevelLoop) {
+    // Replace marker node with the unrolled loop children.
+    HNU.moveBefore(Marker, Loop->child_begin(), Loop->child_end());
+    HNU.remove(Marker);
+  } else {
+    HNU.moveBefore(Loop, Loop->child_begin(), Loop->child_end());
+    HNU.remove(Loop);
+  }
 }
 
 void HIRCompleteUnroll::releaseMemory() {

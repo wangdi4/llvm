@@ -8,8 +8,8 @@
 // from the company.
 //
 // Wrapper over HIRCompleteUnroll pass. This is executed before vectorizer. The
-// idea is to unroll loopnests which seems to be highly profitable before they 
-// get to the vectorizer so the profitability threshold is set to a higher 
+// idea is to unroll loopnests which seems to be highly profitable before they
+// get to the vectorizer so the profitability threshold is set to a higher
 // value.
 //===----------------------------------------------------------------------===//
 //
@@ -20,10 +20,9 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-cl::opt<bool>
-    DisablePreVecUnroll("disable-hir-pre-vec-complete-unroll",
-                      cl::desc("Disables pre vec complete unroll"),
-                      cl::Hidden, cl::init(false));
+cl::opt<bool> DisablePreVecUnroll("disable-hir-pre-vec-complete-unroll",
+                                  cl::desc("Disables pre vec complete unroll"),
+                                  cl::Hidden, cl::init(false));
 
 namespace {
 
@@ -32,7 +31,8 @@ class HIRPreVecCompleteUnroll : public HIRCompleteUnroll {
 public:
   static char ID;
 
-  HIRPreVecCompleteUnroll() : HIRCompleteUnroll(ID, true) {
+  HIRPreVecCompleteUnroll(unsigned OptLevel = 0)
+      : HIRCompleteUnroll(ID, OptLevel, true) {
     initializeHIRPreVecCompleteUnrollPass(*PassRegistry::getPassRegistry());
   }
 
@@ -46,14 +46,13 @@ public:
 }
 
 char HIRPreVecCompleteUnroll::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnroll,
-                      "hir-pre-vec-complete-unroll",
+INITIALIZE_PASS_BEGIN(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
                       "HIR PreVec Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRPreVecCompleteUnroll, "hir-pre-vec-complete-unroll",
                     "HIR PreVec Complete Unroll", false, false)
 
-FunctionPass *llvm::createHIRPreVecCompleteUnrollPass() {
-  return new HIRPreVecCompleteUnroll();
+FunctionPass *llvm::createHIRPreVecCompleteUnrollPass(unsigned OptLevel) {
+  return new HIRPreVecCompleteUnroll(OptLevel);
 }

@@ -40,11 +40,11 @@ FunctionPass *createHIROptPredicatePass();
 
 /// createHIRPreVecCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling before vectorizer.
-FunctionPass *createHIRPreVecCompleteUnrollPass();
+FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0);
 
 /// createHIRPostVecCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling after vectorizer.
-FunctionPass *createHIRPostVecCompleteUnrollPass();
+FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0);
 
 /// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
 /// Distribution for breaking memory recurrences

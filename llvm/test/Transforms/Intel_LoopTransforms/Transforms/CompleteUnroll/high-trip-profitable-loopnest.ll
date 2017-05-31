@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-pre-vec-complete-unroll -hir-complete-unroll-opt-level=3 -print-before=hir-pre-vec-complete-unroll -print-after=hir-pre-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
 ; Verify that this highly profitable loopnest is unrolled in prevec pass.
 
