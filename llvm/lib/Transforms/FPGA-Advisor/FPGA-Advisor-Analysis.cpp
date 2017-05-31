@@ -3123,7 +3123,7 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           std::vector<unsigned> &resourceVector = search->second;                
           int count = resourceVector.size();
           //std::cerr << "For job " << BB->getName().str() << "count is " << count << std::endl;  
-		  //check for at least one thread, so the single-threaded version does not break. 
+          // Check for at least one thread, so the single-threaded version does not break. 
           if(((count > 1) || ParallelizeOneZero) && (UseThreads > 0)) {
             // farm out a parallel job.    
             //std::cerr << "Issuing parallel job for " << BB->getName().str() << std::endl;               
