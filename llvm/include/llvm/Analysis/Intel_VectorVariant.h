@@ -355,14 +355,7 @@ public:
   /// \brief Encode the mask information for the mangled variant name.
   static char encodeMask(bool EncodeMask) {
 
-    switch (EncodeMask) {
-    case true:
-      return 'M';
-    case false:
-      return 'N';
-    }
-
-    llvm_unreachable("unsupported mask");
+    return EncodeMask ? 'M' : 'N';
   }
 
   /// \brief Decode the mask information from the mangled variant name.
