@@ -190,13 +190,9 @@ int get_write_capacity(__global struct __pipe_t* p) {
 }
 
 void __pipe_init_intel(__global struct __pipe_t* p,
-                       int packet_size, int max_packets) {
-  // p->max_packets should be more then maximum of supported VL
-  if (max_packets <= MAX_VL_SUPPORTED_BY_PIPES)
-    max_packets = MAX_VL_SUPPORTED_BY_PIPES;
-
+                       int packet_size, int depth) {
   p->packet_size = packet_size;
-  p->max_packets = max_packets + 1; // reserve one element b/w head and tail
+  p->max_packets = __pipe_get_max_packets(depth);
   atomic_init(&p->head, 0);
   atomic_init(&p->tail, 0);
 
@@ -208,14 +204,14 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   p->write_buf.size = -1;
 
   // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit = min(max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT) &
-                       (- MAX_VL_SUPPORTED_BY_PIPES);
+  p->write_buf.limit = min(p->max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT)
+                       & (- MAX_VL_SUPPORTED_BY_PIPES);
 }
 
 void __pipe_init_array_intel(__global struct __pipe_t* __global* p,
-                             int array_size, int packet_size, int max_packets) {
+                             int array_size, int packet_size, int depth) {
   for (int i = 0; i < array_size; ++i) {
-    __pipe_init_intel(p[i], packet_size, max_packets);
+    __pipe_init_intel(p[i], packet_size, depth);
   }
 }
 

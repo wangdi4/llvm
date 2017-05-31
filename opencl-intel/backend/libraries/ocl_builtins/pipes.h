@@ -21,6 +21,7 @@
 #ifndef __INTEL_PIPES_H__
 #define __INTEL_PIPES_H__
 
+// This header is also used by the RT to allocate OpenCL 2.0 Pipes.
 #ifdef __OPENCL_C_VERSION__
   #define i32 int
   #define atomic_i32 volatile atomic_int
@@ -28,6 +29,10 @@
   #include <CL/cl.h>
   #define i32 cl_int
   #define atomic_i32 cl_int
+#endif
+
+#ifndef __OPENCL_C_VERSION__
+#include <algorithm>
 #endif
 
 #ifdef _WIN32
@@ -85,7 +90,21 @@ bool reserve_read_buffer(struct __pipe_internal_buf* b, int capacity);
 int advance(__global const struct __pipe_t* p, int index, int offset);
 int get_read_capacity(__global struct __pipe_t* p);
 int get_write_capacity(__global struct __pipe_t* p);
-
 #endif // __OPENCL_VERSION__
+
+
+static i32 __pipe_get_max_packets(i32 depth) {
+#ifndef __OPENCL_C_VERSION__
+  using std::max;
+#endif
+  // pipe max_packets should be more then maximum of supported VL
+  int max_packets = max(depth, MAX_VL_SUPPORTED_BY_PIPES);
+
+  // reserve one extra element b/w head and tail to distinguish full/empty
+  // conditions
+  max_packets += 1;
+
+  return max_packets;
+}
 
 #endif // __INTEL_PIPES_H__

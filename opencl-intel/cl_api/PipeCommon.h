@@ -26,31 +26,26 @@
 #include "../backend/libraries/ocl_builtins/pipes.h"
 #include <algorithm>
 
-static size_t pipe_get_total_size(cl_uint packet_size, cl_uint max_packets) {
+static size_t pipe_get_total_size(cl_uint packet_size, cl_uint depth) {
   size_t total = sizeof(__pipe_t)       // header
-    + packet_size * (max_packets + 1);  // packets (one extra packet
-                                        // for a begin/end border)
+    + packet_size * __pipe_get_max_packets(depth);
   return total;
 }
 
-static void pipe_init(void* mem, cl_uint packet_size, cl_uint max_packets) {
+static void pipe_init(void* mem, cl_uint packet_size, cl_uint depth) {
   __pipe_t* p = (__pipe_t*) mem;
 
   memset((char*)p, 0, sizeof(__pipe_t));
 
-  // p->max_packets should be more then maximum of supported VL
-  if (max_packets <= MAX_VL_SUPPORTED_BY_PIPES)
-    max_packets = MAX_VL_SUPPORTED_BY_PIPES;
-
   p->packet_size = packet_size;
-  p->max_packets = max_packets + 1;// reserve one element b/w head and tail
+  p->max_packets = __pipe_get_max_packets(depth);
 
   p->read_buf.size = -1;
   p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
 
   p->write_buf.size = -1;
   // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit = std::min((int)max_packets,
+  p->write_buf.limit = std::min((int)p->max_packets,
                                 PIPE_WRITE_BUF_PREFERRED_LIMIT)
                        & (- MAX_VL_SUPPORTED_BY_PIPES);
 }
