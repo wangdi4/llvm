@@ -311,7 +311,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Outs->getArgName(i);
+      const std::string& ArgName = Outs->getArgNameStr(i);
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -326,7 +326,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       "Invalid OclBuiltin record with invalid outputs.");
     for (unsigned i = 0, e = Ins->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Ins->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Ins->getArgName(i);
+      const std::string& ArgName = Ins->getArgNameStr(i);
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }

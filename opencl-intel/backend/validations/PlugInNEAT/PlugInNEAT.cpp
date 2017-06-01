@@ -561,8 +561,7 @@ NEATGenericValue NEATPlugIn::executeGEPOperation( Value *Ptr,
     uint64_t Total = 0;
 
     for (; I != E; ++I) {
-        if (dyn_cast<StructType>(*I)) {
-            const StructType *STy = cast<StructType>(*I);
+        if (const StructType *STy = I.getStructTypeOrNull()) {
             const NEATStructLayout *SLO = m_NTD.getStructLayout(STy);
 
             GenericValue IdxGV = IP.getOperandValueAdapter(I.getOperand(), SF);
@@ -570,7 +569,6 @@ NEATGenericValue NEATPlugIn::executeGEPOperation( Value *Ptr,
 
             Total += SLO->getElementOffset(Index);
         } else {
-            const SequentialType *ST = cast<SequentialType>(*I);
             // Get the index number for the array... which must be long type...
             GenericValue IdxGV = IP.getOperandValueAdapter(I.getOperand(), SF);
 
@@ -583,7 +581,7 @@ NEATGenericValue NEATPlugIn::executeGEPOperation( Value *Ptr,
                 assert(BitWidth == 64 && "Invalid index type for getelementptr");
                 Idx = (int64_t)IdxGV.IntVal.getZExtValue();
             }
-            Total += m_NTD.getTypeAllocSize(ST->getElementType())*Idx;
+            Total += m_NTD.getTypeAllocSize(I.getIndexedType())*Idx;
         }
     }
 

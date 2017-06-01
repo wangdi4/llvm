@@ -26,7 +26,6 @@ File Name:  CPUProgramBuilder.cpp
 #include "Program.h"
 #include "StaticObjectLoader.h"
 
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"

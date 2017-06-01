@@ -29,10 +29,6 @@ char Obfuscation::ID = 0;
 
 Obfuscation::Obfuscation(): ModulePass(ID) {}
 
-const char* Obfuscation::getPassName() const {
-  return "Module Obfuscator";
-}
-
 class ObfuscationBlockFunctor: public BlockFunctor {
   long m_counter;
 public:

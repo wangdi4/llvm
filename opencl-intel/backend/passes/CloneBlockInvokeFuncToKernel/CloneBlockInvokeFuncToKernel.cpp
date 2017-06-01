@@ -146,8 +146,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     (*I)->setLinkage(GlobalValue::ExternalLinkage);
     // copy function to new
     ValueToValueMapTy VMap;
-    Function *NewFn = llvm::CloneFunction(*I, VMap,
-                                              /*ModuleLevelChanges=*/true);
+    Function *NewFn = llvm::CloneFunction(*I, VMap);
     assert(NewFn && "CloneFunction returned NULL");
 
     // obtain name for kernel

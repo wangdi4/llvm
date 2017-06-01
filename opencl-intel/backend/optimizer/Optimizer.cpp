@@ -23,8 +23,10 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Scalar/GVN.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Support/raw_ostream.h"
@@ -137,13 +139,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
   if (OptLevel > 2)
     PM->add(llvm::createArgumentPromotionPass()); // Scalarize uninlined fn args
 
-  // A workaround to fix regression in sgemm on CPU and not causing new
-  // regression on Machine with Gather Scatter
-  int sroaArrSize = 16;
-  if (HasGatherScatter)
-    sroaArrSize = -1;
   // Break up aggregate allocas
-  PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+  PM->add(llvm::createSROAPass());
   PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
   PM->add(llvm::createInstructionSimplifierPass());
   PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
@@ -176,10 +173,8 @@ static inline void createStandardLLVMPasses(llvm::legacy::PassManagerBase *PM,
     PM->add(llvm::createFunctionInliningPass(4096)); // Inline (not only small)
                                                      // functions
   }
-  // A workaround to fix regression in sgemm on CPU and not causing new
-  // regression on Machine with Gather Scatter
   // Break up aggregate allocas
-  PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+  PM->add(llvm::createSROAPass());
   // Clean up after the unroller
   PM->add(llvm::createInstructionCombiningPass());
   PM->add(llvm::createInstructionSimplifierPass());
@@ -248,13 +243,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     if (OptLevel == 1)
       PM.add(llvm::createPromoteMemoryToRegisterPass());
     else {
-      // A workaround to fix regression in sgemm on CPU and not causing new
-      // regression on Machine with Gather Scatter
-      int sroaArrSize = 16;
-      if (HasGatherScatter)
-        sroaArrSize = -1;
-      PM.add(
-          llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
+      PM.add(llvm::createSROAPass());
     }
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(llvm::createInstructionSimplifierPass());
@@ -538,7 +527,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   } else {
     // Functions with the alwaysinline attribute need to be inlined for
     // functional purposes
-    PM.add(llvm::createAlwaysInlinerPass());
+    PM.add(llvm::createAlwaysInlinerLegacyPass());
   }
   // Some built-in functions contain calls to external functions which take
   // arguments that are retrieved from the function's implicit arguments.

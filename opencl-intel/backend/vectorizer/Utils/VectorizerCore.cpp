@@ -129,13 +129,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // Register lowerswitch
     fpm1.add(createLowerSwitchPass());
 
-    // Register Scalarizer
-    // A workaround to fix regression in sgemm on CPU and not causing new regression on Machine with Gather Scatter
-    int sroaArrSize = -1;
-    if (! m_pConfig->GetCpuId().HasGatherScatter())
-      sroaArrSize = 16;
-
-    fpm1.add(createScalarReplAggregatesPass(1024, true, -1, sroaArrSize, 64));
+    fpm1.add(createSROAPass());
     fpm1.add(createInstructionCombiningPass());
     fpm1.add(createOCLBuiltinPreVectorizationPass());
     if (m_pConfig->GetDumpHeuristicIRFlag())

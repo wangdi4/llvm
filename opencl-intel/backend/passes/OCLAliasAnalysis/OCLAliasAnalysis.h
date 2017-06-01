@@ -22,7 +22,8 @@ namespace intel {
 
   struct OCLAAResults : public AAResults {
 
-    OCLAAResults();
+    OCLAAResults(const TargetLibraryInfo &);
+    OCLAAResults(OCLAAResults &&);
 
     virtual void initializePass() {
     }

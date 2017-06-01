@@ -170,7 +170,7 @@ DIType * ImplicitGlobalIdPass::getOrCreateUlongDIType() const
     }
     // If the type wasn't found, create it now
     DIBuilder *diBuilder = m_pDIB.get();
-    return diBuilder->createBasicType("long unsigned int", 64, 64, dwarf::DW_ATE_unsigned);
+    return diBuilder->createBasicType("long unsigned int", 64, dwarf::DW_ATE_unsigned);
 }
 
 

@@ -229,7 +229,7 @@ set (CLANG_CL20_COMPILER_PARAMS
   )
   
 # llvm-opt
-set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)

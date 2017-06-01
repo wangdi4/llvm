@@ -49,7 +49,6 @@ File Name:  OpenCLReferenceRunner.cpp
 // with LLVM's MemoryFence function definition.
 #undef MemoryFence
 
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/Interpreter.h"
 #include "llvm/IR/Constants.h"

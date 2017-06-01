@@ -35,7 +35,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Argument.h"
@@ -423,33 +423,42 @@ bool Compiler::FindFunctionBodyInModules(std::string &FName,
 
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
-    //
     // Parse the module IR
-    //
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr = llvm::parseBitcodeFile( pIRBuffer->getMemBufferRef(), *m_pLLVMContext );
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr =
+      expectedToErrorOrAndEmitErrors(*m_pLLVMContext, llvm::parseBitcodeFile(
+                               pIRBuffer->getMemBufferRef(), *m_pLLVMContext));
     if ( !pModuleOrErr )
     {
-        throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
+        throw Exceptions::CompilerException(std::string("Failed to parse IR: ")
+              + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
     return pModuleOrErr.get().release();
 }
 
-// RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
+// RTL builtin modules consist of two libraries.
+// The first is shared across all HW architectures and the second one
+// is optimized for a specific HW architecture.
 // NOTE: There is no shared library for KNC so it has the optimized one only.
-void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
+void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
+                   llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
-    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
+    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(
+                                        pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
+      expectedToErrorOrAndEmitErrors(*m_pLLVMContext,
+               llvm::getLazyBitcodeModule(*rtlBuffer.get(), *m_pLLVMContext));
 
     if ( !spModuleOrErr )
     {
         // Failed to load runtime library
         spModuleOrErr = llvm::ErrorOr<std::unique_ptr<llvm::Module>>(
-                std::unique_ptr<llvm::Module>(new llvm::Module("dummy", *m_pLLVMContext)));
+                std::unique_ptr<llvm::Module>(
+                  new llvm::Module("dummy", *m_pLLVMContext)));
         if ( !spModuleOrErr )
         {
-            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+            throw Exceptions::CompilerException(
+              "Failed to allocate/parse buitin module");
         }
     }
     else
@@ -463,13 +472,15 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<ll
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
-            llvm::getLazyBitcodeModule(
-                std::move(pLibrary->GetRtlBufferSvmlShared()),
+        std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
+                                          pLibrary->GetRtlBufferSvmlShared()));
+        llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
+            llvm::getLazyBitcodeModule(*RtlBufferSvmlShared.get(),
                 *m_pLLVMContext));
 
         if ( !spModuleSvmlSharedOrErr ) {
-            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+            throw Exceptions::CompilerException(
+              "Failed to allocate/parse buitin module");
         }
 
         llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
@@ -570,13 +581,18 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
                                                     size_t uiBinarySize ) const
 {
 
-    std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
-    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext);
-    if (strTargetTriple == "") {
-      throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
+    std::unique_ptr<MemoryBuffer> spIRBuffer(
+      MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary),
+                                           uiBinarySize), "", false));
+    llvm::Expected<std::string> strTargetTriple =
+                   llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef());
+    if (*strTargetTriple == "") {
+      throw Exceptions::CompilerException(
+                     std::string("Failed to get target triple from bitcode!"),
+                     CL_DEV_INVALID_BINARY);
     }
 
-    return strTargetTriple;
+    return *strTargetTriple;
 }
 
 }}}

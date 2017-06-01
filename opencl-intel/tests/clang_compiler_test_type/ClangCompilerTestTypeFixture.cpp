@@ -90,9 +90,13 @@ FESPIRVProgramDescriptor ClangCompilerTestType::GetTestFESPIRVProgramDescriptor(
     return spirvDesc;
 }
 
-llvm::ErrorOr<std::unique_ptr<llvm::Module>> ClangCompilerTestType::ExtractModule(IOCLFEBinaryResult* pResult)
+llvm::ErrorOr<std::unique_ptr<llvm::Module>>
+ClangCompilerTestType::ExtractModule(IOCLFEBinaryResult* pResult)
 {
-    llvm::StringRef bitCodeStr((const char*)pResult->GetIR(), pResult->GetIRSize());
-    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer = llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
-    return llvm::parseBitcodeFile(pMemBuffer->getMemBufferRef(), *GetLLVMContext());
+    llvm::StringRef bitCodeStr((const char*)pResult->GetIR(),
+                               pResult->GetIRSize());
+    std::unique_ptr<llvm::MemoryBuffer> pMemBuffer =
+      llvm::MemoryBuffer::getMemBuffer(bitCodeStr, "", false);
+    return llvm::expectedToErrorOrAndEmitErrors(*GetLLVMContext(),
+      llvm::parseBitcodeFile(pMemBuffer->getMemBufferRef(), *GetLLVMContext()));
 }

@@ -34,11 +34,8 @@ File Name:  ocl_recorder.h
 #endif
 
 #include "llvm/Support/Path.h"
-#include "llvm/Support/Atomic.h"
 #include "llvm/Support/Mutex.h"
 #include "llvm/IR/DataLayout.h"
-#include <list>
-#include <map>
 #include "plugin_interface.h"
 #include "cl_types.h"
 #include "cl_device_api.h"
@@ -46,6 +43,10 @@ File Name:  ocl_recorder.h
 #include "ocl_source_recorder.h"
 #define TIXML_USE_STL
 #include "tinyxml.h"
+
+#include <atomic>
+#include <list>
+#include <map>
 
 using namespace Intel::OpenCL;
 
@@ -240,7 +241,7 @@ namespace Validation
         KernelContextMap    m_kernels;
         llvm::sys::Mutex    m_kernelsLock; // synchronization for the kernels container
 
-        static llvm::sys::cas_flag s_counter;
+        static std::atomic<unsigned> s_counter;
     };
 
     class HashComparator

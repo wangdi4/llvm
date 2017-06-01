@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <NameMangleAPI.h>
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
@@ -352,10 +353,6 @@ OCL_INITIALIZE_PASS_END(SpirMaterializer, "spir-materializer",
 )
 
 SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
-
-const char *SpirMaterializer::getPassName() const {
-  return "spir materializer";
-}
 
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;

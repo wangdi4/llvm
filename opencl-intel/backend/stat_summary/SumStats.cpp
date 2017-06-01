@@ -35,6 +35,8 @@
 using namespace llvm;
 using namespace Intel;
 
+extern "C" LLVMContextRef LLVMGetGlobalContext(void);
+
 enum DumpLevel {
   S=1, W=2, M=3, F=4
 };
@@ -48,8 +50,7 @@ static cl::opt<DumpLevel> dumpLevel("l", cl::desc("Set dump detail level:"),
         clEnumVal(S, "Dump summary of all counters"),
         clEnumVal(W, "Dump counter summary per workload"),
         clEnumVal(M, "Dump counter summary per workload & module"),
-        clEnumVal(F, "Dump counter summary per workload, module & function"),
-        clEnumValEnd),
+        clEnumVal(F, "Dump counter summary per workload, module & function")),
         cl::init(W));
 
 static cl::opt<string> outFileName("o", cl::desc("Output file name"),
@@ -73,12 +74,12 @@ bool getFlist (vector<string> &flist)
 
 bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
 {
-  LLVMContext &C = getGlobalContext();
+  LLVMContext Ctx;
   // for each file
   for (unsigned i = 0; i < flist.size(); i++) {
     SMDiagnostic err;
     // parse the IR
-    std::unique_ptr<Module> M = llvm::parseIRFile(flist[i], err, C);
+    std::unique_ptr<Module> M = llvm::parseIRFile(flist[i], err, Ctx);
     if (!M)
       continue;
 

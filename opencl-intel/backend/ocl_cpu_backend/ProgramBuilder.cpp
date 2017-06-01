@@ -40,7 +40,6 @@ File Name:  ProgramBuilder.cpp
 #include "OclTune.h"
 
 #define DEBUG_TYPE "ProgramBuilder"
-#include "llvm/Support/Atomic.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -52,7 +51,6 @@ File Name:  ProgramBuilder.cpp
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -70,6 +68,7 @@ File Name:  ProgramBuilder.cpp
 #endif // WIN32
 
 #include <algorithm>
+#include <atomic>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -93,11 +92,10 @@ static void BEFatalErrorHandler(void *user_data, const std::string& reason,
 namespace Utils
 {
 static int getFileCount() {
-  static volatile llvm::sys::cas_flag fileCount = 0;
+  static std::atomic<unsigned> fileCount(0);
+  fileCount++;
 
-  sys::AtomicIncrement(&fileCount);
-
-  return ((int)fileCount);
+  return fileCount.load(std::memory_order_relaxed);
 }
 
 /**
