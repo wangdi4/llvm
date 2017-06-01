@@ -207,8 +207,8 @@ protected:
   bool UseLeaForSP;
 
   /// True if there is no performance penalty to writing only the lower parts
-  /// of a YMM register without clearing the upper part.
-  bool HasFastPartialYMMWrite;
+  /// of a YMM or ZMM register without clearing the upper part.
+  bool HasFastPartialYMMorZMMWrite;
 
   /// True if hardware SQRTSS instruction is at least as fast (latency) as
   /// RSQRTSS followed by a Newton-Raphson iteration.
@@ -228,6 +228,12 @@ protected:
 
   /// True if LZCNT instruction is fast.
   bool HasFastLZCNT;
+
+  /// True if SHLD based rotate is fast.
+  bool HasFastSHLDRotate;
+
+  /// True if the processor has enhanced REP MOVSB/STOSB.
+  bool HasERMSB;
 
   /// True if the short functions should be padded to prevent
   /// a stall when returning too early.
@@ -432,9 +438,9 @@ public:
   bool hasPCLMUL() const { return HasPCLMUL; }
   // Prefer FMA4 to FMA - its better for commutation/memory folding and
   // has equal or better performance on all supported targets.
-  bool hasFMA() const { return HasFMA && !HasFMA4; }
+  bool hasFMA() const { return (HasFMA || hasAVX512()) && !HasFMA4; }
   bool hasFMA4() const { return HasFMA4; }
-  bool hasAnyFMA() const { return hasFMA() || hasFMA4() || hasAVX512(); }
+  bool hasAnyFMA() const { return hasFMA() || hasFMA4(); }
   bool hasXOP() const { return HasXOP; }
   bool hasTBM() const { return HasTBM; }
   bool hasMOVBE() const { return HasMOVBE; }
@@ -462,10 +468,14 @@ public:
   bool hasSSEUnalignedMem() const { return HasSSEUnalignedMem; }
   bool hasCmpxchg16b() const { return HasCmpxchg16b; }
   bool useLeaForSP() const { return UseLeaForSP; }
-  bool hasFastPartialYMMWrite() const { return HasFastPartialYMMWrite; }
+  bool hasFastPartialYMMorZMMWrite() const {
+    return HasFastPartialYMMorZMMWrite;
+  }
   bool hasFastScalarFSQRT() const { return HasFastScalarFSQRT; }
   bool hasFastVectorFSQRT() const { return HasFastVectorFSQRT; }
   bool hasFastLZCNT() const { return HasFastLZCNT; }
+  bool hasFastSHLDRotate() const { return HasFastSHLDRotate; }
+  bool hasERMSB() const { return HasERMSB; }
   bool hasSlowDivide32() const { return HasSlowDivide32; }
   bool hasSlowDivide64() const { return HasSlowDivide64; }
   bool padShortFunctions() const { return PadShortFunctions; }
@@ -514,6 +524,7 @@ public:
   bool isTargetNaCl32() const { return isTargetNaCl() && !is64Bit(); }
   bool isTargetNaCl64() const { return isTargetNaCl() && is64Bit(); }
   bool isTargetMCU() const { return TargetTriple.isOSIAMCU(); }
+  bool isTargetFuchsia() const { return TargetTriple.isOSFuchsia(); }
 
   bool isTargetWindowsMSVC() const {
     return TargetTriple.isWindowsMSVCEnvironment();
@@ -616,6 +627,9 @@ public:
 
   /// Enable the MachineScheduler pass for all X86 subtargets.
   bool enableMachineScheduler() const override { return true; }
+
+  // TODO: Update the regression tests and return true.
+  bool supportPrintSchedInfo() const override { return false; }
 
   bool enableEarlyIfConversion() const override;
 

@@ -160,12 +160,23 @@ public:
 
   ~LexingFor_PragmaRAII() {
     if (InMacroArgPreExpansion) {
+      // When committing/backtracking the cached pragma tokens in a macro
+      // argument pre-expansion we want to ensure that either the tokens which
+      // have been committed will be removed from the cache or that the tokens
+      // over which we just backtracked won't remain in the cache after they're
+      // consumed and that the caching will stop after consuming them.
+      // Otherwise the caching will interfere with the way macro expansion
+      // works, because we will continue to cache tokens after consuming the
+      // backtracked tokens, which shouldn't happen when we're dealing with
+      // macro argument pre-expansion.
+      auto CachedTokenRange = PP.LastCachedTokenRange();
       if (Failed) {
         PP.CommitBacktrackedTokens();
       } else {
         PP.Backtrack();
         OutTok = PragmaTok;
       }
+      PP.EraseCachedTokens(CachedTokenRange);
     }
   }
 
@@ -978,9 +989,9 @@ struct PragmaDebugHandler : public PragmaHandler {
 #ifdef _MSC_VER
     #pragma warning(disable : 4717)
 #endif
-  static void DebugOverflowStack() {
-    void (*volatile Self)() = DebugOverflowStack;
-    Self();
+  static void DebugOverflowStack(void (*P)() = nullptr) {
+    void (*volatile Self)(void(*P)()) = DebugOverflowStack;
+    Self(reinterpret_cast<void(*)()>(Self));
   }
 #ifdef _MSC_VER
     #pragma warning(default : 4717)

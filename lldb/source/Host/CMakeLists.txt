@@ -6,7 +6,6 @@ endmacro()
 add_host_subdirectory(common
   common/File.cpp
   common/FileCache.cpp
-  common/FileSpec.cpp
   common/FileSystem.cpp
   common/GetOptInc.cpp
   common/Host.cpp
@@ -22,11 +21,11 @@ add_host_subdirectory(common
   common/NativeWatchpointList.cpp
   common/NativeProcessProtocol.cpp
   common/NativeRegisterContext.cpp
-  common/NativeRegisterContextRegisterInfo.cpp
   common/NativeThreadProtocol.cpp
   common/OptionParser.cpp
   common/PipeBase.cpp
   common/ProcessRunLock.cpp
+  common/PseudoTerminal.cpp
   common/Socket.cpp
   common/SocketAddress.cpp
   common/SoftwareBreakpoint.cpp
@@ -34,7 +33,6 @@ add_host_subdirectory(common
   common/Symbols.cpp
   common/TCPSocket.cpp
   common/Terminal.cpp
-  common/ThisThread.cpp
   common/ThreadLauncher.cpp
   common/XML.cpp
   common/UDPSocket.cpp
@@ -72,7 +70,6 @@ if (CMAKE_SYSTEM_NAME MATCHES "Windows")
     windows/PipeWindows.cpp
     windows/ProcessLauncherWindows.cpp
     windows/ProcessRunLock.cpp
-    windows/ThisThread.cpp
     windows/Windows.cpp
     )
 else()
@@ -106,7 +103,6 @@ else()
       macosx/HostInfoMacOSX.mm
       macosx/HostThreadMacOSX.mm
       macosx/Symbols.cpp
-      macosx/ThisThread.cpp
       macosx/cfcpp/CFCBundle.cpp
       macosx/cfcpp/CFCData.cpp
       macosx/cfcpp/CFCMutableArray.cpp
@@ -121,11 +117,9 @@ else()
       linux/AbstractSocket.cpp
       linux/Host.cpp
       linux/HostInfoLinux.cpp
-      linux/HostThreadLinux.cpp
       linux/LibcGlue.cpp
-      linux/ThisThread.cpp
+      linux/Support.cpp
       )
-    list(APPEND LLDB_PLUGINS lldbPluginProcessLinux)
     if (CMAKE_SYSTEM_NAME MATCHES "Android")
       add_host_subdirectory(android
         android/HostInfoAndroid.cpp
@@ -136,16 +130,18 @@ else()
     add_host_subdirectory(freebsd
       freebsd/Host.cpp
       freebsd/HostInfoFreeBSD.cpp
-      freebsd/HostThreadFreeBSD.cpp
-      freebsd/ThisThread.cpp
       )
 
   elseif (CMAKE_SYSTEM_NAME MATCHES "NetBSD")
     add_host_subdirectory(netbsd
       netbsd/Host.cpp
       netbsd/HostInfoNetBSD.cpp
-      netbsd/HostThreadNetBSD.cpp
-      netbsd/ThisThread.cpp
+      )
+
+  elseif (CMAKE_SYSTEM_NAME MATCHES "OpenBSD")
+    add_host_subdirectory(openbsd
+      openbsd/Host.cpp
+      openbsd/HostInfoOpenBSD.cpp
       )
   endif()
 endif()
