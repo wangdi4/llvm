@@ -197,8 +197,12 @@ bool NonLTOGlobalOpt::processInternalGlobal(GlobalVariable *GV,
     Instruction &FirstI = const_cast<Instruction &>(
         *GS.AccessingFunction->getEntryBlock().begin());
     Type *ElemTy = GV->getType()->getElementType();
+    const DataLayout &DL = GS.AccessingFunction->getParent()->getDataLayout();
     AllocaInst *Alloca =
-        new AllocaInst(ElemTy, nullptr, GV->getName(), &FirstI);
+        new AllocaInst(ElemTy, 
+                       DL.getAllocaAddrSpace(),
+                       nullptr,
+                       GV->getName(), &FirstI);
     if (!isa<UndefValue>(GV->getInitializer()))
       new StoreInst(GV->getInitializer(), Alloca, &FirstI);
     replaceUseOfGV(GV, Alloca);

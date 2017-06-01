@@ -1293,7 +1293,7 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
     if (AttrList.hasAttributes()) {
       VecCall->setAttributes(VecCall->getAttributes().addAttributes(
           VecCall->getContext(), I + 1,
-          AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+          AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
     }
   }
 }

@@ -7,9 +7,9 @@
 ;                        A[i5][i4][i3][i1+n][i2] =
 ;                            A[i5][i4][i3][i1+m][i2] + 1 ;
 ; REQUIRES: asserts
-; RUN: opt -O2 -loopopt -debug  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -debug  -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 3 4 5 2 )  
+; CHECK-SAME:  ( 3 4 5 2 )
 
 ; ModuleID = 'interchange5.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
@@ -27,7 +27,7 @@ for.cond.4.preheader.lr.ph.preheader:             ; preds = %entry
   %0 = add nsw i64 %n, 1
   br label %for.cond.4.preheader.lr.ph
 
-for.cond.4.preheader.lr.ph:                       ; preds = %for.cond.4.preheader.lr.ph.preheader, %for.inc.33
+for.cond.4.preheader.lr.ph:                       ; preds = %for.inc.33, %for.cond.4.preheader.lr.ph.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc.33 ], [ 2, %for.cond.4.preheader.lr.ph.preheader ]
   %i1.064 = phi i64 [ %inc34, %for.inc.33 ], [ 1, %for.cond.4.preheader.lr.ph.preheader ]
   %add = add nsw i64 %i1.064, %m
@@ -76,9 +76,12 @@ for.inc.33:                                       ; preds = %for.inc.30
   %inc34 = add nuw nsw i64 %i1.064, 1
   %indvars.iv.next = add nuw i64 %indvars.iv, 1
   %exitcond68 = icmp eq i64 %indvars.iv, %0
-  br i1 %exitcond68, label %for.end.35, label %for.cond.4.preheader.lr.ph
+  br i1 %exitcond68, label %for.end.35.loopexit, label %for.cond.4.preheader.lr.ph
 
-for.end.35:                                       ; preds = %for.inc.33, %entry
+for.end.35.loopexit:                              ; preds = %for.inc.33
+  br label %for.end.35
+
+for.end.35:                                       ; preds = %for.end.35.loopexit, %entry
   ret void
 }
 

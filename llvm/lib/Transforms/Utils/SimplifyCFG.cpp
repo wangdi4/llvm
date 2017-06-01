@@ -177,6 +177,8 @@ class SimplifyCFGOpt {
   unsigned BonusInstThreshold;
   AssumptionCache *AC;
   SmallPtrSetImpl<BasicBlock *> *LoopHeaders;
+  // See comments in SimplifyCFGOpt::SimplifySwitch.
+  bool LateSimplifyCFG;
   Value *isValueEqualityComparison(TerminatorInst *TI);
   BasicBlock *GetValueEqualityComparisonCases(
       TerminatorInst *TI, std::vector<ValueEqualityComparisonCase> &Cases);
@@ -200,9 +202,10 @@ class SimplifyCFGOpt {
 public:
   SimplifyCFGOpt(const TargetTransformInfo &TTI, const DataLayout &DL,
                  unsigned BonusInstThreshold, AssumptionCache *AC,
-                 SmallPtrSetImpl<BasicBlock *> *LoopHeaders)
+                 SmallPtrSetImpl<BasicBlock *> *LoopHeaders,
+                 bool LateSimplifyCFG)
       : TTI(TTI), DL(DL), BonusInstThreshold(BonusInstThreshold), AC(AC),
-        LoopHeaders(LoopHeaders) {}
+        LoopHeaders(LoopHeaders), LateSimplifyCFG(LateSimplifyCFG) {}
 
   bool run(BasicBlock *BB);
 };
@@ -736,10 +739,9 @@ BasicBlock *SimplifyCFGOpt::GetValueEqualityComparisonCases(
     TerminatorInst *TI, std::vector<ValueEqualityComparisonCase> &Cases) {
   if (SwitchInst *SI = dyn_cast<SwitchInst>(TI)) {
     Cases.reserve(SI->getNumCases());
-    for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
-         ++i)
-      Cases.push_back(
-          ValueEqualityComparisonCase(i.getCaseValue(), i.getCaseSuccessor()));
+    for (auto Case : SI->cases())
+      Cases.push_back(ValueEqualityComparisonCase(Case.getCaseValue(),
+                                                  Case.getCaseSuccessor()));
     return SI->getDefaultDest();
   }
 
@@ -872,12 +874,12 @@ bool SimplifyCFGOpt::SimplifyEqualityComparisonWithOnlyPredecessor(
       }
     for (SwitchInst::CaseIt i = SI->case_end(), e = SI->case_begin(); i != e;) {
       --i;
-      if (DeadCases.count(i.getCaseValue())) {
+      if (DeadCases.count(i->getCaseValue())) {
         if (HasWeight) {
-          std::swap(Weights[i.getCaseIndex() + 1], Weights.back());
+          std::swap(Weights[i->getCaseIndex() + 1], Weights.back());
           Weights.pop_back();
         }
-        i.getCaseSuccessor()->removePredecessor(TI->getParent());
+        i->getCaseSuccessor()->removePredecessor(TI->getParent());
         SI->removeCase(i);
       }
     }
@@ -1022,8 +1024,7 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
       SmallSetVector<BasicBlock*, 4> FailBlocks;
       if (!SafeToMergeTerminators(TI, PTI, &FailBlocks)) {
         for (auto *Succ : FailBlocks) {
-          std::vector<BasicBlock*> Blocks = { TI->getParent() };
-          if (!SplitBlockPredecessors(Succ, Blocks, ".fold.split"))
+          if (!SplitBlockPredecessors(Succ, TI->getParent(), ".fold.split"))
             return false;
         }
       }
@@ -1498,27 +1499,26 @@ static bool canSinkInstructions(
       return false;
   }
 
+  // Because SROA can't handle speculating stores of selects, try not
+  // to sink loads or stores of allocas when we'd have to create a PHI for
+  // the address operand. Also, because it is likely that loads or stores
+  // of allocas will disappear when Mem2Reg/SROA is run, don't sink them.
+  // This can cause code churn which can have unintended consequences down
+  // the line - see https://llvm.org/bugs/show_bug.cgi?id=30244.
+  // FIXME: This is a workaround for a deficiency in SROA - see
+  // https://llvm.org/bugs/show_bug.cgi?id=30188
+  if (isa<StoreInst>(I0) && any_of(Insts, [](const Instruction *I) {
+        return isa<AllocaInst>(I->getOperand(1));
+      }))
+    return false;
+  if (isa<LoadInst>(I0) && any_of(Insts, [](const Instruction *I) {
+        return isa<AllocaInst>(I->getOperand(0));
+      }))
+    return false;
+
   for (unsigned OI = 0, OE = I0->getNumOperands(); OI != OE; ++OI) {
     if (I0->getOperand(OI)->getType()->isTokenTy())
       // Don't touch any operand of token type.
-      return false;
-
-    // Because SROA can't handle speculating stores of selects, try not
-    // to sink loads or stores of allocas when we'd have to create a PHI for
-    // the address operand. Also, because it is likely that loads or stores
-    // of allocas will disappear when Mem2Reg/SROA is run, don't sink them.
-    // This can cause code churn which can have unintended consequences down
-    // the line - see https://llvm.org/bugs/show_bug.cgi?id=30244.
-    // FIXME: This is a workaround for a deficiency in SROA - see
-    // https://llvm.org/bugs/show_bug.cgi?id=30188
-    if (OI == 1 && isa<StoreInst>(I0) &&
-        any_of(Insts, [](const Instruction *I) {
-          return isa<AllocaInst>(I->getOperand(1));
-        }))
-      return false;
-    if (OI == 0 && isa<LoadInst>(I0) && any_of(Insts, [](const Instruction *I) {
-          return isa<AllocaInst>(I->getOperand(0));
-        }))
       return false;
 
     auto SameAsI0 = [&I0, OI](const Instruction *I) {
@@ -3162,6 +3162,15 @@ static bool mergeConditionalStores(BranchInst *PBI, BranchInst *QBI) {
   BasicBlock *QFB = QBI->getSuccessor(1);
   BasicBlock *PostBB = QFB->getSingleSuccessor();
 
+  // Make sure we have a good guess for PostBB. If QTB's only successor is
+  // QFB, then QFB is a better PostBB.
+  if (QTB->getSingleSuccessor() == QFB)
+    PostBB = QFB;
+
+  // If we couldn't find a good PostBB, stop.
+  if (!PostBB)
+    return false;
+
   bool InvertPCond = false, InvertQCond = false;
   // Canonicalize fallthroughs to the true branches.
   if (PFB == QBI->getParent()) {
@@ -3186,14 +3195,13 @@ static bool mergeConditionalStores(BranchInst *PBI, BranchInst *QBI) {
   auto HasOnePredAndOneSucc = [](BasicBlock *BB, BasicBlock *P, BasicBlock *S) {
     return BB->getSinglePredecessor() == P && BB->getSingleSuccessor() == S;
   };
-  if (!PostBB ||
-      !HasOnePredAndOneSucc(PFB, PBI->getParent(), QBI->getParent()) ||
+  if (!HasOnePredAndOneSucc(PFB, PBI->getParent(), QBI->getParent()) ||
       !HasOnePredAndOneSucc(QFB, QBI->getParent(), PostBB))
     return false;
   if ((PTB && !HasOnePredAndOneSucc(PTB, PBI->getParent(), QBI->getParent())) ||
       (QTB && !HasOnePredAndOneSucc(QTB, QBI->getParent(), PostBB)))
     return false;
-  if (PostBB->getNumUses() != 2 || QBI->getParent()->getNumUses() != 2)
+  if (!PostBB->hasNUses(2) || !QBI->getParent()->hasNUses(2))
     return false;
 
   // OK, this is a sequence of two diamonds or triangles.
@@ -3550,8 +3558,8 @@ static bool SimplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select) {
 
   // Find the relevant condition and destinations.
   Value *Condition = Select->getCondition();
-  BasicBlock *TrueBB = SI->findCaseValue(TrueVal).getCaseSuccessor();
-  BasicBlock *FalseBB = SI->findCaseValue(FalseVal).getCaseSuccessor();
+  BasicBlock *TrueBB = SI->findCaseValue(TrueVal)->getCaseSuccessor();
+  BasicBlock *FalseBB = SI->findCaseValue(FalseVal)->getCaseSuccessor();
 
   // Get weight for TrueBB and FalseBB.
   uint32_t TrueWeight = 0, FalseWeight = 0;
@@ -3561,9 +3569,9 @@ static bool SimplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select) {
     GetBranchWeights(SI, Weights);
     if (Weights.size() == 1 + SI->getNumCases()) {
       TrueWeight =
-          (uint32_t)Weights[SI->findCaseValue(TrueVal).getSuccessorIndex()];
+          (uint32_t)Weights[SI->findCaseValue(TrueVal)->getSuccessorIndex()];
       FalseWeight =
-          (uint32_t)Weights[SI->findCaseValue(FalseVal).getSuccessorIndex()];
+          (uint32_t)Weights[SI->findCaseValue(FalseVal)->getSuccessorIndex()];
     }
   }
 
@@ -3853,7 +3861,7 @@ bool SimplifyCFGOpt::SimplifyCommonResume(ResumeInst *RI) {
     if (!isa<DbgInfoIntrinsic>(I))
       return false;
 
-  SmallSet<BasicBlock *, 4> TrivialUnwindBlocks;
+  SmallSetVector<BasicBlock *, 4> TrivialUnwindBlocks;
   auto *PhiLPInst = cast<PHINode>(RI->getValue());
 
   // Check incoming blocks to see if any of them are trivial.
@@ -4265,15 +4273,16 @@ bool SimplifyCFGOpt::SimplifyUnreachable(UnreachableInst *UI) {
         }
       }
     } else if (auto *SI = dyn_cast<SwitchInst>(TI)) {
-      for (SwitchInst::CaseIt i = SI->case_begin(), e = SI->case_end(); i != e;
-           ++i)
-        if (i.getCaseSuccessor() == BB) {
-          BB->removePredecessor(SI->getParent());
-          SI->removeCase(i);
-          --i;
-          --e;
-          Changed = true;
+      for (auto i = SI->case_begin(), e = SI->case_end(); i != e;) {
+        if (i->getCaseSuccessor() != BB) {
+          ++i;
+          continue;
         }
+        BB->removePredecessor(SI->getParent());
+        i = SI->removeCase(i);
+        e = SI->case_end();
+        Changed = true;
+      }
     } else if (auto *II = dyn_cast<InvokeInst>(TI)) {
       if (II->getUnwindDest() == BB) {
         removeUnwindEdge(TI->getParent());
@@ -4356,18 +4365,18 @@ static bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder) {
   SmallVector<ConstantInt *, 16> CasesA;
   SmallVector<ConstantInt *, 16> CasesB;
 
-  for (SwitchInst::CaseIt I : SI->cases()) {
-    BasicBlock *Dest = I.getCaseSuccessor();
+  for (auto Case : SI->cases()) {
+    BasicBlock *Dest = Case.getCaseSuccessor();
     if (!DestA)
       DestA = Dest;
     if (Dest == DestA) {
-      CasesA.push_back(I.getCaseValue());
+      CasesA.push_back(Case.getCaseValue());
       continue;
     }
     if (!DestB)
       DestB = Dest;
     if (Dest == DestB) {
-      CasesB.push_back(I.getCaseValue());
+      CasesB.push_back(Case.getCaseValue());
       continue;
     }
     return false; // More than two destinations.
@@ -4492,7 +4501,7 @@ static bool EliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
   bool HasDefault =
       !isa<UnreachableInst>(SI->getDefaultDest()->getFirstNonPHIOrDbg());
   const unsigned NumUnknownBits =
-      Bits - (KnownZero.Or(KnownOne)).countPopulation();
+      Bits - (KnownZero | KnownOne).countPopulation();
   assert(NumUnknownBits <= Bits);
   if (HasDefault && DeadCases.empty() &&
       NumUnknownBits < 64 /* avoid overflow */ &&
@@ -4517,17 +4526,17 @@ static bool EliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
 
   // Remove dead cases from the switch.
   for (ConstantInt *DeadCase : DeadCases) {
-    SwitchInst::CaseIt Case = SI->findCaseValue(DeadCase);
-    assert(Case != SI->case_default() &&
+    SwitchInst::CaseIt CaseI = SI->findCaseValue(DeadCase);
+    assert(CaseI != SI->case_default() &&
            "Case was not found. Probably mistake in DeadCases forming.");
     if (HasWeight) {
-      std::swap(Weights[Case.getCaseIndex() + 1], Weights.back());
+      std::swap(Weights[CaseI->getCaseIndex() + 1], Weights.back());
       Weights.pop_back();
     }
 
     // Prune unused values from PHI nodes.
-    Case.getCaseSuccessor()->removePredecessor(SI->getParent());
-    SI->removeCase(Case);
+    CaseI->getCaseSuccessor()->removePredecessor(SI->getParent());
+    SI->removeCase(CaseI);
   }
   if (HasWeight && Weights.size() >= 2) {
     SmallVector<uint32_t, 8> MDWeights(Weights.begin(), Weights.end());
@@ -4581,10 +4590,9 @@ static bool ForwardSwitchConditionToPHI(SwitchInst *SI) {
   typedef DenseMap<PHINode *, SmallVector<int, 4>> ForwardingNodesMap;
   ForwardingNodesMap ForwardingNodes;
 
-  for (SwitchInst::CaseIt I = SI->case_begin(), E = SI->case_end(); I != E;
-       ++I) {
-    ConstantInt *CaseValue = I.getCaseValue();
-    BasicBlock *CaseDest = I.getCaseSuccessor();
+  for (auto Case : SI->cases()) {
+    ConstantInt *CaseValue = Case.getCaseValue();
+    BasicBlock *CaseDest = Case.getCaseSuccessor();
 
     int PhiIndex;
     PHINode *PHI =
@@ -4980,8 +4988,8 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
   // Remove cases that have the same successor as the default case.
   for (auto C = SI->case_end(), E = SI->case_begin(); C != E;) {
     --C;
-    if (C.getCaseSuccessor() == SI->getDefaultDest()) {
-      C.getCaseSuccessor()->removePredecessor(SI->getParent());
+    if (C->getCaseSuccessor() == SI->getDefaultDest()) {
+      C->getCaseSuccessor()->removePredecessor(SI->getParent());
       SI->removeCase(C);
       Modified = true;
     }
@@ -5004,7 +5012,7 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
   // as the default case, then it's safe to remove this case.
   for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C) {
     CaseResults.clear();
-    if (!GetCaseResultPHIValues(SI, C.getCaseSuccessor(), &DefaultDest, 
+    if (!GetCaseResultPHIValues(SI, C->getCaseSuccessor(), &DefaultDest, 
                                 CaseResults)) 
       continue;
    
@@ -5034,7 +5042,7 @@ static bool EliminateRedundantCases(SwitchInst *SI) {
   // Remove all redundant cases.
   for (auto C = CasesToBeRemoved.rbegin(), 
             E = CasesToBeRemoved.rend(); C != E; ++C) {
-    C->getCaseSuccessor()->removePredecessor(SI->getParent());
+    (*C)->getCaseSuccessor()->removePredecessor(SI->getParent());
     SI->removeCase(*C);
     Modified = true;
   }
@@ -5444,8 +5452,8 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   // common destination, as well as the min and max case values.
   assert(SI->case_begin() != SI->case_end());
   SwitchInst::CaseIt CI = SI->case_begin();
-  ConstantInt *MinCaseVal = CI.getCaseValue();
-  ConstantInt *MaxCaseVal = CI.getCaseValue();
+  ConstantInt *MinCaseVal = CI->getCaseValue();
+  ConstantInt *MaxCaseVal = CI->getCaseValue();
 
   BasicBlock *CommonDest = nullptr;
   typedef SmallVector<std::pair<ConstantInt *, Constant *>, 4> ResultListTy;
@@ -5455,7 +5463,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
   SmallVector<PHINode *, 4> PHIs;
 
   for (SwitchInst::CaseIt E = SI->case_end(); CI != E; ++CI) {
-    ConstantInt *CaseVal = CI.getCaseValue();
+    ConstantInt *CaseVal = CI->getCaseValue();
     if (CaseVal->getValue().slt(MinCaseVal->getValue()))
       MinCaseVal = CaseVal;
     if (CaseVal->getValue().sgt(MaxCaseVal->getValue()))
@@ -5464,7 +5472,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     // Resulting value at phi nodes for this case value.
     typedef SmallVector<std::pair<PHINode *, Constant *>, 4> ResultsTy;
     ResultsTy Results;
-    if (!GetCaseResults(SI, CaseVal, CI.getCaseSuccessor(), &CommonDest,
+    if (!GetCaseResults(SI, CaseVal, CI->getCaseSuccessor(), &CommonDest,
                         Results, DL, TTI))
       return false;
 
@@ -5745,11 +5753,10 @@ static bool ReduceSwitchRange(SwitchInst *SI, IRBuilder<> &Builder,
   auto *Rot = Builder.CreateOr(LShr, Shl);
   SI->replaceUsesOfWith(SI->getCondition(), Rot);
 
-  for (SwitchInst::CaseIt C = SI->case_begin(), E = SI->case_end(); C != E;
-       ++C) {
-    auto *Orig = C.getCaseValue();
+  for (auto Case : SI->cases()) {
+    auto *Orig = Case.getCaseValue();
     auto Sub = Orig->getValue() - APInt(Ty->getBitWidth(), Base);
-    C.setValue(
+    Case.setValue(
         cast<ConstantInt>(ConstantInt::get(Ty, Sub.lshr(ShiftC->getValue()))));
   }
   return true;
@@ -5802,7 +5809,12 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
   if (ForwardSwitchConditionToPHI(SI))
     return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
 
-  if (SwitchToLookupTable(SI, Builder, DL, TTI))
+  // The conversion from switch to lookup tables results in difficult
+  // to analyze code and makes pruning branches much harder.
+  // This is a problem of the switch expression itself can still be
+  // restricted as a result of inlining or CVP. There only apply this
+  // transformation during late steps of the optimisation chain.
+  if (LateSimplifyCFG && SwitchToLookupTable(SI, Builder, DL, TTI))
     return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
 
   if (ReduceSwitchRange(SI, Builder, DL, TTI))
@@ -6273,8 +6285,9 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
 ///
 bool llvm::SimplifyCFG(BasicBlock *BB, const TargetTransformInfo &TTI,
                        unsigned BonusInstThreshold, AssumptionCache *AC,
-                       SmallPtrSetImpl<BasicBlock *> *LoopHeaders) {
+                       SmallPtrSetImpl<BasicBlock *> *LoopHeaders,
+                       bool LateSimplifyCFG) {
   return SimplifyCFGOpt(TTI, BB->getModule()->getDataLayout(),
-                        BonusInstThreshold, AC, LoopHeaders)
+                        BonusInstThreshold, AC, LoopHeaders, LateSimplifyCFG)
       .run(BB);
 }

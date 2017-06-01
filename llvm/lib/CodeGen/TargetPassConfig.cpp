@@ -93,6 +93,9 @@ static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
     cl::desc("Verify generated machine code"),
     cl::init(false),
     cl::ZeroOrMore);
+static cl::opt<bool> EnableMachineOutliner("enable-machine-outliner",
+    cl::Hidden,
+    cl::desc("Enable machine outliner"));
 
 static cl::opt<std::string>
 PrintMachineInstrs("print-machineinstrs", cl::ValueOptional,
@@ -262,7 +265,8 @@ TargetPassConfig::~TargetPassConfig() {
 TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
     : ImmutablePass(ID), PM(&pm), Started(true), Stopped(false),
       AddingMachinePasses(false), TM(tm), Impl(nullptr), Initialized(false),
-      DisableVerify(false), EnableTailMerge(true) {
+      DisableVerify(false), EnableTailMerge(true),
+      RequireCodeGenSCCOrder(false) {
 
   Impl = new PassConfigImpl();
 
@@ -280,6 +284,9 @@ TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
 
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM->Options.PrintMachineCode = true;
+
+  if (TM->Options.EnableIPRA)
+    setRequiresCodeGenSCCOrder();
 }
 
 CodeGenOpt::Level TargetPassConfig::getOptLevel() const {
@@ -533,7 +540,7 @@ void TargetPassConfig::addISelPrepare() {
   addPreISel();
 
   // Force codegen to run according to the callgraph.
-  if (TM->Options.EnableIPRA)
+  if (requiresCodeGenSCCOrder())
     addPass(new DummyCGSCCPass);
 
   // Add both the safe stack and the stack protection passes: each of them will
@@ -676,6 +683,9 @@ void TargetPassConfig::addMachinePasses() {
   addPass(&XRayInstrumentationID, false);
   addPass(&PatchableFunctionID, false);
 
+  if (EnableMachineOutliner)
+    PM->add(createMachineOutlinerPass());
+
   AddingMachinePasses = false;
 }
 
@@ -709,6 +719,10 @@ void TargetPassConfig::addMachineSSAOptimization() {
 
   addPass(&MachineLICMID, false);
   addPass(&MachineCSEID, false);
+
+  // Coalesce basic blocks with the same branch condition
+  addPass(&BranchCoalescingID);
+
   addPass(&MachineSinkingID);
 
 #if INTEL_CUSTOMIZATION
@@ -914,6 +928,11 @@ void TargetPassConfig::addBlockPlacement() {
 //===---------------------------------------------------------------------===//
 /// GlobalISel Configuration
 //===---------------------------------------------------------------------===//
+
+bool TargetPassConfig::isGlobalISelEnabled() const {
+  return false;
+}
+
 bool TargetPassConfig::isGlobalISelAbortEnabled() const {
   return EnableGlobalISelAbort == 1;
 }

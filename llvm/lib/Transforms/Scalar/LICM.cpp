@@ -77,8 +77,9 @@ STATISTIC(NumMovedLoads, "Number of load insts hoisted or sunk");
 STATISTIC(NumMovedCalls, "Number of call insts hoisted or sunk");
 STATISTIC(NumPromoted, "Number of memory locations promoted to registers");
 
+/// Memory promotion is enabled by default.
 static cl::opt<bool>
-    DisablePromotion("disable-licm-promotion", cl::Hidden,
+    DisablePromotion("disable-licm-promotion", cl::Hidden, cl::init(false),
                      cl::desc("Disable memory promotion in LICM pass"));
 
 static cl::opt<uint32_t> MaxNumUsesTraversed(
@@ -426,6 +427,29 @@ bool llvm::hoistRegion(DomTreeNode *N, AliasAnalysis *AA, LoopInfo *LI,
           CurAST->deleteValue(&I);
           I.eraseFromParent();
         }
+        Changed = true;
+        continue;
+      }
+
+      // Attempt to remove floating point division out of the loop by converting
+      // it to a reciprocal multiplication.
+      if (I.getOpcode() == Instruction::FDiv &&
+          CurLoop->isLoopInvariant(I.getOperand(1)) &&
+          I.hasAllowReciprocal()) {
+        auto Divisor = I.getOperand(1);
+        auto One = llvm::ConstantFP::get(Divisor->getType(), 1.0);
+        auto ReciprocalDivisor = BinaryOperator::CreateFDiv(One, Divisor);
+        ReciprocalDivisor->setFastMathFlags(I.getFastMathFlags());
+        ReciprocalDivisor->insertBefore(&I);
+
+        auto Product = BinaryOperator::CreateFMul(I.getOperand(0),
+                                                  ReciprocalDivisor);
+        Product->setFastMathFlags(I.getFastMathFlags());
+        Product->insertAfter(&I);
+        I.replaceAllUsesWith(Product);
+        I.eraseFromParent();
+
+        hoist(*ReciprocalDivisor, DT, CurLoop, SafetyInfo, ORE);
         Changed = true;
         continue;
       }

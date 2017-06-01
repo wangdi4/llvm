@@ -28,6 +28,7 @@ local:
 
 // CHECK:      Address          Size             Align Out     In      File    Symbol
 // CHECK-NEXT: 0000000000200158 0000000000000030     8 .eh_frame
+// CHECK-NEXT: 0000000000200158 0000000000000030     8         .eh_frame
 // CHECK-NEXT: 0000000000201000 0000000000000015     4 .text
 // CHECK-NEXT: 0000000000201000 000000000000000e     4         .text
 // CHECK-NEXT: 0000000000201000 000000000000000e     4                 {{.*}}{{/|\\}}map-file.s.tmp1.o
@@ -58,4 +59,4 @@ local:
 
 // RUN: not ld.lld %t1.o %t2.o %t3.o %t4.a -o %t -Map=/ 2>&1 \
 // RUN:  | FileCheck -check-prefix=FAIL %s
-// FAIL: cannot open /
+// FAIL: cannot open map file /

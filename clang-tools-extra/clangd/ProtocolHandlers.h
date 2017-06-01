@@ -22,6 +22,7 @@
 
 namespace clang {
 namespace clangd {
+class ASTManager;
 class DocumentStore;
 
 struct InitializeHandler : Handler {
@@ -33,7 +34,10 @@ struct InitializeHandler : Handler {
         R"(,"result":{"capabilities":{
           "textDocumentSync": 1,
           "documentFormattingProvider": true,
-          "documentRangeFormattingProvider": true
+          "documentRangeFormattingProvider": true,
+          "documentOnTypeFormattingProvider": {"firstTriggerCharacter":"}","moreTriggerCharacter":[]},
+          "codeActionProvider": true,
+          "completionProvider": {"resolveProvider": false, "triggerCharacters": [".",">"]}
         }}})");
   }
 };
@@ -71,6 +75,26 @@ private:
   DocumentStore &Store;
 };
 
+struct TextDocumentDidCloseHandler : Handler {
+  TextDocumentDidCloseHandler(JSONOutput &Output, DocumentStore &Store)
+      : Handler(Output), Store(Store) {}
+
+  void handleNotification(llvm::yaml::MappingNode *Params) override;
+
+private:
+  DocumentStore &Store;
+};
+
+struct TextDocumentOnTypeFormattingHandler : Handler {
+  TextDocumentOnTypeFormattingHandler(JSONOutput &Output, DocumentStore &Store)
+      : Handler(Output), Store(Store) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override;
+
+private:
+  DocumentStore &Store;
+};
+
 struct TextDocumentRangeFormattingHandler : Handler {
   TextDocumentRangeFormattingHandler(JSONOutput &Output, DocumentStore &Store)
       : Handler(Output), Store(Store) {}
@@ -89,6 +113,26 @@ struct TextDocumentFormattingHandler : Handler {
 
 private:
   DocumentStore &Store;
+};
+
+struct CodeActionHandler : Handler {
+  CodeActionHandler(JSONOutput &Output, ASTManager &AST)
+      : Handler(Output), AST(AST) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override;
+
+private:
+  ASTManager &AST;
+};
+
+struct CompletionHandler : Handler {
+  CompletionHandler(JSONOutput &Output, ASTManager &AST)
+      : Handler(Output), AST(AST) {}
+
+  void handleMethod(llvm::yaml::MappingNode *Params, StringRef ID) override;
+
+ private:
+  ASTManager &AST;
 };
 
 } // namespace clangd

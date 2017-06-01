@@ -2338,7 +2338,7 @@ void HIRParser::parse(HLSwitch *Switch) {
 
   for (auto I = SInst->case_begin(), E = SInst->case_end(); I != E;
        ++I, ++CaseNum) {
-    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel);
+    CaseValRef = createScalarDDRef(I->getCaseValue(), CurLevel);
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }

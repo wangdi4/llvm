@@ -200,30 +200,14 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
   // the IML interface.
 
   const StringRef ImfPrefix = "imf-";
-  const AttributeSet Attrs = CI->getAttributes().getFnAttributes();
+  const AttributeList AttrList = CI->getAttributes();
 
-  if (Attrs.hasAttributes(AttributeSet::FunctionIndex)) {
+  if (AttrList.hasAttributes(AttributeList::FunctionIndex)) {
 
-    // The index that attributes for returns, parameters, and functions are
-    // stored is called the slot, even though an AttrIndex (e.g.,
-    // AttributeSet::FunctionIndex) can be used to look up the corresponding
-    // attributes. Essentially, the AttrIndex is mapped to a slot where the
-    // attributes are stored. This code gets the appropriate slot for where
-    // the function attributes are stored so that it can be iterated through.
-    unsigned NumSlots = Attrs.getNumSlots();
-    unsigned Slot = ~0U;
-    for (unsigned I = 0; I < NumSlots; I++) {
-      uint64_t Index = Attrs.getSlotIndex(I);
-      if (Index == AttributeSet::FunctionIndex) {
-        Slot = I;
-        break;
-      }
-    }
+    AttributeSet Attrs = AttrList.getFnAttributes();
 
-    assert(Slot != ~0U && "Could not find function attributes for call site");
-
-    AttributeSet::iterator FAIt = Attrs.begin(Slot);
-    AttributeSet::iterator FAEnd = Attrs.end(Slot);
+    AttributeSet::iterator FAIt = Attrs.begin();
+    AttributeSet::iterator FAEnd = Attrs.end();
     for (; FAIt != FAEnd; ++FAIt) {
       // Attributes will be of the form:
       //
@@ -286,15 +270,6 @@ void MapIntrinToIml::createImfAttributeList(CallInst *CI, ImfAttr **List) {
     CurrAttr = CurrAttr->next;
   }
   // end debug
-}
-
-void MapIntrinToIml::addAlwaysInlineAttribute(CallInst *CI) {
-  AttrBuilder AttrList;
-  AttrList.addAttribute(Attribute::AlwaysInline);
-  CI->setAttributes(CI->getAttributes().addAttributes(
-      CI->getContext(), AttributeSet::FunctionIndex,
-      AttributeSet::get(CI->getContext(), AttributeSet::FunctionIndex,
-                        AttrList)));
 }
 
 FunctionType *
@@ -450,13 +425,17 @@ MapIntrinToIml::combineCallResults(unsigned NumRet,
   return CombinedShuffle;
 }
 
-LoadStoreMode MapIntrinToIml::getLoadStoreModeForArg(AttributeSet &AS,
+LoadStoreMode MapIntrinToIml::getLoadStoreModeForArg(AttributeList &AL,
                                                      unsigned ArgNo,
                                                      StringRef &AttrValStr) {
-  assert(AS.hasAttribute(ArgNo, "stride") &&
-         "Expected argument to have a specified stride");
-  Attribute Attr = AS.getAttribute(ArgNo, "stride");
-  AttrValStr = Attr.getValueAsString();
+
+  AttributeSet ParamAttrs = AL.getParamAttributes(ArgNo);
+  if (ParamAttrs.hasAttribute("stride")) {
+    Attribute Attr = ParamAttrs.getAttribute("stride");
+    AttrValStr = Attr.getValueAsString();
+  } else {
+    AttrValStr = "indirect";
+  }
 
   if (AttrValStr == "indirect") {
     return INDIRECT;
@@ -480,7 +459,7 @@ void MapIntrinToIml::generateSinCosStore(CallInst *VectorCall,
   // vector.
   unsigned NumResultVectors = 2;
 
-  AttributeSet AttrList = VectorCall->getAttributes();
+  AttributeList AttrList = VectorCall->getAttributes();
   // For Arg 2, I = 0. Attributes are at position 2
   // For Arg 3, I = 1. Attributes are at position 3
 

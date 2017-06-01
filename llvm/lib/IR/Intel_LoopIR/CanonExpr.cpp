@@ -1088,9 +1088,8 @@ void CanonExpr::simplifyConstantDenom() {
   APInt Constant(SrcBitWidth, Val, IsSignedDiv);
   APInt Denom(SrcBitWidth, DenomConst, IsSignedDiv);
 
-  auto DivOp = IsSignedDiv ? APIntOps::sdiv : APIntOps::udiv;
-
-  Val = DivOp(Constant, Denom).getSExtValue();
+  Val = (IsSignedDiv ? Constant.sdiv(Denom) 
+                     : Constant.udiv(Denom)).getSExtValue();
 
   setDenominator(1);
   setConstant(Val);

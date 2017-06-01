@@ -258,7 +258,8 @@ static void DiagnoseObjCImplementedDeprecations(Sema &S,
       S.Diag(ND->getLocation(), diag::note_method_declared_at)
         << ND->getDeclName();
     else
-      S.Diag(ND->getLocation(), diag::note_previous_decl) << "class";
+      S.Diag(ND->getLocation(), diag::note_previous_decl)
+          << (isa<ObjCCategoryDecl>(ND) ? "category" : "class");
   }
 }
 
@@ -992,6 +993,7 @@ ActOnStartClassInterface(Scope *S, SourceLocation AtInterfaceLoc,
   
   if (AttrList)
     ProcessDeclAttributeList(TUScope, IDecl, AttrList);
+  AddPragmaAttributes(TUScope, IDecl);
   PushOnScopeChains(IDecl, TUScope);
 
   // Start the definition of this class. If we're in a redefinition case, there 
@@ -1175,7 +1177,8 @@ Sema::ActOnStartProtocolInterface(SourceLocation AtProtoInterfaceLoc,
   
   if (AttrList)
     ProcessDeclAttributeList(TUScope, PDecl, AttrList);
-  
+  AddPragmaAttributes(TUScope, PDecl);
+
   // Merge attributes from previous declarations.
   if (PrevDecl)
     mergeDeclAttributes(PDecl, PrevDecl);
@@ -1705,7 +1708,8 @@ Sema::ActOnForwardProtocolDeclaration(SourceLocation AtProtocolLoc,
     
     if (attrList)
       ProcessDeclAttributeList(TUScope, PDecl, attrList);
-    
+    AddPragmaAttributes(TUScope, PDecl);
+
     if (PrevDecl)
       mergeDeclAttributes(PDecl, PrevDecl);
 
@@ -1724,7 +1728,8 @@ ActOnStartCategoryInterface(SourceLocation AtInterfaceLoc,
                             Decl * const *ProtoRefs,
                             unsigned NumProtoRefs,
                             const SourceLocation *ProtoLocs,
-                            SourceLocation EndProtoLoc) {
+                            SourceLocation EndProtoLoc,
+                            AttributeList *AttrList) {
   ObjCCategoryDecl *CDecl;
   ObjCInterfaceDecl *IDecl = getObjCInterfaceDecl(ClassName, ClassLoc, true);
 
@@ -1801,6 +1806,10 @@ ActOnStartCategoryInterface(SourceLocation AtInterfaceLoc,
                                             NumProtoRefs, Context); 
   }
 
+  if (AttrList)
+    ProcessDeclAttributeList(TUScope, CDecl, AttrList);
+  AddPragmaAttributes(TUScope, CDecl);
+
   CheckObjCDeclScope(CDecl);
   return ActOnObjCContainerStartDefinition(CDecl);
 }
@@ -1865,9 +1874,10 @@ Decl *Sema::ActOnStartCategoryImplementation(
       CatIDecl->setImplementation(CDecl);
       // Warn on implementating category of deprecated class under 
       // -Wdeprecated-implementations flag.
-      DiagnoseObjCImplementedDeprecations(*this, 
-                                          dyn_cast<NamedDecl>(IDecl), 
-                                          CDecl->getLocation(), 2);
+      DiagnoseObjCImplementedDeprecations(
+          *this,
+          CatIDecl->isDeprecated() ? CatIDecl : dyn_cast<NamedDecl>(IDecl),
+          CDecl->getLocation(), 2);
     }
   }
 
@@ -1948,6 +1958,7 @@ Decl *Sema::ActOnStartClassImplementation(
                                       ClassName, /*typeParamList=*/nullptr,
                                       /*PrevDecl=*/nullptr, ClassLoc,
                                       true);
+    AddPragmaAttributes(TUScope, IDecl);
     IDecl->startDefinition();
     if (SDecl) {
       IDecl->setSuperClass(Context.getTrivialTypeSourceInfo(
@@ -3037,7 +3048,7 @@ Sema::ActOnForwardClassDeclaration(SourceLocation AtClassLoc,
                                   ClassName, TypeParams, PrevIDecl,
                                   IdentLocs[i]);
     IDecl->setAtEndRange(IdentLocs[i]);
-    
+
     PushOnScopeChains(IDecl, TUScope);
     CheckObjCDeclScope(IDecl);
     DeclsInGroup.push_back(IDecl);
@@ -4393,6 +4404,7 @@ Decl *Sema::ActOnMethodDeclaration(
 
     // Apply the attributes to the parameter.
     ProcessDeclAttributeList(TUScope, Param, ArgInfo[i].ArgAttrs);
+    AddPragmaAttributes(TUScope, Param);
 
     if (Param->hasAttr<BlocksAttr>()) {
       Diag(Param->getLocation(), diag::err_block_on_nonlocal);
@@ -4423,6 +4435,7 @@ Decl *Sema::ActOnMethodDeclaration(
 
   if (AttrList)
     ProcessDeclAttributeList(TUScope, ObjCMethod, AttrList);
+  AddPragmaAttributes(TUScope, ObjCMethod);
 
   // Add the method now.
   const ObjCMethodDecl *PrevMethod = nullptr;

@@ -1,10 +1,10 @@
 ; Test for Loop Interchange					
-;    for (i=1; i <= 1001; i++) {
+;    for (i=1; i < 900; i++) {
 ;        for (j=1; j <= 96; j++) {
 ;            A[j][i] = A[j][i+n] + 1; 
 ;
 ; REQUIRES: asserts
-; RUN: opt -O2  -loopopt -debug -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -debug -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 1 )  
 ; 
@@ -39,7 +39,7 @@ for.body.3:                                       ; preds = %for.body.3, %for.co
 
 for.inc.8:                                        ; preds = %for.body.3
   %inc9 = add nuw nsw i64 %i.019, 1
-  %exitcond20 = icmp eq i64 %inc9, 1002
+  %exitcond20 = icmp eq i64 %inc9, 900
   br i1 %exitcond20, label %for.end.10, label %for.cond.1.preheader
 
 for.end.10:                                       ; preds = %for.inc.8

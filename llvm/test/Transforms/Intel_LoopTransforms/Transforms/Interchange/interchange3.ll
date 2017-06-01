@@ -10,7 +10,7 @@
 ;		    A[i5+n][i4][i3][i2][i1] += 2;
 ;
 ; REQUIRES: asserts
-; RUN: opt -O2  -loopopt -debug   -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; RUN: opt -debug -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
 ; CHECK-SAME:  ( 2 3 4 5 1 )  
 ; 

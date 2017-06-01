@@ -16,6 +16,10 @@
 #define POLLY_LINKALLPASSES_H
 
 #include "polly/Config/config.h"
+#include "polly/PruneUnprofitable.h"
+#include "polly/Simplify.h"
+#include "polly/Support/DumpModulePass.h"
+#include "llvm/ADT/StringRef.h"
 #include <cstdlib>
 
 namespace llvm {
@@ -84,6 +88,9 @@ struct PollyForcePassLinking {
     polly::createIslScheduleOptimizerPass();
     polly::createFlattenSchedulePass();
     polly::createDeLICMPass();
+    polly::createDumpModulePass("", true);
+    polly::createSimplifyPass();
+    polly::createPruneUnprofitablePass();
   }
 } PollyForcePassLinking; // Force link by creating a global definition.
 } // namespace

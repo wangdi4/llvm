@@ -34,7 +34,11 @@ def CXX14BinaryLiteral : DiagGroup<"c++14-binary-literal">;
 def GNUBinaryLiteral : DiagGroup<"gnu-binary-literal">;
 def GNUCompoundLiteralInitializer : DiagGroup<"gnu-compound-literal-initializer">;
 def BitFieldConstantConversion : DiagGroup<"bitfield-constant-conversion">;
+def BitFieldEnumConversion : DiagGroup<"bitfield-enum-conversion">;
 def BitFieldWidth : DiagGroup<"bitfield-width">;
+def CoroutineMissingUnhandledException :
+  DiagGroup<"coroutine-missing-unhandled-exception">;
+def Coroutine : DiagGroup<"coroutine", [CoroutineMissingUnhandledException]>;
 def ConstantConversion :
   DiagGroup<"constant-conversion", [ BitFieldConstantConversion ] >;
 def LiteralConversion : DiagGroup<"literal-conversion">;
@@ -175,6 +179,8 @@ def CXX98CompatPedantic : DiagGroup<"c++98-compat-pedantic",
 
 def CXX11Narrowing : DiagGroup<"c++11-narrowing">;
 
+def CXX11WarnOverrideDestructor :
+  DiagGroup<"inconsistent-missing-destructor-override">;
 def CXX11WarnOverrideMethod : DiagGroup<"inconsistent-missing-override">;
 
 // Original name of this warning in Clang
@@ -455,7 +461,9 @@ def Uninitialized  : DiagGroup<"uninitialized", [UninitializedSometimes,
 def IgnoredPragmaIntrinsic : DiagGroup<"ignored-pragma-intrinsic">;
 def UnknownPragmas : DiagGroup<"unknown-pragmas">;
 def IgnoredPragmas : DiagGroup<"ignored-pragmas", [IgnoredPragmaIntrinsic]>;
-def Pragmas : DiagGroup<"pragmas", [UnknownPragmas, IgnoredPragmas]>;
+def PragmaClangAttribute : DiagGroup<"pragma-clang-attribute">;
+def Pragmas : DiagGroup<"pragmas", [UnknownPragmas, IgnoredPragmas,
+                                    PragmaClangAttribute]>;
 def UnknownWarningOption : DiagGroup<"unknown-warning-option">;
 def NSobjectAttribute : DiagGroup<"NSObject-attribute">;
 def IndependentClassAttribute : DiagGroup<"IndependentClass-attribute">;
@@ -604,6 +612,7 @@ def Conversion : DiagGroup<"conversion",
                            [BoolConversion,
                             ConstantConversion,
                             EnumConversion,
+                            BitFieldEnumConversion,
                             FloatConversion,
                             Shorten64To32,
                             IntConversion,
