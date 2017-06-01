@@ -71,35 +71,29 @@ void Sema::ActOnTranslationUnitScope(Scope *S) {
 }
 
 Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
-           TranslationUnitKind TUKind,
-           CodeCompleteConsumer *CodeCompleter)
-  : ExternalSource(nullptr),
-    isMultiplexExternalSource(false), FPFeatures(pp.getLangOpts()),
-    LangOpts(pp.getLangOpts()), PP(pp), Context(ctxt), Consumer(consumer),
-    Diags(PP.getDiagnostics()), SourceMgr(PP.getSourceManager()),
-    CollectStats(false), CodeCompleter(CodeCompleter),
-    CurContext(nullptr), OriginalLexicalContext(nullptr),
-    MSStructPragmaOn(false),
-    MSPointerToMemberRepresentationMethod(
-        LangOpts.getMSPointerToMemberRepresentationMethod()),
-    VtorDispStack(MSVtorDispAttr::Mode(LangOpts.VtorDispMode)),
-    PackStack(0), DataSegStack(nullptr), BSSSegStack(nullptr),
-    ConstSegStack(nullptr), CodeSegStack(nullptr), CurInitSeg(nullptr),
-    VisContext(nullptr),
-    IsBuildingRecoveryCallExpr(false),
-    Cleanup{}, LateTemplateParser(nullptr),
-    LateTemplateParserCleanup(nullptr), OpaqueParser(nullptr), IdResolver(pp),
-    StdExperimentalNamespaceCache(nullptr), StdInitializerList(nullptr),
-    CXXTypeInfoDecl(nullptr), MSVCGuidDecl(nullptr),
-    NSNumberDecl(nullptr), NSValueDecl(nullptr),
-    NSStringDecl(nullptr), StringWithUTF8StringMethod(nullptr),
-    ValueWithBytesObjCTypeMethod(nullptr),
-    NSArrayDecl(nullptr), ArrayWithObjectsMethod(nullptr),
-    NSDictionaryDecl(nullptr), DictionaryWithObjectsMethod(nullptr),
-    GlobalNewDeleteDeclared(false),
-    TUKind(TUKind),
-    NumSFINAEErrors(0),
-    CachedFakeTopLevelModule(nullptr),
+           TranslationUnitKind TUKind, CodeCompleteConsumer *CodeCompleter)
+    : ExternalSource(nullptr), isMultiplexExternalSource(false),
+      FPFeatures(pp.getLangOpts()), LangOpts(pp.getLangOpts()), PP(pp),
+      Context(ctxt), Consumer(consumer), Diags(PP.getDiagnostics()),
+      SourceMgr(PP.getSourceManager()), CollectStats(false),
+      CodeCompleter(CodeCompleter), CurContext(nullptr),
+      OriginalLexicalContext(nullptr), MSStructPragmaOn(false),
+      MSPointerToMemberRepresentationMethod(
+          LangOpts.getMSPointerToMemberRepresentationMethod()),
+      VtorDispStack(MSVtorDispAttr::Mode(LangOpts.VtorDispMode)), PackStack(0),
+      DataSegStack(nullptr), BSSSegStack(nullptr), ConstSegStack(nullptr),
+      CodeSegStack(nullptr), CurInitSeg(nullptr), VisContext(nullptr),
+      PragmaAttributeCurrentTargetDecl(nullptr),
+      IsBuildingRecoveryCallExpr(false), Cleanup{}, LateTemplateParser(nullptr),
+      LateTemplateParserCleanup(nullptr), OpaqueParser(nullptr), IdResolver(pp),
+      StdExperimentalNamespaceCache(nullptr), StdInitializerList(nullptr),
+      CXXTypeInfoDecl(nullptr), MSVCGuidDecl(nullptr), NSNumberDecl(nullptr),
+      NSValueDecl(nullptr), NSStringDecl(nullptr),
+      StringWithUTF8StringMethod(nullptr),
+      ValueWithBytesObjCTypeMethod(nullptr), NSArrayDecl(nullptr),
+      ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
+      DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
+      TUKind(TUKind), NumSFINAEErrors(0), CachedFakeTopLevelModule(nullptr),
     // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
     SuppressQualifiersOnTypeSubst(true),
@@ -107,17 +101,17 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     // members.
     BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
-    AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
-    NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
-    CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
-    TyposCorrected(0), AnalysisWarnings(*this), ThreadSafetyDeclCache(nullptr),
-    VarDataSharingAttributesStack(nullptr), CurScope(nullptr),
-    Ident_super(nullptr), Ident___float128(nullptr)
+      AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
+      NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
+      CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
+      TyposCorrected(0), AnalysisWarnings(*this),
+      ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
+      CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       ,
       CommonFunctionOptions(), OptionsList()
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-{
+      {
   TUScope = nullptr;
 
   LoadedExternalKnownNamespaces = false;
@@ -136,8 +130,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
   // Tell diagnostics how to render things from the AST library.
   Diags.SetArgToStringFn(&FormatASTNodeDiagnosticArgument, &Context);
 
-  ExprEvalContexts.emplace_back(PotentiallyEvaluated, 0, CleanupInfo{}, nullptr,
-                                false);
+  ExprEvalContexts.emplace_back(
+      ExpressionEvaluationContext::PotentiallyEvaluated, 0, CleanupInfo{},
+      nullptr, false);
 
   FunctionScopes.push_back(new FunctionScopeInfo(Diags));
 
@@ -231,7 +226,6 @@ void Sema::Initialize() {
     if (getLangOpts().OpenCLVersion >= 200) {
       addImplicitTypedef("clk_event_t", Context.OCLClkEventTy);
       addImplicitTypedef("queue_t", Context.OCLQueueTy);
-      addImplicitTypedef("ndrange_t", Context.OCLNDRangeTy);
       addImplicitTypedef("reserve_id_t", Context.OCLReserveIDTy);
       addImplicitTypedef("atomic_int", Context.getAtomicType(Context.IntTy));
       addImplicitTypedef("atomic_uint",
@@ -381,7 +375,7 @@ bool Sema::makeUnavailableInSystemHeader(SourceLocation loc,
   if (!fn) return false;
 
   // If we're in template instantiation, it's an error.
-  if (!ActiveTemplateInstantiations.empty())
+  if (inTemplateInstantiation())
     return false;
 
   // If that function's not in a system header, it's an error.
@@ -841,6 +835,8 @@ if (!optLevelDecls.empty()) {
     CheckDelayedMemberExceptionSpecs();
   }
 
+  DiagnoseUnterminatedPragmaAttribute();
+
   // All delayed member exception specs should be checked or we end up accepting
   // incompatible declarations.
   // FIXME: This is wrong for TUKind == TU_Prefix. In that case, we need to
@@ -855,7 +851,9 @@ if (!optLevelDecls.empty()) {
   UnusedFileScopedDecls.erase(
       std::remove_if(UnusedFileScopedDecls.begin(nullptr, true),
                      UnusedFileScopedDecls.end(),
-                     std::bind1st(std::ptr_fun(ShouldRemoveFromUnused), this)),
+                     [this](const DeclaratorDecl *DD) {
+                       return ShouldRemoveFromUnused(this, DD);
+                     }),
       UnusedFileScopedDecls.end());
 
   if (TUKind == TU_Prefix) {
@@ -1118,7 +1116,7 @@ void Sema::EmitCurrentDiagnostic(unsigned DiagID) {
   // and yet we also use the current diag ID on the DiagnosticsEngine. This has
   // been made more painfully obvious by the refactor that introduced this
   // function, but it is possible that the incoming argument can be
-  // eliminnated. If it truly cannot be (for example, there is some reentrancy
+  // eliminated. If it truly cannot be (for example, there is some reentrancy
   // issue I am not seeing yet), then there should at least be a clarifying
   // comment somewhere.
   if (Optional<TemplateDeductionInfo*> Info = isSFINAEContext()) {
@@ -1206,13 +1204,8 @@ void Sema::EmitCurrentDiagnostic(unsigned DiagID) {
   // that is different from the last template instantiation where
   // we emitted an error, print a template instantiation
   // backtrace.
-  if (!DiagnosticIDs::isBuiltinNote(DiagID) &&
-      !ActiveTemplateInstantiations.empty() &&
-      ActiveTemplateInstantiations.back()
-        != LastTemplateInstantiationErrorContext) {
-    PrintInstantiationStack();
-    LastTemplateInstantiationErrorContext = ActiveTemplateInstantiations.back();
-  }
+  if (!DiagnosticIDs::isBuiltinNote(DiagID))
+    PrintContextStack();
 }
 
 Sema::SemaDiagnosticBuilder
@@ -1369,7 +1362,7 @@ BlockScopeInfo *Sema::getCurBlock() {
   if (CurBSI && CurBSI->TheDecl &&
       !CurBSI->TheDecl->Encloses(CurContext)) {
     // We have switched contexts due to template instantiation.
-    assert(!ActiveTemplateInstantiations.empty());
+    assert(!CodeSynthesisContexts.empty());
     return nullptr;
   }
 
@@ -1391,14 +1384,14 @@ SIMDForScopeInfo *Sema::getCurSIMDFor() {
 }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
-LambdaScopeInfo *Sema::getCurLambda(bool IgnoreCapturedRegions) {
+LambdaScopeInfo *Sema::getCurLambda(bool IgnoreNonLambdaCapturingScope) {
   if (FunctionScopes.empty())
     return nullptr;
 
   auto I = FunctionScopes.rbegin();
-  if (IgnoreCapturedRegions) {
+  if (IgnoreNonLambdaCapturingScope) {
     auto E = FunctionScopes.rend();
-    while (I != E && isa<CapturedRegionScopeInfo>(*I))
+    while (I != E && isa<CapturingScopeInfo>(*I) && !isa<LambdaScopeInfo>(*I))
       ++I;
     if (I == E)
       return nullptr;
@@ -1407,7 +1400,7 @@ LambdaScopeInfo *Sema::getCurLambda(bool IgnoreCapturedRegions) {
   if (CurLSI && CurLSI->Lambda &&
       !CurLSI->Lambda->Encloses(CurContext)) {
     // We have switched contexts due to template instantiation.
-    assert(!ActiveTemplateInstantiations.empty());
+    assert(!CodeSynthesisContexts.empty());
     return nullptr;
   }
 

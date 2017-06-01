@@ -1642,7 +1642,7 @@ Sema::AccessResult Sema::CheckConstructorAccess(SourceLocation UseLoc,
     // constructor at any point.
     if (getLangOpts().IntelCompat &&
         (getLangOpts().IntelMSCompat || CurContext->isDependentContext() ||
-         !ActiveTemplateInstantiations.empty()))
+         !CodeSynthesisContexts.empty()))
       PD = PDiag(diag::warn_access_ctor);
     else
 #endif // INTEL_CUSTOMIZATION
@@ -1775,7 +1775,7 @@ Sema::AccessResult Sema::CheckMemberOperatorAccess(SourceLocation OpLoc,
   if (getLangOpts().IntelCompat &&
       ((!getLangOpts().IntelMSCompat && ParsingTemplateArg) ||
        (CurContext->isDependentContext() &&
-        ActiveTemplateInstantiations.empty())))
+        CodeSynthesisContexts.empty())))
     Entity.setDiag(diag::warn_access);
   else
 #endif // INTEL_CUSTOMIZATION
@@ -1899,7 +1899,7 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
       else if (getLangOpts().IntelCompat &&
                ((!getLangOpts().IntelMSCompat && ParsingTemplateArg) ||
                 (CurContext->isDependentContext() &&
-                 ActiveTemplateInstantiations.empty())))
+                 CodeSynthesisContexts.empty())))
         Entity.setDiag(diag::warn_access);
       else
 #endif // INTEL_CUSTOMIZATION

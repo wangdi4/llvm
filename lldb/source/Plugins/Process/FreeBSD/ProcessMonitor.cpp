@@ -24,18 +24,18 @@
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/PseudoTerminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/Error.h"
-#include "lldb/Utility/PseudoTerminal.h"
 
 #include "FreeBSDThread.h"
 #include "Plugins/Process/POSIX/CrashReason.h"
+#include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
 #include "ProcessFreeBSD.h"
 #include "ProcessMonitor.h"
-#include "ProcessPOSIXLog.h"
 
 extern "C" {
 extern char **environ;

@@ -11,7 +11,6 @@
 // C++ Includes
 // Other libraries and framework includes
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/Symbol.h"
@@ -20,6 +19,7 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
 
 #include "llvm/Support/Path.h"
 
@@ -379,12 +379,13 @@ bool DYLDRendezvous::RemoveSOEntries() {
 }
 
 bool DYLDRendezvous::SOEntryIsMainExecutable(const SOEntry &entry) {
-  // On Linux the executable is indicated by an empty path in the entry. On
-  // FreeBSD and on Android it is the full path to the executable.
+  // On some systes the executable is indicated by an empty path in the entry.
+  // On others it is the full path to the executable.
 
   auto triple = m_process->GetTarget().GetArchitecture().GetTriple();
   switch (triple.getOS()) {
   case llvm::Triple::FreeBSD:
+  case llvm::Triple::NetBSD:
     return entry.file_spec == m_exe_file_spec;
   case llvm::Triple::Linux:
     if (triple.isAndroid())

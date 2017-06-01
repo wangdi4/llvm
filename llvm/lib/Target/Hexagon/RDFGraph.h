@@ -508,7 +508,8 @@ namespace rdf {
   static_assert(sizeof(NodeBase) <= NodeAllocator::NodeMemSize,
         "NodeBase must be at most NodeAllocator::NodeMemSize bytes");
 
-  typedef std::vector<NodeAddr<NodeBase*>> NodeList;
+//  typedef std::vector<NodeAddr<NodeBase*>> NodeList;
+  typedef SmallVector<NodeAddr<NodeBase*>,4> NodeList;
   typedef std::set<NodeId> NodeSet;
 
   struct RefNode : public NodeBase {
@@ -729,7 +730,7 @@ namespace rdf {
     typedef std::unordered_map<RegisterId,DefStack> DefStackMap;
 
     void build(unsigned Options = BuildOptions::None);
-    void pushDefs(NodeAddr<InstrNode*> IA, DefStackMap &DM);
+    void pushAllDefs(NodeAddr<InstrNode*> IA, DefStackMap &DM);
     void markBlock(NodeId B, DefStackMap &DefM);
     void releaseBlock(NodeId B, DefStackMap &DefM);
 
@@ -745,7 +746,6 @@ namespace rdf {
 
     RegisterRef makeRegRef(unsigned Reg, unsigned Sub) const;
     RegisterRef makeRegRef(const MachineOperand &Op) const;
-    RegisterRef normalizeRef(RegisterRef RR) const;
     RegisterRef restrictRef(RegisterRef AR, RegisterRef BR) const;
 
     NodeAddr<RefNode*> getNextRelated(NodeAddr<InstrNode*> IA,
@@ -761,6 +761,10 @@ namespace rdf {
 
     NodeList getRelatedRefs(NodeAddr<InstrNode*> IA,
         NodeAddr<RefNode*> RA) const;
+
+    NodeAddr<BlockNode*> findBlock(MachineBasicBlock *BB) const {
+      return BlockNodes.at(BB);
+    }
 
     void unlinkUse(NodeAddr<UseNode*> UA, bool RemoveFromOwner) {
       unlinkUseDF(UA);
@@ -845,9 +849,12 @@ namespace rdf {
         NodeAddr<BlockNode*> BA);
     void removeUnusedPhis();
 
+    void pushClobbers(NodeAddr<InstrNode*> IA, DefStackMap &DM);
+    void pushDefs(NodeAddr<InstrNode*> IA, DefStackMap &DM);
     template <typename T> void linkRefUp(NodeAddr<InstrNode*> IA,
         NodeAddr<T> TA, DefStack &DS);
-    void linkStmtRefs(DefStackMap &DefM, NodeAddr<StmtNode*> SA);
+    template <typename Predicate> void linkStmtRefs(DefStackMap &DefM,
+        NodeAddr<StmtNode*> SA, Predicate P);
     void linkBlockRefs(DefStackMap &DefM, NodeAddr<BlockNode*> BA);
 
     void unlinkUseDF(NodeAddr<UseNode*> UA);
@@ -856,10 +863,6 @@ namespace rdf {
     void removeFromOwner(NodeAddr<RefNode*> RA) {
       NodeAddr<InstrNode*> IA = RA.Addr->getOwner(*this);
       IA.Addr->removeMember(RA, *this);
-    }
-
-    NodeAddr<BlockNode*> findBlock(MachineBasicBlock *BB) {
-      return BlockNodes[BB];
     }
 
     MachineFunction &MF;

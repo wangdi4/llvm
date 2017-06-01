@@ -72,6 +72,8 @@
 #include "SymbolFileDWARFDebugMap.h"
 #include "SymbolFileDWARFDwo.h"
 
+#include "llvm/Support/FileSystem.h"
+
 #include <map>
 
 #include <ctype.h>
@@ -191,7 +193,9 @@ static const char *resolveCompDir(const char *path_from_dwarf) {
   if (!is_symlink)
     return local_path;
 
-  if (!local_path_spec.IsSymbolicLink())
+  namespace fs = llvm::sys::fs;
+  if (fs::get_file_type(local_path_spec.GetPath(), false) !=
+      fs::file_type::symlink_file)
     return local_path;
 
   FileSpec resolved_local_path_spec;
@@ -223,7 +227,7 @@ void SymbolFileDWARF::DebuggerInitialize(Debugger &debugger) {
 
 void SymbolFileDWARF::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
-  LogChannelDWARF::Initialize();
+  LogChannelDWARF::Terminate();
 }
 
 lldb_private::ConstString SymbolFileDWARF::GetPluginNameStatic() {
@@ -1937,7 +1941,7 @@ void SymbolFileDWARF::Index() {
     std::vector<NameToDIE> namespace_index(num_compile_units);
 
     std::vector<bool> clear_cu_dies(num_compile_units, false);
-    auto parser_fn = [this, debug_info, &function_basename_index,
+    auto parser_fn = [debug_info, &function_basename_index,
                       &function_fullname_index, &function_method_index,
                       &function_selector_index, &objc_class_selectors_index,
                       &global_index, &type_index,
@@ -1953,7 +1957,7 @@ void SymbolFileDWARF::Index() {
       return cu_idx;
     };
 
-    auto extract_fn = [this, debug_info, num_compile_units](uint32_t cu_idx) {
+    auto extract_fn = [debug_info](uint32_t cu_idx) {
       DWARFCompileUnit *dwarf_cu = debug_info->GetCompileUnitAtIndex(cu_idx);
       if (dwarf_cu) {
         // dwarf_cu->ExtractDIEsIfNeeded(false) will return zero if the
@@ -3047,7 +3051,13 @@ SymbolFileDWARF::GetDeclContextDIEContainingDIE(const DWARFDIE &orig_die) {
         case DW_TAG_lexical_block:
         case DW_TAG_subprogram:
           return die;
-
+        case DW_TAG_inlined_subroutine: {
+          DWARFDIE abs_die = die.GetReferencedDIE(DW_AT_abstract_origin);
+          if (abs_die) {
+            return abs_die;
+          }
+          break;
+        }
         default:
           break;
         }

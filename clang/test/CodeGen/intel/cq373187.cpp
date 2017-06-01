@@ -8,6 +8,5 @@ int foo(int k) {
     return k - 1;
 }
 
-// CHECK: llvm.assume
-// CHECK-NEXT: ret i32 4
+// CHECK: ret i32 4
 

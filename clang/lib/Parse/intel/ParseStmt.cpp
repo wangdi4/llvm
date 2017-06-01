@@ -15,7 +15,7 @@
 #if INTEL_SPECIFIC_CILKPLUS
 #include "clang/Basic/intel/StmtIntel.h"
 #include "clang/Parse/Parser.h"
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/Diagnostic.h"

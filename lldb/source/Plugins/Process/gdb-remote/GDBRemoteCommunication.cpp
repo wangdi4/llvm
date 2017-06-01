@@ -16,10 +16,8 @@
 
 // C++ Includes
 // Other libraries and framework includes
-#include "lldb/Core/Log.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/Pipe.h"
@@ -28,6 +26,8 @@
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/StreamString.h"
 #include "llvm/ADT/SmallString.h"
@@ -72,7 +72,7 @@ void GDBRemoteCommunication::History::AddPacket(char packet_char,
     m_packets[idx].type = type;
     m_packets[idx].bytes_transmitted = bytes_transmitted;
     m_packets[idx].packet_idx = m_total_packet_count;
-    m_packets[idx].tid = Host::GetCurrentThreadID();
+    m_packets[idx].tid = llvm::get_threadid();
   }
 }
 
@@ -87,7 +87,7 @@ void GDBRemoteCommunication::History::AddPacket(const std::string &src,
     m_packets[idx].type = type;
     m_packets[idx].bytes_transmitted = bytes_transmitted;
     m_packets[idx].packet_idx = m_total_packet_count;
-    m_packets[idx].tid = Host::GetCurrentThreadID();
+    m_packets[idx].tid = llvm::get_threadid();
   }
 }
 
@@ -1083,8 +1083,7 @@ Error GDBRemoteCommunication::StartDebugserverProcess(
     // port is null when debug server should listen on domain socket -
     // we're not interested in port value but rather waiting for debug server
     // to become available.
-    if (pass_comm_fd == -1 &&
-        ((port != nullptr && *port == 0) || port == nullptr)) {
+    if (pass_comm_fd == -1) {
       if (url) {
 // Create a temporary file to get the stdout/stderr and redirect the
 // output of the command into this file. We will later read this file
@@ -1256,11 +1255,21 @@ Error GDBRemoteCommunication::StartDebugserverProcess(
             port_cstr, num_bytes, std::chrono::seconds{10}, num_bytes);
         if (error.Success() && (port != nullptr)) {
           assert(num_bytes > 0 && port_cstr[num_bytes - 1] == '\0');
-          *port = StringConvert::ToUInt32(port_cstr, 0);
-          if (log)
-            log->Printf("GDBRemoteCommunication::%s() "
-                        "debugserver listens %u port",
-                        __FUNCTION__, *port);
+          uint16_t child_port = StringConvert::ToUInt32(port_cstr, 0);
+          if (*port == 0 || *port == child_port) {
+            *port = child_port;
+            if (log)
+              log->Printf("GDBRemoteCommunication::%s() "
+                          "debugserver listens %u port",
+                          __FUNCTION__, *port);
+          } else {
+            if (log)
+              log->Printf("GDBRemoteCommunication::%s() "
+                          "debugserver listening on port "
+                          "%d but requested port was %d",
+                          __FUNCTION__, (uint32_t)child_port,
+                          (uint32_t)(*port));
+          }
         } else {
           if (log)
             log->Printf("GDBRemoteCommunication::%s() "
@@ -1301,12 +1310,20 @@ void GDBRemoteCommunication::DumpHistory(Stream &strm) { m_history.Dump(strm); }
 
 GDBRemoteCommunication::ScopedTimeout::ScopedTimeout(
     GDBRemoteCommunication &gdb_comm, std::chrono::seconds timeout)
-    : m_gdb_comm(gdb_comm) {
-  m_saved_timeout = m_gdb_comm.SetPacketTimeout(timeout);
+  : m_gdb_comm(gdb_comm), m_timeout_modified(false) {
+    auto curr_timeout = gdb_comm.GetPacketTimeout();
+    // Only update the timeout if the timeout is greater than the current
+    // timeout. If the current timeout is larger, then just use that.
+    if (curr_timeout < timeout) {
+      m_timeout_modified = true;
+      m_saved_timeout = m_gdb_comm.SetPacketTimeout(timeout);
+    }
 }
 
 GDBRemoteCommunication::ScopedTimeout::~ScopedTimeout() {
-  m_gdb_comm.SetPacketTimeout(m_saved_timeout);
+  // Only restore the timeout if we set it in the constructor.
+  if (m_timeout_modified)
+    m_gdb_comm.SetPacketTimeout(m_saved_timeout);
 }
 
 // This function is called via the Communications class read thread when bytes

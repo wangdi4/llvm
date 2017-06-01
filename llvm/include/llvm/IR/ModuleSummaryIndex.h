@@ -160,9 +160,8 @@ private:
   std::vector<ValueInfo> RefEdgeList;
 
 protected:
-  /// GlobalValueSummary constructor.
   GlobalValueSummary(SummaryKind K, GVFlags Flags, std::vector<ValueInfo> Refs)
-      : Kind(K), Flags(Flags), RefEdgeList(std::move(Refs)) {}
+      : Kind(K), Flags(Flags), OriginalName(0), RefEdgeList(std::move(Refs)) {}
 
 public:
   virtual ~GlobalValueSummary() = default;
@@ -221,7 +220,6 @@ class AliasSummary : public GlobalValueSummary {
   GlobalValueSummary *AliaseeSummary;
 
 public:
-  /// Summary constructors.
   AliasSummary(GVFlags Flags, std::vector<ValueInfo> Refs)
       : GlobalValueSummary(AliasKind, Flags, std::move(Refs)) {}
 
@@ -233,12 +231,13 @@ public:
   void setAliasee(GlobalValueSummary *Aliasee) { AliaseeSummary = Aliasee; }
 
   const GlobalValueSummary &getAliasee() const {
-    return const_cast<AliasSummary *>(this)->getAliasee();
+    assert(AliaseeSummary && "Unexpected missing aliasee summary");
+    return *AliaseeSummary;
   }
 
   GlobalValueSummary &getAliasee() {
-    assert(AliaseeSummary && "Unexpected missing aliasee summary");
-    return *AliaseeSummary;
+    return const_cast<GlobalValueSummary &>(
+                         static_cast<const AliasSummary *>(this)->getAliasee());
   }
 };
 
@@ -296,7 +295,6 @@ private:
   std::unique_ptr<TypeIdInfo> TIdInfo;
 
 public:
-  /// Summary constructors.
   FunctionSummary(GVFlags Flags, unsigned NumInsts, std::vector<ValueInfo> Refs,
                   std::vector<EdgeTy> CGEdges,
                   std::vector<GlobalValue::GUID> TypeTests,
@@ -370,6 +368,14 @@ public:
       return TIdInfo->TypeCheckedLoadConstVCalls;
     return {};
   }
+
+  /// Add a type test to the summary. This is used by WholeProgramDevirt if we
+  /// were unable to devirtualize a checked call.
+  void addTypeTest(GlobalValue::GUID Guid) {
+    if (!TIdInfo)
+      TIdInfo = llvm::make_unique<TypeIdInfo>();
+    TIdInfo->TypeTests.push_back(Guid);
+  }
 };
 
 template <> struct DenseMapInfo<FunctionSummary::VFuncId> {
@@ -409,7 +415,6 @@ template <> struct DenseMapInfo<FunctionSummary::ConstVCall> {
 class GlobalVarSummary : public GlobalValueSummary {
 
 public:
-  /// Summary constructors.
   GlobalVarSummary(GVFlags Flags, std::vector<ValueInfo> Refs)
       : GlobalValueSummary(GlobalVarKind, Flags, std::move(Refs)) {}
 
@@ -520,6 +525,10 @@ private:
   // FIXME: Add bitcode read/write support for this field.
   std::map<std::string, TypeIdSummary> TypeIdMap;
 
+  /// Mapping from original ID to GUID. If original ID can map to multiple
+  /// GUIDs, it will be mapped to 0.
+  std::map<GlobalValue::GUID, GlobalValue::GUID> OidGuidMap;
+
   // YAML I/O support.
   friend yaml::MappingTraits<ModuleSummaryIndex>;
 
@@ -547,9 +556,17 @@ public:
     return GlobalValueMap.find(ValueGUID);
   }
 
+  /// Return the GUID for \p OriginalId in the OidGuidMap.
+  GlobalValue::GUID getGUIDFromOriginalID(GlobalValue::GUID OriginalID) const {
+    const auto I = OidGuidMap.find(OriginalID);
+    return I == OidGuidMap.end() ? 0 : I->second;
+  }
+
   /// Add a global value summary for a value of the given name.
   void addGlobalValueSummary(StringRef ValueName,
                              std::unique_ptr<GlobalValueSummary> Summary) {
+    addOriginalName(GlobalValue::getGUID(ValueName),
+                    Summary->getOriginalName());
     GlobalValueMap[GlobalValue::getGUID(ValueName)].push_back(
         std::move(Summary));
   }
@@ -557,7 +574,19 @@ public:
   /// Add a global value summary for a value of the given GUID.
   void addGlobalValueSummary(GlobalValue::GUID ValueGUID,
                              std::unique_ptr<GlobalValueSummary> Summary) {
+    addOriginalName(ValueGUID, Summary->getOriginalName());
     GlobalValueMap[ValueGUID].push_back(std::move(Summary));
+  }
+
+  /// Add an original name for the value of the given GUID.
+  void addOriginalName(GlobalValue::GUID ValueGUID,
+                       GlobalValue::GUID OrigGUID) {
+    if (OrigGUID == 0 || ValueGUID == OrigGUID)
+      return;
+    if (OidGuidMap.count(OrigGUID) && OidGuidMap[OrigGUID] != ValueGUID)
+      OidGuidMap[OrigGUID] = 0;
+    else
+      OidGuidMap[OrigGUID] = ValueGUID;
   }
 
   /// Find the summary for global \p GUID in module \p ModuleId, or nullptr if
@@ -655,8 +684,23 @@ public:
     return ModulePathStringTable.count(M.getModuleIdentifier());
   }
 
-  TypeIdSummary &getTypeIdSummary(StringRef TypeId) {
+  const std::map<std::string, TypeIdSummary> &typeIds() const {
+    return TypeIdMap;
+  }
+
+  /// This accessor should only be used when exporting because it can mutate the
+  /// map.
+  TypeIdSummary &getOrInsertTypeIdSummary(StringRef TypeId) {
     return TypeIdMap[TypeId];
+  }
+
+  /// This returns either a pointer to the type id summary (if present in the
+  /// summary map) or null (if not present). This may be used when importing.
+  const TypeIdSummary *getTypeIdSummary(StringRef TypeId) const {
+    auto I = TypeIdMap.find(TypeId);
+    if (I == TypeIdMap.end())
+      return nullptr;
+    return &I->second;
   }
 
   /// Remove entries in the GlobalValueMap that have empty summaries due to the

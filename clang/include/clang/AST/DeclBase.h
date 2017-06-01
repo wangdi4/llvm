@@ -1036,7 +1036,7 @@ public:
   void dump() const;
   // Same as dump(), but forces color printing.
   void dumpColor() const;
-  void dump(raw_ostream &Out) const;
+  void dump(raw_ostream &Out, bool Deserialize = false) const;
 
   /// \brief Looks through the Decl's underlying type to extract a FunctionType
   /// when possible. Will return null if the type underlying the Decl does not
@@ -1817,7 +1817,8 @@ public:
 
   void dumpDeclContext() const;
   void dumpLookups() const;
-  void dumpLookups(llvm::raw_ostream &OS, bool DumpDecls = false) const;
+  void dumpLookups(llvm::raw_ostream &OS, bool DumpDecls = false,
+                   bool Deserialize = false) const;
 
 private:
   void reconcileExternalVisibleStorage() const;

@@ -230,6 +230,17 @@ static Address castValueFromUintptr(CodeGenFunction &CGF, QualType DstType,
   return TmpAddr;
 }
 
+static QualType getCanonicalParamType(ASTContext &C, QualType T) {
+  if (T->isLValueReferenceType()) {
+    return C.getLValueReferenceType(
+        getCanonicalParamType(C, T.getNonReferenceType()),
+        /*SpelledAsLValue=*/false);
+  }
+  if (T->isPointerType())
+    return C.getPointerType(getCanonicalParamType(C, T->getPointeeType()));
+  return C.getCanonicalParamType(T);
+}
+
 llvm::Function *
 CodeGenFunction::GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S) {
   assert(
@@ -269,13 +280,8 @@ CodeGenFunction::GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S) {
       II = &getContext().Idents.get("vla");
     }
     if (ArgType->isVariablyModifiedType()) {
-      bool IsReference = ArgType->isLValueReferenceType();
       ArgType =
-          getContext().getCanonicalParamType(ArgType.getNonReferenceType());
-      if (IsReference && !ArgType->isPointerType()) {
-        ArgType = getContext().getLValueReferenceType(
-            ArgType, /*SpelledAsLValue=*/false);
-      }
+          getCanonicalParamType(getContext(), ArgType.getNonReferenceType());
     }
     Args.push_back(ImplicitParamDecl::Create(getContext(), nullptr,
                                              FD->getLocation(), II, ArgType));
@@ -1193,7 +1199,7 @@ void CodeGenFunction::EmitOMPReductionClauseInit(
 }
 
 void CodeGenFunction::EmitOMPReductionClauseFinal(
-    const OMPExecutableDirective &D) {
+    const OMPExecutableDirective &D, const OpenMPDirectiveKind ReductionKind) {
   if (!HaveInsertPoint())
     return;
   llvm::SmallVector<const Expr *, 8> Privates;
@@ -1209,14 +1215,15 @@ void CodeGenFunction::EmitOMPReductionClauseFinal(
     ReductionOps.append(C->reduction_ops().begin(), C->reduction_ops().end());
   }
   if (HasAtLeastOneReduction) {
+    bool WithNowait = D.getSingleClause<OMPNowaitClause>() ||
+                      isOpenMPParallelDirective(D.getDirectiveKind()) ||
+                      D.getDirectiveKind() == OMPD_simd;
+    bool SimpleReduction = D.getDirectiveKind() == OMPD_simd;
     // Emit nowait reduction if nowait clause is present or directive is a
     // parallel directive (it always has implicit barrier).
     CGM.getOpenMPRuntime().emitReduction(
         *this, D.getLocEnd(), Privates, LHSExprs, RHSExprs, ReductionOps,
-        D.getSingleClause<OMPNowaitClause>() ||
-            isOpenMPParallelDirective(D.getDirectiveKind()) ||
-            D.getDirectiveKind() == OMPD_simd,
-        D.getDirectiveKind() == OMPD_simd);
+        {WithNowait, SimpleReduction, ReductionKind});
   }
 }
 
@@ -1298,7 +1305,7 @@ void CodeGenFunction::EmitOMPParallelDirective(const OMPParallelDirective &S) {
     CGF.EmitOMPReductionClauseInit(S, PrivateScope);
     (void)PrivateScope.Privatize();
     CGF.EmitStmt(cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
-    CGF.EmitOMPReductionClauseFinal(S);
+    CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_parallel);
   };
   emitCommonOMPParallelDirective(*this, S, OMPD_parallel, CodeGen);
   emitPostUpdateForReductionClause(
@@ -1754,7 +1761,7 @@ void CodeGenFunction::EmitOMPSimdDirective(const OMPSimdDirective &S) {
       // Emit final copy of the lastprivate variables at the end of loops.
       if (HasLastprivateClause)
         CGF.EmitOMPLastprivateClauseFinal(S, /*NoFinals=*/true);
-      CGF.EmitOMPReductionClauseFinal(S);
+      CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_simd);
       emitPostUpdateForReductionClause(
           CGF, S, [](CodeGenFunction &) -> llvm::Value * { return nullptr; });
     }
@@ -2290,7 +2297,10 @@ bool CodeGenFunction::EmitOMPWorksharingLoop(const OMPLoopDirective &S) {
                                CGF.EmitLoadOfScalar(IL, S.getLocStart()));
                          });
       }
-      EmitOMPReductionClauseFinal(S);
+      EmitOMPReductionClauseFinal(
+          S, /*ReductionKind=*/isOpenMPSimdDirective(S.getDirectiveKind())
+                 ? /*Parallel and Simd*/ OMPD_parallel_for_simd
+                 : /*Parallel only*/ OMPD_parallel);
       // Emit post-update of the reduction variables if IsLastIter != 0.
       emitPostUpdateForReductionClause(
           *this, S, [&](CodeGenFunction &CGF) -> llvm::Value * {
@@ -2388,8 +2398,7 @@ void CodeGenFunction::EmitSections(const OMPExecutableDirective &S) {
     CodeGenFunction::OpaqueValueMapping OpaqueUB(CGF, &UBRefExpr, UB);
     // Generate condition for loop.
     BinaryOperator Cond(&IVRefExpr, &UBRefExpr, BO_LE, C.BoolTy, VK_RValue,
-                        OK_Ordinary, S.getLocStart(),
-                        /*fpContractable=*/false);
+                        OK_Ordinary, S.getLocStart(), FPOptions());
     // Increment for loop counter.
     UnaryOperator Inc(&IVRefExpr, UO_PreInc, KmpInt32Ty, VK_RValue, OK_Ordinary,
                       S.getLocStart());
@@ -2465,7 +2474,7 @@ void CodeGenFunction::EmitSections(const OMPExecutableDirective &S) {
       CGF.CGM.getOpenMPRuntime().emitForStaticFinish(CGF, S.getLocEnd());
     };
     CGF.OMPCancelStack.emitExit(CGF, S.getDirectiveKind(), CodeGen);
-    CGF.EmitOMPReductionClauseFinal(S);
+    CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_parallel);
     // Emit post-update of the reduction variables if IsLastIter != 0.
     emitPostUpdateForReductionClause(
         CGF, S, [&](CodeGenFunction &CGF) -> llvm::Value * {
@@ -3595,10 +3604,14 @@ void CodeGenFunction::EmitOMPTeamsDirective(const OMPTeamsDirective &S) {
     OMPPrivateScope PrivateScope(CGF);
     (void)CGF.EmitOMPFirstprivateClause(S, PrivateScope);
     CGF.EmitOMPPrivateClause(S, PrivateScope);
+    CGF.EmitOMPReductionClauseInit(S, PrivateScope);
     (void)PrivateScope.Privatize();
     CGF.EmitStmt(cast<CapturedStmt>(S.getAssociatedStmt())->getCapturedStmt());
+    CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_teams);
   };
   emitCommonOMPTeamsDirective(*this, S, OMPD_teams, CodeGen);
+  emitPostUpdateForReductionClause(
+      *this, S, [](CodeGenFunction &) -> llvm::Value * { return nullptr; });
 }
 
 static void emitTargetTeamsRegion(CodeGenFunction &CGF, PrePostActionTy &Action,
@@ -3863,11 +3876,19 @@ static void emitTargetParallelRegion(CodeGenFunction &CGF,
   // Get the captured statement associated with the 'parallel' region.
   auto *CS = S.getCapturedStmt(OMPD_parallel);
   Action.Enter(CGF);
-  auto &&CodeGen = [CS](CodeGenFunction &CGF, PrePostActionTy &) {
+  auto &&CodeGen = [&S, CS](CodeGenFunction &CGF, PrePostActionTy &) {
+    CodeGenFunction::OMPPrivateScope PrivateScope(CGF);
+    (void)CGF.EmitOMPFirstprivateClause(S, PrivateScope);
+    CGF.EmitOMPPrivateClause(S, PrivateScope);
+    CGF.EmitOMPReductionClauseInit(S, PrivateScope);
+    (void)PrivateScope.Privatize();
     // TODO: Add support for clauses.
     CGF.EmitStmt(CS->getCapturedStmt());
+    CGF.EmitOMPReductionClauseFinal(S, /*ReductionKind=*/OMPD_parallel);
   };
   emitCommonOMPParallelDirective(CGF, S, OMPD_parallel, CodeGen);
+  emitPostUpdateForReductionClause(
+      CGF, S, [](CodeGenFunction &) -> llvm::Value * { return nullptr; });
 }
 
 void CodeGenFunction::EmitOMPTargetParallelDeviceFunction(

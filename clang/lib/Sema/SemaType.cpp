@@ -742,7 +742,7 @@ static void diagnoseAndRemoveTypeQualifiers(Sema &S, const DeclSpec &DS,
     if (!(RemoveTQs & Qual.first))
       continue;
 
-    if (S.ActiveTemplateInstantiations.empty()) {
+    if (!S.inTemplateInstantiation()) {
       if (TypeQuals & Qual.first)
         S.Diag(Qual.second, DiagID)
           << DeclSpec::getSpecifierName(Qual.first) << TypeSoFar
@@ -3218,7 +3218,7 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
       if (Attr->getKind() == AttributeList::AT_OpenCLKernel) {
         llvm::Triple::ArchType arch = S.Context.getTargetInfo().getTriple().getArch();
         if (arch == llvm::Triple::spir || arch == llvm::Triple::spir64 ||
-            arch == llvm::Triple::amdgcn) {
+            arch == llvm::Triple::amdgcn || arch == llvm::Triple::r600) {
           CC = CC_OpenCLKernel;
         }
         break;
@@ -4002,7 +4002,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
   // If the type itself could have nullability but does not, infer pointer
   // nullability and perform consistency checking.
-  if (S.ActiveTemplateInstantiations.empty()) {
+  if (S.CodeSynthesisContexts.empty()) {
     if (T->canHaveNullability() && !T->getNullability(S.Context)) {
       if (isVaList(T)) {
         // Record that we've seen a pointer, but do nothing else.
@@ -4537,6 +4537,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           if (auto attr = Param->getAttr<ParameterABIAttr>()) {
             ExtParameterInfos[i] =
               ExtParameterInfos[i].withABI(attr->getABI());
+            HasAnyInterestingExtParameterInfos = true;
+          }
+
+          if (Param->hasAttr<PassObjectSizeAttr>()) {
+            ExtParameterInfos[i] = ExtParameterInfos[i].withHasPassObjectSize();
             HasAnyInterestingExtParameterInfos = true;
           }
 
@@ -5584,14 +5589,14 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
       addrSpace.setIsSigned(false);
     }
     llvm::APSInt max(addrSpace.getBitWidth());
-    max = Qualifiers::MaxAddressSpace;
+    max = Qualifiers::MaxAddressSpace - LangAS::Count;
     if (addrSpace > max) {
       S.Diag(Attr.getLoc(), diag::err_attribute_address_space_too_high)
-        << int(Qualifiers::MaxAddressSpace) << ASArgExpr->getSourceRange();
+        << (unsigned)max.getZExtValue() << ASArgExpr->getSourceRange();
       Attr.setInvalid();
       return;
     }
-    ASIdx = static_cast<unsigned>(addrSpace.getZExtValue());
+    ASIdx = static_cast<unsigned>(addrSpace.getZExtValue()) + LangAS::Count;
   } else {
     // The keyword-based type attributes imply which address space to use.
     switch (Attr.getKind()) {
@@ -7649,7 +7654,7 @@ QualType Sema::BuildDecltypeType(Expr *E, SourceLocation Loc,
   if (ER.isInvalid()) return QualType();
   E = ER.get();
 
-  if (AsUnevaluated && ActiveTemplateInstantiations.empty() &&
+  if (AsUnevaluated && CodeSynthesisContexts.empty() &&
       E->HasSideEffects(Context, false)) {
     // The expression operand for decltype is in an unevaluated expression
     // context, so side effects could result in unintended consequences.

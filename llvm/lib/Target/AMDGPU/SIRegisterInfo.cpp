@@ -24,12 +24,6 @@
 
 using namespace llvm;
 
-static cl::opt<bool> EnableSpillSGPRToSMEM(
-  "amdgpu-spill-sgpr-to-smem",
-  cl::desc("Use scalar stores to spill SGPRs if supported by subtarget"),
-  cl::init(false));
-
-
 static bool hasPressureSet(const int *PSets, unsigned PSetID) {
   for (unsigned i = 0; PSets[i] != -1; ++i) {
     if (PSets[i] == (int)PSetID)
@@ -49,9 +43,28 @@ void SIRegisterInfo::classifyPressureSet(unsigned PSetID, unsigned Reg,
   }
 }
 
-SIRegisterInfo::SIRegisterInfo() : AMDGPURegisterInfo(),
-                                   SGPRPressureSets(getNumRegPressureSets()),
-                                   VGPRPressureSets(getNumRegPressureSets()) {
+static cl::opt<bool> EnableSpillSGPRToSMEM(
+  "amdgpu-spill-sgpr-to-smem",
+  cl::desc("Use scalar stores to spill SGPRs if supported by subtarget"),
+  cl::init(false));
+
+static cl::opt<bool> EnableSpillSGPRToVGPR(
+  "amdgpu-spill-sgpr-to-vgpr",
+  cl::desc("Enable spilling VGPRs to SGPRs"),
+  cl::ReallyHidden,
+  cl::init(true));
+
+SIRegisterInfo::SIRegisterInfo(const SISubtarget &ST) :
+  AMDGPURegisterInfo(),
+  SGPRPressureSets(getNumRegPressureSets()),
+  VGPRPressureSets(getNumRegPressureSets()),
+  SpillSGPRToVGPR(false),
+  SpillSGPRToSMEM(false) {
+  if (EnableSpillSGPRToSMEM && ST.hasScalarStores())
+    SpillSGPRToSMEM = true;
+  else if (EnableSpillSGPRToVGPR)
+    SpillSGPRToVGPR = true;
+
   unsigned NumRegPressureSets = getNumRegPressureSets();
 
   SGPRSetID = NumRegPressureSets;
@@ -111,7 +124,7 @@ unsigned SIRegisterInfo::reservedPrivateSegmentWaveByteOffsetReg(
   unsigned RegCount = ST.getMaxNumSGPRs(MF);
   unsigned Reg;
 
-  // Try to place it in a hole after PrivateSegmentbufferReg.
+  // Try to place it in a hole after PrivateSegmentBufferReg.
   if (RegCount & 3) {
     // We cannot put the segment buffer in (Idx - 4) ... (Idx - 1) due to
     // alignment constraints, so we have a hole where can put the wave offset.
@@ -132,6 +145,15 @@ BitVector SIRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   // this seems likely to result in bugs, so I'm marking them as reserved.
   reserveRegisterTuples(Reserved, AMDGPU::EXEC);
   reserveRegisterTuples(Reserved, AMDGPU::FLAT_SCR);
+
+  // M0 has to be reserved so that llvm accepts it as a live-in into a block.
+  reserveRegisterTuples(Reserved, AMDGPU::M0);
+
+  // Reserve the memory aperture registers.
+  reserveRegisterTuples(Reserved, AMDGPU::SRC_SHARED_BASE);
+  reserveRegisterTuples(Reserved, AMDGPU::SRC_SHARED_LIMIT);
+  reserveRegisterTuples(Reserved, AMDGPU::SRC_PRIVATE_BASE);
+  reserveRegisterTuples(Reserved, AMDGPU::SRC_PRIVATE_LIMIT);
 
   // Reserve Trap Handler registers - support is not implemented in Codegen.
   reserveRegisterTuples(Reserved, AMDGPU::TBA);
@@ -259,7 +281,6 @@ void SIRegisterInfo::materializeFrameBaseRegister(MachineBasicBlock *MBB,
   }
 
   MachineRegisterInfo &MRI = MF->getRegInfo();
-  unsigned UnusedCarry = MRI.createVirtualRegister(&AMDGPU::SReg_64RegClass);
   unsigned OffsetReg = MRI.createVirtualRegister(&AMDGPU::SReg_32_XM0RegClass);
 
   unsigned FIReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
@@ -269,8 +290,7 @@ void SIRegisterInfo::materializeFrameBaseRegister(MachineBasicBlock *MBB,
   BuildMI(*MBB, Ins, DL, TII->get(AMDGPU::V_MOV_B32_e32), FIReg)
     .addFrameIndex(FrameIdx);
 
-  BuildMI(*MBB, Ins, DL, TII->get(AMDGPU::V_ADD_I32_e64), BaseReg)
-    .addReg(UnusedCarry, RegState::Define | RegState::Dead)
+  TII->getAddNoCarry(*MBB, Ins, DL, BaseReg)
     .addReg(OffsetReg, RegState::Kill)
     .addReg(FIReg);
 }
@@ -551,11 +571,20 @@ static std::pair<unsigned, unsigned> getSpillEltSize(unsigned SuperRegSize,
                       AMDGPU::S_BUFFER_LOAD_DWORD_SGPR};
 }
 
-void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
+bool SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
                                int Index,
-                               RegScavenger *RS) const {
+                               RegScavenger *RS,
+                               bool OnlyToVGPR) const {
   MachineBasicBlock *MBB = MI->getParent();
   MachineFunction *MF = MBB->getParent();
+  SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
+
+  ArrayRef<SIMachineFunctionInfo::SpilledReg> VGPRSpills
+    = MFI->getSGPRToVGPRSpills(Index);
+  bool SpillToVGPR = !VGPRSpills.empty();
+  if (OnlyToVGPR && !SpillToVGPR)
+    return false;
+
   MachineRegisterInfo &MRI = MF->getRegInfo();
   const SISubtarget &ST =  MF->getSubtarget<SISubtarget>();
   const SIInstrInfo *TII = ST.getInstrInfo();
@@ -564,10 +593,11 @@ void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
   bool IsKill = MI->getOperand(0).isKill();
   const DebugLoc &DL = MI->getDebugLoc();
 
-  SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
   MachineFrameInfo &FrameInfo = MF->getFrameInfo();
 
-  bool SpillToSMEM = ST.hasScalarStores() && EnableSpillSGPRToSMEM;
+  bool SpillToSMEM = spillSGPRToSMEM();
+  if (SpillToSMEM && OnlyToVGPR)
+    return false;
 
   assert(SuperReg != AMDGPU::M0 && "m0 should never spill");
 
@@ -588,7 +618,8 @@ void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
   if (SpillToSMEM && isSGPRClass(RC)) {
     // XXX - if private_element_size is larger than 4 it might be useful to be
     // able to spill wider vmem spills.
-    std::tie(EltSize, ScalarStoreOp) = getSpillEltSize(RC->getSize(), true);
+    std::tie(EltSize, ScalarStoreOp) =
+          getSpillEltSize(getRegSizeInBits(*RC) / 8, true);
   }
 
   ArrayRef<int16_t> SplitParts = getRegSplitParts(RC, EltSize);
@@ -640,9 +671,9 @@ void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
       continue;
     }
 
-    struct SIMachineFunctionInfo::SpilledReg Spill =
-      MFI->getSpilledReg(MF, Index, i);
-    if (Spill.hasReg()) {
+    if (SpillToVGPR) {
+      SIMachineFunctionInfo::SpilledReg Spill = VGPRSpills[i];
+
       BuildMI(*MBB, MI, DL,
               TII->getMCOpcodeFromPseudo(AMDGPU::V_WRITELANE_B32),
               Spill.VGPR)
@@ -653,6 +684,10 @@ void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
       // frame index, we should delete the frame index when all references to
       // it are fixed.
     } else {
+      // XXX - Can to VGPR spill fail for some subregisters but not others?
+      if (OnlyToVGPR)
+        return false;
+
       // Spill SGPR to a frame index.
       // TODO: Should VI try to spill to VGPR and then spill to SMEM?
       unsigned TmpReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
@@ -696,22 +731,33 @@ void SIRegisterInfo::spillSGPR(MachineBasicBlock::iterator MI,
 
   MI->eraseFromParent();
   MFI->addToSpilledSGPRs(NumSubRegs);
+  return true;
 }
 
-void SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
+bool SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
                                  int Index,
-                                 RegScavenger *RS) const {
+                                 RegScavenger *RS,
+                                 bool OnlyToVGPR) const {
   MachineFunction *MF = MI->getParent()->getParent();
   MachineRegisterInfo &MRI = MF->getRegInfo();
   MachineBasicBlock *MBB = MI->getParent();
   SIMachineFunctionInfo *MFI = MF->getInfo<SIMachineFunctionInfo>();
+
+  ArrayRef<SIMachineFunctionInfo::SpilledReg> VGPRSpills
+    = MFI->getSGPRToVGPRSpills(Index);
+  bool SpillToVGPR = !VGPRSpills.empty();
+  if (OnlyToVGPR && !SpillToVGPR)
+    return false;
+
   MachineFrameInfo &FrameInfo = MF->getFrameInfo();
   const SISubtarget &ST =  MF->getSubtarget<SISubtarget>();
   const SIInstrInfo *TII = ST.getInstrInfo();
   const DebugLoc &DL = MI->getDebugLoc();
 
   unsigned SuperReg = MI->getOperand(0).getReg();
-  bool SpillToSMEM = ST.hasScalarStores() && EnableSpillSGPRToSMEM;
+  bool SpillToSMEM = spillSGPRToSMEM();
+  if (SpillToSMEM && OnlyToVGPR)
+    return false;
 
   assert(SuperReg != AMDGPU::M0 && "m0 should never spill");
 
@@ -733,7 +779,8 @@ void SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
   if (SpillToSMEM && isSGPRClass(RC)) {
     // XXX - if private_element_size is larger than 4 it might be useful to be
     // able to spill wider vmem spills.
-    std::tie(EltSize, ScalarLoadOp) = getSpillEltSize(RC->getSize(), false);
+    std::tie(EltSize, ScalarLoadOp) =
+          getSpillEltSize(getRegSizeInBits(*RC) / 8, false);
   }
 
   ArrayRef<int16_t> SplitParts = getRegSplitParts(RC, EltSize);
@@ -779,10 +826,8 @@ void SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
       continue;
     }
 
-    SIMachineFunctionInfo::SpilledReg Spill
-      = MFI->getSpilledReg(MF, Index, i);
-
-    if (Spill.hasReg()) {
+    if (SpillToVGPR) {
+      SIMachineFunctionInfo::SpilledReg Spill = VGPRSpills[i];
       auto MIB =
         BuildMI(*MBB, MI, DL, TII->getMCOpcodeFromPseudo(AMDGPU::V_READLANE_B32),
                 SubReg)
@@ -792,6 +837,9 @@ void SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
       if (NumSubRegs > 1)
         MIB.addReg(SuperReg, RegState::ImplicitDefine);
     } else {
+      if (OnlyToVGPR)
+        return false;
+
       // Restore SGPR from a stack slot.
       // FIXME: We should use S_LOAD_DWORD here for VI.
       unsigned TmpReg = MRI.createVirtualRegister(&AMDGPU::VGPR_32RegClass);
@@ -826,6 +874,32 @@ void SIRegisterInfo::restoreSGPR(MachineBasicBlock::iterator MI,
   }
 
   MI->eraseFromParent();
+  return true;
+}
+
+/// Special case of eliminateFrameIndex. Returns true if the SGPR was spilled to
+/// a VGPR and the stack slot can be safely eliminated when all other users are
+/// handled.
+bool SIRegisterInfo::eliminateSGPRToVGPRSpillFrameIndex(
+  MachineBasicBlock::iterator MI,
+  int FI,
+  RegScavenger *RS) const {
+  switch (MI->getOpcode()) {
+  case AMDGPU::SI_SPILL_S512_SAVE:
+  case AMDGPU::SI_SPILL_S256_SAVE:
+  case AMDGPU::SI_SPILL_S128_SAVE:
+  case AMDGPU::SI_SPILL_S64_SAVE:
+  case AMDGPU::SI_SPILL_S32_SAVE:
+    return spillSGPR(MI, FI, RS, true);
+  case AMDGPU::SI_SPILL_S512_RESTORE:
+  case AMDGPU::SI_SPILL_S256_RESTORE:
+  case AMDGPU::SI_SPILL_S128_RESTORE:
+  case AMDGPU::SI_SPILL_S64_RESTORE:
+  case AMDGPU::SI_SPILL_S32_RESTORE:
+    return restoreSGPR(MI, FI, RS, true);
+  default:
+    llvm_unreachable("not an SGPR spill instruction");
+  }
 }
 
 void SIRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator MI,
@@ -969,20 +1043,21 @@ const TargetRegisterClass *SIRegisterInfo::getPhysRegClass(unsigned Reg) const {
 // TODO: It might be helpful to have some target specific flags in
 // TargetRegisterClass to mark which classes are VGPRs to make this trivial.
 bool SIRegisterInfo::hasVGPRs(const TargetRegisterClass *RC) const {
-  switch (RC->getSize()) {
-  case 0: return false;
-  case 1: return false;
-  case 4:
-    return getCommonSubClass(&AMDGPU::VGPR_32RegClass, RC) != nullptr;
-  case 8:
-    return getCommonSubClass(&AMDGPU::VReg_64RegClass, RC) != nullptr;
-  case 12:
-    return getCommonSubClass(&AMDGPU::VReg_96RegClass, RC) != nullptr;
-  case 16:
-    return getCommonSubClass(&AMDGPU::VReg_128RegClass, RC) != nullptr;
+  unsigned Size = getRegSizeInBits(*RC);
+  if (Size < 32)
+    return false;
+  switch (Size) {
   case 32:
-    return getCommonSubClass(&AMDGPU::VReg_256RegClass, RC) != nullptr;
+    return getCommonSubClass(&AMDGPU::VGPR_32RegClass, RC) != nullptr;
   case 64:
+    return getCommonSubClass(&AMDGPU::VReg_64RegClass, RC) != nullptr;
+  case 96:
+    return getCommonSubClass(&AMDGPU::VReg_96RegClass, RC) != nullptr;
+  case 128:
+    return getCommonSubClass(&AMDGPU::VReg_128RegClass, RC) != nullptr;
+  case 256:
+    return getCommonSubClass(&AMDGPU::VReg_256RegClass, RC) != nullptr;
+  case 512:
     return getCommonSubClass(&AMDGPU::VReg_512RegClass, RC) != nullptr;
   default:
     llvm_unreachable("Invalid register class size");
@@ -991,18 +1066,18 @@ bool SIRegisterInfo::hasVGPRs(const TargetRegisterClass *RC) const {
 
 const TargetRegisterClass *SIRegisterInfo::getEquivalentVGPRClass(
                                          const TargetRegisterClass *SRC) const {
-  switch (SRC->getSize()) {
-  case 4:
-    return &AMDGPU::VGPR_32RegClass;
-  case 8:
-    return &AMDGPU::VReg_64RegClass;
-  case 12:
-    return &AMDGPU::VReg_96RegClass;
-  case 16:
-    return &AMDGPU::VReg_128RegClass;
+  switch (getRegSizeInBits(*SRC)) {
   case 32:
-    return &AMDGPU::VReg_256RegClass;
+    return &AMDGPU::VGPR_32RegClass;
   case 64:
+    return &AMDGPU::VReg_64RegClass;
+  case 96:
+    return &AMDGPU::VReg_96RegClass;
+  case 128:
+    return &AMDGPU::VReg_128RegClass;
+  case 256:
+    return &AMDGPU::VReg_256RegClass;
+  case 512:
     return &AMDGPU::VReg_512RegClass;
   default:
     llvm_unreachable("Invalid register class size");
@@ -1011,16 +1086,16 @@ const TargetRegisterClass *SIRegisterInfo::getEquivalentVGPRClass(
 
 const TargetRegisterClass *SIRegisterInfo::getEquivalentSGPRClass(
                                          const TargetRegisterClass *VRC) const {
-  switch (VRC->getSize()) {
-  case 4:
-    return &AMDGPU::SGPR_32RegClass;
-  case 8:
-    return &AMDGPU::SReg_64RegClass;
-  case 16:
-    return &AMDGPU::SReg_128RegClass;
+  switch (getRegSizeInBits(*VRC)) {
   case 32:
-    return &AMDGPU::SReg_256RegClass;
+    return &AMDGPU::SGPR_32RegClass;
   case 64:
+    return &AMDGPU::SReg_64RegClass;
+  case 128:
+    return &AMDGPU::SReg_128RegClass;
+  case 256:
+    return &AMDGPU::SReg_256RegClass;
+  case 512:
     return &AMDGPU::SReg_512RegClass;
   default:
     llvm_unreachable("Invalid register class size");
@@ -1285,15 +1360,15 @@ bool SIRegisterInfo::shouldCoalesce(MachineInstr *MI,
                                     const TargetRegisterClass *DstRC,
                                     unsigned DstSubReg,
                                     const TargetRegisterClass *NewRC) const {
-  unsigned SrcSize = SrcRC->getSize();
-  unsigned DstSize = DstRC->getSize();
-  unsigned NewSize = NewRC->getSize();
+  unsigned SrcSize = getRegSizeInBits(*SrcRC);
+  unsigned DstSize = getRegSizeInBits(*DstRC);
+  unsigned NewSize = getRegSizeInBits(*NewRC);
 
   // Do not increase size of registers beyond dword, we would need to allocate
   // adjacent registers and constraint regalloc more than needed.
 
   // Always allow dword coalescing.
-  if (SrcSize <= 4 || DstSize <= 4)
+  if (SrcSize <= 32 || DstSize <= 32)
     return true;
 
   return NewSize <= DstSize || NewSize <= SrcSize;
