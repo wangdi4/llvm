@@ -45,7 +45,9 @@ typedef long __v2di __attribute__ ((__vector_size__ (16)));
 typedef long long __v2di __attribute__ ((__vector_size__ (16)));
 #endif
 typedef short __v8hi __attribute__((__vector_size__(16)));
+typedef unsigned short __v8hu __attribute__((__vector_size__(16)));
 typedef char __v16qi __attribute__((__vector_size__(16)));
+typedef unsigned char __v16qu __attribute__((__vector_size__(16)));
 
 /* We need an explicitly signed variant for char. Note that this shouldn't
  * appear in the interface though. */
@@ -173,43 +175,43 @@ _mm_cmpeq_pd(__m128d a, __m128d b)
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmplt_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(a, b, 1);
+  return (__m128d)__builtin_ia32_cmpltpd((__v2df)a, (__v2df)b);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmple_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(a, b, 2);
+  return (__m128d)__builtin_ia32_cmplepd((__v2df)a, (__v2df)b);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmpgt_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(b, a, 1);
+  return (__m128d)__builtin_ia32_cmpltpd((__v2df)b, (__v2df)a);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmpge_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(b, a, 2);
+  return (__m128d)__builtin_ia32_cmplepd((__v2df)b, (__v2df)a);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmpord_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(a, b, 7);
+  return (__m128d)__builtin_ia32_cmpordpd((__v2df)a, (__v2df)b);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmpunord_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(a, b, 3);
+  return (__m128d)__builtin_ia32_cmpunordpd((__v2df)a, (__v2df)b);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cmpneq_pd(__m128d a, __m128d b)
 {
-  return (__m128d)__builtin_ia32_cmppd(a, b, 4);
+  return (__m128d)__builtin_ia32_cmpneqpd((__v2df)a, (__v2df)b);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
@@ -389,13 +391,15 @@ _mm_cvtpd_ps(__m128d a)
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cvtps_pd(__m128 a)
 {
-  return __builtin_ia32_cvtps2pd(a);
+  return (__m128d) __builtin_convertvector(
+       __builtin_shufflevector((__v4sf)a, (__v4sf)a, 0, 1), __v2df);
 }
 
 static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_cvtepi32_pd(__m128i a)
 {
-  return __builtin_ia32_cvtdq2pd((__v4si)a);
+  return (__m128d) __builtin_convertvector(
+       __builtin_shufflevector((__v4si)a, (__v4si)a, 0, 1), __v2df);
 }
 
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
@@ -589,7 +593,10 @@ _mm_store_pd(double *dp, __m128d a)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storeu_pd(double *dp, __m128d a)
 {
-  __builtin_ia32_storeupd(dp, a);
+  struct __storeu_pd {
+    __m128d v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_pd*)dp)->v = a;
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -1191,7 +1198,10 @@ _mm_store_si128(__m128i *p, __m128i b)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storeu_si128(__m128i *p, __m128i b)
 {
-  __builtin_ia32_storedqu(__OCL_CAST_TO_PRIVATE(char *)(char *)p, (__v16qi)b);
+  struct __storeu_si128 {
+    __m128i v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_si128*)p)->v = b;
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -1212,7 +1222,7 @@ _mm_storel_epi64(__m128i *p, __m128i a)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_stream_pd(double *p, __m128d a)
 {
-  __builtin_ia32_movntpd(p, a);
+  __builtin_nontemporal_store((__v2df)a, (__v2df*)p);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -1221,23 +1231,8 @@ _mm_stream_si32(int *p, int a)
   __builtin_ia32_movnti(p, a);
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_clflush(void const *p)
-{
-  __builtin_ia32_clflush(p);
-}
-
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_lfence(void)
-{
-  __builtin_ia32_lfence();
-}
-
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_mfence(void)
-{
-  __builtin_ia32_mfence();
-}
+void _mm_lfence(void);
+void _mm_mfence(void);
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_packs_epi16(__m128i a, __m128i b)
@@ -1428,14 +1423,6 @@ _mm_castsi128_pd(__m128i in)
 {
   return (__m128d)in;
 }
-
-#ifndef __OPENCL__
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_pause(void)
-{
-  __asm__ volatile ("pause");
-}
-#endif
 
 #define _MM_SHUFFLE2(x, y) (((x) << 1) | (y))
 

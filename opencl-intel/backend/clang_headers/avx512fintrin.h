@@ -275,7 +275,7 @@ _mm512_rsqrt14_ps(__m512 __A)
 static  __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_rsqrt14_ss(__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_rsqrt14ss ((__v4sf) __A,
+  return (__m128) __builtin_ia32_rsqrt14ss_mask ((__v4sf) __A,
              (__v4sf) __B,
              (__v4sf)
              _mm_setzero_ps (),
@@ -285,7 +285,7 @@ _mm_rsqrt14_ss(__m128 __A, __m128 __B)
 static  __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_rsqrt14_sd(__m128d __A, __m128d __B)
 {
-  return (__m128d) __builtin_ia32_rsqrt14sd ((__v2df) __A,
+  return (__m128d) __builtin_ia32_rsqrt14sd_mask ((__v2df) __A,
               (__v2df) __B,
               (__v2df)
               _mm_setzero_pd (),
@@ -312,7 +312,7 @@ _mm512_rcp14_ps(__m512 __A)
 static  __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_rcp14_ss(__m128 __A, __m128 __B)
 {
-  return (__m128) __builtin_ia32_rcp14ss ((__v4sf) __A,
+  return (__m128) __builtin_ia32_rcp14ss_mask ((__v4sf) __A,
                  (__v4sf) __B,
                  (__v4sf)
                  _mm_setzero_ps (),
@@ -322,7 +322,7 @@ _mm_rcp14_ss(__m128 __A, __m128 __B)
 static  __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
 _mm_rcp14_sd(__m128d __A, __m128d __B)
 {
-  return (__m128d) __builtin_ia32_rcp14sd ((__v2df) __A,
+  return (__m128d) __builtin_ia32_rcp14sd_mask ((__v2df) __A,
             (__v2df) __B,
             (__v2df)
             _mm_setzero_pd (),
@@ -471,19 +471,13 @@ _mm512_cvttps_epu32(__m512 __A)
 static __inline __m512d __attribute__ (( __always_inline__, __nodebug__))
 _mm512_cvtepi32_pd(__m256i __A)
 {
-  return (__m512d) __builtin_ia32_cvtdq2pd512_mask ((__v8si) __A,
-                (__v8df)
-                _mm512_setzero_pd (),
-                (__mmask8) -1);
+  return (__m512d)__builtin_convertvector((__v8si)__A, __v8df);
 }
 
 static __inline __m512d __attribute__ (( __always_inline__, __nodebug__))
 _mm512_cvtepu32_pd(__m256i __A)
 {
-  return (__m512d) __builtin_ia32_cvtudq2pd512_mask ((__v8si) __A,
-                (__v8df)
-                _mm512_setzero_pd (),
-                (__mmask8) -1);
+  return (__m512d)__builtin_convertvector((__v8su)__A, __v8df);
 }
 #define _mm512_cvt_roundpd_ps(A, R) __extension__ ({ \
   (__m256)__builtin_ia32_cvtpd2ps512_mask((__v8df)(A), \
@@ -557,10 +551,9 @@ _mm512_test_epi64_mask(__m512i __A, __m512i __B);
 static __inline __m512i __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_loadu_epi32(__mmask16 __U, void const *__P)
 {
-  return (__m512i) __builtin_ia32_loaddqusi512_mask (__OCL_CAST_TO_PRIVATE(const __v16si *)(const __v16si *)__P,
-                                                     (__v16si)
-                                                     _mm512_setzero_si512 (),
-                                                     (__mmask16) __U);
+  return (__m512i) __builtin_ia32_loaddqusi512_mask (__OCL_CAST_TO_PRIVATE(const int *)(const int *)__P,
+                                                    (__v16si) _mm512_setzero_si512(),
+                                                    (__mmask16) __U);
 }
 
 __m512i __attribute__ ((__always_inline__, __nodebug__))
@@ -569,19 +562,17 @@ _mm512_maskz_loadu_epi64(__mmask8 __U, void const *__P);
 static __inline __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_loadu_ps(__mmask16 __U, void const *__P)
 {
-  return (__m512) __builtin_ia32_loadups512_mask (__OCL_CAST_TO_PRIVATE(const __v16sf *)(const __v16sf *)__P,
-                                                  (__v16sf)
-                                                  _mm512_setzero_ps (),
-                                                  (__mmask16) __U);
+  return (__m512) __builtin_ia32_loadups512_mask (__OCL_CAST_TO_PRIVATE(const float *)(const float *)__P,
+                                                 (__v16sf) _mm512_setzero_ps(),
+                                                 (__mmask16) __U);
 }
 
 static __inline __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_loadu_pd(__mmask8 __U, void const *__P)
 {
-  return (__m512d) __builtin_ia32_loadupd512_mask (__OCL_CAST_TO_PRIVATE( const __v8df *)(const __v8df *)__P,
-                                                   (__v8df)
-                                                   _mm512_setzero_pd (),
-                                                   (__mmask8) __U);
+  return (__m512d) __builtin_ia32_loadupd512_mask (__OCL_CAST_TO_PRIVATE( const double *)(const double *)__P,
+                                                  (__v8df) _mm512_setzero_pd(),
+                                                  (__mmask8) __U);
 }
 
 static __inline __m512d __attribute__((__always_inline__, __nodebug__))
@@ -610,33 +601,41 @@ _mm512_mask_storeu_epi64(void *__P, __mmask8 __U, __m512i __A);
 static __inline void __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_storeu_epi32(void *__P, __mmask16 __U, __m512i __A)
 {
-  __builtin_ia32_storedqusi512_mask (__OCL_CAST_TO_PRIVATE(__v16si *)(__v16si *)__P, (__v16si) __A,
-                                     (__mmask16) __U);
+  __builtin_ia32_storedqusi512_mask (__OCL_CAST_TO_PRIVATE(int *)(int *)__P,
+                                    (__v16si) __A,
+                                    (__mmask16) __U);
 }
 
 static __inline void __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_storeu_pd(void *__P, __mmask8 __U, __m512d __A)
 {
-  __builtin_ia32_storeupd512_mask (__OCL_CAST_TO_PRIVATE(__v8df *)(__v8df *)__P, (__v8df) __A, (__mmask8) __U);
+  __builtin_ia32_storeupd512_mask (__OCL_CAST_TO_PRIVATE(double *)(double *)__P,
+                                  (__v8df) __A,
+                                  (__mmask8) __U);
 }
 
 static __inline void __attribute__ ((__always_inline__, __nodebug__))
 _mm512_storeu_pd(void *__P, __m512d __A)
 {
-  __builtin_ia32_storeupd512_mask(__OCL_CAST_TO_PRIVATE(__v8df *)(__v8df *)__P, (__v8df)__A, (__mmask8)-1);
+  __builtin_ia32_storeupd512_mask(__OCL_CAST_TO_PRIVATE(double *)(double *)__P,
+                                 (__v8df)__A,
+                                 (__mmask8)-1);
 }
 
 static __inline void __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_storeu_ps(void *__P, __mmask16 __U, __m512 __A)
 {
-  __builtin_ia32_storeups512_mask (__OCL_CAST_TO_PRIVATE(__v16sf *)(__v16sf *)__P, (__v16sf) __A,
-                                   (__mmask16) __U);
+  __builtin_ia32_storeups512_mask (__OCL_CAST_TO_PRIVATE(float *)(float *)__P,
+                                  (__v16sf) __A,
+                                  (__mmask16) __U);
 }
 
 static __inline void __attribute__ ((__always_inline__, __nodebug__))
 _mm512_storeu_ps(void *__P, __m512 __A)
 {
-  __builtin_ia32_storeups512_mask(__OCL_CAST_TO_PRIVATE(__v16sf *)(__v16sf *)__P, (__v16sf)__A, (__mmask16)-1);
+  __builtin_ia32_storeups512_mask(__OCL_CAST_TO_PRIVATE(float *)(float *)__P,
+                                 (__v16sf)__A,
+                                 (__mmask16)-1);
 }
 
 static __inline void __attribute__ ((__always_inline__, __nodebug__))

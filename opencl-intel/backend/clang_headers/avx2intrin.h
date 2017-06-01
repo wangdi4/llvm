@@ -339,37 +339,41 @@ _mm256_movemask_epi8(__m256i a)
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepi8_epi16(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovsxbw256((__v16qi)__V);
+  /* This function always performs a signed extension, but __v16qi is a char
+     which may be signed or unsigned, so use __v16qs. */
+  return (__m256i)__builtin_convertvector((__v16qs)__V, __v16hi);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepi8_epi32(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovsxbd256((__v16qi)__V);
+  /* This function always performs a signed extension, but __v16qi is a char
+     which may be signed or unsigned, so use __v16qs. */
+  return (__m256i)__builtin_convertvector(__builtin_shufflevector((__v16qs)__V, (__v16qs)__V, 0, 1, 2, 3, 4, 5, 6, 7), __v8si);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepi16_epi32(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovsxwd256((__v8hi)__V);
+  return (__m256i)__builtin_convertvector((__v8hi)__V, __v8si);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepu8_epi16(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovzxbw256((__v16qi)__V);
+  return (__m256i)__builtin_convertvector((__v16qu)__V, __v16hi);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepu8_epi32(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovzxbd256((__v16qi)__V);
+  return (__m256i)__builtin_convertvector(__builtin_shufflevector((__v16qu)__V, (__v16qu)__V, 0, 1, 2, 3, 4, 5, 6, 7), __v8si);
 }
 
 static __inline__ __m256i __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepu16_epi32(__m128i __V)
 {
-  return (__m256i)__builtin_ia32_pmovzxwd256((__v8hi)__V);
+  return (__m256i)__builtin_convertvector((__v8hu)__V, __v8si);
 }
 
 __m256i __attribute__((__always_inline__, __nodebug__))
