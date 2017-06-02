@@ -125,6 +125,7 @@ namespace llvm {
     unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb);
     void generateDynamicPickTreeForFooter(MachineBasicBlock *);
     void generateDynamicPickTreeForHeader(MachineBasicBlock*);
+    bool parentsLinearInCDG(MachineBasicBlock* mbb);
     bool needDynamicPreds();
     bool needDynamicPreds(MachineLoop* L);
     void generateDynamicPreds();
@@ -141,6 +142,7 @@ namespace llvm {
     unsigned mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::list<MachineBasicBlock*> &path);
     unsigned computeBBPred(MachineBasicBlock *inBB, std::list<MachineBasicBlock*> &path);
     void TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, unsigned Reg, unsigned dst, MachineInstr* MI);
+    void TraceThroughPhi(MachineInstr* iphi, MachineBasicBlock* mbb, unsigned dst);
     void TraceLeak(MachineBasicBlock* ctrlBB, MachineBasicBlock* mbb, SmallVectorImpl<unsigned> &landOpnds);
     void CombineDuplicatePhiInputs(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr* iPhi);
     void LowerXPhi(SmallVectorImpl<std::pair<unsigned, unsigned> *> &pred2values, MachineInstr *MI);
@@ -1781,7 +1783,7 @@ MachineInstr* CSACvtCFDFPass::PatchOrInsertPickAtFork(
     //if (TII->isPick(DefMI) && DefMI->getParent() == pickInstr->getParent()) {
     if (multiInputsPick.find(DefMI) != multiInputsPick.end()) {
       //make sure input src is before the pick
-      assert(DefMI->getParent() == pickInstr->getParent());
+      //assert(DefMI->getParent() == pickInstr->getParent());
       pickInstr->removeFromParent();
       DefMI->getParent()->insertAfter(DefMI, pickInstr);
     }
@@ -1842,6 +1844,44 @@ void CSACvtCFDFPass::assignPICKSrcForReg(unsigned &pickFalseReg, unsigned &pickT
   }
 }
 
+void CSACvtCFDFPass::TraceThroughPhi(MachineInstr* iphi, MachineBasicBlock* mbb, unsigned dst) {
+  for (MIOperands MO(*iphi); MO.isValid(); ++MO) {
+    if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
+    if (MO->isUse()) {
+      unsigned Reg = MO->getReg();
+      //move to its incoming block operand
+      ++MO;
+      MachineBasicBlock* inBB = MO->getMBB();
+      if (DT->dominates(inBB, mbb)) {
+        //fall through
+        MachineInstr* dMI = MRI->getVRegDef(Reg);
+        MachineBasicBlock* DefBB = dMI->getParent();
+        unsigned switchingDef = findSwitchingDstForReg(Reg, DefBB);
+        if (switchingDef) {
+          Reg = switchingDef;
+        }
+        PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, iphi, dst);
+        continue;
+      } else {
+        bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);
+        if (inBBFork) {
+          MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, iphi, 0);
+          if (!pickInstr) {
+            //patched
+            continue;  //to next MO
+          } else {
+            Reg = pickInstr->getOperand(0).getReg();
+          }
+        }
+        TraceCtrl(inBB, mbb, Reg, dst, iphi);
+      }
+    }
+  } //end of for MO
+}
+
+
+
+
 
 void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
   MachineBasicBlock::iterator iterI = mbb->begin();
@@ -1851,38 +1891,7 @@ void CSACvtCFDFPass::generateCompletePickTreeForPhi(MachineBasicBlock* mbb) {
     if (!MI->isPHI()) continue;
     multiInputsPick.clear();
     unsigned dst = MI->getOperand(0).getReg();
-    for (MIOperands MO(*MI); MO.isValid(); ++MO) {
-      if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
-      if (MO->isUse()) {
-        unsigned Reg = MO->getReg();
-        //move to its incoming block operand
-        ++MO;
-        MachineBasicBlock* inBB = MO->getMBB();
-        if (DT->dominates(inBB, mbb)) {
-          //fall through
-          MachineInstr* dMI = MRI->getVRegDef(Reg);
-          MachineBasicBlock* DefBB = dMI->getParent();
-          unsigned switchingDef = findSwitchingDstForReg(Reg, DefBB);
-          if (switchingDef) {
-            Reg = switchingDef;
-          }
-          PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, dst);
-          continue;
-        } else {
-          bool inBBFork = inBB->succ_size() > 1 && (!MLI->getLoopFor(inBB) || MLI->getLoopFor(inBB)->getLoopLatch() != inBB);          
-          if (inBBFork) {
-            MachineInstr* pickInstr = PatchOrInsertPickAtFork(inBB, dst, Reg, nullptr, MI, 0);
-            if (!pickInstr) {
-              //patched
-              continue;  //to next MO
-            } else {
-              Reg = pickInstr->getOperand(0).getReg();
-            }
-          }
-          TraceCtrl(inBB, mbb, Reg, dst, MI);
-        }
-      }
-    } //end of for MO
+    TraceThroughPhi(MI, mbb, dst);
     MI->removeFromParent();
     PatchCFGLeaksFromPcikTree(dst);
   }
@@ -2372,18 +2381,63 @@ MachineInstr* CSACvtCFDFPass::InsertPredProp(MachineBasicBlock* mbb, unsigned bb
 }
 
 
+bool CSACvtCFDFPass::parentsLinearInCDG(MachineBasicBlock* mbb) {
+  std::list<ControlDependenceNode *> parents;
+  parents.clear();
+  ControlDependenceNode *inNode = CDG->getNode(mbb);
+  parents.clear();
+  for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
+    ControlDependenceNode* ctrlNode = *pnode;
+    MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+    if (!ctrlBB) continue;
+    //ignore loop latch, keep looking beyond the loop
+    if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+      continue;
+    //sort parents using the non-transitive parent relationship
+    std::list<ControlDependenceNode *>::iterator parent = parents.begin();
+    while (parent != parents.end()) {
+      if (ctrlNode->isParent(*parent)) {
+        //insert before parent
+        break;
+      }
+      else if ((*parent)->isParent(ctrlNode)) {
+        //insert after parent
+        parent++;
+        break;
+      }
+      parent++;
+    }
+    parents.insert(parent, ctrlNode);
+  }
+  //all parents have to form a linear control dependence relationship
+  if (parents.size() > 1) {
+    std::list<ControlDependenceNode *>::iterator parent = parents.begin();
+    std::list<ControlDependenceNode *>::iterator next = parent;
+    next++;
+    while (next != parents.end()) {
+      if (!(*parent)->isParent(*next)) return false;
+      parent = next;
+      next++;
+    }
+  }
+  return true;
+}
+
+
 bool CSACvtCFDFPass::needDynamicPreds() {
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) {
     if (needDynamicPreds(*LI)) {
       return true;
     }
   }
-#if 1
-  std::list<ControlDependenceNode *> parents;
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock *mbb = &*BB;
+#if 0
+    if (!parentsLinearInCDG(mbb))
+      return true;
+#endif
+    unsigned nParent = 0;
     ControlDependenceNode *inNode = CDG->getNode(mbb);
-    parents.clear();
     for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
       ControlDependenceNode* ctrlNode = *pnode;
       MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
@@ -2391,38 +2445,14 @@ bool CSACvtCFDFPass::needDynamicPreds() {
       //ignore loop latch, keep looking beyond the loop
       if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
         continue;
-      //sort parents using the non-transitive parent relationship
-      std::list<ControlDependenceNode *>::iterator parent = parents.begin();
-      while (parent != parents.end()) {
-        if (ctrlNode->isParent(*parent)) {
-          //insert before parent
-          break;
-        } else if ((*parent)->isParent(ctrlNode)) {
-          //insert after parent
-          parent++;
-          break;
-        }
-        parent++;
-      }
-      parents.insert(parent, ctrlNode);
+      nParent++;
     }
-    //all parents have to form a linear control dependence relationship
-    if (parents.size() > 1) {
-      std::list<ControlDependenceNode *>::iterator parent = parents.begin();
-      std::list<ControlDependenceNode *>::iterator next = parent;
-      next++;
-      while (next != parents.end()) {
-        if (!(*parent)->isParent(*next)) return true;
-        parent = next;
-        next++;
-      }
-    }
+    if (nParent > 1 && mbb->succ_size() > 1)
+      //the phi value will be used by the switch to define new values
+      return true;
   }
-#endif
   return false;
 }
-
-
 
 bool CSACvtCFDFPass::needDynamicPreds(MachineLoop* L) {
   for (MachineLoop::iterator LI = L->begin(), LE = L->end(); LI != LE; ++LI) {
@@ -3243,19 +3273,30 @@ void CSACvtCFDFPass::TraceCtrl(MachineBasicBlock* inBB, MachineBasicBlock* mbb, 
   MachineBasicBlock* ctrlBB = nullptr;
   if (!DT->dominates(inBB, mbb)) {
     ControlDependenceNode* inNode = CDG->getNode(inBB);
-    for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
-      ControlDependenceNode* ctrlNode = *pnode;
-      ctrlBB = ctrlNode->getBlock();
-      if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
-        continue;
-      unsigned pickReg = 0;
-      if (DT->dominates(ctrlBB, mbb)) {
-        pickReg = dst;
-      }
-      MachineInstr* pickInstr = PatchOrInsertPickAtFork(ctrlBB, dst, Reg, inBB, MI, pickReg);
-      if (pickInstr) {
-        //not patched, keep tracing
-        TraceCtrl(ctrlBB, mbb, pickInstr->getOperand(0).getReg(), dst, MI);
+    MachineInstr *DefMI = MRI->getVRegDef(Reg);
+    if (!parentsLinearInCDG(inBB)) {
+      //TODO: lift the DefMI->isPHI() condition
+      if (DefMI->getParent() == inBB && DefMI->isPHI())
+        TraceThroughPhi(DefMI, mbb, dst);
+      else
+        assert(false && "encunter rare case to be handled in future opt\n");
+    } else {
+      for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end();
+        pnode != pend; ++pnode) {
+        ControlDependenceNode* ctrlNode = *pnode;
+        ctrlBB = ctrlNode->getBlock();
+        if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+          continue;
+
+        unsigned pickReg = 0;
+        if (DT->dominates(ctrlBB, mbb)) {
+          pickReg = dst;
+        }
+        MachineInstr* pickInstr = PatchOrInsertPickAtFork(ctrlBB, dst, Reg, inBB, MI, pickReg);
+        if (pickInstr) {
+          //not patched, keep tracing
+          TraceCtrl(ctrlBB, mbb, pickInstr->getOperand(0).getReg(), dst, MI);
+        }
       }
     }
   }
