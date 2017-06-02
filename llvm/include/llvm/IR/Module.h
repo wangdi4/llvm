@@ -775,6 +775,20 @@ public:
   /// Returns zero if not present in module.
   unsigned getCodeViewFlag() const;
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Returns true if any Intel proprietary optimizations have been
+  /// performed on the module.
+  ///
+  /// If two modules have been merged or linked this function will return true
+  /// if either module contained Intel proprietary optimizations before the
+  /// merge or link.
+  bool isIntelProprietary() const;
+
+  /// \brief Sets a module flag indicating that Intel proprietary optimizations
+  /// have been performed on the module.
+  void setIntelProprietary();
+#endif // INTEL_CUSTOMIZATION
+
 /// @}
 /// @name Utility functions for querying and setting PIC level
 /// @{
