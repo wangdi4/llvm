@@ -1,4 +1,4 @@
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Lex/Preprocessor.h"

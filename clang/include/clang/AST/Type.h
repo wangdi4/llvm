@@ -333,6 +333,20 @@ public:
 
   bool hasAddressSpace() const { return Mask & AddressSpaceMask; }
   unsigned getAddressSpace() const { return Mask >> AddressSpaceShift; }
+  /// Get the address space attribute value to be printed by diagnostics.
+  unsigned getAddressSpaceAttributePrintValue() const {
+    auto Addr = getAddressSpace();
+    // This function is not supposed to be used with language specific
+    // address spaces. If that happens, the diagnostic message should consider
+    // printing the QualType instead of the address space value.
+    assert(Addr == 0 || Addr >= LangAS::Count);
+    if (Addr)
+      return Addr - LangAS::Count;
+    // TODO: The diagnostic messages where Addr may be 0 should be fixed
+    // since it cannot differentiate the situation where 0 denotes the default
+    // address space or user specified __attribute__((address_space(0))).
+    return 0;
+  }
   void setAddressSpace(unsigned space) {
     assert(space <= MaxAddressSpace);
     Mask = (Mask & ~AddressSpaceMask)
@@ -1019,6 +1033,9 @@ public:
   bool hasStrongOrWeakObjCLifetime() const {
     return getQualifiers().hasStrongOrWeakObjCLifetime();
   }
+
+  // true when Type is objc's weak and weak is enabled but ARC isn't.
+  bool isNonWeakInMRRWithObjCWeak(const ASTContext &Context) const;
 
   enum DestructionKind {
     DK_none,
@@ -1744,7 +1761,6 @@ public:
   bool isEventT() const;                        // OpenCL event_t
   bool isClkEventT() const;                     // OpenCL clk_event_t
   bool isQueueT() const;                        // OpenCL queue_t
-  bool isNDRangeT() const;                      // OpenCL ndrange_t
   bool isReserveIDT() const;                    // OpenCL reserve_id_t
 
   bool isPipeType() const;                      // OpenCL pipe type
@@ -2077,7 +2093,7 @@ public:
     : Type(Builtin, QualType(), /*Dependent=*/(K == Dependent),
            /*InstantiationDependent=*/(K == Dependent),
            /*VariablyModified=*/false,
-           /*Unexpanded paramter pack=*/false) {
+           /*Unexpanded parameter pack=*/false) {
     BuiltinTypeBits.Kind = K;
   }
 
@@ -3127,9 +3143,11 @@ public:
   class ExtParameterInfo {
     enum {
       ABIMask         = 0x0F,
-      IsConsumed      = 0x10
+      IsConsumed      = 0x10,
+      HasPassObjSize  = 0x20,
     };
     unsigned char Data;
+
   public:
     ExtParameterInfo() : Data(0) {}
 
@@ -3156,6 +3174,15 @@ public:
         copy.Data &= ~IsConsumed;
       }
       return copy;
+    }
+
+    bool hasPassObjectSize() const {
+      return Data & HasPassObjSize;
+    }
+    ExtParameterInfo withHasPassObjectSize() const {
+      ExtParameterInfo Copy = *this;
+      Copy.Data |= HasPassObjSize;
+      return Copy;
     }
 
     unsigned char getOpaqueValue() const { return Data; }
@@ -5827,10 +5854,6 @@ inline bool Type::isQueueT() const {
   return isSpecificBuiltinType(BuiltinType::OCLQueue);
 }
 
-inline bool Type::isNDRangeT() const {
-  return isSpecificBuiltinType(BuiltinType::OCLNDRange);
-}
-
 inline bool Type::isReserveIDT() const {
   return isSpecificBuiltinType(BuiltinType::OCLReserveID);
 }
@@ -5848,7 +5871,7 @@ inline bool Type::isPipeType() const {
 
 inline bool Type::isOpenCLSpecificType() const {
   return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||
-         isQueueT() || isNDRangeT() || isReserveIDT() || isPipeType();
+         isQueueT() || isReserveIDT() || isPipeType();
 }
 
 inline bool Type::isTemplateTypeParmType() const {

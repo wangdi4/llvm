@@ -21,10 +21,10 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/Parser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/PrettyStackTrace.h"
-#include "clang/Parse/Parser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Lookup.h" // INTEL
 #include "clang/Sema/ParsedTemplate.h"
@@ -199,8 +199,8 @@ ExprResult Parser::ParseConstantExpression(TypeCastState isTypeCast) {
   //   An expression is potentially evaluated unless it appears where an
   //   integral constant expression is required (see 5.19) [...].
   // C++98 and C++11 have no such rule, but this is only a defect in C++98.
-  EnterExpressionEvaluationContext ConstantEvaluated(Actions,
-                                               Sema::ConstantEvaluated);
+  EnterExpressionEvaluationContext ConstantEvaluated(
+      Actions, Sema::ExpressionEvaluationContext::ConstantEvaluated);
 
   ExprResult LHS(ParseCastExpression(false, false, isTypeCast));
   ExprResult Res(ParseRHSOfBinaryExpression(LHS, prec::Conditional));
@@ -363,7 +363,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
         ColonLoc = Tok.getLocation();
       }
     }
-    
+
     // Code completion for the right-hand side of an assignment expression
     // goes through a special hook that takes the left-hand side into account.
     if (Tok.is(tok::code_completion) && NextTokPrec == prec::Assignment) {
@@ -371,7 +371,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       cutOffParsing();
       return ExprError();
     }
-    
+
     // Parse another leaf here for the RHS of the operator.
     // ParseCastExpression works here because all RHS expressions in C have it
     // as a prefix, at least. However, in C++, an assignment-expression could
@@ -486,6 +486,7 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       if (!getLangOpts().CPlusPlus)
         continue;
     }
+
     // Ensure potential typos aren't left undiagnosed.
     if (LHS.isInvalid()) {
       Actions.CorrectDelayedTyposInExpr(OrigLHS);
@@ -503,12 +504,14 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
 ///
 ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
                                        bool isAddressOfOperand,
-                                       TypeCastState isTypeCast) {
+                                       TypeCastState isTypeCast,
+                                       bool isVectorLiteral) {
   bool NotCastExpr;
   ExprResult Res = ParseCastExpression(isUnaryExpression,
                                        isAddressOfOperand,
                                        NotCastExpr,
-                                       isTypeCast);
+                                       isTypeCast,
+                                       isVectorLiteral);
   if (NotCastExpr)
     Diag(Tok, diag::err_expected_expression);
   return Res;
@@ -704,6 +707,7 @@ class CastExpressionIdValidator : public CorrectionCandidateCallback {
 ///                   '__is_union'
 ///
 /// [Clang] unary-type-trait:
+///                   '__is_aggregate'
 ///                   '__trivially_copyable'
 ///
 ///       binary-type-trait:
@@ -724,7 +728,8 @@ class CastExpressionIdValidator : public CorrectionCandidateCallback {
 ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
                                        bool isAddressOfOperand,
                                        bool &NotCastExpr,
-                                       TypeCastState isTypeCast) {
+                                       TypeCastState isTypeCast,
+                                       bool isVectorLiteral) {
   ExprResult Res;
   tok::TokenKind SavedKind = Tok.getKind();
   NotCastExpr = false;
@@ -751,6 +756,9 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     SourceLocation RParenLoc;
     Res = ParseParenExpression(ParenExprType, false/*stopIfCastExr*/,
                                isTypeCast == IsTypeCast, CastTy, RParenLoc);
+
+    if (isVectorLiteral)
+        return Res;
 
     switch (ParenExprType) {
     case SimpleExpr:   break;    // Nothing else to do.
@@ -828,6 +836,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
             = RTT_JOIN(tok::kw_,Name)
 
           REVERTIBLE_TYPE_TRAIT(__is_abstract);
+          REVERTIBLE_TYPE_TRAIT(__is_aggregate);
           REVERTIBLE_TYPE_TRAIT(__is_arithmetic);
           REVERTIBLE_TYPE_TRAIT(__is_array);
           REVERTIBLE_TYPE_TRAIT(__is_assignable);
@@ -1372,7 +1381,8 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     // C++11 [expr.unary.noexcept]p1:
     //   The noexcept operator determines whether the evaluation of its operand,
     //   which is an unevaluated operand, can throw an exception.
-    EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+    EnterExpressionEvaluationContext Unevaluated(
+        Actions, Sema::ExpressionEvaluationContext::Unevaluated);
     ExprResult Result = ParseExpression();
 
     T.consumeClose();
@@ -2072,9 +2082,10 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
     
     if (!Name)
       return ExprError();
-    
-    EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated,
-                                                 Sema::ReuseLambdaContextDecl);
+
+    EnterExpressionEvaluationContext Unevaluated(
+        Actions, Sema::ExpressionEvaluationContext::Unevaluated,
+        Sema::ReuseLambdaContextDecl);
 
     return Actions.ActOnSizeofParameterPackExpr(getCurScope(),
                                                 OpTok.getLocation(), 
@@ -2085,8 +2096,9 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   if (OpTok.isOneOf(tok::kw_alignof, tok::kw__Alignof))
     Diag(OpTok, diag::warn_cxx98_compat_alignof);
 
-  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated,
-                                               Sema::ReuseLambdaContextDecl);
+  EnterExpressionEvaluationContext Unevaluated(
+      Actions, Sema::ExpressionEvaluationContext::Unevaluated,
+      Sema::ReuseLambdaContextDecl);
 
   bool isCastExpr;
   ParsedType CastTy;
@@ -2546,6 +2558,48 @@ Parser::ParseParenExpression(ParenParseOption &ExprType, bool stopIfCastExpr,
         return ParseCompoundLiteralExpression(Ty.get(), OpenLoc, RParenLoc);
       }
 
+      if (Tok.is(tok::l_paren)) {
+        // This could be OpenCL vector Literals
+        if (getLangOpts().OpenCL)
+        {
+          TypeResult Ty;
+          {
+            InMessageExpressionRAIIObject InMessage(*this, false);
+            Ty = Actions.ActOnTypeName(getCurScope(), DeclaratorInfo);
+          }
+          if(Ty.isInvalid())
+          {
+             return ExprError();
+          }
+          QualType QT = Ty.get().get().getCanonicalType();
+          if (QT->isVectorType())
+          {
+            // We parsed '(' vector-type-name ')' followed by '('
+
+            // Parse the cast-expression that follows it next.
+            // isVectorLiteral = true will make sure we don't parse any
+            // Postfix expression yet
+            Result = ParseCastExpression(/*isUnaryExpression=*/false,
+                                         /*isAddressOfOperand=*/false,
+                                         /*isTypeCast=*/IsTypeCast,
+                                         /*isVectorLiteral=*/true);
+
+            if (!Result.isInvalid()) {
+              Result = Actions.ActOnCastExpr(getCurScope(), OpenLoc,
+                                             DeclaratorInfo, CastTy,
+                                             RParenLoc, Result.get());
+            }
+
+            // After we performed the cast we can check for postfix-expr pieces.
+            if (!Result.isInvalid()) {
+              Result = ParsePostfixExpressionSuffix(Result);
+            }
+
+            return Result;
+          }
+        }
+      }
+
       if (ExprType == CastExpr) {
         // We parsed '(' type-name ')' and the thing after it wasn't a '{'.
 
@@ -2717,7 +2771,8 @@ ExprResult Parser::ParseGenericSelectionExpression() {
   {
     // C11 6.5.1.1p3 "The controlling expression of a generic selection is
     // not evaluated."
-    EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+    EnterExpressionEvaluationContext Unevaluated(
+        Actions, Sema::ExpressionEvaluationContext::Unevaluated);
     ControllingExpr =
         Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
     if (ControllingExpr.isInvalid()) {
@@ -2895,7 +2950,8 @@ ExprResult Parser::ParseIntelGenericSelectionExpression() {
 /// an integral type to double, and return the type.
 QualType Parser::getTypeOfControllingExpr() {
   // The controlling expression of a generic selection is not evaluated
-  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+  EnterExpressionEvaluationContext Unevaluated(
+        Actions, Sema::ExpressionEvaluationContext::Unevaluated);
   SourceLocation KeyLoc = Tok.getLocation();
   QualType Res;
   auto ControllingExpr =
@@ -2930,7 +2986,8 @@ bool Parser::getTypeOfPossibleControllingExpr(QualType &QT) {
     return true;
 
   SourceLocation KeyLoc = Tok.getLocation();
-  EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated);
+  EnterExpressionEvaluationContext Unevaluated(
+        Actions, Sema::ExpressionEvaluationContext::Unevaluated);
   auto ControllingExpr =
     Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
   if (ControllingExpr.isInvalid()) {

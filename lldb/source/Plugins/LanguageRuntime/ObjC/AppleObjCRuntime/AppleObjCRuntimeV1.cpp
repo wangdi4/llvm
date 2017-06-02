@@ -15,7 +15,6 @@
 #include "clang/AST/Type.h"
 
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
@@ -30,6 +29,7 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
 #include <vector>
@@ -127,7 +127,7 @@ struct BufStruct {
 UtilityFunction *AppleObjCRuntimeV1::CreateObjectChecker(const char *name) {
   std::unique_ptr<BufStruct> buf(new BufStruct);
 
-  assert(snprintf(&buf->contents[0], sizeof(buf->contents),
+  int strformatsize = snprintf(&buf->contents[0], sizeof(buf->contents),
                   "struct __objc_class                                         "
                   "           \n"
                   "{                                                           "
@@ -169,7 +169,8 @@ UtilityFunction *AppleObjCRuntimeV1::CreateObjectChecker(const char *name) {
                   "           \n"
                   "}                                                           "
                   "           \n",
-                  name) < (int)sizeof(buf->contents));
+                  name);
+  assert(strformatsize < (int)sizeof(buf->contents));
 
   Error error;
   return GetTargetRef().GetUtilityFunctionForLanguage(

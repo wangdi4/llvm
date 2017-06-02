@@ -35,7 +35,8 @@
 static const char *RTLNames[] = {
     /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
-    /* CUDA target    */ "libomptarget.rtl.cuda.so"};
+    /* CUDA target    */ "libomptarget.rtl.cuda.so",
+    /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
 
 // forward declarations
 struct RTLInfoTy;
@@ -59,6 +60,10 @@ struct HostDataToTargetTy {
   HostDataToTargetTy(uintptr_t BP, uintptr_t B, uintptr_t E, uintptr_t TB)
       : HstPtrBase(BP), HstPtrBegin(B), HstPtrEnd(E),
         TgtPtrBegin(TB), RefCount(1) {}
+  HostDataToTargetTy(uintptr_t BP, uintptr_t B, uintptr_t E, uintptr_t TB,
+      long RF)
+      : HstPtrBase(BP), HstPtrBegin(B), HstPtrEnd(E),
+        TgtPtrBegin(TB), RefCount(RF) {}
 };
 
 typedef std::list<HostDataToTargetTy> HostDataToTargetListTy;
@@ -901,7 +906,7 @@ void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size, bool &IsLast,
 }
 
 // Return the target pointer begin (where the data will be moved).
-// Lock-free version called from within assertions.
+// Lock-free version called when loading global symbols from the fat binary.
 void *DeviceTy::getTgtPtrBegin(void *HstPtrBegin, int64_t Size) {
   uintptr_t hp = (uintptr_t)HstPtrBegin;
   LookupResult lr = lookupMapping(HstPtrBegin, Size);
@@ -1313,17 +1318,22 @@ static int InitLibrary(DeviceTy& Device) {
         // has data.
         assert(CurrDeviceEntry->size == CurrHostEntry->size &&
                "data size mismatch");
-        assert(Device.getTgtPtrBegin(CurrHostEntry->addr,
-                                     CurrHostEntry->size) == NULL &&
-               "data in declared target should not be already mapped");
-        // add entry to map.
+
+        // Fortran may use multiple weak declarations for the same symbol,
+        // therefore we must allow for multiple weak symbols to be loaded from
+        // the fat binary. Treat these mappings as any other "regular" mapping.
+        // Add entry to map.
+        if (Device.getTgtPtrBegin(CurrHostEntry->addr, CurrHostEntry->size))
+          continue;
         DP("Add mapping from host " DPxMOD " to device " DPxMOD " with size %zu"
             "\n", DPxPTR(CurrHostEntry->addr), DPxPTR(CurrDeviceEntry->addr),
             CurrDeviceEntry->size);
         Device.HostDataToTargetMap.push_front(HostDataToTargetTy(
-            (uintptr_t)CurrHostEntry->addr, (uintptr_t)CurrHostEntry->addr,
-            (uintptr_t)CurrHostEntry->addr + CurrHostEntry->size,
-            (uintptr_t)CurrDeviceEntry->addr));
+            (uintptr_t)CurrHostEntry->addr /*HstPtrBase*/,
+            (uintptr_t)CurrHostEntry->addr /*HstPtrBegin*/,
+            (uintptr_t)CurrHostEntry->addr + CurrHostEntry->size /*HstPtrEnd*/,
+            (uintptr_t)CurrDeviceEntry->addr /*TgtPtrBegin*/,
+            INF_REF_CNT /*RefCount*/));
       }
     }
     Device.DataMapMtx.unlock();
@@ -1433,19 +1443,22 @@ static void translate_map(int32_t arg_num, void **args_base, void **args,
   bool *is_ptr_old = (bool *) alloca(arg_num * sizeof(bool));
   // old entry is member of member_of[old] cmb_entry
   int *member_of = (int *) alloca(arg_num * sizeof(int));
+  // temporary storage for modifications of the original arg_types
+  int32_t *mod_arg_types = (int32_t *) alloca(arg_num  *sizeof(int32_t));
 
   DP("Translating %d map entries\n", arg_num);
   for (int i = 0; i < arg_num; ++i) {
     member_of[i] = -1;
     is_ptr_old[i] = false;
+    mod_arg_types[i] = arg_types[i];
     // Scan previous entries to see whether this entry shares the same base
     for (int j = 0; j < i; ++j) {
       void *new_begin_addr = NULL;
       void *new_end_addr = NULL;
 
-      if (arg_types[i] & OMP_TGT_OLDMAPTYPE_MAP_PTR) {
+      if (mod_arg_types[i] & OMP_TGT_OLDMAPTYPE_MAP_PTR) {
         if (args_base[i] == args[j]) {
-          if (!(arg_types[j] & OMP_TGT_OLDMAPTYPE_MAP_PTR)) {
+          if (!(mod_arg_types[j] & OMP_TGT_OLDMAPTYPE_MAP_PTR)) {
             DP("Entry %d has the same base as entry %d's begin address\n", i,
                 j);
             new_begin_addr = args_base[i];
@@ -1455,10 +1468,18 @@ static void translate_map(int32_t arg_num, void **args_base, void **args,
           } else {
             DP("Entry %d has the same base as entry %d's begin address, but "
                 "%d's base was a MAP_PTR too\n", i, j, j);
+            int32_t to_from_always_delete =
+                OMP_TGT_OLDMAPTYPE_TO | OMP_TGT_OLDMAPTYPE_FROM |
+                OMP_TGT_OLDMAPTYPE_ALWAYS | OMP_TGT_OLDMAPTYPE_DELETE;
+            if (mod_arg_types[j] & to_from_always_delete) {
+              DP("Resetting to/from/always/delete flags for entry %d because "
+                  "it is only a pointer to pointer\n", j);
+              mod_arg_types[j] &= ~to_from_always_delete;
+            }
           }
         }
       } else {
-        if (!(arg_types[i] & OMP_TGT_OLDMAPTYPE_FIRST_MAP) &&
+        if (!(mod_arg_types[i] & OMP_TGT_OLDMAPTYPE_FIRST_MAP) &&
             args_base[i] == args_base[j]) {
           DP("Entry %d has the same base address as entry %d\n", i, j);
           new_begin_addr = args[i];
@@ -1476,7 +1497,7 @@ static void translate_map(int32_t arg_num, void **args_base, void **args,
           // Initialize new entry
           cmb_entries[id].num_members = 1;
           cmb_entries[id].base_addr = args_base[j];
-          if (arg_types[j] & OMP_TGT_OLDMAPTYPE_MAP_PTR) {
+          if (mod_arg_types[j] & OMP_TGT_OLDMAPTYPE_MAP_PTR) {
             cmb_entries[id].begin_addr = args_base[j];
             cmb_entries[id].end_addr = (char *)args_base[j] + arg_sizes[j];
           } else {
@@ -1554,7 +1575,7 @@ static void translate_map(int32_t arg_num, void **args_base, void **args,
     new_args_base[nid] = args_base[i];
     new_args[nid] = args[i];
     new_arg_sizes[nid] = arg_sizes[i];
-    int64_t old_type = arg_types[i];
+    int64_t old_type = mod_arg_types[i];
 
     if (is_ptr_old[i]) {
       // Reset TO and FROM flags
@@ -1787,12 +1808,12 @@ static int target_data_end(DeviceTy &Device, int32_t arg_num, void **args_base,
         " - is%s last\n", arg_sizes[i], DPxPTR(TgtPtrBegin),
         (IsLast ? "" : " not"));
 
+    bool DelEntry = IsLast || ForceDelete;
+
     if ((arg_types[i] & OMP_TGT_MAPTYPE_MEMBER_OF) &&
         !(arg_types[i] & OMP_TGT_MAPTYPE_PTR_AND_OBJ)) {
-      IsLast = false; // protect parent struct from being deallocated
+      DelEntry = false; // protect parent struct from being deallocated
     }
-
-    bool DelEntry = IsLast || ForceDelete;
 
     if ((arg_types[i] & OMP_TGT_MAPTYPE_FROM) || DelEntry) {
       // Move data back to the host
@@ -2197,13 +2218,6 @@ static int target(int32_t device_id, void *host_ptr, int32_t arg_num,
 
 EXTERN int __tgt_target(int32_t device_id, void *host_ptr, int32_t arg_num,
     void **args_base, void **args, int64_t *arg_sizes, int32_t *arg_types) {
-  if (device_id == OFFLOAD_DEVICE_CONSTRUCTOR ||
-      device_id == OFFLOAD_DEVICE_DESTRUCTOR) {
-    // Return immediately for the time being, target calls with device_id
-    // -2 or -3 will be removed from the compiler in the future.
-    return OFFLOAD_SUCCESS;
-  }
-
   DP("Entering target region with entry point " DPxMOD " and device Id %d\n",
      DPxPTR(host_ptr), device_id);
 
@@ -2251,13 +2265,6 @@ EXTERN int __tgt_target_nowait(int32_t device_id, void *host_ptr,
 EXTERN int __tgt_target_teams(int32_t device_id, void *host_ptr,
     int32_t arg_num, void **args_base, void **args, int64_t *arg_sizes,
     int32_t *arg_types, int32_t team_num, int32_t thread_limit) {
-  if (device_id == OFFLOAD_DEVICE_CONSTRUCTOR ||
-      device_id == OFFLOAD_DEVICE_DESTRUCTOR) {
-    // Return immediately for the time being, target calls with device_id
-    // -2 or -3 will be removed from the compiler in the future.
-    return OFFLOAD_SUCCESS;
-  }
-
   DP("Entering target region with entry point " DPxMOD " and device Id %d\n",
      DPxPTR(host_ptr), device_id);
 

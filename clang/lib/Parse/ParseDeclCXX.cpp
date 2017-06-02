@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
-#include "RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/Attributes.h"
@@ -20,6 +19,7 @@
 #include "clang/Basic/OperatorKinds.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Parse/ParseDiagnostic.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
@@ -266,10 +266,21 @@ Decl *Parser::ParseNamespaceAlias(SourceLocation NamespaceLoc,
 
   CXXScopeSpec SS;
   // Parse (optional) nested-name-specifier.
-  ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false);
+  ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false,
+                                 /*MayBePseudoDestructor=*/nullptr,
+                                 /*IsTypename=*/false,
+                                 /*LastII=*/nullptr,
+                                 /*OnlyNamespace=*/true);
 
-  if (SS.isInvalid() || Tok.isNot(tok::identifier)) {
+  if (Tok.isNot(tok::identifier)) {
     Diag(Tok, diag::err_expected_namespace_name);
+    // Skip to end of the definition and eat the ';'.
+    SkipUntil(tok::semi);
+    return nullptr;
+  }
+
+  if (SS.isInvalid()) {
+    // Diagnostics have been emitted in ParseOptionalCXXScopeSpecifier.
     // Skip to end of the definition and eat the ';'.
     SkipUntil(tok::semi);
     return nullptr;
@@ -487,17 +498,28 @@ Decl *Parser::ParseUsingDirective(unsigned Context,
 
   CXXScopeSpec SS;
   // Parse (optional) nested-name-specifier.
-  ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false);
+  ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false,
+                                 /*MayBePseudoDestructor=*/nullptr,
+                                 /*IsTypename=*/false,
+                                 /*LastII=*/nullptr,
+                                 /*OnlyNamespace=*/true);
 
   IdentifierInfo *NamespcName = nullptr;
   SourceLocation IdentLoc = SourceLocation();
 
   // Parse namespace-name.
-  if (SS.isInvalid() || Tok.isNot(tok::identifier)) {
+  if (Tok.isNot(tok::identifier)) {
     Diag(Tok, diag::err_expected_namespace_name);
     // If there was invalid namespace name, skip to end of decl, and eat ';'.
     SkipUntil(tok::semi);
     // FIXME: Are there cases, when we would like to call ActOnUsingDirective?
+    return nullptr;
+  }
+
+  if (SS.isInvalid()) {
+    // Diagnostics have been emitted in ParseOptionalCXXScopeSpecifier.
+    // Skip to end of the definition and eat the ';'.
+    SkipUntil(tok::semi);
     return nullptr;
   }
 
@@ -913,8 +935,9 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
 
       // C++11 [dcl.type.simple]p4:
       //   The operand of the decltype specifier is an unevaluated operand.
-      EnterExpressionEvaluationContext Unevaluated(Actions, Sema::Unevaluated,
-                                                   nullptr,/*IsDecltype=*/true);
+      EnterExpressionEvaluationContext Unevaluated(
+          Actions, Sema::ExpressionEvaluationContext::Unevaluated, nullptr,
+          /*IsDecltype=*/true);
       Result =
           Actions.CorrectDelayedTyposInExpr(ParseExpression(), [](Expr *E) {
             return E->hasPlaceholderType() ? ExprError() : E;
@@ -1443,6 +1466,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
       !Tok.isAnnotation() &&
       Tok.getIdentifierInfo() &&
       Tok.isOneOf(tok::kw___is_abstract,
+                  tok::kw___is_aggregate,
                   tok::kw___is_arithmetic,
                   tok::kw___is_array,
                   tok::kw___is_assignable,
@@ -1946,6 +1970,10 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     else
       ParseStructUnionBody(StartLoc, TagType, TagOrTempResult.get());
   }
+
+  if (!TagOrTempResult.isInvalid())
+    // Delayed proccessing of attributes.
+    Actions.ProcessDeclAttributeDelayed(TagOrTempResult.get(), attrs.getList());
 
   const char *PrevSpec = nullptr;
   unsigned DiagID;
@@ -2951,9 +2979,8 @@ ExprResult Parser::ParseCXXMemberInitializer(Decl *D, bool IsFunction,
   assert(Tok.isOneOf(tok::equal, tok::l_brace)
          && "Data member initializer not starting with '=' or '{'");
 
-  EnterExpressionEvaluationContext Context(Actions, 
-                                           Sema::PotentiallyEvaluated,
-                                           D);
+  EnterExpressionEvaluationContext Context(
+      Actions, Sema::ExpressionEvaluationContext::PotentiallyEvaluated, D);
   if (TryConsumeToken(tok::equal, EqualLoc)) {
     if (Tok.is(tok::kw_delete)) {
       // In principle, an initializer of '= delete p;' is legal, but it will
@@ -4011,36 +4038,44 @@ bool Parser::ParseCXX11AttributeArgs(IdentifierInfo *AttrName,
     return false;
   }
 
-  if (ScopeName && ScopeName->getName() == "gnu")
+  if (ScopeName && ScopeName->getName() == "gnu") {
     // GNU-scoped attributes have some special cases to handle GNU-specific
     // behaviors.
     ParseGNUAttributeArgs(AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                           ScopeLoc, AttributeList::AS_CXX11, nullptr);
-  else {
-    unsigned NumArgs =
+    return true;
+  }
+
+  unsigned NumArgs;
+  // Some Clang-scoped attributes have some special parsing behavior.
+  if (ScopeName && ScopeName->getName() == "clang")
+    NumArgs =
+        ParseClangAttributeArgs(AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
+                                ScopeLoc, AttributeList::AS_CXX11);
+  else
+    NumArgs =
         ParseAttributeArgsCommon(AttrName, AttrNameLoc, Attrs, EndLoc,
                                  ScopeName, ScopeLoc, AttributeList::AS_CXX11);
-    
-    const AttributeList *Attr = Attrs.getList();
-    if (Attr && IsBuiltInOrStandardCXX11Attribute(AttrName, ScopeName)) {
-      // If the attribute is a standard or built-in attribute and we are
-      // parsing an argument list, we need to determine whether this attribute
-      // was allowed to have an argument list (such as [[deprecated]]), and how
-      // many arguments were parsed (so we can diagnose on [[deprecated()]]).
-      if (Attr->getMaxArgs() && !NumArgs) {
-        // The attribute was allowed to have arguments, but none were provided
-        // even though the attribute parsed successfully. This is an error.
-        Diag(LParenLoc, diag::err_attribute_requires_arguments) << AttrName;
-        Attr->setInvalid(true);
-      } else if (!Attr->getMaxArgs()) {
-        // The attribute parsed successfully, but was not allowed to have any
-        // arguments. It doesn't matter whether any were provided -- the
-        // presence of the argument list (even if empty) is diagnosed.
-        Diag(LParenLoc, diag::err_cxx11_attribute_forbids_arguments)
-            << AttrName
-            << FixItHint::CreateRemoval(SourceRange(LParenLoc, *EndLoc));
-        Attr->setInvalid(true);
-      }
+
+  const AttributeList *Attr = Attrs.getList();
+  if (Attr && IsBuiltInOrStandardCXX11Attribute(AttrName, ScopeName)) {
+    // If the attribute is a standard or built-in attribute and we are
+    // parsing an argument list, we need to determine whether this attribute
+    // was allowed to have an argument list (such as [[deprecated]]), and how
+    // many arguments were parsed (so we can diagnose on [[deprecated()]]).
+    if (Attr->getMaxArgs() && !NumArgs) {
+      // The attribute was allowed to have arguments, but none were provided
+      // even though the attribute parsed successfully. This is an error.
+      Diag(LParenLoc, diag::err_attribute_requires_arguments) << AttrName;
+      Attr->setInvalid(true);
+    } else if (!Attr->getMaxArgs()) {
+      // The attribute parsed successfully, but was not allowed to have any
+      // arguments. It doesn't matter whether any were provided -- the
+      // presence of the argument list (even if empty) is diagnosed.
+      Diag(LParenLoc, diag::err_cxx11_attribute_forbids_arguments)
+          << AttrName
+          << FixItHint::CreateRemoval(SourceRange(LParenLoc, *EndLoc));
+      Attr->setInvalid(true);
     }
   }
   return true;

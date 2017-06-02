@@ -142,6 +142,10 @@ class Parser : public CodeCompletionHandler {
   /// \brief Identifier for "replacement".
   IdentifierInfo *Ident_replacement;
 
+  /// Identifiers used by the 'external_source_symbol' attribute.
+  IdentifierInfo *Ident_language, *Ident_defined_in,
+      *Ident_generated_declaration;
+
   /// C++0x contextual keywords.
   mutable IdentifierInfo *Ident_final;
   mutable IdentifierInfo *Ident_GNU_final;
@@ -179,6 +183,8 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
+  std::unique_ptr<PragmaHandler> FPHandler;
+  std::unique_ptr<PragmaHandler> AttributePragmaHandler;
 #if INTEL_SPECIFIC_CILKPLUS
   std::unique_ptr<PragmaHandler> CilkGrainsizeHandler;
   std::unique_ptr<PragmaHandler> SIMDHandler;
@@ -735,6 +741,10 @@ private:
   void HandlePragmaFPContract();
 
   /// \brief Handle the annotation token produced for
+  /// #pragma clang fp ...
+  void HandlePragmaFP();
+
+  /// \brief Handle the annotation token produced for
   /// #pragma OPENCL EXTENSION...
   void HandlePragmaOpenCLExtension();
 
@@ -763,6 +773,12 @@ private:
   /// \brief Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
   bool HandlePragmaLoopHint(LoopHint &Hint);
+
+  bool ParsePragmaAttributeSubjectMatchRuleSet(
+      attr::ParsedSubjectMatchRuleSet &SubjectMatchRules,
+      SourceLocation &AnyLoc, SourceLocation &LastMatchRuleEndLoc);
+
+  void HandlePragmaAttribute();
 
   /// GetLookAheadToken - This peeks ahead N tokens and returns that token
   /// without consuming any tokens.  LookAhead(0) returns 'Tok', LookAhead(1)
@@ -998,6 +1014,14 @@ private:
 
   /// \brief Consume any extra semi-colons until the end of the line.
   void ConsumeExtraSemi(ExtraSemiKind Kind, unsigned TST = TST_unspecified);
+
+  /// Return false if the next token is an identifier. An 'expected identifier'
+  /// error is emitted otherwise.
+  ///
+  /// The parser tries to recover from the error by checking if the next token
+  /// is a C++ keyword when parsing Objective-C++. Return false if the recovery
+  /// was successful.
+  bool expectIdentifier();
 
 public:
   //===--------------------------------------------------------------------===//
@@ -1658,10 +1682,12 @@ private:
   ExprResult ParseCastExpression(bool isUnaryExpression,
                                  bool isAddressOfOperand,
                                  bool &NotCastExpr,
-                                 TypeCastState isTypeCast);
+                                 TypeCastState isTypeCast,
+                                 bool isVectorLiteral = false);
   ExprResult ParseCastExpression(bool isUnaryExpression,
                                  bool isAddressOfOperand = false,
-                                 TypeCastState isTypeCast = NotTypeCast);
+                                 TypeCastState isTypeCast = NotTypeCast,
+                                 bool isVectorLiteral = false);
 
   /// Returns true if the next token cannot start an expression.
   bool isNotExpressionStart();
@@ -1762,7 +1788,8 @@ public:   //***INTEL
                                       bool EnteringContext,
                                       bool *MayBePseudoDestructor = nullptr,
                                       bool IsTypename = false,
-                                      IdentifierInfo **LastII = nullptr);
+                                      IdentifierInfo **LastII = nullptr,
+                                      bool OnlyNamespace = false);
 private:  //***INTEL
 
   //===--------------------------------------------------------------------===//
@@ -1924,7 +1951,7 @@ private:  //***INTEL
 
   StmtResult ParseStatement(SourceLocation *TrailingElseLoc = nullptr,
                             bool AllowOpenMPStandalone = false);
-  enum AllowedContsructsKind {
+  enum AllowedConstructsKind {
     /// \brief Allow any declarations, statements, OpenMP directives.
     ACK_Any,
     /// \brief Allow only statements and non-standalone OpenMP directives.
@@ -1933,11 +1960,11 @@ private:  //***INTEL
     ACK_StatementsOpenMPAnyExecutable
   };
   StmtResult
-  ParseStatementOrDeclaration(StmtVector &Stmts, AllowedContsructsKind Allowed,
+  ParseStatementOrDeclaration(StmtVector &Stmts, AllowedConstructsKind Allowed,
                               SourceLocation *TrailingElseLoc = nullptr);
   StmtResult ParseStatementOrDeclarationAfterAttributes(
                                          StmtVector &Stmts,
-                                         AllowedContsructsKind Allowed,
+                                         AllowedConstructsKind Allowed,
                                          SourceLocation *TrailingElseLoc,
                                          ParsedAttributesWithRange &Attrs);
   StmtResult ParseExprStatement();
@@ -1966,7 +1993,7 @@ private:  //***INTEL
   StmtResult ParseAsmStatement(bool &msAsm);
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts,
-                                 AllowedContsructsKind Allowed,
+                                 AllowedConstructsKind Allowed,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -2450,6 +2477,12 @@ private:
                              Declarator *D);
   IdentifierLoc *ParseIdentifierLoc();
 
+  unsigned
+  ParseClangAttributeArgs(IdentifierInfo *AttrName, SourceLocation AttrNameLoc,
+                          ParsedAttributes &Attrs, SourceLocation *EndLoc,
+                          IdentifierInfo *ScopeName, SourceLocation ScopeLoc,
+                          AttributeList::Syntax Syntax);
+
   void MaybeParseCXX11Attributes(Declarator &D) {
     if (getLangOpts().CPlusPlus11 && isCXX11AttributeSpecifier()) {
       ParsedAttributesWithRange attrs(AttrFactory);
@@ -2538,6 +2571,14 @@ private:
 
   Optional<AvailabilitySpec> ParseAvailabilitySpec();
   ExprResult ParseAvailabilityCheckExpr(SourceLocation StartLoc);
+
+  void ParseExternalSourceSymbolAttribute(IdentifierInfo &ExternalSourceSymbol,
+                                          SourceLocation Loc,
+                                          ParsedAttributes &Attrs,
+                                          SourceLocation *EndLoc,
+                                          IdentifierInfo *ScopeName,
+                                          SourceLocation ScopeLoc,
+                                          AttributeList::Syntax Syntax);
 
   void ParseObjCBridgeRelatedAttribute(IdentifierInfo &ObjCBridgeRelated,
                                        SourceLocation ObjCBridgeRelatedLoc,
@@ -2839,7 +2880,7 @@ private:
   /// executable directives are allowed.
   ///
   StmtResult
-  ParseOpenMPDeclarativeOrExecutableDirective(AllowedContsructsKind Allowed);
+  ParseOpenMPDeclarativeOrExecutableDirective(AllowedConstructsKind Allowed);
   /// \brief Parses clause of kind \a CKind for directive of a kind \a Kind.
   ///
   /// \param DKind Kind of current directive.

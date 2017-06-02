@@ -8,6 +8,13 @@ if (POLICY CMP0042)
   cmake_policy(SET CMP0042 NEW) # Set MACOSX_RPATH=YES by default
 endif()
 
+# Add path for custom modules
+set(CMAKE_MODULE_PATH
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_MODULE_PATH}
+  )
+
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(libunwind)
 
@@ -111,6 +118,7 @@ endif()
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
+include(HandleCompilerRT)
 
 # Define options.
 option(LIBUNWIND_BUILD_32_BITS "Build 32 bit libunwind" ${LLVM_BUILD_32_BITS})
@@ -122,6 +130,8 @@ option(LIBUNWIND_ENABLE_STATIC "Build libunwind as a static library." ON)
 option(LIBUNWIND_ENABLE_CROSS_UNWINDING "Enable cross-platform unwinding support." OFF)
 option(LIBUNWIND_ENABLE_ARM_WMMX "Enable unwinding support for ARM WMMX registers." OFF)
 option(LIBUNWIND_ENABLE_THREADS "Build libunwind with threading support." ON)
+option(LIBUNWIND_USE_COMPILER_RT "Use compiler-rt instead of libgcc" OFF)
+option(LIBUNWIND_INCLUDE_DOCS "Build the libunwind documentation." ${LLVM_INCLUDE_DOCS})
 
 set(LIBUNWIND_TARGET_TRIPLE "" CACHE STRING "Target triple for cross compiling.")
 set(LIBUNWIND_GCC_TOOLCHAIN "" CACHE PATH "GCC toolchain for cross compiling.")
@@ -170,21 +180,25 @@ macro(add_target_flags_if condition var)
   if (${condition})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${var}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${var}")
-    list(APPEND LINUNWIND_COMPILE_FLAGS ${var})
+    list(APPEND LIBUNWIND_COMPILE_FLAGS ${var})
     list(APPEND LIBUNWIND_LINK_FLAGS ${var})
   endif()
 endmacro()
 
 add_target_flags_if(LIBUNWIND_BUILD_32_BITS "-m32")
 add_target_flags_if(LIBUNWIND_TARGET_TRIPLE
-          "-target ${LIBUNWIND_TARGET_TRIPLE}")
+          "--target=${LIBUNWIND_TARGET_TRIPLE}")
 add_target_flags_if(LIBUNWIND_GCC_TOOLCHAIN
-          "-gcc-toolchain ${LIBUNWIND_GCC_TOOLCHAIN}")
+          "--gcc-toolchain=${LIBUNWIND_GCC_TOOLCHAIN}")
 add_target_flags_if(LIBUNWIND_SYSROOT
           "--sysroot=${LIBUNWIND_SYSROOT}")
 
 # Configure compiler.
 include(config-ix)
+
+if (LIBUNWIND_USE_COMPILER_RT)
+  list(APPEND LIBUNWIND_LINK_FLAGS "-rtlib=compiler-rt")
+endif()
 
 #===============================================================================
 # Setup Compiler Flags
@@ -282,4 +296,28 @@ endif()
 
 include_directories(include)
 
+find_path(
+  LIBUNWIND_LIBCXX_INCLUDES_INTERNAL
+  __libcpp_version
+  PATHS ${LLVM_MAIN_SRC_DIR}/projects/libcxx/include
+        ${LLVM_MAIN_SRC_DIR}/runtimes/libcxx/include
+  NO_DEFAULT_PATH
+)
+if ((NOT LIBUNWIND_STANDALONE_BUILD OR HAVE_LIBCXX) AND
+    IS_DIRECTORY "${LIBUNWIND_LIBCXX_INCLUDES_INTERNAL}")
+  set(LIBUNWIND_CXX_INCLUDE_PATHS_DEFAULT "${LIBUNWIND_LIBCXX_INCLUDES_INTERNAL}")
+endif()
+
+set(LIBUNWIND_CXX_INCLUDE_PATHS "${LIBUNWIND_CXX_INCLUDE_PATHS_DEFAULT}" CACHE PATH
+    "Paths to C++ header directories separated by ';'.")
+
+if (NOT LIBUNWIND_CXX_INCLUDE_PATHS STREQUAL "")
+  list(APPEND LIBUNWIND_CXX_FLAGS -nostdinc++)
+  include_directories("${LIBUNWIND_CXX_INCLUDE_PATHS}")
+endif()
+
 add_subdirectory(src)
+
+if (LIBUNWIND_INCLUDE_DOCS)
+  add_subdirectory(docs)
+endif()

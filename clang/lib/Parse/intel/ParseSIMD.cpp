@@ -14,7 +14,7 @@
 
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/Scope.h"
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 
 using namespace clang;
 

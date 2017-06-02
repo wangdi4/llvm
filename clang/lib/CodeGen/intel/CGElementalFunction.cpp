@@ -400,7 +400,7 @@ void CodeGenModule::EmitCilkElementalAttribute(llvm::Function *Func,
 
   if (createMangledName(Func, MD, IsMasked, MangledName)) {
     llvm::AttrBuilder FuncAttrs(Func->getAttributes(),
-                                llvm::AttributeSet::FunctionIndex);
+                                llvm::AttributeList::FunctionIndex);
 
     // Store new mangled name in ElementalAttributes map
     auto PairToInsert = std::make_pair(MangledName.str(), Func);
@@ -413,8 +413,8 @@ void CodeGenModule::EmitCilkElementalAttribute(llvm::Function *Func,
     FuncAttrs.addAttribute(AttributeIterator->first());
 
     if (FuncAttrs.hasAttributes())
-      Func->setAttributes(llvm::AttributeSet::get(
-          Func->getContext(), llvm::AttributeSet::FunctionIndex, FuncAttrs));
+      Func->setAttributes(llvm::AttributeList::get(
+          Func->getContext(), llvm::AttributeList::FunctionIndex, FuncAttrs));
   }
 }
 
@@ -738,7 +738,7 @@ static void setVectorVariantAttributes(llvm::Function *Func,
                                        llvm::Function *NewFunc,
                                        const std::string &Processor) {
   llvm::AttrBuilder NewFuncAttrs(Func->getAttributes(),
-                                 llvm::AttributeSet::FunctionIndex);
+                                 llvm::AttributeList::FunctionIndex);
 
   std::string CPU = llvm::StringSwitch<std::string>(Processor)
                         .Case("pentium_4", "pentium4")
@@ -756,8 +756,8 @@ static void setVectorVariantAttributes(llvm::Function *Func,
     NewFuncAttrs.addAttribute("cpu", CPU);
 
   if (NewFuncAttrs.hasAttributes())
-    NewFunc->setAttributes(llvm::AttributeSet::get(
-        NewFunc->getContext(), llvm::AttributeSet::FunctionIndex,
+    NewFunc->setAttributes(llvm::AttributeList::get(
+        NewFunc->getContext(), llvm::AttributeList::FunctionIndex,
         NewFuncAttrs));
 }
 

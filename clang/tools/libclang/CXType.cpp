@@ -582,7 +582,7 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(PreserveMost);
       TCALLINGCONV(PreserveAll);
     case CC_SpirFunction: return CXCallingConv_Unexposed;
-//  case CC_OpenCLKernel: return CXCallingConv_Unexposed; // INTEL
+    case CC_OpenCLKernel: // return CXCallingConv_Unexposed; // INTEL
       break;
     }
 #undef TCALLINGCONV
@@ -1038,4 +1038,13 @@ CXType clang_Type_getNamedType(CXType CT){
     return MakeCXType(cast<ElaboratedType>(TP)->getNamedType(), GetTU(CT));
 
   return MakeCXType(QualType(), GetTU(CT));
+}
+
+unsigned clang_Type_isTransparentTagTypedef(CXType TT){
+  QualType T = GetQualType(TT);
+  if (auto *TT = dyn_cast_or_null<TypedefType>(T.getTypePtrOrNull())) {
+    if (auto *D = TT->getDecl())
+      return D->isTransparentTag();
+  }
+  return false;
 }

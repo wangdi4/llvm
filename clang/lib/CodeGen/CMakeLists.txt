@@ -80,6 +80,7 @@ add_clang_library(clangCodeGen
   CodeGenPGO.cpp
   CodeGenTBAA.cpp
   CodeGenTypes.cpp
+  ConstantInitBuilder.cpp
   CoverageMappingGen.cpp
   ItaniumCXXABI.cpp
   MacroPPCallbacks.cpp

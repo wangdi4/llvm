@@ -24,7 +24,6 @@
 #include "lldb/Core/Broadcaster.h"
 #include "lldb/Core/LoadedModuleInfoList.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Core/ThreadSafeValue.h"
 #include "lldb/Host/HostThread.h"
@@ -34,6 +33,7 @@
 #include "lldb/Utility/Error.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/StringExtractor.h"
+#include "lldb/Utility/StringList.h"
 #include "lldb/lldb-private-forward.h"
 
 #include "GDBRemoteCommunicationClient.h"
@@ -397,12 +397,15 @@ protected:
                                      lldb::addr_t base_addr,
                                      bool value_is_offset);
 
+  Error UpdateAutomaticSignalFiltering() override;
+
 private:
   //------------------------------------------------------------------
   // For ProcessGDBRemote only
   //------------------------------------------------------------------
   std::string m_partial_profile_data;
   std::map<uint64_t, uint32_t> m_thread_id_to_used_usec_map;
+  uint64_t m_last_signals_version = 0;
 
   static bool NewThreadNotifyBreakpointHit(void *baton,
                                            StoppointCallbackContext *context,

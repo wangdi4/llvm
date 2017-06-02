@@ -70,15 +70,15 @@ ExternalPreprocessorSource::~ExternalPreprocessorSource() { }
 
 Preprocessor::Preprocessor(std::shared_ptr<PreprocessorOptions> PPOpts,
                            DiagnosticsEngine &diags, LangOptions &opts,
-                           SourceManager &SM, HeaderSearch &Headers,
-                           ModuleLoader &TheModuleLoader,
+                           SourceManager &SM, MemoryBufferCache &PCMCache,
+                           HeaderSearch &Headers, ModuleLoader &TheModuleLoader,
                            IdentifierInfoLookup *IILookup, bool OwnsHeaders,
                            TranslationUnitKind TUKind)
     : PPOpts(std::move(PPOpts)), Diags(&diags), LangOpts(opts), Target(nullptr),
       AuxTarget(nullptr), FileMgr(Headers.getFileMgr()), SourceMgr(SM),
-      ScratchBuf(new ScratchBuffer(SourceMgr)), HeaderInfo(Headers),
-      TheModuleLoader(TheModuleLoader), ExternalSource(nullptr),
-      Identifiers(opts, IILookup),
+      PCMCache(PCMCache), ScratchBuf(new ScratchBuffer(SourceMgr)),
+      HeaderInfo(Headers), TheModuleLoader(TheModuleLoader),
+      ExternalSource(nullptr), Identifiers(opts, IILookup),
       PragmaHandlers(new PragmaNamespace(StringRef())),
       IncrementalProcessing(false), TUKind(TUKind), CodeComplete(nullptr),
       CodeCompletionFile(nullptr), CodeCompletionOffset(0),
@@ -576,6 +576,15 @@ IdentifierInfo *Preprocessor::LookUpIdentifierInfo(Token &Identifier) const {
     } else {
       II = getIdentifierInfo(CleanedStr);
     }
+  }
+  if (getLangOpts().MSVCCompat && II->isCPlusPlusOperatorKeyword() &&
+    getSourceManager().isInSystemHeader(Identifier.getLocation())) {
+    // re-enter the identifier, use a different spelling e.g. prefix with 1.
+    SmallString<64> IdentifierBuffer;
+    StringRef Prefix = "1";
+    IdentifierBuffer.assign(Prefix.begin(), Prefix.end());
+    IdentifierBuffer.append(Identifier.getRawIdentifier().begin(),
+                            Identifier.getRawIdentifier().end());
   }
 
   // Update the token info (identifier info and appropriate token kind).

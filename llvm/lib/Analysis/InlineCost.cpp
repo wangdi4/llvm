@@ -87,6 +87,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// The called function.
   Function &F;
 
+  // Cache the DataLayout since we use it a lot.
+  const DataLayout &DL;
+
   /// The candidate callsite being analyzed. Please do not use this to do
   /// analysis in the caller function; we want the inline cost query to be
   /// easily cacheable. Instead, use the cover function paramHasAttr.
@@ -142,10 +145,11 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   void disableSROA(Value *V);
   void accumulateSROACost(DenseMap<Value *, int>::iterator CostIt,
                           int InstructionCost);
-  bool isGEPOffsetConstant(GetElementPtrInst &GEP);
   bool isGEPFree(GetElementPtrInst &GEP);
   bool accumulateGEPOffset(GEPOperator &GEP, APInt &Offset);
   bool simplifyCallSite(Function *F, CallSite CS);
+  template <typename Callable>
+  bool simplifyInstruction(Instruction &I, Callable Evaluate);
   ConstantInt *stripAndComputeInBoundsConstantOffsets(Value *&V);
 
   /// Return true if the given argument to the function being considered for
@@ -216,17 +220,17 @@ public:
                ProfileSummaryInfo *PSI, Function &Callee, CallSite CSArg,
                const InlineParams &Params)
       : TTI(TTI), GetAssumptionCache(GetAssumptionCache), GetBFI(GetBFI),
-        PSI(PSI), F(Callee), CandidateCS(CSArg), Params(Params),
-        Threshold(Params.DefaultThreshold), Cost(0), IsCallerRecursive(false),
-        IsRecursiveCall(false), ExposesReturnsTwice(false),
-        HasDynamicAlloca(false), ContainsNoDuplicateCall(false),
-        HasReturn(false), HasIndirectBr(false), HasFrameEscape(false),
-        AllocatedSize(0), NumInstructions(0), NumVectorInstructions(0),
-        FiftyPercentVectorBonus(0), TenPercentVectorBonus(0), VectorBonus(0),
-        NumConstantArgs(0), NumConstantOffsetPtrArgs(0), NumAllocaArgs(0),
-        NumConstantPtrCmps(0), NumConstantPtrDiffs(0),
-        NumInstructionsSimplified(0), SROACostSavings(0),
-        SROACostSavingsLost(0) {}
+        PSI(PSI), F(Callee), DL(F.getParent()->getDataLayout()),
+        CandidateCS(CSArg), Params(Params), Threshold(Params.DefaultThreshold),
+        Cost(0), IsCallerRecursive(false), IsRecursiveCall(false),
+        ExposesReturnsTwice(false), HasDynamicAlloca(false),
+        ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
+        HasFrameEscape(false), AllocatedSize(0), NumInstructions(0),
+        NumVectorInstructions(0), FiftyPercentVectorBonus(0),
+        TenPercentVectorBonus(0), VectorBonus(0), NumConstantArgs(0),
+        NumConstantOffsetPtrArgs(0), NumAllocaArgs(0), NumConstantPtrCmps(0),
+        NumConstantPtrDiffs(0), NumInstructionsSimplified(0),
+        SROACostSavings(0), SROACostSavingsLost(0) {}
 
   bool analyzeCall(CallSite CS);
 
@@ -298,23 +302,11 @@ void CallAnalyzer::accumulateSROACost(DenseMap<Value *, int>::iterator CostIt,
   SROACostSavings += InstructionCost;
 }
 
-/// \brief Check whether a GEP's indices are all constant.
-///
-/// Respects any simplified values known during the analysis of this callsite.
-bool CallAnalyzer::isGEPOffsetConstant(GetElementPtrInst &GEP) {
-  for (User::op_iterator I = GEP.idx_begin(), E = GEP.idx_end(); I != E; ++I)
-    if (!isa<Constant>(*I) && !SimplifiedValues.lookup(*I))
-      return false;
-
-  return true;
-}
-
 /// \brief Accumulate a constant GEP offset into an APInt if possible.
 ///
 /// Returns false if unable to compute the offset for any reason. Respects any
 /// simplified values known during the analysis of this callsite.
 bool CallAnalyzer::accumulateGEPOffset(GEPOperator &GEP, APInt &Offset) {
-  const DataLayout &DL = F.getParent()->getDataLayout();
   unsigned IntPtrWidth = DL.getPointerSizeInBits();
   assert(IntPtrWidth == Offset.getBitWidth());
 
@@ -364,7 +356,6 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
   if (I.isArrayAllocation()) {
     Constant *Size = SimplifiedValues.lookup(I.getArraySize());
     if (auto *AllocSize = dyn_cast_or_null<ConstantInt>(Size)) {
-      const DataLayout &DL = F.getParent()->getDataLayout();
       Type *Ty = I.getAllocatedType();
       AllocatedSize = SaturatingMultiplyAdd(
           AllocSize->getLimitedValue(), DL.getTypeAllocSize(Ty), AllocatedSize);
@@ -374,7 +365,6 @@ bool CallAnalyzer::visitAlloca(AllocaInst &I) {
 
   // Accumulate the allocated size.
   if (I.isStaticAlloca()) {
-    const DataLayout &DL = F.getParent()->getDataLayout();
     Type *Ty = I.getAllocatedType();
     AllocatedSize = SaturatingAdd(DL.getTypeAllocSize(Ty), AllocatedSize);
   }
@@ -438,7 +428,15 @@ bool CallAnalyzer::visitGetElementPtr(GetElementPtrInst &I) {
     }
   }
 
-  if (isGEPOffsetConstant(I)) {
+  // Lambda to check whether a GEP's indices are all constant.
+  auto IsGEPOffsetConstant = [&](GetElementPtrInst &GEP) {
+    for (User::op_iterator I = GEP.idx_begin(), E = GEP.idx_end(); I != E; ++I)
+      if (!isa<Constant>(*I) && !SimplifiedValues.lookup(*I))
+        return false;
+    return true;
+  };
+
+  if (IsGEPOffsetConstant(I)) {
     if (SROACandidate)
       SROAArgValues[&I] = SROAArg;
 
@@ -452,16 +450,33 @@ bool CallAnalyzer::visitGetElementPtr(GetElementPtrInst &I) {
   return isGEPFree(I);
 }
 
+/// Simplify \p I if its operands are constants and update SimplifiedValues.
+/// \p Evaluate is a callable specific to instruction type that evaluates the
+/// instruction when all the operands are constants.
+template <typename Callable>
+bool CallAnalyzer::simplifyInstruction(Instruction &I, Callable Evaluate) {
+  SmallVector<Constant *, 2> COps;
+  for (Value *Op : I.operands()) {
+    Constant *COp = dyn_cast<Constant>(Op);
+    if (!COp)
+      COp = SimplifiedValues.lookup(Op);
+    if (!COp)
+      return false;
+    COps.push_back(COp);
+  }
+  auto *C = Evaluate(COps);
+  if (!C)
+    return false;
+  SimplifiedValues[&I] = C;
+  return true;
+}
+
 bool CallAnalyzer::visitBitCast(BitCastInst &I) {
   // Propagate constants through bitcasts.
-  Constant *COp = dyn_cast<Constant>(I.getOperand(0));
-  if (!COp)
-    COp = SimplifiedValues.lookup(I.getOperand(0));
-  if (COp)
-    if (Constant *C = ConstantExpr::getBitCast(COp, I.getType())) {
-      SimplifiedValues[&I] = C;
-      return true;
-    }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getBitCast(COps[0], I.getType());
+      }))
+    return true;
 
   // Track base/offsets through casts
   std::pair<Value *, APInt> BaseAndOffset =
@@ -482,19 +497,14 @@ bool CallAnalyzer::visitBitCast(BitCastInst &I) {
 
 bool CallAnalyzer::visitPtrToInt(PtrToIntInst &I) {
   // Propagate constants through ptrtoint.
-  Constant *COp = dyn_cast<Constant>(I.getOperand(0));
-  if (!COp)
-    COp = SimplifiedValues.lookup(I.getOperand(0));
-  if (COp)
-    if (Constant *C = ConstantExpr::getPtrToInt(COp, I.getType())) {
-      SimplifiedValues[&I] = C;
-      return true;
-    }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getPtrToInt(COps[0], I.getType());
+      }))
+    return true;
 
   // Track base/offset pairs when converted to a plain integer provided the
   // integer is large enough to represent the pointer.
   unsigned IntegerSize = I.getType()->getScalarSizeInBits();
-  const DataLayout &DL = F.getParent()->getDataLayout();
   if (IntegerSize >= DL.getPointerSizeInBits()) {
     std::pair<Value *, APInt> BaseAndOffset =
         ConstantOffsetPtrs.lookup(I.getOperand(0));
@@ -519,20 +529,15 @@ bool CallAnalyzer::visitPtrToInt(PtrToIntInst &I) {
 
 bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
   // Propagate constants through ptrtoint.
-  Constant *COp = dyn_cast<Constant>(I.getOperand(0));
-  if (!COp)
-    COp = SimplifiedValues.lookup(I.getOperand(0));
-  if (COp)
-    if (Constant *C = ConstantExpr::getIntToPtr(COp, I.getType())) {
-      SimplifiedValues[&I] = C;
-      return true;
-    }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getIntToPtr(COps[0], I.getType());
+      }))
+    return true;
 
   // Track base/offset pairs when round-tripped through a pointer without
   // modifications provided the integer is not too large.
   Value *Op = I.getOperand(0);
   unsigned IntegerSize = Op->getType()->getScalarSizeInBits();
-  const DataLayout &DL = F.getParent()->getDataLayout();
   if (IntegerSize <= DL.getPointerSizeInBits()) {
     std::pair<Value *, APInt> BaseAndOffset = ConstantOffsetPtrs.lookup(Op);
     if (BaseAndOffset.first)
@@ -550,14 +555,10 @@ bool CallAnalyzer::visitIntToPtr(IntToPtrInst &I) {
 
 bool CallAnalyzer::visitCastInst(CastInst &I) {
   // Propagate constants through ptrtoint.
-  Constant *COp = dyn_cast<Constant>(I.getOperand(0));
-  if (!COp)
-    COp = SimplifiedValues.lookup(I.getOperand(0));
-  if (COp)
-    if (Constant *C = ConstantExpr::getCast(I.getOpcode(), COp, I.getType())) {
-      SimplifiedValues[&I] = C;
-      return true;
-    }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getCast(I.getOpcode(), COps[0], I.getType());
+      }))
+    return true;
 
   // Disable SROA in the face of arbitrary casts we don't whitelist elsewhere.
   disableSROA(I.getOperand(0));
@@ -567,16 +568,10 @@ bool CallAnalyzer::visitCastInst(CastInst &I) {
 
 bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
   Value *Operand = I.getOperand(0);
-  Constant *COp = dyn_cast<Constant>(Operand);
-  if (!COp)
-    COp = SimplifiedValues.lookup(Operand);
-  if (COp) {
-    const DataLayout &DL = F.getParent()->getDataLayout();
-    if (Constant *C = ConstantFoldInstOperands(&I, COp, DL)) {
-      SimplifiedValues[&I] = C;
-      return true;
-    }
-  }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantFoldInstOperands(&I, COps[0], DL);
+      }))
+    return true;
 
   // Disable any SROA on the argument to arbitrary unary operators.
   disableSROA(Operand);
@@ -585,8 +580,7 @@ bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
 }
 
 bool CallAnalyzer::paramHasAttr(Argument *A, Attribute::AttrKind Attr) {
-  unsigned ArgNo = A->getArgNo();
-  return CandidateCS.paramHasAttr(ArgNo + 1, Attr);
+  return CandidateCS.paramHasAttr(A->getArgNo(), Attr);
 }
 
 bool CallAnalyzer::isKnownNonNullInCallee(Value *V) {
@@ -672,7 +666,7 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
       BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
       if (PSI->isHotCallSite(CS, CallerBFI)) {
         DEBUG(dbgs() << "Hot callsite.\n");
-        Threshold = MaxIfValid(Threshold, Params.HotCallSiteThreshold);
+        Threshold = Params.HotCallSiteThreshold.getValue();
       } else if (PSI->isFunctionEntryHot(&Callee)) {
         DEBUG(dbgs() << "Hot callee.\n");
         // If callsite hotness can not be determined, we may still know
@@ -697,20 +691,10 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
   // First try to handle simplified comparisons.
-  if (!isa<Constant>(LHS))
-    if (Constant *SimpleLHS = SimplifiedValues.lookup(LHS))
-      LHS = SimpleLHS;
-  if (!isa<Constant>(RHS))
-    if (Constant *SimpleRHS = SimplifiedValues.lookup(RHS))
-      RHS = SimpleRHS;
-  if (Constant *CLHS = dyn_cast<Constant>(LHS)) {
-    if (Constant *CRHS = dyn_cast<Constant>(RHS))
-      if (Constant *C =
-              ConstantExpr::getCompare(I.getPredicate(), CLHS, CRHS)) {
-        SimplifiedValues[&I] = C;
-        return true;
-      }
-  }
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getCompare(I.getPredicate(), COps[0], COps[1]);
+      }))
+    return true;
 
   if (I.getOpcode() == Instruction::FCmp)
     return false;
@@ -788,24 +772,18 @@ bool CallAnalyzer::visitSub(BinaryOperator &I) {
 
 bool CallAnalyzer::visitBinaryOperator(BinaryOperator &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
-  const DataLayout &DL = F.getParent()->getDataLayout();
-  if (!isa<Constant>(LHS))
-    if (Constant *SimpleLHS = SimplifiedValues.lookup(LHS))
-      LHS = SimpleLHS;
-  if (!isa<Constant>(RHS))
-    if (Constant *SimpleRHS = SimplifiedValues.lookup(RHS))
-      RHS = SimpleRHS;
-  Value *SimpleV = nullptr;
-  if (auto FI = dyn_cast<FPMathOperator>(&I))
-    SimpleV =
-        SimplifyFPBinOp(I.getOpcode(), LHS, RHS, FI->getFastMathFlags(), DL);
-  else
-    SimpleV = SimplifyBinOp(I.getOpcode(), LHS, RHS, DL);
+  auto Evaluate = [&](SmallVectorImpl<Constant *> &COps) {
+    Value *SimpleV = nullptr;
+    if (auto FI = dyn_cast<FPMathOperator>(&I))
+      SimpleV = SimplifyFPBinOp(I.getOpcode(), COps[0], COps[1],
+                                FI->getFastMathFlags(), DL);
+    else
+      SimpleV = SimplifyBinOp(I.getOpcode(), COps[0], COps[1], DL);
+    return dyn_cast_or_null<Constant>(SimpleV);
+  };
 
-  if (Constant *C = dyn_cast_or_null<Constant>(SimpleV)) {
-    SimplifiedValues[&I] = C;
+  if (simplifyInstruction(I, Evaluate))
     return true;
-  }
 
   // Disable any SROA on arguments to arbitrary, unsimplified binary operators.
   disableSROA(LHS);
@@ -846,13 +824,10 @@ bool CallAnalyzer::visitStore(StoreInst &I) {
 
 bool CallAnalyzer::visitExtractValue(ExtractValueInst &I) {
   // Constant folding for extract value is trivial.
-  Constant *C = dyn_cast<Constant>(I.getAggregateOperand());
-  if (!C)
-    C = SimplifiedValues.lookup(I.getAggregateOperand());
-  if (C) {
-    SimplifiedValues[&I] = ConstantExpr::getExtractValue(C, I.getIndices());
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getExtractValue(COps[0], I.getIndices());
+      }))
     return true;
-  }
 
   // SROA can look through these but give them a cost.
   return false;
@@ -860,17 +835,12 @@ bool CallAnalyzer::visitExtractValue(ExtractValueInst &I) {
 
 bool CallAnalyzer::visitInsertValue(InsertValueInst &I) {
   // Constant folding for insert value is trivial.
-  Constant *AggC = dyn_cast<Constant>(I.getAggregateOperand());
-  if (!AggC)
-    AggC = SimplifiedValues.lookup(I.getAggregateOperand());
-  Constant *InsertedC = dyn_cast<Constant>(I.getInsertedValueOperand());
-  if (!InsertedC)
-    InsertedC = SimplifiedValues.lookup(I.getInsertedValueOperand());
-  if (AggC && InsertedC) {
-    SimplifiedValues[&I] =
-        ConstantExpr::getInsertValue(AggC, InsertedC, I.getIndices());
+  if (simplifyInstruction(I, [&](SmallVectorImpl<Constant *> &COps) {
+        return ConstantExpr::getInsertValue(/*AggregateOperand*/ COps[0],
+                                            /*InsertedValueOperand*/ COps[1],
+                                            I.getIndices());
+      }))
     return true;
-  }
 
   // SROA can look through these but give them a cost.
   return false;
@@ -1039,8 +1009,8 @@ bool CallAnalyzer::visitSwitchInst(SwitchInst &SI) {
   // does not (yet) fire.
   SmallPtrSet<BasicBlock *, 8> SuccessorBlocks;
   SuccessorBlocks.insert(SI.getDefaultDest());
-  for (auto I = SI.case_begin(), E = SI.case_end(); I != E; ++I)
-    SuccessorBlocks.insert(I.getCaseSuccessor());
+  for (auto Case : SI.cases())
+    SuccessorBlocks.insert(Case.getCaseSuccessor());
   // Add cost corresponding to the number of distinct destinations. The first
   // we model as free because of fallthrough.
   Cost += (SuccessorBlocks.size() - 1) * InlineConstants::InstrCost;
@@ -1131,19 +1101,10 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // is expensive or the function has the "use-soft-float" attribute, this may
     // eventually become a library call. Treat the cost as such.
     if (I->getType()->isFloatingPointTy()) {
-      bool hasSoftFloatAttr = false;
-
       // If the function has the "use-soft-float" attribute, mark it as
       // expensive.
-      if (F.hasFnAttribute("use-soft-float")) {
-        Attribute Attr = F.getFnAttribute("use-soft-float");
-        StringRef Val = Attr.getValueAsString();
-        if (Val == "true")
-          hasSoftFloatAttr = true;
-      }
-
       if (TTI.getFPOpCost(I->getType()) == TargetTransformInfo::TCC_Expensive ||
-          hasSoftFloatAttr)
+          (F.getFnAttribute("use-soft-float").getValueAsString() == "true"))
         Cost += InlineConstants::CallPenalty;
     }
 
@@ -1188,7 +1149,6 @@ ConstantInt *CallAnalyzer::stripAndComputeInBoundsConstantOffsets(Value *&V) {
   if (!V->getType()->isPointerTy())
     return nullptr;
 
-  const DataLayout &DL = F.getParent()->getDataLayout();
   unsigned IntPtrWidth = DL.getPointerSizeInBits();
   APInt Offset = APInt::getNullValue(IntPtrWidth);
 
@@ -1245,7 +1205,6 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
 
   FiftyPercentVectorBonus = 3 * Threshold / 2;
   TenPercentVectorBonus = 3 * Threshold / 4;
-  const DataLayout &DL = F.getParent()->getDataLayout();
 
   // Track whether the post-inlining function would have more than one basic
   // block. A single basic block is often intended for inlining. Balloon the
@@ -1404,7 +1363,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
       Value *Cond = SI->getCondition();
       if (ConstantInt *SimpleCond =
               dyn_cast_or_null<ConstantInt>(SimplifiedValues.lookup(Cond))) {
-        BBWorklist.insert(SI->findCaseValue(SimpleCond).getCaseSuccessor());
+        BBWorklist.insert(SI->findCaseValue(SimpleCond)->getCaseSuccessor());
         continue;
       }
     }
@@ -1462,13 +1421,6 @@ LLVM_DUMP_METHOD void CallAnalyzer::dump() {
 #undef DEBUG_PRINT_STAT
 }
 #endif
-
-/// \brief Test that two functions either have or have not the given attribute
-///        at the same time.
-template <typename AttrKind>
-static bool attributeMatches(Function *F1, Function *F2, AttrKind Attr) {
-  return F1->getFnAttribute(Attr) == F2->getFnAttribute(Attr);
-}
 
 /// \brief Test that there are no attribute conflicts between Caller and Callee
 ///        that prevent inlining.
@@ -1604,7 +1556,6 @@ InlineParams llvm::getInlineParams(int Threshold) {
   // Set the ColdCallSiteThreshold knob from the -inline-cold-callsite-threshold.
   Params.ColdCallSiteThreshold = ColdCallSiteThreshold;
 
-  // Set the OptMinSizeThreshold and OptSizeThreshold params only if the
   // Set the OptMinSizeThreshold and OptSizeThreshold params only if the
   // -inlinehint-threshold commandline option is not explicitly given. If that
   // option is present, then its value applies even for callees with size and

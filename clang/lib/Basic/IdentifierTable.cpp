@@ -114,6 +114,8 @@ enum {
   KEYZVECTOR = 0x40000,
   KEYCOROUTINES = 0x80000,
   KEYMODULES = 0x100000,
+  KEYALL = (0x1fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffffff
+            ~KEYNOOPENCL), // KEYNOMS18 and KEYNOOPENCL are used to exclude.
 #if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
   KEYCILKPLUS = 0x200000,
   KEYFLOAT128 = 0x400000,
@@ -123,14 +125,10 @@ enum {
   KEYNOINT128 = 0x4000000,
   KEYDECIMAL = 0x8000000,
   KEYMSCOMPAT = 0x10000000,
-  KEYNOINTELALL =
-      ~(KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
-        KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT | KEYNOMS18 | KEYNOOPENCL),
   KEYINTELALL = KEYCILKPLUS | KEYFLOAT128 | KEYRESTRICT | KEYMSASM | KEYBASES |
                 KEYNOINT128 | KEYDECIMAL | KEYMSCOMPAT,
+  KEYNOINTELALL = KEYALL & ~KEYINTELALL,
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
-  KEYALL = (0x1fffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffffff
-            ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
 };
 
   /// \brief How a keyword is treated in the selected standard.
@@ -306,7 +304,7 @@ static KeywordStatus getTokenKwStatus(const LangOptions &LangOpts,
 
 /// \brief Returns true if the identifier represents a keyword in the
 /// specified language.
-bool IdentifierInfo::isKeyword(const LangOptions &LangOpts) {
+bool IdentifierInfo::isKeyword(const LangOptions &LangOpts) const {
   switch (getTokenKwStatus(LangOpts, getTokenID())) {
   case KS_Enabled:
   case KS_Extension:
@@ -314,6 +312,19 @@ bool IdentifierInfo::isKeyword(const LangOptions &LangOpts) {
   default:
     return false;
   }
+}
+
+/// \brief Returns true if the identifier represents a C++ keyword in the
+/// specified language.
+bool IdentifierInfo::isCPlusPlusKeyword(const LangOptions &LangOpts) const {
+  if (!LangOpts.CPlusPlus || !isKeyword(LangOpts))
+    return false;
+  // This is a C++ keyword if this identifier is not a keyword when checked
+  // using LangOptions without C++ support.
+  LangOptions LangOptsNoCPP = LangOpts;
+  LangOptsNoCPP.CPlusPlus = false;
+  LangOptsNoCPP.CPlusPlus11 = false;
+  return !isKeyword(LangOptsNoCPP);
 }
 
 tok::PPKeywordKind IdentifierInfo::getPPKeywordID() const {
@@ -549,8 +560,10 @@ ObjCMethodFamily Selector::getMethodFamilyImpl(Selector sel) {
     if (name == "self") return OMF_self;
     if (name == "initialize") return OMF_initialize;
   }
- 
-  if (name == "performSelector") return OMF_performSelector;
+
+  if (name == "performSelector" || name == "performSelectorInBackground" ||
+      name == "performSelectorOnMainThread")
+    return OMF_performSelector;
 
   // The other method families may begin with a prefix of underscores.
   while (!name.empty() && name.front() == '_')

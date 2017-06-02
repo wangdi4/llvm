@@ -7,21 +7,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
+#include "lldb/Utility/Error.h"
+
+#include "lldb/Utility/VASPrintf.h"
+#include "lldb/lldb-defines.h"            // for LLDB_GENERIC_ERROR
+#include "lldb/lldb-enumerations.h"       // for ErrorType, ErrorType::eErr...
+#include "llvm/ADT/SmallString.h"         // for SmallString
+#include "llvm/ADT/StringRef.h"           // for StringRef
+#include "llvm/Support/FormatProviders.h" // for format_provider
+
+#include <cerrno>
+#include <cstdarg>
+#include <string> // for string
+#include <system_error>
+
 #ifdef __APPLE__
 #include <mach/mach.h>
 #endif
 
-// C++ Includes
-#include <cerrno>
-#include <cstdarg>
+#include <stdint.h> // for uint32_t
+#include <string.h> // for strerror
 
-// Other libraries and framework includes
-#include "llvm/ADT/SmallVector.h"
-
-// Project includes
-#include "lldb/Host/PosixApi.h"
-#include "lldb/Utility/Error.h"
+namespace llvm {
+class raw_ostream;
+}
 
 using namespace lldb;
 using namespace lldb_private;
@@ -30,6 +39,10 @@ Error::Error() : m_code(0), m_type(eErrorTypeInvalid), m_string() {}
 
 Error::Error(ValueType err, ErrorType type)
     : m_code(err), m_type(type), m_string() {}
+
+Error::Error(std::error_code EC)
+    : m_code(EC.value()), m_type(ErrorType::eErrorTypeGeneric),
+      m_string(EC.message()) {}
 
 Error::Error(const Error &rhs) = default;
 
@@ -233,25 +246,10 @@ int Error::SetErrorStringWithVarArg(const char *format, va_list args) {
     if (Success())
       SetErrorToGenericError();
 
-    // Try and fit our error into a 1024 byte buffer first...
-    llvm::SmallVector<char, 1024> buf;
-    buf.resize(1024);
-    // Copy in case our first call to vsnprintf doesn't fit into our
-    // allocated buffer above
-    va_list copy_args;
-    va_copy(copy_args, args);
-    unsigned length = ::vsnprintf(buf.data(), buf.size(), format, args);
-    if (length >= buf.size()) {
-      // The error formatted string didn't fit into our buffer, resize it
-      // to the exact needed size, and retry
-      buf.resize(length + 1);
-      length = ::vsnprintf(buf.data(), buf.size(), format, copy_args);
-      va_end(copy_args);
-      assert(length < buf.size());
-    }
-    m_string.assign(buf.data(), length);
-    va_end(args);
-    return length;
+    llvm::SmallString<1024> buf;
+    VASprintf(buf, format, args);
+    m_string = buf.str();
+    return buf.size();
   } else {
     m_string.clear();
   }

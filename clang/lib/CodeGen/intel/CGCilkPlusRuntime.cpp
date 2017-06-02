@@ -378,8 +378,8 @@ static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Address SF,
   CallInst *SetjmpCall = nullptr;
 
   if (CGF.getTarget().getTriple().isKnownWindowsMSVCEnvironment()) {
-    llvm::AttributeSet ReturnsTwiceAttr = AttributeSet::get(
-        Ctx, llvm::AttributeSet::FunctionIndex, llvm::Attribute::ReturnsTwice);
+    llvm::AttributeList ReturnsTwiceAttr = llvm::AttributeList::get(
+        Ctx, llvm::AttributeList::FunctionIndex, llvm::Attribute::ReturnsTwice);
     if (CGF.getTarget().getTriple().getArch() == llvm::Triple::x86) {
       llvm::Type *ArgTypes[] = {Int8PtrTy, Int32Ty};
       llvm::Constant *SetJmp3 = CGF.CGM.CreateRuntimeFunction(
@@ -568,7 +568,7 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
   assert((Fn->arg_size() == 2) && "unexpected function type");
   auto SF = Address(&*(Fn->arg_begin()),
                     CharUnits::fromQuantity(CGF.PointerAlignInBytes));
-  auto ExnSlot = Address(&*(++Fn->arg_begin()),
+  auto ExnSlot = Address(&*(Fn->arg_begin() + 1),
                          CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn),
