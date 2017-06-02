@@ -92,6 +92,57 @@ build would look like this:
   $ make check-libcxx # optional
 
 
+Experimental Support for Windows
+--------------------------------
+
+The Windows support requires building with clang-cl as cl does not support one
+required extension: `#include_next`.  Furthermore, VS 2015 or newer (19.00) is
+required.  In the case of clang-cl, we need to specify the "MS Compatibility
+Version" as it defaults to 2014 (18.00).
+
+CMake + Visual Studio
+~~~~~~~~~~~~~~~~~~~~~
+
+Building with Visual Studio currently does not permit running tests. However,
+it is the simplest way to build.
+
+.. code-block:: batch
+
+  > cmake -G "Visual Studio 14 2015"              ^
+          -T "LLVM-vs2014"                        ^
+          -DLIBCXX_ENABLE_SHARED=YES              ^
+          -DLIBCXX_ENABLE_STATIC=NO               ^
+          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO ^
+          \path\to\libcxx
+  > cmake --build .
+
+CMake + ninja
+~~~~~~~~~~~~~
+
+Building with ninja is required for development to enable tests.
+Unfortunately, doing so requires additional configuration as we cannot
+just specify a toolset.
+
+.. code-block:: batch
+
+  > cmake -G Ninja                                                                    ^
+          -DCMAKE_MAKE_PROGRAM=/path/to/ninja                                         ^
+          -DCMAKE_SYSTEM_NAME=Windows                                                 ^
+          -DCMAKE_C_COMPILER=clang-cl                                                 ^
+          -DCMAKE_C_FLAGS="-fms-compatibility-version=19.00 --target=i686--windows"   ^
+          -DCMAKE_CXX_COMPILER=clang-c                                                ^
+          -DCMAKE_CXX_FLAGS="-fms-compatibility-version=19.00 --target=i686--windows" ^
+          -DLLVM_PATH=/path/to/llvm/tree                                              ^
+          -DLIBCXX_ENABLE_SHARED=YES                                                  ^
+          -DLIBCXX_ENABLE_STATIC=NO                                                   ^
+          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=NO                                     ^
+          \path\to\libcxx
+  > /path/to/ninja cxx
+  > /path/to/ninja check-cxx
+
+Note that the paths specified with backward slashes must use the `\\` as the
+directory separator as clang-cl may otherwise parse the path as an argument.
+
 .. _`libc++abi`: http://libcxxabi.llvm.org/
 
 
@@ -256,14 +307,21 @@ libc++ Feature Options
   Build the libc++ benchmark tests and the Google Benchmark library needed
   to support them.
 
-.. option:: LIBCXX_BUILD_BENCHMARK_NATIVE_STDLIB:BOOL
+.. option:: LIBCXX_BENCHMARK_NATIVE_STDLIB:STRING
 
-  **Default**:: ``OFF``
+  **Default**:: ``""``
+
+  **Values**:: ``libc++``, ``libstdc++``
 
   Build the libc++ benchmark tests and Google Benchmark library against the
-  native standard library on the platform. On linux this can be used to compare
-  libc++ to libstdc++ by building the benchmark tests against both standard
-  libraries.
+  specified standard library on the platform. On linux this can be used to
+  compare libc++ to libstdc++ by building the benchmark tests against both
+  standard libraries.
+
+.. option:: LIBCXX_BENCHMARK_NATIVE_GCC_TOOLCHAIN:STRING
+
+  Use the specified GCC toolchain and standard library when building the native
+  stdlib benchmark tests.
 
 
 libc++ ABI Feature Options

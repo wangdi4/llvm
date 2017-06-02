@@ -61,48 +61,48 @@ class ScopBuilder {
   /// Load/Store instruction.
   ///
   /// @param Inst       The Load/Store instruction that access the memory
-  /// @param L          The parent loop of the instruction
+  /// @param Stmt       The parent statement of the instruction
   ///
   /// @returns True if the access could be built, False otherwise.
-  bool buildAccessMultiDimFixed(MemAccInst Inst, Loop *L);
+  bool buildAccessMultiDimFixed(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Try to build a multi-dimensional parameteric sized MemoryAccess.
   ///        from the Load/Store instruction.
   ///
   /// @param Inst       The Load/Store instruction that access the memory
-  /// @param L          The parent loop of the instruction
+  /// @param Stmt       The parent statement of the instruction
   ///
   /// @returns True if the access could be built, False otherwise.
-  bool buildAccessMultiDimParam(MemAccInst Inst, Loop *L);
+  bool buildAccessMultiDimParam(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Try to build a MemoryAccess for a memory intrinsic.
   ///
   /// @param Inst       The instruction that access the memory
-  /// @param L          The parent loop of the instruction
+  /// @param Stmt       The parent statement of the instruction
   ///
   /// @returns True if the access could be built, False otherwise.
-  bool buildAccessMemIntrinsic(MemAccInst Inst, Loop *L);
+  bool buildAccessMemIntrinsic(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Try to build a MemoryAccess for a call instruction.
   ///
   /// @param Inst       The call instruction that access the memory
-  /// @param L          The parent loop of the instruction
+  /// @param Stmt       The parent statement of the instruction
   ///
   /// @returns True if the access could be built, False otherwise.
-  bool buildAccessCallInst(MemAccInst Inst, Loop *L);
+  bool buildAccessCallInst(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Build a single-dimensional parametric sized MemoryAccess
   ///        from the Load/Store instruction.
   ///
   /// @param Inst       The Load/Store instruction that access the memory
-  /// @param L          The parent loop of the instruction
-  void buildAccessSingleDim(MemAccInst Inst, Loop *L);
+  /// @param Stmt       The parent statement of the instruction
+  void buildAccessSingleDim(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Build an instance of MemoryAccess from the Load/Store instruction.
   ///
   /// @param Inst       The Load/Store instruction that access the memory
-  /// @param L          The parent loop of the instruction
-  void buildMemoryAccess(MemAccInst Inst, Loop *L);
+  /// @param Stmt       The parent statement of the instruction
+  void buildMemoryAccess(MemAccInst Inst, ScopStmt *Stmt);
 
   /// Analyze and extract the cross-BB scalar dependences (or, dataflow
   /// dependencies) of an instruction.
@@ -171,8 +171,7 @@ class ScopBuilder {
                                 Value *BaseAddress, Type *ElemType, bool Affine,
                                 Value *AccessValue,
                                 ArrayRef<const SCEV *> Subscripts,
-                                ArrayRef<const SCEV *> Sizes,
-                                ScopArrayInfo::MemoryKind Kind);
+                                ArrayRef<const SCEV *> Sizes, MemoryKind Kind);
 
   /// Create a MemoryAccess that represents either a LoadInst or
   /// StoreInst.
@@ -186,7 +185,7 @@ class ScopBuilder {
   /// @param Sizes       The array dimension's sizes.
   /// @param AccessValue Value read or written.
   ///
-  /// @see ScopArrayInfo::MemoryKind
+  /// @see MemoryKind
   void addArrayAccess(MemAccInst MemAccInst, MemoryAccess::AccessType AccType,
                       Value *BaseAddress, Type *ElemType, bool IsAffine,
                       ArrayRef<const SCEV *> Subscripts,
@@ -199,7 +198,7 @@ class ScopBuilder {
   /// @param Inst The instruction to be written.
   ///
   /// @see ensureValueRead()
-  /// @see ScopArrayInfo::MemoryKind
+  /// @see MemoryKind
   void ensureValueWrite(Instruction *Inst);
 
   /// Ensure an llvm::Value is available in the BB's statement, creating a
@@ -209,7 +208,7 @@ class ScopBuilder {
   /// @param UserBB Where to reload the value.
   ///
   /// @see ensureValueStore()
-  /// @see ScopArrayInfo::MemoryKind
+  /// @see MemoryKind
   void ensureValueRead(Value *V, BasicBlock *UserBB);
 
   /// Create a write MemoryAccess for the incoming block of a phi node.
@@ -224,7 +223,7 @@ class ScopBuilder {
   ///                      .phiops one. Required for values escaping through a
   ///                      PHINode in the SCoP region's exit block.
   /// @see addPHIReadAccess()
-  /// @see ScopArrayInfo::MemoryKind
+  /// @see MemoryKind
   void ensurePHIWrite(PHINode *PHI, BasicBlock *IncomingBlock,
                       Value *IncomingValue, bool IsExitBlock);
 
@@ -238,7 +237,7 @@ class ScopBuilder {
   /// here.
   ///
   /// @see ensurePHIWrite()
-  /// @see ScopArrayInfo::MemoryKind
+  /// @see MemoryKind
   void addPHIReadAccess(PHINode *PHI);
 
 public:

@@ -11,9 +11,18 @@
 #define liblldb_Mangled_h_
 #if defined(__cplusplus)
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/lldb-private.h"
-#include <vector>
+#include "lldb/Utility/ConstString.h"
+#include "lldb/lldb-enumerations.h" // for LanguageType
+#include "llvm/ADT/StringRef.h"     // for StringRef
+
+#include <stddef.h> // for size_t
+
+namespace lldb_private {
+class RegularExpression;
+}
+namespace lldb_private {
+class Stream;
+}
 
 namespace lldb_private {
 
@@ -63,7 +72,8 @@ public:
   ///     If \b true then \a name is a mangled name, if \b false then
   ///     \a name is demangled.
   //----------------------------------------------------------------------
-  explicit Mangled(const ConstString &name, bool is_mangled);
+  Mangled(const ConstString &name, bool is_mangled);
+  Mangled(llvm::StringRef name, bool is_mangled);
 
   //----------------------------------------------------------------------
   /// Construct with name.
@@ -75,6 +85,8 @@ public:
   ///     The already const name to copy into this object.
   //----------------------------------------------------------------------
   explicit Mangled(const ConstString &name);
+
+  explicit Mangled(llvm::StringRef name);
 
   //----------------------------------------------------------------------
   /// Destructor

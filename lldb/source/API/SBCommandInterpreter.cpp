@@ -481,7 +481,7 @@ bool SBCommandInterpreter::SetCommandOverrideCallback(
     const char *command_name, lldb::CommandOverrideCallback callback,
     void *baton) {
   if (command_name && command_name[0] && IsValid()) {
-    std::string command_name_str(command_name);
+    llvm::StringRef command_name_str = command_name;
     CommandObject *cmd_obj =
         m_opaque_ptr->GetCommandObjectForCommand(command_name_str);
     if (cmd_obj) {
@@ -538,15 +538,17 @@ SBCommand::SBCommand(lldb::CommandObjectSP cmd_sp) : m_opaque_sp(cmd_sp) {}
 bool SBCommand::IsValid() { return m_opaque_sp.get() != nullptr; }
 
 const char *SBCommand::GetName() {
-  return (IsValid() ? m_opaque_sp->GetCommandName() : nullptr);
+  return (IsValid() ? ConstString(m_opaque_sp->GetCommandName()).AsCString() : nullptr);
 }
 
 const char *SBCommand::GetHelp() {
-  return (IsValid() ? m_opaque_sp->GetHelp() : nullptr);
+  return (IsValid() ? ConstString(m_opaque_sp->GetHelp()).AsCString()
+                    : nullptr);
 }
 
 const char *SBCommand::GetHelpLong() {
-  return (IsValid() ? m_opaque_sp->GetHelpLong() : nullptr);
+  return (IsValid() ? ConstString(m_opaque_sp->GetHelpLong()).AsCString()
+                    : nullptr);
 }
 
 void SBCommand::SetHelp(const char *help) {

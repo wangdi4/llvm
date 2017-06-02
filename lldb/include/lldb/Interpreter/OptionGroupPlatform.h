@@ -14,8 +14,8 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/ConstString.h"
 #include "lldb/Interpreter/Options.h"
+#include "lldb/Utility/ConstString.h"
 
 namespace lldb_private {
 
@@ -34,12 +34,11 @@ public:
 
   ~OptionGroupPlatform() override = default;
 
-  uint32_t GetNumDefinitions() override;
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override;
 
-  const OptionDefinition *GetDefinitions() override;
-
-  Error SetOptionValue(uint32_t option_idx, const char *option_value,
+  Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_value,
                        ExecutionContext *execution_context) override;
+  Error SetOptionValue(uint32_t, const char *, ExecutionContext *) = delete;
 
   void OptionParsingStarting(ExecutionContext *execution_context) override;
 

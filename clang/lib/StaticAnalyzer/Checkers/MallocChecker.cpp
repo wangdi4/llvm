@@ -174,7 +174,10 @@ public:
         II_valloc(nullptr), II_reallocf(nullptr), II_strndup(nullptr),
         II_strdup(nullptr), II_win_strdup(nullptr), II_kmalloc(nullptr),
         II_if_nameindex(nullptr), II_if_freenameindex(nullptr),
-        II_wcsdup(nullptr), II_win_wcsdup(nullptr) {}
+        II_wcsdup(nullptr), II_win_wcsdup(nullptr), II_g_malloc(nullptr),
+        II_g_malloc0(nullptr), II_g_realloc(nullptr), II_g_try_malloc(nullptr), 
+        II_g_try_malloc0(nullptr), II_g_try_realloc(nullptr), 
+        II_g_free(nullptr), II_g_memdup(nullptr) {}
 
   /// In pessimistic mode, the checker assumes that it does not know which
   /// functions might free the memory.
@@ -236,7 +239,9 @@ private:
                          *II_realloc, *II_calloc, *II_valloc, *II_reallocf,
                          *II_strndup, *II_strdup, *II_win_strdup, *II_kmalloc,
                          *II_if_nameindex, *II_if_freenameindex, *II_wcsdup,
-                         *II_win_wcsdup;
+                         *II_win_wcsdup, *II_g_malloc, *II_g_malloc0, 
+                         *II_g_realloc, *II_g_try_malloc, *II_g_try_malloc0, 
+                         *II_g_try_realloc, *II_g_free, *II_g_memdup;
   mutable Optional<uint64_t> KernelZeroFlagVal;
 
   void initIdentifierInfo(ASTContext &C) const;
@@ -286,6 +291,9 @@ private:
                                       SVal SizeEx, SVal Init,
                                       ProgramStateRef State,
                                       AllocationFamily Family = AF_Malloc);
+
+  static ProgramStateRef addExtentSize(CheckerContext &C, const CXXNewExpr *NE,
+                                       ProgramStateRef State);
 
   // Check if this malloc() for special flags. At present that means M_ZERO or
   // __GFP_ZERO (in which case, treat it like calloc).
@@ -460,10 +468,10 @@ private:
                           SPrev->isAllocatedOfSizeZero())));
     }
 
-    PathDiagnosticPiece *VisitNode(const ExplodedNode *N,
-                                   const ExplodedNode *PrevN,
-                                   BugReporterContext &BRC,
-                                   BugReport &BR) override;
+    std::shared_ptr<PathDiagnosticPiece> VisitNode(const ExplodedNode *N,
+                                                   const ExplodedNode *PrevN,
+                                                   BugReporterContext &BRC,
+                                                   BugReport &BR) override;
 
     std::unique_ptr<PathDiagnosticPiece>
     getEndPath(BugReporterContext &BRC, const ExplodedNode *EndPathNode,
@@ -551,6 +559,16 @@ void MallocChecker::initIdentifierInfo(ASTContext &Ctx) const {
   II_win_strdup = &Ctx.Idents.get("_strdup");
   II_win_wcsdup = &Ctx.Idents.get("_wcsdup");
   II_win_alloca = &Ctx.Idents.get("_alloca");
+
+  // Glib
+  II_g_malloc = &Ctx.Idents.get("g_malloc");
+  II_g_malloc0 = &Ctx.Idents.get("g_malloc0");
+  II_g_realloc = &Ctx.Idents.get("g_realloc");
+  II_g_try_malloc = &Ctx.Idents.get("g_try_malloc");
+  II_g_try_malloc0 = &Ctx.Idents.get("g_try_malloc0");
+  II_g_try_realloc = &Ctx.Idents.get("g_try_realloc");
+  II_g_free = &Ctx.Idents.get("g_free");
+  II_g_memdup = &Ctx.Idents.get("g_memdup");
 }
 
 bool MallocChecker::isMemFunction(const FunctionDecl *FD, ASTContext &C) const {
@@ -586,7 +604,8 @@ bool MallocChecker::isCMemFunction(const FunctionDecl *FD,
     initIdentifierInfo(C);
 
     if (Family == AF_Malloc && CheckFree) {
-      if (FunI == II_free || FunI == II_realloc || FunI == II_reallocf)
+      if (FunI == II_free || FunI == II_realloc || FunI == II_reallocf || 
+          FunI == II_g_free)
         return true;
     }
 
@@ -594,7 +613,11 @@ bool MallocChecker::isCMemFunction(const FunctionDecl *FD,
       if (FunI == II_malloc || FunI == II_realloc || FunI == II_reallocf ||
           FunI == II_calloc || FunI == II_valloc || FunI == II_strdup ||
           FunI == II_win_strdup || FunI == II_strndup || FunI == II_wcsdup ||
-          FunI == II_win_wcsdup || FunI == II_kmalloc)
+          FunI == II_win_wcsdup || FunI == II_kmalloc ||
+          FunI == II_g_malloc || FunI == II_g_malloc0 || 
+          FunI == II_g_realloc || FunI == II_g_try_malloc || 
+          FunI == II_g_try_malloc0 || FunI == II_g_try_realloc ||
+          FunI == II_g_memdup)
         return true;
     }
 
@@ -759,7 +782,7 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
     initIdentifierInfo(C.getASTContext());
     IdentifierInfo *FunI = FD->getIdentifier();
 
-    if (FunI == II_malloc) {
+    if (FunI == II_malloc || FunI == II_g_malloc || FunI == II_g_try_malloc) {
       if (CE->getNumArgs() < 1)
         return;
       if (CE->getNumArgs() < 3) {
@@ -775,6 +798,8 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
           State = MallocMemAux(C, CE, CE->getArg(0), UndefinedVal(), State);
       }
     } else if (FunI == II_kmalloc) {
+      if (CE->getNumArgs() < 1)
+        return;
       llvm::Optional<ProgramStateRef> MaybeState =
         performKernelMalloc(CE, C, State);
       if (MaybeState.hasValue())
@@ -786,7 +811,8 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
         return;
       State = MallocMemAux(C, CE, CE->getArg(0), UndefinedVal(), State);
       State = ProcessZeroAllocation(C, CE, 0, State);
-    } else if (FunI == II_realloc) {
+    } else if (FunI == II_realloc || FunI == II_g_realloc || 
+               FunI == II_g_try_realloc) {
       State = ReallocMem(C, CE, false, State);
       State = ProcessZeroAllocation(C, CE, 1, State);
     } else if (FunI == II_reallocf) {
@@ -796,7 +822,7 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
       State = CallocMem(C, CE, State);
       State = ProcessZeroAllocation(C, CE, 0, State);
       State = ProcessZeroAllocation(C, CE, 1, State);
-    } else if (FunI == II_free) {
+    } else if (FunI == II_free || FunI == II_g_free) {
       State = FreeMemAux(C, CE, State, 0, false, ReleasedAllocatedMemory);
     } else if (FunI == II_strdup || FunI == II_win_strdup ||
                FunI == II_wcsdup || FunI == II_win_wcsdup) {
@@ -804,6 +830,8 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
     } else if (FunI == II_strndup) {
       State = MallocUpdateRefState(C, CE, State);
     } else if (FunI == II_alloca || FunI == II_win_alloca) {
+      if (CE->getNumArgs() < 1)
+        return;
       State = MallocMemAux(C, CE, CE->getArg(0), UndefinedVal(), State,
                            AF_Alloca);
       State = ProcessZeroAllocation(C, CE, 0, State);
@@ -834,6 +862,18 @@ void MallocChecker::checkPostStmt(const CallExpr *CE, CheckerContext &C) const {
                            AF_IfNameIndex);
     } else if (FunI == II_if_freenameindex) {
       State = FreeMemAux(C, CE, State, 0, false, ReleasedAllocatedMemory);
+    } else if (FunI == II_g_malloc0 || FunI == II_g_try_malloc0) {
+      if (CE->getNumArgs() < 1)
+        return;
+      SValBuilder &svalBuilder = C.getSValBuilder();
+      SVal zeroVal = svalBuilder.makeZeroVal(svalBuilder.getContext().CharTy);
+      State = MallocMemAux(C, CE, CE->getArg(0), zeroVal, State);
+      State = ProcessZeroAllocation(C, CE, 0, State);
+    } else if (FunI == II_g_memdup) {
+      if (CE->getNumArgs() < 2)
+        return;
+      State = MallocMemAux(C, CE, CE->getArg(1), UndefinedVal(), State);
+      State = ProcessZeroAllocation(C, CE, 1, State);
     }
   }
 
@@ -981,8 +1021,56 @@ void MallocChecker::checkPostStmt(const CXXNewExpr *NE,
   // existing binding.
   State = MallocUpdateRefState(C, NE, State, NE->isArray() ? AF_CXXNewArray
                                                            : AF_CXXNew);
+  State = addExtentSize(C, NE, State);
   State = ProcessZeroAllocation(C, NE, 0, State);
   C.addTransition(State);
+}
+
+// Sets the extent value of the MemRegion allocated by
+// new expression NE to its size in Bytes.
+//
+ProgramStateRef MallocChecker::addExtentSize(CheckerContext &C,
+                                             const CXXNewExpr *NE,
+                                             ProgramStateRef State) {
+  if (!State)
+    return nullptr;
+  SValBuilder &svalBuilder = C.getSValBuilder();
+  SVal ElementCount;
+  const LocationContext *LCtx = C.getLocationContext();
+  const SubRegion *Region;
+  if (NE->isArray()) {
+    const Expr *SizeExpr = NE->getArraySize();
+    ElementCount = State->getSVal(SizeExpr, C.getLocationContext());
+    // Store the extent size for the (symbolic)region
+    // containing the elements.
+    Region = (State->getSVal(NE, LCtx))
+                 .getAsRegion()
+                 ->getAs<SubRegion>()
+                 ->getSuperRegion()
+                 ->getAs<SubRegion>();
+  } else {
+    ElementCount = svalBuilder.makeIntVal(1, true);
+    Region = (State->getSVal(NE, LCtx)).getAsRegion()->getAs<SubRegion>();
+  }
+  assert(Region);
+
+  // Set the region's extent equal to the Size in Bytes.
+  QualType ElementType = NE->getAllocatedType();
+  ASTContext &AstContext = C.getASTContext();
+  CharUnits TypeSize = AstContext.getTypeSizeInChars(ElementType);
+
+  if (ElementCount.getAs<NonLoc>()) {
+    DefinedOrUnknownSVal Extent = Region->getExtent(svalBuilder);
+    // size in Bytes = ElementCount*TypeSize
+    SVal SizeInBytes = svalBuilder.evalBinOpNN(
+        State, BO_Mul, ElementCount.castAs<NonLoc>(),
+        svalBuilder.makeArrayIndex(TypeSize.getQuantity()),
+        svalBuilder.getArrayIndexType());
+    DefinedOrUnknownSVal extentMatchesSize = svalBuilder.evalEQ(
+        State, Extent, SizeInBytes.castAs<DefinedOrUnknownSVal>());
+    State = State->assume(extentMatchesSize, true);
+  }
+  return State;
 }
 
 void MallocChecker::checkPreStmt(const CXXDeleteExpr *DE,
@@ -1099,7 +1187,7 @@ ProgramStateRef MallocChecker::MallocMemAux(CheckerContext &C,
   State = State->BindExpr(CE, C.getLocationContext(), RetVal);
 
   // Fill the region with the initialization value.
-  State = State->bindDefault(RetVal, Init);
+  State = State->bindDefault(RetVal, Init, LCtx);
 
   // Set the region's extent equal to the Size parameter.
   const SymbolicRegion *R =
@@ -2523,6 +2611,11 @@ bool MallocChecker::mayFreeAnyEscapedMemoryOrIsModeledExplicitly(
     return true;
   }
 
+  if (FName == "connectImpl" &&
+      FD->getQualifiedNameAsString() == "QObject::connectImpl") {
+    return true;
+  }
+
   // Handle cases where we know a buffer's /address/ can escape.
   // Note that the above checks handle some special cases where we know that
   // even though the address escapes, it's still our responsibility to free the
@@ -2608,11 +2701,9 @@ static SymbolRef findFailedReallocSymbol(ProgramStateRef currState,
   return nullptr;
 }
 
-PathDiagnosticPiece *
-MallocChecker::MallocBugVisitor::VisitNode(const ExplodedNode *N,
-                                           const ExplodedNode *PrevN,
-                                           BugReporterContext &BRC,
-                                           BugReport &BR) {
+std::shared_ptr<PathDiagnosticPiece> MallocChecker::MallocBugVisitor::VisitNode(
+    const ExplodedNode *N, const ExplodedNode *PrevN, BugReporterContext &BRC,
+    BugReport &BR) {
   ProgramStateRef state = N->getState();
   ProgramStateRef statePrev = PrevN->getState();
 
@@ -2680,7 +2771,7 @@ MallocChecker::MallocBugVisitor::VisitNode(const ExplodedNode *N,
   // Generate the extra diagnostic.
   PathDiagnosticLocation Pos(S, BRC.getSourceManager(),
                              N->getLocationContext());
-  return new PathDiagnosticEventPiece(Pos, Msg, true, StackHint);
+  return std::make_shared<PathDiagnosticEventPiece>(Pos, Msg, true, StackHint);
 }
 
 void MallocChecker::printState(raw_ostream &Out, ProgramStateRef State,

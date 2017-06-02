@@ -1,4 +1,4 @@
-//===-- DynamicLoaderHexagon.h ----------------------------------*- C++ -*-===//
+//===-- DynamicLoaderHexagonDYLD.cpp ----------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,7 +11,6 @@
 // C++ Includes
 // Other libraries and framework includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
@@ -21,6 +20,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
+#include "lldb/Utility/Log.h"
 
 #include "DynamicLoaderHexagonDYLD.h"
 
@@ -369,7 +369,7 @@ void DynamicLoaderHexagonDYLD::RefreshModules() {
 
     E = m_rendezvous.loaded_end();
     for (I = m_rendezvous.loaded_begin(); I != E; ++I) {
-      FileSpec file(I->path.c_str(), true);
+      FileSpec file(I->path, true);
       ModuleSP module_sp =
           LoadModuleAtAddress(file, I->link_addr, I->base_addr, true);
       if (module_sp.get()) {
@@ -393,7 +393,7 @@ void DynamicLoaderHexagonDYLD::RefreshModules() {
 
     E = m_rendezvous.unloaded_end();
     for (I = m_rendezvous.unloaded_begin(); I != E; ++I) {
-      FileSpec file(I->path.c_str(), true);
+      FileSpec file(I->path, true);
       ModuleSpec module_spec(file);
       ModuleSP module_sp = loaded_modules.FindFirstModule(module_spec);
 

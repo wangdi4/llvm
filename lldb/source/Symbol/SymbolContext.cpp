@@ -9,7 +9,6 @@
 
 #include "lldb/Symbol/SymbolContext.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Host/Host.h"
@@ -23,6 +22,7 @@
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Symbol/Variable.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Log.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -913,7 +913,7 @@ bool SymbolContextSpecifier::SymbolContextMatches(SymbolContext &sc) {
         if (m_module_sp.get() != sc.module_sp.get())
           return false;
       } else {
-        FileSpec module_file_spec(m_module_spec.c_str(), false);
+        FileSpec module_file_spec(m_module_spec, false);
         if (!FileSpec::Equal(module_file_spec, sc.module_sp->GetFileSpec(),
                              false))
           return false;

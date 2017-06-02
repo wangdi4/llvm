@@ -27,7 +27,7 @@ namespace lldb_private {
 class DumpValueObjectOptions {
 public:
   struct PointerDepth {
-    enum class Mode { Always, Formatters, Default, Never } m_mode;
+    enum class Mode { Always, Default, Never } m_mode;
     uint32_t m_count;
 
     PointerDepth operator--() const {
@@ -37,9 +37,22 @@ public:
     }
 
     bool CanAllowExpansion() const;
+  };
 
-    bool CanAllowExpansion(bool is_root, TypeSummaryImpl *entry,
-                           ValueObject *valobj, const std::string &summary);
+  struct PointerAsArraySettings {
+    size_t m_element_count;
+    size_t m_base_element;
+    size_t m_stride;
+
+    PointerAsArraySettings()
+        : m_element_count(0), m_base_element(0), m_stride() {}
+
+    PointerAsArraySettings(size_t elem_count, size_t base_elem = 0,
+                           size_t stride = 1)
+        : m_element_count(elem_count), m_base_element(base_elem),
+          m_stride(stride) {}
+
+    operator bool() { return m_element_count > 0; }
   };
 
   typedef std::function<bool(ConstString, ConstString,
@@ -116,6 +129,9 @@ public:
 
   DumpValueObjectOptions &SetElementCount(uint32_t element_count = 0);
 
+  DumpValueObjectOptions &
+  SetPointerAsArray(const PointerAsArraySettings &ptr_array);
+
 public:
   uint32_t m_max_depth = UINT32_MAX;
   lldb::DynamicValueType m_use_dynamic = lldb::eNoDynamicValues;
@@ -126,7 +142,7 @@ public:
   lldb::LanguageType m_varformat_language = lldb::eLanguageTypeUnknown;
   PointerDepth m_max_ptr_depth;
   DeclPrintingHelper m_decl_printing_helper;
-  uint32_t m_element_count = 0;
+  PointerAsArraySettings m_pointer_as_array;
   bool m_use_synthetic : 1;
   bool m_scope_already_checked : 1;
   bool m_flat_output : 1;

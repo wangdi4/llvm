@@ -104,7 +104,18 @@ static ImportNameType getNameType(StringRef Sym, StringRef ExtName) {
 
 static std::string replace(StringRef S, StringRef From, StringRef To) {
   size_t Pos = S.find(From);
-  assert(Pos != StringRef::npos);
+
+  // From and To may be mangled, but substrings in S may not.
+  if (Pos == StringRef::npos && From.startswith("_") && To.startswith("_")) {
+    From = From.substr(1);
+    To = To.substr(1);
+    Pos = S.find(From);
+  }
+
+  if (Pos == StringRef::npos) {
+    error(S + ": replacing '" + From + "' with '" + To + "' failed");
+    return "";
+  }
   return (Twine(S.substr(0, Pos)) + To + S.substr(Pos + From.size())).str();
 }
 
@@ -151,7 +162,7 @@ public:
   // Create a short import file which is described in PE/COFF spec 7. Import
   // Library Format.
   NewArchiveMember createShortImport(StringRef Sym, uint16_t Ordinal,
-                                     ImportNameType NameType, bool isData);
+                                     ImportType Type, ImportNameType NameType);
 };
 }
 
@@ -352,15 +363,16 @@ ObjectFactory::createNullImportDescriptor(std::vector<uint8_t> &Buffer) {
 NewArchiveMember ObjectFactory::createNullThunk(std::vector<uint8_t> &Buffer) {
   static const uint32_t NumberOfSections = 2;
   static const uint32_t NumberOfSymbols = 1;
+  uint32_t VASize = is32bit() ? 4 : 8;
 
   // COFF Header
   coff_file_header Header{
       u16(Config->Machine), u16(NumberOfSections), u32(0),
       u32(sizeof(Header) + (NumberOfSections * sizeof(coff_section)) +
           // .idata$5
-          sizeof(export_address_table_entry) +
+          VASize +
           // .idata$4
-          sizeof(export_address_table_entry)),
+          VASize),
       u32(NumberOfSymbols), u16(0),
       u16(is32bit() ? IMAGE_FILE_32BIT_MACHINE : 0),
   };
@@ -371,36 +383,40 @@ NewArchiveMember ObjectFactory::createNullThunk(std::vector<uint8_t> &Buffer) {
       {{'.', 'i', 'd', 'a', 't', 'a', '$', '5'},
        u32(0),
        u32(0),
-       u32(sizeof(export_address_table_entry)),
+       u32(VASize),
        u32(sizeof(coff_file_header) + NumberOfSections * sizeof(coff_section)),
        u32(0),
        u32(0),
        u16(0),
        u16(0),
-       u32(IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_CNT_INITIALIZED_DATA |
-           IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE)},
+       u32((is32bit() ? IMAGE_SCN_ALIGN_4BYTES : IMAGE_SCN_ALIGN_8BYTES) |
+           IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ |
+           IMAGE_SCN_MEM_WRITE)},
       {{'.', 'i', 'd', 'a', 't', 'a', '$', '4'},
        u32(0),
        u32(0),
-       u32(sizeof(export_address_table_entry)),
+       u32(VASize),
        u32(sizeof(coff_file_header) + NumberOfSections * sizeof(coff_section) +
-           sizeof(export_address_table_entry)),
+           VASize),
        u32(0),
        u32(0),
        u16(0),
        u16(0),
-       u32(IMAGE_SCN_ALIGN_4BYTES | IMAGE_SCN_CNT_INITIALIZED_DATA |
-           IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE)},
+       u32((is32bit() ? IMAGE_SCN_ALIGN_4BYTES : IMAGE_SCN_ALIGN_8BYTES) |
+           IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ |
+           IMAGE_SCN_MEM_WRITE)},
   };
   append(Buffer, SectionTable);
 
-  // .idata$5
-  static const export_address_table_entry ILT{u32(0)};
-  append(Buffer, ILT);
+  // .idata$5, ILT
+  append(Buffer, u32(0));
+  if (!is32bit())
+    append(Buffer, u32(0));
 
-  // .idata$4
-  static const export_address_table_entry IAT{u32(0)};
-  append(Buffer, IAT);
+  // .idata$4, IAT
+  append(Buffer, u32(0));
+  if (!is32bit())
+    append(Buffer, u32(0));
 
   // Symbol Table
   coff_symbol16 SymbolTable[NumberOfSymbols] = {
@@ -424,8 +440,8 @@ NewArchiveMember ObjectFactory::createNullThunk(std::vector<uint8_t> &Buffer) {
 
 NewArchiveMember ObjectFactory::createShortImport(StringRef Sym,
                                                   uint16_t Ordinal,
-                                                  ImportNameType NameType,
-                                                  bool isData) {
+                                                  ImportType ImportType,
+                                                  ImportNameType NameType) {
   size_t ImpSize = DLLName.size() + Sym.size() + 2; // +2 for NULs
   size_t Size = sizeof(coff_import_header) + ImpSize;
   char *Buf = Alloc.Allocate<char>(Size);
@@ -440,8 +456,7 @@ NewArchiveMember ObjectFactory::createShortImport(StringRef Sym,
   Imp->SizeOfData = ImpSize;
   if (Ordinal > 0)
     Imp->OrdinalHint = Ordinal;
-  Imp->TypeInfo = (isData ? IMPORT_DATA : IMPORT_CODE);
-  Imp->TypeInfo |= NameType << 2;
+  Imp->TypeInfo = (NameType << 2) | ImportType;
 
   // Write symbol name and DLL name.
   memcpy(P, Sym.data(), Sym.size());
@@ -458,7 +473,7 @@ void lld::coff::writeImportLibrary() {
   std::vector<NewArchiveMember> Members;
 
   std::string Path = getImplibPath();
-  std::string DLLName = llvm::sys::path::filename(Config->OutputFile);
+  std::string DLLName = sys::path::filename(Config->OutputFile);
   ObjectFactory OF(DLLName);
 
   std::vector<uint8_t> ImportDescriptor;
@@ -474,11 +489,18 @@ void lld::coff::writeImportLibrary() {
     if (E.Private)
       continue;
 
-    ImportNameType Type = getNameType(E.SymbolName, E.Name);
+    ImportType ImportType = IMPORT_CODE;
+    if (E.Data)
+      ImportType = IMPORT_DATA;
+    if (E.Constant)
+      ImportType = IMPORT_CONST;
+
+    ImportNameType NameType = getNameType(E.SymbolName, E.Name);
     std::string Name = E.ExtName.empty()
                            ? std::string(E.SymbolName)
                            : replace(E.SymbolName, E.Name, E.ExtName);
-    Members.push_back(OF.createShortImport(Name, E.Ordinal, Type, E.Data));
+    Members.push_back(OF.createShortImport(Name, E.Ordinal, ImportType,
+                                           NameType));
   }
 
   std::pair<StringRef, std::error_code> Result =

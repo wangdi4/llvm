@@ -35,8 +35,14 @@ static cl::opt<bool>
 UseAddressTopByteIgnored("aarch64-use-tbi", cl::desc("Assume that top byte of "
                          "an address is ignored"), cl::init(false), cl::Hidden);
 
+static cl::opt<bool>
+    UseNonLazyBind("aarch64-enable-nonlazybind",
+                   cl::desc("Call nonlazybind functions via direct GOT load"),
+                   cl::init(false), cl::Hidden);
+
 AArch64Subtarget &
-AArch64Subtarget::initializeSubtargetDependencies(StringRef FS) {
+AArch64Subtarget::initializeSubtargetDependencies(StringRef FS,
+                                                  StringRef CPUString) {
   // Determine default and user-specified characteristics
 
   if (CPUString.empty())
@@ -63,8 +69,14 @@ void AArch64Subtarget::initializeProperties() {
     MaxInterleaveFactor = 4;
     break;
   case ExynosM1:
+    MaxInterleaveFactor = 4;
+    MaxJumpTableSize = 8;
     PrefFunctionAlignment = 4;
     PrefLoopAlignment = 3;
+    break;
+  case Falkor:
+    MaxInterleaveFactor = 4;
+    VectorInsertExtractBaseCost = 2;
     break;
   case Kryo:
     MaxInterleaveFactor = 4;
@@ -74,8 +86,22 @@ void AArch64Subtarget::initializeProperties() {
     MinPrefetchStride = 1024;
     MaxPrefetchIterationsAhead = 11;
     break;
-  case Vulcan:
+  case ThunderX2T99:
+    CacheLineSize = 64;
+    PrefFunctionAlignment = 3;
+    PrefLoopAlignment = 2;
     MaxInterleaveFactor = 4;
+    PrefetchDistance = 128;
+    MinPrefetchStride = 1024;
+    MaxPrefetchIterationsAhead = 4;
+    break;
+  case ThunderX:
+  case ThunderXT88:
+  case ThunderXT81:
+  case ThunderXT83:
+    CacheLineSize = 128;
+    PrefFunctionAlignment = 3;
+    PrefLoopAlignment = 2;
     break;
   case CortexA35: break;
   case CortexA53: break;
@@ -89,8 +115,8 @@ AArch64Subtarget::AArch64Subtarget(const Triple &TT, const std::string &CPU,
                                    const std::string &FS,
                                    const TargetMachine &TM, bool LittleEndian)
     : AArch64GenSubtargetInfo(TT, CPU, FS), ReserveX18(TT.isOSDarwin()),
-      IsLittle(LittleEndian), CPUString(CPU), TargetTriple(TT), FrameLowering(),
-      InstrInfo(initializeSubtargetDependencies(FS)), TSInfo(),
+      IsLittle(LittleEndian), TargetTriple(TT), FrameLowering(),
+      InstrInfo(initializeSubtargetDependencies(FS, CPU)), TSInfo(),
       TLInfo(TM, *this), GISel() {}
 
 const CallLowering *AArch64Subtarget::getCallLowering() const {
@@ -103,9 +129,9 @@ const InstructionSelector *AArch64Subtarget::getInstructionSelector() const {
   return GISel->getInstructionSelector();
 }
 
-const MachineLegalizer *AArch64Subtarget::getMachineLegalizer() const {
+const LegalizerInfo *AArch64Subtarget::getLegalizerInfo() const {
   assert(GISel && "Access to GlobalISel APIs not set");
-  return GISel->getMachineLegalizer();
+  return GISel->getLegalizerInfo();
 }
 
 const RegisterBankInfo *AArch64Subtarget::getRegBankInfo() const {
@@ -126,9 +152,26 @@ AArch64Subtarget::ClassifyGlobalReference(const GlobalValue *GV,
   if (!TM.shouldAssumeDSOLocal(*GV->getParent(), GV))
     return AArch64II::MO_GOT;
 
-  // The small code mode's direct accesses use ADRP, which cannot necessarily
-  // produce the value 0 (if the code is above 4GB).
-  if (TM.getCodeModel() == CodeModel::Small && GV->hasExternalWeakLinkage())
+  // The small code model's direct accesses use ADRP, which cannot
+  // necessarily produce the value 0 (if the code is above 4GB).
+  if (useSmallAddressing() && GV->hasExternalWeakLinkage())
+    return AArch64II::MO_GOT;
+
+  return AArch64II::MO_NO_FLAG;
+}
+
+unsigned char AArch64Subtarget::classifyGlobalFunctionReference(
+    const GlobalValue *GV, const TargetMachine &TM) const {
+  // MachO large model always goes via a GOT, because we don't have the
+  // relocations available to do anything else..
+  if (TM.getCodeModel() == CodeModel::Large && isTargetMachO() &&
+      !GV->hasInternalLinkage())
+    return AArch64II::MO_GOT;
+
+  // NonLazyBind goes via GOT unless we know it's available locally.
+  auto *F = dyn_cast<Function>(GV);
+  if (UseNonLazyBind && F && F->hasFnAttribute(Attribute::NonLazyBind) &&
+      !TM.shouldAssumeDSOLocal(*GV->getParent(), GV))
     return AArch64II::MO_GOT;
 
   return AArch64II::MO_NO_FLAG;

@@ -9,8 +9,8 @@
 
 #include "lldb/Host/common/NativeRegisterContext.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/RegisterValue.h"
+#include "lldb/Utility/Log.h"
 
 #include "lldb/Host/PosixApi.h"
 #include "lldb/Host/common/NativeProcessProtocol.h"
@@ -56,20 +56,18 @@ NativeRegisterContext::~NativeRegisterContext() {}
 // }
 
 const RegisterInfo *
-NativeRegisterContext::GetRegisterInfoByName(const char *reg_name,
+NativeRegisterContext::GetRegisterInfoByName(llvm::StringRef reg_name,
                                              uint32_t start_idx) {
-  if (reg_name && reg_name[0]) {
-    const uint32_t num_registers = GetRegisterCount();
-    for (uint32_t reg = start_idx; reg < num_registers; ++reg) {
-      const RegisterInfo *reg_info = GetRegisterInfoAtIndex(reg);
+  if (reg_name.empty())
+    return nullptr;
 
-      if ((reg_info->name != nullptr &&
-           ::strcasecmp(reg_info->name, reg_name) == 0) ||
-          (reg_info->alt_name != nullptr &&
-           ::strcasecmp(reg_info->alt_name, reg_name) == 0)) {
-        return reg_info;
-      }
-    }
+  const uint32_t num_registers = GetRegisterCount();
+  for (uint32_t reg = start_idx; reg < num_registers; ++reg) {
+    const RegisterInfo *reg_info = GetRegisterInfoAtIndex(reg);
+
+    if (reg_name.equals_lower(reg_info->name) ||
+        reg_name.equals_lower(reg_info->alt_name))
+      return reg_info;
   }
   return nullptr;
 }
@@ -248,8 +246,18 @@ uint32_t NativeRegisterContext::SetHardwareBreakpoint(lldb::addr_t addr,
   return LLDB_INVALID_INDEX32;
 }
 
+Error NativeRegisterContext::ClearAllHardwareBreakpoints() {
+  return Error("not implemented");
+}
+
 bool NativeRegisterContext::ClearHardwareBreakpoint(uint32_t hw_idx) {
   return false;
+}
+
+Error NativeRegisterContext::GetHardwareBreakHitIndex(uint32_t &bp_index,
+                                                      lldb::addr_t trap_addr) {
+  bp_index = LLDB_INVALID_INDEX32;
+  return Error("not implemented");
 }
 
 uint32_t NativeRegisterContext::NumSupportedHardwareWatchpoints() { return 0; }

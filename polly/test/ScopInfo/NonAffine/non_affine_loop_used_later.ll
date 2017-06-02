@@ -2,6 +2,7 @@
 ; RUN:     -polly-allow-nonaffine -polly-allow-nonaffine-branches \
 ; RUN:     -polly-allow-nonaffine-loops -analyze < %s | FileCheck %s
 ; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine \
+; RUN:     -polly-unprofitable-scalar-accs=true \
 ; RUN:     -polly-process-unprofitable=false \
 ; RUN:     -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops \
 ; RUN:     -analyze < %s | FileCheck %s --check-prefix=PROFIT
@@ -72,7 +73,7 @@
 ; CHECK-NEXT:         ReadAccess :=    [Reduction Type: NONE] [Scalar: 1]
 ; CHECK-NEXT:             [N] -> { Stmt_bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK-NEXT:         ReadAccess :=    [Reduction Type: NONE] [Scalar: 0]
-; CHECK-NEXT:             [N] -> { Stmt_bb18[i0] -> MemRef_A[o0] : -2147483648 <= o0 <= 2147483647 };
+; CHECK-NEXT:             [N] -> { Stmt_bb18[i0] -> MemRef_A[o0] };
 ; CHECK-NEXT:         MustWriteAccess :=    [Reduction Type: NONE] [Scalar: 0]
 ; CHECK-NEXT:             [N] -> { Stmt_bb18[i0] -> MemRef_A[i0] };
 ; CHECK-NEXT:     Stmt_bb23

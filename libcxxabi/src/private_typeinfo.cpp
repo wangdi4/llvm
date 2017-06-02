@@ -55,12 +55,7 @@
 #include <string.h>
 #endif
 
-namespace __cxxabiv1
-{
-
-#pragma GCC visibility push(hidden)
-
-inline
+static inline
 bool
 is_equal(const std::type_info* x, const std::type_info* y, bool use_strcmp)
 {
@@ -73,6 +68,8 @@ is_equal(const std::type_info* x, const std::type_info* y, bool use_strcmp)
 #endif
 }
 
+namespace __cxxabiv1
+{
 
 // __shim_type_info
 
@@ -390,8 +387,10 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
     // Do the dereference adjustment
     if (adjustedPtr != NULL)
         adjustedPtr = *static_cast<void**>(adjustedPtr);
-    // bullet 3B
-    if (thrown_pointer_type->__flags & ~__flags)
+    // bullet 3B and 3C
+    if (thrown_pointer_type->__flags & ~__flags & __no_remove_flags_mask)
+        return false;
+    if (__flags & ~thrown_pointer_type->__flags & __no_add_flags_mask)
         return false;
     if (is_equal(__pointee, thrown_pointer_type->__pointee, false))
         return true;
@@ -500,7 +499,9 @@ bool __pointer_to_member_type_info::can_catch(
         dynamic_cast<const __pointer_to_member_type_info*>(thrown_type);
     if (thrown_pointer_type == 0)
         return false;
-    if (thrown_pointer_type->__flags & ~__flags)
+    if (thrown_pointer_type->__flags & ~__flags & __no_remove_flags_mask)
+        return false;
+    if (__flags & ~thrown_pointer_type->__flags & __no_add_flags_mask)
         return false;
     if (!is_equal(__pointee, thrown_pointer_type->__pointee, false))
         return false;
@@ -533,9 +534,6 @@ bool __pointer_to_member_type_info::can_catch_nested(
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-
-#pragma GCC visibility pop
-#pragma GCC visibility push(default)
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -616,13 +614,11 @@ bool __pointer_to_member_type_info::can_catch_nested(
 // If there is a public path from (dynamic_ptr, dynamic_type) to
 //    (static_ptr, static_type), then return dynamic_ptr.
 // Else return nullptr.
-extern "C"
-void*
-__dynamic_cast(const void* static_ptr,
-               const __class_type_info* static_type,
-               const __class_type_info* dst_type,
-               std::ptrdiff_t src2dst_offset)
-{
+
+extern "C" _LIBCXXABI_FUNC_VIS void *
+__dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
+               const __class_type_info *dst_type,
+               std::ptrdiff_t src2dst_offset) {
     // Possible future optimization:  Take advantage of src2dst_offset
     // Currently clang always sets src2dst_offset to -1 (no hint).
 
@@ -712,9 +708,6 @@ __dynamic_cast(const void* static_ptr,
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-
-#pragma GCC visibility pop
-#pragma GCC visibility push(hidden)
 
 // Call this function when you hit a static_type which is a base (above) a dst_type.
 // Let caller know you hit a static_type.  But only start recording details if
@@ -1297,7 +1290,5 @@ __base_class_type_info::search_below_dst(__dynamic_cast_info* info,
                                       not_public_path,
                                   use_strcmp);
 }
-
-#pragma GCC visibility pop
 
 }  // __cxxabiv1

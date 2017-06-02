@@ -1,21 +1,28 @@
 # Get sources
 set(LIBCXXABI_SOURCES
-  abort_message.cpp
+  # C++ABI files
   cxa_aux_runtime.cpp
   cxa_default_handlers.cpp
   cxa_demangle.cpp
   cxa_exception_storage.cpp
   cxa_guard.cpp
   cxa_handlers.cpp
-  cxa_new_delete.cpp
   cxa_unexpected.cpp
   cxa_vector.cpp
   cxa_virtual.cpp
-  exception.cpp
+  # C++ STL files
+  stdlib_exception.cpp
+  stdlib_stdexcept.cpp
+  stdlib_typeinfo.cpp
+  # Internal files
+  abort_message.cpp
+  fallback_malloc.cpp
   private_typeinfo.cpp
-  stdexcept.cpp
-  typeinfo.cpp
 )
+
+if (LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
+  list(APPEND LIBCXXABI_SOURCES stdlib_new_delete.cpp)
+endif()
 
 if (LIBCXXABI_ENABLE_EXCEPTIONS)
   list(APPEND LIBCXXABI_SOURCES cxa_exception.cpp)
@@ -24,7 +31,7 @@ else()
   list(APPEND LIBCXXABI_SOURCES cxa_noexception.cpp)
 endif()
 
-if (UNIX AND NOT (APPLE OR CYGWIN))
+if (LIBCXXABI_ENABLE_THREADS AND UNIX AND NOT (APPLE OR CYGWIN))
   list(APPEND LIBCXXABI_SOURCES cxa_thread_atexit.cpp)
 endif()
 
@@ -53,14 +60,14 @@ if (LIBCXXABI_ENABLE_THREADS)
 endif()
 
 append_if(libraries LIBCXXABI_HAS_C_LIB c)
-
 if (LIBCXXABI_USE_LLVM_UNWINDER)
-  if (NOT LIBCXXABI_STANDALONE_BUILD)
-    if (LIBUNWIND_ENABLE_SHARED)
-      list(APPEND libraries unwind_shared)
-    else()
-      list(APPEND libraries unwind_static)
-    endif()
+  # Prefer using the in-tree version of libunwind, either shared or static. If
+  # none are found fall back to using -lunwind.
+  # FIXME: Is it correct to prefer the static version of libunwind?
+  if (NOT LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_shared OR HAVE_LIBUNWIND))
+    list(APPEND libraries unwind_shared)
+  elseif (LIBCXXABI_ENABLE_STATIC_UNWINDER AND (TARGET unwind_static OR HAVE_LIBUNWIND))
+    list(APPEND libraries unwind_static)
   else()
     list(APPEND libraries unwind)
   endif()
@@ -93,6 +100,12 @@ endif()
 string(REPLACE ";" " " LIBCXXABI_COMPILE_FLAGS "${LIBCXXABI_COMPILE_FLAGS}")
 string(REPLACE ";" " " LIBCXXABI_LINK_FLAGS "${LIBCXXABI_LINK_FLAGS}")
 string(REPLACE ";" " " LIBCXXABI_SHARED_LINK_FLAGS "${LIBCXXABI_SHARED_LINK_FLAGS}")
+
+# FIXME: libc++abi.so will not link when modules are enabled because it depends
+# on symbols defined in libc++.so which has not yet been built.
+if (LLVM_ENABLE_MODULES)
+  string(REPLACE "-Wl,-z,defs" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
+endif()
 
 # Add a object library that contains the compiled source files.
 add_library(cxxabi_objects OBJECT ${LIBCXXABI_SOURCES} ${LIBCXXABI_HEADERS})

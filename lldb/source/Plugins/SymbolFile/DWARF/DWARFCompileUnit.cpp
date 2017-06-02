@@ -10,15 +10,16 @@
 #include "DWARFCompileUnit.h"
 
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
+#include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/LineTable.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "DWARFDIECollection.h"
 #include "DWARFDebugAbbrev.h"
@@ -256,16 +257,15 @@ size_t DWARFCompileUnit::ExtractDIEsIfNeeded(bool cu_die_only) {
                                                          m_die_array.end());
     exact_size_die_array.swap(m_die_array);
   }
-  Log *verbose_log(
-      LogChannelDWARF::GetLogIfAll(DWARF_LOG_DEBUG_INFO | DWARF_LOG_VERBOSE));
-  if (verbose_log) {
+  Log *log(LogChannelDWARF::GetLogIfAll(DWARF_LOG_DEBUG_INFO));
+  if (log && log->GetVerbose()) {
     StreamString strm;
     Dump(&strm);
     if (m_die_array.empty())
       strm.Printf("error: no DIE for compile unit");
     else
       m_die_array[0].Dump(m_dwarf2Data, this, strm, UINT32_MAX);
-    verbose_log->PutCString(strm.GetString().c_str());
+    log->PutString(strm.GetString());
   }
 
   if (!m_dwo_symbol_file)
@@ -324,18 +324,14 @@ bool DWARFCompileUnit::Verify(Stream *s) const {
   bool abbr_offset_OK =
       m_dwarf2Data->get_debug_abbrev_data().ValidOffset(GetAbbrevOffset());
   bool addr_size_OK = ((m_addr_size == 4) || (m_addr_size == 8));
-  bool verbose = s->GetVerbose();
   if (valid_offset && length_OK && version_OK && addr_size_OK &&
       abbr_offset_OK) {
-    if (verbose)
-      s->Printf("    0x%8.8x: OK\n", m_offset);
     return true;
   } else {
     s->Printf("    0x%8.8x: ", m_offset);
-
-    m_dwarf2Data->get_debug_info_data().Dump(s, m_offset, lldb::eFormatHex, 1,
-                                             Size(), 32, LLDB_INVALID_ADDRESS,
-                                             0, 0);
+    DumpDataExtractor(m_dwarf2Data->get_debug_info_data(), s, m_offset,
+                      lldb::eFormatHex, 1, Size(), 32, LLDB_INVALID_ADDRESS, 0,
+                      0);
     s->EOL();
     if (valid_offset) {
       if (!length_OK)
@@ -999,16 +995,18 @@ void DWARFCompileUnit::ParseProducerInfo() {
     const char *producer_cstr = die->GetAttributeValueAsString(
         m_dwarf2Data, this, DW_AT_producer, NULL);
     if (producer_cstr) {
-      RegularExpression llvm_gcc_regex("^4\\.[012]\\.[01] \\(Based on Apple "
-                                       "Inc\\. build [0-9]+\\) \\(LLVM build "
-                                       "[\\.0-9]+\\)$");
-      if (llvm_gcc_regex.Execute(producer_cstr)) {
+      RegularExpression llvm_gcc_regex(
+          llvm::StringRef("^4\\.[012]\\.[01] \\(Based on Apple "
+                          "Inc\\. build [0-9]+\\) \\(LLVM build "
+                          "[\\.0-9]+\\)$"));
+      if (llvm_gcc_regex.Execute(llvm::StringRef(producer_cstr))) {
         m_producer = eProducerLLVMGCC;
       } else if (strstr(producer_cstr, "clang")) {
         static RegularExpression g_clang_version_regex(
-            "clang-([0-9]+)\\.([0-9]+)\\.([0-9]+)");
+            llvm::StringRef("clang-([0-9]+)\\.([0-9]+)\\.([0-9]+)"));
         RegularExpression::Match regex_match(3);
-        if (g_clang_version_regex.Execute(producer_cstr, &regex_match)) {
+        if (g_clang_version_regex.Execute(llvm::StringRef(producer_cstr),
+                                          &regex_match)) {
           std::string str;
           if (regex_match.GetMatchAtIndex(producer_cstr, 1, str))
             m_producer_version_major =

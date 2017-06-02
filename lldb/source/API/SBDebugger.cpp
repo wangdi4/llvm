@@ -368,8 +368,8 @@ void SBDebugger::HandleCommand(const char *command) {
       if (process_sp) {
         EventSP event_sp;
         ListenerSP lldb_listener_sp = m_opaque_sp->GetListener();
-        while (lldb_listener_sp->GetNextEventForBroadcaster(process_sp.get(),
-                                                            event_sp)) {
+        while (lldb_listener_sp->GetEventForBroadcaster(
+            process_sp.get(), event_sp, std::chrono::seconds(0))) {
           SBEvent event(event_sp);
           HandleProcessEvent(process, event, GetOutputFileHandle(),
                              GetErrorFileHandle());
@@ -603,8 +603,7 @@ SBTarget SBDebugger::CreateTarget(const char *filename) {
     Error error;
     const bool add_dependent_modules = true;
     error = m_opaque_sp->GetTargetList().CreateTarget(
-        *m_opaque_sp, filename, nullptr, add_dependent_modules, nullptr,
-        target_sp);
+        *m_opaque_sp, filename, "", add_dependent_modules, nullptr, target_sp);
 
     if (error.Success()) {
       m_opaque_sp->GetTargetList().SetSelectedTarget(target_sp.get());
@@ -930,14 +929,15 @@ const char *SBDebugger::GetPrompt() const {
   if (log)
     log->Printf("SBDebugger(%p)::GetPrompt () => \"%s\"",
                 static_cast<void *>(m_opaque_sp.get()),
-                (m_opaque_sp ? m_opaque_sp->GetPrompt() : ""));
+                (m_opaque_sp ? m_opaque_sp->GetPrompt().str().c_str() : ""));
 
-  return (m_opaque_sp ? m_opaque_sp->GetPrompt() : nullptr);
+  return (m_opaque_sp ? ConstString(m_opaque_sp->GetPrompt()).GetCString()
+                      : nullptr);
 }
 
 void SBDebugger::SetPrompt(const char *prompt) {
   if (m_opaque_sp)
-    m_opaque_sp->SetPrompt(prompt);
+    m_opaque_sp->SetPrompt(llvm::StringRef::withNullAsEmpty(prompt));
 }
 
 ScriptLanguage SBDebugger::GetScriptLanguage() const {
@@ -1120,13 +1120,23 @@ SBTypeSynthetic SBDebugger::GetSyntheticForType(SBTypeNameSpecifier type_name) {
 }
 #endif // LLDB_DISABLE_PYTHON
 
+static llvm::ArrayRef<const char *> GetCategoryArray(const char **categories) {
+  if (categories == nullptr)
+    return {};
+  size_t len = 0;
+  while (categories[len] != nullptr)
+    ++len;
+  return llvm::makeArrayRef(categories, len);
+}
+
 bool SBDebugger::EnableLog(const char *channel, const char **categories) {
   if (m_opaque_sp) {
     uint32_t log_options =
         LLDB_LOG_OPTION_PREPEND_TIMESTAMP | LLDB_LOG_OPTION_PREPEND_THREAD_NAME;
-    StreamString errors;
-    return m_opaque_sp->EnableLog(channel, categories, nullptr, log_options,
-                                  errors);
+    std::string error;
+    llvm::raw_string_ostream error_stream(error);
+    return m_opaque_sp->EnableLog(channel, GetCategoryArray(categories), "",
+                                  log_options, error_stream);
   } else
     return false;
 }

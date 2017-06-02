@@ -8,10 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
-#include "lldb/Core/DataBuffer.h"
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
@@ -27,6 +24,9 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
+#include "lldb/Utility/DataBuffer.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Log.h"
 
 #include "DynamicLoaderDarwin.h"
 #include "DynamicLoaderMacOSXDYLD.h"
@@ -430,9 +430,8 @@ bool DynamicLoaderMacOSXDYLD::ReadAllImageInfosStructure() {
   if (m_dyld_all_image_infos_addr != LLDB_INVALID_ADDRESS) {
     ByteOrder byte_order =
         m_process->GetTarget().GetArchitecture().GetByteOrder();
-    uint32_t addr_size = 4;
-    if (m_dyld_all_image_infos_addr > UINT32_MAX)
-      addr_size = 8;
+    uint32_t addr_size =
+        m_process->GetTarget().GetArchitecture().GetAddressByteSize();
 
     uint8_t buf[256];
     DataExtractor data(buf, sizeof(buf), byte_order, addr_size);

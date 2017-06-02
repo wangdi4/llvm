@@ -17,32 +17,51 @@
 // Project includes
 #include "NSDictionary.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::formatters;
 
-std::map<ConstString, CXXFunctionSummaryFormat::Callback> &
+NSDictionary_Additionals::AdditionalFormatterMatching::Prefix::Prefix(
+    ConstString p)
+    : m_prefix(p) {}
+
+bool NSDictionary_Additionals::AdditionalFormatterMatching::Prefix::Match(
+    ConstString class_name) {
+  return class_name.GetStringRef().startswith(m_prefix.GetStringRef());
+}
+
+NSDictionary_Additionals::AdditionalFormatterMatching::Full::Full(ConstString n)
+    : m_name(n) {}
+
+bool NSDictionary_Additionals::AdditionalFormatterMatching::Full::Match(
+    ConstString class_name) {
+  return (class_name == m_name);
+}
+
+NSDictionary_Additionals::AdditionalFormatters<
+    CXXFunctionSummaryFormat::Callback> &
 NSDictionary_Additionals::GetAdditionalSummaries() {
-  static std::map<ConstString, CXXFunctionSummaryFormat::Callback> g_map;
+  static AdditionalFormatters<CXXFunctionSummaryFormat::Callback> g_map;
   return g_map;
 }
 
-std::map<ConstString, CXXSyntheticChildren::CreateFrontEndCallback> &
+NSDictionary_Additionals::AdditionalFormatters<
+    CXXSyntheticChildren::CreateFrontEndCallback> &
 NSDictionary_Additionals::GetAdditionalSynthetics() {
-  static std::map<ConstString, CXXSyntheticChildren::CreateFrontEndCallback>
+  static AdditionalFormatters<CXXSyntheticChildren::CreateFrontEndCallback>
       g_map;
   return g_map;
 }
@@ -265,11 +284,11 @@ bool lldb_private::formatters::NSDictionarySummaryProvider(
    }*/
   else {
     auto &map(NSDictionary_Additionals::GetAdditionalSummaries());
-    auto iter = map.find(class_name), end = map.end();
-    if (iter != end)
-      return iter->second(valobj, stream, options);
-    else
-      return false;
+    for (auto &candidate : map) {
+      if (candidate.first && candidate.first->Match(class_name))
+        return candidate.second(valobj, stream, options);
+    }
+    return false;
   }
 
   std::string prefix, suffix;
@@ -331,9 +350,10 @@ lldb_private::formatters::NSDictionarySyntheticFrontEndCreator(
     return (new NSDictionary1SyntheticFrontEnd(valobj_sp));
   } else {
     auto &map(NSDictionary_Additionals::GetAdditionalSynthetics());
-    auto iter = map.find(class_name), end = map.end();
-    if (iter != end)
-      return iter->second(synth, valobj_sp);
+    for (auto &candidate : map) {
+      if (candidate.first && candidate.first->Match((class_name)))
+        return candidate.second(synth, valobj_sp);
+    }
   }
 
   return nullptr;
@@ -479,7 +499,7 @@ lldb_private::formatters::NSDictionaryISyntheticFrontEnd::GetChildAtIndex(
     StreamString idx_name;
     idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
     DataExtractor data(buffer_sp, m_order, m_ptr_size);
-    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetData(), data,
+    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetString(), data,
                                                     m_exe_ctx_ref, m_pair_type);
   }
   return dict_item.valobj_sp;
@@ -553,8 +573,8 @@ lldb_private::formatters::NSDictionary1SyntheticFrontEnd::GetChildAtIndex(
     *(data_ptr + 1) = value_at_idx;
   } else {
     uint32_t *data_ptr = (uint32_t *)buffer_sp->GetBytes();
-    *data_ptr = key_ptr;
-    *(data_ptr + 1) = value_ptr;
+    *data_ptr = key_at_idx;
+    *(data_ptr + 1) = value_at_idx;
   }
 
   DataExtractor data(buffer_sp, process_sp->GetByteOrder(), ptr_size);
@@ -709,7 +729,7 @@ lldb_private::formatters::NSDictionaryMSyntheticFrontEnd::GetChildAtIndex(
     StreamString idx_name;
     idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
     DataExtractor data(buffer_sp, m_order, m_ptr_size);
-    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetData(), data,
+    dict_item.valobj_sp = CreateValueObjectFromData(idx_name.GetString(), data,
                                                     m_exe_ctx_ref, m_pair_type);
   }
   return dict_item.valobj_sp;

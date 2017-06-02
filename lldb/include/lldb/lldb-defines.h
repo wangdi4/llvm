@@ -142,8 +142,8 @@
 #define MAX_PATH 260
 #endif
 
-#ifdef _MSC_VER
 // ignore GCC function attributes
+#if defined(_MSC_VER) && !defined(__clang__)
 #define __attribute__(X)
 #endif
 
@@ -157,8 +157,8 @@
 ///     assignment operators in C++ classes.
 //----------------------------------------------------------------------
 #define DISALLOW_COPY_AND_ASSIGN(TypeName)                                     \
-  TypeName(const TypeName &);                                                  \
-  const TypeName &operator=(const TypeName &)
+  TypeName(const TypeName &) = delete;                                         \
+  const TypeName &operator=(const TypeName &) = delete
 
 #endif // #if defined(__cplusplus)
 

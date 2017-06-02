@@ -16,7 +16,6 @@
 //===----------------------------------------------------------------------===//
 
 #include <cassert>
-#include <cstdio>
 #include <fcntl.h>
 #include <mutex>
 #include <sys/stat.h>
@@ -24,84 +23,27 @@
 #include <sys/types.h>
 #include <thread>
 #include <unistd.h>
-#include <x86intrin.h>
 
 #include "sanitizer_common/sanitizer_libc.h"
 #include "xray/xray_records.h"
+#include "xray_defs.h"
 #include "xray_flags.h"
 #include "xray_interface_internal.h"
+#include "xray_tsc.h"
+#include "xray_utils.h"
 
 // __xray_InMemoryRawLog will use a thread-local aligned buffer capped to a
 // certain size (32kb by default) and use it as if it were a circular buffer for
 // events. We store simple fixed-sized entries in the log for external analysis.
 
 extern "C" {
-void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type);
+void __xray_InMemoryRawLog(int32_t FuncId,
+                           XRayEntryType Type) XRAY_NEVER_INSTRUMENT;
 }
 
 namespace __xray {
 
 std::mutex LogMutex;
-
-static void retryingWriteAll(int Fd, char *Begin, char *End) {
-  if (Begin == End)
-    return;
-  auto TotalBytes = std::distance(Begin, End);
-  while (auto Written = write(Fd, Begin, TotalBytes)) {
-    if (Written < 0) {
-      if (errno == EINTR)
-        continue; // Try again.
-      Report("Failed to write; errno = %d", errno);
-      return;
-    }
-    TotalBytes -= Written;
-    if (TotalBytes == 0)
-      break;
-    Begin += Written;
-  }
-}
-
-static std::pair<ssize_t, bool> retryingReadSome(int Fd, char *Begin,
-                                                 char *End) {
-  auto BytesToRead = std::distance(Begin, End);
-  ssize_t BytesRead;
-  ssize_t TotalBytesRead = 0;
-  while (BytesToRead && (BytesRead = read(Fd, Begin, BytesToRead))) {
-    if (BytesRead == -1) {
-      if (errno == EINTR)
-        continue;
-      Report("Read error; errno = %d", errno);
-      return std::make_pair(TotalBytesRead, false);
-    }
-
-    TotalBytesRead += BytesRead;
-    BytesToRead -= BytesRead;
-    Begin += BytesRead;
-  }
-  return std::make_pair(TotalBytesRead, true);
-}
-
-static bool readValueFromFile(const char *Filename, long long *Value) {
-  int Fd = open(Filename, O_RDONLY | O_CLOEXEC);
-  if (Fd == -1)
-    return false;
-  static constexpr size_t BufSize = 256;
-  char Line[BufSize] = {};
-  ssize_t BytesRead;
-  bool Success;
-  std::tie(BytesRead, Success) = retryingReadSome(Fd, Line, Line + BufSize);
-  if (!Success)
-    return false;
-  close(Fd);
-  char *End = nullptr;
-  long long Tmp = internal_simple_strtoll(Line, &End, 10);
-  bool Result = false;
-  if (Line[0] != '\0' && (*End == '\n' || *End == '\0')) {
-    *Value = Tmp;
-    Result = true;
-  }
-  return Result;
-}
 
 class ThreadExitFlusher {
   int Fd;
@@ -109,10 +51,13 @@ class ThreadExitFlusher {
   size_t &Offset;
 
 public:
-  explicit ThreadExitFlusher(int Fd, XRayRecord *Start, size_t &Offset)
-      : Fd(Fd), Start(Start), Offset(Offset) {}
+  explicit ThreadExitFlusher(int Fd, XRayRecord *Start,
+                             size_t &Offset) XRAY_NEVER_INSTRUMENT
+      : Fd(Fd),
+        Start(Start),
+        Offset(Offset) {}
 
-  ~ThreadExitFlusher() {
+  ~ThreadExitFlusher() XRAY_NEVER_INSTRUMENT {
     std::lock_guard<std::mutex> L(LogMutex);
     if (Fd > 0 && Start != nullptr) {
       retryingWriteAll(Fd, reinterpret_cast<char *>(Start),
@@ -130,68 +75,42 @@ public:
 
 using namespace __xray;
 
-void PrintToStdErr(const char *Buffer) { fprintf(stderr, "%s", Buffer); }
+static int __xray_OpenLogFile() XRAY_NEVER_INSTRUMENT {
+  int F = getLogFD();
+  if (F == -1)
+    return -1;
 
-void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
+  // Test for required CPU features and cache the cycle frequency
+  static bool TSCSupported = probeRequiredCPUFeatures();
+  static uint64_t CycleFrequency = TSCSupported ? getTSCFrequency()
+                                   : __xray::NanosecondsPerSecond;
+
+  // Since we're here, we get to write the header. We set it up so that the
+  // header will only be written once, at the start, and let the threads
+  // logging do writes which just append.
+  XRayFileHeader Header;
+  Header.Version = 1;
+  Header.Type = FileTypes::NAIVE_LOG;
+  Header.CycleFrequency = CycleFrequency;
+
+  // FIXME: Actually check whether we have 'constant_tsc' and 'nonstop_tsc'
+  // before setting the values in the header.
+  Header.ConstantTSC = 1;
+  Header.NonstopTSC = 1;
+  retryingWriteAll(F, reinterpret_cast<char *>(&Header),
+                   reinterpret_cast<char *>(&Header) + sizeof(Header));
+  return F;
+}
+
+template <class RDTSC>
+void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type,
+                           RDTSC ReadTSC) XRAY_NEVER_INSTRUMENT {
   using Buffer =
       std::aligned_storage<sizeof(XRayRecord), alignof(XRayRecord)>::type;
   static constexpr size_t BuffLen = 1024;
   thread_local static Buffer InMemoryBuffer[BuffLen] = {};
   thread_local static size_t Offset = 0;
-  static int Fd = [] {
-    // FIXME: Figure out how to make this less stderr-dependent.
-    SetPrintfAndReportCallback(PrintToStdErr);
-    // Open a temporary file once for the log.
-    static char TmpFilename[256] = {};
-    static char TmpWildcardPattern[] = "XXXXXX";
-    auto E = internal_strncat(TmpFilename, flags()->xray_logfile_base,
-                              sizeof(TmpFilename) - 10);
-    if (static_cast<size_t>((E + 6) - TmpFilename) >
-        (sizeof(TmpFilename) - 1)) {
-      Report("XRay log file base too long: %s", flags()->xray_logfile_base);
-      return -1;
-    }
-    internal_strncat(TmpFilename, TmpWildcardPattern,
-                     sizeof(TmpWildcardPattern) - 1);
-    int Fd = mkstemp(TmpFilename);
-    if (Fd == -1) {
-      Report("XRay: Failed opening temporary file '%s'; not logging events.",
-             TmpFilename);
-      return -1;
-    }
-    if (Verbosity())
-      fprintf(stderr, "XRay: Log file in '%s'\n", TmpFilename);
-
-    // Get the cycle frequency from SysFS on Linux.
-    long long CPUFrequency = -1;
-    if (readValueFromFile("/sys/devices/system/cpu/cpu0/tsc_freq_khz",
-                          &CPUFrequency)) {
-      CPUFrequency *= 1000;
-    } else if (readValueFromFile(
-                   "/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq",
-                   &CPUFrequency)) {
-      CPUFrequency *= 1000;
-    } else {
-      Report("Unable to determine CPU frequency for TSC accounting.");
-    }
-
-    // Since we're here, we get to write the header. We set it up so that the
-    // header will only be written once, at the start, and let the threads
-    // logging do writes which just append.
-    XRayFileHeader Header;
-    Header.Version = 1;
-    Header.Type = FileTypes::NAIVE_LOG;
-    Header.CycleFrequency =
-        CPUFrequency == -1 ? 0 : static_cast<uint64_t>(CPUFrequency);
-
-    // FIXME: Actually check whether we have 'constant_tsc' and 'nonstop_tsc'
-    // before setting the values in the header.
-    Header.ConstantTSC = 1;
-    Header.NonstopTSC = 1;
-    retryingWriteAll(Fd, reinterpret_cast<char *>(&Header),
-                     reinterpret_cast<char *>(&Header) + sizeof(Header));
-    return Fd;
-  }();
+  static int Fd = __xray_OpenLogFile();
   if (Fd == -1)
     return;
   thread_local __xray::ThreadExitFlusher Flusher(
@@ -201,10 +120,8 @@ void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
   // First we get the useful data, and stuff it into the already aligned buffer
   // through a pointer offset.
   auto &R = reinterpret_cast<__xray::XRayRecord *>(InMemoryBuffer)[Offset];
-  unsigned CPU;
   R.RecordType = RecordTypes::NORMAL;
-  R.TSC = __rdtscp(&CPU);
-  R.CPU = CPU;
+  R.TSC = ReadTSC(R.CPU);
   R.TId = TId;
   R.Type = Type;
   R.FuncId = FuncId;
@@ -218,8 +135,32 @@ void __xray_InMemoryRawLog(int32_t FuncId, XRayEntryType Type) {
   }
 }
 
-static auto Unused = [] {
+void __xray_InMemoryRawLogRealTSC(int32_t FuncId,
+                                  XRayEntryType Type) XRAY_NEVER_INSTRUMENT {
+  __xray_InMemoryRawLog(FuncId, Type, __xray::readTSC);
+}
+
+void __xray_InMemoryEmulateTSC(int32_t FuncId,
+                               XRayEntryType Type) XRAY_NEVER_INSTRUMENT {
+  __xray_InMemoryRawLog(FuncId, Type, [](uint8_t &CPU) XRAY_NEVER_INSTRUMENT {
+    timespec TS;
+    int result = clock_gettime(CLOCK_REALTIME, &TS);
+    if (result != 0) {
+      Report("clock_gettimg(2) return %d, errno=%d.", result, int(errno));
+      TS = {0, 0};
+    }
+    CPU = 0;
+    return TS.tv_sec * __xray::NanosecondsPerSecond + TS.tv_nsec;
+  });
+}
+
+static auto UNUSED Unused = [] {
+  auto UseRealTSC = probeRequiredCPUFeatures();
+  if (!UseRealTSC)
+    Report("WARNING: Required CPU features missing for XRay instrumentation, "
+           "using emulation instead.\n");
   if (flags()->xray_naive_log)
-    __xray_set_handler(__xray_InMemoryRawLog);
+    __xray_set_handler(UseRealTSC ? __xray_InMemoryRawLogRealTSC
+                                  : __xray_InMemoryEmulateTSC);
   return true;
 }();

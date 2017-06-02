@@ -37,14 +37,12 @@ public:
 
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
-  void storeOptions(ClangTidyOptions::OptionMap& Opts) override;
+  void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
 
 private:
   const bool StrictMode;
   llvm::Regex IdentRE;
 
-  bool isLikelyTypo(llvm::ArrayRef<ParmVarDecl *> Params, StringRef ArgName,
-                    unsigned ArgIndex);
   void checkCallArgs(ASTContext *Ctx, const FunctionDecl *Callee,
                      SourceLocation ArgBeginLoc,
                      llvm::ArrayRef<const Expr *> Args);

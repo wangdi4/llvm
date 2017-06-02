@@ -17,6 +17,8 @@ class AddressBreakpointTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
+    NO_DEBUG_INFO_TESTCASE = True
+
     def test_address_breakpoints(self):
         """Test address breakpoints set with shared library of SBAddress work correctly."""
         self.build()
@@ -38,7 +40,7 @@ class AddressBreakpointTestCase(TestBase):
         breakpoint = target.BreakpointCreateBySourceRegex(
             "Set a breakpoint here", lldb.SBFileSpec("main.c"))
         self.assertTrue(breakpoint and
-                        breakpoint.GetNumLocations() == 1,
+                        breakpoint.GetNumLocations() >= 1,
                         VALID_BREAKPOINT)
 
         # Get the breakpoint location from breakpoint after we verified that,

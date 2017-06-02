@@ -19,6 +19,7 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -175,7 +176,7 @@ protected:
     if (!StopProcessIfNecessary(m_exe_ctx.GetProcessPtr(), state, result))
       return false;
 
-    const char *target_settings_argv0 = target->GetArg0();
+    llvm::StringRef target_settings_argv0 = target->GetArg0();
 
     // Determine whether we will disable ASLR or leave it in the default state
     // (i.e. enabled if the platform supports it).
@@ -210,7 +211,7 @@ protected:
       m_options.launch_info.GetEnvironmentEntries().AppendArguments(
           environment);
 
-    if (target_settings_argv0) {
+    if (!target_settings_argv0.empty()) {
       m_options.launch_info.GetArguments().AppendArgument(
           target_settings_argv0);
       m_options.launch_info.SetExecutableFile(
@@ -242,9 +243,9 @@ protected:
         // a chance to call PushProcessIOHandler().
         process_sp->SyncIOHandler(0, 2000);
 
-        const char *data = stream.GetData();
-        if (data && strlen(data) > 0)
-          result.AppendMessage(stream.GetData());
+        llvm::StringRef data = stream.GetString();
+        if (!data.empty())
+          result.AppendMessage(data);
         const char *archname =
             exe_module_sp->GetArchitecture().GetArchitectureName();
         result.AppendMessageWithFormat(
@@ -312,6 +313,18 @@ protected:
 //-------------------------------------------------------------------------
 // CommandObjectProcessAttach
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_process_attach_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "continue",         'c', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Immediately continue the process once attached." },
+  { LLDB_OPT_SET_ALL, false, "plugin",           'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin,       "Name of the process plugin you want to use." },
+  { LLDB_OPT_SET_1,   false, "pid",              'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,          "The process ID of an existing process to attach to." },
+  { LLDB_OPT_SET_2,   false, "name",             'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,  "The name of the process to attach to." },
+  { LLDB_OPT_SET_2,   false, "include-existing", 'i', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Include existing processes when doing attach -w." },
+  { LLDB_OPT_SET_2,   false, "waitfor",          'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Wait for the process with <process-name> to launch." },
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessAttach
 class CommandObjectProcessAttach : public CommandObjectProcessLaunchOrAttach {
 public:
@@ -325,21 +338,20 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
-      bool success = false;
       switch (short_option) {
       case 'c':
         attach_info.SetContinueOnceAttached(true);
         break;
 
       case 'p': {
-        lldb::pid_t pid = StringConvert::ToUInt32(
-            option_arg, LLDB_INVALID_PROCESS_ID, 0, &success);
-        if (!success || pid == LLDB_INVALID_PROCESS_ID) {
-          error.SetErrorStringWithFormat("invalid process ID '%s'", option_arg);
+        lldb::pid_t pid;
+        if (option_arg.getAsInteger(0, pid)) {
+          error.SetErrorStringWithFormat("invalid process ID '%s'",
+                                         option_arg.str().c_str());
         } else {
           attach_info.SetProcessID(pid);
         }
@@ -373,7 +385,9 @@ public:
       attach_info.Clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_attach_options);
+    }
 
     bool HandleOptionArgumentCompletion(
         Args &input, int cursor_index, int char_pos,
@@ -386,8 +400,7 @@ public:
 
       // We are only completing the name option for now...
 
-      const OptionDefinition *opt_defs = GetDefinitions();
-      if (opt_defs[opt_defs_index].short_option == 'n') {
+      if (GetDefinitions()[opt_defs_index].short_option == 'n') {
         // Are we in the name?
 
         // Look to see if there is a -P argument provided, and if so use that
@@ -404,7 +417,7 @@ public:
           if (partial_name) {
             match_info.GetProcessInfo().GetExecutableFile().SetFile(
                 partial_name, false);
-            match_info.SetNameMatchType(eNameMatchStartsWith);
+            match_info.SetNameMatchType(NameMatch::StartsWith);
           }
           platform_sp->FindProcesses(match_info, process_infos);
           const size_t num_matches = process_infos.GetSize();
@@ -420,10 +433,6 @@ public:
 
       return false;
     }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
 
     // Instance variables to hold the values for command options.
 
@@ -464,7 +473,7 @@ protected:
       Error error;
 
       error = m_interpreter.GetDebugger().GetTargetList().CreateTarget(
-          m_interpreter.GetDebugger(), nullptr, nullptr, false,
+          m_interpreter.GetDebugger(), "", "", false,
           nullptr, // No platform options
           new_target_sp);
       target = new_target_sp.get();
@@ -496,8 +505,7 @@ protected:
     if (error.Success()) {
       ProcessSP process_sp(target->GetProcessSP());
       if (process_sp) {
-        if (stream.GetData())
-          result.AppendMessage(stream.GetData());
+        result.AppendMessage(stream.GetString());
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
         result.SetDidChangeProcessState(true);
         result.SetAbnormalStopWasExpected(true);
@@ -559,22 +567,16 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectProcessAttach::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-  {LLDB_OPT_SET_ALL, false, "continue",         'c', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Immediately continue the process once attached."},
-  {LLDB_OPT_SET_ALL, false, "plugin",           'P', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin,       "Name of the process plugin you want to use."},
-  {LLDB_OPT_SET_1,   false, "pid",              'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePid,          "The process ID of an existing process to attach to."},
-  {LLDB_OPT_SET_2,   false, "name",             'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeProcessName,  "The name of the process to attach to."},
-  {LLDB_OPT_SET_2,   false, "include-existing", 'i', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Include existing processes when doing attach -w."},
-  {LLDB_OPT_SET_2,   false, "waitfor",          'w', OptionParser::eNoArgument,       nullptr, nullptr, 0, eArgTypeNone,         "Wait for the process with <process-name> to launch."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectProcessContinue
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_process_continue_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "ignore-count",'i', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger, "Ignore <N> crossings of the breakpoint (if it exists) for the currently selected thread." }
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessContinue
 
 class CommandObjectProcessContinue : public CommandObjectParsed {
@@ -601,18 +603,16 @@ protected:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
-      bool success = false;
       switch (short_option) {
       case 'i':
-        m_ignore = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
+        if (option_arg.getAsInteger(0, m_ignore))
           error.SetErrorStringWithFormat(
               "invalid value for ignore option: \"%s\", should be a number.",
-              option_arg);
+              option_arg.str().c_str());
         break;
 
       default:
@@ -627,11 +627,9 @@ protected:
       m_ignore = 0;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_continue_options);
+    }
 
     uint32_t m_ignore;
   };
@@ -708,8 +706,7 @@ protected:
         if (synchronous_execution) {
           // If any state changed events had anything to say, add that to the
           // result
-          if (stream.GetData())
-            result.AppendMessage(stream.GetData());
+          result.AppendMessage(stream.GetString());
 
           result.SetDidChangeProcessState(true);
           result.SetStatus(eReturnStatusSuccessFinishNoResult);
@@ -735,17 +732,15 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition
-    CommandObjectProcessContinue::CommandOptions::g_option_table[] = {
-        // clang-format off
-  {LLDB_OPT_SET_ALL, false, "ignore-count",'i', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeUnsignedInteger, "Ignore <N> crossings of the breakpoint (if it exists) for the currently selected thread."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectProcessDetach
 //-------------------------------------------------------------------------
+static OptionDefinition g_process_detach_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "keep-stopped", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be kept stopped on detach (if possible)." },
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessDetach
 
 class CommandObjectProcessDetach : public CommandObjectParsed {
@@ -756,7 +751,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -768,7 +763,7 @@ public:
         tmp_result = Args::StringToBoolean(option_arg, false, &success);
         if (!success)
           error.SetErrorStringWithFormat("invalid boolean option: \"%s\"",
-                                         option_arg);
+                                         option_arg.str().c_str());
         else {
           if (tmp_result)
             m_keep_stopped = eLazyBoolYes;
@@ -788,11 +783,9 @@ public:
       m_keep_stopped = eLazyBoolCalculate;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_detach_options);
+    }
 
     // Instance variables to hold the values for command options.
     LazyBool m_keep_stopped;
@@ -837,17 +830,16 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectProcessDetach::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-  {LLDB_OPT_SET_1, false, "keep-stopped", 's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be kept stopped on detach (if possible)."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectProcessConnect
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_process_connect_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "plugin", 'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin, "Name of the process plugin you want to use." },
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessConnect
 
 class CommandObjectProcessConnect : public CommandObjectParsed {
@@ -862,7 +854,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -884,11 +876,9 @@ public:
       plugin_name.clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_connect_options);
+    }
 
     // Instance variables to hold the values for command options.
 
@@ -946,14 +936,6 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectProcessConnect::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-  {LLDB_OPT_SET_ALL, false, "plugin", 'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypePlugin, "Name of the process plugin you want to use."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectProcessPlugin
 //-------------------------------------------------------------------------
@@ -980,6 +962,13 @@ public:
 //-------------------------------------------------------------------------
 // CommandObjectProcessLoad
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_process_load_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "install", 'i', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypePath, "Install the shared library to the target. If specified without an argument then the library will installed in the current working directory." },
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessLoad
 
 class CommandObjectProcessLoad : public CommandObjectParsed {
@@ -994,14 +983,14 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
       switch (short_option) {
       case 'i':
         do_install = true;
-        if (option_arg && option_arg[0])
+        if (!option_arg.empty())
           install_path.SetFile(option_arg, false);
         break;
       default:
@@ -1017,10 +1006,9 @@ public:
       install_path.Clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_load_options);
+    }
 
     // Instance variables to hold the values for command options.
     bool do_install;
@@ -1044,11 +1032,10 @@ protected:
   bool DoExecute(Args &command, CommandReturnObject &result) override {
     Process *process = m_exe_ctx.GetProcessPtr();
 
-    const size_t argc = command.GetArgumentCount();
-    for (uint32_t i = 0; i < argc; ++i) {
+    for (auto &entry : command.entries()) {
       Error error;
       PlatformSP platform = process->GetTarget().GetPlatform();
-      const char *image_path = command.GetArgumentAtIndex(i);
+      llvm::StringRef image_path = entry.ref;
       uint32_t image_token = LLDB_INVALID_IMAGE_TOKEN;
 
       if (!m_options.do_install) {
@@ -1070,10 +1057,12 @@ protected:
 
       if (image_token != LLDB_INVALID_IMAGE_TOKEN) {
         result.AppendMessageWithFormat(
-            "Loading \"%s\"...ok\nImage %u loaded.\n", image_path, image_token);
+            "Loading \"%s\"...ok\nImage %u loaded.\n", image_path.str().c_str(),
+            image_token);
         result.SetStatus(eReturnStatusSuccessFinishResult);
       } else {
-        result.AppendErrorWithFormat("failed to load '%s': %s", image_path,
+        result.AppendErrorWithFormat("failed to load '%s': %s",
+                                     image_path.str().c_str(),
                                      error.AsCString());
         result.SetStatus(eReturnStatusFailed);
       }
@@ -1082,13 +1071,6 @@ protected:
   }
 
   CommandOptions m_options;
-};
-
-OptionDefinition CommandObjectProcessLoad::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_ALL, false, "install", 'i', OptionParser::eOptionalArgument, nullptr, nullptr, 0, eArgTypePath, "Install the shared library to the target. If specified without an argument then the library will installed in the current working directory."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-    // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -1113,15 +1095,11 @@ protected:
   bool DoExecute(Args &command, CommandReturnObject &result) override {
     Process *process = m_exe_ctx.GetProcessPtr();
 
-    const size_t argc = command.GetArgumentCount();
-
-    for (uint32_t i = 0; i < argc; ++i) {
-      const char *image_token_cstr = command.GetArgumentAtIndex(i);
-      uint32_t image_token = StringConvert::ToUInt32(
-          image_token_cstr, LLDB_INVALID_IMAGE_TOKEN, 0);
-      if (image_token == LLDB_INVALID_IMAGE_TOKEN) {
+    for (auto &entry : command.entries()) {
+      uint32_t image_token;
+      if (entry.ref.getAsInteger(0, image_token)) {
         result.AppendErrorWithFormat("invalid image index argument '%s'",
-                                     image_token_cstr);
+                                     entry.ref.str().c_str());
         result.SetStatus(eReturnStatusFailed);
         break;
       } else {
@@ -1369,9 +1347,10 @@ public:
     const uint32_t start_frame = 0;
     const uint32_t num_frames = 1;
     const uint32_t num_frames_with_source = 1;
+    const bool     stop_format = true;
     process->GetStatus(strm);
     process->GetThreadStatus(strm, only_threads_with_stop_reason, start_frame,
-                             num_frames, num_frames_with_source);
+                             num_frames, num_frames_with_source, stop_format);
     return result.Succeeded();
   }
 };
@@ -1379,6 +1358,15 @@ public:
 //-------------------------------------------------------------------------
 // CommandObjectProcessHandle
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_process_handle_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "stop",   's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be stopped if the signal is received." },
+  { LLDB_OPT_SET_1, false, "notify", 'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the debugger should notify the user if the signal is received." },
+  { LLDB_OPT_SET_1, false, "pass",   'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the signal should be passed to the process." }
+    // clang-format on
+};
+
 #pragma mark CommandObjectProcessHandle
 
 class CommandObjectProcessHandle : public CommandObjectParsed {
@@ -1389,7 +1377,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -1418,11 +1406,9 @@ public:
       pass.clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_process_handle_options);
+    }
 
     // Instance variables to hold the values for command options.
 
@@ -1458,7 +1444,7 @@ public:
   bool VerifyCommandOptionValue(const std::string &option, int &real_value) {
     bool okay = true;
     bool success = false;
-    bool tmp_value = Args::StringToBoolean(option.c_str(), false, &success);
+    bool tmp_value = Args::StringToBoolean(option, false, &success);
 
     if (success && tmp_value)
       real_value = 1;
@@ -1573,9 +1559,8 @@ protected:
     int num_signals_set = 0;
 
     if (num_args > 0) {
-      for (size_t i = 0; i < num_args; ++i) {
-        int32_t signo = signals_sp->GetSignalNumberFromName(
-            signal_args.GetArgumentAtIndex(i));
+      for (const auto &arg : signal_args) {
+        int32_t signo = signals_sp->GetSignalNumberFromName(arg.c_str());
         if (signo != LLDB_INVALID_SIGNAL_NUMBER) {
           // Casting the actions as bools here should be okay, because
           // VerifyCommandOptionValue guarantees
@@ -1591,7 +1576,7 @@ protected:
           ++num_signals_set;
         } else {
           result.AppendErrorWithFormat("Invalid signal name '%s'\n",
-                                       signal_args.GetArgumentAtIndex(i));
+                                       arg.c_str());
         }
       }
     } else {
@@ -1628,16 +1613,6 @@ protected:
   }
 
   CommandOptions m_options;
-};
-
-OptionDefinition CommandObjectProcessHandle::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-  {LLDB_OPT_SET_1, false, "stop",   's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the process should be stopped if the signal is received."},
-  {LLDB_OPT_SET_1, false, "notify", 'n', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the debugger should notify the user if the signal is received."},
-  {LLDB_OPT_SET_1, false, "pass",   'p', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean, "Whether or not the signal should be passed to the process."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
 };
 
 //-------------------------------------------------------------------------

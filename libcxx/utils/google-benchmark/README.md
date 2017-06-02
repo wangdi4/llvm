@@ -9,6 +9,10 @@ Discussion group: https://groups.google.com/d/forum/benchmark-discuss
 
 IRC channel: https://freenode.net #googlebenchmark
 
+[Known issues and common problems](#known-issues)
+
+[Additional Tooling Documentation](docs/tools.md)
+
 ## Example usage
 ### Basic usage
 Define a function that executes the code to be measured.
@@ -361,7 +365,7 @@ static void BM_vector_push_back(benchmark::State& state) {
 }
 ```
 
-Note that `ClobberMemory()` is only available for GNU based compilers.
+Note that `ClobberMemory()` is only available for GNU or MSVC based compilers.
 
 ### Set time unit manually
 If a benchmark runs a few milliseconds it may be hard to visually compare the
@@ -428,6 +432,65 @@ BENCHMARK_REGISTER_F(MyFixture, BarTest)->Threads(2);
 /* BarTest is now registered */
 ```
 
+
+## User-defined counters
+
+You can add your own counters with user-defined names. The example below
+will add columns "Foo", "Bar" and "Baz" in its output:
+
+```c++
+static void UserCountersExample1(benchmark::State& state) {
+  double numFoos = 0, numBars = 0, numBazs = 0;
+  while (state.KeepRunning()) {
+    // ... count Foo,Bar,Baz events
+  }
+  state.counters["Foo"] = numFoos;
+  state.counters["Bar"] = numBars;
+  state.counters["Baz"] = numBazs;
+}
+```
+
+The `state.counters` object is a `std::map` with `std::string` keys
+and `Counter` values. The latter is a `double`-like class, via an implicit
+conversion to `double&`. Thus you can use all of the standard arithmetic
+assignment operators (`=,+=,-=,*=,/=`) to change the value of each counter.
+
+In multithreaded benchmarks, each counter is set on the calling thread only.
+When the benchmark finishes, the counters from each thread will be summed;
+the resulting sum is the value which will be shown for the benchmark.
+
+The `Counter` constructor accepts two parameters: the value as a `double`
+and a bit flag which allows you to show counters as rates and/or as
+per-thread averages:
+
+```c++
+  // sets a simple counter
+  state.counters["Foo"] = numFoos;
+
+  // Set the counter as a rate. It will be presented divided
+  // by the duration of the benchmark.
+  state.counters["FooRate"] = Counter(numFoos, benchmark::Counter::kIsRate);
+
+  // Set the counter as a thread-average quantity. It will
+  // be presented divided by the number of threads.
+  state.counters["FooAvg"] = Counter(numFoos, benchmark::Counter::kAvgThreads);
+
+  // There's also a combined flag:
+  state.counters["FooAvgRate"] = Counter(numFoos,benchmark::Counter::kAvgThreadsRate);
+```
+
+When you're compiling in C++11 mode or later you can use `insert()` with
+`std::initializer_list`:
+
+```c++
+  // With C++11, this can be done:
+  state.counters.insert({{"Foo", numFoos}, {"Bar", numBars}, {"Baz", numBazs}});
+  // ... instead of:
+  state.counters["Foo"] = numFoos;
+  state.counters["Bar"] = numBars;
+  state.counters["Baz"] = numBazs;
+```
+
 ## Exiting Benchmarks in Error
 
 When errors caused by external influences, such as file I/O and network
@@ -460,6 +523,24 @@ static void BM_test(benchmark::State& state) {
 }
 ```
 
+## Running a subset of the benchmarks
+
+The `--benchmark_filter=<regex>` option can be used to only run the benchmarks
+which match the specified `<regex>`. For example:
+
+```bash
+$ ./run_benchmarks.x --benchmark_filter=BM_memcpy/32
+Run on (1 X 2300 MHz CPU )
+2016-06-25 19:34:24
+Benchmark              Time           CPU Iterations
+----------------------------------------------------
+BM_memcpy/32          11 ns         11 ns   79545455
+BM_memcpy/32k       2181 ns       2185 ns     324074
+BM_memcpy/32          12 ns         12 ns   54687500
+BM_memcpy/32k       1834 ns       1837 ns     357143
+```
+
+
 ## Output Formats
 The library supports multiple output formats. Use the
 `--benchmark_format=<console|json|csv>` flag to set the format type. `console`
@@ -481,7 +562,7 @@ The `context` attribute contains information about the run in general, including
 information about the CPU and the date.
 The `benchmarks` attribute contains a list of ever benchmark run. Example json
 output looks like:
-``` json
+```json
 {
   "context": {
     "date": "2015/03/17-18:40:25",
@@ -562,8 +643,17 @@ The following minimum versions are strongly recommended build the library:
 * GCC 4.8
 * Clang 3.4
 * Visual Studio 2013
+* Intel 2015 Update 1
 
 Anything older *may* work.
 
 Note: Using the library and its headers in C++03 is supported. C++11 is only
 required to build the library.
+
+# Known Issues
+
+### Windows
+
+* Users must manually link `shlwapi.lib`. Failure to do so may result
+in unresolved symbols.
+

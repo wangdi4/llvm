@@ -23,30 +23,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-// These prototypes are defined in <direct.h>, but it also defines chdir() and
-// getcwd(), giving multiply defined errors
-extern "C" {
-char *_getcwd(char *buffer, int maxlen);
-int _chdir(const char *path);
-}
-
 namespace {
 bool utf8ToWide(const char *utf8, wchar_t *buf, size_t bufSize) {
-  const UTF8 *sourceStart = reinterpret_cast<const UTF8 *>(utf8);
+  const llvm::UTF8 *sourceStart = reinterpret_cast<const llvm::UTF8 *>(utf8);
   size_t sourceLen = strlen(utf8) + 1 /* convert null too */;
-  UTF16 *target = reinterpret_cast<UTF16 *>(buf);
-  ConversionFlags flags = strictConversion;
-  return ConvertUTF8toUTF16(&sourceStart, sourceStart + sourceLen, &target,
-                            target + bufSize, flags) == conversionOK;
+  llvm::UTF16 *target = reinterpret_cast<llvm::UTF16 *>(buf);
+  llvm::ConversionFlags flags = llvm::strictConversion;
+  return llvm::ConvertUTF8toUTF16(&sourceStart, sourceStart + sourceLen, &target,
+                            target + bufSize, flags) == llvm::conversionOK;
 }
 
 bool wideToUtf8(const wchar_t *wide, char *buf, size_t bufSize) {
-  const UTF16 *sourceStart = reinterpret_cast<const UTF16 *>(wide);
+  const llvm::UTF16 *sourceStart = reinterpret_cast<const llvm::UTF16 *>(wide);
   size_t sourceLen = wcslen(wide) + 1 /* convert null too */;
-  UTF8 *target = reinterpret_cast<UTF8 *>(buf);
-  ConversionFlags flags = strictConversion;
-  return ConvertUTF16toUTF8(&sourceStart, sourceStart + sourceLen, &target,
-                            target + bufSize, flags) == conversionOK;
+  llvm::UTF8 *target = reinterpret_cast<llvm::UTF8 *>(buf);
+  llvm::ConversionFlags flags = llvm::strictConversion;
+  return llvm::ConvertUTF16toUTF8(&sourceStart, sourceStart + sourceLen, &target,
+                            target + bufSize, flags) == llvm::conversionOK;
 }
 }
 
@@ -189,31 +182,6 @@ char *basename(char *path) {
     return path; // no base name
   return &l1[1];
 }
-
-// use _getcwd() instead of GetCurrentDirectory() because it updates errno
-char *getcwd(char *path, int max) {
-  assert(path == NULL || max <= PATH_MAX);
-  wchar_t wpath[PATH_MAX];
-  if (wchar_t *wresult = _wgetcwd(wpath, PATH_MAX)) {
-    // Caller is allowed to pass in NULL for `path`.
-    // In that case, we're supposed to allocate a
-    // buffer on the caller's behalf.
-    if (path == NULL) {
-      max = UNI_MAX_UTF8_BYTES_PER_CODE_POINT * wcslen(wresult) + 1;
-      path = (char *)malloc(max);
-      if (path == NULL) {
-        errno = ENOMEM;
-        return NULL;
-      }
-    }
-    if (wideToUtf8(wresult, path, max))
-      return path;
-  }
-  return NULL;
-}
-
-// use _chdir() instead of SetCurrentDirectory() because it updates errno
-int chdir(const char *path) { return _chdir(path); }
 
 char *dirname(char *path) {
   char *l1 = strrchr(path, '\\');

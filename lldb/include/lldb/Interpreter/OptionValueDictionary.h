@@ -65,19 +65,11 @@ public:
   lldb::OptionValueSP GetValueForKey(const ConstString &key) const;
 
   lldb::OptionValueSP GetSubValue(const ExecutionContext *exe_ctx,
-                                  const char *name, bool will_modify,
+                                  llvm::StringRef name, bool will_modify,
                                   Error &error) const override;
 
   Error SetSubValue(const ExecutionContext *exe_ctx, VarSetOperationType op,
-                    const char *name, const char *value) override;
-
-  //---------------------------------------------------------------------
-  // String value getters and setters
-  //---------------------------------------------------------------------
-  const char *GetStringValueForKey(const ConstString &key);
-
-  bool SetStringValueForKey(const ConstString &key, const char *value,
-                            bool can_replace = true);
+    llvm::StringRef name, llvm::StringRef value) override;
 
   bool SetValueForKey(const ConstString &key,
                       const lldb::OptionValueSP &value_sp,

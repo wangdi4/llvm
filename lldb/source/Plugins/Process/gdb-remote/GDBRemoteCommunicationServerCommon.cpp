@@ -22,23 +22,22 @@
 #include <cstring>
 
 // Other libraries and framework includes
-#include "lldb/Core/Log.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/StreamGDBRemote.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Host/Config.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Host/File.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/Endian.h"
 #include "lldb/Utility/JSON.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamGDBRemote.h"
+#include "lldb/Utility/StreamString.h"
 #include "llvm/ADT/Triple.h"
 
 // Project includes
@@ -358,19 +357,17 @@ GDBRemoteCommunicationServerCommon::Handle_qfProcessInfo(
         StringExtractor extractor(value);
         std::string file;
         extractor.GetHexByteString(file);
-        match_info.GetProcessInfo().GetExecutableFile().SetFile(file.c_str(),
-                                                                false);
+        match_info.GetProcessInfo().GetExecutableFile().SetFile(file, false);
       } else if (key.equals("name_match")) {
-        NameMatchType name_match =
-            llvm::StringSwitch<NameMatchType>(value)
-                .Case("equals", eNameMatchEquals)
-                .Case("starts_with", eNameMatchStartsWith)
-                .Case("ends_with", eNameMatchEndsWith)
-                .Case("contains", eNameMatchContains)
-                .Case("regex", eNameMatchRegularExpression)
-                .Default(eNameMatchIgnore);
+        NameMatch name_match = llvm::StringSwitch<NameMatch>(value)
+                                   .Case("equals", NameMatch::Equals)
+                                   .Case("starts_with", NameMatch::StartsWith)
+                                   .Case("ends_with", NameMatch::EndsWith)
+                                   .Case("contains", NameMatch::Contains)
+                                   .Case("regex", NameMatch::RegularExpression)
+                                   .Default(NameMatch::Ignore);
         match_info.SetNameMatchType(name_match);
-        if (name_match == eNameMatchIgnore)
+        if (name_match == NameMatch::Ignore)
           return SendErrorResponse(2);
       } else if (key.equals("pid")) {
         lldb::pid_t pid = LLDB_INVALID_PROCESS_ID;
@@ -644,15 +641,15 @@ GDBRemoteCommunicationServerCommon::Handle_vFile_Size(
   std::string path;
   packet.GetHexByteString(path);
   if (!path.empty()) {
-    lldb::user_id_t retcode =
-        FileSystem::GetFileSize(FileSpec(path.c_str(), false));
+    uint64_t Size;
+    if (llvm::sys::fs::file_size(path, Size))
+      return SendErrorResponse(5);
     StreamString response;
     response.PutChar('F');
-    response.PutHex64(retcode);
-    if (retcode == UINT64_MAX) {
+    response.PutHex64(Size);
+    if (Size == UINT64_MAX) {
       response.PutChar(',');
-      response.PutHex64(
-          retcode); // TODO: replace with Host::GetSyswideErrorCode()
+      response.PutHex64(Size); // TODO: replace with Host::GetSyswideErrorCode()
     }
     return SendPacketNoLock(response.GetString());
   }
@@ -684,7 +681,7 @@ GDBRemoteCommunicationServerCommon::Handle_vFile_Exists(
   std::string path;
   packet.GetHexByteString(path);
   if (!path.empty()) {
-    bool retcode = FileSystem::GetFileExists(FileSpec(path.c_str(), false));
+    bool retcode = llvm::sys::fs::exists(path);
     StreamString response;
     response.PutChar('F');
     response.PutChar(',');
@@ -717,7 +714,7 @@ GDBRemoteCommunicationServerCommon::Handle_vFile_unlink(
   packet.SetFilePos(::strlen("vFile:unlink:"));
   std::string path;
   packet.GetHexByteString(path);
-  Error error = FileSystem::Unlink(FileSpec{path, true});
+  Error error(llvm::sys::fs::remove(path));
   StreamString response;
   response.Printf("F%u,%u", error.GetError(), error.GetError());
   return SendPacketNoLock(response.GetString());
@@ -774,15 +771,15 @@ GDBRemoteCommunicationServerCommon::Handle_vFile_MD5(
   std::string path;
   packet.GetHexByteString(path);
   if (!path.empty()) {
-    uint64_t a, b;
     StreamGDBRemote response;
-    if (!FileSystem::CalculateMD5(FileSpec(path.c_str(), false), a, b)) {
+    auto Result = llvm::sys::fs::md5_contents(path);
+    if (!Result) {
       response.PutCString("F,");
       response.PutCString("x");
     } else {
       response.PutCString("F,");
-      response.PutHex64(a);
-      response.PutHex64(b);
+      response.PutHex64(Result->low());
+      response.PutHex64(Result->high());
     }
     return SendPacketNoLock(response.GetString());
   }
@@ -797,7 +794,7 @@ GDBRemoteCommunicationServerCommon::Handle_qPlatform_mkdir(
   if (packet.GetChar() == ',') {
     std::string path;
     packet.GetHexByteString(path);
-    Error error = FileSystem::MakeDirectory(FileSpec{path, false}, mode);
+    Error error(llvm::sys::fs::create_directory(path, mode));
 
     StreamGDBRemote response;
     response.Printf("F%u", error.GetError());
@@ -812,11 +809,12 @@ GDBRemoteCommunicationServerCommon::Handle_qPlatform_chmod(
     StringExtractorGDBRemote &packet) {
   packet.SetFilePos(::strlen("qPlatform_chmod:"));
 
-  mode_t mode = packet.GetHexMaxU32(false, UINT32_MAX);
+  auto perms =
+      static_cast<llvm::sys::fs::perms>(packet.GetHexMaxU32(false, UINT32_MAX));
   if (packet.GetChar() == ',') {
     std::string path;
     packet.GetHexByteString(path);
-    Error error = FileSystem::SetFilePermissions(FileSpec{path, true}, mode);
+    Error error(llvm::sys::fs::setPermissions(path, perms));
 
     StreamGDBRemote response;
     response.Printf("F%u", error.GetError());
@@ -840,7 +838,8 @@ GDBRemoteCommunicationServerCommon::Handle_qSupported(
   response.PutCString(";QThreadSuffixSupported+");
   response.PutCString(";QListThreadsInStopReply+");
   response.PutCString(";qEcho+");
-#if defined(__linux__)
+#if defined(__linux__) || defined(__NetBSD__)
+  response.PutCString(";QPassSignals+");
   response.PutCString(";qXfer:auxv:read+");
 #endif
 
@@ -946,7 +945,8 @@ GDBRemoteCommunicationServerCommon::Handle_QEnvironment(
   packet.SetFilePos(::strlen("QEnvironment:"));
   const uint32_t bytes_left = packet.GetBytesLeft();
   if (bytes_left > 0) {
-    m_process_launch_info.GetEnvironmentEntries().AppendArgument(packet.Peek());
+    m_process_launch_info.GetEnvironmentEntries().AppendArgument(
+        llvm::StringRef::withNullAsEmpty(packet.Peek()));
     return SendOKResponse();
   }
   return SendErrorResponse(12);
@@ -960,7 +960,7 @@ GDBRemoteCommunicationServerCommon::Handle_QEnvironmentHexEncoded(
   if (bytes_left > 0) {
     std::string str;
     packet.GetHexByteString(str);
-    m_process_launch_info.GetEnvironmentEntries().AppendArgument(str.c_str());
+    m_process_launch_info.GetEnvironmentEntries().AppendArgument(str);
     return SendOKResponse();
   }
   return SendErrorResponse(12);
@@ -1030,10 +1030,8 @@ GDBRemoteCommunicationServerCommon::Handle_A(StringExtractorGDBRemote &packet) {
 
               if (success) {
                 if (arg_idx == 0)
-                  m_process_launch_info.GetExecutableFile().SetFile(arg.c_str(),
-                                                                    false);
-                m_process_launch_info.GetArguments().AppendArgument(
-                    arg.c_str());
+                  m_process_launch_info.GetExecutableFile().SetFile(arg, false);
+                m_process_launch_info.GetArguments().AppendArgument(arg);
                 if (log)
                   log->Printf("LLGSPacketHandler::%s added arg %d: \"%s\"",
                               __FUNCTION__, actual_arg_index, arg.c_str());
@@ -1094,12 +1092,11 @@ GDBRemoteCommunicationServerCommon::Handle_qModuleInfo(
   StreamGDBRemote response;
 
   if (uuid_str.empty()) {
-    std::string md5_hash;
-    if (!FileSystem::CalculateMD5AsString(matched_module_spec.GetFileSpec(),
-                                          file_offset, file_size, md5_hash))
+    auto Result = llvm::sys::fs::md5_contents(matched_module_spec.GetFileSpec().GetPath());
+    if (!Result)
       return SendErrorResponse(5);
     response.PutCString("md5:");
-    response.PutCStringAsRawHex8(md5_hash.c_str());
+    response.PutCStringAsRawHex8(Result->digest().c_str());
   } else {
     response.PutCString("uuid:");
     response.PutCStringAsRawHex8(uuid_str.c_str());
@@ -1177,7 +1174,8 @@ GDBRemoteCommunicationServerCommon::Handle_jModulesInfo(
   StreamString response;
   response_array_sp->Write(response);
   StreamGDBRemote escaped_response;
-  escaped_response.PutEscapedBytes(response.GetData(), response.GetSize());
+  escaped_response.PutEscapedBytes(response.GetString().data(),
+                                   response.GetSize());
   return SendPacketNoLock(escaped_response.GetString());
 }
 
@@ -1262,13 +1260,12 @@ void GDBRemoteCommunicationServerCommon::
       // Nothing.
       break;
     }
-
-    if (proc_triple.isArch64Bit())
-      response.PutCString("ptrsize:8;");
-    else if (proc_triple.isArch32Bit())
-      response.PutCString("ptrsize:4;");
-    else if (proc_triple.isArch16Bit())
-      response.PutCString("ptrsize:2;");
+    // In case of MIPS64, pointer size is depend on ELF ABI
+    // For N32 the pointer size is 4 and for N64 it is 8
+    std::string abi = proc_arch.GetTargetABI();
+    if (!abi.empty())
+      response.Printf("elf_abi:%s;", abi.c_str());
+    response.Printf("ptrsize:%d;", proc_arch.GetAddressByteSize());
   }
 }
 
@@ -1277,7 +1274,7 @@ FileSpec GDBRemoteCommunicationServerCommon::FindModuleFile(
 #ifdef __ANDROID__
   return HostInfoAndroid::ResolveLibraryPath(module_path, arch);
 #else
-  return FileSpec(module_path.c_str(), true);
+  return FileSpec(module_path, true);
 #endif
 }
 
@@ -1285,7 +1282,7 @@ ModuleSpec GDBRemoteCommunicationServerCommon::GetModuleInfo(
     const std::string &module_path, const std::string &triple) {
   ArchSpec arch(triple.c_str());
 
-  const FileSpec req_module_path_spec(module_path.c_str(), true);
+  const FileSpec req_module_path_spec(module_path, true);
   const FileSpec module_path_spec =
       FindModuleFile(req_module_path_spec.GetPath(), arch);
   const ModuleSpec module_spec(module_path_spec, arch);

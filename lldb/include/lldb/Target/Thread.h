@@ -22,11 +22,11 @@
 #include "lldb/Core/Broadcaster.h"
 #include "lldb/Core/Event.h"
 #include "lldb/Core/StructuredData.h"
-#include "lldb/Core/UserID.h"
 #include "lldb/Core/UserSettingsController.h"
 #include "lldb/Target/ExecutionContextScope.h"
 #include "lldb/Target/RegisterCheckpoint.h"
 #include "lldb/Target/StackFrameList.h"
+#include "lldb/Utility/UserID.h"
 #include "lldb/lldb-private.h"
 
 #define LLDB_THREAD_MAX_STOP_EXC_DATA 8
@@ -126,6 +126,7 @@ public:
                            // bit of data.
     lldb::StopInfoSP stop_info_sp; // You have to restore the stop info or you
                                    // might continue with the wrong signals.
+    std::vector<lldb::ThreadPlanSP> m_completed_plan_stack;
     lldb::RegisterCheckpointSP
         register_backup_sp; // You need to restore the registers, of course...
     uint32_t current_inlined_depth;
@@ -499,8 +500,11 @@ public:
     // thread for all memory threads each time we stop.
   }
 
-  void DumpUsingSettingsFormat(Stream &strm, uint32_t frame_idx);
-
+  // If stop_format is true, this will be the form used when we print stop info.
+  // If false, it will be the form we use for thread list and co.
+  void DumpUsingSettingsFormat(Stream &strm, uint32_t frame_idx, 
+                               bool stop_format);
+ 
   bool GetDescription(Stream &s, lldb::DescriptionLevel level,
                       bool print_json_thread, bool print_json_stopinfo);
 
@@ -1026,6 +1030,15 @@ public:
   bool WasThreadPlanDiscarded(ThreadPlan *plan);
 
   //------------------------------------------------------------------
+  /// Check if we have completed plan to override breakpoint stop reason
+  ///
+  /// @return
+  ///     Returns true if completed plan stack is not empty
+  ///     false otherwise.
+  //------------------------------------------------------------------
+  bool CompletedPlanOverridesBreakpoint();
+                   
+  //------------------------------------------------------------------
   /// Queues a generic thread plan.
   ///
   /// @param[in] plan_sp
@@ -1150,7 +1163,8 @@ public:
   GetStackFrameSPForStackFramePtr(StackFrame *stack_frame_ptr);
 
   size_t GetStatus(Stream &strm, uint32_t start_frame, uint32_t num_frames,
-                   uint32_t num_frames_with_source);
+                   uint32_t num_frames_with_source,
+                   bool stop_format);
 
   size_t GetStackFrameStatus(Stream &strm, uint32_t first_frame,
                              uint32_t num_frames, bool show_frame_info,
@@ -1208,6 +1222,8 @@ public:
   }
 
   void SetStopInfo(const lldb::StopInfoSP &stop_info_sp);
+
+  void ResetStopInfo();
 
   void SetShouldReportStop(Vote vote);
 

@@ -19,8 +19,6 @@
 #if defined(_WIN32)
 #include <fcntl.h>
 #include <io.h>
-#elif defined(__ANDROID_NDK__)
-#include <errno.h>
 #else
 #include <unistd.h>
 #endif
@@ -131,7 +129,7 @@ static OptionDefinition g_options[] = {
      "Tells the debugger to execute this one-line lldb command before any file "
      "provided on the command line has been loaded."},
     {LLDB_3_TO_5, false, "batch", 'b', no_argument, 0, eArgTypeNone,
-     "Tells the debugger to running the commands from -s, -S, -o & -O, and "
+     "Tells the debugger to run the commands from -s, -S, -o & -O, and "
      "then quit.  However if any run command stopped due to a signal or crash, "
      "the debugger will return to the interactive prompt at the place of the "
      "crash."},
@@ -1210,13 +1208,13 @@ void sigcont_handler(int signo) {
 }
 
 int
-#ifdef WIN32
+#ifdef _MSC_VER
 wmain(int argc, wchar_t const *wargv[])
 #else
 main(int argc, char const *argv[])
 #endif
 {
-#ifdef _WIN32
+#ifdef _MSC_VER
   // Convert wide arguments to UTF-8
   std::vector<std::string> argvStrings(argc);
   std::vector<const char *> argvPointers(argc);

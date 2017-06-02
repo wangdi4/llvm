@@ -10,7 +10,7 @@
 #ifndef liblldb_Target_FileAction_h
 #define liblldb_Target_FileAction_h
 
-#include "lldb/Host/FileSpec.h"
+#include "lldb/Utility/FileSpec.h"
 #include <string>
 
 namespace lldb_private {
@@ -40,7 +40,7 @@ public:
 
   int GetActionArgument() const { return m_arg; }
 
-  const char *GetPath() const;
+  llvm::StringRef GetPath() const;
 
   const FileSpec &GetFileSpec() const;
 

@@ -21,6 +21,8 @@
 #include "lldb/lldb-defines.h"
 #include "lldb/lldb-private.h"
 
+#include "llvm/ADT/ArrayRef.h"
+
 namespace lldb_private {
 
 static inline bool isprint8(int ch) {
@@ -158,7 +160,9 @@ public:
   // The following two pure virtual functions must be defined by every
   // class that inherits from this class.
 
-  virtual const OptionDefinition *GetDefinitions() { return nullptr; }
+  virtual llvm::ArrayRef<OptionDefinition> GetDefinitions() {
+    return llvm::ArrayRef<OptionDefinition>();
+  }
 
   // Call this prior to parsing any options. This call will call the
   // subclass OptionParsingStarting() and will avoid the need for all
@@ -188,8 +192,7 @@ public:
   /// @see Args::ParseOptions (Options&)
   /// @see man getopt_long_only
   //------------------------------------------------------------------
-  // TODO: Make this function take a StringRef.
-  virtual Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+  virtual Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                                ExecutionContext *execution_context) = 0;
 
   //------------------------------------------------------------------
@@ -335,11 +338,10 @@ public:
 
   virtual ~OptionGroup() = default;
 
-  virtual uint32_t GetNumDefinitions() = 0;
+  virtual llvm::ArrayRef<OptionDefinition> GetDefinitions() = 0;
 
-  virtual const OptionDefinition *GetDefinitions() = 0;
-
-  virtual Error SetOptionValue(uint32_t option_idx, const char *option_value,
+  virtual Error SetOptionValue(uint32_t option_idx,
+                               llvm::StringRef option_value,
                                ExecutionContext *execution_context) = 0;
 
   virtual void OptionParsingStarting(ExecutionContext *execution_context) = 0;
@@ -399,16 +401,16 @@ public:
 
   bool DidFinalize() { return m_did_finalize; }
 
-  Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+  Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                        ExecutionContext *execution_context) override;
 
   void OptionParsingStarting(ExecutionContext *execution_context) override;
 
   Error OptionParsingFinished(ExecutionContext *execution_context) override;
 
-  const OptionDefinition *GetDefinitions() override {
+  llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
     assert(m_did_finalize);
-    return &m_option_defs[0];
+    return m_option_defs;
   }
 
   const OptionGroup *GetGroupWithOption(char short_opt);

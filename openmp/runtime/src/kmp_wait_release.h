@@ -98,6 +98,10 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
     int th_gtid;
     int tasks_completed = FALSE;
     int oversubscribed;
+#if ! KMP_USE_MONITOR
+    kmp_uint64 poll_count;
+    kmp_uint64 hibernate_goal;
+#endif
 
     KMP_FSYNC_SPIN_INIT(spin, NULL);
     if (flag->done_check()) {
@@ -142,6 +146,7 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
     KMP_INIT_YIELD(spins);
 
     if (__kmp_dflt_blocktime != KMP_MAX_BLOCKTIME) {
+#if KMP_USE_MONITOR
         // The worker threads cannot rely on the team struct existing at this point.
         // Use the bt values cached in the thread struct instead.
 #ifdef KMP_ADJUST_BLOCKTIME
@@ -165,6 +170,10 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
         KF_TRACE(20, ("__kmp_wait_sleep: T#%d now=%d, hibernate=%d, intervals=%d\n",
                       th_gtid, __kmp_global.g.g_time.dt.t_value, hibernate,
                       hibernate - __kmp_global.g.g_time.dt.t_value));
+#else
+        hibernate_goal = KMP_NOW() + this_thr->th.th_team_bt_intervals;
+        poll_count = 0;
+#endif // KMP_USE_MONITOR
     }
 
     oversubscribed = (TCR_4(__kmp_nth) > __kmp_avail_proc);
@@ -187,11 +196,16 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
                     if (KMP_TASKING_ENABLED(task_team))
                         flag->execute_tasks(this_thr, th_gtid, final_spin, &tasks_completed
                                             USE_ITT_BUILD_ARG(itt_sync_obj), 0);
+                    else
+                        this_thr->th.th_reap_state = KMP_SAFE_TO_REAP;
                 }
                 else {
                     KMP_DEBUG_ASSERT(!KMP_MASTER_TID(this_thr->th.th_info.ds.ds_tid));
                     this_thr->th.th_task_team = NULL;
+                    this_thr->th.th_reap_state = KMP_SAFE_TO_REAP;
                 }
+            } else {
+                this_thr->th.th_reap_state = KMP_SAFE_TO_REAP;
             } // if
         } // if
 
@@ -246,9 +260,14 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
         if ((task_team != NULL) && TCR_4(task_team->tt.tt_found_tasks))
             continue;
 
+#if KMP_USE_MONITOR
         // If we have waited a bit more, fall asleep
         if (TCR_4(__kmp_global.g.g_time.dt.t_value) < hibernate)
             continue;
+#else
+        if (KMP_BLOCKING(hibernate_goal, poll_count++))
+            continue;
+#endif
 
         KF_TRACE(50, ("__kmp_wait_sleep: T#%d suspend time reached\n", th_gtid));
 
@@ -258,6 +277,10 @@ __kmp_wait_template(kmp_info_t *this_thr, C *flag, int final_spin
             if (__kmp_global.g.g_abort)
                 __kmp_abort_thread();
             break;
+        }
+        else if (__kmp_tasking_mode != tskm_immediate_exec
+                 && this_thr->th.th_reap_state == KMP_SAFE_TO_REAP) {
+            this_thr->th.th_reap_state = KMP_NOT_SAFE_TO_REAP;
         }
         // TODO: If thread is done with work and times out, disband/free
     }

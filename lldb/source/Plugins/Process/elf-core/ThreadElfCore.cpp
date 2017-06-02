@@ -7,24 +7,27 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/StopInfo.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Unwind.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Log.h"
 
-#include "Plugins/Process/Utility/RegisterContextFreeBSD_arm.h"
-#include "Plugins/Process/Utility/RegisterContextFreeBSD_arm64.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_i386.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_mips64.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_powerpc.h"
 #include "Plugins/Process/Utility/RegisterContextFreeBSD_x86_64.h"
-#include "Plugins/Process/Utility/RegisterContextLinux_arm.h"
-#include "Plugins/Process/Utility/RegisterContextLinux_arm64.h"
+#include "Plugins/Process/Utility/RegisterContextLinux_mips64.h"
+#include "Plugins/Process/Utility/RegisterContextLinux_mips.h"
 #include "Plugins/Process/Utility/RegisterContextLinux_i386.h"
 #include "Plugins/Process/Utility/RegisterContextLinux_s390x.h"
 #include "Plugins/Process/Utility/RegisterContextLinux_x86_64.h"
+#include "Plugins/Process/Utility/RegisterContextNetBSD_x86_64.h"
+#include "Plugins/Process/Utility/RegisterContextOpenBSD_i386.h"
+#include "Plugins/Process/Utility/RegisterContextOpenBSD_x86_64.h"
+#include "Plugins/Process/Utility/RegisterInfoPOSIX_arm.h"
+#include "Plugins/Process/Utility/RegisterInfoPOSIX_arm64.h"
 #include "ProcessElfCore.h"
 #include "RegisterContextPOSIXCore_arm.h"
 #include "RegisterContextPOSIXCore_arm64.h"
@@ -86,10 +89,10 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
     case llvm::Triple::FreeBSD: {
       switch (arch.GetMachine()) {
       case llvm::Triple::aarch64:
-        reg_interface = new RegisterContextFreeBSD_arm64(arch);
+        reg_interface = new RegisterInfoPOSIX_arm64(arch);
         break;
       case llvm::Triple::arm:
-        reg_interface = new RegisterContextFreeBSD_arm(arch);
+        reg_interface = new RegisterInfoPOSIX_arm(arch);
         break;
       case llvm::Triple::ppc:
         reg_interface = new RegisterContextFreeBSD_powerpc32(arch);
@@ -112,13 +115,32 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
       break;
     }
 
+    case llvm::Triple::NetBSD: {
+      switch (arch.GetMachine()) {
+      case llvm::Triple::x86_64:
+        reg_interface = new RegisterContextNetBSD_x86_64(arch);
+        break;
+      default:
+        break;
+      }
+      break;
+    }
+
     case llvm::Triple::Linux: {
       switch (arch.GetMachine()) {
       case llvm::Triple::arm:
-        reg_interface = new RegisterContextLinux_arm(arch);
+        reg_interface = new RegisterInfoPOSIX_arm(arch);
         break;
       case llvm::Triple::aarch64:
-        reg_interface = new RegisterContextLinux_arm64(arch);
+        reg_interface = new RegisterInfoPOSIX_arm64(arch);
+        break;
+      case llvm::Triple::mipsel:
+      case llvm::Triple::mips:
+        reg_interface = new RegisterContextLinux_mips(arch);
+        break;
+      case llvm::Triple::mips64el:
+      case llvm::Triple::mips64:
+        reg_interface = new RegisterContextLinux_mips64(arch);
         break;
       case llvm::Triple::systemz:
         reg_interface = new RegisterContextLinux_s390x(arch);
@@ -128,6 +150,26 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
         break;
       case llvm::Triple::x86_64:
         reg_interface = new RegisterContextLinux_x86_64(arch);
+        break;
+      default:
+        break;
+      }
+      break;
+    }
+
+    case llvm::Triple::OpenBSD: {
+      switch (arch.GetMachine()) {
+      case llvm::Triple::aarch64:
+        reg_interface = new RegisterInfoPOSIX_arm64(arch);
+        break;
+      case llvm::Triple::arm:
+        reg_interface = new RegisterInfoPOSIX_arm(arch);
+        break;
+      case llvm::Triple::x86:
+        reg_interface = new RegisterContextOpenBSD_i386(arch);
+        break;
+      case llvm::Triple::x86_64:
+        reg_interface = new RegisterContextOpenBSD_x86_64(arch);
         break;
       default:
         break;
@@ -155,7 +197,13 @@ ThreadElfCore::CreateRegisterContextForFrame(StackFrame *frame) {
       m_thread_reg_ctx_sp.reset(new RegisterContextCorePOSIX_arm(
           *this, reg_interface, m_gpregset_data, m_fpregset_data));
       break;
+    case llvm::Triple::mipsel:
+    case llvm::Triple::mips:
+      m_thread_reg_ctx_sp.reset(new RegisterContextCorePOSIX_mips64(
+         *this, reg_interface, m_gpregset_data, m_fpregset_data));
+      break;
     case llvm::Triple::mips64:
+    case llvm::Triple::mips64el:
       m_thread_reg_ctx_sp.reset(new RegisterContextCorePOSIX_mips64(
           *this, reg_interface, m_gpregset_data, m_fpregset_data));
       break;
@@ -201,60 +249,69 @@ ELFLinuxPrStatus::ELFLinuxPrStatus() {
   memset(this, 0, sizeof(ELFLinuxPrStatus));
 }
 
+size_t ELFLinuxPrStatus::GetSize(lldb_private::ArchSpec &arch) {
+  constexpr size_t mips_linux_pr_status_size_o32 = 96;
+  constexpr size_t mips_linux_pr_status_size_n32 = 72;
+  if (arch.IsMIPS()) {
+    std::string abi = arch.GetTargetABI();
+    assert(!abi.empty() && "ABI is not set");
+    if (!abi.compare("n64"))
+      return sizeof(ELFLinuxPrStatus);
+    else if (!abi.compare("o32"))
+      return mips_linux_pr_status_size_o32;
+    // N32 ABI
+    return mips_linux_pr_status_size_n32;
+  }
+  switch (arch.GetCore()) {
+  case lldb_private::ArchSpec::eCore_s390x_generic:
+  case lldb_private::ArchSpec::eCore_x86_64_x86_64:
+    return sizeof(ELFLinuxPrStatus);
+  case lldb_private::ArchSpec::eCore_x86_32_i386:
+  case lldb_private::ArchSpec::eCore_x86_32_i486:
+    return 72;
+  default:
+    return 0;
+  }
+}
+
 Error ELFLinuxPrStatus::Parse(DataExtractor &data, ArchSpec &arch) {
   Error error;
-  ByteOrder byteorder = data.GetByteOrder();
   if (GetSize(arch) > data.GetByteSize()) {
     error.SetErrorStringWithFormat(
-        "NT_PRSTATUS size should be %lu, but the remaining bytes are: %" PRIu64,
+        "NT_PRSTATUS size should be %zu, but the remaining bytes are: %" PRIu64,
         GetSize(arch), data.GetByteSize());
     return error;
   }
 
-  switch (arch.GetCore()) {
-  case ArchSpec::eCore_s390x_generic:
-  case ArchSpec::eCore_x86_64_x86_64:
-    data.ExtractBytes(0, sizeof(ELFLinuxPrStatus), byteorder, this);
-    break;
-  case ArchSpec::eCore_x86_32_i386:
-  case ArchSpec::eCore_x86_32_i486: {
-    // Parsing from a 32 bit ELF core file, and populating/reusing the structure
-    // properly, because the struct is for the 64 bit version
-    offset_t offset = 0;
-    si_signo = data.GetU32(&offset);
-    si_code = data.GetU32(&offset);
-    si_errno = data.GetU32(&offset);
+  // Read field by field to correctly account for endianess
+  // of both the core dump and the platform running lldb.
+  offset_t offset = 0;
+  si_signo = data.GetU32(&offset);
+  si_code = data.GetU32(&offset);
+  si_errno = data.GetU32(&offset);
 
-    pr_cursig = data.GetU16(&offset);
-    offset += 2; // pad
+  pr_cursig = data.GetU16(&offset);
+  offset += 2; // pad
 
-    pr_sigpend = data.GetU32(&offset);
-    pr_sighold = data.GetU32(&offset);
+  pr_sigpend = data.GetPointer(&offset);
+  pr_sighold = data.GetPointer(&offset);
 
-    pr_pid = data.GetU32(&offset);
-    pr_ppid = data.GetU32(&offset);
-    pr_pgrp = data.GetU32(&offset);
-    pr_sid = data.GetU32(&offset);
+  pr_pid = data.GetU32(&offset);
+  pr_ppid = data.GetU32(&offset);
+  pr_pgrp = data.GetU32(&offset);
+  pr_sid = data.GetU32(&offset);
 
-    pr_utime.tv_sec = data.GetU32(&offset);
-    pr_utime.tv_usec = data.GetU32(&offset);
+  pr_utime.tv_sec = data.GetPointer(&offset);
+  pr_utime.tv_usec = data.GetPointer(&offset);
 
-    pr_stime.tv_sec = data.GetU32(&offset);
-    pr_stime.tv_usec = data.GetU32(&offset);
+  pr_stime.tv_sec = data.GetPointer(&offset);
+  pr_stime.tv_usec = data.GetPointer(&offset);
 
-    pr_cutime.tv_sec = data.GetU32(&offset);
-    pr_cutime.tv_usec = data.GetU32(&offset);
+  pr_cutime.tv_sec = data.GetPointer(&offset);
+  pr_cutime.tv_usec = data.GetPointer(&offset);
 
-    pr_cstime.tv_sec = data.GetU32(&offset);
-    pr_cstime.tv_usec = data.GetU32(&offset);
-
-    break;
-  }
-  default:
-    error.SetErrorStringWithFormat("ELFLinuxPrStatus::%s Unknown architecture",
-                                   __FUNCTION__);
-    break;
-  }
+  pr_cstime.tv_sec = data.GetPointer(&offset);
+  pr_cstime.tv_usec = data.GetPointer(&offset);
 
   return error;
 }
@@ -266,57 +323,111 @@ ELFLinuxPrPsInfo::ELFLinuxPrPsInfo() {
   memset(this, 0, sizeof(ELFLinuxPrPsInfo));
 }
 
+size_t ELFLinuxPrPsInfo::GetSize(lldb_private::ArchSpec &arch) {
+  constexpr size_t mips_linux_pr_psinfo_size_o32_n32 = 128;
+  if (arch.IsMIPS()) {
+    uint8_t address_byte_size = arch.GetAddressByteSize();
+    if (address_byte_size == 8)
+      return sizeof(ELFLinuxPrPsInfo);
+    return mips_linux_pr_psinfo_size_o32_n32;
+  }
+  
+  switch (arch.GetCore()) {
+  case lldb_private::ArchSpec::eCore_s390x_generic:
+  case lldb_private::ArchSpec::eCore_x86_64_x86_64:
+    return sizeof(ELFLinuxPrPsInfo);
+  case lldb_private::ArchSpec::eCore_x86_32_i386:
+  case lldb_private::ArchSpec::eCore_x86_32_i486:
+    return 124;
+  default:
+    return 0;
+  }
+}
+
 Error ELFLinuxPrPsInfo::Parse(DataExtractor &data, ArchSpec &arch) {
   Error error;
   ByteOrder byteorder = data.GetByteOrder();
   if (GetSize(arch) > data.GetByteSize()) {
     error.SetErrorStringWithFormat(
-        "NT_PRPSINFO size should be %lu, but the remaining bytes are: %" PRIu64,
+        "NT_PRPSINFO size should be %zu, but the remaining bytes are: %" PRIu64,
+        GetSize(arch), data.GetByteSize());
+    return error;
+  }
+  size_t size = 0;
+  offset_t offset = 0;
+
+  pr_state = data.GetU8(&offset);
+  pr_sname = data.GetU8(&offset);
+  pr_zomb = data.GetU8(&offset);
+  pr_nice = data.GetU8(&offset);
+  if (data.GetAddressByteSize() == 8) {
+    // Word align the next field on 64 bit.
+    offset += 4;
+  }
+
+  pr_flag = data.GetPointer(&offset);
+
+  if (arch.IsMIPS()) {
+    // The pr_uid and pr_gid is always 32 bit irrespective of platforms
+    pr_uid = data.GetU32(&offset);
+    pr_gid = data.GetU32(&offset);
+  } else {
+  // 16 bit on 32 bit platforms, 32 bit on 64 bit platforms
+  pr_uid = data.GetMaxU64(&offset, data.GetAddressByteSize() >> 1);
+  pr_gid = data.GetMaxU64(&offset, data.GetAddressByteSize() >> 1);
+  }
+
+  pr_pid = data.GetU32(&offset);
+  pr_ppid = data.GetU32(&offset);
+  pr_pgrp = data.GetU32(&offset);
+  pr_sid = data.GetU32(&offset);
+
+  size = 16;
+  data.ExtractBytes(offset, size, byteorder, pr_fname);
+  offset += size;
+
+  size = 80;
+  data.ExtractBytes(offset, size, byteorder, pr_psargs);
+  offset += size;
+
+  return error;
+}
+
+//----------------------------------------------------------------
+// Parse SIGINFO from NOTE entry
+//----------------------------------------------------------------
+ELFLinuxSigInfo::ELFLinuxSigInfo() { memset(this, 0, sizeof(ELFLinuxSigInfo)); }
+
+size_t ELFLinuxSigInfo::GetSize(const lldb_private::ArchSpec &arch) {
+  if (arch.IsMIPS())
+    return sizeof(ELFLinuxSigInfo);
+  switch (arch.GetCore()) {
+  case lldb_private::ArchSpec::eCore_x86_64_x86_64:
+    return sizeof(ELFLinuxSigInfo);
+  case lldb_private::ArchSpec::eCore_s390x_generic:
+  case lldb_private::ArchSpec::eCore_x86_32_i386:
+  case lldb_private::ArchSpec::eCore_x86_32_i486:
+    return 12;
+  default:
+    return 0;
+  }
+}
+
+Error ELFLinuxSigInfo::Parse(DataExtractor &data, const ArchSpec &arch) {
+  Error error;
+  if (GetSize(arch) > data.GetByteSize()) {
+    error.SetErrorStringWithFormat(
+        "NT_SIGINFO size should be %zu, but the remaining bytes are: %" PRIu64,
         GetSize(arch), data.GetByteSize());
     return error;
   }
 
-  switch (arch.GetCore()) {
-  case ArchSpec::eCore_s390x_generic:
-  case ArchSpec::eCore_x86_64_x86_64:
-    data.ExtractBytes(0, sizeof(ELFLinuxPrPsInfo), byteorder, this);
-    break;
-  case ArchSpec::eCore_x86_32_i386:
-  case ArchSpec::eCore_x86_32_i486: {
-    // Parsing from a 32 bit ELF core file, and populating/reusing the structure
-    // properly, because the struct is for the 64 bit version
-    size_t size = 0;
-    offset_t offset = 0;
-
-    pr_state = data.GetU8(&offset);
-    pr_sname = data.GetU8(&offset);
-    pr_zomb = data.GetU8(&offset);
-    pr_nice = data.GetU8(&offset);
-
-    pr_flag = data.GetU32(&offset);
-    pr_uid = data.GetU16(&offset);
-    pr_gid = data.GetU16(&offset);
-
-    pr_pid = data.GetU32(&offset);
-    pr_ppid = data.GetU32(&offset);
-    pr_pgrp = data.GetU32(&offset);
-    pr_sid = data.GetU32(&offset);
-
-    size = 16;
-    data.ExtractBytes(offset, size, byteorder, pr_fname);
-    offset += size;
-
-    size = 80;
-    data.ExtractBytes(offset, size, byteorder, pr_psargs);
-    offset += size;
-
-    break;
-  }
-  default:
-    error.SetErrorStringWithFormat("ELFLinuxPrPsInfo::%s Unknown architecture",
-                                   __FUNCTION__);
-    break;
-  }
+  // Parsing from a 32 bit ELF core file, and populating/reusing the structure
+  // properly, because the struct is for the 64 bit version
+  offset_t offset = 0;
+  si_signo = data.GetU32(&offset);
+  si_code = data.GetU32(&offset);
+  si_errno = data.GetU32(&offset);
 
   return error;
 }

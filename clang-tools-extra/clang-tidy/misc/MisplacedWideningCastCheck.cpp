@@ -8,9 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "MisplacedWideningCastCheck.h"
+#include "../utils/Matchers.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include "../utils/Matchers.h"
 
 using namespace clang::ast_matchers;
 
@@ -21,7 +21,7 @@ namespace misc {
 MisplacedWideningCastCheck::MisplacedWideningCastCheck(
     StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      CheckImplicitCasts(Options.get("CheckImplicitCasts", true)) {}
+      CheckImplicitCasts(Options.get("CheckImplicitCasts", false)) {}
 
 void MisplacedWideningCastCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
@@ -49,8 +49,7 @@ void MisplacedWideningCastCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(callExpr(hasAnyArgument(Cast)), this);
   Finder->addMatcher(binaryOperator(hasOperatorName("="), hasRHS(Cast)), this);
   Finder->addMatcher(
-      binaryOperator(matchers::isComparisonOperator(),
-                     hasEitherOperand(Cast)),
+      binaryOperator(matchers::isComparisonOperator(), hasEitherOperand(Cast)),
       this);
 }
 

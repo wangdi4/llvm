@@ -27,16 +27,12 @@ public:
 
     ~CommandOptions() override;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override;
 
     void OptionParsingStarting(ExecutionContext *execution_context) override;
 
-    const OptionDefinition *GetDefinitions() override;
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override;
   };
 
   CommandObjectArgs(CommandInterpreter &interpreter);

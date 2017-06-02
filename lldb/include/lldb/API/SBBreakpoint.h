@@ -12,6 +12,8 @@
 
 #include "lldb/API/SBDefines.h"
 
+class SBBreakpointListImpl;
+
 namespace lldb {
 
 class LLDB_API SBBreakpoint {
@@ -88,6 +90,10 @@ public:
 
   void SetScriptCallbackFunction(const char *callback_function_name);
 
+  void SetCommandLineCommands(SBStringList &commands);
+
+  bool GetCommandLineCommands(SBStringList &commands);
+
   SBError SetScriptCallbackBody(const char *script_body_text);
 
   bool AddName(const char *new_name);
@@ -127,22 +133,14 @@ private:
 
   SBBreakpoint(const lldb::BreakpointSP &bp_sp);
 
-  lldb_private::Breakpoint *operator->() const;
-
-  lldb_private::Breakpoint *get() const;
-
-  lldb::BreakpointSP &operator*();
-
-  const lldb::BreakpointSP &operator*() const;
-
   static bool PrivateBreakpointHitCallback(
       void *baton, lldb_private::StoppointCallbackContext *context,
       lldb::user_id_t break_id, lldb::user_id_t break_loc_id);
 
-  lldb::BreakpointSP m_opaque_sp;
-};
+  lldb::BreakpointSP GetSP() const;
 
-class SBBreakpointListImpl;
+  lldb::BreakpointWP m_opaque_wp;
+};
 
 class LLDB_API SBBreakpointList {
 public:
@@ -154,7 +152,7 @@ public:
 
   SBBreakpoint GetBreakpointAtIndex(size_t idx);
 
-  SBBreakpoint  FindBreakpointByID(lldb::break_id_t);
+  SBBreakpoint FindBreakpointByID(lldb::break_id_t);
 
   void Append(const SBBreakpoint &sb_file);
 

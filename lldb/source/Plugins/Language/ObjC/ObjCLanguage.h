@@ -17,8 +17,8 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/ConstString.h"
 #include "lldb/Target/Language.h"
+#include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -34,6 +34,11 @@ public:
           m_type(eTypeUnspecified), m_category_is_valid(false) {}
 
     MethodName(const char *name, bool strict)
+        : m_full(), m_class(), m_category(), m_selector(),
+          m_type(eTypeUnspecified), m_category_is_valid(false) {
+      SetName(name, strict);
+    }
+    MethodName(llvm::StringRef name, bool strict)
         : m_full(), m_class(), m_category(), m_selector(),
           m_type(eTypeUnspecified), m_category_is_valid(false) {
       SetName(name, strict);
@@ -60,6 +65,7 @@ public:
     ConstString GetFullNameWithoutCategory(bool empty_if_no_category);
 
     bool SetName(const char *name, bool strict);
+    bool SetName(llvm::StringRef name, bool strict);
 
     const ConstString &GetClassName();
 

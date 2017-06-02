@@ -14,15 +14,17 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Host/Config.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/ProcessLaunchInfo.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/FileSystem.h"
 
 #if !defined(_WIN32)
 #include <limits.h>
@@ -142,11 +144,8 @@ const char *ProcessLaunchInfo::GetProcessPluginName() const {
   return (m_plugin_name.empty() ? nullptr : m_plugin_name.c_str());
 }
 
-void ProcessLaunchInfo::SetProcessPluginName(const char *plugin) {
-  if (plugin && plugin[0])
-    m_plugin_name.assign(plugin);
-  else
-    m_plugin_name.clear();
+void ProcessLaunchInfo::SetProcessPluginName(llvm::StringRef plugin) {
+  m_plugin_name = plugin;
 }
 
 const FileSpec &ProcessLaunchInfo::GetShell() const { return m_shell; }
@@ -297,7 +296,7 @@ void ProcessLaunchInfo::FinalizeFileActions(Target *target,
                       __FUNCTION__);
 
         int open_flags = O_RDWR | O_NOCTTY;
-#if !defined(_MSC_VER)
+#if !defined(_WIN32)
         // We really shouldn't be specifying platform specific flags
         // that are intended for a system call in generic code.  But
         // this will have to do for now.
@@ -344,13 +343,13 @@ bool ProcessLaunchInfo::ConvertArgumentsForLaunchingInShell(
         return false;
       Args shell_arguments;
       std::string safe_arg;
-      shell_arguments.AppendArgument(shell_executable.c_str());
+      shell_arguments.AppendArgument(shell_executable);
       const llvm::Triple &triple = GetArchitecture().GetTriple();
       if (triple.getOS() == llvm::Triple::Win32 &&
           !triple.isWindowsCygwinEnvironment())
-        shell_arguments.AppendArgument("/C");
+        shell_arguments.AppendArgument(llvm::StringRef("/C"));
       else
-        shell_arguments.AppendArgument("-c");
+        shell_arguments.AppendArgument(llvm::StringRef("-c"));
 
       StreamString shell_command;
       if (will_debug) {
@@ -371,10 +370,8 @@ bool ProcessLaunchInfo::ConvertArgumentsForLaunchingInShell(
           if (working_dir) {
             new_path += working_dir.GetPath();
           } else {
-            char current_working_dir[PATH_MAX];
-            const char *cwd =
-                getcwd(current_working_dir, sizeof(current_working_dir));
-            if (cwd && cwd[0])
+            llvm::SmallString<64> cwd;
+            if (! llvm::sys::fs::current_path(cwd))
               new_path += cwd;
           }
           std::string curr_path;
@@ -384,7 +381,7 @@ bool ProcessLaunchInfo::ConvertArgumentsForLaunchingInShell(
             new_path += curr_path;
           }
           new_path += "\" ";
-          shell_command.PutCString(new_path.c_str());
+          shell_command.PutCString(new_path);
         }
 
         if (triple.getOS() != llvm::Triple::Win32 ||
@@ -428,7 +425,7 @@ bool ProcessLaunchInfo::ConvertArgumentsForLaunchingInShell(
           shell_command.Printf(" %s", arg);
         }
       }
-      shell_arguments.AppendArgument(shell_command.GetString().c_str());
+      shell_arguments.AppendArgument(shell_command.GetString());
       m_executable = m_shell;
       m_arguments = shell_arguments;
       return true;

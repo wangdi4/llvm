@@ -16,13 +16,13 @@
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Symbol/Block.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
 #include "lldb/Symbol/SymbolContext.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -35,7 +35,7 @@ BreakpointResolverName::BreakpointResolverName(
       m_class_name(), m_regex(), m_match_type(type), m_language(language),
       m_skip_prologue(skip_prologue) {
   if (m_match_type == Breakpoint::Regexp) {
-    if (!m_regex.Compile(name_cstr)) {
+    if (!m_regex.Compile(llvm::StringRef::withNullAsEmpty(name_cstr))) {
       Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_BREAKPOINTS));
 
       if (log)
@@ -126,7 +126,7 @@ BreakpointResolver *BreakpointResolverName::CreateFromStructuredData(
   success = options_dict.GetValueForKeyAsString(
       GetKey(OptionNames::RegexString), regex_text);
   if (success) {
-    RegularExpression regex(regex_text.c_str());
+    RegularExpression regex(regex_text);
     return new BreakpointResolverName(bkpt, regex, language, offset,
                                       skip_prologue);
   } else {
@@ -395,7 +395,7 @@ Searcher::Depth BreakpointResolverName::GetDepth() {
 
 void BreakpointResolverName::GetDescription(Stream *s) {
   if (m_match_type == Breakpoint::Regexp)
-    s->Printf("regex = '%s'", m_regex.GetText());
+    s->Printf("regex = '%s'", m_regex.GetText().str().c_str());
   else {
     size_t num_names = m_lookups.size();
     if (num_names == 1)

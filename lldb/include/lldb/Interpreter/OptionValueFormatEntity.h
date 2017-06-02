@@ -1,5 +1,4 @@
-//===-- OptionValueFormatEntity.h --------------------------------------*- C++
-//-*-===//
+//===-- OptionValueFormatEntity.h --------------------------------*- C++-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -38,12 +37,15 @@ public:
   Error
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Error
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override;
 
   lldb::OptionValueSP DeepCopy() const override;
 
-  size_t AutoComplete(CommandInterpreter &interpreter, const char *s,
+  size_t AutoComplete(CommandInterpreter &interpreter, llvm::StringRef s,
                       int match_start_point, int max_return_elements,
                       bool &word_complete, StringList &matches) override;
 

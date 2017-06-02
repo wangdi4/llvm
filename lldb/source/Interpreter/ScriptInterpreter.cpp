@@ -13,11 +13,11 @@
 #include <stdlib.h>
 #include <string>
 
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StringList.h"
+#include "lldb/Host/PseudoTerminal.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
-#include "lldb/Utility/PseudoTerminal.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StringList.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -57,9 +57,22 @@ std::string ScriptInterpreter::LanguageToString(lldb::ScriptLanguage language) {
   case eScriptLanguagePython:
     return_value = "Python";
     break;
+  case eScriptLanguageUnknown:
+    return_value = "Unknown";
+    break;
   }
 
   return return_value;
+}
+
+lldb::ScriptLanguage
+ScriptInterpreter::StringToLanguage(const llvm::StringRef &language) {
+  if (language.equals_lower(LanguageToString(eScriptLanguageNone)))
+    return eScriptLanguageNone;
+  else if (language.equals_lower(LanguageToString(eScriptLanguagePython)))
+    return eScriptLanguagePython;
+  else
+    return eScriptLanguageUnknown;
 }
 
 Error ScriptInterpreter::SetBreakpointCommandCallback(

@@ -10,16 +10,13 @@
 #ifndef liblldb_SelectHelper_h_
 #define liblldb_SelectHelper_h_
 
-// C Includes
-// C++ Includes
-#include <chrono>
+#include "lldb/Utility/Error.h" // for Error
+#include "lldb/lldb-types.h"    // for socket_t
 
-// Other libraries and framework includes
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
 
-// Project includes
-#include "lldb/lldb-forward.h"
+#include <chrono>
 
 class SelectHelper {
 public:
@@ -37,17 +34,17 @@ public:
   // set the file descriptors that we will watch for when calling
   // select. This will cause FD_SET() to be called prior to calling select
   // using the "fd" provided.
-  void FDSetRead(int fd);
-  void FDSetWrite(int fd);
-  void FDSetError(int fd);
+  void FDSetRead(lldb::socket_t fd);
+  void FDSetWrite(lldb::socket_t fd);
+  void FDSetError(lldb::socket_t fd);
 
   // Call the FDIsSet*() functions after calling SelectHelper::Select()
   // to check which file descriptors are ready for read/write/error. This
   // will contain the result of FD_ISSET after calling select for a given
   // file descriptor.
-  bool FDIsSetRead(int fd) const;
-  bool FDIsSetWrite(int fd) const;
-  bool FDIsSetError(int fd) const;
+  bool FDIsSetRead(lldb::socket_t fd) const;
+  bool FDIsSetWrite(lldb::socket_t fd) const;
+  bool FDIsSetError(lldb::socket_t fd) const;
 
   // Call the system's select() to wait for descriptors using
   // timeout provided in a call the SelectHelper::SetTimeout(),
@@ -69,7 +66,7 @@ protected:
     bool read_set : 1, write_set : 1, error_set : 1, read_is_set : 1,
         write_is_set : 1, error_is_set : 1;
   };
-  llvm::DenseMap<int, FDInfo> m_fd_map;
+  llvm::DenseMap<lldb::socket_t, FDInfo> m_fd_map;
   llvm::Optional<std::chrono::steady_clock::time_point> m_end_time;
 };
 

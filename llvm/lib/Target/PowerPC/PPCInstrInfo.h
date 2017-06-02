@@ -61,6 +61,15 @@ enum PPC970_Unit {
   PPC970_VPERM  = 6 << PPC970_Shift,   // Vector Permute Unit
   PPC970_BRU    = 7 << PPC970_Shift    // Branch Unit
 };
+
+enum {
+  /// Shift count to bypass PPC970 flags
+  NewDef_Shift = 6,
+
+  /// The VSX instruction that uses VSX register (vs0-vs63), instead of VMX
+  /// register (v0-v31).
+  UseVSXReg = 0x1 << NewDef_Shift
+};
 } // end namespace PPCII
 
 class PPCSubtarget;
@@ -244,7 +253,7 @@ public:
   bool DefinesPredicate(MachineInstr &MI,
                         std::vector<MachineOperand> &Pred) const override;
 
-  bool isPredicable(MachineInstr &MI) const override;
+  bool isPredicable(const MachineInstr &MI) const override;
 
   // Comparison optimization.
 
@@ -260,7 +269,7 @@ public:
   ///
   unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
 
-  void getNoopForMachoTarget(MCInst &NopInst) const override;
+  void getNoop(MCInst &NopInst) const override;
 
   std::pair<unsigned, unsigned>
   decomposeMachineOperandsTargetFlags(unsigned TF) const override;
@@ -273,6 +282,14 @@ public:
 
   // Lower pseudo instructions after register allocation.
   bool expandPostRAPseudo(MachineInstr &MI) const override;
+
+  static bool isVFRegister(unsigned Reg) {
+    return Reg >= PPC::VF0 && Reg <= PPC::VF31;
+  }
+  static bool isVRRegister(unsigned Reg) {
+    return Reg >= PPC::V0 && Reg <= PPC::V31;
+  }
+  const TargetRegisterClass *updatedRC(const TargetRegisterClass *RC) const;
 };
 
 }

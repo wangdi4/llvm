@@ -9,19 +9,28 @@
 
 #include "lldb/Core/ValueObjectRegister.h"
 
-// C Includes
-// C++ Includes
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Core/Module.h"
-#include "lldb/Symbol/ClangASTContext.h"
+#include "lldb/Core/Scalar.h" // for Scalar
+#include "lldb/Core/Value.h"  // for Value, Value::ContextType:...
 #include "lldb/Symbol/CompilerType.h"
-#include "lldb/Symbol/TypeList.h"
+#include "lldb/Symbol/TypeSystem.h" // for TypeSystem
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
+#include "lldb/Target/StackFrame.h" // for StackFrame
 #include "lldb/Target/Target.h"
-#include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataExtractor.h" // for DataExtractor
+#include "lldb/Utility/Error.h"         // for Error
+#include "lldb/Utility/Stream.h"        // for Stream
+
+#include "llvm/ADT/StringRef.h" // for StringRef
+
+#include <assert.h> // for assert
+#include <memory>   // for shared_ptr
+
+namespace lldb_private {
+class ExecutionContextScope;
+}
 
 using namespace lldb;
 using namespace lldb_private;
@@ -311,7 +320,8 @@ bool ValueObjectRegister::UpdateValue() {
 bool ValueObjectRegister::SetValueFromCString(const char *value_str,
                                               Error &error) {
   // The new value will be in the m_data.  Copy that into our register value.
-  error = m_reg_value.SetValueFromCString(&m_reg_info, value_str);
+  error =
+      m_reg_value.SetValueFromString(&m_reg_info, llvm::StringRef(value_str));
   if (error.Success()) {
     if (m_reg_ctx_sp->WriteRegister(&m_reg_info, m_reg_value)) {
       SetNeedsUpdate();

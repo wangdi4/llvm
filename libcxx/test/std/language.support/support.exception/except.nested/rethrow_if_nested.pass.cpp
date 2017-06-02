@@ -7,7 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: libcpp-no-exceptions
+// exception_ptr has not been implemented on Windows
+// XFAIL: LIBCXX-WINDOWS-FIXME
+
+// UNSUPPORTED: libcpp-no-exceptions
 // <exception>
 
 // class nested_exception;
@@ -18,12 +21,14 @@
 #include <cstdlib>
 #include <cassert>
 
+#include "test_macros.h"
+
 class A
 {
     int data_;
 public:
     explicit A(int data) : data_(data) {}
-    virtual ~A() _NOEXCEPT {}
+    virtual ~A() TEST_NOEXCEPT {}
 
     friend bool operator==(const A& x, const A& y) {return x.data_ == y.data_;}
 };
@@ -41,16 +46,47 @@ class C
 {
 public:
 	virtual ~C() {}
-	C * operator&() const { assert(false); } // should not be called
+	C * operator&() const { assert(false); return nullptr; } // should not be called
 };
+
+class D : private std::nested_exception {};
+
+
+class E1 : public std::nested_exception {};
+class E2 : public std::nested_exception {};
+class E : public E1, public E2 {};
 
 int main()
 {
     {
         try
         {
-            A a(3);
+            A a(3);  // not a polymorphic type --> no effect
             std::rethrow_if_nested(a);
+            assert(true);
+        }
+        catch (...)
+        {
+            assert(false);
+        }
+    }
+    {
+        try
+        {
+            D s;  // inaccessible base class --> no effect
+            std::rethrow_if_nested(s);
+            assert(true);
+        }
+        catch (...)
+        {
+            assert(false);
+        }
+    }
+    {
+        try
+        {
+            E s;  // ambiguous base class --> no effect
+            std::rethrow_if_nested(s);
             assert(true);
         }
         catch (...)

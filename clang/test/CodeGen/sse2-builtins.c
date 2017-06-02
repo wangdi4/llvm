@@ -1,8 +1,6 @@
-// RUN: %clang_cc1 %s -triple=x86_64-apple-darwin -target-feature +sse2 -emit-llvm -o - -Wall -Werror | FileCheck %s
-// RUN: %clang_cc1 %s -triple=x86_64-apple-darwin -target-feature +sse2 -fno-signed-char -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +sse2 -emit-llvm -o - -Wall -Werror | FileCheck %s
+// RUN: %clang_cc1 -ffreestanding %s -triple=x86_64-apple-darwin -target-feature +sse2 -fno-signed-char -emit-llvm -o - -Wall -Werror | FileCheck %s
 
-// Don't include mm_malloc.h, it's system specific.
-#define __MM_MALLOC_H
 
 #include <x86intrin.h>
 
@@ -1457,13 +1455,13 @@ int test_mm_ucomineq_sd(__m128d A, __m128d B) {
 
 __m128d test_mm_undefined_pd() {
   // CHECK-LABEL: @test_mm_undefined_pd
-  // CHECK: ret <2 x double> undef
+  // CHECK: ret <2 x double> zeroinitializer
   return _mm_undefined_pd();
 }
 
 __m128i test_mm_undefined_si128() {
   // CHECK-LABEL: @test_mm_undefined_si128
-  // CHECK: ret <2 x i64> undef
+  // CHECK: ret <2 x i64> zeroinitializer
   return _mm_undefined_si128();
 }
 

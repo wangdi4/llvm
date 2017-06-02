@@ -57,10 +57,9 @@
 typedef unsigned short mode_t;
 
 // pyconfig.h typedefs this.  We require python headers to be included before
-// any
-// LLDB headers, but there's no way to prevent python's pid_t definition from
-// leaking, so this is the best option.
-#ifndef Py_CONFIG_H
+// any LLDB headers, but there's no way to prevent python's pid_t definition
+// from leaking, so this is the best option.
+#ifndef NO_PID_T
 typedef uint32_t pid_t;
 #endif
 
@@ -69,18 +68,12 @@ typedef uint32_t pid_t;
 #define STDERR_FILENO 2
 
 #define S_IFDIR _S_IFDIR
+
+#ifndef S_ISDIR
 #define S_ISDIR(mode) (((mode)&S_IFMT) == S_IFDIR)
+#endif
 
 #endif // _MSC_VER
-
-// MSVC 2015 and higher have timespec.  Otherwise we need to define it
-// ourselves.
-#if !defined(_MSC_VER) || _MSC_VER < 1900
-struct timespec {
-  time_t tv_sec;
-  long tv_nsec;
-};
-#endif
 
 // Various useful posix functions that are not present in Windows.  We provide
 // custom implementations.
@@ -89,8 +82,6 @@ char *strcasestr(const char *s, const char *find);
 char *realpath(const char *name, char *resolved);
 
 int usleep(uint32_t useconds);
-char *getcwd(char *path, int max);
-int chdir(const char *path);
 char *basename(char *path);
 char *dirname(char *path);
 
@@ -110,21 +101,5 @@ inline char *ptsname(int fd) { LLVM_BUILTIN_UNREACHABLE; }
 
 inline pid_t fork(void) { LLVM_BUILTIN_UNREACHABLE; }
 inline pid_t setsid(void) { LLVM_BUILTIN_UNREACHABLE; }
-
-// vsnprintf and snprintf are provided in MSVC 2015 and higher.
-#if _MSC_VER < 1900
-namespace lldb_private {
-int vsnprintf(char *buffer, size_t count, const char *format, va_list argptr);
-}
-
-// inline to avoid linkage conflicts
-int inline snprintf(char *buffer, size_t count, const char *format, ...) {
-  va_list argptr;
-  va_start(argptr, format);
-  int r = lldb_private::vsnprintf(buffer, count, format, argptr);
-  va_end(argptr);
-  return r;
-}
-#endif
 
 #endif

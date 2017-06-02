@@ -3,7 +3,7 @@
 <!-- Material used from: HTML 4.01 specs: http://www.w3.org/TR/html401/ -->
 <html>
 <head>
-  <meta http-equiv="content-type" content="text/html; charset=iso-8859-1">
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
   <title>libc++ Upcoming Meeting Status</title>
   <link type="text/css" rel="stylesheet" href="menu.css">
   <link type="text/css" rel="stylesheet" href="content.css">
@@ -24,7 +24,7 @@
     <label>Quick Links</label>
     <a href="http://lists.llvm.org/mailman/listinfo/cfe-dev">cfe-dev</a>
     <a href="http://lists.llvm.org/mailman/listinfo/cfe-commits">cfe-commits</a>
-    <a href="http://llvm.org/bugs/">Bug Reports</a>
+    <a href="https://bugs.llvm.org/">Bug Reports</a>
     <a href="http://llvm.org/svn/llvm-project/libcxx/trunk/">Browse SVN</a>
     <a href="http://llvm.org/viewvc/llvm-project/libcxx/trunk/">Browse ViewVC</a>
   </div>
@@ -32,11 +32,11 @@
 
 <div id="content">
   <!--*********************************************************************-->
-  <h1>libc++ Oulu Status</h1>
+  <h1>libc++ Issaquah Status</h1>
   <!--*********************************************************************-->
 
   <p>This is a temporary page; please check the c++1z status <a href="http://libcxx.llvm.org/cxx1z_status.html">here</a></p>
-  <p>This page shows the status of the papers and issues that are expected to be adopted in Oulu.</p>
+  <p>This page shows the status of the papers and issues that are expected to be adopted in Issaquah.</p>
 
   <p>The groups that have contributed papers:
   <ul>
@@ -59,79 +59,71 @@
   <table id="issues" border="1">
 	<tr><th>Issue #</th><th>Issue Name</th><th>Meeting</th><th>Status</th></tr>
 
-	<tr><td><a href="http://wg21.link/LWG2181">2181</a></td><td>Exceptions from seed sequence operations</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2309">2309</a></td><td>mutex::lock() should not throw device_or_resource_busy</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2310">2310</a></td><td>Public exposition only member in std::array</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2328">2328</a></td><td>Rvalue stream extraction should use perfect forwarding</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2393">2393</a></td><td>std::function's Callable definition is broken</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2426">2426</a></td><td>Issue about compare_exchange</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2436">2436</a></td><td>Comparators for associative containers should always be CopyConstructible</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2441">2441</a></td><td>Exact-width atomic typedefs should be provided</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2451">2451</a></td><td>[fund.ts.v2] optional<T> should 'forward' T's implicit conversions</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2509">2509</a></td><td>[fund.ts.v2] any_cast doesn't work with rvalue reference targets and cannot move with a value target</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2516">2516</a></td><td>[fund.ts.v2] Public "exposition only" members in observer_ptr</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2542">2542</a></td><td>Missing const requirements for associative containers</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2549">2549</a></td><td>Tuple EXPLICIT constructor templates that take tuple parameters end up taking references to temporaries and will create dangling references</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2550">2550</a></td><td>Wording of unordered container's clear() method complexity</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2551">2551</a></td><td>[fund.ts.v2] "Exception safety" cleanup in library fundamentals required</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2555">2555</a></td><td>[fund.ts.v2] No handling for over-aligned types in optional</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2573">2573</a></td><td>[fund.ts.v2] std::hash<std::experimental::shared_ptr<T>> does not work for arrays</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2596">2596</a></td><td>vector::data() should use addressof</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2667">2667</a></td><td>path::root_directory() description is confusing</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2669">2669</a></td><td>recursive_directory_iterator effects refers to non-existent functions</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2670">2670</a></td><td>system_complete refers to undefined variable 'base'</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2671">2671</a></td><td>Errors in Copy</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2673">2673</a></td><td>status() effects cannot be implemented as specified</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2674">2674</a></td><td>Bidirectional iterator requirement on path::iterator is very expensive</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2683">2683</a></td><td>filesystem::copy() says "no effects"</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2684">2684</a></td><td>priority_queue lacking comparator typedef</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2685">2685</a></td><td>shared_ptr deleters must not not throw on move construction</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2688">2688</a></td><td>clamp misses preconditions and has extraneous condition on result</td><td>Oulu</td><td>Patch Ready</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2689">2689</a></td><td>Parallel versions of std::copy and std::move shouldn't be in order</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2698">2698</a></td><td>Effect of assign() on iterators/pointers/references</td><td>Oulu</td><td>Complete</td></tr>
-	<tr><td><a href="http://wg21.link/LWG2706">2706</a></td><td>Error reporting for recursive_directory_iterator::pop() is under-specified</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2707">2707</a></td><td>path construction and assignment should have "string_type&&" overloads</td><td>Oulu</td><td></td></tr>
-	<tr><td><a href="http://wg21.link/LWG2710">2710</a></td><td>"Effects: Equivalent to ..." doesn't count "Synchronization:" as determined semantics</td><td>Oulu</td><td>Complete</td></tr>
+	<tr><td><a href="http://wg21.link/LWG2260">2260</a></td><td>Missing requirement for Allocator::pointer</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2768">2768</a></td><td>any_cast and move semantics</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2769">2769</a></td><td>Redundant const in the return type of any_cast(const any&amp;)</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2781">2781</a></td><td>Contradictory requirements for std::function and std::reference_wrapper</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2782">2782</a></td><td>scoped_allocator_adaptor constructors must be constrained</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2784">2784</a></td><td>Resolution to LWG 2484 is missing "otherwise, no effects" and is hard to parse</td><td>Kona</td><td><i>Patch Ready</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2785">2785</a></td><td>quoted should work with basic_string_view</td><td>Kona</td><td><i>We do this already</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2786">2786</a></td><td>Annex C should mention shared_ptr changes for array support</td><td>Kona</td><td><i>Nothing to do</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2787">2787</a></td><td>&sect;[file_status.cons] doesn't match class definition</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2789">2789</a></td><td>Equivalence of contained objects</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2794">2794</a></td><td>Missing requirements for allocator pointers</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2795">2795</a></td><td>&sect;[global.functions] provides incorrect example of ADL use</td><td>Kona</td><td><i>Nothing to do</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2804">2804</a></td><td>Unconditional constexpr default constructor for istream_iterator</td><td>Kona</td><td><i>We do this already</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2812">2812</a></td><td>Range access is available with &lt;string_view&gt;</td><td>Kona</td><td><i>We do this already</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2824">2824</a></td><td>list::sort should say that the order of elements is unspecified if an exception is thrown</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2826">2826</a></td><td>string_view iterators use old wording</td><td>Kona</td><td><i>Nothing to do</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2834">2834</a></td><td>Resolution LWG 2223 is missing wording about end iterators</td><td>Kona</td><td><i>Nothing to do</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2835">2835</a></td><td>LWG 2536 seems to misspecify &lt;tgmath.h&gt;</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2837">2837</a></td><td>gcd and lcm should support a wider range of input values</td><td>Kona</td><td><i>We do this already</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2838">2838</a></td><td>is_literal_type specification needs a little cleanup</td><td>Kona</td><td><i>Nothing to do</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2842">2842</a></td><td>in_place_t check for optional::optional(U&amp;&amp;) should decay U</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2850">2850</a></td><td>std::function move constructor does unnecessary work</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2853">2853</a></td><td>Possible inconsistency in specification of erase in [vector.modifiers]</td><td>Kona</td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2855">2855</a></td><td>std::throw_with_nested("string_literal")</td><td>Kona</td><td></td></tr>
+
+	<tr><td></td><td><center><b>Priority 1 Bugs</b></center></td><td></td><td></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2665">2665</a></td><td>remove_filename() post condition is incorrect</td><td>Kona</td><td>We do this already</td></tr>
+	<tr><td><a href="http://wg21.link/LWG2806">2806</a></td><td>Base class of bad_optional_access</td><td>Kona</td><td><i>We do this already</i></td></tr>
+	<tr><td><a href="http://wg21.link/LWG2857">2857</a></td><td>{variant,optional,any}::emplace should return the constructed value</td><td>Kona</td><td></td></tr>
+
   </table>
 
 <h3>Comments about the issues</h3>
 <ul>
-<li>2181 - </li>
-<li>2309 - I don't think there's anything to do here.</li>
-<li>2310 - I think we need a test that checks array::data() == addressof(front()). Other than that, we're good.</li>
-<li>2328 - &lt;istream&gt;:1467 - fix is straightforward.  Need to think about tests.</li>
-<li>2393 - </li>
-<li>2426 - I believe this is just a wording clarification, but need to study it some more.</li>
-<li>2436 - Adds Requirements on compare/hasher. We can static_assert this, and test it.</li>
-<li>2441 - Looks straightforward.</li>
-<li>2451 - <i>Significant work.</i></li>
-<li>2509 - <i>Significant work.</i></li>
-<li>2516 - We don't have an observer_ptr implementation yet.</li>
-<li>2542 - This is probably mostly writing additional tests.</li>
-<li>2549 - Tuple EXPLICIT - Eric?</li>
-<li>2550 - Wording clarification; no code change needed.</li>
-<li>2551 - Wording cleanup; no code change needed.</li>
-<li>2555 - Wording clarification; no code change needed.</li>
-<li>2573 - </li>
-<li>2596 - Turns out we do this already. Needs tests, though.</li>
-<li>2667 - Wording clarification; no code change needed.</li>
-<li>2669 - Wording clarification; no code change needed.</li>
-<li>2670 - Wording clarification; no code change needed.</li>
-<li>2671 - Wording clarification; no code change needed.</li>
-<li>2673 - Wording clarification; no code change needed.</li>
-<li>2674 - We already depend on the requirements being relaxed.</li>
-<li>2683 - We already do this.</li>
-<li>2684 - We already have one; just need to add a test for it.</li>
-<li>2685 - Wording clarification; no code change needed. We don't handle throwing move ctors here anyway.</li>
-<li>2688 - I believe that we already do this. Add more tests</li>
-<li>2689 - We don't have a parallel implementation yet (though I'm working on it).</li>
-<li>2698 - Wording clarification; no code change needed.</li>
-<li>2706 - We already implement the new pop(error_code&) overloads</li>
-<li>2707 - We already implement the new overloads.</li>
-<li>2710 - Wording cleanup; no code change needed.</li>
+<li>2260 - Check our current allocators to make sure we do this</li>
+<li>2768 - Resolution is "apply 2769"</li>
+<li>2769 - This should be easy; trick will be devising tests.</li>
+<li>2781 - </li>
+<li>2782 - Looks straightforward.</li>
+<li>2784 - Patch Ready</li>
+<li>2785 - We do this already.</li>
+<li>2786 - Nothing to do; just moving words around</li>
+<li>2787 - Eric? </li>
+<li>2789 - I don't think there are any code changes required here</li>
+<li>2794 - I don't think there are any code changes required here - maybe a static_assert.</li>
+<li>2795 - Nothing to do; just moving words around</li>
+<li>2804 - We do this already.</li>
+<li>2812 - We do this already.</li>
+<li>2824 - Nothing do to here, but we should add some throwing sort tests.</li>
+<li>2826 - Nothing to do; just moving words around</li>
+<li>2834 - Nothing to do; just moving words around</li>
+<li>2835 - I'm pretty sure we already do this.</li>
+<li>2837 - Added some tests to ensure we do this already.</li>
+<li>2838 - Nothing to do; just moving words around</li>
+<li>2842 - This should be easy; trick will be devising tests.</li>
+<li>2850 - I think we already do this.</li>
+<li>2853 - I think that this will be mostly adding tests.</li>
+<li>2855 - This should be easy; trick will be devising tests.</li></li>
+<li></li>
+<li>2665 - We do this already.</li>
+<li>2806 - We do this already.</li>
+<li>2857 - This is the subject of several NB comments.</li>
 </ul>
 
-<p>Last Updated: 7-Jun-2016</p>
+<p>Last Updated: 7-Feb-2017</p>
 </div>
 </body>
 </html>

@@ -76,12 +76,11 @@ static BasicBlock *splitEdge(BasicBlock *Prev, BasicBlock *Succ,
   return MiddleBlock;
 }
 
-BasicBlock *polly::executeScopConditionally(Scop &S, Pass *P, Value *RTC) {
+BasicBlock *polly::executeScopConditionally(Scop &S, Value *RTC,
+                                            DominatorTree &DT, RegionInfo &RI,
+                                            LoopInfo &LI) {
   Region &R = S.getRegion();
   PollyIRBuilder Builder(S.getEntry());
-  DominatorTree &DT = P->getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  RegionInfo &RI = P->getAnalysis<RegionInfoPass>().getRegionInfo();
-  LoopInfo &LI = P->getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   // Before:
   //
@@ -187,6 +186,26 @@ BasicBlock *polly::executeScopConditionally(Scop &S, Pass *P, Value *RTC) {
   //    EnteringBB                 //
   //        |                      //
   //    SplitBlock---------\       //
+  //   _____|_____         |       //
+  //  /  EntryBB  \    StartBlock  //
+  //  |  (region) |        |       //
+  //  \_ExitingBB_/   ExitingBlock //
+  //        |              |       //
+  //    MergeBlock---------/       //
+  //        |                      //
+  //      ExitBB                   //
+  //      /    \                   //
+  //
+
+  // Split the edge between SplitBlock and EntryBB, to avoid a critical edge.
+  splitEdge(SplitBlock, EntryBB, ".pre_entry_bb", &DT, &LI, &RI);
+
+  //      \   /                    //
+  //    EnteringBB                 //
+  //        |                      //
+  //    SplitBlock---------\       //
+  //        |              |       //
+  //    PreEntryBB         |       //
   //   _____|_____         |       //
   //  /  EntryBB  \    StartBlock  //
   //  |  (region) |        |       //

@@ -20,26 +20,21 @@
 
 // Project includes
 #include "lldb/Core/ClangForward.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/lldb-enumerations.h"
 
 #include "lldb/Core/ClangForward.h"
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
 #include "lldb/Expression/UtilityFunction.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -55,6 +50,11 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "AppleObjCClassDescriptorV2.h"
 #include "AppleObjCDeclVendor.h"
@@ -66,7 +66,7 @@ using namespace lldb;
 using namespace lldb_private;
 
 // 2 second timeout when running utility functions
-#define UTILITY_FUNCTION_TIMEOUT_USEC 2 * 1000 * 1000
+static constexpr std::chrono::seconds g_utility_function_timeout(2);
 
 static const char *g_get_dynamic_class_info_name =
     "__lldb_apple_objc_v2_get_dynamic_class_info";
@@ -470,6 +470,11 @@ LanguageRuntime *AppleObjCRuntimeV2::CreateInstance(Process *process,
     return NULL;
 }
 
+static OptionDefinition g_objc_classtable_dump_options[] = {
+    {LLDB_OPT_SET_ALL, false, "verbose", 'v', OptionParser::eNoArgument,
+     nullptr, nullptr, 0, eArgTypeNone,
+     "Print ivar and method information in detail"}};
+
 class CommandObjectObjC_ClassTable_Dump : public CommandObjectParsed {
 public:
   class CommandOptions : public Options {
@@ -478,7 +483,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -501,10 +506,11 @@ public:
       m_verbose.Clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_objc_classtable_dump_options);
+    }
 
     OptionValueBoolean m_verbose;
-    static OptionDefinition g_option_table[];
   };
 
   CommandObjectObjC_ClassTable_Dump(CommandInterpreter &interpreter)
@@ -542,7 +548,8 @@ protected:
       break;
     case 1: {
       regex_up.reset(new RegularExpression());
-      if (!regex_up->Compile(command.GetArgumentAtIndex(0))) {
+      if (!regex_up->Compile(llvm::StringRef::withNullAsEmpty(
+              command.GetArgumentAtIndex(0)))) {
         result.AppendError(
             "invalid argument - please provide a valid regular expression");
         result.SetStatus(lldb::eReturnStatusFailed);
@@ -567,7 +574,8 @@ protected:
         if (iterator->second) {
           const char *class_name =
               iterator->second->GetClassName().AsCString("<unknown>");
-          if (regex_up && class_name && !regex_up->Execute(class_name))
+          if (regex_up && class_name &&
+              !regex_up->Execute(llvm::StringRef(class_name)))
             continue;
           std_out.Printf("isa = 0x%" PRIx64, iterator->first);
           std_out.Printf(" name = %s", class_name);
@@ -592,14 +600,12 @@ protected:
             }
             iterator->second->Describe(
                 nullptr,
-                [objc_runtime, &std_out](const char *name,
-                                         const char *type) -> bool {
+                [&std_out](const char *name, const char *type) -> bool {
                   std_out.Printf("  instance method name = %s type = %s\n",
                                  name, type);
                   return false;
                 },
-                [objc_runtime, &std_out](const char *name,
-                                         const char *type) -> bool {
+                [&std_out](const char *name, const char *type) -> bool {
                   std_out.Printf("  class method name = %s type = %s\n", name,
                                  type);
                   return false;
@@ -607,7 +613,7 @@ protected:
                 nullptr);
           }
         } else {
-          if (regex_up && !regex_up->Execute(""))
+          if (regex_up && !regex_up->Execute(llvm::StringRef()))
             continue;
           std_out.Printf("isa = 0x%" PRIx64 " has no associated class.\n",
                          iterator->first);
@@ -624,13 +630,6 @@ protected:
 
   CommandOptions m_options;
 };
-
-OptionDefinition
-    CommandObjectObjC_ClassTable_Dump::CommandOptions::g_option_table[] = {
-        {LLDB_OPT_SET_ALL, false, "verbose", 'v', OptionParser::eNoArgument,
-         nullptr, nullptr, 0, eArgTypeNone,
-         "Print ivar and method information in detail"},
-        {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}};
 
 class CommandObjectMultiwordObjC_TaggedPointer_Info
     : public CommandObjectParsed {
@@ -894,6 +893,7 @@ UtilityFunction *AppleObjCRuntimeV2::CreateObjectChecker(const char *name) {
   }
 
   assert(len < (int)sizeof(check_function_code));
+  UNUSED_IF_ASSERT_DISABLED(len);
 
   Error error;
   return GetTargetRef().GetUtilityFunctionForLanguage(
@@ -1395,8 +1395,13 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapDynamic(
   arguments.GetValueAtIndex(0)->GetScalar() = hash_table.GetTableLoadAddress();
   arguments.GetValueAtIndex(1)->GetScalar() = class_infos_addr;
   arguments.GetValueAtIndex(2)->GetScalar() = class_infos_byte_size;
-  arguments.GetValueAtIndex(3)->GetScalar() =
-      (GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES) == nullptr ? 0 : 1);
+  
+  // Only dump the runtime classes from the expression evaluation if the
+  // log is verbose:
+  Log *type_log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES);
+  bool dump_log = type_log && type_log->GetVerbose();
+  
+  arguments.GetValueAtIndex(3)->GetScalar() = dump_log ? 1 : 0;
 
   bool success = false;
 
@@ -1410,7 +1415,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapDynamic(
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);
@@ -1639,8 +1644,12 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapSharedCache() {
   arguments.GetValueAtIndex(0)->GetScalar() = objc_opt_ptr;
   arguments.GetValueAtIndex(1)->GetScalar() = class_infos_addr;
   arguments.GetValueAtIndex(2)->GetScalar() = class_infos_byte_size;
-  arguments.GetValueAtIndex(3)->GetScalar() =
-      (GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES) == nullptr ? 0 : 1);
+  // Only dump the runtime classes from the expression evaluation if the
+  // log is verbose:
+  Log *type_log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES);
+  bool dump_log = type_log && type_log->GetVerbose();
+  
+  arguments.GetValueAtIndex(3)->GetScalar() = dump_log ? 1 : 0;
 
   bool success = false;
 
@@ -1655,7 +1664,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapSharedCache() {
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);
@@ -1910,8 +1919,6 @@ void AppleObjCRuntimeV2::WarnIfNoClassesCached(
   }
 }
 
-// TODO: should we have a transparent_kvo parameter here to say if we
-// want to replace the KVO swizzled class with the actual user-level type?
 ConstString
 AppleObjCRuntimeV2::GetActualTypeName(ObjCLanguageRuntime::ObjCISA isa) {
   if (isa == g_objc_Tagged_ISA) {
@@ -2165,23 +2172,28 @@ AppleObjCRuntimeV2::TaggedPointerVendorLegacy::GetClassDescriptor(
   uint64_t class_bits = (ptr & 0xE) >> 1;
   ConstString name;
 
-  // TODO: make a table
+  static ConstString g_NSAtom("NSAtom");
+  static ConstString g_NSNumber("NSNumber");
+  static ConstString g_NSDateTS("NSDateTS");
+  static ConstString g_NSManagedObject("NSManagedObject");
+  static ConstString g_NSDate("NSDate");
+
   if (foundation_version >= 900) {
     switch (class_bits) {
     case 0:
-      name = ConstString("NSAtom");
+      name = g_NSAtom;
       break;
     case 3:
-      name = ConstString("NSNumber");
+      name = g_NSNumber;
       break;
     case 4:
-      name = ConstString("NSDateTS");
+      name = g_NSDateTS;
       break;
     case 5:
-      name = ConstString("NSManagedObject");
+      name = g_NSManagedObject;
       break;
     case 6:
-      name = ConstString("NSDate");
+      name = g_NSDate;
       break;
     default:
       return ObjCLanguageRuntime::ClassDescriptorSP();
@@ -2189,16 +2201,16 @@ AppleObjCRuntimeV2::TaggedPointerVendorLegacy::GetClassDescriptor(
   } else {
     switch (class_bits) {
     case 1:
-      name = ConstString("NSNumber");
+      name = g_NSNumber;
       break;
     case 5:
-      name = ConstString("NSManagedObject");
+      name = g_NSManagedObject;
       break;
     case 6:
-      name = ConstString("NSDate");
+      name = g_NSDate;
       break;
     case 7:
-      name = ConstString("NSDateTS");
+      name = g_NSDateTS;
       break;
     default:
       return ObjCLanguageRuntime::ClassDescriptorSP();

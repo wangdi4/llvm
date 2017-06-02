@@ -1,4 +1,4 @@
-//===-- TcpSocket.cpp -------------------------------------------*- C++ -*-===//
+//===-- TCPSocket.cpp -------------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,10 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if defined(_MSC_VER)
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#endif
+
 #include "lldb/Host/common/TCPSocket.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Host/Config.h"
+#include "lldb/Utility/Log.h"
 
 #ifndef LLDB_DISABLE_POSIX
 #include <arpa/inet.h>

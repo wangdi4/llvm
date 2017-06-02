@@ -13,20 +13,21 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/FormatEntity.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/DataFormatters/StringPrinter.h"
 #include "lldb/DataFormatters/TypeSummary.h"
 #include "lldb/DataFormatters/VectorIterator.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
+#include "lldb/Target/ProcessStructReader.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -58,7 +59,8 @@ bool lldb_private::formatters::LibcxxSmartPointerSummaryProvider(
       if (pointee_sp->DumpPrintableRepresentation(
               stream, ValueObject::eValueObjectRepresentationStyleSummary,
               lldb::eFormatInvalid,
-              ValueObject::ePrintableRepresentationSpecialCasesDisable, false))
+              ValueObject::PrintableRepresentationSpecialCases::eDisable,
+              false))
         print_pointee = true;
     }
     if (!print_pointee)
@@ -72,155 +74,6 @@ bool lldb_private::formatters::LibcxxSmartPointerSummaryProvider(
     stream.Printf(" weak=%" PRIu64, 1 + weakcount_sp->GetValueAsUnsigned(0));
 
   return true;
-}
-
-lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::
-    LibcxxVectorBoolSyntheticFrontEnd(lldb::ValueObjectSP valobj_sp)
-    : SyntheticChildrenFrontEnd(*valobj_sp), m_bool_type(), m_exe_ctx_ref(),
-      m_count(0), m_base_data_address(0), m_children() {
-  if (valobj_sp) {
-    Update();
-    m_bool_type =
-        valobj_sp->GetCompilerType().GetBasicTypeFromAST(lldb::eBasicTypeBool);
-  }
-}
-
-size_t lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::
-    CalculateNumChildren() {
-  return m_count;
-}
-
-lldb::ValueObjectSP
-lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::GetChildAtIndex(
-    size_t idx) {
-  auto iter = m_children.find(idx), end = m_children.end();
-  if (iter != end)
-    return iter->second;
-  if (idx >= m_count)
-    return ValueObjectSP();
-  if (m_base_data_address == 0 || m_count == 0)
-    return ValueObjectSP();
-  if (!m_bool_type)
-    return ValueObjectSP();
-  size_t byte_idx = (idx >> 3); // divide by 8 to get byte index
-  size_t bit_index = (idx & 7); // efficient idx % 8 for bit index
-  lldb::addr_t byte_location = m_base_data_address + byte_idx;
-  ProcessSP process_sp(m_exe_ctx_ref.GetProcessSP());
-  if (!process_sp)
-    return ValueObjectSP();
-  uint8_t byte = 0;
-  uint8_t mask = 0;
-  Error err;
-  size_t bytes_read = process_sp->ReadMemory(byte_location, &byte, 1, err);
-  if (err.Fail() || bytes_read == 0)
-    return ValueObjectSP();
-  switch (bit_index) {
-  case 0:
-    mask = 1;
-    break;
-  case 1:
-    mask = 2;
-    break;
-  case 2:
-    mask = 4;
-    break;
-  case 3:
-    mask = 8;
-    break;
-  case 4:
-    mask = 16;
-    break;
-  case 5:
-    mask = 32;
-    break;
-  case 6:
-    mask = 64;
-    break;
-  case 7:
-    mask = 128;
-    break;
-  default:
-    return ValueObjectSP();
-  }
-  bool bit_set = ((byte & mask) != 0);
-  DataBufferSP buffer_sp(
-      new DataBufferHeap(m_bool_type.GetByteSize(nullptr), 0));
-  if (bit_set && buffer_sp && buffer_sp->GetBytes())
-    *(buffer_sp->GetBytes()) =
-        1; // regardless of endianness, anything non-zero is true
-  StreamString name;
-  name.Printf("[%" PRIu64 "]", (uint64_t)idx);
-  ValueObjectSP retval_sp(CreateValueObjectFromData(
-      name.GetData(), DataExtractor(buffer_sp, process_sp->GetByteOrder(),
-                                    process_sp->GetAddressByteSize()),
-      m_exe_ctx_ref, m_bool_type));
-  if (retval_sp)
-    m_children[idx] = retval_sp;
-  return retval_sp;
-}
-
-/*(std::__1::vector<std::__1::allocator<bool> >) vBool = {
- __begin_ = 0x00000001001000e0
- __size_ = 56
- __cap_alloc_ = {
- std::__1::__libcpp_compressed_pair_imp<unsigned long,
- std::__1::allocator<unsigned long> > = {
- __first_ = 1
- }
- }
- }*/
-
-bool lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::Update() {
-  m_children.clear();
-  ValueObjectSP valobj_sp = m_backend.GetSP();
-  if (!valobj_sp)
-    return false;
-  m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  ValueObjectSP size_sp(
-      valobj_sp->GetChildMemberWithName(ConstString("__size_"), true));
-  if (!size_sp)
-    return false;
-  m_count = size_sp->GetValueAsUnsigned(0);
-  if (!m_count)
-    return true;
-  ValueObjectSP begin_sp(
-      valobj_sp->GetChildMemberWithName(ConstString("__begin_"), true));
-  if (!begin_sp) {
-    m_count = 0;
-    return false;
-  }
-  m_base_data_address = begin_sp->GetValueAsUnsigned(0);
-  if (!m_base_data_address) {
-    m_count = 0;
-    return false;
-  }
-  return false;
-}
-
-bool lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::
-    MightHaveChildren() {
-  return true;
-}
-
-size_t lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::
-    GetIndexOfChildWithName(const ConstString &name) {
-  if (!m_count || !m_base_data_address)
-    return UINT32_MAX;
-  const char *item_name = name.GetCString();
-  uint32_t idx = ExtractIndexFromString(item_name);
-  if (idx < UINT32_MAX && idx >= CalculateNumChildren())
-    return UINT32_MAX;
-  return idx;
-}
-
-lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEnd::
-    ~LibcxxVectorBoolSyntheticFrontEnd() = default;
-
-SyntheticChildrenFrontEnd *
-lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEndCreator(
-    CXXSyntheticChildren *, lldb::ValueObjectSP valobj_sp) {
-  return (valobj_sp ? new LibcxxVectorBoolSyntheticFrontEnd(valobj_sp)
-                    : nullptr);
 }
 
 /*
@@ -247,12 +100,15 @@ lldb_private::formatters::LibcxxVectorBoolSyntheticFrontEndCreator(
 
 lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::
     LibCxxMapIteratorSyntheticFrontEnd(lldb::ValueObjectSP valobj_sp)
-    : SyntheticChildrenFrontEnd(*valobj_sp), m_pair_ptr() {
+    : SyntheticChildrenFrontEnd(*valobj_sp), m_pair_ptr(), m_pair_sp() {
   if (valobj_sp)
     Update();
 }
 
 bool lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::Update() {
+  m_pair_sp.reset();
+  m_pair_ptr = nullptr;
+
   ValueObjectSP valobj_sp = m_backend.GetSP();
   if (!valobj_sp)
     return false;
@@ -264,7 +120,9 @@ bool lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::Update() {
 
   if (!valobj_sp)
     return false;
-
+  
+  static ConstString g___i_("__i_");
+  
   // this must be a ValueObject* because it is a child of the ValueObject we are
   // producing children for
   // it if were a ValueObjectSP, we would end up with a loop (iterator ->
@@ -273,7 +131,7 @@ bool lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::Update() {
   // die and free their memory
   m_pair_ptr = valobj_sp
                    ->GetValueForExpressionPath(
-                       ".__i_.__ptr_->__value_", nullptr, nullptr, nullptr,
+                       ".__i_.__ptr_->__value_", nullptr, nullptr,
                        ValueObject::GetValueForExpressionPathOptions()
                            .DontCheckDotVsArrowSyntax()
                            .SetSyntheticChildrenTraversal(
@@ -281,6 +139,59 @@ bool lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::Update() {
                                    SyntheticChildrenTraversal::None),
                        nullptr)
                    .get();
+
+  if (!m_pair_ptr) {
+    m_pair_ptr = valobj_sp
+                     ->GetValueForExpressionPath(
+                         ".__i_.__ptr_", nullptr, nullptr,
+                         ValueObject::GetValueForExpressionPathOptions()
+                             .DontCheckDotVsArrowSyntax()
+                             .SetSyntheticChildrenTraversal(
+                                 ValueObject::GetValueForExpressionPathOptions::
+                                     SyntheticChildrenTraversal::None),
+                         nullptr)
+                     .get();
+    if (m_pair_ptr) {
+      auto __i_(valobj_sp->GetChildMemberWithName(g___i_, true));
+      lldb::TemplateArgumentKind kind;
+      if (!__i_) {
+        m_pair_ptr = nullptr;
+        return false;
+      }
+      CompilerType pair_type(__i_->GetCompilerType().GetTemplateArgument(0, kind));
+      std::string name; uint64_t bit_offset_ptr; uint32_t bitfield_bit_size_ptr; bool is_bitfield_ptr;
+      pair_type = pair_type.GetFieldAtIndex(0, name, &bit_offset_ptr, &bitfield_bit_size_ptr, &is_bitfield_ptr);
+      if (!pair_type) {
+        m_pair_ptr = nullptr;
+        return false;
+      }
+      
+      auto addr(m_pair_ptr->GetValueAsUnsigned(LLDB_INVALID_ADDRESS));
+      m_pair_ptr = nullptr;
+      if (addr && addr!=LLDB_INVALID_ADDRESS) {
+        ClangASTContext *ast_ctx = llvm::dyn_cast_or_null<ClangASTContext>(pair_type.GetTypeSystem());
+        if (!ast_ctx)
+          return false;
+        CompilerType tree_node_type = ast_ctx->CreateStructForIdentifier(ConstString(), {
+          {"ptr0",ast_ctx->GetBasicType(lldb::eBasicTypeVoid).GetPointerType()},
+          {"ptr1",ast_ctx->GetBasicType(lldb::eBasicTypeVoid).GetPointerType()},
+          {"ptr2",ast_ctx->GetBasicType(lldb::eBasicTypeVoid).GetPointerType()},
+          {"cw",ast_ctx->GetBasicType(lldb::eBasicTypeBool)},
+          {"payload",pair_type}
+        });
+        DataBufferSP buffer_sp(new DataBufferHeap(tree_node_type.GetByteSize(nullptr),0));
+        ProcessSP process_sp(target_sp->GetProcessSP());
+        Error error;
+        process_sp->ReadMemory(addr, buffer_sp->GetBytes(), buffer_sp->GetByteSize(), error);
+        if (error.Fail())
+          return false;
+        DataExtractor extractor(buffer_sp, process_sp->GetByteOrder(), process_sp->GetAddressByteSize());
+        auto pair_sp = CreateValueObjectFromData("pair", extractor, valobj_sp->GetExecutionContextRef(), tree_node_type);
+        if (pair_sp)
+          m_pair_sp = pair_sp->GetChildAtIndex(4,true);
+      }
+    }
+  }
 
   return false;
 }
@@ -293,9 +204,11 @@ size_t lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::
 lldb::ValueObjectSP
 lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::GetChildAtIndex(
     size_t idx) {
-  if (!m_pair_ptr)
-    return lldb::ValueObjectSP();
-  return m_pair_ptr->GetChildAtIndex(idx, true);
+  if (m_pair_ptr)
+    return m_pair_ptr->GetChildAtIndex(idx, true);
+  if (m_pair_sp)
+    return m_pair_sp->GetChildAtIndex(idx, true);
+  return lldb::ValueObjectSP();
 }
 
 bool lldb_private::formatters::LibCxxMapIteratorSyntheticFrontEnd::

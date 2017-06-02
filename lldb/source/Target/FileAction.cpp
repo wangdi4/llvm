@@ -9,9 +9,9 @@
 
 #include <fcntl.h>
 
-#include "lldb/Core/Stream.h"
 #include "lldb/Host/PosixApi.h"
 #include "lldb/Target/FileAction.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb_private;
 
@@ -29,7 +29,7 @@ void FileAction::Clear() {
   m_file_spec.Clear();
 }
 
-const char *FileAction::GetPath() const { return m_file_spec.GetCString(); }
+llvm::StringRef FileAction::GetPath() const { return m_file_spec.GetCString(); }
 
 const FileSpec &FileAction::GetFileSpec() const { return m_file_spec; }
 

@@ -38,6 +38,10 @@ void TsanCheckFailed(const char *file, int line, const char *cond,
   // on the other hand there is no sense in processing interceptors
   // since we are going to die soon.
   ScopedIgnoreInterceptors ignore;
+#if !SANITIZER_GO
+  cur_thread()->ignore_sync++;
+  cur_thread()->ignore_reads_and_writes++;
+#endif
   Printf("FATAL: ThreadSanitizer CHECK failed: "
          "%s:%d \"%s\" (0x%zx, 0x%zx)\n",
          file, line, cond, (uptr)v1, (uptr)v2);
@@ -71,7 +75,7 @@ static void StackStripMain(SymbolizedStack *frames) {
 
   if (last_frame2 == 0)
     return;
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   const char *last = last_frame->info.function;
   const char *last2 = last_frame2->info.function;
   // Strip frame above 'main'
@@ -160,8 +164,8 @@ void ScopedReport::AddStack(StackTrace stack, bool suppressable) {
   (*rs)->suppressable = suppressable;
 }
 
-void ScopedReport::AddMemoryAccess(uptr addr, Shadow s, StackTrace stack,
-                                   const MutexSet *mset) {
+void ScopedReport::AddMemoryAccess(uptr addr, uptr external_tag, Shadow s,
+                                   StackTrace stack, const MutexSet *mset) {
   void *mem = internal_alloc(MBlockReportMop, sizeof(ReportMop));
   ReportMop *mop = new(mem) ReportMop;
   rep_->mops.PushBack(mop);
@@ -171,6 +175,7 @@ void ScopedReport::AddMemoryAccess(uptr addr, Shadow s, StackTrace stack,
   mop->write = s.IsWrite();
   mop->atomic = s.IsAtomic();
   mop->stack = SymbolizeStack(stack);
+  mop->external_tag = external_tag;
   if (mop->stack)
     mop->stack->suppressable = true;
   for (uptr i = 0; i < mset->Size(); i++) {
@@ -198,13 +203,14 @@ void ScopedReport::AddThread(const ThreadContext *tctx, bool suppressable) {
   rt->running = (tctx->status == ThreadStatusRunning);
   rt->name = internal_strdup(tctx->name);
   rt->parent_tid = tctx->parent_tid;
+  rt->workerthread = tctx->workerthread;
   rt->stack = 0;
   rt->stack = SymbolizeStackId(tctx->creation_stack_id);
   if (rt->stack)
     rt->stack->suppressable = suppressable;
 }
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 static bool FindThreadByUidLockedCallback(ThreadContextBase *tctx, void *arg) {
   int unique_id = *(int *)arg;
   return tctx->unique_id == (u32)unique_id;
@@ -249,7 +255,7 @@ ThreadContext *IsThreadStackOrTls(uptr addr, bool *is_stack) {
 #endif
 
 void ScopedReport::AddThread(int unique_tid, bool suppressable) {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   if (const ThreadContext *tctx = FindThreadByUidLocked(unique_tid))
     AddThread(tctx, suppressable);
 #endif
@@ -305,7 +311,7 @@ void ScopedReport::AddDeadMutex(u64 id) {
 void ScopedReport::AddLocation(uptr addr, uptr size) {
   if (addr == 0)
     return;
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   int fd = -1;
   int creat_tid = -1;
   u32 creat_stack = 0;
@@ -332,6 +338,7 @@ void ScopedReport::AddLocation(uptr addr, uptr size) {
     ReportLocation *loc = ReportLocation::New(ReportLocationHeap);
     loc->heap_chunk_start = (uptr)allocator()->GetBlockBegin((void *)addr);
     loc->heap_chunk_size = b->siz;
+    loc->external_tag = b->tag;
     loc->tid = tctx ? tctx->tid : b->tid;
     loc->stack = SymbolizeStackId(b->stk);
     rep_->locs.PushBack(loc);
@@ -355,7 +362,7 @@ void ScopedReport::AddLocation(uptr addr, uptr size) {
   }
 }
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 void ScopedReport::AddSleep(u32 stack_id) {
   rep_->sleep = SymbolizeStackId(stack_id);
 }
@@ -493,7 +500,7 @@ static void AddRacyStacks(ThreadState *thr, VarSizeStackTrace traces[2],
 }
 
 bool OutputReport(ThreadState *thr, const ScopedReport &srep) {
-  if (!flags()->report_bugs)
+  if (!flags()->report_bugs || thr->suppress_reports)
     return false;
   atomic_store_relaxed(&ctx->last_symbolize_time_ns, NanoTime());
   const ReportDesc *rep = srep.GetReport();
@@ -618,6 +625,8 @@ void ReportRace(ThreadState *thr) {
     typ = ReportTypeVptrRace;
   else if (freed)
     typ = ReportTypeUseAfterFree;
+  else if (thr->external_tag > 0)
+    typ = ReportTypeExternalRace;
 
   if (IsFiredSuppression(ctx, typ, addr))
     return;
@@ -646,7 +655,8 @@ void ReportRace(ThreadState *thr) {
   ScopedReport rep(typ);
   for (uptr i = 0; i < kMop; i++) {
     Shadow s(thr->racy_state[i]);
-    rep.AddMemoryAccess(addr, s, traces[i], i == 0 ? &thr->mset : mset2);
+    rep.AddMemoryAccess(addr, thr->external_tag, s, traces[i],
+                        i == 0 ? &thr->mset : mset2);
   }
 
   for (uptr i = 0; i < kMop; i++) {
@@ -660,7 +670,7 @@ void ReportRace(ThreadState *thr) {
 
   rep.AddLocation(addr_min, addr_max - addr_min);
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   {  // NOLINT
     Shadow s(thr->racy_state[1]);
     if (s.epoch() <= thr->last_sleep_clock.get(s.tid()))
@@ -689,7 +699,7 @@ void PrintCurrentStack(ThreadState *thr, uptr pc) {
 // Also see PR27280 comment 2 and 3 for breaking examples and analysis.
 ALWAYS_INLINE
 void PrintCurrentStackSlow(uptr pc) {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   BufferedStackTrace *ptrace =
       new(internal_alloc(MBlockStackTrace, sizeof(BufferedStackTrace)))
           BufferedStackTrace();
