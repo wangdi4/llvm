@@ -126,8 +126,7 @@ VPlanPredicator::getConditionRecipe(VPConditionBitRecipeBase *CBR) {
         // Live-Ins need special treatment as they are not in a BB.
         // We emit the VecBooleanRecipe at the outer loop preheader.
         assert(isa<VPLiveInConditionBitRecipe>(CBRWS));
-        assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-               "Multiple outer loops?");
+        assert(VPLI->size() && "Multiple outer loops?");
         const VPLoop *Loop = *VPLI->begin();
         VPBlockBase *PreheaderBlock = Loop->getLoopPreheader();
         assert(isa<VPBasicBlock>(PreheaderBlock) && "Preheader must be a BB");
@@ -683,8 +682,7 @@ void VPlanPredicator::predicate(void) {
   // Get the outermost VPLoopRegion where predication will start from
   // TODO: We should have a better way to do this. A pointer in VPlan, for
   // example.
-  assert(std::distance(VPLI->begin(), VPLI->end()) == 1 &&
-         "more than 1 loop?");
+  assert(VPLI->size() == 1 && "more than 1 loop?");
   VPLoopRegion *EntryLoopR =
       cast<VPLoopRegion>((*VPLI->begin())->getLoopPreheader()->getParent());
 

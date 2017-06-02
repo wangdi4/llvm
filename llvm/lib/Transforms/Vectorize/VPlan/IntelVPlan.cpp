@@ -321,8 +321,7 @@ static void verifyNumLoops(const VPRegionBlock *TopRegion, const Loop *TheLoop,
 
   unsigned NumLoopsInCFG = countLoopsInRegion(TopRegion);
 
-  assert(std::distance(VPLInfo->begin(), VPLInfo->end()) == 1 &&
-         "More than one top loop is not expected");
+  assert(VPLInfo->size() && "More than one top loop is not expected");
   unsigned NumLoopsInVPLoopInfo =
       1 /*TopLoop*/ + countLoopsInVPLoop(*VPLInfo->begin());
   unsigned NumLoopsInLoopInfo = 1 /*TopLoop*/ + countLoopsInLoop(TheLoop);

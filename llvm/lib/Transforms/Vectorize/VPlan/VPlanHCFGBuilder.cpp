@@ -638,8 +638,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG(HCFGState &State) {
   VPRegionBlock *TopRegion = cast<VPRegionBlock>(Plan->getEntry());
   VPLoopInfo *VPLInfo = Plan->getVPLoopInfo();
 
-  assert((VPLInfo->getNumTopLevelLoops() == 1) &&
-         "Expected only 1 top-level loop");
+  assert((VPLInfo->size() == 1) && "Expected only 1 top-level loop");
   VPLoop *TopLoop = *VPLInfo->begin();
 
   splitLoopsPreheader(TopLoop, State);
