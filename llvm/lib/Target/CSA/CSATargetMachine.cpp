@@ -14,6 +14,7 @@
 #include "CSATargetMachine.h"
 #include "CSATargetTransformInfo.h"
 #include "CSALowerAggrCopies.h"
+#include "CSAFortranIntrinsics.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -59,6 +60,7 @@ static std::string computeDataLayout() {
 
 namespace llvm {
   void initializeCSALowerAggrCopiesPass(PassRegistry &);
+  void initializeCSAFortranIntrinsicsPass(PassRegistry &);
 }
 
 extern "C" void LLVMInitializeCSATarget() {
@@ -69,6 +71,7 @@ extern "C" void LLVMInitializeCSATarget() {
   // is placed here because it is too target-specific.
   PassRegistry &PR = *PassRegistry::getPassRegistry();
   initializeCSALowerAggrCopiesPass(PR);
+  initializeCSAFortranIntrinsicsPass(PR);
 }
 
 static Reloc::Model getEffectiveRelocModel(Optional<Reloc::Model> RM) {
@@ -124,6 +127,9 @@ public:
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerAggrCopies());
+
+    // Add the pass to convert Fortran "builtin" calls
+    addPass(createFortranIntrinsics());
 
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
