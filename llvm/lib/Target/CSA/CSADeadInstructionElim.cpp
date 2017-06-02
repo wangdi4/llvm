@@ -25,7 +25,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "codegen-dce"
+#define DEBUG_TYPE "csa-dead-instruction"
 
 STATISTIC(NumDeletes,          "Number of dead instructions deleted");
 
@@ -214,28 +214,19 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
   TRI = MF.getSubtarget().getRegisterInfo();
   TII = MF.getSubtarget().getInstrInfo();
 
-  // Loop the basic blocks, doing dead-instruction elimination on each block
-  for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
+  bool SubpassChanges;
+  do {
+    DEBUG(dbgs() << "CSADeadInstructionElim: Begin sub-pass\n");
+    SubpassChanges = false;
 
-    bool LocalChanges;
-    do {
-      LocalChanges = false;
+    // Loop over all instructions in all blocks, from bottom to top, so that
+    // it's more likely that chains of dependent but ultimately dead
+    // instructions will be cleaned up in each pass.
+    // Start out assuming that reserved registers are live out of this block.
+    LivePhysRegs = MRI->getReservedRegs();
 
-      // Loop over all instructions in all blocks, from bottom to top, so that
-      // it's more likely that chains of dependent but ultimately dead
-      // instructions will be cleaned up in each pass.
-      // Start out assuming that reserved registers are live out of this block.
-      LivePhysRegs = MRI->getReservedRegs();
-
-      // Add live-ins from sucessors to LivePhysRegs. Normally, physregs are
-      // not live across blocks, but some targets (x86) can have flags live
-      // out of a block.
-      for (MachineBasicBlock::succ_iterator S = MBB.succ_begin(),
-             E = MBB.succ_end(); S != E; S++)
-        for (const auto &LI : (*S)->liveins())
-          LivePhysRegs.set(LI.PhysReg);
-
-      // Make initial pass, marking any physreg uses as live.
+    // Make initial pass, marking any physreg uses as live.
+    for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
       for (const MachineInstr& MI : MBB) {
         for (const MachineOperand& MO : MI.operands()) {
           if (MO.isReg() && MO.isUse()) {
@@ -248,8 +239,11 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
           }
         }
       }
+    } // end for each basic block
 
-      // Now scan the instructions and delete dead ones.
+    // Now scan the instructions and delete dead ones.
+    // "Bring out yer dead!"
+    for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
       // Note: Cannot use range-based for loop because sometimes iterator is
       // not incremented.
       for (MachineBasicBlock::reverse_iterator MII = MBB.rbegin(),
@@ -259,22 +253,27 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
 
         // If the instruction is dead, delete it!
         if (isDead(MI)) {
-          DEBUG(dbgs() << "CSADeadInstructionElim: DELETING: " << &MI);
+          DEBUG(dbgs() << "CSADeadInstructionElim: DELETING: " << MI);
           // It is possible that some DBG_VALUE instructions refer to this
           // instruction.  They get marked as undef and will be deleted
           // in the live debug variable analysis.
           MI.eraseFromParentAndMarkDBGValuesForRemoval();
           AnyChanges = true;
-          LocalChanges = true;
+          SubpassChanges = true;
           ++NumDeletes;
           continue;
         }
 
-      }
-    } while (LocalChanges);
+        // "I'm not dead yet!"
 
-    // Cleanup: Loop over all instructions and replace any output to a dead
-    // register with %ign
+      }
+    } // end for each basic block
+  } while (SubpassChanges);
+  DEBUG(dbgs() << "CSADeadInstructionElim: No more changes\n");
+
+  // Cleanup: Loop over all instructions and replace any output to a dead
+  // register with %ign
+  for (MachineBasicBlock &MBB : make_range(MF.rbegin(), MF.rend())) {
     for (MachineInstr& MI : MBB) {
       for (MachineOperand& MO : MI.operands()) {
         if (MO.isReg() && MO.isDef()) {
@@ -283,12 +282,13 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
               TargetRegisterInfo::isPhysicalRegister(Reg) &&
               ! LivePhysRegs.test(Reg)) {
             // Replace output to dead register with output to %ign
+            DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead reg " << Reg
+                  << '\n');
             MO.substPhysReg(CSA::IGN, *TRI);
           }
         }
       }
     }
-
   } // end for each basic block
 
   LivePhysRegs.clear();
