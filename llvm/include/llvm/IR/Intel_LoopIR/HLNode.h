@@ -56,6 +56,27 @@ typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 typedef CmpInst::Predicate PredicateTy;
 const PredicateTy UNDEFINED_PREDICATE = PredicateTy::BAD_FCMP_PREDICATE;
 
+struct HLPredicate {
+  PredicateTy Kind;
+  FastMathFlags FMF;
+  DebugLoc DbgLoc;
+
+  HLPredicate() {}
+  HLPredicate(PredicateTy Kind, FastMathFlags FMF = FastMathFlags(),
+              const DebugLoc &Loc = DebugLoc())
+      : Kind(Kind), FMF(FMF), DbgLoc(Loc) {
+    assert((!FMF.any() || CmpInst::isFPPredicate(Kind)) &&
+           "FastMathFlags are set on non-FP predicate");
+  }
+
+  bool operator==(PredicateTy Kind) const { return this->Kind == Kind; }
+  bool operator!=(PredicateTy Kind) const { return !(*this == Kind); }
+  bool operator==(const HLPredicate &Pred) const { return *this == Pred.Kind; }
+  bool operator!=(const HLPredicate &Pred) const { return !(*this == Pred); }
+
+  operator PredicateTy() const { return Kind; }
+};
+
 /// \brief High level IR node base class
 ///
 /// This represents a node of the High level IR. It is used to represent
@@ -105,6 +126,9 @@ private:
   /// region and LabelMap with Old and New Labels.
   virtual HLNode *cloneImpl(GotoContainerTy *GotoList, LabelMapTy *LabelMap,
                             HLNodeMapper *NodeMapper) const = 0;
+
+  /// Implements getPrevNode()/getNextNode().
+  HLNode *getPrevNextNodeImpl(bool Prev);
 
 protected:
   HLNode(HLNodeUtils &HNU, unsigned SCID);
@@ -223,6 +247,18 @@ public:
   /// \brief Returns the maximum topological sort number across its children.
   unsigned getMaxTopSortNum() const { return MaxTopSortNum; }
 
+  /// Returns the previous node, if any, else return nullptr.
+  const HLNode *getPrevNode() const {
+    return const_cast<HLNode *>(this)->getPrevNode();
+  }
+  HLNode *getPrevNode();
+
+  /// Returns the next node, if any, else return nullptr.
+  const HLNode *getNextNode() const {
+    return const_cast<HLNode *>(this)->getNextNode();
+  }
+  HLNode *getNextNode();
+
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
     HLRegionVal,
@@ -236,6 +272,9 @@ public:
 
   /// \brief Verifies HLNode integrity.
   virtual void verify() const;
+
+  // Returns current node debug location.
+  virtual const DebugLoc getDebugLoc() const { return DebugLoc(); }
 };
 
 } // End loopopt namespace

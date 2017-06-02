@@ -22,6 +22,10 @@
 ;}
 ;
 ; 
+; MemRefGroup: { B[i+1]        }
+;                MaxLoad/MinST
+; GapTracker:  { RW            }
+;
 ; CHECK: IR Dump Before HIR Scalar Repl
 ;
 ; CHECK:   BEGIN REGION { }

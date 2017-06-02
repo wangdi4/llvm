@@ -19,7 +19,9 @@
 ;}
 ;
 ;
-; MemRef Group to transform: {B[i1], B[i1+1]}
+; MemRefGroup: {B[i1], B[i1+1]  }   
+;              MinST
+; GapTracker:  {W      W        }
 ;
 ; 
 ; CHECK: IR Dump Before HIR Scalar Repl
@@ -42,20 +44,14 @@
 ; CHECK: IR Dump After HIR Scalar Repl
 ;
 ; CHECK:  BEGIN REGION { modified }
-;
 ; CHECK:        + DO i1 = 0, 100, 1   <DO_LOOP>
 ; CHECK:        |   %2 = (@A)[0][i1];
 ; CHECK:        |   %scalarepl = %2 + 1;
 ; CHECK:        |   (@B)[0][i1] = %scalarepl;
 ; CHECK:        |   %scalarepl1 = %2 + -1;
-; CHEC_K:       |   %scalarepl = %scalarepl1;
 ; CHECK:        + END LOOP
-;
-; [store(s) in loop's postexit]
 ; CHECK:           (@B)[0][101] = %scalarepl1;
-;
 ; CHECK:  END REGION
-;
 ;
 ; === ---------------------------------------------------------------- ===
 ; Following is the LLVM's input code!

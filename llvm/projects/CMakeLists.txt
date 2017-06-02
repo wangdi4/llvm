@@ -11,7 +11,8 @@ foreach(entry ${entries})
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/test-suite) AND
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs))
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/parallel-libs) AND
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/openmp))
       add_subdirectory(${entry})
     endif()
   endif()
@@ -42,3 +43,5 @@ endif()
 
 add_llvm_external_project(dragonegg)
 add_llvm_external_project(parallel-libs)
+# INTEL: Below logic moved to the flag above.
+#add_llvm_external_project(openmp) INTEL

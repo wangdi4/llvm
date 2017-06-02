@@ -155,7 +155,7 @@ void IntelGeneralUtils::breakExpressionsHelper(ConstantExpr* Expr,
       NewInst->insertBefore(Phi->getIncomingBlock(OperandIndex)->getTerminator());
       User->setOperand(OperandIndex, NewInst);
     }
-    else if (DbgInfoIntrinsic* Dbg = dyn_cast<DbgInfoIntrinsic>(User))
+    else if (isa<DbgInfoIntrinsic>(User))
       NewInst->insertBefore(User);
     else
     {

@@ -7,7 +7,7 @@
 
 
 ; Verify that the gep for %A is CG'd correctly.
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: {{loop.[0-9]+:}}
 ; CHECK: [[IVLOAD1:%.*]] = load i64, i64* %i1.i64
 ; CHECK-NEXT: [[IVLOAD2:%.*]] = load i64, i64* %i1.i64

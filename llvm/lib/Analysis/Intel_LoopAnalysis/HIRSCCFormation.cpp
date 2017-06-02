@@ -219,21 +219,6 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
   return false;
 }
 
-bool HIRSCCFormation::isSingleTripLoop(Loop *Lp) const {
-  if (!SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
-    return false;
-  }
-
-  const SCEV *BETC = SE->getBackedgeTakenCount(Lp);
-  auto ConstSCEV = dyn_cast<SCEVConstant>(BETC);
-
-  if (!ConstSCEV) {
-    return false;
-  }
-
-  return ConstSCEV->getValue()->isZero();
-}
-
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -277,14 +262,6 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Ignore linear uses.
   if (isConsideredLinear(Node)) {
-    return false;
-  }
-
-  auto Lp = LI->getLoopFor(Node->getParent());
-
-  // LLVM sometimes converts zero-trip loops to single trip loops. SSA
-  // deconstruction cannot handle SCCs for such loops so we suppress them.
-  if (isSingleTripLoop(Lp)) {
     return false;
   }
 
@@ -335,9 +312,8 @@ HIRSCCFormation::getLastSucc(NodeTy *Node) const {
   return Node->user_end();
 }
 
-bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
+void HIRSCCFormation::removeIntermediateNodes(SCC &CurSCC) const {
 
-  auto NodeCount = CurSCC.size();
   SmallVector<NodeTy *, 8> IntermediateNodes;
 
   Type *RootTy = CurSCC.getRoot()->getType();
@@ -345,10 +321,6 @@ bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
 
   // Collect all the intermediate nodes of the SCC for removal afterwards.
   for (auto Node : CurSCC) {
-
-    if ((NodeCount > 2) && hasMultipleSCCUsesAtSameLevel(Node, CurSCC)) {
-      return false;
-    }
 
     if (isa<PHINode>(Node)) {
       continue;
@@ -370,6 +342,7 @@ bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
 
     // We can remove nodes which only have non-phi uses inside the SCC or use
     // outside the region as they cannot cause live-range issues.
+    // TODO : Consider eliminating this logic.
     bool IsIntermediateNode = true;
     for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
          ++UserIt) {
@@ -397,8 +370,6 @@ bool HIRSCCFormation::removedIntermediateNodes(SCC &CurSCC) const {
     assert((NodeIt != CurSCC.end()) && "SCC node not found!");
     CurSCC.remove(NodeIt);
   }
-
-  return true;
 }
 
 unsigned HIRSCCFormation::getRegionIndex(
@@ -506,140 +477,95 @@ bool HIRSCCFormation::isCmpAndSelectPattern(Instruction *Inst1,
   return (CInst->hasOneUse() && (*(CInst->user_begin()) == SelInst));
 }
 
-bool HIRSCCFormation::hasMultipleSCCUsesAtSameLevel(NodeTy *Node,
-                                                    const SCC &CurSCC) const {
-  NodeTy *SCCUserNode = nullptr;
-  SmallPtrSet<Loop *, 4> LoopUses;
+bool HIRSCCFormation::dominatesInSameBB(const Instruction *Inst1,
+                                        const Instruction *Inst2,
+                                        const Instruction *EndInst) {
+  auto ParentBB = Inst1->getParent();
 
-  // Use in multiple scc nodes at the same loop level can lead to live-range
-  // issues which SSA deconstruction cannot handle.
-  // This SCC contains multiple cycles instead of a single simple cycle that we
-  // are looking for.
-  // Ref- https://en.wikipedia.org/wiki/Cycle_(graph_theory)
-  for (auto UserIt = Node->user_begin(), E = Node->user_end(); UserIt != E;
-       ++UserIt) {
-    auto UserNode = cast<NodeTy>(*UserIt);
+  assert((Inst1 != Inst2) &&
+         "Inst1 and Inst2 should be different instructions!");
+  assert((ParentBB == Inst2->getParent()) &&
+         "Inst1 and Inst2 are not in same bblock!");
 
-    // After deconstruction the uses will be substituted by the liveout copy so
-    // check its uses.
-    if (SE->getHIRMetadata(UserNode, ScalarEvolution::HIRLiveKind::LiveOut)) {
-      return hasMultipleSCCUsesAtSameLevel(UserNode, CurSCC);
+  for (auto It = std::next(Inst1->getIterator()), EndIt = ParentBB->end();
+       It != EndIt; ++It) {
+    if (&*It == EndInst) {
+      break;
     }
 
-    if (!CurSCC.contains(UserNode)) {
-      continue;
-    }
-
-    auto PhiUse = dyn_cast<PHINode>(UserNode);
-
-    // Ignore non-header phi uses.
-    if (PhiUse && !RI->isHeaderPhi(PhiUse)) {
-      continue;
-    }
-
-    // Use in same node is okay. For example-
-    // t = add a, a
-    if (SCCUserNode && ((SCCUserNode == UserNode) ||
-                        // Used to identify min/max reductions.
-                        isCmpAndSelectPattern(SCCUserNode, UserNode))) {
-      continue;
-    }
-
-    auto Lp = LI->getLoopFor(UserNode->getParent());
-    assert(Lp && "SCC use is outside any loop!");
-
-    if (LoopUses.count(Lp)) {
+    if (&*It == Inst2) {
       return true;
-    } else {
-      SCCUserNode = UserNode;
-      LoopUses.insert(Lp);
     }
   }
 
   return false;
 }
 
-bool HIRSCCFormation::hasLiveRangeOverlap(const PHINode *MergePhi,
+bool HIRSCCFormation::hasLiveRangeOverlap(const NodeTy *Node,
                                           const SCC &CurSCC) const {
-  assert(!RI->isHeaderPhi(MergePhi) && "Header phi not expected!");
 
-  // Single operand phis cannot cause live range overlap.
-  if (MergePhi->getNumIncomingValues() == 1) {
-    return false;
-  }
+  auto ParentBB = Node->getParent();
 
-  SmallVector<const BasicBlock *, 4> OverlapCandidates;
+  for (auto I = Node->user_begin(), E = Node->user_end(); I != E; ++I) {
+    auto UserInst = cast<Instruction>(*I);
 
-  // Collect predecessor BBs of MergePhi which can overlap.
-  for (unsigned I = 0, E = MergePhi->getNumIncomingValues(); I != E; ++I) {
-    auto InstPhiOp = dyn_cast<Instruction>(MergePhi->getIncomingValue(I));
-
-    if (!InstPhiOp) {
+    if (!CurSCC.contains(UserInst)) {
       continue;
     }
 
-    // We are not interested in non-SCC operands.
-    if (!CurSCC.contains(InstPhiOp)) {
-      continue;
-    }
+    // Found an SCC def-use edge. Now check if another SCC node lies between the
+    // def and use sites. This indicates live range violation.
+    auto UserParentBB = UserInst->getParent();
+    for (auto SCCNode : CurSCC) {
 
-    auto PredBB = MergePhi->getIncomingBlock(I);
-    auto ParentBB = InstPhiOp->getParent();
+      // Ignore def and use nodes.
+      if ((SCCNode == Node) || (SCCNode == UserInst)) {
+        continue;
+      }
 
-    // If this instruction is used in a merge phi and there is a subsequent SCC
-    // instruction defined in the same bblock, we have live-range overlap.
-    for (auto Inst = std::next(InstPhiOp->getIterator()), E = ParentBB->end();
-         Inst != E; ++Inst) {
-      if (CurSCC.contains(&*Inst)) {
-        return true;
+      auto NodeBB = SCCNode->getParent();
+
+      if (NodeBB == ParentBB) {
+        // Does SCCNode lie between def and use in the def node bblock?
+        if (dominatesInSameBB(Node, SCCNode, UserInst)) {
+          return true;
+        }
+      } else if (NodeBB == UserParentBB) {
+        // Does SCCNode lie between def and use in the use node bblock?
+        if (dominatesInSameBB(SCCNode, UserInst, nullptr)) {
+          return true;
+        }
       }
     }
-
-    // If SCC node is defined in the incoming block, we don't require further
-    // checking.
-    if (ParentBB == PredBB) {
-      continue;
-    }
-
-    OverlapCandidates.push_back(PredBB);
   }
+  return false;
+}
 
-  auto Size = OverlapCandidates.size();
+bool HIRSCCFormation::hasLoopLiveoutUseInSCC(const Instruction *Inst,
+                                             const SCC &CurSCC) const {
 
-  if (Size < 2) {
-    return false;
-  }
+  auto Lp = LI->getLoopFor(Inst->getParent());
 
-  SmallPtrSet<const BasicBlock *, 1> EndBBs;
-  SmallPtrSet<const BasicBlock *, 1> FromBBs;
+  assert(Lp && "Loop is null!");
 
-  auto Lp = LI->getLoopFor(MergePhi->getParent());
-  assert(Lp && "SCC phi is not part of a loop!");
+  for (auto I = Inst->user_begin(), E = Inst->user_end(); I != E; ++I) {
+    auto UserInst = cast<Instruction>(*I);
 
-  EndBBs.insert(Lp->getHeader());
+    // If HIRSCCFormation is recomputed after SSA deconstruction (during testing
+    // using opt, for example) we will see a liveout copy which is used outside
+    // the loop instead of a direct liveout use. This check is to make sure we
+    // form identical SCCs irrespective of when this is called.
+    if (SE->getHIRMetadata(UserInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+      return hasLoopLiveoutUseInSCC(UserInst, CurSCC);
+    }
 
-  // Do pairwise comparison of predecessor BBs. If one is reachable from the
-  // other, we have two SCC operands alive in the same CFG path causing live
-  // range overlap.
-  for (unsigned I = 0; I < Size - 1; ++I) {
-    auto BB1 = OverlapCandidates[I];
-
-    for (unsigned J = I + 1; J < Size; ++J) {
-      auto BB2 = OverlapCandidates[J];
-
-      FromBBs.clear();
-      FromBBs.insert(BB2);
-
-      if (RI->isReachableFrom(BB1, EndBBs, FromBBs)) {
-        return true;
-      }
-
-      FromBBs.clear();
-      FromBBs.insert(BB1);
-
-      if (RI->isReachableFrom(BB2, EndBBs, FromBBs)) {
-        return true;
-      }
+    // Loop liveout uses of the phi need to be deconstructured using liveout
+    // copies because the value going outside the loop is coming from the
+    // second-last iteration of the loop. This is done correctly for uses
+    // outside the SCC but not for uses inside the SCC. Instead of adding logic
+    // for ssa deconstruction to take care of this, we just invalidate the SCC.
+    if (CurSCC.contains(UserInst) && !Lp->contains(UserInst->getParent())) {
+      return true;
     }
   }
 
@@ -649,10 +575,15 @@ bool HIRSCCFormation::hasLiveRangeOverlap(const PHINode *MergePhi,
 bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
   SmallPtrSet<BasicBlock *, 12> BBlocks;
   Type *RootTy = CurSCC.getRoot()->getType();
+  unsigned NodeCount = CurSCC.size();
 
   for (auto Node : CurSCC) {
-    auto Phi = dyn_cast<PHINode>(Node);
 
+    if ((NodeCount > 2) && hasLiveRangeOverlap(Node, CurSCC)) {
+      return false;
+    }
+
+    auto Phi = dyn_cast<PHINode>(Node);
     if (!Phi) {
       continue;
     }
@@ -694,12 +625,15 @@ bool HIRSCCFormation::isValidSCC(const SCC &CurSCC) const {
 
     BBlocks.insert(ParentBB);
 
-    // No further validation needed for header phi.
     if (RI->isHeaderPhi(Phi)) {
-      continue;
+      if (hasLoopLiveoutUseInSCC(Phi, CurSCC)) {
+        return false;
+      } else {
+        continue;
+      }
     }
 
-    if (!isUsedInSCCPhi(Phi, CurSCC) || hasLiveRangeOverlap(Phi, CurSCC)) {
+    if (!isUsedInSCCPhi(Phi, CurSCC)) {
       return false;
     }
   }
@@ -798,8 +732,9 @@ unsigned HIRSCCFormation::findSCC(NodeTy *Node) {
              RI->isHeaderPhi(cast<PHINode>(NewSCC.getRoot())) &&
              "No phi found in SCC!");
 
-      if (removedIntermediateNodes(NewSCC) && isValidSCC(NewSCC) &&
-          isProfitableSCC(NewSCC)) {
+      removeIntermediateNodes(NewSCC);
+
+      if (isValidSCC(NewSCC) && isProfitableSCC(NewSCC)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(std::move(NewSCC));
 
@@ -840,12 +775,6 @@ void HIRSCCFormation::formRegionSCCs() {
       }
 
       CurLoop = LI->getLoopFor(BB);
-
-      // LLVM sometimes converts zero-trip loops to single trip loops. SSA
-      // deconstruction cannot handle SCCs for such loops so we suppress them.
-      if (isSingleTripLoop(CurLoop)) {
-        continue;
-      }
 
       // Iterate through the phi nodes in the header.
       for (auto I = BB->begin(); isa<PHINode>(I); ++I) {

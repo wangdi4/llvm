@@ -99,10 +99,18 @@ Pass *llvm::createFunctionInliningPass(int Threshold) {
   return new SimpleInliner(llvm::getInlineParams(Threshold));
 }
 
+#if INTEL_CUSTOMIZATION
 Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
-                                       unsigned SizeOptLevel) {
-  return new SimpleInliner(llvm::getInlineParams(OptLevel, SizeOptLevel));
+                                       unsigned SizeOptLevel,
+                                       bool DisableInlineHotCallSite,
+                                       bool PrepareForLTO)
+{
+  auto Param = llvm::getInlineParams(OptLevel, SizeOptLevel, PrepareForLTO);
+  if (DisableInlineHotCallSite)
+    Param.HotCallSiteThreshold = 0;
+  return new SimpleInliner(Param);
 }
+#endif // INTEL_CUSTOMIZATION
 
 Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
   return new SimpleInliner(Params);

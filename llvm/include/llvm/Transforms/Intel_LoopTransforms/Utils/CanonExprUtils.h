@@ -95,13 +95,15 @@ private:
   static bool canMergeConstants(const CanonExpr *CE1, const CanonExpr *CE2,
                                 bool RelaxedMode);
 
-  /// Updates the constant canon expr source type in order to add them.
-  static void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
-                                  bool RelaxedMode, bool *CreatedAuxCE);
+  /// Updates the src type of \p CE1 if necessary to perform addition with \p
+  /// CE2.
+  static void updateSrcType(CanonExpr *CE1, const CanonExpr *CE2,
+                            bool RelaxedMode);
 
   /// Implements add() functionality.
-  /// This routine will return false, if the canon exprs are not mergeable.
-  static bool addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
+  /// This routine asserts on canAddOrSubtract(CE1, CE2) so the caller is
+  /// responsible for making sure they can be added.
+  static void addImpl(CanonExpr *CE1, const CanonExpr *CE2, bool RelaxedMode);
 
 public:
   // Returns reference to BlobUtils object.
@@ -166,9 +168,14 @@ public:
   static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                        bool RelaxedMode = false);
 
+  /// Returns true or false depending upon whether CE1 and CE2 can be added or
+  /// subtracted.
+  static bool canAddOrSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                               bool RelaxedMode = false);
+
   /// Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
-  /// This routine can return nullptr, if the canon exprs are not mergeable.
+  /// This routine returns false if the canon exprs are not mergeable.
   static bool add(CanonExpr *CE1, const CanonExpr *CE2,
                   bool RelaxedMode = false);
 
@@ -180,7 +187,7 @@ public:
 
   /// Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
-  /// This routine can return nullptr, if the canon exprs are not mergeable.
+  /// This routine returns false if the canon exprs are not mergeable.
   static bool subtract(CanonExpr *CE1, const CanonExpr *CE2,
                        bool RelaxedMode = false);
 
@@ -258,6 +265,10 @@ public:
   static bool getConstIterationDistance(const CanonExpr *CE1,
                                         const CanonExpr *CE2,
                                         unsigned LoopLevel, int64_t *Distance);
+
+  // Sorting comparator for two canon expressions. Returns true if \p CE1 is
+  // less then \p CE2.
+  static bool compare(const CanonExpr *CE1, const CanonExpr *CE2);
 };
 
 } // End namespace loopopt

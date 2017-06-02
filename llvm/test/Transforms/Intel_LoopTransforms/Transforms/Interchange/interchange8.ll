@@ -2,7 +2,8 @@
 ;     a1_v[i1] = 1;   
 ;  Interchange should not occur.  
 ;    
-; RUN: opt -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -hir-ssa-deconstruction -debug -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged
 
 

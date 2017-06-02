@@ -13,7 +13,7 @@
 ; CHECK: |   + DO i2 = 0, (i1 + -1)/u3, 1   <DO_LOOP>
 ; CHECK: |   |   %qb.135.out = %qb.135;
 ; CHECK: |   |   %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;
-; CHECK: |   |   %qb.135 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %n.addr.038.out + %indvars.iv44.out + %qb.135.out  +  %9;
+; CHECK: |   |   %qb.135 = (-1 + (-1 * %indvars.iv54)) * i2 + -1 * trunc.i33.i32((%2 /u 2)) + %indvars.iv44.out + %n.addr.038.out + %qb.135.out  +  %9;
 ; CHECK: |   |   %11 = -1 * i1  +  %indvars.iv52 * i2 + %n.addr.038.out;
 ; CHECK: |   + END LOOP
 ; CHECK: |      %qb.041 = %qb.135;

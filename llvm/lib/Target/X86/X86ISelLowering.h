@@ -149,8 +149,7 @@ namespace llvm {
       WrapperRIP,
 
       /// Copies a 64-bit value from the low word of an XMM vector
-      /// to an MMX vector.  If you think this is too close to the previous
-      /// mnemonic, so do I; blame Intel.
+      /// to an MMX vector.
       MOVDQ2Q,
 
       /// Copies a 32-bit value from the low word of a MMX
@@ -204,12 +203,12 @@ namespace llvm {
       ADDSUB,
 
       //  FP vector ops with rounding mode.
-      FADD_RND,
-      FSUB_RND,
-      FMUL_RND,
-      FDIV_RND,
-      FMAX_RND,
-      FMIN_RND,
+      FADD_RND, FADDS_RND,
+      FSUB_RND, FSUBS_RND,
+      FMUL_RND, FMULS_RND,
+      FDIV_RND, FDIVS_RND,
+      FMAX_RND, FMAXS_RND,
+      FMIN_RND, FMINS_RND,
       FSQRT_RND, FSQRTS_RND,
 
       // FP vector get exponent.
@@ -239,9 +238,6 @@ namespace llvm {
       FHADD,
       FHSUB,
 
-      // Integer absolute value
-      ABS,
-
       // Detect Conflicts Within a Vector
       CONFLICT,
 
@@ -250,6 +246,9 @@ namespace llvm {
 
       /// Commutative FMIN and FMAX.
       FMAXC, FMINC,
+
+      /// Scalar intrinsic floating point max and min.
+      FMAXS, FMINS,
 
       /// Floating point reciprocal-sqrt and reciprocal approximation.
       /// Note that these typically require refinement
@@ -446,8 +445,7 @@ namespace llvm {
       // Broadcast subvector to vector.
       SUBV_BROADCAST,
 
-      // Insert/Extract vector element.
-      VINSERT,
+      // Extract vector element.
       VEXTRACT,
 
       /// SSE4A Extraction and Insertion.
@@ -689,6 +687,9 @@ namespace llvm {
     unsigned getJumpTableEncoding() const override;
     bool useSoftFloat() const override;
 
+    void markLibCallAttributes(MachineFunction *MF, unsigned CC,
+                               ArgListTy &Args) const override;
+
     MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override {
       return MVT::i8;
     }
@@ -809,7 +810,16 @@ namespace llvm {
       return false;
     }
 
+    bool isMaskAndCmp0FoldingBeneficial(const Instruction &AndI) const override;
+
     bool hasAndNotCompare(SDValue Y) const override;
+
+    bool convertSetCCLogicToBitwiseLogic(EVT VT) const override {
+      return VT.isScalarInteger();
+    }
+
+    /// Vector-sized comparisons are fast using PCMPEQ + PMOVMSK or PTEST.
+    MVT hasFastEqualityCompare(unsigned NumBits) const override;
 
     /// Return the value type to use for ISD::SETCC.
     EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
@@ -820,11 +830,13 @@ namespace llvm {
     void computeKnownBitsForTargetNode(const SDValue Op,
                                        APInt &KnownZero,
                                        APInt &KnownOne,
+                                       const APInt &DemandedElts,
                                        const SelectionDAG &DAG,
                                        unsigned Depth = 0) const override;
 
     /// Determine the number of bits in the operation that are sign bits.
     unsigned ComputeNumSignBitsForTargetNode(SDValue Op,
+                                             const APInt &DemandedElts,
                                              const SelectionDAG &DAG,
                                              unsigned Depth) const override;
 
@@ -987,6 +999,10 @@ namespace llvm {
     bool shouldConvertConstantLoadToIntImm(const APInt &Imm,
                                            Type *Ty) const override;
 
+    bool convertSelectOfConstantsToMath() const override {
+      return true;
+    }
+
     /// Return true if EXTRACT_SUBVECTOR is cheap for this result type
     /// with this index.
     bool isExtractSubvectorCheap(EVT ResVT, unsigned Index) const override;
@@ -1038,7 +1054,7 @@ namespace llvm {
     /// \brief Customize the preferred legalization strategy for certain types.
     LegalizeTypeAction getPreferredVectorAction(EVT VT) const override;
 
-    bool isIntDivCheap(EVT VT, AttributeSet Attr) const override;
+    bool isIntDivCheap(EVT VT, AttributeList Attr) const override;
 
 #ifndef INTEL_CUSTOMIZATION
     void markInRegArguments(SelectionDAG &DAG, TargetLowering::ArgListTy& Args)
@@ -1084,7 +1100,8 @@ namespace llvm {
                             CallingConv::ID CallConv, bool isVarArg,
                             const SmallVectorImpl<ISD::InputArg> &Ins,
                             const SDLoc &dl, SelectionDAG &DAG,
-                            SmallVectorImpl<SDValue> &InVals) const;
+                            SmallVectorImpl<SDValue> &InVals,
+                            uint32_t *RegMask) const;
     SDValue LowerMemArgument(SDValue Chain, CallingConv::ID CallConv,
                              const SmallVectorImpl<ISD::InputArg> &ArgInfo,
                              const SDLoc &dl, SelectionDAG &DAG,
@@ -1146,8 +1163,7 @@ namespace llvm {
     SDValue LowerUINT_TO_FP_i32(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerUINT_TO_FP_vec(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerTRUNCATE(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerFP_TO_INT(SDValue Op, const X86Subtarget &Subtarget,
-                           SelectionDAG &DAG) const;
+    SDValue LowerFP_TO_INT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerToBT(SDValue And, ISD::CondCode CC, const SDLoc &dl,
                       SelectionDAG &DAG) const;
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
@@ -1196,7 +1212,7 @@ namespace llvm {
 
     bool isUsedByReturnOnly(SDNode *N, SDValue &Chain) const override;
 
-    bool mayBeEmittedAsTailCall(CallInst *CI) const override;
+    bool mayBeEmittedAsTailCall(const CallInst *CI) const override;
 
     EVT getTypeForExtReturn(LLVMContext &Context, EVT VT,
                             ISD::NodeType ExtendKind) const override;

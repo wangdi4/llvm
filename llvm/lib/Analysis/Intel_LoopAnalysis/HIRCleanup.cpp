@@ -69,14 +69,19 @@ void HIRCleanup::eliminateRedundantGotos() {
     HLLabel *LabelSuccessor = dyn_cast_or_null<HLLabel>(
         HIR->getHLNodeUtils().getLexicalControlFlowSuccessor(Goto));
 
-    // If Goto's lexical successor is the same as its target then we can remove
-    // it.
-    if (LabelSuccessor &&
-        (Goto->getTargetBBlock() == LabelSuccessor->getSrcBBlock())) {
+    auto TargetBB = Goto->getTargetBBlock();
+
+    // Goto is redundant, if
+    // 1) Its lexical successor is the same as its target.
+    // Or
+    // 2) It has no lexical successor and jumps to region exit.
+    if ((LabelSuccessor && (TargetBB == LabelSuccessor->getSrcBBlock())) ||
+        (!LabelSuccessor &&
+         (TargetBB == Goto->getParentRegion()->getSuccBBlock()))) {
       HIR->getHLNodeUtils().erase(Goto);
     } else {
       // Link Goto to its HLLabel target, if available.
-      auto It = HIR->Labels.find(Goto->getTargetBBlock());
+      auto It = HIR->Labels.find(TargetBB);
 
       if (It != HIR->Labels.end()) {
         Goto->setTargetLabel(It->second);

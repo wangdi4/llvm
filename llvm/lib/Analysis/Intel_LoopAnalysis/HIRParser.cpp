@@ -30,6 +30,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Operator.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -60,6 +61,10 @@ INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopFormation)
 INITIALIZE_PASS_DEPENDENCY(HIRScalarSymbaseAssignment)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
+
+static cl::opt<bool> RemoveDebugIntrinsics(
+    DEBUG_TYPE "-remove-dbg-intrin", cl::init(true), cl::Hidden,
+    cl::desc("Remove llvm.dbg.* intrinsics from HIR (default: true)"));
 
 char HIRParser::ID = 0;
 
@@ -197,6 +202,7 @@ unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
     if (Symbase > ConstantSymbase) {
       auto Ret = SymbaseToIndexMap.insert(std::make_pair(Symbase, Index));
       assert(Ret.second && "Duplicate insertion in symbase to index map!");
+      (void)Ret;
     }
 
     return Index;
@@ -504,35 +510,60 @@ void HIRParser::collectTempBlobs(BlobTy Blob,
   Collector.visitAll(Blob);
 }
 
-bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                                unsigned NewTempIndex, unsigned &NewBlobIndex) {
-  auto OldTempBlob = getBlob(OldTempIndex);
-  auto NewTempBlob = getBlob(NewTempIndex);
+bool HIRParser::replaceTempBlob(unsigned BlobIndex, unsigned TempIndex,
+                                BlobTy ByBlob, unsigned &NewBlobIndex,
+                                int64_t &SimplifiedConstant) {
+  auto TempBlob = getBlob(TempIndex);
 
-  assert(isTempBlob(OldTempBlob) && "Old Index is not a temp!");
-  assert(isTempBlob(NewTempBlob) && "New Index is not a temp!");
+  assert(isTempBlob(TempBlob) && "TempIndex is not a temp!");
 
-  if (BlobIndex == OldTempIndex) {
-    NewBlobIndex = NewTempIndex;
+  const SCEVConstant *ConstantBlob = dyn_cast<SCEVConstant>(ByBlob);
+
+  if (BlobIndex == TempIndex) {
+    if (ConstantBlob) {
+      NewBlobIndex = InvalidBlobIndex;
+      SimplifiedConstant = ConstantBlob->getAPInt().getSExtValue();
+    } else {
+      NewBlobIndex = findBlob(ByBlob);
+    }
+
     return true;
   }
 
-  auto OldBlob = getBlob(BlobIndex);
+  auto Blob = getBlob(BlobIndex);
+
+  Value *ReplaceByValue = ConstantBlob ? ConstantBlob->getValue()
+                                       : cast<SCEVUnknown>(ByBlob)->getValue();
 
   ValueToValueMap Map;
+  Map.insert(
+      std::make_pair(cast<SCEVUnknown>(TempBlob)->getValue(), ReplaceByValue));
 
-  Map.insert(std::make_pair(cast<SCEVUnknown>(OldTempBlob)->getValue(),
-                            cast<SCEVUnknown>(NewTempBlob)->getValue()));
+  auto NewBlob = SCEVParameterRewriter::rewrite(Blob, *SE, Map, true);
 
-  auto NewBlob = SCEVParameterRewriter::rewrite(getBlob(BlobIndex), *SE, Map);
-
-  if (OldBlob == NewBlob) {
+  if (Blob == NewBlob) {
     NewBlobIndex = BlobIndex;
     return false;
   }
 
-  NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  if (const SCEVConstant *ConstantBlob = dyn_cast<SCEVConstant>(NewBlob)) {
+    NewBlobIndex = InvalidBlobIndex;
+    SimplifiedConstant = ConstantBlob->getAPInt().getSExtValue();
+  } else {
+    NewBlobIndex = findOrInsertBlob(NewBlob, InvalidSymbase);
+  }
+
   return true;
+}
+
+bool HIRParser::replaceTempBlobByConstant(unsigned BlobIndex,
+                                          unsigned TempIndex, int64_t Constant,
+                                          unsigned &NewBlobIndex,
+                                          int64_t &SimplifiedConstant) {
+  auto TempBlob = getBlob(TempIndex);
+  BlobTy ConstantBlob = SE->getConstant(TempBlob->getType(), Constant, true);
+  return replaceTempBlob(BlobIndex, TempIndex, ConstantBlob, NewBlobIndex,
+                         SimplifiedConstant);
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {
@@ -1936,7 +1967,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   } else {
 
     bool EnableCastHiding = IsTop;
-    auto CI = dyn_cast<CastInst>(Val);
+    const CastInst *CI = dyn_cast<CastInst>(Val);
 
     if (shouldParseWithoutCast(CI, IsTop)) {
       EnableCastHiding = false;
@@ -1951,7 +1982,9 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 
     auto SC = getSCEV(const_cast<Value *>(Val));
 
-    if (!parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
+    if (parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding, true)) {
+      parseMetadata(OrigVal, CE);
+    } else {
       getCanonExprUtils().destroy(CE);
       CE = parseAsBlob(OrigVal, Level);
     }
@@ -2017,16 +2050,6 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref, unsigned Level) {
     // requires updation.
     Ref->updateDefLevel(Level);
   }
-}
-
-RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, 0);
-  return Ref;
-}
-
-RegDDRef *HIRParser::createStrideDDRef(Type *IVType, unsigned Stride) {
-  auto Ref = getDDRefUtils().createConstDDRef(IVType, Stride);
-  return Ref;
 }
 
 RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
@@ -2124,7 +2147,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setLowerDDRef(LowerRef);
 
     // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(IVType, 1);
+    auto StrideRef = createStrideDDRef(IVType);
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
@@ -2141,8 +2164,14 @@ void HIRParser::parse(HLLoop *HLoop) {
 
   } else {
     // Initialize Stride to 0 for unknown loops.
-    auto StrideRef = createStrideDDRef(IVType, 0);
-    HLoop->setStrideDDRef(StrideRef);
+    auto ZeroRef = getDDRefUtils().createConstDDRef(IVType, 0);
+
+    // Set lower, stride and upper to 0. The main check for unknown loops is
+    // having a stride of 0. Upper and lower are set to avoid ddref traversal
+    // failure for HLDDNodes (on encountering null refs).
+    HLoop->setLowerDDRef(ZeroRef);
+    HLoop->setStrideDDRef(ZeroRef->clone());
+    HLoop->setUpperDDRef(ZeroRef->clone());
   }
 
   // TODO: assert that SIMD loops are always DO loops.
@@ -2162,8 +2191,7 @@ void HIRParser::postParse(HLLoop *HLoop) {
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             SmallVectorImpl<PredicateTy> &Preds,
-                             SmallVectorImpl<const CmpInst *> &CmpInsts,
+                             SmallVectorImpl<HLPredicate> &Preds,
                              SmallVectorImpl<RegDDRef *> &Refs,
                              bool AllowMultiplePreds) {
 
@@ -2173,12 +2201,11 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     if (RI->isSupported(CInst->getOperand(0)->getType()) &&
         RI->isSupported(CInst->getOperand(1)->getType())) {
 
-      Preds.push_back(CInst->getPredicate());
+      Preds.push_back(
+          {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
 
       Refs.push_back(createRvalDDRef(CInst, 0, Level));
       Refs.push_back(createRvalDDRef(CInst, 1, Level));
-
-      CmpInsts.push_back(CInst);
       return;
     }
   }
@@ -2193,8 +2220,8 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     // Do not bring in '&&' conditions from outside the region.
     if (CurRegion->containsBBlock(BOp->getParent()) &&
         RI->isSupported(Op1->getType()) && RI->isSupported(Op2->getType())) {
-      parseCompare(Op1, Level, Preds, CmpInsts, Refs, true);
-      parseCompare(Op2, Level, Preds, CmpInsts, Refs, true);
+      parseCompare(Op1, Level, Preds, Refs, true);
+      parseCompare(Op2, Level, Preds, Refs, true);
       return;
     }
   }
@@ -2203,7 +2230,6 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     Preds.push_back(UNDEFINED_PREDICATE);
     Refs.push_back(createUndefDDRef(Cond->getType()));
     Refs.push_back(createUndefDDRef(Cond->getType()));
-    CmpInsts.push_back(nullptr);
   } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
     if (ConstVal->isOneValue()) {
       Preds.push_back(PredicateTy::FCMP_TRUE);
@@ -2214,36 +2240,31 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
     }
     Refs.push_back(createUndefDDRef(Cond->getType()));
     Refs.push_back(createUndefDDRef(Cond->getType()));
-    CmpInsts.push_back(nullptr);
   } else {
     assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
     Preds.push_back(PredicateTy::ICMP_NE);
     Refs.push_back(createScalarDDRef(Cond, Level));
     Refs.push_back(getDDRefUtils().createConstDDRef(Cond->getType(), 0));
-    CmpInsts.push_back(nullptr);
   }
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             PredicateTy *Pred, const CmpInst **Cmp,
-                             RegDDRef **LHSDDRef, RegDDRef **RHSDDRef) {
-  SmallVector<PredicateTy, 1> Preds;
-  SmallVector<const CmpInst *, 1> CmpInsts;
+                             HLPredicate *Pred, RegDDRef **LHSDDRef,
+                             RegDDRef **RHSDDRef) {
+  SmallVector<HLPredicate, 1> Preds;
   SmallVector<RegDDRef *, 2> Refs;
 
-  parseCompare(Cond, Level, Preds, CmpInsts, Refs, false);
+  parseCompare(Cond, Level, Preds, Refs, false);
   assert((Preds.size() == 1) && "Single predicate expected!");
 
   *Pred = Preds[0];
-  *Cmp = CmpInsts[0];
   *LHSDDRef = Refs[0];
   *RHSDDRef = Refs[1];
 }
 
 void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
-  SmallVector<PredicateTy, 4> Preds;
+  SmallVector<HLPredicate, 4> Preds;
   SmallVector<RegDDRef *, 8> Refs;
-  SmallVector<const CmpInst *, 4> CmpInsts;
 
   setCurNode(If);
 
@@ -2251,18 +2272,19 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   assert(SrcBB && "Could not find If's src basic block!");
 
   auto BeginPredIter = If->pred_begin();
-  auto IfCond = cast<BranchInst>(SrcBB->getTerminator())->getCondition();
+  auto LoopTerm = cast<BranchInst>(SrcBB->getTerminator());
+  auto IfCond = LoopTerm->getCondition();
 
-  parseCompare(IfCond, CurLevel, Preds, CmpInsts, Refs, true);
+  // Allow single predicate in unknown loop bottom test. This makes life easier
+  // for unroller.
+  parseCompare(IfCond, CurLevel, Preds, Refs, !If->isUnknownLoopBottomTest());
   assert(!Preds.empty() && "No predicates found for compare instruction!");
   assert((Refs.size() == (2 * Preds.size())) &&
          "Mismatch between number of predicates and DDRefs!");
-  assert(Preds.size() == CmpInsts.size() &&
-         "Mismatch between number of predicates and Cmp instructions");
 
   if (HLoop) {
     if (LF->requiresZttInversion(HLoop)) {
-      Preds[0] = CmpInst::getInversePredicate(Preds[0]);
+      Preds[0].Kind = CmpInst::getInversePredicate(Preds[0].Kind);
       assert((Preds.size() == 1) &&
              "Single predicate expected for inversion candidates!");
     }
@@ -2270,19 +2292,15 @@ void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
     HLoop->replaceZttPredicate(BeginPredIter, Preds[0]);
     HLoop->setZttPredicateOperandDDRef(Refs[0], BeginPredIter, true);
     HLoop->setZttPredicateOperandDDRef(Refs[1], BeginPredIter, false);
-    HLoop->setZttPredicateFMF(BeginPredIter, parseFMF(CmpInsts[0]));
   } else {
     If->replacePredicate(BeginPredIter, Preds[0]);
     If->setPredicateOperandDDRef(Refs[0], BeginPredIter, true);
     If->setPredicateOperandDDRef(Refs[1], BeginPredIter, false);
-    If->setPredicateFMF(BeginPredIter, parseFMF(CmpInsts[0]));
   }
 
   for (unsigned I = 1, E = Preds.size(); I < E; ++I) {
-    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1],
-                                   parseFMF(CmpInsts[I]))
-          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1],
-                             parseFMF(CmpInsts[I]));
+    HLoop ? HLoop->addZttPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1])
+          : If->addPredicate(Preds[I], Refs[2 * I], Refs[2 * I + 1]);
   }
 }
 
@@ -2291,9 +2309,8 @@ void HIRParser::postParse(HLIf *If) {
   auto PredIter = If->pred_begin();
 
   // If 'then' is empty, move 'else' children to 'then' by inverting predicate.
-  if (!If->hasThenChildren() && (If->getNumPredicates() == 1) &&
-      (*PredIter != UNDEFINED_PREDICATE)) {
-    If->replacePredicate(PredIter, CmpInst::getInversePredicate(*PredIter));
+  if (!If->hasThenChildren() && (If->getNumPredicates() == 1)) {
+    If->invertPredicate(PredIter);
     getHLNodeUtils().moveAsFirstChildren(If, If->else_begin(), If->else_end(),
                                          true);
   }
@@ -2321,7 +2338,7 @@ void HIRParser::parse(HLSwitch *Switch) {
 
   for (auto I = SInst->case_begin(), E = SInst->case_end(); I != E;
        ++I, ++CaseNum) {
-    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel);
+    CaseValRef = createScalarDDRef(I->getCaseValue(), CurLevel);
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }
@@ -2918,11 +2935,13 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref->setVolatile(LInst->isVolatile());
     Ref->setAlignment(LInst->getAlignment());
 
-    LInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
+    parseMetadata(LInst, Ref);
 
   } else if (isa<GetElementPtrInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level, false);
     Ref->setAddressOf(true);
+
+    parseMetadata(Inst, Ref);
 
   } else if (OpVal->getType()->isPointerTy() &&
              !isa<ConstantPointerNull>(OpVal)) {
@@ -2945,7 +2964,7 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
     Ref->setVolatile(SInst->isVolatile());
     Ref->setAlignment(SInst->getAlignment());
 
-    SInst->getAllMetadataOtherThanDebugLoc(Ref->GepInfo->MDNodes);
+    parseMetadata(Inst, Ref);
 
   } else {
     Ref = createScalarDDRef(Inst, Level, true);
@@ -2988,8 +3007,31 @@ FastMathFlags HIRParser::parseFMF(const CmpInst *Cmp) {
   return FastMathFlags();
 }
 
+bool HIRParser::parseDebugIntrinsic(HLInst *Inst) {
+  if (!RemoveDebugIntrinsics) {
+    return false;
+  }
+
+  const DbgInfoIntrinsic *DbgIntrin =
+      dyn_cast<DbgInfoIntrinsic>(Inst->getLLVMInstruction());
+
+  if (!DbgIntrin) {
+    return false;
+  }
+
+  Value *Variable = DbgIntrin->getVariableLocation(true);
+
+  // Sometimes DbgIntrin can be @llvm.dbg.value(!{}, ...);
+  // !{} is returned as nullptr, we have to ignore such intrinsic.
+  if (Variable && isa<Instruction>(Variable)) {
+    auto Symbase = getOrAssignSymbase(Variable);
+    CurRegion->DbgIntrinMap[Symbase].push_back(DbgIntrin);
+  }
+
+  return true;
+}
+
 void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
-  RegDDRef *Ref;
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
   unsigned Level;
@@ -3000,6 +3042,11 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
   if (IsPhase1) {
     Level = CurLevel;
+
+    if (parseDebugIntrinsic(HInst)) {
+      getHLNodeUtils().erase(HInst);
+      return;
+    }
 
   } else {
     Level = Phase2Level;
@@ -3016,11 +3063,9 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
       auto Symbase = getOrAssignSymbase(Inst);
       UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
       return;
-    } else {
-      Ref = createLvalDDRef(Inst, Level);
     }
 
-    HInst->setLvalDDRef(Ref);
+    HInst->setLvalDDRef(createLvalDDRef(Inst, Level));
   }
 
   unsigned NumRvalOp = getNumRvalOperands(HInst);
@@ -3029,20 +3074,18 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
     if (isa<SelectInst>(Inst) && (I == 0)) {
-      PredicateTy Pred;
+      HLPredicate Pred;
       RegDDRef *LHSDDRef, *RHSDDRef;
-      const CmpInst *Cmp;
 
-      parseCompare(Inst->getOperand(0), Level, &Pred, &Cmp, &LHSDDRef,
-                   &RHSDDRef);
+      parseCompare(Inst->getOperand(0), Level, &Pred, &LHSDDRef, &RHSDDRef);
 
-      HInst->setPredicate(Pred, parseFMF(Cmp));
+      HInst->setPredicate(Pred);
       HInst->setOperandDDRef(LHSDDRef, 1);
       HInst->setOperandDDRef(RHSDDRef, 2);
       continue;
     }
 
-    Ref = createRvalDDRef(Inst, I, Level);
+    RegDDRef *Ref = createRvalDDRef(Inst, I, Level);
 
     // To translate Instruction's operand number into HLInst's operand number we
     // add one offset each for having an lval and being a select instruction.
@@ -3052,13 +3095,14 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   }
 
   if (auto CInst = dyn_cast<CmpInst>(Inst)) {
-    HInst->setPredicate(CInst->getPredicate(), parseFMF(CInst));
+    HInst->setPredicate(
+        {CInst->getPredicate(), parseFMF(CInst), CInst->getDebugLoc()});
   }
 }
 
 void HIRParser::phase1Parse(HLNode *Node) {
   Phase1Visitor PV(this);
-  getHLNodeUtils().visit(PV, Node);
+  HLNodeUtils::visit(PV, Node);
 }
 
 void HIRParser::phase2Parse() {
@@ -3159,6 +3203,40 @@ void HIRParser::print(bool FrameworkDetails, raw_ostream &OS,
 
 // Verification is done by HIRVerifier.
 void HIRParser::verifyAnalysis() const {}
+
+void HIRParser::parseMetadata(const Instruction *Inst, RegDDRef *Ref) {
+  assert(Ref->hasGEPInfo() && "Ref is expected to be gep DDRef");
+
+  const StoreInst *Store = dyn_cast<StoreInst>(Inst);
+  const LoadInst *Load = Store ? nullptr : dyn_cast<LoadInst>(Inst);
+
+  if (Store || Load) {
+    Inst->getAllMetadataOtherThanDebugLoc(Ref->getGEPInfo()->MDNodes);
+    Ref->setMemDebugLoc(Inst->getDebugLoc());
+
+    const GetElementPtrInst *GepInst = dyn_cast<GetElementPtrInst>(
+        Store ? Store->getPointerOperand() : Load->getPointerOperand());
+
+    if (GepInst) {
+      Ref->setGepDebugLoc(GepInst->getDebugLoc());
+    }
+
+  } else if (isa<GetElementPtrInst>(Inst)) {
+    Ref->setGepDebugLoc(Inst->getDebugLoc());
+  } else {
+    llvm_unreachable("Unexpected instruction type.");
+  }
+}
+
+void HIRParser::parseMetadata(const Value *Val, CanonExpr *CE) {
+  if (auto *Inst = dyn_cast<Instruction>(Val)) {
+    parseMetadata(Inst, CE);
+  }
+}
+
+void HIRParser::parseMetadata(const Instruction *Inst, CanonExpr *CE) {
+  CE->setDebugLoc(Inst->getDebugLoc());
+}
 
 ArrayType *HIRParser::traceBackToArrayType(const Value *Ptr) const {
   if (!Ptr->getType()->isPointerTy()) {

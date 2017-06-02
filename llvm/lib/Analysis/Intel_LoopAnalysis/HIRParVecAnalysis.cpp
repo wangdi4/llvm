@@ -95,9 +95,11 @@ class DDWalk final : public HLNodeVisitorBase {
   HLLoop *CandidateLoop;
   /// Info - Par vec analysis info.
   ParVecInfo *Info;
+  /// Indicates whether we have computed safe reduction chain for the loop.
+  bool ComputedSafeRedn;
 
   /// \brief Analyze one DDEdge for the source node.
-  void analyze(const DDEdge *Edge);
+  void analyze(const RegDDRef *SrcRef, const DDEdge *Edge);
 
   /// \brief Analyze whether the src/sink flow dependence can be ignored
   /// due to safe reduction.
@@ -107,9 +109,8 @@ public:
   DDWalk(HIRDDAnalysis &DDA, HIRSafeReductionAnalysis &SRA,
          HLLoop *CandidateLoop, ParVecInfo *Info)
       : DDA(DDA), SRA(SRA), DDG(DDA.getGraph(CandidateLoop, false)),
-        CandidateLoop(CandidateLoop), Info(Info) {
-    SRA.computeSafeReductionChains(CandidateLoop);
-  }
+        CandidateLoop(CandidateLoop), Info(Info), ComputedSafeRedn(false) {}
+
   /// \brief Visit all outgoing DDEdges for the given node.
   void visit(HLDDNode *Node);
 
@@ -296,7 +297,9 @@ bool HIRParVecAnalysis::isSIMDEnabledFunction(Function &Func) {
 
 bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
                                     const RegDDRef *SinkRef) {
-  if (!SrcRef || !SinkRef) {
+  assert(SrcRef && "SrcRef cannot be null!");
+
+  if (!SinkRef) {
     return false;
   }
 
@@ -305,6 +308,11 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
 
   if (!Inst) {
     return false;
+  }
+
+  if (!ComputedSafeRedn) {
+    SRA.computeSafeReductionChains(CandidateLoop);
+    ComputedSafeRedn = true;
   }
 
   auto SRI = SRA.getSafeRedInfo(Inst);
@@ -322,10 +330,8 @@ bool DDWalk::isSafeReductionFlowDep(const RegDDRef *SrcRef,
   return false;
 }
 
-void DDWalk::analyze(const DDEdge *Edge) {
+void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
   DEBUG(Edge->dump());
-
-  DDRef *DDref = Edge->getSink();
 
   unsigned NestLevel = CandidateLoop->getNestingLevel();
   if (!Edge->preventsParallelization(NestLevel)) {
@@ -340,15 +346,16 @@ void DDWalk::analyze(const DDEdge *Edge) {
     }
   }
 
-  auto SrcRef = dyn_cast<RegDDRef>(Edge->getSrc());
   if (SrcRef && SrcRef->isTerminalRef() &&
       !CandidateLoop->isLiveIn(SrcRef->getSymbase())) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (private)\n");
     return;
   }
 
+  DDRef *SinkRef = Edge->getSink();
+
   if (Edge->isFLOWdep() &&
-      isSafeReductionFlowDep(SrcRef, dyn_cast<RegDDRef>(DDref))) {
+      isSafeReductionFlowDep(SrcRef, dyn_cast<RegDDRef>(SinkRef))) {
     DEBUG(dbgs() << "\tis safe to vectorize/parallelize (safe reduction)\n");
     return;
   }
@@ -356,8 +363,11 @@ void DDWalk::analyze(const DDEdge *Edge) {
   // Is this really useful if refineDV() doesn't recompute?
   if (Edge->isRefinableDepAtLevel(NestLevel)) {
     DirectionVector DV;
+    DistanceVector DistV;
+
     bool IsIndep = false;
-    if (DDA.refineDV(Edge->getSrc(), DDref, NestLevel, 1, DV, &IsIndep)) {
+    if (DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, DV, DistV,
+                     &IsIndep)) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");
     } else {
@@ -387,7 +397,7 @@ void DDWalk::visit(HLDDNode *Node) {
     // For all outgoing edges.
     for (; II != EE; ++II) {
       const DDEdge *Edge = *II;
-      analyze(Edge);
+      analyze(Ref, Edge);
     }
   }
 }
@@ -418,11 +428,19 @@ void ParVecInfo::analyze(HLLoop *Loop, HIRDDAnalysis *DDA,
     setVecType(SIMD);
     return; // no diag needed
   }
+
   if (Mode == VectorForVectorizerInnermost && !Loop->isInnermost()) {
     setVecType(FE_DIAG_VEC_NOT_INNERMOST);
     emitDiag();
     return;
   }
+
+  if (!Loop->isDo()) {
+    setVecType(NON_DO_LOOP);
+    emitDiag();
+    return;
+  }
+
   if (!isDone()) {
     cleanEdges();
     DDWalk DDW(*DDA, *SRA, Loop, this);      // Legality checker.

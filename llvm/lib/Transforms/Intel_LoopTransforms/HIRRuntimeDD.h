@@ -53,6 +53,7 @@ enum RuntimeDDResult {
   SAME_BASE,
   NON_DO_LOOP,
   NON_PROFITABLE,
+  NON_PROFITABLE_SUBS,
   STRUCT_ACCESS
 };
 
@@ -84,7 +85,6 @@ struct Segment {
 // on the IV. This class is used to generate specific memory segments where
 // IV is replaced with a Lower and Upper bound.
 class IVSegment {
-  const RegDDRef *OriginalRef;
   RegDDRef *Lower;
   RegDDRef *Upper;
   const CanonExpr *BaseCE;
@@ -120,7 +120,6 @@ public:
   const RegDDRef *getLower() const { return Lower; }
   const RegDDRef *getUpper() const { return Upper; }
   const CanonExpr *getBaseCE() const { return BaseCE; }
-  const RegDDRef *getOriginalRef() const { return OriginalRef; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -150,9 +149,10 @@ struct LoopContext {
 };
 
 class HIRRuntimeDD : public HIRTransformPass {
+  typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
+
 public:
   static char ID;
-  HIRLoopStatistics *HLS;
 
   HIRRuntimeDD() : HIRTransformPass(ID) {
     initializeHIRRuntimeDDPass(*PassRegistry::getPassRegistry());
@@ -169,11 +169,13 @@ public:
   }
 
 private:
+  HIRLoopStatistics *HLS;
+
 #ifndef NDEBUG
   static const char *getResultString(RuntimeDDResult Result);
 #endif
 
-  struct LoopAnalyzer;
+  struct MemoryAliasAnalyzer;
 
   /// Returns true if \p Loop is considered as profitable for multiversioning.
   bool isProfitable(const HLLoop *Loop);
@@ -181,10 +183,8 @@ private:
   // \brief The method processes each IV segment and updates bounds according to
   // a specified loopnest.
   // It also fills the applicability vector for the further use.
-  static RuntimeDDResult
-  processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
-                  SmallVectorImpl<IVSegment> &IVSegments,
-                  bool &ShouldGenerateTripCount);
+  void processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
+                  SmallVectorImpl<IVSegment> &IVSegments);
 
   // \brief The predicate used in ref grouping. Returns true if two references
   // belong to the same group.
@@ -193,7 +193,7 @@ private:
 
   // Finds or creates an appropriate group in \p Groups for the \p Ref. Returns
   // a group number.
-  unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
+  static unsigned findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref);
 
   // \brief Returns required DD tests for an arbitrary loop L.
   RuntimeDDResult computeTests(HLLoop *Loop, LoopContext &Context);

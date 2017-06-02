@@ -29,7 +29,7 @@
 ; CHECK:   BEGIN REGION { }
 ; CHECK:         + DO i1 = 0, 99, 1   <DO_LOOP>
 ; CHECK:         |   + DO i2 = 0, 49, 1   <DO_LOOP>
-; CHECK:         |   |   %8 = (@A)[0][i1 + sext.i32.i64(%0) + sext.i32.i64(%1)];
+; CHECK:         |   |   %8 = (@A)[0][i1 + sext.i32.i64(%1) + sext.i32.i64(%0)];
 ; CHECK:         |   |   %10 = (@B)[0][i1 + i2];
 ; CHECK:         |   |   (@C)[0][i1 + sext.i32.i64(%0) + 2] = %8 + %10 + 1;
 ; CHECK:         |   + END LOOP
@@ -43,7 +43,7 @@
 ;
 ; CHECK:  BEGIN REGION { modified }
 ; CHECK:        + DO i1 = 0, 99, 1   <DO_LOOP>
-; CHECK:        |      %limm = (@A)[0][i1 + sext.i32.i64(%0) + sext.i32.i64(%1)];
+; CHECK:        |      %limm = (@A)[0][i1 + sext.i32.i64(%1) + sext.i32.i64(%0)];
 ; CHECK:        |   + DO i2 = 0, 49, 1   <DO_LOOP>
 ; CHECK:        |   |   %8 = %limm;
 ; CHECK:        |   |   %10 = (@B)[0][i1 + i2];

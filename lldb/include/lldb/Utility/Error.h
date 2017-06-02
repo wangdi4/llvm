@@ -11,17 +11,21 @@
 #define __DCError_h__
 #if defined(__cplusplus)
 
-#include "llvm/Support/DataTypes.h"
-#include "llvm/Support/FormatAdapters.h"
+#include "lldb/lldb-defines.h"
+#include "lldb/lldb-enumerations.h" // for ErrorType, ErrorType...
+#include "llvm/ADT/StringRef.h"     // for StringRef
 #include "llvm/Support/FormatVariadic.h"
 
 #include <cstdarg>
-#include <cstdio>
 #include <string>
+#include <system_error> // for error_code
+#include <type_traits>  // for forward
 
-#include "lldb/lldb-private.h"
+#include <stdint.h> // for uint32_t
 
-#include "llvm/Support/FormatVariadic.h"
+namespace llvm {
+class raw_ostream;
+}
 
 namespace lldb_private {
 
@@ -67,6 +71,8 @@ public:
   Error();
 
   explicit Error(ValueType err, lldb::ErrorType type = lldb::eErrorTypeGeneric);
+
+  /* implicit */ Error(std::error_code EC);
 
   explicit Error(const char *format, ...) __attribute__((format(printf, 2, 3)));
 

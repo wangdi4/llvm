@@ -398,13 +398,12 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
   if (DDRef *DDR = AValueHIR->getValue()) {
 
     auto HLoop = TopLevelLoop->getLoop();
-    auto &HNU = HLoop->getHLNodeUtils();
 
     // If the def is outside the loop, all uses of the def in the loop can
     // be treated as uniform. We want to avoid problems for cases where
     // we do not find the use AVR(such as in loop bounds for which we do
     // not build AVR nodes).
-    if (!HNU.contains(HLoop, DDR->getHLDDNode()))
+    if (!HLNodeUtils::contains(HLoop, DDR->getHLDDNode()))
       return;
 
     // This AVR value is a Def of its Symbase. Extract the actual Def AVR and
@@ -428,7 +427,7 @@ void AvrDefUseHIR::visit(AVRValueHIR *AValueHIR) {
         continue;
 
       // Skip dependencies outside TopLevelLoop
-      if (!HNU.contains(HLoop, SinkDDR->getHLDDNode()))
+      if (!HLNodeUtils::contains(HLoop, SinkDDR->getHLDDNode()))
         continue;
 
       // Skip dependencies to DDRefs whose using AVR is a Def.

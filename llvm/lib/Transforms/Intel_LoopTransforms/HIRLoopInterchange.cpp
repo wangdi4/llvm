@@ -102,8 +102,8 @@ private:
 
   SmallVector<CandidateLoopPair, 12> CandidateLoops;
   SmallVector<const HLLoop *, MaxLoopNestLevel> SortedLoops;
-  SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation;
-  SmallVector<HLLoop *, MaxLoopNestLevel> NearByPerm;
+  SmallVector<const HLLoop *, MaxLoopNestLevel> LoopPermutation;
+  SmallVector<const HLLoop *, MaxLoopNestLevel> NearByPerm;
   SmallVector<const HLLoop *, 5> PerfectLoopsEnabled;
   SmallVector<DirectionVector, 16> DVs;
 
@@ -124,6 +124,7 @@ private:
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
   void printOptReport(HLLoop *Loop);
+  bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests);
 };
 }
 
@@ -172,7 +173,7 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     // Allow PrePost Hdr, allow Triangular loop, allow Near Perfect loop
     bool IsNearPerfectLoop = false;
     if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
-                              &IsNearPerfectLoop)) {
+                                       &IsNearPerfectLoop)) {
 
       DEBUG(dbgs() << "Is  Perfect loopnest\n");
 
@@ -268,21 +269,14 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 bool HIRLoopInterchange::shouldInterchange(const HLLoop *Loop) {
 
   SortedLoops.clear();
-  unsigned PrevLevel = 1;
-  bool InterchangeNeeded = false;
+
+  bool InterchangeNeeded = true;
 
   // Call Util in Locality Analysis to get Best Permutation
   LA->sortedLocalityLoops(Loop, SortedLoops);
 
-  for (auto &I : SortedLoops) {
-    HLLoop *L = const_cast<HLLoop *>(I);
-
-    unsigned Level = L->getNestingLevel();
-    if (PrevLevel > Level) {
-      InterchangeNeeded = true;
-      break;
-    }
-    PrevLevel = Level;
+  if (isInPresentOrder(SortedLoops)) {
+    InterchangeNeeded = false;
   }
 
   DEBUG(dbgs() << "\n\tBased on Locality Analysis:");
@@ -305,8 +299,7 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
 
   // Save it in local vector because it may change later
   for (auto &I : SortedLoops) {
-    HLLoop *L = const_cast<HLLoop *>(I);
-    LoopPermutation.push_back(L);
+    LoopPermutation.push_back(I);
   }
 
   // When returning legal == true, we can just interchange w/o
@@ -325,8 +318,12 @@ bool HIRLoopInterchange::getPermutation(const HLLoop *Loop) {
     } else {
       // Find Nearby permutation
       getNearbyPermutation(Loop);
-      LoopPermutation = NearByPerm;
 
+      if (isInPresentOrder(NearByPerm)) {
+        return false;
+      }
+
+      LoopPermutation = NearByPerm;
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
       DEBUG(dbgs() << "\nNearby permutation obtained\n");
       for (auto &I : LoopPermutation) {
@@ -447,6 +444,7 @@ void HIRLoopInterchange::getNearbyPermutation(const HLLoop *Loop) {
       // Get current level for loop
       unsigned SrcLevel = 1;
       for (auto &J : NearByPerm) {
+
         if (J->getNestingLevel() == I->getNestingLevel()) {
           break;
         }
@@ -574,10 +572,11 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
         if (RefineDV) {
           DDRef *SrcDDRef = Edge->getSrc();
           DDRef *DstDDRef = DDref;
+          DistanceVector RefinedDistV;
           bool IsIndep;
-          bool IsDVRefined =
-              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-                                LIP.OutmostNestingLevel, RefinedDV, &IsIndep);
+          bool IsDVRefined = LIP.DDA->refineDV(
+              SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
+              LIP.OutmostNestingLevel, RefinedDV, RefinedDistV, &IsIndep);
           if (IsIndep) {
             continue;
           }
@@ -684,12 +683,26 @@ bool HIRLoopInterchange::isLegalToShiftLoop(unsigned DstLevel,
 ///  Input Levels are relative to 1 (starting in level 1)
 bool HIRLoopInterchange::isLegalForPermutation(unsigned DstLevel,
                                                unsigned SrcLevel) const {
-
   if (SrcLevel == DstLevel) {
     return true;
   }
-
   return isLegalToShiftLoop(DstLevel, SrcLevel);
+}
+
+///  No need to interchange if suggested Permutation is same as present order
+bool HIRLoopInterchange::isInPresentOrder(
+    SmallVectorImpl<const HLLoop *> &LoopNests) {
+
+  unsigned PrevLevel = 1;
+
+  for (auto &Loop : LoopNests) {
+    unsigned Level = Loop->getNestingLevel();
+    if (PrevLevel > Level) {
+      return false;
+    }
+    PrevLevel = Level;
+  }
+  return true;
 }
 
 ///  1. Move Loop at SrcLevel to DstLevel loop
@@ -704,7 +717,7 @@ void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned SrcLevel) {
   bool Erased = false;
   for (auto &Loop : NearByPerm) {
     if (Loop->getNestingLevel() == SrcLevel + OutmostNestingLevel - 1) {
-      HLLoop *LoopSave = Loop;
+      const HLLoop *LoopSave = Loop;
       NearByPerm.erase(&Loop);
       NearByPerm.insert(NearByPerm.begin() + DstLevel - 1, LoopSave);
       Erased = true;
@@ -890,7 +903,7 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
   HIRTransformUtils::permuteLoopNests(Loop, LoopPermutation);
 
   updateLoopBody(Loop);
-  printOptReport(Loop);
+  DEBUG(dbgs(); printOptReport(Loop));
 
   Loop->getParentRegion()->setGenCode();
   LoopsInterchanged++;

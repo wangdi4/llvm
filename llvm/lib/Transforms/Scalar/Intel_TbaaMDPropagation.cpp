@@ -47,11 +47,23 @@
 // !6 = !{!"Simple C++ TBAA"}
 // !7 = !{!2, !4, i64 16}
 //
+// The front end inserts intel.fakeload intrinsics that wrap the value
+// passed to return statements in order to allow us to propagate the
+// TBAA metadata after the functions have been inlined.  In order for
+// this to work correctly, this pass cannot remove the fakeload intrinsic
+// until after a function has been inlined.  However, we would like to
+// run the pass before SROA (which is a pre-inlining function simplification
+// pass) because the fakeload intrinsic blocks SROA.
+//
+// To solve this problem, tha TbaaMDPropagation pass only operates on intrinsics
+// that have uses that are not return instructions, which is an indication that
+// the function containing the intrinsic has been inlined.  The CleanupFakeLoads
+// pass should be run after all inlining is complete to remove remaining
+// intrinsics.
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/Intel_TbaaMDPropagation.h"
-#include "llvm/Analysis/CallGraph.h"
-#include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/Instructions.h"
@@ -76,24 +88,41 @@ public:
   }
   bool runOnFunction(Function &F);
   void visitInstruction(Instruction &I) { return; }
-  void visitCallInst(CallInst &CI);
+  void visitIntrinsicInst(IntrinsicInst &II);
   StringRef getPassName() const override { return "TBAAPROP"; }
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<CallGraphWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
   }
 
 private:
   friend class InstVisitor<TbaaMDPropagation>;
 };
+struct CleanupFakeLoads : public FunctionPass {
+public:
+  static char ID;
+  CleanupFakeLoads() : FunctionPass(ID) {
+    initializeCleanupFakeLoadsPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F);
+  StringRef getPassName() const override { return "Cleanup fake loads"; }
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesCFG();
+    AU.addPreserved<GlobalsAAWrapperPass>();
+  }
+};
 }
 char TbaaMDPropagation::ID = 0;
 INITIALIZE_PASS_BEGIN(TbaaMDPropagation, "tbaa-prop",
                       "Propagate the TbaaMD through intrinsic", false, false)
-INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
 INITIALIZE_PASS_END(TbaaMDPropagation, "tbaa-prop",
                     "Propagate the TbaaMD through intrinsic", false, false)
+
+char CleanupFakeLoads::ID = 0;
+INITIALIZE_PASS_BEGIN(CleanupFakeLoads, "cleanup-fakeloads",
+                      "Remove intel.fakeload intrinsics", false, false)
+INITIALIZE_PASS_END(CleanupFakeLoads, "cleanup-fakeloads",
+                    "Remove intel.fakeload intrinsics", false, false)
 
 FunctionPass *llvm::createTbaaMDPropagationPass() {
   return new TbaaMDPropagation();
@@ -107,15 +136,17 @@ PreservedAnalyses TbaaMDPropagationPass::run(Function &F,
 }
 
 bool TbaaMDPropagation::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
   for (BasicBlock &BB : F) {
-
-    BasicBlock::iterator II, NextII, IE;
-
-    for (II = BB.begin(), IE = BB.end(); II != IE;) {
-      NextII = II++;
-      Instruction *I = &*NextII;
-      if (I)
-        visit(I);
+    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+      // Because we might be erasing the instruction, we need to get the
+      // instruction reference first and then increment the iterator before
+      // visiting the instruction.
+      Instruction &I = *II;
+      ++II;
+      visit(&I);
     }
   }
   return false;
@@ -123,34 +154,73 @@ bool TbaaMDPropagation::runOnFunction(Function &F) {
 
 // The tbaa information is retrieved from the fakeload intrinsic
 // and attached to the pointer's dereference sites. 
-void TbaaMDPropagation::visitCallInst(CallInst &CI) {
+void TbaaMDPropagation::visitIntrinsicInst(IntrinsicInst &II) {
   MDNode *P;
-  const Function *Callee = CI.getCalledFunction();
-  if (!Callee)
+  if (II.getIntrinsicID() != Intrinsic::intel_fakeload)
     return;
-  switch (Callee->getIntrinsicID()) {
-  case Intrinsic::intel_fakeload:
-    P = dyn_cast<MDNode>(
-        cast<MetadataAsValue>(CI.getOperand(1))->getMetadata());
-    for (auto I = CI.use_begin(), E = CI.use_end(); I != E;) {
-      Use &U = *I++;
-      Instruction *User = cast<Instruction>(U.getUser());
-
-      LoadInst *LI = dyn_cast<LoadInst>(User);
-      if (LI && LI->getPointerOperand() == &CI) {
-        LI->setMetadata(LLVMContext::MD_tbaa, P);
-        continue;
-      }
-      StoreInst *SI = dyn_cast<StoreInst>(User);
-      if (SI && SI->getPointerOperand() == &CI) {
-        SI->setMetadata(LLVMContext::MD_tbaa, P);
-        continue;
-      }
+  
+  // If the only user is a return instruction, we aren't at the right level
+  // of inlining yet.
+  if (II.hasOneUse() && isa<ReturnInst>(II.user_back()))
+    return;
+  P = dyn_cast<MDNode>(
+        cast<MetadataAsValue>(II.getArgOperand(1))->getMetadata());
+  bool HasRetUser = false;
+  for (auto *User : II.users()) {
+    LoadInst *LI = dyn_cast<LoadInst>(User);
+    if (LI && LI->getPointerOperand() == &II) {
+      LI->setMetadata(LLVMContext::MD_tbaa, P);
+      continue;
     }
-    CI.replaceAllUsesWith(CI.getOperand(0));
-    CI.eraseFromParent();
-    break;
-  default:
-    break;
+    StoreInst *SI = dyn_cast<StoreInst>(User);
+    if (SI && SI->getPointerOperand() == &II) {
+      SI->setMetadata(LLVMContext::MD_tbaa, P);
+      continue;
+    }
+    // If there is a return instruction user but it wasn't the only user we
+    // need to keep the fakeload intrinsic to prepare for the next level of
+    // inlining.
+    if (isa<ReturnInst>(User))
+      HasRetUser = true;
+  }
+  // If the value passed through the intrinsic is not used by a return
+  // instruction, we can remove the intrinsic now.
+  if (!HasRetUser) {
+    II.replaceAllUsesWith(II.getArgOperand(0));
+    II.eraseFromParent();
   }
 }
+
+FunctionPass *llvm::createCleanupFakeLoadsPass() {
+  return new CleanupFakeLoads();
+}
+
+PreservedAnalyses CleanupFakeLoadsPass::run(Function &F,
+                                            FunctionAnalysisManager &AM) {
+  auto PA = PreservedAnalyses();
+  PA.preserve<GlobalsAA>();
+  return PA;
+}
+
+bool CleanupFakeLoads::runOnFunction(Function &F) {
+  if (skipFunction(F))
+    return false;
+
+  for (BasicBlock &BB : F) {
+    for (auto II = BB.begin(), IE = BB.end(); II != IE;) {
+      // Because we might be erasing the instruction, we need to get the
+      // instruction reference first and then increment the iterator before
+      // processing the instruction.
+      Instruction &I = *II;
+      ++II;
+      if (auto *Intrin = dyn_cast<IntrinsicInst>(&I)) {
+        if (Intrin->getIntrinsicID() == Intrinsic::intel_fakeload) {
+          I.replaceAllUsesWith(I.getOperand(0));
+          I.eraseFromParent();
+        }
+      }
+    }
+  }
+  return false;
+}
+

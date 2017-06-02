@@ -98,11 +98,15 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
   if (BranchInst *BI = dyn_cast<BranchInst>(Terminator)) {
     if (BI->isConditional()) {
+      Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
+      DebugLoc CondDebugLoc = Cond ? Cond->getDebugLoc() : DebugLoc();
+
       // Create dummy if condition for now. Later on the compare instruction
       // operands will be substituted here and eliminated. If this is a bottom
       // test, it will be eliminated anyway.
-      auto If = getHLNodeUtils().createHLIf(CmpInst::Predicate::FCMP_TRUE,
-                                            nullptr, nullptr);
+      auto If = getHLNodeUtils().createHLIf(
+          {CmpInst::Predicate::FCMP_TRUE, FastMathFlags(), CondDebugLoc},
+          nullptr, nullptr);
 
       Ifs[If] = BB;
 
@@ -118,6 +122,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
       getHLNodeUtils().insertAfter(InsertionPos, If);
       InsertionPos = If;
+
+      If->setDebugLoc(BI->getDebugLoc());
     } else {
       auto Goto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
 
@@ -125,6 +131,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
       getHLNodeUtils().insertAfter(InsertionPos, Goto);
       InsertionPos = Goto;
+
+      Goto->setDebugLoc(BI->getDebugLoc());
     }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
     auto Switch = getHLNodeUtils().createHLSwitch(nullptr);
@@ -142,16 +150,23 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     getHLNodeUtils().insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
+    const DebugLoc &DbgLoc = SI->getDebugLoc();
+    DefaultGoto->setDebugLoc(DbgLoc);
+
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = getHLNodeUtils().createHLGoto(I.getCaseSuccessor());
+      auto CaseGoto = getHLNodeUtils().createHLGoto(I->getCaseSuccessor());
       getHLNodeUtils().insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
+
+      CaseGoto->setDebugLoc(DbgLoc);
     }
 
     getHLNodeUtils().insertAfter(InsertionPos, Switch);
     InsertionPos = Switch;
+
+    Switch->setDebugLoc(SI->getDebugLoc());
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
     auto Inst = getHLNodeUtils().createHLInst(RI);
     getHLNodeUtils().insertAfter(InsertionPos, Inst);
@@ -234,8 +249,8 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
   }
 
   for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
-    if (SuccessorBB != I.getCaseSuccessor()) {
-      FromBBs.insert(I.getCaseSuccessor());
+    if (SuccessorBB != I->getCaseSuccessor()) {
+      FromBBs.insert(I->getCaseSuccessor());
 
     } else if (Skipped) {
       // Switch has common successor bblock for some of the cases which is
@@ -350,7 +365,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
       for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
            ++I, ++Count) {
-        if ((DomChildBB == I.getCaseSuccessor()) &&
+        if ((DomChildBB == I->getCaseSuccessor()) &&
             !isCrossLinked(SI, DomChildBB)) {
           doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
           IsCaseChild = true;

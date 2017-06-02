@@ -5,6 +5,7 @@
 ; main are noticed.
 
 ; RUN: opt < %s -wholeprogramanalysis -functionattrs -rpo-functionattrs -disable-output -stats 2>&1 | FileCheck %s
+; REQUIRES: asserts
 
 ; CHECK:   5 functionattrs - Number of functions marked as norecurse
 

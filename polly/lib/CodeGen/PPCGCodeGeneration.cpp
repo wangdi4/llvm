@@ -25,7 +25,6 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
@@ -144,11 +143,11 @@ static __isl_give isl_id_to_ast_expr *pollyBuildAstExprForStmt(
 /// @see GPUNodeBuilder::createUser
 class GPUNodeBuilder : public IslNodeBuilder {
 public:
-  GPUNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator, Pass *P,
+  GPUNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator,
                  const DataLayout &DL, LoopInfo &LI, ScalarEvolution &SE,
                  DominatorTree &DT, Scop &S, BasicBlock *StartBlock,
                  gpu_prog *Prog)
-      : IslNodeBuilder(Builder, Annotator, P, DL, LI, SE, DT, S, StartBlock),
+      : IslNodeBuilder(Builder, Annotator, DL, LI, SE, DT, S, StartBlock),
         Prog(Prog) {
     getExprBuilder().setIDToSAI(&IDToSAI);
   }
@@ -1084,9 +1083,10 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
 
   BasicBlock *EntryBlock =
       &Builder.GetInsertBlock()->getParent()->getEntryBlock();
+  auto AddressSpace = F->getParent()->getDataLayout().getAllocaAddrSpace();
   std::string Launch = "polly_launch_" + std::to_string(Kernel->id);
-  Instruction *Parameters =
-      new AllocaInst(ArrayTy, Launch + "_params", EntryBlock->getTerminator());
+  Instruction *Parameters = new AllocaInst(
+      ArrayTy, AddressSpace, Launch + "_params", EntryBlock->getTerminator());
 
   int Index = 0;
   for (long i = 0; i < Prog->n_array; i++) {
@@ -1116,9 +1116,10 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
           Builder.CreatePointerCast(ValPtr, Builder.getInt8PtrTy());
       Builder.CreateStore(ValPtrCast, Slot);
     } else {
-      Instruction *Param = new AllocaInst(
-          Builder.getInt8PtrTy(), Launch + "_param_" + std::to_string(Index),
-          EntryBlock->getTerminator());
+      Instruction *Param =
+          new AllocaInst(Builder.getInt8PtrTy(), AddressSpace,
+                         Launch + "_param_" + std::to_string(Index),
+                         EntryBlock->getTerminator());
       Builder.CreateStore(DevArray, Param);
       Value *ParamTyped =
           Builder.CreatePointerCast(Param, Builder.getInt8PtrTy());
@@ -1133,9 +1134,10 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
     isl_id *Id = isl_space_get_dim_id(Kernel->space, isl_dim_set, i);
     Value *Val = IDToValue[Id];
     isl_id_free(Id);
-    Instruction *Param = new AllocaInst(
-        Val->getType(), Launch + "_param_" + std::to_string(Index),
-        EntryBlock->getTerminator());
+    Instruction *Param =
+        new AllocaInst(Val->getType(), AddressSpace,
+                       Launch + "_param_" + std::to_string(Index),
+                       EntryBlock->getTerminator());
     Builder.CreateStore(Val, Param);
     Value *Slot = Builder.CreateGEP(
         Parameters, {Builder.getInt64(0), Builder.getInt64(Index)});
@@ -1151,9 +1153,10 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
     isl_id *Id = isl_space_get_dim_id(Kernel->space, isl_dim_param, i);
     Value *Val = IDToValue[Id];
     isl_id_free(Id);
-    Instruction *Param = new AllocaInst(
-        Val->getType(), Launch + "_param_" + std::to_string(Index),
-        EntryBlock->getTerminator());
+    Instruction *Param =
+        new AllocaInst(Val->getType(), AddressSpace,
+                       Launch + "_param_" + std::to_string(Index),
+                       EntryBlock->getTerminator());
     Builder.CreateStore(Val, Param);
     Value *Slot = Builder.CreateGEP(
         Parameters, {Builder.getInt64(0), Builder.getInt64(Index)});
@@ -1164,9 +1167,10 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
   }
 
   for (auto Val : SubtreeValues) {
-    Instruction *Param = new AllocaInst(
-        Val->getType(), Launch + "_param_" + std::to_string(Index),
-        EntryBlock->getTerminator());
+    Instruction *Param =
+        new AllocaInst(Val->getType(), AddressSpace,
+                       Launch + "_param_" + std::to_string(Index),
+                       EntryBlock->getTerminator());
     Builder.CreateStore(Val, Param);
     Value *Slot = Builder.CreateGEP(
         Parameters, {Builder.getInt64(0), Builder.getInt64(Index)});
@@ -1269,12 +1273,17 @@ void GPUNodeBuilder::createKernel(__isl_take isl_ast_node *KernelStmt) {
 ///
 /// @param is64Bit Are we looking for a 64 bit architecture?
 static std::string computeNVPTXDataLayout(bool is64Bit) {
-  std::string Ret = "e";
+  std::string Ret = "";
 
-  if (!is64Bit)
-    Ret += "-p:32:32";
-
-  Ret += "-i64:64-v16:16-v32:32-n16:32:64";
+  if (!is64Bit) {
+    Ret += "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:"
+           "64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:"
+           "64-v128:128:128-n16:32:64";
+  } else {
+    Ret += "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:"
+           "64-f32:32:32-f64:64:64-v16:16:16-v32:32:32-v64:64:"
+           "64-v128:128:128-n16:32:64";
+  }
 
   return Ret;
 }
@@ -1294,7 +1303,8 @@ GPUNodeBuilder::createKernelFunctionDecl(ppcg_kernel *Kernel,
       const ScopArrayInfo *SAI = ScopArrayInfo::getFromId(Id);
       Args.push_back(SAI->getElementType());
     } else {
-      Args.push_back(Builder.getInt8PtrTy());
+      static const int UseGlobalMemory = 1;
+      Args.push_back(Builder.getInt8PtrTy(UseGlobalMemory));
     }
   }
 
@@ -1544,7 +1554,6 @@ void GPUNodeBuilder::createKernelFunction(ppcg_kernel *Kernel,
   BasicBlock *PrevBlock = Builder.GetInsertBlock();
   auto EntryBlock = BasicBlock::Create(Builder.getContext(), "entry", FN);
 
-  DominatorTree &DT = P->getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   DT.addNewBlock(EntryBlock, PrevBlock);
 
   Builder.SetInsertPoint(EntryBlock);
@@ -2404,9 +2413,9 @@ public:
     // which may introduce scalar dependences that prevent us from correctly
     // code generating this scop.
     BasicBlock *StartBlock =
-        executeScopConditionally(*S, this, Builder.getTrue());
+        executeScopConditionally(*S, Builder.getTrue(), *DT, *RI, *LI);
 
-    GPUNodeBuilder NodeBuilder(Builder, Annotator, this, *DL, *LI, *SE, *DT, *S,
+    GPUNodeBuilder NodeBuilder(Builder, Annotator, *DL, *LI, *SE, *DT, *S,
                                StartBlock, Prog);
 
     // TODO: Handle LICM
@@ -2431,7 +2440,7 @@ public:
 
     /// In case a sequential kernel has more surrounding loops as any parallel
     /// kernel, the SCoP is probably mostly sequential. Hence, there is no
-    /// point in running it on a CPU.
+    /// point in running it on a GPU.
     if (NodeBuilder.DeepestSequential > NodeBuilder.DeepestParallel)
       SplitBlock->getTerminator()->setOperand(0, Builder.getFalse());
 
@@ -2444,7 +2453,7 @@ public:
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-    DL = &S->getRegion().getEntry()->getParent()->getParent()->getDataLayout();
+    DL = &S->getRegion().getEntry()->getModule()->getDataLayout();
     RI = &getAnalysis<RegionInfoPass>().getRegionInfo();
 
     // We currently do not support scops with invariant loads.
@@ -2481,7 +2490,6 @@ public:
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<GlobalsAAWrapperPass>();
-    AU.addPreserved<PostDominatorTreeWrapperPass>();
     AU.addPreserved<ScopDetection>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<SCEVAAWrapperPass>();
@@ -2492,7 +2500,7 @@ public:
     AU.addPreserved<ScopInfoRegionPass>();
   }
 };
-}
+} // namespace
 
 char PPCGCodeGeneration::ID = 1;
 

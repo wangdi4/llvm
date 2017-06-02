@@ -18,8 +18,12 @@
 namespace llvm {
 namespace codeview {
 
+class TypeServerHandler;
+
 /// Merges one type stream into another. Returns true on success.
-Error mergeTypeStreams(TypeTableBuilder &DestStream, const CVTypeArray &Types);
+Error mergeTypeStreams(TypeTableBuilder &DestIdStream,
+                       TypeTableBuilder &DestTypeStream,
+                       TypeServerHandler *Handler, const CVTypeArray &Types);
 
 } // end namespace codeview
 } // end namespace llvm

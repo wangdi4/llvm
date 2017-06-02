@@ -91,14 +91,34 @@ HLLabel *HLLabel::clone(HLNodeMapper *NodeMapper) const {
 
 void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const {
+
+  auto ParentLoop = dyn_cast<HLLoop>(getParent());
+
+  // ddref_begin() check is a workaround to skip the backedge check until we
+  // form ddrefs in the framework otherwise we encounter an assert for null
+  // stride ref.
+  if (ParentLoop && (*ParentLoop->ddref_begin()) && isUnknownLoopHeaderLabel()) {
+    // Print IV update for the unknown loop which will be generated during code
+    // gen.
+    auto Level = ParentLoop->getNestingLevel();
+    indent(OS, Depth);
+    OS << "<i" << Level << " = 0>\n";
+  }
+ 
   indent(OS, Depth);
   OS << getName() << ":\n";
 }
 
-void HLLabel::printBBlockName(raw_ostream &O, const BasicBlock &BB) {
+void HLLabel::printBBlockName(raw_ostream &OS, const BasicBlock &BB) {
   if (BB.hasName()) {
-    O << BB.getName();
+    OS << BB.getName();
   } else {
-    BB.printAsOperand(O, false);
+    BB.printAsOperand(OS, false);
   }
 }
+
+bool HLLabel::isUnknownLoopHeaderLabel() const {
+  auto ParentLoop = dyn_cast<HLLoop>(getParent());
+  return (ParentLoop && (ParentLoop->getHeaderLabel() == this));
+}
+

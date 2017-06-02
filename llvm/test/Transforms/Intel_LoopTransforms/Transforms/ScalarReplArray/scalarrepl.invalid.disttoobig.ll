@@ -20,6 +20,7 @@
 ;}
 ;
 ; 
+;
 ; CHECK: IR Dump Before HIR Scalar Repl
 ;
 ; CHECK:   BEGIN REGION { }

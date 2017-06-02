@@ -17,6 +17,7 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/DebugLoc.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -141,6 +142,8 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
+  DebugLoc DbgLoc;
+
 protected:
   CanonExpr(CanonExprUtils &CEU, Type *SrcType, Type *DestType, bool IsSExt,
             unsigned DefLevel, int64_t ConstVal, int64_t Denom,
@@ -236,6 +239,12 @@ protected:
   /// it as C0.
   void simplifyConstantDenom();
   void simplifyConstantCast();
+
+  /// Replaces temp blob with \p TempIndex by new blob with \p Operand index or
+  /// constant, depending on the \p IsConstant template argument.
+  /// Returns true if it is replaced.
+  template <bool IsConstant, typename T>
+  bool replaceTempBlobImpl(unsigned TempIndex, T Operand);
 
 public:
   /// Returns parent CanonExprUtils object.
@@ -629,9 +638,12 @@ public:
   /// Replaces an old blob with a new one (including blob IV coeffs).
   void replaceBlob(unsigned OldIndex, unsigned NewIndex);
 
-  /// Replaces temp blob with \p OldIndex by new temp blob with \p NewIndex, if
-  /// it exists in CE. Returns true if it is replaced.
-  bool replaceTempBlob(unsigned OldIndex, unsigned NewIndex);
+  /// Replaces temp blob with \p OldTempIndex by new temp blob with
+  /// \p NewTempIndex, if it exists in CE. Returns true if it is replaced.
+  bool replaceTempBlob(unsigned TempIndex, unsigned NewTempIndex);
+
+  /// Replaces the blob with \p OldTempIndex by the \p Constant value.
+  bool replaceTempBlobByConstant(unsigned TempIndex, int64_t Constant);
 
   /// Clears everything from the CanonExpr except Type. Denominator is set to 1.
   void clear();
@@ -684,6 +696,9 @@ public:
   /// Verifies that the incoming nesting level is valid for this CE, asserts
   /// otherwise.
   bool verifyNestingLevel(unsigned NestingLevel) const;
+
+  void setDebugLoc(const DebugLoc &DbgLoc) { this->DbgLoc = DbgLoc; }
+  const DebugLoc &getDebugLoc() const { return DbgLoc; }
 };
 
 } // End loopopt namespace

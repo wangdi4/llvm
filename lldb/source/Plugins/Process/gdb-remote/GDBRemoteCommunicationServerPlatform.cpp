@@ -22,19 +22,18 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"
 
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StreamGDBRemote.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/Config.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Target/FileAction.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/JSON.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamGDBRemote.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/UriParser.h"
 
@@ -83,8 +82,8 @@ GDBRemoteCommunicationServerPlatform::GDBRemoteCommunicationServerPlatform(
       &GDBRemoteCommunicationServerPlatform::Handle_jSignalsInfo);
 
   RegisterPacketHandler(StringExtractorGDBRemote::eServerPacketType_interrupt,
-                        [this](StringExtractorGDBRemote packet, Error &error,
-                               bool &interrupt, bool &quit) {
+                        [](StringExtractorGDBRemote packet, Error &error,
+                           bool &interrupt, bool &quit) {
                           error.SetErrorString("interrupt received");
                           interrupt = true;
                           return PacketResult::Success;

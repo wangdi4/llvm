@@ -237,7 +237,8 @@ public:
   /// is set.
   bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                 unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
-                DirectionVector &RefinedDV, bool *IsIndependent);
+                DirectionVector &RefinedDV, DistanceVector &RefinedDistV,
+                bool *IsIndependent);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,

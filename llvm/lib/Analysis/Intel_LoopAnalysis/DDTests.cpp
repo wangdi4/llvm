@@ -406,10 +406,6 @@ const CanonExpr *DDTest::getNegative(const CanonExpr *CE) {
 }
 
 const CanonExpr *DDTest::getNegativeDist(const CanonExpr *CE) {
-  // when distance is undefined, it is null.
-  if (!CE) {
-    return nullptr;
-  }
   return getNegative(CE);
 }
 
@@ -484,17 +480,16 @@ const CanonExpr *DDTest::getSMaxExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t CVal;
   if (!CE1 || !CE2) {
     return nullptr;
   }
 
-  const CanonExpr *Delta = getMinus(CE1, CE2);
-  // Note: getMinus already performed push_back for CE.
-  // No need to do it here again
-  if (Delta && Delta->isIntConstant(&CVal)) {
+  int64_t CVal;
+  
+  if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
     return ((CVal > 0) ? CE1 : CE2);
   }
+
   return nullptr;
 }
 
@@ -503,16 +498,16 @@ const CanonExpr *DDTest::getSMinExpr(const CanonExpr *CE1,
   // Only handles restricted cases when the diff is a constant
   // Will extend to cases like N,  N + conatant
   // Caller need to check for null result
-  int64_t CVal;
   if (!CE1 || !CE2) {
     return nullptr;
   }
-  const CanonExpr *Delta = getMinus(CE2, CE1);
-  // Note: getMinus already performed push_back for CE.
-  // No need to do it here again
-  if (Delta && Delta->isIntConstant(&CVal)) {
-    return ((CVal > 0) ? CE1 : CE2);
+
+  int64_t CVal;
+  
+  if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
+    return ((CVal < 0) ? CE1 : CE2);
   }
+
   return nullptr;
 }
 
@@ -4702,10 +4697,155 @@ void DDTest::splitDVForForwardBackwardEdge(DirectionVector &ForwardDV,
   }
 }
 
+static void printDirDistVectors(DirectionVector &ForwardDV,
+                                DirectionVector &BackwardDV,
+                                DistanceVector &ForwardDistV,
+                                DistanceVector &BackwardDistV,
+                                unsigned Levels) {
+
+  DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
+  if (ForwardDV[0] != DVKind::NONE) {
+    DEBUG(dbgs() << "\nforward DistV: "; ForwardDistV.print(dbgs(), Levels));
+  }
+
+  DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
+  if (BackwardDV[0] != DVKind::NONE) {
+    DEBUG(dbgs() << "\nbackward DistV: "; BackwardDistV.print(dbgs(), Levels));
+  }
+}
+
+DistTy DDTest::mapDVToDist(DVKind DV, unsigned Level,
+                           const Dependences &Result) {
+  if (DV == DVKind::EQ) {
+    return 0;
+  }
+  if (DV == DVKind::ALL || DV == DVKind::NE) {
+    return UnknownDistance;
+  }
+  int64_t CVal;
+  const CanonExpr *DistCE = Result.getDistance(Level);
+
+  if (DistCE && DistCE->isIntConstant(&CVal)) {
+    if (MinDistance <= CVal && CVal <= MaxDistance) {
+      int64_t PosVal = std::llabs(CVal);
+      if (DV & DVKind::LT) {
+        return PosVal;
+      }
+      if (DV & DVKind::GT) {
+        return -PosVal;
+      }
+    }
+  }
+  return UnknownDistance;
+}
+
+void DDTest::populateDistanceVector(const DirectionVector &ForwardDV,
+                                    const DirectionVector &BackwardDV,
+                                    const Dependences &Result,
+                                    DistanceVector &ForwardDistV,
+                                    DistanceVector &BackwardDistV,
+                                    unsigned Levels) {
+
+  if (ForwardDV[0] != DVKind::NONE) {
+    for (unsigned II = 1; II <= Levels; ++II) {
+      ForwardDistV[II - 1] = mapDVToDist(ForwardDV[II - 1], II, Result);
+    }
+  }
+  if (BackwardDV[0] != DVKind::NONE) {
+    for (unsigned II = 1; II <= Levels; ++II) {
+      BackwardDistV[II - 1] = mapDVToDist(BackwardDV[II - 1], II, Result);
+    }
+  }
+}
+
+void DDTest::setDVForPeelFirstAndReversed(DirectionVector &ForwardDV,
+                                          DirectionVector &BackwardDV,
+                                          const Dependences &Result,
+                                          unsigned Levels) {
+
+  // Result coming back from weakZeroSrcSIVtest
+  // e.g. for i=0, 2
+  //        x[2*i +2] = x[2];
+  // Need special casing:
+  // Forward DV is  (=)  Backward DV is (<)
+  for (unsigned II = 1; II < Levels; ++II) {
+    ForwardDV[II - 1] = Result.getDirection(II);
+  }
+  ForwardDV[Levels - 1] = DVKind::EQ;
+  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
+  BackwardDV[Levels - 1] = DVKind::LT;
+}
+
+void DDTest::setDVForBiDirection(DirectionVector &ForwardDV,
+                                 DirectionVector &BackwardDV,
+                                 const Dependences &Result, unsigned Levels,
+                                 unsigned LTGTLevel) {
+
+  // Both directions
+  // Leftmost non-equal is a *
+  // Need to reverse one of the DV
+  // e.g. one edge is ( * < >), the other shoud be (* > <)
+
+  for (unsigned II = 1; II <= Levels; ++II) {
+    // Computed from Src -> Dst (Forward edge)
+    ForwardDV[II - 1] = Result.getDirection(II);
+  }
+  splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
+  if (LTGTLevel) {
+    // e.g. (= <> < =)
+    // Forward  edge DV: (= < < =)
+    // Backward edge DV: (= < > =)
+    ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
+  }
+}
+
+void DDTest::setDVForLoopIndependent(DirectionVector &ForwardDV,
+                                     DirectionVector &BackwardDV,
+                                     const Dependences &Result, unsigned Levels,
+                                     unsigned SrcNum, unsigned DstNum) {
+  //  DV are all =
+
+  DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
+  if (SrcNum <= DstNum) {
+    for (unsigned II = 1; II <= Levels; ++II) {
+      ForwardDV[II - 1] = Result.getDirection(II);
+    }
+  } else {
+    for (unsigned II = 1; II <= Levels; ++II) {
+      BackwardDV[II - 1] = Result.getDirection(II);
+    }
+  }
+}
+
+void DDTest::setDVForLE(DirectionVector &ForwardDV, DirectionVector &BackwardDV,
+                        const Dependences &Result, unsigned Levels) {
+
+  // A forward edge (=) is needed here
+  // do i1
+  //    do i2
+  //      a(-i1 + i2 + 25)=   (Src
+  //    end
+  //     = a(-i1 +25)         (Dst
+  // end
+  // This is done mostly for Loop Dist.
+  // Problem only shows up with single backward edge.
+  // For other loop Transformations, single edge of <= should be sufficent.
+  // Only needed for non-temps. Actually, for temps, if it comes here,
+  // The DV would be a *.
+
+  for (unsigned II = 1; II < Levels; ++II) {
+    ForwardDV[II - 1] = Result.getDirection(II);
+  }
+  ForwardDV[Levels - 1] = DVKind::EQ;
+  BackwardDV[Levels - 1] = DVKind::LT;
+}
+
 bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
                              const DirectionVector &InputDV,
                              DirectionVector &ForwardDV,
                              DirectionVector &BackwardDV,
+                             DistanceVector &ForwardDistV,
+                             DistanceVector &BackwardDistV,
                              bool *IsLoopIndepDepTemp) {
 
   // This interface is created to facilitate the building of DDG when forward or
@@ -4736,7 +4876,11 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   ForwardDV.setZero();
   BackwardDV.setZero();
 
+  ForwardDistV.setZero();
+  BackwardDistV.setZero();
+
   auto Result = depends(SrcDDRef, DstDDRef, InputDV);
+
   *IsLoopIndepDepTemp = false;
 
   if (Result == nullptr) {
@@ -4919,25 +5063,8 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
     if (ForwardDV[0] != DVKind::NONE || BackwardDV[0] != DVKind::NONE) {
       // If either forward or backward DV is filled, okay to return
-      DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-      DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
-      return true;
+      goto L1;
     }
-  }
-
-  if (Result->isPeelFirst(Levels) && Result->isReversed()) {
-    // Result coming back from weakZeroSrcSIVtest
-    // e.g. for i=0, 2
-    //        x[2*i +2] = x[2];
-    // Need special casing:
-    // Forward DV is  (=)  Backward DV is (<)
-    for (unsigned II = 1; II < Levels; ++II) {
-      ForwardDV[II - 1] = Result->getDirection(II);
-    }
-    ForwardDV[Levels - 1] = DVKind::EQ;
-    splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
-    BackwardDV[Levels - 1] = DVKind::LT;
-    return true;
   }
 
   // How to determine whether the edge is forward or backward:
@@ -4946,86 +5073,37 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  (3) if leftmost non-EQ dv is <
   //      isReversed implies backward else forward
 
-  if (BiDirection) {
-    // (1) Both directions
-    // Leftmost non-equal is a *
-    // Need to reverse one of the DV
-    // e.g. one edge is ( * < >), the other shoud be (* > <)
-
-    for (unsigned II = 1; II <= Levels; ++II) {
-      // Computed from Src -> Dst (Forward edge)
-      ForwardDV[II - 1] = Result->getDirection(II);
-    }
-    splitDVForForwardBackwardEdge(ForwardDV, BackwardDV, Levels);
-    if (LTGTLevel) {
-      // e.g. (= <> < =)
-      // Forward  edge DV: (= < < =)
-      // Backward edge DV: (= < > =)
-      ForwardDV[LTGTLevel - 1] = BackwardDV[LTGTLevel - 1] = DVKind::LT;
-    }
-    DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-    DEBUG(dbgs() << "\nbackward DV: "; ForwardDV.print(dbgs(), Levels));
-    return true;
-  }
-
-  if (Result->isLoopIndependent()) {
-    // (2) DV are all =
-
-    DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
-    if (SrcNum <= DstNum) {
+  if (Result->isPeelFirst(Levels) && Result->isReversed()) {
+    setDVForPeelFirstAndReversed(ForwardDV, BackwardDV, *Result, Levels);
+  } else if (BiDirection) {
+    setDVForBiDirection(ForwardDV, BackwardDV, *Result, Levels, LTGTLevel);
+  } else if (Result->isLoopIndependent()) {
+    setDVForLoopIndependent(ForwardDV, BackwardDV, *Result, Levels, SrcNum,
+                            DstNum);
+  } else {
+    // (3) Leftmost is <
+    //     Srce->Dest
+    if (!Result->isReversed()) {
       for (unsigned II = 1; II <= Levels; ++II) {
         ForwardDV[II - 1] = Result->getDirection(II);
       }
     } else {
+      //  Dest->Srce
       for (unsigned II = 1; II <= Levels; ++II) {
         BackwardDV[II - 1] = Result->getDirection(II);
       }
-    }
-    DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-    DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
-    return true;
-  }
-
-  // (3) Leftmost is <
-  //     Srce->Dest
-
-  if (!Result->isReversed()) {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      ForwardDV[II - 1] = Result->getDirection(II);
-    }
-  }
-  //  Dest->Srce
-  else {
-    for (unsigned II = 1; II <= Levels; ++II) {
-      BackwardDV[II - 1] = Result->getDirection(II);
-    }
-
-    // A forward edge (=) is needed here
-    // do i1
-    //    do i2
-    //      a(-i1 + i2 + 25)=   (Src
-    //    end
-    //     = a(-i1 +25)         (Dst
-    // end
-    // This is done mostly for Loop Dist.
-    // Problem only shows up with single backward edge.
-    // For other loop Transformations, single edge of <= should be sufficent.
-    // Only needed for non-temps. Actually, for temps, if it comes here,
-    // The DV would be a *.
-
-    if ((!IsDstRval || !IsSrcRval) && (DstNum > SrcNum) && !IsTemp &&
-        (SrcLevels != Levels) && BackwardDV[Levels - 1] == DVKind::LE) {
-      for (unsigned II = 1; II < Levels; ++II) {
-        ForwardDV[II - 1] = Result->getDirection(II);
+      if ((!IsDstRval || !IsSrcRval) && (DstNum > SrcNum) && !IsTemp &&
+          (SrcLevels != Levels) && BackwardDV[Levels - 1] == DVKind::LE) {
+        setDVForLE(ForwardDV, BackwardDV, *Result, Levels);
       }
-      ForwardDV[Levels - 1] = DVKind::EQ;
-      BackwardDV[Levels - 1] = DVKind::LT;
     }
   }
 
-  DEBUG(dbgs() << "\nforward DV: "; ForwardDV.print(dbgs(), Levels));
-  DEBUG(dbgs() << "\nbackward DV: "; BackwardDV.print(dbgs(), Levels));
-
+L1:
+  populateDistanceVector(ForwardDV, BackwardDV, *Result, ForwardDistV,
+                         BackwardDistV, Levels);
+  printDirDistVectors(ForwardDV, BackwardDV, ForwardDistV, BackwardDistV,
+                      Levels);
   return true;
 }
 
@@ -5112,7 +5190,30 @@ void DirectionVector::print(raw_ostream &OS, unsigned Levels,
       OS << " ";
     }
   }
-  OS << ")\n";
+  OS << ") ";
+}
+
+void DistanceVector::setZero() {
+  // Construct all  0 (NONE)
+  fill(0);
+}
+
+void DistanceVector::print(raw_ostream &OS, unsigned Levels) const {
+  const DistanceVector &DistV = *this;
+
+  OS << "(";
+  for (unsigned II = 1; II <= Levels; ++II) {
+    DistTy Distance = DistV[II - 1];
+    if (Distance == UnknownDistance) {
+      OS << "?";
+    } else {
+      OS << +Distance;
+    }
+    if (II != Levels) {
+      OS << " ";
+    }
+  }
+  OS << ") ";
 }
 
 void DirectionVector::print(raw_ostream &OS, bool ShowLevelDetail) const {

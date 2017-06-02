@@ -1,6 +1,6 @@
 ; Test for interchange with 2 loops, make sure some of the delete are okay
-; 
-;		
+;
+;
 ;    for (i1=1; i1 <= n; i1++) {
 ;        for (i2=1; i2 <= 98; i2++) {
 ;            for (i3=1 ; i3 <= 97; i3++) {
@@ -16,11 +16,12 @@
 ;                        A[i5][i4][i3][i2+n][i1] =
 ;                            A[i5][i4][i3][i2+m][i1] + 1 ;
 ;
-; RUN: opt -O2 -loopopt  -hir-loop-interchange   < %s 2>&1 | FileCheck %s
+; REQUIRES: asserts
+; RUN: opt -debug -hir-ssa-deconstruction -hir-loop-interchange   < %s 2>&1 | FileCheck %s
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 2 3 4 5 1 )  
+; CHECK-SAME:  ( 2 3 4 5 1 )
 ; CHECK: Interchanged:
-; CHECK-SAME:  ( 1 3 4 5 2 )  
+; CHECK-SAME:  ( 1 3 4 5 2 )
 ;
 
 ; ModuleID = 'interchange4.c'
@@ -33,13 +34,19 @@ target triple = "x86_64-unknown-linux-gnu"
 define void @sub3(i64 %n, i64 %m) #0 {
 entry:
   %cmp.133 = icmp slt i64 %n, 1
-  br i1 %cmp.133, label %for.cond.36.preheader, label %for.cond.1.preheader
+  br i1 %cmp.133, label %for.cond.36.preheader, label %for.cond.1.preheader.preheader
 
-for.cond.1.preheader:                             ; preds = %entry, %for.inc.33
-  %i1.0134 = phi i64 [ %inc34, %for.inc.33 ], [ 1, %entry ]
+for.cond.1.preheader.preheader:                   ; preds = %entry
+  br label %for.cond.1.preheader
+
+for.cond.1.preheader:                             ; preds = %for.cond.1.preheader.preheader, %for.inc.33
+  %i1.0134 = phi i64 [ %inc34, %for.inc.33 ], [ 1, %for.cond.1.preheader.preheader ]
   br label %for.cond.4.preheader
 
-for.cond.36.preheader:                            ; preds = %for.inc.33, %entry
+for.cond.36.preheader.loopexit:                   ; preds = %for.inc.33
+  br label %for.cond.36.preheader
+
+for.cond.36.preheader:                            ; preds = %for.cond.36.preheader.loopexit, %entry
   %cmp40.126 = icmp slt i64 %n, 1
   br label %for.cond.39.preheader
 
@@ -86,7 +93,7 @@ for.inc.30:                                       ; preds = %for.inc.27
 for.inc.33:                                       ; preds = %for.inc.30
   %inc34 = add nuw nsw i64 %i1.0134, 1
   %exitcond143 = icmp eq i64 %i1.0134, %n
-  br i1 %exitcond143, label %for.cond.36.preheader, label %for.cond.1.preheader
+  br i1 %exitcond143, label %for.cond.36.preheader.loopexit, label %for.cond.1.preheader
 
 for.cond.39.preheader:                            ; preds = %for.inc.76, %for.cond.36.preheader
   %i2.1128 = phi i64 [ 1, %for.cond.36.preheader ], [ %inc77, %for.inc.76 ]
@@ -133,9 +140,12 @@ for.inc.70:                                       ; preds = %for.inc.67
 for.inc.73:                                       ; preds = %for.inc.70
   %inc74 = add nuw nsw i64 %i1.1127, 1
   %exitcond137 = icmp eq i64 %i1.1127, %n
-  br i1 %exitcond137, label %for.inc.76, label %for.cond.42.preheader
+  br i1 %exitcond137, label %for.inc.76.loopexit, label %for.cond.42.preheader
 
-for.inc.76:                                       ; preds = %for.inc.73, %for.cond.39.preheader
+for.inc.76.loopexit:                              ; preds = %for.inc.73
+  br label %for.inc.76
+
+for.inc.76:                                       ; preds = %for.inc.76.loopexit, %for.cond.39.preheader
   %inc77 = add nuw nsw i64 %i2.1128, 1
   %exitcond138 = icmp eq i64 %inc77, 99
   br i1 %exitcond138, label %for.end.78, label %for.cond.39.preheader

@@ -36,4 +36,5 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRVecDirInsertPass(Registry);
   initializeHIROptVarPredicatePass(Registry);
   initializeHIRIdiomRecognitionPass(Registry);
+  initializeHIRMVForConstUBPass(Registry);
 }

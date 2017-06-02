@@ -356,12 +356,20 @@ static const int svml_functions_num =  _IML_ATTR_SIZEOF_TABLE(FunctionDescriptio
 // exp2f implementation included here to avoid dependency on math library
 #include "llvm/Transforms/Intel_MapIntrinToIml/iml_exp2f.h"
 
-
+#if defined(__GNUC__)
+static const char* attrGetAccuracyName(AccuracyEnum a)
+                                      __attribute__((unused));
+#endif
 static const char* attrGetAccuracyName(AccuracyEnum a)
 {
     return valid_accuracy_names[a];
 }
 
+
+#if defined(__GNUC__)
+static const char* attrGetConfigName(ConfigurationsEnum c)
+                                         __attribute__((unused));
+#endif
 static const char* attrGetConfigName(ConfigurationsEnum c)
 {
   if(c == c_configuration_unsupported)
@@ -489,6 +497,8 @@ static int attrExternal2InternalAttr(
     int flag = 0;
     const char* aname = NULL;
     int attr_chosen = 0;
+
+    (void)aname; // Quiet unused variable warning.
 
     // search internal_attribute name within allowed names
     flag = IML_ATTR_get_name_index(external_attribute->name, valid_attributes_names, SUPPORTED_ATTRIBUTES_NUMBER);
@@ -1223,6 +1233,7 @@ const char* get_library_function_name(const char* func_base_name,
         PRN_MSG("%-32s: Function is integer, setting its accuracy to low %d\n", "get_library_function_name", function_description_user.accuracy );
     }
 
+    (void)valid_precision_names; // Quiet unused variable warning.
     PRN_MSG("%-32s: Func precision = %s\n", "get_library_function_name", valid_precision_names[function_description_user.precision+1] );
 
     PRN_MSG("%-32s: User requested attributes:\n", "get_library_function_name");
@@ -1323,7 +1334,6 @@ int may_i_use_inline_implementation(
     int i;
     int flag = 0;
     int function_description_compiler_variants_num = 0;
-    const char* result_string_pointer = NULL;
 
     // Storage for current function information
     FunctionDescriptionType     function_description_user;

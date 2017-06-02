@@ -327,20 +327,30 @@ private:
   /// FMF otherwise.
   static FastMathFlags parseFMF(const CmpInst *Cmp);
 
+  /// Parses llvm.dbg.* intrinsic and store info in the parent HLRegion.
+  bool parseDebugIntrinsic(HLInst *HInst);
+
+  /// Parses LLVM metadata and updates RegDDRef \p Ref.
+  static void parseMetadata(const Instruction *Inst, RegDDRef *Ref);
+
+  /// Parses LLVM instruction metadata and updates canon expr \p CE.
+  static void parseMetadata(const Instruction *Inst, CanonExpr *CE);
+
+  /// Helper function to call parseMetadata(const Instruction *, CanonExpr *).
+  static void parseMetadata(const Value *Val, CanonExpr *CE);
+
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions and returns predicates in \p Preds and DDRefs in \p Refs. \p
   /// AllowMultiplePreds indicates whether we should break '&&' conditions into
   /// different predicates.
   void parseCompare(const Value *Cond, unsigned Level,
-                    SmallVectorImpl<PredicateTy> &Preds,
-                    SmallVectorImpl<const CmpInst *> &CmpInsts,
+                    SmallVectorImpl<HLPredicate> &Preds,
                     SmallVectorImpl<RegDDRef *> &Refs, bool AllowMultiplePreds);
 
   /// Parses the i1 condition associated with conditional branches and select
   /// instructions into a single predicate.
-  void parseCompare(const Value *Cond, unsigned Level, PredicateTy *Pred,
-                    const CmpInst **Cmp, RegDDRef **LHSDDRef,
-                    RegDDRef **RHSDDRef);
+  void parseCompare(const Value *Cond, unsigned Level, HLPredicate *Pred,
+                    RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
 
   /// Clears blob level map populated for the previous DDRef.
   void clearTempBlobLevelMap();
@@ -349,10 +359,14 @@ private:
   void populateBlobDDRefs(RegDDRef *Ref, unsigned Level);
 
   /// Returns a RegDDRef representing loop lower (constant 0).
-  RegDDRef *createLowerDDRef(Type *IVType);
+  RegDDRef *createLowerDDRef(Type *IVType) {
+    return getDDRefUtils().createConstDDRef(IVType, 0);
+  }
 
-  /// Returns a RegDDRef representing loop stride with value \p Val.
-  RegDDRef *createStrideDDRef(Type *IVType, unsigned Val);
+  /// Returns a RegDDRef representing loop stride (constant 1).
+  RegDDRef *createStrideDDRef(Type *IVType) {
+    return getDDRefUtils().createConstDDRef(IVType, 1);
+  }
 
   /// Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
@@ -572,8 +586,15 @@ private:
 
   /// Replaces \p OldTempIndex by \p NewTempIndex in \p BlobIndex and returns
   /// the new blob in \p NewBlobIndex. Returns true if blob was replaced.
-  bool replaceTempBlob(unsigned BlobIndex, unsigned OldTempIndex,
-                       unsigned NewTempIndex, unsigned &NewBlobIndex);
+  bool replaceTempBlob(unsigned BlobIndex, unsigned TempIndex, BlobTy ByBlob,
+                       unsigned &NewBlobIndex, int64_t &SimplifiedConstant);
+
+  /// Replaces \p TempIndex by \p Constant in the \p BlobIndex blob. If the blob
+  /// becomes constant the \p NewBlobIndex will be assigned to InvalidBlobIndex
+  /// and \p SimplifiedConstant will contain a constant value.
+  bool replaceTempBlobByConstant(unsigned BlobIndex, unsigned TempIndex,
+                                 int64_t Constant, unsigned &NewBlobIndex,
+                                 int64_t &SimplifiedConstant);
 
   /// Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;

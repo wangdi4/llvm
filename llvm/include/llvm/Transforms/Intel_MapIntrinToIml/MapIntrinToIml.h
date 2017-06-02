@@ -99,13 +99,10 @@ private:
                                   SmallVectorImpl<Instruction *> &WorkList,
                                   Instruction **InsertPt);
 
-  /// \brief Add the AlwaysInline attribute to the function call.
-  void addAlwaysInlineAttribute(CallInst *CI);
-
   /// \brief Finds the stride attribute for the call argument and returns
   /// the type of load/store needed for code gen. This function also returns
   /// the StringRef for the stride value through the \p AttrValStr reference.
-  LoadStoreMode getLoadStoreModeForArg(AttributeSet &AS, unsigned ArgNo,
+  LoadStoreMode getLoadStoreModeForArg(AttributeList &AL, unsigned ArgNo,
                                        StringRef &AttrValStr);
 
   /// \brief Generate the store for the __svml_sincos variant based on the

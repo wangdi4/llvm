@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Support/Debug.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -30,8 +30,8 @@ void HLIf::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
-           RegDDRef *Ref2, FastMathFlags FMF)
+HLIf::HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
+           RegDDRef *Ref2)
     : HLDDNode(HNU, HLNode::HLIfVal) {
   assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
           (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
@@ -48,11 +48,8 @@ HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
   /// TODO: add check for type consistency (integer/float)
 
   ElseBegin = Children.end();
-  Predicates.push_back(FirstPred);
 
-  assert((!FMF.any() || CmpInst::isFPPredicate(FirstPred)) &&
-         "FastMathFlags are set on non-FP predicate");
-  PredFMFlags.push_back(FMF);
+  Predicates.push_back(FirstPred);
 
   initialize();
 
@@ -62,7 +59,7 @@ HLIf::HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1,
 
 HLIf::HLIf(const HLIf &HLIfObj)
     : HLDDNode(HLIfObj), Predicates(HLIfObj.Predicates),
-      PredFMFlags(HLIfObj.PredFMFlags) {
+      BranchDbgLoc(HLIfObj.BranchDbgLoc) {
   const RegDDRef *Ref;
   ElseBegin = Children.end();
   initialize();
@@ -130,7 +127,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     FirstPred = false;
-    AnyFMF = AnyFMF || getPredicateFMF(I).any();
+    AnyFMF = AnyFMF || I->FMF.any();
   }
 
   OS << ")";
@@ -138,7 +135,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
   if (Detailed && AnyFMF) {
     for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
       OS << " ";
-      printFMF(OS, getPredicateFMF(I));
+      printFMF(OS, I->FMF);
     }
   }
 }
@@ -232,8 +229,8 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
   return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                        FastMathFlags FMF) {
+void HLIf::addPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
+                        RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != PredicateTy::FCMP_FALSE) &&
          (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
@@ -249,25 +246,11 @@ void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
 
   Predicates.push_back(Pred);
 
-  assert((!FMF.any() || CmpInst::isFPPredicate(Pred)) &&
-         "FastMathFlags are set on non-FP predicate");
-  PredFMFlags.push_back(FMF);
-
   NumOp = getNumOperandsInternal();
   RegDDRefs.resize(NumOp, nullptr);
 
   setOperandDDRefImpl(Ref1, NumOp - 2);
   setOperandDDRefImpl(Ref2, NumOp - 1);
-}
-
-HLIf::FMFContainerTy::const_iterator
-HLIf::getPredicateFMFIter(const_pred_iterator CPredI) const {
-  return PredFMFlags.begin() + std::distance(pred_begin(), CPredI);
-}
-
-HLIf::FMFContainerTy::iterator
-HLIf::getPredicateFMFIter(const_pred_iterator CPredI) {
-  return PredFMFlags.begin() + std::distance(pred_begin(), CPredI);
 }
 
 HLIf::pred_iterator HLIf::getNonConstPredIterator(const_pred_iterator CPredI) {
@@ -294,14 +277,30 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
 
   /// Erase the predicate.
   Predicates.erase(PredI);
+}
 
-  PredFMFlags.erase(getPredicateFMFIter(PredI));
+void HLIf::replacePredicate(const_pred_iterator CPredI,
+                            const HLPredicate &NewPred) {
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  auto PredI = getNonConstPredIterator(CPredI);
+  *PredI = NewPred;
 }
 
 void HLIf::replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
-  *PredI = NewPred;
+  PredI->Kind = NewPred;
+}
+
+void HLIf::invertPredicate(const_pred_iterator CPredI) {
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  auto PredI = getNonConstPredIterator(CPredI);
+  auto PredKind = PredI->Kind;
+  
+  // Inversion is a no-op for undef predicate.
+  if (PredKind != UNDEFINED_PREDICATE) {
+    PredI->Kind = CmpInst::getInversePredicate(PredKind);
+  }
 }
 
 RegDDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator CPredI,
@@ -341,9 +340,6 @@ void HLIf::verify() const {
   assert(getNumPredicates() > 0 &&
          "HLIf should contain at least one predicate");
 
-  assert(getNumPredicates() == PredFMFlags.size() &&
-         "Number of PredFMFlags does not match a number of predicates");
-
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
     assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
             *I == UNDEFINED_PREDICATE) &&
@@ -367,8 +363,23 @@ void HLIf::verify() const {
          "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
 
   assert((hasThenChildren() || hasElseChildren()) &&
-           "Found an empty *IF* construction, assumption that there should be no "
-           "empty HLIfs");
+         "Found an empty *IF* construction, assumption that there should be no "
+         "empty HLIfs");
+
+  if (isUnknownLoopBottomTest()) {
+    if (auto Child = getFirstThenChild()) {
+      assert(isa<HLGoto>(Child) && "Unexpected bottom test structure!");
+      assert((Child == getLastThenChild()) &&
+             "Unexpected bottom test structure!");
+      assert(!hasElseChildren() && "Unexpected bottom test structure!");
+    } else {
+      Child = getFirstElseChild();
+      assert((Child && isa<HLGoto>(Child)) &&
+             "Unexpected bottom test structure!");
+      assert((Child == getLastElseChild()) &&
+             "Unexpected bottom test structure!");
+    }
+  }
 
   HLDDNode::verify();
 }
@@ -410,4 +421,9 @@ bool HLIf::isKnownPredicate(bool *IsTrue) const {
   }
 
   return true;
+}
+
+bool HLIf::isUnknownLoopBottomTest() const {
+  auto ParentLoop = dyn_cast<HLLoop>(getParent());
+  return (ParentLoop && (ParentLoop->getBottomTest() == this));
 }

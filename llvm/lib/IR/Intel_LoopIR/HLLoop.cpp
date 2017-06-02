@@ -19,8 +19,8 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -47,7 +47,7 @@ void HLLoop::initialize() {
 HLLoop::HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop)
     : HLDDNode(HNU, HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       NestingLevel(0), IsInnermost(true), IVType(nullptr), IsNSW(false),
-      LoopMetadata(LLVMLoop->getLoopID()), MaxTripCountEstimate(0) {
+      MaxTripCountEstimate(0) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -94,7 +94,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj)
       IVType(HLLoopObj.IVType), IsNSW(HLLoopObj.IsNSW),
       LiveInSet(HLLoopObj.LiveInSet), LiveOutSet(HLLoopObj.LiveOutSet),
       LoopMetadata(HLLoopObj.LoopMetadata),
-      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate) {
+      MaxTripCountEstimate(HLLoopObj.MaxTripCountEstimate),
+      CmpDbgLoc(HLLoopObj.CmpDbgLoc), BranchDbgLoc(HLLoopObj.BranchDbgLoc) {
 
   initialize();
 
@@ -373,10 +374,10 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                             FastMathFlags FMF) {
+void HLLoop::addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1,
+                             RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
-  Ztt->addPredicate(Pred, Ref1, Ref2, FMF);
+  Ztt->addPredicate(Pred, Ref1, Ref2);
 
   const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
@@ -409,20 +410,20 @@ void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
 }
 
 void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                                 const HLPredicate &NewPred) {
+  assert(hasZtt() && "Ztt is absent!");
+  Ztt->replacePredicate(CPredI, NewPred);
+}
+
+void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
                                  PredicateTy NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
 }
 
-FastMathFlags HLLoop::getZttPredicateFMF(const_ztt_pred_iterator CPredI) const {
+void HLLoop::invertZttPredicate(const_ztt_pred_iterator CPredI) {
   assert(hasZtt() && "Ztt is absent!");
-  return Ztt->getPredicateFMF(CPredI);
-}
-
-void HLLoop::setZttPredicateFMF(const_ztt_pred_iterator CPredI,
-                                FastMathFlags FMF) {
-  assert(hasZtt() && "Ztt is absent!");
-  Ztt->setPredicateFMF(CPredI, FMF);
+  Ztt->invertPredicate(CPredI);
 }
 
 RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
@@ -603,8 +604,8 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   if (!Result) {
     return nullptr;
   }
-  Result->addConstant(StrideConst, true);
   Result->divide(StrideConst);
+  Result->addConstant(StrideConst, true);
   Result->simplify(true);
   return Result;
 }
@@ -720,26 +721,40 @@ bool HLLoop::isNormalized() const {
   return true;
 }
 
-bool HLLoop::isConstTripLoop(uint64_t *TripCnt) const {
-
+bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+  bool ConstantTripLoop = false;
   int64_t TC;
-  std::unique_ptr<CanonExpr> TripCExpr(getTripCountCanonExpr());
 
-  if (TripCExpr.get() && TripCExpr->isIntConstant(&TC)) {
-    assert((TC != 0) && " Zero Trip Loop found!");
+  if (isNormalized()) {
+    const CanonExpr *UpperBound = getUpperCanonExpr();
 
-    if (TripCnt) {
-      // This signed to unsigned conversion should be safe as all the negative
-      // trip counts which fit in signed 64 bits have been converted to postive
-      // integers by parser. Reinterpreting negative signed 64 values (which are
-      // outside the range) as an unsigned 64 bit value is correct for trip
-      // counts.
-      *TripCnt = TC;
+    if (UpperBound->isIntConstant(&TC)) {
+      ConstantTripLoop = true;
+      TC += 1;
     }
-    return true;
+  } else {
+    if (CanonExprUtils::getConstDistance(getUpperCanonExpr(),
+                                         getLowerCanonExpr(), &TC)) {
+      TC /= getStrideCanonExpr()->getConstant();
+      TC += 1;
+
+      ConstantTripLoop = true;
+    }
   }
 
-  return false;
+  assert((AllowZeroTripCnt || !ConstantTripLoop || (TC != 0)) &&
+         " Zero Trip Loop found!");
+
+  if (ConstantTripLoop && TripCnt) {
+    // This signed to unsigned conversion should be safe as all the negative
+    // trip counts which fit in signed 64 bits have been converted to postive
+    // integers by parser. Reinterpreting negative signed 64 values (which are
+    // outside the range) as an unsigned 64 bit value is correct for trip
+    // counts.
+    *TripCnt = TC;
+  }
+
+  return ConstantTripLoop;
 }
 
 void HLLoop::createZtt(RegDDRef *LHS, PredicateTy Pred, RegDDRef *RHS,
@@ -791,7 +806,7 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   // The following call is required because self-blobs do not have BlobDDRefs.
   // +1 operation could make non-self blob a self-blob and wise versa.
   // For example if UB is (%b - 1) or (%b).
-  SmallVector<const RegDDRef *, 1> Aux = { getUpperDDRef() };
+  SmallVector<const RegDDRef *, 1> Aux = {getUpperDDRef()};
   UBRef->makeConsistent(&Aux);
 }
 
@@ -850,7 +865,12 @@ void HLLoop::removePostexit() {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  if (!isUnknown()) {
+  if (isUnknown()) {
+    assert(getHeaderLabel() && "Could not find header label of unknown loop!");
+    assert(getBottomTest() && "Could not find bottom test of unknown loop!");
+    assert(!hasZtt() && "ZTT not expected for unknown loops!");
+
+  } else {
     auto StrideCE = getStrideDDRef()->getSingleCanonExpr();
     (void)StrideCE;
 
@@ -862,7 +882,7 @@ void HLLoop::verify() const {
 
     int64_t Val;
     assert((StrideCE->isIntConstant(&Val) && (Val > 0)) &&
-         "Loop stride expected to be a postive integer!");
+           "Loop stride expected to be a postive integer!");
     (void)Val;
 
     assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
@@ -1069,10 +1089,9 @@ bool HLLoop::normalize() {
     llvm_unreachable("[HIR-NORMALIZE] Can not subtract L from U");
   }
 
-
   RegDDRef *UpperRef = getUpperDDRef();
   RegDDRef *LowerRef = getLowerDDRef();
-  SmallVector<const RegDDRef *, 2> Aux = { LowerRef, UpperRef };
+  SmallVector<const RegDDRef *, 2> Aux = {LowerRef, UpperRef};
 
   UpperCE->divide(Stride);
   UpperCE->simplify(true);
@@ -1129,4 +1148,30 @@ bool HLLoop::normalize() {
   LoopsNormalized++;
 
   return true;
+}
+
+HLIf *HLLoop::getBottomTest() {
+  if (!isUnknown()) {
+    return nullptr;
+  }
+
+  auto LastChild = getLastChild();
+
+  assert(LastChild && isa<HLIf>(LastChild) &&
+         "Could not find bottom test for unknown loop!");
+
+  return cast<HLIf>(LastChild);
+}
+
+HLLabel *HLLoop::getHeaderLabel() {
+  if (!isUnknown()) {
+    return nullptr;
+  }
+
+  auto FirstChild = getFirstChild();
+
+  assert(FirstChild && isa<HLLabel>(FirstChild) &&
+         "Could not find bottom test for unknown loop!");
+
+  return cast<HLLabel>(FirstChild);
 }

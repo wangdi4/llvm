@@ -7,6 +7,7 @@
 ; It checks LICM to hoist invariant load out of loop using Andersens
 ; points-to info. 
 ; RUN: opt < %s -S -anders-aa -licm -disable-output -stats 2>&1 | grep "1 licm"
+; REQUIRES: asserts
 
 
 @A = common global [100 x i32] zeroinitializer, align 16

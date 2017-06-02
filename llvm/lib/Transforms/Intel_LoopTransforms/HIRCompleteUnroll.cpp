@@ -47,6 +47,7 @@
 
 #include "HIRCompleteUnroll.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
 
 #include "llvm/ADT/Statistic.h"
 
@@ -144,6 +145,7 @@ static cl::opt<float> MaxThresholdScalingFactor(
 void HIRCompleteUnroll::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<HIRFramework>();
+  AU.addRequiredTransitive<HIRLoopStatistics>();
 }
 
 /// Visitor to update the CanonExpr.
@@ -189,6 +191,8 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   const HLLoop *CurLoop;
   const HLLoop *OuterLoop;
 
+  unsigned LoopNestTripCount;
+
   unsigned Cost;
   unsigned Savings;
   // Cost/Savings of GEP refs.
@@ -213,8 +217,10 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
   DenseMap<unsigned, unsigned> &SimplifiedTempBlobs;
 
   // Keep track of invariant GEP refs that have been visited to avoid
-  // duplicating savings.
-  SmallVector<const RegDDRef *, 16> VisitedLinearGEPRefs;
+  // duplicating savings. If ref can be simplified to a constant, we store the
+  // savings in the second field of the pair as this has to be accounted for
+  // every occurence of the ref.
+  SmallVector<std::pair<const RegDDRef *, unsigned>, 16> VisitedLinearGEPRefs;
 
   // Structure to store blob related info.
   struct BlobInfo {
@@ -235,11 +241,15 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 
   // Private constructor used for children loops.
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
-                        const HLLoop *OuterLp,
+                        const HLLoop *OuterLp, unsigned ParentLoopNestTripCount,
                         DenseMap<unsigned, unsigned> &SimplifiedBlobs)
       : HCU(HCU), CurLoop(CurLp), OuterLoop(OuterLp), Cost(0), Savings(0),
         GEPCost(0), GEPSavings(0), NumMemRefs(0), NumDDRefs(0),
-        SimplifiedTempBlobs(SimplifiedBlobs) {}
+        SimplifiedTempBlobs(SimplifiedBlobs) {
+    auto Iter = HCU.AvgTripCount.find(CurLp);
+    assert((Iter != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
+    LoopNestTripCount = (ParentLoopNestTripCount * Iter->second);
+  }
 
   /// Populates rem blobs present in \p Ref in \p RemBlobs. Returns the max
   /// level of any non-rem blob and populates max non-simplified blob in \p
@@ -249,11 +259,23 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
                    SmallVectorImpl<std::pair<unsigned, unsigned>> &RemBlobs,
                    unsigned &MaxNonSimplifiedBlobLevel) const;
 
-  /// Returns true if linear \p Ref has been visited already.
-  bool visited(const RegDDRef *Ref);
+  /// Returns the resulting number of unique occurences of \p Ref on completely
+  /// unrolling the loopnest.
+  unsigned computeUniqueOccurences(const RegDDRef *Ref,
+                                   unsigned &BaseCost) const;
 
-  /// Adds additional cost associated with a GEP ref.
-  void addGEPCost(const RegDDRef *Ref);
+  /// Returns true if \p Ref indexes into a constant array.
+  bool isConstantArrayRef(const RegDDRef *Ref) const;
+
+  /// Adds additional cost associated with a GEP ref. \p CanSimplifySubs
+  /// indicates that all the subscripts can be simplified to constants.
+  /// Returns true if \p Ref can be simplified to a constant.
+  bool addGEPCost(const RegDDRef *Ref, bool IsMemRef, bool IsLinear,
+                  bool CanSimplifySubs);
+
+  /// Returns true if linear \p Ref has been visited already. Sets \p IsLinear
+  /// to true if the ref is linear but has not been added to visited set.
+  bool visited(const RegDDRef *Ref, bool &IsLinear);
 
   /// Processes RegDDRef for profitability. Returns true if Ref can be
   /// simplified to a constant.
@@ -320,7 +342,7 @@ class HIRCompleteUnroll::ProfitabilityAnalyzer final
 public:
   ProfitabilityAnalyzer(const HIRCompleteUnroll &HCU, const HLLoop *CurLp,
                         DenseMap<unsigned, unsigned> &SimplifiedTempBlobs)
-      : ProfitabilityAnalyzer(HCU, CurLp, CurLp, SimplifiedTempBlobs) {}
+      : ProfitabilityAnalyzer(HCU, CurLp, CurLp, 1, SimplifiedTempBlobs) {}
 
   // Main interface of the analyzer.
   void analyze();
@@ -538,7 +560,8 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::isProfitable() const {
 
 void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLLoop *Lp) {
   // Analyze child loop.
-  ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop, SimplifiedTempBlobs);
+  ProfitabilityAnalyzer PA(HCU, Lp, OuterLoop, LoopNestTripCount,
+                           SimplifiedTempBlobs);
   PA.analyze();
 
   // Add the result of child loop profitability analysis.
@@ -632,18 +655,21 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::visit(const HLDDNode *Node) {
     }
   }
 
-  // Ignore load/store/gep/copy instructions as all the cost has been accounted
+  // Ignore store/gep/copy instructions as all the cost has been accounted
   // for in refs.
+  // NOTE: load instructions can be simplified if the load is from a constant
+  // array.
   // TODO: we may have additional register move cost but is it significant?
-  if (Inst && (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) ||
-               isa<GetElementPtrInst>(Inst) || HInst->isCopyInst())) {
+  if (Inst && (isa<StoreInst>(Inst) || isa<GetElementPtrInst>(Inst) ||
+               HInst->isCopyInst())) {
     return;
   }
 
   // Add 1 to cost/savings based on whether candidate can be simplified.
   if (CanSimplifyRvals) {
     ++Savings;
-  } else {
+  } else if (!Inst || !isa<LoadInst>(Inst)) {
+    // Cost of load has already been accounted for.
     ++Cost;
   }
 }
@@ -685,66 +711,26 @@ unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::populateRemBlobs(
   return MaxNonRemBlobLevel;
 }
 
-bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref) {
-  if (!Ref->hasGEPInfo()) {
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::isConstantArrayRef(
+    const RegDDRef *Ref) const {
+
+  auto BaseCE = Ref->getBaseCE();
+
+  if (!BaseCE->isSelfBlob()) {
     return false;
   }
 
-  unsigned DefLevel = Ref->getDefinedAtLevel();
+  auto Val =
+      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
 
-  if (DefLevel == NonLinearLevel) {
-    return false;
-  }
+  auto GlobalVar = dyn_cast<GlobalVariable>(Val);
 
-  for (auto VisitedRef : VisitedLinearGEPRefs) {
-    if (DDRefUtils::areEqual(Ref, VisitedRef)) {
-      return true;
-    }
-  }
-
-  VisitedLinearGEPRefs.push_back(Ref);
-  return false;
+  return (GlobalVar && GlobalVar->isConstant());
 }
 
-void HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(const RegDDRef *Ref) {
-  assert(Ref->hasGEPInfo() && "GEP ref expected!");
+unsigned HIRCompleteUnroll::ProfitabilityAnalyzer::computeUniqueOccurences(
+    const RegDDRef *Ref, unsigned &BaseCost) const {
 
-  unsigned BaseCost = Ref->isMemRef() ? 2 : 1;
-
-  // Self blob refs shouldn't affect cost/savings.
-  // processCanonExpr(Ref->getBaseCE(), Ref);
-
-  // iterations. Consider this case-
-  // DO i1 = 0, 10
-  //   DO i2 = 0, 5
-  //     A[i2] =
-  //   END DO
-  // END DO
-  //
-  // Unrolling of the i1 loopnest will yield redundant loads of A[i2] for each
-  // i1 loop iteration.
-  //
-  // Another example with a rem blob-
-  //
-  // DO i1 = 0, 5
-  //   %rem = i1 % 2;
-  //   A[%rem]
-  // END DO
-  //
-  // A[%rem] can yield at most two different memory locations due to the rem
-  // operation in a loop with a trip count of 6. So there are (6 - 2) = 4
-  // redundant memory accesses.
-  //
-  // This is just an estimate as computing redundancies accurately is
-  // mathematically complicated.
-  // There are additional kinds of redundancies currently not taken into
-  // account.
-  // For example-
-  // 1) Subscripts containing multiple IVs.
-  // 2) Subscripts with a combination of IV and rem blobs.
-
-  const HLLoop *OutermostLoop = OuterLoop->getParentLoop();
-  unsigned TotalOccurences = 1;
   unsigned UniqueOccurences = 0;
   unsigned MaxNonSimplifiedBlobLevel = 0;
   SmallVector<std::pair<unsigned, unsigned>, 4> RemBlobs;
@@ -752,18 +738,19 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(const RegDDRef *Ref) {
   unsigned MaxNonRemBlobLevel =
       populateRemBlobs(Ref, RemBlobs, MaxNonSimplifiedBlobLevel);
 
-  // Add additional penalty for non-linear refs.
   if (MaxNonSimplifiedBlobLevel == CurLoop->getNestingLevel()) {
+    // Add additional penalty for non-linear refs.
     ++BaseCost;
+    return LoopNestTripCount;
   }
 
-  // Accumulate cost/savings of ref based on how redundant it is across loop
+  const HLLoop *OutermostLoop = OuterLoop->getParentLoop();
+
+  // Compute unique occurences of ref based on its structure.
   for (const HLLoop *ParentLoop = CurLoop; ParentLoop != OutermostLoop;
        ParentLoop = ParentLoop->getParentLoop()) {
     auto TCIt = HCU.AvgTripCount.find(ParentLoop);
     assert((TCIt != HCU.AvgTripCount.end()) && "Trip count of loop not found!");
-
-    TotalOccurences *= TCIt->second;
 
     unsigned Level = ParentLoop->getNestingLevel();
 
@@ -803,23 +790,111 @@ void HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(const RegDDRef *Ref) {
   }
 
   // This can happen if rem factor is greater than trip count.
-  if (UniqueOccurences > TotalOccurences) {
-    UniqueOccurences = TotalOccurences;
+  if (UniqueOccurences > LoopNestTripCount) {
+    UniqueOccurences = LoopNestTripCount;
   }
 
-  GEPCost += (UniqueOccurences * BaseCost);
-  GEPSavings += ((TotalOccurences - UniqueOccurences) * BaseCost);
+  return UniqueOccurences;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::addGEPCost(
+    const RegDDRef *Ref, bool IsMemRef, bool IsLinear, bool CanSimplifySubs) {
+  assert(Ref->hasGEPInfo() && "GEP ref expected!");
+
+  unsigned BaseCost = IsMemRef ? 2 : 1;
+
+  // Here we account for savings from redundancies in GEP refs exposed due to
+  // complete unroll.
+  //
+  // Consider this case-
+  // DO i1 = 0, 10
+  //   DO i2 = 0, 5
+  //     A[i2] =
+  //   END DO
+  // END DO
+  //
+  // Unrolling of the i1 loopnest will yield redundant loads of A[i2] for each
+  // i1 loop iteration.
+  //
+  // Another example with a rem blob-
+  //
+  // DO i1 = 0, 5
+  //   %rem = i1 % 2;
+  //   A[%rem] =
+  // END DO
+  //
+  // A[%rem] can yield at most two different memory locations due to the rem
+  // operation in a loop with a trip count of 6. So there are (6 - 2) = 4
+  // redundant memory accesses.
+  //
+  // This is just an estimate as computing redundancies accurately is
+  // mathematically complicated.
+  // There are additional kinds of redundancies currently not taken into
+  // account.
+  // For example-
+  // 1) Subscripts containing multiple IVs.
+  // 2) Subscripts with a combination of IV and rem blobs.
+
+  unsigned SimplifiedToConstSavings = 0;
+
+  bool CanSimplifyToConst =
+      (IsMemRef && CanSimplifySubs && isConstantArrayRef(Ref));
+
+  if (CanSimplifyToConst) {
+    // Everything goes to savings for refs which can be simplified to constants.
+    SimplifiedToConstSavings = (LoopNestTripCount * BaseCost);
+    GEPSavings += SimplifiedToConstSavings;
+
+  } else {
+    unsigned UniqueOccurences = computeUniqueOccurences(Ref, BaseCost);
+    GEPCost += (UniqueOccurences * BaseCost);
+    GEPSavings += ((LoopNestTripCount - UniqueOccurences) * BaseCost);
+  }
+
+  if (IsLinear) {
+    // Add linear refs to visited set to avoid duplicate processing.
+    VisitedLinearGEPRefs.emplace_back(Ref, SimplifiedToConstSavings);
+  }
+
+  return CanSimplifyToConst;
+}
+
+bool HIRCompleteUnroll::ProfitabilityAnalyzer::visited(const RegDDRef *Ref,
+                                                       bool &IsLinear) {
+  if (!Ref->hasGEPInfo()) {
+    return false;
+  }
+
+  unsigned DefLevel = Ref->getDefinedAtLevel();
+
+  if (DefLevel == NonLinearLevel) {
+    return false;
+  }
+
+  for (auto VisitedPair : VisitedLinearGEPRefs) {
+    if (DDRefUtils::areEqual(Ref, VisitedPair.first)) {
+      // Simplified to const savings should be included for every occurence.
+      GEPSavings += VisitedPair.second;
+      return true;
+    }
+  }
+
+  IsLinear = true;
+  return false;
 }
 
 bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
 
   bool CanSimplify = true;
+  bool IsLinear = false;
+  bool IsMemRef = false;
 
   if (Ref->isMemRef()) {
+    IsMemRef = true;
     ++NumMemRefs;
   }
 
-  if (visited(Ref)) {
+  if (visited(Ref, IsLinear)) {
     return false;
   }
 
@@ -831,8 +906,7 @@ bool HIRCompleteUnroll::ProfitabilityAnalyzer::processRef(const RegDDRef *Ref) {
   }
 
   if (Ref->hasGEPInfo()) {
-    CanSimplify = false;
-    addGEPCost(Ref);
+    CanSimplify = addGEPCost(Ref, IsMemRef, IsLinear, CanSimplify);
   }
 
   return CanSimplify;
@@ -1114,6 +1188,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
 
   auto HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
@@ -1369,21 +1444,24 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from outer to inner.
   for (auto &Loop : CandidateLoops) {
-    // Generate code for the parent region and invalidate parent
-    Loop->getParentRegion()->setGenCode();
-    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
-    HLNode *Parent = Loop->getParent();
-    HLLoop *ParentLoop = Loop->getParentLoop();
+    bool HasIfs = HLS->getTotalLoopStatistics(Loop).hasIfs();
+
+    auto Reg = Loop->getParentRegion();
+    HLNode *ParentNode = Loop->getParentLoop();
+    if (!ParentNode) {
+      ParentNode = Reg;
+    }
+
+    // Generate code for the parent region and invalidate parent
+    Reg->setGenCode();
+    HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(Loop);
 
     transformLoop(Loop, Loop, TripValues);
 
-    if (ParentLoop) {
-      HIRTransformUtils::eliminateRedundantPredicates(ParentLoop->child_begin(),
-                                                      ParentLoop->child_end());
+    if (HasIfs) {
+      HLNodeUtils::removeRedundantNodes(ParentNode);
     }
-    // complete unroll can produce empty ifs.
-    HLNodeUtils::removeEmptyNodes(Parent);
   }
 }
 

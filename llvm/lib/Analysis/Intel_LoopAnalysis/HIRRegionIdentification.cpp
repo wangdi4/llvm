@@ -19,6 +19,7 @@
 
 #include "llvm/Support/Debug.h"
 
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/InstVisitor.h"
 #include "llvm/IR/IntrinsicInst.h"
 
@@ -126,7 +127,7 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
       }
       Ty = SeqTy->getElementType();
     } else {
-      Ty = Ty->getPointerElementType(); 
+      Ty = Ty->getPointerElementType();
     }
   }
 
@@ -151,7 +152,8 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
 bool HIRRegionIdentification::containsUnsupportedTy(const GEPOperator *GEPOp) {
   SmallVector<Value *, 8> Operands;
 
-  auto BaseTy = cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
+  auto BaseTy =
+      cast<PointerType>(GEPOp->getPointerOperandType())->getElementType();
 
   if (!isSupported(BaseTy)) {
     return true;
@@ -210,13 +212,20 @@ HIRRegionIdentification::findIVDefInHeader(const Loop &Lp,
   }
 
   for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    if (auto OPInst = dyn_cast<Instruction>(I)) {
+    if (auto OpInst = dyn_cast<Instruction>(I)) {
+
       // Instruction lies outside the loop.
-      if (!Lp.contains(LI->getLoopFor(OPInst->getParent()))) {
+      if (!Lp.contains(LI->getLoopFor(OpInst->getParent()))) {
         continue;
       }
 
-      auto IVNode = findIVDefInHeader(Lp, OPInst);
+      // Skip backedges.
+      // This can happen for outer unknown loops.
+      if (DT->dominates(Inst, OpInst)) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OpInst);
 
       if (IVNode) {
         return IVNode;
@@ -278,6 +287,16 @@ public:
 
 bool HIRRegionIdentification::CostModelAnalyzer::visitBasicBlock(
     const BasicBlock &BB) {
+
+  auto BBInstCount = BB.size();
+
+  // Bail out early instead of analyzing each individual instruction.
+  if ((BBInstCount + InstCount) > MaxInstThreshold) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of too "
+                    "many statements.\n");
+    return false;
+  }
+
   for (auto &Inst : BB) {
     if (!visit(const_cast<Instruction &>(Inst))) {
       return false;
@@ -438,7 +457,8 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
   return true;
 }
 
-bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
+bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
+                                                 bool IsUnknown) const {
 
   if (!CostModelThrottling) {
     return false;
@@ -449,10 +469,39 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp) const {
     return false;
   }
 
+  // Only handle standalone single bblock unknown loops for now. We don't do
+  // much for outer unknown loops except prefetching which isn't ready yet.
+  // Inner unknown loops are throttled for compile time reasons.
+  if (IsUnknown && ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
+                    "time reasons.\n");
+    return true;
+  }
+
   CostModelAnalyzer CMA(*this, Lp);
   CMA.analyze();
 
   return !CMA.isProfitable();
+}
+
+bool HIRRegionIdentification::isDebugMetadataOnly(MDNode *Node) {
+  unsigned Ops = Node->getNumOperands();
+  if (Ops == 1) {
+    return isa<DILocation>(Node) || isa<DINode>(Node);
+  }
+
+  for (unsigned I = 0; I < Ops; ++I) {
+    MDNode *OpNode = dyn_cast<MDNode>(Node->getOperand(I));
+    if (OpNode == Node) {
+      continue;
+    }
+
+    if (!OpNode || !isDebugMetadataOnly(OpNode)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 bool HIRRegionIdentification::isReachableFromImpl(
@@ -654,8 +703,10 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // Skip loop with vectorize/unroll pragmas for now so that tests checking for
-  // these are not affected. Allow SIMD loops.
-  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && Lp.getLoopID()) {
+  // these are not affected. Allow SIMD loops and dbg metadata.
+  MDNode *LoopID = Lp.getLoopID();
+  if (!DisablePragmaBailOut && !isSIMDLoop(Lp) && LoopID &&
+      !isDebugMetadataOnly(LoopID)) {
     DEBUG(
         dbgs()
         << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
@@ -664,18 +715,21 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   auto BECount = SE->getBackedgeTakenCount(&Lp);
 
-  // Don't handle unknown loops for now.
-  if (isa<SCEVCouldNotCompute>(BECount)) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
-    return false;
-  }
-
   auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
 
   if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with undef backedge taken count "
                     "currently not supported.\n");
+    return false;
+  }
+
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+  // This represents a trip count of 2^n while we can only handle a trip count
+  // up to 2^n-1.
+  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
+                    "IV range currently not supported.\n");
     return false;
   }
 
@@ -714,6 +768,12 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // Check whether the loop contains irreducible CFG before calling
+  // findIVDefInHeader() otherwise it may loop infinitely.
+  if (!areBBlocksGenerable(Lp)) {
+    return false;
+  }
+
   auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
 
   if (!IVNode) {
@@ -732,11 +792,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  if (!areBBlocksGenerable(Lp)) {
-    return false;
-  }
-
-  if (shouldThrottleLoop(Lp)) {
+  if (shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
     return false;
   }
 

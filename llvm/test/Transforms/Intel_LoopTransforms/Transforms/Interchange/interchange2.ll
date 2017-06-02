@@ -1,10 +1,11 @@
 ;  test for Interchange
 ;  No Interchange expected 
-;   for (i=1; i <= 1001; i++) {
+;   for (i=1; i < 900; i++) {
 ;        for (j=1; j <= 96; j++) {
 ;            A[j][i] = A[j+m][i+n] + 1; 
-;  
-; RUN: opt -O2  -loopopt  -hir-loop-interchange  < %s 2>&1 | FileCheck %s
+;
+; REQUIRES: asserts   
+; RUN: opt -debug -hir-ssa-deconstruction -hir-loop-interchange  < %s 2>&1 | FileCheck %s
 ; CHECK-NOT: Interchanged:
 ;
 ; ModuleID = 'interchange2.c'
@@ -38,7 +39,7 @@ for.body.3:                                       ; preds = %for.body.3, %for.co
 
 for.inc.9:                                        ; preds = %for.body.3
   %inc10 = add nuw nsw i64 %i.020, 1
-  %exitcond21 = icmp eq i64 %inc10, 1002
+  %exitcond21 = icmp eq i64 %inc10, 900
   br i1 %exitcond21, label %for.end.11, label %for.cond.1.preheader
 
 for.end.11:                                       ; preds = %for.inc.9

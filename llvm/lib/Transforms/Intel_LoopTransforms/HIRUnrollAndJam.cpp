@@ -322,7 +322,7 @@ FunctionPass *llvm::createHIRUnrollAndJamPass() {
 }
 
 bool LegalityChecker::isLegal() {
-  CandidateLoop->getHLNodeUtils().visitRange(
+  HLNodeUtils::visitRange(
       *this, CandidateLoop->child_begin(), CandidateLoop->child_end());
   return IsLegal;
 }
@@ -658,7 +658,7 @@ void HIRUnrollAndJam::Analyzer::postVisit(HLLoop *Lp) {
 }
 
 void HIRUnrollAndJam::Analyzer::analyze(HLLoop *Lp) {
-  Lp->getHLNodeUtils().visit(*this, Lp);
+  HLNodeUtils::visit(*this, Lp);
 }
 
 void HIRUnrollAndJam::sanitizeOptions() {
@@ -790,6 +790,19 @@ void CanonExprUpdater::processCanonExpr(CanonExpr *CExpr, bool IsTerminal) {
   CExpr->simplify(IsTerminal);
 }
 
+void patchIntermediateBottomTest(HLIf *BottomTest, unsigned LoopLevel,
+                                 HLLabel *ExitLabel) {
+
+  auto PredIter = BottomTest->pred_begin();
+  auto FirstChild = BottomTest->getFirstThenChild();
+
+  auto Goto = cast<HLGoto>(FirstChild);
+
+  // Invert predicate and make it jump to ExitLabel.
+  BottomTest->invertPredicate(PredIter);
+  Goto->setTargetLabel(ExitLabel);
+}
+
 void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
                     bool NeedRemainderLoop, LoopMapTy *LoopMap) {
   auto OrigInnermostLoop = OrigLoop;
@@ -812,16 +825,39 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
     OrigInnermostLoop = OrigInnerLoop;
   }
 
+  bool IsUnknownLoop = (OrigLoop == NewInnermostLoop);
+  HLLabel *ExitLabel = nullptr;
+
   auto OrigFirstChild = OrigInnermostLoop->getFirstChild();
   auto OrigLastChild = OrigInnermostLoop->getLastChild();
+
+  if (IsUnknownLoop) {
+    // Extract postexit before adding an exit label.
+    NewInnermostLoop->extractPostexit();
+
+    // Insert exit label.
+    ExitLabel = HNU.createHLLabel("loopexit");
+    HNU.insertAfter(NewInnermostLoop, ExitLabel);
+
+    // Skip loop label cloning.
+    OrigFirstChild = OrigFirstChild->getNextNode();
+  }
 
   // Container for cloning body.
   HLContainerTy LoopBody;
 
   unsigned UnrollTrip = NeedRemainderLoop ? UnrollFactor : UnrollFactor - 1;
   unsigned UnrollCnt = 0;
+  unsigned LoopLevel = OrigLoop->getNestingLevel();
 
-  CanonExprUpdater CEUpdater(OrigLoop->getNestingLevel(), UnrollFactor);
+  CanonExprUpdater CEUpdater(LoopLevel, UnrollFactor);
+
+  HLNode *MarkerNode = HNU.getOrCreateMarkerNode();
+
+  // Replace loop by marker node, until we are done populating it so we can
+  // insert all the nodes in one go.
+  // This saves multiple topsort num recalculations.
+  HNU.replace(NewInnermostLoop, MarkerNode);
 
   // Loop through original loop children and create new children with updated
   // References based on unroll factor.
@@ -836,16 +872,24 @@ void unrollMainLoop(HLLoop *OrigLoop, HLLoop *MainLoop, unsigned UnrollFactor,
     HNU.insertAsLastChildren(NewInnermostLoop, &LoopBody);
     CEUpdater.setUnrollCount(UnrollCnt);
     HNU.visitRange(CEUpdater, CurFirstChild, CurLastChild);
+
+    if (IsUnknownLoop) {
+      patchIntermediateBottomTest(cast<HLIf>(CurLastChild), LoopLevel,
+                                  ExitLabel);
+    }
   }
 
   // Move over original loop's children to the new loop for the last unrolled
   // iteration.
   if (!NeedRemainderLoop) {
-    HNU.moveAsLastChildren(NewInnermostLoop, OrigInnermostLoop->child_begin(),
-                           OrigInnermostLoop->child_end());
+    HNU.moveAsLastChildren(NewInnermostLoop, OrigFirstChild->getIterator(),
+                           std::next(OrigLastChild->getIterator()));
     CEUpdater.setUnrollCount(UnrollCnt);
     HNU.visitRange(CEUpdater, OrigFirstChild, OrigLastChild);
   }
+
+  // Insert loop back in HIR.
+  HNU.replace(MarkerNode, NewInnermostLoop);
 }
 
 void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
@@ -853,15 +897,23 @@ void unrollLoopImpl(HLLoop *Loop, unsigned UnrollFactor, LoopMapTy *LoopMap) {
   assert((UnrollFactor > 1) && "Invalid unroll factor!");
 
   bool NeedRemainderLoop = false;
+  bool IsUnknownLoop = Loop->isUnknown();
+  HLLoop *MainLoop = nullptr;
 
-  // Create the unrolled main loop and setup remainder loop.
-  HLLoop *MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(
-      Loop, UnrollFactor, NeedRemainderLoop);
+  if (IsUnknownLoop) {
+    MainLoop = Loop;
+    MainLoop->getParentRegion()->setGenCode();
+    MainLoop->setNumExits(MainLoop->getNumExits() * UnrollFactor);
+  } else {
+    // Create the unrolled main loop and setup remainder loop.
+    MainLoop = HIRTransformUtils::setupMainAndRemainderLoops(Loop, UnrollFactor,
+                                                             NeedRemainderLoop);
+  }
 
   unrollMainLoop(Loop, MainLoop, UnrollFactor, NeedRemainderLoop, LoopMap);
 
   // If a remainder loop is not needed get rid of the OrigLoop at this point.
-  if (!NeedRemainderLoop) {
+  if (!NeedRemainderLoop && !IsUnknownLoop) {
     Loop->getHLNodeUtils().remove(Loop);
   }
 }

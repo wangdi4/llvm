@@ -488,18 +488,18 @@ void HIRLocalityAnalysis::computeLoopNestLocality(
 
   RefGroupVecTy RefGroups;
   // Get the Symbase to Memory References.
-  ConstMemRefGatherer::MapTy MemRefMap;
-  ConstMemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
+  LocalityRefGatherer::MapTy MemRefMap;
+  LocalityRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(),
                                    MemRefMap);
 
   // Debugging
-  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
+  DEBUG(LocalityRefGatherer::dump(MemRefMap));
 
   // Sort the Memory References.
-  ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
+  LocalityRefGatherer::sortAndUnique(MemRefMap, true);
 
   DEBUG(dbgs() << " After sorting and removing dups\n");
-  DEBUG(ConstMemRefGatherer::dump(MemRefMap));
+  DEBUG(LocalityRefGatherer::dump(MemRefMap));
   DEBUG(dbgs() << " End\n");
 
   initTripCountByLevel(LoopVec);
@@ -511,7 +511,7 @@ void HIRLocalityAnalysis::computeLoopNestLocality(
 
     // Copy the MemRefMap as it will be modified as the loop locality is
     // computed.
-    ConstMemRefGatherer::MapTy LoopMemRefMap = MemRefMap;
+    LocalityRefGatherer::MapTy LoopMemRefMap = MemRefMap;
 
     // Create Groupings based on index.
 
@@ -564,7 +564,7 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
   unsigned Level = Lp->getNestingLevel();
 
   RefGroupVecTy RefGroups;
-  ConstMemRefGatherer::MapTy MemRefMap;
+  LocalityRefGatherer::MapTy MemRefMap;
 
   // Clear existing locality and trip count info.
   LocalityByLevel[Level - 1].clear();
@@ -572,9 +572,9 @@ uint64_t HIRLocalityAnalysis::getTemporalLocality(const HLLoop *Lp,
   // temporal invariant locality uses multiplication factor of (TripCount - 1).
   TripCountByLevel[Level - 1] = 2;
 
-  ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);
-  ConstMemRefGatherer::sortAndUnique(MemRefMap, true);
+  LocalityRefGatherer::sortAndUnique(MemRefMap, true);
 
   // Create groups with max possible reuse distance.
   DDRefGrouping::groupMap(RefGroups, MemRefMap,
@@ -593,12 +593,12 @@ void HIRLocalityAnalysis::populateTemporalLocalityGroups(
     const HLLoop *Lp, unsigned ReuseThreshold, RefGroupVecTy &TemporalGroups) {
   assert(Lp && " Loop parameter is null!");
 
-  ConstMemRefGatherer::MapTy MemRefMap;
+  LocalityRefGatherer::MapTy MemRefMap;
 
-  ConstMemRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
+  LocalityRefGatherer::gatherRange(Lp->child_begin(), Lp->child_end(),
                                    MemRefMap);
 
-  ConstMemRefGatherer::sort(MemRefMap);
+  LocalityRefGatherer::sort(MemRefMap);
 
   DDRefGrouping::groupMap(TemporalGroups, MemRefMap,
                           std::bind(isTemporalMatch, std::placeholders::_1,

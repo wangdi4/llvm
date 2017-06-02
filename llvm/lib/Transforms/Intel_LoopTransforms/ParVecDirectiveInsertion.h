@@ -39,6 +39,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     ParVecInfo::AnalysisMode Mode;
     /// \brief Status flag to indicate whether we modified the HIR or not.
     bool Inserted;
+    HLNode *SkipNode;
 
     /// \brief Insert auto-vec directives to the loop.
     void insertVecDirectives(HLLoop *L, const ParVecInfo *Info);
@@ -62,6 +63,10 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     void visit(HLLoop *L);
     /// \brief Returns true if directive is inserted for at least one loop.
     bool getInserted() { return Inserted; }
+
+    bool skipRecursion(const HLNode *Node) const override {
+      return Node == SkipNode;
+    }
   };
 
 public:

@@ -100,6 +100,12 @@ private:
     // getAllMetadata() in Instruction.h.
     MDNodesTy MDNodes;
 
+    // Debug location of the GEP instruction.
+    DebugLoc GepDbgLoc;
+
+    // Debug location of the load/store instruction.
+    DebugLoc MemDbgLoc;
+
     // Comparators to sort MDNodes.
     struct MDKindCompareLess;
     struct MDKindCompareEqual;
@@ -189,6 +195,10 @@ protected:
   /// \brief Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
   void updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel);
+
+  /// Implementes populateTempBlobIndices() and populateTempBlobSymbases().
+  void populateTempBlobImpl(SmallVectorImpl<unsigned> &Blobs,
+                            bool GetIndices) const;
 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
@@ -338,6 +348,19 @@ public:
     getGEPInfo()->Alignment = Align;
   }
 
+  // Get/Set DebugLoc for the Load/Store instruction
+  const DebugLoc &getMemDebugLoc() const { return getGEPInfo()->MemDbgLoc; }
+  void setMemDebugLoc(const DebugLoc &Loc) { getGEPInfo()->MemDbgLoc = Loc; }
+
+  // Get/Set DebugLoc for the GEP instruction
+  const DebugLoc &getGepDebugLoc() const { return getGEPInfo()->GepDbgLoc; }
+  void setGepDebugLoc(const DebugLoc &Loc) { getGEPInfo()->GepDbgLoc = Loc; }
+
+  // Wrapper method to return relevant debug location.
+  const DebugLoc &getDebugLoc() const {
+    return isAddressOf() ? getGepDebugLoc() : getMemDebugLoc();
+  }
+
   /// \brief Extract and submit AA metadata
   void getAAMetadata(AAMDNodes &AANodes) const;
   void setAAMetadata(AAMDNodes &AANodes);
@@ -444,6 +467,9 @@ public:
     return BlobDDRefs.rbegin();
   }
   const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
+
+  bool hasBlobDDRefs() const { return !BlobDDRefs.empty(); }
+  unsigned numBlobDDRefs() const { return BlobDDRefs.size(); }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef *Ref) {
@@ -637,6 +663,19 @@ public:
   /// \brief Collects all the unique temp blobs present in the DDRef by visiting
   /// all the contained canon exprs.
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const;
+
+  /// In contrast to collectTempBlobIndices(), this function assumes the ref is
+  /// in a consistent state. Therefore it populates the vector using blob ddrefs
+  /// attached to the ref which is a more efficient approach.
+  void populateTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const {
+    populateTempBlobImpl(Indices, true);
+  }
+
+  /// Same as populateTempBlobIndices() above except that it populates symbases
+  /// instead of indices.
+  void populateTempBlobSymbases(SmallVectorImpl<unsigned> &Symbases) const {
+    populateTempBlobImpl(Symbases, false);
+  }
 
   /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in the
   /// associated canon exprs and populates NewBlobs with BlobDDRefs which have

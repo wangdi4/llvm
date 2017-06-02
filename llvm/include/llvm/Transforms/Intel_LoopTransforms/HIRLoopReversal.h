@@ -35,7 +35,7 @@
 namespace llvm {
 namespace loopopt {
 
-class DirectionVector;
+struct DirectionVector;
 class HIRDDAnalysis;
 class HIRLoopStatistics;
 class HIRSafeReductionAnalysis;

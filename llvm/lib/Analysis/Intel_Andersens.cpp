@@ -2530,14 +2530,14 @@ void AndersensAAResult::HVNValNum(unsigned NodeIndex) {
           N->PredEdges = new SparseBitVector<>;
         *(N->PredEdges) |= CycleNode->PredEdges;
         delete CycleNode->PredEdges;
-        CycleNode->PredEdges = NULL;
+        CycleNode->PredEdges = nullptr;
       }
       if (CycleNode->ImplicitPredEdges) {
         if (!N->ImplicitPredEdges)
           N->ImplicitPredEdges = new SparseBitVector<>;
         *(N->ImplicitPredEdges) |= CycleNode->ImplicitPredEdges;
         delete CycleNode->ImplicitPredEdges;
-        CycleNode->ImplicitPredEdges = NULL;
+        CycleNode->ImplicitPredEdges = nullptr;
       }
 
       SCCStack.pop();
@@ -2736,20 +2736,20 @@ void AndersensAAResult::Condense(unsigned NodeIndex) {
 
       *(N->PointsTo) |= CycleNode->PointsTo;
       delete CycleNode->PointsTo;
-      CycleNode->PointsTo = NULL;
+      CycleNode->PointsTo = nullptr;
       if (CycleNode->PredEdges) {
         if (!N->PredEdges)
           N->PredEdges = new SparseBitVector<>;
         *(N->PredEdges) |= CycleNode->PredEdges;
         delete CycleNode->PredEdges;
-        CycleNode->PredEdges = NULL;
+        CycleNode->PredEdges = nullptr;
       }
       if (CycleNode->ImplicitPredEdges) {
         if (!N->ImplicitPredEdges)
           N->ImplicitPredEdges = new SparseBitVector<>;
         *(N->ImplicitPredEdges) |= CycleNode->ImplicitPredEdges;
         delete CycleNode->ImplicitPredEdges;
-        CycleNode->ImplicitPredEdges = NULL;
+        CycleNode->ImplicitPredEdges = nullptr;
       }
       SCCStack.pop();
     }
@@ -2812,7 +2812,7 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
       --GraphNodes[j].NumInEdges;
       if (!GraphNodes[j].NumInEdges && !GraphNodes[j].StoredInHash) {
         delete GraphNodes[j].PointsTo;
-        GraphNodes[j].PointsTo = NULL;
+        GraphNodes[j].PointsTo = nullptr;
       }
     }
   // If this isn't a direct node, generate a fresh variable.
@@ -2824,7 +2824,7 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
   // equivalence class.
   if (N->PointsTo->empty()) {
     delete N->PointsTo;
-    N->PointsTo = NULL;
+    N->PointsTo = nullptr;
   } else {
     if (N->Direct) {
       N->PointerEquivLabel = Set2PEClass[N->PointsTo];
@@ -2982,9 +2982,9 @@ void AndersensAAResult::HCD() {
   }
 
   for (unsigned i = 0; i < GraphNodes.size(); ++i)
-    if (GraphNodes[i].Edges != NULL) {
+    if (GraphNodes[i].Edges != nullptr) {
       delete GraphNodes[i].Edges;
-      GraphNodes[i].Edges = NULL;
+      GraphNodes[i].Edges = nullptr;
     }
 
   while( !SCCStack.empty() )
@@ -3097,9 +3097,9 @@ void AndersensAAResult::OptimizeConstraints() {
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     Node *N = &GraphNodes[i];
     delete N->PredEdges;
-    N->PredEdges = NULL;
+    N->PredEdges = nullptr;
     delete N->ImplicitPredEdges;
-    N->ImplicitPredEdges = NULL;
+    N->ImplicitPredEdges = nullptr;
   }
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
@@ -3132,13 +3132,13 @@ void AndersensAAResult::OptimizeConstraints() {
     if (FindNode(i) == i) {
       Node *N = &GraphNodes[i];
       delete N->PointsTo;
-      N->PointsTo = NULL;
+      N->PointsTo = nullptr;
       delete N->PredEdges;
-      N->PredEdges = NULL;
+      N->PredEdges = nullptr;
       delete N->ImplicitPredEdges;
-      N->ImplicitPredEdges = NULL;
+      N->ImplicitPredEdges = nullptr;
       delete N->PointedToBy;
-      N->PointedToBy = NULL;
+      N->PointedToBy = nullptr;
     }
   }
 
@@ -3241,7 +3241,9 @@ bool AndersensAAResult::QueryNode(unsigned Node) {
   // worklist to be processed.
   if (OurDFS == Tarjan2DFS[Node]) {
     while (!SCCStack.empty() && Tarjan2DFS[SCCStack.top()] >= OurDFS) {
-      Node = UniteNodes(Node, SCCStack.top());
+      // CQ415669: SCCStack.top() node may have been collapsed by HCD.
+      // So, get Rep of SCCStack.top().
+      Node = UniteNodes(Node, FindNode(SCCStack.top()));
 
       SCCStack.pop();
       Merged = true;
@@ -3487,7 +3489,7 @@ void AndersensAAResult::SolveConstraints() {
     
     // Add to work list if it's a representative and can contribute to the
     // calculation right now.
-    while( (CurrNode = CurrWL->pop()) != NULL ) {
+    while( (CurrNode = CurrWL->pop()) != nullptr ) {
       CurrNodeIndex = CurrNode - &GraphNodes[0];
       CurrNode->Stamp();
       
@@ -3781,9 +3783,9 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
   delete SecondNode->OldPointsTo;
   delete SecondNode->Edges;
   delete SecondNode->PointsTo;
-  SecondNode->Edges = NULL;
-  SecondNode->PointsTo = NULL;
-  SecondNode->OldPointsTo = NULL;
+  SecondNode->Edges = nullptr;
+  SecondNode->PointsTo = nullptr;
+  SecondNode->OldPointsTo = nullptr;
 
   NumUnified++;
   //errs() << "Unified Node ";

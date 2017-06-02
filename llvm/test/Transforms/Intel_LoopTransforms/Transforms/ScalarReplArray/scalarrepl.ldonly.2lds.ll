@@ -17,6 +17,11 @@
 ;  return A[0] + A[1] + 1;
 ;}
 ;
+
+; MemRefGroup: { A[i], A[i+1] }
+;                      MaxLD                
+; GapTracker:  {R_    R_      }      
+
 ; 
 ; CHECK: IR Dump Before HIR Scalar Repl
 ;

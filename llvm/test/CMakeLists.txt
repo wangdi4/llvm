@@ -45,6 +45,7 @@ set(LLVM_TEST_DEPENDS
           llvm-config
           llvm-cov
           llvm-cxxdump
+          llvm-cvtres
           llvm-diff
           llvm-dis
           llvm-dsymutil
@@ -79,6 +80,9 @@ set(LLVM_TEST_DEPENDS
           verify-uselistorder
           yaml-bench
           yaml2obj
+#if INTEL_CUSTOMIZATION
+          intelovls-test
+#endif
         )
 
 if(TARGET llvm-lto)

@@ -31,7 +31,7 @@ class HLLoop;
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
 class HLIf final : public HLDDNode {
 public:
-  typedef SmallVector<PredicateTy, 2> PredicateContainerTy;
+  typedef SmallVector<HLPredicate, 2> PredicateContainerTy;
   typedef HLContainerTy ChildNodeTy;
 
   /// Iterators to iterate over predicates
@@ -59,9 +59,6 @@ private:
   /// implicit AND conjunction.
   PredicateContainerTy Predicates;
 
-  typedef SmallVector<FastMathFlags, 2> FMFContainerTy;
-  FMFContainerTy PredFMFlags;
-
   /// Contains both then and else children, in that order.
   /// Having a single container allows for more efficient and cleaner
   /// implementation of insert(Before/After) and remove(Before/After).
@@ -69,9 +66,12 @@ private:
   /// Iterator pointing to the begining of else children.
   ChildNodeTy::iterator ElseBegin;
 
+  // Branch debug location.
+  DebugLoc BranchDbgLoc;
+
 protected:
-  HLIf(HLNodeUtils &HNU, PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2,
-       FastMathFlags FMF = FastMathFlags());
+  HLIf(HLNodeUtils &HNU, const HLPredicate &FirstPred, RegDDRef *Ref1,
+       RegDDRef *Ref2);
 
   /// \brief Copy constructor used by cloning.
   HLIf(const HLIf &HLIfObj);
@@ -91,14 +91,6 @@ protected:
   /// predicate.
   unsigned getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
                                           bool IsLHS) const;
-
-  /// Returns the const iterator for correspondent FMF.
-  FMFContainerTy::const_iterator
-  getPredicateFMFIter(const_pred_iterator CPredI) const;
-
-  /// Returns the iterator for correspondent FMF.
-  FMFContainerTy::iterator
-  getPredicateFMFIter(const_pred_iterator CPredI);
 
   /// \brief Returns non-const iterator version of const_pred_iterator.
   pred_iterator getNonConstPredIterator(const_pred_iterator CPredI);
@@ -224,8 +216,7 @@ public:
   unsigned getNumOperands() const override;
 
   /// \brief Adds new predicate in HLIf.
-  void addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                    FastMathFlags FMF = FastMathFlags());
+  void addPredicate(const HLPredicate &Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   /// Example-
@@ -239,7 +230,13 @@ public:
   void removePredicate(const_pred_iterator CPredI);
 
   /// \brief Replaces existing predicate pointed to by CPredI, by NewPred.
+  void replacePredicate(const_pred_iterator CPredI, const HLPredicate &NewPred);
+
+  /// \brief Replaces existing PredicateTy in CPredI, by NewPred.
   void replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred);
+
+  /// \brief Inverts PredicateTy in CPredI.
+  void invertPredicate(const_pred_iterator CPredI);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -254,14 +251,6 @@ public:
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
   RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
-
-  FastMathFlags getPredicateFMF(const_pred_iterator CPredI) const {
-    return *getPredicateFMFIter(CPredI);
-  }
-
-  void setPredicateFMF(const_pred_iterator CPredI, FastMathFlags FMF) {
-    *getPredicateFMFIter(CPredI) = FMF;
-  }
 
   /// \brief Returns true if \p Node is contained inside *then* or *else* branch
   /// of the HLIf.
@@ -279,6 +268,12 @@ public:
   /// Returns true if the HLIf is known to always compute to the specific
   /// result, which is returned to the \p IsTrue.
   bool isKnownPredicate(bool *IsTrue = nullptr) const;
+
+  const DebugLoc getDebugLoc() const override { return BranchDbgLoc; }
+  void setDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
+
+  /// Returns true if this is the bottom test of its parent unknown loop.
+  bool isUnknownLoopBottomTest() const;
 };
 
 } // End namespace loopopt

@@ -500,7 +500,6 @@ bool DDUtils::maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
 
   assert(LvalRef && LvalRef->isLval() && "DDRef must be lval");
   assert(Loop && "Loop  must be supplied");
-  auto &HNU = Loop->getHLNodeUtils();
 
   unsigned NumUse = 0;
   for (auto I1 = DDG.outgoing_edges_begin(LvalRef),
@@ -510,7 +509,7 @@ bool DDUtils::maxUsesInLoop(const RegDDRef *LvalRef, const HLLoop *Loop,
     DDRef *DDRefSink = (*I1)->getSink();
 
     // Skip Sink outside loop, including prehdr/postexit
-    if (!(HNU.contains(Loop, DDRefSink->getHLDDNode()))) {
+    if (!(HLNodeUtils::contains(Loop, DDRefSink->getHLDDNode()))) {
       continue;
     }
 

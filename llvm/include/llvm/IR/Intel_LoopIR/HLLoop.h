@@ -110,6 +110,12 @@ private:
 
   uint64_t MaxTripCountEstimate;
 
+  // Bottom test debug location.
+  DebugLoc CmpDbgLoc;
+
+  // Back-edge branch debug location.
+  DebugLoc BranchDbgLoc;
+
 protected:
   HLLoop(HLNodeUtils &HNU, const Loop *LLVMLoop);
   HLLoop(HLNodeUtils &HNU, HLIf *ZttIf, RegDDRef *LowerDDRef,
@@ -125,7 +131,7 @@ protected:
   HLLoop &operator=(HLLoop &&Lp);
 
   friend class HLNodeUtils;
-  friend class HIRParser; // accesses ZTT
+  friend class HIRParser;         // accesses ZTT
   friend class HIRTransformUtils; // For compile-time, allow permuteLoopNests()
                                   // to modify HLLoop internals.
 
@@ -173,9 +179,6 @@ protected:
   /// pretty print like ztt, innermost flag etc.
   void printDetails(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const;
-
-  /// Set or replace !llvm.loop metadata.
-  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
 
   void addRemoveLoopMetadataImpl(ArrayRef<MDNode *> MDs, StringRef *RemoveID);
 
@@ -268,22 +271,20 @@ public:
   }
 
   /// Adds new predicate in ZTT.
-  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2,
-                       FastMathFlags FMF = FastMathFlags());
+  void addZttPredicate(const HLPredicate &Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// Replaces existing ztt predicate pointed to by CPredI, by NewPred.
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                           const HLPredicate &NewPred);
+
+  /// Replaces PredicateTy in CPredI by NewPred.
   void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
 
-  /// Returns the fast math flags for the existing ztt predicate pointed by \p
-  /// CPredI.
-  FastMathFlags getZttPredicateFMF(const_ztt_pred_iterator CPredI) const;
-
-  /// Sets fast math flags for the existing ztt predicate pointed to by \p
-  /// CPredI.
-  void setZttPredicateFMF(const_ztt_pred_iterator CPredI, FastMathFlags FMF);
+  /// Inverts PredicateTy in CPredI.
+  void invertZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -327,7 +328,7 @@ public:
   }
 
   /// Sets the DDRef associated with loop upper bound.
-  void setUpperDDRef(RegDDRef *Ref){
+  void setUpperDDRef(RegDDRef *Ref) {
     assert((!Ref || Ref->isTerminalRef()) && "Invalid UpperDDRef!");
     setOperandDDRefImpl(Ref, 1);
   }
@@ -383,7 +384,8 @@ public:
 
   /// Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
-  bool isConstTripLoop(uint64_t *TripCnt = nullptr) const;
+  bool isConstTripLoop(uint64_t *TripCnt = nullptr,
+                       bool AllowZeroTripCount = false) const;
 
   /// Returns true if this is an unknown loop.
   bool isUnknown() const {
@@ -391,19 +393,15 @@ public:
     assert(StrideRef && "Stride ref is null!");
     int64_t Val;
 
-    // Stride is 0 for unknown loops. 
+    // Stride is 0 for unknown loops.
     return (StrideRef->isIntConstant(&Val) && (Val == 0));
   }
 
   /// Returns true if this is a do loop.
-  bool isDo() const {
-    return ((NumExits == 1) && !isUnknown());
-  }
+  bool isDo() const { return ((NumExits == 1) && !isUnknown()); }
 
   /// Returns true if this is a do multi-exit loop.
-  bool isDoMultiExit() const {
-    return ((NumExits > 1) && !isUnknown());
-  }
+  bool isDoMultiExit() const { return ((NumExits > 1) && !isUnknown()); }
 
   /// Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
@@ -433,9 +431,7 @@ public:
   pre_iterator pre_end() { return ChildBegin; }
   const_pre_iterator pre_end() const { return ChildBegin; }
 
-  reverse_pre_iterator pre_rbegin() {
-    return ChildBegin.getReverse();
-  }
+  reverse_pre_iterator pre_rbegin() { return ChildBegin.getReverse(); }
   const_reverse_pre_iterator pre_rbegin() const {
     return ChildBegin.getReverse();
   }
@@ -480,9 +476,7 @@ public:
 
   reverse_post_iterator post_rbegin() { return Children.rbegin(); }
   const_reverse_post_iterator post_rbegin() const { return Children.rbegin(); }
-  reverse_post_iterator post_rend() {
-    return PostexitBegin.getReverse();
-  }
+  reverse_post_iterator post_rend() { return PostexitBegin.getReverse(); }
   const_reverse_post_iterator post_rend() const {
     return PostexitBegin.getReverse();
   }
@@ -685,6 +679,9 @@ public:
     addLiveOutTemp(NewSymbase);
   }
 
+  /// Set or replace !llvm.loop metadata.
+  void setLoopMetadata(MDNode *MD) { LoopMetadata = MD; }
+
   /// Returns !llvm.loop metadata associated with the Loop.
   MDNode *getLoopMetadata() const { return LoopMetadata; }
 
@@ -710,6 +707,28 @@ public:
 
   bool canNormalize() const;
   bool normalize();
+
+  const DebugLoc &getCmpDebugLoc() const { return CmpDbgLoc; }
+  void setCmpTestDebugLoc(const DebugLoc &Loc) { CmpDbgLoc = Loc; }
+
+  const DebugLoc &getBranchDebugLoc() const { return BranchDbgLoc; }
+  void setBranchDebugLoc(const DebugLoc &Loc) { BranchDbgLoc = Loc; }
+
+  const DebugLoc getDebugLoc() const override { return getBranchDebugLoc(); }
+
+  /// Returns the bottom test node for the loop. It is null for non-unknown
+  /// loops.
+  HLIf *getBottomTest();
+  const HLIf *getBottomTest() const {
+    return const_cast<HLLoop *>(this)->getBottomTest();
+  }
+
+  /// Returns the header label for the loop. It is null for non-unknown
+  /// loops.
+  HLLabel *getHeaderLabel();
+  const HLLabel *getHeaderLabel() const {
+    return const_cast<HLLoop *>(this)->getHeaderLabel();
+  }
 };
 
 } // End namespace loopopt

@@ -20,6 +20,7 @@
 #include "llvm/CodeGen/PBQPRAConstraint.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
 #include "llvm/CodeGen/ScheduleDAGMutation.h"
+#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CodeGen.h"
 #include <memory>
@@ -143,6 +144,9 @@ public:
   /// TargetLowering preference). It does not yet disable the postRA scheduler.
   virtual bool enableMachineScheduler() const;
 
+  /// \brief Support printing of [latency:throughput] comment in output .S file.
+  virtual bool supportPrintSchedInfo() const { return false; }
+
   /// \brief True if the machine scheduler should disable the TLI preference
   /// for preRA scheduling with the source level scheduler.
   virtual bool enableMachineSchedDefaultSched() const { return true; }
@@ -227,7 +231,7 @@ public:
   /// Please use MachineRegisterInfo::subRegLivenessEnabled() instead where
   /// possible.
   virtual bool enableSubRegLiveness() const { return false; }
-  
+
 #if INTEL_CUSTOMIZATION
   /// Check whether the subtarget has the requested feature.
   /// Currently implemented only by the x86 target.
@@ -235,6 +239,10 @@ public:
     return false;
   }
 #endif // INTEL_CUSTOMIZATION
+
+  /// Returns string representation of scheduler comment
+  std::string getSchedInfoStr(const MachineInstr &MI) const override;
+  std::string getSchedInfoStr(MCInst const &MCI) const override;
 };
 
 } // end namespace llvm

@@ -37,7 +37,7 @@
 ;<54>            + END LOOP
 ;          END REGION
 
-; CHECK-CG: region:
+; CHECK-CG: region.0:
 
 ; look in first then block
 ; CHECK-CG: then{{.*}}:
