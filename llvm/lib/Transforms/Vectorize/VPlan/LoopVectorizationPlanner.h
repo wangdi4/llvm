@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.h -------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -17,7 +17,7 @@
 #ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZATIONPLANNER_H
 
-#include "./IntelVPlan.h"
+#include "IntelVPlan.h"
 #include "llvm/ADT/DenseMap.h"
 
 namespace llvm {

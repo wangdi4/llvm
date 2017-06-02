@@ -1,6 +1,6 @@
 //===-- LoopVectorizationPlanner.cpp --------------------------------------===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -147,7 +147,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
 
-  VPTransformState State{BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal};
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
