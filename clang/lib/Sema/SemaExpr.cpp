@@ -3946,6 +3946,9 @@ static void captureVariablyModifiedType(ASTContext &Context, QualType T,
     case Type::ObjCInterface:
     case Type::ObjCObjectPointer:
     case Type::ObjCTypeParam:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       llvm_unreachable("type class is never variably-modified!");
     case Type::Adjusted:

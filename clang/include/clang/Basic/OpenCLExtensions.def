@@ -79,6 +79,10 @@ OPENCLEXT_INTERNAL(cl_clang_storage_class_specifiers, 100, ~0U)
 OPENCLEXT_INTERNAL(cl_amd_media_ops, 100, ~0U)
 OPENCLEXT_INTERNAL(cl_amd_media_ops2, 100, ~0U)
 
+#if INTEL_CUSTOMIZATION
+OPENCLEXT_INTERNAL(cl_altera_channels, 120, ~0U)
+#endif // INTEL_CUSTOMIZATION
+
 #undef OPENCLEXT_INTERNAL
 
 #ifdef OPENCLEXT

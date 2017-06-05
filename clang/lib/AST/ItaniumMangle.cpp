@@ -1916,6 +1916,9 @@ bool CXXNameMangler::mangleUnresolvedTypeOrSimpleId(QualType Ty,
   case Type::ObjCObjectPointer:
   case Type::ObjCTypeParam:
   case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     llvm_unreachable("type is illegal as a nested name specifier");
 
@@ -3310,6 +3313,14 @@ void CXXNameMangler::mangleType(const PipeType *T) {
   // <type> ::= 8ocl_pipe
   Out << "8ocl_pipe";
 }
+
+#if INTEL_CUSTOMIZATION
+void CXXNameMangler::mangleType(const ChannelType *T) {
+  // <type> ::= 11ocl_channel
+  Out << "11ocl_channel";
+  mangleType(T->getElementType());
+}
+#endif // INTEL_CUSTOMIZATION
 
 void CXXNameMangler::mangleIntegerLiteral(QualType T,
                                           const llvm::APSInt &Value) {

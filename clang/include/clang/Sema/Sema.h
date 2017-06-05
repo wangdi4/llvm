@@ -1402,6 +1402,11 @@ public:
   QualType BuildAtomicType(QualType T, SourceLocation Loc);
   QualType BuildReadPipeType(QualType T,
                          SourceLocation Loc);
+#if INTEL_CUSTOMIZATION
+  QualType BuildChannelType(QualType T,
+                            SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
+
   QualType BuildWritePipeType(QualType T,
                          SourceLocation Loc);
 

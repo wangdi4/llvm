@@ -174,6 +174,9 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<AtomicType> AtomicTypes;
   llvm::FoldingSet<AttributedType> AttributedTypes;
   mutable llvm::FoldingSet<PipeType> PipeTypes;
+#if INTEL_CUSTOMIZATION
+  mutable llvm::FoldingSet<ChannelType> ChannelTypes;
+#endif // INTEL_CUSTOMIZATION
 
   mutable llvm::FoldingSet<QualifiedTemplateName> QualifiedTemplateNames;
   mutable llvm::FoldingSet<DependentTemplateName> DependentTemplateNames;
@@ -1178,6 +1181,10 @@ public:
   QualType getReadPipeType(QualType T) const;
   /// \brief Return a write_only pipe type for the specified type.
   QualType getWritePipeType(QualType T) const;
+
+#if INTEL_CUSTOMIZATION
+  QualType getChannelType(QualType T) const;
+#endif // INTEL_CUSTOMIZATION
 
   /// Gets the struct used to keep track of the extended descriptor for
   /// pointer to blocks.
