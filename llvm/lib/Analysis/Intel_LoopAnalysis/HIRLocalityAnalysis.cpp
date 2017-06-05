@@ -123,9 +123,8 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
 
     for (auto Lp : OutermostLoops) {
 
-      if (Lp->isInnermost() ||
-          !HLNodeUtils::isPerfectLoopNest(Lp, nullptr, false, false, true,
-                                          nullptr)) {
+      if (Lp->isInnermost() || !HLNodeUtils::isPerfectLoopNest(
+                                   Lp, nullptr, false, false, true, nullptr)) {
         continue;
       }
 
@@ -315,8 +314,6 @@ void HIRLocalityAnalysis::computeNumNoLocalityCacheLines(
         IVCoeff *= 4;
       }
 
-      IVCoeff /= CE->getDenominator();
-
       // Dimension size is not available for the highest dimension so we assume
       // TripCnt number of elements.
       unsigned NumElem = TripCnt;
@@ -327,10 +324,15 @@ void HIRLocalityAnalysis::computeNumNoLocalityCacheLines(
         NumElem += TripCnt / 2;
       }
 
-      // Total bytes accessed is determined by multiplying IV coefficient,
-      // stride of the dimension and assumed number of elements in the
-      // dimension.
-      DimSize = IVCoeff * Ref->getDimensionStride(I) * NumElem;
+      auto Denom = CE->getDenominator();
+
+      // Calculate the number of actual accesses of Ref based on IV coefficient,
+      // denominator and number of elements. The access is assumed to be
+      // contiguous for simplicity. For example, for A[i/2] with loop trip count
+      // of 5, the number of accesses are 3: A[0], A[1] and A[2].
+      auto NumAccesses = ((IVCoeff * (NumElem - 1)) / Denom) + 1;
+
+      DimSize = NumAccesses * Ref->getDimensionStride(I);
     }
 
     // (CacheLineSize - 1) is added to take the ceiling.
