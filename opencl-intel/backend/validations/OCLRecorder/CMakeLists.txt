@@ -50,9 +50,9 @@ set (OCL_RECORDER_SOURCE_FILES
 
 # Resources
 if (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES
-    ocl_recorder.rc
-  )
+  set (OCL_RECORDER_RESOURCE_FILES ocl_recorder.rc)
+else (WIN32)
+  set (OCL_RECORDER_RESOURCE_FILES)
 endif (WIN32)
 
 # Add include directories

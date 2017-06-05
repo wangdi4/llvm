@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2012 Intel Corporation
+// Copyright (c) 2006-2017 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -24,15 +24,9 @@
 #ifdef RC_INVOKED
 
 VS_VERSION_INFO VERSIONINFO
-FILEVERSION    4,0,BUILDVERSION16BIT_MAJOR,BUILDVERSION16BIT_MINOR
-PRODUCTVERSION 4,0,BUILDVERSION16BIT_MAJOR,BUILDVERSION16BIT_MINOR
+FILEVERSION    PRODUCTVERSION_MAJOR,PRODUCTVERSION_MINOR,BUILDVERSION16BIT_MAJOR,BUILDVERSION16BIT_MINOR
+PRODUCTVERSION PRODUCTVERSION_MAJOR,PRODUCTVERSION_MINOR,BUILDVERSION16BIT_MAJOR,BUILDVERSION16BIT_MINOR
 FILETYPE       VFT_DLL
-
-#ifdef _WIN64
-#define VER_DLLNAME            "IntelOpenCL64.dll"
-#else
-#define VER_DLLNAME            "IntelOpenCL32.dll"
-#endif 
 
 BEGIN
     BLOCK "StringFileInfo"
@@ -41,12 +35,18 @@ BEGIN
         BEGIN
             VALUE "FileDescription" ,"Intel(R) OpenCL(TM) Common Runtime Driver\0"
             VALUE "ProductName"     ,"Intel(R) OpenCL(TM) SDK"
-            VALUE "LegalCopyright"  ,"Copyright \251 2010 Intel Corporation.  All rights reserved."
+            VALUE "LegalCopyright"  ,"Copyright \251 2017 Intel Corporation.  All rights reserved."
             VALUE "FileVersion"     ,VERSIONSTRING
             VALUE "ProductVersion"  ,VERSIONSTRING
+
             VALUE "CompanyName"     ,"Intel Corporation"
-            VALUE "InternalName"    ,"OpenCL SDK"
-            VALUE "OriginalFilename", VER_DLLNAME
+#ifdef _WIN64
+            VALUE "InternalName"    ,"IntelOpenCL64"
+            VALUE "OriginalFilename","IntelOpenCL64.dll"
+#else
+            VALUE "InternalName"    ,"IntelOpenCL32"
+            VALUE "OriginalFilename","IntelOpenCL32.dll"
+#endif
         END
     END
 
