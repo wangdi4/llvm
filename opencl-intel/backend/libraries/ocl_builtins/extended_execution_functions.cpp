@@ -178,8 +178,8 @@ get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
 // For sub-groups emulation this query returns 'one' if a kernel can execute a requested work-group size and 'zero' otherwise.
 uint __attribute__((overloadable)) __attribute__((always_inline))
   get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
-                                         void(^block)(local void *, ...)) {
-  uint maxWGSize = get_kernel_work_group_size(block);
+                                         void(^__block_)(local void *, ...)) {
+  uint maxWGSize = get_kernel_work_group_size(__block_);
   size_t prod = 1;
   for (unsigned int i = 0; i < ndrange.workDimension; ++i)
       prod *= ndrange.localWorkSize[i];
@@ -210,8 +210,8 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
 // If the work-group size is greater than maximum possible for a given kernel then result is zero.
 uint __attribute__((overloadable)) __attribute__((always_inline))
   get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
-                                            void(^block)(local void *, ...)) {
-  uint maxWGSize = get_kernel_work_group_size(block);
+                                            void(^__block_)(local void *, ...)) {
+  uint maxWGSize = get_kernel_work_group_size(__block_);
   size_t prod = 1;
   for (unsigned int i = 0; i < ndrange.workDimension; ++i)
        prod *= ndrange.localWorkSize[i];
@@ -275,33 +275,33 @@ bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event
 extern uint __attribute__((const))
 ocl20_get_kernel_wg_size(private void *block, void *DCM, void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    __attribute__((const)) get_kernel_work_group_size(void (^block)(void)) {
+    __attribute__((const)) __get_kernel_work_group_size_impl(void (^block)(void)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_wg_size(block, DCM, B2K);
 }
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    __attribute__((const)) get_kernel_work_group_size(void (^block)(local void *, ...)) {
+    __attribute__((const)) __get_kernel_work_group_size_impl(void (^__block__)(local void *, ...)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_wg_size(block, DCM, B2K);
+  return ocl20_get_kernel_wg_size(__block__, DCM, B2K);
 }
 
 ////////// - get_kernel_preferred_work_group_size_multiple
 extern uint ocl20_get_kernel_preferred_wg_size_multiple(private void *block, void *DCM,
                                                         void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    get_kernel_preferred_work_group_size_multiple(void (^block)(void)) {
+    __get_kernel_preferred_work_group_size_multiple_impl(void (^block)(void)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
 }
 uint __attribute__((overloadable)) __attribute__((always_inline))
-    get_kernel_preferred_work_group_size_multiple(void (^block)(local void *,
+    __get_kernel_preferred_work_group_size_multiple_impl(void (^__block__)(local void *,
                                                                 ...)) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
+  return ocl20_get_kernel_preferred_wg_size_multiple(__block__, DCM, B2K);
 }
 
 /// address space overloading for enqueue_kernel and enqueue_marker
