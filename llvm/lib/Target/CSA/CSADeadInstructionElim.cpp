@@ -265,7 +265,6 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
         }
 
         // "I'm not dead yet!"
-
       }
     } // end for each basic block
   } while (SubpassChanges);
@@ -278,12 +277,11 @@ bool CSADeadInstructionElim::runOnMachineFunction(MachineFunction &MF) {
       for (MachineOperand& MO : MI.operands()) {
         if (MO.isReg() && MO.isDef()) {
           unsigned Reg = MO.getReg();
-          if (Reg != CSA::IGN && Reg != CSA::NA &&
-              TargetRegisterInfo::isPhysicalRegister(Reg) &&
+          if (Reg != CSA::IGN && Reg != CSA::NA && isLIC(Reg) &&
               ! LivePhysRegs.test(Reg)) {
-            // Replace output to dead register with output to %ign
-            DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead reg " << Reg
-                  << '\n');
+            // Replace output to dead LIC with output to %ign
+            DEBUG(dbgs() << "CSADeadInstructionElim: clean up dead LIC "
+                  << MO << " from " << MI << '\n');
             MO.substPhysReg(CSA::IGN, *TRI);
           }
         }
