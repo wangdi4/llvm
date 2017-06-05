@@ -176,9 +176,9 @@ namespace intel {
       return;
     }
 
-    if (Root->isMaterializable()) {
-      Root->materialize();
-    }
+    if (Root->isMaterializable())
+     if (llvm::Error EC = Root->materialize())
+      report_fatal_error("Error matializing function: " + Root->getName());
 
     FunctionsVec CalledFuncs;
     GetCalledFunctions(Root, CalledFuncs);
@@ -322,9 +322,9 @@ namespace intel {
         CloneModuleOnlyRequired(RTL, VMap, UsedFunctions, UsedGlobals));
     }
 
-    for (const auto &RTL : ClonedRtlModules) {
-      RTL->materializeAll();
-    }
+    for (const auto &RTL : ClonedRtlModules)
+     if (llvm::Error EC = RTL->materializeAll())
+      report_fatal_error("Error matializing module: " + RTL->getName());
 
     // Workaround: save StructType names to restore them later after
     // Linker::linkInModule().
@@ -370,7 +370,8 @@ namespace intel {
     Linker LD(M);
 
     for (auto &RTL : ClonedRtlModules) {
-      RTL->materializeAll();
+      if (llvm::Error EC = RTL->materializeAll())
+        report_fatal_error("Error matializing module: " + RTL->getName());
 
       // Copy target triple from dst module to avoid linker warnings
       // FIXME: remove x86_64-pc-windows-gnu-elf triple on Linux
