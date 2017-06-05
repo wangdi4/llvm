@@ -23,10 +23,10 @@ namespace reflection {
   };
 
   #define INIT_PRIMITIVE_TYPE_INFO_TOKEN(varName, token, id, typeInfoMap) \
-    TypeInfo varName = {token, strlen(token), id, typeInfoMap}
+    TypeInfo varName = {token, (unsigned int)strlen(token), id, typeInfoMap}
 
   #define INIT_TYPE_INFO_TOKEN(varName, token) \
-    TypeInfo varName = {token, strlen(token), PRIMITIVE_NONE, NULL}
+    TypeInfo varName = {token, (unsigned int)strlen(token), PRIMITIVE_NONE, NULL}
 
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_b,  "b", PRIMITIVE_BOOL,   NULL);
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_h,  "h", PRIMITIVE_UCHAR,  NULL);
