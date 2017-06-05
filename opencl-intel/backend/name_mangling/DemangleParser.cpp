@@ -270,6 +270,12 @@ namespace reflection {
       // Reachning means parsing Address Space failed, return NULL;
       return RefParamType();
     }
+    // Clang 4.0 mangling scheme assumes CV-qualifiers *after* vedor extensions
+    // (i.e. address space qualifiers in OpenCL case).
+    if (!getAddressQualifier(attrQualifier)) {
+      // Reachning means parsing Address Qualifier failed, return NULL;
+      return RefParamType();
+    }
 
     RefParamType pType = getNextType();
     if (pType.isNull()) {
