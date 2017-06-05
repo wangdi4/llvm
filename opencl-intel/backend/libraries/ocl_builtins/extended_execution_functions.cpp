@@ -236,7 +236,8 @@ void __attribute__((always_inline)) __attribute__((overloadable))
 }
 
 extern clk_event_t ocl20_create_user_event(void* DCM);
-clk_event_t __attribute__((always_inline)) create_user_event() {
+clk_event_t __attribute__((always_inline)) __attribute((overloadable))
+    create_user_event() {
   void* DCM = __get_device_command_manager();
   return ocl20_create_user_event(DCM);
 }

@@ -706,6 +706,12 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   // function right into the new function, leaving the old body of the function empty.
   NewF->getBasicBlockList().splice(NewF->begin(), F->getBasicBlockList());
   assert(F->isDeclaration() && "splice did not work, original function body is not empty!");
+
+  // Set DISubprogram as an original function has. Do it before delete body
+  // since DISubprogram will be deleted too
+  NewF->setSubprogram(F->getSubprogram());
+  F->setSubprogram(nullptr);
+
   // Delete original function body - this is needed to remove linkage (if exists)
   F->deleteBody();
   // Loop over the argument list, transferring uses of the old arguments over to
@@ -716,8 +722,6 @@ Function *CompilationUtils::AddMoreArgsToFunc(
     // Replace the users to the new version.
     I->replaceAllUsesWith(&*NI);
   }
-  NewF->setSubprogram(F->getSubprogram());
-  F->setSubprogram(nullptr);
   return NewF;
 }
 

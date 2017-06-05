@@ -55,27 +55,27 @@ target triple = "spir"
 ;
 ; CHECK: %[[LOAD_BAR_PIPE:.*]] = load {{.*}} @[[PIPE_BAR]]
 ; CHECK: %[[CAST_BAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_BAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_FAR_PIPE:.*]] = load {{.*}} @[[PIPE_FAR]]
 ; CHECK: %[[CAST_FAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_FAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_STAR_PIPE:.*]] = load {{.*}} @[[PIPE_STAR]]
 ; CHECK: %[[CAST_STAR_PIPE:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_STAR_PIPE]]
 ;
 ; CHECK: %[[LOAD_BAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_BAR_ARR]]
 ; CHECK: %[[CAST_BAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_BAR_PIPE_ARR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_BAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_BAR_PIPE_ARR]]
 ;
 ; CHECK: %[[LOAD_FAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_FAR_ARR]]
 ; CHECK: %[[CAST_FAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_FAR_PIPE_ARR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_FAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_FAR_PIPE_ARR]]
 ;
 ; CHECK: %[[LOAD_STAR_PIPE_ARR:.*]] = load {{.*}} @[[PIPE_STAR_ARR]]
 ; CHECK: %[[CAST_STAR_PIPE_ARR:.*]] = bitcast %opencl.pipe_t{{.*}} %[[LOAD_STAR_PIPE_ARR]]
-; CHECK: call i32 @__write_pipe_2{{.*}} %[[CAST_STAR_PIPE_ARR]]
+; CHECK: call i32 @__write_pipe_2_bl{{.*}} %[[CAST_STAR_PIPE_ARR]]
 
 ; Function Attrs: nounwind
 define spir_kernel void @foo() #0 {

@@ -430,6 +430,26 @@ static bool createPipeGlobals(Module &M,
   return ChannelGlobals.size() > 0;
 }
 
+static Value *getPipeByChannel(Value *ChannelGlobal,
+                              ValueToValueMap ChannelToPipeMap,
+                              IRBuilder<> &Builder) {
+  if (auto *ChannelArrGEP = dyn_cast<GEPOperator>(ChannelGlobal)) {
+    // ChannelGlobal is a GEP, so, it is read from array of channels
+    // we need to replace GEP from array of channels
+    // with GEP from array of pipes
+    auto *PipeGlobal = ChannelToPipeMap[ChannelArrGEP->getPointerOperand()];
+    SmallVector<Value *, 8> Indices;
+    auto IdxEnd = ChannelArrGEP->idx_end();
+    for (auto *Ind = ChannelArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
+      Indices.push_back(*Ind);
+    }
+
+    return Builder.CreateGEP(PipeGlobal, ArrayRef<Value *>(Indices));
+  } else {
+    return ChannelToPipeMap[ChannelGlobal];
+  }
+}
+
 static void insertReadPipe(Function *ReadPipe,
                            Value *Pipe, Value *DstPtr,
                            IRBuilder<> &Builder) {
@@ -445,10 +465,32 @@ static void insertReadPipe(Function *ReadPipe,
   Builder.CreateCall(ReadPipe, PipeCallArgs);
 }
 
+static void insertNBReadPipe(Function *NBReadPipe,
+                             Value *Pipe, Value *DstPtr, Value *IsValidPtr,
+                             IRBuilder<> &Builder, Module &M) {
+  auto *ReadPipeFTy = NBReadPipe->getFunctionType();
+
+  Value *PipeCallArgs[] = {
+    Builder.CreateBitCast(
+        Builder.CreateLoad(Pipe), ReadPipeFTy->getParamType(0)),
+    Builder.CreatePointerBitCastOrAddrSpaceCast(
+        DstPtr, ReadPipeFTy->getParamType(1))
+  };
+
+  Type *IsValidType =
+      cast<PointerType>(IsValidPtr->getType())->getElementType();
+
+  Value *PipeCallBoolResult = Builder.CreateICmpEQ(
+      Builder.CreateCall(NBReadPipe, PipeCallArgs),
+      ConstantInt::get(NBReadPipe->getReturnType(), 0));
+  Builder.CreateStore(Builder.CreateZExt(PipeCallBoolResult, IsValidType),
+                      IsValidPtr);
+}
 
 static bool replaceReadChannel(Function &F, Function &ReadPipe,
                                Module &M,
-                               ValueToValueMap ChannelToPipeMap) {
+                               ValueToValueMap ChannelToPipeMap,
+                               bool NonBlocking = false) {
   bool Changed = false;
 
   SmallVector<User *, 32> ReadChannelUsers(F.user_begin(), F.user_end());
@@ -471,6 +513,7 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
       DstTy = DstPtr->getType();
     }
     Value *ChanArg = (ArgIt++)->get();
+    Value *IsValidPtr = NonBlocking ? (ArgIt++)->get() : nullptr;
 
     Function *TargetFn = ChannelCall->getParent()->getParent();
     if (!DstPtr) {
@@ -491,29 +534,15 @@ static bool replaceReadChannel(Function &F, Function &ReadPipe,
 
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(ChanArg)->getPointerOperand();
-    Value *PipeGlobal = nullptr;
-    Value *PipeCallZeroArg = nullptr;
     IRBuilder<> Builder(ChannelCall);
-
     // TODO: remove original load instruction
-    if (auto *ChanArrGEP = dyn_cast<GEPOperator>(ChanGlobal)) {
-      // ChanGlobal is a GEP, so, it is read from array of channels
-      // we need to replace GEP from array of channels
-      // with GEP from array of pipes
-      PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
-      SmallVector<Value *, 8> Indices;
-      auto IdxEnd = ChanArrGEP->idx_end();
-      for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
-        Indices.push_back(*Ind);
-      }
-      PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
-                                          ArrayRef<Value *>(Indices));
-    } else {
-      PipeGlobal = ChannelToPipeMap[ChanGlobal];
-      PipeCallZeroArg = PipeGlobal;
-    }
 
-    insertReadPipe(&ReadPipe, PipeCallZeroArg, DstPtr, Builder);
+    Value *Pipe = getPipeByChannel(ChanGlobal, ChannelToPipeMap, Builder);
+
+    if (NonBlocking)
+      insertNBReadPipe(&ReadPipe, Pipe, DstPtr, IsValidPtr, Builder, M);
+    else
+      insertReadPipe(&ReadPipe, Pipe, DstPtr, Builder);
 
     if (ReadChannelFTy->getReturnType()->isVoidTy()) {
       ChannelCall->eraseFromParent();
@@ -545,9 +574,26 @@ static void insertWritePipe(Function *WritePipe,
   Builder.CreateCall(WritePipe, PipeCallArgs);
 }
 
+static Value *insertNBWritePipe(Function *NBWritePipe,
+                                Value *Pipe, Value *SrcPtr,
+                                IRBuilder<> &Builder, Module &M) {
+  auto *WritePipeFTy = NBWritePipe->getFunctionType();
+
+  Value *PipeCallArgs[] = {
+    Builder.CreateBitCast(
+        Builder.CreateLoad(Pipe), WritePipeFTy->getParamType(0)),
+    Builder.CreatePointerBitCastOrAddrSpaceCast(
+        SrcPtr, WritePipeFTy->getParamType(1))
+  };
+
+  return Builder.CreateICmpEQ(Builder.CreateCall(NBWritePipe, PipeCallArgs),
+      ConstantInt::get(NBWritePipe->getReturnType(), 0));
+}
+
 static bool replaceWriteChannel(Function &F, Function &WritePipe,
                                 Module &M,
-                                ValueToValueMap ChannelToPipeMap) {
+                                ValueToValueMap ChannelToPipeMap,
+                                bool NonBlocking = false) {
   bool Changed = false;
 
   SmallVector<User *, 32> WriteChannelUsers(F.user_begin(), F.user_end());
@@ -564,8 +610,6 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
 
     // discover the global value, from where our channel argument came from
     Value *ChanGlobal = cast<LoadInst>(Chan)->getPointerOperand();
-    Value *PipeGlobal = nullptr;
-    Value *PipeCallZeroArg = nullptr;
     IRBuilder<> Builder(ChannelCall);
 
     Function *TargetFn = ChannelCall->getParent()->getParent();
@@ -591,25 +635,16 @@ static bool replaceWriteChannel(Function &F, Function &WritePipe,
     }
 
     // TODO: remove original load instruction
-    if (auto *ChanArrGEP = dyn_cast<GEPOperator>(ChanGlobal)) {
-      // ChanGlobal is a GEP, so, it is read from array of channels
-      // we need to replace GEP from array of channels
-      // with GEP from array of pipes
-      PipeGlobal = ChannelToPipeMap[ChanArrGEP->getPointerOperand()];
-      SmallVector<Value *, 8> Indices;
-      auto *IdxEnd = ChanArrGEP->idx_end();
-      for (auto *Ind = ChanArrGEP->idx_begin(); Ind != IdxEnd; ++Ind) {
-        Indices.push_back(*Ind);
-      }
-      PipeCallZeroArg = Builder.CreateGEP(PipeGlobal,
-                                          ArrayRef<Value *>(Indices));
-    } else {
-      PipeGlobal = ChannelToPipeMap[ChanGlobal];
-      PipeCallZeroArg = PipeGlobal;
-    }
+    Value *Pipe = getPipeByChannel(ChanGlobal, ChannelToPipeMap, Builder);
 
-    insertWritePipe(&WritePipe, PipeCallZeroArg, SrcPtr, Builder);
-    ChannelCall->eraseFromParent();
+    if (NonBlocking) {
+      BasicBlock::iterator II(ChannelCall);
+      ReplaceInstWithValue(ChannelCall->getParent()->getInstList(),
+          II, insertNBWritePipe(&WritePipe, Pipe, SrcPtr, Builder, M));
+    } else {
+      insertWritePipe(&WritePipe, Pipe, SrcPtr, Builder);
+      ChannelCall->eraseFromParent();
+    }
 
     Changed = true;
   }
@@ -621,6 +656,8 @@ static bool replaceChannelBuiltins(Module &M,
                                    SmallVectorImpl<Module *> &BuiltinModules) {
   Function *ReadPipe = nullptr;
   Function *WritePipe = nullptr;
+  Function *NBReadPipe = nullptr;
+  Function *NBWritePipe = nullptr;
   for (auto *BIModule : BuiltinModules) {
     if (!ReadPipe) {
       ReadPipe = cast<Function>(
@@ -633,18 +670,40 @@ static bool replaceChannelBuiltins(Module &M,
         CompilationUtils::importFunctionDecl(
             &M, BIModule->getFunction("__write_pipe_2_bl_intel")));
     }
+
+    if (!NBReadPipe) {
+      NBReadPipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__read_pipe_2_intel")));
+    }
+
+    if (!NBWritePipe) {
+      NBWritePipe = cast<Function>(
+        CompilationUtils::importFunctionDecl(
+            &M, BIModule->getFunction("__write_pipe_2_intel")));
+    }
+
+    if (ReadPipe && WritePipe && NBReadPipe && NBWritePipe)
+        break;
   }
 
   assert(ReadPipe && "no '__read_pipe_2_bl_intel' built-in declared in RTL");
   assert(WritePipe && "no '__write_pipe_2_bl_intel' built-in declared in RTL");
+  assert(NBReadPipe && "no '__read_pipe_2_intel' built-in declared in RTL");
+  assert(NBWritePipe && "no '__write_pipe_2_intel' built-in declared in RTL");
 
   bool Changed = false;
   for (auto &F : M) {
     auto Name = F.getName();
     if (Name.npos != Name.find("read_channel_altera")) {
       Changed |= replaceReadChannel(F, *ReadPipe, M, ChannelToPipeMap);
+    } else if (Name.npos != Name.find("read_channel_nb_altera")) {
+      Changed |= replaceReadChannel(F, *NBReadPipe, M, ChannelToPipeMap, true);
     } else if (Name.npos != Name.find("write_channel_altera")) {
       Changed |= replaceWriteChannel(F, *WritePipe, M, ChannelToPipeMap);
+    } else if (Name.npos != Name.find("write_channel_nb_altera")) {
+      Changed |= replaceWriteChannel(
+          F, *NBWritePipe, M, ChannelToPipeMap, true);
     }
   }
   return Changed;
