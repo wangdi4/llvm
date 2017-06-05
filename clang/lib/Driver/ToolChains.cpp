@@ -5392,6 +5392,12 @@ CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
     CC1Args.push_back("-O");
   }
 
+  // Disable builtin knowledge of memset and memcpy. The purpose of this is to
+  // disable LoopIdiomRecognize for CSA, temporarily, until we do intelligent
+  // things with the memset/memcpy intrinsics.
+  CC1Args.push_back("-fno-builtin-memset");
+  CC1Args.push_back("-fno-builtin-memcpy");
+
   // Since we're using the CSAToolChain, we know the target is CSA.
   // Check for the -fopenmp-targets=... list to see if we're compiling an
   // offloaded statement.
