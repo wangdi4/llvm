@@ -1529,7 +1529,8 @@ void CSACvtCFDFPass::assignLicForDF() {
           mInst->getOpcode() == CSA::NOT1     ||
           mInst->getOpcode() == CSA::LAND1 ||
           mInst->getOpcode() == CSA::LOR1  || 
-          mInst->getOpcode() == CSA::OR1) {
+          mInst->getOpcode() == CSA::OR1 ||
+          mInst->isCopy()) {
         for (MIOperands MO(*MI); MO.isValid(); ++MO) {
           if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
           unsigned Reg = MO->getReg();

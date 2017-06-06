@@ -1862,6 +1862,17 @@ def : Pat<(fcopysign f32:$other, f32:$sign),
 def : Pat<(fcopysign f64:$other, f64:$sign),
           (BSEL64 0x8000000000000000,$other,$sign)>;
 */
+// The debugprint instruction
+let hasSideEffects = 1 in {
+  def DEBUGPRINT : FMTGEN<
+    (outs),
+    (ins RCLi64:$op1),
+    "debugprint\t$op1",
+    [],
+    [],
+    IIVir
+  >;
+}
 
 // Eventually
 //include "CSAIntrinsics.td"
