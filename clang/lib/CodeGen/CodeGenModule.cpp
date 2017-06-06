@@ -2791,10 +2791,15 @@ void CodeGenModule::maybeSetTrivialComdat(const Decl &D,
 static void maybeEmitGlobalChannelMetadata(const VarDecl *D,
                                            llvm::GlobalVariable *GV,
                                            CodeGenModule &CGM) {
-  auto *ChanTy = dyn_cast<ChannelType>(D->getType());
+  auto *ChanTy = D->getType()->getAs<ChannelType>();
+  if (!ChanTy) {
+    // Handle array of channels case
+    ChanTy =
+        CGM.getContext().getBaseElementType(D->getType())->getAs<ChannelType>();
 
-  if (!ChanTy)
-    return;
+    if (!ChanTy)
+      return;
+  }
 
   llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
 

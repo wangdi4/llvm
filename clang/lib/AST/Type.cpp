@@ -1999,6 +1999,10 @@ bool Type::isIncompleteType(NamedDecl **Def) const {
       *Def = Interface;
     return !Interface->hasDefinition();
   }
+#if INTEL_CUSTOMIZATION
+  case Channel:
+    return cast<ChannelType>(CanonicalType)->isIncompleteType(Def);
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

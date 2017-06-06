@@ -3030,7 +3030,12 @@ static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
   }
 
   VarDecl *VD = cast<VarDecl>(D);
-  const Type *TypePtr = VD->getType().getTypePtr();
+  QualType Ty = VD->getType();
+  // Handle array of channels case
+  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
+    Ty = ArrayTy->getElementType();
+  }
+  const Type *TypePtr = Ty.getTypePtr();
   if (!TypePtr->isChannelType()) {
     S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
         << Attr.getName() << 46;
@@ -3068,7 +3073,12 @@ static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
   }
 
   VarDecl *VD = cast<VarDecl>(D);
-  const Type *TypePtr = VD->getType().getTypePtr();
+  QualType Ty = VD->getType();
+  // Handle array of channels case
+  while (auto *ArrayTy = dyn_cast<ArrayType>(Ty.getTypePtr())) {
+    Ty = ArrayTy->getElementType();
+  }
+  const Type *TypePtr = Ty.getTypePtr();
   if (!TypePtr->isChannelType()) {
     S.Diag(Attr.getLoc(), diag::warn_intel_opencl_attribute_wrong_decl_type)
         << Attr.getName() << 46;
