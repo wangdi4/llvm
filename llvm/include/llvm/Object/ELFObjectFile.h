@@ -944,6 +944,8 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
       return "ELF32-lanai";
     case ELF::EM_MIPS:
       return "ELF32-mips";
+    case ELF::EM_ALTERA_NIOS2:
+      return "ELF32-nios2";
     case ELF::EM_PPC:
       return "ELF32-ppc";
     case ELF::EM_RISCV:
@@ -1018,6 +1020,13 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
       return IsLittleEndian ? Triple::mipsel : Triple::mips;
     case ELF::ELFCLASS64:
       return IsLittleEndian ? Triple::mips64el : Triple::mips64;
+    default:
+      report_fatal_error("Invalid ELFCLASS!");
+    }
+  case ELF::EM_ALTERA_NIOS2:
+    switch (EF.getHeader()->e_ident[ELF::EI_CLASS]) {
+    case ELF::ELFCLASS32:
+      return Triple::nios2;
     default:
       report_fatal_error("Invalid ELFCLASS!");
     }
