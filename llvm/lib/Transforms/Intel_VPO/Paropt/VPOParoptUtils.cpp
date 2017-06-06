@@ -325,6 +325,8 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 // This function generates a call as follows.
 //    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
 //    i64*, i64*, i64, i32, i32, i64, i8*)
+// The generated code is based on the assumption that the loop is normalized
+// and the stride is 1.
 CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *TidPtr, Value *TaskAlloc,
                                           Value *LBPtr, Value *UBPtr,
@@ -379,6 +381,23 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
   Builder.CreateStore(STVal, STGep);
   Value *STLoad = Builder.CreateLoad(STGep);
 
+  Value *GrainSizeV = nullptr;
+  switch (W->getSchedCode()) {
+  case 0:
+    GrainSizeV = Builder.getInt64(0);
+    break;
+  case 1:
+    GrainSizeV =
+        Builder.CreateSExtOrTrunc(W->getGrainsize(), Type::getInt64Ty(C));
+    break;
+  case 2:
+    GrainSizeV =
+        Builder.CreateSExtOrTrunc(W->getNumTasks(), Type::getInt64Ty(C));
+    break;
+  default:
+    llvm_unreachable("genKmpcTaskLoop: unexpected SchedCode");
+  }
+
   Value *TaskLoopArgs[] = {Loc,
                            Builder.CreateLoad(TidPtr),
                            TaskAlloc,
@@ -387,8 +406,8 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                            UBGep,
                            STLoad,
                            Builder.getInt32(0),
-                           Builder.getInt32(0),
-                           Builder.getInt64(0),
+                           Builder.getInt32(W->getSchedCode()),
+                           GrainSizeV,
                            ConstantPointerNull::get(Type::getInt8PtrTy(C))};
   Type *TypeParams[] = {Loc->getType(),
                         Type::getInt32Ty(C),
