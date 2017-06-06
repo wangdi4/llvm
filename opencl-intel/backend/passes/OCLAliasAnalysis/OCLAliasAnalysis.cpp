@@ -123,7 +123,7 @@ bool OCLAliasAnalysis::runOnFunction(Function &F) {
 //                     OCLAAResults Class Implementation
 //===----------------------------------------------------------------------===//
 
-OCLAAResults::OCLAAResults(const TargetLibraryInfo &TLI) : OCLAAResults(TLI) {
+OCLAAResults::OCLAAResults(const TargetLibraryInfo &TLI) : AAResults(TLI) {
   m_disjointAddressSpaces = getAddressSpaceMask(OCLAddressSpace::Private) |
                             getAddressSpaceMask(OCLAddressSpace::Global) |
                             getAddressSpaceMask(OCLAddressSpace::Constant) |
