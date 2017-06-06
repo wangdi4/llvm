@@ -717,6 +717,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
     Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, AttrMDArgs));
   }
 
+#if INTEL_CUSTOMIZATION
+  if (const MaxWorkGroupSizeAttr *A = FD->getAttr<MaxWorkGroupSizeAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getXDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getYDim())),
+        llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
+    Fn->setMetadata("max_work_group_size",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (FD->getAttr<TaskAttr>())
+    Fn->setMetadata("task", llvm::MDNode::get(Context, None));
+
+  if (const NumComputeUnitsAttr *A = FD->getAttr<NumComputeUnitsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getNumComputeUnits()))};
+    Fn->setMetadata("num_compute_units",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+
+  if (const NumSimdWorkItemsAttr *A = FD->getAttr<NumSimdWorkItemsAttr>()) {
+    llvm::Metadata *attrMDArgs[] = {llvm::ConstantAsMetadata::get(
+        Builder.getInt32(A->getNumSimdWorkItems()))};
+    Fn->setMetadata("num_simd_work_items",
+                    llvm::MDNode::get(Context, attrMDArgs));
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (const OpenCLIntelReqdSubGroupSizeAttr *A =
           FD->getAttr<OpenCLIntelReqdSubGroupSizeAttr>()) {
     llvm::Metadata *AttrMDArgs[] = {
