@@ -90,7 +90,7 @@ void PluginManager::LoadPlugins()
 #ifdef WIN32
     char buffer[MAX_PATH];
     const char *dlls = buffer;
-    int len = GetEnvironmentVariable("OCLBACKEND_PLUGINS", buffer, MAX_PATH);
+    int len = GetEnvironmentVariableA("OCLBACKEND_PLUGINS", buffer, MAX_PATH);
     if (len == 0 || len >= MAX_PATH) {
         dlls = NULL;
     }

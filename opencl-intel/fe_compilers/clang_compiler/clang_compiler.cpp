@@ -146,7 +146,7 @@ extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t
     }
     catch( std::bad_alloc& )
     {
-        LOG_ERROR(TEXT("%S"), TEXT("Can't allocate compiler instance"));
+        LogErrorA("%S", "Can't allocate compiler instance");
         return CL_OUT_OF_HOST_MEMORY;
     }
 }

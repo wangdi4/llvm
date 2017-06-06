@@ -1507,7 +1507,7 @@ std::string getLocalHostName()
     char buffer[1024];
 #ifdef _WIN32
     DWORD nameLength = 1024;
-    if(GetComputerName(buffer,&nameLength))
+    if(GetComputerNameA(buffer,&nameLength))
 #else
     if(!gethostname(buffer,1024))
 #endif

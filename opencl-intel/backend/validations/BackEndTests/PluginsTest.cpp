@@ -45,7 +45,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess)
 #ifdef WIN32
     // envString = "currentpath\PLUGIN_DLL_NAME"
     envString = envString + currentPath + "\\" + PLUGIN_DLL_NAME;
-    ASSERT_TRUE(SetEnvironmentVariable(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
+    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
     // envString = "environmentname=currentpath/PLUGIN_DLL_NAME"
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + currentPath + "/" + PLUGIN_DLL_NAME;
@@ -88,7 +88,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadWrongPath)
 #ifdef WIN32
     // envString = "fakepath\PLUGIN_DLL_NAME"
     envString = envString + currentPath + "\\fakepathblabla\\" + PLUGIN_DLL_NAME;
-    ASSERT_TRUE(SetEnvironmentVariable(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
+    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, &(envString[0])));
 #else
     // envString = "environmentname=fakepath/PLUGIN_DLL_NAME"
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=" + currentPath + "/fakepathblabla/" + PLUGIN_DLL_NAME;
@@ -121,7 +121,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadEmptyPath)
     // setting the environment variable to empty string
     env[0]='\0';
     // reflecting also env change at OS level
-    ASSERT_TRUE(SetEnvironmentVariable(PLUGIN_ENVIRONMENT_VAR, env));
+    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, env));
 #else
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=";
     ASSERT_EQ(putenv(&(envString[0])), 0);
@@ -145,7 +145,7 @@ TEST_F(BackEndTests_Plugins, PluginLoadSuccess2)
     envString = envString + PLUGIN_ENVIRONMENT_VAR + "=";
     ASSERT_EQ(putenv(&(envString[0])), 0);
     // reflecting also env change at OS level
-    ASSERT_TRUE(SetEnvironmentVariable(PLUGIN_ENVIRONMENT_VAR, NULL));
+    ASSERT_TRUE(SetEnvironmentVariableA(PLUGIN_ENVIRONMENT_VAR, NULL));
 #else
     unsetenv(PLUGIN_ENVIRONMENT_VAR);
 #endif

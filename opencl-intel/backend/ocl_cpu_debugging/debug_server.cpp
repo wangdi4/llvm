@@ -828,7 +828,7 @@ bool DebugServer::Init(unsigned int port_number)
 
     d->m_comm->waitForListen();
     string eventName = EVENT_NAME_PREFIX + get_my_pid_string();
-    HANDLE e = CreateEvent(0, false, false, eventName.c_str());
+    HANDLE e = CreateEventA(0, false, false, eventName.c_str());
     SetEvent(e);
 #endif
 

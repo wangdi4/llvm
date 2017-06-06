@@ -138,7 +138,7 @@ std::string GetCurrentDir()
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
 {
-    LOG_INFO(TEXT("%s"), TEXT("enter"));
+    LogErrorA("%s", "enter");
 
     bool bProfiling   = std::string(m_pProgDesc->pszOptions).find("-profiling")            != std::string::npos;
     bool bRelaxedMath = std::string(m_pProgDesc->pszOptions).find("-cl-fast-relaxed-math") != std::string::npos;
