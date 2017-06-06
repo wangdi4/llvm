@@ -342,16 +342,6 @@ class CmpOp<GenericOp gen, PatFrag opNode, CSAOpInfo oi,
     [(set I1:$dst, (opNode (oi.VT oi.RCL:$op1), (oi.VT oi.RCL:$op2)))],
     !listconcat(preds,gen.Preds,oi.Preds), itin>;
 
-// BSEL - Only allow constant 1st operand, so CSA network only needs to support
-// 2 operand input boxes.
-class BSelOp<GenericOp gen, CSAOpInfo oi,
-             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
-  FMTGEN<
-    (outs oi.RC:$dst),
-    (ins oi.L:$sel, oi.RCL:$v0, oi.RCL:$v1),
-    !strconcat(gen.AsmString, oi.InstrSuffix, "\t$dst, $sel, $v0, $v1"),
-    [], !listconcat(preds,gen.Preds,oi.Preds), itin>;
-
 class ShAdd<GenericOp gen, SDNode inner, SDNode outer, CSAOpInfo oi,
             InstrItinClass itin = NoItinerary, list<Predicate> preds = []> :
   FMTGEN<
@@ -1240,13 +1230,6 @@ def CMPUOF16  : CmpOp<   CMPUO,  setuo,  Tf16, IICmpF>;
 def CMPUOF32  : CmpOp<   CMPUO,  setuo,  Tf32, IICmpF>;
 def CMPUOF64  : CmpOp<   CMPUO,  setuo,  Tf64, IICmpF>;
 
-def BSEL      : GenericOp<"bsel">;
-def BSEL1     : BSelOp<  BSEL,           Ti1,  IIALU>;
-def BSEL8     : BSelOp<  BSEL,           Ti8,  IIALU>;
-def BSEL16    : BSelOp<  BSEL,           Ti16, IIALU>;
-def BSEL32    : BSelOp<  BSEL,           Ti32, IIALU>;
-def BSEL64    : BSelOp<  BSEL,           Ti64, IIALU>;
-
 // Shift/add - itinerary depends on constant small shift amt - else IShft...
 def SLADD     : GenericOp<"sladd", [HasShAdd]>;
 def SLADD8    : ShAdd<   SLADD,shl,  add,  Ti8,  IISAdd>;
@@ -1852,16 +1835,6 @@ def : Pat<(f32 (bitconvert i32:$op1)), (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(i16 (bitconvert f16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(f16 (bitconvert i16:$op1)), (COPY_TO_REGCLASS $op1, I16)>;
 
-// fcopysign - use the sign bit from the sign opnd, and everything else from
-// the other
-/*
-  After having finally found a solution, for some reason this causes a tablegen
-  crash when doing builds on Windows...  Disabled for now...
-def : Pat<(fcopysign f32:$other, f32:$sign),
-          (BSEL32 0x80000000,$other,$sign)>;
-def : Pat<(fcopysign f64:$other, f64:$sign),
-          (BSEL64 0x8000000000000000,$other,$sign)>;
-*/
 // The debugprint instruction
 let hasSideEffects = 1 in {
   def DEBUGPRINT : FMTGEN<
