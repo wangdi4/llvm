@@ -1354,12 +1354,17 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         // errors.
         declarator.setInvalidType(true);
       } else if (S.getLangOpts().OpenCLVersion >= 200 && DS.isTypeSpecPipe()){
-        // #if INTEL_CUSTOMIZATION
-        // TODO: asavonic: add channel diagnostic
-        // #endif // INTEL_CUSTOMIZATION
         S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
           << DS.getSourceRange();
         declarator.setInvalidType(true);
+#if INTEL_CUSTOMIZATION
+      } else if (S.getLangOpts().OpenCL &&
+                 S.getOpenCLOptions().isEnabled("cl_altera_channels") &&
+                 DS.isTypeSpecChannel()){
+        S.Diag(DeclLoc, diag::err_opencl_missing_actual_channel_type)
+          << DS.getSourceRange();
+        declarator.setInvalidType(true);
+#endif // INTEL_CUSTOMIZATION
       } else {
         S.Diag(DeclLoc, diag::ext_missing_type_specifier)
           << DS.getSourceRange();

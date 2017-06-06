@@ -3743,9 +3743,15 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       break;
 #if INTEL_CUSTOMIZATION
     case tok::kw_channel:
-      if (getLangOpts().OpenCL) {
-        isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
+      if (!getLangOpts().OpenCL ||
+          !getTargetInfo().getSupportedOpenCLOpts()
+          .isSupported("cl_altera_channels", 120)) {
+        // 'channel' is a keyword only for OpenCL with cl_altera_channels
+        // extension
+        Tok.setKind(tok::identifier);
+        continue;
       }
+      isInvalid = DS.SetTypeChannel(true, Loc, PrevSpec, DiagID, Policy);
       break;
 #endif // INTEL_CUSTOMIZATION
 #define GENERIC_IMAGE_TYPE(ImgType, Id) \
@@ -4878,7 +4884,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
     return getLangOpts().OpenCL && (getLangOpts().OpenCLVersion >= 200);
 #if INTEL_CUSTOMIZATION
   case tok::kw_channel:
-    return getLangOpts().OpenCL;
+    return getLangOpts().OpenCL &&
+      getTargetInfo().getSupportedOpenCLOpts().
+         isEnabled("cl_altera_channels");
 #endif // INTEL_CUSTOMIZATION
 
   case tok::identifier:   // foo::bar
@@ -5385,15 +5393,18 @@ void Parser::ParseDeclarator(Declarator &D) {
   ParseDeclaratorInternal(D, &Parser::ParseDirectDeclarator);
 }
 
+#if INTEL_CUSTOMIZATION
 static bool isPtrOperatorToken(tok::TokenKind Kind, const LangOptions &Lang,
-                               unsigned TheContext) {
+                               const TargetInfo &Target, unsigned TheContext) {
+#endif // INTEL_CUSTOMIZATION
   if (Kind == tok::star || Kind == tok::caret)
     return true;
 
   if ((Kind == tok::kw_pipe) && Lang.OpenCL && (Lang.OpenCLVersion >= 200))
     return true;
 #if INTEL_CUSTOMIZATION
-  if ((Kind == tok::kw_channel) && Lang.OpenCL)
+  if ((Kind == tok::kw_channel) && Lang.OpenCL &&
+      Target.getSupportedOpenCLOpts().isEnabled("cl_altera_channels"))
     return true;
 #endif // INTEL_CUSTOMIZATION
 
@@ -5525,13 +5536,13 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
         DS.getAttributes(), SourceLocation());
   }
 
-
+#if INTEL_CUSTOMIZATION
   // Not a pointer, C++ reference, or block.
-  if (!isPtrOperatorToken(Kind, getLangOpts(), D.getContext())) {
+  if (!isPtrOperatorToken(Kind, getLangOpts(), getTargetInfo(),
+                          D.getContext())) {
     if (DirectDeclParser)
       (this->*DirectDeclParser)(D);
 
-#if INTEL_CUSTOMIZATION
     if (D.getDeclSpec().isTypeSpecChannel() && !isChannelDeclarator(D)) {
       // Unlike Pipes, Channels handled here, because arrays of channels are
       // allowed and we must parse further.
@@ -5544,10 +5555,10 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
                                                 DS.getChannelLoc()),
                     DS.getAttributes(), SourceLocation());
     }
-#endif // INTEL_CUSTOMIZATION
 
     return;
   }
+#endif // INTEL_CUSTOMIZATION
 
   // Otherwise, '*' -> pointer, '^' -> block, '&' -> lvalue reference,
   // '&&' -> rvalue reference
@@ -5760,7 +5771,10 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
           !Actions.containsUnexpandedParameterPacks(D) &&
           D.getDeclSpec().getTypeSpecType() != TST_auto)) {
       SourceLocation EllipsisLoc = ConsumeToken();
-      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), D.getContext())) {
+#if INTEL_CUSTOMIZATION
+      if (isPtrOperatorToken(Tok.getKind(), getLangOpts(), getTargetInfo(),
+                             D.getContext())) {
+#endif // INTEL_CUSTOMIZATION
         // The ellipsis was put in the wrong place. Recover, and explain to
         // the user what they should have done.
         ParseDeclarator(D);
