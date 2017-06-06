@@ -6408,6 +6408,87 @@ static bool isDeclExternC(const Decl *D) {
   llvm_unreachable("Unknown type of decl!");
 }
 
+#if INTEL_CUSTOMIZATION
+static FunctionDecl *createOCLBuiltinDecl(ASTContext &Context, DeclContext *DC,
+                                          StringRef Name, QualType RetTy,
+                                          ArrayRef<QualType> ArgTys) {
+
+  QualType FTy =
+      Context.getFunctionType(RetTy, ArgTys, FunctionProtoType::ExtProtoInfo());
+
+  auto *FD = FunctionDecl::Create(Context, DC, SourceLocation(),
+                                  SourceLocation(), &Context.Idents.get(Name),
+                                  FTy, nullptr, SC_Extern, false, true, false);
+
+  if (const FunctionProtoType *FT = dyn_cast<FunctionProtoType>(FTy)) {
+    SmallVector<ParmVarDecl *, 16> Params;
+    for (unsigned I = 0, E = FT->getNumParams(); I != E; ++I) {
+      ParmVarDecl *Param = ParmVarDecl::Create(
+          Context, FD, SourceLocation(), SourceLocation(), nullptr,
+          FT->getParamType(I), /*TInfo=*/nullptr, SC_None, nullptr);
+      Param->setScopeInfo(0, I);
+      Params.push_back(Param);
+    }
+    FD->setParams(Params);
+    FD->addAttr(OverloadableAttr::CreateImplicit(Context));
+  }
+
+  return FD;
+}
+
+void Sema::DeclareOCLChannelBuiltins(QualType ChannelTy, Scope *S) {
+  assert(ChannelTy->isChannelType() && "Argument should be a channel.");
+
+  SmallVector<FunctionDecl *, 4> &FDs = OCLChannelBIs[ChannelTy.getTypePtr()];
+  if (!FDs.empty())
+    return;
+
+  DeclContext *Parent = Context.getTranslationUnitDecl();
+  QualType ElementTy =
+      cast<ChannelType>(ChannelTy.getTypePtr())->getElementType();
+
+  QualType ReadArgs[] = {ChannelTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "read_channel_altera",
+                                     ElementTy, ReadArgs));
+
+  QualType ConstElementTy = ElementTy.withConst();
+  QualType WriteArgs[] = {ChannelTy, ConstElementTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "write_channel_altera",
+                                     Context.VoidTy, WriteArgs));
+
+  auto createNBReadChannelBuiltinDecl = [&](LangAS::ID addrSpace) {
+    QualType BoolTy = Context.getAddrSpaceQualType(Context.BoolTy, addrSpace);
+    QualType BoolPtrTy = Context.getPointerType(BoolTy);
+    QualType NBReadArgs[] = {ChannelTy, BoolPtrTy};
+
+    FDs.push_back(createOCLBuiltinDecl(
+        Context, Parent, "read_channel_nb_altera", ElementTy, NBReadArgs));
+  };
+
+  if (getLangOpts().OpenCLVersion >= 200) {
+    createNBReadChannelBuiltinDecl(LangAS::opencl_generic);
+  } else {
+    createNBReadChannelBuiltinDecl((LangAS::ID)0);
+    createNBReadChannelBuiltinDecl(LangAS::opencl_local);
+    createNBReadChannelBuiltinDecl(LangAS::opencl_global);
+  }
+
+  QualType NBWriteArgs[] = {ChannelTy, ConstElementTy};
+  FDs.push_back(createOCLBuiltinDecl(Context, Parent, "write_channel_nb_altera",
+                                     Context.BoolTy, NBWriteArgs));
+
+  for (auto *FD : FDs) {
+    AddKnownFunctionAttributes(FD);
+    DeclContext *SavedContext = CurContext;
+    CurContext = Parent;
+    PushOnScopeChains(FD, TUScope);
+    CurContext = SavedContext;
+  }
+
+  OCLChannelBIs[ChannelTy.getTypePtr()] = FDs;
+}
+#endif // INTEL_CUSTOMIZATION
+
 NamedDecl *Sema::ActOnVariableDeclarator(
     Scope *S, Declarator &D, DeclContext *DC, TypeSourceInfo *TInfo,
     LookupResult &Previous, MultiTemplateParamsArg TemplateParamLists,
@@ -6475,6 +6556,18 @@ NamedDecl *Sema::ActOnVariableDeclarator(
         D.setInvalidType();
       }
     }
+
+#if INTEL_CUSTOMIZATION
+    // Intel OpenCL FPGA channels
+    if (Context.getBaseElementType(R)->isChannelType()) {
+      if (!getOpenCLOptions().isEnabled("cl_altera_channels")) {
+        Diag(D.getIdentifierLoc(), diag::err_opencl_requires_extension)
+            << 0 << R << "cl_altera_channels";
+        D.setInvalidType();
+      } else
+        DeclareOCLChannelBuiltins(Context.getBaseElementType(R), S);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (R->isSamplerT()) {
       // OpenCL v1.2 s6.9.b p4:

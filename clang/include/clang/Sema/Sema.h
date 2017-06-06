@@ -3357,6 +3357,11 @@ public:
                                  SourceLocation Loc);
   NamedDecl *ImplicitlyDefineFunction(SourceLocation Loc, IdentifierInfo &II,
                                       Scope *S);
+
+#if INTEL_CUSTOMIZATION
+  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
+#endif // INTEL_CUSTOMIZATION
+
   void AddKnownFunctionAttributes(FunctionDecl *FD);
 
   // More parsing and symbol table subroutines.
@@ -11018,6 +11023,8 @@ public:
   // argument to every function, we should remember that we are inside
   // initializer parsing.
   bool IsInInitializerContext = false;
+
+  llvm::DenseMap<const Type *, SmallVector<FunctionDecl *, 4>> OCLChannelBIs;
 #endif // INTEL_CUSTOMIZATION
 
 private:
