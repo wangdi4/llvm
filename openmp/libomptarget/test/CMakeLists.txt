@@ -75,12 +75,21 @@ else()
     libomptarget_warning_say("Not prepared to run tests on Windows systems.")
   endif()
   set(LIBOMPTARGET_TEST_OPENMP_FLAG -fopenmp=libomp)
+
+  # INTEL - do not add 'omp' as a dependency if Intel specific OpenMP runtime
+  # is being used
+  if (NOT INTEL_SPECIFIC_OPENMP)
+    set(LIBOMPTARGET_TEST_DEPENDENCIES omptarget omp)
+  else()
+    set(LIBOMPTARGET_TEST_DEPENDENCIES omptarget)
+  endif()
+
   # Use add_lit_testsuite() from LLVM CMake. This also depends on OpenMP
   # implementation because it uses omp.h.
   add_lit_testsuite(check-libomptarget
     "Running libomptarget tests"
     ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS omptarget omp
+    DEPENDS ${LIBOMPTARGET_TEST_DEPENDENCIES}
   )
   
   set(LIBOMPTARGET_OPENMP_HEADER_FOLDER "${LIBOMPTARGET_BINARY_DIR}/../runtime/src")

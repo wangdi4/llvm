@@ -111,6 +111,9 @@ if(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
   # Build offloading plugins and device RTLs if they are available.
   add_subdirectory(plugins)
   
+  # Add device libraries.
+  add_subdirectory(deviceRTLs)
+  
   # Add tests.
   add_subdirectory(test)
   
