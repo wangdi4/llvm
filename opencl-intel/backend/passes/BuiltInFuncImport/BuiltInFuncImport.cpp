@@ -206,13 +206,13 @@ namespace intel {
 
     // Create globals without initializers - they may contain function
     // calls which have not been cloned yet.
-    for (auto GV : ReqGlobals) {
+    for (const auto &GV : ReqGlobals) {
       if (GV->getParent() != M) {
         continue;
       }
       GlobalVariable *NewGV = new GlobalVariable(
         *New,
-        GV->getType()->getElementType(),
+        GV->getValueType(),
         GV->isConstant(), GV->getLinkage(),
         (Constant*) nullptr, GV->getName(),
         (GlobalVariable*) nullptr,
@@ -224,17 +224,14 @@ namespace intel {
     }
 
     // Now do the same with the required functions
-    for (auto FGV : ReqFunctions) {
+    for (const auto &FGV : ReqFunctions) {
       if (FGV->getParent() != M) {
         continue;
       }
 
       auto F = cast<Function>(FGV);
-      Function *NF =
-        Function::Create(cast<FunctionType>(F->getType()->getElementType()),
-                         F->getLinkage(), F->getName(), New.get());
-      NF->copyAttributesFrom(NF);
-      VMap[F] = NF;
+      VMap[F] = Function::Create(F->getFunctionType(), F->getLinkage(),
+                                      F->getName(), New.get());
     }
 
     // Clone global initializers
@@ -251,7 +248,7 @@ namespace intel {
     }
 
     // ... and the functions bodies
-    for (auto FGV : ReqFunctions) {
+    for (const auto &FGV : ReqFunctions) {
       if (FGV->getParent() != M) {
         continue;
       }
