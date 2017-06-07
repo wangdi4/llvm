@@ -63,6 +63,7 @@ void OCLAAResults::OCLAAACallbackVH::allUsesReplacedWith(Value *V) {
 void OCLAliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<BasicAAWrapperPass>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
 
   // We also need to mark all the alias analysis passes we will potentially
   // probe in runOnFunction as used here to ensure the legacy pass manager
@@ -133,7 +134,7 @@ OCLAAResults::OCLAAResults(const TargetLibraryInfo &TLI) : AAResults(TLI) {
 OCLAliasAnalysis::OCLAliasAnalysis() : FunctionPass(ID) {
   initializeOCLAliasAnalysisPass(*PassRegistry::getPassRegistry());
 }
-    
+
 void OCLAAResults::deleteValue(Value *V) {
   ValueMap.erase(V);
 }
