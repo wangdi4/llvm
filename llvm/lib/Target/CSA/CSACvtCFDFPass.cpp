@@ -2433,24 +2433,23 @@ bool CSACvtCFDFPass::needDynamicPreds() {
   }
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock *mbb = &*BB;
-#if 0
-    if (!parentsLinearInCDG(mbb))
-      return true;
-#endif
-    unsigned nParent = 0;
-    ControlDependenceNode *inNode = CDG->getNode(mbb);
-    for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); pnode != pend; ++pnode) {
-      ControlDependenceNode* ctrlNode = *pnode;
-      MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
-      if (!ctrlBB) continue;
-      //ignore loop latch, keep looking beyond the loop
-      if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
-        continue;
-      nParent++;
+    if (!parentsLinearInCDG(mbb)) {
+      unsigned nParent = 0;
+      ControlDependenceNode *inNode = CDG->getNode(mbb);
+      for (ControlDependenceNode::node_iterator pnode = inNode->parent_begin(), pend = inNode->parent_end(); 
+        pnode != pend; ++pnode) {
+        ControlDependenceNode* ctrlNode = *pnode;
+        MachineBasicBlock* ctrlBB = ctrlNode->getBlock();
+        if (!ctrlBB) continue;
+        //ignore loop latch, keep looking beyond the loop
+        if (MLI->getLoopFor(ctrlBB) && MLI->getLoopFor(ctrlBB)->getLoopLatch() == ctrlBB)
+          continue;
+        nParent++;
+      }
+      if (nParent > 1 && mbb->succ_size() > 1)
+        //the phi value will be used by the switch to define new values
+        return true;
     }
-    if (nParent > 1 && mbb->succ_size() > 1)
-      //the phi value will be used by the switch to define new values
-      return true;
   }
   return false;
 }
