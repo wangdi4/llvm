@@ -488,9 +488,13 @@ public:
 
     switch (Type.getElementSize()) {
     case 32: {
-      OS << " <" << *(reinterpret_cast<const int *>(&ConstValue[0]));
-      for (uint32_t i = 1; i < NumElems; i++)
-        OS << ", " << *(reinterpret_cast<const int *>(&ConstValue[i * 4]));
+      int32_t Int32;
+      memcpy(&Int32, &ConstValue[0], sizeof(int32_t));
+      OS << " <" << Int32;
+      for (uint32_t i = 1; i < NumElems; i++) {
+        memcpy(&Int32, &ConstValue[i * 4], sizeof(int32_t));
+        OS << ", " << Int32;
+      }
 
       OS << ">";
       break;

@@ -339,6 +339,7 @@ static unsigned getMinClones() {
   return prod;
 }
 
+#ifndef NDEBUG
 // Return true if 'PTy' is pointer to array of chars. Sets 'SizeInBytes' to
 // size of array of char and 'NumElems' to number of elements in array.
 // 'DL' is used to get size of array.
@@ -360,6 +361,7 @@ static bool isPointerToArray(Type* PTy, unsigned& SizeInBytes,
   SizeInBytes = DL.getTypeSizeInBits(ATy);
   return true;
 }
+#endif
 
 // Return true if 'V' is address of packed array (i.e int64 value) on
 // stack.
@@ -1682,8 +1684,8 @@ static Value* getReplacementValueForArg(Function* NewFn, Value *V,
   ConstantInt* CI = cast<ConstantInt>(Val);
 
 
-  bool flag = isPointerToArray(Formal->getType(), SizeInBytes, NumElems, DL);
-  assert(flag && "Expects pointer to Array Type");
+  assert(isPointerToArray(Formal->getType(), SizeInBytes, NumElems, DL) &&
+         "Expects pointer to Array Type");
 
   // Create New GlobalVariable
   auto *NewGlobal = createGlobalVariableWithInit(NewFn,

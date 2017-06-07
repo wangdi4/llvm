@@ -584,8 +584,7 @@ void InlineReport::setReasonIsInlined(const CallSite& CS,
   if (Level == 0) { 
     return; 
   } 
-  InlineReason Reason = IC.getInlineReason(); 
-  assert(IsInlinedReason(Reason)); 
+  assert(IsInlinedReason(IC.getInlineReason())); 
   Instruction* NI = CS.getInstruction(); 
   InlineReportInstructionCallSiteMap::const_iterator
     MapIt = IRInstructionCallSiteMap.find(NI);
@@ -632,8 +631,7 @@ void InlineReport::setReasonNotInlined(const CallSite& CS,
   if (Level == 0) { 
     return; 
   } 
-  InlineReason Reason = IC.getInlineReason();
-  assert(Reason == NinlrOuterInlining); 
+  assert(IC.getInlineReason() == NinlrOuterInlining); 
   setReasonNotInlined(CS, IC); 
   Instruction* NI = CS.getInstruction(); 
   InlineReportInstructionCallSiteMap::const_iterator
@@ -835,6 +833,7 @@ void InlineReport::replaceFunctionWithFunction(Function* OldFunction,
   } 
   InlineReportFunction* IRF = IrfIt->second; 
   int count = IRFunctionMap.erase(OldFunction); 
+  (void)count;
   assert(count == 1); 
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF)); 
   IRF->setLinkageChar(NewFunction); 

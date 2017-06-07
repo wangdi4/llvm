@@ -70,6 +70,7 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
 
   if (handled) {
     bool directivesCleared = VPOUtils::stripDirectives(AtomicNode);
+    (void)directivesCleared;
     assert(directivesCleared &&
            "Unable to strip directives from WRNAtomicNode.");
 

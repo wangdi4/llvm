@@ -703,6 +703,7 @@ void HIRUnrollAndJam::replaceLoops(LoopMapTy &LoopMap) {
         break;
       }
     }
+    (void)Found;
     assert(Found && "Inner loop not found!");
   }
 }
