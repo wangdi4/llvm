@@ -2145,7 +2145,14 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       // ValuesInBlocks with the two values we know.
       SSAUpdate.Initialize(I.getType(), I.getName());
       SSAUpdate.AddAvailableValue(OldBB, &I);
-      SSAUpdate.AddAvailableValue(BlockMapping[OldBB], ValueMapping[&I]);
+
+      // It is possible to have Phis in the exisiting block that are created
+      // by the SSAUpdate due to the new live-ins from the threaded region
+      // and these Phis might not be required in the threaded-block. Therefore,
+      // we might not have mapped values for these Phis in ValueMapping.
+      // For reference: CMPLRS-4877; test_4877 in intel_loop_headers.ll;
+      if (ValueMapping.find(&I) != ValueMapping.end())
+        SSAUpdate.AddAvailableValue(BlockMapping[OldBB], ValueMapping[&I]);
 
       while (!UsesToRename.empty())
         SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
