@@ -153,8 +153,8 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
 
   # TODO: Temporary copy Dispatcher library to compiler libraries. So far we
   # have only one Dispatcher library variant.
-  set(src_file ${DISPATCHER}/lib/libtt_device_dispatcher.a)
-  set(dst_file ${LIBOMPTARGET_LIBRARY_DIR}/nios2/libtt_device_dispatcher.a)
+  set(src_file ${DISPATCHER}/lib/libfpga_mc_dispatcher.a)
+  set(dst_file ${LIBOMPTARGET_LIBRARY_DIR}/nios2/libfpga_mc_dispatcher.a)
 
   add_custom_target(omptarget.rtl.nios2.dispatcher ALL DEPENDS ${dst_file})
 
