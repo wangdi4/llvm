@@ -9141,9 +9141,16 @@ OMPClause *Sema::ActOnOpenMPLastprivateClause(ArrayRef<Expr *> VarList,
     Type = Type.getNonReferenceType();
 
 #if INTEL_CUSTOMIZATION
-    if (IsConditional && !Type->isScalarType()) {
-      Diag(ELoc, diag::err_omp_unexpected_lastprivate_conditional);
-      continue;
+    if (IsConditional) {
+      bool VectorTypeAllowed =
+          (getLangOpts().IntelOpenMP || getLangOpts().IntelOpenMPRegion);
+
+      if (!Type->isScalarType() &&
+          (!VectorTypeAllowed || !Type->isVectorType())) {
+        Diag(ELoc, diag::err_omp_unexpected_lastprivate_conditional)
+            << VectorTypeAllowed;
+        continue;
+      }
     }
 #endif // INTEL_CUSTOMIZATION
 

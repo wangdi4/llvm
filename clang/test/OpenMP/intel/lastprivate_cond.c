@@ -35,7 +35,7 @@ void bar()
   #pragma omp parallel for lastprivate(foo:avar) //expected-error {{incorrect lastprivate modifier, expected 'conditional'}}
   for (var = 0; var < 6; var++) {}
 
-  #pragma omp parallel for lastprivate(conditional:agg) //expected-error {{expected 'scalar' in OpenMP clause 'lastprivate' with conditional modifier}}
+  #pragma omp parallel for lastprivate(conditional:agg) //expected-error {{expected 'scalar' or 'vector' in OpenMP clause 'lastprivate' with conditional modifier}}
   for (var = 0; var < 6; var++) {}
 }
 #endif
