@@ -21,7 +21,7 @@ File Name:  ProgramBuilder.h
 #include "IAbstractBackendFactory.h"
 #include "ICompilerConfig.h"
 
-#include "Program.h"
+#include "RuntimeService.h"
 
 namespace llvm {
     class Module;
