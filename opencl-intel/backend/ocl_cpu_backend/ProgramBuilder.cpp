@@ -119,6 +119,19 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 
 using namespace Intel::OpenCL::ELFUtils;
 
+// checks if the given program has an object binary to be loaded from
+static bool CheckIfProgramHasCachedExecutable(Program *pProgram) {
+  assert(pProgram && "pProgram is null");
+  if (!pProgram->GetObjectCodeContainer())
+    return false;
+
+  const char *pObject =
+      (const char *)pProgram->GetObjectCodeContainer()->GetCode();
+  size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
+  CacheBinaryReader reader(pObject, objectSize);
+  return reader.IsCachedObject();
+}
+
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
@@ -176,19 +189,6 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
 
 ProgramBuilder::~ProgramBuilder()
 {
-}
-
-bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
-{
-    assert(pProgram && "pProgram is null");
-    if (pProgram->GetObjectCodeContainer())
-    {
-        const char* pObject = (const char*)pProgram->GetObjectCodeContainer()->GetCode();
-        size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
-        CacheBinaryReader reader(pObject, objectSize);
-        return reader.IsCachedObject();
-    }
-    return false;
 }
 
 void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)

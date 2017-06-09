@@ -84,8 +84,6 @@ protected:
                                              llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
 
-    // checks if the given program has an object binary to be loaded from
-    virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const;
     // reloads the program from his object binary
     virtual bool ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
     // builds object binary for the built program
