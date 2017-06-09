@@ -327,251 +327,263 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
     return pProps;
 }
 
-KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram,
-                                                         Function *func,
-                                                         const ProgramBuildResult& buildResult) const
-{
-    // Set optimal WG size
-    unsigned int optWGSize = 128; // TODO: to be checked
+KernelProperties *ProgramBuilder::CreateKernelProperties(
+    const Program *pProgram, Function *func,
+    const ProgramBuildResult &buildResult) const {
+  // Set optimal WG size
+  unsigned int optWGSize = 128; // TODO: to be checked
 
-    size_t hintWGSize[MAX_WORK_DIM] = {0,0,0};
-    size_t reqdWGSize[MAX_WORK_DIM] = {0,0,0};
-    size_t reqdNumSG = 0;
+  size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
+  size_t reqdWGSize[MAX_WORK_DIM] = {0, 0, 0};
+  size_t reqdNumSG = 0;
 
-    Module *pModule = func->getParent();
-    MetaDataUtils mdUtils(pModule);
+  Module *pModule = func->getParent();
+  MetaDataUtils mdUtils(pModule);
 
-    if( !mdUtils.isKernelsHasValue())
-        throw  Exceptions::CompilerException("Internal error", CL_DEV_BUILD_ERROR);
+  if (!mdUtils.isKernelsHasValue())
+    throw Exceptions::CompilerException("Internal error", CL_DEV_BUILD_ERROR);
 
-    KernelMetaDataHandle kmd;
-    for (MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i)
+  KernelMetaDataHandle kmd;
+  for (MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(),
+                                                  e = mdUtils.end_Kernels();
+       i != e; ++i) {
+    if (func == (*i)->getFunction()) // TODO stripPointerCasts()
     {
-        if( func == (*i)->getFunction() ) //TODO stripPointerCasts()
-        {
-            kmd = *i;
-            break;
-        }
+      kmd = *i;
+      break;
     }
+  }
 
-    if(!kmd.get())
-    {
-        throw Exceptions::CompilerException("Internal Error");
-    }
+  if (!kmd.get()) {
+    throw Exceptions::CompilerException("Internal Error");
+  }
 
-    std::stringstream kernelAttributes;
+  std::stringstream kernelAttributes;
 
-    if( kmd->getWorkGroupSizeHint()->hasValue() )
-    {
-        hintWGSize[0] = kmd->getWorkGroupSizeHint()->getXDim(); // TODO: SExt <=> ZExt
-        hintWGSize[1] = kmd->getWorkGroupSizeHint()->getYDim(); // TODO: SExt <=> ZExt
-        hintWGSize[2] = kmd->getWorkGroupSizeHint()->getZDim(); // TODO: SExt <=> ZExt
+  if (kmd->getWorkGroupSizeHint()->hasValue()) {
+    hintWGSize[0] =
+        kmd->getWorkGroupSizeHint()->getXDim(); // TODO: SExt <=> ZExt
+    hintWGSize[1] =
+        kmd->getWorkGroupSizeHint()->getYDim(); // TODO: SExt <=> ZExt
+    hintWGSize[2] =
+        kmd->getWorkGroupSizeHint()->getZDim(); // TODO: SExt <=> ZExt
 
-        if(hintWGSize[0])
-        {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(hintWGSize[i])
-                {
-                    optWGSize*=hintWGSize[i];
-                }
-            }
-        }
-
-        kernelAttributes << "work_group_size_hint(";
-        kernelAttributes << hintWGSize[0];
-        kernelAttributes << ",";
-        kernelAttributes << hintWGSize[1];
-        kernelAttributes << ",";
-        kernelAttributes << hintWGSize[2];
-        kernelAttributes << ")";
-    }
-
-    if( kmd->getReqdWorkGroupSize()->hasValue() )
-    {
-        reqdWGSize[0] = kmd->getReqdWorkGroupSize()->getXDim(); // TODO: SExt <=> ZExt
-        reqdWGSize[1] = kmd->getReqdWorkGroupSize()->getYDim(); // TODO: SExt <=> ZExt
-        reqdWGSize[2] = kmd->getReqdWorkGroupSize()->getZDim(); // TODO: SExt <=> ZExt
-
-        if(reqdWGSize[0])
-        {
-            optWGSize = 1;
-            for(int i=0; i<MAX_WORK_DIM; ++i)
-            {
-                if(reqdWGSize[i])
-                {
-                    optWGSize*=reqdWGSize[i];
-                }
-            }
-        }
-
-        if (!kernelAttributes.str().empty()) kernelAttributes << " ";
-        kernelAttributes << "reqd_work_group_size(";
-        kernelAttributes << reqdWGSize[0];
-        kernelAttributes << ",";
-        kernelAttributes << reqdWGSize[1];
-        kernelAttributes << ",";
-        kernelAttributes << reqdWGSize[2];
-        kernelAttributes << ")";
-    }
-
-    if (kmd->isReqdNumSubGroupsHasValue())
-    {
-        reqdNumSG = kmd->getReqdNumSubGroups();
-        if (!kernelAttributes.str().empty()) kernelAttributes << " ";
-        kernelAttributes << "required_num_sub_groups(";
-        kernelAttributes << reqdNumSG;
-        kernelAttributes << ")";
-    }
-    if (kmd->isVecTypeHintHasValue())
-    {
-      Type* VTHTy = kmd->getVecTypeHint()->getType();
-
-      int vecSize = 1;
-
-      if (VTHTy->isVectorTy()) {
-        vecSize = VTHTy->getVectorNumElements();
-        VTHTy = VTHTy->getVectorElementType();
-      }
-
-      if (!kernelAttributes.str().empty()) kernelAttributes << " ";
-      kernelAttributes << "vec_type_hint(";
-
-      // TODO: Enable MetaDataApi support for the code below.
-      // Temporal patch - MetaDataApi doesn't support this for now
-      // so dig down to get the signedness from the metadata
-      // Expected metadata format for vec_type_hint:
-      // !8 = metadata !{metadata !"vec_type_hint", <8 x i32> undef, i32 0}
-      //                                tag^       type^         isSigned^
-      llvm::NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-      MDNode *FuncInfo = nullptr;
-      for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
-        FuncInfo = MDArgInfo->getOperand(i);
-
-        if(func == llvm::mdconst::dyn_extract<llvm::Function>(
-                    FuncInfo->getOperand(0))->stripPointerCasts())
-          break;
-      }
-      if(!FuncInfo)
-        throw Exceptions::CompilerException("Internal Error. FuncInfo is nullptr");
-
-      MDNode *MDVecTHint = nullptr;
-      //look for vec_type_hint metadata
-      for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-        MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-        MDString *tag = (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : nullptr);
-        if (tag && (tag->getString() == "vec_type_hint")) {
-          MDVecTHint = tmpMD;
-          break;
+    if (hintWGSize[0]) {
+      optWGSize = 1;
+      for (int i = 0; i < MAX_WORK_DIM; ++i) {
+        if (hintWGSize[i]) {
+          optWGSize *= hintWGSize[i];
         }
       }
-      if(!MDVecTHint)
-        throw Exceptions::CompilerException("Internal Error. MDVecTHint is nullptr");
+    }
 
-      // Look for operand 2 - isSigned
-      ValueAsMetadata * vAm = dyn_cast<ValueAsMetadata>(MDVecTHint->getOperand(2));
-      assert(vAm && "MetadataAsValue is expected");
-      ConstantInt *isSigned = dyn_cast<ConstantInt>(vAm->getValue());
-      assert(isSigned && "isSigned should be a constant integer value");
+    kernelAttributes << "work_group_size_hint(";
+    kernelAttributes << hintWGSize[0];
+    kernelAttributes << ",";
+    kernelAttributes << hintWGSize[1];
+    kernelAttributes << ",";
+    kernelAttributes << hintWGSize[2];
+    kernelAttributes << ")";
+  }
 
-      if (isSigned && isSigned->isZero())
-        kernelAttributes << "u";
+  if (kmd->getReqdWorkGroupSize()->hasValue()) {
+    reqdWGSize[0] =
+        kmd->getReqdWorkGroupSize()->getXDim(); // TODO: SExt <=> ZExt
+    reqdWGSize[1] =
+        kmd->getReqdWorkGroupSize()->getYDim(); // TODO: SExt <=> ZExt
+    reqdWGSize[2] =
+        kmd->getReqdWorkGroupSize()->getZDim(); // TODO: SExt <=> ZExt
 
-      if (VTHTy->isFloatTy()) {
-        kernelAttributes << "float";
-      } else if (VTHTy->isDoubleTy()) {
-        kernelAttributes << "double";
-      } else if (VTHTy->isIntegerTy(8)) {
-        kernelAttributes << "char";
-      } else if (VTHTy->isIntegerTy(16)) {
-        kernelAttributes << "short";
-      } else if (VTHTy->isIntegerTy(32)) {
-        kernelAttributes << "int";
-      } else if (VTHTy->isIntegerTy(64)) {
-        kernelAttributes << "long";
+    if (reqdWGSize[0]) {
+      optWGSize = 1;
+      for (int i = 0; i < MAX_WORK_DIM; ++i) {
+        if (reqdWGSize[i]) {
+          optWGSize *= reqdWGSize[i];
+        }
       }
-
-      if (vecSize>1) kernelAttributes << vecSize;
-      kernelAttributes << ")";
     }
 
-    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
-    //Need to check if NoBarrierPath Value exists, it is not guaranteed that
-    //KernelAnalysisPass is running in all scenarios.
-    const bool HasNoBarrierPath = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
-    const unsigned int localBufferSize = skimd->getLocalBufferSize();
-    const bool hasBarrier = skimd->getKernelHasBarrier();
-    const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
-    const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
-    const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
-    unsigned int privateMemorySize = skimd->getPrivateMemorySize();
+    if (!kernelAttributes.str().empty())
+      kernelAttributes << " ";
+    kernelAttributes << "reqd_work_group_size(";
+    kernelAttributes << reqdWGSize[0];
+    kernelAttributes << ",";
+    kernelAttributes << reqdWGSize[1];
+    kernelAttributes << ",";
+    kernelAttributes << reqdWGSize[2];
+    kernelAttributes << ")";
+  }
 
-    size_t vectorExecutionLength = 0;
-    unsigned int vectorBufferStride = 0;
-    //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
-    //Vectorized is running in all scenarios.
-    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel() != nullptr) {
-      KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
-      vectorExecutionLength = vkimd->getKernelExecutionLength();
-      vectorBufferStride = vkimd->getBarrierBufferSize();
-      privateMemorySize = std::max<unsigned int>(privateMemorySize, vkimd->getPrivateMemorySize());
+  if (kmd->isReqdNumSubGroupsHasValue()) {
+    reqdNumSG = kmd->getReqdNumSubGroups();
+    if (!kernelAttributes.str().empty())
+      kernelAttributes << " ";
+    kernelAttributes << "required_num_sub_groups(";
+    kernelAttributes << reqdNumSG;
+    kernelAttributes << ")";
+  }
+  if (kmd->isVecTypeHintHasValue()) {
+    Type *VTHTy = kmd->getVecTypeHint()->getType();
+
+    int vecSize = 1;
+
+    if (VTHTy->isVectorTy()) {
+      vecSize = VTHTy->getVectorNumElements();
+      VTHTy = VTHTy->getVectorElementType();
     }
 
-    // Execution length contains the max size between
-    // the length of scalar and the length of vectorized versions.
-    const size_t executionLength = std::max(scalarExecutionLength, vectorExecutionLength);
-    // Private memory size contains the max size between
-    // the needed size for scalar and needed size for vectorized versions.
-    unsigned int barrierBufferSize = std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
-    // Aligh barrier buffer and private memory size
-    barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
-    privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
+    if (!kernelAttributes.str().empty())
+      kernelAttributes << " ";
+    kernelAttributes << "vec_type_hint(";
 
-    CompilerBuildOptions buildOptions(pModule);
-    KernelProperties* pProps = new KernelProperties();
+    // TODO: Enable MetaDataApi support for the code below.
+    // Temporal patch - MetaDataApi doesn't support this for now
+    // so dig down to get the signedness from the metadata
+    // Expected metadata format for vec_type_hint:
+    // !8 = metadata !{metadata !"vec_type_hint", <8 x i32> undef, i32 0}
+    //                                tag^       type^         isSigned^
+    llvm::NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
+    MDNode *FuncInfo = nullptr;
+    for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
+      FuncInfo = MDArgInfo->getOperand(i);
 
-    // Kernel should keep size of pointer specified inside module
-    // to allow cross-platform compilation
-    unsigned int ptrSizeInBytes = pModule->getDataLayout().getPointerSize(0);
-    pProps->SetPointerSize(ptrSizeInBytes);
+      if (func ==
+          llvm::mdconst::dyn_extract<llvm::Function>(FuncInfo->getOperand(0))
+              ->stripPointerCasts())
+        break;
+    }
+    if (!FuncInfo)
+      throw Exceptions::CompilerException(
+          "Internal Error. FuncInfo is nullptr");
 
-    pProps->SetHasDebugInfo(buildOptions.GetDebugInfoFlag());
-    pProps->SetOptWGSize(optWGSize);
-    pProps->SetReqdWGSize(reqdWGSize);
-    pProps->SetHintWGSize(hintWGSize);
-    pProps->SetReqdNumSG(reqdNumSG);
-    pProps->SetTotalImplSize(localBufferSize);
-    pProps->SetHasBarrier(hasBarrier);
-    pProps->SetHasGlobalSync(hasGlobalSync);
-    pProps->SetKernelExecutionLength(executionLength);
-    pProps->SetKernelAttributes(kernelAttributes.str());
-    pProps->SetDAZ(buildOptions.GetDenormalsZero());
-    pProps->SetCpuId(GetCompiler()->GetCpuId());
-    if (HasNoBarrierPath)
-      pProps->EnableVectorizedWithTail();
+    MDNode *MDVecTHint = nullptr;
+    // look for vec_type_hint metadata
+    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
+      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
+      MDString *tag =
+          (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : nullptr);
+      if (tag && (tag->getString() == "vec_type_hint")) {
+        MDVecTHint = tmpMD;
+        break;
+      }
+    }
+    if (!MDVecTHint)
+      throw Exceptions::CompilerException(
+          "Internal Error. MDVecTHint is nullptr");
 
-    pProps->SetBarrierBufferSize(barrierBufferSize);
-    // CSSD100016517 workaround:
-    //   GetPrivateMemorySize returns the min. required private memory
-    //   size per work-item even if there are no work-group level built-ins.
-    pProps->SetPrivateMemorySize(privateMemorySize);
+    // Look for operand 2 - isSigned
+    ValueAsMetadata *vAm = dyn_cast<ValueAsMetadata>(MDVecTHint->getOperand(2));
+    assert(vAm && "MetadataAsValue is expected");
+    ConstantInt *isSigned = dyn_cast<ConstantInt>(vAm->getValue());
+    assert(isSigned && "isSigned should be a constant integer value");
 
-    // set isBlock property
-    pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
+    if (isSigned && isSigned->isZero())
+      kernelAttributes << "u";
 
-    // OpenCL 2.0 related properties
-    if(OclVersion::CL_VER_2_0 <= CompilationUtils::getCLVersionFromModuleOrDefault(*pModule)  &&
-       CompilationUtils::fetchCompilerOption(*pModule, "-cl-uniform-work-group-size").empty()) {
-      pProps->SetIsNonUniformWGSizeSupported(true);
-    } else {
-      pProps->SetIsNonUniformWGSizeSupported(false);
+    if (VTHTy->isFloatTy()) {
+      kernelAttributes << "float";
+    } else if (VTHTy->isDoubleTy()) {
+      kernelAttributes << "double";
+    } else if (VTHTy->isIntegerTy(8)) {
+      kernelAttributes << "char";
+    } else if (VTHTy->isIntegerTy(16)) {
+      kernelAttributes << "short";
+    } else if (VTHTy->isIntegerTy(32)) {
+      kernelAttributes << "int";
+    } else if (VTHTy->isIntegerTy(64)) {
+      kernelAttributes << "long";
     }
 
-    //set can unite WG and vectorization dimention
-    pProps->SetCanUniteWG(skimd->getCanUniteWorkgroups());
-    pProps->SetVerctorizeOnDimention(skimd->getVectorizationDimension());
+    if (vecSize > 1)
+      kernelAttributes << vecSize;
+    kernelAttributes << ")";
+  }
 
-    return pProps;
+  KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
+  // Need to check if NoBarrierPath Value exists, it is not guaranteed that
+  // KernelAnalysisPass is running in all scenarios.
+  const bool HasNoBarrierPath =
+      skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
+  const unsigned int localBufferSize = skimd->getLocalBufferSize();
+  const bool hasBarrier = skimd->getKernelHasBarrier();
+  const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
+  const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
+  const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
+  unsigned int privateMemorySize = skimd->getPrivateMemorySize();
+
+  size_t vectorExecutionLength = 0;
+  unsigned int vectorBufferStride = 0;
+  // Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+  // Vectorized is running in all scenarios.
+  if (skimd->isVectorizedKernelHasValue() &&
+      skimd->getVectorizedKernel() != nullptr) {
+    KernelInfoMetaDataHandle vkimd =
+        mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
+    vectorExecutionLength = vkimd->getKernelExecutionLength();
+    vectorBufferStride = vkimd->getBarrierBufferSize();
+    privateMemorySize = std::max<unsigned int>(privateMemorySize,
+                                               vkimd->getPrivateMemorySize());
+  }
+
+  // Execution length contains the max size between
+  // the length of scalar and the length of vectorized versions.
+  const size_t executionLength =
+      std::max(scalarExecutionLength, vectorExecutionLength);
+  // Private memory size contains the max size between
+  // the needed size for scalar and needed size for vectorized versions.
+  unsigned int barrierBufferSize =
+      std::max<unsigned int>(scalarBufferStride, vectorBufferStride);
+  // Aligh barrier buffer and private memory size
+  barrierBufferSize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(barrierBufferSize);
+  privateMemorySize = ADJUST_SIZE_TO_MAXIMUM_ALIGN(privateMemorySize);
+
+  CompilerBuildOptions buildOptions(pModule);
+  KernelProperties *pProps = new KernelProperties();
+
+  // Kernel should keep size of pointer specified inside module
+  // to allow cross-platform compilation
+  unsigned int ptrSizeInBytes = pModule->getDataLayout().getPointerSize(0);
+  pProps->SetPointerSize(ptrSizeInBytes);
+
+  pProps->SetHasDebugInfo(buildOptions.GetDebugInfoFlag());
+  pProps->SetOptWGSize(optWGSize);
+  pProps->SetReqdWGSize(reqdWGSize);
+  pProps->SetHintWGSize(hintWGSize);
+  pProps->SetReqdNumSG(reqdNumSG);
+  pProps->SetTotalImplSize(localBufferSize);
+  pProps->SetHasBarrier(hasBarrier);
+  pProps->SetHasGlobalSync(hasGlobalSync);
+  pProps->SetKernelExecutionLength(executionLength);
+  pProps->SetKernelAttributes(kernelAttributes.str());
+  pProps->SetDAZ(buildOptions.GetDenormalsZero());
+  pProps->SetCpuId(GetCompiler()->GetCpuId());
+  if (HasNoBarrierPath)
+    pProps->EnableVectorizedWithTail();
+
+  pProps->SetBarrierBufferSize(barrierBufferSize);
+  // CSSD100016517 workaround:
+  //   GetPrivateMemorySize returns the min. required private memory
+  //   size per work-item even if there are no work-group level built-ins.
+  pProps->SetPrivateMemorySize(privateMemorySize);
+
+  // set isBlock property
+  pProps->SetIsBlock(BlockUtils::IsBlockInvocationKernel(*func));
+
+  // OpenCL 2.0 related properties
+  if (OclVersion::CL_VER_2_0 <=
+          CompilationUtils::getCLVersionFromModuleOrDefault(*pModule) &&
+      CompilationUtils::fetchCompilerOption(*pModule,
+                                            "-cl-uniform-work-group-size")
+          .empty()) {
+    pProps->SetIsNonUniformWGSizeSupported(true);
+  } else {
+    pProps->SetIsNonUniformWGSizeSupported(false);
+  }
+
+  // set can unite WG and vectorization dimention
+  pProps->SetCanUniteWG(skimd->getCanUniteWorkgroups());
+  pProps->SetVerctorizeOnDimention(skimd->getVectorizationDimension());
+
+  return pProps;
 }
 }}}
