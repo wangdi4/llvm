@@ -755,6 +755,28 @@ void WRegionUtils::extractDependOpndList(const Use *Args, unsigned NumArgs,
     }
 }
 
+void WRegionUtils::extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                         LinearClause &C) {
+  C.setClauseID(QUAL_OMP_LINEAR);
+
+  // The 'step' is always present in the IR coming from Clang, and it is the
+  // last argument in the operand list. Therefore, NumArgs >= 2, and the step
+  // is the Value in Args[NumArgs-1].
+  assert(NumArgs >= 2 && "Missing 'step' for a LINEAR clause");
+  Value *StepValue = (Value*) Args[NumArgs-1];
+  ConstantInt *CI = dyn_cast<ConstantInt>(StepValue);
+  assert (CI != nullptr && "LINEAR step must be a constant");
+  int64_t Step = *((CI->getValue()).getRawData());
+
+  // The linear list items are in Args[0..NumArgs-2]
+  for (unsigned I = 0; I < NumArgs-1; ++I) {
+    Value *V = (Value*) Args[I];
+    C.add(V);
+    LinearItem *LI = C.back();
+    LI->setStep(Step); 
+  }
+}
+
 void WRegionUtils::extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,
                                       ReductionClause &C, int ReductionKind) {
@@ -917,8 +939,7 @@ void WRegionNode::handleQualOpndList(const Use *Args, unsigned NumArgs,
     break;
   }
   case QUAL_OMP_LINEAR: {
-    WRegionUtils::extractQualOpndList<LinearClause>(Args, NumArgs, ClauseID,
-                                                    getLinear());
+    WRegionUtils::extractLinearOpndList(Args, NumArgs, getLinear());
     break;
   }
   case QUAL_OMP_ALIGNED: {

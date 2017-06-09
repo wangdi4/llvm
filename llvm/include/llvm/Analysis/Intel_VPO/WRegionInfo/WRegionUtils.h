@@ -238,6 +238,10 @@ public:
                                     const ClauseSpecifier &ClauseInfo,
                                     DependClause &C, bool IsIn);
 
+  /// \brief Extract operands from a linear clause
+  static void extractLinearOpndList(const Use *Args, unsigned NumArgs,
+                                    LinearClause &C);
+
   /// \brief Extract operands from a reduction clause
   static void extractReductionOpndList(const Use *Args, unsigned NumArgs,
                                       const ClauseSpecifier &ClauseInfo,

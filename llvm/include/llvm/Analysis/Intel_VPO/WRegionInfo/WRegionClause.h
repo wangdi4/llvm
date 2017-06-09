@@ -349,12 +349,12 @@ class CopyprivateItem : public Item
 class LinearItem : public Item 
 {
   private:
-    int Step;   // 0 if unspecified
+    int Step;   // default is 1
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
   public:
-    LinearItem(VAR Orig) : Item(Orig), Step(0) {} 
+    LinearItem(VAR Orig) : Item(Orig), Step(1) {} 
     void setStep(int S) { Step = S; }
     int getStep() const { return Step; }
 

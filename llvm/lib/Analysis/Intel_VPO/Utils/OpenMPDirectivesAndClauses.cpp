@@ -27,18 +27,12 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
+ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name),
+      IsArraySection(false), IsNonPod(false), IsUnsigned(false),
+      IsConditional(false), IsScheduleMonotonic(false),
+      IsScheduleNonmonotonic(false), IsScheduleSimd(false) {
   StringRef Base;  // BaseName
   StringRef Mod;   // Modifier
-
-  // Intialize properties to false
-  setIsArraySection(false);
-  setIsNonPod(false);
-  setIsUnsigned(false);
-  setIsConditional(false);
-  setIsScheduleMonotonic(false);
-  setIsScheduleNonmonotonic(false);
-  setIsScheduleSimd(false);
 
   // Split Name into the BaseName and Modifier substrings
   SmallVector<StringRef, 2> SubString;
@@ -55,6 +49,14 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
     setModifier(Mod);
   }
 
+#if 1
+  // Temporary hack to accept "QUAL.OMP.LINEAR.VAL" and treat it as
+  // "QUAL.OMP.LINEAR". Eventually, Clang will be fixed to never emit
+  // "QUAL.OMP.LINEAR.VAL".
+  if (Base == "QUAL.OMP.LINEAR.VAL") 
+    setId(QUAL_OMP_LINEAR);
+  else
+#endif
   // Get the clause ID corresponding to BaseName
   if (VPOAnalysisUtils::isOpenMPClause(Base))
     setId(VPOAnalysisUtils::getClauseID(Base));
@@ -66,24 +68,33 @@ ClauseSpecifier::ClauseSpecifier(StringRef Name) : FullName(Name) {
   if (NumSubStrings == 2) {
     SmallVector<StringRef, 2> ModSubString;
     Mod.split(ModSubString, ".");
-    for (unsigned i=0; i<ModSubString.size(); i++) {
-      if (ModSubString[i] == "ARRSECT")
-        setIsArraySection(true);
-      else if (ModSubString[i] == "NONPOD")
-        setIsNonPod(true);
-      else if (ModSubString[i] == "UNSIGNED")
-        setIsUnsigned(true);
-      else if (ModSubString[i] == "CONDITIONAL")
-        setIsConditional(true);
-      else if (ModSubString[i] == "MONOTONIC")
-        setIsScheduleMonotonic(true);
-      else if (ModSubString[i] == "NONMONOTONIC")
-        setIsScheduleNonmonotonic(true);
-      else if (ModSubString[i] == "SIMD")
-        setIsScheduleSimd(true);
-      else
-        llvm_unreachable("Unknown modifier string for clause");
+    unsigned NumberOfModifierStrings = ModSubString.size();
+
+    if (VPOAnalysisUtils::isScheduleClause(getId())) {
+      for (unsigned i=0; i < NumberOfModifierStrings; i++) {
+        if (ModSubString[i] == "MONOTONIC")
+          setIsScheduleMonotonic();
+        else if (ModSubString[i] == "NONMONOTONIC")
+          setIsScheduleNonmonotonic();
+        else if (ModSubString[i] == "SIMD")
+          setIsScheduleSimd();
+        else
+          llvm_unreachable("Unknown modifier string for the SCHEDULE clause");
+      }
     }
+    else 
+      for (unsigned i=0; i < NumberOfModifierStrings; i++) {
+        if (ModSubString[i] == "ARRSECT")
+          setIsArraySection();
+        else if (ModSubString[i] == "NONPOD")
+          setIsNonPod();
+        else if (ModSubString[i] == "UNSIGNED")     // for reduction clause
+          setIsUnsigned();
+        else if (ModSubString[i] == "CONDITIONAL")  // for lastprivate clause
+          setIsConditional();
+        else
+          llvm_unreachable("Unknown modifier string for clause");
+      }
   }
 
   DEBUG(dbgs() << "=== ClauseInfo: " << Base);

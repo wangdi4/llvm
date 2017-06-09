@@ -108,13 +108,13 @@ public:
   void setBaseName(StringRef S) { BaseName = S; }
   void setModifier(StringRef S) { Modifier = S; }
   void setId(int N) { Id = N; }
-  void setIsArraySection(bool Flag)         { IsArraySection = Flag; }
-  void setIsNonPod(bool Flag)               { IsNonPod = Flag; }
-  void setIsUnsigned(bool Flag)             { IsUnsigned = Flag; }
-  void setIsConditional(bool Flag)          { IsConditional = Flag; }
-  void setIsScheduleMonotonic(bool Flag)    { IsScheduleMonotonic = Flag; }
-  void setIsScheduleNonmonotonic(bool Flag) { IsScheduleNonmonotonic = Flag; }
-  void setIsScheduleSimd(bool Flag)         { IsScheduleSimd = Flag; }
+  void setIsArraySection()         { IsArraySection = true; }
+  void setIsNonPod()               { IsNonPod = true; }
+  void setIsUnsigned()             { IsUnsigned = true; }
+  void setIsConditional()          { IsConditional = true; }
+  void setIsScheduleMonotonic()    { IsScheduleMonotonic = true; }
+  void setIsScheduleNonmonotonic() { IsScheduleNonmonotonic = true; }
+  void setIsScheduleSimd()         { IsScheduleSimd = true; }
 
   // Getters
   StringRef getFullName() const { return FullName; }
