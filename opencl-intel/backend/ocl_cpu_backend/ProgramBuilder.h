@@ -56,7 +56,6 @@ public:
     ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config);
     virtual ~ProgramBuilder();
 
-public:
     /**
      * Build the given program using the supplied build options
      */
@@ -104,8 +103,6 @@ protected:
     virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
       const ICLDevBackendOptions* pOptions) const = 0;
 
-protected:
-
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
@@ -117,7 +114,6 @@ private:
     /// @brief Dump stats collected for module if requested
     void DumpModuleStats(llvm::Module* pModule);
 
-private:
     // base file name for stats
     std::string m_statFileBaseName;
     // Workload name for the stats
