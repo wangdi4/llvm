@@ -122,7 +122,7 @@ namespace llvm {
     void CombineDuplicatePickTreeInput();
     void PatchCFGLeaksFromPcikTree(unsigned phiDst);
     unsigned generateLandSeq(SmallVectorImpl<unsigned> &landOpnds, MachineBasicBlock* mbb, MachineInstr *MI=nullptr);
-    unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb);
+    unsigned generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb, MachineInstr* ploc = nullptr);
     void generateDynamicPickTreeForFooter(MachineBasicBlock *);
     void generateDynamicPickTreeForHeader(MachineBasicBlock*);
     bool parentsLinearInCDG(MachineBasicBlock* mbb);
@@ -973,7 +973,11 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
           if ((!dmloop || dmloop->contains(mloop)) && DT->properlyDominates(dmbb, mbb)) {
             MachineBasicBlock* landingPad = mloop->getLoopPreheader();
             //TODO:: create the landing pad if can't find one
-            assert(landingPad && "can't find loop preheader as landing pad for renaming");
+            //assert(landingPad && "can't find loop preheader as landing pad for renaming");
+            if (!landingPad) {
+              landingPad = DT->getNode(mloop->getHeader())->getIDom()->getBlock();
+              assert(landingPad && landingPad != mloop->getHeader());
+            }
             const TargetRegisterClass *TRC = MRI->getRegClass(Reg);
             const unsigned moveOpcode = TII->getMoveOpcode(TRC);
             unsigned cpyReg = MRI->createVirtualRegister(TRC);
@@ -1972,24 +1976,25 @@ unsigned CSACvtCFDFPass::generateLandSeq(SmallVectorImpl<unsigned> &landOpnds, M
 }
 
 
-unsigned CSACvtCFDFPass::generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb) {
+unsigned CSACvtCFDFPass::generateOrSeq(SmallVectorImpl<unsigned> &orOpnds, MachineBasicBlock* mbb, MachineInstr* ploc) {
   unsigned orSrc = 0;
   unsigned orResult = 0;
   MachineInstr* orInstr = nullptr;
+  MachineBasicBlock::iterator loc = ploc ? *ploc : mbb->getFirstTerminator();
   for (unsigned i = 0; i < orOpnds.size(); ++i) {
     unsigned ec = orOpnds[i];
     if (!orSrc) {
       orSrc = ec;
     } else if (!orResult) {
       orResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      orInstr = BuildMI(*mbb, mbb->getFirstTerminator(), DebugLoc(), TII->get(CSA::OR1),
+      orInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::OR1),
         orResult).
         addReg(orSrc).
         addReg(ec);
       orInstr->setFlag(MachineInstr::NonSequential);
     } else {
       unsigned newResult = MRI->createVirtualRegister(&CSA::I1RegClass);
-      orInstr = BuildMI(*mbb, mbb->getFirstInstrTerminator(), DebugLoc(), TII->get(CSA::OR1),
+      orInstr = BuildMI(*mbb, loc, DebugLoc(), TII->get(CSA::OR1),
         newResult).
         addReg(orResult).
         addReg(ec);
@@ -2289,16 +2294,40 @@ unsigned CSACvtCFDFPass::mergeIncomingEdgePreds(MachineBasicBlock* inBB, std::li
   //to avoid repeat operand
   MachineLoop* mloop = MLI->getLoopFor(inBB);
   if (mloop && mloop->getHeader() == inBB) {
-    assert(inBB->pred_size() == 2);
     MachineInstr *lorInstr = MRI->getVRegDef(predBB);
-    unsigned reg = lorInstr->getOperand(2).getReg();
-    if (reg == backedgeCtrl) {
-      //exchnage operands
-      MachineOperand &MO2 = lorInstr->getOperand(2);
-      MachineOperand &MO1 = lorInstr->getOperand(1);
-      MO2.setReg(MO1.getReg());
-      MO1.setReg(reg);
+    if (inBB->pred_size() == 2) {
+      unsigned reg = lorInstr->getOperand(2).getReg();
+      if (reg == backedgeCtrl) {
+        //exchnage operands
+        MachineOperand &MO2 = lorInstr->getOperand(2);
+        MachineOperand &MO1 = lorInstr->getOperand(1);
+        MO2.setReg(MO1.getReg());
+        MO1.setReg(reg);
+      }
+    } else {
+      //loop has more than one entrance edge
+      //replace current lor with two lors with firt lor consolidate all entrance edge, 
+      //second lor has backegde and consolidated init value
+      SmallVector<unsigned, 4> opnds;
+      for (unsigned i = 1; i < lorInstr->getNumOperands(); i++) {
+        if (lorInstr->getOperand(i).isReg()) {
+          unsigned reg = lorInstr->getOperand(i).getReg();
+          if (reg != backedgeCtrl) {
+            opnds.push_back(reg);
+          }
+        }
+      }
+      unsigned initCombined = generateOrSeq(opnds, lorInstr->getParent(), lorInstr);
+      MachineInstr* newLorInstr = BuildMI(*lorInstr->getParent(), lorInstr, DebugLoc(), 
+                                  TII->get(lorInstr->getOpcode()), lorInstr->getOperand(0).getReg()).
+                                  addReg(backedgeCtrl).
+                                  addReg(initCombined).
+                                  addImm(0).
+                                  addImm(0);
+      newLorInstr->setFlag(MachineInstr::NonSequential);
+      lorInstr->removeFromParent();
     }
+
   }
   return predBB;
 
@@ -2809,9 +2838,10 @@ void CSACvtCFDFPass::generateDynamicPickTreeForHeader(MachineBasicBlock* mbb) {
   unsigned hdrPred = getBBPred(mbb);
   assert(hdrPred);
   MachineInstr *lorInstr = MRI->getVRegDef(hdrPred);
+  //for multi entrance loop, this is the second lor with consolidated init value
   assert(lorInstr->getOpcode() == CSA::LOR1);
   lorInstr->substituteRegister(lorInstr->getOperand(1).getReg(), loopPred, 0, *TRI);
-
+  //TODO: ????
   //filter 0 value init edge
   unsigned pi1 = MRI->createVirtualRegister(&CSA::I1RegClass);
   MachineInstr *switchInit = BuildMI(*lorInstr->getParent(), lorInstr, DebugLoc(), TII->get(switchOpcode),
