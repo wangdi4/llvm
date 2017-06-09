@@ -349,18 +349,21 @@ def GetSimpoints(fp):
     @return list of regions and slices from a Simpoint file
     """
 
-    simp_dict = {}
+    RegionToSlice = {}
+    max_region_number = 0
     for line in fp.readlines():
         field = re.match('(\d+)\s(\d+)', line)
         if field:
             slice_num = int(field.group(1))
             region = int(field.group(2))
-            simp_dict[region] = slice_num
+            if region > max_region_number:
+                max_region_number = region
+            RegionToSlice[region] = slice_num
 
-    return simp_dict
+    return RegionToSlice, max_region_number
 
 
-def GetRegionBBV(fp, simp_dict):
+def GetRegionBBV(fp, RegionToSlice, max_region_number):
     """
     Read all the frequency vector slices and the basic block id info from a
     basic block vector file.  Put the data into a set of lists which are used
@@ -368,9 +371,12 @@ def GetRegionBBV(fp, simp_dict):
 
     @return cumulative_icount, region_bbv, region_start_markers, region_end_markers, first_bb_marker
     """
-    slice_set = set(simp_dict.values())
+    slice_set = set(RegionToSlice.values())
 
-    num_regions = len(slice_set);
+    num_regions = max_region_number + 1
+    # region number and cluster id are the same
+    # cluster id start at 0 and need not be contiguous.
+    # so we need to size our arrays to max_cluster_id + 1
 
     # List of lists of basic block vectors, each inner list contains the blocks for one of the
     # representative regions. 
@@ -425,7 +431,7 @@ def GetRegionBBV(fp, simp_dict):
         # If slice is a representative region, record the basic blocks of the slice.
         #
         if slice_num in slice_set:
-            marker_index = simp_dict.keys()[simp_dict.values().index(slice_num)]
+            marker_index = RegionToSlice.keys()[RegionToSlice.values().index(slice_num)]
             region_start_markers[marker_index] = previous_marker 
             region_end_markers[marker_index] = current_marker 
         slice_num += 1
@@ -433,17 +439,17 @@ def GetRegionBBV(fp, simp_dict):
     # import pdb;  pdb.set_trace()
     return cumulative_icount, region_bbv, region_start_markers, region_end_markers, first_bb_marker
 
-def CheckRegions(simp_dict, weight_dict):
+def CheckRegions(RegionToSlice, weight_dict):
     """
     Check to make sure the simpoint and weight files contain the same regions.
 
     @return no return value
     """
 
-    if len(simp_dict) != len(weight_dict) or \
-       simp_dict.keys() != weight_dict.keys():
+    if len(RegionToSlice) != len(weight_dict) or \
+       RegionToSlice.keys() != weight_dict.keys():
         PrintMsg('ERROR: Regions in these two files are not identical')
-        PrintMsg('   Simpoint regions: ' + str(simp_dict.keys()))
+        PrintMsg('   Simpoint regions: ' + str(RegionToSlice.keys()))
         PrintMsg('   Weight regions:   ' + str(weight_dict.keys()))
         cleanup()
         sys.exit(-1)
@@ -461,9 +467,9 @@ def GenRegionCSV(fp_bbv, fp_simp, fp_weight):
     # Error check the regions.
     #
     weight_dict = GetWeights(fp_weight)
-    simp_dict = GetSimpoints(fp_simp)
-    cumulative_icount, region_bbv, region_start_markers, region_end_markers , first_bb_marker = GetRegionBBV(fp_bbv, simp_dict)
-    CheckRegions(simp_dict, weight_dict)
+    RegionToSlice, max_region_number = GetSimpoints(fp_simp)
+    cumulative_icount, region_bbv, region_start_markers, region_end_markers , first_bb_marker = GetRegionBBV(fp_bbv, RegionToSlice, max_region_number)
+    CheckRegions(RegionToSlice, weight_dict)
 
     total_num_slices = len(cumulative_icount)
 
@@ -478,10 +484,10 @@ def GenRegionCSV(fp_bbv, fp_simp, fp_weight):
 
     tid = 0
     total_icount = 0
-    for region in sorted(simp_dict.keys()):
+    for region in sorted(RegionToSlice.keys()):
         # Calculate the info for the regions and print it.
         #
-        slice_num = simp_dict[region]
+        slice_num = RegionToSlice[region]
         weight = weight_dict[region]
         start_marker = region_start_markers[region]
         end_marker = region_end_markers[region]
@@ -509,7 +515,7 @@ def GenRegionCSV(fp_bbv, fp_simp, fp_weight):
     PrintMsg('# First Block, %d, %s' %
                  (first_bb_marker['bbid'], first_bb_marker['bbname']))
     PrintMsg('# Total llvm instructions in %d regions = %d' %
-                 (len(simp_dict), total_icount))
+                 (len(RegionToSlice), total_icount))
     PrintMsg('# Total llvm instructions in workload = %d' %
                  cumulative_icount[total_num_slices - 1])
     PrintMsg('# Total slices in workload = %d' % total_num_slices)
