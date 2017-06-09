@@ -1,4 +1,5 @@
 ; RUN: opt %s -VPlanDriver -disable-vplan-predicator -disable-vplan-codegen -debug -debug-only=VPlanDriver 2>&1 | FileCheck %s 
+; REQUIRES: asserts
 
 ; Verify the HCFG construction of an outer loop with two nested loops.
 
