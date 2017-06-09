@@ -589,9 +589,8 @@ Value *HIRCodeGen::CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
   if (BType->isPointerTy() && BType != Ty) {
     // A version of this should be in verifier, but we want to test CG'd
     // type
-    unsigned PtrSize =
-        F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType);
-    assert(Ty->getScalarSizeInBits() == PtrSize &&
+    assert(Ty->getScalarSizeInBits() ==
+             F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType) &&
            "Pointer size and CE size mismatch");
     Blob = Builder->CreatePtrToInt(Blob, Ty->getScalarType());
   }
@@ -985,17 +984,17 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
         continue;
       }
 
-      auto InComingVal = Phi->getIncomingValue(0);
+      auto IncomingVal = Phi->getIncomingValue(0);
 
-      assert((!isa<Instruction>(InComingVal) ||
+      assert((!isa<Instruction>(IncomingVal) ||
               !Region->containsBBlock(
-                  dyn_cast<Instruction>(InComingVal)->getParent())) &&
+                  dyn_cast<Instruction>(IncomingVal)->getParent())) &&
              "Unprocessed liveout value cannot be inside the region!");
       assert(
           (Phi->getIncomingBlock(0) != LastRegionBBlock) &&
           "Single operand phi with incoming block as generated region's last "
           "bblock not expected!");
-      Phi->addIncoming(Phi->getIncomingValue(0), LastRegionBBlock);
+      Phi->addIncoming(IncomingVal, LastRegionBBlock);
     }
   }
 }

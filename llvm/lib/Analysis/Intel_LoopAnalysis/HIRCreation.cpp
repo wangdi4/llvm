@@ -156,7 +156,7 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = getHLNodeUtils().createHLGoto(I.getCaseSuccessor());
+      auto CaseGoto = getHLNodeUtils().createHLGoto(I->getCaseSuccessor());
       getHLNodeUtils().insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
 
@@ -249,8 +249,8 @@ bool HIRCreation::isCrossLinked(const SwitchInst *SI,
   }
 
   for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
-    if (SuccessorBB != I.getCaseSuccessor()) {
-      FromBBs.insert(I.getCaseSuccessor());
+    if (SuccessorBB != I->getCaseSuccessor()) {
+      FromBBs.insert(I->getCaseSuccessor());
 
     } else if (Skipped) {
       // Switch has common successor bblock for some of the cases which is
@@ -365,7 +365,7 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
       for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
            ++I, ++Count) {
-        if ((DomChildBB == I.getCaseSuccessor()) &&
+        if ((DomChildBB == I->getCaseSuccessor()) &&
             !isCrossLinked(SI, DomChildBB)) {
           doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
           IsCaseChild = true;

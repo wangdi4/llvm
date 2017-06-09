@@ -174,9 +174,8 @@ void HIRVectVLSAnalysis::computeVLSGroups(
     OVLSGroupVector &Grps, OVLSMemrefToGroupMap *MemrefToGroupMap) {
 
   unsigned GroupSize = MAX_VECTOR_LENGTH; // CHECKME
-  unsigned Level = VectContext.getLoopLevel();
   unsigned VF = VectContext.getVectFactor();
-  DEBUG(dbgs() << "\nVLS: Examining level " << Level);
+  DEBUG(dbgs() << "\nVLS: Examining level " << VectContext.getLoopLevel());
   DEBUG(dbgs() << " with NumElements(VF) " << VF << "\n");
 
   // FIXME: Need to decide if we want NumElements (currently a member field

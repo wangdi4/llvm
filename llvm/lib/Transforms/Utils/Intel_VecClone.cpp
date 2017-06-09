@@ -133,9 +133,8 @@ void VecClone::insertInstruction(Instruction *Inst, BasicBlock *BB)
 
 bool VecClone::hasComplexType(Function *F)
 {
-  Function::ArgumentListType &ArgList = F->getArgumentList();
-  Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-  Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+  Function::arg_iterator ArgListIt = F->arg_begin();
+  Function::arg_iterator ArgListEnd = F->arg_end();
 
   for (; ArgListIt != ArgListEnd; ++ArgListIt) {
     // Complex types for parameters/return come in as vector.
@@ -194,11 +193,11 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   for (auto Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
-  AttributeSet AttrsToRemove = AttributeSet::get(F.getContext(),
-                                                 AttributeSet::FunctionIndex,
+  AttributeList AttrsToRemove = AttributeList::get(F.getContext(),
+                                                 AttributeList::FunctionIndex,
                                                  AB);
 
-  F.removeAttributes(AttributeSet::FunctionIndex, AttrsToRemove);
+  F.removeAttributes(AttributeList::FunctionIndex, AttrsToRemove);
 
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
@@ -211,7 +210,7 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
     AB = AttributeFuncs::typeIncompatible(ArgType);
-    AttributeSet AS = AttributeSet::get(Clone->getContext(), Idx, AB);
+    AttributeList AS = AttributeList::get(Clone->getContext(), Idx, AB);
     (*ArgIt).removeAttr(AS);
   }
 
@@ -246,9 +245,8 @@ bool VecClone::isVectorOrLinearParamStore(
 {
   if (StoreInst *Store = dyn_cast<StoreInst>(Inst)) {
     Value *Op0 = Store->getOperand(0);
-    Function::ArgumentListType &ArgList = Clone->getArgumentList();
-    Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-    Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+    Function::arg_iterator ArgListIt = Clone->arg_begin();
+    Function::arg_iterator ArgListEnd = Clone->arg_end();
 
     for (; ArgListIt != ArgListEnd; ++ArgListIt) {
       unsigned ParmIdx = ArgListIt->getArgNo();
@@ -483,9 +481,8 @@ Instruction* VecClone::expandVectorParameters(
   Instruction *Mask = nullptr;
   SmallVector<StoreInst*, 4> StoresToInsert;
 
-  Function::ArgumentListType &CloneArgList = Clone->getArgumentList();
-  Function::ArgumentListType::iterator ArgIt = CloneArgList.begin();
-  Function::ArgumentListType::iterator ArgEnd = CloneArgList.end();
+  Function::arg_iterator ArgIt = Clone->arg_begin();
+  Function::arg_iterator ArgEnd = Clone->arg_end();
 
   for (; ArgIt != ArgEnd; ++ArgIt) {
 
@@ -513,8 +510,10 @@ Instruction* VecClone::expandVectorParameters(
       //
       // We do this to put the geps in a more scalar form.
 
+      const DataLayout &DL = Clone->getParent()->getDataLayout();
       AllocaInst *VecAlloca =
-        new AllocaInst(VecType, "vec." + ArgIt->getName());
+        new AllocaInst(VecType, DL.getAllocaAddrSpace(), 
+                       "vec." + ArgIt->getName());
       insertInstruction(VecAlloca, EntryBlock);
       PointerType *ElemTypePtr =
           PointerType::get(VecType->getElementType(),
@@ -585,7 +584,9 @@ Instruction* VecClone::createExpandedReturn(Function *Clone,
 
   VectorType *AllocaType = dyn_cast<VectorType>(Clone->getReturnType());
 
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, "vec.retval");
+  const DataLayout &DL = Clone->getParent()->getDataLayout();
+  AllocaInst *VecAlloca = new AllocaInst(AllocaType, DL.getAllocaAddrSpace(), 
+                                         "vec.retval");
   insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),
@@ -787,8 +788,7 @@ Instruction* VecClone::expandVectorParametersAndReturn(
     Value *MaskVector = (*Mask)->getOperand(0);
 
     // MaskParm points to the function's mask parameter.
-    Function::ArgumentListType &ArgList = Clone->getArgumentList();
-    Function::ArgumentListType::iterator MaskParm = ArgList.end();
+    Function::arg_iterator MaskParm = Clone->arg_end();
     MaskParm--;
 
     // Find the last parameter store in the function entry block and insert the
@@ -1074,9 +1074,8 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
   // alloca/load, the parameter is used directly and this use is updated with
   // the stride.
 
-  Function::ArgumentListType &ArgList = Clone->getArgumentList();
-  Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-  Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+  Function::arg_iterator ArgListIt = Clone->arg_begin();
+  Function::arg_iterator ArgListEnd = Clone->arg_end();
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   for (; ArgListIt != ArgListEnd; ++ArgListIt) {
@@ -1340,9 +1339,8 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
   SmallVector<Value*, 4> LinearVars;
   SmallVector<Value*, 4> PrivateVars;
   SmallVector<Value*, 4> UniformVars;
-  Function::ArgumentListType &ArgList = Clone->getArgumentList();
-  Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-  Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+  Function::arg_iterator ArgListIt = Clone->arg_begin();
+  Function::arg_iterator ArgListEnd = Clone->arg_end();
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   for (; ArgListIt != ArgListEnd; ++ArgListIt) {

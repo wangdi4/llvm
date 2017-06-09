@@ -747,7 +747,7 @@ public:
     std::set<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
-
+    (void)NumUniqueSources;
     assert(NumUniqueSources <= 2 && "Invalid total sources!");
 
     std::set<GraphNode *>::iterator It = UniqueSources.begin();
@@ -1129,6 +1129,7 @@ public:
 
 }; // end of class Graph
 
+#ifndef NDEBUG
 static void dumpOVLSGroupVector(OVLSostream &OS, const OVLSGroupVector &Grps) {
   OS << "\n  Printing Groups- Total Groups " << Grps.size() << "\n";
   unsigned GroupId = 1;
@@ -1158,6 +1159,7 @@ dumpMemrefDistanceMapVector(OVLSostream &OS,
     }
   }
 }
+#endif
 
 static unsigned genMask(uint64_t Mask, uint32_t shiftcount,
                         uint32_t bitlocation) {

@@ -2334,7 +2334,7 @@ void HIRParser::parse(HLSwitch *Switch) {
 
   for (auto I = SInst->case_begin(), E = SInst->case_end(); I != E;
        ++I, ++CaseNum) {
-    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel);
+    CaseValRef = createScalarDDRef(I->getCaseValue(), CurLevel);
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }
@@ -3122,9 +3122,9 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
 
     if (FakeDDRefsRequired && Ref->isAddressOf() &&
         !Ref->accessesConstantArray() &&
-        !Call->paramHasAttr(I + 1, Attribute::ReadNone)) {
+        !Call->paramHasAttr(I, Attribute::ReadNone)) {
       addFakeRef(HInst, Ref, (IsReadOnly ||
-                              Call->paramHasAttr(I + 1, Attribute::ReadOnly)));
+                              Call->paramHasAttr(I, Attribute::ReadOnly)));
     }
   }
 

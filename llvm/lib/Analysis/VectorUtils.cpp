@@ -512,7 +512,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
         VecCall->setAttributes(
             VecCall->getAttributes().addAttributes(
                 VecCall->getContext(), I + 1,
-                AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+                AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
       }
     }
   }
@@ -521,8 +521,8 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
 std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   std::vector<Attribute> RetVal;
   AttributeSet Attributes = F.getAttributes().getFnAttributes();
-  AttributeSet::iterator ItA = Attributes.begin(0);
-  AttributeSet::iterator EndA = Attributes.end(0);
+  AttributeSet::iterator ItA = Attributes.begin();
+  AttributeSet::iterator EndA = Attributes.end();
   for (; ItA != EndA; ++ItA) {
     if (!ItA->isStringAttribute())
       continue;
@@ -544,9 +544,8 @@ Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
   if (!CharacteristicDataType) {
 
     std::vector<VectorKind>& ParmKinds = Variant.getParameters();
-    const Function::ArgumentListType& Args = F.getArgumentList();
-    Function::ArgumentListType::const_iterator ArgIt = Args.begin();
-    Function::ArgumentListType::const_iterator ArgEnd = Args.end();
+    Function::const_arg_iterator ArgIt = F.arg_begin();
+    Function::const_arg_iterator ArgEnd = F.arg_end();
     std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
 
     for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {

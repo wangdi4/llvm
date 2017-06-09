@@ -736,6 +736,7 @@ void HIRLoopInterchange::permuteNearBy(unsigned DstLevel, unsigned SrcLevel) {
     }
   }
 
+  (void)Erased;
   assert(Erased && "Loop not found");
   // Permute DV accordingly
   DstLevel += OutmostNestingLevel - 1;

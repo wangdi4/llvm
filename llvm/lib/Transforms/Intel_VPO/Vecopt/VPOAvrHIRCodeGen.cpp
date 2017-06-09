@@ -1189,6 +1189,7 @@ void ReductionHIRMngr::mapHLNodes(const HLLoop *OrigLoop) {
           Success = true;
           break;
         }
+    (void)Success;
     assert(Success && "Can't find HIR initializer for reduction item");
   }
 }
@@ -1292,7 +1293,7 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
     if (AttrList.hasAttributes()) {
       VecCall->setAttributes(VecCall->getAttributes().addAttributes(
           VecCall->getContext(), I + 1,
-          AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+          AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
     }
   }
 }

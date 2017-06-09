@@ -73,6 +73,7 @@ BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, unsigned Level) {
 
 void DDRefUtils::destroy(DDRef *Ref) {
   auto Count = Objs.erase(Ref);
+  (void)Count;
   assert(Count && "Ref not found in objects!");
   delete Ref;
 }
@@ -485,6 +486,7 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
 
     auto Res =
         CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, RelaxedMode);
+    (void)Res;
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
   }

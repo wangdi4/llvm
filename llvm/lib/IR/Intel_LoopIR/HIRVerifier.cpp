@@ -120,6 +120,7 @@ void HIRVerifier::verifyAll(const HIRFramework &HIRF) {
   auto &HNU = HIRF.getHLNodeUtils();
   auto Marker = HNU.getMarkerNode();
 
+  (void)Marker;
   assert((!Marker || !Marker->isAttached()) &&
          "Marker node is attached to HIR!");
 

@@ -631,6 +631,8 @@ namespace {
       }
       return false;
     }
+    
+    StringRef getPassName() const override { return "Print CallGraph IR"; }
   };
   
 } // end anonymous namespace.

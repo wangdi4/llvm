@@ -27,11 +27,11 @@
 ; CHECK: |   }
 ; CHECK: |   %5 = (%vw)[0][%.pre-phi];
 ; CHECK: |   %6 = (%j)[0][i1 + 3];
-; CHECK: |   (%j)[0][i1 + 3] = (%6 * %5);
+; CHECK: |   (%j)[0][i1 + 3] = (%5 * %6);
 ; CHECK: |   + DO i2 = 0, i1, 1   <DO_LOOP>
 ; CHECK: |   |   %7 = (%qu5)[0][i1 + 2][i2 + 1];
 ; CHECK: |   |   %9 = (%qu5)[0][i2][%.pre-phi];
-; CHECK: |   |   (%qu5)[0][i2][%.pre-phi] = (%9 * %7);
+; CHECK: |   |   (%qu5)[0][i2][%.pre-phi] = (%7 * %9);
 ; CHECK: |   + END LOOP
 ; CHECK: + END LOOP
 

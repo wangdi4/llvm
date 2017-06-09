@@ -58,11 +58,10 @@
 ; Next we break out of the main Function passes inside the CGSCC pipeline with
 ; a barrier pass.
 ; CHECK-O2: A No-Op Barrier Pass
-; INTEL -- TBAAPROP and StdContainerOpt insert a function pass manager
+; INTEL -- StdContainerOpt and CleanupFakeLoads insert a function pass manager
 ; CHECK-O2: FunctionPass Manager
 ; CHECK-O2: StdContainerOpt
-; CHECK-O2: TBAAPROP
-; CHECK-O2: SROA 
+; CHECK-O2: Cleanup fake loads 
 ; End INTEL
 ; Reduce the size of the IR ASAP after the inliner.
 ; CHECK-O2-NEXT: Eliminate Available Externally

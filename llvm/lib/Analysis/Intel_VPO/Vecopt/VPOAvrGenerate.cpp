@@ -773,7 +773,7 @@ bool AVRGenerate::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
     return false;
 
   for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
-    if (!PDT->dominates(BB, I.getCaseSuccessor()))
+    if (!PDT->dominates(BB, I->getCaseSuccessor()))
       return false;
   }
 
@@ -868,7 +868,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
         bool IsCaseChild = false;
         for (auto Itr = SI->case_begin(), End = SI->case_end(); Itr != End;
              ++Itr, ++Count) {
-          if (DomChildBB == Itr.getCaseSuccessor()) {
+          if (DomChildBB == Itr->getCaseSuccessor()) {
             preorderTravAvrBuild(DomChildBB,
                                  AvrItr(ASwitchIR->getCaseLastChild(Count)));
             IsCaseChild = true;

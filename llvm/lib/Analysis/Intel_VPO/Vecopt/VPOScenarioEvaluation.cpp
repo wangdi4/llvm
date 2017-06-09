@@ -390,14 +390,14 @@ int64_t getConsecutiveStride(AVR *PtrOp) {
   assert((isa<AVRValue>(PtrOp) || isa<AVRExpression>(PtrOp)) &&
          "Unexpected AVR node");
 
-  Type *PtrType;
   // TODO: Move type to AVR. This pattern is very common
   if (AVRValue *ValOp = dyn_cast<AVRValue>(PtrOp)) {
-    PtrType = ValOp->getType();
+    (void)ValOp;
+    assert(ValOp->getType()->isPointerTy() && "Unexpected non-ptr");
   } else if (AVRExpression *ExprOp = dyn_cast<AVRExpression>(PtrOp)) {
-    PtrType = ExprOp->getType();
+    (void)ExprOp;
+    assert(ExprOp->getType()->isPointerTy() && "Unexpected non-ptr");
   }
-  assert(PtrType->isPointerTy() && "Unexpected non-ptr");
 
 #ifdef USE_EXPERIMENTAL_CODE
   // TODO: Use instead IsPointerConsecutive, once available

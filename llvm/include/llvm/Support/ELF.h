@@ -547,6 +547,11 @@ enum {
   ODK_PAGESIZE = 11   // Page size information
 };
 
+// ELF Relocation types for Nios2
+enum {
+  #include "ELFRelocs/Nios2.def"
+};
+
 // Hexagon-specific e_flags
 enum {
   // Object processor version flags, bits[11:0]
@@ -705,6 +710,7 @@ enum : unsigned {
 
   SHT_MIPS_REGINFO = 0x70000006,  // Register usage information
   SHT_MIPS_OPTIONS = 0x7000000d,  // General options
+  SHT_MIPS_DWARF = 0x7000001e,    // DWARF debugging section.
   SHT_MIPS_ABIFLAGS = 0x7000002a, // ABI information.
 
   SHT_HIPROC = 0x7fffffff, // Highest processor arch-specific type.

@@ -3241,6 +3241,7 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
     defaultLowerBound   = 0; // FIXME : default bound
     count               = subrange->getCount();
 
+    (void)lowerBound; (void)defaultLowerBound;
     assert(lowerBound == defaultLowerBound); // FIXME
 
     // FIXME: this is a WA solution until solving dynamic array boundary.
@@ -3265,6 +3266,7 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
     elementSize *= count;
   }
 
+  (void)undefinedSubrange;
   assert(undefinedSubrange || elementSize == (llvmType->getSizeInBits() >> 3));
 
   // The name and size are only added to the outermost subrange.

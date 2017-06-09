@@ -148,9 +148,7 @@ static DecodeStatus s4_2ImmDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
                                    const void *Decoder);
 static DecodeStatus s4_3ImmDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
                                    const void *Decoder);
-static DecodeStatus s4_6ImmDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
-                                   const void *Decoder);
-static DecodeStatus s3_6ImmDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
+static DecodeStatus s3_0ImmDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
                                    const void *Decoder);
 static DecodeStatus brtargetDecoder(MCInst &MI, unsigned tmp, uint64_t Address,
                                     const void *Decoder);
@@ -556,7 +554,7 @@ static DecodeStatus DecodeCtrRegsRegisterClass(MCInst &Inst, unsigned RegNo,
     /*  0 */  SA0,        LC0,        SA1,        LC1,
     /*  4 */  P3_0,       C5,         C6,         C7,
     /*  8 */  USR,        PC,         UGP,        GP,
-    /* 12 */  CS0,        CS1,        UPCL,       UPCH,
+    /* 12 */  CS0,        CS1,        UPCYCLELO,  UPCYCLEHI,
     /* 16 */  FRAMELIMIT, FRAMEKEY,   PKTCOUNTLO, PKTCOUNTHI,
     /* 20 */  0,          0,          0,          0,
     /* 24 */  0,          0,          0,          0,
@@ -583,7 +581,7 @@ static DecodeStatus DecodeCtrRegs64RegisterClass(MCInst &Inst, unsigned RegNo,
     /*  0 */  C1_0,       0,          C3_2,       0,
     /*  4 */  C5_4,       0,          C7_6,       0,
     /*  8 */  C9_8,       0,          C11_10,     0,
-    /* 12 */  CS,         0,          UPC,        0,
+    /* 12 */  CS,         0,          UPCYCLE,    0,
     /* 16 */  C17_16,     0,          PKTCOUNT,   0,
     /* 20 */  0,          0,          0,          0,
     /* 24 */  0,          0,          0,          0,
@@ -628,18 +626,6 @@ static DecodeStatus unsignedImmDecoder(MCInst &MI, unsigned tmp,
       fullValue(*Disassembler.MCII, **Disassembler.CurrentBundle, MI, tmp);
   assert(FullValue >= 0 && "Negative in unsigned decoder");
   HexagonMCInstrInfo::addConstant(MI, FullValue, Disassembler.getContext());
-  return MCDisassembler::Success;
-}
-
-static DecodeStatus s4_6ImmDecoder(MCInst &MI, unsigned tmp,
-                                   uint64_t /*Address*/, const void *Decoder) {
-  signedDecoder<10>(MI, tmp, Decoder);
-  return MCDisassembler::Success;
-}
-
-static DecodeStatus s3_6ImmDecoder(MCInst &MI, unsigned tmp,
-                                   uint64_t /*Address*/, const void *Decoder) {
-  signedDecoder<19>(MI, tmp, Decoder);
   return MCDisassembler::Success;
 }
 

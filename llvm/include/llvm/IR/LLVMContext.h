@@ -78,9 +78,10 @@ public:
     MD_type = 19,                     // "type"
     MD_section_prefix = 20,           // "section_prefix"
     MD_absolute_symbol = 21,          // "absolute_symbol"
+    MD_associated = 22,               // "associated"
 #if INTEL_CUSTOMIZATION
-    MD_std_container_ptr = 22,        // "std.container.ptr"
-    MD_std_container_ptr_iter = 23    // "std.container.ptr.iter"
+    MD_std_container_ptr = 23,        // "std.container.ptr"
+    MD_std_container_ptr_iter = 24    // "std.container.ptr.iter"
 #endif                                // INTEL_CUSTOMIZATION
   };
 

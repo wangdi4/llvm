@@ -8,6 +8,13 @@ if(POLICY CMP0042)
   cmake_policy(SET CMP0042 NEW) # Set MACOSX_RPATH=YES by default
 endif()
 
+# Add path for custom modules
+set(CMAKE_MODULE_PATH
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
+  ${CMAKE_MODULE_PATH}
+  )
+
 if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(libcxxabi)
 
@@ -124,6 +131,7 @@ endif()
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
+include(HandleCompilerRT)
 
 # Define options.
 option(LIBCXXABI_ENABLE_EXCEPTIONS "Use exceptions." ON)
@@ -141,6 +149,13 @@ option(LIBCXXABI_HAS_EXTERNAL_THREAD_API
 option(LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY
   "Build libc++abi with an externalized threading library.
    This option may only be set to ON when LIBCXXABI_ENABLE_THREADS=ON" OFF)
+
+# FIXME: This option should default to off. Unfortunatly GCC 4.9 fails to link
+# programs to due undefined references to new/delete in libc++abi. Once this
+# has been fixed or worked around the default value should be changed.
+option(LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS
+    "Build libc++abi with definitions for operator new/delete. Normally libc++
+    provides these definitions" ON)
 option(LIBCXXABI_BUILD_32_BITS "Build 32 bit libc++abi." ${LLVM_BUILD_32_BITS})
 option(LIBCXXABI_INCLUDE_TESTS "Generate build targets for the libc++abi unit tests." ${LLVM_INCLUDE_TESTS})
 set(LIBCXXABI_TARGET_TRIPLE "" CACHE STRING "Target triple for cross compiling.")
@@ -156,6 +171,11 @@ set(LIBCXXABI_LIBCXX_LIBRARY_PATH "" CACHE PATH "The path to libc++ library.")
 # system over a static libc++abi from the output directory.
 option(LIBCXXABI_ENABLE_SHARED "Build libc++abi as a shared library." ON)
 option(LIBCXXABI_ENABLE_STATIC "Build libc++abi as a static library." ON)
+
+option(LIBCXXABI_BAREMETAL "Build libc++abi for baremetal targets." OFF)
+# The default terminate handler attempts to demangle uncaught exceptions, which
+# causes extra I/O and demangling code to be pulled in.
+option(LIBCXXABI_SILENT_TERMINATE "Set this to make the terminate handler default to a silent alternative" OFF)
 
 if (NOT LIBCXXABI_ENABLE_SHARED AND NOT LIBCXXABI_ENABLE_STATIC)
   message(FATAL_ERROR "libc++abi must be built as either a shared or static library.")
@@ -190,7 +210,7 @@ set(LIBCXXABI_LIBCXX_INCLUDES "${LIBCXXABI_LIBCXX_INCLUDES}" CACHE PATH
 
 find_path(
   LIBCXXABI_LIBCXX_PATH
-  test/libcxx/__init__.py
+  utils/libcxx/test/__init__.py
   PATHS ${LIBCXXABI_LIBCXX_PATH}
         ${LIBCXXABI_LIBCXX_INCLUDES}/../
         ${LIBCXXABI_LIBCXX_SRC_DIRS}
@@ -255,6 +275,7 @@ macro(add_target_flags_if condition var)
   if (${condition})
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${var}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${var}")
+    list(APPEND LIBCXXABI_COMPILE_FLAGS ${var})
     list(APPEND LIBCXXABI_LINK_FLAGS ${var})
   endif()
 endmacro()
@@ -267,9 +288,9 @@ set(LIBCXXABI_LINK_FLAGS "")
 # Configure target flags
 add_target_flags_if(LIBCXXABI_BUILD_32_BITS "-m32")
 add_target_flags_if(LIBCXXABI_TARGET_TRIPLE
-          "-target ${LIBCXXABI_TARGET_TRIPLE}")
+          "--target=${LIBCXXABI_TARGET_TRIPLE}")
 add_target_flags_if(LIBCXXABI_GCC_TOOLCHAIN
-         "-gcc-toolchain ${LIBCXXABI_GCC_TOOLCHAIN}")
+         "--gcc-toolchain=${LIBCXXABI_GCC_TOOLCHAIN}")
 add_target_flags_if(LIBCXXABI_SYSROOT
           "--sysroot=${LIBCXXABI_SYSROOT}")
 
@@ -310,7 +331,7 @@ append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WCONVERSION_FLAG -Wconversion)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WMISMATCHED_TAGS_FLAG -Wmismatched-tags)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WMISSING_BRACES_FLAG -Wmissing-braces)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WNEWLINE_EOF_FLAG -Wnewline-eof)
-append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WNO_UNUSED_FUNCTION_FLAG -Wno-unused-function)
+append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WUNUSED_FUNCTION_FLAG -Wunused-function)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSHADOW_FLAG -Wshadow)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSHORTEN_64_TO_32_FLAG -Wshorten-64-to-32)
 append_if(LIBCXXABI_COMPILE_FLAGS LIBCXXABI_HAS_WSIGN_COMPARE_FLAG -Wsign-compare)
@@ -404,10 +425,16 @@ if (LIBCXXABI_HAS_EXTERNAL_THREAD_API)
   endif()
 endif()
 
-if (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY AND LIBCXXABI_ENABLE_SHARED)
+set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS OFF)
+if ((NOT LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS)
+    OR (LIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY AND LIBCXXABI_ENABLE_SHARED))
+  set(LIBCXXABI_HAS_UNDEFINED_SYMBOLS ON)
+endif()
+
+if (LIBCXXABI_HAS_UNDEFINED_SYMBOLS)
   # Need to allow unresolved symbols if this is to work with shared library builds
   if (APPLE)
-    add_link_flags("-undefined dynamic_lookup")
+    list(APPEND LIBCXXABI_LINK_FLAGS "-undefined dynamic_lookup")
   else()
     # Relax this restriction from HandleLLVMOptions
     string(REPLACE "-Wl,-z,defs" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
@@ -432,11 +459,15 @@ endif()
 
 # Define LIBCXXABI_USE_LLVM_UNWINDER for conditional compilation.
 if (LIBCXXABI_USE_LLVM_UNWINDER)
-  add_definitions(-DLIBCXXABI_USE_LLVM_UNWINDER=1)
+  add_definitions(-DLIBCXXABI_USE_LLVM_UNWINDER)
 endif()
 
 if (LIBCXXABI_SILENT_TERMINATE)
-  add_definitions(-DLIBCXXABI_SILENT_TERMINATE=1)
+  add_definitions(-DLIBCXXABI_SILENT_TERMINATE)
+endif()
+
+if (LIBCXXABI_BAREMETAL)
+    add_definitions(-DLIBCXXABI_BAREMETAL)
 endif()
 
 string(REPLACE ";" " " LIBCXXABI_CXX_FLAGS "${LIBCXXABI_CXX_FLAGS}")
@@ -480,9 +511,14 @@ if (LIBCXXABI_USE_LLVM_UNWINDER OR LLVM_NATIVE_ARCH MATCHES ARM)
     set(LIBCXXABI_LIBUNWIND_SOURCES "")
   endif()
 
-  if (NOT LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL STREQUAL "LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL-NOTFOUND")
+  if (LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL STREQUAL "LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL-NOTFOUND")
+    set(LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL "")
+  endif()
+
+  if (NOT LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL STREQUAL "")
     include_directories("${LIBCXXABI_LIBUNWIND_INCLUDES_INTERNAL}")
   endif()
+
   if (NOT LIBCXXABI_LIBUNWIND_SOURCES STREQUAL "")
     include_directories("${LIBCXXABI_LIBUNWIND_SOURCES}")
   endif()
