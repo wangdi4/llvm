@@ -330,12 +330,6 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 KernelProperties *ProgramBuilder::CreateKernelProperties(
     const Program *pProgram, Function *func,
     const ProgramBuildResult &buildResult) const {
-  // Set optimal WG size
-  unsigned int optWGSize = 128; // TODO: to be checked
-
-  size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
-  size_t reqdWGSize[MAX_WORK_DIM] = {0, 0, 0};
-  size_t reqdNumSG = 0;
 
   Module *pModule = func->getParent();
   MetaDataUtils mdUtils(pModule);
@@ -360,68 +354,54 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
   std::stringstream kernelAttributes;
 
+  // WG size is set based on attributes passed via metadata.
+  unsigned int optWGSize = 128; // TODO: to be checked
+  size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
   if (kmd->getWorkGroupSizeHint()->hasValue()) {
-    hintWGSize[0] =
-        kmd->getWorkGroupSizeHint()->getXDim(); // TODO: SExt <=> ZExt
-    hintWGSize[1] =
-        kmd->getWorkGroupSizeHint()->getYDim(); // TODO: SExt <=> ZExt
-    hintWGSize[2] =
-        kmd->getWorkGroupSizeHint()->getZDim(); // TODO: SExt <=> ZExt
+    // TODO: SExt <=> ZExt
+    hintWGSize[0] = kmd->getWorkGroupSizeHint()->getXDim();
+    hintWGSize[1] = kmd->getWorkGroupSizeHint()->getYDim();
+    hintWGSize[2] = kmd->getWorkGroupSizeHint()->getZDim();
 
     if (hintWGSize[0]) {
-      optWGSize = 1;
-      for (int i = 0; i < MAX_WORK_DIM; ++i) {
+      optWGSize = hintWGSize[0];
+      for (unsigned i = 1; i < MAX_WORK_DIM; ++i) {
         if (hintWGSize[i]) {
           optWGSize *= hintWGSize[i];
         }
       }
     }
 
-    kernelAttributes << "work_group_size_hint(";
-    kernelAttributes << hintWGSize[0];
-    kernelAttributes << ",";
-    kernelAttributes << hintWGSize[1];
-    kernelAttributes << ",";
-    kernelAttributes << hintWGSize[2];
-    kernelAttributes << ")";
+    kernelAttributes << "work_group_size_hint(" << hintWGSize[0] << ","
+                     << hintWGSize[1] << "," << hintWGSize[2] << ") ";
   }
 
+  size_t reqdWGSize[MAX_WORK_DIM] = {0, 0, 0};
+    // TODO: SExt <=> ZExt
   if (kmd->getReqdWorkGroupSize()->hasValue()) {
-    reqdWGSize[0] =
-        kmd->getReqdWorkGroupSize()->getXDim(); // TODO: SExt <=> ZExt
-    reqdWGSize[1] =
-        kmd->getReqdWorkGroupSize()->getYDim(); // TODO: SExt <=> ZExt
-    reqdWGSize[2] =
-        kmd->getReqdWorkGroupSize()->getZDim(); // TODO: SExt <=> ZExt
+    reqdWGSize[0] = kmd->getReqdWorkGroupSize()->getXDim();
+    reqdWGSize[1] = kmd->getReqdWorkGroupSize()->getYDim();
+    reqdWGSize[2] = kmd->getReqdWorkGroupSize()->getZDim();
 
     if (reqdWGSize[0]) {
-      optWGSize = 1;
-      for (int i = 0; i < MAX_WORK_DIM; ++i) {
+      optWGSize = reqdWGSize[0];
+      for (int i = 1; i < MAX_WORK_DIM; ++i) {
         if (reqdWGSize[i]) {
           optWGSize *= reqdWGSize[i];
         }
       }
     }
 
-    if (!kernelAttributes.str().empty())
-      kernelAttributes << " ";
-    kernelAttributes << "reqd_work_group_size(";
-    kernelAttributes << reqdWGSize[0];
-    kernelAttributes << ",";
-    kernelAttributes << reqdWGSize[1];
-    kernelAttributes << ",";
-    kernelAttributes << reqdWGSize[2];
-    kernelAttributes << ")";
+    kernelAttributes << "reqd_work_group_size(" << reqdWGSize[0] << ","
+                     << reqdWGSize[1] << "," << reqdWGSize[2] << ") ";
   }
 
+  size_t reqdNumSG = 0;
   if (kmd->isReqdNumSubGroupsHasValue()) {
     reqdNumSG = kmd->getReqdNumSubGroups();
-    if (!kernelAttributes.str().empty())
-      kernelAttributes << " ";
-    kernelAttributes << "required_num_sub_groups(";
-    kernelAttributes << reqdNumSG;
-    kernelAttributes << ")";
+    kernelAttributes << "required_num_sub_groups(" << reqdNumSG << ") ";
   }
+
   if (kmd->isVecTypeHintHasValue()) {
     Type *VTHTy = kmd->getVecTypeHint()->getType();
 
@@ -432,8 +412,6 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
       VTHTy = VTHTy->getVectorElementType();
     }
 
-    if (!kernelAttributes.str().empty())
-      kernelAttributes << " ";
     kernelAttributes << "vec_type_hint(";
 
     // TODO: Enable MetaDataApi support for the code below.
@@ -496,7 +474,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
     if (vecSize > 1)
       kernelAttributes << vecSize;
-    kernelAttributes << ")";
+    kernelAttributes << ") ";
   }
 
   KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
@@ -554,7 +532,11 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetHasBarrier(hasBarrier);
   pProps->SetHasGlobalSync(hasGlobalSync);
   pProps->SetKernelExecutionLength(executionLength);
-  pProps->SetKernelAttributes(kernelAttributes.str());
+  auto kernelAttributesStr = kernelAttributes.str();
+  // Remove space at the end
+  if (!kernelAttributesStr.empty())
+    kernelAttributesStr.pop_back();
+  pProps->SetKernelAttributes(kernelAttributesStr);
   pProps->SetDAZ(buildOptions.GetDenormalsZero());
   pProps->SetCpuId(GetCompiler()->GetCpuId());
   if (HasNoBarrierPath)
