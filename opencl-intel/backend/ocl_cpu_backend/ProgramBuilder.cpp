@@ -453,7 +453,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
                     FuncInfo->getOperand(0))->stripPointerCasts())
           break;
       }
-      assert(FuncInfo && "Couldn't find this kernel in the kernel list");
       if(!FuncInfo)
         throw Exceptions::CompilerException("Internal Error. FuncInfo is nullptr");
 
@@ -467,7 +466,6 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
           break;
         }
       }
-      assert(MDVecTHint && "vec_type_hint info isn't available for this kernel");
       if(!MDVecTHint)
         throw Exceptions::CompilerException("Internal Error. MDVecTHint is nullptr");
 
