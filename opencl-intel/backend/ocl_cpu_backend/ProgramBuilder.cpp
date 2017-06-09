@@ -120,7 +120,7 @@ void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelS
 using namespace Intel::OpenCL::ELFUtils;
 
 // checks if the given program has an object binary to be loaded from
-static bool CheckIfProgramHasCachedExecutable(Program *pProgram) {
+static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
   assert(pProgram && "pProgram is null");
   if (!pProgram->GetObjectCodeContainer())
     return false;
@@ -236,7 +236,7 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 {
     try
     {
-        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
+        assert(!checkIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
         pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
     }
     catch(Exceptions::CompilerException& e)
@@ -252,7 +252,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     try
     {
-        if(CheckIfProgramHasCachedExecutable(pProgram))
+        if(checkIfProgramHasCachedExecutable(pProgram))
         {
              std::string log = "Reload Program Binary Object.";
              ReloadProgramFromCachedExecutable(pProgram);
