@@ -137,10 +137,10 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         LPWSTR *cl;
         int numArgs;
         string nameStr, nameStr2;
-        const char *name = NULL;
+        const char *name = nullptr;
 
         cl = CommandLineToArgvW(L"", &numArgs);
-        if (NULL != cl) {
+        if (!cl) {
             std::wstring wstr(*cl);
             nameStr = std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes(wstr);
             name = nameStr.c_str();
@@ -152,7 +152,7 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
         // find the base name by searching for the last '/' in the name
         // Remove .exe from the name. To actually create a file name without
         // the extension, need to create it in a string and take it's c_str()
-        if (name != NULL) {
+        if (name) {
             nameStr2 = llvm::sys::path::stem(StringRef(name)).str();
             name = nameStr2.c_str();
         }
@@ -160,11 +160,11 @@ ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const I
 #else // WIN32
          const char *name = getenv("_");
         // find the base name by searching for the last '/' in the name
-        if (name != NULL)
+        if (name)
             name = llvm::sys::path::filename(StringRef(name)).data();
 #endif // WIN32
         // if still no meaningful name just use "Program" as module name
-        if (name == NULL || *name == 0)
+        if (!name || *name == 0)
             name = "Program";
 
         m_statFileBaseName += name;
@@ -181,7 +181,7 @@ ProgramBuilder::~ProgramBuilder()
 bool ProgramBuilder::CheckIfProgramHasCachedExecutable(Program* pProgram) const
 {
     assert(pProgram && "pProgram is null");
-    if (NULL != pProgram->GetObjectCodeContainer())
+    if (pProgram->GetObjectCodeContainer())
     {
         const char* pObject = (const char*)pProgram->GetObjectCodeContainer()->GetCode();
         size_t objectSize = pProgram->GetObjectCodeContainer()->GetCodeSize();
@@ -236,7 +236,7 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
 {
-    assert(pProgram && "Program parameter must not be NULL");
+    assert(pProgram && "Program parameter must not be nullptr");
     ProgramBuildResult buildResult;
 
     try
@@ -263,7 +263,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
         pCompiler->BuildProgram( pModule, &buildResult);
-        std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(NULL, NULL, 0));
+        std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
@@ -354,7 +354,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         }
     }
 
-    if(NULL == kmd.get())
+    if(!kmd.get())
     {
         throw Exceptions::CompilerException("Internal Error");
     }
@@ -445,7 +445,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       // !8 = metadata !{metadata !"vec_type_hint", <8 x i32> undef, i32 0}
       //                                tag^       type^         isSigned^
       llvm::NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-      MDNode *FuncInfo = NULL;
+      MDNode *FuncInfo = nullptr;
       for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
         FuncInfo = MDArgInfo->getOperand(i);
 
@@ -454,22 +454,22 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
           break;
       }
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
-      if(NULL == FuncInfo)
-        throw Exceptions::CompilerException("Internal Error. FuncInfo is NULL");
+      if(!FuncInfo)
+        throw Exceptions::CompilerException("Internal Error. FuncInfo is nullptr");
 
-      MDNode *MDVecTHint = NULL;
+      MDNode *MDVecTHint = nullptr;
       //look for vec_type_hint metadata
       for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
         MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-        MDString *tag = (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : NULL);
+        MDString *tag = (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : nullptr);
         if (tag && (tag->getString() == "vec_type_hint")) {
           MDVecTHint = tmpMD;
           break;
         }
       }
       assert(MDVecTHint && "vec_type_hint info isn't available for this kernel");
-      if(NULL == MDVecTHint)
-        throw Exceptions::CompilerException("Internal Error. MDVecTHint is NULL");
+      if(!MDVecTHint)
+        throw Exceptions::CompilerException("Internal Error. MDVecTHint is nullptr");
 
       // Look for operand 2 - isSigned
       ValueAsMetadata * vAm = dyn_cast<ValueAsMetadata>(MDVecTHint->getOperand(2));
@@ -513,7 +513,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     unsigned int vectorBufferStride = 0;
     //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
     //Vectorized is running in all scenarios.
-    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel() != NULL) {
+    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel() != nullptr) {
       KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
       vectorExecutionLength = vkimd->getKernelExecutionLength();
       vectorBufferStride = vkimd->getBarrierBufferSize();
