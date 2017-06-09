@@ -132,6 +132,17 @@ static bool CheckIfProgramHasCachedExecutable(Program *pProgram) {
   return reader.IsCachedObject();
 }
 
+// Update the size of the variables in global adress space used by the program.
+static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
+  MetaDataUtils mdUtils(pModule);
+  // ModuleInfo is missing only when we build image built-ins and we don't
+  // care about the size of global variables in the program.
+  if (mdUtils.empty_ModuleInfoList())
+    return;
+  Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+  pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
+}
+
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
     m_pBackendFactory(pBackendFactory),
     m_useVTune(config.GetUseVTune()),
@@ -307,16 +318,6 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
 
     pProgram->SetBuildLog( buildResult.GetBuildLog());
     return buildResult.GetBuildResult();
-}
-
-void ProgramBuilder::updateGlobalVariableTotalSize(Program* pProgram, Module* pModule)
-{
-    MetaDataUtils mdUtils(pModule);
-    // ModuleInfo is missing only when we build image built-ins and we don't
-    // care about the size of global variables in the program.
-    if (mdUtils.empty_ModuleInfoList()) return;
-    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-    pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
 }
 
 KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vectorSize) const

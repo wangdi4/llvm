@@ -108,9 +108,6 @@ protected:
     bool m_useVTune;
 
 private:
-    /// @brief Update the size of the variables in global adress space used by the program.
-    void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
-
     /// @brief Dump stats collected for module if requested
     void DumpModuleStats(llvm::Module* pModule);
 
