@@ -98,13 +98,12 @@ static int getFileCount() {
   return fileCount.load(std::memory_order_relaxed);
 }
 
-/**
- * Returns the memory buffer of the Program object bytecode
- */
-llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram)
-{
-    const BitCodeContainer* pCodeContainer = static_cast<const BitCodeContainer*>(pProgram->GetProgramIRCodeContainer());
-    return (llvm::MemoryBuffer*)pCodeContainer->GetMemoryBuffer();
+// Returns the memory buffer of the Program object bytecode
+static llvm::MemoryBuffer *GetProgramMemoryBuffer(Program *pProgram) {
+  const BitCodeContainer *pCodeContainer =
+      static_cast<const BitCodeContainer *>(
+          pProgram->GetProgramIRCodeContainer());
+  return (llvm::MemoryBuffer *)pCodeContainer->GetMemoryBuffer();
 }
 
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet

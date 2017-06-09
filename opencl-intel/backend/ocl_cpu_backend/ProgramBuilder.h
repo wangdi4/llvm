@@ -38,8 +38,6 @@ class Compiler;
 class ObjectCodeCache;
 
 namespace Utils {
-/// @returns the memory buffer of the Program object bytecode
-llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram);
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
 void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels);
 }
