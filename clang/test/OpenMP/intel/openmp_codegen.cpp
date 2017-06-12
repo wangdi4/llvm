@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i32* [[ARGC_ADDR]], i32
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* [[ARGC_ADDR]], i32
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp parallel for shared(argv) private(s1, s2, arr1, arr2, arr3) linear(val(argc) : argc)
   for (int i = 0; i < argc; ++i)
@@ -102,8 +102,8 @@ int main(int argc, char **argv) {
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S1]* [[ARR1_ADDR]], [10 x %struct.S1]* ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.def_constr, void ([10 x %struct.S1]*)* @_ZTSA10_2S1.omp.destr
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE:NONPOD", [10 x %struct.S2]* [[ARR2_ADDR]], [10 x %struct.S2]* ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.def_constr, void ([10 x %struct.S2]*)* @_ZTSA10_2S2.omp.destr)
 // CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.PRIVATE", double* [[ARR3_ADDR]])
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.UVAL", i32* [[ARGCREF]], i32 1)
-// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR.VAL", i8*** [[ARGV_ADDR]], i32 1)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i32* [[ARGCREF]], i32 1)
+// CHECK: call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LINEAR", i8*** [[ARGV_ADDR]], i32 1)
 // CHECK: call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
 #pragma omp simd private(s1, s2, arr1, arr2, arr3) linear(uval(argcref)) linear(argv)
   for (int i = 0; i < argc; ++i)

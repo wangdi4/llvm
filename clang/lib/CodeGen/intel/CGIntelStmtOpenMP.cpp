@@ -599,21 +599,7 @@ namespace CGIntelOpenMP {
     }
   }
   void OpenMPCodeOutliner::emitOMPLinearClause(const OMPLinearClause *Cl) {
-    StringRef Linear;
-    switch (Cl->getModifier()) {
-    case OMPC_LINEAR_ref:
-      Linear = "QUAL.OMP.LINEAR.REF";
-      break;
-    case OMPC_LINEAR_val:
-      Linear = "QUAL.OMP.LINEAR.VAL";
-      break;
-    case OMPC_LINEAR_uval:
-      Linear = "QUAL.OMP.LINEAR.UVAL";
-      break;
-    case OMPC_LINEAR_unknown:
-      llvm_unreachable("Wrong linear modifier");
-    }
-    addArg(Linear);
+    addArg("QUAL.OMP.LINEAR");
     auto SavedIP = CGF.Builder.saveIP();
     setOutsideInsertPoint();
     for (auto *E : Cl->varlists())
