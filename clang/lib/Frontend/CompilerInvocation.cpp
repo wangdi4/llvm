@@ -465,6 +465,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Opts.setVecLib(CodeGenOptions::Accelerate);
     else if (Name == "SVML")
       Opts.setVecLib(CodeGenOptions::SVML);
+    else if (Name == "Libmvec")
+      Opts.setVecLib(CodeGenOptions::Libmvec);
     else if (Name == "none")
       Opts.setVecLib(CodeGenOptions::NoLibrary);
     else
