@@ -209,4 +209,4 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
 !6 = !{!"-cl-std=CL1.2"}
 !7 = !{!"int", !8}
 !8 = !{!"omnipotent char", !9}
-!9 = !{!"Simple C/C++ TBAA", null}
+!9 = !{!"Simple C/C++ TBAA"}

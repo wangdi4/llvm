@@ -455,5 +455,5 @@ define void @externalUnBranchDivLoop(i32 addrspace(1)* nocapture %a, i32 addrspa
 !10 = !{!"-cl-std=CL1.2"}
 !11 = !{!"int", !12}
 !12 = !{!"omnipotent char", !13}
-!13 = !{!"Simple C/C++ TBAA", null}
+!13 = !{!"Simple C/C++ TBAA"}
 

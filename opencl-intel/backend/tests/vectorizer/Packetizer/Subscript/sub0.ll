@@ -35,4 +35,4 @@ declare i32 @_Z13get_global_idj(...)
 
 !0 = !{!"int", !1}
 !1 = !{!"omnipotent char", !2}
-!2 = !{!"Simple C/C++ TBAA", null}
+!2 = !{!"Simple C/C++ TBAA"}

@@ -33,4 +33,4 @@ define void @kernel(i32* nocapture %A, i64 %k) nounwind {
 declare i64 @_Z13get_global_idj(...)
 
 !0 = !{!"omnipotent char", !1}
-!1 = !{!"Simple C/C++ TBAA", null}
+!1 = !{!"Simple C/C++ TBAA"}
