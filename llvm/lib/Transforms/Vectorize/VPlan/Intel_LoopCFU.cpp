@@ -450,8 +450,10 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
   VPOneByOneIRRecipeBase *FalseRecipe =
     PlanUtils.createOneByOneRecipe(BeginInstIt, EndInstIt, false);
   FalseBlock->addRecipe(FalseRecipe);
-  PlanUtils.appendSuccessor(EntryBlock, FalseBlock);
-  PlanUtils.appendPredecessor(FalseBlock, EntryBlock);
+  // TODO: Use connectBlocks instead? EntryBlock should have no successors.
+  // Otherwise we would need a condition bit recipe.
+  PlanUtils.appendBlockSuccessor(EntryBlock, FalseBlock);
+  PlanUtils.appendBlockPredecessor(FalseBlock, EntryBlock);
 
   // Create a new Recipe that indicates an all zeros bypass at the end of the
   // loop. The new recipe will contain the original compare instruction from the

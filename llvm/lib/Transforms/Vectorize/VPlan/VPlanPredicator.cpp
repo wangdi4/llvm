@@ -227,6 +227,20 @@ VPlanPredicator::getEdgeTypeBetween(VPBlockBase *FromBlock,
   return EDGE_TYPE_UNINIT;
 }
 
+// Get the Incoming predicate from PredBlock
+static VPBlockBase *getTakePredicateFrom(VPBlockBase *PredBlock,
+                                         VPBasicBlock *PredBasicBlock,
+                                         bool HasBackEdge) {
+  if (HasBackEdge) {
+    // If the PredBlock belongs to an inner loop, the predicate of the
+    // edge between the PredBlock and CurrentBlock is a predicate of the
+    // Entry block of the loop.
+    assert(PredBasicBlock && "Only BBs have multiple exits");
+    return cast<VPLoopRegion>(PredBasicBlock->getParent())->getEntry();
+  } else
+    return PredBlock;
+}
+
 // Generate all predicates needed for CurrBB
 void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
                                                       VPRegionBlock *Region) {
@@ -235,7 +249,7 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
     return;
   }
 
-  // For each input block, get the predicate and append it to BP
+  // For each predecessor, get the predicate and append it to BP
   for (VPBlockBase *PredBlock : CurrBlock->getPredecessors()) {
     // Skip back-edges
     if (PlanUtils.isBackEdge(PredBlock, CurrBlock, VPLI)) {
@@ -245,23 +259,17 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
     VPBasicBlock *PredBasicBlock = dyn_cast<VPBasicBlock>(PredBlock);
     VPBasicBlock *CurrBasicBlock = dyn_cast<VPBasicBlock>(CurrBlock);
 
-    // If there is an unconditional branch to the currBB, then we don't
-    // create edge predicates. We use the predecessor's block predicate
-    // instead. VPRegionBlocks should always hit here.
     VPPredicateRecipeBase *IncomingPredicate = nullptr;
     bool HasBackEdge = false;
     int NumPredSuccsNoBE = countSuccessorsNoBE(PredBlock, HasBackEdge);
+
+    // If there is an unconditional branch to the currBB, then we don't create
+    // edge predicates. We use the predecessor's block predicate instead.
+    // VPRegionBlocks should always hit here.
     if (NumPredSuccsNoBE == 1) {
-      // Get the Incoming predicate to CurrBlock (BP or Edge)
-      VPBlockBase *TakePredicateFrom = PredBlock;
-      if (HasBackEdge) {
-        // If the PredBlock belongs to an inner loop, the predicate of the
-        // edge between the PredBlock and CurrentBlock is a predicate of the
-        // Entry block of the loop.
-        assert(PredBasicBlock && "Only BBs have multiple exits");
-        TakePredicateFrom =
-          cast<VPLoopRegion>(PredBasicBlock->getParent())->getEntry();
-      }
+
+      VPBlockBase *TakePredicateFrom =
+          getTakePredicateFrom(PredBlock, PredBasicBlock, HasBackEdge);
       IncomingPredicate = TakePredicateFrom->getPredicateRecipe();
 
       if (PredBasicBlock && CurrBasicBlock && PredBasicBlock->getCBlock()) {
@@ -282,7 +290,22 @@ void VPlanPredicator::propagatePredicatesAcrossBlocks(VPBlockBase *CurrBlock,
       // Emit Edge recipes into PredBlock if required
       assert(PredBasicBlock && "Only BBs have multiple exits");
       EdgeType ET = getEdgeTypeBetween(PredBlock, CurrBlock);
-      IncomingPredicate = genEdgeRecipe(cast<VPBasicBlock>(PredBlock), ET);
+
+      // TODO: We have to generate edge predicates even when Region is uniform
+      // because CG uses them to vectorize Phi nodes. When we change the way Phi
+      // nodes are vectorized, we should also revisit this part.
+      VPPredicateRecipeBase *EdgeRecipe =
+          genEdgeRecipe(cast<VPBasicBlock>(PredBlock), ET);
+
+      // If Region is uniform, we just propagate predecessors's block predicate.
+      // Edge predicates are not used since the edge condition is uniform. We
+      // aren't predicating any instruciton.
+      if (Region->isDivergent()) 
+        IncomingPredicate = EdgeRecipe;
+      else
+        IncomingPredicate =
+            getTakePredicateFrom(PredBlock, PredBasicBlock, HasBackEdge)
+                ->getPredicateRecipe();
     }
     else {
       llvm_unreachable("FIXME: switch statement ?");
@@ -633,45 +656,56 @@ public:
 }
 #endif
 
-// Linearize the CFG
+// Linearize the CFG within Region.
 // TODO: Predication and linearization need RPOT for every region.
 // This traversal is expensive. Since predication is not adding new
 // blocks, we should be able to compute RPOT once in predication and
 // reuse it here.
-void VPlanPredicator::linearize(VPBlockBase *EntryBlock) {
-  typedef std::vector<VPBlockBase *>::reverse_iterator rpo_iterator;
-  ReversePostOrderTraversal<VPBlockBase *> RPOT(EntryBlock);
+void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
 
-  VPBlockBase *PrevBlock = nullptr;
-  // TODO: RPO is not providing the right topological order (if->else->then
-  // instead of if->then->else) but currently it works for the Q1 test cases.
-  for (rpo_iterator I = RPOT.begin(); I != RPOT.end(); ++I) {
-    VPBlockBase *CurrBlock = (*I);
+  // 1. Linearize CFG within Region only if it's divergent.
+  if (Region->isDivergent()) {
 
-    // dbgs() << "LV: VPBlock in RPO " << CurrBlock->getName() << '\n';
+    ReversePostOrderTraversal<VPBlockBase *> RPOT(Region->getEntry());
+    VPBlockBase *PrevBlock = nullptr;
 
-    // We have to preserve the right order of successors when a
-    // ConditionBitRecipe is kept after linearization. Currently, only loop
-    // latches' CBRs are preserved. For that reason, we keep intact loop latches'
-    // successors or loop header's predecessors.
-    // Current implementation doesn't work if a loop latch has a switch
-    assert((!PrevBlock || !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI) ||
-            PrevBlock->getNumSuccessors() < 3) &&
-           "Linearization doesn't support switches in loop latches");
+    // TODO: RPO is not providing the right topological order (if->else->then
+    // instead of if->then->else) but currently it works for the Q1 test cases.
+    // This problem could have improved with the fix for adding VPBB
+    // predecessors in the same order as LLVM BB.
+    for (VPBlockBase *CurrBlock : make_range(RPOT.begin(), RPOT.end())) {
+      // dbgs() << "LV: VPBlock in RPO " << CurrBlock->getName() << '\n';
 
-    if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
-        !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI)) {
-      PlanUtils.clearSuccessors(PrevBlock);
-      PlanUtils.clearPredecessors(CurrBlock);
-      PlanUtils.setSuccessor(PrevBlock, CurrBlock);
+      // We have to preserve the right order of successors when a
+      // ConditionBitRecipe is kept after linearization. Currently, only loop
+      // latches' CBRs are preserved. For that reason, we keep intact loop
+      // latches' successors or loop header's predecessors.
+      // Current implementation doesn't work if a loop latch has a switch.
+      assert((!PrevBlock || !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI) ||
+              PrevBlock->getNumSuccessors() < 3) &&
+             "Linearization doesn't support switches in loop latches");
+
+      if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
+          !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI)) {
+
+        dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
+               << CurrBlock->getName() << "\n";
+
+        PlanUtils.clearSuccessors(PrevBlock);
+        PlanUtils.clearPredecessors(CurrBlock);
+        PlanUtils.connectBlocks(PrevBlock, CurrBlock);
+      }
+
+      PrevBlock = CurrBlock;
     }
-    
-    // Recurse inside region
-    if (VPRegionBlock *Region = dyn_cast<VPRegionBlock>(CurrBlock)) {
-      linearize(Region->getEntry());
-    }
+  }
 
-    PrevBlock = CurrBlock;
+  // 2. Recurse inside Region
+  for (auto *Block : make_range(df_iterator<VPRegionBlock *>::begin(Region),
+                                df_iterator<VPRegionBlock *>::end(Region))) {
+    if (VPRegionBlock *SubRegion = dyn_cast<VPRegionBlock>(Block)) {
+      linearizeRegionRec(SubRegion);
+    }
   }
 }
 
@@ -703,7 +737,7 @@ void VPlanPredicator::predicate(void) {
     dumpVplanDot(Plan, "/tmp/vplan.optimized.dot"); // For debugging
   }
 
-  linearize(Plan->getEntry());
+  linearizeRegionRec(EntryLoopR);
 
   dumpVplanDot(Plan, "/tmp/vplan.after.linearized.dot"); // For debugging
 }

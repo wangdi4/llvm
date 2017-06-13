@@ -110,8 +110,13 @@ VPBasicBlock::createEmptyBasicBlock(VPTransformState::CFGState &CFG) {
                                          PrevBB->getParent(), CFG.LastBB);
   DEBUG(dbgs() << "LV: created " << NewBB->getName() << '\n');
 
-  // Hook up the new basic block to its predecessors.
-  for (VPBlockBase *PredVPBlock : getHierarchicalPredecessors()) {
+  // Hook up the new basic block to its predecessors. New predecessors that
+  // result from creating new BranchInsts are prepended instead of appended to
+  // the predecessor list. In order to preserve original CFG and original
+  // predecessors order, we have to process them in reverse order.
+  const SmallVectorImpl<VPBlockBase *> &Preds = getHierarchicalPredecessors();
+  for (VPBlockBase *PredVPBlock : make_range(Preds.rbegin(), Preds.rend())) {
+
     VPBasicBlock *PredVPBB = PredVPBlock->getExitBasicBlock();
     if (!CFG.VPBB2IRBB.count(PredVPBB)) {
       // Back edge from inner loop

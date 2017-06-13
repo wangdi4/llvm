@@ -180,7 +180,7 @@ attributes #2 = { nounwind }
 ; NOOPT:   [[loop_19:loop[0-9]+]]:
 ; NOOPT:     [[IfF_28]] = [[BP_25]] && ![[VBR_27]]
 ; NOOPT:   [[BB_4:BB[0-9]+]]:
-; NOOPT:     [[BP_26:BP[0-9]+]] = [[IfT_29]] || [[IfF_28]]
+; NOOPT:     [[BP_26:BP[0-9]+]] = [[IfF_28]] || [[IfT_29]]
 
 ; NOOPT: [[loop_19]]:
 ; NOOPT:   [[BB_5:BB[0-9]+]]:
@@ -206,24 +206,23 @@ attributes #2 = { nounwind }
 
 ; OPT: [[region_18:region[0-9]+]]:
 ; OPT:   [[BB_14:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 ; OPT:     [[IfF_28]] = ![[VBR_27:VBR[0-9]+]]
 ; OPT:     [[IfT_29:IfT[0-9]+]] = [[VBR_27]]
 ; OPT:   [[loop_19]]:
 ; OPT:     [[IfF_28]] = ![[VBR_27]]
 ; OPT:   [[BB_4:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 
 ; OPT: [[loop_17:loop[0-9]+]]:
 ; OPT:   [[BB_11:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 ; OPT:   [[BB_2:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 ; OPT:   [[region_18]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 ; OPT:   [[BB_16:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
+; OPT-NOT: {{BP[0-9]+}} = 
 ; OPT:   [[BB_10:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ = 
-
+; OPT-NOT: {{BP[0-9]+}} = 
 

@@ -138,7 +138,7 @@ public:
                            const TargetLibraryInfo *TLI,
                            const TargetTransformInfo *TTI,
                            class DominatorTree* DT,
-                           VPOVectorizationLegality *Legal)
+                           VPOVectorizationLegality &Legal)
       : LoopVectorizationPlannerBase(WRL),
         TheLoop(Lp), LI(LI), SE(SE), TLI(TLI), TTI(TTI), DT(DT), Legal(Legal) {}
 
@@ -209,7 +209,7 @@ private:
   class DominatorTree* DT;
 
   /// The legality analysis.
-  VPOVectorizationLegality *Legal;
+  VPOVectorizationLegality &Legal;
 
   /// The profitablity analysis.
   // LoopVectorizationCostModel *CM;

@@ -25,6 +25,11 @@ static cl::opt<bool> VPlanLoopCFU(
     "vplan-loop-cfu", cl::init(false), cl::Hidden,
     cl::desc("Perform inner loop control flow uniformity transformation"));
 
+static cl::opt<bool> DisableUniformRegions(
+    "disable-uniform-regions", cl::init(false), cl::Hidden,
+    cl::desc("Disable detection of uniform Regions in VPlan. All regions are "
+             "set as divergent."));
+
 static bool isInstructionToIgnore(Instruction *I) {
   // DeadInstructions are not taken into account at this point. IV update and
   // loop latch condition need to be part of HCFG to constitute a
@@ -129,6 +134,20 @@ createOrGetVPBB(BasicBlock *BB, VPRegionBlock *TopRegion,
   return VPBB;
 }
 
+// Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
+static void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB,
+                               VPRegionBlock *TopRegion,
+                               DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
+                               unsigned &TopRegionSize,
+                               IntelVPlanUtils &PlanUtils) {
+
+  for (BasicBlock *Pred : predecessors(BB)) {
+    VPBasicBlock *PredVPBB =
+        createOrGetVPBB(Pred, TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
+    PlanUtils.appendBlockPredecessor(VPBB, PredVPBB);
+  }
+}
+
 // Build plain CFG from incomming IR using only VPBasicBlock's that contain
 // OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
 // encloses all the VPBasicBlock's of the plain CFG.
@@ -171,7 +190,7 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
           TI->getSuccessor(0), TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
       assert(SuccVPBB && "VPBB Successor not found");
 
-      PlanUtils.setSuccessor(VPBB, SuccVPBB);
+      PlanUtils.setBlockSuccessor(VPBB, SuccVPBB);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
 
@@ -197,7 +216,7 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
         CondBitR = PlanUtils.createLiveInConditionBitRecipe(Condition);
       }
 
-      PlanUtils.setTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
+      PlanUtils.setBlockTwoSuccessors(VPBB, CondBitR, SuccVPBB0, SuccVPBB1);
       VPBB->setCBlock(BB);
       VPBB->setTBlock(TI->getSuccessor(0));
       VPBB->setFBlock(TI->getSuccessor(1));
@@ -205,6 +224,9 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
     } else {
       llvm_unreachable("Number of successors not supported");
     }
+
+    // Set predecessors in the same order as they are in LLVM basic block.
+    setVPBBPredsFromBB(VPBB, BB, TopRegion, BB2VPBB, TopRegionSize, PlanUtils);
   }
 
   // Add outermost loop preheader to plain CFG. It needs explicit treatment
@@ -218,14 +240,19 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
   createRecipesForVPBB(PreheaderBB, PreheaderVPBB, TheLoop, PlanUtils,
                        BranchCondMap);
   VPBlockBase *HeaderVPBB = BB2VPBB[TheLoop->getHeader()];
-  PlanUtils.setSuccessor(PreheaderVPBB, HeaderVPBB);
+  // Preheader's predecessors have already been set in RPO traversal.
+  PlanUtils.setBlockSuccessor(PreheaderVPBB, HeaderVPBB);
 
   // Empty VPBasicBlock were created for loop exit BasicBlocks but they weren't
-  // visited because they are not inside the loop. Create now recipes for them.
+  // visited because they are not inside the loop. Create now recipes for them
+  // and set its predecessors.
   SmallVector<BasicBlock *, 2> LoopExits;
   TheLoop->getUniqueExitBlocks(LoopExits);
-  for (BasicBlock *BB : LoopExits)
-    createRecipesForVPBB(BB, BB2VPBB[BB], TheLoop, PlanUtils, BranchCondMap);
+  for (BasicBlock *BB : LoopExits) {
+    VPBasicBlock *VPBB = BB2VPBB[BB];
+    createRecipesForVPBB(BB, VPBB, TheLoop, PlanUtils, BranchCondMap);
+    setVPBBPredsFromBB(VPBB, BB, TopRegion, BB2VPBB, TopRegionSize, PlanUtils);
+  }
 
   // Top Region setup
 
@@ -233,7 +260,7 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
   VPBlockBase *RegionEntry = PlanUtils.createBasicBlock();
   ++TopRegionSize;
   PlanUtils.setBlockParent(RegionEntry, TopRegion);
-  PlanUtils.setSuccessor(RegionEntry, PreheaderVPBB);
+  PlanUtils.connectBlocks(RegionEntry, PreheaderVPBB);
 
   // Create a dummy block as Top Region's exit
   VPBlockBase *RegionExit = PlanUtils.createBasicBlock();
@@ -242,26 +269,25 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG(HCFGState &State) {
 
   // Connect dummy Top Region's exit.
   if (LoopExits.size() == 1) {
-    PlanUtils.setSuccessor(BB2VPBB[LoopExits.front()], RegionExit);
+    VPBasicBlock *LoopExitVPBB = BB2VPBB[LoopExits.front()];
+    PlanUtils.connectBlocks(LoopExitVPBB, RegionExit);
   } else {
     // If there are multiple exits in the outermost loop, we need another dummy
     // block as landing pad for all of them.
-    SmallVector<BasicBlock *, 2> ExitBBs;
-    TheLoop->getUniqueExitBlocks(ExitBBs);
-    assert(ExitBBs.size() > 1 && "Wrong number of exit blocks");
+    assert(LoopExits.size() > 1 && "Wrong number of exit blocks");
 
     VPBlockBase *LandingPad = PlanUtils.createBasicBlock();
     ++TopRegionSize;
     PlanUtils.setBlockParent(LandingPad, TopRegion);
 
     // Connect multiple exits to landing pad
-    for (auto ExitBB : make_range(ExitBBs.begin(), ExitBBs.end())) {
+    for (auto ExitBB : make_range(LoopExits.begin(), LoopExits.end())) {
       VPBasicBlock *ExitVPBB = BB2VPBB[ExitBB];
-      PlanUtils.setSuccessor(ExitVPBB, LandingPad);
+      PlanUtils.connectBlocks(ExitVPBB, LandingPad);
     }
 
     // Connect landing pad to Top Region's exit
-    PlanUtils.setSuccessor(LandingPad, RegionExit);
+    PlanUtils.connectBlocks(LandingPad, RegionExit);
   }
 
   PlanUtils.setRegionEntry(TopRegion, RegionEntry);
@@ -414,8 +440,8 @@ void VPlanHCFGBuilder::mergeLoopExits(VPLoop *VPL, HCFGState &State) {
     VPRegionBlock *Parent = ExitBlock->getParent();
     PlanUtils.setBlockParent(NewCascadedExit, Parent);
     PlanUtils.setRegionSize(Parent, Parent->getSize() + 1);
-    PlanUtils.setTwoSuccessors(NewCascadedExit, CBR, ExitBlock,
-                               LastCascadedExitBlock);
+    PlanUtils.connectBlocks(NewCascadedExit, CBR, ExitBlock,
+                            LastCascadedExitBlock);
     // Add NewBlock to VPLoopInfo
     if (VPLoop *Loop = VPLInfo->getLoopFor(ExitBlock)) {
       Loop->addBasicBlockToLoop(NewCascadedExit, *VPLInfo);
@@ -790,6 +816,44 @@ static bool isNonLoopRegion(VPBlockBase *Entry, VPRegionBlock *ParentRegion,
   return true;
 }
 
+//TODO
+// Return true if \p Block is a VPBasicBlock that contains a successor selector
+// (ConditionBitRecipe) that is not uniform. If Block is a VPRegionBlock, it
+// returns false since a region can only have a single successor (by now).
+static bool isDivergentBlock(VPBlockBase *Block,
+                             VPOVectorizationLegality &Legal) {
+  if (DisableUniformRegions)
+    return true;
+
+  if (auto *VPBB = dyn_cast<VPBasicBlock>(Block)) {
+    unsigned NumSuccs = Block->getNumSuccessors();
+    if (NumSuccs < 2) {
+      assert(!VPBB->getConditionBitRecipe() &&
+             "Unexpected condition bit recipe");
+      return false;
+    } else {
+      // Multiple successors. Checking uniformity of ConditionBitRecipe.
+      VPConditionBitRecipeBase *CBR = VPBB->getConditionBitRecipe();
+      assert(CBR && "Expected condition bit recipe.");
+
+      if (auto *CBRWS = dyn_cast<VPConditionBitRecipeWithScalar>(CBR))
+        return !Legal.isUniformForTheLoop(CBRWS->getScalarCondition());
+      else if (isa<VPBranchIfNotAllZeroRecipe>(CBR))
+        // This recipe is uniform by definition.
+        return false;
+      else if (isa<VPNonUniformConditionBitRecipe>(CBR))
+        // This recipe is divergent by definition.
+        return true;
+      else
+        llvm_unreachable("Unsupported condition bit recipe.");
+    }
+  }
+
+  // Regions doesn't change parent region divergence.
+  assert (Block->getSinglePredecessor() && "Region with multiple successors");
+  return false;
+}
+
 // Create new non-loop VPRegionBlock's and update the information of all the
 // blocks in the hierarchical CFG. The hierarchical CFG is stable and contains
 // consisten information after this step.
@@ -808,7 +872,8 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
   SmallPtrSet<VPBlockBase *, 16> Visited;
   WorkList.push_back(ParentRegion->getEntry());
 
-  unsigned ParentRegionSize = 0;
+  unsigned ParentSize = 0;
+  bool ParentIsDivergent = false;
 
   while (!WorkList.empty()) {
 
@@ -830,7 +895,7 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
            "Expected VPBasicBlock or VPLoopRegion");
 
     // Increase ParentRegion's size
-    ++ParentRegionSize;
+    ++ParentSize;
 
     // Pointer to a new subregion or existing VPLoopRegion subregion
     VPRegionBlock *SubRegion = dyn_cast<VPLoopRegion>(Current);
@@ -858,6 +923,7 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
       }
     }
 
+    // New region was built or Current is a LoopRegion.
     if (SubRegion) {
       // Set SubRegion's parent
       PlanUtils.setBlockParent(SubRegion, ParentRegion);
@@ -873,8 +939,14 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
       buildNonLoopRegions(SubRegion, State);
 
     } else {
+      // Current is a VPBasicBlock that didn't trigger the creation of a new
+      // region.
+
       // Set Current's parent
       PlanUtils.setBlockParent(Current, ParentRegion);
+
+      // Check if Current causes parent region to be divergent.
+      ParentIsDivergent |= isDivergentBlock(Current, Legal);
 
       // No new region has been detected. Add Current's successors.
       for (auto Succ : Current->getSuccessors()) {
@@ -885,7 +957,8 @@ void VPlanHCFGBuilder::buildNonLoopRegions(VPRegionBlock *ParentRegion,
     }
   }
 
-  PlanUtils.setRegionSize(ParentRegion, ParentRegionSize);
+  PlanUtils.setRegionSize(ParentRegion, ParentSize);
+  PlanUtils.setRegionDivergent(ParentRegion, ParentIsDivergent);
 
   DEBUG(dbgs() << "End of HCFG build for " << ParentRegion->getName() << "\n");
 }

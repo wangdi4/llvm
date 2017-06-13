@@ -1,64 +1,41 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -disable-vplan-codegen -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -disable-vplan-codegen -S -o /dev/null | FileCheck %s -check-prefix=OPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -S -o /dev/null 2>&1 | FileCheck %s -check-prefix=REPORT
+; RUN: opt %s -VPlanDriver -S 2>&1 | FileCheck %s -check-prefix=CG
+; REQUIRES: asserts
 
-; region1
-; ----
-;  BB7
-;   |
-;   v
-; loop11
-;   |
-;   v
-;  BB8
-;
-
-; loop11
-; ------
-;   BB6
-;    |
-;    v
-;   BB2 <--+
-;    |     |
-; region12 |
-;    |    F|
-;   BB10 --+
-;    |T
-;    v
-;   BB5
-;
+; This is to test that the predicator preserves uniform control flow.
 
 
-; region12
-; --------
-;   BB9
-;  T| \F
-;   |  \
-;   |  BB4
-;   |  /
-;   | /
-;   BB3
-;
+; Predicator report output
+; REPORT: [[region_14:region[0-9]+]]:
+; REPORT-NEXT:   [[BB_11:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_20:BP[0-9]+]] =
+; REPORT-NEXT:     [[IfF_24:IfF[0-9]+]] = {{!UBR[0-9]+}}
+; REPORT-NEXT:     [[IfT_25:IfT[0-9]+]] = {{UBR[0-9]+}}
+; REPORT-NEXT:   [[BB_4:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_22:BP[0-9]+]] = 
+; REPORT-NEXT:   [[BB_3:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_21:BP[0-9]+]] = 
 
+; REPORT: [[loop_13:loop[0-9]+]]:
+; REPORT-NEXT:   [[BB_8:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_16:BP[0-9]+]] = 
+; REPORT-NEXT:   [[BB_2:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_17:BP[0-9]+]] = 
+; REPORT-NEXT:   [[region_14]]:
+; REPORT-NOT:     [[BP_17]] = 
+; REPORT-NEXT:   [[BB_12:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_18:BP[0-9]+]] =
+; REPORT-NEXT:   [[BB_7:BB[0-9]+]]:
+; REPORT-NOT:     [[BP_19:BP[0-9]+]] =
 
-; #define SIZE 1024
-; int A[SIZE], B[SIZE], C[SIZE], D[SIZE];
+; Codegen
 
-; int foo () {
-;     #pragma omp simd
-;     for (int i = 0; i < SIZE; i+=1) {
-;         if (B[i] > 0) {
-;             C[i] = D[i];
-;         } else {
-;             C[i] = B[i] + C[i] + 1;
-;         }
-;         A[i] = C[i];
-;     }
-;     return 0;
-; }
-;
-; icx %s -c -O2 -fopenmp -mllvm -vplan-predicator-report -mllvm -vplan-driver -Qoption,c,-fintel-openmp -restrict -mllvm -vplan-enable-subregions -mllvm -vplan-predicator | FileCheck %s
-
-
+; CG: vector.body:
+; CG: br i1 {{%cmp[0-9]+}}, label %[[VPBB2:VPlannedBB[0-9]*]], label %[[VPBB1:VPlannedBB[0-9]*]]
+; CG: [[VPBB1]]: 
+; CG: br label %[[VPBB2]]
+; CG: [[VPBB2]]: 
+; CG: br i1 {{%[0-9]+}}, label %middle.block, label %vector.body
 
 
 ; ModuleID = 'inner_if_else.c'
@@ -78,6 +55,10 @@ entry:
   br label %DIR.QUAL.LIST.END.2
 
 DIR.QUAL.LIST.END.2:                              ; preds = %entry
+  %arrayidx.hmm = getelementptr inbounds [1024 x i32], [1024 x i32]* @B, i64 0, i64 0
+  %hmm = load i32, i32* %arrayidx.hmm, align 4, !tbaa !1
+  ; Live-In
+  %cmp1 = icmp sgt i32 %hmm, 0
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %if.end
@@ -92,7 +73,6 @@ for.body:                                         ; preds = %if.end, %DIR.QUAL.L
   %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %if.end ]
   %arrayidx = getelementptr inbounds [1024 x i32], [1024 x i32]* @B, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
-  %cmp1 = icmp sgt i32 %0, 0
   %arrayidx5 = getelementptr inbounds [1024 x i32], [1024 x i32]* @C, i64 0, i64 %indvars.iv
   br i1 %cmp1, label %if.end, label %if.else
 
@@ -128,50 +108,5 @@ attributes #1 = { argmemonly nounwind }
 !4 = !{!"omnipotent char", !5, i64 0}
 !5 = !{!"Simple C/C++ TBAA"}
 
-; NOOPT: [[loop_13:loop[0-9]+]]:
-; NOOPT:   [[BB_8:BB[0-9]+]]:
-; NOOPT:     [[BP_16:BP[0-9]+]] = 
-; NOOPT:   [[BB_2:BB[0-9]+]]:
-; NOOPT:     [[BP_17:BP[0-9]+]] = [[BP_16]]
-; NOOPT:   [[region_14:region[0-9]+]]:
-; NOOPT:     [[BP_17]] = [[BP_16]]
-; NOOPT:   [[BB_12:BB[0-9]+]]:
-; NOOPT:     [[BP_18:BP[0-9]+]] = [[BP_17]]
-; NOOPT:   [[BB_7:BB[0-9]+]]:
-; NOOPT:     [[BP_19:BP[0-9]+]] = [[BP_16]]
-
-; NOOPT: [[region_14]]:
-; NOOPT:   [[BB_11:BB[0-9]+]]:
-; NOOPT:     [[BP_20:BP[0-9]+]] = [[BP_17]]
-; NOOPT:     [[IfF_24:IfF[0-9]+]] = [[BP_20]] && ![[VBR_23:VBR[0-9]+]]
-; NOOPT:     [[IfT_25:IfT[0-9]+]] = [[BP_20]] && [[VBR_23]]
-; NOOPT:   [[BB_5:BB[0-9]+]]:
-; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
-; NOOPT:   [[BB_4:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_22]] || [[IfT_25]]
-
-
-
-; OPT: [[region_14:region[0-9]+]]:
-; OPT:   [[BB_11:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:     [[IfF_24:IfF[0-9]+]] = ![[VBR_23:VBR[0-9]+]]
-; OPT:     [[IfT_25:IfT[0-9]+]] = [[VBR_23]]
-; OPT:   [[BB_5:BB[0-9]+]]:
-; OPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
-; OPT:   [[BB_4:BB[0-9]+]]:
-; OPT-NOT:     BP[0-9]+ =
-
-; OPT: [[loop_13:loop[0-9]+]]:
-; OPT:   [[BB_8:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_2:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[region_14]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_12:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
-; OPT:   [[BB_7:BB[0-9]+]]:
-; OPT-NOT: BP[0-9]+ =
 
 

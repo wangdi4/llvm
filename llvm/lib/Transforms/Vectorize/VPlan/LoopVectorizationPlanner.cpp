@@ -116,7 +116,7 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   IntelVPlanUtils PlanUtils(Plan);
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(LI, SE);
+  VPlanHCFGBuilder HCFGBuilder(LI, SE, Legal);
   HCFGBuilder.buildHierarchicalCFG(TheLoop, WRLoop, Plan);
 
   return SharedPlan;
@@ -147,7 +147,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal);
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, &Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
@@ -161,6 +161,6 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::collectDeadInstructions() {
-  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
+  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, &Legal,
                                                DeadInstructions);
 }

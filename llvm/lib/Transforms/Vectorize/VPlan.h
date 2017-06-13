@@ -1078,6 +1078,9 @@ private:
   /// Holds the number of VPBasicBlocks within the region. It is necessary for
   /// dominator tree
   unsigned Size;
+
+  /// Holds whether the control flow within the region is divergent or uniform.
+  bool IsDivergent; 
 #endif
   /// A VPRegionBlock can represent either a single instance of its
   /// VPBlockBases, or multiple (VF * UF) replicated instances. The latter is
@@ -1087,6 +1090,8 @@ private:
 #ifdef INTEL_CUSTOMIZATION
   /// Traverse all the region VPBasicBlocks to recompute Size
   void recomputeSize();
+
+  void setDivergent(bool IsDiv) { IsDivergent = IsDiv; }
 #endif
 
 #ifdef INTEL_CUSTOMIZATION
@@ -1104,7 +1109,8 @@ public:
 #ifdef INTEL_CUSTOMIZATION
   VPRegionBlock(const unsigned char SC, const std::string &Name)
       : VPBlockBase(SC, Name), Entry(nullptr), Exit(nullptr), Size(0),
-      IsReplicator(false), RegionDT(nullptr), RegionPDT(nullptr) {}
+        IsDivergent(true), IsReplicator(false), RegionDT(nullptr),
+        RegionPDT(nullptr) {}
 #else
   VPRegionBlock(const std::string &Name)
       : VPBlockBase(VPRegionBlockSC, Name), Entry(nullptr), Exit(nullptr),
@@ -1144,6 +1150,8 @@ public:
 
 #ifdef INTEL_CUSTOMIZATION
   unsigned getSize() const { return Size; }
+
+  bool isDivergent() const { return IsDivergent; }
 
   // TODO: This is weird. For some reason, DominatorTreeBase is using
   // A->getParent()->front() instead of using GraphTraints::getEntry. We may
@@ -1384,18 +1392,24 @@ public:
     Region->Size = Size;
   }
 
-  /// \brief Add \p Successor as the last successor to this block.
-  void appendSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
-    assert(Successor && "Cannot add nullptr successor!");
-    Block->appendSuccessor(Successor);
-  }
-
-  /// \brief Add \p Predecessor as the last predecessor to this block.
-  void appendPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
-    assert(Predecessor && "Cannot add nullptr successor!");
-    Block->appendPredecessor(Predecessor);
+  void setRegionDivergent(VPRegionBlock *Region, bool IsDivergent) {
+    Region->IsDivergent = IsDivergent;
   }
 #endif
+
+#ifdef INTEL_CUSTOMIZATION
+// Please, do not use setSuccessor and setTwoSuccessors in VPO Vectorizer.
+// Depending on what you need, you may want to use connectBlocks or
+// insertBlockBefore and insertBlockAfter. appendBlockSuccessor,
+// appendBlockPredecessor, setBlockSuccessor and setBlockTwoSuccessors are also
+// available but their use should be less common.
+// Original setSuccessor and setTwoSuccessors are also setting predecessors and
+// parent, which is known to cause problems:
+//  1. Predecessors for original LLVM CFG must be appended in the right order
+//  and not following successors' order.
+//  2. If Block's parent is wrong, it will be propagated to Successor anyway.
+#endif
+#ifndef INTEL_CUSTOMIZATION
   /// Sets a given VPBlockBase \p Successor as the single successor of another
   /// VPBlockBase \p Block. The parent of \p Block is copied to be the parent of
   /// \p Successor.
@@ -1421,6 +1435,7 @@ public:
     IfTrue->Parent = Block->Parent;
     IfFalse->Parent = Block->Parent;
   }
+#endif
 
   /// Given two VPBlockBases \p From and \p To, disconnect them from each other.
   void disconnectBlocks(VPBlockBase *From, VPBlockBase *To) {
@@ -1428,7 +1443,100 @@ public:
     To->removePredecessor(From);
   }
 
-#ifdef INTEL_CUSTOMIZATION  
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Add \p Successor as the last successor to this block.
+  void appendBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+    assert(Successor && "Cannot add nullptr successor!");
+    Block->appendSuccessor(Successor);
+  }
+
+  /// \brief Add \p Predecessor as the last predecessor to this block.
+  void appendBlockPredecessor(VPBlockBase *Block, VPBlockBase *Predecessor) {
+    assert(Predecessor && "Cannot add nullptr successor!");
+    Block->appendPredecessor(Predecessor);
+  }
+
+  /// connectBlocks should be used instead of this function when possible. 
+  /// Set a given VPBlockBase \p Successor as the single successor of another
+  /// VPBlockBase \p Block. Block's successor list must be empty. Block is not
+  /// added as Successor's predecessor.
+  void setBlockSuccessor(VPBlockBase *Block, VPBlockBase *Successor) {
+    assert(Block->getSuccessors().empty() && "Block successors already set.");
+    appendBlockSuccessor(Block, Successor);
+  }
+
+  /// connectBlocks should be used instead of this function when possible.
+  /// Set two given VPBlockBases \p IfTrue and \p IfFalse to be the two
+  /// successors of another VPBlockBase \p Block. A given
+  /// VPConditionBitRecipeBase provides the control selector. Block is not added
+  /// as IfTrue/IfFalse's predecessor.
+  void setBlockTwoSuccessors(VPBlockBase *Block, VPConditionBitRecipeBase *R,
+                             VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+    assert(Block->getSuccessors().empty() && "Block successors already set.");
+    Block->setConditionBitRecipe(R, Plan);
+    appendBlockSuccessor(Block, IfTrue);
+    appendBlockSuccessor(Block, IfFalse);
+  }
+
+  /// Connect \p From and \p To VPBlockBases bi-directionally. To is set as
+  /// successor of From. From is set as predecessor of To. From must have no
+  /// successors.
+  void connectBlocks(VPBlockBase *From, VPBlockBase *To) {
+    setBlockSuccessor(From, To);
+    appendBlockPredecessor(To, From);
+  }
+
+  /// Connect \p From to \p IfTrue and \p IfFalse bi-directionally. IfTrue and
+  /// IfFalse are set as successors of From. From is set as predecessor of
+  /// IfTrue and IfFalse. From must have no successors.
+  void connectBlocks(VPBlockBase *From, VPConditionBitRecipeBase *Condition,
+                             VPBlockBase *IfTrue, VPBlockBase *IfFalse) {
+    setBlockTwoSuccessors(From, Condition, IfTrue, IfFalse);
+    appendBlockPredecessor(IfTrue, From);
+    appendBlockPredecessor(IfFalse, From);
+  }
+
+  /// Insert NewBlock in the HCFG before BlockPtr and update parent region
+  /// accordingly
+  void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    VPRegionBlock *ParentRegion = BlockPtr->getParent();
+
+    movePredecessors(BlockPtr, NewBlock);
+    setBlockParent(NewBlock, ParentRegion);
+    connectBlocks(NewBlock, BlockPtr);
+    ++BlockPtr->Parent->Size;
+
+    // If BlockPtr is parent region's entry, set BlockPtr as parent region's
+    // entry
+    if (ParentRegion->getEntry() == BlockPtr) {
+      setRegionEntry(ParentRegion, NewBlock);
+    }
+  }
+
+  /// Insert NewBlock in the HCFG after BlockPtr and update parent region
+  /// accordingly. If BlockPtr has more that two successors, its
+  /// ConditionBitRecipe is propagated to NewBlock.
+  void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
+    
+    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
+      VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
+      VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
+      ThisBB->moveConditionalEOBTo(ToBB, Plan);
+    }
+
+    VPRegionBlock *ParentRegion = BlockPtr->getParent();
+    moveSuccessors(BlockPtr, NewBlock);
+    setBlockParent(NewBlock, ParentRegion);
+    connectBlocks(BlockPtr, NewBlock);
+    ++BlockPtr->Parent->Size;
+
+    // If BlockPtr is parent region's exit, set BlockPtr as parent region's
+    // exit
+    if (ParentRegion->getExit() == BlockPtr) {
+      setRegionExit(ParentRegion, NewBlock);
+    }
+  }
+
   void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
     Block->Parent = Parent;
   }
@@ -1544,50 +1652,6 @@ public:
     }
   }
 
-  /// Insert NewBlock in the HCFG before BlockPtr and update parent region
-  /// accordingly
-  void insertBlockBefore(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
-    VPRegionBlock *ParentRegion = BlockPtr->getParent();
-
-    movePredecessors(BlockPtr, NewBlock);
-    // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
-    // need to set the parent before if we don't want to propagate a nullptr.
-    setBlockParent(NewBlock, ParentRegion);
-    setSuccessor(NewBlock, BlockPtr);
-    ++BlockPtr->Parent->Size;
-
-    // If BlockPtr is parent region's entry, set BlockPtr as parent region's
-    // entry
-    if (ParentRegion->getEntry() == BlockPtr) {
-      setRegionEntry(ParentRegion, NewBlock);
-    }
-  }
-
-  /// Insert NewBlock in the HCFG after BlockPtr and update parent region
-  /// accordingly. If BlockPtr has more that two successors, its
-  /// ConditionBitRecipe is propagated to NewBlock.
-  void insertBlockAfter(VPBlockBase *NewBlock, VPBlockBase *BlockPtr) {
-    VPRegionBlock *ParentRegion = BlockPtr->getParent();
-
-    if (isa<VPBasicBlock>(BlockPtr) && isa<VPBasicBlock>(NewBlock)) {
-      VPBasicBlock *ThisBB = cast<VPBasicBlock>(BlockPtr);
-      VPBasicBlock *ToBB = cast<VPBasicBlock>(NewBlock);
-      ThisBB->moveConditionalEOBTo(ToBB, Plan);
-    }
-
-    moveSuccessors(BlockPtr, NewBlock);
-    // TODO: setSuccessor is propagating NewBlock's parent to BlockPtr, so we
-    // need to set the parent before if we don't want to propagate a nullptr.
-    setBlockParent(NewBlock, ParentRegion);
-    setSuccessor(BlockPtr, NewBlock);
-    ++BlockPtr->Parent->Size;
-
-    // If BlockPtr is parent region's exit, set BlockPtr as parent region's
-    // exit
-    if (ParentRegion->getExit() == BlockPtr) {
-      setRegionExit(ParentRegion, NewBlock);
-    }
-  }
 
   /// \brief Add Incoming Predicate to BlockPredicate.
   void appendIncomingToBlockPred(VPBlockPredicateRecipe *BlockPred,

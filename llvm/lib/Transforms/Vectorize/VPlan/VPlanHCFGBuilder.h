@@ -21,6 +21,8 @@
 
 #include "IntelVPlan.h"
 #include "llvm/ADT/DenseMap.h"
+#include "LoopVectorizationCodeGen.h" //Only for Legal.
+                                      //TODO: Move Legal to an independent file
 
 namespace llvm {
 
@@ -34,7 +36,9 @@ class WRNVecLoopNode;
 class VPlanHCFGBuilder {
 
 public:
-  VPlanHCFGBuilder(LoopInfo *LI, ScalarEvolution *SE) : LI(LI), SE(SE) {}
+  VPlanHCFGBuilder(LoopInfo *LI, ScalarEvolution *SE,
+                   VPOVectorizationLegality &L)
+      : LI(LI), SE(SE), Legal(L) {}
 
   /// Build hierarchical CFG for \p TheLoop using its WRegion analysis
   /// information (if available). \p Plan is updated with the resulting
@@ -63,6 +67,10 @@ private:
 
   /// Scalar Evolution analysis.
   ScalarEvolution *SE;
+
+  // VPO legality information. Only used to determine if a condition is uniform.
+  // TODO: Temporal solution.
+  VPOVectorizationLegality &Legal;
 
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent

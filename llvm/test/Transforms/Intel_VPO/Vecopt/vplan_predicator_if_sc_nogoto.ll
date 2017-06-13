@@ -128,7 +128,7 @@ attributes #1 = { argmemonly nounwind }
 ; NOOPT:   [[BB_5:BB[0-9]+]]:
 ; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
 ; NOOPT:   [[BB_4:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[IfT_25]] || [[BP_22]]
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_22]] || [[IfT_25]] 
 
 
 ; OPT: [[region_14:region[0-9]+]]:

@@ -92,7 +92,7 @@
 ; NOOPT:   [[region_26:region[0-9]+]]:
 ; NOOPT:     [[BP_33]] = [[IfT_36]]
 ; NOOPT:   [[BB_5:BB[0-9]+]]:
-; NOOPT:     [[BP_34:BP[0-9]+]] = [[IfF_37]] || [[BP_33]]
+; NOOPT:     [[BP_34:BP[0-9]+]] = [[BP_33]] || [[IfF_37]]
 
 ; NOOPT: [[region_25]]:
 ; NOOPT:   [[BB_4:BB[0-9]+]]:

@@ -492,7 +492,7 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
   }
 
   LoopVectorizationPlanner *LVP =
-      new LoopVectorizationPlanner(WRLoop, Lp, LI, SE, TLI, TTI, DT, &LVL);
+      new LoopVectorizationPlanner(WRLoop, Lp, LI, SE, TLI, TTI, DT, LVL);
 
   LVP->buildInitialVPlans(VF /*MinVF*/, VF /*MaxVF*/);
   // Predicator changes BEGIN

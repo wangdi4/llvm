@@ -1,5 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -disable-vplan-codegen -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -disable-vplan-codegen -S -o /dev/null | FileCheck %s -check-prefix=OPT
+; RUN: opt %s -VPlanDriver -disable-uniform-regions -vplan-predicator-report -disable-vplan-codegen -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
+; RUN: opt %s -VPlanDriver -disable-uniform-regions -vplan-predicator-report -disable-vplan-codegen -S -o /dev/null | FileCheck %s -check-prefix=OPT
 ; This is to test that the predicator can deal with a live-in condition bit recipe.
 ; The IR has been hand-modified to force the live-in.
 
@@ -133,7 +133,7 @@ attributes #1 = { argmemonly nounwind }
 ; NOOPT:   [[BB_4:BB[0-9]+]]:
 ; NOOPT:     [[BP_22:BP[0-9]+]] = [[IfF_24]]
 ; NOOPT:   [[BB_3:BB[0-9]+]]:
-; NOOPT:     [[BP_21:BP[0-9]+]] = [[IfT_25]] || [[BP_22]]
+; NOOPT:     [[BP_21:BP[0-9]+]] = [[BP_22]] || [[IfT_25]] 
 
 
 

@@ -9,15 +9,17 @@ namespace llvm {
 namespace vpo {
 class VPlanPredicator {
 private:
+  enum EdgeType {
+    EDGE_TYPE_UNINIT = 0,
+    TRUE_EDGE,
+    FALSE_EDGE,
+    EDGE_TYPE_MAX,
+  };
+  
   IntelVPlan *Plan;
   VPLoopInfo *VPLI;
   IntelVPlanUtils PlanUtils;
-  enum EdgeType {
-      EDGE_TYPE_UNINIT = 0,
-      TRUE_EDGE,
-      FALSE_EDGE,
-      EDGE_TYPE_MAX,
-  };
+
   EdgeType getEdgeTypeBetween(VPBlockBase *FromBlock, VPBlockBase *ToBlock);
   // Map to remember which BRs have already been generated
   // for corresponding CBRs.
@@ -40,12 +42,12 @@ private:
   void predicateRegionRec(VPRegionBlock *Region);
   void optimizeRegionRec(VPRegionBlock *Region,
                          VPPredicateRecipeBase *IncomingAllOnesPred);
-  // Linearize the CFG
-  void linearize(VPBlockBase *);
+  // Linearize the CFG within Region.
+  void linearizeRegionRec(VPRegionBlock *Region);
 
 public:
-  VPlanPredicator(IntelVPlan *plan)
-      : Plan(plan), VPLI(plan->getVPLoopInfo()), PlanUtils(plan) {}
+  VPlanPredicator(IntelVPlan *Plan)
+      : Plan(Plan), VPLI(Plan->getVPLoopInfo()), PlanUtils(Plan) {}
   
   /// The driver function for the predicator
   void predicate(void);
