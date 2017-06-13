@@ -6362,6 +6362,24 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FCOS))
           return;
         break;
+      case LibFunc::tan:
+      case LibFunc::tanf:
+      case LibFunc::tanl:
+        if (visitUnaryFloatCall(I, ISD::FTAN))
+          return;
+        break;
+      case LibFunc::atan:
+      case LibFunc::atanf:
+      case LibFunc::atanl:
+        if (visitUnaryFloatCall(I, ISD::FATAN))
+          return;
+        break;
+      case LibFunc::atan2:
+      case LibFunc::atan2f:
+      case LibFunc::atan2l:
+        if (visitBinaryFloatCall(I, ISD::FATAN2))
+          return;
+        break;
       case LibFunc::sqrt:
       case LibFunc::sqrtf:
       case LibFunc::sqrtl:

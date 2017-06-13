@@ -3886,6 +3886,21 @@ void SelectionDAGLegalize::ConvertNodeToLibcall(SDNode *Node) {
     // Expand into sincos libcall.
     ExpandSinCosLibCall(Node, Results);
     break;
+  case ISD::FTAN:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::TAN_F32, RTLIB::TAN_F64,
+                                      RTLIB::TAN_F80, RTLIB::TAN_F128,
+                                      RTLIB::TAN_PPCF128));
+    break;
+  case ISD::FATAN:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::ATAN_F32, RTLIB::ATAN_F64,
+                                      RTLIB::ATAN_F80, RTLIB::ATAN_F128,
+                                      RTLIB::ATAN_PPCF128));
+    break;
+  case ISD::FATAN2:
+    Results.push_back(ExpandFPLibCall(Node, RTLIB::ATAN2_F32, RTLIB::ATAN2_F64,
+                                      RTLIB::ATAN2_F80, RTLIB::ATAN2_F128,
+                                      RTLIB::ATAN2_PPCF128));
+    break;
   case ISD::FLOG:
     Results.push_back(ExpandFPLibCall(Node, RTLIB::LOG_F32, RTLIB::LOG_F64,
                                       RTLIB::LOG_F80, RTLIB::LOG_F128,
@@ -4259,7 +4274,8 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
   case ISD::FREM:
   case ISD::FMINNUM:
   case ISD::FMAXNUM:
-  case ISD::FPOW: {
+  case ISD::FPOW:
+  case ISD::FATAN2: {
     Tmp1 = DAG.getNode(ISD::FP_EXTEND, dl, NVT, Node->getOperand(0));
     Tmp2 = DAG.getNode(ISD::FP_EXTEND, dl, NVT, Node->getOperand(1));
     Tmp3 = DAG.getNode(Node->getOpcode(), dl, NVT, Tmp1, Tmp2,
@@ -4304,6 +4320,8 @@ void SelectionDAGLegalize::PromoteNode(SDNode *Node) {
   case ISD::FSQRT:
   case ISD::FSIN:
   case ISD::FCOS:
+  case ISD::FTAN:
+  case ISD::FATAN:
   case ISD::FLOG:
   case ISD::FLOG2:
   case ISD::FLOG10:

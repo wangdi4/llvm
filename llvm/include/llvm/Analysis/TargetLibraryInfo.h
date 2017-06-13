@@ -237,6 +237,9 @@ public:
     case LibFunc::fabs:      case LibFunc::fabsf:      case LibFunc::fabsl:
     case LibFunc::sin:       case LibFunc::sinf:       case LibFunc::sinl:
     case LibFunc::cos:       case LibFunc::cosf:       case LibFunc::cosl:
+    case LibFunc::tan:       case LibFunc::tanf:       case LibFunc::tanl:
+    case LibFunc::atan:      case LibFunc::atanf:      case LibFunc::atanl:
+    case LibFunc::atan2:     case LibFunc::atan2f:     case LibFunc::atan2l:
     case LibFunc::sqrt:      case LibFunc::sqrtf:      case LibFunc::sqrtl:
     case LibFunc::sqrt_finite: case LibFunc::sqrtf_finite:
                                                   case LibFunc::sqrtl_finite:

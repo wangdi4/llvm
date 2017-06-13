@@ -646,6 +646,8 @@ static char isNegatibleForFree(SDValue Op, bool LegalOperations,
   case ISD::FP_EXTEND:
   case ISD::FP_ROUND:
   case ISD::FSIN:
+  case ISD::FTAN:
+  case ISD::FATAN:
     return isNegatibleForFree(Op.getOperand(0), LegalOperations, TLI, Options,
                               Depth + 1);
   }
@@ -718,6 +720,8 @@ static SDValue GetNegatedExpression(SDValue Op, SelectionDAG &DAG,
 
   case ISD::FP_EXTEND:
   case ISD::FSIN:
+  case ISD::FTAN:
+  case ISD::FATAN:
     return DAG.getNode(Op.getOpcode(), SDLoc(Op), Op.getValueType(),
                        GetNegatedExpression(Op.getOperand(0), DAG,
                                             LegalOperations, Depth+1));

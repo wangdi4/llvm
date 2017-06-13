@@ -916,6 +916,16 @@ def COSF16    : UnaryOp< COS,    fcos,   Tf16, IIMathF16>;
 def COSF32    : UnaryOp< COS,    fcos,   Tf32, IIMathF32>;
 def COSF64    : UnaryOp< COS,    fcos,   Tf64, IIMathF64>;
 
+def TAN       : GenericOp<"tan", [HasMath0]>;
+def TANF16    : UnaryOp< TAN,    ftan,   Tf16, IIMathF16>;
+def TANF32    : UnaryOp< TAN,    ftan,   Tf32, IIMathF32>;
+def TANF64    : UnaryOp< TAN,    ftan,   Tf64, IIMathF64>;
+
+def ATAN      : GenericOp<"atan", [HasMath0]>;
+def ATANF16   : UnaryOp< ATAN,   fatan,  Tf16, IIMathF16>;
+def ATANF32   : UnaryOp< ATAN,   fatan,  Tf32, IIMathF32>;
+def ATANF64   : UnaryOp< ATAN,   fatan,  Tf64, IIMathF64>;
+
 def MOD       : GenericOp<"mod", [HasMath0]>;
 def MODF32    : FModOp<  MOD,            Tf32, IIMathF32>;
 def MODF64    : FModOp<  MOD,            Tf64, IIMathF64>;
@@ -1093,6 +1103,11 @@ def DIVF64    : BinOpR<  DIV,    fdiv,   Tf64, IIDivF64, [HasFDiv]>;
 def POW       : GenericOp<"pow", [HasMath0]>;
 def POWF32    : BinOp<   POW,    fpow,   Tf32, IIMathF32>;
 def POWF64    : BinOp<   POW,    fpow,   Tf64, IIMathF64>;
+
+def ATAN2     : GenericOp<"atan2", [HasMath0]>;
+def ATAN2F16  : BinOp<   ATAN2,  fatan2, Tf16, IIMathF16>;
+def ATAN2F32  : BinOp<   ATAN2,  fatan2, Tf32, IIMathF32>;
+def ATAN2F64  : BinOp<   ATAN2,  fatan2, Tf64, IIMathF64>;
 
 def CMPLT     : GenericOp<"cmplt">;
 def CMPLTS8   : CmpOp<   CMPLT,  setlt,  Ts8,  IIALU>;

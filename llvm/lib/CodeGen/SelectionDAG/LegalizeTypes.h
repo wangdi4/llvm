@@ -434,6 +434,9 @@ private:
   SDValue SoftenFloatRes_FCEIL(SDNode *N);
   SDValue SoftenFloatRes_FCOPYSIGN(SDNode *N, unsigned ResNo);
   SDValue SoftenFloatRes_FCOS(SDNode *N);
+  SDValue SoftenFloatRes_FTAN(SDNode *N);
+  SDValue SoftenFloatRes_FATAN(SDNode *N);
+  SDValue SoftenFloatRes_FATAN2(SDNode *N);
   SDValue SoftenFloatRes_FDIV(SDNode *N);
   SDValue SoftenFloatRes_FEXP(SDNode *N);
   SDValue SoftenFloatRes_FEXP2(SDNode *N);
@@ -503,6 +506,9 @@ private:
   void ExpandFloatRes_FCEIL     (SDNode *N, SDValue &Lo, SDValue &Hi);
   void ExpandFloatRes_FCOPYSIGN (SDNode *N, SDValue &Lo, SDValue &Hi);
   void ExpandFloatRes_FCOS      (SDNode *N, SDValue &Lo, SDValue &Hi);
+  void ExpandFloatRes_FTAN      (SDNode *N, SDValue &Lo, SDValue &Hi);
+  void ExpandFloatRes_FATAN     (SDNode *N, SDValue &Lo, SDValue &Hi);
+  void ExpandFloatRes_FATAN2    (SDNode *N, SDValue &Lo, SDValue &Hi);
   void ExpandFloatRes_FDIV      (SDNode *N, SDValue &Lo, SDValue &Hi);
   void ExpandFloatRes_FEXP      (SDNode *N, SDValue &Lo, SDValue &Hi);
   void ExpandFloatRes_FEXP2     (SDNode *N, SDValue &Lo, SDValue &Hi);
