@@ -1,10 +1,5 @@
 set(LLVM_LINK_COMPONENTS support)
 
-if( INTEL_CUSTOMIZATION )
-  add_subdirectory(intel)
-  set(LIBS clangASTIntel)
-endif()
-
 add_clang_library(clangAST
   APValue.cpp
   ASTConsumer.cpp
@@ -68,9 +63,13 @@ add_clang_library(clangAST
   TypePrinter.cpp
   VTableBuilder.cpp
   VTTBuilder.cpp
+# INTEL_CUSTOMIZATION
+  intel/DeclIntel.cpp
+  intel/ExprIntel.cpp
+  intel/StmtIntel.cpp
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   clangBasic
   clangLex
-  ${LIBS}
   )

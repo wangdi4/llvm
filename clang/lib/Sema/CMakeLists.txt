@@ -2,13 +2,12 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-if( INTEL_CUSTOMIZATION )
-  add_subdirectory(intel)
-  set(LIBS clangSemaIntel)
-endif()
-
 if (MSVC)
   set_source_files_properties(SemaExpr.cpp PROPERTIES COMPILE_FLAGS /bigobj)
+# INTEL_CUSTOMIZATION
+  set_source_files_properties(intel/SemaCilk.cpp intel/SemaIntelAttr.cpp
+                              PROPERTIES COMPILE_FLAGS /bigobj)
+# end INTEL_CUSTOMIZATION
 endif()
 
 add_clang_library(clangSema
@@ -59,6 +58,10 @@ add_clang_library(clangSema
   SemaTemplateVariadic.cpp
   SemaType.cpp
   TypeLocBuilder.cpp
+# INTEL_CUSTOMIZATION
+  intel/SemaCilk.cpp
+  intel/SemaIntelAttr.cpp
+# end INTEL_CUSTOMIZATION
 
   LINK_LIBS
   clangAST
@@ -66,5 +69,4 @@ add_clang_library(clangSema
   clangBasic
   clangEdit
   clangLex
-  ${LIBS}
   )
