@@ -3,6 +3,8 @@ set(LLVM_LINK_COMPONENTS
   MC
   Target
   Analysis
+  Core
+  Support
   )
 add_llvm_tool(intelovls-test
   intelovls-test.cpp
