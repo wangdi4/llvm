@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -389,6 +389,45 @@ void VPOCodeGen::emitVectorLoopEnteredCheck(Loop *L, BasicBlock *Bypass) {
   LoopBypassBlocks.push_back(BB);
 }
 
+void VPOCodeGen::initLinears(PHINode *Induction, Loop *VecLoop) {
+  // The first value of the Induction PHINode is the initial loop index and
+  // the second value is the index value from the loop latch.
+  auto NextIndex = Induction->getIncomingValueForBlock(VecLoop->getLoopLatch());
+
+  // Add the linear inupdate for the next vector iteration of the loop before the
+  // the loop latch terminator.
+  IRBuilder<> Builder(cast<Instruction>(NextIndex)->getParent()->getTerminator());
+
+  for (auto It : *(Legal->getLinears())) {
+    Value *LinPtr = It.first;
+    int LinStep = It.second;
+
+    // Load the initial value of the linears at the end of the loop preheader
+    auto CurrIP = Builder.saveIP();
+    Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
+    auto LinInitVal = Builder.CreateLoad(LinPtr);
+    Builder.restoreIP(CurrIP);
+
+    // Cast NextIndex to LinValType
+    auto LinValType = LinInitVal->getType();
+    Instruction::CastOps CastOp =
+      CastInst::getCastOpcode(NextIndex, true, LinValType, true);
+    auto ConvIndex = Builder.CreateCast(CastOp, NextIndex, LinValType, "lin.cast");
+
+    // Linear value increment is NextIndex * LinStep
+    Value *LinIncr;
+    if (LinStep != 1) {
+      auto LinStepVal = ConstantInt::get(LinValType, LinStep); 
+      LinIncr = Builder.CreateMul(ConvIndex, LinStepVal);
+    }
+    else
+      LinIncr = ConvIndex;
+
+    Value *ValToStore = Builder.CreateAdd(LinInitVal, LinIncr);
+    Builder.CreateStore(ValToStore, LinPtr);
+  }
+}
+
 PHINode *VPOCodeGen::createInductionVariable(Loop *L, Value *Start, Value *End,
                                              Value *Step) {
   BasicBlock *Header = L->getHeader();
@@ -491,6 +530,9 @@ void VPOCodeGen::createEmptyLoop() {
 
   // Save the state.
   LoopVectorPreHeader = Lp->getLoopPreheader();
+
+  // Initialize loop linears
+  initLinears(Induction, Lp);
 
   // Get ready to start creating new instructions into the vector preheader.
   Builder.SetInsertPoint(&*LoopVectorPreHeader->getFirstInsertionPt());
@@ -879,10 +921,45 @@ Value *VPOCodeGen::reverseVector(Value *Vec) {
                                      "reverse");
 }
 
+void VPOCodeGen::vectorizeLinearLoad(Instruction *LinLdInst, int LinStep) {
+  Instruction *LinLdClone = LinLdInst->clone();
+  LinLdClone->setName(LinLdInst->getName() + "linload.clone");
+  Builder.Insert(LinLdClone);
+
+  // Generate vector value for the linear value loaded by broadcasting it and adding
+  // LaneNum * LinStep
+  auto LinValTy = LinLdClone->getType();
+  Value *BroadcastVal = getBroadcastInstrs(LinLdClone);
+  SmallVector<Constant *, 8> LinSteps;
+  // Create the vector of steps from zero to VF in increments of LinStep.
+  for (unsigned LaneNum = 0; LaneNum < VF; ++LaneNum) {
+    LinSteps.push_back(ConstantInt::get(LinValTy, LaneNum * LinStep));
+  }
+
+  Constant *Cv = ConstantVector::get(LinSteps);
+
+  auto LinVecValue = Builder.CreateAdd(BroadcastVal, Cv, "vec.linear");
+  WidenMap[LinLdInst] = LinVecValue;
+  
+  // Add to UnitStepLinears if LinStep is 1/-1 - so that we can use it to infer
+  // information about unit stride loads/stores
+  if (LinStep == 1 || LinStep == -1) {
+    addUnitStepLinear(LinLdInst, LinLdClone, LinStep);
+  }
+}
+
 void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                           bool EmitIntrinsic) {
   LoadInst *LI = cast<LoadInst>(Inst);
   Value *Ptr = LI->getPointerOperand();
+  int LinStride = 0;
+
+  // Handle vectorization of a linear value load
+  if (Legal->isLinear(Ptr, &LinStride)) {
+    vectorizeLinearLoad(Inst, LinStride);
+    return;
+  }
+
   if (Legal->isLoopInvariant(Ptr) || Legal->isUniformForTheLoop(Ptr)) {
     serializeInstruction(Inst);
     return;
@@ -986,10 +1063,36 @@ static Value *isNotAllZeroMask(IRBuilder<>& Builder, Value *MaskValue,
   return NotAllZ;
 }
 
+void VPOCodeGen::vectorizeLinearStore(Instruction *Inst) {
+  StoreInst *SI = cast<StoreInst>(Inst);
+  Value *Ptr = SI->getPointerOperand();
+
+  // Store the value that corresponds to lane 0 - any subsequent loads
+  // will add in the linear step when generating the vector value for the load.
+  Value *ValToStore =   getScalarValue(SI->getValueOperand(), 0);
+
+  // If the store is masked, blend using the current linear value so that we can
+  // do an unconditional store.
+  if (MaskValue) {
+    auto ScalMask =  Builder.CreateExtractElement(MaskValue, Builder.getInt32(VF-1), "lin.mask");
+    auto CurrVal = Builder.CreateLoad(Ptr);
+
+    ValToStore = Builder.CreateSelect(ScalMask, ValToStore,CurrVal);
+  }
+  
+  Builder.CreateStore(ValToStore, Ptr);
+}
+
 void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
                                            bool EmitIntrinsic) {
   StoreInst *SI = cast<StoreInst>(Inst);
   Value *Ptr = SI->getPointerOperand();
+
+  // Handle vectorization of a linear value store
+  if (Legal->isLinear(Ptr)) {
+    vectorizeLinearStore(Inst);
+    return;
+  }
 
   int ConsecutiveStride = Legal->isConsecutivePtr(Ptr);
   bool Reverse = (ConsecutiveStride == -1);
@@ -1714,11 +1817,27 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   case Instruction::Trunc:
   case Instruction::FPTrunc: {
     CastInst *CI = dyn_cast<CastInst>(Inst);
+    auto Opcode = CI->getOpcode();
 
     /// Vectorize casts.
-    Type *VecTy = VectorType::get(CI->getType(), VF);
-    Value *A = getVectorValue(Inst->getOperand(0));
-    WidenMap[cast<Value>(Inst)] = Builder.CreateCast(CI->getOpcode(), A, VecTy);
+    Type *ScalTy = CI->getType();
+    Type *VecTy = VectorType::get(ScalTy, VF);
+    Value *ScalOp = Inst->getOperand(0);
+    Value *VecOp = getVectorValue(ScalOp);
+    WidenMap[cast<Value>(Inst)] = Builder.CreateCast(Opcode, VecOp, VecTy);
+
+    // If the cast is a SExt/ZExt of a unit step linear item, add the cast value to
+    // UnitStepLinears - so that we can use it to infer information about unit stride
+    // loads/stores. For the scalar cast value 
+    Value *NewScalar;
+    int LinStep;
+
+    if ((Opcode == Instruction::SExt || Opcode == Instruction::ZExt) &&
+        Legal->isUnitStepLinear(ScalOp, &LinStep, &NewScalar)) {
+      // NewScalar is the scalar linear iterm corresponding to ScalOp - apply cast 
+      auto ScalCast = Builder.CreateCast(Opcode, NewScalar, ScalTy);
+      addUnitStepLinear(Inst, ScalCast, LinStep);
+    }
     break;
   }
 
@@ -1906,6 +2025,31 @@ bool VPOVectorizationLegality::isCondLastPrivate(Value *V) const {
   return CondLastPrivates.count(getPtrThruBitCast(V)) != 0;
 }
 
+bool VPOVectorizationLegality::isLinear(Value *Val, int *Step) {
+  auto PtrThruBitCast = getPtrThruBitCast(Val);
+  if (Linears.count(PtrThruBitCast)) {
+    if (Step)
+      *Step = Linears[PtrThruBitCast];
+    return true;
+  }
+
+  return false;
+}
+
+bool VPOVectorizationLegality::isUnitStepLinear(Value *Val, int *Step, Value **NewScal) {
+  if (UnitStepLinears.count(Val)) {
+    auto NewValStep = UnitStepLinears[Val];
+    if (Step)
+      *Step = NewValStep.second;
+    if (NewScal)
+      *NewScal = NewValStep.first;
+
+    return true;
+  }
+
+  return false;
+}
+
 int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   // An in memory loop private is expanded to a vector of consecutive ptrs.
   if (isLoopPrivate(Ptr))
@@ -1916,7 +2060,35 @@ int VPOVectorizationLegality::isConsecutivePtr(Value *Ptr) {
   int Stride = getPtrStride(PSE, Ptr, TheLoop, Strides, false);
   if (Stride == 1 || Stride == -1)
     return Stride;
-  return 0;
+
+  // See if we can use linear information to check if we have a consecutive pointer
+  auto *PtrTy = cast<PointerType>(Ptr->getType());
+  if (PtrTy->getElementType()->isAggregateType())
+    return 0;
+
+  // We are looking for a GEP whose last operand is a unit step linear item
+  if (!isa<GetElementPtrInst>(Ptr))
+    return 0;
+
+  auto Gep = cast<GetElementPtrInst>(Ptr);
+  unsigned NumOperands = Gep->getNumOperands();
+  Value *LastGepOper = Gep->getOperand(NumOperands - 1);
+  
+  // If the last operand is not a unit stride linear bail out
+  int LinStep = 0;
+
+  if (!isUnitStepLinear(LastGepOper, &LinStep))  
+    return 0;
+
+  // If any of the Gep operands other than the last one is not loop invariant -
+  // bail out
+  for (unsigned Index = 0; Index < NumOperands - 1; ++Index) {
+    auto Op = Gep->getOperand(Index);
+    if (!isLoopInvariant(Op))
+      return 0;
+  }
+
+  return LinStep;
 }
 
 bool VPOVectorizationLegality::isInductionVariable(const Value *V) {

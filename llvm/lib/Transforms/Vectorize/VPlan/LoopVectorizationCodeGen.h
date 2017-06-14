@@ -131,6 +131,15 @@ private:
   SmallPtrSet<Value *, 8> LastPrivates;
   SmallPtrSet<Value *, 8> CondLastPrivates;
 
+  /// Map of linear values and linear step
+  DenseMap<Value *, int> Linears;
+
+  /// Map of linear items in original loop and the scalar linear item in the
+  /// vector loop along with linear Step. This map is maintained only for
+  /// step values 1 and -1 and is used to generate unit-stride loads/stores
+  /// when possible
+  std::map<Value *, std::pair<Value *, int>> UnitStepLinears;
+
 public:
   /// Holds the instructions known to be uniform after vectorization for any VF.
   SmallPtrSet<Instruction *, 4> UniformForAnyVF;
@@ -151,6 +160,28 @@ public:
 
   // Return True if the specified value \p Val is conditional last private.
   bool isCondLastPrivate(Value *Val) const;
+
+  // Add linear value to Linears map
+  void addLinear(Value *LinearVal, int Step) {
+    Linears[LinearVal] = Step;
+  }
+
+  // Add unit step linear value to UnitStepLinears map
+  void addUnitStepLinear(Value *LinearVal, Value *NewVal, int Step) {
+    UnitStepLinears[LinearVal] = std::make_pair(NewVal, Step);
+  }
+
+  // Return true if \p Val is a linear and return linear step in \p Step if non-null
+  bool isLinear(Value *Val, int *Step = nullptr);
+
+  // Return true if \p Val is a unit step linear item and return linear step in \p Step
+  // if non-null and New scalar value in NewScal if non-null
+  bool isUnitStepLinear(Value *Val, int *Step = nullptr, Value **NewScal = nullptr);
+  
+  // Return pointer to Linears map
+  DenseMap<Value *, int> *getLinears() {
+    return &Linears;
+  }
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -243,6 +274,19 @@ public:
                       bool IsConditional = false) {
     Legal->addLoopPrivate(PrivVal, IsLastP, IsConditional);
   }
+
+  /// Add an in memory linear to the vector of linear values.
+  void addLinear(Value *LinVal, int Step = 1) {
+    Legal->addLinear(LinVal, Step);
+  }
+
+  /// Add an in memory linear to the vector of linear values.
+  void addUnitStepLinear(Value *LinVal, Value *NewVal, int Step) {
+    Legal->addUnitStepLinear(LinVal, NewVal, Step);
+    
+    // Add NewVal as the new scalar value for lane 0
+    ScalarMap[LinVal][0] = NewVal;
+  }
 private:
 
   /// Emit blocks of vector loop
@@ -288,6 +332,10 @@ private:
   /// Create the primary induction variable for vector loop.
   PHINode *createInductionVariable(Loop *L, Value *Start,
                                    Value *End, Value *Step);
+
+  /// Load initial linear value before the loop and do the linear value
+  /// update at the end of the loop.
+  void initLinears(PHINode *Induction, Loop *VecLoop);
 
   /// Handle all cross-iteration phis in the header.
   void fixCrossIterationPHIs();
@@ -456,12 +504,20 @@ private:
   /// A list of all bypass blocks. The first block is the entry of the loop.
   SmallVector<BasicBlock *, 4> LoopBypassBlocks;
 
+  // Widen the load of a linear value. We do a scalar load and generate a vector
+  // value using the linear \p Step 
+  void vectorizeLinearLoad(Instruction *Inst, int Step);
+  
   // Widen the given load instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_gather intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.
   // As a result, we simply serialize the instruction for now.
   void vectorizeLoadInstruction(Instruction *Inst, bool EmitIntrinsic = false);
 
+  // Widen the store of a linear value. We do a scalar store of the value in the
+  // first vector lane.
+  void vectorizeLinearStore(Instruction *Inst);
+  
   // Widen the given store instruction. EmitIntrinsic needs to be set to true
   // when we can start emitting masked_scatter intrinsic once we have support
   // in code gen. Without code gen support, we will serialize the intrinsic.

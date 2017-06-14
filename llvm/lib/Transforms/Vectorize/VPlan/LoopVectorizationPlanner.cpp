@@ -137,6 +137,17 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
       if (isa<AllocaInst>(PrivVal))
         LB.addLoopPrivate(PrivVal);
     }
+
+    // Add information about loop linears to Legality
+    LinearClause &LinearClause = WRLoop->getLinear();
+    for (LinearItem *LinItem : LinearClause.items()) {
+      auto LinVal = LinItem->getOrig();
+
+      // Currently front-end does not yet support globals - restrict to allocas
+      // for now.
+      if (isa<AllocaInst>(LinVal))
+        LB.addLinear(LinVal, LinItem->getStep());
+    }
   }
   
   ILV = &LB;
