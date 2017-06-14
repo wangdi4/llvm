@@ -639,12 +639,12 @@ OclBuiltinImpl native_powr_svml = OclBuiltinImpl<native_powr, math_shared_types,
   }]>;
 
 // native_recip
-OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl native_recip_svml = OclBuiltinImpl<native_recip, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_inv$SVMLSuffix_native($Arg0VarName);
   }]>;
 
 // native_rsqrt
-OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64], 0, [{
+OclBuiltinImpl native_rsqrt_impl = OclBuiltinImpl<native_rsqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64], 0, [{
     return __ocl_svml_$Target_rsqrt$SVMLSuffix_native($Arg0VarName);
   }]>;
 
@@ -654,7 +654,7 @@ OclBuiltinImpl native_sin_svml = OclBuiltinImpl<native_sin, math_shared_types, 0
   }]>;
 
 // native_sqrt
-OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v1f32, v2f32, v3f32, v4f32, v1f64, v2f64, v3f64, v4f64, v16f64], 0, [{
+OclBuiltinImpl native_sqrt_svml = OclBuiltinImpl<native_sqrt, [v2f32, v3f32, v4f32, v2f64, v3f64, v4f64, v16f64], 0, [{
     // SLOW version. assume that SVML call will be even slower
     return sqrt($Arg0VarName);
   }]>;
