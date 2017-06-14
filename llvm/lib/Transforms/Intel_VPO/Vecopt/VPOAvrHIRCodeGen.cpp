@@ -89,8 +89,8 @@ public:
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
 };
-} // End vpo namespace
-} // End loopopt namespace
+} // namespace vpo
+} // namespace llvm
 
 void AVRCGVisit::visit(AVRValueHIR *AVal) {
   if (ACG->findWideAvrRef(AVal->getNumber()))
@@ -991,10 +991,20 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // type mismatch for range values.
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
-    if (WideRef->isAddressOf())
+    if (WideRef->isAddressOf()) {
       WideRef->setBaseDestType(VecRefDestTy);
-    else
+
+      auto StructElemTy =
+          dyn_cast<StructType>(PtrType->getPointerElementType());
+
+      // There is nothing more to do for opaque types as they can only occur in
+      // this form: &p[0].
+      if (StructElemTy && StructElemTy->isOpaque()) {
+        return WideRef;
+      }
+    } else {
       WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+    }
   }
 
   // For unit stride ref, nothing else to do

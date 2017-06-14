@@ -981,9 +981,11 @@ const Instruction *HIRParser::BlobProcessor::findOrigInst(
 
     // Limit trace back to these instruction types. They roughly correspond to
     // instruction types in SE->createSCEV().
+    // Looks like ScalarEvolution can parse CmpInsts, if necessary to compute
+    // backedge taken count of loops, so including it in the list as well.
     if (!isa<BinaryOperator>(OpInst) && !isa<CastInst>(OpInst) &&
         !isa<GetElementPtrInst>(OpInst) && !isa<PHINode>(OpInst) &&
-        !isa<SelectInst>(OpInst)) {
+        !isa<SelectInst>(OpInst) && !isa<CmpInst>(OpInst)) {
       continue;
     }
 
@@ -1576,7 +1578,8 @@ void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
     if (auto ConstSCEV = dyn_cast<SCEVConstant>(MulSCEV->getOperand(0))) {
       SmallVector<const SCEV *, 4> Ops;
 
-      for(auto I = MulSCEV->op_begin()+1, E = MulSCEV->op_end(); I != E; ++I) {
+      for (auto I = MulSCEV->op_begin() + 1, E = MulSCEV->op_end(); I != E;
+           ++I) {
         Ops.push_back(*I);
       }
 
@@ -3123,8 +3126,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     if (FakeDDRefsRequired && Ref->isAddressOf() &&
         !Ref->accessesConstantArray() &&
         !Call->paramHasAttr(I, Attribute::ReadNone)) {
-      addFakeRef(HInst, Ref, (IsReadOnly ||
-                              Call->paramHasAttr(I, Attribute::ReadOnly)));
+      addFakeRef(HInst, Ref,
+                 (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly)));
     }
   }
 
