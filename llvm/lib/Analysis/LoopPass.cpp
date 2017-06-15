@@ -190,9 +190,11 @@ bool LPPassManager::runOnFunction(Function &F) {
     for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
       LoopPass *P = getContainedPass(Index);
 
+#if !INTEL_PRODUCT_RELEASE
       dumpPassInfo(P, EXECUTION_MSG, ON_LOOP_MSG,
                    CurrentLoop->getHeader()->getName());
       dumpRequiredSet(P);
+#endif // !INTEL_PRODUCT_RELEASE
 
       initializeAnalysisImpl(P);
 
@@ -204,11 +206,13 @@ bool LPPassManager::runOnFunction(Function &F) {
       }
       LoopWasDeleted = CurrentLoop->isInvalid();
 
+#if !INTEL_PRODUCT_RELEASE
       if (Changed)
         dumpPassInfo(P, MODIFICATION_MSG, ON_LOOP_MSG,
                      LoopWasDeleted ? "<deleted>"
                                     : CurrentLoop->getHeader()->getName());
       dumpPreservedSet(P);
+#endif // !INTEL_PRODUCT_RELEASE
 
       if (LoopWasDeleted) {
         // Notify passes that the loop is being deleted.
@@ -270,6 +274,7 @@ bool LPPassManager::runOnFunction(Function &F) {
   return Changed;
 }
 
+#if !INTEL_PRODUCT_RELEASE
 /// Print passes managed by this manager
 void LPPassManager::dumpPassStructure(unsigned Offset) {
   errs().indent(Offset*2) << "Loop Pass Manager\n";
@@ -279,15 +284,18 @@ void LPPassManager::dumpPassStructure(unsigned Offset) {
     dumpLastUses(P, Offset+1);
   }
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 
 //===----------------------------------------------------------------------===//
 // LoopPass
 
+#if !INTEL_PRODUCT_RELEASE
 Pass *LoopPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintLoopPassWrapper(O, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 // Check if this pass is suitable for the current LPPassManager, if
 // available. This pass P is not suitable for a LPPassManager if P

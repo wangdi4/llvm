@@ -47,6 +47,7 @@ AVR *AVRFunction::getLastChild() {
 
 void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -90,6 +91,7 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   OS << Indent << "}\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRFunction::getAvrTypeName() const { return StringRef("FUNCTION "); }

@@ -113,12 +113,14 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
+#if !INTEL_PRODUCT_RELEASE
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {

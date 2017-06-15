@@ -47,7 +47,7 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void HLRegion::printHeader(formatted_raw_ostream &OS, unsigned Depth,
                            bool PrintIRRegion, bool Detailed) const {
-
+#if !INTEL_PRODUCT_RELEASE
   indent(OS, Depth);
 
   OS << "BEGIN REGION";
@@ -64,29 +64,35 @@ void HLRegion::printHeader(formatted_raw_ostream &OS, unsigned Depth,
     IRReg.print(OS, Depth);
     OS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLRegion::printBody(formatted_raw_ostream &OS, unsigned Depth,
                          bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLRegion::printFooter(formatted_raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE
   indent(OS, Depth);
 
   OS << "END REGION\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
                      bool PrintIRRegion, bool Detailed) const {
-
+#if !INTEL_PRODUCT_RELEASE
   printHeader(OS, Depth, PrintIRRegion, Detailed);
 
   printBody(OS, Depth + 1, Detailed);
 
   printFooter(OS, Depth);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 HLNode *HLRegion::getFirstChild() {

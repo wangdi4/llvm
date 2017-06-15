@@ -82,11 +82,13 @@ bool RGPassManager::runOnFunction(Function &F) {
     for (unsigned Index = 0; Index < getNumContainedPasses(); ++Index) {
       RegionPass *P = (RegionPass*)getContainedPass(Index);
 
+#if !INTEL_PRODUCT_RELEASE
       if (isPassDebuggingExecutionsOrMore()) {
         dumpPassInfo(P, EXECUTION_MSG, ON_REGION_MSG,
                      CurrentRegion->getNameStr());
         dumpRequiredSet(P);
       }
+#endif // !INTEL_PRODUCT_RELEASE
 
       initializeAnalysisImpl(P);
 
@@ -97,6 +99,7 @@ bool RGPassManager::runOnFunction(Function &F) {
         Changed |= P->runOnRegion(CurrentRegion, *this);
       }
 
+#if !INTEL_PRODUCT_RELEASE
       if (isPassDebuggingExecutionsOrMore()) {
         if (Changed)
           dumpPassInfo(P, MODIFICATION_MSG, ON_REGION_MSG,
@@ -104,6 +107,7 @@ bool RGPassManager::runOnFunction(Function &F) {
                                       CurrentRegion->getNameStr());
         dumpPreservedSet(P);
       }
+#endif // !INTEL_PRODUCT_RELEASE
 
       if (!skipThisRegion) {
         // Manually check that this region is still healthy. This is done
@@ -168,6 +172,7 @@ bool RGPassManager::runOnFunction(Function &F) {
   return Changed;
 }
 
+#if !INTEL_PRODUCT_RELEASE
 /// Print passes managed by this manager
 void RGPassManager::dumpPassStructure(unsigned Offset) {
   errs().indent(Offset*2) << "Region Pass Manager\n";
@@ -177,6 +182,7 @@ void RGPassManager::dumpPassStructure(unsigned Offset) {
     dumpLastUses(P, Offset+1);
   }
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 namespace {
 //===----------------------------------------------------------------------===//
@@ -275,8 +281,10 @@ void RegionPass::assignPassManager(PMStack &PMS,
   RGPM->add(this);
 }
 
+#if !INTEL_PRODUCT_RELEASE
 /// Get the printer pass
 Pass *RegionPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintRegionPass(Banner, O);
 }
+#endif // !INTEL_PRODUCT_RELEASE

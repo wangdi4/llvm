@@ -131,6 +131,26 @@ consideration is clarity & readability.
   sources. Instead, the fully qualified file name should contain ``Intel``
   or ``intel``.
 
+- For code which should be excluded from final release builds but included
+  in 'prod' builds during development (such as IR printing capabilities),
+  you should use the 'INTEL_PRODUCT_RELEASE' preprocessor symbol.  This
+  symbol will be defined only for 'release' builds when ics usage is set to
+  qa mode (using 'ics set usage qa').  For example:
+
+.. code-block:: c++
+
+  void MyClass::print(raw_ostream &OS) const {
+  #if !INTEL_PRODUCT_RELEASE
+    // Print the IR for MyClass to OS.
+    OS << MyClass.A << "\n";
+  #endif // !INTEL_PRODUCT_RELEASE
+  }
+
+..
+
+  This preprocessor symbol should be used the same in either modified LLVM
+  files or Intel-specific source files.
+
 Coding Standards
 ================
 

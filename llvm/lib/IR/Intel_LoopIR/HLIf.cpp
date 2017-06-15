@@ -103,6 +103,7 @@ HLIf *HLIf::clone(HLNodeMapper *NodeMapper) const {
 
 void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
                            const HLLoop *Loop, bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   bool FirstPred = true;
   OS << "if (";
@@ -138,6 +139,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
       printFMF(OS, I->FMF);
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
@@ -151,6 +153,7 @@ void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
 
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   indent(OS, Depth);
   printHeader(OS, Depth, Detailed);
@@ -183,6 +186,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
     indent(OS, Depth);
     OS << "}\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 unsigned HLIf::getNumOperandsInternal() const {

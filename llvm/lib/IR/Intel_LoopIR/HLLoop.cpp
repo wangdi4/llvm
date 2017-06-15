@@ -189,6 +189,7 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
 
 void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
                             bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   auto Parent = getParent();
 
   // If a previous node exists, add a newline.
@@ -200,10 +201,12 @@ void HLLoop::printPreheader(formatted_raw_ostream &OS, unsigned Depth,
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
                           bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   if (!Detailed) {
     return;
@@ -267,10 +270,12 @@ void HLLoop::printDetails(formatted_raw_ostream &OS, unsigned Depth,
     OS << " No";
   }
   OS << "\n";
+#endif // INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
                          bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   const RegDDRef *Ref;
 
   printDetails(OS, Depth, Detailed);
@@ -316,23 +321,29 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::printBody(formatted_raw_ostream &OS, unsigned Depth,
                        bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::printFooter(formatted_raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE
   indent(OS, Depth);
   OS << "+ END LOOP\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
                            bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
@@ -345,10 +356,12 @@ void HLLoop::printPostexit(formatted_raw_ostream &OS, unsigned Depth,
     indent(OS, Depth);
     OS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   printPreheader(OS, Depth, Detailed);
 
@@ -359,6 +372,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   printFooter(OS, Depth);
 
   printPostexit(OS, Depth, Detailed);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLoop::setNumExits(unsigned NumEx) {

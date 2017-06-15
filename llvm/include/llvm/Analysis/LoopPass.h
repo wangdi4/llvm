@@ -30,10 +30,12 @@ class LoopPass : public Pass {
 public:
   explicit LoopPass(char &pid) : Pass(PT_Loop, pid) {}
 
+#if !INTEL_PRODUCT_RELEASE
   /// getPrinterPass - Get a pass to print the function corresponding
   /// to a Loop.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   // runOnLoop - This method should be implemented by the subclass to perform
   // whatever action is necessary for the specified Loop.
@@ -112,8 +114,10 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
+#if !INTEL_PRODUCT_RELEASE
   /// Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   LoopPass *getContainedPass(unsigned N) {
     assert(N < PassVector.size() && "Pass number out of range!");

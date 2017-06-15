@@ -243,8 +243,10 @@ void WRegionCollection::releaseMemory() {
 }
 
 void WRegionCollection::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   /// TODO: implement later
   /// WR.print(OS);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void WRegionCollection::verifyAnalysis() const {

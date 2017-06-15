@@ -241,6 +241,7 @@ void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
 }
 
 void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
@@ -313,6 +314,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 
   DDRef::print(OS, Detailed);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 Type *RegDDRef::getDimensionType(unsigned DimensionNum) const {

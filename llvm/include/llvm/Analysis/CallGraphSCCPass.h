@@ -36,10 +36,12 @@ class CallGraphSCCPass : public Pass {
 public:
   explicit CallGraphSCCPass(char &pid) : Pass(PT_CallGraphSCC, pid) {}
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a pass that prints the Module
   /// corresponding to a CallGraph.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;

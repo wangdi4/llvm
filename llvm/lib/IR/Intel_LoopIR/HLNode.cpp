@@ -122,6 +122,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 }
 
 void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
+#if !INTEL_PRODUCT_RELEASE
   OS << "<";
 
   if (!FMF.unsafeAlgebra()) {
@@ -160,9 +161,11 @@ void HLNode::printFMF(raw_ostream &OS, FastMathFlags FMF) {
   }
 
   OS << ">";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
+#if !INTEL_PRODUCT_RELEASE
   if (Pred == PredicateTy::FCMP_TRUE) {
     OS << " true ";
   } else if (Pred == PredicateTy::FCMP_FALSE) {
@@ -210,6 +213,7 @@ void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
   } else {
     llvm_unreachable("Unexpected predicate!");
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 HLLoop *HLNode::getParentLoop() const {

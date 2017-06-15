@@ -108,14 +108,17 @@ AVRSwitch *AVRSwitch::clone() const {
 
 void AVRSwitch::printBreak(formatted_raw_ostream &OS, unsigned Depth,
                            unsigned CaseNum) const { 
+#if !INTEL_PRODUCT_RELEASE
   std::string Indent(Depth * TabLength, ' ');
   // TODO
   //if (caseBreaks())
   OS << Indent << "break;\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
 
   std::string Indent(Depth * TabLength, ' ');
@@ -163,13 +166,16 @@ void AVRSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent << "}\n";
 
   Depth++;
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRSwitch::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") ";
   printSLEV(OS);
   OS << "SWITCH (" << getCondition()->getNumber() << ")";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRSwitch::getAvrTypeName() const {

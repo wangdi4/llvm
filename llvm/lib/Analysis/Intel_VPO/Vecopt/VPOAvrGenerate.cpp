@@ -683,6 +683,7 @@ void AVRGenerateBase::removeAvrNOPs() {
 
 void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
                             VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   formatted_raw_ostream FOS(OS);
 
@@ -694,10 +695,13 @@ void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
   for (auto I = begin(), E = end(); I != E; ++I) {
     I->print(FOS, Depth, VLevel);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRGenerateBase::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   this->print(OS, 1, PrintBase);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRGenerateBase::dump(VerbosityLevel VLevel) const {

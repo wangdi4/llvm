@@ -876,6 +876,7 @@ SIMDLaneEvolutionAnalysisBase::findDistinctPaths(
 }
 
 void SIMDLaneEvolutionAnalysisBase::print(raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   formatted_raw_ostream FOS(OS);
 
@@ -887,6 +888,7 @@ void SIMDLaneEvolutionAnalysisBase::print(raw_ostream &OS) const {
     Entry.second->print(FOS, true);
     FOS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 SIMDLaneEvolution::SIMDLaneEvolution() : FunctionPass(ID) {

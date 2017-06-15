@@ -87,6 +87,7 @@ HLSwitch *HLSwitch::clone(HLNodeMapper *NodeMapper) const {
 
 void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
                            unsigned CaseNum) const {
+#if !INTEL_PRODUCT_RELEASE
 
   auto LastChild = getLastCaseChildInternal(CaseNum);
 
@@ -95,10 +96,12 @@ void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
     OS.indent(IndentWidth);
     OS << "break;\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
 
   indent(OS, Depth);
 
@@ -141,6 +144,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   OS << "}\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 HLSwitch::case_child_iterator
