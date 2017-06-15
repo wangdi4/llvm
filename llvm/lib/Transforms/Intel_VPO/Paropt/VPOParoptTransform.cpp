@@ -1161,6 +1161,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
   if (!FprivClause.empty()) {
     W->populateBBSet();
     BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     Value *NewPrivInst = nullptr;
     bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
@@ -1175,24 +1176,35 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         LastprivateClause &LprivClause = W->getLpriv();
         auto LprivI = LprivClause.findOrig(Orig);
         if (!LprivI) {
-          if (!ForTaskLoop)
-            NewPrivInst = genPrivatizationAlloca(W, Orig, &EntryBB->front(),
-                                                 ".fpriv");
-          else
-            NewPrivInst = FprivI->getNew();
-
+          NewPrivInst = genPrivatizationAlloca(
+              W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
           genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-          FprivI->setNew(NewPrivInst);
+          if (!ForTaskLoop)
+            FprivI->setNew(NewPrivInst);
+          else {
+            IRBuilder<> Builder(EntryBB->getTerminator());
+            Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
+                                NewPrivInst);
+            Builder.SetInsertPoint(ExitBB->getTerminator());
+            Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
+                                FprivI->getNew());
+          }
         } else
           FprivI->setNew(LprivI->getNew());
       } else {
-        if (!ForTaskLoop)
-          NewPrivInst =
-              genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".fpriv");
-        else
-          NewPrivInst = FprivI->getNew();
+        NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
+                                             ".fpriv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-        FprivI->setNew(NewPrivInst);
+        if (!ForTaskLoop)
+          FprivI->setNew(NewPrivInst);
+        else {
+          IRBuilder<> Builder(EntryBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(FprivI->getNew()),
+                              NewPrivInst);
+          Builder.SetInsertPoint(ExitBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
+                              FprivI->getNew());
+        }
       }
 
       if (!ForTaskLoop) {
@@ -1272,6 +1284,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
   bool Changed = false;
 
   BasicBlock *EntryBB = W->getEntryBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genPrivatizationCode\n");
 
@@ -1291,28 +1304,33 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
       Value *Orig = PrivI->getOrig();
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Value *NewPrivInst = nullptr;
-        if (!ForTaskLoop) {
-          // Insert alloca for privatization right after the BEGIN directive.
-          // Note: do not hoist the following AllocaInsertPt computation out of
-          // this for-loop. AllocaInsertPt may be a clause directive that is
-          // removed by genPrivatizationReplacement(), so we need to recompute
-          // AllocaInsertPt at every iteration of this for-loop.
+        Value *NewPrivInst;
 
-          // For now, back out this change to AllocaInsertPt until we figure
-          // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
-          // when running run_gf_channels (gridfusion4.3_tuned_channels).
-          //
-          //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
-          Instruction *AllocaInsertPt = &EntryBB->front();
+        // Insert alloca for privatization right after the BEGIN directive.
+        // Note: do not hoist the following AllocaInsertPt computation out of
+        // this for-loop. AllocaInsertPt may be a clause directive that is
+        // removed by genPrivatizationReplacement(), so we need to recompute
+        // AllocaInsertPt at every iteration of this for-loop.
 
-          NewPrivInst =
-              genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
-        } else
-          NewPrivInst = PrivI->getNew();
+        // For now, back out this change to AllocaInsertPt until we figure
+        // out why it causes an assert in VPOCodeGen::getVectorPrivateBase
+        // when running run_gf_channels (gridfusion4.3_tuned_channels).
+        //
+        //   Instruction *AllocaInsertPt = EntryBB->front().getNextNode();
+
+        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
+        NewPrivInst = genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
-        PrivI->setNew(NewPrivInst);
+        if (!ForTaskLoop)
+          PrivI->setNew(NewPrivInst);
+        else {
+          IRBuilder<> Builder(EntryBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(PrivI->getNew()), NewPrivInst);
+          Builder.SetInsertPoint(ExitBB->getTerminator());
+          Builder.CreateStore(Builder.CreateLoad(NewPrivInst), PrivI->getNew());
+        }
+
         DEBUG(dbgs() << "genPrivatizationCode: privatized " << *Orig << "\n");
       } else
         DEBUG(dbgs() << "genPrivatizationCode: " << *Orig 

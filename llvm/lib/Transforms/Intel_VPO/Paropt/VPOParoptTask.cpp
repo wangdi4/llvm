@@ -62,15 +62,22 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
     assert(W->isBBSetEmpty() &&
            "genRedCodeForTaskLoop: BBSET should start empty");
     W->populateBBSet();
+    BasicBlock *EntryBB = W->getEntryBBlock();
+    BasicBlock *ExitBB = W->getExitBBlock();
 
     for (ReductionItem *RedI : RedClause.items()) {
 
       Value *Orig = RedI->getOrig();
 
       if (isa<GlobalVariable>(Orig) || isa<AllocaInst>(Orig)) {
-        Value *NewPrivInst = nullptr;
-        NewPrivInst = RedI->getNew();
+        Instruction *AllocaInsertPt = EntryBB->getFirstNonPHI();
+        Value *NewPrivInst =
+            genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".red");
         genPrivatizationReplacement(W, Orig, NewPrivInst, RedI);
+        IRBuilder<> Builder(EntryBB->getTerminator());
+        Builder.CreateStore(Builder.CreateLoad(RedI->getNew()), NewPrivInst);
+        Builder.SetInsertPoint(ExitBB->getTerminator());
+        Builder.CreateStore(Builder.CreateLoad(NewPrivInst), RedI->getNew());
       }
     }
 
