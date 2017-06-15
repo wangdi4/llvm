@@ -88,16 +88,15 @@ attributes #2 = { nounwind readnone "disable-tail-calls"="false" "less-precise-f
 
 ;;; Check that that debug info metadata for the old function was changed to the
 ;;; new function, but that there's a new debug metadata for the old function.
-; CHECK: !3 = !{[[SrcMD:![0-9]+]], !10, [[NewMD:![0-9]+]]}
-; CHECK: [[SrcMD]] = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
-; CHECK: [[NewMD]] = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+; CHECK-DAG: [[SrcMD:![0-9]+]] = distinct !DISubprogram(name: "bar", scope: !11, file: !11, line: 1, type: !12, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
+; CHECK-DAG: [[NewMD:![0-9]+]] = distinct !DISubprogram(name: "bar", scope: !11, file: !11, line: 1, type: !12, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 
 ;;; The following checks that @bar is still a kernel.
-; CHECK: !{void (float*, float*)* @bar}
+; CHECK-DAG: !{void (float*, float*)* @bar}
 
 ;;; The following checks that all (include global) metadata was copy correctly.
-; CHECK: !DILocation(line: [[SrcL1:[0-9]+]], scope: [[SrcMD]])
-; CHECK: !DILocation(line: [[SrcL1]], scope: [[NewMD]])
+; CHECK-DAG: !DILocation(line: [[SrcL1:[0-9]+]], scope: [[SrcMD]])
+; CHECK-DAG: !DILocation(line: [[SrcL1]], scope: [[NewMD]])
 
 !llvm.dbg.cu = !{!0}
 !opencl.kernels = !{!11, !12}
@@ -108,17 +107,17 @@ attributes #2 = { nounwind readnone "disable-tail-calls"="false" "less-precise-f
 !opencl.spir.version = !{!16}
 !llvm.ident = !{!17}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
 !1 = !DIFile(filename: "../<stdin>", directory: "/home/chbessonova/repos_llvm")
 !2 = !{}
 !3 = !{!4, !10}
-!4 = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!4 = distinct !DISubprogram(name: "bar", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !5 = !DIFile(filename: "../kernelBarrier.cl", directory: "/home/chbessonova/repos_llvm")
 !6 = !DISubroutineType(types: !7)
 !7 = !{null, !8, !8}
 !8 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !9, size: 64, align: 64)
 !9 = !DIBasicType(name: "float", size: 32, align: 32, encoding: DW_ATE_float)
-!10 = distinct !DISubprogram(name: "foo", scope: !5, file: !5, line: 6, type: !6, isLocal: false, isDefinition: true, scopeLine: 6, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!10 = distinct !DISubprogram(name: "foo", scope: !5, file: !5, line: 6, type: !6, isLocal: false, isDefinition: true, scopeLine: 6, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !11 = !{void (float*, float*)* @bar}
 !12 = !{void (float*, float*)* @foo}
 !13 = !{i32 2, !"Dwarf Version", i32 4}
