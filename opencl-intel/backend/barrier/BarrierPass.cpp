@@ -1088,8 +1088,8 @@ namespace intel {
     const DebugLoc& DB = pCallToFix->getDebugLoc();
     Instruction* pInsertBefore = NULL;
     Function::arg_iterator argIter = pCalledFunc->arg_begin();
-    for ( CallInst::const_op_iterator opi = pCallToFix->op_begin(),
-      ope = pCallToFix->op_end(); opi != ope; ++opi, ++argIter) {
+    for ( CallInst::const_op_iterator opi = pCallToFix->arg_begin(),
+      ope = pCallToFix->arg_end(); opi != ope; ++opi, ++argIter) {
         if ( !m_pDataPerValue->hasOffset(&*argIter) ) continue;
 
         if ( !pInsertBefore ) {
