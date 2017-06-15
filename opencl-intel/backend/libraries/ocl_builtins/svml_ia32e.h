@@ -16151,6 +16151,15 @@
     float8 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_sincosf8_rm (float8 a, float8* c);
     float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_sincosf16_rm (float16 a, float16* c);
     ocl_float32 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_sincosf32_rm (ocl_float32 a, ocl_float32* c);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_cosf16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_exp10f16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_exp2f16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_expf16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_logf16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_log2f16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_powf16_rm (float16 a, float16 b);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_sinf16_rm (float16 a);
+    float16 __attribute__((intel_ocl_bicc)) __ocl_svml_b3_tanf16_rm (float16 a);
 
     // SKX BIs
 
