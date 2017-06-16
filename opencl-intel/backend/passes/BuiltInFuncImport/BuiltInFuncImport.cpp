@@ -230,10 +230,8 @@ namespace intel {
       }
 
       auto F = cast<Function>(FGV);
-      Function *NF = Function::Create(F->getFunctionType(), F->getLinkage(),
+      VMap[F] = Function::Create(F->getFunctionType(), F->getLinkage(),
                                       F->getName(), New.get());
-      NF->copyAttributesFrom(F);
-      VMap[F] = NF;
     }
 
     // Clone global initializers

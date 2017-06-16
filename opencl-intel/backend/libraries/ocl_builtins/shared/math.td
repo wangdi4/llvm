@@ -388,14 +388,7 @@ OclBuiltinImpl native_divide_f32_promote = OclBuiltinImpl<native_divide, [v1f32,
 OclBuiltinImpl native_recip_v4f32_impl = OclBuiltinImpl<native_recip, [v4f32], 0, [{
     return _mm_rcp_ps($Arg0VarName);
   }]>;
-OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v1f32, v2f32, v3f32], 0, Promote1>;
-
-// native_rsqrt
-OclBuiltinImpl native_rsqrt_v1f32_impl = OclBuiltinImpl<native_rsqrt, [v1f32], 0, [{
-    float4 tmp;
-    tmp.s0 = $Arg0VarName;
-    return as_float4(_mm_rsqrt_ss(tmp)).s0;
-  }]>;
+OclBuiltinImpl native_recip_f32_promote = OclBuiltinImpl<native_recip, [v2f32, v3f32], 0, Promote1>;
 
 OclBuiltinImpl native_rsqrt_v4f32_impl = OclBuiltinImpl<native_rsqrt, [v4f32], 0, [{
     return _mm_rsqrt_ps($Arg0VarName);
@@ -407,7 +400,7 @@ OclBuiltinImpl native_rsqrt_f32_promote = OclBuiltinImpl<native_rsqrt, [v2f32, v
 OclBuiltinImpl native_sqrt_v4f32_impl = OclBuiltinImpl<native_sqrt, [v4f32], 0, [{
     return _mm_sqrt_ps($Arg0VarName);
   }]>;
-OclBuiltinImpl native_sqrt_f32_promote = OclBuiltinImpl<native_sqrt, [v1f32, v2f32, v3f32], 0, Promote1>;
+OclBuiltinImpl native_sqrt_f32_promote = OclBuiltinImpl<native_sqrt, [v2f32, v3f32], 0, Promote1>;
 
 // native_sin f(vXfX)
 OclBuiltinImpl native_sin_svml_expand = OclBuiltinImpl<native_sin, math_svml_vF_expand_native, 0, Expand1>;
