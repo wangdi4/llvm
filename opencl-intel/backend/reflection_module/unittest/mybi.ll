@@ -25,4 +25,4 @@ declare double @_Z3mixddd(double, double, double) nounwind readnone
 !2 = !{!"-cl-std=CL1.2"}
 !3 = !{!"double", !4}
 !4 = !{!"omnipotent char", !5}
-!5 = !{!"Simple C/C++ TBAA", null}
+!5 = !{!"Simple C/C++ TBAA"}
