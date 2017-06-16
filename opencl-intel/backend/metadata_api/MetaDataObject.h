@@ -213,7 +213,7 @@ public:
     }
 
     T *release() throw ()
-    {   // !!! This method do not decrement the reference cound and thus should be used with care !!!
+    {   // !!! This method does not decrement the reference cound and thus should be used with care !!!
         T *_Tmp = m_ptr;
         m_ptr = 0;
         return (_Tmp);

@@ -1,5 +1,5 @@
 /****************************************************************************
-  Copyright (c) Intel Corporation (2012,2013).
+  Copyright (c) Intel Corporation (2012-2017).
 
   INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
   LICENSED ON AN AS IS BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -11,7 +11,7 @@
   use of the code. No license, express or implied, by estoppels or otherwise,
   to any intellectual property rights is granted herein.
 
-  File Name: TestBuiltinKeeper.cpp
+  File Name: MetaDataApiTest.cpp
 
 \****************************************************************************/
 
@@ -53,7 +53,7 @@ TEST(MetaDataTest, basic)
 
         if( kernel->isVecTypeHintHasValue() )
         {
-            std::cout <<  "VecTypeHist:" << kernel->getVecTypeHint() << std::endl;
+            std::cout <<  "VecTypeHint:" << kernel->getVecTypeHint() << std::endl;
         }
 
 
