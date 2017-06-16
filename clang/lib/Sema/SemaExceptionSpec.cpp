@@ -309,13 +309,13 @@ bool Sema::CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New) {
   // specifications.
   //
   // Likewise if the old function is a builtin.
+#if INTEL_CUSTOMIZATION
   FunctionDecl *First = Old->getFirstDecl();
   if ((MissingEmptyExceptionSpecification && NewProto) &&
        (((Old->getLocation().isInvalid()) ||
 	  (Context.getSourceManager().isInSystemHeader(Old->getLocation())) ||
 	  ((Old->getBuiltinID()) &&
 	   (Old->isExternC()))) 
-#if INTEL_CUSTOMIZATION
 	||
 	 ((First->isExternC() && 
 	   ((First->getLocation().isInvalid() ||
