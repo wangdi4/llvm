@@ -140,7 +140,7 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
   # Source files for the target RTL
   set(src_files_rtl   src/main.c)
   set(src_files_block src/data_block.cpp)
-  set(src_files_omp   src/libomp.cpp)
+  set(src_files_omp   src/libomp.c)
 
   # Build all libraries
   foreach(lib_id IN LISTS library_ids)
