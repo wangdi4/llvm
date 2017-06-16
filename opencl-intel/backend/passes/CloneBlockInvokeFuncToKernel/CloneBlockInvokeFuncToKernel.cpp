@@ -156,9 +156,6 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // Make sure function is always inlined
     NewFn->addFnAttr(llvm::Attribute::AlwaysInline);
 
-    // add kernel func to module
-    M.getFunctionList().push_back(NewFn);
-
     // compute block_literal size
     size_t blockLiteralSize = computeBlockLiteralSize(NewFn);
     // Set in metadata so it can be used later when preparing calls to enqueue_kernel_*

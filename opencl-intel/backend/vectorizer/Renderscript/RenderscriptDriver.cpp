@@ -184,7 +184,6 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
       ValueToValueMapTy vmap;
       Function *clone = CloneFunction(*fi, vmap, nullptr);
       clone->setName("__Vectorized_." + (*fi)->getName());
-      M.getFunctionList().push_back(clone);
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.

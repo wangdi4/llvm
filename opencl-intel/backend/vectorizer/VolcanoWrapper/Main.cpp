@@ -127,7 +127,6 @@ bool Vectorizer::runOnModule(Module &M)
       // [LLVM 3.6 UPGRADE] Set the vectorized function name manually at least until fix isn't done in LLVM
       // or solved in another way.
       clone->setName("__Vectorized_." + (*fi)->getName());
-      M.getFunctionList().push_back(clone);
 
       // Todo: due to a bug in the metadata we can't save changes more than once
       // (even if we reinstantiate the metadata object after saving).

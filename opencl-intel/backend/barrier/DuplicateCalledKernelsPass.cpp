@@ -54,7 +54,6 @@ namespace intel {
       ValueToValueMapTy vMap;
       Function* pNewFunc = CloneFunction(pFunc, vMap, nullptr);
       pNewFunc->setName("__internal." + (*fi)->getName());
-      M.getFunctionList().push_back(pNewFunc);
 
       //Run over old uses of pFuncToFix and replace with call to pNewFunc
       for ( Value::user_iterator ui = pFunc->user_begin(),
