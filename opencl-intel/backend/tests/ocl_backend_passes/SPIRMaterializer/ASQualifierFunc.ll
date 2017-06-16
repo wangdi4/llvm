@@ -1,9 +1,18 @@
 ; RUN: opt -spir-materializer -S %s -o - | FileCheck %s
 
+; CHECK: !kernel_arg_addr_space ![[AS:[0-9]+]]
+; CHECK: !kernel_arg_access_qual ![[AQ:[0-9]+]]
+; CHECK: !kernel_arg_type ![[T:[0-9]+]]
+; CHECK: !kernel_arg_type_qual ![[TQ:[0-9]+]]
+; CHECK: !kernel_arg_base_type ![[T]]
 ; CHECK: @__to_global
 ; CHECK: @__to_local
 ; CHECK-NOT: @_Z9to_globalPU3AS4c
 ; CHECK-NOT: @_Z8to_localPU3AS4c
+; CHECK: ![[AS]] = !{i32 1}
+; CHECK: ![[AQ]] = !{!"none"}
+; CHECK: ![[T]] = !{!"int*"}
+; CHECK: ![[TQ]] = !{!""}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"

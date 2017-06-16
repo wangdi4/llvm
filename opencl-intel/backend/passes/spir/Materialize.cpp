@@ -8,7 +8,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Materialize.h"
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
-#include "MetaDataApi.h"
 #include "OCLPassSupport.h"
 #include "OCLAddressSpace.h"
 #include <NameMangleAPI.h>
@@ -338,6 +337,34 @@ private:
   BuiltinLibInfo &BLI;
 };
 
+static void updateMetadata(llvm::Module &M) {
+  llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
+  for (auto *Kernel : Kernels->operands()) {
+    auto I = Kernel->op_begin();
+    auto Func = llvm::mdconst::dyn_extract<llvm::Function>(*I);
+    for (++I; I != Kernel->op_end(); ++I) {
+      auto *KernelAttr = cast<MDNode>(*I);
+      auto AttrIt = KernelAttr->op_begin();
+      MDString *AttrName = cast<MDString>(*AttrIt);
+      std::vector<Metadata*> Operands;
+      for (++AttrIt; AttrIt != KernelAttr->op_end(); ++AttrIt)
+        Operands.push_back(*AttrIt);
+      if (AttrName->getString() == "vec_type_hint" ||
+          AttrName->getString() == "work_group_size_hint" ||
+          AttrName->getString() == "reqd_work_group_size" ||
+          AttrName->getString() == "max_work_group_size" ||
+          AttrName->getString() == "intel_reqd_sub_group_size" ||
+          AttrName->getString() == "kernel_arg_addr_space" ||
+          AttrName->getString() == "kernel_arg_access_qual" ||
+          AttrName->getString() == "kernel_arg_type" ||
+          AttrName->getString() == "kernel_arg_base_type" ||
+          AttrName->getString() == "kernel_arg_name" ||
+          AttrName->getString() == "kernel_arg_type_qual")
+        Func->setMetadata(AttrName->getString(),
+                          llvm::MDNode::get(M.getContext(), Operands));
+    }
+  }
+}
 //
 // SpirMaterializer
 //
@@ -359,6 +386,7 @@ bool SpirMaterializer::runOnModule(llvm::Module &Module) {
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
 
+  updateMetadata(Module);
   MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);
