@@ -339,6 +339,7 @@ private:
 
 static void updateMetadata(llvm::Module &M) {
   llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
+  if (!Kernels) return;
   for (auto *Kernel : Kernels->operands()) {
     auto I = Kernel->op_begin();
     auto Func = llvm::mdconst::dyn_extract<llvm::Function>(*I);
