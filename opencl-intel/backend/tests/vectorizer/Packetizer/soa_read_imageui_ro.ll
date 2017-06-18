@@ -11,11 +11,6 @@ target triple = "spir64-unknown-unknown"
 
 %opencl.image2d_ro_t = type opaque
 
-; CHECK_4-DAG-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
-; CHECK_4-DAG-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
-; CHECK_8-DAG-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
-; CHECK_8-DAG-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
-
 ; Function Attrs: nounwind
 define spir_kernel void @soa_read_imageui(%opencl.image2d_ro_t addrspace(1)* %img, <4 x i32> addrspace(1)* nocapture %out, i32 %randomId) #0 {
 entry:
@@ -25,11 +20,23 @@ entry:
   %conv2 = trunc i64 %call1 to i32
   %vecinit = insertelement <2 x i32> undef, i32 %conv, i32 0
   %vecinit3 = insertelement <2 x i32> %vecinit, i32 %conv2, i32 1
-; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_roDv4_iS_PDv4_jS1_S1_S1_
-; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_roDv8_iS_PDv8_jS1_S1_S1_
+
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+
+; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_roDv4_iS0_PDv4_jS2_S2_S2_
+; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_roDv8_iS0_PDv8_jS2_S2_S2_
   %call4 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_roDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, <2 x i32> %vecinit3) #4
-; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_ro11ocl_samplerDv4_iS_PDv4_jS1_S1_S1_
-; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_ro11ocl_samplerDv8_iS_PDv8_jS1_S1_S1_
+; CHECK_4:    call void @_Z17soa4_read_imageui14ocl_image2d_ro11ocl_samplerDv4_iS1_PDv4_jS3_S3_S3_
+; CHECK_8:    call void @_Z17soa8_read_imageui14ocl_image2d_ro11ocl_samplerDv8_iS1_PDv8_jS3_S3_S3_
+
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+
   %call8 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_ro11ocl_samplerDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, i32 16, <2 x i32> %vecinit3) #4
   %add = add <4 x i32> %call8, %call4
   %rem = urem i32 %conv, %randomId
@@ -39,12 +46,24 @@ entry:
 if.then:                                          ; preds = %entry
   %vecinit11 = insertelement <2 x i32> undef, i32 %conv2, i32 0
   %vecinit12 = insertelement <2 x i32> %vecinit11, i32 %conv, i32 1
-; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_roS_S_PDv4_jS1_S1_S1_
-; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_roS_S_PDv8_jS1_S1_S1_
+
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+
+; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_roS_S_PDv4_jS2_S2_S2_
+; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_roS_S_PDv8_jS2_S2_S2_
   %call13 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_roDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, <2 x i32> %vecinit12) #4
   %add14 = add <4 x i32> %call13, %add
-; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_ro11ocl_samplerS_S_PDv4_jS1_S1_S1_
-; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_ro11ocl_samplerS_S_PDv8_jS1_S1_S1_
+; CHECK_4:    call void @_Z22mask_soa4_read_imageuiDv4_i14ocl_image2d_ro11ocl_samplerS_S_PDv4_jS3_S3_S3_
+; CHECK_8:    call void @_Z22mask_soa8_read_imageuiDv8_i14ocl_image2d_ro11ocl_samplerS_S_PDv8_jS3_S3_S3_
+
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2dDv2_i
+; CHECK_4-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+; CHECK_8-NOT:    @_Z12read_imageui14ocl_image_ro2d11ocl_samplerDv2_i
+
   %call18 = tail call spir_func <4 x i32> @_Z12read_imageui14ocl_image2d_ro11ocl_samplerDv2_i(%opencl.image2d_ro_t addrspace(1)* %img, i32 16, <2 x i32> %vecinit12) #4
   %add19 = add <4 x i32> %add14, %call18
   br label %if.end
