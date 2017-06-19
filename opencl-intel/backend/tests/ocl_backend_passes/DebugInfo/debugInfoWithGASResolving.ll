@@ -18,10 +18,10 @@
 ;;
 ; The test checks that GenericAddressStaticResolution pass copies debug info along with resolved func.
 ;
-; CHECK: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "func".*]])
-; CHECK: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
-; CHECK: !DILocation({{.*}} scope: [[SRCDIPL]])
-; CHECK: !DILocation({{.*}} scope: [[CLONDIPL]])
+; CHECK-DAG: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "func".*]])
+; CHECK-DAG: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[SRCDIPL]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[CLONDIPL]])
 
 ; ModuleID = '/tmp/ker.cl'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"

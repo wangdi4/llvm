@@ -19,10 +19,10 @@
 ;;
 ;; The test checks that pass "CloneBlockInvokeFuncToKernel" copy debug info when create new function.
 ;
-; CHECK: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "__ker_block_invoke".*]])
-; CHECK: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
-; CHECK: !DILocation({{.*}} scope: [[SRCDIPL]])
-; CHECK: !DILocation({{.*}} scope: [[CLONDIPL]])
+; CHECK-DAG: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "__ker_block_invoke".*]])
+; CHECK-DAG: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[SRCDIPL]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[CLONDIPL]])
 
 ; ModuleID = 'reproducer_CloneBlockToKernel.cl'
 

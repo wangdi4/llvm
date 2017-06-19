@@ -11,7 +11,7 @@
 ; CHECK: call void @llvm.memcpy.p1i8.p1i8.i32(i8 addrspace(1)* %0, i8 addrspace(1)* %1, i32 1000, i32 1, i1 false)
 ; CHECK: ret
 
-; CHECK: declare void @llvm.memcpy.p1i8.p1i8.i32(i8 addrspace(1)* nocapture, i8 addrspace(1)* nocapture readonly, i32, i32, i1)
+; CHECK: declare void @llvm.memcpy.p1i8.p1i8.i32(i8 addrspace(1)* nocapture writeonly, i8 addrspace(1)* nocapture readonly, i32, i32, i1)
 ; CHECK-NOT: !opencl.compiler.2_0.gen_addr_space_pointer_counter = !{!4}
 
 declare void @llvm.memcpy.p4i8.p4i8.i32(i8 addrspace(4)*, i8 addrspace(4)*, i32, i32, i1)
