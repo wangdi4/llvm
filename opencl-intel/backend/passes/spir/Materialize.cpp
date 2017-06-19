@@ -337,6 +337,50 @@ private:
   BuiltinLibInfo &BLI;
 };
 
+
+static void WarpFunctionMetadata(Module& M)
+{
+    if (M.getNamedMetadata("opencl.kernels") != NULL)
+        return;
+
+    auto opencl_kernels = M.getOrInsertNamedMetadata("opencl.kernels");
+    for (auto &Func : M)
+    {
+        if (Func.getCallingConv() == CallingConv::SPIR_KERNEL)
+        {
+
+            llvm::SmallVector< StringRef, 7> Names = {
+                "kernel_arg_addr_space",
+                "kernel_arg_access_qual",
+                "kernel_arg_type",
+                "kernel_arg_base_type",
+                "kernel_arg_type_qual",
+                "kernel_arg_name"
+            };
+
+            llvm::SmallVector<Metadata *,7> Args;
+            Args.push_back(ConstantAsMetadata::get(&Func));
+
+            for (auto i : Names)
+            {
+                auto first = MDString::get(M.getContext(), i);
+                auto second = Func.getMetadata(i);
+                if(!second) continue; // No such metadata.
+
+                llvm::SmallVector<Metadata*, 2> Mdvector;
+                Mdvector.push_back(first);
+                for (uint ops = 0; ops < second->getNumOperands(); ops++)
+                {
+                    Mdvector.push_back(second->getOperand(ops));
+                }
+                Args.push_back(MDTuple::get(M.getContext(),Mdvector));
+            }
+
+            opencl_kernels->addOperand(MDTuple::get(M.getContext(), Args));
+        }
+    }
+}
+
 static void updateMetadata(llvm::Module &M) {
   llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
   if (!Kernels) return;
@@ -388,6 +432,8 @@ bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
 
   updateMetadata(Module);
+  WarpFunctionMetadata(Module);
+
   MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);
