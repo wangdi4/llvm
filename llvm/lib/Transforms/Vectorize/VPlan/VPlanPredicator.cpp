@@ -688,8 +688,8 @@ void VPlanPredicator::linearizeRegionRec(VPRegionBlock *Region) {
       if (PrevBlock && !VPLI->isLoopHeader(CurrBlock) &&
           !PlanUtils.blockIsLoopLatch(PrevBlock, VPLI)) {
 
-        dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
-               << CurrBlock->getName() << "\n";
+        DEBUG(dbgs() << "Linearizing: " << PrevBlock->getName() << "->"
+                     << CurrBlock->getName() << "\n");
 
         PlanUtils.clearSuccessors(PrevBlock);
         PlanUtils.clearPredecessors(CurrBlock);
