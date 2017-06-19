@@ -478,8 +478,7 @@ static void dropSubprogramDI (Function * func) {
   if (cast_or_null<DISubprogram>(func->getSubprogram())) {
     // this should remove the appropriate metadata.
     func->setSubprogram(nullptr);
-  } else
-    assert(false && "Not expected branch taken in dropSubprogramDI!");
+  }
 }
 
 BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
