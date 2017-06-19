@@ -40,13 +40,19 @@ static int omp_num_threads;
 //#define TRACE if (fpga_mc_get_verbosity() > 0) printf
 #define TRACE printf
 
-#define OMP_INIT if (!omp_initialized) omp_init()
+#define OMP_INIT \
+    fpga_mc_load_cache_extent(&omp_initialized, sizeof(omp_initialized)); \
+    if (!omp_initialized) omp_init()
+
 static void omp_init()
 {
 
     // Currently this sets #cores in current column only
     omp_max_num_threads = omp_num_threads = fpga_mc_get_num_cores();
     omp_initialized = 1;
+    fpga_mc_flush_cache_extent(&omp_max_num_threads, sizeof(omp_max_num_threads));
+    fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+    fpga_mc_flush_cache_extent(&omp_initialized, sizeof(omp_initialized));
     TRACE("omp_init()\n");
 }
 
@@ -80,7 +86,7 @@ void __kmp_nios_omp_outlined_wrapper()
     //TRACE("__kmp_nios_omp_outlined_wrapper\n");
     wi = (struct __nios_workitem *)(fpga_mc_cpux_read_message());
     //if (fpga_mc_get_core_id() == 1) TRACE("wi=%x\n", wi);
-    //TRACE("wi=%x\n", wi);
+    TRACE("wi=%x\n", wi);
 
     // Flush the base workitem struct
     fpga_mc_load_cache_extent(wi, sizeof(struct __nios_workitem));
@@ -184,11 +190,11 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
                       kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk )
 {
     /*  this all has to be changed back to TID and such.. */
-    //register kmp_int32   gtid = global_tid;
     register kmp_uint32  tid = fpga_mc_get_core_id();
     register kmp_uint32  nth;
     register UT          trip_count;
 
+    OMP_INIT;
     KMP_DEBUG_ASSERT( plastiter && plower && pupper && pstride );
     KE_TRACE( 10, ("__kmpc_for_static_init called (%d)\n", global_tid));
     #ifdef KMP_DEBUG
@@ -203,8 +209,6 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
             *plastiter = FALSE;
         /* leave pupper and plower set to entire iteration space */
         *pstride = incr;   /* value should never be used */
-    //        *plower = *pupper - incr;   // let compiler bypass the illegal loop (like for(i=1;i<10;i--))  THIS LINE CAUSED shape2F/h_tests_1.f TO HAVE A FAILURE ON A ZERO-TRIP LOOP (lower=1,\
-      upper=0,stride=1) - JPH June 23, 2009.
         #ifdef KMP_DEBUG
         {
             const char * buff;
@@ -215,6 +219,7 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
         return;
     }
 
+    fpga_mc_load_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
     nth = omp_num_threads;
     if ( nth == 1 ) {
         if( plastiter != NULL )
@@ -327,8 +332,6 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
             *plastiter = FALSE;
         /* leave pupper and plower set to entire iteration space */
         *pstride = incr;   /* value should never be used */
-    //        *plower = *pupper - incr;   // let compiler bypass the illegal loop (like for(i=1;i<10;i--))  THIS LINE CAUSED shape2F/h_tests_1.f TO HAVE A FAILURE ON A ZERO-TRIP LOOP (lower=1,\
-      upper=0,stride=1) - JPH June 23, 2009.
         #ifdef KMP_DEBUG
         {
             const char * buff;
@@ -339,6 +342,7 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
         return;
     }
 
+    fpga_mc_load_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
     nth = omp_num_threads;
     if ( nth == 1 ) {
         if( plastiter != NULL )
@@ -453,6 +457,7 @@ void omp_set_num_threads(int num_threads)
     } else {
         omp_num_threads = num_threads;
     }
+    fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
 }
 
 void omp_set_dynamic(int b)
