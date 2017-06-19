@@ -368,6 +368,7 @@ namespace intel{
 
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
+    pFunc->removeFnAttr(llvm::Attribute::NoInline);
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
 
     createWrapperBody(pWrapper, pFunc);
