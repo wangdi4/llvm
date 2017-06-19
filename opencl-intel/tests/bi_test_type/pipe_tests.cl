@@ -217,6 +217,7 @@ __kernel void max_packets_reader() {
 
 __kernel void max_packets_writer() {
   __global struct __pipe_t* p = buf2pipe(max_packets_pipe);
+  ASSERT(p->max_packets > p->write_buf.limit);
   int num = 4 * max(1024, p->max_packets);
   for (int i = 0; i < num; ++i) {
     int src = i;
@@ -443,6 +444,7 @@ __kernel void vector_max_packets_reader() {
 
 __kernel void vector_max_packets_writer() {
   __global struct __pipe_t* p = buf2pipe(vector_max_packets_pipe);
+  ASSERT(p->max_packets > p->write_buf.limit);
   int num = 4 * max(256, p->max_packets);
   for (int i = 0; i < num; ++i) {
     float4 src = (float4)(0.1f * i);

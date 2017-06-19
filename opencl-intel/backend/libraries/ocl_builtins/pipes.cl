@@ -203,9 +203,13 @@ void __pipe_init_intel(__global struct __pipe_t* p,
   p->write_buf.end = 0;
   p->write_buf.size = -1;
 
+  // Limit pipe write buffer by pipe write capacity, which is a maximum
+  // capacity, since the pipe is empty.
+  int write_buf_limit = min(get_write_capacity(p),
+                            PIPE_WRITE_BUF_PREFERRED_LIMIT);
   // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit = min(p->max_packets, PIPE_WRITE_BUF_PREFERRED_LIMIT)
-                       & (- MAX_VL_SUPPORTED_BY_PIPES);
+  p->write_buf.limit =
+             write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
 }
 
 void __pipe_init_array_intel(__global struct __pipe_t* __global* p,

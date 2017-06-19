@@ -44,10 +44,15 @@ static void pipe_init(void* mem, cl_uint packet_size, cl_uint depth) {
   p->read_buf.limit = PIPE_READ_BUF_PREFERRED_LIMIT;
 
   p->write_buf.size = -1;
+
+  // Count write buffer limit for a pipe
+  // Note: write buffer limit should be at least 1 element less then
+  // pipe max_packets to write buffer can be reserved
+  int write_buf_limit = std::min((int)(p->max_packets - 1),
+                                 PIPE_WRITE_BUF_PREFERRED_LIMIT);
   // Ensure that write buffer limit is a multiple of max supported vector length
-  p->write_buf.limit = std::min((int)p->max_packets,
-                                PIPE_WRITE_BUF_PREFERRED_LIMIT)
-                       & (- MAX_VL_SUPPORTED_BY_PIPES);
+  p->write_buf.limit =
+             write_buf_limit - (write_buf_limit % MAX_VL_SUPPORTED_BY_PIPES);
 }
 
 #else // BUILD_FPGA_EMULATOR
