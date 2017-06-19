@@ -152,6 +152,8 @@ uint64_t OVLSCostModel::getShuffleCost(SmallVectorImpl<int> &Mask,
 namespace OptVLS {
 class GraphNode;
 typedef std::list<GraphNode *> GraphNodeList;
+typedef OVLSMap<GraphNode *, OVLSMemref *> GraphNodeToOVLSMemrefMap;
+
 /// Represents a range of bits using a bit-location of the leftmost bit and
 /// a number of consecutive bits immediately to the right that are included
 /// in the range. {0, 0} means undefined bit-range.
@@ -636,6 +638,11 @@ public:
 
   GraphNodeList::iterator begin() { return Nodes.begin(); }
 
+  uint32_t getGSNumElements() {
+    // We know that the first few nodes are the gather/scatter nodes.
+    GraphNode *GSNode = *(begin());
+    return GSNode->type().getNumElements();
+  }
   // Return nodes in a topological order.
   void getTopSortedNodes(GraphNodeList &TopSortedNodes) const {
     // TopSortedNodes is an empty list that will contain the sorted elements.
@@ -703,6 +710,19 @@ public:
     //   V1  V2                  V1     V2                      V1  V2
     //
     if (TotalLoadNodes == 1)
+      return false;
+
+    // Don't simplify if the gather/scatter nodes have maximum 2 elements.
+    // In that case, there is nothing to optimize(assuming we have maximum
+    // two sources; we can extract maximum two elements using one instrution)
+    // E.g.
+    //   v3:L  v4:L
+    //     |\  /|
+    //     | \/ |
+    //     | /\ |
+    //     |/  \|
+    //     V1   V2
+    if (getGSNumElements() <= 2)
       return false;
 
     for (GraphNode *N : Nodes)
@@ -1075,7 +1095,9 @@ public:
   // Visit the graph in a topological order and push the instruction into the
   // InstVector. While we are at it, generate instruction if the node does not
   // have one already.
-  void getInstructions(OVLSInstructionVector &InstVector) {
+  void getInstructions(OVLSInstructionVector &InstVector,
+                       GraphNodeToOVLSMemrefMap &NodeToMemrefMap,
+                       OVLSMemrefToInstMap *Map = nullptr) {
     GraphNodeList TopSortedNodes;
     getTopSortedNodes(TopSortedNodes);
 
@@ -1094,6 +1116,12 @@ public:
       OVLSInstruction *I = N->getInstruction();
       assert(I != nullptr && "Inst cannot be null!!!");
       InstVector.push_back(I);
+
+      if (Map == nullptr)
+        continue;
+      GraphNodeToOVLSMemrefMap::iterator IT = NodeToMemrefMap.find(N);
+      if (IT != NodeToMemrefMap.end())
+        Map->insert(std::pair<OVLSMemref *, OVLSInstruction *>(IT->second, I));
     }
   }
 
@@ -1321,9 +1349,16 @@ static bool hasContiguousAccesses(uint64_t ByteAccessMask,
 
 static bool isSupported(const OVLSGroup &Group) {
   int64_t Stride = 0;
+  if (Group.size() < 2) {
+    OVLSDebug(
+        OVLSdbgs() << "Minimum Two neighbors required!!!\n");
+    return false;
+  }
+
   if (!Group.hasAConstStride(Stride)) {
-    OVLSDebug(OVLSdbgs() << "Optimized sequence is only supported for a group"
-                            " of gathers/scatters that has a constant stride!!!\n");
+    OVLSDebug(
+        OVLSdbgs() << "Optimized sequence is only supported for a group"
+                      " of gathers/scatters that has a constant stride!!!\n");
     return false;
   }
 
@@ -1400,7 +1435,8 @@ OVLSInstruction *genShuffleForMemref(const OVLSMemref &Mrf, int64_t Index) {
 /// represents either a load or a gather and each edge shows which loaded
 /// elements contribute to which gather results.
 /// FIXME: Support masked gathers/scatters.
-static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
+  static void getLoadsOrStores(const OVLSGroup &Group, Graph &G,
+                               GraphNodeToOVLSMemrefMap &NodeToMemrefMap) {
   int64_t Stride = 0;
   if (!Group.hasAConstStride(Stride))
     assert("Group with a variable stride is not supported!!!");
@@ -1449,6 +1485,7 @@ static void getLoadsOrStores(const OVLSGroup &Group, Graph &G) {
       GSNode = new GraphNode(ScatterdRes, MemrefType);
     }
     G.insert(GSNode);
+    NodeToMemrefMap.insert(std::pair<GraphNode *, OVLSMemref *>(GSNode, *I));
 
     uint32_t ElemSize = MemrefType.getElementSize(); // in bits
     assert(ElemSize <= 64 && "Unexpected element size!!!");
@@ -1795,13 +1832,15 @@ void OptVLSInterface::getGroups(const OVLSMemrefVector &Memrefs,
 // vector elements) is supported.
 bool OptVLSInterface::getSequence(const OVLSGroup &Group,
                                   const OVLSCostModel &CM,
-                                  OVLSInstructionVector &InstVector) {
+                                  OVLSInstructionVector &InstVector,
+                                  OVLSMemrefToInstMap *MemrefToInstMap) {
   if (!OptVLS::isSupported(Group))
     return false;
 
   OptVLS::Graph G(Group.getVectorLength(), CM);
 
-  OptVLS::getLoadsOrStores(Group, G);
+  OptVLS::GraphNodeToOVLSMemrefMap NodeToMemrefMap;
+  OptVLS::getLoadsOrStores(Group, G, NodeToMemrefMap);
 
   /// At this point, we have generated loads (to load the contiguous chunks of
   /// memory created by the \p Group of gathers) and a graph that shows which
@@ -1820,7 +1859,8 @@ bool OptVLSInterface::getSequence(const OVLSGroup &Group,
   if (!G.verifyGraph())
     return false;
 
-  G.getInstructions(InstVector);
+  G.getInstructions(InstVector, NodeToMemrefMap, MemrefToInstMap);
+
   return true;
 }
 

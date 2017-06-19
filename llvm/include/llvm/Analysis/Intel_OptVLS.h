@@ -75,6 +75,7 @@ typedef class OVLSInstruction OVLSInstruction;
 typedef OVLSVector<OVLSInstruction *> OVLSInstructionVector;
 
 typedef OVLSMap<OVLSMemref *, OVLSGroup *> OVLSMemrefToGroupMap;
+typedef OVLSMap<OVLSMemref *, OVLSInstruction *> OVLSMemrefToInstMap;
 
 // AccessType: {Strided|Indexed}{Load|Store}
 class OVLSAccessType {
@@ -187,7 +188,14 @@ static inline OVLSostream &operator<<(OVLSostream &OS, OVLSType T) {
 class OVLSMemref {
 public:
   /// Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
-  enum OVLSMemrefKind { VLSK_ClientMemref, VLSK_HIRVLSClientMemref };
+  /// OptVLS works as a server-client system. Its multiple clients are supposed
+  /// to communicate with the server through its own memref-kind. Below is the
+  /// list of clients that are currently supported.
+  enum OVLSMemrefKind {
+    VLSK_ClientMemref, // Represents a test-client
+    VLSK_HIRVLSClientMemref, // Represents HIR-client
+    VLSK_X86InterleavedClientMemref // Represents X86InterleavedClient with LLVM-IR
+  };
 
 private:
   const OVLSMemrefKind Kind;
@@ -395,6 +403,10 @@ public:
     return MemrefVec[0]->getType().getNumElements();
   }
 
+  uint32_t getElemSize() const {
+    return MemrefVec[0]->getType().getElementSize();
+  }
+
   /// \brief Return the vector of memrefs of this group.
   const OVLSMemrefVector &getMemrefVec() const { return MemrefVec; }
 
@@ -450,6 +462,7 @@ public:
   OperandKind getKind() const { return Kind; }
   OVLSType getType() const { return Type; }
   void setType(OVLSType T) { Type = T; }
+  virtual uint64_t getId() const { return -1; }
 
   virtual void print(OVLSostream &OS, unsigned NumSpaces) const {}
 
@@ -488,13 +501,11 @@ public:
 
     switch (Type.getElementSize()) {
     case 32: {
-      int32_t Int32;
-      memcpy(&Int32, &ConstValue[0], sizeof(int32_t));
-      OS << " <" << Int32;
-      for (uint32_t i = 1; i < NumElems; i++) {
-        memcpy(&Int32, &ConstValue[i * 4], sizeof(int32_t));
-        OS << ", " << Int32;
-      }
+      int IntStream[BitWidth / 32];
+      memcpy(IntStream, ConstValue, NumElems * 4);
+      OS << " <" << IntStream[0];
+      for (uint32_t i = 1; i < NumElems; i++)
+        OS << ", " << IntStream[i];
 
       OS << ">";
       break;
@@ -503,6 +514,18 @@ public:
       OVLSdbgs() << "Not supported\n";
       break;
     }
+  }
+
+  // Returns the 32bit value at \p index.
+  uint32_t getElement(unsigned Index) const {
+    uint32_t n;
+
+    // An OVLSConstant is a raw bitstream that can be of any size. This function
+    // should be called for the instance of a bitstream of 32bit elements.
+    assert((getType().getElementSize() == 32 && Index < getType().getNumElements())
+            && " Unexpected element!!!");
+    memcpy(&n, &ConstValue[Index * 4], 4);
+    return n;
   }
 };
 
@@ -634,6 +657,9 @@ public:
     OVLSOperand::setType(T);
   }
 
+  /// \brief Return the Address(Src) member of the Load.
+  OVLSAddress getPointerOperand() const { return Src; }
+
 private:
   OVLSAddress Src;
 
@@ -741,6 +767,22 @@ public:
     OVLSdbgs() << '\n';
   }
 #endif
+  const OVLSOperand *getOperand(unsigned i) const {
+    switch (i) {
+    case 0:
+      return Op1;
+    case 1:
+      return Op2;
+    case 2:
+      return Op3;
+    }
+    return nullptr;
+  }
+  void getShuffleMask(SmallVectorImpl<uint32_t> &Result) const {
+    const OVLSConstant *C = cast<const OVLSConstant>(Op3);
+    for (unsigned i = 0; i < Op3->getType().getNumElements(); i++)
+      Result.push_back(C->getElement(i));
+  }
 
 private:
   const OVLSOperand *Op1;
@@ -972,9 +1014,11 @@ public:
   /// tries to generate the best optimized sequence(using the costmodel) without
   /// doing any relative cost/benefit analysis (which is gather/scatter vs. the
   /// generated sequence). The main purpose of this function is to help
-  /// diagnostics.
+  /// diagnostics. Optionally, it returns the mapping between the OVLSMemrefs
+  /// (of the Group) and the associated OVLSInstruction.
   static bool getSequence(const OVLSGroup &Group, const OVLSCostModel &CM,
-                          OVLSInstructionVector &InstVector);
+                          OVLSInstructionVector &InstVector,
+                          OVLSMemrefToInstMap *MemrefToInstMap = nullptr);
 };
 }
 #endif
