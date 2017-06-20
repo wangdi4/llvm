@@ -447,8 +447,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
     llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
       expectedToErrorOrAndEmitErrors(*m_pLLVMContext,
-               //llvm::getLazyBitcodeModule(*rtlBuffer.get(), *m_pLLVMContext));
-               llvm::parseBitcodeFile(*rtlBuffer.get(), *m_pLLVMContext));
+               llvm::getLazyBitcodeModule(*rtlBuffer.get(), *m_pLLVMContext));
 
     if ( !spModuleOrErr )
     {
@@ -476,9 +475,7 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
         std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
                                           pLibrary->GetRtlBufferSvmlShared()));
         llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
-            //llvm::getLazyBitcodeModule(*RtlBufferSvmlShared.get(),
-            llvm::parseBitcodeFile(*RtlBufferSvmlShared.get(),
-
+            llvm::getLazyBitcodeModule(*RtlBufferSvmlShared.get(),
                 *m_pLLVMContext));
 
         if ( !spModuleSvmlSharedOrErr ) {
