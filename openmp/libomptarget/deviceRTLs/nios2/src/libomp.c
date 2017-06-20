@@ -101,6 +101,17 @@ void __kmp_nios_omp_outlined_wrapper()
     fpga_mc_cpux_done();
 }
 
+kmp_int32 __kmpc_global_thread_num(ident_t* loc)
+{
+    return 0;
+}
+
+void __kmpc_push_num_threads(ident_t* loc, kmp_int32 gtid, kmp_int32 num_threads)
+{
+    omp_num_threads = num_threads;
+    fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+}
+
 void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ... )
 {
     struct __nios_workitem * wi;
@@ -181,6 +192,10 @@ void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ...
     }
 
     va_end(vl);
+
+    omp_num_threads = omp_max_num_threads;
+    fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+
     TRACE("over\n");
 }
 
