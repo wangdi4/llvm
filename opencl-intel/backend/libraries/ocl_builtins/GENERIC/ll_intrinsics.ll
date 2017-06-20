@@ -1,4 +1,5 @@
 ; ModuleID = '<stdin>'
+%opencl.sampler_t = type opaque
 
 define i16 @__ocl_zext_v1i8_v1i16(i8 %x) {
   %1 = zext i8 %x to i16
@@ -582,6 +583,11 @@ define <16 x i32> @__ocl_select_v16i32(<16 x i32> %x, <16 x i32> %y, <16 x i32> 
   %mask = icmp eq <16 x i32> %and, <i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648, i32 -2147483648>
   %selected = select <16 x i1> %mask, <16 x i32> %y, <16 x i32> %x
   ret <16 x i32> %selected
+}
+
+define %opencl.sampler_t addrspace(2)* @__translate_sampler_initializer(i32 %initVal) {
+  %astype = inttoptr i32 %initVal to %opencl.sampler_t addrspace(2)*
+  ret %opencl.sampler_t addrspace(2)* %astype
 }
 
 declare i8 @llvm.ctlz.i8(i8, i1) nounwind readonly
