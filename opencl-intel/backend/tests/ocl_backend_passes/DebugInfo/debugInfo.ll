@@ -1,5 +1,4 @@
 ; RUN: opt -debug-info -S %s | FileCheck %s
-; XFAIL: *
 ;
 ;; This test was generated using the following cl code with this command:
 ;;

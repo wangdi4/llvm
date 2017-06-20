@@ -1,6 +1,5 @@
 ; RUN: opt -add-implicit-args -verify -S %s | FileCheck %s
 ; RUN: opt -add-implicit-args -local-buffers -prepare-kernel-args -verify -S %s | FileCheck %s
-; XFAIL: *
 
 ;; This test was generated using the following cl code with this command:
 ;;  clang.exe -cc1 -cl-std=CL2.0 -x cl -emit-llvm -triple=spir64-unknown-unknown -debug-info-kind=limited  -O0 -D__OPENCL_C_VERSION__=200 -o - ker.cl -I llvm\install\include\cclang -include opencl-c.h -include opencl-c-intel.h
