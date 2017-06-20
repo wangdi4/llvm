@@ -951,7 +951,6 @@ void MachineAliasSetTracker::add(MachineMemOperand *mop) {
    * object. (This is the only case I've seen so far, but there are other types
    * of PseudoSourceValues.) */
   const PseudoSourceValue *pv = mop->getPseudoValue();
-  assert(pv && "Memory ops are expected to have a Value or PseudoValue");
 
   /* Ask if the PseudoValue IS aliased with a Value. If it's a
    * FixedStackPseudoSourceValue, then this will consult MFI. If the answer is
@@ -959,15 +958,16 @@ void MachineAliasSetTracker::add(MachineMemOperand *mop) {
    * giving up (by merging all of the alias sets). Note that we can't track
    * this with an actual AliasSet. "isAliased" reports whether any Values may
    * alias, so this also assumes that PseudoValues cannot alias one another. */
-  if (!pv->isAliased(MFI)) {
+  if (pv && !pv->isAliased(MFI)) {
     DEBUG(errs() << "found a non-aliasing pv.\n");
     if (!pseudos[pv])
       pseudos[pv] = pseudosCounter++;
     return;
   }
 
-  /* If we find that any pv is not in its own alias set, then we give up and
-   * consider ourselves to only have one all-encompasing alias set. */
+  /* If we find a memop that has no Value and no PseudoValue, or if we find
+   * that any PseudoValue is not in its own alias set, then we give up and
+   * consider ourselves to only have one all-encompassing alias set. */
   DEBUG(errs() << "found a pv which may be aliased. smushing into one alias set.\n");
   isMerged = true;
 }
