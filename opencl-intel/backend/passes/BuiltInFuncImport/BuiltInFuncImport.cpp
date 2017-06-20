@@ -178,7 +178,7 @@ namespace intel {
 
     if (Root->isMaterializable())
      if (llvm::Error EC = Root->materialize())
-      report_fatal_error("Error matializing function: " + Root->getName());
+      report_fatal_error("Error materializing function: " + Root->getName());
 
     FunctionsVec CalledFuncs;
     GetCalledFunctions(Root, CalledFuncs);
