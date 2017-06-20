@@ -369,7 +369,7 @@ static void WarpFunctionMetadata(Module& M)
 
                 llvm::SmallVector<Metadata*, 2> Mdvector;
                 Mdvector.push_back(first);
-                for (uint ops = 0; ops < second->getNumOperands(); ops++)
+                for (unsigned int ops = 0; ops < second->getNumOperands(); ops++)
                 {
                     Mdvector.push_back(second->getOperand(ops));
                 }
