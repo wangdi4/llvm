@@ -109,7 +109,9 @@ namespace {
       unsigned getNumAliasSets();
       /* Query the opaque ID of the set associated with a given mem op */
       unsigned getAliasSetNumForMemop(const MachineMemOperand *mop);
-      void dump(){ /* TODO? */ };
+      void dump() const { print(dbgs()); }
+      void print(raw_ostream &OS) const;
+
 
     private:
       AliasSetTracker AST;
@@ -1010,4 +1012,15 @@ unsigned MachineAliasSetTracker::getAliasSetNumForMemop(const MachineMemOperand 
   }
   assert(pseudos[pv] && "Memop must be added to MachineAliasSetTracker before querying");
   return pos + pseudos[pv] - 1;
+}
+
+void MachineAliasSetTracker::print(raw_ostream &OS) const {
+  if (isMerged) {
+    OS << "[Merged]\n\n";
+    return;
+  }
+
+  OS << "Non-aliasing PseudoValues: " << pseudosCounter-1 << "\n";
+  OS << "Values in AliasSetTracker:\n";
+  AST.print(OS);
 }
