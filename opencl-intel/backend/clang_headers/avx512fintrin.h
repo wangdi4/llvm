@@ -412,6 +412,9 @@ _mm512_mask_blend_ps(__mmask16 __U, __m512 __A, __m512 __W);
 __m512i __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_blend_epi32(__mmask16 __U, __m512i __A, __m512i __W);
 
+__m512i __attribute__ ((__always_inline__, __nodebug__))
+_mm512_mask_blend_epi64(__mmask8 __U, __m512i __A, __m512i __W);
+
 /* Compare */
 
 #define _mm512_cmp_round_ps_mask(A, B, P, R) __extension__ ({ \

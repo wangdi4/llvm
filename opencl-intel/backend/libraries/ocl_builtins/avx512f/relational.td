@@ -21,7 +21,7 @@ code select_vector_v16i = [{
 
 code select_vector_v8l = [{
     __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
-    return as_$ReturnType(_mm512_mask_blend_epi32(mask, __builtin_astype($Arg0VarName, __m512i),
+    return as_$ReturnType(_mm512_mask_blend_epi64(mask, __builtin_astype($Arg0VarName, __m512i),
       __builtin_astype($Arg1VarName, __m512i)));
   }];
 
