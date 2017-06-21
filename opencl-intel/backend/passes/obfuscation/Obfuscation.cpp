@@ -37,10 +37,9 @@ public:
   virtual void operator ()(llvm::BasicBlock& BB) {
     BB.setName(llvm::Twine(""));
 
-    for(llvm::BasicBlock::iterator it = BB.begin(), e = BB.end(); it != e;
-        ++it) {
-      if (!it->getType()->isVoidTy())
-        it->setName(llvm::Twine(""));
+    for(auto& I : BB) {
+      if (!I.getType()->isVoidTy())
+        I.setName(llvm::Twine(""));
     }
   }
 };
@@ -53,8 +52,8 @@ struct TrivialFunctionFunctor: public FunctionFunctor {
     typedef llvm::Function::ArgumentListType::iterator ArgIter;
     int counter = 0;
 
-    for (ArgIter it = ArgList.begin(), e=ArgList.end(); it != e; it++)
-      it->setName(llvm::Twine(counter++));
+    for(auto &Arg : F.args())
+      Arg.setName(llvm::Twine(counter++));
 
     std::for_each(F.begin(), F.end(), bFunctor);
   }
