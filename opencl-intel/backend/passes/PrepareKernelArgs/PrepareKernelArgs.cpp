@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 
 #include <sstream>
 #include <memory>
@@ -353,6 +354,10 @@ namespace intel{
     std::vector<Value*> params = createArgumentLoads(builder, WrappedKernel, pArgsBuffer, pArgGID, RuntimeContext);
 
     CallInst* call = builder.CreateCall(WrappedKernel, ArrayRef<Value*>(params));
+    // inlinable function call in a function with debug info
+    // must have a !dbg location
+    if(DISubprogram *SP = WrappedKernel->getSubprogram())
+        call->setDebugLoc(DebugLoc::get(SP->getScopeLine(), 0, SP));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
     builder.CreateRetVoid();
