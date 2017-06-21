@@ -69,7 +69,9 @@ include_directories(
   ${OCL_NEAT_DIR}
   ${CL_API_HEADERS}
   ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+  ${OCL_BINARY_DIR}
 )
+
 message (STATUS DEBUG: LLVM_PATH_FE=${LLVM_PATH_FE})
 
 if(WIN32)
