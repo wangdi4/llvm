@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOAvrLLVMCodeGen.cpp -- LLVM IR Code generation from AVR
+//   LoopVectorizationCodeGen.cpp -- LLVM IR Code generation from VPlan
 //
 //===----------------------------------------------------------------------===//
 
@@ -483,6 +483,10 @@ void VPOCodeGen::createEmptyLoop() {
                                      "scalar.ph");
 
   Loop *Lp = new Loop();
+
+  // Initialize NewLoop member
+  NewLoop = Lp;
+
   Loop *ParentLoop = OrigLoop->getParentLoop();
 
   // Insert the new loop into the loop nest and register the new basic blocks
@@ -743,7 +747,7 @@ void VPOCodeGen::updateAnalysis() {
 Value *VPOCodeGen::getBroadcastInstrs(Value *V) {
   // We need to place the broadcast of invariant variables outside the loop.
   Instruction *Instr = dyn_cast<Instruction>(V);
-  bool NewInstr = (Instr && Instr->getParent() == LoopVectorBody);
+  bool NewInstr = (Instr && NewLoop->contains(Instr));
   bool Invariant = OrigLoop->isLoopInvariant(V) && !NewInstr;
 
   auto OldIP = Builder.saveIP();
@@ -929,7 +933,7 @@ void VPOCodeGen::vectorizeLinearLoad(Instruction *LinLdInst, int LinStep) {
   // Generate vector value for the linear value loaded by broadcasting it and adding
   // LaneNum * LinStep
   auto LinValTy = LinLdClone->getType();
-  Value *BroadcastVal = getBroadcastInstrs(LinLdClone);
+  Value *BroadcastVal = Builder.CreateVectorSplat(VF, LinLdClone);
   SmallVector<Constant *, 8> LinSteps;
   // Create the vector of steps from zero to VF in increments of LinStep.
   for (unsigned LaneNum = 0; LaneNum < VF; ++LaneNum) {
@@ -1921,9 +1925,7 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::Call: {
-    // Currently, the LLVM code gen side does not let AVRIf nodes flow through
-    // during loop legalization (loopIsHandled()), so we don't need to worry
-    // about masked vector function calls yet.
+    // TODO: Masked vector function call support needs to be added.
     CallInst *Call = cast<CallInst>(Inst);
     Function *F = Call->getCalledFunction();
     StringRef CalledFunc = F->getName();

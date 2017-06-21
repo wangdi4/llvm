@@ -417,6 +417,10 @@ private:
 
   /// The original loop.
   Loop *OrigLoop;
+
+  /// Vectorized loop
+  Loop *NewLoop;
+
   /// A wrapper around ScalarEvolution used to add runtime SCEV checks. Applies
   /// dynamic knowledge to simplify SCEV expressions and converts them to a
   /// more usable form.
@@ -556,4 +560,4 @@ private:
 
 } // End LLVM Namespace
 
-#endif // LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRLLVMCODEGEN_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_LOOPVECTORIZERCODEGEN_H
