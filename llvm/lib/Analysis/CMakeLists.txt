@@ -38,6 +38,7 @@ add_llvm_library(LLVMAnalysis
   Intel_AggInline.cpp
   Intel_Andersens.cpp
   Intel_Directives.cpp
+  Intel_IPCloningAnalysis.cpp
   Intel_SNode.cpp
   Intel_StdContainerAA.cpp
   Intel_OptVLS.cpp
