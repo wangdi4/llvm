@@ -1160,9 +1160,11 @@ private:
           assert(L3.contains(SegAddr) && "Partial overlap with L3");
           if (auto Ptr = Device.allocMem(MSOF_MEM_L3, SegAddr.getSize(), nullptr)) {
             Ptrs.push_front(Ptr);
-            DP("Relocating target image segment from %x to %x...\n",
-              Seg->getAddrRange().getStart(), Ptr);
-            Seg->relocate(Ptr);
+            if (Ptr != Seg->getAddrRange().getStart()) {
+              DP("Relocating target image segment from %x to %x...\n",
+                Seg->getAddrRange().getStart(), Ptr);
+              Seg->relocate(Ptr);
+            }
           }
           else {
             return nullptr;
@@ -1173,9 +1175,11 @@ private:
           assert(L4.contains(SegAddr) && "Partial overlap with L4");
           if (auto Ptr = Device.allocMem(MSOF_MEM_L4, SegAddr.getSize(), nullptr)) {
             Ptrs.push_front(Ptr);
-            DP("Relocating target image segment from %x to %x...\n",
-              Seg->getAddrRange().getStart(), Ptr);
-            Seg->relocate(Ptr);
+            if (Ptr != Seg->getAddrRange().getStart()) {
+              DP("Relocating target image segment from %x to %x...\n",
+                Seg->getAddrRange().getStart(), Ptr);
+              Seg->relocate(Ptr);
+            }
           }
           else {
             return nullptr;
@@ -1210,10 +1214,17 @@ private:
           // Copy host entry
           ET.Entries[II] = TgtImage->EntriesBegin[II];
 
-          // We can have multiple target programs, thus we need to keep
-          // program pointer in addition to the entry address.
+          // We can have multiple target programs, thus for function entries we
+          // need to keep program pointer in addition to the entry address.
+          // For data entries that is not required because data entries are
+          // unique across all programs.
           ET.Addrs[II] = { this, TgtEntries[II].Addr };
-          ET.Entries[II].addr = &ET.Addrs[II];
+          if (ET.Entries[II].size != 0) {
+            ET.Entries[II].addr = reinterpret_cast<void*>(TgtEntries[II].Addr);
+          }
+          else {
+            ET.Entries[II].addr = &ET.Addrs[II];
+          }
         }
       }
       else {
@@ -1279,8 +1290,8 @@ public:
     }
 
     DP("Max columns: %u\n", MCols);
-    DP("L3: start 0x%x, size %u\n", L3Start, L3Size);
-    DP("L4: start 0x%x, size %u\n", L4Start, L4Size);
+    DP("L3: start 0x%x, size 0x%x\n", L3Start, L3Size);
+    DP("L4: start 0x%x, size 0x%x\n", L4Start, L4Size);
 
     MaxColumns = MCols;
     L3 = Nios2Elf::AddrRangeTy(L3Start, L3Size);
@@ -1416,6 +1427,26 @@ public:
     if (NumColumns < 1) {
       return false;
     }
+
+#ifdef OMPTARGET_DEBUG
+    for (size_t C = 0u; C < NumColumns; ++C) {
+      DP("Reading column %lu properties...\n", C);
+
+      uint32_t NumCores;
+      if (msof_get_column_info(Columns[C], MSOF_NUM_CORES, sizeof(NumCores),
+                               &NumCores) == MSOF_SUCCESS) {
+        DP("Number of cores: %u\n", NumCores);
+      }
+
+      uint32_t L2Start, L2Size;
+      if (msof_get_column_info(Columns[C], MSOF_L2_START, sizeof(L2Start),
+                               &L2Start) == MSOF_SUCCESS &&
+          msof_get_column_info(Columns[C], MSOF_L2_SIZE, sizeof(L2Size),
+                               &L2Size) == MSOF_SUCCESS) {
+        DP("L2: start 0x%x, size 0x%x\n", L2Start, L2Size);
+      }
+    }
+#endif // OMPTARGET_DEBUG
 
     DP("Loading program to context\n");
     const auto &Image = Entry->first->getImage();
