@@ -14,6 +14,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_AggInline.h"
 #include "llvm/Analysis/Intel_Andersens.h"
+#include "llvm/Analysis/Intel_IPCloningAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Constants.h"
@@ -30,10 +31,13 @@
 #include <string>
 
 using namespace llvm;
+using namespace llvm::llvm_cloning_analysis;
 
 namespace llvm { 
+namespace llvm_cloning_analysis { 
 // Option to trace IP Cloning
 cl::opt<bool> IPCloningTrace("print-ip-cloning", cl::ReallyHidden);
+} 
 } 
 
 // Enable Loop related heuristic for Cloning.
@@ -381,6 +385,7 @@ static bool applyAllHeuristics(Value *V, LoopInfo* LI) {
 }
 
 namespace llvm { 
+namespace llvm_cloning_analysis { 
 
 // Returns any GEP operand of 'Phi' if it finds one. Otherwise, returns
 // nullptr.
@@ -525,5 +530,6 @@ extern bool isCallCandidateForSpecialization(CallSite& CS, LoopInfo* LI) {
   return true;
 }
 
+}
 }
 

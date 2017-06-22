@@ -17,6 +17,7 @@
 #include "llvm/IR/ValueHandle.h"
 
 namespace llvm {
+namespace llvm_cloning_analysis {
 
 extern cl::opt<bool> IPCloningTrace;
 
@@ -34,6 +35,7 @@ extern bool applyHeuristicsForSpecialization(Function &F, CallSite CS,
 
 extern bool isCallCandidateForSpecialization(CallSite& CS, LoopInfo* LI);
 
+}
 }
 
 #endif

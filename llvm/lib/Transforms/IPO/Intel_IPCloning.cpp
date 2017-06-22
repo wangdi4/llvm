@@ -30,6 +30,7 @@
 #include <sstream>
 #include <string>
 using namespace llvm;
+using namespace llvm::llvm_cloning_analysis;
 
 #define DEBUG_TYPE "ipcloning"
 
