@@ -92,6 +92,7 @@ void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeBlockToFuncPtrPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
+void initializeFMASplitterPass(llvm::PassRegistry&);
 }
 
 #endif
