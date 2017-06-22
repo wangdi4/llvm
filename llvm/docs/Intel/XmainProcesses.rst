@@ -74,8 +74,8 @@ failure%20in%20fail.log,%20a%20CQ%20must%20be%20filed%20if%20one%20does%20not
 testing%20done%20in%20addition%20to%20alloy%3F%0D%0A%0D%0A%0D%0A%0D%0A
 Please%20attach%20the%20following%20files%20from%20your%20alloy%20run,%20if%20
 applicable%3A%20status.log,%20fail.log,%20problem.log,%20and%20
-zperf%5Frt%5Frpt.log.>`_ should be filled out and mailed to the ICL Xmain
-Gatekeeper.
+zperf%5Frt%5Frpt.log.%0D%0Axmain%20checkin%20questionnaire%20version%201>`_
+should be filled out and mailed to the ICL Xmain Gatekeeper.
 
 .. _xmain-markups:
 
@@ -163,13 +163,31 @@ from xmain when we choose to do so.
 We enforce this policy primarily through code reviews. If you notice any
 violations, you are encouraged to fix them.
 
+Unit Test Development
+=====================
+
+All functional changes to xmain must be accompanied by unit tests using the
+LIT infrastructure. This requirement is no different from what the open source
+community expects.
+
+Additionally, new programmer visible features should be accompanied by
+end-to-end tests in our ``tc`` test suites. Changes to the test suite are
+normally made using the ``TMT`` tool.
+
+All test changes must be code reviewed following the same
+:ref:`code review <code-reviews>` processes used for compiler changes. This
+includes both LIT changes and ``tc`` test changes.
+
+.. _code-reviews:
+
 Code Reviews
 ============
 
 Our code review policy requires that every piece of code in xmain is thoroughly
 understood and accepted by more than one person. Having a second person read
 through your code and attempt to understand it helps identify pieces that are
-confusing, inefficient, or incorrect. Code reviews are a critical mechanism for ensuring that the code we commit to xmain is of the highest quality.
+confusing, inefficient, or incorrect. Code reviews are a critical mechanism for
+ensuring that the code we commit to xmain is of the highest quality.
 
 Code Review Tool
 ----------------
@@ -179,13 +197,32 @@ review tool for xmain development. Individual teams may use other tools
 internally but are expected to use Code Collaborator when working with other
 teams.
 
+Choosing a code reviewer
+------------------------
+
+If you are unsure who should review your changes, the advice of the LLVM
+community documented `here <../Phabricator.html>`_ works just as well for
+xmain. That is,
+
+- Use ``svn blame`` and the commit log to find names of people who have recently
+  modified the same area of code that you are modifying.
+- If you've discussed the change with others, they are good candidates to be
+  your reviewers.
+
+.. note:: We do not currently have an xmain equivalent of CODE_OWNERS.txt, but
+          we are working on creating one. In case this document is out of date,
+          check the root llvm directory for intel_code_owners.map or something
+          similar.
+
 Expectations of code reviewers
 ------------------------------
 
-- Every change in xmain must be given a detailed line-by-line code review. A
-  cursory reading of the code is not an adequate code review. Code reviewers
-  and code authors are equally responsible for the quality of code that gets
-  committed to xmain.
+- It is the job of the code reviewer to **thoroughly** understand the code
+  changes under review. Reviewers must understand both the high level design
+  and the low level details. Every change in xmain must be given a detailed
+  line-by-line code review. A cursory reading of the code is not an adequate
+  code review. Code reviewers and code authors are equally responsible for the
+  quality of code that gets committed to xmain.
 
 - Reviews should be timely. At this time, we do not have a specific rule for
   how long a review should take. But remember that the code reviewer is usually
@@ -214,6 +251,9 @@ Expectations of code authors
 
    - Accompany each code review request with a good explanation of what you are
      trying to accomplish in the change set, providing any necessary context.
+     Well-written unit tests are often the best way to establish context for a
+     review since they should illustrate what the change set is trying to
+     accomplish.
 
    - Document your code well, either via source comments or via higher level
      documentation in the llvm/docs area.
@@ -228,10 +268,6 @@ Expectations of code authors
 
 Testing Requirements
 ====================
-
-All functional changes to xmain must be accompanied by unit tests using the
-LIT infrastructure. This requirement is no different from what the open source
-community expects.
 
 Commits to xmain are expected to meet a minimum level of stability and
 performance. Prior to requesting commit permission, developers should run
