@@ -129,7 +129,22 @@ consideration is clarity & readability.
 
 - For Intel-added files, you do not need to put any special markups in the
   sources. Instead, the fully qualified file name should contain ``Intel``
-  or ``intel``.
+  or ``intel``. Intel-added files should be headed by an Intel copyright
+  notice, not by the typical LLVM one. The following is a sample that you can
+  adapt by changing the filename, file description, and copyright dates
+  appropriately.
+
+.. code-block:: c++
+
+  //==--- Intel_Directives.cpp - Table of directives and clauses -*- C++ -*---==//
+  //
+  // Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
+  //
+  // The information and source code contained herein is the exclusive property
+  // of Intel Corporation and may not be disclosed, examined or reproduced in
+  // whole or in part without explicit written authorization from the company.
+  //
+  // ===--------------------------------------------------------------------=== //
 
 - For code which should be excluded from final release builds but included
   in 'prod' builds during development (such as IR printing capabilities),
