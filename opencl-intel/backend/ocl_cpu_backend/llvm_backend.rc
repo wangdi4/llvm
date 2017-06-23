@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2017 Intel Corporation
 // All rights reserved.
 // 
 // WARRANTY DISCLAIMER
@@ -35,15 +35,16 @@ BEGIN
         BEGIN
             VALUE "FileDescription" ,"Intel(R) OpenCL(TM) Runtime"
             VALUE "ProductName"     ,"Intel(R) OpenCL(TM) SDK"
-            VALUE "LegalCopyright"  ,"Copyright \251 2010 Intel Corporation.  All rights reserved."
+            VALUE "LegalCopyright"  ,"Copyright \251 2017 Intel Corporation.  All rights reserved."
             VALUE "FileVersion"     ,VERSIONSTRING
             VALUE "ProductVersion"  ,VERSIONSTRING
 
             VALUE "CompanyName"     ,"Intel Corporation"
-            VALUE "InternalName"    ,"OpenCL SDK"
 #ifdef RESOURCE_X64
+            VALUE "InternalName"    ,"oclcpubackend64"
             VALUE "OriginalFilename","oclcpubackend64.dll"
 #else
+            VALUE "InternalName"    ,"oclcpubackend32"
             VALUE "OriginalFilename","oclcpubackend32.dll"
 #endif
         END
