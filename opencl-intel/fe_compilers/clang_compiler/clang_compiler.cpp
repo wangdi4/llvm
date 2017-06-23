@@ -23,12 +23,6 @@
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 
-#if defined (_WIN32)
-#define DLL_EXPORT _declspec(dllexport)
-#else
-#define DLL_EXPORT
-#endif
-
 using namespace Intel::OpenCL::FECompilerAPI;
 
 extern DECLARE_LOGGER_CLIENT;
