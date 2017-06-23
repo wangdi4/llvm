@@ -587,8 +587,8 @@ else(APPLE)
     #devices
     add_subdirectory( devices )
 
-    #FE compilers
-    add_subdirectory( fe_compilers )
+    # Front-end compiler
+    add_subdirectory( clang_compiler )
 
     # Framework
     add_subdirectory( framework )

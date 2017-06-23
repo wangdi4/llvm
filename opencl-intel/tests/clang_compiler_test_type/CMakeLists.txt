@@ -16,7 +16,7 @@ add_definitions( ${LLVM_DEFINITIONS} )
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${LLVM_INCLUDE_DIRS}/cclang
-    ${OCL_SOURCE_DIR}/fe_compilers/clang_compiler
+    ${OCL_SOURCE_DIR}/clang_compiler
     ${OCL_SOURCE_DIR}/externals/gtest/include
     ${OCL_SOURCE_DIR}/tests/test_common
     ${OCL_SOURCE_DIR}/externals/khronos/spirv/headers/include
