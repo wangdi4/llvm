@@ -3023,9 +3023,9 @@ static void handleOpenCLChannelDepthAttr(Sema & S, Decl * D,
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_altera_channels")) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName() << "cl_altera_channels";
+        << Attr.getName() << "cl_intel_channels";
     return;
   }
 
@@ -3066,9 +3066,9 @@ static void handleOpenCLChannelIOAttr(Sema & S, Decl * D,
   if (D->isInvalidDecl())
     return;
 
-  if (!S.getOpenCLOptions().isEnabled("cl_altera_channels")) {
+  if (!S.getOpenCLOptions().isEnabled("cl_intel_channels")) {
     S.Diag(Attr.getLoc(), diag::warn_unknown_attribute_ignored)
-        << Attr.getName() << "cl_altera_channels";
+        << Attr.getName() << "cl_intel_channels";
     return;
   }
 

@@ -3428,7 +3428,8 @@ public:
                                       Scope *S);
 
 #if INTEL_CUSTOMIZATION
-  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S);
+  void DeclareOCLChannelBuiltins(QualType ChannelQTy, Scope *S,
+                                 bool UseLegacyAlteraNames);
 #endif // INTEL_CUSTOMIZATION
 
   void AddKnownFunctionAttributes(FunctionDecl *FD);
