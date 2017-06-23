@@ -290,6 +290,10 @@ public:
   // Returns -1 if something is wrong.  
   int getMOVBitwidth(unsigned mov_opcode) const;
 
+  // Returns the number of elements loaded and/or stored by the given instruction.
+  // This will be 1 for plain loads/stores/atomics, 8 for wide loads/stores, and 0
+  // for all other instructions.
+  unsigned getMemOpAccessWidth(unsigned opcode) const;
 };
 
 }

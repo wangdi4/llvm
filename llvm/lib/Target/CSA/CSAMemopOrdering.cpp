@@ -706,12 +706,10 @@ MachineInstr* CSAMemopOrdering::convert_memop_ins(MachineInstr* MI,
   // This code assumes that normal loads have exactly one definition,
   // and normal stores have no definitions.
   unsigned expected_def_operands = 0;
-  if (TII->isLoad(MI)) {
-    expected_def_operands = 1;
+  if (TII->isLoad(MI) or TII->isAtomic(MI)) {
+    expected_def_operands = TII->getMemOpAccessWidth(MI->getOpcode());
   } else if (TII->isStore(MI)) {
     expected_def_operands = 0;
-  } else if (TII->isAtomic(MI)) {
-    expected_def_operands = 1;
   }
   else {
     assert(false && "Converting unknown type of instruction to ordered memory op");

@@ -429,19 +429,19 @@ CSAInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
 
 
 bool CSAInstrInfo::isLoad(MachineInstr *MI) const {
-	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LD8X;
+	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LDx88I;
 }
 
 bool CSAInstrInfo::isStore(MachineInstr *MI) const {
-	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::ST8X;
+	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::STx88I;
 }
 
 bool CSAInstrInfo::isOrderedLoad(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= CSA::OLD1) && (MI->getOpcode() <= CSA::OLD8X));
+  return ((MI->getOpcode() >= CSA::OLD1) && (MI->getOpcode() <= CSA::OLDx88I));
 }
 
 bool CSAInstrInfo::isOrderedStore(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= CSA::OST1) && (MI->getOpcode() <= CSA::OST8X));
+  return ((MI->getOpcode() >= CSA::OST1) && (MI->getOpcode() <= CSA::OSTx88I));
 }
 
 bool CSAInstrInfo::isMul(MachineInstr *MI) const {
@@ -1287,3 +1287,13 @@ getMOVBitwidth(unsigned mov_opcode) const {
   }
 }
 
+unsigned CSAInstrInfo::getMemOpAccessWidth(unsigned opcode) const {
+  if ((opcode >= CSA::LD1 and opcode <= CSA::LD8X)
+      or (opcode >= CSA::ST1 and opcode <= CSA::ST8X)
+      or (opcode >= CSA::ATMADD and opcode <= CSA::ATMXOR8))
+    return 1;
+  else if ((opcode >= CSA::LDx81 and opcode <= CSA::LDx88I)
+      or (opcode >= CSA::STx81 and opcode <= CSA::STx88I))
+    return 8;
+  else return 0;
+}
