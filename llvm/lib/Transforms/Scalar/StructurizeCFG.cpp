@@ -238,6 +238,10 @@ class StructurizeCFG : public RegionPass {
 
   bool hasOnlyUniformBranches(const Region *R);
 
+  bool MultiExitingsLoop();
+
+  bool MultiExitingsLoop(Loop*);
+
 public:
   static char ID;
 
@@ -960,6 +964,15 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
+  //TBD::CSA
+  {
+    Module *M = Func->getParent();
+    if (0 == M->getTargetTriple().compare("csa")) {
+      if (!MultiExitingsLoop())
+        return false;
+    }
+  }
+ 
   orderNodes();
   collectInfos();
   createFlow();
@@ -982,6 +995,28 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   return true;
 }
 
+bool StructurizeCFG::MultiExitingsLoop() {
+  for (Loop::iterator iloop = LI->begin(), LE = LI->end(); iloop != LE; ++iloop) {
+    if (MultiExitingsLoop(*iloop)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StructurizeCFG::MultiExitingsLoop(Loop *L) {
+  for (Loop::iterator iloop = L->begin(), LE = L->end(); iloop != LE; ++iloop) {
+    if (MultiExitingsLoop(*iloop))
+      return true;
+  }
+  return (L->getExitBlock() == nullptr);
+}
+
+
+
+
+
 Pass *llvm::createStructurizeCFGPass(bool SkipUniformRegions) {
   return new StructurizeCFG(SkipUniformRegions);
 }
+

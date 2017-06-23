@@ -29,5 +29,5 @@ has_asmparser = 1
 type = Library
 name = CSACodeGen
 parent = CSA
-required_libraries = Analysis AsmPrinter BitWriter CodeGen Core CSAAsmPrinter CSADesc CSAInfo MC MCParser Scalar SelectionDAG Support Target TransformUtils
+required_libraries = Analysis AsmPrinter BitWriter CodeGen Core CSAAsmPrinter CSADesc CSAInfo MC MCParser Scalar InstCombine SelectionDAG Support Target TransformUtils
 add_to_library_groups = CSA

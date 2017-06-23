@@ -2591,7 +2591,7 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             !MLI->getLoopFor(mbb)->contains(MLI->getLoopFor(DefBB));
 
           if (isDefOutsideLoop && DT->dominates(DefBB, mbb)) {
-            assert(!hasAllConstantInputs(dMI) && "const prop failed");
+            assert((!hasAllConstantInputs(dMI) || MLI->getLoopFor(DefBB) == NULL) && "const prop failed");
 
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();

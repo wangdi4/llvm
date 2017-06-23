@@ -145,6 +145,9 @@ public:
   bool addPreISel() override {
     //addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
+    addPass(createStructurizeCFGPass(false));
+    //remove the single input phi and constant branch created from StructurizeCFG
+    addPass(createInstructionCombiningPass());
     return false;
   }
 
