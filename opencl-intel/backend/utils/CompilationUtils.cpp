@@ -443,6 +443,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
               else if (structName.startswith("clk_event_t"))
                   curArg.type = CL_KRNL_ARG_PTR_CLK_EVENT_T;
+              else if (structName.startswith("sampler_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_SAMPLER_T;
               else {
                   assert(false && "did you forget to handle a new special OpenCL C opaque type?");
                   // TODO: Why default type is INTEGER????
@@ -482,6 +484,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:
                 case CL_KRNL_ARG_PTR_CLK_EVENT_T:
+                case CL_KRNL_ARG_PTR_SAMPLER_T:
                   isMemoryObject = false;
                   break;
 
