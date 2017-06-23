@@ -109,7 +109,10 @@ def RCLf64 : RegImmOperand<f64>;
 class Addr<int numArgs, string funcName, dag opInfo> :
   Operand<i64>, ComplexPattern<i64, numArgs,
     funcName, [],
-    [SDNPWantParent]> { let MIOperandInfo = opInfo; }
+    [SDNPWantParent]> {
+      let MIOperandInfo = opInfo;
+      let OperandType = "OPERAND_MEMORY";
+    }
 
 let PrintMethod = "printMemOperand" in {
 def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
@@ -567,12 +570,12 @@ multiclass StOp<string opStr, CSAOpInfo t,
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, t.RCL:$data),
-      !strconcat(opStr, "d\t$addr, $data, %ign"),
+      !strconcat(opStr, "d\t$addr, $data"),
       [(store (t.VT t.RCL:$data), ADDR_RI:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, t.RCL:$data),
-      !strconcat(opStr, "d\t$addr, $data, %ign"),
+      !strconcat(opStr, "d\t$addr, $data"),
       [(store (t.VT t.RCL:$data), ADDR_RR:$addr)]>;
   }
 
@@ -580,8 +583,42 @@ multiclass StOp<string opStr, CSAOpInfo t,
     def "" : FMTGEN<
       (outs),
       (ins ADDR_R:$addr, t.RCL:$data),
-      !strconcat(opStr, "\t$addr, $data, %ign"),
+      !strconcat(opStr, "\t$addr, $data"),
       [(store (t.VT t.RCL:$data), ADDR_R:$addr)]>;
+  }
+}
+
+// wide loads
+multiclass Ldx8Op<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IILD> {
+  let Itinerary = itin, mayLoad = 1 in {
+    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7),
+      (ins ADDR_I:$addr),
+      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr"),
+      []>;
+    def "" : FMTGEN< // normal basereg form
+      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7),
+      (ins ADDR_R:$addr),
+      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr"),
+      []>;
+    }
+}
+
+// wide stores
+multiclass Stx8Op<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IIST> {
+  let Itinerary = itin, mayStore = 1 in {
+    def I : FMTGEN<
+      (outs),
+      (ins ADDR_I:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7),
+      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7"),
+      []>;
+    def "" : FMTGEN<
+      (outs),
+      (ins ADDR_R:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7),
+      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7"),
+      []>;
   }
 }
 
@@ -663,6 +700,38 @@ multiclass OStOp<string opStr, CSAOpInfo t,
         (ins ADDR_R:$addr, t.RCL:$data, I0:$ready),
         !strconcat(opStr, "\t$addr, $data, $issued, $ready"),
         []>;
+  }
+}
+
+multiclass OLdx8Op<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IILD> {
+  let Itinerary = itin in {
+    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
+      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7, I0:$issued),
+      (ins ADDR_I:$addr, I0:$ready),
+      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $issued, $ready"),
+      []>;
+    def "" : FMTGEN< // normal basereg form
+      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7, I0:$issued),
+      (ins ADDR_R:$addr, I0:$ready),
+      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $issued, $ready"),
+      []>;
+    }
+}
+
+multiclass OStx8Op<string opStr, CSAOpInfo t,
+           InstrItinClass itin = IIST> {
+  let Itinerary = itin, mayStore = 1 in {
+    def I : FMTGEN<
+      (outs I0:$issued),
+      (ins ADDR_I:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7, I0:$ready),
+      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, %issued, $ready"),
+      []>;
+    def "" : FMTGEN<
+      (outs I0:$issued),
+      (ins ADDR_R:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7, I0:$ready),
+      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $issued, $ready"),
+      []>;
   }
 }
 
@@ -1576,6 +1645,15 @@ defm LD32f    : LdOp<    "ld32",  Tf32>;
 defm LD64     : LdOp<    "ld64",  Ti64>;
 defm LD64f    : LdOp<    "ld64",  Tf64>;
 
+defm LDx81    : Ldx8Op<  "ld8",   Ti1>;
+defm LDx88    : Ldx8Op<  "ld8",   Ti8>;
+defm LDx816   : Ldx8Op<  "ld16",  Ti16>;
+defm LDx816f  : Ldx8Op<  "ld16",  Tf16>;
+defm LDx832   : Ldx8Op<  "ld32",  Ti32>;
+defm LDx832f  : Ldx8Op<  "ld32",  Tf32>;
+defm LDx864   : Ldx8Op<  "ld64",  Ti64>;
+defm LDx864f  : Ldx8Op<  "ld64",  Tf64>;
+
 defm OLD1     : OLdOp<   "ld8",   Ti1>;
 defm OLD8     : OLdOp<   "ld8",   Ti8>;
 defm OLD16    : OLdOp<   "ld16",  Ti16>;
@@ -1584,6 +1662,15 @@ defm OLD32    : OLdOp<   "ld32",  Ti32>;
 defm OLD32f   : OLdOp<   "ld32",  Tf32>;
 defm OLD64    : OLdOp<   "ld64",  Ti64>;
 defm OLD64f   : OLdOp<   "ld64",  Tf64>;
+
+defm OLDx81   : OLdx8Op< "ld8",   Ti1>;
+defm OLDx88   : OLdx8Op< "ld8",   Ti8>;
+defm OLDx816  : OLdx8Op< "ld16",  Ti16>;
+defm OLDx816f : OLdx8Op< "ld16",  Tf16>;
+defm OLDx832  : OLdx8Op< "ld32",  Ti32>;
+defm OLDx832f : OLdx8Op< "ld32",  Tf32>;
+defm OLDx864  : OLdx8Op< "ld64",  Ti64>;
+defm OLDx864f : OLdx8Op< "ld64",  Tf64>;
 
 defm ST1      : StOp<    "st8",   Ti1>;
 defm ST8      : StOp<    "st8",   Ti8>;
@@ -1594,6 +1681,15 @@ defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 defm ST64f    : StOp<    "st64",  Tf64>;
 
+defm STx81    : Stx8Op<  "st8",   Ti1>;
+defm STx88    : Stx8Op<  "st8",   Ti8>;
+defm STx816   : Stx8Op<  "st16",  Ti16>;
+defm STx816f  : Stx8Op<  "st16",  Tf16>;
+defm STx832   : Stx8Op<  "st32",  Ti32>;
+defm STx832f  : Stx8Op<  "st32",  Tf32>;
+defm STx864   : Stx8Op<  "st64",  Ti64>;
+defm STx864f  : Stx8Op<  "st64",  Tf64>;
+
 defm OST1     : OStOp<   "st8",   Ti1>;
 defm OST8     : OStOp<   "st8",   Ti8>;
 defm OST16    : OStOp<   "st16",  Ti16>;
@@ -1602,6 +1698,15 @@ defm OST32    : OStOp<   "st32",  Ti32>;
 defm OST32f   : OStOp<   "st32",  Tf32>;
 defm OST64    : OStOp<   "st64",  Ti64>;
 defm OST64f   : OStOp<   "st64",  Tf64>;
+
+defm OSTx81   : OStx8Op< "st8",   Ti1>;
+defm OSTx88   : OStx8Op< "st8",   Ti8>;
+defm OSTx816  : OStx8Op< "st16",  Ti16>;
+defm OSTx816f : OStx8Op< "st16",  Tf16>;
+defm OSTx832  : OStx8Op< "st32",  Ti32>;
+defm OSTx832f : OStx8Op< "st32",  Tf32>;
+defm OSTx864  : OStx8Op< "st64",  Ti64>;
+defm OSTx864f : OStx8Op< "st64",  Tf64>;
 
 // Extended multiplication
 def MULLOHI   : GenericOp<"mullohi">;

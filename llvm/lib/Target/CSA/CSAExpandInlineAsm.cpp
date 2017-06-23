@@ -17,6 +17,7 @@
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineMemOperand.h"
 #include "llvm/MC/MCParser/MCTargetAsmParser.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
 #include "llvm/MC/MCStreamer.h"
@@ -77,6 +78,7 @@ namespace {
     const TargetMachine *TM;
     const CSASubtarget *STI;
     const MCInstrInfo  *MII;
+    const CSAInstrInfo *TII;
 
   public:
     static char ID;
@@ -105,6 +107,7 @@ bool CSAExpandInlineAsm::runOnMachineFunction(MachineFunction &MF) {
   STI = &MF.getSubtarget<CSASubtarget>();
   TM  = &MF.getTarget();
   MII = TM->getTarget().createMCInstrInfo();
+  TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
 
   std::vector<MachineInstr*> toRemove;
 
@@ -251,6 +254,80 @@ CSAExpandInlineAsm::getDollarAsmOperand(MachineInstr *MI, unsigned dollarNum){
   return MI->getOperand(OpNo);
 }
 
+/* Count the uses before a given "$n"; this should give the corresponding operand
+ * index of the IR CallInst. Like getDollarAsmOperand, this should be updated to
+ * track AsmPrinterInlineAsm.
+ */
+static unsigned get_dollar_asm_operand_use_ind(MachineInstr *MI, unsigned dollarNum) {
+
+  unsigned OpNo = InlineAsm::MIOp_FirstOperand;
+  unsigned UseInd = 0;
+  while(dollarNum-- and OpNo < MI->getNumOperands()) {
+    const unsigned OpFlags = MI->getOperand(OpNo).getImm();
+    if (InlineAsm::getKind(OpFlags) == InlineAsm::Kind_RegUse) ++UseInd;
+    OpNo += InlineAsm::getNumOperandRegisters(OpFlags) + 1;
+  }
+
+  return UseInd;
+}
+
+/* Locate the indth inline asm call in BB, which should have an asm string asm_str.
+ * nullptr is returned if nothing is found, and an assert fires if something is
+ * found but doesn't match. */
+static const CallInst* match_inline_asm(
+  const BasicBlock& BB,
+  unsigned ind, const char* asm_str
+) {
+  unsigned ir_ind = 0;
+  for (const Instruction& cur_inst : BB) {
+    if (const CallInst*const possi_call = dyn_cast<CallInst>(&cur_inst)) {
+      if (const InlineAsm*const possi_asm = dyn_cast<InlineAsm>(possi_call->getCalledValue())) {
+        if (ir_ind < ind) ++ir_ind;
+        else {
+          if (possi_asm->getAsmString() != asm_str) {
+            assert(false && "rearranged inline asms?!");
+          }
+          return possi_call;
+        }
+      }
+    }
+  }
+  return nullptr;
+}
+
+/* (Attempt to) retreive a value corresponding to a "$n" for this INLINEASM
+ * MachineInstr. */
+static const Value* get_dollar_asm_operand_ir_value(MachineInstr* MI, unsigned dollarNum) {
+  // LLVM doesn't seem to have a way to trace an operand back to the corresponding
+  // IR value, so instead this code goes through the matching IR basic block and
+  // attempts to extract the correct value itself.
+
+  // Assumptions:
+  //  * INLINEASMs aren't reordered or moved to different blocks after
+  //    they're created from IR call asm instructions
+  //  * The operands of IR call asm instructions are mapped directly to the
+  //    use operands of INLINEASMs and are in the same order
+
+  // First, count the number of INLINEASMs before this one in the machine code
+  int inline_asm_ind = 0;
+  for (MachineInstr& cur_mi : *MI->getParent()) {
+    if (cur_mi.isInlineAsm()) {
+      if (&cur_mi == MI) break;
+      else ++inline_asm_ind;
+    }
+  }
+
+  // Now find the corresponding one in the IR
+  const CallInst*const call = match_inline_asm(
+    *MI->getParent()->getBasicBlock(),
+    inline_asm_ind, MI->getOperand(InlineAsm::MIOp_AsmString).getSymbolName()
+  );
+  assert(call && "Could not find matching call for inline asm");
+
+  // Find the correct use operand and grab the argument to the IR instruction
+  return call->getArgOperand(get_dollar_asm_operand_use_ind(MI, dollarNum));
+}
+
 /* Given an INLINEASM MachineInst and a parsed MCInst resulting from its
  * assemly text, build a corresponding real MachineInstr. The new MachineInstr
  * is inserted into the same MachineBasicBlock that the INLINEASM is in. Note
@@ -290,6 +367,56 @@ void CSAExpandInlineAsm::buildMachineInstrFromMCInst(MachineInstr* MI, MCInst *p
     } else {
       errs() << "Don't know how to convert " << *parsedInst << " to a MachineInst.\n";
       assert(false && "Unknown parsed unstruction operand!");
+    }
+
+    // Also take care of adding memory operands when appropriate
+    const MCOperandInfo& opinfo = desc.OpInfo[i];
+    if(opinfo.OperandType == MCOI::OPERAND_MEMORY) {
+
+      MachineMemOperand* memop = nullptr;
+      if(op.isReg() and op.getReg() >= CSA::NUM_TARGET_REGS) {
+
+        // Locate the correct value
+        const unsigned dollarNum = op.getReg() - CSA::NUM_TARGET_REGS;
+        const Value*const arg = get_dollar_asm_operand_ir_value(MI, dollarNum);
+
+        // Fill out the flags based on the instruction information
+        MachineMemOperand::Flags flags = MachineMemOperand::Flags(0);
+        if (desc.mayLoad()) flags |= MachineMemOperand::MOLoad;
+        if (desc.mayStore()) flags |= MachineMemOperand::MOStore;
+
+        // Determine the size based on the pointer type and instruction information
+        // This will be wrong if the pointer type is incorrect
+        const unsigned element_count = TII->getMemOpAccessWidth(parsedInst->getOpcode());
+        const PointerType*const ptr_type = dyn_cast<PointerType>(arg->getType());
+        assert(ptr_type && "Memory operands should be pointers");
+        const DataLayout DL = TM->createDataLayout();
+        const unsigned element_size = DL.getTypeStoreSize(ptr_type->getElementType());
+        const unsigned access_size = element_count*element_size;
+        const unsigned alignment = DL.getABITypeAlignment(ptr_type->getElementType());
+
+        DEBUG(
+          errs() << "mapping MC memory operand: " << op
+            << "\n of: " << *parsedInst
+            << "\n to IR value: " << *arg
+            << "\n flags: " << flags
+            << "\n size: " << access_size
+            << "\n alignment: " << alignment << "\n"
+        );
+
+        memop = new MachineMemOperand{
+          MachinePointerInfo{arg},
+          flags,
+          access_size, alignment
+        };
+
+      } else if(op.isReg()) {
+        assert(!"Memory operand construction from plain registers isn't supported yet");
+      } else {
+        assert(!"Literals aren't implemented yet either");
+      }
+
+      builder.addMemOperand(memop);
     }
   }
 }
