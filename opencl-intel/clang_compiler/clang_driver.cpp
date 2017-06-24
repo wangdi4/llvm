@@ -70,7 +70,7 @@ Intel::OpenCL::PluginManager g_pluginManager;
 //
 static Intel::OpenCL::Frontend::SourceFile
 createSourceFile(const char *contents, const char *options, unsigned serial,
-                 Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = NULL) {
+                 Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = nullptr) {
   // composing a file name based on the current time
   std::stringstream fileName;
   std::string strContents(contents);
@@ -183,8 +183,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
                       spBinaryResult.getOutPtr());
 
 #ifdef OCLFRONTEND_PLUGINS
-  if (getenv("OCLBACKEND_PLUGINS") &&
-      NULL == getenv("OCL_DISABLE_SOURCE_RECORDER")) {
+  if (getenv("OCLBACKEND_PLUGINS") && getenv("OCL_DISABLE_SOURCE_RECORDER")) {
     Intel::OpenCL::Frontend::CompileData compileData;
     Intel::OpenCL::Frontend::SourceFile sourceFile =
         createSourceFile(m_pProgDesc->pProgramSource, m_pProgDesc->pszOptions,
@@ -227,7 +226,7 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
                    m_pProgDesc->puiBinariesSizes[i])) {
       OCLElfBinaryReader reader((const char *)m_pProgDesc->pBinaryContainers[i],
                                 m_pProgDesc->puiBinariesSizes[i]);
-      char *pBinaryData = NULL;
+      char *pBinaryData = nullptr;
       size_t uiBinaryDataSize = 0;
       reader.GetIR(pBinaryData, uiBinaryDataSize);
       m_Binaries.push_back(pBinaryData);
@@ -245,8 +244,7 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult **pBinaryResult) {
                    spBinaryResult.getOutPtr());
 
 #ifdef OCLFRONTEND_PLUGINS
-  if (getenv("OCLBACKEND_PLUGINS") &&
-      NULL == getenv("OCL_DISABLE_SOURCE_RECORDER")) {
+  if (getenv("OCLBACKEND_PLUGINS") && getenv("OCL_DISABLE_SOURCE_RECORDER")) {
     Intel::OpenCL::Frontend::LinkData linkData;
 
     for (unsigned int i = 0; i < m_Binaries.size(); ++i) {
@@ -465,7 +463,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
     const void *pBin, size_t uiBinarySize, const char *szKernelName,
     IOCLFEKernelArgInfo **ppResult) {
-  char *pIRBuffer = NULL;
+  char *pIRBuffer = nullptr;
   size_t uiIRBufferSize = 0;
 
   if (CacheBinaryReader::IsValidCacheObject(pBin, uiBinarySize)) {

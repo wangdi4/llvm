@@ -74,15 +74,14 @@ ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
 }
 
 ClangFECompiler::~ClangFECompiler() {
-  if (NULL != m_sDeviceInfo.sExtensionStrings) {
+  if (!m_sDeviceInfo.sExtensionStrings)
     free((void *)m_sDeviceInfo.sExtensionStrings);
-  }
 }
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
                                     IOCLFEBinaryResult **pBinaryResult) {
-  assert(NULL != pProgDesc);
-  assert(NULL != pBinaryResult);
+  assert(nullptr != pProgDesc);
+  assert(nullptr != pBinaryResult);
 
   return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
       .Compile(pBinaryResult);
@@ -91,16 +90,16 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
 int ClangFECompiler::LinkPrograms(
     Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
     IOCLFEBinaryResult **pBinaryResult) {
-  assert(NULL != pProgDesc);
-  assert(NULL != pBinaryResult);
+  assert(nullptr != pProgDesc);
+  assert(nullptr != pBinaryResult);
 
   return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
 }
 
 int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
                                 IOCLFEBinaryResult **pBinaryResult) {
-  assert(NULL != pProgDesc);
-  assert(NULL != pBinaryResult);
+  assert(nullptr != pProgDesc);
+  assert(nullptr != pBinaryResult);
 
   return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
       .ParseSPIRV(pBinaryResult);
@@ -109,9 +108,9 @@ int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
 int ClangFECompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                                       const char *szKernelName,
                                       IOCLFEKernelArgInfo **pArgInfo) {
-  assert(NULL != pBin);
-  assert(NULL != szKernelName);
-  assert(NULL != pArgInfo);
+  assert(nullptr != pBin);
+  assert(nullptr != szKernelName);
+  assert(nullptr != pArgInfo);
 
   return ClangFECompilerGetKernelArgInfoTask().GetKernelArgInfo(
       pBin, uiBinarySize, szKernelName, pArgInfo);
@@ -134,7 +133,7 @@ bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
 namespace Intel {
 namespace OpenCL {
 namespace Utils {
-FrameworkUserLogger *g_pUserLogger = NULL;
+FrameworkUserLogger *g_pUserLogger = nullptr;
 }}}
 
 extern "C" DLL_EXPORT int
@@ -144,7 +143,7 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
   // Lazy initialization
   ClangCompilerInitialize();
 
-  assert(NULL != pFECompiler);
+  assert(nullptr != pFECompiler);
   assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 
   g_pUserLogger = pUserLogger;
