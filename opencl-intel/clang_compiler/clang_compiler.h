@@ -1,9 +1,12 @@
-// The following ifdef block is the standard way of creating macros which make exporting
-// from a DLL simpler. All files within this DLL are compiled with the CLANG_COMPILER_EXPORTS
-// symbol defined on the command line. this symbol should not be defined on any project
-// that uses this DLL. This way any other project whose source files include this file see
-// CLANG_COMPILER_API functions as being imported from a DLL, whereas this DLL sees symbols
-// defined with this macro as being exported.
+//==---- clang_copmiler.h --- OpenCL front-end compiler -------*- C++ -*---=
+//
+// Copyright (C) 2009-2017 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+// ===--------------------------------------------------------------------===
 
 #pragma once
 
@@ -59,3 +62,4 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     };
 
 }}}
+

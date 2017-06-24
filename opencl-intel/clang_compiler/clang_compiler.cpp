@@ -1,5 +1,13 @@
-// clang_compiler.cpp : Defines the exported functions for the DLL application.
+//==---- clang_copmiler.cpp - OpenCL front-end compiler -------*- C++ -*---=
 //
+// Copyright (C) 2009-2017 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+//
+// ===--------------------------------------------------------------------===
+
 #include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
@@ -150,3 +158,4 @@ extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t
         return CL_OUT_OF_HOST_MEMORY;
     }
 }
+
