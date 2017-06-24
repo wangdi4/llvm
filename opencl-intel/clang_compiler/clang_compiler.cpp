@@ -42,121 +42,119 @@ using namespace Intel::OpenCL::FECompilerAPI;
 
 extern DECLARE_LOGGER_CLIENT;
 
-void ClangCompilerTerminate()
-{
-    llvm::llvm_shutdown();
-}
+void ClangCompilerTerminate() { llvm::llvm_shutdown(); }
 
 static volatile bool lazyClangCompilerInit =
     true; // the flag must be 'volatile' to prevent caching in a CPU register
 static llvm::sys::Mutex lazyClangCompilerInitMutex;
 
-void ClangCompilerInitialize()
-{
-    if (lazyClangCompilerInit) {
-        llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
+void ClangCompilerInitialize() {
+  if (lazyClangCompilerInit) {
+    llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
 
-        if (lazyClangCompilerInit) {
-            atexit(ClangCompilerTerminate);
-            lazyClangCompilerInit = false;
-        }
+    if (lazyClangCompilerInit) {
+      atexit(ClangCompilerTerminate);
+      lazyClangCompilerInit = false;
     }
+  }
 }
 
 // ClangFECompiler class implementation
-ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
-{
-    CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
+ClangFECompiler::ClangFECompiler(const void *pszDeviceInfo) {
+  CLANG_DEV_INFO *pDevInfo = (CLANG_DEV_INFO *)pszDeviceInfo;
 
-    memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
+  memset(&m_sDeviceInfo, 0, sizeof(CLANG_DEV_INFO));
 
-    m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
-    m_sDeviceInfo.bImageSupport     = pDevInfo->bImageSupport;
-    m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
-    m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
-    m_config.Initialize(GetConfigFilePath());
+  m_sDeviceInfo.sExtensionStrings = STRDUP(pDevInfo->sExtensionStrings);
+  m_sDeviceInfo.bImageSupport = pDevInfo->bImageSupport;
+  m_sDeviceInfo.bDoubleSupport = pDevInfo->bDoubleSupport;
+  m_sDeviceInfo.bEnableSourceLevelProfiling =
+      pDevInfo->bEnableSourceLevelProfiling;
+  m_config.Initialize(GetConfigFilePath());
 }
 
-ClangFECompiler::~ClangFECompiler()
-{
-    if ( NULL != m_sDeviceInfo.sExtensionStrings )
-    {
-        free((void *)m_sDeviceInfo.sExtensionStrings);
-    }
+ClangFECompiler::~ClangFECompiler() {
+  if (NULL != m_sDeviceInfo.sExtensionStrings) {
+    free((void *)m_sDeviceInfo.sExtensionStrings);
+  }
 }
 
-int ClangFECompiler::CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
-{
-    assert(NULL != pProgDesc);
-    assert(NULL != pBinaryResult);
+int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
+                                    IOCLFEBinaryResult **pBinaryResult) {
+  assert(NULL != pProgDesc);
+  assert(NULL != pBinaryResult);
 
-    return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config).Compile(pBinaryResult);
+  return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
+      .Compile(pBinaryResult);
 }
 
-int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc,
-                         IOCLFEBinaryResult* *pBinaryResult)
-{
-    assert(NULL != pProgDesc);
-    assert(NULL != pBinaryResult);
+int ClangFECompiler::LinkPrograms(
+    Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
+    IOCLFEBinaryResult **pBinaryResult) {
+  assert(NULL != pProgDesc);
+  assert(NULL != pBinaryResult);
 
-    return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
+  return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
 }
 
-int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
-{
-    assert(NULL != pProgDesc);
-    assert(NULL != pBinaryResult);
+int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
+                                IOCLFEBinaryResult **pBinaryResult) {
+  assert(NULL != pProgDesc);
+  assert(NULL != pBinaryResult);
 
-    return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo).ParseSPIRV(pBinaryResult);
+  return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
+      .ParseSPIRV(pBinaryResult);
 }
 
-int ClangFECompiler::GetKernelArgInfo(const void*             pBin,
-                                      size_t                  uiBinarySize,
-                                      const char*             szKernelName,
-                                      IOCLFEKernelArgInfo*  *pArgInfo)
-{
-    assert(NULL!=pBin);
-    assert(NULL!=szKernelName);
-    assert(NULL!=pArgInfo);
+int ClangFECompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
+                                      const char *szKernelName,
+                                      IOCLFEKernelArgInfo **pArgInfo) {
+  assert(NULL != pBin);
+  assert(NULL != szKernelName);
+  assert(NULL != pArgInfo);
 
-    return ClangFECompilerGetKernelArgInfoTask().GetKernelArgInfo(pBin, uiBinarySize, szKernelName, pArgInfo);
+  return ClangFECompilerGetKernelArgInfoTask().GetKernelArgInfo(
+      pBin, uiBinarySize, szKernelName, pArgInfo);
 }
 
-bool ClangFECompiler::CheckCompileOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecognizedOptionsSize)
-{
-    return ClangFECompilerCheckCompileOptions(szOptions, szUnrecognizedOptions, uiUnrecognizedOptionsSize, m_config);
+bool ClangFECompiler::CheckCompileOptions(const char *szOptions,
+                                          char *szUnrecognizedOptions,
+                                          size_t uiUnrecognizedOptionsSize) {
+  return ClangFECompilerCheckCompileOptions(
+      szOptions, szUnrecognizedOptions, uiUnrecognizedOptionsSize, m_config);
 }
 
-bool ClangFECompiler::CheckLinkOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecognizedOptionsSize)
-{
-    return ClangFECompilerCheckLinkOptions(szOptions, szUnrecognizedOptions, uiUnrecognizedOptionsSize);
+bool ClangFECompiler::CheckLinkOptions(const char *szOptions,
+                                       char *szUnrecognizedOptions,
+                                       size_t uiUnrecognizedOptionsSize) {
+  return ClangFECompilerCheckLinkOptions(szOptions, szUnrecognizedOptions,
+                                         uiUnrecognizedOptionsSize);
 }
 
-namespace Intel { namespace OpenCL { namespace Utils {
-
-FrameworkUserLogger* g_pUserLogger = NULL;
-
+namespace Intel {
+namespace OpenCL {
+namespace Utils {
+FrameworkUserLogger *g_pUserLogger = NULL;
 }}}
 
-extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger)
-{
-    // Lazy initialization
-    ClangCompilerInitialize();
+extern "C" DLL_EXPORT int
+CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
+                       IOCLFECompiler **pFECompiler,
+                       Intel::OpenCL::Utils::FrameworkUserLogger *pUserLogger) {
+  // Lazy initialization
+  ClangCompilerInitialize();
 
-    assert(NULL != pFECompiler);
-    assert(devInfoSize == sizeof(CLANG_DEV_INFO));
+  assert(NULL != pFECompiler);
+  assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 
-    g_pUserLogger = pUserLogger;
+  g_pUserLogger = pUserLogger;
 
-    try
-    {
-        *pFECompiler = new ClangFECompiler(pDeviceInfo);
-        return CL_SUCCESS;
-    }
-    catch( std::bad_alloc& )
-    {
-        LOG_ERROR(TEXT("%S"), TEXT("Can't allocate compiler instance"));
-        return CL_OUT_OF_HOST_MEMORY;
-    }
+  try {
+    *pFECompiler = new ClangFECompiler(pDeviceInfo);
+    return CL_SUCCESS;
+  } catch (std::bad_alloc &) {
+    LOG_ERROR(TEXT("%S"), TEXT("Can't allocate compiler instance"));
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 }
 

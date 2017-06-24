@@ -10,54 +10,49 @@
 
 #pragma once
 
-#include <frontend_api.h>
-#include "clang_device_info.h"
 #include "cl_config.h"
+#include "clang_device_info.h"
+#include <frontend_api.h>
 
-namespace Intel { namespace OpenCL { namespace ClangFE {
+namespace Intel {
+namespace OpenCL {
+namespace ClangFE {
 
-    class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
-    {
-    public:
-        ClangFECompiler(const void* pszDeviceInfo);
+class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler {
+public:
+  ClangFECompiler(const void *pszDeviceInfo);
 
-        // IOCLFECompiler
-        int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc,
-                           IOCLFEBinaryResult* *pBinaryResult);
+  // IOCLFECompiler
+  int CompileProgram(
+      Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor *pProgDesc,
+      IOCLFEBinaryResult **pBinaryResult);
 
-        int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc,
-                         IOCLFEBinaryResult* *pBinaryResult);
+  int LinkPrograms(
+      Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
+      IOCLFEBinaryResult **pBinaryResult);
 
-        int ParseSPIRV(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc,
-                         IOCLFEBinaryResult* *pBinaryResult);
+  int ParseSPIRV(
+      Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
+      IOCLFEBinaryResult **pBinaryResult);
 
-        int GetKernelArgInfo(const void*        pBin,
-                             size_t             uiBinarySize,
-                             const char*        szKernelName,
-                             Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo*   *pArgInfo);
+  int GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
+                       const char *szKernelName,
+                       Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo **pArgInfo);
 
-        bool CheckCompileOptions(const char*  szOptions,
-                                 char*        szUnrecognizedOptions,
-                                 size_t       uiUnrecognizedOptionsSize);
+  bool CheckCompileOptions(const char *szOptions, char *szUnrecognizedOptions,
+                           size_t uiUnrecognizedOptionsSize);
 
-        bool CheckLinkOptions(const char*  szOptions,
-                              char*        szUnrecognizedOptions,
-                              size_t       uiUnrecognizedOptionsSize);
+  bool CheckLinkOptions(const char *szOptions, char *szUnrecognizedOptions,
+                        size_t uiUnrecognizedOptionsSize);
 
-        void Release()
-        {
-            delete this;
-        }
+  void Release() { delete this; }
 
-        static void ShutDown();
+  static void ShutDown();
 
-    protected:
-        virtual ~ClangFECompiler();
-
-        CLANG_DEV_INFO m_sDeviceInfo;
-
-        Intel::OpenCL::Utils::BasicCLConfigWrapper m_config;
-    };
-
+protected:
+  virtual ~ClangFECompiler();
+  CLANG_DEV_INFO m_sDeviceInfo;
+  Intel::OpenCL::Utils::BasicCLConfigWrapper m_config;
+};
 }}}
 
