@@ -10,11 +10,9 @@
 
 #pragma once
 
-#include <cl_synch_objects.h>
 #include <frontend_api.h>
 #include "clang_device_info.h"
 #include "cl_config.h"
-#include "common_clang.h"
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 

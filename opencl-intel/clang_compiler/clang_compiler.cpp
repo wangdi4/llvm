@@ -11,6 +11,7 @@
 #include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
+#include "common_clang.h"
 
 #include <Logger.h>
 #include <cl_sys_defines.h>

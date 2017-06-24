@@ -23,6 +23,7 @@
 #include <clang_compiler.h>
 #include <frontend_api.h>
 #include <clang_device_info.h>
+#include "common_clang.h"
 
 #include "ClangCompilerTestTypeFixture.h"
 
