@@ -2,8 +2,8 @@
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
 ; CHECK:  %[[PRIV:.*]] = alloca i32, align 4
-; CHECK: vector.ph
 ; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>
+; CHECK: vector.ph
 ; CHECK: vector.body
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %[[VEC_PRIV]]
 ; CHECK: middle.block

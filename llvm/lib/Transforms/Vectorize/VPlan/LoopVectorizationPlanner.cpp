@@ -122,20 +122,22 @@ LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
   return SharedPlan;
 }
 
-void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
+// Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
+void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
+                                                 VPOVectorizationLegality& LVL) {
   // Collect any SIMD loop private information
   if (WRLoop) {
     LastprivateClause &LastPrivateClause = WRLoop->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
-        LB.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
+        LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
     }
     PrivateClause &PrivateClause = WRLoop->getPriv();
     for (PrivateItem *PrivItem : PrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
-        LB.addLoopPrivate(PrivVal);
+        LVL.addLoopPrivate(PrivVal);
     }
 
     // Add information about loop linears to Legality
@@ -146,10 +148,44 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
       // Currently front-end does not yet support globals - restrict to allocas
       // for now.
       if (isa<AllocaInst>(LinVal))
-        LB.addLinear(LinVal, LinItem->getStep());
+        LVL.addLinear(LinVal, LinItem->getStep());
+    }
+
+    ReductionClause &RedClause = WRLoop->getRed();
+    for (ReductionItem *RedItem : RedClause.items()) {
+      Value *V = RedItem->getOrig();
+      ReductionItem::WRNReductionKind Type = RedItem->getType();
+      switch (Type) {
+      case ReductionItem::WRNReductionMin:
+        LVL.addReductionMin(V, !RedItem->getIsUnsigned());
+        break;
+      case ReductionItem::WRNReductionMax:
+        LVL.addReductionMax(V, !RedItem->getIsUnsigned());
+        break;
+      case ReductionItem::WRNReductionSum:
+      case ReductionItem::WRNReductionSub:
+        LVL.addReductionSum(V);
+        break;
+      case ReductionItem::WRNReductionMult:
+        LVL.addReductionMult(V);
+        break;
+      case ReductionItem::WRNReductionBor:
+        LVL.addReductionOr(V);
+        break;
+      case ReductionItem::WRNReductionBxor:
+        LVL.addReductionXor(V);
+        break;
+      case ReductionItem::WRNReductionBand:
+        LVL.addReductionAnd(V);
+        break;
+      default:
+        break;
+      }
     }
   }
-  
+}
+
+void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV = &LB;
 
   // Perform the actual loop widening (vectorization).

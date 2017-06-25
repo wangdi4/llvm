@@ -471,6 +471,10 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
   PredicatedScalarEvolution PSE(*SE, *Lp);
   VPOVectorizationLegality LVL(Lp, PSE, TLI, TTI, &F, LI, DT);
 
+  // Send explicit data from WRLoop to the Legality.
+  // The decision about possible loop vectorization is based
+  // on this data.
+  LoopVectorizationPlanner::EnterExplicitData(WRLoop, LVL);
   // The function canVectorize() collects information about induction
   // and reduction variables. It also verifies that the loop vectorization
   // is fully supported.

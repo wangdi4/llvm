@@ -1,18 +1,17 @@
 ; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S %s | FileCheck %s
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
-; CHECK: vector.ph
 ; CHECK:  %a2.vec = alloca <4 x i32>
+; CHECK: vector.ph
 ; CHECK: vector.body
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %a2.vec
 
 ; ModuleID = 'p1.c'
-source_filename = "p1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32* nocapture readonly %iarr) local_unnamed_addr #0 {
+define void @foo(i32* nocapture readonly %iarr)  #0 {
 entry:
   %a2 = alloca i32, align 4
   br label %DIR.OMP.SIMD.1
@@ -48,7 +47,7 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.start(i64, i8* nocapture) #1
 
-declare void @baz(i32) local_unnamed_addr #2
+declare void @baz(i32)  #2
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.lifetime.end(i64, i8* nocapture) #1

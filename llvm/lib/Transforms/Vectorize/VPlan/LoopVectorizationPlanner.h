@@ -163,6 +163,10 @@ public:
 
   void collectDeadInstructions() override;
 
+  /// Feed information from explicit clauses to the loop Legality.
+  /// This information is necessary for initial loop analysis in the CodeGen.
+  static void EnterExplicitData(WRNVecLoopNode *WRLoop,
+                                VPOVectorizationLegality& Legality);
 private:
   /// Build an initial VPlan according to the information gathered by Legal
   /// when it checked if it is legal to vectorize this loop. \return a VPlan

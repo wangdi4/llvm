@@ -1,9 +1,9 @@
 ; RUN: opt -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -S %s | FileCheck %s
 
 ; This test checks for a widened alloca and a wide store to the widened alloca
-; CHECK: vector.ph
-; CHECK:  %[[PRIV1:.*]] = alloca <4 x i32>
 ; CHECK:  %[[PRIV2:.*]] = alloca <4 x float>
+; CHECK:  %[[PRIV1:.*]] = alloca <4 x i32>
+; CHECK: vector.ph
 ; CHECK:  %[[PRIV2_BITCAST:.*]] = bitcast <4 x float>* %[[PRIV2]] to <4 x i32>*
 ; CHECK: vector.body
 ; CHECK:   store <4 x i32> {{.*}}, <4 x i32>* %[[PRIV1]]

@@ -1,37 +1,26 @@
 ; RUN: opt -VPlanDriver -S %s | FileCheck %s
-; This test checks for a widened alloca and a wide store to the widened alloca
-; CHECK:  %[[PRIV:.*]] = alloca i32, align 4
-; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>
-; CHECK: vector.ph
-; CHECK: vector.body
 
-; CHECK:   call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> {{.*}}, <4 x i32>* %tmp.vec, i32 4, <4 x i1> %[[MASK:.*]])
-; CHECK:   %[[MASKINT:.*]] = bitcast <4 x i1> %[[MASK]] to i4
-; CHECK:   %[[NOT_ZERO:.*]] = icmp ne i4 %[[MASKINT]], 0
-; CHECK: load i4, i4*
-; CHECK: %[[MASKINT2:.*]] = select i1 
-; CHECK: store i4 %[[MASKINT2]], i4* 
-; CHECK: middle.block
-; CHECK: %[[LAST_MASK:.*]] = load i4, i4* %tmp.mask
-; CHECK: %ctlz = call i4 @llvm.ctlz.i4(i4 %[[LAST_MASK]], i1 true)
-; CHECK: %[[IDX:.*]] = sub i4 3, %ctlz
-; CHECK: %LastVal = load i32
-; CHECK: store i32 %LastVal, i32* %tmp
+; CHECK: vector.body:
+; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> undef, <4 x i32> <i32 4, i32 5, i32 6, i32 7>
+; CHECK:  sitofp <4 x i32> 
+; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> undef, <4 x i32> <i32 0, i32 1, i32 2, i32 3>
+; CHECK:  sitofp <4 x i32> 
+; CHECK:  fadd <4 x float> 
+; CHECK:  %[[RES1:.*]] = fptosi <4 x float> 
+; CHECK:  %[[RES2:.*]] = shufflevector <4 x i32> %[[RES1]], <4 x i32> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 4, i32 4, i32 4, i32 4>
+; CHECK:  shufflevector <8 x i32> %transposed.wide.masked.load, <8 x i32> %[[RES2]], <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 8, i32 9, i32 10, i32 11>
 
-@arr2p = external global i32*, align 8
+@arr2p = external global <2 x i32>*, align 8
 @arrB = external global i32*, align 8
 
-define i32 @foo1()  {
+define void @foo1()  {
 entry:
-  %tmp = alloca i32, align 4
-  store i32 5, i32* %tmp, align 4
-  %0 = load i32*, i32** @arr2p, align 8
+  %0 = load <2 x i32>*, <2 x i32>** @arr2p, align 8
   %ptrToB = load i32*, i32** @arrB, align 8
   br label %DIR.OMP.SIMD.1
 
 DIR.OMP.SIMD.1:                                   ; preds = %entry
   tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
-  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LASTPRIVATE:CONDITIONAL", i32* nonnull %tmp)
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %DIR.QUAL.LIST.END.2
 
@@ -47,14 +36,24 @@ for.body:                                         ; preds = %for.inc, %entry
   br i1 %tobool, label %for.inc, label %if.then
 
 if.then:                                          ; preds = %for.body
-  %arrayidx = getelementptr inbounds i32, i32* %0, i64 %indvars.iv
-  %2 = load i32, i32* %arrayidx, align 4
-  %3 = trunc i64 %indvars.iv to i32
-  %add = add nsw i32 %2, %3
-  store i32 %add, i32* %tmp, align 4
+  %arrayidx = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %indvars.iv
+  %2 = load <2 x i32>, <2 x i32>* %arrayidx, align 4
+  %3 = extractelement <2 x i32> %2, i32 1
+  %a3 = sitofp i32 %3 to float
+  %a4 = extractelement <2 x i32> %2, i32 0
+  %a5 = sitofp i32 %a4 to float
+  %a6 = fadd float %a5, %a3
+  %a7 = fptosi float %a6 to i32
+  %4 = insertelement <2 x i32>%2, i32 %a7, i32 1
+  store <2 x i32> %4, <2 x i32>* %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body, %if.then
+  %arrayidx1 = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %indvars.iv
+  %x2 = load <2 x i32>, <2 x i32>* %arrayidx1, align 4
+  %x3 = add <2 x i32> %x2, <i32 7, i32 8>
+  store <2 x i32> %x3, <2 x i32>* %arrayidx1, align 4
+
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, 50
   br i1 %exitcond, label %for.end, label %for.body
@@ -66,8 +65,7 @@ for.end:                                    ; preds = %omp.inner.for.body
 
 DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
 
-  %res = load i32, i32 *%tmp 
-  ret i32 %res
+  ret void
 }
 
 

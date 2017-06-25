@@ -51,12 +51,17 @@ public:
     return !isa<Instruction>(V) || UniformForAnyVF.count(cast<Instruction>(V));
   }
 
-  //iterator_range<Instruction *> uniforms() const{
-  //  return make_range(UniformForAnyVF.begin(), UniformForAnyVF.end());
-  //}
   /// ReductionList contains the reduction descriptors for all
   /// of the reductions that were found in the loop.
   typedef DenseMap<PHINode *, RecurrenceDescriptor> ReductionList;
+
+  /// The list of explicit reduction variables.
+  typedef DenseMap<PHINode *, std::pair<RecurrenceDescriptor, AllocaInst *> >
+      ExplicitReductionList;
+  typedef DenseMap< AllocaInst *,
+                    std::pair<RecurrenceDescriptor::RecurrenceKind,
+                              RecurrenceDescriptor::MinMaxRecurrenceKind>
+                   > InMemoryReductionList;
 
   /// InductionList saves induction variables and maps them to the
   /// induction descriptor.
@@ -71,6 +76,31 @@ public:
   /// Returns the reduction variables found in the loop.
   ReductionList *getReductionVars() { return &Reductions; }
 
+  /// Returns the explicit reduction variables.
+  ExplicitReductionList *getExplicitReductionVars() {
+    return &ExplicitReductions;
+  }
+
+  /// Return the list of reduction variables that are being
+  /// calculated using memory in each iteration.
+  InMemoryReductionList *getInMemoryReductionVars() {
+    return &InMemoryReductions;
+  }
+
+  /// Return a recurrence descriptor for the given \p Phi node.
+  /// (For explicit reduction variables)
+  RecurrenceDescriptor& getRecurrenceDescrByPhi(PHINode *Phi) {
+    assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
+    return ExplicitReductions[Phi].first;
+  }
+
+  /// Return a pointer to reduction var using the \p Phi node.
+  /// (Explicit only)
+  AllocaInst *getReductionPtrByPhi(PHINode *Phi) {
+    assert(ExplicitReductions.count(Phi) && "Exp reduction var is not found");
+    return ExplicitReductions[Phi].second;
+  }
+
   /// Returns True if V is an induction variable in this loop.
   bool isInductionVariable(const Value *V);
 
@@ -81,7 +111,21 @@ public:
   int isConsecutivePtr(Value *Ptr);
 
   /// Returns True if PN is a reduction variable in this loop.
-  bool isReductionVariable(PHINode *PN) { return Reductions.count(PN); }
+  bool isReductionVariable(PHINode *PN) {
+    return ExplicitReductions.count(PN) || Reductions.count(PN);
+  }
+
+  /// Return true if \p PN is a Phi node for an explicitly specified
+  /// reduction variable in this loop
+  bool isExplicitReductionVariable(PHINode *PN) {
+    return ExplicitReductions.count(PN);
+  }
+
+  /// Return true if \p PN is a Phi node for a reduction variable
+  /// that was auto-detected duiring loop analysis.
+  bool isImplicitReductionVariable(PHINode *PN) {
+    return Reductions.count(PN);
+  }
 
   Loop *getLoop() { return TheLoop; }
 
@@ -115,6 +159,12 @@ private:
   PHINode *Induction;
   /// Holds the reduction variables.
   ReductionList Reductions;
+  /// Holds the explicitly-specified reduction variables.
+  ExplicitReductionList ExplicitReductions;
+  /// Holds the explicitly-specified reduction variables that
+  /// calculated in loop using memory.
+  InMemoryReductionList InMemoryReductions;
+
   /// Holds all of the induction variables that we found in the loop.
   /// Notice that inductions don't need to start at zero and that induction
   /// variables can be pointers.
@@ -144,18 +194,41 @@ public:
   /// Holds the instructions known to be uniform after vectorization for any VF.
   SmallPtrSet<Instruction *, 4> UniformForAnyVF;
 
-  void addLoopPrivate(Value *PrivVal, bool IsLast, bool IsConditional) {
+  /// Add an in memory private to the vector of private values.
+  void addLoopPrivate(Value *PrivVal, bool IsLast = false,
+                      bool IsConditional = false) {
     Privates.insert(PrivVal);
     if (IsConditional)
       CondLastPrivates.insert(PrivVal);
     else if (IsLast)
       LastPrivates.insert(PrivVal);
   }
-  
+
+  /// Register explicit reduction variables provided from outside.
+  void addReductionMin(Value *V, bool IsSigned);
+  void addReductionMax(Value *V, bool IsSigned);
+  void addReductionSum(Value *V);
+  void addReductionMult(Value *V);
+  void addReductionAnd(Value *V) {
+    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerAnd);
+  }
+  void addReductionXor(Value *V) {
+    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerXor);
+  }
+  void addReductionOr(Value *V) {
+    return parseExplicitReduction(V, RecurrenceDescriptor::RK_IntegerOr);
+  }
+
+  bool isExplicitReductionPhi(PHINode *Phi);
+
+  // Return True if the specified value \p Val is reduction variable that
+  // is written to the memory in each iteration.
+  bool isInMemoryReduction(Value *Val) const;
+
   // Return true if the specified value \p Val is private.
   bool isLoopPrivate(Value *Val) const;
 
-  // Return True if the specified value \p Val is (uncoditional) last private.
+  // Return True if the specified value \p Val is (unconditional) last private.
   bool isLastPrivate(Value *Val) const;
 
   // Return True if the specified value \p Val is conditional last private.
@@ -182,6 +255,28 @@ public:
   DenseMap<Value *, int> *getLinears() {
     return &Linears;
   }
+
+private:
+  // Find pattern inside the loop for matching the explicit
+  // reduction variable \p V.
+  void parseExplicitReduction(Value *V,
+                              RecurrenceDescriptor::RecurrenceKind Kind,
+                              RecurrenceDescriptor::MinMaxRecurrenceKind Mrk =
+                              RecurrenceDescriptor::MRK_Invalid);
+  /// Parsing Min/Max reduction patterns.
+  void parseMinMaxReduction(AllocaInst *V,
+                            RecurrenceDescriptor::RecurrenceKind Kind,
+                            RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
+  /// Parsing arithmetic reduction patterns.
+  void parseBinOpReduction(AllocaInst *V,
+                           RecurrenceDescriptor::RecurrenceKind Kind);
+
+  /// Return true if the explicit reduction uses Phi nodes.
+  bool doesReductionUsePhiNodes(Value *RedVarPtr, PHINode *& LoopHeaderPhiNode,
+                                Value *& StartV);
+  /// Return true if the explicit reduction variable uses private memory on
+  /// each iteration.
+  bool isReductionVarStoredInsideTheLoop(Value *RedVarPtr);
 };
 
 // LVCodeGen generates vector code by widening of scalars into
@@ -189,20 +284,18 @@ public:
 
 class VPOCodeGen {
 public:
-  VPOCodeGen(Loop *OrigLoop, PredicatedScalarEvolution &PSE,
-                    LoopInfo *LI, DominatorTree *DT,
-                    TargetLibraryInfo *TLI,
-                    const TargetTransformInfo *TTI, unsigned VecWidth,
-                    unsigned UnrollFactor, VPOVectorizationLegality *LVL)
-    : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
-    Legal(LVL), TripCount(nullptr), VectorTripCount(nullptr),
-    Induction(nullptr), OldInduction(nullptr), VF(VecWidth), UF(UnrollFactor),
-    Builder(PSE.getSE()->getContext()), StartValue(nullptr),
-    StrideValue(nullptr), LoopVectorPreHeader(nullptr),
-    LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
-    LoopExitBlock(nullptr), LoopVectorBody(nullptr), LoopScalarBody(nullptr),
-    MaskValue(nullptr) {
-    }
+  VPOCodeGen(Loop *OrigLoop, PredicatedScalarEvolution &PSE, LoopInfo *LI,
+             DominatorTree *DT, TargetLibraryInfo *TLI,
+             const TargetTransformInfo *TTI, unsigned VecWidth,
+             unsigned UnrollFactor, VPOVectorizationLegality *LVL)
+      : OrigLoop(OrigLoop), PSE(PSE), LI(LI), DT(DT), TLI(TLI), TTI(TTI),
+        Legal(LVL), TripCount(nullptr), VectorTripCount(nullptr),
+        Induction(nullptr), OldInduction(nullptr), VF(VecWidth),
+        UF(UnrollFactor), Builder(PSE.getSE()->getContext()),
+        StartValue(nullptr), StrideValue(nullptr), LoopVectorPreHeader(nullptr),
+        LoopScalarPreHeader(nullptr), LoopMiddleBlock(nullptr),
+        LoopExitBlock(nullptr), LoopVectorBody(nullptr),
+        LoopScalarBody(nullptr), MaskValue(nullptr) {}
 
   ~VPOCodeGen() {}
 
@@ -268,17 +361,6 @@ public:
   void vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                          SmallVectorImpl<Value*> &VecArgs,
                          SmallVectorImpl<Type*> &VecArgTys);
-  
-  /// Add an in memory private to the vector of private values.
-  void addLoopPrivate(Value *PrivVal, bool IsLastP = false,
-                      bool IsConditional = false) {
-    Legal->addLoopPrivate(PrivVal, IsLastP, IsConditional);
-  }
-
-  /// Add an in memory linear to the vector of linear values.
-  void addLinear(Value *LinVal, int Step = 1) {
-    Legal->addLinear(LinVal, Step);
-  }
 
   /// Add an in memory linear to the vector of linear values.
   void addUnitStepLinear(Value *LinVal, Value *NewVal, int Step) {
@@ -327,7 +409,7 @@ private:
   void predicateInstructions();
 
   /// Reverse vector elements
-  Value *reverseVector(Value *Vec);
+  Value *reverseVector(Value *Vec, unsigned Stride = 1);
 
   /// Create the primary induction variable for vector loop.
   PHINode *createInductionVariable(Loop *L, Value *Start,
@@ -340,9 +422,24 @@ private:
   /// Handle all cross-iteration phis in the header.
   void fixCrossIterationPHIs();
 
+  /// The result of reduction is in register only.
+  void fixReductionInReg(PHINode *Phi, RecurrenceDescriptor& RdxDesc);
+  
+  /// Feed reduction result into LCSSA Phi node
+  void fixReductionLCSSA(Value *LoopExitInst, Value *NewV);
+
   /// Fix a reduction cross-iteration phi. This is the second phase of
   /// vectorizing this phi node.
-  void fixReduction(PHINode *Phi);
+  void fixReductionPhi(PHINode *Phi, Value *VectorStart);
+
+  /// Set a Phi to merge In-Reg reduction value.
+  void mergeReductionControlFlow(PHINode *Phi, RecurrenceDescriptor& RdxDesc,
+                                 Value *EndV);
+
+  /// Build a tail code for in-memory reduction.
+  Value *buildInMemoryReductionTail(Value *OrigRedV,
+      RecurrenceDescriptor::RecurrenceKind Kind,
+      RecurrenceDescriptor::MinMaxRecurrenceKind Mrk);
 
   /// Set up the values of the IVs correctly when exiting the vector loop.
   void fixupIVUsers(PHINode *OrigPhi, const InductionDescriptor &II,
@@ -390,6 +487,10 @@ private:
   void widenNonInductionPhi(PHINode *Phi);
 
   void fixNonInductionPhis();
+
+  /// Build a tail code for all reductions going through the
+  /// memory.
+  void completeInMemoryReductions();
 
   /// Compute scalar induction steps. \p ScalarIV is the scalar induction
   /// variable on which to base the steps, \p Step is the size of the step, and
@@ -528,8 +629,25 @@ private:
   // As a result, we simply serialize the instruction for now.
   void vectorizeStoreInstruction(Instruction *Inst, bool EmitIntrinsic = false);
 
+  // Re-vectorize the given vector load instruction. The function handles 
+  // only simple vectors.
+  void widenVectorLoad(LoadInst *Inst);
+
+  // Re-vectorize the given vector store instruction. The function handles 
+  // only simple vectors.
+  void widenVectorStore(StoreInst *Inst);
+
   // Widen a BitCast instruction
   void vectorizeBitCast(Instruction *Inst);
+
+  // Widen ExtractElt instruction - loop re-vectorization.
+  void vectorizeExtractElement(Instruction *Inst);
+
+  // Widen InsertElt instruction - loop re-vectorization.
+  void vectorizeInsertElement(Instruction *Inst);
+
+  // Widen Shuffle instruction - loop re-vectorization.
+  void vectorizeShuffle(Instruction *Inst);
 
   // Widen call instruction parameters and return. Currently, this is limited
   // to svml function support that is hooked in to TLI. Later, this can be
@@ -556,6 +674,8 @@ private:
   ///   <StoreInst, Predicate>
   SmallVector<std::pair<Instruction *, Value *>, 4> PredicatedInstructions;
 
+  DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
+  DenseMap<AllocaInst *, Value *> ReductionVecInitVal;
 };
 
 } // End LLVM Namespace

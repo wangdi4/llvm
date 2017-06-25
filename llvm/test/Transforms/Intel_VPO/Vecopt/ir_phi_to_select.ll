@@ -14,7 +14,7 @@
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
-; CHECK: %wide.load = load <4 x i32>, <4 x i32>* %1, align 4
+; CHECK: %wide.load = load <4 x i32>, <4 x i32>* 
 ; CHECK: %[[MASK:.*]] = icmp eq <4 x i32> %wide.load, zeroinitializer
 ; CHECK: %[[MASK_NOT:.*]] = xor <4 x i1> %[[MASK]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]

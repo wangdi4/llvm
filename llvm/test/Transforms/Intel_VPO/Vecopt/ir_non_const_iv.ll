@@ -25,7 +25,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 @inc_x = common global i32 0, align 4
 
-define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init) local_unnamed_addr #0 {
+define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 entry:
   %cmp7 = icmp sgt i32 %N, 0
   br i1 %cmp7, label %for.body.lr.ph, label %for.cond.cleanup
