@@ -292,20 +292,20 @@ TEST_F(ClangCompilerTestType, Test_SpirvDeviceWOImages) {
         spv::CapabilitySampledBuffer, spv::CapabilityImageBasic,
         spv::CapabilityImageReadWrite};
     for (auto IC : imageCapabilities) {
-		// Hand made SPIR-V module
-		std::uint32_t const spvBC[] = {
-			// First 5 mandatory words
-			spv::MagicNumber, SPIRVVersion, 0, 0, 0,
-			// Image capability
-			SPIRVOpCapability, IC,
-			// Memory model
-			SPIRVOpMemoryModel, spv::AddressingModelPhysical64, spv::MemoryModelOpenCL
-		};
-		auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
+      // Hand made SPIR-V module
+      std::uint32_t const spvBC[] = {// First 5 mandatory words
+                                     spv::MagicNumber, SPIRVVersion, 0, 0, 0,
+                                     // Image capability
+                                     SPIRVOpCapability, IC,
+                                     // Memory model
+                                     SPIRVOpMemoryModel,
+                                     spv::AddressingModelPhysical64,
+                                     spv::MemoryModelOpenCL};
+      auto spirvDesc = GetTestFESPIRVProgramDescriptor(spvBC);
 
-        err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
-        ASSERT_EQ(CL_INVALID_PROGRAM, err)
-            << "Unexpected retcode for a device w\\o image support.\n";
+      err = pFeCompiler->ParseSPIRV(&spirvDesc, &m_binary_result);
+      ASSERT_EQ(CL_INVALID_PROGRAM, err)
+          << "Unexpected retcode for a device w\\o image support.\n";
     }
 }
 
