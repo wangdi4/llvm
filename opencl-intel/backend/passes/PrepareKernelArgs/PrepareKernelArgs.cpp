@@ -129,8 +129,6 @@ namespace intel{
 
         Value* pPointerCast = builder.CreatePointerCast(pGEP, callIt->getType());
         pArg = pPointerCast;
-        //TODO: Remove this #ifndef when apple pass local memory buffer size instead of pointer to buffer
-#ifndef __APPLE__
       } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
         // The argument is actually the size of the buffer
         Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
@@ -150,7 +148,6 @@ namespace intel{
         }
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
-#endif
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
           pArg = pGEP;
       } else {
@@ -284,8 +281,6 @@ namespace intel{
         }
         pArg = U;
         } break;
-        //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
-#ifndef __APPLE__
       case ImplicitArgsUtils::IA_BARRIER_BUFFER:
         {
           // We obtain the number of bytes needed per item from the Metadata
@@ -305,7 +300,6 @@ namespace intel{
           pArg = BarrierBuffer;
         }
         break;
-#endif
       case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
         // These values are pointers that just need to be loaded from the
         // UniformKernelArgs structure and passed on to the kernel

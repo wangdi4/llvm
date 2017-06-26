@@ -24,8 +24,6 @@ include( cmake_utils/CMakeFuncs.txt )
 
 if (WIN32)
     include( CMake_windows_tools )
-elseif(APPLE)
-    include( CMake_apple_tools )
 elseif( ANDROID)
     if ( BUILD_X64)
         include( CMake_android_tools64 )
@@ -51,7 +49,7 @@ if( NOT ANDROID )
        ${CMAKE_SOURCE_DIR}/externals/itt/ittnotify/ )
 endif( NOT ANDROID )
 
-if (NOT WIN32 AND NOT APPLE)
+if (NOT WIN32)
   # enable C++11 support in GCC 4.7 and above
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
@@ -59,7 +57,7 @@ if (NOT WIN32 AND NOT APPLE)
     ${CMAKE_SOURCE_DIR}/cmake_utils/separate_linux_symbols.sh
     WORKING_DIRECTORY ${CMAKE_INSTALL_PREFIX}/bin
     COMMENT "Separating debug symbols from binaries...")
-endif (NOT WIN32 AND NOT APPLE)
+endif (NOT WIN32)
 
 if (WIN32)
     # Add definitions that make MSVC much less annoying.
@@ -440,14 +438,6 @@ if (WIN32)
     set(IMPLIB_STATIC_SUFFIX .lib)
     set(DLL_SUFIX .dll)
     set(DYNAMIC_PREFIX dyn_ )
-elseif (APPLE)
-    set(OS Mac)
-    set(IMPLIB_SUBDIR bin)
-    set(IMPLIB_PREFIX lib)
-    set(IMPLIB_SUFFIX .so)
-    set(IMPLIB_STATIC_SUFFIX .a)
-    set(DLL_SUFIX .so)
-    set(DYNAMIC_PREFIX "" )
 elseif (ANDROID)
     set(OS Android)
     set(IMPLIB_SUBDIR bin)
@@ -550,67 +540,58 @@ set( EXTERNAL_FOLDER_NAME       External )
 
 
 
+if( (NOT WIN32) AND USE_HARD_TRAPPING )
+    add_definitions(-D__HARD_TRAPPING__)
+endif((NOT WIN32) AND USE_HARD_TRAPPING)
 
-if (APPLE)
-    include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
-    add_subdirectory( backend )
-else(APPLE)
+if(BUILD_LLVM_FROM_SOURCE)
+    add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
+endif()
 
-    if( (NOT WIN32) AND USE_HARD_TRAPPING )
-        add_definitions(-D__HARD_TRAPPING__)
-    endif((NOT WIN32) AND USE_HARD_TRAPPING)
+#validation
+add_subdirectory( tests )
 
-    if(BUILD_LLVM_FROM_SOURCE)
-        add_subdirectory(${LLVM_SRC_ROOT} "${CMAKE_CURRENT_BINARY_DIR}/llvm")
-    endif()
+# The conformance tests must be compiled with the headers located in
+# ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.
+# Therefore, it must be added to the include directories only after
+# the tests subdirectory has been added.
+include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
-    #validation
-    add_subdirectory( tests )
+add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
 
-    # The conformance tests must be compiled with the headers located in
-    # ${OCL_CONFORMANCE_INCLUDE} and not the ones in ${OCL_GLOBAL_INCLUDE}.
-    # Therefore, it must be added to the include directories only after
-    # the tests subdirectory has been added.
-    include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
+# externals
+add_subdirectory( externals )
 
-    add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE=1)
+add_subdirectory( cl_api )
+add_subdirectory( utils )
 
-    # externals
-    add_subdirectory( externals )
+# Backend
+add_subdirectory( backend )
 
-    add_subdirectory( cl_api )
-    add_subdirectory( utils )
+#devices
+add_subdirectory( devices )
 
-    # Backend
-    add_subdirectory( backend )
+# Front-end compiler
+add_subdirectory( clang_compiler )
 
-    #devices
-    add_subdirectory( devices )
+# Framework
+add_subdirectory( framework )
 
-    # Front-end compiler
-    add_subdirectory( clang_compiler )
+# Common Runtime
+if ( INCLUDE_CMRT )
+    add_subdirectory ( common_runtime )
+endif( INCLUDE_CMRT )
 
-    # Framework
-    add_subdirectory( framework )
+# Tools
+if( INCLUDE_TOOLS )
+    add_subdirectory ( tools )
+endif( INCLUDE_TOOLS )
 
-    # Common Runtime
-    if ( INCLUDE_CMRT )
-        add_subdirectory ( common_runtime )
-    endif( INCLUDE_CMRT )
+#workloads
+#add_subdirectory( workloads )
 
-    # Tools
-    if( INCLUDE_TOOLS )
-        add_subdirectory ( tools )
-    endif( INCLUDE_TOOLS )
-
-    #workloads
-    #add_subdirectory( workloads )
-
-    #Linux samples
-    option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
-    if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
-        add_subdirectory( samples )
-    endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
-
-
-endif(APPLE)
+#Linux samples
+option(INCLUDE_SMPLS "Include Linux Samples into Build"  OFF)
+if (INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)
+    add_subdirectory( samples )
+endif(INCLUDE_SMPLS AND NOT WIN32 AND NOT ANDROID)

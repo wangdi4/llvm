@@ -13,10 +13,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataApi.h"
 #include "OclTune.h"
 
-#ifndef __APPLE__
 #include "PrintIRPass.h"
 #include "mic_dev_limits.h"
-#endif //#ifndef __APPLE__
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Pass.h"
@@ -217,11 +215,11 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                                        bool UnrollLoops) {
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
-#ifndef __APPLE__
+
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
-#endif
+
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
   PM.add(createFMASplitterPass());
@@ -263,12 +261,12 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   }
 
   // Adding module passes.
-#ifndef __APPLE__
+
   if (dumpIRBeforeConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
                              pConfig->GetDumpIRDir()));
   }
-#endif
+
   // OCL2.0 add Generic Address Static Resolution pass
   if (isOcl20) {
     // Static resolution of generic address space pointers
@@ -280,7 +278,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
-#ifndef __APPLE__
+
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
@@ -288,7 +286,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (!pConfig->GetLibraryModule() &&
       (getenv("DISMPF") != NULL || intel::Statistic::isEnabled()))
     PM.add(createRemovePrefetchPass());
-#endif //#ifndef __APPLE__
+
   PM.add(createBuiltinCallToInstPass());
 
   bool allowAllocaModificationOpt = true;
@@ -327,11 +325,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // utilized by GVN.
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
-#ifndef __APPLE__
+
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(
       pConfig->GetIRDumpOptionsBefore());
-#endif
+
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
@@ -366,7 +364,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   // In Apple build TRANSPOSE_SIZE_1 is not declared
   if (pConfig->GetTransposeSize() != 1 /*TRANSPOSE_SIZE_1*/
       && debugType == intel::None && OptLevel != 0) {
-#ifndef __APPLE__
+
     // In profiling mode remove llvm.dbg.value calls before vectorizer.
     if (isProfiling) {
       PM.add(createProfilingInfoPass());
@@ -377,11 +375,11 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
                                pConfig->GetDumpIRDir()));
     }
     PM.add(createSinCosFoldPass());
-#endif //#ifndef __APPLE__
+
     if (!pRtlModuleList.empty()) {
       PM.add(createVectorizerPass(pRtlModuleList, pConfig));
     }
-#ifndef __APPLE__
+
     if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_VECTORIZER)) {
       PM.add(createPrintIRPass(DUMP_IR_VECTORIZER, OPTION_IR_DUMPTYPE_AFTER,
                                pConfig->GetDumpIRDir()));
@@ -394,7 +392,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
         PM.add(createPreLegalizeBoolsPass());
       }
     }
-#endif //#ifndef __APPLE__
+
   }
 #ifdef _DEBUG
   PM.add(llvm::createVerifierPass());
@@ -415,7 +413,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(createSmartGVNPass(false));
   }
-#ifndef __APPLE__
+
   // The debugType enum and isProfiling flag are mutually exclusive, with
   // precedence given to debugType.
   if (debugType == Simulator) {
@@ -424,7 +422,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   } else if (isProfiling) {
     PM.add(createProfilingInfoPass());
   }
-#endif
+
   if (isOcl20) {
     // Resolve (dynamically) generic address space pointers which are relevant
     // for correct execution
@@ -456,12 +454,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     if (debugType == intel::None) {
       PM.add(createCLBuiltinLICMPass());
       PM.add(llvm::createLICMPass());
-#ifdef __APPLE__
-      // Workaround due to a bug in LICM, need to break the Loop passes flow
-      // after LICM.
-      // TODO: remove it after fixing the bug in LICM.
-      PM.add(llvm::createVerifierPass());
-#endif //#ifdef __APPLE__
       PM.add(createLoopStridedCodeMotionPass());
       PM.add(createCLStreamSamplerPass());
     }
@@ -537,15 +529,7 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
     PM.add(llvm::createCFGSimplificationPass());    // Merge & remove BBs
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
-#ifdef __APPLE__
-    // Due to none default ABI, some built-ins are creating an alloca in middle
-    // of function. Need to run scalar aggregation to get rid of these alloca
-    // (after built-in import). mem2reg pass is not enough! as it only handles
-    // alloca in first basic block.
-    PM.add(llvm::createScalarReplAggregatesPass());
-#else
     PM.add(llvm::createPromoteMemoryToRegisterPass());
-#endif
   }
 
   // PrepareKernelArgsPass must run in debugging mode as well
@@ -573,7 +557,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (!pConfig->GetLibraryModule())
     PM.add(createModuleCleanupPass(true));
 
-#ifndef __APPLE__
   // Add prefetches if useful for micro-architecture, if not in debug mode,
   // and don't change libraries
   if (debugType == intel::None && !pConfig->GetLibraryModule() &&
@@ -595,7 +578,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   if (UnrollLoops && debugType == intel::None) {
     PM.add(llvm::createLoopUnrollPass(4, 0, 0)); // Unroll small loops
   }
-#endif
 }
 
 Optimizer::~Optimizer() {}
@@ -608,10 +590,8 @@ Optimizer::Optimizer(llvm::Module *pModule,
   DebuggingServiceType debugType =
       getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 
-#ifndef __APPLE__
   // Materializing the spir datalayout according to the triple.
   materializeSpirDataLayout(*pModule);
-#endif //#ifndef __APPLE__
 
   unsigned int OptLevel = 3;
   if (pConfig->GetDisableOpt() || debugType != intel::None)
@@ -635,12 +615,10 @@ Optimizer::Optimizer(llvm::Module *pModule,
 }
 
 void Optimizer::Optimize() {
-#ifndef __APPLE__
   legacy::PassManager materializerPM;
   materializerPM.add(createBuiltinLibInfoPass(m_pRtlModuleList, ""));
   materializerPM.add(createSpirMaterializer());
   materializerPM.run(*m_pModule);
-#endif
   m_PreFailCheckPM.run(*m_pModule);
 
   // if there are still unresolved functon pointer calls

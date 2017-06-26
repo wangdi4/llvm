@@ -22,11 +22,7 @@ let NativeTypes = [v16i8, v16u8, v8i16, v8u16, v4i32, v4u32, v2i64, v2u64, v4f32
 code Prolog = [{
 #include "svml_shared.h"
 #define __OPENCL__
-#ifdef __APPLE__
-  #include <immintrin.h>
-#else
-  #include <intrin.h>
-#endif
+#include <intrin.h>
 #include "generic-builtin-defines.h"
 #include "cpu-builtin-defines.h"
 }];

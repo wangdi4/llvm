@@ -1,7 +1,0 @@
-if [ $# -eq 0 ]
-then
-echo "ERROR : You must provide executable name!"
-exit 1
-fi
-g++ -o $1 test.cpp -framework OpenCL -framework ApplicationServices -Wall
-g++ -o compare compare.cpp -framework ApplicationServices -Wall

@@ -7,11 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __BARRIER_UTILS_H__
 #define __BARRIER_UTILS_H__
 
-#if defined(__APPLE__)
-  #include "OpenCL/cl.h"
-#else
-  #include "CL/cl.h"
-#endif
+#include "CL/cl.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"

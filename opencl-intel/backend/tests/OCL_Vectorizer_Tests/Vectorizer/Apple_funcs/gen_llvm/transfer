@@ -1,2 +1,0 @@
-sudo cp $1 /System/Library/Frameworks/OpenCL.framework/Libraries
-sudo kill -9 `ps -u root | grep cvmsServ | cut -c 7-11`

@@ -20,8 +20,6 @@ File Name:  SystemInfo.cpp
 
 #if defined(_WIN32)
 #include <Windows.h>
-#elif defined(__APPLE__)
-#define MAX_PATH 1024
 #else
 #include <unistd.h>
 #include <linux/limits.h>
@@ -84,8 +82,6 @@ unsigned long long SystemInfo::HostTime()
 
   //Convert from ticks to nano second
   return (unsigned long long)(ticks.QuadPart * freq);
-#elif defined(__APPLE__)
-  return 0; //TODO fix it for apple
 #else
   struct timespec tp;
   clock_gettime( CLOCK_MONOTONIC, &tp);

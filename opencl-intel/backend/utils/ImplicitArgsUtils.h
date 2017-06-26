@@ -114,7 +114,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Destructor
     ~ImplicitArgsUtils() {}
 
-#ifndef __APPLE__
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
     void createImplicitArgs(char* pDest);
@@ -123,7 +122,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
     /// @brief Initialized the work item local IDs
     static void initWILocalIds(size_t dim, const size_t* pLocalSizes, const unsigned int packetWidth, size_t* pWIids);
-#endif //#ifndef __APPLE__
     // getAdjustedAlignemnt - Returns a value which is >= 'offset' for the offset
     // of the implicit args from the start of the kernel uniform args. Used to
     // ensure the implicit args is located at a  correctly aligned address.
