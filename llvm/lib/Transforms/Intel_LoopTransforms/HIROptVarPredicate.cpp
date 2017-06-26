@@ -596,7 +596,8 @@ void HIROptVarPredicate::splitLoop(
   // %LB
   BlobTy LowerBlob = BlobUtilsObj->getBlob(LowerCE->getSingleBlobIndex());
 
-  SmallVector<const RegDDRef*, 2> Aux { LHS, RHS };
+  SmallVector<const RegDDRef *, 2> Aux {LHS, RHS, Loop->getLowerDDRef(),
+                                        Loop->getUpperDDRef()};
 
   // Special case ==, != predicates..
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
