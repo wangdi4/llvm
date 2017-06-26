@@ -144,7 +144,6 @@ bool CompileTask::Execute()
 
     // check if program contains already compiled data
     if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT ||
-        m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_INTERMEDIATE ||
         m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_LIBRARY)
     {
         // we have spir binary, no need for FE compilation
@@ -153,8 +152,10 @@ bool CompileTask::Execute()
         return true;
     }
 
+    bool IsSPIR = m_pDeviceProgram->GetBinaryTypeInternal() ==
+                  CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
     const char* szSource = m_pProg->GetSourceInternal();
-    if (NULL == szSource)
+    if (NULL == szSource && !IsSPIR)
     {
         // not spir and no source
         m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
@@ -165,33 +166,42 @@ bool CompileTask::Execute()
 
     SharedPtr<ProgramWithIL> pIL = m_pProg.DynamicCast<ProgramWithIL>();
 
-    if(pIL)
     {
         // The frontend compiler is not thread safe
         OclAutoMutex lockCompile(&m_compileMtx);
-        unsigned int binarySize = pIL->GetSize();
+        if(pIL)
+        {
+            unsigned int binarySize = pIL->GetSize();
 
-        m_pFECompiler->ParseSpirv(szSource,
-                                  binarySize,
-                                  m_sOptions.c_str(),
-                                  pOutBinary.getOutPtr(),
-                                  &uiOutBinarySize,
-                                  szOutCompileLog.getOutPtr());
-    }
-    else
-    {
-        // The frontend compiler is not thread safe
-        OclAutoMutex lockCompile(&m_compileMtx);
-
-        m_pFECompiler->CompileProgram(szSource,
-                                      m_uiNumHeaders,
-                                      m_pszHeaders,
-                                      m_pszHeadersNames,
+            m_pFECompiler->ParseSpirv(szSource,
+                                      binarySize,
                                       m_sOptions.c_str(),
-                                      m_pProg->GetContext()->IsFPGAEmulator(),
                                       pOutBinary.getOutPtr(),
                                       &uiOutBinarySize,
                                       szOutCompileLog.getOutPtr());
+        }
+        else
+        {
+            if (IsSPIR)
+            {
+                m_pFECompiler->MaterializeSPIR(
+                    m_pDeviceProgram->GetBinaryInternal(),
+                    m_pDeviceProgram->GetBinarySizeInternal(), pOutBinary.getOutPtr(),
+                    &uiOutBinarySize, szOutCompileLog.getOutPtr());
+            }
+            else
+            {
+                m_pFECompiler->CompileProgram(szSource,
+                                              m_uiNumHeaders,
+                                              m_pszHeaders,
+                                              m_pszHeadersNames,
+                                              m_sOptions.c_str(),
+                                              m_pProg->GetContext()->IsFPGAEmulator(),
+                                              pOutBinary.getOutPtr(),
+                                              &uiOutBinarySize,
+                                              szOutCompileLog.getOutPtr());
+            }
+        }
     }
 
     if (NULL != szOutCompileLog.get())
@@ -1399,6 +1409,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 }
                 //Intentional fall through.
             }
+        case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_SOURCE:
         case DEVICE_PROGRAM_SPIRV:
             {
@@ -1415,7 +1426,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 //Intentional fall through.
             }
         case DEVICE_PROGRAM_COMPILED:
-        case DEVICE_PROGRAM_LOADED_IR:
             {
                 // Building from compiled object
                 bNeedToBuild = true;

@@ -69,6 +69,14 @@ struct FESPIRVProgramDescriptor
     const char*     pszOptions;
 };
 
+struct FESPIRProgramDescriptor
+{
+    // binary container for SPIR 1.2 program
+    const void*     pSPIRContainer;
+    // the size in bytes of the container
+    unsigned int    uiSPIRContainerSize;
+};
+
 // This interface represent FE compiler instance
 class IOCLFECompiler
 {
@@ -90,6 +98,13 @@ public:
     // Output: pBinaryResult - The interface to parse result
     // Returns: SPIR-V parsing status
     virtual int ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
+
+    // Synchronous function
+    // Input: pProgDesc - descriptor of the program to materialize
+    // Output: pBinaryResult - The interface to parse result
+    // Returns: SPIR 1.2 materialization status
+    virtual int MaterializeSPIR(FESPIRProgramDescriptor *pProgDesc,
+                                IOCLFEBinaryResult **pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pBin - the program's binary including the header

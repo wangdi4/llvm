@@ -1,8 +1,8 @@
 // Copyright (c) 2006-2012 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -69,7 +69,7 @@ static void AddDriverStorePathToLibrarySearchPath()
 }
 #endif // _WIN32
 
-FrontEndCompiler::FrontEndCompiler() : 
+FrontEndCompiler::FrontEndCompiler() :
         OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
         m_pfnCreateInstance(NULL),
         m_pszModuleName(NULL),
@@ -139,6 +139,40 @@ void FrontEndCompiler::FreeResources()
     }
 }
 
+cl_err_code FrontEndCompiler::ProcessResults(cl_err_code Error,
+                                             IOCLFEBinaryResult *Result,
+                                             char **Binary, size_t *BinarySize,
+                                             char **CompileLog) const {
+  if (CL_OUT_OF_HOST_MEMORY == Error) {
+    LOG_ERROR(TEXT("Front-End compilation failed = %x"), Error);
+    if (Result)
+      Result->Release();
+
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+
+  try {
+    if (const char *ErrLog = Result->GetErrorLog()) {
+      *CompileLog = new char[strlen(ErrLog) + 1];
+      MEMCPY_S(*CompileLog, strlen(ErrLog) + 1, ErrLog, strlen(ErrLog) + 1);
+    }
+
+    *BinarySize = Result->GetIRSize();
+
+    if (*BinarySize) {
+      assert(Result->GetIR() && "LLVM IR is expected");
+      *Binary = new char[*BinarySize];
+      MEMCPY_S(*Binary, *BinarySize, Result->GetIR(), *BinarySize);
+    }
+  } catch (std::bad_alloc) {
+    Result->Release();
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+
+  Result->Release();
+  return CL_SUCCESS;
+}
+
 cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
                                          unsigned int   uiProgramBinarySize,
                                          const char*    szOptions,
@@ -163,63 +197,41 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
 
     err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
 
-    if (CL_OUT_OF_HOST_MEMORY == err)
-    {
-        LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
-        if (NULL != pResult)
-        {
-            pResult->Release();
-        }
-
-        return CL_OUT_OF_HOST_MEMORY;
-    }
-
-    const char* errLog = pResult->GetErrorLog();
-
-    if (NULL != errLog)
-    {
-        *pszCompileLog = new char[strlen(errLog) + 1];
-        if (NULL != *pszCompileLog)
-        {
-            MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
-
-    *puiBinarySize = pResult->GetIRSize();
-
-    if (0 != *puiBinarySize)
-    {
-        assert(pResult->GetIR() != 0);
-        *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
-        {
-            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
-
-    pResult->Release();
-
-    return CL_SUCCESS;
+    return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
 }
 
-cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource, 
-                                             unsigned int   uiNumInputHeaders, 
-                                             const char**   pszInputHeaders, 
-                                             const char**   pszInputHeadersNames, 
-                                             const char*    szOptions, 
+cl_err_code FrontEndCompiler::MaterializeSPIR(const char *szProgramBinary,
+                                              unsigned int uiProgramBinarySize,
+                                              OUT char **ppBinary,
+                                              OUT size_t *puiBinarySize,
+                                              OUT char **pszCompileLog) const {
+  LOG_DEBUG(
+      TEXT("Enter MaterializeSPIR(szProgramBinary=%d, uiProgramBinarySize=%d, "
+           "ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+      szProgramBinary, uiProgramBinarySize, ppBinary, puiBinarySize,
+      pszCompileLog);
+
+  IOCLFEBinaryResult *pResult;
+  int err = CL_SUCCESS;
+
+  FESPIRProgramDescriptor spirvDesc;
+
+  spirvDesc.pSPIRContainer = szProgramBinary;
+  spirvDesc.uiSPIRContainerSize = uiProgramBinarySize;
+
+  err = m_pFECompiler->MaterializeSPIR(&spirvDesc, &pResult);
+
+  return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
+}
+
+cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
+                                             unsigned int   uiNumInputHeaders,
+                                             const char**   pszInputHeaders,
+                                             const char**   pszInputHeadersNames,
+                                             const char*    szOptions,
                                              bool           bFpgaEmulator,
-                                             OUT char**     ppBinary, 
-                                             OUT size_t*    puiBinarySize, 
+                                             OUT char**     ppBinary,
+                                             OUT size_t*    puiBinarySize,
                                              OUT char**     pszCompileLog) const
 {
     LOG_DEBUG(TEXT("Enter CompileProgram(szProgramSource=%d, uiNumInputHeaders=%d, pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
@@ -237,127 +249,64 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
 
     int err = m_pFECompiler->CompileProgram(&compileDesc, &pResult);
 
-    if ( 0 != err )
-    {
-        LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
-        if (CL_OUT_OF_HOST_MEMORY == err) 
-        {
-            if (NULL != pResult) 
-            {
-                pResult->Release();
-            }
-
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
-
-    const char* errLog = pResult->GetErrorLog();
-
-    if (NULL != errLog)
-    {
-        *pszCompileLog = new char[strlen(errLog) + 1];
-        if (NULL != *pszCompileLog)
-        {
-            MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
-
-    *puiBinarySize = pResult->GetIRSize();
-
-    if (0 != *puiBinarySize)
-    {
-        assert(pResult->GetIR() != 0);
-        *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
-        {
-            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
-
-    pResult->Release();
-
-    return CL_SUCCESS;
+    return ProcessResults(err, pResult, ppBinary, puiBinarySize, pszCompileLog);
 }
 
-cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries, 
-                                          unsigned int  uiNumInputBinaries, 
-                                          const size_t* puiBinariesSizes, 
-                                          const char*   szOptions, 
-                                          OUT char**    ppBinary, 
-                                          OUT size_t*   puiBinarySize, 
-                                          OUT std::vector<char>& linkLog,
-                                          OUT bool*     pbIsLibrary) const
-{
-    LOG_DEBUG(TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
-        ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary, puiBinarySize);
+cl_err_code FrontEndCompiler::LinkProgram(
+    const void **ppBinaries, unsigned int uiNumInputBinaries,
+    const size_t *puiBinariesSizes, const char *szOptions, OUT char **ppBinary,
+    OUT size_t *puiBinarySize, OUT std::vector<char> &linkLog,
+    OUT bool *pbIsLibrary) const {
+  LOG_DEBUG(
+      TEXT("Enter CompileProgram(ppBinaries=%d, uiNumInputBinaries=%d, "
+           "puiBinariesSizes=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d)"),
+      ppBinaries, uiNumInputBinaries, puiBinariesSizes, szOptions, ppBinary,
+      puiBinarySize);
 
-    IOCLFEBinaryResult*            pResult;
-    FELinkProgramsDescriptor    linkDesc;
+  IOCLFEBinaryResult *Result;
+  FELinkProgramsDescriptor linkDesc;
 
-    linkDesc.pBinaryContainers = ppBinaries;
-    linkDesc.uiNumBinaries = uiNumInputBinaries;
-    linkDesc.puiBinariesSizes = puiBinariesSizes;
-    linkDesc.pszOptions = szOptions;
+  linkDesc.pBinaryContainers = ppBinaries;
+  linkDesc.uiNumBinaries = uiNumInputBinaries;
+  linkDesc.puiBinariesSizes = puiBinariesSizes;
+  linkDesc.pszOptions = szOptions;
 
-    int err = m_pFECompiler->LinkPrograms(&linkDesc, &pResult);
+  int Error = m_pFECompiler->LinkPrograms(&linkDesc, &Result);
 
-    if ( 0 != err )
-    {
-        LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
-        if (CL_OUT_OF_HOST_MEMORY == err) 
-        {
-            if (NULL != pResult) 
-            {
-                pResult->Release();
-            }
+  if (CL_OUT_OF_HOST_MEMORY == Error) {
+    LOG_ERROR(TEXT("Front-End compilation failed = %x"), Error);
+    if (Result)
+      Result->Release();
 
-            return CL_OUT_OF_HOST_MEMORY;
-        }
+    return CL_OUT_OF_HOST_MEMORY;
+  }
+
+  try {
+    if (const char *ErrLog = Result->GetErrorLog()) {
+      linkLog.resize(strlen(ErrLog) + 1);
+      MEMCPY_S(&linkLog[0], strlen(ErrLog) + 1, ErrLog, strlen(ErrLog) + 1);
     }
 
-    const char* errLog = pResult->GetErrorLog();
+    *puiBinarySize = Result->GetIRSize();
 
-    if (NULL != errLog)
-    {
-        linkLog.resize(strlen(errLog) + 1);       
-        MEMCPY_S(&linkLog[0], strlen(errLog) + 1, errLog, strlen(errLog) + 1);
+    if (*puiBinarySize) {
+      assert(Result->GetIR() && "LLVM IR is expected");
+      *ppBinary = new char[*puiBinarySize];
+      MEMCPY_S(*ppBinary, *puiBinarySize, Result->GetIR(), *puiBinarySize);
     }
+  } catch (std::bad_alloc) {
+    Result->Release();
+    return CL_OUT_OF_HOST_MEMORY;
+  }
 
-    *puiBinarySize = pResult->GetIRSize();
+  if (pbIsLibrary) {
+    *pbIsLibrary =
+        Result->GetIRType() == Intel::OpenCL::ClangFE::IR_TYPE_LIBRARY;
+  }
 
-    if (0 != *puiBinarySize)
-    {
-        assert(pResult->GetIR() != 0);
-        *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
-        {
-            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
-        }
-        else
-        {
-            pResult->Release();
-            return CL_OUT_OF_HOST_MEMORY;
-        }
-    }
+  Result->Release();
 
-    if (NULL != pbIsLibrary)
-    {
-        *pbIsLibrary = pResult->GetIRType() == Intel::OpenCL::ClangFE::IR_TYPE_LIBRARY;
-    }
-
-    pResult->Release();
-
-    return CL_SUCCESS;
+  return CL_SUCCESS;
 }
 
 bool FrontEndCompiler::CheckCompileOptions(const char* szOptions, char* szUnrecognizedOptions, size_t uiUnrecognizedOptionsSize) const
@@ -370,9 +319,9 @@ bool FrontEndCompiler::CheckLinkOptions(const char* szOptions, char* szUnrecogni
   return m_pFECompiler->CheckLinkOptions(szOptions, szUnrecognizedOptions, uiUnrecongnizedOptionsSize);
 }
 
-cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin, 
+cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
                                                size_t             uiBinarySize,
-                                               const char*        szKernelName, 
+                                               const char*        szKernelName,
                                                IOCLFEKernelArgInfo*   *ppArgInfo) const
 {
     LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"), (void*)pBin, szKernelName, (void*)ppArgInfo);
@@ -388,3 +337,4 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
 
     return err;
 }
+

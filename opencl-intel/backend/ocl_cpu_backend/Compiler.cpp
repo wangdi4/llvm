@@ -586,7 +586,7 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
                                            uiBinarySize), "", false));
     llvm::Expected<std::string> strTargetTriple =
                    llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef());
-    if (*strTargetTriple == "") {
+    if (!strTargetTriple || *strTargetTriple == "") {
       throw Exceptions::CompilerException(
                      std::string("Failed to get target triple from bitcode!"),
                      CL_DEV_INVALID_BINARY);
