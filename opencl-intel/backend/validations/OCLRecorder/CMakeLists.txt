@@ -50,9 +50,9 @@ set (OCL_RECORDER_SOURCE_FILES
 
 # Resources
 if (WIN32)
-  set (OCL_RECORDER_RESOURCE_FILES
-    ocl_recorder.rc
-  )
+  set (OCL_RECORDER_RESOURCE_FILES ocl_recorder.rc)
+else (WIN32)
+  set (OCL_RECORDER_RESOURCE_FILES)
 endif (WIN32)
 
 # Add include directories
@@ -69,7 +69,9 @@ include_directories(
   ${OCL_NEAT_DIR}
   ${CL_API_HEADERS}
   ${CMAKE_SOURCE_DIR}/backend/plugin_manager
+  ${OCL_BINARY_DIR}
 )
+
 message (STATUS DEBUG: LLVM_PATH_FE=${LLVM_PATH_FE})
 
 if(WIN32)

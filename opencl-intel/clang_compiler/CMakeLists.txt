@@ -6,7 +6,7 @@ use_eh(TRUE)
 use_rtti(FALSE)
 
 if( NOT DEFINED LLVM_PATH_FE )
-    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM libraries location using LLVM_PATH_FE parameter to CMAKE" )
 endif()
 
 set(LLVM_PATH ${LLVM_PATH_FE})
@@ -16,7 +16,7 @@ find_package(LLVM REQUIRED)
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
 # Embed RPATH/RUNPATH for libraries which dependencies aren't in the standard system library directories
-include(../../cmake_utils/embed.rpath.txt)
+include(../cmake_utils/embed.rpath.txt)
 
 #
 # Source code
@@ -41,8 +41,11 @@ set(TARGET_SOURCE_FILES
 # Compilation flags
 #
 set( CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS")
-
 add_definitions( ${LLVM_DEFINITIONS} )
+if (NOT WIN32)
+  set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+  set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
+endif(NOT WIN32)
 
 #
 # Include directories
@@ -138,7 +141,7 @@ if (WIN32)
     endif(INSTALL_PDBS)
     install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 else (WIN32)
-    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} clang_compiler.map )
 endif(WIN32)
 
 

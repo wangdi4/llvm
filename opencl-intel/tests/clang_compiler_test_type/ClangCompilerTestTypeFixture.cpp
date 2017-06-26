@@ -19,6 +19,7 @@
 // problem reports or change requests be submitted to it directly.
 
 #include "ClangCompilerTestTypeFixture.h"
+#include "common_clang.h"
 
 #include <algorithm>
 

@@ -38,7 +38,7 @@
 
 /**********************************************************************************************
 * Description:
-* Represents a test fixure for unit-testing clang_compiler in FE Compiler.
+* Represents a test fixture for unit-testing clang_compiler in FE Compiler.
 * By gtest design it is being instantiated with SetUp() call in the beginning of a test
 * and destroyed with TearDown() call at the end of the test.
 **********************************************************************************************/
