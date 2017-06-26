@@ -13,6 +13,17 @@
 #include "cl_config.h"
 #include "common_clang.h"
 
+#if defined (_WIN32)
+#define DLL_EXPORT __declspec(dllexport)
+#else
+#define DLL_EXPORT
+#endif
+
+extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo,
+    size_t devIntoSize,
+    Intel::OpenCL::FECompilerAPI::IOCLFECompiler* *pFECompiler,
+    Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger);
+
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
     class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler

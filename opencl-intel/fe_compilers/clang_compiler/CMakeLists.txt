@@ -138,7 +138,7 @@ if (WIN32)
     endif(INSTALL_PDBS)
     install(FILES ${RT_OUTPUT_DIRECTORY}/\${BUILD_TYPE}/${TARGET_NAME}_stripped.pdb DESTINATION bin)
 else (WIN32)
-    set_target_properties( ${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,-Bsymbolic")
+    SET_LINUX_EXPORTS_FILE( ${TARGET_NAME} clang_compiler.map )
 endif(WIN32)
 
 
