@@ -80,9 +80,7 @@ llvm::ModulePass *createDuplicateCalledKernelsPass();
 llvm::ModulePass *createPatchCallbackArgsPass();
 llvm::ModulePass *createDeduceMaxWGDimPass();
 
-#ifdef __APPLE__
-llvm::Pass *createClangCompatFixerPass();
-#else
+llvm::ModulePass *createFMASplitterPass();
 llvm::ModulePass *createSpirMaterializer();
 void materializeSpirDataLayout(llvm::Module &);
 llvm::FunctionPass *createPrefetchPassLevel(int level);
@@ -93,7 +91,6 @@ llvm::ModulePass *createDebugInfoPass();
 llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass *createProfilingInfoPass();
 llvm::Pass *createSmartGVNPass(bool);
-#endif
 
 llvm::ModulePass *createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
@@ -227,6 +224,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 #endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
+  PM.add(createFMASplitterPass());
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
   if (isOcl20) {
@@ -270,9 +268,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_BEFORE,
                              pConfig->GetDumpIRDir()));
   }
-#endif
-#ifdef __APPLE__
-  PM.add(createClangCompatFixerPass());
 #endif
   // OCL2.0 add Generic Address Static Resolution pass
   if (isOcl20) {

@@ -360,6 +360,7 @@ set( BACKEND_PASSES
     OCLAliasAnalysis
     SPIR20BlocksToObjCBlocks
     PrintfArgumentsPromotion
+    FMASplitter
 )
 
 set(UTILS_LIBS
