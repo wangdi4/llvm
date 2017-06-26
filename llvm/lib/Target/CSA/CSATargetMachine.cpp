@@ -52,6 +52,11 @@ RunCSAStatistics("csa-run-statistics", cl::Hidden,
               cl::desc("CSA Specific: collect statistics for DF instructions"),
               cl::init(0));
 
+static cl::opt<int>
+CSAStructurizeCFG("csa-structurize-cfg", cl::Hidden,
+  cl::desc("CSA Specific: leverage llvm StructurizeCFG"),
+  cl::init(1));
+
 // Helper function to build a DataLayout string
 static std::string computeDataLayout() {
   return "e-m:e-i64:64-n32:64";
@@ -145,9 +150,11 @@ public:
   bool addPreISel() override {
     //addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
-    addPass(createStructurizeCFGPass(false));
-    //remove the single input phi and constant branch created from StructurizeCFG
-    addPass(createInstructionCombiningPass());
+    if (CSAStructurizeCFG) {
+      addPass(createStructurizeCFGPass(false));
+      //remove the single input phi and constant branch created from StructurizeCFG
+      addPass(createInstructionCombiningPass());
+    }
     return false;
   }
 
