@@ -185,7 +185,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         SharedPtr<Program>                  m_pProg;
         ConstSharedPtr<FrontEndCompiler>    m_pFECompiler;
-
     };
 
     class CompileTask : public BuildTask
@@ -229,6 +228,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const char**            m_pszHeaders;
         const char**            m_pszHeadersNames;
         std::string             m_sOptions;
+
+        static Intel::OpenCL::Utils::OclMutex m_compileMtx;
     };
 
 
@@ -270,6 +271,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<Program>*     m_ppPrograms;
         unsigned int            m_uiNumPrograms;
         std::string             m_sOptions;
+
+        static Intel::OpenCL::Utils::OclMutex m_linkMtx;
     };
 
     class DeviceBuildTask : public BuildTask
@@ -301,6 +304,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         DeviceProgram*          m_pDeviceProgram;
         std::string             m_sOptions;
+
+        static Intel::OpenCL::Utils::OclMutex m_deviceBuildMtx;
     };
 
 
