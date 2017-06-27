@@ -1477,12 +1477,17 @@ unsigned HIRParser::processInstBlob(const Instruction *Inst,
   // as it represents Inst in HIR.
   if (!IsRegionLivein && (Inst != BaseInst)) {
     DefLp = LI->getLoopFor(BaseInst->getParent());
-    assert(DefLp && "Defining loop of BaseInst is null!");
-    DefLoop = LF->findHLLoop(DefLp);
-    assert(DefLoop && "Defining HLLoop of BaseInst is null!");
 
-    if (UseLoop) {
-      LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
+    // DefLp can be null for phis which are outside any loop. Such phis can
+    // occur in function level regions or extended regions formed for loop
+    // fusion.
+    if (DefLp) {
+      DefLoop = LF->findHLLoop(DefLp);
+      assert(DefLoop && "Defining HLLoop of BaseInst is null!");
+
+      if (UseLoop) {
+        LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(UseLoop, DefLoop);
+      }
     }
   }
 

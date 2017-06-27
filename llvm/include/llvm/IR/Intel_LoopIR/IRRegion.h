@@ -74,8 +74,12 @@ private:
   LiveOutSetTy LiveOutSet;
   HLRegion *ParentRegion;
 
+  // Indicates that the region is composed of all the function bblocks.
+  const bool IsFunctionLevel;
+
 public:
-  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);
+  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks,
+           bool IsFunctionLevel = false);
 
   /// \brief Move constructor. This is used by HIRRegionIdentification pass to
   /// push_back regions onto SmallVector.
@@ -153,6 +157,9 @@ public:
 
   const_live_out_iterator live_out_begin() const { return LiveOutSet.begin(); }
   const_live_out_iterator live_out_end() const { return LiveOutSet.end(); }
+
+  /// Returns true if this one region was created for the entire function.
+  bool isFunctionLevel() const { return IsFunctionLevel; }
 };
 
 } // End namespace loopopt

@@ -26,9 +26,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs)
+IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs,
+                   bool IsFunctionLevel)
     : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs),
-      ParentRegion(nullptr) {
+      ParentRegion(nullptr), IsFunctionLevel(IsFunctionLevel) {
   assert(EntryBB && "Entry basic block cannot be null!");
   BBlocksSet.insert(BBs.begin(), BBs.end());
 }
@@ -37,7 +38,8 @@ IRRegion::IRRegion(IRRegion &&Reg)
     : EntryBBlock(Reg.EntryBBlock), ExitBBlock(Reg.ExitBBlock),
       BBlocks(std::move(Reg.BBlocks)), BBlocksSet(std::move(Reg.BBlocksSet)),
       LiveInSet(std::move(Reg.LiveInSet)),
-      LiveOutSet(std::move(Reg.LiveOutSet)), ParentRegion(Reg.ParentRegion) {}
+      LiveOutSet(std::move(Reg.LiveOutSet)), ParentRegion(Reg.ParentRegion),
+      IsFunctionLevel(Reg.IsFunctionLevel) {}
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void IRRegion::dump() const { print(dbgs(), 0); }

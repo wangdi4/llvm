@@ -53,6 +53,11 @@ static cl::opt<bool> DisablePragmaBailOut(
     "disable-hir-pragma-bailout", cl::init(false), cl::Hidden,
     cl::desc("Disable HIR bailout for non unroll/vectorizer loop metadata"));
 
+static cl::opt<bool> CreateFunctionLevelRegion(
+    "hir-create-function-level-region", cl::init(false), cl::Hidden,
+    cl::desc("force HIR to create a single function level region instead of "
+             "creating regions for individual loopnests"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 INITIALIZE_PASS_BEGIN(HIRRegionIdentification, "hir-region-identification",
@@ -545,7 +550,7 @@ bool HIRRegionIdentification::isReachableFrom(
 }
 
 bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
-                                            const Loop &Lp) const {
+                                            const Loop *Lp) const {
   SmallVector<BasicBlock *, 8> DomChildren;
 
   auto Node = DT->getNode(const_cast<BasicBlock *>(BB));
@@ -554,7 +559,7 @@ bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
   for (auto &I : (*Node)) {
     auto BB = I->getBlock();
 
-    if (LI->getLoopFor(BB) == &Lp) {
+    if (!Lp || (LI->getLoopFor(BB) == Lp)) {
       DomChildren.push_back(BB);
     }
   }
@@ -596,6 +601,70 @@ bool HIRRegionIdentification::containsCycle(const BasicBlock *BB,
   return false;
 }
 
+bool HIRRegionIdentification::isGenerable(const BasicBlock *BB) {
+  auto FirstInst = BB->getFirstNonPHI();
+
+  if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                    "supported.\n");
+    return false;
+  }
+
+  auto Term = BB->getTerminator();
+
+  if (isa<IndirectBrInst>(Term)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
+                    "supported.\n");
+    return false;
+  }
+
+  if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
+      isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
+      isa<CleanupReturnInst>(Term)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                    "supported.\n");
+    return false;
+  }
+
+  // Skip the terminator instruction.
+  for (auto Inst = BB->begin(), E = std::prev(BB->end()); Inst != E; ++Inst) {
+
+    if (Inst->isAtomic()) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
+                      "not supported.\n");
+      return false;
+    }
+
+    // TODO: think about HIR representation for
+    // InsertValueInst/ExtractValueInst.
+    if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: InsertValueInst/ExtractValueInst "
+                      "currently not supported.\n");
+      return false;
+    }
+
+    if (Inst->getType()->isVectorTy()) {
+      DEBUG(dbgs()
+            << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
+      return false;
+    }
+
+    if (auto CInst = dyn_cast<CallInst>(Inst)) {
+      if (CInst->isInlineAsm()) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Inline assembly currently not "
+                        "supported.\n");
+        return false;
+      }
+    }
+
+    if (containsUnsupportedTy(&*Inst)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   bool IsInnermostLoop = Lp.empty();
 
@@ -607,69 +676,12 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
       continue;
     }
 
-    auto FirstInst = (*BB)->getFirstNonPHI();
-
-    if (isa<LandingPadInst>(FirstInst) || isa<FuncletPadInst>(FirstInst)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                      "supported.\n");
+    if (!isGenerable(*BB)) {
       return false;
-    }
-
-    auto Term = (*BB)->getTerminator();
-
-    if (isa<IndirectBrInst>(Term)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
-                      "supported.\n");
-      return false;
-    }
-
-    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term) ||
-        isa<CatchSwitchInst>(Term) || isa<CatchReturnInst>(Term) ||
-        isa<CleanupReturnInst>(Term)) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
-                      "supported.\n");
-      return false;
-    }
-
-    // Skip the terminator instruction.
-    for (auto Inst = (*BB)->begin(), E = std::prev((*BB)->end()); Inst != E;
-         ++Inst) {
-
-      if (Inst->isAtomic()) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Atomic instructions are currently "
-                        "not supported.\n");
-        return false;
-      }
-
-      // TODO: think about HIR representation for
-      // InsertValueInst/ExtractValueInst.
-      if (isa<InsertValueInst>(Inst) || isa<ExtractValueInst>(Inst)) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: InsertValueInst/ExtractValueInst "
-                        "currently not supported.\n");
-        return false;
-      }
-
-      if (Inst->getType()->isVectorTy()) {
-        DEBUG(dbgs()
-              << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
-        return false;
-      }
-
-      if (auto CInst = dyn_cast<CallInst>(Inst)) {
-        if (CInst->isInlineAsm()) {
-          DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Inline assembly currently not "
-                          "supported.\n");
-          return false;
-        }
-      }
-
-      if (containsUnsupportedTy(&*Inst)) {
-        return false;
-      }
     }
 
     // TODO: Is there a more efficient way to check this?
-    if (containsCycle(*BB, Lp)) {
+    if (containsCycle(*BB, &Lp)) {
       DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
       return false;
     }
@@ -679,7 +691,8 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
 }
 
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
-                                              unsigned LoopnestDepth) const {
+                                              unsigned LoopnestDepth,
+                                              bool IsFunctionRegionMode) const {
 
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
@@ -770,7 +783,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
 
   // Check whether the loop contains irreducible CFG before calling
   // findIVDefInHeader() otherwise it may loop infinitely.
-  if (!areBBlocksGenerable(Lp)) {
+  // We skip the bblock check for function region mode as it is done at the
+  // function level by the caller.
+  if (!IsFunctionRegionMode && !areBBlocksGenerable(Lp)) {
     return false;
   }
 
@@ -792,7 +807,9 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  if (shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
+  // We skip cost model throttling for function level region.
+  if (!IsFunctionRegionMode &&
+      shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
     return false;
   }
 
@@ -942,7 +959,7 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
   }
 
   // Check whether Lp is generable.
-  if (Generable && !isSelfGenerable(Lp, ++(*LoopnestDepth))) {
+  if (Generable && !isSelfGenerable(Lp, ++(*LoopnestDepth), false)) {
     Generable = false;
   }
 
@@ -961,6 +978,7 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
 }
 
 void HIRRegionIdentification::formRegions() {
+
   // LoopInfo::iterator visits loops in reverse program order so we need to use
   // reverse_iterator here.
   for (LoopInfo::reverse_iterator I = LI->rbegin(), E = LI->rend(); I != E;
@@ -972,9 +990,66 @@ void HIRRegionIdentification::formRegions() {
   }
 }
 
-bool HIRRegionIdentification::runOnFunction(Function &F) {
-  if (F.hasFnAttribute(Attribute::OptimizeNone))
+void HIRRegionIdentification::createFunctionLevelRegion(Function &Func) {
+  if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
+                    "threshold.\n");
+    return;
+  }
+
+  IRRegion::RegionBBlocksTy BBlocks;
+
+  for (auto BBIt = ++Func.begin(), E = Func.end(); BBIt != E; ++BBIt) {
+    BBlocks.push_back(&*BBIt);
+  }
+
+  IRRegions.emplace_back(&Func.getEntryBlock(), BBlocks, true);
+
+  RegionCount++;
+}
+
+bool HIRRegionIdentification::areBBlocksGenerable(Function &Func) const {
+
+  for (auto BBIt = ++Func.begin(), E = Func.end(); BBIt != E; ++BBIt) {
+    if (!isGenerable(&*BBIt)) {
+      return false;
+    }
+
+    if (containsCycle(&*BBIt, nullptr)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Irreducible CFG not supported.\n");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::canFormFunctionLevelRegion(Function &Func) {
+  // Entry bblock is the first bblock of the region. We do not include it inside
+  // the region because the dummy instructions created by HIR transformations
+  // are inserted in the entry bblock. Our function level region will start from
+  // the terminator instruction of the entry bblock. This is to maintain the
+  // "single entry" property of the region.
+
+  if (!areBBlocksGenerable(Func)) {
     return false;
+  }
+
+  SmallVector<Loop *, 4> AllLoops = LI->getLoopsInPreorder();
+
+  for (auto Lp : AllLoops) {
+    if (!isSelfGenerable(*Lp, Lp->getLoopDepth(), true)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool HIRRegionIdentification::runOnFunction(Function &Func) {
+  if (Func.hasFnAttribute(Attribute::OptimizeNone)) {
+    return false;
+  }
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
@@ -982,7 +1057,13 @@ bool HIRRegionIdentification::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
-  formRegions();
+  if (CreateFunctionLevelRegion) {
+    if (canFormFunctionLevelRegion(Func)) {
+      createFunctionLevelRegion(Func);
+    }
+  } else {
+    formRegions();
+  }
 
   return false;
 }

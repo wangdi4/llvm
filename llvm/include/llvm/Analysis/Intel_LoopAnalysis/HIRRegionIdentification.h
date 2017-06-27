@@ -79,16 +79,39 @@ private:
   /// would be profitable.
   class CostModelAnalyzer;
 
-  /// Returns true if this loop should be throttled based on cost model
-  /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, bool IsUnknown) const;
+  /// Returns true if \p GEPOp contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
+
+  /// Returns true if \p Inst contains a type not supported by HIR.
+  static bool containsUnsupportedTy(const Instruction *Inst);
+
+  /// Implements isReachableFrom().
+  bool
+  isReachableFromImpl(const BasicBlock *BB,
+                      const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
+                      const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
+                      SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
+
+  /// Returns true if dominator children of \p BB are involved in a cycle which
+  /// doesn't go through backedges. This indicates irreducible CFG. If \p Lp is
+  /// not null, only bblocks in Lp are considered.
+  bool containsCycle(const BasicBlock *BB, const Loop *Lp) const;
+
+  /// Returns true if \p BB is generable (can be handled by HIR).
+  static bool isGenerable(const BasicBlock *BB);
 
   /// Returns true if bblocks of \p Lp are generable.
   bool areBBlocksGenerable(const Loop &Lp) const;
 
   /// Returns true if Lp appears to be generable without looking at the sub
-  /// loops.
-  bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
+  /// loops. \p IsFunctionRegionMode is set to true when we want to form a
+  /// single function level region.
+  bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth,
+                       bool IsFunctionRegionMode) const;
+
+  /// Returns true if this loop should be throttled based on cost model
+  /// analysis.
+  bool shouldThrottleLoop(const Loop &Lp, bool IsUnknown) const;
 
   /// Returns true if this instruction represents simd begin/end directive. \p
   /// BeginDir flag indicates whether to look for begin or end directive.
@@ -125,22 +148,15 @@ private:
   /// Identifies regions in the incoming LLVM IR.
   void formRegions();
 
-  /// Returns true if \p GEPOp contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const GEPOperator *GEPOp);
+  /// Returns true if bblocks of the function are generable.
+  bool areBBlocksGenerable(Function &Func) const;
 
-  /// Returns true if \p Inst contains a type not supported by HIR.
-  static bool containsUnsupportedTy(const Instruction *Inst);
+  /// Returns true if we can form a function level region.
+  bool canFormFunctionLevelRegion(Function &F);
 
-  /// Implements isReachableFrom().
-  bool
-  isReachableFromImpl(const BasicBlock *BB,
-                      const SmallPtrSetImpl<const BasicBlock *> &EndBBs,
-                      const SmallPtrSetImpl<const BasicBlock *> &FromBBs,
-                      SmallPtrSetImpl<const BasicBlock *> &VisitedBBs) const;
-
-  /// Returns true if dominator children of \p BB in \p Lp are involved in a
-  /// cycle which doesn't go through backedges. This indicates irreducible CFG.
-  bool containsCycle(const BasicBlock *BB, const Loop &Lp) const;
+  /// Creates a function level region out of all the function bblocks, except
+  /// the entry bblock.
+  void createFunctionLevelRegion(Function &F);
 
   /// Returns true if metadata node \p Node contains only debug metadata or
   /// equals null.

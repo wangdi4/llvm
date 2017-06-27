@@ -167,6 +167,9 @@ public:
   bool shouldGenCode() const { return GenCode; }
   void setGenCode(bool GC = true) { GenCode = GC; }
 
+  /// Returns true if this one region was created for the entire function.
+  bool isFunctionLevel() const { return IRReg.isFunctionLevel(); }
+  
   /// Children iterator methods
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }

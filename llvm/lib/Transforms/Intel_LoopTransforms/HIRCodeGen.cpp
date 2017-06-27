@@ -446,7 +446,7 @@ public:
   /// Erases all the dummy instructions.
   void eraseDummyInstructions();
 };
-}
+} // namespace
 
 FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 
@@ -589,9 +589,10 @@ Value *HIRCodeGen::CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
   if (BType->isPointerTy() && BType != Ty) {
     // A version of this should be in verifier, but we want to test CG'd
     // type
-    assert(Ty->getScalarSizeInBits() ==
-             F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType) &&
-           "Pointer size and CE size mismatch");
+    assert(
+        Ty->getScalarSizeInBits() ==
+            F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType) &&
+        "Pointer size and CE size mismatch");
     Blob = Builder->CreatePtrToInt(Blob, Ty->getScalarType());
   }
   return Blob;
@@ -1051,7 +1052,7 @@ void HIRCodeGen::CGVisitor::initializeLiveIn(HLRegion *R) {
   }
 }
 
-Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
+Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *Reg) {
 
   assert(CurIVValues.empty() && "IV list not empty at region start");
 
@@ -1060,13 +1061,13 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   CurIVValues.push_back(nullptr);
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(
-      F->getContext(), "region." + std::to_string(R->getNumber()), F);
+      F->getContext(), "region." + std::to_string(Reg->getNumber()), F);
   Builder->SetInsertPoint(RegionEntry);
 
-  initializeLiveIn(R);
+  initializeLiveIn(Reg);
 
   // Onto children cg
-  for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
+  for (auto It = Reg->child_begin(), E = Reg->child_end(); It != E; ++It) {
     visit(*It);
   }
 
@@ -1079,7 +1080,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // We end on valid IR but must call some form of pred opt to remove old code
 
   // Save entry and succ fields, these get invalidated once block is split
-  BasicBlock *EntryFirstHalf = R->getEntryBBlock();
+  BasicBlock *EntryFirstHalf = Reg->getEntryBBlock();
 
   // Split the block if the region entry is the same as function entry
   // TODO - As mentioned in discussions with Pankaj, the framework should
@@ -1089,12 +1090,13 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
         EntryFirstHalf->getTerminator(), "entry.split");
   }
 
-  BasicBlock *RegionSuccessor = R->getSuccBBlock();
-  RegionSucc[R] = RegionSuccessor;
+  BasicBlock *RegionSuccessor =
+      !Reg->isFunctionLevel() ? Reg->getSuccBBlock() : nullptr;
+  RegionSucc[Reg] = RegionSuccessor;
 
   BasicBlock *EntrySecondHalf =
       SplitBlock(EntryFirstHalf, &*(EntryFirstHalf->begin()));
-  RegionEntrySplitBlock[R] = EntrySecondHalf;
+  RegionEntrySplitBlock[Reg] = EntrySecondHalf;
 
   Instruction *Term = EntryFirstHalf->getTerminator();
   BasicBlock::iterator ii(Term);
@@ -1107,10 +1109,20 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // and we are done
   if (RegionSuccessor) {
     Value *Terminator = Builder->CreateBr(RegionSuccessor);
-    RegionTerminators[R] = cast<Instruction>(Terminator);
+    RegionTerminators[Reg] = cast<Instruction>(Terminator);
+  } else if (Reg->isFunctionLevel()) {
+    // It is possible that the function exiting statements for function level
+    // region are embedded inside the top level if statement. In this case we
+    // emit an unreachable instruction so that the last merge bblock ends with
+    // a terminator instruction.
+    if (!Reg->exitsFunction()) {
+      Builder->CreateUnreachable();
+    }
+    assert((Reg->live_out_begin() == Reg->live_out_end()) &&
+           "Unsupported liveout for multiexit region!");
   } else {
-    assert(R->exitsFunction() && "no successor block to region!");
-    assert((R->live_out_begin() == R->live_out_end()) &&
+    assert(Reg->exitsFunction() && "no successor block to region!");
+    assert((Reg->live_out_begin() == Reg->live_out_end()) &&
            "Unsupported liveout for multiexit region!");
   }
 
@@ -1645,6 +1657,9 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
   } else if (isa<ReturnInst>(Inst)) {
     StoreVal =
         !Ops.empty() ? Builder->CreateRet(Ops[0]) : Builder->CreateRetVoid();
+  } else if (isa<UnreachableInst>(Inst)) {
+    assert(Ops.empty() && "No operands expected for uneachable inst!");
+    StoreVal = Builder->CreateUnreachable();
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }

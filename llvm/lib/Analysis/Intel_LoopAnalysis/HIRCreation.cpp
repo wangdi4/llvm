@@ -96,6 +96,8 @@ const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
 HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
   auto Terminator = BB->getTerminator();
 
+  HLNode *TermNode = nullptr;
+
   if (BranchInst *BI = dyn_cast<BranchInst>(Terminator)) {
     if (BI->isConditional()) {
       Instruction *Cond = dyn_cast<Instruction>(BI->getCondition());
@@ -109,9 +111,8 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
           nullptr, nullptr);
 
       Ifs[If] = BB;
+      If->setDebugLoc(BI->getDebugLoc());
 
-      // TODO: HLGoto targets should be assigned in a later pass.
-      // TODO: Redundant gotos should be cleaned up during lexlink cleanup.
       HLGoto *ThenGoto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
       getHLNodeUtils().insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
@@ -120,24 +121,21 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       getHLNodeUtils().insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
-      getHLNodeUtils().insertAfter(InsertionPos, If);
-      InsertionPos = If;
+      TermNode = If;
 
-      If->setDebugLoc(BI->getDebugLoc());
     } else {
       auto Goto = getHLNodeUtils().createHLGoto(BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
-
-      getHLNodeUtils().insertAfter(InsertionPos, Goto);
-      InsertionPos = Goto;
-
       Goto->setDebugLoc(BI->getDebugLoc());
+
+      TermNode = Goto;
     }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
     auto Switch = getHLNodeUtils().createHLSwitch(nullptr);
 
     Switches[Switch] = BB;
+    Switch->setDebugLoc(SI->getDebugLoc());
 
     // Add dummy cases so they can be populated during the walk.
     for (unsigned I = 0, E = SI->getNumCases(); I < E; ++I) {
@@ -163,19 +161,23 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
       CaseGoto->setDebugLoc(DbgLoc);
     }
 
-    getHLNodeUtils().insertAfter(InsertionPos, Switch);
-    InsertionPos = Switch;
+    TermNode = Switch;
 
-    Switch->setDebugLoc(SI->getDebugLoc());
-  } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
-    auto Inst = getHLNodeUtils().createHLInst(RI);
-    getHLNodeUtils().insertAfter(InsertionPos, Inst);
-    InsertionPos = Inst;
+  } else if (isa<ReturnInst>(Terminator) || isa<UnreachableInst>(Terminator)) {
+    TermNode = getHLNodeUtils().createHLInst(Terminator);
+
   } else {
     assert(0 && "Unhandled terminator type!");
   }
 
-  return InsertionPos;
+  // Insert new node into the region.
+  if (auto Region = dyn_cast<HLRegion>(InsertionPos)) {
+    getHLNodeUtils().insertAsFirstChild(Region, TermNode);
+  } else {
+    getHLNodeUtils().insertAfter(InsertionPos, TermNode);
+  }
+
+  return TermNode;
 }
 
 HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
@@ -302,15 +304,25 @@ void HIRCreation::sortDomChildren(
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
                                           HLNode *InsertionPos) {
 
-  if (!CurRegion->containsBBlock(BB)) {
+  auto Reg = dyn_cast<HLRegion>(InsertionPos);
+
+  bool IsFunctionEntryBB = (Reg && Reg->isFunctionLevel());
+
+  if (!IsFunctionEntryBB && !CurRegion->containsBBlock(BB)) {
     return InsertionPos;
   }
 
   SmallVector<BasicBlock *, 8> DomChildren;
   auto Root = DT->getNode(BB);
 
-  // Visit(link) this bblock to HIR.
-  InsertionPos = populateInstSequence(BB, InsertionPos);
+  if (IsFunctionEntryBB) {
+    // Populate just the terminator of the function entry bblock.
+    InsertionPos = populateTerminator(BB, InsertionPos);
+  } else {
+    // Visit(link) this bblock to HIR.
+    InsertionPos = populateInstSequence(BB, InsertionPos);
+  }
+
   auto TermNode = InsertionPos;
 
   // Sort dominator children.
@@ -386,6 +398,11 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 }
 
 void HIRCreation::setExitBBlock() const {
+
+  // No exit block for function level region.
+  if (CurRegion->isFunctionLevel()) {
+    return;
+  }
 
   auto LastChild = CurRegion->getLastChild();
   assert(LastChild && "Last child of region is null!");
