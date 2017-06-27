@@ -103,6 +103,21 @@ private:
   bool m_littleEndian; ///< True if SPIR-V module byte order is little-endian
 };
 
+// Updates SPIR 1.2 to current LLVM IR version.
+class ClangFECompilerMaterializeSPIRTask : ClangFETask {
+public:
+  ClangFECompilerMaterializeSPIRTask(
+      Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *pProgDesc)
+      : m_pProgDesc(pProgDesc) {}
+
+  /// \brief Updates SPIR 1.2 to consumable by the compiler back-end LLVM IR.
+  /// \return error code of clCompileProgram API
+  int MaterializeSPIR(IOCLFEBinaryResult **pBinaryResult);
+
+private:
+  Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *m_pProgDesc;
+};
+
 // ClangFECompilerCheckCompileOptions
 // Input: szOptions - a string representing the compile options
 // Output: szUnrecognizedOptions - a new string containing the unrecognized

@@ -80,8 +80,8 @@ ClangFECompiler::~ClangFECompiler() {
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
                                     IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
       .Compile(pBinaryResult);
@@ -90,27 +90,36 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
 int ClangFECompiler::LinkPrograms(
     Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
     IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
 }
 
 int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
                                 IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
       .ParseSPIRV(pBinaryResult);
 }
 
+int ClangFECompiler::MaterializeSPIR(FESPIRProgramDescriptor *pProgDesc,
+                                     IOCLFEBinaryResult **pBinaryResult) {
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
+
+  return ClangFECompilerMaterializeSPIRTask(pProgDesc)
+      .MaterializeSPIR(pBinaryResult);
+}
+
 int ClangFECompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                                       const char *szKernelName,
                                       IOCLFEKernelArgInfo **pArgInfo) {
-  assert(nullptr != pBin);
-  assert(nullptr != szKernelName);
-  assert(nullptr != pArgInfo);
+  assert(nullptr != pBin && "Binary can't be null");
+  assert(nullptr != szKernelName && "Kernel name is required");
+  assert(nullptr != pArgInfo && "Result parameter can't be null");
 
   return ClangFECompilerGetKernelArgInfoTask().GetKernelArgInfo(
       pBin, uiBinarySize, szKernelName, pArgInfo);
@@ -143,8 +152,8 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
   // Lazy initialization
   ClangCompilerInitialize();
 
-  assert(nullptr != pFECompiler);
-  assert(devInfoSize == sizeof(CLANG_DEV_INFO));
+  assert(nullptr != pFECompiler && "Front-end compiler can't be null");
+  assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
 
   g_pUserLogger = pUserLogger;
 

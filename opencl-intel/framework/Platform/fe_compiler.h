@@ -138,6 +138,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                OUT char**     pszCompileLog) const;
 
         /******************************************************************************************
+        * Function:     MaterializeSPIR
+        * Description:  Converts SPIR 1.2 binary to LLVM IR form compatible with OpenCL compiler.
+        * Arguments:    szProgramBinary - SPIR 1.2 program binary.
+                        uiProgramBinarySize - SPIR 1.2 probram binary size
+        * Output:       ppBinary - materialized binary container.
+        *               puiBinarySize - pBinary size in bytes.
+        *               pszCompileLog - compile log string.
+        * Return value: CL_SUCCESS - The operation succeeded.
+        ******************************************************************************************/
+        cl_err_code MaterializeSPIR(const char*    szProgramBinary,
+                                    unsigned int   uiProgramBinarySize,
+                                    OUT char**     ppBinary,
+                                    OUT size_t*    puiBinarySize,
+                                    OUT char**     pszCompileLog) const;
+
+        /******************************************************************************************
         * Function:     LinkProgram    
         * Description:  Compile source code and return binary data
         * Arguments:    ppBinaries - array of binary containers to be link together
@@ -242,6 +258,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
     
     private:
         FrontEndCompiler& operator=(const FrontEndCompiler&);
+        cl_err_code ProcessResults(cl_err_code Error,
+                                   IOCLFEBinaryResult *Result, char **Binary,
+                                   size_t *BinarySize, char **CompileLog) const;
     };
-
 }}}

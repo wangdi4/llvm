@@ -23,6 +23,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <algorithm>
 
+// TODO: get better name to this pass.
+// SPIR materialization now happens in front-end.
+// This pass updates pipe built-in calls for FPGA emulator.
+// TODO: move data layout materialization to separate pass or optimizer.
+
 using namespace llvm;
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -34,79 +39,7 @@ const char *PC_LIN32 = "i686-pc-linux";            // Used for Android.
 const char *PC_WIN32 = "i686-pc-win32-msvc-elf";   // Win 32 bit.
 const char *PC_WIN64 = "x86_64-pc-win32-msvc-elf"; // Win 64 bit.
 
-static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
-  if (auto PT = dyn_cast<PointerType>(Ty))
-    if (auto ST = dyn_cast<StructType>(PT->getElementType()))
-      if (ST->isOpaque())
-        return true;
-  return false;
-}
-
-static std::string updateImageTypeName(StringRef Name, StringRef Acc) {
-  std::string AccessQual = Acc.str();
-  std::string Res = Name.str();
-
-  assert(Res.find("_t") && "Invalid image type name");
-  Res.insert(Res.find("_t") + 1, AccessQual);
-
-  return Res;
-}
-
-enum SPIRAddressSpace {
-  SPIRAS_Private,
-  SPIRAS_Global,
-  SPIRAS_Constant,
-  SPIRAS_Local,
-  SPIRAS_Generic,
-  SPIRAS_Count,
-};
-
-static PointerType *getOrCreateOpaquePtrType(Module *M,
-  const std::string &Name) {
-  auto OpaqueType = M->getTypeByName(Name);
-  if (!OpaqueType)
-    OpaqueType = StructType::create(M->getContext(), Name);
-  return PointerType::get(OpaqueType, SPIRAS_Global);
-}
-
-static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
-  assert(isPointerToOpaqueStructType(T) && "Invalid type");
-  auto Name = T->getPointerElementType()->getStructName();
-#define CASE(X, Y) StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
-  return StringSwitch<reflection::TypePrimitiveEnum>(Name)
-    .CASE(1d_ro_t, 1D_RO_T)
-    .CASE(1d_wo_t, 1D_WO_T)
-    .CASE(1d_rw_t, 1D_RW_T)
-    .CASE(2d_ro_t, 2D_RO_T)
-    .CASE(2d_wo_t, 2D_WO_T)
-    .CASE(2d_rw_t, 2D_RW_T)
-    .CASE(3d_ro_t, 3D_RO_T)
-    .CASE(3d_wo_t, 3D_WO_T)
-    .CASE(3d_rw_t, 3D_RW_T)
-    .CASE(1d_array_ro_t, 1D_ARRAY_RO_T)
-    .CASE(1d_array_wo_t, 1D_ARRAY_WO_T)
-    .CASE(1d_array_rw_t, 1D_ARRAY_RW_T)
-    .CASE(1d_buffer_ro_t, 1D_BUFFER_RO_T)
-    .CASE(1d_buffer_wo_t, 1D_BUFFER_WO_T)
-    .CASE(1d_buffer_rw_t, 1D_BUFFER_RW_T)
-    .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
-    .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
-    .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
-    .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
-    .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
-    .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
-    .CASE(2d_array_ro_t, 2D_ARRAY_RO_T)
-    .CASE(2d_array_wo_t, 2D_ARRAY_WO_T)
-    .CASE(2d_array_rw_t, 2D_ARRAY_RW_T)
-    .CASE(2d_depth_ro_t, 2D_DEPTH_RO_T)
-    .CASE(2d_depth_wo_t, 2D_DEPTH_WO_T)
-    .CASE(2d_depth_rw_t, 2D_DEPTH_RW_T)
-    .Default(reflection::PRIMITIVE_NONE);
-}
-
 // Basic block functors, to be applied on each block in the module.
-// 1. Replaces calling conventions in calling sites.
-// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
 class MaterializeBlockFunctor : public BlockFunctor {
 public:
   MaterializeBlockFunctor(BuiltinLibInfo &BLI) : BLI(BLI) {}
@@ -116,8 +49,6 @@ public:
     for (llvm::BasicBlock::iterator b = BB.begin(), e = BB.end(); e != b; ++b) {
       if (llvm::CallInst *CI = llvm::dyn_cast<llvm::CallInst>(&*b)) {
         m_isChanged |= changeCallingConv(CI);
-        m_isChanged |= changeImageCall(CI, InstToRemove);
-        m_isChanged |= changeAddrSpaceCastCall(CI);
 #ifdef BUILD_FPGA_EMULATOR
         m_isChanged |= changePipeCall(CI, InstToRemove);
 #endif
@@ -135,101 +66,6 @@ public:
     if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
         (llvm::CallingConv::SPIR_KERNEL == CI->getCallingConv())) {
       CI->setCallingConv(llvm::CallingConv::C);
-      return true;
-    }
-
-    return false;
-  }
-
-  bool changeImageCall(llvm::CallInst *CI,
-                       llvm::SmallVectorImpl<Instruction *> &InstToRemove) {
-    auto *F = CI->getCalledFunction();
-    if (!F)
-      return false;
-
-    StringRef FName = F->getName();
-    if (!isMangledName(FName.data()))
-      return false;
-
-    // Update image type names with image access qualifiers
-    if (FName.find("image") == std::string::npos)
-      return false;
-
-    auto FD = demangle(FName.data());
-    auto AccQ = StringSwitch<std::string>(FD.name)
-      .Case("write_imagef", "wo_")
-      .Case("write_imagei", "wo_")
-      .Case("write_imageui", "wo_")
-      .Default("ro_");
-    auto ImgArg = CI->getArgOperand(0);
-    auto ImgArgTy = ImgArg->getType();
-    assert(isPointerToOpaqueStructType(ImgArgTy) &&
-           "Expect image type argument");
-    auto STName = ImgArgTy->getPointerElementType()->getStructName();
-    assert(STName.startswith("opencl.image") &&
-           "Expect image type argument");
-    if (STName.find("_ro_t") != std::string::npos ||
-        STName.find("_wo_t") != std::string::npos ||
-        STName.find("_rw_t") != std::string::npos)
-      return false;
-    std::vector<Value *> Args;
-    std::vector<Type *> ArgTys;
-    ArgTys.push_back(
-        getOrCreateOpaquePtrType(CI->getParent()->getModule(),
-                                 updateImageTypeName(STName, AccQ)));
-    Args.push_back(BitCastInst::CreatePointerCast(CI->getArgOperand(0),
-                                                  ArgTys[0], "", CI));
-    for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
-      Args.push_back(CI->getArgOperand(i));
-      ArgTys.push_back(CI->getArgOperand(i)->getType());
-    }
-    auto *FT = FunctionType::get(F->getReturnType(), ArgTys, F->isVarArg());
-    dyn_cast<reflection::PrimitiveType>(
-        (reflection::ParamType *)FD.parameters[0])
-      ->setPrimitive(getPrimitiveType(ArgTys[0]));
-    auto NewName = mangle(FD);
-
-    // Check if a new function is already added to the module.
-    auto NewF = F->getParent()->getFunction(NewName);
-    if (!NewF) {
-      // Create function with updated name
-      NewF = Function::Create(FT, F->getLinkage(), NewName);
-      NewF->copyAttributesFrom(F);
-
-      F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
-    }
-
-    CallInst *New = CallInst::Create(NewF, Args, "", CI);
-    //assert(New->getType() == Call->getType());
-    New->setCallingConv(CI->getCallingConv());
-    New->setAttributes(NewF->getAttributes());
-    if (CI->isTailCall())
-      New->setTailCall();
-    New->setDebugLoc(CI->getDebugLoc());
-
-    // Replace old call instruction with updated one
-    CI->replaceAllUsesWith(New);
-    InstToRemove.push_back(CI);
-
-    return true;
-  }
-
-  bool changeAddrSpaceCastCall(llvm::CallInst *CI) {
-    auto *F = CI->getCalledFunction();
-    if (!F)
-      return false;
-
-    StringRef FName = F->getName();
-    if (!isMangledName(FName.data()))
-      return false;
-
-    // Updates address space qualifier function names with unmangled ones
-    if (FName.find("to_global") != std::string::npos ||
-        FName.find("to_local") != std::string::npos ||
-        FName.find("to_private") != std::string::npos) {
-      reflection::FunctionDescriptor FD = demangle(FName.data());
-      F->setName("__" + FD.name);
-
       return true;
     }
 
@@ -315,20 +151,19 @@ private:
 };
 
 // Function functor, to be applied for every function in the module.
-// 1. Delegates call to basic-block functors.
-// 2. Replaces calling conventions of function declarations.
+// Delegates call to basic-block functors.
 class MaterializeFunctionFunctor : public FunctionFunctor {
 public:
   MaterializeFunctionFunctor(BuiltinLibInfo &BLI): BLI(BLI) {}
 
   void operator()(llvm::Function &F) {
-    MaterializeBlockFunctor bbMaterializer(BLI);
     llvm::CallingConv::ID CConv = F.getCallingConv();
     if (llvm::CallingConv::SPIR_FUNC == CConv ||
         llvm::CallingConv::SPIR_KERNEL == CConv) {
       F.setCallingConv(llvm::CallingConv::C);
       m_isChanged = true;
     }
+    MaterializeBlockFunctor bbMaterializer(BLI);
     std::for_each(F.begin(), F.end(), bbMaterializer);
     m_isChanged |= bbMaterializer.isChanged();
   }
@@ -337,82 +172,44 @@ private:
   BuiltinLibInfo &BLI;
 };
 
+static void WarpFunctionMetadata(Module &M) {
+  if (M.getNamedMetadata("opencl.kernels") != NULL)
+    return;
 
-static void WarpFunctionMetadata(Module& M)
-{
-    if (M.getNamedMetadata("opencl.kernels") != NULL)
-        return;
+  auto OpenCLKernels = M.getOrInsertNamedMetadata("opencl.kernels");
+  for (auto &Func : M) {
+    if (Func.getCallingConv() == CallingConv::SPIR_KERNEL) {
 
-    auto opencl_kernels = M.getOrInsertNamedMetadata("opencl.kernels");
-    for (auto &Func : M)
-    {
-        if (Func.getCallingConv() == CallingConv::SPIR_KERNEL)
-        {
+      llvm::SmallVector<StringRef, 7> Names = {
+          "kernel_arg_addr_space", "kernel_arg_access_qual",
+          "kernel_arg_type",       "kernel_arg_base_type",
+          "kernel_arg_type_qual",  "kernel_arg_name",
+          "vec_type_hint",         "work_group_size_hint",
+          "reqd_work_group_size"};
 
-            llvm::SmallVector< StringRef, 7> Names = {
-                "kernel_arg_addr_space",
-                "kernel_arg_access_qual",
-                "kernel_arg_type",
-                "kernel_arg_base_type",
-                "kernel_arg_type_qual",
-                "kernel_arg_name"
-            };
+      llvm::SmallVector<Metadata *, 7> Args;
+      Args.push_back(ConstantAsMetadata::get(&Func));
 
-            llvm::SmallVector<Metadata *,7> Args;
-            Args.push_back(ConstantAsMetadata::get(&Func));
+      for (const auto &I : Names) {
+        auto First = MDString::get(M.getContext(), I);
+        auto Second = Func.getMetadata(I);
+        if (!Second)
+          continue; // No such metadata.
 
-            for (auto i : Names)
-            {
-                auto first = MDString::get(M.getContext(), i);
-                auto second = Func.getMetadata(i);
-                if(!second) continue; // No such metadata.
-
-                llvm::SmallVector<Metadata*, 2> Mdvector;
-                Mdvector.push_back(first);
-                for (unsigned int ops = 0; ops < second->getNumOperands(); ops++)
-                {
-                    Mdvector.push_back(second->getOperand(ops));
-                }
-                Args.push_back(MDTuple::get(M.getContext(),Mdvector));
-            }
-
-            opencl_kernels->addOperand(MDTuple::get(M.getContext(), Args));
+        llvm::SmallVector<Metadata *, 2> Mdvector;
+        Mdvector.push_back(First);
+        for (auto &O : Second->operands()) {
+          Mdvector.push_back(O);
         }
-    }
-}
+        Args.push_back(MDTuple::get(M.getContext(), Mdvector));
+      }
 
-static void updateMetadata(llvm::Module &M) {
-  llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
-  if (!Kernels) return;
-  for (auto *Kernel : Kernels->operands()) {
-    auto I = Kernel->op_begin();
-    auto Func = llvm::mdconst::dyn_extract<llvm::Function>(*I);
-    for (++I; I != Kernel->op_end(); ++I) {
-      auto *KernelAttr = cast<MDNode>(*I);
-      auto AttrIt = KernelAttr->op_begin();
-      MDString *AttrName = cast<MDString>(*AttrIt);
-      std::vector<Metadata*> Operands;
-      for (++AttrIt; AttrIt != KernelAttr->op_end(); ++AttrIt)
-        Operands.push_back(*AttrIt);
-      if (AttrName->getString() == "vec_type_hint" ||
-          AttrName->getString() == "work_group_size_hint" ||
-          AttrName->getString() == "reqd_work_group_size" ||
-          AttrName->getString() == "max_work_group_size" ||
-          AttrName->getString() == "intel_reqd_sub_group_size" ||
-          AttrName->getString() == "kernel_arg_addr_space" ||
-          AttrName->getString() == "kernel_arg_access_qual" ||
-          AttrName->getString() == "kernel_arg_type" ||
-          AttrName->getString() == "kernel_arg_base_type" ||
-          AttrName->getString() == "kernel_arg_name" ||
-          AttrName->getString() == "kernel_arg_type_qual")
-        Func->setMetadata(AttrName->getString(),
-                          llvm::MDNode::get(M.getContext(), Operands));
+      OpenCLKernels->addOperand(MDTuple::get(M.getContext(), Args));
     }
   }
 }
-//
+
 // SpirMaterializer
-//
 
 char SpirMaterializer::ID = 0;
 
@@ -428,11 +225,9 @@ SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
 
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
+  WarpFunctionMetadata(Module);
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
-
-  updateMetadata(Module);
-  WarpFunctionMetadata(Module);
 
   MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions

@@ -35,6 +35,10 @@ public:
       Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor *pProgDesc,
       IOCLFEBinaryResult **pBinaryResult);
 
+  int MaterializeSPIR(
+      Intel::OpenCL::FECompilerAPI::FESPIRProgramDescriptor *pProgDesc,
+      IOCLFEBinaryResult **pBinaryResult);
+
   int GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                        const char *szKernelName,
                        Intel::OpenCL::ClangFE::IOCLFEKernelArgInfo **pArgInfo);

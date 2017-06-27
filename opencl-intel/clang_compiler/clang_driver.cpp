@@ -9,8 +9,10 @@
 // ===--------------------------------------------------------------------===
 #include "stdafx.h"
 
-#include "cache_binary_handler.h"
 #include "clang_driver.h"
+
+#include "cache_binary_handler.h"
+#include "SPIRMaterializer.h"
 #include "common_clang.h"
 #include "elf_binary.h"
 #include "mic_dev_limits.h"
@@ -22,10 +24,12 @@
 
 #include <spirv/1.0/spirv.hpp>
 
+#include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SPIRV.h>
 #include <llvm/Support/SwapByteOrder.h>
 #include <llvm/Support/raw_ostream.h>
@@ -119,8 +123,6 @@ std::string GetCurrentDir() {
 }
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
-  LogErrorA("%s", "enter");
-
   bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") !=
                     std::string::npos;
   bool bRelaxedMath =
@@ -458,6 +460,39 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
   }
 
   return isParsed ? CL_SUCCESS : CL_INVALID_PROGRAM;
+}
+
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
+    IOCLFEBinaryResult **pBinaryResult) {
+  std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
+
+  std::unique_ptr<llvm::LLVMContext> C(new llvm::LLVMContext());
+  auto MemBuff = llvm::MemoryBuffer::getMemBuffer(
+      llvm::StringRef((const char *)m_pProgDesc->pSPIRContainer,
+                      (size_t)m_pProgDesc->uiSPIRContainerSize),
+      "", false);
+  auto ModuleOrErr = parseBitcodeFile(*MemBuff.get(), *C.get());
+  if (!ModuleOrErr) {
+    if (pBinaryResult) {
+      pResult->setLog("Can't parse SPIR 1.2 module\n");
+      *pBinaryResult = pResult.release();
+    }
+    return CL_INVALID_PROGRAM;
+  }
+  llvm::Module *pModule = ModuleOrErr.get().get();
+  int res = intel::MaterializeSPIR(*pModule);
+
+  llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+  llvm::WriteBitcodeToFile(pModule, ir_ostream);
+
+  pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
+  pResult->setIRName(pModule->getName());
+
+
+  if (pBinaryResult) {
+    *pBinaryResult = pResult.release();
+  }
+  return res;
 }
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(
