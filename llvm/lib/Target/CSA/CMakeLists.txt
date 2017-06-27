@@ -37,6 +37,7 @@ add_llvm_target(CSACodeGen
   CSAExpandInlineAsm.cpp
   CSAMemopOrdering.cpp
   CSAFortranIntrinsics.cpp
+  CSANormalizeDebugPass.cpp
   )
 
 add_subdirectory(AsmParser)

@@ -194,6 +194,10 @@ public:
     Banner = std::string("After CSADeadInstructionElim");
     DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
 
+    addPass(createCSANormalizeDebugPass(), false);
+    Banner = std::string("After CSANormalizeDebug");
+    DEBUG(addPass(createMachineFunctionPrinterPass(errs(), Banner), false));
+
     if (RunCSAStatistics) {
       addPass(createCSAStatisticsPass(), false);
     }

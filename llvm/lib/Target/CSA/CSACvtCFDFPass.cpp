@@ -959,6 +959,11 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
         if (MO->isUse()) {
+          // Skip disconnected DBG_VALUE vregs
+          if (MRI->def_empty(Reg)) {
+            assert(MI->isDebugValue() && "vreg with no def?");
+            continue;
+          }
           MachineInstr *DefMI = MRI->getVRegDef(Reg);
           MachineBasicBlock *dmbb = DefMI->getParent();
           MachineLoop* dmloop = MLI->getLoopFor(dmbb);
@@ -1475,6 +1480,7 @@ void CSACvtCFDFPass::createFIEntryDefs() {
   // just replace the operand.
   for (MachineOperand *mo : toReplace) {
     int index = mo->getIndex();
+    assert(fiVRegMap.find(index) != fiVRegMap.end());
     unsigned vReg = fiVRegMap[index];
     MachineInstr *oldInst = mo->getParent();
 
@@ -1485,14 +1491,17 @@ void CSACvtCFDFPass::createFIEntryDefs() {
       unsigned oldVReg = oldInst->getOperand(0).getReg();
       MRI->replaceRegWith(oldVReg, vReg);
       oldInst->eraseFromParent();
+    } else if (oldInst->isDebugValue()) {
+      // Replace the FI operand with the new vReg.
+      mo->ChangeToRegister(vReg, false);
     } else {
       // This is an assert because I'm not sure that it ever happens.
-      assert(false && "Found a non-MOV use of a frame index. This is not handled.");
+      assert(false && "Found a non-MOV, non-Debug use of a frame index. This is not handled.");
       // If it does, replacing the use with the new vReg is the thing to do,
       // but doing this (below) alone doesn't seem to be sufficient to get the
       // values correctly passed through picks/switchs. Needs debugging.
 
-      // Just replace the FI operand with our new vReg.
+      // Whatever it is, can we replace the FI operand with our new vReg?
       mo->ChangeToRegister(vReg, false);
     }
   }
@@ -2582,6 +2591,11 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (!MO->isReg() || !TargetRegisterInfo::isVirtualRegister(MO->getReg())) continue;
         unsigned Reg = MO->getReg();
+        // Skip DebugValues with no defs.
+        if (MRI->def_empty(Reg)) {
+          assert(MI->isDebugValue() && "vreg with no def?");
+          continue;
+        }
         if (MO->isUse()) {
           MachineInstr* dMI = MRI->getVRegDef(Reg);
           MachineBasicBlock* DefBB = dMI->getParent();
