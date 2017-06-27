@@ -5,4 +5,9 @@
 
 extern "C" {
 void *malloc(__SIZE_TYPE__);
+
+#if INTEL_CUSTOMIZATION
+void MyFunc() __attribute__((__weak__));
+void MyFunc() { return; }
+#endif // INTEL_CUSTOMIZATION
 }
