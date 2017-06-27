@@ -1884,6 +1884,58 @@ static const StringRef GetInputKindName(InputKind IK) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Get the appropriate g++ ABI version for this invocation.
+// If the user has specified a non-zero ABI version, return that.
+// If the user has specified an ABI version of 0, return the highest ABI 
+// version supported in the current g++ version 
+// Otherwise, return the ABI version that is the default in the current
+// g++ version
+static int getGNUFABIVersion(bool hasFABIVersionArg, 
+                             int specifiedABIVersion,
+                             int GNUVersion) {
+  int appropriateABIVersion = 0;
+
+  if (hasFABIVersionArg && specifiedABIVersion != 0)
+    return specifiedABIVersion;
+  if (GNUVersion >= 70000)
+    appropriateABIVersion = 11;
+  else if (GNUVersion >= 60100)
+    appropriateABIVersion = 10;
+  else if (GNUVersion >= 50000) // Note GNU doc says 5.2
+    appropriateABIVersion = 9;
+  else if (GNUVersion >= 40900) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 8;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40800) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 7;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40700) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 6;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40600) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 5;
+    else
+      appropriateABIVersion = 2;
+  } else if (GNUVersion >= 40500) {
+    if (hasFABIVersionArg)
+      appropriateABIVersion = 4;
+    else
+      appropriateABIVersion = 2;
+  } else
+    appropriateABIVersion = 2;
+
+  return appropriateABIVersion;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                           const TargetOptions &TargetOpts,
                           PreprocessorOptions &PPOpts,
@@ -2034,6 +2086,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                                        40500,
 #endif // INTEL_SPECIFIC_IL0_BACKEND
                                        Diags);
+
+  // cmplrs-417: Get the appropriate FABI version to emulate
+  Opts.GNUFABIVersion = getGNUFABIVersion(Args.hasArg(OPT_gnu_fabi_version_EQ),
+                                          Opts.GNUFABIVersion,
+                                          Opts.GNUVersion);
+
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
                                      Opts.GNUVersion >= 40400);
   // CQ376358: Support -ffriend-injection option.
