@@ -361,6 +361,12 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
     MachineBasicBlock *MBB = MF->getBlockNumbered(WorkList[i]);
 
 #ifndef NDEBUG
+// CSA EDIT: our handling of LICs as physical registers which are not in
+// allocatable RCs results in us failing verify(). (E.g., "CI64_8 is not a
+// I64", "CI1_32 is not a I0", etc.) For now, skip just so that
+// LiveDebugVariables will have a chance of working when "-g" is used. Also see
+// the other CSA EDIT's comments below.
+#if 0
     if (MBB->pred_empty()) {
       MBB->getParent()->verify();
       errs() << "Use of " << PrintReg(PhysReg)
@@ -380,6 +386,7 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
              << ", but is missing from the live-in list.\n";
       report_fatal_error("Invalid global physical register");
     }
+#endif // 0 -- CSA EDIT
 #endif
     FoundUndef |= MBB->pred_empty();
 
@@ -432,6 +439,18 @@ bool LiveRangeCalc::findReachingDefs(LiveRange &LR, MachineBasicBlock &UseMBB,
   // neither require it. Skip the sorting overhead for small updates.
   if (WorkList.size() > 4)
     array_pod_sort(WorkList.begin(), WorkList.end());
+
+  // CSA EDIT/fix:
+  // We're on thin ice here. Once dataflow conversion has happened, many basic
+  // LLVM assumptions are invalidated. For example, a dataflow loop has no
+  // branches, and thus appears to LLVM to include a use before its def.
+  // Unfortunately, processing and emitting DBG_VALUEs currently requires
+  // LiveRangeCalc. This is a hack to allow LiveRangeCalc (and thus
+  // LiveDebugVariables) to work more often. If "-g" is not used, then this is
+  // not necessary.
+  if (UniqueVNI && TheVNI==nullptr) {
+    UniqueVNI = false;
+  }
 
   // If a unique reaching def was found, blit in the live ranges immediately.
   if (UniqueVNI) {
