@@ -15,6 +15,7 @@
 
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/Support/Debug.h"
@@ -355,8 +356,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
     // If BaseCE's dest type is different that the src type, it refers to Ref's
     // destination type.
     if (!IsSrc && (BaseSrcTy != BaseDestTy)) {
-      return isAddressOf() ? BaseDestTy
-                           : BaseDestTy->getPointerElementType();
+      return isAddressOf() ? BaseDestTy : BaseDestTy->getPointerElementType();
     }
 
     // Extract the type from the first dimension/offsets.
@@ -382,9 +382,7 @@ Type *RegDDRef::getTypeImpl(bool IsSrc) const {
 }
 
 bool RegDDRef::accessesStruct() const {
-  if (!hasGEPInfo()) {
-    return false;
-  }
+  assert(hasGEPInfo() && "GEP ref expected!");
 
   auto BaseTy = getBaseSrcType()->getPointerElementType();
 
@@ -395,23 +393,23 @@ bool RegDDRef::accessesStruct() const {
   return BaseTy->isStructTy();
 }
 
-bool RegDDRef::accessesConstantArray() const {
-  if (!hasGEPInfo()) {
-    return false;
-  }
+Value *RegDDRef::getTempBaseValue() const {
+  assert(hasGEPInfo() && "GEP ref expected!");
 
   auto BaseCE = getBaseCE();
 
+  // Standalone check allows conversion in the base.
   if (!BaseCE->isStandAloneBlob()) {
-    return false;
+    return nullptr;
   }
 
-  auto Val =
-      BaseCE->getBlobUtils().getTempBlobValue(BaseCE->getSingleBlobIndex());
+  auto Blob = getBlobUtils().getBlob(BaseCE->getSingleBlobIndex());
 
-  auto GlobalVar = dyn_cast<GlobalVariable>(Val);
+  if (!BlobUtils::isTempBlob(Blob)) {
+    return nullptr;
+  }
 
-  return (GlobalVar && GlobalVar->isConstant());
+  return BlobUtils::getTempBlobValue(Blob);
 }
 
 bool RegDDRef::isLval() const {

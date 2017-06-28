@@ -18,6 +18,8 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/Casting.h"
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
@@ -295,8 +297,43 @@ public:
   /// Returns true if the Ref accesses a structure.
   bool accessesStruct() const;
 
+  /// Returns underlying LLVM value of the base if it is a temp, otherwise
+  /// returns nullptr.
+  Value *getTempBaseValue() const;
+
+  /// Returns true if the Ref accesses a global variable.
+  bool accessesGlobalVar() const {
+    auto BaseVal = getTempBaseValue();
+
+    if (!BaseVal) {
+      return false;
+    }
+
+    return isa<GlobalVariable>(BaseVal);
+  }
+
+  /// Returns true if the Ref accesses an internal global variable.
+  bool accessesInternalGlobalVar() const {
+    auto GlobalVar = dyn_cast_or_null<GlobalVariable>(getTempBaseValue());
+    return (GlobalVar && GlobalVar->hasInternalLinkage());
+  }
+
   /// Returns true if the Ref accesses a constant array.
-  bool accessesConstantArray() const;
+  bool accessesConstantArray() const {
+    auto GlobalVar = dyn_cast_or_null<GlobalVariable>(getTempBaseValue());
+    return (GlobalVar && GlobalVar->isConstant());
+  }
+
+  /// Returns true if Ref is an alloca access.
+  bool accessesAlloca() const {
+    auto BaseVal = getTempBaseValue();
+
+    if (!BaseVal) {
+      return false;
+    }
+
+    return isa<AllocaInst>(BaseVal);
+  }
 
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return getGEPInfo()->BaseCE; }
@@ -834,6 +871,6 @@ namespace std {
 template <> struct default_delete<llvm::loopopt::RegDDRef> {
   void operator()(llvm::loopopt::RegDDRef *Ref) const;
 };
-}
+} // namespace std
 
 #endif
