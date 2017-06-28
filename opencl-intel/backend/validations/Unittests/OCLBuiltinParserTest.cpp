@@ -65,7 +65,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::SHORT,  args[1].basicType);
 
 ///////////////////////////////////////////////////////////////////////////////////////
-    OCLBuiltinParser::ParseOCLBuiltin("_Z6vload4jPKU3AS1f", BIStr, args);
+    OCLBuiltinParser::ParseOCLBuiltin("_Z6vload4jPU3AS1Kf", BIStr, args);
     EXPECT_EQ("vload4", BIStr);
     EXPECT_EQ(2U, args.size());
 
@@ -73,7 +73,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::UINT,  args[0].basicType);
 
     EXPECT_EQ(OCLBuiltinParser::POINTER, args[1].genType);
-    EXPECT_EQ("__global const float *", args[1].ptrType.ptrToStr);
+    EXPECT_EQ("const __global float *", args[1].ptrType.ptrToStr);
     EXPECT_EQ(OCLBuiltinParser::BASIC, args[1].ptrType.ptrType[0].genType);
     EXPECT_EQ(OCLBuiltinParser::FLOAT, args[1].ptrType.ptrType[0].basicType);
     EXPECT_EQ(true, args[1].ptrType.isAddrSpace);
@@ -128,7 +128,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::FLOAT, args[2].vecType.elType);
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    OCLBuiltinParser::ParseOCLBuiltin("_Z10atomic_addPVU3AS1ii", BIStr, args);
+    OCLBuiltinParser::ParseOCLBuiltin("_Z10atomic_addPU3AS1Vii", BIStr, args);
     EXPECT_EQ("atomic_add", BIStr);
     EXPECT_EQ(2U, args.size());
 
@@ -142,7 +142,7 @@ TEST(OCLBuiltinParser, BuiltinDetection)
     EXPECT_EQ(OCLBuiltinParser::INT, args[1].basicType);
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    OCLBuiltinParser::ParseOCLBuiltin("_Z21async_work_group_copyPU3AS3cPKU3AS1cjj", BIStr, args);
+    OCLBuiltinParser::ParseOCLBuiltin("_Z21async_work_group_copyPU3AS3cPU3AS1Kcjj", BIStr, args);
     EXPECT_EQ("async_work_group_copy", BIStr);
     EXPECT_EQ(4U, args.size());
 
@@ -275,5 +275,5 @@ TEST(OCLBuiltinParser, BuiltinMangling)
 
     std::string mangledName;
     OCLBuiltinParser::GetOCLMangledName(bltName, args, mangledName);
-    EXPECT_EQ("_Z6vload2jPKU3AS1c", mangledName);
+    EXPECT_EQ("_Z6vload2jPU3AS1Kc", mangledName);
 }
