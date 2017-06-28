@@ -992,7 +992,7 @@ void AVRCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
     // Using the newly created vector call arguments, generate the vector
     // call instruction and extract the low element.
     Function *VectorF =
-      getOrInsertVectorFunction(F, VL, ArgTys, TLI,
+      getOrInsertVectorFunction(Call, VL, ArgTys, TLI,
                                 Intrinsic::not_intrinsic,
                                 nullptr/*simd function*/,
                                 false/*non-masked*/);
@@ -1619,7 +1619,7 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
       Masked = true;
     }
 
-    Function *VectorF = getOrInsertVectorFunction(Fn, VL, ArgTys, TLI, ID,
+    Function *VectorF = getOrInsertVectorFunction(Call, VL, ArgTys, TLI, ID,
                                                   nullptr, Masked);
     assert(VectorF && "Can't create vector function.");
 

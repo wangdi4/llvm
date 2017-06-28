@@ -663,6 +663,18 @@ private:
 
   void vectorizeReductionPHI(PHINode *Inst);
 
+#if INTEL_OPENCL
+  // Vectorize the write channel source argument for an OpenCL write channel
+  // call. The source is the data that will be written to the channel.
+  Value* vectorizeOpenCLWriteChannelSrc(Value *CallOp);
+
+  // Vectorize the read channel destination for an OpenCL read channel call.
+  // The destination is the location where the data from the channel call will
+  // be written to.
+  void vectorizeOpenCLReadChannelDest(CallInst *Call, CallInst *VecCall,
+                                      Value *CallOp);
+#endif // INTEL_OPENCL
+
   // Return a vector Vl wide: <Val, Val + Stride,
   // ... VAL + (VF - 1) * Stride>
   Value *getStrideVector(Value *Val, Value *Stride);

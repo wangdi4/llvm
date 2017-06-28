@@ -611,7 +611,40 @@ void llvm::getFunctionsToVectorize(
   }
 }
 
-Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
+#if INTEL_OPENCL
+bool llvm::isOpenCLReadChannel(StringRef FnName) {
+  return (FnName == "__read_pipe_2_bl_intel");
+}
+
+bool llvm::isOpenCLWriteChannel(StringRef FnName) {
+  return (FnName == "__write_pipe_2_bl_intel");
+}
+
+bool llvm::isOpenCLReadChannelDest(StringRef FnName, unsigned i) {
+  return (isOpenCLReadChannel(FnName) && i == 1);
+}
+
+bool llvm::isOpenCLWriteChannelSrc(StringRef FnName, unsigned i) {
+  return (isOpenCLWriteChannel(FnName) && i == 1);
+}
+
+Value* llvm::getOpenCLReadChannelDestAlloc(const CallInst *Call) {
+
+  AddrSpaceCastInst *Arg = dyn_cast<AddrSpaceCastInst>(Call->getArgOperand(1));
+
+  assert(Arg && "Expected addrspacecast in traceback of __read_pipe argument");
+
+  BitCastInst *ArgCast = dyn_cast<BitCastInst>(Arg->getOperand(0));
+  assert(ArgCast && "Expected bitcast in traceback of __read_pipe argument");
+
+  AllocaInst *ReadDst = dyn_cast<AllocaInst>(ArgCast->getOperand(0));
+  assert(ReadDst && "Expected alloca in traceback of __read_pipe argument");
+
+  return ReadDst;
+}
+#endif // INTEL_OPENCL
+
+Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
                                           SmallVectorImpl<Type*> &ArgTys,
                                           TargetLibraryInfo *TLI,
                                           Intrinsic::ID ID,
@@ -621,6 +654,7 @@ Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
   // OrigF is the original scalar function being called. Widen the scalar
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
+  Function *OrigF = Call->getCalledFunction();
   StringRef FnName = OrigF->getName();
   if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant) {
     return nullptr;
@@ -666,10 +700,35 @@ Function* llvm::getOrInsertVectorFunction(Function *OrigF, unsigned VL,
       // isFunctionVectorizable() returned true, so it is guaranteed that
       // the svml function exists and the call is legal. Generate a declaration
       // for it if one does not already exist.
+#if INTEL_OPENCL
+      if (isOpenCLReadChannel(FnName)) {
+        // The return type of the vector read channel call is a vector of the
+        // pointer element type of the read destination pointer alloca. The
+        // function call below traces back through bitcast instructions to
+        // find the alloca.
+        Value *ReadDst = getOpenCLReadChannelDestAlloc(Call);
+        VecRetTy =
+          VectorType::get(ReadDst->getType()->getPointerElementType(), VL);
+      }
+      if (isOpenCLWriteChannel(FnName)) {
+        VecRetTy = RetTy;
+      }
+#endif // INTEL_OPENCL
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
-      VectorF =
-        Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-      VectorF->copyAttributesFrom(OrigF);
+      VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      // Note: The function signature is different for the vector version of
+      // these functions. E.g., in the case of __read_pipe the 2nd parameter
+      // is dropped, and for __write_pipe the 2nd parameter becomes vector of
+      // float instead of a pointer. Thus, the attributes cannot blindly be
+      // copied because some attributes for the parameters on the original
+      // scalar call will be incompatible with the vector parameter types.
+      // Or, in the case of __read_pipe, the attribute for the 2nd parameter
+      // will still be copied to the vector call site and will result in an
+      // assert in the verifier because there is no longer a 2nd parameter.
+#if INTEL_OPENCL
+      if (!isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
+#endif
+        VectorF->copyAttributesFrom(OrigF);
     }
   }
 

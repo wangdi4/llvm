@@ -138,6 +138,66 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
     }
   }
 
+  OS << "{\"_Z5floorf\", \"_Z5floorDv4_f\", 4, false},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv8_f\", 8, false},\n";
+  OS << "{\"_Z5floorf\", \"_Z5floorDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z5hypotff\", \"_Z5hypotDv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv4_fS_\", 4, false},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv8_fS_\", 8, false},\n";
+  OS << "{\"_Z5atan2ff\", \"_Z5atan2Dv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int4_rteDv4_f\", 4, false},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z16convert_int8_rteDv8_f\", 8, false},\n";
+  OS << "{\"_Z15convert_int_rtef\", \"_Z17convert_int16_rteDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv4_iS_S_\", 4, false},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv8_iS_S_\", 8, false},\n";
+  OS << "{\"_Z5clampiii\", \"_Z5clampDv16_iS_S_\", 16, false},\n";
+
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv4_fS_S_\", 4, false},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv8_fS_S_\", 8, false},\n";
+  OS << "{\"_Z5clampfff\", \"_Z5clampDv16_fS_S_\", 16, false},\n";
+
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv4_fS_Dv4_i\", 4, false},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv8_fS_Dv8_i\", 8, false},\n";
+  OS << "{\"_Z6selectffi\", \"_Z6selectDv16_fS_Dv16_i\", 16, false},\n";
+
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv4_f\", 4, false},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv8_f\", 8, false},\n";
+  OS << "{\"_Z10native_sinf\", \"_Z10native_sinDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv4_f\", 4, false},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv8_f\", 8, false},\n";
+  OS << "{\"_Z10native_cosf\", \"_Z10native_cosDv16_f\", 16, false},\n";
+
+  OS << "{\"_Z3minii\", \"_Z3minDv4_iS_\", 4, false},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv8_iS_\", 8, false},\n";
+  OS << "{\"_Z3minii\", \"_Z3minDv16_iS_\", 16, false},\n";
+
+  OS << "{\"_Z3minff\", \"_Z3minDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z3minff\", \"_Z3minDv16_fS_\", 16, false},\n";
+
+  OS << "{\"_Z3maxii\", \"_Z3maxDv4_iS_\", 4, false},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv8_iS_\", 8, false},\n";
+  OS << "{\"_Z3maxii\", \"_Z3maxDv16_iS_\", 16, false},\n";
+
+  OS << "{\"_Z3maxff\", \"_Z3maxDv4_fS_\", 4, false},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", 8, false},\n";
+  OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", 16, false},\n";
+
+  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v4f32\", 4, false},\n";
+  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v8f32\", 8, false},\n";
+  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v16f32\", 16, false},\n";
+
+  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v4f32\", 4, false},\n";
+  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v8f32\", 8, false},\n";
+  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v16f32\", 16, false},\n";
+
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
 

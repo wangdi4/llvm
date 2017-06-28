@@ -803,7 +803,6 @@ void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   SmallVector<Value*, 2> VecArgs;
   SmallVector<Type*, 2> VecArgTys;
-  Function *CalledFunc = Call->getCalledFunction();
 
   for (Value *Arg : Call->arg_operands()) {
     // TODO: some args may be scalar
@@ -812,7 +811,7 @@ void AVRCodeGen::vectorizeCallInstruction(CallInst *Call) {
     VecArgTys.push_back(VecArg->getType());
   }
 
-  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VL, VecArgTys, TLI,
+  Function *VectorF = getOrInsertVectorFunction(Call, VL, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
                                                 nullptr/*simd function*/,
                                                 false/*non-masked*/);

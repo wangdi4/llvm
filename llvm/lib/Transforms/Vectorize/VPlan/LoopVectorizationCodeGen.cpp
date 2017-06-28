@@ -28,6 +28,13 @@
 
 using namespace llvm;
 
+#if INTEL_OPENCL
+static cl::opt<bool> UseSimdChannels(
+  "use-simd-channels", cl::init(false),
+  cl::Hidden,
+  cl::desc("use simd versions of read/write pipe functions"));
+#endif // INTEL_OPENCL
+
 #define DEBUG_TYPE "vpo-ir-loop-vectorize"
 
 static bool isSupportedInstructionType(Type *Ty) {
@@ -2569,6 +2576,118 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
   llvm_unreachable("Function has vector variants but could not find a match");
 }
 
+#if INTEL_OPENCL
+Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
+  // For the vector version of __write_pipe we need to get a vector for the
+  // source of the write. Since the argument to the scalar version is a pointer
+  // to the scalar alloca designated for the write source, we must trace back
+  // to this alloca and find the store to it. Then, the vector store for this
+  // instruction is found and used as the write source argument for the vector
+  // call.
+
+  Value *VecWriteSrc = nullptr;
+
+  AddrSpaceCastInst *Arg = cast<AddrSpaceCastInst>(CallOp);
+  BitCastInst *ArgCast = cast<BitCastInst>(Arg->getOperand(0));
+  AllocaInst *WriteSrc = cast<AllocaInst>(ArgCast->getOperand(0));
+  unsigned NumStoresToWriteSrc = 0;
+
+  // In scalar code, before the call to __write_pipe, there will be a store of
+  // some value to the alloca pointed to by the 2nd argument of the __write_pipe
+  // call. Once vectorized, the result of the call will be returned to a vector
+  // register instead of written to memory through the argument.
+  //
+  // Examples:
+  //
+  // Case 1 (write through bitcast):
+  //
+  // entry:
+  //   %write.src = alloca float, align 4
+  //   <snip, snip ...>
+  //   %4 = bitcast float* %write.src to i32*
+  //   %5 = bitcast float* %write.src to i8*, !dbg !301
+  //   %6 = addrspacecast i8* %5 to i8 addrspace(4)*
+  //   br <snip, snip, ...>
+  //
+  // <snip, snip, ...>
+  //
+  // for.body:
+  //   store i32 %18, i32* %4, align 4
+  //   %19 = load %struct.__pipe_t <snip, snip, ...>
+  //   %20 = call i32
+  //         @__write_pipe_2_bl_intel(%struct.__pipe_t addrspace(1)* %19,
+  //                                  i8 addrspace(4)* %6)
+  //
+  // Case 1a: sometimes only %5 bitcast is present and %4 is missing
+  //
+  // Case 2: store directly to %write.src
+  //
+  // In both cases, there should only be one store to the write src location
+  // before the call to the __write_pipe function. The widened equivalent of the
+  // value being stored is what becomes VecWriteSrc, and this becomes the 2nd
+  // parameter to the vectorized __write_pipe call. Since the algorithm relies
+  // heavily on finding a single store, make sure there are no others.
+  // Alternatively, the widened value of %4 could be used, but we still rely on
+  // finding the single store to know which value corresponding to %write.src
+  // will be used for the vector call. So, either way, the algorithm is
+  // dependent on finding that single store before the __write_pipe call.
+  //
+  SmallVector<Value*, 2> WriteSrcUsers;
+  for (auto *U : WriteSrc->users()) {
+    // Case 1: find store to %4 and get the widened value of %18.
+    if (BitCastInst *BitcastWriteSrc = dyn_cast<BitCastInst>(U)) {
+      for (auto *BU : BitcastWriteSrc->users()) {
+        WriteSrcUsers.push_back(BU);
+      }
+    } else {
+      WriteSrcUsers.push_back(U);
+    }
+  }
+
+  for (auto *U : WriteSrcUsers) {
+    if (StoreInst *StoreToWriteSrc = dyn_cast<StoreInst>(U)) {
+      DEBUG(dbgs() << "StoreToWriteSrc: " << *StoreToWriteSrc << "\n");
+      Value *StoreVal = StoreToWriteSrc->getOperand(0);
+      DEBUG(dbgs() << "StoreVal: " << *StoreVal << "\n");
+      VecWriteSrc = getVectorValue(StoreVal);
+      DEBUG(dbgs() << "VecWriteSrc: " << *VecWriteSrc << "\n");
+      NumStoresToWriteSrc++;
+    }
+  }
+
+  assert(NumStoresToWriteSrc == 1 &&
+         "Assumed single store to write src location");
+
+  VectorType *VTy = cast<VectorType>(VecWriteSrc->getType());
+  Type *ElemTy = VTy->getVectorElementType();
+  if (!ElemTy->isFloatTy()) {
+    assert(ElemTy->isIntegerTy(32) && "Expected i32 type for conversion");
+    VectorType *VecToTy =
+      VectorType::get(Type::getFloatTy(ElemTy->getContext()), VF);
+    VecWriteSrc = Builder.CreateBitCast(VecWriteSrc, VecToTy, "cast");
+  }
+
+  return VecWriteSrc;
+}
+
+void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
+                                                CallInst *VecCall,
+                                                Value *CallOp) {
+
+  Value *ReadDst = getOpenCLReadChannelDestAlloc(Call);
+  DEBUG(dbgs() << "ReadDst: " << *ReadDst << "\n");
+
+  // Write the return value from the vector call to the widened private pointer
+  // for the read destination.
+  auto VecReadDst = getVectorPrivateBase(ReadDst);
+  auto VecCallPtrType = PointerType::get(
+      VecCall->getType(), VecReadDst->getType()->getPointerAddressSpace());
+  VecReadDst =
+      Builder.CreateBitCast(VecReadDst, VecCallPtrType, "read_dst_cast");
+  Builder.CreateStore(VecCall, VecReadDst);
+}
+#endif // INTEL_OPENCL
+
 void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
                                    SmallVectorImpl<Value*> &VecArgs,
                                    SmallVectorImpl<Type*> &VecArgTys) {
@@ -2579,7 +2698,19 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
   }
 
   for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
-    if ((VecVariant && Parms[i].isVector()) || !VecVariant) {
+#if INTEL_OPENCL
+    StringRef FnName = Call->getCalledFunction()->getName();
+    if (isOpenCLReadChannelDest(FnName, i))
+      continue;
+
+    if (isOpenCLWriteChannelSrc(FnName, i)) {
+      Value *VecWriteSrc =
+        vectorizeOpenCLWriteChannelSrc(Call->getArgOperand(i));
+      VecArgs.push_back(VecWriteSrc);
+      VecArgTys.push_back(VecWriteSrc->getType());
+    } else
+#endif // INTEL_OPENCL
+    if (!VecVariant || Parms[i].isVector()) {
       // This is a vector call arg, so vectorize it.
       Value *Arg = Call->getArgOperand(i);
       Value *VecArg = getVectorValue(Arg);
@@ -2615,7 +2746,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 
   vectorizeCallArgs(Call, MatchedVariant, VecArgs, VecArgTys);
 
-  Function *VectorF = getOrInsertVectorFunction(CalledFunc, VF, VecArgTys, TLI,
+  Function *VectorF = getOrInsertVectorFunction(Call, VF, VecArgTys, TLI,
                                                 Intrinsic::not_intrinsic,
                                                 MatchedVariant,
                                                 false/*non-masked*/);
@@ -2625,11 +2756,23 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   assert(VectorF && "Can't create vector function.");
   CallInst *VecCall = Builder.CreateCall(VectorF, VecArgs);
 
-  if (isa<FPMathOperator>(VecCall))
+  // TODO: investigate why attempting to copy fast math flags for __read_pipe
+  // fails. For now, just don't do the copy.
+  if (isa<FPMathOperator>(VecCall)
+#if INTEL_OPENCL
+      && !isOpenCLReadChannel(Call->getCalledFunction()->getName())
+#endif
+  )
     VecCall->copyFastMathFlags(Call);
 
   Loop *Lp = LI->getLoopFor(Call->getParent());
   analyzeCallArgMemoryReferences(Call, VecCall, TLI, PSE.getSE(), Lp);
+
+#if INTEL_OPENCL
+  if (isOpenCLReadChannel(CalledFunc->getName())) {
+    vectorizeOpenCLReadChannelDest(Call, VecCall, Call->getArgOperand(1));
+  }
+#endif // INTEL_OPENCL
 
   WidenMap[cast<Value>(Call)] = VecCall;
 }
@@ -2813,9 +2956,19 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     StringRef CalledFunc = F->getName();
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
         F->hasFnAttribute("vector-variants"))
-      vectorizeCallInstruction(Call);
-    else
+#if INTEL_OPENCL
+      if ((isOpenCLReadChannel(CalledFunc) ||
+           isOpenCLWriteChannel(CalledFunc)) &&
+          !UseSimdChannels) {
+        DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
+        serializeWithPredication(Call);
+      } else
+#endif // INTEL_OPENCL
+        vectorizeCallInstruction(Call);
+    else {
+      DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);
+    }
     break;
   }
 
