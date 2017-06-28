@@ -937,6 +937,36 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
   RegionCount++;
 }
 
+bool HIRRegionIdentification::canHandleInnerLoopnest(
+    const Loop *CurLp, const Loop *OutermostLp) const {
+
+  // Clear existing HIR cache before processing a new loopnest/region as the
+  // cache is contextual.
+  if (CurLp == OutermostLp) {
+    SE->clearHIRCache();
+  }
+
+  // Check whether countable loop turns into non-countable loop due to inner
+  // loopnest construction. This happens when the trip count of this loop
+  // depends on an outer loop IV which has been suppressed making
+  // ScalarEvolution's analysis conservative.
+  if (SE->hasLoopInvariantBackedgeTakenCount(CurLp)) {
+    auto HIRBECount = SE->getBackedgeTakenCountForHIR(CurLp, OutermostLp);
+
+    if (isa<SCEVCouldNotCompute>(HIRBECount)) {
+      return false;
+    }
+  }
+
+  for (auto I = CurLp->begin(), E = CurLp->end(); I != E; ++I) {
+    if (!canHandleInnerLoopnest(*I, OutermostLp)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
                                                 unsigned *LoopnestDepth) {
   SmallVector<Loop *, 8> GenerableLoops;
@@ -970,7 +1000,13 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
     // in a transformation pass.
     for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
          ++I) {
-      createRegion(**I);
+      auto &Lp = **I;
+
+      if (canHandleInnerLoopnest(&Lp, &Lp)) {
+        createRegion(Lp);
+      } else {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Cannot handle inner loopnest.\n");
+      }
     }
   }
 

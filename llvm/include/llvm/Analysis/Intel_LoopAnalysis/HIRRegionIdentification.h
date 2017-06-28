@@ -141,6 +141,11 @@ private:
   /// Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 
+  /// Performs checks to see if we can handle the inner loopnest represented by
+  /// \p OutermostLp. This is only applicable when \p OutermostLp has parent
+  /// loops which have been suppressed.
+  bool canHandleInnerLoopnest(const Loop *CurLp, const Loop *OutermostLp) const;
+
   /// Returns true if we can form a region around this loop. Returns the max
   /// loopnest depth in LoopnestDepth.
   bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
