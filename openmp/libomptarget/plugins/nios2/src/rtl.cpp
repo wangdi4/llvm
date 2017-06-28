@@ -1211,6 +1211,10 @@ private:
 
         ET.resize(NumEntries);
         for (int II = 0; II < NumEntries; ++II) {
+          DP("Entry[%d] addr=0x%x\tsize=0x%x\tflags=0x%x\tname=%s\n", II,
+            TgtEntries[II].Addr, TgtEntries[II].Size, TgtEntries[II].Flags,
+            TgtImage->EntriesBegin[II].name);
+
           // Copy host entry
           ET.Entries[II] = TgtImage->EntriesBegin[II];
 
