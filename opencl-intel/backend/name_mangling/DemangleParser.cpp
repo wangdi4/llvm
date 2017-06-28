@@ -270,8 +270,8 @@ namespace reflection {
       return RefParamType();
     }
     // Try to parse CVR-qualifier one more time since
-    // Clang 4.0 mangling scheme assumes CV-qualifiers *after* vedor extensions
-    // (i.e. address space qualifiers in OpenCL case).
+    // Clang 4.0 mangling scheme assumes CV-qualifiers *after*
+    // vendor extensions (i.e. address space qualifiers in OpenCL case).
     if (attrQualifier == ATTR_NONE && !getAddressQualifier(attrQualifier)) {
       // Reachning means parsing Address Qualifier failed, return NULL;
       return RefParamType();

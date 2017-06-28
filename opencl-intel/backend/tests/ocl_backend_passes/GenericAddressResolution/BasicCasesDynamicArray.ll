@@ -21,7 +21,7 @@
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %9 to i8*
 ; CHECK-NOT: %call11 = call i8* @__to_private(i8 addrspace(4)* %13)
 ; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %13 to i8*
-; CHECK-NOT: %call13 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %18)
+; CHECK-NOT: %call13 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %18)
 ; CHECK-NOT: %call31 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr30)
 ; CHECK: %AddrSpace = addrspacecast float addrspace(4)* %add.ptr30 to float addrspace(1)*
 ; CHECK: %32 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %AddrSpace)
@@ -127,7 +127,7 @@ if.end:                                           ; preds = %if.else, %if.then
   %16 = ptrtoint i32 addrspace(4)* %15 to i32
   %17 = inttoptr i32 %16 to i32 addrspace(4)*
   %18 = bitcast i32 addrspace(4)* %17 to i8 addrspace(4)*
-  %call13 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %18)
+  %call13 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %18)
   %arrayidx14 = getelementptr inbounds [10 x i32 addrspace(4)*], [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   %19 = load i32 addrspace(4)*, i32 addrspace(4)** %arrayidx14, align 4
   %20 = bitcast i32 addrspace(4)* %19 to i8 addrspace(4)*
@@ -179,7 +179,7 @@ for.end:                                          ; preds = %for.cond
 
 declare i8* @__to_private(i8 addrspace(4)*)
 
-declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*)
+declare i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 

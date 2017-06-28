@@ -32,7 +32,7 @@
 ; CHECK:       bitcast i8 addrspace(1)* %ToNamedPtr to i32 addrspace(1)*
 ; CHECK:       ret void
 
-; CHECK-NOT:   call spir_func i8 addrspace(3)* @_Z8to_localPKU3AS4v
+; CHECK-NOT:   call spir_func i8 addrspace(3)* @_Z8to_localPU3AS4Kv
 ; CHECK:       %ToNamedPtr = addrspacecast i8 addrspace(4)* {{.*}} to i8 addrspace(3)*
 ; CHECK:       bitcast i8 addrspace(3)* %ToNamedPtr to i32 addrspace(3)*
 ; CHECK:       ret void

@@ -21,7 +21,7 @@
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %7 to i8 addrspace(3)*
 ; CHECK-NOT: %call2 = call i8* @__to_private(i8 addrspace(4)* %10)
 ; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %10 to i8*
-; CHECK-NOT: %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %14)
+; CHECK-NOT: %call3 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %14)
 ; CHECK-NOT: %call9 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr)
 ; CHECK: %AddrSpace = addrspacecast float addrspace(4)* %add.ptr to float addrspace(1)*
 ; CHECK: %22 = call float @_Z5fractfPU3AS1f(float %param, float addrspace(1)* %AddrSpace)
@@ -95,7 +95,7 @@ if.end:                                           ; preds = %if.else, %if.then
   %12 = ptrtoint i32 addrspace(4)* %9 to i32
   %13 = inttoptr i32 %12 to i32 addrspace(4)*
   %14 = bitcast i32 addrspace(4)* %13 to i8 addrspace(4)*
-  %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %14)
+  %call3 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %14)
   %15 = addrspacecast i32 addrspace(1)* %pGlobal to i32 addrspace(4)*
   %16 = addrspacecast i32 addrspace(3)* %pLocal to i32 addrspace(4)*
   %call4 = call i32 addrspace(4)* @test2(i32 addrspace(4)* %15, i32 addrspace(4)* %16)
@@ -120,7 +120,7 @@ if.end8:                                          ; preds = %if.then6, %if.end
 
 declare i8* @__to_private(i8 addrspace(4)*)
 
-declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*)
+declare i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 

@@ -24,7 +24,7 @@ declare zeroext i1 @isFenceValid(i32) #0
 declare zeroext i1 @helperFunction(float addrspace(4)*, float) #1
 
 ; Function Attrs: nounwind readnone
-declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*) #0
+declare i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)*) #0
 
 ; Function Attrs: nounwind
 define void @testKernel(i32 addrspace(1)* noalias nocapture %results) #2 {

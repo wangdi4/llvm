@@ -15,10 +15,10 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "i686-pc-win32"
 ; CHECK: @main
 define void @main(i32 addrspace(1)* %arg) #0 {
-  %a = call i32 @_Z25atomic_fetch_add_explicitPVU3AS1U7_Atomicjjjj(i32 addrspace(1)* %arg, i32 1, i32 0, i32 3) #0
+  %a = call i32 @_Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicjjjj(i32 addrspace(1)* %arg, i32 1, i32 0, i32 3) #0
   call void @_Z7barrierj(i32 2)
   ret void
-; CHECK: %a = call i32 @_Z25atomic_fetch_add_explicitPVU3AS1U7_Atomicjjjj(i32 addrspace(1)* %arg, i32 1, i32 0, i32 3)
+; CHECK: %a = call i32 @_Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicjjjj(i32 addrspace(1)* %arg, i32 1, i32 0, i32 3)
 ; CHECK: call void @_Z7barrierj(i32 2)
 ; CHECK: ret void
 }
@@ -27,7 +27,7 @@ define void @main(i32 addrspace(1)* %arg) #0 {
 ; CHECK: a is WI related
 
 declare void @_Z7barrierj(i32)
-declare i32 @_Z25atomic_fetch_add_explicitPVU3AS1U7_Atomicjjjj(i32 addrspace(1)*, i32, i32, i32) #0
+declare i32 @_Z25atomic_fetch_add_explicitPU3AS1VU7_Atomicjjjj(i32 addrspace(1)*, i32, i32, i32) #0
 
 attributes #0 = { nounwind }
 

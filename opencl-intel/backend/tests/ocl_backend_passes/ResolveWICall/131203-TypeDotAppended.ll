@@ -11,12 +11,12 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 define void @enqueue_kernel_events(%opencl.queue_t.7* %q, %opencl.ndrange_t.2* %nd, void ()* %b, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret) nounwind {
 ; Call should remain unchanged since it is in the built-in library
-; CHECK: call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
-%call5 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
+; CHECK: call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
+%call5 = call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t.7* %q, i32 0, %opencl.ndrange_t.2* %nd, i32 1, %opencl.clk_event_t.4** %evt0, %opencl.clk_event_t.4** %evt_ret, void ()* %b)
   ret void
 }
 
-declare i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t.7*, i32, %opencl.ndrange_t.2*, i32, %opencl.clk_event_t.4**, %opencl.clk_event_t.4**, void ()*)
+declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t.7*, i32, %opencl.ndrange_t.2*, i32, %opencl.clk_event_t.4**, %opencl.clk_event_t.4**, void ()*)
 
 !opencl.compiler.options = !{!2}
 !2 = !{!"-cl-std=CL2.0"}

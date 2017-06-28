@@ -43,7 +43,7 @@ declare void @create_linked_lists(%struct.Node addrspace(1)* %pNodes, i32 addrsp
 ; Function Attrs: nounwind readnone
 declare i64 @_Z13get_global_idj(i32) #1
 
-declare i32 @_Z10atomic_incPVU3AS1i(i32 addrspace(1)*)
+declare i32 @_Z10atomic_incPU3AS1Vi(i32 addrspace(1)*)
 
 declare i64 @_Z14get_local_sizej(i32)
 
@@ -68,7 +68,7 @@ for.body.preheader:                               ; preds = %entry
 for.body:                                         ; preds = %for.body.preheader, %for.body
   %j.03 = phi i32 [ %inc, %for.body ], [ 1, %for.body.preheader ]
   %pNode.02 = phi %struct.Node addrspace(1)* [ %arrayidx3, %for.body ], [ %arrayidx, %for.body.preheader ]
-  %call2 = tail call i32 @_Z10atomic_incPVU3AS1i(i32 addrspace(1)* %allocation_index) #4
+  %call2 = tail call i32 @_Z10atomic_incPU3AS1Vi(i32 addrspace(1)* %allocation_index) #4
   %idxprom = sext i32 %call2 to i64
   %arrayidx3 = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %pNodes, i64 %idxprom
   %global_id5 = getelementptr inbounds %struct.Node, %struct.Node addrspace(1)* %arrayidx3, i64 0, i32 0
