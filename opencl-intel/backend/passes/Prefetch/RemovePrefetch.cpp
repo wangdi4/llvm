@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   }; // RemovePrefetch class
 
-  const std::string RemovePrefetch::m_prefetchBuiltinPrefix = "_Z8prefetchPKU3AS1";
+  const std::string RemovePrefetch::m_prefetchBuiltinPrefix = "_Z8prefetchPU3AS1K";
 
 
   bool RemovePrefetch::runOnModule(Module &M) {
