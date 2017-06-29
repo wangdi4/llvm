@@ -4,18 +4,18 @@ target triple = "x86_64-pc-linux"
 
 define void @A(i32 addrspace(1)* noalias %A, i32 %B) nounwind {
 entry:
-  %call = tail call i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %call = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
   ret void
 }
 
-declare i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)*, i32)
+declare i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)*, i32)
 
 define void @__Vectorized_.A(i32 addrspace(1)* noalias %A, i32 %B) nounwind {
 entry:
-  %0 = tail call i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %1 = tail call i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %2 = tail call i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)* %A, i32 %B) nounwind
-  %3 = tail call i32 @_Z10atomic_addPVU3AS1ii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %0 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %1 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %2 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
+  %3 = tail call i32 @_Z10atomic_addPU3AS1Vii(i32 addrspace(1)* %A, i32 %B) nounwind
   ret void
 }
 

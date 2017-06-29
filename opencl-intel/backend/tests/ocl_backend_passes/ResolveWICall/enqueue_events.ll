@@ -9,12 +9,12 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 
 
 define void @enqueue_kernel_events(%opencl.queue_t* %q, %opencl.ndrange_t* %nd, void ()* %b, %opencl.clk_event_t** %evt0, %opencl.clk_event_t** %evt_ret) nounwind {
-; CHECK: %call5 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t* %q, i32 0, %opencl.ndrange_t* %nd, i32 1, %opencl.clk_event_t** %evt0, %opencl.clk_event_t** %evt_ret, void ()* %b)
-%call5 = call i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t* %q, i32 0, %opencl.ndrange_t* %nd, i32 1, %opencl.clk_event_t** %evt0, %opencl.clk_event_t** %evt_ret, void ()* %b)
+; CHECK: %call5 = call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t* %q, i32 0, %opencl.ndrange_t* %nd, i32 1, %opencl.clk_event_t** %evt0, %opencl.clk_event_t** %evt_ret, void ()* %b)
+%call5 = call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t* %q, i32 0, %opencl.ndrange_t* %nd, i32 1, %opencl.clk_event_t** %evt0, %opencl.clk_event_t** %evt_ret, void ()* %b)
   ret void
 }
 
-declare i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t*, i32, %opencl.ndrange_t*, i32, %opencl.clk_event_t**, %opencl.clk_event_t**, void ()*)
+declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S1_U13block_pointerFvvE(%opencl.queue_t*, i32, %opencl.ndrange_t*, i32, %opencl.clk_event_t**, %opencl.clk_event_t**, void ()*)
 
 !opencl.compiler.options = !{!2}
 !2 = !{!"-cl-std=CL2.0"}

@@ -228,6 +228,7 @@ TEST(NameMangle, demangleTostrightAndBack){
 
       FunctionDescriptor fd = demangle(mname);
       ASSERT_FALSE(fd.isNull());
+
       std::string expected(mname);
       std::string actual = mangle(fd);
       //checking that the mangle demangle cycle returns to the same string
@@ -267,17 +268,17 @@ TEST(MangleTest, retByPtr){
 
 TEST(DemangleTest, AsyncGropuCpy){
   FunctionDescriptor fd =
-    demangle("_Z21async_work_group_copyPU3AS3Dv2_cPKU3AS1S_mm");
+    demangle("_Z21async_work_group_copyPU3AS3Dv2_cPU3AS1KS_mm");
   ASSERT_FALSE(fd.isNull());
   ASSERT_EQ(
-    std::string("async_work_group_copy(__local char2 *, __global const char2 *, ulong, ulong)")
+    std::string("async_work_group_copy(__local char2 *, const __global char2 *, ulong, ulong)")
     , fd.toString()
   );
 }
 
 
 TEST(MangleTest, clk_event){
-  const std::string s = "_Z14enqueue_kernelPK12ocl_clkeventS_";
+  const std::string s = "_Z14enqueue_kernelPK12ocl_clkeventS0_";
   FunctionDescriptor fd = demangle(s.c_str());
   ASSERT_EQ(s, mangle(fd));
 }
@@ -285,8 +286,8 @@ TEST(MangleTest, clk_event){
 TEST(DemangleTest, block){
   char const* names[] = {
     "_Z14enqueue_kernelU13block_pointerFvvE",
-    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvPU3AS3vzEjz",
-    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventS0_U13block_pointerFvPU3AS3vzEjz"
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventS2_U13block_pointerFvPU3AS3vzEjz",
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK12ocl_clkeventS2_U13block_pointerFvPU3AS3vzEjz"
   };
 
   for(char const* name : names) {
@@ -334,7 +335,7 @@ static bool testDemangle(const char* mname){
 }
 
 TEST(DemangleTest, pointerAttributes){
-  const char* name = "_Z10mask_vloadtmPKU3AS2c";
+  const char* name = "_Z10mask_vloadtmPU3AS2Kc";
   ASSERT_TRUE( testDemangle(name) );
 }
 
@@ -462,7 +463,7 @@ TEST(MangleTest, ignorePrivateAddrSpaceQual){
   //           memory_order success,
   //           memory_order failure);
 
-  std::string orig = "_Z37atomic_compare_exchange_weak_explicitPVU3AS3U7_AtomiciPii12memory_orderS3_";
+  std::string orig = "_Z37atomic_compare_exchange_weak_explicitPU3AS3VU7_AtomiciPii12memory_orderS3_";
   FunctionDescriptor fd = demangle( orig.c_str() );
   ASSERT_FALSE(fd.isNull());
   std::string syntesized = mangle( fd );

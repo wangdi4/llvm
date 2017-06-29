@@ -10,7 +10,7 @@ declare void @__test_fn_original(i16 addrspace(1)*, i32 addrspace(1)* nocapture,
 
 declare i64 @_Z13get_global_idj(i32)
 
-define double @_Z6vload3mPKU3AS1s(i64 %offset, i16 addrspace(1)* nocapture %ptr) nounwind {
+define double @_Z6vload3mPU3AS1Ks(i64 %offset, i16 addrspace(1)* nocapture %ptr) nounwind {
 entry:
   %res = alloca <3 x i16>, align 8
   %0 = bitcast i16 addrspace(1)* %ptr to i8*

@@ -19,7 +19,7 @@ define void @main(i32 %x, i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globa
   %pEvent = alloca %opencl.event_t*, align 8
   br label %BBLoop
 BBLoop:
-  %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null) nounwind
+  %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null) nounwind
   store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
   %y = xor i32 %x, %x
   %cond = icmp sgt i64 %count, 0 
@@ -32,7 +32,7 @@ BBEndLoop:
 ; CHECK: br label %BBLoop
 ; CHECK: BBLoop:
 ; CHECK: call void @_Z7barrierj(i32 1)
-; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null)
+; CHECK: %event = call %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)* %localBuffer, i8 addrspace(1)* %globalBuffer, i64 %count, %opencl.event_t* null)
 ; CHECK: call void @dummybarrier.
 ; CHECK: store %opencl.event_t* %event, %opencl.event_t** %pEvent, align 8
 ; CHECK: %y = xor i32 %x, %x
@@ -44,8 +44,8 @@ BBEndLoop:
 }
 
 
-declare %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPKU3AS1cm9ocl_event(i8 addrspace(3)*, i8 addrspace(1)*, i64, %opencl.event_t*)
-declare %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPKU3AS3cmm9ocl_event(i8 addrspace(1)*, i8 addrspace(3)*, i64, i64, %opencl.event_t*)
+declare %opencl.event_t* @_Z21async_work_group_copyPU3AS3cPU3AS1Kcm9ocl_event(i8 addrspace(3)*, i8 addrspace(1)*, i64, %opencl.event_t*)
+declare %opencl.event_t* @_Z29async_work_group_strided_copyPU3AS1cPU3AS3Kcmm9ocl_event(i8 addrspace(1)*, i8 addrspace(3)*, i64, i64, %opencl.event_t*)
 declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 
 ; CHECK: declare void @_Z7barrierj(i32)

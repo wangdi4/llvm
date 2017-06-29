@@ -262,17 +262,17 @@ namespace reflection {
     TypeAttributeEnum attrAddressSpace;
     TypeAttributeEnum attrQualifier;
 
-    if (!getAddressQualifier(attrQualifier)) {
-      // Reachning means parsing Address Qualifier failed, return NULL;
-      return RefParamType();
-    }
+    // Try to parse CVR-qualifier first to support SPIR1.2 mangling scheme
+    getAddressQualifier(attrQualifier);
+
     if (!getAddressSpace(attrAddressSpace)) {
       // Reachning means parsing Address Space failed, return NULL;
       return RefParamType();
     }
-    // Clang 4.0 mangling scheme assumes CV-qualifiers *after* vedor extensions
-    // (i.e. address space qualifiers in OpenCL case).
-    if (!getAddressQualifier(attrQualifier)) {
+    // Try to parse CVR-qualifier one more time since
+    // Clang 4.0 mangling scheme assumes CV-qualifiers *after*
+    // vendor extensions (i.e. address space qualifiers in OpenCL case).
+    if (attrQualifier == ATTR_NONE && !getAddressQualifier(attrQualifier)) {
       // Reachning means parsing Address Qualifier failed, return NULL;
       return RefParamType();
     }
@@ -289,12 +289,12 @@ namespace reflection {
     //in case the pointee is a non-primitive type, it should
     //be pushed first to the sign list.
     m_signList.push_back(new PointerType(*pPointer));
-    if (attrQualifier != ATTR_NONE) {
-      pPointer->addAttribute(attrQualifier);
-    }
     assert(attrAddressSpace != ATTR_NONE && "No addr space.");
     if (attrAddressSpace != ATTR_PRIVATE) {
       pPointer->addAttribute(attrAddressSpace);
+    }
+    if (attrQualifier != ATTR_NONE) {
+      pPointer->addAttribute(attrQualifier);
     }
     RefParamType refPointer(pPointer);
     if (attrQualifier != ATTR_NONE || attrAddressSpace != ATTR_PRIVATE)

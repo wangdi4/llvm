@@ -16,6 +16,8 @@ if (NOT APPLE)
   add_subdirectory(unittests)
 endif (NOT APPLE)
 
+add_definitions(-DSUBSTITUTE_OPENCL_TYPES)
+
 set(TARGET_SOURCE_FILES
   ParameterType.cpp
   Demangler.cpp

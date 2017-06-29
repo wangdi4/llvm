@@ -103,7 +103,7 @@ bb.nph72:                                         ; preds = %._crit_edge73, %bb.
   %tmp120 = add i64 %indvar22, 1
   %j.071 = trunc i64 %tmp120 to i32
   %scevgep236 = getelementptr float, float addrspace(1)* %str2, i64 %tmp123
-  %29 = call <4 x float> @_Z6vload4jPKU3AS1f(i32 0, float addrspace(1)* %scevgep236) nounwind
+  %29 = call <4 x float> @_Z6vload4jPU3AS1Kf(i32 0, float addrspace(1)* %scevgep236) nounwind
   %30 = icmp eq i32 %j.071, 1
   br i1 %30, label %bb.nph65, label %bb.nph68
 
@@ -421,7 +421,7 @@ bb.nph70:                                         ; preds = %bb.nph70.loopexit17
   ret void
 }
 
-declare <4 x float> @_Z6vload4jPKU3AS1f(i32, float addrspace(1)*)
+declare <4 x float> @_Z6vload4jPU3AS1Kf(i32, float addrspace(1)*)
 
 declare <4 x i32> @_Z7isequalDv4_fS_(<4 x float>, <4 x float>)
 
