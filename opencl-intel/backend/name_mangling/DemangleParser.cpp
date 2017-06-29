@@ -259,22 +259,20 @@ namespace reflection {
   }
 
   RefParamType DemangleParser::createPointerType() {
-    TypeAttributeEnum attrAddressSpace;
-    TypeAttributeEnum attrQualifier;
-
     // Try to parse CVR-qualifier first to support SPIR1.2 mangling scheme
-    getAddressQualifier(attrQualifier);
+    std::vector<TypeAttributeEnum> AttrQualifiers = getAddressQualifiers();
 
-    if (!getAddressSpace(attrAddressSpace)) {
+    // Try to parse Address Space qualifiers
+    TypeAttributeEnum AttrAddressSpace;
+    if (!getAddressSpace(AttrAddressSpace)) {
       // Reachning means parsing Address Space failed, return NULL;
       return RefParamType();
     }
     // Try to parse CVR-qualifier one more time since
     // Clang 4.0 mangling scheme assumes CV-qualifiers *after*
     // vendor extensions (i.e. address space qualifiers in OpenCL case).
-    if (attrQualifier == ATTR_NONE && !getAddressQualifier(attrQualifier)) {
-      // Reachning means parsing Address Qualifier failed, return NULL;
-      return RefParamType();
+    if (AttrQualifiers.empty()) {
+      AttrQualifiers = getAddressQualifiers();
     }
 
     RefParamType pType = getNextType();
@@ -289,15 +287,16 @@ namespace reflection {
     //in case the pointee is a non-primitive type, it should
     //be pushed first to the sign list.
     m_signList.push_back(new PointerType(*pPointer));
-    assert(attrAddressSpace != ATTR_NONE && "No addr space.");
-    if (attrAddressSpace != ATTR_PRIVATE) {
-      pPointer->addAttribute(attrAddressSpace);
-    }
-    if (attrQualifier != ATTR_NONE) {
-      pPointer->addAttribute(attrQualifier);
-    }
+
+    assert(AttrAddressSpace != ATTR_NONE && "No addr space.");
+    if (AttrAddressSpace != ATTR_PRIVATE)
+      pPointer->addAttribute(AttrAddressSpace);
+
+    for (auto &Attr : AttrQualifiers)
+      pPointer->addAttribute(Attr);
+
     RefParamType refPointer(pPointer);
-    if (attrQualifier != ATTR_NONE || attrAddressSpace != ATTR_PRIVATE)
+    if (!AttrQualifiers.empty() || AttrAddressSpace != ATTR_PRIVATE)
       m_signList.push_back(new PointerType(*pPointer));
     return refPointer;
   }
@@ -483,23 +482,22 @@ namespace reflection {
     return false;
   }
 
-  bool DemangleParser::getAddressQualifier(TypeAttributeEnum& attrQualifier) {
-    attrQualifier = ATTR_NONE;
-    //Check if it is a qualifier
-    if (m_currentIndex == m_mangledStringLength) return true;
+  std::vector<TypeAttributeEnum> DemangleParser::getAddressQualifiers() {
+    std::vector<TypeAttributeEnum> FoundAttrs;
+    // Reached the end of the string
+    if (m_currentIndex == m_mangledStringLength)
+      return FoundAttrs;
+
     for (unsigned int i=0; i < QUALIFIER_INFO_LIST_LENGTH; ++i) {
       assert(strlen(g_qualifierInfoList[i].m_token) == 1 &&
         "Assumed Qualifier is one char, failing this force fixing this code!");
       if (g_qualifierInfoList[i].m_token[0] == m_pMangledString[m_currentIndex]) {
-        //Found a match, increment current index
-        m_currentIndex ++;
-        attrQualifier = g_qualifierInfoList[i].m_attribute;
-        return true;
+        // Found a match, increment current index
+        m_currentIndex++;
+        FoundAttrs.push_back(g_qualifierInfoList[i].m_attribute);
       }
     }
-    //Currently getAddressQualifier cannot fail!
-    return true;
+    return FoundAttrs;
   }
 
-
-} // namespace reflection {
+} // namespace reflection
