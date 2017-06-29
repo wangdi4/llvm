@@ -380,7 +380,6 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     builder.setErrorStr(&strErr);
     builder.setOptLevel(OLevel);
     builder.setCodeModel(llvm::CodeModel::JITDefault);
-    builder.setRelocationModel(llvm::Reloc::PIC_);
     builder.setMArch(MArch);
     builder.setMCPU(MCPU);
     builder.setMAttrs(cpuFeatures);
@@ -433,7 +432,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     std::string cpuName( m_CpuId.GetCPUName());
     std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
     std::string cpuFeatures( Utils::JoinStrings(localCpuFeatures, ","));
-    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options, llvm::Reloc::PIC_);
+    TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options, None);
     if( NULL == pTargetMachine )
     {
         throw Exceptions::CompilerException("Failed to create TargetMachine object");
