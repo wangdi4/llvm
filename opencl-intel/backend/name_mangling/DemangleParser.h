@@ -11,6 +11,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ParameterType.h"
 #include "FunctionDescriptor.h"
 #include <map>
+#include <vector>
 
 namespace reflection {
 
@@ -87,9 +88,9 @@ namespace reflection {
     // @brief Parse next token as address qualifier
     // @param attrQualifier [OUT] parsed address qualifier
     // @return return true is succeeded, false otherwise
-    bool getAddressQualifier(TypeAttributeEnum& attrQualifier);
+    std::vector<TypeAttributeEnum> getAddressQualifiers();
 
-    // @brief Match next token according to given type info. 
+    // @brief Match next token according to given type info.
     //        Also increment current index of mangled string accordingly.
     // @param pTypeInfo type mangling information (token, length, etc.)
     // @param primitiveType[OUT] set primitive type in this entry if it is not NULL.

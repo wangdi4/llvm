@@ -476,7 +476,6 @@ TEST(MangleTest, ignorePrivateAddrSpaceQual){
   ASSERT_EQ(syntesized, syntesizedWithPrivate);
 }
 
-
 //A special case, in which the param duplicate operator works to duplicate a
 //type suffix, not the enture type. The first parameter is v2f, the second is v2f*.
 TEST(MangleTest, semidup){
@@ -589,6 +588,29 @@ TEST(DemangleTest, doubleDup9){
   ASSERT_EQ(std::string("foo(sFoo *, sFoo *, sFoo)"), fd.toString());
 }
 
+// Check that all (more than one) CVR-qualifiers is demangled correctly
+TEST(DemangleTest, CVRQualifiers){
+  const char* orig =
+    "_Z37atomic_compare_exchange_weak_explicitPU3AS3rVKU7_AtomiciPii12memory_orderS3_";
+  FunctionDescriptor fd = demangle(orig);
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_TRUE(fd.toString().find("const volatile restrict") != std::string::npos);
+}
+
+// Check that demangler can parse SPIR1.2 where CVR-qualifiers are before
+// address space qualifiers
+TEST(DemangleTest, SPIR12Pointers){
+  const char* origPointer = "_Z6vload2mPKU3AS1l";
+  FunctionDescriptor fdPointer = demangle(origPointer);
+  ASSERT_FALSE(fdPointer.isNull());
+  ASSERT_TRUE(fdPointer.toString().find("const") != std::string::npos);
+
+  const char* origAtomic =
+    "_Z37atomic_compare_exchange_weak_explicitPVU3AS3U7_AtomiciPii12memory_orderS3_";
+  FunctionDescriptor fdAtomic = demangle(origAtomic);
+  ASSERT_FALSE(fdAtomic.isNull());
+  ASSERT_TRUE(fdAtomic.toString().find("volatile") != std::string::npos);
+}
 
 TEST(MangleBasic, scalarfloat){
   RefParamType primitiveFloat(new PrimitiveType(PRIMITIVE_FLOAT));
