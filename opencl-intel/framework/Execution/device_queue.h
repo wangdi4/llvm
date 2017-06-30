@@ -47,12 +47,17 @@ public:
 
 	virtual void BecomeVisible();
 
-	void ReleaseQueue()
-	{ 
-		if (m_bIsDefault)
-		{
-			m_pDefaultDevice->SetDefaultDeviceQueueNotExists();
-		}
+	cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice)
+	{
+		return pDevice->SetDefaultDeviceQueue(this, m_clDevCmdListId);
+	}
+
+protected:
+	virtual ~DeviceQueue()
+	{
+		// If the queue is a default device queue
+		// the following call will unset it
+		m_pDefaultDevice->UnsetDefaultQueueIfEqual(this);
 	}
 
 private:

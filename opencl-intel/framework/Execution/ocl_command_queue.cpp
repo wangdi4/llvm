@@ -274,12 +274,6 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
  ocl_gpa_data* OclCommandQueue::GetGPAData() const { return m_pContext->GetGPAData(); }
 
 
-cl_err_code OclCommandQueue::SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice)
-{
-    pDevice->SetDefaultDeviceQueue(this);
-    return pDevice->GetDeviceAgent()->clDevSetDefaultCommandList(m_clDevCmdListId);
-}
-
 cl_err_code OclCommandQueue::CancelAll()
 {
     m_bCancelAll = true;

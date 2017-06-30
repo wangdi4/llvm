@@ -39,7 +39,7 @@ cl_err_code DeviceQueue::Initialize()
 		m_clDevCmdListId = 0;
 		if (m_bIsDefault)
 		{
-			m_pDefaultDevice->SetDefaultDeviceQueueNotExists();
+			m_pDefaultDevice->UnsetDefaultQueueIfEqual(this);
 		}		
 		return CL_OUT_OF_RESOURCES;
 	}
