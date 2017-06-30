@@ -964,7 +964,7 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-  //TBD::CSA
+  //CSA EDIT:
   {
     Module *M = Func->getParent();
     if (0 == M->getTargetTriple().compare("csa")) {
@@ -1009,7 +1009,7 @@ bool StructurizeCFG::MultiExitingsLoop(Loop *L) {
     if (MultiExitingsLoop(*iloop))
       return true;
   }
-  return (L->getExitBlock() == nullptr);
+  return (L->getExitingBlock() == nullptr);
 }
 
 
