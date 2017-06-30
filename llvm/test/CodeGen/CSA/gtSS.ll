@@ -7,7 +7,7 @@ target triple = "csa"
 ; Function Attrs: nounwind
 define i32 @gtSS(i16 signext %a, i16 signext %b) #0 {
 ; CSA_CHECK-LABEL: gtSS
-; CSA_CHECK: cmpgts32
+; CSA_CHECK: cmpgts16
 
 entry:
   %a.addr = alloca i16, align 2
@@ -15,10 +15,8 @@ entry:
   store i16 %a, i16* %a.addr, align 2
   store i16 %b, i16* %b.addr, align 2
   %0 = load i16, i16* %a.addr, align 2
-  %conv = sext i16 %0 to i32
   %1 = load i16, i16* %b.addr, align 2
-  %conv1 = sext i16 %1 to i32
-  %cmp = icmp sgt i32 %conv, %conv1
+  %cmp = icmp sgt i16 %0, %1
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }
