@@ -6370,10 +6370,20 @@ static void handleOpenCLAccessAttr(Sema &S, Decl *D,
 
   // Check if there is only one access qualifier.
   if (D->hasAttr<OpenCLAccessAttr>()) {
-    S.Diag(Attr.getLoc(), diag::err_opencl_multiple_access_qualifiers)
-        << D->getSourceRange();
-    D->setInvalidDecl(true);
-    return;
+#if INTEL_CUSTOMIZATION
+    // TODO: upstream to llvm.org together with changes
+    // in SemaType.cpp and test/SemaOpenCL/access-qualifier.cl
+    if (D->getAttr<OpenCLAccessAttr>()->getSemanticSpelling() ==
+        Attr.getSemanticSpelling()) {
+      S.Diag(Attr.getLoc(), diag::warn_duplicate_declspec)
+          << Attr.getName()->getName() << Attr.getRange();
+    } else {
+      S.Diag(Attr.getLoc(), diag::err_opencl_multiple_access_qualifiers)
+          << D->getSourceRange();
+      D->setInvalidDecl(true);
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // OpenCL v2.0 s6.6 - read_write can be used for image types to specify that an
