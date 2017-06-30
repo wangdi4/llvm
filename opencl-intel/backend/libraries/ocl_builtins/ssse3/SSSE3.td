@@ -25,11 +25,7 @@ code Prolog = [{
     #define ALIGN32 __attribute__((aligned(32)))
 
     #define __OPENCL__
-    #ifdef __APPLE__
-      #include <immintrin.h>
-    #else
-      #include <intrin.h>
-    #endif
+    #include <intrin.h>
     #include "generic-builtin-defines.h"
     #include "cpu-builtin-defines.h"
     #ifdef __x86_64__

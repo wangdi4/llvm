@@ -3,11 +3,7 @@ cmake_minimum_required(VERSION 2.8.7)
 set(TARGET_NAME metadataapi)
 set(MAKO_GENERATOR_CMD python ${CMAKE_CURRENT_SOURCE_DIR}/generator.py) 
 
-if (APPLE)
-    set ( SCHEMA_FILE  ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApiApple.schema)
-else (APPLE)
-    set ( SCHEMA_FILE  ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApiIntel.schema)
-endif (APPLE)
+set ( SCHEMA_FILE  ${CMAKE_CURRENT_SOURCE_DIR}/MetaDataApiIntel.schema)
 
 add_custom_command(
    OUTPUT  ${CMAKE_BINARY_DIR}/include/MetaDataApi.h
@@ -60,14 +56,4 @@ include_directories(
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
 
-if(APPLE)
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)
-
-
-if(NOT APPLE)
-  add_subdirectory(tests)
-endif(NOT APPLE)
+add_subdirectory(tests)

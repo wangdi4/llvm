@@ -31,7 +31,6 @@ void initializeMICResolverPass(llvm::PassRegistry&);
 void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
-void initializeAppleWIDepPrePacketizationPassPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLWGLoopCreatorPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);

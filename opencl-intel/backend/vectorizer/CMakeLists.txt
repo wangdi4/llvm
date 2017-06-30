@@ -26,14 +26,6 @@ include_directories(
   ${CMAKE_BINARY_DIR}/include
 )
 
-if(APPLE)
-set(TARGET_EXTRA_SOURCE_FILES 
-  AppleWrapper/AppleWIDepPrePacketizationPass.cpp
-)
-set(TARGET_EXTRA_INCLUDE_FILES 
-  AppleWrapper/AppleWIDepPrePacketizationPass.h
-)
-else(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES
   Resolver/MICResolver.cpp
   Resolver/AVX512Resolver.cpp
@@ -41,8 +33,6 @@ set(TARGET_EXTRA_SOURCE_FILES
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
   Renderscript/RenderscriptDriver.cpp
-#These files are needed only for building opt
-  AppleWrapper/AppleWIDepPrePacketizationPass.cpp
 )
 set(TARGET_EXTRA_INCLUDE_FILES
   Resolver/MICResolver.h
@@ -50,10 +40,7 @@ set(TARGET_EXTRA_INCLUDE_FILES
   Utils/Namer.h
   Utils/PrintfAdder.h
   Renderscript/RenderscriptDriver.h
-#These files are needed only for building opt
-  AppleWrapper/AppleWIDepPrePacketizationPass.h
 )
-endif(APPLE)
 
 set(TARGET_INCLUDE_FILES
   Heuristic/InstCounter.h
@@ -136,10 +123,3 @@ set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_
 
 set_property( GLOBAL APPEND PROPERTY LLVM_LIBS ${TARGET_NAME} )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
-
-if(APPLE)
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  install( FILES ${TARGET_SOURCE_FILES} ${TARGET_INCLUDE_FILES}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)

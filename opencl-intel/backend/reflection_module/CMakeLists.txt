@@ -7,7 +7,6 @@ project (${TARGET_NAME})
 #enables compound initialization literals
 remove_definitions("-pedantic")
 
-if(NOT APPLE)
 if( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
     add_subdirectory(unittest)
 endif( BACKEND_BUILD_VERIFICATION_LIB AND (NOT ANDROID) )
@@ -45,22 +44,12 @@ add_custom_command(
   VERBATIM
 )
 
-endif(NOT APPLE)
-
-if(NOT APPLE)
 set(BUILT_IN_LIST_H
   BuiltinList.h
 )
 set(CUSTOM_MAPPINGS_GEN
   CustomMappings.gen
 )
-else(NOT APPLE)
-set(BUILT_IN_LIST_H
-  apple_include/BuiltinList.h
-  apple_include/BuiltinList32.h
-  apple_include/BuiltinList64.h
-)
-endif(NOT APPLE)
 
 set(TARGET_SOURCE_FILES
   Mangler.cpp
@@ -93,21 +82,8 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/utils
 )
 
-if(NOT APPLE)
 include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}
 )
-else(NOT APPLE)
-include_directories(
-  apple_include
-)
-endif(NOT APPLE)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME}/reflection )
-
-if(APPLE)
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)

@@ -13,11 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "TypeAlignment.h"
 #include "cl_types.h"
 
-#if defined(__APPLE__)
-  #include "OpenCL/cl.h"
-#else
-  #include "CL/cl.h"
-#endif
+#include "CL/cl.h"
 
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Instructions.h"
@@ -304,65 +300,15 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return;
     }
 
-#ifdef __APPLE__
-      NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-  if( NULL == MDArgInfo )
-  {
-      assert(false && "Internal Error: opencl.kernels metadata is missing");
-      // workaround to overcome klockwork issue
-      return;
-  }
-
-  // TODO: this hack is ugly, need to find the right way to get arg info
-  // for the vectorized functions (Guy)
-  if (pFunc->getName().startswith("____Vectorized_.")) {
-    std::string scalarFuncName = pFunc->getName().slice(16,llvm::StringRef::npos).str();
-    pFunc=pFunc->getParent()->getFunction("__" + scalarFuncName);
-  }
-
-  MDNode *FuncInfo = NULL;
-  for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
-    FuncInfo = MDArgInfo->getOperand(i);
-    Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
-
-    if(pFunc == dyn_cast<Function>(field0))
-      break;
-  }
-
-  if( NULL == FuncInfo )
-  {
-      assert(false && "Intenal error: can't find the function info for the scalarized function");
-      // workaround to overcome klockwork issue
-      return;
-  }
-
-  assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
-     " Are you running a workload recorded using old meta data format?");
-
-    MDNode *MDImgAccess = NULL;
-    //look for image access metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-      if (tag->getString() == "apple.cl.arg_metadata") {
-        MDImgAccess = tmpMD;
-        break;
-      }
-    }
-#endif
     size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
-#ifndef __APPLE__
     unsigned int current_offset = 0;
-#endif
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
       cl_kernel_argument curArg;
-#ifndef __APPLE__
       bool               isMemoryObject = false;
-#endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = &*arg_it;
@@ -461,19 +407,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
                 case CL_KRNL_ARG_PTR_IMG_3D:
                 // Setup image pointer
-#ifdef __APPLE__
-                  MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-                  assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
-                  MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-                  assert(tag->getString() == "image" && "image MD arg type is not 'image'");
-                  tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-                  curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
-                                  CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-#else
                   isMemoryObject = true;
                   curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-#endif
                   break;
                 // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
@@ -522,15 +458,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
           case 0: case 1: // Global Address space
             curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
-#ifndef __APPLE__
             isMemoryObject = true;
-#endif
             break;
           case 2:
             curArg.type = CL_KRNL_ARG_PTR_CONST;
-#ifndef __APPLE__
             isMemoryObject = true;
-#endif
             break;
           case 3: // Local Address space
             curArg.type = CL_KRNL_ARG_PTR_LOCAL;
@@ -545,18 +477,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       case llvm::Type::IntegerTyID:
           {
-  #ifdef __APPLE__
-            MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-            bool isSampler = false;
-            if(tmpMD->getNumOperands() > 0) {
-              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-              if(tag->getString() == "sampler") //sampler_t
-                  isSampler = true;
-            }
-            if(isSampler)
-  #else
             if (kmd->getArgTypesItem(i) == SAMPLER)
-  #endif
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
               curArg.size_in_bytes = sizeof(_sampler_t);
@@ -589,7 +510,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
 
       // update offset
-#ifndef __APPLE__
       assert( 0 != curArg.size_in_bytes && "argument size must be set");
       // Align current location to meet type's requirements
       current_offset = TypeAlignment::align(TypeAlignment::getAlignment(curArg), current_offset);
@@ -600,7 +520,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( isMemoryObject ) {
         memoryArguments.push_back(i);
       }
-#endif
       arguments.push_back(curArg);
       ++arg_it;
     }
@@ -757,10 +676,6 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
 
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
-#ifdef __APPLE__
-  //Do not mangle
-  return std::string(N);
-#else
   reflection::FunctionDescriptor FD;
   FD.name = N;
   reflection::ParamType *pTy =
@@ -768,7 +683,6 @@ static std::string optionalMangleWithParam(const char*const N){
   reflection::RefParamType UI(pTy);
   FD.parameters.push_back(UI);
   return mangle(FD);
-#endif
 }
 
 template <reflection::TypePrimitiveEnum Ty>
@@ -851,16 +765,11 @@ std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
 }
 
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
-#ifdef __APPLE__
-  //LHS should not be mangled
-  return LHS == RHS;
-#else
   //LHS should be mangled
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
     return false;
   return stripName(LC) == RHS;
-#endif
 }
 
 static bool isMangleOf(const std::string& LHS, const std::string& RHS) {

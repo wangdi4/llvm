@@ -15,11 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <list>
 #include <string>
 
-#if defined(__APPLE__)
-  #include <OpenCL/cl.h>
-#else
-  #include <CL/cl.h>
-#endif
+#include <CL/cl.h>
 
 #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
 #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)

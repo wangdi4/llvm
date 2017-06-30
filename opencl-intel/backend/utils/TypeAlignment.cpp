@@ -6,11 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "TypeAlignment.h"
-#if defined(__APPLE__)
-  #include "OpenCL/cl.h"
-#else
-  #include "CL/cl.h"
-#endif
+#include "CL/cl.h"
 
 #include <assert.h>
 

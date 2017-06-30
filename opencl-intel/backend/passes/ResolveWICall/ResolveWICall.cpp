@@ -133,7 +133,6 @@ namespace intel {
           pNewRes = updateGetFunction(pCall, calledFuncType);
           assert(pNewRes && "Expected updateGetFunction to succeed");
           break;
-#ifndef __APPLE__
         case ICT_PRINTF:
           if (!m_ExtExecDecls.count(ICT_PRINTF))
             addExternFunctionDeclaration(
@@ -172,7 +171,6 @@ namespace intel {
           updatePrefetch(pCall);
           // prefetch* function returns void, no need to replace its usages!
           break;
-#endif // __APPLE__
         default:
           continue;
         }

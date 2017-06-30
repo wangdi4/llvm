@@ -217,9 +217,27 @@ static void changeAddrSpaceCastCall(llvm::CallInst *CI) {
   }
 }
 
+// Fixing mangling of CV qualifiers
+static void FixCVQualifiers(llvm::Function &F) {
+  StringRef FName = F.getName();
+  if (!isMangledName(FName.data()))
+    return;
+  // Remangle only if function has pointer arg
+  for (const auto &Arg : F.args()) {
+    if (Arg.getType()->isPointerTy()) {
+      // Mangler is able to demangle from SPIR1.2 mangling but always
+      // mangles to OpenCL CPU RT style
+      auto FD = demangle(FName.data());
+      auto NewName = mangle(FD);
+      F.setName(NewName);
+      break;
+    }
+  }
+}
+
 // Basic block functors, to be applied on each block in the module.
-// 1. Replaces calling conventions in calling sites.
-// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names.
+// 1. Demangles address space qualifier function names
+// 2. Updates image type names with image access qualifiers
 static void MaterializeBBlock(llvm::BasicBlock &BB) {
   llvm::SmallVector<Instruction *, 4> InstToRemove;
 
@@ -238,9 +256,13 @@ static void MaterializeBBlock(llvm::BasicBlock &BB) {
 }
 
 // Function functor, to be applied for every function in the module.
-// 1. Delegates call to basic-block functors.
-// 2. Replaces calling conventions of function declarations.
+// 1. Delegates call to basic-block functors
+// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names
 static void MaterializeFunction(llvm::Function &F) {
+  if (F.isDeclaration()) {
+    FixCVQualifiers(F);
+  }
+
   std::for_each(F.begin(), F.end(), MaterializeBBlock);
 }
 

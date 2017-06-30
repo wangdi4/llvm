@@ -17,9 +17,6 @@ extern "C" {
     if(type == "ocl") {
       rtType = intel::BuiltinLibInfo::RTS_OCL;
     }
-    else if(type == "apple") {
-      rtType = intel::BuiltinLibInfo::RTS_OSX;
-    }
     else if(type == "dx") {
       rtType = intel::BuiltinLibInfo::RTS_DX;
     }
@@ -27,16 +24,12 @@ extern "C" {
       rtType = intel::BuiltinLibInfo::RTS_RS;
     } else {
       assert(type == "" && "Unknown runtime service type");
-#ifdef __APPLE__
-      rtType = intel::BuiltinLibInfo::RTS_OSX;
-#endif
     }
     return new intel::BuiltinLibInfo(builtinsList, rtType);
   }
 
   intel::RuntimeServices* createVolcanoOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
   intel::RuntimeServices* createDXRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
-  intel::RuntimeServices* createAppleOpenclRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
   intel::RuntimeServices* createRenderscriptRuntimeSupport(SmallVector<Module*, 2> runtimeModuleList);
 }
 
@@ -54,15 +47,9 @@ namespace intel{
     initializeBuiltinLibInfoPass(*PassRegistry::getPassRegistry());
 
     // Generate runtimeSupport object, to be used as input for vectorizer
-#ifdef __APPLE__
-    m_pRuntimeServices = createAppleOpenclRuntimeSupport(m_pBIModule);
-#else
     switch(type) {
     case RTS_OCL:
       m_pRuntimeServices = createVolcanoOpenclRuntimeSupport(m_BIModuleList);
-      break;
-    case RTS_OSX:
-      m_pRuntimeServices = createAppleOpenclRuntimeSupport(m_BIModuleList);
       break;
     case RTS_DX:
       m_pRuntimeServices = createDXRuntimeSupport(m_BIModuleList);
@@ -74,6 +61,5 @@ namespace intel{
       assert(false && "Unknown runtime services type.");
       m_pRuntimeServices = NULL;
     }
-#endif
   }
 } // namespace intel
