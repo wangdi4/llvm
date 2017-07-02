@@ -97,8 +97,9 @@ namespace reflection {
   INIT_TYPE_INFO_TOKEN(g_Block, "U13block_pointer");
   INIT_TYPE_INFO_TOKEN(g_Atomic, "U7_Atomic");
 
-  DemangleParser::DemangleParser(TypeVector& parameters)
-    : m_parameters(parameters), m_currentIndex(0), m_error(false) {
+  DemangleParser::DemangleParser(TypeVector& parameters, bool isSpir12Name)
+    : m_parameters(parameters), m_currentIndex(0), m_error(false),
+      m_isSpir12Name(isSpir12Name) {
       m_imageTypeNameTranslate["ocl_image1d"] = PRIMITIVE_IMAGE_1D_T;
       m_imageTypeNameTranslate["ocl_image1d_ro"] = PRIMITIVE_IMAGE_1D_RO_T;
       m_imageTypeNameTranslate["ocl_image1d_wo"] = PRIMITIVE_IMAGE_1D_WO_T;
@@ -292,7 +293,7 @@ namespace reflection {
     if (AttrAddressSpace != ATTR_PRIVATE)
       pPointer->addAttribute(AttrAddressSpace);
 
-    for (auto &Attr : AttrQualifiers)
+    for (const auto &Attr : AttrQualifiers)
       pPointer->addAttribute(Attr);
 
     RefParamType refPointer(pPointer);
@@ -390,14 +391,15 @@ namespace reflection {
 
     std::map<std::string, TypePrimitiveEnum>::iterator itr = m_imageTypeNameTranslate.find(typeName);
     if (itr != m_imageTypeNameTranslate.end()) {
-      // We have a special Primitive Type
 #ifdef SUBSTITUTE_OPENCL_TYPES
-      RefParamType refImageType = createPrimitiveType(itr->second);
-      m_signList.push_back(refImageType);
-      return refImageType;
-#else
-      return createPrimitiveType(itr->second);
+      // We have a special Primitive Type
+      if (!m_isSpir12Name) {
+        RefParamType refImageType = createPrimitiveType(itr->second);
+        m_signList.push_back(refImageType);
+        return refImageType;
+      } else
 #endif
+        return createPrimitiveType(itr->second);
     }
 
     ParamType* pUserDefined = new UserDefinedType(typeName);
