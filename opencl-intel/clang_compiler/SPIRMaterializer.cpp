@@ -80,11 +80,11 @@ enum SPIRAddressSpace {
 };
 
 static PointerType *getOrCreateOpaquePtrType(Module *M,
-  const std::string &Name) {
+  const std::string &Name, const SPIRAddressSpace AS) {
   auto OpaqueType = M->getTypeByName(Name);
   if (!OpaqueType)
     OpaqueType = StructType::create(M->getContext(), Name);
-  return PointerType::get(OpaqueType, SPIRAS_Global);
+  return PointerType::get(OpaqueType, AS);
 }
 
 #ifndef NDEBUG
@@ -165,10 +165,25 @@ changeImageCall(llvm::CallInst *CI,
   std::vector<Value *> Args;
   std::vector<Type *> ArgTys;
   ArgTys.push_back(getOrCreateOpaquePtrType(CI->getParent()->getModule(),
-                                            updateImageTypeName(STName, AccQ)));
+                                            updateImageTypeName(STName, AccQ),
+                                            SPIRAS_Global));
   Args.push_back(
       BitCastInst::CreatePointerCast(CI->getArgOperand(0), ArgTys[0], "", CI));
   for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
+    // Cast old sampler type(i32) with new(opaque*) before passing to builtin
+    if(auto primitiveType = dyn_cast<reflection::PrimitiveType>(
+                                (reflection::ParamType *)FD.parameters[i])) {
+      if (primitiveType->getPrimitive() == reflection::PRIMITIVE_SAMPLER_T) {
+        auto SamplerTy = getOrCreateOpaquePtrType(CI->getParent()->getModule(),
+                                                  "opencl.sampler_t",
+                                                   SPIRAS_Constant);
+        auto IntToPtr = new IntToPtrInst(CI->getArgOperand(i),
+                                         SamplerTy, "", CI);
+        Args.push_back(IntToPtr);
+        ArgTys.push_back(IntToPtr->getType());
+        continue;
+      }
+    }
     Args.push_back(CI->getArgOperand(i));
     ArgTys.push_back(CI->getArgOperand(i)->getType());
   }
@@ -238,6 +253,7 @@ static void FixCVQualifiers(llvm::Function &F) {
 // Basic block functors, to be applied on each block in the module.
 // 1. Demangles address space qualifier function names
 // 2. Updates image type names with image access qualifiers
+//    + adds old sampler type(int32) to new sampler type(opaque*) casts
 static void MaterializeBBlock(llvm::BasicBlock &BB) {
   llvm::SmallVector<Instruction *, 4> InstToRemove;
 
