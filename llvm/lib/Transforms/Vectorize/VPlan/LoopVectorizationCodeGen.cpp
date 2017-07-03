@@ -1222,12 +1222,15 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
 void VPOCodeGen::vectorizeBitCast(Instruction *Inst) {
   // Do not vectorize bitcast of loop-private if
   // it is used in load/store only
-  Type *VecTy = VectorType::get(Inst->getType(), VF);
   if (Legal->isLoopPrivate(Inst) && all_of(Inst->users(), [&](User *U) -> bool {
         return getPointerOperand(U) == Inst;
       }))
     return;
   Value *A = getVectorValue(Inst->getOperand(0));
+  unsigned NumElts = Inst->getType()->isVectorTy() ?
+    Inst->getType()->getVectorNumElements() * VF : VF;
+
+  Type *VecTy = VectorType::get(Inst->getType()->getScalarType(), NumElts);
   WidenMap[Inst] = Builder.CreateBitCast(A, VecTy);
 }
 
