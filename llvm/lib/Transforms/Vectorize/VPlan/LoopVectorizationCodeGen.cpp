@@ -1834,7 +1834,10 @@ void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
 
   if (InvariantCond)
     VCond = getScalarValue(Cond, 0);
-
+  else if (Inst->getType()->isVectorTy()) {
+    unsigned OriginalVL = Inst->getType()->getVectorNumElements();
+    VCond = replicateVector(VCond, OriginalVL, Builder);
+  }
   Value *NewSelect = Builder.CreateSelect(VCond, Op0, Op1);
 
   WidenMap[Inst] = NewSelect;
