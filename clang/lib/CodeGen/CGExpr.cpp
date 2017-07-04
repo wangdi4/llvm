@@ -457,8 +457,7 @@ EmitMaterializeTemporaryExpr(const MaterializeTemporaryExpr *M) {
       // convention in linux.
       // For now, we're going to disable this until this can be figured out.
       //
-      if (CGCilkSpawnInfo *Info =
-	dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo))
+      if (dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo))
 	break;
 #endif //INTEL_CUSTOMIZATION
 

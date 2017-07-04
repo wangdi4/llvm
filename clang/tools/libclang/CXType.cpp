@@ -542,7 +542,7 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(PreserveMost);
       TCALLINGCONV(PreserveAll);
     case CC_SpirFunction: return CXCallingConv_Unexposed;
-//  case CC_OpenCLKernel: return CXCallingConv_Unexposed; // INTEL
+    case CC_OpenCLKernel: // return CXCallingConv_Unexposed; // INTEL
       break;
     }
 #undef TCALLINGCONV
