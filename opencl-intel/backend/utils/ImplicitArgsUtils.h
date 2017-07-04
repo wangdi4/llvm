@@ -55,9 +55,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_GLOBAL_OFFSET,
     ICT_PRINTF,
     ICT_PREFETCH,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
+    // int enqueue_kernel_vaargs()
     ICT_ENQUEUE_KERNEL_LOCALMEM,
-    // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
+    // int enqueue_kernel_events_vaargs()
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
     ICT_NUMBER
  };

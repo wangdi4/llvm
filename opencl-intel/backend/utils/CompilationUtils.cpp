@@ -907,31 +907,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
-static bool isBlockWithArgs(const std::string& S, unsigned idx) {
-  reflection::FunctionDescriptor fd = demangle(S.c_str());
-  if(fd.parameters.size() <= idx) return false;
-  reflection::ParamType * paramTy = fd.parameters[idx];
-
-  if(paramTy->getTypeId() != reflection::TYPE_ID_BLOCK)
-    return false;
-
-  reflection::BlockType * blockTy = static_cast<reflection::BlockType*>(paramTy);
-  if(blockTy->getNumOfParams() == 0) return false;
-  // Blocks have 'void' argument only when they don't have local memory arguments
-  const reflection::ParamType *tmp = blockTy->getParam(0);
-  const reflection::PrimitiveType * blockArgTy =
-    static_cast<const reflection::PrimitiveType*>(tmp);
-  return blockArgTy->getPrimitive() != reflection::PRIMITIVE_VOID;
-}
-
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
-  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
-  return isBlockWithArgs(S, 3);
+  return S == "__enqueue_kernel_vaargs";
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
-  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
-  return isBlockWithArgs(S, 6);
+  return S == "__enqueue_kernel_events_vaargs";
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {
