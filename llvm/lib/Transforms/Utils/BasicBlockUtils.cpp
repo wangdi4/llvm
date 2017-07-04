@@ -691,13 +691,11 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                              BasicBlock *&IfFalse) {
   PHINode *SomePHI = dyn_cast<PHINode>(BB->begin());
   BasicBlock *Pred1 = nullptr;
-  BasicBlock *Pred2 = nullptr;
 
   if (SomePHI) {
     if (SomePHI->getNumIncomingValues() != 2)
       return nullptr;
     Pred1 = SomePHI->getIncomingBlock(0);
-    Pred2 = SomePHI->getIncomingBlock(1);
   } else {
     pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
     if (PI == PE) // No predecessor
@@ -705,7 +703,6 @@ Value *llvm::GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
     Pred1 = *PI++;
     if (PI == PE) // Only one predecessor
       return nullptr;
-    Pred2 = *PI++;
     if (PI != PE) // More than two predecessors
       return nullptr;
   }
