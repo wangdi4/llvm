@@ -1901,7 +1901,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(Function *F, unsi
     int blockCount = itRT->second.size();
     BasicBlock *BB = itRT->first;
 
-    std::cerr << " For Block " << BB->getName().str() << " count is " << blockCount  <<std::endl;
+    std::cerr << " For Block " << BB->getName().str() << " (area: " << FunctionAreaEstimator::get_basic_block_area(*AT, BB) << ")"  << " count is " << blockCount  <<std::endl;
 
     set_all_thread_pool_basic_block_instance_counts(BB, blockCount);
     set_basic_block_instance_count(BB, blockCount);
