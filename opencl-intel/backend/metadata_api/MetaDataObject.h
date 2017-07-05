@@ -56,7 +56,7 @@ struct IMetaDataObject
 
     void releaseRef()
     {
-        if( m_refCount.fetch_sub(1, std::memory_order_relaxed) == 0 )
+        if( m_refCount.fetch_sub(1, std::memory_order_relaxed) == 1 )
             delete this;
     }
 
