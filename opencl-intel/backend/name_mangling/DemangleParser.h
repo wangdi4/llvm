@@ -20,7 +20,7 @@ namespace reflection {
   public:
     // @brief Constructor
     // @param parameters type vector to store demangled parameters
-    DemangleParser(TypeVector& parameters);
+    DemangleParser(TypeVector& parameters, bool isSpir12Name = false);
 
     // @brief Destructor
     ~DemangleParser();
@@ -110,6 +110,9 @@ namespace reflection {
     unsigned int m_mangledStringLength;
     // @brief holder for error status (output data)
     bool m_error;
+
+    // @brief indicates whether the source name is mangled using SPIR12 rules
+    const bool m_isSpir12Name;
 
     // translation table between API names and CLANG-mangled names
     std::map<std::string, TypePrimitiveEnum> m_imageTypeNameTranslate;

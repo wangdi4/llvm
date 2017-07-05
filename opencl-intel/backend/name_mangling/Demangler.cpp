@@ -54,7 +54,8 @@ bool isMangledName(const char* rawString){
 //Implementation of an API function.
 //converts the given mangled name string to a FunctionDescriptor object.
 //
-reflection::FunctionDescriptor demangle(const char* rawstring){
+reflection::FunctionDescriptor demangle(const char* rawstring,
+                                        bool isSpir12Name){
   if (!rawstring || reflection::FunctionDescriptor::nullString() == rawstring)
     return reflection::FunctionDescriptor::null();
   
@@ -72,7 +73,7 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
 
   reflection::FunctionDescriptor ret;
 
-  reflection::DemangleParser parser(ret.parameters);
+  reflection::DemangleParser parser(ret.parameters, isSpir12Name);
 
   if(!parser.demangle(parameters.data())) {
     return reflection::FunctionDescriptor::null();

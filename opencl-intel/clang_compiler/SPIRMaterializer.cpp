@@ -232,24 +232,6 @@ static void changeAddrSpaceCastCall(llvm::CallInst *CI) {
   }
 }
 
-// Fixing mangling of CV qualifiers
-static void FixCVQualifiers(llvm::Function &F) {
-  StringRef FName = F.getName();
-  if (!isMangledName(FName.data()))
-    return;
-  // Remangle only if function has pointer arg
-  for (const auto &Arg : F.args()) {
-    if (Arg.getType()->isPointerTy()) {
-      // Mangler is able to demangle from SPIR1.2 mangling but always
-      // mangles to OpenCL CPU RT style
-      auto FD = demangle(FName.data());
-      auto NewName = mangle(FD);
-      F.setName(NewName);
-      break;
-    }
-  }
-}
-
 // Basic block functors, to be applied on each block in the module.
 // 1. Demangles address space qualifier function names
 // 2. Updates image type names with image access qualifiers
@@ -272,20 +254,52 @@ static void MaterializeBBlock(llvm::BasicBlock &BB) {
 }
 
 // Function functor, to be applied for every function in the module.
-// 1. Delegates call to basic-block functors
-// 2. Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names
+// Delegates call to basic-block functors
 static void MaterializeFunction(llvm::Function &F) {
-  if (F.isDeclaration()) {
-    FixCVQualifiers(F);
+  std::for_each(F.begin(), F.end(), MaterializeBBlock);
+}
+
+// Function functor, to be applied for every function in the module.
+// Translates SPIR 1.2 built-in names to OpenCL CPU RT built-in names if needed
+static void RemangleBuiltins(llvm::Function &F) {
+  if (!F.isDeclaration())
+    return;
+
+  StringRef FName = F.getName();
+  if (!isMangledName(FName.data()))
+    return;
+
+  // Function might have substituted args only if there is 'S' char in the name
+  bool IsRemanglingNeeded = FName.find('S') != StringRef::npos;
+
+  if (!IsRemanglingNeeded) {
+    // Fixing mangling of CV qualifiers
+    for (const auto &Arg : F.args()) {
+      if (Arg.getType()->isPointerTy()) {
+        IsRemanglingNeeded = true;
+        break;
+      }
+    }
   }
 
-  std::for_each(F.begin(), F.end(), MaterializeBBlock);
+  // Didn't find any reason to remangle
+  if (!IsRemanglingNeeded)
+    return;
+
+  // Mangler is able to demangle from SPIR1.2 mangling but always
+  // mangles to OpenCL CPU RT style
+  auto FD = demangle(FName.data(), /*isSpir12Name=*/true);
+  assert(!FD.isNull() && "Cannot demangle function name using SPIR12 rules.");
+  auto NewName = mangle(FD);
+  assert(NewName != reflection::FunctionDescriptor::nullString() &&
+         "Failed to remangle SPIR12 function name.");
+  F.setName(NewName);
 }
 
 int MaterializeSPIR(llvm::Module &M) {
   updateMetadata(M);
 
-  // Take care of calling conventions
+  std::for_each(M.begin(), M.end(), RemangleBuiltins);
   std::for_each(M.begin(), M.end(), MaterializeFunction);
 
   return 0;

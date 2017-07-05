@@ -334,6 +334,24 @@ static bool testDemangle(const char* mname){
     return true;
 }
 
+TEST(DemangleTest, OclTypesSubstSPIR12Compatibility){
+  const char* name = "_Z12write_imagei16ocl_image2darrayDv4_iS_";
+  FunctionDescriptor fd = demangle(name, /*isSpir12Name=*/true);
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(std::string("image2d_array_t"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("int4"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("int4"), getParameterString(fd, 2));
+}
+
+TEST(DemangleTest, OclTypesSubst){
+  const char* name = "_Z12write_imagei16ocl_image2darrayDv4_iS_";
+  FunctionDescriptor fd = demangle(name);
+  ASSERT_FALSE(fd.isNull());
+  ASSERT_EQ(std::string("image2d_array_t"), getParameterString(fd, 0));
+  ASSERT_EQ(std::string("int4"), getParameterString(fd, 1));
+  ASSERT_EQ(std::string("image2d_array_t"), getParameterString(fd, 2));
+}
+
 TEST(DemangleTest, pointerAttributes){
   const char* name = "_Z10mask_vloadtmPU3AS2Kc";
   ASSERT_TRUE( testDemangle(name) );
