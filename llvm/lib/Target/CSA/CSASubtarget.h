@@ -112,6 +112,9 @@ public:
   }
 
   // No scheduling...
+  RegisterScheduler::FunctionPassCtor getDAGScheduler(CodeGenOpt::Level) const override {
+    return createDAGLinearizer;
+  }
   bool enableMachineScheduler() const override { return false; }
   bool enablePostRAScheduler() const override { return false; }
 };
