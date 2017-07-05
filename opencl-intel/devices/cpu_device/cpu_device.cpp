@@ -2006,9 +2006,10 @@ void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
 
 cl_dev_err_code CPUDevice::clDevSetDefaultCommandList(cl_dev_cmd_list IN list)
 {
-    assert(NULL != list);
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    return m_pTaskDispatcher->SetDefaultCommandList(pList->pCmd_list);
+    SharedPtr<ITaskList> pCmd_list = NULL;
+    if(pList != NULL) pCmd_list = pList->pCmd_list;
+    return m_pTaskDispatcher->SetDefaultCommandList(pCmd_list);
 }
 // Execution commands
 /****************************************************************************************************************
