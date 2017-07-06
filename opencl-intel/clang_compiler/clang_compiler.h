@@ -58,5 +58,7 @@ protected:
   CLANG_DEV_INFO m_sDeviceInfo;
   Intel::OpenCL::Utils::BasicCLConfigWrapper m_config;
 };
-}}}
+}
+}
+}
 
