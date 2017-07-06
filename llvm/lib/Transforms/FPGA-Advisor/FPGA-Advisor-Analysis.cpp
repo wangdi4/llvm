@@ -159,8 +159,11 @@ static cl::opt<unsigned int> TraceThreshold("trace-threshold", cl::desc("Maximum
 static cl::opt<unsigned int> AreaConstraint("area-constraint", cl::desc("Set the area constraint"),
 		cl::Hidden, cl::init(0));
 
-static cl::opt<unsigned int> RapidConvergence("rapid-convergence", cl::desc("specify number of steps to use in fast convergence method"),
-		cl::Hidden, cl::init(5));
+static cl::opt<unsigned int> RapidConvergence("rapid-convergence", cl::desc("specify number of steps to use in 'geometric descent' fast convergence method"),
+		cl::Hidden, cl::init(0));
+
+static cl::opt<double> MaxDerivativeError("max-derivative-error", cl::desc(" derivative error guardrail to use in 'max derivative error' fast convergence method"),
+		cl::Hidden, cl::init(0.04));
 
 static cl::opt<unsigned int> UseThreads("use-threads", cl::desc("specify number of threads to use in gradient descent"),
 		cl::Hidden, cl::init(8));
@@ -3211,7 +3214,184 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           }  
         }
 
-        if (RapidConvergence && (thresholds.size() > 0) && (initialArea > areaConstraint)) {
+        
+
+        // Rapid gradient descent method #1.  Removes area until partial derviatives start to become unreliable.
+        // models partial derivatives as 1/k^2 (Amdahl's Law).   
+        if(MaxDerivativeError) {
+          
+          double area_threshold = (initialArea - areaConstraint)/2.0 + areaConstraint - 10.0;  // Try to remove half of the remaining area, but add a little extra.  
+           
+          // if we ran out of thresholds, just remove one unit of area.
+          if (area_threshold < 0) { 
+            area_threshold = 1.0;
+          }
+
+          // Now we must solve the linear combination to reduce area 
+          // by the required amount. We view the gradient coeffiencients 
+          // as a determining the ratio of blocks to remove. 
+          double sum = 0.0;
+          double max_coef = 0.0;
+          int max_area = 0;
+
+          for(auto it = gradient.begin(); it != gradient.end(); it++) {
+            if (get_basic_block_instance_count(it->first) > 0) {
+              double coef = 1/(it->second + FLT_MIN);
+              coefs[it->first] = coef;
+              if(max_coef < coef) {
+                max_coef = coef;
+                max_area = FunctionAreaEstimator::get_basic_block_area(*AT, it->first);
+              }
+            } else {
+              // can't remove blocks that aren't there.
+              removeBBs[it->first] = 0;
+            }
+          }
+                    
+          // scale alpha such that we remove least enough blocks of
+          // the largest type to get the area we care about.  We must
+          // take care to ensure the we will remove at least one
+          // block.  find a power of two that encompasses maximum
+          // number of blocks we will remove.
+          int max_count = (std::max(max_area, (int)area_threshold)/max_area) + 1;
+          int max_power = 1;
+          while (max_power < max_count) {
+            max_power <<= 1;
+          }
+
+          alpha = std::max((double)max_area, area_threshold)/(max_coef*max_area);
+     
+          std::cerr << "Alpha: " << alpha << "\n";         
+          std::cerr << "initial area: " << initialArea << "\n";         
+          std::cerr << "max coef: " << max_coef << "\n";         
+          std::cerr << "max area: " << max_area << "\n";         
+          std::cerr << "max count: " << max_count << "\n";         
+          std::cerr << "max power: " << max_power << "\n";         
+          std::cerr << "Area_threshold: " << area_threshold << "\n";         
+          std::cerr << "Sum: " << sum << "\n";         
+
+          // If the convergence distance is very small, we may not
+          // find a block to remove.  We track this and force the
+          // removal of the marginal block if no other blocks are
+          // removed.
+          bool foundNonZero = false;
+ 
+          // track whether we violated the derivative max error. 
+          bool violatedMaxDerivativeError = false;
+          // Multiply coefs to obtain block counts. Need to adjust alpha up to deal with need to floor. 
+          double area_removed_floor = 0;
+          double area_removed = 0;
+
+          // We get some estimate of alpha.  Since we are doing
+          // rounding and also cannot reduce block counts beneath 0,
+          // we need to massage alpha to cut the right number of
+          // blocks.  Essentially, we will do a binary search to find
+          // the value of alpha that does the right thing. 
+
+          // Now, we set up a search to find the 'right' value of alpha. 
+          double alpha_step = 1.0;
+          double alpha_scaler = 2 * alpha_step;
+          double alpha_step_cutoff = 1.0/(max_power * 128); // go a few extra steps.
+          double last_passing_step = -1; // If we don't every find a
+                                         // passing step, we should
+                                         // take the last value of the scaler. 
+
+          double alpha_prime = alpha * alpha_scaler;
+
+          // iterate until we find a passing value. Here passing is defined by the maximum area that does
+          // not violate the MaxDerivativeError  
+          do {
+            foundNonZero = false;
+            violatedMaxDerivativeError = false;
+            area_removed_floor = 0;
+            area_removed = 0;
+            for(auto it = gradient.begin(); it != gradient.end(); it++) {                                    
+              // handle the case of already eliminated blocks
+              int block_count = get_basic_block_instance_count(it->first);
+             
+              removeBBs[it->first] = std::max(0, std::min(block_count, int(floor(coefs[it->first] * alpha_prime))));
+
+              // Check to see if we violated the derivative error bound
+              // 2nd derivative of Amdahl's is 2/x^3
+              // Are we removing a block? 
+              if(removeBBs[it->first] > 1) {
+                // If we are removing a block, are we removing too many?  
+                int finalCount = block_count - removeBBs[it->first];
+                double derivativeDelta = 1.0;
+                
+                if(finalCount != 0) { 
+                  derivativeDelta = 1.0/(finalCount*finalCount) - 1.0/(block_count*block_count); 
+		}
+		std::cerr << it->first->getName().str() << "derivative delta: " << derivativeDelta << std::endl; 
+                if(derivativeDelta > MaxDerivativeError) {
+                  violatedMaxDerivativeError = true; 
+		}
+	      }
+              
+              if (floor(coefs[it->first] * alpha_prime) > .5) {
+                foundNonZero = true;
+              }
+              // need to check for removal of more blocks than actually exist. 
+              area_removed_floor += std::max(0, std::min(block_count, (int)floor(coefs[it->first] * alpha_prime))) * FunctionAreaEstimator::get_basic_block_area(*AT, it->first);
+              area_removed += coefs[it->first] * alpha_prime * FunctionAreaEstimator::get_basic_block_area(*AT, it->first);
+
+            }
+
+            std::cerr << "Alpha scaler: " << alpha_scaler << "Eliminated " << area_removed_floor << " units of area rounded from " << area_removed << "needed: "<< area_threshold << std::endl;
+ 
+            // Back off if we either moved too far in the gradient, or we 
+            // took away too much area. 
+            if(violatedMaxDerivativeError || ( areaConstraint > (initialArea - area_removed_floor) ) ) {
+              last_passing_step = alpha_prime;
+              alpha_scaler = alpha_scaler - alpha_step;
+            } else {
+              alpha_scaler = alpha_scaler + alpha_step;
+            }   
+
+            alpha_step = alpha_step/2;            
+            alpha_prime = alpha * alpha_scaler;
+           
+          } while (alpha_step > alpha_step_cutoff);
+                         
+          // Just in case we didn't find any steps that pass, assign some default.
+          if (last_passing_step < 0) {
+            last_passing_step = alpha_prime;
+          }
+
+          // use last passing step to set the removal vector.            
+          
+          area_removed_floor = 0;
+          area_removed = 0;
+          foundNonZero = false;
+          for(auto it = gradient.begin(); it != gradient.end(); it++) {                                    
+            int block_count = get_basic_block_instance_count(it->first);
+            // handle the case of already eliminated blocks
+
+            removeBBs[it->first] = std::max(0,std::min(block_count, (int)floor(coefs[it->first] * last_passing_step)));
+              
+            if (floor(coefs[it->first] * last_passing_step) > 1.0) {
+              foundNonZero = true;
+            }
+
+            std::cerr << it->first->getName().str() << ", " << it->second << ", " << FunctionAreaEstimator::get_basic_block_area(*AT, it->first) << ", " << get_basic_block_instance_count(it->first) << " removing " << removeBBs[it->first] << " -> " << (get_basic_block_instance_count(it->first) - removeBBs[it->first])  << "remain\n";
+           
+          }
+
+          // sometimes, we eliminate too much area.  We should
+          // consider iterating over the removed blocks. There's an
+          // argument that this is not energy efficient?
+
+
+          // Ensure that we remove at least one block. Given that we are bumping alpha, this may not be needed.
+          if (!foundNonZero) {
+            removeBBs[removeBB] = 1;
+          }
+
+        }
+        // Rapid gradient descent method #1.  Uses an area schedule to limit the number of steps 
+        // in the gradient descent process. 
+        else if (RapidConvergence && (thresholds.size() > 0) && (initialArea > areaConstraint)) {
+          // assume that we will remove half of the area in each step. 
           double area_threshold; 
           double target_threshold;
           do {
@@ -3362,8 +3542,8 @@ bool AdvisorAnalysis::incremental_gradient_descent(Function *F, std::unordered_m
           if (!foundNonZero) {
             removeBBs[removeBB] = 1;
           }
-
-        } else {
+	}
+        else {
 
           // Just do one step here. 
           if(removeBB != NULL) {
