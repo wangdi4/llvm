@@ -19,8 +19,9 @@ entry:
 ; to memory.
 ; CHECK-LABEL: _mul128
 ; CHECK: .result .reg .i64 [[LOREG:%r[0-9]+]]
-; CHECK: mullohis64 [[LOREG]], [[HIREG:%r[0-9]+]],
-; CHECK: st64 [[HIADDR:%r[0-9]+]], [[HIREG]]
+; CHECK: mullohis64 [[LOCHAN:%ci64_[0-9]+]], [[HICHAN:%ci64_[0-9]+]],
+; CHECK: st64 [[HIADDR:%ci64_[0-9]+]], [[HICHAN]]
+; CHECK: mov64 [[LOREG]], [[LOCHAN]]
 
 define i64 @_umul128(i64 %a, i64 %b, i64* nocapture %hi) {
 entry:
@@ -38,8 +39,9 @@ entry:
 ; to memory.
 ; CHECK-LABEL: _umul128
 ; CHECK: .result .reg .i64 [[LOREG:%r[0-9]+]]
-; CHECK: mullohiu64 [[LOREG]], [[HIREG:%r[0-9]+]],
-; CHECK: st64 [[HIADDR:%r[0-9]+]], [[HIREG]]
+; CHECK: mullohiu64 [[LOCHAN:%ci64_[0-9]+]], [[HICHAN:%ci64_[0-9]+]],
+; CHECK: st64 [[HIADDR:%ci64_[0-9]+]], [[HICHAN]]
+; CHECK: mov64 [[LOREG]], [[LOCHAN]]
 
 ; Same as _mul128, but with the lo/hi operands swapped.
 define i64 @_mul128_2(i64 %a, i64 %b, i64* nocapture %lo) {
@@ -58,8 +60,9 @@ entry:
 ; to memory.
 ; CHECK-LABEL: _mul128_2
 ; CHECK: .result .reg .i64 [[HIREG:%r[0-9]+]]
-; CHECK: mullohis64 [[LOREG:%r[0-9]+]], [[HIREG]],
-; CHECK: st64 [[HIADDR:%r[0-9]+]], [[LOREG]]
+; CHECK: mullohis64 [[LOCHAN:%ci64_[0-9]+]], [[HICHAN:%ci64_[0-9]+]],
+; CHECK: st64 [[LOADDR:%ci64_[0-9]+]], [[LOCHAN]]
+; CHECK: mov64 [[HIREG]], [[HICHAN]]
 
 ; Same as _umul128, but with the lo/hi operands swapped.
 define i64 @_umul128_2(i64 %a, i64 %b, i64* nocapture %lo) {
@@ -78,6 +81,6 @@ entry:
 ; to memory.
 ; CHECK-LABEL: _umul128_2
 ; CHECK: .result .reg .i64 [[HIREG:%r[0-9]+]]
-; CHECK: mullohiu64 [[LOREG:%r[0-9]+]], [[HIREG]],
-; CHECK: st64 [[HIADDR:%r[0-9]+]], [[LOREG]]
-
+; CHECK: mullohiu64 [[LOCHAN:%ci64_[0-9]+]], [[HICHAN:%ci64_[0-9]+]],
+; CHECK: st64 [[LOADDR:%ci64_[0-9]+]], [[LOCHAN]]
+; CHECK: mov64 [[HIREG]], [[HICHAN]]

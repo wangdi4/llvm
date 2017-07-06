@@ -28,6 +28,12 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "CSAGenInstrInfo.inc"
 
+// These are the register flags that ought to be used when specifying %ign as
+// an memory ordering output channel when constructing memory operations.
+// RegState::Dead is used here because values stored into %ign are dead but
+// LLVM won't know that unless they're explicitly marked.
+constexpr unsigned ISSUED_REGSTATE = RegState::Define | RegState::Dead;
+
 // GetCondFromBranchOpc - Return the CSA CC that matches
 // the correspondent Branch instruction opcode.
 static CSA::CondCode GetCondFromBranchOpc(unsigned BrOpc)
@@ -105,8 +111,9 @@ void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     llvm_unreachable("Unknown register class");
   }
 
-  BuildMI(MBB, MI, DL, get(opc)).addFrameIndex(FrameIdx).addImm(0)
-    .addReg(SrcReg, getKillRegState(isKill));
+  BuildMI(MBB, MI, DL, get(opc)).addReg(CSA::IGN, ISSUED_REGSTATE)
+    .addFrameIndex(FrameIdx).addImm(0).addReg(SrcReg, getKillRegState(isKill))
+    .addReg(CSA::IGN);
 
 }
 
@@ -133,7 +140,8 @@ void CSAInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     llvm_unreachable("Unknown register class");
   }
 
-  BuildMI(MBB, MI, DL, get(opc), DestReg).addFrameIndex(FrameIdx).addImm(0);
+  BuildMI(MBB, MI, DL, get(opc), DestReg).addReg(CSA::IGN, ISSUED_REGSTATE)
+    .addFrameIndex(FrameIdx).addImm(0).addReg(CSA::IGN);
 }
 
 unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {
@@ -400,48 +408,12 @@ CSAInstrInfo::getPickanyOpcode(const TargetRegisterClass *RC) const {
   }
 }
 
-// Convert opcode of LD/ST/ATM* into a corresponding opcode for OLD/OST/OATM*.
-// Returns current_opcode if it is not a LD, ST, or ATM*.
-unsigned
-CSAInstrInfo::get_ordered_opcode_for_LDST(unsigned current_opcode)  const {
-  // This is still a bit of a hack, and certainly slower than before, but it
-  // should be less fragile. This depends on the opcode names for conversion to
-  // ordered opcodes. Specifically, if the unordered opcode is named "BAR",
-  // then the ordered opcode must be that which is named exactly "OBAR".
-  StringRef current = getName(current_opcode);
-  unsigned new_op;
-  bool found = false;
-  for(new_op=0; new_op<getNumOpcodes(); ++new_op) {
-      StringRef candidate = StringRef(getName(new_op));
-      if(candidate.startswith("O") && candidate.endswith(current)
-              && candidate.size() == current.size()+1){
-          found = true;
-          break;
-      }
-  }
-
-  if(found) {
-      return new_op;
-  }
-
-  return current_opcode;
-}
-
-
 bool CSAInstrInfo::isLoad(MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::LD1 && MI->getOpcode() <= CSA::LDx88I;
 }
 
 bool CSAInstrInfo::isStore(MachineInstr *MI) const {
 	return MI->getOpcode() >= CSA::ST1 && MI->getOpcode() <= CSA::STx88I;
-}
-
-bool CSAInstrInfo::isOrderedLoad(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= CSA::OLD1) && (MI->getOpcode() <= CSA::OLDx88I));
-}
-
-bool CSAInstrInfo::isOrderedStore(MachineInstr *MI) const {
-  return ((MI->getOpcode() >= CSA::OST1) && (MI->getOpcode() <= CSA::OSTx88I));
 }
 
 bool CSAInstrInfo::isMul(MachineInstr *MI) const {
@@ -529,10 +501,6 @@ bool CSAInstrInfo::isInit(MachineInstr *MI) const {
 
 bool CSAInstrInfo::isAtomic(MachineInstr *MI) const {
     return MI->getOpcode() >= CSA::ATMADD16 && MI->getOpcode() <= CSA::ATMXOR8;
-}
-
-bool CSAInstrInfo::isOrderedAtomic(MachineInstr *MI) const {
-    return MI->getOpcode() >= CSA::OATMADD16 && MI->getOpcode() <= CSA::OATMXOR8;
 }
 
 bool CSAInstrInfo::isSeqOT(MachineInstr *MI) const {

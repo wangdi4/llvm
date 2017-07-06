@@ -145,10 +145,6 @@ public:
                         const DebugLoc &DL,
                         int *BytesAdded) const override;
 
-  // Convert opcode of LD/ST into a corresponding opcode for OLD/OST.
-  // Returns current_opcode if it is not a LD or ST.
-  unsigned get_ordered_opcode_for_LDST(unsigned current_opcode) const;
-  
   unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
   bool isSwitch(MachineInstr *) const;
   bool isCopy(MachineInstr *) const;
@@ -158,8 +154,6 @@ public:
   bool isInit(MachineInstr *) const;
   bool isLoad(MachineInstr *) const;
   bool isStore(MachineInstr *) const;
-  bool isOrderedLoad(MachineInstr *) const;
-  bool isOrderedStore(MachineInstr *) const;
   bool isAdd(MachineInstr *) const;
   bool isSub(MachineInstr *) const;
   bool isMul(MachineInstr *) const;
@@ -168,7 +162,6 @@ public:
   bool isShift(MachineInstr *) const;
   bool isCmp(MachineInstr *) const;
   bool isAtomic(MachineInstr *) const;
-  bool isOrderedAtomic(MachineInstr *) const;
   bool isSeqOT(MachineInstr *) const;
 
   // Gets the opcode for a memory token MOV.  This method is defined

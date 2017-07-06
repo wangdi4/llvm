@@ -5,13 +5,12 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define void @si0DF(double* %p) #0 {
+define void @si0DF(double* %p, double** %p.addr) #0 {
 ; CSA_CHECK-LABEL: si0DF
 ; CSA_CHECK: st64
 ; CSA_CHECK: st64
 
 entry:
-  %p.addr = alloca double*, align 8
   store double* %p, double** %p.addr, align 8
   %0 = load double*, double** %p.addr, align 8
   store double 0.000000e+00, double* %0, align 8

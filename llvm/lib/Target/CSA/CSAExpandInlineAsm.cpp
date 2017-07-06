@@ -343,7 +343,7 @@ void CSAExpandInlineAsm::buildMachineInstrFromMCInst(MachineInstr* MI, MCInst *p
 
   // Loop through the parsed operands, adding a new MachineOperand to the
   // builder for every parsed MCOperand.
-  for(unsigned i=0; i<desc.getNumOperands(); i++) {
+  for(unsigned i=0; i<parsedInst->getNumOperands(); i++) {
     MCOperand op = parsedInst->getOperand(i);
     if(op.isReg()){
       unsigned regNo = op.getReg();
