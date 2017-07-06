@@ -24,6 +24,7 @@
 
 #include <spirv/1.0/spirv.hpp>
 
+#include <llvm/ADT/StringRef.h>
 #include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
@@ -151,8 +152,18 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   optionsEx << " -mstackrealign";
   optionsEx << " -D__ENDIAN_LITTLE__=1";
 
-  std::stringstream supportedExtensions;
-  supportedExtensions << m_sDeviceInfo.sExtensionStrings;
+  // Triple spir assumes that all extensions should be supported.
+  // To tell to compiler which extensions are actually supported by this
+  // particular device we pass supported extensions via -cl-ext option.
+  // Order of extensions matters! Later overwrites former.
+  // First of all we disable *all* extension and then we enable extension
+  // per the device info.
+  llvm::StringRef ExtStr(m_sDeviceInfo.sExtensionStrings);
+  llvm::SmallVector<llvm::StringRef, 16> ExtVec;
+  ExtStr.split(ExtVec, ' ', -1, false);
+  optionsEx << " -cl-ext=-all";
+  for (auto Ext : ExtVec)
+    optionsEx << ",+" << Ext.str();
 
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
@@ -166,7 +177,22 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #error "Can't define target triple: unknown architecture."
 #endif
 
-    supportedExtensions << " cl_altera_channels";
+    // For now we can enable FPGA emulation only for the whole OpenCL context.
+    // It is deemed that a better approach would be to have FPGA emulator as
+    // another device. Then cl_altera_channels extension should be in
+    // m_sDeviceInfo.sExtensionStrings and can be handled uniformly with other
+    // extensions supported by the device. But according to Andrew Savonichev,
+    // the device based approach has several flaws:
+    // 1. We have a single BE instance for all devices, it would be equally
+    //    difficult to implement a check for FPGA in the BE.
+    // 2. ATM we can link against libintelocl.so to avoid device selection.
+    //    If libintelocl.so provides 2 devices, we would need to patch all
+    //    benchmarks/samples with a device selection code.
+    // 3. I think we only used 'experimental 2.x' as a separate platform
+    //    (not a device). Having 2 devices seems to be an overkill for this
+    //    purpose.
+    optionsEx << " -cl-ext=+cl_altera_channels";
+
   }
 
   if (m_sDeviceInfo.bImageSupport) {
@@ -180,7 +206,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
                       m_pProgDesc->pszInputHeadersNames, 0, 0,
                       options.str().c_str(),   // pszOptions
                       optionsEx.str().c_str(), // pszOptionsEx
-                      supportedExtensions.str().c_str(),
                       GetOpenCLVersionStr(m_config.GetOpenCLVersion()),
                       spBinaryResult.getOutPtr());
 
