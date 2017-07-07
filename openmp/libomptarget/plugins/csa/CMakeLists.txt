@@ -23,14 +23,14 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
     if(LIBOMPTARGET_DEP_LIBELF_FOUND)
 #      if(LIBOMPTARGET_DEP_LIBFFI_FOUND)
 
-        find_library(LibCSASIM csasim PATHS ${CSASIM_TOP} NO_DEFAULT_PATH)
+        find_library(LibCSASIM csasim PATHS $ENV{CSASIM_TOP} NO_DEFAULT_PATH)
         if(LibCSASIM)
 
           libomptarget_say("Building ${tmachine_name} offloading plugin.")
     
 #          include_directories(${LIBOMPTARGET_DEP_LIBFFI_INCLUDE_DIR})
           include_directories(${LIBOMPTARGET_DEP_LIBELF_INCLUDE_DIR})
-          include_directories(${CSASIM_TOP})
+          include_directories($ENV{CSASIM_TOP})
 
           # Define macro to be used as prefix of the runtime messages for this target.
           add_definitions("-DTARGET_NAME=${tmachine_name}")
