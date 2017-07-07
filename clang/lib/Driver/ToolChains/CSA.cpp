@@ -73,3 +73,44 @@ CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
   }
 }
 
+// This is currently only used when doing offload from x86. This link phase is
+// preparing a blob for the upcoming x86 link, which includes the blob as
+// specified by the Clang-generated offload linker script.
+//
+// Essentially, this just calls "ld [-static|-shared] -o OUTPUT INPUTS...",
+// where INPUTS are x86 object files containing the IR to be offloaded to CSA.
+// Note that the tools::gnutools::Linker nearly does what we want, except it
+// also wants to link in startup files and possibly other things that we don't
+// need.
+void CSA::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+                                 const InputInfo &Output,
+                                 const InputInfoList &Inputs,
+                                 const ArgList &Args,
+                                 const char *LinkingOutput) const {
+  const auto &TC =
+      static_cast<const toolchains::CSAToolChain &>(getToolChain());
+  assert(TC.getTriple().getArch() == llvm::Triple::csa && "Wrong platform");
+
+  ArgStringList CmdArgs;
+  if (Args.hasArg(options::OPT_static))
+    CmdArgs.push_back("-static");
+  else if (Args.hasArg(options::OPT_shared))
+    CmdArgs.push_back("-shared");
+
+  CmdArgs.push_back(Args.MakeArgString("-o"));
+  CmdArgs.push_back(Args.MakeArgString(Output.getFilename()));
+
+  // This is a simple version of AddLinkerInputs. It simply includes appends
+  // all file inputs.
+  for (const auto &II : Inputs)
+    if (II.isFilename())
+      CmdArgs.push_back(II.getFilename());
+
+  const char *Exec = Args.MakeArgString(TC.GetLinkerPath());
+  C.addCommand(llvm::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+}
+
+Tool *CSAToolChain::buildLinker() const {
+  return new tools::CSA::Linker(*this);
+}
+

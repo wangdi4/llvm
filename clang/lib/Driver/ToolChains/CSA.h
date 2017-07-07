@@ -15,6 +15,24 @@
 
 namespace clang {
 namespace driver {
+namespace tools {
+namespace CSA {
+
+class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
+ public:
+   Linker(const ToolChain &TC)
+       : GnuTool("csa::Linker", "csa-ld", TC) {}
+
+   bool hasIntegratedCPP() const override { return false; }
+
+   void ConstructJob(Compilation &C, const JobAction &JA,
+                     const InputInfo &Output, const InputInfoList &Inputs,
+                     const llvm::opt::ArgList &TCArgs,
+                     const char *LinkingOutput) const override;
+};
+} // end namespace CSA
+} // end namespace tools
+
 namespace toolchains {
 
 // Tweaks to the toolchain for CSA
@@ -33,6 +51,9 @@ public:
   // options
   void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
                              llvm::opt::ArgStringList &CC1Args) const override;
+protected:
+  Tool *buildLinker() const override;
+
 };
 
 } // end namespace toolchains
