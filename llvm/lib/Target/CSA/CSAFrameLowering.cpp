@@ -30,6 +30,12 @@
 
 using namespace llvm;
 
+// These are the register flags that ought to be used when specifying %ign as
+// an memory ordering output channel when constructing memory operations.
+// RegState::Dead is used here because values stored into %ign are dead but
+// LLVM won't know that unless they're explicitly marked.
+constexpr unsigned ISSUED_REGSTATE = RegState::Define | RegState::Dead;
+
 void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const {
   assert(&MBB == &MF.front() && "Shrink-wrapping not yet implemented");
   MachineFrameInfo &MFI  = MF.getFrameInfo();
@@ -82,8 +88,8 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 	assert(RAOffset < (int)StackSize && "Bad RA offset");
     }
 
-    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D))
-      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::RA);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D)).addReg(CSA::IGN, ISSUED_REGSTATE)
+      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::RA).addReg(CSA::IGN);
   }
 
   if (hasFP(MF)) {
@@ -103,8 +109,8 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
 	assert(FPOffset < (int)StackSize && "Bad FP offset");
     }
 
-    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D))
-      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::FP);
+    BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D)).addReg(CSA::IGN, ISSUED_REGSTATE)
+      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::FP).addReg(CSA::IGN);
 
     // move $fp, $sp
     BuildMI(MBB, MBBI, dl, TII.get(CSA::MOV64), CSA::FP)
@@ -150,7 +156,8 @@ void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
     assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::FP)
-      .addReg(CSA::SP).addImm(FPOffset);
+      .addReg(CSA::IGN, ISSUED_REGSTATE)
+      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::IGN);
   }
 
   if (MFI.hasCalls()) {
@@ -163,7 +170,8 @@ void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
     assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::RA)
-      .addReg(CSA::SP).addImm(RAOffset);
+      .addReg(CSA::IGN, ISSUED_REGSTATE)
+      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::IGN);
   }
 
   // Adjust stack : add sp, sp, imm

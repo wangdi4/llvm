@@ -1874,7 +1874,13 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
   CvtOS << "  unsigned OpIdx;\n";
   CvtOS << "  Inst.setOpcode(Opcode);\n";
   CvtOS << "  for (const uint8_t *p = Converter; *p; p+= 2) {\n";
-  if (HasOptionalOperands) {
+  // CSA EDIT:
+  // Subtracting NumDefaults here seems to be the wrong behavior because the
+  // indices are all absolute and so whenever a defaulted operand is encountered
+  // the operands that come after that one in MachineInstr order will have their
+  // values pulled from the wrong asm operand. Therefore, this behavior has been
+  // disabled for CSA.
+  if (HasOptionalOperands and Target.getName() != "CSA") {
     CvtOS << "    OpIdx = *(p + 1) - NumDefaults;\n";
   } else {
     CvtOS << "    OpIdx = *(p + 1);\n";

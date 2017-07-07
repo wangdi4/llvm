@@ -272,7 +272,15 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
   bool ReadsPhysRegs = false;
   bool isOrigDef = false;
   unsigned Dest;
-  if (VRM && MI->getOperand(0).isReg()) {
+  // CSA EDIT:
+  // This code seems to have assumed that any defs from register spills are
+  // virtual registers that ought to be cleaned up, but this is not the case
+  // for CSA stores which are emitted with an %ign def. Therefore, an extra
+  // check has been added to make sure that defs are actually virtual registers
+  // before they are eliminated.
+  if (VRM
+      && MI->getOperand(0).isReg()
+      && !TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg())) {
     Dest = MI->getOperand(0).getReg();
     unsigned Original = VRM->getOriginal(Dest);
     LiveInterval &OrigLI = LIS.getInterval(Original);

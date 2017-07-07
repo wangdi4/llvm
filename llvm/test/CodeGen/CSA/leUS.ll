@@ -7,7 +7,7 @@ target triple = "csa"
 ; Function Attrs: nounwind
 define i32 @leUS(i16 zeroext %a, i16 zeroext %b) #0 {
 ; CSA_CHECK-LABEL: leUS
-; CSA_CHECK: cmples32
+; CSA_CHECK: cmples16
 
 entry:
   %a.addr = alloca i16, align 2
@@ -15,10 +15,8 @@ entry:
   store i16 %a, i16* %a.addr, align 2
   store i16 %b, i16* %b.addr, align 2
   %0 = load i16, i16* %a.addr, align 2
-  %conv = zext i16 %0 to i32
   %1 = load i16, i16* %b.addr, align 2
-  %conv1 = zext i16 %1 to i32
-  %cmp = icmp sle i32 %conv, %conv1
+  %cmp = icmp sle i16 %0, %1
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }

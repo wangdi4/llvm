@@ -601,6 +601,72 @@ bool CSATargetLowering::isFMAFasterThanFMulAndFAdd(EVT VT) const {
   return false;
 }
 
+// Overwrite mi_op with the value specified by sd_op. This is basically a really
+// dumbed-down version of InstrEmitter::AddOperand, but since it doesn't have
+// access to VRBaseMap it has to assume that the register value originally in the
+// operand before the one that it needs to process (last_reg) is the one it wants
+// to use if it doesn't have any other hints. This will be the case for the
+// instructions that this function needs to operate on because the values based on
+// the SDNode are all shifted left in the original instruction.
+static void overwrite_operand(MachineOperand& mi_op, SDValue sd_op, unsigned last_reg, bool is_def) {
+  if (const ConstantSDNode*const C = dyn_cast<ConstantSDNode>(sd_op))
+    return mi_op.ChangeToImmediate(C->getSExtValue());
+  if (const ConstantFPSDNode*const F = dyn_cast<ConstantFPSDNode>(sd_op))
+    return mi_op.ChangeToFPImmediate(F->getConstantFPValue());
+  if (const RegisterSDNode*const R = dyn_cast<RegisterSDNode>(sd_op))
+    return mi_op.ChangeToRegister(R->getReg(), is_def);
+  if (const FrameIndexSDNode*const FI = dyn_cast<FrameIndexSDNode>(sd_op))
+    return mi_op.ChangeToFrameIndex(FI->getIndex());
+  if (const ExternalSymbolSDNode*const ES = dyn_cast<ExternalSymbolSDNode>(sd_op))
+    return mi_op.ChangeToES(ES->getSymbol(), ES->getTargetFlags());
+  if (const MCSymbolSDNode*const MCS = dyn_cast<MCSymbolSDNode>(sd_op))
+    return mi_op.ChangeToMCSymbol(MCS->getMCSymbol());
+
+  assert(last_reg && "can't figure out which register to use!");
+  return mi_op.ChangeToRegister(last_reg, is_def);
+}
+
+void CSATargetLowering::AdjustInstrPostInstrSelection(MachineInstr& MI, SDNode* Node) const {
+
+  DEBUG(errs() << "adjusting instruction: " << MI << "from node ");
+  DEBUG(Node->print(errs()));
+  DEBUG(errs() << "\n");
+
+  // Instruction selection has a problem where it won't add any defs to an
+  // instruction that doesn't have any non-chain results on its corresponding
+  // SDNode, and as a result it produces broken instructions with too few operands
+  // and with mismatched operand values. This is an issue for our store
+  // instructions because their only output is the issued signal and that doesn't
+  // appear as an SDNode result because it defaults to a physical register (%ign).
+  // In order to make sure that those are generated correctly, this code
+  // identifies memory operations that have too few operands and that have defs
+  // which aren't represented as SDNode results and patches those instructions to
+  // make sure that all of their operands are correct.
+  const MCInstrDesc& II = MI.getDesc();
+  if (Node->getNumValues() == 1 and II.getNumDefs()
+    and not MI.memoperands_empty()
+    and MI.getNumOperands() < II.getNumOperands()
+  ) {
+    DEBUG(errs() << "found defective instruction with too few operands!\n");
+
+    // Pad out the operands until there are enough of them.
+    assert(II.getNumDefs() == 1 && "This hook assumes only one def is missing");
+    MachineInstrBuilder MIB {*MI.getParent()->getParent(), &MI};
+    MIB.addReg(CSA::IGN);
+
+    // Then overwrite all of them with the correct values.
+    unsigned last_reg = 0;
+    for (unsigned op_ind = 0; op_ind < II.getNumOperands(); ++op_ind) {
+      MachineOperand& mi_op = MI.getOperand(op_ind);
+      const unsigned next_last_reg = mi_op.isReg() ? mi_op.getReg() : 0;
+      overwrite_operand(mi_op, Node->getOperand(op_ind), last_reg, op_ind < II.getNumDefs());
+      last_reg = next_last_reg;
+    }
+
+    DEBUG(errs() << "instruction corrected to: " << MI << "\n");
+  }
+}
+
 // isLegalAddressingMode - Return true if the addressing mode represented
 // by AM is legal for this target, for a load/store of the specified type.
 bool CSATargetLowering::isLegalAddressingMode(const DataLayout &DL,

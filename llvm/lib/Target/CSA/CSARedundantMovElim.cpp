@@ -209,10 +209,8 @@ CSARedundantMovElim::isInitializedMachineOperand(const MachineOperand& MO) const
 bool
 CSARedundantMovElim::isConstantReplaceableOperand(MachineInstr* MI,
                                                   unsigned op_idx) const {
-  if (!(TII->isOrderedLoad(MI) ||
-        TII->isOrderedStore(MI))) {
-    return true;
-  }
+  if (!(TII->isLoad(MI) || TII->isStore(MI))) return true;
+
   // The last operand on ordered memory op should be the memory
   // ordering op.    
   return (op_idx != (MI->getNumOperands()-1));

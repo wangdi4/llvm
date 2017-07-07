@@ -1408,8 +1408,7 @@ seq_classify_memdep_graph(CSASeqCandidate& x) {
             nextOp[0] = &MI->getOperand(3);
             num_ops = 1;
           }
-          else if (TII.isOrderedLoad(MI) ||
-                   TII.isOrderedStore(MI)) {
+          else if (TII.isLoad(MI) || TII.isStore(MI)) {
             int num_operands = MI->getNumOperands();
             nextOp[0] = &MI->getOperand(num_operands-1);
             num_ops = 1;

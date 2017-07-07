@@ -10,6 +10,7 @@
 #include "CSA.h"
 #include "CSAInstrInfo.h"
 #include "MCTargetDesc/CSAMCTargetDesc.h"
+#include "llvm/ADT/SmallBitVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
@@ -32,6 +33,8 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> parseRegister();
 
   std::unique_ptr<CSAOperand> parseImmediate();
+
+  std::unique_ptr<CSAOperand> defaultOptionalRegOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -157,6 +160,8 @@ public:
 
   bool isToken() const override { return Kind == TOKEN; }
 
+  bool isOptionalReg() const { return isReg(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -231,6 +236,11 @@ public:
       Inst.addOperand(MCOperand::createReg(getReg()));
     else
       assert(false && "Invalid operand type!");
+  }
+
+  void addOptionalRegOperands(MCInst& Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    Inst.addOperand(MCOperand::createReg(getReg()));
   }
 
 };
@@ -365,6 +375,11 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   }
 }
 
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createReg(CSA::IGN, loc, loc);
+}
+
 static int SizeForSuffix(StringRef T) {
   return StringSwitch<int>(T).EndsWith(".h", 2).EndsWith(".b", 1).Default(4);
 }
@@ -472,11 +487,6 @@ unsigned CSAAsmParser::validateTargetOperandClass(MCParsedAsmOperand &GOp,
              // it's easy to match as a one-off. The resulting MI doesn't
              // actually use %ra since it doesn't have any operands.
              if(Op.isReg() && Op.getReg() == CSA::RA)
-               return MCTargetAsmParser::Match_Success;
-             break;
-    case MCK__PCT_ign:
-             // Not sure if it's needed, but same here.
-             if(Op.isReg() && Op.getReg() == CSA::IGN)
                return MCTargetAsmParser::Match_Success;
              break;
   }

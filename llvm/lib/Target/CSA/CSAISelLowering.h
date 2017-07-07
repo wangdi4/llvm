@@ -110,6 +110,10 @@ namespace llvm {
     /// instructions.
     bool isFMAFasterThanFMulAndFAdd(EVT VT) const override;
 
+    /// post-selection hooks, in this case a workaround for LLVM's mishandling of
+    /// optional register defs
+    void AdjustInstrPostInstrSelection(MachineInstr&, SDNode*) const override;
+
   private:
     /// Keep a reference to the CSASubtarget around so that we can
     /// make the right decision when generating code for different targets.

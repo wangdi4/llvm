@@ -7,7 +7,7 @@ target triple = "csa"
 ; Function Attrs: nounwind
 define i32 @eqUC(i8 zeroext %a, i8 zeroext %b) #0 {
 ; CSA_CHECK-LABEL: eqUC
-; CSA_CHECK: cmpeq32
+; CSA_CHECK: cmpeq8
 
 entry:
   %a.addr = alloca i8, align 1
@@ -15,10 +15,8 @@ entry:
   store i8 %a, i8* %a.addr, align 1
   store i8 %b, i8* %b.addr, align 1
   %0 = load i8, i8* %a.addr, align 1
-  %conv = zext i8 %0 to i32
   %1 = load i8, i8* %b.addr, align 1
-  %conv1 = zext i8 %1 to i32
-  %cmp = icmp eq i32 %conv, %conv1
+  %cmp = icmp eq i8 %0, %1
   %conv2 = zext i1 %cmp to i32
   ret i32 %conv2
 }

@@ -5,13 +5,12 @@ target datalayout = "e-m:e-i64:64-n32:64"
 target triple = "csa"
 
 ; Function Attrs: nounwind
-define void @sia1UC(i8* %p) #0 {
+define void @sia1UC(i8* %p, i8** %p.addr) #0 {
 ; CSA_CHECK-LABEL: sia1UC
 ; CSA_CHECK: st64
 ; CSA_CHECK: st8
 
 entry:
-  %p.addr = alloca i8*, align 8
   store i8* %p, i8** %p.addr, align 8
   %0 = load i8*, i8** %p.addr, align 8
   %1 = load i8, i8* %0, align 1

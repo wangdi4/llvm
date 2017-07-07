@@ -170,17 +170,16 @@ namespace {
 
     // Helper methods:
 
-    // Create a new OLD/OST instruction, to replace an existing LD /
-    // ST instruction.
+    // Update a memory instruction by setting ordering operands in-place.
     //  issued_reg is the register to define as the extra output
     //  ready_reg is the register which is the extra input
     //  If non-NULL, ready_op_num will have the operand number which uses the
     //  ready_reg stored to it.
-    MachineInstr* convert_memop_ins(MachineInstr* memop,
-                                    unsigned new_opcode,
-                                    unsigned issued_reg,
-                                    unsigned ready_reg,
-                                    unsigned *ready_op_num);
+    void order_memop_ins(
+      MachineInstr& memop,
+      unsigned issued_reg, unsigned ready_reg,
+      unsigned *ready_op_num
+    );
 
     // Create a dependency chain in virtual registers through the
     // basic block BB.
@@ -241,6 +240,11 @@ namespace {
     // the edge and the PHI.
     void markParallelLoopBackedges(MachineFunction *thisMF,
                                    const SmallVectorImpl<MachineInstr*>& inserted_PHIs);
+
+    // Determine whether a given instruction should be assigned ordering.
+    // This is the case if it has a memory operand and if its last use and last def
+    // are both %ign.
+    bool should_assign_ordering(const MachineInstr& MI) const;
   };
 }
 
@@ -318,11 +322,9 @@ void CSAMemopOrdering::addMemoryOrderingConstraints(MachineFunction *thisMF) {
   // of reads.
   for (MachineBasicBlock &BB : *thisMF) {
     for (MachineInstr &MI : BB) {
-      unsigned current_opcode = MI.getOpcode();
-      unsigned converted_opcode = TII->get_ordered_opcode_for_LDST(current_opcode);
 
-      // If this is not an ordered instruction, we're done.
-      if (current_opcode == converted_opcode)
+      // If this instruction doesn't have memory operands, we're done.
+      if (MI.memoperands_empty())
         continue;
 
       assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
@@ -417,32 +419,21 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
   // Also save a wavefront of load output signals per alias set.
   DenseMap<unsigned, SmallVector<unsigned, MEMDEP_VEC_WIDTH> > wavefront;
 
-  MachineBasicBlock::iterator iterMI = BB.begin();
-  while (iterMI != BB.end()) {
-    MachineInstr* MI = &*iterMI;
-    DEBUG(errs() << "Found instruction: " << *MI << "\n");
+  for (MachineInstr& MI : BB) {
+    DEBUG(errs() << "Found instruction: " << MI << "\n");
 
-    unsigned current_opcode = MI->getOpcode();
-    unsigned converted_opcode = TII->get_ordered_opcode_for_LDST(current_opcode);
+    // If this instruction shouldn't be ordered, we're done.
+    if (not should_assign_ordering(MI)) continue;
 
-    // If this is not an ordered instruction, we're done.
-    if (current_opcode == converted_opcode) {
-      ++iterMI;
-      continue;
-    }
-
-    assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
-    const MachineMemOperand *mOp = *MI->memoperands_begin();
+    assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
+    const MachineMemOperand *mOp = *MI.memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
     unsigned as = AS->getAliasSetNumForMemop(mOp);
 
     // If this chain consists only of readonly access, then it is unnecessary.
     // This is a stronger requirement than is necessary.
-    if (depchains[as].readonly) {
-      ++iterMI;
-      continue;
-    }
+    if (depchains[as].readonly) continue;
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
@@ -455,7 +446,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     if (!depchain_reg[as])
       depchain_reg[as] = depchains[as].start;
 
-    bool is_load = TII->isLoad(MI);
+    bool is_load = TII->isLoad(&MI);
     if (is_load) {
       // Just a load. Build up the set of load outputs that we depend on.
       wavefront[as].push_back(next_mem_reg);
@@ -465,7 +456,7 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
       // last interval, merge all their outputs into one output, and change the
       // latest source.
       depchain_reg[as] = merge_dependency_signals(BB,
-          MI,
+          &MI,
           &wavefront[as],
           depchain_reg[as]);
 
@@ -477,13 +468,12 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
     }
 
     unsigned newOpNum;
-    MachineInstr *newInst = convert_memop_ins(MI, converted_opcode,
-        next_mem_reg, depchain_reg[as], &newOpNum);
+    order_memop_ins(MI, next_mem_reg, depchain_reg[as], &newOpNum);
 
     // If the instruction uses a value coming into the block, then it will need
     // to be fixed by MachineSSAUpdater later. Save the operand to the list to
     // do this later.
-    MachineOperand *newOp = &newInst->getOperand(newOpNum);
+    MachineOperand *newOp = &MI.getOperand(newOpNum);
     assert(newOp && newOp->isReg() && newOp->isUse());
     if (newOp->getReg() == depchains[as].start) {
       depchains[as].uses.insert(newOp);
@@ -496,9 +486,6 @@ CSAMemopOrdering::convert_block_memops_wavefront(MachineBasicBlock& BB,
       // Update the SSA updater.
       depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
     }
-
-    // Finally, erase the old instruction.
-    iterMI = BB.erase(iterMI);
   }
 
   for (auto &pair : wavefront) {
@@ -523,32 +510,21 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
   // Save the latest evolution of each alias set's memory chain here.
   AliasSetVReg depchain_reg;
 
-  MachineBasicBlock::iterator iterMI = BB.begin();
-  while (iterMI != BB.end()) {
-    MachineInstr* MI = &*iterMI;
-    DEBUG(errs() << "Found instruction: " << *MI << "\n");
+  for (MachineInstr& MI : BB) {
+    DEBUG(errs() << "Found instruction: " << MI << "\n");
 
-    unsigned current_opcode = MI->getOpcode();
-    unsigned converted_opcode = TII->get_ordered_opcode_for_LDST(current_opcode);
+    // If this instruction shouldn't be ordered, we're done.
+    if (not should_assign_ordering(MI)) continue;
 
-    // If this is not an ordered instruction, we're done.
-    if (current_opcode == converted_opcode) {
-      ++iterMI;
-      continue;
-    }
-
-    assert(MI->hasOneMemOperand() && "Can't handle multiple-memop ordering");
-    const MachineMemOperand *mOp = *MI->memoperands_begin();
+    assert(MI.hasOneMemOperand() && "Can't handle multiple-memop ordering");
+    const MachineMemOperand *mOp = *MI.memoperands_begin();
 
     // Use AliasAnalysis to determine which ordering chain we should be on.
     unsigned as = AS->getAliasSetNumForMemop(mOp);
 
     // If this chain consists only of readonly access, then it is unnecessary.
     // This is a stronger requirement than is necessary.
-    if (depchains[as].readonly) {
-      ++iterMI;
-      continue;
-    }
+    if (depchains[as].readonly) continue;
 
     // Create a new vreg which will be written to as the next link of the
     // chain.
@@ -564,13 +540,12 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // Hook this instruction into the chain, connecting the previous and next
     // values. The operand number using the old value is saved to newOpNum.
     unsigned newOpNum;
-    MachineInstr *newInst = convert_memop_ins(MI, converted_opcode,
-        next_mem_reg, depchain_reg[as], &newOpNum);
+    order_memop_ins(MI, next_mem_reg, depchain_reg[as], &newOpNum);
 
     // If the instruction uses a value coming into the block, then it will need
     // to be fixed by MachineSSAUpdater later. Save the operand to the list to
     // do this later.
-    MachineOperand *newOp = &newInst->getOperand(newOpNum);
+    MachineOperand *newOp = &MI.getOperand(newOpNum);
     assert(newOp && newOp->isReg() && newOp->isUse());
     if (newOp->getReg() == depchains[as].start) {
       depchains[as].uses.insert(newOp);
@@ -582,9 +557,6 @@ void CSAMemopOrdering::convert_block_memops_linear(MachineBasicBlock& BB,
     // Update the SSA updater, advising it on the latest value in this
     // evolution coming out of this BB.
     depchains[as].updater->AddAvailableValue(&BB, next_mem_reg);
-
-    // Finally, erase the old instruction.
-    iterMI = BB.erase(iterMI);
   }
 }
 
@@ -663,115 +635,34 @@ unsigned CSAMemopOrdering::merge_dependency_signals(MachineBasicBlock& BB,
   }
 }
 
-MachineInstr* CSAMemopOrdering::convert_memop_ins(MachineInstr* MI,
-                                                unsigned new_opcode,
-                                                unsigned issued_reg,
-                                                unsigned ready_reg,
-                                                unsigned *ready_op_num = nullptr) {
-  MachineInstr* new_inst = NULL;
+void CSAMemopOrdering::order_memop_ins(
+  MachineInstr& MI,
+  unsigned issued_reg, unsigned ready_reg,
+  unsigned *ready_op_num = nullptr
+) {
+  using namespace std;
+
   DEBUG(errs() << "We want convert this instruction.\n");
-  for (unsigned i = 0; i < MI->getNumOperands(); ++i) {
-    MachineOperand& MO = MI->getOperand(i);
+  for (unsigned i = 0; i < MI.getNumOperands(); ++i) {
+    MachineOperand& MO = MI.getOperand(i);
     DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
   }
+  assert(should_assign_ordering(MI));
 
-  // Alternative implementation would be:
-  //  1. Build an "copy" of the existing instruction,
-  //  2. Remove the operands from the clonsed instruction.
-  //  3. Add new ones, in the right order.
-  //
-  // This operation doesn't work, because the cloned instruction gets created
-  // with too few operands.
-  //
-  // MachineInstr* new_inst = thisMF->CloneMachineInstr(MI);
-  // BB->insert(iterMI, new_inst);
-  // new_inst->setDesc(TII->get(new_opcode));
-  // int k = MI->getNumOperands() - 1;
-  // while (k >= 0) {
-  //   new_inst->RemoveOperand(k);
-  //   k--;
-  // }
-  new_inst = BuildMI(*MI->getParent(),
-                     MI,
-                     MI->getDebugLoc(),
-                     TII->get(new_opcode));
-
-  unsigned opidx = 0;
-  // Create dummy operands for this instruction.
-  MachineOperand issued_op = MachineOperand::CreateReg(issued_reg, true);
-  MachineOperand ready_op = MachineOperand::CreateReg(ready_reg, false);
-
-
-  // Figure out how many "def" operands we have in this instruction.
-  // This code assumes that normal loads have exactly one definition,
-  // and normal stores have no definitions.
-  unsigned expected_def_operands = 0;
-  if (TII->isLoad(MI) or TII->isAtomic(MI)) {
-    expected_def_operands = TII->getMemOpAccessWidth(MI->getOpcode());
-  } else if (TII->isStore(MI)) {
-    expected_def_operands = 0;
-  }
-  else {
-    assert(false && "Converting unknown type of instruction to ordered memory op");
-  }
-
-  // We should have at least as many definitions as expected operands.
-  assert(MI->getNumOperands() >= expected_def_operands);
-
-  // 1. Add all the defs to the new instruction first.
-  while(opidx < expected_def_operands) {
-    MachineOperand& MO = MI->getOperand(opidx);
-    // Sanity-check: if we have registers operands, then they had
-    // better be definitions.
-    if (MO.isReg()) {
-      assert(MO.isDef());
-    }
-    new_inst->addOperand(MO);
-    opidx++;
-  }
-
-  // 2. Add issued flag.
-  new_inst->addOperand(issued_op);
-  // Then add the remaining operands.
-  while (opidx < MI->getNumOperands()) {
-    MachineOperand& MO = MI->getOperand(opidx);
-    // In the remaining operands, there should not be any register
-    // definitions.
-    if (MO.isReg()) {
-      assert(!MO.isDef());
-    }
-    new_inst->addOperand(MO);
-    opidx++;
-  }
-  // 3. Finally, add the ready flag...
-  new_inst->addOperand(ready_op);
+  // Just update the last use and last def
+  prev(end(MI.defs()))->ChangeToRegister(issued_reg, true);
+  prev(end(MI.uses()))->ChangeToRegister(ready_reg, false);
 
   // ...and if requested, save the ready_op for the caller.
   if(ready_op_num != nullptr)
-    *ready_op_num = new_inst->getNumOperands() - 1;
+    *ready_op_num = MI.getNumOperands() - 1;
 
-  // 4. Now copy over remaining state in MI:
-  //      Flags
-  //      MemRefs.
-  //
-  // Ideally, we'd be able to just call this function instead,
-  // but with a different opcode that reserves more space for
-  // operands.
-  //   MachineInstr(MachineFunction &, const MachineInstr &);
-  new_inst->setFlags(MI->getFlags());
-  new_inst->setMemRefs(MI->memoperands_begin(),
-                       MI->memoperands_end());
+  DEBUG(errs() << "   Updated instruction: " << MI << "\n");
 
-  DEBUG(errs() << "   Convert to ins: " << *new_inst << "\n");
-
-  for (unsigned i = 0; i < new_inst->getNumOperands(); ++i) {
-    MachineOperand& MO = new_inst->getOperand(i);
+  for (unsigned i = 0; i < MI.getNumOperands(); ++i) {
+    MachineOperand& MO = MI.getOperand(i);
     DEBUG(errs() << "  Operand " << i << ": " << MO << "\n");
   }
-
-  DEBUG(errs() << "   Original ins modified: " << *MI << "\n");
-
-  return new_inst;
 }
 
 bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
@@ -933,6 +824,14 @@ void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,
 
   DEBUG(errs() << "%%% After markParallelLoopBackedges\n");
   DEBUG(thisMF->dump());
+}
+
+bool CSAMemopOrdering::should_assign_ordering(const MachineInstr& MI) const {
+  using namespace std;
+  return not MI.memoperands_empty()
+    and begin(MI.defs()) != end(MI.defs()) and begin(MI.uses()) != end(MI.uses())
+    and prev(end(MI.defs()))->isReg() and prev(end(MI.defs()))->getReg() == CSA::IGN
+    and prev(end(MI.uses()))->isReg() and prev(end(MI.uses()))->getReg() == CSA::IGN;
 }
 
 void MachineAliasSetTracker::add(MachineMemOperand *mop) {
