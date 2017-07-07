@@ -33,8 +33,8 @@ static void pfn_notify(cl_program program, void *user_data)
 	g_CUDA_bResult = true;
 	char* wstr = (char*)user_data;
 	printf("Build Finished !!!\n");
-	g_CUDA_bResult &= CheckInt(L"Check program id", (cl_int)g_CUDA_clProgram, (cl_int)program);
-	g_CUDA_bResult &= CheckStr(L"Check user data", (char*)g_CUDA_pwsUserData, (char*)user_data);
+	g_CUDA_bResult &= CheckInt("Check program id", (cl_int)g_CUDA_clProgram, (cl_int)program);
+	g_CUDA_bResult &= CheckStr("Check user data", (char*)g_CUDA_pwsUserData, (char*)user_data);
 	
 	g_CUDA_bFinished = true;
 }
@@ -106,10 +106,10 @@ bool clBuildCudaProgramTest()
 
 	// create program with binary
 	g_CUDA_clProgram = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)(&pCont), pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(g_CUDA_clProgram, uiNumDevices, pDevices, NULL, pfn_notify, g_CUDA_pwsUserData);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 	while (!g_CUDA_bFinished)
 	{

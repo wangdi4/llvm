@@ -10,218 +10,218 @@
 
 using namespace std;
 
-bool CheckCondition(const wchar_t * name, bool condition)
+bool CheckCondition(const char * name, bool condition)
 {
 	if (condition)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	return condition;
 }
 
-bool SilentCheckCondition(const wchar_t * name, bool condition)
+bool SilentCheckCondition(const char * name, bool condition)
 {
 	if (!condition)
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	return condition;
 }
 
-bool Check(const wchar_t * name, cl_int expected, cl_int result)
+bool Check(const char * name, cl_int expected, cl_int result)
 {
 	if (expected == result)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = %s, result = %s\n", ClErrTxt(expected), ClErrTxt(result));
 	return (expected == result);
 }
 
-bool SilentCheck(const wchar_t * name, cl_int expected, cl_int result)
+bool SilentCheck(const char* name, cl_int expected, cl_int result)
 {
 	if (expected == result)
 	{
 		return true;
 	}
-	printf("FAIL: %ls\n",name);
+	printf("FAIL: %s\n",name);
 	printf("\t\texpected = %s, result = %s\n", ClErrTxt(expected), ClErrTxt(result));
 	return false;
 }
 
-bool CheckStr(const wchar_t * name, char * expected, char * result)
+bool CheckStr(const char * name, const char * expected, char * result)
 {
 	int iRes = strcmp(expected, result);
 	bool bRes = (iRes == 0);
 
 	if (bRes)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = %s, result = %s\n", expected, result);
 	return bRes;
 }
 
-bool SilentCheckStr(const wchar_t * name, char * expected, char * result)
+bool SilentCheckStr(const char * name, char * expected, char * result)
 {
 	int iRes = strcmp(expected, result);
 	bool bRes = (iRes == 0);
 
 	if (!bRes)
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 		printf("\t\texpected = %s, result = %s\n", expected, result);
 	}
 	return bRes;
 }
 
-bool CheckInt(const wchar_t * name, cl_long expected, cl_long result)
+bool CheckInt(const char * name, cl_long expected, cl_long result)
 {
 	bool bRes = (expected == result);
 
 	if (bRes)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	return bRes;
 }
 
-bool SilentCheckInt(const wchar_t * name, cl_long expected, cl_long result)
+bool SilentCheckInt(const char * name, cl_long expected, cl_long result)
 {
 	bool bRes = (expected == result);
 
 	if (!bRes)
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 		printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	}
 	return bRes;
 }
 
-bool CheckSize(const wchar_t * name, size_t expected, size_t result)
+bool CheckSize(const char * name, size_t expected, size_t result)
 {
 	bool bRes = (expected == result);
 
 	if (bRes)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	return bRes;
 }
 
-bool CheckHandle(const wchar_t * name, cl_platform_id expected, cl_platform_id result)
+bool CheckHandle(const char * name, cl_platform_id expected, cl_platform_id result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_device_id expected, cl_device_id result)
+bool CheckHandle(const char * name, cl_device_id expected, cl_device_id result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_context expected, cl_context result)
+bool CheckHandle(const char * name, cl_context expected, cl_context result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_command_queue expected, cl_command_queue result)
+bool CheckHandle(const char * name, cl_command_queue expected, cl_command_queue result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_mem expected, cl_mem result)
+bool CheckHandle(const char * name, cl_mem expected, cl_mem result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_program expected, cl_program result)
+bool CheckHandle(const char * name, cl_program expected, cl_program result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_kernel expected, cl_kernel result)
+bool CheckHandle(const char * name, cl_kernel expected, cl_kernel result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_event expected, cl_event result)
+bool CheckHandle(const char * name, cl_event expected, cl_event result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandle(const wchar_t * name, cl_sampler expected, cl_sampler result)
+bool CheckHandle(const char * name, cl_sampler expected, cl_sampler result)
 {
 	bool bRes = (expected == result);
 	return CheckHandleImpl(name, (void*)expected, (void*)result, bRes);
 }
 
-bool CheckHandleImpl(const wchar_t * name, void* expected, void* result, bool bRes)
+bool CheckHandleImpl(const char * name, void* expected, void* result, bool bRes)
 {
 	if (bRes)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = %p, result = %p\n", expected, result);
 	return bRes;
 }
 
-bool SilentCheckSize(const wchar_t * name, size_t expected, size_t result)
+bool SilentCheckSize(const char * name, size_t expected, size_t result)
 {
 	bool bRes = (expected == result);
 
 	if (!bRes)
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 		printf("\t\texpected = %ld, result = %ld\n", expected, result);
 	}
 	return bRes;
 }
 
-bool CheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result)
+bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result)
 {
 	bool bRes = (expected == result);
 
 	if (bRes)
 	{
-		printf("SUCCESS: %ls\n",name);
+		printf("SUCCESS: %s\n",name);
 	}
 	else
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 	}
 	printf("\t\texpected = ");
 	switch(expected)
@@ -261,13 +261,13 @@ bool CheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_s
 	return bRes;
 }
 
-bool SilentCheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result)
+bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result)
 {
 	bool bRes = (expected == result);
 
 	if (!bRes)
 	{
-		printf("FAIL: %ls\n",name);
+		printf("FAIL: %s\n",name);
 		printf("\t\texpected = ");
 		switch(expected)
 		{
@@ -330,26 +330,26 @@ bool BuildProgramSynch(cl_context	        context,
 	printf("\n get devices of the context\n");
 	size_t szNumDevices = 0, szNumDevicesRet = 0;
 	iRes = clGetContextInfo(context, CL_CONTEXT_DEVICES, 0, NULL, &szNumDevicesRet);
-	bRes = SilentCheck(L"clGetContextInfo (CL_CONTEXT_DEVICES) - size only", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clGetContextInfo (CL_CONTEXT_DEVICES) - size only", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		return bRes;
 	}
 	szNumDevices = szNumDevicesRet / sizeof(cl_device_id);
-	bRes = SilentCheckCondition(L"there must be at least 1 device (szNumDevices > 0)", szNumDevices > 0);
+	bRes = SilentCheckCondition("there must be at least 1 device (szNumDevices > 0)", szNumDevices > 0);
 	if (!bRes)
 	{
 		return bRes;
 	}
 	cl_device_id * devices = new cl_device_id[szNumDevices];
 	iRes = clGetContextInfo(context, CL_CONTEXT_DEVICES, sizeof(cl_device_id) * szNumDevices, devices, &szNumDevicesRet);
-	bRes = SilentCheckSize(L"clGetContextInfo (CL_CONTEXT_DEVICES)", CL_SUCCESS, iRes);
+	bRes = SilentCheckSize("clGetContextInfo (CL_CONTEXT_DEVICES)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		delete[] devices;
 		return bRes;
 	}
-	bRes = SilentCheckSize(L"clGetContextInfo (CL_CONTEXT_DEVICES) - check returned size", sizeof(cl_device_id) * szNumDevices, szNumDevicesRet);
+	bRes = SilentCheckSize("clGetContextInfo (CL_CONTEXT_DEVICES) - check returned size", sizeof(cl_device_id) * szNumDevices, szNumDevicesRet);
 	if (!bRes)
 	{
 		delete[] devices;
@@ -367,7 +367,7 @@ bool BuildProgramSynch(cl_context	        context,
 	printf("\n");
 
 	program = clCreateProgramWithSource(context, count, strings, lengths, &iRes);
-	bRes = SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRes);
 	if (false == bRes)
 	{
 		delete[] devices;
@@ -379,8 +379,8 @@ bool BuildProgramSynch(cl_context	        context,
 	cl_context program_context = 0;
 	cl_uint uiProgramNumDevices = 0;
 	iRes = clGetProgramInfo(program, CL_PROGRAM_CONTEXT, sizeof(cl_context), &program_context, NULL);
-	bRes = SilentCheck(L"clGetProgramInfo (CL_PROGRAM_CONTEXT)", CL_SUCCESS, iRes);
-	bRes = CheckHandle(L"check program's context", context, program_context);
+	bRes = SilentCheck("clGetProgramInfo (CL_PROGRAM_CONTEXT)", CL_SUCCESS, iRes);
+	bRes = CheckHandle("check program's context", context, program_context);
 	if (false == bRes)
 	{
 		delete[] devices;
@@ -388,8 +388,8 @@ bool BuildProgramSynch(cl_context	        context,
 	}
 
 	iRes = clGetProgramInfo(program, CL_PROGRAM_NUM_DEVICES, sizeof(cl_uint), &uiProgramNumDevices, NULL);
-	bRes = SilentCheck(L"clGetProgramInfo (CL_PROGRAM_NUM_DEVICES)", CL_SUCCESS, iRes);
-	bRes = SilentCheckInt(L"check program's devices number", (cl_int)szNumDevices, (cl_int)uiProgramNumDevices);
+	bRes = SilentCheck("clGetProgramInfo (CL_PROGRAM_NUM_DEVICES)", CL_SUCCESS, iRes);
+	bRes = SilentCheckInt("check program's devices number", (cl_int)szNumDevices, (cl_int)uiProgramNumDevices);
 	if (false == bRes)
 	{
 		delete[] devices;
@@ -397,7 +397,7 @@ bool BuildProgramSynch(cl_context	        context,
 	}
 
 	iRes = clBuildProgram(program, (cl_uint)szNumDevices, devices, options, NULL, NULL);
-	bRes = SilentCheck(L"clBuildProgram (Synch)", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clBuildProgram (Synch)", CL_SUCCESS, iRes);
 
 	if (!bRes)
 	{
@@ -406,7 +406,7 @@ bool BuildProgramSynch(cl_context	        context,
 			size_t szLogLenth = 0;
 			printf("build failed, error log for device %p:\n", (void*)devices[i]);
 			iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_LOG, 0, NULL, &szLogLenth);
-			bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_LOG) - size only", CL_SUCCESS, iRes);
+			bRes = SilentCheck("clGetProgramBuildInfo (CL_PROGRAM_BUILD_LOG) - size only", CL_SUCCESS, iRes);
 			if (!bRes)
 			{
 				delete[] devices;
@@ -414,7 +414,7 @@ bool BuildProgramSynch(cl_context	        context,
 			}
 			char * pLog = new char[szLogLenth];
 			iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_LOG, szLogLenth, pLog, NULL);
-			bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRes);
+			bRes = SilentCheck("clGetProgramBuildInfo (CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRes);
 			if (!bRes)
 			{
 				delete[] devices;
@@ -427,19 +427,19 @@ bool BuildProgramSynch(cl_context	        context,
 			cl_build_status clBuildStatus = CL_BUILD_NONE;
 			size_t szBuildStatusRet = 0;
 			iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &clBuildStatus, &szBuildStatusRet);
-			bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRes);
+			bRes = SilentCheck("clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRes);
 			if (!bRes)
 			{
 				delete[] devices;
 				return bRes;
 			}
-			bRes = SilentCheckSize(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS) - check returned size", sizeof(cl_build_status), szBuildStatusRet);
+			bRes = SilentCheckSize("clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS) - check returned size", sizeof(cl_build_status), szBuildStatusRet);
 			if (!bRes)
 			{
 				delete[] devices;
 				return bRes;
 			}
-			bRes = SilentCheckBuildStatus(L"check build status", CL_BUILD_ERROR, clBuildStatus);
+			bRes = SilentCheckBuildStatus("check build status", CL_BUILD_ERROR, clBuildStatus);
 			if (!bRes)
 			{
 				delete[] devices;
@@ -455,21 +455,21 @@ bool BuildProgramSynch(cl_context	        context,
 
 		printf("check build for device %p:\n", (void*)devices[i]);
 		iRes = clGetProgramBuildInfo(program, devices[i], CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &clBuildStatus, &szBuildStatusRet);
-		bRes = SilentCheck(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRes);
+		bRes = SilentCheck("clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRes);
 		if (!bRes)
 		{
 			delete[] devices;
 			return bRes;
 		}
 
-		bRes = SilentCheckSize(L"clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS) - check returned size", sizeof(cl_build_status), szBuildStatusRet);
+		bRes = SilentCheckSize("clGetProgramBuildInfo (CL_PROGRAM_BUILD_STATUS) - check returned size", sizeof(cl_build_status), szBuildStatusRet);
 		if (!bRes)
 		{
 			delete[] devices;
 			return bRes;
 		}
 		
-		bRes = SilentCheckBuildStatus(L"check build status", CL_BUILD_SUCCESS, clBuildStatus);
+		bRes = SilentCheckBuildStatus("check build status", CL_BUILD_SUCCESS, clBuildStatus);
 		if (!bRes)
 		{
 			delete[] devices;
@@ -482,7 +482,7 @@ bool BuildProgramSynch(cl_context	        context,
 	size_t pBinarySizes[4096] = {0};
 	unsigned char * binaries[4096] = {NULL};
 	iRes = clGetProgramInfo(program, CL_PROGRAM_BINARY_SIZES, 4096 * sizeof(size_t), pBinarySizes, &szBinarySizesRet);
-	bRes = SilentCheck(L"clGetProgramInfo (CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clGetProgramInfo (CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		delete[] devices;
@@ -495,7 +495,7 @@ bool BuildProgramSynch(cl_context	        context,
 	}
 
 	iRes = clGetProgramInfo(program, CL_PROGRAM_BINARIES, 4096 * sizeof(unsigned char*), binaries, NULL);
-	bRes = SilentCheck(L"clGetProgramInfo (CL_PROGRAM_BINARIES)", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clGetProgramInfo (CL_PROGRAM_BINARIES)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		for (unsigned int i=0; i<szNumDevices; ++i)
@@ -508,7 +508,7 @@ bool BuildProgramSynch(cl_context	        context,
 
 	cl_program new_program = 0;
 	new_program = clCreateProgramWithBinary(context, (cl_uint)szNumDevices, devices, pBinarySizes, (const unsigned char**)binaries, NULL, &iRes);
-	bRes = SilentCheck(L"clCreateProgramWithBinary (new program)", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clCreateProgramWithBinary (new program)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		for (unsigned int i=0; i<szNumDevices; ++i)
@@ -520,7 +520,7 @@ bool BuildProgramSynch(cl_context	        context,
 	}
 
 	iRes = clBuildProgram(new_program, (cl_uint)szNumDevices, devices, options, NULL, NULL);
-	bRes = SilentCheck(L"clBuildProgram (new program)", CL_SUCCESS, iRes);
+	bRes = SilentCheck("clBuildProgram (new program)", CL_SUCCESS, iRes);
 	if (!bRes)
 	{
 		for (unsigned int i=0; i<szNumDevices; ++i)

@@ -48,7 +48,7 @@ bool ConcurrentBuildProgramTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -94,29 +94,29 @@ bool ConcurrentBuildProgramTest()
 		delete []pBinaryStatus;
 		return false;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	printf("Building program %s\n", oclProgram);
 
 	clProg = clCreateProgramWithSource(context, 1, (const char**)&oclProgram, NULL, &iRet);
-	bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	gBuildDone = false;
 	iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(clProg, 0, NULL, NULL, buildCallback, NULL);
 	if (!gBuildDone)
 	{
-		bResult &= Check(L"clBuildProgram", CL_INVALID_OPERATION, iRet);
+		bResult &= Check("clBuildProgram", CL_INVALID_OPERATION, iRet);
 	}
 	while (!gBuildDone);
 
 	cl_kernel dummy = clCreateKernel(clProg, "k", &iRet);
-	bResult &= Check(L"clCreateKernel", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(clProg, 0, NULL, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram after kernel creation", CL_INVALID_OPERATION, iRet);
+	bResult &= Check("clBuildProgram after kernel creation", CL_INVALID_OPERATION, iRet);
 	
 	// Release objects
 	delete[] oclProgram;

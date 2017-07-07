@@ -64,7 +64,7 @@ protected:
 		cl_int iRet;
 
 		iRet = clGetPlatformIDs(1, &m_platform, NULL);
-		bResult &= Check(L"", CL_SUCCESS, iRet);
+		bResult &= Check("", CL_SUCCESS, iRet);
 
 		if (!bResult)
 		{
@@ -78,7 +78,7 @@ protected:
 		m_context = PROV_OBJ( clCreateContextFromType(m_prop, gDeviceType, NULL, NULL, &iRet) );
 		if (CL_SUCCESS != iRet)
 		{
-			printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
+			printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		    PROV_RETURN_AND_ABANDON();
 		}
 		//printf("context = %p\n", m_context);
@@ -86,7 +86,7 @@ protected:
 		iRet = clGetDeviceIDs(m_platform, gDeviceType, 1, &m_clDefaultDeviceId, NULL);
 		if (CL_SUCCESS != iRet)
 		{
-			printf("clGetDeviceIDs = %ls\n",ClErrTxt(iRet));
+			printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		    PROV_RETURN_AND_ABANDON();
 		}
 		//printf("device = %p\n", m_clDefaultDeviceId);
@@ -94,7 +94,7 @@ protected:
 		m_queue = PROV_OBJ( clCreateCommandQueue (m_context, m_clDefaultDeviceId, 0 /*no properties*/, &iRet) );
 		if (CL_SUCCESS != iRet)
 		{
-			printf("clCreateCommandQueue = %ls\n",ClErrTxt(iRet));
+			printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
 		    PROV_RETURN_AND_ABANDON();
 		}
 

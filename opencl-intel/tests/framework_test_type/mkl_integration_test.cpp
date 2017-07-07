@@ -53,18 +53,18 @@ bool mkl_test(){
 
     //init platform
     err = clGetPlatformIDs(1,&platform,NULL);
-    bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // init Devices (only one CPU...) should fail
     err = clGetDeviceIDs(platform, gDeviceType, 1 ,&device, &num_devices);
-    bResult = SilentCheck(L"clGetDeviceIDs - get CPU device",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetDeviceIDs - get CPU device",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     size_t ulRetValCheck = -1;
     size_t actual_size = 0;
     err = clGetDeviceInfo(device, CL_DEVICE_BUILT_IN_KERNELS, 0, NULL, &actual_size);
-    bResult = SilentCheck(L"clGetDeviceInfo, CL_DEVICE_BUILT_IN_KERNELS",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetDeviceInfo, CL_DEVICE_BUILT_IN_KERNELS",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     if ( 0 == actual_size )
@@ -76,7 +76,7 @@ bool mkl_test(){
     char* szBultInList = (char*)alloca(actual_size);
     assert(NULL != szBultInList && "alloca() can't fail");
     err = clGetDeviceInfo(device, CL_DEVICE_BUILT_IN_KERNELS, actual_size, szBultInList, &actual_size);
-    bResult = SilentCheck(L"clGetDeviceInfo, CL_DEVICE_BUILT_IN_KERNELS",CL_SUCCESS,err);
+    bResult = SilentCheck("clGetDeviceInfo, CL_DEVICE_BUILT_IN_KERNELS",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     static const char* szMKLFunction = "cblas_sgemm";
@@ -89,22 +89,22 @@ bool mkl_test(){
 
     //init context should succeed
     context = clCreateContext(NULL,1,&device,NULL,NULL,&err);
-    bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
 
     program = clCreateProgramWithBuiltInKernels(context, 1, &device, szMKLFunction, &err);
-    bResult = SilentCheck(L"clCreateProgramWithBuiltInKernels",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateProgramWithBuiltInKernels",CL_SUCCESS,err);
     if (!bResult)
     {
         clReleaseContext(context);
         return bResult;
     }
     err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
-    bResult = SilentCheck(L"clBuildProgram",CL_INVALID_OPERATION,err);
+    bResult = SilentCheck("clBuildProgram",CL_INVALID_OPERATION,err);
 
     kernel = clCreateKernel(program, szMKLFunction, &err);
-    bResult = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateKernel",CL_SUCCESS,err);
     if (!bResult) 
     {
         clReleaseContext(context);
@@ -114,15 +114,15 @@ bool mkl_test(){
 
     cl_uint num_args;
     err = clGetKernelInfo(kernel, CL_KERNEL_NUM_ARGS, sizeof(cl_uint), &num_args, NULL);
-    bResult = SilentCheck(L"clGetKernelInfo(CL_KERNEL_NUM_ARGS)",CL_SUCCESS,err);
-    bResult |= SilentCheck(L"clGetKernelInfo(CL_KERNEL_NUM_ARGS)=8", 8, num_args);
+    bResult = SilentCheck("clGetKernelInfo(CL_KERNEL_NUM_ARGS)",CL_SUCCESS,err);
+    bResult |= SilentCheck("clGetKernelInfo(CL_KERNEL_NUM_ARGS)=8", 8, num_args);
 
     size_t arg_size;
     err = clGetKernelArgInfo(kernel, 0, CL_KERNEL_ARG_TYPE_NAME, 0, NULL, &arg_size);
     char* szParamStr = (char*)alloca(arg_size);
     err = clGetKernelArgInfo(kernel, 0, CL_KERNEL_ARG_TYPE_NAME, arg_size, szParamStr, NULL);
-    bResult = SilentCheck(L"clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)",CL_SUCCESS,err);
-    bResult = SilentCheckStr(L"clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)","CBLAS_ORDER",szParamStr);
+    bResult = SilentCheck("clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)",CL_SUCCESS,err);
+    bResult = SilentCheckStr("clGetKernelArgInfo(1, CL_KERNEL_ARG_TYPE_NAME)","CBLAS_ORDER",szParamStr);
     if (!bResult) 
     {
         clReleaseContext(context);
@@ -132,7 +132,7 @@ bool mkl_test(){
 
     // create buffer - should succeed
     cl_mem buffA = clCreateBuffer(context, CL_MEM_READ_WRITE, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), NULL, &err); 
-    bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
     if (!bResult) 
     {
         clReleaseKernel(kernel);
@@ -142,7 +142,7 @@ bool mkl_test(){
     }
 
     cl_mem buffB = clCreateBuffer(context, CL_MEM_READ_WRITE, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), NULL, &err); 
-    bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
     if (!bResult) 
     {
         clReleaseMemObject(buffA);
@@ -153,7 +153,7 @@ bool mkl_test(){
     }
 
     cl_mem buffC = clCreateBuffer(context, CL_MEM_READ_WRITE, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), NULL, &err); 
-    bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
     if (!bResult) 
     {
         clReleaseMemObject(buffA);
@@ -181,7 +181,7 @@ bool mkl_test(){
     
     //init Command Queue - should succeed
     cmd_queue = clCreateCommandQueue(context,device, 0/*CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE*/,&err);
-    bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
     if (!bResult){
         clReleaseMemObject(buffA);
         clReleaseMemObject(buffB);
@@ -194,17 +194,17 @@ bool mkl_test(){
 
     float aVal = 1.0f;
     err = clEnqueueFillBuffer(cmd_queue, buffA, &aVal, sizeof(aVal), 0, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
     float bVal = 2.0f;
     err = clEnqueueFillBuffer(cmd_queue, buffB, &bVal, sizeof(bVal), 0, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
     float cVal = 0.0f;
     err = clEnqueueFillBuffer(cmd_queue, buffC, &cVal, sizeof(cVal), 0, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 
     size_t dim[] = {MNK,MNK,MNK};
     err = clEnqueueNDRangeKernel(cmd_queue, kernel, 3, NULL, dim, NULL, 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 
     float* pResult = (float*)clEnqueueMapBuffer(cmd_queue, buffC, CL_TRUE, CL_MAP_READ, 0, MATRIX_DIM_SIZE*MATRIX_DIM_SIZE*sizeof(float), 0, NULL, NULL, &err);
 

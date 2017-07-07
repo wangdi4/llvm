@@ -60,7 +60,7 @@ bool GenerateBinaryFile()
 
   cl_platform_id platform = 0;
   cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-  bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+  bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
   if (!bResult)
   {
     return bResult;
@@ -100,12 +100,12 @@ bool GenerateBinaryFile()
   {
     // get the binary
     iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binarySize, NULL);
-    bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+    bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
     if (bResult)
     {
       pBinaries = new char[binarySize];
       iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, binarySize, &pBinaries, NULL);
-      bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+      bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
       if (bResult)
       {
         FILE * fout;
@@ -215,8 +215,8 @@ bool clCheckCPUArchForJIT() {
     // create program with binary
     cl_int binaryStatus;
     cl_program program = clCreateProgramWithBinary(context, 1, &device, &binarySize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
-    bResult &= Check(L"clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
-    bResult &= Check(L"binaryStatus = CL_INVALID_BINARY", CL_INVALID_BINARY, binaryStatus);
+    bResult &= Check("clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
+    bResult &= Check("binaryStatus = CL_INVALID_BINARY", CL_INVALID_BINARY, binaryStatus);
 
     // Release objects
     clReleaseProgram(program);

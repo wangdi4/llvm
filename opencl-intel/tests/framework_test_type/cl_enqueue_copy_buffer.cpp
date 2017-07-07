@@ -24,7 +24,7 @@ bool clEnqueueCopyBufferTest()
 	bool bResult = true;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -42,7 +42,7 @@ bool clEnqueueCopyBufferTest()
 		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		goto release_end;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
     //
     // Get context devices
@@ -53,7 +53,7 @@ bool clEnqueueCopyBufferTest()
 		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 		goto release_context;
 	}
-	printf("device = %p\n", clDefaultDeviceId);
+	printf("device = %p\n", (void*)clDefaultDeviceId);
 
 
     //
@@ -66,7 +66,7 @@ bool clEnqueueCopyBufferTest()
 			printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 			goto release_context;
 		}
-	printf("buffer1 = %p\n", buffer1);
+	printf("buffer1 = %p\n", (void*)buffer1);
 
 		{
 			cl_mem buffer2 = clCreateBuffer(context, CL_MEM_READ_WRITE, UINT_BUFFER_LEN, NULL, &iRet);
@@ -76,7 +76,7 @@ bool clEnqueueCopyBufferTest()
 				printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 				goto release_buffer1;
 			}
-	printf("buffer2 = %p\n", buffer2);
+	printf("buffer2 = %p\n", (void*)buffer2);
 
 			{
 				cl_mem buffer3 = clCreateBuffer(context, CL_MEM_READ_WRITE, UINT_BUFFER_LEN, NULL, &iRet);
@@ -86,7 +86,7 @@ bool clEnqueueCopyBufferTest()
 					printf("clCreateBuffer (CL_MEM_READ_WRITE)= %s\n",ClErrTxt(iRet));
 					goto release_buffer2;
 				}
-	printf("buffer3 = %p\n", buffer3);
+	printf("buffer3 = %p\n", (void*)buffer3);
 
 				{
 					//
@@ -98,7 +98,7 @@ bool clEnqueueCopyBufferTest()
 		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
 		goto release_memory;
 	}
-	printf("queue = %p\n", queue);
+	printf("queue = %p\n", (void*)queue);
     
 
     //

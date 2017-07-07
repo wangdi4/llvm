@@ -28,17 +28,6 @@ bool g_bFinished = false;
 bool g_bResult = false;
 
 
-static void pfn_notify(cl_program program, void *user_data)
-{
-	g_bResult = true;
-	char* wstr = (char*)user_data;
-	printf("Build Finished !!!\n");
-	g_bResult &= CheckHandle(L"Check program id", g_clProgram, program);
-	g_bResult &= CheckStr(L"Check user data", (char*)g_pwsUserData, (char*)user_data);
-	
-	g_bFinished = true;
-}
-
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 {
 	bool bResult = true;
@@ -57,7 +46,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -103,7 +92,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 		delete []ppContainers;
 		return false;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	// create binary container
 	unsigned int uiContSize = 0;
@@ -147,7 +136,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 		
 	// create program with binary
 	g_clProgram = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)(ppContainers), pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -158,9 +147,8 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 		return bResult;
 	}
 
-//	iRet = clBuildProgram(g_clProgram, uiNumDevices, pDevices, NULL, pfn_notify, g_pwsUserData);
 	iRet = clBuildProgram(g_clProgram, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 //	while (!g_bFinished)
 //	{
@@ -173,8 +161,8 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 	for (cl_uint ui=0; ui<uiNumDevices; ++ui)
 	{
 		iRet = clGetProgramBuildInfo(g_clProgram, pDevices[ui],CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &clBuildStatus, NULL);
-		bResult &= Check(L"clGetProgramBuildInfo(CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRet);
-		bResult &= CheckInt(L"check status", (int)clBuildStatus, CL_BUILD_SUCCESS);
+		bResult &= Check("clGetProgramBuildInfo(CL_PROGRAM_BUILD_STATUS)", CL_SUCCESS, iRet);
+		bResult &= CheckInt("check status", (int)clBuildStatus, CL_BUILD_SUCCESS);
 	}
 
 	// a test for garbage binary file
@@ -182,14 +170,14 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 // 	struct stat IRstatus;
 // 	stat("test.bc",&IRstatus);
 // 	iRet=fopen_s(&pIRfile,"test.bc", "rb");  //without all the headers so garbage
-// 	bResult&=SilentCheck(L"open file pIRfile",CL_SUCCESS,iRet);
+// 	bResult&=SilentCheck("open file pIRfile",CL_SUCCESS,iRet);
 // 	if (!bResult){
 // 		goto finish_line;
 // 	}
 // 	cl_int binary_status=1;
 // 	size_t binary_length=IRstatus.st_size;
 // 	program=clCreateProgramWithBinary(context,1,pDevices,&(binary_length),(const unsigned char**)(&pIRfile),&binary_status,&iRet);
-// 	bResult&=SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,iRet);
+// 	bResult&=SilentCheck("clCreateCommandQueue",CL_SUCCESS,iRet);
 // 	fclose(pIRfile);
 // 	if (!bResult){
 // 		goto finish_line;
@@ -232,7 +220,7 @@ bool clBuildProgramWithBinaryTest(openBcFunc pFunc)
 // 	}
 // 	cl_build_status build_status=1;
 // 	iRet=clGetProgramBuildInfo(program,pDevices[0],CL_PROGRAM_BUILD_STATUS,sizeof(cl_build_status),&build_status,NULL);	
-// 	bResult&=SilentCheck(L"clGetProgramBuildInfo",CL_SUCCESS,iRet);
+// 	bResult&=SilentCheck("clGetProgramBuildInfo",CL_SUCCESS,iRet);
 // 	if(CL_BUILD_ERROR!=build_status){
 // 		printf("ERROR: build status is not CL_BUILD_ERROR , it is %d",build_status);
 // 		goto finish_line;

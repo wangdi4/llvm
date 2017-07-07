@@ -41,14 +41,14 @@ struct foo {
 	char counter;
 };
 
-bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog, struct preferences *out1, struct foo *out2){
+bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, const char* prog, struct preferences *out1, struct foo *out2){
 	cl_int err;
 	cl_kernel kernel;
 	cl_program program;
 	bool res;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&prog, NULL, &err);
-	res = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	res = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!res) return res;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -67,7 +67,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	kernel = clCreateKernel(program,"fissionBasicTest",&err);
-	res = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	res = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseProgram(program);	
@@ -75,7 +75,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	cl_mem buff1 = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct preferences), NULL, &err); 
-	res = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	res = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -84,7 +84,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	cl_mem buff2 = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct foo), NULL, &err); 
-	res = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	res = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!res) 
 	{
         clReleaseMemObject(buff1);
@@ -94,7 +94,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &buff1);
-	res = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	res = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!res) 
 	{
         clReleaseMemObject(buff1);
@@ -105,7 +105,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	err = clSetKernelArg(kernel, 1, sizeof(cl_mem), (void*) &buff2);
-	res = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	res = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!res) 
 	{
         clReleaseMemObject(buff1);
@@ -119,7 +119,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	global_work_size[0] = WORK_SIZE;
 
 	err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-	res = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	res = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
         clReleaseMemObject(buff1);
@@ -153,24 +153,22 @@ bool fission_basic_test(){
 	cl_context context=NULL;
 	cl_command_queue cmd_queue=NULL;
 	cl_device_id device=NULL;
-	cl_program program=NULL;
-	cl_kernel kernel=NULL;
 	cl_int err;
 	cl_platform_id platform=NULL;
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 4)
@@ -180,11 +178,11 @@ bool fission_basic_test(){
 	}
 
 	err = clRetainDevice(device);
-	bResult = SilentCheck(L"clRetainDevice",CL_SUCCESS,err);
+	bResult = SilentCheck("clRetainDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	err = clReleaseDevice(device);
-	bResult = SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
+	bResult = SilentCheck("clReleaseDevice",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint num_entries = 100;
@@ -192,13 +190,13 @@ bool fission_basic_test(){
 	cl_uint num_devices = 2;
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 2, 1, 0, 0};
 	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint param;
 	size_t actual_size;
 	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &param, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 	if (2 != param)
 	{
@@ -209,31 +207,31 @@ bool fission_basic_test(){
 
 	//init context
 	context = clCreateContext(NULL,1,&out_devices[0],NULL,NULL,&err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	size_t pSize;
 	char param_val[100];
 	err = clGetContextInfo(context, CL_CONTEXT_DEVICES, 100, param_val, &pSize);
-	bResult = SilentCheck(L"clGetContextInfo",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetContextInfo",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init Command Queue
 	cmd_queue = clCreateCommandQueue(context,out_devices[0],0,&err);
-	bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult){
 		clReleaseContext(context);
 		return bResult;
 	}	
 
 	clGetCommandQueueInfo(cmd_queue, CL_QUEUE_DEVICE, 100, param_val, &pSize);
-	bResult = SilentCheck(L"clGetCommandQueueInfo",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetCommandQueueInfo",CL_SUCCESS,err);
 	if (!bResult){
 		clReleaseContext(context);
 		return bResult;
 	}
 
-	char* ocl_test_program= {\
+	const char* ocl_test_program= {\
 		"struct preferences {\
 		unsigned int likes_ice_cream;\
 		unsigned int plays_golf;\

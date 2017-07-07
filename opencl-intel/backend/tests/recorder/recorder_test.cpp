@@ -24,7 +24,7 @@
 static cl_platform_id getPlatformIds(){
   cl_platform_id platform = 0;
   cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-  assert( Check((wchar_t*)L"clGetPlatformIDs", CL_SUCCESS, iRet));
+  Check("clGetPlatformIDs", CL_SUCCESS, iRet);
   return platform;
 }
 
@@ -34,14 +34,14 @@ static cl_device_id* getDevices(cl_platform_id platform, cl_uint *uiNumDevices){
   std::auto_ptr<cl_device_id> devices;
   if (CL_SUCCESS != iRet){
     printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-    return false;
+    return nullptr;
   }
   // initialize arrays
   devices.reset(new cl_device_id[*uiNumDevices]);
   iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, *uiNumDevices, devices.get(), NULL);
   if (CL_SUCCESS != iRet){
     printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
-    return false;
+    return nullptr;
   }
   return devices.release();
 }
@@ -97,7 +97,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   sprintf( strSrc, sample_large_parmam_kernel_pattern[0], argumentLine.get(), codeLines.get());
 
   prog = clCreateProgramWithSource(context, 1, (const char**)&strSrc, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
   std::auto_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
@@ -106,14 +106,14 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
     szSize[j] = -1;
   // get the binary, we should receive 0.
   iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, szSize, NULL);
-  bResult &= Check((wchar_t*)L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+  bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
   if (!bResult)
     clReleaseProgram(prog);
   for (unsigned int j = 0; j < uiNumDevices; j++)
     if (0 != szSize[j])
       clReleaseProgram(prog);
   iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
-  bResult &= Check((wchar_t*)L"clBuildProgram", CL_SUCCESS, iRet);
+  bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
   if (!bResult)
     clReleaseProgram(prog);
   kernel = clCreateKernel(prog, "sample_test", &iRet);
@@ -121,7 +121,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   retVal = 0;
 
   mem = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
   if (!bResult) {
     clReleaseMemObject(mem);
     clReleaseKernel(kernel);
@@ -130,7 +130,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
 
   for (i=0; i<(int)numberOfIntParametersToTry; i++) {
     iRet = clSetKernelArg(kernel, i, sizeof(cl_long), &longs[i]);
-    if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet))
+    if (!Check("clSetKernelArg", CL_SUCCESS, iRet))
       break;
   }
   if ( CL_FAILED(iRet)) {
@@ -140,7 +140,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
   }
 
   iRet = clSetKernelArg(kernel, i, sizeof(cl_mem), &mem);
-  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+  if (!Check("clSetKernelArg", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem);
     clReleaseKernel(kernel);
     clReleaseProgram(prog);
@@ -148,7 +148,7 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
 
   size_t globalDim[3]={1,1,1}, localDim[3]={1,1,1};
   iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, &event);
-  if (!Check((wchar_t*)L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet)) {
+  if (!Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem);
     clReleaseKernel(kernel);
     clReleaseProgram(prog);
@@ -156,15 +156,15 @@ static bool runAndVerify(int numberOfIntParametersToTry, cl_context context,
 
   // Verify that the event does not return an error from the execution
   iRet = clWaitForEvents(1, &event);
-  Check((wchar_t*)L"clWaitForEvents", CL_SUCCESS, iRet);
+  Check("clWaitForEvents", CL_SUCCESS, iRet);
   iRet = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(event_status), &event_status, NULL);
-  Check((wchar_t*)L"clGetEventInfo", CL_SUCCESS, iRet);
+  Check("clGetEventInfo", CL_SUCCESS, iRet);
   clReleaseEvent(event);
   if (event_status < 0)
-    Check((wchar_t*)L"Kernel execution event returned error", CL_SUCCESS, iRet);
+    Check("Kernel execution event returned error", CL_SUCCESS, iRet);
 
   iRet = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, sizeof(cl_long), &result, 0, NULL, NULL);
-  Check((wchar_t*)L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+  Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
   clReleaseMemObject(mem);
   clReleaseKernel(kernel);
@@ -200,11 +200,11 @@ bool clBuildProgramMaxArgsTest(){
   //context
   //
   context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateContext", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
   cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
   if (!bResult){
     clReleaseContext(context);
     return false;
@@ -333,10 +333,10 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   programSrc.get()[0] = '\0';
 
   /* Create a kernel to test with */
-  sprintf( strSrc, sample_large_parmam_kernel_pattern[0]);
+  sprintf( strSrc, "%s", sample_large_parmam_kernel_pattern[0]);
 
   prog = clCreateProgramWithSource(context, 1, (const char**)&strSrc, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
   assert(bResult && "clCreateProgramWithSource");
 
   std::auto_ptr<size_t> ptrSize (new size_t[uiNumDevices]);
@@ -345,14 +345,14 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
     szSize[j] = -1;
   // get the binary, we should receive 0.
   iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, szSize, NULL);
-  bResult &= Check((wchar_t*)L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+  bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
   if (!bResult)
     clReleaseProgram(prog);
   for (unsigned int j = 0; j < uiNumDevices; j++)
     if (0 != szSize[j])
       clReleaseProgram(prog);
   iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
-  bResult &= Check((wchar_t*)L"clBuildProgram", CL_SUCCESS, iRet);
+  bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
   if (!bResult)
     clReleaseProgram(prog);
   kernel = clCreateKernel(prog, "sample_test", &iRet);
@@ -360,7 +360,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   retVal = 0;
 
   mem0 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
   if (!bResult) {
     clReleaseMemObject(mem0);
     clReleaseKernel(kernel);
@@ -368,7 +368,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   }
 
   mem1 = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateBuffer", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
   if (!bResult) {
     clReleaseMemObject(mem0);
     clReleaseMemObject(mem1);
@@ -377,7 +377,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   }
 
   iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &mem0);
-  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+  if (!Check("clSetKernelArg", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem0);
     clReleaseMemObject(mem1);
     clReleaseKernel(kernel);
@@ -385,7 +385,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   }
 
   iRet = clSetKernelArg(kernel, 1, sizeof(cl_long), NULL);
-  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+  if (!Check("clSetKernelArg", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem0);
     clReleaseMemObject(mem1);
     clReleaseKernel(kernel);
@@ -393,7 +393,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
   }
 
   iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &mem1);
-  if (!Check((wchar_t*)L"clSetKernelArg", CL_SUCCESS, iRet)) {
+  if (!Check("clSetKernelArg", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem0);
     clReleaseMemObject(mem1);
     clReleaseKernel(kernel);
@@ -402,7 +402,7 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
 
   size_t globalDim[3]={1,1,1}, localDim[3]={1,1,1};
   iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, &event);
-  if (!Check((wchar_t*)L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet)) {
+  if (!Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet)) {
     clReleaseMemObject(mem0);
     clReleaseMemObject(mem1);
     clReleaseKernel(kernel);
@@ -411,15 +411,15 @@ static bool runAndVerify_forLocalMem(cl_context context, cl_uint uiNumDevices,
 
   // Verify that the event does not return an error from the execution
   iRet = clWaitForEvents(1, &event);
-  Check((wchar_t*)L"clWaitForEvents", CL_SUCCESS, iRet);
+  Check("clWaitForEvents", CL_SUCCESS, iRet);
   iRet = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(event_status), &event_status, NULL);
-  Check((wchar_t*)L"clGetEventInfo", CL_SUCCESS, iRet);
+  Check("clGetEventInfo", CL_SUCCESS, iRet);
   clReleaseEvent(event);
   if (event_status < 0)
-    Check((wchar_t*)L"Kernel execution event returned error", CL_SUCCESS, iRet);
+    Check("Kernel execution event returned error", CL_SUCCESS, iRet);
 
   iRet = clEnqueueReadBuffer(queue, mem1, CL_TRUE, 0, sizeof(cl_long), &result, 0, NULL, NULL);
-  Check((wchar_t*)L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+  Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
   clReleaseMemObject(mem0);
   clReleaseMemObject(mem1);
@@ -449,11 +449,11 @@ bool clBuildRunLocalMemTest(){
   //context
   //
   context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateContext", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
   if (!bResult)
     return false;
   cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-  bResult &= Check((wchar_t*)L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+  bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
   if (!bResult){
     clReleaseContext(context);
     return false;
@@ -608,7 +608,8 @@ void RunKernel( const cl_device_id& computeDevices, const cl_context& context, c
     char buffer_for_image[channels * width * height];
     memset(buffer_for_image, 0, channels * width * height);
 
-    cl_image_desc image_desc = {0};
+    cl_image_desc image_desc;
+    memset(&image_desc, 0, sizeof(image_desc));
     image_desc.image_type        = CL_MEM_OBJECT_IMAGE2D;
     image_desc.image_width       = width;
     image_desc.image_height      = height;

@@ -44,7 +44,7 @@ bool clLocalStructTest()
 
 	
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -57,8 +57,6 @@ bool clLocalStructTest()
 	cl_command_queue queue;
 	cl_kernel kernel;
 	
-	size_t		stBuffSize = BUFFER_SIZE;
-	
 	size_t global_work_size[1] = { 1 };
 	
 	AABB		pDstBuff[2];
@@ -69,15 +67,15 @@ bool clLocalStructTest()
     // Create context, Queue
     //
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
     queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult) goto release_context;
 
 	
@@ -85,7 +83,7 @@ bool clLocalStructTest()
 		goto release_queue;
 
     kernel = clCreateKernel(program, "Foo", &iRet);
-	bResult &= Check(L"clCreateKernel - Foo", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - Foo", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 
 
@@ -93,7 +91,7 @@ bool clLocalStructTest()
 	srand( 0 );
 
 	clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE , sizeof(pDstBuff), NULL, &iRet);
-	bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		goto release_kernel;
@@ -101,23 +99,23 @@ bool clLocalStructTest()
 
 	// Set Kernel Arguments
 	iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
-	bResult &= Check(L"clSetKernelArg - clBuff", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg - clBuff", CL_SUCCESS, iRet);
 	if (!bResult) goto release_image;
 
 	iRet = clSetKernelArg(kernel, 1, sizeof(AABB), (void*)NULL);
-	bResult &= Check(L"clSetKernelArg - local", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg - local", CL_SUCCESS, iRet);
 	if (!bResult) goto release_image;
 
     
 
 	// Execute kernel
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
     //
     // Verification phase
     //
 	iRet = clEnqueueReadBuffer( queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), &pDstBuff, 0, NULL, NULL );
-	bResult &= Check(L"clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
 	if (!bResult) goto release_image;
 
 	bResult &= (pDstBuff[0].Min[0] == -1) && (pDstBuff[0].Min[1] == -2) && (pDstBuff[0].Min[2] == -3) &&

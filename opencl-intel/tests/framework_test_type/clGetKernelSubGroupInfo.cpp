@@ -470,14 +470,14 @@ void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
     cl_platform_id platform = 0;
 
     iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);
 
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContext", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateContext", CL_SUCCESS, iRet);
 
     // open binary file
     unsigned int uiContSize = 0;
@@ -503,13 +503,13 @@ void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
     // create program with binary
     cl_int binaryStatus;
     cl_program prog = clCreateProgramWithBinary(context, 1, &device, &binarySize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
-    bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-    bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+    bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
     cl_kernel kern = clCreateKernel(prog, "test_reqd_num_sg", &iRet);
-    bResult &= Check(L"clCreateKernel", CL_SUCCESS, iRet);
+    bResult &= Check("clCreateKernel", CL_SUCCESS, iRet);
 
     size_t returned_size = 0;
     size_t required_num_SG = 0;

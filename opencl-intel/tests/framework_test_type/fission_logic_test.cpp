@@ -31,14 +31,14 @@
 
 extern cl_device_type gDeviceType;
 
-bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog, int *out){
+bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, const char* prog, int *out){
 	cl_int err;
 	cl_kernel kernel;
 	cl_program program;
 	bool res;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&prog, NULL, &err);
-	res = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	res = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!res) return res;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -57,7 +57,7 @@ bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	kernel = clCreateKernel(program,"fissionLogic1Test",&err);
-	res = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	res = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseProgram(program);	
@@ -65,7 +65,7 @@ bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	cl_mem buff = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err); 
-	res = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	res = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -74,7 +74,7 @@ bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &buff);
-	res = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	res = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -86,7 +86,7 @@ bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	global_work_size[0] = WORK_SIZE;
 
 	err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-	res = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	res = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -103,14 +103,14 @@ bool run_kernel1(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	return ((CL_SUCCESS == err)? true : false);
 }
 
-bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog, int *out){
+bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, const char* prog, int *out){
 	cl_int err;
 	cl_kernel kernel;
 	cl_program program;
 	bool res;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&prog, NULL, &err);
-	res = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	res = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!res) return res;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -129,7 +129,7 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	kernel = clCreateKernel(program,"fissionLogic2Test",&err);
-	res = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	res = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseProgram(program);	
@@ -137,7 +137,7 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	cl_mem buff = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err); 
-	res = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	res = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -146,7 +146,7 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	}
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &buff);
-	res = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	res = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -158,7 +158,7 @@ bool run_kernel2(cl_context& context,cl_device_id& device,cl_command_queue& cmd_
 	global_work_size[0] = WORK_SIZE;
 
 	err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-	res = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	res = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -184,24 +184,22 @@ bool fission_logic_test(){
 	cl_context context=NULL;
 	cl_command_queue cmd_queue[10]={NULL};
 	cl_device_id device=NULL;
-	cl_program program=NULL;
-	cl_kernel kernel=NULL;
 	cl_int err;
 	cl_platform_id platform=NULL;
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 7)
@@ -219,23 +217,23 @@ bool fission_logic_test(){
 	cl_device_partition_property properties2[] = {CL_DEVICE_PARTITION_EQUALLY, 2, 0};
 
 	err = clCreateSubDevices(device, properties1, num_entries, out_devices, &num_level1_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	err = clCreateSubDevices(out_devices[0], properties2, num_entries, (out_devices + num_level1_devices), &num_level2_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init context
 	context = clCreateContext(NULL, num_level1_devices + num_level2_devices, out_devices , NULL, NULL, &err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
-	char* ocl_test1_program= {\
+	const char* ocl_test1_program= {\
 		"__kernel void fissionLogic1Test(__global int *d)\
 		{d = 7;}"};
 
-	char* ocl_test2_program= {\
+	const char* ocl_test2_program= {\
 		"__kernel void fissionLogic2Test(__global int *d)\
 		{d = 3;}"};
 
@@ -243,7 +241,7 @@ bool fission_logic_test(){
     for (size_t i = 0; i < num_level2_devices; i++)
 	{
 		cmd_queue[i] = clCreateCommandQueue(context, out_devices[num_level1_devices + i], 0, &err);
-		bResult      = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+		bResult      = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 		if (!bResult)
         {
             for (size_t j = 0; j < i; ++j)

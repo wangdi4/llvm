@@ -28,7 +28,7 @@ void ShutdownThread::ThreadRoutine()
 	bool bResult = true;
 
 	err = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, err);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
 
 	if (!bResult)
 	{
@@ -88,7 +88,7 @@ void ShutdownThread::ThreadRoutine()
 	err |= clReleaseContext(context);
 	err |= clReleaseCommandQueue(commandQueue);
     
-	bResult &= SilentCheck(L"Releasing stuff", CL_SUCCESS, err);
+	bResult &= SilentCheck("Releasing stuff", CL_SUCCESS, err);
 
 	return;
 }

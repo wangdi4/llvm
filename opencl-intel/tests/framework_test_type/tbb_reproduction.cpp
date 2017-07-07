@@ -15,8 +15,6 @@ bool TBBTest()
 
 	bool bResult = true;
 
-	size_t progChar = 0;
-
 	printf("Trying to crash TBB\n");
 	cl_uint uiNumDevices = 0;
 	cl_device_id * pDevices;
@@ -27,7 +25,7 @@ bool TBBTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -63,18 +61,18 @@ bool TBBTest()
 		delete []pDevices;
 		return false;
 	}
-	printf("context = %d\n", (size_t)context);
+	printf("context = %p\n", (void*)context);
 
 	printf("Building program %s\n", ocl_test_program[0]);
 
 	clProg = clCreateProgramWithSource(context, 1, (const char**)(ocl_test_program), NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet |= clBuildProgram(clProg, 0, NULL, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
 
 	cl_kernel dummyKernel = clCreateKernel(clProg, "dot_product", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
 
 	// Execution Part 
 
@@ -83,7 +81,7 @@ bool TBBTest()
 
 	cl_mem dummyBuffer;
 	dummyBuffer = clCreateBuffer(context, CL_MEM_ALLOC_HOST_PTR | CL_MEM_READ_WRITE, execution_size * sizeof(cl_float4), NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
 
 	clSetKernelArg(dummyKernel, 0, sizeof(cl_mem), &dummyBuffer);
 	clSetKernelArg(dummyKernel, 1, sizeof(cl_mem), &dummyBuffer);
@@ -96,14 +94,14 @@ bool TBBTest()
 		cl_command_queue queues[2];
 
 		queues[0] = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
-		bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
 		queues[1] = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
-		bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
 
 		cl_event kernelEvent;
 		iRet |= clEnqueueNDRangeKernel(queues[0], dummyKernel, 1, NULL, &execution_size2, NULL, 0, NULL, &kernelEvent);
 		iRet |= clEnqueueNDRangeKernel(queues[1], dummyKernel, 1, NULL, &execution_size, NULL, 1, &kernelEvent, NULL);
-		bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
 		clFlush(queues[0]);
 		clFinish(queues[1]);

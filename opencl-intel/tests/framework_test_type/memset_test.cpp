@@ -115,7 +115,7 @@ bool memset_test()
 	bool bResult = true;
 
 	err = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, err);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, err);
 
 	if (!bResult)
 	{

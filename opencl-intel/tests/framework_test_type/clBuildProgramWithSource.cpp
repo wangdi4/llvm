@@ -34,7 +34,7 @@ bool clBuildProgramWithSourceTest()
 
     cl_platform_id platform = 0;
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
     if (!bResult)
     {
         return bResult;
@@ -64,7 +64,7 @@ bool clBuildProgramWithSourceTest()
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
-        bResult = Check(L"clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
+        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
         if (!bResult)
         {
             return bResult;
@@ -81,7 +81,7 @@ bool clBuildProgramWithSourceTest()
         printf("clCreateContext = %s\n",ClErrTxt(iRet));
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
     cl_program clProg;
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
@@ -97,7 +97,7 @@ bool clBuildProgramWithSourceTest()
         std::vector<size_t> binarySizes(uiNumDevices);
         // get the binary
         iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, &binarySizes[0], NULL);
-        bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
         if (bResult)
         {
             size_t sumBinariesSize = 0;
@@ -108,7 +108,7 @@ bool clBuildProgramWithSourceTest()
                 sumBinariesSize += binarySizes[i];
             }
             iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
-            bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
 #if __STORE_BINARY__
             if (bResult)
             {
@@ -127,13 +127,13 @@ bool clBuildProgramWithSourceTest()
 
         // CSSD100011901
         cl_kernel kern = clCreateKernel(clProg, "test_kernel", &iRet);
-        bResult = SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+        bResult = SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
         if ( bResult )
         {
             iRet = clSetKernelArg(kern, 2, sizeof(cl_mem), NULL);
-            bResult &= Check(L"clSetKernelArg()", CL_SUCCESS, iRet);
+            bResult &= Check("clSetKernelArg()", CL_SUCCESS, iRet);
             iRet = clSetKernelArg(kern, 3, sizeof(cl_mem), NULL);
-            bResult &= Check(L"clSetKernelArg(C)", CL_INVALID_ARG_VALUE, iRet);
+            bResult &= Check("clSetKernelArg(C)", CL_INVALID_ARG_VALUE, iRet);
             clReleaseKernel(kern);
         }
     }

@@ -41,29 +41,29 @@ bool fission_read_buffer_test()
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult &= SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform, gDeviceType, 1, devices, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint num_entries = 1;
 	cl_uint num_devices = 1;
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1,0, 0};
 	err = clCreateSubDevices(devices[0], properties, num_entries, devices + 1, &num_devices);
-	bResult &= SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult &= SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init context
 	context = clCreateContext(NULL, 2, devices, NULL, NULL, &err);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult &= SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init Command Queue
 	cmd_queue = clCreateCommandQueue(context, devices[1], 0, &err);
-	bResult &= SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+	bResult &= SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult)
     {
 		clReleaseContext(context);
@@ -75,7 +75,7 @@ bool fission_read_buffer_test()
 	cl_uint data[2] = {0xABCD, 0x1234};
 	//buf = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_uint), data, &err); 
     buf = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &err); 
-	bResult &= SilentCheck(L"clCreateBuffer #1",CL_SUCCESS,err);
+	bResult &= SilentCheck("clCreateBuffer #1",CL_SUCCESS,err);
 	if (!bResult) 
 	{
 		clReleaseCommandQueue(cmd_queue);
@@ -85,9 +85,9 @@ bool fission_read_buffer_test()
 	}
 
     err = clEnqueueWriteBuffer(cmd_queue, buf, CL_FALSE, 0, sizeof(cl_uint), data, 0, NULL, NULL);
-    bResult &= SilentCheck(L"clEnqueueWriteBuffer", CL_SUCCESS, err);
+    bResult &= SilentCheck("clEnqueueWriteBuffer", CL_SUCCESS, err);
 	err = clEnqueueReadBuffer(cmd_queue, buf, CL_TRUE, 0, sizeof(cl_uint), data + 1, 0, NULL, NULL);
-	bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, err);
+	bResult &= SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, err);
 
     clReleaseMemObject(buf);
 	clReleaseCommandQueue(cmd_queue);

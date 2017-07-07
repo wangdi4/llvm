@@ -17,7 +17,7 @@ bool validateData(unsigned int numDevices, unsigned int numRounds, unsigned int 
 		cl_long expectedValue = initialValue + ((round * numDevices * numIncInRound) + (deviceRound * numIncInRound) + readNum);
 		if (buff[bufferFrom+ ui] != expectedValue)
 		{
-			printf("Validation error: Buff[%d] = %d, expected %d\n", (bufferFrom + ui), buff[bufferFrom + ui], expectedValue);
+			printf("Validation error: Buff[%d] = %ld, expected %ld\n", (bufferFrom + ui), buff[bufferFrom + ui], expectedValue);
 			result = false;
 			break;
 		}
@@ -105,7 +105,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -121,11 +121,11 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 		if ((CL_DEVICE_NOT_FOUND == iRet) && (CL_DEVICE_TYPE_CPU != dev_types[i]))
         {
             // dev_types[i] not found (which is not CPU device) - skipping the test
-            bResult &= SilentCheck(L"clGetDeviceIDs for ", CL_DEVICE_NOT_FOUND, iRet);
+            bResult &= SilentCheck("clGetDeviceIDs for ", CL_DEVICE_NOT_FOUND, iRet);
 			printf("*** %s is not found and require by the test, skipping the test ***\n", dev_types[i] == CL_DEVICE_TYPE_CPU ? "CL_DEVICE_TYPE_CPU" : dev_types[i] == CL_DEVICE_TYPE_GPU ? "CL_DEVICE_TYPE_GPU" : dev_types[i] == CL_DEVICE_TYPE_ACCELERATOR ? "CL_DEVICE_TYPE_ACCELERATOR" : "Error");
             return bResult;
         }
-		bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			return bResult;
@@ -162,7 +162,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 	{
 		unsigned int num_devices_ret = 0;
 		iRet = clGetDeviceIDs(platform, pDevTypes[i], pNumDevicesOfType[i], &(devices[devicesIndex]), &num_devices_ret);
-		bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 		if ((!bResult) || (num_devices_ret < pNumDevicesOfType[i]))
 		{
 			return false;
@@ -206,7 +206,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
     //
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     cl_context context = clCreateContext( prop, numDevices, devices, NULL, NULL, &iRet);
-    bResult &= SilentCheck(L"clCreateContext", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck("clCreateContext", CL_SUCCESS, iRet);    
     if (!bResult) return bResult;
 
 	// create program with source
@@ -216,7 +216,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
     }
     
     kernel = clCreateKernel(program, "int_test", &iRet);
-    bResult &= SilentCheck(L"clCreateKernel - int_test", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateKernel - int_test", CL_SUCCESS, iRet);
     if (!bResult) goto release_program;
     
     // fill with data.
@@ -226,7 +226,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
     }
     
     clParentBuff = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, stBuffSizeInBytes, pBuff, &iRet);
-    bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
     if (!bResult)
     {
         goto release_context;
@@ -238,7 +238,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 	for (unsigned int i = 0; i < numDevices; i++)
 	{
 		clSubBuffs[i] = clCreateSubBuffer( clParentBuff, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &iRet );
-		bResult &= SilentCheck(L"clCreateSubBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateSubBuffer", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			goto release_buffers;
@@ -252,7 +252,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
     for (unsigned int i = 0; i < numDevices; i++)
 	{
         dev_queue[i] = clCreateCommandQueue (context, devices[i], 0 /*no properties*/, &iRet);
-        bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+        bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
         if (!bResult) goto release_queues;
     }
 
@@ -271,7 +271,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				}
 
 				cl_event ev = clCreateUserEvent(context, &iRet);
-				bResult &= SilentCheck(L"clCreateUserEvent", CL_SUCCESS, iRet);    
+				bResult &= SilentCheck("clCreateUserEvent", CL_SUCCESS, iRet);    
 				if (!bResult) break;
 				cl_event* pEv = &ev;
 				unsigned int numOfEvents = 1;
@@ -282,11 +282,11 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 					{
 						// Set Kernel Arguments
 						iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &(clSubBuffs[d]));
-						bResult &= SilentCheck(L"clSetKernelArg - clSubBuffA", CL_SUCCESS, iRet);
+						bResult &= SilentCheck("clSetKernelArg - clSubBuffA", CL_SUCCESS, iRet);
 						if (!bResult) break;
 						// Execute kernel
     					iRet = clEnqueueNDRangeKernel(tDev_queue[d], kernel, 1, NULL, global_work_size, NULL, numOfEvents, pEv, NULL);
-    					bResult &= SilentCheck(L"clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
+    					bResult &= SilentCheck("clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
 						if (!bResult) break;
 					}
 					pEv = NULL;
@@ -299,7 +299,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				clReleaseMemObject(clSubBuffs[numDevices - 1]);
 				clSubBuffs[numDevices - 1] = NULL;
 				clSubBuffs[numDevices - 1] = clCreateSubBuffer( clParentBuff, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &iRet );
-				bResult &= SilentCheck(L"clCreateSubBuffer", CL_SUCCESS, iRet);
+				bResult &= SilentCheck("clCreateSubBuffer", CL_SUCCESS, iRet);
 				if (!bResult) break;
 
 				// triger the batch ndranges.
@@ -307,7 +307,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				for (unsigned int d = 0; d < numDevices; d++)
 				{
 					iRet = clFinish(tDev_queue[d]);
-					bResult &= SilentCheck(L"clFinish for queueA", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clFinish for queueA", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -317,14 +317,14 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				{
 					// map all subBuffers and validate the content.
 					cl_event ev1 = clCreateUserEvent(context, &iRet);
-					bResult &= SilentCheck(L"clCreateUserEvent", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clCreateUserEvent", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 
 					cl_long** mapPtrArr = (cl_long**)alloca(sizeof(cl_long*) * numDevices);
 					for (unsigned int d = 0; d < numDevices; d++)
 					{
 						mapPtrArr[d] = (cl_long*)clEnqueueMapBuffer(tDev_queue[d], clSubBuffs[d], CL_FALSE, CL_MAP_READ, 0, stSubBuffSizeInBytes, 1, &ev1, NULL, &iRet);
-						bResult &= SilentCheck(L"clEnqueueMapBuffer from queueB, clSubBuffA to mapPtr1", CL_SUCCESS, iRet);
+						bResult &= SilentCheck("clEnqueueMapBuffer from queueB, clSubBuffA to mapPtr1", CL_SUCCESS, iRet);
 						if (!bResult) break;
 					}
 					if (!bResult) break;
@@ -333,7 +333,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 					for (unsigned int d = 0; d < numDevices; d++)
 					{
 						iRet = clFinish(tDev_queue[d]);
-						bResult &= SilentCheck(L"clFinish for queueA", CL_SUCCESS, iRet);    
+						bResult &= SilentCheck("clFinish for queueA", CL_SUCCESS, iRet);    
 						if (!bResult) break;
 					}
 					if (!bResult) break;
@@ -349,7 +349,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 					for (unsigned int d = 0; d < numDevices; d++)
 					{
 						iRet = clEnqueueUnmapMemObject(tDev_queue[d], clSubBuffs[d], mapPtrArr[d], 0, NULL, NULL);
-						bResult &= SilentCheck(L"clEnqueueUnMapBuffer - clSubBuffA", CL_SUCCESS, iRet);
+						bResult &= SilentCheck("clEnqueueUnMapBuffer - clSubBuffA", CL_SUCCESS, iRet);
 						if (!bResult) break;
 					}
 					if (!bResult) break;
@@ -358,7 +358,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				{
 					// Read parent buffer. device B
 					iRet = clEnqueueReadBuffer( tDev_queue[numDevices-1], clParentBuff, CL_TRUE, 0, stBuffSizeInBytes, pDestBuff, 0, NULL, NULL );
-					bResult &= SilentCheck(L"clEnqueueReadBuffer - clParentBuff to pDestBuff", CL_SUCCESS, iRet);
+					bResult &= SilentCheck("clEnqueueReadBuffer - clParentBuff to pDestBuff", CL_SUCCESS, iRet);
 					if (!bResult) break;
 					if (!validateData(numDevices, number_of_rounds, num_inc_in_round, round, curr_dev, num_inc_in_round, 0, 0, stBuffSize, pDestBuff))
 					{
@@ -369,7 +369,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				for (unsigned int d = 0; d < numDevices; d++)
 				{
 					iRet = clFinish(tDev_queue[d]);
-					bResult &= SilentCheck(L"clFinish for queueA", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clFinish for queueA", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -394,26 +394,26 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 
 				// Set Kernel Arguments
 				iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clParentBuff);
-				bResult &= SilentCheck(L"clSetKernelArg - clParentBuff", CL_SUCCESS, iRet);
+				bResult &= SilentCheck("clSetKernelArg - clParentBuff", CL_SUCCESS, iRet);
 				if (!bResult) break;
 				global_work_size[0] = stBuffSize;
     			// Execute kernel
     			iRet = clEnqueueNDRangeKernel(tDev_queue[0], kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-    			bResult &= SilentCheck(L"clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
+    			bResult &= SilentCheck("clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
 				if (!bResult) break;
     			iRet = clFinish(tDev_queue[0]);
-    			bResult &= SilentCheck(L"clFinish for queueA", CL_SUCCESS, iRet);    
+    			bResult &= SilentCheck("clFinish for queueA", CL_SUCCESS, iRet);    
 				if (!bResult) break;
 
 				cl_event ev1 = clCreateUserEvent(context, &iRet);
-				bResult &= SilentCheck(L"clCreateUserEvent", CL_SUCCESS, iRet);    
+				bResult &= SilentCheck("clCreateUserEvent", CL_SUCCESS, iRet);    
 				if (!bResult) break;
 
 				// Read parent from child buffers. will triger when ev1 signal. (on both devices simultaneously)
 				for (unsigned int d = 0; d < numDevices; d++)
 				{
 					iRet = clEnqueueReadBuffer( tDev_queue[d], clSubBuffs[d], CL_FALSE, 0, stSubBuffSizeInBytes, pDstSubBuffs[d], 1, &ev1, NULL );
-					bResult &= SilentCheck(L"clEnqueueReadSubBuffer - clSubBuffA to pDstSubBuffA", CL_SUCCESS, iRet);
+					bResult &= SilentCheck("clEnqueueReadSubBuffer - clSubBuffA to pDstSubBuffA", CL_SUCCESS, iRet);
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -421,7 +421,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				for (unsigned int d = 0; d < numDevices; d++)
 				{
 					iRet = clFinish(tDev_queue[d]);
-					bResult &= SilentCheck(L"clFinish for queueA", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clFinish for queueA", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -438,7 +438,7 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 
 				// write to child buffers. (on both devices simultaneously)
 				cl_event ev2 = clCreateUserEvent(context, &iRet);
-				bResult &= SilentCheck(L"clCreateUserEvent", CL_SUCCESS, iRet);    
+				bResult &= SilentCheck("clCreateUserEvent", CL_SUCCESS, iRet);    
 				if (!bResult) break;
 				global_work_size[0] = stSubBuffSize;
 				// Set Kernel Arguments
@@ -446,11 +446,11 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				{
 					// Set Kernel Arguments
 					iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &(clSubBuffs[d]));
-					bResult &= SilentCheck(L"clSetKernelArg - clSubBuffA", CL_SUCCESS, iRet);
+					bResult &= SilentCheck("clSetKernelArg - clSubBuffA", CL_SUCCESS, iRet);
 					if (!bResult) break;
 					// Execute kernel
     				iRet = clEnqueueNDRangeKernel(tDev_queue[numDevices - 1 - d], kernel, 1, NULL, global_work_size, NULL, 1, &ev2, NULL);
-    				bResult &= SilentCheck(L"clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
+    				bResult &= SilentCheck("clEnqueueNDRangeKernel for queueA", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -458,14 +458,14 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				for (int d = numDevices - 1; d >= 0; d--)
 				{
 					iRet = clFinish(tDev_queue[d]);
-					bResult &= SilentCheck(L"clFinish for queueB", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clFinish for queueB", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
 				
 				// Map parent buffer. On device B
 				cl_long* mapPtr = (cl_long*)clEnqueueMapBuffer(tDev_queue[numDevices - 1], clParentBuff, CL_TRUE, CL_MAP_READ, 0, stBuffSizeInBytes, 0, NULL, NULL, &iRet);
-				bResult &= SilentCheck(L"clEnqueueMapBuffer from queueB, clParentBuff to mapPtr", CL_SUCCESS, iRet);
+				bResult &= SilentCheck("clEnqueueMapBuffer from queueB, clParentBuff to mapPtr", CL_SUCCESS, iRet);
 				if (!bResult) break;
 				if (!validateData(numDevices, number_of_rounds, num_inc_in_round, round, curr_dev, 2, 0, 0, stBuffSize, mapPtr))
 				{
@@ -474,12 +474,12 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 				}
 
 				iRet = clEnqueueUnmapMemObject(tDev_queue[numDevices - 1], clParentBuff, mapPtr, 0, NULL, NULL);
-				bResult &= SilentCheck(L"clEnqueueMapBuffer - clParentBuff", CL_SUCCESS, iRet);
+				bResult &= SilentCheck("clEnqueueMapBuffer - clParentBuff", CL_SUCCESS, iRet);
 				if (!bResult) break;
 				for (int d = numDevices - 1; d >= 0; d--)
 				{
 					iRet = clFinish(tDev_queue[d]);
-					bResult &= SilentCheck(L"clFinish for queueB", CL_SUCCESS, iRet);    
+					bResult &= SilentCheck("clFinish for queueB", CL_SUCCESS, iRet);    
 					if (!bResult) break;
 				}
 				if (!bResult) break;
@@ -490,7 +490,6 @@ bool run_common_rt_sub_buffers_async_test(const char* test_name, cl_device_type*
 		}
 	}
 
-main_error_exit:
 release_queues:
     for (unsigned int curr_dev = 0; curr_dev < numDevices; ++curr_dev )
     {
@@ -513,13 +512,12 @@ release_buffers:
 	{
 		clReleaseMemObject(clParentBuff);
 	}
-release_kernel:
     clReleaseKernel(kernel);
 release_program:
 	clReleaseProgram(program);
 release_context:
     clReleaseContext(context);
-release_end:
+
     return bResult;
 }
 
@@ -566,7 +564,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 	do
 	{
 		iRet = clGetPlatformIDs(1, &platform, NULL);
-		bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 		if (!bResult)
 		{
@@ -574,7 +572,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		}
 
 		iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &num_devices);
-		bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 	
 		if ((!bResult) || (0 == num_devices))
 		{
@@ -597,7 +595,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 
 		cl_uint num_devices_ret = 0;
 		iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, num_devices, pDevices, &num_devices_ret);
-		bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);
 
 		if ((!bResult) || (num_devices_ret != num_devices))
 		{
@@ -615,7 +613,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 
 		cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 		context = clCreateContext( prop, num_devices, pDevices, NULL, NULL, &iRet);
-		bResult &= SilentCheck(L"clCreateContext", CL_SUCCESS, iRet); 
+		bResult &= SilentCheck("clCreateContext", CL_SUCCESS, iRet); 
 		if (!bResult)
 		{
 			break;
@@ -634,7 +632,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		}
 
 		clParentBuff = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sub_buffer_size_in_bytes * num_devices, pBuff, &iRet);
-		bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			break;
@@ -653,7 +651,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		for (unsigned int i = 0; i < num_devices; i++)
 		{
 			clSubBuffArr[i] = clCreateSubBuffer( clParentBuff, CL_MEM_READ_WRITE, CL_BUFFER_CREATE_TYPE_REGION, &region, &iRet );
-			bResult &= SilentCheck(L"clCreateSubBuffer", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clCreateSubBuffer", CL_SUCCESS, iRet);
 			if (!bResult)
 			{
 				break;
@@ -673,7 +671,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		}
     
 		kernel = clCreateKernel(program, "int_test", &iRet);
-		bResult &= SilentCheck(L"clCreateKernel - int_test", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateKernel - int_test", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			break;
@@ -689,7 +687,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		for (unsigned int i = 0; i < num_devices; i++)
 		{
 			clCommandQueues[i] = clCreateCommandQueue (context, pDevices[i], 0 /*no properties*/, &iRet);
-			bResult &= SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clCreateCommandQueue", CL_SUCCESS, iRet);
 			if (!bResult)
 			{
 				break;
@@ -701,7 +699,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		}
 
 		cl_event ev = clCreateUserEvent(context, &iRet);
-		bResult &= SilentCheck(L"clCreateUserEvent", CL_SUCCESS, iRet);    
+		bResult &= SilentCheck("clCreateUserEvent", CL_SUCCESS, iRet);    
 		if (!bResult)
 		{
 			break;
@@ -713,14 +711,14 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		{
 			// Set Kernel Arguments
 			iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &(clSubBuffArr[i]));
-			bResult &= SilentCheck(L"clSetKernelArg - clSubBuffArr", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - clSubBuffArr", CL_SUCCESS, iRet);
 			if (!bResult)
 			{
 				break;
 			}
        		// Execute kernel
     		iRet = clEnqueueNDRangeKernel(clCommandQueues[i], kernel, 1, NULL, global_work_size, NULL, 1, &ev, NULL);
-    		bResult &= SilentCheck(L"clEnqueueNDRangeKernel for queueB", CL_SUCCESS, iRet);    
+    		bResult &= SilentCheck("clEnqueueNDRangeKernel for queueB", CL_SUCCESS, iRet);    
 			if (!bResult)
 			{
 				break;
@@ -734,7 +732,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		for (unsigned int i = 0; i < num_devices; i++)
 		{
 			iRet = clFinish(clCommandQueues[i]);
-			bResult &= SilentCheck(L"clFinish for clCommandQueues[i]", CL_SUCCESS, iRet);    
+			bResult &= SilentCheck("clFinish for clCommandQueues[i]", CL_SUCCESS, iRet);    
 			if (!bResult) break;
 		}
 		if (!bResult)
@@ -744,7 +742,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 
 		// Map parent buffer. On first device
 		cl_long* mapPtr = (cl_long*)clEnqueueMapBuffer(clCommandQueues[0], clParentBuff, CL_TRUE, CL_MAP_READ, 0, sub_buffer_size_in_bytes * num_devices, 0, NULL, NULL, &iRet);
-		bResult &= SilentCheck(L"clEnqueueMapBuffer from clCommandQueues[0], clParentBuff to mapPtr", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clEnqueueMapBuffer from clCommandQueues[0], clParentBuff to mapPtr", CL_SUCCESS, iRet);
 		if (!bResult) 
 		{
 			break;
@@ -754,7 +752,7 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		{
 			if (mapPtr[i] != i * 2 + 1)
 			{
-				printf("Error: Validation error at index %d, expected %ld got %ld\n", i, i * 2 + 1, mapPtr[i]);
+				printf("Error: Validation error at index %u, expected %u got %ld\n", i, i * 2 + 1, mapPtr[i]);
 				bResult = false;
 				break;
 			}
@@ -765,13 +763,13 @@ bool run_multi_devices_sub_buffer_simple_test(const char* test_name)
 		}
 
 		iRet = clEnqueueUnmapMemObject(clCommandQueues[0], clParentBuff, mapPtr, 0, NULL, NULL);
-		bResult &= SilentCheck(L"clEnqueueMapBuffer - clParentBuff", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clEnqueueMapBuffer - clParentBuff", CL_SUCCESS, iRet);
 		if (!bResult) 
 		{
 			break;
 		}
 		iRet = clFinish(clCommandQueues[0]);
-		bResult &= SilentCheck(L"clFinish for clCommandQueues[0]", CL_SUCCESS, iRet);   
+		bResult &= SilentCheck("clFinish for clCommandQueues[0]", CL_SUCCESS, iRet);   
 		if (!bResult) 
 		{
 			break;
@@ -896,7 +894,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -922,7 +920,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	pBinaryStatus = new cl_int[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &(pDevices[0]), NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -932,7 +930,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	}
 
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_ACCELERATOR, 1, &(pDevices[1]), NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -943,7 +941,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -1004,21 +1002,21 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
             hostMem[i],
             &iRet
         );
-		bResult &= SilentCheck(L"clCreateBuffer - srcA", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateBuffer - srcA", CL_SUCCESS, iRet);
     }
 
 	// create program with source
 	cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, "-cl-denorms-are-zero", NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
 
     //
     // Create Kernel
     //
     cl_kernel kernel1 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel - dot_product", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernel - dot_product", CL_SUCCESS, iRet);
 
     //
     // Create queue
@@ -1027,7 +1025,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	for (unsigned int i = 0; i < uiNumDevices; i++)
 	{
 		queues[i] = clCreateCommandQueue (context, pDevices[i], 0 /*no properties*/, &iRet);
-		bResult &= SilentCheck(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	}
 
 	vector<cl_mem* > subBuffers(NUM_BUFFERS);
@@ -1045,12 +1043,11 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
                         &iRet
                     );
 
-			bResult &= SilentCheck(L"clCreateSubBuffer", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clCreateSubBuffer", CL_SUCCESS, iRet);
 		}
 	}
 
 	const unsigned int num_iterations = 2;
-	const unsigned int num_ndranges = num_iterations * uiNumDevices * 2;
 	const unsigned int total_rounds = uiNumDevices * 2 * num_iterations;
 	vector<cl_event> events(total_rounds);
 
@@ -1087,7 +1084,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
             validationBufferPtr,
             &iRet
         );
-	bResult &= SilentCheck(L"clCreateBuffer - validationBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateBuffer - validationBuffer", CL_SUCCESS, iRet);
 
 	vector<cl_mem> validationSubBuffers(total_rounds);
 	for (unsigned int i = 0; i < total_rounds; i++)
@@ -1101,7 +1098,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
                     &iRet
                 );
 
-		bResult &= SilentCheck(L"validationSubBuffers", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("validationSubBuffers", CL_SUCCESS, iRet);
 	}
 
 	size_t global_work_size[1] = { num_elements_in_subbuffer };
@@ -1113,27 +1110,27 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 		for (unsigned int dev = 0; dev < uiNumDevices; dev ++)
 		{
 			iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &(subBuffers[i][1 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &(subBuffers[i][2 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &(subBuffers[i][3 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 3, sizeof(cl_mem), &(subBuffers[(i + 1) % 2][2 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 4, sizeof(float), &(resArr[round][i][1 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 5, sizeof(float), &(resArr[round][i][2 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 6, sizeof(float), &(resArr[round][i][3 + dev]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 7, sizeof(float), &(outResArr[round][0]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 8, sizeof(float), &(outResArr[round][1]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 9, sizeof(int), &(round));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 10, sizeof(cl_mem), &(validationSubBuffers[round]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 
 			unsigned int num_events = 0;
 			cl_event* currEvent = NULL;
@@ -1148,40 +1145,40 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 				currEvent = &(events[0]);
 			}
 			iRet = clEnqueueNDRangeKernel(queues[dev], kernel1, 1, NULL, global_work_size, local_work_size, num_events, currEvent, &(events[round]));
-			bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+			bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 			round ++;
 
 
 			int indexAdd = (dev == 0) ? (-1) : 1;
 
 			iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &(subBuffers[i][1 + dev + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 1, sizeof(cl_mem), &(subBuffers[i][2 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 2, sizeof(cl_mem), &(subBuffers[i][3 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 3, sizeof(cl_mem), &(subBuffers[(i + 1) % 2][2 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 4, sizeof(float), &(resArr[round][i][1 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 5, sizeof(float), &(resArr[round][i][2 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 6, sizeof(float), &(resArr[round][i][3 + dev  + indexAdd]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 7, sizeof(float), &(outResArr[round][0]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 8, sizeof(float), &(outResArr[round][1]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 9, sizeof(int), &(round));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 			iRet = clSetKernelArg(kernel1, 10, sizeof(cl_mem), &(validationSubBuffers[round]));
-			bResult &= SilentCheck(L"clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clSetKernelArg - buffer_srcA", CL_SUCCESS, iRet);
 
 			num_events = 0;
 			currEvent = NULL;
 
 			iRet = clEnqueueNDRangeKernel(queues[dev], kernel1, 1, NULL, global_work_size, local_work_size, num_events, currEvent, &(events[round]));
-			bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);   
+			bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);   
 			round ++;
 		}
 	}
@@ -1189,7 +1186,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	for(cl_uint i = 0; i < uiNumDevices; ++i)
     {
         iRet = clFinish(queues[i]); 
-		bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);    
+		bResult &= SilentCheck("clFinish", CL_SUCCESS, iRet);    
     }
 
 	// Read the parent buffer in order to validate results
@@ -1203,7 +1200,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
         0,
         &iRet
     );
-	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);    
+	bResult &= SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, iRet);    
 
 	// Read the parent buffer in order to validate results
 	void* ptr2 = clEnqueueMapBuffer(
@@ -1216,7 +1213,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
         0,
         &iRet
     );
-	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, iRet);
 
 	// Read the parent buffer in order to validate each round results
 	void* roundValidPtr = clEnqueueMapBuffer(
@@ -1229,7 +1226,7 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
         0,
         &iRet
     );
-	bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, iRet);
 
 
 	for (unsigned int i = 0; i < NUM_SUB_BUFFERS; i++)
@@ -1238,13 +1235,13 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 		{
 			if (((float*)ptr1)[(i * num_elements_in_subbuffer) + j] != resArr[round][0][i])
 			{
-				printf("Buffer1 read, invalid value at index %d, expected %f got %f (==> At sub-buffer %d at index %d of %d)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
+				printf("Buffer1 read, invalid value at index %zu, expected %f got %f (==> At sub-buffer %d at index %d of %zu)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
 				bResult = false;
 				break;
 			}
 			if (((float*)ptr2)[(i * num_elements_in_subbuffer) + j] != resArr[round][1][i])
 			{
-				printf("Buffer2 read, invalid value at index %d, expected %f got %f (==> At sub-buffer %d at index %d of %d)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
+				printf("Buffer2 read, invalid value at index %zu, expected %f got %f (==> At sub-buffer %d at index %d of %zu)\n", (i * num_elements_in_subbuffer) + j, resArr[round][0][i], ((float*)ptr1)[(i * num_elements_in_subbuffer) + j], i, j, num_elements_in_subbuffer - 1); 
 				bResult = false;
 				break;
 			}
@@ -1269,59 +1266,59 @@ bool run_multi_devices_parallel_ndrange_with_read_sub_buffers()
 	}
 
 	iRet = clEnqueueUnmapMemObject(queues[0], buffers[0], ptr1, 0, 0, 0);
-	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
 
 	iRet = clEnqueueUnmapMemObject(queues[0], buffers[1], ptr2, 0, 0, 0);
-	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
 
 	iRet = clEnqueueUnmapMemObject(queues[0], validationBuffer, roundValidPtr, 0, 0, 0);
-	bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
 
 	for(cl_uint i = 0; i < uiNumDevices; ++i)
     {
         iRet = clFinish(queues[i]); 
-		bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);    
+		bResult &= SilentCheck("clFinish", CL_SUCCESS, iRet);    
     }
 
 	for (unsigned int i = 0; i < total_rounds; i++)
 	{
 		iRet = clReleaseMemObject(validationSubBuffers[i]);
-		bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clReleaseBuffer", CL_SUCCESS, iRet);
 		iRet = clReleaseEvent(events[i]);
-		bResult &= SilentCheck(L"clReleaseEvent", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clReleaseEvent", CL_SUCCESS, iRet);
 	}
 
 	iRet = clReleaseMemObject(validationBuffer);
-	bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clReleaseBuffer", CL_SUCCESS, iRet);
 
 	for (unsigned int i = 0; i < NUM_BUFFERS; i++)
 	{
 		for (unsigned int j = 0; j < NUM_SUB_BUFFERS; j++)
 		{
 			iRet = clReleaseMemObject(subBuffers[i][j]);
-			bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+			bResult &= SilentCheck("clReleaseBuffer", CL_SUCCESS, iRet);
 		}
 		delete (subBuffers[i]);
 
 		iRet = clReleaseMemObject(buffers[i]);
-		bResult &= SilentCheck(L"clReleaseBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clReleaseBuffer", CL_SUCCESS, iRet);
 		ALIGNED_FREE(hostMem[i]);
 	}
 
 	for (unsigned int i = 0; i < uiNumDevices; i++)
 	{
 		iRet = clReleaseCommandQueue(queues[i]);
-		bResult &= SilentCheck(L"clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
 	}
 
 	iRet = clReleaseKernel(kernel1);
-	bResult &= SilentCheck(L"clReleaseKernel - kernel1", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clReleaseKernel - kernel1", CL_SUCCESS, iRet);
 
 	iRet = clReleaseProgram(program);
-	bResult &= SilentCheck(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clReleaseProgram - program", CL_SUCCESS, iRet);
 
 	iRet = clReleaseContext(context);
-	bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clReleaseContext - context", CL_SUCCESS, iRet);
 
 	ALIGNED_FREE(validationBufferPtr);
 

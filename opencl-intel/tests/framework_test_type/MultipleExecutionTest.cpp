@@ -36,7 +36,7 @@ bool clMultipleExecutionTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -47,14 +47,14 @@ bool clMultipleExecutionTest()
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device_id, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
 	}
 
 	iRet = clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &num_compute_units, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,iRet);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,iRet);
 	if (!bResult)	return bResult;
 
     size_t globalSize = (size_t)num_compute_units;
@@ -64,14 +64,14 @@ bool clMultipleExecutionTest()
 
     for (unsigned int iteration = 0; iteration < NUM_ITERATIONS; ++iteration)
     {
-        printf("Iteration %lu started\n", iteration);
+        printf("Iteration %u started\n", iteration);
 
         context = clCreateContext(prop, 1, &device_id, NULL, NULL, &iRet);
-	    bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
 	    if (!bResult) return bResult;
 
         cl_command_queue queue = clCreateCommandQueue (context, device_id, 0, &iRet);
-	    bResult &= SilentCheck(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseContext(context);
@@ -80,7 +80,7 @@ bool clMultipleExecutionTest()
 
 	    // create program with source
 	    cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	    bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseCommandQueue(queue);
@@ -89,7 +89,7 @@ bool clMultipleExecutionTest()
         }
 
 	    iRet = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-	    bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseProgram(program);
@@ -99,7 +99,7 @@ bool clMultipleExecutionTest()
         }
 
         cl_kernel kernel = clCreateKernel(program, "testKernel", &iRet);
-	    bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+	    bResult &= SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseProgram(program);
@@ -111,7 +111,7 @@ bool clMultipleExecutionTest()
         int barrier = 0;
 
         cl_mem buffer = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int), &barrier, &iRet);
-        bResult &= SilentCheck(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+        bResult &= SilentCheck("clCreateBuffer - dst", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseKernel(kernel);
@@ -122,7 +122,7 @@ bool clMultipleExecutionTest()
         }
 
         iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer);
-        bResult &= SilentCheck(L"clSetKernelArg", CL_SUCCESS, iRet);
+        bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
         if (!bResult)
         {
             clReleaseMemObject(buffer);
@@ -134,7 +134,7 @@ bool clMultipleExecutionTest()
         }
 
         iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, NULL);
-        bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+        bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
         if (!bResult)
         {
             clReleaseMemObject(buffer);
@@ -146,7 +146,7 @@ bool clMultipleExecutionTest()
         }
 
         iRet = clFinish(queue);
-        bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);
+        bResult &= SilentCheck("clFinish", CL_SUCCESS, iRet);
 
         clReleaseMemObject(buffer);
         clReleaseKernel(kernel);
@@ -155,7 +155,7 @@ bool clMultipleExecutionTest()
         clReleaseContext(context);
         if (!bResult) return bResult;
 
-        printf("Iteration %lu complete\n", iteration);
+        printf("Iteration %u complete\n", iteration);
     }
 
     return true;

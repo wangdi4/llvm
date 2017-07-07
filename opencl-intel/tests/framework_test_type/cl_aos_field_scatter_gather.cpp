@@ -150,7 +150,7 @@ bool execute_kernel(const char* const kernel_name,
 
   // Create Packed Kernel
   cl_kernel kernel = clCreateKernel(*program, kernel_name, &iRet);
-  bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
@@ -161,26 +161,26 @@ bool execute_kernel(const char* const kernel_name,
                                          BUFFERS_LENGTH * sizeof(int),
                                          NULL,
                                          &iRet);
-  bResult &= SilentCheck(L"clCreateBuffer - dst", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clCreateBuffer - dst", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
 
   // Set arguments - test
   iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buffer_dst_int);
-  bResult &= SilentCheck(L"clSetKernelArg - buffer_dst_int", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clSetKernelArg - buffer_dst_int", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
 
   iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), buffer_src_struct);
-  bResult &= SilentCheck(L"clSetKernelArg - buffer_src_struct", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clSetKernelArg - buffer_src_struct", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
 
   iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), buffer_src_float);
-  bResult &= SilentCheck(L"clSetKernelArg - buffer_src_float", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clSetKernelArg - buffer_src_float", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
@@ -190,24 +190,24 @@ bool execute_kernel(const char* const kernel_name,
   size_t local_work_size[1] = { 16 };
 
   iRet = clEnqueueNDRangeKernel(*queue, kernel, 1, NULL, global_work_size, local_work_size, 0, NULL, NULL);
-  bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+  bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
   if (!bResult) {
     return bResult;
   }
 
   // Read results. wait for completion - blocking!
   iRet = clEnqueueReadBuffer (*queue, buffer_dst_int, CL_TRUE,  0, BUFFERS_LENGTH * sizeof(int), output, 0, NULL, NULL);
-  bResult &= SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, iRet);
   if (!bResult) {
     return bResult;
   }
 
   // Release objects
   iRet = clReleaseMemObject(buffer_dst_int);
-  bResult &= SilentCheck(L"clReleaseBuffer - buffer_dst_int", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clReleaseBuffer - buffer_dst_int", CL_SUCCESS, iRet);
 
   iRet = clReleaseKernel(kernel);
-  bResult &= SilentCheck(L"clReleaseKernel - kernel", CL_SUCCESS, iRet);
+  bResult &= SilentCheck("clReleaseKernel - kernel", CL_SUCCESS, iRet);
 
   return validate_result(output, output_ref);
 }
@@ -222,7 +222,7 @@ bool clAoSFieldScatterGather()
 
     // get platform
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -230,7 +230,7 @@ bool clAoSFieldScatterGather()
 
 	// get device
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -238,7 +238,7 @@ bool clAoSFieldScatterGather()
 
 	// create context
     context = clCreateContext(NULL, 1, &device, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -246,7 +246,7 @@ bool clAoSFieldScatterGather()
 
 	// create program with source
     cl_program program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -254,7 +254,7 @@ bool clAoSFieldScatterGather()
 
     // build program
     iRet = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
     if (!bResult)
 	{
 		return bResult;
@@ -275,7 +275,7 @@ bool clAoSFieldScatterGather()
 
     // Create queue
     cl_command_queue queue = clCreateCommandQueue (context, device, 0, &iRet);
-    bResult &= SilentCheck(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
     if (!bResult) {
       return bResult;
     }
@@ -286,7 +286,7 @@ bool clAoSFieldScatterGather()
                                               BUFFERS_LENGTH * sizeof(TEST_STRUCT),
                                               input_struct,
                                               &iRet);
-    bResult &= SilentCheck(L"clCreateBuffer - src struct", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateBuffer - src struct", CL_SUCCESS, iRet);
     if (!bResult) {
       return bResult;
     }
@@ -296,7 +296,7 @@ bool clAoSFieldScatterGather()
                                                      BUFFERS_LENGTH * sizeof(TEST_STRUCT_PACKED),
                                                      input_struct_packed,
                                                      &iRet);
-    bResult &= SilentCheck(L"clCreateBuffer - src struct packed", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateBuffer - src struct packed", CL_SUCCESS, iRet);
     if (!bResult) {
       return bResult;
     }
@@ -307,7 +307,7 @@ bool clAoSFieldScatterGather()
                                              BUFFERS_LENGTH * sizeof(float),
                                              input_float,
                                              &iRet);
-    bResult &= SilentCheck(L"clCreateBuffer - src float", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clCreateBuffer - src float", CL_SUCCESS, iRet);
     if (!bResult) {
       return bResult;
     }
@@ -331,19 +331,19 @@ bool clAoSFieldScatterGather()
     // Release objects
 
     iRet = clReleaseMemObject(buffer_src_struct);
-    bResult &= SilentCheck(L"clReleaseBuffer - buffer_src_struct", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseBuffer - buffer_src_struct", CL_SUCCESS, iRet);
 
     iRet = clReleaseMemObject(buffer_src_float);
-    bResult &= SilentCheck(L"clReleaseBuffer - buffer_src_float", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseBuffer - buffer_src_float", CL_SUCCESS, iRet);
 
     iRet = clReleaseProgram(program);
-    bResult &= SilentCheck(L"clReleaseProgram - program", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseProgram - program", CL_SUCCESS, iRet);
 
     iRet = clReleaseCommandQueue(queue);
-    bResult &= SilentCheck(L"clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseCommandQueue - queue", CL_SUCCESS, iRet);
 
     iRet = clReleaseContext(context);
-    bResult &= SilentCheck(L"clReleaseContext - context", CL_SUCCESS, iRet);
+    bResult &= SilentCheck("clReleaseContext - context", CL_SUCCESS, iRet);
 
     return bResult;
 }

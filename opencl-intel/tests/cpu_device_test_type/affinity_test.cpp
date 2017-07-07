@@ -122,7 +122,7 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
 		cl_dev_cmd_list list;		
 		
 		err = dev_entry->clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, dev, &list);
-		CheckException(L"clDevCreateCommandList", CL_DEV_SUCCESS, err);					
+		CheckException("clDevCreateCommandList", CL_DEV_SUCCESS, err);					
 
 		cl_dev_cmd_desc* cmdDescArr = new cl_dev_cmd_desc[params->m_ulNumKernels];
 
@@ -143,11 +143,11 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
         {
             cl_dev_cmd_desc* cmdDescParam[] = { &cmdDescArr[i]};
             err = dev_entry->clDevCommandListExecute(list, cmdDescParam, 1);
-            CheckException(L"clDevCommandListExecute", CL_DEV_SUCCESS, err);
+            CheckException("clDevCommandListExecute", CL_DEV_SUCCESS, err);
         }
 
 		err = dev_entry->clDevFlushCommandList(list);
-		CheckException(L"clDevFlushCommandList", CL_DEV_SUCCESS, err);
+		CheckException("clDevFlushCommandList", CL_DEV_SUCCESS, err);
 
 		if (!bMasterJoinsWork)
 		{
@@ -157,14 +157,14 @@ static bool AffinityTestForDevice(cl_dev_subdevice_id dev, NativeKernelParams* p
 		else
 		{
 			err = dev_entry->clDevCommandListWaitCompletion(list, NULL);
-			CheckException(L"clDevCommandListWaitCompletion", CL_DEV_SUCCESS, err);			
+			CheckException("clDevCommandListWaitCompletion", CL_DEV_SUCCESS, err);			
 			for (unsigned long i = 0; i < params->m_ulNumKernels; i++)
 			{
 				err = dev_entry->clDevReleaseCommand(&cmdDescArr[i]);
-				CheckException(L"clDevReleaseCommand", CL_DEV_SUCCESS, err);
+				CheckException("clDevReleaseCommand", CL_DEV_SUCCESS, err);
 			}
 			err = dev_entry->clDevReleaseCommandList(list);
-			CheckException(L"clDevReleaseCommandList", CL_DEV_SUCCESS, err);
+			CheckException("clDevReleaseCommandList", CL_DEV_SUCCESS, err);
 		}
 		delete[] cmdDescArr;
 		
@@ -268,7 +268,7 @@ bool AffinitySubDeviceTest(affinityMask_t* pMask)
             }
 
             err = dev_entry->clDevPartition(CL_DEV_PARTITION_BY_NAMES, 1, NULL, &uiNumDevices, &requestedUnits, &subDevs[i]);
-            CheckException(L"clDevPartition", CL_DEV_SUCCESS, err);
+            CheckException("clDevPartition", CL_DEV_SUCCESS, err);
         }
 
         bool res = true;
@@ -284,7 +284,7 @@ bool AffinitySubDeviceTest(affinityMask_t* pMask)
         for (size_t i = 0; i < NUM_SUB_DEVS; i++)
         {
             err = dev_entry->clDevReleaseSubdevice(subDevs[i]);
-            CheckException(L"clDevReleaseSubdevice", CL_DEV_SUCCESS, err);
+            CheckException("clDevReleaseSubdevice", CL_DEV_SUCCESS, err);
         }
 
         clResetThreadAffinityMask(clMyThreadId());

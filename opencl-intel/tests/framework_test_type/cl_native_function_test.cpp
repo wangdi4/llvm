@@ -156,7 +156,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	}
 
 	iRet=clCreateKernelsInProgram(program,sizeof(kernel),&kernel,NULL);
-	bResult &= SilentCheck(L"clCreateKernelsInProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernelsInProgram", CL_SUCCESS, iRet);
 	if (!bResult) throw RELEASE_PROGRAM;
 	
 
@@ -170,14 +170,14 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 
 	for (int i=0 ; i< (numBuffs) ; i++){
 	clBuff[i] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(T)*stBuffSize, pBuff[i], &iRet);
-	bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult) {
 		numBuffs=i-1;
 		throw RELEASE_IMAGES;
 	}
 	}
 	clBuff[numBuffs] = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pULP), pULP, &iRet);
-	bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult) {
 		numBuffs--;
 		throw RELEASE_IMAGES;
@@ -186,7 +186,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	// Set Kernel Arguments
 	for (int i=0 ; i< (numBuffs+1) ; i++){
 	iRet |= clSetKernelArg(kernel, i, sizeof(cl_mem), &clBuff[i]);
-	bResult &= SilentCheck(L"clSetKernelArg", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
 	if (!bResult) throw RELEASE_IMAGES;
 	}
 
@@ -194,7 +194,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 
 	// Execute kernel
 	iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-	bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+	bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 	if (!bResult) throw RELEASE_IMAGES;
 	//
 	// Verification phase
@@ -203,7 +203,7 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 
 	iRet = clEnqueueReadBuffer( queue, clBuff[0], CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
 	iRet |= clEnqueueReadBuffer( queue, clBuff[numBuffs], CL_TRUE, 0, sizeof(pULP), pULP, 0, NULL, NULL );
-	bResult &= SilentCheck(L"clEnqueueReadBuffer ", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clEnqueueReadBuffer ", CL_SUCCESS, iRet);
 	if (!bResult) throw RELEASE_IMAGES;
 	
 	int maxULP=0;
@@ -272,7 +272,7 @@ bool clNativeFunctionTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 	if (!bResult)	return bResult;
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
@@ -298,15 +298,15 @@ bool clNativeFunctionTest()
 
 
     cl_context context = clCreateContextFromType(prop, CL_DEVICE_TYPE_CPU, NULL, NULL, &iRet);
-    bResult &= SilentCheck(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &clDefaultDeviceId, NULL);
-    bResult &= SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= SilentCheck("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
     queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= SilentCheck(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult) goto release_context;
 
 	srand( 0 );

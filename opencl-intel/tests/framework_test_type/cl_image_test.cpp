@@ -23,7 +23,7 @@ bool clCopyImageTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -41,16 +41,16 @@ bool clCopyImageTest()
     // Create context, Queue
     //
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
 	{
 		cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-		bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+		bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 		if (!bResult) goto release_context;
 		
 		{
@@ -91,8 +91,8 @@ bool clCopyImageTest()
     clFormat.image_channel_data_type = CL_SNORM_INT16;
 
 	printf( " - Creating src image %d by %d with unsupported format...\n", (int)szSrcWidth, (int)szSrcHeight );
-    cl_mem clFailedImg = clCreateImage2D( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &clFormat, szSrcWidth, szSrcHeight, szSrcRowPitch, pSrcImageValues, &iRet );
-	bResult &= Check(L"clCreateImage2D", CL_IMAGE_FORMAT_NOT_SUPPORTED, iRet);
+    clCreateImage2D( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &clFormat, szSrcWidth, szSrcHeight, szSrcRowPitch, pSrcImageValues, &iRet );
+	bResult &= Check("clCreateImage2D", CL_IMAGE_FORMAT_NOT_SUPPORTED, iRet);
 
 	clFormat.image_channel_order = CL_RGBA;
     clFormat.image_channel_data_type = CL_UNORM_INT8;
@@ -100,13 +100,13 @@ bool clCopyImageTest()
     // Src img
     printf( " - Creating src image %d by %d...\n", (int)szSrcWidth, (int)szSrcHeight );
     cl_mem clSrcImg = clCreateImage2D( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, &clFormat, szSrcWidth, szSrcHeight, szSrcRowPitch, pSrcImageValues, &iRet );
-	bResult &= Check(L"clCreateImage2D", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateImage2D", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
 
     // Dst image
     printf( " - Creating image %d by %d by %d...\n", (int)szDstWidth, (int)szDstHeight, (int)szDstDepth );
     cl_mem clDstImg = clCreateImage3D( context, CL_MEM_READ_ONLY, &clFormat, szDstWidth, szDstHeight, szDstDepth, 0, 0, NULL, &iRet );
-	bResult &= Check(L"clCreateImage3D", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateImage3D", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
 
     // 
@@ -125,7 +125,7 @@ bool clCopyImageTest()
     size_t region[ 3 ] = { szSrcWidth, szSrcHeight, 1 };
 	
 	iRet = clEnqueueWriteImage(queue, clSrcImg, CL_TRUE, origin, region, 0, 0, pSrcImageValues, 0, NULL, NULL);
-	bResult &= Check(L"clEnqueueWriteImage - src", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueWriteImage - src", CL_SUCCESS, iRet);
 	if (!bResult) goto release_image;
 	
 	//
@@ -136,7 +136,7 @@ bool clCopyImageTest()
 	region[ 2 ] = szDstDepth;
   
 	iRet = clEnqueueWriteImage( queue, clDstImg, CL_TRUE, origin, region, 0, 0, pDstImageValues, 0, NULL, NULL );
-			bResult &= Check(L"clEnqueueWriteImage - dst", CL_SUCCESS, iRet);
+			bResult &= Check("clEnqueueWriteImage - dst", CL_SUCCESS, iRet);
 			if (!bResult) goto release_image;
 
 			//
@@ -149,7 +149,7 @@ bool clCopyImageTest()
 				region[ 2 ] = 1;
 
 				iRet = clEnqueueCopyImage( queue, clSrcImg, clDstImg, origin, dstOrigin, region, 0, NULL, NULL );
-				bResult &= Check(L"clEnqueueCopyImage - 2D --> 3D", CL_SUCCESS, iRet);
+				bResult &= Check("clEnqueueCopyImage - 2D --> 3D", CL_SUCCESS, iRet);
 			}
 			if (!bResult) goto release_image;
 
@@ -162,7 +162,7 @@ bool clCopyImageTest()
 	region[ 2 ] = szDstDepth;
 
 	iRet = clEnqueueReadImage( queue, clDstImg, CL_TRUE, origin, region, 0, 0, pResultImageValues, 0, NULL, NULL );
-	bResult &= Check(L"clEnqueueReadImage - Dst", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueReadImage - Dst", CL_SUCCESS, iRet);
 	if (!bResult) goto release_image;
 
     //
