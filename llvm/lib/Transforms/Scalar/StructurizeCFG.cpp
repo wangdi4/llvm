@@ -16,6 +16,7 @@
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Analysis/RegionIterator.h"
 #include "llvm/Analysis/RegionPass.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
@@ -174,6 +175,7 @@ class StructurizeCFG : public RegionPass {
   Region *ParentRegion;
 
   DominatorTree *DT;
+  PostDominatorTree *PDT;
   LoopInfo *LI;
 
   RNVector Order;
@@ -238,7 +240,7 @@ class StructurizeCFG : public RegionPass {
 
   bool hasOnlyUniformBranches(const Region *R);
 
-  bool MultiExitingsLoop();
+  bool CSANeedRestruct();
 
   bool MultiExitingsLoop(Loop*);
 
@@ -267,8 +269,10 @@ public:
       AU.addRequired<DivergenceAnalysis>();
     AU.addRequiredID(LowerSwitchID);
     AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<PostDominatorTreeWrapperPass>();
     RegionPass::getAnalysisUsage(AU);
   }
 };
@@ -962,17 +966,18 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   ParentRegion = R;
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-
+#if 1
   //CSA EDIT:
   {
     Module *M = Func->getParent();
     if (0 == M->getTargetTriple().compare("csa")) {
-      if (!MultiExitingsLoop())
+      if (!CSANeedRestruct())
         return false;
     }
   }
- 
+#endif 
   orderNodes();
   collectInfos();
   createFlow();
@@ -995,10 +1000,31 @@ bool StructurizeCFG::runOnRegion(Region *R, RGPassManager &RGM) {
   return true;
 }
 
-bool StructurizeCFG::MultiExitingsLoop() {
+bool StructurizeCFG::CSANeedRestruct() {
   for (Loop::iterator iloop = LI->begin(), LE = LI->end(); iloop != LE; ++iloop) {
     if (MultiExitingsLoop(*iloop)) {
       return true;
+    }
+  }
+  typedef po_iterator<DomTreeNode *> po_dt_iterator;
+  DomTreeNode *root = DT->getRootNode();
+  for (po_dt_iterator pdt = po_dt_iterator::begin(root), END = po_dt_iterator::end(root); pdt != END; ++pdt) {
+    DomTreeNode *bn = *pdt;
+    BasicBlock *bb = bn->getBlock();
+    unsigned count = 0;
+    for (pred_iterator PI = pred_begin(bb), E = pred_end(bb); PI != E; ++PI)
+      ++count;
+    if (count > 1) {
+      DomTreeNode *pn = bn->getIDom();
+      if (pn->getNumChildren() > 1) {
+        std::vector<DomTreeNode*> cnv = pn->getChildren();
+        for (unsigned i = 0; i < cnv.size(); i++) {
+          DomTreeNode *cn = cnv[i];
+          if (bn != cn && !PDT->dominates(bn, cn)) {
+            return true;
+          }
+        }
+      }
     }
   }
   return false;
