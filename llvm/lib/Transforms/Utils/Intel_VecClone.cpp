@@ -366,6 +366,11 @@ BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
       // before the increment, resulting in the value of 2 always being computed
       // in the scalar loop.
       EntryInsts.push_back(&*BBIt);
+
+      // Add alloca to SIMD loop private
+      if (auto AllocaVal = dyn_cast<AllocaInst>(BBIt)) {
+        PrivateAllocas.insert(AllocaVal);
+      }
     }
   }
 
@@ -1416,6 +1421,7 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
   // Add directives for linear and vector parameters. Vector parameters can be
   // marked as private.
   SmallVector<Value*, 4> LinearVars;
+  SmallVector<Value*, 4> PrivateVars;
   SmallVector<Value*, 4> UniformVars;
   Function::ArgumentListType &ArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
@@ -1445,6 +1451,18 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
             M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_LINEAR),
                                          LinearVars);
     LinearCall->insertAfter(VlenCall);
+  }
+
+  // Add PrivateAllocas to PrivateVars
+  for (auto AllocaVal : PrivateAllocas)
+    PrivateVars.push_back(AllocaVal);
+
+  if (PrivateVars.size() > 0) {
+    CallInst *PrivateCall =
+        IntelIntrinsicUtils::createDirectiveQualOpndListCall(
+            M, IntelIntrinsicUtils::getClauseString(QUAL_OMP_PRIVATE),
+                                         PrivateVars);
+    PrivateCall->insertAfter(VlenCall);
   }
 
   if (UniformVars.size() > 0) {
@@ -1592,6 +1610,10 @@ void VecClone::removeScalarAllocasForVectorParams(
     Value *Parm = VectorParmMapIt->VectorParm;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
       ScalarAlloca->eraseFromParent();
+
+      // The scalar alloca needs to be removed from the allocas that are marked
+      // as SIMD loop private.
+      PrivateAllocas.erase(ScalarAlloca);
     }
   }
 }
@@ -1744,6 +1766,7 @@ bool VecClone::runOnModule(Module &M) {
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, &*EntryBlock,
                                 LoopExitBlock, ReturnBlock);
+      PrivateAllocas.clear();
 
       DEBUG(dbgs() << "After SIMD Function Cloning\n");
       DEBUG(Clone->dump());
