@@ -75,7 +75,7 @@ static bool vectorizerModeTest(std::string const& mode)
     cl_platform_id platform = 0;
 
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     if (!bResult)
     {
@@ -148,14 +148,14 @@ static bool vectorizerModeTest(std::string const& mode)
     std::size_t szLogSize = 0;
     // get the build log
     iRet = clGetProgramBuildInfo(clProg, pDevices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &szLogSize);
-    bResult = Check(L"clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
+    bResult = Check("clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
     if (bResult)
     {
         //check the logs
         std::string strLog;
         strLog.resize(szLogSize);
         iRet = clGetProgramBuildInfo(clProg, pDevices[0], CL_PROGRAM_BUILD_LOG, szLogSize, &*strLog.begin(), &szLogSize);
-        bResult = Check(L"clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
+        bResult = Check("clGetProgramBuildInfo(CL_PROGRAM_BUILD_LOG)", CL_SUCCESS, iRet);
 
         std::size_t place = strLog.find(kernelName, 0);
         if(!bResult || place == std::string::npos)

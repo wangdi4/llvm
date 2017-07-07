@@ -35,7 +35,7 @@ bool clBuildEmptyProgramTest()
     cl_platform_id platform = 0;
 
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     if (!bResult)
     {
@@ -77,7 +77,7 @@ bool clBuildEmptyProgramTest()
         delete []pBinaryStatus;
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
 
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, NULL, &clProg);
@@ -93,10 +93,9 @@ bool clBuildEmptyProgramTest()
 
     if (bResult)
     {
-        size_t szSize = 0;
         // get the binary
         iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, pBinarySizes, NULL);
-        bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
         if (!bResult)
         {
             delete []pDevices;
@@ -115,7 +114,7 @@ bool clBuildEmptyProgramTest()
             sumBinariesSize += pBinarySizes[i];
         }
         iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
-        bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
 
         for (unsigned int i = 0; i < uiNumDevices; i++)
         {
@@ -123,8 +122,8 @@ bool clBuildEmptyProgramTest()
         }
         delete []pBinaries;
 
-        cl_kernel kern = clCreateKernel(clProg, "test_kernel", &iRet);
-        bResult = SilentCheck(L"clCreateKernel", CL_INVALID_KERNEL_NAME, iRet);
+        clCreateKernel(clProg, "test_kernel", &iRet);
+        bResult = SilentCheck("clCreateKernel", CL_INVALID_KERNEL_NAME, iRet);
         if (!bResult)
         {
             delete []pDevices;
@@ -138,7 +137,7 @@ bool clBuildEmptyProgramTest()
         cl_kernel kernels[5] = {0};
         cl_uint num_kernels;
         iRet = clCreateKernelsInProgram(clProg, 5, kernels, &num_kernels);
-        bResult = SilentCheck(L"clCreateKernelsInProgram", CL_SUCCESS, iRet);
+        bResult = SilentCheck("clCreateKernelsInProgram", CL_SUCCESS, iRet);
         if (!bResult)
         {
             delete []pDevices;
@@ -149,7 +148,7 @@ bool clBuildEmptyProgramTest()
             return bResult;
         }
 
-        bResult = SilentCheck(L"Check num kernels", 0, num_kernels);
+        bResult = SilentCheck("Check num kernels", 0, num_kernels);
         if (!bResult)
         {
             delete []pDevices;

@@ -32,23 +32,23 @@ static void TestBadProperties(cl_device_id device, cl_context context) /*throw (
 
 	cl_queue_properties props2[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_ON_DEVICE, 0 };	// missing OOO
 	queue = clCreateCommandQueueWithProperties(context, device, props2, &iRet);
-	CheckException(L"clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
-	CHECK_COND(L"clCreateCommandQueueWithProperties", NULL == queue);
+	CheckException("clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
+	CHECK_COND("clCreateCommandQueueWithProperties", NULL == queue);
 
 	cl_queue_properties props3[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_ON_DEVICE_DEFAULT, 0 };	// default, but not device queue
 	queue = clCreateCommandQueueWithProperties(context, device, props3, &iRet);
-	CheckException(L"clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
-	CHECK_COND(L"clCreateCommandQueueWithProperties", NULL == queue);
+	CheckException("clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
+	CHECK_COND("clCreateCommandQueueWithProperties", NULL == queue);
 
 	cl_queue_properties props4[] = { 1, 1, 0 };	// invalid name
 	queue = clCreateCommandQueueWithProperties(context, device, props4, &iRet);
-	CheckException(L"clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
-	CHECK_COND(L"clCreateCommandQueueWithProperties", NULL == queue);
+	CheckException("clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
+	CHECK_COND("clCreateCommandQueueWithProperties", NULL == queue);
 
 	cl_queue_properties props5[] = { CL_QUEUE_PROPERTIES, 0, CL_QUEUE_SIZE, 5, 0 };	// queue size for host queue
 	queue = clCreateCommandQueueWithProperties(context, device, props5, &iRet);
-	CheckException(L"clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
-	CHECK_COND(L"clCreateCommandQueueWithProperties", NULL == queue);
+	CheckException("clCreateCommandQueueWithProperties", CL_INVALID_VALUE, iRet);
+	CHECK_COND("clCreateCommandQueueWithProperties", NULL == queue);
 }
 
 static const char* sProgSrc[] = {
@@ -78,62 +78,62 @@ static void TestProfilingCommandComplete(cl_context context, cl_device_id dev)
     cl_int iRet = CL_SUCCESS;
     const size_t szLen = strlen(sProgSrc[0]);
     cl_program prog = clCreateProgramWithSource(context, 1, sProgSrc, &szLen, &iRet);
-    CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
     iRet = clBuildProgram(prog, 1, &dev, "-cl-std=CL2.0", NULL, NULL);
     if (iRet != CL_SUCCESS)
     {
         size_t szParamValSize;
         cl_int iRet = clGetProgramBuildInfo(prog, dev, CL_PROGRAM_BUILD_LOG, 0, NULL, &szParamValSize);
-        CheckException(L"clGetProgramBuildInfo", CL_SUCCESS, iRet);
+        CheckException("clGetProgramBuildInfo", CL_SUCCESS, iRet);
         std::vector<char> paramVal(szParamValSize);
         iRet = clGetProgramBuildInfo(prog, dev, CL_PROGRAM_BUILD_LOG, szParamValSize, &paramVal[0], NULL);
-        CheckException(L"clGetProgramBuildInfo", CL_SUCCESS, iRet);
+        CheckException("clGetProgramBuildInfo", CL_SUCCESS, iRet);
         cout << "Program build failed:" << endl;
         cout << &paramVal[0] << endl;
     }
-    CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+    CheckException("clBuildProgram", CL_SUCCESS, iRet);
         
     cl_kernel kernel = clCreateKernel(prog, "parent", &iRet);
-    CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+    CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
     const cl_queue_properties queueProps[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE, 0 };
     cl_command_queue queue = clCreateCommandQueueWithProperties(context, dev, queueProps, &iRet);
-    CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+    CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
                 
     cl_event userEvent = clCreateUserEvent(context, &iRet);
-    CheckException(L"clCreateUserEvent", CL_SUCCESS, iRet);
+    CheckException("clCreateUserEvent", CL_SUCCESS, iRet);
 
     cl_event kernelEvent;
     const size_t szGlobalWorkOffset = 0, szGlobalWorkSize = 1;
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, &szGlobalWorkOffset, &szGlobalWorkSize, NULL, 1, &userEvent, &kernelEvent);
-    CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
     cl_ulong ulCmdEnd, ulCmdComplete;
     iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-    CheckException(L"clGetEventProfilingInfo", CL_PROFILING_INFO_NOT_AVAILABLE, iRet);
+    CheckException("clGetEventProfilingInfo", CL_PROFILING_INFO_NOT_AVAILABLE, iRet);
 
     iRet = clSetUserEventStatus(userEvent, CL_COMPLETE);
-    CheckException(L"clSetUserEventStatus", CL_SUCCESS, iRet);
+    CheckException("clSetUserEventStatus", CL_SUCCESS, iRet);
 
     cl_event nativeKernelEvent;
     iRet = clEnqueueNativeKernel(queue, NativeKernel, NULL, 0, 0, NULL, NULL, 0, NULL, &nativeKernelEvent);
 
     iRet = clFinish(queue);
-    CheckException(L"clFinish", CL_SUCCESS, iRet);
+    CheckException("clFinish", CL_SUCCESS, iRet);
         
     // check profiling of kernelEvent
     iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
-    CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
+    CheckException("CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
     iRet = clGetEventProfilingInfo(kernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-    CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
-    CheckException(L"complete time should be after end time", ulCmdEnd < ulCmdComplete, true);
+    CheckException("CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
+    CheckException("complete time should be after end time", ulCmdEnd < ulCmdComplete, true);
 
     // check profiling of nativeKernelEvent
     iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_END, sizeof(ulCmdEnd), &ulCmdEnd, NULL);
-    CheckException(L"CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
+    CheckException("CL_PROFILING_COMMAND_END", CL_SUCCESS, iRet);
     iRet = clGetEventProfilingInfo(nativeKernelEvent, CL_PROFILING_COMMAND_COMPLETE, sizeof(ulCmdComplete), &ulCmdComplete, NULL);
-    CheckException(L"CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
-    CheckException(L"complete time should equal end time", ulCmdEnd == ulCmdComplete, true);
+    CheckException("CL_PROFILING_COMMAND_COMPLETE", CL_SUCCESS, iRet);
+    CheckException("complete time should equal end time", ulCmdEnd == ulCmdComplete, true);
 
     clReleaseEvent(userEvent);
     clReleaseEvent(kernelEvent);
@@ -160,16 +160,16 @@ bool cl20ExecutionModel()
 	{
 		// create context
 		iRet = clGetPlatformIDs(1, &platform, NULL);
-    CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
+    CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);        
     iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);        
+    CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);        
     // check that device supports OpenCL 2.0
     size_t szParamValSize;
-    iRet = clGetDeviceInfo(device, CL_DEVICE_VERSION, NULL, NULL, &szParamValSize);
-    CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
+    iRet = clGetDeviceInfo(device, CL_DEVICE_VERSION, 0, NULL, &szParamValSize);
+    CheckException("clGetDeviceInfo", CL_SUCCESS, iRet);
     vector<char> devVersion(szParamValSize);
     iRet = clGetDeviceInfo(device, CL_DEVICE_VERSION, szParamValSize, &devVersion[0], NULL);
-    CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);    
+    CheckException("clGetDeviceInfo", CL_SUCCESS, iRet);    
     if (string(&devVersion[0]).find("OpenCL 2.0") == string::npos)
     {
         cout << "device doesn't support OpenCL 2.0 - skip this sub-test" << endl;
@@ -178,50 +178,50 @@ bool cl20ExecutionModel()
 
     const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
     context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);    
-    CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    CheckException("clCreateContextFromType", CL_SUCCESS, iRet);    
 
 		// do the real testing		
 
 		cl_queue_properties props[] = { CL_QUEUE_PROPERTIES, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_ON_DEVICE, 0 };
 		queue = clCreateCommandQueueWithProperties(context, device, props, &iRet);
-		CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
-		CHECK_COND(L"clCreateCommandQueueWithProperties", NULL != queue);		
+		CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+		CHECK_COND("clCreateCommandQueueWithProperties", NULL != queue);		
 
 		cl_uint uiQueueSize, uiDevQueuePreferredSize;
 		size_t szQueueSizeSize, szDevQueuePreferredSizeSize;
 		iRet = clGetDeviceInfo(device, CL_DEVICE_QUEUE_ON_DEVICE_PREFERRED_SIZE, sizeof(uiDevQueuePreferredSize), &uiDevQueuePreferredSize, &szDevQueuePreferredSizeSize);
-		CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
-		CheckException(L"clGetDeviceInfo", sizeof(uiDevQueuePreferredSize), szDevQueuePreferredSizeSize);		
+		CheckException("clGetDeviceInfo", CL_SUCCESS, iRet);
+		CheckException("clGetDeviceInfo", sizeof(uiDevQueuePreferredSize), szDevQueuePreferredSizeSize);		
 
 		cl_uint uiOnDeviceQueues;
 		size_t szOnDeviceQueuesSize;
 		iRet = clGetDeviceInfo(device, CL_DEVICE_MAX_ON_DEVICE_QUEUES, sizeof(uiOnDeviceQueues), &uiOnDeviceQueues, &szOnDeviceQueuesSize);
-		CheckException(L"clGetDeviceInfo", CL_SUCCESS, iRet);
-		CheckException(L"clGetDeviceInfo", sizeof(uiOnDeviceQueues), szOnDeviceQueuesSize);
+		CheckException("clGetDeviceInfo", CL_SUCCESS, iRet);
+		CheckException("clGetDeviceInfo", sizeof(uiOnDeviceQueues), szOnDeviceQueuesSize);
 
 		cl_queue_properties defaultProps[] = { CL_QUEUE_PROPERTIES,  CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_ON_DEVICE | CL_QUEUE_ON_DEVICE_DEFAULT, 0 };
 		defaultQueue = clCreateCommandQueueWithProperties(context, device, defaultProps, &iRet);
-		CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
-		CHECK_COND(L"clCreateCommandQueueWithProperties", NULL != queue);
+		CheckException("clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
+		CHECK_COND("clCreateCommandQueueWithProperties", NULL != queue);
 
 		iRet = clGetCommandQueueInfo(queue, CL_QUEUE_SIZE, sizeof(uiQueueSize), &uiQueueSize, &szQueueSizeSize);
-		CheckException(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
-		CheckException(L"clGetCommandQueueInfo", sizeof(uiQueueSize), szQueueSizeSize);
-		CheckException(L"uiQueueSize == uiDevQueuePreferredSize", uiQueueSize, uiDevQueuePreferredSize);
+		CheckException("clGetCommandQueueInfo", CL_SUCCESS, iRet);
+		CheckException("clGetCommandQueueInfo", sizeof(uiQueueSize), szQueueSizeSize);
+		CheckException("uiQueueSize == uiDevQueuePreferredSize", uiQueueSize, uiDevQueuePreferredSize);
 
 		cl_command_queue_properties reportedProps;
 		size_t szPropsSize;
 		iRet = clGetCommandQueueInfo(defaultQueue, CL_QUEUE_PROPERTIES, sizeof(reportedProps), &reportedProps, &szPropsSize);
-		CheckException(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
-		CheckException(L"clGetCommandQueueInfo", sizeof(reportedProps), szPropsSize);
-		CheckException(L"props == props[1]", (cl_command_queue_properties)defaultProps[1], reportedProps);
+		CheckException("clGetCommandQueueInfo", CL_SUCCESS, iRet);
+		CheckException("clGetCommandQueueInfo", sizeof(reportedProps), szPropsSize);
+		CheckException("props == props[1]", (cl_command_queue_properties)defaultProps[1], reportedProps);
 
 		cl_device_id reportedDevice;
 		size_t szDevIdSize;
 		iRet = clGetCommandQueueInfo(defaultQueue, CL_QUEUE_DEVICE, sizeof(reportedDevice), &reportedDevice, &szDevIdSize);
-		CheckException(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
-		CheckException(L"clGetCommandQueueInfo", sizeof(reportedDevice), szDevIdSize);
-		CheckException(L"device == reportedDevice", device, reportedDevice);
+		CheckException("clGetCommandQueueInfo", CL_SUCCESS, iRet);
+		CheckException("clGetCommandQueueInfo", sizeof(reportedDevice), szDevIdSize);
+		CheckException("device == reportedDevice", device, reportedDevice);
 
 		TestBadProperties(device, context);
 
@@ -234,7 +234,7 @@ bool cl20ExecutionModel()
 	if (NULL != queue)
 	{
 		iRet = clReleaseCommandQueue(queue);
-		if (!SilentCheck(L"clReleaseCommandQueue", CL_SUCCESS, iRet))
+		if (!SilentCheck("clReleaseCommandQueue", CL_SUCCESS, iRet))
 		{
 			return false;
 		}
@@ -242,7 +242,7 @@ bool cl20ExecutionModel()
 	if (NULL != defaultQueue)
 	{
 		iRet = clReleaseCommandQueue(defaultQueue);
-		if (!SilentCheck(L"clReleaseCommandQueue", CL_SUCCESS, iRet))
+		if (!SilentCheck("clReleaseCommandQueue", CL_SUCCESS, iRet))
 		{
 			return false;
 		}
@@ -250,7 +250,7 @@ bool cl20ExecutionModel()
 	if (NULL != context)
     {
         iRet = clReleaseContext(context);
-		if (!SilentCheck(L"clReleaseContext", CL_SUCCESS, iRet))
+		if (!SilentCheck("clReleaseContext", CL_SUCCESS, iRet))
 		{
 			return false;
 		}

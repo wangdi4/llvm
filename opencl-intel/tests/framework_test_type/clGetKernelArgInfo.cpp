@@ -40,7 +40,7 @@ bool clGetKernelArgInfoTest()
     cl_platform_id platform = 0;
 
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     if (!bResult)
     {
@@ -72,7 +72,7 @@ bool clGetKernelArgInfoTest()
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         iRet = clGetDeviceInfo(devices[i], CL_DEVICE_IMAGE_SUPPORT, sizeof(cl_bool), &isImagesSupported, NULL);
-        bResult = Check(L"clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
+        bResult = Check("clGetDeviceInfo(CL_DEVICE_IMAGE_SUPPORT)", CL_SUCCESS, iRet);
         if (!bResult)
         {
             return bResult;
@@ -89,7 +89,7 @@ bool clGetKernelArgInfoTest()
         printf("clCreateContext = %s\n",ClErrTxt(iRet));
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
     cl_program clProg;
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-kernel-arg-info", &clProg);

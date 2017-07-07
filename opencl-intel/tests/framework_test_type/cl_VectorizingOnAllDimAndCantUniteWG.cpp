@@ -130,16 +130,16 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
         }
 
         iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-        CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+        CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-        CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
+        CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
         queue = clCreateCommandQueue(context, device, 0, &iRet);
-        CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+        CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
         bool additionalSizes = false;
         const char * program  = sProg_prefer3;
@@ -165,12 +165,12 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
         const size_t szLengths = { strlen(program) };
         cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&program, &szLengths
             , &iRet);
-        CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+        CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
         iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-        CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+        CheckException("clBuildProgram", CL_SUCCESS, iRet);
 
         cl_kernel kernel = clCreateKernel(prog, "Fan", &iRet);
-        CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+        CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
         //decide about the work size
         int workSizeX = workSize;
@@ -204,53 +204,53 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
 
         //create buffers
         clMemWrapper srcBuf1 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, memorySize, iSrcArr1, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
         clMemWrapper srcBuf2 = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, memorySize, iSrcArr2, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
         clMemWrapper dstBuf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR, memorySize,iDstArr, &iRet);
-        CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+        CheckException("clCreateBuffer", CL_SUCCESS, iRet);
 
         //fill the buffers with the input
         iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &srcBuf1);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &srcBuf2);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &dstBuf);
-        CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+        CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         if (additionalSizes){
             iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &workSizeX);
-            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            CheckException("clSetKernelArg", CL_SUCCESS, iRet);
             iRet = clSetKernelArg(kernel, 4, sizeof(cl_int), &workSizeY);
-            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            CheckException("clSetKernelArg", CL_SUCCESS, iRet);
             iRet = clSetKernelArg(kernel, 5, sizeof(cl_int), &workSizeZ);
-            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         }
         else{
             iRet = clSetKernelArg(kernel, 3, sizeof(cl_int), &workSize);
-            CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+            CheckException("clSetKernelArg", CL_SUCCESS, iRet);
         }
 
-        size_t szGlobalWorkSize[3] = {workSizeX, workSizeY, workSizeZ};
+        size_t szGlobalWorkSize[3] = {(size_t)workSizeX, (size_t)workSizeY, (size_t)workSizeZ};
 
         if (additionalSizes && hasLocalWGSize){
             size_t localWGSize[3]={1,1,5};
             iRet = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, szGlobalWorkSize, localWGSize , 0, NULL, NULL);
-            CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+            CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
         }
         else{
             iRet = clEnqueueNDRangeKernel(queue, kernel, 3, NULL, szGlobalWorkSize, NULL, 0, NULL, NULL);
-            CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+            CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
         }
 
         iRet = clEnqueueReadBuffer(queue, dstBuf, CL_TRUE, 0, memorySize, iDstArr, 0, NULL, NULL);
-        CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+        CheckException("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
         // Calculate correct result
-        for (size_t i = 0; i < workSizeX; i++)
+        for (int i = 0; i < workSizeX; i++)
         {
-            for (size_t j = 0; j < workSizeY; j++)
+            for (int j = 0; j < workSizeY; j++)
             {
-                for (size_t  k= 0; k < workSizeZ; k++)
+                for (int  k= 0; k < workSizeZ; k++)
                 {
                     setByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ,
                         getByIndex(iSrcArr1,i,j,k,workSizeX,workSizeY,workSizeZ)+getByIndex(iSrcArr2,i,j,k,workSizeX,workSizeY,workSizeZ));
@@ -259,11 +259,11 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
         }
 
         //compare results
-        for (size_t i = 0; i < workSizeX; i++)
+        for (int i = 0; i < workSizeX; i++)
         {
-            for (size_t j = 0; j < workSizeY; j++)
+            for (int j = 0; j < workSizeY; j++)
             {
-                for (size_t  k= 0; k < workSizeZ; k++)
+                for (int  k= 0; k < workSizeZ; k++)
                 {
                     if (getByIndex(iDstArr_correct,i,j,k,workSizeX,workSizeY,workSizeZ) != getByIndex(iDstArr,i,j,k,workSizeX,workSizeY,workSizeZ))
                     {

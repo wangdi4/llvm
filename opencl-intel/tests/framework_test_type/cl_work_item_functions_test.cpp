@@ -39,7 +39,7 @@
 
 extern cl_device_type gDeviceType;
 
-size_t expected_output(char* kernel_name, int work_item)
+size_t expected_output(const char* kernel_name, int work_item)
 {
 	if(strcmp(kernel_name, "get_global_id_test") == 0) 
 		return work_item;
@@ -128,7 +128,7 @@ bool clWorkItemFunctionsTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -139,21 +139,21 @@ bool clWorkItemFunctionsTest()
     // Initiate test infrastructure:
     // Create context, Queue
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
 		return bResult;
 	}
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult)
 	{
 		return bResult;
 	}
 
 	cl_command_queue queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -166,7 +166,7 @@ bool clWorkItemFunctionsTest()
 		return false;
 	}
 
-	char* kernel_name[] = {
+	const char* kernel_name[] = {
 		"get_global_size_test",
 		"get_global_id_test",
 		"get_local_size_test",
@@ -194,9 +194,9 @@ bool clWorkItemFunctionsTest()
 	cl_kernel kernel;
 	cl_mem clBuff;  
 
-	size_t		stBuffSize = GLOBAL_SIZE * 4; // const-in / const-out / var-in / var-out
-	size_t		pBuff[GLOBAL_SIZE * 4];
-	size_t		pDstBuff[GLOBAL_SIZE * 4];
+	const size_t stBuffSize = GLOBAL_SIZE * 4;
+	size_t pBuff[stBuffSize];
+	size_t pDstBuff[stBuffSize];
 
 	size_t global_work_size[] = { GLOBAL_SIZE };
 	size_t local_work_size[] = { LOCAL_SIZE };
@@ -205,7 +205,7 @@ bool clWorkItemFunctionsTest()
 	for(int i = 0; i < KERNEL_NUM; ++i)
 	{
 		kernel = clCreateKernel(program, kernel_name[i], &iRet);
-		results[i] &= Check(L"clCreateKernel", CL_SUCCESS, iRet);
+		results[i] &= Check("clCreateKernel", CL_SUCCESS, iRet);
 		if (!results[i])
 		{
 			return results[i];
@@ -224,7 +224,7 @@ bool clWorkItemFunctionsTest()
 		}
 
 		clBuff = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pBuff), pBuff, &iRet);
-		results[i] &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+		results[i] &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 		if (!results[i])
 		{
 			return false;
@@ -232,7 +232,7 @@ bool clWorkItemFunctionsTest()
 
 		// Set Kernel Arguments
 		iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff);
-		results[i] &= Check(L"clSetKernelArg - clBuff", CL_SUCCESS, iRet);
+		results[i] &= Check("clSetKernelArg - clBuff", CL_SUCCESS, iRet);
 		if (!results[i])
 		{
 			return false;
@@ -240,11 +240,11 @@ bool clWorkItemFunctionsTest()
 
 		// Execute kernel
 		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, global_work_offset, global_work_size, local_work_size, 0, NULL, NULL);
-		results[i] &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+		results[i] &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 
 		// Verification phase
 		iRet = clEnqueueReadBuffer( queue, clBuff, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-		results[i] &= Check(L"clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
+		results[i] &= Check("clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
 		if (!results[i])
 		{
 			return false;

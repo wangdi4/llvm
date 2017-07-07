@@ -31,7 +31,7 @@
 * file - the pointer returned with the file
 * return an int with the error type of the problem, 0 means success
 */
-int crossPlatformFOpen(char* fileName,char* optns,FILE* file);
+int crossPlatformFOpen(char* fileName, const char* optns, FILE* file);
 
 #define FOPEN_OPTIONS rbD  //read,binary,Temporary , remove D so binary file will not be deleted
 

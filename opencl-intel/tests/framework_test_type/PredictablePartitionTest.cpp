@@ -39,22 +39,22 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
 
 	//Create a context with the sub-device
 	context = clCreateContext(NULL, 1, &subdevice_id, NULL, NULL, &err);
-	bResult = SilentCheck(L"clCreateContext", CL_SUCCESS, err);
+	bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 
 	//Create a command queue for the device
 	cmd_queue = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue", CL_SUCCESS, err);
+	bResult = SilentCheck("clCreateCommandQueue", CL_SUCCESS, err);
 	if (!bResult) return bResult;
 
     //Todo: should extend this test to also ensure which cores work groups execute on. Relies on a debug built-in
-	char* ocl_test_program= "__kernel void writeTID(__global int *a) { a[get_global_id(0)] = get_global_id(0); }";
+	const char* ocl_test_program= "__kernel void writeTID(__global int *a) { a[get_global_id(0)] = get_global_id(0); }";
 
 	cl_kernel  kernel;
 	cl_program program;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-	bResult = SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, err);
+	bResult = SilentCheck("clCreateProgramWithSource", CL_SUCCESS, err);
 	if (!bResult) return bResult;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -73,13 +73,13 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
 	}
 
 	kernel = clCreateKernel(program,"writeTID",&err);
-	bResult = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	int* input = new int[subdevice_size];
 	memset(input, 0xFF, sizeof(int) * subdevice_size);
 	cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(int) * subdevice_size, input, &err);
-	bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!bResult) 
     {
         delete[] input;
@@ -87,7 +87,7 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
     }
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buf);
-	bResult = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	bResult = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!bResult) 
     {
         delete[] input;
@@ -98,7 +98,7 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
     {
         cl_event evt;
         err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL, &globalSize, &localSize, 0, NULL, &evt);
-	    bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	    bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
     	if (!bResult) 
         {
             delete[] input;
@@ -107,12 +107,12 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
         if (useFinish)
         {
             err     = clFinish(cmd_queue);
-     	    bResult = SilentCheck(L"clFinish",CL_SUCCESS,err);
+     	    bResult = SilentCheck("clFinish",CL_SUCCESS,err);
         }
         else
         {
             err     = clWaitForEvents(1, &evt);
-            bResult = SilentCheck(L"clWaitForEvents",CL_SUCCESS,err);
+            bResult = SilentCheck("clWaitForEvents",CL_SUCCESS,err);
         }
         clReleaseEvent(evt);
 	    if (!bResult) 
@@ -124,7 +124,7 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
     }
 
 	err     = clEnqueueReadBuffer(cmd_queue, buf, CL_TRUE, 0, sizeof(int) * subdevice_size, input, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	if (!bResult) 
     {
         delete[] input;
@@ -143,15 +143,15 @@ bool test_subdevice(cl_device_id subdevice_id, cl_uint subdevice_size, bool useF
     delete[] input;
 
 	err      = clReleaseCommandQueue(cmd_queue);
-	bResult &= SilentCheck(L"clReleaseCommandQueue",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseCommandQueue",CL_SUCCESS,err);
 	err      = clReleaseProgram(program);
-	bResult &= SilentCheck(L"clReleaseProgram",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseProgram",CL_SUCCESS,err);
 	err      = clReleaseKernel(kernel);
-	bResult &= SilentCheck(L"clReleaseKernel",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseKernel",CL_SUCCESS,err);
 	err      = clReleaseMemObject(buf);
-	bResult &= SilentCheck(L"clReleaseMemObject",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseMemObject",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
-	bResult &= SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseContext",CL_SUCCESS,err);
 
     return bResult;
 }
@@ -170,21 +170,21 @@ bool predictable_partition_test()
 
 	//init platform
 	err     = clGetPlatformIDs(1, &platform, NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, err);
+	bResult = SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 
 	// init device
 	err     = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, err);
+	bResult = SilentCheck("clGetDeviceIDs", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)", CL_SUCCESS, err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 
 	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_PROPERTIES, 0, NULL, &paramSize);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_PARTITION_PROPERTIES)", CL_SUCCESS, err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_PARTITION_PROPERTIES)", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 	if (0 == paramSize)
 	{
@@ -194,7 +194,7 @@ bool predictable_partition_test()
 
     cl_device_partition_property props[MAX_PARTITION_PROPS] = {0};
 	err = clGetDeviceInfo(device, CL_DEVICE_PARTITION_PROPERTIES, sizeof(props), props, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_PARTITION_PROPERTIES)", CL_SUCCESS, err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_PARTITION_PROPERTIES)", CL_SUCCESS, err);
 	if (!bResult)	return bResult;
 	if (0 == props[0])
 	{
@@ -229,7 +229,7 @@ bool predictable_partition_test()
     {
         props[1] = device_size;
         err      = clCreateSubDevices(device, props, 1, &sub_device, NULL);
-	    bResult  = SilentCheck(L"clCreateSubDevices", CL_SUCCESS, err);
+	    bResult  = SilentCheck("clCreateSubDevices", CL_SUCCESS, err);
 	    if (!bResult)	return bResult;
 
         bResult = test_subdevice(sub_device, device_size, bUseFinish);
@@ -238,7 +238,7 @@ bool predictable_partition_test()
             printf("Test failed for size %u, using %s\n", device_size, bUseFinish ? "clFinish" : "clWaitForEvents");
         }
         err      = clReleaseDevice(sub_device);
-	    bResult &= SilentCheck(L"clReleaseDevice", CL_SUCCESS, err);
+	    bResult &= SilentCheck("clReleaseDevice", CL_SUCCESS, err);
 	    if (!bResult)	return bResult;
 
         //Alternate between with and without finish

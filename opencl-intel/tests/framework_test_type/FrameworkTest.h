@@ -36,16 +36,16 @@
 
 typedef void (*openBcFunc)(FILE*&);
 
-bool CheckHandle(const wchar_t * name, cl_platform_id expected, cl_platform_id result);
-bool CheckHandle(const wchar_t * name, cl_device_id expected, cl_device_id result);
-bool CheckHandle(const wchar_t * name, cl_context expected, cl_context result);
-bool CheckHandle(const wchar_t * name, cl_command_queue expected, cl_command_queue result);
-bool CheckHandle(const wchar_t * name, cl_mem expected, cl_mem result);
-bool CheckHandle(const wchar_t * name, cl_program expected, cl_program result);
-bool CheckHandle(const wchar_t * name, cl_kernel expected, cl_kernel result);
-bool CheckHandle(const wchar_t * name, cl_event expected, cl_event result);
-bool CheckHandle(const wchar_t * name, cl_sampler expected, cl_sampler result);
-bool CheckHandleImpl(const wchar_t * name, void* expected, void* result, bool bRes);
+bool CheckHandle(const char * name, cl_platform_id expected, cl_platform_id result);
+bool CheckHandle(const char * name, cl_device_id expected, cl_device_id result);
+bool CheckHandle(const char * name, cl_context expected, cl_context result);
+bool CheckHandle(const char * name, cl_command_queue expected, cl_command_queue result);
+bool CheckHandle(const char * name, cl_mem expected, cl_mem result);
+bool CheckHandle(const char * name, cl_program expected, cl_program result);
+bool CheckHandle(const char * name, cl_kernel expected, cl_kernel result);
+bool CheckHandle(const char * name, cl_event expected, cl_event result);
+bool CheckHandle(const char * name, cl_sampler expected, cl_sampler result);
+bool CheckHandleImpl(const char * name, void* expected, void* result, bool bRes);
 
 
 bool clCreateContextTest();

@@ -113,7 +113,7 @@ void clBuildOptionsTest()
             kernel.setArg(1, sizeof(capacity), &capacity);
             kernel.setArg(2, sizeof(resultSizeBuf), &resultSizeBuf);
             cl::NDRange global(1);
-            queue.enqueueNDRangeKernel(kernel, NULL, global);
+            queue.enqueueNDRangeKernel(kernel, cl::NullRange, global);
             queue.finish();
             queue.enqueueReadBuffer(resultSizeBuf, CL_TRUE, 0, sizeof(resultSize),
                                     &resultSize);

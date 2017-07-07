@@ -42,7 +42,7 @@ bool clRelaxedFunctionTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -64,15 +64,15 @@ bool clRelaxedFunctionTest()
     // Create context, Queue
     //
 	cl_context context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"clCreateContextFromType", CL_SUCCESS, iRet);    
+    bResult &= Check("clCreateContextFromType", CL_SUCCESS, iRet);    
     if (!bResult) goto release_end;
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
-    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);    
+    bResult &= Check("clGetDeviceIDs", CL_SUCCESS, iRet);    
     if (!bResult) goto release_context;
 
     queue = clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult) goto release_context;
 
 	// create program with source
@@ -90,11 +90,11 @@ bool clRelaxedFunctionTest()
 	}
 	
     kernel = clCreateKernel(program, "relaxed_test", &iRet);
-	bResult &= Check(L"clCreateKernel - relaxed_test", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - relaxed_test", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 
 	relaxedKernel = clCreateKernel(relaxedProgram, "relaxed_test", &iRet);
-	bResult &= Check(L"clCreateKernel - relaxed_test", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - relaxed_test", CL_SUCCESS, iRet);
 	if (!bResult) goto release_kernel;
 
 
@@ -118,7 +118,7 @@ bool clRelaxedFunctionTest()
     }
 
 	clBuff1 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pBuff1), pBuff1, &iRet);
-	bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		goto release_relaxed_kernel;
@@ -126,21 +126,21 @@ bool clRelaxedFunctionTest()
 
 	
 	clBuff2 = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pBuff2), pBuff2, &iRet);
-	bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		goto release_clBuff1;
 	}
 
 	clBuffDst = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pDstBuff), pDstBuff, &iRet);
-	bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		goto release_clBuff2;
 	}
 
 	clBuffDstRelaxed = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(pDstBuffRelaxed), pDstBuffRelaxed, &iRet);
-	bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		goto release_clBuffDst;
@@ -149,48 +149,48 @@ bool clRelaxedFunctionTest()
 
 	// Set Kernel Arguments
 	iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &clBuff1);
-	bResult &= Check(L"clSetKernelArg(0) - clBuff1", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(0) - clBuff1", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &clBuff2);
-	bResult &= Check(L"clSetKernelArg(1) - clBuff2", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(1) - clBuff2", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clSetKernelArg(kernel, 2, sizeof(cl_mem), &clBuffDst);
-	bResult &= Check(L"clSetKernelArg(2) - clBuffDst", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(2) - clBuffDst", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clSetKernelArg(relaxedKernel, 0, sizeof(cl_mem), &clBuff1);
-	bResult &= Check(L"clSetKernelArg(0) - clBuff1", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(0) - clBuff1", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clSetKernelArg(relaxedKernel, 1, sizeof(cl_mem), &clBuff2);
-	bResult &= Check(L"clSetKernelArg(1) - clBuff2", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(1) - clBuff2", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clSetKernelArg(relaxedKernel, 2, sizeof(cl_mem), &clBuffDstRelaxed);
-	bResult &= Check(L"clSetKernelArg(2) - clBuffDst", CL_SUCCESS, iRet);
+	bResult &= Check("clSetKernelArg(2) - clBuffDst", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
     
 
 	// Execute kernel
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clEnqueueNDRangeKernel(queue, relaxedKernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueNDRangeKernel relaxed", CL_SUCCESS, iRet);    
+    bResult &= Check("clEnqueueNDRangeKernel relaxed", CL_SUCCESS, iRet);    
 	if (!bResult) goto release_DstRelaxed;
     //
     // Verification phase
     //
 	iRet = clEnqueueReadBuffer( queue, clBuffDst, CL_TRUE, 0, sizeof(pDstBuff), pDstBuff, 0, NULL, NULL );
-	bResult &= Check(L"clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueReadBuffer - Dst", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	iRet = clEnqueueReadBuffer( queue, clBuffDstRelaxed, CL_TRUE, 0, sizeof(pDstBuffRelaxed), pDstBuffRelaxed, 0, NULL, NULL );
-	bResult &= Check(L"clEnqueueReadBuffer - DstRelaxed", CL_SUCCESS, iRet);
+	bResult &= Check("clEnqueueReadBuffer - DstRelaxed", CL_SUCCESS, iRet);
 	if (!bResult) goto release_DstRelaxed;
 
 	bResult = false;

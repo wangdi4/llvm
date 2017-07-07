@@ -30,29 +30,26 @@ bool gl_directx_support_test(bool supported)
     printf(supported ? "true\n" : "false\n");
     printf("---------------------------------------\n");
 
-    char* sOrigEnv;
     SETENV(CL_CONFIG_GL_DIRECTX_INTEROP,supported ? "True" : "False");
 
     bool bResult = true;
-    cl_context context=NULL;
-    cl_command_queue cmd_queue = NULL;
     cl_device_id device=NULL;
     cl_platform_id platform=NULL;
     cl_int err;
     
     //init platform
     err = clGetPlatformIDs(1,&platform,NULL);
-    bResult &= SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
     
     // init Devices (only one CPU...)
     err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-    bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 
     
     char *extStringDevice;
     size_t size = 0;
     err = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, 0, NULL, &size);
-    bResult &= SilentCheck(L"clGetDeviceInfo",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetDeviceInfo",CL_SUCCESS,err);
 
     extStringDevice = (char*) malloc( size );
     if ( NULL == extStringDevice )
@@ -61,11 +58,11 @@ bool gl_directx_support_test(bool supported)
         return false;
     }
     err = clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, size, extStringDevice, NULL);
-    bResult &= SilentCheck(L"clGetDeviceInfo",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetDeviceInfo",CL_SUCCESS,err);
 
     char *extStringPlatform;
     err = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, 0, NULL, &size);
-    bResult &= SilentCheck(L"clGetPlatformInfo",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetPlatformInfo",CL_SUCCESS,err);
 
     extStringPlatform = (char*) malloc( size );
     if ( NULL == extStringPlatform )
@@ -75,7 +72,7 @@ bool gl_directx_support_test(bool supported)
     }
 
     err = clGetPlatformInfo(platform, CL_PLATFORM_EXTENSIONS, size, extStringPlatform, NULL);
-    bResult &= SilentCheck(L"clGetPlatformInfo",CL_SUCCESS,err);
+    bResult &= SilentCheck("clGetPlatformInfo",CL_SUCCESS,err);
 
     if (supported)
     {

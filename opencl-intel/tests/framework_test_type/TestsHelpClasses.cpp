@@ -111,7 +111,6 @@ void baseOcl::simpleKernelCreation()
 }
 inline bool checkFileExistence( char* fileName )
 {
-	int err = ERROR_RESET;
 	FILE* pIRfile = NULL;
 	if ( 0 == crossPlatformFOpen(fileName,"r", pIRfile) ){ 
 		fclose(pIRfile); //file already exists
@@ -119,7 +118,7 @@ inline bool checkFileExistence( char* fileName )
 	}
 	return false;
 }
-int crossPlatformFOpen( char* fileName,char* optns,FILE* file )
+int crossPlatformFOpen( char* fileName, const char* optns, FILE* file )
 {
 	 int err=ERROR_RESET;
 #ifdef _WIN32	

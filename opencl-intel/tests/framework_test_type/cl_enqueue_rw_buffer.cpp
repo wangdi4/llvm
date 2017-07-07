@@ -65,7 +65,6 @@ bool clEnqueueRWBuffer()
 	printf("=============================================================\n");
 	printf("clCreateBufferTest\n");
 	printf("=============================================================\n");
-	cl_uint uiNumDevices = 0;
 	cl_int iRet = 0;
 
 	cl_platform_id platform = 0;
@@ -73,7 +72,7 @@ bool clEnqueueRWBuffer()
 	cl_device_id clDefaultDeviceId;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"", CL_SUCCESS, iRet);
+	bResult &= Check("", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -85,23 +84,23 @@ bool clEnqueueRWBuffer()
 	cl_context context = PROV_OBJ( clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateContextFromType = %ls\n",ClErrTxt(iRet));
+		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, 1, &clDefaultDeviceId, NULL);
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clGetDeviceIDs = %ls\n",ClErrTxt(iRet));
+		printf("clGetDeviceIDs = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
-	printf("device = %p\n", clDefaultDeviceId);
+	printf("device = %p\n", (void*)clDefaultDeviceId);
 
 	cl_command_queue queue = PROV_OBJ( clCreateCommandQueue (context, clDefaultDeviceId, 0 /*no properties*/, &iRet) );
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateCommandQueue = %ls\n",ClErrTxt(iRet));
+		printf("clCreateCommandQueue = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     cl_mem bufferForErr;
@@ -112,7 +111,7 @@ bool clEnqueueRWBuffer()
     EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_NO_ACCESS) should be OK.";
     if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateBuffer (CL_MEM_HOST_NO_ACCESS) = %ls\n",ClErrTxt(iRet));
+		printf("clCreateBuffer (CL_MEM_HOST_NO_ACCESS) = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, false, false, "CL_MEM_HOST_NO_ACCESS");
@@ -123,7 +122,7 @@ bool clEnqueueRWBuffer()
     EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_READ_ONLY) should be OK.";
     if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateBuffer (CL_MEM_HOST_READ_ONLY) = %ls\n",ClErrTxt(iRet));
+		printf("clCreateBuffer (CL_MEM_HOST_READ_ONLY) = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, true, false, "CL_MEM_HOST_READ_ONLY");
@@ -134,7 +133,7 @@ bool clEnqueueRWBuffer()
 	EXPECT_EQ(oclErr(CL_SUCCESS),oclErr(iRet)) << "clCreateBuffer with flags (CL_MEM_HOST_WRITE_ONLY) should be OK.";
 	if (CL_SUCCESS != iRet)
 	{
-		printf("clCreateBuffer (CL_MEM_HOST_WRITE_ONLY) = %ls\n",ClErrTxt(iRet));
+		printf("clCreateBuffer (CL_MEM_HOST_WRITE_ONLY) = %s\n",ClErrTxt(iRet));
 	    PROV_RETURN_AND_ABANDON(false);
 	}
     enqueueAllVariants(queue, bufferForErr, rwBuf, buffRectOrigin, false, true, "CL_MEM_HOST_WRITE_ONLY");

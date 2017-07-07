@@ -39,7 +39,7 @@ bool clBuildProgramMaxArgsTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -73,7 +73,7 @@ bool clBuildProgramMaxArgsTest()
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		delete []pDevices;
@@ -82,7 +82,7 @@ bool clBuildProgramMaxArgsTest()
 		return false;
 	}
     cl_command_queue queue = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= Check(L"clCreateCommandQueue - queue", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateCommandQueue - queue", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		clReleaseContext(context);
@@ -107,7 +107,7 @@ bool clBuildProgramMaxArgsTest()
 
 	/* Get the max param size */
 	iRet = clGetDeviceInfo( pDevices[0], CL_DEVICE_MAX_PARAMETER_SIZE, sizeof( maxSize ), &maxSize, NULL );
-	bResult &= Check(L"clGetDeviceInfo", CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceInfo", CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		clReleaseCommandQueue(queue);
@@ -176,7 +176,7 @@ bool clBuildProgramMaxArgsTest()
 		ptr = programSrc;
 
 		prog = clCreateProgramWithSource(context, 1, (const char**)&ptr, NULL, &iRet);
-		bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+		bResult &= Check("clCreateProgramWithSource", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			numberOfIntParametersToTry -= decrement;
@@ -190,7 +190,7 @@ bool clBuildProgramMaxArgsTest()
 		}
 		// get the binary, we should receive 0.
 		iRet = clGetProgramInfo(prog, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, szSize, NULL);
-		bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+		bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			numberOfIntParametersToTry -= decrement;
@@ -210,7 +210,7 @@ bool clBuildProgramMaxArgsTest()
 		}
 
 		iRet = clBuildProgram(prog, uiNumDevices, pDevices, NULL, NULL, NULL);
-		bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+		bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			numberOfIntParametersToTry -= decrement;
@@ -224,7 +224,7 @@ bool clBuildProgramMaxArgsTest()
 		retVal = 0;
 
 		mem = clCreateBuffer(context, (cl_mem_flags)(CL_MEM_READ_WRITE), sizeof(cl_long), NULL, &iRet);
-		bResult &= Check(L"clCreateBuffer", CL_SUCCESS, iRet);
+		bResult &= Check("clCreateBuffer", CL_SUCCESS, iRet);
 		if (!bResult)
 		{
 			numberOfIntParametersToTry -= decrement;
@@ -237,7 +237,7 @@ bool clBuildProgramMaxArgsTest()
 
 		for (i=0; i<(int)numberOfIntParametersToTry; i++) {
 		  iRet = clSetKernelArg(kernel, i, sizeof(cl_long), &longs[i]);
-		  if (!Check(L"clSetKernelArg", CL_SUCCESS, iRet)) {
+		  if (!Check("clSetKernelArg", CL_SUCCESS, iRet)) {
 			numberOfIntParametersToTry -= decrement;
 			break;
 		  }
@@ -253,7 +253,7 @@ bool clBuildProgramMaxArgsTest()
 		}
 
 		iRet = clSetKernelArg(kernel, i, sizeof(cl_mem), &mem);
-		if (!Check(L"clSetKernelArg", CL_SUCCESS, iRet))
+		if (!Check("clSetKernelArg", CL_SUCCESS, iRet))
 		{
 			numberOfIntParametersToTry -= decrement;
 			clReleaseMemObject(mem);
@@ -265,7 +265,7 @@ bool clBuildProgramMaxArgsTest()
 
 		size_t globalDim[3]={1,1,1}, localDim[3]={1,1,1};
 		iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, &event);
-		if (!Check(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet))
+		if (!Check("clEnqueueNDRangeKernel", CL_SUCCESS, iRet))
 		{
 			numberOfIntParametersToTry -= decrement;
 			clReleaseMemObject(mem);
@@ -277,15 +277,15 @@ bool clBuildProgramMaxArgsTest()
 
 		// Verify that the event does not return an error from the execution
 		iRet = clWaitForEvents(1, &event);
-		Check(L"clWaitForEvents", CL_SUCCESS, iRet);
+		Check("clWaitForEvents", CL_SUCCESS, iRet);
 		iRet = clGetEventInfo(event, CL_EVENT_COMMAND_EXECUTION_STATUS, sizeof(event_status), &event_status, NULL);
-		Check(L"clGetEventInfo", CL_SUCCESS, iRet);
+		Check("clGetEventInfo", CL_SUCCESS, iRet);
 		clReleaseEvent(event);
 		if (event_status < 0)
-			Check(L"Kernel execution event returned error", CL_SUCCESS, iRet);
+			Check("Kernel execution event returned error", CL_SUCCESS, iRet);
 
 		iRet = clEnqueueReadBuffer(queue, mem, CL_TRUE, 0, sizeof(cl_long), &result, 0, NULL, NULL);
-		Check(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+		Check("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
 		free(longs);
 		free(argumentLine);

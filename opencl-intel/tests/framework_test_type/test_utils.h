@@ -17,18 +17,18 @@
 #define UNSETENV(NAME)          (unsetenv(NAME) == 0)
 #endif
 
-bool CheckCondition(const wchar_t * name, bool condition);
-bool SilentCheckCondition(const wchar_t * name, bool condition);
-bool Check(const wchar_t * name, cl_int expected, cl_int result);
-bool SilentCheck(const wchar_t * name, cl_int expected, cl_int result);
-bool CheckStr(const wchar_t * name, char * expected, char * result);
-bool SilentCheckStr(const wchar_t * name, char * expected, char * result);
-bool CheckInt(const wchar_t * name, cl_long expected, cl_long result);
-bool SilentCheckInt(const wchar_t * name, cl_long expected, cl_long result);
-bool CheckSize(const wchar_t * name, size_t expected, size_t result);
-bool SilentCheckSize(const wchar_t * name, size_t expected, size_t result);
-bool CheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result);
-bool SilentCheckBuildStatus(const wchar_t * name, cl_build_status expected, cl_build_status result);
+bool CheckCondition(const char * name, bool condition);
+bool SilentCheckCondition(const char * name, bool condition);
+bool Check(const char * name, cl_int expected, cl_int result);
+bool SilentCheck(const char * name, cl_int expected, cl_int result);
+bool CheckStr(const char * name, const char * expected, char * result);
+bool SilentCheckStr(const char * name, char * expected, char * result);
+bool CheckInt(const char * name, cl_long expected, cl_long result);
+bool SilentCheckInt(const char * name, cl_long expected, cl_long result);
+bool CheckSize(const char * name, size_t expected, size_t result);
+bool SilentCheckSize(const char * name, size_t expected, size_t result);
+bool CheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
+bool SilentCheckBuildStatus(const char * name, cl_build_status expected, cl_build_status result);
 bool BuildProgramSynch(cl_context context, cl_uint count, const char ** strings, const size_t * lengths, const char * options, cl_program * program_ret);
 
 // auxiliary functions for SilentCheckException
@@ -76,13 +76,13 @@ void __CheckException__(const char* name, const T& expected, const T& result)
 
 #define CheckException(name, expected, result) { \
 	char buf[1024]; \
-	SPRINTF_S(buf, 1024, "%ls (%s:%d)", name, __FILE__, __LINE__); \
+	SPRINTF_S(buf, 1024, "%s (%s:%d)", name, __FILE__, __LINE__); \
 	__CheckException__(buf, expected, result); \
 }
 
 #define CHECK_COND(name, cond) { \
 	char buf[1024]; \
-	SPRINTF_S(buf, 1024, "%ls (%s:%d)", name, __FILE__, __LINE__); \
+	SPRINTF_S(buf, 1024, "%s (%s:%d)", name, __FILE__, __LINE__); \
 	if (!SilentCheckCondition(name, cond)) \
 	{ \
 		throw std::exception(); \

@@ -29,14 +29,14 @@
 
 extern cl_device_type gDeviceType;
 
-bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, char* prog, int *out){
+bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue, const char* prog, int *out){
 	cl_int err;
 	cl_kernel kernel;
 	cl_program program;
 	bool res;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&prog, NULL, &err);
-	res = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	res = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!res) return res;
 
 	err = clBuildProgram(program,0,&device,NULL,NULL,NULL);
@@ -54,7 +54,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 		return res;
 	}
 	kernel = clCreateKernel(program,"fissionCommandQTest",&err);
-	res = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	res = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseProgram(program);	
@@ -62,7 +62,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	cl_mem buff = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int), NULL, &err); 
-	res = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	res = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseKernel(kernel);
@@ -71,7 +71,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	}
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &buff);
-	res = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	res = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseMemObject(buff);
@@ -84,7 +84,7 @@ bool run_kernel(cl_context& context,cl_device_id& device,cl_command_queue& cmd_q
 	global_work_size[0] = WORK_SIZE;
 
 	err = clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-	res = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	res = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!res) 
 	{
 		clReleaseMemObject(buff);
@@ -115,24 +115,22 @@ bool fission_commandQ_test(){
 	cl_context context=NULL;
 	cl_command_queue cmd_queue=NULL;
 	cl_device_id device=NULL;
-	cl_program program=NULL;
-	cl_kernel kernel=NULL;
 	cl_int err;
 	cl_platform_id platform=NULL;
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 4)
@@ -146,24 +144,24 @@ bool fission_commandQ_test(){
 	cl_uint num_devices = 0;
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 1,2,0, 0};
 	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 
 	//init context
 	context = clCreateContext(NULL,1,&out_devices[0],NULL,NULL,&err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//init Command Queue
 	cmd_queue = clCreateCommandQueue(context, out_devices[0], 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult){
 		clReleaseContext(context);
 		return bResult;
 	}	
 
-	char* ocl_test_program= {\
+	const char* ocl_test_program= {\
 		"__kernel void fissionCommandQTest(__global int *input)\
 		{*input = 7;}"};
 

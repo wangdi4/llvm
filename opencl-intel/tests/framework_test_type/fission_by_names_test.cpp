@@ -43,17 +43,17 @@ bool fission_by_names_test()
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 2)
@@ -69,26 +69,26 @@ bool fission_by_names_test()
             (cl_device_partition_property) CL_PARTITION_BY_NAMES_LIST_END_INTEL, 0};
 
 	err = clCreateSubDevices(device, properties, num_entries, &subdevice_id, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a context with the sub-device
 	context = clCreateContext(NULL,1, &subdevice_id, NULL, NULL, &err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	//Create a command queue for the device
 	cmd_queue = clCreateCommandQueue(context, subdevice_id, 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue - first queue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue - first queue",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
-	char* ocl_test_program= "__kernel void writeSeven(__global char *a) { a[get_global_id(0)] = 7; }";
+	const char* ocl_test_program= "__kernel void writeSeven(__global char *a) { a[get_global_id(0)] = 7; }";
 
 	cl_kernel  kernel;
 	cl_program program;
 
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-	bResult = SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, err);
+	bResult = SilentCheck("clCreateProgramWithSource", CL_SUCCESS, err);
 	if (!bResult) return bResult;
 
 	err = clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -107,26 +107,26 @@ bool fission_by_names_test()
 	}
 
 	kernel = clCreateKernel(program,"writeSeven",&err);
-	bResult = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	char input[WORK_SIZE];
 	memset(input, 0, WORK_SIZE);
 	cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, WORK_SIZE, input, &err);
-	bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &buf);
-	bResult = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	bResult = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	size_t globalSize = WORK_SIZE;
 	err = clEnqueueNDRangeKernel(cmd_queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	err = clEnqueueReadBuffer(cmd_queue, buf, CL_TRUE, 0, WORK_SIZE, input, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	if (!bResult) return bResult;
 
 	for (size_t i = 0; i < WORK_SIZE; ++i)
@@ -137,17 +137,17 @@ bool fission_by_names_test()
 		}
 	}
 	err      = clReleaseCommandQueue(cmd_queue);
-	bResult &= SilentCheck(L"clReleaseCommandQueue",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseCommandQueue",CL_SUCCESS,err);
 	err      = clReleaseProgram(program);
-	bResult &= SilentCheck(L"clReleaseProgram",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseProgram",CL_SUCCESS,err);
 	err      = clReleaseKernel(kernel);
-	bResult &= SilentCheck(L"clReleaseKernel",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseKernel",CL_SUCCESS,err);
 	err      = clReleaseMemObject(buf);
-	bResult &= SilentCheck(L"clReleaseMemObject",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseMemObject",CL_SUCCESS,err);
 	err      = clReleaseContext(context);
-	bResult &= SilentCheck(L"clReleaseContext",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseContext",CL_SUCCESS,err);
 	err      = clReleaseDevice(subdevice_id);
-	bResult &= SilentCheck(L"clReleaseDevice",CL_SUCCESS,err);
+	bResult &= SilentCheck("clReleaseDevice",CL_SUCCESS,err);
 
 	if (bResult)
 	{

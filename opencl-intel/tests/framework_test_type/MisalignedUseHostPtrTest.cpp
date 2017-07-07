@@ -26,7 +26,7 @@ bool MisalignedUseHostPtrTest()
 	cl_platform_id platform = 0;
 
 	cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -44,7 +44,7 @@ bool MisalignedUseHostPtrTest()
 
 	// get device(s)
 	iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -54,25 +54,25 @@ bool MisalignedUseHostPtrTest()
 	pDevices = new cl_device_id[uiNumDevices];
 
 	iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, pDevices, NULL);
-	bResult &= SilentCheck(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 	// create context
 	context = clCreateContext(prop, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult) goto end;
 
 	queue1 = clCreateCommandQueue (context, pDevices[0], 0 /*no properties*/, &iRet);
-	bResult &= SilentCheck(L"clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateCommandQueue - queue1", CL_SUCCESS, iRet);
 	if (!bResult) goto release_context;
 
 	// create program with source
 	program = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-	bResult &= SilentCheck(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateProgramWithSource", CL_SUCCESS, iRet);
 	if (!bResult) goto release_queue;
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clBuildProgram", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 
 	//Allocate enough memory
@@ -83,7 +83,7 @@ bool MisalignedUseHostPtrTest()
 	cl_float* mapped_ptr;
 
 	kernel1 = clCreateKernel(program, "k", &iRet);
-	bResult &= SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
 	if (!bResult) goto release_program;
 
     points_interval = 0;
@@ -92,24 +92,24 @@ bool MisalignedUseHostPtrTest()
 	for (size_t i = 0; i < NUM_LOOPS; ++i)
 	{
 		buf = clCreateBuffer(context, CL_MEM_USE_HOST_PTR | CL_MEM_READ_ONLY, sizeof(cl_float16) * NUM_VECS, hostPtr, &iRet);
-		bResult &= SilentCheck(L"clCreateBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clCreateBuffer", CL_SUCCESS, iRet);
 		if (!bResult) goto release_kernel;
 
 		iRet = clSetKernelArg(kernel1, 0, sizeof(cl_mem), &buf);
-		bResult &= SilentCheck(L"clSetKernelArg", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clSetKernelArg", CL_SUCCESS, iRet);
 		if (!bResult) goto release_buf;
 
 		size_t global_work_size[1] = { NUM_VECS };
 		iRet = clEnqueueNDRangeKernel(queue1, kernel1, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-		bResult &= SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
+		bResult &= SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);    
 		if (!bResult) goto release_buf;
 
 		mapped_ptr = (cl_float*) clEnqueueMapBuffer(queue1, buf, CL_TRUE, CL_MAP_WRITE, 0, sizeof(cl_float16) * NUM_VECS, 0, NULL, NULL, &iRet);
-		bResult &= SilentCheck(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clEnqueueMapBuffer", CL_SUCCESS, iRet);
 		if (!bResult) goto release_buf;
 
 		iRet = clEnqueueUnmapMemObject(queue1, buf, mapped_ptr, 0, NULL, NULL);
-		bResult &= SilentCheck(L"clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
+		bResult &= SilentCheck("clEnqueueUnmapMemObject", CL_SUCCESS, iRet);
 		if (!bResult) goto release_buf;
 
 		clReleaseMemObject(buf);
@@ -126,7 +126,7 @@ bool MisalignedUseHostPtrTest()
     printf("\nWaiting to clFinish....");fflush(0);
 	iRet = clFinish(queue1);
     printf("\n");fflush(0);
-	bResult &= SilentCheck(L"clFinish", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clFinish", CL_SUCCESS, iRet);
 	goto release_kernel;
 
 

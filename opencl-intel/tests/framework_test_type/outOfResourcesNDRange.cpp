@@ -39,16 +39,14 @@ const char *g_programSrc =
 
 cl_program buildProgram(cl_context clContext, cl_device_id clDevice, const char *programSrc, cl_ulong localSize, cl_ulong privateSize, cl_int &buildStatus)
 {
-    size_t srcLen = strlen(programSrc);
-
     // Create program with source
-    size_t srcSize = strlen(programSrc);
+    size_t srcLen = strlen(programSrc);
     cl_program clProgram = clCreateProgramWithSource(clContext, 1, &programSrc, &srcLen, NULL);
     if (clProgram == NULL)
         return NULL;
 
     char buildOptions[1024];
-    SPRINTF_S(buildOptions, 1024, "-cl-opt-disable -DSIZE_OF_LOCAL=%lld -DSIZE_OF_PRIVATE=%lld", localSize, privateSize);
+    SPRINTF_S(buildOptions, 1024, "-cl-opt-disable -DSIZE_OF_LOCAL=%ld -DSIZE_OF_PRIVATE=%ld", localSize, privateSize);
 
     printf("Build options <%s>, source:%s\n", buildOptions, programSrc);
     // Build program executable from source. Prevent any optimizations (we want big memory etc.)
@@ -100,11 +98,9 @@ TEST_F(BaseProvisionalTest, OutOfResourcesNDRange)
     printf("=============================================================\n");
     printf("clEnqeueNDRange exceeding local and private memory.\n");
     printf("=============================================================\n");
-    cl_uint uiNumDevices = 0;
     cl_int iRet = 0;
 
     cl_platform_id platform = 0;
-    bool bResult = true;
     cl_device_id clDefaultDeviceId;
 
     iRet = clGetPlatformIDs(1, &platform, NULL);

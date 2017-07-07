@@ -28,7 +28,7 @@ bool clCreateContextTest()
 	cl_platform_id platform = 0;
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -36,22 +36,17 @@ bool clCreateContextTest()
 	}
 
 	cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 },
-        badProps1[] = { CL_CONTEXT_PLATFORM, 0xffffffff, 0 },
         badProps2[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0},
         badProps3[] = { 1, 0, 0};   // unsupported property name
 
 	cl_context context_default = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= Check(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
-
-    // bad properties
-//    clCreateContextFromType(badProps1, gDeviceType, NULL, NULL, &iRet);
- //   bResult &= Check(L"Create Context from type (bad platform)", CL_INVALID_PLATFORM, iRet);
+	bResult &= Check("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
     clCreateContextFromType(badProps2, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"Create Context from type (duplicate property name)", CL_INVALID_PROPERTY, iRet);
+    bResult &= Check("Create Context from type (duplicate property name)", CL_INVALID_PROPERTY, iRet);
 
     clCreateContextFromType(badProps3, gDeviceType, NULL, NULL, &iRet);
-    bResult &= Check(L"Create Context from type (unsupported property name", CL_INVALID_PROPERTY, iRet);
+    bResult &= Check("Create Context from type (unsupported property name", CL_INVALID_PROPERTY, iRet);
 
 	iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_ACCELERATOR, 0, NULL, &uiNumDevices);
 	if (CL_SUCCESS != iRet)
@@ -76,7 +71,7 @@ bool clCreateContextTest()
 		printf("clCreateContext = %s\n",ClErrTxt(iRet));
 		return false;
 	}
-	printf("context = %p\n", context);
+	printf("context = %p\n", (void*)context);
 
 	cl_context context2 = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
 	if (CL_SUCCESS != iRet)
@@ -85,7 +80,7 @@ bool clCreateContextTest()
 		printf("clCreateContextFromType = %s\n",ClErrTxt(iRet));
 		return false;
 	}
-	printf("context2 = %p\n", context2);
+	printf("context2 = %p\n", (void*)context2);
 
 	// Query for number of devices in a context, should be 1
 	cl_uint uiCntxCnt = 0;

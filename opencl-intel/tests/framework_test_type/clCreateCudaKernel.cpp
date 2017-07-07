@@ -45,7 +45,7 @@ bool clCreateCudaKernelTest()
 
 	// get device(s)
 	cl_int iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 0, NULL, &uiNumDevices);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -57,7 +57,7 @@ bool clCreateCudaKernelTest()
 	pBinaryStatus = new cl_int[uiNumDevices];
 
 	iRet = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, uiNumDevices, pDevices, NULL);
-	bResult &= Check(L"clGetDeviceIDs",CL_SUCCESS, iRet);
+	bResult &= Check("clGetDeviceIDs",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -65,7 +65,7 @@ bool clCreateCudaKernelTest()
 
 	// create context
 	context = clCreateContext(0, uiNumDevices, pDevices, NULL, NULL, &iRet);
-	bResult &= Check(L"clCreateContext",CL_SUCCESS, iRet);
+	bResult &= Check("clCreateContext",CL_SUCCESS, iRet);
 	if (!bResult)
 	{
 		return bResult;
@@ -96,10 +96,10 @@ bool clCreateCudaKernelTest()
 
 	// create program with binary
 	cl_program program  = clCreateProgramWithBinary(context, uiNumDevices, pDevices, pBinarySizes, (const unsigned char**)(&pCont), pBinaryStatus, &iRet);
-	bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateProgramWithBinary", CL_SUCCESS, iRet);
 
 	iRet = clBuildProgram(program, uiNumDevices, pDevices, NULL, pfn_notify, NULL);
-	bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+	bResult &= Check("clBuildProgram", CL_SUCCESS, iRet);
 
 	while (!g_bCudaBuildFinished)
 	{
@@ -107,25 +107,25 @@ bool clCreateCudaKernelTest()
 	}
 
 	cl_kernel kernel1 = clCreateKernel(program, "aaa", &iRet);
-	bResult &= Check(L"clCreateKernel - aaa", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - aaa", CL_SUCCESS, iRet);
 
 	cl_kernel kernel2 = clCreateKernel(program, "bbb", &iRet);
-	bResult &= Check(L"clCreateKernel - bbb", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - bbb", CL_SUCCESS, iRet);
 
 	cl_kernel kernel3 = clCreateKernel(program, "ccc", &iRet);
-	bResult &= Check(L"clCreateKernel - ccc", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - ccc", CL_SUCCESS, iRet);
 
 	cl_kernel kernel4 = clCreateKernel(program, "dot_product", &iRet);
-	bResult &= Check(L"clCreateKernel - ccc", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernel - ccc", CL_SUCCESS, iRet);
 
 	cl_uint uiNumKernels = 0;
 	iRet = clCreateKernelsInProgram(program, 0, NULL, &uiNumKernels);
-	bResult &= Check(L"clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
-	bResult &= CheckInt(L"clCreateKernelsInProgram - check numbers kernels", 6, uiNumKernels);
+	bResult &= Check("clCreateKernelsInProgram - get numbers of kernels", CL_SUCCESS, iRet);
+	bResult &= CheckInt("clCreateKernelsInProgram - check numbers kernels", 6, uiNumKernels);
 
 	cl_kernel pKernels[6];
 	iRet = clCreateKernelsInProgram(program, uiNumKernels, pKernels, NULL);
-	bResult &= Check(L"clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
+	bResult &= Check("clCreateKernelsInProgram - get kernels", CL_SUCCESS, iRet);
 	if (bResult)
 	{
 		size_t szKernelNameLength = 0;
@@ -135,7 +135,7 @@ bool clCreateCudaKernelTest()
 		{
 			printf("%d: ",pKernels[ui]);
 			iRet = clGetKernelInfo(pKernels[ui], CL_KERNEL_FUNCTION_NAME, 256, psKernelName, NULL);
-			bResult &= Check(L"clGetKernelInfo (function's name)", CL_SUCCESS, iRet);
+			bResult &= Check("clGetKernelInfo (function's name)", CL_SUCCESS, iRet);
 			printf ("%s\n", psKernelName);
 		}
 		printf("\n");

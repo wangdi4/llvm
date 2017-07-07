@@ -19,21 +19,21 @@ bool ClkEventAsKernelArg()
 
     //init platform
     err = clGetPlatformIDs(1,&platform,NULL);
-    bResult = SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, err);
+    bResult = SilentCheck("clGetPlatformIDs", CL_SUCCESS, err);
     if (!bResult)    return bResult;
 
     // init device
     err     = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    bResult = SilentCheck(L"clGetDeviceIDs", CL_SUCCESS, err);
+    bResult = SilentCheck("clGetDeviceIDs", CL_SUCCESS, err);
     if (!bResult)    return bResult;
 
     context = clCreateContext(NULL,1, &device, NULL, NULL, &err);
-    bResult = SilentCheck(L"clCreateContext", CL_SUCCESS, err);
+    bResult = SilentCheck("clCreateContext", CL_SUCCESS, err);
     if (!bResult)    return bResult;
 
     //Create host command queue
     cmd_queue = clCreateCommandQueue(context, device, 0, &err);
-    bResult = SilentCheck(L"clCreateCommandQueue on host", CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateCommandQueue on host", CL_SUCCESS,err);
     if (!bResult)    return bResult;
     // Create device command queue
     cl_queue_properties deviceQueueProps[] =
@@ -41,7 +41,7 @@ bool ClkEventAsKernelArg()
                             CL_QUEUE_ON_DEVICE |
                             CL_QUEUE_ON_DEVICE_DEFAULT, 0};
     clCreateCommandQueueWithProperties(context, device, deviceQueueProps, &err);
-    bResult = SilentCheck(L"clCreateCommandQueue on device", CL_SUCCESS, err);
+    bResult = SilentCheck("clCreateCommandQueue on device", CL_SUCCESS, err);
     if (!bResult) return bResult;
 
     // host_kernel enqueues device_kernel and passes to it a user event
@@ -61,26 +61,26 @@ bool ClkEventAsKernelArg()
 
     // Create a buffer
     cl_mem inout = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err);
-    bResult      = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+    bResult      = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // Build the kernels
     cl_program program;
     program = clCreateProgramWithSource(context, 1, &ocl_test_program, NULL, &err);
-    bResult = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     err = clBuildProgram(program, 1, &device, "-cl-std=CL2.0", NULL, NULL);
-    bResult = SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+    bResult = SilentCheck("clBuildProgram",CL_SUCCESS,err);
 
     if (!bResult) {
       size_t log_buffer_len;
-      err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, NULL, NULL, &log_buffer_len);
-      int bScopedRes = SilentCheck(L"clGetProgramBuildInfo", CL_SUCCESS, err);
+      err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, 0, NULL, &log_buffer_len);
+      int bScopedRes = SilentCheck("clGetProgramBuildInfo", CL_SUCCESS, err);
       if (!bScopedRes) return bScopedRes;
       std::unique_ptr<char> log_buffer(new char[log_buffer_len]);
       err = clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG, log_buffer_len, log_buffer.get(), NULL);
-      bScopedRes = SilentCheck(L"clGetProgramBuildInfo", CL_SUCCESS, err);
+      bScopedRes = SilentCheck("clGetProgramBuildInfo", CL_SUCCESS, err);
       if (!bScopedRes) return bScopedRes;
       std::cout << "* Build failure. Log:         *\n" << std::endl;
       std::cout << log_buffer.get() << std::endl;
@@ -90,17 +90,17 @@ bool ClkEventAsKernelArg()
 
     cl_kernel kernel;
     kernel  = clCreateKernel(program, "host_kernel", &err);
-    bResult = SilentCheck(L"clCreateKernel: kernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clCreateKernel: kernel",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     err     = clSetKernelArg(kernel, 0, sizeof(inout), &inout);
-    bResult = SilentCheck(L"clSetKernelArg: kernel",CL_SUCCESS,err);
+    bResult = SilentCheck("clSetKernelArg: kernel",CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // Set 0 as input value to host kernel
     cl_int value = 0;
     err = clEnqueueWriteBuffer(cmd_queue, inout, CL_FALSE, 0, sizeof(cl_int), &value, 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueWriteBuffer", CL_SUCCESS,err);
+    bResult = SilentCheck("clEnqueueWriteBuffer", CL_SUCCESS,err);
     if (!bResult)    return bResult;
 
     // Enqueue host kernel
@@ -110,7 +110,7 @@ bool ClkEventAsKernelArg()
 
     // Read result of is_valid_event called by device_kernel
     err = clEnqueueReadBuffer(cmd_queue, inout, CL_TRUE, 0, sizeof(cl_int), &value, 0, NULL, NULL);
-    bResult = SilentCheck(L"clEnqueueReadBuffer", CL_SUCCESS, err);
+    bResult = SilentCheck("clEnqueueReadBuffer", CL_SUCCESS, err);
     if (!bResult)    return bResult;
 
     // Result must be set to true

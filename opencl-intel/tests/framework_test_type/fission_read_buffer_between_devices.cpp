@@ -44,17 +44,17 @@ bool fission_read_buffer_between_device_test()
 
 	//init platform
 	err = clGetPlatformIDs(1,&platform,NULL);
-	bResult = SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	// init Devices (only one CPU...)
 	err = clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-	bResult = SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint numComputeUnits;
 	err = clGetDeviceInfo(device, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &numComputeUnits, NULL);
-	bResult = SilentCheck(L"clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo(CL_DEVICE_MAX_COMPUTE_UNITS)",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	if (numComputeUnits < 4)
@@ -68,13 +68,13 @@ bool fission_read_buffer_between_device_test()
 	cl_uint num_devices = 2;
 	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_COUNTS, 2, 1, 0, 0};
 	err = clCreateSubDevices(device, properties, num_entries, out_devices, &num_devices);
-	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateSubDevices",CL_SUCCESS,err);
 	if (!bResult)	return bResult;
 
 	cl_uint param;
 	size_t actual_size;
 	err = clGetDeviceInfo(out_devices[0], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &param, &actual_size);
-	bResult = SilentCheck(L"clGetDeviceInfo",CL_SUCCESS,err);
+	bResult = SilentCheck("clGetDeviceInfo",CL_SUCCESS,err);
 	if (!bResult)
     {
 	    for (size_t i = 0; i < num_devices; i++)
@@ -96,7 +96,7 @@ bool fission_read_buffer_between_device_test()
 
 	//init context
 	context = clCreateContext(NULL,2, out_devices, NULL, NULL, &err);
-	bResult = SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateContext",CL_SUCCESS,err);
 	if (!bResult)	
     {
 	    for (size_t i = 0; i < num_devices; i++)
@@ -108,7 +108,7 @@ bool fission_read_buffer_between_device_test()
 
 	//init Command Queues
 	cmd_queue[0] = clCreateCommandQueue(context,out_devices[0], 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult)
     {
 		clReleaseContext(context);
@@ -119,7 +119,7 @@ bool fission_read_buffer_between_device_test()
 		return bResult;
     }
 	cmd_queue[1] = clCreateCommandQueue(context, out_devices[1], 0, &err);
-	bResult = SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 	if (!bResult)
     {
         clReleaseCommandQueue(cmd_queue[0]);
@@ -135,7 +135,7 @@ bool fission_read_buffer_between_device_test()
     const char* ocl_test_program[] = {"__kernel void writeThree(__global int *a) { a[0] = 3; }"};
 
 	program = clCreateProgramWithSource(context, 1, (const char**)ocl_test_program, NULL, &err);
-	bResult = SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	if (!bResult)
     {
         clReleaseCommandQueue(cmd_queue[1]);
@@ -172,7 +172,7 @@ bool fission_read_buffer_between_device_test()
 	}
 
 	kernel = clCreateKernel(program,"writeThree",&err);
-	bResult = SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	if (!bResult) 
 	{
 		clReleaseProgram(program);	
@@ -187,7 +187,7 @@ bool fission_read_buffer_between_device_test()
 	}
 
 	cl_mem buf = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), NULL, &err); 
-	bResult = SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	if (!bResult) 
 	{
 		clReleaseKernel(kernel);
@@ -203,7 +203,7 @@ bool fission_read_buffer_between_device_test()
 	}
 
 	err = clSetKernelArg(kernel, 0, sizeof(cl_mem), (void*) &buf);
-	bResult = SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	bResult = SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	if (!bResult) 
 	{
         clReleaseMemObject(buf);
@@ -222,7 +222,7 @@ bool fission_read_buffer_between_device_test()
     size_t global_work_size[] = {WORK_SIZE};
 
 	err = clEnqueueNDRangeKernel(cmd_queue[0], kernel, 1, NULL, global_work_size, NULL, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	if (!bResult) 
 	{
         clReleaseMemObject(buf);
@@ -240,7 +240,7 @@ bool fission_read_buffer_between_device_test()
 	clFinish(cmd_queue[0]);
     int three;
 	err = clEnqueueReadBuffer(cmd_queue[1], buf, CL_TRUE, 0, sizeof(int), &three, 0, NULL, NULL);
-	bResult = SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult = SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 
     clReleaseMemObject(buf);
 	clReleaseKernel(kernel);

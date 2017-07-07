@@ -30,8 +30,6 @@
 	#define FILENO _fileno
 	#define FLUSHALL() _flushall()
 #else
-	#define DUP dup
-	#define DUP2 dup2
 	#define FILENO fileno
 	#define FLUSHALL() fflush(NULL)
 #endif
@@ -79,7 +77,7 @@ bool redirect_stdout(FILE** outfile ,const char* outfile_name,const char* mode,i
 /*
 / compare the two files and if they are the same also deletes them....
 */
-bool FilesCompareNdDelete(char* f_name1,char* f_name2){
+bool FilesCompareNdDelete(const char* f_name1, const char* f_name2){
 	if (f_name1==NULL || f_name2==NULL){
 		return false;
 	}
@@ -175,7 +173,7 @@ int printf_special_chars(){
 	len+=printf("Newline: \n\n");
 	len+=printf("\t:Horizontal tab\n");
 	len+=printf("Octal number (035): \035\n");
-	len+=printf("Null character (really just the octal number zero): \0	 \n"); 
+	len+=printf("Null character (really just the octal number zero): %c	 \n", '\0'); 
 	len+=printf("Formfeed: \f\n"); 
 	len+=printf("Carriage return: \r\n");
 	len+=printf("Vertical tab: \v\n");
@@ -195,7 +193,7 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
 {
 	const char* ocl_test_program[]={XSTR(PRINTF_SPECIAL_CHARS)};
 	   program=clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-	   bResult&=SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_QUEUE;
 	
 	   err=clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -212,11 +210,11 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
 		   printf("%s \n",err_str_ptr);
 		   throw RELEASE_QUEUE;
 	   }
-	   bResult&=SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clBuildProgram",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_QUEUE;
 	
 	   kernel=clCreateKernel(program,"printf_special_chars",&err);
-	   bResult&=SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clCreateKernel",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_PROGRAM;
 		
 	   bResult&=redirect_stdout(&fp,"printf_sepcial_chars.txt","w",&old_stdout);
@@ -236,22 +234,22 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
 		}
 		
 	   count=clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(int),NULL,&err);
-	   bResult&=SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 	   if (!bResult) throw REOPEN_STDOUT;
 	   err=clEnqueueWriteBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-	   bResult&=SilentCheck(L"clEnqueueWriteBuffer",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clEnqueueWriteBuffer",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_MEM;
 	   
 	   err=clSetKernelArg(kernel,0,sizeof(int),&count);
 	   err|=clSetKernelArg(kernel,1,sizeof(int),&num_of_chars);
-	   bResult&=SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_MEM;
 	
 	   size_t global_work_size[1];
 	   global_work_size[0]=WORK_SIZE;
 	
 	   err=clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-	   bResult&=SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+	   bResult&=SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 	   if (!bResult) throw RELEASE_MEM;
 	   
 	}
@@ -275,7 +273,7 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
    clFinish(cmd_queue);
    restore_stdout(fp,old_stdout);
    err=clEnqueueReadBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-   bResult&=SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+   bResult&=SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
    clReleaseKernel(kernel);
    clReleaseProgram(program);
    if (success_count!=WORK_SIZE){
@@ -305,7 +303,7 @@ void run_kernel_printf_simple(cl_context& context,cl_device_id& device,cl_comman
 		const char* ocl_test_program[]={XSTR(PRINTF_SIMPLE)};
 
 		program=clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-		bResult&=SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		err=clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -321,18 +319,18 @@ void run_kernel_printf_simple(cl_context& context,cl_device_id& device,cl_comman
 			printf("%s \n",err_str_ptr);
 			throw RELEASE_QUEUE;
 		}
-		bResult&=SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+		bResult&=SilentCheck("clBuildProgram",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		kernel=clCreateKernel(program,"printf_simple",&err);
-		bResult&=SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_PROGRAM;
 
 		size_t global_work_size[1];
 		global_work_size[0]=WORK_SIZE;
 
 		err=clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_KERNEL;
 	}
 	catch (int error)
@@ -380,7 +378,7 @@ void run_kernel_printf_int(cl_context& context,cl_device_id& device,cl_command_q
 {
 	const char* ocl_test_program[]={XSTR(PRINTF_INT)};
 		program=clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-		bResult&=SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 		
 		err=clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -397,24 +395,24 @@ void run_kernel_printf_int(cl_context& context,cl_device_id& device,cl_command_q
 			printf("%s \n",err_str_ptr);
 			throw RELEASE_PROGRAM;
 		}
-		bResult&=SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+		bResult&=SilentCheck("clBuildProgram",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_PROGRAM;
 		
 		kernel=clCreateKernel(program,"printf_int",&err);
-		bResult&=SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_PROGRAM;
 	
 		int n=N;
 	
 		err=clSetKernelArg(kernel,0,sizeof(int),&n);
-		bResult&=SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+		bResult&=SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_KERNEL;
 		
 		size_t global_work_size[1];
 		global_work_size[0]=WORK_SIZE;
 		
 		err=clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 		if (!bResult) throw REOPEN_STDOUT;
 }
 catch (int error)
@@ -477,8 +475,8 @@ int printf_format(){
 	len+=printf("zeros-width : %030d \n",num);
 	len+=printf("external width : %0*d \n",width,num);
 	len+=printf("short : %hd \n",num);
-	len+=printf("long : %ld \n",num);
-	len+=printf("all : %-+0*d \n",width,num);
+	len+=printf("long : %d \n",num);
+	len+=printf("all : %-+*d \n",width,num);
 	float f_num=-3.1415926535897932384626433832795f;
 	len+=printf("regular float: %f \n",f_num);
 	len+=printf("left-justify: %-f \n",f_num);
@@ -505,7 +503,7 @@ void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_comman
 	{
 		const char* ocl_test_program[]={XSTR(PRINTF_FORMAT)};
 		program=clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-		bResult&=SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		err=clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -522,11 +520,11 @@ void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_comman
 			printf("%s \n",err_str_ptr);
 			throw RELEASE_QUEUE;
 		}
-		bResult&=SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+		bResult&=SilentCheck("clBuildProgram",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		kernel=clCreateKernel(program,"printf_format",&err);
-		bResult&=SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_PROGRAM;
 		
 		bResult&=redirect_stdout(&fp,"printf_format.txt","w",&old_stdout);
@@ -546,22 +544,22 @@ void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_comman
 		}
 
 		count=clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(int),NULL,&err);
-		bResult&=SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 		if (!bResult) throw REOPEN_STDOUT;
 		err=clEnqueueWriteBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueWriteBuffer",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueWriteBuffer",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 		err=clSetKernelArg(kernel,0,sizeof(int),&count);
 		err|=clSetKernelArg(kernel,1,sizeof(int),&num_of_chars);
-		bResult&=SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+		bResult&=SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 		size_t global_work_size[1];
 		global_work_size[0]=WORK_SIZE;
 
 		err=clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 	}
@@ -585,7 +583,7 @@ void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_comman
 	clFinish(cmd_queue);
 	restore_stdout(fp,old_stdout);
 	err=clEnqueueReadBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-	bResult&=SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult&=SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	if (success_count!=WORK_SIZE){
@@ -639,7 +637,7 @@ void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command
 	{
 		const char* ocl_test_program[]={XSTR(PRINTF_CHARS)};
 		program=clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &err);
-		bResult&=SilentCheck(L"clCreateProgramWithSource",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateProgramWithSource",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		err=clBuildProgram(program,0,NULL,NULL,NULL,NULL);
@@ -656,11 +654,11 @@ void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command
 			printf("%s \n",err_str_ptr);
 			throw RELEASE_QUEUE;
 		}
-		bResult&=SilentCheck(L"clBuildProgram",CL_SUCCESS,err);
+		bResult&=SilentCheck("clBuildProgram",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_QUEUE;
 
 		kernel=clCreateKernel(program,"printf_chars",&err);
-		bResult&=SilentCheck(L"clCreateKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_PROGRAM;
 
 		bResult&=redirect_stdout(&fp,"printf_chars.txt","w",&old_stdout);
@@ -680,22 +678,22 @@ void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command
 		}
 
 		count=clCreateBuffer(context,CL_MEM_READ_WRITE,sizeof(int),NULL,&err);
-		bResult&=SilentCheck(L"clCreateBuffer",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateBuffer",CL_SUCCESS,err);
 		if (!bResult) throw REOPEN_STDOUT;
 		err=clEnqueueWriteBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueWriteBuffer",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueWriteBuffer",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 		err=clSetKernelArg(kernel,0,sizeof(int),&count);
 		err|=clSetKernelArg(kernel,1,sizeof(int),&num_of_chars);
-		bResult&=SilentCheck(L"clSetKernelArg",CL_SUCCESS,err);
+		bResult&=SilentCheck("clSetKernelArg",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 		size_t global_work_size[1];
 		global_work_size[0]=WORK_SIZE;
 
 		err=clEnqueueNDRangeKernel(cmd_queue,kernel,1,NULL,global_work_size,NULL,0,NULL,NULL);
-		bResult&=SilentCheck(L"clEnqueueNDRangeKernel",CL_SUCCESS,err);
+		bResult&=SilentCheck("clEnqueueNDRangeKernel",CL_SUCCESS,err);
 		if (!bResult) throw RELEASE_MEM;
 
 	}
@@ -719,7 +717,7 @@ void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command
 	clFinish(cmd_queue);
 	restore_stdout(fp,old_stdout);
 	err=clEnqueueReadBuffer(cmd_queue,count,CL_TRUE,0,sizeof(int),&success_count,0,NULL,NULL);
-	bResult&=SilentCheck(L"clEnqueueReadBuffer",CL_SUCCESS,err);
+	bResult&=SilentCheck("clEnqueueReadBuffer",CL_SUCCESS,err);
 	clReleaseKernel(kernel);
 	clReleaseProgram(program);
 	if (success_count!=WORK_SIZE){
@@ -758,10 +756,10 @@ void PrintfThread::ThreadRoutine()
 	const size_t globalSize   = 1;
 
 	cl_kernel    kernel       = clCreateKernel(m_program, "printf_simple", &err);
-	SilentCheck(L"clCreateKernel", CL_SUCCESS, err);
+	SilentCheck("clCreateKernel", CL_SUCCESS, err);
 
 	err = clEnqueueNDRangeKernel(m_queue, kernel, 1, NULL, &globalSize, NULL, 0, NULL, NULL);
-	SilentCheck(L"clEnqueueNDRangeKernel", CL_SUCCESS, err);
+	SilentCheck("clEnqueueNDRangeKernel", CL_SUCCESS, err);
 
 	clReleaseKernel(kernel);
 	
@@ -793,7 +791,7 @@ bool MultithreadedPrintf()
 	printf("Begin multi threaded printf test\n");
 
 	iRet = clGetPlatformIDs(1, &platform, NULL);
-	bResult &= SilentCheck(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("clGetPlatformIDs", CL_SUCCESS, iRet);
 
 	if (!bResult)
 	{
@@ -804,19 +802,19 @@ bool MultithreadedPrintf()
 
 	//Creation phase
 	context  = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-	bResult &= SilentCheck(L"Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create Context from type (gDeviceType)", CL_SUCCESS, iRet);
 
 	iRet     = clGetDeviceIDs(platform, gDeviceType, 1, &deviceId, NULL);
-	bResult &= SilentCheck(L"Get device ID (gDeviceType)", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Get device ID (gDeviceType)", CL_SUCCESS, iRet);
 
 	queue    = clCreateCommandQueue(context, deviceId, 0, &iRet);
-	bResult &= SilentCheck(L"Create command queue", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create command queue", CL_SUCCESS, iRet);
 
 	program  = clCreateProgramWithSource(context, 1, &programSource, NULL, &iRet);
-	bResult &= SilentCheck(L"Create program with source", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Create program with source", CL_SUCCESS, iRet);
 
 	iRet     = clBuildProgram(program, 1, &deviceId, NULL, NULL, NULL);
-	bResult &= SilentCheck(L"Build program", CL_SUCCESS, iRet);
+	bResult &= SilentCheck("Build program", CL_SUCCESS, iRet);
 
 
 	if (!bResult)
@@ -861,36 +859,34 @@ bool printf_test(){
 	cl_context context=NULL;
 	cl_command_queue cmd_queue=NULL;
 	cl_device_id device=NULL;
-	cl_program program=NULL;
-	cl_kernel kernel=NULL;
 	cl_int err;
 	cl_platform_id platform=NULL;
 	try
 {
 		//init platform
 		err=clGetPlatformIDs(1,&platform,NULL);
-		bResult&=SilentCheck(L"clGetPlatformIDs",CL_SUCCESS,err);
+		bResult&=SilentCheck("clGetPlatformIDs",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_END;
 		}
 
 		// init Devices (only one CPU...)
 		err=clGetDeviceIDs(platform,gDeviceType,1,&device,NULL);
-		bResult=SilentCheck(L"clGetDeviceIDs",CL_SUCCESS,err);
+		bResult=SilentCheck("clGetDeviceIDs",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_END;
 		}
 
 		//init context
 		context=clCreateContext(NULL,1,&device,NULL,NULL,&err);
-		bResult&=SilentCheck(L"clCreateContext",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateContext",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_END;
 		}
 
 		//init Command Queue
 		cmd_queue=clCreateCommandQueue(context,device,0,&err);
-		bResult&=SilentCheck(L"clCreateCommandQueue",CL_SUCCESS,err);
+		bResult&=SilentCheck("clCreateCommandQueue",CL_SUCCESS,err);
 		if (!bResult){
 			throw RELEASE_CONTEXT;
 		}	

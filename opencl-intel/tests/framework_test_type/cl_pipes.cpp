@@ -56,59 +56,59 @@ bool clPipes()
     try
     {
         iRet = clGetPlatformIDs(1, &platform, NULL);
-        CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);        
+        CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);        
         iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-        CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+        CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
         const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };    
         context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-		CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
+		CheckException("clCreateContextFromType", CL_SUCCESS, iRet);
 
 		const cl_uint uiPacketSize = sizeof(int), uiMaxPackets = 1024;
 		clMemWrapper pipe = clCreatePipe(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &iRet);
-		CheckException(L"clCreatePipe", CL_SUCCESS, iRet);
+		CheckException("clCreatePipe", CL_SUCCESS, iRet);
 
 		cl_uint uiInfoPacketSize, uiInfoMaxPackets;
 		size_t szInfoSize;
 		iRet = clGetPipeInfo(pipe, CL_PIPE_PACKET_SIZE, sizeof(uiInfoPacketSize), &uiInfoPacketSize, &szInfoSize);
-		CheckException(L"uiInfoPacketSize != uiPacketSize", uiInfoPacketSize == uiPacketSize, true);
-		CheckException(L"szInfoSize != sizeof(cl_uint)", szInfoSize, sizeof(cl_uint));
-		CheckException(L"clGetPipeInfo", CL_SUCCESS, iRet);
+		CheckException("uiInfoPacketSize != uiPacketSize", uiInfoPacketSize == uiPacketSize, true);
+		CheckException("szInfoSize != sizeof(cl_uint)", szInfoSize, sizeof(cl_uint));
+		CheckException("clGetPipeInfo", CL_SUCCESS, iRet);
 
 		iRet = clGetPipeInfo(pipe, CL_PIPE_MAX_PACKETS, sizeof(uiInfoMaxPackets), &uiInfoMaxPackets, &szInfoSize);
-		CheckException(L"uiInfoMaxPackets != uiMaxPackets", uiInfoMaxPackets == uiMaxPackets, true);
-		CheckException(L"szInfoSize != sizeof(cl_uint)", szInfoSize, sizeof(cl_uint));
-		CheckException(L"clGetPipeInfo", CL_SUCCESS, iRet);
+		CheckException("uiInfoMaxPackets != uiMaxPackets", uiInfoMaxPackets == uiMaxPackets, true);
+		CheckException("szInfoSize != sizeof(cl_uint)", szInfoSize, sizeof(cl_uint));
+		CheckException("clGetPipeInfo", CL_SUCCESS, iRet);
 
 		// negative cases:
 		clCreatePipe((cl_context)platform, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &iRet);
-		CheckException(L"clCreatePipe", CL_INVALID_CONTEXT, iRet);
+		CheckException("clCreatePipe", CL_INVALID_CONTEXT, iRet);
 
 		cl_pipe_properties props;
 		clCreatePipe(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, &props, &iRet);
-		CheckException(L"clCreatePipe", CL_INVALID_VALUE, iRet);
+		CheckException("clCreatePipe", CL_INVALID_VALUE, iRet);
 
 		clCreatePipe(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, 0, 0, NULL, &iRet);
-		CheckException(L"clCreatePipe", CL_INVALID_PIPE_SIZE, iRet);
+		CheckException("clCreatePipe", CL_INVALID_PIPE_SIZE, iRet);
 
 		iRet = clGetPipeInfo(pipe, CL_PIPE_PACKET_SIZE, sizeof(uiInfoPacketSize) - 1, &uiInfoPacketSize, NULL);
-		CheckException(L"clGetPipeInfo", CL_INVALID_VALUE, iRet);
+		CheckException("clGetPipeInfo", CL_INVALID_VALUE, iRet);
 
 		iRet = clGetPipeInfo(pipe, CL_PIPE_MAX_PACKETS + 1, sizeof(uiInfoPacketSize), &uiInfoPacketSize, NULL);
-		CheckException(L"clGetPipeInfo", CL_INVALID_VALUE, iRet);
+		CheckException("clGetPipeInfo", CL_INVALID_VALUE, iRet);
 
         // Intel extension
         vector<char> pipeBuf(pipe_get_total_size(uiPacketSize, uiMaxPackets));
         size_t szPipeBufSize = pipeBuf.size();
         clMemWrapper pipeIntel = clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &pipeBuf[0], &szPipeBufSize, &iRet);
-        CheckException(L"clCreatePipeINTEL", CL_SUCCESS, iRet);
+        CheckException("clCreatePipeINTE", CL_SUCCESS, iRet);
 
         clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, NULL, &szPipeBufSize, &iRet);
-        CheckException(L"clCreatePipeINTEL", szPipeBufSize == pipeBuf.size(), true);
+        CheckException("clCreatePipeINTE", szPipeBufSize == pipeBuf.size(), true);
 
         szPipeBufSize--;
         clCreatePipeINTEL(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, uiPacketSize, uiMaxPackets, NULL, &pipeBuf[0], &szPipeBufSize, &iRet);
-        CheckException(L"clCreatePipeINTEL", CL_OUT_OF_RESOURCES, iRet);
+        CheckException("clCreatePipeINTE", CL_OUT_OF_RESOURCES, iRet);
 
 	}
 	catch (const std::exception&)

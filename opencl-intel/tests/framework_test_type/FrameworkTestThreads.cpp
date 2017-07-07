@@ -1,13 +1,5 @@
 #include "FrameworkTestThreads.h"
 
-//p is "this" pointer
-static int STDCALL DefaultThreadEntryPoint(void *p)
-{
-	Thread* pThread = reinterpret_cast<Thread *>(p);
-	pThread->ThreadRoutine();
-	return 0;
-}
-
 volatile bool SynchronizedThread::m_canStart = false;
 
 

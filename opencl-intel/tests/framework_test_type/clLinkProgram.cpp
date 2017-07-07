@@ -80,7 +80,7 @@ bool clLinkProgramTest()
     const char* pszIncludeNames[2] = {"help1.h", "help2.h"};
 
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     if (!bResult)
     {
@@ -117,7 +117,7 @@ bool clLinkProgramTest()
         delete []pDevices;
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
     queue = clCreateCommandQueue(context, pDevices[0], 0, &iRet);
     if (CL_SUCCESS != iRet)

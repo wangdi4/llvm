@@ -38,47 +38,47 @@ cl_int check_scalar(std::vector<float> h_rhs, std::vector<char> h_res) {
     cl_platform_id platform = 0;
 
     iRet = clGetPlatformIDs(1, &platform, NULL);
-    CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
     iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+    CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
-    CheckException(L"clCreateContext", CL_SUCCESS, iRet);
+    CheckException("clCreateContext", CL_SUCCESS, iRet);
 
     cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
     cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-    CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-    CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+    CheckException("clBuildProgram", CL_SUCCESS, iRet);
 
     cl_kernel kernel = clCreateKernel(prog, "test_convert_char_sat_float", &iRet);
-    CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+    CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
     cl_mem rhs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float) * num, NULL, &iRet);
-    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
     cl_mem res = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(char) * num, NULL, &iRet);
-    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
 
     iRet = clEnqueueWriteBuffer(queue, rhs, CL_TRUE, 0, sizeof(float) * num, &h_rhs[0], 0, NULL, NULL);
-    CheckException(L"clEnqueueWriteBuffer", CL_SUCCESS, iRet);
+    CheckException("clEnqueueWriteBuffer", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &rhs);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    CheckException("clSetKernelArg", CL_SUCCESS, iRet);
     iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &res);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 
     size_t global = num;
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
-    CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
     iRet = clEnqueueReadBuffer(queue, res, CL_TRUE, 0, sizeof(char) * num, &h_res[0], 0, NULL, NULL);
-    CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+    CheckException("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
     clReleaseMemObject(rhs);
     clReleaseMemObject(res);
@@ -105,47 +105,47 @@ cl_int check_vector(std::vector<float> h_rhs, std::vector<char> h_res) {
     cl_platform_id platform = 0;
 
     iRet = clGetPlatformIDs(1, &platform, NULL);
-    CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    CheckException("clGetPlatformIDs", CL_SUCCESS, iRet);
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
     iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+    CheckException("clGetDeviceIDs", CL_SUCCESS, iRet);
 
     context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
-    CheckException(L"clCreateContext", CL_SUCCESS, iRet);
+    CheckException("clCreateContext", CL_SUCCESS, iRet);
 
     cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+    CheckException("clCreateCommandQueue", CL_SUCCESS, iRet);
 
     cl_program prog = clCreateProgramWithSource(context, 1, (const char**)&ocl_test_program, NULL, &iRet);
-    CheckException(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+    CheckException("clCreateProgramWithSource", CL_SUCCESS, iRet);
 
     iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
-    CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+    CheckException("clBuildProgram", CL_SUCCESS, iRet);
 
     cl_kernel kernel = clCreateKernel(prog, "test_convert_char8_sat_float8", &iRet);
-    CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
+    CheckException("clCreateKernel", CL_SUCCESS, iRet);
 
     size_t global = num / 8;
     cl_mem rhs = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_float8) * global, NULL, &iRet);
-    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
     cl_mem res = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_char8) * global, NULL, &iRet);
-    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    CheckException("clCreateBuffer", CL_SUCCESS, iRet);
 
     iRet = clEnqueueWriteBuffer(queue, rhs, CL_TRUE, 0, sizeof(cl_float8) * global, &h_rhs[0], 0, NULL, NULL);
-    CheckException(L"clEnqueueWriteBuffer", CL_SUCCESS, iRet);
+    CheckException("clEnqueueWriteBuffer", CL_SUCCESS, iRet);
 
     iRet = clSetKernelArg(kernel, 0, sizeof(cl_mem), &rhs);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    CheckException("clSetKernelArg", CL_SUCCESS, iRet);
     iRet = clSetKernelArg(kernel, 1, sizeof(cl_mem), &res);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    CheckException("clSetKernelArg", CL_SUCCESS, iRet);
 
     iRet = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global, NULL, 0, NULL, NULL);
-    CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    CheckException("clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
 
     iRet = clEnqueueReadBuffer(queue, res, CL_TRUE, 0, sizeof(cl_char8) * global, &h_res[0], 0, NULL, NULL);
-    CheckException(L"clEnqueueReadBuffer", CL_SUCCESS, iRet);
+    CheckException("clEnqueueReadBuffer", CL_SUCCESS, iRet);
 
     clReleaseMemObject(rhs);
     clReleaseMemObject(res);
@@ -157,7 +157,7 @@ cl_int check_vector(std::vector<float> h_rhs, std::vector<char> h_res) {
 }
 
 bool check_results(char loVal, char hiVal, std::vector<float> &h_rhs, std::vector<char> h_res) {
-    for (int i = 0; i < h_rhs.size(); i++) {
+    for (size_t i = 0; i < h_rhs.size(); i++) {
         int ival = (int)h_rhs[i];
         char val = (char)std::min<float>(std::max<float>(ival, loVal), hiVal);
         // isnan(h_rhs[i])
@@ -165,7 +165,7 @@ bool check_results(char loVal, char hiVal, std::vector<float> &h_rhs, std::vecto
             val = 0;
         }
         if (val != h_res[i]) {
-            printf("Value error at %d\n", i);
+            printf("Value error at %zu\n", i);
             return false;
         }
     }
@@ -200,7 +200,7 @@ bool saturated_conversion_NaN_test()
 
     std::vector<char> h_res(num);
     iRet = check_scalar(h_rhs, h_res);
-    CheckException(L"check_scalar", CL_SUCCESS, iRet);
+    CheckException("check_scalar", CL_SUCCESS, iRet);
 
     if (!check_results(loVal, hiVal, h_rhs, h_res)) {
         printf("Results are different from expected in check_scalar\n");
@@ -209,7 +209,7 @@ bool saturated_conversion_NaN_test()
 
     std::vector<char> h_res_vec(num);
     iRet = check_vector(h_rhs, h_res_vec);
-    CheckException(L"check_vector", CL_SUCCESS, iRet);
+    CheckException("check_vector", CL_SUCCESS, iRet);
 
     if (!check_results(loVal, hiVal, h_rhs, h_res_vec)) {
         printf("Results are different from expected in check_vector\n");

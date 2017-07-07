@@ -18,7 +18,7 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
     size_t szGlobalWorkSize = 8;
     cl_int iRet;
     cl_kernel kern = clCreateKernel(program, "test_kernel", &iRet);
-    bResult = SilentCheck(L"clCreateKernel", CL_SUCCESS, iRet);
+    bResult = SilentCheck("clCreateKernel", CL_SUCCESS, iRet);
 
     std::auto_ptr<int> pDst(new int[szGlobalWorkSize]);
     for(size_t i = 0; i < szGlobalWorkSize; ++i) pDst.get()[i] = 0;
@@ -29,7 +29,7 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
 
     cl_int ciErrNum;
     cl_command_queue cqCommandQueue = clCreateCommandQueue(cxContext, device, 0, &ciErrNum);
-    bResult &= Check(L"clCreateCommandQueue(...)", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clCreateCommandQueue(...)", CL_SUCCESS, ciErrNum);
 
     cl_mem cmDevDst = clCreateBuffer(cxContext, CL_MEM_READ_WRITE , sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
     ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
@@ -41,7 +41,7 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
                                   0,
                                   NULL,
                                   NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer(Dst)", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clEnqueueWriteBuffer(Dst)", CL_SUCCESS, ciErrNum);
 
     cl_mem cmDevSrcA = clCreateBuffer(cxContext, CL_MEM_READ_ONLY, sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
     ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
@@ -53,7 +53,7 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
                                   0,
                                   NULL,
                                   NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer(SrcA)", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clEnqueueWriteBuffer(SrcA)", CL_SUCCESS, ciErrNum);
 
     cl_mem cmDevSrcB = clCreateBuffer(cxContext, CL_MEM_READ_ONLY, sizeof(cl_int) * szGlobalWorkSize, NULL, &ciErrNum);
     ciErrNum = clEnqueueWriteBuffer(cqCommandQueue,
@@ -65,17 +65,17 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
                                   0,
                                   NULL,
                                   NULL);
-    bResult &= Check(L"clEnqueueWriteBuffer(SrcB)", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clEnqueueWriteBuffer(SrcB)", CL_SUCCESS, ciErrNum);
 
 
     if ( bResult )
     {
         iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), (void*)&cmDevDst);
-        bResult &= Check(L"clSetKernelArg(0)", CL_SUCCESS, iRet);
+        bResult &= Check("clSetKernelArg(0)", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kern, 1, sizeof(cl_mem), (void*)&cmDevSrcA);
-        bResult &= Check(L"clSetKernelArg(1)", CL_SUCCESS, iRet);
+        bResult &= Check("clSetKernelArg(1)", CL_SUCCESS, iRet);
         iRet = clSetKernelArg(kern, 2, sizeof(cl_mem), (void*)&cmDevSrcB);
-        bResult &= Check(L"clSetKernelArg(2)", CL_SUCCESS, iRet);
+        bResult &= Check("clSetKernelArg(2)", CL_SUCCESS, iRet);
     }
 
     ciErrNum = clEnqueueNDRangeKernel (cqCommandQueue,
@@ -87,13 +87,13 @@ bool TestRun(cl_program& program, cl_context cxContext, cl_device_id device)
             0,
             NULL,
             NULL);
-    bResult &= Check(L"clEnqueueNDRangeKernel()", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clEnqueueNDRangeKernel()", CL_SUCCESS, ciErrNum);
 
     std::auto_ptr<int> pRead(new int[szGlobalWorkSize]);
     ciErrNum = clEnqueueReadBuffer(cqCommandQueue, 
               cmDevDst, CL_TRUE, 0, sizeof(cl_int) * szGlobalWorkSize, 
               pRead.get(), 0, NULL, NULL);
-    bResult &= Check(L"clEnqueueReadBuffer()", CL_SUCCESS, ciErrNum);
+    bResult &= Check("clEnqueueReadBuffer()", CL_SUCCESS, ciErrNum);
 
     bool bCheck = true;
     for(size_t i = 0; i < szGlobalWorkSize; ++i)
@@ -131,7 +131,7 @@ bool clCheckJITSaveTest()
 
     cl_platform_id platform = 0;
     cl_int iRet = clGetPlatformIDs(1, &platform, NULL);
-    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+    bResult &= Check("clGetPlatformIDs", CL_SUCCESS, iRet);
     if (!bResult)
     {
         return bResult;
@@ -163,7 +163,7 @@ bool clCheckJITSaveTest()
         printf("clCreateContext = %s\n",ClErrTxt(iRet));
         return false;
     }
-    printf("context = %p\n", context);
+    printf("context = %p\n", (void*)context);
 
     cl_program clProg;
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
@@ -179,7 +179,7 @@ bool clCheckJITSaveTest()
     {
         // get the binary
         iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * uiNumDevices, &binarySizes[0], NULL);
-        bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
+        bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
         if (bResult)
         {
             size_t sumBinariesSize = 0;
@@ -190,14 +190,14 @@ bool clCheckJITSaveTest()
                 sumBinariesSize += binarySizes[i];
             }
             iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
-            bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
+            bResult &= Check("clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
             if (bResult)
             {
                 FILE * fout;
                 fout = fopen(g_BINFILENAME, "wb");
                 fwrite(pBinaries[0], 1, binarySizes[0], fout);
                 fclose(fout);
-                printf("Saved successfully!! [size = %d] \n", sumBinariesSize);
+                printf("Saved successfully!! [size = %zu] \n", sumBinariesSize);
             }
         }
     }
