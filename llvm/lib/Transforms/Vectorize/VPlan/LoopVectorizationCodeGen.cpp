@@ -527,6 +527,17 @@ bool VPOVectorizationLegality::canVectorize() {
         DEBUG(dbgs() << "LV: Found an unidentified PHI." << *Phi << "\n");
         return false;
       } // end of PHI handling
+
+      // Check for handled shuffles
+      if (auto ShufInst = dyn_cast<ShuffleVectorInst>(&I)) {
+        if (getSplatValue(ShufInst) ||
+            isa<ConstantAggregateZero>(ShufInst->getMask()))
+          continue;
+
+        DEBUG(dbgs() << "LV: Unsupported shufflevector instruction." <<
+              *ShufInst << "\n");
+        return false;
+      }
     }
   }
   if (!Induction && Inductions.empty()) {
