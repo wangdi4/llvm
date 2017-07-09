@@ -3,9 +3,9 @@
 ; CHECK:    %Min.vec = alloca <8 x i32>
 ; CHECK:  vector.ph:                                        ; preds = %min.iters.checked
 ; CHECK:    %MinInitVal = load i32, i32* %Min
-; CHECK:    %MinInitVec.splatinsert = insertelement <8 x i32> undef, i32 %MinInitVal, i32 0
-; CHECK:    %MinInitVec.splat = shufflevector <8 x i32> %MinInitVec.splatinsert, <8 x i32> undef, <8 x i32> zeroinitializer
-; CHECK:    store <8 x i32> %MinInitVec.splat, <8 x i32>* %Min.vec
+; CHECK:    %[[Splatinsert:.*]] = insertelement <8 x i32> undef, i32 %MinInitVal, i32 0
+; CHECK:    %[[MinInitVec:.*]] = shufflevector <8 x i32> %[[Splatinsert]], <8 x i32> undef, <8 x i32> zeroinitializer
+; CHECK:    store <8 x i32> %[[MinInitVec]], <8 x i32>* %Min.vec
 
 ; CHECK:  vector.body
 ; CHECK:  load{{.*}}%Min.vec

@@ -1,22 +1,19 @@
 ; RUN: opt -VPlanDriver -S %s | FileCheck %s
 
+; CHECK-LABEL: @foo1
+; CHECK:  %tmp.vec = alloca <8 x i32>, align 4
 ; CHECK: %tmp = alloca <2 x i32>, align 4
-; CHECK: %tmp.vec = alloca <8 x i32>
 ; CHECK: vector.ph:                                        ; preds = %min.iters.checked
 ; CHECK:   %tmpInitVal = load <2 x i32>, <2 x i32>* %tmp
-; CHECK:   %PtrToFirstEltInPrivateVec = bitcast <8 x i32>* %tmp.vec to i32*
-; CHECK:   %PtrToNextLane = bitcast i32* %PtrToFirstEltInPrivateVec to <4 x i32>*
-; CHECK:   store <4 x i32> %tmpInitVec.splat, <4 x i32>* %PtrToNextLane
-; CHECK:   %PtrToFirstEltInNextLane = getelementptr i32, i32* %PtrToFirstEltInPrivateVec, i32 4
-; CHECK:   %[[PtrToNextLane1:.*]] = bitcast i32* %PtrToFirstEltInNextLane to <4 x i32>*
-; CHECK:   store <4 x i32> %tmpInitVec.splat4, <4 x i32>* %[[PtrToNextLane1]]
+; CHECK:   %[[TransposeAndSplat:.*]] = shufflevector <2 x i32> %tmpInitVal
+; CHECK:   store <8 x i32> %[[TransposeAndSplat]], <8 x i32>* %tmp.vec
 
 ; CHECK: vector.body:                                      ; preds = %vector.body, %vector.ph
 ; CHECK:   %replicatedMaskElts. = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 0, i32 1, i32 1, i32 2, i32 2, i32 3, i32 3>
 ; CHECK:   %wide.masked.load = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32({{.*}} <8 x i1> %replicatedMask
 ; CHECK:   %transposed.wide.masked.load = shufflevector <8 x i32> %wide.masked.load, <8 x i32> undef, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 1, i32 3, i32 5, i32 7>
-; CHECK:   %replicatedMaskVec. = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
-; CHECK:   call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %transposed.wide.masked.load, <8 x i32>* %tmp.vec, i32 4, <8 x i1> %replicatedMaskVec.)
+; CHECK:   %[[ReplicatedMaskVec:.*]] = shufflevector <4 x i1> {{.*}}, <4 x i1> undef, <8 x i32> <i32 0, i32 1, i32 2, i32 3, i32 0, i32 1, i32 2, i32 3>
+; CHECK:   call void @llvm.masked.store.v8i32.p0v8i32(<8 x i32> %transposed.wide.masked.load, <8 x i32>* %tmp.vec, i32 4, <8 x i1> %[[ReplicatedMaskVec]])
 
 ; CHECK: middle.block:                                     ; preds = %vector.body
 ; CHECK:   %[[MASK_INT:.*]] = load i4, i4* %tmp.mask
@@ -85,6 +82,64 @@ DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
   ret <2 x i32> %res
 }
 
+; This test checks load/store in private space though a bitcast, 
+; when the bitcast operaion converts vector to scalar.
+; CHECK-LABEL: @foo2
+; CHECK: %tmp.vec = alloca <8 x i32>, align 8
+; CHECK: %[[WideLoad:.*]] = call <8 x i32> @llvm.masked.load.v8i32.p0v8i32(<8 x i32>*
+; CHECK:  %[[Transposed:.*]] = shufflevector <8 x i32> %[[WideLoad]], <8 x i32> undef, <8 x i32> <i32 0, i32 2, i32 4, i32 6, i32 1, i32 3, i32 5, i32 7>
+; CHECK:  %[[ToStore:.*]] = bitcast <8 x i32> %[[Transposed:.*]] to <4 x i64>
+
+; CHECK: call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> %[[ToStore]]
+
+define <2 x i32> @foo2()  {
+entry:
+  %tmp = alloca <2 x i32>, align 8
+  store <2 x i32><i32 5, i32 6>, <2 x i32>* %tmp, align 4
+  %0 = load <2 x i32>*, <2 x i32>** @arr2p, align 8
+  %ptrToB = load i32*, i32** @arrB, align 8
+  %tmp_64 = bitcast <2 x i32>* %tmp to i64*
+  br label %DIR.OMP.SIMD.1
+
+DIR.OMP.SIMD.1:                                   ; preds = %entry
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  call void (metadata, ...) @llvm.intel.directive.qual.opndlist(metadata !"QUAL.OMP.LASTPRIVATE:CONDITIONAL", <2 x i32>* nonnull %tmp)
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.SIMD.1
+  br label %for.body
+
+for.body:                                         ; preds = %for.inc, %entry
+  %indvars.iv = phi i64 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvars.iv.next, %for.inc ]
+  %1 = trunc i64 %indvars.iv to i32
+  %arrayidxB = getelementptr inbounds i32, i32* %ptrToB, i64 %indvars.iv
+  %B = load i32, i32* %arrayidxB, align 4
+  %tobool = icmp eq i32 %B, 0
+  br i1 %tobool, label %for.inc, label %if.then
+
+if.then:                                          ; preds = %for.body
+  %arrayidx = getelementptr inbounds <2 x i32>, <2 x i32>* %0, i64 %indvars.iv
+  %2 = load <2 x i32>, <2 x i32>* %arrayidx, align 4
+  %3 = bitcast <2 x i32> %2 to i64
+  store i64 %3, i64* %tmp_64, align 8
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body, %if.then
+  %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
+  %exitcond = icmp eq i64 %indvars.iv.next, 50
+  br i1 %exitcond, label %for.end, label %for.body
+
+for.end:                                    ; preds = %omp.inner.for.body
+  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.3
+
+DIR.QUAL.LIST.END.3:                              ; preds = %omp.loop.exit
+
+  %res = load <2 x i32>, <2 x i32> *%tmp 
+  ret <2 x i32> %res
+}
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.intel.directive(metadata) #1

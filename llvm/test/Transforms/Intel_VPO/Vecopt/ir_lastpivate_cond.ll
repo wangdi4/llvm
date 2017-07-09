@@ -1,7 +1,8 @@
 ; RUN: opt -VPlanDriver -S %s | FileCheck %s
 ; This test checks for a widened alloca and a wide store to the widened alloca
+; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>, align 4
+; CHECK:  %tmp.mask = alloca i4
 ; CHECK:  %[[PRIV:.*]] = alloca i32, align 4
-; CHECK:  %[[VEC_PRIV:.*]] = alloca <4 x i32>
 ; CHECK: vector.ph
 ; CHECK: vector.body
 

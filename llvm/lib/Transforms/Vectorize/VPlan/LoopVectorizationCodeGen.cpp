@@ -167,15 +167,15 @@ static Value *joinVectors(ArrayRef<Value *> VectorsToJoin, IRBuilder<> &Builder,
 }
 
 // {0, 1, 2, 3} -> { 0, 0, 1, 1, 2, 2, 3, 3}
-static Value *replicateVectorElts(Value *OrigVal, unsigned Factor,
+static Value *replicateVectorElts(Value *OrigVal, unsigned OriginalVL,
                                   IRBuilder<> &Builder,
                                   const Twine &Name = "") {
-  if (Factor == 1)
+  if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = OrigVal->getType()->getVectorNumElements();
   SmallVector<unsigned, 8> ShuffleMask;
   for (unsigned i = 0; i < NumElts; ++i)
-    for (unsigned j = 0; j < Factor; j++)
+    for (unsigned j = 0; j < OriginalVL; j++)
       ShuffleMask.push_back((signed)i);
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
@@ -183,18 +183,27 @@ static Value *replicateVectorElts(Value *OrigVal, unsigned Factor,
 }
 
 // {0, 1, 2, 3} -> { 0, 1, 2, 3, 0, 1, 2, 3}
-static Value *replicateVector(Value *OrigVal, unsigned Factor,
+static Value *replicateVector(Value *OrigVal, unsigned OriginalVL,
                               IRBuilder<> &Builder, const Twine &Name = "") {
-  if (Factor == 1)
+  if (OriginalVL == 1)
     return OrigVal;
   unsigned NumElts = OrigVal->getType()->getVectorNumElements();
   SmallVector<unsigned, 8> ShuffleMask;
-  for (unsigned j = 0; j < Factor; j++)
+  for (unsigned j = 0; j < OriginalVL; j++)
     for (unsigned i = 0; i < NumElts; ++i)
       ShuffleMask.push_back((signed)i);
   return Builder.CreateShuffleVector(OrigVal,
                                      UndefValue::get(OrigVal->getType()),
                                      ShuffleMask, Name + OrigVal->getName());
+}
+
+/// Create splat vector from a short vector or from a scalar value -
+/// enabling broadcast functionality for vectors.
+static Value *createVectorSplat(Value *V, unsigned VF, IRBuilder<>& Builder,
+                                const Twine &Name = "") {
+  if (V->getType()->isVectorTy())
+    return replicateVectorElts(V, VF, Builder, Name);
+  return Builder.CreateVectorSplat(VF, V, V->getName() + Name);
 }
 
 static bool checkCombinerOp(Value *CombinerV,
@@ -1137,51 +1146,29 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   // use this alloca'd ptr as the vector value.
   auto OldIP = Builder.saveIP();
   auto OrigAllocaTy = V->getType()->getPointerElementType();
-  auto VecTyForAlloca =
-      OrigAllocaTy->isVectorTy()
-          ? VectorType::get(OrigAllocaTy->getScalarType(),
-                            OrigAllocaTy->getVectorNumElements() * VF)
-          : VectorType::get(OrigAllocaTy, VF);
-  Builder.SetInsertPoint((cast<Instruction>(V))->getNextNode());
+  unsigned OriginalVL = OrigAllocaTy->isVectorTy() ?
+      OrigAllocaTy->getVectorNumElements() : 1;
+
+  auto VecTyForAlloca = VectorType::get(OrigAllocaTy->getScalarType(),
+                                        OriginalVL * VF);
+  Function *F = cast<Instruction>(V)->getParent()->getParent();
+  BasicBlock& FirstBB = F->front();
+  Builder.SetInsertPoint(&*FirstBB.getFirstInsertionPt());
   Value *PtrToVec =
       Builder.CreateAlloca(VecTyForAlloca, nullptr, V->getName() + ".vec");
+
+  // Alignment of vector alloca should match the original alignment
+  cast<AllocaInst>(PtrToVec)->setAlignment(cast<AllocaInst>(V)->getAlignment());
 
   // Save alloca's result
   LoopPrivateWidenMap[V] = PtrToVec;
 
   Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
-  // Broadcast the initial value through the vector (for conditional LP only)
+  // Broadcast the initial value through the vector 
+ 
+  LoadInst *LoadInit = Builder.CreateLoad(V, V->getName() + "InitVal");
+ 
   if (IsConditional) {
-    LoadInst *LoadInit = Builder.CreateLoad(V, V->getName() + "InitVal");
-
-    if (ValueTy->isVectorTy()) {
-      // Store the initial value in the transposed form:
-      // { { x.0, x.0, x.0, x.0 }, { x.1, x.1, x.1, x.1 }, .. }
-      Type *PtrToScalarTy = PointerType::get(ValueTy->getScalarType(), 0);
-      Value *PtrToFirstEltInVec = Builder.CreateBitCast(
-          PtrToVec, PtrToScalarTy, "PtrToFirstEltInPrivateVec");
-      for (unsigned i = 0; i < ValueTy->getVectorNumElements(); ++i) {
-        Value *DataElt = Builder.CreateExtractElement(LoadInit, i);
-        Type *IdxTy = Type::getInt32Ty(DataElt->getContext());
-        Value *PtrToSubVec =
-            (i == 0) ? PtrToFirstEltInVec
-                     : Builder.CreateGEP(PtrToFirstEltInVec,
-                                         ConstantInt::get(IdxTy, i * VF),
-                                         "PtrToFirstEltInNextLane");
-        PtrToSubVec = Builder.CreateBitCast(
-            PtrToSubVec,
-            PointerType::get(VectorType::get(ValueTy->getScalarType(), VF), 0),
-            "PtrToNextLane");
-        Value *InitVec =
-            Builder.CreateVectorSplat(VF, DataElt, V->getName() + "InitVec");
-        Builder.CreateStore(InitVec, PtrToSubVec);
-      }
-    } else {
-      Value *InitVec =
-          Builder.CreateVectorSplat(VF, LoadInit, V->getName() + "InitVec");
-      Builder.CreateStore(InitVec, PtrToVec);
-    }
-
     Builder.SetInsertPoint((cast<Instruction>(PtrToVec))->getNextNode());
     // Create a memory location for last non-zero mask
     // We save mask as an integer value
@@ -1194,14 +1181,12 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
   // Spread the initial value over the vector for in-memory reduction as well.
   Builder.SetInsertPoint(LoopVectorPreHeader->getTerminator());
   if (Legal->isInMemoryReduction(V)) {
-    LoadInst *LoadInit = Builder.CreateLoad(V, V->getName() + "InitVal");
     Value *InitVec;
       RecurrenceDescriptor::RecurrenceKind RK =
           (*Legal->getInMemoryReductionVars())[cast<AllocaInst>(V)].first;
       if (RK == RecurrenceDescriptor::RK_IntegerMinMax ||
           RK == RecurrenceDescriptor::RK_FloatMinMax) {
-        InitVec = Builder.CreateVectorSplat(VF, LoadInit,
-                                            V->getName() + "InitVec");
+        InitVec = createVectorSplat(LoadInit, VF, Builder, "InitVec");
       } else {
         Constant *Iden = RecurrenceDescriptor::getRecurrenceIdentity(
             RK, OrigAllocaTy->getScalarType());
@@ -1211,6 +1196,10 @@ Value *VPOCodeGen::getVectorPrivateBase(Value *V) {
       }
       Builder.CreateStore(InitVec, PtrToVec);
       ReductionVecInitVal[cast<AllocaInst>(V)] = InitVec;
+  } else {
+    // Private variable - spread initial value though the whole vector
+    Value *InitVec = createVectorSplat(LoadInit, VF, Builder);
+    Builder.CreateStore(InitVec, PtrToVec);
   }
 
   PtrToVec = Builder.CreateBitCast(PtrToVec, NewType);
@@ -1315,44 +1304,95 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
   return ScalarV;
 }
 
-Value *VPOCodeGen::reverseVector(Value *Vec, unsigned Stride) {
+/// Reverse vector \p Vec. \p OriginalVL specifies the original vector length
+/// of the value before vectorization.
+/// If the original value was scalar, a vector <A0, A1, A2, A3> will be just
+/// reversed to <A3, A2, A1, A0>. If the original value was a vector 
+/// (OriginalVL > 1), the function will do the following:
+/// <A0, B0, A1, B1, A2, B2, A3, B3> -> <A3, B3, A2, B2, A1, B1, A0, B0>
+Value *VPOCodeGen::reverseVector(Value *Vec, unsigned OriginalVL) {
   unsigned NumElts = Vec->getType()->getVectorNumElements();
   SmallVector<Constant *, 8> ShuffleMask;
-  for (unsigned i = 0; i < NumElts; i += Stride)
-    for (unsigned j = 0; j < Stride; j++)
-      ShuffleMask.push_back(Builder.getInt32(NumElts - (i + 1) * Stride + j));
+  for (unsigned i = 0; i < NumElts; i += OriginalVL)
+    for (unsigned j = 0; j < OriginalVL; j++)
+      ShuffleMask.push_back(
+          Builder.getInt32(NumElts - (i + 1) * OriginalVL + j));
 
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
                                      ConstantVector::get(ShuffleMask),
                                      "reverse");
 }
 
-// Transpose < A0, B0, A1, B1, A2, B2, A3, B3 >. In this case Factor = 2.
-// The result will be < A0, A1, A2, A3, B0, B1, B2, B3>
-static Value *transposeVector(Value *Vec, unsigned Factor,
+/// Transpose vector \p Vec (usualy we do this after load). \p OriginalVL
+/// specifies the original vector length before vectorization.
+/// Example: < A0, B0, A1, B1, A2, B2, A3, B3 >. In this case OriginalVL = 2.
+/// The result after transpose will be < A0, A1, A2, A3, B0, B1, B2, B3>
+static Value *transposeVector(Value *Vec, unsigned OriginalVL,
                               IRBuilder<>& Builder) {
   unsigned NumElts = Vec->getType()->getVectorNumElements();
   SmallVector<unsigned, 8> ShuffleMask;
-  for (unsigned j = 0; j < Factor; j++)
-    for (unsigned i = 0; i < NumElts; i += Factor)
+  for (unsigned j = 0; j < OriginalVL; j++)
+    for (unsigned i = 0; i < NumElts; i += OriginalVL)
       ShuffleMask.push_back((signed)(i + j));
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
                                      ShuffleMask,
                                      "transposed." + Vec->getName());
 }
 
+// The given pointer \p Ptr may be a bitcast from pointer-to-vector to a 
+// pointer to scalar. In this case the data \p DataVec will be transposed.
+// The \p DataVec is an output vector after Load.
+static Value *transposeVectorIfNeeded(Value *Ptr, Value *DataVec,
+                                      IRBuilder<>& Builder) {
+  if (auto BitCast = dyn_cast<BitCastInst>(Ptr)) {
+    Type *OrigTy = BitCast->getSrcTy()->getPointerElementType();
+    if (OrigTy->isVectorTy()) {
+      unsigned OriginalVL = OrigTy->getVectorNumElements();
+      unsigned VF = DataVec->getType()->getVectorNumElements();
+      Type *NewVecTy = VectorType::get(OrigTy->getVectorElementType(),
+                                       VF * OriginalVL);
+      Value *VecToTranspose = Builder.CreateBitCast(DataVec, NewVecTy);
+      Value *Transposed = transposeVector(VecToTranspose, OriginalVL, Builder);
+      return Builder.CreateBitCast(Transposed, DataVec->getType());
+    }
+  }
+  return DataVec;
+}
+
 // Revert the transpose.
-static Value *normalizeVector(Value *Vec, unsigned Factor,
+// Transposed vector: <A0, A1, A2, A3, B0, B1, B2, B3>. In this case Factor = 2.
+// After normalization: < A0, B0, A1, B1, A2, B2, A3, B3 >
+static Value *normalizeVector(Value *Vec, unsigned OriginalVL,
                               IRBuilder<> &Builder) {
   unsigned NumElts = Vec->getType()->getVectorNumElements();
   SmallVector<unsigned, 8> ShuffleMask;
-  unsigned Lane = NumElts / Factor;
+  unsigned Lane = NumElts / OriginalVL;
   for (unsigned j = 0; j < Lane; j++)
     for (unsigned i = 0; i < NumElts; i += Lane)
       ShuffleMask.push_back((signed)(i + j));
   return Builder.CreateShuffleVector(Vec, UndefValue::get(Vec->getType()),
                                      ShuffleMask,
                                      "normalized." + Vec->getName());
+}
+
+// The given pointer \p Ptr may be a bitcast from pointer-to-vector to a 
+// pointer to scalar. In this case the data \p DataVec will be transposed.
+// The \p DataVec is an input vector for Store.
+static Value *normalizeVectorIfNeeded(Value *Ptr, Value *DataVec,
+                                      IRBuilder<>& Builder) {
+  if (auto BitCast = dyn_cast<BitCastInst>(Ptr)) {
+    Type *OrigTy = BitCast->getSrcTy()->getPointerElementType();
+    if (OrigTy->isVectorTy()) {
+      unsigned OriginalVL = OrigTy->getVectorNumElements();
+      unsigned VF = DataVec->getType()->getVectorNumElements();
+      Type *NewVecTy = VectorType::get(OrigTy->getVectorElementType(),
+                                       VF * OriginalVL);
+      Value *VecToNormalize = Builder.CreateBitCast(DataVec, NewVecTy);
+      Value *Normalized = normalizeVector(VecToNormalize, OriginalVL, Builder);
+      return Builder.CreateBitCast(Normalized, DataVec->getType());
+    }
+  }
+  return DataVec;
 }
 
 // Return Value indicating that the mask is not all-zero
@@ -1364,6 +1404,24 @@ static Value *isNotAllZeroMask(IRBuilder<> &Builder, Value *MaskValue,
   Value *NotAllZ = Builder.CreateICmp(CmpInst::ICMP_NE, MaskInInt,
                                       ConstantInt::get(IntTy, 0));
   return NotAllZ;
+}
+
+void storeMaskValue(Value *MaskValue, Value *Ptr, unsigned VF,
+                    IRBuilder<> &Builder) {
+  Value *MaskToStore = nullptr;
+  if (MaskValue) {
+    Value *MaskInInt = nullptr;
+    Value *NotAllZero = isNotAllZeroMask(Builder, MaskValue, MaskInInt);
+
+    // Store the last written lane
+    // We store only non-zero mask.
+    Value *PrevMask = Builder.CreateLoad(Ptr);
+    MaskToStore = Builder.CreateSelect(NotAllZero, MaskInInt, PrevMask);
+  } else {
+    Type *MaskTy = IntegerType::get(Ptr->getContext(), VF);
+    MaskToStore = Constant::getAllOnesValue(MaskTy);
+  }
+  Builder.CreateStore(MaskToStore, Ptr);
 }
 
 void VPOCodeGen::widenVectorStore(StoreInst *SI) {
@@ -1387,7 +1445,7 @@ void VPOCodeGen::widenVectorStore(StoreInst *SI) {
   if (ConsecutiveStride) {
     bool Reverse = (ConsecutiveStride == -1);
     bool IsPrivate = Legal->isLoopPrivate(Ptr);
-    bool IsCondPrivate = Legal->isCondLastPrivate(Ptr);
+    bool StoreMaskValue = Legal->isCondLastPrivate(Ptr);
     Value *VecPtr = nullptr;
     if (IsPrivate)
       VecPtr = getVectorPrivateBase(Ptr);
@@ -1409,36 +1467,28 @@ void VPOCodeGen::widenVectorStore(StoreInst *SI) {
     if (Reverse)
       VecDataOp = reverseVector(VecDataOp, OriginalVL);
 
-    if (MaskValue && !IsPrivate)
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment,
-                                replicateVectorElts(MaskValue, OriginalVL,
-                                                    Builder,
-                                                    "replicatedMaskElts."));
+    if (MaskValue) {
+      // When the value is Private, it is stored in memory in the transposed
+      // form. Vector representation of struct {a, b} will be:
+      // {a0, a1, a2, a3, b0, b1, b2, b3}, and the mask should be replicated
+      // to match this form {m0, m1, m2, m3, m0, m1, m2, m3}.
+      // For non-private values the memory representation should be original:
+      // {a0, b0, a1, b1, a2, b2, a3, b3}. The mask value will be replicated 
+      // accordingly: {m0, m0, m1, m1, m2, m2, m3, m3}.
+      Value *WideMask = IsPrivate
+        ? replicateVector(MaskValue, OriginalVL, Builder, "replicateMask")
+        : replicateVectorElts(MaskValue, OriginalVL, Builder,
+                              "replicatedMaskElts.");
 
-    else if (MaskValue && IsCondPrivate) {
-      // Private data. Should be conditional.
-
-      Value *MaskInInt = nullptr;
-      Value *NotAllZero = isNotAllZeroMask(Builder, MaskValue, MaskInInt);
-
-      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment,
-                                replicateVector(MaskValue, OriginalVL, Builder,
-                                                "replicatedMaskVec."));
-      // Store the last written lane
-      // We store only non-zero mask.
-      Value *PrevMask = Builder.CreateLoad(LoopPrivateLastMask[Ptr]);
-      Value *MaskToStore =
-          Builder.CreateSelect(NotAllZero, MaskInInt, PrevMask);
-      Builder.CreateStore(MaskToStore, LoopPrivateLastMask[Ptr]);
-
-    } else {
-      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
-      if (IsCondPrivate) {
-        Type *MaskTy = IntegerType::get(Ptr->getContext(), VF);
-        Builder.CreateStore(Constant::getAllOnesValue(MaskTy),
-                            LoopPrivateLastMask[Ptr]);
-      }
+      Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, WideMask);
     }
+    else
+      Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
+
+    if (StoreMaskValue)
+      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)],
+                     VF, Builder);
+
     return;
   }
   // SCATTER
@@ -1804,16 +1854,20 @@ void VPOCodeGen::vectorizeLoadInstruction(Instruction *Inst,
 
     if (Reverse)
       NewLI = reverseVector(NewLI);
+
+    if (!IsPrivate)
+      NewLI = transposeVectorIfNeeded(LI->getPointerOperand(), NewLI, Builder);
     WidenMap[cast<Value>(Inst)] = NewLI;
     return;
   }
 
   // GATHER
   Value *VectorPtr = getVectorValue(Ptr);
-  Instruction *NewLI = Builder.CreateMaskedGather(
+  Value *NewLI = Builder.CreateMaskedGather(
       VectorPtr, Alignment, MaskValue, nullptr, "wide.masked.gather");
 
-  WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
+  NewLI = transposeVectorIfNeeded(LI->getPointerOperand(), NewLI, Builder);
+  WidenMap[cast<Value>(Inst)] = NewLI;
 }
 
 void VPOCodeGen::vectorizeSelectInstruction(Instruction *Inst) {
@@ -1917,45 +1971,35 @@ void VPOCodeGen::vectorizeStoreInstruction(Instruction *Inst,
       VecPtr = Reverse ?
         Builder.CreateGEP(nullptr, VecPtr, Builder.getInt32(1 - VF)) : VecPtr;
 
-      if (Reverse)
-        // If we store to reverse consecutive memory locations, then we need
-        // to reverse the order of elements in the stored value.
-        VecDataOp = reverseVector(VecDataOp);
     }
     VecPtr = Builder.CreateBitCast(VecPtr, DataTy->getPointerTo(AddressSpace));
+    if (!IsPrivate)
+      VecDataOp = normalizeVectorIfNeeded(SI->getPointerOperand(), VecDataOp,
+                                          Builder);
+    if (Reverse)
+      // If we store to reverse consecutive memory locations, then we need
+      // to reverse the order of elements in the stored value.
+      VecDataOp = reverseVector(VecDataOp);
+
     if (MaskValue)
       Builder.CreateMaskedStore(VecDataOp, VecPtr, Alignment, MaskValue);
     else
       Builder.CreateAlignedStore(VecDataOp, VecPtr, Alignment);
 
-    if (StoreMaskValue) {
-      Value *MaskToStore = nullptr;
-      if (MaskValue) {
-        Value *MaskInInt = nullptr;
-        Value *NotAllZero = isNotAllZeroMask(Builder, MaskValue, MaskInInt);
-
-        // Store the last written lane
-        // We store only non-zero mask.
-        Value *PrevMask = Builder.CreateLoad(LoopPrivateLastMask[Ptr]);
-        MaskToStore = Builder.CreateSelect(NotAllZero, MaskInInt, PrevMask);
-      } else {
-        Type *MaskTy = IntegerType::get(Ptr->getContext(), VF);
-        MaskToStore = Constant::getAllOnesValue(MaskTy);
-      }
-      Builder.CreateStore(MaskToStore, LoopPrivateLastMask[Ptr]);
-    }
+    if (StoreMaskValue)
+      storeMaskValue(MaskValue, LoopPrivateLastMask[getPtrThruBitCast(Ptr)],
+                     VF, Builder);
     return;
   }
 
   // SCATTER
   Value *VectorPtr = getVectorValue(Ptr);
-  VectorType *VTy = cast<VectorType>(VectorPtr->getType());
-  PointerType *ElemTy = cast<PointerType>(VTy->getElementType());
-  Type *PointedToTy = ElemTy->getElementType();
-  VectorType *VecToTy = VectorType::get(PointedToTy, VF);
-  if (VecDataOp->getType() != VecToTy) {
-    VecDataOp = Builder.CreateBitCast(VecDataOp, VecToTy, "cast");
-  }
+  Type *PtrToElemTy = VectorPtr->getType()->getVectorElementType();
+  Type *ElemTy = PtrToElemTy->getPointerElementType();
+  VectorType *DesiredDataTy = VectorType::get(ElemTy, VF);
+  VecDataOp = Builder.CreateBitCast(VecDataOp, DesiredDataTy, "cast");
+
+  VecDataOp = normalizeVectorIfNeeded(SI->getPointerOperand(), VecDataOp, Builder);
   Builder.CreateMaskedScatter(VecDataOp, VectorPtr, Alignment, MaskValue);
 }
 

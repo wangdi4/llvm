@@ -3,12 +3,12 @@
 ; CHECK:   %min.vec = alloca <4 x i32>
 ; CHECK: vector.ph: 
 ; CHECK:   %minInitVal = load i32, i32* %min
-; CHECK:   %minInitVec.splatinsert = insertelement <4 x i32> undef, i32 %minInitVal, i32 0
-; CHECK:   %minInitVec.splat = shufflevector <4 x i32> %minInitVec.splatinsert, <4 x i32> undef, <4 x i32> zeroinitializer
-; CHECK:   store <4 x i32> %minInitVec.splat, <4 x i32>* %min.vec
+; CHECK:   %[[Splatinsert:.*]] = insertelement <4 x i32> undef, i32 %minInitVal, i32 0
+; CHECK:   %[[MinInitVec:.*]] = shufflevector <4 x i32> %[[Splatinsert]], <4 x i32> undef, <4 x i32> zeroinitializer
+; CHECK:   store <4 x i32> %[[MinInitVec]], <4 x i32>* %min.vec
 
 ; CHECK: vector.body: 
-; CHECK:   %vec.phi = phi <4 x i32> [ %minInitVec.splat, %vector.ph ], [ %predphi, %vector.body ]
+; CHECK:   %vec.phi = phi <4 x i32> [ %[[MinInitVec]], %vector.ph ], [ %predphi, %vector.body ]
 ; CHECK:   call void @llvm.masked.store.v4i32.p0v4i32(<4 x i32> 
 ; CHECK:   %predphi = select
 
