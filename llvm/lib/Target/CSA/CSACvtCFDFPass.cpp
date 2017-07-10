@@ -1491,17 +1491,8 @@ void CSACvtCFDFPass::createFIEntryDefs() {
       unsigned oldVReg = oldInst->getOperand(0).getReg();
       MRI->replaceRegWith(oldVReg, vReg);
       oldInst->eraseFromParent();
-    } else if (oldInst->isDebugValue()) {
-      // Replace the FI operand with the new vReg.
-      mo->ChangeToRegister(vReg, false);
     } else {
-      // This is an assert because I'm not sure that it ever happens.
-      assert(false && "Found a non-MOV, non-Debug use of a frame index. This is not handled.");
-      // If it does, replacing the use with the new vReg is the thing to do,
-      // but doing this (below) alone doesn't seem to be sufficient to get the
-      // values correctly passed through picks/switchs. Needs debugging.
-
-      // Whatever it is, can we replace the FI operand with our new vReg?
+      // Replace the FI operand with the new vReg.
       mo->ChangeToRegister(vReg, false);
     }
   }
