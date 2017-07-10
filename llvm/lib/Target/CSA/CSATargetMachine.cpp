@@ -150,6 +150,7 @@ public:
   bool addPreISel() override {
     //addPass(createUnifyFunctionExitNodesPass());
     addPass(createLowerSwitchPass());
+    addPass(createLoopSimplifyPass());
     if (CSAStructurizeCFG) {
       addPass(createStructurizeCFGPass(false));
       //remove the single input phi and constant branch created from StructurizeCFG

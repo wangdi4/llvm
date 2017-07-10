@@ -2753,7 +2753,19 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
                 MLI->getLoopFor(UseBB) == mloop &&
                 //loop hdr phi's init input is used only once, no need to repeat
                 !(UseMI->isPHI() && UseBB == mloop->getHeader())) {
-                UseMO.setReg(rptOReg);
+                if (mloop->isLoopExiting(UseBB) && !mloop->isLoopExiting(latchBB)) {
+                  unsigned pbb = getBBPred(UseBB);
+                  unsigned rptReg = MRI->createVirtualRegister(TRC);
+                  MachineInstr *switchInst = BuildMI(*UseBB, UseBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+                    CSA::IGN).
+                    addReg(rptReg, RegState::Define).
+                    addReg(pbb).
+                    addReg(rptOReg);
+                  switchInst->setFlag(MachineInstr::NonSequential);
+                  UseMO.setReg(rptReg);
+                } else {
+                  UseMO.setReg(rptOReg);
+                }
               }
             }
           }
