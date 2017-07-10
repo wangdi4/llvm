@@ -98,11 +98,13 @@ OclBuiltinImpl mad_sat_v8u16 = OclBuiltinImpl<mad_sat, [v8u16] , 0, [{
 \*****************************************************************/
 // max native char16, short8, int4
 OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16, v4i32], 0, [{
-    return as_$ReturnType(_mm_max_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
+    $ReturnType Mask = $Arg0VarName < $Arg1VarName;
+    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
   }]>;
 // max native uchar16, ushort8, uint4
 OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v16u8, v8u16, v4u32], 0, [{
-    return as_$ReturnType(_mm_max_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
+    $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
+    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
   }]>;
   
 /*****************************************************************\
@@ -113,9 +115,11 @@ OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v16u8, v8u16, v4u32], 0, [{
 \*****************************************************************/
   // min native char16, short8, int4
 OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v16i8, v8i16, v4i32], 0, [{
-    return as_$ReturnType(_mm_min_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
+    $ReturnType Mask = $Arg0VarName > $Arg1VarName;
+    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
   }]>;
 // min native uchar16, ushort8, uint4
 OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v16u8, v8u16, v4u32], 0, [{
-    return as_$ReturnType(_mm_min_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
+    $ReturnType Mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
+    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
   }]>;
