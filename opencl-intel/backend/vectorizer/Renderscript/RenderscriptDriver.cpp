@@ -10,7 +10,6 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 
 #include "RenderscriptDriver.h"
 #include "VectorizerCore.h"
-#include "MetaDataApi.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 

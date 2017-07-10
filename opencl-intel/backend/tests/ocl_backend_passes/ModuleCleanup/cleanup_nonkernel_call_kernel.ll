@@ -16,17 +16,13 @@ entry:
   ret void
 }
 
-define void @thisIsKernel() nounwind {
+define void @thisIsKernel() nounwind !kernel_wrapper !0 {
 entry:
   %z = add i32 1,1
   ret void
 }
 
-!opencl.kernel_info = !{!0}
-
-!0 = !{void ()* @thisIsKernel, !1}
-!1 = !{!2}
-!2 = !{!"kernel_wrapper", void ()* @thisIsKernel}
+!0 = !{void ()* @thisIsKernel}
 
 ; CHECK-NOT:    define void @thisIsNotKernel()
 ; CHECK-NOT:    define void @anotherNotKernel()

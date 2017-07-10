@@ -2,7 +2,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; CHECK: @t1
-define void @t1(double %arg1, <2 x double> %arg2, <2 x double> %arg3, <3 x double> %arg4, <16 x double> %arg5, <4 x double> %arg6, <8 x double> %arg7 ) nounwind {
+define void @t1(double %arg1, <2 x double> %arg2, <2 x double> %arg3, <3 x double> %arg4, <16 x double> %arg5, <4 x double> %arg6, <8 x double> %arg7 ) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 entry:
   ret void
 }
@@ -56,12 +56,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (double, <2 x double>, <2 x double>, <3 x double>, <16 x double>, <4 x double>, <8 x double>)* @t1, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"double", !"double2", !"double2", !"double3", !"double16", !"double4", !"double8"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !"", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6", !"arg7"}
+!0 = !{void (double, <2 x double>, <2 x double>, <3 x double>, <16 x double>, <4 x double>, <8 x double>)* @t1}
+!1 = !{i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
+!2 = !{!"none", !"none", !"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"double", !"double2", !"double2", !"double3", !"double16", !"double4", !"double8"}
+!4 = !{!"", !"", !"", !"", !"", !"", !""}
+!5 = !{!"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6", !"arg7"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}

@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BarrierPass.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "LoopUtils/LoopUtils.h"
 #include "CompilationUtils.h"
 
@@ -21,6 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <sstream>
 #include <set>
 #include <vector>
+
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -44,7 +46,7 @@ namespace intel {
     //Initialize barrier utils class with current module
     m_util.init(&M);
     // This call is needed to initialize vectorization widths
-    m_util.getAllKernelFunctions();
+    m_util.getAllKernelsWithBarrier();
 
     m_pContext = &M.getContext();
     //Initialize the side of size_t
@@ -1164,52 +1166,43 @@ namespace intel {
   }
 
   unsigned Barrier::computeNumDim(Function *F) {
-    Intel::MetaDataUtils mdUtils(F->getParent());
-    if (mdUtils.isKernelsInfoHasValue()) {
-      if (mdUtils.findKernelsInfoItem(F) != mdUtils.end_KernelsInfo()) {
-        Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(F);
-        if (skimd->isMaxWGDimensionsHasValue()) {
-          return skimd->getMaxWGDimensions();
-        }
-      }
+    auto maxWGDimMDApi = KernelInternalMetadataAPI(F).MaxWGDimensions;
+    if (maxWGDimMDApi.hasValue()) {
+      return maxWGDimMDApi.get();
     }
     return MaxNumDims;
   }
+
   void Barrier::updateStructureStride(Module & M) {
-    Intel::MetaDataUtils mdUtils(&M);
-    if ( !mdUtils.isKernelsInfoHasValue() ) {
-      //Module contains no MetaData information, thus it contains no kernels
+    if (KernelList(&M).empty()) {
+      // Module contains no kernels
       return;
     }
     // Get the kernels using the barrier for work group loops.
-    Intel::MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
-    Intel::MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
-    for (; itr != end; ++itr) {
-      Intel::KernelInfoMetaDataHandle kimd = itr->second;
-      Function* pFunc = itr->first;
-      assert( pFunc && "MetaData first operand is not of type Function!" );
+    for (auto pFunc : KernelList(&M)) {
+      auto kimd = KernelInternalMetadataAPI(pFunc);
       //Need to check if Vectorized Width Value exists, it is not guaranteed that
       //Vectorized is running in all scenarios.
-      int vecWidth = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+      int vecWidth =
+          kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
       unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);
       strideSize = (strideSize + vecWidth - 1) / vecWidth;
 
       //Need to check if NoBarrierPath Value exists, it is not guaranteed that
       //KernelAnalysisPass is running in all scenarios.
-      if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
-        kimd->setBarrierBufferSize(0);
+      if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
+        kimd.BarrierBufferSize.set(0);
       } else {
-        kimd->setBarrierBufferSize(strideSize);
+        kimd.BarrierBufferSize.set(strideSize);
       }
 
       // CSSD100016517, CSSD100018743: workaround
       // Private memory is always considered to be non-uniform. I.e. it is not shared by each WI per vector lane.
       // If it is uniform (i.e. its content doesn't depend on non-uniform values) the private memory
-      // querry returns a smaller value than actual private memory usage. This sublte is taken into account
-      // in the querry for the maximum work-group.
-      kimd->setPrivateMemorySize(strideSize);
+      // query returns a smaller value than actual private memory usage. This subtle is taken into account
+      // in the query for the maximum work-group.
+      kimd.PrivateMemorySize.set(strideSize);
     }
-    mdUtils.save(M.getContext());
   }
 } // namespace intel
 

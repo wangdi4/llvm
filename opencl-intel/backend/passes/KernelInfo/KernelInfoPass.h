@@ -21,10 +21,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace llvm;
 
-namespace Intel {
-  class MetaDataUtils;
-}
-
 namespace intel {
 
   /// This pass is a wrapper of the Kernel Info Pass, which currently outputs
@@ -68,7 +64,7 @@ namespace intel {
     static char ID;
 
     /// @brief Constructor
-    KernelInfoPass(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
+    KernelInfoPass() : FunctionPass(ID) {
       initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
     }
 
@@ -105,11 +101,6 @@ namespace intel {
     /// returns the execution estimation of basic block based on it's nesting
     /// level
     size_t getExecutionEstimation(unsigned depth);
-
-  protected:
-
-    /// @brief holds Meta Data utils
-    Intel::MetaDataUtils* m_mdUtils;
   };
 
 } // namespace intel {

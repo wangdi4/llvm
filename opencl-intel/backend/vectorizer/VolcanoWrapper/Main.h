@@ -24,9 +24,6 @@ class OptimizerConfig;
 /// @brief Vectorizer pass is used to abstract all the Vectorizer's work
 ///  as a single module pass, which is to be scheduled by the compiler
 class Vectorizer : public ModulePass {
-private:
-    typedef SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> funcsVector;
-    
 public:
     static char ID;
     /// @brief C'tor
@@ -51,17 +48,8 @@ public:
 private:
     Vectorizer(); // Do not implement
 
-    /// @brief holds all the "original" (scalar) functions
-    funcsVector m_scalarFuncsList; 
-
     /// @brief List of pointers to runtime modules
     llvm::SmallVector<llvm::Module*, 2> m_runtimeModuleList;
-
-    /// @brief Number of kernels in current module
-    unsigned m_numOfKernels;
-
-    /// @brief Was current module vectorized
-    bool m_isModuleVectorized;
 
     /// Configuration options
     const OptimizerConfig* m_pConfig;

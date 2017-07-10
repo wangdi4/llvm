@@ -140,6 +140,7 @@ if (LLVM_BUILD_OCL_CPU_BACKEND)
     add_subdirectory(tests/type_conversion)
     add_subdirectory(tests/recorder)
     add_subdirectory(tests/debugger_test_type)
+    add_subdirectory(tests/metadata_api_test_type)
 endif (LLVM_BUILD_OCL_CPU_BACKEND)
 
 # Validation utilities

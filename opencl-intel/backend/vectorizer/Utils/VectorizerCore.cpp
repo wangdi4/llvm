@@ -6,11 +6,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #define DEBUG_TYPE "Vectorizer"
+
 #include "VectorizerCore.h"
 #include "InstCounter.h"
 #include "VectorizerCommon.h"
 #include "OclTune.h"
 #include "ChooseVectorizationDimension.h"
+#include "MetadataAPI.h"
 
 #include "llvm/Pass.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -22,6 +24,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <sstream>
 
 using namespace llvm;
+using namespace Intel::MetadataAPI;
 
 char intel::VectorizerCore::ID = 0;
 
@@ -89,10 +92,6 @@ bool VectorizerCore::getCanUniteWorkgroups() {
   return m_canUniteWorkgroups;
 }
 
-void VectorizerCore::setScalarFunc(Function* F) {
-  m_scalarFunc = F;
-}
-
 bool VectorizerCore::runOnFunction(Function &F) {
   // Before doing anything set default return values, function was not vectorized
   // width of 0.
@@ -105,6 +104,9 @@ bool VectorizerCore::runOnFunction(Function &F) {
     return false;
   }
 
+  auto vkimd = KernelInternalMetadataAPI(&F);
+  // The scalar function of the function we vectorize.
+  Function* scalarFunc = vkimd.ScalarizedKernel.get();
 
   Module *M = F.getParent();
   V_PRINT(VectorizerCore, "\nEntered VectorizerCore Wrapper!\n");
@@ -163,9 +165,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
     // choose the vectorization dimension (if vectorized). Usually zero,
     // but in some unusual cases we choose differently (to gain performance.)
     ChooseVectorizationDimension* chooser = createChooseVectorizationDimension();
-    // Todo: remove next line once the metadata bug is solved and the scalar func
-    // will be accessible through through the metadata.
-    chooser->setScalarFunc(m_scalarFunc);
+    chooser->setScalarFunc(scalarFunc);
     fpm1.add(chooser);
 
 

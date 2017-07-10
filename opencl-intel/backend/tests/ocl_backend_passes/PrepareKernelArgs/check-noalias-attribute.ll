@@ -5,7 +5,7 @@ target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct1 = type <{ <4 x i32> , i8}>
 %struct.struct2 = type <{ i32 ,i32 ,i32 }>
 
-define void @t1(i8 %arg1, %struct.struct1* noalias %arg2, %struct.struct2* %arg3) {
+define void @t1(i8 %arg1, %struct.struct1* noalias %arg2, %struct.struct2* %arg3) !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 entry:
   ret void
 }
@@ -34,12 +34,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (i8, %struct.struct1*, %struct.struct2*)* @t1, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"char", !"my_struct1*", !"my_struct2*"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"arg1", !"arg2", !"arg3"}
+!0 = !{void (i8, %struct.struct1*, %struct.struct2*)* @t1}
+!1 = !{i32 0, i32 0, i32 0}
+!2 = !{!"none", !"none", !"none"}
+!3 = !{!"char", !"my_struct1*", !"my_struct2*"}
+!4 = !{!"", !"", !""}
+!5 = !{!"arg1", !"arg2", !"arg3"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}

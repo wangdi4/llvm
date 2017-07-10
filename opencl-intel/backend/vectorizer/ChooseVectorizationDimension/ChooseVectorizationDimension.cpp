@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltinLibInfo.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OCLAddressSpace.h"
 #include "CompilationUtils.h"
 #include "LoopUtils/LoopUtils.h"
@@ -60,17 +60,13 @@ ChooseVectorizationDimension::ChooseVectorizationDimension() :
 }
 
 bool ChooseVectorizationDimension::canSwitchDimensions(Function* F) {
+  using namespace Intel::MetadataAPI;
+
   // 1. test whether KernelAnalysis pass said: "no barrier", otherwise
   // switching dimensions is not supported.
   // note that the KernelAnalysis pass works on the scalar version of the Function.
-  bool result = false;
-  Intel::MetaDataUtils mdUtils((F->getParent()));
-  if (mdUtils.isKernelsInfoHasValue()) {
-     if (mdUtils.findKernelsInfoItem(m_scalarFunc) != mdUtils.end_KernelsInfo()) {
-       Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(m_scalarFunc);
-       result = skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
-     }
-  }
+  auto skimd = KernelInternalMetadataAPI(m_scalarFunc);
+  bool result = skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
   if (!result)
     return false;
 

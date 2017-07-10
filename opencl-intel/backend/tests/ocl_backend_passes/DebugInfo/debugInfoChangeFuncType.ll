@@ -42,7 +42,7 @@ entry:
 declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
 
 ; Function Attrs: nounwind
-define spir_kernel void @invoke_func() #0 !dbg !10 {
+define spir_kernel void @invoke_func() #0 !kernel_arg_addr_space !14 !kernel_arg_access_qual !14 !kernel_arg_type !14 !kernel_arg_type_qual !14 !kernel_arg_name !14 !dbg !10 {
 entry:
   %integer = alloca i32, align 4
   call void @llvm.dbg.declare(metadata i32* %integer, metadata !27, metadata !24), !dbg !28
@@ -60,12 +60,9 @@ attributes #1 = { nounwind readnone }
 !opencl.kernels = !{!13}
 !llvm.module.flags = !{!19, !20}
 !opencl.enable.FP_CONTRACT = !{}
-!opencl.used.extensions = !{!2}
-!opencl.used.optional.core.features = !{!2}
-!opencl.compiler.options = !{!2}
 !llvm.ident = !{!21}
-!opencl.spir.version = !{!22, !22}
-!opencl.ocl.version = !{!22, !22}
+!opencl.spir.version = !{!22}
+!opencl.ocl.version = !{!22}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
 !1 = !DIFile(filename: "/tmp/<stdin>", directory: "/tmp")
@@ -80,12 +77,8 @@ attributes #1 = { nounwind readnone }
 !10 = distinct !DISubprogram(name: "invoke_func", scope: !5, file: !5, line: 5, type: !11, isLocal: false, isDefinition: true, scopeLine: 6, isOptimized: false, unit: !0, variables: !2)
 !11 = !DISubroutineType(types: !12)
 !12 = !{null}
-!13 = !{void ()* @invoke_func, !14, !15, !16, !17, !18}
-!14 = !{!"kernel_arg_addr_space"}
-!15 = !{!"kernel_arg_access_qual"}
-!16 = !{!"kernel_arg_type"}
-!17 = !{!"kernel_arg_base_type"}
-!18 = !{!"kernel_arg_type_qual"}
+!13 = !{void ()* @invoke_func}
+!14 = !{}
 !19 = !{i32 2, !"Dwarf Version", i32 4}
 !20 = !{i32 2, !"Debug Info Version", i32 3}
 !21 = !{!"clang version 3.8.1"}

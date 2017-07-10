@@ -218,13 +218,6 @@ namespace intel{
       else if (CallInst *CI = dyn_cast<CallInst>(user)){
         replaceCallInst(CI, NewTypes, pNewF);
       }
-//      [LLVM 3.6 UPGRADE] TODO: MDNode does not derive from Value anymore while User does
-//                               so it should be safe to remove the commented code below
-//                               along with this comment.
-//      // handle metadata
-//      else if (isa<MDNode>(*it)){
-//        // do nothing
-//      }
       else{
         // we should not be here
         // unhandled case

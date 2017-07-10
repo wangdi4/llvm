@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "DuplicateCalledKernelsPass.h"
 #include "OCLPassSupport.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -24,26 +24,16 @@ namespace intel {
   DuplicateCalledKernels::DuplicateCalledKernels() : ModulePass(ID) {}
 
   bool DuplicateCalledKernels::runOnModule(Module &M) {
+    using namespace Intel::MetadataAPI;
 
-    Intel::MetaDataUtils mdUtils(&M);
     DebugInfoFinder finder;
     finder.processModule(M);
 
-    TFunctionVector kernelFunctions;
-    Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      kernelFunctions.push_back((*itr)->getFunction());
-    }
     bool changed = false;
-    for(TFunctionVector::iterator fi = kernelFunctions.begin(),
-        fe = kernelFunctions.end(); fi != fe; ++fi) {
-      Function* pFunc = *fi;
-
+    for(auto pFunc : KernelList(&M)) {
       bool isCalledKernel = false;
-      for ( Value::user_iterator ui = pFunc->user_begin(),
-          ue = pFunc->user_end(); ui != ue; ++ui ) {
-        if ( isa<CallInst>(*ui) ) {
+      for ( auto U : pFunc->users() ) {
+        if ( isa<CallInst>(U) ) {
           isCalledKernel = true;
           break;
         }
@@ -53,12 +43,11 @@ namespace intel {
 
       ValueToValueMapTy vMap;
       Function* pNewFunc = CloneFunction(pFunc, vMap, nullptr);
-      pNewFunc->setName("__internal." + (*fi)->getName());
+      pNewFunc->setName("__internal." + (pFunc)->getName());
 
       //Run over old uses of pFuncToFix and replace with call to pNewFunc
-      for ( Value::user_iterator ui = pFunc->user_begin(),
-          ue = pFunc->user_end(); ui != ue; ++ui ) {
-        CallInst *pCallInst = dyn_cast<CallInst>(*ui);
+      for ( auto u : pFunc->users() ) {
+        CallInst *pCallInst = dyn_cast<CallInst>(u);
         if ( !pCallInst ) continue;
         //Replace call to kernel function with call to new function.
         pCallInst->replaceUsesOfWith(pFunc, pNewFunc);

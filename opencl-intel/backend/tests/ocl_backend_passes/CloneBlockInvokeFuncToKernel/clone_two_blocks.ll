@@ -25,13 +25,9 @@ define internal void @__enqueue_simple_block2_block_invoke(i8* %.block_descripto
   ret void
 }
 
-; CHECK: !opencl.kernels = !{!0, !2, !4, !5}
-!opencl.kernels = !{!0, !2}
+; CHECK: !opencl.kernels = !{![[KERNELS:[0-9]+]]}
+!opencl.kernels = !{!0}
 
-!0 = !{void (i32 addrspace(1)*)* @enqueue_simple_block, !1}
-!1 = !{!"argument_attribute", i32 0}
-!2 = !{void (i32 addrspace(1)*, float addrspace(1)*)* @enqueue_simple_block2, !3}
-!3 = !{!"argument_attribute", i32 0, i32 0}
+!0 = !{void (i32 addrspace(1)*)* @enqueue_simple_block, void (i32 addrspace(1)*, float addrspace(1)*)* @enqueue_simple_block2}
 
-; CHECK: !4 = !{void (i8*)* @__.kernel__enqueue_simple_block_block_invoke
-; CHECK: !5 = !{void (i8*, float addrspace(1)*)* @__.kernel__enqueue_simple_block2_block_invoke
+; CHECK: ![[KERNELS]] = !{void (i32 addrspace(1)*)* @enqueue_simple_block, void (i32 addrspace(1)*, float addrspace(1)*)* @enqueue_simple_block2, void (i8*)* @__.kernel__enqueue_simple_block_block_invoke, void (i8*, float addrspace(1)*)* @__.kernel__enqueue_simple_block2_block_invoke}

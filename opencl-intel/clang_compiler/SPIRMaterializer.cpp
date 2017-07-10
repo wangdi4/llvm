@@ -49,6 +49,7 @@ static void updateMetadata(llvm::Module &M) {
           AttrName->getString() == "reqd_work_group_size" ||
           AttrName->getString() == "max_work_group_size" ||
           AttrName->getString() == "intel_reqd_sub_group_size" ||
+          AttrName->getString() == "required_num_sub_groups" ||
           AttrName->getString() == "kernel_arg_addr_space" ||
           AttrName->getString() == "kernel_arg_access_qual" ||
           AttrName->getString() == "kernel_arg_type" ||
@@ -59,6 +60,8 @@ static void updateMetadata(llvm::Module &M) {
                           llvm::MDNode::get(M.getContext(), Operands));
     }
   }
+
+  M.eraseNamedMetadata(Kernels);
 }
 
 static std::string updateImageTypeName(StringRef Name, StringRef Acc) {
@@ -199,6 +202,7 @@ changeImageCall(llvm::CallInst *CI,
     // Create function with updated name
     NewF = Function::Create(FT, F->getLinkage(), NewName);
     NewF->copyAttributesFrom(F);
+    NewF->copyMetadata(F, 0);
 
     F->getParent()->getFunctionList().insert(F->getIterator(), NewF);
   }

@@ -30,7 +30,7 @@ File Name:  ProgramBuilder.cpp
 #include "BuiltinModules.h"
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "BitCodeContainer.h"
 #include "BlockUtils.h"
 #include "CompilationUtils.h"
@@ -74,6 +74,7 @@ File Name:  ProgramBuilder.cpp
 #include <vector>
 
 using std::string;
+using namespace Intel::MetadataAPI;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -133,13 +134,12 @@ static bool checkIfProgramHasCachedExecutable(Program *pProgram) {
 
 // Update the size of the variables in global adress space used by the program.
 static void updateGlobalVariableTotalSize(Program *pProgram, Module *pModule) {
-  MetaDataUtils mdUtils(pModule);
-  // ModuleInfo is missing only when we build image built-ins and we don't
+  auto globalSizeMetadata = ModuleInternalMetadataAPI(pModule).GlobalVariableTotalSize;
+  // The info is missing only when we build image built-ins and we don't
   // care about the size of global variables in the program.
-  if (mdUtils.empty_ModuleInfoList())
+  if (!globalSizeMetadata.hasValue())
     return;
-  Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-  pProgram->SetGlobalVariableTotalSize(handle->getGlobalVariableTotalSize());
+  pProgram->SetGlobalVariableTotalSize(globalSizeMetadata.get());
 }
 
 ProgramBuilder::ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config):
@@ -273,7 +273,7 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         llvm::ScopedFatalErrorHandler FatalErrorHandler(BEFatalErrorHandler, nullptr);
 
         pCompiler->BuildProgram( pModule, &buildResult);
-        std::auto_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
+        std::unique_ptr<ObjectCodeCache> pObjectCodeCache(new ObjectCodeCache(nullptr, nullptr, 0));
         pCompiler->SetObjectCache(pObjectCodeCache.get());
 
         pProgram->SetExecutionEngine(pCompiler->GetExecutionEngine());
@@ -330,42 +330,24 @@ KernelJITProperties* ProgramBuilder::CreateKernelJITProperties( unsigned int vec
 KernelProperties *ProgramBuilder::CreateKernelProperties(
     const Program *pProgram, Function *func,
     const ProgramBuildResult &buildResult) const {
-
   Module *pModule = func->getParent();
-  MetaDataUtils mdUtils(pModule);
 
-  if (!mdUtils.isKernelsHasValue())
-    throw Exceptions::CompilerException("Internal error", CL_DEV_BUILD_ERROR);
-
-  KernelMetaDataHandle kmd;
-  for (MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(),
-                                                  e = mdUtils.end_Kernels();
-       i != e; ++i) {
-    if (func == (*i)->getFunction()) // TODO stripPointerCasts()
-    {
-      kmd = *i;
-      break;
-    }
-  }
-
-  if (!kmd.get()) {
-    throw Exceptions::CompilerException("Internal Error");
-  }
+  auto kmd = KernelMetadataAPI(func);
 
   std::stringstream kernelAttributes;
 
   // WG size is set based on attributes passed via metadata.
   unsigned int optWGSize = 128; // TODO: to be checked
   size_t hintWGSize[MAX_WORK_DIM] = {0, 0, 0};
-  if (kmd->getWorkGroupSizeHint()->hasValue()) {
+  if (kmd.WorkGroupSizeHint.hasValue()) {
     // TODO: SExt <=> ZExt
-    hintWGSize[0] = kmd->getWorkGroupSizeHint()->getXDim();
-    hintWGSize[1] = kmd->getWorkGroupSizeHint()->getYDim();
-    hintWGSize[2] = kmd->getWorkGroupSizeHint()->getZDim();
+    hintWGSize[0] = kmd.WorkGroupSizeHint.getXDim();
+    hintWGSize[1] = kmd.WorkGroupSizeHint.getYDim();
+    hintWGSize[2] = kmd.WorkGroupSizeHint.getZDim();
 
     if (hintWGSize[0]) {
       optWGSize = hintWGSize[0];
-      for (unsigned i = 1; i < MAX_WORK_DIM; ++i) {
+      for (size_t i = 1; i < MAX_WORK_DIM; ++i) {
         if (hintWGSize[i]) {
           optWGSize *= hintWGSize[i];
         }
@@ -377,15 +359,15 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   }
 
   size_t reqdWGSize[MAX_WORK_DIM] = {0, 0, 0};
-    // TODO: SExt <=> ZExt
-  if (kmd->getReqdWorkGroupSize()->hasValue()) {
-    reqdWGSize[0] = kmd->getReqdWorkGroupSize()->getXDim();
-    reqdWGSize[1] = kmd->getReqdWorkGroupSize()->getYDim();
-    reqdWGSize[2] = kmd->getReqdWorkGroupSize()->getZDim();
+  // TODO: SExt <=> ZExt
+  if (kmd.ReqdWorkGroupSize.hasValue()) {
+    reqdWGSize[0] = kmd.ReqdWorkGroupSize.getXDim();
+    reqdWGSize[1] = kmd.ReqdWorkGroupSize.getYDim();
+    reqdWGSize[2] = kmd.ReqdWorkGroupSize.getZDim();
 
     if (reqdWGSize[0]) {
       optWGSize = reqdWGSize[0];
-      for (int i = 1; i < MAX_WORK_DIM; ++i) {
+      for (size_t i = 1; i < MAX_WORK_DIM; ++i) {
         if (reqdWGSize[i]) {
           optWGSize *= reqdWGSize[i];
         }
@@ -397,13 +379,13 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   }
 
   size_t reqdNumSG = 0;
-  if (kmd->isReqdNumSubGroupsHasValue()) {
-    reqdNumSG = kmd->getReqdNumSubGroups();
+  if (kmd.ReqdNumSubGroups.hasValue()) {
+    reqdNumSG = kmd.ReqdNumSubGroups.get();
     kernelAttributes << "required_num_sub_groups(" << reqdNumSG << ") ";
   }
 
-  if (kmd->isVecTypeHintHasValue()) {
-    Type *VTHTy = kmd->getVecTypeHint()->getType();
+  if (kmd.VecTypeHint.hasValue()) {
+    Type *VTHTy = kmd.VecTypeHint.getType();
 
     int vecSize = 1;
 
@@ -414,48 +396,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
 
     kernelAttributes << "vec_type_hint(";
 
-    // TODO: Enable MetaDataApi support for the code below.
-    // Temporal patch - MetaDataApi doesn't support this for now
-    // so dig down to get the signedness from the metadata
-    // Expected metadata format for vec_type_hint:
-    // !8 = metadata !{metadata !"vec_type_hint", <8 x i32> undef, i32 0}
-    //                                tag^       type^         isSigned^
-    llvm::NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-    MDNode *FuncInfo = nullptr;
-    for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
-      FuncInfo = MDArgInfo->getOperand(i);
-
-      if (func ==
-          llvm::mdconst::dyn_extract<llvm::Function>(FuncInfo->getOperand(0))
-              ->stripPointerCasts())
-        break;
-    }
-    if (!FuncInfo)
-      throw Exceptions::CompilerException(
-          "Internal Error. FuncInfo is nullptr");
-
-    MDNode *MDVecTHint = nullptr;
-    // look for vec_type_hint metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      MDString *tag =
-          (tmpMD ? dyn_cast<MDString>(tmpMD->getOperand(0)) : nullptr);
-      if (tag && (tag->getString() == "vec_type_hint")) {
-        MDVecTHint = tmpMD;
-        break;
-      }
-    }
-    if (!MDVecTHint)
-      throw Exceptions::CompilerException(
-          "Internal Error. MDVecTHint is nullptr");
-
-    // Look for operand 2 - isSigned
-    ValueAsMetadata *vAm = dyn_cast<ValueAsMetadata>(MDVecTHint->getOperand(2));
-    assert(vAm && "MetadataAsValue is expected");
-    ConstantInt *isSigned = dyn_cast<ConstantInt>(vAm->getValue());
-    assert(isSigned && "isSigned should be a constant integer value");
-
-    if (isSigned && isSigned->isZero())
+    if (kmd.VecTypeHint.getSign() == 0)
       kernelAttributes << "u";
 
     if (VTHTy->isFloatTy()) {
@@ -477,30 +418,29 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributes << ") ";
   }
 
-  KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(func);
+  auto skimd = KernelInternalMetadataAPI(func);
   // Need to check if NoBarrierPath Value exists, it is not guaranteed that
   // KernelAnalysisPass is running in all scenarios.
   const bool HasNoBarrierPath =
-      skimd->isNoBarrierPathHasValue() && skimd->getNoBarrierPath();
-  const unsigned int localBufferSize = skimd->getLocalBufferSize();
-  const bool hasBarrier = skimd->getKernelHasBarrier();
-  const bool hasGlobalSync = skimd->getKernelHasGlobalSync();
-  const size_t scalarExecutionLength = skimd->getKernelExecutionLength();
-  const unsigned int scalarBufferStride = skimd->getBarrierBufferSize();
-  unsigned int privateMemorySize = skimd->getPrivateMemorySize();
+      skimd.NoBarrierPath.hasValue() && skimd.NoBarrierPath.get();
+  const unsigned int localBufferSize = skimd.LocalBufferSize.get();
+  const bool hasBarrier = skimd.KernelHasBarrier.get();
+  const bool hasGlobalSync = skimd.KernelHasGlobalSync.get();
+  const size_t scalarExecutionLength = skimd.KernelExecutionLength.get();
+  const unsigned int scalarBufferStride = skimd.BarrierBufferSize.get();
+  unsigned int privateMemorySize = skimd.PrivateMemorySize.get();
 
   size_t vectorExecutionLength = 0;
   unsigned int vectorBufferStride = 0;
   // Need to check if Vectorized Kernel Value exists, it is not guaranteed that
   // Vectorized is running in all scenarios.
-  if (skimd->isVectorizedKernelHasValue() &&
-      skimd->getVectorizedKernel() != nullptr) {
-    KernelInfoMetaDataHandle vkimd =
-        mdUtils.getKernelsInfoItem(skimd->getVectorizedKernel());
-    vectorExecutionLength = vkimd->getKernelExecutionLength();
-    vectorBufferStride = vkimd->getBarrierBufferSize();
+  if (skimd.VectorizedKernel.hasValue() &&
+      skimd.VectorizedKernel.get() != nullptr) {
+    auto vkimd = KernelInternalMetadataAPI(skimd.VectorizedKernel.get());
+    vectorExecutionLength = vkimd.KernelExecutionLength.get();
+    vectorBufferStride = vkimd.BarrierBufferSize.get();
     privateMemorySize = std::max<unsigned int>(privateMemorySize,
-                                               vkimd->getPrivateMemorySize());
+                                               vkimd.PrivateMemorySize.get());
   }
 
   // Execution length contains the max size between
@@ -563,8 +503,8 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   }
 
   // set can unite WG and vectorization dimention
-  pProps->SetCanUniteWG(skimd->getCanUniteWorkgroups());
-  pProps->SetVerctorizeOnDimention(skimd->getVectorizationDimension());
+  pProps->SetCanUniteWG(skimd.CanUniteWorkgroups.get());
+  pProps->SetVerctorizeOnDimention(skimd.VectorizationDimension.get());
 
   return pProps;
 }

@@ -4,7 +4,9 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+
 #define DEBUG_TYPE "Vectorizer"
+
 #include "InstCounter.h"
 #include "WIAnalysis.h"
 #include "Predicator.h"
@@ -15,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 #include "OclTune.h"
+#include "MetadataAPI.h"
 
 #include "llvm/InitializePasses.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -25,6 +28,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <iomanip>
 #include <sstream>
+
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {
@@ -126,8 +130,8 @@ WeightedInstCounter::FuncCostEntry WeightedInstCounter::CostDB32Bit[] = {
 
 static const bool enableDebugPrints = false;
 static raw_ostream &dbgPrint() {
-    static raw_null_ostream devNull;
-    return enableDebugPrints ? errs() : devNull;
+  static raw_null_ostream devNull;
+  return enableDebugPrints ? errs() : devNull;
 }
 
 WeightedInstCounter::FuncCostEntry* WeightedInstCounter::getCostDB() const {
@@ -1336,14 +1340,15 @@ bool CanVectorizeImpl::hasIllegalTypes(Function &F) {
 }
 
 bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
+  using namespace Intel::MetadataAPI;
+
   Module *pM = F.getParent();
   std::set<Function *> unsupportedFunctions;
   std::set<Function *> roots;
 
   // Add all kernels to root functions
   // Kernels assumes to have implicit barrier
-  SmallVector<Function *, 4> kernels;
-  LoopUtils::GetOCLKernel(*pM, kernels);
+  auto kernels = KernelList(pM);
   roots.insert(kernels.begin(), kernels.end());
 
   // Add all functions that contains synchronize/get_local_id/get_global_id to root functions

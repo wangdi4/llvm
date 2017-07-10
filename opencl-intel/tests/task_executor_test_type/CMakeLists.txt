@@ -62,4 +62,4 @@ install(FILES task_executor_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 set( INCLUDE_HEADERS_PATH ${OCL_CLANG_HEADERS})
 
 set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} PROPERTIES GENERATED TRUE)
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )

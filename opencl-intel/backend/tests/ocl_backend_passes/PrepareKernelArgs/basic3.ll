@@ -2,11 +2,11 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32> %i, <4 x i32> %ui, <4 x float> %f, <4 x float> addrspace(1)* nocapture %result) nounwind {
+define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32> %i, <4 x i32> %ui, <4 x float> %f, <4 x float> addrspace(1)* nocapture %result) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !local_buffer_size !11 !barrier_buffer_size !12 !kernel_execution_length !13 !kernel_has_barrier !14 !no_barrier_path !15 {
   ret void
 }
 
-; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {{.*}} {
 ; CHECK: %0 = getelementptr i8, i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to <4 x i8>*
 ; CHECK: %explicit_0 = load <4 x i8>, <4 x i8>* %1, align 4
@@ -75,26 +75,19 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 !opencl.used.extensions = !{!8}
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
-!opencl.kernel_info = !{!9}
 !llvm.functions_info = !{}
 
-!0 = !{void (<4 x i8>, <4 x i8>, <4 x i16>, <4 x i16>, <4 x i32>, <4 x i32>, <4 x float>, <4 x float> addrspace(1)*)* @A, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"char4", !"uchar4", !"short4", !"ushort4", !"int4", !"uint4", !"float4", !"float4*"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !"", !"", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"c", !"uc", !"s", !"us", !"i", !"ui", !"f", !"result"}
+!0 = !{void (<4 x i8>, <4 x i8>, <4 x i16>, <4 x i16>, <4 x i32>, <4 x i32>, <4 x float>, <4 x float> addrspace(1)*)* @A}
+!1 = !{i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 1}
+!2 = !{!"none", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"char4", !"uchar4", !"short4", !"ushort4", !"int4", !"uint4", !"float4", !"float4*"}
+!4 = !{!"", !"", !"", !"", !"", !"", !"", !""}
+!5 = !{!"c", !"uc", !"s", !"us", !"i", !"ui", !"f", !"result"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}
-!9 = !{void (<4 x i8>, <4 x i8>, <4 x i16>, <4 x i16>, <4 x i32>, <4 x i32>, <4 x float>, <4 x float> addrspace(1)*)* @A, !10}
-!10 = !{!11, !12, !13, !14, !15, !16, !17, !18, !19}
-!11 = !{!"local_buffer_size", i32 0}
-!12 = !{!"barrier_buffer_size", i32 0}
-!13 = !{!"kernel_execution_length", i32 20}
-!14 = !{!"kernel_has_barrier", i1 false}
-!15 = !{!"no_barrier_path", i1 true}
-!16 = !{!"vectorized_kernel", null}
-!17 = !{!"vectorized_width", null}
-!18 = !{!"kernel_wrapper", null}
-!19 = !{!"scalarized_kernel", null}
+!11 = !{i32 0}
+!12 = !{i32 0}
+!13 = !{i32 20}
+!14 = !{i1 false}
+!15 = !{i1 true}

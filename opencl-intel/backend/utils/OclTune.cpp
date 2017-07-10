@@ -17,14 +17,18 @@ File Name:  OclTune.cpp
 \*****************************************************************************/
 
 #ifdef OCLT
+
 #include "OclTune.h"
 #include "buildversion.h"
+#include "MetadataStatsAPI.h"
+
 #include "llvm/Support/CommandLine.h"
 
 #include <time.h>
 
 using namespace llvm;
 using namespace Intel;
+using namespace MetadataAPI;
 
 namespace intel {
 
@@ -74,22 +78,16 @@ void Statistic::setModuleStatInfo (llvm::Module *M, const char * workloadName,
 
   strftime (buffer,80,"%Y-%m-%d %H:%M:%S",timeinfo);
 
-  Intel::MetaDataUtils mdUtils(M);
-
-  ModuleStatInfoMetaData *statInfo = ModuleStatInfoMetaData::get();
-  statInfo->setExecTime(buffer);
-  statInfo->setRunTimeVersion(VERSIONSTRING); // runtime version
-  statInfo->setWorkloadName(workloadName);
-  statInfo->setModuleName(moduleName);
-
-  mdUtils.addModuleStatInfoCItem(ModuleStatInfoMetaDataHandle(statInfo));
-
-  //Save Metadata to the module
-  mdUtils.save(M->getContext());
+  auto msimd = ModuleStatMetadataAPI(M);
+  msimd.StatType.set(CurrentStatType);
+  msimd.ExecTime.set(buffer);
+  msimd.RunTimeVersion.set(VERSIONSTRING); // runtime version
+  msimd.WorkloadName.set(workloadName);
+  msimd.ModuleName.set(moduleName);
 }
 
-void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
-                                 const char *type) {
+void Statistic::pushFunctionStats(ActiveStatsT &activeStats, llvm::Function &F,
+                                  const char *type) {
 
   // if stats are off or if stats are not collected for this module return
   if (!StatFlag || !isCurrentStatType(type))
@@ -105,45 +103,30 @@ void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
   if (F.getParent() == NULL)
     return;
 
-  Intel::MetaDataUtils mdUtils(F.getParent());
+  FunctionStatMetadataAPI::StatListTy stats;
 
-  // get a pointer to the list of this function stats
-  StatValueListContainerMetaData *statList =
-      mdUtils.getOrInsertFunctionsStatsItem(&F).get();
   // copy stat values from the Statistic object to the meta data
   for (unsigned i = 0; i < activeStats.size(); i++) {
     Statistic *lightStat = activeStats[i];
-    StatValueItemMetaData *MDStat = StatValueItemMetaData::get();
 
     assert (lightStat->Initialized &&
         "Non initialized stat is in the active list");
 
-    MDStat->setName(lightStat->Name);
-    MDStat->setValue(lightStat->Value);
-    statList->addStatValueListItem(StatValueItemMetaDataHandle(MDStat));
+    stats.push_back({ lightStat->Name, (int)lightStat->Value, lightStat->Desc });
 
     // clear stat and make it ready for use with another function
     lightStat->reset();
-
-    // keep stat description once for this module
-    if (mdUtils.findStatDescriptionsItem(lightStat->Name)
-        == mdUtils.end_StatDescriptions()) {
-      StrCMetaData *MDDesc = StrCMetaData::get();
-      MDDesc->setstr(lightStat->Desc);
-      mdUtils.setStatDescriptionsItem(lightStat->Name,
-          StrCMetaDataHandle(MDDesc));
-    }
   }
 
-  //Save Metadata to the module
-  mdUtils.save(F.getContext());
+  FunctionStatMetadataAPI::set(F, stats);
 
   // remove all stats registered for this list
   activeStats.clear();
 }
 
-void Statistic::moveFunctionStats (llvm::Function &FromFunction,
-    llvm::Function &ToFunction)
+void Statistic::moveFunctionStats(
+  llvm::Function &FromFunction,
+  llvm::Function &ToFunction)
 {
   // if stats are off or if stats are not collected for this module return
   if (!StatFlag)
@@ -156,76 +139,19 @@ void Statistic::moveFunctionStats (llvm::Function &FromFunction,
     return;
 
   // it is assumed that ToFunction and FromFunction are defined in the same context
-  Intel::MetaDataUtils mdUtils(ToFunction.getParent());
-
-  // if FromFunction has no stats return
-  if (mdUtils.findFunctionsStatsItem(&FromFunction) ==
-      mdUtils.end_FunctionsStats())
-    return;
-
-  // if ToFunction already has stats need to use copy here and not move
-  assert (mdUtils.findFunctionsStatsItem(&ToFunction) ==
-      mdUtils.end_FunctionsStats() &&
-          "ToFunction already has stats. Use copy instead of move stats");
-
-  // switch the content of the FromFunction and ToFunction
-  StatValueListContainerMetaDataHandle &statListFrom =
-      mdUtils.findFunctionsStatsItem(&FromFunction)->second;
-
-  mdUtils.getOrInsertFunctionsStatsItem(&ToFunction);
-  StatValueListContainerMetaDataHandle &statListTo =
-      mdUtils.findFunctionsStatsItem(&ToFunction)->second;
-
-  mdUtils.setFunctionsStatsItem(&ToFunction, statListFrom);
-
-  mdUtils.setFunctionsStatsItem(&FromFunction, statListTo);
-
-  // remove stat entry for FromFunction
-  mdUtils.eraseFunctionsStatsItem(mdUtils.findFunctionsStatsItem(&FromFunction));
-
-  //Save Metadata to the module
-  mdUtils.save(FromFunction.getContext());
+  FunctionStatMetadataAPI::move(FromFunction, ToFunction);
 }
 
-void Statistic::copyFunctionStats (llvm::Function &FromFunction,
-    llvm::Function &ToFunction)
+void Statistic::copyFunctionStats (
+  llvm::Function &FromFunction,
+  llvm::Function &ToFunction)
 {
 
   // if stats are off or if stats are not collected for this module return
   if (!StatFlag)
     return;
 
-  // verify that ToFunction is part of a module
-  assert (ToFunction.getParent() &&
-      "Trying to copy stats to function that is not part of a module");
-  if (ToFunction.getParent() == NULL)
-    return;
-
-  // it is assumed that ToFunction and FromFunction are defined in the same context
-  Intel::MetaDataUtils mdUtils(ToFunction.getParent());
-
-  // if FromFunction has no stats return
-  if (mdUtils.findFunctionsStatsItem(&FromFunction) ==
-      mdUtils.end_FunctionsStats())
-    return;
-
-  // get a pointer to the list of FromFunction stats
-  StatValueListContainerMetaData *statListFrom =
-      mdUtils.getOrInsertFunctionsStatsItem(&FromFunction).get();
-  // get a pointer to the list of ToFunction stats
-  StatValueListContainerMetaData *statListTo =
-      mdUtils.getOrInsertFunctionsStatsItem(&ToFunction).get();
-  // copy stat values from FromFunction to ToFunction
-  for (unsigned i = 0; i < statListFrom->size_StatValueList(); i++) {
-    StatValueItemMetaData *MDStat = StatValueItemMetaData::get();
-
-    MDStat->setName(statListFrom->getStatValueListItem(i)->getName());
-    MDStat->setValue(statListFrom->getStatValueListItem(i)->getValue());
-    statListTo->addStatValueListItem(StatValueItemMetaDataHandle(MDStat));
-  }
-
-  //Save Metadata to the module
-  mdUtils.save(FromFunction.getContext());
+  FunctionStatMetadataAPI::copy(FromFunction, ToFunction);
 }
 
 void Statistic::removeFunctionStats (llvm::Function &FromFunction)
@@ -241,18 +167,7 @@ void Statistic::removeFunctionStats (llvm::Function &FromFunction)
   if (FromFunction.getParent() == NULL)
     return;
 
-  Intel::MetaDataUtils mdUtils(FromFunction.getParent());
-
-  // if FromFunction has no stats return
-  if (mdUtils.findFunctionsStatsItem(&FromFunction) ==
-      mdUtils.end_FunctionsStats())
-    return;
-
-  // remove stat entry for FromFunction
-  mdUtils.eraseFunctionsStatsItem(mdUtils.findFunctionsStatsItem(&FromFunction));
-
-  //Save Metadata to the module
-  mdUtils.save(FromFunction.getContext());
+  FunctionStatMetadataAPI::remove(FromFunction);
 }
 
 }

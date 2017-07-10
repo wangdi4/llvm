@@ -26,8 +26,7 @@ File Name:  Compiler.cpp
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "CompilationUtils.h"
-#include "MetaDataApi.h"
-#include "common_clang.h"
+#include "MetadataAPI.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -172,9 +171,9 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     m_fpgaEmulator(false),
     m_APFLevel(0)
 {
-    assert(pModule);
+    using namespace Intel::MetadataAPI;
 
-    NamedMDNode* metadata = pModule->getNamedMetadata("opencl.compiler.options");
+    assert(pModule && "pModule is nullptr!");
 
     llvm::Triple triple(pModule->getTargetTriple());
     if(triple.isINTELFPGAEnvironment())
@@ -182,44 +181,34 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
         m_fpgaEmulator = true;
     }
 
-    if(NULL == metadata)
+    auto compilerOptionsMetadata = ModuleMetadataAPI(pModule).CompilerOptionsList;
+
+    if(!compilerOptionsMetadata.hasValue())
     {
         return;
     }
 
-    if(metadata->getNumOperands() == 0)
-    {
-        return;
-    }
-
-    MDNode* flag = metadata->getOperand(0);
-    for(uint32_t i =0; flag && (i < flag->getNumOperands()); ++i)
-    {
-        MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
-
-        assert(flagName &&
-            "opencl.compiler.options is expected to have a node inside!");
-
-        if(flagName->getString() == "-g")
-            m_debugInfo = true;
-        if(flagName->getString() == "-profiling")
-            m_profiling = true;
-        if(flagName->getString() == "-cl-opt-disable")
-            m_disableOpt = true;
-        if(flagName->getString() == "-cl-fast-relaxed-math")
-            m_relaxedMath = true;
-        if(flagName->getString() == "-create-library")
-            m_libraryModule = true;
-        if(flagName->getString() == "-cl-denorms-are-zero")
-            m_denormalsZero = true;
-        if(flagName->getString() == "-auto-prefetch-level=0")
-            m_APFLevel = 0;
-        if(flagName->getString() == "-auto-prefetch-level=1")
-            m_APFLevel = 1;
-        if(flagName->getString() == "-auto-prefetch-level=2")
-            m_APFLevel = 2;
-        if(flagName->getString() == "-auto-prefetch-level=3")
-            m_APFLevel = 3;
+    for (const auto &parameter : compilerOptionsMetadata) {
+      if (parameter == "-g")
+        m_debugInfo = true;
+      if (parameter == "-profiling")
+        m_profiling = true;
+      if (parameter == "-cl-opt-disable")
+        m_disableOpt = true;
+      if (parameter == "-cl-fast-relaxed-math")
+        m_relaxedMath = true;
+      if (parameter == "-create-library")
+        m_libraryModule = true;
+      if (parameter == "-cl-denorms-are-zero")
+        m_denormalsZero = true;
+      if (parameter == "-auto-prefetch-level=0")
+        m_APFLevel = 0;
+      if (parameter == "-auto-prefetch-level=1")
+        m_APFLevel = 1;
+      if (parameter == "-auto-prefetch-level=2")
+        m_APFLevel = 2;
+      if (parameter == "-auto-prefetch-level=3")
+        m_APFLevel = 3;
     }
 }
 
@@ -263,6 +252,13 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
+#ifndef NDEBUG
+    if (getenv("VOLCANO_COMPILER_DEBUG")) {
+      args.push_back("-print-after-all");
+      args.push_back("-print-before-all");
+      args.push_back("-debug");
+    }
+#endif
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {

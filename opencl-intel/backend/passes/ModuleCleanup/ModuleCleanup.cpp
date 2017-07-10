@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 
 
 using namespace llvm;
@@ -29,6 +30,20 @@ extern "C"
 }
 
 namespace intel{
+
+  /// Delete function body preserving attached Metadata
+  static void deleteFunctionBody(Function *Func) {
+    SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+    Func->getAllMetadata(MDs);
+
+    Func->deleteBody();
+    assert(!Func->getMetadata("kernel_wrapper")
+      && "The surrounding code is not required anymore!");
+
+    for (auto &MD : MDs) {
+      Func->setMetadata(MD.first, MD.second);
+    }
+  }
 
   char ModuleCleanup::ID = 0;
   /// Register pass to for opt
@@ -58,7 +73,7 @@ namespace intel{
 
       std::set<Value *> visited; // list to avoid infinite loops
       if (isNeededByKernel(func, visited)) continue; // skip needed functions
-      func->deleteBody();
+      deleteFunctionBody(func);
       // erase function stats from the metadata
       intel::Statistic::removeFunctionStats(*func);
       didDeleteAny = true;

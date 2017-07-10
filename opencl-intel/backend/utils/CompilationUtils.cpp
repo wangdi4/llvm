@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "ParameterType.h"
 #include "TypeAlignment.h"
 #include "cl_types.h"
@@ -23,6 +23,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "BlockUtils.h"
+
+using namespace Intel::MetadataAPI;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -216,89 +218,69 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
-    //Clear old collected data!
+    // Clear old collected data!
     functionSet.clear();
 
-    //List all kernels in module
-    MetaDataUtils mdUtils(pModule);
-    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      Function *pSclFunc = (*itr)->getFunction();
+    // List all kernels in module
+    for (auto* pSclFunc : KernelList(pModule)) {
       functionSet.insert(pSclFunc);
-      if(mdUtils.findKernelsInfoItem(pSclFunc) == mdUtils.end_KernelsInfo()) {
-        //No kernel info for this scalar kernel, in this case there is no vector
-        //version for this kernel, just skip to next kernel.
-        continue;
-      }
       //Check if there is a vectorized version
-      KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pSclFunc);
-      //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
-      //Vectorized is running in all scenarios.
-      if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
-        functionSet.insert(kimd->getVectorizedKernel());
+      auto kimd = KernelInternalMetadataAPI(pSclFunc);
+      // Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+      // Vectorized is running in all scenarios.
+      if (kimd.VectorizedKernel.hasValue() && kimd.VectorizedKernel.get()) {
+        functionSet.insert(kimd.VectorizedKernel.get());
       }
     }
   }
 
   void CompilationUtils::getAllKernelWrappers(FunctionSet &functionSet, Module *pModule) {
-    //Clear old collected data!
+    // Clear old collected data!
     functionSet.clear();
 
-    //List all kernels in module
-    Intel::MetaDataUtils mdUtils(pModule);
-    MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
-    MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
-    for (; itr != end; ++itr) {
-      KernelInfoMetaDataHandle kimd = itr->second;
-      if(kimd->isKernelWrapperHasValue()) {
-        functionSet.insert(kimd->getKernelWrapper());
+    for (auto &F : *pModule) {
+      auto kimd = KernelInternalMetadataAPI(&F);
+      if(kimd.KernelWrapper.hasValue()) {
+        assert(kimd.KernelWrapper.get() && "Encountered nullptr kernel wrapper!");
+        functionSet.insert(kimd.KernelWrapper.get());
       }
     }
   }
 
-  void CompilationUtils::parseKernelArguments(  Module* pModule,
-                                                Function* pFunc,
-                                                std::vector<cl_kernel_argument>& /* OUT */ arguments,
-                                                std::vector<unsigned int>&       /* OUT */ memoryArguments) {
+  void CompilationUtils::parseKernelArguments(Module* pModule,
+                                              Function* pFunc,
+                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
+                                              std::vector<unsigned int>&       /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
-    MetaDataUtils mdUtils(pModule);
-    if (!mdUtils.isKernelsHasValue()) {
+
+    if (KernelList(pModule).empty()) {
       assert(false && "Internal Error: kernels metadata is missing");
       // workaround to overcome klockwork issue
       return;
     }
-    KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+    auto kimd = KernelInternalMetadataAPI(pFunc);
     Function *pOriginalFunc = pFunc;
     //Check if this is a vectorized version of the kernel
-    if (kimd->isScalarizedKernelHasValue() && kimd->getScalarizedKernel()) {
+    if (kimd.ScalarizedKernel.hasValue() && kimd.ScalarizedKernel.get()) {
       //Get the scalarized version of the vectorized kernel
-      pOriginalFunc = kimd->getScalarizedKernel();
+      pOriginalFunc = kimd.ScalarizedKernel.get();
     }
     // Check is this is a block kernel (i.e. a kernel that is invoked from a
     // NDRange from an other kernel), and if so what is the size of the block
     // literal. This information exists only in metadata of the scalar version.
     unsigned BlockLiteralSize = 0;
-    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(pOriginalFunc);
-    if (skimd->isBlockLiteralSizeHasValue()) {
-      BlockLiteralSize = skimd->getBlockLiteralSize();
+    auto skimd = KernelInternalMetadataAPI(pOriginalFunc);
+    if (skimd.BlockLiteralSize.hasValue()) {
+      BlockLiteralSize = skimd.BlockLiteralSize.get();
     }
 
-    KernelMetaDataHandle kmd;
-    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      if (pOriginalFunc == (*itr)->getFunction()) {
-        kmd = *itr;
-        break;
-      }
-    }
-
-    if( NULL == kmd.get() ) {
+    auto kernels = KernelList(pModule);
+    if (std::find(kernels.begin(), kernels.end(), pOriginalFunc) == kernels.end()) {
       assert(false && "Intenal error: can't find the function info for the scalarized function");
       // workaround to overcome klockwork issue
       return;
     }
+    auto kmd = KernelMetadataAPI(pOriginalFunc);
 
     size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
@@ -408,13 +390,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 case CL_KRNL_ARG_PTR_IMG_3D:
                 // Setup image pointer
                   isMemoryObject = true;
-                  curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
+                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == READ_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
                   break;
                 // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
                   // The default access qualifier for pipes is read_only.
-                  curArg.access = (kmd->getArgAccessQualifierItem(i) == WRITE_ONLY) ?
+                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == WRITE_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
                   isMemoryObject = true;
                   break;
@@ -477,7 +459,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       case llvm::Type::IntegerTyID:
           {
-            if (kmd->getArgTypesItem(i) == SAMPLER)
+            if (kmd.ArgTypeList.getItem(i) == SAMPLER)
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
               curArg.size_in_bytes = sizeof(_sampler_t);
@@ -541,48 +523,35 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     !opencl.ocl.version = !{!6}
     !6 = !{i32 2, i32 0}
     */
-    NamedMDNode* namedMD = M.getNamedMetadata("opencl.ocl.version");
-    // Metadata API uitls creates whole set of empty named metadata even if they are initially
-    // absent in a module. That is why the 'if' statement below checks if MDNode has operands.
-    if(!namedMD || namedMD->getNumOperands() == 0) return false;
 
-    MDNode * versionMD = cast<MDNode>(namedMD->getOperand(0));
-    assert(versionMD && versionMD->getNumOperands() == 2 && "this MDNode must have 2 operands");
+    auto oclVersion = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).OpenCLVersionList;
+    if (!oclVersion.hasValue())
+      return false;
 
-    Metadata * majorMD = versionMD->getOperand(0);
-    Metadata * minorMD = versionMD->getOperand(1);
-    assert(majorMD && minorMD && "expected non-null metadata values");
+    Result = OclVersion::CLVersionToVal(oclVersion.getItem(0), oclVersion.getItem(1));
 
-    uint64_t major = mdconst::extract<ConstantInt>(majorMD)->getZExtValue();;
-    uint64_t minor = mdconst::extract<ConstantInt>(minorMD)->getZExtValue();
-    Result = OclVersion::CLVersionToVal(major, minor);
     return true;
   }
 
   StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
     /*
-    Example of the metadata:
+    Examples of the metadata:
+
     !opencl.compiler.options = !{!0}
-    !0 = metadata !{metadata !"-cl-std=CL2.0"}
+    !0 = !{!"-cl-std=CL2.0"}
 
     !opencl.compiler.options = !{!9}
-    !9 = metadata !{metadata !"-cl-fast-relaxed-math", metadata !"-cl-std=CL2.0"}
+    !9 = !{!"-cl-fast-relaxed-math", !"-cl-std=CL2.0"}
     */
-    NamedMDNode* namedMetadata = M.getNamedMetadata("opencl.compiler.options");
 
-    if(!namedMetadata || namedMetadata->getNumOperands() < 1)
-      return StringRef();
-    MDNode* metadata = namedMetadata->getOperand(0);
-    if(!metadata)
-      return StringRef();
+    auto options = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).CompilerOptionsList;
 
-    for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-      Metadata * pSubNode = metadata->getOperand(k);
-      if (!isa<MDString>(pSubNode))
-        continue;
-      StringRef value = cast<MDString>(pSubNode)->getString();
-      if(value.startswith(prefix)) return value;
+    if(options.hasValue()) {
+      for (StringRef option : options) {
+        if(option.startswith(prefix)) return option;
+      }
     }
+
     return StringRef();
   }
 
@@ -607,6 +576,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   Function *NewF = Function::Create(NewFTy, F->getLinkage(), Name, F->getParent());
   // Copy old function attributes (including attributes on original arguments) to new function.
   NewF->copyAttributesFrom(F);
+  NewF->copyMetadata(F, 0);
   if (IsKernel) {
     // Only those who are kernel functions need to get this calling convention
     NewF->setCallingConv(CallingConv::C);

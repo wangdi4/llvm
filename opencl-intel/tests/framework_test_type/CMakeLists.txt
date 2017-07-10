@@ -180,7 +180,7 @@ if ( INCLUDE_MIC_DEVICE )
   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${MIC_SPIR_OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 endif ( INCLUDE_MIC_DEVICE )
 
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 #set_target_properties( framework_test_type_kernel PROPERTIES FOLDER "validation/workloads" )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )

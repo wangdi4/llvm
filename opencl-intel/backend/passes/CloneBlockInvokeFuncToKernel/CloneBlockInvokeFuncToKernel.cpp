@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "BlockUtils.h"
 #include "CloneBlockInvokeFuncToKernel.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 
 #include "llvm/IR/Metadata.h"
@@ -103,12 +103,13 @@ static bool canBlockInvokeFunctionBeEnqueued(Function *F)
 
 bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
+  using namespace Intel::MetadataAPI;
+
   m_pModule = &M;
   m_pContext = &M.getContext();
   m_pTD = &M.getDataLayout();
   if(!m_pTD)
     return false;
-  Intel::MetaDataUtils MDU(&M);
   bool Changed = false;
 
   SmallVector<Function*,16> blockInvokeFuncs;
@@ -122,14 +123,6 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     if(BlockUtils::isBlockInvokeFunction(*F) &&
        canBlockInvokeFunctionBeEnqueued(&*F))
       blockInvokeFuncs.push_back(&*F);
-  }
-
-  // obtain node with kernels
-  NamedMDNode *OpenCLKernelMetadata = M.getNamedMetadata("opencl.kernels");
-  assert(OpenCLKernelMetadata && "There is no \"opencl.kernels\" metadata.");
-  // workaround to overcome klockwork issue
-  if( !OpenCLKernelMetadata ) {
-      return false;
   }
 
   // Create context and IRBuilder
@@ -159,56 +152,16 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     // compute block_literal size
     size_t blockLiteralSize = computeBlockLiteralSize(NewFn);
     // Set in metadata so it can be used later when preparing calls to enqueue_kernel_*
-    MDU.getOrInsertKernelsInfoItem(NewFn)->setBlockLiteralSize(blockLiteralSize);
+    KernelInternalMetadataAPI(NewFn).BlockLiteralSize.set(blockLiteralSize);
 
-    //
-    // Updating of metadata with new kernel
-    //
-    // TDerived from llvm/tools/clang/lib/CodeGen/CodeGenFunction::EmitOpenCLKernelMetadata()
-    // Example of metadata for kernel:
-    // !opencl.kernels = !{!0}
-    // !0 = metadata !{void (i32 addrspace(1)*)* @enqueue_simple_block, metadata !1}
-    // !1 = metadata !{metadata !"argument_attribute", i32 0}
-    //
-    // [LLVM 3.6 UPGRADE] Seems the comment above is not correct because SPIR 1.2
-    // of "__kernel void test(__global float* arg)" looks like this:
-    // !opencl.kernels = !{!0}
-    // !0 = metadata !{void (float addrspace(1)*)* @test, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5, metadata !6}
-    // !1 = metadata !{metadata !"kernel_arg_addr_space", i32 1}
-    // !2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none"}
-    // !3 = metadata !{metadata !"kernel_arg_type", metadata !"float*"}
-    // !4 = metadata !{metadata !"kernel_arg_type_qual", metadata !""}
-    // !5 = metadata !{metadata !"kernel_arg_base_type", metadata !"float*"}
-    // !6 = metadata !{metadata !"kernel_arg_name", metadata !"arg"}
-    //
-    // FIXME: The right way is to use MetaDataUtils to handle this instead of the two lines below.
-    OpenCLKernelMetadata->addOperand(
-      llvm::MDNode::get(Context, llvm::ConstantAsMetadata::getConstant(NewFn)));
-    // So I have no idea about the impact of the lecacy code below.
+    // Updating metadata with new kernel
+    auto kernelListAPI = KernelList(&M);
+    auto kernels = kernelListAPI.getList();
+    kernels.push_back(NewFn);
+    kernelListAPI.set(kernels);
 
-//    llvm::SmallVector <llvm::Value*, 2> kernelMDArgs;
-//    kernelMDArgs.push_back(NewFn);
-//
-//    llvm::SmallVector<llvm::Value*, 5> kernelArgsAttr;
-//    kernelArgsAttr.push_back(llvm::MDString::get(Context, "argument_attribute"));
-//
-//    Function::ArgumentListType::iterator argIt = NewFn->getArgumentList().begin();
-//    while ( argIt != NewFn->getArgumentList().end() ) {
-//          const int argAttr = 0;
-//          // !!! image types and sampler types are not handled properly
-//          // !!! they should not get here
-//          kernelArgsAttr.push_back(Builder.getInt32(argAttr)); // i32 0
-//          ++argIt;
-//    }
-//
-//    kernelMDArgs.push_back(llvm::MDNode::get(Context, kernelArgsAttr));
-//    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
-//
-//    OpenCLKernelMetadata->addOperand(kernelMDNode);
     Changed = true;
   }
-  if (Changed)
-    MDU.save(M.getContext());
 
   return Changed;
 }
