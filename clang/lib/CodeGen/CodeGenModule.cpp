@@ -896,17 +896,6 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     return;
   }
 
- //CSA EDIT
-#if 1
-  const llvm::Triple& csatriple = Target.getTriple();
-  if (csatriple.getArch() == llvm::Triple::csa) {
-    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
-    if (FD && FD->isInlineSpecified()) {
-      B.addAttribute(llvm::Attribute::AlwaysInline);
-    }
-  }
-#endif
-
   if (D->hasAttr<OptimizeNoneAttr>()) {
     B.addAttribute(llvm::Attribute::OptimizeNone);
 
@@ -947,7 +936,12 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
       if (any_of(FD->redecls(), [&](const FunctionDecl *Redecl) {
             return Redecl->isInlineSpecified();
           })) {
-        B.addAttribute(llvm::Attribute::InlineHint);
+        // CSA EDIT: use AlwaysInline for CSA rather than InlinHint. This gets
+        // us inlining at -O0/-O1.
+        if (Target.getTriple().getArch() == llvm::Triple::csa)
+          B.addAttribute(llvm::Attribute::AlwaysInline);
+        else
+          B.addAttribute(llvm::Attribute::InlineHint);
       } else if (CodeGenOpts.getInlining() ==
                      CodeGenOptions::OnlyHintInlining &&
                  !FD->isInlined() &&
