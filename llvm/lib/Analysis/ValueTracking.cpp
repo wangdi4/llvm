@@ -1532,7 +1532,7 @@ void computeKnownBits(const Value *V, APInt &KnownZero, APInt &KnownOne,
     // We know that CDS must be a vector of integers. Take the intersection of
     // each element.
     KnownZero.setAllBits(); KnownOne.setAllBits();
-    APInt Elt(KnownZero.getBitWidth(), 0);
+    APInt Elt(BitWidth, 0);
     for (unsigned i = 0, e = CDS->getNumElements(); i != e; ++i) {
       Elt = CDS->getElementAsInteger(i);
       KnownZero &= ~Elt;
@@ -2036,7 +2036,7 @@ static bool isKnownNonEqual(const Value *V1, const Value *V2, const Query &Q) {
     APInt KnownOne2(BitWidth, 0);
     computeKnownBits(V2, KnownZero2, KnownOne2, 0, Q);
 
-    auto OppositeBits = (KnownZero1 & KnownOne2) | (KnownZero2 & KnownOne1);
+    APInt OppositeBits = (KnownZero1 & KnownOne2) | (KnownZero2 & KnownOne1);
     if (OppositeBits.getBoolValue())
       return true;
   }
@@ -2239,7 +2239,7 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
 
         // If the input is known to be 0 or 1, the output is 0/-1, which is all
         // sign bits set.
-        if ((KnownZero | APInt(TyBits, 1)).isAllOnesValue())
+        if ((KnownZero | 1).isAllOnesValue())
           return TyBits;
 
         // If we are subtracting one from a positive number, there is no carry
@@ -2263,7 +2263,7 @@ static unsigned ComputeNumSignBitsImpl(const Value *V, unsigned Depth,
         computeKnownBits(U->getOperand(1), KnownZero, KnownOne, Depth + 1, Q);
         // If the input is known to be 0 or 1, the output is 0/-1, which is all
         // sign bits set.
-        if ((KnownZero | APInt(TyBits, 1)).isAllOnesValue())
+        if ((KnownZero | 1).isAllOnesValue())
           return TyBits;
 
         // If the input is known to be positive (the sign bit is known clear),
