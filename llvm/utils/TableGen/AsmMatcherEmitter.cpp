@@ -1880,7 +1880,7 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
   // the operands that come after that one in MachineInstr order will have their
   // values pulled from the wrong asm operand. Therefore, this behavior has been
   // disabled for CSA.
-  if (HasOptionalOperands and Target.getName() != "CSA") {
+  if (HasOptionalOperands && Target.getName() != "CSA") {
     CvtOS << "    OpIdx = *(p + 1) - NumDefaults;\n";
   } else {
     CvtOS << "    OpIdx = *(p + 1);\n";

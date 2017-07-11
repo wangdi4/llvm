@@ -2745,6 +2745,8 @@ void CSACvtCFDFPass::repeatOperandInLoopUsePred(MachineLoop* mloop, MachineInstr
                 //loop hdr phi's init input is used only once, no need to repeat
                 !(UseMI->isPHI() && UseBB == mloop->getHeader())) {
                 if (mloop->isLoopExiting(UseBB) && !mloop->isLoopExiting(latchBB)) {
+                  //closed loop latch can cause CDG relationship reversed -- exits control everything connected to latch,
+                  //need switch to guard channel overflow
                   unsigned pbb = getBBPred(UseBB);
                   unsigned rptReg = MRI->createVirtualRegister(TRC);
                   MachineInstr *switchInst = BuildMI(*UseBB, UseBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
