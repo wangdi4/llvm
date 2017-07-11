@@ -1,21 +1,23 @@
 // Pattern fragment that combines the value type and the register class
 // into a single parameter.
-// The pat frags in the definitions below need to have a named register,
-// otherwise i32 will be assumed regardless of the register class. The
-// name of the register does not matter.
-def I1  : PatLeaf<(i1 PredRegs:$R)>;
-def I32 : PatLeaf<(i32 IntRegs:$R)>;
-def I64 : PatLeaf<(i64 DoubleRegs:$R)>;
-def F32 : PatLeaf<(f32 IntRegs:$R)>;
-def F64 : PatLeaf<(f64 DoubleRegs:$R)>;
 
 // Pattern fragments to extract the low and high subregisters from a
 // 64-bit value.
 def LoReg: OutPatFrag<(ops node:$Rs), (EXTRACT_SUBREG (i64 $Rs), isub_lo)>;
 def HiReg: OutPatFrag<(ops node:$Rs), (EXTRACT_SUBREG (i64 $Rs), isub_hi)>;
 
-def orisadd: PatFrag<(ops node:$Addr, node:$off),
-    (or node:$Addr, node:$off), [{ return orIsAdd(N); }]>;
+def IsOrAdd: PatFrag<(ops node:$Addr, node:$off),
+    (or node:$Addr, node:$off), [{ return isOrEquivalentToAdd(N); }]>;
+
+def Iss4_6 : PatLeaf<(i32 imm), [{
+  int32_t V = N->getSExtValue();
+  return isShiftedInt<4,6>(V);
+}]>;
+
+def Iss4_7 : PatLeaf<(i32 imm), [{
+  int32_t V = N->getSExtValue();
+  return isShiftedInt<4,7>(V);
+}]>;
 
 def IsPow2_32 : PatLeaf<(i32 imm), [{
   uint32_t V = N->getZExtValue();
@@ -89,6 +91,11 @@ def LogN2_64 : SDNodeXForm<imm, [{
   return CurDAG->getTargetConstant(Log2_64(NV), SDLoc(N), MVT::i32);
 }]>;
 
+def ToZext64: OutPatFrag<(ops node:$Rs),
+  (i64 (A4_combineir 0, (i32 $Rs)))>;
+def ToSext64: OutPatFrag<(ops node:$Rs),
+  (i64 (A2_sxtw (i32 $Rs)))>;
+
 
 class T_CMP_pat <InstHexagon MI, PatFrag OpNode, PatLeaf ImmPred>
   : Pat<(i1 (OpNode I32:$src1, ImmPred:$src2)),
@@ -153,8 +160,12 @@ def: Pat<(sub s32_0ImmPred:$s10, IntRegs:$Rs),
 def: Pat<(not I32:$src1),
          (A2_subri -1, IntRegs:$src1)>;
 
+def TruncI64ToI32: SDNodeXForm<imm, [{
+  return CurDAG->getTargetConstant(N->getSExtValue(), SDLoc(N), MVT::i32);
+}]>;
+
 def: Pat<(s32_0ImmPred:$s16), (A2_tfrsi imm:$s16)>;
-def: Pat<(s8_0Imm64Pred:$s8), (A2_tfrpi imm:$s8)>;
+def: Pat<(s8_0Imm64Pred:$s8), (A2_tfrpi (TruncI64ToI32 $s8))>;
 
 def : Pat<(select I1:$Pu, s32_0ImmPred:$s8, I32:$Rs),
           (C2_muxri I1:$Pu, imm:$s8, I32:$Rs)>;
@@ -274,7 +285,7 @@ def retflag : SDNode<"HexagonISD::RET_FLAG", SDTNone,
                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 def eh_return: SDNode<"HexagonISD::EH_RETURN", SDTNone, [SDNPHasChain]>;
 
-def: Pat<(br bb:$dst),                  (J2_jump brtarget:$dst)>;
+def: Pat<(br bb:$dst),                  (J2_jump b30_2Imm:$dst)>;
 def: Pat<(brcond I1:$src1, bb:$block),  (J2_jumpt PredRegs:$src1, bb:$block)>;
 def: Pat<(brind I32:$dst),              (J2_jumpr IntRegs:$dst)>;
 
@@ -287,7 +298,7 @@ multiclass Loadx_pat<PatFrag Load, ValueType VT, PatLeaf ImmPred,
   def: Pat<(VT (Load AddrFI:$fi)), (VT (MI AddrFI:$fi, 0))>;
   def: Pat<(VT (Load (add (i32 AddrFI:$fi), ImmPred:$Off))),
            (VT (MI AddrFI:$fi, imm:$Off))>;
-  def: Pat<(VT (Load (orisadd (i32 AddrFI:$fi), ImmPred:$Off))),
+  def: Pat<(VT (Load (IsOrAdd (i32 AddrFI:$fi), ImmPred:$Off))),
            (VT (MI AddrFI:$fi, imm:$Off))>;
   def: Pat<(VT (Load (add I32:$Rs, ImmPred:$Off))),
            (VT (MI IntRegs:$Rs, imm:$Off))>;
@@ -438,14 +449,14 @@ multiclass Storex_fi_add_pat<PatFrag Store, PatFrag Value, PatFrag ImmPred,
                              InstHexagon MI> {
   def: Pat<(Store Value:$Rs, (add (i32 AddrFI:$fi), ImmPred:$Off)),
            (MI AddrFI:$fi, imm:$Off, Value:$Rs)>;
-  def: Pat<(Store Value:$Rs, (orisadd (i32 AddrFI:$fi), ImmPred:$Off)),
+  def: Pat<(Store Value:$Rs, (IsOrAdd (i32 AddrFI:$fi), ImmPred:$Off)),
            (MI AddrFI:$fi, imm:$Off, Value:$Rs)>;
 }
 multiclass Storex_add_pat<PatFrag Store, PatFrag Value, PatFrag ImmPred,
                           InstHexagon MI> {
   def: Pat<(Store Value:$Rt, (add I32:$Rs, ImmPred:$Off)),
            (MI IntRegs:$Rs, imm:$Off, Value:$Rt)>;
-  def: Pat<(Store Value:$Rt, (orisadd I32:$Rs, ImmPred:$Off)),
+  def: Pat<(Store Value:$Rt, (IsOrAdd I32:$Rs, ImmPred:$Off)),
            (MI IntRegs:$Rs, imm:$Off, Value:$Rt)>;
 }
 class Storex_simple_pat<PatFrag Store, PatFrag Value, InstHexagon MI>
@@ -463,14 +474,14 @@ multiclass Storexm_fi_add_pat<PatFrag Store, PatFrag Value, PatFrag ImmPred,
                               PatFrag ValueMod, InstHexagon MI> {
   def: Pat<(Store Value:$Rs, (add (i32 AddrFI:$fi), ImmPred:$Off)),
            (MI AddrFI:$fi, imm:$Off, (ValueMod Value:$Rs))>;
-  def: Pat<(Store Value:$Rs, (orisadd (i32 AddrFI:$fi), ImmPred:$Off)),
+  def: Pat<(Store Value:$Rs, (IsOrAdd (i32 AddrFI:$fi), ImmPred:$Off)),
            (MI AddrFI:$fi, imm:$Off, (ValueMod Value:$Rs))>;
 }
 multiclass Storexm_add_pat<PatFrag Store, PatFrag Value, PatFrag ImmPred,
                            PatFrag ValueMod, InstHexagon MI> {
   def: Pat<(Store Value:$Rt, (add I32:$Rs, ImmPred:$Off)),
            (MI IntRegs:$Rs, imm:$Off, (ValueMod Value:$Rt))>;
-  def: Pat<(Store Value:$Rt, (orisadd I32:$Rs, ImmPred:$Off)),
+  def: Pat<(Store Value:$Rt, (IsOrAdd I32:$Rs, ImmPred:$Off)),
            (MI IntRegs:$Rs, imm:$Off, (ValueMod Value:$Rt))>;
 }
 class Storexm_simple_pat<PatFrag Store, PatFrag Value, PatFrag ValueMod,
@@ -682,7 +693,7 @@ def: Pat<(add I32:$Rt, (shl I32:$Rs, u3_0ImmPred:$u3)),
 def HexagonBARRIER: SDNode<"HexagonISD::BARRIER", SDTNone, [SDNPHasChain]>;
 def: Pat<(HexagonBARRIER), (Y2_barrier)>;
 
-def: Pat<(orisadd (i32 AddrFI:$Rs), s32_0ImmPred:$off),
+def: Pat<(IsOrAdd (i32 AddrFI:$Rs), s32_0ImmPred:$off),
          (PS_fi (i32 AddrFI:$Rs), s32_0ImmPred:$off)>;
 
 
@@ -695,15 +706,16 @@ def HexagonCONST32    : SDNode<"HexagonISD::CONST32",    SDTHexagonCONST32>;
 def HexagonCONST32_GP : SDNode<"HexagonISD::CONST32_GP", SDTHexagonCONST32>;
 
 // Map TLS addressses to A2_tfrsi.
-def: Pat<(HexagonCONST32 tglobaltlsaddr:$addr), (A2_tfrsi s16_0Ext:$addr)>;
-def: Pat<(HexagonCONST32 bbl:$label),           (A2_tfrsi s16_0Ext:$label)>;
+def: Pat<(HexagonCONST32 tglobaltlsaddr:$addr), (A2_tfrsi s32_0Imm:$addr)>;
+def: Pat<(HexagonCONST32 bbl:$label),           (A2_tfrsi s32_0Imm:$label)>;
 
 def: Pat<(i64 imm:$v), (CONST64 imm:$v)>;
 def: Pat<(i1 0), (PS_false)>;
 def: Pat<(i1 1), (PS_true)>;
 
 // Pseudo instructions.
-def SDT_SPCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
+def SDT_SPCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32>,
+                                          SDTCisVT<1, i32> ]>;
 def SDT_SPCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i32>,
                                         SDTCisVT<1, i32> ]>;
 
@@ -721,8 +733,8 @@ def HexagonTCRet : SDNode<"HexagonISD::TC_RETURN", SDT_SPCall,
                           [SDNPHasChain,  SDNPOptInGlue, SDNPVariadic]>;
 
 
-def: Pat<(callseq_start timm:$amt),
-          (ADJCALLSTACKDOWN imm:$amt)>;
+def: Pat<(callseq_start timm:$amt, timm:$amt2),
+          (ADJCALLSTACKDOWN imm:$amt, imm:$amt2)>;
 def: Pat<(callseq_end timm:$amt1, timm:$amt2),
          (ADJCALLSTACKUP imm:$amt1, imm:$amt2)>;
 
@@ -898,26 +910,35 @@ def: Pat<(i1 (setule I64:$src1, I64:$src2)),
          (C2_not (C2_cmpgtup DoubleRegs:$src1, DoubleRegs:$src2))>;
 
 // Sign extends.
-// i1 -> i32
-def: Pat<(i32 (sext I1:$src1)),
-         (C2_muxii PredRegs:$src1, -1, 0)>;
+// sext i1->i32
+def: Pat<(i32 (sext I1:$Pu)),
+         (C2_muxii I1:$Pu, -1, 0)>;
 
-// i1 -> i64
-def: Pat<(i64 (sext I1:$src1)),
-         (A2_combinew (A2_tfrsi -1), (C2_muxii PredRegs:$src1, -1, 0))>;
+// sext i1->i64
+def: Pat<(i64 (sext I1:$Pu)),
+         (A2_combinew (C2_muxii PredRegs:$Pu, -1, 0),
+                      (C2_muxii PredRegs:$Pu, -1, 0))>;
 
 // Zero extends.
-// i1 -> i32
-def: Pat<(i32 (zext I1:$src1)),
-         (C2_muxii PredRegs:$src1, 1, 0)>;
+// zext i1->i32
+def: Pat<(i32 (zext I1:$Pu)),
+         (C2_muxii PredRegs:$Pu, 1, 0)>;
+
+// zext i1->i64
+def: Pat<(i64 (zext I1:$Pu)),
+         (ToZext64 (C2_muxii PredRegs:$Pu, 1, 0))>;
+
+// zext i32->i64
+def: Pat<(Zext64 I32:$Rs),
+         (ToZext64 IntRegs:$Rs)>;
 
 // Map from Rs = Pd to Pd = mux(Pd, #1, #0)
-def: Pat<(i32 (anyext I1:$src1)),
-         (C2_muxii PredRegs:$src1, 1, 0)>;
+def: Pat<(i32 (anyext I1:$Pu)),
+         (C2_muxii PredRegs:$Pu, 1, 0)>;
 
-// Map from Rss = Pd to Rdd = sxtw (mux(Pd, #1, #0))
-def: Pat<(i64 (anyext I1:$src1)),
-         (A2_sxtw (C2_muxii PredRegs:$src1, 1, 0))>;
+// Map from Rss = Pd to Rdd = combine(#0, (mux(Pd, #1, #0)))
+def: Pat<(i64 (anyext I1:$Pu)),
+         (ToZext64 (C2_muxii PredRegs:$Pu, 1, 0))>;
 
 // Clear the sign bit in a 64-bit register.
 def ClearSign : OutPatFrag<(ops node:$Rss),
@@ -1244,11 +1265,6 @@ def: Pat<(HexagonCOMBINE s32_0ImmPred:$s8, s8_0ImmPred:$S8),
 }
 
 
-def ToZext64: OutPatFrag<(ops node:$Rs),
-  (i64 (A4_combineir 0, (i32 $Rs)))>;
-def ToSext64: OutPatFrag<(ops node:$Rs),
-  (i64 (A2_sxtw (i32 $Rs)))>;
-
 // Patterns to generate indexed loads with different forms of the address:
 // - frameindex,
 // - base + offset,
@@ -1348,14 +1364,6 @@ let AddedComplexity = 20 in {
   def: Loadxs_simple_pat<load,        i32, L4_loadri_rr>;
   def: Loadxs_simple_pat<load,        i64, L4_loadrd_rr>;
 }
-
-// zext i1->i64
-def: Pat<(i64 (zext I1:$src1)),
-         (ToZext64 (C2_muxii PredRegs:$src1, 1, 0))>;
-
-// zext i32->i64
-def: Pat<(Zext64 I32:$src1),
-         (ToZext64 IntRegs:$src1)>;
 
 let AddedComplexity = 40 in
 multiclass T_StoreAbsReg_Pats <InstHexagon MI, RegisterClass RC, ValueType VT,
@@ -1587,6 +1595,15 @@ def: Pat<(i64 (cttz I64:$Rss)), (ToZext64 (S2_ct0p I64:$Rss))>;
 def: Pat<(i64 (ctlz (not I64:$Rss))), (ToZext64 (S2_cl1p I64:$Rss))>;
 def: Pat<(i64 (cttz (not I64:$Rss))), (ToZext64 (S2_ct1p I64:$Rss))>;
 
+def: Pat<(i64 (ctpop I64:$Rss)), (ToZext64 (S5_popcountp I64:$Rss))>;
+def: Pat<(i32 (ctpop I32:$Rs)), (S5_popcountp (A4_combineir 0, I32:$Rs))>;
+
+def: Pat<(bitreverse I32:$Rs), (S2_brev I32:$Rs)>;
+def: Pat<(bitreverse I64:$Rss), (S2_brevp I64:$Rss)>;
+
+def: Pat<(bswap I32:$Rs), (A2_swiz I32:$Rs)>;
+def: Pat<(bswap I64:$Rss), (A2_combinew (A2_swiz (LoReg $Rss)),
+                                        (A2_swiz (HiReg $Rss)))>;
 
 let AddedComplexity = 20 in {   // Complexity greater than cmp reg-imm.
   def: Pat<(i1 (seteq (and (shl 1, u5_0ImmPred:$u5), I32:$Rs), 0)),
@@ -1755,15 +1772,15 @@ multiclass Memopxr_add_pat<PatFrag Load, PatFrag Store, PatFrag ImmPred,
   def: Pat<(Store (Oper (Load (add I32:$Rs, ImmPred:$Off)), I32:$A),
                   (add I32:$Rs, ImmPred:$Off)),
            (MI I32:$Rs, imm:$Off, I32:$A)>;
-  def: Pat<(Store (Oper (Load (orisadd I32:$Rs, ImmPred:$Off)), I32:$A),
-                  (orisadd I32:$Rs, ImmPred:$Off)),
+  def: Pat<(Store (Oper (Load (IsOrAdd I32:$Rs, ImmPred:$Off)), I32:$A),
+                  (IsOrAdd I32:$Rs, ImmPred:$Off)),
            (MI I32:$Rs, imm:$Off, I32:$A)>;
   // Addr: fi
   def: Pat<(Store (Oper (Load (add AddrFI:$Rs, ImmPred:$Off)), I32:$A),
                   (add AddrFI:$Rs, ImmPred:$Off)),
            (MI AddrFI:$Rs, imm:$Off, I32:$A)>;
-  def: Pat<(Store (Oper (Load (orisadd AddrFI:$Rs, ImmPred:$Off)), I32:$A),
-                  (orisadd AddrFI:$Rs, ImmPred:$Off)),
+  def: Pat<(Store (Oper (Load (IsOrAdd AddrFI:$Rs, ImmPred:$Off)), I32:$A),
+                  (IsOrAdd AddrFI:$Rs, ImmPred:$Off)),
            (MI AddrFI:$Rs, imm:$Off, I32:$A)>;
 }
 
@@ -1854,15 +1871,15 @@ multiclass Memopxi_add_pat<PatFrag Load, PatFrag Store, PatFrag ImmPred,
   def: Pat<(Store (Oper (Load (add I32:$Rs, ImmPred:$Off)), Arg:$A),
                   (add I32:$Rs, ImmPred:$Off)),
            (MI I32:$Rs, imm:$Off, (ArgMod Arg:$A))>;
-  def: Pat<(Store (Oper (Load (orisadd I32:$Rs, ImmPred:$Off)), Arg:$A),
-                  (orisadd I32:$Rs, ImmPred:$Off)),
+  def: Pat<(Store (Oper (Load (IsOrAdd I32:$Rs, ImmPred:$Off)), Arg:$A),
+                  (IsOrAdd I32:$Rs, ImmPred:$Off)),
            (MI I32:$Rs, imm:$Off, (ArgMod Arg:$A))>;
   // Addr: fi
   def: Pat<(Store (Oper (Load (add AddrFI:$Rs, ImmPred:$Off)), Arg:$A),
                   (add AddrFI:$Rs, ImmPred:$Off)),
            (MI AddrFI:$Rs, imm:$Off, (ArgMod Arg:$A))>;
-  def: Pat<(Store (Oper (Load (orisadd AddrFI:$Rs, ImmPred:$Off)), Arg:$A),
-                  (orisadd AddrFI:$Rs, ImmPred:$Off)),
+  def: Pat<(Store (Oper (Load (IsOrAdd AddrFI:$Rs, ImmPred:$Off)), Arg:$A),
+                  (IsOrAdd AddrFI:$Rs, ImmPred:$Off)),
            (MI AddrFI:$Rs, imm:$Off, (ArgMod Arg:$A))>;
 }
 
@@ -2234,12 +2251,6 @@ def ftoi : SDNodeXForm<fpimm, [{
 
 def: Pat<(sra (i64 (add (sra I64:$src1, u6_0ImmPred:$src2), 1)), (i32 1)),
          (S2_asr_i_p_rnd I64:$src1, imm:$src2)>;
-
-def SDTHexagonI32I64: SDTypeProfile<1, 1, [SDTCisVT<0, i32>,
-                                           SDTCisVT<1, i64>]>;
-def HexagonPOPCOUNT: SDNode<"HexagonISD::POPCOUNT", SDTHexagonI32I64>;
-
-def: Pat<(HexagonPOPCOUNT I64:$Rss), (S5_popcountp I64:$Rss)>;
 
 let AddedComplexity = 20 in {
   defm: Loadx_pat<load, f32, s30_2ImmPred, L2_loadri_io>;
@@ -2718,17 +2729,6 @@ def unalignedstore : PatFrag<(ops node:$val, node:$addr), (store $val, $addr), [
 }]>;
 
 
-def s4_6ImmPred: PatLeaf<(i32 imm), [{
-  int64_t V = N->getSExtValue();
-  return isShiftedInt<4,6>(V);
-}]>;
-
-def s4_7ImmPred: PatLeaf<(i32 imm), [{
-  int64_t V = N->getSExtValue();
-  return isShiftedInt<4,7>(V);
-}]>;
-
-
 multiclass vS32b_ai_pats <ValueType VTSgl, ValueType VTDbl> {
   // Aligned stores
   def : Pat<(alignedstore (VTSgl VectorRegs:$src1), IntRegs:$addr),
@@ -2749,25 +2749,25 @@ multiclass vS32b_ai_pats <ValueType VTSgl, ValueType VTDbl> {
   // Fold Add R+OFF into vector store.
   let AddedComplexity = 10 in {
     def : Pat<(alignedstore (VTSgl VectorRegs:$src1),
-                     (add IntRegs:$src2, s4_6ImmPred:$offset)),
-              (V6_vS32b_ai IntRegs:$src2, s4_6ImmPred:$offset,
+                     (add IntRegs:$src2, Iss4_6:$offset)),
+              (V6_vS32b_ai IntRegs:$src2, Iss4_6:$offset,
                            (VTSgl VectorRegs:$src1))>,
               Requires<[UseHVXSgl]>;
     def : Pat<(unalignedstore (VTSgl VectorRegs:$src1),
-                     (add IntRegs:$src2, s4_6ImmPred:$offset)),
-              (V6_vS32Ub_ai IntRegs:$src2, s4_6ImmPred:$offset,
+                     (add IntRegs:$src2, Iss4_6:$offset)),
+              (V6_vS32Ub_ai IntRegs:$src2, Iss4_6:$offset,
                            (VTSgl VectorRegs:$src1))>,
               Requires<[UseHVXSgl]>;
 
     // Fold Add R+OFF into vector store 128B.
     def : Pat<(alignedstore (VTDbl VectorRegs128B:$src1),
-                     (add IntRegs:$src2, s4_7ImmPred:$offset)),
-              (V6_vS32b_ai_128B IntRegs:$src2, s4_7ImmPred:$offset,
+                     (add IntRegs:$src2, Iss4_7:$offset)),
+              (V6_vS32b_ai_128B IntRegs:$src2, Iss4_7:$offset,
                                 (VTDbl VectorRegs128B:$src1))>,
               Requires<[UseHVXDbl]>;
     def : Pat<(unalignedstore (VTDbl VectorRegs128B:$src1),
-                     (add IntRegs:$src2, s4_7ImmPred:$offset)),
-              (V6_vS32Ub_ai_128B IntRegs:$src2, s4_7ImmPred:$offset,
+                     (add IntRegs:$src2, Iss4_7:$offset)),
+              (V6_vS32Ub_ai_128B IntRegs:$src2, Iss4_7:$offset,
                                 (VTDbl VectorRegs128B:$src1))>,
               Requires<[UseHVXDbl]>;
   }
@@ -2798,18 +2798,18 @@ multiclass vL32b_ai_pats <ValueType VTSgl, ValueType VTDbl> {
 
   // Fold Add R+OFF into vector load.
   let AddedComplexity = 10 in {
-    def : Pat<(VTDbl (alignedload (add IntRegs:$src2, s4_7ImmPred:$offset))),
-              (V6_vL32b_ai_128B IntRegs:$src2, s4_7ImmPred:$offset)>,
+    def : Pat<(VTDbl (alignedload (add IntRegs:$src2, Iss4_7:$offset))),
+              (V6_vL32b_ai_128B IntRegs:$src2, Iss4_7:$offset)>,
                Requires<[UseHVXDbl]>;
-    def : Pat<(VTDbl (unalignedload (add IntRegs:$src2, s4_7ImmPred:$offset))),
-              (V6_vL32Ub_ai_128B IntRegs:$src2, s4_7ImmPred:$offset)>,
+    def : Pat<(VTDbl (unalignedload (add IntRegs:$src2, Iss4_7:$offset))),
+              (V6_vL32Ub_ai_128B IntRegs:$src2, Iss4_7:$offset)>,
                Requires<[UseHVXDbl]>;
 
-    def : Pat<(VTSgl (alignedload (add IntRegs:$src2, s4_6ImmPred:$offset))),
-              (V6_vL32b_ai IntRegs:$src2, s4_6ImmPred:$offset)>,
+    def : Pat<(VTSgl (alignedload (add IntRegs:$src2, Iss4_6:$offset))),
+              (V6_vL32b_ai IntRegs:$src2, Iss4_6:$offset)>,
               Requires<[UseHVXSgl]>;
-    def : Pat<(VTSgl (unalignedload (add IntRegs:$src2, s4_6ImmPred:$offset))),
-              (V6_vL32Ub_ai IntRegs:$src2, s4_6ImmPred:$offset)>,
+    def : Pat<(VTSgl (unalignedload (add IntRegs:$src2, Iss4_6:$offset))),
+              (V6_vL32Ub_ai IntRegs:$src2, Iss4_6:$offset)>,
               Requires<[UseHVXSgl]>;
   }
 }
@@ -3253,8 +3253,8 @@ def vmpyh: OutPatFrag<(ops node:$Rs, node:$Rt),
                       (M2_vmpy2s_s0 (i32 $Rs), (i32 $Rt))>;
 
 def: Pat<(v2i16 (mul V2I16:$Rs, V2I16:$Rt)),
-         (LoReg (S2_vtrunewh (v2i32 (A2_combineii 0, 0)),
-                             (v2i32 (vmpyh V2I16:$Rs, V2I16:$Rt))))>;
+         (LoReg (S2_vtrunewh (A2_combineii 0, 0),
+                             (vmpyh V2I16:$Rs, V2I16:$Rt)))>;
 
 // Multiplies two v4i16 vectors.
 def: Pat<(v4i16 (mul V4I16:$Rs, V4I16:$Rt)),
@@ -3345,3 +3345,11 @@ def: Pat<(v2i32 (zextloadv2i8 I32:$Rs)),
 def: Pat<(v2i32 (sextloadv2i8 I32:$Rs)),
          (S2_vsxthw (LoReg (v4i16 (S2_vsxtbh (L2_loadrh_io I32:$Rs, 0)))))>;
 
+
+// Read cycle counter.
+//
+def SDTInt64Leaf: SDTypeProfile<1, 0, [SDTCisVT<0, i64>]>;
+def HexagonREADCYCLE: SDNode<"HexagonISD::READCYCLE", SDTInt64Leaf,
+  [SDNPHasChain]>;
+
+def: Pat<(HexagonREADCYCLE), (A4_tfrcpp UPCYCLE)>;

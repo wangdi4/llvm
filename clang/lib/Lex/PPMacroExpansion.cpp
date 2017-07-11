@@ -92,12 +92,35 @@ void Preprocessor::appendMacroDirective(IdentifierInfo *II, MacroDirective *MD){
 }
 
 void Preprocessor::setLoadedMacroDirective(IdentifierInfo *II,
+                                           MacroDirective *ED,
                                            MacroDirective *MD) {
+  // Normally, when a macro is defined, it goes through appendMacroDirective()
+  // above, which chains a macro to previous defines, undefs, etc.
+  // However, in a pch, the whole macro history up to the end of the pch is
+  // stored, so ASTReader goes through this function instead.
+  // However, built-in macros are already registered in the Preprocessor
+  // ctor, and ASTWriter stops writing the macro chain at built-in macros,
+  // so in that case the chain from the pch needs to be spliced to the existing
+  // built-in.
+
   assert(II && MD);
   MacroState &StoredMD = CurSubmoduleState->Macros[II];
-  assert(!StoredMD.getLatest() &&
-         "the macro history was modified before initializing it from a pch");
-  StoredMD = MD;
+
+  if (auto *OldMD = StoredMD.getLatest()) {
+    // shouldIgnoreMacro() in ASTWriter also stops at macros from the
+    // predefines buffer in module builds. However, in module builds, modules
+    // are loaded completely before predefines are processed, so StoredMD
+    // will be nullptr for them when they're loaded. StoredMD should only be
+    // non-nullptr for builtins read from a pch file.
+    assert(OldMD->getMacroInfo()->isBuiltinMacro() &&
+           "only built-ins should have an entry here");
+    assert(!OldMD->getPrevious() && "builtin should only have a single entry");
+    ED->setPrevious(OldMD);
+    StoredMD.setLatest(MD);
+  } else {
+    StoredMD = MD;
+  }
+
   // Setup the identifier as having associated macro history.
   II->setHasMacroDefinition(true);
   if (!MD->isDefined() && LeafModuleMacros.find(II) == LeafModuleMacros.end())
@@ -1108,6 +1131,7 @@ static bool HasFeature(const Preprocessor &PP, StringRef Feature) {
       .Case("cxx_rtti", LangOpts.RTTI && LangOpts.RTTIData)
       .Case("enumerator_attributes", true)
       .Case("nullability", true)
+      .Case("nullability_on_arrays", true)
       .Case("memory_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Memory))
       .Case("thread_sanitizer", LangOpts.Sanitize.has(SanitizerKind::Thread))
       .Case("dataflow_sanitizer", LangOpts.Sanitize.has(SanitizerKind::DataFlow))
@@ -1159,6 +1183,7 @@ static bool HasFeature(const Preprocessor &PP, StringRef Feature) {
       .Case("cxx_attributes", LangOpts.CPlusPlus11)
       .Case("cxx_auto_type", LangOpts.CPlusPlus11)
       .Case("cxx_constexpr", LangOpts.CPlusPlus11)
+      .Case("cxx_constexpr_string_builtins", LangOpts.CPlusPlus11)
       .Case("cxx_decltype", LangOpts.CPlusPlus11)
       .Case("cxx_decltype_incomplete_return_types", LangOpts.CPlusPlus11)
       .Case("cxx_default_function_template_args", LangOpts.CPlusPlus11)
@@ -1397,7 +1422,7 @@ static bool EvaluateHasIncludeCommon(Token &Tok,
   const DirectoryLookup *CurDir;
   const FileEntry *File =
       PP.LookupFile(FilenameLoc, Filename, isAngled, LookupFrom, LookupFromFile,
-                    CurDir, nullptr, nullptr, nullptr);
+                    CurDir, nullptr, nullptr, nullptr, nullptr);
 
   // Get the result value.  A result of true means the file exists.
   return File != nullptr;
@@ -1428,7 +1453,7 @@ static bool EvaluateHasIncludeNext(Token &Tok,
   } else if (PP.isInPrimaryFile()) {
     Lookup = nullptr;
     PP.Diag(Tok, diag::pp_include_next_in_primary);
-  } else if (PP.getCurrentSubmodule()) {
+  } else if (PP.getCurrentLexerSubmodule()) {
     // Start looking up in the directory *after* the one in which the current
     // file would be found, if any.
     assert(PP.getCurrentLexer() && "#include_next directive in macro?");
@@ -1721,6 +1746,7 @@ void Preprocessor::ExpandBuiltinMacro(Token &Tok) {
           return llvm::StringSwitch<bool>(II->getName())
                       .Case("__make_integer_seq", LangOpts.CPlusPlus)
                       .Case("__type_pack_element", LangOpts.CPlusPlus)
+                      .Case("__builtin_available", true)
                       .Default(false);
         }
       });

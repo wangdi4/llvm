@@ -148,10 +148,16 @@ static void InterceptionFailed() {
 }
 
 static bool DistanceIsWithin2Gig(uptr from, uptr target) {
+#if SANITIZER_WINDOWS64
   if (from < target)
     return target - from <= (uptr)0x7FFFFFFFU;
   else
     return from - target <= (uptr)0x80000000U;
+#else
+  // In a 32-bit address space, the address calculation will wrap, so this check
+  // is unnecessary.
+  return true;
+#endif
 }
 
 static uptr GetMmapGranularity() {
@@ -872,6 +878,8 @@ uptr InternalGetProcAddress(void *module, const char *func_name) {
 
   IMAGE_DATA_DIRECTORY *export_directory =
       &headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT];
+  if (export_directory->Size == 0)
+    return 0;
   RVAPtr<IMAGE_EXPORT_DIRECTORY> exports(module,
                                          export_directory->VirtualAddress);
   RVAPtr<DWORD> functions(module, exports->AddressOfFunctions);

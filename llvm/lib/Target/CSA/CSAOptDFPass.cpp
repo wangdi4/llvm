@@ -1768,7 +1768,7 @@ seq_add_parloop_memdep(CSASeqCandidate& sc,
             TII.get(CSA::REPEAT1),
             sc.top).
     addReg(pred_reg).
-    addOperand(*sc.get_pick_input_op(loop_header));
+    add(*sc.get_pick_input_op(loop_header));
   repinst->setFlag(MachineInstr::NonSequential);
 
 
@@ -1806,7 +1806,7 @@ seq_add_repeat(CSASeqCandidate& sc,
             TII.get(sc.opcode),
             sc.top).
     addReg(pred_reg).
-    addOperand(*sc.get_pick_input_op(loop_header));
+    add(*sc.get_pick_input_op(loop_header));
   repinst->setFlag(MachineInstr::NonSequential);
   return repinst;
 }
@@ -1833,8 +1833,8 @@ seq_add_stride(CSASeqCandidate& sc,
             TII.get(sc.opcode),
             sc.top).
     addReg(pred_reg).
-    addOperand(*sc.get_pick_input_op(loop_header)).
-    addOperand(*in_stride_op);
+    add(*sc.get_pick_input_op(loop_header)).
+    add(*in_stride_op);
   strideInst->setFlag(MachineInstr::NonSequential);
   return strideInst;
 }
@@ -1873,9 +1873,9 @@ seq_add_reduction(CSASeqCandidate& sc,
               TII.get(sc.opcode),
               output_reg).    // result
       addReg(sc.bottom, RegState::Define).   // each == bottom
-      addOperand(*sc.get_pick_input_op(loop_header)).   // initial value
-      addOperand(*input0_op). // input0
-      addOperand(*input1_op). // input1
+      add(*sc.get_pick_input_op(loop_header)).   // initial value
+      add(*input0_op). // input0
+      add(*input1_op). // input1
       addReg(pred_reg);       // control
   }
   else {
@@ -1890,8 +1890,8 @@ seq_add_reduction(CSASeqCandidate& sc,
               TII.get(sc.opcode),
               output_reg).    // result
       addReg(sc.bottom, RegState::Define      ).      // each == bottom
-      addOperand(*sc.get_pick_input_op(loop_header)). // initial value
-      addOperand(*input0_op). // input0
+      add(*sc.get_pick_input_op(loop_header)). // initial value
+      add(*input0_op). // input0
       addReg(pred_reg);       // control
   }
 
@@ -1987,7 +1987,7 @@ seq_add_negate_stride_op(MachineOperand* in_stride_op,
             prev_inst->getDebugLoc(),
             TII.get(neg_opcode),
             new_input_reg).
-    addOperand(*in_stride_op);
+    add(*in_stride_op);
   neg_inst->setFlag(MachineInstr::NonSequential);
   return &neg_inst->getOperand(0);
 }
@@ -2062,9 +2062,9 @@ seq_do_transform_loop_seq(CSASeqLoopInfo& loop,
     addReg(seqInfo->pred_reg, RegState::Define).
     addReg(seqInfo->first_reg, RegState::Define).
     addReg(seqInfo->last_reg, RegState::Define).
-    addOperand(*in_i_op).
-    addOperand(*in_b_op).
-    addOperand(*in_s_op);
+    add(*in_i_op).
+    add(*in_b_op).
+    add(*in_s_op);
   seqInfo->seq_inst->setFlag(MachineInstr::NonSequential);
 
 

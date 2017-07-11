@@ -146,12 +146,8 @@ class JSONCompilationDatabasePlugin : public CompilationDatabasePlugin {
   loadFromDirectory(StringRef Directory, std::string &ErrorMessage) override {
     SmallString<1024> JSONDatabasePath(Directory);
     llvm::sys::path::append(JSONDatabasePath, "compile_commands.json");
-    std::unique_ptr<CompilationDatabase> Database(
-        JSONCompilationDatabase::loadFromFile(
-            JSONDatabasePath, ErrorMessage, JSONCommandLineSyntax::AutoDetect));
-    if (!Database)
-      return nullptr;
-    return Database;
+    return JSONCompilationDatabase::loadFromFile(
+        JSONDatabasePath, ErrorMessage, JSONCommandLineSyntax::AutoDetect);
   }
 };
 
@@ -257,10 +253,13 @@ void JSONCompilationDatabase::getCommands(
   for (int I = 0, E = CommandsRef.size(); I != E; ++I) {
     SmallString<8> DirectoryStorage;
     SmallString<32> FilenameStorage;
+    SmallString<32> OutputStorage;
+    auto Output = std::get<3>(CommandsRef[I]);
     Commands.emplace_back(
         std::get<0>(CommandsRef[I])->getValue(DirectoryStorage),
         std::get<1>(CommandsRef[I])->getValue(FilenameStorage),
-        nodeToCommandLine(Syntax, std::get<2>(CommandsRef[I])));
+        nodeToCommandLine(Syntax, std::get<2>(CommandsRef[I])),
+        Output ? Output->getValue(OutputStorage) : "");
   }
 }
 
@@ -289,6 +288,7 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
     llvm::yaml::ScalarNode *Directory = nullptr;
     llvm::Optional<std::vector<llvm::yaml::ScalarNode *>> Command;
     llvm::yaml::ScalarNode *File = nullptr;
+    llvm::yaml::ScalarNode *Output = nullptr;
     for (auto& NextKeyValue : *Object) {
       llvm::yaml::ScalarNode *KeyString =
           dyn_cast<llvm::yaml::ScalarNode>(NextKeyValue.getKey());
@@ -331,6 +331,8 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
           Command = std::vector<llvm::yaml::ScalarNode *>(1, ValueString);
       } else if (KeyValue == "file") {
         File = ValueString;
+      } else if (KeyValue == "output") {
+        Output = ValueString;
       } else {
         ErrorMessage = ("Unknown key: \"" +
                         KeyString->getRawValue() + "\"").str();
@@ -361,7 +363,7 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
     } else {
       llvm::sys::path::native(FileName, NativeFilePath);
     }
-    auto Cmd = CompileCommandRef(Directory, File, *Command);
+    auto Cmd = CompileCommandRef(Directory, File, *Command, Output);
     IndexByFile[NativeFilePath].push_back(Cmd);
     AllCommands.push_back(Cmd);
     MatchTrie.insert(NativeFilePath);

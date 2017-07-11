@@ -20,6 +20,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         oslist=["windows"],
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_set_target_async_default(self):
         """Test that 'lldb-mi --interpreter' switches to async mode by default."""
 
@@ -42,6 +43,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
     @expectedFlakeyLinux("llvm.org/pr26028")  # Fails in ~1% of cases
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_set_target_async_on(self):
         """Test that 'lldb-mi --interpreter' can execute commands in async mode."""
 
@@ -75,6 +77,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
     @expectedFailureAll(
         oslist=["linux"],
         bugnumber="Failing in ~11/600 dosep runs (build 3120-3122)")
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_set_target_async_off(self):
         """Test that 'lldb-mi --interpreter' can execute commands in sync mode."""
 
@@ -101,6 +104,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         oslist=["windows"],
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_show_target_async(self):
         """Test that 'lldb-mi --interpreter' in async mode by default."""
 
@@ -114,6 +118,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         oslist=["windows"],
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_show_language(self):
         """Test that 'lldb-mi --interpreter' can get current language."""
 
@@ -138,6 +143,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         oslist=["windows"],
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @unittest2.expectedFailure("-gdb-set ignores unknown properties")
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_set_unknown(self):
         """Test that 'lldb-mi --interpreter' fails when setting an unknown property."""
 
@@ -151,6 +157,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         oslist=["windows"],
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @unittest2.expectedFailure("-gdb-show ignores unknown properties")
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_show_unknown(self):
         """Test that 'lldb-mi --interpreter' fails when showing an unknown property."""
 
@@ -165,6 +172,7 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         bugnumber="llvm.org/pr22274: need a pexpect replacement for windows")
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
     @skipIfLinux  # llvm.org/pr22841: lldb-mi tests fail on all Linux buildbots
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_gdb_set_ouptut_radix(self):
         """Test that 'lldb-mi --interpreter' works for -gdb-set output-radix."""
 
@@ -208,3 +216,45 @@ class MiGdbSetShowTestCase(lldbmi_testcase.MiTestCaseBase):
         self.expect("\^done")
         self.runCmd("-var-evaluate-expression var_a")
         self.expect("\^done,value=\"10\"")
+
+    @skipIfWindows  # llvm.org/pr24452: Get lldb-mi tests working on Windows
+    @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
+    @expectedFailureAll(
+        bugnumber="llvm.org/pr31485: data-disassemble doesn't follow flavor settings")
+    def test_lldbmi_gdb_set_disassembly_flavor(self):
+        """Test that 'lldb-mi --interpreter' works for -gdb-set disassembly-flavor."""
+
+        self.spawnLldbMi(args=None)
+
+        # Load executable
+        self.runCmd("-file-exec-and-symbols %s" % self.myexe)
+        self.expect("\^done")
+
+        # Run to BP_printf
+        line = line_number('main.cpp', '// BP_printf')
+        self.runCmd("-break-insert main.cpp:%d" % line)
+        self.expect("\^done,bkpt={number=\"1\"")
+        self.runCmd("-exec-run")
+        self.expect("\^running")
+        self.expect("\*stopped,reason=\"breakpoint-hit\".+addr=\"(0x[0-9a-f]+)\"")
+
+        # Get starting and ending address from $pc
+        pc = int(self.child.match.group(1), base=16)
+        s_addr, e_addr = pc, pc + 1
+
+        # Test default output (att)
+        self.runCmd("-data-disassemble -s %d -e %d -- 0" % (s_addr, e_addr))
+        self.expect("movl ")
+
+        # Test intel style
+        self.runCmd("-gdb-set disassembly-flavor intel")
+        self.expect("\^done")
+        self.runCmd("-data-disassemble -s %d -e %d -- 0" % (s_addr, e_addr))
+        self.expect("mov ")
+
+        # Test AT&T style
+        self.runCmd("-gdb-set disassembly-flavor intel")
+        self.expect("\^done")
+        self.runCmd("-data-disassemble -s %d -e %d -- 0" % (s_addr, e_addr))
+        self.expect("movl ")

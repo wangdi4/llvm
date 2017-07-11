@@ -30,6 +30,7 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include "llvm/Transforms/Vectorize.h"
@@ -65,7 +66,9 @@ public:
   bool run();
 
 private:
-  Value *getPointerOperand(Value *I);
+  Value *getPointerOperand(Value *I) const;
+
+  GetElementPtrInst *getSourceGEP(Value *Src) const;
 
   unsigned getPointerAddressSpace(Value *I);
 
@@ -215,7 +218,7 @@ bool Vectorizer::run() {
   return Changed;
 }
 
-Value *Vectorizer::getPointerOperand(Value *I) {
+Value *Vectorizer::getPointerOperand(Value *I) const {
   if (LoadInst *LI = dyn_cast<LoadInst>(I))
     return LI->getPointerOperand();
   if (StoreInst *SI = dyn_cast<StoreInst>(I))
@@ -229,6 +232,19 @@ unsigned Vectorizer::getPointerAddressSpace(Value *I) {
   if (StoreInst *S = dyn_cast<StoreInst>(I))
     return S->getPointerAddressSpace();
   return -1;
+}
+
+GetElementPtrInst *Vectorizer::getSourceGEP(Value *Src) const {
+  // First strip pointer bitcasts. Make sure pointee size is the same with
+  // and without casts.
+  // TODO: a stride set by the add instruction below can match the difference
+  // in pointee type size here. Currently it will not be vectorized.
+  Value *SrcPtr = getPointerOperand(Src);
+  Value *SrcBase = SrcPtr->stripPointerCasts();
+  if (DL.getTypeStoreSize(SrcPtr->getType()->getPointerElementType()) ==
+      DL.getTypeStoreSize(SrcBase->getType()->getPointerElementType()))
+    SrcPtr = SrcBase;
+  return dyn_cast<GetElementPtrInst>(SrcPtr);
 }
 
 // FIXME: Merge with llvm::isConsecutiveAccess
@@ -283,8 +299,8 @@ bool Vectorizer::isConsecutiveAccess(Value *A, Value *B) {
 
   // Look through GEPs after checking they're the same except for the last
   // index.
-  GetElementPtrInst *GEPA = dyn_cast<GetElementPtrInst>(getPointerOperand(A));
-  GetElementPtrInst *GEPB = dyn_cast<GetElementPtrInst>(getPointerOperand(B));
+  GetElementPtrInst *GEPA = getSourceGEP(A);
+  GetElementPtrInst *GEPB = getSourceGEP(B);
   if (!GEPA || !GEPB || GEPA->getNumOperands() != GEPB->getNumOperands())
     return false;
   unsigned FinalIndex = GEPA->getNumOperands() - 1;
@@ -328,11 +344,9 @@ bool Vectorizer::isConsecutiveAccess(Value *A, Value *B) {
   // If any bits are known to be zero other than the sign bit in OpA, we can
   // add 1 to it while guaranteeing no overflow of any sort.
   if (!Safe) {
-    APInt KnownZero(BitWidth, 0);
-    APInt KnownOne(BitWidth, 0);
-    computeKnownBits(OpA, KnownZero, KnownOne, DL, 0, nullptr, OpA, &DT);
-    KnownZero &= ~APInt::getHighBitsSet(BitWidth, 1);
-    if (KnownZero != 0)
+    KnownBits Known(BitWidth);
+    computeKnownBits(OpA, Known, DL, 0, nullptr, OpA, &DT);
+    if (Known.countMaxTrailingOnes() < (BitWidth - 1))
       Safe = true;
   }
 
@@ -432,9 +446,12 @@ Vectorizer::splitOddVectorElts(ArrayRef<Instruction *> Chain,
   unsigned ElementSizeBytes = ElementSizeBits / 8;
   unsigned SizeBytes = ElementSizeBytes * Chain.size();
   unsigned NumLeft = (SizeBytes - (SizeBytes % 4)) / ElementSizeBytes;
-  if (NumLeft == Chain.size())
-    --NumLeft;
-  else if (NumLeft == 0)
+  if (NumLeft == Chain.size()) {
+    if ((NumLeft & 1) == 0)
+      NumLeft /= 2; // Split even in half
+    else
+      --NumLeft;    // Split off last element
+  } else if (NumLeft == 0)
     NumLeft = 1;
   return std::make_pair(Chain.slice(0, NumLeft), Chain.slice(NumLeft));
 }
@@ -477,10 +494,23 @@ Vectorizer::getVectorizablePrefix(ArrayRef<Instruction *> Chain) {
 
   // Loop until we find an instruction in ChainInstrs that we can't vectorize.
   unsigned ChainInstrIdx = 0;
+  Instruction *BarrierMemoryInstr = nullptr;
+
   for (unsigned E = ChainInstrs.size(); ChainInstrIdx < E; ++ChainInstrIdx) {
     Instruction *ChainInstr = ChainInstrs[ChainInstrIdx];
-    bool AliasFound = false;
+
+    // If a barrier memory instruction was found, chain instructions that follow
+    // will not be added to the valid prefix.
+    if (BarrierMemoryInstr && OBB.dominates(BarrierMemoryInstr, ChainInstr))
+      break;
+
+    // Check (in BB order) if any instruction prevents ChainInstr from being
+    // vectorized. Find and store the first such "conflicting" instruction.
     for (Instruction *MemInstr : MemoryInstrs) {
+      // If a barrier memory instruction was found, do not check past it.
+      if (BarrierMemoryInstr && OBB.dominates(BarrierMemoryInstr, MemInstr))
+        break;
+
       if (isa<LoadInst>(MemInstr) && isa<LoadInst>(ChainInstr))
         continue;
 
@@ -508,12 +538,21 @@ Vectorizer::getVectorizablePrefix(ArrayRef<Instruction *> Chain) {
                  << "  " << *ChainInstr << '\n'
                  << "  " << *getPointerOperand(ChainInstr) << '\n';
         });
-        AliasFound = true;
+        // Save this aliasing memory instruction as a barrier, but allow other
+        // instructions that precede the barrier to be vectorized with this one.
+        BarrierMemoryInstr = MemInstr;
         break;
       }
     }
-    if (AliasFound)
+    // Continue the search only for store chains, since vectorizing stores that
+    // precede an aliasing load is valid. Conversely, vectorizing loads is valid
+    // up to an aliasing store, but should not pull loads from further down in
+    // the basic block.
+    if (IsLoadChain && BarrierMemoryInstr) {
+      // The BarrierMemoryInstr is a store that precedes ChainInstr.
+      assert(OBB.dominates(BarrierMemoryInstr, ChainInstr));
       break;
+    }
   }
 
   // Find the largest prefix of Chain whose elements are all in
@@ -566,7 +605,7 @@ Vectorizer::collectInstructions(BasicBlock *BB) {
         continue;
 
       // Make sure all the users of a vector are constant-index extracts.
-      if (isa<VectorType>(Ty) && !all_of(LI->users(), [LI](const User *U) {
+      if (isa<VectorType>(Ty) && !all_of(LI->users(), [](const User *U) {
             const ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(U);
             return EEI && isa<ConstantInt>(EEI->getOperand(1));
           }))
@@ -600,7 +639,7 @@ Vectorizer::collectInstructions(BasicBlock *BB) {
       if (TySize > VecRegSize / 2)
         continue;
 
-      if (isa<VectorType>(Ty) && !all_of(SI->users(), [SI](const User *U) {
+      if (isa<VectorType>(Ty) && !all_of(SI->users(), [](const User *U) {
             const ExtractElementInst *EEI = dyn_cast<ExtractElementInst>(U);
             return EEI && isa<ConstantInt>(EEI->getOperand(1));
           }))

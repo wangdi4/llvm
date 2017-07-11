@@ -12,7 +12,7 @@
 
 #include "Unwind-EHABI.h"
 
-#if _LIBUNWIND_ARM_EHABI
+#if defined(_LIBUNWIND_ARM_EHABI)
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -245,11 +245,9 @@ decode_eht_entry(const uint32_t* data, size_t* off, size_t* len) {
   return data;
 }
 
-_Unwind_Reason_Code _Unwind_VRS_Interpret(
-    _Unwind_Context* context,
-    const uint32_t* data,
-    size_t offset,
-    size_t len) {
+_LIBUNWIND_EXPORT _Unwind_Reason_Code
+_Unwind_VRS_Interpret(_Unwind_Context *context, const uint32_t *data,
+                      size_t offset, size_t len) {
   bool wrotePC = false;
   bool finish = false;
   while (offset < len && !finish) {
@@ -418,24 +416,21 @@ _Unwind_Reason_Code _Unwind_VRS_Interpret(
   return _URC_CONTINUE_UNWIND;
 }
 
-extern "C" _Unwind_Reason_Code __aeabi_unwind_cpp_pr0(
-    _Unwind_State state,
-    _Unwind_Control_Block *ucbp,
-    _Unwind_Context *context) {
+extern "C" _LIBUNWIND_EXPORT _Unwind_Reason_Code
+__aeabi_unwind_cpp_pr0(_Unwind_State state, _Unwind_Control_Block *ucbp,
+                       _Unwind_Context *context) {
   return unwindOneFrame(state, ucbp, context);
 }
 
-extern "C" _Unwind_Reason_Code __aeabi_unwind_cpp_pr1(
-    _Unwind_State state,
-    _Unwind_Control_Block *ucbp,
-    _Unwind_Context *context) {
+extern "C" _LIBUNWIND_EXPORT _Unwind_Reason_Code
+__aeabi_unwind_cpp_pr1(_Unwind_State state, _Unwind_Control_Block *ucbp,
+                       _Unwind_Context *context) {
   return unwindOneFrame(state, ucbp, context);
 }
 
-extern "C" _Unwind_Reason_Code __aeabi_unwind_cpp_pr2(
-    _Unwind_State state,
-    _Unwind_Control_Block *ucbp,
-    _Unwind_Context *context) {
+extern "C" _LIBUNWIND_EXPORT _Unwind_Reason_Code
+__aeabi_unwind_cpp_pr2(_Unwind_State state, _Unwind_Control_Block *ucbp,
+                       _Unwind_Context *context) {
   return unwindOneFrame(state, ucbp, context);
 }
 
@@ -755,7 +750,7 @@ static uint64_t ValueAsBitPattern(_Unwind_VRS_DataRepresentation representation,
   return value;
 }
 
-_Unwind_VRS_Result
+_LIBUNWIND_EXPORT _Unwind_VRS_Result
 _Unwind_VRS_Set(_Unwind_Context *context, _Unwind_VRS_RegClass regclass,
                 uint32_t regno, _Unwind_VRS_DataRepresentation representation,
                 void *valuep) {
@@ -867,12 +862,10 @@ _Unwind_VRS_Get_Internal(_Unwind_Context *context,
   _LIBUNWIND_ABORT("unsupported register class");
 }
 
-_Unwind_VRS_Result _Unwind_VRS_Get(
-    _Unwind_Context *context,
-    _Unwind_VRS_RegClass regclass,
-    uint32_t regno,
-    _Unwind_VRS_DataRepresentation representation,
-    void *valuep) {
+_LIBUNWIND_EXPORT _Unwind_VRS_Result
+_Unwind_VRS_Get(_Unwind_Context *context, _Unwind_VRS_RegClass regclass,
+                uint32_t regno, _Unwind_VRS_DataRepresentation representation,
+                void *valuep) {
   _Unwind_VRS_Result result =
       _Unwind_VRS_Get_Internal(context, regclass, regno, representation,
                                valuep);
@@ -994,4 +987,4 @@ __gnu_unwind_frame(_Unwind_Exception *exception_object,
   return _URC_OK;
 }
 
-#endif  // _LIBUNWIND_ARM_EHABI
+#endif  // defined(_LIBUNWIND_ARM_EHABI)

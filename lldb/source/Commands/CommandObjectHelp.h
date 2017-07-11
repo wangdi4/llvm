@@ -14,6 +14,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/Options.h"
 
@@ -35,8 +36,8 @@ public:
                        StringList &matches) override;
 
   static void GenerateAdditionalHelpAvenuesMessage(
-      Stream *s, const char *command, const char *prefix = nullptr,
-      const char *subcommand = nullptr, bool include_apropos = true,
+      Stream *s, llvm::StringRef command, llvm::StringRef prefix,
+      llvm::StringRef subcommand, bool include_apropos = true,
       bool include_type_lookup = true);
 
   class CommandOptions : public Options {
@@ -45,9 +46,9 @@ public:
 
     ~CommandOptions() override {}
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {

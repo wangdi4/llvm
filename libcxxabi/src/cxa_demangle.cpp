@@ -7,7 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define _LIBCPP_EXTERN_TEMPLATE(...)
 #define _LIBCPP_NO_EXCEPTIONS
 
 #include "__cxxabi_config.h"
@@ -1611,7 +1610,8 @@ parse_function_type(const char* first, const char* last, C& db)
                 {
                     if (t == last)
                     {
-                        db.names.pop_back();
+                        if (!db.names.empty())
+                          db.names.pop_back();
                         return first;
                     }
                     if (*t == 'E')
@@ -1927,10 +1927,11 @@ parse_type(const char* first, const char* last, C& db)
                             if (is_function)
                             {
                                 size_t p = db.names[k].second.size();
-                                if (db.names[k].second[p-2] == '&')
-                                    p -= 3;
-                                else if (db.names[k].second.back() == '&')
+                                if (db.names[k].second[p - 2] == '&' &&
+                                    db.names[k].second[p - 1] == '&')
                                     p -= 2;
+                                else if (db.names[k].second.back() == '&')
+                                    p -= 1;
                                 if (cv & 1)
                                 {
                                     db.names[k].second.insert(p, " const");
@@ -3058,9 +3059,9 @@ parse_unnamed_type_name(const char* first, const char* last, C& db)
             }
             if (t0 == last || *t0 != 'E')
             {
-              if(!db.names.empty())
+              if (!db.names.empty())
                 db.names.pop_back();
-                return first;
+              return first;
             }
             ++t0;
             if (t0 == last)
@@ -4343,6 +4344,8 @@ parse_call_offset(const char* first, const char* last)
 //                    # base is the nominal target function of thunk
 //                ::= GV <object name> # Guard variable for one-time initialization
 //                                     # No <type>
+//                ::= TW <object name> # Thread-local wrapper
+//                ::= TH <object name> # Thread-local initialization
 //      extension ::= TC <first type> <number> _ <second type> # construction vtable for second-in-first
 //      extension ::= GR <object name> # reference temporary for object
 
@@ -4444,6 +4447,28 @@ parse_special_name(const char* first, const char* last, C& db)
                             first = t1;
                         }
                     }
+                }
+                break;
+            case 'W':
+                // TW <object name> # Thread-local wrapper
+                t = parse_name(first + 2, last, db);
+                if (t != first + 2) 
+                {
+                    if (db.names.empty())
+                    return first;
+                    db.names.back().first.insert(0, "thread-local wrapper routine for ");
+                    first = t;
+                }
+                break;
+            case 'H':
+                //TH <object name> # Thread-local initialization
+                t = parse_name(first + 2, last, db);
+                if (t != first + 2) 
+                {
+                    if (db.names.empty())
+                    return first;
+                    db.names.back().first.insert(0, "thread-local initialization routine for ");
+                    first = t;
                 }
                 break;
             default:
@@ -4952,13 +4977,13 @@ struct Db
     sub_type names;
     template_param_type subs;
     Vector<template_param_type> template_param;
-    unsigned cv;
-    unsigned ref;
-    unsigned encoding_depth;
-    bool parsed_ctor_dtor_cv;
-    bool tag_templates;
-    bool fix_forward_references;
-    bool try_to_parse_template_args;
+    unsigned cv = 0;
+    unsigned ref = 0;
+    unsigned encoding_depth = 0;
+    bool parsed_ctor_dtor_cv = false;
+    bool tag_templates = true;
+    bool fix_forward_references = false;
+    bool try_to_parse_template_args = true;
 
     template <size_t N>
     Db(arena<N>& ar) :
@@ -4978,17 +5003,11 @@ __cxa_demangle(const char *mangled_name, char *buf, size_t *n, int *status) {
             *status = invalid_args;
         return nullptr;
     }
+
     size_t internal_size = buf != nullptr ? *n : 0;
     arena<bs> a;
     Db db(a);
-    db.cv = 0;
-    db.ref = 0;
-    db.encoding_depth = 0;
-    db.parsed_ctor_dtor_cv = false;
-    db.tag_templates = true;
     db.template_param.emplace_back(a);
-    db.fix_forward_references = false;
-    db.try_to_parse_template_args = true;
     int internal_status = success;
     size_t len = std::strlen(mangled_name);
     demangle(mangled_name, mangled_name + len, db,

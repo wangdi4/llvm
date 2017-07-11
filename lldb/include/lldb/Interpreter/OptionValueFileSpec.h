@@ -12,7 +12,7 @@
 
 #include "lldb/Interpreter/OptionValue.h"
 
-#include "lldb/Host/FileSpec.h"
+#include "lldb/Utility/FileSpec.h"
 #include "llvm/Support/Chrono.h"
 
 namespace lldb_private {
@@ -37,10 +37,10 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
-  Error
+  Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
-  Error
+  Status
   SetValueFromString(const char *,
                      VarSetOperationType = eVarSetOperationAssign) = delete;
 
@@ -54,7 +54,7 @@ public:
 
   lldb::OptionValueSP DeepCopy() const override;
 
-  size_t AutoComplete(CommandInterpreter &interpreter, const char *s,
+  size_t AutoComplete(CommandInterpreter &interpreter, llvm::StringRef s,
                       int match_start_point, int max_return_elements,
                       bool &word_complete, StringList &matches) override;
 

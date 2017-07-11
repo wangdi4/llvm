@@ -37,6 +37,8 @@ LiveInterval &LiveRangeEdit::createEmptyIntervalFrom(unsigned OldReg) {
     VRM->setIsSplitFromReg(VReg, VRM->getOriginal(OldReg));
   }
   LiveInterval &LI = LIS.createEmptyInterval(VReg);
+  if (Parent && !Parent->isSpillable())
+    LI.markNotSpillable();
   // Create empty subranges if the OldReg's interval has them. Do not create
   // the main range here---it will be constructed later after the subranges
   // have been finalized.
@@ -52,6 +54,14 @@ unsigned LiveRangeEdit::createFrom(unsigned OldReg) {
   if (VRM) {
     VRM->setIsSplitFromReg(VReg, VRM->getOriginal(OldReg));
   }
+  // FIXME: Getting the interval here actually computes it.
+  // In theory, this may not be what we want, but in practice
+  // the createEmptyIntervalFrom API is used when this is not
+  // the case. Generally speaking we just want to annotate the
+  // LiveInterval when it gets created but we cannot do that at
+  // the moment.
+  if (Parent && !Parent->isSpillable())
+    LIS.getInterval(VReg).markNotSpillable();
   return VReg;
 }
 
@@ -236,7 +246,7 @@ bool LiveRangeEdit::useIsKill(const LiveInterval &LI,
   unsigned SubReg = MO.getSubReg();
   LaneBitmask LaneMask = TRI.getSubRegIndexLaneMask(SubReg);
   for (const LiveInterval::SubRange &S : LI.subranges()) {
-    if ((S.LaneMask & LaneMask) != 0 && S.Query(Idx).isKill())
+    if ((S.LaneMask & LaneMask).any() && S.Query(Idx).isKill())
       return true;
   }
   return false;
@@ -272,15 +282,18 @@ void LiveRangeEdit::eliminateDeadDef(MachineInstr *MI, ToShrinkSet &ToShrink,
   bool ReadsPhysRegs = false;
   bool isOrigDef = false;
   unsigned Dest;
+  // Only optimize rematerialize case when the instruction has one def, since
+  // otherwise we could leave some dead defs in the code.  This case is
+  // extremely rare.
   // CSA EDIT:
   // This code seems to have assumed that any defs from register spills are
   // virtual registers that ought to be cleaned up, but this is not the case
   // for CSA stores which are emitted with an %ign def. Therefore, an extra
   // check has been added to make sure that defs are actually virtual registers
   // before they are eliminated.
-  if (VRM
-      && MI->getOperand(0).isReg()
-      && !TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg())) {
+  if (VRM && MI->getOperand(0).isReg() && MI->getOperand(0).isDef() &&
+      MI->getDesc().getNumDefs() == 1 &&
+      !TargetRegisterInfo::isPhysicalRegister(MI->getOperand(0).getReg())) {
     Dest = MI->getOperand(0).getReg();
     unsigned Original = VRM->getOriginal(Dest);
     LiveInterval &OrigLI = LIS.getInterval(Original);
@@ -445,9 +458,6 @@ LiveRangeEdit::MRI_NoteNewVirtualRegister(unsigned VReg)
 {
   if (VRM)
     VRM->grow();
-
-  if (Parent && !Parent->isSpillable())
-    LIS.getInterval(VReg).markNotSpillable();
 
   NewRegs.push_back(VReg);
 }

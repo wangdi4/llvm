@@ -137,7 +137,7 @@ void CSAMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       APFloat apf = f->getValueAPF();
       bool ignored;
       if (f->getType() == Type::getFloatTy(f->getContext()))
-        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
+        apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven, &ignored);
       double d = apf.convertToDouble();
       switch  (f->getType()->getTypeID()) {
       default:

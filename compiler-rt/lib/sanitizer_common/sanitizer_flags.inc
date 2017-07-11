@@ -62,7 +62,7 @@ COMMON_FLAG(
 COMMON_FLAG(
     int, verbosity, 0,
     "Verbosity level (0 - silent, 1 - a bit of output, 2+ - more output).")
-COMMON_FLAG(bool, detect_leaks, true, "Enable memory leak detection.")
+COMMON_FLAG(bool, detect_leaks, !SANITIZER_MAC, "Enable memory leak detection.")
 COMMON_FLAG(
     bool, leak_check_at_exit, true,
     "Invoke leak checking in an atexit handler. Has no effect if "
@@ -74,9 +74,14 @@ COMMON_FLAG(bool, allocator_may_return_null, false,
 COMMON_FLAG(bool, print_summary, true,
             "If false, disable printing error summaries in addition to error "
             "reports.")
+COMMON_FLAG(int, print_module_map, 0,
+            "OS X only. 0 = don't print, 1 = print only once before process "
+            "exits, 2 = print after each report.")
 COMMON_FLAG(bool, check_printf, true, "Check printf arguments.")
 COMMON_FLAG(bool, handle_segv, true,
-            "If set, registers the tool's custom SIGSEGV/SIGBUS handler.")
+            "If set, registers the tool's custom SIGSEGV handler.")
+COMMON_FLAG(bool, handle_sigbus, true,
+            "If set, registers the tool's custom SIGBUS handler.")
 COMMON_FLAG(bool, handle_abort, false,
             "If set, registers the tool's custom SIGABRT handler.")
 COMMON_FLAG(bool, handle_sigill, false,
@@ -119,9 +124,11 @@ COMMON_FLAG(uptr, soft_rss_limit_mb, 0,
             " This limit does not affect memory allocations other than"
             " malloc/new.")
 COMMON_FLAG(bool, heap_profile, false, "Experimental heap profiler, asan-only")
-COMMON_FLAG(bool, allocator_release_to_os, false,
-            "Experimental. If true, try to periodically release unused"
-            " memory to the OS.\n")
+COMMON_FLAG(s32, allocator_release_to_os_interval_ms, kReleaseToOSIntervalNever,
+            "Experimental. Only affects a 64-bit allocator. If set, tries to "
+            "release unused memory to the OS, but not more often than this "
+            "interval (in milliseconds). Negative values mean do not attempt "
+            "to release memory to the OS.\n")
 COMMON_FLAG(bool, can_use_proc_maps_statm, true,
             "If false, do not attempt to read /proc/maps/statm."
             " Mostly useful for testing sanitizers.")
@@ -135,12 +142,6 @@ COMMON_FLAG(bool, coverage_pcs, true,
 COMMON_FLAG(bool, coverage_order_pcs, false,
              "If true, the PCs will be dumped in the order they've"
              " appeared during the execution.")
-COMMON_FLAG(bool, coverage_bitset, false,
-            "If set (and if 'coverage' is set too), the coverage information "
-            "will also be dumped as a bitset to a separate file.")
-COMMON_FLAG(bool, coverage_counters, false,
-            "If set (and if 'coverage' is set too), the bitmap that corresponds"
-            " to coverage counters will be dumped.")
 COMMON_FLAG(bool, coverage_direct, SANITIZER_ANDROID,
             "If set, coverage information will be dumped directly to a memory "
             "mapped file. This way data is not lost even if the process is "
@@ -185,11 +186,17 @@ COMMON_FLAG(bool, intercept_strstr, true,
 COMMON_FLAG(bool, intercept_strspn, true,
             "If set, uses custom wrappers for strspn and strcspn function "
             "to find more errors.")
+COMMON_FLAG(bool, intercept_strtok, true,
+            "If set, uses a custom wrapper for the strtok function "
+            "to find more errors.")
 COMMON_FLAG(bool, intercept_strpbrk, true,
             "If set, uses custom wrappers for strpbrk function "
             "to find more errors.")
 COMMON_FLAG(bool, intercept_strlen, true,
             "If set, uses custom wrappers for strlen and strnlen functions "
+            "to find more errors.")
+COMMON_FLAG(bool, intercept_strndup, true,
+            "If set, uses custom wrappers for strndup functions "
             "to find more errors.")
 COMMON_FLAG(bool, intercept_strchr, true,
             "If set, uses custom wrappers for strchr, strchrnul, and strrchr "

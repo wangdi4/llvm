@@ -98,7 +98,7 @@ public:
   */
 
   // ifConversion 
-  bool isPredicable(MachineInstr &MI) const override {
+  bool isPredicable(const MachineInstr &MI) const override {
     return true;
   }
 

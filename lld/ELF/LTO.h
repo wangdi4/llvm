@@ -47,8 +47,9 @@ public:
   std::vector<InputFile *> compile();
 
 private:
-  std::unique_ptr<llvm::lto::LTO> LtoObj;
+  std::unique_ptr<llvm::lto::LTO> LTOObj;
   std::vector<SmallString<0>> Buff;
+  std::vector<std::unique_ptr<MemoryBuffer>> Files;
 };
 }
 }

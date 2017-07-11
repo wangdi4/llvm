@@ -358,7 +358,7 @@ bool PPCFastISel::PPCComputeAddress(const Value *Obj, Address &Addr) {
       for (User::const_op_iterator II = U->op_begin() + 1, IE = U->op_end();
            II != IE; ++II, ++GTI) {
         const Value *Op = *II;
-        if (StructType *STy = dyn_cast<StructType>(*GTI)) {
+        if (StructType *STy = GTI.getStructTypeOrNull()) {
           const StructLayout *SL = DL.getStructLayout(STy);
           unsigned Idx = cast<ConstantInt>(Op)->getZExtValue();
           TmpOffset += SL->getElementOffset(Idx);
@@ -1330,7 +1330,7 @@ bool PPCFastISel::processCallArgs(SmallVectorImpl<Value*> &Args,
   // Issue CALLSEQ_START.
   BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
           TII.get(TII.getCallFrameSetupOpcode()))
-    .addImm(NumBytes);
+    .addImm(NumBytes).addImm(0);
 
   // Prepare to assign register arguments.  Every argument uses up a
   // GPR protocol register even if it's passed in a floating-point
@@ -2246,6 +2246,7 @@ bool PPCFastISel::tryToFoldLoadIntoMI(MachineInstr *MI, unsigned OpNo,
     }
 
     case PPC::EXTSW:
+    case PPC::EXTSW_32:
     case PPC::EXTSW_32_64: {
       if (VT != MVT::i32 && VT != MVT::i16 && VT != MVT::i8)
         return false;

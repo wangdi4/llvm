@@ -8,13 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 // Other libraries and framework includes
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/common/TCPSocket.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/UriParser.h"
 
 #include "PlatformAndroidRemoteGDBServer.h"
-#include "Utility/UriParser.h"
 
 #include <sstream>
 
@@ -25,9 +25,9 @@ using namespace platform_android;
 static const lldb::pid_t g_remote_platform_pid =
     0; // Alias for the process id of lldb-platform
 
-static Error ForwardPortWithAdb(
+static Status ForwardPortWithAdb(
     const uint16_t local_port, const uint16_t remote_port,
-    const char *remote_socket_name,
+    llvm::StringRef remote_socket_name,
     const llvm::Optional<AdbClient::UnixSocketNamespace> &socket_namespace,
     std::string &device_id) {
   Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PLATFORM));
@@ -50,24 +50,24 @@ static Error ForwardPortWithAdb(
 
   if (log)
     log->Printf("Forwarding remote socket \"%s\" to local TCP port %d",
-                remote_socket_name, local_port);
+                remote_socket_name.str().c_str(), local_port);
 
   if (!socket_namespace)
-    return Error("Invalid socket namespace");
+    return Status("Invalid socket namespace");
 
   return adb.SetPortForwarding(local_port, remote_socket_name,
                                *socket_namespace);
 }
 
-static Error DeleteForwardPortWithAdb(uint16_t local_port,
-                                      const std::string &device_id) {
+static Status DeleteForwardPortWithAdb(uint16_t local_port,
+                                       const std::string &device_id) {
   AdbClient adb(device_id);
   return adb.DeletePortForwarding(local_port);
 }
 
-static Error FindUnusedPort(uint16_t &port) {
-  Error error;
-  std::unique_ptr<TCPSocket> tcp_socket(new TCPSocket(false, error));
+static Status FindUnusedPort(uint16_t &port) {
+  Status error;
+  std::unique_ptr<TCPSocket> tcp_socket(new TCPSocket(true, false));
   if (error.Fail())
     return error;
 
@@ -107,19 +107,20 @@ bool PlatformAndroidRemoteGDBServer::KillSpawnedProcess(lldb::pid_t pid) {
   return m_gdb_client.KillSpawnedProcess(pid);
 }
 
-Error PlatformAndroidRemoteGDBServer::ConnectRemote(Args &args) {
+Status PlatformAndroidRemoteGDBServer::ConnectRemote(Args &args) {
   m_device_id.clear();
 
   if (args.GetArgumentCount() != 1)
-    return Error("\"platform connect\" takes a single argument: <connect-url>");
+    return Status(
+        "\"platform connect\" takes a single argument: <connect-url>");
 
   int remote_port;
-  std::string scheme, host, path;
+  llvm::StringRef scheme, host, path;
   const char *url = args.GetArgumentAtIndex(0);
   if (!url)
-    return Error("URL is null.");
+    return Status("URL is null.");
   if (!UriParser::Parse(url, scheme, host, remote_port, path))
-    return Error("Invalid URL: %s", url);
+    return Status("Invalid URL: %s", url);
   if (host != "localhost")
     m_device_id = host;
 
@@ -132,7 +133,7 @@ Error PlatformAndroidRemoteGDBServer::ConnectRemote(Args &args) {
   std::string connect_url;
   auto error =
       MakeConnectURL(g_remote_platform_pid, (remote_port < 0) ? 0 : remote_port,
-                     path.c_str(), connect_url);
+                     path, connect_url);
 
   if (error.Fail())
     return error;
@@ -150,7 +151,7 @@ Error PlatformAndroidRemoteGDBServer::ConnectRemote(Args &args) {
   return error;
 }
 
-Error PlatformAndroidRemoteGDBServer::DisconnectRemote() {
+Status PlatformAndroidRemoteGDBServer::DisconnectRemote() {
   DeleteForwardPort(g_remote_platform_pid);
   return PlatformRemoteGDBServer::DisconnectRemote();
 }
@@ -173,12 +174,12 @@ void PlatformAndroidRemoteGDBServer::DeleteForwardPort(lldb::pid_t pid) {
   m_port_forwards.erase(it);
 }
 
-Error PlatformAndroidRemoteGDBServer::MakeConnectURL(
+Status PlatformAndroidRemoteGDBServer::MakeConnectURL(
     const lldb::pid_t pid, const uint16_t remote_port,
-    const char *remote_socket_name, std::string &connect_url) {
+    llvm::StringRef remote_socket_name, std::string &connect_url) {
   static const int kAttempsNum = 5;
 
-  Error error;
+  Status error;
   // There is a race possibility that somebody will occupy
   // a port while we're in between FindUnusedPort and ForwardPortWithAdb -
   // adding the loop to mitigate such problem.
@@ -203,9 +204,9 @@ Error PlatformAndroidRemoteGDBServer::MakeConnectURL(
 }
 
 lldb::ProcessSP PlatformAndroidRemoteGDBServer::ConnectProcess(
-    const char *connect_url, const char *plugin_name,
+    llvm::StringRef connect_url, llvm::StringRef plugin_name,
     lldb_private::Debugger &debugger, lldb_private::Target *target,
-    lldb_private::Error &error) {
+    lldb_private::Status &error) {
   // We don't have the pid of the remote gdbserver when it isn't started by us
   // but we still want
   // to store the list of port forwards we set up in our port forward map.
@@ -214,19 +215,20 @@ lldb::ProcessSP PlatformAndroidRemoteGDBServer::ConnectProcess(
   static lldb::pid_t s_remote_gdbserver_fake_pid = 0xffffffffffffffffULL;
 
   int remote_port;
-  std::string scheme, host, path;
+  llvm::StringRef scheme, host, path;
   if (!UriParser::Parse(connect_url, scheme, host, remote_port, path)) {
-    error.SetErrorStringWithFormat("Invalid URL: %s", connect_url);
+    error.SetErrorStringWithFormat("Invalid URL: %s",
+                                   connect_url.str().c_str());
     return nullptr;
   }
 
   std::string new_connect_url;
   error = MakeConnectURL(s_remote_gdbserver_fake_pid--,
-                         (remote_port < 0) ? 0 : remote_port, path.c_str(),
+                         (remote_port < 0) ? 0 : remote_port, path,
                          new_connect_url);
   if (error.Fail())
     return nullptr;
 
-  return PlatformRemoteGDBServer::ConnectProcess(
-      new_connect_url.c_str(), plugin_name, debugger, target, error);
+  return PlatformRemoteGDBServer::ConnectProcess(new_connect_url, plugin_name,
+                                                 debugger, target, error);
 }

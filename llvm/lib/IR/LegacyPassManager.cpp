@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManagers.h"
@@ -449,7 +450,7 @@ class TimingInfo {
   TimerGroup TG;
 public:
   // Use 'create' member to get this.
-  TimingInfo() : TG("... Pass execution timing report ...") {}
+  TimingInfo() : TG("pass", "... Pass execution timing report ...") {}
 
   // TimingDtor - Print out information about timing information
   ~TimingInfo() {
@@ -465,6 +466,11 @@ public:
   // null.  It may be called multiple times.
   static void createTheTimeInfo();
 
+  // print - Prints out timing information and then resets the timers.
+  void print() {
+    TG.print(*CreateInfoOutputFile());
+  }
+
   /// getPassTimer - Return the timer for the specified pass if it exists.
   Timer *getPassTimer(Pass *P) {
     if (P->getAsPMDataManager())
@@ -472,8 +478,10 @@ public:
 
     sys::SmartScopedLock<true> Lock(*TimingInfoMutex);
     Timer *&T = TimingData[P];
-    if (!T)
-      T = new Timer(P->getPassName(), TG);
+    if (!T) {
+      StringRef PassName = P->getPassName();
+      T = new Timer(PassName, PassName, TG);
+    }
     return T;
   }
 };
@@ -1748,6 +1756,13 @@ Timer *llvm::getPassTimer(Pass *P) {
   if (TheTimeInfo)
     return TheTimeInfo->getPassTimer(P);
   return nullptr;
+}
+
+/// If timing is enabled, report the times collected up to now and then reset
+/// them.
+void llvm::reportAndResetTimings() {
+  if (TheTimeInfo)
+    TheTimeInfo->print();
 }
 
 //===----------------------------------------------------------------------===//

@@ -13,9 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 #include "sanitizer_common/sanitizer_common.h"
+#include "xray_defs.h"
 #include "xray_interface_internal.h"
 #include <atomic>
 #include <cassert>
+
+extern "C" void __clear_cache(void *start, void *end);
 
 namespace __xray {
 
@@ -28,20 +31,21 @@ enum class PatchOpcodes : uint32_t {
 };
 
 // 0xUUUUWXYZ -> 0x000W0XYZ
-inline static uint32_t getMovwMask(const uint32_t Value) {
+inline static uint32_t getMovwMask(const uint32_t Value) XRAY_NEVER_INSTRUMENT {
   return (Value & 0xfff) | ((Value & 0xf000) << 4);
 }
 
 // 0xWXYZUUUU -> 0x000W0XYZ
-inline static uint32_t getMovtMask(const uint32_t Value) {
+inline static uint32_t getMovtMask(const uint32_t Value) XRAY_NEVER_INSTRUMENT {
   return getMovwMask(Value >> 16);
 }
 
 // Writes the following instructions:
 //   MOVW R<regNo>, #<lower 16 bits of the |Value|>
 //   MOVT R<regNo>, #<higher 16 bits of the |Value|>
-inline static uint32_t *write32bitLoadReg(uint8_t regNo, uint32_t *Address,
-                                          const uint32_t Value) {
+inline static uint32_t *
+write32bitLoadReg(uint8_t regNo, uint32_t *Address,
+                  const uint32_t Value) XRAY_NEVER_INSTRUMENT {
   // This is a fatal error: we cannot just report it and continue execution.
   assert(regNo <= 15 && "Register number must be 0 to 15.");
   // MOVW R, #0xWXYZ in machine code is 0xE30WRXYZ
@@ -55,21 +59,24 @@ inline static uint32_t *write32bitLoadReg(uint8_t regNo, uint32_t *Address,
 // Writes the following instructions:
 //   MOVW r0, #<lower 16 bits of the |Value|>
 //   MOVT r0, #<higher 16 bits of the |Value|>
-inline static uint32_t *Write32bitLoadR0(uint32_t *Address,
-                                         const uint32_t Value) {
+inline static uint32_t *
+write32bitLoadR0(uint32_t *Address,
+                 const uint32_t Value) XRAY_NEVER_INSTRUMENT {
   return write32bitLoadReg(0, Address, Value);
 }
 
 // Writes the following instructions:
 //   MOVW ip, #<lower 16 bits of the |Value|>
 //   MOVT ip, #<higher 16 bits of the |Value|>
-inline static uint32_t *Write32bitLoadIP(uint32_t *Address,
-                                         const uint32_t Value) {
+inline static uint32_t *
+write32bitLoadIP(uint32_t *Address,
+                 const uint32_t Value) XRAY_NEVER_INSTRUMENT {
   return write32bitLoadReg(12, Address, Value);
 }
 
 inline static bool patchSled(const bool Enable, const uint32_t FuncId,
-                             const XRaySledEntry &Sled, void (*TracingHook)()) {
+                             const XRaySledEntry &Sled,
+                             void (*TracingHook)()) XRAY_NEVER_INSTRUMENT {
   // When |Enable| == true,
   // We replace the following compile-time stub (sled):
   //
@@ -97,15 +104,16 @@ inline static bool patchSled(const bool Enable, const uint32_t FuncId,
   //   B #20
 
   uint32_t *FirstAddress = reinterpret_cast<uint32_t *>(Sled.Address);
+  uint32_t *CurAddress = FirstAddress + 1;
   if (Enable) {
-    uint32_t *CurAddress = FirstAddress + 1;
     CurAddress =
-        Write32bitLoadR0(CurAddress, reinterpret_cast<uint32_t>(FuncId));
+        write32bitLoadR0(CurAddress, reinterpret_cast<uint32_t>(FuncId));
     CurAddress =
-        Write32bitLoadIP(CurAddress, reinterpret_cast<uint32_t>(TracingHook));
+        write32bitLoadIP(CurAddress, reinterpret_cast<uint32_t>(TracingHook));
     *CurAddress = uint32_t(PatchOpcodes::PO_BlxIp);
     CurAddress++;
     *CurAddress = uint32_t(PatchOpcodes::PO_PopR0Lr);
+    CurAddress++;
     std::atomic_store_explicit(
         reinterpret_cast<std::atomic<uint32_t> *>(FirstAddress),
         uint32_t(PatchOpcodes::PO_PushR0Lr), std::memory_order_release);
@@ -114,24 +122,38 @@ inline static bool patchSled(const bool Enable, const uint32_t FuncId,
         reinterpret_cast<std::atomic<uint32_t> *>(FirstAddress),
         uint32_t(PatchOpcodes::PO_B20), std::memory_order_release);
   }
+  __clear_cache(reinterpret_cast<char *>(FirstAddress),
+                reinterpret_cast<char *>(CurAddress));
   return true;
 }
 
 bool patchFunctionEntry(const bool Enable, const uint32_t FuncId,
-                        const XRaySledEntry &Sled) {
-  return patchSled(Enable, FuncId, Sled, __xray_FunctionEntry);
+                        const XRaySledEntry &Sled,
+                        void (*Trampoline)()) XRAY_NEVER_INSTRUMENT {
+  return patchSled(Enable, FuncId, Sled, Trampoline);
 }
 
 bool patchFunctionExit(const bool Enable, const uint32_t FuncId,
-                       const XRaySledEntry &Sled) {
+                       const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
   return patchSled(Enable, FuncId, Sled, __xray_FunctionExit);
 }
 
 bool patchFunctionTailExit(const bool Enable, const uint32_t FuncId,
-                           const XRaySledEntry &Sled) {
-  // FIXME: In the future we'd need to distinguish between non-tail exits and
-  // tail exits for better information preservation.
-  return patchSled(Enable, FuncId, Sled, __xray_FunctionExit);
+                           const XRaySledEntry &Sled) XRAY_NEVER_INSTRUMENT {
+  return patchSled(Enable, FuncId, Sled, __xray_FunctionTailExit);
 }
 
+bool patchCustomEvent(const bool Enable, const uint32_t FuncId,
+                      const XRaySledEntry &Sled)
+    XRAY_NEVER_INSTRUMENT { // FIXME: Implement in arm?
+  return false;
+}
+
+// FIXME: Maybe implement this better?
+bool probeRequiredCPUFeatures() XRAY_NEVER_INSTRUMENT { return true; }
+
 } // namespace __xray
+
+extern "C" void __xray_ArgLoggerEntry() XRAY_NEVER_INSTRUMENT {
+  // FIXME: this will have to be implemented in the trampoline assembly file
+}
