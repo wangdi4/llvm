@@ -644,14 +644,6 @@ Value *InstCombiner::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
       if (Value *R = SimplifyBinOp(TopLevelOpcode, B, C, DL)) {
         // They do! Return "L op' R".
         ++NumExpand;
-        // If "L op' R" equals "A op' B" then "L op' R" is just the LHS.
-        if ((L == A && R == B) ||
-            (Instruction::isCommutative(InnerOpcode) && L == B && R == A))
-          return Op0;
-        // Otherwise return "L op' R" if it simplifies.
-        if (Value *V = SimplifyBinOp(InnerOpcode, L, R, DL))
-          return V;
-        // Otherwise, create a new instruction.
         C = Builder->CreateBinOp(InnerOpcode, L, R);
         C->takeName(&I);
         return C;
@@ -669,14 +661,6 @@ Value *InstCombiner::SimplifyUsingDistributiveLaws(BinaryOperator &I) {
       if (Value *R = SimplifyBinOp(TopLevelOpcode, A, C, DL)) {
         // They do! Return "L op' R".
         ++NumExpand;
-        // If "L op' R" equals "B op' C" then "L op' R" is just the RHS.
-        if ((L == B && R == C) ||
-            (Instruction::isCommutative(InnerOpcode) && L == C && R == B))
-          return Op1;
-        // Otherwise return "L op' R" if it simplifies.
-        if (Value *V = SimplifyBinOp(InnerOpcode, L, R, DL))
-          return V;
-        // Otherwise, create a new instruction.
         A = Builder->CreateBinOp(InnerOpcode, L, R);
         A->takeName(&I);
         return A;
