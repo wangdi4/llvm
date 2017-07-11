@@ -110,15 +110,10 @@ OclBuiltinImpl mad_sat_v8u32 = OclBuiltinImpl<mad_sat, [v8u32] , 0, [{
  *   gentype max (gentype x , sgentype y)                        *
  *   Returns y if x < y, otherwise it returns x                  *
 \*****************************************************************/
-// max native short16, int8
-OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32] , 0, [{
-    $ReturnType Mask = $Arg0VarName < $Arg1VarName;
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
-  }]>;
-// max native ushort16, uint8
-OclBuiltinImpl max_avx2native_u = OclBuiltinImpl<max, [v16u16, v8u32] , 0, [{
-     $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-     return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask)); 
+// max native short16, int8, ushort16, uint8
+OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32, v16u16, v8u32] , 0, [{
+    $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
+    return select($Arg0VarName, $Arg1VarName, Mask);
   }]>;
 
 
@@ -128,15 +123,10 @@ OclBuiltinImpl max_avx2native_u = OclBuiltinImpl<max, [v16u16, v8u32] , 0, [{
  *   gentype min (gentype x , sgentype y)                        *
  *   Returns y if x < y, otherwise it returns x                  *
 \*****************************************************************/
-// min native short16, int8
-OclBuiltinImpl min_avx2native_i = OclBuiltinImpl<min, [v16i16, v8i32] , 0, [{
-     $ReturnType Mask = $Arg0VarName > $Arg1VarName;
-     return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
-  }]>;
-// min native ushort16, uint8
-OclBuiltinImpl min_avx2native_u = OclBuiltinImpl<min, [v16u16, v8u32] , 0, [{
+// min native short16, int8, ushort16, uint8
+OclBuiltinImpl min_avx2native_i = OclBuiltinImpl<min, [v16i16, v8i32, v16u16, v8u32] , 0, [{
      $ReturnType Mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-     return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
+     return select($Arg0VarName, $Arg1VarName, Mask);
   }]>;
 
 

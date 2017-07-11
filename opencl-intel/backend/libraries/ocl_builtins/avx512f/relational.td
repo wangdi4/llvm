@@ -11,18 +11,17 @@ code select_vector_v16f = [{
 code select_vector_v8d = [{
     __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
     return as_$ReturnType(_mm512_mask_blend_pd(mask, __builtin_astype($Arg0VarName, __m512d),
-      __builtin_astype($Arg1VarName, __m512d)));
+    __builtin_astype($Arg1VarName, __m512d)));
   }];
 
 code select_vector_v16i = [{
-    __mmask16 mask = _mm512_test_epi32_mask((__m512i)$Arg2VarName, (__m512i)((int16)0x80000000));
-    return as_$ReturnType(_mm512_mask_blend_epi32(mask, (__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
+    $ReturnType Nulls = ($ReturnType)(0);
+    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
   }];
 
 code select_vector_v8l = [{
-    __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
-    return as_$ReturnType(_mm512_mask_blend_epi32(mask, __builtin_astype($Arg0VarName, __m512i),
-      __builtin_astype($Arg1VarName, __m512i)));
+    $ReturnType Nulls = ($ReturnType)(0);
+    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
   }];
 
 //======v16f32 and v8f64 implementation===============================

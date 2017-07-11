@@ -70,15 +70,10 @@ OclBuiltinImpl mad_sat_v16u32 = OclBuiltinImpl<mad_sat, [v16u32] , 0, [{
  *   gentype max (gentype x , sgentype y)                        *
  *   Returns y if x < y, otherwise it returns x                  *
 \*****************************************************************/
-// max native int16, long8
-OclBuiltinImpl max_avx512_native_i = OclBuiltinImpl<max, [v16i32, v8i64] , 0, [{
-    $ReturnType Mask = $Arg0VarName < $Arg1VarName;
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
-  }]>;
-// max native uint16, ulong8
-OclBuiltinImpl max_avx512_native_u = OclBuiltinImpl<max, [v16u32, v8u64] , 0, [{
+// max native int16, long8, uint16, ulong8
+OclBuiltinImpl max_avx512_native_i = OclBuiltinImpl<max, [v16i32, v8i64, v16u32, v8u64] , 0, [{
     $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
+    return select($Arg0VarName, $Arg1VarName, Mask);
   }]>;
 
 
@@ -88,15 +83,10 @@ OclBuiltinImpl max_avx512_native_u = OclBuiltinImpl<max, [v16u32, v8u64] , 0, [{
  *   gentype min (gentype x , sgentype y)                        *
  *   Returns y if x < y, otherwise it returns x                  *
 \*****************************************************************/
-// min native int16, long8
-OclBuiltinImpl min_avx512_native_i = OclBuiltinImpl<min, [v16i32, v8i64] , 0, [{
-    $ReturnType Mask = $Arg0VarName > $Arg1VarName;
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
-  }]>;
-// min native uint16, ulong8
-OclBuiltinImpl min_avx512_native_u = OclBuiltinImpl<min, [v16u32, v8u64] , 0, [{
+// min native int16, long8, uint16, ulong8
+OclBuiltinImpl min_avx512_native_i = OclBuiltinImpl<min, [v16i32, v8i64, v16u32, v8u64] , 0, [{
     $ReturnType Mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, Mask));
+    return select($Arg0VarName, $Arg1VarName, Mask);
   }]>;
 
 

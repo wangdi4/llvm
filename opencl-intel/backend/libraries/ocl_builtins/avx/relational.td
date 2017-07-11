@@ -24,11 +24,13 @@ code select_vector_v4d = [{
   }];
 
 code select_vector_v8i = [{ 
-    return as_$ReturnType(_mm256_blendv_ps(__builtin_astype($Arg0VarName, __m256), __builtin_astype($Arg1VarName, __m256), __builtin_astype($Arg2VarName, __m256))); 
+    $ReturnType Nulls = ($ReturnType)(0);
+    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName; 
   }];
 
 code select_vector_v4l = [{ 
-    return as_$ReturnType(_mm256_blendv_pd(__builtin_astype($Arg0VarName, __m256d), __builtin_astype($Arg1VarName, __m256d), __builtin_astype($Arg2VarName, __m256d))); 
+    $ReturnType Nulls = ($ReturnType)(0);
+    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
   }];
 
 //======v8f32 and v4f64 implementation=============================== 
