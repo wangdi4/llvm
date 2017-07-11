@@ -11,18 +11,47 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86TargetMachine.h"
+#include "MCTargetDesc/X86MCTargetDesc.h"
 #include "X86.h"
+#include "X86CallLowering.h"
+#include "X86LegalizerInfo.h"
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+#include "X86RegisterBankInfo.h"
+#endif
+#include "X86MacroFusion.h"
+#include "X86Subtarget.h"
+#include "X86TargetMachine.h"
 #include "X86TargetObjectFile.h"
 #include "X86TargetTransformInfo.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
+#include "llvm/CodeGen/ExecutionDepsFix.h"
+#include "llvm/CodeGen/GlobalISel/CallLowering.h"
+#include "llvm/CodeGen/GlobalISel/GISelAccessor.h"
+#include "llvm/CodeGen/GlobalISel/IRTranslator.h"
+#include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
+#include "llvm/CodeGen/GlobalISel/Legalizer.h"
+#include "llvm/CodeGen/GlobalISel/RegBankSelect.h"
+#include "llvm/CodeGen/MachineScheduler.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Pass.h"
+#include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetOptions.h"
+#include <memory>
+#include <string>
+
 using namespace llvm;
 
 static cl::opt<bool> EnableMachineCombinerPass("x86-machine-combiner",
@@ -30,8 +59,12 @@ static cl::opt<bool> EnableMachineCombinerPass("x86-machine-combiner",
                                cl::init(true), cl::Hidden);
 
 namespace llvm {
+
 void initializeWinEHStatePassPass(PassRegistry &);
-}
+void initializeFixupLEAPassPass(PassRegistry &);
+void initializeX86ExecutionDepsFixPass(PassRegistry &);
+
+} // end namespace llvm
 
 extern "C" void LLVMInitializeX86Target() {
   // Register the target.
@@ -39,29 +72,33 @@ extern "C" void LLVMInitializeX86Target() {
   RegisterTargetMachine<X86TargetMachine> Y(getTheX86_64Target());
 
   PassRegistry &PR = *PassRegistry::getPassRegistry();
+  initializeGlobalISel(PR);
   initializeWinEHStatePassPass(PR);
   initializeFixupBWInstPassPass(PR);
+  initializeEvexToVexInstPassPass(PR);
+  initializeFixupLEAPassPass(PR);
+  initializeX86ExecutionDepsFixPass(PR);
 }
 
 static std::unique_ptr<TargetLoweringObjectFile> createTLOF(const Triple &TT) {
   if (TT.isOSBinFormatMachO()) {
     if (TT.getArch() == Triple::x86_64)
-      return make_unique<X86_64MachoTargetObjectFile>();
-    return make_unique<TargetLoweringObjectFileMachO>();
+      return llvm::make_unique<X86_64MachoTargetObjectFile>();
+    return llvm::make_unique<TargetLoweringObjectFileMachO>();
   }
 
   if (TT.isOSFreeBSD())
-    return make_unique<X86FreeBSDTargetObjectFile>();
-  if (TT.isOSLinux() || TT.isOSNaCl())
-    return make_unique<X86LinuxNaClTargetObjectFile>();
+    return llvm::make_unique<X86FreeBSDTargetObjectFile>();
+  if (TT.isOSLinux() || TT.isOSNaCl() || TT.isOSIAMCU())
+    return llvm::make_unique<X86LinuxNaClTargetObjectFile>();
   if (TT.isOSFuchsia())
-    return make_unique<X86FuchsiaTargetObjectFile>();
+    return llvm::make_unique<X86FuchsiaTargetObjectFile>();
   if (TT.isOSBinFormatELF())
-    return make_unique<X86ELFTargetObjectFile>();
+    return llvm::make_unique<X86ELFTargetObjectFile>();
   if (TT.isKnownWindowsMSVCEnvironment() || TT.isWindowsCoreCLREnvironment())
-    return make_unique<X86WindowsTargetObjectFile>();
+    return llvm::make_unique<X86WindowsTargetObjectFile>();
   if (TT.isOSBinFormatCOFF())
-    return make_unique<TargetLoweringObjectFileCOFF>();
+    return llvm::make_unique<TargetLoweringObjectFileCOFF>();
   llvm_unreachable("unknown subtarget type");
 }
 
@@ -171,7 +208,36 @@ X86TargetMachine::X86TargetMachine(const Target &T, const Triple &TT,
   initAsmInfo();
 }
 
-X86TargetMachine::~X86TargetMachine() {}
+X86TargetMachine::~X86TargetMachine() = default;
+
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+namespace {
+
+struct X86GISelActualAccessor : public GISelAccessor {
+  std::unique_ptr<CallLowering> CallLoweringInfo;
+  std::unique_ptr<LegalizerInfo> Legalizer;
+  std::unique_ptr<RegisterBankInfo> RegBankInfo;
+  std::unique_ptr<InstructionSelector> InstSelector;
+
+  const CallLowering *getCallLowering() const override {
+    return CallLoweringInfo.get();
+  }
+
+  const InstructionSelector *getInstructionSelector() const override {
+    return InstSelector.get();
+  }
+
+  const LegalizerInfo *getLegalizerInfo() const override {
+    return Legalizer.get();
+  }
+
+  const RegisterBankInfo *getRegBankInfo() const override {
+    return RegBankInfo.get();
+  }
+};
+
+} // end anonymous namespace
+#endif
 
 const X86Subtarget *
 X86TargetMachine::getSubtargetImpl(const Function &F) const {
@@ -204,6 +270,12 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
 
   FS = Key.substr(CPU.size());
 
+  bool OptForSize = F.optForSize();
+  bool OptForMinSize = F.optForMinSize();
+
+  Key += std::string(OptForSize ? "+" : "-") + "optforsize";
+  Key += std::string(OptForMinSize ? "+" : "-") + "optforminsize";
+
   auto &I = SubtargetMap[Key];
   if (!I) {
     // This needs to be done before we create a new subtarget since any
@@ -211,7 +283,22 @@ X86TargetMachine::getSubtargetImpl(const Function &F) const {
     // function that reside in TargetOptions.
     resetTargetOptions(F);
     I = llvm::make_unique<X86Subtarget>(TargetTriple, CPU, FS, *this,
-                                        Options.StackAlignmentOverride);
+                                        Options.StackAlignmentOverride,
+                                        OptForSize, OptForMinSize);
+#ifndef LLVM_BUILD_GLOBAL_ISEL
+    GISelAccessor *GISel = new GISelAccessor();
+#else
+    X86GISelActualAccessor *GISel = new X86GISelActualAccessor();
+
+    GISel->CallLoweringInfo.reset(new X86CallLowering(*I->getTargetLowering()));
+    GISel->Legalizer.reset(new X86LegalizerInfo(*I, *this));
+
+    auto *RBI = new X86RegisterBankInfo(*I->getRegisterInfo());
+    GISel->RegBankInfo.reset(RBI);
+    GISel->InstSelector.reset(createX86InstructionSelector(
+        *this, *I, *RBI));
+#endif
+    I->setGISelAccessor(*GISel);
   }
   return I.get();
 }
@@ -234,12 +321,12 @@ TargetIRAnalysis X86TargetMachine::getTargetIRAnalysis() {
   });
 }
 
-
 //===----------------------------------------------------------------------===//
 // Pass Pipeline Configuration
 //===----------------------------------------------------------------------===//
 
 namespace {
+
 /// X86 Code Generator Pass Configuration Options.
 class X86PassConfig : public TargetPassConfig {
 public:
@@ -250,8 +337,21 @@ public:
     return getTM<X86TargetMachine>();
   }
 
+  ScheduleDAGInstrs *
+  createMachineScheduler(MachineSchedContext *C) const override {
+    ScheduleDAGMILive *DAG = createGenericSchedLive(C);
+    DAG->addMutation(createX86MacroFusionDAGMutation());
+    return DAG;
+  }
+
   void addIRPasses() override;
   bool addInstSelector() override;
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+  bool addIRTranslator() override;
+  bool addLegalizeMachineIR() override;
+  bool addRegBankSelect() override;
+  bool addGlobalInstructionSelect() override;
+#endif
   bool addILPOpts() override;
   bool addPreISel() override;
   void addPreRegAlloc() override;
@@ -259,7 +359,21 @@ public:
   void addPreEmitPass() override;
   void addPreSched2() override;
 };
-} // namespace
+
+class X86ExecutionDepsFix : public ExecutionDepsFix {
+public:
+  static char ID;
+  X86ExecutionDepsFix() : ExecutionDepsFix(ID, X86::VR128XRegClass) {}
+  StringRef getPassName() const override {
+    return "X86 Execution Dependency Fix";
+  }
+};
+char X86ExecutionDepsFix::ID;
+
+} // end anonymous namespace
+
+INITIALIZE_PASS(X86ExecutionDepsFix, "x86-execution-deps-fix",
+                "X86 Execution Dependency Fix", false, false)
 
 TargetPassConfig *X86TargetMachine::createPassConfig(PassManagerBase &PM) {
   return new X86PassConfig(this, PM);
@@ -286,6 +400,28 @@ bool X86PassConfig::addInstSelector() {
   addPass(createX86GlobalBaseRegPass());
   return false;
 }
+
+#ifdef LLVM_BUILD_GLOBAL_ISEL
+bool X86PassConfig::addIRTranslator() {
+  addPass(new IRTranslator());
+  return false;
+}
+
+bool X86PassConfig::addLegalizeMachineIR() {
+  addPass(new Legalizer());
+  return false;
+}
+
+bool X86PassConfig::addRegBankSelect() {
+  addPass(new RegBankSelect());
+  return false;
+}
+
+bool X86PassConfig::addGlobalInstructionSelect() {
+  addPass(new InstructionSelect());
+  return false;
+}
+#endif
 
 bool X86PassConfig::addILPOpts() {
   addPass(&EarlyIfConverterID);
@@ -320,7 +456,7 @@ void X86PassConfig::addPreSched2() { addPass(createX86ExpandPseudoPass()); }
 
 void X86PassConfig::addPreEmitPass() {
   if (getOptLevel() != CodeGenOpt::None)
-    addPass(createExecutionDependencyFixPass(&X86::VR128XRegClass));
+    addPass(new X86ExecutionDepsFix());
 
   if (UseVZeroUpper)
     addPass(createX86IssueVZeroUpperPass());
@@ -329,5 +465,6 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86FixupBWInsts());
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
+    addPass(createX86EvexToVexInsts());
   }
 }

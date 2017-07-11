@@ -13,8 +13,8 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/StringList.h"
 #include "lldb/Interpreter/OptionValues.h"
+#include "lldb/Utility/StringList.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -42,10 +42,10 @@ uint64_t OptionValue::GetUInt64Value(uint64_t fail_value, bool *success_ptr) {
   return fail_value;
 }
 
-Error OptionValue::SetSubValue(const ExecutionContext *exe_ctx,
-                               VarSetOperationType op, const char *name,
-                               const char *value) {
-  Error error;
+Status OptionValue::SetSubValue(const ExecutionContext *exe_ctx,
+                                VarSetOperationType op, llvm::StringRef name,
+                                llvm::StringRef value) {
+  Status error;
   error.SetErrorStringWithFormat("SetSubValue is not supported");
   return error;
 }
@@ -412,10 +412,10 @@ bool OptionValue::SetSInt64Value(int64_t new_value) {
   return false;
 }
 
-const char *OptionValue::GetStringValue(const char *fail_value) const {
+llvm::StringRef OptionValue::GetStringValue(llvm::StringRef fail_value) const {
   const OptionValueString *option_value = GetAsString();
   if (option_value)
-    return option_value->GetCurrentValue();
+    return option_value->GetCurrentValueAsRef();
   return fail_value;
 }
 
@@ -507,7 +507,7 @@ const char *OptionValue::GetBuiltinTypeAsCString(Type t) {
 }
 
 lldb::OptionValueSP OptionValue::CreateValueFromCStringForTypeMask(
-    const char *value_cstr, uint32_t type_mask, Error &error) {
+    const char *value_cstr, uint32_t type_mask, Status &error) {
   // If only 1 bit is set in the type mask for a dictionary or array
   // then we know how to decode a value from a cstring
   lldb::OptionValueSP value_sp;
@@ -573,17 +573,18 @@ bool OptionValue::DumpQualifiedName(Stream &strm) const {
   return dumped_something;
 }
 
-size_t OptionValue::AutoComplete(CommandInterpreter &interpreter, const char *s,
-                                 int match_start_point, int max_return_elements,
-                                 bool &word_complete, StringList &matches) {
+size_t OptionValue::AutoComplete(CommandInterpreter &interpreter,
+                                 llvm::StringRef s, int match_start_point,
+                                 int max_return_elements, bool &word_complete,
+                                 StringList &matches) {
   word_complete = false;
   matches.Clear();
   return matches.GetSize();
 }
 
-Error OptionValue::SetValueFromString(llvm::StringRef value,
-                                      VarSetOperationType op) {
-  Error error;
+Status OptionValue::SetValueFromString(llvm::StringRef value,
+                                       VarSetOperationType op) {
+  Status error;
   switch (op) {
   case eVarSetOperationReplace:
     error.SetErrorStringWithFormat(

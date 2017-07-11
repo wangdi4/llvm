@@ -16,18 +16,18 @@
 #include "Cocoa.h"
 
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntime.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/Expression/FunctionCaller.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -262,13 +262,13 @@ bool lldb_private::formatters::NSArraySummaryProvider(
     return false;
 
   if (class_name == g_NSArrayI) {
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + ptr_size,
                                                       ptr_size, 0, error);
     if (error.Fail())
       return false;
   } else if (class_name == g_NSArrayM) {
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(valobj_addr + ptr_size,
                                                       ptr_size, 0, error);
     if (error.Fail())
@@ -278,7 +278,7 @@ bool lldb_private::formatters::NSArraySummaryProvider(
   } else if (class_name == g_NSArray1) {
     value = 1;
   } else if (class_name == g_NSArrayCF) {
-    Error error;
+    Status error;
     value = process_sp->ReadUnsignedIntegerFromMemory(
         valobj_addr + 2 * ptr_size, ptr_size, 0, error);
     if (error.Fail())
@@ -350,7 +350,7 @@ lldb_private::formatters::NSArrayMSyntheticFrontEnd::GetChildAtIndex(
   object_at_idx += (pyhs_idx * m_ptr_size);
   StreamString idx_name;
   idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
-  return CreateValueObjectFromAddress(idx_name.GetData(), object_at_idx,
+  return CreateValueObjectFromAddress(idx_name.GetString(), object_at_idx,
                                       m_exe_ctx_ref, m_id_type);
 }
 
@@ -364,7 +364,7 @@ bool lldb_private::formatters::NSArrayMSyntheticFrontEnd_109::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  Error error;
+  Status error;
   error.Clear();
   lldb::ProcessSP process_sp(valobj_sp->GetProcessSP());
   if (!process_sp)
@@ -395,7 +395,7 @@ bool lldb_private::formatters::NSArrayMSyntheticFrontEnd_1010::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  Error error;
+  Status error;
   error.Clear();
   lldb::ProcessSP process_sp(valobj_sp->GetProcessSP());
   if (!process_sp)
@@ -538,7 +538,7 @@ bool lldb_private::formatters::NSArrayISyntheticFrontEnd::Update() {
   if (!valobj_sp)
     return false;
   m_exe_ctx_ref = valobj_sp->GetExecutionContextRef();
-  Error error;
+  Status error;
   error.Clear();
   lldb::ProcessSP process_sp(valobj_sp->GetProcessSP());
   if (!process_sp)
@@ -566,12 +566,12 @@ lldb_private::formatters::NSArrayISyntheticFrontEnd::GetChildAtIndex(
   ProcessSP process_sp = m_exe_ctx_ref.GetProcessSP();
   if (!process_sp)
     return lldb::ValueObjectSP();
-  Error error;
+  Status error;
   if (error.Fail())
     return lldb::ValueObjectSP();
   StreamString idx_name;
   idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
-  return CreateValueObjectFromAddress(idx_name.GetData(), object_at_idx,
+  return CreateValueObjectFromAddress(idx_name.GetString(), object_at_idx,
                                       m_exe_ctx_ref, m_id_type);
 }
 
@@ -665,7 +665,7 @@ lldb_private::formatters::NSArraySyntheticFrontEndCreator(
   Flags flags(valobj_type.GetTypeInfo());
 
   if (flags.IsClear(eTypeIsPointer)) {
-    Error error;
+    Status error;
     valobj_sp = valobj_sp->AddressOf(error);
     if (error.Fail() || !valobj_sp)
       return nullptr;

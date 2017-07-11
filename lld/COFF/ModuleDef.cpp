@@ -18,6 +18,7 @@
 
 #include "Config.h"
 #include "Error.h"
+#include "Memory.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/StringSaver.h"
@@ -37,6 +38,7 @@ enum Kind {
   Comma,
   Equal,
   KwBase,
+  KwConstant,
   KwData,
   KwExports,
   KwHeapsize,
@@ -91,6 +93,7 @@ public:
       StringRef Word = Buf.substr(0, End);
       Kind K = llvm::StringSwitch<Kind>(Word)
                    .Case("BASE", KwBase)
+                   .Case("CONSTANT", KwConstant)
                    .Case("DATA", KwData)
                    .Case("EXPORTS", KwExports)
                    .Case("HEAPSIZE", KwHeapsize)
@@ -113,7 +116,7 @@ private:
 
 class Parser {
 public:
-  explicit Parser(StringRef S, StringSaver *A) : Lex(S), Alloc(A) {}
+  explicit Parser(StringRef S) : Lex(S) {}
 
   void parse() {
     do {
@@ -162,17 +165,25 @@ private:
     case KwHeapsize:
       parseNumbers(&Config->HeapReserve, &Config->HeapCommit);
       return;
-    case KwLibrary:
-      parseName(&Config->OutputFile, &Config->ImageBase);
-      if (!StringRef(Config->OutputFile).endswith_lower(".dll"))
-        Config->OutputFile += ".dll";
-      return;
     case KwStacksize:
       parseNumbers(&Config->StackReserve, &Config->StackCommit);
       return;
-    case KwName:
-      parseName(&Config->OutputFile, &Config->ImageBase);
+    case KwLibrary:
+    case KwName: {
+      bool IsDll = Tok.K == KwLibrary; // Check before parseName.
+      std::string Name;
+      parseName(&Name, &Config->ImageBase);
+
+      // Append the appropriate file extension if not already present.
+      StringRef Ext = IsDll ? ".dll" : ".exe";
+      if (!StringRef(Name).endswith_lower(Ext))
+        Name += Ext;
+
+      // Set the output file, but don't override /out if it was already passed.
+      if (Config->OutputFile.empty())
+        Config->OutputFile = Name;
       return;
+    }
     case KwVersion:
       parseVersion(&Config->MajorImageVersion, &Config->MinorImageVersion);
       return;
@@ -197,9 +208,9 @@ private:
 
     if (Config->Machine == I386) {
       if (!isDecorated(E.Name))
-        E.Name = Alloc->save("_" + E.Name);
+        E.Name = Saver.save("_" + E.Name);
       if (!E.ExtName.empty() && !isDecorated(E.ExtName))
-        E.ExtName = Alloc->save("_" + E.ExtName);
+        E.ExtName = Saver.save("_" + E.ExtName);
     }
 
     for (;;) {
@@ -216,6 +227,11 @@ private:
       }
       if (Tok.K == KwData) {
         E.Data = true;
+        continue;
+      }
+      if (Tok.K == KwConstant) {
+        warn("CONSTANT keyword is obsolete; use DATA");
+        E.Constant = true;
         continue;
       }
       if (Tok.K == KwPrivate) {
@@ -278,14 +294,11 @@ private:
   Lexer Lex;
   Token Tok;
   std::vector<Token> Stack;
-  StringSaver *Alloc;
 };
 
 } // anonymous namespace
 
-void parseModuleDefs(MemoryBufferRef MB, StringSaver *Alloc) {
-  Parser(MB.getBuffer(), Alloc).parse();
-}
+void parseModuleDefs(MemoryBufferRef MB) { Parser(MB.getBuffer()).parse(); }
 
 } // namespace coff
 } // namespace lld

@@ -10,9 +10,14 @@
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 
 #include "llvm/DebugInfo/CodeView/CodeViewError.h"
+#include "llvm/DebugInfo/CodeView/TypeDatabase.h"
+#include "llvm/DebugInfo/CodeView/TypeDatabaseVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeDeserializer.h"
+#include "llvm/DebugInfo/CodeView/TypeRecordMapping.h"
+#include "llvm/DebugInfo/CodeView/TypeServerHandler.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbackPipeline.h"
-#include "llvm/DebugInfo/MSF/ByteStream.h"
+#include "llvm/Support/BinaryByteStream.h"
+#include "llvm/Support/BinaryStreamReader.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -39,10 +44,61 @@ static Error visitKnownMember(CVMemberRecord &Record,
   return Error::success();
 }
 
-Error CVTypeVisitor::visitTypeRecord(CVType &Record) {
-  if (auto EC = Callbacks.visitTypeBegin(Record))
-    return EC;
+static Expected<TypeServer2Record> deserializeTypeServerRecord(CVType &Record) {
+  class StealTypeServerVisitor : public TypeVisitorCallbacks {
+  public:
+    explicit StealTypeServerVisitor(TypeServer2Record &TR) : TR(TR) {}
 
+    Error visitKnownRecord(CVType &CVR, TypeServer2Record &Record) override {
+      TR = Record;
+      return Error::success();
+    }
+
+  private:
+    TypeServer2Record &TR;
+  };
+
+  TypeServer2Record R(TypeRecordKind::TypeServer2);
+  TypeDeserializer Deserializer;
+  StealTypeServerVisitor Thief(R);
+  TypeVisitorCallbackPipeline Pipeline;
+  Pipeline.addCallbackToPipeline(Deserializer);
+  Pipeline.addCallbackToPipeline(Thief);
+  CVTypeVisitor Visitor(Pipeline);
+  if (auto EC = Visitor.visitTypeRecord(Record))
+    return std::move(EC);
+
+  return R;
+}
+
+void CVTypeVisitor::addTypeServerHandler(TypeServerHandler &Handler) {
+  Handlers.push_back(&Handler);
+}
+
+Expected<bool> CVTypeVisitor::handleTypeServer(CVType &Record) {
+  if (Record.Type == TypeLeafKind::LF_TYPESERVER2 && !Handlers.empty()) {
+    auto TS = deserializeTypeServerRecord(Record);
+    if (!TS)
+      return TS.takeError();
+
+    for (auto Handler : Handlers) {
+      auto ExpectedResult = Handler->handle(*TS, Callbacks);
+      // If there was an error, return the error.
+      if (!ExpectedResult)
+        return ExpectedResult.takeError();
+
+      // If the handler processed the record, return success.
+      if (*ExpectedResult)
+        return true;
+
+      // Otherwise keep searching for a handler, eventually falling out and
+      // using the default record handler.
+    }
+  }
+  return false;
+}
+
+Error CVTypeVisitor::finishVisitation(CVType &Record) {
   switch (Record.Type) {
   default:
     if (auto EC = Callbacks.visitUnknownType(Record))
@@ -65,6 +121,32 @@ Error CVTypeVisitor::visitTypeRecord(CVType &Record) {
     return EC;
 
   return Error::success();
+}
+
+Error CVTypeVisitor::visitTypeRecord(CVType &Record, TypeIndex Index) {
+  auto ExpectedResult = handleTypeServer(Record);
+  if (!ExpectedResult)
+    return ExpectedResult.takeError();
+  if (*ExpectedResult)
+    return Error::success();
+
+  if (auto EC = Callbacks.visitTypeBegin(Record, Index))
+    return EC;
+
+  return finishVisitation(Record);
+}
+
+Error CVTypeVisitor::visitTypeRecord(CVType &Record) {
+  auto ExpectedResult = handleTypeServer(Record);
+  if (!ExpectedResult)
+    return ExpectedResult.takeError();
+  if (*ExpectedResult)
+    return Error::success();
+
+  if (auto EC = Callbacks.visitTypeBegin(Record))
+    return EC;
+
+  return finishVisitation(Record);
 }
 
 static Error visitMemberRecord(CVMemberRecord &Record,
@@ -109,7 +191,15 @@ Error CVTypeVisitor::visitTypeStream(const CVTypeArray &Types) {
   return Error::success();
 }
 
-Error CVTypeVisitor::visitFieldListMemberStream(msf::StreamReader Reader) {
+Error CVTypeVisitor::visitTypeStream(CVTypeRange Types) {
+  for (auto I : Types) {
+    if (auto EC = visitTypeRecord(I))
+      return EC;
+  }
+  return Error::success();
+}
+
+Error CVTypeVisitor::visitFieldListMemberStream(BinaryStreamReader Reader) {
   FieldListDeserializer Deserializer(Reader);
   TypeVisitorCallbackPipeline Pipeline;
   Pipeline.addCallbackToPipeline(Deserializer);
@@ -130,7 +220,7 @@ Error CVTypeVisitor::visitFieldListMemberStream(msf::StreamReader Reader) {
 }
 
 Error CVTypeVisitor::visitFieldListMemberStream(ArrayRef<uint8_t> Data) {
-  msf::ByteStream S(Data);
-  msf::StreamReader SR(S);
+  BinaryByteStream S(Data, llvm::support::little);
+  BinaryStreamReader SR(S);
   return visitFieldListMemberStream(SR);
 }

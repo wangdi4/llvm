@@ -6,21 +6,15 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-
-#if defined(_MSC_VER) && (_HAS_EXCEPTIONS == 0)
-// Workaround for MSVC standard library bug, which fails to include <thread>
-// when
-// exceptions are disabled.
-#include <eh.h>
-#endif
 #include <future>
 
 #include "GDBRemoteTestUtils.h"
 
 #include "Plugins/Process/gdb-remote/GDBRemoteCommunicationClient.h"
-#include "lldb/Core/DataBuffer.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/StructuredData.h"
+#include "lldb/Target/MemoryRegionInfo.h"
+#include "lldb/Utility/DataBuffer.h"
 
 #include "llvm/ADT/ArrayRef.h"
 
@@ -199,14 +193,22 @@ TEST_F(GDBRemoteCommunicationClientTest, GetModulesInfo) {
 
   FileSpec file_specs[] = {
       FileSpec("/foo/bar.so", false, FileSpec::ePathSyntaxPosix),
-      FileSpec("/foo/baz.so", false, FileSpec::ePathSyntaxPosix)};
+      FileSpec("/foo/baz.so", false, FileSpec::ePathSyntaxPosix),
+
+      // This is a bit dodgy but we currently depend on GetModulesInfo not
+      // performing denormalization. It can go away once the users
+      // (DynamicLoaderPOSIXDYLD, at least) correctly set the path syntax for
+      // the FileSpecs they create.
+      FileSpec("/foo/baw.so", false, FileSpec::ePathSyntaxWindows),
+  };
   std::future<llvm::Optional<std::vector<ModuleSpec>>> async_result =
       std::async(std::launch::async,
                  [&] { return client.GetModulesInfo(file_specs, triple); });
   HandlePacket(
       server, "jModulesInfo:["
               R"({"file":"/foo/bar.so","triple":"i386-pc-linux"},)"
-              R"({"file":"/foo/baz.so","triple":"i386-pc-linux"}])",
+              R"({"file":"/foo/baz.so","triple":"i386-pc-linux"},)"
+              R"({"file":"/foo/baw.so","triple":"i386-pc-linux"}])",
       R"([{"uuid":"404142434445464748494a4b4c4d4e4f","triple":"i386-pc-linux",)"
       R"("file_path":"/foo/bar.so","file_offset":0,"file_size":1234}]])");
 
@@ -290,6 +292,7 @@ TEST_F(GDBRemoteCommunicationClientTest, TestPacketSpeedJSON) {
   client.Disconnect();
   server_thread.join();
 
+  GTEST_LOG_(INFO) << "Formatted output: " << ss.GetData();
   auto object_sp = StructuredData::ParseJSON(ss.GetString());
   ASSERT_TRUE(bool(object_sp));
   auto dict_sp = object_sp->GetAsDictionary();
@@ -304,4 +307,66 @@ TEST_F(GDBRemoteCommunicationClientTest, TestPacketSpeedJSON) {
   ASSERT_TRUE(dict_sp->GetValueForKeyAsInteger("num_packets", num_packets))
       << ss.GetString();
   ASSERT_EQ(10, num_packets);
+}
+
+TEST_F(GDBRemoteCommunicationClientTest, SendSignalsToIgnore) {
+  TestClient client;
+  MockServer server;
+  Connect(client, server);
+  if (HasFailure())
+    return;
+
+  const lldb::tid_t tid = 0x47;
+  const uint32_t reg_num = 4;
+  std::future<Status> result = std::async(std::launch::async, [&] {
+    return client.SendSignalsToIgnore({2, 3, 5, 7, 0xB, 0xD, 0x11});
+  });
+
+  HandlePacket(server, "QPassSignals:02;03;05;07;0b;0d;11", "OK");
+  EXPECT_TRUE(result.get().Success());
+
+  result = std::async(std::launch::async, [&] {
+    return client.SendSignalsToIgnore(std::vector<int32_t>());
+  });
+
+  HandlePacket(server, "QPassSignals:", "OK");
+  EXPECT_TRUE(result.get().Success());
+}
+
+TEST_F(GDBRemoteCommunicationClientTest, GetMemoryRegionInfo) {
+  TestClient client;
+  MockServer server;
+  Connect(client, server);
+  if (HasFailure())
+    return;
+
+  const lldb::addr_t addr = 0xa000;
+  MemoryRegionInfo region_info;
+  std::future<Status> result = std::async(std::launch::async, [&] {
+    return client.GetMemoryRegionInfo(addr, region_info);
+  });
+
+  // name is: /foo/bar.so
+  HandlePacket(server,
+      "qMemoryRegionInfo:a000",
+      "start:a000;size:2000;permissions:rx;name:2f666f6f2f6261722e736f;");
+  EXPECT_TRUE(result.get().Success());
+
+}
+
+TEST_F(GDBRemoteCommunicationClientTest, GetMemoryRegionInfoInvalidResponse) {
+  TestClient client;
+  MockServer server;
+  Connect(client, server);
+  if (HasFailure())
+    return;
+
+  const lldb::addr_t addr = 0x4000;
+  MemoryRegionInfo region_info;
+  std::future<Status> result = std::async(std::launch::async, [&] {
+    return client.GetMemoryRegionInfo(addr, region_info);
+  });
+
+  HandlePacket(server, "qMemoryRegionInfo:4000", "start:4000;size:0000;");
+  EXPECT_FALSE(result.get().Success());
 }

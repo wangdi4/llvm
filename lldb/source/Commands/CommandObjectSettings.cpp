@@ -15,6 +15,7 @@
 #include "llvm/ADT/StringRef.h"
 
 // Project includes
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -101,9 +102,9 @@ insert-before or insert-after.");
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
@@ -166,7 +167,7 @@ insert-before or insert-after.");
           // Complete setting value
           const char *setting_var_name =
               input.GetArgumentAtIndex(setting_var_idx);
-          Error error;
+          Status error;
           lldb::OptionValueSP value_sp(
               m_interpreter.GetDebugger().GetPropertyValue(
                   &m_exe_ctx, setting_var_name, false, error));
@@ -210,7 +211,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, false, false);
 
-    Error error;
+    Status error;
     if (m_options.m_global) {
       error = m_interpreter.GetDebugger().SetPropertyValue(
           nullptr, eVarSetOperationAssign, var_name, var_value_cstr);
@@ -293,15 +294,10 @@ protected:
   bool DoExecute(Args &args, CommandReturnObject &result) override {
     result.SetStatus(eReturnStatusSuccessFinishResult);
 
-    const size_t argc = args.GetArgumentCount();
     if (!args.empty()) {
-      // TODO: Convert this to StringRef based enumeration.  Requires converting
-      // DumpPropertyValue first.
-      for (size_t i = 0; i < argc; ++i) {
-        const char *property_path = args.GetArgumentAtIndex(i);
-
-        Error error(m_interpreter.GetDebugger().DumpPropertyValue(
-            &m_exe_ctx, result.GetOutputStream(), property_path,
+      for (const auto &arg : args) {
+        Status error(m_interpreter.GetDebugger().DumpPropertyValue(
+            &m_exe_ctx, result.GetOutputStream(), arg.ref,
             OptionValue::eDumpGroupValue));
         if (error.Success()) {
           result.GetOutputStream().EOL();
@@ -498,7 +494,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, true, false);
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
         &m_exe_ctx, eVarSetOperationRemove, var_name, var_value_cstr));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
@@ -606,7 +602,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, true, false);
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
         &m_exe_ctx, eVarSetOperationReplace, var_name, var_value_cstr));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
@@ -720,7 +716,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, true, false);
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
         &m_exe_ctx, eVarSetOperationInsertBefore, var_name, var_value_cstr));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
@@ -831,7 +827,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, true, false);
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
         &m_exe_ctx, eVarSetOperationInsertAfter, var_name, var_value_cstr));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
@@ -933,7 +929,7 @@ protected:
     const char *var_value_cstr =
         Args::StripSpaces(var_value_string, true, true, false);
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
         &m_exe_ctx, eVarSetOperationAppend, var_name, var_value_cstr));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
@@ -1010,8 +1006,8 @@ protected:
       return false;
     }
 
-    Error error(m_interpreter.GetDebugger().SetPropertyValue(
-        &m_exe_ctx, eVarSetOperationClear, var_name, nullptr));
+    Status error(m_interpreter.GetDebugger().SetPropertyValue(
+        &m_exe_ctx, eVarSetOperationClear, var_name, llvm::StringRef()));
     if (error.Fail()) {
       result.AppendError(error.AsCString());
       result.SetStatus(eReturnStatusFailed);

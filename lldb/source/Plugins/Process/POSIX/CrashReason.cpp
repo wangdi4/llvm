@@ -21,6 +21,7 @@ void AppendFaultAddr(std::string &str, lldb::addr_t addr) {
   str += ss.str();
 }
 
+#if defined(si_lower) && defined(si_upper)
 void AppendBounds(std::string &str, lldb::addr_t lower_bound,
                   lldb::addr_t upper_bound, lldb::addr_t addr) {
   llvm::raw_string_ostream stream(str);
@@ -37,6 +38,7 @@ void AppendBounds(std::string &str, lldb::addr_t lower_bound,
   stream << ")";
   stream.flush();
 }
+#endif
 
 CrashReason GetCrashReasonForSIGSEGV(const siginfo_t &info) {
   assert(info.si_signo == SIGSEGV);
@@ -60,7 +62,6 @@ CrashReason GetCrashReasonForSIGSEGV(const siginfo_t &info) {
     return CrashReason::eBoundViolation;
   }
 
-  assert(false && "unexpected si_code for SIGSEGV");
   return CrashReason::eInvalidCrashReason;
 }
 
@@ -86,7 +87,6 @@ CrashReason GetCrashReasonForSIGILL(const siginfo_t &info) {
     return CrashReason::eInternalStackError;
   }
 
-  assert(false && "unexpected si_code for SIGILL");
   return CrashReason::eInvalidCrashReason;
 }
 
@@ -112,7 +112,6 @@ CrashReason GetCrashReasonForSIGFPE(const siginfo_t &info) {
     return CrashReason::eFloatSubscriptRange;
   }
 
-  assert(false && "unexpected si_code for SIGFPE");
   return CrashReason::eInvalidCrashReason;
 }
 
@@ -128,7 +127,6 @@ CrashReason GetCrashReasonForSIGBUS(const siginfo_t &info) {
     return CrashReason::eHardwareError;
   }
 
-  assert(false && "unexpected si_code for SIGBUS");
   return CrashReason::eInvalidCrashReason;
 }
 }
@@ -156,7 +154,7 @@ std::string GetCrashReasonString(CrashReason reason, lldb::addr_t fault_addr) {
 
   switch (reason) {
   default:
-    assert(false && "invalid CrashReason");
+    str = "unknown crash reason";
     break;
 
   case CrashReason::eInvalidAddress:

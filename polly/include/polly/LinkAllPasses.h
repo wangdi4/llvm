@@ -15,7 +15,12 @@
 #ifndef POLLY_LINKALLPASSES_H
 #define POLLY_LINKALLPASSES_H
 
+#include "polly/CodeGen/PPCGCodeGeneration.h"
 #include "polly/Config/config.h"
+#include "polly/PruneUnprofitable.h"
+#include "polly/Simplify.h"
+#include "polly/Support/DumpModulePass.h"
+#include "llvm/ADT/StringRef.h"
 #include <cstdlib>
 
 namespace llvm {
@@ -38,16 +43,18 @@ llvm::Pass *createJSONExporterPass();
 llvm::Pass *createJSONImporterPass();
 llvm::Pass *createPollyCanonicalizePass();
 llvm::Pass *createPolyhedralInfoPass();
-llvm::Pass *createScopDetectionPass();
+llvm::Pass *createScopDetectionWrapperPassPass();
 llvm::Pass *createScopInfoRegionPassPass();
 llvm::Pass *createScopInfoWrapperPassPass();
 llvm::Pass *createIslAstInfoPass();
 llvm::Pass *createCodeGenerationPass();
 #ifdef GPU_CODEGEN
-llvm::Pass *createPPCGCodeGenerationPass();
+llvm::Pass *createPPCGCodeGenerationPass(GPUArch Arch = GPUArch::NVPTX64,
+                                         GPURuntime Runtime = GPURuntime::CUDA);
 #endif
 llvm::Pass *createIslScheduleOptimizerPass();
 llvm::Pass *createFlattenSchedulePass();
+llvm::Pass *createDeLICMPass();
 
 extern char &CodePreparationID;
 } // namespace polly
@@ -71,7 +78,7 @@ struct PollyForcePassLinking {
     polly::createDOTViewerPass();
     polly::createJSONExporterPass();
     polly::createJSONImporterPass();
-    polly::createScopDetectionPass();
+    polly::createScopDetectionWrapperPassPass();
     polly::createScopInfoRegionPassPass();
     polly::createPollyCanonicalizePass();
     polly::createPolyhedralInfoPass();
@@ -82,6 +89,10 @@ struct PollyForcePassLinking {
 #endif
     polly::createIslScheduleOptimizerPass();
     polly::createFlattenSchedulePass();
+    polly::createDeLICMPass();
+    polly::createDumpModulePass("", true);
+    polly::createSimplifyPass();
+    polly::createPruneUnprofitablePass();
   }
 } PollyForcePassLinking; // Force link by creating a global definition.
 } // namespace
@@ -100,6 +111,7 @@ void initializePPCGCodeGenerationPass(llvm::PassRegistry &);
 void initializeIslScheduleOptimizerPass(llvm::PassRegistry &);
 void initializePollyCanonicalizePass(llvm::PassRegistry &);
 void initializeFlattenSchedulePass(llvm::PassRegistry &);
+void initializeDeLICMPass(llvm::PassRegistry &);
 } // namespace llvm
 
 #endif

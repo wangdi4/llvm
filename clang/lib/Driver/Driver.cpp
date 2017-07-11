@@ -9,7 +9,37 @@
 
 #include "clang/Driver/Driver.h"
 #include "InputInfo.h"
-#include "ToolChains.h"
+#include "ToolChains/AMDGPU.h"
+#include "ToolChains/AVR.h"
+#include "ToolChains/Bitrig.h"
+#include "ToolChains/Clang.h"
+#include "ToolChains/CloudABI.h"
+#include "ToolChains/Contiki.h"
+#include "ToolChains/CrossWindows.h"
+#include "ToolChains/CSA.h"
+#include "ToolChains/Cuda.h"
+#include "ToolChains/Darwin.h"
+#include "ToolChains/DragonFly.h"
+#include "ToolChains/FreeBSD.h"
+#include "ToolChains/Fuchsia.h"
+#include "ToolChains/Gnu.h"
+#include "ToolChains/Haiku.h"
+#include "ToolChains/Hexagon.h"
+#include "ToolChains/Lanai.h"
+#include "ToolChains/Linux.h"
+#include "ToolChains/MinGW.h"
+#include "ToolChains/Minix.h"
+#include "ToolChains/MipsLinux.h"
+#include "ToolChains/MSVC.h"
+#include "ToolChains/Myriad.h"
+#include "ToolChains/NaCl.h"
+#include "ToolChains/NetBSD.h"
+#include "ToolChains/OpenBSD.h"
+#include "ToolChains/PS4CPU.h"
+#include "ToolChains/Solaris.h"
+#include "ToolChains/TCE.h"
+#include "ToolChains/WebAssembly.h"
+#include "ToolChains/XCore.h"
 #include "clang/Basic/Version.h"
 #include "clang/Basic/VirtualFileSystem.h"
 #include "clang/Config/config.h"
@@ -42,6 +72,9 @@
 #include <map>
 #include <memory>
 #include <utility>
+#if LLVM_ON_UNIX
+#include <unistd.h> // getpid
+#endif
 
 using namespace clang::driver;
 using namespace clang;
@@ -59,7 +92,7 @@ Driver::Driver(StringRef ClangExecutable, StringRef DefaultTargetTriple,
       CCCPrintBindings(false), CCPrintHeaders(false), CCLogDiagnostics(false),
       CCGenDiagnostics(false), DefaultTargetTriple(DefaultTargetTriple),
       CCCGenericGCCName(""), CheckInputsExist(true), CCCUsePCH(true),
-      SuppressMissingInputWarning(false) {
+      GenReproducer(false), SuppressMissingInputWarning(false) {
 
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
@@ -76,16 +109,11 @@ Driver::Driver(StringRef ClangExecutable, StringRef DefaultTargetTriple,
     llvm::sys::path::append(P, ClangResourceDir);
   } else {
     StringRef ClangLibdirSuffix(CLANG_LIBDIR_SUFFIX);
-    llvm::sys::path::append(P, "..", Twine("lib") + ClangLibdirSuffix, "clang",
+    P = llvm::sys::path::parent_path(Dir);
+    llvm::sys::path::append(P, Twine("lib") + ClangLibdirSuffix, "clang",
                             CLANG_VERSION_STRING);
   }
   ResourceDir = P.str();
-}
-
-Driver::~Driver() {
-  delete Opts;
-
-  llvm::DeleteContainerSeconds(ToolChains);
 }
 
 void Driver::ParseDriverMode(StringRef ProgramName,
@@ -211,9 +239,9 @@ phases::ID Driver::getFinalPhase(const DerivedArgList &DAL,
   return FinalPhase;
 }
 
-static Arg *MakeInputArg(DerivedArgList &Args, OptTable *Opts,
+static Arg *MakeInputArg(DerivedArgList &Args, OptTable &Opts,
                          StringRef Value) {
-  Arg *A = new Arg(Opts->getOption(options::OPT_INPUT), Value,
+  Arg *A = new Arg(Opts.getOption(options::OPT_INPUT), Value,
                    Args.getBaseArgs().MakeIndex(Value), Value.data());
   Args.AddSynthesizedArg(A);
   A->claim();
@@ -284,7 +312,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
     if (A->getOption().matches(options::OPT__DASH_DASH)) {
       A->claim();
       for (StringRef Val : A->getValues())
-        DAL->append(MakeInputArg(*DAL, Opts, Val));
+        DAL->append(MakeInputArg(*DAL, *Opts, Val));
       continue;
     }
 
@@ -470,14 +498,18 @@ void Driver::CreateOffloadingDeviceToolChains(Compilation &C,
   if (llvm::any_of(Inputs, [](std::pair<types::ID, const llvm::opt::Arg *> &I) {
         return types::isCuda(I.first);
       })) {
-    const ToolChain &TC = getToolChain(
-        C.getInputArgs(),
-        llvm::Triple(C.getSingleOffloadToolChain<Action::OFK_Host>()
-                             ->getTriple()
-                             .isArch64Bit()
-                         ? "nvptx64-nvidia-cuda"
-                         : "nvptx-nvidia-cuda"));
-    C.addOffloadDeviceToolChain(&TC, Action::OFK_Cuda);
+    const ToolChain *HostTC = C.getSingleOffloadToolChain<Action::OFK_Host>();
+    const llvm::Triple &HostTriple = HostTC->getTriple();
+    llvm::Triple CudaTriple(HostTriple.isArch64Bit() ? "nvptx64-nvidia-cuda"
+                                                     : "nvptx-nvidia-cuda");
+    // Use the CUDA and host triples as the key into the ToolChains map, because
+    // the device toolchain we create depends on both.
+    auto &CudaTC = ToolChains[CudaTriple.str() + "/" + HostTriple.str()];
+    if (!CudaTC) {
+      CudaTC = llvm::make_unique<toolchains::CudaToolChain>(
+          *this, CudaTriple, *HostTC, C.getInputArgs());
+    }
+    C.addOffloadDeviceToolChain(CudaTC.get(), Action::OFK_Cuda);
   }
 
   //
@@ -589,6 +621,9 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     CCCGenericGCCName = A->getValue();
   CCCUsePCH =
       Args.hasFlag(options::OPT_ccc_pch_is_pch, options::OPT_ccc_pch_is_pth);
+  GenReproducer = Args.hasFlag(options::OPT_gen_reproducer,
+                               options::OPT_fno_crash_diagnostics,
+                               !!::getenv("FORCE_CLANG_DIAGNOSTICS_CRASH"));
   // FIXME: DefaultTargetTriple is used by the target-prefixed calls to as/ld
   // and getToolChain is const.
   if (IsCLMode()) {
@@ -626,26 +661,20 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
 
   setLTOMode(Args);
 
-  // Ignore -fembed-bitcode options with LTO
-  // since the output will be bitcode anyway.
-  if (getLTOMode() == LTOK_None) {
-    if (Arg *A = Args.getLastArg(options::OPT_fembed_bitcode_EQ)) {
-      StringRef Name = A->getValue();
-      unsigned Model = llvm::StringSwitch<unsigned>(Name)
-          .Case("off", EmbedNone)
-          .Case("all", EmbedBitcode)
-          .Case("bitcode", EmbedBitcode)
-          .Case("marker", EmbedMarker)
-          .Default(~0U);
-      if (Model == ~0U) {
-        Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
-                                                  << Name;
-      } else
-        BitcodeEmbed = static_cast<BitcodeEmbedMode>(Model);
-    }
-  } else {
-    // claim the bitcode option under LTO so no warning is issued.
-    Args.ClaimAllArgs(options::OPT_fembed_bitcode_EQ);
+  // Process -fembed-bitcode= flags.
+  if (Arg *A = Args.getLastArg(options::OPT_fembed_bitcode_EQ)) {
+    StringRef Name = A->getValue();
+    unsigned Model = llvm::StringSwitch<unsigned>(Name)
+        .Case("off", EmbedNone)
+        .Case("all", EmbedBitcode)
+        .Case("bitcode", EmbedBitcode)
+        .Case("marker", EmbedMarker)
+        .Default(~0U);
+    if (Model == ~0U) {
+      Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
+                                                << Name;
+    } else
+      BitcodeEmbed = static_cast<BitcodeEmbedMode>(Model);
   }
 
   std::unique_ptr<llvm::opt::InputArgList> UArgs =
@@ -699,6 +728,95 @@ static void printArgList(raw_ostream &OS, const llvm::opt::ArgList &Args) {
     Command::printArg(OS, *I, true);
   }
   OS << '\n';
+}
+
+bool Driver::getCrashDiagnosticFile(StringRef ReproCrashFilename,
+                                    SmallString<128> &CrashDiagDir) {
+  using namespace llvm::sys;
+  assert(llvm::Triple(llvm::sys::getProcessTriple()).isOSDarwin() &&
+         "Only knows about .crash files on Darwin");
+
+  // The .crash file can be found on at ~/Library/Logs/DiagnosticReports/
+  // (or /Library/Logs/DiagnosticReports for root) and has the filename pattern
+  // clang-<VERSION>_<YYYY-MM-DD-HHMMSS>_<hostname>.crash.
+  path::home_directory(CrashDiagDir);
+  if (CrashDiagDir.startswith("/var/root"))
+    CrashDiagDir = "/";
+  path::append(CrashDiagDir, "Library/Logs/DiagnosticReports");
+  int PID =
+#if LLVM_ON_UNIX
+      getpid();
+#else
+      0;
+#endif
+  std::error_code EC;
+  fs::file_status FileStatus;
+  TimePoint<> LastAccessTime;
+  SmallString<128> CrashFilePath;
+  // Lookup the .crash files and get the one generated by a subprocess spawned
+  // by this driver invocation.
+  for (fs::directory_iterator File(CrashDiagDir, EC), FileEnd;
+       File != FileEnd && !EC; File.increment(EC)) {
+    StringRef FileName = path::filename(File->path());
+    if (!FileName.startswith(Name))
+      continue;
+    if (fs::status(File->path(), FileStatus))
+      continue;
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> CrashFile =
+        llvm::MemoryBuffer::getFile(File->path());
+    if (!CrashFile)
+      continue;
+    // The first line should start with "Process:", otherwise this isn't a real
+    // .crash file.
+    StringRef Data = CrashFile.get()->getBuffer();
+    if (!Data.startswith("Process:"))
+      continue;
+    // Parse parent process pid line, e.g: "Parent Process: clang-4.0 [79141]"
+    size_t ParentProcPos = Data.find("Parent Process:");
+    if (ParentProcPos == StringRef::npos)
+      continue;
+    size_t LineEnd = Data.find_first_of("\n", ParentProcPos);
+    if (LineEnd == StringRef::npos)
+      continue;
+    StringRef ParentProcess = Data.slice(ParentProcPos+15, LineEnd).trim();
+    int OpenBracket = -1, CloseBracket = -1;
+    for (size_t i = 0, e = ParentProcess.size(); i < e; ++i) {
+      if (ParentProcess[i] == '[')
+        OpenBracket = i;
+      if (ParentProcess[i] == ']')
+        CloseBracket = i;
+    }
+    // Extract the parent process PID from the .crash file and check whether
+    // it matches this driver invocation pid.
+    int CrashPID;
+    if (OpenBracket < 0 || CloseBracket < 0 ||
+        ParentProcess.slice(OpenBracket + 1, CloseBracket)
+            .getAsInteger(10, CrashPID) || CrashPID != PID) {
+      continue;
+    }
+
+    // Found a .crash file matching the driver pid. To avoid getting an older
+    // and misleading crash file, continue looking for the most recent.
+    // FIXME: the driver can dispatch multiple cc1 invocations, leading to
+    // multiple crashes poiting to the same parent process. Since the driver
+    // does not collect pid information for the dispatched invocation there's
+    // currently no way to distinguish among them.
+    const auto FileAccessTime = FileStatus.getLastModificationTime();
+    if (FileAccessTime > LastAccessTime) {
+      CrashFilePath.assign(File->path());
+      LastAccessTime = FileAccessTime;
+    }
+  }
+
+  // If found, copy it over to the location of other reproducer files.
+  if (!CrashFilePath.empty()) {
+    EC = fs::copy_file(CrashFilePath, ReproCrashFilename);
+    if (EC)
+      return false;
+    return true;
+  }
+
+  return false;
 }
 
 // When clang crashes, produce diagnostic information including the fully
@@ -828,8 +946,13 @@ void Driver::generateCompilationDiagnostics(Compilation &C,
          "Preprocessed source(s) and associated run script(s) are located at:";
 
   SmallString<128> VFS;
+  SmallString<128> ReproCrashFilename;
   for (const char *TempFile : TempFiles) {
     Diag(clang::diag::note_drv_command_failed_diag_msg) << TempFile;
+    if (ReproCrashFilename.empty()) {
+      ReproCrashFilename = TempFile;
+      llvm::sys::path::replace_extension(ReproCrashFilename, ".crash");
+    }
     if (StringRef(TempFile).endswith(".cache")) {
       // In some cases (modules) we'll dump extra data to help with reproducing
       // the crash into a directory next to the output.
@@ -855,6 +978,24 @@ void Driver::generateCompilationDiagnostics(Compilation &C,
     Cmd.Print(ScriptOS, "\n", /*Quote=*/true);
     Cmd.Print(ScriptOS, "\n", /*Quote=*/true, &CrashInfo);
     Diag(clang::diag::note_drv_command_failed_diag_msg) << Script;
+  }
+
+  // On darwin, provide information about the .crash diagnostic report.
+  if (llvm::Triple(llvm::sys::getProcessTriple()).isOSDarwin()) {
+    SmallString<128> CrashDiagDir;
+    if (getCrashDiagnosticFile(ReproCrashFilename, CrashDiagDir)) {
+      Diag(clang::diag::note_drv_command_failed_diag_msg)
+          << ReproCrashFilename.str();
+    } else { // Suggest a directory for the user to look for .crash files.
+      llvm::sys::path::append(CrashDiagDir, Name);
+      CrashDiagDir += "_<YYYY-MM-DD-HHMMSS>_<hostname>.crash";
+      Diag(clang::diag::note_drv_command_failed_diag_msg)
+          << "Crash backtrace is located in";
+      Diag(clang::diag::note_drv_command_failed_diag_msg)
+          << CrashDiagDir.str();
+      Diag(clang::diag::note_drv_command_failed_diag_msg)
+          << "(choose the .crash file that corresponds to your crash)";
+    }
   }
 
   for (const auto &A : C.getArgs().filtered(options::OPT_frewrite_map_file,
@@ -1031,6 +1172,11 @@ bool Driver::HandleImmediateArgs(const Compilation &C) {
 
   if (C.getArgs().hasArg(options::OPT_v))
     TC.printVerboseInfo(llvm::errs());
+
+  if (C.getArgs().hasArg(options::OPT_print_resource_dir)) {
+    llvm::outs() << ResourceDir << '\n';
+    return false;
+  }
 
   if (C.getArgs().hasArg(options::OPT_print_search_dirs)) {
     llvm::outs() << "programs: =";
@@ -1349,16 +1495,15 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
                     ? types::TY_C
                     : types::TY_CXX;
 
-    arg_iterator it =
-        Args.filtered_begin(options::OPT__SLASH_TC, options::OPT__SLASH_TP);
-    const arg_iterator ie = Args.filtered_end();
-    Arg *Previous = *it++;
+    Arg *Previous = nullptr;
     bool ShowNote = false;
-    while (it != ie) {
-      Diag(clang::diag::warn_drv_overriding_flag_option)
-          << Previous->getSpelling() << (*it)->getSpelling();
-      Previous = *it++;
-      ShowNote = true;
+    for (Arg *A : Args.filtered(options::OPT__SLASH_TC, options::OPT__SLASH_TP)) {
+      if (Previous) {
+        Diag(clang::diag::warn_drv_overriding_flag_option)
+          << Previous->getSpelling() << A->getSpelling();
+        ShowNote = true;
+      }
+      Previous = A;
     }
     if (ShowNote)
       Diag(clang::diag::note_drv_t_option_is_global);
@@ -1448,14 +1593,14 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
     } else if (A->getOption().matches(options::OPT__SLASH_Tc)) {
       StringRef Value = A->getValue();
       if (DiagnoseInputExistence(*this, Args, Value, types::TY_C)) {
-        Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+        Arg *InputArg = MakeInputArg(Args, *Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_C, InputArg));
       }
       A->claim();
     } else if (A->getOption().matches(options::OPT__SLASH_Tp)) {
       StringRef Value = A->getValue();
       if (DiagnoseInputExistence(*this, Args, Value, types::TY_CXX)) {
-        Arg *InputArg = MakeInputArg(Args, Opts, A->getValue());
+        Arg *InputArg = MakeInputArg(Args, *Opts, A->getValue());
         Inputs.push_back(std::make_pair(types::TY_CXX, InputArg));
       }
       A->claim();
@@ -1476,12 +1621,20 @@ void Driver::BuildInputs(const ToolChain &TC, DerivedArgList &Args,
         Diag(clang::diag::err_drv_unknown_language) << A->getValue();
         InputType = types::TY_Object;
       }
+    } else if (A->getOption().getID() == options::OPT__SLASH_U) {
+      assert(A->getNumValues() == 1 && "The /U option has one value.");
+      StringRef Val = A->getValue(0);
+      if (Val.find_first_of("/\\") != StringRef::npos) {
+        // Warn about e.g. "/Users/me/myfile.c".
+        Diag(diag::warn_slash_u_filename) << Val;
+        Diag(diag::note_use_dashdash);
+      }
     }
   }
   if (CCCIsCPP() && Inputs.empty()) {
     // If called as standalone preprocessor, stdin is processed
     // if no other input is present.
-    Arg *A = MakeInputArg(Args, Opts, "-");
+    Arg *A = MakeInputArg(Args, *Opts, "-");
     Inputs.push_back(std::make_pair(types::TY_C, A));
   }
 }
@@ -1806,25 +1959,39 @@ class OffloadingActionBuilder final {
                               options::OPT_cuda_device_only);
 
       // Collect all cuda_gpu_arch parameters, removing duplicates.
-      llvm::SmallSet<CudaArch, 4> GpuArchs;
+      std::set<CudaArch> GpuArchs;
       bool Error = false;
       for (Arg *A : Args) {
-        if (!A->getOption().matches(options::OPT_cuda_gpu_arch_EQ))
+        if (!(A->getOption().matches(options::OPT_cuda_gpu_arch_EQ) ||
+              A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ)))
           continue;
         A->claim();
 
-        const auto &ArchStr = A->getValue();
+        const StringRef ArchStr = A->getValue();
+        if (A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ) &&
+            ArchStr == "all") {
+          GpuArchs.clear();
+          continue;
+        }
         CudaArch Arch = StringToCudaArch(ArchStr);
         if (Arch == CudaArch::UNKNOWN) {
           C.getDriver().Diag(clang::diag::err_drv_cuda_bad_gpu_arch) << ArchStr;
           Error = true;
-        } else if (GpuArchs.insert(Arch).second)
-          GpuArchList.push_back(Arch);
+        } else if (A->getOption().matches(options::OPT_cuda_gpu_arch_EQ))
+          GpuArchs.insert(Arch);
+        else if (A->getOption().matches(options::OPT_no_cuda_gpu_arch_EQ))
+          GpuArchs.erase(Arch);
+        else
+          llvm_unreachable("Unexpected option.");
       }
 
-      // Default to sm_20 which is the lowest common denominator for supported
-      // GPUs.
-      // sm_20 code should work correctly, if suboptimally, on all newer GPUs.
+      // Collect list of GPUs remaining in the set.
+      for (CudaArch Arch : GpuArchs)
+        GpuArchList.push_back(Arch);
+
+      // Default to sm_20 which is the lowest common denominator for
+      // supported GPUs.  sm_20 code should work correctly, if
+      // suboptimally, on all newer GPUs.
       if (GpuArchList.empty())
         GpuArchList.push_back(CudaArch::SM_20);
 
@@ -2224,8 +2391,12 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
   Arg *FinalPhaseArg;
   phases::ID FinalPhase = getFinalPhase(Args, &FinalPhaseArg);
 
-  if (FinalPhase == phases::Link && Args.hasArg(options::OPT_emit_llvm)) {
-    Diag(clang::diag::err_drv_emit_llvm_link);
+  if (FinalPhase == phases::Link) {
+    if (Args.hasArg(options::OPT_emit_llvm))
+      Diag(clang::diag::err_drv_emit_llvm_link);
+    if (IsCLMode() && LTOMode != LTOK_None &&
+        !Args.getLastArgValue(options::OPT_fuse_ld_EQ).equals_lower("lld"))
+      Diag(clang::diag::err_drv_lto_without_lld);
   }
 
   // Reject -Z* at the top level, these options should never have been exposed
@@ -2370,7 +2541,7 @@ void Driver::BuildActions(Compilation &C, DerivedArgList &Args,
         const types::ID HeaderType = lookupHeaderTypeForSourceType(InputType);
         llvm::SmallVector<phases::ID, phases::MaxNumberOfPhases> PCHPL;
         types::getCompilationPhases(HeaderType, PCHPL);
-        Arg *PchInputArg = MakeInputArg(Args, Opts, YcArg->getValue());
+        Arg *PchInputArg = MakeInputArg(Args, *Opts, YcArg->getValue());
 
         // Build the pipeline for the pch file.
         Action *ClangClPch =
@@ -3059,7 +3230,8 @@ InputInfo Driver::BuildJobsForActionNoCache(
   const JobAction *JA = cast<JobAction>(A);
   ActionList CollapsedOffloadActions;
 
-  ToolSelector TS(JA, *TC, C, isSaveTempsEnabled(), embedBitcodeEnabled());
+  ToolSelector TS(JA, *TC, C, isSaveTempsEnabled(),
+                  embedBitcodeInObject() && !isUsingLTO());
   const Tool *T = TS.getTool(Inputs, CollapsedOffloadActions);
 
   if (!T)
@@ -3530,128 +3702,142 @@ std::string Driver::GetClPchPath(Compilation &C, StringRef BaseName) const {
 const ToolChain &Driver::getToolChain(const ArgList &Args,
                                       const llvm::Triple &Target) const {
 
-  ToolChain *&TC = ToolChains[Target.str()];
+  auto &TC = ToolChains[Target.str()];
   if (!TC) {
     switch (Target.getOS()) {
     case llvm::Triple::Haiku:
-      TC = new toolchains::Haiku(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Haiku>(*this, Target, Args);
       break;
     case llvm::Triple::CloudABI:
-      TC = new toolchains::CloudABI(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::CloudABI>(*this, Target, Args);
       break;
     case llvm::Triple::Darwin:
     case llvm::Triple::MacOSX:
     case llvm::Triple::IOS:
     case llvm::Triple::TvOS:
     case llvm::Triple::WatchOS:
-      TC = new toolchains::DarwinClang(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::DarwinClang>(*this, Target, Args);
       break;
     case llvm::Triple::DragonFly:
-      TC = new toolchains::DragonFly(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::DragonFly>(*this, Target, Args);
       break;
     case llvm::Triple::OpenBSD:
-      TC = new toolchains::OpenBSD(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::OpenBSD>(*this, Target, Args);
       break;
     case llvm::Triple::Bitrig:
-      TC = new toolchains::Bitrig(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Bitrig>(*this, Target, Args);
       break;
     case llvm::Triple::NetBSD:
-      TC = new toolchains::NetBSD(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::NetBSD>(*this, Target, Args);
       break;
     case llvm::Triple::FreeBSD:
-      TC = new toolchains::FreeBSD(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::FreeBSD>(*this, Target, Args);
       break;
     case llvm::Triple::Minix:
-      TC = new toolchains::Minix(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Minix>(*this, Target, Args);
       break;
     case llvm::Triple::Linux:
     case llvm::Triple::ELFIAMCU:
       if (Target.getArch() == llvm::Triple::hexagon)
-        TC = new toolchains::HexagonToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::HexagonToolChain>(*this, Target,
+                                                             Args);
       else if ((Target.getVendor() == llvm::Triple::MipsTechnologies) &&
                !Target.hasEnvironment())
-        TC = new toolchains::MipsLLVMToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::MipsLLVMToolChain>(*this, Target,
+                                                              Args);
       else
-        TC = new toolchains::Linux(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::Linux>(*this, Target, Args);
       break;
     case llvm::Triple::NaCl:
-      TC = new toolchains::NaClToolChain(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::NaClToolChain>(*this, Target, Args);
       break;
     case llvm::Triple::Fuchsia:
-      TC = new toolchains::Fuchsia(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Fuchsia>(*this, Target, Args);
       break;
     case llvm::Triple::Solaris:
-      TC = new toolchains::Solaris(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Solaris>(*this, Target, Args);
       break;
     case llvm::Triple::AMDHSA:
-      TC = new toolchains::AMDGPUToolChain(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::AMDGPUToolChain>(*this, Target, Args);
       break;
     case llvm::Triple::Win32:
       switch (Target.getEnvironment()) {
       default:
         if (Target.isOSBinFormatELF())
-          TC = new toolchains::Generic_ELF(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::Generic_ELF>(*this, Target, Args);
         else if (Target.isOSBinFormatMachO())
-          TC = new toolchains::MachO(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::MachO>(*this, Target, Args);
         else
-          TC = new toolchains::Generic_GCC(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::Generic_GCC>(*this, Target, Args);
         break;
       case llvm::Triple::GNU:
-        TC = new toolchains::MinGW(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::MinGW>(*this, Target, Args);
         break;
       case llvm::Triple::Itanium:
-        TC = new toolchains::CrossWindowsToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::CrossWindowsToolChain>(*this, Target,
+                                                                  Args);
         break;
       case llvm::Triple::MSVC:
       case llvm::Triple::UnknownEnvironment:
-        TC = new toolchains::MSVCToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::MSVCToolChain>(*this, Target, Args);
         break;
       }
       break;
-    case llvm::Triple::CUDA:
-      TC = new toolchains::CudaToolChain(*this, Target, Args);
-      break;
     case llvm::Triple::PS4:
-      TC = new toolchains::PS4CPU(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::PS4CPU>(*this, Target, Args);
       break;
     case llvm::Triple::Contiki:
-      TC = new toolchains::Contiki(*this, Target, Args);
+      TC = llvm::make_unique<toolchains::Contiki>(*this, Target, Args);
       break;
     default:
       // Of these targets, Hexagon is the only one that might have
       // an OS of Linux, in which case it got handled above already.
       switch (Target.getArch()) {
       case llvm::Triple::tce:
-        TC = new toolchains::TCEToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::TCEToolChain>(*this, Target, Args);
+        break;
+      case llvm::Triple::tcele:
+        TC = llvm::make_unique<toolchains::TCELEToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::hexagon:
-        TC = new toolchains::HexagonToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::HexagonToolChain>(*this, Target,
+                                                             Args);
         break;
       case llvm::Triple::lanai:
-        TC = new toolchains::LanaiToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::LanaiToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::xcore:
-        TC = new toolchains::XCoreToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::XCoreToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::csa:
-        TC = new toolchains::CSAToolChain(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::CSAToolChain>(*this, Target, Args);
         break;
       case llvm::Triple::wasm32:
       case llvm::Triple::wasm64:
-        TC = new toolchains::WebAssembly(*this, Target, Args);
+        TC = llvm::make_unique<toolchains::WebAssembly>(*this, Target, Args);
+        break;
+      case llvm::Triple::avr:
+        TC = llvm::make_unique<toolchains::AVRToolChain>(*this, Target, Args);
         break;
       default:
         if (Target.getVendor() == llvm::Triple::Myriad)
-          TC = new toolchains::MyriadToolChain(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::MyriadToolChain>(*this, Target,
+                                                              Args);
         else if (Target.isOSBinFormatELF())
-          TC = new toolchains::Generic_ELF(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::Generic_ELF>(*this, Target, Args);
         else if (Target.isOSBinFormatMachO())
-          TC = new toolchains::MachO(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::MachO>(*this, Target, Args);
         else
-          TC = new toolchains::Generic_GCC(*this, Target, Args);
+          TC = llvm::make_unique<toolchains::Generic_GCC>(*this, Target, Args);
       }
     }
   }
+
+  // Intentionally omitted from the switch above: llvm::Triple::CUDA.  CUDA
+  // compiles always need two toolchains, the CUDA toolchain and the host
+  // toolchain.  So the only valid way to create a CUDA toolchain is via
+  // CreateOffloadingDeviceToolChains.
+
   return *TC;
 }
 

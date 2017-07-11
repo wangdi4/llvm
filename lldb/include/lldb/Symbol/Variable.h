@@ -1,5 +1,4 @@
-//===-- Variable.h ----------------------------------------------*- C++
-//-*-===//
+//===-- Variable.h -----------------------------------------------*- C++-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -16,9 +15,9 @@
 
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/RangeMap.h"
-#include "lldb/Core/UserID.h"
 #include "lldb/Expression/DWARFExpression.h"
 #include "lldb/Symbol/Declaration.h"
+#include "lldb/Utility/UserID.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-private.h"
 
@@ -98,13 +97,14 @@ public:
   typedef size_t (*GetVariableCallback)(void *baton, const char *name,
                                         VariableList &var_list);
 
-  static Error GetValuesForVariableExpressionPath(
-      const char *variable_expr_path, ExecutionContextScope *scope,
+  static Status GetValuesForVariableExpressionPath(
+      llvm::StringRef variable_expr_path, ExecutionContextScope *scope,
       GetVariableCallback callback, void *baton, VariableList &variable_list,
       ValueObjectList &valobj_list);
 
-  static size_t AutoComplete(const ExecutionContext &exe_ctx, const char *name,
-                             StringList &matches, bool &word_complete);
+  static size_t AutoComplete(const ExecutionContext &exe_ctx,
+                             llvm::StringRef name, StringList &matches,
+                             bool &word_complete);
 
   CompilerDeclContext GetDeclContext();
 

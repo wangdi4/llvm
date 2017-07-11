@@ -68,6 +68,11 @@ def FeaturePopulationCount : SystemZFeature<
   "Assume that the population-count facility is installed"
 >;
 
+def FeatureMessageSecurityAssist4 : SystemZFeature<
+  "message-security-assist-extension4", "MessageSecurityAssist4",
+  "Assume that the message-security-assist extension facility 4 is installed"
+>;
+
 def Arch9NewFeatures : SystemZFeatureList<[
     FeatureDistinctOps,
     FeatureFastSerialization,
@@ -75,7 +80,8 @@ def Arch9NewFeatures : SystemZFeatureList<[
     FeatureHighWord,
     FeatureInterlockedAccess1,
     FeatureLoadStoreOnCond,
-    FeaturePopulationCount
+    FeaturePopulationCount,
+    FeatureMessageSecurityAssist4
 ]>;
 
 //===----------------------------------------------------------------------===//
@@ -83,6 +89,16 @@ def Arch9NewFeatures : SystemZFeatureList<[
 // New features added in the Tenth Edition of the z/Architecture
 //
 //===----------------------------------------------------------------------===//
+
+def FeatureExecutionHint : SystemZFeature<
+  "execution-hint", "ExecutionHint",
+  "Assume that the execution-hint facility is installed"
+>;
+
+def FeatureLoadAndTrap : SystemZFeature<
+  "load-and-trap", "LoadAndTrap",
+  "Assume that the load-and-trap facility is installed"
+>;
 
 def FeatureMiscellaneousExtensions : SystemZFeature<
   "miscellaneous-extensions", "MiscellaneousExtensions",
@@ -100,6 +116,8 @@ def FeatureTransactionalExecution : SystemZFeature<
 >;
 
 def Arch10NewFeatures : SystemZFeatureList<[
+    FeatureExecutionHint,
+    FeatureLoadAndTrap,
     FeatureMiscellaneousExtensions,
     FeatureProcessorAssist,
     FeatureTransactionalExecution
@@ -111,9 +129,19 @@ def Arch10NewFeatures : SystemZFeatureList<[
 //
 //===----------------------------------------------------------------------===//
 
+def FeatureLoadAndZeroRightmostByte : SystemZFeature<
+  "load-and-zero-rightmost-byte", "LoadAndZeroRightmostByte",
+  "Assume that the load-and-zero-rightmost-byte facility is installed"
+>;
+
 def FeatureLoadStoreOnCond2 : SystemZFeature<
   "load-store-on-cond-2", "LoadStoreOnCond2",
   "Assume that the load/store-on-condition facility 2 is installed"
+>;
+
+def FeatureMessageSecurityAssist5 : SystemZFeature<
+  "message-security-assist-extension5", "MessageSecurityAssist5",
+  "Assume that the message-security-assist extension facility 5 is installed"
 >;
 
 def FeatureVector : SystemZFeature<
@@ -123,7 +151,9 @@ def FeatureVector : SystemZFeature<
 def FeatureNoVector : SystemZMissingFeature<"Vector">;
 
 def Arch11NewFeatures : SystemZFeatureList<[
+    FeatureLoadAndZeroRightmostByte,
     FeatureLoadStoreOnCond2,
+    FeatureMessageSecurityAssist5,
     FeatureVector
 ]>;
 

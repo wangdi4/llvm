@@ -43,7 +43,8 @@
 // will only be
 // used in cases where this is true.  This is a compile time dependecy, for now
 // selected per target Platform
-#if defined(__APPLE__) || defined(__NetBSD__)
+#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__) ||       \
+    defined(__OpenBSD__)
 #define LLDB_EDITLINE_USE_WCHAR 1
 #include <codecvt>
 #else
@@ -55,10 +56,8 @@
 
 #if defined(_WIN32)
 #include "lldb/Host/windows/editlinewin.h"
-#else
-#if !defined(__ANDROID_NDK__)
+#elif !defined(__ANDROID__)
 #include <histedit.h>
-#endif
 #endif
 
 #include <mutex>
@@ -66,8 +65,8 @@
 #include <vector>
 
 #include "lldb/Host/ConnectionFileDescriptor.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Predicate.h"
+#include "lldb/Utility/FileSpec.h"
 
 namespace lldb_private {
 namespace line_editor {
@@ -323,6 +322,8 @@ private:
   /// Ensures that the current EditLine instance is properly configured for
   /// single or multi-line editing.
   void ConfigureEditor(bool multiline);
+
+  bool CompleteCharacter(char ch, EditLineCharType &out);
 
 private:
 #if LLDB_EDITLINE_USE_WCHAR

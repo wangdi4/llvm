@@ -2,15 +2,26 @@ add_llvm_library(LLVMDebugInfoCodeView
   CodeViewError.cpp
   CodeViewRecordIO.cpp
   CVSymbolVisitor.cpp
+  CVTypeDumper.cpp
   CVTypeVisitor.cpp
   EnumTables.cpp
+  Formatters.cpp
   Line.cpp
-  ModuleSubstream.cpp
-  ModuleSubstreamVisitor.cpp
+  ModuleDebugFileChecksumFragment.cpp
+  ModuleDebugFragment.cpp
+  ModuleDebugFragmentRecord.cpp
+  ModuleDebugFragmentVisitor.cpp
+  ModuleDebugInlineeLinesFragment.cpp
+  ModuleDebugLineFragment.cpp
+  RandomAccessTypeVisitor.cpp
   RecordSerialization.cpp
+  StringTable.cpp
+  SymbolRecordMapping.cpp
   SymbolDumper.cpp
-  TypeDumper.cpp
-  TypeRecord.cpp
+  SymbolSerializer.cpp
+  TypeDatabase.cpp
+  TypeDatabaseVisitor.cpp
+  TypeDumpVisitor.cpp
   TypeRecordMapping.cpp
   TypeSerializer.cpp
   TypeStreamMerger.cpp

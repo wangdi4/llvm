@@ -23,6 +23,7 @@
 
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/RegionPass.h"
+#include "llvm/IR/PassManager.h"
 #include "isl/aff.h"
 #include "isl/ctx.h"
 #include "isl/set.h"
@@ -66,6 +67,8 @@ class ScopBuilder;
 
 //===---------------------------------------------------------------------===//
 
+extern bool UseInstructionNames;
+
 /// Enumeration of assumptions Polly can take.
 enum AssumptionKind {
   ALIASING,
@@ -82,6 +85,129 @@ enum AssumptionKind {
 
 /// Enum to distinguish between assumptions and restrictions.
 enum AssumptionSign { AS_ASSUMPTION, AS_RESTRICTION };
+
+/// The different memory kinds used in Polly.
+///
+/// We distinguish between arrays and various scalar memory objects. We use
+/// the term ``array'' to describe memory objects that consist of a set of
+/// individual data elements arranged in a multi-dimensional grid. A scalar
+/// memory object describes an individual data element and is used to model
+/// the definition and uses of llvm::Values.
+///
+/// The polyhedral model does traditionally not reason about SSA values. To
+/// reason about llvm::Values we model them "as if" they were zero-dimensional
+/// memory objects, even though they were not actually allocated in (main)
+/// memory.  Memory for such objects is only alloca[ed] at CodeGeneration
+/// time. To relate the memory slots used during code generation with the
+/// llvm::Values they belong to the new names for these corresponding stack
+/// slots are derived by appending suffixes (currently ".s2a" and ".phiops")
+/// to the name of the original llvm::Value. To describe how def/uses are
+/// modeled exactly we use these suffixes here as well.
+///
+/// There are currently four different kinds of memory objects:
+enum class MemoryKind {
+  /// MemoryKind::Array: Models a one or multi-dimensional array
+  ///
+  /// A memory object that can be described by a multi-dimensional array.
+  /// Memory objects of this type are used to model actual multi-dimensional
+  /// arrays as they exist in LLVM-IR, but they are also used to describe
+  /// other objects:
+  ///   - A single data element allocated on the stack using 'alloca' is
+  ///     modeled as a one-dimensional, single-element array.
+  ///   - A single data element allocated as a global variable is modeled as
+  ///     one-dimensional, single-element array.
+  ///   - Certain multi-dimensional arrays with variable size, which in
+  ///     LLVM-IR are commonly expressed as a single-dimensional access with a
+  ///     complicated access function, are modeled as multi-dimensional
+  ///     memory objects (grep for "delinearization").
+  Array,
+
+  /// MemoryKind::Value: Models an llvm::Value
+  ///
+  /// Memory objects of type MemoryKind::Value are used to model the data flow
+  /// induced by llvm::Values. For each llvm::Value that is used across
+  /// BasicBocks one ScopArrayInfo object is created. A single memory WRITE
+  /// stores the llvm::Value at its definition into the memory object and at
+  /// each use of the llvm::Value (ignoring trivial intra-block uses) a
+  /// corresponding READ is added. For instance, the use/def chain of a
+  /// llvm::Value %V depicted below
+  ///              ______________________
+  ///              |DefBB:              |
+  ///              |  %V = float op ... |
+  ///              ----------------------
+  ///               |                  |
+  /// _________________               _________________
+  /// |UseBB1:        |               |UseBB2:        |
+  /// |  use float %V |               |  use float %V |
+  /// -----------------               -----------------
+  ///
+  /// is modeled as if the following memory accesses occured:
+  ///
+  ///                        __________________________
+  ///                        |entry:                  |
+  ///                        |  %V.s2a = alloca float |
+  ///                        --------------------------
+  ///                                     |
+  ///                    ___________________________________
+  ///                    |DefBB:                           |
+  ///                    |  store %float %V, float* %V.s2a |
+  ///                    -----------------------------------
+  ///                           |                   |
+  /// ____________________________________ ___________________________________
+  /// |UseBB1:                           | |UseBB2:                          |
+  /// |  %V.reload1 = load float* %V.s2a | |  %V.reload2 = load float* %V.s2a|
+  /// |  use float %V.reload1            | |  use float %V.reload2           |
+  /// ------------------------------------ -----------------------------------
+  ///
+  Value,
+
+  /// MemoryKind::PHI: Models PHI nodes within the SCoP
+  ///
+  /// Besides the MemoryKind::Value memory object used to model the normal
+  /// llvm::Value dependences described above, PHI nodes require an additional
+  /// memory object of type MemoryKind::PHI to describe the forwarding of values
+  /// to
+  /// the PHI node.
+  ///
+  /// As an example, a PHIInst instructions
+  ///
+  /// %PHI = phi float [ %Val1, %IncomingBlock1 ], [ %Val2, %IncomingBlock2 ]
+  ///
+  /// is modeled as if the accesses occured this way:
+  ///
+  ///                    _______________________________
+  ///                    |entry:                       |
+  ///                    |  %PHI.phiops = alloca float |
+  ///                    -------------------------------
+  ///                           |              |
+  /// __________________________________  __________________________________
+  /// |IncomingBlock1:                 |  |IncomingBlock2:                 |
+  /// |  ...                           |  |  ...                           |
+  /// |  store float %Val1 %PHI.phiops |  |  store float %Val2 %PHI.phiops |
+  /// |  br label % JoinBlock          |  |  br label %JoinBlock           |
+  /// ----------------------------------  ----------------------------------
+  ///                             \            /
+  ///                              \          /
+  ///               _________________________________________
+  ///               |JoinBlock:                             |
+  ///               |  %PHI = load float, float* PHI.phiops |
+  ///               -----------------------------------------
+  ///
+  /// Note that there can also be a scalar write access for %PHI if used in a
+  /// different BasicBlock, i.e. there can be a memory object %PHI.phiops as
+  /// well as a memory object %PHI.s2a.
+  PHI,
+
+  /// MemoryKind::ExitPHI: Models PHI nodes in the SCoP's exit block
+  ///
+  /// For PHI nodes in the Scop's exit block a special memory object kind is
+  /// used. The modeling used is identical to MemoryKind::PHI, with the
+  /// exception
+  /// that there are no READs from these memory objects. The PHINode's
+  /// llvm::Value is treated as a value escaping the SCoP. WRITE accesses
+  /// write directly to the escaping value's ".s2a" alloca.
+  ExitPHI
+};
 
 /// Maps from a loop to the affine function expressing its backedge taken count.
 /// The backedge taken count already enough to express iteration domain as we
@@ -100,127 +226,6 @@ typedef std::vector<std::unique_ptr<MemoryAccess>> AccFuncVector;
 ///
 class ScopArrayInfo {
 public:
-  /// The kind of a ScopArrayInfo memory object.
-  ///
-  /// We distinguish between arrays and various scalar memory objects. We use
-  /// the term ``array'' to describe memory objects that consist of a set of
-  /// individual data elements arranged in a multi-dimensional grid. A scalar
-  /// memory object describes an individual data element and is used to model
-  /// the definition and uses of llvm::Values.
-  ///
-  /// The polyhedral model does traditionally not reason about SSA values. To
-  /// reason about llvm::Values we model them "as if" they were zero-dimensional
-  /// memory objects, even though they were not actually allocated in (main)
-  /// memory.  Memory for such objects is only alloca[ed] at CodeGeneration
-  /// time. To relate the memory slots used during code generation with the
-  /// llvm::Values they belong to the new names for these corresponding stack
-  /// slots are derived by appending suffixes (currently ".s2a" and ".phiops")
-  /// to the name of the original llvm::Value. To describe how def/uses are
-  /// modeled exactly we use these suffixes here as well.
-  ///
-  /// There are currently four different kinds of memory objects:
-  enum MemoryKind {
-    /// MK_Array: Models a one or multi-dimensional array
-    ///
-    /// A memory object that can be described by a multi-dimensional array.
-    /// Memory objects of this type are used to model actual multi-dimensional
-    /// arrays as they exist in LLVM-IR, but they are also used to describe
-    /// other objects:
-    ///   - A single data element allocated on the stack using 'alloca' is
-    ///     modeled as a one-dimensional, single-element array.
-    ///   - A single data element allocated as a global variable is modeled as
-    ///     one-dimensional, single-element array.
-    ///   - Certain multi-dimensional arrays with variable size, which in
-    ///     LLVM-IR are commonly expressed as a single-dimensional access with a
-    ///     complicated access function, are modeled as multi-dimensional
-    ///     memory objects (grep for "delinearization").
-    MK_Array,
-
-    /// MK_Value: Models an llvm::Value
-    ///
-    /// Memory objects of type MK_Value are used to model the data flow
-    /// induced by llvm::Values. For each llvm::Value that is used across
-    /// BasicBocks one ScopArrayInfo object is created. A single memory WRITE
-    /// stores the llvm::Value at its definition into the memory object and at
-    /// each use of the llvm::Value (ignoring trivial intra-block uses) a
-    /// corresponding READ is added. For instance, the use/def chain of a
-    /// llvm::Value %V depicted below
-    ///              ______________________
-    ///              |DefBB:              |
-    ///              |  %V = float op ... |
-    ///              ----------------------
-    ///               |                  |
-    /// _________________               _________________
-    /// |UseBB1:        |               |UseBB2:        |
-    /// |  use float %V |               |  use float %V |
-    /// -----------------               -----------------
-    ///
-    /// is modeled as if the following memory accesses occured:
-    ///
-    ///                        __________________________
-    ///                        |entry:                  |
-    ///                        |  %V.s2a = alloca float |
-    ///                        --------------------------
-    ///                                     |
-    ///                    ___________________________________
-    ///                    |DefBB:                           |
-    ///                    |  store %float %V, float* %V.s2a |
-    ///                    -----------------------------------
-    ///                           |                   |
-    /// ____________________________________ ___________________________________
-    /// |UseBB1:                           | |UseBB2:                          |
-    /// |  %V.reload1 = load float* %V.s2a | |  %V.reload2 = load float* %V.s2a|
-    /// |  use float %V.reload1            | |  use float %V.reload2           |
-    /// ------------------------------------ -----------------------------------
-    ///
-    MK_Value,
-
-    /// MK_PHI: Models PHI nodes within the SCoP
-    ///
-    /// Besides the MK_Value memory object used to model the normal
-    /// llvm::Value dependences described above, PHI nodes require an additional
-    /// memory object of type MK_PHI to describe the forwarding of values to
-    /// the PHI node.
-    ///
-    /// As an example, a PHIInst instructions
-    ///
-    /// %PHI = phi float [ %Val1, %IncomingBlock1 ], [ %Val2, %IncomingBlock2 ]
-    ///
-    /// is modeled as if the accesses occured this way:
-    ///
-    ///                    _______________________________
-    ///                    |entry:                       |
-    ///                    |  %PHI.phiops = alloca float |
-    ///                    -------------------------------
-    ///                           |              |
-    /// __________________________________  __________________________________
-    /// |IncomingBlock1:                 |  |IncomingBlock2:                 |
-    /// |  ...                           |  |  ...                           |
-    /// |  store float %Val1 %PHI.phiops |  |  store float %Val2 %PHI.phiops |
-    /// |  br label % JoinBlock          |  |  br label %JoinBlock           |
-    /// ----------------------------------  ----------------------------------
-    ///                             \            /
-    ///                              \          /
-    ///               _________________________________________
-    ///               |JoinBlock:                             |
-    ///               |  %PHI = load float, float* PHI.phiops |
-    ///               -----------------------------------------
-    ///
-    /// Note that there can also be a scalar write access for %PHI if used in a
-    /// different BasicBlock, i.e. there can be a memory object %PHI.phiops as
-    /// well as a memory object %PHI.s2a.
-    MK_PHI,
-
-    /// MK_ExitPHI: Models PHI nodes in the SCoP's exit block
-    ///
-    /// For PHI nodes in the Scop's exit block a special memory object kind is
-    /// used. The modeling used is identical to MK_PHI, with the exception
-    /// that there are no READs from these memory objects. The PHINode's
-    /// llvm::Value is treated as a value escaping the SCoP. WRITE accesses
-    /// write directly to the escaping value's ".s2a" alloca.
-    MK_ExitPHI
-  };
-
   /// Construct a ScopArrayInfo object.
   ///
   /// @param BasePtr        The array base pointer.
@@ -232,7 +237,7 @@ public:
   /// @param S              The scop this array object belongs to.
   /// @param BaseName       The optional name of this memory reference.
   ScopArrayInfo(Value *BasePtr, Type *ElementType, isl_ctx *IslCtx,
-                ArrayRef<const SCEV *> DimensionSizes, enum MemoryKind Kind,
+                ArrayRef<const SCEV *> DimensionSizes, MemoryKind Kind,
                 const DataLayout &DL, Scop *S, const char *BaseName = nullptr);
 
   ///  Update the element type of the ScopArrayInfo object.
@@ -255,7 +260,9 @@ public:
   ///  @param Sizes       A vector of array sizes where the rightmost array
   ///                     sizes need to match the innermost array sizes already
   ///                     defined in SAI.
-  bool updateSizes(ArrayRef<const SCEV *> Sizes);
+  ///  @param CheckConsistency Update sizes, even if new sizes are inconsistent
+  ///                          with old sizes
+  bool updateSizes(ArrayRef<const SCEV *> Sizes, bool CheckConsistency = true);
 
   /// Destructor to free the isl id of the base pointer.
   ~ScopArrayInfo();
@@ -276,7 +283,8 @@ public:
 
   /// Return the number of dimensions.
   unsigned getNumberOfDimensions() const {
-    if (Kind == MK_PHI || Kind == MK_ExitPHI || Kind == MK_Value)
+    if (Kind == MemoryKind::PHI || Kind == MemoryKind::ExitPHI ||
+        Kind == MemoryKind::Value)
       return 0;
     return DimensionSizes.size();
   }
@@ -316,10 +324,10 @@ public:
   __isl_give isl_id *getBasePtrId() const;
 
   /// Return what kind of memory this represents.
-  enum MemoryKind getKind() const { return Kind; }
+  MemoryKind getKind() const { return Kind; }
 
   /// Is this array info modeling an llvm::Value?
-  bool isValueKind() const { return Kind == MK_Value; }
+  bool isValueKind() const { return Kind == MemoryKind::Value; }
 
   /// Is this array info modeling special PHI node memory?
   ///
@@ -331,13 +339,13 @@ public:
   /// original PHI node as virtual base pointer, we have this additional
   /// attribute to distinguish the PHI node specific array modeling from the
   /// normal scalar array modeling.
-  bool isPHIKind() const { return Kind == MK_PHI; }
+  bool isPHIKind() const { return Kind == MemoryKind::PHI; }
 
-  /// Is this array info modeling an MK_ExitPHI?
-  bool isExitPHIKind() const { return Kind == MK_ExitPHI; }
+  /// Is this array info modeling an MemoryKind::ExitPHI?
+  bool isExitPHIKind() const { return Kind == MemoryKind::ExitPHI; }
 
   /// Is this array info modeling an array?
-  bool isArrayKind() const { return Kind == MK_Array; }
+  bool isArrayKind() const { return Kind == MemoryKind::Array; }
 
   /// Dump a readable representation to stderr.
   void dump() const;
@@ -359,6 +367,16 @@ public:
 
   /// If the array is read only
   bool isReadOnly();
+
+  /// Verify that @p Array is compatible to this ScopArrayInfo.
+  ///
+  /// Two arrays are compatible if their dimensionality, the sizes of their
+  /// dimensions, and their element sizes match.
+  ///
+  /// @param Array The array to compare against.
+  ///
+  /// @returns True, if the arrays are compatible, False otherwise.
+  bool isCompatibleWith(const ScopArrayInfo *Array) const;
 
 private:
   void addDerivedSAI(ScopArrayInfo *DerivedSAI) {
@@ -395,7 +413,7 @@ private:
   /// The type of this scop array info object.
   ///
   /// We distinguish between SCALAR, PHI and ARRAY objects.
-  enum MemoryKind Kind;
+  MemoryKind Kind;
 
   /// The data layout of the module.
   const DataLayout &DL;
@@ -459,8 +477,8 @@ private:
   isl_id *Id;
 
   /// What is modeled by this MemoryAccess.
-  /// @see ScopArrayInfo::MemoryKind
-  ScopArrayInfo::MemoryKind Kind;
+  /// @see MemoryKind
+  MemoryKind Kind;
 
   /// Whether it a reading or writing access, and if writing, whether it
   /// is conditional (MAY_WRITE).
@@ -508,16 +526,13 @@ private:
 
   /// The base address (e.g., A for A[i+j]).
   ///
-  /// The #BaseAddr of a memory access of kind MK_Array is the base pointer
-  /// of the memory access.
-  /// The #BaseAddr of a memory access of kind MK_PHI or MK_ExitPHI is the
-  /// PHI node itself.
-  /// The #BaseAddr of a memory access of kind MK_Value is the instruction
-  /// defining the value.
+  /// The #BaseAddr of a memory access of kind MemoryKind::Array is the base
+  /// pointer of the memory access.
+  /// The #BaseAddr of a memory access of kind MemoryKind::PHI or
+  /// MemoryKind::ExitPHI is the PHI node itself.
+  /// The #BaseAddr of a memory access of kind MemoryKind::Value is the
+  /// instruction defining the value.
   AssertingVH<Value> BaseAddr;
-
-  /// An unique name of the accessed array.
-  std::string BaseName;
 
   /// Type a single array element wrt. this access.
   Type *ElementType;
@@ -531,18 +546,19 @@ private:
 
   /// The access instruction of this memory access.
   ///
-  /// For memory accesses of kind MK_Array the access instruction is the
-  /// Load or Store instruction performing the access.
+  /// For memory accesses of kind MemoryKind::Array the access instruction is
+  /// the Load or Store instruction performing the access.
   ///
-  /// For memory accesses of kind MK_PHI or MK_ExitPHI the access
-  /// instruction of a load access is the PHI instruction. The access
+  /// For memory accesses of kind MemoryKind::PHI or MemoryKind::ExitPHI the
+  /// access instruction of a load access is the PHI instruction. The access
   /// instruction of a PHI-store is the incoming's block's terminator
   /// instruction.
   ///
-  /// For memory accesses of kind MK_Value the access instruction of a load
-  /// access is nullptr because generally there can be multiple instructions in
-  /// the statement using the same llvm::Value. The access instruction of a
-  /// write access is the instruction that defines the llvm::Value.
+  /// For memory accesses of kind MemoryKind::Value the access instruction of a
+  /// load access is nullptr because generally there can be multiple
+  /// instructions in the statement using the same llvm::Value. The access
+  /// instruction of a write access is the instruction that defines the
+  /// llvm::Value.
   Instruction *AccessInstruction;
 
   /// Incoming block and value of a PHINode.
@@ -550,12 +566,13 @@ private:
 
   /// The value associated with this memory access.
   ///
-  ///  - For array memory accesses (MK_Array) it is the loaded result or the
-  ///    stored value. If the access instruction is a memory intrinsic it
+  ///  - For array memory accesses (MemoryKind::Array) it is the loaded result
+  ///    or the stored value. If the access instruction is a memory intrinsic it
   ///    the access value is also the memory intrinsic.
-  ///  - For accesses of kind MK_Value it is the access instruction itself.
-  ///  - For accesses of kind MK_PHI or MK_ExitPHI it is the PHI node itself
-  ///    (for both, READ and WRITE accesses).
+  ///  - For accesses of kind MemoryKind::Value it is the access instruction
+  ///    itself.
+  ///  - For accesses of kind MemoryKind::PHI or MemoryKind::ExitPHI it is the
+  ///    PHI node itself (for both, READ and WRITE accesses).
   ///
   AssertingVH<Value> AccessValue;
 
@@ -595,9 +612,14 @@ private:
 
   /// Updated access relation read from JSCOP file.
   isl_map *NewAccessRelation;
-  // @}
 
-  bool isAffine() const { return IsAffine; }
+  /// Fortran arrays whose sizes are not statically known are stored in terms
+  /// of a descriptor struct. This maintains a raw pointer to the memory,
+  /// along with auxiliary fields with information such as dimensions.
+  /// We hold a reference to the descriptor corresponding to a MemoryAccess
+  /// into a Fortran array. FAD for "Fortran Array Descriptor"
+  AssertingVH<Value> FAD;
+  // @}
 
   __isl_give isl_basic_map *createBasicAccessMap(ScopStmt *Statement);
 
@@ -645,8 +667,7 @@ private:
   /// The introduction of different cases necessarily complicates the memory
   /// access function, but cases that can be statically proven to not happen
   /// will be eliminated later on.
-  __isl_give isl_map *foldAccess(__isl_take isl_map *AccessRelation,
-                                 ScopStmt *Statement);
+  void foldAccessRelation();
 
   /// Create the access relation for the underlying memory intrinsic.
   void buildMemIntrinsicAccessRelation();
@@ -686,12 +707,10 @@ public:
   /// @param Kind       The kind of memory accessed.
   /// @param Subscripts Subscipt expressions
   /// @param Sizes      Dimension lengths of the accessed array.
-  /// @param BaseName   Name of the acessed array.
   MemoryAccess(ScopStmt *Stmt, Instruction *AccessInst, AccessType AccType,
                Value *BaseAddress, Type *ElemType, bool Affine,
                ArrayRef<const SCEV *> Subscripts, ArrayRef<const SCEV *> Sizes,
-               Value *AccessValue, ScopArrayInfo::MemoryKind Kind,
-               StringRef BaseName);
+               Value *AccessValue, MemoryKind Kind);
 
   /// Create a new MemoryAccess that corresponds to @p AccRel.
   ///
@@ -747,6 +766,11 @@ public:
   /// Is this a write memory access?
   bool isWrite() const { return isMustWrite() || isMayWrite(); }
 
+  /// Is this a memory intrinsic access (memcpy, memset, memmove)?
+  bool isMemoryIntrinsic() const {
+    return isa<MemIntrinsic>(getAccessInstruction());
+  }
+
   /// Check if a new access relation was imported or set by a pass.
   bool hasNewAccessRelation() const { return NewAccessRelation; }
 
@@ -795,22 +819,14 @@ public:
   /// Get an isl string representing a new access function, if available.
   std::string getNewAccessRelationStr() const;
 
-  /// Get the base address of this access (e.g. A for A[i+j]) when
+  /// Get the original base address of this access (e.g. A for A[i+j]) when
   /// detected.
-  Value *getOriginalBaseAddr() const {
-    assert(!getOriginalScopArrayInfo() /* may noy yet be initialized */ ||
-           getOriginalScopArrayInfo()->getBasePtr() == BaseAddr);
-    return BaseAddr;
-  }
-
-  /// Get the base address of this access (e.g. A for A[i+j]) after a
-  /// potential change by setNewAccessRelation().
-  Value *getLatestBaseAddr() const {
-    return getLatestScopArrayInfo()->getBasePtr();
-  }
-
-  /// Old name for getOriginalBaseAddr().
-  Value *getBaseAddr() const { return getOriginalBaseAddr(); }
+  ///
+  /// This adress may differ from the base address referenced by the Original
+  /// ScopArrayInfo to which this array belongs, as this memory access may
+  /// have been unified to a ScopArray which has a different but identically
+  /// valued base pointer in case invariant load hoisting is enabled.
+  Value *getOriginalBaseAddr() const { return BaseAddr; }
 
   /// Get the detection-time base array isl_id for this access.
   __isl_give isl_id *getOriginalArrayId() const;
@@ -839,8 +855,6 @@ public:
 
   /// Return a string representation of the reduction type @p RT.
   static const std::string getReductionOperatorStr(ReductionType RT);
-
-  const std::string &getBaseName() const { return BaseName; }
 
   /// Return the element type of the accessed array wrt. this access.
   Type *getElementType() const { return ElementType; }
@@ -895,26 +909,26 @@ public:
   bool isStrideZero(__isl_take const isl_map *Schedule) const;
 
   /// Return the kind when this access was first detected.
-  ScopArrayInfo::MemoryKind getOriginalKind() const {
+  MemoryKind getOriginalKind() const {
     assert(!getOriginalScopArrayInfo() /* not yet initialized */ ||
            getOriginalScopArrayInfo()->getKind() == Kind);
     return Kind;
   }
 
   /// Return the kind considering a potential setNewAccessRelation.
-  ScopArrayInfo::MemoryKind getLatestKind() const {
+  MemoryKind getLatestKind() const {
     return getLatestScopArrayInfo()->getKind();
   }
 
   /// Whether this is an access of an explicit load or store in the IR.
   bool isOriginalArrayKind() const {
-    return getOriginalKind() == ScopArrayInfo::MK_Array;
+    return getOriginalKind() == MemoryKind::Array;
   }
 
   /// Whether storage memory is either an custom .s2a/.phiops alloca
   /// (false) or an existing pointer into an array (true).
   bool isLatestArrayKind() const {
-    return getLatestKind() == ScopArrayInfo::MK_Array;
+    return getLatestKind() == MemoryKind::Array;
   }
 
   /// Old name of isOriginalArrayKind.
@@ -923,15 +937,16 @@ public:
   /// Whether this access is an array to a scalar memory object, without
   /// considering changes by setNewAccessRelation.
   ///
-  /// Scalar accesses are accesses to MK_Value, MK_PHI or MK_ExitPHI.
+  /// Scalar accesses are accesses to MemoryKind::Value, MemoryKind::PHI or
+  /// MemoryKind::ExitPHI.
   bool isOriginalScalarKind() const {
-    return getOriginalKind() != ScopArrayInfo::MK_Array;
+    return getOriginalKind() != MemoryKind::Array;
   }
 
   /// Whether this access is an array to a scalar memory object, also
   /// considering changes by setNewAccessRelation.
   bool isLatestScalarKind() const {
-    return getLatestKind() != ScopArrayInfo::MK_Array;
+    return getLatestKind() != MemoryKind::Array;
   }
 
   /// Old name of isOriginalScalarKind.
@@ -939,12 +954,12 @@ public:
 
   /// Was this MemoryAccess detected as a scalar dependences?
   bool isOriginalValueKind() const {
-    return getOriginalKind() == ScopArrayInfo::MK_Value;
+    return getOriginalKind() == MemoryKind::Value;
   }
 
   /// Is this MemoryAccess currently modeling scalar dependences?
   bool isLatestValueKind() const {
-    return getLatestKind() == ScopArrayInfo::MK_Value;
+    return getLatestKind() == MemoryKind::Value;
   }
 
   /// Old name of isOriginalValueKind().
@@ -952,14 +967,12 @@ public:
 
   /// Was this MemoryAccess detected as a special PHI node access?
   bool isOriginalPHIKind() const {
-    return getOriginalKind() == ScopArrayInfo::MK_PHI;
+    return getOriginalKind() == MemoryKind::PHI;
   }
 
   /// Is this MemoryAccess modeling special PHI node accesses, also
   /// considering a potential change by setNewAccessRelation?
-  bool isLatestPHIKind() const {
-    return getLatestKind() == ScopArrayInfo::MK_PHI;
-  }
+  bool isLatestPHIKind() const { return getLatestKind() == MemoryKind::PHI; }
 
   /// Old name of isOriginalPHIKind.
   bool isPHIKind() const { return isOriginalPHIKind(); }
@@ -967,14 +980,14 @@ public:
   /// Was this MemoryAccess detected as the accesses of a PHI node in the
   /// SCoP's exit block?
   bool isOriginalExitPHIKind() const {
-    return getOriginalKind() == ScopArrayInfo::MK_ExitPHI;
+    return getOriginalKind() == MemoryKind::ExitPHI;
   }
 
   /// Is this MemoryAccess modeling the accesses of a PHI node in the
   /// SCoP's exit block? Can be changed to an array access using
   /// setNewAccessRelation().
   bool isLatestExitPHIKind() const {
-    return getLatestKind() == ScopArrayInfo::MK_ExitPHI;
+    return getLatestKind() == MemoryKind::ExitPHI;
   }
 
   /// Old name of isOriginalExitPHIKind().
@@ -999,6 +1012,19 @@ public:
 
   /// Get the reduction type of this access
   ReductionType getReductionType() const { return RedType; }
+
+  /// Set the array descriptor corresponding to the Array on which the
+  /// memory access is performed.
+  void setFortranArrayDescriptor(Value *FAD);
+
+  /// Update the original access relation.
+  ///
+  /// We need to update the original access relation during scop construction,
+  /// when unifying the memory accesses that access the same scop array info
+  /// object. After the scop has been constructed, the original access relation
+  /// should not be changed any more. Instead setNewAccessRelation should
+  /// be called.
+  void setAccessRelation(__isl_take isl_map *AccessRelation);
 
   /// Set the updated access relation read from JSCOP file.
   void setNewAccessRelation(__isl_take isl_map *NewAccessRelation);
@@ -1032,6 +1058,9 @@ public:
 
   /// Print the MemoryAccess to stderr.
   void dump() const;
+
+  /// Is the memory access affine?
+  bool isAffine() const { return IsAffine; }
 };
 
 llvm::raw_ostream &operator<<(llvm::raw_ostream &OS,
@@ -1094,10 +1123,10 @@ public:
   const ScopStmt &operator=(const ScopStmt &) = delete;
 
   /// Create the ScopStmt from a BasicBlock.
-  ScopStmt(Scop &parent, BasicBlock &bb);
+  ScopStmt(Scop &parent, BasicBlock &bb, Loop *SurroundingLoop);
 
   /// Create an overapproximating ScopStmt for the region @p R.
-  ScopStmt(Scop &parent, Region &R);
+  ScopStmt(Scop &parent, Region &R, Loop *SurroundingLoop);
 
   /// Create a copy statement.
   ///
@@ -1157,11 +1186,11 @@ private:
   DenseMap<const Instruction *, MemoryAccessList> InstructionToAccess;
 
   /// The set of values defined elsewhere required in this ScopStmt and
-  ///        their MK_Value READ MemoryAccesses.
+  ///        their MemoryKind::Value READ MemoryAccesses.
   DenseMap<Value *, MemoryAccess *> ValueReads;
 
   /// The set of values defined in this ScopStmt that are required
-  ///        elsewhere, mapped to their MK_Value WRITE MemoryAccesses.
+  ///        elsewhere, mapped to their MemoryKind::Value WRITE MemoryAccesses.
   DenseMap<Instruction *, MemoryAccess *> ValueWrites;
 
   /// Map from PHI nodes to its incoming value when coming from this
@@ -1198,6 +1227,9 @@ private:
 
   std::string BaseName;
 
+  /// The closest loop that contains this statement.
+  Loop *SurroundingLoop;
+
   /// Build the statement.
   //@{
   void buildDomain();
@@ -1216,6 +1248,9 @@ private:
   collectCandiateReductionLoads(MemoryAccess *StoreMA,
                                 llvm::SmallVectorImpl<MemoryAccess *> &Loads);
   //@}
+
+  /// Remove @p MA from dictionaries pointing to them.
+  void removeAccessData(MemoryAccess *MA);
 
 public:
   ~ScopStmt();
@@ -1293,6 +1328,43 @@ public:
   /// statements, return its entry block.
   BasicBlock *getEntryBlock() const;
 
+  /// Return whether @p L is boxed within this statement.
+  bool contains(const Loop *L) const {
+    // Block statements never contain loops.
+    if (isBlockStmt())
+      return false;
+
+    return getRegion()->contains(L);
+  }
+
+  /// Return whether this statement contains @p BB.
+  bool contains(BasicBlock *BB) const {
+    if (isCopyStmt())
+      return false;
+    if (isBlockStmt())
+      return BB == getBasicBlock();
+    return getRegion()->contains(BB);
+  }
+
+  /// Return the closest innermost loop that contains this statement, but is not
+  /// contained in it.
+  ///
+  /// For block statement, this is just the loop that contains the block. Region
+  /// statements can contain boxed loops, so getting the loop of one of the
+  /// region's BBs might return such an inner loop. For instance, the region's
+  /// entry could be a header of a loop, but the region might extend to BBs
+  /// after the loop exit. Similarly, the region might only contain parts of the
+  /// loop body and still include the loop header.
+  ///
+  /// Most of the time the surrounding loop is the top element of #NestLoops,
+  /// except when it is empty. In that case it return the loop that the whole
+  /// SCoP is contained in. That can be nullptr if there is no such loop.
+  Loop *getSurroundingLoop() const {
+    assert(!isCopyStmt() &&
+           "No surrounding loop for artificially created statements");
+    return SurroundingLoop;
+  }
+
   /// Return true if this statement does not contain any accesses.
   bool isEmpty() const { return MemAccs.empty(); }
 
@@ -1346,12 +1418,38 @@ public:
     return ValueReads.lookup(Inst);
   }
 
+  /// Return the MemoryAccess that loads a PHINode value, or nullptr if not
+  /// existing, respectively not yet added.
+  MemoryAccess *lookupPHIReadOf(PHINode *PHI) const;
+
   /// Return the PHI write MemoryAccess for the incoming values from any
   ///        basic block in this ScopStmt, or nullptr if not existing,
   ///        respectively not yet added.
   MemoryAccess *lookupPHIWriteOf(PHINode *PHI) const {
     assert(isBlockStmt() || R->getExit() == PHI->getParent());
     return PHIWrites.lookup(PHI);
+  }
+
+  /// Return the input access of the value, or null if no such MemoryAccess
+  /// exists.
+  ///
+  /// The input access is the MemoryAccess that makes an inter-statement value
+  /// available in this statement by reading it at the start of this statement.
+  /// This can be a MemoryKind::Value if defined in another statement or a
+  /// MemoryKind::PHI if the value is a PHINode in this statement.
+  MemoryAccess *lookupInputAccessOf(Value *Val) const {
+    if (isa<PHINode>(Val))
+      if (auto InputMA = lookupPHIReadOf(cast<PHINode>(Val))) {
+        assert(!lookupValueReadOf(Val) && "input accesses must be unique; a "
+                                          "statement cannot read a .s2a and "
+                                          ".phiops simultaneously");
+        return InputMA;
+      }
+
+    if (auto *InputMA = lookupValueReadOf(Val))
+      return InputMA;
+
+    return nullptr;
   }
 
   /// Add @p Access to this statement's list of accesses.
@@ -1362,6 +1460,11 @@ public:
   /// Note that scalar accesses that are caused by MA will
   /// be eliminated too.
   void removeMemoryAccess(MemoryAccess *MA);
+
+  /// Remove @p MA from this statement.
+  ///
+  /// In contrast to removeMemoryAccess(), no other access will be eliminated.
+  void removeSingleMemoryAccess(MemoryAccess *MA);
 
   typedef MemoryAccessVec::iterator iterator;
   typedef MemoryAccessVec::const_iterator const_iterator;
@@ -1464,6 +1567,9 @@ private:
   /// The underlying Region.
   Region &R;
 
+  /// The name of the SCoP (identical to the regions name)
+  std::string name;
+
   // Access functions of the SCoP.
   //
   // This owns all the MemoryAccess objects of the Scop created in this pass.
@@ -1518,7 +1624,7 @@ private:
   /// The affinator used to translate SCEVs to isl expressions.
   SCEVAffinator Affinator;
 
-  typedef std::map<std::pair<AssertingVH<const Value>, int>,
+  typedef std::map<std::pair<AssertingVH<const Value>, MemoryKind>,
                    std::unique_ptr<ScopArrayInfo>>
       ArrayInfoMapTy;
 
@@ -1646,6 +1752,12 @@ private:
 
   /// List of invariant accesses.
   InvariantEquivClassesTy InvariantEquivClasses;
+
+  /// The smallest array index not yet assigned.
+  long ArrayIdx = 0;
+
+  /// The smallest statement index not yet assigned.
+  long StmtIdx = 0;
 
   /// Scop constructor; invoked from ScopBuilder::buildScop.
   Scop(Region &R, ScalarEvolution &SE, LoopInfo &LI,
@@ -1819,6 +1931,34 @@ private:
   ///
   void hoistInvariantLoads();
 
+  /// Canonicalize arrays with base pointers from the same equivalence class.
+  ///
+  /// Some context: in our normal model we assume that each base pointer is
+  /// related to a single specific memory region, where memory regions
+  /// associated with different base pointers are disjoint. Consequently we do
+  /// not need to compute additional data dependences that model possible
+  /// overlaps of these memory regions. To verify our assumption we compute
+  /// alias checks that verify that modeled arrays indeed do not overlap. In
+  /// case an overlap is detected the runtime check fails and we fall back to
+  /// the original code.
+  ///
+  /// In case of arrays where the base pointers are know to be identical,
+  /// because they are dynamically loaded by accesses that are in the same
+  /// invariant load equivalence class, such run-time alias check would always
+  /// be false.
+  ///
+  /// This function makes sure that we do not generate consistently failing
+  /// run-time checks for code that contains distinct arrays with known
+  /// equivalent base pointers. It identifies for each invariant load
+  /// equivalence class a single canonical array and canonicalizes all memory
+  /// accesses that reference arrays that have base pointers that are known to
+  /// be equal to the base pointer of such a canonical array to this canonical
+  /// array.
+  ///
+  /// We currently do not canonicalize arrays for which certain memory accesses
+  /// have been hoisted as loop invariant.
+  void canonicalizeDynamicBasePtrs();
+
   /// Add invariant loads listed in @p InvMAs with the domain of @p Stmt.
   void addInvariantLoads(ScopStmt &Stmt, InvariantAccessesTy &InvMAs);
 
@@ -1853,16 +1993,26 @@ private:
   /// @return The representing SCEV for invariant loads or @p S if none.
   const SCEV *getRepresentingInvariantLoadSCEV(const SCEV *S);
 
-  /// Create a new SCoP statement for either @p BB or @p R.
+  /// Create a new SCoP statement for @p BB.
   ///
-  /// Either @p BB or @p R should be non-null. A new statement for the non-null
-  /// argument will be created and added to the statement vector and map.
+  /// A new statement for @p BB will be created and added to the statement
+  /// vector
+  /// and map.
   ///
-  /// @param BB         The basic block we build the statement for (or null)
-  /// @param R          The region we build the statement for (or null).
-  void addScopStmt(BasicBlock *BB, Region *R);
+  /// @param BB              The basic block we build the statement for.
+  /// @param SurroundingLoop The loop the created statement is contained in.
+  void addScopStmt(BasicBlock *BB, Loop *SurroundingLoop);
 
-  /// @param Update access dimensionalities.
+  /// Create a new SCoP statement for @p R.
+  ///
+  /// A new statement for @p R will be created and added to the statement vector
+  /// and map.
+  ///
+  /// @param R               The region we build the statement for.
+  /// @param SurroundingLoop The loop the created statement is contained in.
+  void addScopStmt(Region *R, Loop *SurroundingLoop);
+
+  /// Update access dimensionalities.
   ///
   /// When detecting memory accesses different accesses to the same array may
   /// have built with different dimensionality, as outer zero-values dimensions
@@ -1870,6 +2020,57 @@ private:
   /// again over all memory accesses and updates their dimensionality to match
   /// the dimensionality of the underlying ScopArrayInfo object.
   void updateAccessDimensionality();
+
+  /// Fold size constants to the right.
+  ///
+  /// In case all memory accesses in a given dimension are multiplied with a
+  /// common constant, we can remove this constant from the individual access
+  /// functions and move it to the size of the memory access. We do this as this
+  /// increases the size of the innermost dimension, consequently widens the
+  /// valid range the array subscript in this dimension can evaluate to, and
+  /// as a result increases the likelyhood that our delinearization is
+  /// correct.
+  ///
+  /// Example:
+  ///
+  ///    A[][n]
+  ///    S[i,j] -> A[2i][2j+1]
+  ///    S[i,j] -> A[2i][2j]
+  ///
+  ///    =>
+  ///
+  ///    A[][2n]
+  ///    S[i,j] -> A[i][2j+1]
+  ///    S[i,j] -> A[i][2j]
+  ///
+  /// Constants in outer dimensions can arise when the elements of a parametric
+  /// multi-dimensional array are not elementar data types, but e.g.,
+  /// structures.
+  void foldSizeConstantsToRight();
+
+  /// Fold memory accesses to handle parametric offset.
+  ///
+  /// As a post-processing step, we 'fold' memory accesses to parameteric
+  /// offsets in the access functions. @see MemoryAccess::foldAccess for
+  /// details.
+  void foldAccessRelations();
+
+  /// Assume that all memory accesses are within bounds.
+  ///
+  /// After we have built a model of all memory accesses, we need to assume
+  /// that the model we built matches reality -- aka. all modeled memory
+  /// accesses always remain within bounds. We do this as last step, after
+  /// all memory accesses have been modeled and canonicalized.
+  void assumeNoOutOfBounds();
+
+  /// Finalize all access relations.
+  ///
+  /// When building up access relations, temporary access relations that
+  /// correctly represent each individual access are constructed. However, these
+  /// access relations can be inconsistent or non-optimal when looking at the
+  /// set of accesses as a whole. This function finalizes the memory accesses
+  /// and constructs a globally consistent state.
+  void finalizeAccesses();
 
   /// Construct the schedule of this SCoP.
   ///
@@ -1989,9 +2190,16 @@ public:
   /// Take a list of parameters and add the new ones to the scop.
   void addParams(const ParameterSetTy &NewParameters);
 
+  /// Return an iterator range containing the scop parameters.
+  iterator_range<ParameterSetTy::iterator> parameters() const {
+    return make_range(Parameters.begin(), Parameters.end());
+  }
+
   /// Return whether this scop is empty, i.e. contains no statements that
   /// could be executed.
   bool isEmpty() const { return Stmts.empty(); }
+
+  const StringRef getName() const { return name; }
 
   typedef ArrayInfoSetTy::iterator array_iterator;
   typedef ArrayInfoSetTy::const_iterator const_array_iterator;
@@ -2194,6 +2402,12 @@ public:
     return isl_set_is_empty(InvalidContext);
   }
 
+  /// A vector of memory accesses that belong to an alias group.
+  typedef SmallVector<MemoryAccess *, 4> AliasGroupTy;
+
+  /// A vector of alias groups.
+  typedef SmallVector<Scop::AliasGroupTy, 4> AliasGroupVectorTy;
+
   /// Build the alias checks for this SCoP.
   bool buildAliasChecks(AliasAnalysis &AA);
 
@@ -2201,6 +2415,40 @@ public:
   ///
   /// @returns True if __no__ error occurred, false otherwise.
   bool buildAliasGroups(AliasAnalysis &AA);
+
+  /// Build alias groups for all memory accesses in the Scop.
+  ///
+  /// Using the alias analysis and an alias set tracker we build alias sets
+  /// for all memory accesses inside the Scop. For each alias set we then map
+  /// the aliasing pointers back to the memory accesses we know, thus obtain
+  /// groups of memory accesses which might alias. We also collect the set of
+  /// arrays through which memory is written.
+  ///
+  /// @param AA A reference to the alias analysis.
+  ///
+  /// @returns A pair consistent of a vector of alias groups and a set of arrays
+  ///          through which memory is written.
+  std::tuple<AliasGroupVectorTy, DenseSet<const ScopArrayInfo *>>
+  buildAliasGroupsForAccesses(AliasAnalysis &AA);
+
+  ///  Split alias groups by iteration domains.
+  ///
+  ///  We split each group based on the domains of the minimal/maximal accesses.
+  ///  That means two minimal/maximal accesses are only in a group if their
+  ///  access domains intersect. Otherwise, they are in different groups.
+  ///
+  ///  @param AliasGroups The alias groups to split
+  void splitAliasGroupsByDomain(AliasGroupVectorTy &AliasGroups);
+
+  /// Build a given alias group and its access data.
+  ///
+  /// @param AliasGroup     The alias group to build.
+  /// @param HasWriteAccess A set of arrays through which memory is not only
+  ///                       read, but also written.
+  ///
+  /// @returns True if __no__ error occurred, false otherwise.
+  bool buildAliasGroup(Scop::AliasGroupTy &AliasGroup,
+                       DenseSet<const ScopArrayInfo *> HasWriteAccess);
 
   /// Return all alias groups for this SCoP.
   const MinMaxVectorPairVectorTy &getAliasGroups() const {
@@ -2290,7 +2538,7 @@ public:
   const ScopArrayInfo *getOrCreateScopArrayInfo(Value *BasePtr,
                                                 Type *ElementType,
                                                 ArrayRef<const SCEV *> Sizes,
-                                                ScopArrayInfo::MemoryKind Kind,
+                                                MemoryKind Kind,
                                                 const char *BaseName = nullptr);
 
   /// Create an array and return the corresponding ScopArrayInfo object.
@@ -2306,14 +2554,25 @@ public:
   ///
   /// @param BasePtr   The base pointer the object has been stored for.
   /// @param Kind      The kind of array info object.
-  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr,
-                                        ScopArrayInfo::MemoryKind Kind);
+  ///
+  /// @returns The ScopArrayInfo pointer or NULL if no such pointer is
+  ///          available.
+  const ScopArrayInfo *getScopArrayInfoOrNull(Value *BasePtr, MemoryKind Kind);
+
+  /// Return the cached ScopArrayInfo object for @p BasePtr.
+  ///
+  /// @param BasePtr   The base pointer the object has been stored for.
+  /// @param Kind      The kind of array info object.
+  ///
+  /// @returns The ScopArrayInfo pointer (may assert if no such pointer is
+  ///          available).
+  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr, MemoryKind Kind);
 
   /// Invalidate ScopArrayInfo object for base address.
   ///
   /// @param BasePtr The base pointer of the ScopArrayInfo object to invalidate.
   /// @param Kind    The Kind of the ScopArrayInfo object.
-  void invalidateScopArrayInfo(Value *BasePtr, ScopArrayInfo::MemoryKind Kind) {
+  void invalidateScopArrayInfo(Value *BasePtr, MemoryKind Kind) {
     auto It = ScopArrayInfoMap.find(std::make_pair(BasePtr, Kind));
     if (It == ScopArrayInfoMap.end())
       return;
@@ -2327,7 +2586,12 @@ public:
   void realignParams();
 
   /// Return true if this SCoP can be profitably optimized.
-  bool isProfitable() const;
+  ///
+  /// @param ScalarsAreUnprofitable Never consider statements with scalar writes
+  ///                               as profitably optimizable.
+  ///
+  /// @return Whether this SCoP can be profitably optimized.
+  bool isProfitable(bool ScalarsAreUnprofitable) const;
 
   /// Return true if the SCoP contained at least one error block.
   bool hasErrorBlock() const { return HasErrorBlock; }
@@ -2447,6 +2711,18 @@ public:
   ///                      When true, also removes statements without
   ///                      side-effects.
   void simplifySCoP(bool AfterHoisting);
+
+  /// Get the next free array index.
+  ///
+  /// This function returns a unique index which can be used to identify an
+  /// array.
+  long getNextArrayIdx() { return ArrayIdx++; }
+
+  /// Get the next free statement index.
+  ///
+  /// This function returns a unique index which can be used to identify a
+  /// statement.
+  long getNextStmtIdx() { return StmtIdx++; }
 };
 
 /// Print Scop scop to raw_ostream O.
@@ -2486,16 +2762,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
-//===----------------------------------------------------------------------===//
-/// The legacy pass manager's analysis pass to compute scop information
-///        for the whole function.
-///
-/// This pass will maintain a map of the maximal region within a scop to its
-/// scop object for all the feasible scops present in a function.
-/// This pass is an alternative to the ScopInfoRegionPass in order to avoid a
-/// region pass manager.
-class ScopInfoWrapperPass : public FunctionPass {
-
+class ScopInfo {
 public:
   using RegionToScopMapTy = DenseMap<Region *, std::unique_ptr<Scop>>;
   using iterator = RegionToScopMapTy::iterator;
@@ -2507,10 +2774,9 @@ private:
   RegionToScopMapTy RegionToScopMap;
 
 public:
-  static char ID; // Pass identification, replacement for typeid
-
-  ScopInfoWrapperPass() : FunctionPass(ID) {}
-  ~ScopInfoWrapperPass() {}
+  ScopInfo(const DataLayout &DL, ScopDetection &SD, ScalarEvolution &SE,
+           LoopInfo &LI, AliasAnalysis &AA, DominatorTree &DT,
+           AssumptionCache &AC);
 
   /// Get the Scop object for the given Region
   ///
@@ -2529,11 +2795,45 @@ public:
   iterator end() { return RegionToScopMap.end(); }
   const_iterator begin() const { return RegionToScopMap.begin(); }
   const_iterator end() const { return RegionToScopMap.end(); }
+  bool empty() const { return RegionToScopMap.empty(); }
+};
+
+struct ScopInfoAnalysis : public AnalysisInfoMixin<ScopInfoAnalysis> {
+  static AnalysisKey Key;
+  using Result = ScopInfo;
+  Result run(Function &, FunctionAnalysisManager &);
+};
+
+struct ScopInfoPrinterPass : public PassInfoMixin<ScopInfoPrinterPass> {
+  ScopInfoPrinterPass(raw_ostream &O) : Stream(O) {}
+  PreservedAnalyses run(Function &, FunctionAnalysisManager &);
+  raw_ostream &Stream;
+};
+
+//===----------------------------------------------------------------------===//
+/// The legacy pass manager's analysis pass to compute scop information
+///        for the whole function.
+///
+/// This pass will maintain a map of the maximal region within a scop to its
+/// scop object for all the feasible scops present in a function.
+/// This pass is an alternative to the ScopInfoRegionPass in order to avoid a
+/// region pass manager.
+class ScopInfoWrapperPass : public FunctionPass {
+  std::unique_ptr<ScopInfo> Result;
+
+public:
+  ScopInfoWrapperPass() : FunctionPass(ID) {}
+  ~ScopInfoWrapperPass() = default;
+
+  static char ID; // Pass identification, replacement for typeid
+
+  ScopInfo *getSI() { return Result.get(); }
+  const ScopInfo *getSI() const { return Result.get(); }
 
   /// Calculate all the polyhedral scops for a given function.
   bool runOnFunction(Function &F) override;
 
-  void releaseMemory() override { RegionToScopMap.clear(); }
+  void releaseMemory() override { Result.reset(); }
 
   void print(raw_ostream &O, const Module *M = nullptr) const override;
 

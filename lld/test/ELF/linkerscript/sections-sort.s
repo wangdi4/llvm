@@ -1,10 +1,7 @@
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t.o
 
-# RUN: echo "SECTIONS { \
-# RUN:         .text : { *(.text) } \
-# RUN:         foo   : { *(foo) } \
-# RUN:       } " > %t.script
+# RUN: echo "SECTIONS { .text : {*(.text)} foo : {*(foo)}}" > %t.script
 # RUN: ld.lld -o %t --script %t.script %t.o -shared
 # RUN: llvm-objdump --section-headers %t | FileCheck  %s
 
@@ -24,6 +21,7 @@ nop
 # CHECK-NEXT: 4 .hash
 # CHECK-NEXT: 5 .dynstr
 # CHECK-NEXT: 6 .dynamic
-# CHECK-NEXT: 7 .symtab
-# CHECK-NEXT: 8 .shstrtab
-# CHECK-NEXT: 9 .strtab
+# CHECK-NEXT: 7 .comment
+# CHECK-NEXT: 8 .symtab
+# CHECK-NEXT: 9 .shstrtab
+# CHECK-NEXT: 10 .strtab

@@ -15,21 +15,21 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Status.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
 
 #include "llvm/Support/ConvertUTF.h"
 
 // Windows includes
-#include <TlHelp32.h>
+#include <tlhelp32.h>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -50,7 +50,7 @@ bool GetTripleForProcess(const FileSpec &executable, llvm::Triple &triple) {
   imageBinary.SeekFromStart(peOffset);
   imageBinary.Read(&peHead, readSize);
   if (peHead != 0x00004550) // "PE\0\0", little-endian
-    return false;           // Error: Can't find PE header
+    return false;           // Status: Can't find PE header
   readSize = 2;
   imageBinary.Read(&machineType, readSize);
   triple.setVendor(llvm::Triple::PC);
@@ -95,14 +95,6 @@ void GetProcessExecutableAndTriple(const AutoHandle &handle,
 
   // TODO(zturner): Add the ability to get the process user name.
 }
-}
-
-lldb::DataBufferSP Host::GetAuxvData(lldb_private::Process *process) {
-  return 0;
-}
-
-lldb::tid_t Host::GetCurrentThreadID() {
-  return lldb::tid_t(::GetCurrentThreadId());
 }
 
 lldb::thread_t Host::GetCurrentThread() {
@@ -204,8 +196,8 @@ HostThread Host::StartMonitoringChildProcess(
   return HostThread();
 }
 
-Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
-  Error error;
+Status Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
+  Status error;
   if (launch_info.GetFlags().Test(eLaunchFlagShellExpandArguments)) {
     FileSpec expand_tool_spec;
     if (!HostInfo::GetLLDBPath(lldb::ePathTypeSupportExecutableDir,
@@ -230,8 +222,9 @@ Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
 
     int status;
     std::string output;
-    RunShellCommand(expand_command.GetData(), launch_info.GetWorkingDirectory(),
-                    &status, nullptr, &output, 10);
+    std::string command = expand_command.GetString();
+    RunShellCommand(command.c_str(), launch_info.GetWorkingDirectory(), &status,
+                    nullptr, &output, 10);
 
     if (status != 0) {
       error.SetErrorStringWithFormat("lldb-argdumper exited with error %d",
