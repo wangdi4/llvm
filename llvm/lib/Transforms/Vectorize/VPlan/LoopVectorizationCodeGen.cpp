@@ -1307,6 +1307,9 @@ Value *VPOCodeGen::getScalarValue(Value *V, unsigned Lane) {
       return SV[Lane];
   }
 
+  if (Legal->isInductionVariable(V))
+    return buildScalarIVForLane(cast<PHINode>(V), Lane);
+    
   Value *VecV = getVectorValue(V);
   auto ScalarV = Builder.CreateExtractElement(VecV, Builder.getInt32(Lane));
 
@@ -2336,11 +2339,37 @@ void VPOCodeGen::createVectorIntOrFpInductionPHI(const InductionDescriptor &ID,
   cast<PHINode>(VectorInd)->addIncoming(LastInduction, LoopVectorLatch);
 }
 
-void VPOCodeGen::buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal,
-                                  const InductionDescriptor &ID) {
+Value *VPOCodeGen::getIVStep(PHINode *IV, const InductionDescriptor &ID) {
+  Value *Step = nullptr;
+  auto &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
 
-  // We shouldn't have to build scalar steps if we aren't vectorizing.
-  assert(VF > 1 && "VF should be greater than one");
+  if (PSE.getSE()->isSCEVable(IV->getType())) {
+    SCEVExpander Exp(*PSE.getSE(), DL, "induction");
+    Step = Exp.expandCodeFor(ID.getStep(), ID.getStep()->getType(),
+                             LoopVectorPreHeader->getTerminator());
+  } else
+    Step = cast<SCEVUnknown>(ID.getStep())->getValue();
+
+  return Step;
+}
+
+Value *VPOCodeGen::buildScalarIVForLane(PHINode *OrigIV, unsigned Lane) {
+  auto II = Legal->getInductionVars()->find(OrigIV);
+  auto ID = II->second;
+
+  // This function should never get called for Lane 0. The ScalarIV value for
+  // lane 0 is added during induction widening.
+  assert(Lane > 0 && "Unexpected lane 0 in buildScalarIVForLane");
+
+  // Get the scalar IV value for the vector loop by getting the value from
+  // ScalarMap for lane 0
+  assert(ScalarMap.count(OrigIV) &&
+         ScalarMap[OrigIV].count(0) &&
+         "Expected scalar value for lane 0 not found");
+  Value *ScalarIV = ScalarMap[OrigIV][0];
+ 
+  // Induction step
+  Value *Step = getIVStep(OrigIV, ID);
 
   // Get the value type and ensure it and the step have the same integer type.
   Type *ScalarIVTy = ScalarIV->getType()->getScalarType();
@@ -2359,18 +2388,17 @@ void VPOCodeGen::buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal,
     MulOp = Instruction::FMul;
   }
 
-  // Determine the number of scalars we need to generate for each unroll
-  // iteration. If EntryVal is uniform, we only need to generate the first
-  // lane. Otherwise, we generate all VF values.
-  unsigned Lanes =
-    isUniformAfterVectorization(cast<Instruction>(EntryVal), VF) ? 1 : VF;
+  auto CurrIP = Builder.saveIP();
+  auto ScalIVInst = cast<Instruction>(ScalarIV);
 
-  for (unsigned Lane = 0; Lane < Lanes; ++Lane) {
-    auto *StartIdx = getSignedIntOrFpConstant(ScalarIVTy, Lane);
-    auto *Mul = addFastMathFlag(Builder.CreateBinOp(MulOp, StartIdx, Step));
-    auto *Add = addFastMathFlag(Builder.CreateBinOp(AddOp, ScalarIV, Mul));
-    ScalarMap[EntryVal][Lane] = Add;
-  }
+  Builder.SetInsertPoint(&*(ScalIVInst->getParent()->getFirstInsertionPt()));
+  auto *StartIdx = getSignedIntOrFpConstant(ScalarIVTy, Lane);
+  auto *Mul = addFastMathFlag(Builder.CreateBinOp(MulOp, StartIdx, Step));
+  auto *Add = addFastMathFlag(Builder.CreateBinOp(AddOp, ScalarIV, Mul));
+  ScalarMap[OrigIV][Lane] = Add;
+  Builder.restoreIP(CurrIP);
+
+  return Add;
 }
 
 void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
@@ -2383,14 +2411,7 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
   auto &DL = OrigLoop->getHeader()->getModule()->getDataLayout();
 
   // The step of the induction.
-  Value *Step = nullptr;
-  if (PSE.getSE()->isSCEVable(IV->getType())) {
-    SCEVExpander Exp(*PSE.getSE(), DL, "induction");
-    Step = Exp.expandCodeFor(ID.getStep(), ID.getStep()->getType(),
-                             LoopVectorPreHeader->getTerminator());
-  } else {
-    Step = cast<SCEVUnknown>(ID.getStep())->getValue();
-  }
+  Value *Step = getIVStep(IV, ID);
 
   Instruction *VectorInd = nullptr;
   createVectorIntOrFpInductionPHI(ID, Step, VectorInd);
@@ -2406,7 +2427,8 @@ void VPOCodeGen::widenIntOrFpInduction(PHINode *IV) {
     ScalarIV->setName("offset.idx");
   }
 
-  buildScalarSteps(ScalarIV, Step, IV, ID);
+  // Use ScalarIV as the scalar value for Lane 0 when needed
+  ScalarMap[IV][0] = ScalarIV;
 }
 
 void VPOCodeGen::fixNonInductionPhis() {

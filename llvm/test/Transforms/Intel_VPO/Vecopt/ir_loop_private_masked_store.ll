@@ -21,12 +21,13 @@
 ; CHECK: call void @llvm.masked.store.v4i64.p0v4i64(<4 x i64> {{.*}}, <4 x i64>* %val.vec, {{.*}})
 ;     
 ; ModuleID = 't1.c'
-source_filename = "t1.c"
+
+; source_filename = "t1.c"
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) local_unnamed_addr #0 {
+define void @foo(i64* nocapture %ip, i64* nocapture readonly %ip2) {
 entry:
   %val = alloca i64, align 8
   br label %DIR.OMP.SIMD.1

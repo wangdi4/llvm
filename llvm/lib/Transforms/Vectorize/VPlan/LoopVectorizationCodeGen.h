@@ -492,11 +492,13 @@ private:
   /// memory.
   void completeInMemoryReductions();
 
-  /// Compute scalar induction steps. \p ScalarIV is the scalar induction
-  /// variable on which to base the steps, \p Step is the size of the step, and
-  /// \p EntryVal is the value from the original loop that maps to the steps.
-  void buildScalarSteps(Value *ScalarIV, Value *Step, Value *EntryVal,
-                        const InductionDescriptor &ID);
+  /// Given a PHI node which is an induction and the corresponding induction
+  /// descriptor, return the Value for induction step.
+  Value *getIVStep(PHINode *IV, const InductionDescriptor &ID);
+
+  /// Compute the scalar induction value of induction \p OrigIV for the
+  /// the vector lane \p Lane 
+  Value *buildScalarIVForLane(PHINode *OrigIV, unsigned Lane);
 
   /// Create a vector version of induction.
   void createVectorIntOrFpInductionPHI(const InductionDescriptor &II,
