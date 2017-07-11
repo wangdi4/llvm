@@ -1871,6 +1871,7 @@ bool Generic_GCC::GCCInstallationDetector::getBiarchSibling(Multilib &M) const {
       TripleAliases.append(begin(ARMebTriples), end(ARMebTriples));
     }
     break;
+  case llvm::Triple::csa:
   case llvm::Triple::x86_64:
     LibDirs.append(begin(X86_64LibDirs), end(X86_64LibDirs));
     TripleAliases.append(begin(X86_64Triples), end(X86_64Triples));
