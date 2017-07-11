@@ -26,7 +26,7 @@ class CSAReg<string n> : Register<n> {
 // The intent is that channels are vregs and effectively unbounded.
 foreach i = 0-127 in { def CI0_#i  : CSAReg<"ci0_"#i>;  }
 foreach i = 0-8191 in { def CI1_#i  : CSAReg<"ci1_"#i>;  }
-foreach i = 0-127 in { def CI8_#i  : CSAReg<"ci8_"#i>;  }
+foreach i = 0-512 in { def CI8_#i  : CSAReg<"ci8_"#i>;  }
 foreach i = 0-127 in { def CI16_#i : CSAReg<"ci16_"#i>; }
 foreach i = 0-8191 in { def CI32_#i : CSAReg<"ci32_"#i>; }
 foreach i = 0-8191 in { def CI64_#i : CSAReg<"ci64_"#i>; }
@@ -41,7 +41,7 @@ def NA  : CSAReg<"na">;  // Not available (never writeable or readable)
 let isAllocatable = 0, CopyCost = -1 in {
   def CI0  : RegisterClass<"CSA", [i1],       0, (add (sequence "CI0_%u",  0, 127), NA, IGN)>;
   def CI1  : RegisterClass<"CSA", [i1],       1, (add (sequence "CI1_%u",  0, 8191), NA, IGN)> { let Size=1;  }
-  def CI8  : RegisterClass<"CSA", [i8],       8, (add (sequence "CI8_%u",  0, 127), NA, IGN)> { let Size=8;  }
+  def CI8  : RegisterClass<"CSA", [i8],       8, (add (sequence "CI8_%u",  0, 512), NA, IGN)> { let Size=8;  }
   def CI16 : RegisterClass<"CSA", [i16,f16], 16, (add (sequence "CI16_%u", 0, 127), NA, IGN)> { let Size=16; }
   def CI32 : RegisterClass<"CSA", [i32,f32], 32, (add (sequence "CI32_%u", 0, 8191), NA, IGN)> { let Size=32; }
   def CI64 : RegisterClass<"CSA", [i64,f64], 64, (add (sequence "CI64_%u", 0, 8191), NA, IGN)> { let Size=64; }
