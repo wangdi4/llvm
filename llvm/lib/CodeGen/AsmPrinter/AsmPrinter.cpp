@@ -856,6 +856,8 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
     uint64_t ExtraOffset = Expr->getElement(i++);
     if (Op == dwarf::DW_OP_plus)
       Offset += ExtraOffset;
+    else if (Op == dwarf::DW_OP_stack_value)
+      OS << " [stack value]";
     else {
       assert(Op == dwarf::DW_OP_minus);
       Offset -= ExtraOffset;
@@ -934,6 +936,16 @@ void AsmPrinter::emitCFIInstruction(const MachineInstr &MI) {
     return;
 
   if (needsCFIMoves() == CFI_M_None)
+    return;
+
+  // If there is no "real" instruction following this CFI instruction, skip
+  // emitting it; it would be beyond the end of the function's FDE range.
+  auto *MBB = MI.getParent();
+  auto I = std::next(MI.getIterator());
+  while (I != MBB->end() && I->isTransient())
+    ++I;
+  if (I == MBB->instr_end() &&
+      MBB->getReverseIterator() == MBB->getParent()->rbegin())
     return;
 
   const std::vector<MCCFIInstruction> &Instrs = MF->getFrameInstructions();
@@ -1056,8 +1068,13 @@ void AsmPrinter::EmitFunctionBody() {
                           (TT.isOSWindows() && TT.isOSBinFormatCOFF()))) {
     MCInst Noop;
     MF->getSubtarget().getInstrInfo()->getNoop(Noop);
-    OutStreamer->AddComment("avoids zero-length function");
-    OutStreamer->EmitInstruction(Noop, getSubtargetInfo());
+
+    // Targets can opt-out of emitting the noop here by leaving the opcode
+    // unspecified.
+    if (Noop.getOpcode()) {
+      OutStreamer->AddComment("avoids zero-length function");
+      OutStreamer->EmitInstruction(Noop, getSubtargetInfo());
+    }
   }
 
   const Function *F = MF->getFunction();
