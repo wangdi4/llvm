@@ -1904,13 +1904,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
            ++KindValue) {
         const LangStandard &Std = LangStandard::getLangStandardForKind(
           static_cast<LangStandard::Kind>(KindValue));
-<<<<<<< HEAD
         if (IsInputCompatibleWithStandard(IK, A, Args, Std, LangStd,//INTEL
                                           Diags)) { // INTEL
-          Diags.Report(diag::note_drv_use_standard)
-            << Std.getName() << Std.getDescription();
-=======
-        if (IsInputCompatibleWithStandard(IK, Std)) {
           auto Diag = Diags.Report(diag::note_drv_use_standard);
           Diag << Std.getName() << Std.getDescription();
           unsigned NumAliases = 0;
@@ -1925,7 +1920,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
           if (KindValue == LangStandard::lang_##id) Diag << alias;
 #define LANGSTANDARD_ALIAS_DEPR(id, alias)
 #include "clang/Frontend/LangStandards.def"
->>>>>>> 59456511f4bab95ccd3c918dae256f5ec0f8fb39
         }
       }
     } else {
