@@ -32,8 +32,10 @@
 
 #ifdef LLVM_ON_WIN32
 #define CLOSE_SOCKET closesocket
+typedef const char *set_socket_option_arg_type;
 #else
 #define CLOSE_SOCKET ::close
+typedef const void *set_socket_option_arg_type;
 #endif
 
 using namespace lldb;
@@ -189,7 +191,7 @@ Error TCPSocket::Listen(llvm::StringRef name, int backlog) {
     // enable local address reuse
     int option_value = 1;
     set_socket_option_arg_type option_value_p =
-        reinterpret_cast<get_socket_option_arg_type>(&option_value);
+        reinterpret_cast<set_socket_option_arg_type>(&option_value);
     ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, option_value_p,
                  sizeof(option_value));
 

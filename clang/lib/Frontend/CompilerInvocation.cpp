@@ -1609,7 +1609,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     case InputKind::LLVM_IR:
       llvm_unreachable("Invalid input kind!");
     case InputKind::OpenCL:
-      LangStd = LangStandard::lang_opencl;
+      LangStd = LangStandard::lang_opencl10;
       break;
     case InputKind::CUDA:
       LangStd = LangStandard::lang_cuda;
@@ -1655,7 +1655,7 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
 
   // Set OpenCL Version.
   Opts.OpenCL = Std.isOpenCL();
-  if (LangStd == LangStandard::lang_opencl)
+  if (LangStd == LangStandard::lang_opencl10)
     Opts.OpenCLVersion = 100;
   else if (LangStd == LangStandard::lang_opencl11)
     Opts.OpenCLVersion = 110;
@@ -1904,10 +1904,28 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
            ++KindValue) {
         const LangStandard &Std = LangStandard::getLangStandardForKind(
           static_cast<LangStandard::Kind>(KindValue));
+<<<<<<< HEAD
         if (IsInputCompatibleWithStandard(IK, A, Args, Std, LangStd,//INTEL
                                           Diags)) { // INTEL
           Diags.Report(diag::note_drv_use_standard)
             << Std.getName() << Std.getDescription();
+=======
+        if (IsInputCompatibleWithStandard(IK, Std)) {
+          auto Diag = Diags.Report(diag::note_drv_use_standard);
+          Diag << Std.getName() << Std.getDescription();
+          unsigned NumAliases = 0;
+#define LANGSTANDARD(id, name, lang, desc, features)
+#define LANGSTANDARD_ALIAS(id, alias) \
+          if (KindValue == LangStandard::lang_##id) ++NumAliases;
+#define LANGSTANDARD_ALIAS_DEPR(id, alias)
+#include "clang/Frontend/LangStandards.def"
+          Diag << NumAliases;
+#define LANGSTANDARD(id, name, lang, desc, features)
+#define LANGSTANDARD_ALIAS(id, alias) \
+          if (KindValue == LangStandard::lang_##id) Diag << alias;
+#define LANGSTANDARD_ALIAS_DEPR(id, alias)
+#include "clang/Frontend/LangStandards.def"
+>>>>>>> 59456511f4bab95ccd3c918dae256f5ec0f8fb39
         }
       }
     } else {
@@ -1927,7 +1945,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (const Arg *A = Args.getLastArg(OPT_cl_std_EQ)) {
     LangStandard::Kind OpenCLLangStd
       = llvm::StringSwitch<LangStandard::Kind>(A->getValue())
-        .Cases("cl", "CL", LangStandard::lang_opencl)
+        .Cases("cl", "CL", LangStandard::lang_opencl10)
         .Cases("cl1.1", "CL1.1", LangStandard::lang_opencl11)
         .Cases("cl1.2", "CL1.2", LangStandard::lang_opencl12)
         .Cases("cl2.0", "CL2.0", LangStandard::lang_opencl20)
