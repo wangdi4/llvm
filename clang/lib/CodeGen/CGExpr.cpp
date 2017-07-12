@@ -4253,12 +4253,9 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
 #else
     RValue RV = EmitAnyExpr(E->getRHS());
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-<<<<<<< HEAD
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
     if (RV.isScalar())
       EmitNullabilityCheck(LV, RV.getScalarVal(), E->getExprLoc());
->>>>>>> 1e2ea9a764af915bba31491b3dbab54dd6ec1e1c
     EmitStoreThroughLValue(RV, LV);
     return LV;
   }
