@@ -1809,41 +1809,33 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
 
   case InputKind::C:
   case InputKind::ObjC:
-<<<<<<< HEAD
+  case InputKind::RenderScript:
 #if INTEL_CUSTOMIZATION
-    if (!(S.isC89() || S.isC99()) && Args.hasArg(OPT_fintel_compatibility)) {
+    if (!(S.getLanguage() == InputKind::C) &&
+        Args.hasArg(OPT_fintel_compatibility)) {
       Diags.Report(diag::warn_drv_argument_not_allowed_with)
           << A->getAsString(Args) << "C/ObjC";
       Std = LangStandard::lang_gnu99;
       return true;
     }
 #endif // INTEL_CUSTOMIZATION
-    // FIXME: Should this really allow OpenCL standards?
-    return S.isC89() || S.isC99();
-=======
-  case InputKind::RenderScript:
     return S.getLanguage() == InputKind::C;
->>>>>>> e069a713ea6826f502d5251778bd702ca028ffa7
 
   case InputKind::OpenCL:
     return S.getLanguage() == InputKind::OpenCL;
 
   case InputKind::CXX:
   case InputKind::ObjCXX:
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
-      if (!S.isCPlusPlus() && Args.hasArg(OPT_fintel_compatibility)) {
+      if (!(S.getLanguage() == InputKind::CXX) &&
+          Args.hasArg(OPT_fintel_compatibility)) {
         Diags.Report(diag::warn_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C++/ObjC++";
         Std = LangStandard::lang_gnucxx14;
         return true;
       }
 #endif // INTEL_CUSTOMIZATION
-    // FIXME: Should this really allow -std=cuda?
-    return S.isCPlusPlus();
-=======
     return S.getLanguage() == InputKind::CXX;
->>>>>>> e069a713ea6826f502d5251778bd702ca028ffa7
 
   case InputKind::CUDA:
     // FIXME: What -std= values should be permitted for CUDA compilations?
