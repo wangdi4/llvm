@@ -1798,19 +1798,18 @@ static void FillImfFuncSet(llvm::StringSet<> &ImfFuncSet) {
 
 /// Check if input file kind and language standard are compatible.
 static bool IsInputCompatibleWithStandard(InputKind IK,
-<<<<<<< HEAD
                                           const Arg *A, // INTEL
                                           ArgList& Args, // INTEL
                                           const LangStandard &S, // INTEL
                                           LangStandard::Kind &Std, // INTEL
                                           DiagnosticsEngine &Diags) { // INTEL
-  switch (IK) {
-  case IK_C:
-  case IK_ObjC:
-  case IK_PreprocessedC:
-  case IK_PreprocessedObjC:
-    if (S.isC89() || S.isC99())
-      return true;
+  switch (IK.getLanguage()) {
+  case InputKind::Unknown:
+  case InputKind::LLVM_IR:
+    llvm_unreachable("should not parse language flags for this input");
+
+  case InputKind::C:
+  case InputKind::ObjC:
 #if INTEL_CUSTOMIZATION
     if (!(S.isC89() || S.isC99()) && Args.hasArg(OPT_fintel_compatibility)) {
       Diags.Report(diag::warn_drv_argument_not_allowed_with)
@@ -1819,42 +1818,6 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
       return true;
     }
 #endif // INTEL_CUSTOMIZATION
-      break;
-    case IK_CXX:
-    case IK_ObjCXX:
-    case IK_PreprocessedCXX:
-    case IK_PreprocessedObjCXX:
-      if (S.isCPlusPlus())
-        return true;
-#if INTEL_CUSTOMIZATION
-      if (!S.isCPlusPlus() && Args.hasArg(OPT_fintel_compatibility)) {
-        Diags.Report(diag::warn_drv_argument_not_allowed_with)
-            << A->getAsString(Args) << "C++/ObjC++";
-        Std = LangStandard::lang_gnucxx14;
-        return true;
-      }
-#endif // INTEL_CUSTOMIZATION
-    break;
-  case IK_OpenCL:
-    if (S.isOpenCL())
-      return true;
-    break;
-  case IK_CUDA:
-  case IK_PreprocessedCuda:
-    if (S.isCPlusPlus())
-      return true;
-    break;
-  default:
-    // For other inputs, accept (and ignore) all -std= values.
-=======
-                                          const LangStandard &S) {
-  switch (IK.getLanguage()) {
-  case InputKind::Unknown:
-  case InputKind::LLVM_IR:
-    llvm_unreachable("should not parse language flags for this input");
-
-  case InputKind::C:
-  case InputKind::ObjC:
     // FIXME: Should this really allow OpenCL standards?
     return S.isC89() || S.isC99();
 
@@ -1867,6 +1830,14 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
 
   case InputKind::CXX:
   case InputKind::ObjCXX:
+#if INTEL_CUSTOMIZATION
+      if (!S.isCPlusPlus() && Args.hasArg(OPT_fintel_compatibility)) {
+        Diags.Report(diag::warn_drv_argument_not_allowed_with)
+            << A->getAsString(Args) << "C++/ObjC++";
+        Std = LangStandard::lang_gnucxx14;
+        return true;
+      }
+#endif // INTEL_CUSTOMIZATION
     // FIXME: Should this really allow -std=cuda?
     return S.isCPlusPlus();
 
@@ -1877,7 +1848,6 @@ static bool IsInputCompatibleWithStandard(InputKind IK,
     // Accept (and ignore) all -std= values.
     // FIXME: The -std= value is not ignored; it affects the tokenization
     // and preprocessing rules if we're preprocessing this asm input.
->>>>>>> 92c5967c32c498b4ce2cf866b12b29bd8aaf5eae
     return true;
   }
 
