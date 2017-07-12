@@ -2099,15 +2099,14 @@ bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
   if (BitWidth <= BitRange) 
     return true;
 
-  APInt KnownZero(BitWidth, 0);
-  APInt KnownOne(BitWidth, 0);
-  computeKnownBits(V, KnownZero, KnownOne, Depth, Q);
+  KnownBits Known(BitWidth);
+  computeKnownBits(V, Known, Depth, Q);
   // Use the number of known leading ones or zeros to decide if the given value
   // is within the given bit range.
-  if (isSigned && (BitWidth - KnownZero.countLeadingOnes() < BitRange ||
-                   BitWidth - KnownOne.countLeadingOnes() < BitRange))
+  if (isSigned && (BitWidth - Known.Zero.countLeadingOnes() < BitRange ||
+                   BitWidth - Known.One.countLeadingOnes() < BitRange))
     return true;
-  if (!isSigned && (BitWidth - KnownZero.countLeadingOnes() <= BitRange))
+  if (!isSigned && (BitWidth - Known.Zero.countLeadingOnes() <= BitRange))
     return true;
 
   // If the given value comes from a sign/zero extension, check its source type.
