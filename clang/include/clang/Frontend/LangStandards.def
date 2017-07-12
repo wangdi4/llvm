@@ -31,17 +31,10 @@
 // C89-ish modes.
 LANGSTANDARD(c89, "c89",
              C, "ISO C 1990",
-<<<<<<< HEAD
-             C89 | Digraphs | ImplicitInt) // INTEL
+             Digraphs | ImplicitInt) // INTEL
 LANGSTANDARD(c90, "c90", C,
              "ISO C 1990",
-             C89 | Digraphs | ImplicitInt) // INTEL
-=======
-             ImplicitInt)
-LANGSTANDARD(c90, "c90", C,
-             "ISO C 1990",
-             ImplicitInt)
->>>>>>> deb6b7eae7458e29b8c66ee8dcbedf0210138b4d
+             Digraphs | ImplicitInt) // INTEL
 LANGSTANDARD(iso9899_1990, "iso9899:1990",
              C, "ISO C 1990",
              ImplicitInt)
