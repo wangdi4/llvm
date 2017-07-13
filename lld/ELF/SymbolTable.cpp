@@ -52,6 +52,9 @@ template <class ELFT> static bool isCompatible(InputFile *F) {
 
 // Add symbols in File to the symbol table.
 template <class ELFT> void SymbolTable<ELFT>::addFile(InputFile *File) {
+  if (!Config->FirstElf && isa<ELFFileBase<ELFT>>(File))
+    Config->FirstElf = File;
+
   if (!isCompatible<ELFT>(File))
     return;
 
@@ -166,6 +169,19 @@ template <class ELFT> void SymbolTable<ELFT>::wrap(StringRef Name) {
   // old symbol to instead refer to the new symbol.
   memcpy(Real->Body.buffer, Sym->Body.buffer, sizeof(Sym->Body));
   memcpy(Sym->Body.buffer, Wrap->Body.buffer, sizeof(Wrap->Body));
+}
+
+// Creates alias for symbol. Used to implement --defsym=ALIAS=SYM.
+template <class ELFT>
+void SymbolTable<ELFT>::alias(StringRef Alias, StringRef Name) {
+  SymbolBody *B = find(Name);
+  if (!B) {
+    error("-defsym: undefined symbol: " + Name);
+    return;
+  }
+  Symbol *Sym = B->symbol();
+  Symbol *AliasSym = addUndefined(Alias);
+  memcpy(AliasSym->Body.buffer, Sym->Body.buffer, sizeof(AliasSym->Body));
 }
 
 static uint8_t getMinVisibility(uint8_t VA, uint8_t VB) {

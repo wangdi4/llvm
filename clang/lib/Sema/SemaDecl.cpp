@@ -615,7 +615,7 @@ bool Sema::isMicrosoftMissingTypename(const CXXScopeSpec *SS, Scope *S) {
 
     CXXRecordDecl *RD = cast<CXXRecordDecl>(CurContext);
     for (const auto &Base : RD->bases())
-      if (Context.hasSameUnqualifiedType(QualType(Ty, 1), Base.getType()))
+      if (Ty && Context.hasSameUnqualifiedType(QualType(Ty, 1), Base.getType()))
         return true;
     return S->isFunctionPrototypeScope();
   }
@@ -2957,6 +2957,20 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     }
 
     NewTypeInfo = NewTypeInfo.withProducesResult(true);
+    RequiresAdjustment = true;
+  }
+
+  if (OldTypeInfo.getNoCallerSavedRegs() !=
+      NewTypeInfo.getNoCallerSavedRegs()) {
+    if (NewTypeInfo.getNoCallerSavedRegs()) {
+      AnyX86NoCallerSavedRegistersAttr *Attr = 
+        New->getAttr<AnyX86NoCallerSavedRegistersAttr>();
+      Diag(New->getLocation(), diag::err_function_attribute_mismatch) << Attr;
+      Diag(OldLocation, diag::note_previous_declaration);
+      return true;
+    }
+
+    NewTypeInfo = NewTypeInfo.withNoCallerSavedRegs(true);
     RequiresAdjustment = true;
   }
 
