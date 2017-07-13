@@ -427,14 +427,13 @@ static void computeKnownBitsMul(const Value *Op0, const Value *Op1, bool NSW,
 }
 
 void llvm::computeKnownBitsFromRangeMetadata(const MDNode &Ranges,
-                                             APInt &KnownZero,
-                                             APInt &KnownOne) {
-  unsigned BitWidth = KnownZero.getBitWidth();
+                                             KnownBits &Known) {
+  unsigned BitWidth = Known.getBitWidth();
   unsigned NumRanges = Ranges.getNumOperands() / 2;
   assert(NumRanges >= 1);
 
-  KnownZero.setAllBits();
-  KnownOne.setAllBits();
+  Known.Zero.setAllBits();
+  Known.One.setAllBits();
 
   for (unsigned i = 0; i < NumRanges; ++i) {
     ConstantInt *Lower =
@@ -448,8 +447,8 @@ void llvm::computeKnownBitsFromRangeMetadata(const MDNode &Ranges,
         (Range.getUnsignedMax() ^ Range.getUnsignedMin()).countLeadingZeros();
 
     APInt Mask = APInt::getHighBitsSet(BitWidth, CommonPrefixBits);
-    KnownOne &= Range.getUnsignedMax() & Mask;
-    KnownZero &= ~Range.getUnsignedMax() & Mask;
+    Known.One &= Range.getUnsignedMax() & Mask;
+    Known.Zero &= ~Range.getUnsignedMax() & Mask;
   }
 }
 
@@ -962,7 +961,7 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
   default: break;
   case Instruction::Load:
     if (MDNode *MD = cast<LoadInst>(I)->getMetadata(LLVMContext::MD_range))
-      computeKnownBitsFromRangeMetadata(*MD, Known.Zero, Known.One);
+      computeKnownBitsFromRangeMetadata(*MD, Known);
     break;
   case Instruction::And: {
     // If either the LHS or the RHS are Zero, the result is zero.
@@ -1444,7 +1443,7 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     // and then intersect with known bits based on other properties of the
     // function.
     if (MDNode *MD = cast<Instruction>(I)->getMetadata(LLVMContext::MD_range))
-      computeKnownBitsFromRangeMetadata(*MD, Known.Zero, Known.One);
+      computeKnownBitsFromRangeMetadata(*MD, Known);
     if (const Value *RV = ImmutableCallSite(I).getReturnedArgOperand()) {
       computeKnownBits(RV, Known2, Depth + 1, Q);
       Known.Zero |= Known2.Zero;
