@@ -7051,7 +7051,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, Attr);
     break;
-<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
   // Cilk Plus attributes.
   case AttributeList::AT_CilkElemental:
@@ -7091,11 +7090,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-=======
   case AttributeList::AT_AnyX86NoCallerSavedRegisters:
     handleNoCallerSavedRegsAttr(S, D, Attr);
     break;
->>>>>>> d31f7cc84cbe73abd870535b6edfbe9707e357b3
   case AttributeList::AT_RenderScriptKernel:
     handleSimpleAttribute<RenderScriptKernelAttr>(S, D, Attr);
     break;

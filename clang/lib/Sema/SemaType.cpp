@@ -6432,9 +6432,6 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     return true;
   }
 
-<<<<<<< HEAD
-  bool IntelCompat = S.getLangOpts().IntelCompat; // INTEL
-=======
   if (attr.getKind() == AttributeList::AT_AnyX86NoCallerSavedRegisters) {
     if (S.CheckNoCallerSavedRegsAttr(attr))
       return true;
@@ -6449,7 +6446,7 @@ static bool handleFunctionTypeAttr(TypeProcessingState &state,
     return true;
   }
 
->>>>>>> d31f7cc84cbe73abd870535b6edfbe9707e357b3
+  bool IntelCompat = S.getLangOpts().IntelCompat; // INTEL
   if (attr.getKind() == AttributeList::AT_Regparm) {
     unsigned value;
     if (S.CheckRegparmAttr(attr, value))
