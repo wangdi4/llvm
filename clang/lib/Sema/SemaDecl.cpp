@@ -3090,13 +3090,12 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       RequiresAdjustment = true;
     } else {
       // Calling conventions aren't compatible, so complain.
-      bool IC = getLangOpts().IntelCompat; // INTEL
       bool FirstCCExplicit = getCallingConvAttributedType(First->getType());
       Diag(New->getLocation(), diag::err_cconv_change)
-        << FunctionType::getNameForCallConv(NewTypeInfo.getCC(), IC) // INTEL
+        << FunctionType::getNameForCallConv(NewTypeInfo.getCC())
         << !FirstCCExplicit
         << (!FirstCCExplicit ? "" :
-            FunctionType::getNameForCallConv(FI.getCC(), IC)); // INTEL
+            FunctionType::getNameForCallConv(FI.getCC()));
 
       // Put the note on the first decl, since it is the one that matters.
       Diag(First->getLocation(), diag::note_previous_declaration);
@@ -8943,8 +8942,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                 : diag::err_cconv_knr;
 #endif
         Diag(NewFD->getLocation(), DiagID)
-            << FunctionType::getNameForCallConv(   // INTEL
-                   CC, getLangOpts().IntelCompat); // INTEL
+            << FunctionType::getNameForCallConv(CC);
       }
     }
   } else {

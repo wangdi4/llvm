@@ -3086,8 +3086,7 @@ public:
     return getReturnType().getNonLValueExprType(Context);
   }
 
-  static StringRef getNameForCallConv(CallingConv CC,          // INTEL
-                                      bool IntelComp = false); // INTEL
+  static StringRef getNameForCallConv(CallingConv CC);
 
   static bool classof(const Type *T) {
     return T->getTypeClass() == FunctionNoProto ||

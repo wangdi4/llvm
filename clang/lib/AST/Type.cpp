@@ -2629,7 +2629,7 @@ QualType QualType::getNonLValueExprType(const ASTContext &Context) const {
   return *this;
 }
 
-StringRef FunctionType::getNameForCallConv(CallingConv CC, bool IntelComp) {
+StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   switch (CC) {
   case CC_C: return "cdecl";
   case CC_X86StdCall: return "stdcall";
@@ -2644,9 +2644,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC, bool IntelComp) {
   case CC_AAPCS_VFP: return "aapcs-vfp";
   case CC_IntelOclBicc: return "intel_ocl_bicc";
   case CC_SpirFunction: return "spir_function";
-  case CC_OpenCLKernel:   // INTEL CC_X86RegCall
-    if (IntelComp)        // INTEL
-      return "regcall";   // INTEL
+  case CC_OpenCLKernel: return "opencl_kernel";
   case CC_Swift: return "swiftcall";
   case CC_PreserveMost: return "preserve_most";
   case CC_PreserveAll: return "preserve_all";
