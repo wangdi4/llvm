@@ -7748,6 +7748,10 @@ class DifferentNameValidatorCCC : public CorrectionCandidateCallback {
 
 } // end anonymous namespace
 
+void Sema::MarkTypoCorrectedFunctionDefinition(const NamedDecl *F) {
+  TypoCorrectedFunctionDefinitions.insert(F);
+}
+
 /// \brief Generate diagnostics for an invalid function redeclaration.
 ///
 /// This routine handles generating the diagnostic messages for an invalid
@@ -7845,6 +7849,8 @@ static NamedDecl *DiagnoseInvalidRedeclaration(
         if ((*I)->getCanonicalDecl() == Canonical)
           Correction.setCorrectionDecl(*I);
 
+      // Let Sema know about the correction.
+      SemaRef.MarkTypoCorrectedFunctionDefinition(Result);
       SemaRef.diagnoseTypo(
           Correction,
           SemaRef.PDiag(IsLocalFriend
@@ -12189,6 +12195,11 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
     return;
   }
 #endif // INTEL_CUSTOMIZATION
+
+  // Don't emit an error when this is redifinition of a typo-corrected
+  // definition.
+  if (TypoCorrectedFunctionDefinitions.count(Definition))
+    return;
 
   // If we don't have a visible definition of the function, and it's inline or
   // a template, skip the new definition.
