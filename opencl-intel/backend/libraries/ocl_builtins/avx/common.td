@@ -21,20 +21,28 @@
 
 // max
 OclBuiltinImpl max_v8f32 = OclBuiltinImpl<max, [v8f32], 0, [{
-    return _mm256_max_ps($Arg0VarName, $Arg1VarName);
+    int8 Mask = isless($Arg0VarName, $Arg1VarName);
+    int8 Nulls = (int8)(0);
+    return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;  
   }]>;
 
 OclBuiltinImpl max_v4f64 = OclBuiltinImpl<max, [v4f64], 0, [{
-    return _mm256_max_pd($Arg0VarName, $Arg1VarName);
+    long4 Mask = isless($Arg0VarName, $Arg1VarName);
+    long4 Nulls = (long4)(0);
+    return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;
   }]>;
   
 // min
 OclBuiltinImpl min_v8f32 = OclBuiltinImpl<min, [v8f32], 0, [{
-    return _mm256_min_ps($Arg0VarName, $Arg1VarName);
+    int8 Mask = isgreater($Arg0VarName, $Arg1VarName);
+    int8 Nulls = (int8)(0);
+    return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;
   }]>;
 
 OclBuiltinImpl min_v4f64 = OclBuiltinImpl<min, [v4f64], 0, [{
-    return _mm256_min_pd($Arg0VarName, $Arg1VarName);
+    long4 Mask = isgreater($Arg0VarName, $Arg1VarName);
+    long4 Nulls = (long4)(0);
+    return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;
   }]>;
   
 // step

@@ -16,21 +16,19 @@ OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v
   }]>;
 //==============select===============
 code select_vector_v8f = [{ 
-    return as_$ReturnType(_mm256_blendv_ps(__builtin_astype($Arg0VarName, __m256), __builtin_astype($Arg1VarName, __m256), __builtin_astype($Arg2VarName, __m256))); 
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 code select_vector_v4d = [{ 
-    return as_$ReturnType(_mm256_blendv_pd(__builtin_astype($Arg0VarName, __m256d), __builtin_astype($Arg1VarName, __m256d), __builtin_astype($Arg2VarName, __m256d))); 
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 code select_vector_v8i = [{ 
-    $ReturnType Nulls = ($ReturnType)(0);
-    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName; 
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
-code select_vector_v4l = [{ 
-    $ReturnType Nulls = ($ReturnType)(0);
-    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
+code select_vector_v4l = [{
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 //======v8f32 and v4f64 implementation=============================== 

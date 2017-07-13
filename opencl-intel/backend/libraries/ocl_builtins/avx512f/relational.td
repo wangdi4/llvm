@@ -3,25 +3,19 @@ OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v
   }]>;
 //==============select===============
 code select_vector_v16f = [{
-    __mmask16 mask = _mm512_test_epi32_mask((__m512i)$Arg2VarName, (__m512i)((int16)0x80000000));
-    return as_$ReturnType(_mm512_mask_blend_ps(mask, __builtin_astype($Arg0VarName, __m512),
-      __builtin_astype($Arg1VarName, __m512)));
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 code select_vector_v8d = [{
-    __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
-    return as_$ReturnType(_mm512_mask_blend_pd(mask, __builtin_astype($Arg0VarName, __m512d),
-    __builtin_astype($Arg1VarName, __m512d)));
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 code select_vector_v16i = [{
-    $ReturnType Nulls = ($ReturnType)(0);
-    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 code select_vector_v8l = [{
-    $ReturnType Nulls = ($ReturnType)(0);
-    return as_$ReturnType($Arg2VarName == Nulls) ? Arg0VarName : Arg1VarName;
+    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
 //======v16f32 and v8f64 implementation===============================
