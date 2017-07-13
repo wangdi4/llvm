@@ -1972,7 +1972,7 @@ bool SelectionDAG::MaskedValueIsZero(SDValue Op, const APInt &Mask,
                                      unsigned Depth) const {
   APInt KnownZero, KnownOne;
   computeKnownBits(Op, KnownZero, KnownOne, Depth);
-  return (KnownZero & Mask) == Mask;
+  return Mask.isSubsetOf(KnownZero);
 }
 
 /// If a SHL/SRA/SRL node has a constant or splat constant shift amount that
@@ -2029,7 +2029,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, APInt &KnownZero,
     // Collect the known bits that are shared by every demanded vector element.
     assert(NumElts == Op.getValueType().getVectorNumElements() &&
            "Unexpected vector size");
-    KnownZero = KnownOne = APInt::getAllOnesValue(BitWidth);
+    KnownZero.setAllBits(); KnownOne.setAllBits();
     for (unsigned i = 0, e = Op.getNumOperands(); i != e; ++i) {
       if (!DemandedElts[i])
         continue;
@@ -2058,7 +2058,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, APInt &KnownZero,
     // Collect the known bits that are shared by every vector element referenced
     // by the shuffle.
     APInt DemandedLHS(NumElts, 0), DemandedRHS(NumElts, 0);
-    KnownZero = KnownOne = APInt::getAllOnesValue(BitWidth);
+    KnownZero.setAllBits(); KnownOne.setAllBits();
     const ShuffleVectorSDNode *SVN = cast<ShuffleVectorSDNode>(Op);
     assert(NumElts == SVN->getMask().size() && "Unexpected vector size");
     for (unsigned i = 0; i != NumElts; ++i) {
@@ -2101,7 +2101,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, APInt &KnownZero,
   }
   case ISD::CONCAT_VECTORS: {
     // Split DemandedElts and test each of the demanded subvectors.
-    KnownZero = KnownOne = APInt::getAllOnesValue(BitWidth);
+    KnownZero.setAllBits(); KnownOne.setAllBits();
     EVT SubVectorVT = Op.getOperand(0).getValueType();
     unsigned NumSubVectorElts = SubVectorVT.getVectorNumElements();
     unsigned NumSubVectors = Op.getNumOperands();
@@ -2192,7 +2192,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, APInt &KnownZero,
 
       computeKnownBits(N0, KnownZero2, KnownOne2, SubDemandedElts, Depth + 1);
 
-      KnownZero = KnownOne = APInt::getAllOnesValue(BitWidth);
+      KnownZero.setAllBits(); KnownOne.setAllBits();
       for (unsigned i = 0; i != NumElts; ++i)
         if (DemandedElts[i]) {
           unsigned Offset = (i % SubScale) * BitWidth;
@@ -3076,7 +3076,7 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
 
         // If the input is known to be 0 or 1, the output is 0/-1, which is all
         // sign bits set.
-        if ((KnownZero | APInt(VTBits, 1)).isAllOnesValue())
+        if ((KnownZero | 1).isAllOnesValue())
           return VTBits;
 
         // If we are subtracting one from a positive number, there is no carry
@@ -3100,7 +3100,7 @@ unsigned SelectionDAG::ComputeNumSignBits(SDValue Op, const APInt &DemandedElts,
         computeKnownBits(Op.getOperand(1), KnownZero, KnownOne, Depth+1);
         // If the input is known to be 0 or 1, the output is 0/-1, which is all
         // sign bits set.
-        if ((KnownZero | APInt(VTBits, 1)).isAllOnesValue())
+        if ((KnownZero | 1).isAllOnesValue())
           return VTBits;
 
         // If the input is known to be positive (the sign bit is known clear),
