@@ -44,6 +44,7 @@
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
@@ -235,6 +236,11 @@ static cl::opt<bool>
     DisableLibCallsShrinkWrap("disable-libcalls-shrinkwrap", cl::init(false),
                               cl::Hidden,
                               cl::desc("Disable shrink-wrap library calls"));
+
+static cl::opt<bool>
+    EnableSimpleLoopUnswitch("enable-simple-loop-unswitch", cl::init(false),
+                             cl::Hidden,
+                             cl::desc("Enable the simple loop unswitch pass."));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -429,7 +435,10 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
-  MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
+  if (EnableSimpleLoopUnswitch)
+    MPM.add(createSimpleLoopUnswitchLegacyPass());
+  else
+    MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3, DivergentTarget));
   MPM.add(createCFGSimplificationPass());
   addInstructionCombiningPass(MPM);
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
