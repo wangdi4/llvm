@@ -250,9 +250,9 @@ unsigned int SelectCpuFeatures( unsigned int cpuId, const std::vector<std::strin
 
 CPUCompiler::CPUCompiler(const ICompilerConfig& config):
     Compiler(config),
-    m_pBuiltinModule(NULL),
-    m_pExecEngine(NULL),
-    m_pVTuneListener(NULL)
+    m_pBuiltinModule(nullptr),
+    m_pExecEngine(nullptr),
+    m_pVTuneListener(nullptr)
 {
     SelectCpu( config.GetCpuArch(), config.GetCpuFeatures());
 
@@ -396,7 +396,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
 
     llvm::ExecutionEngine* pExecEngine = builder.create();
 
-    if ( NULL == pExecEngine )
+    if ( nullptr == pExecEngine )
     {
         throw Exceptions::CompilerException("Failed to create execution engine");
     }
@@ -419,7 +419,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     std::string err;
     llvm::Triple triple(pModule->getTargetTriple());
     const llvm::Target *pTarget = llvm::TargetRegistry::lookupTarget(triple.getTriple(), err);
-    if( !err.empty() || NULL == pTarget )
+    if( !err.empty() || nullptr == pTarget )
     {
         throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
     }
@@ -435,7 +435,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
     std::vector<std::string> localCpuFeatures = m_forcedCpuFeatures;
     std::string cpuFeatures( Utils::JoinStrings(localCpuFeatures, ","));
     TargetMachine* pTargetMachine = pTarget->createTargetMachine(triple.getTriple(), cpuName, cpuFeatures, Options);
-    if( NULL == pTargetMachine )
+    if( nullptr == pTargetMachine )
     {
         throw Exceptions::CompilerException("Failed to create TargetMachine object");
     }

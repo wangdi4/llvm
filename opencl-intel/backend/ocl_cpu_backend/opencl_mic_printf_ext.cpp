@@ -48,7 +48,7 @@ extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args
     
     // need to allocate memory for the terminating '/0' as well, thus the '+1'
     char *buf = (char*)malloc(sizeof(char) * (out_counter.output_count())+1);
-    if (NULL == buf) return -1;
+    if (nullptr == buf) return -1;
 
     StringOutputAccumulator output(buf, out_counter.output_count()+1);
     // print the output string
@@ -59,7 +59,7 @@ extern "C" LLVM_BACKEND_API int opencl_mic_printf(const char* format, char* args
         return retVal;
     }
 
-    if (NULL !=  pCallback)
+    if (nullptr !=  pCallback)
     {
         // send the output buffer to the runtime
         retVal = ((DeviceBackend::ICLDevBackendDeviceAgentCallback*)pCallback)->Print(buf, pHandle);

@@ -24,7 +24,7 @@ File Name:  MICDeviceBackendFactory.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-MICDeviceBackendFactory* MICDeviceBackendFactory::s_pInstance = NULL;
+MICDeviceBackendFactory* MICDeviceBackendFactory::s_pInstance = nullptr;
 
 void MICDeviceBackendFactory::Init()
 {
@@ -34,10 +34,10 @@ void MICDeviceBackendFactory::Init()
 
 void MICDeviceBackendFactory::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 

@@ -142,7 +142,7 @@ std::string ImageCallbackLibrary::getLibraryBasename()
 
     //Klocwork warning - false alarm the Id is always in correct bounds
     const char* pCPUPrefix = m_CpuId.GetCPUPrefix(); 
-    if(pCPUPrefix == NULL)
+    if(pCPUPrefix == nullptr)
       throw Exceptions::DeviceBackendExceptionBase(std::string("Internal error. NULL CPU prefix"));
 
 
@@ -314,7 +314,7 @@ void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
     std::string name = _desc.GetName();
     llvm::StringRef fName(name);
     llvm::Function* fncPtr = m_pCompiledModule->getFunction(fName);
-    if(fncPtr == NULL)
+    if(fncPtr == nullptr)
     {
         std::stringstream ss;
         ss << "Image function " << _desc.GetName() << " wasn't found in the module. Make sure image libraries are valid";
@@ -322,7 +322,7 @@ void* ImageCallbackFunctions::GetCbkPtr(const CbkDesc& _desc)
     }
 
     void* ptr = m_pCompiledModule->getPointerToFunction(fncPtr);
-    if(ptr == NULL)
+    if(ptr == nullptr)
     {
         std::stringstream ss;
         ss << "Internal error. Failed to retreive pointer to function " << _desc.GetName();

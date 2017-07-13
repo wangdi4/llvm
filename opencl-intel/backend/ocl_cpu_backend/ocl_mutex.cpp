@@ -17,7 +17,7 @@ OclMutex::~OclMutex()
 {
     DeleteCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
     delete m_mutexHndl;
-    m_mutexHndl = NULL;
+    m_mutexHndl = nullptr;
 }
 
 // Take the lock on this critical section.
@@ -77,14 +77,14 @@ OclMutex::~OclMutex()
         assert(0 && "Failed destroy pthread mutex");
     }
     delete((pthread_mutex_t*)m_mutexHndl);
-    m_mutexHndl = NULL;
+    m_mutexHndl = nullptr;
 
     if (0 != pthread_mutexattr_destroy((pthread_mutexattr_t*)m_mutexAttr))
     {
         assert(0 && "Failed destroy pthread mutex attribute");
     }
     delete((pthread_mutexattr_t*)m_mutexAttr);
-    m_mutexAttr = NULL;
+    m_mutexAttr = nullptr;
 }
 
 /************************************************************************

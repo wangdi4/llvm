@@ -45,7 +45,7 @@ MICExecutionService::MICExecutionService(const ICLDevBackendOptions* pOptions,
 size_t MICExecutionService::GetTargetMachineDescriptionSize() const
 {
     size_t size = 0;
-    MICSerializationService serializationService(NULL);
+    MICSerializationService serializationService(nullptr);
 
     serializationService.GetTargetDescriptionBlobSize(&m_TargetDescription, &size);
     return size;
@@ -57,7 +57,7 @@ cl_dev_err_code MICExecutionService::GetTargetMachineDescription(
 {
     assert(pTargetDescription && "Target Description buffer is null");
     assert((descriptionSize >= GetTargetMachineDescriptionSize()) && "Too small buffer size");
-    MICSerializationService serializationService(NULL);
+    MICSerializationService serializationService(nullptr);
 
     serializationService.SerializeTargetDescription(&m_TargetDescription, pTargetDescription, 
         descriptionSize);

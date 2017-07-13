@@ -173,7 +173,7 @@ unsigned int KernelProperties::GetKernelPackCount() const
 
 const size_t* KernelProperties::GetRequiredWorkGroupSize() const
 {
-    return m_reqdWGSize[0] ? m_reqdWGSize : NULL;
+    return m_reqdWGSize[0] ? m_reqdWGSize : nullptr;
 }
 
 size_t KernelProperties::GetBarrierBufferSize() const

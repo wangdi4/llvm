@@ -59,7 +59,7 @@ bool IsKernel(llvm::Module* pModule, const char* szFuncName)
 
     for( MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i )
     {
-        llvm::Function *pFuncVal = NULL;
+        llvm::Function *pFuncVal = nullptr;
         // Obtain kernel function from annotation
         if( (*i)->isFunctionHasValue() )
         {
@@ -67,7 +67,7 @@ bool IsKernel(llvm::Module* pModule, const char* szFuncName)
         }
 
         //TODO: check stripPointerCasts()
-        if ( NULL == pFuncVal )
+        if ( nullptr == pFuncVal )
         {
             continue;   // Not a function pointer
         }
@@ -100,15 +100,15 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     assert(pCache && "Object Cache is null");
     assert(pProgram && "Program Object is null");
 
-    if(pCache->getCachedModule().empty() || NULL == pCache->getCachedObject())
+    if(pCache->getCachedModule().empty() || nullptr == pCache->getCachedObject())
     {
-        pProgram->SetObjectCodeContainer(NULL);
+        pProgram->SetObjectCodeContainer(nullptr);
         return ;
     }
 
     // calculate the required buffer size
     size_t serializationSize = 0;
-    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
+    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->GetSerializationBlobSize(
         SERIALIZE_PERSISTENT_IMAGE, pProgram, &serializationSize);
 
@@ -157,7 +157,7 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     }
     else
     {
-        pProgram->SetObjectCodeContainer(NULL);
+        pProgram->SetObjectCodeContainer(nullptr);
     }
 }
 
@@ -213,7 +213,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     static_cast<CPUProgram*>(pProgram)->SetObjectCache(pCache);
 
     // deserialize the management objects
-    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(NULL));
+    std::auto_ptr<CPUSerializationService> pCPUSerializationService(new CPUSerializationService(nullptr));
     pCPUSerializationService->ReloadProgram(
         SERIALIZE_PERSISTENT_IMAGE,
         pProgram,
@@ -230,7 +230,7 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
     // update kernel mapper (OCL2.0) and run global ctors
-    PostBuildProgramStep( pProgram, pModule, NULL );
+    PostBuildProgramStep( pProgram, pModule, nullptr );
     return true;
 }
 
@@ -286,15 +286,15 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                      spKernelJITProps.release());
 
         //TODO (AABOUD): is this redundant code?
-        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
+        const llvm::Type *vTypeHint = nullptr; //pFunc->getVectTypeHint(); //TODO: Read from metadata (Guy)
         bool dontVectorize = false;
 
-        if( NULL != vTypeHint)
+        if( nullptr != vTypeHint)
         {
             //currently if the vector_type_hint attribute is set
             //we types that vector length is below 4, vectorizer restriction
             const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+            if( ( nullptr != pVect) && pVect->getNumElements() >= 4)
             {
                 dontVectorize = true;
             }
@@ -307,8 +307,8 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
             Function *pVecFunc = kimd->getVectorizedKernel();
             assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
                    "if the vector kernel is inlined the entry of the vector "
-                   "kernel should be NULL");
-            if(NULL != pVecFunc && !dontVectorize)
+                   "kernel should be nullptr");
+            if(nullptr != pVecFunc && !dontVectorize)
             {
                 KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
                 // Obtain kernel wrapper function from metadata info
@@ -364,13 +364,13 @@ void CPUProgramBuilder::AddKernelJIT(CPUProgram* pProgram, Kernel* pKernel, llvm
 
 void CPUProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Module* spModule, const ICLDevBackendOptions* pOptions) const
 {
-    char*  pInjectedObjStart = NULL;
+    char*  pInjectedObjStart = nullptr;
     size_t injectedObjSize;
 
     // Check if we are going to do injection
     if (pOptions
         && pOptions->GetValue(CL_DEV_BACKEND_OPTION_INJECTED_OBJECT, &pInjectedObjStart, &injectedObjSize)
-        && pInjectedObjStart != NULL)
+        && pInjectedObjStart != nullptr)
     {
         std::auto_ptr<StaticObjectLoader> pObjectLoader(new StaticObjectLoader());
         // Build the MemoryBuffer object from the supplied options

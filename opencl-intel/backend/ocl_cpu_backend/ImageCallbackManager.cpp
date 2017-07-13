@@ -31,7 +31,7 @@ File Name:  ImageCallbackManager.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-ImageCallbackManager* ImageCallbackManager::s_pInstance = NULL;
+ImageCallbackManager* ImageCallbackManager::s_pInstance = nullptr;
 
 ImageCallbackManager::ImageCallbackManager()
 {}
@@ -52,10 +52,10 @@ void ImageCallbackManager::Init()
 
 void ImageCallbackManager::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 

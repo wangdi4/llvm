@@ -22,8 +22,8 @@ File Name:  Serializer.cpp
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 SerializationStatus::SerializationStatus():
-    m_pJITAllocator(NULL),
-    m_pBackendFactory(NULL),
+    m_pJITAllocator(nullptr),
+    m_pBackendFactory(nullptr),
     m_RuntimeVersion(1),
     m_LLVMVersion(32)
     {}
@@ -46,7 +46,7 @@ void* SerializationStatus::GetPointerMark(const std::string& mark)
     if ( m_marksMap.end() == it )
     {
         assert( false && "Mark do not exist on the serialization status");
-        return NULL;
+        return nullptr;
     }
 
     return m_marksMap[mark];

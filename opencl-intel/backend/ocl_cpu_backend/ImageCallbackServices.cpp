@@ -86,7 +86,7 @@ ImageCallbackService::ImageCallbackService(const CompilerConfig& config, bool is
 
 const cl_image_format* ImageCallbackService::GetSupportedImageFormats(unsigned int *numFormats, cl_mem_object_type imageType, cl_mem_flags flags){
 
-    cl_image_format const* ret = NULL;
+    cl_image_format const* ret = nullptr;
     // leave only memory access flags
     flags &= (CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_READ_WRITE | CL_MEM_KERNEL_READ_AND_WRITE);
     // If value specified for flags is 0, the default is used which
@@ -213,7 +213,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
 {
     // make sure that object passed here is image. Otherwise
     if (pImageObject->memObjType == CL_MEM_OBJECT_BUFFER){
-      pImageObject->imageAuxData = NULL;
+      pImageObject->imageAuxData = nullptr;
       return CL_DEV_ERROR_FAIL;
     }
 
@@ -378,7 +378,7 @@ cl_dev_err_code ImageCallbackService::CreateImageObject(cl_mem_obj_descriptor* p
     }
 
     /////////////////////////////Read & write image callbacks
-    void** read_cbk_ptr = NULL;
+    void** read_cbk_ptr = nullptr;
     if(IsIntDataType(pImageAuxData->format.image_channel_data_type))
         read_cbk_ptr = pImageAuxData->read_img_callback_int;
     else

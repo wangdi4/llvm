@@ -32,7 +32,7 @@ static void populateLineNumberInfo(const LineNumberTable *table,
                                    std::vector<LineNumberInfo> &result,
                                    int from, size_t size) {
   result.clear();
-  if (table == NULL)
+  if (table == nullptr)
     return;
 
   unsigned numEntries = table->size();
@@ -72,16 +72,16 @@ static void registerWithVTune(const ModuleJITHolder *MJH, KernelID kernelId,
   JitData.line_number_size = lineNumberInfo.size();
   JitData.line_number_table = lineNumberInfo.data();
   JitData.class_id = 0;
-  JitData.class_file_name = NULL;
+  JitData.class_file_name = nullptr;
   JitData.source_file_name =
       const_cast<char *>(MJH->GetKernelFilename(kernelId));
-  JitData.user_data = NULL;
+  JitData.user_data = nullptr;
   JitData.user_data_size = 0;
   iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_LOAD_FINISHED, &JitData);
 
   const InlinedFunctions *inlinedFunctions =
       MJH->GetKernelInlinedFunctions(kernelId);
-  if (inlinedFunctions == NULL || inlinedFunctions->size() == 0)
+  if (inlinedFunctions == nullptr || inlinedFunctions->size() == 0)
     return;
 
   for (InlinedFunctions::const_iterator iter = inlinedFunctions->begin(),
@@ -108,7 +108,7 @@ static void registerWithVTune(const ModuleJITHolder *MJH, KernelID kernelId,
         const_cast<char *>(inlinedFunc.filename.c_str());
     InlineJitData.line_number_size = lineNumberInfo.size();
     InlineJitData.line_number_table = lineNumberInfo.data();
-    InlineJitData.class_file_name = NULL;
+    InlineJitData.class_file_name = nullptr;
     iJIT_NotifyEvent(iJVM_EVENT_TYPE_METHOD_INLINE_LOAD_FINISHED,
                      &InlineJitData);
   }
@@ -154,7 +154,7 @@ void MICKernel::Deserialize(IInputStream &ist, SerializationStatus *stats) {
 #ifdef KNC_CARD
   for (unsigned int i = 0; i < m_JITs.size(); ++i) {
     MICJITContainer *currentArgument = static_cast<MICJITContainer*>(m_JITs[i]);
-    if (NULL != currentArgument) {
+    if (nullptr != currentArgument) {
       // Register with VTune
       KernelJITProperties *props =
           static_cast<KernelJITProperties *>(currentArgument->GetProps());

@@ -331,14 +331,14 @@ const char *Kernel::GetKernelName() const { return m_name.c_str(); }
 int Kernel::GetKernelParamsCount() const { return m_explicitArgs.size(); }
 
 const cl_kernel_argument *Kernel::GetKernelParams() const {
-  return m_explicitArgs.empty() ? NULL : &m_explicitArgs[0];
+  return m_explicitArgs.empty() ? nullptr : &m_explicitArgs[0];
 }
 
 size_t Kernel::GetArgumentBufferRequiredAlignment() const {
   return m_RequiredUniformKernelArgsAlignment;
 }
 
-const cl_kernel_argument_info *Kernel::GetKernelArgInfo() const { return NULL; }
+const cl_kernel_argument_info *Kernel::GetKernelArgInfo() const { return nullptr; }
 
 const ICLDevBackendKernelProporties *Kernel::GetKernelProporties() const {
   return m_pProps;
@@ -362,7 +362,7 @@ unsigned int Kernel::GetMemoryObjectArgumentCount() const {
 }
 
 const unsigned int *Kernel::GetMemoryObjectArgumentIndexes() const {
-  return m_memArgs.empty() ? NULL : &m_memArgs[0];
+  return m_memArgs.empty() ? nullptr : &m_memArgs[0];
 }
 
 const std::vector<cl_kernel_argument> *Kernel::GetKernelParamsVector() const {
@@ -455,7 +455,7 @@ Kernel::PrepareKernelArguments(void *pKernelUniformArgs,
         CreateEntryPointHandle(pScalarJIT->GetJITCode());
   } else {
     const IKernelJITContainer *pVectorJIT =
-        GetKernelJITCount() > 1 ? GetKernelJIT(1) : NULL;
+        GetKernelJITCount() > 1 ? GetKernelJIT(1) : nullptr;
     if(pVectorJIT) {
       // The both vectorized and scalar JITs are present.
       // Rely on the fact that JIT is always vectorized by work group size from 0 d.
@@ -633,7 +633,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
   }
 
   Serializer::SerialPointerHint((const void **)&m_pProps, ost);
-  if (NULL != m_pProps) {
+  if (nullptr != m_pProps) {
     m_pProps->Serialize(ost, stats);
   }
 
@@ -644,7 +644,7 @@ void Kernel::Serialize(IOutputStream& ost, SerializationStatus* stats) const
        it != m_JITs.end(); ++it) {
     IKernelJITContainer *currentArgument = (*it);
     Serializer::SerialPointerHint((const void **)&currentArgument, ost);
-    if (NULL != currentArgument) {
+    if (nullptr != currentArgument) {
       currentArgument->Serialize(ost, stats);
     }
   }
@@ -679,7 +679,7 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
   }
 
   Serializer::DeserialPointerHint((void **)&m_pProps, ist);
-  if (NULL != m_pProps) {
+  if (nullptr != m_pProps) {
     m_pProps =
         stats->GetBackendFactory()->CreateKernelProperties();
     m_pProps->Deserialize(ist, stats);
@@ -687,9 +687,9 @@ void Kernel::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
   Serializer::DeserialPrimitive<unsigned int>(&vectorSize, ist);
   for (unsigned int i = 0; i < vectorSize; ++i) {
-    IKernelJITContainer *currentArgument = NULL;
+    IKernelJITContainer *currentArgument = nullptr;
     Serializer::DeserialPointerHint((void **)&currentArgument, ist);
-    if (NULL != currentArgument) {
+    if (nullptr != currentArgument) {
       currentArgument =
           stats->GetBackendFactory()->CreateKernelJITContainer();
       currentArgument->Deserialize(ist, stats);

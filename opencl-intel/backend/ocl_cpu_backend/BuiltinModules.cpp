@@ -30,8 +30,8 @@ BuiltinModules::~BuiltinModules() { }
 
 BuiltinLibrary::BuiltinLibrary(const Intel::CPUId &cpuId):
     m_cpuId(cpuId),
-    m_pRtlBuffer(NULL),
-    m_pRtlBufferSvmlShared(NULL)
+    m_pRtlBuffer(nullptr),
+    m_pRtlBufferSvmlShared(nullptr)
 {
 }
 

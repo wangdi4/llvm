@@ -23,7 +23,7 @@ File Name:  BackendConfiguration.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BackendConfiguration* BackendConfiguration::s_pInstance = NULL;
+BackendConfiguration* BackendConfiguration::s_pInstance = nullptr;
 
 void BackendConfiguration::Init()
 {
@@ -33,10 +33,10 @@ void BackendConfiguration::Init()
 
 void BackendConfiguration::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 

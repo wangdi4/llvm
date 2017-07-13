@@ -64,7 +64,7 @@ void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackend
 {
     CompilerConfig::ApplyRuntimeOptions(pBackendOptions);
 
-    if( NULL == pBackendOptions)
+    if( nullptr == pBackendOptions)
     {
         return;
     }
@@ -82,8 +82,8 @@ void MICCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackend
             throw Exceptions::BadConfigException("Failed to get target description");
         }
 
-        MICSerializationService mss(NULL);
-        TargetDescription* pTarget = NULL;
+        MICSerializationService mss(nullptr);
+        TargetDescription* pTarget = nullptr;
 
         // check if error
         cl_dev_err_code errCode =

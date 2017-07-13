@@ -46,7 +46,7 @@ static inline ICLDebuggingService* TheDebuggingService()
     if (serviceFactory->GetDebuggingService(&debuggingService) == CL_DEV_SUCCESS)
         return debuggingService;
     else
-        return NULL;
+        return nullptr;
 }
 
 

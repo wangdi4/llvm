@@ -23,7 +23,7 @@ File Name:  BitCodeContainer.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 BitCodeContainer::BitCodeContainer(const void *pBinary, size_t uiBinarySize, const char* name):
-    m_pModule(NULL)
+    m_pModule(nullptr)
 {
     assert(pBinary && "Code container pointer must be valid");
     m_pBuffer = llvm::MemoryBuffer::getMemBufferCopy(llvm::StringRef((const char*)pBinary, uiBinarySize), name);

@@ -43,7 +43,7 @@ void CPUProgram::ReleaseExecutionEngine()
         }
 
         delete m_pExecutionEngine;
-        m_pExecutionEngine = NULL;
+        m_pExecutionEngine = nullptr;
     }
 }
 
@@ -60,7 +60,7 @@ void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
 
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 {
-    void* pModule = (NULL != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : NULL;
+    void* pModule = (nullptr != m_pIRCodeContainer) ? m_pIRCodeContainer->GetModule() : nullptr;
     stats->SetPointerMark("pModule", pModule);
     stats->SetPointerMark("pProgram", this);
     Program::Deserialize(ist, stats);
