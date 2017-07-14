@@ -117,7 +117,7 @@ bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
         mdUtils.begin_FunctionsStats();
          it != mdUtils.end_FunctionsStats(); it++) {
 
-      if (it->first == NULL) {
+      if (it->first == nullptr) {
         cout << "Warning: found null function in file " << flist[i] << ".\n";
         continue;
       }

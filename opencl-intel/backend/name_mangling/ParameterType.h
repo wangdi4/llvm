@@ -415,7 +415,7 @@ struct TypeVisitor {
 //         that type, NULL otherwise.
 template <typename T> T *dyn_cast(ParamType *pType) {
   assert(pType && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == pType->getTypeId()) ? (T *)pType : NULL;
+  return (T::enumTy == pType->getTypeId()) ? (T *)pType : nullptr;
 }
 
 ///@brief template dynamic cast function for ParamType derived classes
@@ -425,7 +425,7 @@ template <typename T> T *dyn_cast(ParamType *pType) {
 //         that type, NULL otherwise.
 template <typename T> const T *dyn_cast(const ParamType *pType) {
   assert(pType && "dyn_cast does not support casting of NULL");
-  return (T::enumTy == pType->getTypeId()) ? (const T *)pType : NULL;
+  return (T::enumTy == pType->getTypeId()) ? (const T *)pType : nullptr;
 }
 
 } // namespace reflection

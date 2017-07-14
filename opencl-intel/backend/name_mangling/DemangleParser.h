@@ -94,7 +94,7 @@ namespace reflection {
     // @param pTypeInfo type mangling information (token, length, etc.)
     // @param primitiveType[OUT] set primitive type in this entry if it is not NULL.
     // @return return true is succeeded, false otherwise
-    bool match(TypeInfo* pTypeInfo, TypePrimitiveEnum* pPrimitiveType = NULL);
+    bool match(TypeInfo* pTypeInfo, TypePrimitiveEnum* pPrimitiveType = nullptr);
 
   private:
     // @brief holder for mangled parameter types (output data)

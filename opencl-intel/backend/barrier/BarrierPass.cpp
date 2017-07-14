@@ -296,7 +296,7 @@ namespace intel {
           Constant *pSizeToCopy = ConstantExpr::getSizeOf(pAllocaType);
           if (insertBefore) {
             pAddrInSpecialBufferCopyOut = getAddressInSpecialBuffer(
-                offset, pAllocaInst->getType(), insertBefore, NULL);
+                offset, pAllocaInst->getType(), insertBefore, nullptr);
 
             // create copy to work item buffer (from stack)
             builder.SetInsertPoint(insertBefore);
@@ -306,7 +306,7 @@ namespace intel {
 
           if (insertBeforeEnd) {
             pAddrInSpecialBufferCopyIn = getAddressInSpecialBuffer(
-                offset, pAllocaInst->getType(), insertBeforeEnd, NULL);
+                offset, pAllocaInst->getType(), insertBeforeEnd, nullptr);
 
             // create copy to stack (from work item buffer)
             builder.SetInsertPoint(insertBeforeEnd);
@@ -316,7 +316,7 @@ namespace intel {
         } else {
           if (insertBefore) {
             pAddrInSpecialBufferCopyOut = getAddressInSpecialBuffer(
-                offset, pAllocaInst->getType(), insertBefore, NULL);
+                offset, pAllocaInst->getType(), insertBefore, nullptr);
             // create copy to work item buffer (from stack)
             LoadInst *pLDInstCopyOut = new LoadInst(pAllocaInst, "CopyOut", insertBefore);
             new StoreInst(pLDInstCopyOut, pAddrInSpecialBufferCopyOut, insertBefore);
@@ -324,7 +324,7 @@ namespace intel {
 
           if (insertBeforeEnd) {
             pAddrInSpecialBufferCopyIn = getAddressInSpecialBuffer(
-                offset, pAllocaInst->getType(), insertBeforeEnd, NULL);
+                offset, pAllocaInst->getType(), insertBeforeEnd, nullptr);
 
             // create copy to stack (from work item buffer)
             LoadInst *pLDInstCopyIn = new LoadInst(pAddrInSpecialBufferCopyIn, "CopyIn", insertBeforeEnd);
@@ -649,7 +649,7 @@ namespace intel {
 
     Type *pResult = Type::getVoidTy(*m_pContext);
     Module *M = Then->getParent()->getParent();
-    Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult, NULL);
+    Constant *pFunc = M->getOrInsertFunction("DebugCopy.", pResult, nullptr);
     CallInst::Create(pFunc, "", &pThenFront);
     CallInst::Create(pFunc, "", &pElseFront);
   }
@@ -798,7 +798,7 @@ namespace intel {
     if ( expectNULL && pPrevBB == pInst->getParent() ) {
       //In such case no need to load & replace the origin value
       //as no barrier in the middle, return NULL to indecate that.
-      return NULL;
+      return nullptr;
     }
     return pPrevBB->getTerminator();
   }
@@ -1054,7 +1054,7 @@ namespace intel {
       PointerType *pType =
           pOriginalArg->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
       Value *pAddrInSpecialBuffer =
-          getAddressInSpecialBuffer(offsetArg, pType, pInsertBefore, NULL);
+          getAddressInSpecialBuffer(offsetArg, pType, pInsertBefore, nullptr);
       Value *pLoadedValue =
           new LoadInst(pAddrInSpecialBuffer, "loadedValue", pInsertBefore);
       pUserInst->replaceUsesOfWith(pOriginalArg, pLoadedValue);
@@ -1072,7 +1072,7 @@ namespace intel {
     PointerType *pType =
         pRetVal->getType()->getPointerTo(SPECIAL_BUFFER_ADDR_SPACE);
     Value *pAddrInSpecialBuffer =
-        getAddressInSpecialBuffer(offsetRet, pType, pInsertBefore, NULL);
+        getAddressInSpecialBuffer(offsetRet, pType, pInsertBefore, nullptr);
     //Add Store instruction after the value instruction
     new StoreInst(pRetVal, pAddrInSpecialBuffer, pInsertBefore);
   }
@@ -1086,7 +1086,7 @@ namespace intel {
     getBarrierKeyValues(pFunc);
 
     const DebugLoc& DB = pCallToFix->getDebugLoc();
-    Instruction* pInsertBefore = NULL;
+    Instruction* pInsertBefore = nullptr;
     Function::arg_iterator argIter = pCalledFunc->arg_begin();
     for ( CallInst::const_op_iterator opi = pCallToFix->op_begin(),
       ope = pCallToFix->op_end(); opi != ope; ++opi, ++argIter) {

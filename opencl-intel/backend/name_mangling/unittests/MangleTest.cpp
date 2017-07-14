@@ -210,11 +210,11 @@ static bool isSematicallyEqual(const std::string& l, const std::string& r){
 }
 
 static bool isVector(const ParamType *T){
-  return NULL != reflection::dyn_cast<VectorType>(T);
+  return nullptr != reflection::dyn_cast<VectorType>(T);
 }
 
 static bool isPointer(const ParamType *T){
-  return NULL != reflection::dyn_cast<PointerType>(T);
+  return nullptr != reflection::dyn_cast<PointerType>(T);
 }
 
 //
@@ -247,7 +247,7 @@ TEST(DemangleTest, retByPtr){
   ASSERT_FALSE(fd.isNull());
 
   const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(fd.parameters[0]);
-  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_TRUE(pSclTy != nullptr);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 
   ASSERT_TRUE(isPointer(fd.parameters[1]));
@@ -511,7 +511,7 @@ TEST(DemangleTest, doubleDup1){
   ASSERT_TRUE(isVector(T));
   const VectorType *pVecTy = reflection::dyn_cast<VectorType>(T);
   const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(pVecTy->getScalarType());
-  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_TRUE(pSclTy != nullptr);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
 
@@ -522,7 +522,7 @@ TEST(DemangleTest, doubleDup2){
   ASSERT_TRUE(isVector(T));
   const VectorType *pVecTy = reflection::dyn_cast<VectorType>(T);
   const PrimitiveType *pSclTy = reflection::dyn_cast<PrimitiveType>(pVecTy->getScalarType());
-  ASSERT_TRUE(pSclTy != NULL);
+  ASSERT_TRUE(pSclTy != nullptr);
   ASSERT_EQ(PRIMITIVE_FLOAT, pSclTy->getPrimitive());
 }
 
@@ -667,7 +667,7 @@ TEST(MangleAPI, visitorExample){
 TEST(Type, TypeCast){
   RefParamType primitiveInt(new PrimitiveType(PRIMITIVE_INT));
   VectorType vectorInt(primitiveInt, 4);
-  ASSERT_TRUE(NULL == reflection::dyn_cast<VectorType>(primitiveInt));
+  ASSERT_TRUE(nullptr == reflection::dyn_cast<VectorType>(primitiveInt));
   ASSERT_EQ(&vectorInt, reflection::dyn_cast<VectorType>(&vectorInt));
 }
 

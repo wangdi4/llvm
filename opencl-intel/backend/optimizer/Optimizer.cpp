@@ -302,7 +302,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
                              pConfig->GetDumpIRDir()));
   }
   if (!pConfig->GetLibraryModule() &&
-      (getenv("DISMPF") != NULL || intel::Statistic::isEnabled()))
+      (getenv("DISMPF") != nullptr || intel::Statistic::isEnabled()))
     PM.add(createRemovePrefetchPass());
 #endif //#ifndef __APPLE__
   PM.add(createBuiltinCallToInstPass());

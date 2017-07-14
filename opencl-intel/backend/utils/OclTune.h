@@ -190,8 +190,8 @@ private:
 
 public:
   unsigned getValue() const { return 0; }
-  const char *getName() const { return NULL; }
-  const char *getDesc() const { return NULL; }
+  const char *getName() const { return nullptr; }
+  const char *getDesc() const { return nullptr; }
 
   /// construct - This should only be called for non-global statistics.
   Statistic(const char *category, const char *name, const char *desc,

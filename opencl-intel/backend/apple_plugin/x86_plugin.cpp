@@ -94,7 +94,7 @@ int cld_link(Module *M, Module *Runtime);
 __END_DECLS
 
 /// Contains the LLVM Runtime that we will lazy initialize once.
-static Module *Runtime = NULL;
+static Module *Runtime = nullptr;
 
 Intel::CPUId selectCPU();
 std::string getBuiltinName(Intel::CPUId);
@@ -120,7 +120,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
   // Create the info dictionary which will store CFString program names as
   // the keys, and CFArrays of CFNumbers for the size|flags fields.
   CFMutableDictionaryRef d;
-  d = CFDictionaryCreateMutable(NULL, numKernels,
+  d = CFDictionaryCreateMutable(nullptr, numKernels,
                                 &kCFTypeDictionaryKeyCallBacks,
                                 &kCFTypeDictionaryValueCallBacks);
   if (!d)
@@ -179,23 +179,23 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     std::vector<unsigned int> memoryAlignment;
     Intel::OpenCL::DeviceBackend::CompilationUtils::parseKernelArguments(M,  pFunc, arguments, memoryAlignment);
 
-    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kf_argsizes = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
-    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kf_argalignments = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
     // Create and fill in the kernel args description structure.
-    CFMutableArrayRef kfinfo = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kfinfo = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
-    CFMutableArrayRef kf_argnames = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kf_argnames = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
-    CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kf_argtypes = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
-    CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(NULL,
+    CFMutableArrayRef kf_argtypequals = CFArrayCreateMutable(nullptr,
       arguments.size(), &kCFTypeArrayCallBacks);
 
     //Calculate the size and alignment of each argument from the arguments info.
@@ -208,7 +208,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Create a CFNumber to hold the size value.
       int size = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getSize(arg));
       const void *vptrsize = (const void *)&size;
-      CFNumberRef valsizeref = CFNumberCreate(NULL, kCFNumberIntType, vptrsize);
+      CFNumberRef valsizeref = CFNumberCreate(nullptr, kCFNumberIntType, vptrsize);
 
       // Append size value to the function arg sizes array.
       CFArrayAppendValue(kf_argsizes, valsizeref);
@@ -217,7 +217,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Create a CFNumber to hold the alignment value.
       int alignment = ((int)Intel::OpenCL::DeviceBackend::TypeAlignment::getAlignment(arg));
       const void *vptralignment = (const void *)&alignment;
-      CFNumberRef valalignmentref = CFNumberCreate(NULL, kCFNumberIntType, vptralignment);
+      CFNumberRef valalignmentref = CFNumberCreate(nullptr, kCFNumberIntType, vptralignment);
 
       // Append size value to the function arg sizes array.
       CFArrayAppendValue(kf_argalignments, valalignmentref);
@@ -257,7 +257,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Create a CFNumber to hold the values we calculated.
       uint64_t val = ((uint64_t)arg_size) << 32 | (uint64_t)flags;
       const void *vptr = (const void *)&val;
-      CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+      CFNumberRef valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
 
       // Append to info value to the function arg info array.
       CFArrayAppendValue(kfinfo, valref);
@@ -266,7 +266,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Append the argument name to kf_argnames
       if (kmd->isArgNamesHasValue()) {
         std::string argname = kmd->getArgNamesItem(j);
-        CFStringRef cfargname = CFStringCreateWithCString(NULL, argname.c_str(),
+        CFStringRef cfargname = CFStringCreateWithCString(nullptr, argname.c_str(),
                                                           kCFStringEncodingUTF8);
         CFArrayAppendValue(kf_argnames, cfargname);
         CFRelease(cfargname);
@@ -275,7 +275,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       // Remember the type of the argument.
       if (kmd->isArgTypesHasValue()) {
         std::string tyname = kmd->getArgTypesItem(j);
-        CFStringRef cfargtype = CFStringCreateWithCString(NULL, tyname.c_str(),
+        CFStringRef cfargtype = CFStringCreateWithCString(nullptr, tyname.c_str(),
                                                             kCFStringEncodingUTF8);
         CFArrayAppendValue(kf_argtypes, cfargtype);
         CFRelease(cfargtype);
@@ -297,7 +297,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
         // Create a CFNumber to hold the values we calculated.
         uint64_t val = (uint64_t)qualflags;
         const void *vptr = (const void *)&val;
-        valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
 
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_argtypequals, valref);
@@ -307,7 +307,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
 
     // Insert work group dimensions.
     const unsigned max_wg_dim = 3;
-    CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(NULL, max_wg_dim,
+    CFMutableArrayRef kf_wg_dims = CFArrayCreateMutable(nullptr, max_wg_dim,
                                                       &kCFTypeArrayCallBacks);
 
 #ifdef REQD_WORK_GROUP_SIZE
@@ -320,7 +320,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
         // The first element is the key, so offset arg index by one.
         uint64_t val = llvm::dyn_cast<llvm::ConstantInt>(MDRWGS->getOperand(i+1))->getValue().getZExtValue();
         const void *vptr = (const void *)&val;
-        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        CFNumberRef valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_wg_dims, valref);
         CFRelease(valref);
@@ -329,7 +329,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       uint64_t val = 0;
       const void *vptr = (const void *)&val;
       for (unsigned k = 0; k < max_wg_dim; ++k) {
-        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        CFNumberRef valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_wg_dims, valref);
         CFRelease(valref);
@@ -349,7 +349,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
         assert(*ValStart != '\0');
         uint64_t val = strtol(ValStart, &ValEnd, 10);
         const void *vptr = (const void *)&val;
-        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        CFNumberRef valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
 
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_wg_dims, valref);
@@ -361,7 +361,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
       uint64_t val = 0;
       const void *vptr = (const void *)&val;
       for (unsigned k = 0; k < max_wg_dim; ++k) {
-        CFNumberRef valref = CFNumberCreate(NULL, kCFNumberLongLongType, vptr);
+        CFNumberRef valref = CFNumberCreate(nullptr, kCFNumberLongLongType, vptr);
         // Append to info value to the function arg info array.
         CFArrayAppendValue(kf_wg_dims, valref);
         CFRelease(valref);
@@ -369,48 +369,48 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     }
 #endif
     // Scalar name, which we will use to dlsym the wrapper out of the object.
-    CFStringRef sname = CFStringCreateWithCString(NULL,
+    CFStringRef sname = CFStringCreateWithCString(nullptr,
                                                   pWrapperFunc->getName().str().c_str(),
                                                   kCFStringEncodingUTF8);
 
     // Vector name, which we will use to dlsym the vector wrapper out of the object.
     std::string VKernelName = "";
     int VWidthMax = 0;
-    if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
+    if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != nullptr) {
       Function *pVecFunc = kimd->getVectorizedKernel();
       Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
       VKernelName = vkimd->getKernelWrapper()->getName().str();
       VWidthMax = vkimd->getVectorizedWidth();
 
     }
-    CFStringRef vname = CFStringCreateWithCString(NULL, VKernelName.c_str(),
+    CFStringRef vname = CFStringCreateWithCString(nullptr, VKernelName.c_str(),
                                                   kCFStringEncodingUTF8);
     const void *vwmaxptr = (const void *)&VWidthMax;
-    CFNumberRef vwmax = CFNumberCreate(NULL, kCFNumberIntType, vwmaxptr);
+    CFNumberRef vwmax = CFNumberCreate(nullptr, kCFNumberIntType, vwmaxptr);
 
     //hasBarrier, indicator for kernel that was compiled with barrier path
     int hasBarrier = !(kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath());
     const void *hbarrierptr = (const void *)&hasBarrier;
-    CFNumberRef hbarrier = CFNumberCreate(NULL, kCFNumberIntType, hbarrierptr);
+    CFNumberRef hbarrier = CFNumberCreate(nullptr, kCFNumberIntType, hbarrierptr);
 
     //barrier buffer stride, is the size in bytes for barrier buffer stride
     unsigned int barrierBufferSTride = (VWidthMax? VWidthMax : 1) * kimd->getBarrierBufferSize();
     const void *bbsptr = (const void *)&barrierBufferSTride;
-    CFNumberRef bbs = CFNumberCreate(NULL, kCFNumberIntType, bbsptr);
+    CFNumberRef bbs = CFNumberCreate(nullptr, kCFNumberIntType, bbsptr);
 
     //max local group size, indecator for maximum number of work-items this kernel supports
     unsigned int maxLocalSize = 1024;
     const void *lsmaxptr = (const void *)&maxLocalSize;
-    CFNumberRef lsmax = CFNumberCreate(NULL, kCFNumberIntType, lsmaxptr);
+    CFNumberRef lsmax = CFNumberCreate(nullptr, kCFNumberIntType, lsmaxptr);
 
     //implicit local buffer size, is the total size in bytes for all implicit local variables in this kernel
     unsigned int implicitLocalBufferSize = kimd->getLocalBufferSize();
     const void *ilbptr = (const void *)&implicitLocalBufferSize;
-    CFNumberRef ilb = CFNumberCreate(NULL, kCFNumberIntType, ilbptr);
+    CFNumberRef ilb = CFNumberCreate(nullptr, kCFNumberIntType, ilbptr);
 
     const void *entry[] = { kfinfo, kf_argsizes, kf_argalignments, sname, vname, vwmax, hbarrier, bbs,
       kf_wg_dims, kf_argnames, kf_argtypes, kf_argtypequals, lsmax, ilb };
-    CFArrayRef arrayref = CFArrayCreate(NULL, entry, 14, &kCFTypeArrayCallBacks);
+    CFArrayRef arrayref = CFArrayCreate(nullptr, entry, 14, &kCFTypeArrayCallBacks);
 
     CFRelease(kfinfo);
     CFRelease(kf_argsizes);
@@ -428,7 +428,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     CFRelease(ilb);
 
     // Create a CFString from the function name to use as the key.
-    CFStringRef kfstr = CFStringCreateWithCString(NULL, pWrapperFunc->getName().str().c_str(),
+    CFStringRef kfstr = CFStringCreateWithCString(nullptr, pWrapperFunc->getName().str().c_str(),
                                                   kCFStringEncodingUTF8);
 
     // Insert the info array into the dictionary.
@@ -768,7 +768,7 @@ static int compileProgram(
   CPUPluginPrivateData* pluginData = (CPUPluginPrivateData*)objects->private_service;
   Intel::CPUId cpuId;
 
-  if( pluginData != NULL)
+  if( pluginData != nullptr)
     cpuId = pluginData->cpuId;
   else
     cpuId = selectCPU();
@@ -784,7 +784,7 @@ static int compileProgram(
 
     OwningPtr<MemoryBuffer> bc_memory_buffer;
     MemoryBuffer::getFileOrSTDIN(bitcode_name, bc_memory_buffer);
-    Runtime = getLazyBitcodeModule(bc_memory_buffer.take(), getGlobalContext(), NULL);
+    Runtime = getLazyBitcodeModule(bc_memory_buffer.take(), getGlobalContext(), nullptr);
   }
   // Set the triple string based on the architecture we're compiling for.
   std::string triple = Runtime->getTargetTriple();
@@ -799,7 +799,7 @@ static int compileProgram(
   // But ends up to be the merge between all optimization flags
   // in case of linking more than one object.
   cld_comp_opt mergedOpt = opt;
-  Module *SM = NULL;
+  Module *SM = nullptr;
   OwningPtr<Module> OM(SM);
 
   std::vector<SrcLenStruct>::iterator iter = SrcPtrs.begin();
@@ -809,7 +809,7 @@ static int compileProgram(
     size_t source_size = iter->src_size;
 
     cld_comp_opt tempOpt = mergedOpt;
-    Module *tempSM = NULL;
+    Module *tempSM = nullptr;
     if (opt & CLD_COMP_OPT_FLAGS_PORT_BINARY) {
       // Load LLVM IR; don't include the null byte in size.
       StringRef ref((const char*)source, source_size);
@@ -851,7 +851,7 @@ static int compileProgram(
     if (!tempSM)
       return -2;
 
-    if(SM == NULL) {
+    if(SM == nullptr) {
       SM = tempSM;
       OM.reset(SM);
     } else {
@@ -914,7 +914,7 @@ static int compileProgram(
     // We have no kernels so we must be linking multiple files.  Create an
     // empty kernel data dictionary.
     CFMutableDictionaryRef d;
-    d = CFDictionaryCreateMutable(NULL, 0,
+    d = CFDictionaryCreateMutable(nullptr, 0,
                                   &kCFTypeDictionaryKeyCallBacks,
                                   &kCFTypeDictionaryValueCallBacks);
     if (!d)
@@ -1029,7 +1029,7 @@ static int pack_kernel_info(CFWriteStreamRef *writeStreamP,
     p_info = *(InfoVec.begin());
   } else {
     // Merge the info dictionaries.
-    CFMutableDictionaryRef d = CFDictionaryCreateMutable(NULL, 0,
+    CFMutableDictionaryRef d = CFDictionaryCreateMutable(nullptr, 0,
                                           &kCFTypeDictionaryKeyCallBacks,
                                           &kCFTypeDictionaryValueCallBacks);
     SmallVector<CFDictionaryRef, 8>::iterator iter = InfoVec.begin();
@@ -1053,7 +1053,7 @@ static int pack_kernel_info(CFWriteStreamRef *writeStreamP,
   assert(writeStream);
 
   CFWriteStreamOpen(writeStream);
-  CFPropertyListWriteToStream(p_info, writeStream, kCFPropertyListBinaryFormat_v1_0, NULL);
+  CFPropertyListWriteToStream(p_info, writeStream, kCFPropertyListBinaryFormat_v1_0, nullptr);
   CFWriteStreamClose(writeStream);
 
   *writeStreamP = writeStream;
@@ -1252,7 +1252,7 @@ static int buildArchive(cvms_plugin_element_t llvm_func)
 {
   // Build list of bitcode file
   std::vector<SrcLenStruct> SrcPtrs;
-  char* log = NULL;
+  char* log = nullptr;
   int err = buildSrcFiles(llvm_func, SrcPtrs, &log);
 
   // Create the archive
@@ -1443,14 +1443,14 @@ void cvmsPluginServiceTerminate(cvms_plugin_service_t service)
   // Free the runtime if necesary
   if (Runtime) {
     delete Runtime;
-    Runtime = NULL;
+    Runtime = nullptr;
   }
 }
 
 cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 {
-  char *options = NULL;
-  char *log = NULL;
+  char *options = nullptr;
+  char *log = nullptr;
   int32_t err;
 
   // setup the fake device/program for the call to cld_createkernels
@@ -1497,7 +1497,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
       }
     }
   } else {
-    CFDataRef strData = NULL;
+    CFDataRef strData = nullptr;
     // Building an executable so first get the list of sources
     std::vector<SrcLenStruct> SrcPtrs;
     err = buildSrcFiles(llvm_func, SrcPtrs, &log);
@@ -1533,7 +1533,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
 
     // pack the kernel info into a writestream for later transfer
     if (!err) {
-      CFWriteStreamRef writeStream = NULL;
+      CFWriteStreamRef writeStream = nullptr;
       if (pack_kernel_info(&writeStream, InfoVec)) {
         log = strdup("Internal error pack_kernel_info failed.");
         err = -20;
@@ -1553,7 +1553,7 @@ cvms_error_t cvmsPluginElementBuild(cvms_plugin_element_t llvm_func)
     if (!err) {
       char *source = (char*) SrcPtrs[0].src;
       bool debug = (keys->opt & CLD_COMP_OPT_FLAGS_DEBUG) != 0;
-      const char *path = debug ? source : NULL;
+      const char *path = debug ? source : nullptr;
 
       err = Link(ObjFileVec, path, strData, dylib, linklog);
       if (strData)

@@ -102,7 +102,7 @@ void Statistic::pushFunctionStats (ActiveStatsT &activeStats, llvm::Function &F,
   // verify that the function is part of a module
   assert (F.getParent() &&
       "Trying to add stats to function that is not part of a module");
-  if (F.getParent() == NULL)
+  if (F.getParent() == nullptr)
     return;
 
   Intel::MetaDataUtils mdUtils(F.getParent());
@@ -152,7 +152,7 @@ void Statistic::moveFunctionStats (llvm::Function &FromFunction,
   // verify that ToFunction is part of a module
   assert (ToFunction.getParent() &&
       "Trying to move stats to function that is not part of a module");
-  if (ToFunction.getParent() == NULL)
+  if (ToFunction.getParent() == nullptr)
     return;
 
   // it is assumed that ToFunction and FromFunction are defined in the same context
@@ -198,7 +198,7 @@ void Statistic::copyFunctionStats (llvm::Function &FromFunction,
   // verify that ToFunction is part of a module
   assert (ToFunction.getParent() &&
       "Trying to copy stats to function that is not part of a module");
-  if (ToFunction.getParent() == NULL)
+  if (ToFunction.getParent() == nullptr)
     return;
 
   // it is assumed that ToFunction and FromFunction are defined in the same context
@@ -238,7 +238,7 @@ void Statistic::removeFunctionStats (llvm::Function &FromFunction)
   // verify that the function is part of a module
   assert (FromFunction.getParent() &&
       "Trying to remove stats from function that is not part of a module");
-  if (FromFunction.getParent() == NULL)
+  if (FromFunction.getParent() == nullptr)
     return;
 
   Intel::MetaDataUtils mdUtils(FromFunction.getParent());

@@ -54,7 +54,7 @@ namespace intel {
     assert(pPrimitiveParam && "WG function parameter should be either primitive or vector of primitives");
     reflection::TypePrimitiveEnum dataEnum = pPrimitiveParam->getPrimitive();
 
-    Constant *pInitVal = NULL;
+    Constant *pInitVal = nullptr;
     Type *pInt32Type = Type::getInt32Ty(*m_pLLVMContext);
     Type *pInt64Type = Type::getInt64Ty(*m_pLLVMContext);
     // Act according to the function's logic
@@ -239,12 +239,12 @@ namespace intel {
   Function* GroupBuiltin::FindFunctionInModule(const std::string& funcName) {
     for (SmallVector<Module*, 2>::iterator it = m_builtinModuleList.begin();
         it != m_builtinModuleList.end(); ++it) {
-      assert(*it != NULL && "Encountered NULL ptr in m_builtinModuleList");
+      assert(*it != nullptr && "Encountered NULL ptr in m_builtinModuleList");
       Function* pRetFunction = (*it)->getFunction(funcName);
       if (pRetFunction)
         return pRetFunction;
     }
-    return NULL;
+    return nullptr;
   }
 
   bool GroupBuiltin::runOnModule(Module &M) {

@@ -44,17 +44,17 @@ Value *VectorizerUtils::isExtendedByShuffle(ShuffleVectorInst *SI, Type *realTyp
   // lower WIDTH elements of the vector.
   // WIDTH is calculated as number of vector Elements of realType
   VectorType *desiredVectorType = dyn_cast<VectorType>(realType);
-  if (!desiredVectorType) return NULL;
+  if (!desiredVectorType) return nullptr;
   unsigned realWidth = desiredVectorType->getNumElements();
 
   // realWidth must be smaller-or-equal to the width of the shuffleInst result
-  if (realWidth > SI->getType()->getNumElements()) return NULL;
+  if (realWidth > SI->getType()->getNumElements()) return nullptr;
 
   // Check that the shuffle components correspond to the input vector
   for (unsigned i = 0; i < realWidth; ++i)
   {
     unsigned maskValue = SI->getMaskValue(i);
-    if (maskValue != i) return NULL;
+    if (maskValue != i) return nullptr;
   }
   return SI->getOperand(0);
 }
@@ -81,7 +81,7 @@ bool VectorizerUtils::isOpaquePtrPair(Type *x, Type *y)
 Value *VectorizerUtils::RootInputArgumentBySignature(Value *arg, unsigned int paramNum, CallInst *CI) {
   assert(paramNum <= CI->getNumArgOperands() && "Requested type of parameter that does not exist");
   if (paramNum > CI->getNumArgOperands())
-    return NULL;
+    return nullptr;
 
   // Get the (reflection) type from the mangled name
   StringRef mangledName = CI->getCalledFunction()->getName();
@@ -110,52 +110,52 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     AllocaInst *allocator = dyn_cast<AllocaInst>(arg);
     if (!allocator || allocator->getAllocatedType() != rootType ||
       allocator->isArrayAllocation() || !allocator->hasNUses(2)) {
-        return NULL;
+        return nullptr;
     }
 
     const bool is3Vector = (rootType->isVectorTy() &&
       cast<VectorType>(rootType)->getNumElements() == 3);
 
     // Check the 2 users are really a store and the function call.
-    Value *retVal = NULL;
+    Value *retVal = nullptr;
     for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i) {
       // Check for store instruction
       if (StoreInst *storeInst = dyn_cast<StoreInst>(*i)) {
         // Only a single store is expected...
-        if (retVal) return NULL;
+        if (retVal) return nullptr;
         // Keep the value which is being stored.
         retVal = storeInst->getOperand(0);
         // the stored value should be of the expected type
-        if (retVal->getType() != rootType) return NULL;
+        if (retVal->getType() != rootType) return nullptr;
       }
       // Support the bitcast-shuffle-store pattern (for width-3 vectors)
       // [LLVM 3.6 UPGRADE] TODO: add support for addrspacecast instruction.
       else if (is3Vector && isa<BitCastInst>(*i)) {
         // Only a single store is expected...
-        if (retVal) return NULL;
+        if (retVal) return nullptr;
 
         BitCastInst* bitCastInst = cast<BitCastInst>(*i);
         // The bitcast must have one user, which is a store
-        if (!bitCastInst->hasOneUse()) return NULL;
+        if (!bitCastInst->hasOneUse()) return nullptr;
         StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->user_back());
-        if (!storeInst) return NULL;
+        if (!storeInst) return nullptr;
 
         // The store value must be the result of a shuffle
         ShuffleVectorInst* shuffle = dyn_cast<ShuffleVectorInst>(storeInst->getOperand(0));
-        if (!shuffle) return NULL;
+        if (!shuffle) return nullptr;
 
         // Check that shuffle is extending operand of desired (root) type
         retVal = isExtendedByShuffle(shuffle, rootType);
-        if (!retVal || retVal->getType() != rootType) return NULL;
+        if (!retVal || retVal->getType() != rootType) return nullptr;
       }
       // Else check for the call instruction
       else if (CallInst *callInst = dyn_cast<CallInst>(*i)) {
         // check that the call inst is the one we started with
-        if (CI != callInst) return NULL;
+        if (CI != callInst) return nullptr;
       }
       else {
         // Unexpected consumer of Alloca.
-        return NULL;
+        return nullptr;
       }
     }
     assert(retVal && "retVal must have been set by now");
@@ -273,28 +273,28 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     if (!allocator || allocator->isArrayAllocation() ||
       allocator->getAllocatedType() != rootType || !allocator->hasNUses(2))
     {
-      return NULL;
+      return nullptr;
     }
 
     // Check the 2 users are really a load and the function call.
-    Value *rootRetVal = NULL;
+    Value *rootRetVal = nullptr;
     for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i)
     {
       if (LoadInst *loadInst = dyn_cast<LoadInst>(*i))
       {
         rootRetVal = loadInst;
         // Check if the loaded value has the expected type
-        if (rootRetVal->getType() != rootType) return NULL;
+        if (rootRetVal->getType() != rootType) return nullptr;
       }
       else if (CallInst *callInst = dyn_cast<CallInst>(*i))
       {
         // Check that we didnt reach a different call instruction
-        if (callInst != CI) return NULL;
+        if (callInst != CI) return nullptr;
       }
       else
       {
         // Any other instruction is unsupported
-        return NULL;
+        return nullptr;
       }
     }
     assert(rootRetVal && "Must have rooted the retVal by now");
@@ -324,7 +324,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     for (ui = instToTest->user_begin(), ue = instToTest->user_end(); ui != ue; ++ui)
     {
       Instruction *userInst = dyn_cast<Instruction>(*ui);
-      assert(NULL != userInst && "Instruction's user is not an instruction. Unexpected");
+      assert(nullptr != userInst && "Instruction's user is not an instruction. Unexpected");
       if (isa<BitCastInst>(userInst) || isa<TruncInst>(userInst) ||
         isShuffleVectorTruncate(dyn_cast<ShuffleVectorInst>(userInst)))
       {
@@ -342,14 +342,14 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
   unsigned srcSize = CI->getType()->getPrimitiveSizeInBits();
   unsigned dstSize = rootType->getPrimitiveSizeInBits();
   // Fail if retval is not a primitive type which has a measurable size
-  if (0 == srcSize || 0 == dstSize) return NULL;
+  if (0 == srcSize || 0 == dstSize) return nullptr;
   // Fail if the real retval is smaller than the desired size
-  if (srcSize < dstSize) return NULL;
+  if (srcSize < dstSize) return nullptr;
 
   // If the CALL instruction is in the retvalUsers list, create a dummy inst and replace all
   // users of the inst with the dummy val. This is needed now, so the new conversion from the
   // CALL value will be the only user of the CALL.
-  Instruction *dummyInstruction = NULL;
+  Instruction *dummyInstruction = nullptr;
   if (retvalUsers.count(CI))
   {
     Type *ptrType = PointerType::get(CI->getType(), 0);
@@ -472,7 +472,7 @@ Instruction *VectorizerUtils::convertValToPointer(Value *orig, Type *targetType,
 {
   PointerType *targetPointerType = dyn_cast<PointerType>(targetType);
   assert(targetPointerType && "getting here target type must be a pointer");
-  if (!targetPointerType) return NULL;
+  if (!targetPointerType) return nullptr;
   Type *sourceType = orig->getType();
   assert(targetPointerType->getElementType() == sourceType && "pointer must be of orig type");
   AllocaInst *ptr = new AllocaInst(sourceType, "allocated_val" , insertPoint);
@@ -497,7 +497,7 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, 
   if (sourceType->isPointerTy())
   {
       assert(0 && "no support for case when not the same type ans source is a pointer");
-      return NULL;
+      return nullptr;
   }
 
   // if targetType is a pointer and not the same type we assume the pointer type match the value
@@ -545,7 +545,7 @@ CallInst *VectorizerUtils::createFunctionCall(Module *pModule, const std::string
 }
 
 Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, Instruction* whereTo, bool insertAfter) {
-  Instruction *insertBefore = insertAfter? NULL: whereTo;
+  Instruction *insertBefore = insertAfter? nullptr: whereTo;
   Constant *index = ConstantInt::get(Type::getInt32Ty(pVal->getContext()), 0);
   Constant *zeroVector = ConstantVector::get(std::vector<Constant*>(width, index));
   UndefValue *undefVec = UndefValue::get(VectorType::get(pVal->getType(), width));
@@ -631,30 +631,30 @@ Value *VectorizerUtils::isInsertEltExtend(Instruction *I, Type *realType) {
   // type are vectors with the same element type.
   const VectorType *origTy = dyn_cast<VectorType>(I->getType());
   const VectorType *destTy = dyn_cast<VectorType>(realType);
-  if (!destTy || !origTy) return NULL;
+  if (!destTy || !origTy) return nullptr;
   const Type *origElTy = origTy->getElementType();
   unsigned origNelts = origTy->getNumElements();
   const Type *destElTy = destTy->getElementType();
   unsigned destNelts = destTy->getNumElements();
-  if (origElTy != destElTy || origNelts <= destNelts) return NULL;
+  if (origElTy != destElTy || origNelts <= destNelts) return nullptr;
 
   // If I is an extension of vector by insert element than the vector should
   // be created by sequence of insert element instructions to the head of the
   // vector.
   SmallVector<Value *, 16> insertedVals;
-  insertedVals.assign(destNelts, NULL);
+  insertedVals.assign(destNelts, nullptr);
   Value * val = I;
   while (!isa<UndefValue>(val)) {
     // val is insert element.
     InsertElementInst * IEI = dyn_cast<InsertElementInst>(val);
-    if (!IEI) return NULL;
+    if (!IEI) return nullptr;
 
     // Index of insertion is constant < destination type number of elements.
     Value* index = IEI->getOperand(2);
     ConstantInt* C = dyn_cast<ConstantInt>(index);
-    if (!C) return NULL;
+    if (!C) return nullptr;
     unsigned int idx = (unsigned int)C->getZExtValue();
-    if (idx >= destNelts) return NULL;
+    if (idx >= destNelts) return nullptr;
 
     // Consider only the last insertion to idx.
     if (!insertedVals[idx]) {
@@ -687,10 +687,10 @@ Instruction *VectorizerUtils::convertUsingShuffle(Value *v,
   // with the same element type.
   const VectorType *destTy = dyn_cast<VectorType>(realType);
   VectorType *vTy = dyn_cast<VectorType>(v->getType());
-  if (!destTy || !vTy) return NULL;
+  if (!destTy || !vTy) return nullptr;
   const Type *destElTy = destTy->getElementType();
   const Type *vElTy = vTy->getElementType();
-  if (vElTy != destElTy) return NULL;
+  if (vElTy != destElTy) return nullptr;
 
   // Generate the shuffle vector mask.
   unsigned destNelts = destTy->getNumElements();
@@ -728,7 +728,7 @@ Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChai
       return shuffle;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 } // nampespace intel

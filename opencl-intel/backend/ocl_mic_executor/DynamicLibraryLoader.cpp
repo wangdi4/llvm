@@ -2140,18 +2140,18 @@ static const char *g_LibCFunctionNames [] =
 const unsigned int OCLExportedLibCFunctionCount =
     (sizeof(g_LibCFunctionNames)/sizeof(const char *));
 
-DynamicLibraryLoader::DynamicLibraryLoader() : m_pSVMLHandle(NULL) {}
+DynamicLibraryLoader::DynamicLibraryLoader() : m_pSVMLHandle(nullptr) {}
 
 DynamicLibraryLoader::~DynamicLibraryLoader()
 {
-    if(NULL != m_pSVMLHandle)
+    if(nullptr != m_pSVMLHandle)
     {
 #if defined(__LP64__)
         dlclose(m_pSVMLHandle);
 #else
         assert(false && "Not Implemented");
 #endif
-        m_pSVMLHandle = NULL;
+        m_pSVMLHandle = nullptr;
     }
 }
 
@@ -2178,14 +2178,14 @@ void DynamicLibraryLoader::Load()
 #endif
 
     m_pSVMLHandle = dlopen(svml_library_name, RTLD_NOW);
-    if(NULL == m_pSVMLHandle)
+    if(nullptr == m_pSVMLHandle)
     {
         strErr = dlerror();
         assert(false && "Loading SVML library failed");
     }
 
 #endif
-    if (NULL == m_pSVMLHandle)
+    if (nullptr == m_pSVMLHandle)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Loading SVML library failed - ") + strErr);
     }
@@ -2204,11 +2204,11 @@ void DynamicLibraryLoader::GetLibraryFunctions(
 
     for(std::size_t i = 0; i < OCL_SVML_FUNCTIONS_COUNT; i++)
     {
-        void* pFuncAddress = NULL;
+        void* pFuncAddress = nullptr;
 
 #if defined(__LP64__)
         pFuncAddress = dlsym(m_pSVMLHandle, g_SVMLFunctionNames[i]);
-        assert(dlerror() == NULL && "Incorrect symbol name");
+        assert(dlerror() == nullptr && "Incorrect symbol name");
 #else
         assert(false && "Not Implemented");
 #endif
@@ -2219,7 +2219,7 @@ void DynamicLibraryLoader::GetLibraryFunctions(
     void *dlh = dlopen(0, RTLD_GLOBAL);
     for (unsigned i = 0; i < OCLExportedLibCFunctionCount; i++)
     {
-        void* pFuncAddress = NULL;
+        void* pFuncAddress = nullptr;
 
 #if defined(__LP64__)
         pFuncAddress = dlsym(dlh, g_LibCFunctionNames[i]);
