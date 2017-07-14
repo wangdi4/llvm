@@ -39,6 +39,7 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
                       const MCRegisterInfo &MRI)
       : MCInstPrinter(MAI, MII, MRI) {
   // Should match list in CSAInstrInfo.h
+  FUName[CSA::FUNCUNIT::Auto] = "";   // Automatic unit assignment
   FUName[CSA::FUNCUNIT::VIR] = "vir"; // Virtual unit - doesn't really exist
   FUName[CSA::FUNCUNIT::ALU] = "alu"; // Integer arithmetic and logical
   FUName[CSA::FUNCUNIT::SHF] = "shf"; // Shift unit
