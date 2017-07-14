@@ -267,6 +267,8 @@ namespace intel {
     CallSite CS(CI);
     SmallVector<Value*, 4> params(CS.arg_begin(), CS.arg_end());
     CallInst *pNewCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(params), CI->getName(), CI);
+    // Copy attributes from the callee which contains aligment for parameters
+    pNewCall->setAttributes(resolvedFunc->getAttributes());
     // replace old call
     CI->replaceAllUsesWith(pNewCall);
     CI->eraseFromParent();
