@@ -231,19 +231,23 @@ public:
     /// size information
     static WRNScheduleKind getLoopScheduleKind(WRegionNode *W);
 
-    static WRNScheduleKind genLoopScheduleKind(WRegionNode *W);
     /// \brief Generate source location information for Explicit barrier
-    static GlobalVariable* genKmpcLocforExplicitBarrier(Function *F,
-                                                        Instruction *InsertPt,
+    static GlobalVariable* genKmpcLocforExplicitBarrier(Instruction *InsertPt,
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
 
     /// \brief Generate source location information for Implicit barrier
     static GlobalVariable* genKmpcLocforImplicitBarrier(WRegionNode *W,
-                                                        Function *F,
                                                         Instruction *InsertPt,
                                                         StructType *IdentTy,
                                                         BasicBlock *BB);
+
+    /// \brief Insert this call at InsertPt:
+    ///    call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+    static CallInst* genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                    Instruction *InsertPt,
+                                    StructType *IdentTy,
+                                    bool IsExplicit);
 
     /// \brief Generates a critical section surrounding all the inner
     /// BasicBlocks of the WRegionNode \p W. The function works only on

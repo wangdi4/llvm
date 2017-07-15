@@ -333,6 +333,8 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genLastPrivatizationCode(W, IsLastVal);
           Changed |= genFirstPrivatizationCode(W);
           Changed |= genReductionCode(W);
+          if (!W->getNowait())
+            Changed |= genBarrier(W, false);
           RemoveDirectives = true;
         }
 
@@ -342,6 +344,8 @@ bool VPOParoptTransform::paroptTransforms() {
       { DEBUG(dbgs() << "\n WRNSingle - Transformation \n\n");
         if (Mode & ParPrepare) {
           Changed = genSingleThreadCode(W);
+          if (!W->getNowait())
+            Changed |= genBarrier(W, false);
           RemoveDirectives = true;
         }
         break;
@@ -373,6 +377,14 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNBarrier:
+      { 
+        DEBUG(dbgs() << "\n WRNBarrier - Transformation \n\n");
+        if (Mode & ParPrepare) {
+          Changed = genBarrier(W, true);
+          RemoveDirectives = true;
+        }
+        break;
+      }
       case WRegionNode::WRNCancel:
       case WRegionNode::WRNFlush:
         break;
@@ -1039,9 +1051,23 @@ bool VPOParoptTransform::genReductionCode(WRegionNode *W) {
       genReductionFini(RedI, RedI->getOrig(), BeginBB->getTerminator());
       DEBUG(dbgs() << "genReductionCode: reduced " << *Orig << "\n");
     }
+
+    // Wrap the reduction fini code inside a critical region.
+    // EndBB is created to be used as the insertion point for end_critical().
+    //
+    // This insertion point cannot be W->getExitBBlock()->begin() because
+    // we don't want the END DIRECTIVE of the construct to be inside the
+    // critical region
+    //
+    // This insertion point cannot be BeginBB->getTerminator() either, which
+    // would work for scalar reduction but not for array reduction, in which
+    // case the end_critical() would get emitted before the copy-out loop that
+    // the critical section is trying to guard.
+    BasicBlock *EndBB;
+    createEmptyPrivFiniBB(W, EndBB);
     VPOParoptUtils::genKmpcCriticalSection(
         W, IdentTy, TidPtr, dyn_cast<Instruction>(&*RedUpdateEntryBB->begin()),
-        dyn_cast<Instruction>(&*W->getExitBBlock()->begin()), "");
+        EndBB->getTerminator(), "");
     W->resetBBSet(); // Invalidate BBSet after transformations
     Changed = true;
   }
@@ -2626,7 +2652,6 @@ bool VPOParoptTransform::genMasterThreadCode(WRegionNode *W) {
 bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genSingleThreadCode\n");
   BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *ExitBB = W->getExitBBlock();
 
   Instruction *InsertPt = dyn_cast<Instruction>(&*EntryBB->rbegin());
 
@@ -2635,7 +2660,16 @@ bool VPOParoptTransform::genSingleThreadCode(WRegionNode *W) {
                          IdentTy, TidPtr, InsertPt, true);
   SingleCI->insertBefore(InsertPt);
 
-  Instruction *InsertEndPt = dyn_cast<Instruction>(&*ExitBB->rbegin());
+  // InsertEndPt should be right before ExitBB->begin(), so create a new BB
+  // that is split from the ExitBB to be used as InsertEndPt.
+  // Reuse the util that does this for Reduction and Lastprivate fini code.
+  //
+  // Note: InsertEndPt should not be ExitBB->rbegin() because the 
+  // _kmpc_end_single() should be emitted above the END SINGLE directive, not
+  // after it.
+  BasicBlock *NewBB = nullptr;
+  createEmptyPrivFiniBB(W, NewBB);
+  Instruction *InsertEndPt = NewBB->getTerminator();
 
   // Generate __kmpc_end_single Call Instruction
   CallInst* EndSingleCI = VPOParoptUtils::genKmpcSingleOrEndSingleCall(W,
@@ -2766,4 +2800,22 @@ bool VPOParoptTransform::genCriticalCode(WRNCriticalNode *CriticalNode) {
   CriticalNode->resetBBSet(); // Invalidate BBSet
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genCriticalCode\n");
   return CriticalCallsInserted;
+}
+
+// Insert a call to __kmpc_barrier() at the end of the construct
+bool VPOParoptTransform::genBarrier(WRegionNode *W, bool IsExplicit) {
+
+  DEBUG(dbgs() << "\nEnter VPOParoptTransform::genBarrier [explicit=" 
+               << IsExplicit << "]\n");
+
+  // Create a new BB split from W's ExitBB to be used as InsertPt.
+  // Reuse the util that does this for Reduction and Lastprivate fini code.
+  BasicBlock *NewBB = nullptr;
+  createEmptyPrivFiniBB(W, NewBB);
+  Instruction *InsertPt = NewBB->getTerminator();
+
+  VPOParoptUtils::genKmpcBarrier(W, TidPtr, InsertPt, IdentTy, IsExplicit);
+
+  DEBUG(dbgs() << "\nExit VPOParoptTransform::genBarrier\n");
+  return true;
 }

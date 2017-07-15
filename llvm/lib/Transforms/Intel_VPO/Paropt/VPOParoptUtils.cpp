@@ -1041,7 +1041,7 @@ VPOParoptUtils::genKmpcLocfromDebugLoc(Function *F, Instruction *AI,
 
 // Generate source location information for Explicit barrier
 GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
-    Function *F, Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
+                   Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
   int Flags = KMP_IDENT_KMPC | KMP_IDENT_BARRIER_EXPL; // bits 0x2 | 0x20
 
 #if 0
@@ -1049,6 +1049,7 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
     flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
+  Function *F = BB->getParent();
   GlobalVariable *KmpcLoc =
       VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
   return KmpcLoc;
@@ -1056,8 +1057,7 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforExplicitBarrier(
 
 // Generate source location information for Implicit barrier
 GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
-    WRegionNode *W, Function *F, Instruction *AI, StructType *IdentTy,
-    BasicBlock *BB) {
+    WRegionNode *W, Instruction *AI, StructType *IdentTy, BasicBlock *BB) {
   int Flags = 0;
 
   switch (W->getWRegionKindID()) {
@@ -1092,9 +1092,43 @@ GlobalVariable *VPOParoptUtils::genKmpcLocforImplicitBarrier(
     Flags |= KMP_IDENT_CLOMP;  // bit 0x4
 #endif
 
+  Function *F = BB->getParent();
   GlobalVariable *KmpcLoc =
       VPOParoptUtils::genKmpcLocfromDebugLoc(F, AI, IdentTy, Flags, BB, BB);
   return KmpcLoc;
+}
+
+// Insert this call at InsertPt:
+//   call void @__kmpc_barrier(%ident_t* %loc, i32 %tid)
+CallInst *VPOParoptUtils::genKmpcBarrier(WRegionNode *W, Value *Tid,
+                                         Instruction *InsertPt,
+                                         StructType *IdentTy,
+                                         bool IsExplicit) {
+  BasicBlock  *B = InsertPt->getParent();
+  Function    *F = B->getParent();
+  Module      *M = F->getParent();
+  LLVMContext &C = F->getContext();
+
+  Type      *RetTy = Type::getVoidTy(C);
+  StringRef FnName = "__kmpc_barrier";
+
+  // Create the arg for Loc  
+  GlobalVariable *Loc;
+  if (IsExplicit)
+    Loc = genKmpcLocforExplicitBarrier(InsertPt, IdentTy, B);
+  else // Implicit
+    Loc = genKmpcLocforImplicitBarrier(W, InsertPt, IdentTy, B);
+  
+  // Create the arg for Tid  
+  LoadInst *LoadTid = new LoadInst(Tid, "my.tid", InsertPt);
+  LoadTid->setAlignment(4);
+
+  // Create the argument list
+  SmallVector<Value *, 3> FnArgs = {Loc, LoadTid};
+
+  CallInst *BarrierCall = genCall(M, FnName, RetTy, FnArgs);
+  BarrierCall->insertBefore(InsertPt);
+  return BarrierCall;
 }
 
 // Generates a critical section around the middle BasicBlocks of `W`

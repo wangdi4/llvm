@@ -378,6 +378,9 @@ private:
   /// \brief The data structure that is used to store the alloca or tid call
   ///  instruction that are used in the WRegion.
   SmallPtrSet<Instruction*, 8> TidAndBidInstructions;
+
+  /// \brief Insert a barrier at the end of the construct
+  bool genBarrier(WRegionNode *W, bool IsExplicit);
 };
 
 } /// namespace vpo
