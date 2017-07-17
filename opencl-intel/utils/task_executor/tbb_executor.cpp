@@ -21,9 +21,11 @@
 // means config.h
 #include "tbb_executor.h"
 
-#include <vector>
+#include <algorithm>
 #include <cassert>
 #include <string>
+#include <vector>
+
 #ifdef WIN32
 #include <stdafx.h>
 #include <Windows.h>
@@ -268,17 +270,52 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     }
 
 #ifdef BUILD_FPGA_EMULATOR
+    int hardwareThreads =
+      std::min(gWorker_threads,
+               (unsigned) Intel::OpenCL::Utils::GetNumberOfProcessors());
+
+    // TBB restrictions. Magic number 256 is obtained form TBB team. It means
+    // that TBB can create at least 256 workers, even on machines with small
+    // number of hardware threads.
+    int maxThreads = std::max(4 * hardwareThreads, 256);
+    int minThreads = 2; // 1 main thread + 1 tbb worker
+
     // TODO: replace this variable with a variable from cl.cfg.
     std::string env_num_workers;
     cl_err_code err = Intel::OpenCL::Utils::GetEnvVar(
         env_num_workers, "OCL_TBB_NUM_WORKERS");
-    if (CL_FAILED(err))
+    if (!CL_FAILED(err))
     {
-        gWorker_threads = 32;
+        int envNumThreads = std::stoi(env_num_workers);
+        if (envNumThreads < minThreads)
+        {
+            LOG_ERROR(TEXT(
+                "TBBTaskExecutor cannot be constructed with %d threads. "
+                "Setting num threads to %d"), envNumThreads, minThreads);
+            gWorker_threads = minThreads;
+        }
+        else if (envNumThreads > maxThreads)
+        {
+            LOG_ERROR(TEXT(
+                "TBBTaskExecutor cannot be constructed with %d threads. "
+                "Setting num threads to %d"), envNumThreads, maxThreads);
+            gWorker_threads = maxThreads;
+        }
+        else
+        {
+            gWorker_threads = envNumThreads;
+        }
     }
     else
     {
-        gWorker_threads = std::stoi(env_num_workers);
+        // Adjust number of threads required for an 'average' FPGA program
+
+        int averageThreads = 32;
+
+        if (hardwareThreads < averageThreads)
+        {
+            gWorker_threads = min(averageThreads, maxThreads);
+        }
     }
 #endif
 

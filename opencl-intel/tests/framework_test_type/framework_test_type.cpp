@@ -531,6 +531,31 @@ TEST(FPGA, Test_FPGAAutorun)
 {
     FPGAAutorun();
 }
+
+TEST(FPGA, Test_MaxTBBNumWorkers)
+{
+    maxTBBNumWorkers();
+}
+
+TEST(FPGA, Test_MinTBBNumWorkers)
+{
+    minTBBNumWorkers();
+}
+
+TEST(FPGA, Test_MoreThanMaxTBBNumWorkers)
+{
+    moreThanMaxTBBNumWorkers();
+}
+
+TEST(FPGA, Test_LessThanMinTBBNumWorkers)
+{
+    lessThanMinTBBNumWorkers();
+}
+
+TEST(FPGA, Test_InvalidTBBNumWorkers)
+{
+    invalidTBBNumWorkers();
+}
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)

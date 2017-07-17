@@ -167,4 +167,9 @@ bool cl_device_private_mem_size_test_without_vectorizer();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();
 #endif
+void maxTBBNumWorkers();
+void minTBBNumWorkers();
+void moreThanMaxTBBNumWorkers();
+void lessThanMinTBBNumWorkers();
+void invalidTBBNumWorkers();
 //#define CUDA_DEVICE
