@@ -138,8 +138,8 @@ bool ProgramMemoryAllocationTest()
 	bool result = true;
 	ProgramManager prog;
 	result &= prog.reserveExecutableMemory(MEMORY_ITEM_SIZE , 4);
-	void* startAddress = NULL;
-	void* address = NULL;
+	void* startAddress = nullptr;
+	void* address = nullptr;
 	for (unsigned int i = 0; i < MEMORY_ITEM_SIZE * RESIZE_MEM_MUL; i++)
 	{
 		result &= prog.allocate(1,  &address);
@@ -173,7 +173,7 @@ bool ProgramMemoryAllocationTest()
 	unsigned int numOfItems = 1;
 	unsigned int sumAllocSize = 0;
 	vector<MemHandle> allocAddress;
-	srand(time(NULL));
+	srand(time(nullptr));
 	for (unsigned int i = 0; i < rounds; i++)
 	{
 		if ((rand() % 2 == 0) || (allocAddress.size() == 0))
@@ -237,10 +237,10 @@ void* threadStartPoint(void* arg)
 	unsigned int maxSizeToAllocate = threadData->maxSizeToAllocate;
 	unsigned int numThreads = threadData->numThreads;
 	const unsigned int rounds = 1000000;
-	void* address = NULL;
+	void* address = nullptr;
 	unsigned int numOfItems = 1;
 	unsigned int sumAllocSize = 0;
-	srand(time(NULL));
+	srand(time(nullptr));
 	for (unsigned int i = 0; i < rounds; i++)
 	{
 		if ((rand() % 2 > 0) || (myAllocations.size() == 0))
@@ -256,7 +256,7 @@ void* threadStartPoint(void* arg)
 				{
 					printf("FAIL\n");
 					__sync_bool_compare_and_swap(&(threadData->result), true, false);
-					return NULL;
+					return nullptr;
 				}
 				sumAllocSize = sumAllocSize - myAllocations[index].numOfItems;
 				myAllocations.erase(myAllocations.begin() + index);
@@ -265,7 +265,7 @@ void* threadStartPoint(void* arg)
 			{
 				printf("FAIL\n");
 				__sync_bool_compare_and_swap(&(threadData->result), true, false);
-				return NULL;
+				return nullptr;
 			}
 			sumAllocSize = sumAllocSize + numOfItems;
 			MemHandle m = {address, numOfItems};
@@ -280,7 +280,7 @@ void* threadStartPoint(void* arg)
 				{
 					printf("FAIL\n");
 					__sync_bool_compare_and_swap(&(threadData->result), true, false);
-					return NULL;
+					return nullptr;
 				}
 			}
 			if (iter != allocationsMap->begin())
@@ -291,7 +291,7 @@ void* threadStartPoint(void* arg)
 				{
 					printf("FAIL\n");
 					__sync_bool_compare_and_swap(&(threadData->result), true, false);
-					return NULL;
+					return nullptr;
 				}
 			}
 			allocationsMap->insert( pair<void*, MemHandle> (address, m) );
@@ -307,7 +307,7 @@ void* threadStartPoint(void* arg)
 			{
 				printf("FAIL\n");
 				__sync_bool_compare_and_swap(&(threadData->result), true, false);
-				return NULL;
+				return nullptr;
 			}
 			sumAllocSize = sumAllocSize - myAllocations[index].numOfItems;
 			myAllocations.erase(myAllocations.begin() + index);
@@ -315,7 +315,7 @@ void* threadStartPoint(void* arg)
 	}
 
 
-	return NULL;
+	return nullptr;
 }
 
 bool ProgramMemoryAllocationMultiThreadedTest(unsigned int numThreads)
@@ -323,7 +323,7 @@ bool ProgramMemoryAllocationMultiThreadedTest(unsigned int numThreads)
 	printf("ProgramMemoryAllocationMultiThreadedTest");
 	map<void*, MemHandle> allocationsMap;
 	pthread_mutex_t mutex;
-	pthread_mutex_init(&mutex, NULL);
+	pthread_mutex_init(&mutex, nullptr);
 	pthread_t* threads = (pthread_t*)malloc(sizeof(pthread_t) * numThreads);
 	thread_data threadsData;
 	unsigned int maxItemsSize = max((const unsigned int)1, min(32 / numThreads ,(MEMORY_ITEM_SIZE / 2) / numThreads));
@@ -340,11 +340,11 @@ bool ProgramMemoryAllocationMultiThreadedTest(unsigned int numThreads)
 	
 	for (unsigned int i = 0; i < numThreads; i++)
 	{
-		pthread_create(&(threads[i]), NULL, threadStartPoint, &threadsData);
+		pthread_create(&(threads[i]), nullptr, threadStartPoint, &threadsData);
 	}
 	for (unsigned int i = 0; i < numThreads; i++)
 	{
-		pthread_join(threads[i], NULL);
+		pthread_join(threads[i], nullptr);
 	}
 	
 	pthread_mutex_destroy(&mutex);

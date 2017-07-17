@@ -98,7 +98,7 @@ int SearchFilesInDirectory(std::string dir, std::string extension, std::vector< 
     }
 
     DIR* pDirectory = opendir(dir.c_str());
-    if (NULL == pDirectory)
+    if (nullptr == pDirectory)
     {
         // invalid directory name or cannot open directory
         return 0;
@@ -111,7 +111,7 @@ int SearchFilesInDirectory(std::string dir, std::string extension, std::vector< 
 
     int numOfFound = 0;
     struct dirent* pFile = readdir(pDirectory);
-    for ( ; NULL != pFile; pFile = readdir(pDirectory) )
+    for ( ; nullptr != pFile; pFile = readdir(pDirectory) )
     {
         if (DT_REG != pFile->d_type)
         {
@@ -145,7 +145,7 @@ int SearchFilesInDirectory(std::string dir, std::string extension, std::vector< 
 void* CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize)
 {
     char* lockedPtr = (char*) pBasePtr;
-    if (NULL != origin)
+    if (nullptr != origin)
     {
         lockedPtr += origin[0] * elemSize; //Origin is in Pixels
         for(unsigned i = 1; i < dim_count; ++i)

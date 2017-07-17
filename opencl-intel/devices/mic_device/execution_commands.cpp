@@ -86,8 +86,8 @@ void ExecutionCommand::init_profiling_mode()
 
         ok = m_pCommandList->runQueueServiceFunction( DeviceServiceCommunication::EXECUTE_DEVICE_UTILITY,
                                                       sizeof(options), &options, // input
-                                                      0, NULL,                   // ouput
-                                                      0, NULL, NULL              // buffers 
+                                                      0, nullptr,                // ouput
+                                                      0, nullptr, nullptr        // buffers 
                                                      );
         assert( ok );
         if (! ok)
@@ -120,7 +120,7 @@ cl_dev_err_code ExecutionCommand::execute()
         COIEVENT barrier;
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, true);
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -162,10 +162,10 @@ cl_dev_err_code ExecutionCommand::execute()
         size_t tCoiBuffsArrSize = m_coiBuffsArr.size();
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
-              static __thread __itt_string_handle* pTaskName = NULL;
-              if ( NULL == pTaskName )
+              static __thread __itt_string_handle* pTaskName = nullptr;
+              if ( nullptr == pTaskName )
               {
                 pTaskName = __itt_string_handle_create("ExecutionCommand::execute()->PrepareData");
               }
@@ -174,17 +174,17 @@ cl_dev_err_code ExecutionCommand::execute()
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
           __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
         }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
-              static __thread __itt_string_handle* pTaskName = NULL;
-              if ( NULL == pTaskName )
+              static __thread __itt_string_handle* pTaskName = nullptr;
+              if ( nullptr == pTaskName )
               {
                     pTaskName = __itt_string_handle_create("ExecutionCommand::execute()->COIPipelineRunFunction()");
               }
@@ -198,16 +198,16 @@ cl_dev_err_code ExecutionCommand::execute()
         COIRESULT result = COIPipelineRunFunction(pipe,
                                 func,
                                 tCoiBuffsArrSize,
-                                (tCoiBuffsArrSize > 0 ? &(m_coiBuffsArr[0]) : NULL),
-                                (tCoiBuffsArrSize > 0 ? &(m_accessFlagsArr[0]) : NULL),
+                                (tCoiBuffsArrSize > 0 ? &(m_coiBuffsArr[0]) : nullptr),
+                                (tCoiBuffsArrSize > 0 ? &(m_accessFlagsArr[0]) : nullptr),
                                 numDependecies, pBarrier,
                                 m_pDispatchData, m_uiDispatchDataSize,
-                                NULL, 0,                                                // We don't have nothing to receive from device
+                                nullptr, 0,                                                // We don't have nothing to receive from device
                                 pEvent
 								);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
             __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
         }
@@ -256,10 +256,10 @@ void ExecutionCommand::AddMemoryObject( MICDevMemoryObject *memObj, bool isConst
 void ExecutionCommand::fireCallBack(void* arg)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("ExecutionCommand::fireCallBack()");
         }
@@ -316,7 +316,7 @@ void ExecutionCommand::fireCallBack(void* arg)
     // Call parent fireCallBack
     Command::fireCallBack(arg);
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
         __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
     }
@@ -426,10 +426,10 @@ cl_dev_err_code NDRange::init()
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NDRange::init()");
       }
@@ -449,7 +449,7 @@ cl_dev_err_code NDRange::init()
 #ifndef NDRANGE_UNIT_TEST
         const ICLDevBackendKernel_* pKernel = program_service->GetBackendKernel(cmdParams->kernel);
 #else
-        program_service = NULL;
+        program_service = nullptr;
         const ICLDevBackendKernel_* pKernel = (ICLDevBackendKernel_*)cmdParams->kernel;
 #endif
 
@@ -475,7 +475,7 @@ cl_dev_err_code NDRange::init()
 
         std::vector<cl_mem_obj_descriptor*> recorderMemoryObjects;
         bool bRecorderEnabled = false; // TODO: Check with Kernel if recorder enabled
-        cl_mem_obj_descriptor** pRecoderMemoryObjects = NULL;
+        cl_mem_obj_descriptor** pRecoderMemoryObjects = nullptr;
         if ( bRecorderEnabled )
         {
             recorderMemoryObjects.reserve(maxMemObjCount);
@@ -512,7 +512,7 @@ cl_dev_err_code NDRange::init()
             const cl_kernel_argument&             paramDesc = pBEParams[pBufferArgsInx[i]];
             
             MICDevMemoryObject *memObj = *(MICDevMemoryObject**)(pKernelArgs+paramDesc.offset_in_bytes);
-            if ( NULL == memObj )
+            if ( nullptr == memObj )
                 continue;
 
             if ( bRecorderEnabled )
@@ -529,7 +529,7 @@ cl_dev_err_code NDRange::init()
 
         // Now we should call to initialize BE kernel
         const ICLDevBackendKernelRunner* pRunner = pKernel->GetKernelRunner();
-        if ( NULL != pRunner )
+        if ( nullptr != pRunner )
         {
             m_funcId = DeviceServiceCommunication::EXECUTE_NDRANGE;
             returnError = pRunner->PrepareKernelArguments((void*)pKernelArgs, ( const cl_mem_obj_descriptor**)pRecoderMemoryObjects, (unsigned int)recorderMemoryObjects.size());
@@ -539,7 +539,7 @@ cl_dev_err_code NDRange::init()
                 break;
             }
 		    // if logger is enabled, always print local work size from BE
-            if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+            if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
             {
                 vector<size_t> dims(pUniformArgs->LocalSize[0], &pUniformArgs->LocalSize[0][cmdParams->work_dim]);
                 g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
@@ -569,7 +569,7 @@ cl_dev_err_code NDRange::init()
     m_lastError = returnError;
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
         __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
     }

@@ -53,13 +53,13 @@ using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::DeviceBackend;
 
 // init singleton
-ProgramService* ProgramService::m_gProgramService = NULL;
+ProgramService* ProgramService::m_gProgramService = nullptr;
 
 cl_dev_err_code ProgramService::createProgramService( void )
 {
     m_gProgramService = new ProgramService();
     assert( m_gProgramService && "SINK: Cannot create ProgramService" );
-    if ( NULL == m_gProgramService )
+    if ( nullptr == m_gProgramService )
     {
     	return CL_DEV_OUT_OF_MEMORY;
     }
@@ -72,7 +72,7 @@ void ProgramService::releaseProgramService( void )
     if (m_gProgramService)
     {
         delete m_gProgramService;
-        m_gProgramService = NULL;
+        m_gProgramService = nullptr;
     }
 }
 
@@ -99,12 +99,12 @@ void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_
 	ProgramServiceTls tls(&tlsAccessor);
     ProgramMemoryManager* mem = (ProgramMemoryManager*)tls.getTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER);
 
-    assert( NULL != mem && "SINK: Execution memory allocator called while TLS is not set" );
+    assert( nullptr != mem && "SINK: Execution memory allocator called while TLS is not set" );
 
-    if (NULL == mem)
+    if (nullptr == mem)
     {
         NATIVE_PRINTF("SINK: Execution memory allocator called while TLS is not set\n");
-        return NULL;
+        return nullptr;
     }
 
     void* buf;
@@ -114,7 +114,7 @@ void* MICNativeBackendExecMemoryAllocator::AllocateExecutable(size_t size, size_
     if (!ok)
     {
         NATIVE_PRINTF("SINK: Try to allocate more executable memory for program than reserved\n");
-        return NULL;
+        return nullptr;
     }
 
     return buf;
@@ -126,9 +126,9 @@ void MICNativeBackendExecMemoryAllocator::FreeExecutable(void* ptr)
 	ProgramServiceTls tls(&tlsAccessor);
     ProgramMemoryManager* mem = (ProgramMemoryManager*)tls.getTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER);
 
-    assert( NULL != mem && "SINK: Execution memory de-allocator called while TLS is not set" );
+    assert( nullptr != mem && "SINK: Execution memory de-allocator called while TLS is not set" );
 
-    if (NULL == mem)
+    if (nullptr == mem)
     {
         NATIVE_PRINTF("SINK: Execution memory de-allocator called while TLS is not set\n");
         return;
@@ -186,7 +186,7 @@ const char* MICNativeBackendOptions::GetStringValue( int optionId, const char* d
 
 bool MICNativeBackendOptions::GetValue( int optionId, void* Value, size_t* pSize) const
 {
-    if (NULL == Value || NULL == pSize || sizeof(void*) != *pSize)
+    if (nullptr == Value || nullptr == pSize || sizeof(void*) != *pSize)
     {
         return false;
     }
@@ -210,14 +210,14 @@ bool ProgramService::LoadBackendServices(void)
 {
     cl_dev_err_code err;
 
-    err = InitDeviceBackend( NULL );
+    err = InitDeviceBackend( nullptr );
 
     assert( CL_DEV_SUCCEEDED(err) && "SINK: InitDeviceBackend(NULL)" );
 
     // load Backend Compiler
     ICLDevBackendServiceFactory* be_factory = GetDeviceBackendFactory();
 
-    if (NULL == be_factory)
+    if (nullptr == be_factory)
     {
         assert( false && "SINK: MIC Device cannot create BE Factory" );
         return false;
@@ -238,7 +238,7 @@ bool ProgramService::LoadBackendServices(void)
         assert( false && "SINK: MIC Device  cannot create Backend Serialization Service" );
 
         m_BE_Executor.pExecutionService->Release();
-        m_BE_Executor.pExecutionService = NULL;
+        m_BE_Executor.pExecutionService = nullptr;
         return false;
     }
 
@@ -250,13 +250,13 @@ void ProgramService::ReleaseBackendServices(void)
     if (m_BE_Executor.pSerializationService)
     {
         m_BE_Executor.pSerializationService->Release();
-        m_BE_Executor.pSerializationService = NULL;
+        m_BE_Executor.pSerializationService = nullptr;
     }
 
     if (m_BE_Executor.pExecutionService)
     {
         m_BE_Executor.pExecutionService->Release();
-        m_BE_Executor.pExecutionService = NULL;
+        m_BE_Executor.pExecutionService = nullptr;
     }
 
     TerminateDeviceBackend();
@@ -302,7 +302,7 @@ cl_dev_err_code ProgramService::fill_program_info(TProgramEntry* prog_entry, COP
     assert( kernels_count >= 0 && "ProgramService::add_program: Cannot restore kernels from deserialized program" );
 
     prog_entry->pKernels = new TKernelEntry[kernels_count];
-    if ( NULL == prog_entry->pKernels )
+    if ( nullptr == prog_entry->pKernels )
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TKernelEntry[kernels_count], kernels_count=%d", kernels_count);
         return CL_DEV_OUT_OF_MEMORY;
@@ -336,7 +336,7 @@ cl_dev_err_code ProgramService::fill_program_info(TProgramEntry* prog_entry, COP
             }
             else
             {
-              prog_entry->pKernels[i].pIttKernelDomain = NULL;
+              prog_entry->pKernels[i].pIttKernelDomain = nullptr;
             }
         }
 #endif
@@ -364,7 +364,7 @@ cl_dev_err_code ProgramService::add_program(
 
     TProgramEntry* prog_entry = new TProgramEntry;
 
-    if (NULL == prog_entry)
+    if (nullptr == prog_entry)
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
         return CL_DEV_OUT_OF_MEMORY;
@@ -385,7 +385,7 @@ cl_dev_err_code ProgramService::add_program(
     }
     else
     {
-        prog_entry->exec_memory_manager = NULL;
+        prog_entry->exec_memory_manager = nullptr;
     }
 
     // setup TLS with execution memory allocator, which is required by DeSerialize
@@ -398,7 +398,7 @@ cl_dev_err_code ProgramService::add_program(
 
     if (CL_DEV_FAILED(be_err))
     {
-        prog_entry->pProgram = NULL;
+        prog_entry->pProgram = nullptr;
 
         NATIVE_PRINTF("ProgramService::add_program: Cannot deserialize program with blob size %#lX bytes\n", prog_blob_size );
 
@@ -407,7 +407,7 @@ cl_dev_err_code ProgramService::add_program(
     }
 
     // clean TLS
-    tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
+    tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, nullptr);
 
     be_err = fill_program_info(prog_entry, fill_kernel_info);
 
@@ -429,7 +429,7 @@ cl_dev_err_code ProgramService::add_builtin_program(const char* szBuiltInNames, 
     fill_kernel_info->filled_kernels = 0;
 
     TProgramEntry* prog_entry = new TProgramEntry;
-    if (NULL == prog_entry)
+    if (nullptr == prog_entry)
     {
         NATIVE_PRINTF("ProgramService::add_program: Cannot allocate TProgramEntry" );
         return CL_DEV_OUT_OF_MEMORY;
@@ -444,7 +444,7 @@ cl_dev_err_code ProgramService::add_builtin_program(const char* szBuiltInNames, 
         return err;
     }
 
-    prog_entry->exec_memory_manager = NULL;
+    prog_entry->exec_memory_manager = nullptr;
     prog_entry->pProgram = pProg;
     err = fill_program_info(prog_entry, fill_kernel_info);
     if ( CL_DEV_FAILED(err) )
@@ -467,9 +467,9 @@ void ProgramService::remove_program( uint64_t be_program_id )
 
 void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
 {
-    if ( NULL != prog_entry->exec_memory_manager)
+    if ( nullptr != prog_entry->exec_memory_manager)
     {
-        if ( NULL != prog_entry->pProgram )
+        if ( nullptr != prog_entry->pProgram )
         {
             // setup TLS with execution memory allocator
             TlsAccessor tlsAccessor;
@@ -479,25 +479,25 @@ void  ProgramService::RemoveProgramEntry( TProgramEntry* prog_entry )
             GetSerializationService()->ReleaseProgram(prog_entry->pProgram);
 
             // clean TLS
-            tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, NULL);
-            prog_entry->pProgram = NULL;
+            tls.setTls(ProgramServiceTls::PROGRAM_MEMORY_MANAGER, nullptr);
+            prog_entry->pProgram = nullptr;
         }
         delete prog_entry->exec_memory_manager;
-        prog_entry->exec_memory_manager = NULL;
+        prog_entry->exec_memory_manager = nullptr;
     }
     else
     {
-        if ( NULL != prog_entry->pProgram )
+        if ( nullptr != prog_entry->pProgram )
         {
             delete prog_entry->pProgram;
-            prog_entry->pProgram = NULL;
+            prog_entry->pProgram = nullptr;
         }
     }
 
-    if ( NULL != prog_entry->pKernels )
+    if ( nullptr != prog_entry->pKernels )
     {
         delete []prog_entry->pKernels;
-        prog_entry->pKernels = NULL;
+        prog_entry->pKernels = nullptr;
     }
 
     delete prog_entry;
@@ -509,7 +509,7 @@ __itt_string_handle* ProgramService::get_itt_kernel_name(uint64_t device_info_pt
     assert( 0 != device_info_ptr && "Invalid arguments passed");
     if ( 0 == device_info_ptr )
     {
-        return NULL;
+        return nullptr;
     }
 
     TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;
@@ -521,7 +521,7 @@ __itt_domain* ProgramService::get_itt_kernel_domain(uint64_t device_info_ptr)
     assert( 0 != device_info_ptr && "Invalid arguments passed");
     if ( 0 == device_info_ptr )
     {
-        return NULL;
+        return nullptr;
     }
 
     TKernelEntry* k_entry = (TKernelEntry*)(size_t)device_info_ptr;

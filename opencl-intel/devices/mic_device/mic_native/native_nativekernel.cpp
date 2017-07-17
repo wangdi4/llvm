@@ -61,7 +61,7 @@ void execute_command_nativekernel(uint32_t   in_BufferCount,
     ndrange_dispatcher_data* ndrangeDispatchData = (ndrange_dispatcher_data*)in_pMiscData;
 
     QueueOnDevice* pQueue = (QueueOnDevice*)(ndrangeDispatchData->deviceQueuePtr);
-    assert(NULL != pQueue && "pQueue must be valid");
+    assert(nullptr != pQueue && "pQueue must be valid");
     
     cl_dev_err_code err = CL_DEV_SUCCESS;
 
@@ -98,7 +98,7 @@ NativeKernelTask::NativeKernelTask( uint32_t lockBufferCount, void** pLockBuffer
     ,m_tbb_perf_data(*this)
 #endif
 #ifdef USE_ITT
-    ,m_pIttKernelName(NULL), m_pIttKernelDomain(NULL)
+    ,m_pIttKernelName(nullptr), m_pIttKernelDomain(nullptr)
 #endif
 {
 }
@@ -130,7 +130,7 @@ bool NativeKernelTask::PrepareTask()
         m_pIttKernelName = ProgramService::get_itt_kernel_name(m_pDispatcherData->kernelAddress);
         m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_pDispatcherData->kernelAddress);
         // Use kernel specific domain if possible, if not available switch to global domain
-        if ( NULL == m_pIttKernelDomain )
+        if ( nullptr == m_pIttKernelDomain )
         {
             m_pIttKernelDomain = gMicGPAData.pDeviceDomain;
         }
@@ -152,13 +152,13 @@ bool NativeKernelTask::PrepareTask()
     {
         void** loc = (void**)(m_pKernelArgs+pParamInfo[pMemArgsInx[i]].offset_in_bytes);
         // Skip NULL buffers
-        if ( NULL == *loc )
+        if ( nullptr == *loc )
             continue;
         *loc = m_bufferPointers[currentLockedBuffer];
         currentLockedBuffer++;
     }
 
-	m_bufferPointers = NULL;
+	m_bufferPointers = nullptr;
 
     return true;
 }
@@ -168,15 +168,15 @@ bool NativeKernelTask::Execute()
 #if defined(USE_ITT)
     if ( gMicGPAData.bUseGPA )
     {
-        __itt_frame_begin_v3(m_pIttKernelDomain, NULL);
+        __itt_frame_begin_v3(m_pIttKernelDomain, nullptr);
     }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NativeKernelTask::Execute()");
       }
@@ -185,7 +185,7 @@ bool NativeKernelTask::Execute()
 #endif
 
 #ifndef __OMP2TBB__
-    cl_dev_err_code res = m_pKernel->Execute(m_pKernel, NULL/* m_pTaskDispatcher->getOmpExecutionThread()*/);
+    cl_dev_err_code res = m_pKernel->Execute(m_pKernel, nullptr/* m_pTaskDispatcher->getOmpExecutionThread()*/);
 #else
     cl_dev_err_code res = m_pKernel->Execute(m_pQueue->GetTaskList(), m_pKernelArgs);
 #endif
@@ -194,7 +194,7 @@ bool NativeKernelTask::Execute()
     if ( gMicGPAData.bUseGPA )
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_end(m_pIttKernelDomain); // BIKernel
     }
@@ -213,7 +213,7 @@ bool NativeKernelTask::Execute()
 #ifdef USE_ITT
     if ( gMicGPAData.bUseGPA)
     {
-        __itt_frame_end_v3(m_pIttKernelDomain, NULL);
+        __itt_frame_end_v3(m_pIttKernelDomain, nullptr);
     }
 #endif
 

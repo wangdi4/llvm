@@ -35,7 +35,7 @@
 using namespace OCLCRT::Utils;
 
 OclDynamicLib::OclDynamicLib() :
-    m_hLibrary(NULL)
+    m_hLibrary(nullptr)
 {
 }
 
@@ -60,7 +60,7 @@ crt_err_code OclDynamicLib::IsExists(const char* pLibName)
 // Loads a dynamically link library into process address space
 crt_err_code OclDynamicLib::Load(const char* pLibName)
 {
-    if ( NULL != m_hLibrary )
+    if ( nullptr != m_hLibrary )
     {
         return CRT_FAIL;
     }
@@ -68,7 +68,7 @@ crt_err_code OclDynamicLib::Load(const char* pLibName)
     // Load library
     m_hLibrary = dlopen(pLibName, RTLD_LAZY);
 
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
 #ifdef _DEBUG
         const char* e = dlerror();
@@ -83,17 +83,17 @@ crt_err_code OclDynamicLib::Load(const char* pLibName)
 // Loads a dynamically link library into process address space
 void OclDynamicLib::Close()
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return;
     }
 
     m_uiFuncCount = 0;
-    m_pOffsetNames = NULL;
-    m_pOffsetFunc = NULL;
+    m_pOffsetNames = nullptr;
+    m_pOffsetFunc = nullptr;
 
     dlclose(m_hLibrary);
-    m_hLibrary = NULL;
+    m_hLibrary = nullptr;
 }
 
 // Returns a number of named functions found in the library
@@ -107,22 +107,22 @@ unsigned int OclDynamicLib::GetNumberOfFunctions() const
 const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-        return NULL;
+        return nullptr;
 }
 
 // Returns a function pointer
 const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-        return NULL;
+        return nullptr;
 }
 
 // Returns a function pointer
 OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
-        return NULL;
+        return nullptr;
     }
 
     void* func;
@@ -131,8 +131,8 @@ OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName(const char* szFuncN
     //clear errors
     dlerror();
     func = dlsym(m_hLibrary, szFuncName);
-        if ((error = dlerror()) != NULL) {
-         return NULL;
+        if ((error = dlerror()) != nullptr) {
+         return nullptr;
     }
 
     return (func_t)(ptrdiff_t)func;

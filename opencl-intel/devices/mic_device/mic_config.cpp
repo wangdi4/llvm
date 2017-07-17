@@ -33,7 +33,7 @@ MICDeviceConfig::MICDeviceConfig()
     : m_bUseMKL(false)
 #endif
 {
-	m_pConfigFile = NULL;
+	m_pConfigFile = nullptr;
 }
 MICDeviceConfig::~MICDeviceConfig()
 {
@@ -46,7 +46,7 @@ cl_err_code MICDeviceConfig::Initialize(std::string filename)
     if (!config_already_printed)
     {
         config_already_printed = true;
-        if ((NULL != m_pConfigFile) && Device_PrintConfig())
+        if ((nullptr != m_pConfigFile) && Device_PrintConfig())
         {
             PrintConfiguration();
         }
@@ -56,9 +56,9 @@ cl_err_code MICDeviceConfig::Initialize(std::string filename)
 }
 void MICDeviceConfig::Release()
 {
-	if (NULL != m_pConfigFile)
+	if (nullptr != m_pConfigFile)
 	{
 		delete m_pConfigFile;
-		m_pConfigFile = NULL;
+		m_pConfigFile = nullptr;
 	}
 }

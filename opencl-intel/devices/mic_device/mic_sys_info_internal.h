@@ -15,10 +15,10 @@
 #endif
 
 //                                          info_id array_count    type_size    si_value_type               const_value          func_value          info_id_name
-#define SCAL_VALUE( id,  type,  value )      { id,     1,          sizeof(type), MICSysInfo::VALUE_SCALAR,  (size_t)(value),     NULL,               #id }
+#define SCAL_VALUE( id,  type,  value )      { id,     1,          sizeof(type), MICSysInfo::VALUE_SCALAR,  (size_t)(value),     nullptr,               #id }
 #define ARRY_VALUE( id,  type,  st_ar_name ) { id,     ARRAY_ELEMENTS(st_ar_name),  \
-                                                                   sizeof(type), MICSysInfo::VALUE_SCALAR,  (size_t)st_ar_name,  NULL,               #id }
-#define STRG_VALUE( id,  value )             { id,     1,          0,            MICSysInfo::VALUE_STRING,  (size_t)(value),     NULL,               #id }
+                                                                   sizeof(type), MICSysInfo::VALUE_SCALAR,  (size_t)st_ar_name,  nullptr,               #id }
+#define STRG_VALUE( id,  value )             { id,     1,          0,            MICSysInfo::VALUE_STRING,  (size_t)(value),     nullptr,               #id }
 #define FUNC_VALUE( id,  value )             { id,     1,          0,            MICSysInfo::VALUE_FUNCTION, 0,                  &MICSysInfo::value, #id }
 
 

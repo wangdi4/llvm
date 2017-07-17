@@ -173,7 +173,7 @@ CrtDeviceInfo* CrtDeviceInfo::GetChildObject()
     }
     else
     {
-        return NULL;
+        return nullptr;
     }
 
     return childObj;
@@ -248,7 +248,7 @@ void CL_CALLBACK CrtMemDestructorCallBack(cl_mem m, void* userData)
     if (0 == atomic_decrement(&(memData->m_count)))
     {
         memObj->DecPendencyCnt();
-        memData->m_clMemHandle = NULL;
+        memData->m_clMemHandle = nullptr;
         delete memData;
 
     }
@@ -322,12 +322,12 @@ m_context_handle(context_handle)
 
     OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
 
-    cl_device_id* outDevices = NULL;
+    cl_device_id* outDevices = nullptr;
 
     for (cl_uint i = 0; i < OCLCRT::crt_ocl_module.m_oclPlatforms.size(); i++)
     {
         outDevices = new cl_device_id[OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.size()];
-        if( NULL == outDevices )
+        if( nullptr == outDevices )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             break;
@@ -345,14 +345,14 @@ m_context_handle(context_handle)
             if( outDevices )
             {
                 delete[] outDevices;
-                outDevices = NULL;
+                outDevices = nullptr;
             }
             continue;
         }
 
         CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(outDevices[0]);
 
-        if( NULL == devInfo )
+        if( nullptr == devInfo )
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             break;
@@ -392,7 +392,7 @@ m_context_handle(context_handle)
         if( outDevices )
         {
             delete[] outDevices;
-            outDevices = NULL;
+            outDevices = nullptr;
         }
     }
 
@@ -407,7 +407,7 @@ FINISH:
     if( outDevices )
     {
         delete[] outDevices;
-        outDevices = NULL;
+        outDevices = nullptr;
     }
     if( errcode_ret )
     {
@@ -432,7 +432,7 @@ void CrtContext::GetDevicesByPlatformId(
     for( cl_uint i=0; i < inNumDevices; i++ )
     {
         CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] );
-        if( ( devInfo != NULL ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
+        if( ( devInfo != nullptr ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
         {
             if( !outDevices )
             {
@@ -456,7 +456,7 @@ void CrtContext::GetDevsIndicesByPlatformId(
     for( cl_uint i=0; i < inNumDevices; i++ )
     {
         CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( inDevices[i] );
-        if( ( devInfo != NULL ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
+        if( ( devInfo != nullptr ) && ( devInfo->m_crtPlatform->m_platformIdDEV == pId ) )
         {
             if (!indices)
             {
@@ -497,7 +497,7 @@ cl_int CrtContext::GetReferenceCount(cl_uint* refCountParam)
         CL_CONTEXT_REFERENCE_COUNT,
         sizeof(cl_uint),
         &refCount,
-        NULL);
+        nullptr);
 
     *refCountParam = refCount;
     return errCode;
@@ -535,15 +535,15 @@ cl_int CrtContext::FlushQueues()
 /// ------------------------------------------------------------------------------
 CrtMemObject::CrtMemObject(cl_mem_flags flags, void* hostPtr, CrtContext* ctx):
 m_numValidContextObjs( 0 ),
-m_memHandle( NULL )
+m_memHandle( nullptr )
 {
     m_flags = flags;
-    m_pUsrPtr = NULL;
+    m_pUsrPtr = nullptr;
 
     if( flags & ( CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR ) && hostPtr )
         m_pUsrPtr = hostPtr;
 
-    m_pBstPtr = NULL;
+    m_pBstPtr = nullptr;
     m_pContext = ctx;
     m_mapCount = 0;
 
@@ -562,7 +562,7 @@ CrtMemObject::~CrtMemObject()
         ( !( m_flags & CL_MEM_USE_HOST_PTR ) || m_pUsrPtr ) )
     {
         ALIGNED_FREE(m_pBstPtr);
-        m_pBstPtr = NULL;
+        m_pBstPtr = nullptr;
     }
     m_pContext->DecPendencyCnt();
 }
@@ -586,7 +586,7 @@ inline cl_mem CrtMemObject::getAnyValidDeviceMemObj()
             return itr->second;
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 cl_int CrtMemObject::Release()
@@ -633,7 +633,7 @@ cl_int CrtMemObject::RegisterDestructorCallback(mem_dtor_fn memDtorFunc, void* u
 
     // this memory is dealocated in the callback 'CrtMemDtorForwarder'
     CrtMemDtorForwarderData* memData = new CrtMemDtorForwarderData;
-    if( memData == NULL )
+    if( memData == nullptr )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         return errCode;
@@ -685,14 +685,14 @@ CrtBuffer::CrtBuffer(
     void*               host_ptr,
     CrtContext*         ctx): CrtMemObject(flags, host_ptr, ctx)
 {
-    m_parentBuffer = NULL;
+    m_parentBuffer = nullptr;
     m_size = size;
 }
 
 CrtBuffer::CrtBuffer(
     CrtMemObject*   parent_buffer,
     cl_mem_flags    flags,
-    CrtContext*     ctx): CrtMemObject(flags, NULL, ctx)
+    CrtContext*     ctx): CrtMemObject(flags, nullptr, ctx)
 {
     m_parentBuffer = parent_buffer;
     if( m_parentBuffer )
@@ -707,9 +707,9 @@ CrtBuffer::~CrtBuffer()
     if( m_parentBuffer )
     {
         m_parentBuffer->DecPendencyCnt();
-        m_parentBuffer = NULL;
-        m_pBstPtr = NULL;
-        m_pUsrPtr = NULL;
+        m_parentBuffer = nullptr;
+        m_pBstPtr = nullptr;
+        m_pUsrPtr = nullptr;
     }
 }
 
@@ -719,13 +719,13 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
 
     // HOST pointer provided and memory is aligned
     if( ( m_flags & CL_MEM_USE_HOST_PTR ) &&
-        ( m_pUsrPtr != NULL ) &&
+        ( m_pUsrPtr != nullptr ) &&
         ( ( (size_t)m_pUsrPtr & ( m_pContext->getAlignment( CrtObject::CL_BUFFER )-1 ) ) == 0 ) )
     {
         m_pBstPtr = m_pUsrPtr;
-        m_pUsrPtr = NULL;
+        m_pUsrPtr = nullptr;
     }
-    else if( m_pBstPtr == NULL && !m_pContext->memObjectAlwaysNotInSync( CrtObject::CL_BUFFER ) )
+    else if( m_pBstPtr == nullptr && !m_pContext->memObjectAlwaysNotInSync( CrtObject::CL_BUFFER ) )
     {
         // Convert bits to bytes
         m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_BUFFER ) );
@@ -735,7 +735,7 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
             return CL_OUT_OF_HOST_MEMORY;
         }
 
-        if( ( m_pUsrPtr != NULL ) &&
+        if( ( m_pUsrPtr != nullptr ) &&
             ( ( m_flags & CL_MEM_COPY_HOST_PTR ) || ( m_flags & CL_MEM_USE_HOST_PTR ) ) )
         {
             memcpy_s( m_pBstPtr, m_size, m_pUsrPtr, m_size );
@@ -744,7 +744,7 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
         if( !( m_flags & CL_MEM_USE_HOST_PTR ) )
         {
             // We don't need this any more; ex. CL_MEM_COPY_HOST_PTR case
-            m_pUsrPtr = NULL;
+            m_pUsrPtr = nullptr;
         }
     }
     else
@@ -758,7 +758,7 @@ cl_int CrtBuffer::Create(CrtMemObject** bufObj)
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if( NULL == memData )
+    if( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -834,7 +834,7 @@ FINISH:
             delete memData;
         }
         Release();
-        *bufObj = NULL;
+        *bufObj = nullptr;
     }
     return errCode;
 }
@@ -848,7 +848,7 @@ cl_int CrtBuffer::Create(
     CTX_MEM_MAP::iterator itr;
 
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if( NULL == memData )
+    if( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -902,7 +902,7 @@ cl_int CrtBuffer::Create(
     }
 
     m_pBstPtr = ( cl_char* )m_parentBuffer->m_pBstPtr + region->origin;
-    m_pUsrPtr = ( ( m_parentBuffer->m_pUsrPtr == NULL ) ?
+    m_pUsrPtr = ( ( m_parentBuffer->m_pUsrPtr == nullptr ) ?
                     NULL :
                     ( cl_char* )m_parentBuffer->m_pUsrPtr + region->origin );
 
@@ -935,7 +935,7 @@ FINISH:
             delete memData;
         }
         Release();
-        *bufObj = NULL;
+        *bufObj = nullptr;
     }
 
     return errCode;
@@ -945,7 +945,7 @@ FINISH:
 /// ------------------------------------------------------------------------------
 void*  CrtBuffer::GetMapPointer(const size_t* origin, const size_t* region)
 {
-    char* mapPtr = NULL;
+    char* mapPtr = nullptr;
     if( this->HasPrivateCopy() )
     {
         mapPtr = (char*)m_pUsrPtr + *origin;
@@ -976,7 +976,7 @@ CrtGLBuffer::CrtGLBuffer(
     cl_mem_flags        flags,
     GLuint              bufobj,
     CrtContext*         ctx):
-CrtBuffer(0,flags, NULL, ctx)
+CrtBuffer(0,flags, nullptr, ctx)
 {
     m_isRenderBuffer = isRenderBuffer;
     m_glBufObj = bufobj;
@@ -991,7 +991,7 @@ cl_int CrtGLBuffer::Create(CrtMemObject** bufObj)
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if( NULL == memData )
+    if( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1003,7 +1003,7 @@ cl_int CrtGLBuffer::Create(CrtMemObject** bufObj)
         itr++ )
     {
         cl_context ctx = itr->first;
-        cl_mem memObj = NULL;
+        cl_mem memObj = nullptr;
 
         if( m_isRenderBuffer )
         {
@@ -1070,7 +1070,7 @@ FINISH:
             delete memData;
         }
         Release();
-        *bufObj = NULL;
+        *bufObj = nullptr;
     }
     return errCode;
 }
@@ -1084,7 +1084,7 @@ CrtDX9MediaSurface::CrtDX9MediaSurface(
     HANDLE                  sharedhandle,
     UINT                    plane,
     CrtContext*             ctx):
-CrtMemObject(flags, NULL, ctx)
+CrtMemObject(flags, nullptr, ctx)
 {
     m_resource = resource;
     m_sharedHandle = sharedhandle;
@@ -1100,7 +1100,7 @@ cl_int CrtDX9MediaSurface::Create( CrtMemObject** dx9Obj )
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if( NULL == memData )
+    if( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1112,7 +1112,7 @@ cl_int CrtDX9MediaSurface::Create( CrtMemObject** dx9Obj )
         itr++ )
     {
         cl_context ctx = itr->first;
-        cl_mem memObj = NULL;
+        cl_mem memObj = nullptr;
 
         memObj = ( (SOCLEntryPointsTable*)ctx )->crtDispatch->clCreateFromDX9MediaSurfaceINTEL(
             ctx,
@@ -1164,7 +1164,7 @@ FINISH:
             delete memData;
         }
         Release();
-        *dx9Obj = NULL;
+        *dx9Obj = nullptr;
     }
     return errCode;
 }
@@ -1175,9 +1175,9 @@ FINISH:
 CrtImage::CrtImage(
     cl_mem_flags            flags,
     CrtContext*             ctx):
-        CrtMemObject(flags,NULL,ctx)
+        CrtMemObject(flags,nullptr,ctx)
 {
-    m_imageDesc.crtBuffer = NULL;
+    m_imageDesc.crtBuffer = nullptr;
 }
 CrtImage::CrtImage(
     const cl_image_format * image_format,
@@ -1251,11 +1251,11 @@ CrtImage::CrtImage(
     }
     else
     {
-        m_imageDesc.crtBuffer = NULL;
-        m_imageDesc.desc.mem_object = NULL;
+        m_imageDesc.crtBuffer = nullptr;
+        m_imageDesc.desc.mem_object = nullptr;
     }
     cl_device_id gpuDevice = ctx->GetDeviceByType( CL_DEVICE_TYPE_GPU );
-    if( gpuDevice != NULL )
+    if( gpuDevice != nullptr )
     {
         SOCLEntryPointsTable* gpuDispatch = (SOCLEntryPointsTable*)gpuDevice;
 
@@ -1287,13 +1287,13 @@ CrtImage::CrtImage(
     }
     else
     {
-        assert( ( gpuDevice != NULL ) && "Image sharing requires GPU device" );
+        assert( ( gpuDevice != nullptr ) && "Image sharing requires GPU device" );
     }
 }
 
 void*  CrtImage::GetMapPointer(const size_t* origin, const size_t* region)
 {
-    char* mapPtr = NULL;
+    char* mapPtr = nullptr;
     size_t elemSize = GetImageElementSize(&m_imageFormat);
 
     if( !HasPrivateCopy() )
@@ -1402,8 +1402,8 @@ CrtImage::~CrtImage()
     if( m_imageDesc.crtBuffer )
     {
         m_imageDesc.crtBuffer->DecPendencyCnt();
-        m_pBstPtr = NULL;
-        m_pUsrPtr = NULL;
+        m_pBstPtr = nullptr;
+        m_pUsrPtr = nullptr;
     }
 }
 
@@ -1411,7 +1411,7 @@ CrtImage::~CrtImage()
 cl_int CrtImage::Create(CrtMemObject**  imageObj)
 {
     CTX_MEM_MAP::iterator ctx_mem_itr;
-    CrtBuffer* crtBuffer = NULL;
+    CrtBuffer* crtBuffer = nullptr;
 
     // Calculate the size of memory provided by the app
     m_size = m_imageDesc.desc.image_slice_pitch * m_imageDesc.desc.image_depth * m_imageDesc.desc.image_array_size;
@@ -1445,11 +1445,11 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
         ( hostPtrSize >= m_size ) )
     {
         m_pBstPtr = m_pUsrPtr;
-        m_pUsrPtr = NULL;
+        m_pUsrPtr = nullptr;
         m_hostPtrRowPitch = m_imageDesc.desc.image_row_pitch;
         m_hostPtrSlicePitch = m_imageDesc.desc.image_slice_pitch;
     }
-    else if( ( m_pBstPtr == NULL ) &&
+    else if( ( m_pBstPtr == nullptr ) &&
              ( m_pContext->memObjectAlwaysNotInSync( CrtObject::CL_IMAGE ) == false ) )
     {
         // Convert bits to bytes
@@ -1484,7 +1484,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
             if( !( m_flags & CL_MEM_USE_HOST_PTR ) )
             {
                 // We don't need this any more; ex. CL_MEM_COPY_HOST_PTR case
-                m_pUsrPtr = NULL;
+                m_pUsrPtr = nullptr;
             }
         }
     }
@@ -1508,7 +1508,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if ( NULL == memData )
+    if ( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1521,7 +1521,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
         cl_context ctx = itr->first;
         cl_mem_flags crtCreateFlags = m_flags;
 
-        if( crtBuffer == NULL )
+        if( crtBuffer == nullptr )
         {
             // - Force using Linear images
             // - some flags are mutual execlusive, so we need to turn off CL_MEM_COPY_HOST_PTR
@@ -1534,7 +1534,7 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
             crtCreateFlags &= ~CL_MEM_HOST_NO_ACCESS;
         }
 
-        cl_mem memObj  = NULL;        
+        cl_mem memObj  = nullptr;        
         cl_image_desc* imageDesc = &m_imageDesc.desc;
         cl_image_desc imageDescCopy;
         if( crtBuffer )
@@ -1551,11 +1551,11 @@ cl_int CrtImage::Create(CrtMemObject**  imageObj)
             crtCreateFlags,
             &m_imageFormat,
             imageDesc,
-            ( crtBuffer ? NULL : m_pBstPtr ),
+            ( crtBuffer ? nullptr : m_pBstPtr ),
             &errCode);        
 
         if( ( CL_SUCCESS == errCode ) &&
-            ( memObj != NULL ) )
+            ( memObj != nullptr ) )
         {
             m_ContextToMemObj[ctx] = memObj;
             m_numValidContextObjs++;
@@ -1608,7 +1608,7 @@ FINISH:
     if( CL_SUCCESS != errCode )
     {
         Release();
-        *imageObj = NULL;
+        *imageObj = nullptr;
     }
     return errCode;
 }
@@ -1643,7 +1643,7 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     CrtMemDtorCallBackData* memData = new CrtMemDtorCallBackData;
-    if ( NULL == memData )
+    if ( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1654,7 +1654,7 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
         cl_context ctx = itr->first;        
-        cl_mem memObj  = NULL;
+        cl_mem memObj  = nullptr;
        
         switch( m_dimCount )
         {
@@ -1688,7 +1688,7 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
         };
         
         if( ( CL_SUCCESS == errCode ) &&
-            ( memObj != NULL ) )
+            ( memObj != nullptr ) )
         {
             m_ContextToMemObj[ctx] = memObj;
             m_numValidContextObjs++;
@@ -1741,7 +1741,7 @@ FINISH:
     if( CL_SUCCESS != errCode )
     {
         Release();
-        *imageObj = NULL;
+        *imageObj = nullptr;
     }
     return errCode;
 }
@@ -1809,10 +1809,10 @@ CrtPipe::CrtPipe(
     const cl_pipe_properties*   properties,
     cl_mem_flags                flags,
     CrtContext*                 ctx ):
-CrtMemObject(flags, NULL, ctx),
+CrtMemObject(flags, nullptr, ctx),
 m_packetSize(packetSize),
 m_maxPackets(maxPackets),
-m_properties(NULL)
+m_properties(nullptr)
 {
     m_size = 0; // this will be initilized in CrtPipe::Create
 }
@@ -1821,13 +1821,13 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
 {
     cl_int                  errCode   = CL_SUCCESS;
     size_t                  allocSize = 0;
-    cl_context              ctx       = NULL;
-    CrtMemDtorCallBackData* memData   = NULL;
+    cl_context              ctx       = nullptr;
+    CrtMemDtorCallBackData* memData   = nullptr;
 
     CTX_MEM_MAP::iterator           ctx_mem_itr;
     SHARED_CTX_DISPATCH::iterator   ctx_itr;
 
-    assert( NULL == m_pBstPtr && "Pipe already has backing store!" );
+    assert( nullptr == m_pBstPtr && "Pipe already has backing store!" );
 
     // Ask underlying context for the required size for the pipe
     ctx = m_pContext->m_contexts.begin()->first;
@@ -1838,7 +1838,7 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
                                                     m_packetSize,
                                                     m_maxPackets,
                                                     m_properties,
-                                                    NULL,
+                                                    nullptr,
                                                     &allocSize,
                                                     &errCode );
 
@@ -1853,7 +1853,7 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
     // Allocate needed memory
     m_pBstPtr = ALIGNED_MALLOC( m_size, m_pContext->getAlignment( CrtObject::CL_PIPE ) );
 
-    if( NULL == m_pBstPtr )
+    if( nullptr == m_pBstPtr )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1862,7 +1862,7 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
 
     // This is being deallocated in callback 'CrtMemDtorCallBack'
     memData = new CrtMemDtorCallBackData;
-    if( NULL == memData )
+    if( nullptr == memData )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1926,13 +1926,13 @@ cl_int CrtPipe::Create( CrtMemObject** memObj )
 FINISH:
     if( CL_SUCCESS != errCode )
     {
-        if( ( NULL != memData ) &&
+        if( ( nullptr != memData ) &&
             ( memData->m_count == 0 ) )
         {
             delete memData;
         }
         Release();
-        *memObj = NULL;
+        *memObj = nullptr;
     }
     return errCode;
 }
@@ -1983,18 +1983,18 @@ cl_int CrtContext::CreateImage(
         return CL_INVALID_VALUE;
     }
 
-    if( !( ( image_desc->image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER ) ^ ( image_desc->mem_object == NULL ) ) )
+    if( !( ( image_desc->image_type == CL_MEM_OBJECT_IMAGE1D_BUFFER ) ^ ( image_desc->mem_object == nullptr ) ) )
     {
         return CL_INVALID_IMAGE_DESCRIPTOR;
     }
 
-    if( image_desc->mem_object != NULL )
+    if( image_desc->mem_object != nullptr )
     {
         CrtBuffer* crtBuffer = reinterpret_cast<CrtBuffer*>(((_cl_mem_crt*)image_desc->mem_object)->object);
         host_ptr = crtBuffer->m_pBstPtr;
     }
 
-    if( ( host_ptr == NULL ) &&
+    if( ( host_ptr == nullptr ) &&
         ( flags & CL_MEM_USE_HOST_PTR ) )
     {
         return CL_INVALID_HOST_PTR;
@@ -2036,12 +2036,12 @@ cl_int CrtContext::CreateBuffer(
         return CL_INVALID_BUFFER_SIZE;
     }
 
-    if( ( flags & CL_MEM_USE_HOST_PTR || flags & CL_MEM_COPY_HOST_PTR ) && ( NULL == host_ptr ) )
+    if( ( flags & CL_MEM_USE_HOST_PTR || flags & CL_MEM_COPY_HOST_PTR ) && ( nullptr == host_ptr ) )
     {
         return CL_INVALID_HOST_PTR;
     }
 
-    if( !( flags & CL_MEM_USE_HOST_PTR || flags & CL_MEM_COPY_HOST_PTR ) && ( NULL != host_ptr ) )
+    if( !( flags & CL_MEM_USE_HOST_PTR || flags & CL_MEM_COPY_HOST_PTR ) && ( nullptr != host_ptr ) )
     {
         return CL_INVALID_HOST_PTR;
     }
@@ -2108,8 +2108,8 @@ cl_int  CrtContext::CreateCommandQueue(
     CrtQueue**                  crtQueue)
 {
     cl_int errCode = CL_SUCCESS;
-    CrtQueue* pCrtQueue = NULL;
-    *crtQueue = NULL;
+    CrtQueue* pCrtQueue = nullptr;
+    *crtQueue = nullptr;
 
     DEV_CTX_MAP::iterator itr = m_DeviceToContext.find(device);
     if( itr == m_DeviceToContext.end() )
@@ -2121,7 +2121,7 @@ cl_int  CrtContext::CreateCommandQueue(
     if( CL_SUCCESS == errCode )
     {
         pCrtQueue = new CrtQueue(this);
-        if( NULL == pCrtQueue )
+        if( nullptr == pCrtQueue )
         {
             errCode = itr->second->dispatch->clReleaseCommandQueue(queueDEV);
             return CL_OUT_OF_HOST_MEMORY;
@@ -2154,7 +2154,7 @@ cl_command_queue
 CrtContext::GetDevCommandQueue( 
     cl_command_queue    queue_dev_handle )
 {
-    CrtQueue* pCrtQueue = NULL;
+    CrtQueue* pCrtQueue = nullptr;
 
     OCLCRT::Utils::OclAutoMutex CS( &m_mutex );   // Critical section
 
@@ -2168,7 +2168,7 @@ CrtContext::GetDevCommandQueue(
             return pCrtQueue->m_queue_handle;
         }
     }
-    return NULL;
+    return nullptr;
 }
 void
 CrtContext::RemoveCommandQueue( CrtQueue* pCrtQueue )
@@ -2193,8 +2193,8 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
     CrtQueue**                  crtQueue )
 {
     cl_int errCode = CL_SUCCESS;
-    CrtQueue* pCrtQueue = NULL;
-    *crtQueue = NULL;
+    CrtQueue* pCrtQueue = nullptr;
+    *crtQueue = nullptr;
 
     DEV_CTX_MAP::iterator itr = m_DeviceToContext.find( device );
     if( itr == m_DeviceToContext.end( ) )
@@ -2209,7 +2209,7 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
     if( CL_SUCCESS == errCode )
     {
         pCrtQueue = new CrtQueue( this );
-        if( NULL == pCrtQueue )
+        if( nullptr == pCrtQueue )
         {
             errCode = itr->second->dispatch->clReleaseCommandQueue( queueDEV );
             return CL_OUT_OF_HOST_MEMORY;
@@ -2224,7 +2224,7 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
         //extract data from cl_queue_properties, to see if queue on device is being created.
         cl_queue_properties PropertyType ;
         cl_queue_properties PropertyValue ;
-        if( properties != NULL )
+        if( properties != nullptr )
         {
             while( *properties != 0 )
             {
@@ -2258,7 +2258,7 @@ cl_int  CrtContext::SetDefaultDeviceCommandQueue(
     cl_command_queue			command_queue )
 {
     cl_int errCode = CL_SUCCESS;
-    CrtQueue* pCrtQueue = NULL;
+    CrtQueue* pCrtQueue = nullptr;
     
     DEV_CTX_MAP::iterator itr = m_DeviceToContext.find( device );
     if( itr == m_DeviceToContext.end() )
@@ -2267,7 +2267,7 @@ cl_int  CrtContext::SetDefaultDeviceCommandQueue(
     }
     pCrtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )command_queue )->object );
 
-    if( ( NULL == pCrtQueue ) || ( pCrtQueue->m_device != device ) )
+    if( ( nullptr == pCrtQueue ) || ( pCrtQueue->m_device != device ) )
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
@@ -2279,9 +2279,9 @@ cl_int  CrtContext::SetDefaultDeviceCommandQueue(
 ///
 /// ------------------------------------------------------------------------------
 CrtPlatform::CrtPlatform()
-:m_icdSuffix(NULL),
-m_supportedExtensionsStr(NULL),
-m_platformIdDEV(NULL)
+:m_icdSuffix(nullptr),
+m_supportedExtensionsStr(nullptr),
+m_platformIdDEV(nullptr)
 {
 }
 
@@ -2322,7 +2322,7 @@ CrtQueue::~CrtQueue()
 }
 
 CrtEvent::CrtEvent(CrtQueue* queue, bool isUserEvent):
-m_queueCRT(queue),m_eventDEV(NULL), m_isUserEvent(isUserEvent)
+m_queueCRT(queue),m_eventDEV(nullptr), m_isUserEvent(isUserEvent)
 {
     if (m_queueCRT)
     {
@@ -2339,7 +2339,7 @@ CrtEvent::~CrtEvent()
 }
 
 CrtUserEvent::CrtUserEvent(CrtContext* ctx):
-m_pContext(ctx),CrtEvent(NULL,true)
+m_pContext(ctx),CrtEvent(nullptr,true)
 {
     m_pContext->IncPendencyCnt();
 }
@@ -2508,7 +2508,7 @@ cl_int CrtContext::CreatePipe(
     CrtMemObject**              memObj)
 {
     cl_int      errCode = CL_SUCCESS;
-    CrtPipe *   pipe    = NULL;
+    CrtPipe *   pipe    = nullptr;
 
     if( 0 == pipe_packet_size || 0 == pipe_max_packets )
     {
@@ -2516,7 +2516,7 @@ cl_int CrtContext::CreatePipe(
     }
 
     pipe = new CrtPipe( pipe_packet_size, pipe_max_packets, properties, flags, this );
-    if( NULL == pipe )
+    if( nullptr == pipe )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -2646,11 +2646,11 @@ cl_int CrtContext::CreateProgramWithBinary(
     CrtProgram **           crtProgram )
 {
     cl_int errCode = CL_SUCCESS;
-    cl_uint* indices = NULL;
-    cl_device_id* outDevices = NULL;
-    size_t* fwdLengths = NULL;
-    cl_int* fwdBinaryStatus = NULL;
-    const unsigned char ** fwdBinaries = NULL;
+    cl_uint* indices = nullptr;
+    cl_device_id* outDevices = nullptr;
+    size_t* fwdLengths = nullptr;
+    cl_int* fwdBinaryStatus = nullptr;
+    const unsigned char ** fwdBinaries = nullptr;
 
     CrtProgram *pCrtProgram = new CrtProgram(this);
     if( !pCrtProgram )
@@ -2659,35 +2659,35 @@ cl_int CrtContext::CreateProgramWithBinary(
     }
 
     fwdBinaries = new const unsigned char *[num_devices];
-    if( NULL == fwdBinaries )
+    if( nullptr == fwdBinaries )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
     fwdBinaryStatus = new cl_int[num_devices];
-    if( NULL == fwdBinaryStatus )
+    if( nullptr == fwdBinaryStatus )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
     fwdLengths = new size_t[num_devices];
-    if( NULL == fwdLengths )
+    if( nullptr == fwdLengths )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
     outDevices = new cl_device_id[num_devices];
-    if( NULL == outDevices )
+    if( nullptr == outDevices )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
     indices = new cl_uint[num_devices];
-    if( NULL == indices )
+    if( nullptr == indices )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
@@ -2787,8 +2787,8 @@ cl_int CrtContext::CreateProgramWithBuiltInKernels(
     CrtProgram **           crtProgram )
 {
     cl_int errCode = CL_SUCCESS;
-    cl_uint* indices = NULL;
-    cl_device_id* outDevices = NULL;
+    cl_uint* indices = nullptr;
+    cl_device_id* outDevices = nullptr;
 
     CrtProgram *pCrtProgram = new CrtProgram(this);
     if( !pCrtProgram )
@@ -2797,14 +2797,14 @@ cl_int CrtContext::CreateProgramWithBuiltInKernels(
     }
 
     outDevices = new cl_device_id[num_devices];
-    if( NULL == outDevices )
+    if( nullptr == outDevices )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
 
     indices = new cl_uint[num_devices];
-    if( NULL == indices )
+    if( nullptr == indices )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
@@ -2864,7 +2864,7 @@ FINISH:
     {
         pCrtProgram->Release();
         pCrtProgram->DecPendencyCnt();
-        pCrtProgram = NULL;
+        pCrtProgram = nullptr;
     }
     *crtProgram = pCrtProgram;
     return errCode;
@@ -2875,8 +2875,8 @@ FINISH:
 
 SyncManager::SyncManager()
 {
-    m_callBackData = NULL;
-    m_outEventArray = NULL;
+    m_callBackData = nullptr;
+    m_outEventArray = nullptr;
 }
 
 cl_int  SyncManager::EnqueueNopCommand(
@@ -2928,14 +2928,14 @@ cl_int SyncManager::PrepareToExecute(
     cl_uint*        numOutEvents,
     cl_event**      OutEvents)
 {
-    CrtEvent *nullEvent     = NULL;
+    CrtEvent *nullEvent     = nullptr;
     cl_int errCode          = CL_SUCCESS;
     cl_uint numReqCalls     = 0;
-    cl_context dstContext   = NULL;
+    cl_context dstContext   = nullptr;
     cl_uint j                = 0;
     
-    if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
-        ( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
+    if( ( ( inEventWaitList == nullptr ) && ( NumEventsInWaitList > 0 ) ) || 
+        ( ( inEventWaitList != nullptr ) && ( NumEventsInWaitList == 0 ) ) )
     {
         return CL_INVALID_EVENT_WAIT_LIST;
     }
@@ -2954,7 +2954,7 @@ cl_int SyncManager::PrepareToExecute(
     if( NumEventsInWaitList != 0 )
     {
         m_outEventArray = new cl_event[NumEventsInWaitList];
-        if( NULL == m_outEventArray)
+        if( nullptr == m_outEventArray)
         {
             errCode = CL_OUT_OF_HOST_MEMORY;
             goto FINISH;
@@ -2962,8 +2962,8 @@ cl_int SyncManager::PrepareToExecute(
     }    
     for( cl_uint i=0; i < NumEventsInWaitList; i++ )
     {
-        const CrtEvent* waitEvent  = NULL;
-        cl_context evContext = NULL;
+        const CrtEvent* waitEvent  = nullptr;
+        cl_context evContext = nullptr;
         // there are events belong to different undelying platforms
         if( nullEvent )
         {
@@ -2990,7 +2990,7 @@ cl_int SyncManager::PrepareToExecute(
     m_eventRetained = false;
     for( cl_uint i=0; i < NumEventsInWaitList; i++ )
     {
-        const CrtEvent* waitEvent  = NULL;
+        const CrtEvent* waitEvent  = nullptr;
         // there are events belong to different undelying platforms
         if( nullEvent )
         {
@@ -3003,8 +3003,8 @@ cl_int SyncManager::PrepareToExecute(
                 );
         }
 
-        cl_context evContext = NULL;
-        cl_event eventDEV = NULL;
+        cl_context evContext = nullptr;
+        cl_event eventDEV = nullptr;
 
         if( waitEvent->m_isUserEvent )
         {
@@ -3080,7 +3080,7 @@ cl_int SyncManager::PrepareToExecute(
     *numOutEvents = j;
     if( 0 == *numOutEvents )
     {
-        *OutEvents = NULL;
+        *OutEvents = nullptr;
     }
     else
     {
@@ -3105,7 +3105,7 @@ FINISH:
         {
             delete m_callBackData;
         }
-        m_userEvent = NULL;
+        m_userEvent = nullptr;
         return errCode;
     }
     return errCode;
@@ -3121,7 +3121,7 @@ void SyncManager::Release(cl_int errCode)
     if( m_outEventArray )
     {
         delete[] m_outEventArray;
-        m_outEventArray = NULL;
+        m_outEventArray = nullptr;
     }
 }
 
@@ -3310,12 +3310,12 @@ SVMFreeCallbackData::SVMFreeCallbackData()
 {
     m_isGpuQueue         = false;
     m_shouldReleaseEvent = false;
-    m_queue              = NULL;
-    m_SVMPointers        = NULL;
+    m_queue              = nullptr;
+    m_SVMPointers        = nullptr;
     m_numSVMPointers     = 0;
-    m_svmFreeUserEvent   = NULL;
-    m_originalUserData   = NULL;
-    m_originalCallback   = NULL;
+    m_svmFreeUserEvent   = nullptr;
+    m_originalUserData   = nullptr;
+    m_originalCallback   = nullptr;
 }
 
 SVMFreeCallbackData::~SVMFreeCallbackData()
@@ -3328,13 +3328,13 @@ SVMFreeCallbackData::~SVMFreeCallbackData()
 
 bool SVMFreeCallbackData::CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers)
 {
-    if( NULL != m_SVMPointers )
+    if( nullptr != m_SVMPointers )
     {
         return false;
     }
 
     m_SVMPointers = new void*[ numSVMPointers ];
-    if( NULL == m_SVMPointers )
+    if( nullptr == m_SVMPointers )
     {
         return false;
     }
@@ -3353,12 +3353,12 @@ void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *my
     bool        haveSystemPointers  = false;
 
     assert( CL_COMPLETE == status && "Callback called before event complete!!");
-    assert( myData != NULL && "Invalid data was passed to the callback");
+    assert( myData != nullptr && "Invalid data was passed to the callback");
 
     SVMFreeCallbackData* clbkData = static_cast<SVMFreeCallbackData*>( myData );
 
     CrtQueue* crtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )clbkData->m_queue )->object );
-    assert( crtQueue != NULL && "Invalid queue was passed to the callback");
+    assert( crtQueue != nullptr && "Invalid queue was passed to the callback");
 
     if( clbkData->m_isGpuQueue )
     {
@@ -3386,7 +3386,7 @@ void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *my
             }
         }
 
-        if( NULL != clbkData->m_originalCallback )
+        if( nullptr != clbkData->m_originalCallback )
         {
             // User provided free function to the original clEnqueueSVMFree call
             clbkData->m_originalCallback(

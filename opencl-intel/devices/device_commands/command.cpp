@@ -94,7 +94,7 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
     {
         m_ulCompleteTime = ulCompleteTime - m_ulStartExecTime;
     }    
-    if (NULL != m_pExecTimeUserPtr)
+    if (nullptr != m_pExecTimeUserPtr)
     {
         ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulCompleteTime;
     }
@@ -125,7 +125,7 @@ void DeviceCommand::StopExecutionProfiling()
 	{
 		const unsigned long long ulEndExecTime = AccurateHostTime();
 		m_ulExecTime = ulEndExecTime - m_ulStartExecTime;
-		if (NULL != m_pExecTimeUserPtr)
+		if (nullptr != m_pExecTimeUserPtr)
 		{
 			*(cl_long*)m_pExecTimeUserPtr = m_ulExecTime;
 		}

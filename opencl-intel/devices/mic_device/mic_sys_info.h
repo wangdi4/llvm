@@ -142,7 +142,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             const char* const*  required_dlls_array;
 
             DeviceSKU_InternalAttributes() :
-                required_dlls_count(0), required_dlls_array(NULL) {};
+                required_dlls_count(0), required_dlls_array(nullptr) {};
         };
 
         // this function must be called at constructor/destructor
@@ -192,7 +192,7 @@ namespace Intel { namespace OpenCL { namespace MICDevice {
             COIENGINE                   engine_handle;
             COI_ENGINE_INFO             micDeviceInfoStruct;
 
-            engineInfo() : data_table(NULL), engine_handle(NULL) { memset( &micDeviceInfoStruct, 0, sizeof(micDeviceInfoStruct)); };
+            engineInfo() : data_table(nullptr), engine_handle(nullptr) { memset( &micDeviceInfoStruct, 0, sizeof(micDeviceInfoStruct)); };
         };
 
         struct guardedInfo

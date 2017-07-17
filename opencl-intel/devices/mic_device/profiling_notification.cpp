@@ -10,7 +10,7 @@ ProfilingNotification ProfilingNotification::m_singleProfilingNotification;
 
 bool ProfilingNotification::registerProfilingNotification(COIPROCESS coiProcess)
 {
-	COIRESULT coi_err = COIRegisterNotificationCallback(coiProcess, &ProfilingNotification::callbackNotifier, NULL);
+	COIRESULT coi_err = COIRegisterNotificationCallback(coiProcess, &ProfilingNotification::callbackNotifier, nullptr);
 	assert(COI_SUCCESS == coi_err);
 	if (COI_SUCCESS != coi_err)
 	{
@@ -33,7 +33,7 @@ bool ProfilingNotification::unregisterProfilingNotification(COIPROCESS coiProces
 
 void ProfilingNotification::callbackNotifier(COI_NOTIFICATIONS in_Type, COIPROCESS in_Process, COIEVENT in_Event, const void* in_UserData)
 {
-	if (NULL == in_UserData)
+	if (nullptr == in_UserData)
 	{
 		return;
 	}

@@ -45,7 +45,7 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 	while ( pCurrFuncName < pNameListEnd )
 	{
 		const char* pNextNameSeparator = strchr(pCurrFuncName, ';');
-		if ( NULL == pNextNameSeparator )
+		if ( nullptr == pNextNameSeparator )
 		{
 			pNextNameSeparator = pCurrFuncName+strlen(pCurrFuncName);
 		}
@@ -79,7 +79,7 @@ cl_dev_err_code BuiltInProgram::ParseFunctionList(const char* szBuiltInKernelLis
 
 cl_dev_err_code BuiltInProgram::GetKernelByName( const char* pKernelName, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const
 {
-	if ( NULL == ppKernel )
+	if ( nullptr == ppKernel )
 	{
 		assert(0 && "ppKernel is not expected to be NULL");
 		return CL_DEV_INVALID_OPERATION;
@@ -103,7 +103,7 @@ cl_dev_err_code	BuiltInProgram::GetKernel( int kernelIndex, const Intel::OpenCL:
 		return CL_DEV_INVALID_OPERATION;
 	}
 
-	if ( NULL == ppKernel )
+	if ( nullptr == ppKernel )
 	{
 		assert(0 && "ppKernel is not expected to be NULL");
 		return CL_DEV_INVALID_OPERATION;
@@ -114,11 +114,11 @@ cl_dev_err_code	BuiltInProgram::GetKernel( int kernelIndex, const Intel::OpenCL:
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-BuiltInKernelRegistry*	BuiltInKernelRegistry::g_pMKLRegistery = NULL;
+BuiltInKernelRegistry*	BuiltInKernelRegistry::g_pMKLRegistery = nullptr;
 
 BuiltInKernelRegistry* BuiltInKernelRegistry::GetInstance()
 {
-	if ( NULL == g_pMKLRegistery )
+	if ( nullptr == g_pMKLRegistery )
 	{
 		g_pMKLRegistery = new BuiltInKernelRegistry();
 	}
@@ -175,7 +175,7 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernel
 {
 	BuiltInProgram* pNewProgram = new BuiltInProgram;
 
-	if ( NULL == pNewProgram )
+	if ( nullptr == pNewProgram )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
@@ -187,7 +187,7 @@ cl_dev_err_code BuiltInKernelRegistry::CreateBuiltInProgram(const char* szKernel
 		return err;
 	}
 
-	assert(ppProgram != NULL && "NULL is not expected");
+	assert(ppProgram != nullptr && "NULL is not expected");
 	*ppProgram = pNewProgram;
 
 	return CL_DEV_SUCCESS;
@@ -227,7 +227,7 @@ OMPExecutorThread::OMPExecutorThread(unsigned int uiNumOfThreads) :
 	for(int i=0;i<INIT_NUM_OF_EVENTS;++i)
 	{
 		OclOsDependentEvent* pEvent = new OclOsDependentEvent();
-		if ( NULL != pEvent )
+		if ( nullptr != pEvent )
 		{
 			pEvent->Init(true);
 			m_OSEventPool.PushBack(pEvent);
@@ -280,18 +280,18 @@ RETURN_TYPE_ENTRY_POINT OMPExecutorThread::Run()
 cl_dev_err_code OMPExecutorThread::Execute(Intel::OpenCL::BuiltInKernels::IBuiltInKernelExecutor& kernelToExecute)
 {
 	// Check if we have allocted OS event
-	OclOsDependentEvent* pEvent = NULL;
+	OclOsDependentEvent* pEvent = nullptr;
 
 	bool exists = m_OSEventPool.TryPop(pEvent);
 	if ( !exists )
 	{
 		pEvent = new OclOsDependentEvent();
-		if ( NULL != pEvent )
+		if ( nullptr != pEvent )
 		{
 			pEvent->Init(true);
 		}
 	}
-	if ( NULL == pEvent )
+	if ( nullptr == pEvent )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}

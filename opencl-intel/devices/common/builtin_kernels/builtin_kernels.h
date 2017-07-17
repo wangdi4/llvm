@@ -43,9 +43,9 @@ public:
     cl_dev_err_code ParseFunctionList(const char* szBuiltInKernelList);
 
     unsigned long long int GetProgramID() const {return (unsigned long long int)this;}
-    const char* GetBuildLog() const {return NULL;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return NULL;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const {return NULL;}
+    const char* GetBuildLog() const {return nullptr;}
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramCodeContainer() const {return nullptr;}
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendCodeContainer* GetProgramIRCodeContainer() const {return nullptr;}
 
     cl_dev_err_code GetKernelByName(const char* pKernelName,
                                     const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** ppKernel) const;
@@ -56,7 +56,7 @@ public:
     virtual cl_dev_err_code GetKernel(int kernelIndex,
                                       const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_** pKernel) const;
 
-    virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return NULL;}
+    virtual const Intel::OpenCL::DeviceBackend::ICLDevBackendProgramJITCodeProperties* GetProgramJITCodeProperties() const {return nullptr;}
     virtual size_t GetGlobalVariableTotalSize() const {return 0;}
 
 protected:
@@ -88,7 +88,7 @@ protected:
     {
     public:
         unsigned int GetKernelPackCount() const {return 1;}
-        const size_t* GetRequiredWorkGroupSize() const {return NULL;}
+        const size_t* GetRequiredWorkGroupSize() const {return nullptr;}
         size_t GetBarrierBufferSize() const {return 1;}
         size_t GetPrivateMemorySize() const {return 1;}
         size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const) const {return maxWGSize;}

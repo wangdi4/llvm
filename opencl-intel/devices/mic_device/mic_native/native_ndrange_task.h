@@ -89,7 +89,7 @@ public:
     // "Main loop"
     // The function is called with different 'inx' parameters for each iteration number
     // Return false to break iterations
-    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
+    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = nullptr);
 
    // Final stage, free execution resources
     // Return false when command execution fails
@@ -107,7 +107,7 @@ public:
     Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const  { return gMicExecEnvOptions.tbb_block_optimization; }
     unsigned int          PreferredSequentialItemsPerThread() const        { return gMicExecEnvOptions.use_TBB_grain_size; }
 
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr;}
 
     typedef Intel::OpenCL::MICDevice::ndrange_dispatcher_data dispatcher_data_type;
 

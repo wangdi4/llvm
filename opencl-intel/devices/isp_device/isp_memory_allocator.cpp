@@ -36,7 +36,7 @@ using namespace Intel::OpenCL::ISPDevice;
 ISPMemoryAllocator::ISPMemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize) :
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_maxAllocSize(maxAllocSize)
 {
-    if (NULL != logDesc)
+    if (nullptr != logDesc)
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, TEXT("ISP Device: Memory Allocator"), &m_iLogHandle);
         if (CL_DEV_SUCCESS != ret)
@@ -78,7 +78,7 @@ cl_dev_err_code ISPMemoryAllocator::GetAllocProperties(cl_mem_object_type IN mem
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetAllocProperties enter"));
 
-    assert(NULL != pAllocProp && "Framework should not have called this with null parameter");
+    assert(nullptr != pAllocProp && "Framework should not have called this with null parameter");
 
     pAllocProp->bufferSharingGroupId = CL_DEV_ISP_BUFFER_SHARING_GROUP_ID;
     pAllocProp->imageSharingGroupId  = CL_DEV_ISP_IMAGE_SHARING_GROUP_ID;
@@ -121,9 +121,9 @@ cl_dev_err_code ISPMemoryAllocator::CreateMemoryObject(cl_dev_subdevice_id IN no
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateMemoryObject enter"));
 
-    assert(NULL != dim && "Framework should not have called this with null parameters");
-    assert(NULL != pRTMemObjService && "Framework should not have called this with null parameters");
-    assert(NULL != memObj && "Framework should not have called this with null parameters");
+    assert(nullptr != dim && "Framework should not have called this with null parameters");
+    assert(nullptr != pRTMemObjService && "Framework should not have called this with null parameters");
+    assert(nullptr != memObj && "Framework should not have called this with null parameters");
     assert(0 != dim_count && "Invalid dimensions count");
 
     assert(0 == node_id && "Subdevices feature is currently not supported");
@@ -137,7 +137,7 @@ cl_dev_err_code ISPMemoryAllocator::CreateMemoryObject(cl_dev_subdevice_id IN no
     // Allocate memory for memory object
     // TODO: image support
     ISPMemoryObject* pIspMemObj = new ISPMemoryObject(m_iLogHandle, m_pLogDescriptor, flags, pRTMemObjService);
-    if (NULL == pIspMemObj)
+    if (nullptr == pIspMemObj)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "Memory Object allocation failed");
         return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -164,14 +164,14 @@ cl_dev_err_code ISPMemoryAllocator::CreateMemoryObject(cl_dev_subdevice_id IN no
 ISPMemoryObject::ISPMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor,
     cl_mem_flags memFlags, IOCLDevRTMemObjectService* pRTMemObjService) :
 m_iLogHandle(iLogHandle), m_pLogDescriptor(pLogDescriptor),
-m_memFlags(memFlags), m_pRTMemObjService(pRTMemObjService), m_pBackingStore(NULL)
+m_memFlags(memFlags), m_pRTMemObjService(pRTMemObjService), m_pBackingStore(nullptr)
 {
     memset(&m_objDescriptor, 0, sizeof(m_objDescriptor));
 }
 
 ISPMemoryObject::~ISPMemoryObject()
 {
-    if (NULL != m_pBackingStore)
+    if (nullptr != m_pBackingStore)
     {
         m_pBackingStore->RemovePendency();
     }
@@ -181,7 +181,7 @@ cl_dev_err_code ISPMemoryObject::Init(cl_uint dimCount, const size_t* dim, const
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Initializing memory object enter"));
 
-    if (MAX_WORK_DIM < dimCount || NULL == dim)
+    if (MAX_WORK_DIM < dimCount || nullptr == dim)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid parameters"));
         return CL_DEV_INVALID_VALUE;
@@ -199,17 +199,17 @@ cl_dev_err_code ISPMemoryObject::Init(cl_uint dimCount, const size_t* dim, const
             m_objDescriptor.dimensions.dim[i] = (unsigned int) dim[i];
         }
     }
-    if (NULL != pImgFormat)
+    if (nullptr != pImgFormat)
     {
         m_objDescriptor.format = *pImgFormat;
     }
 
     //assert(NULL != m_pCameraShim && "ISP Memory object cannot be created without Camera Service");
-    assert(NULL != m_pRTMemObjService && "ISP Memory object cannot be created without RT memory object service");
+    assert(nullptr != m_pRTMemObjService && "ISP Memory object cannot be created without RT memory object service");
 
     // Get only if there is available backing store.
     cl_dev_err_code err = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-    if (CL_DEV_FAILED(err) || NULL == m_pBackingStore)
+    if (CL_DEV_FAILED(err) || nullptr == m_pBackingStore)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Getting the backing store from RT has failed"));
         return CL_DEV_ERROR_FAIL;
@@ -221,7 +221,7 @@ cl_dev_err_code ISPMemoryObject::Init(cl_uint dimCount, const size_t* dim, const
     m_objDescriptor.pData = m_pBackingStore->GetRawData();
     m_objDescriptor.uiElementSize = m_pBackingStore->GetElementSize();
     // TODO: image support
-    m_objDescriptor.imageAuxData = NULL;
+    m_objDescriptor.imageAuxData = nullptr;
     m_objDescriptor.memObjType = m_pRTMemObjService->GetMemObjectType();
 
     return CL_DEV_SUCCESS;
@@ -262,7 +262,7 @@ cl_dev_err_code ISPMemoryObject::clDevMemObjReleaseMappedRegion(cl_dev_cmd_param
 cl_dev_err_code ISPMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjGetDescriptor enter"));
-    assert(NULL != handle && "Invalid parameter for returned descriptor");
+    assert(nullptr != handle && "Invalid parameter for returned descriptor");
     assert(0 == node_id && "Subdevices feature is currently not supported");
 
     *handle = (void*) (&m_objDescriptor);
@@ -275,7 +275,7 @@ cl_dev_err_code ISPMemoryObject::clDevMemObjCreateSubObject(cl_mem_flags memFlag
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjCreateSubObject enter"));
 
     ISPMemorySubObject* pIspSubObject = new ISPMemorySubObject(m_iLogHandle, m_pLogDescriptor, memFlags, pRTMemObjService);
-    if (NULL == pIspSubObject)
+    if (nullptr == pIspSubObject)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "Memory Object allocation failed");
         return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -289,7 +289,7 @@ cl_dev_err_code ISPMemoryObject::clDevMemObjCreateSubObject(cl_mem_flags memFlag
         return retCode;
     }
 
-    assert (NULL != pSubObject && "Invalid parameter for returned sub-buffer");
+    assert (nullptr != pSubObject && "Invalid parameter for returned sub-buffer");
     *pSubObject = pIspSubObject;
 
     return CL_DEV_SUCCESS;
@@ -298,7 +298,7 @@ cl_dev_err_code ISPMemoryObject::clDevMemObjCreateSubObject(cl_mem_flags memFlag
 cl_dev_err_code ISPMemoryObject::clDevMemObjUpdateBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
     // Update from Device to BackingStore
     // But, since device uses same memory as backing store no need to copy
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
@@ -308,7 +308,7 @@ cl_dev_err_code ISPMemoryObject::clDevMemObjUpdateBackingStore(void* operation_h
 cl_dev_err_code ISPMemoryObject::clDevMemObjUpdateFromBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
     // Update from BackingStore to Device
     // But, since device uses same memory as backing store no need to copy
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
@@ -344,7 +344,7 @@ cl_dev_err_code ISPMemorySubObject::Init(ISPMemoryObject* parent, const size_t* 
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Initializing sub memory object enter"));
 
-    if (NULL == parent || NULL == origin || NULL == size)
+    if (nullptr == parent || nullptr == origin || nullptr == size)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid parameters"));
         return CL_DEV_INVALID_VALUE;
@@ -369,9 +369,9 @@ cl_dev_err_code ISPMemorySubObject::Init(ISPMemoryObject* parent, const size_t* 
     }
 
     // Get backing store
-    assert(NULL != m_pRTMemObjService && "ISP Memory object cannot be created without RT memory object service");
+    assert(nullptr != m_pRTMemObjService && "ISP Memory object cannot be created without RT memory object service");
     cl_dev_err_code err = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-    if (CL_DEV_FAILED(err) || NULL == m_pBackingStore)
+    if (CL_DEV_FAILED(err) || nullptr == m_pBackingStore)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Getting the backing store from RT has failed"));
         return CL_DEV_ERROR_FAIL;

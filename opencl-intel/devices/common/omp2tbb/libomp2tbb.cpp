@@ -29,7 +29,7 @@
 
 #include <tbb/task_scheduler_init.h>
 
-omp2tbb::global_thread_table* omp2tbb::g_thread_info = NULL;
+omp2tbb::global_thread_table* omp2tbb::g_thread_info = nullptr;
 
 THREAD_LOCAL int t_max_concurency = -1;
 
@@ -47,7 +47,7 @@ kmp_int32 omp2tbb::global_thread_table::allocate_master_thread()
 omp2tbb::global_thread_table::thread_info_entry::thread_info_entry() :
      my_concurrency(0), my_barrier_epoch(0)
 {
-    my_last_single_location = NULL;
+    my_last_single_location = nullptr;
     my_single_count = 0;
     my_critical = new tbb::critical_section();
     my_barrier_count = 0;
@@ -55,7 +55,7 @@ omp2tbb::global_thread_table::thread_info_entry::thread_info_entry() :
 
 omp2tbb::global_thread_table::thread_info_entry::thread_info_entry(const omp2tbb::global_thread_table::thread_info_entry& o)
 {
-    my_last_single_location = NULL;
+    my_last_single_location = nullptr;
     my_single_count = 0;
     my_critical = new tbb::critical_section();
     my_barrier_count = 0;

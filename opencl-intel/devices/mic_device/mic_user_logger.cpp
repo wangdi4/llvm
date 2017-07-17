@@ -85,7 +85,7 @@ MicUserLogger::MicUserLogger()
 
 MicUserLogger::~MicUserLogger()
 {
-    m_stderrListenerThread.Terminate(NULL);
+    m_stderrListenerThread.Terminate(nullptr);
     m_stderrListenerThread.Join();
     RestoreStderr();
 }
@@ -143,19 +143,19 @@ void MicUserLogger::StderrListerenerThread::HandleLogMessage(FILE* pipeFile)
 RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()
 {
     FILE* pipeFile = fdopen(m_pLogger->m_pipeReadEnd, "r");
-    if (NULL == pipeFile) { m_pLogger->ListenerThreadError(); return NULL; }
+    if (nullptr == pipeFile) { m_pLogger->ListenerThreadError(); return NULL; }
 
     const string prefix(STDERR_LOG_PREFIX);
     while (true)
     {
         int c = fgetc(pipeFile);
-        if (EOF == c) { m_pLogger->ListenerThreadError(); return NULL; }
+        if (EOF == c) { m_pLogger->ListenerThreadError(); return nullptr; }
         size_t i = 0;
         while (c == prefix[i])
         {
             assert(i < prefix.size());
             c = fgetc(pipeFile);
-            if (EOF == c) { m_pLogger->ListenerThreadError(); return NULL; }
+            if (EOF == c) { m_pLogger->ListenerThreadError(); return nullptr; }
             ++i;
             if (prefix.size() == i)
             {
@@ -170,7 +170,7 @@ RETURN_TYPE_ENTRY_POINT MicUserLogger::StderrListerenerThread::Run()
         const char ch = c;    // what if we have to support big-endian for some reason?!
         write(m_pLogger->m_dupStderr, &ch, 1);
     }
-    return NULL;
+    return nullptr;
 }
 
 // IOError methods:

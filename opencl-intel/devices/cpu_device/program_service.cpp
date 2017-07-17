@@ -59,12 +59,12 @@ ProgramService::ProgramService(cl_int devId,
                                CPUDeviceConfig *config,
                                ICLDevBackendServiceFactory* pBackendFactory) :
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
-    m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(NULL),
-    m_pBackendExecutor(NULL), m_pBackendImageService(NULL), m_pCPUConfig(config)
+    m_pCallBacks(devCallbacks), m_pBackendFactory(pBackendFactory), m_pBackendCompiler(nullptr),
+    m_pBackendExecutor(nullptr), m_pBackendImageService(nullptr), m_pCPUConfig(config)
 {
     assert(m_pBackendFactory && "getting backend factory assumed to allways succeed if initialization has succeeded");
 
-    if ( NULL != logDesc )
+    if ( nullptr != logDesc )
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: Program Service", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -119,14 +119,14 @@ cl_dev_err_code ProgramService::Init()
     ProgramConfig programConfig;
     programConfig.InitFromCpuConfig(*m_pCPUConfig);
 
-    ICLDevBackendCompilationService* pCompiler = NULL;
+    ICLDevBackendCompilationService* pCompiler = nullptr;
     cl_dev_err_code ret = m_pBackendFactory->GetCompilationService(&programConfig, &pCompiler);
     if( CL_DEV_FAILED(ret) )
     {
         return ret;
     }
 
-    ICLDevBackendImageService* pImageService = NULL;
+    ICLDevBackendImageService* pImageService = nullptr;
     ret = m_pBackendFactory->GetImageService(&programConfig, &pImageService);
     if( CL_DEV_FAILED(ret) )
     {
@@ -134,7 +134,7 @@ cl_dev_err_code ProgramService::Init()
         return ret;
     }
 
-    ICLDevBackendExecutionService* pExecutor = NULL;
+    ICLDevBackendExecutionService* pExecutor = nullptr;
     ret = m_pBackendFactory->GetExecutionService(&programConfig, &pExecutor);
     if( CL_DEV_FAILED(ret) )
     {
@@ -198,13 +198,13 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateProgram enter"));
 
     // Input parameters validation
-    if(0 == binSize || NULL == bin)
+    if(0 == binSize || nullptr == bin)
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid binSize or bin parameters"));
         return CL_DEV_INVALID_VALUE;
     }
 
-    if ( NULL == prog )
+    if ( nullptr == prog )
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid prog parameter"));
         return CL_DEV_INVALID_VALUE;
@@ -224,14 +224,14 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     // Create new program
     TProgramEntry*  pEntry      = new TProgramEntry;
-    if ( NULL == pEntry )
+    if ( nullptr == pEntry )
     {
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cann't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
     }
 
 	pEntry->programType = PTCompiledProgram;
-    pEntry->pProgram = NULL;
+    pEntry->pProgram = nullptr;
     pEntry->clBuildStatus = CL_BUILD_NONE;
 
     cl_dev_err_code ret;
@@ -266,7 +266,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 	}
 
     TProgramEntry*  pEntry = new TProgramEntry;
-    if ( NULL == pEntry )
+    if ( nullptr == pEntry )
     {
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate new handle"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -275,7 +275,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 	pEntry->programType = PTBuiltInProgram;
     pEntry->pProgram = pProg;
 	pEntry->clBuildStatus = CL_BUILD_SUCCESS;
-	assert(NULL!=prog&&"prog expected to be valid pointer");
+	assert(nullptr!=prog&&"prog expected to be valid pointer");
 	*prog = (cl_dev_program)pEntry;
 	return CL_DEV_SUCCESS;
 }
@@ -305,7 +305,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
-    const char *p = NULL;
+    const char *p = nullptr;
 
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("BuildProgram enter"));
 
@@ -338,7 +338,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Starting build"));
 
-    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, NULL);
+    cl_dev_err_code ret = m_pBackendCompiler->BuildProgram(pEntry->pProgram, nullptr);
 
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("Build Done (%d)"), ret);
 
@@ -346,8 +346,8 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     pEntry->clBuildStatus = status;
 
     // if the user requested -dump-opt-asm, emit the asm of this module into a file
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
-        (NULL != (p = strstr(options, "-dump-opt-asm="))))
+    if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
+        (nullptr != (p = strstr(options, "-dump-opt-asm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
@@ -356,15 +356,15 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     }
 
     // if the user requested -dump-opt-llvm, print the IR of this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
-        (NULL != (p = strstr(options, "-dump-opt-llvm="))))
+    if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
+        (nullptr != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
         ProgramDumpConfig dumpOptions(p);
         m_pBackendCompiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
 
-    if ( NULL != buildStatus )
+    if ( nullptr != buildStatus )
     {
         *buildStatus = status;
     }
@@ -442,23 +442,23 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
     ICLDevBackendProgram_ *pProg = pEntry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
-    if ( NULL == pCodeContainer )
+    if ( nullptr == pCodeContainer )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     size_t stSize = pCodeContainer->GetCodeSize();
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         *sizeRet = stSize;
     }
 
-    if ( (0 == size) && (NULL == binary) )
+    if ( (0 == size) && (nullptr == binary) )
     {
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL == binary) || (size < stSize) )
+    if ( (nullptr == binary) || (size < stSize) )
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -482,9 +482,9 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 
     size_t  stLogSize = strlen(pLog) + 1;
 
-    if ( (0 == size) && (NULL == log) )
+    if ( (0 == size) && (nullptr == log) )
     {
-        if ( NULL == sizeRet )
+        if ( nullptr == sizeRet )
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -492,14 +492,14 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL == log) || (size < stLogSize) )
+    if ( (nullptr == log) || (size < stLogSize) )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     MEMCPY_S( log, size, pLog, stLogSize);
 
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         *sizeRet = stLogSize;
     }
@@ -527,18 +527,18 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
                                        )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetSupportedBinaries enter"));
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         // TODO: Create supported list
         *sizeRet = sizeof(gSupportedBinTypes);
     }
 
-    if ( (0 == size) && (NULL == types) )
+    if ( (0 == size) && (nullptr == types) )
     {
         return CL_DEV_SUCCESS;
     }
 
-    if( (NULL == types) || (size < sizeof(gSupportedBinTypes)))
+    if( (nullptr == types) || (size < sizeof(gSupportedBinTypes)))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -554,7 +554,7 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelId enter"));
 
-    if ( (NULL == name) || (NULL == kernelId) )
+    if ( (nullptr == name) || (nullptr == kernelId) )
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -620,9 +620,9 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     cl_dev_err_code         iRet;
 
     // Check input parameters
-    if ( (0==num_kernels) && (NULL==kernels) )
+    if ( (0==num_kernels) && (nullptr==kernels) )
     {
-        if ( NULL == numKernelsRet )
+        if ( nullptr == numKernelsRet )
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -631,7 +631,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL==kernels) || (num_kernels < uiNonBlockProgKernels) )
+    if ( (nullptr==kernels) || (num_kernels < uiNonBlockProgKernels) )
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -674,7 +674,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         kernels[ret_kernel_idx++] = (cl_dev_kernel)&(pEntry->mapKernels[szKernelName]);
     }
 
-    if ( NULL != numKernelsRet )
+    if ( nullptr != numKernelsRet )
     {
         *numKernelsRet = uiNonBlockProgKernels;
     }
@@ -825,7 +825,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         return CL_DEV_INVALID_VALUE;
     }
 
-    if (NULL != value && value_size < stValSize)
+    if (nullptr != value && value_size < stValSize)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -835,9 +835,9 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         *valueSizeRet = stValSize;
     }
 
-    if ( NULL != value )
+    if ( nullptr != value )
     {
-        if ( NULL != pValue )
+        if ( nullptr != pValue )
         {
             MEMCPY_S(value, value_size, pValue, stValSize);
         } else {
@@ -854,7 +854,7 @@ cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN pr
 
     // Return error if program was not built yet.
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
-    if( NULL == pEntry )
+    if( nullptr == pEntry )
     {
         CpuInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -880,7 +880,7 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
         return CL_DEV_INVALID_VALUE;
     }
 
-    if(0 == numEntries && NULL != formats)
+    if(0 == numEntries && nullptr != formats)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -888,12 +888,12 @@ cl_dev_err_code ProgramService::GetSupportedImageFormats( cl_mem_flags IN flags,
     unsigned int uiNumEntries;
     const cl_image_format* supportedImageFormats = m_pBackendImageService->GetSupportedImageFormats(&uiNumEntries, imageType, flags);
 
-	if(NULL != formats)
+	if(nullptr != formats)
     {
 		uiNumEntries = min(uiNumEntries, numEntries);
         MEMCPY_S(formats, numEntries * sizeof(cl_image_format), supportedImageFormats, uiNumEntries * sizeof(cl_image_format));
     }
-    if(NULL != numEntriesRet)
+    if(nullptr != numEntriesRet)
     {
         *numEntriesRet = uiNumEntries;
     }

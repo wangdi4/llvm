@@ -43,7 +43,7 @@ extern "C" LIBOMP2TBB_API void __kmpc_end_critical (ident_t* loc, kmp_int32 glob
 extern "C" LIBOMP2TBB_API kmp_int32 __kmpc_single (ident_t* loc, kmp_int32 global_tid)
 {
     omp2tbb::global_thread_table::thread_info_entry* entry = omp2tbb::g_thread_info->get_master_entry( global_tid );
-    ident_t* old_loc = NULL;
+    ident_t* old_loc = nullptr;
     long prev = -1;
 
     // We assume implicit barrier after "omp single". This means that all threads will go through this point before reaching the barrier
@@ -52,7 +52,7 @@ extern "C" LIBOMP2TBB_API kmp_int32 __kmpc_single (ident_t* loc, kmp_int32 globa
 
     // When all threads reached this region we can reset appearance
     if ( prev == entry->my_concurrency ) {
-        entry->my_last_single_location = NULL;
+        entry->my_last_single_location = nullptr;
     }
 
     // Return true only if previous location is difference then current

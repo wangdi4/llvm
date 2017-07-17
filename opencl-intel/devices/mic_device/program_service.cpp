@@ -73,7 +73,7 @@ ProgramService::ProgramService(cl_int devId, IOCLFrameworkCallbacks *devCallback
     m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0),
     m_pCallBacks(devCallbacks)
 {
-    if ( NULL != logDesc )
+    if ( nullptr != logDesc )
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "MIC Device: Program Service", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -135,14 +135,14 @@ void MICBackendOptions::init( bool bUseVectorizer, bool bUseVtune )
 
 void MICBackendOptions::init_cl_options ( const char *options) {
   const char *p;
-  if( (NULL != options) && ('\0' != *options) )
+  if( (nullptr != options) && ('\0' != *options) )
   {
-    if (NULL != (p = strstr(options, "-dump-opt-asm=")))
+    if (nullptr != (p = strstr(options, "-dump-opt-asm=")))
     {
       init_for_dump(p);
     }
     const char* opt_prefetch_level = "-auto-prefetch-level=";
-    if (NULL != (p = strstr(options, opt_prefetch_level)))
+    if (nullptr != (p = strstr(options, opt_prefetch_level)))
     {
        init_for_apf_level(p+strlen(opt_prefetch_level));
     }
@@ -165,7 +165,7 @@ void MICBackendOptions::init_for_dump( const char* options )
 void MICBackendOptions::init_for_apf_level( const char *p )
 {
   // verify option correctness
-  if (p == NULL)
+  if (p == nullptr)
   {
     return;
   }
@@ -245,9 +245,9 @@ int MICBackendOptions::getTargetDescriptionSize( void ) const
     //   get  Value filled  size in the output_data - uint64_t. If filled size in 0 - error
     ok = m_dev_service.runServiceFunction(
                                 DeviceServiceCommunication::GET_BACKEND_TARGET_DESCRIPTION_SIZE,
-                                0, NULL,                             // input_data
+                                0, nullptr,                             // input_data
                                 sizeof(uint64_t), &size,             // ouput_data
-                                0, NULL, NULL);                      // buffers passed
+                                0, nullptr, nullptr);                      // buffers passed
 
     assert( ok && "Cannot run Device Function to get BE options size" );
     assert( size > 0 && "GET_BACKEND_OPTIONS_SIZE in device returned 0 length!" );
@@ -269,9 +269,9 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     uint64_t            original_size = *pSize;
     COIPROCESS          in_pProcesses[] = { m_dev_service.getDeviceProcessHandle() };
 
-    assert( (NULL != in_pProcesses[0]) && "Device process disappeared" );
+    assert( (nullptr != in_pProcesses[0]) && "Device process disappeared" );
 
-    if (NULL == in_pProcesses[0])
+    if (nullptr == in_pProcesses[0])
     {
          return false;
     }
@@ -297,7 +297,7 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     //   get  Value data in the coi_buffer
     ok = m_dev_service.runServiceFunction(
                                 DeviceServiceCommunication::GET_BACKEND_TARGET_DESCRIPTION,
-                                0, NULL,                             // input_data
+                                0, nullptr,                             // input_data
                                 sizeof(uint64_t), &filled_size,      // ouput_data
                                 1, &coi_buffer, &coi_access);        // buffers passed
 
@@ -308,7 +308,7 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
     if (ok && (0 != filled_size))
     {
         // map buffer to get results
-        coi_err = COIBufferMap(coi_buffer, 0, *pSize, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &data_address );
+        coi_err = COIBufferMap(coi_buffer, 0, *pSize, COI_MAP_READ_ONLY, 0, nullptr, nullptr, &map_instance, &data_address );
         assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with BE options" );
         assert( ((size_t)Value == (size_t)data_address) && "COIBufferMap did not return original data pointer for buffer from memory" );
 
@@ -318,7 +318,7 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
         }
 
         // unmap buffer back - data should remain in the original memory
-        coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
+        coi_err = COIBufferUnmap( map_instance, 0, nullptr, nullptr );
         assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with BE options" );
     }
 
@@ -337,7 +337,7 @@ bool MICBackendOptions::getTargetDescription( void* Value, size_t* pSize) const
 inline
 ICLDevBackendCompilationService* ProgramService::GetCompilationService(void)
 {
-    if (NULL == m_BE_Compiler.pCompilationService)
+    if (nullptr == m_BE_Compiler.pCompilationService)
     {
         LoadBackendServices();
     }
@@ -348,7 +348,7 @@ ICLDevBackendCompilationService* ProgramService::GetCompilationService(void)
 inline
 ICLDevBackendSerializationService* ProgramService::GetSerializationService(void)
 {
-    if (NULL == m_BE_Compiler.pSerializationService)
+    if (nullptr == m_BE_Compiler.pSerializationService)
     {
         LoadBackendServices();
     }
@@ -362,10 +362,10 @@ bool ProgramService::LoadBackendServices(void)
     bool            ok = false;
 
     // local variables invisible to other threads
-    ICLDevBackendCompilationService*    comp_temp = NULL;
-    ICLDevBackendSerializationService*  ser_temp = NULL;
+    ICLDevBackendCompilationService*    comp_temp = nullptr;
+    ICLDevBackendSerializationService*  ser_temp = nullptr;
 
-    if (NULL != m_BE_Compiler.pCompilationService)
+    if (nullptr != m_BE_Compiler.pCompilationService)
     {
         return true;
     }
@@ -376,7 +376,7 @@ bool ProgramService::LoadBackendServices(void)
         OclAutoMutex lock(&m_BE_Compiler.creationLock);
 
         // check once more
-        if (NULL != m_BE_Compiler.pCompilationService)
+        if (nullptr != m_BE_Compiler.pCompilationService)
         {
             ok = true;
             break;
@@ -385,7 +385,7 @@ bool ProgramService::LoadBackendServices(void)
         // load Backend Compiler
         ICLDevBackendServiceFactory* be_factory = m_BE_Compiler.be_wrapper.GetBackendFactory();
 
-        if (NULL == be_factory)
+        if (nullptr == be_factory)
         {
             assert( false && "MIC Device Agent cannot create BE Factory" );
             MicCriticLog(m_pLogDescriptor, m_iLogHandle, "%s", "MIC Device Agent cannot create BE Factory");
@@ -429,12 +429,12 @@ bool ProgramService::LoadBackendServices(void)
 
     if (!ok)
     {
-        if (NULL != comp_temp)
+        if (nullptr != comp_temp)
         {
             comp_temp->Release();
         }
 
-        if (NULL != ser_temp)
+        if (nullptr != ser_temp)
         {
             ser_temp->Release();
         }
@@ -451,13 +451,13 @@ void ProgramService::ReleaseBackendServices(void)
     if (m_BE_Compiler.pSerializationService)
     {
         m_BE_Compiler.pSerializationService->Release();
-        m_BE_Compiler.pSerializationService = NULL;
+        m_BE_Compiler.pSerializationService = nullptr;
     }
 
     if (m_BE_Compiler.pCompilationService)
     {
         m_BE_Compiler.pCompilationService->Release();
-        m_BE_Compiler.pCompilationService = NULL;
+        m_BE_Compiler.pCompilationService = nullptr;
     }
 
     m_BE_Compiler.be_wrapper.Terminate();
@@ -521,13 +521,13 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "CreateProgram enter");
 
     // Input parameters validation
-    if(0 == binSize || NULL == bin)
+    if(0 == binSize || nullptr == bin)
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "Invalid binSize or bin parameters");
         return CL_DEV_INVALID_VALUE;
     }
 
-    if ( NULL == prog )
+    if ( nullptr == prog )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "Invalid prog parameter");
         return CL_DEV_INVALID_VALUE;
@@ -547,7 +547,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     // Create new program
     TProgramEntry*                  pEntry    = new TProgramEntry(m_iDevId);
-    if ( NULL == pEntry )
+    if ( nullptr == pEntry )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Cann't allocate program entry");
         return CL_DEV_OUT_OF_MEMORY;
@@ -555,7 +555,7 @@ cl_dev_err_code ProgramService::CreateProgram( size_t IN binSize,
 
     cl_dev_err_code ret;
     ICLDevBackendCompilationService* compiler = GetCompilationService();
-    if (NULL == compiler)
+    if (nullptr == compiler)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "Cannot load compilation service", "");
         return CL_DEV_OUT_OF_MEMORY;
@@ -591,7 +591,7 @@ cl_dev_err_code ProgramService::CreateBuiltInKernelProgram( const char* IN szBui
 
     // Allocate new entry for just created program
     TProgramEntry*                  pEntry    = new TProgramEntry(m_iDevId);
-    if ( NULL == pEntry )
+    if ( nullptr == pEntry )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Cann't allocate program entry");
         return CL_DEV_OUT_OF_MEMORY;
@@ -604,7 +604,7 @@ cl_dev_err_code ProgramService::CreateBuiltInKernelProgram( const char* IN szBui
     pEntry->clBuildStatus = CL_BUILD_SUCCESS;
     pEntry->pProgram = pProg;
 
-	assert(NULL!=prog && "prog expected to be valid pointer");
+	assert(nullptr!=prog && "prog expected to be valid pointer");
 	*prog = (cl_dev_program)pEntry;
 	return CL_DEV_SUCCESS;
 }
@@ -633,13 +633,13 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
                                     cl_build_status* OUT buildStatus
                                    )
 {
-    const char *p = NULL;
+    const char *p = nullptr;
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "BuildProgram enter");
 
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if (NULL == pEntry)
+    if (nullptr == pEntry)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -680,7 +680,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cl_build_status status = CL_BUILD_ERROR;
     cl_dev_err_code ret    = CL_DEV_OUT_OF_MEMORY;
 
-    if (NULL != compiler)
+    if (nullptr != compiler)
     {
         MICBackendOptions buildOptions( m_DevService);
         buildOptions.init_cl_options (options);
@@ -704,8 +704,8 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cmdTracer.set_current_time_command_host_time_end();
 
     // if the user requested -dump-opt-llvm, print this module
-    if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
-        (NULL != (p = strstr(options, "-dump-opt-llvm="))))
+    if( CL_DEV_SUCCEEDED(ret) && (nullptr != options) && ('\0' != *options) &&
+        (nullptr != (p = strstr(options, "-dump-opt-llvm="))))
     {
         assert( pEntry->pProgram && "Program must be created already");
 
@@ -715,7 +715,7 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
         compiler->DumpCodeContainer( pEntry->pProgram->GetProgramIRCodeContainer(), &dumpOptions);
     }
 
-    if ( NULL != buildStatus )
+    if ( nullptr != buildStatus )
     {
         *buildStatus = status;
     }
@@ -742,7 +742,7 @@ cl_dev_err_code ProgramService::ReleaseProgram( cl_dev_program IN prog )
 
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if (NULL == pEntry)
+    if (nullptr == pEntry)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -801,7 +801,7 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
 
     TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if( NULL == entry )
+    if( nullptr == entry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -810,23 +810,23 @@ cl_dev_err_code ProgramService::GetProgramBinary( cl_dev_program IN prog,
     ICLDevBackendProgram_ *pProg = entry->pProgram;
 
     const ICLDevBackendCodeContainer* pCodeContainer = pProg->GetProgramCodeContainer();
-    if ( NULL == pCodeContainer )
+    if ( nullptr == pCodeContainer )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     size_t stSize = pCodeContainer->GetCodeSize();
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         *sizeRet = stSize;
     }
 
-    if ( (0 == size) && (NULL == binary) )
+    if ( (0 == size) && (nullptr == binary) )
     {
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL == binary) || (size < stSize) )
+    if ( (nullptr == binary) || (size < stSize) )
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -845,7 +845,7 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 
     TProgramEntry* entry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if( NULL == entry )
+    if( nullptr == entry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -857,9 +857,9 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
 
     size_t  stLogSize = strlen(pLog) + 1;
 
-    if ( (0 == size) && (NULL == log) )
+    if ( (0 == size) && (nullptr == log) )
     {
-        if ( NULL == sizeRet )
+        if ( nullptr == sizeRet )
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -867,14 +867,14 @@ cl_dev_err_code ProgramService::GetBuildLog( cl_dev_program IN prog,
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL == log) || (size < stLogSize) )
+    if ( (nullptr == log) || (size < stLogSize) )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     MEMCPY_S( log, size, pLog, stLogSize);
 
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         *sizeRet = stLogSize;
     }
@@ -902,18 +902,18 @@ cl_dev_err_code ProgramService::GetSupportedBinaries( size_t IN size,
                                        )
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetSupportedBinaries enter");
-    if ( NULL != sizeRet )
+    if ( nullptr != sizeRet )
     {
         // TODO: Create supported list
         *sizeRet = sizeof(gSupportedBinTypes);
     }
 
-    if ( (0 == size) && (NULL == types) )
+    if ( (0 == size) && (nullptr == types) )
     {
         return CL_DEV_SUCCESS;
     }
 
-    if( (NULL == types) || (size < sizeof(gSupportedBinTypes)))
+    if( (nullptr == types) || (size < sizeof(gSupportedBinTypes)))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -928,14 +928,14 @@ cl_dev_err_code ProgramService::GetKernelId( cl_dev_program IN prog, const char*
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "GetKernelId enter");
 
-    if ( (NULL == name) || (NULL == kernelId) )
+    if ( (nullptr == name) || (nullptr == kernelId) )
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if( NULL == pEntry )
+    if( nullptr == pEntry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -968,7 +968,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
 
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
 
-    if( NULL == pEntry )
+    if( nullptr == pEntry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -982,9 +982,9 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
     size_t const uiNumProgKernels = pEntry->mapName2Kernels.size();
 
     // Check input parameters
-    if ( (0==num_kernels) && (NULL==kernels) )
+    if ( (0==num_kernels) && (nullptr==kernels) )
     {
-        if ( NULL == numKernelsRet )
+        if ( nullptr == numKernelsRet )
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -993,7 +993,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         return CL_DEV_SUCCESS;
     }
 
-    if ( (NULL==kernels) || (num_kernels < uiNumProgKernels) )
+    if ( (nullptr==kernels) || (num_kernels < uiNumProgKernels) )
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1008,7 +1008,7 @@ cl_dev_err_code ProgramService::GetProgramKernels( cl_dev_program IN prog, cl_ui
         kernels[i] = (cl_dev_kernel)kern_it->second;
     }
 
-    if ( NULL != numKernelsRet )
+    if ( nullptr != numKernelsRet )
     {
         *numKernelsRet = uiNumProgKernels;
     }
@@ -1023,7 +1023,7 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
 
     const TKernelEntry* k_entry = (TKernelEntry*)kernel;
 
-    if (NULL == k_entry)
+    if (nullptr == k_entry)
     {
         assert ( 0 && "Got NULL kernel_id from the runtime");
         return CL_DEV_INVALID_VALUE;
@@ -1113,19 +1113,19 @@ cl_dev_err_code ProgramService::GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_k
         return CL_DEV_INVALID_VALUE;
     }
 
-    if ( NULL != value && value_size < stValSize )
+    if ( nullptr != value && value_size < stValSize )
     {
             return CL_DEV_INVALID_VALUE;
     }
 
-    if ( NULL != valueSizeRet )
+    if ( nullptr != valueSizeRet )
     {
         *valueSizeRet = stValSize;
     }
 
-    if ( NULL != value )
+    if ( nullptr != value )
     {
-        if ( NULL != pValue )
+        if ( nullptr != pValue )
         {
             memcpy(value, pValue, stValSize);
         } else {
@@ -1142,7 +1142,7 @@ cl_dev_err_code ProgramService::GetGlobalVariableTotalSize( cl_dev_program IN pr
 
     // Return error if program was not built yet.
     TProgramEntry* pEntry = reinterpret_cast<TProgramEntry*>(prog);
-    if( NULL == pEntry )
+    if( nullptr == pEntry )
     {
         MicInfoLog(m_pLogDescriptor, m_iLogHandle, "Requested program not found (%0X)", (size_t)prog);
         return CL_DEV_INVALID_PROGRAM;
@@ -1207,7 +1207,7 @@ bool ProgramService::BuildKernelData(TProgramEntry* pEntry)
     COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT* output = (COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT*)STACK_ALLOC( required_output_struct_size );
 
     assert( output && "Cannot allocate space using alloca()" );
-    if (NULL == output)
+    if (nullptr == output)
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "MICDevice: Program Service failed to allocate space on stack.", "");
         STACK_FREE(output);
@@ -1251,15 +1251,15 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
     cl_dev_err_code     be_err;
     COIRESULT           coi_err;
-    COIBUFFER           coi_buffer_prog = NULL, cio_buffer_output = NULL;
-    COIMAPINSTANCE      map_instance = NULL;
+    COIBUFFER           coi_buffer_prog = nullptr, cio_buffer_output = nullptr;
+    COIMAPINSTANCE      map_instance = nullptr;
 
     do {
         COIPROCESS          in_pProcesses[] = { m_DevService.getDeviceProcessHandle() };
 
-        assert( (NULL != in_pProcesses[0]) && "Device process disappeared" );
+        assert( (nullptr != in_pProcesses[0]) && "Device process disappeared" );
 
-        if (NULL == in_pProcesses[0])
+        if (nullptr == in_pProcesses[0])
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "MICDevice: Device process disappeared");
             break;
@@ -1268,7 +1268,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         // 1. get required serialization buffer size
         ICLDevBackendSerializationService* serializer = GetSerializationService();
 
-        if (NULL == serializer)
+        if (nullptr == serializer)
         {
             MicErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "MICDevice: Cannot load Serialization Service");
             break;
@@ -1287,7 +1287,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         // 2. Create COI buffer for program serialization
         coi_err = COIBufferCreate( prog_blob_size,
                                    COI_BUFFER_NORMAL, COI_OPTIMIZE_SOURCE_WRITE|COI_OPTIMIZE_SINK_READ,
-                                   NULL,    // no init data
+                                   nullptr,    // no init data
                                    ARRAY_ELEMENTS(in_pProcesses), in_pProcesses,
                                    &coi_buffer_prog );
 
@@ -1306,8 +1306,8 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         // 3. Map COI buffer for program serialization
         coi_err = COIBufferMap( coi_buffer_prog,
                                 0, prog_blob_size, COI_MAP_WRITE_ENTIRE_BUFFER,
-                                0, NULL,            // no dependencies
-                                NULL,               // execute immediately
+                                0, nullptr,            // no dependencies
+                                nullptr,               // execute immediately
                                 &map_instance,
                                 &blob );
 
@@ -1342,7 +1342,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
         }
 
         // 5. Unmap serialization buffer
-        coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL ); // execute immediately
+        coi_err = COIBufferUnmap( map_instance, 0, nullptr, nullptr ); // execute immediately
 
         assert( COI_SUCCESS == coi_err  && "Unmap buffer for program serialization after it was filled" );
 
@@ -1398,7 +1398,7 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
 
         // map buffer to get results
         // Since buffer was created in-place we expect to have receive the same pointer value in blob.
-        coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, NULL, NULL, &map_instance, &blob );
+        coi_err = COIBufferMap(cio_buffer_output, 0, output_size, COI_MAP_READ_ONLY, 0, nullptr, nullptr, &map_instance, &blob );
         assert( (COI_SUCCESS == coi_err) && "COIBufferMap failed to map buffer with device kernels list" );
         assert( ((size_t)output == (size_t)blob) && "COIBufferMap did not return original data pointer for buffer from memory" );
 
@@ -1424,20 +1424,20 @@ bool ProgramService::CopyProgramToDevice( const ICLDevBackendProgram_* pProgram,
     } while (false);
 
     // unmap buffer back - data should remain in the original memory
-    if (NULL != map_instance)
+    if (nullptr != map_instance)
     {
-        coi_err = COIBufferUnmap( map_instance, 0, NULL, NULL );
+        coi_err = COIBufferUnmap( map_instance, 0, nullptr, nullptr );
         assert( (COI_SUCCESS == coi_err) && "COIBufferUnmap failed to unmap buffer with device kernels list" );
     }
 
     // remove COI Buffer structure - data should remain in the original buffer
-    if (NULL != coi_buffer_prog)
+    if (nullptr != coi_buffer_prog)
     {
         coi_err = COIBufferDestroy( coi_buffer_prog );
         assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with serialized program" );
     }
 
-    if (NULL != cio_buffer_output)
+    if (nullptr != cio_buffer_output)
     {
         coi_err = COIBufferDestroy( cio_buffer_output );
         assert( (COI_SUCCESS == coi_err) && "COIBufferDestroy failed to destroy buffer with device kernels list" );
@@ -1474,7 +1474,7 @@ cl_dev_err_code ProgramService::CreateBuiltinProgramOnDevice(TProgramEntry* pEnt
                                     DeviceServiceCommunication::CREATE_BUILT_IN_PROGRAM,
                                     sizeOfNames+1, szBuiltInNames,                          // input_data
                                     required_output_struct_size, output,                    // ouput_data
-                                    0, NULL, NULL);                                         // buffers passed
+                                    0, nullptr, nullptr);                                         // buffers passed
     if (!done || ( (uint64_t)kernelCount != output->filled_kernels) )
     {
         STACK_FREE(output);
@@ -1498,8 +1498,8 @@ bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
     for (unsigned int i = 0; i < devicePorgram->filled_kernels; ++i)
     {
         TKernelEntry* kernel_entry = new TKernelEntry;
-        assert( (NULL!=kernel_entry) && "Cannot allocate TKernelEntry structure" );
-        if ( NULL==kernel_entry )
+        assert( (nullptr!=kernel_entry) && "Cannot allocate TKernelEntry structure" );
+        if ( nullptr==kernel_entry )
         {
           MicErrLog(m_pLogDescriptor, m_iLogHandle,
               TEXT("%s"), "MICDevice: Failed to allocate TKernelEntry");
@@ -1513,7 +1513,7 @@ bool ProgramService::FillProgramEntry(const COPY_PROGRAM_TO_DEVICE_OUTPUT_STRUCT
         cl_dev_err_code err_code = pEntry->pProgram->GetKernel( i, &(kernel_entry->pKernel) );
         assert( CL_DEV_SUCCEEDED(err_code) && kernel_entry->pKernel );
 
-        if ( CL_DEV_SUCCEEDED(err_code) && (NULL != kernel_entry->pKernel) )
+        if ( CL_DEV_SUCCEEDED(err_code) && (nullptr != kernel_entry->pKernel) )
         {
             kernel_entry->uDevKernelEntry = info->device_info_ptr; // to be updated later
             // insert entry to the TKernelName2Entry map
@@ -1540,8 +1540,8 @@ bool ProgramService::RemoveProgramFromDevice( const TProgramEntry* pEntry )
     bool ok = m_DevService.runServiceFunction(
                                 DeviceServiceCommunication::REMOVE_PROGRAM_FROM_DEVICE,
                                 sizeof(uint64_t), &input,            // input_data
-                                0, NULL,                             // ouput_data
-                                0, NULL, NULL);                      // buffers passed
+                                0, nullptr,                             // ouput_data
+                                0, nullptr, nullptr);                      // buffers passed
 
     assert( ok && "Cannot run Device Function to remove program from device" );
 

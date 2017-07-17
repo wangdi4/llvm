@@ -279,7 +279,7 @@ public:
     
 protected:
     MICDevMemoryObject(MemoryAllocator& allocator) : m_Allocator(allocator),
-            m_nodeId(NULL), m_memFlags(0), m_coi_buffer(0) {}
+            m_nodeId(nullptr), m_memFlags(0), m_coi_buffer(0) {}
 
     MemoryAllocator&            m_Allocator;
 

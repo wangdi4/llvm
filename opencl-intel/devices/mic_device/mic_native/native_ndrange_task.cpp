@@ -65,7 +65,7 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
     ndrange_dispatcher_data* ndrangeDispatchData = (ndrange_dispatcher_data*)in_pMiscData;
 
     QueueOnDevice* pQueue = (QueueOnDevice*)(ndrangeDispatchData->deviceQueuePtr);
-    assert(NULL != pQueue && "pQueue must be valid");
+    assert(nullptr != pQueue && "pQueue must be valid");
 
 	cl_dev_err_code err = CL_DEV_SUCCESS;
 
@@ -99,13 +99,13 @@ void execute_command_ndrange(uint32_t        in_BufferCount,
 
 NDRangeTask::NDRangeTask( uint32_t lockBufferCount, void** pLockBuffers, ndrange_dispatcher_data* pDispatcherData, size_t uiDispatchSize, QueueOnDevice* pQueue ) :
     TaskHandler<NDRangeTask, ndrange_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue),
-      m_pKernel(NULL), m_pRunner(NULL), m_pKernelArgs(NULL), m_pUniformArgs(NULL),
+      m_pKernel(nullptr), m_pRunner(nullptr), m_pKernelArgs(nullptr), m_pUniformArgs(nullptr),
       m_flushAtExit(false), m_bSecureExecution(gMicExecEnvOptions.kernel_safe_mode)
 #ifdef ENABLE_MIC_TRACER
     ,m_tbb_perf_data(*this)
 #endif    
 #ifdef USE_ITT
-    ,m_pIttKernelName(NULL), m_pIttKernelDomain(NULL)
+    ,m_pIttKernelName(nullptr), m_pIttKernelDomain(nullptr)
 #endif
 {
 }
@@ -121,7 +121,7 @@ NDRangeTask::~NDRangeTask()
     if ( m_pKernelArgs != (((char*)m_pDispatcherData) + sizeof(ndrange_dispatcher_data)) )
     {
         Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pKernelArgs);
-        m_pKernelArgs = NULL;
+        m_pKernelArgs = nullptr;
     }
 }
 
@@ -145,7 +145,7 @@ if ( gMicGPAData.bUseGPA)
         m_pIttKernelName = ProgramService::get_itt_kernel_name(m_pDispatcherData->kernelAddress);
         m_pIttKernelDomain = ProgramService::get_itt_kernel_domain(m_pDispatcherData->kernelAddress);
         // Use kernel specific domain if possible, if not available switch to global domain
-        if ( NULL == m_pIttKernelDomain )
+        if ( nullptr == m_pIttKernelDomain )
         {
             m_pIttKernelDomain = gMicGPAData.pDeviceDomain;
         }
@@ -155,8 +155,8 @@ if ( gMicGPAData.bUseGPA)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NDRangeTask::PrepareTask()");
       }
@@ -167,8 +167,8 @@ if ( gMicGPAData.bUseGPA)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NDRangeTask::PrepareTask()::PatchKernelArguments");
       }
@@ -193,7 +193,7 @@ if ( gMicGPAData.bUseGPA)
         // Need to allocate properly aligned arguments
         size_t allocSize = argSize + sizeof(cl_uniform_kernel_args);
         void* pNewKernelArgs = Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedMalloc(allocSize, argAlignment);
-        if ( NULL== pNewKernelArgs )
+        if ( nullptr== pNewKernelArgs )
         {
             assert ( 0 && "Failed to allocate aligned kernel arguments buffer");
             return false;
@@ -207,7 +207,7 @@ if ( gMicGPAData.bUseGPA)
     {
         void** loc = (void**)(m_pKernelArgs+pParamInfo[pMemArgsInx[i]].offset_in_bytes);
         // Skip NULL buffers
-        if ( NULL == *loc )
+        if ( nullptr == *loc )
             continue;
         *loc = m_bufferPointers[currentLockedBuffer];
         currentLockedBuffer++;
@@ -279,7 +279,7 @@ if ( gMicGPAData.bUseGPA)
     }
 #endif
 
-	m_bufferPointers = NULL;
+	m_bufferPointers = nullptr;
 
     return true;
 }
@@ -350,15 +350,15 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #if defined(USE_ITT)
     if ( gMicGPAData.bUseGPA )
     {
-        __itt_frame_begin_v3(m_pIttKernelDomain, NULL);
+        __itt_frame_begin_v3(m_pIttKernelDomain, nullptr);
     }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NDRangeTask::Init()");
       }
@@ -421,9 +421,9 @@ int NDRangeTask::Init(size_t region[], unsigned int& regCount)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
+      static __thread __itt_string_handle* pTaskName = nullptr;
       master_id = GetThreadId();
-      if ( NULL == pTaskName )
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("TBB::Distribute_Work");
       }
@@ -463,8 +463,8 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("NDRangeTask::AttachToThread()");
         }
@@ -477,7 +477,7 @@ void* NDRangeTask::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGro
     if (CL_DEV_FAILED(error))
     {
         setTaskError( error );
-        return NULL;
+        return nullptr;
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
@@ -499,8 +499,8 @@ void NDRangeTask::DetachFromThread(void* pWgContext)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("NDRangeTask::DettachFromThread()");
         }
@@ -542,8 +542,8 @@ bool NDRangeTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContex
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("NDRangeTask::ExecuteIteration->jitExecWapper().Execute()");
       }
@@ -596,7 +596,7 @@ bool NDRangeTask::Finish(FINISH_REASON reason)
     if ( gMicGPAData.bUseGPA)
     {
         __itt_task_end(m_pIttKernelDomain);
-        __itt_frame_end_v3(m_pIttKernelDomain, NULL);
+        __itt_frame_end_v3(m_pIttKernelDomain, nullptr);
     }
 #endif
     return CL_DEV_SUCCEEDED( getTaskError() );

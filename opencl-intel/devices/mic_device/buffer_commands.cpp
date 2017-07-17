@@ -63,7 +63,7 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
     // COI command invocation
     //
 
-    COIEVENT* use_dependencies = NULL;
+    COIEVENT* use_dependencies = nullptr;
     uint32_t  num_dependencies = 0;
     bool      flush_dependencies = false;
 
@@ -87,7 +87,7 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
             if (force)
             {
                 // it's just a second and the last chunk
-                if (NULL == m_external_dependency)
+                if (nullptr == m_external_dependency)
                 {
                     num_dependencies = 1;
                     use_dependencies = &m_last_dependency;
@@ -105,7 +105,7 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
                 // it's a second but not last chunk - prepare for more
                 m_dependencies.reserve( MAX_DEPENDENCIES_ARRAY_COUNT );
 
-                if (NULL != m_external_dependency)
+                if (nullptr != m_external_dependency)
                 {
                     m_dependencies.push_back( *m_external_dependency );
                 }
@@ -134,14 +134,14 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
     m_total_chunks_processed ++;
     m_total_size_processed += m_current_chunk.getSize();
 
-    if (NULL != use_dependencies)
+    if (nullptr != use_dependencies)
     {
         ok = fire_action( m_current_chunk, use_dependencies, num_dependencies, &fired_event );
     }
     else
     {
         ok = fire_action( m_current_chunk,
-                          m_external_dependency, (NULL == m_external_dependency) ? 0 : 1,
+                          m_external_dependency, (nullptr == m_external_dependency) ? 0 : 1,
                           &fired_event );
     }
 
@@ -164,7 +164,7 @@ void ProcessMemoryChunk<T>::fire_current_chunk( bool force )
         {
             // remove all dependencies - we already used them
             m_dependencies.clear();
-            if (NULL != m_external_dependency)
+            if (nullptr != m_external_dependency)
             {
                 m_dependencies.push_back( *m_external_dependency );
             }
@@ -225,7 +225,7 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
     {
         MICDevMemoryObject* pWriteMemObj = static_cast<MICDevMemoryObject*>(writeBuff);
         assert(pWriteMemObj && "Only Write and Copy commands can force transfer, so the writeBuff must be of type MICDevMemoryObject");
-        if (NULL == pWriteMemObj)
+        if (nullptr == pWriteMemObj)
         {
             return false;
         }
@@ -242,7 +242,7 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
         targetBuffProcesses.push_back(COI_PROCESS_SOURCE);
         setStateEventsArr.resize(targetBuffProcesses.size());
         const COIBUFFER& targetCoiBuffer = pWriteMemObj->clDevMemObjGetCoiBufferHandler();
-        assert(m_processOfTarget != NULL && m_processOfTarget != COI_PROCESS_SOURCE && "m_processOfTarget must be MIC Device process");
+        assert(m_processOfTarget != nullptr && m_processOfTarget != COI_PROCESS_SOURCE && "m_processOfTarget must be MIC Device process");
         // Set target buffer valid on m_processOfTarget.
         coi_result = COIBufferSetState( 
                                                 targetCoiBuffer,                    // Buffer to transfer
@@ -293,11 +293,11 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
     {
     case CL_DEV_CMD_READ:
         {
-            if (NULL == m_memObjOfHostPtr)
+            if (nullptr == m_memObjOfHostPtr)
             {
                 if (false == MICDevMemoryObject::getMemObjFromMapBuffersPool(writeBuff, size, &m_memObjOfHostPtr))
                 {
-                    m_memObjOfHostPtr = NULL;
+                    m_memObjOfHostPtr = nullptr;
                 }
             }
             // If we found OCLBuffer that writeBuff is mapped to...
@@ -314,7 +314,7 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             // else execute regular read
             MICDevMemoryObject* pReadMemObj = static_cast<MICDevMemoryObject*>(readBuff);
             assert(pReadMemObj && "In Read Command, readBuff must be of type MICDevMemoryObject");
-            if (NULL == pReadMemObj)
+            if (nullptr == pReadMemObj)
             {
                 return false;
             }
@@ -337,11 +337,11 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
         }
     case CL_DEV_CMD_WRITE:
         {
-            if (NULL == m_memObjOfHostPtr)
+            if (nullptr == m_memObjOfHostPtr)
             {
                 if (false == MICDevMemoryObject::getMemObjFromMapBuffersPool(readBuff, size, &m_memObjOfHostPtr))
                 {
-                    m_memObjOfHostPtr = NULL;
+                    m_memObjOfHostPtr = nullptr;
                 }
             }
             // If we found OCLBuffer that readBuff is mapped to...
@@ -358,7 +358,7 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             // else execute regular write
             MICDevMemoryObject* pWriteMemObj = static_cast<MICDevMemoryObject*>(writeBuff);
             assert(pWriteMemObj && "In Write Command, writeBuff must be of type MICDevMemoryObject");
-            if (NULL == pWriteMemObj)
+            if (nullptr == pWriteMemObj)
             {
                 if (setStateEventsArr.size() > 0)
                 {
@@ -392,7 +392,7 @@ bool ProcessCommonMemoryChunk::processActionOptimized(cl_dev_cmd_type type, void
             MICDevMemoryObject* pWriteMemObj = static_cast<MICDevMemoryObject*>(writeBuff);
             MICDevMemoryObject* pReadMemObj = static_cast<MICDevMemoryObject*>(readBuff);
             assert(pWriteMemObj && pReadMemObj && "In Copy Command, both pReadMemObj and writeBuff must be of type MICDevMemoryObject");
-            if ((NULL == pWriteMemObj) || (NULL == pReadMemObj))
+            if ((nullptr == pWriteMemObj) || (nullptr == pReadMemObj))
             {
                 if (setStateEventsArr.size() > 0)
                 {
@@ -436,7 +436,7 @@ void ProcessUnmapMemoryChunk::process_chunk( UnmapMemoryChunkStruct::Chunk& chun
         return;
     }
 
-    if (NULL == chunk.coi_map_instance)
+    if (nullptr == chunk.coi_map_instance)
     {
         return;
     }
@@ -594,7 +594,7 @@ bool ReadWriteMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, c
     }
 }
 
-ReadWriteMemObject::ReadWriteMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_memObjOfHostPtr(NULL)
+ReadWriteMemObject::ReadWriteMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_memObjOfHostPtr(nullptr)
 {
 }
 
@@ -632,7 +632,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -666,7 +666,7 @@ cl_dev_err_code ReadWriteMemObject::execute()
                             pMicMemObj, 
                             cmdParams->ptr,
                             ( CL_DEV_CMD_READ == m_pCmd->type ),
-                            ( CL_DEV_CMD_READ == m_pCmd->type ) ? NULL : m_pCommandList->getDeviceProcess());
+                            ( CL_DEV_CMD_READ == m_pCmd->type ) ? nullptr : m_pCommandList->getDeviceProcess());
 
         if ( CL_DEV_CMD_READ == m_pCmd->type )
         {
@@ -762,7 +762,7 @@ bool CopyMemoryChunk::fire_action( const CommonMemoryChunk::Chunk& chunk, const 
     return processActionOptimized(CL_DEV_CMD_COPY, m_from_memObj, chunk.from_offset, m_to_memObj, chunk.to_offset, chunk.size, dependecies, num_dependencies, fired_event);
 }
 
-CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_srcBufferMirror(NULL), m_memObjOfHostPtr(NULL)
+CopyMemObject::CopyMemObject(CommandList* pCommandList, IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd) : BufferCommands(pCommandList, pFrameworkCallBacks, pCmd), m_srcBufferMirror(nullptr), m_memObjOfHostPtr(nullptr)
 {
 }
 
@@ -863,7 +863,7 @@ cl_dev_err_code CopyMemObject::execute()
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -880,14 +880,14 @@ cl_dev_err_code CopyMemObject::execute()
         // Work around if the source buffer and the destination buffer are the same COI buffer, then execute the following:
         //  * Read the whole COIBuffer to temporary host buffer.
         //  * Write from the temporary host buffer instead of copy from source COIBuffer.
-        ProcessCommonMemoryChunk* pCopier = NULL;
+        ProcessCommonMemoryChunk* pCopier = nullptr;
         COIEVENT initialReadBarrier;
         if (pMicMemObjSrc->clDevMemObjGetTopLevelCoiBufferHandler() == pMicMemObjDst->clDevMemObjGetTopLevelCoiBufferHandler())
         {
             // Allocate memory for source mirror buffer.
             m_srcBufferMirror = new char[pMicMemObjSrc->GetRawDataSize()];
             assert(m_srcBufferMirror);
-            if (NULL == m_srcBufferMirror)
+            if (nullptr == m_srcBufferMirror)
             {
                 m_lastError = CL_DEV_OUT_OF_MEMORY;
                 break;
@@ -929,7 +929,7 @@ cl_dev_err_code CopyMemObject::execute()
         }
 
         assert(pCopier);
-        if (NULL == pCopier)
+        if (nullptr == pCopier)
         {
             m_lastError = CL_DEV_OUT_OF_MEMORY;
             break;
@@ -1085,7 +1085,7 @@ cl_dev_err_code MapMemObject::execute()
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1169,7 +1169,7 @@ protected:
 
 bool UnmapMemoryChunk::fire_action( const UnmapMemoryChunkStruct::Chunk& chunk, const COIEVENT* dependecies, uint32_t num_dependencies, COIEVENT* fired_event )
 {
-    if (NULL == chunk.coi_map_instance)
+    if (nullptr == chunk.coi_map_instance)
     {
         return false;
     }
@@ -1214,7 +1214,7 @@ cl_dev_err_code UnmapMemObject::execute()
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1330,7 +1330,7 @@ cl_dev_err_code MigrateMemObject::init(vector<COIBUFFER>&    outCoiBuffsArr,
     cl_dev_err_code             returnError = CL_DEV_SUCCESS;
     cl_dev_cmd_param_migrate*    cmdParams   = (cl_dev_cmd_param_migrate*)m_pCmd->params;
 
-    if ((0 == cmdParams->mem_num) || (NULL == cmdParams->memObjs))
+    if ((0 == cmdParams->mem_num) || (nullptr == cmdParams->memObjs))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1341,7 +1341,7 @@ cl_dev_err_code MigrateMemObject::init(vector<COIBUFFER>&    outCoiBuffsArr,
     outCoiBuffsArr.reserve( cmdParams->mem_num );
 
     size_t min_size     = ((size_t)-1); // set the maximum possible size_t value 
-    outLastBufferHandle = NULL;
+    outLastBufferHandle = nullptr;
 
     // extract COI Buffer handles 
     for (cl_uint i = 0; i < cmdParams->mem_num; ++i)
@@ -1392,7 +1392,7 @@ cl_dev_err_code MigrateMemObject::execute()
         unsigned int numDependecies = 0;
         m_pCommandList->getLastDependentBarrier(&barrier, &numDependecies, false);
 
-        COIEVENT* pBarrier = (numDependecies == 0) ? NULL : &barrier;
+        COIEVENT* pBarrier = (numDependecies == 0) ? nullptr : &barrier;
 
         assert( (numDependecies <= 1) && "Previous command list dependencies may not be more than 1" );
 
@@ -1418,7 +1418,7 @@ cl_dev_err_code MigrateMemObject::execute()
         // now enqueue all operations independently, except of the last, that should be dependent on all other
         vector<COIEVENT> independent_ops;
         independent_ops.reserve( coiBuffsArr.size() + numDependecies );
-        if (NULL != pBarrier)
+        if (nullptr != pBarrier)
         {
             // make last operation dependent on queue barrier in case only a single buffer op is required
             independent_ops.push_back( *pBarrier );
@@ -1453,7 +1453,7 @@ cl_dev_err_code MigrateMemObject::execute()
             independent_ops.push_back( intermediate_barrier );
         }
 
-        COIEVENT* barrier_list = (independent_ops.size() > 0) ? &(independent_ops[0]) : NULL;
+        COIEVENT* barrier_list = (independent_ops.size() > 0) ? &(independent_ops[0]) : nullptr;
         
         result = COIBufferSetState(last_buffer_handle, 
                                    targetProcess, COI_BUFFER_VALID, moveDataFlag, 

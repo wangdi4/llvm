@@ -34,9 +34,9 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-OclSpinMutex*				MICSysInfo::m_mutex = NULL;
-MICSysInfo*                 MICSysInfo::m_singleton = NULL;
-MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = NULL;
+OclSpinMutex*				MICSysInfo::m_mutex = nullptr;
+MICSysInfo*                 MICSysInfo::m_singleton = nullptr;
+MICSysInfo::TSku2DevData*   MICSysInfo::m_info_db = nullptr;
 MICDeviceConfig				MICSysInfo::m_MICDeviceConfig;
 
 MICSysInfo::SInitializer	gSIntializer;
@@ -213,7 +213,7 @@ const char* clDevErr2Txt(cl_dev_err_code errorCode)
 MICSysInfo::MICSysInfo()
 {
     m_numEngines = 0;
-    m_guardedInfoArr = NULL;
+    m_guardedInfoArr = nullptr;
 
 	// Initialize MICDeviceConfig
 	m_MICDeviceConfig.Initialize(GetConfigFilePath());
@@ -236,7 +236,7 @@ MICSysInfo::~MICSysInfo()
             }
         }
         delete [] m_guardedInfoArr;
-        m_guardedInfoArr = NULL;
+        m_guardedInfoArr = nullptr;
     }
 
 	if (m_info_db)
@@ -249,14 +249,14 @@ MICSysInfo::~MICSysInfo()
 MICSysInfo& MICSysInfo::getInstance()
 {
     // if already created
-    if (m_singleton != NULL)
+    if (m_singleton != nullptr)
     {
         return *m_singleton;
     }
 
 	OclAutoMutex autoMutex(m_mutex);
 	// if already created
-	if (m_singleton != NULL)
+	if (m_singleton != nullptr)
     {
         return *m_singleton;
     } 
@@ -302,7 +302,7 @@ MICSysInfo& MICSysInfo::getInstance()
         assert(tMicSysInfo->m_guardedInfoArr && "m_guardedInfoArr allocation failed");
         for (unsigned int i = 0; i < tNumEngines; i++)
         {
-            tMicSysInfo->m_guardedInfoArr[i].devInfoStruct = NULL;
+            tMicSysInfo->m_guardedInfoArr[i].devInfoStruct = nullptr;
         }
     }
 
@@ -379,7 +379,7 @@ const char* MICSysInfo::getSupportedOclExtensions(uint32_t deviceId)
 {
     if (! initializedInfoStruct(deviceId))
     {
-        return NULL;
+        return nullptr;
     }
 
     const InfoType2DataEntry* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
@@ -389,7 +389,7 @@ const char* MICSysInfo::getSupportedOclExtensions(uint32_t deviceId)
     if (data->data_map.end() == it)
     {
         // info not found
-        return NULL;
+        return nullptr;
     }
 
     const SYS_INFO_ENTRY* info_entry = it->second;
@@ -402,7 +402,7 @@ COIENGINE MICSysInfo::getCOIEngineHandle(uint32_t deviceId)
 {
     if (! initializedInfoStruct(deviceId))
     {
-        return NULL;
+        return nullptr;
     }
 
     return m_guardedInfoArr[deviceId].devInfoStruct->engine_handle;
@@ -418,7 +418,7 @@ unsigned int MICSysInfo::getRequiredDeviceDLLs(uint32_t deviceId, const char* co
     const InfoType2DataEntry* data = m_guardedInfoArr[deviceId].devInfoStruct->data_table;
     assert( data && "MICDevice: SKU static data table is not initialized" );
 
-    assert( NULL != string_arr );
+    assert( nullptr != string_arr );
     *string_arr = data->internal_attribs.required_dlls_array;
     return (unsigned int)(data->internal_attribs.required_dlls_count);
 }
@@ -428,7 +428,7 @@ inline bool process_info_params( size_t required_size,
                                  size_t* filled_buf_size )
 {
     *filled_buf_size = required_size;
-    if(NULL != buf && buf_size < required_size)
+    if(nullptr != buf && buf_size < required_size)
     {
         return false;
     }
@@ -443,7 +443,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                                 void*           buf,
                                 size_t*         filled_buf_size)
 {
-    if (NULL == filled_buf_size)
+    if (nullptr == filled_buf_size)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -459,7 +459,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 // this calculation should mimic the calculation done at device startup in TBB init procedure 
                 // but because info may be queued yed before the device was start - we cannot use the data from real device.
@@ -479,7 +479,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(cl_uint*)buf = (cl_uint)getGlobalMemCachelineSize(deviceId);
             }
@@ -493,7 +493,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(cl_ulong*)buf = (cl_ulong)getGlobalMemCacheSize(deviceId);
             }
@@ -507,7 +507,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(cl_uint*)buf = (cl_uint)getMaxClockFrequency(deviceId);
             }
@@ -521,7 +521,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(size_t*)buf = (size_t)(getProfilingTimerResolution((deviceId)));
             }
@@ -535,7 +535,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(cl_ulong*)buf = MIC_MAX_GLOBAL_MEM_SIZE(deviceId);
             }
@@ -549,7 +549,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 *(cl_ulong*)buf = MIC_MAX_BUFFER_ALLOC_SIZE(deviceId);
             }
@@ -565,7 +565,7 @@ cl_dev_err_code MICSysInfo::get_variable_info(
             }
 
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != buf)
+            if(nullptr != buf)
             {
                 BuiltInKernels::BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelList((char*)buf, buf_size);
             }
@@ -599,11 +599,11 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
     }
 
 	OclAutoMutex autoMutex(&(m_guardedInfoArr[deviceId].mutex));
-    if (m_guardedInfoArr[deviceId].devInfoStruct == NULL)
+    if (m_guardedInfoArr[deviceId].devInfoStruct == nullptr)
     {
         //TODO - Maybe at the future the engine handle will initialized somewhere else... so we can take it from there instead of get it again
         COIRESULT           result = COI_ERROR;
-        COIENGINE           engine = NULL;
+        COIENGINE           engine = nullptr;
 
 		assert(deviceId < m_deviceIdToCoiEngineId.size());
 
@@ -650,7 +650,7 @@ bool MICSysInfo::initializedInfoStruct(uint32_t deviceId)
 void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_ENTRY* array, const DeviceSKU_InternalAttributes& attribs )
 {
     // add Device SKU info to the global info map
-    assert( 0 != sku_key && 0 != entries && NULL != array );
+    assert( 0 != sku_key && 0 != entries && nullptr != array );
 
     InfoType2DataEntry* type2data = new InfoType2DataEntry;
     assert( type2data && "Cannot allocate std::map" );
@@ -691,7 +691,7 @@ void MICSysInfo::add_sku_info( uint64_t sku_key, size_t entries, const SYS_INFO_
         assert(((VALUE_FUNCTION != entry.si_value_type) || (1 == entry.array_count))
                                        && "MICDevice: error in static info map - func count must be 1" );
 
-        assert(((VALUE_FUNCTION != entry.si_value_type) || (NULL != entry.func_value))
+        assert(((VALUE_FUNCTION != entry.si_value_type) || (nullptr != entry.func_value))
                                        && "MICDevice: error in static info map - zero func pointer" );
 
         // insert
@@ -839,7 +839,7 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
             }
 
             //if OUT paramVal is NULL it should be ignored
-            if(NULL == paramVal)
+            if(nullptr == paramVal)
             {
                 return CL_DEV_SUCCESS;
             }
@@ -858,7 +858,7 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
             assert( 0 != info_entry->const_value && "MICDevice: error in static info map - zero string pointer" );
 
             const char* str      = (const char*)info_entry->const_value;
-            size_t required_size = (NULL == str) ? 0 : (strlen( str ) + 1);
+            size_t required_size = (nullptr == str) ? 0 : (strlen( str ) + 1);
 
             if(! process_info_params( required_size, valSize, paramVal, pinternalRetunedValueSize ))
             {
@@ -867,12 +867,12 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
 
             //if OUT paramVal is NULL it should be ignored
             //if nothing should be copied and no place to set null-char, return also
-            if ((NULL == paramVal) || ((NULL == str) && (valSize == 0)))
+            if ((nullptr == paramVal) || ((nullptr == str) && (valSize == 0)))
             {
                 return CL_DEV_SUCCESS;
             }
 
-            if ((NULL == str) && (valSize > 0))
+            if ((nullptr == str) && (valSize > 0))
             {
                 ((char*)paramVal)[0] = '\0';
             }
@@ -887,11 +887,11 @@ cl_dev_err_code MICSysInfo::clDevGetDeviceInfo(
         {
             assert( 0 == info_entry->type_size   && "MICDevice: error in static info map - func size must be 0" );
             assert( 1 == info_entry->array_count && "MICDevice: error in static info map - func count must be 1" );
-            assert( NULL != info_entry->func_value && "MICDevice: error in static info map - zero func pointer" );
+            assert( nullptr != info_entry->func_value && "MICDevice: error in static info map - zero func pointer" );
 
             TInfoFunc   func = info_entry->func_value;
 
-            if (NULL == func)
+            if (nullptr == func)
             {
                 return CL_DEV_ERROR_FAIL;
             }
@@ -928,7 +928,7 @@ extern "C" cl_dev_err_code clDevGetAvailableDeviceList(size_t IN deviceListSize,
 
 cl_dev_err_code MICSysInfo::clDevGetAvailableDeviceList(size_t IN deviceListSize, unsigned int* OUT deviceIdsList, size_t* OUT deviceIdsListSizeRet)
 {
-	if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+	if (((nullptr != deviceIdsList) && (0 == deviceListSize)) || ((nullptr == deviceIdsList) && (nullptr == deviceIdsListSizeRet)))
 	{
 		return CL_DEV_ERROR_FAIL;
 	}

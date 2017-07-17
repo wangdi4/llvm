@@ -28,7 +28,7 @@
 using namespace OCLCRT::Utils;
 
 OclDynamicLib::OclDynamicLib() :
-    m_hLibrary( NULL )
+    m_hLibrary( nullptr )
 {
 }
 
@@ -48,7 +48,7 @@ crt_err_code OclDynamicLib::IsExists( const char* pLibName )
 
 crt_err_code OclDynamicLib::Load( const char* pLibName )
 {
-    if( NULL != m_hLibrary )
+    if( nullptr != m_hLibrary )
     {
         return CRT_FAIL;
     }
@@ -57,7 +57,7 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
     if((strstr(pLibName, "\\") != nullptr) || (strstr(pLibName, "/") != nullptr))
     {
         // pLibName is a full path to the lib (assuming it's not available in standard search path)
-        m_hLibrary = LoadLibraryEx( pLibName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
+        m_hLibrary = LoadLibraryEx( pLibName, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH );
     }
     else
     {
@@ -65,7 +65,7 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
         m_hLibrary = LoadLibrary( pLibName );
     }
 
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return CRT_FAIL;
     }
@@ -84,14 +84,14 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
 
 crt_err_code OclDynamicLib::LoadDependency( const char* pLibName )
 {
-    if ( NULL != m_hLibrary )
+    if ( nullptr != m_hLibrary )
     {
         return CRT_FAIL;
     }
 
     m_hLibrary = ::LoadDependency( pLibName );
 
-    if( NULL == m_hLibrary )
+    if( nullptr == m_hLibrary )
     {
         return CRT_FAIL;
     }
@@ -111,14 +111,14 @@ crt_err_code OclDynamicLib::LoadDependency( const char* pLibName )
 // Loads a dynamically link library into process address space
 void OclDynamicLib::Close()
 {
-    if( NULL == m_hLibrary )
+    if( nullptr == m_hLibrary )
     {
         return;
     }
 
     m_uiFuncCount = 0;
-    m_pOffsetNames = NULL;
-    m_pOffsetFunc = NULL;
+    m_pOffsetNames = nullptr;
+    m_pOffsetFunc = nullptr;
 
     FreeLibrary( (HMODULE)m_hLibrary );
 }
@@ -126,7 +126,7 @@ void OclDynamicLib::Close()
 // Returns a number of named functions found in the library
 unsigned int OclDynamicLib::GetNumberOfFunctions() const
 {
-    if( NULL == m_hLibrary )
+    if( nullptr == m_hLibrary )
     {
         return 0;
     }
@@ -136,9 +136,9 @@ unsigned int OclDynamicLib::GetNumberOfFunctions() const
 // Returns a pointer to function name
 const char* OclDynamicLib::GetFunctionName( unsigned int uiFuncId ) const
 {
-    if( ( NULL == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
+    if( ( nullptr == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
     {
-        return NULL;
+        return nullptr;
     }
 
     BYTE* hMod = (BYTE*)m_hLibrary;
@@ -148,9 +148,9 @@ const char* OclDynamicLib::GetFunctionName( unsigned int uiFuncId ) const
 // Returns a function pointer
 const void* OclDynamicLib::GetFunctionPtr( unsigned int uiFuncId ) const
 {
-    if( ( NULL == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
+    if( ( nullptr == m_hLibrary ) || ( uiFuncId >= m_uiFuncCount ) )
     {
-        return NULL;
+        return nullptr;
     }
 
     BYTE* hMod = (BYTE*)m_hLibrary;
@@ -160,9 +160,9 @@ const void* OclDynamicLib::GetFunctionPtr( unsigned int uiFuncId ) const
 // Returns a function pointer
 OclDynamicLib::func_t    OclDynamicLib::GetFunctionPtrByName( const char* szFuncName ) const
 {
-    if( NULL == m_hLibrary )
+    if( nullptr == m_hLibrary )
     {
-        return NULL;
+        return nullptr;
     }
 
     return (func_t)GetProcAddress( (HMODULE)m_hLibrary, szFuncName );

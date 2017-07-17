@@ -66,7 +66,7 @@ LoadDependency(const char *dependencyFileName)
 {
     char dllPath[MAX_PATH];
     getModulePath( dllPath, dependencyFileName );
-    return LoadLibraryEx( dllPath, NULL, 0 );
+    return LoadLibraryEx( dllPath, nullptr, 0 );
 }
 
 /******************************************************************************\

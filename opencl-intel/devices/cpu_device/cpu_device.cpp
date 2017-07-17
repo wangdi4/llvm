@@ -53,7 +53,7 @@ using Intel::OpenCL::Utils::FrameworkUserLogger;
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger* g_pUserLogger = nullptr;
 
 }}}
 
@@ -74,7 +74,7 @@ const char* Intel::OpenCL::CPUDevice::VENDOR_STRING = "Intel(R) Corporation";
 volatile bool CPUDevice::m_bDeviceIsRunning = false;
 
 
-cl_ulong GetGlobalMemorySize(bool* isForced = NULL)
+cl_ulong GetGlobalMemorySize(bool* isForced = nullptr)
 {
     static bool forced = true;
     static cl_ulong globalMemSize = 0;
@@ -92,7 +92,7 @@ cl_ulong GetGlobalMemorySize(bool* isForced = NULL)
         }
     }
 
-    if (NULL != isForced)
+    if (nullptr != isForced)
     {
         *isForced = forced;
     }
@@ -113,7 +113,7 @@ cl_ulong GetLocalMemorySize()
 
     return localMemSize;
 }
-cl_ulong GetMaxMemAllocSize(bool* isForced = NULL)
+cl_ulong GetMaxMemAllocSize(bool* isForced = nullptr)
 {
     static bool forced = true;
     static cl_ulong maxMemAllocSize = 0;
@@ -131,7 +131,7 @@ cl_ulong GetMaxMemAllocSize(bool* isForced = NULL)
         }
     }
 
-    if (NULL != isForced)
+    if (nullptr != isForced)
     {
         *isForced = forced;
     }
@@ -141,11 +141,11 @@ cl_ulong GetMaxMemAllocSize(bool* isForced = NULL)
 struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO *GetCPUDevInfo(CPUDeviceConfig& config)
 {
 #if defined ENABLE_KNL
-    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 0, 1, 0};
+    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {nullptr, 0, 1, 0};
 #else
-    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {NULL, 1, 1, 0};
+    static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO CPUDevInfo = {nullptr, 1, 1, 0};
 #endif
-    if (NULL == CPUDevInfo.sExtensionStrings)
+    if (nullptr == CPUDevInfo.sExtensionStrings)
     {
         CPUDevInfo.sExtensionStrings = config.GetExtensions();
     }
@@ -223,17 +223,17 @@ typedef struct _cl_dev_internal_cmd_list
 } cl_dev_internal_cmd_list;
 
 CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc):
-    m_pProgramService(NULL),
-    m_pMemoryAllocator(NULL),
-    m_pTaskDispatcher(NULL),
-    m_pCPUDeviceConfig(NULL),
+    m_pProgramService(nullptr),
+    m_pMemoryAllocator(nullptr),
+    m_pTaskDispatcher(nullptr),
+    m_pCPUDeviceConfig(nullptr),
     m_pFrameworkCallBacks(devCallbacks),
     m_uiCpuId(uiDevId),
     m_pLogDescriptor(logDesc),
     m_iLogHandle (0),
-    m_defaultCommandList(NULL),
+    m_defaultCommandList(nullptr),
     m_numCores(0),
-    m_pComputeUnitMap(NULL)
+    m_pComputeUnitMap(nullptr)
 #ifdef __HARD_TRAPPING__
     , m_bUseTrapping(false)
 #endif
@@ -244,7 +244,7 @@ CPUDevice::CPUDevice(cl_uint uiDevId, IOCLFrameworkCallbacks *devCallbacks, IOCL
 cl_dev_err_code CPUDevice::Init()
 {
     cl_dev_err_code ret = CL_DEV_SUCCESS;
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, "CPU Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -253,7 +253,7 @@ cl_dev_err_code CPUDevice::Init()
         }
     }
 
-    ret = m_backendWrapper.Init(NULL);
+    ret = m_backendWrapper.Init(nullptr);
     if (CL_DEV_FAILED(ret))
     {
         return CL_DEV_ERROR_FAIL;
@@ -307,7 +307,7 @@ cl_dev_err_code CPUDevice::Init()
 
     m_pMemoryAllocator = new MemoryAllocator(m_uiCpuId, m_pLogDescriptor, GetGlobalMemorySize(), m_pProgramService->GetImageService());
     m_pTaskDispatcher = new TaskDispatcher(m_uiCpuId, m_pFrameworkCallBacks, m_pProgramService, m_pMemoryAllocator, m_pLogDescriptor, m_pCPUDeviceConfig, this);
-    if ( (NULL == m_pMemoryAllocator) || (NULL == m_pTaskDispatcher) )
+    if ( (nullptr == m_pMemoryAllocator) || (nullptr == m_pTaskDispatcher) )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -324,7 +324,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 {
     m_numCores        = GetNumberOfProcessors();
     m_pComputeUnitMap = new unsigned int[m_numCores];
-    if (NULL == m_pComputeUnitMap)
+    if (nullptr == m_pComputeUnitMap)
     {
       return CL_DEV_OUT_OF_MEMORY;
     }
@@ -352,7 +352,7 @@ cl_dev_err_code CPUDevice::QueryHWInfo()
 
 bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
 {
-    if ((NULL == which) || (0 == how_many))
+    if ((nullptr == which) || (0 == how_many))
     {
         return true;
     }
@@ -378,7 +378,7 @@ bool CPUDevice::AcquireComputeUnits(unsigned int* which, unsigned int how_many)
 
 void CPUDevice::ReleaseComputeUnits(unsigned int* which, unsigned int how_many)
 {
-    if (NULL == which)
+    if (nullptr == which)
     {
         return;
     }
@@ -510,14 +510,14 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
                                    FrameworkUserLogger* pUserLogger
                                    )
 {
-    if(NULL == pDevCallBacks || NULL == pDevice)
+    if(nullptr == pDevCallBacks || nullptr == pDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
 
     g_pUserLogger = pUserLogger;
     CPUDevice *pNewDevice = new CPUDevice(dev_id, pDevCallBacks, pLogDesc);
-    if ( NULL == pNewDevice )
+    if ( nullptr == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -596,12 +596,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_type);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CPU;
             }
@@ -611,12 +611,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_VENDOR_ID):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                     *(cl_uint*)paramVal = 0x8086;
             }
@@ -626,12 +626,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
 #ifndef __ANDROID__
                 *(cl_uint*)paramVal = GetNumberOfProcessors();
@@ -646,12 +646,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_COMPUTE_UNITS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = GetNumberOfProcessors();
             }
@@ -666,12 +666,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 1;
             }
@@ -681,12 +681,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             //We prefer the users won't use half
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 0;
             }
@@ -696,12 +696,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             //For all supported types, we currently prefer scalars so the vectorizer doesn't have to scalarize
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 if (config.IsDoubleSupported())
                 {
@@ -723,12 +723,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_NATIVE_VECTOR_WIDTH_HALF ): //FALL THROUGH
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                CPUDeviceDataTypes dataType = NativeVectorToCPUDeviceDataType(param);
                 *(cl_uint*)paramVal        = GetNativeVectorWidth(dataType);
@@ -738,12 +738,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_NATIVE_VECTOR_WIDTH_DOUBLE): //Keeping double separate to allow control via the CPU config
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 if (config.IsDoubleSupported())
                 {
@@ -760,12 +760,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_IMAGE_SUPPORT):
             {
                 *pinternalRetunedValueSize = sizeof(cl_bool);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     *(cl_bool*)paramVal = CL_TRUE;
                 }
@@ -775,12 +775,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = sizeof(cl_long16);
             }
@@ -790,12 +790,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             cl_device_fp_config fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM;
             *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_fp_config*)paramVal = fpConfig;
             }
@@ -809,12 +809,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 fpConfig = CL_FP_ROUND_TO_NEAREST | CL_FP_INF_NAN | CL_FP_DENORM | CL_FP_FMA |  CL_FP_ROUND_TO_ZERO |  CL_FP_ROUND_TO_INF;
             }
             *pinternalRetunedValueSize = sizeof(cl_device_fp_config);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_fp_config*)paramVal = fpConfig;
             }
@@ -824,12 +824,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_IMAGE2D_MAX_HEIGHT):// FALL THROUGH
             {
                 *pinternalRetunedValueSize = sizeof(size_t);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     *(size_t*)paramVal = CPU_IMAGE2D_MAX_DIM_SIZE;
                 }
@@ -840,12 +840,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_IMAGE3D_MAX_DEPTH):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = CPU_IMAGE3D_MAX_DIM_SIZE;
             }
@@ -855,12 +855,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_PARAMETER_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = CPU_MAX_PARAMETER_SIZE;
             }
@@ -869,12 +869,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_SAMPLERS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_SAMPLERS;
             }
@@ -884,12 +884,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_READ_IMAGE_ARGS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_READ_IMAGE_ARGS;
             }
@@ -898,12 +898,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_WRITE_IMAGE_ARGS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_WRITE_IMAGE_ARGS;
             }
@@ -912,12 +912,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_READ_WRITE_IMAGE_ARGS;
             }
@@ -926,12 +926,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = CPU_MAX_CONSTANT_BUFFER_SIZE;
             }
@@ -941,12 +941,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_CONSTANT_ARGS ):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_CONSTANT_ARGS;
             }
@@ -955,12 +955,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MEM_BASE_ADDR_ALIGN):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MEM_BASE_ADDR_ALIGN;
             }
@@ -969,12 +969,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = CPU_MAX_WORK_ITEM_DIMENSIONS;
             }
@@ -983,12 +983,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_WORK_GROUP_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = CPU_MAX_WORK_GROUP_SIZE;
             }
@@ -997,12 +997,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_WORK_ITEM_SIZES):
         {
             *pinternalRetunedValueSize = CPU_MAX_WORK_ITEM_DIMENSIONS * sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
             }
@@ -1016,12 +1016,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_PREFERRED_GLOBAL_ATOMIC_ALIGNMENT:
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
 
                 //Get the Cache info
@@ -1033,12 +1033,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_GLOBAL_MEM_CACHE_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
 
                 //Get the Cache info
@@ -1050,12 +1050,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_LOCAL_MEM_SIZE):                // Consider local memory size is 24Kbyte LCL_MEM_SIZE constant
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = GetLocalMemorySize();
             }
@@ -1064,12 +1064,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_CLOCK_FREQUENCY):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = (cl_uint)MaxClockFrequency();
             }
@@ -1079,12 +1079,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_ADDRESS_BITS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = sizeof( void* ) * 8;
             }
@@ -1094,12 +1094,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PROFILING_TIMER_RESOLUTION):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = (size_t)ProfilingTimerResolution();
             }
@@ -1108,12 +1108,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PRINTF_BUFFER_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = CPU_MAX_PRINTF_BUFFER_SIZE;
             }
@@ -1122,12 +1122,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_GLOBAL_MEM_CACHE_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_mem_cache_type);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_mem_cache_type*)paramVal = CL_READ_WRITE_CACHE;
             }
@@ -1136,11 +1136,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_PROGRAM_BUILD_GLOBAL_VARIABLE_TOTAL_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(size_t*)paramVal = GetMaxMemAllocSize();
             }
@@ -1153,12 +1153,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 #if defined (_M_X64) || defined (__x86_64__)
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = GetGlobalMemorySize();
             }
@@ -1168,12 +1168,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = GetMaxMemAllocSize();
             }
@@ -1182,12 +1182,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_ENDIAN_LITTLE):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_TRUE;
             }
@@ -1196,12 +1196,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_ERROR_CORRECTION_SUPPORT):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_FALSE;
             }
@@ -1210,12 +1210,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_LOCAL_MEM_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_local_mem_type);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_local_mem_type*)paramVal = CL_GLOBAL;
             }
@@ -1224,12 +1224,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_AVAILABLE):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_TRUE;
             }
@@ -1238,12 +1238,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_EXECUTION_CAPABILITIES):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 cl_device_exec_capabilities execCapabilities = CL_EXEC_NATIVE_KERNEL | CL_EXEC_KERNEL;  //changed from CL_EXEC_NATIVE_FN_AS_KERNEL
                 *(cl_device_exec_capabilities*)paramVal = execCapabilities;
@@ -1254,12 +1254,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_QUEUE_ON_HOST_PROPERTIES ):
         {
             *pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 cl_command_queue_properties queueProperties = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
                 *(cl_device_exec_capabilities*)paramVal = queueProperties;
@@ -1269,12 +1269,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_HOST_UNIFIED_MEMORY):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_TRUE;
             }
@@ -1288,12 +1288,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 name = "Unknown CPU";
             }
             *pinternalRetunedValueSize = strlen(name) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, name);
             }
@@ -1303,12 +1303,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_VENDOR):
         {
             *pinternalRetunedValueSize = strlen(VENDOR_STRING) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, VENDOR_STRING);
             }
@@ -1317,12 +1317,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_PROFILE):
         {
             *pinternalRetunedValueSize = strlen("FULL_PROFILE") + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, "FULL_PROFILE");
             }
@@ -1331,12 +1331,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_OPENCL_C_VERSION):
             {
                 *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str) + 1;
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     STRCPY_S((char*)paramVal, valSize, OPENCL_VERSION_1_2 == ver ? sOpenCLC12Str : sOpenCLC20Str);
                 }
@@ -1363,12 +1363,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                     assert("Unknown OpenCL version.");
             }
             *pinternalRetunedValueSize = strlen(openclVerStr) + strlen(BUILDVERSIONSTR) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 SPRINTF_S((char*)paramVal, valSize, "%s%s", openclVerStr, BUILDVERSIONSTR);
             }
@@ -1378,12 +1378,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             const char* il_version = "SPIR-V_1.0";
             *pinternalRetunedValueSize = strlen(il_version) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, *pinternalRetunedValueSize, il_version);
             }
@@ -1410,12 +1410,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             std::string driverVer = driverVerStream.str();
 
             *pinternalRetunedValueSize = driverVer.length() + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, driverVer.c_str());
             }
@@ -1425,12 +1425,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             const char* oclSupportedExtensions = config.GetExtensions();
             *pinternalRetunedValueSize = strlen(oclSupportedExtensions) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, oclSupportedExtensions);
             }
@@ -1440,12 +1440,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_BUILT_IN_KERNELS):
         {
             *pinternalRetunedValueSize = BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelListSize();
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 BuiltInKernelRegistry::GetInstance()->GetBuiltInKernelList((char*)paramVal, valSize);
             }
@@ -1460,12 +1460,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 pSupportedProperties       = CPU_SUPPORTED_FISSION_MODES;
                 *pinternalRetunedValueSize = sizeof(CPU_SUPPORTED_FISSION_MODES);
 
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     MEMCPY_S(paramVal, valSize, pSupportedProperties, *pinternalRetunedValueSize);
                 }
@@ -1475,12 +1475,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             // Disable device partition on android
             {
                 *pinternalRetunedValueSize = sizeof(cl_device_partition_property);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     *(cl_device_partition_property*)paramVal = (cl_device_partition_property)0;
                 }
@@ -1491,17 +1491,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_PARTITION_AFFINITY_DOMAIN:
             {
                 *pinternalRetunedValueSize = sizeof(cl_device_affinity_domain);
-                if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
-                if (NULL != paramValSizeRet)
+                if (nullptr != paramValSizeRet)
                 {
                     *paramValSizeRet = *pinternalRetunedValueSize;
                 }
 
                 //if OUT paramVal is NULL it should be ignored
-                if(NULL != paramVal)
+                if(nullptr != paramVal)
                 {
                     *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
                 }
@@ -1510,12 +1510,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 
         case CL_DEVICE_IMAGE_MAX_ARRAY_SIZE:
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 // Use GEN constant
                 *(size_t*)paramVal = CPU_MAX_ARRAY_SIZE;
@@ -1523,11 +1523,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         case CL_DEVICE_IMAGE_MAX_BUFFER_SIZE:
             *pinternalRetunedValueSize = sizeof(size_t);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 // we want to support the maximum buffer when the pixel size is maximal
                 const unsigned long long iImgMaxBufSize = GetMaxMemAllocSize() / sizeof(cl_int4); // sizeof(CL_RGBA(INT32))
@@ -1543,33 +1543,33 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         case CL_DEVICE_SVM_CAPABILITIES:
             *pinternalRetunedValueSize = sizeof(cl_device_svm_capabilities);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_device_svm_capabilities*)paramVal = CL_DEVICE_SVM_COARSE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_BUFFER | CL_DEVICE_SVM_FINE_GRAIN_SYSTEM | CL_DEVICE_SVM_ATOMICS;
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_MAX_PIPE_ARGS:
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 16; // minimum by the spec.
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_ACTIVE_RESERVATIONS:
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 // this value depends on pipe algorithm limitations, max. compute units and max. work-group size.
                 cl_uint const totalPerPipeReservationsLimit = 0x7FFFFFFE;
@@ -1578,11 +1578,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PIPE_MAX_PACKET_SIZE:
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 1024;    // The same value as for GEN
             }
@@ -1592,22 +1592,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_MAX_ON_DEVICE_QUEUES:
         case CL_DEVICE_MAX_ON_DEVICE_EVENTS:
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = (cl_uint)-1;
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_QUEUE_ON_DEVICE_PROPERTIES:
             *pinternalRetunedValueSize = sizeof(cl_command_queue_properties);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_command_queue_properties*)paramVal = CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE | CL_QUEUE_PROFILING_ENABLE;
             }
@@ -1615,22 +1615,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE:
         case CL_DEVICE_GLOBAL_VARIABLE_PREFERRED_TOTAL_SIZE:    // no reason to give a value different than CL_DEVICE_MAX_GLOBAL_VARIABLE_SIZE
             *pinternalRetunedValueSize = sizeof(size_t);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(size_t*)paramVal = 64 * 1024; // the same as VPG
             }
             return CL_DEV_SUCCESS;
         case CL_DEVICE_PREFERRED_LOCAL_ATOMIC_ALIGNMENT:
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL != paramVal)
+            if (nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 0;    // preferred alignment is aligned to the natural size of the type
             }
@@ -1639,11 +1639,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (ver >= OPENCL_VERSION_2_1)
             {
                 *pinternalRetunedValueSize = sizeof(cl_bool);
-                if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
-                if (NULL != paramVal)
+                if (nullptr != paramVal)
                 {
                     *(cl_bool*)paramVal = CL_FALSE;
                 }
@@ -1653,11 +1653,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if (ver >= OPENCL_VERSION_2_1)
             {
                 *pinternalRetunedValueSize = sizeof(cl_uint);
-                if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                if (nullptr != paramVal && valSize < *pinternalRetunedValueSize)
                 {
                     return CL_DEV_INVALID_VALUE;
                 }
-                if (NULL != paramVal)
+                if (nullptr != paramVal)
                 {
                     *(cl_uint*)paramVal = 1;
                 }
@@ -1683,11 +1683,11 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 */
 cl_dev_err_code CPUDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
 {
-    if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+    if (((nullptr != deviceIdsList) && (0 == deviceListSize)) || ((nullptr == deviceIdsList) && (nullptr == deviceIdsListSizeRet)))
     {
         return CL_DEV_ERROR_FAIL;
     }
-    assert(((deviceListSize > 0) || (NULL == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of CPU device");
+    assert(((deviceListSize > 0) || (nullptr == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of CPU device");
     if (deviceIdsList)
     {
         deviceIdsList[0] = 0;
@@ -1707,7 +1707,7 @@ static void rollBackSubdeviceAllocation(cl_dev_subdevice_id* IN subdevice_ids, c
     for (cl_uint j = 0; j < num_successfully_allocated; ++j)
     {
           cl_dev_internal_subdevice_id* pSubdeviceId = static_cast<cl_dev_internal_subdevice_id*>(subdevice_ids[j]);
-          if (NULL != pSubdeviceId->legal_core_ids)
+          if (nullptr != pSubdeviceId->legal_core_ids)
         {
             delete[] pSubdeviceId->legal_core_ids;
         }
@@ -1740,7 +1740,7 @@ bool CPUDevice::CoreToCoreIndex(unsigned int* core)
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_uint IN num_requested_subdevices, cl_dev_subdevice_id IN parent_id, cl_uint* INOUT num_subdevices, void* param, cl_dev_subdevice_id* OUT subdevice_ids)
 {
-    if (NULL == num_subdevices)
+    if (nullptr == num_subdevices)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1749,7 +1749,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     size_t availableComputeUnits;
     unsigned int* pParentComputeUnits;
 
-    if (NULL == pParent)
+    if (nullptr == pParent)
     {
         availableComputeUnits = m_numCores;
         pParentComputeUnits   = m_pComputeUnitMap;
@@ -1764,7 +1764,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     {
     case CL_DEV_PARTITION_EQUALLY:
         {
-            if (NULL == param)
+            if (nullptr == param)
             {
                 return CL_DEV_INVALID_VALUE;
             }
@@ -1776,7 +1776,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 return CL_DEV_INVALID_VALUE;
             }
             size_t numPartitions = availableComputeUnits / partitionSize;
-            if (NULL == subdevice_ids)
+            if (nullptr == subdevice_ids)
             {
                 *num_subdevices = (cl_uint)numPartitions;
                 return CL_DEV_SUCCESS;
@@ -1790,7 +1790,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 numPartitions = num_requested_subdevices;
             }
-            if (NULL != pParent)
+            if (nullptr != pParent)
             {
                 //Disallow re-partitioning devices BY_NAMES
                 if (pParent->is_by_names)
@@ -1802,13 +1802,13 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             for (cl_uint i = 0; i < (cl_uint)numPartitions; ++i)
             {
                 cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
-                if (NULL == pNewsubdeviceId)
+                if (nullptr == pNewsubdeviceId)
                 {
                   rollBackSubdeviceAllocation(subdevice_ids, i);
                   return CL_DEV_OUT_OF_MEMORY;
                 }
 
-                pNewsubdeviceId->legal_core_ids     = NULL;
+                pNewsubdeviceId->legal_core_ids     = nullptr;
                 pNewsubdeviceId->is_by_names        = false;
                 pNewsubdeviceId->num_compute_units  = (cl_uint)partitionSize;
                 pNewsubdeviceId->is_acquired        = false;
@@ -1821,7 +1821,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
     case CL_DEV_PARTITION_BY_COUNTS:
         {
-            if (NULL == param)
+            if (nullptr == param)
             {
                 return CL_DEV_INVALID_VALUE;
             }
@@ -1839,7 +1839,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL == subdevice_ids)
+            if (nullptr == subdevice_ids)
             {
                 return CL_DEV_SUCCESS;
             }
@@ -1849,7 +1849,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
                 num_subdevices_to_create = num_requested_subdevices;
             }
 
-            if (NULL != pParent)
+            if (nullptr != pParent)
             {
                 //Disallow re-partitioning devices BY_NAMES
                 if (pParent->is_by_names)
@@ -1861,13 +1861,13 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             for (cl_uint i = 0; i < num_subdevices_to_create; ++i)
             {
                 cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
-                if (NULL == pNewsubdeviceId)
+                if (nullptr == pNewsubdeviceId)
                 {
                     rollBackSubdeviceAllocation(subdevice_ids, i);
                     return CL_DEV_OUT_OF_MEMORY;
                 }
 
-                pNewsubdeviceId->legal_core_ids     = NULL;
+                pNewsubdeviceId->legal_core_ids     = nullptr;
                 pNewsubdeviceId->is_by_names        = false;
                 pNewsubdeviceId->num_compute_units  = (cl_uint)partitionSizes[i];
                 pNewsubdeviceId->is_acquired        = false;
@@ -1880,7 +1880,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 
     case CL_DEV_PARTITION_BY_NAMES:
         {
-            if (NULL == param)
+            if (nullptr == param)
             {
                 return CL_DEV_INVALID_VALUE;
             }
@@ -1892,23 +1892,23 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             {
                 return CL_DEV_INVALID_VALUE;
             }
-            if (NULL == subdevice_ids)
+            if (nullptr == subdevice_ids)
             {
                 return CL_DEV_SUCCESS;
             }
-            if (NULL != pParent)
+            if (nullptr != pParent)
             {
                 //Disallow mixing BY_NAMES with other modes
                 return CL_DEV_NOT_SUPPORTED;
             }
 
             cl_dev_internal_subdevice_id* pNewsubdeviceId = new cl_dev_internal_subdevice_id;
-            if (NULL == pNewsubdeviceId)
+            if (nullptr == pNewsubdeviceId)
             {
                 return CL_DEV_OUT_OF_MEMORY;
             }
             pNewsubdeviceId->legal_core_ids = new unsigned int[totalNumUnits];
-            if (NULL == pNewsubdeviceId->legal_core_ids)
+            if (nullptr == pNewsubdeviceId->legal_core_ids)
             {
                 delete pNewsubdeviceId;
                 return CL_DEV_OUT_OF_MEMORY;
@@ -1934,7 +1934,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
             }
 
             *subdevice_ids = pNewsubdeviceId;
-            if (NULL != num_subdevices)
+            if (nullptr != num_subdevices)
             {
               *num_subdevices = 1;
             }
@@ -1979,15 +1979,15 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
 ********************************************************************************************************************/
 cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id)
 {
-    if (NULL == subdevice_id)
+    if (nullptr == subdevice_id)
     {
         return CL_DEV_INVALID_VALUE;
     }
     cl_dev_internal_subdevice_id* pSubdeviceData = reinterpret_cast<cl_dev_internal_subdevice_id*>(subdevice_id);
-    if (NULL != pSubdeviceData)
+    if (nullptr != pSubdeviceData)
     {
         pSubdeviceData->pSubDevice->ShutDown();
-        if (NULL != pSubdeviceData->legal_core_ids)
+        if (nullptr != pSubdeviceData->legal_core_ids)
         {
             delete[] pSubdeviceData->legal_core_ids;
         }
@@ -1998,7 +1998,7 @@ cl_dev_err_code CPUDevice::clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdev
 
 void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
 {
-    assert(NULL != list);
+    assert(nullptr != list);
     cl_dev_internal_cmd_list& internalList = *reinterpret_cast<cl_dev_internal_cmd_list*>(list);
     return internalList.pCmd_list.GetPtr();
 }
@@ -2007,8 +2007,8 @@ void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
 cl_dev_err_code CPUDevice::clDevSetDefaultCommandList(cl_dev_cmd_list IN list)
 {
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    SharedPtr<ITaskList> pCmd_list = NULL;
-    if(pList != NULL) pCmd_list = pList->pCmd_list;
+    SharedPtr<ITaskList> pCmd_list = nullptr;
+    if(pList != nullptr) pCmd_list = pList->pCmd_list;
     return m_pTaskDispatcher->SetDefaultCommandList(pCmd_list);
 }
 // Execution commands
@@ -2020,7 +2020,7 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCreateCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = new cl_dev_internal_cmd_list();
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -2029,14 +2029,14 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
     pList->subdevice_id    = pSubdeviceData;
 
     // If subdevice_id is not NULL, we are creating list for a sub-device
-    if (NULL != pSubdeviceData)
+    if (nullptr != pSubdeviceData)
     {
         long prev = pSubdeviceData->ref_count++;
         if (0 == prev)
         {
             //When fissioned by name, need first to acquire the required cores
             // Not used in other fission modes
-            if ( (NULL != pSubdeviceData->legal_core_ids) )
+            if ( (nullptr != pSubdeviceData->legal_core_ids) )
             {
                 if ( !AcquireComputeUnits(pSubdeviceData->legal_core_ids, pSubdeviceData->num_compute_units) )
                 {
@@ -2068,18 +2068,18 @@ cl_dev_err_code CPUDevice::clDevCreateCommandList( cl_dev_cmd_list_props IN prop
         }
     }
 
-    ITEDevice* pDevice = (NULL != pSubdeviceData) ? pSubdeviceData->pSubDevice.GetPtr() : NULL;
+    ITEDevice* pDevice = (nullptr != pSubdeviceData) ? pSubdeviceData->pSubDevice.GetPtr() : nullptr;
 
     cl_dev_err_code ret = m_pTaskDispatcher->createCommandList(props, pDevice, &pList->pCmd_list);
     if ( CL_DEV_FAILED(ret) )
     {
         delete pList;
-        if ( (NULL!=pSubdeviceData) )
+        if ( (nullptr!=pSubdeviceData) )
         {
             long prev = pSubdeviceData->ref_count--;
             if ( 1 == prev )
             {
-              if ( NULL!=pSubdeviceData->legal_core_ids )
+              if ( nullptr!=pSubdeviceData->legal_core_ids )
               {
 #ifdef __HARD_TRAPPING__
                   if ( m_bUseTrapping )
@@ -2107,7 +2107,7 @@ cl_dev_err_code CPUDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 {
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevFlushCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -2123,17 +2123,17 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevReleaseCommandList Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
     pList->pCmd_list->Flush();
-    if (NULL != pList->subdevice_id)
+    if (nullptr != pList->subdevice_id)
     {
         long prev = pList->subdevice_id->ref_count--;
         if (1 == prev)
         {
-            if ( NULL != pList->subdevice_id->legal_core_ids )
+            if ( nullptr != pList->subdevice_id->legal_core_ids )
             {
 #ifdef __HARD_TRAPPING__
                 if ( m_bUseTrapping )
@@ -2156,7 +2156,7 @@ cl_dev_err_code CPUDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 cl_dev_err_code CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 {
     ITaskBase* ptr = (ITaskBase*)cmdToRelease->device_agent_data;
-    if (NULL == ptr)
+    if (nullptr == ptr)
     {
         // already released
         return CL_DEV_SUCCESS;
@@ -2177,14 +2177,14 @@ cl_dev_err_code CPUDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
 cl_dev_err_code CPUDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count)
 {
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListExecute Function enter"));
-    if (NULL != list)
+    if (nullptr != list)
     {
         cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
         return m_pTaskDispatcher->commandListExecute(pList->pCmd_list, cmds, count);
     }
     else
     {
-        if ( NULL == m_defaultCommandList )
+        if ( nullptr == m_defaultCommandList )
         {
             cl_dev_err_code ret = clDevCreateCommandList(CL_DEV_LIST_ENABLE_OOO, 0, &m_defaultCommandList);
             if ( CL_DEV_FAILED(ret) )
@@ -2213,13 +2213,13 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
 {
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListWaitCompletion Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
 
-    SharedPtr<ITaskBase> pTaskToWait = NULL;
-    if ( NULL != cmdToWait )
+    SharedPtr<ITaskBase> pTaskToWait = nullptr;
+    if ( nullptr != cmdToWait )
     {
         // At this stage we assume that cmdToWait is a valid pointer
         // Appropriate reference count is done in runtime
@@ -2227,7 +2227,7 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
         // Check if the command is already completed but it can be just before a call to the notification function.
         // and we are not sure that RT got the completion notification.
         // Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
-        if ( NULL == pTaskPtr )
+        if ( nullptr == pTaskPtr )
         {
             return CL_DEV_NOT_SUPPORTED;
         }
@@ -2267,7 +2267,7 @@ cl_dev_err_code CPUDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
 {
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
     cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -2449,12 +2449,12 @@ cl_ulong CPUDevice::clDevGetPerformanceCounter()
 cl_dev_err_code CPUDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
 {
 
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
     m_pLogDescriptor = pLogDescriptor;
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiCpuId, "CPU Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -2472,41 +2472,41 @@ void CPUDevice::clDevCloseDevice(void)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clCloseDevice Function enter"));
 
-    if ( NULL != m_defaultCommandList )
+    if ( nullptr != m_defaultCommandList )
     {
         clDevReleaseCommandList(m_defaultCommandList);
     }
-    if( NULL != m_pCPUDeviceConfig)
+    if( nullptr != m_pCPUDeviceConfig)
     {
         delete m_pCPUDeviceConfig;
-        m_pCPUDeviceConfig = NULL;
+        m_pCPUDeviceConfig = nullptr;
     }
     if ( 0 != m_iLogHandle)
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
 
-    if ( NULL != m_pProgramService )
+    if ( nullptr != m_pProgramService )
     {
         delete m_pProgramService;
-        m_pProgramService = NULL;
+        m_pProgramService = nullptr;
     }
-    if ( NULL != m_pMemoryAllocator )
+    if ( nullptr != m_pMemoryAllocator )
     {
         delete m_pMemoryAllocator;
-        m_pMemoryAllocator = NULL;
+        m_pMemoryAllocator = nullptr;
     }
-    if ( NULL != m_pTaskDispatcher )
+    if ( nullptr != m_pTaskDispatcher )
     {
         // The WGContextPool will set to NULL in the destructor
         delete m_pTaskDispatcher;
-        m_pTaskDispatcher = NULL;
+        m_pTaskDispatcher = nullptr;
     }
 
-    if ( NULL != m_pComputeUnitMap)
+    if ( nullptr != m_pComputeUnitMap)
     {
         delete[] m_pComputeUnitMap;
-        m_pComputeUnitMap = NULL;
+        m_pComputeUnitMap = nullptr;
     }
 
     m_pCoreToThread.clear();

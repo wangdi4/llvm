@@ -19,7 +19,7 @@ bool ProgramMemoryManager::reserveExecutableMemory(unsigned int numOfItems, unsi
     {
         return false;
     }
-    void* tReserveMemAddress = NULL;
+    void* tReserveMemAddress = nullptr;
 
     // enlarge the allocated memory size by multiply of RESIZE_MEM_MUL
     unsigned int tResizeNumOfItems = numOfItems * RESIZE_MEM_MUL;
@@ -43,7 +43,7 @@ void ProgramMemoryManager::freeReservedMemory()
     // get the reserved memory address
     void* tReserveAddress = getStartAddress();
     // if not initialized or already released
-    if (tReserveAddress == NULL)
+    if (tReserveAddress == nullptr)
     {
         return;
     }

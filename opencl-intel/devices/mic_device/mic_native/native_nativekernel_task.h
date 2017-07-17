@@ -85,7 +85,7 @@ public:
     Intel::OpenCL::TaskExecutor::TASK_SET_OPTIMIZATION OptimizeBy() const  { return gMicExecEnvOptions.tbb_block_optimization; }
     unsigned int          PreferredSequentialItemsPerThread() const        { return gMicExecEnvOptions.use_TBB_grain_size; }
 
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr;}
 
     typedef Intel::OpenCL::MICDevice::ndrange_dispatcher_data dispatcher_data_type;
 

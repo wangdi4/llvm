@@ -57,7 +57,7 @@ public:
       {
         return m_parent->m_childrenTaskGroup;
       }
-      return NULL;
+      return nullptr;
     }
 
     virtual KernelCommand* AllocateChildCommand(ITaskList* pList, const Intel::OpenCL::DeviceBackend::ICLDevBackendKernel_* pKernel,
@@ -98,9 +98,9 @@ protected:
      * @param pMyTaskBase		a pointer to itself as ITaskBase or NULL if the concrete class does not inherit from ITaskBase
      */
     KernelCommand(ITaskList* pList, KernelCommand* parent, ITaskBase* pMyTaskBase) :
-         DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(NULL != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : NULL),
+         DeviceCommand(pList, pMyTaskBase), m_parent(parent), m_childrenTaskGroup(nullptr != pList ? pList->GetNDRangeChildrenTaskGroup().GetPtr() : nullptr),
          m_bIsDebugMode(false)
-       { m_waitingChildrenForKernelGlobal = NULL; }
+       { m_waitingChildrenForKernelGlobal = nullptr; }
 
     // Enqueued command list definition
     struct CommandToExecuteList_t {
@@ -110,7 +110,7 @@ protected:
 
     // Structure defined child kernel submission for each thread
     struct CommandSubmitionLists {
-        CommandSubmitionLists() : waitingChildrenForKernelLocalHead(NULL), waitingChildrenForKernelLocalTail(NULL), waitingChildrenForWorkGroup(NULL) {}
+        CommandSubmitionLists() : waitingChildrenForKernelLocalHead(nullptr), waitingChildrenForKernelLocalTail(nullptr), waitingChildrenForWorkGroup(nullptr) {}
         CommandToExecuteList_t*  waitingChildrenForKernelLocalHead;   // A pointer to the head of the thread local list of kernel depentent children
         CommandToExecuteList_t*  waitingChildrenForKernelLocalTail;   // A pointer to the tail of the thread local list of kernel depentent children
         CommandToExecuteList_t*  waitingChildrenForWorkGroup;         // A pointer to the thread local list of work-group depentent children

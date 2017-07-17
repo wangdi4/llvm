@@ -70,7 +70,7 @@ inline bool GetStringValueFromRegistry( HKEY       top_hkey,
             hkey,                   // hkey
             valueName,              // lpValueName
             0,                      // lpReserved
-            NULL,                   // lpType
+            nullptr,                // lpType
             ( LPBYTE )retValue,     // lpData
             &size                   // lpcbData
             );

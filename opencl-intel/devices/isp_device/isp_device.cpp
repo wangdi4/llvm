@@ -55,10 +55,10 @@ ISPDevice::ISPDevice(cl_uint uiDevId, IOCLFrameworkCallbacks* frameworkCallbacks
     m_pLogDescriptor(logDesc),
     m_iLogHandle(0),
     m_pFrameworkCallbacks(frameworkCallbacks),
-    m_pCameraShim(NULL),
-    m_pProgramService(NULL),
-    m_pMemoryAllocator(NULL),
-    m_pTaskDispatcher(NULL)
+    m_pCameraShim(nullptr),
+    m_pProgramService(nullptr),
+    m_pMemoryAllocator(nullptr),
+    m_pTaskDispatcher(nullptr)
 {
 }
 
@@ -71,7 +71,7 @@ cl_dev_err_code ISPDevice::Init()
     cl_dev_err_code ret = CL_DEV_SUCCESS;
 
     // create the logger client before anything else
-    if (NULL != m_pLogDescriptor)
+    if (nullptr != m_pLogDescriptor)
     {
         ret = (cl_dev_err_code) m_pLogDescriptor->clLogCreateClient(m_uiIspId, "ISP Device", &m_iLogHandle);
         if (CL_DEV_FAILED(ret))
@@ -84,14 +84,14 @@ cl_dev_err_code ISPDevice::Init()
     // TODO: Hard-coded app name...
     // TODO: change CameraShim to ISPCameraService
     m_pCameraShim = CameraShim::instance("com.example.opencldemo", 0);
-    if (NULL == m_pCameraShim)
+    if (nullptr == m_pCameraShim)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Connecting to Camera Service has failed"));
         return CL_DEV_ERROR_FAIL;
     }
 
     m_pProgramService = new ISPProgramService(m_uiIspId, m_pLogDescriptor, m_pCameraShim);
-    if (NULL == m_pProgramService)
+    if (nullptr == m_pProgramService)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP program service"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -104,7 +104,7 @@ cl_dev_err_code ISPDevice::Init()
     }
 
     m_pMemoryAllocator = new ISPMemoryAllocator(m_uiIspId, m_pLogDescriptor, ISP_GLOBAL_MEM_SIZE);
-    if (NULL == m_pMemoryAllocator)
+    if (nullptr == m_pMemoryAllocator)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP memory allocator"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -117,7 +117,7 @@ cl_dev_err_code ISPDevice::Init()
     }
 
     m_pTaskDispatcher = new ISPTaskDispatcher(m_uiIspId, m_pLogDescriptor, m_pFrameworkCallbacks, m_pCameraShim);
-    if (NULL == m_pTaskDispatcher)
+    if (nullptr == m_pTaskDispatcher)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for ISP task dispatcher"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -169,12 +169,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_type);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_type*)paramVal = (cl_device_type)CL_DEVICE_TYPE_CUSTOM;
             }
@@ -184,12 +184,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_VENDOR_ID):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                     *(cl_uint*)paramVal = 0x8086;
             }
@@ -199,12 +199,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_PARTITION_MAX_SUB_DEVICES):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 // No device partitions for now
                 *(cl_uint*)paramVal = 0;
@@ -215,12 +215,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_MAX_COMPUTE_UNITS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = 1;
             }
@@ -230,12 +230,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS):
         {
             *pinternalRetunedValueSize = sizeof(cl_uint);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_uint*)paramVal = ISP_MAX_WORK_ITEM_DIMENSIONS;
             }
@@ -245,12 +245,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_MAX_WORK_GROUP_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(size_t*)paramVal = ISP_MAX_WORK_GROUP_SIZE;
             }
@@ -260,12 +260,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_MAX_WORK_ITEM_SIZES):
         {
             *pinternalRetunedValueSize = ISP_MAX_WORK_ITEM_DIMENSIONS * sizeof(size_t);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 // TODO: unsafe copy
                 memcpy(paramVal, ISP_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
@@ -277,12 +277,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_GLOBAL_MEM_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = ISP_GLOBAL_MEM_SIZE;
             }
@@ -292,12 +292,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_LOCAL_MEM_TYPE):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_local_mem_type);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_local_mem_type*)paramVal = CL_NONE;
             }
@@ -307,12 +307,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_LOCAL_MEM_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_ulong*)paramVal = 0;
             }
@@ -322,12 +322,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_AVAILABLE):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_TRUE;
             }
@@ -338,12 +338,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_EXECUTION_CAPABILITIES):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_exec_capabilities);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_exec_capabilities*)paramVal = (cl_device_exec_capabilities)0;
             }
@@ -354,12 +354,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_HOST_UNIFIED_MEMORY):
         {
             *pinternalRetunedValueSize = sizeof(cl_bool);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_bool*)paramVal = CL_TRUE;
             }
@@ -370,13 +370,13 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         {
             // TODO: hard coded for now...
             const char* name = "Intel(R) Atom ISP";
-            *pinternalRetunedValueSize = (NULL == name) ? 0 : (strlen(name) + 1);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            *pinternalRetunedValueSize = (nullptr == name) ? 0 : (strlen(name) + 1);
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if((NULL != paramVal) && (NULL != name))
+            if((nullptr != paramVal) && (nullptr != name))
             {
                 STRCPY_S((char*)paramVal, valSize, name);
             }
@@ -386,12 +386,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_VENDOR):
         {
             *pinternalRetunedValueSize = strlen(VENDOR_STRING) + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, VENDOR_STRING);
             }
@@ -402,12 +402,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_PROFILE):
         {
             *pinternalRetunedValueSize = strlen("EMBEDDED_PROFILE") + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, "EMBEDDED_PROFILE");
             }
@@ -419,12 +419,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             std::string sDeviceVersion = "OpenCL 1.2 ";
             sDeviceVersion += BUILDVERSIONSTR;
             *pinternalRetunedValueSize = sDeviceVersion.size() + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, sDeviceVersion.c_str());
             }
@@ -451,12 +451,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             std::string driverVer = driverVerStream.str();
 
             *pinternalRetunedValueSize = driverVer.size() + 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, driverVer.c_str());
             }
@@ -466,12 +466,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_EXTENSIONS):
         {
             *pinternalRetunedValueSize = 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(char*)paramVal = '\0';
             }
@@ -482,12 +482,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_BUILT_IN_KERNELS):
         {
             *pinternalRetunedValueSize = 1;
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(char*)paramVal = '\0';
             }
@@ -497,12 +497,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_PARTITION_PROPERTIES):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_partition_property);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *(cl_device_partition_property*)paramVal = (cl_device_partition_property)0;
             }
@@ -511,12 +511,12 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case (CL_DEVICE_PARTITION_AFFINITY_DOMAIN):
         {
             *pinternalRetunedValueSize = sizeof(cl_device_affinity_domain);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            if(nullptr != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
+            if(nullptr != paramVal)
             {
                 *((cl_device_affinity_domain*)paramVal) = (cl_device_affinity_domain)0;
             }
@@ -633,11 +633,11 @@ cl_dev_err_code ISPDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
 **************************************************************************************************************************/
 cl_dev_err_code ISPDevice::clDevGetAvailableDeviceList(size_t IN  deviceListSize, unsigned int*   OUT deviceIdsList, size_t*   OUT deviceIdsListSizeRet)
 {
-    if (((NULL != deviceIdsList) && (0 == deviceListSize)) || ((NULL == deviceIdsList) && (NULL == deviceIdsListSizeRet)))
+    if (((nullptr != deviceIdsList) && (0 == deviceListSize)) || ((nullptr == deviceIdsList) && (nullptr == deviceIdsListSizeRet)))
     {
         return CL_DEV_ERROR_FAIL;
     }
-    assert(((deviceListSize > 0) || (NULL == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of ISP device");
+    assert(((deviceListSize > 0) || (nullptr == deviceIdsList)) && "If deviceIdsList != NULL, deviceListSize must be 1 in case of ISP device");
 
     // TODO: Hard-coded app name...
     // TODO: change CameraShim to ISPCameraService
@@ -965,12 +965,12 @@ cl_dev_err_code ISPDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
 {
      IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevSetLogger Function enter"));
 
-    if (NULL != m_pLogDescriptor)
+    if (nullptr != m_pLogDescriptor)
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
     m_pLogDescriptor = pLogDescriptor;
-    if (NULL != m_pLogDescriptor)
+    if (nullptr != m_pLogDescriptor)
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiIspId, "ISP Device", &m_iLogHandle);
         if (CL_DEV_FAILED(ret))
@@ -989,25 +989,25 @@ void ISPDevice::clDevCloseDevice(void)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCloseDevice Function enter"));
 
-    if (NULL != m_pTaskDispatcher)
+    if (nullptr != m_pTaskDispatcher)
     {
         delete m_pTaskDispatcher;
-        m_pTaskDispatcher = NULL;
+        m_pTaskDispatcher = nullptr;
     }
-    if (NULL != m_pMemoryAllocator)
+    if (nullptr != m_pMemoryAllocator)
     {
         delete m_pMemoryAllocator;
-        m_pMemoryAllocator = NULL;
+        m_pMemoryAllocator = nullptr;
     }
-    if (NULL != m_pProgramService)
+    if (nullptr != m_pProgramService)
     {
         delete m_pProgramService;
-        m_pProgramService = NULL;
+        m_pProgramService = nullptr;
     }
-    if (NULL != m_pCameraShim)
+    if (nullptr != m_pCameraShim)
     {
         delete m_pCameraShim;
-        m_pCameraShim = NULL;
+        m_pCameraShim = nullptr;
     }
 
     if (0 != m_iLogHandle)
@@ -1051,7 +1051,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(cl_uint IN dev_id,
                                    IOCLDeviceAgent**        OUT ppDevice,
                                    Intel::OpenCL::Utils::FrameworkUserLogger*      IN pUserLogger)
 {
-    if (NULL == ppDevice)
+    if (nullptr == ppDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
@@ -1059,7 +1059,7 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(cl_uint IN dev_id,
     // TODO: currently pUserLogger is ignored
 
     ISPDevice *pNewDevice = new ISPDevice(dev_id, pDevCallBacks, pLogDesc);
-    if ( NULL == pNewDevice )
+    if ( nullptr == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }

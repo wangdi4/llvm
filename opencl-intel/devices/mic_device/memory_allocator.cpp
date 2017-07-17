@@ -52,8 +52,8 @@
 
 using namespace Intel::OpenCL::MICDevice;
 
-OclMutex*        MemoryAllocator::m_instance_guard = NULL;
-MemoryAllocator* MemoryAllocator::m_the_instance = NULL;
+OclMutex*        MemoryAllocator::m_instance_guard = nullptr;
+MemoryAllocator* MemoryAllocator::m_the_instance = nullptr;
 cl_uint          MemoryAllocator::m_instance_referencies = 0;
 
 //
@@ -76,14 +76,14 @@ MemoryAllocator* MemoryAllocator::getMemoryAllocator(
                                 IOCLDevLogDescriptor *pLogDesc,
                                 unsigned long long maxBufferAllocSize )
 {
-    MemoryAllocator* instance = NULL;
+    MemoryAllocator* instance = nullptr;
 
     OclAutoMutex lock( m_instance_guard );
 
-    if (NULL == m_the_instance)
+    if (nullptr == m_the_instance)
     {
         m_the_instance = new MemoryAllocator( devId, pLogDesc, maxBufferAllocSize );
-        assert( NULL != m_the_instance && "Creating MIC MemoryAllocator singleton" );
+        assert( nullptr != m_the_instance && "Creating MIC MemoryAllocator singleton" );
     }
 
     instance = m_the_instance;
@@ -104,9 +104,9 @@ void MemoryAllocator::Release( void )
 
     if (0 == m_instance_referencies)
     {
-        assert( NULL != m_the_instance && "Releasing MIC MemoryAllocator singleton" );
+        assert( nullptr != m_the_instance && "Releasing MIC MemoryAllocator singleton" );
         delete m_the_instance; // this is the same as this!!!! Do not access non-static members after!
-        m_the_instance = NULL;
+        m_the_instance = nullptr;
     }
 }
 
@@ -125,7 +125,7 @@ MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, un
     m_force_immediate_transfer = !(tMicConfig.Device_LazyTransfer());
     m_force_immediate_host_pinning = tMicConfig.Device_ForceBuffersPinning();
     
-    if ( NULL != logDesc )
+    if ( nullptr != logDesc )
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "MIC Device: Memory Allocator", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -178,19 +178,19 @@ cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags
         return CL_DEV_INVALID_VALUE;
     }
 
-    if(0 == numEntries && NULL != formats)
+    if(0 == numEntries && nullptr != formats)
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     unsigned int uiNumEntries = NUM_OF_SUPPORTED_IMAGE_FORMATS;
 
-    if(NULL != formats)
+    if(nullptr != formats)
     {
         uiNumEntries = min(uiNumEntries, numEntries);
         memcpy(formats, suportedImageFormats, uiNumEntries * sizeof(suportedImageFormats[0]));
     }
-    if(NULL != numEntriesRet)
+    if(nullptr != numEntriesRet)
     {
         *numEntriesRet = uiNumEntries;
     }
@@ -206,7 +206,7 @@ cl_dev_err_code MemoryAllocator::GetSupportedImageFormats( cl_mem_flags IN flags
 ********************************************************************************************************************/
 cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memObjType,    cl_dev_alloc_prop* OUT pAllocProp )
 {
-    assert( NULL != pAllocProp );
+    assert( nullptr != pAllocProp );
 
     pAllocProp->bufferSharingGroupId = CL_DEV_MIC_BUFFER_SHARING_GROUP_ID;
     pAllocProp->imageSharingGroupId  = CL_DEV_MIC_IMAGE_SHARING_GROUP_ID;
@@ -229,15 +229,15 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 {
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "CreateObject enter");
 
-    assert(NULL != memObj);
-    assert(NULL != dim);
+    assert(nullptr != memObj);
+    assert(nullptr != dim);
     assert(MAX_WORK_DIM >= dim_count);
 
     // Allocate memory for memory object
     MICDevMemoryObject*    pMemObj = new MICDevMemoryObject(*this,
                                                             node_id, flags,
                                                             pRTMemObjService);
-    if ( NULL == pMemObj )
+    if ( nullptr == pMemObj )
     {
         MicErrLog(m_pLogDescriptor, m_iLogHandle, "%s", "Memory Object allocation failed");
         return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -262,7 +262,7 @@ size_t MemoryAllocator::CalculateOffset(cl_uint dim_count, const size_t* origin,
 {
     size_t offset = 0;
 
-    if ( NULL != origin )
+    if ( nullptr != origin )
     {
         offset += origin[0] * elemSize; //Origin is in Pixels
         for(unsigned i=1; i<dim_count; ++i)
@@ -317,26 +317,26 @@ MICDevice* MICDevMemoryObject::get_owning_device( void )
 
     MICDevice::TMicsSet::iterator mic_it  = active_mics.begin();
 
-    return (active_procs_count > 0) ? *mic_it : NULL;
+    return (active_procs_count > 0) ? *mic_it : nullptr;
 }
 
 MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
                    cl_dev_subdevice_id nodeId, cl_mem_flags memFlags,
                    IOCLDevRTMemObjectService* pRTMemObjService):
     m_Allocator(allocator), m_nodeId(nodeId), m_memFlags(memFlags),
-    m_pRTMemObjService(pRTMemObjService), m_pBackingStore(NULL),
+    m_pRTMemObjService(pRTMemObjService), m_pBackingStore(nullptr),
     m_raw_size(0), m_coi_buffer(0), m_coi_top_level_buffer(0), m_coi_top_level_buffer_offset(0)
 {
-    assert( NULL != m_pRTMemObjService);
+    assert( nullptr != m_pRTMemObjService);
 
     // Get backing store.
     cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+    assert( CL_DEV_SUCCEEDED(bsErr) && (nullptr != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
-    if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
+    if (!CL_DEV_SUCCEEDED(bsErr) || (nullptr == m_pBackingStore))
     {
         // error - nothing can be done
-        m_pBackingStore = NULL;
+        m_pBackingStore = nullptr;
         return;
     }
 
@@ -362,12 +362,12 @@ MICDevMemoryObject::MICDevMemoryObject(MemoryAllocator& allocator,
     m_objDescr.pData         = m_pBackingStore->GetRawData();
     m_objDescr.memObjType    = m_pRTMemObjService->GetMemObjectType();
 
-    assert( (NULL != m_objDescr.pData) && (0 != m_raw_size) && "Runtime did not allocated raw data for backing store");
+    assert( (nullptr != m_objDescr.pData) && (0 != m_raw_size) && "Runtime did not allocated raw data for backing store");
 }
 
 cl_dev_err_code MICDevMemoryObject::Init()
 {
-    if (NULL == m_pBackingStore)
+    if (nullptr == m_pBackingStore)
     {
         return CL_DEV_OBJECT_ALLOC_FAIL;
     }
@@ -467,11 +467,11 @@ void MICDevMemoryObject::decRefCounter()
 
 cl_dev_err_code MICDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle)
 {
-    assert(NULL != handle);
+    assert(nullptr != handle);
 
     if (CL_DEVICE_TYPE_ACCELERATOR != dev_type)
     {
-        *handle = NULL;
+        *handle = nullptr;
         return CL_DEV_INVALID_PROPERTIES;
     }
 
@@ -491,7 +491,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
     // Assume that calling this method only once.
     SMemMapParamsList* coi_params = new SMemMapParamsList;
     assert( coi_params && "Cannot allocate coi_params record" );
-    if (NULL == coi_params)
+    if (nullptr == coi_params)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -516,7 +516,7 @@ cl_dev_err_code MICDevMemoryObject::releaseMappedRegion( cl_dev_cmd_param_map* p
     }
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "releaseMappedRegion enter");
-    assert( NULL != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
+    assert( nullptr != pMapParams->map_handle && "cl_dev_cmd_param_map was not filled by MIC Device" );
         
     SMemMapParamsList* coi_params = MemoryAllocator::GetCoiMapParams(pMapParams);
 
@@ -531,7 +531,7 @@ cl_dev_err_code MICDevMemoryObject::releaseMappedRegion( cl_dev_cmd_param_map* p
             
             while (coiMapParam.hasNextMapHandle())
             {
-                coiResult = COIBufferUnmap ( coiMapParam.getNextMapHandle(),  0, NULL, NULL );
+                coiResult = COIBufferUnmap ( coiMapParam.getNextMapHandle(),  0, nullptr, nullptr );
                 assert(COI_SUCCESS == coiResult);
             }
             removeMemObjFromMapBuffersPool();
@@ -539,7 +539,7 @@ cl_dev_err_code MICDevMemoryObject::releaseMappedRegion( cl_dev_cmd_param_map* p
     }
     
     delete coi_params;
-    pMapParams->map_handle = NULL;
+    pMapParams->map_handle = nullptr;
     
     return CL_DEV_SUCCESS;
 }
@@ -555,7 +555,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
     }
 
     MICDevMemorySubObject* pSubObject = new MICDevMemorySubObject(m_Allocator, *this);
-    if ( NULL == pSubObject )
+    if ( nullptr == pSubObject )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -567,7 +567,7 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
         return devErr;
     }
 
-    assert (NULL != ppSubBuffer);
+    assert (nullptr != ppSubBuffer);
     *ppSubBuffer = pSubObject;
     return CL_DEV_SUCCESS;
 }
@@ -582,12 +582,12 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "clDevMemObjUpdateBackingStore enter");
 
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
 
     COIEVENT  completion_event;
     COIRESULT coi_err = COIBufferSetState(  m_coi_buffer, 
                                             COI_PROCESS_SOURCE, COI_BUFFER_VALID, COI_BUFFER_MOVE, 
-                                            0, NULL, 
+                                            0, nullptr, 
                                             &completion_event );
 
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, MOVE ) failed" );
@@ -604,9 +604,9 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateBackingStore(
     // More than this, taking lock here may result in deadlock if this function is called from inside lock.
 
     MICDevice* owner = get_owning_device();
-    assert( NULL != owner );
+    assert( nullptr != owner );
 
-    if (NULL == owner)
+    if (nullptr == owner)
     {
         *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
         return CL_DEV_ERROR_FAIL;
@@ -641,12 +641,12 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
 
     MicInfoLog(m_Allocator.GetLogDescriptor(), m_Allocator.GetLogHandle(), "%s", "clDevMemObjUpdateFromBackingStore enter");
 
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
 
     COIRESULT coi_err = COIBufferSetState(  m_coi_buffer, 
                                             COI_PROCESS_SOURCE, COI_BUFFER_VALID, COI_BUFFER_NO_MOVE, 
-                                            0, NULL, 
-                                            NULL);
+                                            0, nullptr, 
+                                            nullptr);
 
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SOURCE, VALID, NO_MOVE ) failed" );
     all_is_ok = (COI_SUCCESS == coi_err);
@@ -654,8 +654,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjUpdateFromBackingStore(
     // Invalidate all SINK instances.
     coi_err = COIBufferSetState(  m_coi_buffer, 
                                     COI_SINK_OWNERS, COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
-                                    0, NULL, 
-                                    NULL);
+                                    0, nullptr, 
+                                    nullptr);
 
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, INVALID, NO_MOVE ) failed" );
     all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
@@ -679,8 +679,8 @@ cl_dev_err_code MICDevMemoryObject::clDevMemObjInvalidateData( )
     // Invalidate all SINK instances.
     coi_err = COIBufferSetState(  m_coi_buffer, 
                                     COI_SINK_OWNERS, COI_BUFFER_INVALID, COI_BUFFER_NO_MOVE, 
-                                    0, NULL, 
-                                    NULL);
+                                    0, nullptr, 
+                                    nullptr);
 
     assert( (COI_SUCCESS == coi_err) && "COIBufferSetState( SINK, VALID_MAYDROP, NO_MOVE ) failed" );
     all_is_ok = all_is_ok && (COI_SUCCESS == coi_err);
@@ -774,16 +774,16 @@ cl_dev_err_code MICDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     m_nodeId           = m_Parent.m_nodeId;
 
     m_pRTMemObjService = pBSService;
-    assert( NULL != m_pRTMemObjService);
+    assert( nullptr != m_pRTMemObjService);
 
     // Get backing store.
     cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
+    assert( CL_DEV_SUCCEEDED(bsErr) && (nullptr != m_pBackingStore) && "Runtime did not allocated Backing Store object!");
 
-    if (!CL_DEV_SUCCEEDED(bsErr) || (NULL == m_pBackingStore))
+    if (!CL_DEV_SUCCEEDED(bsErr) || (nullptr == m_pBackingStore))
     {
         // error - nothing can be done
-        m_pBackingStore = NULL;
+        m_pBackingStore = nullptr;
         return CL_DEV_INVALID_MEM_OBJECT;
     }
 

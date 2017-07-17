@@ -60,7 +60,7 @@ void HostTracer::draw_device_to_file(void* cmdTracers, size_t sizeInBytes, unsig
 void HostTracer::draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t size, stringstream& headerStrStream, const char* fileName)
 {
 	// Get current process name
-	char* processName = NULL;
+	char* processName = nullptr;
 	char unknowProcessName [] = "UNKNOW_PROCESS_NAME";
 	char processPath[MAX_PATH];
 	ssize_t bytesWritten = 0;
@@ -78,9 +78,9 @@ void HostTracer::draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t s
 	string processNameStr;
 
 	// Find out the output folder (By checking the environment variable "TRACE_OUTPUT_FOLDER"
-	char* pOutFolder = NULL;
+	char* pOutFolder = nullptr;
 	pOutFolder = getenv ("TRACE_OUTPUT_FOLDER");
-	if (NULL != pOutFolder)
+	if (nullptr != pOutFolder)
 	{
 		struct stat st;
 		if(stat(pOutFolder ,&st) != 0)
@@ -109,7 +109,7 @@ void HostTracer::draw_to_file(CommandTracer::COMMAND_DATA** cmdTracers, size_t s
 	for (unsigned int i = 0; i < size; i++)
 	{
 		bool openPrinted = false;
-		const char* name = NULL;
+		const char* name = nullptr;
 		unsigned int base_idx = 0;
 		for (unsigned int j = 0; j < CommandTracer::m_last + 1; j++)
 		{

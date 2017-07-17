@@ -57,7 +57,7 @@ void PerfData::construct(unsigned int worker_id)
     start_time = 0;
     end_time = 0;
     search_time = 0;
-    processed_indices = NULL;
+    processed_indices = nullptr;
     processed_indices_limit = 0;
     processed_indices_current = 0;
 
@@ -66,7 +66,7 @@ void PerfData::construct(unsigned int worker_id)
 
 void PerfData::destruct()
 {
-    if (NULL != processed_indices)
+    if (nullptr != processed_indices)
     {
         free (processed_indices);
         construct(m_worker_id);
@@ -118,7 +118,7 @@ void PerfData::resize( unsigned int n_coords )
 {
     processed_indices_limit += INDICES_DELTA;
     processed_indices = (unsigned int*)realloc(processed_indices, n_coords*sizeof(unsigned int)*processed_indices_limit);
-    assert( NULL != processed_indices );
+    assert( nullptr != processed_indices );
 }
 
 void PerfData::work_group_start()
@@ -145,7 +145,7 @@ void PerfData::work_group_end()
 
 void PerfData::global_init()
 {
-    pthread_key_create( &g_phys_processor_id_tls_key, NULL );
+    pthread_key_create( &g_phys_processor_id_tls_key, nullptr );
 }
 
 void PerfData::getHwInfoForPhysProcessor( unsigned int processor, 

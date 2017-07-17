@@ -152,8 +152,8 @@ private:
         // constructor
         CompilerInterfaces(DeviceServiceCommunication& dev_service,
                            const char* be_dll_name ) :
-                               pCompilationService(NULL),
-                               pSerializationService(NULL),
+                               pCompilationService(nullptr),
+                               pSerializationService(nullptr),
                                MICOptions(dev_service),
                                be_wrapper(be_dll_name) {};
 
@@ -187,7 +187,7 @@ private:
 
         // constructor
         TProgramEntry( cl_int dev_id ) :
-          pProgram(NULL), uid_program_on_device((uint64_t)this), clBuildStatus(CL_BUILD_NONE), copy_to_device_ok(false), m_iDevId(dev_id)  {};
+          pProgram(nullptr), uid_program_on_device((uint64_t)this), clBuildStatus(CL_BUILD_NONE), copy_to_device_ok(false), m_iDevId(dev_id)  {};
     };
 
     cl_int                         m_iDevId;

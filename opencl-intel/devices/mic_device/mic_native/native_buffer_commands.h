@@ -77,7 +77,7 @@ public:
 
     Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL;}
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr;}
 	
 	// Initialization function. This functions is called before the "main loop"
     // Generally initializes internal data structures

@@ -140,7 +140,7 @@ public:
 class RunningExtension
 {
 public:
-    RunningExtension() : m_pCameraShim(NULL), m_pOriginalArgs(NULL) {}
+    RunningExtension() : m_pCameraShim(nullptr), m_pOriginalArgs(nullptr) {}
 
     cl_dev_err_code Init(RequestedExtension* requestedExtension, CameraShim* pCameraShim);
     cl_dev_err_code Clean();

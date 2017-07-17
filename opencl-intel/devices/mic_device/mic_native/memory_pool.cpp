@@ -7,12 +7,12 @@ using namespace Intel::OpenCL::MicDevice;
 
 MemoryPool::MemoryPool()
 {
-	m_startAddress = NULL;
+	m_startAddress = nullptr;
 	m_numOfItems = 0;
 	m_itemSize = 0;
 	m_numOfFreeItems = 0;
 
-	pthread_mutex_init(&m_mutex, NULL);
+	pthread_mutex_init(&m_mutex, nullptr);
 }
 
 MemoryPool::~MemoryPool()
@@ -64,7 +64,7 @@ bool MemoryPool::allocate(unsigned int numOfItems, void** address)
 		return false;
 	}
 	bool result = false;
-	void* pAddress = NULL;
+	void* pAddress = nullptr;
 	OclListIterator<NodeData> iter;
 
 	pthread_mutex_lock(&m_mutex);
@@ -155,12 +155,12 @@ bool MemoryPool::isNothingAllocated() const
 
 bool MemoryPool::release()
 {
-	if (m_startAddress == NULL)
+	if (m_startAddress == nullptr)
 	{
 		return false;
 	}
 	pthread_mutex_lock(&m_mutex);
-	if (m_startAddress == NULL)
+	if (m_startAddress == nullptr)
 	{
 		pthread_mutex_unlock(&m_mutex);
 		return false;
@@ -172,7 +172,7 @@ bool MemoryPool::release()
 	m_numOfItems = 0;
 	m_itemSize = 0;
 	m_numOfFreeItems = 0;
-	m_startAddress = NULL;
+	m_startAddress = nullptr;
 	pthread_mutex_unlock(&m_mutex);
 	return true;
 }

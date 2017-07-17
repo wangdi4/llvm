@@ -87,7 +87,7 @@ const char* const DeviceServiceCommunication::m_device_function_names[DeviceServ
 
 
 DeviceServiceCommunication::DeviceServiceCommunication(unsigned int uiMicId) 
-    : m_uiMicId(uiMicId), m_process(NULL), m_pipe(NULL), m_uiNumActiveThreads(0), m_initCompleted(false)
+    : m_uiMicId(uiMicId), m_process(nullptr), m_pipe(nullptr), m_uiNumActiveThreads(0), m_initCompleted(false)
 {
     memset(m_device_functions, 0, sizeof(m_device_functions));
 }
@@ -102,7 +102,7 @@ cl_dev_err_code DeviceServiceCommunication::deviceSeviceCommunicationFactory(uns
 {
     // find the first unused device index
     DeviceServiceCommunication* tDeviceServiceComm = new DeviceServiceCommunication(uiMicId);
-    if (NULL == tDeviceServiceComm)
+    if (nullptr == tDeviceServiceComm)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -131,29 +131,29 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
         // Get device trace size
         uint64_t devTraceSize = 0;
         // Get device trace size
-        bool res = runServiceFunction(GET_TRACE_SIZE, 0, NULL, sizeof(uint64_t), &devTraceSize, 0, NULL, NULL);
+        bool res = runServiceFunction(GET_TRACE_SIZE, 0, nullptr, sizeof(uint64_t), &devTraceSize, 0, nullptr, nullptr);
         assert(res);
         if (devTraceSize > 0)
         {
             COIBUFFER traceCoiBuffer;
             COIRESULT coiRes = COIBufferCreate( devTraceSize, 
                                                 COI_BUFFER_NORMAL, 0, 
-                                                NULL, 
+                                                nullptr, 
                                                 1, &m_process,
                                                 &traceCoiBuffer);
             assert(COI_SUCCESS == coiRes);
 
             COI_ACCESS_FLAGS accessFlag[1] = { COI_SINK_WRITE_ENTIRE };
             // Get device trace
-            res = runServiceFunction(GET_TRACE, 0, NULL, 0, NULL, 1, &traceCoiBuffer, accessFlag);
+            res = runServiceFunction(GET_TRACE, 0, nullptr, 0, nullptr, 1, &traceCoiBuffer, accessFlag);
             assert(res);
 
             COIMAPINSTANCE mapInstance;
-            void* devTrace = NULL;
+            void* devTrace = nullptr;
             coiRes = COIBufferMap( traceCoiBuffer,
                                    0, devTraceSize, 
                                    COI_MAP_READ_ONLY, 
-                                   0, NULL, NULL,
+                                   0, nullptr, nullptr,
                                    &mapInstance, 
                                    &devTrace );
             assert(COI_SUCCESS == coiRes);
@@ -164,7 +164,7 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
             // Write to file device trace
             MICDevice::m_tracer->draw_device_to_file(devTrace, devTraceSize, freq);
 
-            coiRes = COIBufferUnmap( mapInstance, 0, NULL, NULL);
+            coiRes = COIBufferUnmap( mapInstance, 0, nullptr, nullptr);
             assert(COI_SUCCESS == coiRes);
             coiRes = COIBufferDestroy( traceCoiBuffer );
             assert(COI_SUCCESS == coiRes);
@@ -175,22 +175,22 @@ void DeviceServiceCommunication::freeDevice(bool releaseCoiObjects)
 #endif
         ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
         // Run release device function on device side
-        runServiceFunction(RELEASE_DEVICE, 0, NULL, 0, NULL, 0, NULL, NULL);
+        runServiceFunction(RELEASE_DEVICE, 0, nullptr, 0, nullptr, 0, nullptr, nullptr);
 
         //close service pipeline
         if (m_pipe)
         {
             result = COIPipelineDestroy(m_pipe);
 //            assert(result == COI_SUCCESS && "COIPipelineDestroy failed for service pipeline");
-            m_pipe = NULL;
+            m_pipe = nullptr;
         }
 
         // close the process, wait for main function to finish indefinitely.
         if (m_process)
         {
-            result = COIProcessDestroy(m_process, -1, false, NULL, NULL);
+            result = COIProcessDestroy(m_process, -1, false, nullptr, nullptr);
 //            assert(result == COI_SUCCESS && "COIProcessDestroy failed");
-            m_process = NULL;
+            m_process = nullptr;
         }
     }
 }
@@ -207,10 +207,10 @@ COIFUNCTION DeviceServiceCommunication::getDeviceFunction( DEVICE_SIDE_FUNCTION 
     if ( id >= LAST_DEVICE_SIDE_FUNCTION )
     {
         assert( false && "Too large Device Entry point Function ID" );
-        return NULL;
+        return nullptr;
     }
     assert( 0 != m_device_functions[id] && "Getting reference to Device Entry point that does not exists" );
-    return (NULL == m_process) ? NULL :  m_device_functions[id];
+    return (nullptr == m_process) ? nullptr :  m_device_functions[id];
 }
 
 bool DeviceServiceCommunication::runServiceFunction(
@@ -230,30 +230,30 @@ bool DeviceServiceCommunication::runServiceFunction(
         return false;
     }
 
-    if ((0 == input_data_size) || (NULL == input_data))
+    if ((0 == input_data_size) || (nullptr == input_data))
     {
         input_data_size = 0;
-        input_data = NULL;
+        input_data = nullptr;
     }
 
-    if ((0 == output_data_size) || (NULL == output_data))
+    if ((0 == output_data_size) || (nullptr == output_data))
     {
         output_data_size = 0;
-        output_data = NULL;
+        output_data = nullptr;
     }
 
-    if ((0 == numBuffers) || (NULL == buffers) || (NULL == bufferAccessFlags))
+    if ((0 == numBuffers) || (nullptr == buffers) || (nullptr == bufferAccessFlags))
     {
         numBuffers = 0;
-        buffers = NULL;
-        bufferAccessFlags = NULL;
+        buffers = nullptr;
+        bufferAccessFlags = nullptr;
     }
 
     waitForInitialization();
 
-    COIPIPELINE pipe = (NULL != use_pipeline) ? use_pipeline : m_pipe;
+    COIPIPELINE pipe = (nullptr != use_pipeline) ? use_pipeline : m_pipe;
 
-    if (NULL == pipe)
+    if (nullptr == pipe)
     {
         return false;
     }
@@ -261,7 +261,7 @@ bool DeviceServiceCommunication::runServiceFunction(
     // Run func on device with no dependencies, assign a barrier in order to wait until the function execution complete.
     result = COIPipelineRunFunction(pipe, getDeviceFunction(func),
                                     numBuffers, buffers, bufferAccessFlags,
-                                    0, NULL,                    // dependencies
+                                    0, nullptr,                    // dependencies
                                     input_data, input_data_size,
                                     output_data, output_data_size,
                                     &barrier);
@@ -270,7 +270,7 @@ bool DeviceServiceCommunication::runServiceFunction(
         return false;
     }
     // Wait until the function execution completed on the sink side.
-    result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+    result = COIEventWait(1, &barrier, -1, false, nullptr, nullptr);
     if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
     {
         return false;
@@ -285,7 +285,7 @@ void DeviceServiceCommunication::getVTuneEnvVars(vector<char*>& additionalEnvVar
     string tStr;
     string hostPrefix = "__OCL_MIC_INTEL_";
     string stripPrefix = "__OCL_MIC_";
-    while(environ[count] != NULL)
+    while(environ[count] != nullptr)
     {
         tStr = environ[count];
         if ((string::npos != tStr.find(hostPrefix)) && (tStr.size() > hostPrefix.size()))
@@ -356,7 +356,7 @@ bool DeviceServiceCommunication::setupBufferMemoryPools( const MICDeviceConfig& 
         result = COIProcessSetCacheSize( m_process, 
                                          initial_2mb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
                                          initial_4kb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_GROW_NOW,
-                                         0, NULL, NULL );
+                                         0, nullptr, nullptr );
 
         if (! isCOIPoolRetValOk(result))
         {
@@ -370,7 +370,7 @@ bool DeviceServiceCommunication::setupBufferMemoryPools( const MICDeviceConfig& 
         result = COIProcessSetCacheSize( m_process, 
                                          final_2mb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
                                          final_4kb_pool_size, COI_CACHE_MODE_ONDEMAND_SYNC | COI_CACHE_ACTION_NONE,
-                                         0, NULL, NULL );
+                                         0, nullptr, nullptr );
 
         if (! isCOIPoolRetValOk(result))
         {
@@ -501,7 +501,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 
 #ifdef __MIC_DA_OMP__
         // Set the environment variables that define OMP_SCHEDULE and KMP_AFFINITY
-        char* cStr = NULL;
+        char* cStr = nullptr;
         if (tMicConfig.Device_OmpSchedule().size() > 0)
         {
             string strSched;
@@ -514,7 +514,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
         if (tMicConfig.Device_OmpKmpAffinity().size() > 0)
         {
-            cStr = NULL;
+            cStr = nullptr;
             string strKmpAff;
             strKmpAff.append("KMP_AFFINITY=");
             strKmpAff.append(tMicConfig.Device_OmpKmpAffinity());
@@ -525,7 +525,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
         if (tMicConfig.Device_OmpKmpBlockTime().size() > 0)
         {
-            cStr = NULL;
+            cStr = nullptr;
             string strKmpBlock;
             strKmpBlock.append("KMP_BLOCKTIME=");
             strKmpBlock.append(tMicConfig.Device_OmpKmpBlockTime());
@@ -539,14 +539,14 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
 
         if (additionalEnvVars.size() > 0)
         {
-            additionalEnvVars.push_back(NULL);
+            additionalEnvVars.push_back(nullptr);
         }
 
         // create a process on device and run it's main() function
         result = COIProcessCreateFromFile(engine, (char*)fileNameBuffer,
-                                         0, NULL,                                                                                // argc, argv
-                                         false, additionalEnvVars.size() == 0 ? NULL : (const char**)&(additionalEnvVars[0]),    // duplicate env, additional env vars
-                                         MIC_DEV_IO_PROXY_TO_HOST, NULL,                                                         // I/O proxy required + host root
+                                         0, nullptr,                                                                                // argc, argv
+                                         false, additionalEnvVars.size() == 0 ? nullptr : (const char**)&(additionalEnvVars[0]),    // duplicate env, additional env vars
+                                         MIC_DEV_IO_PROXY_TO_HOST, nullptr,                                                         // I/O proxy required + host root
                                          MIC_DEV_INITIAL_BUFFER_PREALLOCATION,                                                   // reserve inital buffer space
                                          nativeDirName,                                                                          // a path to locate dynamic libraries dependencies for the sink application
                                          &m_process);
@@ -563,20 +563,20 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         }
 
         // load additional DLLs required by this specific device
-        const char * const * string_arr = NULL;
+        const char * const * string_arr = nullptr;
         unsigned int dlls_count = info.getRequiredDeviceDLLs(m_uiMicId, &string_arr);
 
-        if ((0 < dlls_count) && (NULL != string_arr))
+        if ((0 < dlls_count) && (nullptr != string_arr))
         {
             for (unsigned int i = 0; i < dlls_count; ++i)
             {
-                if (NULL != string_arr[i])
+                if (nullptr != string_arr[i])
                 {
-                    COILIBRARY lib_handle = NULL;
+                    COILIBRARY lib_handle = nullptr;
                     result = COIProcessLoadLibraryFromFile(
                                         m_process,             // in_Process
                                         string_arr[i],                          // in_FileName
-                                        NULL,                                   // in_so-name if not exists in file
+                                        nullptr,                                   // in_so-name if not exists in file
                                         nativeDirName,                          // in_LibrarySearchPath
                                         RTLD_NOW,                                //Bitmask of the flags that will be passed in as the dlopen()
                                         &lib_handle );
@@ -597,7 +597,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         result = COI_SUCCESS;
 
         // We'll need a pipeline to run service functions
-        result = COIPipelineCreate(m_process, NULL, NULL, &m_pipe);
+        result = COIPipelineCreate(m_process, nullptr, nullptr, &m_pipe);
         assert(result == COI_SUCCESS && "COIPipelineCreate failed for service pipeline");
         if (COI_SUCCESS != result)
         {
@@ -638,8 +638,8 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
         COIEVENT barrier;
         mic_init_return retVal;
         result = COIPipelineRunFunction(m_pipe, m_device_functions[INIT_DEVICE],
-                                        0, NULL, NULL,
-                                        0, NULL,                                      // dependecies
+                                        0, nullptr, nullptr,
+                                        0, nullptr,                                      // dependecies
                                         &mic_device_options, sizeof(mic_device_options),
                                         &retVal, sizeof(mic_init_return),
                                         &barrier);
@@ -649,7 +649,7 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
             break;
         }
         // Wait until the function execution completed on the sink side.
-        result = COIEventWait(1, &barrier, -1, false, NULL, NULL);
+        result = COIEventWait(1, &barrier, -1, false, nullptr, nullptr);
         assert(result == COI_SUCCESS);
         if ((result != COI_SUCCESS) && (result != COI_EVENT_CANCELED))
         {
@@ -682,16 +682,16 @@ RETURN_TYPE_ENTRY_POINT DeviceServiceCommunication::Run()
     {
         ProfilingNotification::getInstance().unregisterProfilingNotification(m_process);
 
-        if (NULL != m_pipe)
+        if (nullptr != m_pipe)
         {
             COIPipelineDestroy(m_pipe);
-            m_pipe = NULL;
+            m_pipe = nullptr;
         }
 
-        if (NULL != m_process)
+        if (nullptr != m_process)
         {
-            COIProcessDestroy(m_process, -1, false, NULL, NULL);
-            m_process = NULL;
+            COIProcessDestroy(m_process, -1, false, nullptr, nullptr);
+            m_process = nullptr;
         }
     }
     

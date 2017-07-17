@@ -25,9 +25,9 @@ OpenCLBackendWrapper::OpenCLBackendWrapper(const char* backend_name):
     m_dll_name( backend_name ),
     // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in parallel with shutdown
     m_dll(false),
-    m_funcInit(NULL),
-    m_funcTerminate(NULL),
-    m_funcGetFactory(NULL)
+    m_funcInit(nullptr),
+    m_funcTerminate(nullptr),
+    m_funcGetFactory(nullptr)
 {
 }
 
@@ -39,19 +39,19 @@ cl_dev_err_code OpenCLBackendWrapper::LoadDll()
     }
 
     m_funcInit = (BACKEND_INIT_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName("InitDeviceBackend");
-    if( NULL == m_funcInit)
+    if( nullptr == m_funcInit)
     {
         return CL_DEV_ERROR_FAIL;
     }
 
     m_funcTerminate = (BACKEND_TERMINATE_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName("TerminateDeviceBackend");
-    if( NULL == m_funcTerminate)
+    if( nullptr == m_funcTerminate)
     {
         return CL_DEV_ERROR_FAIL;
     }
 
     m_funcGetFactory = (BACKEND_GETFACTORY_FUNCPTR)(intptr_t)m_dll.GetFunctionPtrByName("GetDeviceBackendFactory");
-    if( NULL == m_funcGetFactory )
+    if( nullptr == m_funcGetFactory )
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -61,9 +61,9 @@ cl_dev_err_code OpenCLBackendWrapper::LoadDll()
 
 void OpenCLBackendWrapper::UnloadDll()
 {
-    m_funcInit = NULL;
-    m_funcTerminate = NULL;
-    m_funcGetFactory = NULL;
+    m_funcInit = nullptr;
+    m_funcTerminate = nullptr;
+    m_funcGetFactory = nullptr;
     // ALERT!!! DK!!! Backend sometimes corrups heap on Linux if it unloads in parallel with shutdown
     //m_dll.Close();
 }
@@ -78,7 +78,7 @@ cl_dev_err_code OpenCLBackendWrapper::Init(void)
         return ret;
     }
 
-    return m_funcInit(NULL);
+    return m_funcInit(nullptr);
 }
 
 void OpenCLBackendWrapper::Terminate()

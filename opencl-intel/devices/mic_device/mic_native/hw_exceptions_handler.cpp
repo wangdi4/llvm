@@ -52,7 +52,7 @@ int HWExceptionWrapper::g_sigs[] = {
 
 // Static variable definition
 volatile bool HWExceptionWrapper::g_finished = false;
-__thread HWExceptionWrapper::execution_context* volatile HWExceptionWrapper::t_pExecContext = NULL;
+__thread HWExceptionWrapper::execution_context* volatile HWExceptionWrapper::t_pExecContext = nullptr;
 
 void HWExceptionWrapper::catch_signal(int signum, siginfo_t *siginfo, void *context)
 {
@@ -67,7 +67,7 @@ void HWExceptionWrapper::catch_signal(int signum, siginfo_t *siginfo, void *cont
     void *frames[64];
     int n = backtrace(&frames[0],(int)(sizeof(frames)/sizeof(frames[0])));
 
-    if ( NULL ==  pExecContext)
+    if ( nullptr ==  pExecContext)
     {
         fprintf(stderr,"\nBACKTRACE:\n");
         if (n > 0)
@@ -86,7 +86,7 @@ void HWExceptionWrapper::catch_signal(int signum, siginfo_t *siginfo, void *cont
     else
     {
         // exception inside JIT
-        if ( NULL != pExecContext->pRunner )
+        if ( nullptr != pExecContext->pRunner )
         {
             const ICLDevBackendKernel_* pKernel = pExecContext->pRunner->GetKernel();
             int lineNum = -1;
@@ -139,7 +139,7 @@ void HWExceptionWrapper::setup_signals( bool install )
 
     for (unsigned int i = 0; i < sizeof(g_sigs)/sizeof(g_sigs[0]); ++i)
     {
-        if (0 != sigaction( g_sigs[i], &sig_setup, NULL ))
+        if (0 != sigaction( g_sigs[i], &sig_setup, nullptr ))
         {
             NATIVE_PRINTF("Cannot establish HW exception handler for %s\n", sys_siglist[g_sigs[i]]);
         }
@@ -168,12 +168,12 @@ cl_dev_err_code HWExceptionWrapper::Execute( const Intel::OpenCL::DeviceBackend:
         ctx.pRunner = pRunner;
         t_pExecContext = &ctx;
         pRunner->RunGroup(args, pGroupId, pRuntimeHandle );
-        t_pExecContext = NULL;
+        t_pExecContext = nullptr;
     }
     else
     {
         // exception occurred
-        t_pExecContext = NULL;
+        t_pExecContext = nullptr;
         return_code = CL_DEV_ERROR_FAIL;
         NATIVE_PRINTF("***FATAL***: Most likely exception occurred inside JIT code\n");
     }

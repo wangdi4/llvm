@@ -38,10 +38,10 @@ using Intel::OpenCL::Utils::SharedPtr;
 
 ISPTaskDispatcher::ISPTaskDispatcher(cl_int devId, IOCLDevLogDescriptor *logDesc,
             IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim) :
-m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pTaskExecutor(NULL),
-m_pFrameworkCallBacks(frameworkCallbacks), m_pCameraShim(pCameraShim), m_pIspExtensionManager(NULL)
+m_iDevId(devId), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pTaskExecutor(nullptr),
+m_pFrameworkCallBacks(frameworkCallbacks), m_pCameraShim(pCameraShim), m_pIspExtensionManager(nullptr)
 {
-    if (NULL != logDesc)
+    if (nullptr != logDesc)
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, TEXT("ISP Device: Task Dispatcher"), &m_iLogHandle);
         if (CL_DEV_SUCCESS != ret)
@@ -55,16 +55,16 @@ m_pFrameworkCallBacks(frameworkCallbacks), m_pCameraShim(pCameraShim), m_pIspExt
 
 ISPTaskDispatcher::~ISPTaskDispatcher()
 {
-    if (NULL != m_pTaskExecutor && NULL != m_pRootDevice)
+    if (nullptr != m_pTaskExecutor && nullptr != m_pRootDevice)
     {
         // TODO: what are these?
         m_pRootDevice->ShutDown();
         m_pRootDevice->ResetObserver();
-        m_pRootDevice = NULL;
+        m_pRootDevice = nullptr;
         IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Task Executer is deactivated"));
     }
 
-    if (NULL != m_pIspExtensionManager)
+    if (nullptr != m_pIspExtensionManager)
     {
         delete m_pIspExtensionManager;
     }
@@ -80,32 +80,32 @@ ISPTaskDispatcher::~ISPTaskDispatcher()
 cl_dev_err_code ISPTaskDispatcher::Init()
 {
     // Verify input from framework
-    if (NULL == m_pFrameworkCallBacks)
+    if (nullptr == m_pFrameworkCallBacks)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid value for callbacks was provided by framework"));
         return CL_DEV_INVALID_VALUE;
     }
-    if (NULL == m_pCameraShim)
+    if (nullptr == m_pCameraShim)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid handle to Camera was provided by framework"));
         return CL_DEV_INVALID_VALUE;
     }
 
     m_pIspExtensionManager = new ISPExtensionManager(m_pCameraShim);
-    if (NULL == m_pIspExtensionManager)
+    if (nullptr == m_pIspExtensionManager)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to allocate memory for ISP Extension mode preview manager"));
         return CL_DEV_OUT_OF_MEMORY;
     }
 
     m_pTaskExecutor = GetTaskExecutor();
-    assert(NULL != m_pTaskExecutor && "Task Executer is not loaded!");
+    assert(nullptr != m_pTaskExecutor && "Task Executer is not loaded!");
 
     // create root device in flat mode with maximum threads, support for masters joining and 
     // one reserved position for master in device
     RootDeviceCreationParam creationParams(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1);
-    m_pRootDevice = m_pTaskExecutor->CreateRootDevice(creationParams, NULL, NULL);
-    if (NULL == m_pRootDevice)
+    m_pRootDevice = m_pTaskExecutor->CreateRootDevice(creationParams, nullptr, nullptr);
+    if (nullptr == m_pRootDevice)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Failed to get create TaskExecuter device"));
         return CL_DEV_ERROR_FAIL;
@@ -133,12 +133,12 @@ cl_dev_err_code ISPTaskDispatcher::CreateCommandList(cl_dev_cmd_list_props IN pr
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateCommandList enter"));
 
-    assert(NULL != list && "Framework should not have called this with null parameters");
+    assert(nullptr != list && "Framework should not have called this with null parameters");
     assert(0 == subdevice_id && "Subdevices feature is currently not supported");
 
     ISPDeviceQueue* pIspDeviceQueue = new ISPDeviceQueue(m_pLogDescriptor, m_iLogHandle,
                                                         m_pFrameworkCallBacks, m_pCameraShim, m_pIspExtensionManager);
-    if (NULL == pIspDeviceQueue)
+    if (nullptr == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Cannot allocate memory for command list"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -203,7 +203,7 @@ cl_dev_err_code ISPTaskDispatcher::FlushCommandList(cl_dev_cmd_list IN list)
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("FlushCommandList enter"));
 
     ISPDeviceQueue* pIspDeviceQueue = reinterpret_cast<ISPDeviceQueue*>(list);
-    if (NULL == pIspDeviceQueue)
+    if (nullptr == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid queue handle was passed"));
         return CL_DEV_INVALID_COMMAND_LIST;
@@ -231,7 +231,7 @@ cl_dev_err_code ISPTaskDispatcher::ReleaseCommandList(cl_dev_cmd_list IN list)
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseCommandList enter"));
 
     ISPDeviceQueue* pIspDeviceQueue = reinterpret_cast<ISPDeviceQueue*>(list);
-    if (NULL == pIspDeviceQueue)
+    if (nullptr == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid device queue handle was passed"));
         return CL_DEV_INVALID_COMMAND_LIST;
@@ -266,7 +266,7 @@ cl_dev_err_code ISPTaskDispatcher::ExecuteCommandList(cl_dev_cmd_list IN list, c
     assert(0 != count && "Invalid commands count");
 
     // TODO: if list is NULL then create temporary list
-    assert(NULL != list && "Temporary task list is not implemented yet");
+    assert(nullptr != list && "Temporary task list is not implemented yet");
 
     ISPDeviceQueue* pIspDeviceQueue = reinterpret_cast<ISPDeviceQueue*>(list);
 
@@ -303,13 +303,13 @@ cl_dev_err_code ISPTaskDispatcher::WaitForCompletion(cl_dev_cmd_list IN list, cl
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("WaitForCompletion enter"));
 
     ISPDeviceQueue* pIspDeviceQueue = reinterpret_cast<ISPDeviceQueue*>(list);
-    if (NULL == pIspDeviceQueue)
+    if (nullptr == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid device queue handle was passed"));
         return CL_DEV_INVALID_COMMAND_LIST;
     }
 
-    if (NULL != cmdToWait)
+    if (nullptr != cmdToWait)
     {
         // wait for specific command
         return pIspDeviceQueue->WaitForCommand(cmdToWait);
@@ -335,7 +335,7 @@ cl_dev_err_code ISPTaskDispatcher::CancelCommandList(cl_dev_cmd_list IN list)
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CancelCommandList enter"));
 
     ISPDeviceQueue* pIspDeviceQueue = reinterpret_cast<ISPDeviceQueue*>(list);
-    if (NULL == pIspDeviceQueue)
+    if (nullptr == pIspDeviceQueue)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid device queue handle was passed"));
         return CL_DEV_INVALID_COMMAND_LIST;
@@ -363,11 +363,11 @@ cl_dev_err_code ISPTaskDispatcher::ReleaseCommand(cl_dev_cmd_desc* IN cmdToRelea
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseCommand enter"));
 
-    if (NULL == cmdToRelease)
+    if (nullptr == cmdToRelease)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    if (NULL == cmdToRelease->device_agent_data)
+    if (nullptr == cmdToRelease->device_agent_data)
     {
         // already released
         return CL_DEV_SUCCESS;
@@ -401,12 +401,12 @@ ISPDeviceQueue::~ISPDeviceQueue()
 
 cl_dev_err_code ISPDeviceQueue::Init(CommandListCreationParam params, ITEDevice* device)
 {
-    if (NULL == device)
+    if (nullptr == device)
     {
         return CL_DEV_INVALID_VALUE;
     }
     m_pTaskList = device->CreateTaskList(params);
-    if (NULL == m_pTaskList)
+    if (nullptr == m_pTaskList)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -416,15 +416,15 @@ cl_dev_err_code ISPDeviceQueue::Init(CommandListCreationParam params, ITEDevice*
 
 fnDispatcherCommandCreate_t* ISPDeviceQueue::m_vCommands[] =
 {
-    NULL,
+    nullptr,
     &ReadWriteMemoryObject::Create,     //    CL_DEV_CMD_READ = 1,
     &ReadWriteMemoryObject::Create,     //    CL_DEV_CMD_WRITE,
     &CopyMemoryObject::Create,          //    CL_DEV_CMD_COPY,
     &MapMemoryObject::Create,           //    CL_DEV_CMD_MAP,
     &UnmapMemoryObject::Create,         //    CL_DEV_CMD_UNMAP,
     &NDRange::Create,                   //    CL_DEV_CMD_EXEC_KERNEL,
-    NULL, //&NDRange2::Create,               //    CL_DEV_CMD_EXEC_TASK,
-    NULL, //&NativeFunction::Create,        //    CL_DEV_CMD_EXEC_NATIVE,
+    nullptr, //&NDRange2::Create,               //    CL_DEV_CMD_EXEC_TASK,
+    nullptr, //&NativeFunction::Create,        //    CL_DEV_CMD_EXEC_NATIVE,
     &FillMemoryObject::Create,          //    CL_DEV_CMD_FILL_BUFFER
     &FillMemoryObject::Create,          //    CL_DEV_CMD_FILL_IMAGE
     &MigrateMemoryObject::Create        //    CL_DEV_CMD_MIGRATE
@@ -432,7 +432,7 @@ fnDispatcherCommandCreate_t* ISPDeviceQueue::m_vCommands[] =
 
 cl_dev_err_code ISPDeviceQueue::CreateCommand(cl_dev_cmd_desc* pCmdDesc)
 {
-    if (NULL == pCmdDesc)
+    if (nullptr == pCmdDesc)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -515,7 +515,7 @@ cl_dev_err_code ISPDeviceQueue::CreateCommand(cl_dev_cmd_desc* pCmdDesc)
 
     fnDispatcherCommandCreate_t* fnCreate = m_vCommands[pCmdDesc->type];
 
-    assert(NULL != fnCreate && "Invalid create command function");
+    assert(nullptr != fnCreate && "Invalid create command function");
 
     cl_dev_err_code ret = fnCreate(this, pCmdDesc, &pCommand);
     if (CL_DEV_SUCCEEDED(ret))
@@ -585,7 +585,7 @@ cl_dev_err_code ISPDeviceQueue::WaitForCommand(cl_dev_cmd_desc* pCmd)
 
     assert(!m_bExtModeEnabled && "wait for forever ?");
 
-    assert(NULL != pCmd && "Invalid command descriptor, should call WaitForAllCommands() instead");
+    assert(nullptr != pCmd && "Invalid command descriptor, should call WaitForAllCommands() instead");
 
     // At this stage we assume that pCmd is a valid pointer
     // Appropriate reference count is done in runtime
@@ -595,7 +595,7 @@ cl_dev_err_code ISPDeviceQueue::WaitForCommand(cl_dev_cmd_desc* pCmd)
     //       Check if the command is already completed but it can be just before a call to the notification function.
     //       and we are not sure that RT got the completion notification.
     //       Therefore, we MUST return error value and RT will take appropriate action in order to monitor event status
-    assert(NULL != pCommand && "Race issue, this should be fixed in Runtime");
+    assert(nullptr != pCommand && "Race issue, this should be fixed in Runtime");
 
     SharedPtr<ITaskBase> pCommandToWait = static_cast<ITaskBase*>(pCommand);
 
@@ -621,7 +621,7 @@ cl_dev_err_code ISPDeviceQueue::WaitForAllCommands()
 
     // Wait for all tasks in tasklist
     // No need in lock
-    te_wait_result res = m_pTaskList->WaitForCompletion(NULL);
+    te_wait_result res = m_pTaskList->WaitForCompletion(nullptr);
 
     if (TE_WAIT_COMPLETED == res)
     {
@@ -638,7 +638,7 @@ cl_dev_err_code ISPDeviceQueue::WaitForAllCommands()
 cl_dev_err_code RunningExtension::Init(RequestedExtension* requestedExtension, CameraShim* pCameraShim)
 {
     const ISPKernel* pIspKernel = requestedExtension->m_pIspKernel;
-    assert(NULL != pIspKernel && "Invalid kernel");
+    assert(nullptr != pIspKernel && "Invalid kernel");
     m_blob = pIspKernel->GetBlob();
     m_pCameraShim = pCameraShim;
 
@@ -652,12 +652,12 @@ cl_dev_err_code RunningExtension::Init(RequestedExtension* requestedExtension, C
     status_t ret = m_pCameraShim->acc_upload_fw_extension(m_blob);
     assert(0 == ret && "TODO: handle errors");
 
-    void* pAllocatedArgsBuffer = NULL;
-    isp_ptr pMappedArgsBuffer = NULL;
+    void* pAllocatedArgsBuffer = nullptr;
+    isp_ptr pMappedArgsBuffer = nullptr;
 
     // allocate required buffer on ISP
     pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizePrototype);
-    assert(NULL != pAllocatedArgsBuffer && "TODO: handle errors");
+    assert(nullptr != pAllocatedArgsBuffer && "TODO: handle errors");
     m_allocatedBuffers.push_back(pAllocatedArgsBuffer);
 
     // copy the actual arguments values
@@ -693,7 +693,7 @@ cl_dev_err_code RunningExtension::Clean()
         m_pCameraShim->host_free(*allocatedBuffer);
     }
 
-    if (NULL != m_pOriginalArgs)
+    if (nullptr != m_pOriginalArgs)
     {
         delete[] m_pOriginalArgs;
     }

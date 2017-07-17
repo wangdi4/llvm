@@ -68,14 +68,14 @@ OclMutex::~OclMutex()
         assert(0 && "Failed destroy pthread mutex");
     }
     delete((pthread_mutex_t*)m_mutexHndl);
-    m_mutexHndl = NULL;
+    m_mutexHndl = nullptr;
 
     if (0 != pthread_mutexattr_destroy((pthread_mutexattr_t*)m_mutexAttr))
     {
         assert(0 && "Failed destroy pthread mutex attribute");
     }
     delete((pthread_mutexattr_t*)m_mutexAttr);
-    m_mutexAttr = NULL;
+    m_mutexAttr = nullptr;
 }
 
 /************************************************************************
@@ -114,14 +114,14 @@ OclAutoMutex::~OclAutoMutex()
 OclBinarySemaphore::OclBinarySemaphore()
 {
     sem_t* pSemaphore = new sem_t();
-    assert(NULL != pSemaphore);
+    assert(nullptr != pSemaphore);
 
     sem_init(pSemaphore, 0, 0);
     m_semaphore = pSemaphore;
 }
 OclBinarySemaphore::~OclBinarySemaphore()
 {
-    if (NULL != m_semaphore)
+    if (nullptr != m_semaphore)
     {
         delete static_cast<sem_t*>(m_semaphore);
     }

@@ -276,7 +276,7 @@ public:
 
 	static HostTracer* getHostTracerInstace() 
 	{ 
-		return NULL;
+		return nullptr;
 	};
 };
 

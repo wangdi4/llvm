@@ -11,11 +11,11 @@ using namespace Intel::OpenCL::MICDeviceNative;
 #define MEMORY_ITEM_SIZE 4096
 #define MINIMUM_MEM_ITEMS_IN_POOL 256
 
-MemoryManager* MemoryManager::m_pSingleMemoryManager = NULL;
+MemoryManager* MemoryManager::m_pSingleMemoryManager = nullptr;
 
 MemoryManager::MemoryManager()
 {
-    m_backupPool = NULL;
+    m_backupPool = nullptr;
 }
 
 MemoryManager::~MemoryManager()
@@ -40,13 +40,13 @@ void MemoryManager::createMemoryManager( void )
 void MemoryManager::releaseMemoryManager( void )
 {
     // if not created or already released
-    if (m_pSingleMemoryManager == NULL)
+    if (m_pSingleMemoryManager == nullptr)
     {
         return;
     }
     MemoryManager* tMemoryManager = m_pSingleMemoryManager;
     // If this thread is the first thread that change the value of m_pSingleMemoryManager to NULL, can delete it
-    if ((m_pSingleMemoryManager) && (__sync_bool_compare_and_swap(&m_pSingleMemoryManager, (size_t)tMemoryManager, (size_t)NULL)))
+    if ((m_pSingleMemoryManager) && (__sync_bool_compare_and_swap(&m_pSingleMemoryManager, (size_t)tMemoryManager, (size_t)nullptr)))
     {
         delete(tMemoryManager);
     }
@@ -58,7 +58,7 @@ bool MemoryManager::reserveMem(unsigned int numOfItems, unsigned int itemSize, v
     assert(itemSize > 0 && "itemSize == 0");
     assert(reserveMemAddress && "reserveMemAddress == NULL");
 
-    void* tAddress = NULL;
+    void* tAddress = nullptr;
     OclListIterator<MemoryPool*> memPoolListIter;
     // convert the amount of item to allocate according to MEMORY_ITEM_SIZE
     unsigned int numOfItemsToAllocate = numOfItems * itemSize / MEMORY_ITEM_SIZE;
@@ -80,17 +80,17 @@ bool MemoryManager::reserveMem(unsigned int numOfItems, unsigned int itemSize, v
     }
 
     // If not found Memory pool with free space.
-    if (tAddress == NULL)
+    if (tAddress == nullptr)
     {
         // Check if there is enough space in the backup pool
         MemoryPool* pMemPool = m_backupPool;
-        if ((pMemPool == NULL) || (pMemPool->getTotalAmountOfItems() < numOfItemsToAllocate))
+        if ((pMemPool == nullptr) || (pMemPool->getTotalAmountOfItems() < numOfItemsToAllocate))
         {
             pMemPool = new MemoryPool();
             assert(pMemPool && "new operation failed");
             unsigned int numMemItems = (numOfItemsToAllocate > MINIMUM_MEM_ITEMS_IN_POOL) ? numOfItemsToAllocate : MINIMUM_MEM_ITEMS_IN_POOL;
 
-            void* exeMemStartAddress = mmap(NULL, numMemItems * MEMORY_ITEM_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
+            void* exeMemStartAddress = mmap(nullptr, numMemItems * MEMORY_ITEM_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 			assert(IS_ALIGNED_ON(exeMemStartAddress, MEMORY_ITEM_SIZE));
             // the map operation failed
             if (exeMemStartAddress == MAP_FAILED)
@@ -109,7 +109,7 @@ bool MemoryManager::reserveMem(unsigned int numOfItems, unsigned int itemSize, v
         // If used the backup pool, set the backup as NULL
         if (pMemPool == m_backupPool)
         {
-            m_backupPool = NULL;
+            m_backupPool = nullptr;
         }
 
         // allocate the reserved memory from the Pool
@@ -157,7 +157,7 @@ void MemoryManager::freeReserveMem(void* reserveMemAddress)
         m_memoryPoolsList.removeNode(pMemPoolNode);
         MemoryPool* poolToDelete = pMemPool;
         // If there is no backup pool or the backup size is smaller than this pool size that set this pool as backup pool
-        if ((m_backupPool == NULL) || (pMemPool->getTotalAmountOfItems() > m_backupPool->getTotalAmountOfItems()))
+        if ((m_backupPool == nullptr) || (pMemPool->getTotalAmountOfItems() > m_backupPool->getTotalAmountOfItems()))
         {
             poolToDelete = m_backupPool;
             m_backupPool = pMemPool;

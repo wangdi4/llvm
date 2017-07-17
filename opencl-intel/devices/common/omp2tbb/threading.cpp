@@ -146,7 +146,7 @@ extern "C" LIBOMP2TBB_API void __kmpc_fork_call (ident_t* loc, kmp_int32 argc, k
 
     // Reset MT execution control flags
     omp2tbb::global_thread_table::thread_info_entry* entry = omp2tbb::g_thread_info->get_master_entry( gtid );
-    entry->my_last_single_location = NULL;
+    entry->my_last_single_location = nullptr;
     entry->my_single_count = 0;
     entry->my_barrier_count = 0;
     entry->my_barrier_epoch = 0;
@@ -228,7 +228,7 @@ extern "C" LIBOMP2TBB_API kmp_int32 __kmpc_global_thread_num (ident_t* loc)
 extern "C" LIBOMP2TBB_API void __kmpc_serialized_parallel(ident_t* loc, kmp_int32 global_tid)
 {
     omp2tbb::global_thread_table::thread_info_entry* entry = omp2tbb::g_thread_info->get_master_entry( global_tid );
-    entry->my_last_single_location = NULL;
+    entry->my_last_single_location = nullptr;
     entry->my_single_count = 0;
     entry->my_barrier_count = 0;
     entry->my_barrier_epoch = 0;

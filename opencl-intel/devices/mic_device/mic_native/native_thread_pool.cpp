@@ -38,9 +38,9 @@ using namespace Intel::OpenCL::UtilsNative;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::TaskExecutor;
 
-ThreadPool* ThreadPool::m_threadPool = NULL;
+ThreadPool* ThreadPool::m_threadPool = nullptr;
 __thread bool    ThreadPool::m_tbMasterInitalized = false;
-__thread cpu_set_t* ThreadPool::m_tMasterAffiniityMask = NULL;
+__thread cpu_set_t* ThreadPool::m_tMasterAffiniityMask = nullptr;
 
 // 
 // CoreAffinityDescriptor
@@ -107,7 +107,7 @@ cpu_set_t CoreAffinityDescriptor::get_core_affinity_mask() const
 ThreadPool::ThreadPool() : 
     m_useNumberOfCores( MIC_NATIVE_MAX_CORES ), m_useThreadsPerCore( MIC_NATIVE_MAX_THREADS_PER_CORE ),m_numOfActivatedThreads(0), m_numHWThreads(0),
     m_useIgnoreFirstCore( false ), m_useIgnoreLastCore( false ), m_useAffinity(false), m_init_done(false), m_shut_down(false),
-    m_task_executor(NULL), m_RootDevice(NULL)
+    m_task_executor(nullptr), m_RootDevice(nullptr)
 {
     unsigned int i;
     for (i = 0; i < MIC_NATIVE_MAX_WORKER_THREADS; ++i)
@@ -118,7 +118,7 @@ ThreadPool::ThreadPool() :
 
 ThreadPool* ThreadPool::getInstance()
 {
-    if (NULL == m_threadPool)
+    if (nullptr == m_threadPool)
     {
         m_threadPool = new ThreadPool();
         assert(m_threadPool);
@@ -131,14 +131,14 @@ void ThreadPool::releaseSingletonInstance()
     if (m_threadPool)
     {
         delete m_threadPool;
-        m_threadPool = NULL;
+        m_threadPool = nullptr;
     }
 }
 
 bool ThreadPool::read_device_structure()
 {
     ifstream ifs("/proc/cpuinfo", ifstream::in);
-    if (ifs == NULL)
+    if (ifs == nullptr)
     {
         return false;
     }
@@ -371,8 +371,8 @@ bool ThreadPool::init(
 
     m_task_executor = GetTaskExecutor();
 
-    assert( NULL != m_task_executor );
-    if (NULL == m_task_executor)
+    assert( nullptr != m_task_executor );
+    if (nullptr == m_task_executor)
     {
         //Report Error
         return false;
@@ -425,7 +425,7 @@ bool ThreadPool::init(
         }
     }
 
-    if (! m_task_executor->Init( NULL, m_numOfActivatedThreads + 1, NULL ))
+    if (! m_task_executor->Init( nullptr, m_numOfActivatedThreads + 1, nullptr ))
     {
         //Report Error
         printf("TaskExecutor initialization failed\n");
@@ -435,10 +435,10 @@ bool ThreadPool::init(
 
     m_RootDevice = m_task_executor->CreateRootDevice( 
                     RootDeviceCreationParam( m_numOfActivatedThreads + 1, TE_ENABLE_MASTERS_JOIN, 1 ),
-                    NULL,
+                    nullptr,
                     this );
     
-    if (NULL == m_RootDevice)
+    if (nullptr == m_RootDevice)
     {
         //Report Error
         printf("TaskExecutor CreateRootDevice() failed\n");
@@ -474,7 +474,7 @@ bool ThreadPool::init(
 
 void ThreadPool::release()
 {
-    if (NULL != m_task_executor)
+    if (nullptr != m_task_executor)
     {
 #ifdef __HARD_TRAPPING__
         if (gMicExecEnvOptions.trap_workers)
@@ -488,9 +488,9 @@ void ThreadPool::release()
 
         m_RootDevice->ShutDown();
         m_RootDevice->ResetObserver();
-        m_RootDevice = NULL;
+        m_RootDevice = nullptr;
         m_task_executor->Finalize();
-        m_task_executor = NULL;
+        m_task_executor = nullptr;
     }
 }
 
@@ -524,7 +524,7 @@ void* ThreadPool::OnThreadEntry()
     assert( MIC_NATIVE_MAX_WORKER_THREADS > thread_idx );    
     if (MIC_NATIVE_MAX_WORKER_THREADS <= thread_idx)
     {
-        return NULL;
+        return nullptr;
     }
 
     bool bActivateMaster = isMaster ? !m_tbMasterInitalized : false;
@@ -577,9 +577,9 @@ bool ThreadPool::DeactivateCurrentMasterThread()
 
 bool ThreadPool::AffinitizeMasterThread()
 {
-    if ((useAffinity()) && (NULL == m_tMasterAffiniityMask))
+    if ((useAffinity()) && (nullptr == m_tMasterAffiniityMask))
     {
-        cpu_set_t* myAffinityMask = NULL;
+        cpu_set_t* myAffinityMask = nullptr;
         {
             OclAutoMutex cs(&m_affinityMasksGaurd);
             if (m_mastersAffinityMaskArr.size() > 0)
@@ -589,7 +589,7 @@ bool ThreadPool::AffinitizeMasterThread()
                 m_mastersAffinityMaskArr.pop_back();
             }
         }
-        if (NULL == myAffinityMask)
+        if (nullptr == myAffinityMask)
         {
             myAffinityMask = &m_globalMastersAffinityMask;
         }
@@ -613,7 +613,7 @@ void ThreadPool::ReturnAffinitizationResource()
         OclAutoMutex cs(&m_affinityMasksGaurd);
         m_mastersAffinityMaskArr.push_back(m_tMasterAffiniityMask);
     }
-    m_tMasterAffiniityMask = NULL;
+    m_tMasterAffiniityMask = nullptr;
 }
 
 void  ThreadPool::OnThreadExit( void* currentThreadData )
@@ -688,7 +688,7 @@ public:
 
     // "Main loop"
     // The function is called with different 'inx' parameters for each iteration number
-    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = NULL);
+    bool    ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext = nullptr);
 
     bool    Finish(FINISH_REASON reason) { m_completed = 1; return true; }
 
@@ -725,7 +725,7 @@ public:
     TASK_SET_OPTIMIZATION OptimizeBy() const { return TASK_SET_OPTIMIZE_DEFAULT; }
     unsigned int          PreferredSequentialItemsPerThread() const { return 1; }
 
-    IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
 private:
     WarmUpTask( unsigned int num_of_workers ) :
@@ -762,8 +762,8 @@ bool WarmUpTask::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgContext
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)
     {
-        static __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("WarmUp Task");
         }
@@ -805,9 +805,9 @@ void ThreadPool::startup_all_workers()
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)
     {
-        __itt_frame_begin_v3(gMicGPAData.pDeviceDomain, NULL);
-        static __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        __itt_frame_begin_v3(gMicGPAData.pDeviceDomain, nullptr);
+        static __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
         pTaskName = __itt_string_handle_create("Thread Pool initialization");
         }
@@ -831,7 +831,7 @@ void ThreadPool::startup_all_workers()
     warmup_task->WaitAllWorkersJoined();
 
     // All workers joined, now we can shutdown observer
-    m_RootDevice->SetObserver(NULL);
+    m_RootDevice->SetObserver(nullptr);
     
 #endif
 
@@ -839,13 +839,13 @@ void ThreadPool::startup_all_workers()
     warmup_task->SetMasterReady();
 
     // Wait for all task completed
-    list->WaitForCompletion(NULL);
+    list->WaitForCompletion(nullptr);
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA)
     {
         __itt_task_end(gMicGPAData.pDeviceDomain);
-        __itt_frame_end_v3(gMicGPAData.pDeviceDomain, NULL);
+        __itt_frame_end_v3(gMicGPAData.pDeviceDomain, nullptr);
     }
 #endif
 

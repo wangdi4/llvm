@@ -89,7 +89,7 @@ void init_device(uint32_t         in_BufferCount,
     if ( gMicExecEnvOptions.enable_itt )
     {
         gMicGPAData.bUseGPA = true;
-        if ( NULL == gMicGPAData.pDeviceDomain )
+        if ( nullptr == gMicGPAData.pDeviceDomain )
         {
             gMicGPAData.pDeviceDomain   = __itt_domain_create("com.intel.opencl.device.mic");
             gMicGPAData.pNDRangeHandle  = __itt_string_handle_create("NDRange");
@@ -114,7 +114,7 @@ void init_device(uint32_t         in_BufferCount,
 
     // Create thread pool singleton instance.
     ThreadPool* pThreadPool = ThreadPool::getInstance();
-    if (NULL == pThreadPool)
+    if (nullptr == pThreadPool)
     {
         ProgramService::releaseProgramService();
         pRet->initError = CL_DEV_OUT_OF_MEMORY;
@@ -187,10 +187,10 @@ void execute_device_utility( uint32_t         in_BufferCount,
     //
     // Execute some management function on device as part of some queue
     //
-    assert( ((NULL != in_pMiscData) && (sizeof(utility_function_options) == in_MiscDataLength)) 
+    assert( ((nullptr != in_pMiscData) && (sizeof(utility_function_options) == in_MiscDataLength)) 
                                             && "Wrong params to execute_device_utility" );
 
-    if ((NULL == in_pMiscData) || (sizeof(utility_function_options) != in_MiscDataLength))
+    if ((nullptr == in_pMiscData) || (sizeof(utility_function_options) != in_MiscDataLength))
     {
         return;
     }

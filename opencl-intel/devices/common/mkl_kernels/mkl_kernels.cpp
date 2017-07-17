@@ -73,7 +73,7 @@ template< bool useFunctions > bool InitLibrary();
         static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
         {\
             ptrdiff_t pFunc = GET_MKL_FUNCTION_PTR(MKL_FUNCTION_NAME);\
-            if ( NULL == (void*)pFunc ) return CL_DEV_NOT_SUPPORTED;\
+            if ( nullptr == (void*)pFunc ) return CL_DEV_NOT_SUPPORTED;\
             *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor<DATA_TYPE > >(#MKL_FUNCTION_NAME, pFunc);\
             return CL_DEV_SUCCESS;\
         }\
@@ -84,7 +84,7 @@ template<> bool InitLibrary<true>()
 {
 #ifdef __OMP2TBB__
     // Required to initialize OpenMP layer. In original OpenMP environment this code is added by linker
-    __kmpc_begin(NULL,0);
+    __kmpc_begin(nullptr,0);
 #endif
 
 #if 0
@@ -115,7 +115,7 @@ template<> bool InitLibrary<true>()
     {\
         static cl_dev_err_code MKL_FUNCTION_NAME##Creator(Intel::OpenCL::BuiltInKernels::IBuiltInKernel* *ppBIKernel)\
         {\
-            *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor_Proxy<DATA_TYPE > >(#MKL_FUNCTION_NAME, NULL);\
+            *ppBIKernel = new MKLKernel< MKL_##MKL_CLASS_TYPE##_Executor_Proxy<DATA_TYPE > >(#MKL_FUNCTION_NAME, nullptr);\
             return CL_DEV_SUCCESS;\
         }\
     };\
@@ -135,7 +135,7 @@ template<> void ReleaseLibrary<true>()
 {
 #ifdef __OMP2TBB__
     // Required to shutdown OpenMP layer. In original OpenMP environment this code is added by linker
-    __kmpc_end(NULL);
+    __kmpc_end(nullptr);
 #endif
 }
 

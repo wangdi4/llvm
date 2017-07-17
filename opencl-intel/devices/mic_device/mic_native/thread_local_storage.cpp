@@ -38,7 +38,7 @@ void TlsAccessor::tls_initialize( void )
 {
     assert(false == g_init_done && "SINK: TlsAccessor::tls_initialize called twice" );
 
-    int err = pthread_key_create( &g_tls_key, NULL );
+    int err = pthread_key_create( &g_tls_key, nullptr );
     assert( 0 == err && "SINK: TlsAccessor::tls_initialize cannot pthread_key_create()" );
 
     g_init_done = (0 == err);
@@ -69,7 +69,7 @@ TlsAccessor::TlsAccessor()
     assert( true == g_init_done && "SINK: TlsAccessor::TlsAccessor: tls_initialize() was not called" );
 
 	m_pTls_struct = (TlsStruct*)pthread_getspecific( g_tls_key );
-	if (NULL == m_pTls_struct)
+	if (nullptr == m_pTls_struct)
 	{
 		m_pTls_struct = new TlsStruct;
 		memset(m_pTls_struct->data, 0, sizeof(m_pTls_struct->data));

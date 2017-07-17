@@ -1137,7 +1137,7 @@ public:
     /*! \param[in] list a valid handle to a device command list
         \retval the address of the device command list
     */
-    virtual void* clDevGetCommandListPtr(cl_dev_cmd_list IN list) { return NULL; }
+    virtual void* clDevGetCommandListPtr(cl_dev_cmd_list IN list) { return nullptr; }
 
     //!     This function flushes the content of a list, all waiting commands are sent to execution.
     /*!

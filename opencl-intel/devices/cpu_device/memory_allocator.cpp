@@ -46,7 +46,7 @@ using namespace Intel::OpenCL::CPUDevice;
 MemoryAllocator::MemoryAllocator(cl_int devId, IOCLDevLogDescriptor *logDesc, cl_ulong maxAllocSize, ICLDevBackendImageService* pImageService) :
 	m_iDevId(devId), m_maxAllocSize(maxAllocSize), m_pLogDescriptor(logDesc), m_iLogHandle(0), m_pImageService(pImageService)
 {
-	if ( NULL != logDesc )
+	if ( nullptr != logDesc )
 	{
 		cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, TEXT("CPU Device: Memory Allocator"), &m_iLogHandle);
 		if(CL_DEV_SUCCESS != ret)
@@ -77,7 +77,7 @@ MemoryAllocator::~MemoryAllocator()
 ********************************************************************************************************************/
 cl_dev_err_code MemoryAllocator::GetAllocProperties( cl_mem_object_type IN memObjType,	cl_dev_alloc_prop* OUT pAllocProp )
 {
-	assert( NULL != pAllocProp );
+	assert( nullptr != pAllocProp );
 
 	pAllocProp->bufferSharingGroupId = CL_DEV_CPU_BUFFER_SHARING_GROUP_ID;
 	pAllocProp->imageSharingGroupId  = CL_DEV_CPU_IMAGE_SHARING_GROUP_ID;
@@ -100,10 +100,10 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("Enter node_id:%d, flags:%x"), node_id, flags);
 
-	assert(NULL != memObj);
-	assert(NULL != dim);
+	assert(nullptr != memObj);
+	assert(nullptr != dim);
 	assert(MAX_WORK_DIM >= dim_count);
-	assert(NULL != pRTMemObjService );
+	assert(nullptr != pRTMemObjService );
 
 	// Allocate memory for memory object
 	CPUDevMemoryObject*	pMemObj = new CPUDevMemoryObject(m_iLogHandle, m_pLogDescriptor,
@@ -111,7 +111,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 															format,
 															dim_count, dim,
 															pRTMemObjService, m_pImageService);
-	if ( NULL == pMemObj )
+	if ( nullptr == pMemObj )
 	{
 		CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "Memory Object allocation failed");
 		return CL_DEV_OBJECT_ALLOC_FAIL;
@@ -137,7 +137,7 @@ cl_dev_err_code MemoryAllocator::CreateObject( cl_dev_subdevice_id node_id, cl_m
 void* MemoryAllocator::CalculateOffsetPointer(void* pBasePtr, cl_uint dim_count, const size_t* origin, const size_t* pitch, size_t elemSize)
 {
 	char* lockedPtr = (char*)pBasePtr;
-	if ( NULL != origin )
+	if ( nullptr != origin )
 	{
 		lockedPtr += origin[0] * elemSize; //Origin is in Pixels
 		for(unsigned i=1; i<dim_count; ++i)
@@ -161,20 +161,20 @@ CPUDevMemoryObject::CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* 
 				   ICLDevBackendImageService* pImageService):
 m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
 m_nodeId(nodeId), m_memFlags(memFlags), m_pRTMemObjService(pRTMemObjService),
-m_pBackingStore(NULL),  m_pImageService(pImageService)
+m_pBackingStore(nullptr),  m_pImageService(pImageService)
 {
-	assert( NULL != m_pRTMemObjService);
+	assert( nullptr != m_pRTMemObjService);
 
 	// Get only if there is available backing store.
 	cl_dev_err_code bsErr;
 	bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-	assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) );
+	assert( CL_DEV_SUCCEEDED(bsErr) && (nullptr != m_pBackingStore) );
 
 	m_pBackingStore->AddPendency();
 	
 	m_objDecr.dim_count = (cl_uint)dimCount;
 
-	if ( NULL != pImgFormat )
+	if ( nullptr != pImgFormat )
 	{
 		// Convert from User to Kernel format
 		m_objDecr.format.image_channel_data_type = pImgFormat->image_channel_data_type - CL_SNORM_INT8 + CLK_SNORM_INT8;
@@ -193,7 +193,7 @@ m_pBackingStore(NULL),  m_pImageService(pImageService)
 	}
 
 	m_objDecr.uiElementSize = (unsigned int)m_pBackingStore->GetElementSize();
-	m_objDecr.pData = NULL;
+	m_objDecr.pData = nullptr;
     m_objDecr.memObjType = m_pRTMemObjService->GetMemObjectType();
 }
 
@@ -208,12 +208,12 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 	MEMCPY_S( m_objDecr.pitch, sizeof(m_objDecr.pitch), m_pBackingStore->GetPitch(), sizeof(m_objDecr.pitch) );
 
 	//allocating the memory on the device by querying the backend for the size
-	void* auxObject = NULL;
+	void* auxObject = nullptr;
 	if (m_objDecr.memObjType != CL_MEM_OBJECT_BUFFER && m_objDecr.memObjType != CL_MEM_OBJECT_PIPE)
 	{
 		size_t auxObjectSize=m_pImageService->GetAuxilarySize();
 		auxObject = ALIGNED_MALLOC( auxObjectSize, CPU_DEV_MAXIMUM_ALIGN);
-		if( NULL == auxObject )
+		if( nullptr == auxObject )
 		{
 			CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Allocate aux image object failed"));
 			return CL_DEV_ERROR_FAIL;
@@ -227,7 +227,7 @@ cl_dev_err_code CPUDevMemoryObject::Init()
 		}
 	}
 	else
-		m_objDecr.imageAuxData = NULL;
+		m_objDecr.imageAuxData = nullptr;
 
 	return CL_DEV_SUCCESS;
 }
@@ -236,13 +236,13 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseObject enter"));
 
-	void* auxObject = NULL;
-	if(m_pImageService != NULL)
+	void* auxObject = nullptr;
+	if(m_pImageService != nullptr)
 	{
 		m_pImageService->DeleteImageObject(&m_objDecr, &auxObject);
 	}
 
-	if (NULL != auxObject)
+	if (nullptr != auxObject)
 	{
 		ALIGNED_FREE( auxObject );
 	}
@@ -253,7 +253,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjRelease( )
 
 cl_dev_err_code CPUDevMemoryObject::clDevMemObjGetDescriptor(cl_device_type dev_type, cl_dev_subdevice_id node_id, cl_dev_memobj_handle *handle)
 {
-	assert(NULL != handle);
+	assert(nullptr != handle);
 
 	*handle = (void*)(&m_objDecr);
 	return CL_DEV_SUCCESS;
@@ -265,7 +265,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateMappedRegion(cl_dev_cmd_par
 
 	pMapParams->memObj = this;
 
-	void*	pMapPtr = NULL;
+	void*	pMapPtr = nullptr;
 	// Determine which pointer to use
 	pMapPtr = m_objDecr.pData;
 	size_t*	pitch = m_objDecr.pitch;
@@ -288,7 +288,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 										   IOCLDevMemoryObject** ppSubBuffer )
 {
 	CPUDevMemorySubObject* pSubObject = new CPUDevMemorySubObject(m_iLogHandle, m_pLogDescriptor, this);
-	if ( NULL == pSubObject )
+	if ( nullptr == pSubObject )
 	{
 		return CL_DEV_OUT_OF_MEMORY;
 	}
@@ -300,7 +300,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjCreateSubObject( cl_mem_flags mem
 		return devErr;
 	}
 
-	assert (NULL != ppSubBuffer);
+	assert (nullptr != ppSubBuffer);
 	*ppSubBuffer = pSubObject;
 	return CL_DEV_SUCCESS;
 }
@@ -309,7 +309,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateBackingStore(
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateBackingStore enter"));
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
     return CL_DEV_SUCCESS;
 }
@@ -318,7 +318,7 @@ cl_dev_err_code CPUDevMemoryObject::clDevMemObjUpdateFromBackingStore(
                             void* operation_handle, cl_dev_bs_update_state* pUpdateState )
 {
 	CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevMemObjUpdateFromBackingStore enter"));
-    assert( NULL != pUpdateState );
+    assert( nullptr != pUpdateState );
     *pUpdateState = CL_DEV_BS_UPDATE_COMPLETED;
     return CL_DEV_SUCCESS;
 }
@@ -363,9 +363,9 @@ cl_dev_err_code CPUDevMemorySubObject::Init(cl_mem_flags mem_flags, const size_t
     m_pRTMemObjService = pBSService;
 
     cl_dev_err_code bsErr = m_pRTMemObjService->GetBackingStore(CL_DEV_BS_GET_ALWAYS, &m_pBackingStore);
-    assert( CL_DEV_SUCCEEDED(bsErr) && (NULL != m_pBackingStore) );
+    assert( CL_DEV_SUCCEEDED(bsErr) && (nullptr != m_pBackingStore) );
 
-    if (CL_DEV_FAILED(bsErr) || (NULL == m_pBackingStore))
+    if (CL_DEV_FAILED(bsErr) || (nullptr == m_pBackingStore))
     {
         CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBackingStore failed"));
         return CL_DEV_ERROR_FAIL;

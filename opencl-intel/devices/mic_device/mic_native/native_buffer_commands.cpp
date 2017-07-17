@@ -67,7 +67,7 @@ void execute_command_fill_mem_object(uint32_t         in_BufferCount,
     fill_mem_obj_dispatcher_data* fillMemObjDispatchData = (fill_mem_obj_dispatcher_data*)in_pMiscData;
 
     QueueOnDevice* pQueue = (QueueOnDevice*)fillMemObjDispatchData->deviceQueuePtr;
-    assert(NULL != pQueue && "pQueue must be valid");
+    assert(nullptr != pQueue && "pQueue must be valid");
 
     cl_dev_err_code err = CL_DEV_SUCCESS;
 
@@ -102,7 +102,7 @@ FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, f
     TaskHandler<FillMemObjTask, fill_mem_obj_dispatcher_data >(lockBufferCount, pLockBuffers, pDispatcherData, uiDispatchSize, pQueue),
     m_fillBufPtr((char*)(pLockBuffers[0])), m_fillBufPtrAnchor((char*)(pLockBuffers[0]))
 #ifdef USE_ITT
-    ,m_pIttFillBufferName(NULL), m_pIttFillBufferDomain(NULL)
+    ,m_pIttFillBufferName(nullptr), m_pIttFillBufferDomain(nullptr)
 #endif
 {
     if ( lockBufferCount!=1 )
@@ -115,7 +115,7 @@ FillMemObjTask::FillMemObjTask( uint32_t lockBufferCount, void** pLockBuffers, f
     {
 	    m_pIttFillBufferDomain = __itt_domain_create("com.intel.opencl.device.mic.fill_mem_obj");
 		// Use fillBuffer specific domain if possible, if not available switch to global domain
-        if ( NULL == m_pIttFillBufferDomain )
+        if ( nullptr == m_pIttFillBufferDomain )
         {
             m_pIttFillBufferDomain = gMicGPAData.pDeviceDomain;
         }
@@ -137,7 +137,7 @@ bool FillMemObjTask::PrepareTask()
     }
 #endif
 
-	m_bufferPointers = NULL;
+	m_bufferPointers = nullptr;
 
     return true;
 }
@@ -162,15 +162,15 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 #if defined(USE_ITT)
     if ( gMicGPAData.bUseGPA )
     {
-        __itt_frame_begin_v3(m_pIttFillBufferDomain, NULL);
+        __itt_frame_begin_v3(m_pIttFillBufferDomain, nullptr);
     }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("FillMemObjTask::Init()");
       }
@@ -324,9 +324,9 @@ int FillMemObjTask::Init(size_t region[], unsigned int& regCount)
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
+      static __thread __itt_string_handle* pTaskName = nullptr;
       master_id = GetThreadId();
-      if ( NULL == pTaskName )
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("TBB::Distribute_Work");
       }
@@ -358,8 +358,8 @@ bool FillMemObjTask::ExecuteIteration(size_t x, size_t y, size_t z, void* data_f
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
     if ( gMicGPAData.bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("FillMemObjTask::ExecuteIteration()");
         }
@@ -414,7 +414,7 @@ bool FillMemObjTask::Finish(Intel::OpenCL::TaskExecutor::FINISH_REASON reason)
     if ( gMicGPAData.bUseGPA)
     {
         __itt_task_end(m_pIttFillBufferDomain);
-        __itt_frame_end_v3(m_pIttFillBufferDomain, NULL);
+        __itt_frame_end_v3(m_pIttFillBufferDomain, nullptr);
     }
 #endif
 

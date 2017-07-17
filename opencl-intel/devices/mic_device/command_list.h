@@ -85,7 +85,7 @@ public:
     cl_dev_err_code commandListExecute(cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 
     /* If cmdDescToWait != NULL waiting on the Command that store in cmdDescToWait->device_agent_data, otherwise wait to m_lastCommand Command. */
-    cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait = NULL);
+    cl_dev_err_code commandListWaitCompletion(cl_dev_cmd_desc* cmdDescToWait = nullptr);
 
     /* Return this queue COIPIPLINE */
     COIPIPELINE getPipelineHandle() const { return m_pipe; };
@@ -216,8 +216,8 @@ private:
        Run it without buffers data.
        Run "func" on device side. */
     cl_dev_err_code runBlockingFuncOnDevice(DeviceServiceCommunication::DEVICE_SIDE_FUNCTION func,
-                                            void* in_data = NULL, size_t in_data_size = 0,
-                                            void* out_data = NULL,size_t out_data_size = 0);
+                                            void* in_data = nullptr, size_t in_data_size = 0,
+                                            void* out_data = nullptr,size_t out_data_size = 0);
 
     /* Factory for Command objects.
        The client responsibility is to delete the return object.

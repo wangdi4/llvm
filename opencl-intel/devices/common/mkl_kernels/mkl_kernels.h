@@ -142,7 +142,7 @@ public:
     }
 
     unsigned int        GetMemoryObjectArgumentCount() const { return m_lstMemArgs.size(); }
-    const unsigned int* GetMemoryObjectArgumentIndexes() const { return m_lstMemArgs.size()>0 ? &m_lstMemArgs[0] : NULL;}
+    const unsigned int* GetMemoryObjectArgumentIndexes() const { return m_lstMemArgs.size()>0 ? &m_lstMemArgs[0] : nullptr;}
 
 protected:
     size_t                          m_Offset;         // Offset inside argument buffer
@@ -198,7 +198,7 @@ public:
     const cl_kernel_argument_info* GetKernelArgInfo() const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelArgInfo();}
     size_t GetExplicitArgumentBufferSize(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetParamSize(); }
     size_t GetArgumentBufferRequiredAlignment(void) const { return MKL_EXECUTOR_CLASS::MKL_GEMM_EXECUTOR_PAREMERTERS::GetKernelParams()[0].size_in_bytes;}
-    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* GetKernelRunner(void) const { return NULL;}
+    const Intel::OpenCL::DeviceBackend::ICLDevBackendKernelRunner* GetKernelRunner(void) const { return nullptr;}
 
     int GetLineNumber(void* pointer) const { return -1;}
 

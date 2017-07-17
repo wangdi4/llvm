@@ -179,7 +179,7 @@ struct RootDeviceCreationParam
                              TE_MASTERS_JOINING joining = TE_ENABLE_MASTERS_JOIN, unsigned int reservedForMasters = 0 ) :
         uiNumOfLevels( levels ), mastersJoining( joining ), uiNumOfExecPlacesForMasters( reservedForMasters )
     {
-        if (NULL != threadsPerLevel)
+        if (nullptr != threadsPerLevel)
         {
             MEMCPY_S( uiThreadsPerLevel, sizeof(uiThreadsPerLevel), threadsPerLevel, sizeof(unsigned int)*((levels < TE_MAX_LEVELS_COUNT) ? levels : TE_MAX_LEVELS_COUNT ));
         }
@@ -397,7 +397,7 @@ public:
     virtual Intel::OpenCL::Utils::SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() = 0;
 
     // Returns an optional in-order ITaskList that can be used to enqueue child kernels in debug mode
-    virtual ITaskList* GetDebugInOrderDeviceQueue() { return NULL; }
+    virtual ITaskList* GetDebugInOrderDeviceQueue() { return nullptr; }
 };
 
 class ITaskExecutorObserver;
@@ -415,7 +415,7 @@ public:
      * @return an object representing the sub-device in the TaskExecutor module
      * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL ) = 0;
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr ) = 0;
 
     /**
      * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.
@@ -515,7 +515,7 @@ public:
      * @param ulAdditionalRequiredStackSize can be used to increase amount of stack in threads
      * @return the number of threads initialized, if succeeded, else -1
      */
-    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, size_t ulAdditionalRequiredStackSize = 0) = 0;
+    virtual int    Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = nullptr, size_t ulAdditionalRequiredStackSize = 0) = 0;
 
     virtual void Finalize() = 0;
 
@@ -534,7 +534,7 @@ public:
      */
     virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateRootDevice( 
                                     const RootDeviceCreationParam& device_desc,  
-                                    void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL ) = 0;
+                                    void* user_data = nullptr, ITaskExecutorObserver* my_observer = nullptr ) = 0;
 
     virtual ocl_gpa_data* GetGPAData() const = 0;    
 
@@ -550,7 +550,7 @@ public:
         ITEDevice* teDevice;       // returned by CreateRootDevice() or CreateSubdevice()
         void*      user_handle;    // received by CreateRootDevice() or CreateSubdevice()
 
-        DeviceHandleStruct(ITEDevice* dev = NULL, void* user = NULL) : teDevice(dev), user_handle(user) {};
+        DeviceHandleStruct(ITEDevice* dev = nullptr, void* user = nullptr) : teDevice(dev), user_handle(user) {};
     };
     virtual DeviceHandleStruct GetCurrentDevice() const = 0;
 
@@ -587,7 +587,7 @@ public:
     
 protected:
 
-    ITaskExecutor() : m_pGPAData(NULL) { }
+    ITaskExecutor() : m_pGPAData(nullptr) { }
 
     ocl_gpa_data *m_pGPAData;    
     

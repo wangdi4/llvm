@@ -54,7 +54,7 @@ public:
 
     // ITask interfaces
     TaskExecutor::TASK_PRIORITY GetPriority() const { return TaskExecutor::TASK_PRIORITY_MEDIUM; }
-    TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
     bool IsCompleted() const { return m_bCompleted; }
     void Cancel() { NotifyCommandStatusChanged(CL_COMPLETE, CL_DEV_COMMAND_CANCELLED); }

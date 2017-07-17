@@ -35,7 +35,7 @@ ApiDebuggerPipeReader::ApiDebuggerPipeReader(): m_isDeubggingEnabled( false )
 
 const bool ApiDebuggerPipeReader::init( std::string pipeName )
 {
-    HANDLE hPipe = NULL;
+    HANDLE hPipe = nullptr;
 
     // Wait for available pipe instance for connection.
     BOOL res = WaitNamedPipeA( pipeName.c_str(), NMPWAIT_WAIT_FOREVER );
@@ -49,10 +49,10 @@ const bool ApiDebuggerPipeReader::init( std::string pipeName )
         pipeName.c_str(),   // pipe name
         GENERIC_READ,       // read access
         0,                  // no sharing
-        NULL,               // default security attributes
+        nullptr,               // default security attributes
         OPEN_EXISTING,      // opens existing pipe
         0,                  // default attributes
-        NULL );             // no template file
+        nullptr );             // no template file
 
     // Exit if the pipe handle is not valid
     if( hPipe == INVALID_HANDLE_VALUE )
@@ -109,7 +109,7 @@ const bool ApiDebuggerPipeReader::readPipeContent( HANDLE pipeHandle,
             ((char *)chBuf) + offset,   // buffer to receive reply
             CONTENT_SIZE - offset,      // buffer size
             &bytesRead,                 // number of bytes read
-            NULL );                     // not overlapped
+            nullptr );                     // not overlapped
 
         // A read operation is completed successfully when:
         //  all available bytes in the pipe are read, or

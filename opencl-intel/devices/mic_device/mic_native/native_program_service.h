@@ -120,8 +120,8 @@ private:
         MICNativeBackendOptions             m_options;
 
         // constructor
-        BackendInterfaces():  pExecutionService(NULL),
-                              pSerializationService(NULL)
+        BackendInterfaces():  pExecutionService(nullptr),
+                              pSerializationService(nullptr)
                               {};
     };
 
@@ -134,9 +134,9 @@ private:
 #endif
 
       // constructor
-      TKernelEntry( void ) : kernel(NULL)
+      TKernelEntry( void ) : kernel(nullptr)
 #ifdef USE_ITT
-      , pIttKernelName(NULL)
+      , pIttKernelName(nullptr)
 #endif
       {}
     };
