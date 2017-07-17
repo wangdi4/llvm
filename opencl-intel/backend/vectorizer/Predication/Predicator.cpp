@@ -2359,7 +2359,6 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
  BasicBlock* entry2 = BasicBlock::Create(original->getContext(),
     "predicated_entry_"+original->getName(), original->getParent(), original);
 
-  V_ASSERT(original->getNextNode() && "expecting a next node");
   BasicBlock* exit = BasicBlock::Create(original->getContext(),
     "post_"+original->getName(), original->getParent(), original->getNextNode());
 
@@ -2704,7 +2703,6 @@ void Predicator::insertAllOnesBypasses() {
 
       BasicBlock* entry = BasicBlock::Create(original->getContext(),
         "pre_"+original->getName(), original->getParent(), allOnes);
-      V_ASSERT(original->getNextNode() && "expecting a next node");
       BasicBlock* exit = BasicBlock::Create(original->getContext(),
         "post_"+original->getName(), original->getParent(), original->getNextNode());
 
