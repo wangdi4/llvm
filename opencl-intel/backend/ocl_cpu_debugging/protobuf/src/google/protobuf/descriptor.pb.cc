@@ -18,70 +18,70 @@ namespace protobuf {
 
 namespace {
 
-const ::google::protobuf::Descriptor* FileDescriptorSet_descriptor_ = NULL;
+const ::google::protobuf::Descriptor* FileDescriptorSet_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  FileDescriptorSet_reflection_ = NULL;
-const ::google::protobuf::Descriptor* FileDescriptorProto_descriptor_ = NULL;
+  FileDescriptorSet_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* FileDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  FileDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* DescriptorProto_descriptor_ = NULL;
+  FileDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* DescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  DescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* DescriptorProto_ExtensionRange_descriptor_ = NULL;
+  DescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* DescriptorProto_ExtensionRange_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  DescriptorProto_ExtensionRange_reflection_ = NULL;
-const ::google::protobuf::Descriptor* FieldDescriptorProto_descriptor_ = NULL;
+  DescriptorProto_ExtensionRange_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* FieldDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  FieldDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* FieldDescriptorProto_Type_descriptor_ = NULL;
-const ::google::protobuf::EnumDescriptor* FieldDescriptorProto_Label_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* EnumDescriptorProto_descriptor_ = NULL;
+  FieldDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* FieldDescriptorProto_Type_descriptor_ = nullptr;
+const ::google::protobuf::EnumDescriptor* FieldDescriptorProto_Label_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* EnumDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  EnumDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* EnumValueDescriptorProto_descriptor_ = NULL;
+  EnumDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* EnumValueDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  EnumValueDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServiceDescriptorProto_descriptor_ = NULL;
+  EnumValueDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServiceDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServiceDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* MethodDescriptorProto_descriptor_ = NULL;
+  ServiceDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* MethodDescriptorProto_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  MethodDescriptorProto_reflection_ = NULL;
-const ::google::protobuf::Descriptor* FileOptions_descriptor_ = NULL;
+  MethodDescriptorProto_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* FileOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  FileOptions_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* FileOptions_OptimizeMode_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* MessageOptions_descriptor_ = NULL;
+  FileOptions_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* FileOptions_OptimizeMode_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* MessageOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  MessageOptions_reflection_ = NULL;
-const ::google::protobuf::Descriptor* FieldOptions_descriptor_ = NULL;
+  MessageOptions_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* FieldOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  FieldOptions_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* FieldOptions_CType_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* EnumOptions_descriptor_ = NULL;
+  FieldOptions_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* FieldOptions_CType_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* EnumOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  EnumOptions_reflection_ = NULL;
-const ::google::protobuf::Descriptor* EnumValueOptions_descriptor_ = NULL;
+  EnumOptions_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* EnumValueOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  EnumValueOptions_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServiceOptions_descriptor_ = NULL;
+  EnumValueOptions_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServiceOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServiceOptions_reflection_ = NULL;
-const ::google::protobuf::Descriptor* MethodOptions_descriptor_ = NULL;
+  ServiceOptions_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* MethodOptions_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  MethodOptions_reflection_ = NULL;
-const ::google::protobuf::Descriptor* UninterpretedOption_descriptor_ = NULL;
+  MethodOptions_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* UninterpretedOption_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  UninterpretedOption_reflection_ = NULL;
-const ::google::protobuf::Descriptor* UninterpretedOption_NamePart_descriptor_ = NULL;
+  UninterpretedOption_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* UninterpretedOption_NamePart_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  UninterpretedOption_NamePart_reflection_ = NULL;
-const ::google::protobuf::Descriptor* SourceCodeInfo_descriptor_ = NULL;
+  UninterpretedOption_NamePart_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* SourceCodeInfo_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  SourceCodeInfo_reflection_ = NULL;
-const ::google::protobuf::Descriptor* SourceCodeInfo_Location_descriptor_ = NULL;
+  SourceCodeInfo_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* SourceCodeInfo_Location_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  SourceCodeInfo_Location_reflection_ = NULL;
+  SourceCodeInfo_Location_reflection_ = nullptr;
 
 }  // namespace
 
@@ -91,7 +91,7 @@ void protobuf_AssignDesc_google_2fprotobuf_2fdescriptor_2eproto() {
   const ::google::protobuf::FileDescriptor* file =
     ::google::protobuf::DescriptorPool::generated_pool()->FindFileByName(
       "google/protobuf/descriptor.proto");
-  GOOGLE_CHECK(file != NULL);
+  GOOGLE_CHECK(file != nullptr);
   FileDescriptorSet_descriptor_ = file->message_type(0);
   static const int FileDescriptorSet_offsets_[1] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(FileDescriptorSet, file_),
@@ -752,10 +752,10 @@ const ::google::protobuf::Descriptor* FileDescriptorSet::descriptor() {
 }
 
 const FileDescriptorSet& FileDescriptorSet::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-FileDescriptorSet* FileDescriptorSet::default_instance_ = NULL;
+FileDescriptorSet* FileDescriptorSet::default_instance_ = nullptr;
 
 FileDescriptorSet* FileDescriptorSet::New() const {
   return new FileDescriptorSet;
@@ -861,7 +861,7 @@ void FileDescriptorSet::MergeFrom(const ::google::protobuf::Message& from) {
   const FileDescriptorSet* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const FileDescriptorSet*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -946,8 +946,8 @@ void FileDescriptorProto::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   package_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
-  source_code_info_ = NULL;
+  options_ = nullptr;
+  source_code_info_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -979,10 +979,10 @@ const ::google::protobuf::Descriptor* FileDescriptorProto::descriptor() {
 }
 
 const FileDescriptorProto& FileDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-FileDescriptorProto* FileDescriptorProto::default_instance_ = NULL;
+FileDescriptorProto* FileDescriptorProto::default_instance_ = nullptr;
 
 FileDescriptorProto* FileDescriptorProto::New() const {
   return new FileDescriptorProto;
@@ -1001,12 +1001,12 @@ void FileDescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::FileOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::FileOptions::Clear();
     }
   }
   if (_has_bits_[8 / 32] & (0xffu << (8 % 32))) {
     if (has_source_code_info()) {
-      if (source_code_info_ != NULL) source_code_info_->::google::protobuf::SourceCodeInfo::Clear();
+      if (source_code_info_ != nullptr) source_code_info_->::google::protobuf::SourceCodeInfo::Clear();
     }
   }
   dependency_.Clear();
@@ -1420,7 +1420,7 @@ void FileDescriptorProto::MergeFrom(const ::google::protobuf::Message& from) {
   const FileDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const FileDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -1559,10 +1559,10 @@ const ::google::protobuf::Descriptor* DescriptorProto_ExtensionRange::descriptor
 }
 
 const DescriptorProto_ExtensionRange& DescriptorProto_ExtensionRange::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-DescriptorProto_ExtensionRange* DescriptorProto_ExtensionRange::default_instance_ = NULL;
+DescriptorProto_ExtensionRange* DescriptorProto_ExtensionRange::default_instance_ = nullptr;
 
 DescriptorProto_ExtensionRange* DescriptorProto_ExtensionRange::New() const {
   return new DescriptorProto_ExtensionRange;
@@ -1702,7 +1702,7 @@ void DescriptorProto_ExtensionRange::MergeFrom(const ::google::protobuf::Message
   const DescriptorProto_ExtensionRange* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const DescriptorProto_ExtensionRange*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -1788,7 +1788,7 @@ DescriptorProto::DescriptorProto(const DescriptorProto& from)
 void DescriptorProto::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -1816,10 +1816,10 @@ const ::google::protobuf::Descriptor* DescriptorProto::descriptor() {
 }
 
 const DescriptorProto& DescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-DescriptorProto* DescriptorProto::default_instance_ = NULL;
+DescriptorProto* DescriptorProto::default_instance_ = nullptr;
 
 DescriptorProto* DescriptorProto::New() const {
   return new DescriptorProto;
@@ -1833,7 +1833,7 @@ void DescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::MessageOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::MessageOptions::Clear();
     }
   }
   field_.Clear();
@@ -2161,7 +2161,7 @@ void DescriptorProto::MergeFrom(const ::google::protobuf::Message& from) {
   const DescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const DescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2355,7 +2355,7 @@ void FieldDescriptorProto::SharedCtor() {
   type_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   extendee_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   default_value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2392,10 +2392,10 @@ const ::google::protobuf::Descriptor* FieldDescriptorProto::descriptor() {
 }
 
 const FieldDescriptorProto& FieldDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-FieldDescriptorProto* FieldDescriptorProto::default_instance_ = NULL;
+FieldDescriptorProto* FieldDescriptorProto::default_instance_ = nullptr;
 
 FieldDescriptorProto* FieldDescriptorProto::New() const {
   return new FieldDescriptorProto;
@@ -2427,7 +2427,7 @@ void FieldDescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::FieldOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::FieldOptions::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -2810,7 +2810,7 @@ void FieldDescriptorProto::MergeFrom(const ::google::protobuf::Message& from) {
   const FieldDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const FieldDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2919,7 +2919,7 @@ EnumDescriptorProto::EnumDescriptorProto(const EnumDescriptorProto& from)
 void EnumDescriptorProto::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2947,10 +2947,10 @@ const ::google::protobuf::Descriptor* EnumDescriptorProto::descriptor() {
 }
 
 const EnumDescriptorProto& EnumDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-EnumDescriptorProto* EnumDescriptorProto::default_instance_ = NULL;
+EnumDescriptorProto* EnumDescriptorProto::default_instance_ = nullptr;
 
 EnumDescriptorProto* EnumDescriptorProto::New() const {
   return new EnumDescriptorProto;
@@ -2964,7 +2964,7 @@ void EnumDescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::EnumOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::EnumOptions::Clear();
     }
   }
   value_.Clear();
@@ -3144,7 +3144,7 @@ void EnumDescriptorProto::MergeFrom(const ::google::protobuf::Message& from) {
   const EnumDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const EnumDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3235,7 +3235,7 @@ void EnumValueDescriptorProto::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   number_ = 0;
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3263,10 +3263,10 @@ const ::google::protobuf::Descriptor* EnumValueDescriptorProto::descriptor() {
 }
 
 const EnumValueDescriptorProto& EnumValueDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-EnumValueDescriptorProto* EnumValueDescriptorProto::default_instance_ = NULL;
+EnumValueDescriptorProto* EnumValueDescriptorProto::default_instance_ = nullptr;
 
 EnumValueDescriptorProto* EnumValueDescriptorProto::New() const {
   return new EnumValueDescriptorProto;
@@ -3281,7 +3281,7 @@ void EnumValueDescriptorProto::Clear() {
     }
     number_ = 0;
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::EnumValueOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::EnumValueOptions::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -3457,7 +3457,7 @@ void EnumValueDescriptorProto::MergeFrom(const ::google::protobuf::Message& from
   const EnumValueDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const EnumValueDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3546,7 +3546,7 @@ ServiceDescriptorProto::ServiceDescriptorProto(const ServiceDescriptorProto& fro
 void ServiceDescriptorProto::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3574,10 +3574,10 @@ const ::google::protobuf::Descriptor* ServiceDescriptorProto::descriptor() {
 }
 
 const ServiceDescriptorProto& ServiceDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-ServiceDescriptorProto* ServiceDescriptorProto::default_instance_ = NULL;
+ServiceDescriptorProto* ServiceDescriptorProto::default_instance_ = nullptr;
 
 ServiceDescriptorProto* ServiceDescriptorProto::New() const {
   return new ServiceDescriptorProto;
@@ -3591,7 +3591,7 @@ void ServiceDescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::ServiceOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::ServiceOptions::Clear();
     }
   }
   method_.Clear();
@@ -3771,7 +3771,7 @@ void ServiceDescriptorProto::MergeFrom(const ::google::protobuf::Message& from) 
   const ServiceDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServiceDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3864,7 +3864,7 @@ void MethodDescriptorProto::SharedCtor() {
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   input_type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   output_type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  options_ = NULL;
+  options_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3898,10 +3898,10 @@ const ::google::protobuf::Descriptor* MethodDescriptorProto::descriptor() {
 }
 
 const MethodDescriptorProto& MethodDescriptorProto::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-MethodDescriptorProto* MethodDescriptorProto::default_instance_ = NULL;
+MethodDescriptorProto* MethodDescriptorProto::default_instance_ = nullptr;
 
 MethodDescriptorProto* MethodDescriptorProto::New() const {
   return new MethodDescriptorProto;
@@ -3925,7 +3925,7 @@ void MethodDescriptorProto::Clear() {
       }
     }
     if (has_options()) {
-      if (options_ != NULL) options_->::google::protobuf::MethodOptions::Clear();
+      if (options_ != nullptr) options_->::google::protobuf::MethodOptions::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -4154,7 +4154,7 @@ void MethodDescriptorProto::MergeFrom(const ::google::protobuf::Message& from) {
   const MethodDescriptorProto* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const MethodDescriptorProto*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -4311,10 +4311,10 @@ const ::google::protobuf::Descriptor* FileOptions::descriptor() {
 }
 
 const FileOptions& FileOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-FileOptions* FileOptions::default_instance_ = NULL;
+FileOptions* FileOptions::default_instance_ = nullptr;
 
 FileOptions* FileOptions::New() const {
   return new FileOptions;
@@ -4735,7 +4735,7 @@ void FileOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const FileOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const FileOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -4872,10 +4872,10 @@ const ::google::protobuf::Descriptor* MessageOptions::descriptor() {
 }
 
 const MessageOptions& MessageOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-MessageOptions* MessageOptions::default_instance_ = NULL;
+MessageOptions* MessageOptions::default_instance_ = nullptr;
 
 MessageOptions* MessageOptions::New() const {
   return new MessageOptions;
@@ -5064,7 +5064,7 @@ void MessageOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const MessageOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const MessageOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5207,10 +5207,10 @@ const ::google::protobuf::Descriptor* FieldOptions::descriptor() {
 }
 
 const FieldOptions& FieldOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-FieldOptions* FieldOptions::default_instance_ = NULL;
+FieldOptions* FieldOptions::default_instance_ = nullptr;
 
 FieldOptions* FieldOptions::New() const {
   return new FieldOptions;
@@ -5487,7 +5487,7 @@ void FieldOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const FieldOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const FieldOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5604,10 +5604,10 @@ const ::google::protobuf::Descriptor* EnumOptions::descriptor() {
 }
 
 const EnumOptions& EnumOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-EnumOptions* EnumOptions::default_instance_ = NULL;
+EnumOptions* EnumOptions::default_instance_ = nullptr;
 
 EnumOptions* EnumOptions::New() const {
   return new EnumOptions;
@@ -5729,7 +5729,7 @@ void EnumOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const EnumOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const EnumOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5828,10 +5828,10 @@ const ::google::protobuf::Descriptor* EnumValueOptions::descriptor() {
 }
 
 const EnumValueOptions& EnumValueOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-EnumValueOptions* EnumValueOptions::default_instance_ = NULL;
+EnumValueOptions* EnumValueOptions::default_instance_ = nullptr;
 
 EnumValueOptions* EnumValueOptions::New() const {
   return new EnumValueOptions;
@@ -5953,7 +5953,7 @@ void EnumValueOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const EnumValueOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const EnumValueOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6052,10 +6052,10 @@ const ::google::protobuf::Descriptor* ServiceOptions::descriptor() {
 }
 
 const ServiceOptions& ServiceOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-ServiceOptions* ServiceOptions::default_instance_ = NULL;
+ServiceOptions* ServiceOptions::default_instance_ = nullptr;
 
 ServiceOptions* ServiceOptions::New() const {
   return new ServiceOptions;
@@ -6177,7 +6177,7 @@ void ServiceOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const ServiceOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServiceOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6276,10 +6276,10 @@ const ::google::protobuf::Descriptor* MethodOptions::descriptor() {
 }
 
 const MethodOptions& MethodOptions::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-MethodOptions* MethodOptions::default_instance_ = NULL;
+MethodOptions* MethodOptions::default_instance_ = nullptr;
 
 MethodOptions* MethodOptions::New() const {
   return new MethodOptions;
@@ -6401,7 +6401,7 @@ void MethodOptions::MergeFrom(const ::google::protobuf::Message& from) {
   const MethodOptions* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const MethodOptions*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6506,10 +6506,10 @@ const ::google::protobuf::Descriptor* UninterpretedOption_NamePart::descriptor()
 }
 
 const UninterpretedOption_NamePart& UninterpretedOption_NamePart::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-UninterpretedOption_NamePart* UninterpretedOption_NamePart::default_instance_ = NULL;
+UninterpretedOption_NamePart* UninterpretedOption_NamePart::default_instance_ = nullptr;
 
 UninterpretedOption_NamePart* UninterpretedOption_NamePart::New() const {
   return new UninterpretedOption_NamePart;
@@ -6661,7 +6661,7 @@ void UninterpretedOption_NamePart::MergeFrom(const ::google::protobuf::Message& 
   const UninterpretedOption_NamePart* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const UninterpretedOption_NamePart*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6784,10 +6784,10 @@ const ::google::protobuf::Descriptor* UninterpretedOption::descriptor() {
 }
 
 const UninterpretedOption& UninterpretedOption::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-UninterpretedOption* UninterpretedOption::default_instance_ = NULL;
+UninterpretedOption* UninterpretedOption::default_instance_ = nullptr;
 
 UninterpretedOption* UninterpretedOption::New() const {
   return new UninterpretedOption;
@@ -7132,7 +7132,7 @@ void UninterpretedOption::MergeFrom(const ::google::protobuf::Message& from) {
   const UninterpretedOption* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const UninterpretedOption*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -7255,10 +7255,10 @@ const ::google::protobuf::Descriptor* SourceCodeInfo_Location::descriptor() {
 }
 
 const SourceCodeInfo_Location& SourceCodeInfo_Location::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-SourceCodeInfo_Location* SourceCodeInfo_Location::default_instance_ = NULL;
+SourceCodeInfo_Location* SourceCodeInfo_Location::default_instance_ = nullptr;
 
 SourceCodeInfo_Location* SourceCodeInfo_Location::New() const {
   return new SourceCodeInfo_Location;
@@ -7448,7 +7448,7 @@ void SourceCodeInfo_Location::MergeFrom(const ::google::protobuf::Message& from)
   const SourceCodeInfo_Location* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const SourceCodeInfo_Location*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -7543,10 +7543,10 @@ const ::google::protobuf::Descriptor* SourceCodeInfo::descriptor() {
 }
 
 const SourceCodeInfo& SourceCodeInfo::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_google_2fprotobuf_2fdescriptor_2eproto();  return *default_instance_;
 }
 
-SourceCodeInfo* SourceCodeInfo::default_instance_ = NULL;
+SourceCodeInfo* SourceCodeInfo::default_instance_ = nullptr;
 
 SourceCodeInfo* SourceCodeInfo::New() const {
   return new SourceCodeInfo;
@@ -7652,7 +7652,7 @@ void SourceCodeInfo::MergeFrom(const ::google::protobuf::Message& from) {
   const SourceCodeInfo* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const SourceCodeInfo*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);

@@ -102,7 +102,7 @@ static bool get_reg_value_string(HKEY top_hkey,
             hkey,                   // hkey
             value_name.c_str(),     // lpValueName
             0,                      // lpReserved
-            NULL,                   // lpType
+            nullptr,                   // lpType
             (LPBYTE)databuf,        // lpData
             &databuf_size           // lpcbData
             );
@@ -143,7 +143,7 @@ static string getAbsPath(string file, string dir)
 
     char absPath[MAX_PATH] = {0};
     char* res = _fullpath(absPath, path.c_str(), MAX_PATH);
-    if (NULL == res)
+    if (nullptr == res)
     {
         return file;
     }

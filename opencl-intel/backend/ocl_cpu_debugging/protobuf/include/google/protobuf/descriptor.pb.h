@@ -2713,7 +2713,7 @@ inline ::std::string* FileDescriptorProto::mutable_name() {
 inline ::std::string* FileDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -2771,7 +2771,7 @@ inline ::std::string* FileDescriptorProto::mutable_package() {
 inline ::std::string* FileDescriptorProto::release_package() {
   clear_has_package();
   if (package_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = package_;
     package_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -2934,21 +2934,21 @@ inline void FileDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000080u;
 }
 inline void FileDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::FileOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::FileOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::FileOptions& FileDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::FileOptions* FileDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::FileOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::FileOptions;
   return options_;
 }
 inline ::google::protobuf::FileOptions* FileDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::FileOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -2963,21 +2963,21 @@ inline void FileDescriptorProto::clear_has_source_code_info() {
   _has_bits_[0] &= ~0x00000100u;
 }
 inline void FileDescriptorProto::clear_source_code_info() {
-  if (source_code_info_ != NULL) source_code_info_->::google::protobuf::SourceCodeInfo::Clear();
+  if (source_code_info_ != nullptr) source_code_info_->::google::protobuf::SourceCodeInfo::Clear();
   clear_has_source_code_info();
 }
 inline const ::google::protobuf::SourceCodeInfo& FileDescriptorProto::source_code_info() const {
-  return source_code_info_ != NULL ? *source_code_info_ : *default_instance_->source_code_info_;
+  return source_code_info_ != nullptr ? *source_code_info_ : *default_instance_->source_code_info_;
 }
 inline ::google::protobuf::SourceCodeInfo* FileDescriptorProto::mutable_source_code_info() {
   set_has_source_code_info();
-  if (source_code_info_ == NULL) source_code_info_ = new ::google::protobuf::SourceCodeInfo;
+  if (source_code_info_ == nullptr) source_code_info_ = new ::google::protobuf::SourceCodeInfo;
   return source_code_info_;
 }
 inline ::google::protobuf::SourceCodeInfo* FileDescriptorProto::release_source_code_info() {
   clear_has_source_code_info();
   ::google::protobuf::SourceCodeInfo* temp = source_code_info_;
-  source_code_info_ = NULL;
+  source_code_info_ = nullptr;
   return temp;
 }
 
@@ -3083,7 +3083,7 @@ inline ::std::string* DescriptorProto::mutable_name() {
 inline ::std::string* DescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3227,21 +3227,21 @@ inline void DescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000040u;
 }
 inline void DescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::MessageOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::MessageOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::MessageOptions& DescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::MessageOptions* DescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::MessageOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::MessageOptions;
   return options_;
 }
 inline ::google::protobuf::MessageOptions* DescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::MessageOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -3299,7 +3299,7 @@ inline ::std::string* FieldDescriptorProto::mutable_name() {
 inline ::std::string* FieldDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3425,7 +3425,7 @@ inline ::std::string* FieldDescriptorProto::mutable_type_name() {
 inline ::std::string* FieldDescriptorProto::release_type_name() {
   clear_has_type_name();
   if (type_name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = type_name_;
     type_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3483,7 +3483,7 @@ inline ::std::string* FieldDescriptorProto::mutable_extendee() {
 inline ::std::string* FieldDescriptorProto::release_extendee() {
   clear_has_extendee();
   if (extendee_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = extendee_;
     extendee_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3541,7 +3541,7 @@ inline ::std::string* FieldDescriptorProto::mutable_default_value() {
 inline ::std::string* FieldDescriptorProto::release_default_value() {
   clear_has_default_value();
   if (default_value_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = default_value_;
     default_value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3560,21 +3560,21 @@ inline void FieldDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000080u;
 }
 inline void FieldDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::FieldOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::FieldOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::FieldOptions& FieldDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::FieldOptions* FieldDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::FieldOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::FieldOptions;
   return options_;
 }
 inline ::google::protobuf::FieldOptions* FieldDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::FieldOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -3632,7 +3632,7 @@ inline ::std::string* EnumDescriptorProto::mutable_name() {
 inline ::std::string* EnumDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3676,21 +3676,21 @@ inline void EnumDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void EnumDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::EnumOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::EnumOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::EnumOptions& EnumDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::EnumOptions* EnumDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::EnumOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::EnumOptions;
   return options_;
 }
 inline ::google::protobuf::EnumOptions* EnumDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::EnumOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -3748,7 +3748,7 @@ inline ::std::string* EnumValueDescriptorProto::mutable_name() {
 inline ::std::string* EnumValueDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3789,21 +3789,21 @@ inline void EnumValueDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void EnumValueDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::EnumValueOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::EnumValueOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::EnumValueOptions& EnumValueDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::EnumValueOptions* EnumValueDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::EnumValueOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::EnumValueOptions;
   return options_;
 }
 inline ::google::protobuf::EnumValueOptions* EnumValueDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::EnumValueOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -3861,7 +3861,7 @@ inline ::std::string* ServiceDescriptorProto::mutable_name() {
 inline ::std::string* ServiceDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3905,21 +3905,21 @@ inline void ServiceDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void ServiceDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::ServiceOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::ServiceOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::ServiceOptions& ServiceDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::ServiceOptions* ServiceDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::ServiceOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::ServiceOptions;
   return options_;
 }
 inline ::google::protobuf::ServiceOptions* ServiceDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::ServiceOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -3977,7 +3977,7 @@ inline ::std::string* MethodDescriptorProto::mutable_name() {
 inline ::std::string* MethodDescriptorProto::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4035,7 +4035,7 @@ inline ::std::string* MethodDescriptorProto::mutable_input_type() {
 inline ::std::string* MethodDescriptorProto::release_input_type() {
   clear_has_input_type();
   if (input_type_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = input_type_;
     input_type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4093,7 +4093,7 @@ inline ::std::string* MethodDescriptorProto::mutable_output_type() {
 inline ::std::string* MethodDescriptorProto::release_output_type() {
   clear_has_output_type();
   if (output_type_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = output_type_;
     output_type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4112,21 +4112,21 @@ inline void MethodDescriptorProto::clear_has_options() {
   _has_bits_[0] &= ~0x00000008u;
 }
 inline void MethodDescriptorProto::clear_options() {
-  if (options_ != NULL) options_->::google::protobuf::MethodOptions::Clear();
+  if (options_ != nullptr) options_->::google::protobuf::MethodOptions::Clear();
   clear_has_options();
 }
 inline const ::google::protobuf::MethodOptions& MethodDescriptorProto::options() const {
-  return options_ != NULL ? *options_ : *default_instance_->options_;
+  return options_ != nullptr ? *options_ : *default_instance_->options_;
 }
 inline ::google::protobuf::MethodOptions* MethodDescriptorProto::mutable_options() {
   set_has_options();
-  if (options_ == NULL) options_ = new ::google::protobuf::MethodOptions;
+  if (options_ == nullptr) options_ = new ::google::protobuf::MethodOptions;
   return options_;
 }
 inline ::google::protobuf::MethodOptions* MethodDescriptorProto::release_options() {
   clear_has_options();
   ::google::protobuf::MethodOptions* temp = options_;
-  options_ = NULL;
+  options_ = nullptr;
   return temp;
 }
 
@@ -4184,7 +4184,7 @@ inline ::std::string* FileOptions::mutable_java_package() {
 inline ::std::string* FileOptions::release_java_package() {
   clear_has_java_package();
   if (java_package_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = java_package_;
     java_package_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4242,7 +4242,7 @@ inline ::std::string* FileOptions::mutable_java_outer_classname() {
 inline ::std::string* FileOptions::release_java_outer_classname() {
   clear_has_java_outer_classname();
   if (java_outer_classname_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = java_outer_classname_;
     java_outer_classname_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4602,7 +4602,7 @@ inline ::std::string* FieldOptions::mutable_experimental_map_key() {
 inline ::std::string* FieldOptions::release_experimental_map_key() {
   clear_has_experimental_map_key();
   if (experimental_map_key_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = experimental_map_key_;
     experimental_map_key_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4805,7 +4805,7 @@ inline ::std::string* UninterpretedOption_NamePart::mutable_name_part() {
 inline ::std::string* UninterpretedOption_NamePart::release_name_part() {
   clear_has_name_part();
   if (name_part_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_part_;
     name_part_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4914,7 +4914,7 @@ inline ::std::string* UninterpretedOption::mutable_identifier_value() {
 inline ::std::string* UninterpretedOption::release_identifier_value() {
   clear_has_identifier_value();
   if (identifier_value_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = identifier_value_;
     identifier_value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -5038,7 +5038,7 @@ inline ::std::string* UninterpretedOption::mutable_string_value() {
 inline ::std::string* UninterpretedOption::release_string_value() {
   clear_has_string_value();
   if (string_value_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = string_value_;
     string_value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -5096,7 +5096,7 @@ inline ::std::string* UninterpretedOption::mutable_aggregate_value() {
 inline ::std::string* UninterpretedOption::release_aggregate_value() {
   clear_has_aggregate_value();
   if (aggregate_value_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = aggregate_value_;
     aggregate_value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);

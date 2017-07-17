@@ -38,7 +38,7 @@ OCL_INITIALIZE_PASS_BEGIN(CLWGLoopBoundaries, "cl-loop-bound", "create loop boun
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopBoundaries, "cl-loop-bound", "create loop boundaries array function", false, false)
 
-CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_clRtServices(NULL),
+CLWGLoopBoundaries::CLWGLoopBoundaries() : ModulePass(ID), m_clRtServices(nullptr),
 OCLSTAT_INIT(Early_Exit_Givenup_Due_To_Loads,
 "early exit wasn't tried because block consists of a load instruction (but no store instructions). However, it is still likely early exit was impossible regardless of it",
     m_kernelStats),
@@ -468,8 +468,8 @@ bool CLWGLoopBoundaries::findAndCollapseEarlyExit() {
   // Collect Description of early exit if exists.
   BasicBlock *trueSuc = Br->getSuccessor(0);
   BasicBlock *falseSuc = Br->getSuccessor(1);
-  BasicBlock *EEremove = NULL;
-  BasicBlock *EEsucc = NULL;
+  BasicBlock *EEremove = nullptr;
+  BasicBlock *EEsucc = nullptr;
   // Checks early exit on true side.
   if (isEarlyExitSucc(trueSuc)) {
     if (isEarlyExitBranch(Br, true)) {
@@ -567,7 +567,7 @@ bool CLWGLoopBoundaries::createRightBound(bool isCmpSigned, Instruction *loc,
   }
 
   //checking if empty range is created - right bound is negative
-  Value * createEmptyRange = NULL;
+  Value * createEmptyRange = nullptr;
   bool isLT = cmp->getPredicate() == CmpInst::ICMP_SLT;
   bool isGT = cmp->getPredicate() == CmpInst::ICMP_SGT;
 
@@ -675,7 +675,7 @@ bool CLWGLoopBoundaries::traceBackBound(Value *v1, Value *v2, bool isCmpSigned,
   if (isV1Uniform == isV2Uniform) return false;
   *bound = isV1Uniform ? v1 : v2;
   tid   = isV1Uniform ? v2 : v1;
-  Type * originalType = NULL;
+  Type * originalType = nullptr;
   Type * comparisonType = v1->getType();
   m_rightBoundInc = false;
 
@@ -1171,7 +1171,7 @@ void CLWGLoopBoundaries::obtainEEBoundaries(BasicBlock *BB, VMap &valueMap) {
   std::vector<bool> hasEE(m_numDim, false);
   // Temporary vector to hold computation of upper bounds, to be used
   // later for loop size computation in case of early exit.
-  std::vector<Value *> upperBounds (m_numDim, NULL);
+  std::vector<Value *> upperBounds (m_numDim, nullptr);
 
   // Run through all descriptions, and obtain upperBounds, lowerBounds
   // according to the boundary description.

@@ -234,7 +234,7 @@ bool MessageLite::SerializePartialToCodedStream(
     io::CodedOutputStream* output) const {
   const int size = ByteSize();  // Force size to be cached.
   uint8* buffer = output->GetDirectBufferForNBytesAndAdvance(size);
-  if (buffer != NULL) {
+  if (buffer != nullptr) {
     uint8* end = SerializeWithCachedSizesToArray(buffer);
     if (end - buffer != size) {
       ByteSizeConsistencyError(size, ByteSize(), end - buffer);

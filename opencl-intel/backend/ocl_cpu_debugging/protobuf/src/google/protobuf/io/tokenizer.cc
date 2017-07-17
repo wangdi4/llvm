@@ -181,7 +181,7 @@ Tokenizer::Tokenizer(ZeroCopyInputStream* input,
                      ErrorCollector* error_collector)
   : input_(input),
     error_collector_(error_collector),
-    buffer_(NULL),
+    buffer_(nullptr),
     buffer_size_(0),
     buffer_pos_(0),
     read_error_(false),
@@ -243,8 +243,8 @@ void Tokenizer::Refresh() {
     token_start_ = 0;
   }
 
-  const void* data = NULL;
-  buffer_ = NULL;
+  const void* data = nullptr;
+  buffer_ = nullptr;
   buffer_pos_ = 0;
   do {
     if (!input_->Next(&data, &buffer_size_)) {

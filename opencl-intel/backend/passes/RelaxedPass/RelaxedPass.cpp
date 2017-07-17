@@ -296,7 +296,7 @@ namespace intel{
 
                 Function* pRelaxedFunction = dyn_cast<Function>(M.getOrInsertFunction(
                     frmNameIt->second, pType, pFunction->getAttributes() ));
-                assert(NULL != pRelaxedFunction);
+                assert(nullptr != pRelaxedFunction);
                 pFunction->replaceAllUsesWith(pRelaxedFunction);
 
                 changed = true;

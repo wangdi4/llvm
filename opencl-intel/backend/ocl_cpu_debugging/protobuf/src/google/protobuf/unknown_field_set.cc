@@ -44,7 +44,7 @@ namespace google {
 namespace protobuf {
 
 UnknownFieldSet::UnknownFieldSet()
-  : fields_(NULL) {}
+  : fields_(nullptr) {}
 
 UnknownFieldSet::~UnknownFieldSet() {
   Clear();
@@ -52,7 +52,7 @@ UnknownFieldSet::~UnknownFieldSet() {
 }
 
 void UnknownFieldSet::ClearFallback() {
-  GOOGLE_DCHECK(fields_ != NULL);
+  GOOGLE_DCHECK(fields_ != nullptr);
   for (int i = 0; i < fields_->size(); i++) {
     (*fields_)[i].Delete();
   }
@@ -66,7 +66,7 @@ void UnknownFieldSet::MergeFrom(const UnknownFieldSet& other) {
 }
 
 int UnknownFieldSet::SpaceUsedExcludingSelf() const {
-  if (fields_ == NULL) return 0;
+  if (fields_ == nullptr) return 0;
 
   int total_size = sizeof(*fields_) + sizeof(UnknownField) * fields_->size();
   for (int i = 0; i < fields_->size(); i++) {
@@ -91,7 +91,7 @@ int UnknownFieldSet::SpaceUsed() const {
 }
 
 void UnknownFieldSet::AddVarint(int number, uint64 value) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   UnknownField field;
   field.number_ = number;
   field.type_ = UnknownField::TYPE_VARINT;
@@ -100,7 +100,7 @@ void UnknownFieldSet::AddVarint(int number, uint64 value) {
 }
 
 void UnknownFieldSet::AddFixed32(int number, uint32 value) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   UnknownField field;
   field.number_ = number;
   field.type_ = UnknownField::TYPE_FIXED32;
@@ -109,7 +109,7 @@ void UnknownFieldSet::AddFixed32(int number, uint32 value) {
 }
 
 void UnknownFieldSet::AddFixed64(int number, uint64 value) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   UnknownField field;
   field.number_ = number;
   field.type_ = UnknownField::TYPE_FIXED64;
@@ -118,7 +118,7 @@ void UnknownFieldSet::AddFixed64(int number, uint64 value) {
 }
 
 string* UnknownFieldSet::AddLengthDelimited(int number) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   UnknownField field;
   field.number_ = number;
   field.type_ = UnknownField::TYPE_LENGTH_DELIMITED;
@@ -128,7 +128,7 @@ string* UnknownFieldSet::AddLengthDelimited(int number) {
 }
 
 UnknownFieldSet* UnknownFieldSet::AddGroup(int number) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   UnknownField field;
   field.number_ = number;
   field.type_ = UnknownField::TYPE_GROUP;
@@ -138,7 +138,7 @@ UnknownFieldSet* UnknownFieldSet::AddGroup(int number) {
 }
 
 void UnknownFieldSet::AddField(const UnknownField& field) {
-  if (fields_ == NULL) fields_ = new vector<UnknownField>;
+  if (fields_ == nullptr) fields_ = new vector<UnknownField>;
   fields_->push_back(field);
   fields_->back().DeepCopy();
 }

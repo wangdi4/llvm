@@ -138,7 +138,7 @@ void LoopWIAnalysis::getHeaderPHiStride() {
         Inc->getOpcode() != Instruction::FAdd) continue;
 
     //Now check that all the added value is loop invariant.
-    Value *stride = NULL;
+    Value *stride = nullptr;
     Value *op0 = Inc->getOperand(0);
     Value *op1 = Inc->getOperand(1);
     // isLoopInvariant means that the operand is either not an instruction

@@ -105,8 +105,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
       // If initialValue is uniform then: initial index = 0, base = pInitialValue
       // Else initialValue is a Gep Inst: initial index = Gep:index, base = Gep:base
-      Value *pNewBase = NULL;
-      Value *pNewInitialValue = NULL;
+      Value *pNewBase = nullptr;
+      Value *pNewInitialValue = nullptr;
       if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(pInitialValue)) {
         pNewBase = pInitialValue;
         pNewInitialValue = Constant::getNullValue(indexType);
@@ -249,7 +249,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
     inline BinaryOperator * getNextAdd(Value * pVal) {
        Instruction * pInst = dyn_cast<Instruction>(pVal);
-       if(!pInst) return NULL;
+       if(!pInst) return nullptr;
 
        if(pInst->getOpcode() == Instruction::Add) {
          return cast<BinaryOperator>(pInst);
@@ -259,12 +259,12 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
          // is defined by C99. They are to be promoted to int and the result is to be truncated.
          // It means what it is not safe to reassociate such sum.
          Type * pValType = pInst->getOperand(0)->getType();
-         if(pValType->getScalarSizeInBits() < 32) return NULL;
+         if(pValType->getScalarSizeInBits() < 32) return nullptr;
          // Otherwise the signed overflow behaviour is undefined and this sum can be safely reassociated.
          BinaryOperator * pBOp = dyn_cast<BinaryOperator>(pInst->getOperand(0));
-         return pBOp && pBOp->getOpcode() == Instruction::Add ? pBOp : NULL;
+         return pBOp && pBOp->getOpcode() == Instruction::Add ? pBOp : nullptr;
        }
-       return NULL;
+       return nullptr;
     }
   } // end of the anonymous namespace
 
@@ -434,7 +434,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       arraySizes.push_back(vectorSize/elementSize);
     }
 
-    Value *newIndex = NULL;
+    Value *newIndex = nullptr;
     for (unsigned int i=1; i<pGEP->getNumOperands()-1; ++i) {
       Value *index = pGEP->getOperand(i);
       if (newIndex) {

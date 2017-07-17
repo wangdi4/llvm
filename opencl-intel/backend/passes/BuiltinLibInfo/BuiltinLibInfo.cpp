@@ -72,7 +72,7 @@ namespace intel{
       break;
     default:
       assert(false && "Unknown runtime services type.");
-      m_pRuntimeServices = NULL;
+      m_pRuntimeServices = nullptr;
     }
 #endif
   }

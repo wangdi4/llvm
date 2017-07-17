@@ -442,7 +442,7 @@ class LIBPROTOBUF_EXPORT Reflection {
   // See MutableMessage() for the meaning of the "factory" parameter.
   virtual const Message& GetMessage(const Message& message,
                                     const FieldDescriptor* field,
-                                    MessageFactory* factory = NULL) const = 0;
+                                    MessageFactory* factory = nullptr) const = 0;
 
   // Get a string value without copying, if possible.
   //
@@ -499,7 +499,7 @@ class LIBPROTOBUF_EXPORT Reflection {
   // compiled-in class for this type, NOT DynamicMessage.
   virtual Message* MutableMessage(Message* message,
                                   const FieldDescriptor* field,
-                                  MessageFactory* factory = NULL) const = 0;
+                                  MessageFactory* factory = nullptr) const = 0;
 
 
   // Repeated field getters ------------------------------------------
@@ -604,7 +604,7 @@ class LIBPROTOBUF_EXPORT Reflection {
   // See MutableMessage() for comments on the "factory" parameter.
   virtual Message* AddMessage(Message* message,
                               const FieldDescriptor* field,
-                              MessageFactory* factory = NULL) const = 0;
+                              MessageFactory* factory = nullptr) const = 0;
 
 
   // Extensions ------------------------------------------------------

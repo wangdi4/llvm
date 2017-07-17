@@ -214,19 +214,19 @@ void Prefetch::init() {
   const char *val;
   int ival;
 
-  if ((val = getenv("PFL1DIST")) != NULL) {
+  if ((val = getenv("PFL1DIST")) != nullptr) {
     std::istringstream(std::string(val)) >> ival;
     PFL1Distance = ival;
   }
-  if ((val = getenv("PFL2DIST")) != NULL) {
+  if ((val = getenv("PFL2DIST")) != nullptr) {
     std::istringstream(std::string(val)) >> ival;
     PFL2Distance = ival;
   }
-  if ((val = getenv("PFL1TYPE")) != NULL) {
+  if ((val = getenv("PFL1TYPE")) != nullptr) {
     std::istringstream(std::string(val)) >> ival;
     PFL1Type = ival;
   }
-  if ((val = getenv("PFL2TYPE")) != NULL) {
+  if ((val = getenv("PFL2TYPE")) != nullptr) {
     std::istringstream(std::string(val)) >> ival;
     PFL2Type = ival;
   }
@@ -246,8 +246,8 @@ void Prefetch::init() {
       m_disableAPFGSTune = true;
   }
 
-  m_calcFactor = getenv("APFDISSMALL") == NULL;
-  m_prefetchScalarCode = getenv("APFSCALAR") != NULL;
+  m_calcFactor = getenv("APFDISSMALL") == nullptr;
+  m_prefetchScalarCode = getenv("APFSCALAR") != nullptr;
 }
 
 // getConstStep - calculate loop step.
@@ -270,7 +270,7 @@ static const SCEV *OffsetOfSCEV(const SCEV *S, ScalarEvolution &SE) {
 
   // if offset is not computable - return
   if (!S) {
-    return NULL;
+    return nullptr;
   }
 
   if (S->getSCEVType() == scConstant) {
@@ -558,7 +558,7 @@ static BasicBlock *getIDom (DominatorTree *DT, BasicBlock *BB) {
   DomTreeNode *N = DT->getNode(BB);
   assert (N && "expecting a BB to have a DT Node");
   N = N->getIDom();
-  if (!N) return NULL;
+  if (!N) return nullptr;
   BB = N->getBlock();
   assert (BB && "DT node is empty");
   return BB;
@@ -610,7 +610,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
 
     for (BasicBlock::iterator II = BB->begin(), IE = BB->end();
         II != IE; ++II) {
-      Value *addr = NULL;
+      Value *addr = nullptr;
       Instruction *I = &*II;
 
       if (I->getType()->isVectorTy())
@@ -621,7 +621,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
       CallInst* pCallInst;
       bool pfExclusive = false;
       bool isRandom = false;
-      if ((pLoadInst = dyn_cast<LoadInst>(I)) != NULL) {
+      if ((pLoadInst = dyn_cast<LoadInst>(I)) != nullptr) {
         if (pLoadInst->isSimple() &&
             Utils::isInSpace(pLoadInst->getPointerAddressSpace(), PrefecthedAddressSpaces)) {
           addr = pLoadInst->getPointerOperand();
@@ -636,10 +636,10 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
             );
           continue;
         }
-      } else if ((pStoreInst = dyn_cast<StoreInst>(I)) != NULL) {
+      } else if ((pStoreInst = dyn_cast<StoreInst>(I)) != nullptr) {
         if (pStoreInst->isSimple() &&
             Utils::isInSpace(pStoreInst->getPointerAddressSpace(), PrefecthedAddressSpaces) &&
-            pStoreInst->getMetadata(NTSKind) == NULL) {
+            pStoreInst->getMetadata(NTSKind) == nullptr) {
           addr = pStoreInst->getPointerOperand();
           accessSize = getSize(pStoreInst->getValueOperand()->getType());
           pfExclusive = true;
@@ -654,7 +654,7 @@ bool Prefetch::detectReferencesForPrefetch(Function &F) {
           continue;
         }
       } else if (m_level > APFLEVEL_1_APF_LOAD_STORE && !m_disableAPFGSTune &&
-                 (pCallInst = dyn_cast<CallInst>(I)) != NULL &&
+                 (pCallInst = dyn_cast<CallInst>(I)) != nullptr &&
                   pCallInst->getCalledFunction()) {
         unsigned addrSpace;
         bool isOtherPFCandidate =
@@ -887,9 +887,9 @@ void Prefetch::countPFPerLoop () {
           int accessSize = 0;
           StoreInst *pStoreInst = nullptr;
           LoadInst *pLoadInst = nullptr;
-          if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
+          if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != nullptr)
             accessSize = getSize(pStoreInst->getValueOperand()->getType());
-          else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != NULL)
+          else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != nullptr)
             accessSize = getSize(MAV[i].I->getType());
           if (pStoreInst || pLoadInst) {
             if (accessSize < UarchInfo::CacheLineSize)
@@ -1377,8 +1377,8 @@ bool Prefetch::runOnFunction(Function &F) {
 /// PrefetchCandidateUtils Class implementation
 //////////////////////////////////////////////////////////////////
 unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
-  AddrSpaceCastInst *ASCI = NULL;
-  GetElementPtrInst *GEPI = NULL;
+  AddrSpaceCastInst *ASCI = nullptr;
+  GetElementPtrInst *GEPI = nullptr;
 
   // get address pointer type
   PointerType * PType = dyn_cast<PointerType>(addr->getType());
@@ -1395,17 +1395,17 @@ unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
     // get the instruction representing this value
     // return if it's not an instruction
     Instruction *I = dyn_cast<Instruction>(addr);
-    if (I == NULL)
+    if (I == nullptr)
       return 0;
 
     // if it's a bit cast - get the source pointer type and the source
     // instruction
-    if ((ASCI = dyn_cast<AddrSpaceCastInst>(I)) != NULL) {
+    if ((ASCI = dyn_cast<AddrSpaceCastInst>(I)) != nullptr) {
        PType = cast<PointerType>(ASCI->getSrcTy());
        addr = I->getOperand(0);
     }
     // if its a GEP - get its pointer operand
-    else if((GEPI = dyn_cast<GetElementPtrInst>(I)) != NULL) {
+    else if((GEPI = dyn_cast<GetElementPtrInst>(I)) != nullptr) {
       PType = cast<PointerType>(GEPI->getType());
       addr = I->getOperand(0);
     }
@@ -1423,7 +1423,7 @@ unsigned PrefetchCandidateUtils::detectAddressSpace(Value *addr) {
 // the type indexed by this vector is contained in one cache line.
 bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType) {
   VectorType *VType = dyn_cast<VectorType>(indexedType);
-  if (VType == NULL)
+  if (VType == nullptr)
     return false;
   assert (!isa<ConstantVector>(index) && "need to handle ConstantVector type in Prefetch.cpp");
 /*  ConstantVector *CV = dyn_cast<ConstantVector>(index);
@@ -1453,7 +1453,7 @@ bool PrefetchCandidateUtils::isTightConstantVect(Value *index, Type *indexedType
   // verify that the accessed type is a vector type (although this should be
   // guaranteed)
   // check if the index vector is of constant int values.
-  if (CV == NULL || CV->getElementType() !=
+  if (CV == nullptr || CV->getElementType() !=
       IntegerType::get(CV->getContext(), 32))
     return false;
   unsigned N = VType->getNumElements();
@@ -1476,7 +1476,7 @@ bool PrefetchCandidateUtils::isPrefetchCandidate (CallInst *pCallInst,
     bool &pfExclusive, bool &isRandomV, unsigned &addrSpace, Value *&addrV,
     int &accessSizeV, int level, PrefetchStats& s) {
 
-  Value *addr = NULL;
+  Value *addr = nullptr;
 
   StringRef Name = pCallInst->getCalledFunction()->getName();
 
@@ -1649,7 +1649,7 @@ bool PrefetchCandidateUtils::indexMatch(Instruction *I1, Instruction *I2) {
 }
 
 void PrefetchCandidateUtils::insertPF (Instruction *I) {
-  const char *pfIntrinName = NULL;
+  const char *pfIntrinName = nullptr;
   std::vector<Value*> args;
   std::vector<Type *> types;
 
@@ -1660,7 +1660,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
   Type *i16 =  IntegerType::get(context, 16);
   Type *i32 =  IntegerType::get(context, 32);
   Type *v16i32 = VectorType::get(i32, 16);
-  Value *mask8Bit = NULL;
+  Value *mask8Bit = nullptr;
 
   bool isExclusive = false;
 
@@ -1810,7 +1810,7 @@ void PrefetchCandidateUtils::insertPF (Instruction *I) {
   else
     return;
 
-  assert (pfIntrinName != NULL && "Expected gather/scatter intrinsic");
+  assert (pfIntrinName != nullptr && "Expected gather/scatter intrinsic");
 
   Type *voidTy = Type::getVoidTy(context);
   FunctionType *intr = FunctionType::get(voidTy, types, false);

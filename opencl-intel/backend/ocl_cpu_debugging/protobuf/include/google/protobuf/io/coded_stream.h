@@ -865,7 +865,7 @@ inline const uint8* CodedInputStream::ExpectTagFromArray(
       return buffer + 2;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 inline void CodedInputStream::GetDirectBufferPointerInline(const void** data,
@@ -889,7 +889,7 @@ inline bool CodedInputStream::ExpectAtEnd() {
 
 inline uint8* CodedOutputStream::GetDirectBufferForNBytesAndAdvance(int size) {
   if (buffer_size_ < size) {
-    return NULL;
+    return nullptr;
   } else {
     uint8* result = buffer_;
     Advance(size);
@@ -1046,8 +1046,8 @@ inline int CodedInputStream::BufferSize() const {
 
 inline CodedInputStream::CodedInputStream(ZeroCopyInputStream* input)
   : input_(input),
-    buffer_(NULL),
-    buffer_end_(NULL),
+    buffer_(nullptr),
+    buffer_end_(nullptr),
     total_bytes_read_(0),
     overflow_bytes_(0),
     last_tag_(0),
@@ -1059,14 +1059,14 @@ inline CodedInputStream::CodedInputStream(ZeroCopyInputStream* input)
     total_bytes_warning_threshold_(kDefaultTotalBytesWarningThreshold),
     recursion_depth_(0),
     recursion_limit_(kDefaultRecursionLimit),
-    extension_pool_(NULL),
-    extension_factory_(NULL) {
+    extension_pool_(nullptr),
+    extension_factory_(nullptr) {
   // Eagerly Refresh() so buffer space is immediately available.
   Refresh();
 }
 
 inline CodedInputStream::CodedInputStream(const uint8* buffer, int size)
-  : input_(NULL),
+  : input_(nullptr),
     buffer_(buffer),
     buffer_end_(buffer + size),
     total_bytes_read_(size),
@@ -1080,14 +1080,14 @@ inline CodedInputStream::CodedInputStream(const uint8* buffer, int size)
     total_bytes_warning_threshold_(kDefaultTotalBytesWarningThreshold),
     recursion_depth_(0),
     recursion_limit_(kDefaultRecursionLimit),
-    extension_pool_(NULL),
-    extension_factory_(NULL) {
+    extension_pool_(nullptr),
+    extension_factory_(nullptr) {
   // Note that setting current_limit_ == size is important to prevent some
   // code paths from trying to access input_ and segfaulting.
 }
 
 inline CodedInputStream::~CodedInputStream() {
-  if (input_ != NULL) {
+  if (input_ != nullptr) {
     BackUpInputToCurrentPosition();
   }
 }

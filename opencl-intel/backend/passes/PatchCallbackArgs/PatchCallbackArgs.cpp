@@ -75,8 +75,8 @@ bool PatchCallbackArgs::runOnModule(Module &M) {
         // Need to create a cache entry for implicit arg values
         Argument *WorkInfo; // Used to access CallbackContext
         Argument *RuntimeHandle; // Needed by some callbacks
-        CompilationUtils::getImplicitArgs(CallingF, NULL, &WorkInfo, NULL, NULL,
-                                          NULL, &RuntimeHandle);
+        CompilationUtils::getImplicitArgs(CallingF, nullptr, &WorkInfo, nullptr, nullptr,
+                                          nullptr, &RuntimeHandle);
         ImplicitArgs.first = WorkInfo;
         ImplicitArgs.second = RuntimeHandle;
       }

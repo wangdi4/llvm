@@ -129,7 +129,7 @@ namespace intel {
 
   bool ResolveBlockToStaticCall::runOnCallInst(CallInst *CI) {
     Value *I = CI;
-    Function *resolvedFunc = NULL;
+    Function *resolvedFunc = nullptr;
 
     // %call1 = call i32 %8(i8* %6, i32 7)
     I = CI->getCalledValue();

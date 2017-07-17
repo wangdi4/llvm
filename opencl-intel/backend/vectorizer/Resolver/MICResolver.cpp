@@ -81,7 +81,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     Value *Index = getConsecutiveConstantVector(IndTy, RetTy->getNumElements());
 
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::Gather);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, nullptr, Mangler::Gather);
     return true;
   }
 
@@ -141,7 +141,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     Value *IsSigned  = caller->getArgOperand(4);
 
     FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::Gather);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, nullptr, Mangler::Gather);
     return true;
   }
 
@@ -166,7 +166,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
     Value *IsSigned  = caller->getArgOperand(4);
 
     FixBaseAndIndexIfNeeded(caller, Mask, ValidBits, IsSigned, Ptr, Index);
-    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, NULL, Mangler::GatherPrefetch);
+    CreateGatherScatterAndReplaceCall(caller, Mask, Ptr, Index, nullptr, Mangler::GatherPrefetch);
     return true;
   }
 
@@ -178,7 +178,7 @@ Instruction* MICResolver::CreateGatherScatterAndReplaceCall(CallInst* caller, Va
   Module *pModule = caller->getParent()->getParent()->getParent();
   V_ASSERT((type == Mangler::GatherPrefetch || (Data ? Data->getType() : caller->getType())->isVectorTy()) && "Data value type is not a vector");
 
-  VectorType *dataTy = NULL;
+  VectorType *dataTy = nullptr;
 
   switch (type) {
   case Mangler::GatherPrefetch: {

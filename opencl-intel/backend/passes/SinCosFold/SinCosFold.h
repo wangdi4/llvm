@@ -53,7 +53,7 @@ private:
       CallInst* firstCallInst;
       reflection::RefParamType argType;
 
-      InstructionData(reflection::RefParamType& type):cosInst(NULL),sinInst(NULL),firstCallInst(NULL){
+      InstructionData(reflection::RefParamType& type):cosInst(nullptr),sinInst(nullptr),firstCallInst(nullptr){
         argType = type;
       }
 

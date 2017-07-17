@@ -156,7 +156,7 @@ void SchedulingScope::schedule(BBVector& schedule) {
         schedule.end()) {
       schedule.push_back(m_leader);
     }
-    m_leader = NULL;
+    m_leader = nullptr;
   }
 
   // as long as we have unscented instructions
@@ -164,7 +164,7 @@ void SchedulingScope::schedule(BBVector& schedule) {
     // schedule free basic blocks
     if (thisScopeOnly.size()) {
       // for each BB in the thisScopeOnly
-      BasicBlock* toSched = NULL;
+      BasicBlock* toSched = nullptr;
       for(BBVectorIter it = thisScopeOnly.begin(),
           ite=thisScopeOnly.end(); it != ite; ++it) {
         if (!hasUnscheduledPreds(schedule, thisScopeOnly, *it)) {
@@ -183,7 +183,7 @@ void SchedulingScope::schedule(BBVector& schedule) {
 
     // schedule ready scopes
     if (unscheduled.size()) {
-      SchedulingScope* ready = NULL;
+      SchedulingScope* ready = nullptr;
       for (SchedulingScopeSetIter scopeIt = unscheduled.begin(),
            e = unscheduled.end(); scopeIt != e; ++scopeIt) {
         // if found candidate for scheduling
@@ -212,7 +212,7 @@ BasicBlock* SchedulingScope::getFirstBlockAfter(const BBVector& schedule) {
     }
   }
   if ((last+1) < schedule.size()) return schedule.at(last+1);
-  return NULL;
+  return nullptr;
 }
 
 void SchedulingScope::compress() {
@@ -221,8 +221,8 @@ void SchedulingScope::compress() {
 
   while(changed) {
     changed = false;
-    SchedulingScope* scpToRemove = NULL;
-    SchedulingScope* scpToAdd = NULL;
+    SchedulingScope* scpToRemove = nullptr;
+    SchedulingScope* scpToAdd = nullptr;
     // Check if the scope of interest is within
     // another existing scope
     for (SchedulingScopeSetIter scp = m_subscope.begin(),

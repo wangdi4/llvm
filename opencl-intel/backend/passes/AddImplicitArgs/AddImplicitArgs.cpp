@@ -168,7 +168,7 @@ namespace intel{
 
       // Check call for not inlined module function
       Function *pCallee = pCall->getCalledFunction();
-      if ( NULL != pCallee && !pCallee->isDeclaration() ) {
+      if ( nullptr != pCallee && !pCallee->isDeclaration() ) {
         Value **pCallArgs = new Value*[ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS];
         Function::arg_iterator IA = pNewF->arg_begin();
         // Skip over explicit args

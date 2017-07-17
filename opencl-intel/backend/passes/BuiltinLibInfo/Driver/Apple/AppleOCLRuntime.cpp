@@ -109,7 +109,7 @@ const char *appleNeedPreVectorization[] = {
   "_Z14fast_normalizef", "_Z14fast_normalizeDv2_f", "_Z14fast_normalizeDv3_f", "_Z14fast_normalizef4",
   "_Z9normalizef", "_Z9normalizeDv2_f", "_Z9normalizeDv3_f", "_Z9normalizeDv4_f",
 */
-  NULL
+  nullptr
 };
 
 const char *appleScalarSelect[] = {
@@ -119,7 +119,7 @@ const char *appleScalarSelect[] = {
   "_Z6selecthhh", "_Z6selectttt", "_Z6selectjjj", "_Z6selectmmm",
   "_Z6selectffi", "_Z6selectffj",
   "_Z6selectddl", "_Z6selectddm",
-  NULL
+  nullptr
 };
 
 

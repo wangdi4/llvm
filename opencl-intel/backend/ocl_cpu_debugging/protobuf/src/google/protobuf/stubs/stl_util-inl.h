@@ -82,7 +82,7 @@ inline void STLStringResizeUninitialized(string* s, size_t new_size) {
 // already work on all current implementations.
 inline char* string_as_array(string* str) {
   // DO NOT USE const_cast<char*>(str->data())! See the unittest for why.
-  return str->empty() ? NULL : &*str->begin();
+  return str->empty() ? nullptr : &*str->begin();
 }
 
 // STLDeleteElements() deletes all the elements in an STL container and clears

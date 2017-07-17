@@ -151,7 +151,7 @@ namespace intel{
 
       } else {
         assert(0 && "Unknown ConstantExpr type!");
-        return NULL;
+        return nullptr;
       }
 
       InstInsert->push_back(Replacement);
@@ -164,10 +164,10 @@ namespace intel{
       unsigned numElem = VT->getNumElements();
 
       Value *UpdatedVec = UndefValue::get(CV->getType());
-      ConstantInt *Idx = NULL;
-      Instruction *IE = NULL;
+      ConstantInt *Idx = nullptr;
+      Instruction *IE = nullptr;
       for (unsigned i = 0; i< numElem; i++) {
-        Value *toInsert = NULL;
+        Value *toInsert = nullptr;
         if (CV->getOperand(i) == From) {
           toInsert = To;
         } else {
@@ -200,13 +200,13 @@ namespace intel{
 
     // We need substitute constant expression with real instruction
     Constant *pCE = dyn_cast<Constant>(pUser);
-    if ( NULL == pCE ) {
+    if ( nullptr == pCE ) {
       return false;
     }
 
     std::vector<Instruction*> InstInsert;
     Instruction *pInst = CreateInstrFromConstant(pCE, pTheValue, pBC, &InstInsert);
-    if( NULL == pInst)
+    if( nullptr == pInst)
     {
         return false;
     }
@@ -269,7 +269,7 @@ namespace intel{
       ge = localsSet.end(); gi != ge; ++gi ) {
         GlobalValue *pLclBuff = dyn_cast<GlobalValue>(*gi);
 
-        if(NULL == pLclBuff) {
+        if(nullptr == pLclBuff) {
           continue;
         }
 
@@ -348,7 +348,7 @@ namespace intel{
     Argument *pLocalMem = 0;
 
     Intel::OpenCL::DeviceBackend::CompilationUtils::getImplicitArgs(
-        pFunc, &pLocalMem, NULL, NULL, NULL, NULL, NULL);
+        pFunc, &pLocalMem, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters

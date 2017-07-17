@@ -178,7 +178,7 @@ bool CodedInputStream::Skip(int count) {
   }
 
   count -= original_buffer_size;
-  buffer_ = NULL;
+  buffer_ = nullptr;
   buffer_end_ = buffer_;
 
   // Make sure this skip doesn't try to skip past the current limit.
@@ -312,7 +312,7 @@ inline const uint8* ReadVarint32FromArray(const uint8* buffer, uint32* value) {
 
   // We have overrun the maximum size of a varint (10 bytes).  Assume
   // the data is corrupt.
-  return NULL;
+  return nullptr;
 
  done:
   *value = result;
@@ -336,7 +336,7 @@ bool CodedInputStream::ReadVarint32Fallback(uint32* value) {
       // we can detect that and still use the fast path.
       (buffer_end_ > buffer_ && !(buffer_end_[-1] & 0x80))) {
     const uint8* end = ReadVarint32FromArray(buffer_, value);
-    if (end == NULL) return false;
+    if (end == nullptr) return false;
     buffer_ = end;
     return true;
   } else {
@@ -380,7 +380,7 @@ uint32 CodedInputStream::ReadTagFallback() {
       (buffer_end_ > buffer_ && !(buffer_end_[-1] & 0x80))) {
     uint32 tag;
     const uint8* end = ReadVarint32FromArray(buffer_, &tag);
-    if (end == NULL) {
+    if (end == nullptr) {
       return 0;
     }
     buffer_ = end;
@@ -452,7 +452,7 @@ bool CodedInputStream::ReadVarint64Fallback(uint64* value) {
 
     // We have overrun the maximum size of a varint (10 bytes).  The data
     // must be corrupt.
-    return NULL;
+    return nullptr;
 
    done:
     Advance(ptr - buffer_);
@@ -524,8 +524,8 @@ bool CodedInputStream::Refresh() {
     RecomputeBufferLimits();
     return true;
   } else {
-    buffer_ = NULL;
-    buffer_end_ = NULL;
+    buffer_ = nullptr;
+    buffer_end_ = nullptr;
     return false;
   }
 }
@@ -534,7 +534,7 @@ bool CodedInputStream::Refresh() {
 
 CodedOutputStream::CodedOutputStream(ZeroCopyOutputStream* output)
   : output_(output),
-    buffer_(NULL),
+    buffer_(nullptr),
     buffer_size_(0),
     total_bytes_(0),
     had_error_(false) {
@@ -785,7 +785,7 @@ bool CodedOutputStream::Refresh() {
     total_bytes_ += buffer_size_;
     return true;
   } else {
-    buffer_ = NULL;
+    buffer_ = nullptr;
     buffer_size_ = 0;
     had_error_ = true;
     return false;

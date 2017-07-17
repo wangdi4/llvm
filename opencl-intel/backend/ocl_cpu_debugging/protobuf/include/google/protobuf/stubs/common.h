@@ -336,7 +336,7 @@ inline To down_cast(From* f) {                   // so we only accept pointers
   }
 
 #if !defined(NDEBUG) && !defined(GOOGLE_PROTOBUF_NO_RTTI)
-  assert(f == NULL || dynamic_cast<To>(f) != NULL);  // RTTI: debug mode only!
+  assert(f == nullptr || dynamic_cast<To>(f) != nullptr);  // RTTI: debug mode only!
 #endif
   return static_cast<To>(f);
 }
@@ -447,7 +447,7 @@ class scoped_ptr {
   // Constructor.  Defaults to intializing with NULL.
   // There is no way to create an uninitialized scoped_ptr.
   // The input parameter must be allocated with new.
-  explicit scoped_ptr(C* p = NULL) : ptr_(p) { }
+  explicit scoped_ptr(C* p = nullptr) : ptr_(p) { }
 
   // Destructor.  If there is a C object, delete it.
   // We don't need to test ptr_ == NULL because C++ does that for us.
@@ -459,7 +459,7 @@ class scoped_ptr {
   // Reset.  Deletes the current owned object, if any.
   // Then takes ownership of a new object, if given.
   // this->reset(this->get()) works.
-  void reset(C* p = NULL) {
+  void reset(C* p = nullptr) {
     if (p != ptr_) {
       enum { type_must_be_complete = sizeof(C) };
       delete ptr_;
@@ -470,11 +470,11 @@ class scoped_ptr {
   // Accessors to get the owned object.
   // operator* and operator-> will assert() if there is no current object.
   C& operator*() const {
-    assert(ptr_ != NULL);
+    assert(ptr_ != nullptr);
     return *ptr_;
   }
   C* operator->() const  {
-    assert(ptr_ != NULL);
+    assert(ptr_ != nullptr);
     return ptr_;
   }
   C* get() const { return ptr_; }
@@ -499,7 +499,7 @@ class scoped_ptr {
   // and will not own the object any more.
   C* release() {
     C* retVal = ptr_;
-    ptr_ = NULL;
+    ptr_ = nullptr;
     return retVal;
   }
 
@@ -534,7 +534,7 @@ class scoped_array {
   // Constructor.  Defaults to intializing with NULL.
   // There is no way to create an uninitialized scoped_array.
   // The input parameter must be allocated with new [].
-  explicit scoped_array(C* p = NULL) : array_(p) { }
+  explicit scoped_array(C* p = nullptr) : array_(p) { }
 
   // Destructor.  If there is a C object, delete it.
   // We don't need to test ptr_ == NULL because C++ does that for us.
@@ -546,7 +546,7 @@ class scoped_array {
   // Reset.  Deletes the current owned object, if any.
   // Then takes ownership of a new object, if given.
   // this->reset(this->get()) works.
-  void reset(C* p = NULL) {
+  void reset(C* p = nullptr) {
     if (p != array_) {
       enum { type_must_be_complete = sizeof(C) };
       delete[] array_;
@@ -558,7 +558,7 @@ class scoped_array {
   // Will assert() if there is no current object, or index i is negative.
   C& operator[](std::ptrdiff_t i) const {
     assert(i >= 0);
-    assert(array_ != NULL);
+    assert(array_ != nullptr);
     return array_[i];
   }
 
@@ -588,7 +588,7 @@ class scoped_array {
   // and will not own the object any more.
   C* release() {
     C* retVal = array_;
-    array_ = NULL;
+    array_ = nullptr;
     return retVal;
   }
 
@@ -1118,8 +1118,8 @@ typedef MutexLock WriterMutexLock;
 class LIBPROTOBUF_EXPORT MutexLockMaybe {
  public:
   explicit MutexLockMaybe(Mutex *mu) :
-    mu_(mu) { if (this->mu_ != NULL) { this->mu_->Lock(); } }
-  ~MutexLockMaybe() { if (this->mu_ != NULL) { this->mu_->Unlock(); } }
+    mu_(mu) { if (this->mu_ != nullptr) { this->mu_->Lock(); } }
+  ~MutexLockMaybe() { if (this->mu_ != nullptr) { this->mu_->Unlock(); } }
  private:
   Mutex *const mu_;
   GOOGLE_DISALLOW_EVIL_CONSTRUCTORS(MutexLockMaybe);

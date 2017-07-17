@@ -35,7 +35,7 @@ namespace intel {
     TReplaceMap::const_iterator mapping = m_replaceMap.find(pInstr);
     if (mapping == m_replaceMap.end()) {
       // Source GAS pointer is unresolved - nothing to do here
-      return NULL;
+      return nullptr;
     } else {
       return mapping->second;
     }
@@ -53,7 +53,7 @@ namespace intel {
     if (pResolvedValue) {
       return pResolvedValue;
     }
-    return NULL;
+    return nullptr;
   }
 
   void GenericAddressStaticResolution::fixUpPointerUsages(Instruction *pNewInstr, Instruction *pOldInstr) {
@@ -133,7 +133,7 @@ namespace intel {
              "Cannot reach this point with named-to-named conversion!");
     }
 
-    Instruction *pNewInstr = NULL;
+    Instruction *pNewInstr = nullptr;
     if (pDestType && IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
       // Original conversion is to GAS pointer:
       //   - produce BitCast/GEP for <named>-to-<named> out of <named/generic>-to-<generic>
@@ -247,7 +247,7 @@ namespace intel {
     Value *pNewValue = getResolvedOperand(pPrevValue, space);
     assert(pNewValue && "Cannot reach this point without resolved value for GAS pointer!");
     // Then - generate the instruction
-    Instruction *pNewInstr = NULL;
+    Instruction *pNewInstr = nullptr;
     switch (pInstr->getOpcode()) {
       case Instruction::Load : {
         LoadInst *pLoadInstr = cast<LoadInst>(pInstr);
@@ -361,7 +361,7 @@ namespace intel {
     assert(count &&
            "Cannot reach this point without resolved value for at least one incoming GAS pointer!");
     // Then - generate the instruction on basis of input values above
-    Instruction *pNewInstr = NULL;
+    Instruction *pNewInstr = nullptr;
     switch (pInstr->getOpcode()) {
       case Instruction::Select : {
         SelectInst *pSelectInstr = cast<SelectInst>(pInstr);
@@ -517,7 +517,7 @@ namespace intel {
 
     // Function call didn't change - do nothing
     if (isGasPointersOnly) {
-      return NULL;
+      return nullptr;
     }
 
     // Alert if LLVM intrinsic function has pointer parameters of heterogeneous address space
@@ -558,7 +558,7 @@ namespace intel {
     }
 
     // Get or create function object
-    Function *pNewFunc = NULL;
+    Function *pNewFunc = nullptr;
     if (category == CallIntrinsic) {
       SmallVector<Type*, 8> overloadableArgTypes;
       getIntrinsicOverload(pCallee, argTypes, overloadableArgTypes);
@@ -688,13 +688,13 @@ namespace intel {
             // with pointer value, and then stop on IntToPtr and Bitcast (who are the only ones which could
             // lead to integer type involved)
             assert(0 && "Unexpected instruction with generic address space constant expression pointer");
-            return NULL;
+            return nullptr;
         }
       } else {
-        return NULL;
+        return nullptr;
       }
     } else {
-      return NULL;
+      return nullptr;
     }
   }
 

@@ -160,7 +160,7 @@ void FuncResolver::packLoadBin(const bin_t& bin) {
 void FuncResolver::resolvePredicate(Value* pred, std::vector<Instruction*>& elements) {
   V_ASSERT(!elements.empty() && pred);
   std::vector<Instruction*> to_predicate;
-  Instruction* curr = NULL;
+  Instruction* curr = nullptr;
   // while we have unresolved instructions
   while(!elements.empty()) {
     if (std::find(elements.begin(), elements.end(), curr) != elements.end()) {

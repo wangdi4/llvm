@@ -83,7 +83,7 @@ void ExtensionSet::AppendToList(const Descriptor* containing_type,
       //   initialized, so they might not even be constructed until
       //   AppendToList() is called.
 
-      if (iter->second.descriptor == NULL) {
+      if (iter->second.descriptor == nullptr) {
         output->push_back(pool->FindExtensionByNumber(
             containing_type, iter->first));
       } else {
@@ -132,7 +132,7 @@ MessageLite* ExtensionSet::MutableMessage(const FieldDescriptor* descriptor,
     extension->is_packed = false;
     const MessageLite* prototype =
         factory->GetPrototype(descriptor->message_type());
-    GOOGLE_CHECK(prototype != NULL);
+    GOOGLE_CHECK(prototype != nullptr);
     extension->message_value = prototype->New();
   } else {
     GOOGLE_DCHECK_TYPE(*extension, OPTIONAL, MESSAGE);
@@ -158,11 +158,11 @@ MessageLite* ExtensionSet::AddMessage(const FieldDescriptor* descriptor,
   // allocate an abstract object, so we have to be tricky.
   MessageLite* result = extension->repeated_message_value
       ->AddFromCleared<internal::GenericTypeHandler<MessageLite> >();
-  if (result == NULL) {
+  if (result == nullptr) {
     const MessageLite* prototype;
     if (extension->repeated_message_value->size() == 0) {
       prototype = factory->GetPrototype(descriptor->message_type());
-      GOOGLE_CHECK(prototype != NULL);
+      GOOGLE_CHECK(prototype != nullptr);
     } else {
       prototype = &extension->repeated_message_value->Get(0);
     }
@@ -174,13 +174,13 @@ MessageLite* ExtensionSet::AddMessage(const FieldDescriptor* descriptor,
 
 static bool ValidateEnumUsingDescriptor(const void* arg, int number) {
   return reinterpret_cast<const EnumDescriptor*>(arg)
-      ->FindValueByNumber(number) != NULL;
+      ->FindValueByNumber(number) != nullptr;
 }
 
 bool DescriptorPoolExtensionFinder::Find(int number, ExtensionInfo* output) {
   const FieldDescriptor* extension =
       pool_->FindExtensionByNumber(containing_type_, number);
-  if (extension == NULL) {
+  if (extension == nullptr) {
     return false;
   } else {
     output->type = extension->type();
@@ -190,7 +190,7 @@ bool DescriptorPoolExtensionFinder::Find(int number, ExtensionInfo* output) {
     if (extension->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) {
       output->message_prototype =
           factory_->GetPrototype(extension->message_type());
-      GOOGLE_CHECK(output->message_prototype != NULL)
+      GOOGLE_CHECK(output->message_prototype != nullptr)
           << "Extension factory's GetPrototype() returned NULL for extension: "
           << extension->full_name();
     } else if (extension->cpp_type() == FieldDescriptor::CPPTYPE_ENUM) {
@@ -206,7 +206,7 @@ bool ExtensionSet::ParseField(uint32 tag, io::CodedInputStream* input,
                               const Message* containing_type,
                               UnknownFieldSet* unknown_fields) {
   UnknownFieldSetFieldSkipper skipper(unknown_fields);
-  if (input->GetExtensionPool() == NULL) {
+  if (input->GetExtensionPool() == nullptr) {
     GeneratedExtensionFinder finder(containing_type);
     return ParseField(tag, input, &finder, &skipper);
   } else {
@@ -221,7 +221,7 @@ bool ExtensionSet::ParseMessageSet(io::CodedInputStream* input,
                                    const Message* containing_type,
                                    UnknownFieldSet* unknown_fields) {
   UnknownFieldSetFieldSkipper skipper(unknown_fields);
-  if (input->GetExtensionPool() == NULL) {
+  if (input->GetExtensionPool() == nullptr) {
     GeneratedExtensionFinder finder(containing_type);
     return ParseMessageSet(input, &finder, &skipper);
   } else {

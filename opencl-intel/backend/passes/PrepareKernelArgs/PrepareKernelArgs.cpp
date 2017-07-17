@@ -209,7 +209,7 @@ namespace intel{
     SmallVector<Value*, 4> LocalSize;
     ImplicitArgsUtils::initImplicitArgProps(m_PtrSizeInBytes);
     for(unsigned int i=0; i< ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS; ++i) {
-      Value* pArg = NULL;
+      Value* pArg = nullptr;
       assert(callIt->getType() == m_IAA->getArgType(i) &&
              "Mismatch in arg found in function and expected arg type");
       switch(i) {

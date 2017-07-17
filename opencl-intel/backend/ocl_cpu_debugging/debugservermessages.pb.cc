@@ -17,79 +17,79 @@ namespace debugservermessages {
 
 namespace {
 
-const ::google::protobuf::Descriptor* ClientToServerMessage_descriptor_ = NULL;
+const ::google::protobuf::Descriptor* ClientToServerMessage_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ClientToServerMessage_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ClientToServerMessage_StartSessionMsg_descriptor_ = NULL;
+  ClientToServerMessage_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ClientToServerMessage_StartSessionMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ClientToServerMessage_StartSessionMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ClientToServerMessage_RunMsg_descriptor_ = NULL;
+  ClientToServerMessage_StartSessionMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ClientToServerMessage_RunMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ClientToServerMessage_RunMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ClientToServerMessage_GetMemoryRangeMsg_descriptor_ = NULL;
+  ClientToServerMessage_RunMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ClientToServerMessage_GetMemoryRangeMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ClientToServerMessage_GetMemoryRangeMsg_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* ClientToServerMessage_Type_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_descriptor_ = NULL;
+  ClientToServerMessage_GetMemoryRangeMsg_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* ClientToServerMessage_Type_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_CmdErrorMsg_descriptor_ = NULL;
+  ServerToClientMessage_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_CmdErrorMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_CmdErrorMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_StartSessionAckMsg_descriptor_ = NULL;
+  ServerToClientMessage_CmdErrorMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_StartSessionAckMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_StartSessionAckMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_VarInfo_descriptor_ = NULL;
+  ServerToClientMessage_StartSessionAckMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_VarInfo_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_VarInfo_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_StackFrameInfo_descriptor_ = NULL;
+  ServerToClientMessage_VarInfo_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_StackFrameInfo_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_StackFrameInfo_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_BPHitMsg_descriptor_ = NULL;
+  ServerToClientMessage_StackFrameInfo_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_BPHitMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_BPHitMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_StackTraceInfoMsg_descriptor_ = NULL;
+  ServerToClientMessage_BPHitMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_StackTraceInfoMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_StackTraceInfoMsg_reflection_ = NULL;
-const ::google::protobuf::Descriptor* ServerToClientMessage_MemoryRangeInfoMsg_descriptor_ = NULL;
+  ServerToClientMessage_StackTraceInfoMsg_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* ServerToClientMessage_MemoryRangeInfoMsg_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  ServerToClientMessage_MemoryRangeInfoMsg_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* ServerToClientMessage_Type_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* LineInfo_descriptor_ = NULL;
+  ServerToClientMessage_MemoryRangeInfoMsg_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* ServerToClientMessage_Type_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* LineInfo_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  LineInfo_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeDescriptor_descriptor_ = NULL;
+  LineInfo_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeDescriptor_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeDescriptor_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* VarTypeDescriptor_Tag_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeBasic_descriptor_ = NULL;
+  VarTypeDescriptor_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* VarTypeDescriptor_Tag_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeBasic_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeBasic_reflection_ = NULL;
-const ::google::protobuf::EnumDescriptor* VarTypeBasic_Tag_descriptor_ = NULL;
-const ::google::protobuf::Descriptor* VarTypePointer_descriptor_ = NULL;
+  VarTypeBasic_reflection_ = nullptr;
+const ::google::protobuf::EnumDescriptor* VarTypeBasic_Tag_descriptor_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypePointer_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypePointer_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeArray_descriptor_ = NULL;
+  VarTypePointer_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeArray_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeArray_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeEnum_descriptor_ = NULL;
+  VarTypeArray_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeEnum_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeEnum_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeEnum_EnumEntry_descriptor_ = NULL;
+  VarTypeEnum_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeEnum_EnumEntry_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeEnum_EnumEntry_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeStruct_descriptor_ = NULL;
+  VarTypeEnum_EnumEntry_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeStruct_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeStruct_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeStruct_StructMember_descriptor_ = NULL;
+  VarTypeStruct_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeStruct_StructMember_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeStruct_StructMember_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeVector_descriptor_ = NULL;
+  VarTypeStruct_StructMember_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeVector_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeVector_reflection_ = NULL;
-const ::google::protobuf::Descriptor* VarTypeTypedef_descriptor_ = NULL;
+  VarTypeVector_reflection_ = nullptr;
+const ::google::protobuf::Descriptor* VarTypeTypedef_descriptor_ = nullptr;
 const ::google::protobuf::internal::GeneratedMessageReflection*
-  VarTypeTypedef_reflection_ = NULL;
+  VarTypeTypedef_reflection_ = nullptr;
 
 }  // namespace
 
@@ -99,7 +99,7 @@ void protobuf_AssignDesc_debugservermessages_2eproto() {
   const ::google::protobuf::FileDescriptor* file =
     ::google::protobuf::DescriptorPool::generated_pool()->FindFileByName(
       "debugservermessages.proto");
-  GOOGLE_CHECK(file != NULL);
+  GOOGLE_CHECK(file != nullptr);
   ClientToServerMessage_descriptor_ = file->message_type(0);
   static const int ClientToServerMessage_offsets_[4] = {
     GOOGLE_PROTOBUF_GENERATED_MESSAGE_FIELD_OFFSET(ClientToServerMessage, type_),
@@ -835,10 +835,10 @@ const ::google::protobuf::Descriptor* ClientToServerMessage_StartSessionMsg::des
 }
 
 const ClientToServerMessage_StartSessionMsg& ClientToServerMessage_StartSessionMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ClientToServerMessage_StartSessionMsg* ClientToServerMessage_StartSessionMsg::default_instance_ = NULL;
+ClientToServerMessage_StartSessionMsg* ClientToServerMessage_StartSessionMsg::default_instance_ = nullptr;
 
 ClientToServerMessage_StartSessionMsg* ClientToServerMessage_StartSessionMsg::New() const {
   return new ClientToServerMessage_StartSessionMsg;
@@ -1012,7 +1012,7 @@ void ClientToServerMessage_StartSessionMsg::MergeFrom(const ::google::protobuf::
   const ClientToServerMessage_StartSessionMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ClientToServerMessage_StartSessionMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -1123,10 +1123,10 @@ const ::google::protobuf::Descriptor* ClientToServerMessage_RunMsg::descriptor()
 }
 
 const ClientToServerMessage_RunMsg& ClientToServerMessage_RunMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ClientToServerMessage_RunMsg* ClientToServerMessage_RunMsg::default_instance_ = NULL;
+ClientToServerMessage_RunMsg* ClientToServerMessage_RunMsg::default_instance_ = nullptr;
 
 ClientToServerMessage_RunMsg* ClientToServerMessage_RunMsg::New() const {
   return new ClientToServerMessage_RunMsg;
@@ -1283,7 +1283,7 @@ void ClientToServerMessage_RunMsg::MergeFrom(const ::google::protobuf::Message& 
   const ClientToServerMessage_RunMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ClientToServerMessage_RunMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -1389,10 +1389,10 @@ const ::google::protobuf::Descriptor* ClientToServerMessage_GetMemoryRangeMsg::d
 }
 
 const ClientToServerMessage_GetMemoryRangeMsg& ClientToServerMessage_GetMemoryRangeMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ClientToServerMessage_GetMemoryRangeMsg* ClientToServerMessage_GetMemoryRangeMsg::default_instance_ = NULL;
+ClientToServerMessage_GetMemoryRangeMsg* ClientToServerMessage_GetMemoryRangeMsg::default_instance_ = nullptr;
 
 ClientToServerMessage_GetMemoryRangeMsg* ClientToServerMessage_GetMemoryRangeMsg::New() const {
   return new ClientToServerMessage_GetMemoryRangeMsg;
@@ -1532,7 +1532,7 @@ void ClientToServerMessage_GetMemoryRangeMsg::MergeFrom(const ::google::protobuf
   const ClientToServerMessage_GetMemoryRangeMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ClientToServerMessage_GetMemoryRangeMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -1618,9 +1618,9 @@ ClientToServerMessage::ClientToServerMessage(const ClientToServerMessage& from)
 void ClientToServerMessage::SharedCtor() {
   _cached_size_ = 0;
   type_ = 1;
-  start_session_msg_ = NULL;
-  run_msg_ = NULL;
-  get_memory_range_msg_ = NULL;
+  start_session_msg_ = nullptr;
+  run_msg_ = nullptr;
+  get_memory_range_msg_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -1647,10 +1647,10 @@ const ::google::protobuf::Descriptor* ClientToServerMessage::descriptor() {
 }
 
 const ClientToServerMessage& ClientToServerMessage::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ClientToServerMessage* ClientToServerMessage::default_instance_ = NULL;
+ClientToServerMessage* ClientToServerMessage::default_instance_ = nullptr;
 
 ClientToServerMessage* ClientToServerMessage::New() const {
   return new ClientToServerMessage;
@@ -1660,13 +1660,13 @@ void ClientToServerMessage::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     type_ = 1;
     if (has_start_session_msg()) {
-      if (start_session_msg_ != NULL) start_session_msg_->::debugservermessages::ClientToServerMessage_StartSessionMsg::Clear();
+      if (start_session_msg_ != nullptr) start_session_msg_->::debugservermessages::ClientToServerMessage_StartSessionMsg::Clear();
     }
     if (has_run_msg()) {
-      if (run_msg_ != NULL) run_msg_->::debugservermessages::ClientToServerMessage_RunMsg::Clear();
+      if (run_msg_ != nullptr) run_msg_->::debugservermessages::ClientToServerMessage_RunMsg::Clear();
     }
     if (has_get_memory_range_msg()) {
-      if (get_memory_range_msg_ != NULL) get_memory_range_msg_->::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg::Clear();
+      if (get_memory_range_msg_ != nullptr) get_memory_range_msg_->::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -1873,7 +1873,7 @@ void ClientToServerMessage::MergeFrom(const ::google::protobuf::Message& from) {
   const ClientToServerMessage* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ClientToServerMessage*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2023,10 +2023,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_CmdErrorMsg::descrip
 }
 
 const ServerToClientMessage_CmdErrorMsg& ServerToClientMessage_CmdErrorMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_CmdErrorMsg* ServerToClientMessage_CmdErrorMsg::default_instance_ = NULL;
+ServerToClientMessage_CmdErrorMsg* ServerToClientMessage_CmdErrorMsg::default_instance_ = nullptr;
 
 ServerToClientMessage_CmdErrorMsg* ServerToClientMessage_CmdErrorMsg::New() const {
   return new ServerToClientMessage_CmdErrorMsg;
@@ -2146,7 +2146,7 @@ void ServerToClientMessage_CmdErrorMsg::MergeFrom(const ::google::protobuf::Mess
   const ServerToClientMessage_CmdErrorMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_CmdErrorMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2245,10 +2245,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_StartSessionAckMsg::
 }
 
 const ServerToClientMessage_StartSessionAckMsg& ServerToClientMessage_StartSessionAckMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_StartSessionAckMsg* ServerToClientMessage_StartSessionAckMsg::default_instance_ = NULL;
+ServerToClientMessage_StartSessionAckMsg* ServerToClientMessage_StartSessionAckMsg::default_instance_ = nullptr;
 
 ServerToClientMessage_StartSessionAckMsg* ServerToClientMessage_StartSessionAckMsg::New() const {
   return new ServerToClientMessage_StartSessionAckMsg;
@@ -2354,7 +2354,7 @@ void ServerToClientMessage_StartSessionAckMsg::MergeFrom(const ::google::protobu
   const ServerToClientMessage_StartSessionAckMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_StartSessionAckMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2438,7 +2438,7 @@ void ServerToClientMessage_VarInfo::SharedCtor() {
   value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
   address_ = GOOGLE_ULONGLONG(0);
-  type_descriptor_ = NULL;
+  type_descriptor_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2472,10 +2472,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_VarInfo::descriptor(
 }
 
 const ServerToClientMessage_VarInfo& ServerToClientMessage_VarInfo::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_VarInfo* ServerToClientMessage_VarInfo::default_instance_ = NULL;
+ServerToClientMessage_VarInfo* ServerToClientMessage_VarInfo::default_instance_ = nullptr;
 
 ServerToClientMessage_VarInfo* ServerToClientMessage_VarInfo::New() const {
   return new ServerToClientMessage_VarInfo;
@@ -2500,7 +2500,7 @@ void ServerToClientMessage_VarInfo::Clear() {
     }
     address_ = GOOGLE_ULONGLONG(0);
     if (has_type_descriptor()) {
-      if (type_descriptor_ != NULL) type_descriptor_->::debugservermessages::VarTypeDescriptor::Clear();
+      if (type_descriptor_ != nullptr) type_descriptor_->::debugservermessages::VarTypeDescriptor::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -2762,7 +2762,7 @@ void ServerToClientMessage_VarInfo::MergeFrom(const ::google::protobuf::Message&
   const ServerToClientMessage_VarInfo* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_VarInfo*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -2860,7 +2860,7 @@ ServerToClientMessage_StackFrameInfo::ServerToClientMessage_StackFrameInfo(const
 void ServerToClientMessage_StackFrameInfo::SharedCtor() {
   _cached_size_ = 0;
   func_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  call_line_ = NULL;
+  call_line_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -2888,10 +2888,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_StackFrameInfo::desc
 }
 
 const ServerToClientMessage_StackFrameInfo& ServerToClientMessage_StackFrameInfo::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_StackFrameInfo* ServerToClientMessage_StackFrameInfo::default_instance_ = NULL;
+ServerToClientMessage_StackFrameInfo* ServerToClientMessage_StackFrameInfo::default_instance_ = nullptr;
 
 ServerToClientMessage_StackFrameInfo* ServerToClientMessage_StackFrameInfo::New() const {
   return new ServerToClientMessage_StackFrameInfo;
@@ -2905,7 +2905,7 @@ void ServerToClientMessage_StackFrameInfo::Clear() {
       }
     }
     if (has_call_line()) {
-      if (call_line_ != NULL) call_line_->::debugservermessages::LineInfo::Clear();
+      if (call_line_ != nullptr) call_line_->::debugservermessages::LineInfo::Clear();
     }
   }
   vars_.Clear();
@@ -3085,7 +3085,7 @@ void ServerToClientMessage_StackFrameInfo::MergeFrom(const ::google::protobuf::M
   const ServerToClientMessage_StackFrameInfo* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_StackFrameInfo*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3174,7 +3174,7 @@ ServerToClientMessage_BPHitMsg::ServerToClientMessage_BPHitMsg(const ServerToCli
 
 void ServerToClientMessage_BPHitMsg::SharedCtor() {
   _cached_size_ = 0;
-  breakpoint_ = NULL;
+  breakpoint_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3199,10 +3199,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_BPHitMsg::descriptor
 }
 
 const ServerToClientMessage_BPHitMsg& ServerToClientMessage_BPHitMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_BPHitMsg* ServerToClientMessage_BPHitMsg::default_instance_ = NULL;
+ServerToClientMessage_BPHitMsg* ServerToClientMessage_BPHitMsg::default_instance_ = nullptr;
 
 ServerToClientMessage_BPHitMsg* ServerToClientMessage_BPHitMsg::New() const {
   return new ServerToClientMessage_BPHitMsg;
@@ -3211,7 +3211,7 @@ ServerToClientMessage_BPHitMsg* ServerToClientMessage_BPHitMsg::New() const {
 void ServerToClientMessage_BPHitMsg::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (has_breakpoint()) {
-      if (breakpoint_ != NULL) breakpoint_->::debugservermessages::LineInfo::Clear();
+      if (breakpoint_ != nullptr) breakpoint_->::debugservermessages::LineInfo::Clear();
     }
   }
   vars_.Clear();
@@ -3348,7 +3348,7 @@ void ServerToClientMessage_BPHitMsg::MergeFrom(const ::google::protobuf::Message
   const ServerToClientMessage_BPHitMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_BPHitMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3454,10 +3454,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_StackTraceInfoMsg::d
 }
 
 const ServerToClientMessage_StackTraceInfoMsg& ServerToClientMessage_StackTraceInfoMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_StackTraceInfoMsg* ServerToClientMessage_StackTraceInfoMsg::default_instance_ = NULL;
+ServerToClientMessage_StackTraceInfoMsg* ServerToClientMessage_StackTraceInfoMsg::default_instance_ = nullptr;
 
 ServerToClientMessage_StackTraceInfoMsg* ServerToClientMessage_StackTraceInfoMsg::New() const {
   return new ServerToClientMessage_StackTraceInfoMsg;
@@ -3563,7 +3563,7 @@ void ServerToClientMessage_StackTraceInfoMsg::MergeFrom(const ::google::protobuf
   const ServerToClientMessage_StackTraceInfoMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_StackTraceInfoMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3663,10 +3663,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage_MemoryRangeInfoMsg::
 }
 
 const ServerToClientMessage_MemoryRangeInfoMsg& ServerToClientMessage_MemoryRangeInfoMsg::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage_MemoryRangeInfoMsg* ServerToClientMessage_MemoryRangeInfoMsg::default_instance_ = NULL;
+ServerToClientMessage_MemoryRangeInfoMsg* ServerToClientMessage_MemoryRangeInfoMsg::default_instance_ = nullptr;
 
 ServerToClientMessage_MemoryRangeInfoMsg* ServerToClientMessage_MemoryRangeInfoMsg::New() const {
   return new ServerToClientMessage_MemoryRangeInfoMsg;
@@ -3777,7 +3777,7 @@ void ServerToClientMessage_MemoryRangeInfoMsg::MergeFrom(const ::google::protobu
   const ServerToClientMessage_MemoryRangeInfoMsg* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage_MemoryRangeInfoMsg*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -3863,11 +3863,11 @@ ServerToClientMessage::ServerToClientMessage(const ServerToClientMessage& from)
 void ServerToClientMessage::SharedCtor() {
   _cached_size_ = 0;
   type_ = 1;
-  cmd_error_msg_ = NULL;
-  start_session_ack_msg_ = NULL;
-  bphit_msg_ = NULL;
-  stack_trace_info_msg_ = NULL;
-  memory_range_info_msg_ = NULL;
+  cmd_error_msg_ = nullptr;
+  start_session_ack_msg_ = nullptr;
+  bphit_msg_ = nullptr;
+  stack_trace_info_msg_ = nullptr;
+  memory_range_info_msg_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -3896,10 +3896,10 @@ const ::google::protobuf::Descriptor* ServerToClientMessage::descriptor() {
 }
 
 const ServerToClientMessage& ServerToClientMessage::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-ServerToClientMessage* ServerToClientMessage::default_instance_ = NULL;
+ServerToClientMessage* ServerToClientMessage::default_instance_ = nullptr;
 
 ServerToClientMessage* ServerToClientMessage::New() const {
   return new ServerToClientMessage;
@@ -3909,19 +3909,19 @@ void ServerToClientMessage::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     type_ = 1;
     if (has_cmd_error_msg()) {
-      if (cmd_error_msg_ != NULL) cmd_error_msg_->::debugservermessages::ServerToClientMessage_CmdErrorMsg::Clear();
+      if (cmd_error_msg_ != nullptr) cmd_error_msg_->::debugservermessages::ServerToClientMessage_CmdErrorMsg::Clear();
     }
     if (has_start_session_ack_msg()) {
-      if (start_session_ack_msg_ != NULL) start_session_ack_msg_->::debugservermessages::ServerToClientMessage_StartSessionAckMsg::Clear();
+      if (start_session_ack_msg_ != nullptr) start_session_ack_msg_->::debugservermessages::ServerToClientMessage_StartSessionAckMsg::Clear();
     }
     if (has_bphit_msg()) {
-      if (bphit_msg_ != NULL) bphit_msg_->::debugservermessages::ServerToClientMessage_BPHitMsg::Clear();
+      if (bphit_msg_ != nullptr) bphit_msg_->::debugservermessages::ServerToClientMessage_BPHitMsg::Clear();
     }
     if (has_stack_trace_info_msg()) {
-      if (stack_trace_info_msg_ != NULL) stack_trace_info_msg_->::debugservermessages::ServerToClientMessage_StackTraceInfoMsg::Clear();
+      if (stack_trace_info_msg_ != nullptr) stack_trace_info_msg_->::debugservermessages::ServerToClientMessage_StackTraceInfoMsg::Clear();
     }
     if (has_memory_range_info_msg()) {
-      if (memory_range_info_msg_ != NULL) memory_range_info_msg_->::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg::Clear();
+      if (memory_range_info_msg_ != nullptr) memory_range_info_msg_->::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -4196,7 +4196,7 @@ void ServerToClientMessage::MergeFrom(const ::google::protobuf::Message& from) {
   const ServerToClientMessage* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const ServerToClientMessage*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -4335,10 +4335,10 @@ const ::google::protobuf::Descriptor* LineInfo::descriptor() {
 }
 
 const LineInfo& LineInfo::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-LineInfo* LineInfo::default_instance_ = NULL;
+LineInfo* LineInfo::default_instance_ = nullptr;
 
 LineInfo* LineInfo::New() const {
   return new LineInfo;
@@ -4492,7 +4492,7 @@ void LineInfo::MergeFrom(const ::google::protobuf::Message& from) {
   const LineInfo* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const LineInfo*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -4619,13 +4619,13 @@ VarTypeDescriptor::VarTypeDescriptor(const VarTypeDescriptor& from)
 void VarTypeDescriptor::SharedCtor() {
   _cached_size_ = 0;
   tag_ = 0;
-  type_basic_ = NULL;
-  type_pointer_ = NULL;
-  type_array_ = NULL;
-  type_vector_ = NULL;
-  type_typedef_ = NULL;
-  type_enum_ = NULL;
-  type_struct_ = NULL;
+  type_basic_ = nullptr;
+  type_pointer_ = nullptr;
+  type_array_ = nullptr;
+  type_vector_ = nullptr;
+  type_typedef_ = nullptr;
+  type_enum_ = nullptr;
+  type_struct_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -4656,10 +4656,10 @@ const ::google::protobuf::Descriptor* VarTypeDescriptor::descriptor() {
 }
 
 const VarTypeDescriptor& VarTypeDescriptor::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeDescriptor* VarTypeDescriptor::default_instance_ = NULL;
+VarTypeDescriptor* VarTypeDescriptor::default_instance_ = nullptr;
 
 VarTypeDescriptor* VarTypeDescriptor::New() const {
   return new VarTypeDescriptor;
@@ -4669,25 +4669,25 @@ void VarTypeDescriptor::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     tag_ = 0;
     if (has_type_basic()) {
-      if (type_basic_ != NULL) type_basic_->::debugservermessages::VarTypeBasic::Clear();
+      if (type_basic_ != nullptr) type_basic_->::debugservermessages::VarTypeBasic::Clear();
     }
     if (has_type_pointer()) {
-      if (type_pointer_ != NULL) type_pointer_->::debugservermessages::VarTypePointer::Clear();
+      if (type_pointer_ != nullptr) type_pointer_->::debugservermessages::VarTypePointer::Clear();
     }
     if (has_type_array()) {
-      if (type_array_ != NULL) type_array_->::debugservermessages::VarTypeArray::Clear();
+      if (type_array_ != nullptr) type_array_->::debugservermessages::VarTypeArray::Clear();
     }
     if (has_type_vector()) {
-      if (type_vector_ != NULL) type_vector_->::debugservermessages::VarTypeVector::Clear();
+      if (type_vector_ != nullptr) type_vector_->::debugservermessages::VarTypeVector::Clear();
     }
     if (has_type_typedef()) {
-      if (type_typedef_ != NULL) type_typedef_->::debugservermessages::VarTypeTypedef::Clear();
+      if (type_typedef_ != nullptr) type_typedef_->::debugservermessages::VarTypeTypedef::Clear();
     }
     if (has_type_enum()) {
-      if (type_enum_ != NULL) type_enum_->::debugservermessages::VarTypeEnum::Clear();
+      if (type_enum_ != nullptr) type_enum_->::debugservermessages::VarTypeEnum::Clear();
     }
     if (has_type_struct()) {
-      if (type_struct_ != NULL) type_struct_->::debugservermessages::VarTypeStruct::Clear();
+      if (type_struct_ != nullptr) type_struct_->::debugservermessages::VarTypeStruct::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -5030,7 +5030,7 @@ void VarTypeDescriptor::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeDescriptor* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeDescriptor*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5216,10 +5216,10 @@ const ::google::protobuf::Descriptor* VarTypeBasic::descriptor() {
 }
 
 const VarTypeBasic& VarTypeBasic::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeBasic* VarTypeBasic::default_instance_ = NULL;
+VarTypeBasic* VarTypeBasic::default_instance_ = nullptr;
 
 VarTypeBasic* VarTypeBasic::New() const {
   return new VarTypeBasic;
@@ -5413,7 +5413,7 @@ void VarTypeBasic::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeBasic* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeBasic*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5497,7 +5497,7 @@ VarTypePointer::VarTypePointer(const VarTypePointer& from)
 
 void VarTypePointer::SharedCtor() {
   _cached_size_ = 0;
-  pointee_ = NULL;
+  pointee_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -5522,10 +5522,10 @@ const ::google::protobuf::Descriptor* VarTypePointer::descriptor() {
 }
 
 const VarTypePointer& VarTypePointer::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypePointer* VarTypePointer::default_instance_ = NULL;
+VarTypePointer* VarTypePointer::default_instance_ = nullptr;
 
 VarTypePointer* VarTypePointer::New() const {
   return new VarTypePointer;
@@ -5534,7 +5534,7 @@ VarTypePointer* VarTypePointer::New() const {
 void VarTypePointer::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (has_pointee()) {
-      if (pointee_ != NULL) pointee_->::debugservermessages::VarTypeDescriptor::Clear();
+      if (pointee_ != nullptr) pointee_->::debugservermessages::VarTypeDescriptor::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -5634,7 +5634,7 @@ void VarTypePointer::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypePointer* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypePointer*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -5714,7 +5714,7 @@ VarTypeArray::VarTypeArray(const VarTypeArray& from)
 
 void VarTypeArray::SharedCtor() {
   _cached_size_ = 0;
-  element_ = NULL;
+  element_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -5739,10 +5739,10 @@ const ::google::protobuf::Descriptor* VarTypeArray::descriptor() {
 }
 
 const VarTypeArray& VarTypeArray::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeArray* VarTypeArray::default_instance_ = NULL;
+VarTypeArray* VarTypeArray::default_instance_ = nullptr;
 
 VarTypeArray* VarTypeArray::New() const {
   return new VarTypeArray;
@@ -5751,7 +5751,7 @@ VarTypeArray* VarTypeArray::New() const {
 void VarTypeArray::Clear() {
   if (_has_bits_[0 / 32] & (0xffu << (0 % 32))) {
     if (has_element()) {
-      if (element_ != NULL) element_->::debugservermessages::VarTypeDescriptor::Clear();
+      if (element_ != nullptr) element_->::debugservermessages::VarTypeDescriptor::Clear();
     }
   }
   dimensions_.Clear();
@@ -5896,7 +5896,7 @@ void VarTypeArray::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeArray* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeArray*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6005,10 +6005,10 @@ const ::google::protobuf::Descriptor* VarTypeEnum_EnumEntry::descriptor() {
 }
 
 const VarTypeEnum_EnumEntry& VarTypeEnum_EnumEntry::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeEnum_EnumEntry* VarTypeEnum_EnumEntry::default_instance_ = NULL;
+VarTypeEnum_EnumEntry* VarTypeEnum_EnumEntry::default_instance_ = nullptr;
 
 VarTypeEnum_EnumEntry* VarTypeEnum_EnumEntry::New() const {
   return new VarTypeEnum_EnumEntry;
@@ -6162,7 +6162,7 @@ void VarTypeEnum_EnumEntry::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeEnum_EnumEntry* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeEnum_EnumEntry*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6269,10 +6269,10 @@ const ::google::protobuf::Descriptor* VarTypeEnum::descriptor() {
 }
 
 const VarTypeEnum& VarTypeEnum::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeEnum* VarTypeEnum::default_instance_ = NULL;
+VarTypeEnum* VarTypeEnum::default_instance_ = nullptr;
 
 VarTypeEnum* VarTypeEnum::New() const {
   return new VarTypeEnum;
@@ -6429,7 +6429,7 @@ void VarTypeEnum::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeEnum* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeEnum*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6518,7 +6518,7 @@ void VarTypeStruct_StructMember::SharedCtor() {
   size_nbits_ = GOOGLE_ULONGLONG(0);
   align_nbits_ = GOOGLE_ULONGLONG(0);
   offset_nbits_ = GOOGLE_ULONGLONG(0);
-  type_ = NULL;
+  type_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -6546,10 +6546,10 @@ const ::google::protobuf::Descriptor* VarTypeStruct_StructMember::descriptor() {
 }
 
 const VarTypeStruct_StructMember& VarTypeStruct_StructMember::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeStruct_StructMember* VarTypeStruct_StructMember::default_instance_ = NULL;
+VarTypeStruct_StructMember* VarTypeStruct_StructMember::default_instance_ = nullptr;
 
 VarTypeStruct_StructMember* VarTypeStruct_StructMember::New() const {
   return new VarTypeStruct_StructMember;
@@ -6566,7 +6566,7 @@ void VarTypeStruct_StructMember::Clear() {
     align_nbits_ = GOOGLE_ULONGLONG(0);
     offset_nbits_ = GOOGLE_ULONGLONG(0);
     if (has_type()) {
-      if (type_ != NULL) type_->::debugservermessages::VarTypeDescriptor::Clear();
+      if (type_ != nullptr) type_->::debugservermessages::VarTypeDescriptor::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -6808,7 +6808,7 @@ void VarTypeStruct_StructMember::MergeFrom(const ::google::protobuf::Message& fr
   const VarTypeStruct_StructMember* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeStruct_StructMember*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -6930,10 +6930,10 @@ const ::google::protobuf::Descriptor* VarTypeStruct::descriptor() {
 }
 
 const VarTypeStruct& VarTypeStruct::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeStruct* VarTypeStruct::default_instance_ = NULL;
+VarTypeStruct* VarTypeStruct::default_instance_ = nullptr;
 
 VarTypeStruct* VarTypeStruct::New() const {
   return new VarTypeStruct;
@@ -7090,7 +7090,7 @@ void VarTypeStruct::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeStruct* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeStruct*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -7197,10 +7197,10 @@ const ::google::protobuf::Descriptor* VarTypeVector::descriptor() {
 }
 
 const VarTypeVector& VarTypeVector::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeVector* VarTypeVector::default_instance_ = NULL;
+VarTypeVector* VarTypeVector::default_instance_ = nullptr;
 
 VarTypeVector* VarTypeVector::New() const {
   return new VarTypeVector;
@@ -7320,7 +7320,7 @@ void VarTypeVector::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeVector* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeVector*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);
@@ -7398,7 +7398,7 @@ VarTypeTypedef::VarTypeTypedef(const VarTypeTypedef& from)
 void VarTypeTypedef::SharedCtor() {
   _cached_size_ = 0;
   name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
-  original_type_ = NULL;
+  original_type_ = nullptr;
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
 }
 
@@ -7426,10 +7426,10 @@ const ::google::protobuf::Descriptor* VarTypeTypedef::descriptor() {
 }
 
 const VarTypeTypedef& VarTypeTypedef::default_instance() {
-  if (default_instance_ == NULL) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
+  if (default_instance_ == nullptr) protobuf_AddDesc_debugservermessages_2eproto();  return *default_instance_;
 }
 
-VarTypeTypedef* VarTypeTypedef::default_instance_ = NULL;
+VarTypeTypedef* VarTypeTypedef::default_instance_ = nullptr;
 
 VarTypeTypedef* VarTypeTypedef::New() const {
   return new VarTypeTypedef;
@@ -7443,7 +7443,7 @@ void VarTypeTypedef::Clear() {
       }
     }
     if (has_original_type()) {
-      if (original_type_ != NULL) original_type_->::debugservermessages::VarTypeDescriptor::Clear();
+      if (original_type_ != nullptr) original_type_->::debugservermessages::VarTypeDescriptor::Clear();
     }
   }
   ::memset(_has_bits_, 0, sizeof(_has_bits_));
@@ -7586,7 +7586,7 @@ void VarTypeTypedef::MergeFrom(const ::google::protobuf::Message& from) {
   const VarTypeTypedef* source =
     ::google::protobuf::internal::dynamic_cast_if_available<const VarTypeTypedef*>(
       &from);
-  if (source == NULL) {
+  if (source == nullptr) {
     ::google::protobuf::internal::ReflectionOps::Merge(from, this);
   } else {
     MergeFrom(*source);

@@ -59,12 +59,12 @@ struct ProtobufOnceInternal {
 ProtobufOnceType::~ProtobufOnceType()
 {
   delete internal_;
-  internal_ = NULL;
+  internal_ = nullptr;
 }
 
 ProtobufOnceType::ProtobufOnceType() {
   // internal_ may be non-NULL if Init() was already called.
-  if (internal_ == NULL) internal_ = new ProtobufOnceInternal;
+  if (internal_ == nullptr) internal_ = new ProtobufOnceInternal;
 }
 
 void ProtobufOnceType::Init(void (*init_func)()) {
@@ -72,7 +72,7 @@ void ProtobufOnceType::Init(void (*init_func)()) {
   // constructor has not been called yet.  As mentioned in once.h, we assume
   // that the program is still single-threaded at this time, and therefore it
   // should be safe to initialize internal_ like so.
-  if (internal_ == NULL) internal_ = new ProtobufOnceInternal;
+  if (internal_ == nullptr) internal_ = new ProtobufOnceInternal;
 
   EnterCriticalSection(&internal_->critical_section);
   if (!initialized_) {

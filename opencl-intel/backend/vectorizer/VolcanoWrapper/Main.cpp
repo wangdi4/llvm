@@ -99,7 +99,7 @@ bool Vectorizer::runOnModule(Module &M)
     if (!disableVect)
       m_scalarFuncsList.push_back(F);
     else
-      m_scalarFuncsList.push_back(NULL);
+      m_scalarFuncsList.push_back(nullptr);
   }
 
 
@@ -126,7 +126,7 @@ bool Vectorizer::runOnModule(Module &M)
       // [LLVM 3.6 UPGRADE] FIXME: the fix w\ reseting of the linkage name in the metadata isn't ported
       // Need to make sure it is needed and port it or redo it at CodeGen level so that the linkage name is
       // set on the basis of the function name if the linkage namein DISubroutine descrtiptor differs from it
-      Function *clone = CloneFunction(*fi, vmap, true, NULL/*, "__Vectorized_." + (*fi)->getName()*/);
+      Function *clone = CloneFunction(*fi, vmap, true, nullptr/*, "__Vectorized_." + (*fi)->getName()*/);
       // [LLVM 3.6 UPGRADE] Set the vectorized function name manually at least until fix isn't done in LLVM
       // or solved in another way.
       clone->setName("__Vectorized_." + (*fi)->getName());
@@ -167,14 +167,14 @@ bool Vectorizer::runOnModule(Module &M)
       Intel::KernelInfoMetaDataHandle skimd = mdUtils.getOrInsertKernelsInfoItem(*fi);
       skimd->setVectorizedKernel(vectFunc);
       skimd->setVectorizedWidth(1);
-      skimd->setScalarizedKernel(NULL);
+      skimd->setScalarizedKernel(nullptr);
       if (vectFunc) {
         //Initialize vector kernel information
         // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
         // * vectorized width
         // * pointer to scalar version
         Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(vectFunc);
-        vkimd->setVectorizedKernel(NULL);
+        vkimd->setVectorizedKernel(nullptr);
         vkimd->setVectorizedWidth(vectFuncWidth);
         vkimd->setScalarizedKernel(*fi);
         vkimd->setVectorizationDimension(vectDim);

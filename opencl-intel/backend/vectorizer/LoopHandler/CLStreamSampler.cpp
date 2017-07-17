@@ -40,7 +40,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
-CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(NULL) {
+CLStreamSampler::CLStreamSampler() : LoopPass(ID), m_rtServices(nullptr) {
   initializeCLStreamSamplerPass(*PassRegistry::getPassRegistry());
 }
 
@@ -256,14 +256,14 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
     // In case the pointer has only one user it is the call, meaning this color
     // was not used so we just continue.
     if (AI->hasOneUse()) {
-      attrs.m_colors.push_back(NULL);
+      attrs.m_colors.push_back(nullptr);
       continue;
     }
 
     // The pointer has 2 users
     Value *user1 = *(AI->user_begin());
     Value *user2 = *(++(AI->user_begin()));
-    LoadInst *load = NULL;
+    LoadInst *load = nullptr;
     if (user1 == readImgCall) {
       load = dyn_cast<LoadInst>(user2);
     } else if (user2 == readImgCall){
@@ -518,22 +518,22 @@ Value *CLStreamSampler::getStreamWriteYcoord(Value *v) {
   // Also support phi of two invariant values, with invariant conditon
   // In this case convert the phi into select outside the loop.
   PHINode *PN = dyn_cast<PHINode>(v);
-  if (!PN) return NULL;
-  if (PN->getNumIncomingValues() != 2 ) return NULL;
+  if (!PN) return nullptr;
+  if (PN->getNumIncomingValues() != 2 ) return nullptr;
   Value *inc0 = PN->getIncomingValue(0);
   Value *inc1 = PN->getIncomingValue(1);
   if (!m_curLoop->isLoopInvariant(inc0)  || !m_curLoop->isLoopInvariant(inc1))
-    return NULL;
+    return nullptr;
   BasicBlock *BB0 = PN->getIncomingBlock(0);
   BasicBlock *BB1 = PN->getIncomingBlock(1);
   BasicBlock *BBOPred = BB0->getSinglePredecessor();
   BasicBlock *BB1Pred = BB1->getSinglePredecessor();
-  if (!BBOPred || BB1Pred != BBOPred) return NULL;
+  if (!BBOPred || BB1Pred != BBOPred) return nullptr;
 
   BranchInst *Br = dyn_cast<BranchInst>(BBOPred->getTerminator());
-  if (!Br) return NULL;
+  if (!Br) return nullptr;
   Value *cond = Br->getCondition();
-  if (!m_curLoop->isLoopInvariant(cond)) return NULL;
+  if (!m_curLoop->isLoopInvariant(cond)) return nullptr;
 
   // Getting here we can repalace the PHI with select.
   Value *yCoord =   SelectInst::Create(cond,
@@ -611,7 +611,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
   Instruction *loc =
       m_header->getParent()->getEntryBlock().getFirstNonPHI();
   for (unsigned i = 0; i < 4; ++i) {
-    AllocaInst *AI = new AllocaInst(arrTy, NULL, FLOAT_X_WIDTH__ALIGNMENT,
+    AllocaInst *AI = new AllocaInst(arrTy, nullptr, FLOAT_X_WIDTH__ALIGNMENT,
                                     "stream.read.alloca", loc);
     Instruction *ptr =
         GetElementPtrInst::CreateInBounds(AI, indicesArr, "ptr", loc);
@@ -667,7 +667,7 @@ Value *CLStreamSampler::calcFirstIterValIfPossible(Instruction *I) {
       clone->setOperand(j, m_firstIterVal[opInst]);
     } else {
       delete clone;
-      return NULL;
+      return nullptr;
     }
   }
   clone->insertBefore(m_preHeader->getTerminator());
@@ -691,7 +691,7 @@ Value *CLStreamSampler::obtainInitialStridedVal(Instruction *I) {
     if (!inst || !m_curLoop->contains(inst)) continue;
 
     // Supports phi node only in the header block.
-    if (isa<PHINode>(inst) && !isHeaderPhiStrided(inst)) return NULL;
+    if (isa<PHINode>(inst) && !isHeaderPhiStrided(inst)) return nullptr;
 
     InstToReplicate.push_back(inst);
     workList.insert(workList.end(), inst->op_begin(), inst->op_end());
@@ -716,7 +716,7 @@ Value *CLStreamSampler::obtainInitialStridedVal(Instruction *I) {
     }
 
     assert(replicateIndex != -1 && "unable to replicate instruction");
-    if (replicateIndex == -1) return NULL;
+    if (replicateIndex == -1) return nullptr;
 
     // Remove the replicated value from the list.
     // Moving the last element into replicateIndex assures that we are not

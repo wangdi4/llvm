@@ -44,7 +44,7 @@ namespace io {
 Printer::Printer(ZeroCopyOutputStream* output, char variable_delimiter)
   : variable_delimiter_(variable_delimiter),
     output_(output),
-    buffer_(NULL),
+    buffer_(nullptr),
     buffer_size_(0),
     at_start_of_line_(true),
     failed_(false) {
@@ -81,7 +81,7 @@ void Printer::Print(const map<string, string>& variables, const char* text) {
 
       // Find closing delimiter.
       const char* end = strchr(text + pos, variable_delimiter_);
-      if (end == NULL) {
+      if (end == nullptr) {
         GOOGLE_LOG(DFATAL) << " Unclosed variable name.";
         end = text + pos;
       }

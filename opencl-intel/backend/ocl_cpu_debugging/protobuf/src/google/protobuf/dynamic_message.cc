@@ -203,7 +203,7 @@ class DynamicMessage : public Message {
     return type_info_->prototype == this ||
            // If type_info_->prototype is NULL, then we must be constructing
            // the prototype now, which means we must be the prototype.
-           type_info_->prototype == NULL;
+           type_info_->prototype == nullptr;
   }
 
   inline void* OffsetToPointer(int offset) {
@@ -292,7 +292,7 @@ DynamicMessage::DynamicMessage(const TypeInfo* type_info)
 
       case FieldDescriptor::CPPTYPE_MESSAGE: {
         if (!field->is_repeated()) {
-          new(field_ptr) Message*(NULL);
+          new(field_ptr) Message*(nullptr);
         } else {
           new(field_ptr) RepeatedPtrField<Message>();
         }
@@ -371,7 +371,7 @@ DynamicMessage::~DynamicMessage() {
     } else if ((field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) &&
                !is_prototype()) {
       Message* message = *reinterpret_cast<Message**>(field_ptr);
-      if (message != NULL) {
+      if (message != nullptr) {
         delete message;
       }
     }
@@ -434,7 +434,7 @@ struct DynamicMessageFactory::PrototypeMap {
 };
 
 DynamicMessageFactory::DynamicMessageFactory()
-  : pool_(NULL), delegate_to_generated_factory_(false),
+  : pool_(nullptr), delegate_to_generated_factory_(false),
     prototypes_(new PrototypeMap) {
 }
 
@@ -463,7 +463,7 @@ const Message* DynamicMessageFactory::GetPrototypeNoLock(
   }
 
   const DynamicMessage::TypeInfo** target = &prototypes_->map_[type];
-  if (*target != NULL) {
+  if (*target != nullptr) {
     // Already exists.
     return (*target)->prototype.get();
   }
@@ -472,7 +472,7 @@ const Message* DynamicMessageFactory::GetPrototypeNoLock(
   *target = type_info;
 
   type_info->type = type;
-  type_info->pool = (pool_ == NULL) ? type->file()->pool() : pool_;
+  type_info->pool = (pool_ == nullptr) ? type->file()->pool() : pool_;
   type_info->factory = this;
 
   // We need to construct all the structures passed to

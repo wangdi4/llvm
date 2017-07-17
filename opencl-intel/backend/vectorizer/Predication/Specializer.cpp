@@ -210,7 +210,7 @@ BasicBlock* FunctionSpecializer::getAnyReturnBlock() {
       return x;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 bool FunctionSpecializer::CanSpecialize() {
@@ -554,7 +554,7 @@ void FunctionSpecializer::registerSchedulingScopes(SchedulingScope& parent) {
     if (m_pred->getUCFExit(bi.m_root) == bi.m_postDom) continue;
 
     // create a scheduling scope
-    SchedulingScope *scp = new SchedulingScope(NULL);
+    SchedulingScope *scp = new SchedulingScope(nullptr);
     // insert all basic blocks restrictions from the bypass info
     for (std::set<BasicBlock*>::iterator itr = bi.m_skippedBlocks.begin();
         itr != bi.m_skippedBlocks.end();
@@ -624,7 +624,7 @@ void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
   if (inIt != m_inMasksToZero.end()) {
     BasicBlock *BB = inIt->second;
     Value *maskP = m_pred->getInMask(BB);
-    V_ASSERT(maskP != NULL && "BB has no in-mask");
+    V_ASSERT(maskP != nullptr && "BB has no in-mask");
     propagateMask(maskP, src, exit, footer);
   }
   MapRegToBBPairVec::iterator outIt = m_outMasksToZero.find(bi);
@@ -632,7 +632,7 @@ void FunctionSpecializer::ZeroBypassedMasks(BypassInfo & bi, BasicBlock *src,
     BBPairVec &edges = outIt->second;
     for (unsigned i=0; i<edges.size(); ++i) {
       Value *maskP = m_pred->getEdgeMask(edges[i].first, edges[i].second);
-      V_ASSERT(maskP != NULL && "BB has no in-mask");
+      V_ASSERT(maskP != nullptr && "BB has no in-mask");
       propagateMask(maskP, src, exit, footer);
     }
   }
@@ -662,10 +662,10 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
   V_ASSERT(before && "missing entering edge");
 
   // Refining the outgoing edge (exitBlock -> after)
-  BasicBlock* exitBlock = NULL; // to be last block in the bypassed region.
-  BasicBlock* after = NULL; // to be first block after the bypassed region.
+  BasicBlock* exitBlock = nullptr; // to be last block in the bypassed region.
+  BasicBlock* after = nullptr; // to be first block after the bypassed region.
   BasicBlock* exitCandidate = bi.m_postDom;
-  BasicBlock* afterCandidate = NULL;
+  BasicBlock* afterCandidate = nullptr;
   while (!exitBlock) {
     V_ASSERT(succ_begin(exitCandidate) != succ_end(exitCandidate) &&
       "failed to find an exit block");
@@ -713,7 +713,7 @@ void FunctionSpecializer::specializeEdge(BypassInfo & bi) {
     // must postdominate the bypass entry. Note that UCF exit postdominates
     // UCF entry so no need to handle it specifically
     BasicBlock * bb = m_pred->getUCFEntry(*it);
-    bb = NULL != bb ? bb : *it;
+    bb = nullptr != bb ? bb : *it;
     if (m_PDT->dominates(bb, entry)) {
       m_pred->blockIsBeingZeroBypassed(*it);
     }

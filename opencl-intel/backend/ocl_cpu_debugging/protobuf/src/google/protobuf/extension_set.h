@@ -91,7 +91,7 @@ struct ExtensionInfo {
   inline ExtensionInfo() {}
   inline ExtensionInfo(FieldType type, bool is_repeated, bool is_packed)
       : type(type), is_repeated(is_repeated), is_packed(is_packed),
-        descriptor(NULL) {}
+        descriptor(nullptr) {}
 
   FieldType type;
   bool is_repeated;
@@ -580,7 +580,7 @@ template<> inline TYPE PrimitiveTypeTraits<TYPE>::Get(                     \
 }                                                                          \
 template<> inline void PrimitiveTypeTraits<TYPE>::Set(                     \
     int number, FieldType field_type, TYPE value, ExtensionSet* set) {     \
-  set->Set##METHOD(number, field_type, value, NULL);                       \
+  set->Set##METHOD(number, field_type, value, nullptr);                       \
 }                                                                          \
                                                                            \
 template<> inline TYPE RepeatedPrimitiveTypeTraits<TYPE>::Get(             \
@@ -594,7 +594,7 @@ template<> inline void RepeatedPrimitiveTypeTraits<TYPE>::Set(             \
 template<> inline void RepeatedPrimitiveTypeTraits<TYPE>::Add(             \
     int number, FieldType field_type, bool is_packed,                      \
     TYPE value, ExtensionSet* set) {                                       \
-  set->Add##METHOD(number, field_type, is_packed, value, NULL);            \
+  set->Add##METHOD(number, field_type, is_packed, value, nullptr);            \
 }
 
 PROTOBUF_DEFINE_PRIMITIVE_TYPE( int32,  Int32)
@@ -622,11 +622,11 @@ class LIBPROTOBUF_EXPORT StringTypeTraits {
   }
   static inline void Set(int number, FieldType field_type,
                          const string& value, ExtensionSet* set) {
-    set->SetString(number, field_type, value, NULL);
+    set->SetString(number, field_type, value, nullptr);
   }
   static inline string* Mutable(int number, FieldType field_type,
                                 ExtensionSet* set) {
-    return set->MutableString(number, field_type, NULL);
+    return set->MutableString(number, field_type, nullptr);
   }
 };
 
@@ -649,11 +649,11 @@ class LIBPROTOBUF_EXPORT RepeatedStringTypeTraits {
   static inline void Add(int number, FieldType field_type,
                          bool /*is_packed*/, const string& value,
                          ExtensionSet* set) {
-    set->AddString(number, field_type, value, NULL);
+    set->AddString(number, field_type, value, nullptr);
   }
   static inline string* Add(int number, FieldType field_type,
                             ExtensionSet* set) {
-    return set->AddString(number, field_type, NULL);
+    return set->AddString(number, field_type, nullptr);
   }
 };
 
@@ -674,7 +674,7 @@ class EnumTypeTraits {
   static inline void Set(int number, FieldType field_type,
                          ConstType value, ExtensionSet* set) {
     GOOGLE_DCHECK(IsValid(value));
-    set->SetEnum(number, field_type, value, NULL);
+    set->SetEnum(number, field_type, value, nullptr);
   }
 };
 
@@ -694,7 +694,7 @@ class RepeatedEnumTypeTraits {
   static inline void Add(int number, FieldType field_type,
                          bool is_packed, ConstType value, ExtensionSet* set) {
     GOOGLE_DCHECK(IsValid(value));
-    set->AddEnum(number, field_type, is_packed, value, NULL);
+    set->AddEnum(number, field_type, is_packed, value, nullptr);
   }
 };
 
@@ -718,7 +718,7 @@ class MessageTypeTraits {
   static inline MutableType Mutable(int number, FieldType field_type,
                                     ExtensionSet* set) {
     return static_cast<Type*>(
-      set->MutableMessage(number, field_type, Type::default_instance(), NULL));
+      set->MutableMessage(number, field_type, Type::default_instance(), nullptr));
   }
 };
 
@@ -737,7 +737,7 @@ class RepeatedMessageTypeTraits {
   static inline MutableType Add(int number, FieldType field_type,
                                 ExtensionSet* set) {
     return static_cast<Type*>(
-        set->AddMessage(number, field_type, Type::default_instance(), NULL));
+        set->AddMessage(number, field_type, Type::default_instance(), nullptr));
   }
 };
 
