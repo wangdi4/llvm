@@ -81,7 +81,8 @@ if(LIBOMPTARGET_HAVE_STD_CPP11_FLAG)
   # dumping progress messages at runtime.
   string( TOLOWER "${CMAKE_BUILD_TYPE}" LIBOMPTARGET_CMAKE_BUILD_TYPE)
   if(LIBOMPTARGET_CMAKE_BUILD_TYPE MATCHES debug)
-    add_definitions(-DOMPTARGET_DEBUG)
+    # CSA EDIT: this is too noisy even for a debug build.
+    #add_definitions(-DOMPTARGET_DEBUG)
     add_definitions(-g)
     add_definitions(-O0)
   endif()
