@@ -6675,7 +6675,12 @@ void CGOpenMPRuntime::emitDeclareSimdFunction(const FunctionDecl *FD,
       VLENVal = VLEN->EvaluateKnownConstInt(C);
     OMPDeclareSimdDeclAttr::BranchStateTy State = Attr->getBranchState();
     if (CGM.getTriple().getArch() == llvm::Triple::x86 ||
-        CGM.getTriple().getArch() == llvm::Triple::x86_64)
+        CGM.getTriple().getArch() == llvm::Triple::x86_64
+#if INTEL_OPENCL
+        || CGM.getTriple().getArch() == llvm::Triple::spir
+        || CGM.getTriple().getArch() == llvm::Triple::spir64
+#endif
+       )
       emitX86DeclareSimdFunction(FD, Fn, VLENVal, ParamAttrs, State);
   }
 }
