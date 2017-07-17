@@ -73,6 +73,26 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setStackPointerRegisterToSaveRestore(CSA::SP);
   computeRegisterProperties(ST.getRegisterInfo());
 
+  // To disable the following OPT SelectinDAGBuilder.cpp cause it can
+  // create multiple backedges for Fortran program using its interface feature:
+  // If this is a series of conditions that are or'd or and'd together, emit
+  // this as a sequence of branches instead of setcc's with and/or operations.
+  // As long as jumps are not expensive, this should improve performance.
+  // For example, instead of something like:
+  //     cmp A, B
+  //     C = seteq
+  //     cmp D, E
+  //     F = setle
+  //     or C, F
+  //     jnz foo
+  // Emit:
+  //     cmp A, B
+  //     je foo
+  //     cmp D, E
+  //     jle foo
+  //
+  setJumpIsExpensive(true);
+
   // Scheduling shouldn't be relevant
   // setSchedulingPreference(Sched::ILP);
 
