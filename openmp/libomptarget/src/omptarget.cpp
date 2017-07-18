@@ -33,12 +33,14 @@
 
 // List of all plugins that can support offloading.
 static const char *RTLNames[] = {
-    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
+#if INTEL_CUSTOMIZATION
+    /* Nios II target */ "libomptarget.rtl.nios2.so",
     /* MIC target     */ "libomptarget.rtl.x86_64_mic.so",
+#endif // INTEL_CUSTOMIZATION
+    /* PowerPC target */ "libomptarget.rtl.ppc64.so",
     /* x86_64 target  */ "libomptarget.rtl.x86_64.so",
     /* CUDA target    */ "libomptarget.rtl.cuda.so",
-    /* AArch64 target */ "libomptarget.rtl.aarch64.so",
-    /* Nios II target */ "libomptarget.rtl.nios2.so"};
+    /* AArch64 target */ "libomptarget.rtl.aarch64.so"};
 
 // forward declarations
 struct RTLInfoTy;
