@@ -25,6 +25,12 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+cl::opt<bool> Usei1MaskForSimdFunctions(
+  "use-i1-mask-for-simd-funcs", cl::init(false),
+  cl::desc("Use vector of i1 as mask for simd functions"));
+#endif
+
 template Constant *
 IntelGeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context,
                                          int Val);
@@ -39,18 +45,11 @@ Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
                                               T Val) {
   Constant *ConstVal = nullptr;
 
-  if (Ty->isIntegerTy(8))
-    ConstVal = ConstantInt::get(Type::getInt8Ty(Context), Val);
-  else if (Ty->isIntegerTy(16))
-    ConstVal = ConstantInt::get(Type::getInt16Ty(Context), Val);
-  else if (Ty->isIntegerTy(32))
-    ConstVal = ConstantInt::get(Type::getInt32Ty(Context), Val);
-  else if (Ty->isIntegerTy(64))
-    ConstVal = ConstantInt::get(Type::getInt64Ty(Context), Val);
-  else if (Ty->isFloatTy())
-    ConstVal = ConstantFP::get(Type::getFloatTy(Context), Val);
-  else if (Ty->isDoubleTy())
-    ConstVal = ConstantFP::get(Type::getDoubleTy(Context), Val);
+  if (Ty->isIntegerTy()) {
+    ConstVal = ConstantInt::get(Ty, Val);
+  } else if (Ty->isFloatTy()) {
+    ConstVal = ConstantFP::get(Ty, Val);
+  }
 
   assert(ConstVal && "Could not generate constant for type");
 

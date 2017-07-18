@@ -244,13 +244,15 @@ public:
     UnitStepLinears[LinearVal] = std::make_pair(NewVal, Step);
   }
 
-  // Return true if \p Val is a linear and return linear step in \p Step if non-null
+  // Return true if \p Val is a linear and return linear step in \p Step if
+  // non-null
   bool isLinear(Value *Val, int *Step = nullptr);
 
-  // Return true if \p Val is a unit step linear item and return linear step in \p Step
-  // if non-null and New scalar value in NewScal if non-null
-  bool isUnitStepLinear(Value *Val, int *Step = nullptr, Value **NewScal = nullptr);
-  
+  // Return true if \p Val is a unit step linear item and return linear step in
+  // \p Step if non-null and New scalar value in NewScal if non-null
+  bool isUnitStepLinear(Value *Val, int *Step = nullptr,
+                        Value **NewScal = nullptr);
+
   // Return pointer to Linears map
   DenseMap<Value *, int> *getLinears() {
     return &Linears;
@@ -362,6 +364,12 @@ public:
                          SmallVectorImpl<Value*> &VecArgs,
                          SmallVectorImpl<Type*> &VecArgTys);
 
+#if INTEL_OPENCL
+  // Return true if the argument at position /p Idx for function /p FnName is
+  // scalar.
+  bool isScalarArgument(StringRef FnName, unsigned Idx);
+#endif
+  
   /// Add an in memory linear to the vector of linear values.
   void addUnitStepLinear(Value *LinVal, Value *NewVal, int Step) {
     Legal->addUnitStepLinear(LinVal, NewVal, Step);

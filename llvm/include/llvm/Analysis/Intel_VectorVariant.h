@@ -28,8 +28,13 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+extern cl::opt<bool> Usei1MaskForSimdFunctions;
+#endif
 
 #define STRIDE_KIND 's'
 #define LINEAR_KIND 'l'

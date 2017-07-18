@@ -231,8 +231,10 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   }
 
   if (V.isMasked()) {
-    VectorType *MaskType = VectorType::get(CharacteristicType, V.getVlen());
-    ParmTypes.push_back(MaskType);
+    Type *MaskScalarTy = (Usei1MaskForSimdFunctions) ?
+      Type::getInt1Ty(F.getContext()) : CharacteristicType;
+    Type *MaskVecTy = VectorType::get(MaskScalarTy, V.getVlen());
+    ParmTypes.push_back(MaskVecTy);
   }
 
   FunctionType* CloneFuncType = FunctionType::get(ReturnType, ParmTypes,
