@@ -11,11 +11,6 @@
 #
 ##===----------------------------------------------------------------------===##
 
-# TODO: Should be removed once ics configuration for offload compiler is implemented.
-if (NOT LIBOMPTARGET_DEP_NIOS2_SDK)
-  set(LIBOMPTARGET_DEP_NIOS2_SDK /rdrive/ref/nios2/17.0)
-endif()
-
 if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)$" AND CMAKE_SYSTEM_NAME MATCHES "Linux")
   if (LIBOMPTARGET_DEP_NIOS2_SDK)
     libomptarget_say("Building Nios2 offloading plugin.")

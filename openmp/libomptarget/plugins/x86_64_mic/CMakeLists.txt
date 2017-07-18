@@ -11,14 +11,6 @@
 #
 ##===----------------------------------------------------------------------===##
 
-if(NOT LIBOMPTARGET_DEP_MPSS_SDK)
-  # Note: this default MPSS path should be replaced with /opt/mpss/x200/minsdk
-  # before upstreaming to LLORG.
-  if (IS_DIRECTORY /rdrive/ref/lrb/mpss/x200/linux/minsdk)
-    set(LIBOMPTARGET_DEP_MPSS_SDK /rdrive/ref/lrb/mpss/x200/linux/minsdk)
-  endif()
-endif()
-
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)$" AND CMAKE_SYSTEM_NAME MATCHES "Linux")
   if(LIBOMPTARGET_DEP_MPSS_SDK)
     libomptarget_say("Building Intel(R) Xeon Phi(TM) offloading plugin.")

@@ -107,15 +107,6 @@ macro(build_all_device_lib_variants lib_name)
 endmacro()
 
 ##----------------------------------------------------------------------------##
-# Paths
-##----------------------------------------------------------------------------##
-
-# TODO: Should be removed once ics configuration for offload compiler is implemented.
-if (NOT LIBOMPTARGET_DEP_NIOS2_SDK)
-  set(LIBOMPTARGET_DEP_NIOS2_SDK /rdrive/ref/nios2/17.0)
-endif()
-
-##----------------------------------------------------------------------------##
 # Define the set of device libraries and build them
 ##----------------------------------------------------------------------------##
 
