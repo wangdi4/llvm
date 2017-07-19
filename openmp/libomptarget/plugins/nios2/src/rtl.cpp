@@ -1108,6 +1108,11 @@ const char * const EntryTableSectionName = ".omp_offloading.entries";
 // environment variable OMP_TARGET_NIOS2_MEMORY=[L3|L4].
 msof_mem_type_t DeviceMemType = MSOF_MEM_L4;
 
+// A flag controlling plugin mode for supporting multiple columns. When set to
+// false we treat each column as a separate logical offload device. Otherwise,
+// if true, all columns compose a single logical offload device.
+bool MultiColumnDeviceMode = false;
+
 // FPGA device with instantiated Nios II R2 processors.
 class DeviceTy {
 public:
@@ -1405,7 +1410,7 @@ public:
       operator msof_context_t() {
         return Context;
       }
-      
+
       msof_context_t Context = nullptr;
     } Context;
 
@@ -1417,8 +1422,11 @@ public:
     }
 
     DP("Reserving columns\n");
-    // TODO: Should update this place once we start supporting multiple columns
-    size_t NumColumns = 1u; // MaxColumns;
+    // Depending on the multi-column support mode we reserve either one column
+    // per run function (if each column is treated as a separate offload
+    // device) or all available columns (if all columns compose a single
+    // logical device).
+    size_t NumColumns = MultiColumnDeviceMode ? MaxColumns : 1u;
     std::vector<msof_column_t> Columns(NumColumns);
     Res = msof_column_reserve(Context, MSOF_COLUMN_MAX, &NumColumns,
       Columns.data(), 0, nullptr, nullptr);
@@ -1515,7 +1523,7 @@ DeviceTy& getDevice() {
   static std::once_flag InitFlag;
 
   std::call_once(InitFlag, [&]() {
-    if (const char *Str = getenv("OMP_TARGET_NIOS2_MEMORY")) {
+    if (const char *Str = getenv("NIOS2_OFFLOAD_MEMORY")) {
       if (strcmp(Str, "L3") == 0) {
         DeviceMemType = MSOF_MEM_L3;
       }
@@ -1526,6 +1534,9 @@ DeviceTy& getDevice() {
         DP("Ignoring unsupported device memory type %s. Should be "
            "either L3 or L4.\n", Str);
       }
+    }
+    if (const char *Str = getenv("NIOS2_OFFLOAD_MULTI_COLUMN_DEVICE")) {
+      MultiColumnDeviceMode = atoi(Str) != 0;
     }
     if (Device.init()) {
       atexit([&]() {
@@ -1557,7 +1568,10 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 }
 
 int32_t __tgt_rtl_number_of_devices() {
-  return getDevice().getMaxColumns() > 0 ? 1 : 0;
+  if (auto MaxColumns = getDevice().getMaxColumns()) {
+    return MultiColumnDeviceMode ? 1 : MaxColumns;
+  }
+  return 0;
 }
 
 int32_t __tgt_rtl_init_device(int32_t ID) {
