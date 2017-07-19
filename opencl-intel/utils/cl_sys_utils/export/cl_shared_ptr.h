@@ -52,7 +52,7 @@ void FiniSharedPts();
 /**
  * Dump current state
  */
-void DumpSharedPts( const char* map_title = NULL, bool if_non_empty = false );
+void DumpSharedPts( const char* map_title = nullptr, bool if_non_empty = false );
 #endif
 
 
@@ -259,7 +259,7 @@ protected:
      * Constructor
      * @param ptr a pointer to the object
      */
-    SmartPtr(T* ptr = NULL) : m_ptr(ptr) { }
+    SmartPtr(T* ptr = nullptr) : m_ptr(ptr) { }
 
     /**
      * the pointer to the object
@@ -297,9 +297,9 @@ public:
      * @param ptr a pointer to object of type T to which this SharedPtrBase will point or NULL. ptr's
      *            reference counter is incremented in this method if it is not NULL.
      */
-    SharedPtrBase(T* ptr = NULL) : SmartPtr<T>(ptr)
+    SharedPtrBase(T* ptr = nullptr) : SmartPtr<T>(ptr)
     {
-        if (NULL != this->m_ptr)
+        if (nullptr != this->m_ptr)
         {
             IncRefCnt();
         }
@@ -312,13 +312,13 @@ public:
      *              reference counter of the object is incremented in this method if it is not
      *              NULL.
      */
-    SharedPtrBase(const SharedPtrBase& other) : SmartPtr<T>(NULL)
+    SharedPtrBase(const SharedPtrBase& other) : SmartPtr<T>(nullptr)
     {
         *this = other;
     }
 
     template<typename S>
-    SharedPtrBase(const SharedPtrBase<S>& other) : SmartPtr<T>(NULL)
+    SharedPtrBase(const SharedPtrBase<S>& other) : SmartPtr<T>(nullptr)
     {       
         *this = other;
     }
@@ -366,16 +366,16 @@ public:
         // get hold of the original object address
         T* ptr = this->m_ptr;
         // update m_ptr to the new address
-        if (NULL != other.GetPtr())
+        if (nullptr != other.GetPtr())
         {
             this->m_ptr = other.GetPtr();
         }
         else
         {
-            this->m_ptr = NULL;
+            this->m_ptr = nullptr;
         }
         // increment the reference counter if m_ptr isn't null
-        if (NULL != this->m_ptr)
+        if (nullptr != this->m_ptr)
         {
             IncRefCnt();
         }
@@ -405,7 +405,7 @@ public:
         }
         else
         {
-            this->m_ptr = NULL;
+            this->m_ptr = nullptr;
         }
         DecRefCntInt(ptr);
         other.NullifyWithoutDecRefCnt();
@@ -423,7 +423,7 @@ public:
         }
         else
         {
-            this->m_ptr = NULL;
+            this->m_ptr = nullptr;
         }
         DecRefCntInt(ptr);
         other.NullifyWithoutDecRefCnt();
@@ -438,7 +438,7 @@ public:
      */
     void NullifyWithoutDecRefCnt()
     {
-        this->m_ptr = NULL;
+        this->m_ptr = nullptr;
     }
 
     /**
@@ -487,7 +487,7 @@ public:
      * @param ptr a pointer to object of type T to which this SharedPtr will point or NULL. ptr's
      *            reference counter is incremented in this method if it is not NULL.
      */
-    SharedPtr(T* ptr = NULL) : SharedPtrBase<T>(ptr) { }
+    SharedPtr(T* ptr = nullptr) : SharedPtrBase<T>(ptr) { }
 
     /**
      * Copy constructors
@@ -582,7 +582,7 @@ public:
      * @param ptr a const pointer to object of type T to which this ConstSharedPtr will point.
      *            ptr's reference counter is incremented in this method.
      */
-    ConstSharedPtr(const T* ptr = NULL) : SharedPtrBase<const T>(ptr) { }
+    ConstSharedPtr(const T* ptr = nullptr) : SharedPtrBase<const T>(ptr) { }
 
     /**
      * Constructors

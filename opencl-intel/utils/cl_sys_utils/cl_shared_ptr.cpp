@@ -35,11 +35,11 @@ map<string, AllocatedObjectsMap >* allocatedObjectsMap;
 void InitSharedPtrs()
 {
 #ifdef _DEBUG
-    if (NULL == allocatedObjectsMapMutex)
+    if (nullptr == allocatedObjectsMapMutex)
     {
         allocatedObjectsMapMutex = new OclMutex(DEFAULT_SPIN_COUNT, SUPPORT_RECURSIVE_LOCK);
     }
-    if (NULL == allocatedObjectsMap)
+    if (nullptr == allocatedObjectsMap)
     {
         allocatedObjectsMap = new map<string, map<const void*, long> >();
     }
@@ -102,12 +102,12 @@ long ReferenceCountedObject::DriveEnterZombieState() const
 
 static void DumpSharedPtsHeader( const char* map_title )
 {
-    printf("\nBEGIN SHARED POINTERS MAP: %s\n", (NULL != map_title) ? map_title : "" );
+    printf("\nBEGIN SHARED POINTERS MAP: %s\n", (nullptr != map_title) ? map_title : "" );
 }
 
 static void DumpSharedPtsFooter( const char* map_title )
 {
-    printf("\nEND SHARED POINTERS MAP: %s\n", (NULL != map_title) ? map_title : "" );
+    printf("\nEND SHARED POINTERS MAP: %s\n", (nullptr != map_title) ? map_title : "" );
     fflush(0);
 }
 
@@ -115,7 +115,7 @@ void DumpSharedPts(const char* map_title, bool if_non_empty)
 {
     bool header_printed = false;
     
-    if ((NULL != allocatedObjectsMapMutex) && (NULL != allocatedObjectsMap))
+    if ((nullptr != allocatedObjectsMapMutex) && (nullptr != allocatedObjectsMap))
     {
         allocatedObjectsMapMutex->Lock();
 

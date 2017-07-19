@@ -78,13 +78,13 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
         }
         return ret;
     }
-    if (NULL != pEvent)
+    if (nullptr != pEvent)
     {
         pQueueEvent->SetVisibleToUser();
         m_pEventsManager->RegisterQueueEvent(pQueueEvent, pEvent);
     }
 
-    if (apiLogger != NULL)
+    if (apiLogger != nullptr)
     {
         apiLogger->SetCmdId(pQueueEvent->GetId());
     }
@@ -96,7 +96,7 @@ cl_err_code ImmediateCommandQueue::EnqueueCommand(Command* pCommand, cl_bool bBl
         m_CS.Unlock();
     }
 
-    if (NULL == pEvent)
+    if (nullptr == pEvent)
     {
         pQueueEvent->Release();
     }
