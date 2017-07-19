@@ -112,8 +112,8 @@ OclBuiltinImpl mad_sat_v8u32 = OclBuiltinImpl<mad_sat, [v8u32] , 0, [{
 \*****************************************************************/
 // max native short16, int8, ushort16, uint8
 OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32, v16u16, v8u32] , 0, [{
-    $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, Mask);
+    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
+    return select($Arg0VarName, $Arg1VarName, mask);
   }]>;
 
 
@@ -125,8 +125,8 @@ OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32, v16u16, v8
 \*****************************************************************/
 // min native short16, int8, ushort16, uint8
 OclBuiltinImpl min_avx2native_i = OclBuiltinImpl<min, [v16i16, v8i32, v16u16, v8u32] , 0, [{
-     $ReturnType Mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-     return select($Arg0VarName, $Arg1VarName, Mask);
+     $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
+     return select($Arg0VarName, $Arg1VarName, mask);
   }]>;
 
 
