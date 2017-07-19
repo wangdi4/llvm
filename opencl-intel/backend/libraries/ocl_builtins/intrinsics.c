@@ -211,6 +211,14 @@ _mm512_mask_blend_epi32(__mmask16 __U, __m512i __A, __m512i __W)
                 (__v16si) __A);
 }
 
+__m512i __attribute__((__always_inline__, __nodebug__))
+_mm512_mask_blend_epi64(__mmask8 __U, __m512i __A, __m512i __W)
+{
+  return (__m512i) __builtin_ia32_selectq_512 ((__mmask8) __U,
+                (__v8di) __W,
+                (__v8di) __A);
+}
+
 __m512 __attribute__((__always_inline__, __nodebug__))
 _mm512_mask_blend_ps(__mmask16 __U, __m512 __A, __m512 __W)
 {
