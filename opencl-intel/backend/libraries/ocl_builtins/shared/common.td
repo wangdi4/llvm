@@ -30,8 +30,8 @@ OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
     return min(max($Arg0VarName, $Arg1VarName), $Arg2VarName);
   }]>;
 
-// vector, scalar BI generation 
-//======v4f32 and v2f64 implementation===============================  
+// vector, scalar BI generation
+//======v4f32 and v2f64 implementation===============================
 
 // max
 OclBuiltinImpl max_v4f32 = OclBuiltinImpl<max, [v4f32], 0, [{
@@ -45,7 +45,7 @@ OclBuiltinImpl max_v2f64 = OclBuiltinImpl<max, [v2f64], 0, [{
     long2 Nulls = (long2)(0);
     return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;
   }]>;
-  
+
 // min
 OclBuiltinImpl min_v4f32 = OclBuiltinImpl<min, [v4f32], 0, [{
     int4 Mask = isgreater($Arg0VarName, $Arg1VarName);
@@ -58,7 +58,7 @@ OclBuiltinImpl min_v2f64 = OclBuiltinImpl<min, [v2f64], 0, [{
     long2 Nulls = (long2)(0);
     return (Mask == Nulls) ? $Arg0VarName : $Arg1VarName;
   }]>;
-  
+
 
 // step
 OclBuiltinImpl step_v4f32 = OclBuiltinImpl<step,

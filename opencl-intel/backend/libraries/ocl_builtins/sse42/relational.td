@@ -1,13 +1,13 @@
 //===========================select===================================
-code select_vector_v16_8_sse4 = [{ 
+code select_vector_v16_8_sse4 = [{
     return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
-code select_vector_v4f32_sse4 = [{ 
+code select_vector_v4f32_sse4 = [{
     return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 
-code select_vector_v2f64_sse4 = [{ 
+code select_vector_v2f64_sse4 = [{
     return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
   }];
 

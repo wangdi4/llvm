@@ -101,7 +101,7 @@ OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16, v4i32, v16u8, v
     $ReturnType Mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
     return select($Arg0VarName, $Arg1VarName, Mask);
   }]>;
-  
+
 /*****************************************************************\
  * min:                                                          *
  *   gentype min (gentype x , gentype y)                         *
