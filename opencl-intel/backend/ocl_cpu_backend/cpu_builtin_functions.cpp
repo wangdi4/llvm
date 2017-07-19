@@ -131,8 +131,6 @@ void RegisterCPUBIFunctions(void)
     REGISTER_BI_FUNCTION("ocl20_set_user_event_status",ocl20_set_user_event_status)
     REGISTER_BI_FUNCTION("ocl20_capture_event_profiling_info",ocl20_capture_event_profiling_info)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size",ocl20_get_kernel_wg_size)
-    REGISTER_BI_FUNCTION("ocl20_get_kernel_wg_size_local",ocl20_get_kernel_wg_size_local)
     REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple",ocl20_get_kernel_preferred_wg_size_multiple)
-    REGISTER_BI_FUNCTION("ocl20_get_kernel_preferred_wg_size_multiple_local",ocl20_get_kernel_preferred_wg_size_multiple_local)
     REGISTER_BI_FUNCTION("ocl20_is_valid_event",ocl20_is_valid_event)
 }

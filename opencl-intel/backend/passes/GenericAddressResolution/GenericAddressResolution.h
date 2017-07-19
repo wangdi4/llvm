@@ -44,6 +44,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @returns  true if the check is successful or false otherwise
   bool isGenericAddrBI(const Function *pFunc);
 
+  /// @brief  Checks if a function really need to be processed by GAS resolution
+  /// @param  pFunc - function to be checked
+  /// @returns  true if the check is successful or false otherwise
+  bool needToSkipResolution(const Function *pFunc);
+
   /// @brief  Sorts all functions defined in the module in the call-graph order
   /// @param  pModule        - module whose functions are to be sorted
   /// @param  orderedList    - sorted list produced by the function

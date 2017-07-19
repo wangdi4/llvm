@@ -134,7 +134,9 @@ static int enqueue_kernel_common(
 extern "C" LLVM_BACKEND_API int
 ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
                            _ndrange_t *ndrange, void *block,
-                           IDeviceCommandManager *DCM, const IBlockToKernelMapper* Mapper, void *RuntimeHandle) {
+                           IDeviceCommandManager *DCM,
+                           const IBlockToKernelMapper* Mapper,
+                           void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_basic. Entry point \n");
   DEBUG(dbgs() << "Enqueued ndrange_1d \n"
                << " workDimension " << ndrange->workDimension
@@ -153,11 +155,11 @@ ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
 
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
-    void *block, unsigned *localbuf_size, unsigned localbuf_size_len,
+    void *block, unsigned localbuf_size_len, unsigned *localbuf_size,
     IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper,
     void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_localmem. Entry point \n");
-  int res = 
+  int res =
     enqueue_kernel_common(queue, flags, ndrange, block,
                           0, NULL, NULL, // events
                           localbuf_size, localbuf_size_len, // local buffers
@@ -183,12 +185,12 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
 extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, unsigned *localbuf_size,
-    unsigned localbuf_size_len, IDeviceCommandManager *DCM,
+    clk_event_t *event_ret, void *block, unsigned localbuf_size_len,
+    unsigned *localbuf_size, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *Mapper, void *RuntimeHandle) {
   DEBUG(dbgs() << "ocl20_enqueue_kernel_events_localmem. Entry point \n");
-  int res = 
-    enqueue_kernel_common(queue, flags, ndrange, block, 
+  int res =
+    enqueue_kernel_common(queue, flags, ndrange, block,
                           num_events_in_wait_list, in_wait_list,  // events
                           event_ret, // event ret
                           localbuf_size, localbuf_size_len, // local buffers
@@ -310,7 +312,7 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
   DEBUG(dbgs() << "ocl20_get_kernel_wg_size. Entry point \n");
 
   const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
-  
+
   // obtain entry point as key
   void * key = pBlockLiteral->GetInvoke();
   const ICLDevBackendKernel_ * pKernel = Mapper->Map(key);
@@ -322,12 +324,6 @@ ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *DCM, const IBlockTo
 }
 
 extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_wg_size_local(void *block, IDeviceCommandManager *DCM,
-                               const IBlockToKernelMapper *Mapper) {
-  return ocl20_get_kernel_wg_size(block, DCM, Mapper);
-}
-
-extern "C" LLVM_BACKEND_API uint32_t
 ocl20_get_kernel_preferred_wg_size_multiple(void *block,
                                             IDeviceCommandManager *DCM,
                                             const IBlockToKernelMapper *Mapper) {
@@ -335,9 +331,9 @@ ocl20_get_kernel_preferred_wg_size_multiple(void *block,
   uint32_t ret;
   assert(DCM && "IDeviceCommandManager is NULL");
   assert(Mapper && "const IBlockToKernelMapper is NULL");
-  
+
   const BlockLiteral * pBlockLiteral = static_cast<BlockLiteral*>(block);
-  
+
   // obtain entry point as key
   void * key = pBlockLiteral->GetInvoke();
   const ICLDevBackendKernel_ * pKernel = Mapper->Map(key);
@@ -349,10 +345,4 @@ ocl20_get_kernel_preferred_wg_size_multiple(void *block,
 
   DEBUG(dbgs() << "ocl20_get_kernel_preferred_wg_size_multiple. Called GetKernelPreferredWorkGroupSizeMultiple\n");
   return ret;
-}
-
-extern "C" LLVM_BACKEND_API uint32_t
-ocl20_get_kernel_preferred_wg_size_multiple_local(
-    void *block, IDeviceCommandManager *DCM, const IBlockToKernelMapper *Mapper) {
-    return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, Mapper);
 }

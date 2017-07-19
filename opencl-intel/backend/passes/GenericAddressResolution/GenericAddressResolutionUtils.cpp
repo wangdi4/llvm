@@ -6,6 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GenericAddressResolution.h"
 #include <FunctionDescriptor.h>
+#include <CompilationUtils.h>
 #include <MetaDataApi.h>
 #include <NameMangleAPI.h>
 #include <ParameterType.h>
@@ -107,6 +108,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     return false;
   }
 
+  bool needToSkipResolution(const Function *F) {
+    StringRef FName = F->getName();
+    // It isn't needed to process this extended execution BIs
+    if (FName.startswith("__enqueue_kernel") ||
+        FName.equals("__get_kernel_work_group_size_impl") ||
+        FName.equals("__get_kernel_preferred_work_group_multiple_impl"))
+      return true;
+    // It isn't needed to process pipes BIs
+    using namespace Intel::OpenCL::DeviceBackend;
+    if (CompilationUtils::isPipeBuiltin(FName))
+      return true;
+
+    return false;
+  }
   void sortFunctionsInCGOrder(Module *pModule, TFunctionList &orderedList, bool isTopDownOrder) {
 
     typedef std::set<Function*> TFunctionSet;
@@ -206,9 +221,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
       const SmallVector<OCLAddressSpace::spaces, 8> *originalSpaces) {
     if (!isMangledName(origMangledName.c_str()))
       return origMangledName;
-
-    assert(isMangledName(origMangledName.c_str()) &&
-           "Function name is expected to be mangled!");
 
     reflection::FunctionDescriptor fd = demangle(origMangledName.c_str());
 

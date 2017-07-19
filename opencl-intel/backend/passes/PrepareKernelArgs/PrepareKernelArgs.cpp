@@ -149,7 +149,7 @@ namespace intel{
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
-          pArg = pGEP;
+          pArg = builder.CreateAddrSpaceCast(pGEP, callIt->getType());
       } else {
         // Otherwise this is some other type, lets say int4, then int4 itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:

@@ -533,11 +533,10 @@ namespace intel {
   }
 
   Type * ResolveWICall::getBlockLocalMemType() const {
-    // void (^block)(local void *, ?), - OpenCL
-    // void (i8 addrspace(3)*, ...)*  - LLVM representation
-    return PointerType::get(FunctionType::get(Type::getVoidTy(*m_pLLVMContext),
-      PointerType::get(Type::getInt8Ty(*m_pLLVMContext), Utils::OCLAddressSpace::Local),
-      true), 0);
+    // void (^block)(local void *, ...), - OpenCL
+    // i8 addrspace(4)*  - LLVM representation
+    return PointerType::get(Type::getInt8Ty(*m_pLLVMContext),
+                            Utils::OCLAddressSpace::Generic);
   }
 
   Type * ResolveWICall::getEnqueueKernelRetType() const {
@@ -565,8 +564,6 @@ namespace intel {
       // issue alloca for array
       AllocaInst *localbuf_alloca_inst = new AllocaInst(localbuf_arr_type, "localmem_arg_buf",
         &*pCall->getParent()->getParent()->getEntryBlock().begin());
-      // helper int type
-      Type* int32_type = IntegerType::get(*m_pLLVMContext, 32);
       // parse argument with local buf sizes
       // fill in array with local buf sizes
       for(unsigned numarg=LocalMemArgsOffs, cnt=0;
@@ -574,7 +571,8 @@ namespace intel {
         ++numarg, ++cnt) {
           llvm::SmallVector<Value*, 2> index_args;
           index_args.push_back(getConstZeroInt32Value());
-          assert(getLocalMemBufType() == int32_type && "Localmem size type assumed to be int");
+          assert(getLocalMemBufType() == IntegerType::get(*m_pLLVMContext, 32)
+                 && "Localmem size type assumed to be int");
           index_args.push_back(ConstantInt::get(getLocalMemBufType(), cnt));
           // issue GEP
           GetElementPtrInst *gep_instr = GetElementPtrInst::CreateInBounds(
@@ -618,8 +616,6 @@ namespace intel {
 
       // add argument uint *localbuf_size
       args.push_back(ptr_to_localmem_buf);
-      // add argument uint localbuf_size_len
-      args.push_back(ConstantInt::get(int32_type, numLocalBuffers));
   }
 
   static bool isPointerToStructType(Type *Ty) {
@@ -725,10 +721,10 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
   //            uint num_events_in_wait_list, clk_event_t *in_wait_list,
   //            clk_event_t *event_ret,
   //            void * (local void*) /*block_literal ptr*/,
-  //            uint *localbuf_size, uint localbuf_size_len,
+  //            uint localbuf_size_len, uint *localbuf_size,
   //            ExtendedExecutionContext * pEEC)
   //
-  // This function creates LLVM types for ALL 4 above enqueue_kernel callbacks
+  // This function creates LLVM types for ALL 2 above enqueue_kernel callbacks
   FunctionType *ResolveWICall::getOrCreateEnqueueKernelFuncType(unsigned type) {
     assert(type == ICT_ENQUEUE_KERNEL_LOCALMEM ||
            type == ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
@@ -752,10 +748,10 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     params.push_back(getBlockLocalMemType());
 
     // local memory
-    // uint * localbuf_size
-    params.push_back(PointerType::get(getLocalMemBufType(), 0));
     // uint localbuf_size_len
     params.push_back(IntegerType::get(*m_pLLVMContext, 32));
+    // uint * localbuf_size
+    params.push_back(PointerType::get(getLocalMemBufType(), 0));
     params.push_back(
         m_IAA->getWorkGroupInfoMemberType(NDInfo::RUNTIME_INTERFACE));
     params.push_back(

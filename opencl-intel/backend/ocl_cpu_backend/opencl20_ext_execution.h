@@ -16,8 +16,9 @@ extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE queue_t
 ocl20_get_default_queue(IDeviceCommandManager *);
 
 /// @brief callback for
-///  int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags,
-///                     const cl_work_description_type ndrange,void(^block)(void))
+///  int enqueue_kernel_basic (queue_t queue, kernel_enqueue_flags_t flags,
+///                            const cl_work_description_type ndrange,
+///                            void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
 ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
                            _ndrange_t *ndrange, void *block,
@@ -25,14 +26,14 @@ ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
                            const IBlockToKernelMapper *, void *RuntimeHandle);
 
 /// @brief callback for
-///  int enqueue_kernel (
+///  int enqueue_kernel_basic_events (
 ///     queue_t queue,
 ///     kernel_enqueue_flags_t flags,
 ///     const ndrange_t ndrange,
 ///     uint num_events_in_wait_list,
 ///     const clk_event_t*event_wait_list,
 ///     clk_event_t*event_ret,
-///     void (^block)(void))
+///     void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
 ocl20_enqueue_kernel_events(queue_t queue, kernel_enqueue_flags_t flags,
                             _ndrange_t *ndrange,
@@ -42,37 +43,37 @@ ocl20_enqueue_kernel_events(queue_t queue, kernel_enqueue_flags_t flags,
                             const IBlockToKernelMapper *, void *RuntimeHandle);
 
 /// @brief callback for
-///  int enqueue_kernel (
+///  int enqueue_kernel_vaargs (
 ///     queue_t queue,
 ///     kernel_enqueue_flags_t flags,
 ///     const ndrange_t ndrange,
-///     void (^block)(local void *, ...),
+///     void* block, uint num,
 ///     uint size0, ...)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
 ocl20_enqueue_kernel_localmem(queue_t queue, kernel_enqueue_flags_t flags,
                               _ndrange_t *ndrange, void *block,
-                              unsigned *localbuf_size,
                               unsigned localbuf_size_len,
+                              unsigned *localbuf_size,
                               IDeviceCommandManager *DCM,
                               const IBlockToKernelMapper *,
                               void *RuntimeHandle);
 
 /// @brief callback for
-///  int enqueue_kernel (
+///  int enqueue_kernel_events_vaargs (
 ///     queue_t queue,
 ///     kernel_enqueue_flags_t flags,
 ///     const ndrange_t ndrange,
 ///     uint num_events_in_wait_list,
 ///     const clk_event_t*event_wait_list,
 ///     clk_event_t*event_ret,
-///     void (^block)(local void *, ...),
+///     void *block, uint num,
 ///     uint size0, ...)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE int
 ocl20_enqueue_kernel_events_localmem(
     queue_t queue, kernel_enqueue_flags_t flags, _ndrange_t *ndrange,
     unsigned num_events_in_wait_list, clk_event_t *in_wait_list,
-    clk_event_t *event_ret, void *block, unsigned *localbuf_size,
-    unsigned localbuf_size_len, IDeviceCommandManager *DCM,
+    clk_event_t *event_ret, void *block, unsigned localbuf_size_len,
+    unsigned *localbuf_size, IDeviceCommandManager *DCM,
     const IBlockToKernelMapper *, void *RuntimeHandle);
 
 /// @brief callback for
@@ -128,31 +129,16 @@ ocl20_capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
 
 /// @brief callback for
 ///  uint get_kernel_work_group_size (
-///     void (^block)(void))
+///     void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
 ocl20_get_kernel_wg_size(void *block, IDeviceCommandManager *,
                          const IBlockToKernelMapper *);
 
-/// @brief callback for
-///  uint get_kernel_work_group_size (
-///     void (^block)(local void *, ...))
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
-ocl20_get_kernel_wg_size_local(void *block, IDeviceCommandManager *,
-                               const IBlockToKernelMapper *);
-
 ///@brief callback for
 ///  uint get_kernel_preferred_work_group_size_multiple (
-///     void (^block)(void))
+///     void *block)
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
 ocl20_get_kernel_preferred_wg_size_multiple(void *block,
                                             IDeviceCommandManager *,
                                             const IBlockToKernelMapper *);
-
-///@brief callback for
-///  uint get_kernel_preferred_work_group_size_multiple (
-///     void (^block)(local void *, ...))
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE uint32_t
-ocl20_get_kernel_preferred_wg_size_multiple_local(void *block,
-                                                  IDeviceCommandManager *,
-                                                  const IBlockToKernelMapper *);
 #endif

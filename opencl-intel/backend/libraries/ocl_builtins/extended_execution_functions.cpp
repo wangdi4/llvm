@@ -1,16 +1,11 @@
 #if !defined(__MIC__) && !defined(__MIC2__)
 
-// This file contains implementation of all Extended Execution related built-in functions except for those that are var-args.
-//The var-args built-ins that are not implemented here are:
-//int __attribute__((overloadable))
-//    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
-//                   const ndrange_t ndrange, void (^block)(local void *, ...),
-//                   uint size0, ...);
-//int __attribute__((overloadable))
-//    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
-//                   const ndrange_t ndrange, uint num_events_in_wait_list,
-//                   const clk_event_t *event_wait_list, clk_event_t *event_ret,
-//                   void (^block)(local void *, ...), uint size0, ...);
+// This file contains implementation of all Extended Execution related built-in
+// functions except for those that are var-args.
+// The var-args built-ins that are not implemented here are
+// and resolved by ResolveWICall Pass:
+//    __enqueue_kernel_vaargs
+//    __enqueue_kernel_events_vaargs
 
 // Upper bound on amount of var args that can be in a call
 #define MAX_VAR_ARGS_COUNT (32)
@@ -23,14 +18,17 @@ extern void* __attribute__((const)) __get_runtime_handle(void);
 ////////// - enqueue_kernel
 extern int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
-    uint num_events_in_wait_list, const __global clk_event_t *in_wait_list,
-    __global clk_event_t *event_ret, __private void *block, void* DCM,
+    uint num_events_in_wait_list, const clk_event_t *in_wait_list,
+    clk_event_t *event_ret, void *block, void* DCM,
     void* B2K, void *RuntimeHandle);
-int __attribute__((overloadable)) __attribute__((always_inline))
-    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
-                   const ndrange_t ndrange, uint num_events_in_wait_list,
-                   const __global clk_event_t *event_wait_list, clk_event_t __global *event_ret,
-                   void (^block)(void)) {
+
+int __attribute__((always_inline))
+    __enqueue_kernel_basic_events(queue_t queue, kernel_enqueue_flags_t flags,
+                                  const ndrange_t ndrange,
+                                  uint num_events_in_wait_list,
+                                  const clk_event_t *event_wait_list,
+                                  clk_event_t *event_ret,
+                                  void *block) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
@@ -41,13 +39,13 @@ int __attribute__((overloadable)) __attribute__((always_inline))
 
 extern int ocl20_enqueue_kernel_basic(queue_t queue,
                                       kernel_enqueue_flags_t flags,
-                                      const ndrange_t *ndrange, private void *block,
+                                      const ndrange_t *ndrange, void *block,
                                       void* DCM,
                                       void* B2K,
                                       void *RuntimeHandle);
-int __attribute__((overloadable)) __attribute__((always_inline))
-    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
-                   const ndrange_t ndrange, void (^block)(void)) {
+int __attribute__((always_inline))
+    __enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
+                           const ndrange_t ndrange, void* block) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   void *RuntimeHandle = __get_runtime_handle();
@@ -274,35 +272,22 @@ bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event
 
 ////////// - get_kernel_work_group_size
 extern uint __attribute__((const))
-ocl20_get_kernel_wg_size(private void *block, void *DCM, void *B2K);
-uint __attribute__((overloadable)) __attribute__((always_inline))
-    __attribute__((const)) __get_kernel_work_group_size_impl(void (^block)(void)) {
+ocl20_get_kernel_wg_size(void *block, void *DCM, void *B2K);
+uint __attribute__((always_inline))
+    __attribute__((const)) __get_kernel_work_group_size_impl(void *block) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_wg_size(block, DCM, B2K);
 }
-uint __attribute__((overloadable)) __attribute__((always_inline))
-    __attribute__((const)) __get_kernel_work_group_size_impl(void (^__block__)(local void *, ...)) {
-  void* DCM = __get_device_command_manager();
-  void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_wg_size(__block__, DCM, B2K);
-}
 
 ////////// - get_kernel_preferred_work_group_size_multiple
-extern uint ocl20_get_kernel_preferred_wg_size_multiple(private void *block, void *DCM,
+extern uint ocl20_get_kernel_preferred_wg_size_multiple(void *block, void *DCM,
                                                         void *B2K);
-uint __attribute__((overloadable)) __attribute__((always_inline))
-    __get_kernel_preferred_work_group_size_multiple_impl(void (^block)(void)) {
+uint __attribute__((always_inline))
+    __get_kernel_preferred_work_group_multiple_impl(void *block) {
   void* DCM = __get_device_command_manager();
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
-}
-uint __attribute__((overloadable)) __attribute__((always_inline))
-    __get_kernel_preferred_work_group_size_multiple_impl(void (^__block__)(local void *,
-                                                                ...)) {
-  void* DCM = __get_device_command_manager();
-  void* B2K = __get_block_to_kernel_mapper();
-  return ocl20_get_kernel_preferred_wg_size_multiple(__block__, DCM, B2K);
 }
 
 /// address space overloading for enqueue_kernel and enqueue_marker
@@ -324,15 +309,6 @@ int __attribute__((always_inline)) __attribute__((overloadable))\
                         cast_to_global_const(event_wait_list),\
                         cast_to_global(event_ret));\
 }\
-int __attribute__((overloadable)) __attribute__((always_inline))\
-    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,\
-                   const ndrange_t ndrange, uint num_events_in_wait_list,\
-                   const ADDR_SPACE_1ST clk_event_t *event_wait_list, clk_event_t ADDR_SPACE_2ND *event_ret,\
-                   void (^block)(void)) {\
-  return enqueue_kernel(queue, flags, ndrange, num_events_in_wait_list,\
-                        cast_to_global_const(event_wait_list),\
-                        cast_to_global(event_ret), block);\
-}
 
 ADDR_SPACE_OVERLOADING(__global, __private)
 ADDR_SPACE_OVERLOADING(__global, __local)

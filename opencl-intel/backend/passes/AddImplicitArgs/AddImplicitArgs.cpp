@@ -105,6 +105,8 @@ namespace intel{
 
       CallInst *pNewCall = CallInst::Create(pCallee, ArrayRef<Value*>(params), "", pCall);
       pNewCall->setCallingConv(pCall->getCallingConv());
+      // Copy attributes from the callee which contains aligment for parameters
+      pNewCall->setAttributes(pCallee->getAttributes());
 
       // Copy debug metadata to new function if available
       if (pCall->hasMetadata()) {
