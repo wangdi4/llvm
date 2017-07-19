@@ -105,32 +105,6 @@ OclBuiltinImpl mad_sat_v8u32 = OclBuiltinImpl<mad_sat, [v8u32] , 0, [{
 
 
 /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max native short16, int8, ushort16, uint8
-OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32, v16u16, v8u32] , 0, [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, mask);
-  }]>;
-
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// min native short16, int8, ushort16, uint8
-OclBuiltinImpl min_avx2native_i = OclBuiltinImpl<min, [v16i16, v8i32, v16u16, v8u32] , 0, [{
-     $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-     return select($Arg0VarName, $Arg1VarName, mask);
-  }]>;
-
-
-/*****************************************************************\
  * mul_hi                                                        *
  *   gentype mul_hi (gentype x , gentype y)                      *
  *   Returns the high half of the product of (x * y)             *

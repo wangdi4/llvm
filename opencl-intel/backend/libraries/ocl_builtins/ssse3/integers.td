@@ -109,12 +109,6 @@ OclBuiltinImpl mad_sat_v4u32 = OclBuiltinImpl<mad_sat, [v4u32] , 0, [{
  *   gentype max (gentype x , sgentype y)                        *
  *   Returns y if x < y, otherwise it returns x                  *
 \*****************************************************************/
-// max native char16, short8
-OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16], 0, [{
-    $ReturnType mask = $Arg0VarName < $Arg1VarName;
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, mask));
-  }]>;
-
 //max native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v4i32], 0, [{
     $ReturnType res;
@@ -125,11 +119,6 @@ OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v4i32], 0, [{
     return res;
   }]>;
 
-// max native uchar16, ushort8
-OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v16u8, v8u16], 0, [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, mask));
-  }]>;
 //max native uint4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v4u32], 0, [{
     $ReturnType res;
@@ -151,11 +140,6 @@ OclBuiltinImpl max_iexpand  = OclBuiltinImpl<max, [ v16i16, v16u16, v8i32, v8u32
  *   gentype min (gentype x , sgentype y)                        *
  *   Returns y if y < x, otherwise it returns x                  *
 \*****************************************************************/
-// min native char16, short8
-OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v16i8, v8i16], 0, [{
-    $ReturnType mask = $Arg0VarName > $Arg1VarName;
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, mask));
-  }]>;
 // min native int4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v4i32], 0, [{
     $ReturnType res;
@@ -166,11 +150,6 @@ OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v4i32], 0, [{
     return res;
   }]>;
 
-// min native uchar16, ushort8
-OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v16u8, v8u16], 0, [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-    return as_$ReturnType(select($Arg0VarName, $Arg1VarName, mask));
-  }]>;
 // min native uint4 (expanded from scalar, because any smaller vector size (2) is promoted to 4)
 OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v4u32], 0, [{
     $ReturnType res;

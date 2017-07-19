@@ -89,28 +89,4 @@ OclBuiltinImpl mad_sat_v8u16 = OclBuiltinImpl<mad_sat, [v8u16] , 0, [{
     ushort8 res = as_ushort8(_mm_packus_epi32((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
-  
-  /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max native char16, short8, int4, uchar16, ushort8, uint4
-OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16, v4i32, v16u8, v8u16, v4u32], 0, [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, mask);
-  }]>;
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if y < x, otherwise it returns x                  *
-\*****************************************************************/
-  // min native char16, short8, int4, uchar16, ushort8, uint4
-OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v16i8, v8i16, v4i32, v16u8, v8u16, v4u32], 0, [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, mask);
-  }]>;
 

@@ -14,22 +14,6 @@ OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v
 OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v4f64, v8f64],           0, [{
     return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
   }]>;
-//==============select===============
-code select_vector_v8f = [{ 
-    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-  }];
-
-code select_vector_v4d = [{ 
-    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-  }];
-
-code select_vector_v8i = [{ 
-    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-  }];
-
-code select_vector_v4l = [{
-    return $Arg2VarName ? $Arg1VarName : $Arg0VarName;
-  }];
 
 //======v8f32 and v4f64 implementation=============================== 
 
@@ -73,15 +57,6 @@ OclBuiltinImpl bitselect_v8f32 = OclBuiltinImpl<bitselect, [v8f32, v4f64, v8i32,
     return as_$ReturnType(as_$Arg0igentype($Arg0VarName) | as_$Arg0igentype($Arg1VarName));
   }]>;
 
-OclBuiltinImpl iselect_v8f32 = OclBuiltinImpl<iselect, [v8f32], 0, select_vector_v8f>;
-
-OclBuiltinImpl iselect_v4f64 = OclBuiltinImpl<iselect, [v4f64], 0, select_vector_v4d>;
-
-OclBuiltinImpl uselect_v8f32 = OclBuiltinImpl<uselect, [v8f32], 0, select_vector_v8f>;
-
-OclBuiltinImpl uselect_v4f64 = OclBuiltinImpl<uselect, [v4f64], 0, select_vector_v4d>;
-
-
 //======v8i32\v8u32 and v4i64\v4u64 implementation=============================== 
 OclBuiltinImpl any_v8i32 = OclBuiltinImpl<any, [v8i32], 0, [{
     int mask = _mm256_movemask_ps(__builtin_astype($Arg0VarName,__m256));
@@ -116,12 +91,4 @@ OclBuiltinImpl bitselect_v4i64 = OclBuiltinImpl<bitselect, [v4i64], 0, [{
 OclBuiltinImpl bitselect_v4i64 = OclBuiltinImpl<bitselect, [v4u64], 0, [{
     return as_$ReturnType(bitselect(as_uint8($Arg0VarName), as_uint8($Arg1VarName), as_uint8($Arg2VarName)));
   }]>;
-
-OclBuiltinImpl iselect_v8 = OclBuiltinImpl<iselect, [v8i32, v8u32], 0, select_vector_v8i>;
-
-OclBuiltinImpl iselect_v16 = OclBuiltinImpl<iselect, [v4i64, v4u64], 0, select_vector_v4l>;
-
-OclBuiltinImpl uselect_v8 = OclBuiltinImpl<uselect, [v8i32, v8u32], 0, select_vector_v8i>;
-
-OclBuiltinImpl uselect_v16 = OclBuiltinImpl<uselect, [v4i64, v4u64], 0, select_vector_v4l>;
 

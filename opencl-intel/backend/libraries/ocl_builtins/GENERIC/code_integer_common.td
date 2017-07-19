@@ -28,20 +28,16 @@ code rhadd_igeneric_code = [{
   }];
 
 code max_ivector_code = [{
-    $Arg0Type tmp  = as_$Arg0Type($Arg0VarName > $Arg1VarName);
-    $Arg0Type tmpX = tmp & $Arg0VarName;
-    $Arg0Type tmpY = (~tmp) & $Arg1VarName;
-    return tmpX + tmpY;
+    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
+    return select($Arg0VarName, $Arg1VarName, mask);
   }];
 
- code min_ivector_code = [{
-    $Arg0Type tmp  = as_$Arg0Type($Arg1VarName > $Arg0VarName);
-    $Arg0Type tmpX = tmp & $Arg0VarName;
-    $Arg0Type tmpY = (~tmp) & $Arg1VarName;
-    return tmpX + tmpY;
+code min_ivector_code = [{
+    $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
+    return select($Arg0VarName, $Arg1VarName, mask);
   }];
 
- code sub_sat_svector_code = [{
+code sub_sat_svector_code = [{
     $Arg0BaseType zero = 0;
     $ReturnType r = $Arg0VarName - $Arg1VarName;
     $ReturnType p8 = ($Arg1VarName < zero) & (r < $Arg0VarName);
@@ -51,7 +47,7 @@ code max_ivector_code = [{
             ($ReturnType)generic_min_$Arg0BaseType;
   }];
 
- code sub_sat_unsigned_code = [{
+code sub_sat_unsigned_code = [{
     $ReturnType r = $Arg0VarName - $Arg1VarName;
     return ($Arg0VarName < r) ? ($Arg0BaseType)0 : r;
   }];

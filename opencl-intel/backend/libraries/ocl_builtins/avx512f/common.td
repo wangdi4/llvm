@@ -1,25 +1,3 @@
-// max
-OclBuiltinImpl max_v16f32 = OclBuiltinImpl<max, [v16f32], 0, [{
-    int16 mask = isless($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-OclBuiltinImpl max_v8f64 = OclBuiltinImpl<max, [v8f64], 0, [{
-    long8 mask = isless($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-// min
-OclBuiltinImpl min_v16f32 = OclBuiltinImpl<min, [v16f32], 0, [{
-    int16 mask = isgreater($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-OclBuiltinImpl min_v8f64 = OclBuiltinImpl<min, [v8f64], 0, [{
-    long8 mask = isgreater($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
 // step
 OclBuiltinImpl step_v16f32 = OclBuiltinImpl<step, [v16f32] , 0, [{
     // According to the specification this built-in should return
