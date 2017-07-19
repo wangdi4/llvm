@@ -52,8 +52,8 @@ using namespace Intel::OpenCL::Utils;
 #define __startITTTask(pGPAData, ittID, fnctName)	\
     ittID = __itt_id_make(&ittID, (unsigned long long)0);\
 	__itt_id_create(pGPAData->pAPIDomain, ittID);\
-	static thread_local __itt_string_handle* pAPINameHandle = NULL;\
-	if ( NULL == pAPINameHandle )\
+	static thread_local __itt_string_handle* pAPINameHandle = nullptr;\
+	if ( nullptr == pAPINameHandle )\
 	{\
 		pAPINameHandle = __itt_string_handle_create(fnctName);\
 	}\
@@ -65,7 +65,7 @@ using namespace Intel::OpenCL::Utils;
 
 #define CALL_INSTRUMENTED_API_LOGGER(module, return_type, function_call) \
 	ocl_gpa_data *pGPAData = module->GetGPAData(); \
-	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+	if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 	{ \
 		__itt_id ittID; \
 		__startITTTask(pGPAData, ittID, __FUNCTION__); \
@@ -86,7 +86,7 @@ using namespace Intel::OpenCL::Utils;
 
 #define CALL_INSTRUMENTED_API(module, return_type, function_call) \
 	ocl_gpa_data *pGPAData = module->GetGPAData(); \
-	if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+	if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 	{ \
 		__itt_id ittID; \
 		__startITTTask(pGPAData, ittID, __FUNCTION__); \
@@ -103,7 +103,7 @@ using namespace Intel::OpenCL::Utils;
 
 #define CALL_INSTRUMENTED_API_LOGGER_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
-if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 { \
     __itt_id ittID; \
     __startITTTask(pGPAData, ittID, __FUNCTION__); \
@@ -116,7 +116,7 @@ if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) 
 
 #define CALL_INSTRUMENTED_API_NO_RET(module, function_call) \
 ocl_gpa_data *pGPAData = module->GetGPAData(); \
-if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
+if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableAPITracing)) \
 { \
     __itt_id ittID; \
     __startITTTask(pGPAData, ittID, __FUNCTION__); \
@@ -164,14 +164,14 @@ void* RegisterExtensionFunctionAddress(const char* pFuncName, void* pFuncPtr)
 
 static void* GetExtensionFunctionAddress(const char *funcname)
 {
-  if ( NULL == funcname )
+  if ( nullptr == funcname )
 	{
-		return NULL;
+		return nullptr;
 	}
 	ExtensionFunctionAddressResolveMap::const_iterator ptr = g_extFuncResolveMap.find(funcname);
 	if ( g_extFuncResolveMap.end() == ptr)
 	{
-		return NULL;
+		return nullptr;
 	}
 	return ptr->second;
 }
@@ -201,13 +201,13 @@ void* CL_API_CALL clGetExtensionFunctionAddressForPlatform(cl_platform_id platfo
         START_LOG_API(clGetExtensionFunctionAddressForPlatform);
         apiLogger << "cl_platform_id platform" << platform << "const char* funcname";
         apiLogger.PrintCStringVal(funcname);
-        void* addr = !PLATFORM_MODULE->CheckPlatformId(platform) ? NULL : GetExtensionFunctionAddress(funcname);
+        void* addr = !PLATFORM_MODULE->CheckPlatformId(platform) ? nullptr : GetExtensionFunctionAddress(funcname);
         apiLogger.EndApiFunc(addr);
         return addr;
     }
     else
     {
-        return !PLATFORM_MODULE->CheckPlatformId(platform) ? NULL : GetExtensionFunctionAddress(funcname);
+        return !PLATFORM_MODULE->CheckPlatformId(platform) ? nullptr : GetExtensionFunctionAddress(funcname);
     }
 }
 SET_ALIAS(clGetExtensionFunctionAddressForPlatform);
@@ -262,13 +262,13 @@ public:
 
     virtual std::string GetStringToPrint() const
     {
-        if (NULL == m_pList)
+        if (nullptr == m_pList)
         {
             return "";
         }
         std::ostringstream stream;
         stream << m_listName << ":";
-        const SIZE_TYPE actualListSize = NULL != m_pListSize ? *m_pListSize : m_defaultListSize;
+        const SIZE_TYPE actualListSize = nullptr != m_pListSize ? *m_pListSize : m_defaultListSize;
         VALUE_PRINTER valPrinter;
         for (cl_uint i = 0; i < actualListSize; ++i)
         {
@@ -985,7 +985,7 @@ cl_program CL_API_CALL clCreateProgramWithBinary(cl_context           context,
     {
         START_LOG_API(clCreateProgramWithBinary);
         apiLogger << "cl_context context" << context << "cl_uint num_devices" << num_devices << "const cl_device_id * device_list" << device_list << "const size_t * lengths" << lengths << "const unsigned char ** binaries" << binaries << "cl_int * binary_status" << binary_status << "cl_int * errcode_ret" << errcode_ret;
-        OutputListPrinter<cl_int, cl_uint> printer("binary_statuses", binary_status, NULL, num_devices);
+        OutputListPrinter<cl_int, cl_uint> printer("binary_statuses", binary_status, nullptr, num_devices);
         OutputParamsValueProvider provider(apiLogger, &printer);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
 	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithBinary(context, num_devices, device_list, lengths, binaries, binary_status, errcode_ret));
@@ -1419,7 +1419,7 @@ cl_int CL_API_CALL clEnqueueReadBuffer(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBuffer(command_queue, buffer, blocking_read, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueReadBuffer);
@@ -1454,7 +1454,7 @@ cl_int CL_API_CALL clEnqueueReadBufferRect(
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueReadBufferRect);
@@ -1479,7 +1479,7 @@ cl_int CL_API_CALL clEnqueueWriteBuffer(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBuffer(command_queue, buffer, blocking_write, offset, cb, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueWriteBuffer);
@@ -1516,7 +1516,7 @@ cl_int CL_API_CALL  clEnqueueWriteBufferRect(
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteBufferRect(command_queue, buffer, blocking_read, buffer_origin, host_origin, region, buffer_row_pitch, buffer_slice_pitch, host_row_pitch, host_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueWriteBufferRect);
@@ -1541,7 +1541,7 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBuffer(command_queue, src_buffer, dst_buffer, src_offset, dst_offset, cb, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueCopyBuffer);
@@ -1575,7 +1575,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(cl_command_queue    command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferRect(command_queue, src_buffer, dst_buffer, src_origin, dst_origin, region, src_row_pitch, src_slice_pitch, dst_row_pitch, dst_slice_pitch, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueCopyBufferRect);
@@ -1600,7 +1600,7 @@ cl_int CL_API_CALL clEnqueueFillBuffer(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillBuffer (command_queue, buffer, pattern, pattern_size, offset, size, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueFillBuffer);
@@ -1631,7 +1631,7 @@ cl_int CL_API_CALL clEnqueueReadImage(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueReadImage(command_queue, image, blocking_read, origin, region, row_pitch, slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueReadImage);
@@ -1662,7 +1662,7 @@ cl_int CL_API_CALL clEnqueueWriteImage(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWriteImage(command_queue, image, blocking_write, origin, region, input_row_pitch, input_slice_pitch, ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueWriteImage);
@@ -1691,7 +1691,7 @@ cl_int CL_API_CALL clEnqueueCopyImage(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImage(command_queue, src_image, dst_image, src_origin, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueCopyImage);
@@ -1716,7 +1716,7 @@ cl_int CL_API_CALL clEnqueueFillImage (cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueFillImage(command_queue, image, fill_color, origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueFillImage);
@@ -1743,7 +1743,7 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyImageToBuffer(command_queue, src_image, dst_buffer, src_origin, region, dst_offset, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueCopyImageToBuffer);
@@ -1770,7 +1770,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueCopyBufferToImage(command_queue, src_buffer, dst_image, src_offset, dst_origin, region, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueCopyBufferToImage);
@@ -1797,7 +1797,7 @@ void * CL_API_CALL clEnqueueMapBuffer(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapBuffer(command_queue, buffer, blocking_map, map_flags, offset, cb, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr));
     }
 }
 SET_ALIAS(clEnqueueMapBuffer);
@@ -1828,7 +1828,7 @@ void * CL_API_CALL clEnqueueMapImage(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, void *, EnqueueMapImage(command_queue, image, blocking_map, map_flags, origin, region, image_row_pitch, image_slice_pitch, num_events_in_wait_list, event_wait_list, event, errcode_ret, nullptr));
     }
 }
 SET_ALIAS(clEnqueueMapImage);
@@ -1850,7 +1850,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueUnmapMemObject(command_queue, memobj, mapped_ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueUnmapMemObject);
@@ -1875,7 +1875,7 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNDRangeKernel(command_queue, kernel, work_dim, global_work_offset, global_work_size, local_work_size, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueNDRangeKernel);
@@ -1896,7 +1896,7 @@ cl_int CL_API_CALL clEnqueueTask(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueTask(command_queue, kernel, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueTask);
@@ -1922,7 +1922,7 @@ cl_int CL_API_CALL clEnqueueNativeKernel(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueNativeKernel(command_queue, user_func, args, cb_args, num_mem_objects, mem_list, args_mem_loc, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueNativeKernel);
@@ -1939,7 +1939,7 @@ cl_int CL_API_CALL clEnqueueMarker(cl_command_queue command_queue, cl_event * ev
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarker(command_queue, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueMarker);
@@ -1956,7 +1956,7 @@ cl_int CL_API_CALL clEnqueueWaitForEvents(cl_command_queue	command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueWaitForEvents(command_queue, num_events, event_list, nullptr));
     }
 }
 SET_ALIAS(clEnqueueWaitForEvents);
@@ -1971,7 +1971,7 @@ cl_int CL_API_CALL clEnqueueBarrier(cl_command_queue command_queue)
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrier(command_queue, nullptr));
     }
 }
 SET_ALIAS(clEnqueueBarrier);
@@ -2155,7 +2155,7 @@ cl_int CL_API_CALL clEnqueueAcquireGLObjects(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_ACQUIRE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_ACQUIRE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 
@@ -2178,7 +2178,7 @@ cl_int CL_API_CALL clEnqueueReleaseGLObjects(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_RELEASE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSyncGLObjects(command_queue, CL_COMMAND_RELEASE_GL_OBJECTS, num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 
@@ -2416,7 +2416,7 @@ cl_int CL_API_CALL clEnqueueAcquireDX9MediaSurfacesKHR(cl_command_queue command_
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, NULL);
+            num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 SET_ALIAS(clEnqueueAcquireDX9MediaSurfacesKHR);
@@ -2443,7 +2443,7 @@ cl_int CL_API_CALL clEnqueueAcquireDX9ObjectsINTEL(cl_command_queue command_queu
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, NULL);
+            num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireDX9ObjectsINTEL, clEnqueueAcquireDX9ObjectsINTEL);
@@ -2469,7 +2469,7 @@ cl_int CL_API_CALL clEnqueueReleaseDX9MediaSurfacesKHR(cl_command_queue command_
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_MEDIA_SURFACES_KHR, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, NULL);
+            num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 SET_ALIAS(clEnqueueReleaseDX9MediaSurfacesKHR);
@@ -2496,7 +2496,7 @@ cl_int CL_API_CALL clEnqueueReleaseDX9ObjectsINTEL(cl_command_queue command_queu
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<IDirect3DResource9, IDirect3DDevice9>(command_queue, CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL, num_objects, mem_objects,
-            num_events_in_wait_list, event_wait_list, event, NULL);
+            num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseDX9ObjectsINTEL, clEnqueueReleaseDX9ObjectsINTEL);
@@ -2677,7 +2677,7 @@ cl_int CL_API_CALL clEnqueueAcquireD3D11ObjectsKHR(cl_command_queue command_queu
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_ACQUIRE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, NULL);
+            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueAcquireD3D11ObjectsKHR, clEnqueueAcquireD3D11ObjectsKHR);
@@ -2703,7 +2703,7 @@ cl_int CL_API_CALL clEnqueueReleaseD3D11ObjectsKHR(cl_command_queue command_queu
     else
     {
         return EXECUTION_MODULE->EnqueueSyncD3DObjects<ID3D11Resource, ID3D11Device>(command_queue, CL_COMMAND_RELEASE_D3D11_OBJECTS_KHR,
-            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, NULL);
+            num_objects, mem_objects, num_events_in_wait_list, event_wait_list, event, nullptr);
     }
 }
 REGISTER_EXTENSION_FUNCTION(clEnqueueReleaseD3D11ObjectsKHR, clEnqueueReleaseD3D11ObjectsKHR);
@@ -2766,7 +2766,7 @@ cl_int CL_API_CALL clEnqueueMarkerWithWaitList(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMarkerWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueMarkerWithWaitList);
@@ -2786,7 +2786,7 @@ cl_int CL_API_CALL clEnqueueBarrierWithWaitList(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueBarrierWithWaitList(command_queue, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueBarrierWithWaitList);
@@ -2813,7 +2813,7 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
     else
     {
         CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueMigrateMemObjects(command_queue,
-            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, NULL));
+            num_mem_objects, mem_objects, flags, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
@@ -2849,7 +2849,7 @@ cl_int CL_API_CALL clEnqueueSVMMigrateMem(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMMigrateMem);
@@ -2968,7 +2968,7 @@ cl_int CL_API_CALL clEnqueueSVMFree(cl_command_queue command_queue,
     else
     {
         CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMFree(command_queue, num_svm_pointers, svm_pointers, pfn_free_func, user_data, num_events_in_wait_list, event_wait_list,
-		        event, NULL));
+		        event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMFree);
@@ -2992,7 +2992,7 @@ cl_int CL_API_CALL clEnqueueSVMMemcpy(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemcpy(command_queue, blocking_copy, dst_ptr, src_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMMemcpy);
@@ -3016,7 +3016,7 @@ cl_int CL_API_CALL clEnqueueSVMMemFill(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMemFill(command_queue, svm_ptr, pattern, pattern_size, size, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMMemFill);
@@ -3040,7 +3040,7 @@ cl_int CL_API_CALL clEnqueueSVMMap(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMap(command_queue, blocking_map, map_flags, svm_ptr, size, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMMap);
@@ -3061,7 +3061,7 @@ cl_int CL_API_CALL clEnqueueSVMUnmap(cl_command_queue command_queue,
     }
     else
     {
-        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, NULL));
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMUnmap(command_queue, svm_ptr, num_events_in_wait_list, event_wait_list, event, nullptr));
     }
 }
 SET_ALIAS(clEnqueueSVMUnmap);
@@ -3114,11 +3114,11 @@ cl_mem CL_API_CALL clCreatePipe(cl_context context,
         apiLogger << "cl_context context" << context << "cl_mem_flags flags" << flags << "cl_uint pipe_packet_size" << pipe_packet_size << "cl_uint pipe_max_packets" << pipe_max_packets << "const cl_pipe_properties *properties" << properties << "cl_int *errcode_ret" << errcode_ret;
         OutputParamsValueProvider provider(apiLogger);
         provider.AddParam("errcode_ret", errcode_ret, false, false);
-	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, NULL, NULL, errcode_ret));
+	      CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret));
     }
     else
     {
-        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, NULL, NULL, errcode_ret));
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_mem, CreatePipe(context, flags, pipe_packet_size, pipe_max_packets, properties, nullptr, nullptr, errcode_ret));
     }
 }
 SET_ALIAS(clCreatePipe);
@@ -3175,7 +3175,7 @@ SET_ALIAS(clGetPipeInfo);
 static vector<cl_command_queue_properties> GetCommandQueueProps(cl_context context, cl_device_id device_id, const cl_queue_properties* properties)
 {
 	  vector<cl_command_queue_properties> propVec;
-	  if (NULL != properties)
+	  if (nullptr != properties)
 	  {		
 		    const cl_queue_properties* pCurrProp = properties;
 		    while (*pCurrProp != 0)
@@ -3196,7 +3196,7 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
 																cl_int* errcode_ret)
 {
     std::vector<cl_command_queue_properties> propVec = GetCommandQueueProps(context, device_id, properties);
-    const cl_command_queue_properties* pCmdQueueProps = propVec.empty() ? NULL : &propVec[0];
+    const cl_command_queue_properties* pCmdQueueProps = propVec.empty() ? nullptr : &propVec[0];
     if (g_pUserLogger->IsApiLoggingEnabled())
     {		    
         START_LOG_API(clCreateCommandQueueWithProperties);
@@ -3220,7 +3220,7 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
 {
     if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
     {
-        if (errcode_ret != NULL)
+        if (errcode_ret != nullptr)
         {
             *errcode_ret = CL_INVALID_OPERATION;
         }
@@ -3247,7 +3247,7 @@ cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
 {
     if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
     {
-        if (errcode_ret != NULL)
+        if (errcode_ret != nullptr)
         {
             *errcode_ret = CL_INVALID_OPERATION;
         }

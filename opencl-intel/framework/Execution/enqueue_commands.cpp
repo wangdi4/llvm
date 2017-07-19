@@ -71,7 +71,7 @@ using namespace Intel::OpenCL::Utils;
 Command::Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue ):
     m_Event(QueueEvent::Allocate(cmdQueue)),
     m_clDevCmdListId(0),
-    m_pDevice(NULL),
+    m_pDevice(nullptr),
     m_pCommandQueue(cmdQueue),
     m_returnCode(CL_SUCCESS),
     m_bIsBeingDeleted(false),
@@ -84,7 +84,7 @@ Command::Command( const SharedPtr<IOclCommandQueueBase>& cmdQueue ):
     assert(m_pCommandQueue);
     m_pDevice = m_pCommandQueue->GetDefaultDevice();
 
-    m_pGpaCommand = NULL;
+    m_pGpaCommand = nullptr;
     INIT_LOGGER_CLIENT(TEXT("Command Logger Client"),LL_DEBUG);
 }
 
@@ -95,9 +95,9 @@ Command::~Command()
 {
     m_bIsBeingDeleted = true;
     m_pDevice->GetDeviceAgent()->clDevReleaseCommand(&m_DevCmd);
-    m_pDevice = NULL;
+    m_pDevice = nullptr;
     GPA_DestroyCommand();
-    m_pCommandQueue = NULL;  
+    m_pCommandQueue = nullptr;  
     if (m_bEventDetached)
     {
         assert( 0 == m_Event.GetRefCnt() );
@@ -112,7 +112,7 @@ Command::~Command()
         assert( 1 == m_Event.GetRefCnt() );
 
         // In this case Command is being deleted explicitly, not through the event, so we need to free the event ourselves.
-        m_Event = NULL;
+        m_Event = nullptr;
     }
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
     assert( (false == m_memory_objects_acquired) && "RelinquishMemoryObjects() was not called!");
@@ -121,7 +121,7 @@ Command::~Command()
 
 cl_err_code Command::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsInWaitList, const cl_event* cpEeventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {
-    if (NULL != cpEeventWaitList && NULL != pEvent && pEvent >= cpEeventWaitList && pEvent < &cpEeventWaitList[uNumEventsInWaitList])
+    if (nullptr != cpEeventWaitList && nullptr != pEvent && pEvent >= cpEeventWaitList && pEvent < &cpEeventWaitList[uNumEventsInWaitList])
     {
         // the spec says we should check this, but doesn't actually specify the exact error code
         return CL_INVALID_EVENT;
@@ -153,13 +153,13 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
     /// unique ID to pass all tasks, and markers.
     __itt_id ittID;
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA)) 
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA)) 
     {
         ittID = __itt_id_make(&ittID, (unsigned long long)this);
         __itt_id_create(pGPAData->pDeviceDomain, ittID);
 #if defined(USE_ITT_INTERNAL)        
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
           pTaskName = __itt_string_handle_create("Command::NotifyCmdStatusChanged");
         }
@@ -236,7 +236,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != pGPAData) && pGPAData->bUseGPA )
+    if ( (nullptr != pGPAData) && pGPAData->bUseGPA )
     {
       __itt_task_end(pGPAData->pDeviceDomain);
     }
@@ -249,7 +249,7 @@ cl_err_code    Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pM
 {
     if (0 == pMemObj)
     {
-        ppMemObj = NULL;
+        ppMemObj = nullptr;
     }
     else
     {
@@ -276,7 +276,7 @@ inline
 cl_err_code Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
 {
     assert( 0 != arg.pMemObj );
-    SharedPtr<OclEvent> mem_event = NULL;
+    SharedPtr<OclEvent> mem_event = nullptr;
     // initialize arg.access_rights_realy_used to be arg.access_rights (It can change to READ_WRITE during LockOnDevice() operation)
     arg.access_rights_realy_used = arg.access_rights;
     cl_err_code errCode = arg.pMemObj->LockOnDevice( pDev, arg.access_rights, &arg.access_rights_realy_used, mem_event );
@@ -371,15 +371,15 @@ void Command::GPA_InitCommand()
 {
 #if defined (USE_ITT)
     ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
     {
-        m_pGpaCommand = NULL;
+        m_pGpaCommand = nullptr;
         m_pGpaCommand = new ocl_gpa_command();
-        if (NULL != m_pGpaCommand)
+        if (nullptr != m_pGpaCommand)
         {
             // Create task name strings
             const char* commandName = GPA_GetCommandName();
-            if (NULL != commandName)
+            if (nullptr != commandName)
             {
                 m_pGpaCommand->m_strCmdName = __itt_string_handle_create(commandName);
             }
@@ -392,7 +392,7 @@ void Command::GPA_DestroyCommand()
 {
 #if defined (USE_ITT)
     ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pGPAData->bEnableContextTracing))
     {
         // not an error, the internal m_pGpaCommand depends on global pGPAData is active.
         delete m_pGpaCommand;
@@ -405,7 +405,7 @@ cl_dev_cmd_desc* Command::GetDeviceCommandDescriptor()
     if ( GetExecutionType() == DEVICE_EXECUTION_TYPE )
         return &m_DevCmd;
 
-    return NULL;
+    return nullptr;
 }
 /******************************************************************
  * function to be used by all commands that need to write/read data
@@ -677,7 +677,7 @@ CopyImageCommand::CopyImageCommand(
     ): CopyMemObjCommand(cmdQueue, pOclEntryPoints, pSrcImage, pDstImage, pszSrcOrigin, pszDstOrigin, pszRegion)
 {
     m_commandType = CL_COMMAND_COPY_IMAGE;
-    pSrcImage->GetLayout(NULL, &m_szSrcRowPitch, &m_szSrcSlicePitch);
+    pSrcImage->GetLayout(nullptr, &m_szSrcRowPitch, &m_szSrcSlicePitch);
 }
 
 /******************************************************************
@@ -738,7 +738,7 @@ CopyImageToBufferCommand::~CopyImageToBufferCommand()
  ******************************************************************/
 MapBufferCommand::MapBufferCommand(    const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_entry_points *    pOclEntryPoints,
                                     const SharedPtr<MemoryObject>& pBuffer, cl_map_flags clMapFlags, size_t szOffset, size_t szCb):
-    MapMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, NULL, NULL, NULL, NULL)
+    MapMemObjCommand(cmdQueue, pOclEntryPoints, pBuffer, clMapFlags, nullptr, nullptr, nullptr, nullptr)
 {
     m_szOrigin[0] = szOffset;
     m_szRegion[0] = szCb;
@@ -792,21 +792,21 @@ MapMemObjCommand::MapMemObjCommand(
     m_clMapFlags(clMapFlags),
     m_pszImageRowPitch(pszImageRowPitch),
     m_pszImageSlicePitch(pszImageSlicePitch),
-    m_pHostDataPtr(NULL),
-    m_pActualMappingDevice(NULL),
+    m_pHostDataPtr(nullptr),
+    m_pActualMappingDevice(nullptr),
     m_ExecutionType( DEVICE_EXECUTION_TYPE ),
     m_pOclEntryPoints(pOclEntryPoints),
-    m_pPostfixCommand(NULL),
+    m_pPostfixCommand(nullptr),
     m_bResourcesAllocated(false)
 {
     for( cl_uint i =0; i<MAX_WORK_DIM; i++)
     {
-        if ( NULL != pOrigin )
+        if ( nullptr != pOrigin )
             m_szOrigin[i] = pOrigin[i];
         else
             m_szOrigin[i] = 0;
 
-        if ( NULL != pRegion )
+        if ( nullptr != pRegion )
             m_szRegion[i] = pRegion[i];
         else
             m_szRegion[i] = 1;
@@ -823,7 +823,7 @@ MapMemObjCommand::~MapMemObjCommand()
     if (m_bResourcesAllocated)
     {
         // Init was done, but execute was not called
-        if (NULL != m_pPostfixCommand)
+        if (nullptr != m_pPostfixCommand)
         {
             delete m_pPostfixCommand;
         }
@@ -836,7 +836,7 @@ MapMemObjCommand::~MapMemObjCommand()
     if ((m_pActualMappingDevice != m_pDevice) && (0 != m_pActualMappingDevice))
     {
         m_pDevice = m_pActualMappingDevice;
-        m_pActualMappingDevice = NULL;
+        m_pActualMappingDevice = nullptr;
     }
 }
 
@@ -857,7 +857,7 @@ cl_err_code MapMemObjCommand::Init()
         return res;
     }
 
-    ConstSharedPtr<FissionableDevice> actual_dev = NULL;
+    ConstSharedPtr<FissionableDevice> actual_dev = nullptr;
     
     // Get pointer to the device
     cl_err_code err = pMemObj->CreateMappedRegion(m_pDevice, m_clMapFlags, m_szOrigin, m_szRegion, m_pszImageRowPitch, m_pszImageSlicePitch,
@@ -877,13 +877,13 @@ cl_err_code MapMemObjCommand::Init()
     {
         m_pPostfixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::POSTFIX_MODE, GetCommandQueue() );
 
-        if (NULL != m_pPostfixCommand)
+        if (nullptr != m_pPostfixCommand)
         {
             err = m_pPostfixCommand->Init();
             if ( CL_FAILED(err) )
             {
                 delete m_pPostfixCommand;
-                m_pPostfixCommand = NULL;
+                m_pPostfixCommand = nullptr;
             }
         }
         else
@@ -891,7 +891,7 @@ cl_err_code MapMemObjCommand::Init()
             err = CL_OUT_OF_HOST_MEMORY;
         }
 
-        if (NULL == m_pPostfixCommand)
+        if (nullptr == m_pPostfixCommand)
         {
             pMemObj->ReleaseMappedRegion( m_pMappedRegion, m_pHostDataPtr );
             assert(0);
@@ -946,7 +946,7 @@ cl_err_code MapMemObjCommand::Execute()
         // cross device mode
         m_ExecutionType = RUNTIME_EXECUTION_TYPE;
         // use hidden queue if map to another device 
-        device_cmd_list = NULL;
+        device_cmd_list = nullptr;
         // ensure we will exist after device will call for completion so that runtime scheduler will see us
         //m_Event->AddPendency(this);
     }
@@ -977,7 +977,7 @@ cl_err_code MapMemObjCommand::CommandDone()
         // error enqueue or no enqueue at all
         m_pPostfixCommand->ErrorDone();
         delete m_pPostfixCommand;
-        m_pPostfixCommand = NULL;
+        m_pPostfixCommand = nullptr;
     }
 
     RelinquishMemoryObjects( m_MemOclObjects, m_pActualMappingDevice );
@@ -1001,7 +1001,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
         EventsManager*    event_manager = GetCommandQueue()->GetEventsManager();
 
         PrePostFixRuntimeCommand* postfix  = m_pPostfixCommand;
-        m_pPostfixCommand = NULL;    // in the case 'this' will disappear
+        m_pPostfixCommand = nullptr;    // in the case 'this' will disappear
 
         // 'this' may disapper after the self-enqueue is successful!
         // First command should be BLOCKING
@@ -1020,7 +1020,7 @@ cl_err_code MapMemObjCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEventsI
             LogErrorA("Command - ostfix->EnqueueSelf: %s (Id: %d) failed, Err: %x", postfix->GetCommandName(), m_Event->GetId(), err);
             // oops, unsuccessfull, but we need to schedule postfix in any case as user need to get back
             // pEvent and be able to make other commands dependent on it
-            if (NULL != pEvent)
+            if (nullptr != pEvent)
             {
                 // add manually and leave postfix floating
                 postfix->ErrorEnqueue( &intermediate_pEvent, pEvent, err );
@@ -1060,7 +1060,7 @@ cl_err_code    MapMemObjCommand::PostfixExecute()
     /// unique ID to pass all tasks, and markers.
     __itt_id ittID;
     
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA))
     {
         ittID = __itt_id_make(&ittID, (unsigned long long)this);
         __itt_id_create(pGPAData->pDeviceDomain, ittID);
@@ -1080,7 +1080,7 @@ cl_err_code    MapMemObjCommand::PostfixExecute()
         __itt_string_handle* pMarker = __itt_string_handle_create(pMarkerString);
         #if defined(USE_GPA)
         // Start Sync Data GPA task
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
         #endif
         __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
@@ -1093,11 +1093,11 @@ cl_err_code    MapMemObjCommand::PostfixExecute()
     err = m_MemOclObjects[0].pMemObj->SynchDataToHost( m_pMappedRegion, m_pHostDataPtr );
 
 #if defined(USE_ITT)
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA))
     {
         #if defined(USE_GPA)
         // End Sync Data GPA task
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
         #endif
         __itt_task_end(pGPAData->pDeviceDomain);
 
@@ -1115,9 +1115,9 @@ UnmapMemObjectCommand::UnmapMemObjectCommand(const SharedPtr<IOclCommandQueueBas
                                              const SharedPtr<MemoryObject>& pMemObject, void* pMappedPtr):
     Command(cmdQueue),
     m_pMappedPtr(pMappedPtr),
-    m_pActualMappingDevice(NULL),
+    m_pActualMappingDevice(nullptr),
     m_ExecutionType( DEVICE_EXECUTION_TYPE ),
-    m_pPrefixCommand(NULL),
+    m_pPrefixCommand(nullptr),
     m_pOclEntryPoints(pOclEntryPoints),
     m_bResourcesAllocated(false)
 {
@@ -1132,7 +1132,7 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
     if (m_bResourcesAllocated)
     {
         // Init was done, but execute was not called
-        if (NULL != m_pPrefixCommand)
+        if (nullptr != m_pPrefixCommand)
         {
             delete m_pPrefixCommand;
         }
@@ -1145,7 +1145,7 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
     if ((m_pActualMappingDevice != m_pDevice) && (0 != m_pActualMappingDevice))
     {
         m_pDevice = m_pActualMappingDevice;
-        m_pActualMappingDevice = NULL;
+        m_pActualMappingDevice = nullptr;
     }
 }
 
@@ -1183,13 +1183,13 @@ cl_err_code UnmapMemObjectCommand::Init()
     {
         m_pPrefixCommand = new PrePostFixRuntimeCommand( this, PrePostFixRuntimeCommand::PREFIX_MODE, GetCommandQueue() );
 
-        if (NULL != m_pPrefixCommand)
+        if (nullptr != m_pPrefixCommand)
         {
             err = m_pPrefixCommand->Init();
             if ( CL_FAILED(err) )
             {
                 delete m_pPrefixCommand;
-                m_pPrefixCommand = NULL;
+                m_pPrefixCommand = nullptr;
             }
         }
         else
@@ -1197,7 +1197,7 @@ cl_err_code UnmapMemObjectCommand::Init()
             err = CL_OUT_OF_HOST_MEMORY;
         }
 
-        if (NULL == m_pPrefixCommand)
+        if (nullptr == m_pPrefixCommand)
         {
             pMemObj->UndoMappedRegionInvalidation(m_pMappedRegion);
             
@@ -1251,7 +1251,7 @@ cl_err_code UnmapMemObjectCommand::Execute()
         // cross device mode
         m_ExecutionType = RUNTIME_EXECUTION_TYPE;
         // use hidden queue if map to another device 
-        device_cmd_list = NULL;
+        device_cmd_list = nullptr;
         // ensure we will exist after device will call for completion so that runtime scheduler will see us
         //m_Event->AddPendency(this);
     }
@@ -1284,7 +1284,7 @@ cl_err_code    UnmapMemObjectCommand::PrefixExecute()
     /// unique ID to pass all tasks, and markers.
     __itt_id ittID;
 
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA))
     {
         ittID = __itt_id_make(&ittID, (unsigned long long)this);
         __itt_id_create(pGPAData->pDeviceDomain, ittID);
@@ -1304,7 +1304,7 @@ cl_err_code    UnmapMemObjectCommand::PrefixExecute()
 
         #if defined(USE_GPA)
         // Start Sync Data GPA task
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
         #endif
         __itt_task_begin(pGPAData->pDeviceDomain, ittID, __itt_null, pMarker);
 
@@ -1317,11 +1317,11 @@ cl_err_code    UnmapMemObjectCommand::PrefixExecute()
     err = m_MemOclObjects[0].pMemObj->SynchDataFromHost( m_pMappedRegion, m_pMappedPtr );
 
 #if defined(USE_ITT)
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA))
     {
         // End Sync Data GPA task
         #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
         #endif
         __itt_task_end(pGPAData->pDeviceDomain);
 
@@ -1342,13 +1342,13 @@ cl_err_code UnmapMemObjectCommand::CommandDone()
     if (m_pPrefixCommand)
     {
         m_pPrefixCommand->ErrorDone();
-        m_pPrefixCommand = NULL;
+        m_pPrefixCommand = nullptr;
     }
 
     // Here we do the actual operation off releasing the mapped region.
     assert(m_MemOclObjects.size() == 1);
     errVal = m_MemOclObjects[0].pMemObj->ReleaseMappedRegion(m_pMappedRegion, m_pMappedPtr, true);
-    m_pMappedRegion = NULL;
+    m_pMappedRegion = nullptr;
 
     RelinquishMemoryObjects(m_MemOclObjects, m_pActualMappingDevice);
 
@@ -1376,7 +1376,7 @@ cl_err_code UnmapMemObjectCommand::EnqueueSelf(cl_bool bBlocking, cl_uint uNumEv
         }
 
         // prefix starts it own life
-        m_pPrefixCommand = NULL;
+        m_pPrefixCommand = nullptr;
 
         // 'this' may disapper during Enqueue if it was successful!
         err = Command::EnqueueSelf( bBlocking, 1, &intermediate_pEvent, pEvent, apiLogger);
@@ -1437,7 +1437,7 @@ cl_err_code NativeKernelCommand::Init()
         return CL_INVALID_KERNEL_ARGS;
     }
     char*   pNewArgs = new char[m_szCbArgs];
-    if(NULL == pNewArgs)
+    if(nullptr == pNewArgs)
     {
          return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1445,11 +1445,11 @@ cl_err_code NativeKernelCommand::Init()
     // Now copy the whole buffer
     MEMCPY_S(pNewArgs, m_szCbArgs, m_pArgs, m_szCbArgs);
 
-    size_t *ppNewArgsOffset = NULL;
+    size_t *ppNewArgsOffset = nullptr;
     if (m_uNumMemObjects > 0)
     {
         ppNewArgsOffset = new size_t[m_uNumMemObjects];
-        if(NULL == ppNewArgsOffset)
+        if(nullptr == ppNewArgsOffset)
         {
             delete []pNewArgs;
             return CL_OUT_OF_HOST_MEMORY;
@@ -1535,12 +1535,12 @@ cl_err_code NativeKernelCommand::CommandDone()
     // Clean resources
 
     //Can be null of out of memory encountered during init
-    if (NULL != m_nativeParams.argv)
+    if (nullptr != m_nativeParams.argv)
     {
         char* temp = (char*)m_nativeParams.argv;
         delete[] temp;
     }
-    if (NULL != m_nativeParams.mem_offset)
+    if (nullptr != m_nativeParams.mem_offset)
     {
         delete[] m_nativeParams.mem_offset;
     }
@@ -1565,7 +1565,7 @@ NDRangeKernelCommand::NDRangeKernelCommand(
     ):
 Command(cmdQueue),
 m_pKernel(pKernel),
-m_pDeviceKernel(NULL),
+m_pDeviceKernel(nullptr),
 m_uiWorkDim(uiWorkDim),
 m_cpszGlobalWorkOffset(cpszGlobalWorkOffset),
 m_cpszGlobalWorkSize(cpszGlobalWorkSize),
@@ -1595,13 +1595,13 @@ cl_err_code NDRangeKernelCommand::Init()
     m_pDeviceKernel = m_pKernel->GetDeviceKernel( m_pDevice.GetPtr() );
     // CL_INVALID_PROGRAM_EXECUTABLE if there is no successfully built program
     // executable available for device associated with command_queue.
-    if (NULL == m_pDeviceKernel)
+    if (nullptr == m_pDeviceKernel)
     {
         return CL_INVALID_PROGRAM_EXECUTABLE;
     }
 
     // Create args snapshot
-    const KernelArg* pArg    = NULL;
+    const KernelArg* pArg    = nullptr;
     size_t stTotalLocalSize  = m_pKernel->GetTotalLocalSize();
 
     cl_device_svm_capabilities svmCaps;
@@ -1655,7 +1655,7 @@ cl_err_code NDRangeKernelCommand::Init()
             (0 == szCompliedWorkGroupSize[2])))
     {
         // case kernel using the __attribute__((reqd_work_group_size(X, Y, Z))) qualifier in program source.
-        if (  NULL == m_cpszLocalWorkSize )
+        if (  nullptr == m_cpszLocalWorkSize )
         {
             return CL_INVALID_WORK_GROUP_SIZE;
         }
@@ -1673,7 +1673,7 @@ cl_err_code NDRangeKernelCommand::Init()
     }
 
 
-    if( NULL != m_cpszLocalWorkSize )
+    if( nullptr != m_cpszLocalWorkSize )
     {
         size_t szDeviceMaxWorkGroupSize = m_pDevice->GetMaxWorkGroupSize();
         size_t szWorkGroupSize = 1;
@@ -1734,12 +1734,12 @@ cl_err_code NDRangeKernelCommand::Init()
     const size_t uiDispatchAlignment = m_pDeviceKernel->GetKernelArgBufferAlignment();
 
     // Setup Kernel parameters
-    char* pDispatchBuffer = NULL;
+    char* pDispatchBuffer = nullptr;
     cl_dev_cmd_param_kernel* pKernelParam = &m_kernelParams;
     if ( uiDispatchSize > 0 )
     {
         pDispatchBuffer = (char*) ALIGNED_MALLOC(uiDispatchSize, uiDispatchAlignment);
-        if ( NULL == pDispatchBuffer )
+        if ( nullptr == pDispatchBuffer )
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
@@ -1760,7 +1760,7 @@ cl_err_code NDRangeKernelCommand::Init()
             for(size_t i=0; i< szMemArgCount; i++)
             {
                 pArg = m_pKernel->GetKernelMemoryArg(i);
-                MemoryObject* pMemObj = NULL;
+                MemoryObject* pMemObj = nullptr;
                 // may it be an SVM object?
                 if (pArg->IsSvmPtr())
                 {
@@ -1774,21 +1774,21 @@ cl_err_code NDRangeKernelCommand::Init()
                     cl_mem clMemId;
                     pArg->GetValue(sizeof(cl_mem), &clMemId);
 
-                    if ( NULL == clMemId )
+                    if ( nullptr == clMemId )
                     {
                         assert( (pArg->IsBuffer() || pArg->IsSvmPtr()) && "NULL values is allowed only for buffers and SVM pointers");
                         continue;
                     }
 
                     pMemObj = pContext->GetMemObjectPtr(clMemId);
-                    if (NULL == pMemObj)
+                    if (nullptr == pMemObj)
                     {
                         return CL_INVALID_KERNEL_ARGS;
                     }
                 }
 
-                assert(NULL != pMemObj && "Memory object is not supposed to be NULL on this stage");
-                if( NULL==pMemObj )
+                assert(nullptr != pMemObj && "Memory object is not supposed to be NULL on this stage");
+                if( nullptr==pMemObj )
                 {
                     continue;
                 }
@@ -1822,7 +1822,7 @@ cl_err_code NDRangeKernelCommand::Init()
 
     if (m_nonArgSvmBuffersVec.empty())
     {
-        pKernelParam->ppNonArgSvmBuffers = NULL;
+        pKernelParam->ppNonArgSvmBuffers = nullptr;
     }
     else
     {
@@ -1835,10 +1835,10 @@ cl_err_code NDRangeKernelCommand::Init()
     pKernelParam->work_dim = m_uiWorkDim;
     for( cl_uint i=0; i < m_uiWorkDim; i++)
     {
-        pKernelParam->glb_wrk_offs[i] = (NULL != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
+        pKernelParam->glb_wrk_offs[i] = (nullptr != m_cpszGlobalWorkOffset) ? m_cpszGlobalWorkOffset[i] : 0;
         pKernelParam->glb_wrk_size[i] = m_cpszGlobalWorkSize[i];
         // If m_cpszLocalWorkSize == NULL, set to 0. Agent is expected to handle lcl_wrk_size 0 as NULL
-        if (NULL == m_cpszLocalWorkSize)
+        if (nullptr == m_cpszLocalWorkSize)
         {
             pKernelParam->lcl_wrk_size[UNIFORM_WG_SIZE_INDEX][i] =
             pKernelParam->lcl_wrk_size[NONUNIFORM_WG_SIZE_INDEX][i] = 0;
@@ -1913,7 +1913,7 @@ void NDRangeKernelCommand::GPA_WriteCommandMetadata()
 #if defined (USE_GPA)
     ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
     
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA))
     {
         // Set custom track 
         __itt_set_track(m_pCommandQueue->GPA_GetQueue()->m_pTrack);
@@ -1933,7 +1933,7 @@ void NDRangeKernelCommand::GPA_WriteWorkMetadata(const size_t* pWorkMetadata, __
 { 
     ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 
-    if ((NULL != pGPAData) && (pGPAData->bUseGPA) && (pWorkMetadata != NULL))
+    if ((nullptr != pGPAData) && (pGPAData->bUseGPA) && (pWorkMetadata != nullptr))
     {
         ocl_gpa_data* pGPAData = m_pCommandQueue->GetGPAData();
 
@@ -2006,7 +2006,7 @@ ReadImageCommand::ReadImageCommand(
             size_t          szRowPitch,
             size_t          szSlicePitch,
             void*           pDst)
-:ReadMemObjCommand(cmdQueue, pOclEntryPoints, pImage, pszOrigin, pszRegion, 0, 0, pDst, NULL, szRowPitch, szSlicePitch)
+:ReadMemObjCommand(cmdQueue, pOclEntryPoints, pImage, pszOrigin, pszRegion, 0, 0, pDst, nullptr, szRowPitch, szSlicePitch)
 {
     m_commandType = CL_COMMAND_READ_IMAGE;
 }
@@ -2150,7 +2150,7 @@ cl_err_code ReadMemObjCommand::CommandDone()
  *
  ******************************************************************/
 TaskCommand::TaskCommand( const SharedPtr<IOclCommandQueueBase>& cmdQueue, ocl_entry_points* pOclEntryPoints, const SharedPtr<Kernel>& pKernel ):
-    NDRangeKernelCommand(cmdQueue, pOclEntryPoints, pKernel, 1, NULL, &m_szStaticWorkSize, &m_szStaticWorkSize),
+    NDRangeKernelCommand(cmdQueue, pOclEntryPoints, pKernel, 1, nullptr, &m_szStaticWorkSize, &m_szStaticWorkSize),
     m_szStaticWorkSize(1)
 {
 
@@ -2264,7 +2264,7 @@ WriteImageCommand::WriteImageCommand(
     size_t          szRowPitch,
     size_t          szSlicePitch,
     const void *    cpSrc
-    ): WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pImage,pszOrigin, pszRegion, 0, 0, cpSrc, NULL, szRowPitch, szSlicePitch)
+    ): WriteMemObjCommand(cmdQueue, pOclEntryPoints, bBlocking, pImage,pszOrigin, pszRegion, 0, 0, cpSrc, nullptr, szRowPitch, szSlicePitch)
 {
     m_commandType = CL_COMMAND_WRITE_IMAGE;
 }
@@ -2374,7 +2374,7 @@ cl_err_code WriteMemObjCommand::Init()
         // nmeraey: changing this allocation alignment from 64 to 128 to fix CSSD100016136
         //          anyway, couldn't know why 128 would fix it!
         m_pTempBuffer = ALIGNED_MALLOC(sizeToAlloc, WRITE_MEM_OBJ_ALLOC_ALIGNMENT);
-        if ( NULL == m_pTempBuffer )
+        if ( nullptr == m_pTempBuffer )
         {
             LogErrorA("Can't allocate temporary storage for blockng command (%s)", GetCommandName());
             return CL_OUT_OF_HOST_MEMORY;
@@ -2403,7 +2403,7 @@ cl_err_code WriteMemObjCommand::Init()
     if( CL_FAILED(res))
     {
         ALIGNED_FREE(m_pTempBuffer);
-        m_pTempBuffer = NULL;
+        m_pTempBuffer = nullptr;
         return res;
     }
 
@@ -2433,7 +2433,7 @@ cl_err_code WriteMemObjCommand::Execute()
     {
         assert(0 && "WriteMemObjCommand::Execute() Failed: on a call to GetMemObjectDescriptor");
         ALIGNED_FREE(m_pTempBuffer);
-        m_pTempBuffer = NULL;
+        m_pTempBuffer = nullptr;
         return res;
     }
 
@@ -2446,7 +2446,7 @@ cl_err_code WriteMemObjCommand::Execute()
     if ( CL_SUCCESS != res )
     {
         ALIGNED_FREE(m_pTempBuffer);
-        m_pTempBuffer = NULL;
+        m_pTempBuffer = nullptr;
         return res;
     }
 
@@ -2462,7 +2462,7 @@ cl_err_code WriteMemObjCommand::Execute()
     if ( CL_DEV_FAILED(errDev) )
     {
         ALIGNED_FREE(m_pTempBuffer);
-        m_pTempBuffer = NULL;
+        m_pTempBuffer = nullptr;
     }
     //m_Event->RemovePendency(this);
     return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
@@ -2473,10 +2473,10 @@ cl_err_code WriteMemObjCommand::Execute()
  ******************************************************************/
 cl_err_code WriteMemObjCommand::CommandDone()
 {
-    if ( m_bBlocking && (NULL != m_pTempBuffer) )
+    if ( m_bBlocking && (nullptr != m_pTempBuffer) )
     {
         ALIGNED_FREE(m_pTempBuffer);
-        m_pTempBuffer = NULL;
+        m_pTempBuffer = nullptr;
     }
 
     RelinquishMemoryObjects(m_MemOclObjects);
@@ -2658,8 +2658,8 @@ MigrateSVMMemCommand::MigrateSVMMemCommand(
     m_pSizes(sizes), m_pContextModule( pContextModule )
 {
     assert( 0 != uNumMemObjects );
-    assert( NULL != pMemObjects );
-    assert( NULL != pContextModule );
+    assert( nullptr != pMemObjects );
+    assert( nullptr != pContextModule );
 
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
     m_migrateCmdParams.flags    = clFlags;
@@ -2671,10 +2671,10 @@ MigrateSVMMemCommand::MigrateSVMMemCommand(
  ******************************************************************/
 MigrateSVMMemCommand::~MigrateSVMMemCommand()
 {
-    if (NULL != m_migrateCmdParams.memObjs)
+    if (nullptr != m_migrateCmdParams.memObjs)
     {
         delete [] m_migrateCmdParams.memObjs;
-        m_migrateCmdParams.memObjs = NULL;
+        m_migrateCmdParams.memObjs = nullptr;
     }
 }
 
@@ -2686,7 +2686,7 @@ cl_err_code MigrateSVMMemCommand::Init()
     // Allocate
     m_migrateCmdParams.memObjs = new IOCLDevMemoryObject*[m_migrateCmdParams.mem_num];
 
-    if (NULL == m_migrateCmdParams.memObjs)
+    if (nullptr == m_migrateCmdParams.memObjs)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -2702,7 +2702,7 @@ cl_err_code MigrateSVMMemCommand::Init()
         {
             return CL_INVALID_VALUE;
         }
-        if (NULL != m_pSizes && !pMemObj->IsContainedInBuffer(m_pMemObjects[i], m_pSizes[i]))
+        if (nullptr != m_pSizes && !pMemObj->IsContainedInBuffer(m_pMemObjects[i], m_pSizes[i]))
         {
             return CL_INVALID_VALUE;
         }
@@ -2772,8 +2772,8 @@ MigrateMemObjCommand::MigrateMemObjCommand(
     m_pMemObjects(pMemObjects), m_pContextModule( pContextModule )
 {
     assert( 0 != uNumMemObjects );
-    assert( NULL != pMemObjects );
-    assert( NULL != pContextModule );
+    assert( nullptr != pMemObjects );
+    assert( nullptr != pContextModule );
 
     memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
     m_migrateCmdParams.flags    = clFlags;
@@ -2785,10 +2785,10 @@ MigrateMemObjCommand::MigrateMemObjCommand(
  ******************************************************************/
 MigrateMemObjCommand::~MigrateMemObjCommand()
 {
-    if (NULL != m_migrateCmdParams.memObjs)
+    if (nullptr != m_migrateCmdParams.memObjs)
     {
         delete [] m_migrateCmdParams.memObjs;
-        m_migrateCmdParams.memObjs = NULL;
+        m_migrateCmdParams.memObjs = nullptr;
     }
 }
 
@@ -2800,7 +2800,7 @@ cl_err_code MigrateMemObjCommand::Init()
     // Allocate
     m_migrateCmdParams.memObjs = new IOCLDevMemoryObject*[m_migrateCmdParams.mem_num];
 
-    if (NULL == m_migrateCmdParams.memObjs)
+    if (nullptr == m_migrateCmdParams.memObjs)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -2943,7 +2943,7 @@ cl_err_code PrePostFixRuntimeCommand::CommandDone()
     {
         m_Event->IncludeProfilingInfo( related_event );
     }    
-    m_task = NULL;
+    m_task = nullptr;
     return CL_SUCCESS;
 }
 
@@ -3061,6 +3061,6 @@ void RuntimeCommandTask::Cancel()
  ******************************************************************/
 long RuntimeCommandTask::Release()
 {
-    m_owner = NULL;
+    m_owner = nullptr;
     return 0;
 }

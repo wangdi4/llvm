@@ -135,7 +135,7 @@ public:
      * @return  the pitches.
      */
 
-    virtual const size_t* GetPitches() const { return NULL; }
+    virtual const size_t* GetPitches() const { return nullptr; }
 
     /**
      * @brief   Acquires this object from Direct3D
@@ -237,7 +237,7 @@ protected:
      */
 
     D3DResource(SharedPtr<Context> pContext) :
-         GraphicsApiMemoryObject(pContext), m_pResourceInfo(NULL),
+         GraphicsApiMemoryObject(pContext), m_pResourceInfo(nullptr),
              m_bAcquired(false) { }              
 
     /**
@@ -553,7 +553,7 @@ private:
      */
 
     D3D11Buffer(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
-      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(NULL) { }
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pBufferMapper(nullptr) { }
 
     D3d11BufferMapper* m_pBufferMapper;
     // disable possibility to create two instances of D3D11Buffer with the same m_pBufferMapper pointer.
@@ -618,7 +618,7 @@ private:
      */
 
     D3D11Texture2D(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
-      D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(NULL) { }
+      D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>(pContext), m_pTexture2DMapper(nullptr) { }
 
     D3d11Texture2DMapper* m_pTexture2DMapper;
     // disable possibility to create two instances of D3D11Texture2D with the same m_pTexture2DMapper pointer.
@@ -702,7 +702,7 @@ private:
      * Constructor
      */
     D3D11Texture3D(SharedPtr<Context> pContext, cl_mem_object_type clObjType) :
-      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(NULL) { }
+      D3DResource<ID3D11Resource, ID3D11Device>(pContext), m_pTexture3DMapper(nullptr) { }
 
     D3D11Texture3D(const D3D11Texture3D& s);
 
@@ -723,7 +723,7 @@ D3DResource<RESOURCE_TYPE, DEV_TYPE>::~D3DResource()
     {
         m_itCurrentAcquriedObject->second->Release();
     }
-    if (NULL != m_pResourceInfo)
+    if (nullptr != m_pResourceInfo)
     {
         m_pContext.DynamicCast<D3DContext<RESOURCE_TYPE, DEV_TYPE>>()->RemoveResourceInfo(*m_pResourceInfo);
         m_pResourceInfo->m_pResource->Release();
@@ -752,7 +752,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::Initialize(cl_mem_flags clMemF
     m_stMemObjSize = GetMemObjSize();
     m_clFlags = clMemFlags;
     m_uiNumDim = dim_count;
-    if (NULL != pclImageFormat)
+    if (nullptr != pclImageFormat)
     {
         m_clImageFormat = *pclImageFormat;
     }
@@ -820,7 +820,7 @@ bool D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
 	}
 
 	void* const pData = Lock();
-    if (NULL == pData)
+    if (nullptr == pData)
     {
 		m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
         return false;
@@ -843,7 +843,7 @@ bool D3DResource<RESOURCE_TYPE, DEV_TYPE>::AcquireD3D()
     }
     else
     {
-        res = pChild->Initialize(m_clFlags, NULL, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
+        res = pChild->Initialize(m_clFlags, nullptr, m_uiNumDim, m_szDimensions, GetPitches(), pData, CL_RT_MEMOBJ_FORCE_BS);
     }
     
     if (CL_FAILED(res))
@@ -865,7 +865,7 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::ReleaseD3D()
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet) const
 {
-    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    if (nullptr == pParamValue && nullptr == pszParamValueSizeRet)
     {
         return CL_INVALID_VALUE;
     }
@@ -875,11 +875,11 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetImageInfo(cl_image_info clP
     {
         return clErrCode;
     }
-    if (NULL != pParamValue && szParamValueSize < szSize)
+    if (nullptr != pParamValue && szParamValueSize < szSize)
     {
         return CL_INVALID_VALUE;
     }
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = szSize;
     }
@@ -897,7 +897,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetDimensionSizes(size_t* pszR
 template<typename RESOURCE_TYPE, typename DEV_TYPE>
 void D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
 {
-    if (NULL != dimensions)
+    if (nullptr != dimensions)
     {
         GetDimensionSizes(dimensions);
     }
@@ -905,11 +905,11 @@ void D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetLayout(size_t* dimensions, size_t*
     const size_t* const pitches = GetPitches();
     const size_t szNumPitches = GetNumDimensions() - 1;
     assert(szNumPitches <= 2);
-    if (1 <= szNumPitches && NULL != rowPitch)
+    if (1 <= szNumPitches && nullptr != rowPitch)
     {
         *rowPitch = pitches[0];
     }
-    if (2 == szNumPitches && NULL != slicePitch)
+    if (2 == szNumPitches && nullptr != slicePitch)
     {
         *slicePitch = pitches[1];
     }
@@ -936,7 +936,7 @@ cl_err_code D3DResource<RESOURCE_TYPE, DEV_TYPE>::GetImageInfoInternal(const cl_
     default:
         return CL_INVALID_VALUE;
     }
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
@@ -1016,7 +1016,7 @@ cl_err_code D3DImage2D<RESOURCE_TYPE, DEV_TYPE, DESC_TYPE>::GetImageInfoInternal
     default:
         return D3DResource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
     }
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }

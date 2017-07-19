@@ -161,7 +161,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual void             GPA_InitCommand();
         virtual void             GPA_DestroyCommand();
         virtual void             GPA_WriteCommandMetadata() {}
-        virtual const char*      GPA_GetCommandName() const { return NULL; }
+        virtual const char*      GPA_GetCommandName() const { return nullptr; }
 
         /**
          * @return whether this Command is already being deleted (useful for m_Event, which when destroyed deletes its Command, which is usually the one that contains it)
@@ -191,7 +191,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             MemoryObject::MemObjUsage access_rights_realy_used;
 
             MemoryObjectArg( const SharedPtr<MemoryObject>& a, MemoryObject::MemObjUsage b ) : pMemObj(a), access_rights(b), access_rights_realy_used(b) {};
-            MemoryObjectArg() : pMemObj(NULL), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT), access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT) {};
+            MemoryObjectArg() : pMemObj(nullptr), access_rights(MemoryObject::MEMOBJ_USAGES_COUNT), access_rights_realy_used(MemoryObject::MEMOBJ_USAGES_COUNT) {};
             MemoryObjectArg(const MemoryObjectArg& other) : pMemObj(other.pMemObj), access_rights(other.access_rights), access_rights_realy_used(other.access_rights_realy_used) { }
         };
 
@@ -210,9 +210,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
             AddToMemoryObjectArgList( argList, pMemObj.GetPtr(), access_rights );
         }
         
-        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );
+        cl_err_code AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = nullptr );
  
-        void        RelinquishMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = NULL );
+        void        RelinquishMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev = nullptr );
 
         void prepare_command_descriptor( cl_dev_cmd_type type, void* params, size_t params_size );
         
@@ -261,13 +261,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * Constructor
          * @param pCommand a pointer to the Command
          */
-        CommandSharedPtr(COMMAND_TYPE* pCommand) : SmartPtr<COMMAND_TYPE>(pCommand), m_pQueueEvent(pCommand ? pCommand->GetEvent().GetPtr() : NULL)
+        CommandSharedPtr(COMMAND_TYPE* pCommand) : SmartPtr<COMMAND_TYPE>(pCommand), m_pQueueEvent(pCommand ? pCommand->GetEvent().GetPtr() : nullptr)
         {
         }
         /**
          * Copy constructor
          */
-        CommandSharedPtr(const CommandSharedPtr& command) : SmartPtr<COMMAND_TYPE>(command.GetPtr()), m_pQueueEvent(command ? command->GetEvent().GetPtr() : NULL)
+        CommandSharedPtr(const CommandSharedPtr& command) : SmartPtr<COMMAND_TYPE>(command.GetPtr()), m_pQueueEvent(command ? command->GetEvent().GetPtr() : nullptr)
         {
         }
 
@@ -277,7 +277,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         CommandSharedPtr& operator=(const CommandSharedPtr& command)
         {
             this->m_ptr = command.GetPtr();
-            m_pQueueEvent = (command ? command->GetEvent().GetPtr() : NULL);
+            m_pQueueEvent = (command ? command->GetEvent().GetPtr() : nullptr);
             return *this;
         }
 
@@ -323,7 +323,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t          szRowPitch,
             size_t          szSlicePitch,
             void*           pDst,
-            const size_t*   pszDstOrigin    = NULL,
+            const size_t*   pszDstOrigin    = nullptr,
             const size_t    szDstRowPitch   = 0,
             const size_t    szDstSlicePitch = 0);
         
@@ -458,7 +458,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             size_t          szMemObjRowPitch,
             size_t          szMemObjSlicePitch,
             const void *    cpSrc,
-            const size_t*   pszSrcOrigin    = NULL,
+            const size_t*   pszSrcOrigin    = nullptr,
             const size_t    szSrcRowPitch   = 0,
             const size_t    szSrcSlicePitch = 0
         );
@@ -1422,7 +1422,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     private:
 
-        ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(NULL) {};
+        ErrorQueueEvent(_cl_context_int* context) : OclEvent(context), m_owner(nullptr) {};
 
         PrePostFixRuntimeCommand* m_owner;
     };
@@ -1448,11 +1448,11 @@ namespace Intel { namespace OpenCL { namespace Framework {
         Intel::OpenCL::TaskExecutor::TASK_PRIORITY   GetPriority() const 
                         { return Intel::OpenCL::TaskExecutor::TASK_PRIORITY_MEDIUM;}
 
-        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
     private:
 
-        RuntimeCommandTask() : m_owner(NULL) {};
+        RuntimeCommandTask() : m_owner(nullptr) {};
 
         CommandSharedPtr<PrePostFixRuntimeCommand>            m_owner;
         bool                                m_bIsCompleted;

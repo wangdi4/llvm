@@ -26,11 +26,11 @@ namespace Intel { namespace OpenCL { namespace Framework
 ID3D11Buffer* D3d11BufferMapper::CreateResource(const D3D11_BUFFER_DESC& desc)
 {
     ID3D11Buffer* pBuffer;
-    const HRESULT res = GetDevice().CreateBuffer(&desc, NULL, &pBuffer);
+    const HRESULT res = GetDevice().CreateBuffer(&desc, nullptr, &pBuffer);
     if (E_OUTOFMEMORY == res)
     {
         LOG_ERROR(TEXT("There is insufficient memory to create the buffer"));
-        return NULL;
+        return nullptr;
     }
     assert(S_OK == res);
     return pBuffer;
@@ -57,11 +57,11 @@ ID3D11Texture2D* D3d11Texture2DMapper::CreateResource(const D3D11_TEXTURE2D_DESC
 	}
 	newDesc.MipLevels = 1;
 
-    const HRESULT res = GetDevice().CreateTexture2D(&newDesc, NULL, &pTexture2D);
+    const HRESULT res = GetDevice().CreateTexture2D(&newDesc, nullptr, &pTexture2D);
     if (E_OUTOFMEMORY == res)
     {
         LOG_ERROR(TEXT("There is insufficient memory to create the 2D texture"));
-        return NULL;
+        return nullptr;
     }
     assert(S_OK == res);
     return pTexture2D;
@@ -89,11 +89,11 @@ ID3D11Texture3D* D3d11Texture3DMapper::CreateResource(const D3D11_TEXTURE3D_DESC
 	}
 	newDesc.MipLevels = 1;
     
-	const HRESULT res = GetDevice().CreateTexture3D(&newDesc, NULL, &pTexture3D);
+	const HRESULT res = GetDevice().CreateTexture3D(&newDesc, nullptr, &pTexture3D);
     if (E_OUTOFMEMORY == res)
     {
         LOG_ERROR(TEXT("There is insufficient memory to create the 3D texture"));
-        return NULL;
+        return nullptr;
     }
     assert(S_OK == res);
     return pTexture3D;

@@ -276,7 +276,7 @@ public:
         if (m_surfaceLockers.end() == iter)
         {
             UnlockMutex();
-            return NULL;
+            return nullptr;
         }
         UnlockMutex();
         return iter->second;
@@ -293,7 +293,7 @@ public:
         map<const IDirect3DSurface9*, SurfaceLocker*>::const_iterator iter = m_surfaceLockers.find(pSurface);
         if (m_surfaceLockers.end() == iter)
         {
-            return NULL;
+            return nullptr;
         }
         return iter->second;
     }

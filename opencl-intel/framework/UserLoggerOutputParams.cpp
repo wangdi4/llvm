@@ -32,7 +32,7 @@ void OutputParamsValueProvider::Print2Logger()
         {
             m_apiLogger.PrintOutputParam(iter->m_name, iter->m_addr, iter->m_size, iter->m_bIsPtr2Ptr, iter->m_bIsUnsigned);
         }
-        if (NULL != m_specialPrinter)
+        if (nullptr != m_specialPrinter)
         {
             const string str2Print = m_specialPrinter->GetStringToPrint();
             if (!str2Print.empty())

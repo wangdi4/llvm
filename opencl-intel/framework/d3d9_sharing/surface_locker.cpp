@@ -27,12 +27,12 @@ namespace Intel { namespace OpenCL { namespace Framework
     /**
      * @fn SurfaceLocker::SurfaceLocker(IDirect3DSurface9* pSurface, DWORD flags)
      */
-    SurfaceLocker::SurfaceLocker(IDirect3DSurface9* pSurface, DWORD flags) : m_lockRefCnt(0), m_data(NULL),
+    SurfaceLocker::SurfaceLocker(IDirect3DSurface9* pSurface, DWORD flags) : m_lockRefCnt(0), m_data(nullptr),
         m_pSurface(pSurface), m_flags(flags)
     {
         D3DLOCKED_RECT lockedRect;
 
-        HRESULT res = pSurface->LockRect(&lockedRect, NULL, m_flags);
+        HRESULT res = pSurface->LockRect(&lockedRect, nullptr, m_flags);
         assert(D3D_OK == res);
         m_pitch = lockedRect.Pitch;
         res = pSurface->UnlockRect();
@@ -50,7 +50,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         if (0 == m_lockRefCnt)
         {
             D3DLOCKED_RECT lockedRect;
-            const HRESULT res = m_pSurface->LockRect(&lockedRect, NULL, m_flags);
+            const HRESULT res = m_pSurface->LockRect(&lockedRect, nullptr, m_flags);
             assert(D3D_OK == res);
             m_data = lockedRect.pBits;
         }
@@ -72,7 +72,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         {
             const HRESULT res = m_pSurface->UnlockRect();
             assert(D3D_OK == res);
-            m_data = NULL;
+            m_data = nullptr;
         }
         assert(Invariant());
     }
