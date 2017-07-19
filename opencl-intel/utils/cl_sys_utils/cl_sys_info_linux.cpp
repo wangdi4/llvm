@@ -142,7 +142,7 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 		{
 			if (buffer[i] == ' ')
 			{
-				freqDouble = strtod(&(buffer[i]), NULL);
+				freqDouble = strtod(&(buffer[i]), nullptr);
 				break;
 			}
 			i--;
@@ -208,7 +208,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 	if (readChars > 0)
 	{
 		char* pLastDelimiter = strrchr(szModuleDir, '/');
-		if ( NULL != pLastDelimiter )
+		if ( nullptr != pLastDelimiter )
 		{
 			*(pLastDelimiter+1) = 0;
 		}
@@ -248,7 +248,7 @@ int CharToHexDigit(char c)
 ////////////////////////////////////////////////////////////////////
 int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
 {
-	if ((fileName == NULL) || (strLen <= 0))
+	if ((fileName == nullptr) || (strLen <= 0))
 	{
 		return 0;
 	}
@@ -388,7 +388,7 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
         CPUs >>= 1;
         ++cpu;
     }
-    if (NULL != nodeSize)
+    if (nullptr != nodeSize)
     {
         *nodeSize = node_size;
     }
@@ -410,7 +410,7 @@ unsigned int Intel::OpenCL::Utils::GetCpuId()
 		id = 0;
 	} else {
 #if defined(__ANDROID__)
-		if( syscall(__NR_getcpu, &id, NULL, NULL) < 0 )
+		if( syscall(__NR_getcpu, &id, nullptr, nullptr) < 0 )
 		{
 			return 0;
 		}

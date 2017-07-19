@@ -50,13 +50,13 @@ using namespace Intel::OpenCL::Utils;
 GLContext::GLContext(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint numRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
 					 void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints,
 					 cl_context_properties hGLCtx, cl_context_properties hDC, ocl_gpa_data * pGPAData, ContextModule& contextModule) :
-Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, contextModule), m_hGLBackupCntx(NULL)
+Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserData, pclErr, pOclEntryPoints, pGPAData, contextModule), m_hGLBackupCntx(nullptr)
 {
 	if (*pclErr != CL_SUCCESS)
 	{
 		return;
 	}
-    if (NULL == hGLCtx)
+    if (nullptr == hGLCtx)
     {
         *pclErr = CL_INVALID_VALUE;
         return;
@@ -69,14 +69,14 @@ Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserD
             continue;
         }
 		cl_context_properties devProp;
-		ppDevices[idx]->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &devProp, NULL);
-        if ( (NULL != devProp) && (devProp != hGLCtx) )
+		ppDevices[idx]->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &devProp, nullptr);
+        if ( (nullptr != devProp) && (devProp != hGLCtx) )
         {
             *pclErr = CL_INVALID_OPERATION;
             return;
         }
-		ppDevices[idx]->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &devProp, NULL);
-		if (NULL != devProp && devProp != hDC)
+		ppDevices[idx]->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &devProp, nullptr);
+		if (nullptr != devProp && devProp != hDC)
 		{
 			*pclErr = CL_INVALID_OPERATION;
 				return;
@@ -110,7 +110,7 @@ Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserD
 	this->glDeleteBuffers = (pFnglDeleteBuffers*)GL_GET_PROC_ADDRESS("glDeleteBuffers");
 #ifdef WIN32
 	this->wglCreateContextAttribsARB = (pFnwglCreateContextAttribsARB*)GL_GET_PROC_ADDRESS("wglCreateContextAttribsARB");
-	if ( NULL == this->wglCreateContextAttribsARB )
+	if ( nullptr == this->wglCreateContextAttribsARB )
 	{
 		*pclErr = CL_OUT_OF_RESOURCES;
         return;
@@ -118,8 +118,8 @@ Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserD
 #endif
 
 	// Need allocate new one
-	m_hGLBackupCntx = wglCreateContextAttribsARB((HDC)m_hDC, (HGLRC)m_hGLCtx, NULL);
-	if ( NULL == m_hGLBackupCntx )
+	m_hGLBackupCntx = wglCreateContextAttribsARB((HDC)m_hDC, (HGLRC)m_hGLCtx, nullptr);
+	if ( nullptr == m_hGLBackupCntx )
 	{
 		*pclErr = CL_OUT_OF_RESOURCES;
         return;
@@ -130,19 +130,19 @@ GLContext::~GLContext()
 {
 #ifdef WIN32
 	// Remove previously allocated GL contexts
-	if ( NULL != m_hGLBackupCntx )
+	if ( nullptr != m_hGLBackupCntx )
 	{
 		wglDeleteContext(m_hGLBackupCntx);
-		m_hGLBackupCntx = NULL;
+		m_hGLBackupCntx = nullptr;
 	}
 #endif
 
-    if (NULL != m_ppExplicitRootDevices)
+    if (nullptr != m_ppExplicitRootDevices)
     {
         // All device passed, update GL info
         for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
         {
-            m_ppExplicitRootDevices[idx]->SetGLProperties(NULL, NULL);
+            m_ppExplicitRootDevices[idx]->SetGLProperties(nullptr, nullptr);
         }
     }
 }
@@ -153,7 +153,7 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Sha
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glBufObj=%d, ppBuffer=%d)"),
 		clFlags, glBufObj, ppBuffer);
 
-	assert ( NULL != ppBuffer );
+	assert ( nullptr != ppBuffer );
 
 	SharedPtr<MemoryObject> pBuffer;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_BUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pBuffer);
@@ -166,7 +166,7 @@ cl_err_code GLContext::CreateGLBuffer(cl_mem_flags clFlags, GLuint glBufObj, Sha
 	{	// Operation requires nested stack frame, GLContext should be release after Initialize
 		GLContext::GLContextSync sync(this);
 
-		clErr = pBuffer->Initialize(clFlags, NULL, 1, NULL, NULL, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
+		clErr = pBuffer->Initialize(clFlags, nullptr, 1, nullptr, nullptr, (void*)glBufObj, CL_RT_MEMOBJ_FORCE_BS);
 		if (CL_FAILED(clErr))
 		{
 			LOG_ERROR(TEXT("Failed to initialize data, pBuffer->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
@@ -185,7 +185,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 	LOG_INFO(TEXT("Enter - params(cl_mem_flags=%d, glTextureTarget=%d, glMipLevel=%d, glTexture=%d ppImage=%p)"), 
 		clMemFlags, glTextureTarget, glMipLevel, glTexture, ppImage);
 
-	assert ( NULL != ppImage );
+	assert ( nullptr != ppImage );
 
 	SharedPtr<MemoryObject> pImage;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
@@ -202,7 +202,7 @@ cl_err_code GLContext::CreateGLTexture(cl_mem_flags clMemFlags, GLenum glTexture
 
 	{	// Operation requires nested stack frame, GLContext should be release after Initialize
 		GLContext::GLContextSync sync(this);
-		clErr = pImage->Initialize(clMemFlags, NULL, pImage->GetNumDimensions(), NULL, NULL, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
+		clErr = pImage->Initialize(clMemFlags, nullptr, pImage->GetNumDimensions(), nullptr, nullptr, &txtDesc, CL_RT_MEMOBJ_FORCE_BS);
 		if (CL_FAILED(clErr))
 		{
 			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize() returns %s"), ClErrTxt(clErr));
@@ -222,7 +222,7 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 	LOG_DEBUG(TEXT("Enter - (cl_mem_flags=%d, glRednderBuffer=%d, ppImage=%d)"),
 		clMemFlags, glRednderBuffer, ppImage);
 
-	assert ( NULL != ppImage );
+	assert ( nullptr != ppImage );
 
 	SharedPtr<MemoryObject> pImage;
 	cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, CL_GL_OBJECT_RENDERBUFFER, CL_MEMOBJ_GFX_SHARE_GL, this, &pImage);
@@ -234,7 +234,7 @@ cl_err_code GLContext::CreateGLRenderBuffer(cl_mem_flags clMemFlags, GLuint glRe
 
 	{	// Operation requires nested stack frame, GLContext should be release after Initialize
 		GLContext::GLContextSync sync(this);
-		clErr = pImage->Initialize(clMemFlags, NULL, 2, NULL, NULL, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
+		clErr = pImage->Initialize(clMemFlags, nullptr, 2, nullptr, nullptr, (void*)glRednderBuffer, CL_RT_MEMOBJ_FORCE_BS);
 		if (CL_FAILED(clErr))
 		{
 			LOG_ERROR(TEXT("Failed to initialize data, pImage->Initialize(pHostPtr = %s"), ClErrTxt(clErr));
@@ -254,7 +254,7 @@ cl_err_code GLContext::AcquiereGLCntx(HGLRC hCntxGL, HDC hDC)
 	const HGLRC	hMyCntxGL = (HGLRC)m_hGLCtx;
 	const HDC	hMyCntxDC = (HDC)m_hDC;
 
-	if ( NULL == m_hGLBackupCntx )
+	if ( nullptr == m_hGLBackupCntx )
 	{
 		return CL_OUT_OF_RESOURCES;
 	}
@@ -276,7 +276,7 @@ cl_err_code GLContext::AcquiereGLCntx(HGLRC hCntxGL, HDC hDC)
 #endif
 
 	// If a context exists, firts wait until all GL operations are completed
-	if ( NULL != hCntxGL )
+	if ( nullptr != hCntxGL )
 	{
 		glFinish();
 	}

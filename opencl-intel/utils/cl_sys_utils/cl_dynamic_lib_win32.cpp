@@ -33,7 +33,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = NULL;
+IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = nullptr;
 
 // Get function pointer from library handle
 ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
@@ -42,7 +42,7 @@ ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const cha
 }
 
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
-    m_hLibrary(NULL), m_bUnloadOnDestructor(bUnloadOnDestructor)
+    m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor)
 {
 }
 
@@ -69,15 +69,15 @@ bool OclDynamicLib::IsExists(const char* pLibName)
 // Loads a dynamically link library into process address space
 bool OclDynamicLib::Load(const char* pLibName)
 {
-    if ( NULL != m_hLibrary )
+    if ( nullptr != m_hLibrary )
     {
         return false;
     }
 
 	// Load library
-	m_hLibrary = LoadLibraryEx( pLibName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );
+	m_hLibrary = LoadLibraryEx( pLibName, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH );
 
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return false;
     }
@@ -95,7 +95,7 @@ bool OclDynamicLib::Load(const char* pLibName)
     RegisterAtExitNotification_Func AtExitFunc = 
         (RegisterAtExitNotification_Func)GetFunctionPtrByName(OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
 
-    if (NULL != AtExitFunc)
+    if (nullptr != AtExitFunc)
     {
         AtExitFunc( m_atexit_fn );
     }
@@ -106,25 +106,25 @@ bool OclDynamicLib::Load(const char* pLibName)
 // Loads a dynamically link library into process address space
 void OclDynamicLib::Close()
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return;
     }
 
     m_uiFuncCount = 0;
-    m_pOffsetNames = NULL;
-    m_pOffsetFunc = NULL;
+    m_pOffsetNames = nullptr;
+    m_pOffsetFunc = nullptr;
 
     UseShutdownHandler::UnloadingDll(true);
     FreeLibrary((HMODULE)m_hLibrary);
     UseShutdownHandler::UnloadingDll(false);
-    m_hLibrary = NULL;
+    m_hLibrary = nullptr;
 }
 
 // Returns a number of named functions found in the library
 unsigned int OclDynamicLib::GetNumberOfFunctions() const
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return 0;
     }
@@ -134,9 +134,9 @@ unsigned int OclDynamicLib::GetNumberOfFunctions() const
 // Returns a pointer to function name
 const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
 {
-    if ( (NULL == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
+    if ( (nullptr == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
     {
-        return NULL;
+        return nullptr;
     }
 
     BYTE* hMod = (BYTE*)m_hLibrary;
@@ -146,9 +146,9 @@ const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
 // Returns a function pointer
 const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 {
-    if ( (NULL == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
+    if ( (nullptr == m_hLibrary) || (uiFuncId >= m_uiFuncCount) )
     {
-        return NULL;
+        return nullptr;
     }
 
     BYTE* hMod = (BYTE*)m_hLibrary;
@@ -158,9 +158,9 @@ const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 // Returns a function pointer
 ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
-        return NULL;
+        return nullptr;
     }
 
     return (ptrdiff_t)GetProcAddress((HMODULE)m_hLibrary, szFuncName);

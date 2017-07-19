@@ -46,7 +46,7 @@ namespace Intel{ namespace OpenCL{ namespace ELFUtils{
         :m_pReader(CLElfLib::CElfReader::Create(pBinary, uiBinarySize))
     {
         assert(IsValidOpenCLBinary(pBinary, uiBinarySize) && "invalid opencl binary");
-        if( NULL == m_pReader.get() )
+        if( nullptr == m_pReader.get() )
         {
             throw std::bad_alloc();
         }

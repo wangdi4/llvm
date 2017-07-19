@@ -276,7 +276,7 @@ static int sched_getaffinity(pid_t pid, size_t len, affinityMask_t const *cpuset
 static int CPU_COUNT(affinityMask_t* set)
 {
     // Pretend the data structure is opaque by using other CPU_ macros to implement
-    if (NULL == set) return 0;
+    if (nullptr == set) return 0;
     int cpu = 0;
     int result = 0;
     affinityMask_t  zero;
@@ -302,10 +302,10 @@ static int CPU_COUNT(affinityMask_t* set)
 #else
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
-    void* t = NULL;
+    void* t = nullptr;
     if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
     {
-        t = NULL;
+        t = nullptr;
     }
     return t;
 }

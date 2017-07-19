@@ -119,7 +119,7 @@ unsigned long long Intel::OpenCL::Utils::MaxClockFrequency()
 		{
 			if (buffer[i] == ' ')
 			{
-				freqDouble = strtod(&(buffer[i]), NULL);
+				freqDouble = strtod(&(buffer[i]), nullptr);
 				break;
 			}
 			i--;
@@ -184,7 +184,7 @@ unsigned long long Intel::OpenCL::Utils::AccurateHostTime()
 void Intel::OpenCL::Utils::GetProcessName(char* pProcName, size_t strLen)
 {
 	assert(strLen <= MAXUINT32);
-	GetModuleFileName((HMODULE)NULL, pProcName, (DWORD)strLen);
+	GetModuleFileName((HMODULE)nullptr, pProcName, (DWORD)strLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -200,7 +200,7 @@ unsigned int Intel::OpenCL::Utils::GetProcessId()
 /////////////////////////////////////////////////////////////////////////////////////////
 void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModuleDir, size_t strLen)
 {
-	HMODULE hModule = NULL;
+	HMODULE hModule = nullptr;
 	GetModuleHandleExA(
 		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 		(LPCSTR)addr,
@@ -208,7 +208,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 
 	GetModuleFileNameA(hModule, szModuleDir, (DWORD)strLen);
 	char* pLastDelimiter = strrchr(szModuleDir, '\\');
-	if ( NULL != pLastDelimiter )
+	if ( nullptr != pLastDelimiter )
 	{
 		*(pLastDelimiter+1) = 0;
 	} else
@@ -223,7 +223,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 ////////////////////////////////////////////////////////////////////
 int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileName, size_t strLen)
 {
-	HMODULE hModule = NULL;
+	HMODULE hModule = nullptr;
 	GetModuleHandleExA(
 		GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 		(LPCSTR)modulePtr,
@@ -272,7 +272,7 @@ bool Intel::OpenCL::Utils::GetProcessorMaskFromNumaNode(unsigned long node, affi
         }
         mask >>= 1;
     }
-    if (NULL != nodeSize)
+    if (nullptr != nodeSize)
     {
         *nodeSize = node_size;
     }
@@ -311,13 +311,13 @@ bool Intel::OpenCL::Utils::GetModuleProductVersion(const void* someLocalFunc, in
 {
     char filePath[MAX_PATH];
     DWORD  verInfoSize          = 0;
-    BYTE*  verInfo              = NULL;
+    BYTE*  verInfo              = nullptr;
     UINT   fileInfoSize         = 0;
-    VS_FIXEDFILEINFO *fileInfo  = NULL;
+    VS_FIXEDFILEINFO *fileInfo  = nullptr;
 
     GetModulePathName(someLocalFunc, filePath, MAX_PATH - 1);
 
-    verInfoSize = GetFileVersionInfoSize( filePath, NULL );
+    verInfoSize = GetFileVersionInfoSize( filePath, nullptr );
     if (0 == verInfoSize)
     {
         return false;

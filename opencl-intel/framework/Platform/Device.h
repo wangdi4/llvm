@@ -170,22 +170,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code UnsetDefaultQueueIfEqual(OclCommandQueue* command_queue);
 
         OclCommandQueue*
-        SetOrReturnDefaultQueue(OclCommandQueue* command_queue = NULL)
+        SetOrReturnDefaultQueue(OclCommandQueue* command_queue = nullptr)
         {
-            return m_default_command_queue.test_and_set(NULL, command_queue);
+            return m_default_command_queue.test_and_set(nullptr, command_queue);
         }
 
     protected:
 
         FissionableDevice(_cl_platform_id_int* platform) :
-          OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(NULL) {}
+          OCLObject<_cl_device_id_int,_cl_platform_id_int>(platform, "FissionableDevice"), m_pD3DDevice(nullptr) {}
 
         ~FissionableDevice() {}
 
         /**
          * @return the cl_dev_subdevice_id associated with this device
          */
-        virtual cl_dev_subdevice_id GetSubdeviceId() const { return NULL; }
+        virtual cl_dev_subdevice_id GetSubdeviceId() const { return nullptr; }
 
         void CacheRequiredInfo();
 

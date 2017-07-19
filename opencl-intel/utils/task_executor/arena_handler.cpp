@@ -37,7 +37,7 @@ using namespace Intel::OpenCL::Utils;
 
 ArenaHandler::ArenaHandler() :
     tbb::task_scheduler_observer(m_arena),
-    m_device(NULL), 
+    m_device(nullptr), 
     m_uiMaxNumThreads(0), m_uiLevel(0)
 {
     INIT_LOGGER_CLIENT("ArenaHandler", LL_INFO);
@@ -203,7 +203,7 @@ TEDevice::~TEDevice()
     for (unsigned int i = 0; i < m_deviceDescriptor.uiNumOfLevels-1; ++i)
     {
         delete [] m_lowLevelArenas[i];
-        m_lowLevelArenas[i] = NULL;
+        m_lowLevelArenas[i] = nullptr;
     }
 
     RELEASE_LOGGER_CLIENT;
@@ -232,7 +232,7 @@ void TEDevice::ShutDown()
     if (!IsShutdownMode())
     {
         TBB_PerActiveThreadData* tls = m_taskExecutor.GetThreadManager().GetCurrentThreadDescriptor();
-        int remainder = ((NULL == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
+        int remainder = ((nullptr == tls) || (tls->device != this)) ? 0 : 1; // how many threads may remain inside arena
         
         while ((m_numOfActiveThreads > remainder) && (m_numOfActiveThreads <= (int)m_maxNumOfActiveThreads))
         {
@@ -242,7 +242,7 @@ void TEDevice::ShutDown()
         // if current thread is inside TE Device - notify about exit manually
         if (0 != remainder)
         {
-            assert( (NULL != tls->attached_arenas[tls->attach_level]) && "NULL arena pointer at attach level" );
+            assert( (nullptr != tls->attached_arenas[tls->attach_level]) && "NULL arena pointer at attach level" );
             on_scheduler_exit(!(tls->is_master), *(tls->attached_arenas[tls->attach_level]));
         }
     }
@@ -267,7 +267,7 @@ void TEDevice::ShutDown()
         for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
         {
             ArenaHandler* ar = m_lowLevelArenas[i-1];
-            assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+            assert( (nullptr != ar) && "Low level arena array in NULL for hierarchical arenas?" );
             for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
             {
                 ar[j].StopMonitoring();
@@ -275,13 +275,13 @@ void TEDevice::ShutDown()
         }
         m_mainArena.StopMonitoring();
     }
-    m_userData = NULL; // to be on the safe side
+    m_userData = nullptr; // to be on the safe side
 
     // 5. Signal all arenas to terminate
     for (unsigned int i =  m_deviceDescriptor.uiNumOfLevels-1; i > 0  ; --i)
     {
         ArenaHandler* ar = m_lowLevelArenas[i-1];
-        assert( (NULL != ar) && "Low level arena array in NULL for hierarchical arenas?" );
+        assert( (nullptr != ar) && "Low level arena array in NULL for hierarchical arenas?" );
         for (unsigned int j = 0; j < m_deviceDescriptor.uiThreadsPerLevel[ i ]; ++i)
         {
             ar[j].Terminate();
@@ -306,7 +306,7 @@ void TEDevice::free_thread_arenas_resources( TBB_PerActiveThreadData* tls, unsig
     for (unsigned int i = starting_level; i < m_deviceDescriptor.uiNumOfLevels; ++i)
     {
         tls->attached_arenas[i]->FreeThreadPosition( tls->position[i] );
-        tls->attached_arenas[i] = NULL;
+        tls->attached_arenas[i] = nullptr;
     }
 }
 
@@ -315,7 +315,7 @@ void TEDevice::AttachMasterThread(void* user_tls)
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
 
-    assert( (NULL != tls) && "TBB Thread Manager was not able to find free entry" );
+    assert( (nullptr != tls) && "TBB Thread Manager was not able to find free entry" );
     
     tls->device = this;
     tls->attach_level = 0;
@@ -352,10 +352,10 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
 
-    assert( (NULL != tls) && "TBB Thread Manager was not able to find free entry" );
+    assert( (nullptr != tls) && "TBB Thread Manager was not able to find free entry" );
 
     // case when for some reason we were unable to monitor exit from some device
-    if ((NULL != tls->device) && (this != tls->device))
+    if ((nullptr != tls->device) && (this != tls->device))
     {
         // we discovered such things in some tests (task_executor_test).
         // assume device is not-existent already, otherwise we would catch its exit
@@ -364,7 +364,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
 
     unsigned int curr_arena_level = arena.GetArenaLevel();
 
-    if (NULL == tls->device)
+    if (nullptr == tls->device)
     {
         // Yyyyes - thread is attaching to device
         if (new_threads_disabled())
@@ -396,7 +396,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
     ArenaHandler*& prev_arena = tls->attached_arenas[curr_arena_level];
 
     // in general current arena should be either not used at all or already used and have allocated position
-    if ((NULL != prev_arena) && (&arena != prev_arena))
+    if ((nullptr != prev_arena) && (&arena != prev_arena))
     {
         // Arena was used but not this... Intermediate thread moved to another sub-arena?
         // This may be the case if task tries to join the top level arena during execution in the low level arena
@@ -405,7 +405,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
         free_thread_arenas_resources( tls, curr_arena_level );
     }
 
-    if (NULL == prev_arena)
+    if (nullptr == prev_arena)
     {
         // arena was not used yet - allocate position inside arena
         tls->position[curr_arena_level]         = arena.AllocateThreadPosition();
@@ -421,7 +421,7 @@ void TEDevice::on_scheduler_entry( bool bIsWorker, ArenaHandler& arena )
            protect ourselves, except by raising a flag in a function registered by atexit. This isn't a perfect protection, since exit can be called while the worker thread is in this method after having
            already checked the flag, but it significantly reduces the probability for it. This also applies to the same flag checking in other methods. */
         {
-            if ((NULL != m_observer) && (!IsShutdownMode()))
+            if ((nullptr != m_observer) && (!IsShutdownMode()))
             {
                 // per thread user data recides inside per-thread descriptor
                 tls->user_tls = m_observer->OnThreadEntry();
@@ -436,14 +436,14 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
 
-    if ((NULL == tls) && new_threads_disabled())
+    if ((nullptr == tls) && new_threads_disabled())
     {
         // thread entered after disabling
         return;
     }
 
-    assert( (NULL != tls) && "TBB Thread Manager lost entry?" );
-    assert( (NULL != tls->device) && "Something wrong with observers - thread exits without enter" );
+    assert( (nullptr != tls) && "TBB Thread Manager lost entry?" );
+    assert( (nullptr != tls->device) && "Something wrong with observers - thread exits without enter" );
     assert( (this == tls->device) && "Something wrong with observers - thread exits the wrong device" );
 
     unsigned int curr_arena_level = arena.GetArenaLevel();
@@ -472,7 +472,7 @@ void TEDevice::on_scheduler_exit( bool bIsWorker, ArenaHandler& arena )
     // now the only case - we are leaving our attach_level - out from device
     if (tls->enter_reported)
     {
-        if ((NULL != m_observer) && (!IsShutdownMode()))
+        if ((nullptr != m_observer) && (!IsShutdownMode()))
         {
             // per thread user data recides inside per-thread descriptor
             m_observer->OnThreadExit( tls->user_tls );
@@ -501,11 +501,11 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.GetCurrentThreadDescriptor();
 
-    if ((NULL != tls) && (NULL != tls->device) && (tls->enter_reported))
+    if ((nullptr != tls) && (nullptr != tls->device) && (tls->enter_reported))
     {
         assert( (this == tls->device) && "Something wrong with observers - thread tries to leave the wrong device" );
 
-        if ((NULL != m_observer) && (!IsShutdownMode()))
+        if ((nullptr != m_observer) && (!IsShutdownMode()))
         {
             user_answer = m_observer->MayThreadLeaveDevice( &(tls->user_tls) );
         }
@@ -526,15 +526,15 @@ bool TEDevice::on_scheduler_leaving( ArenaHandler& arena )
 }
 void TEDevice::ResetObserver()
 { 
-    m_observer = NULL;
+    m_observer = nullptr;
 }
 void TEDevice::SetObserver(ITaskExecutorObserver* pObserver)
 {
-        if ( (NULL==pObserver) && (NULL != m_observer) )
+        if ( (nullptr==pObserver) && (nullptr != m_observer) )
         {
             m_mainArena.observe(false);
             m_numOfActiveThreads = 0;
-            m_observer = NULL;
+            m_observer = nullptr;
             return;
         }
 
@@ -564,7 +564,7 @@ SharedPtr<ITEDevice> TEDevice::CreateSubDevice( unsigned int uiNumSubdevComputeU
 
 SharedPtr<ITaskList> TEDevice::CreateTaskList(const CommandListCreationParam& param)
 {
-    SharedPtr<ITaskList> pList = NULL;
+    SharedPtr<ITaskList> pList = nullptr;
 
     assert( (TE_CMD_LIST_PREFERRED_SCHEDULING_LAST > param.preferredScheduling) && "Trying to create TaskExecutor Command list with unknown scheduler" );
 
@@ -608,7 +608,7 @@ int TEDevice::GetConcurrency() const
 bool TEDevice::IsCurrentThreadInArena() const
 {
     TBB_PerActiveThreadData* tls = GetTaskExecutor().GetThreadManager().GetCurrentThreadDescriptor();
-    return !(NULL == tls || NULL == tls->device || this != tls->device);
+    return !(nullptr == tls || nullptr == tls->device || this != tls->device);
 }
 
 #ifdef __HARD_TRAPPING__
@@ -639,9 +639,9 @@ bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
     }
 
     tbb::Harness::TbbWorkersTrapper* new_trapper = new tbb::Harness::TbbWorkersTrapper(num_workers, true);
-    tbb::Harness::TbbWorkersTrapper* old_trapper = m_worker_trapper.test_and_set(NULL, new_trapper);
-    assert( NULL == old_trapper && "Another trapper already exists");
-    if ( NULL != old_trapper )
+    tbb::Harness::TbbWorkersTrapper* old_trapper = m_worker_trapper.test_and_set(nullptr, new_trapper);
+    assert( nullptr == old_trapper && "Another trapper already exists");
+    if ( nullptr != old_trapper )
     {
         // Another trapper is already running, delete current and continue execution
         delete new_trapper;
@@ -659,9 +659,9 @@ bool TEDevice::AcquireWorkerThreads(int num_workers, int timeout)
 
 void TEDevice::RelinquishWorkerThreads()
 {
-    tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper.exchange(NULL);
-    assert (NULL!=trapper && "Trying to relinquish from NULL trapper");
-    if ( NULL == trapper )
+    tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper.exchange(nullptr);
+    assert (nullptr!=trapper && "Trying to relinquish from NULL trapper");
+    if ( nullptr == trapper )
       return;
 
     delete trapper;

@@ -32,7 +32,7 @@ using namespace Intel::OpenCL::Utils;
 errno_t Intel::OpenCL::Utils::safeStrCpy(char* dst, size_t len, const char* src )
 {
 	errno = 0;
-	if ((src == NULL) || (dst == NULL))
+	if ((src == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return errno;
@@ -49,7 +49,7 @@ errno_t Intel::OpenCL::Utils::safeStrCpy(char* dst, size_t len, const char* src 
 errno_t Intel::OpenCL::Utils::safeStrNCpy(char* dst, size_t len, const char* src, size_t src_len )
 {
 	errno = 0;
-	if ((src == NULL) || (dst == NULL))
+	if ((src == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return errno;
@@ -66,7 +66,7 @@ errno_t Intel::OpenCL::Utils::safeStrNCpy(char* dst, size_t len, const char* src
 errno_t Intel::OpenCL::Utils::safeStrCat(char* dst, size_t len, const char* src )
 {
 	errno = 0;
-	if ((src == NULL) || (dst == NULL))
+	if ((src == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return errno;
@@ -89,7 +89,7 @@ errno_t Intel::OpenCL::Utils::safeStrCat(char* dst, size_t len, const char* src 
 int Intel::OpenCL::Utils::safeStrPrintf(char* dst, size_t len, const char* format, ...)
 {
 	errno = 0;
-	if ((format == NULL) || (dst == NULL))
+	if ((format == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return -1;
@@ -115,7 +115,7 @@ int Intel::OpenCL::Utils::safeStrPrintf(char* dst, size_t len, const char* forma
 int Intel::OpenCL::Utils::safeVStrPrintf(char* dst, size_t len, const char* format, va_list args)
 {
 	errno = 0;
-	if ((format == NULL) || (dst == NULL))
+	if ((format == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return -1;
@@ -131,7 +131,7 @@ int Intel::OpenCL::Utils::safeVStrPrintf(char* dst, size_t len, const char* form
 errno_t Intel::OpenCL::Utils::safeMemCpy(void* dst, size_t numOfElements, const void* src, size_t count)
 {
 	errno = 0;
-	if ((src == NULL) || (dst == NULL))
+	if ((src == nullptr) || (dst == nullptr))
 	{
 		errno = EINVAL;
 		return errno;
@@ -148,20 +148,20 @@ errno_t Intel::OpenCL::Utils::safeMemCpy(void* dst, size_t numOfElements, const 
 char* Intel::OpenCL::Utils::safe_strtok(char* strToken, const char* strDelimit, char** context)
 {
 	errno = 0;
-	if (context == NULL)
+	if (context == nullptr)
 	{
 		errno = EINVAL;
-		return NULL;
+		return nullptr;
 	}
-	if (strDelimit == NULL)
+	if (strDelimit == nullptr)
 	{
 		errno = EINVAL;
-		return NULL;
+		return nullptr;
 	}
-	if ((strToken == NULL) && (*context == NULL))
+	if ((strToken == nullptr) && (*context == nullptr))
 	{
 		errno = EINVAL;
-		return NULL;
+		return nullptr;
 	}
 	return strtok_r(strToken, strDelimit, context);
 }

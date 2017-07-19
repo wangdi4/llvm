@@ -1102,7 +1102,7 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
 
 size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
 {
-    if (NULL == pclImageFormat)
+    if (nullptr == pclImageFormat)
     {
         return 0;
     }
@@ -1119,7 +1119,7 @@ size_t clGetPixelBytesCount(const cl_image_format* pclImageFormat)
 
 size_t clGetPixelElementsCount(const cl_image_format* pclImageFormat)
 {
-    if (NULL == pclImageFormat)
+    if (nullptr == pclImageFormat)
     {
         return 0;
     }
@@ -1542,7 +1542,7 @@ bool GetStringValueFromRegistryOrETC( HKEY       top_hkey,
             hkey,                   // hkey
             valueName,              // lpValueName
             0,                      // lpReserved
-            NULL,                   // lpType
+            nullptr,                   // lpType
             ( LPBYTE )retValue,     // lpData
             &size                   // lpcbData
             );
@@ -1566,7 +1566,7 @@ bool GetCpuPath( char *pCpuPath, size_t bufferSize )
     const char *regPath = "SOFTWARE\\Intel\\OpenCL";
 
     // pCpuPath is expected to be MAX_PATH in size
-    if( NULL != pCpuPath )
+    if( nullptr != pCpuPath )
     {
         string valueName;
         if (EmulatorEnabled())
@@ -1589,7 +1589,7 @@ bool GetCpuVersion( char *pCpuVersion, size_t bufferSize )
     const char *regPath = "SOFTWARE\\Intel\\OpenCL";
 
     // pCpuPath is expected to be MAX_PATH in size
-    if( NULL != pCpuVersion )
+    if( nullptr != pCpuVersion )
     {
         string valueName;
         if (EmulatorEnabled())

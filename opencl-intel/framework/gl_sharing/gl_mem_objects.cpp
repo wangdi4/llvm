@@ -30,19 +30,19 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 
 GLMemoryObject::GLMemoryObject(SharedPtr<Context> pContext, cl_gl_object_type clglObjectType) : 
-GraphicsApiMemoryObject(pContext), m_glObjHandle(NULL), m_glMemFlags(0), m_clglObjectType(clglObjectType)
+GraphicsApiMemoryObject(pContext), m_glObjHandle(nullptr), m_glMemFlags(0), m_clglObjectType(clglObjectType)
 {
     m_pGLContext = pContext.DynamicCast<GLContext>();
 }
 
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
 {
-	if ( NULL != pglObjectType)
+	if ( nullptr != pglObjectType)
 	{
 		*pglObjectType = m_clglObjectType;
 	}
 
-	if ( NULL != pglObjectName)
+	if ( nullptr != pglObjectName)
 	{
 		*pglObjectName = m_glObjHandle;
 	}
@@ -113,12 +113,12 @@ GLTexture::~GLTexture()
 
 cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
-	if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+	if (nullptr == pParamValue && nullptr == pszParamValueSizeRet)
 	{
 		return CL_INVALID_VALUE;
 	}
 	size_t  szSize = 0;
-	const void * pValue = NULL;
+	const void * pValue = nullptr;
 	cl_uint uiZero = 0;
 	switch (clParamName)
 	{
@@ -150,17 +150,17 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
         return CL_INVALID_VALUE;
 	}
 
-	if (NULL != pParamValue && szParamValueSize < szSize)
+	if (nullptr != pParamValue && szParamValueSize < szSize)
 	{
 		return CL_INVALID_VALUE;
 	}
 
-	if (NULL != pszParamValueSizeRet)
+	if (nullptr != pszParamValueSizeRet)
 	{
 		*pszParamValueSizeRet = szSize;
 	}
 
-	if (NULL != pParamValue && szSize > 0)
+	if (nullptr != pParamValue && szSize > 0)
 	{
 		MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
 	}
@@ -171,7 +171,7 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
 {
     assert(pszRegion);
-    if (NULL == pszRegion)
+    if (nullptr == pszRegion)
     {
         return CL_INVALID_VALUE;
     }
@@ -182,15 +182,15 @@ cl_err_code GLTexture::GetDimensionSizes(size_t* pszRegion) const
 
 void GLTexture::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
 {
-    if (NULL != dimensions)
+    if (nullptr != dimensions)
     {
         GetDimensionSizes(dimensions);
     }
-    if (NULL != rowPitch)
+    if (nullptr != rowPitch)
     {
         *rowPitch = GetRowPitchSize();
     }
-    if (NULL != slicePitch)
+    if (nullptr != slicePitch)
     {
         *slicePitch = GetSlicePitchSize();
     }
@@ -215,18 +215,18 @@ cl_err_code GLTexture::GetGLTextureInfo(cl_gl_texture_info glTextInfo, size_t va
 		return CL_INVALID_VALUE;
 	}
 
-	if ( (NULL != pVal && valSize < intSize) ||
-		 (NULL == pVal && NULL == pRetSize) )
+	if ( (nullptr != pVal && valSize < intSize) ||
+		 (nullptr == pVal && nullptr == pRetSize) )
 	{
 		return CL_INVALID_VALUE;
 	}
 
-	if ( NULL != pRetSize )
+	if ( nullptr != pRetSize )
 	{
 		*pRetSize = intSize;
 	}
 
-	if ( NULL != pVal)
+	if ( nullptr != pVal)
 	{
 		MEMCPY_S(pVal, valSize, pIntVal, intSize);
 	}
@@ -265,7 +265,7 @@ cl_err_code GLTexture::CreateChildObject()
 	}
 
 	void *pBuffer = pGLContext->glMapBuffer(glBind, m_glMemFlags);
-	if ( NULL == pBuffer )
+	if ( nullptr == pBuffer )
 	{
 		assert( 0 && "Map failed, buffer == NULL" );
 		pGLContext->glBindBuffer(glBind, pboBinding);
@@ -429,7 +429,7 @@ cl_err_code GLTexture::AcquireGLObject()
         return CL_INVALID_OPERATION;
     }
     GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
-    m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
+    m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, nullptr, glUsage );
     if( (glErr = glGetError()) != GL_NO_ERROR )
     {
         m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, pboBinding);

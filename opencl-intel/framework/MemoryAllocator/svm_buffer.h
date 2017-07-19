@@ -118,7 +118,7 @@ protected:
      * @param pArgValue    pointer to the SVM memory inside pSvmBuf or system pointer
      */
     SVMPointerArg(const SharedPtr<SVMBuffer>& pSvmBuf) :
-       MemoryObject(pSvmBuf != 0 ? pSvmBuf->GetContext() : SharedPtr<Context>(NULL)) { }    
+       MemoryObject(pSvmBuf != 0 ? pSvmBuf->GetContext() : SharedPtr<Context>(nullptr)) { }    
 
     /**
      * This class implements IOCLDevMemoryObject for SVM buffers as an arguments to a kernel
@@ -202,7 +202,7 @@ class SVMBufferPointerArg : public SVMPointerArg
 
     virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
 
-    virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const;
+    virtual void* GetBackingStoreData(const size_t* pszOrigin = nullptr) const;
 
     virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice);
 
@@ -267,13 +267,13 @@ public:
 
     virtual cl_err_code CheckBoundsRect(const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const { return CL_SUCCESS; }
 
-    virtual void* GetBackingStoreData(const size_t* pszOrigin = NULL) const { return const_cast<void*>(m_ptr); }
+    virtual void* GetBackingStoreData(const size_t* pszOrigin = nullptr) const { return const_cast<void*>(m_ptr); }
 
     virtual cl_err_code CreateDeviceResource(const SharedPtr<FissionableDevice>& pDevice) { return CL_SUCCESS; }
 
     virtual cl_err_code GetDeviceDescriptor(const SharedPtr<FissionableDevice>& IN pDevice, IOCLDevMemoryObject* OUT* ppDevObject, SharedPtr<OclEvent> OUT* ppEvent)
     {
-        *ppDevObject = new SVMPointerArgDevMemoryObject(this, NULL, 0);
+        *ppDevObject = new SVMPointerArgDevMemoryObject(this, nullptr, 0);
         return CL_SUCCESS;
     }
 
@@ -281,7 +281,7 @@ public:
 
 private:
 
-    SVMSystemPointerArg(const void* pArgValue) : SVMPointerArg(NULL), m_ptr(pArgValue) { }
+    SVMSystemPointerArg(const void* pArgValue) : SVMPointerArg(nullptr), m_ptr(pArgValue) { }
 
     const void* const m_ptr;
 };

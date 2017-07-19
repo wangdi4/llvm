@@ -50,7 +50,7 @@ static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
     DWORD devNum = 0;
     string id;
 
-    while (EnumDisplayDevices(NULL, devNum++, &dd, 0))
+    while (EnumDisplayDevices(nullptr, devNum++, &dd, 0))
     {
         if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
         {
@@ -422,13 +422,13 @@ template<>
 string Intel::OpenCL::Utils::GetRegistryValue<string>(HKEY key, const string& valName, const string& defaultVal)
 {
     DWORD regValSize;
-    LONG res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, NULL, &regValSize);
+    LONG res = RegQueryValueExA(key, valName.c_str(), nullptr, nullptr, nullptr, &regValSize);
     if (ERROR_SUCCESS != res)
     {
         return defaultVal;
     }
     std::vector<BYTE> str(regValSize);
-    res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, &str[0], &regValSize);
+    res = RegQueryValueExA(key, valName.c_str(), nullptr, nullptr, &str[0], &regValSize);
     assert(ERROR_SUCCESS == res);
     if (ERROR_SUCCESS != res)
     {

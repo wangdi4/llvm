@@ -36,7 +36,7 @@ cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std
 	char * pBuffer;
 	size_t szBufferSizeRet = 0;
 	errno_t err = _dupenv_s(&pBuffer, &szBufferSizeRet, strVarName.c_str());
-	if ( err || (0 == szBufferSizeRet) || (NULL == pBuffer))
+	if ( err || (0 == szBufferSizeRet) || (nullptr == pBuffer))
 	{
         strVarValue = std::string("");
 		return CL_ERR_FAILURE;

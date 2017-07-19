@@ -55,9 +55,9 @@ using namespace Intel::OpenCL::Utils;
 
 volatile UseShutdownHandler::PROCESS_STATE UseShutdownHandler::shutdown_mode = UseShutdownHandler::WORKING;
 
-IAtExitCentralPoint* UseShutdownHandler::global_at_exit_callback = NULL;
+IAtExitCentralPoint* UseShutdownHandler::global_at_exit_callback = nullptr;
 UseShutdownHandler::at_exit_local_callback_fn 
-                                 UseShutdownHandler::local_at_exit_callback  = NULL;
+                                 UseShutdownHandler::local_at_exit_callback  = nullptr;
 
 // this DLL name
 //static char myDllName[MAX_PATH+1];
@@ -76,12 +76,12 @@ void UseShutdownHandler::ReRegisterAtExit()
 
 void UseShutdownHandler::RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
 {
-    if ( NULL == fn )
+    if ( nullptr == fn )
     {
         return;
     }
     
-    if (NULL == global_at_exit_callback)
+    if (nullptr == global_at_exit_callback)
     {
         global_at_exit_callback   = fn;
         atexit(OS_atexit);
@@ -96,7 +96,7 @@ void UseShutdownHandler::RegisterGlobalAtExitNotification( IAtExitCentralPoint* 
  
 void UseShutdownHandler::UnloadingDll( bool value )
 {
-    if (NULL != global_at_exit_callback)
+    if (nullptr != global_at_exit_callback)
     {
         global_at_exit_callback->SetDllUnloadingState( value );
     }
@@ -113,8 +113,8 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
             if (WORKING == shutdown_mode)
             {
                 shutdown_mode           = EXIT_STARTED;
-                global_at_exit_callback = NULL;
-                OclDynamicLib::SetGlobalAtExitNotification( NULL );                
+                global_at_exit_callback = nullptr;
+                OclDynamicLib::SetGlobalAtExitNotification( nullptr );                
             }
             return;
 
@@ -122,7 +122,7 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
         default:
             if (EXIT_DONE != shutdown_mode)
             {
-                if (NULL != local_at_exit_callback)
+                if (nullptr != local_at_exit_callback)
                 {
 #ifdef _WIN32
                     if (AT_EXIT_DLL_UNLOADING_MODE == mode)
@@ -130,7 +130,7 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
                     {
                         local_at_exit_callback();
                     }
-                    local_at_exit_callback = NULL;
+                    local_at_exit_callback = nullptr;
                 }
 
                 shutdown_mode           = EXIT_DONE;
@@ -141,7 +141,7 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
 
 void UseShutdownHandler::OS_atexit()
 {
-    if ((NULL != global_at_exit_callback) && (WORKING == shutdown_mode))
+    if ((nullptr != global_at_exit_callback) && (WORKING == shutdown_mode))
     {
         // now do the job
         global_at_exit_callback->AtExitTrigger( AtExitProcessingState );

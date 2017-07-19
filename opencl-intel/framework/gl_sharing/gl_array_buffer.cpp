@@ -80,7 +80,7 @@ cl_err_code GLArrayBuffer::Initialize(cl_mem_flags clMemFlags, const cl_image_fo
 cl_err_code GLArrayBuffer::GetDimensionSizes(size_t* pszRegion) const
 {
     assert(pszRegion);
-    if (NULL == pszRegion)
+    if (nullptr == pszRegion)
     {
         return CL_INVALID_VALUE;
     }
@@ -90,7 +90,7 @@ cl_err_code GLArrayBuffer::GetDimensionSizes(size_t* pszRegion) const
 
 void GLArrayBuffer::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
 {
-    if (NULL != dimensions)
+    if (nullptr != dimensions)
     {
         GetDimensionSizes(dimensions);
     }
@@ -128,7 +128,7 @@ cl_err_code GLArrayBuffer::AcquireGLObject()
     m_pGLContext->glBindBuffer(m_glBufferTarget, m_glObjHandle);
     assert(!glGetError());
     void *pBuffer = m_pGLContext->glMapBuffer(m_glBufferTarget, m_glMemFlags);
-    if ( NULL == pBuffer )
+    if ( nullptr == pBuffer )
     {
         m_pGLContext->glBindBuffer(m_glBufferTarget, currBuff);
         m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
@@ -146,13 +146,13 @@ cl_err_code GLArrayBuffer::AcquireGLObject()
         return res;
     }
 
-    const cl_image_format* pCLFormat = NULL;
+    const cl_image_format* pCLFormat = nullptr;
     if ( CL_GL_OBJECT_TEXTURE_BUFFER == m_clglObjectType )
     {
         pCLFormat = &m_clImageFormat;
     }
 
-    res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, NULL, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
+    res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, nullptr, pBuffer, CL_RT_MEMOBJ_FORCE_BS);
     if (CL_FAILED(res))
     {
         m_pGLContext->glUnmapBuffer(m_glBufferTarget);

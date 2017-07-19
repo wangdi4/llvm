@@ -55,7 +55,7 @@ CElfWriter::CElfWriter(
 \******************************************************************************/
 CElfWriter::~CElfWriter()
 {
-    SSectionNode* pNode = NULL;
+    SSectionNode* pNode = nullptr;
 
     // Walk through the section nodes
     while( m_nodeQueue.empty() == false )
@@ -69,7 +69,7 @@ CElfWriter::~CElfWriter()
             if( pNode->pData )
             {
                 delete[] pNode->pData;
-                pNode->pData = NULL;
+                pNode->pData = nullptr;
             }
 
             delete pNode;
@@ -105,7 +105,7 @@ void CElfWriter::Delete(
     if( pWriter )
     {
         delete pWriter;
-        pWriter = NULL;
+        pWriter = nullptr;
     }
 }
 
@@ -116,7 +116,7 @@ E_RETVAL CElfWriter::AddSection(
     SSectionNode* pSectionNode )
 {
     E_RETVAL retVal = SUCCESS;
-    SSectionNode* pNode = NULL;
+    SSectionNode* pNode = nullptr;
     unsigned int nameSize = 0;
     unsigned int dataSize = 0;
 
@@ -179,7 +179,7 @@ E_RETVAL CElfWriter::AddSection(
                 if( pNode->pData )
                 {
                     delete[] pNode->pData;
-                    pNode->pData = NULL;
+                    pNode->pData = nullptr;
                 }
 
                 delete pNode;
@@ -198,11 +198,11 @@ E_RETVAL CElfWriter::ResolveBinary(
     unsigned int& binarySize )
 {
     E_RETVAL retVal = SUCCESS;
-    SSectionNode* pNode = NULL;
-    SElf64SectionHeader* pCurSectionHeader = NULL;
-    char* pData = NULL;
-    char* pStringTable = NULL;
-    char* pCurString = NULL;
+    SSectionNode* pNode = nullptr;
+    SElf64SectionHeader* pCurSectionHeader = nullptr;
+    char* pData = nullptr;
+    char* pStringTable = nullptr;
+    char* pCurString = nullptr;
 
     m_totalBinarySize = 
         sizeof( SElf64Header ) + 
@@ -265,7 +265,7 @@ E_RETVAL CElfWriter::ResolveBinary(
                     if( pNode->pData )
                     {
                         delete[] pNode->pData;
-                        pNode->pData = NULL;
+                        pNode->pData = nullptr;
                     }
 
                     delete pNode;

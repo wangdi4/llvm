@@ -34,7 +34,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		clLocalArray(const clLocalArray&);
 		clLocalArray& operator=(const clLocalArray&);
 	public:
-		clLocalArray(size_t length) : m_data(NULL), m_heapAllocated(false)
+		clLocalArray(size_t length) : m_data(nullptr), m_heapAllocated(false)
 		{
 			if (length * sizeof(T) > m_maxSizeToAllocateOnStack)
 			{
@@ -55,7 +55,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 			{
 				delete[] m_data;
 			}
-			m_data = NULL;
+			m_data = nullptr;
 		}
 		operator    T*(void)      { return m_data;      }
         operator void*(void)      { return m_data;      }
@@ -64,7 +64,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 	protected:
 		//It makes no sense to allocate this class on the heap
-		void* operator new(size_t sz) {return NULL;}
+		void* operator new(size_t sz) {return nullptr;}
 		//Probably a good idea not to allocate more than 1kb on the stack 
 		static const size_t m_maxSizeToAllocateOnStack = 0x400; 
 

@@ -44,7 +44,7 @@ CacheBinaryReader::CacheBinaryReader(const void* pBlob, size_t size)
 CacheBinaryReader::~CacheBinaryReader()
 {
     if(m_pReader) CLElfLib::CElfReader::Delete(m_pReader);
-    m_pReader = NULL;
+    m_pReader = nullptr;
 }
 
 bool CacheBinaryReader::IsValidCacheObject(const void*pBlob, size_t size)
@@ -52,7 +52,7 @@ bool CacheBinaryReader::IsValidCacheObject(const void*pBlob, size_t size)
     if( CLElfLib::CElfReader::IsValidElf64((const char*)pBlob, size))
     {
         ElfReaderPtr pReader(CLElfLib::CElfReader::Create((const char*)pBlob, size));
-        if( NULL != pReader.get() )
+        if( nullptr != pReader.get() )
         {
             return (CLElfLib::EH_TYPE_OPENCL_EXECUTABLE == pReader->GetElfHeader()->Type);
         }
@@ -101,7 +101,7 @@ int CacheBinaryReader::GetSectionSize(const char* sectionName) const
         int index = GetSectionIndexByName(m_pReader, sectionName);
         if(index < 0) return 0;
 
-        char* pData = NULL;
+        char* pData = nullptr;
         size_t sectionSize = 0;
         m_pReader->GetSectionData(index, pData, sectionSize);
         return sectionSize;
@@ -116,15 +116,15 @@ const void* CacheBinaryReader::GetSectionData(const char* sectionName) const
     if(m_pReader)
     {
         int index = GetSectionIndexByName(m_pReader, sectionName);
-        if(index < 0) return NULL;
+        if(index < 0) return nullptr;
 
-        char* pData = NULL;
+        char* pData = nullptr;
         size_t sectionSize = 0;
         m_pReader->GetSectionData(index, pData, sectionSize);
         return pData;
     }
     assert(false && "file cannot be opened by elf reader!");
-    return NULL;
+    return nullptr;
 }
 
 const CLElfLib::SElf64Header* CacheBinaryReader::GetElfHeader()
@@ -134,7 +134,7 @@ const CLElfLib::SElf64Header* CacheBinaryReader::GetElfHeader()
     {
         return m_pReader->GetElfHeader();
     }
-    return NULL;
+    return nullptr;
 }
 
 CacheBinaryWriter::CacheBinaryWriter(CLElfLib::E_EH_MACHINE  machine, CLElfLib::E_EH_FLAGS flag)
@@ -148,7 +148,7 @@ CacheBinaryWriter::~CacheBinaryWriter()
 {
     assert(m_pWriter && "pWriter is null");
     CLElfLib::CElfWriter::Delete(m_pWriter);
-    m_pWriter = NULL;
+    m_pWriter = nullptr;
 }
 
 bool CacheBinaryWriter::AddSection(const char* sectionName, const char* sectionData, size_t sectionSize)
@@ -165,7 +165,7 @@ bool CacheBinaryWriter::AddSection(const char* sectionName, const char* sectionD
 
 size_t CacheBinaryWriter::GetBinarySize() const
 {
-    char *pData = NULL;
+    char *pData = nullptr;
     unsigned int DataSize = 0;
 
     if( m_pWriter->ResolveBinary( pData, DataSize ) == CLElfLib::SUCCESS )

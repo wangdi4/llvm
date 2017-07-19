@@ -178,7 +178,7 @@ cl_err_code GLRenderBuffer::AcquireGLObject()
         return CL_INVALID_OPERATION;
     }
     GLenum glUsage = m_clFlags & CL_MEM_READ_ONLY ? GL_STREAM_READ_ARB : GL_STREAM_COPY_ARB;
-    m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, NULL, glUsage );
+    m_pGLContext->glBufferData(GL_PIXEL_PACK_BUFFER_ARB, m_stMemObjSize, nullptr, glUsage );
     if( glGetError() != GL_NO_ERROR )
     {
         m_pGLContext->glBindBuffer(GL_PIXEL_PACK_BUFFER_ARB, currentPBO);
@@ -247,7 +247,7 @@ cl_err_code GLRenderBuffer::ReleaseGLObject()
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
 		glTexParameteri( GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], 0/*Border*/, readBackFormat, readBackType, NULL);
+		glTexImage2D(GL_TEXTURE_RECTANGLE_ARB, 0/*Level*/, m_glInternalFormat, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], 0/*Border*/, readBackFormat, readBackType, nullptr);
 
 		m_pGLContext->glBindBuffer(pboTarget, currentPBO);
 

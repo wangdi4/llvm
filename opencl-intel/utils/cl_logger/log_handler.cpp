@@ -51,7 +51,7 @@ using namespace Intel::OpenCL::Utils;
 #if !_WIN32 && !DEVICE_NATIVE
 namespace Intel { namespace OpenCL { namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger* g_pUserLogger = nullptr;
 
 }}}
 #endif
@@ -65,7 +65,7 @@ char *strdup_safe(const char *src)
     actual = (actual > MAX_STRDUP_SIZE) ? MAX_STRDUP_SIZE : actual;
 
     char *retStr = (char*)malloc((actual+1) * sizeof(char));
-    if (NULL == retStr) return NULL;
+    if (nullptr == retStr) return nullptr;
 
     STRCPY_S(retStr, actual+1, src);
     return retStr;
@@ -74,9 +74,9 @@ char *strdup_safe(const char *src)
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileDescriptorLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileDescriptorLogHandler::FileDescriptorLogHandler(const char* handle) : LogHandler(), m_fileHandler(NULL), m_dupStderr(-1)
+FileDescriptorLogHandler::FileDescriptorLogHandler(const char* handle) : LogHandler(), m_fileHandler(nullptr), m_dupStderr(-1)
 {
-    if (NULL != handle)
+    if (nullptr != handle)
     {
         m_handle = strdup_safe(handle);
     }
@@ -87,10 +87,10 @@ FileDescriptorLogHandler::FileDescriptorLogHandler(const char* handle) : LogHand
 /////////////////////////////////////////////////////////////////////////////////////////
 FileDescriptorLogHandler::~FileDescriptorLogHandler()
 {
-	if ( NULL != m_handle )
+	if ( nullptr != m_handle )
 	{
 		free(m_handle);
-		m_handle=NULL;
+		m_handle=nullptr;
 	}
 
 	if (-1 != m_dupStderr)
@@ -107,12 +107,12 @@ FileDescriptorLogHandler::~FileDescriptorLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
 {
-    if (NULL == m_handle)
+    if (nullptr == m_handle)
 	{
         return CL_ERR_INITILIZATION_FAILED;
 	}
 
-	if (NULL == fileDesc)
+	if (nullptr == fileDesc)
 	{
 		return CL_ERR_LOGGER_FAILED;
 	}
@@ -127,7 +127,7 @@ cl_err_code FileDescriptorLogHandler::Init(ELogLevel level, const char* fileName
 	assert(-1 != m_dupStderr && "duplicate stderr failed");
 	DUP2(fileno(m_fileHandler), fileno(stderr));
 
-	const char* pTitle = (NULL == title) ?
+	const char* pTitle = (nullptr == title) ?
 		"\n##########################################################################################################\n" :
 		title;
 
@@ -184,7 +184,7 @@ void FileDescriptorLogHandler::Flush()
 /////////////////////////////////////////////////////////////////////////////////////////
 // FileLogHandler Ctor Implementation
 /////////////////////////////////////////////////////////////////////////////////////////
-FileLogHandler::FileLogHandler(const char* handle) : FileDescriptorLogHandler(handle), m_fileName(NULL)
+FileLogHandler::FileLogHandler(const char* handle) : FileDescriptorLogHandler(handle), m_fileName(nullptr)
 {
 }
 
@@ -193,16 +193,16 @@ FileLogHandler::FileLogHandler(const char* handle) : FileDescriptorLogHandler(ha
 /////////////////////////////////////////////////////////////////////////////////////////
 FileLogHandler::~FileLogHandler()
 {
-	if (NULL != m_fileHandler)
+	if (nullptr != m_fileHandler)
 	{
         fclose(m_fileHandler);
-		m_fileHandler=NULL;
+		m_fileHandler=nullptr;
 	}
 
-	if ( NULL != m_fileName )
+	if ( nullptr != m_fileName )
 	{
 		free(m_fileName);
-		m_fileName=NULL;
+		m_fileName=nullptr;
 	}
 }
 
@@ -211,21 +211,21 @@ FileLogHandler::~FileLogHandler()
 /////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code FileLogHandler::Init(ELogLevel level, const char* fileName, const char* title, FILE* fileDesc)
 {
-	if (m_handle == NULL)
+	if (m_handle == nullptr)
 	{
         return CL_ERR_INITILIZATION_FAILED;
 	}
-	if (NULL == fileName)
+	if (nullptr == fileName)
 	{
 		printf("logger initialization failed, fileName must be valid pointer\n");
 		return CL_ERR_LOGGER_FAILED;
 	}
     m_fileName = strdup_safe(fileName);
-	FILE* tFileHandler = NULL;
+	FILE* tFileHandler = nullptr;
     if (m_fileName)
     {
         tFileHandler = fopen(m_fileName, "w" );
-        if (NULL == tFileHandler)
+        if (nullptr == tFileHandler)
         {
             printf("can't open log file for writing\n");
             return CL_ERR_LOGGER_FAILED;

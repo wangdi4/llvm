@@ -135,7 +135,7 @@ static void IGNORE_GCC_UNUSED *mallocAndRegister(_PROVISONAL_MallocArray_t *base
 	if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to malloc too many memory objects!");
-		return NULL;
+		return nullptr;
 	}
 	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
 	m.isCPP   = false;
@@ -143,7 +143,7 @@ static void IGNORE_GCC_UNUSED *mallocAndRegister(_PROVISONAL_MallocArray_t *base
 	m.aligned = false;
 	m.str     = strCreation;
 	m.line    = lineNum;
-	m.cppData = NULL;
+	m.cppData = nullptr;
     PROV_DEBUG_PRINT("Allocating and registring ( %s ) in line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return m.data;
 }
@@ -155,7 +155,7 @@ static void IGNORE_GCC_UNUSED *alignedMallocAndRegister(_PROVISONAL_MallocArray_
 	if (base->mallocated_pos + 1 >= base->maxSize)
 	{
 		assert(false && "You are trying to malloc too many memory objects!");
-		return NULL;
+		return nullptr;
 	}
 
 	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
@@ -164,7 +164,7 @@ static void IGNORE_GCC_UNUSED *alignedMallocAndRegister(_PROVISONAL_MallocArray_
 	m.aligned = true;
 	m.str     = strCreation;
 	m.line    = lineNum;
-	m.cppData = NULL;
+	m.cppData = nullptr;
     PROV_DEBUG_PRINT("Allocating Aligned and registering ( %s ) in line %u at position %lu\n", m.str, (cl_uint)m.line, base->mallocated_pos);
 	return m.data;
 }
@@ -182,12 +182,12 @@ DataP registerObject(_PROVISONAL_MallocArray_t *base, DataP obj, const char *cre
 	{
 		assert(false && "You are trying to construct too many objects!");
 		wrapper->deleteObject();
-		return NULL;
+		return nullptr;
 	}
 
 	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
 	m.isCPP   = true;
-	m.data    = NULL;
+	m.data    = nullptr;
 	m.aligned = true;
 	m.str     = creationStr;
 	m.line    = line;
@@ -207,12 +207,12 @@ DataP registerNewArr(_PROVISONAL_MallocArray_t *base, DataP arr, const char *cre
 	{
 		assert(false && "You are trying to construct too many objects!");
 		wrapper->deleteObject();
-		return NULL;
+		return nullptr;
 	}
 
 	_PROVISONAL_SingleData_t m = base->mallocArr[++base->mallocated_pos];
 	m.isCPP   = true;
-	m.data    = NULL;
+	m.data    = nullptr;
 	m.aligned = false;
 	m.str     = creationStr;
 	m.line    = line;
@@ -242,7 +242,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
             	} else {
             		free(m.data);
             	}
-            	m.data  = NULL;
+            	m.data  = nullptr;
             	m.isCPP = false;
             }
         }
@@ -258,7 +258,7 @@ static void finalizeMalloc(_PROVISONAL_MallocArray_t *base, const bool keep)
 	        }
 	        delete mcpp;
 	        m.isCPP = false;
-	        m.cppData = NULL;
+	        m.cppData = nullptr;
         }
         #endif // __cplusplus
     }

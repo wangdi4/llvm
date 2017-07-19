@@ -52,7 +52,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 static string GetCommandName()
 {
     char pathCstr[256]; // maximum length of a filename in Windows
-    const DWORD strLen = GetModuleFileName(NULL, pathCstr, sizeof(pathCstr));
+    const DWORD strLen = GetModuleFileName(nullptr, pathCstr, sizeof(pathCstr));
     assert(GetLastError() != ERROR_INSUFFICIENT_BUFFER);    
     
     const string path(pathCstr);
@@ -75,11 +75,11 @@ static string GetCommandName()
 
 static tm GetLocalTime()
 {
-    time_t time = std::time(NULL);
+    time_t time = std::time(nullptr);
     assert(time != (time_t)-1);
 
     tm* const lt = std::localtime(&time);
-    assert(lt != NULL);
+    assert(lt != nullptr);
     return *lt;
 }
 
@@ -158,7 +158,7 @@ void FrameworkUserLogger::Setup(const string& filename, bool bLogErrors, bool bL
     m_bLogApis = bLogApis;
 }
 
-FrameworkUserLogger::FrameworkUserLogger() : m_bLogErrors(false), m_bLogApis(false), m_pOutput(NULL)
+FrameworkUserLogger::FrameworkUserLogger() : m_bLogErrors(false), m_bLogApis(false), m_pOutput(nullptr)
 {
     ConfigFile config(GetConfigFilePath());
     const string varName = "CL_CONFIG_USER_LOGGER";
@@ -202,7 +202,7 @@ void ApiLogger::EndApiFuncInternal(cl_int retVal)
 void ApiLogger::EndApiFuncInternal(const void* retPtr)
 {
     m_strStream << ") = 0x" << ios_base::hex << retPtr;
-    if (NULL != retPtr)
+    if (nullptr != retPtr)
     {
         m_iLastRetValue = CL_SUCCESS;
     }
@@ -230,7 +230,7 @@ void ApiLogger::PrintOutputParam(const string& name, const void* addr, size_t si
     if (bIsPtr2Ptr)
     {
         const void* const* pp = reinterpret_cast<const void* const*>(addr);
-        if (NULL != pp)
+        if (nullptr != pp)
         {
             m_stream << "0x" << hex << setfill('0') << setw(sizeof(void*) * 2) << *pp;
         }
@@ -357,7 +357,7 @@ void ApiLogger::PrintParamTypeAndName(const char* sParamTypeAndName)
 
 void ApiLogger::PrintCStringValInternal(const char* sVal)
 {
-    if (NULL != sVal)
+    if (nullptr != sVal)
     {
         m_strStream << sVal;
     }

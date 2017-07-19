@@ -9,10 +9,10 @@ template <class HandleType, class ParentHandleType>
 OCLObject<HandleType,ParentHandleType>::OCLObject(ParentHandleType* parent, const std::string& typeName) : 
     m_iId(0), m_uiRefCount(1), m_pParentHandle(parent), 
     m_bTerminate(false), m_bPreserveHandleOnDelete(false),
-    m_typename(typeName), m_pLoggerClient(NULL)
+    m_typename(typeName), m_pLoggerClient(nullptr)
 {
 	m_handle.object = this;
-	if ( NULL != parent )
+	if ( nullptr != parent )
 	{
 		m_handle.dispatch    = parent->dispatch;
 		m_handle.crtDispatch = parent->crtDispatch;
@@ -34,7 +34,7 @@ void OCLObject<HandleType, ParentHandleType>::operator delete (void * mem)
     OCLObject* me = (OCLObject*)mem;
     
     // HACK!!! do not delete CLObject if m_bPreserveHandleOnDelete was requested
-    if ((NULL != mem) && (!me->m_bPreserveHandleOnDelete))
+    if ((nullptr != mem) && (!me->m_bPreserveHandleOnDelete))
     {
         Intel::OpenCL::Utils::ReferenceCountedObject::operator delete( me );
     }

@@ -29,13 +29,13 @@ cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* p
 
     const size_t szDim = CalcPipeSize(uiPacketSize, uiMaxPackets);
     cl_err_code err = CL_SUCCESS;
-    if (NULL == pHostPtr)
+    if (nullptr == pHostPtr)
     {
-        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, NULL, 1, &szDim, NULL, NULL, 0);
+        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, nullptr, 1, &szDim, nullptr, nullptr, 0);
     }
     else
     {
-        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, NULL, 1, &szDim, NULL, pHostPtr, 0);
+        err = GenericMemObject::Initialize(CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, nullptr, 1, &szDim, nullptr, pHostPtr, 0);
     }
     if (CL_FAILED(err))
     {
@@ -61,24 +61,24 @@ cl_err_code Pipe::Initialize(cl_uint uiPacketSize, cl_uint uiMaxPackets, void* p
 
 cl_int Pipe::GetPipeInfo(cl_pipe_info paramName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet)
 {
-    if (NULL != pParamValue && szParamValueSize < sizeof(cl_uint))
+    if (nullptr != pParamValue && szParamValueSize < sizeof(cl_uint))
     {
         return CL_INVALID_VALUE;
     }
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = sizeof(cl_uint);
     }
     switch (paramName)
     {
     case CL_PIPE_PACKET_SIZE:
-        if (NULL != pParamValue)
+        if (nullptr != pParamValue)
         {
             *(cl_uint*)pParamValue = m_uiPacketSize;
         }
         break;
     case CL_PIPE_MAX_PACKETS:
-        if (NULL != pParamValue)
+        if (nullptr != pParamValue)
         {
             *(cl_uint*)pParamValue = m_uiMaxPackets;
         }

@@ -20,14 +20,14 @@
 
 #define INSTANTIATE_THREAD_MANAGER( Data )                                                                                                \
 template <>                                                                                                                               \
-THREAD_LOCAL TBB_ThreadDescriptor< Data >* Intel::OpenCL::TaskExecutor::TBB_ThreadManager< Data >::m_CurrentThreadGlobalID= NULL;         \
+THREAD_LOCAL TBB_ThreadDescriptor< Data >* Intel::OpenCL::TaskExecutor::TBB_ThreadManager< Data >::m_CurrentThreadGlobalID= nullptr;         \
 template <>                                                                                                                               \
 bool  Intel::OpenCL::TaskExecutor::TBB_ThreadManager< Data >::m_object_exists = false                                                     \
 
 
 template <class Data>
 TBB_ThreadManager<Data>::TBB_ThreadManager() :
-    m_DescriptorsArray(NULL), m_uiNumberOfStaticEntries(0), m_nextFreeEntry(0), m_bOverflowed(false)
+    m_DescriptorsArray(nullptr), m_uiNumberOfStaticEntries(0), m_nextFreeEntry(0), m_bOverflowed(false)
 {
 }
 
@@ -50,7 +50,7 @@ TBB_ThreadManager<Data>::Init( unsigned int uiNumberOfThreads )
     {
         m_DescriptorsArray = new TBB_ThreadDescriptor<Data>[m_uiNumberOfStaticEntries];
 
-        if (NULL == m_DescriptorsArray)
+        if (nullptr == m_DescriptorsArray)
         {
             m_object_exists = false;
             m_uiNumberOfStaticEntries = 0;
@@ -79,7 +79,7 @@ Data* TBB_ThreadManager<Data>::RegisterCurrentThread()
     assert( m_object_exists );
     if (!m_object_exists)
     {
-        return NULL;
+        return nullptr;
     }
 
     unsigned int myEntry = m_uiNumberOfStaticEntries;
@@ -105,9 +105,9 @@ Data* TBB_ThreadManager<Data>::RegisterCurrentThread()
         // Overflow, allocate on demand
         // These are not tracked anywhere so they leak, but we don't have to synchronize anything so hurray
         m_CurrentThreadGlobalID = new TBB_ThreadDescriptor<Data>;
-        if (NULL == m_CurrentThreadGlobalID)
+        if (nullptr == m_CurrentThreadGlobalID)
         {
-            return NULL;
+            return nullptr;
         }
     }
 

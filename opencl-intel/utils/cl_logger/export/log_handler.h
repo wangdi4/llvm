@@ -57,7 +57,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		LogHandler() : m_handle(NULL)
+		LogHandler() : m_handle(nullptr)
         {};
 
 		/******************************************************************************************
@@ -69,7 +69,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		******************************************************************************************/
 		virtual ~LogHandler()
         {
-			assert(m_handle==NULL && "Base handle expected to be released");
+			assert(m_handle==nullptr && "Base handle expected to be released");
         };
 
 		/******************************************************************************************
@@ -229,7 +229,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		* Author:		Uri Levy
 		* Date:			December 2008
 		******************************************************************************************/
-		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = NULL, FILE* fileDesc = stderr);
+		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = nullptr, FILE* fileDesc = stderr);
 
 	private:
         FileLogHandler& operator=(const FileLogHandler&);

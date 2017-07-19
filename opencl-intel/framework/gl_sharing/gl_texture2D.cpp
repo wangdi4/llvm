@@ -78,5 +78,5 @@ void GLTexture2D::BindFramebuffer2Texture()
 
 void GLTexture2D::TexSubImage()
 {
-	glTexSubImage2D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, 0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, NULL);
+	glTexSubImage2D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, 0, 0, (GLsizei)m_stDimensions[0], (GLsizei)m_stDimensions[1], m_glReadBackFormat, m_glReadBackType, nullptr);
 }

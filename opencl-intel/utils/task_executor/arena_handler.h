@@ -171,7 +171,7 @@ public:
 
     static Intel::OpenCL::Utils::SharedPtr<TEDevice> Allocate(
                                         const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
-                                        TBBTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& parent = NULL )
+                                        TBBTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& parent = nullptr )
     {
         return new TEDevice(device_desc, user_data, observer, taskExecutor, parent );
     }
@@ -181,7 +181,7 @@ public:
      * @return an object representing the sub-device in the TaskExecutor module
      * @param  user_handle - handle to be returned to used during GetCurrentDevice() calls
      */
-    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL );
+    virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr );
 
     /**
      * Reset ITaskExecutorObserver passed during device creation. Note: sub-devices share the same observer, so it will be reset for sub-devices also.
@@ -285,7 +285,7 @@ public:
     void on_scheduler_exit(bool bIsWorker, ArenaHandler& arena );
     bool on_scheduler_leaving( ArenaHandler& arena );
 
-    bool isSubDevice() const { return (NULL != m_pParentDevice.GetPtr()); }	
+    bool isSubDevice() const { return (nullptr != m_pParentDevice.GetPtr()); }	
 
     /**
      * @return whether the current thread is in this TEDevice's task_arena
@@ -336,7 +336,7 @@ private:
     TEDevice* get_root() 
     {
         TEDevice* device = this;
-        while (NULL != device->m_pParentDevice.GetPtr())
+        while (nullptr != device->m_pParentDevice.GetPtr())
         {
             device = device->m_pParentDevice.GetPtr();
         }
@@ -403,7 +403,7 @@ public:
      tbb::task* execute()
        {
            my_functor();
-           return NULL;
+           return nullptr;
        }
 };
 
@@ -427,7 +427,7 @@ void TEDevice::Enqueue(F& f)
     // If trapping exists for device, we need to some w/o to submit a task
 #ifdef __HARD_TRAPPING__
     tbb::Harness::TbbWorkersTrapper* trapper = m_worker_trapper;
-    if ( NULL != trapper )
+    if ( nullptr != trapper )
     {
         TrappingEnqueueFunctor<F> trapFunctor(f);
         m_mainArena.Execute(trapFunctor);
@@ -445,7 +445,7 @@ void TEDevice::Execute(F& f)
 {
     assert (1 == m_deviceDescriptor.uiNumOfLevels && "Currently we support single level arenas");
 #if defined(__HARD_TRAPPING__) && !defined(DEVICE_NATIVE)
-    assert (m_worker_trapper == NULL && "Execute() is not allowed on device with trapped workers");
+    assert (m_worker_trapper == nullptr && "Execute() is not allowed on device with trapped workers");
 #endif
 
     m_mainArena.Execute( f );
@@ -454,8 +454,8 @@ void TEDevice::Execute(F& f)
 inline
 void TBB_PerActiveThreadData::reset()
 {
-    device          = NULL;
-    user_tls        = NULL;
+    device          = nullptr;
+    user_tls        = nullptr;
     attach_level    = UNKNOWN_LEVEL;
     enter_tried_to_report = false;
     enter_reported  = false;

@@ -50,7 +50,7 @@ using namespace Intel::OpenCL::Framework;
 const char PlatformModule::m_vPlatformInfoStr[] = "FULL_PROFILE";
 const unsigned int PlatformModule::m_uiPlatformInfoStrSize = sizeof(m_vPlatformInfoStr) / sizeof(char);
 
-const char* PlatformModule::m_vPlatformVersionStr = NULL;
+const char* PlatformModule::m_vPlatformVersionStr = nullptr;
 #ifdef BUILD_EXPERIMENTAL_21
 const char PlatformModule::m_vPlatformNameStr[] = "Experimental OpenCL 2.1 CPU Only Platform";
 const unsigned int PlatformModule::m_uiPlatformNameStrSize = sizeof(m_vPlatformNameStr) / sizeof(char);
@@ -67,9 +67,9 @@ const unsigned int PlatformModule::m_uiPlatformVendorStrSize = sizeof(m_vPlatfor
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
 {
-    m_ppRootDevices        = NULL;
+    m_ppRootDevices        = nullptr;
     m_uiRootDevicesCount   = 0;
-    m_pOclEntryPoints      = NULL;
+    m_pOclEntryPoints      = nullptr;
     m_oclVersion           = OPENCL_VERSION_UNKNOWN;
     
     memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
@@ -96,8 +96,8 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
     }
 
     m_uiRootDevicesCount = 0;
-    m_pDefaultDevice = NULL;
-    m_ppRootDevices = NULL;
+    m_pDefaultDevice = nullptr;
+    m_ppRootDevices = nullptr;
 
     cl_err_code clErrRet = CL_SUCCESS;
     vector< SharedPtr<Device> > devicesList;
@@ -126,7 +126,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
 
     m_uiRootDevicesCount = devicesList.size();
     m_ppRootDevices = new SharedPtr<Device>[m_uiRootDevicesCount];
-    if (NULL == m_ppRootDevices)
+    if (nullptr == m_ppRootDevices)
     {
         m_uiRootDevicesCount = 0;
         return CL_OUT_OF_HOST_MEMORY;
@@ -160,7 +160,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
     *((ocl_entry_points*)(&m_clPlatformId)) = *m_pOclEntryPoints;    
 
     // initialize devices
-    m_pDefaultDevice = NULL;
+    m_pDefaultDevice = nullptr;
 
     // initialize GPA data
     m_pGPAData = pGPAData;
@@ -219,12 +219,12 @@ cl_err_code    PlatformModule::Release(bool bTerminate)
 
     // release devices
     m_mapDevices.ReleaseAllObjects(bTerminate);
-    m_pDefaultDevice = NULL;
+    m_pDefaultDevice = nullptr;
 
-    if (NULL != m_ppRootDevices)
+    if (nullptr != m_ppRootDevices)
     {
         delete[] m_ppRootDevices;
-        m_ppRootDevices = NULL;
+        m_ppRootDevices = nullptr;
     }
 
     LOG_INFO(TEXT("%s"), TEXT("Platform module logger release"));
@@ -242,20 +242,20 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
     LOG_INFO(TEXT("Enter GetPlatformIDs. (uiNumEntries=%d, pclPlatforms=%d, puiNumPlatforms=%d)"),
         uiNumEntries, pclPlatforms, puiNumPlatforms);
 
-    if ( ((0 == uiNumEntries) && (NULL != pclPlatforms)) ||
-         ((NULL == puiNumPlatforms) && (NULL == pclPlatforms)) )
+    if ( ((0 == uiNumEntries) && (nullptr != pclPlatforms)) ||
+         ((nullptr == puiNumPlatforms) && (nullptr == pclPlatforms)) )
     {
         LOG_ERROR(TEXT("%s"), TEXT("((0 == uiNumEntries) && (NULL != pclPlatforms)) || ((NULL == puiNumPlatforms) && (NULL != pclPlatforms))"));
         return CL_INVALID_VALUE;
     }
 
-    if ( (uiNumEntries > 0) && (NULL != pclPlatforms) )
+    if ( (uiNumEntries > 0) && (nullptr != pclPlatforms) )
     {
         *pclPlatforms = &m_clPlatformId;
     }
 
 
-    if (NULL != puiNumPlatforms)
+    if (nullptr != puiNumPlatforms)
     {
         *puiNumPlatforms = 1;
     }
@@ -298,8 +298,8 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     size_t szParamSize = 0;
     cl_ulong value = 0;
     void* pValue   = &value;
-    char * pch = NULL,  *pNextToken;
-    SharedPtr<Device> pDevice = NULL;
+    char * pch = nullptr,  *pNextToken;
+    SharedPtr<Device> pDevice = nullptr;
     bool bRes = true;
     cl_char pcPlatformExtension[8192] = {0};
     cl_char pcDeviceExtension[8192] = {0};
@@ -327,23 +327,23 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     case CL_PLATFORM_EXTENSIONS:
         assert ((m_uiRootDevicesCount > 0) && "No devices associated to the platform");
         pDevice = m_ppRootDevices[0];
-        clErr = m_ppRootDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, NULL);
+        clErr = m_ppRootDevices[0]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcDeviceExtension, nullptr);
         if (CL_FAILED(clErr))
         {
             return CL_INVALID_VALUE;
         }
         pch = STRTOK_S((char*)pcDeviceExtension," ", &pNextToken);
-        while (pch != NULL)
+        while (pch != nullptr)
         {
             bRes = true;
             for (size_t ui=1; ui<m_uiRootDevicesCount; ++ui)
             {
-                clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, NULL);
+                clErr = m_ppRootDevices[ui]->GetInfo(CL_DEVICE_EXTENSIONS, 8192, pcOtherDeviceExtension, nullptr);
                 if (CL_FAILED(clErr))
                 {
                     return CL_INVALID_VALUE;
                 }
-                if (NULL == strstr((char*)pcOtherDeviceExtension, pch))
+                if (nullptr == strstr((char*)pcOtherDeviceExtension, pch))
                 {
                     bRes = false;
                     break;
@@ -354,7 +354,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
                 STRCAT_S((char*)pcPlatformExtension, 8192, pch);
                 STRCAT_S((char*)pcPlatformExtension, 8192, " ");
             }
-            pch = STRTOK_S(NULL, " ", &pNextToken);
+            pch = STRTOK_S(nullptr, " ", &pNextToken);
         }
 
         pValue = pcPlatformExtension;
@@ -375,7 +375,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pParamValue)
+    if (nullptr != pParamValue)
     {
         if (szParamValueSize < szParamSize)
         {
@@ -387,7 +387,7 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
     }
 
     // The size should be return only if successful copy was completed (CSSD100011955)
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = szParamSize;
     }
@@ -415,8 +415,8 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
         return CL_INVALID_DEVICE_TYPE;
     }
 
-    if ((NULL != pclDevices && 0 == uiNumEntries) ||
-        (NULL == pclDevices && NULL == puiNumDevices))
+    if ((nullptr != pclDevices && 0 == uiNumEntries) ||
+        (nullptr == pclDevices && nullptr == puiNumDevices))
     {
         LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDevices && NULL == puiNumDevices"));
         return CL_INVALID_VALUE;
@@ -424,8 +424,8 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
     size_t uiNumDevices = m_uiRootDevicesCount;
     cl_uint uiRetNumDevices = 0; // this will be used for the num_devices return value;
-    SharedPtr<Device>* ppDevices = NULL;
-    cl_device_id * pDeviceIds = NULL;
+    SharedPtr<Device>* ppDevices = nullptr;
+    cl_device_id * pDeviceIds = nullptr;
 
     if (uiNumDevices == 0)
     {
@@ -438,7 +438,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
     // prepare list for all devices
     ppDevices = new SharedPtr<Device> [uiNumDevices];
-    if (NULL == ppDevices)
+    if (nullptr == ppDevices)
     {
         LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for devices (NULL == ppDevices)"));
         return CL_OUT_OF_HOST_MEMORY;
@@ -448,7 +448,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
         ppDevices[i] = m_ppRootDevices[i];
     }
     pDeviceIds = new cl_device_id[uiNumDevices];
-    if (NULL == pDeviceIds)
+    if (nullptr == pDeviceIds)
     {
         LOG_ERROR(TEXT("%s"), TEXT("can't allocate memory for device ids (NULL == pDeviceIds)"));
         delete[] ppDevices;
@@ -474,7 +474,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
             {
                 // get device type
                 cl_device_type clType;
-                cl_int iErrRet = ppDevices[ui]->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, NULL);
+                cl_int iErrRet = ppDevices[ui]->GetInfo(CL_DEVICE_TYPE, sizeof(cl_device_type), &clType, nullptr);
                 // check that the current device type satisfactory
                 if (iErrRet == 0 && ((clType & clDeviceType) == clType))
                 {
@@ -491,7 +491,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
         return CL_DEVICE_NOT_FOUND;
     }
 
-    if (NULL != pclDevices)
+    if (nullptr != pclDevices)
     {
         cl_uint uiNumDevicesToAdd = min(uiRetNumDevices,uiNumEntries);
 
@@ -501,7 +501,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
         }
     }
 
-    if (NULL != puiNumDevices)
+    if (nullptr != puiNumDevices)
     {
         *puiNumDevices = uiRetNumDevices;
     }
@@ -519,10 +519,10 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
                                       void* pParamValue,
                                       size_t* pszParamValueSizeRet)
 {
-    SharedPtr<FissionableDevice> pDevice = NULL;
+    SharedPtr<FissionableDevice> pDevice = nullptr;
     size_t szParamSize = 0;
     cl_bool bBoolValue = CL_TRUE;
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
 	  const cl_platform_id id = &m_clPlatformId;
 
     switch(clParamName)
@@ -559,7 +559,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
         return pDevice->GetInfo(clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
     }
 
-    if (NULL != pParamValue)
+    if (nullptr != pParamValue)
     {
         if (szParamValueSize < szParamSize)
         {
@@ -570,7 +570,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szParamSize);
     }
 
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = szParamSize;
     }
@@ -583,7 +583,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 cl_err_code    PlatformModule::GetRootDevice(cl_device_id clDeviceId, SharedPtr<Device>* ppDevice)
 {
     LOG_INFO(TEXT("PlatformModule::GetDevice enter. clDeviceId=%d, ppDevices=%d"),clDeviceId, ppDevice);
-    assert( (NULL != ppDevice) );
+    assert( (nullptr != ppDevice) );
     // get the device from the devices list
     SharedPtr<FissionableDevice> temp = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDeviceId).DynamicCast<FissionableDevice>();
     if (!temp)
@@ -620,15 +620,15 @@ cl_int PlatformModule::UnloadCompiler(void)
 cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret)
 {
 #if defined (_WIN32) //TODO GL support for Linux
-    if ( NULL == properties )
+    if ( nullptr == properties )
     {
         return CL_INVALID_VALUE;
     }
 
     cl_context_properties hGL, hDC;
     cl_int ret;
-    SharedPtr<FissionableDevice> pDevice = NULL;
-    cl_device_id    devId = NULL;
+    SharedPtr<FissionableDevice> pDevice = nullptr;
+    cl_device_id    devId = nullptr;
 
     switch(param_name)
     {
@@ -644,7 +644,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
             return ret;
         }
 
-        if ( NULL != param_value_size_ret )
+        if ( nullptr != param_value_size_ret )
         {
             *param_value_size_ret = ( uiNumDevices * sizeof(cl_device_id) );
         }
@@ -663,17 +663,17 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
         {
             
             pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-            if (NULL != pDevice)
+            if (nullptr != pDevice)
             {
                 size_t extensionsSize = 0;                
-                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, 0, NULL, &extensionsSize);                
+                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionsSize);                
                 if (CL_FAILED(ret))
                 {
                     return ret;
                 }
                 std::string extensions;
                 extensions.resize(extensionsSize);
-                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, extensionsSize, &extensions[0], NULL);
+                ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, extensionsSize, &extensions[0], nullptr);
                 if (CL_FAILED(ret))
                 {
                     return ret;
@@ -687,21 +687,21 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
         }
 
         // Check parameters
-        if ( (NULL == param_value) && (0 == param_value_size) && (NULL != param_value_size_ret) )
+        if ( (nullptr == param_value) && (0 == param_value_size) && (nullptr != param_value_size_ret) )
         {
             *param_value_size_ret = sizeof(cl_device_id);
             return CL_SUCCESS;
         }
 
-        if ( (NULL == param_value) || (sizeof(cl_device_id) > param_value_size) )
+        if ( (nullptr == param_value) || (sizeof(cl_device_id) > param_value_size) )
         {
             return CL_INVALID_VALUE;
         }
 
         *(cl_device_id*)param_value = devId;
-        if ( NULL != param_value_size_ret)
+        if ( nullptr != param_value_size_ret)
         {
-            *param_value_size_ret = NULL == devId ? 0 : sizeof(cl_device_id);
+            *param_value_size_ret = nullptr == devId ? 0 : sizeof(cl_device_id);
         }
         break;
 
@@ -730,7 +730,7 @@ public:
 
     cl_err_code CreateRootDevice()
     {
-        m_bNeedToCreateDevice = ((0 != m_pParentDevice) && (NULL == m_pParentDevice->GetDeviceAgent()));
+        m_bNeedToCreateDevice = ((0 != m_pParentDevice) && (nullptr == m_pParentDevice->GetDeviceAgent()));
         return (m_bNeedToCreateDevice ? m_pParentDevice->GetRootDevice()->CreateInstance() : CL_SUCCESS);
     }
 
@@ -755,7 +755,7 @@ cl_err_code PlatformModule::GetHostTimer(cl_device_id device, cl_ulong* host_tim
     {
         return CL_INVALID_DEVICE;
     }
-    if (NULL == host_timestamp)
+    if (nullptr == host_timestamp)
     {
         return CL_INVALID_VALUE;
     }
@@ -772,7 +772,7 @@ cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device, cl_ulong*
     {
         return CL_INVALID_DEVICE;
     }
-    if ((NULL == host_timestamp) || (NULL == device_timestamp))
+    if ((nullptr == host_timestamp) || (nullptr == device_timestamp))
     {
         return CL_INVALID_VALUE;
     }
@@ -794,14 +794,14 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
         return CL_INVALID_DEVICE;
     }
 
-    if (NULL == properties)
+    if (nullptr == properties)
     {
         return CL_INVALID_VALUE;
     }
 
     if (0 == num_entries)
     {
-        if (NULL != out_devices)
+        if (nullptr != out_devices)
         {
             return CL_INVALID_VALUE;
         }
@@ -816,16 +816,16 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
 
     //Get the number of devices to be generated
-    ret = pParentDevice->FissionDevice(properties, 0, NULL, &numOutputDevices, NULL);
+    ret = pParentDevice->FissionDevice(properties, 0, nullptr, &numOutputDevices, nullptr);
     if (ret != CL_SUCCESS)
     {
         return ret;
     }
 
     //if the user is only interested in count
-    if (NULL == out_devices)
+    if (nullptr == out_devices)
     {
-        if (NULL == num_devices)
+        if (nullptr == num_devices)
         {
             return CL_INVALID_VALUE;
         }
@@ -849,12 +849,12 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     numSubdevicesToCreate = numOutputDevices;
 
     cl_dev_subdevice_id* subdevice_ids = new cl_dev_subdevice_id[numSubdevicesToCreate];
-    if (NULL == subdevice_ids)
+    if (nullptr == subdevice_ids)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
     size_t* sizes = new size_t[numSubdevicesToCreate];
-    if (NULL == sizes)
+    if (nullptr == sizes)
     {
         delete[] subdevice_ids;
         return CL_OUT_OF_HOST_MEMORY;
@@ -867,7 +867,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     }
     //If we're here, the device was successfully fissioned. Create the new FissionableDevice objects and add them as appropriate
     SharedPtr<FissionableDevice>* pNewDevices = new SharedPtr<FissionableDevice>[numSubdevicesToCreate];
-    if (NULL == pNewDevices)
+    if (nullptr == pNewDevices)
     {
         delete[] subdevice_ids;
         delete[] sizes;
@@ -913,7 +913,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 
     delete[] pNewDevices;
 
-    if (NULL != num_devices)
+    if (nullptr != num_devices)
     {
         *num_devices = tNumDevices;
     }
@@ -943,12 +943,12 @@ void PlatformModule::RemoveAllDevices(bool preserve_user_handles)
         m_mapDevices.SetPreserveUserHandles();
     }
     m_mapDevices.ReleaseAllObjects(false);
-      m_pDefaultDevice = NULL;
+      m_pDefaultDevice = nullptr;
 
-    if (NULL != m_ppRootDevices)
+    if (nullptr != m_ppRootDevices)
     {
         delete[] m_ppRootDevices;
-        m_ppRootDevices      = NULL;
+        m_ppRootDevices      = nullptr;
         m_uiRootDevicesCount = 0;
     }
 }
@@ -989,19 +989,19 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
                                             cl_uint *puiNumDevices,
                                             const ID3DSharingDefinitions& d3dDefinitions)
 {
-    if (NULL == clPlatform)
+    if (nullptr == clPlatform)
     {
         LOG_ERROR(TEXT("clPlatform is NULL"));
         return CL_INVALID_PLATFORM;
     }
     LOG_INFO(TEXT("Enter GetDeviceIDsFromD3D(clPlatform=%d, uiNumMediaAdapters=%d, pMediaAdaptersType=%p, ppMediaAdapters=%p, clD3dDeviceSet=%d, uiNumEntries=%d, pclDevices=%p, puiNumDevices=%p"),
         clPlatform, uiNumMediaAdapters, pMediaAdaptersType, ppMediaAdapters, clD3dDeviceSet, uiNumEntries, pclDevices, puiNumDevices);
-    if (NULL != pclDevices && 0 == uiNumEntries)
+    if (nullptr != pclDevices && 0 == uiNumEntries)
     {
         LOG_ERROR(TEXT("uiNumEntries is equal to zero and pclDevices is not NULL."));
         return CL_INVALID_VALUE;
     }
-    if (NULL == pclDevices && NULL == puiNumDevices)
+    if (nullptr == pclDevices && nullptr == puiNumDevices)
     {
         LOG_ERROR(TEXT("both puiNumDevices and pclDevices are NULL."));
         return CL_INVALID_VALUE;
@@ -1016,11 +1016,11 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
         LOG_ERROR(TEXT("clD3dDeviceSet is not a valid value."));
         return CL_INVALID_VALUE;
     }
-    if (0 == uiNumMediaAdapters || NULL == pMediaAdaptersType || NULL == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR)
+    if (0 == uiNumMediaAdapters || nullptr == pMediaAdaptersType || nullptr == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_KHR)
     {
         return CL_INVALID_VALUE;
     }
-    if (NULL == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
+    if (nullptr == ppMediaAdapters && d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
     {
         return CL_DEVICE_NOT_FOUND;
     }
@@ -1035,7 +1035,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
         /* ppMediaAdapters is defined to be of type void* by the spec. However, this is clearly a bug and it should be of type void**. The problem is that the conformance
             test indeed treats it like void* while passing 1 as uiNumMediaAdapters. This of course can't work for numbers greater than 1. Therefore I'm writing the condition
             like this. When the spec is fixed, I'll change it. */
-        if (NULL == (void*)ppMediaAdapters && 1 == uiNumMediaAdapters || uiNumMediaAdapters > 1 && NULL != (void*)ppMediaAdapters && NULL == ((void**)ppMediaAdapters)[i])
+        if (nullptr == (void*)ppMediaAdapters && 1 == uiNumMediaAdapters || uiNumMediaAdapters > 1 && nullptr != (void*)ppMediaAdapters && nullptr == ((void**)ppMediaAdapters)[i])
         {
             if (d3dDefinitions.GetVersion() == ID3DSharingDefinitions::D3D9_INTEL)
             {
@@ -1048,7 +1048,7 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
         }
     }
     size_t szDevIndex = 0;
-    if (NULL != puiNumDevices)
+    if (nullptr != puiNumDevices)
     {
         *puiNumDevices = 0;
     }
@@ -1062,13 +1062,13 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
         {        
             size_t szParamValSize;
 
-            cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0, NULL, &szParamValSize);
+            cl_err_code err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &szParamValSize);
             if (CL_FAILED(err))
             {
                 return err;
             }
             clLocalArray<char> sDevEx(szParamValSize);
-            err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize, (char*)sDevEx, NULL);
+            err = m_ppRootDevices[i]->GetInfo(CL_DEVICE_EXTENSIONS, szParamValSize, (char*)sDevEx, nullptr);
             if (CL_FAILED(err))
             {
                 return err;
@@ -1076,11 +1076,11 @@ cl_int PlatformModule::GetDeviceIDsFromD3D(cl_platform_id clPlatform,
             if (std::string((char*)sDevEx).find(d3dDefinitions.GetExtensionName()) != std::string::npos)
             {
                 szFoundDevices++;
-                if (NULL != pclDevices && szDevIndex < uiNumEntries)
+                if (nullptr != pclDevices && szDevIndex < uiNumEntries)
                 {
                     pclDevices[szDevIndex++] = m_ppRootDevices[i]->GetHandle();
                 }
-                if (NULL != puiNumDevices)
+                if (nullptr != puiNumDevices)
                 {
                     (*puiNumDevices)++;
                 }        

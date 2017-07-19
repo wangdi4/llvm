@@ -14,7 +14,7 @@ void NotifierEventsMapper::addEventPair(cl_event userEvent, cl_event notifierEve
 cl_event NotifierEventsMapper::getNotifierEvent(cl_event userEvent)
 {
     OclAutoMutex M(&m_lock);
-    cl_event notifierEvent = NULL;
+    cl_event notifierEvent = nullptr;
     map<cl_event, cl_event>::iterator it;
     it = m_eventsMap.find(userEvent);
     if (m_eventsMap.end() != it)
@@ -26,7 +26,7 @@ cl_event NotifierEventsMapper::getNotifierEvent(cl_event userEvent)
 cl_event NotifierEventsMapper::getUserEvent(cl_event notifierEvent)
 {
     OclAutoMutex M(&m_lock);
-    cl_event userEvent = NULL;
+    cl_event userEvent = nullptr;
     map<cl_event, cl_event>::iterator it;
     for (it = m_eventsMap.begin(); m_eventsMap.end() != it; ++it)
     {

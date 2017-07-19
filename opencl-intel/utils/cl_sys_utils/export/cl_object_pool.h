@@ -87,7 +87,7 @@ ElemType* ObjectPool<ElemType>::Malloc()
     else
     {
         ElemType* const pElem = m_stack.top();
-        assert(NULL != pElem);
+        assert(nullptr != pElem);
         m_stack.pop();
         m_mutex.Unlock();
         return pElem;
@@ -97,7 +97,7 @@ ElemType* ObjectPool<ElemType>::Malloc()
 template<typename ElemType>
 void ObjectPool<ElemType>::Free(ElemType* pObj)
 {
-    assert(NULL != pObj);
+    assert(nullptr != pObj);
     OclAutoMutex autoMutex(&m_mutex);
     m_stack.push(pObj);
 }

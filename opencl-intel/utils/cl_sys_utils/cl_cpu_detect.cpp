@@ -218,8 +218,8 @@ CPUDetect::CPUDetect(void) :
     m_bIsGenuineIntel (false),
     m_ucStepping(0),
     m_ucType(0),
-    m_szCPUString(NULL),
-    m_szCPUBrandString(NULL),
+    m_szCPUString(nullptr),
+    m_szCPUBrandString(nullptr),
     m_uiCPUFeatures(0),
     m_uiCoreCount(0),
     m_i16ProcessorSignature(0),
@@ -407,7 +407,7 @@ void CPUDetect::GetCPUInfo()
     }
 
     // detect CPU brand
-    if (NULL != m_szCPUBrandString)
+    if (nullptr != m_szCPUBrandString)
     {
         if (m_szCPUBrandString == strstr(m_szCPUBrandString, "Intel(R) Core(TM)"))
         {

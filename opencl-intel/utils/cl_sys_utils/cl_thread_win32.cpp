@@ -38,7 +38,7 @@ const unsigned int MAX_UINT = 0xffffffff;
  * Creates thread object. Doesn't create 
 /************************************************************************/
 OclThread::OclThread(string name, bool bAutoDelete ):
-m_threadHandle(NULL),
+m_threadHandle(nullptr),
 m_threadId(MAX_UINT),
 m_running(false),
 m_Name(name),
@@ -68,11 +68,11 @@ OclThread::~OclThread()
 void OclThread::Clean()
 {
     // m_running = false;	-- thread still can run when cleaning
-    if (NULL != m_threadHandle)
+    if (nullptr != m_threadHandle)
     {
         // Close handle
         CloseHandle(m_threadHandle);
-        m_threadHandle = NULL;
+        m_threadHandle = nullptr;
     }
     m_threadId = MAX_UINT;
     m_join.exchange(0);
@@ -141,13 +141,13 @@ int OclThread::Start()
     m_running = true;
     
     // Check if the previous start call ended naturally or by Joined/Terminated
-    if(NULL != m_threadHandle)
+    if(nullptr != m_threadHandle)
     {
         Clean();
     }
 
     // Create the thread and run it immediately
-    m_threadHandle = (void*)_beginthreadex(NULL, 0, ThreadEntryPoint, this, 0, &m_threadId);
+    m_threadHandle = (void*)_beginthreadex(nullptr, 0, ThreadEntryPoint, this, 0, &m_threadId);
     if(!m_threadHandle)
     {
        Clean();
@@ -186,7 +186,7 @@ int OclThread::Join()
 int OclThread::WaitForCompletion()
 {
 	// If threadHandle already released or I try to wait for myself, return error.
-	if ((NULL == m_threadHandle) || (isSelf()))
+	if ((nullptr == m_threadHandle) || (isSelf()))
     {
         return THREAD_RESULT_FAIL;
     }
@@ -204,7 +204,7 @@ int OclThread::WaitForCompletion()
 /************************************************************************/
 void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 {
-	if ( NULL != m_threadHandle )
+	if ( nullptr != m_threadHandle )
 	{
 		TerminateThread(m_threadHandle, exitCode);
 	}

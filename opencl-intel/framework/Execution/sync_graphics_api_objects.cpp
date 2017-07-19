@@ -93,7 +93,7 @@ namespace Intel { namespace OpenCL { namespace Framework
             {
                 for (unsigned int i = 0; i < m_uiMemObjNum; i++)
                 {
-                    m_pMemObjects[i]->SetAcquireCmdEvent(NULL);
+                    m_pMemObjects[i]->SetAcquireCmdEvent(nullptr);
                 }
             }
             // if release command failed - do nothing
@@ -101,7 +101,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         if (m_pMemObjects)
         {
             delete [] m_pMemObjects;
-            m_pMemObjects = NULL;
+            m_pMemObjects = nullptr;
         }
         return CL_SUCCESS;
     }

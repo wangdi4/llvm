@@ -64,12 +64,12 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
         TBBTaskExecutor();
         virtual ~TBBTaskExecutor();
 
-        int  Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = NULL, size_t ulAdditionalRequiredStackSize = 0);
+        int  Init(Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger, unsigned int uiNumOfThreads = TE_AUTO_THREADS, ocl_gpa_data * pGPAData = nullptr, size_t ulAdditionalRequiredStackSize = 0);
         void Finalize();
 
         Intel::OpenCL::Utils::SharedPtr<ITEDevice>  CreateRootDevice(
                                                 const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
-                                                void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
+                                                void* user_data = nullptr, ITaskExecutorObserver* my_observer = nullptr );
 
         unsigned int GetMaxNumOfConcurrentThreads() const;
 

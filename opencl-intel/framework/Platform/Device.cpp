@@ -43,15 +43,15 @@ using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
-PlatformModule* volatile Device::m_pPlatformModule = NULL;
+PlatformModule* volatile Device::m_pPlatformModule = nullptr;
 
 Device::Device(_cl_platform_id_int* platform) :
-    FissionableDevice(platform),m_bFrontEndCompilerDone(false),m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(NULL)
+    FissionableDevice(platform),m_bFrontEndCompilerDone(false),m_iNextClientId(1), m_pDeviceRefCount(0), m_devId(0), m_pDevice(nullptr)
 {
     // initialize logger client
     INIT_LOGGER_CLIENT(TEXT("Device"), LL_DEBUG);
     m_mapDeviceLoggerClinets[0] = GET_LOGGER_CLIENT;
-    m_pFrontEndCompiler = NULL;
+    m_pFrontEndCompiler = nullptr;
 
     LOG_DEBUG(TEXT("%s"), TEXT("Device constructor enter"));
 
@@ -71,7 +71,7 @@ void Device::Cleanup( bool bIsTerminate )
     while (it != m_mapDeviceLoggerClinets.end())
     {
         LoggerClient * pLoggerClient = it->second;
-        if (NULL != pLoggerClient)
+        if (nullptr != pLoggerClient)
         {
             delete pLoggerClient;
         }
@@ -99,7 +99,7 @@ cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void 
     cl_uint      one              = 1;
     const cl_bool clFalse         = CL_FALSE;    
     
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
 
     switch (param_name)
     {
@@ -154,12 +154,12 @@ cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void 
     }
 
     // return param value size
-    if (NULL != param_value_size_ret)
+    if (nullptr != param_value_size_ret)
     {
         *param_value_size_ret = szParamValueSize;
     }
 
-    if (NULL != param_value && szParamValueSize > 0)
+    if (nullptr != param_value && szParamValueSize > 0)
     {
         MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
     }
@@ -176,27 +176,27 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     }
 
     fn_clDevInitDeviceAgent* pFnClDevInitDeviceAgent = (fn_clDevInitDeviceAgent*)dlModule.GetFunctionPtrByName("clDevInitDeviceAgent");
-    if ( NULL == pFnClDevInitDeviceAgent )
+    if ( nullptr == pFnClDevInitDeviceAgent )
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
 
     // Get pointer to the GetInfo function
     fn_clDevGetDeviceInfo*    pFnClDevGetDeviceInfo = (fn_clDevGetDeviceInfo*)dlModule.GetFunctionPtrByName("clDevGetDeviceInfo");
-    if (NULL == pFnClDevGetDeviceInfo)
+    if (nullptr == pFnClDevGetDeviceInfo)
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
 
     // Get pointer to the GetTimer function
     fn_clDevGetDeviceTimer*    pFnClDevGetDeviceTimer = (fn_clDevGetDeviceTimer*)dlModule.GetFunctionPtrByName("clDevGetDeviceTimer");
-    if (NULL == pFnClDevGetDeviceTimer)
+    if (nullptr == pFnClDevGetDeviceTimer)
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
 
     fn_clDevGetAvailableDeviceList* pFnClDevGetAvailableDeviceList = (fn_clDevGetAvailableDeviceList*)dlModule.GetFunctionPtrByName("clDevGetAvailableDeviceList");
-    if (NULL == pFnClDevGetAvailableDeviceList)
+    if (nullptr == pFnClDevGetAvailableDeviceList)
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
@@ -208,7 +208,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     }
 
     size_t numDevicesInDeviceType = 0;
-    cl_dev_err_code dev_err = pFnClDevGetAvailableDeviceList(0, NULL, &numDevicesInDeviceType);
+    cl_dev_err_code dev_err = pFnClDevGetAvailableDeviceList(0, nullptr, &numDevicesInDeviceType);
 
     if ((CL_DEV_FAILED(dev_err)) || (0 == numDevicesInDeviceType))
     {
@@ -216,7 +216,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     }
 
     unsigned int* deviceIdsList = (unsigned int*)STACK_ALLOC(sizeof(unsigned int) * numDevicesInDeviceType);
-    if (NULL == deviceIdsList)
+    if (nullptr == deviceIdsList)
     {
         return CL_ERR_DEVICE_INIT_FAIL;
     }
@@ -247,7 +247,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
         if (CL_FAILED(clErr))
         {
             clErrRet = clErr;
-            pDevice = NULL;
+            pDevice = nullptr;
             continue;
         }
 
@@ -276,31 +276,31 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
     m_devId = devId;
 
     m_stMaxLocalMemorySize = 0;
-    cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, NULL);
+    cl_dev_err_code dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &m_stMaxLocalMemorySize, nullptr);
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, NULL);
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_TYPE, sizeof(cl_device_type), &m_deviceType, nullptr);
     }
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(m_CL_DEVICE_MAX_WORK_GROUP_SIZE), &m_CL_DEVICE_MAX_WORK_GROUP_SIZE, NULL);
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(m_CL_DEVICE_MAX_WORK_GROUP_SIZE), &m_CL_DEVICE_MAX_WORK_GROUP_SIZE, nullptr);
     }
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS), &m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, NULL);
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS), &m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, nullptr);
     }
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_SIZES), &m_CL_DEVICE_MAX_WORK_ITEM_SIZES, NULL);
+        dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(m_CL_DEVICE_MAX_WORK_ITEM_SIZES), &m_CL_DEVICE_MAX_WORK_ITEM_SIZES, nullptr);
     }
 
     if (CL_DEV_SUCCEEDED( dev_err ))
     {
-        cl_dev_err_code svm_dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES, sizeof(m_CL_DEVICE_SVM_CAPABILITIES), &m_CL_DEVICE_SVM_CAPABILITIES, NULL);
+        cl_dev_err_code svm_dev_err = m_pFnClDevGetDeviceInfo(m_devId, CL_DEVICE_SVM_CAPABILITIES, sizeof(m_CL_DEVICE_SVM_CAPABILITIES), &m_CL_DEVICE_SVM_CAPABILITIES, nullptr);
         m_bSvmSupported = CL_DEV_SUCCEEDED(svm_dev_err);
     }
 
@@ -320,7 +320,7 @@ cl_err_code Device::CreateInstance()
         {
             LOG_DEBUG(TEXT("%s"), TEXT("Creating new device instance (Device::CreateInstance)"));
             devCreateInstance = (fn_clDevCreateDeviceInstance*)m_dlModule.GetFunctionPtrByName("clDevCreateDeviceInstance");
-            if (NULL == devCreateInstance)
+            if (nullptr == devCreateInstance)
             {
                 LOG_ERROR(TEXT("%s"), TEXT("GetProcAddress(clDevCreateDeviceInstance) failed (devCreateInstance==NULL)"));
                 return CL_ERR_DEVICE_INIT_FAIL;
@@ -334,10 +334,10 @@ cl_err_code Device::CreateInstance()
                 return CL_DEVICE_NOT_AVAILABLE;
             }
             m_pDeviceRefCount++;
-            if (NULL == m_pPlatformModule)
+            if (nullptr == m_pPlatformModule)
             {
                 m_pPlatformModule = FrameworkProxy::Instance()->GetPlatformModule();
-                assert( NULL != m_pPlatformModule );
+                assert( nullptr != m_pPlatformModule );
             }
             m_pPlatformModule->DeviceCreated();
             LOG_DEBUG(TEXT("%s"), TEXT("Device::fn_clDevCreateDeviceInstance exit. (CL_SUCCESS)"));
@@ -360,7 +360,7 @@ cl_err_code Device::CloseDeviceInstance()
             m_pDevice->clDevCloseDevice();
             m_pPlatformModule->DeviceClosed();
         }
-        m_pDevice = NULL;
+        m_pDevice = nullptr;
     }
     assert(m_pDeviceRefCount>=0);
     return CL_SUCCESS;
@@ -368,7 +368,7 @@ cl_err_code Device::CloseDeviceInstance()
 
 cl_int Device::clLogCreateClient(cl_int device_id, const char* client_name, cl_int * client_id)
 {
-    if (NULL == client_id)
+    if (nullptr == client_id)
     {
         return CL_INVALID_VALUE;
     }
@@ -380,7 +380,7 @@ cl_int Device::clLogCreateClient(cl_int device_id, const char* client_name, cl_i
     }
 
     LoggerClient *pLoggerClient = new LoggerClient(client_name,LL_DEBUG);
-    if (NULL == pLoggerClient)
+    if (nullptr == pLoggerClient)
     {
         return CL_ERR_LOGGER_FAILED;
     }
@@ -415,7 +415,7 @@ cl_int Device::clLogAddLine(cl_int client_id, cl_int log_level,
         return CL_ERR_KEY_NOT_FOUND;
     }
     LoggerClient *pLoggerClient = it->second;
-    if (NULL != pLoggerClient)
+    if (nullptr != pLoggerClient)
     {
         va_list va;
         va_start(va, message);
@@ -438,7 +438,7 @@ void Device::clDevBuildStatusUpdate(cl_dev_program clDevProg, void * pData, cl_b
 
 void Device::clDevCmdStatusChanged(cl_dev_cmd_id cmd_id, void * pData, cl_int cmd_status, cl_int status_result, cl_ulong timer)
 {
-    if (NULL == pData)  // it's a device-side command
+    if (nullptr == pData)  // it's a device-side command
     {
         return;
     }
@@ -461,10 +461,10 @@ Intel::OpenCL::TaskExecutor::ITaskExecutor* Device::clDevGetTaskExecutor()
 void Device::InitFECompiler() const
 {
     const IOCLDeviceFECompilerDescription* pFEConfig = m_pDevice->clDevGetFECompilerDecription();
-    if (NULL == pFEConfig)
+    if (nullptr == pFEConfig)
     {
         // device doesn't have front-end compiler
-        m_pFrontEndCompiler = NULL;
+        m_pFrontEndCompiler = nullptr;
         return;
     }
     string strModule = pFEConfig->clDevFEModuleName();
@@ -482,7 +482,7 @@ void Device::InitFECompiler() const
     if (CL_FAILED(clErrRet))
     {
         assert( false && "FrontEndCompiler initialization failed" );
-        m_pFrontEndCompiler = NULL;
+        m_pFrontEndCompiler = nullptr;
     }
 }
 
@@ -504,7 +504,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
 {
     cl_err_code ret = CL_SUCCESS;
     cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
-    m_default_command_queue = NULL;
+    m_default_command_queue = nullptr;
     //identify the partition mode and translate to device enum
     cl_dev_partition_prop partitionMode;
 
@@ -574,12 +574,12 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
             partitionSizes.push_back((size_t)props[partitionIndex++]);
         }
         if (0 == partitionSizes.size() ||
-            GetInfo(CL_DEVICE_PARTITION_MAX_SUB_DEVICES, sizeof(maxSubDevices), &maxSubDevices, NULL) != CL_SUCCESS ||
+            GetInfo(CL_DEVICE_PARTITION_MAX_SUB_DEVICES, sizeof(maxSubDevices), &maxSubDevices, nullptr) != CL_SUCCESS ||
             partitionSizes.size() > maxSubDevices)
         {
             return CL_DEVICE_PARTITION_FAILED;
         }
-        if (NULL != sizes)
+        if (nullptr != sizes)
         {
             for (size_t i = 0; i < partitionSizes.size(); ++i)
             {
@@ -587,7 +587,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
             }
         }
         //If the user doesn't actually want fission, no reason to send it to the device, just return the size
-        if (NULL == out_devices)
+        if (nullptr == out_devices)
         {
             *num_devices = (cl_uint)partitionSizes.size();
             return CL_SUCCESS;
@@ -607,7 +607,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         }
 
         dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, &partitionSize, out_devices);
-        if (NULL != sizes)
+        if (nullptr != sizes)
         {
             if (CL_DEV_SUCCESS == dev_ret)
             {
@@ -630,12 +630,12 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         {
             return CL_INVALID_VALUE;
         }
-        if (NULL != sizes)
+        if (nullptr != sizes)
         {
             *sizes = partitionIndex - 1;
         }
         //If the user doesn't actually want fission, no reason to send it to the device, just return the size
-        if (NULL == out_devices)
+        if (nullptr == out_devices)
         {
             *num_devices = 1;
             return CL_SUCCESS;
@@ -648,7 +648,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
     }
     else // no other mode today requires an additional param
     {
-        dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, NULL, out_devices);
+        dev_ret = GetDeviceAgent()->clDevPartition(partitionMode, num_entries, GetSubdeviceId(), num_devices, nullptr, out_devices);
     }
     if (CL_SUCCESS != ret)
     {
@@ -687,11 +687,11 @@ FissionableDevice::UnsetDefaultQueueIfEqual(OclCommandQueue* command_queue)
     // The next two operations should be executed under a mutex otherwise
     // races may occur.
     const OclCommandQueue* res =
-        m_default_command_queue.test_and_set(command_queue, NULL);
+        m_default_command_queue.test_and_set(command_queue, nullptr);
     // If command queue was default command queue
     // than unset corresponding command list
     if (command_queue == res)
-        return GetDeviceAgent()->clDevSetDefaultCommandList(NULL);
+        return GetDeviceAgent()->clDevSetDefaultCommandList(nullptr);
     return CL_SUCCESS;
 }
 
@@ -708,16 +708,16 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
 {
     cl_uint uiNumEntries;
     bool bSupported = false;
-    cl_dev_err_code clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, 0, NULL, &uiNumEntries);
+    cl_dev_err_code clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, 0, nullptr, &uiNumEntries);
     assert(CL_SUCCESS == clErr);    
     cl_image_format* const pFormats = new cl_image_format[uiNumEntries];
 
-    if (NULL == pFormats)
+    if (nullptr == pFormats)
     {
         LOG_ERROR(TEXT("out of memory"), "");
         return false;
     }
-    clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, uiNumEntries, pFormats, NULL);
+    clErr = GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clMemObjType, uiNumEntries, pFormats, nullptr);
     assert(CL_SUCCESS == clErr);
     for (cl_uint i = 0; i < uiNumEntries; i++)
     {
@@ -734,7 +734,7 @@ bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgForma
 
 SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits, cl_dev_subdevice_id id, const cl_device_partition_property* props) :
     FissionableDevice((_cl_platform_id_int *)pParent->GetHandle()), m_pParentDevice(pParent), m_deviceId(id),
-        m_numComputeUnits(numComputeUnits), m_cachedFissionMode(NULL), m_cachedFissionLength(0)
+        m_numComputeUnits(numComputeUnits), m_cachedFissionMode(nullptr), m_cachedFissionLength(0)
 {
     m_pRootDevice = m_pParentDevice->GetRootDevice();
     CacheFissionProperties(props);
@@ -744,12 +744,12 @@ SubDevice::SubDevice(SharedPtr<FissionableDevice>pParent, size_t numComputeUnits
 
 SubDevice::~SubDevice()
 {
-    if (NULL != m_cachedFissionMode)
+    if (nullptr != m_cachedFissionMode)
     {
         delete []m_cachedFissionMode;
     }
     IOCLDeviceAgent* pRootAgent = GetDeviceAgent();
-    if ( !m_bTerminate && (NULL != pRootAgent) )
+    if ( !m_bTerminate && (nullptr != pRootAgent) )
     {
         pRootAgent->clDevReleaseSubdevice(m_deviceId);
     }
@@ -762,7 +762,7 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     size_t szParamValueSize = 0;
     cl_uint uValue = 0;
     cl_device_id clDevIdVal = 0;
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
 
     switch (param_name)
     {
@@ -807,19 +807,19 @@ cl_err_code SubDevice::GetInfo(cl_int param_name, size_t param_value_size, void 
     }
 
     // if param_value_size < actual value size return CL_INVALID_VALUE
-    if (NULL != param_value && param_value_size < szParamValueSize)
+    if (nullptr != param_value && param_value_size < szParamValueSize)
     {
         LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"), param_value_size, szParamValueSize);
         return CL_INVALID_VALUE;
     }
 
     // return param value size
-    if (NULL != param_value_size_ret)
+    if (nullptr != param_value_size_ret)
     {
         *param_value_size_ret = szParamValueSize;
     }
 
-    if (NULL != param_value && szParamValueSize > 0)
+    if (nullptr != param_value && szParamValueSize > 0)
     {
         MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
     }
@@ -844,7 +844,7 @@ void SubDevice::CacheFissionProperties(const cl_device_partition_property* props
             //Nothing, I'm just counting the property list length 
         }
         m_cachedFissionMode = new cl_device_partition_property[m_cachedFissionLength];
-        if (NULL == m_cachedFissionMode)
+        if (nullptr == m_cachedFissionMode)
         {
             //Todo: what?
             return;
