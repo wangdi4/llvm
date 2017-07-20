@@ -804,7 +804,8 @@ LookupResult DeviceTy::lookupMapping(void *HstPtrBegin, int64_t Size) {
       lr.Entry != HostDataToTargetMap.end(); ++lr.Entry) {
     auto &HT = *lr.Entry;
     // Is it contained?
-    lr.Flags.IsContained = hp >= HT.HstPtrBegin && hp < HT.HstPtrEnd &&
+    // CSA EDIT: allow for the case where Size==0 but hp==HstPtrBegin==HstPtrEnd.
+    lr.Flags.IsContained = hp >= HT.HstPtrBegin && (!Size || hp < HT.HstPtrEnd) &&
         (hp+Size) <= HT.HstPtrEnd;
     // Does it extend into an already mapped region?
     lr.Flags.ExtendsBefore = hp < HT.HstPtrBegin && (hp+Size) > HT.HstPtrBegin;
@@ -861,8 +862,10 @@ void *DeviceTy::getOrAllocTgtPtr(void *HstPtrBegin, void *HstPtrBase,
   } else if ((lr.Flags.ExtendsBefore || lr.Flags.ExtendsAfter) && !IsImplicit) {
     // Explicit extension of mapped data - not allowed.
     DP("Explicit extension of mapping is not allowed.\n");
-  } else if (Size) {
-    // If it is not contained and Size > 0 we should create a new entry for it.
+  } else {
+    // CSA EDIT: also create a map entry when Size==0.
+    // If it is not contained we should create a new entry for it.
+    assert(Size >= 0);
     IsNew = true;
     uintptr_t tp = (uintptr_t)RTL->data_alloc(RTLDeviceID, Size, HstPtrBegin);
     DP("Creating new map entry: HstBase=" DPxMOD ", HstBegin=" DPxMOD ", "
