@@ -81,6 +81,7 @@ void AArch64Subtarget::initializeProperties() {
     break;
   case CortexA57:
     MaxInterleaveFactor = 4;
+    PrefFunctionAlignment = 4;
     break;
   case ExynosM1:
     MaxInterleaveFactor = 4;
@@ -92,6 +93,10 @@ void AArch64Subtarget::initializeProperties() {
     MaxInterleaveFactor = 4;
     // FIXME: remove this to enable 64-bit SLP if performance looks good.
     MinVectorRegisterBitWidth = 128;
+    CacheLineSize = 128;
+    PrefetchDistance = 820;
+    MinPrefetchStride = 2048;
+    MaxPrefetchIterationsAhead = 8;
     break;
   case Kryo:
     MaxInterleaveFactor = 4;
@@ -126,8 +131,12 @@ void AArch64Subtarget::initializeProperties() {
     break;
   case CortexA35: break;
   case CortexA53: break;
-  case CortexA72: break;
-  case CortexA73: break;
+  case CortexA72:
+    PrefFunctionAlignment = 4;
+    break;
+  case CortexA73:
+    PrefFunctionAlignment = 4;
+    break;
   case Others: break;
   }
 }
@@ -164,7 +173,8 @@ struct AArch64GISelActualAccessor : public GISelAccessor {
 AArch64Subtarget::AArch64Subtarget(const Triple &TT, const std::string &CPU,
                                    const std::string &FS,
                                    const TargetMachine &TM, bool LittleEndian)
-    : AArch64GenSubtargetInfo(TT, CPU, FS), ReserveX18(TT.isOSDarwin()),
+    : AArch64GenSubtargetInfo(TT, CPU, FS),
+      ReserveX18(TT.isOSDarwin() || TT.isOSWindows()),
       IsLittle(LittleEndian), TargetTriple(TT), FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(FS, CPU)), TSInfo(),
       TLInfo(TM, *this), GISel() {

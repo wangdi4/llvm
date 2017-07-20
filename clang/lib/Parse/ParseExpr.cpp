@@ -1314,6 +1314,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     }
 
     // Fall through to treat the template-id as an id-expression.
+    LLVM_FALLTHROUGH;
   }
 
   case tok::kw_operator: // [C++] id-expression: operator/conversion-function-id
@@ -1484,9 +1485,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                              nullptr, LHS.get());
         break;
       }
-        
       // Fall through; this isn't a message send.
-                
+      LLVM_FALLTHROUGH;
+
     default:  // Not a postfix-expression suffix.
       return LHS;
     case tok::l_square: {  // postfix-expression: p-e '[' expression ']'
@@ -1865,7 +1866,7 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
     }
   }
 
-  // If we get here, the operand to the typeof/sizeof/alignof was an expresion.
+  // If we get here, the operand to the typeof/sizeof/alignof was an expression.
   isCastExpr = false;
   return Operand;
 }
@@ -1971,7 +1972,7 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   if (OpTok.isOneOf(tok::kw_alignof, tok::kw__Alignof))
     Diag(OpTok, diag::ext_alignof_expr) << OpTok.getIdentifierInfo();
 
-  // If we get here, the operand to the sizeof/alignof was an expresion.
+  // If we get here, the operand to the sizeof/alignof was an expression.
   if (!Operand.isInvalid())
     Operand = Actions.ActOnUnaryExprOrTypeTraitExpr(OpTok.getLocation(),
                                                     ExprKind,

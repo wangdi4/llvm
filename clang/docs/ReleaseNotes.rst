@@ -52,6 +52,9 @@ Major New Features
 Improvements to Clang's diagnostics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+-  -Wcast-qual was implemented for C++. C-style casts are now properly
+   diagnosed.
+
 -  -Wunused-lambda-capture warns when a variable explicitly captured
    by a lambda is not used in the body of the lambda.
 
@@ -59,6 +62,16 @@ New Compiler Flags
 ------------------
 
 The option ....
+
+Deprecated Compiler Flags
+-------------------------
+
+The following options are deprecated and ignored. They will be removed in
+future versions of Clang.
+
+- -fslp-vectorize-aggressive used to enable the BB vectorizing pass. They have been superseeded
+  by the normal SLP vectorizer.
+- -fno-slp-vectorize-aggressive used to be the default behavior of clang.
 
 New Pragmas in Clang
 -----------------------
@@ -69,7 +82,9 @@ Clang now supports the ...
 Attribute Changes in Clang
 --------------------------
 
--  ...
+-  The ``overloadable`` attribute now allows at most one function with a given
+   name to lack the ``overloadable`` attribute. This unmarked function will not
+   have its name mangled.
 
 Windows Support
 ---------------
@@ -186,6 +201,31 @@ Static Analyzer
 ---------------
 
 ...
+
+Undefined Behavior Sanitizer (UBSan)
+------------------------------------
+
+- The Undefined Behavior Sanitizer has a new check for pointer overflow. This
+  check is on by default. The flag to control this functionality is
+  -fsanitize=pointer-overflow.
+
+  Pointer overflow is an indicator of undefined behavior: when a pointer
+  indexing expression wraps around the address space, or produces other
+  unexpected results, its result may not point to a valid object.
+
+- UBSan has several new checks which detect violations of nullability
+  annotations. These checks are off by default. The flag to control this group
+  of checks is -fsanitize=nullability. The checks can be individially enabled
+  by -fsanitize=nullability-arg (which checks calls),
+  -fsanitize=nullability-assign (which checks assignments), and
+  -fsanitize=nullability-return (which checks return statements).
+
+- UBSan can now detect invalid loads from bitfields and from ObjC BOOLs.
+
+- UBSan can now avoid emitting unnecessary type checks in C++ class methods and
+  in several other cases where the result is known at compile-time. UBSan can
+  also avoid emitting unnecessary overflow checks in arithmetic expressions
+  with promoted integer operands.
 
 Core Analysis Improvements
 ==========================

@@ -39,7 +39,6 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/Transforms/Scalar.h"
 #include <algorithm>
 
 #define DEBUG_TYPE "memoryssa"
@@ -1872,7 +1871,6 @@ MemorySSAPrinterLegacyPass::MemorySSAPrinterLegacyPass() : FunctionPass(ID) {
 void MemorySSAPrinterLegacyPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<MemorySSAWrapperPass>();
-  AU.addPreserved<MemorySSAWrapperPass>();
 }
 
 bool MemorySSAPrinterLegacyPass::runOnFunction(Function &F) {
@@ -1957,6 +1955,7 @@ MemoryAccess *MemorySSA::CachingWalker::getClobberingMemoryAccess(
 #ifdef EXPENSIVE_CHECKS
   MemoryAccess *NewNoCache = Walker.findClobber(StartingAccess, Q);
   assert(NewNoCache == New && "Cache made us hand back a different result?");
+  (void)NewNoCache;
 #endif
   if (AutoResetWalker)
     resetClobberWalker();

@@ -90,6 +90,7 @@ set(Tests
   EmptyTest
   EquivalenceATest
   EquivalenceBTest
+  FlagsTest
   FourIndependentBranchesTest
   FullCoverageSetTest
   InitializeTest
@@ -118,6 +119,7 @@ set(Tests
   SingleStrncmpTest
   SpamyTest
   ShrinkControlFlowTest
+  ShrinkControlFlowSimpleTest
   ShrinkValueProfileTest
   StrcmpTest
   StrncmpOOBTest
@@ -206,6 +208,9 @@ include_directories(..)
 add_subdirectory(no-coverage)
 add_subdirectory(trace-pc)
 add_subdirectory(ubsan)
+if (NOT MSVC)
+  add_subdirectory(inline-8bit-counters)
+endif()
 
 add_library(LLVMFuzzer-DSO1 SHARED DSO1.cpp)
 add_library(LLVMFuzzer-DSO2 SHARED DSO2.cpp)

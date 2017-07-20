@@ -79,8 +79,7 @@ void EnableInThisThread() {
 
 u32 GetCurrentThread() {
   thread_local_data_t *data = get_tls_val(false);
-  CHECK(data);
-  return data->current_thread_id;
+  return data ? data->current_thread_id : kInvalidTid;
 }
 
 void SetCurrentThread(u32 tid) { get_tls_val(true)->current_thread_id = tid; }
@@ -157,13 +156,18 @@ void ProcessPlatformSpecificAllocations(Frontier *frontier) {
     if (flags()->use_root_regions) {
       for (uptr i = 0; i < root_regions->size(); i++) {
         ScanRootRegion(frontier, (*root_regions)[i], address, end_address,
-                       info.protection);
+                       info.protection & kProtectionRead);
       }
     }
 
     address = end_address;
   }
 }
+
+// On darwin, we can intercept _exit gracefully, and return a failing exit code
+// if required at that point. Calling Die() here is undefined behavior and
+// causes rare race conditions.
+void HandleLeaks() {}
 
 void DoStopTheWorld(StopTheWorldCallback callback, void *argument) {
   StopTheWorld(callback, argument);

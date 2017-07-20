@@ -12,6 +12,20 @@ In Polly 5 the following important changes have been incorporated.
 
 - Change ...
 
+-----------------------------------
+Robustness testing: AOSP and FFMPEG
+-----------------------------------
+
+Polly can now compile all of Android. While most of Android is not the primary
+target of polyhedral data locality optimizations, Android provides us with a
+large and diverse set of robustness tests.  Our new `nightly build bot
+<http://lab.llvm.org:8011/builders/aosp-O3-polly-before-vectorizer-unprofitable>`_
+ensures we do not regress.
+
+Polly also successfully compiles `FFMPEG <http://fate.ffmpeg.org/>`_ and
+obviously the `LLVM test suite
+<http://lab.llvm.org:8011/console?category=polly>`_.
+
 ---------------------------------------------------------
 C++ bindings for isl math library improve maintainability
 ---------------------------------------------------------
@@ -65,3 +79,12 @@ Before::
 
       return false;
     }
+
+--------------------------
+Improved Polly Diagnostics
+--------------------------
+
+Polly now uses the LLVM OptimizationDiagnosticInfo API for emitting diagnostic remarks.
+This allows Polly remarks to appear in the yaml optimization record when compiling
+with the flag -fsave-optimization-record. This also allow Polly remarks to appear in the opt-viewer
+tool, allowing for remarks to be viewed next to the source code, and sorted by hotness.

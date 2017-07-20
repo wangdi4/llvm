@@ -228,6 +228,12 @@ LLVM_DUMP_METHOD void MachineBasicBlock::dump() const {
 }
 #endif
 
+bool MachineBasicBlock::isLegalToHoistInto() const {
+  if (isReturnBlock() || hasEHPadSuccessor())
+    return false;
+  return true;
+}
+
 StringRef MachineBasicBlock::getName() const {
   if (const BasicBlock *LBB = getBasicBlock())
     return LBB->getName();
@@ -352,7 +358,9 @@ void MachineBasicBlock::removeLiveIn(MCPhysReg Reg, LaneBitmask LaneMask) {
 
 MachineBasicBlock::livein_iterator
 MachineBasicBlock::removeLiveIn(MachineBasicBlock::livein_iterator I) {
-  return LiveIns.erase(I);
+  // Get non-const version of iterator.
+  LiveInVector::iterator LI = LiveIns.begin() + (I - LiveIns.begin());
+  return LiveIns.erase(LI);
 }
 
 bool MachineBasicBlock::isLiveIn(MCPhysReg Reg, LaneBitmask LaneMask) const {
