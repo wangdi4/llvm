@@ -1,4 +1,4 @@
-//===------ LiveDebugValues.cpp - Tracking Debug Value MIs ----------------===//
+//===------ LiveDebugValues.cpp - Tracking Debug Value MIs ----------------===//G
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -43,7 +43,7 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "live-debug-values"
+#define DEBUG_TYPE "livedebugvalues"
 
 STATISTIC(NumInserted, "Number of DBG_VALUE instructions inserted");
 
@@ -283,7 +283,7 @@ public:
 
 char LiveDebugValues::ID = 0;
 char &llvm::LiveDebugValuesID = LiveDebugValues::ID;
-INITIALIZE_PASS(LiveDebugValues, "livedebugvalues", "Live DEBUG_VALUE analysis",
+INITIALIZE_PASS(LiveDebugValues, DEBUG_TYPE, "Live DEBUG_VALUE analysis",
                 false, false)
 
 /// Default construct and initialize the pass.
@@ -700,6 +700,11 @@ bool LiveDebugValues::ExtendRanges(MachineFunction &MF) {
 bool LiveDebugValues::runOnMachineFunction(MachineFunction &MF) {
   if (!MF.getFunction()->getSubprogram())
     // LiveDebugValues will already have removed all DBG_VALUEs.
+    return false;
+
+  // Skip functions from NoDebug compilation units.
+  if (MF.getFunction()->getSubprogram()->getUnit()->getEmissionKind() ==
+      DICompileUnit::NoDebug)
     return false;
 
   TRI = MF.getSubtarget().getRegisterInfo();

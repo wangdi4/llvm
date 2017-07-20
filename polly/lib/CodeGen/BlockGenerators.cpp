@@ -227,7 +227,7 @@ void BlockGenerator::copyInstScalar(ScopStmt &Stmt, Instruction *Inst,
     if (!NewOperand) {
       assert(!isa<StoreInst>(NewInst) &&
              "Store instructions are always needed!");
-      delete NewInst;
+      NewInst->deleteValue();
       return;
     }
 
@@ -318,16 +318,22 @@ Value *BlockGenerator::generateArrayLoad(ScopStmt &Stmt, LoadInst *Load,
 void BlockGenerator::generateArrayStore(ScopStmt &Stmt, StoreInst *Store,
                                         ValueMapT &BBMap, LoopToScevMapT &LTS,
                                         isl_id_to_ast_expr *NewAccesses) {
-  Value *NewPointer =
-      generateLocationAccessed(Stmt, Store, BBMap, LTS, NewAccesses);
-  Value *ValueOperand = getNewValue(Stmt, Store->getValueOperand(), BBMap, LTS,
-                                    getLoopForStmt(Stmt));
+  MemoryAccess &MA = Stmt.getArrayAccessFor(Store);
+  isl::set AccDom = give(isl_map_domain(MA.getAccessRelation()));
+  const char *Subject = isl_id_get_name(give(MA.getId()).keep());
 
-  if (PollyDebugPrinting)
-    RuntimeDebugBuilder::createCPUPrinter(Builder, "Store to  ", NewPointer,
-                                          ": ", ValueOperand, "\n");
+  generateConditionalExecution(Stmt, AccDom, Subject, [&, this]() {
+    Value *NewPointer =
+        generateLocationAccessed(Stmt, Store, BBMap, LTS, NewAccesses);
+    Value *ValueOperand = getNewValue(Stmt, Store->getValueOperand(), BBMap,
+                                      LTS, getLoopForStmt(Stmt));
 
-  Builder.CreateAlignedStore(ValueOperand, NewPointer, Store->getAlignment());
+    if (PollyDebugPrinting)
+      RuntimeDebugBuilder::createCPUPrinter(Builder, "Store to  ", NewPointer,
+                                            ": ", ValueOperand, "\n");
+
+    Builder.CreateAlignedStore(ValueOperand, NewPointer, Store->getAlignment());
+  });
 }
 
 bool BlockGenerator::canSyntheziseInStmt(ScopStmt &Stmt, Instruction *Inst) {
@@ -435,8 +441,12 @@ void BlockGenerator::copyBB(ScopStmt &Stmt, BasicBlock *BB, BasicBlock *CopyBB,
                             isl_id_to_ast_expr *NewAccesses) {
   EntryBB = &CopyBB->getParent()->getEntryBlock();
 
-  for (Instruction &Inst : *BB)
-    copyInstruction(Stmt, &Inst, BBMap, LTS, NewAccesses);
+  if (Stmt.isBlockStmt())
+    for (Instruction *Inst : Stmt.getInstructions())
+      copyInstruction(Stmt, Inst, BBMap, LTS, NewAccesses);
+  else
+    for (Instruction &Inst : *BB)
+      copyInstruction(Stmt, &Inst, BBMap, LTS, NewAccesses);
 }
 
 Value *BlockGenerator::getOrCreateAlloca(const MemoryAccess &Access) {
@@ -452,13 +462,13 @@ Value *BlockGenerator::getOrCreateAlloca(const ScopArrayInfo *Array) {
 
   if (Addr) {
     // Allow allocas to be (temporarily) redirected once by adding a new
-    // old-alloca-addr to new-addr mapping to GlobalMap. This funcitionality
+    // old-alloca-addr to new-addr mapping to GlobalMap. This functionality
     // is used for example by the OpenMP code generation where a first use
     // of a scalar while still in the host code allocates a normal alloca with
     // getOrCreateAlloca. When the values of this scalar are accessed during
     // the generation of the parallel subfunction, these values are copied over
     // to the parallel subfunction and each request for a scalar alloca slot
-    // must be forwared to the temporary in-subfunction slot. This mapping is
+    // must be forwarded to the temporary in-subfunction slot. This mapping is
     // removed when the subfunction has been generated and again normal host
     // code is generated. Due to the following reasons it is not possible to
     // perform the GlobalMap lookup right after creating the alloca below, but
@@ -553,6 +563,75 @@ void BlockGenerator::generateScalarLoads(
   }
 }
 
+Value *BlockGenerator::buildContainsCondition(ScopStmt &Stmt,
+                                              const isl::set &Subdomain) {
+  isl::ast_build AstBuild = give(isl_ast_build_copy(Stmt.getAstBuild()));
+  isl::set Domain = give(Stmt.getDomain());
+
+  isl::union_map USchedule = AstBuild.get_schedule();
+  USchedule = USchedule.intersect_domain(Domain);
+
+  assert(!USchedule.is_empty());
+  isl::map Schedule = isl::map::from_union_map(USchedule);
+
+  isl::set ScheduledDomain = Schedule.range();
+  isl::set ScheduledSet = Subdomain.apply(Schedule);
+
+  isl::ast_build RestrictedBuild = AstBuild.restrict(ScheduledDomain);
+
+  isl::ast_expr IsInSet = RestrictedBuild.expr_from(ScheduledSet);
+  Value *IsInSetExpr = ExprBuilder->create(IsInSet.copy());
+  IsInSetExpr = Builder.CreateICmpNE(
+      IsInSetExpr, ConstantInt::get(IsInSetExpr->getType(), 0));
+
+  return IsInSetExpr;
+}
+
+void BlockGenerator::generateConditionalExecution(
+    ScopStmt &Stmt, const isl::set &Subdomain, StringRef Subject,
+    const std::function<void()> &GenThenFunc) {
+  isl::set StmtDom = give(Stmt.getDomain());
+
+  // Don't call GenThenFunc if it is never executed. An ast index expression
+  // might not be defined in this case.
+  if (Subdomain.is_empty())
+    return;
+
+  // If the condition is a tautology, don't generate a condition around the
+  // code.
+  bool IsPartialWrite =
+      !StmtDom.intersect_params(give(Stmt.getParent()->getContext()))
+           .is_subset(Subdomain);
+  if (!IsPartialWrite) {
+    GenThenFunc();
+    return;
+  }
+
+  // Generate the condition.
+  Value *Cond = buildContainsCondition(Stmt, Subdomain);
+  BasicBlock *HeadBlock = Builder.GetInsertBlock();
+  StringRef BlockName = HeadBlock->getName();
+
+  // Generate the conditional block.
+  SplitBlockAndInsertIfThen(Cond, &*Builder.GetInsertPoint(), false, nullptr,
+                            &DT, &LI);
+  BranchInst *Branch = cast<BranchInst>(HeadBlock->getTerminator());
+  BasicBlock *ThenBlock = Branch->getSuccessor(0);
+  BasicBlock *TailBlock = Branch->getSuccessor(1);
+
+  // Assign descriptive names.
+  if (auto *CondInst = dyn_cast<Instruction>(Cond))
+    CondInst->setName("polly." + Subject + ".cond");
+  ThenBlock->setName(BlockName + "." + Subject + ".partial");
+  TailBlock->setName(BlockName + ".cont");
+
+  // Put the client code into the conditional block and continue in the merge
+  // block afterwards.
+  Builder.SetInsertPoint(ThenBlock, ThenBlock->getFirstInsertionPt());
+  GenThenFunc();
+  Builder.SetInsertPoint(TailBlock, TailBlock->getFirstInsertionPt());
+}
+
 void BlockGenerator::generateScalarStores(
     ScopStmt &Stmt, LoopToScevMapT &LTS, ValueMapT &BBMap,
     __isl_keep isl_id_to_ast_expr *NewAccesses) {
@@ -566,40 +645,38 @@ void BlockGenerator::generateScalarStores(
     if (MA->isOriginalArrayKind() || MA->isRead())
       continue;
 
-#ifndef NDEBUG
-    auto *StmtDom = Stmt.getDomain();
-    auto *AccDom = isl_map_domain(MA->getAccessRelation());
-    assert(isl_set_is_subset(StmtDom, AccDom) &&
-           "Scalar must be stored in all statement instances");
-    isl_set_free(StmtDom);
-    isl_set_free(AccDom);
-#endif
+    isl::set AccDom = give(isl_map_domain(MA->getAccessRelation()));
+    const char *Subject = isl_id_get_name(give(MA->getId()).keep());
 
-    Value *Val = MA->getAccessValue();
-    if (MA->isAnyPHIKind()) {
-      assert(MA->getIncoming().size() >= 1 &&
-             "Block statements have exactly one exiting block, or multiple but "
-             "with same incoming block and value");
-      assert(std::all_of(MA->getIncoming().begin(), MA->getIncoming().end(),
-                         [&](std::pair<BasicBlock *, Value *> p) -> bool {
-                           return p.first == Stmt.getBasicBlock();
-                         }) &&
-             "Incoming block must be statement's block");
-      Val = MA->getIncoming()[0].second;
-    }
-    auto Address =
-        getImplicitAddress(*MA, getLoopForStmt(Stmt), LTS, BBMap, NewAccesses);
+    generateConditionalExecution(Stmt, AccDom, Subject, [&, this, MA]() {
+      Value *Val = MA->getAccessValue();
+      if (MA->isAnyPHIKind()) {
+        assert(
+            MA->getIncoming().size() >= 1 &&
+            "Block statements have exactly one exiting block, or multiple but "
+            "with same incoming block and value");
+        assert(std::all_of(MA->getIncoming().begin(), MA->getIncoming().end(),
+                           [&](std::pair<BasicBlock *, Value *> p) -> bool {
+                             return p.first == Stmt.getBasicBlock();
+                           }) &&
+               "Incoming block must be statement's block");
+        Val = MA->getIncoming()[0].second;
+      }
+      auto Address = getImplicitAddress(*MA, getLoopForStmt(Stmt), LTS, BBMap,
+                                        NewAccesses);
 
-    Val = getNewValue(Stmt, Val, BBMap, LTS, L);
-    assert((!isa<Instruction>(Val) ||
-            DT.dominates(cast<Instruction>(Val)->getParent(),
-                         Builder.GetInsertBlock())) &&
-           "Domination violation");
-    assert((!isa<Instruction>(Address) ||
-            DT.dominates(cast<Instruction>(Address)->getParent(),
-                         Builder.GetInsertBlock())) &&
-           "Domination violation");
-    Builder.CreateStore(Val, Address);
+      Val = getNewValue(Stmt, Val, BBMap, LTS, L);
+      assert((!isa<Instruction>(Val) ||
+              DT.dominates(cast<Instruction>(Val)->getParent(),
+                           Builder.GetInsertBlock())) &&
+             "Domination violation");
+      assert((!isa<Instruction>(Address) ||
+              DT.dominates(cast<Instruction>(Address)->getParent(),
+                           Builder.GetInsertBlock())) &&
+             "Domination violation");
+      Builder.CreateStore(Val, Address);
+
+    });
   }
 }
 
@@ -781,6 +858,18 @@ void BlockGenerator::invalidateScalarEvolution(Scop &S) {
           SE.forgetValue(&Inst);
     else
       llvm_unreachable("Unexpected statement type found");
+
+  // Invalidate SCEV of loops surrounding the EscapeUsers.
+  for (const auto &EscapeMapping : EscapeMap) {
+    const EscapeUserVectorTy &EscapeUsers = EscapeMapping.second.second;
+    for (Instruction *EUser : EscapeUsers) {
+      if (Loop *L = LI.getLoopFor(EUser->getParent()))
+        while (L) {
+          SE.forgetLoop(L);
+          L = L->getParentLoop();
+        }
+    }
+  }
 }
 
 void BlockGenerator::finalizeSCoP(Scop &S) {
@@ -1107,7 +1196,7 @@ void VectorBlockGenerator::copyInstruction(
       return;
     }
 
-    // Falltrough: We generate scalar instructions, if we don't know how to
+    // Fallthrough: We generate scalar instructions, if we don't know how to
     // generate vector code.
   }
 
@@ -1184,12 +1273,12 @@ BasicBlock *RegionGenerator::repairDominance(BasicBlock *BB,
                                              BasicBlock *BBCopy) {
 
   BasicBlock *BBIDom = DT.getNode(BB)->getIDom()->getBlock();
-  BasicBlock *BBCopyIDom = BlockMap.lookup(BBIDom);
+  BasicBlock *BBCopyIDom = EndBlockMap.lookup(BBIDom);
 
   if (BBCopyIDom)
     DT.changeImmediateDominator(BBCopy, BBCopyIDom);
 
-  return BBCopyIDom;
+  return StartBlockMap.lookup(BBIDom);
 }
 
 // This is to determine whether an llvm::Value (defined in @p BB) is usable when
@@ -1242,7 +1331,8 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
          "Only region statements can be copied by the region generator");
 
   // Forget all old mappings.
-  BlockMap.clear();
+  StartBlockMap.clear();
+  EndBlockMap.clear();
   RegionMaps.clear();
   IncompletePHINodeMap.clear();
 
@@ -1264,8 +1354,10 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
   generateScalarLoads(Stmt, LTS, EntryBBMap, IdToAstExp);
 
   for (auto PI = pred_begin(EntryBB), PE = pred_end(EntryBB); PI != PE; ++PI)
-    if (!R->contains(*PI))
-      BlockMap[*PI] = EntryBBCopy;
+    if (!R->contains(*PI)) {
+      StartBlockMap[*PI] = EntryBBCopy;
+      EndBlockMap[*PI] = EntryBBCopy;
+    }
 
   // Iterate over all blocks in the region in a breadth-first search.
   std::deque<BasicBlock *> Blocks;
@@ -1299,7 +1391,8 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
     copyBB(Stmt, BB, BBCopy, RegionMap, LTS, IdToAstExp);
 
     // In order to remap PHI nodes we store also basic block mappings.
-    BlockMap[BB] = BBCopy;
+    StartBlockMap[BB] = BBCopy;
+    EndBlockMap[BB] = Builder.GetInsertBlock();
 
     // Add values to incomplete PHI nodes waiting for this block to be copied.
     for (const PHINodePairTy &PHINodePair : IncompletePHINodeMap[BB])
@@ -1320,9 +1413,10 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
   BasicBlock *ExitBBCopy = SplitBlock(Builder.GetInsertBlock(),
                                       &*Builder.GetInsertPoint(), &DT, &LI);
   ExitBBCopy->setName("polly.stmt." + R->getExit()->getName() + ".exit");
-  BlockMap[R->getExit()] = ExitBBCopy;
+  StartBlockMap[R->getExit()] = ExitBBCopy;
+  EndBlockMap[R->getExit()] = ExitBBCopy;
 
-  BasicBlock *ExitDomBBCopy = BlockMap.lookup(findExitDominator(DT, R));
+  BasicBlock *ExitDomBBCopy = EndBlockMap.lookup(findExitDominator(DT, R));
   assert(ExitDomBBCopy &&
          "Common exit dominator must be within region; at least the entry node "
          "must match");
@@ -1332,19 +1426,20 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
   // region control flow by hand after all blocks have been copied.
   for (BasicBlock *BB : SeenBlocks) {
 
-    BasicBlock *BBCopy = BlockMap[BB];
+    BasicBlock *BBCopyStart = StartBlockMap[BB];
+    BasicBlock *BBCopyEnd = EndBlockMap[BB];
     TerminatorInst *TI = BB->getTerminator();
     if (isa<UnreachableInst>(TI)) {
-      while (!BBCopy->empty())
-        BBCopy->begin()->eraseFromParent();
-      new UnreachableInst(BBCopy->getContext(), BBCopy);
+      while (!BBCopyEnd->empty())
+        BBCopyEnd->begin()->eraseFromParent();
+      new UnreachableInst(BBCopyEnd->getContext(), BBCopyEnd);
       continue;
     }
 
-    Instruction *BICopy = BBCopy->getTerminator();
+    Instruction *BICopy = BBCopyEnd->getTerminator();
 
-    ValueMapT &RegionMap = RegionMaps[BBCopy];
-    RegionMap.insert(BlockMap.begin(), BlockMap.end());
+    ValueMapT &RegionMap = RegionMaps[BBCopyStart];
+    RegionMap.insert(StartBlockMap.begin(), StartBlockMap.end());
 
     Builder.SetInsertPoint(BICopy);
     copyInstScalar(Stmt, TI, RegionMap, LTS);
@@ -1352,13 +1447,13 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
   }
 
   // Add counting PHI nodes to all loops in the region that can be used as
-  // replacement for SCEVs refering to the old loop.
+  // replacement for SCEVs referring to the old loop.
   for (BasicBlock *BB : SeenBlocks) {
     Loop *L = LI.getLoopFor(BB);
     if (L == nullptr || L->getHeader() != BB || !R->contains(L))
       continue;
 
-    BasicBlock *BBCopy = BlockMap[BB];
+    BasicBlock *BBCopy = StartBlockMap[BB];
     Value *NullVal = Builder.getInt32(0);
     PHINode *LoopPHI =
         PHINode::Create(Builder.getInt32Ty(), 2, "polly.subregion.iv");
@@ -1371,9 +1466,9 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
       if (!R->contains(PredBB))
         continue;
       if (L->contains(PredBB))
-        LoopPHI->addIncoming(LoopPHIInc, BlockMap[PredBB]);
+        LoopPHI->addIncoming(LoopPHIInc, EndBlockMap[PredBB]);
       else
-        LoopPHI->addIncoming(NullVal, BlockMap[PredBB]);
+        LoopPHI->addIncoming(NullVal, EndBlockMap[PredBB]);
     }
 
     for (auto *PredBBCopy : make_range(pred_begin(BBCopy), pred_end(BBCopy)))
@@ -1388,7 +1483,8 @@ void RegionGenerator::copyStmt(ScopStmt &Stmt, LoopToScevMapT &LTS,
 
   // Write values visible to other statements.
   generateScalarStores(Stmt, LTS, ValueMap, IdToAstExp);
-  BlockMap.clear();
+  StartBlockMap.clear();
+  EndBlockMap.clear();
   RegionMaps.clear();
   IncompletePHINodeMap.clear();
 }
@@ -1408,7 +1504,7 @@ PHINode *RegionGenerator::buildExitPHI(MemoryAccess *MA, LoopToScevMapT &LTS,
   if (OrigPHI->getParent() != SubR->getExit()) {
     BasicBlock *FormerExit = SubR->getExitingBlock();
     if (FormerExit)
-      NewSubregionExit = BlockMap.lookup(FormerExit);
+      NewSubregionExit = StartBlockMap.lookup(FormerExit);
   }
 
   PHINode *NewPHI = PHINode::Create(OrigPHI->getType(), Incoming.size(),
@@ -1418,15 +1514,17 @@ PHINode *RegionGenerator::buildExitPHI(MemoryAccess *MA, LoopToScevMapT &LTS,
   // Add the incoming values to the PHI.
   for (auto &Pair : Incoming) {
     BasicBlock *OrigIncomingBlock = Pair.first;
-    BasicBlock *NewIncomingBlock = BlockMap.lookup(OrigIncomingBlock);
-    Builder.SetInsertPoint(NewIncomingBlock->getTerminator());
-    assert(RegionMaps.count(NewIncomingBlock));
-    ValueMapT *LocalBBMap = &RegionMaps[NewIncomingBlock];
+    BasicBlock *NewIncomingBlockStart = StartBlockMap.lookup(OrigIncomingBlock);
+    BasicBlock *NewIncomingBlockEnd = EndBlockMap.lookup(OrigIncomingBlock);
+    Builder.SetInsertPoint(NewIncomingBlockEnd->getTerminator());
+    assert(RegionMaps.count(NewIncomingBlockStart));
+    assert(RegionMaps.count(NewIncomingBlockEnd));
+    ValueMapT *LocalBBMap = &RegionMaps[NewIncomingBlockStart];
 
     Value *OrigIncomingValue = Pair.second;
     Value *NewIncomingValue =
         getNewValue(*Stmt, OrigIncomingValue, *LocalBBMap, LTS, L);
-    NewPHI->addIncoming(NewIncomingValue, NewIncomingBlock);
+    NewPHI->addIncoming(NewIncomingValue, NewIncomingBlockEnd);
   }
 
   return NewPHI;
@@ -1470,18 +1568,23 @@ void RegionGenerator::generateScalarStores(
     if (MA->isOriginalArrayKind() || MA->isRead())
       continue;
 
-    Value *NewVal = getExitScalar(MA, LTS, BBMap);
-    Value *Address =
-        getImplicitAddress(*MA, getLoopForStmt(Stmt), LTS, BBMap, NewAccesses);
-    assert((!isa<Instruction>(NewVal) ||
-            DT.dominates(cast<Instruction>(NewVal)->getParent(),
-                         Builder.GetInsertBlock())) &&
-           "Domination violation");
-    assert((!isa<Instruction>(Address) ||
-            DT.dominates(cast<Instruction>(Address)->getParent(),
-                         Builder.GetInsertBlock())) &&
-           "Domination violation");
-    Builder.CreateStore(NewVal, Address);
+    isl::set AccDom = give(isl_map_domain(MA->getAccessRelation()));
+    const char *Subject = isl_id_get_name(give(MA->getId()).keep());
+    generateConditionalExecution(Stmt, AccDom, Subject, [&, this, MA]() {
+
+      Value *NewVal = getExitScalar(MA, LTS, BBMap);
+      Value *Address = getImplicitAddress(*MA, getLoopForStmt(Stmt), LTS, BBMap,
+                                          NewAccesses);
+      assert((!isa<Instruction>(NewVal) ||
+              DT.dominates(cast<Instruction>(NewVal)->getParent(),
+                           Builder.GetInsertBlock())) &&
+             "Domination violation");
+      assert((!isa<Instruction>(Address) ||
+              DT.dominates(cast<Instruction>(Address)->getParent(),
+                           Builder.GetInsertBlock())) &&
+             "Domination violation");
+      Builder.CreateStore(NewVal, Address);
+    });
   }
 }
 
@@ -1490,16 +1593,19 @@ void RegionGenerator::addOperandToPHI(ScopStmt &Stmt, PHINode *PHI,
                                       LoopToScevMapT &LTS) {
   // If the incoming block was not yet copied mark this PHI as incomplete.
   // Once the block will be copied the incoming value will be added.
-  BasicBlock *BBCopy = BlockMap[IncomingBB];
-  if (!BBCopy) {
+  BasicBlock *BBCopyStart = StartBlockMap[IncomingBB];
+  BasicBlock *BBCopyEnd = EndBlockMap[IncomingBB];
+  if (!BBCopyStart) {
+    assert(!BBCopyEnd);
     assert(Stmt.contains(IncomingBB) &&
            "Bad incoming block for PHI in non-affine region");
     IncompletePHINodeMap[IncomingBB].push_back(std::make_pair(PHI, PHICopy));
     return;
   }
 
-  assert(RegionMaps.count(BBCopy) && "Incoming PHI block did not have a BBMap");
-  ValueMapT &BBCopyMap = RegionMaps[BBCopy];
+  assert(RegionMaps.count(BBCopyStart) &&
+         "Incoming PHI block did not have a BBMap");
+  ValueMapT &BBCopyMap = RegionMaps[BBCopyStart];
 
   Value *OpCopy = nullptr;
 
@@ -1509,17 +1615,17 @@ void RegionGenerator::addOperandToPHI(ScopStmt &Stmt, PHINode *PHI,
     // If the current insert block is different from the PHIs incoming block
     // change it, otherwise do not.
     auto IP = Builder.GetInsertPoint();
-    if (IP->getParent() != BBCopy)
-      Builder.SetInsertPoint(BBCopy->getTerminator());
+    if (IP->getParent() != BBCopyEnd)
+      Builder.SetInsertPoint(BBCopyEnd->getTerminator());
     OpCopy = getNewValue(Stmt, Op, BBCopyMap, LTS, getLoopForStmt(Stmt));
-    if (IP->getParent() != BBCopy)
+    if (IP->getParent() != BBCopyEnd)
       Builder.SetInsertPoint(&*IP);
   } else {
     // All edges from outside the non-affine region become a single edge
     // in the new copy of the non-affine region. Make sure to only add the
     // corresponding edge the first time we encounter a basic block from
     // outside the non-affine region.
-    if (PHICopy->getBasicBlockIndex(BBCopy) >= 0)
+    if (PHICopy->getBasicBlockIndex(BBCopyEnd) >= 0)
       return;
 
     // Get the reloaded value.
@@ -1527,8 +1633,7 @@ void RegionGenerator::addOperandToPHI(ScopStmt &Stmt, PHINode *PHI,
   }
 
   assert(OpCopy && "Incoming PHI value was not copied properly");
-  assert(BBCopy && "Incoming PHI block was not copied properly");
-  PHICopy->addIncoming(OpCopy, BBCopy);
+  PHICopy->addIncoming(OpCopy, BBCopyEnd);
 }
 
 void RegionGenerator::copyPHIInstruction(ScopStmt &Stmt, PHINode *PHI,

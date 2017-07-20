@@ -20,11 +20,11 @@ using namespace clang::driver::toolchains;
 using namespace clang;
 using namespace llvm::opt;
 
-void
-CSAToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
-                                    llvm::opt::ArgStringList &CC1Args) const {
+void CSAToolChain::addClangTargetOptions(const ArgList &DriverArgs,
+    ArgStringList &CC1Args, Action::OffloadKind DeviceOffloadKind) const {
+
   // Linux default options to pass to cc1
-  Linux::addClangTargetOptions(DriverArgs, CC1Args);
+  Linux::addClangTargetOptions(DriverArgs, CC1Args, DeviceOffloadKind);
 
   // Examine the effective (last/rightmost) optimization option given.
   if (Arg *A = DriverArgs.getLastArg(options::OPT_O_Group)) {

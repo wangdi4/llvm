@@ -44,8 +44,6 @@ namespace llvm {
 /// UnaryConstantExpr - This class is private to Constants.cpp, and is used
 /// behind the scenes to implement unary constant exprs.
 class UnaryConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   UnaryConstantExpr(unsigned Opcode, Constant *C, Type *Ty)
     : ConstantExpr(Ty, Opcode, &Op<0>(), 1) {
@@ -57,16 +55,12 @@ public:
     return User::operator new(s, 1);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
 
 /// BinaryConstantExpr - This class is private to Constants.cpp, and is used
 /// behind the scenes to implement binary constant exprs.
 class BinaryConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   BinaryConstantExpr(unsigned Opcode, Constant *C1, Constant *C2,
                      unsigned Flags)
@@ -81,8 +75,6 @@ public:
     return User::operator new(s, 2);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -90,8 +82,6 @@ public:
 /// SelectConstantExpr - This class is private to Constants.cpp, and is used
 /// behind the scenes to implement select constant exprs.
 class SelectConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   SelectConstantExpr(Constant *C1, Constant *C2, Constant *C3)
     : ConstantExpr(C2->getType(), Instruction::Select, &Op<0>(), 3) {
@@ -105,8 +95,6 @@ public:
     return User::operator new(s, 3);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -115,8 +103,6 @@ public:
 /// Constants.cpp, and is used behind the scenes to implement
 /// extractelement constant exprs.
 class ExtractElementConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   ExtractElementConstantExpr(Constant *C1, Constant *C2)
     : ConstantExpr(cast<VectorType>(C1->getType())->getElementType(),
@@ -130,8 +116,6 @@ public:
     return User::operator new(s, 2);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -140,8 +124,6 @@ public:
 /// Constants.cpp, and is used behind the scenes to implement
 /// insertelement constant exprs.
 class InsertElementConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   InsertElementConstantExpr(Constant *C1, Constant *C2, Constant *C3)
     : ConstantExpr(C1->getType(), Instruction::InsertElement,
@@ -156,8 +138,6 @@ public:
     return User::operator new(s, 3);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -166,8 +146,6 @@ public:
 /// Constants.cpp, and is used behind the scenes to implement
 /// shufflevector constant exprs.
 class ShuffleVectorConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   ShuffleVectorConstantExpr(Constant *C1, Constant *C2, Constant *C3)
   : ConstantExpr(VectorType::get(
@@ -185,8 +163,6 @@ public:
     return User::operator new(s, 3);
   }
 
-  void *operator new(size_t, unsigned) = delete;
-
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -195,8 +171,6 @@ public:
 /// Constants.cpp, and is used behind the scenes to implement
 /// extractvalue constant exprs.
 class ExtractValueConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   ExtractValueConstantExpr(Constant *Agg, ArrayRef<unsigned> IdxList,
                            Type *DestTy)
@@ -209,8 +183,6 @@ public:
   void *operator new(size_t s) {
     return User::operator new(s, 1);
   }
-
-  void *operator new(size_t, unsigned) = delete;
 
   /// Indices - These identify which value to extract.
   const SmallVector<unsigned, 4> Indices;
@@ -230,8 +202,6 @@ public:
 /// Constants.cpp, and is used behind the scenes to implement
 /// insertvalue constant exprs.
 class InsertValueConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   InsertValueConstantExpr(Constant *Agg, Constant *Val,
                           ArrayRef<unsigned> IdxList, Type *DestTy)
@@ -245,8 +215,6 @@ public:
   void *operator new(size_t s) {
     return User::operator new(s, 2);
   }
-
-  void *operator new(size_t, unsigned) = delete;
 
   /// Indices - These identify the position for the insertion.
   const SmallVector<unsigned, 4> Indices;
@@ -270,8 +238,6 @@ class GetElementPtrConstantExpr : public ConstantExpr {
 
   GetElementPtrConstantExpr(Type *SrcElementTy, Constant *C,
                             ArrayRef<Constant *> IdxList, Type *DestTy);
-
-  void anchor() override;
 
 public:
   static GetElementPtrConstantExpr *Create(Type *SrcElementTy, Constant *C,
@@ -301,8 +267,6 @@ public:
 // behind the scenes to implement ICmp and FCmp constant expressions. This is
 // needed in order to store the predicate value for these instructions.
 class CompareConstantExpr : public ConstantExpr {
-  void anchor() override;
-
 public:
   unsigned short predicate;
   CompareConstantExpr(Type *ty, Instruction::OtherOps opc,
@@ -316,8 +280,6 @@ public:
   void *operator new(size_t s) {
     return User::operator new(s, 2);
   }
-
-  void *operator new(size_t, unsigned) = delete;
 
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);

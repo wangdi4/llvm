@@ -50,7 +50,8 @@ public:
   // If this is an OpenMP offload build, add -mllvm -csa-wrap-asm to the
   // options
   void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
-                             llvm::opt::ArgStringList &CC1Args) const override;
+                             llvm::opt::ArgStringList &CC1Args,
+                             Action::OffloadKind DeviceOffloadKind) const override;
 protected:
   Tool *buildLinker() const override;
 

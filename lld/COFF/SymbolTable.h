@@ -15,7 +15,6 @@
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
-#include "llvm/Support/Allocator.h"
 #include "llvm/Support/raw_ostream.h"
 
 namespace llvm {
@@ -86,7 +85,7 @@ public:
   // Creates an Undefined symbol for a given name.
   SymbolBody *addUndefined(StringRef Name);
 
-  Symbol *addRelative(StringRef N, uint64_t VA);
+  Symbol *addSynthetic(StringRef N, Chunk *C);
   Symbol *addAbsolute(StringRef N, uint64_t VA);
 
   Symbol *addUndefined(StringRef Name, InputFile *F, bool IsWeakAlias);

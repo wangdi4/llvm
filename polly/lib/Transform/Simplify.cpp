@@ -15,6 +15,8 @@
 #include "polly/ScopInfo.h"
 #include "polly/ScopPass.h"
 #include "polly/Support/GICHelper.h"
+#include "polly/Support/ISLOStream.h"
+#include "polly/Support/VirtualInstruction.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Debug.h"
 #define DEBUG_TYPE "polly-simplify"
@@ -34,6 +36,9 @@ STATISTIC(InBetweenStore, "Number of Load-Store pairs NOT removed because "
 STATISTIC(TotalOverwritesRemoved, "Number of removed overwritten writes");
 STATISTIC(TotalRedundantWritesRemoved,
           "Number of writes of same value removed in any SCoP");
+STATISTIC(TotalDeadAccessesRemoved, "Number of dead accesses removed");
+STATISTIC(TotalDeadInstructionsRemoved,
+          "Number of unused instructions removed");
 STATISTIC(TotalStmtsRemoved, "Number of statements removed in any SCoP");
 
 static bool isImplicitRead(MemoryAccess *MA) {
@@ -92,12 +97,19 @@ private:
   /// Number of redundant writes removed from this SCoP.
   int RedundantWritesRemoved = 0;
 
+  /// Number of unused accesses removed from this SCoP.
+  int DeadAccessesRemoved = 0;
+
+  /// Number of unused instructions removed from this SCoP.
+  int DeadInstructionsRemoved = 0;
+
   /// Number of unnecessary statements removed from the SCoP.
   int StmtsRemoved = 0;
 
   /// Return whether at least one simplification has been applied.
   bool isModified() const {
     return OverwritesRemoved > 0 || RedundantWritesRemoved > 0 ||
+           DeadAccessesRemoved > 0 || DeadInstructionsRemoved > 0 ||
            StmtsRemoved > 0;
   }
 
@@ -130,10 +142,11 @@ private:
   ///         one element in @p Targets.
   MemoryAccess *hasWriteBetween(ScopStmt *Stmt, MemoryAccess *From,
                                 MemoryAccess *To, isl::map Targets) {
-    auto TargetsSpace = give(isl_map_get_space(Targets.keep()));
+    auto TargetsSpace = Targets.get_space();
 
     bool Started = Stmt->isRegionStmt();
-    for (auto *Acc : *Stmt) {
+    auto Accesses = getAccessesInOrder(*Stmt);
+    for (auto *Acc : Accesses) {
       if (Acc->isLatestScalarKind())
         continue;
 
@@ -153,18 +166,16 @@ private:
         continue;
 
       auto AccRel = give(Acc->getAccessRelation());
-      auto AccRelSpace = give(isl_map_get_space(AccRel.keep()));
+      auto AccRelSpace = AccRel.get_space();
 
       // Spaces being different means that they access different arrays.
-      if (isl_space_has_equal_tuples(TargetsSpace.keep(), AccRelSpace.keep()) ==
-          isl_bool_false)
+      if (!TargetsSpace.has_equal_tuples(AccRelSpace))
         continue;
 
-      AccRel = give(isl_map_intersect_domain(AccRel.take(),
-                                             Acc->getStatement()->getDomain()));
-      AccRel = give(isl_map_intersect_params(AccRel.take(), S->getContext()));
-      auto CommonElt = give(isl_map_intersect(Targets.copy(), AccRel.copy()));
-      if (isl_map_is_empty(CommonElt.keep()) != isl_bool_true)
+      AccRel = AccRel.intersect_domain(give(Acc->getStatement()->getDomain()));
+      AccRel = AccRel.intersect_params(give(S->getContext()));
+      auto CommonElt = Targets.intersect(AccRel);
+      if (!CommonElt.is_empty())
         return Acc;
     }
     assert(Stmt->isRegionStmt() &&
@@ -207,9 +218,7 @@ private:
 
         // If all of a write's elements are overwritten, remove it.
         isl::union_map AccRelUnion = AccRel;
-        if (isl_union_map_is_subset(AccRelUnion.keep(),
-                                    WillBeOverwritten.keep()) ==
-            isl_bool_true) {
+        if (AccRelUnion.is_subset(WillBeOverwritten)) {
           DEBUG(dbgs() << "Removing " << MA
                        << " which will be overwritten anyway\n");
 
@@ -237,10 +246,11 @@ private:
           continue;
         if (!WA->isLatestArrayKind())
           continue;
-        if (!isa<StoreInst>(WA->getAccessInstruction()))
+        if (!isa<StoreInst>(WA->getAccessInstruction()) && !WA->isPHIKind())
           continue;
 
-        auto ReadingValue = WA->getAccessValue();
+        llvm::Value *ReadingValue = WA->tryGetValueStored();
+
         if (!ReadingValue)
           continue;
 
@@ -251,15 +261,13 @@ private:
           continue;
 
         auto WARel = give(WA->getLatestAccessRelation());
-        WARel = give(isl_map_intersect_domain(WARel.take(),
-                                              WA->getStatement()->getDomain()));
-        WARel = give(isl_map_intersect_params(WARel.take(), S->getContext()));
+        WARel = WARel.intersect_domain(give(WA->getStatement()->getDomain()));
+        WARel = WARel.intersect_params(give(S->getContext()));
         auto RARel = give(RA->getLatestAccessRelation());
-        RARel = give(isl_map_intersect_domain(RARel.take(),
-                                              RA->getStatement()->getDomain()));
-        RARel = give(isl_map_intersect_params(RARel.take(), S->getContext()));
+        RARel = RARel.intersect_domain(give(RA->getStatement()->getDomain()));
+        RARel = RARel.intersect_params(give(S->getContext()));
 
-        if (isl_map_is_equal(RARel.keep(), WARel.keep()) != isl_bool_true) {
+        if (!RARel.is_equal(WARel)) {
           PairUnequalAccRels++;
           DEBUG(dbgs() << "Not cleaning up " << WA
                        << " because of unequal access relations:\n");
@@ -301,7 +309,7 @@ private:
   }
 
   /// Remove statements without side effects.
-  void removeUnnecessayStmts() {
+  void removeUnnecessaryStmts() {
     auto NumStmtsBefore = S->getSize();
     S->simplifySCoP(true);
     assert(NumStmtsBefore >= S->getSize());
@@ -311,6 +319,60 @@ private:
     TotalStmtsRemoved += StmtsRemoved;
   }
 
+  /// Mark all reachable instructions and access, and sweep those that are not
+  /// reachable.
+  void markAndSweep(LoopInfo *LI) {
+    DenseSet<MemoryAccess *> UsedMA;
+    DenseSet<VirtualInstruction> UsedInsts;
+
+    // Get all reachable instructions and accesses.
+    markReachable(S, LI, UsedInsts, UsedMA);
+
+    // Remove all non-reachable accesses.
+    // We need get all MemoryAccesses first, in order to not invalidate the
+    // iterators when removing them.
+    SmallVector<MemoryAccess *, 64> AllMAs;
+    for (ScopStmt &Stmt : *S)
+      AllMAs.append(Stmt.begin(), Stmt.end());
+
+    for (MemoryAccess *MA : AllMAs) {
+      if (UsedMA.count(MA))
+        continue;
+      DEBUG(dbgs() << "Removing " << MA << " because its value is not used\n");
+      ScopStmt *Stmt = MA->getStatement();
+      Stmt->removeSingleMemoryAccess(MA);
+
+      DeadAccessesRemoved++;
+      TotalDeadAccessesRemoved++;
+    }
+
+    // Remove all non-reachable instructions.
+    for (ScopStmt &Stmt : *S) {
+      SmallVector<Instruction *, 32> AllInsts(Stmt.insts_begin(),
+                                              Stmt.insts_end());
+      SmallVector<Instruction *, 32> RemainInsts;
+
+      for (Instruction *Inst : AllInsts) {
+        auto It = UsedInsts.find({&Stmt, Inst});
+        if (It == UsedInsts.end()) {
+          DEBUG(dbgs() << "Removing "; Inst->print(dbgs());
+                dbgs() << " because it is not used\n");
+          DeadInstructionsRemoved++;
+          TotalDeadInstructionsRemoved++;
+          continue;
+        }
+
+        RemainInsts.push_back(Inst);
+
+        // If instructions appear multiple times, keep only the first.
+        UsedInsts.erase(It);
+      }
+
+      // Set the new instruction list to be only those we did not remove.
+      Stmt.setInstructions(RemainInsts);
+    }
+  }
+
   /// Print simplification statistics to @p OS.
   void printStatistics(llvm::raw_ostream &OS, int Indent = 0) const {
     OS.indent(Indent) << "Statistics {\n";
@@ -318,6 +380,10 @@ private:
                           << '\n';
     OS.indent(Indent + 4) << "Redundant writes removed: "
                           << RedundantWritesRemoved << "\n";
+    OS.indent(Indent + 4) << "Dead accesses removed: " << DeadAccessesRemoved
+                          << '\n';
+    OS.indent(Indent + 4) << "Dead instructions removed: "
+                          << DeadInstructionsRemoved << '\n';
     OS.indent(Indent + 4) << "Stmts removed: " << StmtsRemoved << "\n";
     OS.indent(Indent) << "}\n";
   }
@@ -339,12 +405,14 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequiredTransitive<ScopInfoRegionPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.setPreservesAll();
   }
 
   virtual bool runOnScop(Scop &S) override {
     // Reset statistics of last processed SCoP.
     releaseMemory();
+    assert(!isModified());
 
     // Prepare processing of this SCoP.
     this->S = &S;
@@ -356,8 +424,12 @@ public:
     DEBUG(dbgs() << "Removing redundant writes...\n");
     removeRedundantWrites();
 
+    DEBUG(dbgs() << "Cleanup unused accesses...\n");
+    LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    markAndSweep(LI);
+
     DEBUG(dbgs() << "Removing statements without side effects...\n");
-    removeUnnecessayStmts();
+    removeUnnecessaryStmts();
 
     if (isModified())
       ScopsModified++;
@@ -384,6 +456,8 @@ public:
 
     OverwritesRemoved = 0;
     RedundantWritesRemoved = 0;
+    DeadAccessesRemoved = 0;
+    DeadInstructionsRemoved = 0;
     StmtsRemoved = 0;
   }
 };
@@ -395,5 +469,6 @@ Pass *polly::createSimplifyPass() { return new Simplify(); }
 
 INITIALIZE_PASS_BEGIN(Simplify, "polly-simplify", "Polly - Simplify", false,
                       false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_END(Simplify, "polly-simplify", "Polly - Simplify", false,
                     false)

@@ -16,6 +16,7 @@
 #if SANITIZER_POSIX
 #include "sanitizer_allocator_internal.h"
 #include "sanitizer_common.h"
+#include "sanitizer_file.h"
 #include "sanitizer_flags.h"
 #include "sanitizer_internal_defs.h"
 #include "sanitizer_linux.h"
@@ -495,7 +496,7 @@ static void ChooseSymbolizerTools(IntrusiveList<SymbolizerTool> *list,
     VReport(2, "Symbolizer is disabled.\n");
     return;
   }
-  if (IsReportingOOM()) {
+  if (IsAllocatorOutOfMemory()) {
     VReport(2, "Cannot use internal symbolizer: out of memory\n");
   } else if (SymbolizerTool *tool = InternalSymbolizer::get(allocator)) {
     VReport(2, "Using internal symbolizer.\n");
