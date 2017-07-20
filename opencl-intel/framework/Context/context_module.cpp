@@ -102,7 +102,7 @@ cl_err_code ContextModule::Release(  bool bTerminate )
      {
          Object* pObj = dynamic_cast<Object*>(obj.GetPtr());
 
-         if (NULL != pObj)
+         if (nullptr != pObj)
          {
              m_out_list.push_back(pObj);
          }
@@ -229,10 +229,10 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     LOG_INFO(TEXT("Enter ContextModule::CreateContext (clProperties=%d, uiNumDevices=%d, pDevices=%d)"), 
         clProperties, uiNumDevices, pDevices);
     
-    if (NULL == pDevices)
+    if (nullptr == pDevices)
     {
         LOG_ERROR(TEXT("%s"), TEXT("(!pDevices); return CL_INVALID_VALUE"));
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {    
             *pRrrcodeRet = CL_INVALID_VALUE;
         }
@@ -242,23 +242,23 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     if (!pfnNotify && pUserData)
     {
         LOG_ERROR(TEXT("%s"), TEXT("(!pfnNotify && pUserData); return CL_INVALID_VALUE"));
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {    
             *pRrrcodeRet = CL_INVALID_VALUE;
         }
         return CL_INVALID_HANDLE;
     }
 
-    if (NULL != pRrrcodeRet)
+    if (nullptr != pRrrcodeRet)
     {
         *pRrrcodeRet = CL_SUCCESS;
     }
 
     SharedPtr<FissionableDevice>* ppDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-    if (NULL == ppDevices)
+    if (nullptr == ppDevices)
     {
         LOG_ERROR(TEXT("%s"), TEXT("Failed to allocate memory for devices: new Device[uiNumDevices] = NULL"));
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {    
             *pRrrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
@@ -269,7 +269,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     if (CL_FAILED(clErrRet))
     {
         delete[] ppDevices;
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {                
             *pRrrcodeRet = CL_INVALID_DEVICE;
         }
@@ -288,7 +288,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     SharedPtr<Context> pContext;
     // check properties
     std::map<cl_context_properties, cl_context_properties> propertyMap;
-    if (NULL != clProperties)
+    if (nullptr != clProperties)
     {
         size_t i = 0;
 
@@ -299,7 +299,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
             {
                 LOG_ERROR(TEXT("%s"), TEXT("platform value specified in properties is not a valid platform"));
                 delete[] ppDevices;
-                if (NULL != pRrrcodeRet)
+                if (nullptr != pRrrcodeRet)
                 {
                     *pRrrcodeRet = CL_INVALID_PLATFORM;
                 }
@@ -309,7 +309,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
             {
                 LOG_ERROR(TEXT("%s"), TEXT("the same property name is specified more than once"));
                 delete[] ppDevices;
-                if (NULL != pRrrcodeRet)
+                if (nullptr != pRrrcodeRet)
                 {
                     *pRrrcodeRet = CL_INVALID_PROPERTY;
                 }
@@ -343,7 +343,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
             {
                 LOG_ERROR(TEXT("%s"), TEXT("context property name in properties is not a supported property name"));
                 delete[] ppDevices;
-                if (NULL != pRrrcodeRet)
+                if (nullptr != pRrrcodeRet)
                 {
                     *pRrrcodeRet = CL_INVALID_PROPERTY;
                 }
@@ -361,22 +361,22 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
 #if defined (DX_MEDIA_SHARING)
     IUnknown* pD3DDevice;
     cl_context_properties iDevType;
-    const ID3DSharingDefinitions* pd3dDefinitions = NULL;
+    const ID3DSharingDefinitions* pd3dDefinitions = nullptr;
     clErrRet = ParseD3DContextOptions(propertyMap, pD3DDevice, iDevType, pd3dDefinitions);
     if (CL_SUCCESS != clErrRet)
     {
-        assert(NULL == pd3dDefinitions);
-        if (NULL != pRrrcodeRet)
+        assert(nullptr == pd3dDefinitions);
+        if (nullptr != pRrrcodeRet)
         {
             *pRrrcodeRet = clErrRet;
         }
         delete[] ppDevices;
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pD3DDevice && bGLSharingSupported)
+    if (nullptr != pD3DDevice && bGLSharingSupported)
     {
         LOG_ERROR(TEXT("%s"), TEXT("CL_INVALID_D3D9_DEVICE_INTEL is set to a non-NULL value and interoperability with OpenGL is also specified."));
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {
             *pRrrcodeRet = CL_INVALID_OPERATION;
         }
@@ -395,7 +395,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     } else
 #endif
 #if defined (DX_MEDIA_SHARING)
-    if (NULL != pD3DDevice)
+    if (nullptr != pD3DDevice)
     {
         const bool bIsInteropUserSync = propertyMap.find(CL_CONTEXT_INTEROP_USER_SYNC) == propertyMap.end() ? false :
             pd3dDefinitions->IsUsingContextInteropUserSync() && (cl_bool)propertyMap[CL_CONTEXT_INTEROP_USER_SYNC] != 0;
@@ -418,7 +418,7 @@ cl_context    ContextModule::CreateContext(const cl_context_properties * clPrope
     if (CL_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("%s"), TEXT("Create context failed"));
-        if (NULL != pRrrcodeRet)
+        if (nullptr != pRrrcodeRet)
         {    
             *pRrrcodeRet = clErrRet;
         }
@@ -448,16 +448,16 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
         clProperties, clDeviceType, pfnNotify, pUserData, pErrcodeRet);
     
 #ifdef _DEBUG
-    assert (NULL != m_pPlatformModule);
+    assert (nullptr != m_pPlatformModule);
 #endif
     cl_uint uiNumDevices = 0;
     
     // TODO: Handle new spec
-    cl_err_code clErrRet = m_pPlatformModule->GetDeviceIDs(NULL, clDeviceType, 0, NULL, &uiNumDevices);
+    cl_err_code clErrRet = m_pPlatformModule->GetDeviceIDs(nullptr, clDeviceType, 0, nullptr, &uiNumDevices);
     if (CL_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("GetDeviceIDs(%d, 0, NULL, %d) = %s"), clDeviceType, &uiNumDevices, ClErrTxt(clErrRet));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErrRet;
         }
@@ -465,10 +465,10 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
     }
 
     cl_device_id * pDevices = new cl_device_id[uiNumDevices];
-    if (NULL == pDevices)
+    if (nullptr == pDevices)
     {
         LOG_ERROR(TEXT("new cl_device_id[%d] = NULL"), uiNumDevices);
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
@@ -476,11 +476,11 @@ cl_context ContextModule::CreateContextFromType(const cl_context_properties * cl
     }
 
     // TODO: Handle new spec
-    clErrRet = m_pPlatformModule->GetDeviceIDs(NULL, clDeviceType, uiNumDevices, pDevices, NULL);
+    clErrRet = m_pPlatformModule->GetDeviceIDs(nullptr, clDeviceType, uiNumDevices, pDevices, nullptr);
     if (CL_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("GetDeviceIDs(%d, %d, %d, NULL) = %s"), clDeviceType, uiNumDevices, pDevices, ClErrTxt(clErrRet));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErrRet;
         }
@@ -500,8 +500,8 @@ cl_err_code ContextModule::GetRootDevices(cl_uint uiNumDevices, const cl_device_
 {
     LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
 #ifdef _DEBUG
-    assert ( NULL != m_pPlatformModule );
-    assert ( (NULL != ppDevices) && (0 != uiNumDevices) );
+    assert ( nullptr != m_pPlatformModule );
+    assert ( (nullptr != ppDevices) && (0 != uiNumDevices) );
 #endif
 
     cl_uint rootId = 0;
@@ -527,8 +527,8 @@ cl_err_code ContextModule::GetDevices(cl_uint uiNumDevices, const cl_device_id *
 {
     LOG_DEBUG(TEXT("ContextModule::GetRootDevices enter. uiNumDevices=%d, pclDeviceIds=%d, ppDevices=%d"), uiNumDevices, pclDeviceIds, ppDevices);
 #ifdef _DEBUG
-    assert ( NULL != m_pPlatformModule );
-    assert ( (NULL != ppDevices) && (0 != uiNumDevices) );
+    assert ( nullptr != m_pPlatformModule );
+    assert ( (nullptr != ppDevices) && (0 != uiNumDevices) );
 #endif
 
     // go through device ids and get the device from the platform module
@@ -612,11 +612,11 @@ cl_program ContextModule::CreateProgramWithIL(cl_context              clContext,
     LOG_INFO(TEXT("CreateProgramWithIL enter. clContext=%d, pIL=%d, szLength=%d, pErrcodeRet=%d"),
         clContext, pIL, length, pErrcodeRet);
 
-    if (0 == length || NULL == pIL)
+    if (0 == length || nullptr == pIL)
     {
         // invalid value
         LOG_ERROR(TEXT("%s"), TEXT("0 == length || NULL == pIL"));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -740,7 +740,7 @@ cl_program ContextModule::CreateProgramWithBinary(cl_context                clCo
 {
     LOG_INFO(TEXT("CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d, pclDeviceList=%d, pszLengths=%d, ppBinaries=%d, piBinaryStatus=%d"), 
         clContext, uiNumDevices, pclDeviceList, pszLengths, ppBinaries, piBinaryStatus);
-    if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
+    if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths || nullptr == ppBinaries)
     {
         // invalid value
         LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
@@ -806,7 +806,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
         cl_int *pErrcodeRet)
 {
     LOG_INFO(TEXT("CreateProgramWithBinary enter. clContext=%d, uiNumDevices=%d"), clContext, uiNumDevices);
-    if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames)
+    if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == szKernelNames)
     {
         // invalid value
         LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames"));
@@ -821,17 +821,17 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d) = NULL"), clContext);
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
         return CL_INVALID_HANDLE;
     }
-    SharedPtr<Program> pProgram = NULL;
+    SharedPtr<Program> pProgram = nullptr;
     cl_err_code clErrRet = pContext->CreateProgramWithBuiltInKernels(uiNumDevices, pclDeviceList, szKernelNames, &pProgram);
     if (CL_FAILED(clErrRet))
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErrRet;
         }
@@ -846,7 +846,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
     clErrRet = m_mapPrograms.AddObject(pProgram, false);
     if (CL_FAILED(clErrRet))
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_OUT_OF_HOST_MEMORY;
         }
@@ -855,7 +855,7 @@ cl_program ContextModule::CreateProgramWithBuiltInKernels(cl_context clContext,
         pProgram->Release();
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -963,17 +963,17 @@ cl_int ContextModule::CompileProgram(cl_program clProgram,
     LOG_INFO(TEXT("CompileProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, num_input_headers=%d, pclInputHeaders=%d, header_include_names=%d, pUserData=%d"), 
         clProgram, uiNumDevices, pclDeviceList, pcOptions, num_input_headers, pclInputHeaders, header_include_names, pUserData);
 
-    if ((0 == num_input_headers) && ((NULL != pclInputHeaders) || (NULL != header_include_names)))
+    if ((0 == num_input_headers) && ((nullptr != pclInputHeaders) || (nullptr != header_include_names)))
     {
         return CL_INVALID_VALUE;
     }
 
-    if ((0 != num_input_headers) && ((NULL == pclInputHeaders) || (NULL == header_include_names)))
+    if ((0 != num_input_headers) && ((nullptr == pclInputHeaders) || (nullptr == header_include_names)))
     {
         return CL_INVALID_VALUE;
     }
 
-    if ((NULL == pfn_notify) && (NULL != pUserData))
+    if ((nullptr == pfn_notify) && (nullptr != pUserData))
     {
         return CL_INVALID_VALUE;
     }
@@ -1007,7 +1007,7 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
     LOG_INFO(TEXT("LinkProgram enter. clContext=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, uiNumInputPrograms=%d, pclInputPrograms=%d, pUserData=%d"), 
         clContext, uiNumDevices, pclDeviceList, pcOptions, uiNumInputPrograms, pclInputPrograms, pUserData);
 
-    if ((NULL == pfn_notify) && (NULL != pUserData))
+    if ((nullptr == pfn_notify) && (nullptr != pUserData))
     {
         if (NULL != pErrcodeRet)
         {
@@ -1016,7 +1016,7 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-    if ((0 == uiNumInputPrograms) || (NULL == pclInputPrograms))
+    if ((0 == uiNumInputPrograms) || (nullptr == pclInputPrograms))
     {
         if (NULL != pErrcodeRet)
         {
@@ -1025,7 +1025,7 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-    if ((NULL == pclDeviceList) && (0 < uiNumDevices))
+    if ((nullptr == pclDeviceList) && (0 < uiNumDevices))
     {
         if (NULL != pErrcodeRet)
         {
@@ -1034,7 +1034,7 @@ cl_program ContextModule::LinkProgram(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-    if ((NULL != pclDeviceList) && (0 == uiNumDevices))
+    if ((nullptr != pclDeviceList) && (0 == uiNumDevices))
     {
         if (NULL != pErrcodeRet)
         {
@@ -1129,7 +1129,7 @@ cl_int ContextModule::BuildProgram(cl_program clProgram,
     LOG_INFO(TEXT("BuildProgram enter. clProgram=%d, uiNumDevices=%d, pclDeviceList=%d, pcOptions=%d, pUserData=%d"), 
         clProgram, uiNumDevices, pclDeviceList, pcOptions, pUserData);
 
-    if ((NULL == pfn_notify) && (NULL != pUserData))
+    if ((nullptr == pfn_notify) && (NULL != pUserData))
     {
         return CL_INVALID_VALUE;
     }
@@ -1204,7 +1204,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
     if (NULL == pProgram)
     {
         LOG_ERROR(TEXT("%s"), TEXT("clProgram is invalid program"));
-        if (NULL != piErr)
+        if (nullptr != piErr)
         {
             *piErr = CL_INVALID_PROGRAM;
         }
@@ -1212,9 +1212,9 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
     }
 
     // create new kernel
-    SharedPtr<Kernel> pKernel = NULL;
+    SharedPtr<Kernel> pKernel = nullptr;
     cl_err_code clErrRet = pProgram->CreateKernel(pscKernelName, &pKernel);
-    if (NULL != piErr)
+    if (nullptr != piErr)
     {
         *piErr = CL_ERR_OUT(clErrRet);
     }
@@ -1224,7 +1224,7 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
     {
         // add new kernel to the context module's kernels list
         m_mapKernels.AddObject(pKernel, false);
-        if (NULL != piErr)
+        if (nullptr != piErr)
         {
             *piErr = CL_SUCCESS;
         }
@@ -1252,7 +1252,7 @@ cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel,
 
     SharedPtr<Program> pProgram = pSrcKernel->GetProgram();
     // create new kernel
-    SharedPtr<Kernel> pNewKernel = NULL;
+    SharedPtr<Kernel> pNewKernel = nullptr;
     cl_err_code clErrRet = pProgram->CreateKernel(pSrcKernel->GetName(), &pNewKernel);
     if (CL_SUCCESS != clErrRet)
     {
@@ -1323,14 +1323,14 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
         return CL_ERR_OUT(clErrRet);
     }
     //No point in creating user-invisible kernels
-    if (NULL == pclKernels)
+    if (nullptr == pclKernels)
     {
         return CL_SUCCESS;
     }
 
     // get kernels and add them to the context module's map list
     cl_uint uiKerenls = 0;
-    clErrRet = pProgram->GetKernels(0, NULL, &uiKerenls);
+    clErrRet = pProgram->GetKernels(0, nullptr, &uiKerenls);
     if (CL_FAILED(clErrRet))
     {
         return CL_ERR_OUT(clErrRet);
@@ -1338,11 +1338,11 @@ cl_int ContextModule::CreateKernelsInProgram(cl_program clProgram,
     if (uiKerenls > 0)
     {
         SharedPtr<Kernel>* ppKernels = new SharedPtr<Kernel> [uiKerenls];
-        if (NULL == ppKernels)
+        if (nullptr == ppKernels)
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
-        clErrRet = pProgram->GetKernels(uiKerenls, ppKernels, NULL);
+        clErrRet = pProgram->GetKernels(uiKerenls, ppKernels, nullptr);
         if (CL_FAILED(clErrRet))
         {
             delete[] ppKernels;
@@ -1511,17 +1511,17 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     SharedPtr<Context> pContext = GetContext(context);
     if (NULL == pContext)
     {
-        if (NULL != piErrcodeRet)
+        if (nullptr != piErrcodeRet)
         {
             *piErrcodeRet = CL_INVALID_CONTEXT;
         }
         return CL_INVALID_HANDLE;
     }
-    err = CheckMemObjectParameters(flags, NULL, CL_MEM_OBJECT_PIPE, 0, 0, 0,
-                                   0, 0, 0, NULL, pContext);
+    err = CheckMemObjectParameters(flags, nullptr, CL_MEM_OBJECT_PIPE, 0, 0, 0,
+                                   0, 0, 0, nullptr, pContext);
     if (CL_FAILED(err) || NULL != pProperties)
     {
-        if (NULL != piErrcodeRet)
+        if (nullptr != piErrcodeRet)
         {
             *piErrcodeRet = CL_INVALID_VALUE;
         }
@@ -1533,10 +1533,10 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     for (tSetOfDevices::const_iterator iter = pDevs->begin(); iter != pDevs->end(); iter++)
     {
         cl_uint uiPipeMaxPacketSize;
-        const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_PIPE_MAX_PACKET_SIZE, sizeof(uiPipeMaxPacketSize), &uiPipeMaxPacketSize, NULL);        
+        const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_PIPE_MAX_PACKET_SIZE, sizeof(uiPipeMaxPacketSize), &uiPipeMaxPacketSize, nullptr);        
         if (CL_FAILED(err))
         {
-            if (NULL != piErrcodeRet)
+            if (nullptr != piErrcodeRet)
             {
                 *piErrcodeRet = err;
             }
@@ -1549,7 +1549,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     }
     if (0 == uiPipePacketSize || 0 == uiPipeMaxPackets || uiPipePacketSize > uiMinPipeMaxPacketSize)
     {
-        if (NULL != piErrcodeRet)
+        if (nullptr != piErrcodeRet)
         {
             *piErrcodeRet = CL_INVALID_PIPE_SIZE;
         }
@@ -1562,7 +1562,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
         if (NULL == pHostPtr)
         {
             *pSizeRet = Pipe::CalcPipeSize(uiPipePacketSize, uiPipeMaxPackets);
-            if (NULL != piErrcodeRet)
+            if (nullptr != piErrcodeRet)
             {
                 *piErrcodeRet = CL_SUCCESS;
             }
@@ -1572,7 +1572,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
         {
             if (*pSizeRet != Pipe::CalcPipeSize(uiPipePacketSize, uiPipeMaxPackets))
             {
-                if (NULL != piErrcodeRet)
+                if (nullptr != piErrcodeRet)
                 {
                     *piErrcodeRet = CL_OUT_OF_RESOURCES;
                 }
@@ -1589,7 +1589,7 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     err = pContext->CreatePipe(uiPipePacketSize, uiPipeMaxPackets, pPipe, pHostPtr);
     if (CL_FAILED(err))
     {
-        if (NULL != piErrcodeRet)
+        if (nullptr != piErrcodeRet)
         {
             *piErrcodeRet = err;
         }
@@ -1598,13 +1598,13 @@ cl_mem ContextModule::CreatePipe(cl_context context, cl_mem_flags flags, cl_uint
     err = m_mapMemObjects.AddObject(pPipe, false);
     if (CL_FAILED(err))
     {
-        if (NULL != piErrcodeRet)
+        if (nullptr != piErrcodeRet)
         {
             *piErrcodeRet = err;
         }
         return CL_INVALID_HANDLE;
     }
-    if (NULL != piErrcodeRet)
+    if (nullptr != piErrcodeRet)
     {
         *piErrcodeRet = CL_SUCCESS;
     }
@@ -1647,7 +1647,7 @@ cl_int ContextModule::GetKernelSubGroupInfo(cl_kernel kernel,
         return CL_INVALID_KERNEL;
     }
     SharedPtr<FissionableDevice> pDevice;
-    if ( NULL != device )
+    if ( nullptr != device )
     {
         pDevice = m_pPlatformModule->GetDevice(device);
         if (NULL == pDevice)
@@ -1701,7 +1701,7 @@ cl_int ContextModule::GetKernelWorkGroupInfo(cl_kernel clKernel,
         return CL_INVALID_KERNEL;
     }    
     SharedPtr<FissionableDevice> pDevice;
-    if ( NULL != deviceId )    // When deviceId is NULL, we should pass this paramter to kernel.
+    if ( nullptr != deviceId )    // When deviceId is NULL, we should pass this paramter to kernel.
                             // In case of single device, it's data should be returned
     {
         pDevice = m_pPlatformModule->GetDevice(deviceId);
@@ -1737,7 +1737,7 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
         return CL_INVALID_HANDLE;
     }
 
-    cl_err_code clErr = CheckMemObjectParameters(clFlags, NULL,
+    cl_err_code clErr = CheckMemObjectParameters(clFlags, nullptr,
                                                  CL_MEM_OBJECT_BUFFER, 0, 0, 0,
                                                  0, 0, 0, pHostPtr, pContext);
     if ( !((CL_INVALID_IMAGE_FORMAT_DESCRIPTOR == clErr) || (CL_SUCCESS == clErr)) )
@@ -1792,13 +1792,13 @@ cl_mem ContextModule::CreateBuffer(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -1838,8 +1838,8 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
 
     SharedPtr<Context> pContext = pMemObj->GetContext();
 
-    iErr = CheckMemObjectParameters(clFlags, NULL, CL_MEM_OBJECT_BUFFER, 0, 0,
-                                    0, 0, 0, 0, NULL, pContext);
+    iErr = CheckMemObjectParameters(clFlags, nullptr, CL_MEM_OBJECT_BUFFER, 0, 0,
+                                    0, 0, 0, 0, nullptr, pContext);
     if (CL_FAILED(iErr))
     {
         return CL_INVALID_HANDLE;
@@ -1864,7 +1864,7 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
         pMemObj = pMemObj->GetParent();
     }
 
-    SharedPtr<MemoryObject> pBuffer = NULL;
+    SharedPtr<MemoryObject> pBuffer = nullptr;
     cl_err_code clErr = pContext->CreateSubBuffer(pMemObj, clFlags, buffer_create_type, buffer_create_info, &pBuffer);
     if (CL_FAILED(clErr))
     {        
@@ -1876,13 +1876,13 @@ cl_mem ContextModule::CreateSubBuffer(cl_mem                clBuffer,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pBuffer.GetPtr(), pBuffer->GetHandle(), ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             iErr = CL_ERR_OUT(clErr);
         }
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         iErr = CL_SUCCESS;
     }
@@ -1949,7 +1949,7 @@ cl_mem ContextModule::CreateImage(cl_context context,
     cl_mem clMemObj = CL_INVALID_HANDLE;
 
     if (!image_desc || 0 != image_desc->num_mip_levels || 0 != image_desc->num_samples ||
-        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && NULL != image_desc->mem_object))
+        (CL_MEM_OBJECT_IMAGE1D_BUFFER != image_desc->image_type && CL_MEM_OBJECT_IMAGE2D != image_desc->image_type && nullptr != image_desc->mem_object))
     {
         if (errcode_ret)
         {
@@ -1966,7 +1966,7 @@ cl_mem ContextModule::CreateImage(cl_context context,
         clMemObj = CreateImageBuffer<1, CL_MEM_OBJECT_IMAGE1D_BUFFER>(context, flags, image_format, *image_desc, image_desc->mem_object, errcode_ret);
         break;
     case CL_MEM_OBJECT_IMAGE2D:
-        if (NULL == image_desc->mem_object)
+        if (nullptr == image_desc->mem_object)
         {
             clMemObj = CreateScalarImage<2, CL_MEM_OBJECT_IMAGE2D>(context, flags, image_format, image_desc->image_width, image_desc->image_height, 0, image_desc->image_row_pitch, 0, host_ptr,
                 errcode_ret);
@@ -1974,10 +1974,10 @@ cl_mem ContextModule::CreateImage(cl_context context,
         else
         {
             cl_mem_object_type objType;
-            if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE, sizeof(objType), &objType, NULL)) ||
+            if (CL_FAILED(GetMemObjectInfo(image_desc->mem_object, CL_MEM_TYPE, sizeof(objType), &objType, nullptr)) ||
                 (objType != CL_MEM_OBJECT_BUFFER && objType != CL_MEM_OBJECT_IMAGE2D))
             {
-                if (errcode_ret != NULL)
+                if (errcode_ret != nullptr)
                 {
                     *errcode_ret = CL_INVALID_IMAGE_DESCRIPTOR;
                 }
@@ -2023,7 +2023,7 @@ bool ContextModule::Check2DImageFromBufferPitch(const ConstSharedPtr<GenericMemO
     for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
     {
         cl_uint uiImgPitchAlign;
-        (*iter)->GetInfo(CL_DEVICE_IMAGE_PITCH_ALIGNMENT, sizeof(uiImgPitchAlign), &uiImgPitchAlign, NULL);
+        (*iter)->GetInfo(CL_DEVICE_IMAGE_PITCH_ALIGNMENT, sizeof(uiImgPitchAlign), &uiImgPitchAlign, nullptr);
         if (uiImgPitchAlign > uiMaxImgPitchAlign)
         {
             uiMaxImgPitchAlign = uiImgPitchAlign;
@@ -2049,7 +2049,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2067,7 +2067,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("%s"), TEXT("Parameter check failed"));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErr;
         }
@@ -2089,7 +2089,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("%S"), TEXT("Context specific parameter check failed"));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErr;
         }
@@ -2111,7 +2111,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("%s"), TEXT("Context specific parameter check failed"));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = clErr;
         }
@@ -2122,7 +2122,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
     if (CL_FAILED(clErr) || NULL == pImageArr)
     {
         LOG_ERROR(TEXT("pContext->CreateImage2DArray(%d, %p, %p, %p, %p) = %s"), clFlags, clImageFormat, pHostPtr, pClImageDesc, &pImageArr, ClErrTxt(clErr));
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
@@ -2138,7 +2138,7 @@ cl_mem ContextModule::CreateImageArray(cl_context clContext,
             }
             return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -2151,7 +2151,7 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
     assert((pContext.GetPtr() != NULL) && "Wrong context passed to Create2DImageFromImage.");
     if(pContext.GetPtr() == NULL){
-        if (piErrcodeRet != NULL)
+        if (piErrcodeRet != nullptr)
         {
             *piErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2160,7 +2160,7 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
     SharedPtr<MemoryObject> pOtherImg = pContext->GetMemObject(otherImgHandle);
     assert(pOtherImg.GetPtr() != NULL && "Wrong image descriptor passed to Create2DImageFromImage");
     if(pOtherImg.GetPtr() == NULL){
-        if (piErrcodeRet != NULL)
+        if (piErrcodeRet != nullptr)
         {
             *piErrcodeRet = CL_INVALID_IMAGE_DESCRIPTOR;
         }
@@ -2169,10 +2169,10 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
     size_t szOtherWidth, szOtherHeight, szOtherRowPitch;
     cl_image_format otherImgFormat;
 
-    pOtherImg->GetImageInfo(CL_IMAGE_WIDTH, sizeof(szOtherWidth), &szOtherWidth, NULL);
-    pOtherImg->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(szOtherHeight), &szOtherHeight, NULL);
-    pOtherImg->GetImageInfo(CL_IMAGE_ROW_PITCH, sizeof(szOtherRowPitch), &szOtherRowPitch, NULL);
-    pOtherImg->GetImageInfo(CL_IMAGE_FORMAT, sizeof(otherImgFormat), &otherImgFormat, NULL);
+    pOtherImg->GetImageInfo(CL_IMAGE_WIDTH, sizeof(szOtherWidth), &szOtherWidth, nullptr);
+    pOtherImg->GetImageInfo(CL_IMAGE_HEIGHT, sizeof(szOtherHeight), &szOtherHeight, nullptr);
+    pOtherImg->GetImageInfo(CL_IMAGE_ROW_PITCH, sizeof(szOtherRowPitch), &szOtherRowPitch, nullptr);
+    pOtherImg->GetImageInfo(CL_IMAGE_FORMAT, sizeof(otherImgFormat), &otherImgFormat, nullptr);
 
     if (pImageDesc->image_width != szOtherWidth || pImageDesc->image_height != szOtherHeight || 
         (pImageDesc->image_row_pitch != 0 && pImageDesc->image_row_pitch != szOtherRowPitch) ||
@@ -2186,7 +2186,7 @@ cl_mem ContextModule::Create2DImageFromImage(cl_context context, cl_mem_flags fl
           (pImageFormat->image_channel_order == CL_sRGBx && otherImgFormat.image_channel_order == CL_RGBx) ||
           (pImageFormat->image_channel_order == CL_RGBx && otherImgFormat.image_channel_order == CL_sRGBx)))
     {
-        if (piErrcodeRet != NULL)
+        if (piErrcodeRet != nullptr)
         {
             *piErrcodeRet = CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
         }
@@ -2407,7 +2407,7 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
     std::set<cl_sampler_properties> specifiedNames;
     cl_int iErrCode = CL_SUCCESS;
 
-      while (NULL != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
+      while (nullptr != pSamplerProperties && 0 != *pSamplerProperties && CL_SUCCEEDED(iErrCode))
       {
             const cl_sampler_properties name = *(pSamplerProperties++);
             if (specifiedNames.find(name) != specifiedNames.end())    // the same property name cannot be specified more than once
@@ -2458,7 +2458,7 @@ cl_sampler ContextModule::CreateSamplerWithProperties(cl_context clContext, cons
     }
     else
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
                 *pErrcodeRet = iErrCode;
         }
@@ -2482,7 +2482,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2493,7 +2493,7 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("pContext->CreateSampler(%d, %d, %d, %d) = %s"), bNormalizedCoords, clAddressingMode, clFilterMode, &pSampler, ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
@@ -2503,13 +2503,13 @@ cl_sampler ContextModule::CreateSampler(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %S"), pSampler.GetPtr(), pSampler->GetHandle(), ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -2657,19 +2657,19 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
-            if (NULL != pErrcodeRet)
+            if (nullptr != pErrcodeRet)
             {
                 *pErrcodeRet = CL_INVALID_CONTEXT;
             }
             return CL_INVALID_HANDLE;
     }
 
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL,
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, nullptr,
                                                  CL_GL_OBJECT_BUFFER, 0, 0, 0,
-                                                 0, 0, 0, NULL, pContext);
+                                                 0, 0, 0, nullptr, pContext);
     if (CL_FAILED(clErr))
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -2678,7 +2678,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     SharedPtr<GLContext> pGLContext = pContext.DynamicCast<GLContext>();
     if (NULL == pGLContext)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2686,7 +2686,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     }
     if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -2697,7 +2697,7 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("pGLContext->CreateGLBuffer(%d, %d, %d, %d) = %s"), clMemFlags, glBufObj, &pBuffer, ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
@@ -2707,13 +2707,13 @@ cl_mem ContextModule::CreateFromGLBuffer(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pBuffer, pBuffer->GetHandle(), ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
         return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -2772,7 +2772,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2780,12 +2780,12 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     }
 
     cl_mem_object_type clObjType = ConvertGLTargetToCLObject(glTextureTarget);
-    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, NULL, clObjType,
-                                                 0, 0, 0, 0, 0, 0, NULL,
+    cl_err_code clErr = CheckMemObjectParameters(clMemFlags, nullptr, clObjType,
+                                                 0, 0, 0, 0, 0, 0, nullptr,
                                                  pContext);
     if (CL_FAILED(clErr))
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -2794,7 +2794,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     SharedPtr<GLContext> pGLContext = pContext.DynamicCast<GLContext>();
     if (NULL == pGLContext)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2802,7 +2802,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     }
     if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -2814,7 +2814,7 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     {
         LOG_ERROR(TEXT("pGLContext->CreateGLTexture2D(%d, %d, %d, %d, %d) = %s"), clMemFlags, glTextureTarget, glMipLevel, glTexture,
             &pMemObj, ClErrTxt(clErr))
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_ERR_OUT(clErr);
         }
@@ -2824,13 +2824,13 @@ cl_mem ContextModule::CreateFromGLTexture(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
-            if (NULL != pErrcodeRet)
+            if (nullptr != pErrcodeRet)
             {
                 *pErrcodeRet = CL_ERR_OUT(clErr);
             }
             return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -2854,7 +2854,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
-            if (NULL != pErrcodeRet)
+            if (nullptr != pErrcodeRet)
             {
                 *pErrcodeRet = CL_INVALID_CONTEXT;
             }
@@ -2864,7 +2864,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
     SharedPtr<GLContext> pGLContext = pContext.DynamicCast<GLContext>();
     if (NULL == pGLContext)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_CONTEXT;
         }
@@ -2872,7 +2872,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
     }
     if (CL_MEM_READ_ONLY != clMemFlags && CL_MEM_WRITE_ONLY != clMemFlags && CL_MEM_READ_WRITE != clMemFlags)
     {
-        if (NULL != pErrcodeRet)
+        if (nullptr != pErrcodeRet)
         {
             *pErrcodeRet = CL_INVALID_VALUE;
         }
@@ -2883,7 +2883,7 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("pGLContext->CreateGLRenderBuffer(%d, %d, %d) = %s"), clMemFlags, glRenderBuffer, &pMemObj, ClErrTxt(clErr))
-            if (NULL != pErrcodeRet)
+            if (nullptr != pErrcodeRet)
             {
                 *pErrcodeRet = CL_ERR_OUT(clErr);
             }
@@ -2893,13 +2893,13 @@ cl_mem ContextModule::CreateFromGLRenderbuffer(cl_context clContext,
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("m_mapMemObjects.AddObject(%d, %d, false) = %s"), pMemObj, pMemObj->GetHandle(), ClErrTxt(clErr))
-            if (NULL != pErrcodeRet)
+            if (nullptr != pErrcodeRet)
             {
                 *pErrcodeRet = CL_ERR_OUT(clErr);
             }
             return CL_INVALID_HANDLE;
     }
-    if (NULL != pErrcodeRet)
+    if (nullptr != pErrcodeRet)
     {
         *pErrcodeRet = CL_SUCCESS;
     }
@@ -3040,7 +3040,7 @@ cl_err_code ContextModule::CheckMemObjectParameters(cl_mem_flags clMemFlags,
         return CL_INVALID_HOST_PTR;
     }
 
-    if (NULL != clImageFormat)
+    if (nullptr != clImageFormat)
     {
         // Check if channel order and data type are in the range of valid numbers, see cl.h
         if ( !(clImageFormat->image_channel_order >= CL_R &&
@@ -3108,43 +3108,43 @@ cl_err_code ContextModule::CheckContextSpecificParameters(SharedPtr<Context>pCon
 
         if (CL_MEM_OBJECT_IMAGE3D == image_type)
         {
-            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz, nullptr);
         } else {
             // also applies to 1D image width not created from buffer
-            dev->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz, nullptr);
         }
         maxW = maxW > sz ? sz : maxW;
 
         if (CL_MEM_OBJECT_IMAGE3D == image_type)
         {
-            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz, nullptr);
         } else {
-            dev->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz, nullptr);
         }
         maxH = maxH > sz ? sz : maxH;
 
         if (CL_MEM_OBJECT_IMAGE3D == image_type)
         {
-            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz, nullptr);
             maxD = maxD > sz ? sz : maxD;
         }
 
         if (CL_MEM_OBJECT_IMAGE1D_BUFFER == image_type)
         {
-            dev->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz, nullptr);
             max1dFromBuffer = max1dFromBuffer > sz ? sz : max1dFromBuffer;
         }
 
         if (isArray)
         {
-            dev->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &sz, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &sz, nullptr);
             maxArraySize = maxArraySize > sz ? sz : maxArraySize;
         }
 
         if (NULL != pImgBufferHostPtr && CL_MEM_OBJECT_IMAGE2D == image_type && (bufFlags & CL_MEM_USE_HOST_PTR))
         {
             cl_uint uiImgBaseAddrAlign;
-            dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, NULL);
+            dev->GetInfo(CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, sizeof(uiImgBaseAddrAlign), &uiImgBaseAddrAlign, nullptr);
             if (!IS_ALIGNED_ON(pImgBufferHostPtr, uiImgBaseAddrAlign))
             {
                 return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
@@ -3197,7 +3197,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     if (NULL == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = %d"), context, pContext);
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = CL_INVALID_CONTEXT;
         }
@@ -3207,7 +3207,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     SharedPtr<D3D9Context> pD3D9Context = pContext.DynamicCast<D3D9Context>();
     if (NULL == pD3D9Context)
     {
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = CL_INVALID_CONTEXT;
         }
@@ -3216,7 +3216,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     if (d3d9Definitions.GetVersion() != pD3D9Context->GetD3dDefinitions().GetVersion())
     {
         LOG_ERROR(TEXT("The API call and the context are from different versions of the extension"));
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = CL_INVALID_CONTEXT;
         }
@@ -3225,7 +3225,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     if (NULL == pSurfaceInfo || NULL == pSurfaceInfo->resource)
     {
         LOG_ERROR(TEXT("pSurfaceInfo or resource is NULL"));
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = pD3D9Context->GetD3dDefinitions().GetInvalidResource();
         }
@@ -3235,7 +3235,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     if (NULL == pResourceInfo)
     {
         LOG_ERROR(TEXT("could not allocate D3DResourceInfo"));
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = CL_OUT_OF_HOST_MEMORY;
         }
@@ -3250,7 +3250,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         if (plane > 1)
         {
             LOG_ERROR(TEXT("invalid plane for format"));
-            if (NULL != errcode_ret)
+            if (nullptr != errcode_ret)
             {
                 *errcode_ret = CL_INVALID_VALUE;
             }
@@ -3264,7 +3264,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
         if (plane > 2)
         {
             LOG_ERROR(TEXT("invalid plane for format"));
-            if (NULL != errcode_ret)
+            if (nullptr != errcode_ret)
             {
                 *errcode_ret = CL_INVALID_VALUE;
             }
@@ -3277,7 +3277,7 @@ cl_mem ContextModule::CreateFromD3D9Surface(cl_context context, cl_mem_flags fla
     if (0 != plane)
     {
         LOG_ERROR(TEXT("invalid plane"));
-        if (NULL != errcode_ret)
+        if (nullptr != errcode_ret)
         {
             *errcode_ret = CL_INVALID_VALUE;
         }
@@ -3377,27 +3377,27 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
     if (pContext == NULL)
     {
         LOG_ERROR(TEXT("context is not a valid context"), "");
-        return NULL;
+        return nullptr;
     }
     if (flags & CL_MEM_SVM_ATOMICS && !(flags & CL_MEM_SVM_FINE_GRAIN_BUFFER))
     {
         LOG_ERROR(TEXT("flags does not contain CL_MEM_SVM_FINE_GRAIN_BUFFER but does contain CL_MEM_SVM_ATOMICS"), "");
-        return NULL;
+        return nullptr;
     }
     if ((flags & ~(CL_MEM_READ_WRITE | CL_MEM_WRITE_ONLY | CL_MEM_READ_ONLY | CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS)) != 0)
     {
         LOG_ERROR(TEXT("The values specified in flags are not valid i.e. don’t match those defined in table 5.13"), "");
-        return NULL;
+        return nullptr;
     }
     if (0 == size)
     {
         LOG_ERROR(TEXT("size is 0"), "");
-        return NULL;
+        return nullptr;
     }
     if (uiAlignment > 0 && (!IsPowerOf2(uiAlignment) || uiAlignment > sizeof(cl_long16)))
     {
         LOG_ERROR(TEXT("invalid alignment"), "");
-        return NULL;
+        return nullptr;
     }
     void* pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
     m_mapSVMBuffers[pSvmBuf] = pContext;
