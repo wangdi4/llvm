@@ -3746,6 +3746,7 @@ public:
   static Destroyer destroyARCStrongImprecise;
   static Destroyer destroyARCStrongPrecise;
   static Destroyer destroyARCWeak;
+  static Destroyer emitARCIntrinsicUse;
 
   void EmitObjCAutoreleasePoolPop(llvm::Value *Ptr); 
   llvm::Value *EmitObjCAutoreleasePoolPush();
