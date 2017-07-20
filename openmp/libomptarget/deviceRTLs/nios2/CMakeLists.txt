@@ -115,7 +115,7 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
 
   # EDS and Dispatcher are located in Nios2 SDK
   set(NIOS2_EDS  ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios2eds)
-  set(DISPATCHER ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios2offload/target)
+  set(DISPATCHER ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios_psl_release/latest/dispatcher)
 
   # Nios2 gcc and ar for buildig target RTL
   set(NIOS2_GCC ${NIOS2_EDS}/bin/gnu/H-x86_64-pc-linux-gnu/bin/nios2-elf-gcc)

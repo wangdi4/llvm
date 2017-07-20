@@ -16,7 +16,7 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64)$" AND CMAKE_SYSTEM_NAME MATCHES "Li
     libomptarget_say("Building Nios2 offloading plugin.")
 
     # MSOF is a part of Nios2 SDK
-    set(MSOF ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios2offload/host)
+    set(MSOF ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios_psl_release/latest/msof)
 
     # Plugin library
     add_library(omptarget.rtl.nios2 SHARED src/rtl.cpp)
