@@ -57,9 +57,9 @@ Program::~Program()
 cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet)
 {
 	OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
-	DeviceProgram* pDeviceProgram = NULL;
+	DeviceProgram* pDeviceProgram = nullptr;
 	tDeviceProgramMap::iterator deviceIdToProgramIter = m_deviceToProgram.find(clDevice);
-	if ((m_deviceToProgram.end() == deviceIdToProgramIter) || (NULL == deviceIdToProgramIter->second))
+	if ((m_deviceToProgram.end() == deviceIdToProgramIter) || (nullptr == deviceIdToProgramIter->second))
 	{
 		pDeviceProgram = GetDeviceProgram(clDevice);
 	}
@@ -67,7 +67,7 @@ cl_err_code Program::GetBuildInfo(cl_device_id clDevice, cl_program_build_info c
 	{
 		pDeviceProgram = deviceIdToProgramIter->second;
 	}
-	if (NULL == pDeviceProgram)
+	if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -83,12 +83,12 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		param_name, param_value_size, param_value, param_value_size_ret);
 
 	size_t szParamValueSize = 0;
-	const void * pValue = NULL;
+	const void * pValue = nullptr;
 
 	cl_context clContextParam = 0;
-	cl_device_id* clDevIds = NULL;
-    size_t* puiNumKernels = NULL;
-    char* szKernelsNames = NULL;
+	cl_device_id* clDevIds = nullptr;
+    size_t* puiNumKernels = nullptr;
+    char* szKernelsNames = nullptr;
 
 	switch ( (cl_program_info)param_name )
 	{
@@ -112,7 +112,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
         {
 		    szParamValueSize = sizeof(cl_device_id) * m_szNumAssociatedDevices;
 		    clDevIds = new cl_device_id[m_szNumAssociatedDevices];
-		    if (NULL == clDevIds)
+		    if (nullptr == clDevIds)
 		    {
 			    return CL_OUT_OF_HOST_MEMORY;
 		    }
@@ -128,7 +128,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 		{
 			OclAutoMutex deviceProgMapMutex(&m_deviceProgramMapMutex);
 			szParamValueSize = sizeof(size_t) * m_szNumAssociatedDevices;
-			if (NULL != param_value)
+			if (nullptr != param_value)
 			{
 				if (param_value_size < szParamValueSize)
 				{
@@ -146,15 +146,15 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 					{
 						pDeviceProgram = deviceToProgramIter->second;
 					}
-					assert(NULL != pDeviceProgram);
-					cl_int clErrRet = pDeviceProgram->GetBinary(0, NULL, pParamValue + i);
+					assert(nullptr != pDeviceProgram);
+					cl_int clErrRet = pDeviceProgram->GetBinary(0, nullptr, pParamValue + i);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
 					}
 				}
 			}
-			if (NULL != param_value_size_ret)
+			if (nullptr != param_value_size_ret)
 			{
 				*param_value_size_ret = szParamValueSize;
 			}
@@ -168,7 +168,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 			char ** pParamValue = static_cast<char **>(param_value);
             size_t uiParam = 0;
 			// get  data
-			if (NULL != pParamValue)
+			if (nullptr != pParamValue)
 			{
 				if (param_value_size < szParamValueSize)
 				{
@@ -184,8 +184,8 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 					{
 						pDeviceProgram = deviceToProgramIter->second;
 					}
-					assert(NULL != pDeviceProgram);
-					cl_int clErrRet = pDeviceProgram->GetBinary(0, NULL, &uiParam);
+					assert(nullptr != pDeviceProgram);
+					cl_int clErrRet = pDeviceProgram->GetBinary(0, nullptr, &uiParam);
 					if (CL_FAILED(clErrRet))
 					{
 						return clErrRet;
@@ -198,7 +198,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 				}
 			}
 			// get  size
-			if (NULL != param_value_size_ret)
+			if (nullptr != param_value_size_ret)
 			{
 				*param_value_size_ret = szParamValueSize;
 			}
@@ -209,7 +209,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	case CL_PROGRAM_SOURCE:
 		{
 			szParamValueSize = 0;
-                        pValue = NULL;
+                        pValue = nullptr;
                         break;
 		}
 
@@ -281,7 +281,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
                     //size_t* puiKernelNameLengths = new size_t[uiNumKernels];
 					vector<size_t> puiKernelNameLengths(uiNumKernels);
 
-	                clErrRet = pDevProg->GetKernelNames(NULL, &puiKernelNameLengths[0], uiNumKernels);
+	                clErrRet = pDevProg->GetKernelNames(nullptr, &puiKernelNameLengths[0], uiNumKernels);
 	                if (CL_FAILED(clErrRet))
 	                {
 		                return clErrRet;
@@ -292,7 +292,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	                {
                         total_length += puiKernelNameLengths[i];
 		                pszKernelNames[i] = new char[puiKernelNameLengths[i]];
-		                if (NULL == pszKernelNames[i])
+		                if (nullptr == pszKernelNames[i])
 		                {
 			                for (size_t j = 0; j < i; ++j)
 			                {
@@ -316,7 +316,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
                     // once we have the actual names, we need to concatenate them
                     assert(total_length > 0);
                     szKernelsNames = new char[total_length];
-                    if (NULL == szKernelsNames)
+                    if (nullptr == szKernelsNames)
                     {
                         for (size_t i = 0; i < uiNumKernels; ++i)
 	                    {
@@ -360,7 +360,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	}
 
 	// if param_value_size < actual value size return CL_INVALID_VALUE
-	if (NULL != param_value && param_value_size < szParamValueSize)
+	if (nullptr != param_value && param_value_size < szParamValueSize)
 	{
 		LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"), param_value_size, szParamValueSize);
 		if (clDevIds)
@@ -379,7 +379,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 	}
 
 	// if param_value == NULL return only param value size
-	if (NULL != param_value_size_ret)
+	if (nullptr != param_value_size_ret)
 	{
 		*param_value_size_ret = szParamValueSize;
 	}
@@ -410,9 +410,9 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 const char* Program::GetBinaryInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
-		return NULL;
+		return nullptr;
 	}
     return pDeviceProgram->GetBinaryInternal();
 }
@@ -423,7 +423,7 @@ const char* Program::GetBinaryInternal(cl_device_id clDevice)
 size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return 0;
 	}
@@ -436,7 +436,7 @@ size_t Program::GetBinarySizeInternal(cl_device_id clDevice)
 cl_program_binary_type Program::GetBinaryTypeInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
     {
         return CL_PROGRAM_BINARY_TYPE_NONE;
     }
@@ -449,7 +449,7 @@ cl_program_binary_type Program::GetBinaryTypeInternal(cl_device_id clDevice)
 cl_err_code Program::SetBinaryTypeInternal(cl_device_id clDevice, cl_program_binary_type clBinaryType)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
     {
         return CL_INVALID_DEVICE;
     }
@@ -463,7 +463,7 @@ cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySiz
                                     cl_program_binary_type clBinaryType)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -476,7 +476,7 @@ cl_err_code Program::SetBinaryInternal(cl_device_id clDevice, size_t uiBinarySiz
 cl_err_code Program::ClearBuildLogInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -489,7 +489,7 @@ cl_err_code Program::ClearBuildLogInternal(cl_device_id clDevice)
 cl_err_code Program::SetBuildLogInternal(cl_device_id clDevice, const char *szBuildLog)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -502,7 +502,7 @@ cl_err_code Program::SetBuildLogInternal(cl_device_id clDevice, const char *szBu
 cl_err_code Program::SetBuildOptionsInternal(cl_device_id clDevice, const char* szBuildOptions)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -515,9 +515,9 @@ cl_err_code Program::SetBuildOptionsInternal(cl_device_id clDevice, const char* 
 const char* Program::GetBuildOptionsInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
-		return NULL;
+		return nullptr;
 	}
     return pDeviceProgram->GetBuildOptionsInternal();
 }
@@ -528,7 +528,7 @@ const char* Program::GetBuildOptionsInternal(cl_device_id clDevice)
 cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState state)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -541,7 +541,7 @@ cl_err_code Program::SetStateInternal(cl_device_id clDevice, EDeviceProgramState
 EDeviceProgramState Program::GetStateInternal(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return DEVICE_PROGRAM_INVALID;
 	}
@@ -554,7 +554,7 @@ EDeviceProgramState Program::GetStateInternal(cl_device_id clDevice)
 cl_err_code Program::SetDeviceHandleInternal(cl_device_id clDevice, cl_dev_program programHandle)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return CL_INVALID_DEVICE;
 	}
@@ -571,7 +571,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* 
 	LOG_DEBUG(TEXT("CreateKernel enter. pscKernelName=%s, ppKernel=%d"), psKernelName, ppKernel);
 
 	// check invalid input
-	if (NULL == psKernelName)
+	if (nullptr == psKernelName)
 	{
 		return CL_INVALID_VALUE;
 	}
@@ -608,7 +608,7 @@ cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* 
 	// add the kernel object and adding new key for it
 	//m_pKernels->AddObject((SharedPtr<OCLObject<_cl_kernel_int>>)pKernel);
 	m_pKernels.AddObject(pKernel);
-	if (NULL != ppKernel)
+	if (nullptr != ppKernel)
 	{
 		*ppKernel = pKernel;
 	}
@@ -646,7 +646,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	{
 		return clErrRet;
 	}
-	if (NULL != puiNumKernelsRet)
+	if (nullptr != puiNumKernelsRet)
 	{
 		assert(szNumKernels <= CL_MAX_UINT32);
 		*puiNumKernelsRet = (cl_uint)szNumKernels;
@@ -657,7 +657,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
         return CL_SUCCESS;
     }
 	//No point in creating user-invisible kernels
-	if (NULL == pclKernels)
+	if (nullptr == pclKernels)
 	{
 		return CL_SUCCESS;
 	}
@@ -667,18 +667,18 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
     }
 
 	size_t* pszKernelNameLengths = new size_t[szNumKernels];
-	if (NULL == pszKernelNameLengths)
+	if (nullptr == pszKernelNameLengths)
 	{
 		return CL_OUT_OF_HOST_MEMORY;
 	}
-	clErrRet = m_ppDevicePrograms[0]->GetKernelNames(NULL, pszKernelNameLengths, szNumKernels);
+	clErrRet = m_ppDevicePrograms[0]->GetKernelNames(nullptr, pszKernelNameLengths, szNumKernels);
 	if (CL_FAILED(clErrRet))
 	{
 		delete[] pszKernelNameLengths;
 		return clErrRet;
 	}
 	char** ppKernelNames = new char*[szNumKernels];
-	if (NULL==ppKernelNames)
+	if (nullptr==ppKernelNames)
 	{
 		delete[] pszKernelNameLengths;
 		return CL_OUT_OF_HOST_MEMORY;
@@ -686,7 +686,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	for (size_t i = 0; i < szNumKernels; ++i)
 	{
 		ppKernelNames[i] = new char[pszKernelNameLengths[i]];
-		if (NULL == ppKernelNames[i])
+		if (nullptr == ppKernelNames[i])
 		{
 			for (size_t j = 0; j < i; ++j)
 			{
@@ -724,7 +724,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			for (size_t j = 0; j < i; ++j)
 			{
 		        m_pKernels.ReleaseObject((_cl_kernel_int*)pclKernels[j]);
-                pclKernels[j] = NULL;
+                pclKernels[j] = nullptr;
 			}
 			delete[] ppKernelNames;
 			delete[] pszKernelNameLengths;
@@ -757,9 +757,9 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels, SharedPtr<Kernel>* ppKerne
 	LOG_DEBUG(TEXT("Enter GetKernels (uiNumKernels=%d, ppKernels=%d, puiNumKernelsRet=%d"), 
 		uiNumKernels, ppKernels, puiNumKernelsRet);
 
-    if (NULL == ppKernels)
+    if (nullptr == ppKernels)
     {
-        return m_pKernels.GetObjects(uiNumKernels, NULL, puiNumKernelsRet);
+        return m_pKernels.GetObjects(uiNumKernels, nullptr, puiNumKernelsRet);
     }
     else
     {
@@ -794,7 +794,7 @@ DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)
             return m_ppDevicePrograms[deviceProg].get();
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 cl_uint Program::GetNumDevices()
@@ -821,7 +821,7 @@ cl_uint Program::GetNumKernels()
 bool Program::Acquire(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return false;
 	}
@@ -832,7 +832,7 @@ bool Program::Acquire(cl_device_id clDevice)
 void Program::Unacquire(cl_device_id clDevice)
 {
     DeviceProgram* pDeviceProgram = InternalGetDeviceProgram(clDevice);
-    if (NULL == pDeviceProgram)
+    if (nullptr == pDeviceProgram)
 	{
 		return;
 	}

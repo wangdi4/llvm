@@ -50,19 +50,19 @@ struct ElfReaderDP
 typedef auto_ptr_ex<CLElfLib::CElfReader, ElfReaderDP> ElfReaderPtr;
 
 DeviceProgram::DeviceProgram() : m_state(DEVICE_PROGRAM_INVALID),
-m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(NULL),
+m_bBuiltFromSource(false), m_bFECompilerSuccess(false), m_bIsClone(false), m_pDevice(nullptr),
 m_deviceHandle(0), m_programHandle(0), m_parentProgramHandle(0), m_parentProgramContext(0),
-m_uiBuildLogSize(0), m_szBuildLog(NULL), m_emptyString('\0'), m_szBuildOptions(NULL),
-m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
+m_uiBuildLogSize(0), m_szBuildLog(nullptr), m_emptyString('\0'), m_szBuildOptions(nullptr),
+m_pBinaryBits(nullptr), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
 m_currentAccesses(0)
 {
 }
 
 DeviceProgram::DeviceProgram(const Intel::OpenCL::Framework::DeviceProgram &dp) :
 m_state(DEVICE_PROGRAM_INVALID), m_bBuiltFromSource(false),
-m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(NULL), m_deviceHandle(0),
-m_programHandle(0), m_parentProgramHandle(0), m_emptyString('\0'), m_szBuildOptions(NULL),
-m_pBinaryBits(NULL), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
+m_bFECompilerSuccess(false), m_bIsClone(true), m_pDevice(nullptr), m_deviceHandle(0),
+m_programHandle(0), m_parentProgramHandle(0), m_emptyString('\0'), m_szBuildOptions(nullptr),
+m_pBinaryBits(nullptr), m_uiBinaryBitsSize(0), m_clBinaryBitsType(CL_PROGRAM_BINARY_TYPE_NONE),
 m_currentAccesses(0)
 {
     SetDevice(dp.m_pDevice);
@@ -81,18 +81,18 @@ DeviceProgram::~DeviceProgram()
     if (m_pBinaryBits)
     {
         delete[] m_pBinaryBits;
-        m_pBinaryBits = NULL;
+        m_pBinaryBits = nullptr;
         m_uiBinaryBitsSize = 0;
     }
     if (m_szBuildOptions)
     {
         delete[] m_szBuildOptions;
-        m_szBuildOptions = NULL;
+        m_szBuildOptions = nullptr;
     }
-    if (m_szBuildLog != NULL)
+    if (m_szBuildLog != nullptr)
     {
         delete[] m_szBuildLog;
-        m_szBuildLog  = NULL;
+        m_szBuildLog  = nullptr;
         m_uiBuildLogSize = 0;
     }
     if (m_pDevice)
@@ -195,7 +195,7 @@ cl_err_code DeviceProgram::ClearBuildLogInternal()
     if (m_szBuildLog)
     {
         delete[] m_szBuildLog;
-        m_szBuildLog = NULL;
+        m_szBuildLog = nullptr;
     }
 
     return CL_SUCCESS;
@@ -242,7 +242,7 @@ cl_err_code DeviceProgram::SetBuildOptionsInternal(const char *szBuildOptions)
     if (m_szBuildOptions)
     {
         delete[] m_szBuildOptions;
-        m_szBuildOptions = NULL;
+        m_szBuildOptions = nullptr;
     }
 
     if (szBuildOptions)
@@ -314,7 +314,7 @@ cl_build_status DeviceProgram::GetBuildStatus() const
 cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_t uiParamValueSize, void * pParamValue, size_t * puiParamValueSizeRet) const
 {
     size_t uiParamSize = 0;
-    void * pValue = NULL;
+    void * pValue = nullptr;
     cl_build_status clBuildStatus;
     cl_program_binary_type clBinaryType;
     char emptyString = '\0';
@@ -334,7 +334,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
         break;
 
     case CL_PROGRAM_BUILD_OPTIONS:
-        if (NULL != m_szBuildOptions)
+        if (nullptr != m_szBuildOptions)
         {
             uiParamSize = strlen(m_szBuildOptions) + 1;
             pValue = m_szBuildOptions;
@@ -382,7 +382,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
                 cl_dev_err_code clDevErr = CL_DEV_SUCCESS;
                 // still need to append the FE build log
                 // First of all calculate the size
-                clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, 0, NULL, &uiParamSize);
+                clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, 0, nullptr, &uiParamSize);
                 if CL_DEV_FAILED(clDevErr)
                 {
                     if (CL_DEV_INVALID_PROGRAM == clDevErr)
@@ -392,38 +392,38 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
                         return CL_INVALID_VALUE;
                     }
                 }
-                if ( NULL != m_szBuildLog )
+                if ( nullptr != m_szBuildLog )
                 {
                     uiParamSize += m_uiBuildLogSize;
                     // Now we have reserved place for two '\0's. Remove one.
                     uiParamSize--;
                 }
-                if (NULL != pParamValue && uiParamSize > uiParamValueSize)
+                if (nullptr != pParamValue && uiParamSize > uiParamValueSize)
                 {
                     return CL_INVALID_VALUE;
                 }
 
                 // if pParamValue == NULL return param value size
-                if (NULL != puiParamValueSizeRet)
+                if (nullptr != puiParamValueSizeRet)
                 {
                     *puiParamValueSizeRet = uiParamSize;
                 }
 
                 // get the actual log
-                if (NULL != pParamValue)
+                if (nullptr != pParamValue)
                 {
-                    if ( NULL != m_szBuildLog )
+                    if ( nullptr != m_szBuildLog )
                     {
                         //Copy the FE log minus the terminating NULL
                         MEMCPY_S(pParamValue, uiParamValueSize, m_szBuildLog, m_uiBuildLogSize - 1);
                         // and let the device write the rest of the log
                         uiParamSize -= (m_uiBuildLogSize - 1);
 
-                        clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, ((char*)pParamValue) + m_uiBuildLogSize - 1, NULL);
+                        clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, ((char*)pParamValue) + m_uiBuildLogSize - 1, nullptr);
                     }
                     else
                     {
-                        clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, (char*)pParamValue, NULL);
+                        clDevErr = m_pDevice->GetDeviceAgent()->clDevGetBuildLog(m_programHandle, uiParamSize, (char*)pParamValue, nullptr);
                     }
                 }
                 if CL_DEV_FAILED(clDevErr)
@@ -458,7 +458,7 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
                     return CL_INVALID_VALUE;
                 }
             }
-            if (NULL != puiParamValueSizeRet)
+            if (nullptr != puiParamValueSizeRet)
             {
                 *puiParamValueSizeRet = sizeof(size_t);
             }
@@ -470,18 +470,18 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pParamValue && uiParamSize > uiParamValueSize)
+    if (nullptr != pParamValue && uiParamSize > uiParamValueSize)
     {
         return CL_INVALID_VALUE;
     }
 
     // if pParamValue == NULL return only param value size
-    if (NULL != puiParamValueSizeRet)
+    if (nullptr != puiParamValueSizeRet)
     {
         *puiParamValueSizeRet = uiParamSize;
     }
 
-    if (NULL != pParamValue && uiParamSize > 0)
+    if (nullptr != pParamValue && uiParamSize > 0)
     {
         MEMCPY_S(pParamValue, uiParamValueSize, pValue, uiParamSize);
     }
@@ -491,12 +491,12 @@ cl_err_code DeviceProgram::GetBuildInfo(cl_program_build_info clParamName, size_
 
 cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * puiBinSizeRet)
 {
-    if (NULL == pBin && NULL == puiBinSizeRet)
+    if (nullptr == pBin && nullptr == puiBinSizeRet)
     {
         return CL_INVALID_VALUE;
     }
 
-    if (uiBinSize > 0 && NULL == pBin)
+    if (uiBinSize > 0 && nullptr == pBin)
     {
         return CL_INVALID_VALUE;
     }
@@ -511,7 +511,7 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
     case DEVICE_PROGRAM_LINKED:
     case DEVICE_PROGRAM_LOADED_IR:
     case DEVICE_PROGRAM_CUSTOM_BINARY:
-        if ( NULL == pBin)
+        if ( nullptr == pBin)
         {
             assert(m_uiBinaryBitsSize <= CL_MAX_UINT32);
             *puiBinSizeRet = (cl_uint)m_uiBinaryBitsSize;
@@ -531,7 +531,7 @@ cl_err_code DeviceProgram::GetBinary(size_t uiBinSize, void * pBin, size_t * pui
         return CL_SUCCESS;
 
     default:
-        if ( NULL == pBin)    // When query for binary size and it's not available, we should return 0
+        if ( nullptr == pBin)    // When query for binary size and it's not available, we should return 0
         {
             *puiBinSizeRet = 0;
             return CL_SUCCESS;
@@ -550,7 +550,7 @@ bool DeviceProgram::IsBinaryAvailable(cl_program_binary_type requestedType) cons
         CL_SUCCESS == GetBuildInfo(CL_PROGRAM_BINARY_TYPE,
                                 sizeof(binaryType),
                                 &binaryType,
-                                NULL) &&
+                                nullptr) &&
         binaryType == requestedType)
     {
         return true;
@@ -561,7 +561,7 @@ bool DeviceProgram::IsBinaryAvailable(cl_program_binary_type requestedType) cons
 cl_err_code DeviceProgram::GetNumKernels(cl_uint* pszNumKernels)
 {
     assert(pszNumKernels);
-    return m_pDevice->GetDeviceAgent()->clDevGetProgramKernels(m_programHandle, 0, NULL, pszNumKernels);
+    return m_pDevice->GetDeviceAgent()->clDevGetProgramKernels(m_programHandle, 0, nullptr, pszNumKernels);
 }
 
 cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, size_t szNumNames)
@@ -570,7 +570,7 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     cl_err_code    errRet     = CL_SUCCESS;
     cl_dev_kernel* devKernels = new cl_dev_kernel[szNumNames];
 
-    if (NULL == devKernels)
+    if (nullptr == devKernels)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -588,11 +588,11 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     }
     assert(numKernels == szNumNames);
 
-    if (NULL == ppNames)
+    if (nullptr == ppNames)
     {
         for (size_t i = 0; i < numKernels; ++i)
         {
-            errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, NULL, 0, NULL, pszNameSizes + i);
+            errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, nullptr, 0, nullptr, pszNameSizes + i);
             if (CL_FAILED(errRet))
             {
                 delete[] devKernels;
@@ -606,7 +606,7 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     for (size_t i = 0; i < numKernels; ++i)
     {
         size_t kernelNameSize;
-        errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, NULL, pszNameSizes[i], ppNames[i], &kernelNameSize);
+        errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, nullptr, pszNameSizes[i], ppNames[i], &kernelNameSize);
         if (CL_FAILED(errRet))
         {
             delete[] devKernels;
