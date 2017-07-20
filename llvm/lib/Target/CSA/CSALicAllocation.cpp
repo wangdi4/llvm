@@ -13,8 +13,6 @@
 
 #include "CSALicAllocation.h"
 
-#define DEBUG_TYPE "lic-alloc"
-
 #include <map>
 #include "InstPrinter/CSAInstPrinter.h"
 #include "CSA.h"
@@ -35,6 +33,7 @@
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 
+#define DEBUG_TYPE "lic-alloc"
 
 using namespace llvm;
 
