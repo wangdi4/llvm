@@ -21,16 +21,17 @@ OclBuiltinImpl degrees_f64_generic = OclBuiltinImpl<degrees,
 OclBuiltinImpl max_fgeneric = OclBuiltinImpl<max,
   [v1f32, v2f32, v3f32, v4f32,
    v1f64, v2f64, v16f64], 0, [{
-    $Arg0igentype mask = isless($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
+    // !!! order of arguments in comparison is important. DO NOT CHANGE
+    // Reason is how NaN is treated. "y < x ? y : x" sequence generates max_ps x86 intrinsics
+    // max_ps treats NaN differently in case NaN is in 1st argument or in 2nd argument
+    return ($Arg1VarName < $Arg0VarName) ? $Arg0VarName : $Arg1VarName;
   }]>;
 
 // min
 OclBuiltinImpl min_fgeneric = OclBuiltinImpl<min,
   [v1f32, v2f32, v3f32, v4f32,
    v1f64, v2f64, v16f64], 0, [{
-    $Arg0igentype mask = isgreater($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
+    return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }]>;
 
 // mix

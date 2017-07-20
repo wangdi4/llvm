@@ -33,29 +33,6 @@ OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
 // vector, scalar BI generation
 //======v4f32 and v2f64 implementation===============================
 
-// max
-OclBuiltinImpl max_v4f32 = OclBuiltinImpl<max, [v4f32], 0, [{
-    int4 mask = isless($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-OclBuiltinImpl max_v2f64 = OclBuiltinImpl<max, [v2f64], 0, [{
-    long2 mask = isless($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-// min
-OclBuiltinImpl min_v4f32 = OclBuiltinImpl<min, [v4f32], 0, [{
-    int4 mask = isgreater($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-OclBuiltinImpl min_v2f64 = OclBuiltinImpl<min, [v2f64], 0, [{
-    long2 mask = isgreater($Arg0VarName, $Arg1VarName);
-    return mask ? $Arg1VarName : $Arg0VarName;
-  }]>;
-
-
 // step
 OclBuiltinImpl step_v4f32 = OclBuiltinImpl<step,
   [v4f32] , 0, [{
