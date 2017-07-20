@@ -2256,7 +2256,7 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL,
       }
 
       // Check for trivial simplification.
-      if (Value *V = SimplifyInstruction(N, DL)) {
+      if (Value *V = SimplifyInstruction(N, {DL, nullptr, nullptr, AC})) {
         if (!BBI->use_empty())
           TranslateMap[&*BBI] = V;
         if (!N->mayHaveSideEffects()) {
@@ -2366,8 +2366,25 @@ static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
       }
     }
 
+<<<<<<< HEAD
     if (!CanBeSimplified) {
       // Continue to look for next "if condition".
+=======
+  // Loop over the PHI's seeing if we can promote them all to select
+  // instructions.  While we are at it, keep track of the instructions
+  // that need to be moved to the dominating block.
+  SmallPtrSet<Instruction *, 4> AggressiveInsts;
+  unsigned MaxCostVal0 = PHINodeFoldingThreshold,
+           MaxCostVal1 = PHINodeFoldingThreshold;
+  MaxCostVal0 *= TargetTransformInfo::TCC_Basic;
+  MaxCostVal1 *= TargetTransformInfo::TCC_Basic;
+
+  for (BasicBlock::iterator II = BB->begin(); isa<PHINode>(II);) {
+    PHINode *PN = cast<PHINode>(II++);
+    if (Value *V = SimplifyInstruction(PN, {DL, PN})) {
+      PN->replaceAllUsesWith(V);
+      PN->eraseFromParent();
+>>>>>>> e2c5126dbba89759a750ef5e4acc93e3275ec329
       continue;
     }
 
@@ -3652,7 +3669,7 @@ static bool TryToSimplifyUncondBranchWithICmpInIt(
     assert(VVal && "Should have a unique destination value");
     ICI->setOperand(0, VVal);
 
-    if (Value *V = SimplifyInstruction(ICI, DL)) {
+    if (Value *V = SimplifyInstruction(ICI, {DL, ICI})) {
       ICI->replaceAllUsesWith(V);
       ICI->eraseFromParent();
     }
