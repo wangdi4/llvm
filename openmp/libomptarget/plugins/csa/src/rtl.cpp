@@ -895,7 +895,15 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 }
 
 void *__tgt_rtl_data_alloc(int32_t device_id, int64_t size, void *hst_ptr) {
-  return hst_ptr;
+  if (hst_ptr)
+    return hst_ptr;
+
+  if (verbosity)
+    fprintf(stderr, "Note: allocating %ld bytes for this region.\n", size);
+
+  void *ptr = malloc(size);
+  DeviceInfo.RecordMemoryAlloc(device_id, ptr);
+  return ptr;
 }
 
 int32_t __tgt_rtl_data_submit(int32_t device_id, void *tgt_ptr, void *hst_ptr,
