@@ -112,7 +112,7 @@ namespace {
 /// CSA Code Generator Pass Configuration Options.
 class CSAPassConfig : public TargetPassConfig {
 public:
-  CSAPassConfig(CSATargetMachine *TM, legacy::PassManagerBase &PM)
+  CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
     : TargetPassConfig(TM, PM) {}
 
   CSATargetMachine &getCSATargetMachine() const {
@@ -224,6 +224,6 @@ public:
 } // namespace
 
 TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
-  CSAPassConfig *PassConfig = new CSAPassConfig(this, PM);
+  CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
 }
