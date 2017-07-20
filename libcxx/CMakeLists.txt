@@ -23,7 +23,7 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   project(libcxx CXX C)
 
   set(PACKAGE_NAME libcxx)
-  set(PACKAGE_VERSION 5.0.0svn)
+  set(PACKAGE_VERSION 6.0.0svn)
   set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
   set(PACKAGE_BUGREPORT "llvm-bugs@lists.llvm.org")
 
@@ -118,6 +118,7 @@ if (LIBCXX_CXX_ABI STREQUAL "default")
     cxxabi.h
     PATHS ${LLVM_MAIN_SRC_DIR}/projects/libcxxabi/include
           ${LLVM_MAIN_SRC_DIR}/runtimes/libcxxabi/include
+          ${LLVM_MAIN_SRC_DIR}/../libcxxabi/include
     NO_DEFAULT_PATH
   )
   if (LIBCXX_TARGETING_MSVC)
@@ -351,6 +352,13 @@ else()
 endif()
 file(MAKE_DIRECTORY "${LIBCXX_BINARY_INCLUDE_DIR}")
 
+set(LIBCXX_INSTALL_PREFIX "" CACHE STRING
+    "Define libc++ destination prefix.")
+
+if (NOT LIBCXX_INSTALL_PREFIX MATCHES "^$|.*/")
+  message(FATAL_ERROR "LIBCXX_INSTALL_PREFIX has to end with \"/\".")
+endif()
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${LIBCXX_LIBRARY_DIR})
@@ -451,6 +459,11 @@ add_compile_flags_if_supported(-nostdinc++)
 # visible. This prevents new definitions for inline functions from appearing in
 # the dylib when get ODR used by another function.
 add_compile_flags_if_supported(-fvisibility-inlines-hidden)
+
+if (LIBCXX_CONFIGURE_IDE)
+  # This simply allows IDE to process <experimental/coroutine>
+  add_compile_flags_if_supported(-fcoroutines-ts)
+endif()
 
 # Let the library headers know they are currently being used to build the
 # library.

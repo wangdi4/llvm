@@ -86,10 +86,12 @@ set(Tests
   CustomCrossOverTest
   CustomMutatorTest
   CxxStringEqTest
+  DeepRecursionTest
   DivTest
   EmptyTest
   EquivalenceATest
   EquivalenceBTest
+  FlagsTest
   FourIndependentBranchesTest
   FullCoverageSetTest
   InitializeTest
@@ -118,6 +120,7 @@ set(Tests
   SingleStrncmpTest
   SpamyTest
   ShrinkControlFlowTest
+  ShrinkControlFlowSimpleTest
   ShrinkValueProfileTest
   StrcmpTest
   StrncmpOOBTest
@@ -156,6 +159,7 @@ function(test_export_symbol target symbol)
   endif()
 endfunction()
 
+test_export_symbol(FlagsTest "LLVMFuzzerInitialize")
 test_export_symbol(InitializeTest "LLVMFuzzerInitialize")
 test_export_symbol(BogusInitializeTest "LLVMFuzzerInitialize")
 test_export_symbol(CustomCrossOverTest "LLVMFuzzerCustomCrossOver")
@@ -206,6 +210,9 @@ include_directories(..)
 add_subdirectory(no-coverage)
 add_subdirectory(trace-pc)
 add_subdirectory(ubsan)
+if (NOT MSVC)
+  add_subdirectory(inline-8bit-counters)
+endif()
 
 add_library(LLVMFuzzer-DSO1 SHARED DSO1.cpp)
 add_library(LLVMFuzzer-DSO2 SHARED DSO2.cpp)

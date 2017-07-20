@@ -28,11 +28,6 @@
     #error This header may not be used when targeting libc++
 #endif
 
-// Indicates that we are using the MSVC standard library.
-#ifndef _MSVC_STL_VER
-    #define _MSVC_STL_VER 42
-#endif
-
 #ifndef _LIBCXX_IN_DEVCRT
 struct AssertionDialogAvoider {
     AssertionDialogAvoider() {
@@ -75,12 +70,16 @@ const AssertionDialogAvoider assertion_dialog_avoider{};
     #define _ENABLE_ATOMIC_ALIGNMENT_FIX
 
     // Enable features that /std:c++latest removes by default.
-    #define _HAS_AUTO_PTR_ETC          1
-    #define _HAS_FUNCTION_ASSIGN       1
-    #define _HAS_OLD_IOSTREAMS_MEMBERS 1
+    #define _HAS_AUTO_PTR_ETC               1
+    #define _HAS_FUNCTION_ALLOCATOR_SUPPORT 1
+    #define _HAS_OLD_IOSTREAMS_MEMBERS      1
+    #define _HAS_UNEXPECTED                 1
 
     // Silence warnings about raw pointers and other unchecked iterators.
     #define _SCL_SECURE_NO_WARNINGS
+
+    // Silence warnings about features that are deprecated in C++17.
+    #define _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
 #endif // _LIBCXX_IN_DEVCRT
 
 #include <ciso646>

@@ -39,6 +39,7 @@
 # RUN:   --dynamic-linker "some unusual/path" -soname 'foo bar' -soname='foo bar'
 # RUN: tar xf repro2.tar
 # RUN: FileCheck %s --check-prefix=RSP2 < repro2/response.txt
+# RSP2:      --chroot .
 # RSP2:      "{{.*}}foo bar"
 # RSP2-NEXT: -L "{{.*}}foo bar"
 # RSP2-NEXT: -L {{.+}}file
@@ -63,7 +64,7 @@
 ## Check that directory path is stripped from -o <file-path>
 # RUN: mkdir -p %t.dir/build3/a/b/c
 # RUN: cd %t.dir
-# RUN: ld.lld build1/foo.o -o build3/a/b/c/bar -shared --as-needed --reproduce repro3.tar
+# RUN: ld.lld build1/foo.o -o build3/a/b/c/bar -shared --as-needed --reproduce=repro3.tar
 # RUN: tar xf repro3.tar
 # RUN: FileCheck %s --check-prefix=RSP3 < repro3/response.txt
 # RSP3: -o bar

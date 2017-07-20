@@ -67,6 +67,7 @@ static cl::opt<DIDumpType> DumpType(
         clEnumValN(DIDT_GnuPubnames, "gnu_pubnames", ".debug_gnu_pubnames"),
         clEnumValN(DIDT_GnuPubtypes, "gnu_pubtypes", ".debug_gnu_pubtypes"),
         clEnumValN(DIDT_Str, "str", ".debug_str"),
+        clEnumValN(DIDT_StrOffsets, "str_offsets", ".debug_str_offsets"),
         clEnumValN(DIDT_StrDwo, "str.dwo", ".debug_str.dwo"),
         clEnumValN(DIDT_StrOffsetsDwo, "str_offsets.dwo",
                    ".debug_str_offsets.dwo"),
@@ -83,6 +84,8 @@ static cl::opt<bool> Verify("verify", cl::desc("Verify the DWARF debug info"));
 static cl::opt<bool> Quiet("quiet",
                            cl::desc("Use with -verify to not emit to STDOUT."));
 
+static cl::opt<bool> Brief("brief", cl::desc("Print fewer low-level details"));
+
 static void error(StringRef Filename, std::error_code EC) {
   if (!EC)
     return;
@@ -91,12 +94,18 @@ static void error(StringRef Filename, std::error_code EC) {
 }
 
 static void DumpObjectFile(ObjectFile &Obj, Twine Filename) {
-  std::unique_ptr<DIContext> DICtx(new DWARFContextInMemory(Obj));
+  std::unique_ptr<DIContext> DICtx = DWARFContext::create(Obj);
 
   outs() << Filename.str() << ":\tfile format " << Obj.getFileFormatName()
          << "\n\n";
+
+
   // Dump the complete DWARF structure.
-  DICtx->dump(outs(), DumpType, false, SummarizeTypes);
+  DIDumpOptions DumpOpts;
+  DumpOpts.DumpType = DumpType;
+  DumpOpts.SummarizeTypes = SummarizeTypes;
+  DumpOpts.Brief = Brief;
+  DICtx->dump(outs(), DumpOpts);
 }
 
 static void DumpInput(StringRef Filename) {
@@ -122,8 +131,8 @@ static void DumpInput(StringRef Filename) {
 }
 
 static bool VerifyObjectFile(ObjectFile &Obj, Twine Filename) {
-  std::unique_ptr<DIContext> DICtx(new DWARFContextInMemory(Obj));
-  
+  std::unique_ptr<DIContext> DICtx = DWARFContext::create(Obj);
+
   // Verify the DWARF and exit with non-zero exit status if verification
   // fails.
   raw_ostream &stream = Quiet ? nulls() : outs();

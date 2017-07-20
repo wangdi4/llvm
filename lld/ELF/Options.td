@@ -44,6 +44,9 @@ def allow_multiple_definition: F<"allow-multiple-definition">,
 def as_needed: F<"as-needed">,
   HelpText<"Only set DT_NEEDED for shared libraries if used">;
 
+// -chroot doesn't have a help text because it is an internal option.
+def chroot: S<"chroot">;
+
 def color_diagnostics: F<"color-diagnostics">,
   HelpText<"Use colors in diagnostics">;
 
@@ -92,6 +95,9 @@ def error_limit: S<"error-limit">,
 def error_unresolved_symbols: F<"error-unresolved-symbols">,
   HelpText<"Report unresolved symbols as errors">;
 
+def exclude_libs: S<"exclude-libs">,
+  HelpText<"Exclude static libraries from automatic export">;
+
 def export_dynamic: F<"export-dynamic">,
   HelpText<"Put symbols in the dynamic symbol table">;
 
@@ -100,6 +106,8 @@ def export_dynamic_symbol: S<"export-dynamic-symbol">,
 
 def fatal_warnings: F<"fatal-warnings">,
   HelpText<"Treat warnings as errors">;
+
+def filter: J<"filter=">, HelpText<"Set DT_FILTER field to the specified name">;
 
 def fini: S<"fini">, MetaVarName<"<symbol>">,
   HelpText<"Specify a finalizer function">;
@@ -298,9 +306,11 @@ def alias_emit_relocs: Flag<["-"], "q">, Alias<emit_relocs>;
 def alias_entry_e: JoinedOrSeparate<["-"], "e">, Alias<entry>;
 def alias_entry_entry: J<"entry=">, Alias<entry>;
 def alias_error_limit: J<"error-limit=">, Alias<error_limit>;
+def alias_exclude_libs: J<"exclude-libs=">, Alias<exclude_libs>;
 def alias_export_dynamic_E: Flag<["-"], "E">, Alias<export_dynamic>;
 def alias_export_dynamic_symbol: J<"export-dynamic-symbol=">,
   Alias<export_dynamic_symbol>;
+def alias_filter: Separate<["-"], "F">, Alias<filter>;
 def alias_fini_fini: J<"fini=">, Alias<fini>;
 def alias_format_b: S<"b">, Alias<format>;
 def alias_hash_style_hash_style: J<"hash-style=">, Alias<hash_style>;
@@ -313,6 +323,7 @@ def alias_o_output2 : Separate<["--"], "output">, Alias<o>;
 def alias_pie_pic_executable: F<"pic-executable">, Alias<pie>;
 def alias_print_map_M: Flag<["-"], "M">, Alias<print_map>;
 def alias_relocatable_r: Flag<["-"], "r">, Alias<relocatable>;
+def alias_reproduce_eq: J<"reproduce=">, Alias<reproduce>;
 def alias_retain_symbols_file: S<"retain-symbols-file">, Alias<retain_symbols_file>;
 def alias_rpath_R: JoinedOrSeparate<["-"], "R">, Alias<rpath>;
 def alias_rpath_rpath: J<"rpath=">, Alias<rpath>;
@@ -334,6 +345,7 @@ def alias_Ttext_segment: S<"Ttext-segment">, Alias<Ttext>;
 def alias_Ttext_segment_eq: J<"Ttext-segment=">, Alias<Ttext>;
 def alias_undefined_eq: J<"undefined=">, Alias<undefined>;
 def alias_undefined_u: JoinedOrSeparate<["-"], "u">, Alias<undefined>;
+def alias_version_script_eq: J<"version-script=">, Alias<version_script>;
 def alias_version_V: Flag<["-"], "V">, Alias<version>;
 def alias_wrap_wrap: J<"wrap=">, Alias<wrap>;
 
@@ -401,6 +413,3 @@ def EL : F<"EL">;
 def G: JoinedOrSeparate<["-"], "G">;
 def Qy : F<"Qy">;
 
-// Aliases for ignored options
-def alias_version_script_version_script: J<"version-script=">,
-  Alias<version_script>;

@@ -991,6 +991,11 @@ bool RegisterCoalescer::removePartialRedundancy(const CoalescerPair &CP,
     IntB.createDeadDef(NewCopyIdx, LIS->getVNInfoAllocator());
     for (LiveInterval::SubRange &SR : IntB.subranges())
       SR.createDeadDef(NewCopyIdx, LIS->getVNInfoAllocator());
+
+    // If the newly created Instruction has an address of an instruction that was
+    // deleted before (object recycled by the allocator) it needs to be removed from
+    // the deleted list.
+    ErasedInstrs.erase(NewCopyMI);
   } else {
     DEBUG(dbgs() << "\tremovePartialRedundancy: Remove the copy from BB#"
                  << MBB.getNumber() << '\t' << CopyMI);
@@ -1001,6 +1006,8 @@ bool RegisterCoalescer::removePartialRedundancy(const CoalescerPair &CP,
   // While updating the live-ranges, we only look at slot indices and
   // never go back to the instruction.
   LIS->RemoveMachineInstrFromMaps(CopyMI);
+  // Mark instructions as deleted.
+  ErasedInstrs.insert(&CopyMI);
   CopyMI.eraseFromParent();
 
   // Update the liveness.
@@ -1231,6 +1238,34 @@ bool RegisterCoalescer::reMaterializeTrivialDef(const CoalescerPair &CP,
         LiveInterval::SubRange *SR = DstInt.createSubRange(Alloc, MaxMask);
         SR->createDeadDef(DefIndex, Alloc);
       }
+    }
+
+    // Make sure that the subrange for resultant undef is removed
+    // For example:
+    //   vreg1:sub1<def,read-undef> = LOAD CONSTANT 1
+    //   vreg2<def> = COPY vreg1
+    // ==>
+    //   vreg2:sub1<def, read-undef> = LOAD CONSTANT 1
+    //     ; Correct but need to remove the subrange for vreg2:sub0
+    //     ; as it is now undef
+    if (NewIdx != 0 && DstInt.hasSubRanges()) {
+      // The affected subregister segments can be removed.
+      SlotIndex CurrIdx = LIS->getInstructionIndex(NewMI);
+      LaneBitmask DstMask = TRI->getSubRegIndexLaneMask(NewIdx);
+      bool UpdatedSubRanges = false;
+      for (LiveInterval::SubRange &SR : DstInt.subranges()) {
+        if ((SR.LaneMask & DstMask).none()) {
+          DEBUG(dbgs() << "Removing undefined SubRange "
+                << PrintLaneMask(SR.LaneMask) << " : " << SR << "\n");
+          // VNI is in ValNo - remove any segments in this SubRange that have this ValNo
+          if (VNInfo *RmValNo = SR.getVNInfoAt(CurrIdx.getRegSlot())) {
+            SR.removeValNo(RmValNo);
+            UpdatedSubRanges = true;
+          }
+        }
+      }
+      if (UpdatedSubRanges)
+        DstInt.removeEmptySubRanges();
     }
   } else if (NewMI.getOperand(0).getReg() != CopyDstReg) {
     // The New instruction may be defining a sub-register of what's actually
@@ -2216,7 +2251,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
   const MachineInstr *DefMI = nullptr;
   if (VNI->isPHIDef()) {
     // Conservatively assume that all lanes in a PHI are valid.
-    LaneBitmask Lanes = SubRangeJoin ? LaneBitmask(1)
+    LaneBitmask Lanes = SubRangeJoin ? LaneBitmask::getLane(0)
                                      : TRI->getSubRegIndexLaneMask(SubIdx);
     V.ValidLanes = V.WriteLanes = Lanes;
   } else {
@@ -2224,7 +2259,7 @@ JoinVals::analyzeValue(unsigned ValNo, JoinVals &Other) {
     assert(DefMI != nullptr);
     if (SubRangeJoin) {
       // We don't care about the lanes when joining subregister ranges.
-      V.WriteLanes = V.ValidLanes = LaneBitmask(1);
+      V.WriteLanes = V.ValidLanes = LaneBitmask::getLane(0);
       if (DefMI->isImplicitDef()) {
         V.ValidLanes = LaneBitmask::getNone();
         V.ErasableImplicitDef = true;
@@ -2678,11 +2713,17 @@ void JoinVals::pruneSubRegValues(LiveInterval &LI, LaneBitmask &ShrinkMask) {
   // Look for values being erased.
   bool DidPrune = false;
   for (unsigned i = 0, e = LR.getNumValNums(); i != e; ++i) {
-    if (Vals[i].Resolution != CR_Erase)
+    // We should trigger in all cases in which eraseInstrs() does something.
+    // match what eraseInstrs() is doing, print a message so
+    if (Vals[i].Resolution != CR_Erase &&
+        (Vals[i].Resolution != CR_Keep || !Vals[i].ErasableImplicitDef ||
+         !Vals[i].Pruned))
       continue;
 
     // Check subranges at the point where the copy will be removed.
     SlotIndex Def = LR.getValNumInfo(i)->def;
+    // Print message so mismatches with eraseInstrs() can be diagnosed.
+    DEBUG(dbgs() << "\t\tExpecting instruction removal at " << Def << '\n');
     for (LiveInterval::SubRange &S : LI.subranges()) {
       LiveQueryResult Q = S.Query(Def);
 
@@ -3101,7 +3142,7 @@ copyCoalesceWorkList(MutableArrayRef<MachineInstr*> CurrList) {
       continue;
     // Skip instruction pointers that have already been erased, for example by
     // dead code elimination.
-    if (ErasedInstrs.erase(CurrList[i])) {
+    if (ErasedInstrs.count(CurrList[i])) {
       CurrList[i] = nullptr;
       continue;
     }

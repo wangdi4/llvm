@@ -94,6 +94,14 @@ static cl::opt<bool> ManagedMemory("polly-acc-codegen-managed-memory",
                                    cl::Hidden, cl::init(false), cl::ZeroOrMore,
                                    cl::cat(PollyCategory));
 
+static cl::opt<bool>
+    FailOnVerifyModuleFailure("polly-acc-fail-on-verify-module-failure",
+                              cl::desc("Fail and generate a backtrace if"
+                                       " verifyModule fails on the GPU "
+                                       " kernel module."),
+                              cl::Hidden, cl::init(false), cl::ZeroOrMore,
+                              cl::cat(PollyCategory));
+
 static cl::opt<std::string>
     CudaVersion("polly-acc-cuda-version",
                 cl::desc("The CUDA version to compile for"), cl::Hidden,
@@ -103,6 +111,144 @@ static cl::opt<int>
     MinCompute("polly-acc-mincompute",
                cl::desc("Minimal number of compute statements to run on GPU."),
                cl::Hidden, cl::init(10 * 512 * 512));
+
+/// Used to store information PPCG wants for kills. This information is
+/// used by live range reordering.
+///
+/// @see computeLiveRangeReordering
+/// @see GPUNodeBuilder::createPPCGScop
+/// @see GPUNodeBuilder::createPPCGProg
+struct MustKillsInfo {
+  /// Collection of all kill statements that will be sequenced at the end of
+  /// PPCGScop->schedule.
+  ///
+  /// The nodes in `KillsSchedule` will be merged using `isl_schedule_set`
+  /// which merges schedules in *arbitrary* order.
+  /// (we don't care about the order of the kills anyway).
+  isl::schedule KillsSchedule;
+  /// Map from kill statement instances to scalars that need to be
+  /// killed.
+  ///
+  /// We currently derive kill information for:
+  ///  1. phi nodes. PHI nodes are not alive outside the scop and can
+  ///     consequently all be killed.
+  ///  2. Scalar arrays that are not used outside the Scop. This is
+  ///     checked by `isScalarUsesContainedInScop`.
+  /// [params] -> { [Stmt_phantom[] -> ref_phantom[]] -> scalar_to_kill[] }
+  isl::union_map TaggedMustKills;
+
+  /// Tagged must kills stripped of the tags.
+  /// [params] -> { Stmt_phantom[]  -> scalar_to_kill[] }
+  isl::union_map MustKills;
+
+  MustKillsInfo() : KillsSchedule(nullptr) {}
+};
+
+/// Check if SAI's uses are entirely contained within Scop S.
+/// If a scalar is used only with a Scop, we are free to kill it, as no data
+/// can flow in/out of the value any more.
+/// @see computeMustKillsInfo
+static bool isScalarUsesContainedInScop(const Scop &S,
+                                        const ScopArrayInfo *SAI) {
+  assert(SAI->isValueKind() && "this function only deals with scalars."
+                               " Dealing with arrays required alias analysis");
+
+  const Region &R = S.getRegion();
+  for (User *U : SAI->getBasePtr()->users()) {
+    Instruction *I = dyn_cast<Instruction>(U);
+    assert(I && "invalid user of scop array info");
+    if (!R.contains(I))
+      return false;
+  }
+  return true;
+}
+
+/// Compute must-kills needed to enable live range reordering with PPCG.
+///
+/// @params S The Scop to compute live range reordering information
+/// @returns live range reordering information that can be used to setup
+/// PPCG.
+static MustKillsInfo computeMustKillsInfo(const Scop &S) {
+  const isl::space ParamSpace(isl::manage(S.getParamSpace()));
+  MustKillsInfo Info;
+
+  // 1. Collect all ScopArrayInfo that satisfy *any* of the criteria:
+  //      1.1 phi nodes in scop.
+  //      1.2 scalars that are only used within the scop
+  SmallVector<isl::id, 4> KillMemIds;
+  for (ScopArrayInfo *SAI : S.arrays()) {
+    if (SAI->isPHIKind() ||
+        (SAI->isValueKind() && isScalarUsesContainedInScop(S, SAI)))
+      KillMemIds.push_back(isl::manage(SAI->getBasePtrId()));
+  }
+
+  Info.TaggedMustKills = isl::union_map::empty(isl::space(ParamSpace));
+  Info.MustKills = isl::union_map::empty(isl::space(ParamSpace));
+
+  // Initialising KillsSchedule to `isl_set_empty` creates an empty node in the
+  // schedule:
+  //     - filter: "[control] -> { }"
+  // So, we choose to not create this to keep the output a little nicer,
+  // at the cost of some code complexity.
+  Info.KillsSchedule = nullptr;
+
+  for (isl::id &ToKillId : KillMemIds) {
+    isl::id KillStmtId = isl::id::alloc(
+        S.getIslCtx(),
+        std::string("SKill_phantom_").append(ToKillId.get_name()), nullptr);
+
+    // NOTE: construction of tagged_must_kill:
+    // 2. We need to construct a map:
+    //     [param] -> { [Stmt_phantom[] -> ref_phantom[]] -> scalar_to_kill[] }
+    // To construct this, we use `isl_map_domain_product` on 2 maps`:
+    // 2a. StmtToScalar:
+    //         [param] -> { Stmt_phantom[] -> scalar_to_kill[] }
+    // 2b. PhantomRefToScalar:
+    //         [param] -> { ref_phantom[] -> scalar_to_kill[] }
+    //
+    // Combining these with `isl_map_domain_product` gives us
+    // TaggedMustKill:
+    //     [param] -> { [Stmt[] -> phantom_ref[]] -> scalar_to_kill[] }
+
+    // 2a. [param] -> { Stmt[] -> scalar_to_kill[] }
+    isl::map StmtToScalar = isl::map::universe(isl::space(ParamSpace));
+    StmtToScalar = StmtToScalar.set_tuple_id(isl::dim::in, isl::id(KillStmtId));
+    StmtToScalar = StmtToScalar.set_tuple_id(isl::dim::out, isl::id(ToKillId));
+
+    isl::id PhantomRefId = isl::id::alloc(
+        S.getIslCtx(), std::string("ref_phantom") + ToKillId.get_name(),
+        nullptr);
+
+    // 2b. [param] -> { phantom_ref[] -> scalar_to_kill[] }
+    isl::map PhantomRefToScalar = isl::map::universe(isl::space(ParamSpace));
+    PhantomRefToScalar =
+        PhantomRefToScalar.set_tuple_id(isl::dim::in, PhantomRefId);
+    PhantomRefToScalar =
+        PhantomRefToScalar.set_tuple_id(isl::dim::out, ToKillId);
+
+    // 2. [param] -> { [Stmt[] -> phantom_ref[]] -> scalar_to_kill[] }
+    isl::map TaggedMustKill = StmtToScalar.domain_product(PhantomRefToScalar);
+    Info.TaggedMustKills = Info.TaggedMustKills.unite(TaggedMustKill);
+
+    // 2. [param] -> { Stmt[] -> scalar_to_kill[] }
+    Info.MustKills = Info.TaggedMustKills.domain_factor_domain();
+
+    // 3. Create the kill schedule of the form:
+    //     "[param] -> { Stmt_phantom[] }"
+    // Then add this to Info.KillsSchedule.
+    isl::space KillStmtSpace = ParamSpace;
+    KillStmtSpace = KillStmtSpace.set_tuple_id(isl::dim::set, KillStmtId);
+    isl::union_set KillStmtDomain = isl::set::universe(KillStmtSpace);
+
+    isl::schedule KillSchedule = isl::schedule::from_domain(KillStmtDomain);
+    if (Info.KillsSchedule)
+      Info.KillsSchedule = Info.KillsSchedule.set(KillSchedule);
+    else
+      Info.KillsSchedule = KillSchedule;
+  }
+
+  return Info;
+}
 
 /// Create the ast expressions for a ScopStmt.
 ///
@@ -153,7 +299,7 @@ static int computeSizeInBytes(const Type *T) {
 /// Generate code for a GPU specific isl AST.
 ///
 /// The GPUNodeBuilder augments the general existing IslNodeBuilder, which
-/// generates code for general-prupose AST nodes, with special functionality
+/// generates code for general-purpose AST nodes, with special functionality
 /// for generating GPU specific user nodes.
 ///
 /// @see GPUNodeBuilder::createUser
@@ -185,6 +331,9 @@ public:
 
   /// The maximal number of loops surrounding a parallel kernel.
   unsigned DeepestParallel = 0;
+
+  /// Return the name to set for the ptx_kernel.
+  std::string getKernelFuncName(int Kernel_id);
 
 private:
   /// A vector of array base pointers for which a new ScopArrayInfo was created.
@@ -255,8 +404,12 @@ private:
   ///
   /// @param Kernel The kernel to scan for llvm::Values
   ///
-  /// @returns A set of values referenced by the kernel.
-  SetVector<Value *> getReferencesInKernel(ppcg_kernel *Kernel);
+  /// @returns A pair, whose first element contains the set of values
+  ///          referenced by the kernel, and whose second element contains the
+  ///          set of functions referenced by the kernel. All functions in the
+  ///          second set satisfy isValidFunctionInKernel.
+  std::pair<SetVector<Value *>, SetVector<Function *>>
+  getReferencesInKernel(ppcg_kernel *Kernel);
 
   /// Compute the sizes of the execution grid for a given kernel.
   ///
@@ -365,8 +518,11 @@ private:
   ///
   /// @param Kernel The kernel to generate code for.
   /// @param SubtreeValues The set of llvm::Values referenced by this kernel.
+  /// @param SubtreeFunctions The set of llvm::Functions referenced by this
+  ///                         kernel.
   void createKernelFunction(ppcg_kernel *Kernel,
-                            SetVector<Value *> &SubtreeValues);
+                            SetVector<Value *> &SubtreeValues,
+                            SetVector<Function *> &SubtreeFunctions);
 
   /// Create the declaration of a kernel function.
   ///
@@ -388,6 +544,25 @@ private:
   ///
   /// @param The kernel to generate the intrinsic functions for.
   void insertKernelIntrinsics(ppcg_kernel *Kernel);
+
+  /// Setup the creation of functions referenced by the GPU kernel.
+  ///
+  /// 1. Create new function declarations in GPUModule which are the same as
+  /// SubtreeFunctions.
+  ///
+  /// 2. Populate IslNodeBuilder::ValueMap with mappings from
+  /// old functions (that come from the original module) to new functions
+  /// (that are created within GPUModule). That way, we generate references
+  /// to the correct function (in GPUModule) in BlockGenerator.
+  ///
+  /// @see IslNodeBuilder::ValueMap
+  /// @see BlockGenerator::GlobalMap
+  /// @see BlockGenerator::getNewValue
+  /// @see GPUNodeBuilder::getReferencesInKernel.
+  ///
+  /// @param SubtreeFunctions The set of llvm::Functions referenced by
+  ///                         this kernel.
+  void setupKernelSubtreeFunctions(SetVector<Function *> SubtreeFunctions);
 
   /// Create a global-to-shared or shared-to-global copy statement.
   ///
@@ -434,7 +609,7 @@ private:
   /// Finalize the generation of the kernel arguments.
   ///
   /// This function ensures that not-read-only scalars used in a kernel are
-  /// stored back to the global memory location they ared backed up with before
+  /// stored back to the global memory location they are backed with before
   /// the kernel terminates.
   ///
   /// @params Kernel The kernel to finalize kernel arguments for.
@@ -515,13 +690,18 @@ private:
   /// @param GridBlockX The size of the first block dimension.
   /// @param GridBlockY The size of the second block dimension.
   /// @param GridBlockZ The size of the third block dimension.
-  /// @param Paramters  A pointer to an array that contains itself pointers to
+  /// @param Parameters A pointer to an array that contains itself pointers to
   ///                   the parameter values passed for each kernel argument.
   void createCallLaunchKernel(Value *GPUKernel, Value *GridDimX,
                               Value *GridDimY, Value *BlockDimX,
                               Value *BlockDimY, Value *BlockDimZ,
                               Value *Parameters);
 };
+
+std::string GPUNodeBuilder::getKernelFuncName(int Kernel_id) {
+  return "FUNC_" + S.getFunction().getName().str() + "_SCOP_" +
+         std::to_string(S.getID()) + "_KERNEL_" + std::to_string(Kernel_id);
+}
 
 void GPUNodeBuilder::initializeAfterRTH() {
   BasicBlock *NewBB = SplitBlock(Builder.GetInsertBlock(),
@@ -832,11 +1012,11 @@ Value *GPUNodeBuilder::getArraySize(gpu_array_info *Array) {
   Value *ArraySize = ConstantInt::get(Builder.getInt64Ty(), Array->size);
 
   if (!gpu_array_is_scalar(Array)) {
-    auto OffsetDimZero = isl_pw_aff_copy(Array->bound[0]);
+    auto OffsetDimZero = isl_multi_pw_aff_get_pw_aff(Array->bound, 0);
     isl_ast_expr *Res = isl_ast_build_expr_from_pw_aff(Build, OffsetDimZero);
 
     for (unsigned int i = 1; i < Array->n_index; i++) {
-      isl_pw_aff *Bound_I = isl_pw_aff_copy(Array->bound[i]);
+      isl_pw_aff *Bound_I = isl_multi_pw_aff_get_pw_aff(Array->bound, i);
       isl_ast_expr *Expr = isl_ast_build_expr_from_pw_aff(Build, Bound_I);
       Res = isl_ast_expr_mul(Res, Expr);
     }
@@ -876,7 +1056,7 @@ Value *GPUNodeBuilder::getArrayOffset(gpu_array_info *Array) {
 
   for (long i = 0; i < isl_set_dim(Min, isl_dim_set); i++) {
     if (i > 0) {
-      isl_pw_aff *Bound_I = isl_pw_aff_copy(Array->bound[i - 1]);
+      isl_pw_aff *Bound_I = isl_multi_pw_aff_get_pw_aff(Array->bound, i - 1);
       isl_ast_expr *BExpr = isl_ast_build_expr_from_pw_aff(Build, Bound_I);
       Result = isl_ast_expr_mul(Result, BExpr);
     }
@@ -980,7 +1160,18 @@ void GPUNodeBuilder::createUser(__isl_take isl_ast_node *UserStmt) {
     isl_ast_expr_free(Expr);
     return;
   }
-
+  if (!strcmp(Str, "init_device")) {
+    initializeAfterRTH();
+    isl_ast_node_free(UserStmt);
+    isl_ast_expr_free(Expr);
+    return;
+  }
+  if (!strcmp(Str, "clear_device")) {
+    finalize();
+    isl_ast_node_free(UserStmt);
+    isl_ast_expr_free(Expr);
+    return;
+  }
   if (isPrefix(Str, "to_device")) {
     if (!ManagedMemory)
       createDataTransfer(UserStmt, HOST_TO_DEVICE);
@@ -1109,7 +1300,44 @@ isl_bool collectReferencesInGPUStmt(__isl_keep isl_ast_node *Node, void *User) {
   return isl_bool_true;
 }
 
-SetVector<Value *> GPUNodeBuilder::getReferencesInKernel(ppcg_kernel *Kernel) {
+/// Check if F is a function that we can code-generate in a GPU kernel.
+static bool isValidFunctionInKernel(llvm::Function *F) {
+  assert(F && "F is an invalid pointer");
+  // We string compare against the name of the function to allow
+  // all variants of the intrinsic "llvm.sqrt.*", "llvm.fabs", and
+  // "llvm.copysign".
+  const StringRef Name = F->getName();
+  return F->isIntrinsic() &&
+         (Name.startswith("llvm.sqrt") || Name.startswith("llvm.fabs") ||
+          Name.startswith("llvm.copysign"));
+}
+
+/// Do not take `Function` as a subtree value.
+///
+/// We try to take the reference of all subtree values and pass them along
+/// to the kernel from the host. Taking an address of any function and
+/// trying to pass along is nonsensical. Only allow `Value`s that are not
+/// `Function`s.
+static bool isValidSubtreeValue(llvm::Value *V) { return !isa<Function>(V); }
+
+/// Return `Function`s from `RawSubtreeValues`.
+static SetVector<Function *>
+getFunctionsFromRawSubtreeValues(SetVector<Value *> RawSubtreeValues) {
+  SetVector<Function *> SubtreeFunctions;
+  for (Value *It : RawSubtreeValues) {
+    Function *F = dyn_cast<Function>(It);
+    if (F) {
+      assert(isValidFunctionInKernel(F) && "Code should have bailed out by "
+                                           "this point if an invalid function "
+                                           "were present in a kernel.");
+      SubtreeFunctions.insert(F);
+    }
+  }
+  return SubtreeFunctions;
+}
+
+std::pair<SetVector<Value *>, SetVector<Function *>>
+GPUNodeBuilder::getReferencesInKernel(ppcg_kernel *Kernel) {
   SetVector<Value *> SubtreeValues;
   SetVector<const SCEV *> SCEVs;
   SetVector<const Loop *> Loops;
@@ -1146,7 +1374,28 @@ SetVector<Value *> GPUNodeBuilder::getReferencesInKernel(ppcg_kernel *Kernel) {
     isl_id_free(Id);
   }
 
-  return SubtreeValues;
+  // Note: { ValidSubtreeValues, ValidSubtreeFunctions } partitions
+  // SubtreeValues. This is important, because we should not lose any
+  // SubtreeValues in the process of constructing the
+  // "ValidSubtree{Values, Functions} sets. Nor should the set
+  // ValidSubtree{Values, Functions} have any common element.
+  auto ValidSubtreeValuesIt =
+      make_filter_range(SubtreeValues, isValidSubtreeValue);
+  SetVector<Value *> ValidSubtreeValues(ValidSubtreeValuesIt.begin(),
+                                        ValidSubtreeValuesIt.end());
+  SetVector<Function *> ValidSubtreeFunctions(
+      getFunctionsFromRawSubtreeValues(SubtreeValues));
+
+  // @see IslNodeBuilder::getReferencesInSubtree
+  SetVector<Value *> ReplacedValues;
+  for (Value *V : ValidSubtreeValues) {
+    auto It = ValueMap.find(V);
+    if (It == ValueMap.end())
+      ReplacedValues.insert(V);
+    else
+      ReplacedValues.insert(It->second);
+  }
+  return std::make_pair(ReplacedValues, ValidSubtreeFunctions);
 }
 
 void GPUNodeBuilder::clearDominators(Function *F) {
@@ -1312,6 +1561,8 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
   for (long i = 0; i < NumVars; i++) {
     isl_id *Id = isl_space_get_dim_id(Kernel->space, isl_dim_param, i);
     Value *Val = IDToValue[Id];
+    if (ValueMap.count(Val))
+      Val = ValueMap[Val];
     isl_id_free(Id);
 
     ArgSizes[Index] = computeSizeInBytes(Val->getType());
@@ -1353,6 +1604,21 @@ GPUNodeBuilder::createLaunchParameters(ppcg_kernel *Kernel, Function *F,
                          Launch + "_params_i8ptr", Location);
 }
 
+void GPUNodeBuilder::setupKernelSubtreeFunctions(
+    SetVector<Function *> SubtreeFunctions) {
+  for (auto Fn : SubtreeFunctions) {
+    const std::string ClonedFnName = Fn->getName();
+    Function *Clone = GPUModule->getFunction(ClonedFnName);
+    if (!Clone)
+      Clone =
+          Function::Create(Fn->getFunctionType(), GlobalValue::ExternalLinkage,
+                           ClonedFnName, GPUModule.get());
+    assert(Clone && "Expected cloned function to be initialized.");
+    assert(ValueMap.find(Fn) == ValueMap.end() &&
+           "Fn already present in ValueMap");
+    ValueMap[Fn] = Clone;
+  }
+}
 void GPUNodeBuilder::createKernel(__isl_take isl_ast_node *KernelStmt) {
   isl_id *Id = isl_ast_node_get_annotation(KernelStmt);
   ppcg_kernel *Kernel = (ppcg_kernel *)isl_id_get_user(Id);
@@ -1369,7 +1635,9 @@ void GPUNodeBuilder::createKernel(__isl_take isl_ast_node *KernelStmt) {
   Value *BlockDimX, *BlockDimY, *BlockDimZ;
   std::tie(BlockDimX, BlockDimY, BlockDimZ) = getBlockSizes(Kernel);
 
-  SetVector<Value *> SubtreeValues = getReferencesInKernel(Kernel);
+  SetVector<Value *> SubtreeValues;
+  SetVector<Function *> SubtreeFunctions;
+  std::tie(SubtreeValues, SubtreeFunctions) = getReferencesInKernel(Kernel);
 
   assert(Kernel->tree && "Device AST of kernel node is empty");
 
@@ -1393,7 +1661,8 @@ void GPUNodeBuilder::createKernel(__isl_take isl_ast_node *KernelStmt) {
     SubtreeValues.insert(V);
   }
 
-  createKernelFunction(Kernel, SubtreeValues);
+  createKernelFunction(Kernel, SubtreeValues, SubtreeFunctions);
+  setupKernelSubtreeFunctions(SubtreeFunctions);
 
   create(isl_ast_node_copy(Kernel->tree));
 
@@ -1419,7 +1688,7 @@ void GPUNodeBuilder::createKernel(__isl_take isl_ast_node *KernelStmt) {
   Builder.SetInsertPoint(&HostInsertPoint);
   Value *Parameters = createLaunchParameters(Kernel, F, SubtreeValues);
 
-  std::string Name = "kernel_" + std::to_string(Kernel->id);
+  std::string Name = getKernelFuncName(Kernel->id);
   Value *KernelString = Builder.CreateGlobalStringPtr(ASMString, Name);
   Value *NameString = Builder.CreateGlobalStringPtr(Name, Name + "_name");
   Value *GPUKernel = createCallGetKernel(KernelString, NameString);
@@ -1460,7 +1729,7 @@ Function *
 GPUNodeBuilder::createKernelFunctionDecl(ppcg_kernel *Kernel,
                                          SetVector<Value *> &SubtreeValues) {
   std::vector<Type *> Args;
-  std::string Identifier = "kernel_" + std::to_string(Kernel->id);
+  std::string Identifier = getKernelFuncName(Kernel->id);
 
   for (long i = 0; i < Prog->n_array; i++) {
     if (!ppcg_kernel_requires_array_argument(Kernel, i))
@@ -1520,7 +1789,7 @@ GPUNodeBuilder::createKernelFunctionDecl(ppcg_kernel *Kernel,
     Sizes.push_back(nullptr);
     for (long j = 1; j < Kernel->array[i].array->n_index; j++) {
       isl_ast_expr *DimSize = isl_ast_build_expr_from_pw_aff(
-          Build, isl_pw_aff_copy(Kernel->array[i].array->bound[j]));
+          Build, isl_multi_pw_aff_get_pw_aff(Kernel->array[i].array->bound, j));
       auto V = ExprBuilder.create(DimSize);
       Sizes.push_back(SE.getSCEV(V));
     }
@@ -1721,9 +1990,10 @@ void GPUNodeBuilder::createKernelVariables(ppcg_kernel *Kernel, Function *FN) {
   }
 }
 
-void GPUNodeBuilder::createKernelFunction(ppcg_kernel *Kernel,
-                                          SetVector<Value *> &SubtreeValues) {
-  std::string Identifier = "kernel_" + std::to_string(Kernel->id);
+void GPUNodeBuilder::createKernelFunction(
+    ppcg_kernel *Kernel, SetVector<Value *> &SubtreeValues,
+    SetVector<Function *> &SubtreeFunctions) {
+  std::string Identifier = getKernelFuncName(Kernel->id);
   GPUModule.reset(new Module(Identifier, Builder.getContext()));
 
   switch (Arch) {
@@ -1810,7 +2080,14 @@ std::string GPUNodeBuilder::createKernelASM() {
 }
 
 std::string GPUNodeBuilder::finalizeKernelFunction() {
+
   if (verifyModule(*GPUModule)) {
+    DEBUG(dbgs() << "verifyModule failed on module:\n";
+          GPUModule->print(dbgs(), nullptr); dbgs() << "\n";);
+
+    if (FailOnVerifyModuleFailure)
+      llvm_unreachable("VerifyModule failed.");
+
     BuildSuccessful = false;
     return "";
   }
@@ -1873,6 +2150,7 @@ public:
 
     Options->debug = DebugOptions;
 
+    Options->group_chains = false;
     Options->reschedule = true;
     Options->scale_tile_loops = false;
     Options->wrap = false;
@@ -1881,7 +2159,10 @@ public:
     Options->ctx = nullptr;
     Options->sizes = nullptr;
 
+    Options->tile = true;
     Options->tile_size = 32;
+
+    Options->isolate_full_tiles = false;
 
     Options->use_private_memory = PrivateMemory;
     Options->use_shared_memory = SharedMemory;
@@ -1890,8 +2171,14 @@ public:
     Options->target = PPCG_TARGET_CUDA;
     Options->openmp = false;
     Options->linearize_device_arrays = true;
-    Options->live_range_reordering = false;
+    Options->allow_gnu_extensions = false;
 
+    Options->unroll_copy_shared = false;
+    Options->unroll_gpu_tile = false;
+    Options->live_range_reordering = true;
+
+    Options->live_range_reordering = true;
+    Options->hybrid = false;
     Options->opencl_compiler_options = nullptr;
     Options->opencl_use_gpu = false;
     Options->opencl_n_include_file = 0;
@@ -2006,16 +2293,21 @@ public:
   ///
   /// @returns A new ppcg scop.
   ppcg_scop *createPPCGScop() {
+    MustKillsInfo KillsInfo = computeMustKillsInfo(*S);
+
     auto PPCGScop = (ppcg_scop *)malloc(sizeof(ppcg_scop));
 
     PPCGScop->options = createPPCGOptions();
+    // enable live range reordering
+    PPCGScop->options->live_range_reordering = 1;
 
     PPCGScop->start = 0;
     PPCGScop->end = 0;
 
     PPCGScop->context = S->getContext();
     PPCGScop->domain = S->getDomains();
-    PPCGScop->call = nullptr;
+    // TODO: investigate this further. PPCG calls collect_call_domains.
+    PPCGScop->call = isl_union_set_from_set(S->getContext());
     PPCGScop->tagged_reads = getTaggedReads();
     PPCGScop->reads = S->getReads();
     PPCGScop->live_in = nullptr;
@@ -2024,10 +2316,12 @@ public:
     PPCGScop->tagged_must_writes = getTaggedMustWrites();
     PPCGScop->must_writes = S->getMustWrites();
     PPCGScop->live_out = nullptr;
-    PPCGScop->tagged_must_kills = isl_union_map_empty(S->getParamSpace());
-    PPCGScop->tagger = nullptr;
+    PPCGScop->tagged_must_kills = KillsInfo.TaggedMustKills.take();
+    PPCGScop->must_kills = KillsInfo.MustKills.take();
 
-    PPCGScop->independence = nullptr;
+    PPCGScop->tagger = nullptr;
+    PPCGScop->independence =
+        isl_union_map_empty(isl_set_get_space(PPCGScop->context));
     PPCGScop->dep_flow = nullptr;
     PPCGScop->tagged_dep_flow = nullptr;
     PPCGScop->dep_false = nullptr;
@@ -2036,17 +2330,22 @@ public:
     PPCGScop->tagged_dep_order = nullptr;
 
     PPCGScop->schedule = S->getScheduleTree();
-    PPCGScop->names = getNames();
+    // If we have something non-trivial to kill, add it to the schedule
+    if (KillsInfo.KillsSchedule.get())
+      PPCGScop->schedule = isl_schedule_sequence(
+          PPCGScop->schedule, KillsInfo.KillsSchedule.take());
 
+    PPCGScop->names = getNames();
     PPCGScop->pet = nullptr;
 
     compute_tagger(PPCGScop);
     compute_dependences(PPCGScop);
+    eliminate_dead_code(PPCGScop);
 
     return PPCGScop;
   }
 
-  /// Collect the array acesses in a statement.
+  /// Collect the array accesses in a statement.
   ///
   /// @param Stmt The statement for which to collect the accesses.
   ///
@@ -2163,9 +2462,17 @@ public:
     for (unsigned i = 1; i < NumDims; ++i)
       Extent = isl_set_lower_bound_si(Extent, isl_dim_set, i, 0);
 
-    for (unsigned i = 1; i < NumDims; ++i) {
+    for (unsigned i = 0; i < NumDims; ++i) {
       isl_pw_aff *PwAff =
           const_cast<isl_pw_aff *>(Array->getDimensionSizePw(i));
+
+      // isl_pw_aff can be NULL for zero dimension. Only in the case of a
+      // Fortran array will we have a legitimate dimension.
+      if (!PwAff) {
+        assert(i == 0 && "invalid dimension isl_pw_aff for nonzero dimension");
+        continue;
+      }
+
       isl_pw_aff *Val = isl_pw_aff_from_aff(isl_aff_var_on_domain(
           isl_local_space_from_space(Array->getSpace()), isl_dim_set, i));
       PwAff = isl_pw_aff_add_dims(PwAff, isl_dim_in,
@@ -2188,14 +2495,23 @@ public:
   /// @param PPCGArray The array to compute bounds for.
   /// @param Array The polly array from which to take the information.
   void setArrayBounds(gpu_array_info &PPCGArray, ScopArrayInfo *Array) {
+    isl_pw_aff_list *BoundsList =
+        isl_pw_aff_list_alloc(S->getIslCtx(), PPCGArray.n_index);
+    std::vector<isl::pw_aff> PwAffs;
+
+    isl_space *AlignSpace = S->getParamSpace();
+    AlignSpace = isl_space_add_dims(AlignSpace, isl_dim_set, 1);
+
     if (PPCGArray.n_index > 0) {
       if (isl_set_is_empty(PPCGArray.extent)) {
         isl_set *Dom = isl_set_copy(PPCGArray.extent);
         isl_local_space *LS = isl_local_space_from_space(
             isl_space_params(isl_set_get_space(Dom)));
         isl_set_free(Dom);
-        isl_aff *Zero = isl_aff_zero_on_domain(LS);
-        PPCGArray.bound[0] = isl_pw_aff_from_aff(Zero);
+        isl_pw_aff *Zero = isl_pw_aff_from_aff(isl_aff_zero_on_domain(LS));
+        Zero = isl_pw_aff_align_params(Zero, isl_space_copy(AlignSpace));
+        PwAffs.push_back(isl::manage(isl_pw_aff_copy(Zero)));
+        BoundsList = isl_pw_aff_list_insert(BoundsList, 0, Zero);
       } else {
         isl_set *Dom = isl_set_copy(PPCGArray.extent);
         Dom = isl_set_project_out(Dom, isl_dim_set, 1, PPCGArray.n_index - 1);
@@ -2208,7 +2524,9 @@ public:
         One = isl_aff_add_constant_si(One, 1);
         Bound = isl_pw_aff_add(Bound, isl_pw_aff_alloc(Dom, One));
         Bound = isl_pw_aff_gist(Bound, S->getContext());
-        PPCGArray.bound[0] = Bound;
+        Bound = isl_pw_aff_align_params(Bound, isl_space_copy(AlignSpace));
+        PwAffs.push_back(isl::manage(isl_pw_aff_copy(Bound)));
+        BoundsList = isl_pw_aff_list_insert(BoundsList, 0, Bound);
       }
     }
 
@@ -2217,8 +2535,20 @@ public:
       auto LS = isl_pw_aff_get_domain_space(Bound);
       auto Aff = isl_multi_aff_zero(LS);
       Bound = isl_pw_aff_pullback_multi_aff(Bound, Aff);
-      PPCGArray.bound[i] = Bound;
+      Bound = isl_pw_aff_align_params(Bound, isl_space_copy(AlignSpace));
+      PwAffs.push_back(isl::manage(isl_pw_aff_copy(Bound)));
+      BoundsList = isl_pw_aff_list_insert(BoundsList, i, Bound);
     }
+
+    isl_space_free(AlignSpace);
+    isl_space *BoundsSpace = isl_set_get_space(PPCGArray.extent);
+
+    assert(BoundsSpace && "Unable to access space of array.");
+    assert(BoundsList && "Unable to access list of bounds.");
+
+    PPCGArray.bound =
+        isl_multi_pw_aff_from_pw_aff_list(BoundsSpace, BoundsList);
+    assert(PPCGArray.bound && "PPCGArray.bound was not constructed correctly.");
   }
 
   /// Create the arrays for @p PPCGProg.
@@ -2241,8 +2571,6 @@ public:
       PPCGArray.name = strdup(Array->getName().c_str());
       PPCGArray.extent = nullptr;
       PPCGArray.n_index = Array->getNumberOfDimensions();
-      PPCGArray.bound =
-          isl_alloc_array(S->getIslCtx(), isl_pw_aff *, PPCGArray.n_index);
       PPCGArray.extent = getExtent(Array);
       PPCGArray.n_ref = 0;
       PPCGArray.refs = nullptr;
@@ -2257,6 +2585,7 @@ public:
       PPCGArray.dep_order = nullptr;
       PPCGArray.user = Array;
 
+      PPCGArray.bound = nullptr;
       setArrayBounds(PPCGArray, Array);
       i++;
 
@@ -2282,7 +2611,7 @@ public:
 
   /// Create a default-initialized PPCG GPU program.
   ///
-  /// @returns A new gpu grogram description.
+  /// @returns A new gpu program description.
   gpu_prog *createPPCGProg(ppcg_scop *PPCGScop) {
 
     if (!PPCGScop)
@@ -2300,8 +2629,15 @@ public:
         isl_union_map_copy(PPCGScop->tagged_must_kills);
     PPCGProg->to_inner = getArrayIdentity();
     PPCGProg->to_outer = getArrayIdentity();
+    // TODO: verify that this assignment is correct.
     PPCGProg->any_to_outer = nullptr;
-    PPCGProg->array_order = nullptr;
+
+    // this needs to be set when live range reordering is enabled.
+    // NOTE: I believe that is conservatively correct. I'm not sure
+    //       what the semantics of this is.
+    // Quoting PPCG/gpu.h: "Order dependences on non-scalars."
+    PPCGProg->array_order =
+        isl_union_map_empty(isl_set_get_space(PPCGScop->context));
     PPCGProg->n_stmts = std::distance(S->begin(), S->end());
     PPCGProg->stmts = getStatements();
     PPCGProg->n_array = std::distance(S->array_begin(), S->array_end());
@@ -2311,7 +2647,6 @@ public:
     createArrays(PPCGProg);
 
     PPCGProg->may_persist = compute_may_persist(PPCGProg);
-
     return PPCGProg;
   }
 
@@ -2603,6 +2938,46 @@ public:
     return isl_ast_expr_ge(Iterations, MinComputeExpr);
   }
 
+  /// Check if the basic block contains a function we cannot codegen for GPU
+  /// kernels.
+  ///
+  /// If this basic block does something with a `Function` other than calling
+  /// a function that we support in a kernel, return true.
+  bool containsInvalidKernelFunctionInBllock(const BasicBlock *BB) {
+    for (const Instruction &Inst : *BB) {
+      const CallInst *Call = dyn_cast<CallInst>(&Inst);
+      if (Call && isValidFunctionInKernel(Call->getCalledFunction())) {
+        continue;
+      }
+
+      for (Value *SrcVal : Inst.operands()) {
+        PointerType *p = dyn_cast<PointerType>(SrcVal->getType());
+        if (!p)
+          continue;
+        if (isa<FunctionType>(p->getElementType()))
+          return true;
+      }
+    }
+    return false;
+  }
+
+  /// Return whether the Scop S uses functions in a way that we do not support.
+  bool containsInvalidKernelFunction(const Scop &S) {
+    for (auto &Stmt : S) {
+      if (Stmt.isBlockStmt()) {
+        if (containsInvalidKernelFunctionInBllock(Stmt.getBasicBlock()))
+          return true;
+      } else {
+        assert(Stmt.isRegionStmt() &&
+               "Stmt was neither block nor region statement");
+        for (const BasicBlock *BB : Stmt.getRegion()->blocks())
+          if (containsInvalidKernelFunctionInBllock(BB))
+            return true;
+      }
+    }
+    return false;
+  }
+
   /// Generate code for a given GPU AST described by @p Root.
   ///
   /// @param Root An isl_ast_node pointing to the root of the GPU AST.
@@ -2625,8 +3000,13 @@ public:
     // the SCEVExpander may introduce while code generating the parameters and
     // which may introduce scalar dependences that prevent us from correctly
     // code generating this scop.
-    BasicBlock *StartBlock =
+    BBPair StartExitBlocks;
+    BranchInst *CondBr = nullptr;
+    std::tie(StartExitBlocks, CondBr) =
         executeScopConditionally(*S, Builder.getTrue(), *DT, *RI, *LI);
+    BasicBlock *StartBlock = std::get<0>(StartExitBlocks);
+
+    assert(CondBr && "CondBr not initialized by executeScopConditionally");
 
     GPUNodeBuilder NodeBuilder(Builder, Annotator, *DL, *LI, *SE, *DT, *S,
                                StartBlock, Prog, Runtime, Architecture);
@@ -2637,28 +3017,30 @@ public:
     NodeBuilder.addParameters(S->getContext());
 
     isl_ast_build *Build = isl_ast_build_alloc(S->getIslCtx());
-    isl_ast_expr *Condition = IslAst::buildRunCondition(S, Build);
+    isl_ast_expr *Condition = IslAst::buildRunCondition(*S, Build);
     isl_ast_expr *SufficientCompute = createSufficientComputeCheck(*S, Build);
     Condition = isl_ast_expr_and(Condition, SufficientCompute);
     isl_ast_build_free(Build);
+
+    // preload invariant loads. Note: This should happen before the RTC
+    // because the RTC may depend on values that are invariant load hoisted.
+    NodeBuilder.preloadInvariantLoads();
 
     Value *RTC = NodeBuilder.createRTC(Condition);
     Builder.GetInsertBlock()->getTerminator()->setOperand(0, RTC);
 
     Builder.SetInsertPoint(&*StartBlock->begin());
 
-    NodeBuilder.initializeAfterRTH();
     NodeBuilder.create(Root);
-    NodeBuilder.finalize();
 
     /// In case a sequential kernel has more surrounding loops as any parallel
     /// kernel, the SCoP is probably mostly sequential. Hence, there is no
     /// point in running it on a GPU.
     if (NodeBuilder.DeepestSequential > NodeBuilder.DeepestParallel)
-      SplitBlock->getTerminator()->setOperand(0, Builder.getFalse());
+      CondBr->setOperand(0, Builder.getFalse());
 
     if (!NodeBuilder.BuildSuccessful)
-      SplitBlock->getTerminator()->setOperand(0, Builder.getFalse());
+      CondBr->setOperand(0, Builder.getFalse());
   }
 
   bool runOnScop(Scop &CurrentScop) override {
@@ -2669,16 +3051,27 @@ public:
     DL = &S->getRegion().getEntry()->getModule()->getDataLayout();
     RI = &getAnalysis<RegionInfoPass>().getRegionInfo();
 
-    // We currently do not support scops with invariant loads.
-    if (S->hasInvariantAccesses())
+    // We currently do not support functions other than intrinsics inside
+    // kernels, as code generation will need to offload function calls to the
+    // kernel. This may lead to a kernel trying to call a function on the host.
+    // This also allows us to prevent codegen from trying to take the
+    // address of an intrinsic function to send to the kernel.
+    if (containsInvalidKernelFunction(CurrentScop)) {
+      DEBUG(
+          dbgs()
+              << "Scop contains function which cannot be materialised in a GPU "
+                 "kernel. Bailing out.\n";);
       return false;
+    }
 
     auto PPCGScop = createPPCGScop();
     auto PPCGProg = createPPCGProg(PPCGScop);
     auto PPCGGen = generateGPU(PPCGScop, PPCGProg);
 
-    if (PPCGGen->tree)
+    if (PPCGGen->tree) {
       generateCode(isl_ast_node_copy(PPCGGen->tree), PPCGProg);
+      CurrentScop.markAsToBeSkipped();
+    }
 
     freeOptions(PPCGScop);
     freePPCGGen(PPCGGen);

@@ -81,28 +81,25 @@ void GetThreadStackTopAndBottom(bool at_initialization, uptr *stack_top,
 
     // Find the mapping that contains a stack variable.
     MemoryMappingLayout proc_maps(/*cache_enabled*/true);
-    uptr start, end, offset;
+    MemoryMappedSegment segment;
     uptr prev_end = 0;
-    while (proc_maps.Next(&start, &end, &offset, nullptr, 0,
-          /* protection */nullptr)) {
-      if ((uptr)&rl < end)
-        break;
-      prev_end = end;
+    while (proc_maps.Next(&segment)) {
+      if ((uptr)&rl < segment.end) break;
+      prev_end = segment.end;
     }
-    CHECK((uptr)&rl >= start && (uptr)&rl < end);
+    CHECK((uptr)&rl >= segment.start && (uptr)&rl < segment.end);
 
     // Get stacksize from rlimit, but clip it so that it does not overlap
     // with other mappings.
     uptr stacksize = rl.rlim_cur;
-    if (stacksize > end - prev_end)
-      stacksize = end - prev_end;
+    if (stacksize > segment.end - prev_end) stacksize = segment.end - prev_end;
     // When running with unlimited stack size, we still want to set some limit.
     // The unlimited stack size is caused by 'ulimit -s unlimited'.
     // Also, for some reason, GNU make spawns subprocesses with unlimited stack.
     if (stacksize > kMaxThreadStackSize)
       stacksize = kMaxThreadStackSize;
-    *stack_top = end;
-    *stack_bottom = end - stacksize;
+    *stack_top = segment.end;
+    *stack_bottom = segment.end - stacksize;
     return;
   }
   pthread_attr_t attr;
@@ -113,7 +110,6 @@ void GetThreadStackTopAndBottom(bool at_initialization, uptr *stack_top,
   my_pthread_attr_getstack(&attr, &stackaddr, &stacksize);
   pthread_attr_destroy(&attr);
 
-  CHECK_LE(stacksize, kMaxThreadStackSize);  // Sanity check.
   *stack_top = (uptr)stackaddr + stacksize;
   *stack_bottom = (uptr)stackaddr;
 }
@@ -447,9 +443,9 @@ static int dl_iterate_phdr_cb(dl_phdr_info *info, size_t size, void *arg) {
       uptr cur_beg = info->dlpi_addr + phdr->p_vaddr;
       uptr cur_end = cur_beg + phdr->p_memsz;
       bool executable = phdr->p_flags & PF_X;
-      bool readable = phdr->p_flags & PF_R;
+      bool writable = phdr->p_flags & PF_W;
       cur_module.addAddressRange(cur_beg, cur_end, executable,
-                                 readable);
+                                 writable);
     }
   }
   data->modules->push_back(cur_module);
@@ -551,6 +547,13 @@ void LogMessageOnPrintf(const char *str) {
   if (common_flags()->log_to_syslog && ShouldLogAfterPrintf())
     WriteToSyslog(str);
 }
+
+#if SANITIZER_ANDROID && __ANDROID_API__ >= 21
+extern "C" void android_set_abort_message(const char *msg);
+void SetAbortMessage(const char *str) { android_set_abort_message(str); }
+#else
+void SetAbortMessage(const char *str) {}
+#endif
 
 #endif // SANITIZER_LINUX
 

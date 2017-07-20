@@ -492,7 +492,7 @@ void Dependences::calculateDependences(Scop &S) {
     // S0[98 <= i <= 100] is captured in S1[98 <= i <= 100].
     // Since we allow free reordering on our reduction dependences, we need to
     // remove all instances of a reduction statement that have data dependences
-    // orignating from them.
+    // originating from them.
     // In the case of the example, we need to remove S0[98 <= i <= 100] from
     // our reduction dependences.
     //
@@ -522,7 +522,7 @@ void Dependences::calculateDependences(Scop &S) {
     //     void f(int *sum, int A[N], int B[N]) {
     //       for (int i = 0; i < N; i++) {
     //         *sum += A[i]; < the store and the load is not tagged as a
-    //         B[i] = *sum;  < reductionLike acccess due to the overlap.
+    //         B[i] = *sum;  < reduction-like access due to the overlap.
     //       }
     //     }
 
@@ -909,6 +909,48 @@ void Dependences::setReductionDependences(MemoryAccess *MA, isl_map *D) {
   assert(ReductionDependences.count(MA) == 0 &&
          "Reduction dependences set twice!");
   ReductionDependences[MA] = D;
+}
+
+const Dependences &
+DependenceAnalysis::Result::getDependences(Dependences::AnalysisLevel Level) {
+  if (Dependences *d = D[Level].get())
+    return *d;
+
+  return recomputeDependences(Level);
+}
+
+const Dependences &DependenceAnalysis::Result::recomputeDependences(
+    Dependences::AnalysisLevel Level) {
+  D[Level].reset(new Dependences(S.getSharedIslCtx(), Level));
+  D[Level]->calculateDependences(S);
+  return *D[Level];
+}
+
+DependenceAnalysis::Result
+DependenceAnalysis::run(Scop &S, ScopAnalysisManager &SAM,
+                        ScopStandardAnalysisResults &SAR) {
+  return {S, {}};
+}
+
+AnalysisKey DependenceAnalysis::Key;
+
+PreservedAnalyses
+DependenceInfoPrinterPass::run(Scop &S, ScopAnalysisManager &SAM,
+                               ScopStandardAnalysisResults &SAR,
+                               SPMUpdater &U) {
+  auto &DI = SAM.getResult<DependenceAnalysis>(S, SAR);
+
+  if (auto d = DI.D[OptAnalysisLevel].get()) {
+    d->print(OS);
+    return PreservedAnalyses::all();
+  }
+
+  // Otherwise create the dependences on-the-fly and print them
+  Dependences D(S.getSharedIslCtx(), OptAnalysisLevel);
+  D.calculateDependences(S);
+  D.print(OS);
+
+  return PreservedAnalyses::all();
 }
 
 const Dependences &

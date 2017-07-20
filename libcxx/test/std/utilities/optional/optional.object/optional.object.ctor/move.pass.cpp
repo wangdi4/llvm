@@ -18,7 +18,7 @@
 
 // <optional>
 
-// optional(optional<T>&& rhs);
+// constexpr optional(optional<T>&& rhs);
 
 #include <optional>
 #include <type_traits>
@@ -41,13 +41,24 @@ void test(InitArgs&&... args)
         assert(*lhs == *orig);
 }
 
+template <class T, class ...InitArgs>
+constexpr bool constexpr_test(InitArgs&&... args)
+{
+    static_assert( std::is_trivially_copy_constructible_v<T>, ""); // requirement
+    const optional<T> orig(std::forward<InitArgs>(args)...);
+    optional<T> rhs(orig);
+    optional<T> lhs = std::move(rhs);
+    return (lhs.has_value() == orig.has_value()) &&
+           (lhs.has_value() ? *lhs == *orig : true);
+}
+
 void test_throwing_ctor() {
 #ifndef TEST_HAS_NO_EXCEPTIONS
     struct Z {
-      Z() : count(0) {}
-      Z(Z&& o) : count(o.count + 1)
-      { if (count == 2) throw 6; }
-      int count;
+        Z() : count(0) {}
+        Z(Z&& o) : count(o.count + 1)
+        { if (count == 2) throw 6; }
+        int count;
     };
     Z z;
     optional<Z> rhs(std::move(z));
@@ -144,6 +155,9 @@ int main()
 {
     test<int>();
     test<int>(3);
+    static_assert(constexpr_test<int>(), "" );
+    static_assert(constexpr_test<int>(3), "" );
+
     {
         optional<const int> o(42);
         optional<const int> o2(std::move(o));
@@ -205,5 +219,10 @@ int main()
     }
     {
         test_reference_extension();
+    }
+    {
+    constexpr std::optional<int> o1{4};
+    constexpr std::optional<int> o2 = std::move(o1);
+    static_assert( *o2 == 4, "" );
     }
 }

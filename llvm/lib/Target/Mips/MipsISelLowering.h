@@ -66,6 +66,12 @@ namespace llvm {
       // Floating Point Compare
       FPCmp,
 
+      // Floating point select
+      FSELECT,
+
+      // Node used to generate an MTC1 i32 to f64 instruction
+      MTC1_D64,
+
       // Floating Point Conditional Moves
       CMovFP_T,
       CMovFP_F,
@@ -247,6 +253,33 @@ namespace llvm {
 
     bool isCheapToSpeculateCttz() const override;
     bool isCheapToSpeculateCtlz() const override;
+
+    /// Return the register type for a given MVT, ensuring vectors are treated
+    /// as a series of gpr sized integers.
+    virtual MVT getRegisterTypeForCallingConv(MVT VT) const override;
+
+    /// Return the register type for a given MVT, ensuring vectors are treated
+    /// as a series of gpr sized integers.
+    virtual MVT getRegisterTypeForCallingConv(LLVMContext &Context,
+                                              EVT VT) const override;
+
+    /// Return the number of registers for a given MVT, ensuring vectors are
+    /// treated as a series of gpr sized integers.
+    virtual unsigned getNumRegistersForCallingConv(LLVMContext &Context,
+                                                   EVT VT) const override;
+
+    /// Break down vectors to the correct number of gpr sized integers.
+    virtual unsigned getVectorTypeBreakdownForCallingConv(
+        LLVMContext &Context, EVT VT, EVT &IntermediateVT,
+        unsigned &NumIntermediates, MVT &RegisterVT) const override;
+
+    /// Return the correct alignment for the current calling convention.
+    virtual unsigned
+    getABIAlignmentForCallingConv(Type *ArgTy, DataLayout DL) const override {
+      if (ArgTy->isVectorTy())
+        return std::min(DL.getABITypeAlignment(ArgTy), 8U);
+      return DL.getABITypeAlignment(ArgTy);
+    }
 
     ISD::NodeType getExtendForAtomicOps() const override {
       return ISD::SIGN_EXTEND;

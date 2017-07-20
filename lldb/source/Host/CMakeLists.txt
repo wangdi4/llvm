@@ -13,7 +13,6 @@ add_host_subdirectory(common
   common/HostNativeThreadBase.cpp
   common/HostProcess.cpp
   common/HostThread.cpp
-  common/IOObject.cpp
   common/LockFileBase.cpp
   common/MainLoop.cpp
   common/MonitoringProcessLauncher.cpp
@@ -90,12 +89,6 @@ else()
     posix/ProcessLauncherPosixFork.cpp
     )
 
-  if (NOT (CMAKE_SYSTEM_NAME MATCHES "Android"))
-    add_host_subdirectory(posix
-      posix/ProcessLauncherPosix.cpp
-      )
-  endif()
-
   if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
     include_directories(SYSTEM ${LIBXML2_INCLUDE_DIR})
     add_host_subdirectory(macosx
@@ -110,6 +103,10 @@ else()
       macosx/cfcpp/CFCMutableSet.cpp
       macosx/cfcpp/CFCString.cpp
       )
+    if(IOS)
+      set_property(SOURCE macosx/Host.mm APPEND PROPERTY 
+               COMPILE_DEFINITIONS "NO_XPC_SERVICES=1")
+    endif()
 
 
   elseif (CMAKE_SYSTEM_NAME MATCHES "Linux|Android")

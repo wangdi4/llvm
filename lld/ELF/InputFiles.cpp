@@ -39,25 +39,14 @@ TarWriter *elf::Tar;
 
 InputFile::InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
 
-namespace {
-// In ELF object file all section addresses are zero. If we have multiple
-// .text sections (when using -ffunction-section or comdat group) then
-// LLVM DWARF parser will not be able to parse .debug_line correctly, unless
-// we assign each section some unique address. This callback method assigns
-// each section an address equal to its offset in ELF object file.
-class ObjectInfo : public LoadedObjectInfo {
-public:
-  uint64_t getSectionLoadAddress(const object::SectionRef &Sec) const override {
-    return static_cast<const ELFSectionRef &>(Sec).getOffset();
-  }
-  std::unique_ptr<LoadedObjectInfo> clone() const override {
-    return std::unique_ptr<LoadedObjectInfo>();
-  }
-};
-}
-
 Optional<MemoryBufferRef> elf::readFile(StringRef Path) {
+  // The --chroot option changes our virtual root directory.
+  // This is useful when you are dealing with files created by --reproduce.
+  if (!Config->Chroot.empty() && Path.startswith("/"))
+    Path = Saver.save(Config->Chroot + Path);
+
   log(Path);
+
   auto MBOrErr = MemoryBuffer::getFile(Path);
   if (auto EC = MBOrErr.getError()) {
     error("cannot open " + Path + ": " + EC.message());
@@ -74,14 +63,11 @@ Optional<MemoryBufferRef> elf::readFile(StringRef Path) {
 }
 
 template <class ELFT> void elf::ObjectFile<ELFT>::initializeDwarfLine() {
-  std::unique_ptr<object::ObjectFile> Obj =
-      check(object::ObjectFile::createObjectFile(this->MB), toString(this));
-
-  ObjectInfo ObjInfo;
-  DWARFContextInMemory Dwarf(*Obj, &ObjInfo);
-  DwarfLine.reset(new DWARFDebugLine(&Dwarf.getLineSection().Relocs));
-  DataExtractor LineData(Dwarf.getLineSection().Data, Config->IsLE,
-                         Config->Wordsize);
+  DWARFContext Dwarf(make_unique<LLDDwarfObj<ELFT>>(this));
+  const DWARFObject &Obj = Dwarf.getDWARFObj();
+  DwarfLine.reset(new DWARFDebugLine);
+  DWARFDataExtractor LineData(Obj, Obj.getLineSection(), Config->IsLE,
+                              Config->Wordsize);
 
   // The second parameter is offset in .debug_line section
   // for compilation unit (CU) of interest. We have only one
@@ -205,13 +191,27 @@ template <class ELFT>
 StringRef
 elf::ObjectFile<ELFT>::getShtGroupSignature(ArrayRef<Elf_Shdr> Sections,
                                             const Elf_Shdr &Sec) {
+  // Group signatures are stored as symbol names in object files.
+  // sh_info contains a symbol index, so we fetch a symbol and read its name.
   if (this->Symbols.empty())
     this->initSymtab(
         Sections,
         check(object::getSection<ELFT>(Sections, Sec.sh_link), toString(this)));
+
   const Elf_Sym *Sym = check(
       object::getSymbol<ELFT>(this->Symbols, Sec.sh_info), toString(this));
-  return check(Sym->getName(this->StringTable), toString(this));
+  StringRef Signature = check(Sym->getName(this->StringTable), toString(this));
+
+  // As a special case, if a symbol is a section symbol and has no name,
+  // we use a section name as a signature.
+  //
+  // Such SHT_GROUP sections are invalid from the perspective of the ELF
+  // standard, but GNU gold 1.14 (the neweset version as of July 2017) or
+  // older produce such sections as outputs for the -r option, so we need
+  // a bug-compatibility.
+  if (Signature.empty() && Sym->getType() == STT_SECTION)
+    return getSectionName(Sec);
+  return Signature;
 }
 
 template <class ELFT>
@@ -281,18 +281,19 @@ bool elf::ObjectFile<ELFT>::shouldMerge(const Elf_Shdr &Sec) {
 template <class ELFT>
 void elf::ObjectFile<ELFT>::initializeSections(
     DenseSet<CachedHashStringRef> &ComdatGroups) {
+  const ELFFile<ELFT> &Obj = this->getObj();
+
   ArrayRef<Elf_Shdr> ObjSections =
       check(this->getObj().sections(), toString(this));
-  const ELFFile<ELFT> &Obj = this->getObj();
   uint64_t Size = ObjSections.size();
   this->Sections.resize(Size);
-  unsigned I = -1;
-  StringRef SectionStringTable =
+  this->SectionStringTable =
       check(Obj.getSectionStringTable(ObjSections), toString(this));
-  for (const Elf_Shdr &Sec : ObjSections) {
-    ++I;
+
+  for (size_t I = 0, E = ObjSections.size(); I < E; I++) {
     if (this->Sections[I] == &InputSection::Discarded)
       continue;
+    const Elf_Shdr &Sec = ObjSections[I];
 
     // SHF_EXCLUDE'ed sections are discarded by the linker. However,
     // if -r is given, we'll let the final link discard such sections.
@@ -303,13 +304,24 @@ void elf::ObjectFile<ELFT>::initializeSections(
     }
 
     switch (Sec.sh_type) {
-    case SHT_GROUP:
+    case SHT_GROUP: {
+      // De-duplicate section groups by their signatures.
+      StringRef Signature = getShtGroupSignature(ObjSections, Sec);
+      bool IsNew = ComdatGroups.insert(CachedHashStringRef(Signature)).second;
       this->Sections[I] = &InputSection::Discarded;
-      if (ComdatGroups
-              .insert(
-                  CachedHashStringRef(getShtGroupSignature(ObjSections, Sec)))
-              .second)
+
+      // If it is a new section group, we want to keep group members.
+      // Group leader sections, which contain indices of group members, are
+      // discarded because they are useless beyond this point. The only
+      // exception is the -r option because in order to produce re-linkable
+      // object files, we want to pass through basically everything.
+      if (IsNew) {
+        if (Config->Relocatable)
+          this->Sections[I] = createInputSection(Sec);
         continue;
+      }
+
+      // Otherwise, discard group members.
       for (uint32_t SecIndex : getShtGroupEntries(Sec)) {
         if (SecIndex >= Size)
           fatal(toString(this) +
@@ -317,6 +329,7 @@ void elf::ObjectFile<ELFT>::initializeSections(
         this->Sections[SecIndex] = &InputSection::Discarded;
       }
       break;
+    }
     case SHT_SYMTAB:
       this->initSymtab(ObjSections, &Sec);
       break;
@@ -328,7 +341,7 @@ void elf::ObjectFile<ELFT>::initializeSections(
     case SHT_NULL:
       break;
     default:
-      this->Sections[I] = createInputSection(Sec, SectionStringTable);
+      this->Sections[I] = createInputSection(Sec);
     }
 
     // .ARM.exidx sections have a reverse dependency on the InputSection they
@@ -372,10 +385,8 @@ InputSectionBase *toRegularSection(MergeInputSection *Sec) {
 
 template <class ELFT>
 InputSectionBase *
-elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
-                                          StringRef SectionStringTable) {
-  StringRef Name = check(
-      this->getObj().getSectionName(&Sec, SectionStringTable), toString(this));
+elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec) {
+  StringRef Name = getSectionName(Sec);
 
   switch (Sec.sh_type) {
   case SHT_ARM_ATTRIBUTES:
@@ -484,9 +495,14 @@ elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
   // If that's the case, we want to eliminate .debug_gnu_pub{names,types}
   // because they are redundant and can waste large amount of disk space
   // (for example, they are about 400 MiB in total for a clang debug build.)
+  // We still create the section and mark it dead so that the gdb index code
+  // can use the InputSection to access the data.
   if (Config->GdbIndex &&
-      (Name == ".debug_gnu_pubnames" || Name == ".debug_gnu_pubtypes"))
-    return &InputSection::Discarded;
+      (Name == ".debug_gnu_pubnames" || Name == ".debug_gnu_pubtypes")) {
+    auto *Ret = make<InputSection>(this, &Sec, Name);
+    Script->discard({Ret});
+    return Ret;
+  }
 
   // The linkonce feature is a sort of proto-comdat. Some glibc i386 object
   // files contain definitions of symbol "__x86.get_pc_thunk.bx" in linkonce
@@ -505,6 +521,12 @@ elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
   if (shouldMerge(Sec))
     return make<MergeInputSection>(this, &Sec, Name);
   return make<InputSection>(this, &Sec, Name);
+}
+
+template <class ELFT>
+StringRef elf::ObjectFile<ELFT>::getSectionName(const Elf_Shdr &Sec) {
+  return check(this->getObj().getSectionName(&Sec, SectionStringTable),
+               toString(this));
 }
 
 template <class ELFT> void elf::ObjectFile<ELFT>::initializeSymbols() {
@@ -601,8 +623,9 @@ ArchiveFile::ArchiveFile(std::unique_ptr<Archive> &&File)
       File(std::move(File)) {}
 
 template <class ELFT> void ArchiveFile::parse() {
+  Symbols.reserve(File->getNumberOfSymbols());
   for (const Archive::Symbol &Sym : File->symbols())
-    Symtab<ELFT>::X->addLazyArchive(this, Sym);
+    Symbols.push_back(Symtab<ELFT>::X->addLazyArchive(this, Sym));
 }
 
 // Returns a buffer pointing to a member file containing a given symbol.
@@ -790,6 +813,8 @@ static uint8_t getBitcodeMachineKind(StringRef Path, const Triple &T) {
   case Triple::arm:
   case Triple::thumb:
     return EM_ARM;
+  case Triple::avr:
+    return EM_AVR;
   case Triple::mips:
   case Triple::mipsel:
   case Triple::mips64:
