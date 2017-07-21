@@ -231,8 +231,9 @@ OclBuiltinImpl fmax_impl = OclBuiltinImpl<fmax, fmax.Types, 0, [{
     //          it relies on CPU implementation of max builtin
     //          where order of arguments matters and must be preserved
     $Arg0igentype nan = isnan($Arg0VarName);
-    $ReturnType res = max($Arg1VarName, $Arg0VarName);
-    return select(res, $Arg1VarName, nan);
+    $Arg0Type res = max($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
   }]>;
 
 // fmax_common
@@ -257,8 +258,9 @@ OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
     //          it relies on CPU implementation of min builtin
     //          where order of arguments matters and must be preserved
     $Arg0igentype nan = isnan($Arg0VarName);
-    $ReturnType res = min($Arg1VarName, $Arg0VarName);
-    return select(res, $Arg1VarName, nan);
+    $Arg0Type res = min($Arg1VarName, $Arg0VarName);
+    res = select(res, $Arg1VarName, nan);
+    return res;
    }]>;
 
 // fmin_common

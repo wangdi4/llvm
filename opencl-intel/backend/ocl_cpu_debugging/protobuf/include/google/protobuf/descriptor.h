@@ -955,7 +955,7 @@ class LIBPROTOBUF_EXPORT DescriptorPool {
   //   Find*By*() methods.
   class ErrorCollector;
   explicit DescriptorPool(DescriptorDatabase* fallback_database,
-                          ErrorCollector* error_collector = nullptr);
+                          ErrorCollector* error_collector = NULL);
 
   ~DescriptorPool();
 
@@ -1307,7 +1307,7 @@ inline bool FieldDescriptor::is_packable() const {
 inline int FieldDescriptor::index() const {
   if (!is_extension_) {
     return this - containing_type_->fields_;
-  } else if (extension_scope_ != nullptr) {
+  } else if (extension_scope_ != NULL) {
     return this - extension_scope_->extensions_;
   } else {
     return this - file_->extensions_;
@@ -1315,7 +1315,7 @@ inline int FieldDescriptor::index() const {
 }
 
 inline int Descriptor::index() const {
-  if (containing_type_ == nullptr) {
+  if (containing_type_ == NULL) {
     return this - file_->message_types_;
   } else {
     return this - containing_type_->nested_types_;
@@ -1323,7 +1323,7 @@ inline int Descriptor::index() const {
 }
 
 inline int EnumDescriptor::index() const {
-  if (containing_type_ == nullptr) {
+  if (containing_type_ == NULL) {
     return this - file_->enum_types_;
   } else {
     return this - containing_type_->enum_types_;

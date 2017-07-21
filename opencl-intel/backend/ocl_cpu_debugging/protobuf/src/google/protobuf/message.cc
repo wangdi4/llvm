@@ -215,7 +215,7 @@ class GeneratedMessageFactory : public MessageFactory {
   hash_map<const Descriptor*, const Message*> type_map_;
 };
 
-GeneratedMessageFactory* generated_message_factory_ = nullptr;
+GeneratedMessageFactory* generated_message_factory_ = NULL;
 GOOGLE_PROTOBUF_DECLARE_ONCE(generated_message_factory_once_init_);
 
 void ShutdownGeneratedMessageFactory() {
@@ -262,34 +262,34 @@ const Message* GeneratedMessageFactory::GetPrototype(const Descriptor* type) {
   {
     ReaderMutexLock lock(&mutex_);
     const Message* result = FindPtrOrNull(type_map_, type);
-    if (result != nullptr) return result;
+    if (result != NULL) return result;
   }
 
   // If the type is not in the generated pool, then we can't possibly handle
   // it.
-  if (type->file()->pool() != DescriptorPool::generated_pool()) return nullptr;
+  if (type->file()->pool() != DescriptorPool::generated_pool()) return NULL;
 
   // Apparently the file hasn't been registered yet.  Let's do that now.
   RegistrationFunc* registration_func =
       FindPtrOrNull(file_map_, type->file()->name().c_str());
-  if (registration_func == nullptr) {
+  if (registration_func == NULL) {
     GOOGLE_LOG(DFATAL) << "File appears to be in generated pool but wasn't "
                    "registered: " << type->file()->name();
-    return nullptr;
+    return NULL;
   }
 
   WriterMutexLock lock(&mutex_);
 
   // Check if another thread preempted us.
   const Message* result = FindPtrOrNull(type_map_, type);
-  if (result == nullptr) {
+  if (result == NULL) {
     // Nope.  OK, register everything.
     registration_func(type->file()->name());
     // Should be here now.
     result = FindPtrOrNull(type_map_, type);
   }
 
-  if (result == nullptr) {
+  if (result == NULL) {
     GOOGLE_LOG(DFATAL) << "Type appears to be in generated pool but wasn't "
                 << "registered: " << type->full_name();
   }

@@ -167,7 +167,7 @@ class TextFormat::Parser::ParserImpl {
 
   void ReportError(int line, int col, const string& message) {
     had_errors_ = true;
-    if (error_collector_ == nullptr) {
+    if (error_collector_ == NULL) {
       if (line >= 0) {
         GOOGLE_LOG(ERROR) << "Error parsing text-format "
                    << root_message_type_->full_name()
@@ -184,7 +184,7 @@ class TextFormat::Parser::ParserImpl {
   }
 
   void ReportWarning(int line, int col, const string& message) {
-    if (error_collector_ == nullptr) {
+    if (error_collector_ == NULL) {
       if (line >= 0) {
         GOOGLE_LOG(WARNING) << "Warning parsing text-format "
                      << root_message_type_->full_name()
@@ -239,7 +239,7 @@ class TextFormat::Parser::ParserImpl {
 
     string field_name;
 
-    const FieldDescriptor* field = nullptr;
+    const FieldDescriptor* field = NULL;
 
     if (TryConsume("[")) {
       // Extension.
@@ -252,11 +252,11 @@ class TextFormat::Parser::ParserImpl {
       }
       DO(Consume("]"));
 
-      field = (finder_ != nullptr
+      field = (finder_ != NULL
                ? finder_->FindExtension(message, field_name)
                : reflection->FindKnownExtensionByName(field_name));
 
-      if (field == nullptr) {
+      if (field == NULL) {
         ReportError("Extension \"" + field_name + "\" is not defined or "
                     "is not an extension of \"" +
                     descriptor->full_name() + "\".");
@@ -269,22 +269,22 @@ class TextFormat::Parser::ParserImpl {
       // Group names are expected to be capitalized as they appear in the
       // .proto file, which actually matches their type names, not their field
       // names.
-      if (field == nullptr) {
+      if (field == NULL) {
         string lower_field_name = field_name;
         LowerString(&lower_field_name);
         field = descriptor->FindFieldByName(lower_field_name);
         // If the case-insensitive match worked but the field is NOT a group,
-        if (field != nullptr && field->type() != FieldDescriptor::TYPE_GROUP) {
-          field = nullptr;
+        if (field != NULL && field->type() != FieldDescriptor::TYPE_GROUP) {
+          field = NULL;
         }
       }
       // Again, special-case group names as described above.
-      if (field != nullptr && field->type() == FieldDescriptor::TYPE_GROUP
+      if (field != NULL && field->type() == FieldDescriptor::TYPE_GROUP
           && field->message_type()->name() != field_name) {
-        field = nullptr;
+        field = NULL;
       }
 
-      if (field == nullptr) {
+      if (field == NULL) {
         ReportError("Message type \"" + descriptor->full_name() +
                     "\" has no field named \"" + field_name + "\".");
         return false;
@@ -440,7 +440,7 @@ class TextFormat::Parser::ParserImpl {
       case FieldDescriptor::CPPTYPE_ENUM: {
         string value;
         const EnumDescriptor* enum_type = field->enum_type();
-        const EnumValueDescriptor* enum_value = nullptr;
+        const EnumValueDescriptor* enum_value = NULL;
 
         if (LookingAtType(io::Tokenizer::TYPE_IDENTIFIER)) {
           DO(ConsumeIdentifier(&value));
@@ -458,7 +458,7 @@ class TextFormat::Parser::ParserImpl {
           return false;
         }
 
-        if (enum_value == nullptr) {
+        if (enum_value == NULL) {
           ReportError("Unknown enumeration value of \"" + value  + "\" for "
                       "field \"" + field->name() + "\".");
           return false;
@@ -687,7 +687,7 @@ class TextFormat::Printer::TextGenerator {
   explicit TextGenerator(io::ZeroCopyOutputStream* output,
                          int initial_indent_level)
     : output_(output),
-      buffer_(nullptr),
+      buffer_(NULL),
       buffer_size_(0),
       at_start_of_line_(true),
       failed_(false),
@@ -807,8 +807,8 @@ TextFormat::Finder::~Finder() {
 }
 
 TextFormat::Parser::Parser()
-  : error_collector_(nullptr),
-    finder_(nullptr),
+  : error_collector_(NULL),
+    finder_(NULL),
     allow_partial_(false) {
 }
 

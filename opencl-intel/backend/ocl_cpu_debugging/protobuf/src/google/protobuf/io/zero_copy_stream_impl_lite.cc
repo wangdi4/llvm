@@ -255,7 +255,7 @@ bool CopyingInputStreamAdaptor::Next(const void** data, int* size) {
 }
 
 void CopyingInputStreamAdaptor::BackUp(int count) {
-  GOOGLE_CHECK(backup_bytes_ == 0 && buffer_.get() != nullptr)
+  GOOGLE_CHECK(backup_bytes_ == 0 && buffer_.get() != NULL)
     << " BackUp() can only be called after Next().";
   GOOGLE_CHECK_LE(count, buffer_used_)
     << " Can't back up over more bytes than were returned by the last call"
@@ -294,7 +294,7 @@ int64 CopyingInputStreamAdaptor::ByteCount() const {
 }
 
 void CopyingInputStreamAdaptor::AllocateBufferIfNeeded() {
-  if (buffer_.get() == nullptr) {
+  if (buffer_.get() == NULL) {
     buffer_.reset(new uint8[buffer_size_]);
   }
 }
@@ -378,7 +378,7 @@ bool CopyingOutputStreamAdaptor::WriteBuffer() {
 }
 
 void CopyingOutputStreamAdaptor::AllocateBufferIfNeeded() {
-  if (buffer_ == nullptr) {
+  if (buffer_ == NULL) {
     buffer_.reset(new uint8[buffer_size_]);
   }
 }

@@ -123,12 +123,12 @@ void NullLogHandler(LogLevel level, const char* filename, int line,
 static LogHandler* log_handler_ = &DefaultLogHandler;
 static int log_silencer_count_ = 0;
 
-static Mutex* log_silencer_count_mutex_ = nullptr;
+static Mutex* log_silencer_count_mutex_ = NULL;
 GOOGLE_PROTOBUF_DECLARE_ONCE(log_silencer_count_init_);
 
 void DeleteLogSilencerCount() {
   delete log_silencer_count_mutex_;
-  log_silencer_count_mutex_ = nullptr;
+  log_silencer_count_mutex_ = NULL;
 }
 void InitLogSilencerCount() {
   log_silencer_count_mutex_ = new Mutex;
@@ -208,9 +208,9 @@ void LogFinisher::operator=(LogMessage& other) {
 LogHandler* SetLogHandler(LogHandler* new_func) {
   LogHandler* old = internal::log_handler_;
   if (old == &internal::NullLogHandler) {
-    old = nullptr;
+    old = NULL;
   }
-  if (new_func == nullptr) {
+  if (new_func == NULL) {
     internal::log_handler_ = &internal::NullLogHandler;
   } else {
     internal::log_handler_ = new_func;
@@ -290,7 +290,7 @@ struct Mutex::Internal {
 
 Mutex::Mutex()
   : mInternal(new Internal) {
-  pthread_mutex_init(&mInternal->mutex, nullptr);
+  pthread_mutex_init(&mInternal->mutex, NULL);
 }
 
 Mutex::~Mutex() {
@@ -325,8 +325,8 @@ void Mutex::AssertHeld() {
 namespace internal {
 
 typedef void OnShutdownFunc();
-vector<void (*)()>* shutdown_functions = nullptr;
-Mutex* shutdown_functions_mutex = nullptr;
+vector<void (*)()>* shutdown_functions = NULL;
+Mutex* shutdown_functions_mutex = NULL;
 GOOGLE_PROTOBUF_DECLARE_ONCE(shutdown_functions_init);
 
 void InitShutdownFunctions() {
@@ -354,15 +354,15 @@ void ShutdownProtobufLibrary() {
   // called.
 
   // Make it safe to call this multiple times.
-  if (internal::shutdown_functions == nullptr) return;
+  if (internal::shutdown_functions == NULL) return;
 
   for (int i = 0; i < internal::shutdown_functions->size(); i++) {
     internal::shutdown_functions->at(i)();
   }
   delete internal::shutdown_functions;
-  internal::shutdown_functions = nullptr;
+  internal::shutdown_functions = NULL;
   delete internal::shutdown_functions_mutex;
-  internal::shutdown_functions_mutex = nullptr;
+  internal::shutdown_functions_mutex = NULL;
 }
 
 #ifdef PROTOBUF_USE_EXCEPTIONS

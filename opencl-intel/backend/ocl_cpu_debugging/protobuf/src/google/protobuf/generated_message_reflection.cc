@@ -61,14 +61,14 @@ bool ParseNamedEnum(const EnumDescriptor* descriptor,
                     const string& name,
                     int* value) {
   const EnumValueDescriptor* d = descriptor->FindValueByName(name);
-  if (d == nullptr) return false;
+  if (d == NULL) return false;
   *value = d->number();
   return true;
 }
 
 const string& NameOfEnum(const EnumDescriptor* descriptor, int value) {
   const EnumValueDescriptor* d = descriptor->FindValueByNumber(value);
-  return (d == nullptr ? kEmptyString : d->name());
+  return (d == NULL ? kEmptyString : d->name());
 }
 
 // ===================================================================
@@ -182,7 +182,7 @@ GeneratedMessageReflection::GeneratedMessageReflection(
     unknown_fields_offset_(unknown_fields_offset),
     extensions_offset_(extensions_offset),
     object_size_      (object_size),
-    descriptor_pool_  ((descriptor_pool == nullptr) ?
+    descriptor_pool_  ((descriptor_pool == NULL) ?
                          DescriptorPool::generated_pool() :
                          descriptor_pool),
     message_factory_  (factory) {
@@ -294,7 +294,7 @@ int GeneratedMessageReflection::SpaceUsed(const Message& message) const {
             // external type's prototype, so there is no extra memory usage.
           } else {
             const Message* sub_message = GetRaw<const Message*>(message, field);
-            if (sub_message != nullptr) {
+            if (sub_message != NULL) {
               total_size += sub_message->SpaceUsed();
             }
           }
@@ -889,7 +889,7 @@ const EnumValueDescriptor* GeneratedMessageReflection::GetEnum(
   }
   const EnumValueDescriptor* result =
     field->enum_type()->FindValueByNumber(value);
-  GOOGLE_CHECK(result != nullptr);
+  GOOGLE_CHECK(result != NULL);
   return result;
 }
 
@@ -919,7 +919,7 @@ const EnumValueDescriptor* GeneratedMessageReflection::GetRepeatedEnum(
   }
   const EnumValueDescriptor* result =
     field->enum_type()->FindValueByNumber(value);
-  GOOGLE_CHECK(result != nullptr);
+  GOOGLE_CHECK(result != NULL);
   return result;
 }
 
@@ -964,10 +964,10 @@ const Message& GeneratedMessageReflection::GetMessage(
     return static_cast<const Message&>(
         GetExtensionSet(message).GetMessage(
           field->number(), field->message_type(),
-          factory == nullptr ? message_factory_ : factory));
+          factory == NULL ? message_factory_ : factory));
   } else {
     const Message* result = GetRaw<const Message*>(message, field);
-    if (result == nullptr) {
+    if (result == NULL) {
       result = DefaultRaw<const Message*>(field);
     }
     return *result;
@@ -982,10 +982,10 @@ Message* GeneratedMessageReflection::MutableMessage(
   if (field->is_extension()) {
     return static_cast<Message*>(
         MutableExtensionSet(message)->MutableMessage(field,
-          factory == nullptr ? message_factory_ : factory));
+          factory == NULL ? message_factory_ : factory));
   } else {
     Message** result = MutableField<Message*>(message, field);
-    if (*result == nullptr) {
+    if (*result == NULL) {
       const Message* default_message = DefaultRaw<const Message*>(field);
       *result = default_message->New();
     }
@@ -1025,7 +1025,7 @@ Message* GeneratedMessageReflection::AddMessage(
     MessageFactory* factory) const {
   USAGE_CHECK_ALL(AddMessage, REPEATED, MESSAGE);
 
-  if (factory == nullptr) factory = message_factory_;
+  if (factory == NULL) factory = message_factory_;
 
   if (field->is_extension()) {
     return static_cast<Message*>(
@@ -1036,7 +1036,7 @@ Message* GeneratedMessageReflection::AddMessage(
     RepeatedPtrFieldBase* repeated =
       MutableRaw<RepeatedPtrFieldBase>(message, field);
     Message* result = repeated->AddFromCleared<GenericTypeHandler<Message> >();
-    if (result == nullptr) {
+    if (result == NULL) {
       // We must allocate a new object.
       const Message* prototype;
       if (repeated->size() == 0) {
@@ -1055,17 +1055,17 @@ Message* GeneratedMessageReflection::AddMessage(
 
 const FieldDescriptor* GeneratedMessageReflection::FindKnownExtensionByName(
     const string& name) const {
-  if (extensions_offset_ == -1) return nullptr;
+  if (extensions_offset_ == -1) return NULL;
 
   const FieldDescriptor* result = descriptor_pool_->FindExtensionByName(name);
-  if (result != nullptr && result->containing_type() == descriptor_) {
+  if (result != NULL && result->containing_type() == descriptor_) {
     return result;
   }
 
   if (descriptor_->options().message_set_wire_format()) {
     // MessageSet extensions may be identified by type name.
     const Descriptor* type = descriptor_pool_->FindMessageTypeByName(name);
-    if (type != nullptr) {
+    if (type != NULL) {
       // Look for a matching extension in the foreign type's scope.
       for (int i = 0; i < type->extension_count(); i++) {
         const FieldDescriptor* extension = type->extension(i);
@@ -1080,12 +1080,12 @@ const FieldDescriptor* GeneratedMessageReflection::FindKnownExtensionByName(
     }
   }
 
-  return nullptr;
+  return NULL;
 }
 
 const FieldDescriptor* GeneratedMessageReflection::FindKnownExtensionByNumber(
     int number) const {
-  if (extensions_offset_ == -1) return nullptr;
+  if (extensions_offset_ == -1) return NULL;
   return descriptor_pool_->FindExtensionByNumber(descriptor_, number);
 }
 

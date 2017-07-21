@@ -234,7 +234,7 @@ struct Symbol {
     const FileDescriptor* package_file_descriptor;
   };
 
-  inline Symbol() : type(NULL_SYMBOL) { descriptor = nullptr; }
+  inline Symbol() : type(NULL_SYMBOL) { descriptor = NULL; }
   inline bool IsNull() const { return type == NULL_SYMBOL; }
   inline bool IsType() const {
     return type == MESSAGE || type == ENUM;
@@ -261,7 +261,7 @@ struct Symbol {
 
   const FileDescriptor* GetFile() const {
     switch (type) {
-      case NULL_SYMBOL: return nullptr;
+      case NULL_SYMBOL: return NULL;
       case MESSAGE    : return descriptor           ->file();
       case FIELD      : return field_descriptor     ->file();
       case ENUM       : return enum_descriptor      ->file();
@@ -270,7 +270,7 @@ struct Symbol {
       case METHOD     : return method_descriptor    ->service()->file();
       case PACKAGE    : return package_file_descriptor;
     }
-    return nullptr;
+    return NULL;
   }
 };
 
@@ -390,7 +390,7 @@ class DescriptorPool::Tables {
   // trouble understanding explicit template instantiations in some cases, so
   // in those cases we have to pass a dummy pointer of the right type as the
   // parameter instead of specifying the type explicitly.
-  template<typename Type> Type* AllocateMessage(Type* dummy = nullptr);
+  template<typename Type> Type* AllocateMessage(Type* dummy = NULL);
 
   // Allocate a FileDescriptorTables object.
   FileDescriptorTables* AllocateFileTables();
@@ -547,7 +547,7 @@ void DescriptorPool::Tables::Rollback() {
 
 inline Symbol DescriptorPool::Tables::FindSymbol(const string& key) const {
   const Symbol* result = FindOrNull(symbols_by_name_, key.c_str());
-  if (result == nullptr) {
+  if (result == NULL) {
     return kNullSymbol;
   } else {
     return *result;
@@ -558,7 +558,7 @@ inline Symbol FileDescriptorTables::FindNestedSymbol(
     const void* parent, const string& name) const {
   const Symbol* result =
     FindOrNull(symbols_by_parent_, PointerStringPair(parent, name.c_str()));
-  if (result == nullptr) {
+  if (result == NULL) {
     return kNullSymbol;
   } else {
     return *result;
@@ -577,7 +577,7 @@ Symbol DescriptorPool::Tables::FindByNameHelper(
   MutexLockMaybe lock(pool->mutex_);
   Symbol result = FindSymbol(name);
 
-  if (result.IsNull() && pool->underlay_ != nullptr) {
+  if (result.IsNull() && pool->underlay_ != NULL) {
     // Symbol not found; check the underlay.
     result =
       pool->underlay_->tables_->FindByNameHelper(pool->underlay_, name);
@@ -665,7 +665,7 @@ void FileDescriptorTables::AddFieldByStylizedNames(
     const FieldDescriptor* field) {
   const void* parent;
   if (field->is_extension()) {
-    if (field->extension_scope() == nullptr) {
+    if (field->extension_scope() == NULL) {
       parent = field->file();
     } else {
       parent = field->extension_scope();
@@ -738,7 +738,7 @@ void* DescriptorPool::Tables::AllocateBytes(int size) {
   // sophisticated way?  Probably not for the open source release, but for
   // internal use we could easily plug in one of our existing memory pool
   // allocators...
-  if (size == 0) return nullptr;
+  if (size == 0) return NULL;
 
   void* result = operator new(size);
   allocations_.push_back(result);
@@ -751,10 +751,10 @@ void* DescriptorPool::Tables::AllocateBytes(int size) {
 DescriptorPool::ErrorCollector::~ErrorCollector() {}
 
 DescriptorPool::DescriptorPool()
-  : mutex_(nullptr),
-    fallback_database_(nullptr),
-    default_error_collector_(nullptr),
-    underlay_(nullptr),
+  : mutex_(NULL),
+    fallback_database_(NULL),
+    default_error_collector_(NULL),
+    underlay_(NULL),
     tables_(new Tables),
     enforce_dependencies_(true),
     allow_unknown_(false) {}
@@ -764,23 +764,23 @@ DescriptorPool::DescriptorPool(DescriptorDatabase* fallback_database,
   : mutex_(new Mutex),
     fallback_database_(fallback_database),
     default_error_collector_(error_collector),
-    underlay_(nullptr),
+    underlay_(NULL),
     tables_(new Tables),
     enforce_dependencies_(true),
     allow_unknown_(false) {
 }
 
 DescriptorPool::DescriptorPool(const DescriptorPool* underlay)
-  : mutex_(nullptr),
-    fallback_database_(nullptr),
-    default_error_collector_(nullptr),
+  : mutex_(NULL),
+    fallback_database_(NULL),
+    default_error_collector_(NULL),
     underlay_(underlay),
     tables_(new Tables),
     enforce_dependencies_(true),
     allow_unknown_(false) {}
 
 DescriptorPool::~DescriptorPool() {
-  if (mutex_ != nullptr) delete mutex_;
+  if (mutex_ != NULL) delete mutex_;
 }
 
 // DescriptorPool::BuildFile() defined later.
@@ -792,7 +792,7 @@ void DescriptorPool::InternalDontEnforceDependencies() {
 
 bool DescriptorPool::InternalIsFileLoaded(const string& filename) const {
   MutexLockMaybe lock(mutex_);
-  return tables_->FindFile(filename) != nullptr;
+  return tables_->FindFile(filename) != NULL;
 }
 
 // generated_pool ====================================================
@@ -800,15 +800,15 @@ bool DescriptorPool::InternalIsFileLoaded(const string& filename) const {
 namespace {
 
 
-EncodedDescriptorDatabase* generated_database_ = nullptr;
-DescriptorPool* generated_pool_ = nullptr;
+EncodedDescriptorDatabase* generated_database_ = NULL;
+DescriptorPool* generated_pool_ = NULL;
 GOOGLE_PROTOBUF_DECLARE_ONCE(generated_pool_init_);
 
 void DeleteGeneratedPool() {
   delete generated_database_;
-  generated_database_ = nullptr;
+  generated_database_ = NULL;
   delete generated_pool_;
-  generated_pool_ = nullptr;
+  generated_pool_ = NULL;
 }
 
 void InitGeneratedPool() {
@@ -872,16 +872,16 @@ void DescriptorPool::InternalAddGeneratedFile(
 const FileDescriptor* DescriptorPool::FindFileByName(const string& name) const {
   MutexLockMaybe lock(mutex_);
   const FileDescriptor* result = tables_->FindFile(name);
-  if (result != nullptr) return result;
-  if (underlay_ != nullptr) {
+  if (result != NULL) return result;
+  if (underlay_ != NULL) {
     const FileDescriptor* result = underlay_->FindFileByName(name);
-    if (result != nullptr) return result;
+    if (result != NULL) return result;
   }
   if (TryFindFileInFallbackDatabase(name)) {
     const FileDescriptor* result = tables_->FindFile(name);
-    if (result != nullptr) return result;
+    if (result != NULL) return result;
   }
-  return nullptr;
+  return NULL;
 }
 
 const FileDescriptor* DescriptorPool::FindFileContainingSymbol(
@@ -889,22 +889,22 @@ const FileDescriptor* DescriptorPool::FindFileContainingSymbol(
   MutexLockMaybe lock(mutex_);
   Symbol result = tables_->FindSymbol(symbol_name);
   if (!result.IsNull()) return result.GetFile();
-  if (underlay_ != nullptr) {
+  if (underlay_ != NULL) {
     const FileDescriptor* result =
       underlay_->FindFileContainingSymbol(symbol_name);
-    if (result != nullptr) return result;
+    if (result != NULL) return result;
   }
   if (TryFindSymbolInFallbackDatabase(symbol_name)) {
     Symbol result = tables_->FindSymbol(symbol_name);
     if (!result.IsNull()) return result.GetFile();
   }
-  return nullptr;
+  return NULL;
 }
 
 const Descriptor* DescriptorPool::FindMessageTypeByName(
     const string& name) const {
   Symbol result = tables_->FindByNameHelper(this, name);
-  return (result.type == Symbol::MESSAGE) ? result.descriptor : nullptr;
+  return (result.type == Symbol::MESSAGE) ? result.descriptor : NULL;
 }
 
 const FieldDescriptor* DescriptorPool::FindFieldByName(
@@ -914,7 +914,7 @@ const FieldDescriptor* DescriptorPool::FindFieldByName(
       !result.field_descriptor->is_extension()) {
     return result.field_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -925,54 +925,54 @@ const FieldDescriptor* DescriptorPool::FindExtensionByName(
       result.field_descriptor->is_extension()) {
     return result.field_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
 const EnumDescriptor* DescriptorPool::FindEnumTypeByName(
     const string& name) const {
   Symbol result = tables_->FindByNameHelper(this, name);
-  return (result.type == Symbol::ENUM) ? result.enum_descriptor : nullptr;
+  return (result.type == Symbol::ENUM) ? result.enum_descriptor : NULL;
 }
 
 const EnumValueDescriptor* DescriptorPool::FindEnumValueByName(
     const string& name) const {
   Symbol result = tables_->FindByNameHelper(this, name);
   return (result.type == Symbol::ENUM_VALUE) ?
-    result.enum_value_descriptor : nullptr;
+    result.enum_value_descriptor : NULL;
 }
 
 const ServiceDescriptor* DescriptorPool::FindServiceByName(
     const string& name) const {
   Symbol result = tables_->FindByNameHelper(this, name);
-  return (result.type == Symbol::SERVICE) ? result.service_descriptor : nullptr;
+  return (result.type == Symbol::SERVICE) ? result.service_descriptor : NULL;
 }
 
 const MethodDescriptor* DescriptorPool::FindMethodByName(
     const string& name) const {
   Symbol result = tables_->FindByNameHelper(this, name);
-  return (result.type == Symbol::METHOD) ? result.method_descriptor : nullptr;
+  return (result.type == Symbol::METHOD) ? result.method_descriptor : NULL;
 }
 
 const FieldDescriptor* DescriptorPool::FindExtensionByNumber(
     const Descriptor* extendee, int number) const {
   MutexLockMaybe lock(mutex_);
   const FieldDescriptor* result = tables_->FindExtension(extendee, number);
-  if (result != nullptr) {
+  if (result != NULL) {
     return result;
   }
-  if (underlay_ != nullptr) {
+  if (underlay_ != NULL) {
     const FieldDescriptor* result =
       underlay_->FindExtensionByNumber(extendee, number);
-    if (result != nullptr) return result;
+    if (result != NULL) return result;
   }
   if (TryFindExtensionInFallbackDatabase(extendee, number)) {
     const FieldDescriptor* result = tables_->FindExtension(extendee, number);
-    if (result != nullptr) {
+    if (result != NULL) {
       return result;
     }
   }
-  return nullptr;
+  return NULL;
 }
 
 void DescriptorPool::FindAllExtensions(
@@ -981,14 +981,14 @@ void DescriptorPool::FindAllExtensions(
 
   // Initialize tables_->extensions_ from the fallback database first
   // (but do this only once per descriptor).
-  if (fallback_database_ != nullptr &&
+  if (fallback_database_ != NULL &&
       tables_->extensions_loaded_from_db_.count(extendee) == 0) {
     vector<int> numbers;
     if (fallback_database_->FindAllExtensionNumbers(extendee->full_name(),
                                                     &numbers)) {
       for (int i = 0; i < numbers.size(); ++i) {
         int number = numbers[i];
-        if (tables_->FindExtension(extendee, number) == nullptr) {
+        if (tables_->FindExtension(extendee, number) == NULL) {
           TryFindExtensionInFallbackDatabase(extendee, number);
         }
       }
@@ -997,7 +997,7 @@ void DescriptorPool::FindAllExtensions(
   }
 
   tables_->FindAllExtensions(extendee, out);
-  if (underlay_ != nullptr) {
+  if (underlay_ != NULL) {
     underlay_->FindAllExtensions(extendee, out);
   }
 }
@@ -1008,8 +1008,8 @@ const FieldDescriptor*
 Descriptor::FindFieldByNumber(int key) const {
   const FieldDescriptor* result =
     file()->tables_->FindFieldByNumber(this, key);
-  if (result == nullptr || result->is_extension()) {
-    return nullptr;
+  if (result == NULL || result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1019,8 +1019,8 @@ const FieldDescriptor*
 Descriptor::FindFieldByLowercaseName(const string& key) const {
   const FieldDescriptor* result =
     file()->tables_->FindFieldByLowercaseName(this, key);
-  if (result == nullptr || result->is_extension()) {
-    return nullptr;
+  if (result == NULL || result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1030,8 +1030,8 @@ const FieldDescriptor*
 Descriptor::FindFieldByCamelcaseName(const string& key) const {
   const FieldDescriptor* result =
     file()->tables_->FindFieldByCamelcaseName(this, key);
-  if (result == nullptr || result->is_extension()) {
-    return nullptr;
+  if (result == NULL || result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1044,7 +1044,7 @@ Descriptor::FindFieldByName(const string& key) const {
   if (!result.IsNull() && !result.field_descriptor->is_extension()) {
     return result.field_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1055,7 +1055,7 @@ Descriptor::FindExtensionByName(const string& key) const {
   if (!result.IsNull() && result.field_descriptor->is_extension()) {
     return result.field_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1063,8 +1063,8 @@ const FieldDescriptor*
 Descriptor::FindExtensionByLowercaseName(const string& key) const {
   const FieldDescriptor* result =
     file()->tables_->FindFieldByLowercaseName(this, key);
-  if (result == nullptr || !result->is_extension()) {
-    return nullptr;
+  if (result == NULL || !result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1074,8 +1074,8 @@ const FieldDescriptor*
 Descriptor::FindExtensionByCamelcaseName(const string& key) const {
   const FieldDescriptor* result =
     file()->tables_->FindFieldByCamelcaseName(this, key);
-  if (result == nullptr || !result->is_extension()) {
-    return nullptr;
+  if (result == NULL || !result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1088,7 +1088,7 @@ Descriptor::FindNestedTypeByName(const string& key) const {
   if (!result.IsNull()) {
     return result.descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1099,7 +1099,7 @@ Descriptor::FindEnumTypeByName(const string& key) const {
   if (!result.IsNull()) {
     return result.enum_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1110,7 +1110,7 @@ Descriptor::FindEnumValueByName(const string& key) const {
   if (!result.IsNull()) {
     return result.enum_value_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1121,7 +1121,7 @@ EnumDescriptor::FindValueByName(const string& key) const {
   if (!result.IsNull()) {
     return result.enum_value_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1137,7 +1137,7 @@ ServiceDescriptor::FindMethodByName(const string& key) const {
   if (!result.IsNull()) {
     return result.method_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1147,7 +1147,7 @@ FileDescriptor::FindMessageTypeByName(const string& key) const {
   if (!result.IsNull()) {
     return result.descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1157,7 +1157,7 @@ FileDescriptor::FindEnumTypeByName(const string& key) const {
   if (!result.IsNull()) {
     return result.enum_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1168,7 +1168,7 @@ FileDescriptor::FindEnumValueByName(const string& key) const {
   if (!result.IsNull()) {
     return result.enum_value_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1178,7 +1178,7 @@ FileDescriptor::FindServiceByName(const string& key) const {
   if (!result.IsNull()) {
     return result.service_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -1188,15 +1188,15 @@ FileDescriptor::FindExtensionByName(const string& key) const {
   if (!result.IsNull() && result.field_descriptor->is_extension()) {
     return result.field_descriptor;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
 const FieldDescriptor*
 FileDescriptor::FindExtensionByLowercaseName(const string& key) const {
   const FieldDescriptor* result = tables_->FindFieldByLowercaseName(this, key);
-  if (result == nullptr || !result->is_extension()) {
-    return nullptr;
+  if (result == NULL || !result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1205,8 +1205,8 @@ FileDescriptor::FindExtensionByLowercaseName(const string& key) const {
 const FieldDescriptor*
 FileDescriptor::FindExtensionByCamelcaseName(const string& key) const {
   const FieldDescriptor* result = tables_->FindFieldByCamelcaseName(this, key);
-  if (result == nullptr || !result->is_extension()) {
-    return nullptr;
+  if (result == NULL || !result->is_extension()) {
+    return NULL;
   } else {
     return result;
   }
@@ -1227,13 +1227,13 @@ bool Descriptor::IsExtensionNumber(int number) const {
 // -------------------------------------------------------------------
 
 bool DescriptorPool::TryFindFileInFallbackDatabase(const string& name) const {
-  if (fallback_database_ == nullptr) return false;
+  if (fallback_database_ == NULL) return false;
 
   if (tables_->known_bad_files_.count(name) > 0) return false;
 
   FileDescriptorProto file_proto;
   if (!fallback_database_->FindFileByName(name, &file_proto) ||
-      BuildFileFromDatabase(file_proto) == nullptr) {
+      BuildFileFromDatabase(file_proto) == NULL) {
     tables_->known_bad_files_.insert(name);
     return false;
   }
@@ -1242,21 +1242,21 @@ bool DescriptorPool::TryFindFileInFallbackDatabase(const string& name) const {
 }
 
 bool DescriptorPool::TryFindSymbolInFallbackDatabase(const string& name) const {
-  if (fallback_database_ == nullptr) return false;
+  if (fallback_database_ == NULL) return false;
 
   FileDescriptorProto file_proto;
   if (!fallback_database_->FindFileContainingSymbol(name, &file_proto)) {
     return false;
   }
 
-  if (tables_->FindFile(file_proto.name()) != nullptr) {
+  if (tables_->FindFile(file_proto.name()) != NULL) {
     // We've already loaded this file, and it apparently doesn't contain the
     // symbol we're looking for.  Some DescriptorDatabases return false
     // positives.
     return false;
   }
 
-  if (BuildFileFromDatabase(file_proto) == nullptr) {
+  if (BuildFileFromDatabase(file_proto) == NULL) {
     return false;
   }
 
@@ -1265,7 +1265,7 @@ bool DescriptorPool::TryFindSymbolInFallbackDatabase(const string& name) const {
 
 bool DescriptorPool::TryFindExtensionInFallbackDatabase(
     const Descriptor* containing_type, int field_number) const {
-  if (fallback_database_ == nullptr) return false;
+  if (fallback_database_ == NULL) return false;
 
   FileDescriptorProto file_proto;
   if (!fallback_database_->FindFileContainingExtension(
@@ -1273,14 +1273,14 @@ bool DescriptorPool::TryFindExtensionInFallbackDatabase(
     return false;
   }
 
-  if (tables_->FindFile(file_proto.name()) != nullptr) {
+  if (tables_->FindFile(file_proto.name()) != NULL) {
     // We've already loaded this file, and it apparently doesn't contain the
     // extension we're looking for.  Some DescriptorDatabases return false
     // positives.
     return false;
   }
 
-  if (BuildFileFromDatabase(file_proto) == nullptr) {
+  if (BuildFileFromDatabase(file_proto) == NULL) {
     return false;
   }
 
@@ -1585,7 +1585,7 @@ string FileDescriptor::DebugString() const {
     contents.append("\n");
   }
 
-  const Descriptor* containing_type = nullptr;
+  const Descriptor* containing_type = NULL;
   for (int i = 0; i < extension_count(); i++) {
     if (extension(i)->containing_type() != containing_type) {
       if (i > 0) contents.append("}\n\n");
@@ -1651,7 +1651,7 @@ void Descriptor::DebugString(int depth, string *contents) const {
   }
 
   // Group extensions by what they extend, so they can be printed out together.
-  const Descriptor* containing_type = nullptr;
+  const Descriptor* containing_type = NULL;
   for (int i = 0; i < extension_count(); i++) {
     if (extension(i)->containing_type() != containing_type) {
       if (i > 0) strings::SubstituteAndAppend(contents, "$0  }\n", prefix);
@@ -2188,22 +2188,22 @@ class DescriptorBuilder {
 
 const FileDescriptor* DescriptorPool::BuildFile(
     const FileDescriptorProto& proto) {
-  GOOGLE_CHECK(fallback_database_ == nullptr)
+  GOOGLE_CHECK(fallback_database_ == NULL)
     << "Cannot call BuildFile on a DescriptorPool that uses a "
        "DescriptorDatabase.  You must instead find a way to get your file "
        "into the underlying database.";
-  GOOGLE_CHECK(mutex_ == nullptr);   // Implied by the above GOOGLE_CHECK.
-  return DescriptorBuilder(this, tables_.get(), nullptr).BuildFile(proto);
+  GOOGLE_CHECK(mutex_ == NULL);   // Implied by the above GOOGLE_CHECK.
+  return DescriptorBuilder(this, tables_.get(), NULL).BuildFile(proto);
 }
 
 const FileDescriptor* DescriptorPool::BuildFileCollectingErrors(
     const FileDescriptorProto& proto,
     ErrorCollector* error_collector) {
-  GOOGLE_CHECK(fallback_database_ == nullptr)
+  GOOGLE_CHECK(fallback_database_ == NULL)
     << "Cannot call BuildFile on a DescriptorPool that uses a "
        "DescriptorDatabase.  You must instead find a way to get your file "
        "into the underlying database.";
-  GOOGLE_CHECK(mutex_ == nullptr);   // Implied by the above GOOGLE_CHECK.
+  GOOGLE_CHECK(mutex_ == NULL);   // Implied by the above GOOGLE_CHECK.
   return DescriptorBuilder(this, tables_.get(),
                            error_collector).BuildFile(proto);
 }
@@ -2223,7 +2223,7 @@ DescriptorBuilder::DescriptorBuilder(
     tables_(tables),
     error_collector_(error_collector),
     had_errors_(false),
-    possible_undeclared_dependency_(nullptr) {}
+    possible_undeclared_dependency_(NULL) {}
 
 DescriptorBuilder::~DescriptorBuilder() {}
 
@@ -2232,7 +2232,7 @@ void DescriptorBuilder::AddError(
     const Message& descriptor,
     DescriptorPool::ErrorCollector::ErrorLocation location,
     const string& error) {
-  if (error_collector_ == nullptr) {
+  if (error_collector_ == NULL) {
     if (!had_errors_) {
       GOOGLE_LOG(ERROR) << "Invalid proto descriptor for file \"" << filename_
                  << "\":";
@@ -2250,7 +2250,7 @@ void DescriptorBuilder::AddNotDefinedError(
     const Message& descriptor,
     DescriptorPool::ErrorCollector::ErrorLocation location,
     const string& undefined_symbol) {
-  if (possible_undeclared_dependency_ == nullptr) {
+  if (possible_undeclared_dependency_ == NULL) {
     AddError(element_name, descriptor, location,
              "\"" + undefined_symbol + "\" is not defined.");
   } else {
@@ -2278,14 +2278,14 @@ Symbol DescriptorBuilder::FindSymbolNotEnforcingDeps(const string& name) {
   while (true) {
     // If we are looking at an underlay, we must lock its mutex_, since we are
     // accessing the underlay's tables_ dircetly.
-    MutexLockMaybe lock((pool == pool_) ? nullptr : pool->mutex_);
+    MutexLockMaybe lock((pool == pool_) ? NULL : pool->mutex_);
 
     // Note that we don't have to check fallback_database_ here because the
     // symbol has to be in one of its file's direct dependencies, and we have
     // already loaded those by the time we get here.
     result = pool->tables_->FindSymbol(name);
     if (!result.IsNull()) break;
-    if (pool->underlay_ == nullptr) return kNullSymbol;
+    if (pool->underlay_ == NULL) return kNullSymbol;
     pool = pool->underlay_;
   }
 
@@ -2319,7 +2319,7 @@ Symbol DescriptorBuilder::FindSymbol(const string& name) {
     if (IsInPackage(file_, name)) return result;
     for (int i = 0; i < file_->dependency_count(); i++) {
       // Note:  A dependency may be NULL if it was not found or had errors.
-      if (file_->dependency(i) != nullptr &&
+      if (file_->dependency(i) != NULL &&
           IsInPackage(file_->dependency(i), name)) {
         return result;
       }
@@ -2333,7 +2333,7 @@ Symbol DescriptorBuilder::FindSymbol(const string& name) {
 
 Symbol DescriptorBuilder::LookupSymbolNoPlaceholder(
     const string& name, const string& relative_to, ResolveMode resolve_mode) {
-  possible_undeclared_dependency_ = nullptr;
+  possible_undeclared_dependency_ = NULL;
 
   if (name.size() > 0 && name[0] == '.') {
     // Fully-qualified name.
@@ -2533,7 +2533,7 @@ bool DescriptorBuilder::AddSymbol(
     const Message& proto, Symbol symbol) {
   // If the caller passed NULL for the parent, the symbol is at file scope.
   // Use its file as the parent instead.
-  if (parent == nullptr) parent = file_;
+  if (parent == NULL) parent = file_;
 
   if (tables_->AddSymbol(full_name, symbol)) {
     if (!file_tables_->AddAliasUnderParent(parent, name, symbol)) {
@@ -2661,7 +2661,7 @@ template<class DescriptorT> void DescriptorBuilder::AllocateOptionsImpl(
   // GCC.  Otherwise, the following two lines could be replaced with:
   //   typename DescriptorT::OptionsType* options =
   //       tables_->AllocateMessage<typename DescriptorT::OptionsType>();
-  typename DescriptorT::OptionsType* const dummy = nullptr;
+  typename DescriptorT::OptionsType* const dummy = NULL;
   typename DescriptorT::OptionsType* options = tables_->AllocateMessage(dummy);
   options->CopyFrom(orig_options);
   descriptor->options_ = options;
@@ -2699,7 +2699,7 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
   //   This is fine, because this idempotency "feature" really only exists to
   //   accomodate one hack in the proto1->proto2 migration layer.
   const FileDescriptor* existing_file = tables_->FindFile(filename_);
-  if (existing_file != nullptr) {
+  if (existing_file != NULL) {
     // File already in pool.  Compare the existing one to the input.
     FileDescriptorProto existing_proto;
     existing_file->CopyTo(&existing_proto);
@@ -2731,19 +2731,19 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
 
       AddError(proto.name(), proto, DescriptorPool::ErrorCollector::OTHER,
                error_message);
-      return nullptr;
+      return NULL;
     }
   }
 
   // If we have a fallback_database_, attempt to load all dependencies now,
   // before checkpointing tables_.  This avoids confusion with recursive
   // checkpoints.
-  if (pool_->fallback_database_ != nullptr) {
+  if (pool_->fallback_database_ != NULL) {
     tables_->pending_files_.push_back(proto.name());
     for (int i = 0; i < proto.dependency_size(); i++) {
-      if (tables_->FindFile(proto.dependency(i)) == nullptr &&
-          (pool_->underlay_ == nullptr ||
-           pool_->underlay_->FindFileByName(proto.dependency(i)) == nullptr)) {
+      if (tables_->FindFile(proto.dependency(i)) == NULL &&
+          (pool_->underlay_ == NULL ||
+           pool_->underlay_->FindFileByName(proto.dependency(i)) == NULL)) {
         // We don't care what this returns since we'll find out below anyway.
         pool_->TryFindFileInFallbackDatabase(proto.dependency(i));
       }
@@ -2784,7 +2784,7 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
     // Bail out early so that if this is actually the exact same file, we
     // don't end up reporting that every single symbol is already defined.
     tables_->Rollback();
-    return nullptr;
+    return NULL;
   }
   if (!result->package().empty()) {
     AddPackage(result->package(), proto, result);
@@ -2803,16 +2803,16 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
     }
 
     const FileDescriptor* dependency = tables_->FindFile(proto.dependency(i));
-    if (dependency == nullptr && pool_->underlay_ != nullptr) {
+    if (dependency == NULL && pool_->underlay_ != NULL) {
       dependency = pool_->underlay_->FindFileByName(proto.dependency(i));
     }
 
-    if (dependency == nullptr) {
+    if (dependency == NULL) {
       if (pool_->allow_unknown_) {
         dependency = NewPlaceholderFile(proto.dependency(i));
       } else {
         string message;
-        if (pool_->fallback_database_ == nullptr) {
+        if (pool_->fallback_database_ == NULL) {
           message = "Import \"" + proto.dependency(i) +
                     "\" has not been loaded.";
         } else {
@@ -2829,14 +2829,14 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
   }
 
   // Convert children.
-  BUILD_ARRAY(proto, result, message_type, BuildMessage  , nullptr);
-  BUILD_ARRAY(proto, result, enum_type   , BuildEnum     , nullptr);
-  BUILD_ARRAY(proto, result, service     , BuildService  , nullptr);
-  BUILD_ARRAY(proto, result, extension   , BuildExtension, nullptr);
+  BUILD_ARRAY(proto, result, message_type, BuildMessage  , NULL);
+  BUILD_ARRAY(proto, result, enum_type   , BuildEnum     , NULL);
+  BUILD_ARRAY(proto, result, service     , BuildService  , NULL);
+  BUILD_ARRAY(proto, result, extension   , BuildExtension, NULL);
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -2866,7 +2866,7 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
 
   if (had_errors_) {
     tables_->Rollback();
-    return nullptr;
+    return NULL;
   } else {
     tables_->Checkpoint();
     return result;
@@ -2876,7 +2876,7 @@ const FileDescriptor* DescriptorBuilder::BuildFile(
 void DescriptorBuilder::BuildMessage(const DescriptorProto& proto,
                                      const Descriptor* parent,
                                      Descriptor* result) {
-  const string& scope = (parent == nullptr) ?
+  const string& scope = (parent == NULL) ?
     file_->package() : parent->full_name();
   string* full_name = tables_->AllocateString(scope);
   if (!full_name->empty()) full_name->append(1, '.');
@@ -2899,7 +2899,7 @@ void DescriptorBuilder::BuildMessage(const DescriptorProto& proto,
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -2944,7 +2944,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
                                               const Descriptor* parent,
                                               FieldDescriptor* result,
                                               bool is_extension) {
-  const string& scope = (parent == nullptr) ?
+  const string& scope = (parent == NULL) ?
     file_->package() : parent->full_name();
   string* full_name = tables_->AllocateString(scope);
   if (!full_name->empty()) full_name->append(1, '.');
@@ -2982,11 +2982,11 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
                      implicit_cast<int>(proto.label()));
 
   // Some of these may be filled in when cross-linking.
-  result->containing_type_ = nullptr;
-  result->extension_scope_ = nullptr;
-  result->experimental_map_key_ = nullptr;
-  result->message_type_ = nullptr;
-  result->enum_type_ = nullptr;
+  result->containing_type_ = NULL;
+  result->extension_scope_ = NULL;
+  result->experimental_map_key_ = NULL;
+  result->message_type_ = NULL;
+  result->enum_type_ = NULL;
 
   result->has_default_value_ = proto.has_default_value();
   if (proto.has_default_value() && result->is_repeated()) {
@@ -2997,7 +2997,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
 
   if (proto.has_type()) {
     if (proto.has_default_value()) {
-      char* end_pos = nullptr;
+      char* end_pos = NULL;
       switch (result->cpp_type()) {
         case FieldDescriptor::CPPTYPE_INT32:
           result->default_value_int32_ =
@@ -3052,7 +3052,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
           break;
         case FieldDescriptor::CPPTYPE_ENUM:
           // This will be filled in when cross-linking.
-          result->default_value_enum_ = nullptr;
+          result->default_value_enum_ = NULL;
           break;
         case FieldDescriptor::CPPTYPE_STRING:
           if (result->type() == FieldDescriptor::TYPE_BYTES) {
@@ -3071,7 +3071,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
           break;
       }
 
-      if (end_pos != nullptr) {
+      if (end_pos != NULL) {
         // end_pos is only set non-NULL by the parsers for numeric types, above.
         // This checks that the default was non-empty and had no extra junk
         // after the end of the number.
@@ -3107,7 +3107,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
           break;
         case FieldDescriptor::CPPTYPE_ENUM:
           // This will be filled in when cross-linking.
-          result->default_value_enum_ = nullptr;
+          result->default_value_enum_ = NULL;
           break;
         case FieldDescriptor::CPPTYPE_STRING:
           result->default_value_string_ = &kEmptyString;
@@ -3155,7 +3155,7 @@ void DescriptorBuilder::BuildFieldOrExtension(const FieldDescriptorProto& proto,
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -3193,7 +3193,7 @@ void DescriptorBuilder::BuildExtensionRange(
 void DescriptorBuilder::BuildEnum(const EnumDescriptorProto& proto,
                                   const Descriptor* parent,
                                   EnumDescriptor* result) {
-  const string& scope = (parent == nullptr) ?
+  const string& scope = (parent == NULL) ?
     file_->package() : parent->full_name();
   string* full_name = tables_->AllocateString(scope);
   if (!full_name->empty()) full_name->append(1, '.');
@@ -3220,7 +3220,7 @@ void DescriptorBuilder::BuildEnum(const EnumDescriptorProto& proto,
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -3247,7 +3247,7 @@ void DescriptorBuilder::BuildEnumValue(const EnumValueDescriptorProto& proto,
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -3271,7 +3271,7 @@ void DescriptorBuilder::BuildEnumValue(const EnumValueDescriptorProto& proto,
     // but it did conflict with some other symbol defined in the enum type's
     // scope.  Let's print an additional error to explain this.
     string outer_scope;
-    if (parent->containing_type() == nullptr) {
+    if (parent->containing_type() == NULL) {
       outer_scope = file_->package();
     } else {
       outer_scope = parent->containing_type()->full_name();
@@ -3314,12 +3314,12 @@ void DescriptorBuilder::BuildService(const ServiceDescriptorProto& proto,
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
 
-  AddSymbol(result->full_name(), nullptr, result->name(),
+  AddSymbol(result->full_name(), NULL, result->name(),
             proto, Symbol(result));
 }
 
@@ -3337,12 +3337,12 @@ void DescriptorBuilder::BuildMethod(const MethodDescriptorProto& proto,
   ValidateSymbolName(proto.name(), *full_name, proto);
 
   // These will be filled in when cross-linking.
-  result->input_type_ = nullptr;
-  result->output_type_ = nullptr;
+  result->input_type_ = NULL;
+  result->output_type_ = NULL;
 
   // Copy options.
   if (!proto.has_options()) {
-    result->options_ = nullptr;  // Will set to default_instance later.
+    result->options_ = NULL;  // Will set to default_instance later.
   } else {
     AllocateOptions(proto.options(), result);
   }
@@ -3357,7 +3357,7 @@ void DescriptorBuilder::BuildMethod(const MethodDescriptorProto& proto,
 
 void DescriptorBuilder::CrossLinkFile(
     FileDescriptor* file, const FileDescriptorProto& proto) {
-  if (file->options_ == nullptr) {
+  if (file->options_ == NULL) {
     file->options_ = &FileOptions::default_instance();
   }
 
@@ -3380,7 +3380,7 @@ void DescriptorBuilder::CrossLinkFile(
 
 void DescriptorBuilder::CrossLinkMessage(
     Descriptor* message, const DescriptorProto& proto) {
-  if (message->options_ == nullptr) {
+  if (message->options_ == NULL) {
     message->options_ = &MessageOptions::default_instance();
   }
 
@@ -3403,7 +3403,7 @@ void DescriptorBuilder::CrossLinkMessage(
 
 void DescriptorBuilder::CrossLinkField(
     FieldDescriptor* field, const FieldDescriptorProto& proto) {
-  if (field->options_ == nullptr) {
+  if (field->options_ == NULL) {
     field->options_ = &FieldOptions::default_instance();
   }
 
@@ -3568,7 +3568,7 @@ void DescriptorBuilder::CrossLinkField(
 
 void DescriptorBuilder::CrossLinkEnum(
     EnumDescriptor* enum_type, const EnumDescriptorProto& proto) {
-  if (enum_type->options_ == nullptr) {
+  if (enum_type->options_ == NULL) {
     enum_type->options_ = &EnumOptions::default_instance();
   }
 
@@ -3579,14 +3579,14 @@ void DescriptorBuilder::CrossLinkEnum(
 
 void DescriptorBuilder::CrossLinkEnumValue(
     EnumValueDescriptor* enum_value, const EnumValueDescriptorProto& proto) {
-  if (enum_value->options_ == nullptr) {
+  if (enum_value->options_ == NULL) {
     enum_value->options_ = &EnumValueOptions::default_instance();
   }
 }
 
 void DescriptorBuilder::CrossLinkService(
     ServiceDescriptor* service, const ServiceDescriptorProto& proto) {
-  if (service->options_ == nullptr) {
+  if (service->options_ == NULL) {
     service->options_ = &ServiceOptions::default_instance();
   }
 
@@ -3597,7 +3597,7 @@ void DescriptorBuilder::CrossLinkService(
 
 void DescriptorBuilder::CrossLinkMethod(
     MethodDescriptor* method, const MethodDescriptorProto& proto) {
-  if (method->options_ == nullptr) {
+  if (method->options_ == NULL) {
     method->options_ = &MethodOptions::default_instance();
   }
 
@@ -3641,8 +3641,8 @@ void DescriptorBuilder::CrossLinkMethod(
 static bool IsLite(const FileDescriptor* file) {
   // TODO(kenton):  I don't even remember how many of these conditions are
   //   actually possible.  I'm just being super-safe.
-  return file != nullptr &&
-         &file->options() != nullptr &&
+  return file != NULL &&
+         &file->options() != NULL &&
          &file->options() != &FileOptions::default_instance() &&
          file->options().optimize_for() == FileOptions::LITE_RUNTIME;
 }
@@ -3694,7 +3694,7 @@ void DescriptorBuilder::ValidateFieldOptions(FieldDescriptor* field,
 
   // Note:  Default instance may not yet be initialized here, so we have to
   //   avoid reading from it.
-  if (field->containing_type_ != nullptr &&
+  if (field->containing_type_ != NULL &&
       &field->containing_type()->options() !=
       &MessageOptions::default_instance() &&
       field->containing_type()->options().message_set_wire_format()) {
@@ -3714,7 +3714,7 @@ void DescriptorBuilder::ValidateFieldOptions(FieldDescriptor* field,
 
   // Lite extensions can only be of Lite types.
   if (IsLite(field->file()) &&
-      field->containing_type_ != nullptr &&
+      field->containing_type_ != NULL &&
       !IsLite(field->containing_type()->file())) {
     AddError(field->full_name(), proto,
              DescriptorPool::ErrorCollector::EXTENDEE,
@@ -3768,7 +3768,7 @@ void DescriptorBuilder::ValidateMapKey(FieldDescriptor* field,
   }
 
   const Descriptor* item_type = field->message_type();
-  if (item_type == nullptr) {
+  if (item_type == NULL) {
     AddError(field->full_name(), proto, DescriptorPool::ErrorCollector::TYPE,
              "Could not find field type.");
     return;
@@ -3832,7 +3832,7 @@ bool DescriptorBuilder::OptionInterpreter::InterpretOptions(
   // and clear them, since we're about to interpret them.
   const FieldDescriptor* uninterpreted_options_field =
       options->GetDescriptor()->FindFieldByName("uninterpreted_option");
-  GOOGLE_CHECK(uninterpreted_options_field != nullptr)
+  GOOGLE_CHECK(uninterpreted_options_field != NULL)
       << "No field named \"uninterpreted_option\" in the Options proto.";
   options->GetReflection()->ClearField(options, uninterpreted_options_field);
 
@@ -3840,7 +3840,7 @@ bool DescriptorBuilder::OptionInterpreter::InterpretOptions(
   const FieldDescriptor* original_uninterpreted_options_field =
       original_options->GetDescriptor()->
           FindFieldByName("uninterpreted_option");
-  GOOGLE_CHECK(original_uninterpreted_options_field != nullptr)
+  GOOGLE_CHECK(original_uninterpreted_options_field != NULL)
       << "No field named \"uninterpreted_option\" in the Options proto.";
 
   const int num_uninterpreted_options = original_options->GetReflection()->
@@ -3856,8 +3856,8 @@ bool DescriptorBuilder::OptionInterpreter::InterpretOptions(
     }
   }
   // Reset these, so we don't have any dangling pointers.
-  uninterpreted_option_ = nullptr;
-  options_to_interpret_ = nullptr;
+  uninterpreted_option_ = NULL;
+  options_to_interpret_ = NULL;
 
   if (!failed) {
     // InterpretSingleOption() added the interpreted options in the
@@ -3890,7 +3890,7 @@ bool DescriptorBuilder::OptionInterpreter::InterpretSingleOption(
                         "\"uninterpreted_option\".");
   }
 
-  const Descriptor* options_descriptor = nullptr;
+  const Descriptor* options_descriptor = NULL;
   // Get the options message's descriptor from the builder's pool, so that we
   // get the version that knows about any extension options declared in the
   // file we're currently building. The descriptor should be there as long as
@@ -3918,7 +3918,7 @@ bool DescriptorBuilder::OptionInterpreter::InterpretSingleOption(
   // through in |intermediate_fields|. As we go, we reconstruct the full option
   // name in |debug_msg_name|, for use in error messages.
   const Descriptor* descriptor = options_descriptor;
-  const FieldDescriptor* field = nullptr;
+  const FieldDescriptor* field = NULL;
   vector<const FieldDescriptor*> intermediate_fields;
   string debug_msg_name = "";
 
@@ -3949,7 +3949,7 @@ bool DescriptorBuilder::OptionInterpreter::InterpretSingleOption(
       field = descriptor->FindFieldByName(name_part);
     }
 
-    if (field == nullptr) {
+    if (field == NULL) {
       if (get_allow_unknown(builder_->pool_)) {
         // We can't find the option, but AllowUnknownDependencies() is enabled,
         // so we will just leave it as uninterpreted.
@@ -4059,7 +4059,7 @@ void DescriptorBuilder::OptionInterpreter::AddWithoutInterpreting(
     const UninterpretedOption& uninterpreted_option, Message* options) {
   const FieldDescriptor* field =
     options->GetDescriptor()->FindFieldByName("uninterpreted_option");
-  GOOGLE_CHECK(field != nullptr);
+  GOOGLE_CHECK(field != NULL);
 
   options->GetReflection()->AddMessage(options, field)
     ->CopyFrom(uninterpreted_option);
@@ -4265,7 +4265,7 @@ bool DescriptorBuilder::OptionInterpreter::SetOptionValue(
       }
       const EnumDescriptor* enum_type = option_field->enum_type();
       const string& value_name = uninterpreted_option_->identifier_value();
-      const EnumValueDescriptor* enum_value = nullptr;
+      const EnumValueDescriptor* enum_value = NULL;
 
       if (enum_type->file()->pool() != DescriptorPool::generated_pool()) {
         // Note that the enum value's fully-qualified name is a sibling of the
@@ -4297,7 +4297,7 @@ bool DescriptorBuilder::OptionInterpreter::SetOptionValue(
         enum_value = enum_type->FindValueByName(value_name);
       }
 
-      if (enum_value == nullptr) {
+      if (enum_value == NULL) {
         return AddValueError("Enum type \"" +
                              option_field->enum_type()->full_name() +
                              "\" has no value named \"" + value_name + "\" for "
@@ -4338,7 +4338,7 @@ class DescriptorBuilder::OptionInterpreter::AggregateOptionFinder
 
   virtual const FieldDescriptor* FindExtension(
       Message* message, const string& name) const {
-    if (builder_->pool_->mutex_ != nullptr) {
+    if (builder_->pool_->mutex_ != NULL) {
       builder_->pool_->mutex_->AssertHeld();
     }
     Symbol result = builder_->LookupSymbolNoPlaceholder(
@@ -4347,7 +4347,7 @@ class DescriptorBuilder::OptionInterpreter::AggregateOptionFinder
         result.field_descriptor->is_extension()) {
       return result.field_descriptor;
     } else {
-      return nullptr;
+      return NULL;
     }
   }
 };
@@ -4389,7 +4389,7 @@ bool DescriptorBuilder::OptionInterpreter::SetAggregateOption(
 
   const Descriptor* type = option_field->message_type();
   scoped_ptr<Message> dynamic(dynamic_factory_.GetPrototype(type)->New());
-  GOOGLE_CHECK(dynamic.get() != nullptr)
+  GOOGLE_CHECK(dynamic.get() != NULL)
       << "Could not create an instance of " << option_field->DebugString();
 
   AggregateErrorCollector collector;

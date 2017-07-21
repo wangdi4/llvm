@@ -61,12 +61,12 @@ inline WireFormatLite::CppType cpp_type(FieldType type) {
 // Registry stuff.
 typedef hash_map<pair<const MessageLite*, int>,
                  ExtensionInfo> ExtensionRegistry;
-ExtensionRegistry* registry_ = nullptr;
+ExtensionRegistry* registry_ = NULL;
 GOOGLE_PROTOBUF_DECLARE_ONCE(registry_init_);
 
 void DeleteRegistry() {
   delete registry_;
-  registry_ = nullptr;
+  registry_ = NULL;
 }
 
 void InitRegistry() {
@@ -90,7 +90,7 @@ void Register(const MessageLite* containing_type,
 
 const ExtensionInfo* FindRegisteredExtension(
     const MessageLite* containing_type, int number) {
-  return (registry_ == nullptr) ? nullptr :
+  return (registry_ == NULL) ? NULL :
          FindOrNull(*registry_, make_pair(containing_type, number));
 }
 
@@ -101,7 +101,7 @@ ExtensionFinder::~ExtensionFinder() {}
 bool GeneratedExtensionFinder::Find(int number, ExtensionInfo* output) {
   const ExtensionInfo* extension =
       FindRegisteredExtension(containing_type_, number);
-  if (extension == nullptr) {
+  if (extension == NULL) {
     return false;
   } else {
     *output = *extension;
@@ -485,7 +485,7 @@ MessageLite* ExtensionSet::AddMessage(int number, FieldType type,
   // allocate an abstract object, so we have to be tricky.
   MessageLite* result = extension->repeated_message_value
       ->AddFromCleared<internal::GenericTypeHandler<MessageLite> >();
-  if (result == nullptr) {
+  if (result == NULL) {
     result = prototype.New();
     extension->repeated_message_value->AddAllocated(result);
   }
@@ -643,7 +643,7 @@ void ExtensionSet::MergeFrom(const ExtensionSet& other) {
             const MessageLite& other_message = other_repeated_message->Get(i);
             MessageLite* target = extension->repeated_message_value
                      ->AddFromCleared<GenericTypeHandler<MessageLite> >();
-            if (target == nullptr) {
+            if (target == NULL) {
               target = other_message.New();
               extension->repeated_message_value->AddAllocated(target);
             }

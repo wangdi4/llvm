@@ -754,7 +754,7 @@ inline typename TypeHandler::Type* RepeatedPtrFieldBase::AddFromCleared() {
   if (current_size_ < allocated_size_) {
     return cast<TypeHandler>(elements_[current_size_++]);
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 
@@ -984,7 +984,7 @@ class RepeatedPtrIterator
   typedef typename superclass::pointer pointer;
   typedef typename superclass::difference_type difference_type;
 
-  RepeatedPtrIterator() : it_(nullptr) {}
+  RepeatedPtrIterator() : it_(NULL) {}
   explicit RepeatedPtrIterator(void* const* it) : it_(it) {}
 
   // Allow "upcasting" from RepeatedPtrIterator<T**> to
@@ -1072,7 +1072,7 @@ class RepeatedPtrOverPtrsIterator
   typedef typename superclass::pointer pointer;
   typedef typename superclass::difference_type difference_type;
 
-  RepeatedPtrOverPtrsIterator() : it_(nullptr) {}
+  RepeatedPtrOverPtrsIterator() : it_(NULL) {}
   explicit RepeatedPtrOverPtrsIterator(void** it) : it_(it) {}
 
   // dereferenceable
