@@ -33,13 +33,13 @@ cl_int Intel::OpenCL::Framework::ParseGLContextOptions(const cl_context_properti
     {
         *pbGLSharingSupported = false;
     }    
-	*hGL = nullptr;
-	*hDC = nullptr;
+	*hGL = NULL;
+	*hDC = NULL;
 	if ( nullptr == properties)
 	{
 		return CL_SUCCESS;
 	}
-	while (nullptr != *properties)
+	while (NULL != *properties)
 	{
 		switch (*properties)
 		{
