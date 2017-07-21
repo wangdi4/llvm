@@ -28,13 +28,11 @@ code rhadd_igeneric_code = [{
   }];
 
 code max_ivector_code = [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName < $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, mask);
+    return ($Arg0VarName > $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }];
 
 code min_ivector_code = [{
-    $ReturnType mask = as_$ReturnType($Arg0VarName > $Arg1VarName);
-    return select($Arg0VarName, $Arg1VarName, mask);
+    return ($Arg0VarName < $Arg1VarName) ? $Arg0VarName : $Arg1VarName;
   }];
 
 code sub_sat_svector_code = [{

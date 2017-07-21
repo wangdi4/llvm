@@ -2,10 +2,6 @@
 
 //promote and expand
 
-  OclBuiltinImpl max_promote  = OclBuiltinImpl <max,  [v2f32, v3f32], 0, Promote2>;
-  OclBuiltinImpl max_expand   = OclBuiltinImpl <max,  [v16f64], 0, Expand2>;
-  OclBuiltinImpl min_promote  = OclBuiltinImpl <min,  [v2f32, v3f32], 0, Promote2>;
-  OclBuiltinImpl min_expand   = OclBuiltinImpl <min,  [v16f64], 0, Expand2>;
   OclBuiltinImpl step_promote = OclBuiltinImpl <step, [v2f32, v3f32], 0, Promote2>;
   OclBuiltinImpl step_expand  = OclBuiltinImpl <step, [v16f64], 0, Expand2>;
   OclBuiltinImpl sign_promote = OclBuiltinImpl <sign, [v2f32, v3f32], 0, Promote1>;

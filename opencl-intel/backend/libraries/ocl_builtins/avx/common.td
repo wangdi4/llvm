@@ -6,9 +6,6 @@
 //  double3 (v3f64) will promote to use double4 version
 
   OclBuiltinImpl degrees_promote    = OclBuiltinImpl  <degrees,    [v3f64], 0, Promote1>;
-  OclBuiltinImpl max_promote        = OclBuiltinImpl  <max,        [v3f64], 0, Promote2>;
-  OclBuiltinImpl min_promote        = OclBuiltinImpl  <min,        [v3f64], 0, Promote2>;
-  OclBuiltinImpl mix_promote        = OclBuiltinImpl  <mix,        [v3f64], 0, Promote3>;
   OclBuiltinImpl radians_promote    = OclBuiltinImpl  <radians,    [v3f64], 0, Promote1>;
   OclBuiltinImpl step_promote       = OclBuiltinImpl  <step,       [v3f64], 0, Promote2>;
   OclBuiltinImpl sign_promote       = OclBuiltinImpl  <sign,       [v3f64], 0, Promote1>;
