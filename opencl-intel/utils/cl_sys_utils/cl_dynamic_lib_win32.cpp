@@ -160,7 +160,7 @@ ptrdiff_t OclDynamicLib::GetFunctionPtrByName(const char* szFuncName) const
 {
     if ( nullptr == m_hLibrary )
     {
-        return nullptr;
+        return NULL;
     }
 
     return (ptrdiff_t)GetProcAddress((HMODULE)m_hLibrary, szFuncName);

@@ -30,19 +30,19 @@ using namespace std;
 using namespace Intel::OpenCL::Framework;
 
 GLMemoryObject::GLMemoryObject(SharedPtr<Context> pContext, cl_gl_object_type clglObjectType) : 
-GraphicsApiMemoryObject(pContext), m_glObjHandle(nullptr), m_glMemFlags(0), m_clglObjectType(clglObjectType)
+GraphicsApiMemoryObject(pContext), m_glObjHandle(NULL), m_glMemFlags(0), m_clglObjectType(clglObjectType)
 {
     m_pGLContext = pContext.DynamicCast<GLContext>();
 }
 
 cl_err_code GLMemoryObject::GetGLObjectInfo(cl_gl_object_type * pglObjectType, GLuint * pglObjectName)
 {
-	if ( nullptr != pglObjectType)
+	if ( NULL != pglObjectType)
 	{
 		*pglObjectType = m_clglObjectType;
 	}
 
-	if ( nullptr != pglObjectName)
+	if ( NULL != pglObjectName)
 	{
 		*pglObjectName = m_glObjHandle;
 	}

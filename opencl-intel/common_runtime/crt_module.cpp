@@ -271,27 +271,27 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_
             case CL_CONTEXT_ADAPTER_D3D9_KHR:
             case CL_CONTEXT_ADAPTER_D3D9EX_KHR:
             case CL_CONTEXT_ADAPTER_DXVA_KHR:
-                if( properties[ 1 ] != nullptr )
+                if( properties[ 1 ] != NULL )
                 {
                     return false;
                 }
                 break;
             case CL_CONTEXT_D3D10_DEVICE_KHR:
             case CL_CONTEXT_D3D11_DEVICE_KHR:
-                if( properties[ 1 ] != nullptr )
+                if( properties[ 1 ] != NULL )
                 {
                     return false;
                 }
                 break;
             case CL_CONTEXT_D3D9_DEVICE_INTEL:
             case CL_CONTEXT_D3D9EX_DEVICE_INTEL:
-                if( properties[ 1 ] != nullptr )
+                if( properties[ 1 ] != NULL )
                 {
                     return false;
                 }
                 break;
             case CL_CONTEXT_DXVA_DEVICE_INTEL:
-                if( properties[ 1 ] != nullptr )
+                if( properties[ 1 ] != NULL )
                 {
                     return false;
                 }

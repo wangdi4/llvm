@@ -56,7 +56,7 @@ Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserD
 	{
 		return;
 	}
-    if (nullptr == hGLCtx)
+    if (NULL == hGLCtx)
     {
         *pclErr = CL_INVALID_VALUE;
         return;
@@ -70,13 +70,13 @@ Context(clProperties, uiNumDevices, numRootDevices, ppDevices, pfnNotify, pUserD
         }
 		cl_context_properties devProp;
 		ppDevices[idx]->GetInfo(CL_GL_CONTEXT_KHR, sizeof(cl_context_properties), &devProp, nullptr);
-        if ( (nullptr != devProp) && (devProp != hGLCtx) )
+        if ( (NULL != devProp) && (devProp != hGLCtx) )
         {
             *pclErr = CL_INVALID_OPERATION;
             return;
         }
 		ppDevices[idx]->GetInfo(CL_WGL_HDC_KHR, sizeof(cl_context_properties), &devProp, nullptr);
-		if (nullptr != devProp && devProp != hDC)
+		if (NULL != devProp && devProp != hDC)
 		{
 			*pclErr = CL_INVALID_OPERATION;
 				return;
@@ -142,7 +142,7 @@ GLContext::~GLContext()
         // All device passed, update GL info
         for (cl_uint idx = 0; idx < m_uiNumRootDevices; ++idx)
         {
-            m_ppExplicitRootDevices[idx]->SetGLProperties(nullptr, nullptr);
+            m_ppExplicitRootDevices[idx]->SetGLProperties(NULL, NULL);
         }
     }
 }

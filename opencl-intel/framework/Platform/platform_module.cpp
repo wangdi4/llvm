@@ -663,7 +663,7 @@ cl_int PlatformModule::GetGLContextInfo(const cl_context_properties * properties
         {
             
             pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-            if (nullptr != pDevice)
+            if (NULL != pDevice)
             {
                 size_t extensionsSize = 0;                
                 ret = pDevice->GetInfo(CL_DEVICE_EXTENSIONS, 0, nullptr, &extensionsSize);                
