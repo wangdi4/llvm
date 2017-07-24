@@ -105,7 +105,7 @@ bool AdvisorInstr::runOnModule(Module &M) {
         }
 	FunctionType *printf_type = TypeBuilder<int(char *, ...), false>::get(M.getContext());
 	printfFunc = cast<Function>(mod->getOrInsertFunction(printfFuncName, printf_type, 
-					AttributeSet().addAttribute(mod->getContext(), 1U, Attribute::NoAlias)));
+					AttributeList().addAttribute(mod->getContext(), 1U, Attribute::NoAlias)));
 
 	for (auto F = M.begin(), FE = M.end(); F != FE; F++) {
 		instrument_function(&*F);
@@ -413,12 +413,13 @@ void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
 
 	// insertion point after call inst
 	IRBuilder<> builder(I);
+  const DataLayout &DL = I->getParent()->getParent()->getParent()->getDataLayout();
 
 	//===--------------------------------------------------------------------------------------===//
 	// Add stop timer before call
 	//===--------------------------------------------------------------------------------------===//
 	//Value *tp = builder.CreateAlloca(timespecType, NULL, llvm::Twine("timespec"));
-	Value *tp = new AllocaInst(timespecType, NULL, llvm::Twine("timespec"), I);
+	Value *tp = new AllocaInst(timespecType, DL.getAllocaAddrSpace(), NULL, llvm::Twine("timespec"), I);
 
 	std::vector<Value *> clock_gettimeArgs;
 	//clock_gettimeArgs.push_back(Constant::getNullValue(Type::getInt32Ty(getGlobalContext()))); // null - CLOCK_REALTIME
