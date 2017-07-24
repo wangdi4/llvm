@@ -320,7 +320,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   createFIEntryDefs();
 
   replaceUndefWithIgn();
-  //handleAllConstantInputs();
+  handleAllConstantInputs();
 #if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
@@ -1654,6 +1654,21 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
   MachineBasicBlock* entry = &*thisMF->begin();
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = &*BB;
+    ControlDependenceNode* unode = CDG->getNode(mbb);
+    unsigned domIf = 0;
+    for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
+      uparent != uparent_end; ++uparent) {
+      ControlDependenceNode *upnode = *uparent;
+      MachineBasicBlock *upbb = upnode->getBlock();
+      if (!upbb) {
+        //this is typical define inside loop, used outside loop on the main execution path
+        continue;
+      }
+      if (bb2rpo[upbb] >= bb2rpo[mbb]) {
+        continue;
+      }
+      domIf++;
+    }
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
       MachineInstr* MI = &*iterMI;
@@ -1664,11 +1679,11 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (MO->isReg() && MO->isDef()) continue;
         if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
-            allConst = false;
-            break;
+          allConst = false;
+          break;
         }
       }
-      if (allConst && mbb != entry) {
+      if (allConst && mbb != entry && !domIf) {
         MI->removeFromParent();
         entry->insertAfter(entry->begin(), MI);
       }
