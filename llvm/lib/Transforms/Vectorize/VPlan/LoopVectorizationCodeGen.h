@@ -301,6 +301,11 @@ public:
 
   ~VPOCodeGen() {}
 
+#if INTEL_OPENCL
+  /// Initiate the scalar selects set.
+  void initOpenCLScalarSelectSet(ArrayRef<const char *> OpenCLScalarSelects);
+#endif
+
   // Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   void finalizeLoop();
 
@@ -526,6 +531,15 @@ private:
   /// Returns true if \p I is known to be uniform after vectorization.
   bool isUniformAfterVectorization(Instruction *I, unsigned VF) const;
 
+#if INTEL_OPENCL
+  /// Return true if \p FnName is the name of an OpenCL scalar select and \p Idx
+  /// is the position of the mask argument.
+  bool isOpenCLSelectMask(StringRef FnName, unsigned Idx);
+
+  /// Return the right vector mask for a OpenCL vector select build-in.
+  Value *getOpenCLSelectVectorMask(Value *ScalarMask);
+#endif
+
   /// The original loop.
   Loop *OrigLoop;
 
@@ -695,6 +709,11 @@ private:
   /// Store instructions that should be predicated, as a pair
   ///   <StoreInst, Predicate>
   SmallVector<std::pair<Instruction *, Value *>, 4> PredicatedInstructions;
+
+#if INTEL_OPENCL
+  /// Hold names of scalar select builtins
+  SmallSet<std::string, 20> ScalarSelectSet;
+#endif
 
   DenseMap<AllocaInst *, Value *> ReductionEofLoopVal;
   DenseMap<AllocaInst *, Value *> ReductionVecInitVal;

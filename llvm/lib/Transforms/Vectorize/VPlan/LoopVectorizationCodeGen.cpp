@@ -2667,6 +2667,13 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
+bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
+  if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
+    return (Idx == 0);
+  }
+  return false;
+}
+
 Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
   // For the vector version of __write_pipe we need to get a vector for the
   // source of the write. Since the argument to the scalar version is a pointer
@@ -2806,16 +2813,33 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
     if ((!VecVariant || Parms[i].isVector()) && !isScalarArg) {
       // This is a vector call arg, so vectorize it.
       Value *Arg = Call->getArgOperand(i);
-      Value *VecArg = getVectorValue(Arg);
+      Value *VecArg;
+
+#if INTEL_OPENCL
+      // Generate the right mask for OpenCL vector 'select' intrinsic
+      if (isOpenCLSelectMask(FnName, i))
+        VecArg = getOpenCLSelectVectorMask(Call->getArgOperand(i));
+      else
+#endif
+        VecArg = getVectorValue(Arg);
+
       VecArgs.push_back(VecArg);
       VecArgTys.push_back(VecArg->getType());
     } else {
-      // Linear and uniform parameters must be passed as scalars according to
-      // the vector function abi. CodeGen currently vectorizes all instructions,
-      // so the scalar arguments for the vector function must be extracted from
-      // them. For both linear and uniform args, extract from lane 0. Linear
-      // args can use the value at lane 0 because this will be the starting
-      // value for which the stride will be added.
+      // Linear and uniform parameters for simd functions must be passed as
+      // scalars according to the vector function abi. CodeGen currently
+      // vectorizes all instructions, so the scalar arguments for the vector
+      // function must be extracted from them. For both linear and uniform
+      // args, extract from lane 0. Linear args can use the value at lane 0
+      // because this will be the starting value for which the stride will be
+      // added. The same method applies to built-in functions for args that
+      // need to be treated as uniform.
+
+#if INTEL_OPENCL
+      assert(!isOpenCLSelectMask(FnName, i) &&
+             "OpenCL select mask parameter is linear/uniform?");
+#endif
+
       Value *Arg = Call->getArgOperand(i);
       Value *ScalarArg = getScalarValue(Arg, 0);
       VecArgs.push_back(ScalarArg);
@@ -2864,6 +2888,71 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
     }
   }
 }
+
+#if INTEL_OPENCL
+void VPOCodeGen::initOpenCLScalarSelectSet(
+    ArrayRef<const char *> ScalarSelects) {
+
+  for (const char *SelectFuncName : ScalarSelects) {
+    ScalarSelectSet.insert(SelectFuncName);
+  }
+}
+
+bool VPOCodeGen::isOpenCLSelectMask(StringRef FnName, unsigned Idx) {
+  return Idx == 2 && ScalarSelectSet.count(FnName);
+}
+
+// Return the right vector mask for a OpenCL vector select build-in.
+//
+// Definition of OpenCL select intrinsic:
+//   gentype select ( gentype a, gentype b, igentype c)
+//
+//   For each component of a vector type, result[i] = if MSB of c[i] is set ?
+//   b[i] : a[i] For scalar type, result = c ? b : a.
+//
+// Scalar select build-in uses integer mask (integer != 0 means true). However,
+// vector select built-in uses the MSB of each vector element.
+//
+// Returned vector mask depends on ScalarMask as follows:
+//   1) if ScalarMask == ZExt(i1), return widened SExt.
+//   2) if ScalarMask == SExt(i1), return widened SExt.
+//   3) Otherwise, return CmpInst != 0 + SExt.
+//
+Value *VPOCodeGen::getOpenCLSelectVectorMask(Value *ScalarMask) {
+
+  Type *ScTy = ScalarMask->getType();
+  Type *VecTy = VectorType::get(ScTy, VF);
+
+  assert(!ScTy->isVectorTy() && ScTy->isIntegerTy() &&
+         "Scalar integer type expected.");
+
+  // Special cases for i1 type
+  CastInst *CastI;
+  if ((CastI = dyn_cast<CastInst>(ScalarMask)) &&
+      CastI->getSrcTy()->isIntegerTy(1 /*i1*/)) {
+    // SExt mask doesn't need to be fixed.
+    if (isa<SExtInst>(CastI))
+      return getVectorValue(ScalarMask);
+    // ZExt is replaced by an SExt.
+    else if (isa<ZExtInst>(ScalarMask)) {
+      Value *Val = getVectorValue(CastI->getOperand(0));
+      return Builder.CreateSExt(Val, VecTy);
+    }
+  }
+
+  // General case. We generate a CmpInst != 0 + SExt
+  // TODO: Look at Volcano vectorizer, file OCLBuiltinPreVectorizationPass.cpp.
+  // It is doing something different, creating a fake buildin. I don't know if
+  // that approach is applicable here at this point.
+  Value *VectorMask = getVectorValue(ScalarMask);
+  Constant *Zero = Constant::getNullValue(VecTy);
+  Value *Cmp;
+
+  // Only integer mask is supported.
+  Cmp = Builder.CreateICmpNE(VectorMask, Zero);
+  return Builder.CreateSExt(Cmp, VecTy);
+}
+#endif // INTEL_OPENCL
 
 void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
 

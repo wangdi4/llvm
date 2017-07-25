@@ -15,6 +15,7 @@
 
 #include "LoopVectorizationCodeGen.h"
 #include "LoopVectorizationPlanner.h"
+#include "VolcanoOpenCL.h"
 #include "VPlanPredicator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
@@ -521,6 +522,9 @@ void VPlanDriver::processLoop(Loop *Lp, Function &F, WRNVecLoopNode *WRLoop) {
       errs() << "VD: VPlan Generating code in function: " << F.getName() << "\n";
 
     VPOCodeGen VCodeGen(Lp, PSE, LI, DT, TLI, TTI, VF, 1, &LVL);
+#if INTEL_OPENCL
+    VCodeGen.initOpenCLScalarSelectSet(volcanoScalarSelect);
+#endif
     LVP->executeBestPlan(VCodeGen);
   }
 
