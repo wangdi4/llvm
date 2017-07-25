@@ -13,6 +13,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineSSAUpdater.h"
 #include "llvm/Target/TargetMachine.h"
@@ -139,6 +140,8 @@ namespace {
       AU.addRequired<ControlDependenceGraph>();
       AU.addRequired<AAResultsWrapperPass>();
       AU.addRequired<MachineLoopInfo>();
+      AU.addRequired<MachineDominatorTree>();
+      AU.addRequired<MachinePostDominatorTree>();
       AU.setPreservesAll();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
@@ -150,6 +153,8 @@ namespace {
     ControlDependenceGraph *CDG;
     const CSAInstrInfo *TII;
     MachineRegisterInfo *MRI;
+    MachineDominatorTree *DT;
+    MachinePostDominatorTree *PDT;
 
     // For each chain, maintain 4 items:
     // start:    the first vreg in its chain
@@ -225,13 +230,26 @@ namespace {
                                       SmallVector<unsigned, MEMDEP_VEC_WIDTH>* current_wavefront,
                                       unsigned input_mem_reg);
 
+    // Helper routines for discovering/associating intrinsics.
+    bool isLoopDomByIntrinsic(MachineLoop *l,
+                              unsigned opcode,
+                              unsigned &token) const;
+    bool isLoopPostDomByIntrinsic(MachineLoop *l,
+                                  unsigned opcode,
+                                  unsigned token) const;
+    // Determine if a val is trivially derived from an ancestor vreg,
+    // accounting for PHI nodes. Mov/copy transforms are not currently
+    // accounted for.
+    bool isDerivedFrom(unsigned val, unsigned ancestor) const;
+
     // Return true if the specified loop has been annotated as parallel in the
     // source code.
     bool isParallelLoop(MachineLoop* loop) const;
 
-    // Return true if the specified basic block contains a .csa_parallel_loop
-    // pseudo-op.
-    bool findParallelLoopPseudoOp(const MachineBasicBlock& BB) const;
+    // Determine if the specified basic block contains a the specified
+    // operation. (An instruction with the given opcode.) Return the
+    // instruction if found, or nullptr otherwise.
+    const MachineInstr* isOpInBlockOp(const MachineBasicBlock& BB, unsigned op) const;
 
     // Traverse the PHI nodes that were inserted by the ssa updater.
     // For PHI nodes that belong to loops that have been annotated as
@@ -267,6 +285,8 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   CDG = &getAnalysis<ControlDependenceGraph>();
 
   MLI = &getAnalysis<MachineLoopInfo>();
+  DT = &getAnalysis<MachineDominatorTree>();
+  PDT = &getAnalysis<MachinePostDominatorTree>();
 
   // Find the entry block. (Surely there's an easier way to do this?)
   ControlDependenceNode *rootN = CDG->getRoot();
@@ -665,68 +685,134 @@ void CSAMemopOrdering::order_memop_ins(
   }
 }
 
-bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
-{
-  // Look for a ".csa_parallel_loop" pseudo-opcode in the block immediately
-  // before the loop.  Note that the pseudo-opcode is not *within* the loop
-  // (unless it is referring to a nested loop).
+bool CSAMemopOrdering::isDerivedFrom(unsigned val, unsigned ancestor) const {
+  if(val == ancestor)
+    return true;
 
-  // If the loop has a preheader, then looptop is that preheader; otherwise
-  // looptop is the regular loop header.
-  MachineBasicBlock* looptop = loop->getLoopPreheader();
-  if (looptop) {
-    // There is a preheader at the top of the loop. The preheader is not
-    // technically part of the loop, so it might contain the parallel pseudo
-    // op. If so, then this is a parallel loop and we're done. Most of the
-    // time, however, the pseudo-op (if any) is in the predecessor of the
-    // preheader, so we have to keep going.
-    if (findParallelLoopPseudoOp(*looptop)) {
-      DEBUG(errs() << "%%% Loop is parallel\n");
+  assert(MRI->hasOneDef(val) && "Expecting an SSA vreg");
+  for(MachineInstr &defMI : MRI->def_instructions(val)) {
+    // If not a PHI, then we're not going to trace backward any further.
+    if(!defMI.isPHI())
+      return false;
+
+    unsigned numPhiOperands = defMI.getNumOperands();
+    for(unsigned i=1; i<numPhiOperands; i+= 2) {
+      MachineOperand &phiData = defMI.getOperand(i);
+      if(phiData.isReg()) {
+        unsigned newAncestor = phiData.getReg();
+        // Return true if any incoming PHI values are themselves descendants.
+        if(isDerivedFrom(newAncestor, ancestor))
+          return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool CSAMemopOrdering::isLoopDomByIntrinsic(MachineLoop* loop, unsigned op,
+                                            unsigned &token) const
+{
+  auto *cur = DT->getNode(loop->getHeader());
+  for(cur = cur->getIDom(); cur; cur = cur->getIDom()) {
+    MachineBasicBlock *dom = cur->getBlock();
+
+    // Stop if we leave the required nesting level. The matching intrinsic
+    // should only be in the immediately surrounding loop nest level.
+    if (MLI->getLoopDepth(dom) != loop->getLoopDepth()-1)
+      break;
+
+    const MachineInstr *inst = isOpInBlockOp(*dom, op);
+    if (inst!=nullptr) {
+      token = inst->getOperand(0).getReg();
+
+      DEBUG(errs() << "\t=> Maybe! Dominating intrinsic in  " << dom->getName()
+          << " (BB " << dom->getNumber() << ") at depth " <<
+          MLI->getLoopDepth(dom) << " suggests it. Token vreg=" << token <<
+          ".\n");
+      DEBUG(errs() << "Inst is " << *inst);
+      assert(inst->getNumOperands()==2 && inst->getOperand(0).isReg());
+
       return true;
     }
   }
-  else {
-    // There is a no preheader at the top of the loop; use the header of the
-    // loop as the top.  Since the header is part of the loop (unlike the
-    // preheader), we do not check the header for a parallel pseudo op.
-    looptop = loop->getHeader();
-  }
 
-  // If ALL predicessors to the loop contain the parallel pseudo-op, then
-  // this is a parallel loop.  If NONE of the predecessors contain the
-  // psuedo op, then this is not a parallel loop.  If SOME BUT NOT ALL
-  // predecessors contain the pseudo op, then our algorithm is broken.
-  int numPredecessors = 0;
-  int numPseudoOps = 0;
-  for (MachineBasicBlock* loopPredecessor : looptop->predecessors()) {
-    ++numPredecessors;
-    if (findParallelLoopPseudoOp(*loopPredecessor))
-      ++numPseudoOps;
-  }
-  assert((0 == numPseudoOps || numPredecessors == numPseudoOps) &&
-         "Expected all-or-none of the predecessors to have pseuodo-op");
-
-  // Return true if all of the predicessors contain the parallel pseudo-op.
-  return (numPseudoOps > 0);
+  DEBUG(errs() << "\t<= No parallel annotation found.\n");
+  return false;
 }
 
-bool CSAMemopOrdering::findParallelLoopPseudoOp(const MachineBasicBlock& BB) const {
-  // Return true if the specified basic block contains a .csa_parallel_loop pseudo-op.
+bool CSAMemopOrdering::isLoopPostDomByIntrinsic(MachineLoop* loop, unsigned op,
+                                                unsigned token) const
+{
+  auto *cur = PDT->getNode(loop->getHeader());
+  for(cur = cur->getIDom(); cur; cur = cur->getIDom()) {
+    MachineBasicBlock *dom = cur->getBlock();
 
-  // Find a machine instruction with opcode CSA::CSA_PARALLEL_LOOP in this
-  // basic block.
+    // Stop if we leave the required nesting level. The matching intrinsic
+    // should only be in the immediately surrounding loop nest level.
+    if (MLI->getLoopDepth(dom) != loop->getLoopDepth()-1)
+      break;
+
+    const MachineInstr *inst = isOpInBlockOp(*dom, op);
+    if (inst!=nullptr) {
+      DEBUG(errs() << "Post-dom'ing inst is " << *inst);
+      assert(inst->getNumOperands()==1 && inst->getOperand(0).isReg());
+      unsigned candidateToken = inst->getOperand(0).getReg();
+      if (isDerivedFrom(candidateToken, token)) {
+        DEBUG(errs() << "\t=> Yes! Post-dominator " << dom->getName() << " (BB "
+            << dom->getNumber() << ") at depth " << MLI->getLoopDepth(dom) <<
+            " says so. Token vreg=" << token << ".\n");
+        return true;
+      } else {
+        DEBUG(errs() << "\t=> There's an intrinsic, but wrong token.\n");
+      }
+    }
+  }
+
+  DEBUG(errs() << "\t<= No parallel annotation found.\n");
+  return false;
+}
+
+bool CSAMemopOrdering::isParallelLoop(MachineLoop* loop) const
+{
+  DEBUG(errs() << "Is Loop \"" << loop->getHeader()->getName() << "\" (BB " <<
+    loop->getHeader()->getNumber() << ") at depth " <<
+    loop->getLoopDepth() << " parallel?\n");
+
+  unsigned regionToken;
+  bool hasEntry = isLoopDomByIntrinsic(loop, CSA::CSA_PARALLEL_REGION_ENTRY, regionToken);
+  DEBUG(errs() << "\tIs it dominated by a begin intrinsic? " <<
+      (hasEntry ?  "yes" : "no") << "\n");
+  if (hasEntry) {
+    bool hasExit = isLoopPostDomByIntrinsic(loop, CSA::CSA_PARALLEL_REGION_EXIT, regionToken);
+    DEBUG(errs() << "\tIs it post-dominated by an end intrinsic? " <<
+        (hasExit ? "yes" : "no") << "\n");
+    if (hasExit)
+      DEBUG(errs() << "@@>> Loop \"" << loop->getHeader()->getName() << "\" (BB " <<
+        loop->getHeader()->getNumber() << ") at depth " <<
+        loop->getLoopDepth() << " IS parallel! <<@@\n");
+    return hasExit;
+  }
+
+  return false;
+}
+
+const MachineInstr* CSAMemopOrdering::isOpInBlockOp(const MachineBasicBlock& BB,
+                                                unsigned op) const {
+  // Return true if the specified basic block contains an instruction with the
+  // specified opcode.
+
+  // Find a machine instruction with given opcode in this basic block.
   auto MIiter = std::find_if(BB.begin(), BB.end(),
-                             [](const MachineInstr& MI) {
-                               return MI.getOpcode() == CSA::CSA_PARALLEL_LOOP;
+                             [op](const MachineInstr& MI) {
+                               return MI.getOpcode() == op;
                              });
 
   if (MIiter != BB.end()) {
-    // We may eventually want to remove the pseudo-op once we've processed it.
-    // BB.erase(MIiter);
-    return true;  // Found the parallel pseudo-op
+    return &*MIiter;  // Found the op
   }
 
-  return false; // Didn't find the parallel pseudo-op
+  return nullptr; // Didn't find the op
 }
 
 void CSAMemopOrdering::markParallelLoopBackedges(MachineFunction *thisMF,

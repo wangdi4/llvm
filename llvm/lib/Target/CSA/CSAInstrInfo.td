@@ -1622,6 +1622,32 @@ def CSA_DIRECTIVE : PseudoInstCSA<
     ".csa_directive\t$md",
     [ (int_csa_directive (i32 imm:$md)) ]>;
 
+// These four intrinsics are the ones that mark parallel loops/regions and the
+// parallel sections within.
+def CSA_PARALLEL_REGION_ENTRY : PseudoInstCSA<
+    (outs I32:$ltok),
+    (ins  I32:$lid),
+    "# $ltok <- .csa_parallel_region_entry\t$lid",
+    [(set i32:$ltok, (int_csa_parallel_region_entry (i32 imm:$lid)))]>;
+
+def CSA_PARALLEL_REGION_EXIT : PseudoInstCSA<
+    (outs),
+    (ins I32:$ltok),
+    "# .csa_parallel_region_exit\t$ltok",
+    [ (int_csa_parallel_region_exit i32:$ltok) ]>;
+
+def CSA_PARALLEL_SECTION_ENTRY : PseudoInstCSA<
+    (outs I32:$stok),
+    (ins  I32:$ltok),
+    "# $stok <- .csa_parallel_section_entry\t$ltok",
+    [(set i32:$stok, (int_csa_parallel_section_entry i32:$ltok))]>;
+
+def CSA_PARALLEL_SECTION_EXIT : PseudoInstCSA<
+    (outs),
+    (ins I32:$stok),
+    "# .csa_parallel_section_exit\t$stok",
+    [ (int_csa_parallel_section_exit i32:$stok) ]>;
+
 // This pseudo-op is appears the start of a loop loop that starts with a
 // parallel directive (__builtin_csa_parallel_loop() or #pragma omp parallel
 // for).
