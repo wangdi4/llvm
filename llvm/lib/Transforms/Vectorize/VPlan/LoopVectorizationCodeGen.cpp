@@ -2752,7 +2752,7 @@ Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
     }
   }
 
-  assert(NumStoresToWriteSrc == 1 &&
+  assert(VecWriteSrc && NumStoresToWriteSrc == 1 &&
          "Assumed single store to write src location");
 
   VectorType *VTy = cast<VectorType>(VecWriteSrc->getType());
@@ -2798,7 +2798,9 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
 
   for (unsigned i = 0; i < Call->getNumArgOperands(); i++) {
 #if INTEL_OPENCL
-    StringRef FnName = Call->getCalledFunction()->getName();
+    Function *F = Call->getCalledFunction();
+    assert(F && "Function not found for call instruction");
+    StringRef FnName = F->getName();
     isScalarArg = isScalarArgument(FnName, i);
     if (isOpenCLReadChannelDest(FnName, i))
       continue;
@@ -2806,6 +2808,7 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
     if (isOpenCLWriteChannelSrc(FnName, i)) {
       Value *VecWriteSrc =
         vectorizeOpenCLWriteChannelSrc(Call->getArgOperand(i));
+      assert(VecWriteSrc && "Vector value for channel write source not found");
       VecArgs.push_back(VecWriteSrc);
       VecArgTys.push_back(VecWriteSrc->getType());
     } else

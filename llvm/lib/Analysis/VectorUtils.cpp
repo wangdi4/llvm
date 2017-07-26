@@ -655,6 +655,7 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   // call to a vector call if it is known to be vectorizable as SVML or
   // an intrinsic.
   Function *OrigF = Call->getCalledFunction();
+  assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
   if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant) {
     return nullptr;
