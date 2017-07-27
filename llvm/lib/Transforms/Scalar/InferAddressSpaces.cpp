@@ -326,6 +326,9 @@ InferAddressSpaces::collectFlatAddressExpressions(Function &F) const {
         PushPtrOperand(Cmp->getOperand(0));
         PushPtrOperand(Cmp->getOperand(1));
       }
+    } else if (auto *ASC = dyn_cast<AddrSpaceCastInst>(&I)) {
+      if (!ASC->getType()->isVectorTy())
+        PushPtrOperand(ASC->getPointerOperand());
     }
   }
 
@@ -812,6 +815,8 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
     NewV->setOperand(OperandNo, ValueWithNewAddrSpace.lookup(UndefUse->get()));
   }
 
+  SmallVector<Instruction *, 16> DeadInstructions;
+
   // Replaces the uses of the old address expressions with the new ones.
   for (Value *V : Postorder) {
     Value *NewV = ValueWithNewAddrSpace.lookup(V);
@@ -881,6 +886,15 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
           }
         }
 
+        if (AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(CurUser)) {
+          unsigned NewAS = NewV->getType()->getPointerAddressSpace();
+          if (ASC->getDestAddressSpace() == NewAS) {
+            ASC->replaceAllUsesWith(NewV);
+            DeadInstructions.push_back(ASC);
+            continue;
+          }
+        }
+
         // Otherwise, replaces the use with flat(NewV).
         if (Instruction *I = dyn_cast<Instruction>(V)) {
           BasicBlock::iterator InsertPos = std::next(I->getIterator());
@@ -894,9 +908,14 @@ bool InferAddressSpaces::rewriteWithNewAddressSpaces(
       }
     }
 
-    if (V->use_empty())
-      RecursivelyDeleteTriviallyDeadInstructions(V);
+    if (V->use_empty()) {
+      if (Instruction *I = dyn_cast<Instruction>(V))
+        DeadInstructions.push_back(I);
+    }
   }
+
+  for (Instruction *I : DeadInstructions)
+    RecursivelyDeleteTriviallyDeadInstructions(I);
 
   return true;
 }
