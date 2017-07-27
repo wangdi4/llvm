@@ -1267,6 +1267,10 @@ public:
       CachedTokens[CachedLexPos-1] = Tok;
   }
 
+  /// Enter an annotation token into the token stream.
+  void EnterAnnotationToken(SourceRange Range, tok::TokenKind Kind,
+                            void *AnnotationVal);
+
   /// Update the current token to represent the provided
   /// identifier, in order to cache an action performed by typo correction.
   void TypoCorrectToken(const Token &Tok) {
@@ -1972,6 +1976,7 @@ public:
   void HandlePragmaPoison();
   void HandlePragmaSystemHeader(Token &SysHeaderTok);
   void HandlePragmaDependency(Token &DependencyTok);
+  void HandlePragmaModuleImport(Token &Tok);
   void HandlePragmaPushMacro(Token &Tok);
   void HandlePragmaPopMacro(Token &Tok);
   void HandlePragmaIncludeAlias(Token &Tok);
