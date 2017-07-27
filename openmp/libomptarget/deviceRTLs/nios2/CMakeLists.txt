@@ -25,7 +25,7 @@ macro(build_device_lib variant lib_name)
   set(dst_lib ${dst_dir}/${lib_name})
 
   # CFLAGS for building library
-  set(flags -I${DISPATCHER}/include -O2 ${ARGN})
+  set(flags -I${DISPATCHER}/include -O2 ${ARGN} -mbypass-cache)
 
   # Compile files
   set(obj_files "")

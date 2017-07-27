@@ -15,45 +15,54 @@
 #include "libomp.h"
 #include <fpga_mc_dispatcher.h>
 
+// The cache load/flush calls can be removed physically, later
+// For now we define them away because the build uses the cache bypass switch.
+#define fpga_mc_load_cache_extent(a,b)
+#define fpga_mc_flush_cache_extent(a,b)
 
-void* nios2_unsafe_malloc_l2(size_t s, int l)
+
+#define L3 __attribute__((section(".dataL3")))
+
+L3 static volatile int omp_max_num_threads;
+L3 static volatile int omp_num_threads;
+L3 static volatile int omp_num_threads_save;
+
+// Tracing support
+
+L3 static volatile int omp_trace_level = 0;
+
+void omp_set_trace_level(int level)
 {
-	return fpga_mc_unsafe_malloc_l2(s,l);
+    omp_trace_level = level;
+    fpga_mc_flush_cache_extent(&omp_trace_level, sizeof(omp_trace_level));
 }
-void* nios_unsafe_malloc_l2(size_t s, int l)
+
+static int omp_get_trace_level()
 {
-	return fpga_mc_unsafe_malloc_l2(s,l);
-}
-void nios_memcpy_device_to_l4(l4_virtual_ptr_t dst, void* src, size_t s)
-{
-	fpga_mc_memcpy_device_to_l4(dst, src, s);
-}
-void nios_memcpy_l4_to_device(void* dst, l4_virtual_ptr_t src, size_t s)
-{
-	fpga_mc_memcpy_l4_to_device(dst, src, s);
+    fpga_mc_load_cache_extent(&omp_trace_level, sizeof(omp_trace_level));
+    return omp_trace_level;
 }
 
-static int omp_initialized = 0;
-static int omp_max_num_threads;
-static int omp_num_threads;
+#define TRACE if (omp_get_trace_level() > 0)  printf
 
-//#define TRACE if (fpga_mc_get_verbosity() > 0) printf
-#define TRACE printf
+// End tracing support
 
-#define OMP_INIT \
-    fpga_mc_load_cache_extent(&omp_initialized, sizeof(omp_initialized)); \
-    if (!omp_initialized) omp_init()
 
-static void omp_init()
+// Forward declarations
+
+void omp_set_num_threads(int num_threads);
+
+
+void __kmpc_omp_init()
 {
 
     // Currently this sets #cores in current column only
-    omp_max_num_threads = omp_num_threads = fpga_mc_get_num_cores();
-    omp_initialized = 1;
+    int num_cores = fpga_mc_get_num_cores();
+
+    omp_max_num_threads = omp_num_threads = omp_num_threads_save = num_cores;
     fpga_mc_flush_cache_extent(&omp_max_num_threads, sizeof(omp_max_num_threads));
     fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
-    fpga_mc_flush_cache_extent(&omp_initialized, sizeof(omp_initialized));
-    TRACE("omp_init()\n");
+    fpga_mc_flush_cache_extent(&omp_num_threads_save, sizeof(omp_num_threads_save));
 }
 
 void trace_wi(
@@ -108,8 +117,14 @@ kmp_int32 __kmpc_global_thread_num(ident_t* loc)
 
 void __kmpc_push_num_threads(ident_t* loc, kmp_int32 gtid, kmp_int32 num_threads)
 {
-    omp_num_threads = num_threads;
-    fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+    fpga_mc_load_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+    omp_num_threads_save = omp_num_threads;
+    fpga_mc_flush_cache_extent(&omp_num_threads_save, sizeof(omp_num_threads_save));
+
+    // Set requested num_threads after limit checking
+    omp_set_num_threads(num_threads);
+
+    TRACE("Default num_threads is now %d\n", omp_num_threads);
 }
 
 void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ... )
@@ -121,7 +136,6 @@ void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ...
     va_list vl;
     va_start(vl, omp_outlined);
 
-    OMP_INIT;
     TRACE("__kmpc_fork_call(loc,argc=%d,omp_outlined=%x)\n", argc, omp_outlined);
     // Allocate work item
     // tid and bid are always the first two arguments
@@ -142,6 +156,7 @@ void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ...
 
     // Schedule task on all non-master cores
     // if num_threads > 1
+    fpga_mc_load_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
     workers_to_use = omp_num_threads - 1;
     TRACE("workers_to_use=%d\n", workers_to_use);
     if (workers_to_use > 0)
@@ -149,6 +164,7 @@ void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ...
         fpga_mc_flush_cache_extent(
             wi,
             sizeof(struct __nios_workitem) + wi->argc*sizeof(int));
+        fpga_mc_load_cache_extent(&omp_max_num_threads, sizeof(omp_max_num_threads));
         if (omp_num_threads == omp_max_num_threads)
         {
             TRACE("fpga_mc_scheduler_fork_all_worker_cores(func=%x, wi=%x)\n",
@@ -193,8 +209,10 @@ void __kmpc_fork_call(ident_t* loc, kmp_int32 argc, kmpc_micro omp_outlined, ...
 
     va_end(vl);
 
-    omp_num_threads = omp_max_num_threads;
+    fpga_mc_load_cache_extent(&omp_num_threads_save, sizeof(omp_num_threads_save));
+    omp_num_threads = omp_num_threads_save;
     fpga_mc_flush_cache_extent(&omp_num_threads, sizeof(omp_num_threads));
+    TRACE("Default num_threads is reset to %d\n", omp_num_threads);
 
     TRACE("over\n");
 }
@@ -205,18 +223,9 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
                       kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk )
 {
     /*  this all has to be changed back to TID and such.. */
-    register kmp_uint32  tid = fpga_mc_get_core_id();
-    register kmp_uint32  nth;
-    register UT          trip_count;
-
-    OMP_INIT;
-    KMP_DEBUG_ASSERT( plastiter && plower && pupper && pstride );
-    KE_TRACE( 10, ("__kmpc_for_static_init called (%d)\n", global_tid));
-    #ifdef KMP_DEBUG
-    {
-        const char * buff;
-    }
-    #endif
+    kmp_uint32  tid = fpga_mc_get_core_id();
+    kmp_uint32  nth;
+    UT          trip_count;
 
     /* special handling for zero-trip loops */
     if ( incr > 0 ? (*pupper < *plower) : (*plower < *pupper) ) {
@@ -224,12 +233,6 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
             *plastiter = FALSE;
         /* leave pupper and plower set to entire iteration space */
         *pstride = incr;   /* value should never be used */
-        #ifdef KMP_DEBUG
-        {
-            const char * buff;
-        }
-        #endif
-        KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
         return;
     }
@@ -240,18 +243,6 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
         if( plastiter != NULL )
             *plastiter = TRUE;
         *pstride = (incr > 0) ? (*pupper - *plower + 1) : (-(*plower - *pupper + 1));
-        #ifdef KMP_DEBUG
-        {
-            const char * buff;
-            // create format specifiers before the debug output
-            buff = __kmp_str_format(
-                "__kmpc_for_static_init: (serial) liter=%%d lower=%%%s upper=%%%s stride = %%%s\n",
-                traits_t< T >::spec, traits_t< T >::spec, traits_t< ST >::spec );
-            KD_TRACE(100, ( buff, *plastiter, *plower, *pupper, *pstride ) );
-            __kmp_str_free( &buff );
-        }
-        #endif
-        KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
         return;
     }
@@ -273,10 +264,6 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
     case kmp_sch_static:
         {
             if ( trip_count < nth ) {
-                KMP_DEBUG_ASSERT(
-                    __kmp_static == kmp_sch_static_greedy || \
-                    __kmp_static == kmp_sch_static_balanced
-                ); // Unknown static scheduling type.
                 if ( tid < trip_count ) {
                     *pupper = *plower = *plower + tid * incr;
                 } else {
@@ -308,16 +295,8 @@ __kmpc_for_static_init_4( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, kmp
             break;
         }
     default:
-        KMP_ASSERT2( 0, "__kmpc_for_static_init: unknown scheduling type" );
         break;
     }
-
-    #ifdef KMP_DEBUG
-    {
-        const char * buff;
-    }
-    #endif
-    KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
     return;
 }
@@ -327,19 +306,9 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
                       kmp_uint32 *plower, kmp_uint32 *pupper,
                       kmp_int32 *pstride, kmp_int32 incr, kmp_int32 chunk )
 {
-    /*  this all has to be changed back to TID and such.. */
-    //register kmp_int32   gtid = global_tid;
-    register kmp_uint32  tid = fpga_mc_get_core_id();
-    register kmp_uint32  nth;
-    register UT          trip_count;
-
-    KMP_DEBUG_ASSERT( plastiter && plower && pupper && pstride );
-    KE_TRACE( 10, ("__kmpc_for_static_init called (%d)\n", global_tid));
-    #ifdef KMP_DEBUG
-    {
-        const char * buff;
-    }
-    #endif
+    kmp_uint32  tid = fpga_mc_get_core_id();
+    kmp_uint32  nth;
+    UT          trip_count;
 
     /* special handling for zero-trip loops */
     if ( incr > 0 ? (*pupper < *plower) : (*plower < *pupper) ) {
@@ -347,12 +316,6 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
             *plastiter = FALSE;
         /* leave pupper and plower set to entire iteration space */
         *pstride = incr;   /* value should never be used */
-        #ifdef KMP_DEBUG
-        {
-            const char * buff;
-        }
-        #endif
-        KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
         return;
     }
@@ -363,18 +326,6 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
         if( plastiter != NULL )
             *plastiter = TRUE;
         *pstride = (incr > 0) ? (*pupper - *plower + 1) : (-(*plower - *pupper + 1));
-        #ifdef KMP_DEBUG
-        {
-            const char * buff;
-            // create format specifiers before the debug output
-            buff = __kmp_str_format(
-                "__kmpc_for_static_init: (serial) liter=%%d lower=%%%s upper=%%%s stride = %%%s\n",
-                traits_t< T >::spec, traits_t< T >::spec, traits_t< ST >::spec );
-            KD_TRACE(100, ( buff, *plastiter, *plower, *pupper, *pstride ) );
-            __kmp_str_free( &buff );
-        }
-        #endif
-        KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
         return;
     }
@@ -396,10 +347,6 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
     case kmp_sch_static:
         {
             if ( trip_count < nth ) {
-                KMP_DEBUG_ASSERT(
-                    __kmp_static == kmp_sch_static_greedy || \
-                    __kmp_static == kmp_sch_static_balanced
-                ); // Unknown static scheduling type.
                 if ( tid < trip_count ) {
                     *pupper = *plower = *plower + tid * incr;
                 } else {
@@ -431,16 +378,8 @@ __kmpc_for_static_init_4u( ident_t *loc, kmp_int32 gtid, kmp_int32 schedtype, km
             break;
         }
     default:
-        KMP_ASSERT2( 0, "__kmpc_for_static_init: unknown scheduling type" );
         break;
     }
-
-    #ifdef KMP_DEBUG
-    {
-        const char * buff;
-    }
-    #endif
-    KE_TRACE( 10, ("__kmpc_for_static_init: T#%d return\n", global_tid ) );
 
     return;
 }
@@ -461,11 +400,11 @@ static void omp_not_implemented_for_nios(const char* api)
 
 void omp_set_num_threads(int num_threads)
 {
-    OMP_INIT;
     if (num_threads < 0)
     {
         return;
     }
+    fpga_mc_load_cache_extent(&omp_max_num_threads, sizeof(omp_max_num_threads));
     if (num_threads > omp_max_num_threads)
     {
         omp_num_threads = omp_max_num_threads;
@@ -498,7 +437,6 @@ void omp_set_schedule(enum sched_type s, int l)
 /* query API functions */
 int omp_get_num_threads(void)
 {
-    OMP_INIT;
     return omp_num_threads;
 }
 
@@ -514,14 +452,13 @@ int omp_get_nested(void)
 
 int omp_get_max_threads(void)
 {
-    OMP_INIT;
     return omp_max_num_threads;
 }
 
 int omp_get_thread_num(void)
 {
     int tid;
-    OMP_INIT;
+
     // Currently this is within current column only
     tid = fpga_mc_get_core_id();
     return tid;
@@ -529,7 +466,6 @@ int omp_get_thread_num(void)
 
 int omp_get_num_procs(void)
 {
-    OMP_INIT;
     return omp_max_num_threads;
 }
 
@@ -695,7 +631,6 @@ void omp_set_default_device(int d)
 
 int omp_is_initial_device(void)
 {
-    OMP_INIT;
     return 0;
 }
 
