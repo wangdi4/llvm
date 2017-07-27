@@ -1712,8 +1712,6 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
   OS << "#ifdef GET_GLOBALISEL_IMPL\n";
   SubtargetFeatureInfo::emitSubtargetFeatureBitEnumeration(SubtargetFeatures,
                                                            OS);
-<<<<<<< HEAD
-=======
   SubtargetFeatureInfo::emitNameTable(SubtargetFeatures, OS);
 
   // Separate subtarget features by how often they must be recomputed.
@@ -1730,7 +1728,6 @@ void GlobalISelEmitter::run(raw_ostream &OS) {
                  return X.second.mustRecomputePerFunction();
                });
 
->>>>>>> f31ac9d1e8c0e0ffcba84a24f1e8689e5724fba3
   SubtargetFeatureInfo::emitComputeAvailableFeatures(
       Target.getName(), "InstructionSelector", "computeAvailableModuleFeatures",
       ModuleFeatures, OS);
