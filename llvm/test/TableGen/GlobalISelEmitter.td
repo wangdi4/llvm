@@ -32,21 +32,41 @@ def m1Z : OperandWithDefaultOps <i32, (ops (i32 -1), R0)>;
 
 def HasA : Predicate<"Subtarget->hasA()">;
 def HasB : Predicate<"Subtarget->hasB()">;
+def HasC : Predicate<"Subtarget->hasC()"> { let RecomputePerFunction = 1; }
 
 //===- Test the function boilerplate. -------------------------------------===//
 
 // CHECK-LABEL: enum SubtargetFeatureBits : uint8_t {
 // CHECK-NEXT:    Feature_HasABit = 0,
 // CHECK-NEXT:    Feature_HasBBit = 1,
+// CHECK-NEXT:    Feature_HasCBit = 2,
 // CHECK-NEXT:  };
 
+<<<<<<< HEAD
+=======
+// CHECK-LABEL: static const char *SubtargetFeatureNames[] = {
+// CHECK-NEXT:    "Feature_HasA",
+// CHECK-NEXT:    "Feature_HasB",
+// CHECK-NEXT:    "Feature_HasC",
+// CHECK-NEXT:    nullptr
+// CHECK-NEXT:  };
+
+>>>>>>> f31ac9d1e8c0e0ffcba84a24f1e8689e5724fba3
 // CHECK-LABEL: PredicateBitset MyTargetInstructionSelector::
-// CHECK-NEXT:  computeAvailableFeatures(const MachineFunction *MF, const MyTargetSubtarget *Subtarget) const {
+// CHECK-NEXT:  computeAvailableModuleFeatures(const MyTargetSubtarget *Subtarget) const {
 // CHECK-NEXT:    PredicateBitset Features;
 // CHECK-NEXT:    if (Subtarget->hasA())
 // CHECK-NEXT:      Features[Feature_HasABit] = 1;
 // CHECK-NEXT:    if (Subtarget->hasB())
 // CHECK-NEXT:      Features[Feature_HasBBit] = 1;
+// CHECK-NEXT:    return Features;
+// CHECK-NEXT:  }
+
+// CHECK-LABEL: PredicateBitset MyTargetInstructionSelector::
+// CHECK-NEXT:  computeAvailableFunctionFeatures(const MyTargetSubtarget *Subtarget, const MachineFunction *MF) const {
+// CHECK-NEXT:    PredicateBitset Features;
+// CHECK-NEXT:    if (Subtarget->hasC())
+// CHECK-NEXT:      Features[Feature_HasCBit] = 1;
 // CHECK-NEXT:    return Features;
 // CHECK-NEXT:  }
 
@@ -210,7 +230,7 @@ def MULADD : I<(outs GPR32:$dst), (ins GPR32:$src1, GPR32:$src2, GPR32:$src3),
 //===- Test another simple pattern with regclass operands. ----------------===//
 
 // CHECK-LABEL: if ([&]() {
-// CHECK-NEXT:    PredicateBitset ExpectedFeatures = {Feature_HasABit, Feature_HasBBit};
+// CHECK-NEXT:    PredicateBitset ExpectedFeatures = {Feature_HasABit, Feature_HasBBit, Feature_HasCBit};
 // CHECK-NEXT:    if ((AvailableFeatures & ExpectedFeatures) != ExpectedFeatures)
 // CHECK-NEXT:      return false;
 // CHECK-NEXT:    MachineInstr &MI0 = I;
@@ -241,7 +261,7 @@ def MULADD : I<(outs GPR32:$dst), (ins GPR32:$src1, GPR32:$src2, GPR32:$src3),
 
 def MUL : I<(outs GPR32:$dst), (ins GPR32:$src2, GPR32:$src1),
              [(set GPR32:$dst, (mul GPR32:$src1, GPR32:$src2))]>,
-          Requires<[HasA, HasB]>;
+          Requires<[HasA, HasB, HasC]>;
 
 //===- Test a pattern with ComplexPattern operands. -----------------------===//
 //
