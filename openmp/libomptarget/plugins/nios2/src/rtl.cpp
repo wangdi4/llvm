@@ -25,6 +25,7 @@
 
 #include <elf.h>
 #include <msof.h>
+#include <unistd.h>
 
 #include "omptargetplugin.h"
 
@@ -311,6 +312,23 @@ public:
       return &RawSym - reinterpret_cast<SymTy*>(Container.getBits());
     }
 
+    // Returns pointer to the symbol data if it exists (i.e. symbol should
+    // be defined in a section which has data).
+    char* getImage() const {
+      if (isUndefined()) {
+        return nullptr;
+      }
+
+      // Section where the symbol is defined
+      auto Sec = getDefiningSection();
+      if (Sec == nullptr || !Sec->isAlloc() || !Sec->hasBits()) {
+        return nullptr;
+      }
+
+      // Symbol image within section data
+      return Sec->getBits() + getValue() - Sec->getAddr();
+    }
+
   private:
     // Containing symbol table
     Symtab &Container;
@@ -344,7 +362,7 @@ public:
     void apply() const;
 
   private:
-    // Containing symbol table
+    // Containing relocation table
     Reltab &Container;
   };
 
@@ -1242,6 +1260,20 @@ private:
         return nullptr;
       }
 
+      // Patch pointer to the environment block in the target image if it is
+      // using __nios2_environ symbol.
+      auto Res = Obj.findSymbol("__nios2_environ");
+      if (Res.first != nullptr) {
+        if (auto TgtEnv = Device.getTgtEnvs()) {
+          auto Sym = Res.first->getSymbol(Res.second);
+          auto Img = reinterpret_cast<PtrTy*>(Sym.getImage());
+
+          // Patch symbol value
+          DP("Replacing __nios2_environ value 0x%x with 0x%x\n", *Img, TgtEnv);
+          *Img = TgtEnv;
+        }
+      }
+
       // And finally construct relocated ELF for MSOF loader.
       Image.resize(ImageSize);
       Obj.writeToMemory(Image.data(), ImageSize);
@@ -1311,6 +1343,14 @@ public:
 
   void fini() {
     Programs.clear();
+    if (TgtVars != NullPtr) {
+      freeMem(TgtVars);
+      TgtVars = NullPtr;
+    }
+    if (TgtEnvs != NullPtr) {
+      freeMem(TgtEnvs);
+      TgtEnvs = NullPtr;
+    }
     if (Device != nullptr) {
       DP("Destroying device\n");
       auto Res = msof_device_destroy(Device);
@@ -1331,6 +1371,46 @@ public:
 
   const Nios2Elf::AddrRangeTy& getL4() const {
     return L4;
+  }
+
+  PtrTy getTgtEnvs() {
+    std::call_once(TgtEnvsInitFlag, [&]() {
+      // Setup environment block for the target process.
+      if (environ != nullptr) {
+        std::vector<char> Vars;
+        std::vector<size_t> Offsets;
+        for (auto Var = environ; *Var != nullptr; ++Var) {
+          Offsets.push_back(Vars.size());
+          std::copy_n(*Var, strlen(*Var) + 1, std::back_inserter(Vars));
+        }
+
+        if (!Offsets.empty()) {
+          // Copy environment variables to L3
+          TgtVars = copyToL3(Vars);
+          if (TgtVars == NullPtr) {
+            return;
+          }
+
+          // Setup array of pointers to environment varaibles.
+          std::vector<PtrTy> Envs;
+          for (const auto Offset : Offsets) {
+            Envs.push_back(TgtVars + Offset);
+          }
+          Envs.push_back(NullPtr);
+
+          // And copy it to the device
+          TgtEnvs = copyToL3(Envs);
+          if (TgtEnvs == NullPtr) {
+            freeMem(TgtVars);
+            TgtVars = NullPtr;
+            return;
+          }
+
+          DP("Created environment for the target 0x%x \n", TgtEnvs);
+        }
+      }
+    });
+    return TgtEnvs;
   }
 
   __tgt_target_table* loadProgram(const __tgt_device_image *Image) {
@@ -1499,6 +1579,19 @@ private:
     return true;
   }
 
+  template<typename T>
+  PtrTy copyToL3(const std::vector<T> &Data) {
+    auto Bytes = Data.size() * sizeof(T);
+    if (auto Ptr = allocMem(MSOF_MEM_L3, Bytes, nullptr)) {
+      if (!writeMem(Ptr, Data.data(), Bytes)) {
+        freeMem(Ptr);
+        return NullPtr;
+      }
+      return Ptr;
+    }
+    return NullPtr;
+  }
+
 private:
   // Device handle
   msof_device_t Device = nullptr;
@@ -1512,6 +1605,11 @@ private:
 
   // Target programs
   std::forward_list<std::unique_ptr<ProgramTy>> Programs;
+
+  // Target memory for the target environment array
+  std::once_flag TgtEnvsInitFlag;
+  PtrTy TgtEnvs = NullPtr;
+  PtrTy TgtVars = NullPtr;
 
   friend DeviceTy& getDevice();
 };

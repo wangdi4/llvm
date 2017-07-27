@@ -129,7 +129,7 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
   set(lib_name_omp   omp)
 
   # Source files for the target RTL
-  set(src_files_rtl   src/main.c)
+  set(src_files_rtl   src/main.c src/get_host_env.c)
   set(src_files_block src/data_block.cpp)
   set(src_files_omp   src/libomp.c)
 
