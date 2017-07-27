@@ -10353,6 +10353,9 @@ void Sema::CheckForIntOverflow (Expr *E) {
 
     if (auto InitList = dyn_cast<InitListExpr>(E))
       Exprs.append(InitList->inits().begin(), InitList->inits().end());
+
+    if (isa<ObjCBoxedExpr>(E))
+      E->IgnoreParenCasts()->EvaluateForOverflow(Context);
   } while (!Exprs.empty());
 }
 
