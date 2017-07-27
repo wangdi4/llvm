@@ -1,4 +1,5 @@
 ; RUN: opt %s -vector-library=SVML -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator -S 2>&1 | FileCheck %s
+; XFAIL: *
 
 ; Verify vectorization of Opencl select build-in. Generic case.
 ; This test is from Volcano compiler but it's been highly modified by hand.
