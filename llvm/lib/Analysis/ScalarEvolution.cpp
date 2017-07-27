@@ -4334,52 +4334,23 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
       break;
     }
   }
-<<<<<<< HEAD
-  if (BEValueV && StartValueV) {
-    // While we are analyzing this PHI node, handle its value symbolically.
-    const SCEV *SymbolicName = getUnknown(PN);
-
-#if INTEL_CUSTOMIZATION // HIR parsing
-    if (HIRInfo.isValid()) {
-      assert(HIRValueExprMap.find_as(PN) == HIRValueExprMap.end() &&
-             "PHI node already processed?");
-      HIRValueExprMap.insert(std::make_pair(PN, SymbolicName));
-    } else {
-#endif // INTEL_CUSTOMIZATION
-    assert(ValueExprMap.find_as(PN) == ValueExprMap.end() &&
-           "PHI node already processed?");
-    ValueExprMap.insert({SCEVCallbackVH(PN, this), SymbolicName});
-    } // INTEL
-
-    // Using this symbolic name for the PHI, analyze the value coming around
-    // the back-edge.
-    const SCEV *BEValue = getSCEV(BEValueV);
-
-    // NOTE: If BEValue is loop invariant, we know that the PHI node just
-    // has a special value for the first iteration of the loop.
-
-    // If the value coming around the backedge is an add with the symbolic
-    // value we just inserted, then we found a simple induction variable!
-    if (const SCEVAddExpr *Add = dyn_cast<SCEVAddExpr>(BEValue)) {
-      // If there is a single occurrence of the symbolic value, replace it
-      // with a recurrence.
-      unsigned FoundIndex = Add->getNumOperands();
-      for (unsigned i = 0, e = Add->getNumOperands(); i != e; ++i)
-        if (Add->getOperand(i) == SymbolicName)
-          if (FoundIndex == e) {
-            FoundIndex = i;
-            break;
-          }
-=======
   if (!BEValueV || !StartValueV)
     return nullptr;
->>>>>>> 3456f7f5beb5e3a820377ccce201fe1169979af1
 
   // While we are analyzing this PHI node, handle its value symbolically.
   const SCEV *SymbolicName = getUnknown(PN);
+
+#if INTEL_CUSTOMIZATION // HIR parsing
+  if (HIRInfo.isValid()) {
+    assert(HIRValueExprMap.find_as(PN) == HIRValueExprMap.end() &&
+           "PHI node already processed?");
+    HIRValueExprMap.insert(std::make_pair(PN, SymbolicName));
+  } else {
+#endif // INTEL_CUSTOMIZATION
   assert(ValueExprMap.find_as(PN) == ValueExprMap.end() &&
          "PHI node already processed?");
   ValueExprMap.insert({SCEVCallbackVH(PN, this), SymbolicName});
+  } // INTEL
 
   // Using this symbolic name for the PHI, analyze the value coming around
   // the back-edge.
@@ -4446,22 +4417,14 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         const SCEV *StartVal = getSCEV(StartValueV);
         const SCEV *PHISCEV = getAddRecExpr(StartVal, Accum, L, Flags);
 
-<<<<<<< HEAD
-          // Okay, for the entire analysis of this edge we assumed the PHI
-          // to be symbolic.  We now need to go back and purge all of the
-          // entries for the scalars that use the symbolic expression.
-          forgetSymbolicName(PN, SymbolicName);
-#if INTEL_CUSTOMIZATION // HIR parsing 
-          HIRInfo.isValid() ? HIRValueExprMap[PN] = PHISCEV  
-                            : ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
-#endif // INTEL_CUSTOMIZATION
-=======
         // Okay, for the entire analysis of this edge we assumed the PHI
         // to be symbolic.  We now need to go back and purge all of the
         // entries for the scalars that use the symbolic expression.
         forgetSymbolicName(PN, SymbolicName);
-        ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
->>>>>>> 3456f7f5beb5e3a820377ccce201fe1169979af1
+#if INTEL_CUSTOMIZATION // HIR parsing 
+        HIRInfo.isValid() ? HIRValueExprMap[PN] = PHISCEV  
+                          : ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
+#endif // INTEL_CUSTOMIZATION
 
         // We can add Flags to the post-inc expression only if we
         // know that it us *undefined behavior* for BEValueV to
@@ -4472,34 +4435,6 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
 
         return PHISCEV;
       }
-<<<<<<< HEAD
-    } else {
-      // Otherwise, this could be a loop like this:
-      //     i = 0;  for (j = 1; ..; ++j) { ....  i = j; }
-      // In this case, j = {1,+,1}  and BEValue is j.
-      // Because the other in-value of i (0) fits the evolution of BEValue
-      // i really is an addrec evolution.
-      //
-      // We can generalize this saying that i is the shifted value of BEValue
-      // by one iteration:
-      //   PHI(f(0), f({1,+,1})) --> f({0,+,1})
-      const SCEV *Shifted = SCEVShiftRewriter::rewrite(BEValue, L, *this);
-      const SCEV *Start = SCEVInitRewriter::rewrite(Shifted, L, *this);
-      if (Shifted != getCouldNotCompute() &&
-          Start != getCouldNotCompute()) {
-        const SCEV *StartVal = getSCEV(StartValueV);
-        if (Start == StartVal) {
-          // Okay, for the entire analysis of this edge we assumed the PHI
-          // to be symbolic.  We now need to go back and purge all of the
-          // entries for the scalars that use the symbolic expression.
-          forgetSymbolicName(PN, SymbolicName);
-#if INTEL_CUSTOMIZATION // HIR parsing 
-          HIRInfo.isValid() ? HIRValueExprMap[PN] = Shifted  
-                            : ValueExprMap[SCEVCallbackVH(PN, this)] = Shifted;
-#endif // INTEL_CUSTOMIZATION
-          return Shifted;
-        }
-=======
     }
   } else {
     // Otherwise, this could be a loop like this:
@@ -4521,9 +4456,11 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
         // to be symbolic.  We now need to go back and purge all of the
         // entries for the scalars that use the symbolic expression.
         forgetSymbolicName(PN, SymbolicName);
-        ValueExprMap[SCEVCallbackVH(PN, this)] = Shifted;
+#if INTEL_CUSTOMIZATION // HIR parsing 
+        HIRInfo.isValid() ? HIRValueExprMap[PN] = Shifted  
+                          : ValueExprMap[SCEVCallbackVH(PN, this)] = Shifted;
+#endif // INTEL_CUSTOMIZATION
         return Shifted;
->>>>>>> 3456f7f5beb5e3a820377ccce201fe1169979af1
       }
     }
   }
