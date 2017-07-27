@@ -198,7 +198,7 @@ ConstantRange::makeGuaranteedNoWrapRegion(Instruction::BinaryOps BinOp,
     return ConstantRange(BitWidth, false);
 
   if (auto *C = Other.getSingleElement())
-    if (C->isMinValue())
+    if (C->isNullValue())
       // Full set: nothing signed / unsigned wraps when added to 0.
       return ConstantRange(BitWidth);
 
@@ -210,8 +210,8 @@ ConstantRange::makeGuaranteedNoWrapRegion(Instruction::BinaryOps BinOp,
                                               -Other.getUnsignedMax()));
 
   if (NoWrapKind & OBO::NoSignedWrap) {
-    APInt SignedMin = Other.getSignedMin();
-    APInt SignedMax = Other.getSignedMax();
+    const APInt &SignedMin = Other.getSignedMin();
+    const APInt &SignedMax = Other.getSignedMax();
 
     if (SignedMax.isStrictlyPositive())
       Result = SubsetIntersect(
@@ -884,7 +884,7 @@ ConstantRange::binaryOr(const ConstantRange &Other) const {
   // TODO: replace this with something less conservative
 
   APInt umax = APIntOps::umax(getUnsignedMin(), Other.getUnsignedMin());
-  if (umax.isMinValue())
+  if (umax.isNullValue())
     return ConstantRange(getBitWidth(), /*isFullSet=*/true);
   return ConstantRange(umax, APInt::getNullValue(getBitWidth()));
 }
