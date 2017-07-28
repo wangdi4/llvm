@@ -3951,7 +3951,7 @@ const Value *llvm::getGuaranteedNonFullPoisonOp(const Instruction *I) {
   }
 }
 
-bool llvm::isKnownNotFullPoison(const Instruction *PoisonI) {
+bool llvm::programUndefinedIfFullPoison(const Instruction *PoisonI) {
   // We currently only look for uses of poison values within the same basic
   // block, as that makes it easier to guarantee that the uses will be
   // executed given that PoisonI is executed.
