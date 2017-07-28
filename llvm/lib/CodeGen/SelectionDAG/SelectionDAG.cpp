@@ -2516,11 +2516,12 @@ void SelectionDAG::computeKnownBits(SDValue Op, KnownBits &Known,
     computeKnownBits(Op.getOperand(1), Known2, DemandedElts, Depth + 1);
     KnownZeroLow = std::min(KnownZeroLow,
                             Known2.Zero.countTrailingOnes());
-    Known.Zero.setBits(0, KnownZeroLow);
+    Known.Zero.setLowBits(KnownZeroLow);
     break;
   }
   case ISD::UADDO:
   case ISD::SADDO:
+  case ISD::ADDCARRY:
     if (Op.getResNo() == 1) {
       // If we know the result of a setcc has the top bits zero, use this info.
       if (TLI->getBooleanContents(Op.getOperand(0).getValueType()) ==
@@ -2551,11 +2552,11 @@ void SelectionDAG::computeKnownBits(SDValue Op, KnownBits &Known,
     KnownZeroLow = std::min(KnownZeroLow,
                             Known2.Zero.countTrailingOnes());
 
-    if (Opcode == ISD::ADDE) {
-      // With ADDE, a carry bit may be added in, so we can only use this
-      // information if we know (at least) that the low two bits are clear.
-      // We then return to the caller that the low bit is unknown but that
-      // other bits are known zero.
+    if (Opcode == ISD::ADDE || Opcode == ISD::ADDCARRY) {
+      // With ADDE and ADDCARRY, a carry bit may be added in, so we can only
+      // use this information if we know (at least) that the low two bits are
+      // clear. We then return to the caller that the low bit is unknown but
+      // that other bits are known zero.
       if (KnownZeroLow >= 2)
         Known.Zero.setBits(1, KnownZeroLow);
       break;
