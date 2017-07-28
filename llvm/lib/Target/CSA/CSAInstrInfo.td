@@ -619,44 +619,6 @@ multiclass StOp<string opStr, CSAOpInfo t,
   }
 }
 
-
-// wide loads
-multiclass Ldx8Op<string opStr, CSAOpInfo t,
-           InstrItinClass itin = IILD> {
-  let Itinerary = itin, mayLoad = 1 in {
-    def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
-      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7, MemOrdDef:$issued),
-      (ins ADDR_I:$addr, MemOrdUse:$ready),
-      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $issued, $ready"),
-      []>;
-    def "" : FMTGEN< // normal basereg form
-      (outs t.RC:$dst0, t.RC:$dst1, t.RC:$dst2, t.RC:$dst3, t.RC:$dst4, t.RC:$dst5, t.RC:$dst6, t.RC:$dst7, MemOrdDef:$issued),
-      (ins ADDR_R:$addr, MemOrdUse:$ready),
-      !strconcat(opStr, "x8\t$dst0, $dst1, $dst2, $dst3, $dst4, $dst5, $dst6, $dst7, $addr, $issued, $ready"),
-      []>;
-    }
-}
-
-// wide stores
-multiclass Stx8Op<string opStr, CSAOpInfo t,
-           InstrItinClass itin = IIST> {
-
-  // See the note in StOp about why hasPostISelHook is set
-  let Itinerary = itin, mayStore = 1, hasPostISelHook = 1 in {
-    def I : FMTGEN<
-      (outs MemOrdDef:$issued),
-      (ins ADDR_I:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7, MemOrdUse:$ready),
-      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $issued, $ready"),
-      []>;
-    def "" : FMTGEN<
-      (outs MemOrdDef:$issued),
-      (ins ADDR_R:$addr, t.RCL:$data0, t.RCL:$data1, t.RCL:$data2, t.RCL:$data3, t.RCL:$data4, t.RCL:$data5, t.RCL:$data6, t.RCL:$data7, MemOrdUse:$ready),
-      !strconcat(opStr, "x8\t$addr, $data0, $data1, $data2, $data3, $data4, $data5, $data6, $data7, $issued, $ready"),
-      []>;
-  }
-}
-
-
 class MullohiOp<GenericOp gen, CSAOpInfo oi,
                InstrItinClass itin = IIALU, list<Predicate> preds = []> :
   FMTGEN <
@@ -1555,15 +1517,6 @@ defm LD32f    : LdOp<    "ld32",  Tf32>;
 defm LD64     : LdOp<    "ld64",  Ti64>;
 defm LD64f    : LdOp<    "ld64",  Tf64>;
 
-defm LDx81    : Ldx8Op<  "ld8",   Ti1>;
-defm LDx88    : Ldx8Op<  "ld8",   Ti8>;
-defm LDx816   : Ldx8Op<  "ld16",  Ti16>;
-defm LDx816f  : Ldx8Op<  "ld16",  Tf16>;
-defm LDx832   : Ldx8Op<  "ld32",  Ti32>;
-defm LDx832f  : Ldx8Op<  "ld32",  Tf32>;
-defm LDx864   : Ldx8Op<  "ld64",  Ti64>;
-defm LDx864f  : Ldx8Op<  "ld64",  Tf64>;
-
 defm ST1      : StOp<    "st8",   Ti1>;
 defm ST8      : StOp<    "st8",   Ti8>;
 defm ST16     : StOp<    "st16",  Ti16>;
@@ -1572,15 +1525,6 @@ defm ST32     : StOp<    "st32",  Ti32>;
 defm ST32f    : StOp<    "st32",  Tf32>;
 defm ST64     : StOp<    "st64",  Ti64>;
 defm ST64f    : StOp<    "st64",  Tf64>;
-
-defm STx81    : Stx8Op<  "st8",   Ti1>;
-defm STx88    : Stx8Op<  "st8",   Ti8>;
-defm STx816   : Stx8Op<  "st16",  Ti16>;
-defm STx816f  : Stx8Op<  "st16",  Tf16>;
-defm STx832   : Stx8Op<  "st32",  Ti32>;
-defm STx832f  : Stx8Op<  "st32",  Tf32>;
-defm STx864   : Stx8Op<  "st64",  Ti64>;
-defm STx864f  : Stx8Op<  "st64",  Tf64>;
 
 // Extended multiplication
 def MULLOHI   : GenericOp<"mullohi">;
