@@ -413,11 +413,7 @@ private:
     DK_CFI_REMEMBER_STATE, DK_CFI_RESTORE_STATE, DK_CFI_SAME_VALUE,
     DK_CFI_RESTORE, DK_CFI_ESCAPE, DK_CFI_SIGNAL_FRAME, DK_CFI_UNDEFINED,
     DK_CFI_REGISTER, DK_CFI_WINDOW_SAVE,
-<<<<<<< HEAD
-    DK_MACROS_ON, DK_MACROS_OFF, DK_ALTMACRO, DK_NOALTMACRO,// INTEL
-=======
     DK_MACROS_ON, DK_MACROS_OFF, DK_ALTMACRO, DK_NOALTMACRO,
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
     DK_MACRO, DK_EXITM, DK_ENDM, DK_ENDMACRO, DK_PURGEM,
     DK_SLEB128, DK_ULEB128,
     DK_ERR, DK_ERROR, DK_WARNING,
@@ -489,13 +485,8 @@ private:
   bool parseDirectiveEndMacro(StringRef Directive);
   bool parseDirectiveMacro(SMLoc DirectiveLoc);
   bool parseDirectiveMacrosOnOff(StringRef Directive);
-<<<<<<< HEAD
-  // alternate macro mode directives //INTEL 
-  bool parseDirectiveAltmacro(StringRef Directive);// INTEL
-=======
   // alternate macro mode directives
   bool parseDirectiveAltmacro(StringRef Directive);
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
   // ".bundle_align_mode"
   bool parseDirectiveBundleAlignMode();
   // ".bundle_lock"
@@ -1960,15 +1951,9 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
       return parseDirectiveMacrosOnOff(IDVal);
     case DK_MACRO:
       return parseDirectiveMacro(IDLoc);
-<<<<<<< HEAD
-    case DK_ALTMACRO:// INTEL
-    case DK_NOALTMACRO:// INTEL
-      return parseDirectiveAltmacro(IDVal);// INTEL
-=======
     case DK_ALTMACRO:
     case DK_NOALTMACRO:
       return parseDirectiveAltmacro(IDVal);
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
     case DK_EXITM:
       return parseDirectiveExitMacro(IDVal);
     case DK_ENDM:
@@ -2317,10 +2302,6 @@ bool AsmParser::expandMacro(raw_svector_ostream &OS, StringRef Body,
         } else {
           bool VarargParameter = HasVararg && Index == (NParameters - 1);
           for (const AsmToken &Token : A[Index])
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
             // For altmacro mode, you can write '%expr'.
             // The prefix '%' evaluates the expression 'expr'
             // and uses the result as a string (e.g. replace %(1+2) with the string "3").
@@ -2330,16 +2311,9 @@ bool AsmParser::expandMacro(raw_svector_ostream &OS, StringRef Body,
                  (*(Token.getString().begin()) == '%') && Token.is(AsmToken::Integer))
               // Emit an integer value to the buffer.
               OS << Token.getIntVal();
-<<<<<<< HEAD
-#endif //INTEL_CUSTOMIZATION
-            // We expect no quotes around the string's contents when
-            // parsing for varargs.
-            else if (Token.isNot(AsmToken::String) || VarargParameter) // INTEL
-=======
             // We expect no quotes around the string's contents when
             // parsing for varargs.
             else if (Token.isNot(AsmToken::String) || VarargParameter)
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
               OS << Token.getString();
             else
               OS << Token.getStringContents();
@@ -2510,25 +2484,20 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
 
       NamedParametersFound = true;
     }
-<<<<<<< HEAD
-    bool Vararg = HasVararg && Parameter == (NParameters - 1); // INTEL
+    bool Vararg = HasVararg && Parameter == (NParameters - 1);
 
     if (NamedParametersFound && FA.Name.empty())
       return Error(IDLoc, "cannot mix positional and keyword arguments");
 #if INTEL_CUSTOMIZATION
     SMLoc StrLoc = Lexer.getLoc();
     SMLoc EndLoc;
-    if (Lexer.IsaAltMacroMode() && Lexer.is(AsmToken::Percent)) {
-=======
-    bool Vararg = HasVararg && Parameter == (NParameters - 1);
-
-    if (NamedParametersFound && FA.Name.empty())
-      return Error(IDLoc, "cannot mix positional and keyword arguments");
+#endif // INTEL_CUSTOMIZATION
 
     if (Lexer.IsaAltMacroMode() && Lexer.is(AsmToken::Percent)) {
+#if !INTEL_CUSTOMIZATION
         SMLoc StrLoc = Lexer.getLoc();
         SMLoc EndLoc;
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
+#endif // !INTEL_CUSTOMIZATION
         const MCExpr *AbsoluteExp;
         int64_t Value;
         /// Eat '%'
@@ -2541,7 +2510,7 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
         const char *EndChar = EndLoc.getPointer();
         AsmToken newToken(AsmToken::Integer, StringRef(StrChar , EndChar - StrChar), Value);
         FA.Value.push_back(newToken);
-<<<<<<< HEAD
+#if INTEL_CUSTOMIZATION
     } else if (Lexer.IsaAltMacroMode() && Lexer.is(AsmToken::Less) &&
                isAltmacroString(StrLoc, EndLoc)) {
         const char *StrChar = StrLoc.getPointer();
@@ -2551,15 +2520,11 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
         Lex();
         AsmToken newToken(AsmToken::String, StringRef(StrChar, EndChar - StrChar));
         FA.Value.push_back(newToken);
-    } else if(parseMacroArgument(FA.Value, Vararg))
-        return true;
 #endif // INTEL_CUSTOMIZATION
-=======
     }
     else if(parseMacroArgument(FA.Value, Vararg))
         return true;
 
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
     unsigned PI = Parameter;
     if (!FA.Name.empty()) {
       unsigned FAI = 0;
@@ -3950,10 +3915,6 @@ bool AsmParser::parseDirectiveCFIUndefined(SMLoc DirectiveLoc) {
   return false;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-=======
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
 /// parseDirectiveAltmacro
 /// ::= .altmacro
 /// ::= .noaltmacro
@@ -3966,10 +3927,6 @@ bool AsmParser::parseDirectiveAltmacro(StringRef Directive) {
     getLexer().SetAltMacroMode(false);
   return false;
 }
-<<<<<<< HEAD
-#endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
 
 /// parseDirectiveMacrosOnOff
 /// ::= .macros_on
@@ -5068,13 +5025,8 @@ void AsmParser::initializeDirectiveKindMap() {
   DirectiveKindMap[".err"] = DK_ERR;
   DirectiveKindMap[".error"] = DK_ERROR;
   DirectiveKindMap[".warning"] = DK_WARNING;
-<<<<<<< HEAD
-  DirectiveKindMap[".altmacro"] = DK_ALTMACRO;// INTEL
-  DirectiveKindMap[".noaltmacro"] = DK_NOALTMACRO;// INTEL
-=======
   DirectiveKindMap[".altmacro"] = DK_ALTMACRO;
   DirectiveKindMap[".noaltmacro"] = DK_NOALTMACRO;
->>>>>>> 079b067df74b010544d2187e0385b396950169c4
   DirectiveKindMap[".reloc"] = DK_RELOC;
   DirectiveKindMap[".dc"] = DK_DC;
   DirectiveKindMap[".dc.a"] = DK_DC_A;
