@@ -28,8 +28,10 @@ FunctionPass *createHIRSSADeconstructionPass();
 /// Creates a pass which cleans up unnecessary temps in HIR.
 FunctionPass *createHIRTempCleanupPass();
 
+#if !INTEL_PRODUCT_RELEASE
 /// createHIRPrinterPass - This creates a pass that prints HIR.
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
+#endif // !INTEL_PRODUCT_RELEASE
 
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();

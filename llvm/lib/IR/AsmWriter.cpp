@@ -52,6 +52,7 @@ using namespace llvm;
 // Make virtual table appear in this compilation unit.
 AssemblyAnnotationWriter::~AssemblyAnnotationWriter() {}
 
+#if !INTEL_PRODUCT_RELEASE
 //===----------------------------------------------------------------------===//
 // Helper Functions
 //===----------------------------------------------------------------------===//
@@ -3591,3 +3592,74 @@ void Metadata::dump(const Module *M) const {
   dbgs() << '\n';
 }
 #endif
+
+#else // INTEL_PRODUCT_RELEASE
+
+// TODO: Define stubs for the printing functions
+
+#if !defined(NDEBUG)
+#error INTEL_PRODUCT_RELEASE requires that NDEBUG also be defined.
+#endif
+
+#if defined(LLVM_ENABLE_DUMP)
+#error LLVM_ENABLE_DUMP cannot be used with INTEL_PRODUCT_RELEASE
+#endif
+
+void llvm::PrintEscapedString(StringRef Name, raw_ostream &Out) {}
+
+void llvm::printLLVMNameWithoutPrefix(raw_ostream &OS, StringRef Name) {}
+
+namespace llvm {
+class SlotTracker {
+};
+} // namespace llvm
+
+ModuleSlotTracker::ModuleSlotTracker(SlotTracker &Machine, const Module *M,
+                                     const Function *F) {}
+
+ModuleSlotTracker::ModuleSlotTracker(const Module *M,
+                                     bool ShouldInitializeAllMetadata) {}
+
+ModuleSlotTracker::~ModuleSlotTracker() {}
+
+SlotTracker *ModuleSlotTracker::getMachine() {
+  return nullptr;
+}
+
+void ModuleSlotTracker::incorporateFunction(const Function &F) {}
+
+int ModuleSlotTracker::getLocalSlot(const Value *V) {
+  return -1;
+}
+
+//===----------------------------------------------------------------------===//
+//                       External Interface declarations
+//===----------------------------------------------------------------------===//
+
+void Function::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
+                     bool ShouldPreserveUseListOrder,
+                     bool IsForDebug) const {}
+void Module::print(raw_ostream &ROS, AssemblyAnnotationWriter *AAW,
+                   bool ShouldPreserveUseListOrder, bool IsForDebug) const {}
+void NamedMDNode::print(raw_ostream &ROS, bool IsForDebug) const {}
+void NamedMDNode::print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                        bool IsForDebug) const {}
+void Comdat::print(raw_ostream &ROS, bool /*IsForDebug*/) const {}
+void Type::print(raw_ostream &OS, bool /*IsForDebug*/, bool NoDetails) const {}
+void Value::print(raw_ostream &ROS, bool IsForDebug) const {}
+void Value::print(raw_ostream &ROS, ModuleSlotTracker &MST,
+                  bool IsForDebug) const {}
+void Value::printAsOperand(raw_ostream &O, bool PrintType,
+                           const Module *M) const {}
+void Value::printAsOperand(raw_ostream &O, bool PrintType,
+                           ModuleSlotTracker &MST) const {}
+void Metadata::printAsOperand(raw_ostream &OS, const Module *M) const {}
+void Metadata::printAsOperand(raw_ostream &OS, ModuleSlotTracker &MST,
+                              const Module *M) const {}
+void Metadata::print(raw_ostream &OS, const Module *M,
+                     bool /*IsForDebug*/) const {}
+void Metadata::print(raw_ostream &OS, ModuleSlotTracker &MST,
+                     const Module *M, bool /*IsForDebug*/) const {}
+
+#endif // INTEL_PRODUCT_RELEASE
+

@@ -77,6 +77,7 @@ bool AVRIf::isElseChild(AVR *Node) const {
 
 void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
                   VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent(Depth * TabLength, ' ');
   OS << Indent;
@@ -125,13 +126,16 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
     }
     OS << Indent << "}\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRIf::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") ";
   printSLEV(OS);
   OS << "IF (" << getCondition()->getNumber() << ")";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRIf::getAvrTypeName() const { return StringRef("if"); }

@@ -79,12 +79,14 @@ void WRegionInfo::releaseMemory() {
 }
 
 void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream FOS(OS);
 
   for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
     (*I)->print(FOS, 0);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void WRegionInfo::verifyAnalysis() const {

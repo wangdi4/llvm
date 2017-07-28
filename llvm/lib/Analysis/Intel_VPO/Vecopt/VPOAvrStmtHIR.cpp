@@ -268,6 +268,7 @@ AVRValueHIR *AVRValueHIR::clone() const {
 
 void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
   const Constant *Const = getConstant();
 
   // Print AVR Value Node.
@@ -312,6 +313,7 @@ void AVRValueHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRValueHIR::getAvrValueName() const {
@@ -328,6 +330,7 @@ AVRLabelHIR *AVRLabelHIR::clone() const {
 
 void AVRLabelHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
   std::string Indent(Depth * TabLength, ' ');
 
   if (VLevel == PrintNumber)
@@ -337,6 +340,7 @@ void AVRLabelHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     Instruct->print(OS, Depth);
     OS << "\n" ;
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRLabelHIR::getAvrValueName() const {
@@ -353,6 +357,7 @@ AVRBranchHIR *AVRBranchHIR::clone() const {
 
 void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
   std::string Indent(Depth * TabLength, ' ');
 
   if (VLevel == PrintNumber)
@@ -363,6 +368,7 @@ void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
     Instruct->print(OS, Depth);
     OS << "\n" ;
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRBranchHIR::getAvrValueName() const {

@@ -848,6 +848,7 @@ HIRSCCFormation::end(HIRRegionIdentification::const_iterator RegIt) const {
 
 void HIRSCCFormation::print(
     raw_ostream &OS, HIRRegionIdentification::const_iterator RegIt) const {
+#if !INTEL_PRODUCT_RELEASE
   unsigned Count = 1;
   bool FirstSCC = true;
   auto RegBegin = RI->begin();
@@ -872,14 +873,16 @@ void HIRSCCFormation::print(
   if (!FirstSCC) {
     OS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HIRSCCFormation::print(raw_ostream &OS, const Module *M) const {
-
+#if !INTEL_PRODUCT_RELEASE
   for (auto RegIt = RI->begin(), RegEndIt = RI->end(); RegIt != RegEndIt;
        ++RegIt) {
     print(OS, RegIt);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HIRSCCFormation::verifyAnalysis() const {

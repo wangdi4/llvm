@@ -100,6 +100,8 @@ sections as follows:
 
 ...Section 5: Important implementation details.
 
+...Section 6: Overall scenerio of OptVLS server-client system
+
 
 Section 1: OptVLS server core functionalities:
 ==============================================
@@ -1088,3 +1090,146 @@ c. Commit test-merge:
      NEXT: provide more details on the instruction cost, merging, instruction generation and complete the example.
 
      NEXT: provide details on the graph-verification.
+
+
+Section 6: Overall scenerio of OptVLS server-client system
+==========================================================
+
+This section demonstrates the overall scenerio of OptVLS; how OptVLS plays in LLVM compiler and
+how it works as a server-client system.
+
+The way it works in the LLVM compilation-process is:
+
+ 1. Vectorizer detects a group of adjacent gathers/scatters and generates a sequence of wide-load
+    plus shuffles or a sequence of shuffles followed by a wide-store. These shuffles are the
+    abstract representation of gathers/scatters (they basically represent the gather/scatter result).
+    They are often semi-optimal and they can be further optimized; this what OptVLS does.
+
+    For example-1, on AVX2 using vector length 4 vectorizer generates:
+
+.. code-block:: none
+
+    ** IR Dump After Loop Vectorization **
+
+    vector.body:
+
+     ...
+
+     %wide.vec = load<8 x double> , <8 x double> * %4, align 8
+
+     %strided.vec1 = shufflevector <8 x double> %wide.vec, <8 x double> undef, <4 x i32> <i32 0, i32 2, i32 4, i32 6>
+
+     %strided.vec2 = shufflevector <8 x double> %wide.vec, <8 x double> undef, <4 x i32> <i32 1, i32 3, i32 5, i32 7>
+
+     ...
+
+...
+
+    Please note that, currently vectorizer can only generate wide-load/store plus shuffles for strided accesses
+    with constant strides. In order to generate this wide-load/store plus shuffles for indirect accesses or
+    strided accesses with variable and large strides, we need to define an instruction(TODO).
+
+    FIXME: Vectorizer's interaction with OptVLS for cost calculation needs to be documented.
+
+
+ 2. After going through many other intermediate optimizations, finaly the load/store plus shuffle sequence reaches
+    the pre-codeGen passes. LLVM's InterleavedAccessPass is one of the pre-CodeGen passes that is responsible for
+    lowering this wide-load/store plus shuffle sequence into further optimized sequence.
+
+    OptVLS server is responsible for computing the optimized sequence and for details on how OptVLS server computes
+    optimized sequence please refer to section-5. In this flow, X86InterleavedAccess can be
+    thought of as client of OptVLS server which processes the wide-load/store plus shuffle sequence into OptVLS
+    abstract types and communicates with the OptVLS server for collecting the optimized sequence and translating
+    the optimized sequence into LLVM-IR. This whole process is deccribed in the following steps:
+
+    a) X86InterleavedAccess forms an X86InterleavedAccessGroup for each wide-load/store plus shuffle sequence.
+       The members of this X86InterleavedAccessGroup are the shufflevectors.
+
+    b) In order to get the optimized sequence it needs to generate an OVLSGroup. The way it generates an OVLSGroup
+       is: it represents each shufflevector into X86InterleavedClientMemref first and then calls the getGroups() method.
+
+      This is the debug output of getGroups() for example-1:
+
+.. code-block:: none
+
+      Received a request from Client---FORM GROUPS
+
+         Recieved a vector of memrefs:
+           #1 <4 x 64> SLoad
+
+           #2 <4 x 64> SLoad
+
+         Split the vector memrefs into sub groups of adjacent memrefs:
+            Distance is (in bytes) from the first memref of the set
+
+         Set #1
+
+         #1 <4 x 64> SLoad   Dist: 0
+
+         #2 <4 x 64> SLoad   Dist: 8
+
+         Printing Groups- Total Groups 1
+
+         Group#1
+           Vector Length(in bytes): 32
+
+           AccType: SLoad
+
+           AccessMask(per byte, R to L): 1111111111111111
+           #1 <4 x 64> SLoad
+
+           #2 <4 x 64> SLoad
+
+...
+
+    c) Once the OVLSGroup is formed, it calls the getSequence() method for collecting
+       the optimized sequence.
+
+       Here is the output sequence for Example-1 returned by getSequence() in abstract OVLSInstruction type.
+
+
+.. code-block:: none
+
+      %3 = mask.load.64.4 (<Base:0x5fc95e0 Offset:0>, 1111)
+
+      %4 = mask.load.64.4 (<Base:0x5fc95e0 Offset:32>, 1111)
+
+      %7 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><0, 1, 4, 5>
+
+      %10 = shufflevector <4 x 64> %3, <4 x 64> %4, <4 x 32><2, 3, 6, 7>
+
+      %13 = shufflevector <4 x 64> %7, <4 x 64> %10, <4 x 32><0, 4, 2, 6>
+
+      %16 = shufflevector <4 x 64> %7, <4 x 64> %10, <4 x 32><1, 5, 3, 7>
+
+...
+
+
+    d) The optimized sequence is in OVLS abstract type, it needs to be represented in LLVM-IR.
+       So, X86InterleavedAccess then calls genLLVMIR() method, a client utility function that
+       translates the OVLSInstruction into LLVM-IR instruction.
+
+      Finally, this is how the optimized sequence looks like in LLVM-IR:
+
+.. code-block:: none
+
+      %1 = bitcast <8 x double>* %ptr to <4 x double>*
+
+      %2 = getelementptr inbounds <4 x double>, <4 x double>* %1, i32 0
+
+      %3 = load <4 x double>, <4 x double>* %2, align 16
+
+      %4 = bitcast <8 x double>* %ptr to <4 x double>*
+
+      %5 = getelementptr inbounds <4 x double>, <4 x double>* %4, i32 1
+
+      %6 = load <4 x double>, <4 x double>* %5, align 16
+
+      %7 = shufflevector <4 x double> %3, <4 x double> %6, <4 x i32> <i32 0, i32 1, i32 4, i32 5>
+
+      %8 = shufflevector <4 x double> %3, <4 x double> %6, <4 x i32> <i32 2, i32 3, i32 6, i32 7>
+
+      %9 = shufflevector <4 x double> %7, <4 x double> %8, <4 x i32> <i32 0, i32 4, i32 2, i32 6>
+
+      %10 = shufflevector <4 x double> %7, <4 x double> %8, <4 x i32> <i32 1, i32 5, i32 3, i32 7>
+

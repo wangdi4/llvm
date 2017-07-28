@@ -1731,14 +1731,18 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
 /// This function returns the set of blocks along those paths in RegionBlocks.
 /// The sub-regions are structured such that the top is guaranteed to dominate
 /// the bottom.
-static void collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
+///
+/// NOTE: It's possible that distant jump threading has started from a block
+/// that is no longer reachable from the function entry due to earlier
+/// threading. It may have traversed phis that have taken it back into the
+/// reachable part of the CFG. When this occurs this function will not be able
+/// to reach sub-region top from the sub-region bottom. If this occurs this
+/// function returns false to indicate that we should abort threading the
+/// current edge.
+static bool collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
                                    SmallVectorImpl<BasicBlock*> &RegionBlocks) {
-  enum BlockState {
-    NotVisited = 0,
-    Visited
-  };
   SmallVector<BasicBlock*, 16> WorkStack;
-  DenseMap<BasicBlock*, BlockState> State;
+  SmallPtrSet<BasicBlock*, 16> Visited;
 
   // Collect the blocks within each sub-region. This is just a DFS walk backward
   // from BBBottom to BBTop.
@@ -1747,7 +1751,7 @@ static void collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
     BasicBlock *BBBottom = SubRegion.second;
 
     WorkStack.push_back(BBBottom);
-    State[BBBottom] = Visited;
+    Visited.insert(BBBottom);
 
     while (!WorkStack.empty()) {
       BasicBlock *BB = WorkStack.back();
@@ -1757,16 +1761,18 @@ static void collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
       if (BB == BBTop)
         continue;
 
-      pred_iterator PI, PE;
-      for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
-           PI != PE; ++PI) {
-        if (State[*PI] == NotVisited) {
-          State[*PI] = Visited;
-          WorkStack.push_back(*PI);
-        }
-      }
+      for (BasicBlock *Pred : predecessors(BB))
+        if (Visited.insert(Pred).second)
+          WorkStack.push_back(Pred);
     }
+
+    // If we didn't visit the top of the sub-region then part of the subregion
+    // is unreachable and we shouldn't try to thread.
+    if (!Visited.count(BBTop))
+      return false;
   }
+
+  return true;
 }
 
 /// \p OldBB is a block in the thread region, and \p OldSucc is one of its
@@ -1839,7 +1845,8 @@ bool JumpThreadingPass::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   SmallVector<BasicBlock*, 16> RegionBlocks;
   bool ThreadingLoopHeader = false;
 
-  collectThreadRegionBlocks(RegionInfo, RegionBlocks);
+  if (!collectThreadRegionBlocks(RegionInfo, RegionBlocks))
+    return false;
 
   for (auto BB : RegionBlocks) {
     // Avoid threading back to a block in the region. This is a hacky way to

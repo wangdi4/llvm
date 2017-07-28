@@ -91,7 +91,7 @@ HLLabel *HLLabel::clone(HLNodeMapper *NodeMapper) const {
 
 void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
                     bool Detailed) const {
-
+#if !INTEL_PRODUCT_RELEASE
   auto ParentLoop = dyn_cast<HLLoop>(getParent());
 
   // ddref_begin() check is a workaround to skip the backedge check until we
@@ -107,6 +107,7 @@ void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
  
   indent(OS, Depth);
   OS << getName() << ":\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLLabel::printBBlockName(raw_ostream &OS, const BasicBlock &BB) {

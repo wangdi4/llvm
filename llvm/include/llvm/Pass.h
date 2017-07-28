@@ -124,10 +124,12 @@ public:
   virtual void print(raw_ostream &O, const Module *M) const;
   void dump() const; // dump - Print to stderr.
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a Pass appropriate to print the IR this
   /// pass operates on (Module, Function or MachineFunction).
   virtual Pass *createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const = 0;
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// Each pass is responsible for assigning a pass manager to itself.
   /// PMS is the stack of available pass manager.
@@ -175,8 +177,10 @@ public:
   /// check state of analysis information.
   virtual void verifyAnalysis() const;
 
+#if !INTEL_PRODUCT_RELEASE
   // dumpPassStructure - Implement the -debug-passes=PassStructure option
   virtual void dumpPassStructure(unsigned Offset = 0);
+#endif // !INTEL_PRODUCT_RELEASE
 
   // lookupPassInfo - Return the pass info object for the specified pass class,
   // or null if it is not known.
@@ -234,9 +238,11 @@ public:
 ///
 class ModulePass : public Pass {
 public:
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// runOnModule - Virtual method overriden by subclasses to process the module
   /// being operated on.
@@ -299,9 +305,11 @@ class FunctionPass : public Pass {
 public:
   explicit FunctionPass(char &pid) : Pass(PT_Function, pid) {}
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a function printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// runOnFunction - Virtual method overriden by subclasses to do the
   /// per-function processing of the pass.
@@ -336,9 +344,11 @@ class BasicBlockPass : public Pass {
 public:
   explicit BasicBlockPass(char &pid) : Pass(PT_BasicBlock, pid) {}
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a basic block printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;

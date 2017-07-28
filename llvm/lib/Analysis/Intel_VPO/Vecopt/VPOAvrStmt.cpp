@@ -31,6 +31,7 @@ AVRAssign *AVRAssign::clone() const { return nullptr; }
 
 void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
                       VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -71,9 +72,11 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") ";
   printSLEV(OS);
@@ -92,6 +95,7 @@ void AVRAssign::shallowPrint(formatted_raw_ostream &OS) const {
   }
 
   OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRAssign::getAvrTypeName() const { return StringRef("ASSIGN"); }
@@ -124,6 +128,7 @@ AVRExpression *AVRExpression::clone() const { return nullptr; }
 
 void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
                           VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -172,9 +177,11 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "("  << getNumber() << ")";
   printSLEV(OS);
@@ -201,6 +208,7 @@ void AVRExpression::shallowPrint(formatted_raw_ostream &OS) const {
   }
 
   OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRExpression::getAvrTypeName() const { return StringRef("EXPR"); }
@@ -228,6 +236,7 @@ StringRef AVRValue::getAvrTypeName() const { return StringRef("VALUE"); }
 
 void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   // Print AVR Value Node.
   switch (VLevel) {
@@ -262,6 +271,7 @@ void AVRValue::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 //----------AVR Label Implementation----------//
@@ -281,6 +291,7 @@ AVRPhi *AVRPhi::clone() const { return nullptr; }
 
 void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
                    VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   assert(LHS && "AVR-style print called for partially-constructed AVRPhi");
 
@@ -322,9 +333,11 @@ void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRPhi::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") ";
   printSLEV(OS);
@@ -341,6 +354,7 @@ void AVRPhi::shallowPrint(formatted_raw_ostream &OS) const {
        << ")]";
   }
   OS << ")}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRPhi::getAvrTypeName() const { return StringRef("PHI"); }
@@ -444,6 +458,7 @@ AVRWrn *AVRWrn::clone() const { return nullptr; }
 
 void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
                    VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -469,11 +484,14 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRWrn::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") " << getAvrTypeName();
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRWrn::getAvrTypeName() const { return StringRef("WRN"); }
@@ -492,6 +510,7 @@ AVRNOP *AVRNOP::clone() const { return nullptr; }
 
 void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
                    VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -517,6 +536,7 @@ void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRNOP::getAvrTypeName() const { return StringRef("NOP"); }
@@ -530,6 +550,7 @@ AVRUnreachable *AVRUnreachable::clone() const { return nullptr; }
 
 void AVRUnreachable::print(formatted_raw_ostream &OS, unsigned Depth,
                            VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -555,6 +576,7 @@ void AVRUnreachable::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRUnreachable::getAvrTypeName() const {
@@ -570,6 +592,7 @@ AVRBlock *AVRBlock::clone() const { return nullptr; }
 
 void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -600,9 +623,11 @@ void AVRBlock::print(formatted_raw_ostream &OS, unsigned Depth,
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRBlock::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") " << getAvrTypeName();
   if (getPredicate())
@@ -611,6 +636,7 @@ void AVRBlock::shallowPrint(formatted_raw_ostream &OS) const {
   for (AVRBlock *Successor : Successors)
     OS << " (" << Successor->getNumber() << ")";
   OS << " ]";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRBlock::getAvrTypeName() const { return StringRef("BLOCK"); }
@@ -624,6 +650,7 @@ AVRPredicate *AVRPredicate::clone() const { return nullptr; }
 
 void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
                          VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -661,9 +688,11 @@ void AVRPredicate::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRPredicate::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") ";
   printSLEV(OS);
@@ -681,6 +710,7 @@ void AVRPredicate::shallowPrint(formatted_raw_ostream &OS) const {
     }
   }
   OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRPredicate::getAvrTypeName() const {

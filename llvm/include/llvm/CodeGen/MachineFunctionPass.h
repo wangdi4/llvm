@@ -69,9 +69,11 @@ private:
   MachineFunctionProperties SetProperties;
   MachineFunctionProperties ClearedProperties;
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a machine function printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   bool runOnFunction(Function &F) override;
 };

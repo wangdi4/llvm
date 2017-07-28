@@ -24,7 +24,7 @@
 // default build. Without target information getCost() and getSequence() will
 // not be called but getGroups() will. Uncomment the following line to enable
 // cost analysis, so as to getSequence() and getGroups() to be called.
-//#define OVLSTESTCLIENT
+#define OVLSTESTCLIENT
 
 using namespace llvm;
 using namespace std;

@@ -73,6 +73,7 @@ void CanonExpr::dump() const { dump(false); }
 #endif
 
 void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   auto C0 = getConstant();
   auto Denom = getDenominator();
   bool Printed = false;
@@ -173,6 +174,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       OS << "{def@" << getDefinedAtLevel() << "}";
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 bool CanonExpr::isSelfBlob() const {

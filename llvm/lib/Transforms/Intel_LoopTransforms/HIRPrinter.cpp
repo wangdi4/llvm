@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !INTEL_PRODUCT_RELEASE
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Function.h"
@@ -69,3 +70,4 @@ FunctionPass *llvm::createHIRPrinterPass(raw_ostream &OS,
                                          const std::string &Banner) {
   return new HIRPrinter(OS, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
