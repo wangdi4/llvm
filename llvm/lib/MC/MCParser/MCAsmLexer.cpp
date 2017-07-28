@@ -13,7 +13,11 @@
 
 using namespace llvm;
 
+<<<<<<< HEAD
 MCAsmLexer::MCAsmLexer() : AltMacroMode(false) {// INTEL
+=======
+MCAsmLexer::MCAsmLexer() : AltMacroMode(false) {
+>>>>>>> 079b067df74b010544d2187e0385b396950169c4
   CurTok.emplace_back(AsmToken::Space, StringRef());
 }
 

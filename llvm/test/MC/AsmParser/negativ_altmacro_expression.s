@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 # INTEL_CUSTOMIZATION 
 # RUN: not llvm-mc -triple i386-linux-gnu %s 2>&1 | FileCheck %s
+=======
+# RUN: not llvm-mc  %s 2>&1 | FileCheck %s
+>>>>>>> 079b067df74b010544d2187e0385b396950169c4
 
 # This test is a negative test for the altmacro expression.
 # In this test we check the '.noaltmacro' directive.
