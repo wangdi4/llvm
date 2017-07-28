@@ -784,7 +784,7 @@ public:
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
                   ArrayRef<SDUse> Ops);
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT,
-                  ArrayRef<SDValue> Ops, const SDNodeFlags *Flags = nullptr);
+                  ArrayRef<SDValue> Ops, const SDNodeFlags Flags = SDNodeFlags());
   SDValue getNode(unsigned Opcode, const SDLoc &DL, ArrayRef<EVT> ResultTys,
                   ArrayRef<SDValue> Ops);
   SDValue getNode(unsigned Opcode, const SDLoc &DL, SDVTList VTs,
@@ -792,9 +792,10 @@ public:
 
   // Specialize based on number of operands.
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT);
-  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N);
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N,
+                  const SDNodeFlags Flags = SDNodeFlags());
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
-                  SDValue N2, const SDNodeFlags *Flags = nullptr);
+                  SDValue N2, const SDNodeFlags Flags = SDNodeFlags());
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
                   SDValue N2, SDValue N3);
   SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
@@ -1114,7 +1115,7 @@ public:
 
   /// Get the specified node if it's already available, or else return NULL.
   SDNode *getNodeIfExists(unsigned Opcode, SDVTList VTs, ArrayRef<SDValue> Ops,
-                          const SDNodeFlags *Flags = nullptr);
+                          const SDNodeFlags Flags = SDNodeFlags());
 
   /// Creates a SDDbgValue node.
   SDDbgValue *getDbgValue(MDNode *Var, MDNode *Expr, SDNode *N, unsigned R,
@@ -1277,7 +1278,7 @@ public:
 
   SDValue FoldConstantVectorArithmetic(unsigned Opcode, const SDLoc &DL, EVT VT,
                                        ArrayRef<SDValue> Ops,
-                                       const SDNodeFlags *Flags = nullptr);
+                                       const SDNodeFlags Flags = SDNodeFlags());
 
   /// Constant fold a setcc to true or false.
   SDValue FoldSetCC(EVT VT, SDValue N1, SDValue N2, ISD::CondCode Cond,
@@ -1447,10 +1448,6 @@ private:
   void DeallocateNode(SDNode *N);
 
   void allnodes_clear();
-
-  SDNode *GetBinarySDNode(unsigned Opcode, const SDLoc &DL, SDVTList VTs,
-                          SDValue N1, SDValue N2,
-                          const SDNodeFlags *Flags = nullptr);
 
   /// Look up the node specified by ID in CSEMap.  If it exists, return it.  If
   /// not, return the insertion token that will make insertion faster.  This
