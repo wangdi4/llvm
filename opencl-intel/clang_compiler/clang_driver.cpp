@@ -410,14 +410,14 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool isParsed = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+  bool success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
 
   // Respect build options.
   // Compiler options layout in llvm metadata is defined by SPIR spec.
   // For example:
   // !opencl.compiler.options = !{!11}
   // !11 = !{!"-cl-fast-relaxed-math", !""-cl-mad-enable"}
-  if (isParsed) {
+  if (success) {
     llvm::NamedMDNode *OCLCompOptsMD =
         pModule->getOrInsertNamedMetadata("opencl.compiler.options");
     // we do not expect spir-v parser to handle build options
@@ -444,6 +444,15 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
 
+  if (success) {
+    // Currently SPIR-V consumer returns SPIR-like LLVM IR, so we need to
+    // convert it to the current LLVM IR version style.
+    // MaterializeSPIR returns 0 on success.
+    success = !intel::MaterializeSPIR(*pModule);
+
+    assert(!verifyModule(*pModule) && "SPIR Materializer broke the module!");
+  }
+
   // setting the result in both sucessful an uncussessful cases
   // to pass the error log.
 
@@ -459,7 +468,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     *pBinaryResult = pResult.release();
   }
 
-  return isParsed ? CL_SUCCESS : CL_INVALID_PROGRAM;
+  return success ? CL_SUCCESS : CL_INVALID_PROGRAM;
 }
 
 int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
