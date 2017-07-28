@@ -20,4 +20,8 @@ type = Library
 name = IPO
 parent = Transforms
 library_name = ipo
+<<<<<<< HEAD
 required_libraries = Analysis BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation Intel_LoopTransforms Intel_MapIntrinToIml Intel_VPOTransforms
+=======
+required_libraries = Analysis BitReader BitWriter Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
+>>>>>>> 4e235f9788da9e3e0f2fe1cf0716257244b4af0e
