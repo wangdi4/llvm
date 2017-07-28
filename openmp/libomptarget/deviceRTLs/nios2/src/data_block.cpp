@@ -44,7 +44,7 @@ enum {
 typedef unsigned char byte;
 
 static void* memcpy_l4_to_device(void* dst, void *src, size_t n) {
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("fpga_mc_memcpy_l4_to_device 0x" PRN_PTR " -> 0x" PRN_PTR ", " PRN_SIZE_T " bytes\n", src, dst, n);
 #endif
 #ifdef X86_TARGET
@@ -56,7 +56,7 @@ static void* memcpy_l4_to_device(void* dst, void *src, size_t n) {
 }
 
 static void* memcpy_device_to_l4(void* dst, void *src, size_t n) {
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("fpga_mc_memcpy_device_to_l4 0x" PRN_PTR " -> 0x" PRN_PTR ", " PRN_SIZE_T " bytes\n", src, dst, n);
 #endif
 #ifdef X86_TARGET
@@ -130,7 +130,7 @@ void ArrayAccess::calcSingleParIterWorkset() {
     max_arr_ind = MAX(max_arr_ind, cur_max);
   }
   // 2. calculate the workset of a single || iteration, offset and overlap
-  wset.extent1 = (max_arr_ind - min_arr_ind)*elemSize;
+  wset.extent1 = (max_arr_ind - min_arr_ind + 1)*elemSize;
   wset.offset = min_arr_ind*elemSize;
   wset.overlap = c0*elemSize - wset.extent1;
 
@@ -211,10 +211,10 @@ void ParLoopNestDataAccess::partition(size_t mem_size) {
     accs[i]->updateWorkset(iChunk);
   }
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("Data blocking for %d bytes, workset " PRN_SIZE_T " bytes:\n", mem_size, ws);
   print(0);
-#endif // ENABLE_DEBUG_PRINT
+#endif // DATABLOCK_DEBUG
 }
 
 void ParLoopNestDataAccess::setupBlockIterationAndCopyIn(
@@ -232,11 +232,11 @@ void ParLoopNestDataAccess::setupBlockIterationAndCopyIn(
     block->arrIndOffsets[i] =
       par_off + accs[i]->getWorksetOffset()/accs[i]->elemSize;
   }
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("\n");
   printf("block calculated for iteration %d:\n", iter_num);
   block->print(n, 1);
-#endif // ENABLE_DEBUG_PRINT
+#endif // DATABLOCK_DEBUG
   copyIn(block);
 }
 
@@ -250,7 +250,7 @@ void ParLoopNestDataAccess::copyImpl(PartitionData1D *block, bool in) {
     int n_par_iters = block->getNumParIters();
     size_t ws = acc->getWorksetSize(n_par_iters);
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
     printf(
       "Copy (%d iters) %s: big=0x" PRN_PTR " loc=0x" PRN_PTR
       " byte_off=" PRN_SIZE_T " ws size=" PRN_SIZE_T "\n",
@@ -271,7 +271,7 @@ void ParLoopNestDataAccess::setArrayMap(void** big_arrs, void** loc_arrs) {
   bigArrs = big_arrs;
   locArrs = loc_arrs;
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("setArrayMap (big->loc):\n");
 
   for (int i = 0; i < this->n; i++) {
@@ -315,9 +315,9 @@ EXPORT unsigned char* data_block_device_alloc_l2(size_t n, int align) {
 #else
   unsigned char* res = (unsigned char*)fpga_mc_unsafe_malloc_l2(n, align);
 #endif // X86_TARGET
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   printf("data_block_device_alloc_l2(" PRN_SIZE_T ", %d) -> 0x" PRN_PTR "\n", n, align, res);
-#endif // ENABLE_DEBUG_PRINT
+#endif // DATABLOCK_DEBUG
   return res;
 }
 
@@ -325,7 +325,7 @@ EXPORT unsigned char* data_block_device_alloc_l2(size_t n, int align) {
 // Debug printing
 //-----------------------------------------------------------------------------
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
 
 #define TAB_STR "  "
 
@@ -463,4 +463,4 @@ break_out:
     accs[i]->print(tab);
   }
 }
-#endif // ENABLE_DEBUG_PRINT
+#endif // DATABLOCK_DEBUG

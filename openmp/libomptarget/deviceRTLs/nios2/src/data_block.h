@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 /// \file Interface of a runtime library used by the compiler to implement
 ///  automatic data partitioning and loop blocking.
-///  See comments in llvm/lib/Target/Nios2/LoopAndDataBlockPass.cpp 
+///  See comments in llvm/lib/Target/Nios2/LoopAndDataBlockPass.cpp
 //===----------------------------------------------------------------------===//
 
 #ifndef DATA_BLOCK_H
@@ -54,7 +54,7 @@ struct IntVector {
 
 #ifdef __cplusplus
   IntVector(int *mem) : comps(mem) {}
-  
+
   // Dot product operation over given slice of vector components
   int dotProduct(IntVector v, int start, int len);
 
@@ -212,7 +212,7 @@ struct ParLoopNestDataAccess {
   ArrayAccess** accs; // data for each array
   void** bigArrs;     // the big<->local array map,
   void** locArrs;     //   valid after setArrayMap
-  int iChunk;         // the max par i-space chunk with data fitting into memory 
+  int iChunk;         // the max par i-space chunk with data fitting into memory
   int nChunks;        // the number of such chunks
 
 #ifdef __cplusplus
