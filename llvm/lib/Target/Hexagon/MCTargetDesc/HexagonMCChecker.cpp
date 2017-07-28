@@ -36,6 +36,7 @@ const HexagonMCChecker::PredSense
 void HexagonMCChecker::init() {
   // Initialize read-only registers set.
   ReadOnly.insert(Hexagon::PC);
+  ReadOnly.insert(Hexagon::C9_8);
 
   // Figure out the loop-registers definitions.
   if (HexagonMCInstrInfo::isInnerLoop(MCB)) {
@@ -158,8 +159,8 @@ void HexagonMCChecker::init(MCInst const &MCI) {
                isPredicateRegister(*SRI))
         // Some insns produce predicates too late to be used in the same packet.
         LatePreds.insert(*SRI);
-      else if (i == 0 && llvm::HexagonMCInstrInfo::getType(MCII, MCI) ==
-                             HexagonII::TypeCVI_VM_CUR_LD)
+      else if (i == 0 && HexagonMCInstrInfo::isCVINew(MCII, MCI) &&
+               MCID.mayLoad())
         // Current loads should be used in the same packet.
         // TODO: relies on the impossibility of a current and a temporary loads
         // in the same packet.
@@ -250,6 +251,7 @@ bool HexagonMCChecker::check(bool FullCheck) {
   bool chkP = checkPredicates();
   bool chkNV = checkNewValues();
   bool chkR = checkRegisters();
+  bool chkRRO = checkRegistersReadOnly();
   bool chkS = checkSolo();
   bool chkSh = true;
   if (FullCheck)
@@ -257,7 +259,7 @@ bool HexagonMCChecker::check(bool FullCheck) {
   bool chkSl = true;
   if (FullCheck)
     chkSl = checkSlots();
-  bool chk = chkB && chkP && chkNV && chkR && chkS && chkSh && chkSl;
+  bool chk = chkB && chkP && chkNV && chkR && chkRRO && chkS && chkSh && chkSl;
 
   return chk;
 }
@@ -376,18 +378,30 @@ bool HexagonMCChecker::checkNewValues() {
   return true;
 }
 
+bool HexagonMCChecker::checkRegistersReadOnly() {
+  for (auto I : HexagonMCInstrInfo::bundleInstructions(MCB)) {
+    MCInst const &Inst = *I.getInst();
+    unsigned Defs = HexagonMCInstrInfo::getDesc(MCII, Inst).getNumDefs();
+    for (unsigned j = 0; j < Defs; ++j) {
+      MCOperand const &Operand = Inst.getOperand(j);
+      assert(Operand.isReg() && "Def is not a register");
+      unsigned Register = Operand.getReg();
+      if (ReadOnly.find(Register) != ReadOnly.end()) {
+        reportError(Inst.getLoc(), "Cannot write to read-only register `" +
+                                       llvm::Twine(RI.getName(Register)) + "'");
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 // Check for legal register uses and definitions.
 bool HexagonMCChecker::checkRegisters() {
   // Check for proper register definitions.
   for (const auto &I : Defs) {
     unsigned R = I.first;
 
-    if (ReadOnly.count(R)) {
-      // Error out for definitions of read-only registers.
-      reportError("cannot write to read-only register `" +
-                  llvm::Twine(RI.getName(R)) + "'");
-      return false;
-    }
     if (isLoopRegister(R) && Defs.count(R) > 1 &&
         (HexagonMCInstrInfo::isInnerLoop(MCB) ||
          HexagonMCInstrInfo::isOuterLoop(MCB))) {
@@ -484,16 +498,16 @@ bool HexagonMCChecker::checkRegisters() {
 
 // Check for legal use of solo insns.
 bool HexagonMCChecker::checkSolo() {
-  if (HexagonMCInstrInfo::isBundle(MCB) &&
-      HexagonMCInstrInfo::bundleSize(MCB) > 1) {
+  if (HexagonMCInstrInfo::bundleSize(MCB) > 1)
     for (auto const &I : HexagonMCInstrInfo::bundleInstructions(MCB)) {
       if (llvm::HexagonMCInstrInfo::isSolo(MCII, *I.getInst())) {
-        reportError(
-            "instruction cannot appear in packet with other instructions");
+        SMLoc Loc = I.getInst()->getLoc();
+        reportError(Loc, "Instruction is marked `isSolo' and "
+                         "cannot have other instructions in "
+                         "the same packet");
         return false;
       }
     }
-  }
 
   return true;
 }
@@ -575,8 +589,12 @@ void HexagonMCChecker::reportErrorNewValue(unsigned Register) {
 }
 
 void HexagonMCChecker::reportError(llvm::Twine const &Msg) {
+  reportError(MCB.getLoc(), Msg);
+}
+
+void HexagonMCChecker::reportError(SMLoc Loc, llvm::Twine const &Msg) {
   if (ReportErrors)
-    Context.reportError(MCB.getLoc(), Msg);
+    Context.reportError(Loc, Msg);
 }
 
 void HexagonMCChecker::reportWarning(llvm::Twine const &Msg) {
