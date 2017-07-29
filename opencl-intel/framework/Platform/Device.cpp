@@ -667,15 +667,37 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
 }
 
 
-void FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue* command_queue )
+cl_err_code
+FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue* command_queue,
+                                         cl_dev_cmd_list  clDevCmdListId)
 {
-    assert(command_queue);
+    assert(command_queue && "Invalid command queue passed.");
+    assert(clDevCmdListId && "Invalid command list passed.");
+    OclAutoMutex CS(&m_changeDefaultDeviceMutex);
+    // The next two operations should be executed under a mutex otherwise
+    // races may occur.
     m_default_command_queue = command_queue;
+    return GetDeviceAgent()->clDevSetDefaultCommandList(clDevCmdListId);
+}
+
+cl_err_code
+FissionableDevice::UnsetDefaultQueueIfEqual(OclCommandQueue* command_queue)
+{
+    OclAutoMutex CS(&m_changeDefaultDeviceMutex);
+    // The next two operations should be executed under a mutex otherwise
+    // races may occur.
+    const OclCommandQueue* res =
+        m_default_command_queue.test_and_set(command_queue, NULL);
+    // If command queue was default command queue
+    // than unset corresponding command list
+    if (command_queue == res)
+        return GetDeviceAgent()->clDevSetDefaultCommandList(NULL);
+    return CL_SUCCESS;
 }
 
 OclCommandQueue* FissionableDevice::GetDefaultDeviceQueue()
 {
-    if(m_default_command_queue)
+    if (m_default_command_queue)
     {
         return m_default_command_queue;
     }

@@ -151,6 +151,13 @@ void CL21::SetDefaultDeviceCommandQueue_Get_Default_Queue_Query() const
     iRet = clSetDefaultDeviceCommandQueue(m_context, m_device, queue_created_not_as_default);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clSetDefaultDeviceCommandQueue failed. ";
 
+    // Try to confuse runtime
+    iRet = clRetainCommandQueue(queue_created_not_as_default);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clRetainCommandQueue failed. ";
+
+    iRet = clReleaseCommandQueue(queue_created_not_as_default);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clRetainCommandQueue failed. ";
+
     iRet = clGetCommandQueueInfo(m_queue, CL_QUEUE_DEVICE_DEFAULT, sizeof(cl_command_queue), &default_queue, &data_being_queried);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clGetCommandQueueInfo during quering CL_QUEUE_DEVICE_DEFAULT failed. ";
 

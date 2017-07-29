@@ -385,7 +385,6 @@ cl_err_code ExecutionModule::ReleaseCommandQueue(cl_command_queue clCommandQueue
     {
         return errCode;
     }
-    m_pOclCommandQueueMap->GetOCLObject((_cl_command_queue_int*)clCommandQueue).StaticCast<OclCommandQueue>()->ReleaseQueue();
     errCode = m_pOclCommandQueueMap->ReleaseObject((_cl_command_queue_int*)clCommandQueue);
     if (0 != errCode)
     {

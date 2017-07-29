@@ -496,7 +496,10 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
 {
     // Check for the limitation: "Images are not supported on Xeon Phi".
-    if(!m_CpuId.HasGatherScatter()) return true;
+    // TODO: Reimplement the check as utility function to correctly provide
+    // an information about images support on a given device
+    if(m_CpuId.GetCPU() != MIC_KNC && m_CpuId.GetCPU() != CPU_KNL)
+      return true;
     if (llvm::NamedMDNode* pNode = pModule->getNamedMetadata("opencl.used.optional.core.features"))
     {
         // Usually "opencl.used.optional.core.features" metadata has only one node.

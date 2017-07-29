@@ -91,7 +91,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
         SharedPtr<Context>&       GetContext()                  { return m_pContext; } 
         virtual cl_err_code CancelAll();
         virtual void    ReleaseQueue() { }    // called when the user calls clReleaesCommandQueue for this OclCommandQueue
-        virtual cl_err_code SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice);
 
         /**
          * @return the address of device agent's command list
