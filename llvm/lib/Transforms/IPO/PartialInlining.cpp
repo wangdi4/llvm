@@ -79,8 +79,9 @@ struct PartialInlinerImpl {
       std::function<AssumptionCache &(Function &)> *GetAC,
       std::function<TargetTransformInfo &(Function &)> *GTTI,
       Optional<function_ref<BlockFrequencyInfo &(Function &)>> GBFI,
-      ProfileSummaryInfo *ProfSI)
-      : GetAssumptionCache(GetAC), GetTTI(GTTI), GetBFI(GBFI), PSI(ProfSI) {}
+      InliningLoopInfoCache *InlLoopIC, ProfileSummaryInfo *ProfSI) // INTEL
+      : GetAssumptionCache(GetAC), GetTTI(GTTI), GetBFI(GBFI),      // INTEL
+        ILIC(InlLoopIC), PSI(ProfSI) {}                             // INTEL
   bool run(Module &M);
   Function *unswitchFunction(Function *F);
 
@@ -91,6 +92,7 @@ private:
   std::function<AssumptionCache &(Function &)> *GetAssumptionCache;
   std::function<TargetTransformInfo &(Function &)> *GetTTI;
   Optional<function_ref<BlockFrequencyInfo &(Function &)>> GetBFI;
+  InliningLoopInfoCache *ILIC;   // INTEL
   ProfileSummaryInfo *PSI;
 
   bool shouldPartialInline(CallSite CS, OptimizationRemarkEmitter &ORE);
@@ -131,7 +133,14 @@ struct PartialInlinerLegacyPass : public ModulePass {
       return TTIWP->getTTI(F);
     };
 
-    return PartialInlinerImpl(&GetAssumptionCache, &GetTTI, None, PSI).run(M);
+#if INTEL_CUSTOMIZATION
+    InliningLoopInfoCache* ILIC = new InliningLoopInfoCache();
+    bool rv = PartialInlinerImpl(&GetAssumptionCache, &GetTTI, None, ILIC,
+                                 PSI).run(M);
+    delete ILIC;
+    ILIC = nullptr;
+    return rv;
+#endif // INTEL_CUSTOMIZATION
   }
 };
 }
@@ -297,8 +306,9 @@ bool PartialInlinerImpl::shouldPartialInline(CallSite CS,
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
   auto &CalleeTTI = (*GetTTI)(*Callee);
-  InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,
-                                *GetAssumptionCache, GetBFI, PSI);
+  InlineCost IC = getInlineCost(CS, getInlineParams(), CalleeTTI,   // INTEL
+                                *GetAssumptionCache, GetBFI, ILIC,  // INTEL
+                                nullptr, PSI);                      // INTEL
 
   if (IC.isAlways()) {
     ORE.emit(OptimizationRemarkAnalysis(DEBUG_TYPE, "AlwaysInline", Call)
@@ -550,7 +560,18 @@ PreservedAnalyses PartialInlinerPass::run(Module &M,
 
   ProfileSummaryInfo *PSI = &AM.getResult<ProfileSummaryAnalysis>(M);
 
-  if (PartialInlinerImpl(&GetAssumptionCache, &GetTTI, {GetBFI}, PSI).run(M))
-    return PreservedAnalyses::none();
-  return PreservedAnalyses::all();
+#if INTEL_CUSTOMIZATION
+  InliningLoopInfoCache* ILIC = new InliningLoopInfoCache();
+  PreservedAnalyses rv;
+  if (PartialInlinerImpl(&GetAssumptionCache, &GetTTI, {GetBFI}, ILIC,
+                         PSI).run(M)) {
+    rv = PreservedAnalyses::none();
+  }
+  else {
+    rv = PreservedAnalyses::all();
+  }
+  delete ILIC;
+  ILIC = nullptr;
+  return rv;
+#endif // INTEL_CUSTOMIZATION
 }
