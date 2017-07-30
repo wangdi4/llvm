@@ -196,16 +196,14 @@ namespace CallingConv {
     /// Register calling convention used for parameters transfer optimization
     X86_RegCall = 92,
 
-<<<<<<< HEAD
-#ifdef INTEL_CUSTOMIZATION
-    /// \brief SVML for intel compiler
-    SVML = 93,
-#endif  // INTEL_CUSTOMIZATION
-=======
     /// Calling convention used for Mesa hull shaders. (= tessellation control
     /// shaders)
     AMDGPU_HS = 93,
->>>>>>> a2057043bd48280c9377fca44e2ad67520caf633
+
+#ifdef INTEL_CUSTOMIZATION
+    /// \brief SVML for intel compiler
+    SVML = 94,
+#endif  // INTEL_CUSTOMIZATION
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023
