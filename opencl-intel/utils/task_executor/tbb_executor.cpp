@@ -1,8 +1,8 @@
-// Copyright (c) 2006-2013 Intel Corporation
+// Copyright (c) 2006-2017 Intel Corporation
 // All rights reserved.
-// 
+//
 // WARRANTY DISCLAIMER
-// 
+//
 // THESE MATERIALS ARE PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -14,7 +14,7 @@
 // OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY OR TORT (INCLUDING
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THESE
 // MATERIALS, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-// 
+//
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
@@ -296,6 +296,7 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
             // clear it and add 4 bytes to cover the loss
             stackSize = (stackSize & (~3u)) + 4u;
         }
+
         m_pScheduler = new tbb::task_scheduler_init(gWorker_threads, stackSize);
     }
     if (NULL == m_pScheduler)
@@ -307,9 +308,14 @@ int TBBTaskExecutor::Init(FrameworkUserLogger* pUserLogger, unsigned int uiNumOf
     {
         m_pScheduler->initialize(gWorker_threads);
     }
-    m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA); // + SPARE to allow temporary oversubscription in flat mode and additional root devices
-    
-    LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"), gWorker_threads);
+
+    m_threadManager.Init(gWorker_threads + SPARE_STATIC_DATA);
+    // + SPARE to allow temporary oversubscription in flat mode and
+    // additional root devices
+
+    LOG_INFO(TEXT("TBBTaskExecutor constructed to %d threads"),
+        gWorker_threads);
+
     return gWorker_threads;
 }
 
@@ -336,7 +342,19 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
 
     if ((TE_AUTO_THREADS == device.uiThreadsPerLevel[0]) && (1 == device.uiNumOfLevels))
     {
-        device.uiThreadsPerLevel[0] = gWorker_threads;
+        // tbb::task_scheduler_init creates "num_threads - 1" workers to account
+        // the master thread and avoid possible oversubscription.
+        //
+        // tbb::task_arena expects that tbb::task_scheduler is initialized by
+        // "num_threads - num_of_masters" threads.
+        //
+        // We cannot just use gWorker_threads as "num_threads" for an arena when
+        // joining of masters is disabled because it accounts the master thread.
+        // So, we need to manually remove the master thread from an arena
+        device.uiThreadsPerLevel[0] =
+            (TE_DISABLE_MASTERS_JOIN == device.mastersJoining)
+            ? gWorker_threads - device.uiNumOfExecPlacesForMasters
+            : gWorker_threads;
     }
 
     // check params

@@ -256,13 +256,19 @@ cl_dev_err_code TaskDispatcher::init()
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), "m_pTaskExecutor->Activate();");
 
-    const size_t numMasters = 1;
+#ifdef BUILD_FPGA_EMULATOR
+    // disable masters joining because kernels can contain infinite loops
+    auto TaskExecutorMastersJoinMode = TE_DISABLE_MASTERS_JOIN;
+#else
+    // create root device in flat mode with maximum threads, support for
+    // masters joining and one reserved position for master in device
+    auto TaskExecutorMastersJoinMode = TE_ENABLE_MASTERS_JOIN;
+#endif
 
-    // create root device in flat mode with maximum threads, support for masters joining and
-    // one reserved position for master in device
+    const size_t numMasters = 1;
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice(
-                    RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters),
-                    nullptr, this );
+        RootDeviceCreationParam(TE_AUTO_THREADS, TaskExecutorMastersJoinMode,
+                                numMasters), nullptr, this);
 
     m_bTEActivated = (0 != m_pRootDevice);
     if ( !m_bTEActivated )
@@ -270,7 +276,8 @@ cl_dev_err_code TaskDispatcher::init()
         return CL_DEV_ERROR_FAIL;
     }
 
-    unsigned int uiNumThreads = m_pTaskExecutor->GetMaxNumOfConcurrentThreads();
+    unsigned int uiNumThreads = m_pRootDevice->GetConcurrency();
+
     // Init WGContexts
     // Allocate required number of working contexts
     if ( 0 == m_uiNumThreads )
@@ -297,7 +304,8 @@ cl_dev_err_code TaskDispatcher::init()
     }
 
     //Pin threads
-    SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase> pAffinitizeThreads = AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
+    SharedPtr<AffinitizeThreads> pAffinitizeThreads =
+       AffinitizeThreads::Allocate(m_uiNumThreads, 0, m_pObserver);
     if (0 == pAffinitizeThreads)
     {
         //Todo
@@ -314,8 +322,14 @@ cl_dev_err_code TaskDispatcher::init()
     }
     pTaskList->Enqueue(pAffinitizeThreads);
     pTaskList->Flush();
+    // we need to ensure that AffinitizeTask is completed BEFORE ANY OTHER TASK
+    // will appear in command queue, but there is a trap:
+    // pTaskList->WaitForCompletion is a NOOP when masters joining is disabled.
     pTaskList->WaitForCompletion(nullptr);
- //  pAffinitizeThreads->WaitForEndOfTask();
+    // To avoid hanging of application when masters joining is disabled we need
+    // to call another one method below. It waits using hw_pause() until task is
+    // not finished.
+    pAffinitizeThreads->WaitForEndOfTask();
 
     return CL_DEV_SUCCESS;
 }

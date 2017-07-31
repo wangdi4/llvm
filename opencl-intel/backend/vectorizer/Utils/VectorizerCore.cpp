@@ -65,6 +65,33 @@ static raw_ostream &dbgPrint() {
   static raw_null_ostream devNull;
   return enableDebugPrints ? errs() : devNull;
 }
+
+/// @returns False if we don't want to vectorize function due to some reasons
+/// like usage of channels or infinite loops.
+static bool isFunctionVectorizable(Function &F, LoopInfo &LI) {
+  // @TODO: Disable vectorizer on single work-item kernels
+  // @TODO: Disable vectorizer on kernels using channels
+
+  Statistic::ActiveStatsT KernelStats;
+
+  for (auto *L: LI) {
+    SmallVector<BasicBlock *, 16> ExitingBlocks;
+    L->getExitingBlocks(ExitingBlocks);
+    if (ExitingBlocks.empty()) {
+      dbgPrint() << "Function contains infinite loops, can not vectorize\n";
+      OCLSTAT_DEFINE(CantVectInfLoops,
+          "Unable to vectorizer because infinite loops are present",
+          KernelStats);
+      CantVectInfLoops++;
+      intel::Statistic::pushFunctionStats(KernelStats, F, DEBUG_TYPE);
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
 VectorizerCore::VectorizerCore(const OptimizerConfig* pConfig) :
 FunctionPass(ID),
 m_pConfig(pConfig)
@@ -101,6 +128,13 @@ bool VectorizerCore::runOnFunction(Function &F) {
   // Case the config was not set quit gracefully.
   // TODO: add default config or find another solutiuon for config options.
   if (!m_pConfig) {
+    return false;
+  }
+
+  // Let's do an early exit from Vectorizer in some cases releated to
+  // single work-item kernels, infinite loops, channels
+  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  if (!isFunctionVectorizable(F, LI)) {
     return false;
   }
 

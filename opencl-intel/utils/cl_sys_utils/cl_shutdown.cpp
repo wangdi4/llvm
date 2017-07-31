@@ -124,7 +124,7 @@ void CL_CALLBACK UseShutdownHandler::AtExitProcessingState( AT_EXIT_GLB_PROCESSI
             {
                 if (nullptr != local_at_exit_callback)
                 {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
                     if (AT_EXIT_DLL_UNLOADING_MODE == mode)
 #endif
                     {

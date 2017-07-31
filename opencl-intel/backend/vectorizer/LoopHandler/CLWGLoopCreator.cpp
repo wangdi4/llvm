@@ -279,37 +279,6 @@ void CLWGLoopCreator::generateConstants() {
   m_constPacket = ConstantInt::get(m_indTy, m_packetWidth);
 }
 
-ReturnInst * CLWGLoopCreator::getSingleRet(Function *F) {
-  assert(F && "null Function argument");
-
-  // Get all return instructions in the kernel.
-  typedef SmallVector<ReturnInst *, 2> RetVec;
-  RetVec rets;
-  for(Function::iterator bbi = F->begin(), bbe = F->end();
-      bbi!=bbe; ++bbi) {
-    if (ReturnInst *RI = dyn_cast<ReturnInst>(bbi->getTerminator())) {
-      rets.push_back(RI);
-    }
-  }
-
-  // If  there is only one return it.
-  assert(rets.size() && "kernel with no return instructions");
-  assert(F->getReturnType()->isVoidTy() && "return should be void");
-  if (rets.size() == 1) return rets[0];
-
-  // More than single ret merge them all into a single basic block
-  BasicBlock *mergeRet = BasicBlock::Create(*m_context, "merge_ret", F );
-  for(RetVec::iterator retI = rets.begin(), retE = rets.end();
-      retI!=retE; ++retI) {
-    BasicBlock *bb = (*retI)->getParent();
-    (*retI)->eraseFromParent();
-    BranchInst::Create(mergeRet, bb);
-  }
-  ReturnInst *RI = ReturnInst::Create(*m_context, mergeRet);
-  return RI;
-}
-
-
 ReturnInst *CLWGLoopCreator::getFunctionData(Function *F, IVecVec &gids,
                                           IVecVec &lids) {
   // Collect all get_local_id, get_global_id and single return.
@@ -317,7 +286,22 @@ ReturnInst *CLWGLoopCreator::getFunctionData(Function *F, IVecVec &gids,
   std::string LID = CompilationUtils::mangledGetLID();
   LoopUtils::collectTIDCallInst(GID.c_str(), gids, F);
   LoopUtils::collectTIDCallInst(LID.c_str(), lids, F);
-  return getSingleRet(F);
+  BasicBlock *SingleRetBB =
+      getAnalysis<UnifyFunctionExitNodes>(*F).getReturnBlock();
+  if (!SingleRetBB) {
+    // The function has no return instructions at all (it contains an infinite
+    // loop for example)
+    //
+    // To handle this case we need to manually create a artificial exit block
+    // which will be used as latch for WG loops
+    BasicBlock *MergeRet = BasicBlock::Create(*m_context,
+        "artificial_merge_ret", F);
+    ReturnInst *RI = ReturnInst::Create(*m_context, MergeRet);
+
+    return RI;
+  }
+
+  return cast<ReturnInst>(SingleRetBB->getTerminator());
 }
 
 

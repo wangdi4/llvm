@@ -36,17 +36,22 @@ using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::TaskExecutor;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
     // On Windows OS kills all threads at shutdown except of one that is used to call atexit() and DllMain()
     // As all thread killing is done when threads are in an arbitrary state we cannot assume that they are not
     // owning some lock or that they freed their per-thread resources. As our OpenCL implementation objects lifetime
     // is based on reference counted objects we cannot assume that performing normal shutdown will not block or will
     // free resources. So on Windows we should just block our external APIs to avoid global object destructors from
     // DLLs to enter our OpenCL DLLs
-    #define JUST_DISABLE_APIS_AT_SHUTDOWN 
+    //
+
+    // On FPGA emulator we should not kill contexts, execution modules, etc.
+    // because program can contain `while (true)` kernels which can not be
+    // finished using regular finish operation on command queue
+    #define JUST_DISABLE_APIS_AT_SHUTDOWN
 #else
     // On Linux all threads are alive and fully functional at atexit() time - do the full shutdown
-    // #define JUST_DISABLE_APIS_AT_SHUTDOWN 
+    // #define JUST_DISABLE_APIS_AT_SHUTDOWN
 #endif
 
 

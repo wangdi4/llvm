@@ -512,6 +512,11 @@ TEST(FPGA, Test_FPGAWGOrdering)
     FPGAWGOrdering();
 }
 
+TEST(FPGA, Test_checkInfiniteLoopsBasic)
+{
+    FPGAInfiniteLoopsBasic();
+}
+
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)

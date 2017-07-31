@@ -15,8 +15,9 @@
 //#define DEBUGGING_DEATH_TEST 
 //#define SilentCheck Check
 
-#ifdef _WIN32
-    // on Windows we do not do clFinish for all queues during ShutDown - not all buffers may be destructed
+#if defined(_WIN32) || defined(BUILD_FPGA_EMULATOR)
+    // on Windows and FPGA emulator build we do not do clFinish for all queues
+    // during ShutDown - not all buffers may be destructed
     // + TBB warning is printed last in Debug ------
     #define EXPECTED_STDERR_STRING ""
 #else

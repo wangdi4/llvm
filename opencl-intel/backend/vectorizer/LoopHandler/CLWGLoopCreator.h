@@ -1,5 +1,5 @@
 /*=================================================================================
-Copyright (c) 2012, Intel Corporation
+Copyright (c) 2012-2017, Intel Corporation
 Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "LoopUtils.h"
 #include "llvm/Pass.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include <set>
 
 using namespace llvm;
@@ -20,11 +21,11 @@ namespace intel {
 
 // class CLWGLoopCreator
 //-----------------------------------------------------------------------------
-// this pass takes opencl kernel and creates WGLoop around it according to 
+// this pass takes opencl kernel and creates WGLoop around it according to
 // the early exit function created by the EarlyExitKernel.
 // Incase the vector kernel exits it inlines it into the scalar kernel and
-// create WG loops around the vector kernel and remainder loops around the 
-// scalar kernel. WG loops are created with canonical induction variable 
+// create WG loops around the vector kernel and remainder loops around the
+// scalar kernel. WG loops are created with canonical induction variable
 // (satrts in 0 and incremented by 1) as it allows loop optimizations after
 // (e.g. stream samplers).
 //
@@ -37,14 +38,14 @@ namespace intel {
 //    vector kernel code..
 //
 //  [7 x size_t] early.exit.foo( .... )
-// 
+//
 // it will create the unified kernel:
 //
 // void foo( .... ) {
 //   [7 z size_t] ee = early.exit.foo( .... )
 //   size_t uni = ee[0]
 //   if (!uni) return
-// 
+//
 //   size_t dim0_init_gid = ee[1];
 //   size_t dim0_size = ee[2];
 //   size_t dim1_init_gid = ee[3];
@@ -73,7 +74,7 @@ namespace intel {
 //              size_t dim0_ind_var = 0;
 //              do{
 //                  scalar code
-//                  tid += packet_width              
+//                  tid += packet_width
 //              }while (++dim0_ind_var != dim0_scalar_size);
 //          }while (++dim1_ind_var != dim1_size);
 //      }while (++dim2_ind_var != dim2_size);
@@ -93,7 +94,7 @@ public:
   /// @brief Provides name of pass.
   virtual llvm::StringRef getPassName() const {
     return "CLWGLoopCreator";
-  } 
+  }
 
   ///@brief public interface that allows running on pair of scalar - vector
   ///       kernels not through pass manager.
@@ -104,16 +105,17 @@ public:
 
   ///@brief LLVM interface.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<UnifyFunctionExitNodes>();
     AU.addRequired<BuiltinLibInfo>();
   };
 
 private:
-  
+
   ///@brief struct that contains dimesion 0 loop attributes.
   struct loopBoundaries {
     Value *m_vectorLoopSize;  // num vector loop iterations.
     Value *m_scalarLoopSize;  // num scalar loop iterations.
-    Value *m_maxVector;       // max vector global id 
+    Value *m_maxVector;       // max vector global id
 
     ///@brief C'tor.
     loopBoundaries (Value *vectorLoopSize, Value *scalarLoopSize,
@@ -130,7 +132,7 @@ private:
   ///@returns struct with the sizes of the vector and scalar loop + the initial
   ///         scalar loop global id.
   loopBoundaries getVectorLoopBoundaries(Value *initVal, Value *dimSize);
-  
+
   ///@brief Generate useful constant values.
   void generateConstants();
 
@@ -144,18 +146,13 @@ private:
   ///returns kernel single return instruction.
   ReturnInst *getFunctionData(Function *F, IVecVec &gids, IVecVec &lids);
 
-
-  ///@brief retruns single return instruction of F, if needed merge returns.
-  ///@retruns as above.
-  ReturnInst *getSingleRet(Function *F);
-
   ///@brief obtains the base global id for dimesion dim.
   ///@param dim - dimesion to get base global id for.
   ///@retruns - base global id value.
   Instruction *obtainBaseGID(unsigned dim);
 
-  ///@brief add work group loops on the kernel. converts get_***_id according 
-  ///       to the generated loops. Moves Alloca instruction in kernel entry 
+  ///@brief add work group loops on the kernel. converts get_***_id according
+  ///       to the generated loops. Moves Alloca instruction in kernel entry
   ///       block to the new entry block on the way.
   ///@param kernelEntry - entry block of the kernel.
   ///@param isVector - true iff working on vector kernel
@@ -177,20 +174,20 @@ private:
   ///       to uniform early exit value.
   ///@param ret block - retrun block to jump to incase of uniform early exit.
   void handleUniformEE(BasicBlock *retBlock);
-  
+
   ///@brief returns the early exit call.
   ///@returns as above.
   CallInst *createEECall();
 
   ///@brief moves alloca to new entry block.
   void moveAllocaToEntry(BasicBlock *BB);
-  
+
   ///@brief obtain initial global id, and loop size per dimension.
   void getLoopsBoundaries();
 
   ///@brief create WG loops over vector kernel and remainder loop over scalar
   ///       kernel.
-  ///@retruns a struct with entry and exit block of the WG loop region. 
+  ///@retruns a struct with entry and exit block of the WG loop region.
   loopRegion createVectorAndRemainderLoops();
 
   ///@brief replace the get***tid calls with incremented phi in loop head.
@@ -262,7 +259,7 @@ private:
 
   ///@brief index i contains vector with scalar kernel get_local_id(i) calls.
   IVecVec m_lidCallsSc;
-  
+
   ///@brief index i contains vector with vector kernel get_global_id(i) calls.
   IVecVec m_gidCallsVec;
 
@@ -277,10 +274,10 @@ private:
 
   ///@brief vector kernel return.
   ReturnInst *m_vectorRet;
-  
+
   ///@brief global_id lower bounds per dimension.
   VVec m_initGIDs;
-  
+
   ///@brief m_loopSize per dimension.
   VVec m_loopSizes;
 
