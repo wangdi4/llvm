@@ -2573,7 +2573,7 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
 
 void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred) {
   unsigned predReg = 0;
-  unsigned rptPred = 0;
+  bool flipBackedgePred = false;
   unsigned predConst = initInst->getOperand(1).getImm();
   MachineBasicBlock* lphdr = mloop->getHeader();
   MachineBasicBlock* latchBB = mloop->getLoopLatch();
@@ -2615,12 +2615,10 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
 
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();
-              rptPred = backedgePred;
               if (predConst) {
                 //flip backedgePred
-                unsigned notBackedgePred = MRI->createVirtualRegister(&CSA::I1RegClass);
-                BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notBackedgePred).addReg(backedgePred);
-                rptPred = notBackedgePred;
+                errs() << "SKIPPED A NOT1.\n";
+                flipBackedgePred = true;
               }
             }
 
@@ -2645,11 +2643,21 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             repeats.insert(pickInst);
 
             const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
-            MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
-              CSA::IGN).
-              addReg(rptIReg, RegState::Define).
-              addReg(rptPred).
-              addReg(rptOReg);
+            MachineInstr *switchInst;
+            if (flipBackedgePred) {
+              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+                  rptIReg).
+                addReg(CSA::IGN).
+                addReg(backedgePred).
+                addReg(rptOReg);
+              switchInst->getOperand(0).setIsDef();
+            } else {
+              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+                  CSA::IGN).
+                addReg(rptIReg, RegState::Define).
+                addReg(backedgePred).
+                addReg(rptOReg);
+            }
             switchInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(switchInst);
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
