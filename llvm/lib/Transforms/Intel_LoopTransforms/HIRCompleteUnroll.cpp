@@ -88,7 +88,7 @@ static cl::opt<unsigned> CommandLineOptLevel(
     cl::desc(
         "Opt level for complete unroll (2 or 3). This affects unroll limits."));
 
-const unsigned O2LoopTripThreshold = 32;
+const unsigned O2LoopTripThreshold = 64;
 const unsigned O3LoopTripThreshold = 64;
 
 // The trip count threshold is intentionally set to a high value as profitablity
@@ -98,7 +98,7 @@ static cl::opt<unsigned> LoopTripThreshold(
     cl::desc("Don't unroll if trip count of any loop is bigger than this "
              "threshold. 0 means default threshold."));
 
-const unsigned O2LoopnestTripThreshold = 64;
+const unsigned O2LoopnestTripThreshold = 128;
 const unsigned O3LoopnestTripThreshold = 128;
 
 static cl::opt<unsigned> LoopnestTripThreshold(
@@ -120,7 +120,7 @@ static cl::opt<unsigned> PostVectorSavingsThreshold(
         "Least amount of savings (in percentage) for complete unrolling "
         "of a loopnest to be deemed profitable after vectorizer kicks in."));
 
-const unsigned O2UnrolledLoopMemRefThreshold = 75;
+const unsigned O2UnrolledLoopMemRefThreshold = 150;
 const unsigned O3UnrolledLoopMemRefThreshold = 150;
 
 static cl::opt<unsigned> UnrolledLoopMemRefThreshold(
@@ -128,7 +128,7 @@ static cl::opt<unsigned> UnrolledLoopMemRefThreshold(
     cl::desc("Maximum number of memory refs allowed in completely unrolled "
              "loopnest. 0 means default threshold."));
 
-const unsigned O2UnrolledLoopDDRefThreshold = 500;
+const unsigned O2UnrolledLoopDDRefThreshold = 1000;
 const unsigned O3UnrolledLoopDDRefThreshold = 1000;
 
 static cl::opt<unsigned> UnrolledLoopDDRefThreshold(
@@ -152,7 +152,7 @@ static cl::opt<unsigned> SmallLoopAdditionalSavingsThreshold(
     cl::desc("Threshold for extra savings added to small loops to give them "
              "higher probability of unrolling)"));
 
-const float O2MaxThresholdScalingFactor = 5.0;
+const float O2MaxThresholdScalingFactor = 10.0;
 const float O3MaxThresholdScalingFactor = 10.0;
 
 static cl::opt<float> MaxThresholdScalingFactor(
