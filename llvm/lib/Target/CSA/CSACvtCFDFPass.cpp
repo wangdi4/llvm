@@ -2616,8 +2616,6 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();
               if (predConst) {
-                //flip backedgePred
-                errs() << "SKIPPED A NOT1.\n";
                 flipBackedgePred = true;
               }
             }
