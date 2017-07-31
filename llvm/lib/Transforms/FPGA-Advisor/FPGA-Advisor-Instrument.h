@@ -71,7 +71,7 @@ class AdvisorInstr : public ModulePass {
 		void instrument_timer_for_call(Instruction *I);
 		void instrument_rdtsc_before_instruction(Instruction *I, bool start);
 		void instrument_rdtsc_after_instruction(Instruction *I, bool start);
-		void instrument_rdtsc_for_call(Instruction *I);
+		void instrument_rdtsc_for_call(Instruction *I, std::string);
 		uint64_t get_store_size_in_bytes(StoreInst *SI);
 		uint64_t get_load_size_in_bytes(LoadInst *LI);
 		//std::string get_value_as_string(const Value *value);
