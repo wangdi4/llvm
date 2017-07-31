@@ -228,6 +228,7 @@ unsigned HIRLocalityAnalysis::computeExtraCacheLines(
 
     int64_t Dist;
     auto Res = DDRefUtils::getConstByteDistance(CurRef, PrevRef, &Dist);
+    (void)Res;
     assert((Res && (Dist >= 0)) &&
            "Refs do not have constant non-negative distance!");
 
