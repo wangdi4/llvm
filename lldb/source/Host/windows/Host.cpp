@@ -15,21 +15,21 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
 
 #include "llvm/Support/ConvertUTF.h"
 
 // Windows includes
-#include <TlHelp32.h>
+#include <tlhelp32.h>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -97,14 +97,6 @@ void GetProcessExecutableAndTriple(const AutoHandle &handle,
 }
 }
 
-lldb::DataBufferSP Host::GetAuxvData(lldb_private::Process *process) {
-  return 0;
-}
-
-lldb::tid_t Host::GetCurrentThreadID() {
-  return lldb::tid_t(::GetCurrentThreadId());
-}
-
 lldb::thread_t Host::GetCurrentThread() {
   return lldb::thread_t(::GetCurrentThread());
 }
@@ -159,7 +151,7 @@ uint32_t Host::FindProcesses(const ProcessInstanceInfoMatch &match_info,
   if (!snapshot.IsValid())
     return 0;
 
-  PROCESSENTRY32W pe = {0};
+  PROCESSENTRY32W pe = {};
   pe.dwSize = sizeof(PROCESSENTRY32W);
   if (Process32FirstW(snapshot.get(), &pe)) {
     do {
@@ -230,8 +222,9 @@ Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
 
     int status;
     std::string output;
-    RunShellCommand(expand_command.GetData(), launch_info.GetWorkingDirectory(),
-                    &status, nullptr, &output, 10);
+    std::string command = expand_command.GetString();
+    RunShellCommand(command.c_str(), launch_info.GetWorkingDirectory(), &status,
+                    nullptr, &output, 10);
 
     if (status != 0) {
       error.SetErrorStringWithFormat("lldb-argdumper exited with error %d",
@@ -273,7 +266,7 @@ Error Host::ShellExpandArguments(ProcessLaunchInfo &launch_info) {
       if (!str_sp)
         continue;
 
-      launch_info.GetArguments().AppendArgument(str_sp->GetValue().c_str());
+      launch_info.GetArguments().AppendArgument(str_sp->GetValue());
     }
   }
 

@@ -2,6 +2,25 @@
 
 find_package(Threads REQUIRED)
 
+# NOTE: Some tests use `<cassert>` to perform the test. Therefore we must
+# strip -DNDEBUG from the default CMake flags in DEBUG mode.
+string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+if( NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" )
+  add_definitions( -UNDEBUG )
+  add_definitions(-DTEST_BENCHMARK_LIBRARY_HAS_NO_ASSERTIONS)
+  # Also remove /D NDEBUG to avoid MSVC warnings about conflicting defines.
+  foreach (flags_var_to_scrub
+      CMAKE_CXX_FLAGS_RELEASE
+      CMAKE_CXX_FLAGS_RELWITHDEBINFO
+      CMAKE_CXX_FLAGS_MINSIZEREL
+      CMAKE_C_FLAGS_RELEASE
+      CMAKE_C_FLAGS_RELWITHDEBINFO
+      CMAKE_C_FLAGS_MINSIZEREL)
+    string (REGEX REPLACE "(^| )[/-]D *NDEBUG($| )" " "
+      "${flags_var_to_scrub}" "${${flags_var_to_scrub}}")
+  endforeach()
+endif()
+
 # NOTE: These flags must be added after find_package(Threads REQUIRED) otherwise
 # they will break the configuration check.
 if (DEFINED BENCHMARK_CXX_LINKER_FLAGS)
@@ -17,7 +36,7 @@ endmacro(compile_benchmark_test)
 
 
 macro(compile_output_test name)
-  add_executable(${name} "${name}.cc")
+  add_executable(${name} "${name}.cc" output_test.h)
   target_link_libraries(${name} output_test_helper benchmark
           ${BENCHMARK_CXX_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 endmacro(compile_output_test)
@@ -85,8 +104,14 @@ if (BENCHMARK_HAS_CXX03_FLAG)
   add_test(cxx03 cxx03_test --benchmark_min_time=0.01)
 endif()
 
+# Attempt to work around flaky test failures when running on Appveyor servers.
+if (DEFINED ENV{APPVEYOR})
+  set(COMPLEXITY_MIN_TIME "0.5")
+else()
+  set(COMPLEXITY_MIN_TIME "0.01")
+endif()
 compile_output_test(complexity_test)
-add_test(complexity_benchmark complexity_test --benchmark_min_time=0.01)
+add_test(complexity_benchmark complexity_test --benchmark_min_time=${COMPLEXITY_MIN_TIME})
 
 # Add the coverage command(s)
 if(CMAKE_BUILD_TYPE)

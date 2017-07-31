@@ -13,10 +13,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
@@ -27,6 +24,9 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -205,7 +205,7 @@ AppleGetQueuesHandler::SetupGetQueuesFunction(Thread &thread,
     Error error;
     get_queues_caller = m_get_queues_impl_code_up->MakeFunctionCaller(
         get_queues_return_type, get_queues_arglist, thread_sp, error);
-    if (error.Fail()) {
+    if (error.Fail() || get_queues_caller == nullptr) {
       if (log)
         log->Printf(
             "Could not get function caller for get-queues function: %s.",
@@ -357,7 +357,7 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
   options.SetUnwindOnError(true);
   options.SetIgnoreBreakpoints(true);
   options.SetStopOthers(true);
-  options.SetTimeoutUsec(500000);
+  options.SetTimeout(std::chrono::milliseconds(500));
   options.SetTryAllThreads(false);
   thread.CalculateExecutionContext(exe_ctx);
 

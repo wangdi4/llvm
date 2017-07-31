@@ -22,8 +22,8 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Stream.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Stream.h"
 
 class MappedHash {
 public:
@@ -52,8 +52,7 @@ public:
     default:
       break;
     }
-    assert(!"Invalid hash function index");
-    return 0;
+    llvm_unreachable("Invalid hash function index");
   }
 
   static const uint32_t HASH_MAGIC = 0x48415348u;
@@ -354,7 +353,7 @@ public:
     bool IsValid() const {
       return m_header.version == 1 &&
              m_header.hash_function == eHashFunctionDJB &&
-             m_header.bucket_count > 0 && m_header.hashes_count > 0;
+             m_header.bucket_count > 0;
     }
 
     uint32_t GetHashIndex(uint32_t bucket_idx) const {

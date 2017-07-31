@@ -14,11 +14,11 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/DataFormatters/FormatManager.h"
 #include "lldb/Host/StringConvert.h"
+#include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/StringExtractor.h"
 
 using namespace lldb;
@@ -125,9 +125,9 @@ DynamicRegisterInfo::SetRegisterInfo(const StructuredData::Dictionary &dict,
         // LSBIT - the least significant bit at which the current register value
         // ends at
         static RegularExpression g_bitfield_regex(
-            "([A-Za-z_][A-Za-z0-9_]*)\\[([0-9]+):([0-9]+)\\]");
+            llvm::StringRef("([A-Za-z_][A-Za-z0-9_]*)\\[([0-9]+):([0-9]+)\\]"));
         RegularExpression::Match regex_match(3);
-        if (g_bitfield_regex.Execute(slice_str.c_str(), &regex_match)) {
+        if (g_bitfield_regex.Execute(slice_str, &regex_match)) {
           llvm::StringRef reg_name_str;
           std::string msbit_str;
           std::string lsbit_str;
@@ -167,7 +167,7 @@ DynamicRegisterInfo::SetRegisterInfo(const StructuredData::Dictionary &dict,
                       reg_info.byte_offset =
                           containing_reg_info->byte_offset + msbyte;
                     } else {
-                      assert(!"Invalid byte order");
+                      llvm_unreachable("Invalid byte order");
                     }
                   } else {
                     if (msbit > max_bit)
@@ -281,6 +281,7 @@ DynamicRegisterInfo::SetRegisterInfo(const StructuredData::Dictionary &dict,
       // Swap "dwarf_opcode_string" over into "opcode_extractor"
       opcode_extractor.GetStringRef().swap(dwarf_opcode_string);
       uint32_t ret_val = opcode_extractor.GetHexBytesAvail(dwarf_opcode_bytes);
+      UNUSED_IF_ASSERT_DISABLED(ret_val);
       assert(ret_val == reg_info.dynamic_size_dwarf_len);
 
       for (j = 0; j < reg_info.dynamic_size_dwarf_len; ++j)
@@ -305,8 +306,7 @@ DynamicRegisterInfo::SetRegisterInfo(const StructuredData::Dictionary &dict,
 
     std::string encoding_str;
     if (reg_info_dict->GetValueForKeyAsString("encoding", encoding_str))
-      reg_info.encoding =
-          Args::StringToEncoding(encoding_str.c_str(), eEncodingUint);
+      reg_info.encoding = Args::StringToEncoding(encoding_str, eEncodingUint);
     else
       reg_info_dict->GetValueForKeyAsInteger("encoding", reg_info.encoding,
                                              eEncodingUint);
@@ -337,7 +337,7 @@ DynamicRegisterInfo::SetRegisterInfo(const StructuredData::Dictionary &dict,
     std::string generic_str;
     if (reg_info_dict->GetValueForKeyAsString("generic", generic_str))
       reg_info.kinds[lldb::eRegisterKindGeneric] =
-          Args::StringToGenericRegister(generic_str.c_str());
+          Args::StringToGenericRegister(generic_str);
     else
       reg_info_dict->GetValueForKeyAsInteger(
           "generic", reg_info.kinds[lldb::eRegisterKindGeneric],

@@ -7,7 +7,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: libcpp-no-exceptions
+// exception_ptr has not been implemented on Windows
+// XFAIL: LIBCXX-WINDOWS-FIXME
+
+// UNSUPPORTED: libcpp-no-exceptions
 // <exception>
 
 // void rethrow_exception [[noreturn]] (exception_ptr p);

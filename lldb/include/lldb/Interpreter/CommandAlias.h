@@ -26,15 +26,15 @@ public:
   typedef std::unique_ptr<CommandAlias> UniquePointer;
 
   CommandAlias(CommandInterpreter &interpreter, lldb::CommandObjectSP cmd_sp,
-               const char *options_args, const char *name,
-               const char *help = nullptr, const char *syntax = nullptr,
-               uint32_t flags = 0);
+               llvm::StringRef options_args, llvm::StringRef name,
+               llvm::StringRef help = llvm::StringRef(),
+               llvm::StringRef syntax = llvm::StringRef(), uint32_t flags = 0);
 
-  void GetAliasExpansion(StreamString &help_string);
+  void GetAliasExpansion(StreamString &help_string) const;
 
-  bool IsValid() { return m_underlying_command_sp && m_option_args_sp; }
+  bool IsValid() const { return m_underlying_command_sp && m_option_args_sp; }
 
-  explicit operator bool() { return IsValid(); }
+  explicit operator bool() const { return IsValid(); }
 
   bool WantsRawCommandString() override;
 
@@ -58,20 +58,20 @@ public:
 
   bool IsDashDashCommand() override;
 
-  const char *GetHelp() override;
+  llvm::StringRef GetHelp() override;
 
-  const char *GetHelpLong() override;
+  llvm::StringRef GetHelpLong() override;
 
-  void SetHelp(const char *str) override;
+  void SetHelp(llvm::StringRef str) override;
 
-  void SetHelpLong(const char *str) override;
+  void SetHelpLong(llvm::StringRef str) override;
 
   bool Execute(const char *args_string, CommandReturnObject &result) override;
 
   lldb::CommandObjectSP GetUnderlyingCommand() {
     return m_underlying_command_sp;
   }
-  OptionArgVectorSP GetOptionArguments() { return m_option_args_sp; }
+  OptionArgVectorSP GetOptionArguments() const { return m_option_args_sp; }
   const char *GetOptionString() { return m_option_string.c_str(); }
 
   // this takes an alias - potentially nested (i.e. an alias to an alias)

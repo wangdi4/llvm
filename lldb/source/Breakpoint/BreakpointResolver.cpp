@@ -22,15 +22,15 @@
 #include "lldb/Breakpoint/BreakpointResolverFileRegex.h"
 #include "lldb/Breakpoint/BreakpointResolverName.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/SearchFilter.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb_private;
 using namespace lldb;
@@ -179,7 +179,7 @@ void BreakpointResolver::ResolveBreakpoint(SearchFilter &filter) {
 void BreakpointResolver::SetSCMatchesByLine(SearchFilter &filter,
                                             SymbolContextList &sc_list,
                                             bool skip_prologue,
-                                            const char *log_ident) {
+                                            llvm::StringRef log_ident) {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_BREAKPOINTS));
 
   while (sc_list.GetSize() > 0) {
@@ -293,15 +293,14 @@ void BreakpointResolver::SetSCMatchesByLine(SearchFilter &filter,
           } else if (log) {
             log->Printf("Breakpoint %s at file address 0x%" PRIx64
                         " didn't pass the filter.\n",
-                        log_ident ? log_ident : "",
-                        line_start.GetFileAddress());
+                        log_ident.str().c_str(), line_start.GetFileAddress());
           }
         } else {
           if (log)
             log->Printf(
                 "error: Unable to set breakpoint %s at file address 0x%" PRIx64
                 "\n",
-                log_ident ? log_ident : "", line_start.GetFileAddress());
+                log_ident.str().c_str(), line_start.GetFileAddress());
         }
       }
     }

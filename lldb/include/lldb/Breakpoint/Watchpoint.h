@@ -19,9 +19,9 @@
 // Project includes
 #include "lldb/Breakpoint/StoppointLocation.h"
 #include "lldb/Breakpoint/WatchpointOptions.h"
-#include "lldb/Core/UserID.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/UserID.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -71,6 +71,10 @@ public:
 
   bool IsEnabled() const;
 
+  // This doesn't really enable/disable the watchpoint.  
+  // It is currently just for use in the Process plugin's
+  // {Enable,Disable}Watchpoint, which should be used instead.
+  
   void SetEnabled(bool enabled, bool notify = true);
 
   bool IsHardware() const override;

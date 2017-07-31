@@ -9,7 +9,7 @@
 
 #include "lldb/API/SBStringList.h"
 
-#include "lldb/Core/StringList.h"
+#include "lldb/Utility/StringList.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -73,6 +73,12 @@ void SBStringList::AppendList(const SBStringList &strings) {
       m_opaque_ap.reset(new lldb_private::StringList());
     m_opaque_ap->AppendList(*(strings.m_opaque_ap));
   }
+}
+
+void SBStringList::AppendList(const StringList &strings) {
+  if (!IsValid())
+    m_opaque_ap.reset(new lldb_private::StringList());
+  m_opaque_ap->AppendList(strings);
 }
 
 uint32_t SBStringList::GetSize() const {

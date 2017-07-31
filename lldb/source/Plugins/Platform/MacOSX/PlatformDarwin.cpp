@@ -22,15 +22,11 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Breakpoint/BreakpointSite.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/Timer.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Host/Symbols.h"
 #include "lldb/Host/XML.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -39,7 +35,12 @@
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferLLVM.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Threading.h"
 
 #if defined(__APPLE__)
 #include <TargetConditionals.h> // for TARGET_OS_TV, TARGET_OS_WATCH
@@ -133,8 +134,8 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
                     "%s/../Python/%s.py",
                     symfile_spec.GetDirectory().GetCString(),
                     original_module_basename.c_str());
-                FileSpec script_fspec(path_string.GetData(), true);
-                FileSpec orig_script_fspec(original_path_string.GetData(),
+                FileSpec script_fspec(path_string.GetString(), true);
+                FileSpec orig_script_fspec(original_path_string.GetString(),
                                            true);
 
                 // if we did some replacements of reserved characters, and a
@@ -194,127 +195,20 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
   return file_list;
 }
 
-Error PlatformDarwin::ResolveExecutable(
-    const ModuleSpec &module_spec, lldb::ModuleSP &exe_module_sp,
-    const FileSpecList *module_search_paths_ptr) {
-  Error error;
-  // Nothing special to do here, just use the actual file and architecture
-
-  char exe_path[PATH_MAX];
-  ModuleSpec resolved_module_spec(module_spec);
-
-  if (IsHost()) {
-    // If we have "ls" as the exe_file, resolve the executable loation based on
-    // the current path variables
-    if (!resolved_module_spec.GetFileSpec().Exists()) {
-      module_spec.GetFileSpec().GetPath(exe_path, sizeof(exe_path));
-      resolved_module_spec.GetFileSpec().SetFile(exe_path, true);
-    }
-
-    if (!resolved_module_spec.GetFileSpec().Exists())
-      resolved_module_spec.GetFileSpec().ResolveExecutableLocation();
-
-    // Resolve any executable within a bundle on MacOSX
-    Host::ResolveExecutableInBundle(resolved_module_spec.GetFileSpec());
-
-    if (resolved_module_spec.GetFileSpec().Exists())
-      error.Clear();
-    else {
-      const uint32_t permissions =
-          resolved_module_spec.GetFileSpec().GetPermissions();
-      if (permissions && (permissions & eFilePermissionsEveryoneR) == 0)
-        error.SetErrorStringWithFormat(
-            "executable '%s' is not readable",
-            resolved_module_spec.GetFileSpec().GetPath().c_str());
-      else
-        error.SetErrorStringWithFormat(
-            "unable to find executable for '%s'",
-            resolved_module_spec.GetFileSpec().GetPath().c_str());
-    }
-  } else {
-    if (m_remote_platform_sp) {
-      error =
-          GetCachedExecutable(resolved_module_spec, exe_module_sp,
-                              module_search_paths_ptr, *m_remote_platform_sp);
-    } else {
-      // We may connect to a process and use the provided executable (Don't use
-      // local $PATH).
-
-      // Resolve any executable within a bundle on MacOSX
-      Host::ResolveExecutableInBundle(resolved_module_spec.GetFileSpec());
-
-      if (resolved_module_spec.GetFileSpec().Exists())
-        error.Clear();
-      else
-        error.SetErrorStringWithFormat(
-            "the platform is not currently connected, and '%s' doesn't exist "
-            "in the system root.",
-            resolved_module_spec.GetFileSpec().GetFilename().AsCString(""));
-    }
-  }
-
-  if (error.Success()) {
-    if (resolved_module_spec.GetArchitecture().IsValid()) {
-      error = ModuleList::GetSharedModule(resolved_module_spec, exe_module_sp,
-                                          module_search_paths_ptr, NULL, NULL);
-
-      if (error.Fail() || exe_module_sp.get() == NULL ||
-          exe_module_sp->GetObjectFile() == NULL) {
-        exe_module_sp.reset();
-        error.SetErrorStringWithFormat(
-            "'%s' doesn't contain the architecture %s",
-            resolved_module_spec.GetFileSpec().GetPath().c_str(),
-            resolved_module_spec.GetArchitecture().GetArchitectureName());
-      }
-    } else {
-      // No valid architecture was specified, ask the platform for
-      // the architectures that we should be using (in the correct order)
-      // and see if we can find a match that way
-      StreamString arch_names;
-      for (uint32_t idx = 0; GetSupportedArchitectureAtIndex(
-               idx, resolved_module_spec.GetArchitecture());
-           ++idx) {
-        error = GetSharedModule(resolved_module_spec, NULL, exe_module_sp,
-                                module_search_paths_ptr, NULL, NULL);
-        // Did we find an executable using one of the
-        if (error.Success()) {
-          if (exe_module_sp && exe_module_sp->GetObjectFile())
-            break;
-          else
-            error.SetErrorToGenericError();
-        }
-
-        if (idx > 0)
-          arch_names.PutCString(", ");
-        arch_names.PutCString(
-            resolved_module_spec.GetArchitecture().GetArchitectureName());
-      }
-
-      if (error.Fail() || !exe_module_sp) {
-        if (resolved_module_spec.GetFileSpec().Readable()) {
-          error.SetErrorStringWithFormat(
-              "'%s' doesn't contain any '%s' platform architectures: %s",
-              resolved_module_spec.GetFileSpec().GetPath().c_str(),
-              GetPluginName().GetCString(), arch_names.GetString().c_str());
-        } else {
-          error.SetErrorStringWithFormat(
-              "'%s' is not readable",
-              resolved_module_spec.GetFileSpec().GetPath().c_str());
-        }
-      }
-    }
-  }
-
-  return error;
-}
-
 Error PlatformDarwin::ResolveSymbolFile(Target &target,
                                         const ModuleSpec &sym_spec,
                                         FileSpec &sym_file) {
   Error error;
   sym_file = sym_spec.GetSymbolFileSpec();
-  if (sym_file.Exists()) {
-    if (sym_file.GetFileType() == FileSpec::eFileTypeDirectory) {
+
+  llvm::sys::fs::file_status st;
+  if (status(sym_file.GetPath(), st, false)) {
+    error.SetErrorString("Could not stat file!");
+    return error;
+  }
+
+  if (exists(st)) {
+    if (is_directory(st)) {
       sym_file = Symbols::FindSymbolFileInBundle(
           sym_file, sym_spec.GetUUIDPtr(), sym_spec.GetArchitecturePtr());
     }
@@ -329,8 +223,7 @@ static lldb_private::Error
 MakeCacheFolderForFile(const FileSpec &module_cache_spec) {
   FileSpec module_cache_folder =
       module_cache_spec.CopyByRemovingLastPathComponent();
-  return FileSystem::MakeDirectory(module_cache_folder,
-                                   eFilePermissionsDirectoryDefault);
+  return llvm::sys::fs::create_directory(module_cache_folder.GetPath());
 }
 
 static lldb_private::Error
@@ -373,7 +266,7 @@ lldb_private::Error PlatformDarwin::GetSharedModuleWithLocalCache(
     if (!cache_path.empty()) {
       std::string module_path(module_spec.GetFileSpec().GetPath());
       cache_path.append(module_path);
-      FileSpec module_cache_spec(cache_path.c_str(), false);
+      FileSpec module_cache_spec(cache_path, false);
 
       // if rsync is supported, always bring in the file - rsync will be very
       // efficient
@@ -402,11 +295,14 @@ lldb_private::Error PlatformDarwin::GetSharedModuleWithLocalCache(
         // get the local and remote MD5 and compare
         if (m_remote_platform_sp) {
           // when going over the *slow* GDB remote transfer mechanism we first
-          // check
-          // the hashes of the files - and only do the actual transfer if they
-          // differ
+          // check the hashes of the files - and only do the actual transfer if
+          // they differ
           uint64_t high_local, high_remote, low_local, low_remote;
-          FileSystem::CalculateMD5(module_cache_spec, low_local, high_local);
+          auto MD5 = llvm::sys::fs::md5_contents(module_cache_spec.GetPath());
+          if (!MD5)
+            return Error(MD5.getError());
+          std::tie(high_local, low_local) = MD5->words();
+
           m_remote_platform_sp->CalculateMD5(module_spec.GetFileSpec(),
                                              low_remote, high_remote);
           if (low_local != low_remote || high_local != high_remote) {
@@ -603,34 +499,6 @@ PlatformDarwin::GetSoftwareBreakpointTrapOpcode(Target &target,
   return 0;
 }
 
-bool PlatformDarwin::GetProcessInfo(lldb::pid_t pid,
-                                    ProcessInstanceInfo &process_info) {
-  bool success = false;
-  if (IsHost()) {
-    success = Platform::GetProcessInfo(pid, process_info);
-  } else {
-    if (m_remote_platform_sp)
-      success = m_remote_platform_sp->GetProcessInfo(pid, process_info);
-  }
-  return success;
-}
-
-uint32_t
-PlatformDarwin::FindProcesses(const ProcessInstanceInfoMatch &match_info,
-                              ProcessInstanceInfoList &process_infos) {
-  uint32_t match_count = 0;
-  if (IsHost()) {
-    // Let the base class figure out the host details
-    match_count = Platform::FindProcesses(match_info, process_infos);
-  } else {
-    // If we are remote, we can only return results if we are connected
-    if (m_remote_platform_sp)
-      match_count =
-          m_remote_platform_sp->FindProcesses(match_info, process_infos);
-  }
-  return match_count;
-}
-
 bool PlatformDarwin::ModuleIsExcludedForUnconstrainedSearches(
     lldb_private::Target &target, const lldb::ModuleSP &module_sp) {
   if (!module_sp)
@@ -701,6 +569,8 @@ bool PlatformDarwin::ARMGetSupportedArchitectureAtIndex(uint32_t idx,
 #define OSNAME "tvos"
 #elif defined(TARGET_OS_WATCH) && TARGET_OS_WATCH == 1
 #define OSNAME "watchos"
+#elif defined(TARGET_OS_BRIDGE) && TARGET_OS_BRIDGE == 1
+#define OSNAME "bridgeos"
 #else
 #define OSNAME "ios"
 #endif
@@ -1294,14 +1164,17 @@ const char *PlatformDarwin::GetDeveloperDirectory() {
       if (xcode_select_prefix_dir)
         xcode_dir_path.append(xcode_select_prefix_dir);
       xcode_dir_path.append("/usr/share/xcode-select/xcode_dir_path");
-      temp_file_spec.SetFile(xcode_dir_path.c_str(), false);
-      size_t bytes_read = temp_file_spec.ReadFileContents(
-          0, developer_dir_path, sizeof(developer_dir_path), NULL);
-      if (bytes_read > 0) {
-        developer_dir_path[bytes_read] = '\0';
-        while (developer_dir_path[bytes_read - 1] == '\r' ||
-               developer_dir_path[bytes_read - 1] == '\n')
-          developer_dir_path[--bytes_read] = '\0';
+      temp_file_spec.SetFile(xcode_dir_path, false);
+      auto dir_buffer =
+          DataBufferLLVM::CreateFromPath(temp_file_spec.GetPath(), true);
+      if (dir_buffer && dir_buffer->GetByteSize() > 0) {
+        llvm::StringRef path_ref(dir_buffer->GetChars());
+        // Trim tailing newlines and make sure there is enough room for a null
+        // terminator.
+        path_ref =
+            path_ref.rtrim("\r\n").take_front(sizeof(developer_dir_path) - 1);
+        ::memcpy(developer_dir_path, path_ref.data(), path_ref.size());
+        developer_dir_path[path_ref.size()] = '\0';
         developer_dir_path_valid = true;
       }
     }
@@ -1331,7 +1204,7 @@ const char *PlatformDarwin::GetDeveloperDirectory() {
           developer_dir_path[i] = '\0';
 
           FileSpec devel_dir(developer_dir_path, false);
-          if (devel_dir.Exists() && devel_dir.IsDirectory()) {
+          if (llvm::sys::fs::is_directory(devel_dir.GetPath())) {
             developer_dir_path_valid = true;
           }
         }
@@ -1436,7 +1309,7 @@ static FileSpec CheckPathForXcode(const FileSpec &fspec) {
     size_t pos = path_to_shlib.rfind(substr);
     if (pos != std::string::npos) {
       path_to_shlib.erase(pos + strlen(substr));
-      FileSpec ret(path_to_shlib.c_str(), false);
+      FileSpec ret(path_to_shlib, false);
 
       FileSpec xcode_binary_path = ret;
       xcode_binary_path.AppendPathComponent("MacOS");
@@ -1452,8 +1325,8 @@ static FileSpec CheckPathForXcode(const FileSpec &fspec) {
 
 static FileSpec GetXcodeContentsPath() {
   static FileSpec g_xcode_filespec;
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
+  static llvm::once_flag g_once_flag;
+  llvm::call_once(g_once_flag, []() {
 
     FileSpec fspec;
 
@@ -1503,7 +1376,7 @@ static FileSpec GetXcodeContentsPath() {
           }
           output.append("/..");
 
-          g_xcode_filespec = CheckPathForXcode(FileSpec(output.c_str(), false));
+          g_xcode_filespec = CheckPathForXcode(FileSpec(output, false));
         }
       }
     }
@@ -1576,9 +1449,8 @@ bool PlatformDarwin::SDKSupportsModules(SDKType desired_type,
   return false;
 }
 
-FileSpec::EnumerateDirectoryResult
-PlatformDarwin::DirectoryEnumerator(void *baton, FileSpec::FileType file_type,
-                                    const FileSpec &spec) {
+FileSpec::EnumerateDirectoryResult PlatformDarwin::DirectoryEnumerator(
+    void *baton, llvm::sys::fs::file_type file_type, const FileSpec &spec) {
   SDKEnumeratorInfo *enumerator_info = static_cast<SDKEnumeratorInfo *>(baton);
 
   if (SDKSupportsModules(enumerator_info->sdk_type, spec)) {
@@ -1593,8 +1465,9 @@ FileSpec PlatformDarwin::FindSDKInXcodeForModules(SDKType sdk_type,
                                                   const FileSpec &sdks_spec) {
   // Look inside Xcode for the required installed iOS SDK version
 
-  if (!sdks_spec.IsDirectory())
+  if (!llvm::sys::fs::is_directory(sdks_spec.GetPath())) {
     return FileSpec();
+  }
 
   const bool find_directories = true;
   const bool find_files = false;
@@ -1604,11 +1477,11 @@ FileSpec PlatformDarwin::FindSDKInXcodeForModules(SDKType sdk_type,
 
   enumerator_info.sdk_type = sdk_type;
 
-  FileSpec::EnumerateDirectory(sdks_spec.GetPath().c_str(), find_directories,
+  FileSpec::EnumerateDirectory(sdks_spec.GetPath(), find_directories,
                                find_files, find_other, DirectoryEnumerator,
                                &enumerator_info);
 
-  if (enumerator_info.found_path.IsDirectory())
+  if (llvm::sys::fs::is_directory(enumerator_info.found_path.GetPath()))
     return enumerator_info.found_path;
   else
     return FileSpec();
@@ -1654,8 +1527,7 @@ FileSpec PlatformDarwin::GetSDKDirectoryForModules(SDKType sdk_type) {
         FileSpec native_sdk_spec = sdks_spec;
         StreamString native_sdk_name;
         native_sdk_name.Printf("MacOSX%u.%u.sdk", major, minor);
-        native_sdk_spec.AppendPathComponent(
-            native_sdk_name.GetString().c_str());
+        native_sdk_spec.AppendPathComponent(native_sdk_name.GetString());
 
         if (native_sdk_spec.Exists()) {
           return native_sdk_spec;
@@ -1744,22 +1616,19 @@ void PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
       minimum_version_option.PutCString("-mios-version-min=");
       minimum_version_option.PutCString(
           clang::VersionTuple(versions[0], versions[1], versions[2])
-              .getAsString()
-              .c_str());
+              .getAsString());
       break;
     case SDKType::iPhoneSimulator:
       minimum_version_option.PutCString("-mios-simulator-version-min=");
       minimum_version_option.PutCString(
           clang::VersionTuple(versions[0], versions[1], versions[2])
-              .getAsString()
-              .c_str());
+              .getAsString());
       break;
     case SDKType::MacOSX:
       minimum_version_option.PutCString("-mmacosx-version-min=");
       minimum_version_option.PutCString(
           clang::VersionTuple(versions[0], versions[1], versions[2])
-              .getAsString()
-              .c_str());
+              .getAsString());
     }
     options.push_back(minimum_version_option.GetString());
   }
@@ -1771,7 +1640,7 @@ void PlatformDarwin::AddClangModuleCompilationOptionsForSDKType(
     sysroot_spec = GetSDKDirectoryForModules(sdk_type);
   }
 
-  if (sysroot_spec.IsDirectory()) {
+  if (llvm::sys::fs::is_directory(sysroot_spec.GetPath())) {
     options.push_back("-isysroot");
     options.push_back(sysroot_spec.GetPath());
   }
@@ -1783,7 +1652,7 @@ ConstString PlatformDarwin::GetFullNameForDylib(ConstString basename) {
 
   StreamString stream;
   stream.Printf("lib%s.dylib", basename.GetCString());
-  return ConstString(stream.GetData());
+  return ConstString(stream.GetString());
 }
 
 bool PlatformDarwin::GetOSVersion(uint32_t &major, uint32_t &minor,
@@ -1839,8 +1708,8 @@ lldb_private::FileSpec PlatformDarwin::LocateExecutable(const char *basename) {
 
   // Find the global list of directories that we will search for
   // executables once so we don't keep doing the work over and over.
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
+  static llvm::once_flag g_once_flag;
+  llvm::call_once(g_once_flag, []() {
 
     // When locating executables, trust the DEVELOPER_DIR first if it is set
     FileSpec xcode_contents_dir = GetXcodeContentsPath();
@@ -1881,12 +1750,13 @@ PlatformDarwin::LaunchProcess(lldb_private::ProcessLaunchInfo &launch_info) {
   // specifically want it unset.
   const char *disable_env_var = "IDE_DISABLED_OS_ACTIVITY_DT_MODE";
   auto &env_vars = launch_info.GetEnvironmentEntries();
-  if (!env_vars.ContainsEnvironmentVariable(disable_env_var)) {
+  if (!env_vars.ContainsEnvironmentVariable(llvm::StringRef(disable_env_var))) {
     // We want to make sure that OS_ACTIVITY_DT_MODE is set so that
     // we get os_log and NSLog messages mirrored to the target process
     // stderr.
-    if (!env_vars.ContainsEnvironmentVariable("OS_ACTIVITY_DT_MODE"))
-      env_vars.AppendArgument("OS_ACTIVITY_DT_MODE=enable");
+    if (!env_vars.ContainsEnvironmentVariable(
+            llvm::StringRef("OS_ACTIVITY_DT_MODE")))
+      env_vars.AppendArgument(llvm::StringRef("OS_ACTIVITY_DT_MODE=enable"));
   }
 
   // Let our parent class do the real launching.

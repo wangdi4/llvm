@@ -43,11 +43,9 @@ LLVM_ATTRIBUTE_NORETURN static void die(const Twine &S) {
 
 static Flavor getFlavor(StringRef S) {
   return StringSwitch<Flavor>(S)
-      .Case("ld", Gnu)
-      .Case("ld.lld", Gnu)
-      .Case("gnu", Gnu)
-      .Case("link", WinLink)
-      .Case("darwin", Darwin)
+      .CasesLower("ld", "ld.lld", "gnu", Gnu)
+      .CaseLower("link", WinLink)
+      .CaseLower("darwin", Darwin)
       .Default(Invalid);
 }
 
@@ -103,13 +101,13 @@ int main(int Argc, const char **Argv) {
   std::vector<const char *> Args(Argv, Argv + Argc);
   switch (parseFlavor(Args)) {
   case Gnu:
-    return !elf::link(Args);
+    return !elf::link(Args, true);
   case WinLink:
     return !coff::link(Args);
   case Darwin:
     return !mach_o::link(Args);
   default:
     die("lld is a generic driver.\n"
-        "Invoke ld.lld (Unix), ld (Mac) or lld-link (Windows) instead.");
+        "Invoke ld.lld (Unix), ld (macOS) or lld-link (Windows) instead.");
   }
 }

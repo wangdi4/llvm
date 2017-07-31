@@ -79,16 +79,16 @@ static void MaybeReportErrorSummary(Location Loc, ErrorType Type) {
       AI.line = SLoc.getLine();
       AI.column = SLoc.getColumn();
       AI.function = internal_strdup("");  // Avoid printing ?? as function name.
-      ReportErrorSummary(ErrorKind, AI);
+      ReportErrorSummary(ErrorKind, AI, GetSanititizerToolName());
       AI.Clear();
       return;
     }
   } else if (Loc.isSymbolizedStack()) {
     const AddressInfo &AI = Loc.getSymbolizedStack()->info;
-    ReportErrorSummary(ErrorKind, AI);
+    ReportErrorSummary(ErrorKind, AI, GetSanititizerToolName());
     return;
   }
-  ReportErrorSummary(ErrorKind);
+  ReportErrorSummary(ErrorKind, GetSanititizerToolName());
 }
 
 namespace {
@@ -157,7 +157,7 @@ static void RenderLocation(InternalScopedString *Buffer, Location Loc) {
                            common_flags()->strip_path_prefix);
     else if (Info.module)
       RenderModuleLocation(Buffer, Info.module, Info.module_offset,
-                           common_flags()->strip_path_prefix);
+                           Info.module_arch, common_flags()->strip_path_prefix);
     else
       Buffer->append("%p", Info.address);
     return;

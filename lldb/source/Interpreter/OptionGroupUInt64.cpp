@@ -13,6 +13,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
+#include "lldb/Host/OptionParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -39,7 +40,7 @@ OptionGroupUInt64::OptionGroupUInt64(uint32_t usage_mask, bool required,
 OptionGroupUInt64::~OptionGroupUInt64() {}
 
 Error OptionGroupUInt64::SetOptionValue(uint32_t option_idx,
-                                        const char *option_arg,
+                                        llvm::StringRef option_arg,
                                         ExecutionContext *execution_context) {
   Error error(m_value.SetValueFromString(option_arg));
   return error;

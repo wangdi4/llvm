@@ -228,6 +228,10 @@ def line_number(filename, string_to_match):
         "Unable to find '%s' within file %s" %
         (string_to_match, filename))
 
+def get_line(filename, line_number):
+    """Return the text of the line at the 1-based line number."""
+    with io.open(filename, mode='r', encoding="utf-8") as f:
+        return f.readlines()[line_number - 1]
 
 def pointer_size():
     """Return the pointer size of the host system."""
@@ -688,31 +692,30 @@ class Base(unittest2.TestCase):
         if not lldb.remote_platform or not configuration.lldb_platform_working_dir:
             return
 
-        remote_test_dir = lldbutil.join_remote_paths(
-            configuration.lldb_platform_working_dir,
-            self.getArchitecture(),
-            str(self.test_number),
-            self.mydir)
-        error = lldb.remote_platform.MakeDirectory(
-            remote_test_dir, 448)  # 448 = 0o700
-        if error.Success():
-            lldb.remote_platform.SetWorkingDirectory(remote_test_dir)
+        components = [str(self.test_number)] + self.mydir.split(os.path.sep)
+        remote_test_dir = configuration.lldb_platform_working_dir
+        for c in components:
+            remote_test_dir = lldbutil.join_remote_paths(remote_test_dir, c)
+            error = lldb.remote_platform.MakeDirectory(
+                remote_test_dir, 448)  # 448 = 0o700
+            if error.Fail():
+                raise Exception("making remote directory '%s': %s" % (
+                    remote_test_dir, error))
 
-            # This function removes all files from the current working directory while leaving
-            # the directories in place. The cleaup is required to reduce the disk space required
-            # by the test suit while leaving the directories untached is neccessary because
-            # sub-directories might belong to an other test
-            def clean_working_directory():
-                # TODO: Make it working on Windows when we need it for remote debugging support
-                # TODO: Replace the heuristic to remove the files with a logic what collects the
-                # list of files we have to remove during test runs.
-                shell_cmd = lldb.SBPlatformShellCommand(
-                    "rm %s/*" % remote_test_dir)
-                lldb.remote_platform.Run(shell_cmd)
-            self.addTearDownHook(clean_working_directory)
-        else:
-            print("error: making remote directory '%s': %s" % (
-                remote_test_dir, error))
+        lldb.remote_platform.SetWorkingDirectory(remote_test_dir)
+
+        # This function removes all files from the current working directory while leaving
+        # the directories in place. The cleaup is required to reduce the disk space required
+        # by the test suit while leaving the directories untached is neccessary because
+        # sub-directories might belong to an other test
+        def clean_working_directory():
+            # TODO: Make it working on Windows when we need it for remote debugging support
+            # TODO: Replace the heuristic to remove the files with a logic what collects the
+            # list of files we have to remove during test runs.
+            shell_cmd = lldb.SBPlatformShellCommand(
+                "rm %s/*" % remote_test_dir)
+            lldb.remote_platform.Run(shell_cmd)
+        self.addTearDownHook(clean_working_directory)
 
     def setUp(self):
         """Fixture for unittest test case setup.
@@ -824,6 +827,29 @@ class Base(unittest2.TestCase):
 
         # Initialize debug_info
         self.debug_info = None
+
+        lib_dir = os.environ["LLDB_LIB_DIR"]
+        self.dsym = None
+        self.framework_dir = None
+        self.darwinWithFramework = self.platformIsDarwin()
+        if sys.platform.startswith("darwin"):
+            # Handle the framework environment variable if it is set
+            if hasattr(lldbtest_config, 'lldbFrameworkPath'):
+                framework_path = lldbtest_config.lldbFrameworkPath
+                # Framework dir should be the directory containing the framework
+                self.framework_dir = framework_path[:framework_path.rfind('LLDB.framework')]
+            # If a framework dir was not specified assume the Xcode build
+            # directory layout where the framework is in LLDB_LIB_DIR.
+            else:
+                self.framework_dir = lib_dir
+            self.dsym = os.path.join(self.framework_dir, 'LLDB.framework', 'LLDB')
+            # If the framework binary doesn't exist, assume we didn't actually
+            # build a framework, and fallback to standard *nix behavior by
+            # setting framework_dir and dsym to None.
+            if not os.path.exists(self.dsym):
+                self.framework_dir = None
+                self.dsym = None
+                self.darwinWithFramework = False
 
     def setAsync(self, value):
         """ Sets async mode to True/False and ensures it is reset after the testcase completes."""
@@ -1092,8 +1118,11 @@ class Base(unittest2.TestCase):
                     compiler = compiler[2:]
                 if os.path.altsep is not None:
                     compiler = compiler.replace(os.path.altsep, os.path.sep)
-                components.extend(
-                    [x for x in compiler.split(os.path.sep) if x != ""])
+                path_components = [x for x in compiler.split(os.path.sep) if x != ""]
+
+                # Add at most 4 path components to avoid generating very long
+                # filenames
+                components.extend(path_components[-4:])
             elif c == 'a':
                 components.append(self.getArchitecture())
             elif c == 'm':
@@ -1200,6 +1229,13 @@ class Base(unittest2.TestCase):
     # (enables reading of the current test configuration)
     # ====================================================
 
+    def isMIPS(self):
+        """Returns true if the architecture is MIPS."""
+        arch = self.getArchitecture()
+        if re.match("mips", arch):
+            return True
+        return False
+
     def getArchitecture(self):
         """Returns the architecture in effect the test suite is running with."""
         module = builder_module()
@@ -1271,6 +1307,9 @@ class Base(unittest2.TestCase):
     def platformIsDarwin(self):
         """Returns true if the OS triple for the selected platform is any valid apple OS"""
         return lldbplatformutil.platformIsDarwin()
+
+    def hasDarwinFramework(self):
+        return self.darwinWithFramework
 
     def getPlatform(self):
         """Returns the target platform the test suite is running on."""
@@ -1369,15 +1408,14 @@ class Base(unittest2.TestCase):
         stdlibflag = self.getstdlibFlag()
 
         lib_dir = os.environ["LLDB_LIB_DIR"]
-        if sys.platform.startswith("darwin"):
-            dsym = os.path.join(lib_dir, 'LLDB.framework', 'LLDB')
+        if self.hasDarwinFramework():
             d = {'CXX_SOURCES': sources,
                  'EXE': exe_name,
                  'CFLAGS_EXTRAS': "%s %s" % (stdflag, stdlibflag),
-                 'FRAMEWORK_INCLUDES': "-F%s" % lib_dir,
-                 'LD_EXTRAS': "%s -Wl,-rpath,%s" % (dsym, lib_dir),
+                 'FRAMEWORK_INCLUDES': "-F%s" % self.framework_dir,
+                 'LD_EXTRAS': "%s -Wl,-rpath,%s" % (self.dsym, self.framework_dir),
                  }
-        elif sys.platform.rstrip('0123456789') in ('freebsd', 'linux', 'netbsd') or os.environ.get('LLDB_BUILD_TYPE') == 'Makefile':
+        elif sys.platform.rstrip('0123456789') in ('freebsd', 'linux', 'netbsd', 'darwin') or os.environ.get('LLDB_BUILD_TYPE') == 'Makefile':
             d = {
                 'CXX_SOURCES': sources,
                 'EXE': exe_name,
@@ -1386,7 +1424,7 @@ class Base(unittest2.TestCase):
                                                  os.path.join(
                                                      os.environ["LLDB_SRC"],
                                                      "include")),
-                'LD_EXTRAS': "-L%s -llldb" % lib_dir}
+                'LD_EXTRAS': "-L%s/../lib -llldb -Wl,-rpath,%s/../lib" % (lib_dir, lib_dir)}
         elif sys.platform.startswith('win'):
             d = {
                 'CXX_SOURCES': sources,
@@ -1410,15 +1448,14 @@ class Base(unittest2.TestCase):
         stdflag = self.getstdFlag()
 
         lib_dir = os.environ["LLDB_LIB_DIR"]
-        if self.platformIsDarwin():
-            dsym = os.path.join(lib_dir, 'LLDB.framework', 'LLDB')
+        if self.hasDarwinFramework():
             d = {'DYLIB_CXX_SOURCES': sources,
                  'DYLIB_NAME': lib_name,
                  'CFLAGS_EXTRAS': "%s -stdlib=libc++" % stdflag,
-                 'FRAMEWORK_INCLUDES': "-F%s" % lib_dir,
-                 'LD_EXTRAS': "%s -Wl,-rpath,%s -dynamiclib" % (dsym, lib_dir),
+                 'FRAMEWORK_INCLUDES': "-F%s" % self.framework_dir,
+                 'LD_EXTRAS': "%s -Wl,-rpath,%s -dynamiclib" % (self.dsym, self.framework_dir),
                  }
-        elif self.getPlatform() in ('freebsd', 'linux', 'netbsd') or os.environ.get('LLDB_BUILD_TYPE') == 'Makefile':
+        elif sys.platform.rstrip('0123456789') in ('freebsd', 'linux', 'netbsd', 'darwin') or os.environ.get('LLDB_BUILD_TYPE') == 'Makefile':
             d = {
                 'DYLIB_CXX_SOURCES': sources,
                 'DYLIB_NAME': lib_name,
@@ -1426,7 +1463,7 @@ class Base(unittest2.TestCase):
                                                     os.path.join(
                                                         os.environ["LLDB_SRC"],
                                                         "include")),
-                'LD_EXTRAS': "-shared -L%s -llldb" % lib_dir}
+                'LD_EXTRAS': "-shared -L%s/../lib -llldb -Wl,-rpath,%s/../lib" % (lib_dir, lib_dir)}
         elif self.getPlatform() == 'windows':
             d = {
                 'DYLIB_CXX_SOURCES': sources,
@@ -1539,8 +1576,8 @@ class Base(unittest2.TestCase):
 
     def signBinary(self, binary_path):
         if sys.platform.startswith("darwin"):
-            codesign_cmd = "codesign --force --sign lldb_codesign %s" % (
-                binary_path)
+            codesign_cmd = "codesign --force --sign \"%s\" %s" % (
+                lldbtest_config.codesign_identity, binary_path)
             call(codesign_cmd, shell=True)
 
     def findBuiltClang(self):
@@ -1676,7 +1713,7 @@ class LLDBTestCaseFactory(type):
 
                 supported_categories = [
                     x for x in categories if test_categories.is_supported_on_platform(
-                        x, target_platform, configuration.compilers)]
+                        x, target_platform, configuration.compiler)]
                 if "dsym" in supported_categories:
                     @decorators.add_test_categories(["dsym"])
                     @wraps(attrvalue)
@@ -1819,6 +1856,33 @@ class TestBase(Base):
             else:
                 folder = os.path.dirname(folder)
                 continue
+
+    def generateSource(self, source):
+        template = source + '.template'
+        temp = os.path.join(os.getcwd(), template)
+        with open(temp, 'r') as f:
+            content = f.read()
+            
+        public_api_dir = os.path.join(
+            os.environ["LLDB_SRC"], "include", "lldb", "API")
+
+        # Look under the include/lldb/API directory and add #include statements
+        # for all the SB API headers.
+        public_headers = os.listdir(public_api_dir)
+        # For different platforms, the include statement can vary.
+        if self.hasDarwinFramework():
+            include_stmt = "'#include <%s>' % os.path.join('LLDB', header)"
+        else:
+            include_stmt = "'#include <%s>' % os.path.join('" + public_api_dir + "', header)"
+        list = [eval(include_stmt) for header in public_headers if (
+            header.startswith("SB") and header.endswith(".h"))]
+        includes = '\n'.join(list)
+        new_content = content.replace('%include_SB_APIs%', includes)
+        src = os.path.join(os.getcwd(), source)
+        with open(src, 'w') as f:
+            f.write(new_content)
+
+        self.addTearDownHook(lambda: os.remove(src))
 
     def setUp(self):
         #import traceback
@@ -2140,6 +2204,8 @@ class TestBase(Base):
             with recording(self, trace) as sbuf:
                 print("looking at:", output, file=sbuf)
 
+        if output is None:
+            output = ""
         # The heading says either "Expecting" or "Not expecting".
         heading = "Expecting" if matching else "Not expecting"
 

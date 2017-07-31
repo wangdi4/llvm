@@ -14,7 +14,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/UUID.h"
+#include "lldb/Utility/UUID.h"
 #include "lldb/Interpreter/OptionValue.h"
 
 namespace lldb_private {
@@ -39,6 +39,9 @@ public:
   Error
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
+  Error
+  SetValueFromString(const char *,
+                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
   bool Clear() override {
     m_uuid.Clear();
@@ -58,7 +61,7 @@ public:
 
   void SetCurrentValue(const UUID &value) { m_uuid = value; }
 
-  size_t AutoComplete(CommandInterpreter &interpreter, const char *s,
+  size_t AutoComplete(CommandInterpreter &interpreter, llvm::StringRef s,
                       int match_start_point, int max_return_elements,
                       bool &word_complete, StringList &matches) override;
 

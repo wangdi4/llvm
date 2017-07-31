@@ -7,20 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-// C Includes
-// C++ Includes
+#include "lldb/Core/Event.h"
+
+#include "lldb/Core/Broadcaster.h"
+#include "lldb/Core/DumpDataExtractor.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h" // for StreamString
+#include "lldb/lldb-enumerations.h"    // for Format::eFormatBytes
+
 #include <algorithm>
 
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Core/Broadcaster.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Event.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Core/State.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Host/Endian.h"
-#include "lldb/Target/Process.h"
+#include <ctype.h> // for isprint
 
 using namespace lldb;
 using namespace lldb_private;
@@ -64,7 +63,7 @@ void Event::Dump(Stream *s) const {
                 static_cast<const void *>(this),
                 static_cast<void *>(broadcaster),
                 broadcaster->GetBroadcasterName().GetCString(), m_type,
-                event_name.GetString().c_str());
+                event_name.GetData());
     else
       s->Printf("%p Event: broadcaster = %p (%s), type = 0x%8.8x, data = ",
                 static_cast<const void *>(this),
@@ -113,6 +112,10 @@ EventDataBytes::EventDataBytes(const char *cstr) : m_bytes() {
   SetBytesFromCString(cstr);
 }
 
+EventDataBytes::EventDataBytes(llvm::StringRef str) : m_bytes() {
+  SetBytes(str.data(), str.size());
+}
+
 EventDataBytes::EventDataBytes(const void *src, size_t src_len) : m_bytes() {
   SetBytes(src, src_len);
 }
@@ -136,8 +139,8 @@ void EventDataBytes::Dump(Stream *s) const {
   } else if (!m_bytes.empty()) {
     DataExtractor data;
     data.SetData(m_bytes.data(), m_bytes.size(), endian::InlHostByteOrder());
-    data.Dump(s, 0, eFormatBytes, 1, m_bytes.size(), 32, LLDB_INVALID_ADDRESS,
-              0, 0);
+    DumpDataExtractor(data, s, 0, eFormatBytes, 1, m_bytes.size(), 32,
+                      LLDB_INVALID_ADDRESS, 0, 0);
   }
 }
 

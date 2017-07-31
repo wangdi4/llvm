@@ -10,9 +10,22 @@
 #ifndef liblldb_Scalar_h_
 #define liblldb_Scalar_h_
 
-#include "lldb/lldb-private.h"
+#include "lldb/Utility/Error.h"      // for Error
+#include "lldb/lldb-enumerations.h"  // for Encoding, ByteOrder
+#include "lldb/lldb-private-types.h" // for type128
+
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
+
+#include <stddef.h> // for size_t
+#include <stdint.h> // for uint32_t, uint64_t, int64_t
+
+namespace lldb_private {
+class DataExtractor;
+}
+namespace lldb_private {
+class Stream;
+}
 
 #define NUM_OF_WORDS_INT128 2
 #define BITWIDTH_INT128 128
@@ -75,11 +88,11 @@ public:
   Scalar(long double v, bool ieee_quad)
       : m_type(e_long_double), m_float((float)0), m_ieee_quad(ieee_quad) {
     if (ieee_quad)
-      m_float = llvm::APFloat(llvm::APFloat::IEEEquad,
+      m_float = llvm::APFloat(llvm::APFloat::IEEEquad(),
                               llvm::APInt(BITWIDTH_INT128, NUM_OF_WORDS_INT128,
                                           ((type128 *)&v)->x));
     else
-      m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+      m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                               llvm::APInt(BITWIDTH_INT128, NUM_OF_WORDS_INT128,
                                           ((type128 *)&v)->x));
   }

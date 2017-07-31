@@ -8,17 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Disassembler.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Expression/IRExecutionUnit.h"
@@ -29,7 +27,10 @@
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/Log.h"
 
 #include "lldb/../../source/Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 
@@ -306,6 +307,32 @@ void IRExecutionUnit::GetRunnableInfo(Error &error, lldb::addr_t &func_addr,
     return;
   }
 
+  class ObjectDumper : public llvm::ObjectCache {
+  public:
+    void notifyObjectCompiled(const llvm::Module *module,
+                              llvm::MemoryBufferRef object) override {
+      int fd = 0;
+      llvm::SmallVector<char, 256> result_path;
+      std::string object_name_model =
+          "jit-object-" + module->getModuleIdentifier() + "-%%%.o";
+      (void)llvm::sys::fs::createUniqueFile(object_name_model, fd, result_path);
+      llvm::raw_fd_ostream fds(fd, true);
+      fds.write(object.getBufferStart(), object.getBufferSize());
+    }
+
+    std::unique_ptr<llvm::MemoryBuffer>
+    getObject(const llvm::Module *module) override {
+      // Return nothing - we're just abusing the object-cache mechanism to dump
+      // objects.
+      return nullptr;
+    }
+  };
+
+  if (process_sp->GetTarget().GetEnableSaveObjects()) {
+    m_object_cache_ap = llvm::make_unique<ObjectDumper>();
+    m_execution_engine_ap->setObjectCache(m_object_cache_ap.get());
+  }
+
   // Make sure we see all sections, including ones that don't have
   // relocations...
   m_execution_engine_ap->setProcessAllSections(true);
@@ -400,7 +427,7 @@ void IRExecutionUnit::GetRunnableInfo(Error &error, lldb::addr_t &func_addr,
 
     m_failed_lookups.clear();
 
-    error.SetErrorString(ss.GetData());
+    error.SetErrorString(ss.GetString());
 
     return;
   }
@@ -749,22 +776,9 @@ void IRExecutionUnit::CollectCandidateCPlusPlusNames(
       }
     }
 
-    // Maybe we're looking for a const symbol but the debug info told us it was
-    // const...
-    if (!strncmp(name.GetCString(), "_ZN", 3) &&
-        strncmp(name.GetCString(), "_ZNK", 4)) {
-      std::string fixed_scratch("_ZNK");
-      fixed_scratch.append(name.GetCString() + 3);
-      CPP_specs.push_back(ConstString(fixed_scratch.c_str()));
-    }
-
-    // Maybe we're looking for a static symbol but we thought it was global...
-    if (!strncmp(name.GetCString(), "_Z", 2) &&
-        strncmp(name.GetCString(), "_ZL", 3)) {
-      std::string fixed_scratch("_ZL");
-      fixed_scratch.append(name.GetCString() + 2);
-      CPP_specs.push_back(ConstString(fixed_scratch.c_str()));
-    }
+    std::set<ConstString> alternates;
+    CPlusPlusLanguage::FindAlternateFunctionManglings(name, alternates);
+    CPP_specs.insert(CPP_specs.end(), alternates.begin(), alternates.end());
   }
 }
 
@@ -996,8 +1010,6 @@ void IRExecutionUnit::GetStaticInitializers(
                      3); // this is standardized
           if (llvm::Function *ctor_function =
                   llvm::dyn_cast<llvm::Function>(ctor_struct->getOperand(1))) {
-            ctor_function->dump();
-
             ConstString ctor_function_name_cs(ctor_function->getName().str());
 
             for (JittedFunction &jitted_function : m_jitted_functions) {

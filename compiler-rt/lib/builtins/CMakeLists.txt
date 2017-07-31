@@ -71,6 +71,7 @@ set(GENERIC_SOURCES
   extendsfdf2.c
   extendhfsf2.c
   ffsdi2.c
+  ffssi2.c
   ffsti2.c
   fixdfdi.c
   fixdfsi.c
@@ -132,6 +133,7 @@ set(GENERIC_SOURCES
   negvdi2.c
   negvsi2.c
   negvti2.c
+  os_version_check.c
   paritydi2.c
   paritysi2.c
   parityti2.c
@@ -173,15 +175,6 @@ if(COMPILER_RT_HAS_ATOMIC_KEYWORD AND NOT COMPILER_RT_EXCLUDE_ATOMIC_BUILTIN)
     ${GENERIC_SOURCES}
     atomic.c)
 endif()
-
-set(MSVC_SOURCES
- divsc3.c
- divdc3.c
- divxc3.c
- mulsc3.c
- muldc3.c
- mulxc3.c)
-
 
 if(APPLE)
   set(GENERIC_SOURCES
@@ -262,9 +255,9 @@ else () # MSVC
       x86_64/floatdidf.c
       x86_64/floatdisf.c
       x86_64/floatdixf.c
-      ${MSVC_SOURCES})
+      ${GENERIC_SOURCES})
   set(x86_64h_SOURCES ${x86_64_SOURCES})
-  set(i386_SOURCES ${MSVC_SOURCES})
+  set(i386_SOURCES ${GENERIC_SOURCES})
   set(i686_SOURCES ${i386_SOURCES})
 endif () # if (NOT MSVC)
 
@@ -302,6 +295,13 @@ set(arm_SOURCES
   arm/umodsi3.S
   ${GENERIC_SOURCES})
 
+set(thumb1_SOURCES
+  arm/divsi3.S
+  arm/udivsi3.S
+  arm/comparesf2.S
+  arm/addsf3.S
+  ${GENERIC_SOURCES})
+
 set(arm_EABI_SOURCES
   arm/aeabi_cdcmp.S
   arm/aeabi_cdcmpeq_check_nan.c
@@ -320,6 +320,7 @@ set(arm_EABI_SOURCES
   arm/aeabi_memset.S
   arm/aeabi_uidivmod.S
   arm/aeabi_uldivmod.S)
+
 set(arm_Thumb1_JT_SOURCES
   arm/switch16.S
   arm/switch32.S
@@ -371,12 +372,40 @@ set(arm_Thumb1_SOURCES
   ${arm_Thumb1_VFPv2_SOURCES}
   ${arm_Thumb1_icache_SOURCES})
 
-if(NOT WIN32)
+if(MINGW)
+  set(arm_SOURCES
+      arm/aeabi_idivmod.S
+      arm/aeabi_ldivmod.S
+      arm/aeabi_uidivmod.S
+      arm/aeabi_uldivmod.S
+      divmoddi4.c
+      divmodsi4.c
+      divdi3.c
+      divsi3.c
+      fixdfdi.c
+      fixsfdi.c
+      fixunsdfdi.c
+      fixunssfdi.c
+      floatdidf.c
+      floatdisf.c
+      floatundidf.c
+      floatundisf.c
+      mingw_fixfloat.c
+      moddi3.c
+      udivmoddi4.c
+      udivmodsi4.c
+      udivsi3.c
+      umoddi3.c)
+elseif(NOT WIN32)
   # TODO the EABI sources should only be added to EABI targets
   set(arm_SOURCES
     ${arm_SOURCES}
     ${arm_EABI_SOURCES}
     ${arm_Thumb1_SOURCES})
+
+  set(thumb1_SOURCES
+    ${thumb1_SOURCES}
+    ${arm_EABI_SOURCES})
 endif()
 
 set(aarch64_SOURCES
@@ -391,8 +420,10 @@ set(aarch64_SOURCES
   fixunstfti.c
   floatditf.c
   floatsitf.c
+  floattitf.c
   floatunditf.c
   floatunsitf.c
+  floatuntitf.c
   multc3.c
   trunctfdf2.c
   trunctfsf2.c
@@ -405,7 +436,7 @@ set(armv7k_SOURCES ${arm_SOURCES})
 set(arm64_SOURCES ${aarch64_SOURCES})
 
 # macho_embedded archs
-set(armv6m_SOURCES ${GENERIC_SOURCES})
+set(armv6m_SOURCES ${thumb1_SOURCES})
 set(armv7m_SOURCES ${arm_SOURCES})
 set(armv7em_SOURCES ${arm_SOURCES})
 
@@ -426,7 +457,8 @@ if (APPLE)
   darwin_add_builtin_libraries(${BUILTIN_SUPPORTED_OS})
 else ()
   set(BUILTIN_CFLAGS "")
-  append_list_if(COMPILER_RT_HAS_STD_C99_FLAG -std=gnu99 BUILTIN_CFLAGS)
+
+  append_list_if(COMPILER_RT_HAS_STD_C11_FLAG -std=c11 BUILTIN_CFLAGS)
 
   # These flags would normally be added to CMAKE_C_FLAGS by the llvm
   # cmake step. Add them manually if this is a standalone build.
@@ -438,6 +470,10 @@ else ()
       append_list_if(COMPILER_RT_HAS_OMIT_FRAME_POINTER_FLAG -fomit-frame-pointer BUILTIN_CFLAGS)
     endif()
   endif()
+
+  set(BUILTIN_DEFS "")
+
+  append_list_if(COMPILER_RT_HAS_VISIBILITY_HIDDEN_FLAG VISIBILITY_HIDDEN BUILTIN_DEFS)
 
   foreach (arch ${BUILTIN_SUPPORTED_ARCH})
     if (CAN_TARGET_${arch})
@@ -452,10 +488,17 @@ else ()
         endif ()
       endforeach ()
 
+      # Needed for clear_cache on debug mode, due to r7's usage in inline asm.
+      # Release mode already sets it via -O2/3, Debug mode doesn't.
+      if (${arch} STREQUAL "armhf")
+        list(APPEND BUILTIN_CFLAGS -fomit-frame-pointer -DCOMPILER_RT_ARMHF_TARGET)
+      endif()
+
       add_compiler_rt_runtime(clang_rt.builtins
                               STATIC
                               ARCHS ${arch}
                               SOURCES ${${arch}_SOURCES}
+                              DEFS ${BUILTIN_DEFS}
                               CFLAGS ${BUILTIN_CFLAGS}
                               PARENT_TARGET builtins)
     endif ()

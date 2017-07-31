@@ -1,15 +1,14 @@
+//===-- ProcessRunLock.cpp --------------------------------------*- C++ -*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "lldb/Host/ProcessRunLock.h"
 #include "lldb/Host/windows/windows.h"
-
-namespace {
-#if defined(__MINGW32__)
-// Taken from WinNT.h
-typedef struct _RTL_SRWLOCK { PVOID Ptr; } RTL_SRWLOCK, *PRTL_SRWLOCK;
-
-// Taken from WinBase.h
-typedef RTL_SRWLOCK SRWLOCK, *PSRWLOCK;
-#endif
-}
 
 static PSRWLOCK GetLock(lldb::rwlock_t lock) {
   return static_cast<PSRWLOCK>(lock);
@@ -46,7 +45,7 @@ ProcessRunLock::ProcessRunLock() : m_running(false) {
   InitializeSRWLock(GetLock(m_rwlock));
 }
 
-ProcessRunLock::~ProcessRunLock() { delete m_rwlock; }
+ProcessRunLock::~ProcessRunLock() { delete static_cast<SRWLOCK *>(m_rwlock); }
 
 bool ProcessRunLock::ReadTryLock() {
   ::ReadLock(m_rwlock);

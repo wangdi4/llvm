@@ -13,6 +13,7 @@
 #include "lldb/Host/windows/windows.h"
 
 #include "lldb/Host/windows/editlinewin.h"
+#include "llvm/Support/ErrorHandling.h"
 #include <assert.h>
 #include <vector>
 
@@ -266,8 +267,7 @@ int el_set(EditLine *el, int code, ...) {
 
     const char *name = va_arg(vl, const char *);
 
-    for (int i = 0; i < _bindings.size(); i++) {
-      el_binding *bind = _bindings[i];
+    for (auto bind : _bindings) {
       if (strcmp(bind->name, name) == 0) {
         bind->key = va_arg(vl, const char *);
         break;
@@ -286,11 +286,10 @@ void el_end(EditLine *el) {
   // assert( !"Not implemented!" );
 }
 
-void el_reset(EditLine *) { assert(!"Not implemented!"); }
+void el_reset(EditLine *) { llvm_unreachable("Not implemented!"); }
 
 int el_getc(EditLine *, char *) {
-  assert(!"Not implemented!");
-  return 0;
+  llvm_unreachable("Not implemented!");
 }
 
 void el_push(EditLine *, const char *) {}
@@ -298,8 +297,7 @@ void el_push(EditLine *, const char *) {}
 void el_beep(EditLine *) { Beep(1000, 500); }
 
 int el_parse(EditLine *, int, const char **) {
-  assert(!"Not implemented!");
-  return 0;
+  llvm_unreachable("Not implemented!");
 }
 
 int el_get(EditLine *el, int code, ...) {
@@ -312,7 +310,7 @@ int el_get(EditLine *el, int code, ...) {
     *dout = clientData;
   } break;
   default:
-    assert(!"Not implemented!");
+    llvm_unreachable("Not implemented!");
   }
   return 0;
 }
@@ -323,7 +321,7 @@ int el_source(EditLine *el, const char *file) {
   return 0;
 }
 
-void el_resize(EditLine *) { assert(!"Not implemented!"); }
+void el_resize(EditLine *) { llvm_unreachable("Not implemented!"); }
 
 const LineInfo *el_line(EditLine *el) { return 0; }
 
@@ -332,7 +330,7 @@ int el_insertstr(EditLine *, const char *) {
   return 0;
 }
 
-void el_deletestr(EditLine *, int) { assert(!"Not implemented!"); }
+void el_deletestr(EditLine *, int) { llvm_unreachable("Not implemented!"); }
 
 History *history_init(void) {
   // return dummy handle

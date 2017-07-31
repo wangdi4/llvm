@@ -16,10 +16,10 @@
 #include <map>
 #include <string>
 
-#include "lldb/Core/StringList.h"
 #include "lldb/Host/File.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/HostThread.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/StringList.h"
 #include "lldb/lldb-private-forward.h"
 #include "lldb/lldb-private.h"
 
@@ -100,14 +100,6 @@ public:
   static void Kill(lldb::pid_t pid, int signo);
 
   //------------------------------------------------------------------
-  /// Get the thread ID for the calling thread in the current process.
-  ///
-  /// @return
-  ///     The thread ID for the calling thread in the current process.
-  //------------------------------------------------------------------
-  static lldb::tid_t GetCurrentThreadID();
-
-  //------------------------------------------------------------------
   /// Get the thread token (the one returned by ThreadCreate when the thread was
   /// created) for the
   /// calling thread in the current process.
@@ -183,23 +175,6 @@ public:
   //------------------------------------------------------------------
   static bool ResolveExecutableInBundle(FileSpec &file);
 
-  //------------------------------------------------------------------
-  /// Set a string that can be displayed if host application crashes.
-  ///
-  /// Some operating systems have the ability to print a description
-  /// for shared libraries when a program crashes. If the host OS
-  /// supports such a mechanism, it should be implemented to help
-  /// with crash triage.
-  ///
-  /// @param[in] format
-  ///     A printf format that will be used to form a new crash
-  ///     description string.
-  //------------------------------------------------------------------
-  static void SetCrashDescriptionWithFormat(const char *format, ...)
-      __attribute__((format(printf, 1, 2)));
-
-  static void SetCrashDescription(const char *description);
-
   static uint32_t FindProcesses(const ProcessInstanceInfoMatch &match_info,
                                 ProcessInstanceInfoList &proc_infos);
 
@@ -209,9 +184,9 @@ public:
 
   static bool GetProcessInfo(lldb::pid_t pid, ProcessInstanceInfo &proc_info);
 
-#if defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__) ||        \
-    defined(__GLIBC__) || defined(__NetBSD__)
-#if !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
+#if (defined(__APPLE__) || defined(__linux__) || defined(__FreeBSD__) ||       \
+     defined(__GLIBC__) || defined(__NetBSD__) || defined(__OpenBSD__)) &&                             \
+    !defined(__ANDROID__)
 
   static short GetPosixspawnFlags(const ProcessLaunchInfo &launch_info);
 
@@ -223,9 +198,7 @@ public:
                                       const FileAction *info, Log *log,
                                       Error &error);
 
-#endif // !defined(__ANDROID__) && !defined(__ANDROID_NDK__)
-#endif // defined (__APPLE__) || defined (__linux__) || defined (__FreeBSD__) ||
-       // defined (__GLIBC__) || defined(__NetBSD__)
+#endif
 
   static const lldb::UnixSignalsSP &GetUnixSignals();
 
@@ -240,6 +213,7 @@ public:
   //------------------------------------------------------------------
   static Error ShellExpandArguments(ProcessLaunchInfo &launch_info);
 
+  // TODO: Convert this function to take a StringRef.
   static Error RunShellCommand(
       const char *command,         // Shouldn't be NULL
       const FileSpec &working_dir, // Pass empty FileSpec to use the current
@@ -263,10 +237,6 @@ public:
           *command_output, // Pass NULL if you don't want the command output
       uint32_t timeout_sec,
       bool run_in_default_shell = true);
-
-  static lldb::DataBufferSP GetAuxvData(lldb_private::Process *process);
-
-  static lldb::DataBufferSP GetAuxvData(lldb::pid_t pid);
 
   static bool OpenFileInExternalEditor(const FileSpec &file_spec,
                                        uint32_t line_no);

@@ -62,7 +62,7 @@
                 versions of Python can be made to work by compiling your own distribution from source,
                 but this workflow is unsupported and you are own your own.
               </li>
-              <li><a href="http://martine.github.io/ninja/">Ninja build tool</a> (strongly recommended)</li>
+              <li><a href="https://ninja-build.org/">Ninja build tool</a> (strongly recommended)</li>
               <li><a href="http://gnuwin32.sourceforge.net/">GnuWin32</a></li>
               <li><a href="http://www.swig.org/download.html">SWIG for Windows (version 3+)</a></li>
             </ul>
@@ -287,9 +287,16 @@
               ninja on your system. To build using ninja:
             </p>
             <code>
-              &gt; cmake .. -G Ninja
+              &gt; cmake ../llvm -G Ninja
               <br />&gt; ninja lldb
               <br />&gt; ninja check-lldb
+            </code>
+            <p>
+              If you want to debug the lldb that you're building -- that is, build it with debug info enabled -- pass
+              two additional arguments to cmake before running ninja:
+            </p>
+            <code>
+              &gt; cmake ../llvm -G Ninja -DLLDB_EXPORT_ALL_SYMBOLS=1 -DCMAKE_BUILD_TYPE=Debug
             </code>
             <h3>Using CMake + Unix Makefiles</h3>
             <p>If you do not have Ninja, you can still use CMake to generate Unix Makefiles that build LLDB:</p>

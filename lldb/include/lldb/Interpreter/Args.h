@@ -18,18 +18,18 @@
 #include <vector>
 
 // Other libraries and framework includes
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 // Project includes
-#include "lldb/Core/Error.h"
-#include "lldb/Host/OptionParser.h"
+#include "lldb/Utility/Error.h"
 #include "lldb/lldb-private-types.h"
 #include "lldb/lldb-types.h"
 
 namespace lldb_private {
 
-typedef std::pair<int, std::string> OptionArgValue;
-typedef std::pair<std::string, OptionArgValue> OptionArgPair;
-typedef std::vector<OptionArgPair> OptionArgVector;
+struct Option;
+
+typedef std::vector<std::tuple<std::string, int, std::string>> OptionArgVector;
 typedef std::shared_ptr<OptionArgVector> OptionArgVectorSP;
 
 struct OptionArgElement {
@@ -58,6 +58,22 @@ typedef std::vector<OptionArgElement> OptionElementVector;
 //----------------------------------------------------------------------
 class Args {
 public:
+  struct ArgEntry {
+  private:
+    friend class Args;
+    std::unique_ptr<char[]> ptr;
+
+    char *data() { return ptr.get(); }
+
+  public:
+    ArgEntry() = default;
+    ArgEntry(llvm::StringRef str, char quote);
+
+    llvm::StringRef ref;
+    char quote;
+    const char *c_str() const { return ptr.get(); }
+  };
+
   //------------------------------------------------------------------
   /// Construct with an option command string.
   ///
@@ -71,7 +87,7 @@ public:
 
   Args(const Args &rhs);
 
-  const Args &operator=(const Args &rhs);
+  Args &operator=(const Args &rhs);
 
   //------------------------------------------------------------------
   /// Destructor.
@@ -122,6 +138,7 @@ public:
   ///     The number or arguments in this object.
   //------------------------------------------------------------------
   size_t GetArgumentCount() const;
+  bool empty() const { return GetArgumentCount() == 0; }
 
   //------------------------------------------------------------------
   /// Gets the NULL terminated C string argument pointer for the
@@ -133,7 +150,16 @@ public:
   //------------------------------------------------------------------
   const char *GetArgumentAtIndex(size_t idx) const;
 
+  llvm::ArrayRef<ArgEntry> entries() const { return m_entries; }
   char GetArgumentQuoteCharAtIndex(size_t idx) const;
+
+  std::vector<ArgEntry>::const_iterator begin() const {
+    return m_entries.begin();
+  }
+  std::vector<ArgEntry>::const_iterator end() const { return m_entries.end(); }
+
+  size_t size() const { return GetArgumentCount(); }
+  const ArgEntry &operator[](size_t n) const { return m_entries[n]; }
 
   //------------------------------------------------------------------
   /// Gets the argument vector.
@@ -168,6 +194,15 @@ public:
   const char **GetConstArgumentVector() const;
 
   //------------------------------------------------------------------
+  /// Gets the argument as an ArrayRef. Note that the return value does *not*
+  /// have a nullptr const char * at the end, as the size of the list is
+  /// embedded in the ArrayRef object.
+  //------------------------------------------------------------------
+  llvm::ArrayRef<const char *> GetArgumentArrayRef() const {
+    return llvm::makeArrayRef(m_argv).drop_back();
+  }
+
+  //------------------------------------------------------------------
   /// Appends a new argument to the end of the list argument list.
   ///
   /// @param[in] arg_cstr
@@ -175,12 +210,8 @@ public:
   ///
   /// @param[in] quote_char
   ///     If the argument was originally quoted, put in the quote char here.
-  ///
-  /// @return
-  ///     The NULL terminated C string of the copy of \a arg_cstr.
   //------------------------------------------------------------------
-  // TODO: Convert this function to use a StringRef.
-  const char *AppendArgument(const char *arg_cstr, char quote_char = '\0');
+  void AppendArgument(llvm::StringRef arg_str, char quote_char = '\0');
 
   void AppendArguments(const Args &rhs);
 
@@ -201,8 +232,8 @@ public:
   /// @return
   ///     The NULL terminated C string of the copy of \a arg_cstr.
   //------------------------------------------------------------------
-  const char *InsertArgumentAtIndex(size_t idx, const char *arg_cstr,
-                                    char quote_char = '\0');
+  void InsertArgumentAtIndex(size_t idx, llvm::StringRef arg_str,
+                             char quote_char = '\0');
 
   //------------------------------------------------------------------
   /// Replaces the argument value at index \a idx to \a arg_cstr
@@ -216,13 +247,9 @@ public:
   ///
   /// @param[in] quote_char
   ///     If the argument was originally quoted, put in the quote char here.
-  ///
-  /// @return
-  ///     The NULL terminated C string of the copy of \a arg_cstr if
-  ///     \a idx was a valid index, NULL otherwise.
   //------------------------------------------------------------------
-  const char *ReplaceArgumentAtIndex(size_t idx, const char *arg_cstr,
-                                     char quote_char = '\0');
+  void ReplaceArgumentAtIndex(size_t idx, llvm::StringRef arg_str,
+                              char quote_char = '\0');
 
   //------------------------------------------------------------------
   /// Deletes the argument value at index
@@ -271,11 +298,8 @@ public:
   ///
   /// @param[in] quote_char
   ///     If the argument was originally quoted, put in the quote char here.
-  ///
-  /// @return
-  ///     A pointer to the copy of \a arg_cstr that was made.
   //------------------------------------------------------------------
-  const char *Unshift(const char *arg_cstr, char quote_char = '\0');
+  void Unshift(llvm::StringRef arg_str, char quote_char = '\0');
 
   //------------------------------------------------------------------
   /// Parse the arguments in the contained arguments.
@@ -301,18 +325,15 @@ public:
   Error ParseOptions(Options &options, ExecutionContext *execution_context,
                      lldb::PlatformSP platform_sp, bool require_validation);
 
-  size_t FindArgumentIndexForOption(Option *long_options,
-                                    int long_options_index);
-
   bool IsPositionalArgument(const char *arg);
 
   // The following works almost identically to ParseOptions, except that no
-  // option is required to have arguments,
-  // and it builds up the option_arg_vector as it parses the options.
+  // option is required to have arguments, and it builds up the
+  // option_arg_vector as it parses the options.
 
-  void ParseAliasOptions(Options &options, CommandReturnObject &result,
-                         OptionArgVector *option_arg_vector,
-                         std::string &raw_input_line);
+  std::string ParseAliasOptions(Options &options, CommandReturnObject &result,
+                                OptionArgVector *option_arg_vector,
+                                llvm::StringRef raw_input_line);
 
   void ParseArgsForCompletion(Options &options,
                               OptionElementVector &option_element_vector,
@@ -354,13 +375,9 @@ public:
     return min <= sval64 && sval64 <= max;
   }
 
-  // TODO: Make this function take a StringRef
   static lldb::addr_t StringToAddress(const ExecutionContext *exe_ctx,
-                                      const char *s, lldb::addr_t fail_value,
-                                      Error *error);
-
-  static bool StringToBoolean(const char *s, bool fail_value,
-    bool *success_ptr);
+                                      llvm::StringRef s,
+                                      lldb::addr_t fail_value, Error *error);
 
   static bool StringToBoolean(llvm::StringRef s, bool fail_value,
                               bool *success_ptr);
@@ -368,7 +385,7 @@ public:
   static char StringToChar(llvm::StringRef s, char fail_value,
                            bool *success_ptr);
 
-  static int64_t StringToOptionEnum(const char *s,
+  static int64_t StringToOptionEnum(llvm::StringRef s,
                                     OptionEnumValueElement *enum_values,
                                     int32_t fail_value, Error &error);
 
@@ -383,14 +400,8 @@ public:
                                                       // the format character
 
   static lldb::Encoding
-  StringToEncoding(const char *s,
-                   lldb::Encoding fail_value = lldb::eEncodingInvalid);
-
-  static lldb::Encoding
   StringToEncoding(llvm::StringRef s,
                    lldb::Encoding fail_value = lldb::eEncodingInvalid);
-
-  static uint32_t StringToGenericRegister(const char *s);
 
   static uint32_t StringToGenericRegister(llvm::StringRef s);
 
@@ -421,11 +432,6 @@ public:
   static std::string EscapeLLDBCommandArgument(const std::string &arg,
                                                char quote_char);
 
-  // This one isn't really relevant to Arguments per se, but we're using the
-  // Args as a
-  // general strings container, so...
-  void LongestCommonPrefix(std::string &common_prefix);
-
   //------------------------------------------------------------------
   /// Add or replace an environment variable with the given value.
   ///
@@ -434,8 +440,8 @@ public:
   /// already in the list, it replaces the first such occurrence
   /// with the new value.
   //------------------------------------------------------------------
-  void AddOrReplaceEnvironmentVariable(const char *env_var_name,
-                                       const char *new_value);
+  void AddOrReplaceEnvironmentVariable(llvm::StringRef env_var_name,
+                                       llvm::StringRef new_value);
 
   /// Return whether a given environment variable exists.
   ///
@@ -455,25 +461,17 @@ public:
   ///     true if the specified env var name exists in the list in
   ///     either of the above-mentioned formats; otherwise, false.
   //------------------------------------------------------------------
-  bool ContainsEnvironmentVariable(const char *env_var_name,
+  bool ContainsEnvironmentVariable(llvm::StringRef env_var_name,
                                    size_t *argument_index = nullptr) const;
 
-protected:
-  //------------------------------------------------------------------
-  // Classes that inherit from Args can see and modify these
-  //------------------------------------------------------------------
-  typedef std::list<std::string> arg_sstr_collection;
-  typedef std::vector<const char *> arg_cstr_collection;
-  typedef std::vector<char> arg_quote_char_collection;
-  arg_sstr_collection m_args;
-  arg_cstr_collection m_argv; ///< The current argument vector.
-  arg_quote_char_collection m_args_quote_char;
+private:
+  size_t FindArgumentIndexForOption(Option *long_options,
+                                    int long_options_index) const;
+
+  std::vector<ArgEntry> m_entries;
+  std::vector<char *> m_argv;
 
   void UpdateArgsAfterOptionParsing();
-
-  void UpdateArgvFromArgs();
-
-  llvm::StringRef ParseSingleArgument(llvm::StringRef command);
 };
 
 } // namespace lldb_private

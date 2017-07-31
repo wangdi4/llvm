@@ -10,19 +10,31 @@
 #ifndef liblldb_Communication_h_
 #define liblldb_Communication_h_
 
-// C Includes
-// C++ Includes
+#include "lldb/Core/Broadcaster.h"
+#include "lldb/Host/HostThread.h"
+#include "lldb/Utility/Timeout.h"
+#include "lldb/lldb-defines.h"      // for DISALLOW_COPY_AND_ASSIGN
+#include "lldb/lldb-enumerations.h" // for ConnectionStatus, FLAGS_ANONYMOU...
+#include "lldb/lldb-forward.h"      // for ConnectionSP
+#include "lldb/lldb-types.h"        // for thread_arg_t, thread_result_t
+
 #include <atomic>
 #include <mutex>
+#include <ratio> // for micro
 #include <string>
 
-// Other libraries and framework includes
-// Project includes
-#include "lldb/Core/Broadcaster.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Host/HostThread.h"
-#include "lldb/lldb-private.h"
-#include "lldb/lldb-private.h"
+#include <stddef.h> // for size_t
+#include <stdint.h> // for uint8_t
+
+namespace lldb_private {
+class Connection;
+}
+namespace lldb_private {
+class ConstString;
+}
+namespace lldb_private {
+class Error;
+}
 
 namespace lldb_private {
 
@@ -196,15 +208,15 @@ public:
   ///     The number of bytes to attempt to read, and also the max
   ///     number of bytes that can be placed into \a dst.
   ///
-  /// @param[in] timeout_usec
-  ///     A timeout value in micro-seconds.
+  /// @param[in] timeout
+  ///     A timeout value or llvm::None for no timeout.
   ///
   /// @return
   ///     The number of bytes actually read.
   ///
   /// @see size_t Connection::Read (void *, size_t);
   //------------------------------------------------------------------
-  size_t Read(void *dst, size_t dst_len, uint32_t timeout_usec,
+  size_t Read(void *dst, size_t dst_len, const Timeout<std::micro> &timeout,
               lldb::ConnectionStatus &status, Error *error_ptr);
 
   //------------------------------------------------------------------
@@ -347,7 +359,8 @@ protected:
   void *m_callback_baton;
   bool m_close_on_eof;
 
-  size_t ReadFromConnection(void *dst, size_t dst_len, uint32_t timeout_usec,
+  size_t ReadFromConnection(void *dst, size_t dst_len,
+                            const Timeout<std::micro> &timeout,
                             lldb::ConnectionStatus &status, Error *error_ptr);
 
   //------------------------------------------------------------------

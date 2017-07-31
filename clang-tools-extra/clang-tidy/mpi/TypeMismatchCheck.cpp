@@ -243,7 +243,7 @@ void TypeMismatchCheck::registerMatchers(MatchFinder *Finder) {
 
 void TypeMismatchCheck::check(const MatchFinder::MatchResult &Result) {
   static ento::mpi::MPIFunctionClassifier FuncClassifier(*Result.Context);
-  const CallExpr *const CE = Result.Nodes.getNodeAs<CallExpr>("CE");
+  const auto *const CE = Result.Nodes.getNodeAs<CallExpr>("CE");
   if (!CE->getDirectCallee())
     return;
 
@@ -296,8 +296,7 @@ void TypeMismatchCheck::check(const MatchFinder::MatchResult &Result) {
       addPair(0, 2);
     }
   }
-  checkArguments(BufferTypes, BufferExprs, MPIDatatypes,
-                 Result.Context->getLangOpts());
+  checkArguments(BufferTypes, BufferExprs, MPIDatatypes, getLangOpts());
 }
 
 void TypeMismatchCheck::checkArguments(ArrayRef<const Type *> BufferTypes,

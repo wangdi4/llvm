@@ -47,53 +47,42 @@ void __kmp_get_hierarchy(kmp_uint32 nproc, kmp_bstate_t *thr_bar) {
 
 #if KMP_AFFINITY_SUPPORTED
 
+bool KMPAffinity::picked_api = false;
+
+void* KMPAffinity::Mask::operator new(size_t n) { return __kmp_allocate(n); }
+void* KMPAffinity::Mask::operator new[](size_t n) { return __kmp_allocate(n); }
+void KMPAffinity::Mask::operator delete(void* p) { __kmp_free(p); }
+void KMPAffinity::Mask::operator delete[](void* p) { __kmp_free(p); }
+void* KMPAffinity::operator new(size_t n) { return __kmp_allocate(n); }
+void KMPAffinity::operator delete(void* p) { __kmp_free(p); }
+
+void KMPAffinity::pick_api() {
+    KMPAffinity* affinity_dispatch;
+    if (picked_api)
+        return;
+#if KMP_USE_HWLOC
+    if (__kmp_affinity_top_method == affinity_top_method_hwloc) {
+        affinity_dispatch = new KMPHwlocAffinity();
+    } else
+#endif
+    {
+        affinity_dispatch = new KMPNativeAffinity();
+    }
+    __kmp_affinity_dispatch = affinity_dispatch;
+    picked_api = true;
+}
+
+void KMPAffinity::destroy_api() {
+    if (__kmp_affinity_dispatch != NULL) {
+        delete __kmp_affinity_dispatch;
+        __kmp_affinity_dispatch = NULL;
+        picked_api = false;
+    }
+}
+
 //
 // Print the affinity mask to the character array in a pretty format.
 //
-#if KMP_USE_HWLOC
-char *
-__kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
-{
-    int num_chars_to_write, num_chars_written;
-    char* scan;
-    KMP_ASSERT(buf_len >= 40);
-
-    // bufsize of 0 just retrieves the needed buffer size.
-    num_chars_to_write = hwloc_bitmap_list_snprintf(buf, 0, (hwloc_bitmap_t)mask);
-
-    // need '{', "xxxxxxxx...xx", '}', '\0' = num_chars_to_write + 3 bytes
-    // * num_chars_to_write returned by hwloc_bitmap_list_snprintf does not
-    //   take into account the '\0' character.
-    if(hwloc_bitmap_iszero((hwloc_bitmap_t)mask)) {
-        KMP_SNPRINTF(buf, buf_len, "{<empty>}");
-    } else if(num_chars_to_write < buf_len - 3) {
-        // no problem fitting the mask into buf_len number of characters
-        buf[0] = '{';
-        // use buf_len-3 because we have the three characters: '{' '}' '\0' to add to the buffer
-        num_chars_written = hwloc_bitmap_list_snprintf(buf+1, buf_len-3, (hwloc_bitmap_t)mask);
-        buf[num_chars_written+1] = '}';
-        buf[num_chars_written+2] = '\0';
-    } else {
-        // Need to truncate the affinity mask string and add ellipsis.
-        // To do this, we first write out the '{' + str(mask)
-        buf[0] = '{';
-        hwloc_bitmap_list_snprintf(buf+1, buf_len-1, (hwloc_bitmap_t)mask);
-        // then, what we do here is go to the 7th to last character, then go backwards until we are NOT
-        // on a digit then write "...}\0".  This way it is a clean ellipsis addition and we don't
-        // overwrite part of an affinity number. i.e., we avoid something like { 45, 67, 8...} and get
-        // { 45, 67,...} instead.
-        scan = buf + buf_len - 7;
-        while(*scan >= '0' && *scan <= '9' && scan >= buf)
-            scan--;
-        *(scan+1) = '.';
-        *(scan+2) = '.';
-        *(scan+3) = '.';
-        *(scan+4) = '}';
-        *(scan+5) = '\0';
-    }
-    return buf;
-}
-#else
 char *
 __kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
 {
@@ -105,12 +94,8 @@ __kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
     // Find first element / check for empty set.
     //
     size_t i;
-    for (i = 0; i < KMP_CPU_SETSIZE; i++) {
-        if (KMP_CPU_ISSET(i, mask)) {
-            break;
-        }
-    }
-    if (i == KMP_CPU_SETSIZE) {
+    i = mask->begin();
+    if (i == mask->end()) {
         KMP_SNPRINTF(scan, end-scan+1, "{<empty>}");
         while (*scan != '\0') scan++;
         KMP_ASSERT(scan <= end);
@@ -120,7 +105,7 @@ __kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
     KMP_SNPRINTF(scan, end-scan+1, "{%ld", (long)i);
     while (*scan != '\0') scan++;
     i++;
-    for (; i < KMP_CPU_SETSIZE; i++) {
+    for (; i != mask->end(); i = mask->next(i)) {
         if (! KMP_CPU_ISSET(i, mask)) {
             continue;
         }
@@ -137,7 +122,7 @@ __kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
         KMP_SNPRINTF(scan, end-scan+1, ",%-ld", (long)i);
         while (*scan != '\0') scan++;
     }
-    if (i < KMP_CPU_SETSIZE) {
+    if (i != mask->end()) {
         KMP_SNPRINTF(scan, end-scan+1,  ",...");
         while (*scan != '\0') scan++;
     }
@@ -146,7 +131,6 @@ __kmp_affinity_print_mask(char *buf, int buf_len, kmp_affin_mask_t *mask)
     KMP_ASSERT(scan <= end);
     return buf;
 }
-#endif // KMP_USE_HWLOC
 
 
 void
@@ -677,7 +661,7 @@ __kmp_affinity_create_flat_map(AddrUnsPair **address2os,
     __kmp_pu_os_idx = (int*)__kmp_allocate(sizeof(int) * __kmp_avail_proc);
     if (__kmp_affinity_type == affinity_none) {
         int avail_ct = 0;
-        unsigned int i;
+        int i;
         KMP_CPU_SET_ITERATE(i, __kmp_affin_fullMask) {
             if (! KMP_CPU_ISSET(i, __kmp_affin_fullMask))
                 continue;
@@ -1031,14 +1015,14 @@ __kmp_affinity_create_apicid_map(AddrUnsPair **address2os,
         }
         KMP_DEBUG_ASSERT((int)nApics < __kmp_avail_proc);
 
-        __kmp_affinity_bind_thread(i);
+        __kmp_affinity_dispatch->bind_thread(i);
         threadInfo[nApics].osId = i;
 
         //
         // The apic id and max threads per pkg come from cpuid(1).
         //
         __kmp_x86_cpuid(1, 0, &buf);
-        if (! (buf.edx >> 9) & 1) {
+        if (((buf.edx >> 9) & 1) == 0) {
             __kmp_set_system_affinity(oldMask, TRUE);
             __kmp_free(threadInfo);
             KMP_CPU_FREE(oldMask);
@@ -1547,7 +1531,7 @@ __kmp_affinity_create_x2apicid_map(AddrUnsPair **address2os,
         }
         KMP_DEBUG_ASSERT(nApics < __kmp_avail_proc);
 
-        __kmp_affinity_bind_thread(proc);
+        __kmp_affinity_dispatch->bind_thread(proc);
 
         //
         // Extrach the labels for each level in the machine topology map
@@ -3421,102 +3405,665 @@ __kmp_affinity_process_placelist(kmp_affin_mask_t **out_masks,
 #undef ADD_MASK
 #undef ADD_MASK_OSID
 
+#if KMP_USE_HWLOC
+static int
+__kmp_hwloc_count_children_by_type(
+    hwloc_topology_t t, hwloc_obj_t o, hwloc_obj_type_t type, hwloc_obj_t* f)
+{
+    if (!hwloc_compare_types(o->type, type)) {
+      if (*f == NULL)
+        *f = o; // output first descendant found
+      return 1;
+    }
+    int sum = 0;
+    for (unsigned i = 0; i < o->arity; i++)
+      sum += __kmp_hwloc_count_children_by_type(t, o->children[i], type, f);
+    return sum; // will be 0 if no one found (as PU arity is 0)
+}
+
+static int
+__kmp_hwloc_count_children_by_depth(
+    hwloc_topology_t t, hwloc_obj_t o, unsigned depth, hwloc_obj_t* f)
+{
+    if (o->depth == depth) {
+      if (*f == NULL)
+        *f = o; // output first descendant found
+      return 1;
+    }
+    int sum = 0;
+    for (unsigned i = 0; i < o->arity; i++)
+      sum += __kmp_hwloc_count_children_by_depth(t, o->children[i], depth, f);
+    return sum; // will be 0 if no one found (as PU arity is 0)
+}
+
+static int
+__kmp_hwloc_skip_PUs_obj(hwloc_topology_t t, hwloc_obj_t o)
+{ // skip PUs descendants of the object o
+    int skipped = 0;
+    hwloc_obj_t hT = NULL;
+    int N = __kmp_hwloc_count_children_by_type(t, o, HWLOC_OBJ_PU, &hT);
+    for (int i = 0; i < N; ++i) {
+      KMP_DEBUG_ASSERT(hT);
+      unsigned idx = hT->os_index;
+      if (KMP_CPU_ISSET(idx, __kmp_affin_fullMask)) {
+        KMP_CPU_CLR(idx, __kmp_affin_fullMask);
+        KC_TRACE(200, ("KMP_HW_SUBSET: skipped proc %d\n", idx));
+        ++skipped;
+      }
+      hT = hwloc_get_next_obj_by_type(t, HWLOC_OBJ_PU, hT);
+    }
+    return skipped; // count number of skipped units
+}
+
+static int
+__kmp_hwloc_obj_has_PUs(hwloc_topology_t t, hwloc_obj_t o)
+{ // check if obj has PUs present in fullMask
+    hwloc_obj_t hT = NULL;
+    int N = __kmp_hwloc_count_children_by_type(t, o, HWLOC_OBJ_PU, &hT);
+    for (int i = 0; i < N; ++i) {
+      KMP_DEBUG_ASSERT(hT);
+      unsigned idx = hT->os_index;
+      if (KMP_CPU_ISSET(idx, __kmp_affin_fullMask))
+        return 1; // found PU
+      hT = hwloc_get_next_obj_by_type(t, HWLOC_OBJ_PU, hT);
+    }
+    return 0; // no PUs found
+}
+#endif // KMP_USE_HWLOC
+
 static void
 __kmp_apply_thread_places(AddrUnsPair **pAddr, int depth)
 {
-    int i, j, k, n_old = 0, n_new = 0, proc_num = 0;
-    if (__kmp_place_num_sockets == 0 &&
-        __kmp_place_num_cores == 0 &&
-        __kmp_place_num_threads_per_core == 0 )
-        goto _exit;   // no topology limiting actions requested, exit
-    if (__kmp_place_num_sockets == 0)
-        __kmp_place_num_sockets = nPackages;    // use all available sockets
-    if (__kmp_place_num_cores == 0)
-        __kmp_place_num_cores = nCoresPerPkg;   // use all available cores
-    if (__kmp_place_num_threads_per_core == 0 ||
-        __kmp_place_num_threads_per_core > __kmp_nThreadsPerCore)
-        __kmp_place_num_threads_per_core = __kmp_nThreadsPerCore; // use all HW contexts
+    AddrUnsPair *newAddr;
+    if (__kmp_hws_requested == 0)
+      goto _exit;   // no topology limiting actions requested, exit
+#if KMP_USE_HWLOC
+    if (__kmp_affinity_dispatch->get_api_type() == KMPAffinity::HWLOC) {
+      // Number of subobjects calculated dynamically, this works fine for
+      // any non-uniform topology.
+      // L2 cache objects are determined by depth, other objects - by type.
+      hwloc_topology_t tp = __kmp_hwloc_topology;
+      int nS=0, nN=0, nL=0, nC=0, nT=0; // logical index including skipped
+      int nCr=0, nTr=0; // number of requested units
+      int nPkg=0, nCo=0, n_new=0, n_old = 0, nCpP=0, nTpC=0; // counters
+      hwloc_obj_t hT, hC, hL, hN, hS; // hwloc objects (pointers to)
+      int L2depth, idx;
 
-    if ( !__kmp_affinity_uniform_topology() ) {
+      // check support of extensions ----------------------------------
+      int numa_support = 0, tile_support = 0;
+      if (__kmp_pu_os_idx)
+        hT = hwloc_get_pu_obj_by_os_index(
+          tp, __kmp_pu_os_idx[__kmp_avail_proc - 1]);
+      else
+        hT = hwloc_get_obj_by_type(tp, HWLOC_OBJ_PU, __kmp_avail_proc - 1);
+      if (hT == NULL) { // something's gone wrong
+        KMP_WARNING(AffHWSubsetUnsupported);
+        goto _exit;
+      }
+      // check NUMA node
+      hN = hwloc_get_ancestor_obj_by_type(tp, HWLOC_OBJ_NUMANODE, hT);
+      hS = hwloc_get_ancestor_obj_by_type(tp, HWLOC_OBJ_PACKAGE, hT);
+      if (hN != NULL && hN->depth > hS->depth) {
+        numa_support = 1; // 1 in case socket includes node(s)
+      } else if (__kmp_hws_node.num > 0) {
+        // don't support sockets inside NUMA node (no such HW found for testing)
+        KMP_WARNING(AffHWSubsetUnsupported);
+        goto _exit;
+      }
+      // check L2 cahce, get object by depth because of multiple caches
+      L2depth = hwloc_get_cache_type_depth(tp, 2, HWLOC_OBJ_CACHE_UNIFIED);
+      hL = hwloc_get_ancestor_obj_by_depth(tp, L2depth, hT);
+      if (hL != NULL && __kmp_hwloc_count_children_by_type(
+          tp, hL, HWLOC_OBJ_CORE, &hC) > 1) {
+        tile_support = 1; // no sense to count L2 if it includes single core
+      } else if (__kmp_hws_tile.num > 0) {
+        if (__kmp_hws_core.num == 0) {
+          __kmp_hws_core = __kmp_hws_tile; // replace L2 with core
+          __kmp_hws_tile.num = 0;
+        } else {
+          // L2 and core are both requested, but represent same object
+          KMP_WARNING(AffHWSubsetInvalid);
+          goto _exit;
+        }
+      }
+      // end of check of extensions -----------------------------------
+
+      // fill in unset items, validate settings -----------------------
+      if (__kmp_hws_socket.num == 0)
+        __kmp_hws_socket.num = nPackages;    // use all available sockets
+      if (__kmp_hws_socket.offset >= nPackages) {
+          KMP_WARNING(AffHWSubsetManySockets);
+          goto _exit;
+      }
+      if (numa_support) {
+        int NN = __kmp_hwloc_count_children_by_type(
+          tp, hS, HWLOC_OBJ_NUMANODE, &hN); // num nodes in socket
+        if (__kmp_hws_node.num == 0)
+          __kmp_hws_node.num = NN; // use all available nodes
+        if (__kmp_hws_node.offset >= NN) {
+          KMP_WARNING(AffHWSubsetManyNodes);
+          goto _exit;
+        }
+        if (tile_support) {
+          // get num tiles in node
+          int NL = __kmp_hwloc_count_children_by_depth(tp, hN, L2depth, &hL);
+          if (__kmp_hws_tile.num == 0) {
+            __kmp_hws_tile.num = NL + 1;
+          } // use all available tiles, some node may have more tiles, thus +1
+          if (__kmp_hws_tile.offset >= NL) {
+            KMP_WARNING(AffHWSubsetManyTiles);
+            goto _exit;
+          }
+          int NC = __kmp_hwloc_count_children_by_type(
+            tp, hL, HWLOC_OBJ_CORE, &hC); // num cores in tile
+          if (__kmp_hws_core.num == 0)
+            __kmp_hws_core.num = NC;   // use all available cores
+          if (__kmp_hws_core.offset >= NC) {
+            KMP_WARNING(AffHWSubsetManyCores);
+            goto _exit;
+          }
+        } else { // tile_support
+          int NC = __kmp_hwloc_count_children_by_type(
+            tp, hN, HWLOC_OBJ_CORE, &hC); // num cores in node
+          if (__kmp_hws_core.num == 0)
+            __kmp_hws_core.num = NC;   // use all available cores
+          if (__kmp_hws_core.offset >= NC) {
+            KMP_WARNING(AffHWSubsetManyCores);
+            goto _exit;
+          }
+        } // tile_support
+      } else { // numa_support
+        if (tile_support) {
+          // get num tiles in socket
+          int NL = __kmp_hwloc_count_children_by_depth(tp, hS, L2depth, &hL);
+          if (__kmp_hws_tile.num == 0)
+            __kmp_hws_tile.num = NL; // use all available tiles
+          if (__kmp_hws_tile.offset >= NL) {
+            KMP_WARNING(AffHWSubsetManyTiles);
+            goto _exit;
+          }
+          int NC = __kmp_hwloc_count_children_by_type(
+            tp, hL, HWLOC_OBJ_CORE, &hC); // num cores in tile
+          if (__kmp_hws_core.num == 0)
+            __kmp_hws_core.num = NC;   // use all available cores
+          if (__kmp_hws_core.offset >= NC) {
+            KMP_WARNING(AffHWSubsetManyCores);
+            goto _exit;
+          }
+        } else { // tile_support
+          int NC = __kmp_hwloc_count_children_by_type(
+            tp, hS, HWLOC_OBJ_CORE, &hC); // num cores in socket
+          if (__kmp_hws_core.num == 0)
+            __kmp_hws_core.num = NC;   // use all available cores
+          if (__kmp_hws_core.offset >= NC) {
+            KMP_WARNING(AffHWSubsetManyCores);
+            goto _exit;
+          }
+        } // tile_support
+      }
+      if (__kmp_hws_proc.num == 0)
+        __kmp_hws_proc.num = __kmp_nThreadsPerCore; // use all available procs
+      if (__kmp_hws_proc.offset >= __kmp_nThreadsPerCore) {
+        KMP_WARNING(AffHWSubsetManyProcs);
+        goto _exit;
+      }
+      // end of validation --------------------------------------------
+
+      if (pAddr) // pAddr is NULL in case of affinity_none
+        newAddr = (AddrUnsPair *)__kmp_allocate(
+          sizeof(AddrUnsPair) * __kmp_avail_proc); // max size
+      // main loop to form HW subset ----------------------------------
+      hS = NULL;
+      int NP = hwloc_get_nbobjs_by_type(tp, HWLOC_OBJ_PACKAGE);
+      for (int s = 0; s < NP; ++s) {
+        // Check Socket -----------------------------------------------
+        hS = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PACKAGE, hS);
+        if (!__kmp_hwloc_obj_has_PUs(tp, hS))
+          continue; // skip socket if all PUs are out of fullMask
+        ++nS; // only count objects those have PUs in affinity mask
+        if (nS <= __kmp_hws_socket.offset ||
+            nS > __kmp_hws_socket.num + __kmp_hws_socket.offset) {
+          n_old += __kmp_hwloc_skip_PUs_obj(tp, hS); // skip socket
+          continue; // move to next socket
+        }
+        nCr = 0; // count number of cores per socket
+        // socket requested, go down the topology tree
+        // check 4 cases: (+NUMA+Tile), (+NUMA-Tile), (-NUMA+Tile), (-NUMA-Tile)
+        if (numa_support) {
+          nN = 0;
+          hN = NULL;
+          int NN = __kmp_hwloc_count_children_by_type(
+            tp, hS, HWLOC_OBJ_NUMANODE, &hN); // num nodes in current socket
+          for (int n = 0; n < NN; ++n) {
+            // Check NUMA Node ----------------------------------------
+            if (!__kmp_hwloc_obj_has_PUs(tp, hN)) {
+              hN = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_NUMANODE, hN);
+              continue; // skip node if all PUs are out of fullMask
+            }
+            ++nN;
+            if (nN <= __kmp_hws_node.offset ||
+                nN > __kmp_hws_node.num + __kmp_hws_node.offset) {
+              // skip node as not requested
+              n_old += __kmp_hwloc_skip_PUs_obj(tp, hN); // skip node
+              hN = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_NUMANODE, hN);
+              continue; // move to next node
+            }
+            // node requested, go down the topology tree
+            if (tile_support) {
+              nL = 0;
+              hL = NULL;
+              int NL = __kmp_hwloc_count_children_by_depth(tp, hN, L2depth, &hL);
+              for (int l = 0; l < NL; ++l) {
+                // Check L2 (tile) ------------------------------------
+                if (!__kmp_hwloc_obj_has_PUs(tp, hL)) {
+                  hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+                  continue; // skip tile if all PUs are out of fullMask
+                }
+                ++nL;
+                if (nL <= __kmp_hws_tile.offset ||
+                    nL > __kmp_hws_tile.num + __kmp_hws_tile.offset) {
+                  // skip tile as not requested
+                  n_old += __kmp_hwloc_skip_PUs_obj(tp, hL); // skip tile
+                  hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+                  continue; // move to next tile
+                }
+                // tile requested, go down the topology tree
+                nC = 0;
+                hC = NULL;
+                int NC = __kmp_hwloc_count_children_by_type(
+                  tp, hL, HWLOC_OBJ_CORE, &hC); // num cores in current tile
+                for (int c = 0; c < NC; ++c) {
+                  // Check Core ---------------------------------------
+                  if (!__kmp_hwloc_obj_has_PUs(tp, hC)) {
+                    hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                    continue; // skip core if all PUs are out of fullMask
+                  }
+                  ++nC;
+                  if (nC <= __kmp_hws_core.offset ||
+                      nC > __kmp_hws_core.num + __kmp_hws_core.offset) {
+                    // skip node as not requested
+                    n_old += __kmp_hwloc_skip_PUs_obj(tp, hC); // skip core
+                    hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                    continue; // move to next node
+                  }
+                  // core requested, go down to PUs
+                  nT = 0;
+                  nTr = 0;
+                  hT = NULL;
+                  int NT = __kmp_hwloc_count_children_by_type(
+                    tp, hC, HWLOC_OBJ_PU, &hT); // num procs in current core
+                  for (int t = 0; t < NT; ++t) {
+                    // Check PU ---------------------------------------
+                    idx = hT->os_index;
+                    if (!KMP_CPU_ISSET(idx, __kmp_affin_fullMask)) {
+                      hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                      continue; // skip PU if not in fullMask
+                    }
+                    ++nT;
+                    if (nT <= __kmp_hws_proc.offset ||
+                        nT > __kmp_hws_proc.num + __kmp_hws_proc.offset) {
+                      // skip PU
+                      KMP_CPU_CLR(idx, __kmp_affin_fullMask);
+                      ++n_old;
+                      KC_TRACE(200, ("KMP_HW_SUBSET: skipped proc %d\n", idx));
+                      hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                      continue; // move to next node
+                    }
+                    ++nTr;
+                    if (pAddr) // collect requested thread's data
+                      newAddr[n_new] = (*pAddr)[n_old];
+                    ++n_new;
+                    ++n_old;
+                    hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                  } // threads loop
+                  if (nTr > 0) {
+                    ++nCr; // num cores per socket
+                    ++nCo; // total num cores
+                    if (nTr > nTpC)
+                      nTpC = nTr; // calc max threads per core
+                  }
+                  hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                } // cores loop
+                hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+              } // tiles loop
+            } else { // tile_support
+              // no tiles, check cores
+              nC = 0;
+              hC = NULL;
+              int NC = __kmp_hwloc_count_children_by_type(
+                tp, hN, HWLOC_OBJ_CORE, &hC); // num cores in current node
+              for (int c = 0; c < NC; ++c) {
+                // Check Core ---------------------------------------
+                if (!__kmp_hwloc_obj_has_PUs(tp, hC)) {
+                  hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                  continue; // skip core if all PUs are out of fullMask
+                }
+                ++nC;
+                if (nC <= __kmp_hws_core.offset ||
+                    nC > __kmp_hws_core.num + __kmp_hws_core.offset) {
+                  // skip node as not requested
+                  n_old += __kmp_hwloc_skip_PUs_obj(tp, hC); // skip core
+                  hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                  continue; // move to next node
+                }
+                // core requested, go down to PUs
+                nT = 0;
+                nTr = 0;
+                hT = NULL;
+                int NT = __kmp_hwloc_count_children_by_type(
+                  tp, hC, HWLOC_OBJ_PU, &hT);
+                for (int t = 0; t < NT; ++t) {
+                  // Check PU ---------------------------------------
+                  idx = hT->os_index;
+                  if (!KMP_CPU_ISSET(idx, __kmp_affin_fullMask)) {
+                    hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                    continue; // skip PU if not in fullMask
+                  }
+                  ++nT;
+                  if (nT <= __kmp_hws_proc.offset ||
+                      nT > __kmp_hws_proc.num + __kmp_hws_proc.offset) {
+                    // skip PU
+                    KMP_CPU_CLR(idx, __kmp_affin_fullMask);
+                    ++n_old;
+                    KC_TRACE(200, ("KMP_HW_SUBSET: skipped proc %d\n", idx));
+                    hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                    continue; // move to next node
+                  }
+                  ++nTr;
+                  if (pAddr) // collect requested thread's data
+                    newAddr[n_new] = (*pAddr)[n_old];
+                  ++n_new;
+                  ++n_old;
+                  hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                } // threads loop
+                if (nTr > 0) {
+                  ++nCr; // num cores per socket
+                  ++nCo; // total num cores
+                  if (nTr > nTpC)
+                    nTpC = nTr; // calc max threads per core
+                }
+                hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+              } // cores loop
+            } // tiles support
+            hN = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_NUMANODE, hN);
+          } // nodes loop
+        } else { // numa_support
+          // no NUMA support
+          if (tile_support) {
+            nL = 0;
+            hL = NULL;
+            int NL = __kmp_hwloc_count_children_by_depth(
+              tp, hS, L2depth, &hL); // num tiles in current socket
+            for (int l = 0; l < NL; ++l) {
+              // Check L2 (tile) ------------------------------------
+              if (!__kmp_hwloc_obj_has_PUs(tp, hL)) {
+                hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+                continue; // skip tile if all PUs are out of fullMask
+              }
+              ++nL;
+              if (nL <= __kmp_hws_tile.offset ||
+                  nL > __kmp_hws_tile.num + __kmp_hws_tile.offset) {
+                // skip tile as not requested
+                n_old += __kmp_hwloc_skip_PUs_obj(tp, hL); // skip tile
+                hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+                continue; // move to next tile
+              }
+              // tile requested, go down the topology tree
+              nC = 0;
+              hC = NULL;
+              int NC = __kmp_hwloc_count_children_by_type(
+                tp, hL, HWLOC_OBJ_CORE, &hC); // num cores per tile
+              for (int c = 0; c < NC; ++c) {
+                // Check Core ---------------------------------------
+                if (!__kmp_hwloc_obj_has_PUs(tp, hC)) {
+                  hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                  continue; // skip core if all PUs are out of fullMask
+                }
+                ++nC;
+                if (nC <= __kmp_hws_core.offset ||
+                    nC > __kmp_hws_core.num + __kmp_hws_core.offset) {
+                  // skip node as not requested
+                  n_old += __kmp_hwloc_skip_PUs_obj(tp, hC); // skip core
+                  hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                  continue; // move to next node
+                }
+                // core requested, go down to PUs
+                nT = 0;
+                nTr = 0;
+                hT = NULL;
+                int NT = __kmp_hwloc_count_children_by_type(
+                  tp, hC, HWLOC_OBJ_PU, &hT); // num procs per core
+                for (int t = 0; t < NT; ++t) {
+                  // Check PU ---------------------------------------
+                  idx = hT->os_index;
+                  if (!KMP_CPU_ISSET(idx, __kmp_affin_fullMask)) {
+                    hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                    continue; // skip PU if not in fullMask
+                  }
+                  ++nT;
+                  if (nT <= __kmp_hws_proc.offset ||
+                      nT > __kmp_hws_proc.num + __kmp_hws_proc.offset) {
+                    // skip PU
+                    KMP_CPU_CLR(idx, __kmp_affin_fullMask);
+                    ++n_old;
+                    KC_TRACE(200, ("KMP_HW_SUBSET: skipped proc %d\n", idx));
+                    hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                    continue; // move to next node
+                  }
+                  ++nTr;
+                  if (pAddr) // collect requested thread's data
+                    newAddr[n_new] = (*pAddr)[n_old];
+                  ++n_new;
+                  ++n_old;
+                  hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                } // threads loop
+                if (nTr > 0) {
+                  ++nCr; // num cores per socket
+                  ++nCo; // total num cores
+                  if (nTr > nTpC)
+                    nTpC = nTr; // calc max threads per core
+                }
+                hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+              } // cores loop
+              hL = hwloc_get_next_obj_by_depth(tp, L2depth, hL);
+            } // tiles loop
+          } else { // tile_support
+            // no tiles, check cores
+            nC = 0;
+            hC = NULL;
+            int NC = __kmp_hwloc_count_children_by_type(
+              tp, hS, HWLOC_OBJ_CORE, &hC); // num cores in socket
+            for (int c = 0; c < NC; ++c) {
+              // Check Core -------------------------------------------
+              if (!__kmp_hwloc_obj_has_PUs(tp, hC)) {
+                hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                continue; // skip core if all PUs are out of fullMask
+              }
+              ++nC;
+              if (nC <= __kmp_hws_core.offset ||
+                  nC > __kmp_hws_core.num + __kmp_hws_core.offset) {
+                // skip node as not requested
+                n_old += __kmp_hwloc_skip_PUs_obj(tp, hC); // skip core
+                hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+                continue; // move to next node
+              }
+              // core requested, go down to PUs
+              nT = 0;
+              nTr = 0;
+              hT = NULL;
+              int NT = __kmp_hwloc_count_children_by_type(
+                tp, hC, HWLOC_OBJ_PU, &hT); // num procs per core
+              for (int t = 0; t < NT; ++t) {
+                // Check PU ---------------------------------------
+                idx = hT->os_index;
+                if (!KMP_CPU_ISSET(idx, __kmp_affin_fullMask)) {
+                  hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                  continue; // skip PU if not in fullMask
+                }
+                ++nT;
+                if (nT <= __kmp_hws_proc.offset ||
+                    nT > __kmp_hws_proc.num + __kmp_hws_proc.offset) {
+                  // skip PU
+                  KMP_CPU_CLR(idx, __kmp_affin_fullMask);
+                  ++n_old;
+                  KC_TRACE(200, ("KMP_HW_SUBSET: skipped proc %d\n", idx));
+                  hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+                  continue; // move to next node
+                }
+                ++nTr;
+                if (pAddr) // collect requested thread's data
+                  newAddr[n_new] = (*pAddr)[n_old];
+                ++n_new;
+                ++n_old;
+                hT = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_PU, hT);
+              } // threads loop
+              if (nTr > 0) {
+                ++nCr; // num cores per socket
+                ++nCo; // total num cores
+                if (nTr > nTpC)
+                  nTpC = nTr; // calc max threads per core
+              }
+              hC = hwloc_get_next_obj_by_type(tp, HWLOC_OBJ_CORE, hC);
+            } // cores loop
+          } // tiles support
+        } // numa_support
+        if (nCr > 0) { // found cores?
+          ++nPkg; // num sockets
+          if (nCr > nCpP)
+            nCpP = nCr; // calc max cores per socket
+        }
+      } // sockets loop
+
+      // check the subset is valid
+      KMP_DEBUG_ASSERT(n_old == __kmp_avail_proc);
+      KMP_DEBUG_ASSERT(nPkg > 0);
+      KMP_DEBUG_ASSERT(nCpP > 0);
+      KMP_DEBUG_ASSERT(nTpC > 0);
+      KMP_DEBUG_ASSERT(nCo > 0);
+      KMP_DEBUG_ASSERT(nPkg <= nPackages);
+      KMP_DEBUG_ASSERT(nCpP <= nCoresPerPkg);
+      KMP_DEBUG_ASSERT(nTpC <= __kmp_nThreadsPerCore);
+      KMP_DEBUG_ASSERT(nCo <= __kmp_ncores);
+
+      nPackages = nPkg;             // correct num sockets
+      nCoresPerPkg = nCpP;          // correct num cores per socket
+      __kmp_nThreadsPerCore = nTpC; // correct num threads per core
+      __kmp_avail_proc = n_new;     // correct num procs
+      __kmp_ncores = nCo;           // correct num cores
+      // hwloc topology method end
+    } else
+#endif // KMP_USE_HWLOC
+    {
+      int n_old = 0, n_new = 0, proc_num = 0;
+      if (__kmp_hws_node.num > 0 || __kmp_hws_tile.num > 0) {
+        KMP_WARNING(AffHWSubsetNoHWLOC);
+        goto _exit;
+      }
+      if (__kmp_hws_socket.num == 0)
+        __kmp_hws_socket.num = nPackages;    // use all available sockets
+      if (__kmp_hws_core.num == 0)
+        __kmp_hws_core.num = nCoresPerPkg;   // use all available cores
+      if (__kmp_hws_proc.num == 0 ||
+        __kmp_hws_proc.num > __kmp_nThreadsPerCore)
+        __kmp_hws_proc.num = __kmp_nThreadsPerCore; // use all HW contexts
+      if ( !__kmp_affinity_uniform_topology() ) {
         KMP_WARNING( AffHWSubsetNonUniform );
         goto _exit; // don't support non-uniform topology
-    }
-    if ( depth > 3 ) {
+      }
+      if ( depth > 3 ) {
         KMP_WARNING( AffHWSubsetNonThreeLevel );
         goto _exit; // don't support not-3-level topology
-    }
-    if (__kmp_place_socket_offset + __kmp_place_num_sockets > nPackages) {
+      }
+      if (__kmp_hws_socket.offset + __kmp_hws_socket.num > nPackages) {
         KMP_WARNING(AffHWSubsetManySockets);
         goto _exit;
-    }
-    if ( __kmp_place_core_offset + __kmp_place_num_cores > nCoresPerPkg ) {
+      }
+      if ( __kmp_hws_core.offset + __kmp_hws_core.num > nCoresPerPkg ) {
         KMP_WARNING( AffHWSubsetManyCores );
         goto _exit;
-    }
-
-    AddrUnsPair *newAddr;
-    if (pAddr) // pAddr is NULL in case of affinity_none
+      }
+      // Form the requested subset
+      if (pAddr) // pAddr is NULL in case of affinity_none
         newAddr = (AddrUnsPair *)__kmp_allocate( sizeof(AddrUnsPair) *
-            __kmp_place_num_sockets * __kmp_place_num_cores * __kmp_place_num_threads_per_core);
-
-    for (i = 0; i < nPackages; ++i) {
-        if (i < __kmp_place_socket_offset ||
-            i >= __kmp_place_socket_offset + __kmp_place_num_sockets) {
-            n_old += nCoresPerPkg * __kmp_nThreadsPerCore; // skip not-requested socket
-            if (__kmp_pu_os_idx != NULL) {
-                for (j = 0; j < nCoresPerPkg; ++j) { // walk through skipped socket
-                    for (k = 0; k < __kmp_nThreadsPerCore; ++k) {
-                        KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
-                        ++proc_num;
-                    }
-                }
+          __kmp_hws_socket.num * __kmp_hws_core.num * __kmp_hws_proc.num);
+      for (int i = 0; i < nPackages; ++i) {
+        if (i < __kmp_hws_socket.offset ||
+            i >= __kmp_hws_socket.offset + __kmp_hws_socket.num) {
+          // skip not-requested socket
+          n_old += nCoresPerPkg * __kmp_nThreadsPerCore;
+          if (__kmp_pu_os_idx != NULL) {
+            // walk through skipped socket
+            for (int j = 0; j < nCoresPerPkg; ++j) {
+              for (int k = 0; k < __kmp_nThreadsPerCore; ++k) {
+                KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
+                ++proc_num;
+              }
             }
+          }
         } else {
-            for (j = 0; j < nCoresPerPkg; ++j) { // walk through requested socket
-                if (j < __kmp_place_core_offset ||
-                    j >= __kmp_place_core_offset + __kmp_place_num_cores) {
-                    n_old += __kmp_nThreadsPerCore; // skip not-requested core
-                    if (__kmp_pu_os_idx != NULL) {
-                        for (k = 0; k < __kmp_nThreadsPerCore; ++k) { // walk through skipped core
-                            KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
-                            ++proc_num;
-                        }
-                    }
-                } else {
-                    for (k = 0; k < __kmp_nThreadsPerCore; ++k) { // walk through requested core
-                        if (k < __kmp_place_num_threads_per_core) {
-                            if (pAddr)
-                                newAddr[n_new] = (*pAddr)[n_old]; // collect requested thread's data
-                            n_new++;
-                        } else {
-                            if (__kmp_pu_os_idx != NULL)
-                                KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
-                        }
-                        n_old++;
-                        ++proc_num;
-                    }
+          // walk through requested socket
+          for (int j = 0; j < nCoresPerPkg; ++j) {
+            if (j < __kmp_hws_core.offset ||
+                j >= __kmp_hws_core.offset + __kmp_hws_core.num)
+            { // skip not-requested core
+              n_old += __kmp_nThreadsPerCore;
+              if (__kmp_pu_os_idx != NULL) {
+                for (int k = 0; k < __kmp_nThreadsPerCore; ++k) {
+                  KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
+                  ++proc_num;
                 }
+              }
+            } else {
+              // walk through requested core
+              for (int k = 0; k < __kmp_nThreadsPerCore; ++k) {
+                if (k < __kmp_hws_proc.num) {
+                  if (pAddr) // collect requested thread's data
+                    newAddr[n_new] = (*pAddr)[n_old];
+                  n_new++;
+                } else {
+                  if (__kmp_pu_os_idx != NULL)
+                    KMP_CPU_CLR(__kmp_pu_os_idx[proc_num], __kmp_affin_fullMask);
+                }
+                n_old++;
+                ++proc_num;
+              }
             }
+          }
         }
-    }
-    KMP_DEBUG_ASSERT(n_old == nPackages * nCoresPerPkg * __kmp_nThreadsPerCore);
-    KMP_DEBUG_ASSERT(n_new == __kmp_place_num_sockets * __kmp_place_num_cores *
-                     __kmp_place_num_threads_per_core);
-
-    nPackages = __kmp_place_num_sockets;                      // correct nPackages
-    nCoresPerPkg = __kmp_place_num_cores;                     // correct nCoresPerPkg
-    __kmp_nThreadsPerCore = __kmp_place_num_threads_per_core; // correct __kmp_nThreadsPerCore
-    __kmp_avail_proc = n_new;                                 // correct avail_proc
-    __kmp_ncores = nPackages * __kmp_place_num_cores;         // correct ncores
-
+      }
+      KMP_DEBUG_ASSERT(n_old == nPackages * nCoresPerPkg * __kmp_nThreadsPerCore);
+      KMP_DEBUG_ASSERT(n_new == __kmp_hws_socket.num * __kmp_hws_core.num *
+                       __kmp_hws_proc.num);
+      nPackages = __kmp_hws_socket.num;           // correct nPackages
+      nCoresPerPkg = __kmp_hws_core.num;          // correct nCoresPerPkg
+      __kmp_nThreadsPerCore = __kmp_hws_proc.num; // correct __kmp_nThreadsPerCore
+      __kmp_avail_proc = n_new;                   // correct avail_proc
+      __kmp_ncores = nPackages * __kmp_hws_core.num; // correct ncores
+    } // non-hwloc topology method
     if (pAddr) {
-        __kmp_free( *pAddr );
-        *pAddr = newAddr;      // replace old topology with new one
+      __kmp_free( *pAddr );
+      *pAddr = newAddr;      // replace old topology with new one
+    }
+    if (__kmp_affinity_verbose) {
+      char m[KMP_AFFIN_MASK_PRINT_LEN];
+      __kmp_affinity_print_mask(m,KMP_AFFIN_MASK_PRINT_LEN,__kmp_affin_fullMask);
+      if (__kmp_affinity_respect_mask) {
+        KMP_INFORM(InitOSProcSetRespect, "KMP_HW_SUBSET", m);
+      } else {
+        KMP_INFORM(InitOSProcSetNotRespect, "KMP_HW_SUBSET", m);
+      }
+      KMP_INFORM(AvailableOSProc, "KMP_HW_SUBSET", __kmp_avail_proc);
+      kmp_str_buf_t buf;
+      __kmp_str_buf_init(&buf);
+      __kmp_str_buf_print(&buf, "%d", nPackages);
+      KMP_INFORM(TopologyExtra, "KMP_HW_SUBSET", buf.str, nCoresPerPkg,
+        __kmp_nThreadsPerCore, __kmp_ncores);
+      __kmp_str_buf_free(&buf);
     }
 _exit:
     if (__kmp_pu_os_idx != NULL) {
-        __kmp_free(__kmp_pu_os_idx);
-        __kmp_pu_os_idx = NULL;
+      __kmp_free(__kmp_pu_os_idx);
+      __kmp_pu_os_idx = NULL;
     }
 }
 
@@ -3705,7 +4252,7 @@ __kmp_aux_affinity_initialize(void)
         const char *file_name = NULL;
         int line = 0;
 # if KMP_USE_HWLOC
-        if (depth < 0) {
+        if (depth < 0 && __kmp_affinity_dispatch->get_api_type() == KMPAffinity::HWLOC) {
             if (__kmp_affinity_verbose) {
                 KMP_INFORM(AffUsingHwloc, "KMP_AFFINITY");
             }
@@ -3947,6 +4494,7 @@ __kmp_aux_affinity_initialize(void)
 
 # if KMP_USE_HWLOC
     else if (__kmp_affinity_top_method == affinity_top_method_hwloc) {
+        KMP_ASSERT(__kmp_affinity_dispatch->get_api_type() == KMPAffinity::HWLOC);
         if (__kmp_affinity_verbose) {
             KMP_INFORM(AffUsingHwloc, "KMP_AFFINITY");
         }
@@ -4212,6 +4760,7 @@ __kmp_affinity_uninitialize(void)
         __kmp_affin_fullMask = NULL;
     }
     __kmp_affinity_num_masks = 0;
+    __kmp_affinity_type = affinity_default;
 # if OMP_40_ENABLED
     __kmp_affinity_num_places = 0;
 # endif
@@ -4233,6 +4782,7 @@ __kmp_affinity_uninitialize(void)
         __kmp_hwloc_topology = NULL;
     }
 # endif
+    KMPAffinity::destroy_api();
 }
 
 
@@ -4340,8 +4890,7 @@ __kmp_affinity_set_init_mask(int gtid, int isa_root)
         char buf[KMP_AFFIN_MASK_PRINT_LEN];
         __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN,
           th->th.th_affin_mask);
-        KMP_INFORM(BoundToOSProcSet, "KMP_AFFINITY", (kmp_int32)getpid(), gtid,
-          buf);
+        KMP_INFORM(BoundToOSProcSet, "KMP_AFFINITY", (kmp_int32)getpid(),__kmp_gettid(), gtid, buf);
     }
 
 # if KMP_OS_WINDOWS
@@ -4403,8 +4952,7 @@ __kmp_affinity_set_place(int gtid)
         char buf[KMP_AFFIN_MASK_PRINT_LEN];
         __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN,
           th->th.th_affin_mask);
-        KMP_INFORM(BoundToOSProcSet, "OMP_PROC_BIND", (kmp_int32)getpid(),
-          gtid, buf);
+        KMP_INFORM(BoundToOSProcSet, "OMP_PROC_BIND", (kmp_int32)getpid(), __kmp_gettid(), gtid, buf);
     }
     __kmp_set_system_affinity(th->th.th_affin_mask, TRUE);
 }
@@ -4722,7 +5270,7 @@ void __kmp_balanced_affinity( int tid, int nthreads )
             char buf[KMP_AFFIN_MASK_PRINT_LEN];
             __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN, mask);
             KMP_INFORM(BoundToOSProcSet, "KMP_AFFINITY", (kmp_int32)getpid(),
-              tid, buf);
+            __kmp_gettid(), tid, buf);
         }
         __kmp_set_system_affinity( mask, TRUE );
         KMP_CPU_FREE_FROM_STACK(mask);
@@ -4883,7 +5431,7 @@ void __kmp_balanced_affinity( int tid, int nthreads )
             char buf[KMP_AFFIN_MASK_PRINT_LEN];
             __kmp_affinity_print_mask(buf, KMP_AFFIN_MASK_PRINT_LEN, mask);
             KMP_INFORM(BoundToOSProcSet, "KMP_AFFINITY", (kmp_int32)getpid(),
-              tid, buf);
+            __kmp_gettid(), tid, buf);
         }
         __kmp_set_system_affinity( mask, TRUE );
         KMP_CPU_FREE_FROM_STACK(mask);

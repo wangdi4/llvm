@@ -24,19 +24,16 @@
 #include "lldb/Breakpoint/Watchpoint.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Event.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/SourceManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Expression/REPL.h"
 #include "lldb/Expression/UserExpression.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -57,10 +54,15 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadSpec.h"
+#include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
+
+constexpr std::chrono::milliseconds EvaluateExpressionOptions::default_timeout;
 
 ConstString &Target::GetStaticBroadcasterClass() {
   static ConstString class_name("lldb.target");
@@ -170,7 +172,7 @@ void Target::DeleteCurrentProcess() {
 }
 
 const lldb::ProcessSP &Target::CreateProcess(ListenerSP listener_sp,
-                                             const char *plugin_name,
+                                             llvm::StringRef plugin_name,
                                              const FileSpec *crash_file) {
   DeleteCurrentProcess();
   m_process_sp = Process::FindPlugin(shared_from_this(), plugin_name,
@@ -796,7 +798,8 @@ bool Target::EnableBreakpointByID(break_id_t break_id) {
 }
 
 Error Target::SerializeBreakpointsToFile(const FileSpec &file,
-                                         const BreakpointIDList &bp_ids) {
+                                         const BreakpointIDList &bp_ids,
+                                         bool append) {
   Error error;
 
   if (!file) {
@@ -805,6 +808,28 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
   }
 
   std::string path(file.GetPath());
+  StructuredData::ObjectSP input_data_sp;
+
+  StructuredData::ArraySP break_store_sp;
+  StructuredData::Array *break_store_ptr = nullptr;
+
+  if (append) {
+    input_data_sp = StructuredData::ParseJSONFromFile(file, error);
+    if (error.Success()) {
+      break_store_ptr = input_data_sp->GetAsArray();
+      if (!break_store_ptr) {
+        error.SetErrorStringWithFormat(
+            "Tried to append to invalid input file %s", path.c_str());
+        return error;
+      }
+    }
+  }
+
+  if (!break_store_ptr) {
+    break_store_sp.reset(new StructuredData::Array());
+    break_store_ptr = break_store_sp.get();
+  }
+
   StreamFile out_file(path.c_str(),
                       File::OpenOptions::eOpenOptionTruncate |
                           File::OpenOptions::eOpenOptionWrite |
@@ -820,7 +845,6 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
   std::unique_lock<std::recursive_mutex> lock;
   GetBreakpointList().GetListMutex(lock);
 
-  StructuredData::ArraySP break_store_sp(new StructuredData::Array());
   if (bp_ids.GetSize() == 0) {
     const BreakpointList &breakpoints = GetBreakpointList();
 
@@ -830,7 +854,7 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
       StructuredData::ObjectSP bkpt_save_sp = bp->SerializeToStructuredData();
       // If a breakpoint can't serialize it, just ignore it for now:
       if (bkpt_save_sp)
-        break_store_sp->AddItem(bkpt_save_sp);
+        break_store_ptr->AddItem(bkpt_save_sp);
     }
   } else {
 
@@ -857,17 +881,24 @@ Error Target::SerializeBreakpointsToFile(const FileSpec &file,
                                          bp_id);
           return error;
         }
-        break_store_sp->AddItem(bkpt_save_sp);
+        break_store_ptr->AddItem(bkpt_save_sp);
       }
     }
   }
 
-  break_store_sp->Dump(out_file, false);
+  break_store_ptr->Dump(out_file, false);
   out_file.PutChar('\n');
   return error;
 }
 
 Error Target::CreateBreakpointsFromFile(const FileSpec &file,
+                                        BreakpointIDList &new_bps) {
+  std::vector<std::string> no_names;
+  return CreateBreakpointsFromFile(file, no_names, new_bps);
+}
+
+Error Target::CreateBreakpointsFromFile(const FileSpec &file,
+                                        std::vector<std::string> &names,
                                         BreakpointIDList &new_bps) {
   std::unique_lock<std::recursive_mutex> lock;
   GetBreakpointList().GetListMutex(lock);
@@ -891,6 +922,8 @@ Error Target::CreateBreakpointsFromFile(const FileSpec &file,
   }
 
   size_t num_bkpts = bkpt_array->GetSize();
+  size_t num_names = names.size();
+
   for (size_t i = 0; i < num_bkpts; i++) {
     StructuredData::ObjectSP bkpt_object_sp = bkpt_array->GetItemAtIndex(i);
     // Peel off the breakpoint key, and feed the rest to the Breakpoint:
@@ -903,6 +936,10 @@ Error Target::CreateBreakpointsFromFile(const FileSpec &file,
     }
     StructuredData::ObjectSP bkpt_data_sp =
         bkpt_dict->GetValueForKey(Breakpoint::GetSerializationKey());
+    if (num_names &&
+        !Breakpoint::SerializedBreakpointMatchesNames(bkpt_data_sp, names))
+      continue;
+
     BreakpointSP bkpt_sp =
         Breakpoint::CreateFromStructuredData(*this, bkpt_data_sp, error);
     if (!error.Success()) {
@@ -1517,11 +1554,9 @@ size_t Target::ReadMemory(const Address &addr, bool prefer_file_cache,
     if (load_addr == LLDB_INVALID_ADDRESS) {
       ModuleSP addr_module_sp(resolved_addr.GetModule());
       if (addr_module_sp && addr_module_sp->GetFileSpec())
-        error.SetErrorStringWithFormat(
-            "%s[0x%" PRIx64 "] can't be resolved, %s in not currently loaded",
-            addr_module_sp->GetFileSpec().GetFilename().AsCString("<Unknown>"),
-            resolved_addr.GetFileAddress(),
-            addr_module_sp->GetFileSpec().GetFilename().AsCString("<Unknonw>"));
+        error.SetErrorStringWithFormatv(
+            "{0:F}[{1:x+}] can't be resolved, {0:F} is not currently loaded",
+            addr_module_sp->GetFileSpec(), resolved_addr.GetFileAddress());
       else
         error.SetErrorStringWithFormat("0x%" PRIx64 " can't be resolved",
                                        resolved_addr.GetFileAddress());
@@ -1926,7 +1961,7 @@ Target::GetPersistentExpressionStateForLanguage(lldb::LanguageType language) {
 }
 
 UserExpression *Target::GetUserExpressionForLanguage(
-    const char *expr, const char *expr_prefix, lldb::LanguageType language,
+    llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options, Error &error) {
   Error type_system_error;
@@ -1943,7 +1978,7 @@ UserExpression *Target::GetUserExpressionForLanguage(
     return nullptr;
   }
 
-  user_expr = type_system->GetUserExpression(expr, expr_prefix, language,
+  user_expr = type_system->GetUserExpression(expr, prefix, language,
                                              desired_type, options);
   if (!user_expr)
     error.SetErrorStringWithFormat(
@@ -2083,14 +2118,14 @@ Target *Target::GetTargetFromContexts(const ExecutionContext *exe_ctx_ptr,
 }
 
 ExpressionResults Target::EvaluateExpression(
-    const char *expr_cstr, ExecutionContextScope *exe_scope,
+    llvm::StringRef expr, ExecutionContextScope *exe_scope,
     lldb::ValueObjectSP &result_valobj_sp,
     const EvaluateExpressionOptions &options, std::string *fixed_expression) {
   result_valobj_sp.reset();
 
   ExpressionResults execution_results = eExpressionSetupError;
 
-  if (expr_cstr == nullptr || expr_cstr[0] == '\0')
+  if (expr.empty())
     return execution_results;
 
   // We shouldn't run stop hooks in expressions.
@@ -2112,10 +2147,10 @@ ExpressionResults Target::EvaluateExpression(
   // variable (something like "$0")
   lldb::ExpressionVariableSP persistent_var_sp;
   // Only check for persistent variables the expression starts with a '$'
-  if (expr_cstr[0] == '$')
+  if (expr[0] == '$')
     persistent_var_sp = GetScratchTypeSystemForLanguage(nullptr, eLanguageTypeC)
                             ->GetPersistentExpressionState()
-                            ->GetVariable(expr_cstr);
+                            ->GetVariable(expr);
 
   if (persistent_var_sp) {
     result_valobj_sp = persistent_var_sp->GetValueObject();
@@ -2123,10 +2158,10 @@ ExpressionResults Target::EvaluateExpression(
   } else {
     const char *prefix = GetExpressionPrefixContentsAsCString();
     Error error;
-    execution_results = UserExpression::Evaluate(
-        exe_ctx, options, expr_cstr, prefix, result_valobj_sp, error,
-        0, // Line Number
-        fixed_expression);
+    execution_results = UserExpression::Evaluate(exe_ctx, options, expr, prefix,
+                                                 result_valobj_sp, error,
+                                                 0, // Line Number
+                                                 fixed_expression);
   }
 
   m_suppress_stop_hooks = old_suppress_value;
@@ -2138,7 +2173,7 @@ lldb::ExpressionVariableSP
 Target::GetPersistentVariable(const ConstString &name) {
   lldb::ExpressionVariableSP variable_sp;
   m_scratch_type_system_map.ForEach(
-      [this, name, &variable_sp](TypeSystem *type_system) -> bool {
+      [name, &variable_sp](TypeSystem *type_system) -> bool {
         if (PersistentExpressionState *persistent_state =
                 type_system->GetPersistentExpressionState()) {
           variable_sp = persistent_state->GetVariable(name);
@@ -2155,7 +2190,7 @@ lldb::addr_t Target::GetPersistentSymbol(const ConstString &name) {
   lldb::addr_t address = LLDB_INVALID_ADDRESS;
 
   m_scratch_type_system_map.ForEach(
-      [this, name, &address](TypeSystem *type_system) -> bool {
+      [name, &address](TypeSystem *type_system) -> bool {
         if (PersistentExpressionState *persistent_state =
                 type_system->GetPersistentExpressionState()) {
           address = persistent_state->LookupSymbol(name);
@@ -2608,11 +2643,8 @@ void Target::RunStopHooks() {
 const TargetPropertiesSP &Target::GetGlobalProperties() {
   // NOTE: intentional leak so we don't crash if global destructor chain gets
   // called as other threads still use the result of this function
-  static TargetPropertiesSP *g_settings_sp_ptr = nullptr;
-  static std::once_flag g_once_flag;
-  std::call_once(g_once_flag, []() {
-    g_settings_sp_ptr = new TargetPropertiesSP(new TargetProperties(nullptr));
-  });
+  static TargetPropertiesSP *g_settings_sp_ptr =
+      new TargetPropertiesSP(new TargetProperties(nullptr));
   return *g_settings_sp_ptr;
 }
 
@@ -2875,8 +2907,7 @@ Error Target::Launch(ProcessLaunchInfo &launch_info, Stream *stream) {
       }
 
       StateType state = m_process_sp->WaitForProcessToStop(
-          std::chrono::microseconds(0), nullptr, false, hijack_listener_sp,
-          nullptr);
+          llvm::None, nullptr, false, hijack_listener_sp, nullptr);
 
       if (state == eStateStopped) {
         if (!launch_info.GetFlags().Test(eLaunchFlagStopAtEntry)) {
@@ -2884,8 +2915,7 @@ Error Target::Launch(ProcessLaunchInfo &launch_info, Stream *stream) {
             error = m_process_sp->PrivateResume();
             if (error.Success()) {
               state = m_process_sp->WaitForProcessToStop(
-                  std::chrono::microseconds(0), nullptr, true,
-                  hijack_listener_sp, stream);
+                  llvm::None, nullptr, true, hijack_listener_sp, stream);
               const bool must_be_alive =
                   false; // eStateExited is ok, so this must be false
               if (!StateIsStoppedState(state, must_be_alive)) {
@@ -3009,8 +3039,7 @@ Error Target::Attach(ProcessAttachInfo &attach_info, Stream *stream) {
       process_sp->RestoreProcessEvents();
     } else {
       state = process_sp->WaitForProcessToStop(
-          std::chrono::microseconds(0), nullptr, false,
-          attach_info.GetHijackListener(), stream);
+          llvm::None, nullptr, false, attach_info.GetHijackListener(), stream);
       process_sp->RestoreProcessEvents();
 
       if (state != eStateStopped) {
@@ -3077,7 +3106,7 @@ void Target::StopHook::GetDescription(Stream *s,
     s->Indent("Thread:\n");
     m_thread_spec_ap->GetDescription(&tmp, level);
     s->SetIndentLevel(indent_level + 4);
-    s->Indent(tmp.GetData());
+    s->Indent(tmp.GetString());
     s->PutCString("\n");
     s->SetIndentLevel(indent_level + 2);
   }
@@ -3211,6 +3240,8 @@ static PropertyDefinition g_properties[] = {
      nullptr, "Automatically apply fix-it hints to expressions."},
     {"notify-about-fixits", OptionValue::eTypeBoolean, false, true, nullptr,
      nullptr, "Print the fixed expression text."},
+    {"save-jit-objects", OptionValue::eTypeBoolean, false, false, nullptr,
+     nullptr, "Save intermediate object files generated by the LLVM JIT"},
     {"max-children-count", OptionValue::eTypeSInt64, false, 256, nullptr,
      nullptr, "Maximum number of children to expand in any level of depth."},
     {"max-string-summary-length", OptionValue::eTypeSInt64, false, 1024,
@@ -3335,6 +3366,7 @@ enum {
   ePropertyAutoImportClangModules,
   ePropertyAutoApplyFixIts,
   ePropertyNotifyAboutFixIts,
+  ePropertySaveObjects,
   ePropertyMaxChildrenCount,
   ePropertyMaxSummaryLength,
   ePropertyMaxMemReadSize,
@@ -3659,14 +3691,15 @@ InlineStrategy TargetProperties::GetInlineStrategy() const {
       nullptr, idx, g_properties[idx].default_uint_value);
 }
 
-const char *TargetProperties::GetArg0() const {
+llvm::StringRef TargetProperties::GetArg0() const {
   const uint32_t idx = ePropertyArg0;
-  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, nullptr);
+  return m_collection_sp->GetPropertyAtIndexAsString(nullptr, idx, llvm::StringRef());
 }
 
-void TargetProperties::SetArg0(const char *arg) {
+void TargetProperties::SetArg0(llvm::StringRef arg) {
   const uint32_t idx = ePropertyArg0;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, arg);
+  m_collection_sp->SetPropertyAtIndexAsString(
+      nullptr, idx, arg);
   m_launch_info.SetArg0(arg);
 }
 
@@ -3752,6 +3785,12 @@ bool TargetProperties::GetEnableNotifyAboutFixIts() const {
       nullptr, idx, g_properties[idx].default_uint_value != 0);
 }
 
+bool TargetProperties::GetEnableSaveObjects() const {
+  const uint32_t idx = ePropertySaveObjects;
+  return m_collection_sp->GetPropertyAtIndexAsBoolean(
+      nullptr, idx, g_properties[idx].default_uint_value != 0);
+}
+
 bool TargetProperties::GetEnableSyntheticValue() const {
   const uint32_t idx = ePropertyEnableSynthetic;
   return m_collection_sp->GetPropertyAtIndexAsBoolean(
@@ -3781,9 +3820,9 @@ FileSpec TargetProperties::GetStandardInputPath() const {
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
 }
 
-void TargetProperties::SetStandardInputPath(const char *p) {
+void TargetProperties::SetStandardInputPath(llvm::StringRef path) {
   const uint32_t idx = ePropertyInputPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 FileSpec TargetProperties::GetStandardOutputPath() const {
@@ -3791,14 +3830,19 @@ FileSpec TargetProperties::GetStandardOutputPath() const {
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
 }
 
-void TargetProperties::SetStandardOutputPath(const char *p) {
+void TargetProperties::SetStandardOutputPath(llvm::StringRef path) {
   const uint32_t idx = ePropertyOutputPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 FileSpec TargetProperties::GetStandardErrorPath() const {
   const uint32_t idx = ePropertyErrorPath;
   return m_collection_sp->GetPropertyAtIndexAsFileSpec(nullptr, idx);
+}
+
+void TargetProperties::SetStandardErrorPath(llvm::StringRef path) {
+  const uint32_t idx = ePropertyErrorPath;
+  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, path);
 }
 
 LanguageType TargetProperties::GetLanguage() const {
@@ -3822,11 +3866,6 @@ const char *TargetProperties::GetExpressionPrefixContentsAsCString() {
       return (const char *)data_sp->GetBytes();
   }
   return nullptr;
-}
-
-void TargetProperties::SetStandardErrorPath(const char *p) {
-  const uint32_t idx = ePropertyErrorPath;
-  m_collection_sp->SetPropertyAtIndexAsString(nullptr, idx, p);
 }
 
 bool TargetProperties::GetBreakpointsConsultPlatformAvoidList() {
@@ -3924,23 +3963,17 @@ void TargetProperties::SetProcessLaunchInfo(
   const FileAction *input_file_action =
       launch_info.GetFileActionForFD(STDIN_FILENO);
   if (input_file_action) {
-    const char *input_path = input_file_action->GetPath();
-    if (input_path)
-      SetStandardInputPath(input_path);
+    SetStandardInputPath(input_file_action->GetPath());
   }
   const FileAction *output_file_action =
       launch_info.GetFileActionForFD(STDOUT_FILENO);
   if (output_file_action) {
-    const char *output_path = output_file_action->GetPath();
-    if (output_path)
-      SetStandardOutputPath(output_path);
+    SetStandardOutputPath(output_file_action->GetPath());
   }
   const FileAction *error_file_action =
       launch_info.GetFileActionForFD(STDERR_FILENO);
   if (error_file_action) {
-    const char *error_path = error_file_action->GetPath();
-    if (error_path)
-      SetStandardErrorPath(error_path);
+    SetStandardErrorPath(error_file_action->GetPath());
   }
   SetDetachOnError(launch_info.GetFlags().Test(lldb::eLaunchFlagDetachOnError));
   SetDisableASLR(launch_info.GetFlags().Test(lldb::eLaunchFlagDisableASLR));

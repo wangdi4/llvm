@@ -11,12 +11,12 @@
 // collisions with WinAPI preprocessor macros.
 
 #include "WindowsMiniDump.h"
-#include "lldb/Host/FileSpec.h"
+#include "lldb/Utility/FileSpec.h"
 #include "llvm/Support/ConvertUTF.h"
 
 #ifdef _WIN32
 #include "lldb/Host/windows/windows.h"
-#include <DbgHelp.h> // for MiniDumpWriteDump
+#include <dbghelp.h> // for MiniDumpWriteDump
 #endif
 
 namespace lldb_private {
@@ -33,7 +33,7 @@ bool SaveMiniDump(const lldb::ProcessSP &process_sp,
   std::wstring wide_name;
   wide_name.resize(file_name.size() + 1);
   char *result_ptr = reinterpret_cast<char *>(&wide_name[0]);
-  const UTF8 *error_ptr = nullptr;
+  const llvm::UTF8 *error_ptr = nullptr;
   if (!llvm::ConvertUTF8toWide(sizeof(wchar_t), file_name, result_ptr,
                                error_ptr)) {
     error.SetErrorString("cannot convert file name");

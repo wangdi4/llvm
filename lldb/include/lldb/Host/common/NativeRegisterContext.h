@@ -75,6 +75,11 @@ public:
 
   virtual bool ClearHardwareBreakpoint(uint32_t hw_idx);
 
+  virtual Error ClearAllHardwareBreakpoints();
+
+  virtual Error GetHardwareBreakHitIndex(uint32_t &bp_index,
+                                         lldb::addr_t trap_addr);
+
   virtual uint32_t NumSupportedHardwareWatchpoints();
 
   virtual uint32_t SetHardwareWatchpoint(lldb::addr_t addr, size_t size,
@@ -126,7 +131,7 @@ public:
 
   virtual NativeThreadProtocol &GetThread() { return m_thread; }
 
-  const RegisterInfo *GetRegisterInfoByName(const char *reg_name,
+  const RegisterInfo *GetRegisterInfoByName(llvm::StringRef reg_name,
                                             uint32_t start_idx = 0);
 
   const RegisterInfo *GetRegisterInfo(uint32_t reg_kind, uint32_t reg_num);

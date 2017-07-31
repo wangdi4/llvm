@@ -18,6 +18,7 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @skipIfWindows  # llvm.org/pr24452: Get lldb-mi tests working on Windows
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_tokens(self):
         """Test that 'lldb-mi --interpreter' prints command tokens."""
 
@@ -41,6 +42,7 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @skipIfWindows  # llvm.org/pr24452: Get lldb-mi tests working on Windows
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     def test_lldbmi_specialchars(self):
         """Test that 'lldb-mi --interpreter' handles complicated strings."""
 
@@ -66,6 +68,7 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @skipIfWindows  # llvm.org/pr24452: Get lldb-mi tests working on Windows
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
     @expectedFailureAll(
         oslist=["linux"],
         bugnumber="Failing in ~6/600 dosep runs (build 3120-3122)")
@@ -88,6 +91,8 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
     @skipIfWindows  # llvm.org/pr24452: Get lldb-mi tests working on Windows
     @skipIfFreeBSD  # llvm.org/pr22411: Failure presumably due to known thread races
+    @skipIfRemote   # We do not currently support remote debugging via the MI.
+    @expectedFailureAll(oslist=["macosx"], bugnumber="rdar://28805064")
     def test_lldbmi_output_grammar(self):
         """Test that 'lldb-mi --interpreter' uses standard output syntax."""
 
@@ -96,6 +101,7 @@ class MiSyntaxTestCase(lldbmi_testcase.MiTestCaseBase):
 
         # Run all commands simultaneously
         self.runCmd("-unknown-command")
+        self.runCmd("-interpreter-exec command help")
         self.runCmd("-file-exec-and-symbols %s" % self.myexe)
         self.runCmd("-break-insert -f main")
         self.runCmd("-gdb-set target-async off")

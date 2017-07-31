@@ -11,114 +11,18 @@
 
 #include "clang/Analysis/CFG.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallVector.h"
 
-#include <algorithm>
+#include "../utils/ExprSequence.h"
 
 using namespace clang::ast_matchers;
+using namespace clang::tidy::utils;
+
 
 namespace clang {
 namespace tidy {
 namespace misc {
 
 namespace {
-
-/// Provides information about the evaluation order of (sub-)expressions within
-/// a `CFGBlock`.
-///
-/// While a `CFGBlock` does contain individual `CFGElement`s for some
-/// sub-expressions, the order in which those `CFGElement`s appear reflects
-/// only one possible order in which the sub-expressions may be evaluated.
-/// However, we want to warn if any of the potential evaluation orders can lead
-/// to a use-after-move, not just the one contained in the `CFGBlock`.
-///
-/// This class implements only a simplified version of the C++ sequencing rules
-/// that is, however, sufficient for the purposes of this check. The main
-/// limitation is that we do not distinguish between value computation and side
-/// effect -- see the "Implementation" section for more details.
-///
-/// Note: `SequenceChecker` from SemaChecking.cpp does a similar job (and much
-/// more thoroughly), but using it would require
-/// - Pulling `SequenceChecker` out into a header file (i.e. making it part of
-///   the API),
-/// - Removing the dependency of `SequenceChecker` on `Sema`, and
-/// - (Probably) modifying `SequenceChecker` to make it suitable to be used in
-///   this context.
-/// For the moment, it seems preferable to re-implement our own version of
-/// sequence checking that is special-cased to what we need here.
-///
-/// Implementation
-/// --------------
-///
-/// `ExprSequence` uses two types of sequencing edges between nodes in the AST:
-///
-/// - Every `Stmt` is assumed to be sequenced after its children. This is
-///   overly optimistic because the standard only states that value computations
-///   of operands are sequenced before the value computation of the operator,
-///   making no guarantees about side effects (in general).
-///
-///   For our purposes, this rule is sufficient, however, because this check is
-///   interested in operations on objects, which are generally performed through
-///   function calls (whether explicit and implicit). Function calls guarantee
-///   that the value computations and side effects for all function arguments
-///   are sequenced before the execution fo the function.
-///
-/// - In addition, some `Stmt`s are known to be sequenced before or after
-///   their siblings. For example, the `Stmt`s that make up a `CompoundStmt`are
-///   all sequenced relative to each other. The function
-///   `getSequenceSuccessor()` implements these sequencing rules.
-class ExprSequence {
-public:
-  /// Initializes this `ExprSequence` with sequence information for the given
-  /// `CFG`.
-  ExprSequence(const CFG *TheCFG, ASTContext *TheContext);
-
-  /// Returns whether \p Before is sequenced before \p After.
-  bool inSequence(const Stmt *Before, const Stmt *After) const;
-
-  /// Returns whether \p After can potentially be evaluated after \p Before.
-  /// This is exactly equivalent to `!inSequence(After, Before)` but makes some
-  /// conditions read more naturally.
-  bool potentiallyAfter(const Stmt *After, const Stmt *Before) const;
-
-private:
-  // Returns the sibling of \p S (if any) that is directly sequenced after \p S,
-  // or nullptr if no such sibling exists. For example, if \p S is the child of
-  // a `CompoundStmt`, this would return the Stmt that directly follows \p S in
-  // the `CompoundStmt`.
-  //
-  // As the sequencing of many constructs that change control flow is already
-  // encoded in the `CFG`, this function only implements the sequencing rules
-  // for those constructs where sequencing cannot be inferred from the `CFG`.
-  const Stmt *getSequenceSuccessor(const Stmt *S) const;
-
-  const Stmt *resolveSyntheticStmt(const Stmt *S) const;
-
-  ASTContext *Context;
-
-  llvm::DenseMap<const Stmt *, const Stmt *> SyntheticStmtSourceMap;
-};
-
-/// Maps `Stmt`s to the `CFGBlock` that contains them. Some `Stmt`s may be
-/// contained in more than one `CFGBlock`; in this case, they are mapped to the
-/// innermost block (i.e. the one that is furthest from the root of the tree).
-class StmtToBlockMap {
-public:
-  /// Initializes the map for the given `CFG`.
-  StmtToBlockMap(const CFG *TheCFG, ASTContext *TheContext);
-
-  /// Returns the block that \p S is contained in. Some `Stmt`s may be contained
-  /// in more than one `CFGBlock`; in this case, this function returns the
-  /// innermost block (i.e. the one that is furthest from the root of the tree).
-  const CFGBlock *blockContainingStmt(const Stmt *S) const;
-
-private:
-  ASTContext *Context;
-
-  llvm::DenseMap<const Stmt *, const CFGBlock *> Map;
-};
 
 /// Contains information about a use-after-move.
 struct UseAfterMove {
@@ -163,168 +67,6 @@ private:
 
 } // namespace
 
-// Returns the Stmt nodes that are parents of 'S', skipping any potential
-// intermediate non-Stmt nodes.
-//
-// In almost all cases, this function returns a single parent or no parents at
-// all.
-//
-// The case that a Stmt has multiple parents is rare but does actually occur in
-// the parts of the AST that we're interested in. Specifically, InitListExpr
-// nodes cause ASTContext::getParent() to return multiple parents for certain
-// nodes in their subtree because RecursiveASTVisitor visits both the syntactic
-// and semantic forms of InitListExpr, and the parent-child relationships are
-// different between the two forms.
-static SmallVector<const Stmt *, 1> getParentStmts(const Stmt *S,
-                                                   ASTContext *Context) {
-  SmallVector<const Stmt *, 1> Result;
-
-  ASTContext::DynTypedNodeList Parents = Context->getParents(*S);
-
-  SmallVector<ast_type_traits::DynTypedNode, 1> NodesToProcess(Parents.begin(),
-                                                               Parents.end());
-
-  while (!NodesToProcess.empty()) {
-    ast_type_traits::DynTypedNode Node = NodesToProcess.back();
-    NodesToProcess.pop_back();
-
-    if (const auto *S = Node.get<Stmt>()) {
-      Result.push_back(S);
-    } else {
-      Parents = Context->getParents(Node);
-      NodesToProcess.append(Parents.begin(), Parents.end());
-    }
-  }
-
-  return Result;
-}
-
-bool isDescendantOrEqual(const Stmt *Descendant, const Stmt *Ancestor,
-                         ASTContext *Context) {
-  if (Descendant == Ancestor)
-    return true;
-  for (const Stmt *Parent : getParentStmts(Descendant, Context)) {
-    if (isDescendantOrEqual(Parent, Ancestor, Context))
-      return true;
-  }
-
-  return false;
-}
-
-ExprSequence::ExprSequence(const CFG *TheCFG, ASTContext *TheContext)
-    : Context(TheContext) {
-  for (const auto &SyntheticStmt : TheCFG->synthetic_stmts()) {
-    SyntheticStmtSourceMap[SyntheticStmt.first] = SyntheticStmt.second;
-  }
-}
-
-bool ExprSequence::inSequence(const Stmt *Before, const Stmt *After) const {
-  Before = resolveSyntheticStmt(Before);
-  After = resolveSyntheticStmt(After);
-
-  // If 'After' is in the subtree of the siblings that follow 'Before' in the
-  // chain of successors, we know that 'After' is sequenced after 'Before'.
-  for (const Stmt *Successor = getSequenceSuccessor(Before); Successor;
-       Successor = getSequenceSuccessor(Successor)) {
-    if (isDescendantOrEqual(After, Successor, Context))
-      return true;
-  }
-
-  // If 'After' is a parent of 'Before' or is sequenced after one of these
-  // parents, we know that it is sequenced after 'Before'.
-  for (const Stmt *Parent : getParentStmts(Before, Context)) {
-    if (Parent == After || inSequence(Parent, After))
-      return true;
-  }
-
-  return false;
-}
-
-bool ExprSequence::potentiallyAfter(const Stmt *After,
-                                    const Stmt *Before) const {
-  return !inSequence(After, Before);
-}
-
-const Stmt *ExprSequence::getSequenceSuccessor(const Stmt *S) const {
-  for (const Stmt *Parent : getParentStmts(S, Context)) {
-    if (const auto *BO = dyn_cast<BinaryOperator>(Parent)) {
-      // Comma operator: Right-hand side is sequenced after the left-hand side.
-      if (BO->getLHS() == S && BO->getOpcode() == BO_Comma)
-        return BO->getRHS();
-    } else if (const auto *InitList = dyn_cast<InitListExpr>(Parent)) {
-      // Initializer list: Each initializer clause is sequenced after the
-      // clauses that precede it.
-      for (unsigned I = 1; I < InitList->getNumInits(); ++I) {
-        if (InitList->getInit(I - 1) == S)
-          return InitList->getInit(I);
-      }
-    } else if (const auto *Compound = dyn_cast<CompoundStmt>(Parent)) {
-      // Compound statement: Each sub-statement is sequenced after the
-      // statements that precede it.
-      const Stmt *Previous = nullptr;
-      for (const auto *Child : Compound->body()) {
-        if (Previous == S)
-          return Child;
-        Previous = Child;
-      }
-    } else if (const auto *TheDeclStmt = dyn_cast<DeclStmt>(Parent)) {
-      // Declaration: Every initializer expression is sequenced after the
-      // initializer expressions that precede it.
-      const Expr *PreviousInit = nullptr;
-      for (const Decl *TheDecl : TheDeclStmt->decls()) {
-        if (const auto *TheVarDecl = dyn_cast<VarDecl>(TheDecl)) {
-          if (const Expr *Init = TheVarDecl->getInit()) {
-            if (PreviousInit == S)
-              return Init;
-            PreviousInit = Init;
-          }
-        }
-      }
-    } else if (const auto *ForRange = dyn_cast<CXXForRangeStmt>(Parent)) {
-      // Range-based for: Loop variable declaration is sequenced before the
-      // body. (We need this rule because these get placed in the same
-      // CFGBlock.)
-      if (S == ForRange->getLoopVarStmt())
-        return ForRange->getBody();
-    } else if (const auto *TheIfStmt = dyn_cast<IfStmt>(Parent)) {
-      // If statement: If a variable is declared inside the condition, the
-      // expression used to initialize the variable is sequenced before the
-      // evaluation of the condition.
-      if (S == TheIfStmt->getConditionVariableDeclStmt())
-        return TheIfStmt->getCond();
-    }
-  }
-
-  return nullptr;
-}
-
-const Stmt *ExprSequence::resolveSyntheticStmt(const Stmt *S) const {
-  if (SyntheticStmtSourceMap.count(S))
-    return SyntheticStmtSourceMap.lookup(S);
-  else
-    return S;
-}
-
-StmtToBlockMap::StmtToBlockMap(const CFG *TheCFG, ASTContext *TheContext)
-    : Context(TheContext) {
-  for (const auto *B : *TheCFG) {
-    for (const auto &Elem : *B) {
-      if (Optional<CFGStmt> S = Elem.getAs<CFGStmt>())
-        Map[S->getStmt()] = B;
-    }
-  }
-}
-
-const CFGBlock *StmtToBlockMap::blockContainingStmt(const Stmt *S) const {
-  while (!Map.count(S)) {
-    SmallVector<const Stmt *, 1> Parents = getParentStmts(S, Context);
-    if (Parents.empty())
-      return nullptr;
-    S = Parents[0];
-  }
-
-  return Map.lookup(S);
-}
 
 // Matches nodes that are
 // - Part of a decltype argument or class template argument (we check this by
@@ -463,6 +205,26 @@ void UseAfterMoveFinder::getUsesAndReinits(
             });
 }
 
+bool isStandardSmartPointer(const ValueDecl *VD) {
+  const Type *TheType = VD->getType().getTypePtrOrNull();
+  if (!TheType)
+    return false;
+
+  const CXXRecordDecl *RecordDecl = TheType->getAsCXXRecordDecl();
+  if (!RecordDecl)
+    return false;
+
+  const IdentifierInfo *ID = RecordDecl->getIdentifier();
+  if (!ID)
+    return false;
+
+  StringRef Name = ID->getName();
+  if (Name != "unique_ptr" && Name != "shared_ptr" && Name != "weak_ptr")
+    return false;
+
+  return RecordDecl->getDeclContext()->isStdNamespace();
+}
+
 void UseAfterMoveFinder::getDeclRefs(
     const CFGBlock *Block, const Decl *MovedVariable,
     llvm::SmallPtrSetImpl<const DeclRefExpr *> *DeclRefs) {
@@ -472,17 +234,33 @@ void UseAfterMoveFinder::getDeclRefs(
     if (!S)
       continue;
 
-    SmallVector<BoundNodes, 1> Matches =
-        match(findAll(declRefExpr(hasDeclaration(equalsNode(MovedVariable)),
-                                  unless(inDecltypeOrTemplateArg()))
-                          .bind("declref")),
-              *S->getStmt(), *Context);
+    auto addDeclRefs = [this, Block,
+                        DeclRefs](const ArrayRef<BoundNodes> Matches) {
+      for (const auto &Match : Matches) {
+        const auto *DeclRef = Match.getNodeAs<DeclRefExpr>("declref");
+        const auto *Operator = Match.getNodeAs<CXXOperatorCallExpr>("operator");
+        if (DeclRef && BlockMap->blockContainingStmt(DeclRef) == Block) {
+          // Ignore uses of a standard smart pointer that don't dereference the
+          // pointer.
+          if (Operator || !isStandardSmartPointer(DeclRef->getDecl())) {
+            DeclRefs->insert(DeclRef);
+          }
+        }
+      }
+    };
 
-    for (const auto &Match : Matches) {
-      const auto *DeclRef = Match.getNodeAs<DeclRefExpr>("declref");
-      if (DeclRef && BlockMap->blockContainingStmt(DeclRef) == Block)
-        DeclRefs->insert(DeclRef);
-    }
+    auto DeclRefMatcher = declRefExpr(hasDeclaration(equalsNode(MovedVariable)),
+                                      unless(inDecltypeOrTemplateArg()))
+                              .bind("declref");
+
+    addDeclRefs(match(findAll(DeclRefMatcher), *S->getStmt(), *Context));
+    addDeclRefs(match(
+        findAll(cxxOperatorCallExpr(anyOf(hasOverloadedOperatorName("*"),
+                                          hasOverloadedOperatorName("->"),
+                                          hasOverloadedOperatorName("[]")),
+                                    hasArgument(0, DeclRefMatcher))
+                    .bind("operator")),
+        *S->getStmt(), *Context));
   }
 }
 
@@ -499,6 +277,9 @@ void UseAfterMoveFinder::getReinits(
                  "::std::map", "::std::multiset", "::std::multimap",
                  "::std::unordered_set", "::std::unordered_map",
                  "::std::unordered_multiset", "::std::unordered_multimap")));
+
+  auto StandardSmartPointerTypeMatcher = hasType(cxxRecordDecl(
+      hasAnyName("::std::unique_ptr", "::std::shared_ptr", "::std::weak_ptr")));
 
   // Matches different types of reinitialization.
   auto ReinitMatcher =
@@ -521,6 +302,10 @@ void UseAfterMoveFinder::getReinits(
                    // is called on any of the other containers, this will be
                    // flagged by a compile error anyway.
                    callee(cxxMethodDecl(hasAnyName("clear", "assign")))),
+               // reset() on standard smart pointers.
+               cxxMemberCallExpr(
+                   on(allOf(DeclRefMatcher, StandardSmartPointerTypeMatcher)),
+                   callee(cxxMethodDecl(hasName("reset")))),
                // Passing variable to a function as a non-const pointer.
                callExpr(forEachArgumentWithParam(
                    unaryOperator(hasOperatorName("&"),
@@ -561,18 +346,23 @@ void UseAfterMoveFinder::getReinits(
   }
 }
 
-static void emitDiagnostic(const Expr *MovingCall,
-                           const ValueDecl *MovedVariable,
+static void emitDiagnostic(const Expr *MovingCall, const DeclRefExpr *MoveArg,
                            const UseAfterMove &Use, ClangTidyCheck *Check,
                            ASTContext *Context) {
-  Check->diag(Use.DeclRef->getExprLoc(), "'%0' used after it was moved")
-      << MovedVariable->getName();
-  Check->diag(MovingCall->getExprLoc(), "move occurred here",
-              DiagnosticIDs::Note);
+  SourceLocation UseLoc = Use.DeclRef->getExprLoc();
+  SourceLocation MoveLoc = MovingCall->getExprLoc();
+
+  Check->diag(UseLoc, "'%0' used after it was moved")
+      << MoveArg->getDecl()->getName();
+  Check->diag(MoveLoc, "move occurred here", DiagnosticIDs::Note);
   if (Use.EvaluationOrderUndefined) {
-    Check->diag(Use.DeclRef->getExprLoc(),
+    Check->diag(UseLoc,
                 "the use and move are unsequenced, i.e. there is no guarantee "
                 "about the order in which they are evaluated",
+                DiagnosticIDs::Note);
+  } else if (UseLoc < MoveLoc || Use.DeclRef == MoveArg) {
+    Check->diag(UseLoc,
+                "the use happens in a later loop iteration than the move",
                 DiagnosticIDs::Note);
   }
 }
@@ -581,18 +371,12 @@ void UseAfterMoveCheck::registerMatchers(MatchFinder *Finder) {
   if (!getLangOpts().CPlusPlus11)
     return;
 
-  auto StandardSmartPointerTypeMatcher = hasType(
-      cxxRecordDecl(hasAnyName("::std::unique_ptr", "::std::shared_ptr")));
-
   auto CallMoveMatcher =
-      callExpr(
-          callee(functionDecl(hasName("::std::move"))), argumentCountIs(1),
-          hasArgument(
-              0,
-              declRefExpr(unless(StandardSmartPointerTypeMatcher)).bind("arg")),
-          anyOf(hasAncestor(lambdaExpr().bind("containing-lambda")),
-                hasAncestor(functionDecl().bind("containing-func"))),
-          unless(inDecltypeOrTemplateArg()))
+      callExpr(callee(functionDecl(hasName("::std::move"))), argumentCountIs(1),
+               hasArgument(0, declRefExpr().bind("arg")),
+               anyOf(hasAncestor(lambdaExpr().bind("containing-lambda")),
+                     hasAncestor(functionDecl().bind("containing-func"))),
+               unless(inDecltypeOrTemplateArg()))
           .bind("call-move");
 
   Finder->addMatcher(
@@ -600,6 +384,13 @@ void UseAfterMoveCheck::registerMatchers(MatchFinder *Finder) {
       // the direct ancestor of the std::move() that isn't one of the node
       // types ignored by ignoringParenImpCasts().
       stmt(forEach(expr(ignoringParenImpCasts(CallMoveMatcher))),
+           // Don't allow an InitListExpr to be the moving call. An InitListExpr
+           // has both a syntactic and a semantic form, and the parent-child
+           // relationships are different between the two. This could cause an
+           // InitListExpr to be analyzed as the moving call in addition to the
+           // Expr that we actually want, resulting in two diagnostics with
+           // different code locations for the same move.
+           unless(initListExpr()),
            unless(expr(ignoringParenImpCasts(equalsBoundNode("call-move")))))
           .bind("moving-call"),
       this);
@@ -614,7 +405,7 @@ void UseAfterMoveCheck::check(const MatchFinder::MatchResult &Result) {
   const auto *MovingCall = Result.Nodes.getNodeAs<Expr>("moving-call");
   const auto *Arg = Result.Nodes.getNodeAs<DeclRefExpr>("arg");
 
-  if (!MovingCall)
+  if (!MovingCall || !MovingCall->getExprLoc().isValid())
     MovingCall = CallMove;
 
   Stmt *FunctionBody = nullptr;
@@ -625,8 +416,6 @@ void UseAfterMoveCheck::check(const MatchFinder::MatchResult &Result) {
   else
     return;
 
-  const ValueDecl *MovedVariable = Arg->getDecl();
-
   // Ignore the std::move if the variable that was passed to it isn't a local
   // variable.
   if (!Arg->getDecl()->getDeclContext()->isFunctionOrMethod())
@@ -634,8 +423,8 @@ void UseAfterMoveCheck::check(const MatchFinder::MatchResult &Result) {
 
   UseAfterMoveFinder finder(Result.Context);
   UseAfterMove Use;
-  if (finder.find(FunctionBody, MovingCall, MovedVariable, &Use))
-    emitDiagnostic(MovingCall, MovedVariable, Use, this, Result.Context);
+  if (finder.find(FunctionBody, MovingCall, Arg->getDecl(), &Use))
+    emitDiagnostic(MovingCall, Arg, Use, this, Result.Context);
 }
 
 } // namespace misc

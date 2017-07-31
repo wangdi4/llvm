@@ -11,19 +11,20 @@
 
 // Other libraries and framework includes
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Threading.h"
 
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/Value.h"
+#include "lldb/Utility/RegularExpression.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangModulesDeclVendor.h"
 
@@ -70,6 +71,8 @@
 #include "LogChannelDWARF.h"
 #include "SymbolFileDWARFDebugMap.h"
 #include "SymbolFileDWARFDwo.h"
+
+#include "llvm/Support/FileSystem.h"
 
 #include <map>
 
@@ -190,7 +193,9 @@ static const char *resolveCompDir(const char *path_from_dwarf) {
   if (!is_symlink)
     return local_path;
 
-  if (!local_path_spec.IsSymbolicLink())
+  namespace fs = llvm::sys::fs;
+  if (fs::get_file_type(local_path_spec.GetPath(), false) !=
+      fs::file_type::symlink_file)
     return local_path;
 
   FileSpec resolved_local_path_spec;
@@ -222,7 +227,7 @@ void SymbolFileDWARF::DebuggerInitialize(Debugger &debugger) {
 
 void SymbolFileDWARF::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
-  LogChannelDWARF::Initialize();
+  LogChannelDWARF::Terminate();
 }
 
 lldb_private::ConstString SymbolFileDWARF::GetPluginNameStatic() {
@@ -553,8 +558,9 @@ uint32_t SymbolFileDWARF::CalculateAbilities() {
 const DWARFDataExtractor &
 SymbolFileDWARF::GetCachedSectionData(lldb::SectionType sect_type,
                                       DWARFDataSegment &data_segment) {
-  std::call_once(data_segment.m_flag, &SymbolFileDWARF::LoadSectionData, this,
-                 sect_type, std::ref(data_segment.m_data));
+  llvm::call_once(data_segment.m_flag, [this, sect_type, &data_segment] {
+    this->LoadSectionData(sect_type, std::ref(data_segment.m_data));
+  });
   return data_segment.m_data;
 }
 
@@ -746,7 +752,7 @@ lldb::CompUnitSP SymbolFileDWARF::ParseCompileUnit(DWARFCompileUnit *dwarf_cu,
               }
 
               std::string remapped_file;
-              if (module_sp->RemapSourceFile(cu_file_spec.GetCString(),
+              if (module_sp->RemapSourceFile(cu_file_spec.GetPath(),
                                              remapped_file))
                 cu_file_spec.SetFile(remapped_file, false);
             }
@@ -1935,7 +1941,7 @@ void SymbolFileDWARF::Index() {
     std::vector<NameToDIE> namespace_index(num_compile_units);
 
     std::vector<bool> clear_cu_dies(num_compile_units, false);
-    auto parser_fn = [this, debug_info, &function_basename_index,
+    auto parser_fn = [debug_info, &function_basename_index,
                       &function_fullname_index, &function_method_index,
                       &function_selector_index, &objc_class_selectors_index,
                       &global_index, &type_index,
@@ -1951,7 +1957,7 @@ void SymbolFileDWARF::Index() {
       return cu_idx;
     };
 
-    auto extract_fn = [this, debug_info, num_compile_units](uint32_t cu_idx) {
+    auto extract_fn = [debug_info](uint32_t cu_idx) {
       DWARFCompileUnit *dwarf_cu = debug_info->GetCompileUnitAtIndex(cu_idx);
       if (dwarf_cu) {
         // dwarf_cu->ExtractDIEsIfNeeded(false) will return zero if the
@@ -2046,7 +2052,8 @@ void SymbolFileDWARF::Index() {
     m_global_index.Dump(&s);
     s.Printf("\nTypes:\n");
     m_type_index.Dump(&s);
-    s.Printf("\nNamespaces:\n") m_namespace_index.Dump(&s);
+    s.Printf("\nNamespaces:\n");
+    m_namespace_index.Dump(&s);
 #endif
   }
 }
@@ -2198,7 +2205,7 @@ uint32_t SymbolFileDWARF::FindGlobalVariables(const RegularExpression &regex,
     GetObjectFile()->GetModule()->LogMessage(
         log, "SymbolFileDWARF::FindGlobalVariables (regex=\"%s\", append=%u, "
              "max_matches=%u, variables)",
-        regex.GetText(), append, max_matches);
+        regex.GetText().str().c_str(), append, max_matches);
   }
 
   DWARFDebugInfo *info = DebugInfo();
@@ -2252,7 +2259,7 @@ uint32_t SymbolFileDWARF::FindGlobalVariables(const RegularExpression &regex,
           GetObjectFile()->GetModule()->ReportErrorIfModifyDetected(
               "the DWARF debug information has been modified (.apple_names "
               "accelerator table had bad die 0x%8.8x for regex '%s')\n",
-              die_ref.die_offset, regex.GetText());
+              die_ref.die_offset, regex.GetText().str().c_str());
         }
       }
     }
@@ -2395,7 +2402,7 @@ SymbolFileDWARF::FindFunctions(const ConstString &name,
                      name.AsCString());
 
   // eFunctionNameTypeAuto should be pre-resolved by a call to
-  // Module::PrepareForFunctionNameLookup()
+  // Module::LookupInfo::LookupInfo()
   assert((name_type_mask & eFunctionNameTypeAuto) == 0);
 
   Log *log(LogChannelDWARF::GetLogIfAll(DWARF_LOG_LOOKUPS));
@@ -2585,8 +2592,7 @@ SymbolFileDWARF::FindFunctions(const ConstString &name,
       if (sc_list.GetSize() == original_size) {
         ArchSpec arch;
         if (!parent_decl_ctx && GetObjectFile()->GetArchitecture(arch) &&
-            (arch.GetTriple().isOSFreeBSD() || arch.GetTriple().isOSLinux() ||
-             arch.GetMachine() == llvm::Triple::hexagon)) {
+            arch.GetTriple().isOSBinFormatELF()) {
           SymbolContextList temp_sc_list;
           FindFunctions(name, m_function_basename_index, include_inlines,
                         temp_sc_list);
@@ -2673,7 +2679,7 @@ uint32_t SymbolFileDWARF::FindFunctions(const RegularExpression &regex,
                                         SymbolContextList &sc_list) {
   Timer scoped_timer(LLVM_PRETTY_FUNCTION,
                      "SymbolFileDWARF::FindFunctions (regex = '%s')",
-                     regex.GetText());
+                     regex.GetText().str().c_str());
 
   Log *log(LogChannelDWARF::GetLogIfAll(DWARF_LOG_LOOKUPS));
 
@@ -2681,7 +2687,7 @@ uint32_t SymbolFileDWARF::FindFunctions(const RegularExpression &regex,
     GetObjectFile()->GetModule()->LogMessage(
         log,
         "SymbolFileDWARF::FindFunctions (regex=\"%s\", append=%u, sc_list)",
-        regex.GetText(), append);
+        regex.GetText().str().c_str(), append);
   }
 
   // If we aren't appending the results to this list, then clear the list
@@ -3873,6 +3879,7 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
       const DWARFDIE sc_parent_die = GetParentSymbolContextDIE(die);
       SymbolContextScope *symbol_context_scope = NULL;
 
+      bool has_explicit_mangled = mangled != nullptr;
       if (!mangled) {
         // LLDB relies on the mangled name (DW_TAG_linkage_name or
         // DW_AT_MIPS_linkage_name) to
@@ -3894,23 +3901,24 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
         }
       }
 
-      // DWARF doesn't specify if a DW_TAG_variable is a local, global
-      // or static variable, so we have to do a little digging by
-      // looking at the location of a variable to see if it contains
-      // a DW_OP_addr opcode _somewhere_ in the definition. I say
-      // somewhere because clang likes to combine small global variables
-      // into the same symbol and have locations like:
-      // DW_OP_addr(0x1000), DW_OP_constu(2), DW_OP_plus
-      // So if we don't have a DW_TAG_formal_parameter, we can look at
-      // the location to see if it contains a DW_OP_addr opcode, and
-      // then we can correctly classify  our variables.
       if (tag == DW_TAG_formal_parameter)
         scope = eValueTypeVariableArgument;
       else {
-        bool op_error = false;
+        // DWARF doesn't specify if a DW_TAG_variable is a local, global
+        // or static variable, so we have to do a little digging:
+        // 1) DW_AT_linkage_name implies static lifetime (but may be missing)
+        // 2) An empty DW_AT_location is an (optimized-out) static lifetime var.
+        // 3) DW_AT_location containing a DW_OP_addr implies static lifetime.
+        // Clang likes to combine small global variables into the same symbol
+        // with locations like: DW_OP_addr(0x1000), DW_OP_constu(2), DW_OP_plus
+        // so we need to look through the whole expression.
+        bool is_static_lifetime =
+            has_explicit_mangled ||
+            (has_explicit_location && !location.IsValid());
         // Check if the location has a DW_OP_addr with any address value...
         lldb::addr_t location_DW_OP_addr = LLDB_INVALID_ADDRESS;
         if (!location_is_const_value_data) {
+          bool op_error = false;
           location_DW_OP_addr = location.GetLocation_DW_OP_addr(0, op_error);
           if (op_error) {
             StreamString strm;
@@ -3918,12 +3926,14 @@ VariableSP SymbolFileDWARF::ParseVariableDIE(const SymbolContext &sc,
                                             NULL);
             GetObjectFile()->GetModule()->ReportError(
                 "0x%8.8x: %s has an invalid location: %s", die.GetOffset(),
-                die.GetTagAsCString(), strm.GetString().c_str());
+                die.GetTagAsCString(), strm.GetData());
           }
+          if (location_DW_OP_addr != LLDB_INVALID_ADDRESS)
+            is_static_lifetime = true;
         }
         SymbolFileDWARFDebugMap *debug_map_symfile = GetDebugMapSymfile();
 
-        if (location_DW_OP_addr != LLDB_INVALID_ADDRESS) {
+        if (is_static_lifetime) {
           if (is_external)
             scope = eValueTypeVariableGlobal;
           else

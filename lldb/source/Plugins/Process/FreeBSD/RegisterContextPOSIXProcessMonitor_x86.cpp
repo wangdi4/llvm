@@ -1,15 +1,15 @@
-//===-- RegisterContextPOSIXProcessMonitor_x86.h ---------------*- C++ -*-===//
+//===-- RegisterContextPOSIXProcessMonitor_x86.cpp --------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-//===---------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataBufferHeap.h"
 
 #include "Plugins/Process/FreeBSD/ProcessFreeBSD.h"
 #include "Plugins/Process/FreeBSD/ProcessMonitor.h"

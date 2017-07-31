@@ -9,10 +9,10 @@
 
 #include "ASTDumper.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/CompilerType.h"
+#include "lldb/Utility/Log.h"
 
 #include "llvm/Support/raw_ostream.h"
 
@@ -106,6 +106,4 @@ void ASTDumper::ToLog(Log *log, const char *prefix) {
   free(alloc);
 }
 
-void ASTDumper::ToStream(lldb::StreamSP &stream) {
-  stream->PutCString(m_dump.c_str());
-}
+void ASTDumper::ToStream(lldb::StreamSP &stream) { stream->PutCString(m_dump); }

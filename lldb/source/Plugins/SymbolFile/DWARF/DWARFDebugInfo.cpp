@@ -12,10 +12,10 @@
 #include <algorithm>
 #include <set>
 
-#include "lldb/Core/RegularExpression.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Host/PosixApi.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Utility/RegularExpression.h"
+#include "lldb/Utility/Stream.h"
 
 #include "DWARFCompileUnit.h"
 #include "DWARFDebugAranges.h"
@@ -430,10 +430,6 @@ static dw_offset_t DumpCallback(SymbolFileDWARF *dwarf2Data,
       } else {
         // See if the DIE is in this compile unit?
         if (cu && dumpInfo->die_offset < cu->GetNextCompileUnitOffset()) {
-          // This DIE is in this compile unit!
-          if (s->GetVerbose())
-            cu->Dump(s); // Dump the compile unit for the DIE in verbose mode
-
           return next_offset;
           //  // We found our compile unit that contains our DIE, just skip to
           //  dumping the requested DIE...
@@ -535,18 +531,20 @@ FindCallbackString(SymbolFileDWARF *dwarf2Data, DWARFCompileUnit *cu,
                    const uint32_t curr_depth, void *userData) {
   FindCallbackStringInfo *info = (FindCallbackStringInfo *)userData;
 
-  if (die) {
-    const char *die_name = die->GetName(dwarf2Data, cu);
-    if (die_name) {
-      if (info->regex) {
-        if (info->regex->Execute(die_name))
-          info->die_offsets.push_back(die->GetOffset());
-      } else {
-        if ((info->ignore_case ? strcasecmp(die_name, info->name)
-                               : strcmp(die_name, info->name)) == 0)
-          info->die_offsets.push_back(die->GetOffset());
-      }
-    }
+  if (!die)
+    return next_offset;
+
+  const char *die_name = die->GetName(dwarf2Data, cu);
+  if (!die_name)
+    return next_offset;
+
+  if (info->regex) {
+    if (info->regex->Execute(llvm::StringRef(die_name)))
+      info->die_offsets.push_back(die->GetOffset());
+  } else {
+    if ((info->ignore_case ? strcasecmp(die_name, info->name)
+                           : strcmp(die_name, info->name)) == 0)
+      info->die_offsets.push_back(die->GetOffset());
   }
 
   // Just return the current offset to parse the next CU or DIE entry

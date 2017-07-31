@@ -1,6 +1,5 @@
 // RUN: %clangxx -O0 %s -o %t
 // RUN: %env_tool_opts=strip_path_prefix=/TestCases/ %run %t 2>&1 | FileCheck %s
-// UNSUPPORTED: i386-darwin
 //
 // Tests __sanitizer_symbolize_pc.
 #include <stdio.h>
@@ -28,7 +27,7 @@ void SymbolizeCaller() {
 
 void SymbolizeData() {
   char data[100];
-  __sanitizer_symbolize_data(&GLOBAL_VAR_ABC, "%g %s:%l", data, sizeof(data));
+  __sanitizer_symbolize_global(&GLOBAL_VAR_ABC, "%g %s:%l", data, sizeof(data));
   printf("GLOBAL: %s\n", data);
 }
 

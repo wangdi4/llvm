@@ -15,10 +15,7 @@
 // Other libraries and framework includes
 // Project includes
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
@@ -29,6 +26,9 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -192,7 +192,7 @@ lldb::addr_t AppleGetPendingItemsHandler::SetupGetPendingItemsFunction(
           m_get_pending_items_impl_code->MakeFunctionCaller(
               get_pending_items_return_type, get_pending_items_arglist,
               thread_sp, error);
-      if (error.Fail()) {
+      if (error.Fail() || get_pending_items_caller == nullptr) {
         if (log)
           log->Printf("Failed to install pending-items introspection function "
                       "caller: %s.",
@@ -351,7 +351,7 @@ AppleGetPendingItemsHandler::GetPendingItems(Thread &thread, addr_t queue,
   options.SetUnwindOnError(true);
   options.SetIgnoreBreakpoints(true);
   options.SetStopOthers(true);
-  options.SetTimeoutUsec(500000);
+  options.SetTimeout(std::chrono::milliseconds(500));
   options.SetTryAllThreads(false);
   thread.CalculateExecutionContext(exe_ctx);
 

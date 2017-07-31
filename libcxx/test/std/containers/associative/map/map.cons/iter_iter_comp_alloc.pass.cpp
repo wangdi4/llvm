@@ -18,6 +18,7 @@
 #include <map>
 #include <cassert>
 
+#include "test_macros.h"
 #include "../../../test_compare.h"
 #include "test_allocator.h"
 #include "min_allocator.h"
@@ -75,7 +76,7 @@ int main()
     assert(*next(m.begin()) == V(2, 1));
     assert(*next(m.begin(), 2) == V(3, 1));
     }
-#if _LIBCPP_STD_VER > 11
+#if TEST_STD_VER > 11
     {
     typedef std::pair<const int, double> V;
     V ar[] =
@@ -91,7 +92,6 @@ int main()
         V(3, 2),
     };
     {
-    typedef std::pair<const int, double> V;
     typedef min_allocator<V> A;
     typedef test_compare<std::less<int> > C;
     A a;
@@ -105,7 +105,6 @@ int main()
     assert(m.get_allocator() == a);
     }
     {
-    typedef std::pair<const int, double> V;
     typedef explicit_allocator<V> A;
     typedef test_compare<std::less<int> > C;
     A a;

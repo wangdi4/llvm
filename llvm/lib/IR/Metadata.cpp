@@ -11,20 +11,50 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Metadata.h"
 #include "LLVMContextImpl.h"
 #include "MetadataImpl.h"
 #include "SymbolTableListTraitsImpl.h"
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/None.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Argument.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/ConstantRange.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/DebugLoc.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalObject.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/TrackingMDRef.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MathExtras.h"
+#include <algorithm>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 using namespace llvm;
 
@@ -434,7 +464,7 @@ StringRef MDString::getString() const {
 // prepended to them.
 #define HANDLE_MDNODE_LEAF(CLASS)                                              \
   static_assert(                                                               \
-      llvm::AlignOf<uint64_t>::Alignment >= llvm::AlignOf<CLASS>::Alignment,   \
+      alignof(uint64_t) >= alignof(CLASS),                                     \
       "Alignment is insufficient after objects prepended to " #CLASS);
 #include "llvm/IR/Metadata.def"
 
@@ -442,7 +472,7 @@ void *MDNode::operator new(size_t Size, unsigned NumOps) {
   size_t OpSize = NumOps * sizeof(MDOperand);
   // uint64_t is the most aligned type we need support (ensured by static_assert
   // above)
-  OpSize = alignTo(OpSize, llvm::alignOf<uint64_t>());
+  OpSize = alignTo(OpSize, alignof(uint64_t));
   void *Ptr = reinterpret_cast<char *>(::operator new(OpSize + Size)) + OpSize;
   MDOperand *O = static_cast<MDOperand *>(Ptr);
   for (MDOperand *E = O - NumOps; O != E; --O)
@@ -453,7 +483,7 @@ void *MDNode::operator new(size_t Size, unsigned NumOps) {
 void MDNode::operator delete(void *Mem) {
   MDNode *N = static_cast<MDNode *>(Mem);
   size_t OpSize = N->NumOperands * sizeof(MDOperand);
-  OpSize = alignTo(OpSize, llvm::alignOf<uint64_t>());
+  OpSize = alignTo(OpSize, alignof(uint64_t));
 
   MDOperand *O = static_cast<MDOperand *>(Mem);
   for (MDOperand *E = O - N->NumOperands; O != E; --O)
@@ -1027,8 +1057,7 @@ static SmallVector<TrackingMDRef, 4> &getNMDOps(void *Operands) {
 }
 
 NamedMDNode::NamedMDNode(const Twine &N)
-    : Name(N.str()), Parent(nullptr),
-      Operands(new SmallVector<TrackingMDRef, 4>()) {}
+    : Name(N.str()), Operands(new SmallVector<TrackingMDRef, 4>()) {}
 
 NamedMDNode::~NamedMDNode() {
   dropAllReferences();
@@ -1054,7 +1083,7 @@ void NamedMDNode::setOperand(unsigned I, MDNode *New) {
 
 void NamedMDNode::eraseFromParent() { getParent()->eraseNamedMetadata(this); }
 
-void NamedMDNode::dropAllReferences() { getNMDOps(Operands).clear(); }
+void NamedMDNode::clearOperands() { getNMDOps(Operands).clear(); }
 
 StringRef NamedMDNode::getName() const { return StringRef(Name); }
 
@@ -1154,14 +1183,13 @@ MDNode *Instruction::getMetadataImpl(StringRef Kind) const {
 }
 
 void Instruction::dropUnknownNonDebugMetadata(ArrayRef<unsigned> KnownIDs) {
-  SmallSet<unsigned, 5> KnownSet;
-  KnownSet.insert(KnownIDs.begin(), KnownIDs.end());
-
   if (!hasMetadataHashEntry())
     return; // Nothing to remove!
 
   auto &InstructionMetadata = getContext().pImpl->InstructionMetadata;
 
+  SmallSet<unsigned, 4> KnownSet;
+  KnownSet.insert(KnownIDs.begin(), KnownIDs.end());
   if (KnownSet.empty()) {
     // Just drop our entry at the store.
     InstructionMetadata.erase(this);
@@ -1299,7 +1327,8 @@ bool Instruction::extractProfTotalWeight(uint64_t &TotalVal) const {
   assert((getOpcode() == Instruction::Br ||
           getOpcode() == Instruction::Select ||
           getOpcode() == Instruction::Call ||
-          getOpcode() == Instruction::Invoke) &&
+          getOpcode() == Instruction::Invoke ||
+          getOpcode() == Instruction::Switch) &&
          "Looking for branch weights on something besides branch");
 
   TotalVal = 0;
@@ -1308,17 +1337,26 @@ bool Instruction::extractProfTotalWeight(uint64_t &TotalVal) const {
     return false;
 
   auto *ProfDataName = dyn_cast<MDString>(ProfileData->getOperand(0));
-  if (!ProfDataName || !ProfDataName->getString().equals("branch_weights"))
+  if (!ProfDataName)
     return false;
 
-  TotalVal = 0;
-  for (unsigned i = 1; i < ProfileData->getNumOperands(); i++) {
-    auto *V = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i));
-    if (!V)
-      return false;
-    TotalVal += V->getValue().getZExtValue();
+  if (ProfDataName->getString().equals("branch_weights")) {
+    TotalVal = 0;
+    for (unsigned i = 1; i < ProfileData->getNumOperands(); i++) {
+      auto *V = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(i));
+      if (!V)
+        return false;
+      TotalVal += V->getValue().getZExtValue();
+    }
+    return true;
+  } else if (ProfDataName->getString().equals("VP") &&
+             ProfileData->getNumOperands() > 3) {
+    TotalVal = mdconst::dyn_extract<ConstantInt>(ProfileData->getOperand(2))
+                   ->getValue()
+                   .getZExtValue();
+    return true;
   }
-  return true;
+  return false;
 }
 
 void Instruction::clearMetadataHashEntries() {
@@ -1419,9 +1457,15 @@ void GlobalObject::copyMetadata(const GlobalObject *Other, unsigned Offset) {
     // If an offset adjustment was specified we need to modify the DIExpression
     // to prepend the adjustment:
     // !DIExpression(DW_OP_plus, Offset, [original expr])
+    auto *Attachment = MD.second;
     if (Offset != 0 && MD.first == LLVMContext::MD_dbg) {
-      DIGlobalVariable *GV = cast<DIGlobalVariable>(MD.second);
-      DIExpression *E = GV->getExpr();
+      DIGlobalVariable *GV = dyn_cast<DIGlobalVariable>(Attachment);
+      DIExpression *E = nullptr;
+      if (!GV) {
+        auto *GVE = cast<DIGlobalVariableExpression>(Attachment);
+        GV = GVE->getVariable();
+        E = GVE->getExpression();
+      }
       ArrayRef<uint64_t> OrigElements;
       if (E)
         OrigElements = E->getElements();
@@ -1429,9 +1473,10 @@ void GlobalObject::copyMetadata(const GlobalObject *Other, unsigned Offset) {
       Elements[0] = dwarf::DW_OP_plus;
       Elements[1] = Offset;
       std::copy(OrigElements.begin(), OrigElements.end(), Elements.begin() + 2);
-      GV->replaceExpr(DIExpression::get(getContext(), Elements));
+      E = DIExpression::get(getContext(), Elements);
+      Attachment = DIGlobalVariableExpression::get(getContext(), GV, E);
     }
-    addMetadata(MD.first, *MD.second);
+    addMetadata(MD.first, *Attachment);
   }
 }
 
@@ -1439,7 +1484,7 @@ void GlobalObject::addTypeMetadata(unsigned Offset, Metadata *TypeID) {
   addMetadata(
       LLVMContext::MD_type,
       *MDTuple::get(getContext(),
-                    {llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+                    {ConstantAsMetadata::get(llvm::ConstantInt::get(
                          Type::getInt64Ty(getContext()), Offset)),
                      TypeID}));
 }
@@ -1452,14 +1497,23 @@ DISubprogram *Function::getSubprogram() const {
   return cast_or_null<DISubprogram>(getMetadata(LLVMContext::MD_dbg));
 }
 
-void GlobalVariable::addDebugInfo(DIGlobalVariable *GV) {
+bool Function::isDebugInfoForProfiling() const {
+  if (DISubprogram *SP = getSubprogram()) {
+    if (DICompileUnit *CU = SP->getUnit()) {
+      return CU->getDebugInfoForProfiling();
+    }
+  }
+  return false;
+}
+
+void GlobalVariable::addDebugInfo(DIGlobalVariableExpression *GV) {
   addMetadata(LLVMContext::MD_dbg, *GV);
 }
 
 void GlobalVariable::getDebugInfo(
-    SmallVectorImpl<DIGlobalVariable *> &GVs) const {
+    SmallVectorImpl<DIGlobalVariableExpression *> &GVs) const {
   SmallVector<MDNode *, 1> MDs;
   getMetadata(LLVMContext::MD_dbg, MDs);
   for (MDNode *MD : MDs)
-    GVs.push_back(cast<DIGlobalVariable>(MD));
+    GVs.push_back(cast<DIGlobalVariableExpression>(MD));
 }

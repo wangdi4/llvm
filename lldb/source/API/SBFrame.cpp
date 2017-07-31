@@ -21,9 +21,6 @@
 
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ValueObjectRegister.h"
 #include "lldb/Core/ValueObjectVariable.h"
@@ -42,6 +39,9 @@
 #include "lldb/Target/StackID.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
 
 #include "lldb/API/SBAddress.h"
 #include "lldb/API/SBDebugger.h"
@@ -51,6 +51,8 @@
 #include "lldb/API/SBThread.h"
 #include "lldb/API/SBValue.h"
 #include "lldb/API/SBVariablesOptions.h"
+
+#include "llvm/Support/PrettyStackTrace.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -1288,22 +1290,20 @@ lldb::SBValue SBFrame::EvaluateExpression(const char *expr,
     if (stop_locker.TryLock(&process->GetRunLock())) {
       frame = exe_ctx.GetFramePtr();
       if (frame) {
+        std::unique_ptr<llvm::PrettyStackTraceFormat> stack_trace;
         if (target->GetDisplayExpressionsInCrashlogs()) {
           StreamString frame_description;
           frame->DumpUsingSettingsFormat(&frame_description);
-          Host::SetCrashDescriptionWithFormat(
+          stack_trace = llvm::make_unique<llvm::PrettyStackTraceFormat>(
               "SBFrame::EvaluateExpression (expr = \"%s\", fetch_dynamic_value "
               "= %u) %s",
               expr, options.GetFetchDynamicValue(),
-              frame_description.GetString().c_str());
+              frame_description.GetData());
         }
 
         exe_results = target->EvaluateExpression(expr, frame, expr_value_sp,
                                                  options.ref());
         expr_result.SetSP(expr_value_sp, options.GetFetchDynamicValue());
-
-        if (target->GetDisplayExpressionsInCrashlogs())
-          Host::SetCrashDescription(nullptr);
       } else {
         if (log)
           log->Printf("SBFrame::EvaluateExpression () => error: could not "
@@ -1368,6 +1368,25 @@ bool SBFrame::IsInlined() const {
 
 const char *SBFrame::GetFunctionName() {
   return static_cast<const SBFrame *>(this)->GetFunctionName();
+}
+
+lldb::LanguageType SBFrame::GuessLanguage() const {
+  std::unique_lock<std::recursive_mutex> lock;
+  ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
+  
+  StackFrame *frame = nullptr;
+  Target *target = exe_ctx.GetTargetPtr();
+  Process *process = exe_ctx.GetProcessPtr();
+  if (target && process) {
+    Process::StopLocker stop_locker;
+    if (stop_locker.TryLock(&process->GetRunLock())) {
+      frame = exe_ctx.GetFramePtr();
+      if (frame) {
+        return frame->GuessLanguage();
+      }
+    }
+  }
+  return eLanguageTypeUnknown;
 }
 
 const char *SBFrame::GetFunctionName() const {

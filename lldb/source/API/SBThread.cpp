@@ -15,7 +15,6 @@
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/State.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/StructuredData.h"
 #include "lldb/Core/ValueObject.h"
@@ -34,6 +33,7 @@
 #include "lldb/Target/ThreadPlanStepOut.h"
 #include "lldb/Target/ThreadPlanStepRange.h"
 #include "lldb/Target/UnixSignals.h"
+#include "lldb/Utility/Stream.h"
 
 #include "lldb/API/SBAddress.h"
 #include "lldb/API/SBDebugger.h"
@@ -595,8 +595,8 @@ bool SBThread::GetInfoItemByPathAsString(const char *path, SBStream &strm) {
   }
 
   if (log)
-    log->Printf("SBThread(%p)::GetInfoItemByPathAsString () => %s",
-                static_cast<void *>(exe_ctx.GetThreadPtr()), strm.GetData());
+    log->Printf("SBThread(%p)::GetInfoItemByPathAsString (\"%s\") => \"%s\"",
+                static_cast<void *>(exe_ctx.GetThreadPtr()), path, strm.GetData());
 
   return success;
 }
@@ -1328,7 +1328,7 @@ bool SBThread::GetStatus(SBStream &status) const {
   ExecutionContext exe_ctx(m_opaque_sp.get(), lock);
 
   if (exe_ctx.HasThreadScope()) {
-    exe_ctx.GetThreadPtr()->GetStatus(strm, 0, 1, 1);
+    exe_ctx.GetThreadPtr()->GetStatus(strm, 0, 1, 1, true);
   } else
     strm.PutCString("No status");
 
@@ -1336,6 +1336,10 @@ bool SBThread::GetStatus(SBStream &status) const {
 }
 
 bool SBThread::GetDescription(SBStream &description) const {
+    return GetDescription(description, false);
+}
+
+bool SBThread::GetDescription(SBStream &description, bool stop_format) const {
   Stream &strm = description.ref();
 
   std::unique_lock<std::recursive_mutex> lock;
@@ -1343,7 +1347,8 @@ bool SBThread::GetDescription(SBStream &description) const {
 
   if (exe_ctx.HasThreadScope()) {
     exe_ctx.GetThreadPtr()->DumpUsingSettingsFormat(strm,
-                                                    LLDB_INVALID_THREAD_ID);
+                                                    LLDB_INVALID_THREAD_ID,
+                                                    stop_format);
     // strm.Printf("SBThread: tid = 0x%4.4" PRIx64,
     // exe_ctx.GetThreadPtr()->GetID());
   } else

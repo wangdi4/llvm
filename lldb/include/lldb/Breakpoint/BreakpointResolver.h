@@ -15,12 +15,11 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Breakpoint/Breakpoint.h"
-#include "lldb/Breakpoint/BreakpointResolver.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/SearchFilter.h"
-#include "lldb/Host/FileSpec.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/RegularExpression.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -236,7 +235,9 @@ protected:
   /// so, and then set
   /// breakpoint locations in this breakpoint for all the resultant addresses.
   void SetSCMatchesByLine(SearchFilter &filter, SymbolContextList &sc_list,
-                          bool skip_prologue, const char *log_ident);
+                          bool skip_prologue, llvm::StringRef log_ident);
+  void SetSCMatchesByLine(SearchFilter &, SymbolContextList &, bool,
+                          const char *) = delete;
 
   lldb::BreakpointLocationSP AddLocation(Address loc_addr,
                                          bool *new_location = NULL);

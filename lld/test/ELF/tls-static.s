@@ -10,4 +10,5 @@
 _start:
   call __tls_get_addr
 
-// CHECK: undefined symbol: __tls_get_addr
+// CHECK: error: undefined symbol: __tls_get_addr
+// CHECK: >>> referenced by {{.*}}:(.text+0x1)

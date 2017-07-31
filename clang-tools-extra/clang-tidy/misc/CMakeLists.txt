@@ -3,6 +3,7 @@ set(LLVM_LINK_COMPONENTS support)
 add_clang_library(clangTidyMiscModule
   ArgumentCommentCheck.cpp
   AssertSideEffectCheck.cpp
+  ForwardingReferenceOverloadCheck.cpp
   MisplacedConstCheck.cpp
   UnconventionalAssignOperatorCheck.cpp
   BoolPointerImplicitConversionCheck.cpp
@@ -24,14 +25,15 @@ add_clang_library(clangTidyMiscModule
   NewDeleteOverloadsCheck.cpp
   NoexceptMoveConstructorCheck.cpp
   NonCopyableObjects.cpp
-  PointerAndIntegralOperationCheck.cpp
   RedundantExpressionCheck.cpp
   SizeofContainerCheck.cpp
   SizeofExpressionCheck.cpp
   StaticAssertCheck.cpp
+  StringCompareCheck.cpp
   StringConstructorCheck.cpp
   StringIntegerAssignmentCheck.cpp
   StringLiteralWithEmbeddedNulCheck.cpp
+  SuspiciousEnumUsageCheck.cpp
   SuspiciousMissingCommaCheck.cpp
   SuspiciousSemicolonCheck.cpp
   SuspiciousStringCompareCheck.cpp

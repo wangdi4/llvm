@@ -10,22 +10,68 @@
 #ifndef liblldb_Disassembler_h_
 #define liblldb_Disassembler_h_
 
-// C Includes
-// C++ Includes
-#include <string>
-#include <vector>
-
-// Other libraries and framework includes
-// Project includes
 #include "lldb/Core/Address.h"
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/EmulateInstruction.h"
+#include "lldb/Core/FormatEntity.h" // for FormatEntity
 #include "lldb/Core/Opcode.h"
 #include "lldb/Core/PluginInterface.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Interpreter/OptionValue.h"
 #include "lldb/Symbol/LineEntry.h"
-#include "lldb/lldb-private.h"
+#include "lldb/Target/ExecutionContext.h" // for ExecutionContext
+#include "lldb/Utility/ConstString.h"     // for ConstString
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/lldb-defines.h"      // for DISALLOW_COPY_AND_ASSIGN
+#include "lldb/lldb-enumerations.h" // for AddressClass, AddressClass...
+#include "lldb/lldb-forward.h"      // for InstructionSP, DisassemblerSP
+#include "lldb/lldb-types.h"        // for addr_t, offset_t
+
+#include "llvm/ADT/StringRef.h" // for StringRef
+
+#include <functional> // for function
+#include <map>
+#include <memory> // for enable_shared_from_this
+#include <set>
+#include <string>
+#include <vector>
+
+#include <stddef.h> // for size_t
+#include <stdint.h> // for uint32_t, int64_t
+#include <stdio.h>  // for FILE
+
+namespace lldb_private {
+class AddressRange;
+}
+namespace lldb_private {
+class DataExtractor;
+}
+namespace lldb_private {
+class Debugger;
+}
+namespace lldb_private {
+class Disassembler;
+}
+namespace lldb_private {
+class Module;
+}
+namespace lldb_private {
+class Stream;
+}
+namespace lldb_private {
+class SymbolContext;
+}
+namespace lldb_private {
+class SymbolContextList;
+}
+namespace lldb_private {
+class Target;
+}
+namespace lldb_private {
+struct RegisterInfo;
+}
+namespace llvm {
+template <typename T> class SmallVectorImpl;
+}
 
 namespace lldb_private {
 
@@ -131,7 +177,7 @@ public:
                         const DataExtractor &data,
                         lldb::offset_t data_offset) = 0;
 
-  virtual void SetDescription(const char *) {
+  virtual void SetDescription(llvm::StringRef) {
   } // May be overridden in sub-classes that have descriptions.
 
   lldb::OptionValueSP ReadArray(FILE *in_file, Stream *out_stream,
@@ -290,7 +336,7 @@ public:
 
   void SetOpcode(size_t opcode_size, void *opcode_data);
 
-  void SetDescription(const char *description) override;
+  void SetDescription(llvm::StringRef description) override;
 
 protected:
   std::string m_description;
@@ -428,15 +474,16 @@ protected:
   struct SourceLine {
     FileSpec file;
     uint32_t line;
+    uint32_t column;
 
-    SourceLine() : file(), line(LLDB_INVALID_LINE_NUMBER) {}
+    SourceLine() : file(), line(LLDB_INVALID_LINE_NUMBER), column(0) {}
 
     bool operator==(const SourceLine &rhs) const {
-      return file == rhs.file && line == rhs.line;
+      return file == rhs.file && line == rhs.line && rhs.column == column;
     }
 
     bool operator!=(const SourceLine &rhs) const {
-      return file != rhs.file || line != rhs.line;
+      return file != rhs.file || line != rhs.line || column != rhs.column;
     }
 
     bool IsValid() const { return line != LLDB_INVALID_LINE_NUMBER; }
@@ -486,6 +533,7 @@ protected:
     SourceLine sl;
     sl.file = line.file;
     sl.line = line.line;
+    sl.column = line.column;
     return ElideMixedSourceAndDisassemblyLine(exe_ctx, sc, sl);
   };
 
