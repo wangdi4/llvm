@@ -11,6 +11,7 @@ Xmain
    OpenSourceGuidelines
    OpenSourceProcesses
    XmainProcesses
+   PulldownProcess
    JIRA
    LoopAnalysis/index
    LoopTransforms/index
@@ -73,6 +74,9 @@ process change requests to them.
 
 :doc:`Xmain Development Processes <XmainProcesses>`
    Describes the processes for xmain development.
+
+:doc:`Xmain llorg Pulldown Process <PulldownProcess>`
+   Describes the processes for syncing xmain with open source LLVM.
 
 :doc:`LLVM Specific JIRA Usage <JIRA>`
    Describes JIRA usage policies specific to LLVM development.
