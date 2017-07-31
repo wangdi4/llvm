@@ -197,8 +197,7 @@ public:
         continue;
 
       // Only progagate the value if they are of the same type.
-      if (Store->getPointerOperand()->getType() !=
-          Load->getPointerOperand()->getType())
+      if (Store->getPointerOperandType() != Load->getPointerOperandType())
         continue;
 
       Candidates.emplace_front(Load, Store);
@@ -374,15 +373,15 @@ public:
     const auto &AllChecks = LAI.getRuntimePointerChecking()->getChecks();
     SmallVector<RuntimePointerChecking::PointerCheck, 4> Checks;
 
-    std::copy_if(AllChecks.begin(), AllChecks.end(), std::back_inserter(Checks),
-                 [&](const RuntimePointerChecking::PointerCheck &Check) {
-                   for (auto PtrIdx1 : Check.first->Members)
-                     for (auto PtrIdx2 : Check.second->Members)
-                       if (needsChecking(PtrIdx1, PtrIdx2,
-                                         PtrsWrittenOnFwdingPath, CandLoadPtrs))
-                         return true;
-                   return false;
-                 });
+    copy_if(AllChecks, std::back_inserter(Checks),
+            [&](const RuntimePointerChecking::PointerCheck &Check) {
+              for (auto PtrIdx1 : Check.first->Members)
+                for (auto PtrIdx2 : Check.second->Members)
+                  if (needsChecking(PtrIdx1, PtrIdx2, PtrsWrittenOnFwdingPath,
+                                    CandLoadPtrs))
+                    return true;
+              return false;
+            });
 
     DEBUG(dbgs() << "\nPointer Checks (count: " << Checks.size() << "):\n");
     DEBUG(LAI.getRuntimePointerChecking()->printChecks(dbgs(), Checks));

@@ -29,24 +29,25 @@ FormatStyle getGoogleStyle() { return getGoogleStyle(FormatStyle::LK_Cpp); }
 
 class FormatTestComments : public ::testing::Test {
 protected:
-  enum IncompleteCheck {
-    IC_ExpectComplete,
-    IC_ExpectIncomplete,
-    IC_DoNotCheck
+  enum StatusCheck {
+    SC_ExpectComplete,
+    SC_ExpectIncomplete,
+    SC_DoNotCheck
   };
 
   std::string format(llvm::StringRef Code,
                      const FormatStyle &Style = getLLVMStyle(),
-                     IncompleteCheck CheckIncomplete = IC_ExpectComplete) {
+                     StatusCheck CheckComplete = SC_ExpectComplete) {
     DEBUG(llvm::errs() << "---\n");
     DEBUG(llvm::errs() << Code << "\n\n");
     std::vector<tooling::Range> Ranges(1, tooling::Range(0, Code.size()));
-    bool IncompleteFormat = false;
+    FormattingAttemptStatus Status;
     tooling::Replacements Replaces =
-        reformat(Style, Code, Ranges, "<stdin>", &IncompleteFormat);
-    if (CheckIncomplete != IC_DoNotCheck) {
-      bool ExpectedIncompleteFormat = CheckIncomplete == IC_ExpectIncomplete;
-      EXPECT_EQ(ExpectedIncompleteFormat, IncompleteFormat) << Code << "\n\n";
+        reformat(Style, Code, Ranges, "<stdin>", &Status);
+    if (CheckComplete != SC_DoNotCheck) {
+      bool ExpectedCompleteFormat = CheckComplete == SC_ExpectComplete;
+      EXPECT_EQ(ExpectedCompleteFormat, Status.FormatComplete)
+          << Code << "\n\n";
     }
     ReplacementCount = Replaces.size();
     auto Result = applyAllReplacements(Code, Replaces);
@@ -73,7 +74,7 @@ protected:
   /// \brief Verify that clang-format does not crash on the given input.
   void verifyNoCrash(llvm::StringRef Code,
                      const FormatStyle &Style = getLLVMStyle()) {
-    format(Code, Style, IC_DoNotCheck);
+    format(Code, Style, SC_DoNotCheck);
   }
 
   int ReplacementCount;
@@ -937,11 +938,11 @@ TEST_F(FormatTestComments, SplitsLongLinesInComments) {
                    getLLVMStyleWithColumns(20)));
 
   EXPECT_EQ("/* some comment\n"
-            "     *   a comment\n"
-            "* that we break\n"
-            " * another comment\n"
-            "* we have to break\n"
-            "* a left comment\n"
+            " *   a comment that\n"
+            " * we break another\n"
+            " * comment we have\n"
+            " * to break a left\n"
+            " * comment\n"
             " */",
             format("  /* some comment\n"
                    "       *   a comment that we break\n"
@@ -1801,6 +1802,22 @@ TEST_F(FormatTestComments, IgnoresIf0Contents) {
                    "#endif\n"
                    "Five\n"
                    "};"));
+
+  // Ignore stuff in SWIG-blocks.
+  EXPECT_EQ("#ifdef SWIG\n"
+            "}{)(&*(^%%#%@! fsadj f;ldjs ,:;| <<<>>>][)(][\n"
+            "#endif\n"
+            "void f() {}",
+            format("#ifdef SWIG\n"
+                   "}{)(&*(^%%#%@! fsadj f;ldjs ,:;| <<<>>>][)(][\n"
+                   "#endif\n"
+                   "void f(  ) {  }"));
+  EXPECT_EQ("#ifndef SWIG\n"
+            "void f() {}\n"
+            "#endif",
+            format("#ifndef SWIG\n"
+                   "void f(      ) {       }\n"
+                   "#endif"));
 }
 
 TEST_F(FormatTestComments, DontCrashOnBlockComments) {
@@ -1856,10 +1873,10 @@ TEST_F(FormatTestComments, BlockComments) {
                    getLLVMStyleWithColumns(15)));
   EXPECT_EQ("/*\n**\n*/", format("/*\n**\n*/"));
   EXPECT_EQ("/*\n"
-            "*\n"
+            " *\n"
             " * aaaaaa\n"
             " * aaaaaa\n"
-            "*/",
+            " */",
             format("/*\n"
                    "*\n"
                    " * aaaaaa aaaaaa\n"
@@ -2002,7 +2019,7 @@ TEST_F(FormatTestComments, AlignTrailingComments) {
             format("#define MACRO(V)\\\n"
                    "V(Rt2)  /* one more char */ \\\n"
                    "V(Rs) /* than here  */    \\\n"
-                   "/* comment 3 */         \\\n",
+                   "/* comment 3 */\n",
                    getLLVMStyleWithColumns(40)));
   EXPECT_EQ("int i = f(abc, // line 1\n"
             "          d,   // line 2\n"
@@ -2163,6 +2180,194 @@ TEST_F(FormatTestComments, AlignTrailingComments) {
                    "       // line 2 about b\n"
                    "       long b;",
                    getLLVMStyleWithColumns(80)));
+}
+
+TEST_F(FormatTestComments, AlignsBlockCommentDecorations) {
+  EXPECT_EQ("/*\n"
+            " */",
+            format("/*\n"
+                   "*/", getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " */",
+            format("/*\n"
+                   " */", getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " */",
+            format("/*\n"
+                   "  */", getLLVMStyle()));
+
+  // Align a single line.
+  EXPECT_EQ("/*\n"
+            " * line */",
+            format("/*\n"
+                   "* line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " * line */",
+            format("/*\n"
+                   " * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " * line */",
+            format("/*\n"
+                   "  * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " * line */",
+            format("/*\n"
+                   "   * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/**\n"
+            " * line */",
+            format("/**\n"
+                   "* line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/**\n"
+            " * line */",
+            format("/**\n"
+                   " * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/**\n"
+            " * line */",
+            format("/**\n"
+                   "  * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/**\n"
+            " * line */",
+            format("/**\n"
+                   "   * line */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/**\n"
+            " * line */",
+            format("/**\n"
+                   "    * line */",
+                   getLLVMStyle()));
+
+  // Align the end '*/' after a line.
+  EXPECT_EQ("/*\n"
+            " * line\n"
+            " */",
+            format("/*\n"
+                   "* line\n"
+                   "*/", getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " * line\n"
+            " */",
+            format("/*\n"
+                   "   * line\n"
+                   "  */", getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            " * line\n"
+            " */",
+            format("/*\n"
+                   "  * line\n"
+                   "  */", getLLVMStyle()));
+
+  // Align two lines.
+  EXPECT_EQ("/* line 1\n"
+            " * line 2 */",
+            format("/* line 1\n"
+                   " * line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/* line 1\n"
+            " * line 2 */",
+            format("/* line 1\n"
+                   "* line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/* line 1\n"
+            " * line 2 */",
+            format("/* line 1\n"
+                   "  * line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/* line 1\n"
+            " * line 2 */",
+            format("/* line 1\n"
+                   "   * line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/* line 1\n"
+            " * line 2 */",
+            format("/* line 1\n"
+                   "    * line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("int i; /* line 1\n"
+            "        * line 2 */",
+            format("int i; /* line 1\n"
+                   "* line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("int i; /* line 1\n"
+            "        * line 2 */",
+            format("int i; /* line 1\n"
+                   "        * line 2 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("int i; /* line 1\n"
+            "        * line 2 */",
+            format("int i; /* line 1\n"
+                   "             * line 2 */",
+                   getLLVMStyle()));
+
+  // Align several lines.
+  EXPECT_EQ("/* line 1\n"
+            " * line 2\n"
+            " * line 3 */",
+            format("/* line 1\n"
+                   " * line 2\n"
+                   "* line 3 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/* line 1\n"
+            " * line 2\n"
+            " * line 3 */",
+            format("/* line 1\n"
+                   "  * line 2\n"
+                   "* line 3 */",
+                   getLLVMStyle()));
+  EXPECT_EQ("/*\n"
+            "** line 1\n"
+            "** line 2\n"
+            "*/",
+            format("/*\n"
+                   "** line 1\n"
+                   " ** line 2\n"
+                   "*/",
+                   getLLVMStyle()));
+
+  // Align with different indent after the decorations.
+  EXPECT_EQ("/*\n"
+            " * line 1\n"
+            " *  line 2\n"
+            " * line 3\n"
+            " *   line 4\n"
+            " */",
+            format("/*\n"
+                   "* line 1\n"
+                   "  *  line 2\n"
+                   "   * line 3\n"
+                   "*   line 4\n"
+                   "*/", getLLVMStyle()));
+
+  // Align empty or blank lines.
+  EXPECT_EQ("/**\n"
+            " *\n"
+            " *\n"
+            " *\n"
+            " */",
+            format("/**\n"
+                   "*  \n"
+                   " * \n"
+                   "  *\n"
+                   "*/", getLLVMStyle()));
+
+  // Align while breaking and reflowing.
+  EXPECT_EQ("/*\n"
+            " * long long long\n"
+            " * long long\n"
+            " *\n"
+            " * long */",
+            format("/*\n"
+                   " * long long long long\n"
+                   " * long\n"
+                   "  *\n"
+                   "* long */",
+                   getLLVMStyleWithColumns(20)));
 }
 } // end namespace
 } // end namespace format

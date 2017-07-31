@@ -20,8 +20,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/DwarfStringPoolEntry.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -53,6 +53,7 @@ class MachineInstr;
 class MachineJumpTableInfo;
 class MachineLoopInfo;
 class MachineModuleInfo;
+class MachineOptimizationRemarkEmitter;
 class MCAsmInfo;
 class MCCFIInstruction;
 class MCContext;
@@ -93,6 +94,9 @@ public:
   /// This is a pointer to the current MachineModuleInfo.
   MachineModuleInfo *MMI = nullptr;
 
+  /// Optimization remark emitter.
+  MachineOptimizationRemarkEmitter *ORE;
+
   /// The symbol for the current function. This is recalculated at the beginning
   /// of each call to runOnMachineFunction().
   ///
@@ -107,6 +111,9 @@ public:
   /// its number of uses by other globals.
   typedef std::pair<const GlobalVariable *, unsigned> GOTEquivUsePair;
   MapVector<const MCSymbol *, GOTEquivUsePair> GlobalGOTEquivs;
+
+  /// Enable print [latency:throughput] in output
+  bool EnablePrintSchedInfo = false;
 
 private:
   MCSymbol *CurrentFnBegin = nullptr;
@@ -218,6 +225,7 @@ public:
     FUNCTION_ENTER = 0,
     FUNCTION_EXIT = 1,
     TAIL_CALL = 2,
+    LOG_ARGS_ENTER = 3,
   };
 
   // The table will contain these structs that point to the sled, the function

@@ -29,6 +29,7 @@
 #include "lldb/Core/State.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostProcess.h"
+#include "lldb/Host/PseudoTerminal.h"
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Host/common/NativeBreakpoint.h"
 #include "lldb/Host/common/NativeRegisterContext.h"
@@ -41,14 +42,13 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/Error.h"
 #include "lldb/Utility/LLDBAssert.h"
-#include "lldb/Utility/PseudoTerminal.h"
 #include "lldb/Utility/StringExtractor.h"
 
 #include "NativeThreadLinux.h"
 #include "Plugins/Process/POSIX/ProcessPOSIXLog.h"
-#include "ProcFileReader.h"
 #include "Procfs.h"
 
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Threading.h"
 
 #include <linux/unistd.h>
@@ -224,9 +224,8 @@ Error NativeProcessProtocol::Launch(
 
   // Verify the working directory is valid if one was specified.
   FileSpec working_dir{launch_info.GetWorkingDirectory()};
-  if (working_dir &&
-      (!working_dir.ResolvePath() ||
-       working_dir.GetFileType() != FileSpec::eFileTypeDirectory)) {
+  if (working_dir && (!working_dir.ResolvePath() ||
+                      !llvm::sys::fs::is_directory(working_dir.GetPath()))) {
     error.SetErrorStringWithFormat("No such file or directory: %s",
                                    working_dir.GetCString());
     return error;
@@ -870,6 +869,19 @@ void NativeProcessLinux::MonitorSIGTRAP(const siginfo_t &info,
       break;
     }
 
+    // If a breakpoint was hit, report it
+    uint32_t bp_index;
+    error = thread.GetRegisterContext()->GetHardwareBreakHitIndex(
+        bp_index, (uintptr_t)info.si_addr);
+    if (error.Fail())
+      LLDB_LOG(log, "received error while checking for hardware "
+                    "breakpoint hits, pid = {0}, error = {1}",
+               thread.GetID(), error);
+    if (bp_index != LLDB_INVALID_INDEX32) {
+      MonitorBreakpoint(thread);
+      break;
+    }
+
     // Otherwise, report step over
     MonitorTrace(thread);
     break;
@@ -1035,6 +1047,13 @@ void NativeProcessLinux::MonitorSignal(const siginfo_t &info,
 
     // Done handling.
     return;
+  }
+
+  // Check if debugger should stop at this signal or just ignore it
+  // and resume the inferior.
+  if (m_signals_to_ignore.find(signo) != m_signals_to_ignore.end()) {
+     ResumeThread(thread, thread.GetState(), signo);
+     return;
   }
 
   // This thread is stopped.
@@ -1412,11 +1431,11 @@ Error NativeProcessLinux::Kill() {
 }
 
 static Error
-ParseMemoryRegionInfoFromProcMapsLine(const std::string &maps_line,
+ParseMemoryRegionInfoFromProcMapsLine(llvm::StringRef &maps_line,
                                       MemoryRegionInfo &memory_region_info) {
   memory_region_info.Clear();
 
-  StringExtractor line_extractor(maps_line.c_str());
+  StringExtractor line_extractor(maps_line);
 
   // Format: {address_start_hex}-{address_end_hex} perms offset  dev   inode
   // pathname
@@ -1577,36 +1596,36 @@ Error NativeProcessLinux::PopulateMemoryRegionCache() {
     return Error();
   }
 
-  Error error = ProcFileReader::ProcessLineByLine(
-      GetID(), "maps", [&](const std::string &line) -> bool {
-        MemoryRegionInfo info;
-        const Error parse_error =
-            ParseMemoryRegionInfoFromProcMapsLine(line, info);
-        if (parse_error.Success()) {
-          m_mem_region_cache.emplace_back(
-              info, FileSpec(info.GetName().GetCString(), true));
-          return true;
-        } else {
-          LLDB_LOG(log, "failed to parse proc maps line '{0}': {1}", line,
-                   parse_error);
-          return false;
-        }
-      });
-
-  // If we had an error, we'll mark unsupported.
-  if (error.Fail()) {
+  auto BufferOrError = getProcFile(GetID(), "maps");
+  if (!BufferOrError) {
     m_supports_mem_region = LazyBool::eLazyBoolNo;
-    return error;
-  } else if (m_mem_region_cache.empty()) {
+    return BufferOrError.getError();
+  }
+  StringRef Rest = BufferOrError.get()->getBuffer();
+  while (! Rest.empty()) {
+    StringRef Line;
+    std::tie(Line, Rest) = Rest.split('\n');
+    MemoryRegionInfo info;
+    const Error parse_error = ParseMemoryRegionInfoFromProcMapsLine(Line, info);
+    if (parse_error.Fail()) {
+      LLDB_LOG(log, "failed to parse proc maps line '{0}': {1}", Line,
+               parse_error);
+      m_supports_mem_region = LazyBool::eLazyBoolNo;
+      return parse_error;
+    }
+    m_mem_region_cache.emplace_back(
+        info, FileSpec(info.GetName().GetCString(), true));
+  }
+
+  if (m_mem_region_cache.empty()) {
     // No entries after attempting to read them.  This shouldn't happen if
     // /proc/{pid}/maps is supported. Assume we don't support map entries
     // via procfs.
+    m_supports_mem_region = LazyBool::eLazyBoolNo;
     LLDB_LOG(log,
              "failed to find any procfs maps entries, assuming no support "
              "for memory region metadata retrieval");
-    m_supports_mem_region = LazyBool::eLazyBoolNo;
-    error.SetErrorString("not supported");
-    return error;
+    return Error("not supported");
   }
 
   LLDB_LOG(log, "read {0} memory region entries from /proc/{1}/maps",
@@ -1719,9 +1738,16 @@ Error NativeProcessLinux::GetSoftwareBreakpointPCOffset(
 Error NativeProcessLinux::SetBreakpoint(lldb::addr_t addr, uint32_t size,
                                         bool hardware) {
   if (hardware)
-    return Error("NativeProcessLinux does not support hardware breakpoints");
+    return SetHardwareBreakpoint(addr, size);
   else
     return SetSoftwareBreakpoint(addr, size);
+}
+
+Error NativeProcessLinux::RemoveBreakpoint(lldb::addr_t addr, bool hardware) {
+  if (hardware)
+    return RemoveHardwareBreakpoint(addr);
+  else
+    return NativeProcessProtocol::RemoveBreakpoint(addr);
 }
 
 Error NativeProcessLinux::GetSoftwareBreakpointTrapOpcode(
@@ -2412,8 +2438,8 @@ Error NativeProcessLinux::PtraceWrapper(int req, lldb::pid_t pid, void *addr,
   if (result)
     *result = ret;
 
-  LLDB_LOG(log, "ptrace({0}, {1}, {2}, {3}, {4}, {5})={6:x}", req, pid, addr,
-           data, data_size, ret);
+  LLDB_LOG(log, "ptrace({0}, {1}, {2}, {3}, {4})={5:x}", req, pid, addr, data,
+           data_size, ret);
 
   PtraceDisplayBytes(req, data, data_size);
 

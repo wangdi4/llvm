@@ -1,15 +1,45 @@
 // RUN: c-index-test core -print-source-symbols -- %s -std=c++14 -target x86_64-apple-macosx10.7 | FileCheck %s
 
-// CHECK: [[@LINE+1]]:7 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Def | rel: 0
+// CHECK: [[@LINE+1]]:7 | class/C++ | Cls | [[Cls_USR:.*]] | <no-cgname> | Def | rel: 0
 class Cls {
-  // CHECK: [[@LINE+2]]:3 | constructor/C++ | Cls | c:@S@Cls@F@Cls#I# | __ZN3ClsC1Ei | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+3]]:3 | constructor/C++ | Cls | c:@S@Cls@F@Cls#I# | __ZN3ClsC1Ei | Decl,RelChild | rel: 1
   // CHECK-NEXT: RelChild | Cls | c:@S@Cls
+  // CHECK: [[@LINE+1]]:3 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
   Cls(int x);
-  // CHECK: [[@LINE+1]]:3 | constructor/cxx-copy-ctor/C++ | Cls | c:@S@Cls@F@Cls#&1$@S@Cls# | __ZN3ClsC1ERKS_ | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+2]]:3 | constructor/cxx-copy-ctor/C++ | Cls | c:@S@Cls@F@Cls#&1$@S@Cls# | __ZN3ClsC1ERKS_ | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+1]]:3 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
   Cls(const Cls &);
-  // CHECK: [[@LINE+1]]:3 | constructor/cxx-move-ctor/C++ | Cls | c:@S@Cls@F@Cls#&&$@S@Cls# | __ZN3ClsC1EOS_ | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+2]]:3 | constructor/cxx-move-ctor/C++ | Cls | c:@S@Cls@F@Cls#&&$@S@Cls# | __ZN3ClsC1EOS_ | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+1]]:3 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
   Cls(Cls &&);
+
+  // CHECK: [[@LINE+2]]:3 | destructor/C++ | ~Cls | c:@S@Cls@F@~Cls# | __ZN3ClsD1Ev | Decl,RelChild | rel: 1
+  // CHECK: [[@LINE+1]]:4 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
+  ~Cls();
 };
+
+// CHECK: [[@LINE+3]]:7 | class/C++ | SubCls1 | [[SubCls1_USR:.*]] | <no-cgname> | Def | rel: 0
+// CHECK: [[@LINE+2]]:24 | class/C++ | Cls | [[Cls_USR]] | <no-cgname> | Ref,RelBase,RelCont | rel: 1
+// CHECK-NEXT: RelBase,RelCont | SubCls1 | [[SubCls1_USR]]
+class SubCls1 : public Cls {};
+// CHECK: [[@LINE+1]]:13 | type-alias/C | ClsAlias | [[ClsAlias_USR:.*]] | <no-cgname> | Def | rel: 0
+typedef Cls ClsAlias;
+// CHECK: [[@LINE+5]]:7 | class/C++ | SubCls2 | [[SubCls2_USR:.*]] | <no-cgname> | Def | rel: 0
+// CHECK: [[@LINE+4]]:24 | type-alias/C | ClsAlias | [[ClsAlias_USR]] | <no-cgname> | Ref,RelCont | rel: 1
+// CHECK-NEXT: RelCont | SubCls2 | [[SubCls2_USR]]
+// CHECK: [[@LINE+2]]:24 | class/C++ | Cls | [[Cls_USR]] | <no-cgname> | Ref,Impl,RelBase,RelCont | rel: 1
+// CHECK-NEXT: RelBase,RelCont | SubCls2 | [[SubCls2_USR]]
+class SubCls2 : public ClsAlias {};
+
+Cls::Cls(int x) {}
+// CHECK: [[@LINE-1]]:6 | constructor/C++ | Cls | c:@S@Cls@F@Cls#I# | __ZN3ClsC1Ei | Def,RelChild | rel: 1
+// CHECK: [[@LINE-2]]:1 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
+// CHECK: [[@LINE-3]]:6 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
+
+Cls::~/*a comment*/Cls() {}
+// CHECK: [[@LINE-1]]:6 | destructor/C++ | ~Cls | c:@S@Cls@F@~Cls# | __ZN3ClsD1Ev | Def,RelChild | rel: 1
+// CHECK: [[@LINE-2]]:1 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
+// CHECK: [[@LINE-3]]:20 | class/C++ | Cls | c:@S@Cls | <no-cgname> | Ref,RelCont | rel: 1
 
 template <typename TemplArg>
 class TemplCls {
@@ -18,6 +48,12 @@ public:
   TemplCls(int x);
   // CHECK: [[@LINE-1]]:3 | constructor/C++ | TemplCls | c:@ST>1#T@TemplCls@F@TemplCls#I# | <no-cgname> | Decl,RelChild | rel: 1
   // CHECK-NEXT: RelChild | TemplCls | c:@ST>1#T@TemplCls
+};
+
+template<>
+class TemplCls<double> {
+// CHECK: [[@LINE-1]]:7 | class(Gen,TS)/C++ | TemplCls | c:@S@TemplCls>#d | <no-cgname> | Def,RelSpecialization | rel: 1
+// CHECK: RelSpecialization | TemplCls | c:@ST>1#T@TemplCls
 };
 
 TemplCls<int> gtv(0);
@@ -61,3 +97,126 @@ int gvi = tmplVar<int>;
 // CHECK: [[@LINE+2]]:5 | variable/C | gvf | c:@gvf | _gvf | Def | rel: 0
 // CHECK: [[@LINE+1]]:11 | variable(Gen)/C++ | tmplVar | c:index-source.cpp@VT>1#T@tmplVar | __ZL7tmplVar | Ref,Read,RelCont | rel: 1
 int gvf = tmplVar<float>;
+
+template<typename A, typename B>
+class PartialSpecilizationClass { };
+// CHECK: [[@LINE-1]]:7 | class(Gen)/C++ | PartialSpecilizationClass | c:@ST>2#T#T@PartialSpecilizationClass | <no-cgname> | Def | rel: 0
+
+template<typename B>
+class PartialSpecilizationClass<int, B *> { };
+// CHECK: [[@LINE-1]]:7 | class(Gen,TPS)/C++ | PartialSpecilizationClass | c:@SP>1#T@PartialSpecilizationClass>#I#*t0.0 | <no-cgname> | Def,RelSpecialization | rel: 1
+// CHECK-NEXT: RelSpecialization | PartialSpecilizationClass | c:@ST>2#T#T@PartialSpecilizationClass
+
+template<>
+class PartialSpecilizationClass<int, int> { };
+// CHECK: [[@LINE-1]]:7 | class(Gen,TS)/C++ | PartialSpecilizationClass | c:@S@PartialSpecilizationClass>#I#I | <no-cgname> | Def,RelSpecialization | rel: 1
+// CHECK-NEXT: RelSpecialization | PartialSpecilizationClass | c:@ST>2#T#T@PartialSpecilizationClass
+
+template<typename T, typename S>
+class PseudoOverridesInSpecializations {
+  void function() { }
+  void function(int) { }
+
+  static void staticFunction() { }
+
+  int field;
+  static int variable;
+
+  typedef T TypeDef;
+  using TypeAlias = T;
+
+  enum anEnum { };
+
+  struct Struct { };
+  union Union { };
+
+  using TypealiasOrRecord = void;
+
+  template<typename U> struct InnerTemplate { };
+  template<typename U> struct InnerTemplate <U*> { };
+};
+
+template<>
+class PseudoOverridesInSpecializations<double, int> {
+  void function() { }
+// CHECK: [[@LINE-1]]:8 | instance-method/C++ | function | c:@S@PseudoOverridesInSpecializations>#d#I@F@function# | __ZN32PseudoOverridesInSpecializationsIdiE8functionEv | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | function | c:@ST>2#T#T@PseudoOverridesInSpecializations@F@function#
+
+  void staticFunction() { }
+// CHECK: [[@LINE-1]]:8 | instance-method/C++ | staticFunction | c:@S@PseudoOverridesInSpecializations>#d#I@F@staticFunction# | __ZN32PseudoOverridesInSpecializationsIdiE14staticFunctionEv | Def,RelChild | rel: 1
+// CHECK-NOT: RelOver
+
+  int notOverridingField = 0;
+
+// CHECK-LABEL: checLabelBreak
+  int checLabelBreak = 0;
+
+  int field = 0;
+// CHECK: [[@LINE-1]]:7 | field/C++ | field | c:@S@PseudoOverridesInSpecializations>#d#I@FI@field | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | field | c:@ST>2#T#T@PseudoOverridesInSpecializations@FI@field
+
+  static double variable;
+// CHECK: [[@LINE-1]]:17 | static-property/C++ | variable | c:@S@PseudoOverridesInSpecializations>#d#I@variable | __ZN32PseudoOverridesInSpecializationsIdiE8variableE | Decl,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | variable | c:@ST>2#T#T@PseudoOverridesInSpecializations@variable
+
+  typedef double TypeDef;
+// CHECK: [[@LINE-1]]:18 | type-alias/C | TypeDef | c:index-source.cpp@S@PseudoOverridesInSpecializations>#d#I@T@TypeDef | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | TypeDef | c:index-source.cpp@ST>2#T#T@PseudoOverridesInSpecializations@T@TypeDef
+
+  using TypeAlias = int;
+// CHECK: [[@LINE-1]]:9 | type-alias/C++ | TypeAlias | c:@S@PseudoOverridesInSpecializations>#d#I@TypeAlias | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | TypeAlias | c:@ST>2#T#T@PseudoOverridesInSpecializations@TypeAlias
+
+  enum anEnum { };
+// CHECK: [[@LINE-1]]:8 | enum/C | anEnum | c:@S@PseudoOverridesInSpecializations>#d#I@E@anEnum | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | anEnum | c:@ST>2#T#T@PseudoOverridesInSpecializations@E@anEnum
+  class Struct { };
+// CHECK: [[@LINE-1]]:9 | class/C++ | Struct | c:@S@PseudoOverridesInSpecializations>#d#I@S@Struct | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | Struct | c:@ST>2#T#T@PseudoOverridesInSpecializations@S@Struct
+  union Union { };
+// CHECK: [[@LINE-1]]:9 | union/C | Union | c:@S@PseudoOverridesInSpecializations>#d#I@U@Union | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | Union | c:@ST>2#T#T@PseudoOverridesInSpecializations@U@Union
+
+  struct TypealiasOrRecord { };
+// CHECK: [[@LINE-1]]:10 | struct/C | TypealiasOrRecord | c:@S@PseudoOverridesInSpecializations>#d#I@S@TypealiasOrRecord | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | TypealiasOrRecord | c:@ST>2#T#T@PseudoOverridesInSpecializations@TypealiasOrRecord
+
+  template<typename U> struct InnerTemplate { };
+// CHECK: [[@LINE-1]]:31 | struct(Gen)/C++ | InnerTemplate | c:@S@PseudoOverridesInSpecializations>#d#I@ST>1#T@InnerTemplate | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | InnerTemplate | c:@ST>2#T#T@PseudoOverridesInSpecializations@ST>1#T@InnerTemplate
+  template<typename U> struct InnerTemplate <U*> { };
+// CHECK-NOT: RelOver
+};
+
+template<typename S>
+class PseudoOverridesInSpecializations<float, S> {
+  typedef float TypealiasOrRecord;
+// CHECK: [[@LINE-1]]:17 | type-alias/C | TypealiasOrRecord | c:index-source.cpp@SP>1#T@PseudoOverridesInSpecializations>#f#t0.0@T@TypealiasOrRecord | <no-cgname> | Def,RelChild,RelOver,RelSpecialization | rel: 2
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | TypealiasOrRecord | c:@ST>2#T#T@PseudoOverridesInSpecializations@TypealiasOrRecord
+};
+
+template<typename T, typename U>
+class ConflictingPseudoOverridesInSpecialization {
+  void foo(T x);
+  void foo(U x);
+};
+
+template<typename T>
+class ConflictingPseudoOverridesInSpecialization<int, T> {
+  void foo(T x);
+// CHECK: [[@LINE-1]]:8 | instance-method/C++ | foo | c:@SP>1#T@ConflictingPseudoOverridesInSpecialization>#I#t0.0@F@foo#S0_# | <no-cgname> | Decl,RelChild,RelOver,RelSpecialization | rel: 3
+// CHECK-NEXT: RelChild
+// CHECK-NEXT: RelOver,RelSpecialization | foo | c:@ST>2#T#T@ConflictingPseudoOverridesInSpecialization@F@foo#t0.0#
+// CHECK-NEXT: RelOver,RelSpecialization | foo | c:@ST>2#T#T@ConflictingPseudoOverridesInSpecialization@F@foo#t0.1#
+};

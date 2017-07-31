@@ -216,6 +216,45 @@ const Loop* llvm::addClonedBlockToLoopInfo(BasicBlock *OriginalBB,
   }
 }
 
+/// The function chooses which type of unroll (epilog or prolog) is more
+/// profitabale.
+/// Epilog unroll is more profitable when there is PHI that starts from
+/// constant.  In this case epilog will leave PHI start from constant,
+/// but prolog will convert it to non-constant.
+///
+/// loop:
+///   PN = PHI [I, Latch], [CI, PreHeader]
+///   I = foo(PN)
+///   ...
+///
+/// Epilog unroll case.
+/// loop:
+///   PN = PHI [I2, Latch], [CI, PreHeader]
+///   I1 = foo(PN)
+///   I2 = foo(I1)
+///   ...
+/// Prolog unroll case.
+///   NewPN = PHI [PrologI, Prolog], [CI, PreHeader]
+/// loop:
+///   PN = PHI [I2, Latch], [NewPN, PreHeader]
+///   I1 = foo(PN)
+///   I2 = foo(I1)
+///   ...
+///
+static bool isEpilogProfitable(Loop *L) {
+  BasicBlock *PreHeader = L->getLoopPreheader();
+  BasicBlock *Header = L->getHeader();
+  assert(PreHeader && Header);
+  for (Instruction &BBI : *Header) {
+    PHINode *PN = dyn_cast<PHINode>(&BBI);
+    if (!PN)
+      break;
+    if (isa<ConstantInt>(PN->getIncomingValueForBlock(PreHeader)))
+      return true;
+  }
+  return false;
+}
+
 /// Unroll the given loop by Count. The loop must be in LCSSA form. Returns true
 /// if unrolling was successful, or false if the loop was unmodified. Unrolling
 /// can only fail when the loop's latch block is not terminated by a conditional
@@ -279,6 +318,10 @@ bool llvm::UnrollLoop(Loop *L, unsigned Count, unsigned TripCount, bool Force,
     return false;
   }
 
+  // The current loop unroll pass can only unroll loops with a single latch
+  // that's a conditional branch exiting the loop.
+  // FIXME: The implementation can be extended to work with more complicated
+  // cases, e.g. loops with multiple latches.
   BasicBlock *Header = L->getHeader();
   BranchInst *BI = dyn_cast<BranchInst>(LatchBlock->getTerminator());
 
@@ -286,6 +329,16 @@ bool llvm::UnrollLoop(Loop *L, unsigned Count, unsigned TripCount, bool Force,
     // The loop-rotate pass can be helpful to avoid this in many cases.
     DEBUG(dbgs() <<
              "  Can't unroll; loop not terminated by a conditional branch.\n");
+    return false;
+  }
+
+  auto CheckSuccessors = [&](unsigned S1, unsigned S2) {
+    return BI->getSuccessor(S1) == Header && !L->contains(BI->getSuccessor(S2));
+  };
+
+  if (!CheckSuccessors(0, 1) && !CheckSuccessors(1, 0)) {
+    DEBUG(dbgs() << "Can't unroll; only loops with one conditional latch"
+                    " exiting the loop can be unrolled\n");
     return false;
   }
 
@@ -359,9 +412,13 @@ bool llvm::UnrollLoop(Loop *L, unsigned Count, unsigned TripCount, bool Force,
                "convergent operation.");
       });
 
+  bool EpilogProfitability =
+      UnrollRuntimeEpilog.getNumOccurrences() ? UnrollRuntimeEpilog
+                                              : isEpilogProfitable(L);
+
   if (RuntimeTripCount && TripMultiple % Count != 0 &&
       !UnrollRuntimeLoopRemainder(L, Count, AllowExpensiveTripCount,
-                                  UnrollRuntimeEpilog, LI, SE, DT, 
+                                  EpilogProfitability, LI, SE, DT,
                                   PreserveLCSSA)) {
     if (Force)
       RuntimeTripCount = false;

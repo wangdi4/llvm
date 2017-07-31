@@ -28,7 +28,8 @@
 #endif
 
 #if defined(__linux__) || defined(__FreeBSD__) ||                              \
-    defined(__FreeBSD_kernel__) || defined(__APPLE__) || defined(__NetBSD__)
+    defined(__FreeBSD_kernel__) || defined(__APPLE__) ||                       \
+    defined(__NetBSD__) || defined(__OpenBSD__)
 #if !defined(__ANDROID__)
 #include <spawn.h>
 #endif
@@ -50,9 +51,6 @@
 // Project includes
 
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Host/FileSpec.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/HostProcess.h"
@@ -64,7 +62,10 @@
 #include "lldb/Target/ProcessLaunchInfo.h"
 #include "lldb/Target/UnixSignals.h"
 #include "lldb/Utility/CleanUp.h"
+#include "lldb/Utility/DataBufferLLVM.h"
 #include "lldb/Utility/Error.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/lldb-private-forward.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
@@ -184,7 +185,7 @@ static thread_result_t MonitorChildProcessThreadFunction(void *arg) {
   delete info;
 
   int status = -1;
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__OpenBSD__)
 #define __WALL 0
 #endif
   const int options = __WALL;
@@ -313,27 +314,6 @@ void Host::SystemLog(SystemLogType type, const char *format, ...) {
 lldb::pid_t Host::GetCurrentProcessID() { return ::getpid(); }
 
 #ifndef _WIN32
-
-lldb::tid_t Host::GetCurrentThreadID() {
-#if defined(__APPLE__)
-  // Calling "mach_thread_self()" bumps the reference count on the thread
-  // port, so we need to deallocate it. mach_task_self() doesn't bump the ref
-  // count.
-  thread_port_t thread_self = mach_thread_self();
-  mach_port_deallocate(mach_task_self(), thread_self);
-  return thread_self;
-#elif defined(__FreeBSD__)
-  return lldb::tid_t(pthread_getthreadid_np());
-#elif defined(__NetBSD__)
-  return lldb::tid_t(_lwp_self());
-#elif defined(__ANDROID__)
-  return lldb::tid_t(gettid());
-#elif defined(__linux__)
-  return lldb::tid_t(syscall(SYS_gettid));
-#else
-  return lldb::tid_t(pthread_self());
-#endif
-}
 
 lldb::thread_t Host::GetCurrentThread() {
   return lldb::thread_t(pthread_self());
@@ -607,19 +587,18 @@ Error Host::RunShellCommand(const Args &args, const FileSpec &working_dir,
             error.SetErrorStringWithFormat(
                 "shell command output is too large to fit into a std::string");
           } else {
-            std::vector<char> command_output(file_size);
-            output_file_spec.ReadFileContents(0, command_output.data(),
-                                              file_size, &error);
+            auto Buffer =
+                DataBufferLLVM::CreateFromPath(output_file_spec.GetPath());
             if (error.Success())
-              command_output_ptr->assign(command_output.data(), file_size);
+              command_output_ptr->assign(Buffer->GetChars(),
+                                         Buffer->GetByteSize());
           }
         }
       }
     }
   }
 
-  if (FileSystem::GetFileExists(output_file_spec))
-    FileSystem::Unlink(output_file_spec);
+  llvm::sys::fs::remove(output_file_spec.GetPath());
   return error;
 }
 
@@ -700,7 +679,7 @@ Error Host::LaunchProcessPosixSpawn(const char *exe_path,
   sigemptyset(&no_signals);
   sigfillset(&all_signals);
   ::posix_spawnattr_setsigmask(&attr, &no_signals);
-#if defined(__linux__) || defined(__FreeBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__)
   ::posix_spawnattr_setsigdefault(&attr, &no_signals);
 #else
   ::posix_spawnattr_setsigdefault(&attr, &all_signals);

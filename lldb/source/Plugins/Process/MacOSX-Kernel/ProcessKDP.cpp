@@ -20,7 +20,7 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
-#include "lldb/Core/UUID.h"
+#include "lldb/Utility/UUID.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/Symbols.h"
@@ -726,11 +726,7 @@ void ProcessKDP::Initialize() {
                                   GetPluginDescriptionStatic(), CreateInstance,
                                   DebuggerInitialize);
 
-    Log::Callbacks log_callbacks = {ProcessKDPLog::DisableLog,
-                                    ProcessKDPLog::EnableLog,
-                                    ProcessKDPLog::ListLogCategories};
-
-    Log::RegisterLogChannel(ProcessKDP::GetPluginNameStatic(), log_callbacks);
+    ProcessKDPLog::Initialize();
   });
 }
 

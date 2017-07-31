@@ -51,6 +51,12 @@ namespace rdf {
       return F - Map.begin() + 1;
     }
 
+    uint32_t size() const { return Map.size(); }
+
+    typedef typename std::vector<T>::const_iterator const_iterator;
+    const_iterator begin() const { return Map.begin(); }
+    const_iterator end() const { return Map.end(); }
+
   private:
     std::vector<T> Map;
   };
@@ -91,6 +97,7 @@ namespace rdf {
     const uint32_t *getRegMaskBits(RegisterId R) const {
       return RegMasks.get(TargetRegisterInfo::stackSlot2Index(R));
     }
+    RegisterRef normalize(RegisterRef RR) const;
 
     bool alias(RegisterRef RA, RegisterRef RB) const {
       if (!isRegMaskId(RA.Reg))
@@ -99,17 +106,32 @@ namespace rdf {
     }
     std::set<RegisterId> getAliasSet(RegisterId Reg) const;
 
+    RegisterRef getRefForUnit(uint32_t U) const {
+      return RegisterRef(UnitInfos[U].Reg, UnitInfos[U].Mask);
+    }
+    const BitVector &getMaskUnits(RegisterId MaskId) const {
+      return MaskInfos[TargetRegisterInfo::stackSlot2Index(MaskId)].Units;
+    }
+
     const TargetRegisterInfo &getTRI() const { return TRI; }
 
-//  private:
+  private:
     struct RegInfo {
-      unsigned MaxSuper = 0;
       const TargetRegisterClass *RegClass = nullptr;
+    };
+    struct UnitInfo {
+      RegisterId Reg = 0;
+      LaneBitmask Mask;
+    };
+    struct MaskInfo {
+      BitVector Units;
     };
 
     const TargetRegisterInfo &TRI;
-    std::vector<RegInfo> RegInfos;
     IndexedSet<const uint32_t*> RegMasks;
+    std::vector<RegInfo> RegInfos;
+    std::vector<UnitInfo> UnitInfos;
+    std::vector<MaskInfo> MaskInfos;
 
     bool aliasRR(RegisterRef RA, RegisterRef RB) const;
     bool aliasRM(RegisterRef RR, RegisterRef RM) const;
@@ -119,10 +141,10 @@ namespace rdf {
 
   struct RegisterAggr {
     RegisterAggr(const PhysicalRegisterInfo &pri)
-        : ExpAliasUnits(pri.getTRI().getNumRegUnits()), PRI(pri) {}
+        : Units(pri.getTRI().getNumRegUnits()), PRI(pri) {}
     RegisterAggr(const RegisterAggr &RG) = default;
 
-    bool empty() const { return Masks.empty(); }
+    bool empty() const { return Units.none(); }
     bool hasAliasOf(RegisterRef RR) const;
     bool hasCoverOf(RegisterRef RR) const;
     static bool isCoverOf(RegisterRef RA, RegisterRef RB,
@@ -132,26 +154,52 @@ namespace rdf {
 
     RegisterAggr &insert(RegisterRef RR);
     RegisterAggr &insert(const RegisterAggr &RG);
+    RegisterAggr &intersect(RegisterRef RR);
+    RegisterAggr &intersect(const RegisterAggr &RG);
     RegisterAggr &clear(RegisterRef RR);
     RegisterAggr &clear(const RegisterAggr &RG);
 
+    RegisterRef intersectWith(RegisterRef RR) const;
     RegisterRef clearIn(RegisterRef RR) const;
+    RegisterRef makeRegRef() const;
 
     void print(raw_ostream &OS) const;
 
-  private:
-    typedef std::unordered_map<RegisterId, LaneBitmask> MapType;
+    struct rr_iterator {
+      typedef std::map<RegisterId,LaneBitmask> MapType;
+    private:
+      MapType Masks;
+      MapType::iterator Pos;
+      unsigned Index;
+      const RegisterAggr *Owner;
+    public:
+      rr_iterator(const RegisterAggr &RG, bool End);
+      RegisterRef operator*() const {
+        return RegisterRef(Pos->first, Pos->second);
+      }
+      rr_iterator &operator++() {
+        ++Pos;
+        ++Index;
+        return *this;
+      }
+      bool operator==(const rr_iterator &I) const {
+        assert(Owner == I.Owner);
+        return Index == I.Index;
+      }
+      bool operator!=(const rr_iterator &I) const {
+        return !(*this == I);
+      }
+    };
 
-  public:
-    typedef MapType::const_iterator iterator;
-    iterator begin() const { return Masks.begin(); }
-    iterator end() const { return Masks.end(); }
-    RegisterRef normalize(RegisterRef RR) const;
+    rr_iterator rr_begin() const {
+      return rr_iterator(*this, false);
+    }
+    rr_iterator rr_end() const {
+      return rr_iterator(*this, true);
+    }
 
   private:
-    MapType Masks;
-    BitVector ExpAliasUnits; // Register units for explicit aliases.
-    bool CheckUnits = false;
+    BitVector Units;
     const PhysicalRegisterInfo &PRI;
   };
 

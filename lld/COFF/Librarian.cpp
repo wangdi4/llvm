@@ -104,7 +104,18 @@ static ImportNameType getNameType(StringRef Sym, StringRef ExtName) {
 
 static std::string replace(StringRef S, StringRef From, StringRef To) {
   size_t Pos = S.find(From);
-  assert(Pos != StringRef::npos);
+
+  // From and To may be mangled, but substrings in S may not.
+  if (Pos == StringRef::npos && From.startswith("_") && To.startswith("_")) {
+    From = From.substr(1);
+    To = To.substr(1);
+    Pos = S.find(From);
+  }
+
+  if (Pos == StringRef::npos) {
+    error(S + ": replacing '" + From + "' with '" + To + "' failed");
+    return "";
+  }
   return (Twine(S.substr(0, Pos)) + To + S.substr(Pos + From.size())).str();
 }
 
@@ -151,7 +162,7 @@ public:
   // Create a short import file which is described in PE/COFF spec 7. Import
   // Library Format.
   NewArchiveMember createShortImport(StringRef Sym, uint16_t Ordinal,
-                                     ImportNameType NameType, bool isData);
+                                     ImportType Type, ImportNameType NameType);
 };
 }
 
@@ -429,8 +440,8 @@ NewArchiveMember ObjectFactory::createNullThunk(std::vector<uint8_t> &Buffer) {
 
 NewArchiveMember ObjectFactory::createShortImport(StringRef Sym,
                                                   uint16_t Ordinal,
-                                                  ImportNameType NameType,
-                                                  bool isData) {
+                                                  ImportType ImportType,
+                                                  ImportNameType NameType) {
   size_t ImpSize = DLLName.size() + Sym.size() + 2; // +2 for NULs
   size_t Size = sizeof(coff_import_header) + ImpSize;
   char *Buf = Alloc.Allocate<char>(Size);
@@ -445,8 +456,7 @@ NewArchiveMember ObjectFactory::createShortImport(StringRef Sym,
   Imp->SizeOfData = ImpSize;
   if (Ordinal > 0)
     Imp->OrdinalHint = Ordinal;
-  Imp->TypeInfo = (isData ? IMPORT_DATA : IMPORT_CODE);
-  Imp->TypeInfo |= NameType << 2;
+  Imp->TypeInfo = (NameType << 2) | ImportType;
 
   // Write symbol name and DLL name.
   memcpy(P, Sym.data(), Sym.size());
@@ -479,11 +489,18 @@ void lld::coff::writeImportLibrary() {
     if (E.Private)
       continue;
 
-    ImportNameType Type = getNameType(E.SymbolName, E.Name);
+    ImportType ImportType = IMPORT_CODE;
+    if (E.Data)
+      ImportType = IMPORT_DATA;
+    if (E.Constant)
+      ImportType = IMPORT_CONST;
+
+    ImportNameType NameType = getNameType(E.SymbolName, E.Name);
     std::string Name = E.ExtName.empty()
                            ? std::string(E.SymbolName)
                            : replace(E.SymbolName, E.Name, E.ExtName);
-    Members.push_back(OF.createShortImport(Name, E.Ordinal, Type, E.Data));
+    Members.push_back(OF.createShortImport(Name, E.Ordinal, ImportType,
+                                           NameType));
   }
 
   std::pair<StringRef, std::error_code> Result =

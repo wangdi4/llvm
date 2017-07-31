@@ -104,8 +104,6 @@ protected:
   bool applySubprogramDefinitionAttributes(const DISubprogram *SP, DIE &SPDie);
 
 public:
-  virtual ~DwarfUnit();
-
   // Accessors.
   AsmPrinter* getAsmPrinter() const { return Asm; }
   uint16_t getLanguage() const { return CUNode->getSourceLanguage(); }
@@ -198,9 +196,6 @@ public:
 
   /// Add a type's DW_AT_signature and set the  declaration flag.
   void addDIETypeSignature(DIE &Die, uint64_t Signature);
-  /// Add an attribute containing the type signature for a unique identifier.
-  void addDIETypeSignature(DIE &Die, dwarf::Attribute Attribute,
-                           StringRef Identifier);
 
   /// Add block data.
   void addBlock(DIE &Die, dwarf::Attribute Attribute, DIELoc *Block);
@@ -279,17 +274,21 @@ public:
   virtual unsigned getHeaderSize() const {
     return sizeof(int16_t) + // DWARF version number
            sizeof(int32_t) + // Offset Into Abbrev. Section
-           sizeof(int8_t);   // Pointer Size (in bytes)
+           sizeof(int8_t) +  // Pointer Size (in bytes)
+           (DD->getDwarfVersion() >= 5 ? sizeof(int8_t)
+                                       : 0); // DWARF v5 unit type
   }
 
   /// Emit the header for this unit, not including the initial length field.
-  virtual void emitHeader(bool UseOffsets);
+  virtual void emitHeader(bool UseOffsets) = 0;
 
   virtual DwarfCompileUnit &getCU() = 0;
 
   void constructTypeDIE(DIE &Buffer, const DICompositeType *CTy);
 
 protected:
+  ~DwarfUnit();
+
   /// Create new static data member DIE.
   DIE *getOrCreateStaticMemberDIE(const DIDerivedType *DT);
 
@@ -307,6 +306,9 @@ protected:
   /// the accelerator tables.
   void updateAcceleratorTables(const DIScope *Context, const DIType *Ty,
                                const DIE &TyDIE);
+
+  /// Emit the common part of the header for this unit.
+  void emitCommonHeader(bool UseOffsets, dwarf::UnitType UT);
 
 private:
   void constructTypeDIE(DIE &Buffer, const DIBasicType *BTy);
@@ -333,9 +335,10 @@ private:
   void setIndexTyDie(DIE *D) { IndexTyDie = D; }
 
   virtual bool isDwoUnit() const = 0;
+  const MCSymbol *getCrossSectionRelativeBaseAddress() const override;
 };
 
-class DwarfTypeUnit : public DwarfUnit {
+class DwarfTypeUnit final : public DwarfUnit {
   uint64_t TypeSignature;
   const DIE *Ty;
   DwarfCompileUnit &CU;

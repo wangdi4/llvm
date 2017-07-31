@@ -95,6 +95,74 @@ exit:
 }
 
 ; Intended layout:
+; The chain-of-triangles based duplicating produces the layout
+; test1
+; test2
+; test3
+; test4
+; optional1
+; optional2
+; optional3
+; optional4
+; exit
+; even for 50/50 branches.
+; Tail duplication puts test n+1 at the end of optional n
+; so optional1 includes a copy of test2 at the end, and branches
+; to test3 (at the top) or falls through to optional 2.
+; The CHECK statements check for the whole string of tests
+; and then check that the correct test has been duplicated into the end of
+; the optional blocks and that the optional blocks are in the correct order.
+;CHECK-LABEL: straight_test_50:
+; test1 may have been merged with entry
+;CHECK: mr [[TAGREG:[0-9]+]], 3
+;CHECK: andi. {{[0-9]+}}, [[TAGREG]], 1
+;CHECK-NEXT: bc 12, 1, .[[OPT1LABEL:[_0-9A-Za-z]+]]
+;CHECK-NEXT: # %test2
+;CHECK-NEXT: rlwinm. {{[0-9]+}}, [[TAGREG]], 0, 30, 30
+;CHECK-NEXT: bne 0, .[[OPT2LABEL:[_0-9A-Za-z]+]]
+;CHECK-NEXT: .[[TEST3LABEL:[_0-9A-Za-z]+]]: # %test3
+;CHECK-NEXT: rlwinm. {{[0-9]+}}, [[TAGREG]], 0, 29, 29
+;CHECK-NEXT: bne 0, .[[OPT3LABEL:[_0-9A-Za-z]+]]
+;CHECK-NEXT: .[[EXITLABEL:[_0-9A-Za-z]+]]: # %exit
+;CHECK: blr
+;CHECK-NEXT: .[[OPT1LABEL]]:
+;CHECK: rlwinm. {{[0-9]+}}, [[TAGREG]], 0, 30, 30
+;CHECK-NEXT: beq 0, .[[TEST3LABEL]]
+;CHECK-NEXT: .[[OPT2LABEL]]:
+;CHECK: rlwinm. {{[0-9]+}}, [[TAGREG]], 0, 29, 29
+;CHECK-NEXT: beq 0, .[[EXITLABEL]]
+;CHECK-NEXT: .[[OPT3LABEL]]:
+;CHECK: b .[[EXITLABEL]]
+
+define void @straight_test_50(i32 %tag) {
+entry:
+  br label %test1
+test1:
+  %tagbit1 = and i32 %tag, 1
+  %tagbit1eq0 = icmp eq i32 %tagbit1, 0
+  br i1 %tagbit1eq0, label %test2, label %optional1, !prof !2
+optional1:
+  call void @a()
+  br label %test2
+test2:
+  %tagbit2 = and i32 %tag, 2
+  %tagbit2eq0 = icmp eq i32 %tagbit2, 0
+  br i1 %tagbit2eq0, label %test3, label %optional2, !prof !2
+optional2:
+  call void @b()
+  br label %test3
+test3:
+  %tagbit3 = and i32 %tag, 4
+  %tagbit3eq0 = icmp eq i32 %tagbit3, 0
+  br i1 %tagbit3eq0, label %exit, label %optional3, !prof !1
+optional3:
+  call void @c()
+  br label %exit
+exit:
+  ret void
+}
+
+; Intended layout:
 ; The chain-based outlining produces the layout
 ; entry
 ; --- Begin loop ---
@@ -406,6 +474,51 @@ ret:
   ret void
 }
 
+; Verify that we did not mis-identify triangle trellises if it is not
+; really a triangle.
+; CHECK-LABEL: trellis_no_triangle
+; CHECK: # %entry
+; CHECK: # %b
+; CHECK: # %d
+; CHECK: # %ret
+; CHECK: # %c
+; CHECK: # %e
+define void @trellis_no_triangle(i32 %tag) {
+entry:
+  br label %a
+a:
+  call void @a()
+  call void @a()
+  %tagbits.a = and i32 %tag, 3
+  %tagbits.a.eq0 = icmp eq i32 %tagbits.a, 0
+  br i1 %tagbits.a.eq0, label %b, label %c, !prof !8 ; 98 to 2
+b:
+  call void @b()
+  call void @b()
+  %tagbits.b = and i32 %tag, 12
+  %tagbits.b.eq1 = icmp eq i32 %tagbits.b, 8
+  br i1 %tagbits.b.eq1, label %d, label %e, !prof !9 ; 97 to 1
+d:
+  call void @d()
+  call void @d()
+  %tagbits.d = and i32 %tag, 48
+  %tagbits.d.eq1 = icmp eq i32 %tagbits.d, 32
+  br i1 %tagbits.d.eq1, label %ret, label %e, !prof !10 ; 96 to 2
+c:
+  call void @c()
+  call void @c()
+  %tagbits.c = and i32 %tag, 12
+  %tagbits.c.eq0 = icmp eq i32 %tagbits.c, 0
+  br i1 %tagbits.c.eq0, label %d, label %e, !prof !2 ; 1 to 1
+e:
+  call void @e()
+  call void @e()
+  br label %ret
+ret:
+  call void @f()
+  ret void
+}
+
 declare void @a()
 declare void @b()
 declare void @c()
@@ -424,3 +537,6 @@ declare void @j()
 !5 = !{!"branch_weights", i32 2, i32 8}
 !6 = !{!"branch_weights", i32 3, i32 4}
 !7 = !{!"branch_weights", i32 4, i32 2}
+!8 = !{!"branch_weights", i32 98, i32 2}
+!9 = !{!"branch_weights", i32 97, i32 1}
+!10 = !{!"branch_weights", i32 96, i32 2}

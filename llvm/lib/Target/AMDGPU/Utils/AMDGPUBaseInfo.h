@@ -10,6 +10,7 @@
 #ifndef LLVM_LIB_TARGET_AMDGPU_UTILS_AMDGPUBASEINFO_H
 #define LLVM_LIB_TARGET_AMDGPU_UTILS_AMDGPUBASEINFO_H
 
+#include "AMDGPU.h"
 #include "AMDKernelCodeT.h"
 #include "SIDefines.h"
 #include "llvm/ADT/StringRef.h"
@@ -19,10 +20,6 @@
 #include "llvm/Support/ErrorHandling.h"
 #include <cstdint>
 #include <utility>
-
-#define GET_INSTRINFO_OPERAND_ENUM
-#include "AMDGPUGenInstrInfo.inc"
-#undef GET_INSTRINFO_OPERAND_ENUM
 
 namespace llvm {
 
@@ -160,9 +157,9 @@ MCSection *getHSADataGlobalProgramSection(MCContext &Ctx);
 
 MCSection *getHSARodataReadonlyAgentSection(MCContext &Ctx);
 
-bool isGroupSegment(const GlobalValue *GV);
-bool isGlobalSegment(const GlobalValue *GV);
-bool isReadOnlySegment(const GlobalValue *GV);
+bool isGroupSegment(const GlobalValue *GV, AMDGPUAS AS);
+bool isGlobalSegment(const GlobalValue *GV, AMDGPUAS AS);
+bool isReadOnlySegment(const GlobalValue *GV, AMDGPUAS AS);
 
 /// \returns True if constants should be emitted to .text section for given
 /// target triple \p TT, false otherwise.
@@ -216,7 +213,8 @@ unsigned decodeLgkmcnt(const IsaInfo::IsaVersion &Version, unsigned Waitcnt);
 /// \p Lgkmcnt respectively.
 ///
 /// \details \p Vmcnt, \p Expcnt and \p Lgkmcnt are decoded as follows:
-///     \p Vmcnt = \p Waitcnt[3:0]
+///     \p Vmcnt = \p Waitcnt[3:0]                      (pre-gfx9 only)
+///     \p Vmcnt = \p Waitcnt[3:0] | \p Waitcnt[15:14]  (gfx9+ only)
 ///     \p Expcnt = \p Waitcnt[6:4]
 ///     \p Lgkmcnt = \p Waitcnt[11:8]
 void decodeWaitcnt(const IsaInfo::IsaVersion &Version, unsigned Waitcnt,
@@ -238,9 +236,11 @@ unsigned encodeLgkmcnt(const IsaInfo::IsaVersion &Version, unsigned Waitcnt,
 /// \p Version.
 ///
 /// \details \p Vmcnt, \p Expcnt and \p Lgkmcnt are encoded as follows:
-///     Waitcnt[3:0]  = \p Vmcnt
-///     Waitcnt[6:4]  = \p Expcnt
-///     Waitcnt[11:8] = \p Lgkmcnt
+///     Waitcnt[3:0]   = \p Vmcnt       (pre-gfx9 only)
+///     Waitcnt[3:0]   = \p Vmcnt[3:0]  (gfx9+ only)
+///     Waitcnt[6:4]   = \p Expcnt
+///     Waitcnt[11:8]  = \p Lgkmcnt
+///     Waitcnt[15:14] = \p Vmcnt[5:4]  (gfx9+ only)
 ///
 /// \returns Waitcnt with encoded \p Vmcnt, \p Expcnt and \p Lgkmcnt for given
 /// isa \p Version.
@@ -249,8 +249,27 @@ unsigned encodeWaitcnt(const IsaInfo::IsaVersion &Version,
 
 unsigned getInitialPSInputAddr(const Function &F);
 
-bool isShader(CallingConv::ID cc);
-bool isCompute(CallingConv::ID cc);
+LLVM_READNONE
+bool isShader(CallingConv::ID CC);
+
+LLVM_READNONE
+bool isCompute(CallingConv::ID CC);
+
+LLVM_READNONE
+bool isEntryFunctionCC(CallingConv::ID CC);
+
+// FIXME: Remove this when calling conventions cleaned up
+LLVM_READNONE
+inline bool isKernel(CallingConv::ID CC) {
+  switch (CC) {
+  case CallingConv::C:
+  case CallingConv::AMDGPU_KERNEL:
+  case CallingConv::SPIR_KERNEL:
+    return true;
+  default:
+    return false;
+  }
+}
 
 bool isSI(const MCSubtargetInfo &STI);
 bool isCI(const MCSubtargetInfo &STI);
@@ -259,6 +278,10 @@ bool isVI(const MCSubtargetInfo &STI);
 /// If \p Reg is a pseudo reg, return the correct hardware register given
 /// \p STI otherwise return \p Reg.
 unsigned getMCReg(unsigned Reg, const MCSubtargetInfo &STI);
+
+/// \brief Convert hardware register \p Reg to a pseudo register
+LLVM_READNONE
+unsigned mc2PseudoReg(unsigned Reg);
 
 /// \brief Can this operand also contain immediate values?
 bool isSISrcOperand(const MCInstrDesc &Desc, unsigned OpNo);
@@ -298,6 +321,8 @@ inline unsigned getOperandSize(const MCOperandInfo &OpInfo) {
   case AMDGPU::OPERAND_REG_IMM_FP16:
   case AMDGPU::OPERAND_REG_INLINE_C_INT16:
   case AMDGPU::OPERAND_REG_INLINE_C_FP16:
+  case AMDGPU::OPERAND_REG_INLINE_C_V2INT16:
+  case AMDGPU::OPERAND_REG_INLINE_C_V2FP16:
     return 2;
 
   default:
@@ -319,6 +344,9 @@ bool isInlinableLiteral32(int32_t Literal, bool HasInv2Pi);
 
 LLVM_READNONE
 bool isInlinableLiteral16(int16_t Literal, bool HasInv2Pi);
+
+LLVM_READNONE
+bool isInlinableLiteralV216(int32_t Literal, bool HasInv2Pi);
 
 bool isUniformMMO(const MachineMemOperand *MMO);
 

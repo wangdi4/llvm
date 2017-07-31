@@ -1,7 +1,7 @@
 # Check if this is a in tree build.
 if (NOT DEFINED LLVM_MAIN_SRC_DIR)
   project(Polly)
-  cmake_minimum_required(VERSION 2.8)
+  cmake_minimum_required(VERSION 3.4.3)
 
   # Where is LLVM installed?
   set(LLVM_INSTALL_ROOT "" CACHE PATH "Root of LLVM install.")
@@ -19,6 +19,11 @@ if (NOT DEFINED LLVM_MAIN_SRC_DIR)
   endif()
   # Add the llvm header path.
   include_directories(${LLVM_INSTALL_ROOT}/include/)
+
+  # Get LLVM's own libraries.
+  execute_process(COMMAND "${LLVM_INSTALL_ROOT}/bin/llvm-config" --libs
+                  OUTPUT_VARIABLE LLVM_LIBS
+                  OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   # Get the system librarys that will link into LLVM.
   execute_process(COMMAND "${LLVM_INSTALL_ROOT}/bin/llvm-config" --system-libs
@@ -109,6 +114,9 @@ if (NOT DEFINED LLVM_MAIN_SRC_DIR)
 
   # Make sure the isl c files are built as fPIC
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+
+  # Set directory for polly-isl-test.
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
 else ()
   set(LLVM_SOURCE_ROOT "${LLVM_MAIN_SRC_DIR}")
   set(POLLY_GTEST_AVAIL 1)
@@ -158,12 +166,24 @@ if (CUDALIB_FOUND)
   INCLUDE_DIRECTORIES( ${CUDALIB_INCLUDE_DIR} )
 endif(CUDALIB_FOUND)
 
+option(POLLY_BUNDLED_ISL "Use the bundled version of libisl included in Polly" ON)
+if (NOT POLLY_BUNDLED_ISL)
+  find_package(ISL MODULE REQUIRED)
+  message(STATUS "Using external libisl ${ISL_VERSION} in: ${ISL_PREFIX}")
+  set(ISL_TARGET ISL)
+else()
+  set(ISL_INCLUDE_DIRS
+    ${CMAKE_CURRENT_BINARY_DIR}/lib/External/isl/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/lib/External/isl/include
+  )
+  set(ISL_TARGET PollyISL)
+endif()
+
 include_directories(
   BEFORE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${ISL_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/External/JSON/include
-  ${CMAKE_CURRENT_BINARY_DIR}/lib/External/isl/include
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/External/isl/include
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/External/pet/include
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/External
   ${CMAKE_CURRENT_BINARY_DIR}/include
@@ -195,6 +215,7 @@ if (POLLY_GTEST_AVAIL)
   add_subdirectory(unittests)
 endif ()
 add_subdirectory(tools)
+add_subdirectory(cmake)
 # TODO: docs.
 
 

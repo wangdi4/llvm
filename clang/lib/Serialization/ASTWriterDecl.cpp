@@ -86,6 +86,7 @@ namespace clang {
     void VisitUnresolvedUsingValueDecl(UnresolvedUsingValueDecl *D);
     void VisitDeclaratorDecl(DeclaratorDecl *D);
     void VisitFunctionDecl(FunctionDecl *D);
+    void VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D);
     void VisitCXXMethodDecl(CXXMethodDecl *D);
     void VisitCXXConstructorDecl(CXXConstructorDecl *D);
     void VisitCXXDestructorDecl(CXXDestructorDecl *D);
@@ -609,6 +610,11 @@ void ASTDeclWriter::VisitFunctionDecl(FunctionDecl *D) {
   Code = serialization::DECL_FUNCTION;
 }
 
+void ASTDeclWriter::VisitCXXDeductionGuideDecl(CXXDeductionGuideDecl *D) {
+  VisitFunctionDecl(D);
+  Code = serialization::DECL_CXX_DEDUCTION_GUIDE;
+}
+
 void ASTDeclWriter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
   VisitNamedDecl(D);
   // FIXME: convert to LazyStmtPtr?
@@ -793,7 +799,9 @@ void ASTDeclWriter::VisitObjCPropertyDecl(ObjCPropertyDecl *D) {
   // FIXME: stable encoding
   Record.push_back((unsigned)D->getPropertyImplementation());
   Record.AddDeclarationName(D->getGetterName());
+  Record.AddSourceLocation(D->getGetterNameLoc());
   Record.AddDeclarationName(D->getSetterName());
+  Record.AddSourceLocation(D->getSetterNameLoc());
   Record.AddDeclRef(D->getGetterMethodDecl());
   Record.AddDeclRef(D->getSetterMethodDecl());
   Record.AddDeclRef(D->getPropertyIvarDecl());
@@ -808,7 +816,6 @@ void ASTDeclWriter::VisitObjCImplDecl(ObjCImplDecl *D) {
 
 void ASTDeclWriter::VisitObjCCategoryImplDecl(ObjCCategoryImplDecl *D) {
   VisitObjCImplDecl(D);
-  Record.AddIdentifierRef(D->getIdentifier());
   Record.AddSourceLocation(D->getCategoryNameLoc());
   Code = serialization::DECL_OBJC_CATEGORY_IMPL;
 }
@@ -2152,7 +2159,7 @@ void ASTWriter::WriteDeclAbbrevs() {
 /// relatively painless since they would presumably only do it for top-level
 /// decls.
 static bool isRequiredDecl(const Decl *D, ASTContext &Context,
-                           bool WritingModule, bool ModularCode) {
+                           bool WritingModule) {
   // An ObjCMethodDecl is never considered as "required" because its
   // implementation container always is.
 
@@ -2168,7 +2175,7 @@ static bool isRequiredDecl(const Decl *D, ASTContext &Context,
     return false;
   }
 
-  return Context.DeclMustBeEmitted(D, ModularCode);
+  return Context.DeclMustBeEmitted(D);
 }
 
 void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
@@ -2212,11 +2219,8 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
 
   // Note declarations that should be deserialized eagerly so that we can add
   // them to a record in the AST file later.
-  if (isRequiredDecl(D, Context, WritingModule, false))
+  if (isRequiredDecl(D, Context, WritingModule))
     EagerlyDeserializedDecls.push_back(ID);
-  else if (Context.getLangOpts().ModularCodegen && WritingModule &&
-           isRequiredDecl(D, Context, true, true))
-    ModularCodegenDecls.push_back(ID);
 }
 
 void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
@@ -2224,6 +2228,11 @@ void ASTRecordWriter::AddFunctionDefinition(const FunctionDecl *FD) {
   Writer->ClearSwitchCaseIDs();
 
   assert(FD->doesThisDeclarationHaveABody());
+  bool ModulesCodegen = Writer->Context->getLangOpts().ModulesCodegen &&
+                        Writer->WritingModule && !FD->isDependentContext();
+  Record->push_back(ModulesCodegen);
+  if (ModulesCodegen)
+    Writer->ModularCodegenDecls.push_back(Writer->GetDeclRef(FD));
   if (auto *CD = dyn_cast<CXXConstructorDecl>(FD)) {
     Record->push_back(CD->getNumCtorInitializers());
     if (CD->getNumCtorInitializers())

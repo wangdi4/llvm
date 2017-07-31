@@ -35,6 +35,7 @@ add_polly_library(Polly
   Analysis/ScopBuilder.cpp
   Analysis/ScopGraphPrinter.cpp
   Analysis/ScopPass.cpp
+  Analysis/PruneUnprofitable.cpp
   CodeGen/BlockGenerators.cpp
   ${ISL_CODEGEN_FILES}
   CodeGen/LoopGenerators.cpp
@@ -42,6 +43,7 @@ add_polly_library(Polly
   CodeGen/Utils.cpp
   CodeGen/RuntimeDebugBuilder.cpp
   CodeGen/CodegenCleanup.cpp
+  CodeGen/PerfMonitor.cpp
   ${GPGPU_CODEGEN_FILES}
   Exchange/JSONExporter.cpp
   Support/GICHelper.cpp
@@ -51,6 +53,7 @@ add_polly_library(Polly
   Support/ScopHelper.cpp
   Support/ScopLocation.cpp
   Support/ISLTools.cpp
+  Support/DumpModulePass.cpp
   ${POLLY_JSON_FILES}
   Transform/Canonicalization.cpp
   Transform/CodePreparation.cpp
@@ -59,6 +62,7 @@ add_polly_library(Polly
   Transform/FlattenSchedule.cpp
   Transform/FlattenAlgo.cpp
   Transform/DeLICM.cpp
+  Transform/Simplify.cpp
   ${POLLY_HEADER_FILES}
   )
 
@@ -66,7 +70,7 @@ if (GPU_CODEGEN)
   target_link_libraries(Polly PollyPPCG)
 endif (GPU_CODEGEN)
 
-target_link_libraries(Polly PollyISL)
+target_link_libraries(Polly ${ISL_TARGET})
 
 if (BUILD_SHARED_LIBS)
   target_link_libraries(Polly

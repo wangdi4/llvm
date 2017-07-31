@@ -9,13 +9,12 @@
 
 #include "lldb/Target/ModuleCache.h"
 
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Host/File.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/LockFile.h"
+#include "lldb/Utility/Log.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
 
@@ -59,21 +58,16 @@ public:
   void Delete();
 };
 
-FileSpec JoinPath(const FileSpec &path1, const char *path2) {
+static FileSpec JoinPath(const FileSpec &path1, const char *path2) {
   FileSpec result_spec(path1);
   result_spec.AppendPathComponent(path2);
   return result_spec;
 }
 
-Error MakeDirectory(const FileSpec &dir_path) {
-  if (dir_path.Exists()) {
-    if (!dir_path.IsDirectory())
-      return Error("Invalid existing path");
+static Error MakeDirectory(const FileSpec &dir_path) {
+  namespace fs = llvm::sys::fs;
 
-    return Error();
-  }
-
-  return FileSystem::MakeDirectory(dir_path, eFilePermissionsDirectoryDefault);
+  return fs::create_directories(dir_path.GetPath(), true, fs::perms::owner_all);
 }
 
 FileSpec GetModuleDirectory(const FileSpec &root_dir_spec, const UUID &uuid) {
@@ -106,15 +100,16 @@ void DeleteExistingModule(const FileSpec &root_dir_spec,
                   module_uuid.GetAsString().c_str(), error.AsCString());
   }
 
-  auto link_count = FileSystem::GetHardlinkCount(sysroot_module_path_spec);
-  if (link_count == -1)
+  namespace fs = llvm::sys::fs;
+  fs::file_status st;
+  if (status(sysroot_module_path_spec.GetPath(), st))
     return;
 
-  if (link_count > 2) // module is referred by other hosts.
+  if (st.getLinkCount() > 2) // module is referred by other hosts.
     return;
 
   const auto module_spec_dir = GetModuleDirectory(root_dir_spec, module_uuid);
-  FileSystem::DeleteDirectory(module_spec_dir, true);
+  llvm::sys::fs::remove_directories(module_spec_dir.GetPath());
   lock.Delete();
 }
 
@@ -124,11 +119,10 @@ void DecrementRefExistingModule(const FileSpec &root_dir_spec,
   DeleteExistingModule(root_dir_spec, sysroot_module_path_spec);
 
   // Remove sysroot link.
-  FileSystem::Unlink(sysroot_module_path_spec);
+  llvm::sys::fs::remove(sysroot_module_path_spec.GetPath());
 
   FileSpec symfile_spec = GetSymbolFileSpec(sysroot_module_path_spec);
-  if (symfile_spec.Exists()) // delete module's symbol file if exists.
-    FileSystem::Unlink(symfile_spec);
+  llvm::sys::fs::remove(symfile_spec.GetPath());
 }
 
 Error CreateHostSysRootModuleLink(const FileSpec &root_dir_spec,
@@ -151,7 +145,8 @@ Error CreateHostSysRootModuleLink(const FileSpec &root_dir_spec,
   if (error.Fail())
     return error;
 
-  return FileSystem::Hardlink(sysroot_module_path_spec, local_module_spec);
+  return llvm::sys::fs::create_hard_link(local_module_spec.GetPath(),
+                                         sysroot_module_path_spec.GetPath());
 }
 
 } // namespace
@@ -184,7 +179,7 @@ void ModuleLock::Delete() {
     return;
 
   m_file.Close();
-  FileSystem::Unlink(m_file_spec);
+  llvm::sys::fs::remove(m_file_spec.GetPath());
 }
 
 /////////////////////////////////////////////////////////////////////////

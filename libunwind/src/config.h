@@ -32,23 +32,15 @@
 // Platform specific configuration defines.
 #ifdef __APPLE__
   #if defined(FOR_DYLD)
-    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 1
-    #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   0
-    #define _LIBUNWIND_SUPPORT_DWARF_INDEX    0
+    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND
   #else
-    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 1
+    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   1
-    #define _LIBUNWIND_SUPPORT_DWARF_INDEX    0
   #endif
 #else
   #if defined(__ARM_DWARF_EH__) || !defined(__arm__)
-    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 0
     #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
     #define _LIBUNWIND_SUPPORT_DWARF_INDEX 1
-  #else
-    #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 0
-    #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 0
-    #define _LIBUNWIND_SUPPORT_DWARF_INDEX 0
   #endif
 #endif
 
@@ -57,15 +49,11 @@
 #define _LIBUNWIND_HIDDEN __attribute__((visibility("hidden")))
 
 #if (defined(__APPLE__) && defined(__arm__)) || defined(__USING_SJLJ_EXCEPTIONS__)
-#define _LIBUNWIND_BUILD_SJLJ_APIS 1
-#else
-#define _LIBUNWIND_BUILD_SJLJ_APIS 0
+#define _LIBUNWIND_BUILD_SJLJ_APIS
 #endif
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__ppc__) || defined(__ppc64__)
-#define _LIBUNWIND_SUPPORT_FRAME_APIS 1
-#else
-#define _LIBUNWIND_SUPPORT_FRAME_APIS 0
+#define _LIBUNWIND_SUPPORT_FRAME_APIS
 #endif
 
 #if defined(__i386__) || defined(__x86_64__) ||                                \
@@ -73,11 +61,15 @@
     (!defined(__APPLE__) && defined(__arm__)) ||                               \
     (defined(__arm64__) || defined(__aarch64__)) ||                            \
     (defined(__APPLE__) && defined(__mips__))
-#define _LIBUNWIND_BUILD_ZERO_COST_APIS 1
-#else
-#define _LIBUNWIND_BUILD_ZERO_COST_APIS 0
+#define _LIBUNWIND_BUILD_ZERO_COST_APIS
 #endif
 
+#if defined(NDEBUG) && defined(_LIBUNWIND_IS_BAREMETAL)
+#define _LIBUNWIND_ABORT(msg)                                                  \
+  do {                                                                         \
+    abort();                                                                   \
+  } while (0)
+#else
 #define _LIBUNWIND_ABORT(msg)                                                  \
   do {                                                                         \
     fprintf(stderr, "libunwind: %s %s:%d - %s\n", __func__, __FILE__,          \
@@ -85,9 +77,14 @@
     fflush(stderr);                                                            \
     abort();                                                                   \
   } while (0)
+#endif
 
+#if defined(NDEBUG) && defined(_LIBUNWIND_IS_BAREMETAL)
+#define _LIBUNWIND_LOG(msg, ...)
+#else
 #define _LIBUNWIND_LOG(msg, ...)                                               \
   fprintf(stderr, "libunwind: " msg "\n", __VA_ARGS__)
+#endif
 
 #if defined(_LIBUNWIND_HAS_NO_THREADS)
   // only used with pthread calls, not needed for the single-threaded builds

@@ -10,7 +10,7 @@
 // <memory>
 
 // template<class Y> explicit shared_ptr(auto_ptr<Y>&& r);
-// REQUIRES-ANY: c++98, c++03, c++11, c++14
+// REQUIRES: c++98 || c++03 || c++11 || c++14
 
 
 #include <memory>
@@ -86,6 +86,7 @@ int main()
             // Without rvalue references, ptr got copied into
             // the shared_ptr destructor and the copy was
             // destroyed during unwinding.
+            (void) raw_ptr; // silence 'unused variable' warning
             assert(A::count == 0);
             assert(B::count == 0);
 #endif
