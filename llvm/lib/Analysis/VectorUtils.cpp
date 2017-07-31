@@ -511,8 +511,7 @@ void llvm::analyzeCallArgMemoryReferences(CallInst *CI, CallInst *VecCall,
       if (AttrList.hasAttributes()) {
         VecCall->setAttributes(
             VecCall->getAttributes().addAttributes(
-                VecCall->getContext(), I + 1,
-                AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
+                VecCall->getContext(), I + 1, AttrList));
       }
     }
   }

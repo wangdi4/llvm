@@ -193,11 +193,8 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   for (auto Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
-  AttributeList AttrsToRemove = AttributeList::get(F.getContext(),
-                                                 AttributeList::FunctionIndex,
-                                                 AB);
 
-  F.removeAttributes(AttributeList::FunctionIndex, AttrsToRemove);
+  F.removeAttributes(AttributeList::FunctionIndex, AB);
 
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
@@ -214,8 +211,7 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
     AB = AttributeFuncs::typeIncompatible(ArgType);
-    AttributeList AS = AttributeList::get(Clone->getContext(), Idx, AB);
-    Clone->removeAttributes(Idx, AS);
+    Clone->removeAttributes(Idx, AB);
   }
 
   ValueToValueMapTy Vmap;
