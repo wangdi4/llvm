@@ -243,16 +243,14 @@ unsigned FMADagTG::countNodeUses(unsigned NodeInd) const {
 void FMADagTG::setOperand(unsigned NodeInd, unsigned OpndInd,
                           bool IsTerm, unsigned Opnd) {
 
-  unsigned NumNodes = getNumNodes();
-
-  assert((NodeInd < NumNodes && OpndInd < 3) &&
+  assert((NodeInd < getNumNodes() && OpndInd < 3) &&
          "Illegal parameters in the method setOperand()");
 
   unsigned BitsPerOpnd = getBitSizeForOperand(NodeInd);
   unsigned Offset = getBitOffsetForOperand(NodeInd, OpndInd);
 
   if (!IsTerm) {
-    assert(Opnd < NumNodes && "FMA node index is out of range.");
+    assert(Opnd < getNumNodes() && "FMA node index is out of range.");
     writeToUInt64(EncodedDag, Offset, BitsPerOpnd, Opnd + 2 - NodeInd);
   } else if (Opnd == TermZERO)
     writeToUInt64(EncodedDag, Offset, BitsPerOpnd, 0);

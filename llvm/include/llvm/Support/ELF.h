@@ -547,6 +547,11 @@ enum {
   ODK_PAGESIZE = 11   // Page size information
 };
 
+// ELF Relocation types for Nios2
+enum {
+  #include "ELFRelocs/Nios2.def"
+};
+
 // Hexagon-specific e_flags
 enum {
   // Object processor version flags, bits[11:0]

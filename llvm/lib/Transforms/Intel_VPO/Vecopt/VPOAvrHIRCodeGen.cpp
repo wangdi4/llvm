@@ -1189,6 +1189,7 @@ void ReductionHIRMngr::mapHLNodes(const HLLoop *OrigLoop) {
           Success = true;
           break;
         }
+    (void)Success;
     assert(Success && "Can't find HIR initializer for reduction item");
   }
 }

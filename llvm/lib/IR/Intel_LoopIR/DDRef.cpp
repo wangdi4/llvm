@@ -57,6 +57,7 @@ void DDRef::dump() const { dump(false); }
 #endif
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   if (Detailed) {
     if (containsUndef()) {
       OS << " {undefined}";
@@ -64,6 +65,7 @@ void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
     OS << " {sb:" << getSymbase() << "}";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 unsigned DDRef::getNodeLevel() const {

@@ -194,12 +194,15 @@ void HLDDNode::replaceOperandOrFakeDDRef(RegDDRef *ExistingRef,
 
 void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   if (Detailed) {
     printDDRefs(OS, Depth);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
+#if !INTEL_PRODUCT_RELEASE
   bool Printed = false;
   bool IsLoop = false;
 
@@ -271,6 +274,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     }
     OS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLDDNode::verify() const {

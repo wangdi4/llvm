@@ -45,12 +45,14 @@ class HIRTransformPass : public FunctionPass {
 public:
   HIRTransformPass(char &ID) : FunctionPass(ID) {}
 
+#if !INTEL_PRODUCT_RELEASE
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 };
 
 } // End namespace loopopt

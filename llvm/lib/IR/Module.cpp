@@ -445,6 +445,29 @@ unsigned Module::getCodeViewFlag() const {
   return cast<ConstantInt>(Val->getValue())->getZExtValue();
 }
 
+#if INTEL_CUSTOMIZATION
+static const StringRef IntelProprietaryFlag = "Intel Proprietary";
+
+bool Module::isIntelProprietary() const {
+  auto *Val =
+      cast_or_null<ConstantAsMetadata>(getModuleFlag(IntelProprietaryFlag));
+  if (!Val)
+    return false;
+  // We ignore the value of this flag to avoid merging dilemmas.  If the flag
+  // is present, regardless of its value, the module is considered proprietary.
+  return true;
+}
+
+void Module::setIntelProprietary() {
+  // If this flag is already present in the module, don't add it again.
+  // Duplicate flag entries are rejected by the verifier.
+  if (isIntelProprietary())
+    return;
+  addModuleFlag(ModFlagBehavior::Warning, IntelProprietaryFlag,
+                ConstantInt::getTrue(Context));
+}
+#endif // INTEL_CUSTOMIZATION
+
 Comdat *Module::getOrInsertComdat(StringRef Name) {
   auto &Entry = *ComdatSymTab.insert(std::make_pair(Name, Comdat())).first;
   Entry.second.Name = &Entry;

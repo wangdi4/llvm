@@ -27,6 +27,7 @@ PrintModulePass::PrintModulePass(raw_ostream &OS, const std::string &Banner,
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {}
 
 PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
+#if !INTEL_PRODUCT_RELEASE
   OS << Banner;
   if (llvm::isFunctionInPrintList("*"))
     M.print(OS, nullptr, ShouldPreserveUseListOrder);
@@ -35,6 +36,7 @@ PreservedAnalyses PrintModulePass::run(Module &M, ModuleAnalysisManager &) {
       if (llvm::isFunctionInPrintList(F.getName()))
         F.print(OS);
   }
+#endif // !INTEL_PRODUCT_RELEASE
   return PreservedAnalyses::all();
 }
 
@@ -44,8 +46,10 @@ PrintFunctionPass::PrintFunctionPass(raw_ostream &OS, const std::string &Banner)
 
 PreservedAnalyses PrintFunctionPass::run(Function &F,
                                          FunctionAnalysisManager &) {
+#if !INTEL_PRODUCT_RELEASE
   if (isFunctionInPrintList(F.getName()))
     OS << Banner << static_cast<Value &>(F);
+#endif // !INTEL_PRODUCT_RELEASE
   return PreservedAnalyses::all();
 }
 
@@ -62,8 +66,10 @@ public:
       : ModulePass(ID), P(OS, Banner, ShouldPreserveUseListOrder) {}
 
   bool runOnModule(Module &M) override {
+#if !INTEL_PRODUCT_RELEASE
     ModuleAnalysisManager DummyMAM;
     P.run(M, DummyMAM);
+#endif // !INTEL_PRODUCT_RELEASE
     return false;
   }
 
@@ -85,8 +91,10 @@ public:
 
   // This pass just prints a banner followed by the function as it's processed.
   bool runOnFunction(Function &F) override {
+#if !INTEL_PRODUCT_RELEASE
     FunctionAnalysisManager DummyFAM;
     P.run(F, DummyFAM);
+#endif // !INTEL_PRODUCT_RELEASE
     return false;
   }
 
@@ -108,7 +116,9 @@ public:
       : BasicBlockPass(ID), Out(Out), Banner(Banner) {}
 
   bool runOnBasicBlock(BasicBlock &BB) override {
+#if !INTEL_PRODUCT_RELEASE
     Out << Banner << BB;
+#endif // !INTEL_PRODUCT_RELEASE
     return false;
   }
 

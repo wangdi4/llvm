@@ -114,6 +114,7 @@ HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
 
 void HLNodeUtils::destroy(HLNode *Node) {
   auto Count = Objs.erase(Node);
+  (void)Count;
   assert(Count && "Node not found in objects!");
 
   delete Node;
@@ -783,8 +784,8 @@ HLInst *HLNodeUtils::createCmp(const HLPredicate &Pred, RegDDRef *OpRef1,
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
   if (LvalRef) {
-    auto LType = LvalRef->getDestType()->getScalarType();
-    assert((LType->isIntegerTy() && (LType->getIntegerBitWidth() == 1)) &&
+    assert((LvalRef->getDestType()->isIntOrIntVectorTy() &&
+            LvalRef->getDestType()->getScalarSizeInBits() == 1) &&
            "LvalRef has invalid type!");
   }
 

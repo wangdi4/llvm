@@ -3957,6 +3957,14 @@ void llvm::WriteBitcodeToFile(const Module *M, raw_ostream &Out,
                               bool ShouldPreserveUseListOrder,
                               const ModuleSummaryIndex *Index,
                               bool GenerateHash, ModuleHash *ModHash) {
+#if INTEL_CUSTOMIZATION
+  if (M->isIntelProprietary()) {
+    report_fatal_error("Bitcode output disabled because proprietary "
+                       "optimizations have been performed.");
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<char, 0> Buffer;
   Buffer.reserve(256*1024);
 

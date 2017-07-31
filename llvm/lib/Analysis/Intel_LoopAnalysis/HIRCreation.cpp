@@ -454,6 +454,7 @@ void HIRCreation::print(raw_ostream &OS, const Module *M) const {
 
 void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
                         const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   formatted_raw_ostream FOS(OS);
   auto RegBegin = RI->begin();
   auto SCCF = &getAnalysis<HIRSCCFormation>();
@@ -474,6 +475,7 @@ void HIRCreation::print(bool FrameworkDetails, raw_ostream &OS,
     }
   }
   FOS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HIRCreation::verifyAnalysis() const {}

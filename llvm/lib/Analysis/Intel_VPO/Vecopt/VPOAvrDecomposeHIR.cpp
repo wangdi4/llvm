@@ -591,16 +591,20 @@ bool AVRDecomposeHIR::runOnFunction(Function &F) {
 
 void AVRDecomposeHIR::print(raw_ostream &OS, unsigned Depth,
                             VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   formatted_raw_ostream FOS(OS);
 
   for (auto I = AVRG->begin(), E = AVRG->end(); I != E; ++I) {
     I->print(FOS, Depth, VLevel);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRDecomposeHIR::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   this->print(OS, 1, PrintAvrDecomp);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRDecomposeHIR::dump(VerbosityLevel VLevel) const {

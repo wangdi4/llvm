@@ -152,6 +152,7 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
 
 void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
                               bool HasSeparator) const {
+#if !INTEL_PRODUCT_RELEASE
 
   if (auto CInst = dyn_cast<CastInst>(Inst)) {
     if (!isCopyInst()) {
@@ -170,16 +171,20 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
              !isa<GetElementPtrInst>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
   if (isa<CallInst>(Inst) || (isa<CastInst>(Inst) && !isCopyInst())) {
     OS << ")";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
+#if !INTEL_PRODUCT_RELEASE
   unsigned Count = 0;
   bool HasSeparator = checkSeparator(OS, false);
 
@@ -256,6 +261,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 bool HLInst::hasLval() const {

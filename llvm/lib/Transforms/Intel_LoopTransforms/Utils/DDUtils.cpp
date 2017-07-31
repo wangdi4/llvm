@@ -353,6 +353,7 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
     auto Node1 = cast<HLNode>(Inst);
     HLNode *Node = Node1;
     HLLoop *ParentLoop = Node->getParentLoop();
+    (void)ParentLoop;
     assert(ParentLoop && ParentLoop->isInnermost() &&
            "Only handles for stmts in the innermost loop now");
     LLVMInst = Inst->getLLVMInstruction();
@@ -365,8 +366,8 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
 
     LRef = Inst->getLvalDDRef();
     assert(LRef->isTerminalRef() && "Unexpected memrefs");
-    CanonExpr *CE = LRef->getSingleCanonExpr();
-    assert(CE->isNonLinear() && "Unexpected linear temps");
+    assert(LRef->getSingleCanonExpr()->isNonLinear() &&
+           "Unexpected linear temps");
 
     // Make uses as non-linear
     for (auto I2 = DDG.outgoing_edges_begin(LRef),
@@ -381,6 +382,7 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
       DDRef *DDRefSink = Edge->getSink();
       HLDDNode *SinkDDNode = DDRefSink->getHLDDNode();
       HLLoop *ParentLoop = SinkDDNode->getParentLoop();
+      (void)ParentLoop;
       assert(ParentLoop && ParentLoop->isInnermost() &&
              "Unexpected stmt outside loop");
       RegDDRef *RegRef = dyn_cast<RegDDRef>(DDRefSink);
@@ -429,8 +431,7 @@ void DDUtils::updateDDRefsLinearity(SmallVectorImpl<HLInst *> &HLInsts,
 ///
 bool DDUtils::enablePerfectLoopNest(HLLoop *InnermostLoop, DDGraph DDG) {
 
-  HLLoop *ParentLoop = InnermostLoop->getParentLoop();
-  assert(ParentLoop && "Parent Loop must not be nullptr");
+  assert(InnermostLoop->getParentLoop() && "Parent Loop must not be nullptr");
 
   SmallVector<HLInst *, 8> PreLoopInsts;
   SmallVector<HLInst *, 8> PostLoopInsts;

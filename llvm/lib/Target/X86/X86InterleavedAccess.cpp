@@ -16,10 +16,85 @@
 
 #include "X86ISelLowering.h"
 #include "X86TargetMachine.h"
+#include "X86TargetTransformInfo.h"                // INTEL
+#include "llvm/Analysis/Intel_OptVLSClientUtils.h" // INTEL
 
 using namespace llvm;
 
 namespace {
+#ifdef INTEL_CUSTOMIZATION
+
+/// Allows creating OVLS abstract memory-references for LLVM-IR based
+/// interleaved accesses. E.g. %wide.vec = load <4 x double>, <4 x double>*
+/// %ptr, align 16
+///  %strided.v0 = shufflevector <8 x double> %wide.vec, <8 x double> undef,
+///                              <2 x i32> <i32 0, i32 2>
+///  %strided.v1 = shufflevector <4 x double> %wide.vec, <4 x double> undef,
+///                              <2 x i32> <i32 1, i32 3>
+/// In this example, %strided.v0 and  %strided.v1 reflect two access patterns
+/// of this abstract memory reference.
+///
+/// Some of the callback functions(such as canMoveto(), haveSameNumElements())
+/// are implemented based on the properties of an interleaved access group. An
+/// interleaved access group(wide-load+shuffles or shuffles+wide-store) gets
+/// formed if its shuffles have the same number of elements and the shuffles
+/// come in a sequence which means there are no other instructions in between
+/// the shuffles.
+/// Therefore, this should not be used by any other clients other than the
+/// X86InterleavedAccess group.
+class X86InterleavedClientMemref : public OVLSMemref {
+public:
+  X86InterleavedClientMemref(char MemrefId, int Distance, Type *ElemType,
+                             unsigned NumElements, OVLSAccessType AType,
+                             bool CVStride, int VStride)
+      : OVLSMemref(VLSK_X86InterleavedClientMemref,
+                   OVLSType(ElemType->getPrimitiveSizeInBits(), NumElements),
+                   AType) {
+    MId = MemrefId;
+    Dist = Distance;
+    ConstVStride = CVStride;
+    DataType = VectorType::get(ElemType, NumElements);
+    VecStride = VStride;
+  }
+
+  static bool classof(const OVLSMemref *Memref) {
+    return Memref->getKind() == VLSK_X86InterleavedClientMemref;
+  }
+
+  bool isAConstDistanceFrom(const OVLSMemref &Memref, int64_t *Distance) {
+    assert(isa<X86InterleavedClientMemref>(&Memref) &&
+           "Expected X86InterleavedClientMemref!!!");
+    const X86InterleavedClientMemref *CLMemref =
+        cast<const X86InterleavedClientMemref>(&Memref);
+
+    *Distance = CLMemref->getDistance() - Dist;
+    return true;
+  }
+  bool haveSameNumElements(const OVLSMemref &Memref) { return true; }
+
+  bool canMoveTo(const OVLSMemref &MemRef) { return true; }
+
+  bool hasAConstStride(int64_t *Stride) const {
+    if (ConstVStride) {
+      *Stride = VecStride;
+      return true;
+    }
+    return false;
+  }
+  unsigned getLocation() const {
+    return MId; // FIXME
+  }
+  int getDistance() const { return Dist; }
+
+private:
+  char MId;
+  VectorType *DataType; // Data type for the memref.
+  int64_t Dist;         // Distance between two memrefs in bytes.
+  bool ConstVStride;
+  int VecStride;
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief This class holds necessary information to represent an interleaved
 /// access group and supports utilities to lower the group into
 /// X86-specific instructions/intrinsics.
@@ -71,6 +146,35 @@ class X86InterleavedAccessGroup {
   void transpose_4x4(ArrayRef<Instruction *> InputVectors,
                      SmallVectorImpl<Value *> &TrasposedVectors);
 
+#ifdef INTEL_CUSTOMIZATION
+  const TargetTransformInfo &TTI;
+
+  /// Keeps mapping of a shufflevector to its OVLSMemref which ultimately helps
+  /// mapping a shufflevector to an optimized LLVM-IR instruction.
+  /// The detailed chain: shufflevector is mapped with an OVLSMemref; an
+  /// OVLSMemref is mapped to an OVLSInstruction; an OVLSInstruction is mapped
+  /// to an LLVM-IR insturction.
+  std::multimap<ShuffleVectorInst *, OVLSMemref *> ShuffleToMemrefMap;
+
+  /// Creates an OVLSMemref for each shuffle in the Shuffles and returns
+  /// the memrefs in \p Memrefs.
+  void createOVLSMemrefs(OVLSMemrefVector &Memrefs) {
+    // Create OVLSMemref for each shuffle.
+    for (unsigned i = 0; i < Shuffles.size(); ++i) {
+      VectorType *VecTy = Shuffles[i]->getType();
+      Type *ShuffleEltTy = VecTy->getVectorElementType();
+      unsigned EltSizeInByte = DL.getTypeSizeInBits(ShuffleEltTy) / 8;
+      int Dist = Indices[i] * EltSizeInByte;
+      OVLSMemref *Mrf = new X86InterleavedClientMemref(
+          i + 1, Dist, ShuffleEltTy, VecTy->getVectorNumElements(),
+          OVLSAccessType::getStridedLoadTy(), true, Factor * EltSizeInByte);
+      Memrefs.push_back(Mrf);
+      ShuffleToMemrefMap.insert(
+          std::pair<ShuffleVectorInst *, OVLSMemref *>(Shuffles[i], Mrf));
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
 public:
   /// In order to form an interleaved access group X86InterleavedAccessGroup
   /// requires a wide-load instruction \p 'I', a group of interleaved-vectors
@@ -80,12 +184,12 @@ public:
   /// target information \p STarget.
   explicit X86InterleavedAccessGroup(Instruction *I,
                                      ArrayRef<ShuffleVectorInst *> Shuffs,
-                                     ArrayRef<unsigned> Ind,
-                                     const unsigned F,
+                                     ArrayRef<unsigned> Ind, const unsigned F,
                                      const X86Subtarget &STarget,
-                                     IRBuilder<> &B)
+                                     IRBuilder<> &B,
+                                     const TargetTransformInfo &T /* INTEL */)
       : Inst(I), Shuffles(Shuffs), Indices(Ind), Factor(F), Subtarget(STarget),
-        DL(Inst->getModule()->getDataLayout()), Builder(B) {}
+        DL(Inst->getModule()->getDataLayout()), Builder(B), TTI(T) /*INTEL*/ {}
 
   /// \brief Returns true if this interleaved access group can be lowered into
   /// x86-specific instructions/intrinsics, false otherwise.
@@ -94,6 +198,84 @@ public:
   /// \brief Lowers this interleaved access group into X86-specific
   /// instructions/intrinsics.
   bool lowerIntoOptimizedSequence();
+
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Lowers this interleaved access group into X86-specific
+  /// instructions/intrinsics by an Intel customized optimization OptVLS
+  /// which uses dynamic algorithm to generate the optimized sequence
+  /// as opposed to hard-coded transposed function provided by this pass.
+  bool lowerIntoOptimizedSequenceByOptVLS() {
+    VectorType *VecTy = Shuffles[0]->getType();
+
+    // There is nothing to optimize further, this pattern is already optimized.
+    if (VecTy->getVectorNumElements() <= 2)
+      return false;
+
+    // FIXME: Support all other types.
+    if (DL.getTypeSizeInBits(VecTy->getVectorElementType()) != 64 ||
+        Factor != 2)
+      return false;
+
+    // Create OVLSMemrefVector for the members(shuffles) of
+    // X86InterleavedAccessGroup.
+    OVLSMemrefVector Mrfs;
+    createOVLSMemrefs(Mrfs);
+
+    // Create OVLSGroups for the shuffles.
+    OVLSGroupVector Grps;
+    unsigned ShuffleVecSize = DL.getTypeSizeInBits(VecTy);
+    // Let's send the vector length computed by the vectorizer. It
+    // might change in the future based on some other situations.
+    OptVLSInterface::getGroups(Mrfs, Grps, ShuffleVecSize / BYTE);
+
+    // TODO: Support multiple groups formed out of the shuffles.
+    if (Grps.size() == 0 || Grps.size() > 1)
+      return false;
+
+    OVLSCostModel CM(TTI, VecTy->getContext());
+
+    // Maps each OVLSMemref to an OVLSInstruction.
+    OVLSMemrefToInstMap MemrefToInstMap;
+    OVLSMemrefToInstMap::iterator It1;
+    std::multimap<ShuffleVectorInst *, OVLSMemref *>::iterator It;
+
+    // Maps each LLVM-IR Instruction to an int.
+    DenseMap<uint64_t, Value *> InstMap;
+    // Generate optimized-sequence for each OVLSGroup.
+    for (OVLSGroup *Grp : Grps) {
+      OVLSInstructionVector InstVec;
+      // Get the optimized-sequence computed by OptVLS.
+      if (OptVLSInterface::getSequence(*Grp, CM, InstVec, &MemrefToInstMap)) {
+        Value *Addr;
+        if (auto *LI = dyn_cast<LoadInst>(Inst))
+          Addr = LI->getPointerOperand();
+        else
+          Addr = (cast<StoreInst>(Inst))->getPointerOperand();
+
+        // Translate the optimized-sequence(from OVLS-pseudo instruction type )
+        // to LLVM-IR instruction type.
+        InstMap = OVLSConverter::genLLVMIR(
+            Builder, InstVec, Addr, Inst->getType()->getVectorElementType(),
+            16);
+      } else
+        return false;
+    }
+
+    // Now replace the unoptimized-interleaved-vectors with the
+    // transposed-interleaved vectors.
+    for (unsigned i = 0; i < Shuffles.size(); ++i) {
+      It = ShuffleToMemrefMap.find(Shuffles[i]);
+      assert(It != ShuffleToMemrefMap.end() && "Memref not found!!!");
+      It1 = MemrefToInstMap.find(It->second);
+      assert(It1 != MemrefToInstMap.end() && "OVLSInstrcution not found!!!");
+      OVLSInstruction *ORInst = It1->second;
+      Value *RInst = InstMap[ORInst->getId()];
+      Shuffles[i]->replaceAllUsesWith(RInst);
+    }
+
+    return true;
+  }    // end of lowerIntoOptimizedSequenceByOptVLS.
+#endif // INTEL_CUSTOMIZATION
 };
 } // end anonymous namespace
 
@@ -215,8 +397,20 @@ bool X86TargetLowering::lowerInterleavedLoad(
 
   // Create an interleaved access group.
   IRBuilder<> Builder(LI);
-  X86InterleavedAccessGroup Grp(LI, Shuffles, Indices, Factor, Subtarget,
-                                Builder);
 
-  return Grp.isSupported() && Grp.lowerIntoOptimizedSequence();
+#ifdef INTEL_CUSTOMIZATION
+  const TargetMachine &TM = getTargetMachine();
+  const X86TargetMachine *X86TM = static_cast<const X86TargetMachine *>(&TM);
+  const TargetTransformInfo &TTI =
+      TargetTransformInfo(X86TTIImpl(X86TM, *(LI->getFunction())));
+
+  X86InterleavedAccessGroup Grp(LI, Shuffles, Indices, Factor, Subtarget,
+                                Builder, TTI);
+
+  if (Grp.isSupported() && Grp.lowerIntoOptimizedSequence())
+    return true;
+
+  return Grp.lowerIntoOptimizedSequenceByOptVLS();
+
+#endif
 }

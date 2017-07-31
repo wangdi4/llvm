@@ -11,7 +11,7 @@ Xmain
    OpenSourceGuidelines
    OpenSourceProcesses
    XmainProcesses
-   Clearquest
+   JIRA
    LoopAnalysis/index
    LoopTransforms/index
    VPO/index
@@ -74,9 +74,9 @@ process change requests to them.
 :doc:`Xmain Development Processes <XmainProcesses>`
    Describes the processes for xmain development.
 
-:doc:`LLVM Specific Clearquest Usage <Clearquest>`
-   Describes Clearquest usage policies specific to LLVM development.
-   
+:doc:`LLVM Specific JIRA Usage <JIRA>`
+   Describes JIRA usage policies specific to LLVM development.
+
 Major Components
 ================
 :doc:`LoopAnalysis <LoopAnalysis/index>`

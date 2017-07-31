@@ -67,6 +67,7 @@ CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, APInt Value) {
 
 void CanonExprUtils::destroy(CanonExpr *CE) {
   auto Count = Objs.erase(CE);
+  (void)Count;
   assert(Count && "CE not found in objects!");
   delete CE;
 }

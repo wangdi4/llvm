@@ -63,7 +63,7 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
     OVLSType VLSType = I->getType();
     // Taking the number of elements from the VLSType of the Instruction.
     // CHECKME: When NumElements is 3 and mask is 111, we end up with a vector
-    // type of 3 elements (e.g. 3 x 32i) and query the cost of an unmasked 
+    // type of 3 elements (e.g. 3 x 32i) and query the cost of an unmasked
     // load of 3 elements. We may want to also query the cost of a masked load
     // of 4 elements and take the minimum of the two.
     Type *VecTy = getVectorDataType(ElementTy, VLSType);
@@ -118,4 +118,41 @@ uint64_t OVLSTTICostModel::getInstructionCost(const OVLSInstruction *I) const {
 
   llvm_unreachable("unsupported OVLSInstruction");
   return 0;
+}
+
+DenseMap<uint64_t, Value *>
+OVLSConverter::genLLVMIR(IRBuilder<> &Builder,
+                         const OVLSInstructionVector &InstVec, Value *Addr,
+                         Type *ElemTy, unsigned Alignment) {
+  DenseMap<uint64_t, Value *> InstMap;
+  for (auto &OInst : InstVec)
+    if (const OVLSLoad *const OLI = dyn_cast<const OVLSLoad>(OInst)) {
+      // Bitcast Addr to OLI's type
+      OVLSType Ty = OInst->getType();
+      unsigned TySize = Ty.getSize() / 8;
+      VectorType *VecTy = VectorType::get(ElemTy, Ty.getNumElements());
+      Type *BasePtrTy = VecTy->getPointerTo();
+      Value *VecBasePtr = Builder.CreateBitCast(Addr, BasePtrTy);
+
+      // Create GEP instruction
+      int64_t Offset = OLI->getPointerOperand().getOffset();
+      unsigned GEPIndex = Offset == 0 ? 0 : Offset / TySize;
+      Value *NewBasePtr =
+          Builder.CreateInBoundsGEP(VecBasePtr, Builder.getInt32(GEPIndex));
+
+      // Generate the load
+      Instruction *NewLoad = Builder.CreateAlignedLoad(NewBasePtr, Alignment);
+      InstMap[OInst->getId()] = NewLoad;
+    } else if (const OVLSShuffle *const OSI =
+                   dyn_cast<const OVLSShuffle>(OInst)) {
+      Value *Op1 = InstMap[OSI->getOperand(0)->getId()];
+      Value *Op2 = InstMap[OSI->getOperand(1)->getId()];
+      SmallVector<uint32_t, 4> Mask;
+      OSI->getShuffleMask(Mask);
+      ArrayRef<uint32_t> AMask = makeArrayRef(Mask);
+      Value *Shuffle = Builder.CreateShuffleVector(Op1, Op2, AMask);
+      InstMap[OInst->getId()] = Shuffle;
+    } else
+      assert("Unexpected OVLSInstruction!!!");
+  return InstMap;
 }

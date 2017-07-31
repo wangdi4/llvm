@@ -496,8 +496,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
 
-  unsigned NumBBs = W->getBBSetSize();
-  assert(NumBBs >= 3 &&
+  assert(W->getBBSetSize() >= 3 &&
          "Critical Node is expected to have at least 3 BBlocks.");
 
   // W should have entry and exit BBlocks with the directive

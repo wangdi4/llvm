@@ -152,7 +152,9 @@ public:
   void push(PMDataManager *PM);
   bool empty() const { return S.empty(); }
 
+#if !INTEL_PRODUCT_RELEASE
   void dump() const;
+#endif // !INTEL_PRODUCT_RELEASE
 
 private:
   std::vector<PMDataManager *> S;
@@ -219,9 +221,11 @@ public:
     IndirectPassManagers.push_back(Manager);
   }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print passes managed by this top level manager.
   void dumpPasses() const;
   void dumpArguments() const;
+#endif // !INTEL_PRODUCT_RELEASE
 
   // Active Pass Managers
   PMStack activeStack;
@@ -373,6 +377,7 @@ public:
   unsigned getDepth() const { return Depth; }
   void setDepth(unsigned newDepth) { Depth = newDepth; }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print routines used by debug-pass
   void dumpLastUses(Pass *P, unsigned Offset) const;
   void dumpPassArguments() const;
@@ -381,6 +386,7 @@ public:
   void dumpRequiredSet(const Pass *P) const;
   void dumpPreservedSet(const Pass *P) const;
   void dumpUsedSet(const Pass *P) const;
+#endif // !INTEL_PRODUCT_RELEASE
 
   unsigned getNumContainedPasses() const {
     return (unsigned)PassVector.size();
@@ -420,8 +426,10 @@ protected:
   bool isPassDebuggingExecutionsOrMore() const;
 
 private:
+#if !INTEL_PRODUCT_RELEASE
   void dumpAnalysisUsage(StringRef Msg, const Pass *P,
                          const AnalysisUsage::VectorType &Set) const;
+#endif // !INTEL_PRODUCT_RELEASE
 
   // Set of available Analysis. This information is used while scheduling
   // pass. If a pass requires an analysis which is not available then
@@ -483,8 +491,10 @@ public:
     Info.setPreservesAll();
   }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   StringRef getPassName() const override { return "Function Pass Manager"; }
 

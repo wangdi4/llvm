@@ -27,6 +27,7 @@ using namespace llvm;
 using namespace vpo;
 
 void IR2AVRVisitor::print(raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string Indent(TabLength, ' ');
   formatted_raw_ostream FOS(dbgs());
@@ -59,6 +60,7 @@ void IR2AVRVisitor::print(raw_ostream &OS) const {
     }
     FOS << "\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void IR2AVRVisitor::visit(AVRValueHIR *AValueHIR) {
@@ -157,6 +159,7 @@ void AvrDefUseBase::reset() {
 }
 
 void AvrDefUseBase::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
 
   static std::string Indent(TabLength, ' ');
   formatted_raw_ostream FOS(OS);
@@ -193,6 +196,7 @@ void AvrDefUseBase::print(raw_ostream &OS, const Module *M) const {
       }
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 AvrDefUseBase::AvrDefUseBase(char &ID) : FunctionPass(ID) { reset(); }
