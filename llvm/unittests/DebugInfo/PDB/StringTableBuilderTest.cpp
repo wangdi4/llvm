@@ -46,10 +46,11 @@ TEST_F(StringTableBuilderTest, Simple) {
 
   EXPECT_EQ(3U, Table.getNameCount());
   EXPECT_EQ(1U, Table.getHashVersion());
-  EXPECT_EQ("foo", Table.getStringForID(1));
-  EXPECT_EQ("bar", Table.getStringForID(5));
-  EXPECT_EQ("baz", Table.getStringForID(9));
-  EXPECT_EQ(1U, Table.getIDForString("foo"));
-  EXPECT_EQ(5U, Table.getIDForString("bar"));
-  EXPECT_EQ(9U, Table.getIDForString("baz"));
+
+  EXPECT_EXPECTED_EQ("foo", Table.getStringForID(1));
+  EXPECT_EXPECTED_EQ("bar", Table.getStringForID(5));
+  EXPECT_EXPECTED_EQ("baz", Table.getStringForID(9));
+  EXPECT_EXPECTED_EQ(1U, Table.getIDForString("foo"));
+  EXPECT_EXPECTED_EQ(5U, Table.getIDForString("bar"));
+  EXPECT_EXPECTED_EQ(9U, Table.getIDForString("baz"));
 }

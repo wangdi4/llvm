@@ -34,9 +34,11 @@ class StringTableRef {
 public:
   StringTableRef();
 
-  Error initialize(BinaryStreamReader &Stream);
+  Error initialize(BinaryStreamRef Contents);
 
-  StringRef getString(uint32_t Offset) const;
+  Expected<StringRef> getString(uint32_t Offset) const;
+
+  bool valid() const { return Stream.valid(); }
 
 private:
   BinaryStreamRef Stream;
@@ -50,6 +52,9 @@ public:
   // If string S does not exist in the string table, insert it.
   // Returns the ID for S.
   uint32_t insert(StringRef S);
+
+  // Return the ID for string S.  Assumes S exists in the table.
+  uint32_t getStringId(StringRef S) const;
 
   uint32_t calculateSerializedSize() const;
   Error commit(BinaryStreamWriter &Writer) const;
