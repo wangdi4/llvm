@@ -4339,7 +4339,10 @@ const SCEV *ScalarEvolution::createSimpleAffineAddRec(PHINode *PN,
   const SCEV *StartVal = getSCEV(StartValueV);
   const SCEV *PHISCEV = getAddRecExpr(StartVal, Accum, L, Flags);
 
-  ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
+#if INTEL_CUSTOMIZATION // HIR parsing
+  HIRInfo.isValid() ? HIRValueExprMap[PN] = PHISCEV
+                    : ValueExprMap[SCEVCallbackVH(PN, this)] = PHISCEV;
+#endif // INTEL_CUSTOMIZATION
 
   // We can add Flags to the post-inc expression only if we
   // know that it us *undefined behavior* for BEValueV to
@@ -4387,21 +4390,15 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
   if (!BEValueV || !StartValueV)
     return nullptr;
 
-<<<<<<< HEAD
-  // While we are analyzing this PHI node, handle its value symbolically.
-  const SCEV *SymbolicName = getUnknown(PN);
-
 #if INTEL_CUSTOMIZATION // HIR parsing
   if (HIRInfo.isValid()) {
     assert(HIRValueExprMap.find_as(PN) == HIRValueExprMap.end() &&
            "PHI node already processed?");
-    HIRValueExprMap.insert(std::make_pair(PN, SymbolicName));
   } else {
 #endif // INTEL_CUSTOMIZATION
-=======
->>>>>>> 805e09d9647beb2cef4241276c6229ed17f4fcba
   assert(ValueExprMap.find_as(PN) == ValueExprMap.end() &&
          "PHI node already processed?");
+  } // INTEL
 
   // First, try to find AddRec expression without creating a fictituos symbolic
   // value for PN.
@@ -4410,6 +4407,11 @@ const SCEV *ScalarEvolution::createAddRecFromPHI(PHINode *PN) {
 
   // Handle PHI node value symbolically.
   const SCEV *SymbolicName = getUnknown(PN);
+#if INTEL_CUSTOMIZATION // HIR parsing
+  if (HIRInfo.isValid()) {
+    HIRValueExprMap.insert(std::make_pair(PN, SymbolicName));
+  } else {
+#endif // INTEL_CUSTOMIZATION
   ValueExprMap.insert({SCEVCallbackVH(PN, this), SymbolicName});
   } // INTEL
 
