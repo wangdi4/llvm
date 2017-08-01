@@ -1971,7 +1971,7 @@ bool HexagonInstrInfo::isDeallocRet(const MachineInstr &MI) const {
   case Hexagon::L4_return_fnew_pnt :
   case Hexagon::L4_return_tnew_pt :
   case Hexagon::L4_return_fnew_pt :
-   return true;
+    return true;
   }
   return false;
 }
@@ -2170,7 +2170,7 @@ bool HexagonInstrInfo::isJumpR(const MachineInstr &MI) const {
 bool HexagonInstrInfo::isJumpWithinBranchRange(const MachineInstr &MI,
       unsigned offset) const {
   // This selection of jump instructions matches to that what
-  // AnalyzeBranch can parse, plus NVJ.
+  // analyzeBranch can parse, plus NVJ.
   if (isNewValueJump(MI)) // r9:2
     return isInt<11>(offset);
 
@@ -2697,6 +2697,7 @@ bool HexagonInstrInfo::isValidOffset(unsigned Opcode, int Offset,
   case Hexagon::L2_loadrh_io:
   case Hexagon::L2_loadruh_io:
   case Hexagon::S2_storerh_io:
+  case Hexagon::S2_storerf_io:
     return (Offset >= Hexagon_MEMH_OFFSET_MIN) &&
       (Offset <= Hexagon_MEMH_OFFSET_MAX);
 
@@ -2907,6 +2908,11 @@ bool HexagonInstrInfo::getMemOpBaseRegImmOfs(MachineInstr &LdSt,
 /// \brief Can these instructions execute at the same time in a bundle.
 bool HexagonInstrInfo::canExecuteInBundle(const MachineInstr &First,
       const MachineInstr &Second) const {
+  if (Second.mayStore() && First.getOpcode() == Hexagon::S2_allocframe) {
+    const MachineOperand &Op = Second.getOperand(0);
+    if (Op.isReg() && Op.isUse() && Op.getReg() == Hexagon::R29)
+      return true;
+  }
   if (DisableNVSchedule)
     return false;
   if (mayBeNewStore(Second)) {
@@ -3061,12 +3067,14 @@ bool HexagonInstrInfo::predCanBeUsedAsDotNew(const MachineInstr &MI,
 }
 
 bool HexagonInstrInfo::PredOpcodeHasJMP_c(unsigned Opcode) const {
-  return (Opcode == Hexagon::J2_jumpt)      ||
-         (Opcode == Hexagon::J2_jumpf)      ||
-         (Opcode == Hexagon::J2_jumptnew)   ||
-         (Opcode == Hexagon::J2_jumpfnew)   ||
-         (Opcode == Hexagon::J2_jumptnewpt) ||
-         (Opcode == Hexagon::J2_jumpfnewpt);
+  return Opcode == Hexagon::J2_jumpt      ||
+         Opcode == Hexagon::J2_jumptpt    ||
+         Opcode == Hexagon::J2_jumpf      ||
+         Opcode == Hexagon::J2_jumpfpt    ||
+         Opcode == Hexagon::J2_jumptnew   ||
+         Opcode == Hexagon::J2_jumpfnew   ||
+         Opcode == Hexagon::J2_jumptnewpt ||
+         Opcode == Hexagon::J2_jumpfnewpt;
 }
 
 bool HexagonInstrInfo::predOpcodeHasNot(ArrayRef<MachineOperand> Cond) const {
@@ -3368,8 +3376,29 @@ int HexagonInstrInfo::getDotCurOp(const MachineInstr &MI) const {
   return 0;
 }
 
+// Return the regular version of the .cur instruction.
+int HexagonInstrInfo::getNonDotCurOp(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  default: llvm_unreachable("Unknown .cur type");
+  case Hexagon::V6_vL32b_cur_pi:
+    return Hexagon::V6_vL32b_pi;
+  case Hexagon::V6_vL32b_cur_ai:
+    return Hexagon::V6_vL32b_ai;
+  //128B
+  case Hexagon::V6_vL32b_cur_pi_128B:
+    return Hexagon::V6_vL32b_pi_128B;
+  case Hexagon::V6_vL32b_cur_ai_128B:
+    return Hexagon::V6_vL32b_ai_128B;
+  }
+  return 0;
+}
+
+
 // The diagram below shows the steps involved in the conversion of a predicated
 // store instruction to its .new predicated new-value form.
+//
+// Note: It doesn't include conditional new-value stores as they can't be
+// converted to .new predicate.
 //
 //               p.new NV store [ if(p0.new)memw(R0+#0)=R2.new ]
 //                ^           ^
@@ -3591,11 +3620,11 @@ int HexagonInstrInfo::getDotNewPredOp(const MachineInstr &MI,
 }
 
 int HexagonInstrInfo::getDotOldOp(const MachineInstr &MI) const {
+  const MachineFunction &MF = *MI.getParent()->getParent();
+  const HexagonSubtarget &HST = MF.getSubtarget<HexagonSubtarget>();
   int NewOp = MI.getOpcode();
   if (isPredicated(NewOp) && isPredicatedNew(NewOp)) { // Get predicate old form
     NewOp = Hexagon::getPredOldOpcode(NewOp);
-    const MachineFunction &MF = *MI.getParent()->getParent();
-    const HexagonSubtarget &HST = MF.getSubtarget<HexagonSubtarget>();
     // All Hexagon architectures have prediction bits on dot-new branches,
     // but only Hexagon V60+ has prediction bits on dot-old ones. Make sure
     // to pick the right opcode when converting back to dot-old.
@@ -3622,6 +3651,21 @@ int HexagonInstrInfo::getDotOldOp(const MachineInstr &MI) const {
   if (isNewValueStore(NewOp)) { // Convert into non-new-value format
     NewOp = Hexagon::getNonNVStore(NewOp);
     assert(NewOp >= 0 && "Couldn't change new-value store to its old form.");
+  }
+
+  if (HST.hasV60TOps())
+    return NewOp;
+
+  // Subtargets prior to V60 didn't support 'taken' forms of predicated jumps.
+  switch (NewOp) {
+  case Hexagon::J2_jumpfpt:
+    return Hexagon::J2_jumpf;
+  case Hexagon::J2_jumptpt:
+    return Hexagon::J2_jumpt;
+  case Hexagon::J2_jumprfpt:
+    return Hexagon::J2_jumprf;
+  case Hexagon::J2_jumprtpt:
+    return Hexagon::J2_jumprt;
   }
   return NewOp;
 }
@@ -3972,18 +4016,6 @@ HexagonII::SubInstructionGroup HexagonInstrInfo::getDuplexCandidateGroup(
 
 short HexagonInstrInfo::getEquivalentHWInstr(const MachineInstr &MI) const {
   return Hexagon::getRealHWInstr(MI.getOpcode(), Hexagon::InstrType_Real);
-}
-
-// Return first non-debug instruction in the basic block.
-MachineInstr *HexagonInstrInfo::getFirstNonDbgInst(MachineBasicBlock *BB)
-      const {
-  for (auto MII = BB->instr_begin(), End = BB->instr_end(); MII != End; MII++) {
-    MachineInstr &MI = *MII;
-    if (MI.isDebugValue())
-      continue;
-    return &MI;
-  }
-  return nullptr;
 }
 
 unsigned HexagonInstrInfo::getInstrTimingClassLatency(
