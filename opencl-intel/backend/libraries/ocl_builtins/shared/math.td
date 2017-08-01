@@ -120,13 +120,6 @@ OclBuiltinImpl floor_f32_promote = OclBuiltinImpl<floor, [v1f32, v2f32, v3f32], 
 OclBuiltinImpl floor_f64_promote = OclBuiltinImpl<floor, [v1f64], 0, Promote1>;
 OclBuiltinImpl floor_f64_expand = OclBuiltinImpl<floor, [v3f64, v16f64], 0, Expand1>;
 
-// fmin
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl fmin_f32_promote = OclBuiltinImpl<fmin, [v1f32, v2f32, v3f32], 0, Promote2>;
-
-// fmax
-// leave only implementaion for float4. float, float2, float3 are promoted to float4
-OclBuiltinImpl fmax_f32_promote = OclBuiltinImpl<fmax, [v1f32, v2f32, v3f32], 0, Promote2>;
 
 // fmod f(vXfX, vXfX)
 OclBuiltinImpl fmod_svml_hack_expand = OclBuiltinImpl<fmod, math_svml_vFvF_expand, 0, Expand2>;

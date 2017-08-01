@@ -65,38 +65,6 @@ OclBuiltinImpl mad_sat_v16u32 = OclBuiltinImpl<mad_sat, [v16u32] , 0, [{
 
 
 /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max native int16, long8
-OclBuiltinImpl max_avx512_native_i = OclBuiltinImpl<max, [v16i32, v8i64] , 0, [{
-    return as_$ReturnType(_mm512_max_epi$BitWidth((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-  }]>;
-// max native uint16, ulong8
-OclBuiltinImpl max_avx512_native_u = OclBuiltinImpl<max, [v16u32, v8u64] , 0, [{
-    return as_$ReturnType(_mm512_max_epu$BitWidth((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-  }]>;
-
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// min native int16, long8
-OclBuiltinImpl min_avx512_native_i = OclBuiltinImpl<min, [v16i32, v8i64] , 0, [{
-    return as_$ReturnType(_mm512_min_epi$BitWidth((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-  }]>;
-// min native uint16, ulong8
-OclBuiltinImpl min_avx512_native_u = OclBuiltinImpl<min, [v16u32, v8u64] , 0, [{
-    return as_$ReturnType(_mm512_min_epu$BitWidth((__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-  }]>;
-
-
-/*****************************************************************\
  * mul_hi                                                        *
  *   gentype mul_hi (gentype x , gentype y)                      *
  *   Returns the high half of the product of (x * y)             *

@@ -1,29 +1,6 @@
 OclBuiltinImpl islessgreater2         =    OclBuiltinImpl    <islessgreater,  [v8f64, v16f32],           0, [{
     return (($Arg0VarName < $Arg1VarName) | ($Arg0VarName > $Arg1VarName)) ;
   }]>;
-//==============select===============
-code select_vector_v16f = [{
-    __mmask16 mask = _mm512_test_epi32_mask((__m512i)$Arg2VarName, (__m512i)((int16)0x80000000));
-    return as_$ReturnType(_mm512_mask_blend_ps(mask, __builtin_astype($Arg0VarName, __m512),
-      __builtin_astype($Arg1VarName, __m512)));
-  }];
-
-code select_vector_v8d = [{
-    __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
-    return as_$ReturnType(_mm512_mask_blend_pd(mask, __builtin_astype($Arg0VarName, __m512d),
-      __builtin_astype($Arg1VarName, __m512d)));
-  }];
-
-code select_vector_v16i = [{
-    __mmask16 mask = _mm512_test_epi32_mask((__m512i)$Arg2VarName, (__m512i)((int16)0x80000000));
-    return as_$ReturnType(_mm512_mask_blend_epi32(mask, (__m512i)$Arg0VarName, (__m512i)$Arg1VarName));
-  }];
-
-code select_vector_v8l = [{
-    __mmask8 mask = _mm512_test_epi64_mask((__m512i)$Arg2VarName, (__m512i)((long8)0x8000000000000000));
-    return as_$ReturnType(_mm512_mask_blend_epi32(mask, __builtin_astype($Arg0VarName, __m512i),
-      __builtin_astype($Arg1VarName, __m512i)));
-  }];
 
 //======v16f32 and v8f64 implementation===============================
 
@@ -73,14 +50,6 @@ OclBuiltinImpl bitselect_v16f32 = OclBuiltinImpl<bitselect, [v16f32, v8f64, v16i
     return as_$ReturnType(as_$Arg0igentype($Arg0VarName) | as_$Arg0igentype($Arg1VarName));
   }]>;
 
-OclBuiltinImpl iselect_v16f32 = OclBuiltinImpl<iselect, [v16f32], 0, select_vector_v16f>;
-
-OclBuiltinImpl iselect_v4f64 = OclBuiltinImpl<iselect, [v8f64], 0, select_vector_v8d>;
-
-OclBuiltinImpl uselect_v16f32 = OclBuiltinImpl<uselect, [v16f32], 0, select_vector_v16f>;
-
-OclBuiltinImpl uselect_v4f64 = OclBuiltinImpl<uselect, [v8f64], 0, select_vector_v8d>;
-
 /*
 //======v16i32\v16u32 and v8i64\v8u64 implementation===============================
 OclBuiltinImpl any_v16i32 = OclBuiltinImpl<any, [v16i32], 0, [{
@@ -113,10 +82,4 @@ OclBuiltinImpl bitselect_v8i64 = OclBuiltinImpl<bitselect, [v8i64, v8u64], 0, [{
     return as_$ReturnType(bitselect(as_int16($Arg0VarName), as_int16($Arg1VarName), as_int16($Arg2VarName)));
   }]>;
 */
-OclBuiltinImpl iselect_v8 = OclBuiltinImpl<iselect, [v16i32, v16u32], 0, select_vector_v16i>;
 
-OclBuiltinImpl iselect_v16 = OclBuiltinImpl<iselect, [v8i64, v8u64], 0, select_vector_v8l>;
-
-OclBuiltinImpl uselect_v8 = OclBuiltinImpl<uselect, [v16i32, v16u32], 0, select_vector_v16i>;
-
-OclBuiltinImpl uselect_v16 = OclBuiltinImpl<uselect, [v8i64, v8u64], 0, select_vector_v8l>;

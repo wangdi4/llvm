@@ -6,9 +6,6 @@
 //  double3 (v3f64) will promote to use double4 version
 
   OclBuiltinImpl degrees_promote    = OclBuiltinImpl  <degrees,    [v3f64], 0, Promote1>;
-  OclBuiltinImpl max_promote        = OclBuiltinImpl  <max,        [v3f64], 0, Promote2>;
-  OclBuiltinImpl min_promote        = OclBuiltinImpl  <min,        [v3f64], 0, Promote2>;
-  OclBuiltinImpl mix_promote        = OclBuiltinImpl  <mix,        [v3f64], 0, Promote3>;
   OclBuiltinImpl radians_promote    = OclBuiltinImpl  <radians,    [v3f64], 0, Promote1>;
   OclBuiltinImpl step_promote       = OclBuiltinImpl  <step,       [v3f64], 0, Promote2>;
   OclBuiltinImpl sign_promote       = OclBuiltinImpl  <sign,       [v3f64], 0, Promote1>;
@@ -19,24 +16,6 @@
 
 //======v8f32 and v4f64 implementation===============================
 
-// max
-OclBuiltinImpl max_v8f32 = OclBuiltinImpl<max, [v8f32], 0, [{
-    return _mm256_max_ps($Arg0VarName, $Arg1VarName);
-  }]>;
-
-OclBuiltinImpl max_v4f64 = OclBuiltinImpl<max, [v4f64], 0, [{
-    return _mm256_max_pd($Arg0VarName, $Arg1VarName);
-  }]>;
-  
-// min
-OclBuiltinImpl min_v8f32 = OclBuiltinImpl<min, [v8f32], 0, [{
-    return _mm256_min_ps($Arg0VarName, $Arg1VarName);
-  }]>;
-
-OclBuiltinImpl min_v4f64 = OclBuiltinImpl<min, [v4f64], 0, [{
-    return _mm256_min_pd($Arg0VarName, $Arg1VarName);
-  }]>;
-  
 // step
 OclBuiltinImpl step_v8f32 = OclBuiltinImpl<step, [v8f32] , 0, [{
     $ReturnType $ReturnVarName;

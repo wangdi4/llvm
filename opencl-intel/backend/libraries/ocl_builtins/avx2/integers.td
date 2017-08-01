@@ -105,38 +105,6 @@ OclBuiltinImpl mad_sat_v8u32 = OclBuiltinImpl<mad_sat, [v8u32] , 0, [{
 
 
 /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max native short16, int8
-OclBuiltinImpl max_avx2native_i = OclBuiltinImpl<max, [v16i16, v8i32] , 0, [{
-    return as_$ReturnType(_mm256_max_epi$BitWidth((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-// max native ushort16, uint8
-OclBuiltinImpl max_avx2native_u = OclBuiltinImpl<max, [v16u16, v8u32] , 0, [{
-    return as_$ReturnType(_mm256_max_epu$BitWidth((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-
-
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// min native short16, int8
-OclBuiltinImpl min_avx2native_i = OclBuiltinImpl<min, [v16i16, v8i32] , 0, [{
-    return as_$ReturnType(_mm256_min_epi$BitWidth((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-// min native ushort16, uint8
-OclBuiltinImpl min_avx2native_u = OclBuiltinImpl<min, [v16u16, v8u32] , 0, [{
-    return as_$ReturnType(_mm256_min_epu$BitWidth((__m256i)$Arg0VarName, (__m256i)$Arg1VarName));
-  }]>;
-
-
-/*****************************************************************\
  * mul_hi                                                        *
  *   gentype mul_hi (gentype x , gentype y)                      *
  *   Returns the high half of the product of (x * y)             *

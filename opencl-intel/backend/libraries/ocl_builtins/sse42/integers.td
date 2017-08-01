@@ -89,33 +89,4 @@ OclBuiltinImpl mad_sat_v8u16 = OclBuiltinImpl<mad_sat, [v8u16] , 0, [{
     ushort8 res = as_ushort8(_mm_packus_epi32((__m128i)reslo, (__m128i)reshi));
     return res;
   }]>;
-  
-  /*****************************************************************\
- * max:                                                          *
- *   gentype max (gentype x , gentype y)                         *
- *   gentype max (gentype x , sgentype y)                        *
- *   Returns y if x < y, otherwise it returns x                  *
-\*****************************************************************/
-// max native char16, short8, int4
-OclBuiltinImpl max_native_i = OclBuiltinImpl<max, [v16i8, v8i16, v4i32], 0, [{
-    return as_$ReturnType(_mm_max_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
-  }]>;
-// max native uchar16, ushort8, uint4
-OclBuiltinImpl max_native_u = OclBuiltinImpl<max, [v16u8, v8u16, v4u32], 0, [{
-    return as_$ReturnType(_mm_max_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
-  }]>;
-  
-/*****************************************************************\
- * min:                                                          *
- *   gentype min (gentype x , gentype y)                         *
- *   gentype min (gentype x , sgentype y)                        *
- *   Returns y if y < x, otherwise it returns x                  *
-\*****************************************************************/
-  // min native char16, short8, int4
-OclBuiltinImpl min_native_i = OclBuiltinImpl<min, [v16i8, v8i16, v4i32], 0, [{
-    return as_$ReturnType(_mm_min_epi$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
-  }]>;
-// min native uchar16, ushort8, uint4
-OclBuiltinImpl min_native_u = OclBuiltinImpl<min, [v16u8, v8u16, v4u32], 0, [{
-    return as_$ReturnType(_mm_min_epu$BitWidth((__m128i)$Arg0VarName , (__m128i)$Arg1VarName));
-  }]>;
+

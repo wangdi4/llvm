@@ -39,12 +39,12 @@ OclBuiltinImpl bitselect_promote     =  OclBuiltinImpl  <bitselect,  [v2f32, v3f
                                                                       v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],                           0, Promote3>;
 OclBuiltinImpl bitselect_expand      =  OclBuiltinImpl  <bitselect,  [v16f64, v16i64, v16u64],                             0, Expand3>;
 
-OclBuiltinImpl iselect_promote       =  OclBuiltinImpl  <iselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8, 
-                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16, 
+OclBuiltinImpl iselect_promote       =  OclBuiltinImpl  <iselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8,
+                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16,
                                                                     v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
-OclBuiltinImpl iselect_expand        =  OclBuiltinImpl  <iselect,  [v16f64,v16u16, v16i16, v16i64,  v16u64],               0, Expand3>;
-OclBuiltinImpl uselect_promote       =  OclBuiltinImpl  <uselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8, 
-                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16, 
+OclBuiltinImpl iselect_expand        =  OclBuiltinImpl  <iselect,  [v16f64, v16u16, v16i16, v16i64, v16u64],               0, Expand3>;
+OclBuiltinImpl uselect_promote       =  OclBuiltinImpl  <uselect,  [v2f32, v3f32, v2i32, v2u32, v3i32, v3u32, v2i8,
+                                                                    v2u8, v3i8, v3u8, v4i8, v4u8, v2i16, v2u16,
                                                                     v3i16, v3u16, v4i16, v4u16, v8i8, v8u8],               0, Promote3>;
 OclBuiltinImpl uselect_expand        =  OclBuiltinImpl  <uselect,  [v16f64, v16u16, v16i16, v16i64, v16u64],               0, Expand3>;
 

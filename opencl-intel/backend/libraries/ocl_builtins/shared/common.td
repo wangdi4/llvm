@@ -2,10 +2,6 @@
 
 //promote and expand
 
-  OclBuiltinImpl max_promote  = OclBuiltinImpl <max,  [v2f32, v3f32], 0, Promote2>;
-  OclBuiltinImpl max_expand   = OclBuiltinImpl <max,  [v16f64], 0, Expand2>;
-  OclBuiltinImpl min_promote  = OclBuiltinImpl <min,  [v2f32, v3f32], 0, Promote2>;
-  OclBuiltinImpl min_expand   = OclBuiltinImpl <min,  [v16f64], 0, Expand2>;
   OclBuiltinImpl step_promote = OclBuiltinImpl <step, [v2f32, v3f32], 0, Promote2>;
   OclBuiltinImpl step_expand  = OclBuiltinImpl <step, [v16f64], 0, Expand2>;
   OclBuiltinImpl sign_promote = OclBuiltinImpl <sign, [v2f32, v3f32], 0, Promote1>;
@@ -30,27 +26,8 @@ OclBuiltinImpl clamp_fgeneric = OclBuiltinImpl<clamp,
     return min(max($Arg0VarName, $Arg1VarName), $Arg2VarName);
   }]>;
 
-// vector, scalar BI generation 
-//======v4f32 and v2f64 implementation===============================  
-
-// max
-OclBuiltinImpl max_v4f32 = OclBuiltinImpl<max, [v4f32], 0, [{
-    return _mm_max_ps($Arg0VarName, $Arg1VarName);
-  }]>;
-
-OclBuiltinImpl max_v2f64 = OclBuiltinImpl<max, [v2f64], 0, [{
-    return _mm_max_pd($Arg0VarName, $Arg1VarName);
-  }]>;
-  
-// min
-OclBuiltinImpl min_v4f32 = OclBuiltinImpl<min, [v4f32], 0, [{
-    return _mm_min_ps($Arg0VarName, $Arg1VarName);
-  }]>;
-
-OclBuiltinImpl min_v2f64 = OclBuiltinImpl<min, [v2f64], 0, [{
-    return _mm_min_pd($Arg0VarName, $Arg1VarName);
-  }]>;
-  
+// vector, scalar BI generation
+//======v4f32 and v2f64 implementation===============================
 
 // step
 OclBuiltinImpl step_v4f32 = OclBuiltinImpl<step,
