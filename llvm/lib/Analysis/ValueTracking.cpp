@@ -1111,11 +1111,9 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     SrcBitWidth = Q.DL.getTypeSizeInBits(SrcTy->getScalarType());
 
     assert(SrcBitWidth && "SrcBitWidth can't be zero");
-    Known.Zero = Known.Zero.zextOrTrunc(SrcBitWidth);
-    Known.One = Known.One.zextOrTrunc(SrcBitWidth);
+    Known = Known.zextOrTrunc(SrcBitWidth);
     computeKnownBits(I->getOperand(0), Known, Depth + 1, Q);
-    Known.Zero = Known.Zero.zextOrTrunc(BitWidth);
-    Known.One = Known.One.zextOrTrunc(BitWidth);
+    Known = Known.zextOrTrunc(BitWidth);
     // Any top bits are known to be zero.
     if (BitWidth > SrcBitWidth)
       Known.Zero.setBitsFrom(SrcBitWidth);
@@ -1136,13 +1134,11 @@ static void computeKnownBitsFromOperator(const Operator *I, KnownBits &Known,
     // Compute the bits in the result that are not present in the input.
     unsigned SrcBitWidth = I->getOperand(0)->getType()->getScalarSizeInBits();
 
-    Known.Zero = Known.Zero.trunc(SrcBitWidth);
-    Known.One = Known.One.trunc(SrcBitWidth);
+    Known = Known.trunc(SrcBitWidth);
     computeKnownBits(I->getOperand(0), Known, Depth + 1, Q);
     // If the sign bit of the input is known set or clear, then we know the
     // top bits of the result.
-    Known.Zero = Known.Zero.sext(BitWidth);
-    Known.One = Known.One.sext(BitWidth);
+    Known = Known.sext(BitWidth);
     break;
   }
   case Instruction::Shl: {
