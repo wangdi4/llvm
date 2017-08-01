@@ -126,6 +126,9 @@ protected:
   /// Target has TBM instructions.
   bool HasTBM;
 
+  /// Target has LWP instructions
+  bool HasLWP;
+
   /// True if the processor has the MOVBE instruction.
   bool HasMOVBE;
 
@@ -449,6 +452,7 @@ public:
   bool hasAnyFMA() const { return hasFMA() || hasFMA4(); }
   bool hasXOP() const { return HasXOP; }
   bool hasTBM() const { return HasTBM; }
+  bool hasLWP() const { return HasLWP; }
   bool hasMOVBE() const { return HasMOVBE; }
   bool hasRDRAND() const { return HasRDRAND; }
   bool hasF16C() const { return HasF16C; }
