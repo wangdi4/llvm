@@ -19,8 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "ParVecDirectiveInsertion.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 //#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
 //#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"

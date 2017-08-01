@@ -25,4 +25,4 @@ type = Library
 name = Intel_VPOTransforms
 parent = Transforms
 library_name = Intel_VPOTransforms
-required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis Intel_LoopIR Intel_LoopAnalysis Intel_LoopTransforms
+required_libraries = Analysis Core Scalar Support TransformUtils Intel_VPOAnalysis Intel_LoopAnalysis Intel_LoopTransforms

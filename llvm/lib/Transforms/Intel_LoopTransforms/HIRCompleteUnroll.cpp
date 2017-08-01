@@ -46,8 +46,8 @@
 //  (2) Add opt report.
 
 #include "HIRCompleteUnroll.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
 #include "llvm/ADT/Statistic.h"
 
@@ -58,12 +58,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 

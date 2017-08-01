@@ -49,10 +49,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"

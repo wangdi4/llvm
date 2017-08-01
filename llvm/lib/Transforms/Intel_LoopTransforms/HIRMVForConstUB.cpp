@@ -24,9 +24,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-mv-const-ub"
 #define OPT_DESCR "HIR Multiversioning for constant UB"

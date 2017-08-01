@@ -19,12 +19,12 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 #include <map>
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 namespace llvm { // LLVM Namespace
 

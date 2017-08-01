@@ -26,17 +26,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-idiom"
 #define OPT_DESC "HIR Loop Idiom Recognition"

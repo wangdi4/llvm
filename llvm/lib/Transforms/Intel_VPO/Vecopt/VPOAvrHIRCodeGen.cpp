@@ -17,7 +17,7 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -26,7 +26,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
