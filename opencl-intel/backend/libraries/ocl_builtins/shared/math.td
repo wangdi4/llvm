@@ -5,9 +5,6 @@
 // if these functions should be promoted or expanded from basic implementation
 // which can be found in GENERIC/math_shared.td
 
-// include Promote1_v3_to_v4, Promote2_v3_to_v4 codes
-include "ssse3/code_promote.td"
-
 // vXfX = f(vXfX)
 list<OclType> math_svml_vF_promote = [v3f32, v3f64];
 list<OclType> math_svml_vF_expand = [v16f64];

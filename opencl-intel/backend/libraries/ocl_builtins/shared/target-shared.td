@@ -4,6 +4,8 @@ include "GENERIC/opencl-v2.0.td"
 include "GENERIC/ll_intrinsics.td"
 
 class Generic : TargetImpl {
+// include Promote1_v3_to_v4, Promote2_v3_to_v4 codes
+include "ssse3/code_promote.td"
 include "GENERIC/code_expand_promote_common.td"
 include "GENERIC/code_conversion_sat_common.td"
 include "GENERIC/code_integer_common.td"
