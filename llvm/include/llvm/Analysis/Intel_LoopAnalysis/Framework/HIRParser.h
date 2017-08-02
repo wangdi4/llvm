@@ -442,6 +442,11 @@ private:
   /// Creates a GEP RegDDRef for this GEPOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
 
+  /// For a var of type *[10 x i32], given a reference to one past the end
+  /// element like &A[0][10], instcombine can turn it into equivalent &A[1][0].
+  /// This is problematic for DD so parser reverts it into the original form.
+  void restructureOnePastTheEndRef(RegDDRef *Ref) const;
+
   /// Returns a RegDDRef containing GEPInfo. IsUse indicates whether this is a
   /// definition or a use of GEP.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);

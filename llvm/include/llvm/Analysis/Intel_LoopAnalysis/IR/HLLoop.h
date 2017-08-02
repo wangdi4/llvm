@@ -243,7 +243,10 @@ public:
 
   /// Hoists the Ztt out of the loop. It returns a handle to the Ztt or
   /// nullptr if it doesn't exist.
-  HLIf *extractZtt();
+  /// \p NewNestingLevel indicates the nesting level of the (possibly detached)
+  /// loop. If it is ommited, nesting level is obtained from attachement level
+  /// of the loop.
+  HLIf *extractZtt(unsigned NewNestingLevel = NonLinearLevel);
 
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {

@@ -246,6 +246,8 @@ class HIRRegionIdentification::CostModelAnalyzer
   const HIRRegionIdentification &RI;
   const Loop &Lp;
   DomTreeNode *HeaderDomNode;
+  bool IsInnermostLoop;
+  bool IsSmallTripLoop;
   bool IsProfitable;
   unsigned InstCount;             // Approximates number of instructions in HIR.
   unsigned UnstructuredJumpCount; // Approximates goto/label counts in HIR.
@@ -255,18 +257,25 @@ class HIRRegionIdentification::CostModelAnalyzer
   const unsigned MaxInstThreshold = 200;
   const unsigned MaxIfThreshold = 7;
   const unsigned MaxIfNestThreshold = 2;
+  const unsigned SmallTripThreshold = 16;
 
 public:
-  CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp)
+  CostModelAnalyzer(const HIRRegionIdentification &RI, const Loop &Lp,
+                    const SCEV *BECount)
       : RI(RI), Lp(Lp), IsProfitable(true), InstCount(0),
         UnstructuredJumpCount(0), IfCount(0) {
     HeaderDomNode = RI.DT->getNode(Lp.getHeader());
+    IsInnermostLoop = Lp.empty();
+
+    auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+    IsSmallTripLoop =
+        (ConstBECount &&
+         (ConstBECount->getValue()->getZExtValue() <= SmallTripThreshold));
   }
 
   bool isProfitable() const { return IsProfitable; }
 
   void analyze() {
-    bool IsInnermostLoop = Lp.empty();
 
     for (auto BB = Lp.block_begin(), E = Lp.block_end(); BB != E; ++BB) {
 
@@ -372,13 +381,17 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitStoreInst(
 bool HIRRegionIdentification::CostModelAnalyzer::visitCallInst(
     const CallInst &CI) {
 
-  if (!isa<IntrinsicInst>(CI)) {
-    auto Func = CI.getCalledFunction();
+  // Allow user calls in small trip innermost loops so they can be unrolled.
+  if (!IsInnermostLoop || !IsSmallTripLoop) {
 
-    if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
-      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
-                      "user calls.\n");
-      return false;
+    if (!isa<IntrinsicInst>(CI)) {
+      auto Func = CI.getCalledFunction();
+
+      if (!Func || !RI.TLI->isFunctionVectorizable(Func->getName())) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop throttled due to presence of "
+                        "user calls.\n");
+        return false;
+      }
     }
   }
 
@@ -463,7 +476,7 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
 }
 
 bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
-                                                 bool IsUnknown) const {
+                                                 const SCEV *BECount) const {
 
   if (!CostModelThrottling) {
     return false;
@@ -477,13 +490,14 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   // Only handle standalone single bblock unknown loops for now. We don't do
   // much for outer unknown loops except prefetching which isn't ready yet.
   // Inner unknown loops are throttled for compile time reasons.
-  if (IsUnknown && ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
+  if (isa<SCEVCouldNotCompute>(BECount) &&
+      ((Lp.getNumBlocks() != 1) || (Lp.getLoopDepth() != 1))) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: unknown loop throttled for compile "
                     "time reasons.\n");
     return true;
   }
 
-  CostModelAnalyzer CMA(*this, Lp);
+  CostModelAnalyzer CMA(*this, Lp, BECount);
   CMA.analyze();
 
   return !CMA.isProfitable();
@@ -808,8 +822,7 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   }
 
   // We skip cost model throttling for function level region.
-  if (!IsFunctionRegionMode &&
-      shouldThrottleLoop(Lp, isa<SCEVCouldNotCompute>(BECount))) {
+  if (!IsFunctionRegionMode && shouldThrottleLoop(Lp, BECount)) {
     return false;
   }
 

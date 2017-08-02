@@ -65,9 +65,10 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopResource.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -123,9 +124,9 @@ namespace unroll {
 void unrollLoop(HLLoop *Loop, unsigned UnrollFactor) {
   unrollLoopImpl(Loop, UnrollFactor, nullptr);
 }
-}
-}
-}
+} // namespace unroll
+} // namespace loopopt
+} // namespace llvm
 
 namespace {
 
@@ -171,6 +172,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
     AU.addRequiredTransitive<HIRLoopResource>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<HIRDDAnalysis>();
@@ -182,6 +184,7 @@ private:
   // Stores the info for each loop in the loopnest by loop level.
   typedef std::array<LoopUFInfoPerLevelTy, MaxLoopNestLevel> LoopNestUFInfoTy;
 
+  HIRLoopStatistics *HLS;
   HIRLoopResource *HLR;
   HIRLocalityAnalysis *HLA;
   HIRDDAnalysis *DDA;
@@ -305,12 +308,13 @@ public:
   /// Driver function which checks legality of the loop.
   bool isLegal();
 };
-}
+} // namespace
 
 char HIRUnrollAndJam::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRUnrollAndJam, "hir-unroll-and-jam", "HIR Unroll & Jam",
                       false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopResource)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
@@ -322,8 +326,8 @@ FunctionPass *llvm::createHIRUnrollAndJamPass() {
 }
 
 bool LegalityChecker::isLegal() {
-  HLNodeUtils::visitRange(
-      *this, CandidateLoop->child_begin(), CandidateLoop->child_end());
+  HLNodeUtils::visitRange(*this, CandidateLoop->child_begin(),
+                          CandidateLoop->child_end());
   return IsLegal;
 }
 
@@ -515,6 +519,14 @@ void HIRUnrollAndJam::Analyzer::visit(HLLoop *Lp) {
 
   // TODO: What is the right behavior for simd loops?
   if (Lp->isSIMD()) {
+    HUAJ.throttleRecursively(Lp);
+    return;
+  }
+
+  auto &LS = HUAJ.HLS->getSelfLoopStatistics(Lp);
+
+  // Cannot unroll loop if it has calls with noduplicate attribute.
+  if (LS.hasCallsWithNoDuplicate()) {
     HUAJ.throttleRecursively(Lp);
     return;
   }
@@ -736,6 +748,7 @@ bool HIRUnrollAndJam::runOnFunction(Function &F) {
   }
 
   auto HIRF = &getAnalysis<HIRFramework>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
   HLR = &getAnalysis<HIRLoopResource>();
   HLA = &getAnalysis<HIRLocalityAnalysis>();
   DDA = &getAnalysis<HIRDDAnalysis>();

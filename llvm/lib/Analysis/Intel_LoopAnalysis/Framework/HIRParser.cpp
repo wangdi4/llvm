@@ -2809,6 +2809,37 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
   return Ref;
 }
 
+void HIRParser::restructureOnePastTheEndRef(RegDDRef *Ref) const {
+  unsigned NumDims = Ref->getNumDimensions();
+
+  // We are looking for a reference of the form: A[1][-i1-1]. The highest index
+  // is the constant one and the second highest index yields a negative index.
+  // If so, we restructure it so it looks like A[0][-i1+9] assuming the
+  // dimension size of 10.
+  if (NumDims == 1) {
+    return;
+  }
+
+  auto HighestCE = Ref->getDimensionIndex(NumDims);
+
+  int64_t Val;
+  if (!HighestCE->isIntConstant(&Val) || (Val != 1)) {
+    return;
+  }
+
+  auto SecondHighestCE = Ref->getDimensionIndex(NumDims - 1);
+
+  if (!HLNodeUtils::getMinValue(SecondHighestCE, CurNode, Val)) {
+    return;
+  }
+
+  if (Val < 0) {
+    HighestCE->setConstant(0);
+    auto NumElem = Ref->getNumDimensionElements(NumDims - 1);
+    SecondHighestCE->addConstant(NumElem, true);
+  }
+}
+
 // NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
 // TODO: handle struct GEPs.
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
@@ -2862,6 +2893,8 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   }
 
   populateBlobDDRefs(Ref, Level);
+
+  restructureOnePastTheEndRef(Ref);
 
   // Add a mapping for getting the original pointer value for the Ref.
   GEPRefToPointerMap.insert(

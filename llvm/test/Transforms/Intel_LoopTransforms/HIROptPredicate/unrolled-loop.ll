@@ -111,7 +111,7 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 ; Function Attrs: norecurse nounwind uwtable
-define void @foo(i32* nocapture %a, i32* nocapture %b, i32 %c, i32 %n) local_unnamed_addr #0 {
+define void @foo(i32* nocapture noalias %a, i32* nocapture noalias %b, i32 %c, i32 %n) local_unnamed_addr #0 {
 entry:
   %cmp21 = icmp sgt i32 %n, 0
   br i1 %cmp21, label %for.cond1.preheader.lr.ph, label %for.cond.cleanup

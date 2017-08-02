@@ -14,7 +14,7 @@
 ; CHECK: + END LOOP
 
 ; Check that we recognize occurence of (@A)[0][i1] as GEP savings.
-; CHECK: GEPSavings: 8
+; CHECK: GEPSavings: 12
 
 ; CHECK: After HIR PreVec Complete Unroll
 

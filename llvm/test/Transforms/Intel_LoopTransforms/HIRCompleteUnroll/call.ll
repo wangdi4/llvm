@@ -1,12 +1,39 @@
-; Test for Complete Unrolling with call statement.
-; There should not be any unrolling with call stmts in body.
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll -print-after=hir-post-vec-complete-unroll 2>&1 < %s | FileCheck %s
 
-; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-post-vec-complete-unroll -hir-cg -S < %s | FileCheck %s
-; CHECK: entry
-; CHECK-NOT: region
+; Check that we can completely unroll loops with call statements.
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
-target triple = "x86_64-unknown-linux-gnu"
+
+; CHECK: Dump Before HIR PostVec Complete Unroll
+
+; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
+; CHECK: |   + DO i2 = 0, 4, 1   <DO_LOOP>
+; CHECK: |   |   %1 = (@A)[0][i2][i1];
+; CHECK: |   |   %add = %1  +  i1;
+; CHECK: |   |   %call = @foo1(i1 + %1);
+; CHECK: |   + END LOOP
+; CHECK: + END LOOP
+
+; CHECK: Dump After HIR PostVec Complete Unroll
+
+; CHECK: + DO i1 = 0, 499, 1   <DO_LOOP>
+; CHECK: |   %1 = (@A)[0][0][i1];
+; CHECK: |   %add = %1  +  i1;
+; CHECK: |   %call = @foo1(i1 + %1);
+; CHECK: |   %1 = (@A)[0][1][i1];
+; CHECK: |   %add = %1  +  i1;
+; CHECK: |   %call = @foo1(i1 + %1);
+; CHECK: |   %1 = (@A)[0][2][i1];
+; CHECK: |   %add = %1  +  i1;
+; CHECK: |   %call = @foo1(i1 + %1);
+; CHECK: |   %1 = (@A)[0][3][i1];
+; CHECK: |   %add = %1  +  i1;
+; CHECK: |   %call = @foo1(i1 + %1);
+; CHECK: |   %1 = (@A)[0][4][i1];
+; CHECK: |   %add = %1  +  i1;
+; CHECK: |   %call = @foo1(i1 + %1);
+; CHECK: + END LOOP
+
 
 @A = common global [1000 x [1000 x i32]] zeroinitializer, align 16
 

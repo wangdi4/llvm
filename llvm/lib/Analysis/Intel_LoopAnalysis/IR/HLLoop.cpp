@@ -826,7 +826,8 @@ void HLLoop::createZtt(bool IsOverwrite, bool IsSigned) {
   UBRef->makeConsistent(&Aux, getNestingLevel());
 }
 
-HLIf *HLLoop::extractZtt() {
+HLIf *HLLoop::extractZtt(unsigned NewLevel) {
+  // Default value of NewLevel is NonLinearLevel.
 
   if (!hasZtt()) {
     return nullptr;
@@ -837,10 +838,16 @@ HLIf *HLLoop::extractZtt() {
   getHLNodeUtils().insertBefore(this, Ztt);
   getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
 
-  unsigned Level = getNestingLevel();
+  if (NewLevel == NonLinearLevel) {
+    NewLevel = getNestingLevel();
+  }
 
-  std::for_each(Ztt->ddref_begin(), Ztt->ddref_end(),
-                [Level](RegDDRef *Ref) { Ref->updateDefLevel(Level - 1); });
+  assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
+         "Invalid nesting level.");
+
+  std::for_each(
+      Ztt->ddref_begin(), Ztt->ddref_end(),
+      [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel - 1); });
 
   return Ztt;
 }

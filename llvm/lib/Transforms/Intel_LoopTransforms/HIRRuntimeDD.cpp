@@ -266,8 +266,7 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
       // At this point IVBlobIndex is KnownPositive or KnownNegative, as we
       // dropped others as non supported
       // The utility checks both blob and coeff sign.
-      if (InnerLoop->getHLNodeUtils().isKnownNegative(IVBlobExpr.get(),
-                                                      InnerLoop)) {
+      if (HLNodeUtils::isKnownNegative(IVBlobExpr.get(), InnerLoop)) {
         Direction *= -1;
       }
     } else {
@@ -379,8 +378,8 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
 
         IVBlobExpr->addBlob(IVBlobIndex, IVConstCoeff);
 
-        if (!InnermostLoop->getHLNodeUtils().isKnownPositiveOrNegative(
-                IVBlobExpr.get(), InnermostLoop)) {
+        if (!HLNodeUtils::isKnownPositiveOrNegative(IVBlobExpr.get(),
+                                                  InnermostLoop)) {
           return BLOB_IV_COEFF;
         }
       }

@@ -15,9 +15,9 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
@@ -2646,13 +2646,14 @@ HLNodeUtils::VALType HLNodeUtils::getMinMaxBlobValue(unsigned BlobIdx,
 
   auto BoundCoeff = BoundCE->getSingleBlobCoeff();
   auto BoundBlobIdx = BoundCE->getSingleBlobIndex();
+  auto &BU = BoundCE->getBlobUtils();
 
-  BlobTy Blob = getBlobUtils().getBlob(BlobIdx);
+  BlobTy Blob = BU.getBlob(BlobIdx);
   // Strip sign extend cast from Blob
   while (BlobUtils::isSignExtendBlob(Blob, &Blob))
     ;
 
-  BlobTy BoundBlob = getBlobUtils().getBlob(BoundBlobIdx);
+  BlobTy BoundBlob = BU.getBlob(BoundBlobIdx);
 
   if (Blob != BoundBlob) {
     return VALType::IsUnknown;
@@ -2764,8 +2765,9 @@ HLNodeUtils::getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
 
   // Lhs < Rhs
   // CE = Rhs - Lhs
-  std::unique_ptr<CanonExpr> ConditionCE(getCanonExprUtils().cloneAndSubtract(
-      Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
+  std::unique_ptr<CanonExpr> ConditionCE(
+      Lhs->getCanonExprUtils().cloneAndSubtract(
+          Rhs->getSingleCanonExpr(), Lhs->getSingleCanonExpr(), true));
 
   if (!ConditionCE.get()) {
     return VALType::IsUnknown;
@@ -3689,7 +3691,7 @@ public:
     }
 
     HLNode *ContainerLastNode =
-      HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
+        HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
 
     if (!Goto->isExternal()) {
       GotosToRemove.push_back(Goto);

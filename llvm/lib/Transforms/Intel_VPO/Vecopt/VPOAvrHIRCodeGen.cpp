@@ -473,8 +473,6 @@ void HandledCheck::visit(HLDDNode *Node) {
   // Calls are not supported for now unless they are svml.
   if (HLInst *Inst = dyn_cast<HLInst>(Node)) {
     if (Inst->isCallInst()) {
-      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
-      StringRef CalledFunc = Call->getCalledFunction()->getName();
 
       if (Inst->getParent() != OrigLoop) {
         DEBUG(Inst->dump());
@@ -483,7 +481,12 @@ void HandledCheck::visit(HLDDNode *Node) {
         return;
       }
 
-      if (VL > 1 && !TLI->isFunctionVectorizable(CalledFunc, VL)) {
+      const CallInst *Call = cast<CallInst>(Inst->getLLVMInstruction());
+      auto CalledFunc = Call->getCalledFunction();
+
+      if ((VL > 1) &&
+          (!CalledFunc ||
+           !TLI->isFunctionVectorizable(CalledFunc->getName(), VL))) {
         DEBUG(errs()
               << "VPO_OPTREPORT: Loop not handled - call not vectorizable\n");
         IsHandled = false;

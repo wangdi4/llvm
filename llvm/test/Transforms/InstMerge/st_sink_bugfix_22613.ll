@@ -2,7 +2,8 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; RUN: opt -O2 -S < %s | FileCheck %s
+; INTEL- disabled loopopt to retain original pipeline order.
+; RUN: opt -O2 -S -loopopt=0 < %s | FileCheck %s
 
 ; CHECK-LABEL: main
 ; CHECK: if.end

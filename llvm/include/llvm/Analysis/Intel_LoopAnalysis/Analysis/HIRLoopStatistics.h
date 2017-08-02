@@ -40,7 +40,8 @@ private:
   unsigned NumLabels = 0;
   unsigned NumUserCalls = 0;
   unsigned NumIntrinsics = 0;
-  bool HasUnsafeSideEffects = false;
+  bool HasCallsWithUnsafeSideEffects = false;
+  bool HasCallsWithNoDuplicate = false;
 
 public:
   LoopStatistics() {}
@@ -76,9 +77,16 @@ public:
   // data dependency. Any call which only accesses memory from its arguments is
   // considered safe as we can add fake DDRefs to expose such dependencies.
   bool hasCallsWithUnsafeSideEffects() const {
-    assert((!HasUnsafeSideEffects || hasCalls()) &&
-           "Number of calls and CallWithSideEffects are out of sync!");
-    return HasUnsafeSideEffects;
+    assert(
+        (!HasCallsWithUnsafeSideEffects || hasCalls()) &&
+        "Number of calls and HasCallsWithUnsafeSideEffects are out of sync!");
+    return HasCallsWithUnsafeSideEffects;
+  }
+
+  bool hasCallsWithNoDuplicate() const {
+    assert((!HasCallsWithNoDuplicate || hasCalls()) &&
+           "Number of calls and HasCallsWithNoDuplicate are out of sync!");
+    return HasCallsWithNoDuplicate;
   }
 
   /// Adds the loop statistics LS to this one.
@@ -89,7 +97,8 @@ public:
     NumLabels += LS.NumLabels;
     NumUserCalls += LS.NumUserCalls;
     NumIntrinsics += LS.NumIntrinsics;
-    HasUnsafeSideEffects = HasUnsafeSideEffects || LS.HasUnsafeSideEffects;
+    HasCallsWithUnsafeSideEffects |= LS.HasCallsWithUnsafeSideEffects;
+    HasCallsWithNoDuplicate |= LS.HasCallsWithNoDuplicate;
 
     return *this;
   }

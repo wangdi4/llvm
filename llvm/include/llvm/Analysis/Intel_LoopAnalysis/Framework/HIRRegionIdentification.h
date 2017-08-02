@@ -111,7 +111,7 @@ private:
 
   /// Returns true if this loop should be throttled based on cost model
   /// analysis.
-  bool shouldThrottleLoop(const Loop &Lp, bool IsUnknown) const;
+  bool shouldThrottleLoop(const Loop &Lp, const SCEV *BECount) const;
 
   /// Returns true if this instruction represents simd begin/end directive. \p
   /// BeginDir flag indicates whether to look for begin or end directive.

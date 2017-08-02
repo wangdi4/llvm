@@ -484,7 +484,7 @@ const CanonExpr *DDTest::getSMaxExpr(const CanonExpr *CE1,
   }
 
   int64_t CVal;
-  
+
   if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
     return ((CVal > 0) ? CE1 : CE2);
   }
@@ -502,7 +502,7 @@ const CanonExpr *DDTest::getSMinExpr(const CanonExpr *CE1,
   }
 
   int64_t CVal;
-  
+
   if (HNU.getCanonExprUtils().getConstDistance(CE1, CE2, &CVal)) {
     return ((CVal < 0) ? CE1 : CE2);
   }
@@ -1233,15 +1233,15 @@ bool DDTest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
   case CmpInst::ICMP_EQ:
     return Delta->isZero();
   case CmpInst::ICMP_NE:
-    return HNU.isKnownNonZero(Delta, DeepestLoop);
+    return HLNodeUtils::isKnownNonZero(Delta, DeepestLoop);
   case CmpInst::ICMP_SGE:
-    return HNU.isKnownNonNegative(Delta, DeepestLoop);
+    return HLNodeUtils::isKnownNonNegative(Delta, DeepestLoop);
   case CmpInst::ICMP_SLE:
-    return HNU.isKnownNonPositive(Delta, DeepestLoop);
+    return HLNodeUtils::isKnownNonPositive(Delta, DeepestLoop);
   case CmpInst::ICMP_SGT:
-    return HNU.isKnownPositive(Delta, DeepestLoop);
+    return HLNodeUtils::isKnownPositive(Delta, DeepestLoop);
   case CmpInst::ICMP_SLT:
-    return HNU.isKnownNegative(Delta, DeepestLoop);
+    return HLNodeUtils::isKnownNegative(Delta, DeepestLoop);
   default:
     llvm_unreachable("unexpected predicate in isKnownPredicate");
   }
@@ -1365,9 +1365,9 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     // But GCD test should get Indep for 2*n vs 2*n+1
 
     const CanonExpr *AbsDelta =
-        HNU.isKnownNonNegative(Delta) ? Delta : getNegative(Delta);
+        HLNodeUtils::isKnownNonNegative(Delta) ? Delta : getNegative(Delta);
     const CanonExpr *AbsCoeff =
-        HNU.isKnownNonNegative(Coeff) ? Coeff : getNegative(Coeff);
+        HLNodeUtils::isKnownNonNegative(Coeff) ? Coeff : getNegative(Coeff);
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
 
     DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
@@ -1378,7 +1378,7 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     // dv as =
     // e.g.  2*n*i  is non-zero if n is non-zero
 
-    if (Delta->isZero() && HNU.isKnownNonZero(Coeff, CurLoop)) {
+    if (Delta->isZero() && HLNodeUtils::isKnownNonZero(Coeff, CurLoop)) {
 
       Result.DV[Level].Distance = Delta;
       NewConstraint.setDistance(Delta, CurLoop);
@@ -1453,11 +1453,11 @@ bool DDTest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
       }
 
       // maybe we can get a useful direction
-      bool DeltaMaybeZero = !(HNU.isKnownNonZero(Delta));
-      bool DeltaMaybePositive = !(HNU.isKnownNonPositive(Delta));
-      bool DeltaMaybeNegative = !(HNU.isKnownNonNegative(Delta));
-      bool CoeffMaybePositive = !(HNU.isKnownNonPositive(Coeff));
-      bool CoeffMaybeNegative = !(HNU.isKnownNonNegative(Coeff));
+      bool DeltaMaybeZero = !(HLNodeUtils::isKnownNonZero(Delta));
+      bool DeltaMaybePositive = !(HLNodeUtils::isKnownNonPositive(Delta));
+      bool DeltaMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Delta));
+      bool CoeffMaybePositive = !(HLNodeUtils::isKnownNonPositive(Coeff));
+      bool CoeffMaybeNegative = !(HLNodeUtils::isKnownNonNegative(Coeff));
       // The double negatives above are confusing.
       // It helps to read isKnownNonZero(Delta)
       // as "Delta might be Zero"
@@ -1551,13 +1551,14 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
   }
 
   Result.DV[Level].Splitable = true;
-  if (HNU.isKnownNegative(ConstCoeff, CurLoop)) {
+  if (HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)) {
     ConstCoeff = getNegative(ConstCoeff);
     assert(ConstCoeff &&
            "dynamic cast of negative of ConstCoeff should yield constant");
     Delta = getNegative(Delta);
   }
-  assert(HNU.isKnownPositive(ConstCoeff) && "ConstCoeff should be positive");
+  assert(HLNodeUtils::isKnownPositive(ConstCoeff) &&
+         "ConstCoeff should be positive");
 
   // compute SplitIter for use by DependenceAnalysis::getSplitIteration()
 
@@ -1595,7 +1596,7 @@ bool DDTest::weakCrossingSIVtest(const CanonExpr *Coeff,
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   DEBUG(dbgs() << "\n    ConstCoeff = "; ConstCoeff->dump());
 
-  if (HNU.isKnownNegative(Delta, CurLoop)) {
+  if (HLNodeUtils::isKnownNegative(Delta, CurLoop)) {
     // No dependence, Delta < 0s
     ++WeakCrossingSIVindependence;
     ++WeakCrossingSIVsuccesses;
@@ -2088,11 +2089,12 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
     return false;
   }
 
-  const CanonExpr *AbsCoeff = HNU.isKnownNegative(ConstCoeff, CurLoop)
+  const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta =
-      HNU.isKnownNegative(ConstCoeff, CurLoop) ? getNegative(Delta) : Delta;
+  const CanonExpr *NewDelta = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
+                                  ? getNegative(Delta)
+                                  : Delta;
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
@@ -2123,7 +2125,7 @@ bool DDTest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   // check that Delta/SrcCoeff >= 0
   // really check that NewDelta >= 0
-  if (HNU.isKnownNegative(NewDelta, CurLoop)) {
+  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
     // No dependence, newDelta < 0
     ++WeakZeroSIVindependence;
     ++WeakZeroSIVsuccesses;
@@ -2197,9 +2199,10 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   if (!Delta) {
     return false;
   }
-  NewConstraint.setLine(SrcCoeff, getConstantWithType(Delta->getSrcType(),
-                                                      Delta->getDestType(),
-                                                      Delta->isSExt(), 0),
+  NewConstraint.setLine(SrcCoeff,
+                        getConstantWithType(Delta->getSrcType(),
+                                            Delta->getDestType(),
+                                            Delta->isSExt(), 0),
                         Delta, CurLoop);
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, DstConst, SrcConst)) {
@@ -2219,11 +2222,12 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
     return false;
   }
 
-  const CanonExpr *AbsCoeff = HNU.isKnownNegative(ConstCoeff, CurLoop)
+  const CanonExpr *AbsCoeff = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
                                   ? getNegative(ConstCoeff)
                                   : ConstCoeff;
-  const CanonExpr *NewDelta =
-      HNU.isKnownNegative(ConstCoeff, CurLoop) ? getNegative(Delta) : Delta;
+  const CanonExpr *NewDelta = HLNodeUtils::isKnownNegative(ConstCoeff, CurLoop)
+                                  ? getNegative(Delta)
+                                  : Delta;
 
   // check that Delta/SrcCoeff < iteration count
   // really check NewDelta < count*AbsCoeff
@@ -2253,7 +2257,7 @@ bool DDTest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   // check that Delta/SrcCoeff >= 0
   // really check that NewDelta >= 0
-  if (HNU.isKnownNegative(NewDelta, CurLoop)) {
+  if (HLNodeUtils::isKnownNegative(NewDelta, CurLoop)) {
     // No dependence, newDelta < 0
     ++WeakZeroSIVindependence;
     ++WeakZeroSIVsuccesses;
@@ -2472,8 +2476,8 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
   DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
   DEBUG(dbgs() << "\n    C1 - C2 = "; C1_C2->dump());
 
-  if (HNU.isKnownNonNegative(A1, DeepestLoop)) {
-    if (HNU.isKnownNonNegative(A2, DeepestLoop)) {
+  if (HLNodeUtils::isKnownNonNegative(A1, DeepestLoop)) {
+    if (HLNodeUtils::isKnownNonNegative(A2, DeepestLoop)) {
       // A1 >= 0 && A2 >= 0
       if (N1) {
         // make sure that c2 - c1 <= a1*N1
@@ -2501,7 +2505,7 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
           return true;
         }
       }
-    } else if (HNU.isKnownNonPositive(A2, DeepestLoop)) {
+    } else if (HLNodeUtils::isKnownNonPositive(A2, DeepestLoop)) {
       // a1 >= 0 && a2 <= 0
       if (N1 && N2) {
         // make sure that c2 - c1 <= a1*N1 - a2*N2
@@ -2520,13 +2524,13 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
         }
       }
       // make sure that 0 <= c2 - c1
-      if (HNU.isKnownNegative(C2_C1, DeepestLoop)) {
+      if (HLNodeUtils::isKnownNegative(C2_C1, DeepestLoop)) {
         ++SymbolicRDIVindependence;
         return true;
       }
     }
-  } else if (HNU.isKnownNonPositive(A1, DeepestLoop)) {
-    if (HNU.isKnownNonNegative(A2, DeepestLoop)) {
+  } else if (HLNodeUtils::isKnownNonPositive(A1, DeepestLoop)) {
+    if (HLNodeUtils::isKnownNonNegative(A2, DeepestLoop)) {
       // a1 <= 0 && a2 >= 0
       if (N1 && N2) {
         // make sure that a1*N1 - a2*N2 <= c2 - c1
@@ -2545,11 +2549,11 @@ bool DDTest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
         }
       }
       // make sure that c2 - c1 <= 0
-      if (HNU.isKnownPositive(C2_C1, DeepestLoop)) {
+      if (HLNodeUtils::isKnownPositive(C2_C1, DeepestLoop)) {
         ++SymbolicRDIVindependence;
         return true;
       }
-    } else if (HNU.isKnownNonPositive(A2, DeepestLoop)) {
+    } else if (HLNodeUtils::isKnownNonPositive(A2, DeepestLoop)) {
       // a1 <= 0 && a2 <= 0
       if (N1) {
         // make sure that a1*N1 <= c2 - c1

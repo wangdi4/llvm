@@ -435,7 +435,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
     MPM.add(createLoopInterchangePass()); // Interchange loops
     MPM.add(createCFGSimplificationPass());
   }
-  if (!DisableUnrollLoops)
+  // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
+  if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     MPM.add(createSimpleLoopUnrollPass(OptLevel));    // Unroll small loops
   addExtensionsToPM(EP_LoopOptimizerEnd, MPM);
 
@@ -995,7 +996,8 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   if (EnableLoopInterchange)
     PM.add(createLoopInterchangePass());
 
-  if (!DisableUnrollLoops)
+  // INTEL - HIR complete unroll pass replaces LLVM's simple loop unroll pass.
+  if (!DisableUnrollLoops && !isLoopOptEnabled()) // INTEL
     PM.add(createSimpleLoopUnrollPass(OptLevel));   // Unroll small loops
   addLoopOptAndAssociatedVPOPasses(PM);     // INTEL
   PM.add(createLoopVectorizePass(true, LoopVectorize));
@@ -1036,6 +1038,13 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
   // Delete basic blocks, which optimization passes may have killed.
   PM.add(createCFGSimplificationPass());
 
+#if INTEL_CUSTOMIZATION
+  // HIR complete unroll can expose opportunities for optimizing globals and
+  // allocas.
+  if (isLoopOptEnabled()) {
+    PM.add(createGlobalOptimizerPass());
+  }
+#endif // INTEL_CUSTOMIZATION
   // Drop bodies of available externally objects to improve GlobalDCE.
   PM.add(createEliminateAvailableExternallyPass());
 
@@ -1052,7 +1061,7 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
 
 bool PassManagerBuilder::isLoopOptEnabled() const {
   if ((RunLoopOpts || RunLoopOptFrameworkOnly) && (OptLevel >= 2) &&
-      !PerformThinLTO) 
+      !PerformThinLTO)
     return true;
 
   return false;
@@ -1060,15 +1069,34 @@ bool PassManagerBuilder::isLoopOptEnabled() const {
 
 void PassManagerBuilder::addLoopOptCleanupPasses(
     legacy::PassManagerBase &PM) const {
+  // This pass removes the old (unreachable) code which has been replaced by a
+  // new one by HIR.
   PM.add(createCFGSimplificationPass());
-  PM.add(createPromoteMemoryToRegisterPass());
+  // This is mainly for optimizing away unnecessary alloca load/stores generated
+  // by HIR.
+  PM.add(createSROAPass());
+
+  // Reassociation helps eliminate redundant computation after looopopt.
+  // HIR uses SCEVExpander to generate code. The order of operands in SCEV is
+  // not optimal for code generation so we need reassociation to expose
+  // redundancies which are then eliminated by GVN/InstCombine.
+  // Experimentation showed that Nary reassociate pass is more effective than
+  // the regular reassociate pass.
+  // This is only run at O3 and higher as it may be compile time expensive.
+  if (OptLevel > 2)
+    PM.add(createNaryReassociatePass());
+
   PM.add(createGVNPass(DisableGVNLoadPRE));
+  // GVN can perform alloca store forwarding thereby removing alloca loads. This
+  // can expose dead alloca stores which can be cleaned up by SROA.
+  PM.add(createSROAPass());
   addInstructionCombiningPass(PM);
+  PM.add(createDeadStoreEliminationPass());
 }
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!isLoopOptEnabled()) 
+  if (!isLoopOptEnabled())
     return;
 
   // This pass "canonicalizes" loops and makes analysis easier.

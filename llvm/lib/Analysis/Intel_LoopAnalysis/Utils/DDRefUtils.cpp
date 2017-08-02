@@ -193,16 +193,22 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
 
   bool HasGEPInfo = Ref1->hasGEPInfo();
 
-  // Check if one is memory ref and other is not.
+  // Check if one is GEP ref and other is not.
   if (HasGEPInfo != Ref2->hasGEPInfo()) {
     return false;
   }
 
-  // Check Base Canon Exprs.
-  if (HasGEPInfo &&
-      !CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
-                                RelaxedMode)) {
-    return false;
+  if (HasGEPInfo) {
+    // TODO: compare attributes like volatile, alignment etc.
+
+    if (Ref1->isMemRef() != Ref2->isMemRef()) {
+      return false;
+    }
+
+    if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE(),
+                                  RelaxedMode)) {
+      return false;
+    }
   }
 
   unsigned NumDims = Ref1->getNumDimensions();
@@ -491,4 +497,3 @@ void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
   }
 }
-

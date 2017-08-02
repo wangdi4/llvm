@@ -101,8 +101,10 @@ struct LoopStatistics::LoopStatisticsVisitor final : public HLNodeVisitorBase {
         SelfLS.NumUserCalls++;
       }
 
-      SelfLS.HasUnsafeSideEffects =
+      SelfLS.HasCallsWithUnsafeSideEffects |=
           !Call->onlyReadsMemory() && !Call->onlyAccessesArgMemory();
+
+      SelfLS.HasCallsWithNoDuplicate |= Call->cannotDuplicate();
     }
   }
 

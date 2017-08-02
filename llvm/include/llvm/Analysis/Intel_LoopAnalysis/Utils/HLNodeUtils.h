@@ -383,57 +383,58 @@ private:
   enum VALType : unsigned { IsUnknown, IsConstant, IsMax, IsMin };
 
   /// Returns true if \p ValType can represent a minimum value type.
-  bool isMinValue(VALType ValType);
+  static bool isMinValue(VALType ValType);
 
   /// Returns true if \p ValType can represent a maximum value type.
-  bool isMaxValue(VALType ValType);
+  static bool isMaxValue(VALType ValType);
 
   /// Returns true if the value in question is known to be positive.
-  bool isKnownPositive(VALType ValType, int64_t Val);
+  static bool isKnownPositive(VALType ValType, int64_t Val);
 
   /// Returns true if the value in question is known to be non-negative.
-  bool isKnownNonNegative(VALType ValType, int64_t Val);
+  static bool isKnownNonNegative(VALType ValType, int64_t Val);
 
   /// Returns true if the value in question is known to be negative.
-  bool isKnownNegative(VALType ValType, int64_t Val);
+  static bool isKnownNegative(VALType ValType, int64_t Val);
 
   /// Returns true if the value in question is known to be non-positive.
-  bool isKnownNonPositive(VALType ValType, int64_t Val);
+  static bool isKnownNonPositive(VALType ValType, int64_t Val);
 
   /// Returns true if the value in question is known to be non-zero.
-  bool isKnownNonZero(VALType ValType, int64_t Val);
+  static bool isKnownNonZero(VALType ValType, int64_t Val);
 
   /// Returns true if the value in question is known to be positive or negative.
-  bool isKnownPositiveOrNegative(VALType ValType, int64_t Val);
+  static bool isKnownPositiveOrNegative(VALType ValType, int64_t Val);
 
   // Get possible Minimum/Maximum value of canon.
   // If known, return ValueType and Value.
   // Return value indicates if Val is used as Constant, Min or Max.
-  VALType getMinMaxBlobValue(unsigned BlobIdx, const CanonExpr *BoundCE,
-                             int64_t &Val);
+  static VALType getMinMaxBlobValue(unsigned BlobIdx, const CanonExpr *BoundCE,
+                                    int64_t &Val);
 
-  VALType getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
-                                     const RegDDRef *Lhs, const RegDDRef *Rhs,
-                                     int64_t &Val);
+  static VALType getMinMaxBlobValueFromPred(unsigned BlobIdx, PredicateTy Pred,
+                                            const RegDDRef *Lhs,
+                                            const RegDDRef *Rhs, int64_t &Val);
 
   template <typename PredIter, typename GetDDRefFunc>
-  VALType getMinMaxBlobValueFromPredRange(unsigned BlobIdx, PredIter Begin,
-                                          PredIter End, GetDDRefFunc GetDDRef,
-                                          bool InvertPredicates, int64_t &Val);
+  static VALType
+  getMinMaxBlobValueFromPredRange(unsigned BlobIdx, PredIter Begin,
+                                  PredIter End, GetDDRefFunc GetDDRef,
+                                  bool InvertPredicates, int64_t &Val);
 
-  VALType getMinMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
-                             int64_t &Val);
+  static VALType getMinMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                                    int64_t &Val);
 
-  bool getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
-                          const HLNode *ParentNode, bool IsMin,
-                          int64_t &BlobVal);
+  static bool getMinMaxBlobValue(unsigned BlobIdx, int64_t Coeff,
+                                 const HLNode *ParentNode, bool IsMin,
+                                 int64_t &BlobVal);
 
   /// Returns constant min or max value of CE based on its context (ParentNode)
   /// and IsMin paramter. \p IsExact specifies whether we can calculate inexact
   /// min/max in the presence of blobs.
   /// Value is returned in Val. Only handles IVs + constant for now.
-  bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
-                          bool IsMin, bool IsExact, int64_t &Val);
+  static bool getMinMaxValueImpl(const CanonExpr *CE, const HLNode *ParentNode,
+                                 bool IsMin, bool IsExact, int64_t &Val);
 
   /// Checks if Loop has perfect/near-perfect loop properties.
   /// Expects non-innermost incoming \p Lp.
@@ -1215,53 +1216,54 @@ public:
 
   /// Returns true if the minimum value of blob can be evaluated. Returns the
   /// minimum value in \p Val.
-  bool getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
-                       int64_t &Val);
+  static bool getMinBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &Val);
 
   /// Returns true if the maximum value of blob can be evaluated. Returns the
   /// maximum value in \p Val.
-  bool getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
-                       int64_t &Val);
+  static bool getMaxBlobValue(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &Val);
 
   /// Returns true if blob is known to be non-zero.
-  bool isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode);
+  static bool isKnownNonZero(unsigned BlobIdx, const HLNode *ParentNode);
 
   /// Returns true if blob is known to be non-positive. Returns max value in \p
   /// MaxVal.
-  bool isKnownNonPositive(unsigned BlobIdx, const HLNode *ParentNode,
-                          int64_t &MaxVal);
+  static bool isKnownNonPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                                 int64_t &MaxVal);
 
   /// Returns true if blob is known to be non-negative. Returns min value in \p
   /// MinVal.
-  bool isKnownNonNegative(unsigned BlobIdx, const HLNode *ParentNode,
-                          int64_t &MinVal);
+  static bool isKnownNonNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                                 int64_t &MinVal);
 
   /// Returns true if blob is known to be negative. Returns max value in \p
   /// MaxVal.
-  bool isKnownNegative(unsigned BlobIdx, const HLNode *ParentNode,
-                       int64_t &MaxVal);
+  static bool isKnownNegative(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &MaxVal);
 
   /// Returns true if blob is known to be positive. Returns min value in \p
   /// MinVal.
-  bool isKnownPositive(unsigned BlobIdx, const HLNode *ParentNode,
-                       int64_t &MinVal);
+  static bool isKnownPositive(unsigned BlobIdx, const HLNode *ParentNode,
+                              int64_t &MinVal);
 
   /// Returns true if blob is known to be positive or negative. Returns min/max
   /// value in \p MinMAxVal.
-  bool isKnownPositiveOrNegative(unsigned BlobIdx, const HLNode *ParentNode,
-                                 int64_t &MinMaxVal);
+  static bool isKnownPositiveOrNegative(unsigned BlobIdx,
+                                        const HLNode *ParentNode,
+                                        int64_t &MinMaxVal);
 
   /// Returns true if exact minimum value of \p CE can be evaluated. Exact value
   /// means that there is no approximation due to presence of blobs. Returns the
   /// minimum value in \p Val.
-  bool getExactMinValue(const CanonExpr *CE, const HLNode *ParentNode,
-                        int64_t &Val);
+  static bool getExactMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                               int64_t &Val);
 
   /// Returns true if exact maximum value of \p CE can be evaluated. Exact value
   /// means that there is no approximation due to presence of blobs. Returns the
   /// maximum value in \p Val.
-  bool getExactMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
-                        int64_t &Val);
+  static bool getExactMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                               int64_t &Val);
 
   /// Returns true if the predicate can be evaluated. The predicate result value
   /// will be stored into the /p Result.
@@ -1270,32 +1272,37 @@ public:
 
   /// Returns true if minimum value of \p CE can be evaluated. Returns the
   /// minimum value in \p Val.
-  bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode, int64_t &Val);
+  static bool getMinValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t &Val);
 
   /// Returns true if maximum value of \p CE can be evaluated. Returns the
   /// maximum value in \p Val.
-  bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode, int64_t &Val);
+  static bool getMaxValue(const CanonExpr *CE, const HLNode *ParentNode,
+                          int64_t &Val);
 
   /// Returns true if non-zero.
-  bool isKnownNonZero(const CanonExpr *CE, const HLNode *ParentNode = nullptr);
+  static bool isKnownNonZero(const CanonExpr *CE,
+                             const HLNode *ParentNode = nullptr);
 
   /// Returns true if non-positive.
-  bool isKnownNonPositive(const CanonExpr *CE,
-                          const HLNode *ParentNode = nullptr);
+  static bool isKnownNonPositive(const CanonExpr *CE,
+                                 const HLNode *ParentNode = nullptr);
 
   /// Returns true if non-negative.
-  bool isKnownNonNegative(const CanonExpr *CE,
-                          const HLNode *ParentNode = nullptr);
+  static bool isKnownNonNegative(const CanonExpr *CE,
+                                 const HLNode *ParentNode = nullptr);
 
   /// Returns true if negative.
-  bool isKnownNegative(const CanonExpr *CE, const HLNode *ParentNode = nullptr);
+  static bool isKnownNegative(const CanonExpr *CE,
+                              const HLNode *ParentNode = nullptr);
 
   /// Returns true if positive.
-  bool isKnownPositive(const CanonExpr *CE, const HLNode *ParentNode = nullptr);
+  static bool isKnownPositive(const CanonExpr *CE,
+                              const HLNode *ParentNode = nullptr);
 
   /// Returns true if positive or negative.
-  bool isKnownPositiveOrNegative(const CanonExpr *CE,
-                                 const HLNode *ParentNode = nullptr);
+  static bool isKnownPositiveOrNegative(const CanonExpr *CE,
+                                        const HLNode *ParentNode = nullptr);
 
   // Returns true if both HLIf nodes are equal.
   static bool areEqual(const HLIf *NodeA, const HLIf *NodeB);

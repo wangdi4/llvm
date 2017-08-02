@@ -217,8 +217,8 @@ void HIRLoopReversal::MarkedCECollector::checkAndCollectMCE(
       CalculatedWeight = IVConstCoeff;
     }
     // If IV has a valid blob, decide IV-Blob's sign
-    else if (ImmedParent->getHLNodeUtils().isKnownPositiveOrNegative(
-                 IVIndex, ImmedParent, BlobVal)) {
+    else if (HLNodeUtils::isKnownPositiveOrNegative(IVIndex, ImmedParent,
+                                                    BlobVal)) {
       CalculatedWeight = IVConstCoeff * BlobVal;
     }
     // Error: IVExpr without known sign, abort collection!
