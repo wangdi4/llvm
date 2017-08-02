@@ -9,24 +9,17 @@
 
 #include "lldb/Core/Scalar.h"
 
-// C Includes
-// C++ Includes
-#include <cinttypes>
-#include <cmath>
-#include <cstdio>
+#include "lldb/Host/StringConvert.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Status.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/lldb-types.h" // for offset_t
 
-// Other libraries and framework includes
 #include "llvm/ADT/SmallString.h"
 
-// Project includes
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Host/Endian.h"
-#include "lldb/Host/StringConvert.h"
-#include "lldb/Interpreter/Args.h"
-
-#include "Plugins/Process/Utility/InstructionUtils.h"
+#include <cinttypes>
+#include <cstdio>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -403,11 +396,11 @@ Scalar &Scalar::operator=(long double v) {
   m_type = e_long_double;
   if (m_ieee_quad)
     m_float = llvm::APFloat(
-        llvm::APFloat::IEEEquad,
+        llvm::APFloat::IEEEquad(),
         llvm::APInt(BITWIDTH_INT128, NUM_OF_WORDS_INT128, ((type128 *)&v)->x));
   else
     m_float = llvm::APFloat(
-        llvm::APFloat::x87DoubleExtended,
+        llvm::APFloat::x87DoubleExtended(),
         llvm::APInt(BITWIDTH_INT128, NUM_OF_WORDS_INT128, ((type128 *)&v)->x));
   return *this;
 }
@@ -509,9 +502,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -569,9 +562,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -625,9 +618,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -677,9 +670,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -725,9 +718,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -769,9 +762,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -813,9 +806,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -853,9 +846,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -893,9 +886,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -929,9 +922,9 @@ bool Scalar::Promote(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -962,9 +955,9 @@ bool Scalar::Promote(Scalar::Type type) {
     case e_long_double:
       if (m_ieee_quad)
         m_float =
-            llvm::APFloat(llvm::APFloat::IEEEquad, m_float.bitcastToAPInt());
+            llvm::APFloat(llvm::APFloat::IEEEquad(), m_float.bitcastToAPInt());
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                                 m_float.bitcastToAPInt());
       success = true;
       break;
@@ -992,9 +985,9 @@ bool Scalar::Promote(Scalar::Type type) {
     case e_long_double:
       if (m_ieee_quad)
         m_float =
-            llvm::APFloat(llvm::APFloat::IEEEquad, m_float.bitcastToAPInt());
+            llvm::APFloat(llvm::APFloat::IEEEquad(), m_float.bitcastToAPInt());
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                                 m_float.bitcastToAPInt());
       success = true;
       break;
@@ -1176,9 +1169,9 @@ bool Scalar::Cast(Scalar::Type type) {
 
     case e_long_double:
       if (m_ieee_quad)
-        m_float = llvm::APFloat(llvm::APFloat::IEEEquad, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::IEEEquad(), m_integer);
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended, m_integer);
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(), m_integer);
       success = true;
       break;
     }
@@ -1212,9 +1205,9 @@ bool Scalar::Cast(Scalar::Type type) {
     case e_long_double:
       if (m_ieee_quad)
         m_float =
-            llvm::APFloat(llvm::APFloat::IEEEquad, m_float.bitcastToAPInt());
+            llvm::APFloat(llvm::APFloat::IEEEquad(), m_float.bitcastToAPInt());
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                                 m_float.bitcastToAPInt());
       success = true;
       break;
@@ -1249,9 +1242,9 @@ bool Scalar::Cast(Scalar::Type type) {
     case e_long_double:
       if (m_ieee_quad)
         m_float =
-            llvm::APFloat(llvm::APFloat::IEEEquad, m_float.bitcastToAPInt());
+            llvm::APFloat(llvm::APFloat::IEEEquad(), m_float.bitcastToAPInt());
       else
-        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+        m_float = llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                                 m_float.bitcastToAPInt());
       success = true;
       break;
@@ -2467,9 +2460,9 @@ const Scalar lldb_private::operator>>(const Scalar &lhs, const Scalar &rhs) {
   return result;
 }
 
-Error Scalar::SetValueFromCString(const char *value_str, Encoding encoding,
-                                  size_t byte_size) {
-  Error error;
+Status Scalar::SetValueFromCString(const char *value_str, Encoding encoding,
+                                   size_t byte_size) {
+  Status error;
   if (value_str == nullptr || value_str[0] == '\0') {
     error.SetErrorString("Invalid c-string value string.");
     return error;
@@ -2579,7 +2572,7 @@ Error Scalar::SetValueFromCString(const char *value_str, Encoding encoding,
     } else if (byte_size == sizeof(long double)) {
       if (::sscanf(value_str, "%Lf", &l_val) == 1) {
         m_float =
-            llvm::APFloat(llvm::APFloat::x87DoubleExtended,
+            llvm::APFloat(llvm::APFloat::x87DoubleExtended(),
                           llvm::APInt(BITWIDTH_INT128, NUM_OF_WORDS_INT128,
                                       ((type128 *)&l_val)->x));
         m_type = e_long_double;
@@ -2603,9 +2596,9 @@ Error Scalar::SetValueFromCString(const char *value_str, Encoding encoding,
   return error;
 }
 
-Error Scalar::SetValueFromData(DataExtractor &data, lldb::Encoding encoding,
-                               size_t byte_size) {
-  Error error;
+Status Scalar::SetValueFromData(DataExtractor &data, lldb::Encoding encoding,
+                                size_t byte_size) {
+  Status error;
 
   type128 int128;
   type256 int256;
@@ -2752,7 +2745,7 @@ bool Scalar::SignExtend(uint32_t sign_bit_pos) {
       if (max_bit_pos == sign_bit_pos)
         return true;
       else if (sign_bit_pos < (max_bit_pos - 1)) {
-        llvm::APInt sign_bit = llvm::APInt::getSignBit(sign_bit_pos + 1);
+        llvm::APInt sign_bit = llvm::APInt::getSignMask(sign_bit_pos + 1);
         llvm::APInt bitwize_and = m_integer & sign_bit;
         if (bitwize_and.getBoolValue()) {
           const llvm::APInt mask =
@@ -2769,7 +2762,7 @@ bool Scalar::SignExtend(uint32_t sign_bit_pos) {
 
 size_t Scalar::GetAsMemoryData(void *dst, size_t dst_len,
                                lldb::ByteOrder dst_byte_order,
-                               Error &error) const {
+                               Status &error) const {
   // Get a data extractor that points to the native scalar data
   DataExtractor data;
   if (!GetData(data)) {

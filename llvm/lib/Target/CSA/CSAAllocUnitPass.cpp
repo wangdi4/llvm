@@ -35,6 +35,16 @@ AllocUnitPass("csa-alloc-unit", cl::Hidden,
 		   cl::desc("CSA Specific: Unit allocation pass"),
 		   cl::init(1));
 
+static cl::opt<bool>
+UseAutounit(
+  "csa-use-autounit",
+  cl::desc(
+    "CSA Specific: Let the assembler assign units for non-sequential operations"
+    " automatically"
+  ),
+  cl::init(true)
+);
+
 #define DEBUG_TYPE "csa-unit-alloc"
 
 namespace {
@@ -128,41 +138,65 @@ bool CSAAllocUnitPass::runOnMachineFunction(MachineFunction &MF) {
       MachineInstr *MI=&*I;
       //DEBUG(errs() << *I << "\n");
 
-      // If this operation has the NonSequential flag set, allocate a UNIT
-      // pseudo-op based on the instruction's preferred functional unit kind.
-      // (Is the BuildMI right?  The only operand to UNIT is the literal
-      // for the unit.  The doc describes it only as the target register.
-      // But, UNIT doesn't have a target register...)
-      // TODO: Need to query the scheduler tables (Inst Itinerary) to find
-      // the functional unit that should be used for MI.
-      // TODO?: Should the UNIT and op cells be placed in an instruction
-      // bundle?
-      if (MI->getFlag(MachineInstr::NonSequential)) {
-        // Get the scheduling class (II - InstructionItinerary) value from the
-        // instr type.  Then lookup the class based on the type.  This could be
-        // moved to a separate function and made more sophisticated.  (e.g.
-        // should shift[/add] be on a shift unit when the shift amount is
-        // non-const and >3, but on an ALU otherwise?)
-        unsigned schedClass = MI->getDesc().getSchedClass();
-        unsigned unit = IIToFU[schedClass];
+      if (UseAutounit) {
 
-
-        if (schedClass == 0) {
-          // Print a warning message for instructions with unknown
-          // schedule class.
-          DEBUG(errs() << "WARNING: Encountered machine instruction " <<
-                *MI << " with unknown schedule class. Assigning to virtual unit.\n");
+        // With UseAutounit, all non-sequential instructions should use
+        // CSA::FUNCUNIT::Auto to have their units assigned automatically by the
+        // assembler. Sequential instructions should still use CSA::FUNCUNIT::SXU.
+        if (MI->getFlag(MachineInstr::NonSequential)) {
+          if (isSequential) {
+            BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT))
+              .addImm(CSA::FUNCUNIT::Auto);
+            isSequential = false;
+          }
+        } else {
+          if (!isSequential) {
+            BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT))
+              .addImm(CSA::FUNCUNIT::SXU);
+            isSequential = true;
+          }
         }
 
-        DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass <<
-              " maps to unit " << unit << "\n");
-        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
-          addImm(unit);
-        isSequential = (unit == CSA::FUNCUNIT::SXU);
-      } else if (!isSequential) {
-        BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
-          addImm(CSA::FUNCUNIT::SXU);
-        isSequential = true;
+      } else {
+
+        // Without UseAutounit, non-sequential operations should still have their
+        // specific units assigned here.
+
+        // If this operation has the NonSequential flag set, allocate a UNIT
+        // pseudo-op based on the instruction's preferred functional unit kind.
+        // (Is the BuildMI right?  The only operand to UNIT is the literal
+        // for the unit.  The doc describes it only as the target register.
+        // But, UNIT doesn't have a target register...)
+        // TODO: Need to query the scheduler tables (Inst Itinerary) to find
+        // the functional unit that should be used for MI.
+        // TODO?: Should the UNIT and op cells be placed in an instruction
+        // bundle?
+        if (MI->getFlag(MachineInstr::NonSequential)) {
+          // Get the scheduling class (II - InstructionItinerary) value from the
+          // instr type.  Then lookup the class based on the type.  This could be
+          // moved to a separate function and made more sophisticated.  (e.g.
+          // should shift[/add] be on a shift unit when the shift amount is
+          // non-const and >3, but on an ALU otherwise?)
+          unsigned schedClass = MI->getDesc().getSchedClass();
+          unsigned unit = IIToFU[schedClass];
+
+          if (schedClass == 0) {
+            // Print a warning message for instructions with unknown
+            // schedule class.
+            DEBUG(errs() << "WARNING: Encountered machine instruction " <<
+                  *MI << " with unknown schedule class. Assigning to virtual unit.\n");
+          }
+
+          DEBUG(errs() << "MI " << *MI << ": schedClass " << schedClass <<
+                " maps to unit " << unit << "\n");
+          BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
+            addImm(unit);
+          isSequential = (unit == CSA::FUNCUNIT::SXU);
+        } else if (!isSequential) {
+          BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(CSA::UNIT)).
+            addImm(CSA::FUNCUNIT::SXU);
+          isSequential = true;
+        }
       }
 
     }

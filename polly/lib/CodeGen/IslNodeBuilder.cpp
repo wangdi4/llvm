@@ -18,10 +18,12 @@
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/IslExprBuilder.h"
 #include "polly/CodeGen/LoopGenerators.h"
+#include "polly/CodeGen/RuntimeDebugBuilder.h"
 #include "polly/CodeGen/Utils.h"
 #include "polly/Config/config.h"
 #include "polly/DependenceInfo.h"
 #include "polly/LinkAllPasses.h"
+#include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
 #include "polly/Support/SCEVValidator.h"
@@ -29,7 +31,6 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -48,11 +49,34 @@
 using namespace polly;
 using namespace llvm;
 
+#define DEBUG_TYPE "polly-codegen"
+
+STATISTIC(VersionedScops, "Number of SCoPs that required versioning.");
+
 // The maximal number of dimensions we allow during invariant load construction.
 // More complex access ranges will result in very high compile time and are also
 // unlikely to result in good code. This value is very high and should only
 // trigger for corner cases (e.g., the "dct_luma" function in h264, SPEC2006).
 static int const MaxDimensionsInAccessRange = 9;
+
+static cl::opt<bool> PollyGenerateRTCPrint(
+    "polly-codegen-emit-rtc-print",
+    cl::desc("Emit code that prints the runtime check result dynamically."),
+    cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+// If this option is set we always use the isl AST generator to regenerate
+// memory accesses. Without this option set we regenerate expressions using the
+// original SCEV expressions and only generate new expressions in case the
+// access relation has been changed and consequently must be regenerated.
+static cl::opt<bool> PollyGenerateExpressions(
+    "polly-codegen-generate-expressions",
+    cl::desc("Generate AST expressions for unmodified and modified accesses"),
+    cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
+    "polly-target-first-level-cache-line-size",
+    cl::desc("The size of the first level cache line size specified in bytes."),
+    cl::Hidden, cl::init(64), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 __isl_give isl_ast_expr *
 IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
@@ -77,7 +101,7 @@ IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
     Predicate = ICmpInst::ICMP_SLT;
     break;
   default:
-    llvm_unreachable("Unexpected comparision type in loop conditon");
+    llvm_unreachable("Unexpected comparison type in loop condition");
   }
 
   Arg0 = isl_ast_expr_get_op_arg(Cond, 0);
@@ -183,8 +207,7 @@ static int findReferencesInBlock(struct SubtreeReferences &References,
   for (const Instruction &Inst : *BB)
     for (Value *SrcVal : Inst.operands()) {
       auto *Scope = References.LI.getLoopFor(BB);
-      if (canSynthesize(SrcVal, References.S, &References.LI, &References.SE,
-                        Scope)) {
+      if (canSynthesize(SrcVal, References.S, &References.SE, Scope)) {
         References.SCEVs.insert(References.SE.getSCEVAtScope(SrcVal, Scope));
         continue;
       } else if (Value *NewVal = References.GlobalMap.lookup(SrcVal))
@@ -299,6 +322,22 @@ void IslNodeBuilder::getReferencesInSubtree(__isl_keep isl_ast_node *For,
   Loops.remove_if([this](const Loop *L) {
     return S.contains(L) || L->contains(S.getEntry());
   });
+
+  // Contains Values that may need to be replaced with other values
+  // due to replacements from the ValueMap. We should make sure
+  // that we return correctly remapped values.
+  // NOTE: this code path is tested by:
+  //     1.  test/Isl/CodeGen/OpenMP/single_loop_with_loop_invariant_baseptr.ll
+  //     2.  test/Isl/CodeGen/OpenMP/loop-body-references-outer-values-3.ll
+  SetVector<Value *> ReplacedValues;
+  for (Value *V : Values) {
+    auto It = ValueMap.find(V);
+    if (It == ValueMap.end())
+      ReplacedValues.insert(V);
+    else
+      ReplacedValues.insert(It->second);
+  }
+  Values = ReplacedValues;
 }
 
 void IslNodeBuilder::updateValues(ValueMapT &NewValues) {
@@ -357,6 +396,10 @@ void IslNodeBuilder::createMark(__isl_take isl_ast_node *Node) {
       createForSequential(Child, true);
     isl_id_free(Id);
     return;
+  }
+  if (!strcmp(isl_id_get_name(Id), "Inter iteration alias-free")) {
+    auto *BasePtr = static_cast<Value *>(isl_id_get_user(Id));
+    Annotator.addInterIterationAliasFreeBasePtr(BasePtr);
   }
   create(Child);
   isl_id_free(Id);
@@ -471,7 +514,7 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
   // omit the GuardBB in front of the loop.
   bool UseGuardBB =
       !SE.isKnownPredicate(Predicate, SE.getSCEV(ValueLB), SE.getSCEV(ValueUB));
-  IV = createLoop(ValueLB, ValueUB, ValueInc, Builder, P, LI, DT, ExitBlock,
+  IV = createLoop(ValueLB, ValueUB, ValueInc, Builder, LI, DT, ExitBlock,
                   Predicate, &Annotator, Parallel, UseGuardBB);
   IDToValue[IteratorID] = IV;
 
@@ -561,7 +604,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   ValueInc = ExprBuilder.create(Inc);
 
   // OpenMP always uses SLE. In case the isl generated AST uses a SLT
-  // expression, we need to adjust the loop blound by one.
+  // expression, we need to adjust the loop bound by one.
   if (Predicate == CmpInst::ICMP_SLT)
     ValueUB = Builder.CreateAdd(
         ValueUB, Builder.CreateSExt(Builder.getTrue(), ValueUB->getType()));
@@ -598,7 +641,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   }
 
   ValueMapT NewValues;
-  ParallelLoopGenerator ParallelLoopGen(Builder, P, LI, DT, DL);
+  ParallelLoopGenerator ParallelLoopGen(Builder, LI, DT, DL);
 
   IV = ParallelLoopGen.createParallelLoop(ValueLB, ValueUB, ValueInc,
                                           SubtreeValues, NewValues, &LoopBody);
@@ -640,13 +683,40 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   isl_id_free(IteratorID);
 }
 
+/// Return whether any of @p Node's statements contain partial accesses.
+///
+/// Partial accesses are not supported by Polly's vector code generator.
+static bool hasPartialAccesses(__isl_take isl_ast_node *Node) {
+  return isl_ast_node_foreach_descendant_top_down(
+             Node,
+             [](isl_ast_node *Node, void *User) -> isl_bool {
+               if (isl_ast_node_get_type(Node) != isl_ast_node_user)
+                 return isl_bool_true;
+
+               isl::ast_expr Expr = give(isl_ast_node_user_get_expr(Node));
+               isl::ast_expr StmtExpr =
+                   give(isl_ast_expr_get_op_arg(Expr.keep(), 0));
+               isl::id Id = give(isl_ast_expr_get_id(StmtExpr.keep()));
+
+               ScopStmt *Stmt =
+                   static_cast<ScopStmt *>(isl_id_get_user(Id.keep()));
+               isl::set StmtDom = give(Stmt->getDomain());
+               for (auto *MA : *Stmt) {
+                 if (MA->isLatestPartialAccess())
+                   return isl_bool_error;
+               }
+               return isl_bool_true;
+             },
+             nullptr) == isl_stat_error;
+}
+
 void IslNodeBuilder::createFor(__isl_take isl_ast_node *For) {
   bool Vector = PollyVectorizerChoice == VECTORIZER_POLLY;
 
   if (Vector && IslAstInfo::isInnermostParallel(For) &&
       !IslAstInfo::isReductionParallel(For)) {
     int VectorWidth = getNumberOfIterations(For);
-    if (1 < VectorWidth && VectorWidth <= 16) {
+    if (1 < VectorWidth && VectorWidth <= 16 && !hasPartialAccesses(For)) {
       createForVector(For, VectorWidth);
       return;
     }
@@ -717,32 +787,54 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
   Stmt->setAstBuild(Build);
 
   for (auto *MA : *Stmt) {
-    if (!MA->hasNewAccessRelation())
-      continue;
+    if (!MA->hasNewAccessRelation()) {
+      if (PollyGenerateExpressions) {
+        if (!MA->isAffine())
+          continue;
+        if (MA->getLatestScopArrayInfo()->getBasePtrOriginSAI())
+          continue;
 
-    assert(!MA->getLatestScopArrayInfo()->getBasePtrOriginSAI() &&
-           "Generating new index expressions to indirect arrays not working");
+        auto *BasePtr =
+            dyn_cast<Instruction>(MA->getLatestScopArrayInfo()->getBasePtr());
+        if (BasePtr && Stmt->getParent()->getRegion().contains(BasePtr))
+          continue;
+      } else {
+        continue;
+      }
+    }
+    assert(MA->isAffine() &&
+           "Only affine memory accesses can be code generated");
 
     auto Schedule = isl_ast_build_get_schedule(Build);
 
 #ifndef NDEBUG
-    auto Dom = Stmt->getDomain();
-    auto SchedDom = isl_set_from_union_set(
-        isl_union_map_domain(isl_union_map_copy(Schedule)));
-    auto AccDom = isl_map_domain(MA->getAccessRelation());
-    Dom = isl_set_intersect_params(Dom, Stmt->getParent()->getContext());
-    SchedDom =
-        isl_set_intersect_params(SchedDom, Stmt->getParent()->getContext());
-    assert(isl_set_is_subset(SchedDom, AccDom) &&
-           "Access relation not defined on full schedule domain");
-    assert(isl_set_is_subset(Dom, AccDom) &&
-           "Access relation not defined on full domain");
-    isl_set_free(AccDom);
-    isl_set_free(SchedDom);
-    isl_set_free(Dom);
+    if (MA->isRead()) {
+      auto Dom = Stmt->getDomain();
+      auto SchedDom = isl_set_from_union_set(
+          isl_union_map_domain(isl_union_map_copy(Schedule)));
+      auto AccDom = isl_map_domain(MA->getAccessRelation());
+      Dom = isl_set_intersect_params(Dom, Stmt->getParent()->getContext());
+      SchedDom =
+          isl_set_intersect_params(SchedDom, Stmt->getParent()->getContext());
+      assert(isl_set_is_subset(SchedDom, AccDom) &&
+             "Access relation not defined on full schedule domain");
+      assert(isl_set_is_subset(Dom, AccDom) &&
+             "Access relation not defined on full domain");
+      isl_set_free(AccDom);
+      isl_set_free(SchedDom);
+      isl_set_free(Dom);
+    }
 #endif
 
     auto PWAccRel = MA->applyScheduleToAccessRelation(Schedule);
+
+    // isl cannot generate an index expression for access-nothing accesses.
+    isl::set AccDomain =
+        give(isl_pw_multi_aff_domain(isl_pw_multi_aff_copy(PWAccRel)));
+    if (isl_set_is_empty(AccDomain.keep()) == isl_bool_true) {
+      isl_pw_multi_aff_free(PWAccRel);
+      continue;
+    }
 
     auto AccessExpr = isl_ast_build_access_from_pw_multi_aff(Build, PWAccRel);
     NewAccesses = isl_id_to_ast_expr_set(NewAccesses, MA->getId(), AccessExpr);
@@ -756,7 +848,7 @@ void IslNodeBuilder::createSubstitutions(__isl_take isl_ast_expr *Expr,
   assert(isl_ast_expr_get_type(Expr) == isl_ast_expr_op &&
          "Expression of type 'op' expected");
   assert(isl_ast_expr_get_op_type(Expr) == isl_ast_op_call &&
-         "Opertation of type 'call' expected");
+         "Operation of type 'call' expected");
   for (int i = 0; i < isl_ast_expr_get_op_n_arg(Expr) - 1; ++i) {
     isl_ast_expr *SubExpr;
     Value *V;
@@ -876,9 +968,9 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
     auto *ParamSCEV = (const SCEV *)isl_id_get_user(Id);
     Value *V = nullptr;
 
-    // Parameters could refere to invariant loads that need to be
+    // Parameters could refer to invariant loads that need to be
     // preloaded before we can generate code for the parameter. Thus,
-    // check if any value refered to in ParamSCEV is an invariant load
+    // check if any value referred to in ParamSCEV is an invariant load
     // and if so make sure its equivalence class is preloaded.
     SetVector<Value *> Values;
     findValues(ParamSCEV, SE, Values);
@@ -896,9 +988,8 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
           // there is a statement or the domain is not empty Inst is not dead.
           auto MemInst = MemAccInst::dyn_cast(Inst);
           auto Address = MemInst ? MemInst.getPointerOperand() : nullptr;
-          if (Address &&
-              SE.getUnknown(UndefValue::get(Address->getType())) ==
-                  SE.getPointerBase(SE.getSCEV(Address))) {
+          if (Address && SE.getUnknown(UndefValue::get(Address->getType())) ==
+                             SE.getPointerBase(SE.getSCEV(Address))) {
           } else if (S.getStmtFor(Inst)) {
             IsDead = false;
           } else {
@@ -937,13 +1028,108 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
   return true;
 }
 
-bool IslNodeBuilder::materializeParameters(isl_set *Set, bool All) {
+bool IslNodeBuilder::materializeParameters(isl_set *Set) {
   for (unsigned i = 0, e = isl_set_dim(Set, isl_dim_param); i < e; ++i) {
-    if (!All && !isl_set_involves_dims(Set, isl_dim_param, i, 1))
+    if (!isl_set_involves_dims(Set, isl_dim_param, i, 1))
       continue;
     isl_id *Id = isl_set_get_dim_id(Set, isl_dim_param, i);
     if (!materializeValue(Id))
       return false;
+  }
+  return true;
+}
+
+bool IslNodeBuilder::materializeParameters() {
+  for (const SCEV *Param : S.parameters()) {
+    isl_id *Id = S.getIdForParam(Param);
+    if (!materializeValue(Id))
+      return false;
+  }
+  return true;
+}
+
+/// Generate the computation of the size of the outermost dimension from the
+/// Fortran array descriptor (in this case, `@g_arr`). The final `%size`
+/// contains the size of the array.
+///
+/// %arrty = type { i8*, i64, i64, [3 x %desc.dimensionty] }
+/// %desc.dimensionty = type { i64, i64, i64 }
+/// @g_arr = global %arrty zeroinitializer, align 32
+/// ...
+/// %0 = load i64, i64* getelementptr inbounds
+///                       (%arrty, %arrty* @g_arr, i64 0, i32 3, i64 0, i32 2)
+/// %1 = load i64, i64* getelementptr inbounds
+///                      (%arrty, %arrty* @g_arr, i64 0, i32 3, i64 0, i32 1)
+/// %2 = sub nsw i64 %0, %1
+/// %size = add nsw i64 %2, 1
+static Value *buildFADOutermostDimensionLoad(Value *GlobalDescriptor,
+                                             PollyIRBuilder &Builder,
+                                             std::string ArrayName) {
+  assert(GlobalDescriptor && "invalid global descriptor given");
+
+  Value *endIdx[4] = {Builder.getInt64(0), Builder.getInt32(3),
+                      Builder.getInt64(0), Builder.getInt32(2)};
+  Value *endPtr = Builder.CreateInBoundsGEP(GlobalDescriptor, endIdx,
+                                            ArrayName + "_end_ptr");
+  Value *end = Builder.CreateLoad(endPtr, ArrayName + "_end");
+
+  Value *beginIdx[4] = {Builder.getInt64(0), Builder.getInt32(3),
+                        Builder.getInt64(0), Builder.getInt32(1)};
+  Value *beginPtr = Builder.CreateInBoundsGEP(GlobalDescriptor, beginIdx,
+                                              ArrayName + "_begin_ptr");
+  Value *begin = Builder.CreateLoad(beginPtr, ArrayName + "_begin");
+
+  Value *size =
+      Builder.CreateNSWSub(end, begin, ArrayName + "_end_begin_delta");
+  Type *endType = dyn_cast<IntegerType>(end->getType());
+  assert(endType && "expected type of end to be integral");
+
+  size = Builder.CreateNSWAdd(end,
+                              ConstantInt::get(endType, 1, /* signed = */ true),
+                              ArrayName + "_size");
+
+  return size;
+}
+
+bool IslNodeBuilder::materializeFortranArrayOutermostDimension() {
+  for (const ScopStmt &Stmt : S) {
+    for (const MemoryAccess *Access : Stmt) {
+      if (!Access->isArrayKind())
+        continue;
+
+      const ScopArrayInfo *Array = Access->getScopArrayInfo();
+      if (!Array)
+        continue;
+
+      if (Array->getNumberOfDimensions() == 0)
+        continue;
+
+      Value *FAD = Access->getFortranArrayDescriptor();
+      if (!FAD)
+        continue;
+
+      isl_pw_aff *ParametricPwAff = Array->getDimensionSizePw(0);
+      assert(ParametricPwAff && "parametric pw_aff corresponding "
+                                "to outermost dimension does not "
+                                "exist");
+
+      isl_id *Id = isl_pw_aff_get_dim_id(ParametricPwAff, isl_dim_param, 0);
+      isl_pw_aff_free(ParametricPwAff);
+
+      assert(Id && "pw_aff is not parametric");
+
+      if (IDToValue.count(Id)) {
+        isl_id_free(Id);
+        continue;
+      }
+
+      Value *FinalValue =
+          buildFADOutermostDimensionLoad(FAD, Builder, Array->getName());
+      assert(FinalValue && "unable to build Fortran array "
+                           "descriptor load of outermost dimension");
+      IDToValue[Id] = FinalValue;
+      isl_id_free(Id);
+    }
   }
   return true;
 }
@@ -981,7 +1167,8 @@ Value *IslNodeBuilder::preloadUnconditionally(isl_set *AccessRange,
 
   auto *Ptr = AddressValue;
   auto Name = Ptr->getName();
-  Ptr = Builder.CreatePointerCast(Ptr, Ty->getPointerTo(), Name + ".cast");
+  auto AS = Ptr->getType()->getPointerAddressSpace();
+  Ptr = Builder.CreatePointerCast(Ptr, Ty->getPointerTo(AS), Name + ".cast");
   PreloadVal = Builder.CreateLoad(Ptr, Name + ".load");
   if (LoadInst *PreloadInst = dyn_cast<LoadInst>(PreloadVal))
     PreloadInst->setAlignment(dyn_cast<LoadInst>(AccInst)->getAlignment());
@@ -1000,7 +1187,7 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
   isl_set *AccessRange = isl_map_range(MA.getAddressFunction());
   AccessRange = isl_set_gist_params(AccessRange, S.getContext());
 
-  if (!materializeParameters(AccessRange, false)) {
+  if (!materializeParameters(AccessRange)) {
     isl_set_free(AccessRange);
     isl_set_free(Domain);
     return nullptr;
@@ -1022,7 +1209,7 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
     return PreloadVal;
   }
 
-  if (!materializeParameters(Domain, false)) {
+  if (!materializeParameters(Domain)) {
     isl_ast_build_free(Build);
     isl_set_free(AccessRange);
     isl_set_free(Domain);
@@ -1165,9 +1352,13 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   }
 
   BasicBlock *EntryBB = &Builder.GetInsertBlock()->getParent()->getEntryBlock();
-  auto *Alloca = new AllocaInst(AccInstTy, AccInst->getName() + ".preload.s2a");
+  auto *Alloca = new AllocaInst(AccInstTy, DL.getAllocaAddrSpace(),
+                                AccInst->getName() + ".preload.s2a");
   Alloca->insertBefore(&*EntryBB->getFirstInsertionPt());
   Builder.CreateStore(PreloadVal, Alloca);
+  ValueMapT PreloadedPointer;
+  PreloadedPointer[PreloadVal] = AccInst;
+  Annotator.addAlternativeAliasBases(PreloadedPointer);
 
   for (auto *DerivedSAI : SAI->getDerivedSAIs()) {
     Value *BasePtr = DerivedSAI->getBasePtr();
@@ -1177,18 +1368,14 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
       // current SAI could be the base pointer of the derived SAI, however we
       // should only change the base pointer of the derived SAI if we actually
       // preloaded it.
-      if (BasePtr == MA->getBaseAddr()) {
+      if (BasePtr == MA->getOriginalBaseAddr()) {
         assert(BasePtr->getType() == PreloadVal->getType());
         DerivedSAI->setBasePtr(PreloadVal);
       }
 
       // For scalar derived SAIs we remap the alloca used for the derived value.
-      if (BasePtr == MA->getAccessInstruction()) {
-        if (DerivedSAI->isPHIKind())
-          PHIOpMap[BasePtr] = Alloca;
-        else
-          ScalarMap[BasePtr] = Alloca;
-      }
+      if (BasePtr == MA->getAccessInstruction())
+        ScalarMap[DerivedSAI] = Alloca;
     }
   }
 
@@ -1212,7 +1399,7 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   return true;
 }
 
-void IslNodeBuilder::allocateNewArrays() {
+void IslNodeBuilder::allocateNewArrays(BBPair StartExitBlocks) {
   for (auto &SAI : S.arrays()) {
     if (SAI->getBasePtr())
       continue;
@@ -1222,6 +1409,9 @@ void IslNodeBuilder::allocateNewArrays() {
            "created arrays that require memory allocation.");
 
     Type *NewArrayType = nullptr;
+
+    // Get the size of the array = size(dim_1)*...*size(dim_n)
+    uint64_t ArraySizeInt = 1;
     for (int i = SAI->getNumberOfDimensions() - 1; i >= 0; i--) {
       auto *DimSize = SAI->getDimensionSize(i);
       unsigned UnsignedDimSize = static_cast<const SCEVConstant *>(DimSize)
@@ -1232,13 +1422,43 @@ void IslNodeBuilder::allocateNewArrays() {
         NewArrayType = SAI->getElementType();
 
       NewArrayType = ArrayType::get(NewArrayType, UnsignedDimSize);
+      ArraySizeInt *= UnsignedDimSize;
     }
 
-    auto InstIt =
-        Builder.GetInsertBlock()->getParent()->getEntryBlock().getTerminator();
-    Value *CreatedArray =
-        new AllocaInst(NewArrayType, SAI->getName(), &*InstIt);
-    SAI->setBasePtr(CreatedArray);
+    if (SAI->isOnHeap()) {
+      LLVMContext &Ctx = NewArrayType->getContext();
+
+      // Get the IntPtrTy from the Datalayout
+      auto IntPtrTy = DL.getIntPtrType(Ctx);
+
+      // Get the size of the element type in bits
+      unsigned Size = SAI->getElemSizeInBytes();
+
+      // Insert the malloc call at polly.start
+      auto InstIt = std::get<0>(StartExitBlocks)->getTerminator();
+      auto *CreatedArray = CallInst::CreateMalloc(
+          &*InstIt, IntPtrTy, SAI->getElementType(),
+          ConstantInt::get(Type::getInt64Ty(Ctx), Size),
+          ConstantInt::get(Type::getInt64Ty(Ctx), ArraySizeInt), nullptr,
+          SAI->getName());
+
+      SAI->setBasePtr(CreatedArray);
+
+      // Insert the free call at polly.exiting
+      CallInst::CreateFree(CreatedArray,
+                           std::get<1>(StartExitBlocks)->getTerminator());
+
+    } else {
+      auto InstIt = Builder.GetInsertBlock()
+                        ->getParent()
+                        ->getEntryBlock()
+                        .getTerminator();
+
+      auto *CreatedArray = new AllocaInst(NewArrayType, DL.getAllocaAddrSpace(),
+                                          SAI->getName(), &*InstIt);
+      CreatedArray->setAlignment(PollyTargetFirstLevelCacheLineSize);
+      SAI->setBasePtr(CreatedArray);
+    }
   }
 }
 
@@ -1261,9 +1481,14 @@ bool IslNodeBuilder::preloadInvariantLoads() {
 }
 
 void IslNodeBuilder::addParameters(__isl_take isl_set *Context) {
-
   // Materialize values for the parameters of the SCoP.
-  materializeParameters(Context, /* all */ true);
+  materializeParameters();
+
+  // materialize the outermost dimension parameters for a Fortran array.
+  // NOTE: materializeParameters() does not work since it looks through
+  // the SCEVs. We don't have a corresponding SCEV for the array size
+  // parameter
+  materializeFortranArrayOutermostDimension();
 
   // Generate values for the current loop iteration for all surrounding loops.
   //
@@ -1311,7 +1536,7 @@ Value *IslNodeBuilder::generateSCEV(const SCEV *Expr) {
 /// The AST expression we generate to perform the run-time check assumes
 /// computations on integer types of infinite size. As we only use 64-bit
 /// arithmetic we check for overflows, in case of which we set the result
-/// of this run-time check to false to be cosnservatively correct,
+/// of this run-time check to false to be conservatively correct,
 Value *IslNodeBuilder::createRTC(isl_ast_expr *Condition) {
   auto ExprBuilder = getExprBuilder();
   ExprBuilder.setTrackOverflow(true);
@@ -1320,7 +1545,21 @@ Value *IslNodeBuilder::createRTC(isl_ast_expr *Condition) {
     RTC = Builder.CreateIsNotNull(RTC);
   Value *OverflowHappened =
       Builder.CreateNot(ExprBuilder.getOverflowState(), "polly.rtc.overflown");
+
+  if (PollyGenerateRTCPrint) {
+    auto *F = Builder.GetInsertBlock()->getParent();
+    RuntimeDebugBuilder::createCPUPrinter(
+        Builder,
+        "F: " + F->getName().str() + " R: " + S.getRegion().getNameStr() +
+            " __RTC: ",
+        RTC, " Overflow: ", OverflowHappened, "\n");
+  }
+
   RTC = Builder.CreateAnd(RTC, OverflowHappened, "polly.rtc.result");
   ExprBuilder.setTrackOverflow(false);
+
+  if (!isa<ConstantInt>(RTC))
+    VersionedScops++;
+
   return RTC;
 }

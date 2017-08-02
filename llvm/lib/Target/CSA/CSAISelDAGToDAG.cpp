@@ -101,7 +101,7 @@ bool CSADAGToDAGISel::SelectRegImm(SDValue Opnd,
     APFloat apf = f->getValueAPF();
     bool ignored;
     if (f->getType() == Type::getFloatTy(f->getContext()))
-      apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
+      apf.convert(APFloat::IEEEdouble(), APFloat::rmNearestTiesToEven, &ignored);
     double d = apf.convertToDouble();
     if (f->getType()->getTypeID() == Type::FloatTyID) {
       // Result = CurDAG->getTargetConstantFP(f, dl, EVT(MVT::f32)); ?
@@ -258,16 +258,11 @@ void CSADAGToDAGISel::Select(SDNode *Node) {
   }
 
   // Select the default instruction
-  SDNode *ResNode = SelectCode(Node);
+  SelectCode(Node);
 
   DEBUG(errs() << "=> ");
-  if (ResNode == nullptr || ResNode == Node)
-    DEBUG(Node->dump(CurDAG));
-  else
-    DEBUG(ResNode->dump(CurDAG));
+  DEBUG(Node->dump(CurDAG));
   DEBUG(errs() << "\n");
 
-  if (ResNode)
-    ReplaceNode(Node, ResNode);
   return;
 }

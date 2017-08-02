@@ -12,9 +12,9 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssembly.h"
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssemblyTargetMachine.h"
+#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
+#include "WebAssembly.h"
 #include "WebAssemblyTargetObjectFile.h"
 #include "WebAssemblyTargetTransformInfo.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
@@ -39,11 +39,6 @@ static cl::opt<bool> EnableEmException(
 static cl::opt<bool> EnableEmSjLj(
     "enable-emscripten-sjlj",
     cl::desc("WebAssembly Emscripten-style setjmp/longjmp handling"),
-    cl::init(false));
-
-static cl::opt<bool> ExplicitLocals(
-    "wasm-explicit-locals",
-    cl::desc("WebAssembly with explicit get_local/set_local"),
     cl::init(false));
 
 extern "C" void LLVMInitializeWebAssemblyTarget() {
@@ -79,12 +74,24 @@ WebAssemblyTargetMachine::WebAssemblyTargetMachine(
                                          : "e-m:e-p:32:32-i64:64-n32:64-S128",
                         TT, CPU, FS, Options, getEffectiveRelocModel(RM),
                         CM, OL),
-      TLOF(make_unique<WebAssemblyTargetObjectFile>()) {
+      TLOF(TT.isOSBinFormatELF() ?
+              static_cast<TargetLoweringObjectFile*>(
+                  new WebAssemblyTargetObjectFileELF()) :
+              static_cast<TargetLoweringObjectFile*>(
+                  new WebAssemblyTargetObjectFile())) {
   // WebAssembly type-checks instructions, but a noreturn function with a return
   // type that doesn't match the context will cause a check failure. So we lower
   // LLVM 'unreachable' to ISD::TRAP and then lower that to WebAssembly's
   // 'unreachable' instructions which is meant for that case.
   this->Options.TrapUnreachable = true;
+
+  // WebAssembly treats each function as an independent unit. Force
+  // -ffunction-sections, effectively, so that we can emit them independently.
+  if (!TT.isOSBinFormatELF()) {
+    this->Options.FunctionSections = true;
+    this->Options.DataSections = true;
+    this->Options.UniqueSectionNames = true;
+  }
 
   initAsmInfo();
 
@@ -122,7 +129,7 @@ namespace {
 /// WebAssembly Code Generator Pass Configuration Options.
 class WebAssemblyPassConfig final : public TargetPassConfig {
 public:
-  WebAssemblyPassConfig(WebAssemblyTargetMachine *TM, PassManagerBase &PM)
+  WebAssemblyPassConfig(WebAssemblyTargetMachine &TM, PassManagerBase &PM)
       : TargetPassConfig(TM, PM) {}
 
   WebAssemblyTargetMachine &getWebAssemblyTargetMachine() const {
@@ -147,7 +154,7 @@ TargetIRAnalysis WebAssemblyTargetMachine::getTargetIRAnalysis() {
 
 TargetPassConfig *
 WebAssemblyTargetMachine::createPassConfig(PassManagerBase &PM) {
-  return new WebAssemblyPassConfig(this, PM);
+  return new WebAssemblyPassConfig(*this, PM);
 }
 
 FunctionPass *WebAssemblyPassConfig::createTargetRegisterAllocator(bool) {
@@ -166,7 +173,11 @@ void WebAssemblyPassConfig::addIRPasses() {
   else
     // Expand some atomic operations. WebAssemblyTargetLowering has hooks which
     // control specifically what gets lowered.
-    addPass(createAtomicExpandPass(TM));
+    addPass(createAtomicExpandPass());
+
+  // Fix function bitcasts, as WebAssembly requires caller and callee signatures
+  // to match.
+  addPass(createWebAssemblyFixFunctionBitcasts());
 
   // Optimize "returned" function attributes.
   if (getOptLevel() != CodeGenOpt::None)
@@ -261,14 +272,19 @@ void WebAssemblyPassConfig::addPreEmitPass() {
     addPass(createWebAssemblyRegColoring());
   }
 
-  // Insert explicit get_local and set_local operators.
-  if (ExplicitLocals)
-    addPass(createWebAssemblyExplicitLocals());
-
-  // Eliminate multiple-entry loops.
+  // Eliminate multiple-entry loops. Do this before inserting explicit get_local
+  // and set_local operators because we create a new variable that we want
+  // converted into a local.
   addPass(createWebAssemblyFixIrreducibleControlFlow());
 
-  // Put the CFG in structured form; insert BLOCK and LOOP markers.
+  // Insert explicit get_local and set_local operators.
+  addPass(createWebAssemblyExplicitLocals());
+
+  // Sort the blocks of the CFG into topological order, a prerequisite for
+  // BLOCK and LOOP markers.
+  addPass(createWebAssemblyCFGSort());
+
+  // Insert BLOCK and LOOP markers.
   addPass(createWebAssemblyCFGStackify());
 
   // Lower br_unless into br_if.

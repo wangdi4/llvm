@@ -12,18 +12,15 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/DataFormatters/FormatManager.h"
-#include "lldb/Host/StringConvert.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
 #include "lldb/Interpreter/Options.h"
-#include "lldb/Target/Process.h"
-#include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
@@ -213,10 +210,9 @@ void Args::Dump(Stream &s, const char *label_name) const {
   int i = 0;
   for (auto &entry : m_entries) {
     s.Indent();
-    s.Printf("%s[%zi]=\"%*s\"\n", label_name, i++, int(entry.ref.size()),
-             entry.ref.data());
+    s.Format("{0}[{1}]=\"{2}\"\n", label_name, i++, entry.ref);
   }
-  s.Printf("%s[%zi]=NULL\n", label_name, i);
+  s.Format("{0}[{1}]=NULL\n", label_name, i);
   s.EOL();
 }
 
@@ -424,10 +420,10 @@ void Args::SetArguments(const char **argv) {
   SetArguments(ArgvToArgc(argv), argv);
 }
 
-Error Args::ParseOptions(Options &options, ExecutionContext *execution_context,
-                         PlatformSP platform_sp, bool require_validation) {
+Status Args::ParseOptions(Options &options, ExecutionContext *execution_context,
+                          PlatformSP platform_sp, bool require_validation) {
   StreamString sstr;
-  Error error;
+  Status error;
   Option *long_options = options.GetLongOptions();
   if (long_options == nullptr) {
     error.SetErrorStringWithFormat("invalid long options");
@@ -457,9 +453,9 @@ Error Args::ParseOptions(Options &options, ExecutionContext *execution_context,
   int val;
   while (1) {
     int long_options_index = -1;
-    val =
-        OptionParser::Parse(GetArgumentCount(), GetArgumentVector(),
-                            sstr.GetData(), long_options, &long_options_index);
+    val = OptionParser::Parse(GetArgumentCount(), GetArgumentVector(),
+                              sstr.GetString(), long_options,
+                              &long_options_index);
     if (val == -1)
       break;
 
@@ -551,7 +547,7 @@ void Args::Clear() {
 
 lldb::addr_t Args::StringToAddress(const ExecutionContext *exe_ctx,
                                    llvm::StringRef s, lldb::addr_t fail_value,
-                                   Error *error_ptr) {
+                                   Status *error_ptr) {
   bool error_set = false;
   if (s.empty()) {
     if (error_ptr)
@@ -633,10 +629,8 @@ lldb::addr_t Args::StringToAddress(const ExecutionContext *exe_ctx,
           add = str[0] == '+';
 
           if (regex_match.GetMatchAtIndex(s, 3, str)) {
-            offset = StringConvert::ToUInt64(str.c_str(), 0, 0, &success);
-
-            if (success) {
-              Error error;
+            if (!llvm::StringRef(str).getAsInteger(0, offset)) {
+              Status error;
               addr = StringToAddress(exe_ctx, name.c_str(),
                                      LLDB_INVALID_ADDRESS, &error);
               if (addr != LLDB_INVALID_ADDRESS) {
@@ -780,7 +774,7 @@ const char *Args::GetShellSafeArgument(const FileSpec &shell,
 
 int64_t Args::StringToOptionEnum(llvm::StringRef s,
                                  OptionEnumValueElement *enum_values,
-                                 int32_t fail_value, Error &error) {
+                                 int32_t fail_value, Status &error) {
   error.Clear();
   if (!enum_values) {
     error.SetErrorString("invalid enumeration argument");
@@ -803,7 +797,7 @@ int64_t Args::StringToOptionEnum(llvm::StringRef s,
   for (int i = 0; enum_values[i].string_value != nullptr; i++) {
     strm.Printf("%s\"%s\"", i > 0 ? ", " : "", enum_values[i].string_value);
   }
-  error.SetErrorString(strm.GetData());
+  error.SetErrorString(strm.GetString());
   return fail_value;
 }
 
@@ -825,10 +819,10 @@ Args::StringToScriptLanguage(llvm::StringRef s, lldb::ScriptLanguage fail_value,
   return fail_value;
 }
 
-Error Args::StringToFormat(const char *s, lldb::Format &format,
-                           size_t *byte_size_ptr) {
+Status Args::StringToFormat(const char *s, lldb::Format &format,
+                            size_t *byte_size_ptr) {
   format = eFormatInvalid;
-  Error error;
+  Status error;
 
   if (s && s[0]) {
     if (byte_size_ptr) {
@@ -859,7 +853,7 @@ Error Args::StringToFormat(const char *s, lldb::Format &format,
       if (byte_size_ptr)
         error_strm.PutCString(
             "An optional byte size can precede the format character.\n");
-      error.SetErrorString(error_strm.GetString().c_str());
+      error.SetErrorString(error_strm.GetString());
     }
 
     if (error.Fail())
@@ -932,12 +926,12 @@ bool Args::ContainsEnvironmentVariable(llvm::StringRef env_var_name,
   // Check each arg to see if it matches the env var name.
   for (auto arg : llvm::enumerate(m_entries)) {
     llvm::StringRef name, value;
-    std::tie(name, value) = arg.Value.ref.split('=');
+    std::tie(name, value) = arg.value().ref.split('=');
     if (name != env_var_name)
       continue;
 
     if (argument_index)
-      *argument_index = arg.Index;
+      *argument_index = arg.index();
     return true;
   }
 
@@ -955,9 +949,9 @@ size_t Args::FindArgumentIndexForOption(Option *long_options,
              long_options[long_options_index].definition->long_option);
 
   for (auto entry : llvm::enumerate(m_entries)) {
-    if (entry.Value.ref.startswith(short_buffer) ||
-        entry.Value.ref.startswith(long_buffer))
-      return entry.Index;
+    if (entry.value().ref.startswith(short_buffer) ||
+        entry.value().ref.startswith(long_buffer))
+      return entry.index();
   }
 
   return size_t(-1);
@@ -1020,9 +1014,9 @@ std::string Args::ParseAliasOptions(Options &options,
   int val;
   while (1) {
     int long_options_index = -1;
-    val =
-        OptionParser::Parse(GetArgumentCount(), GetArgumentVector(),
-                            sstr.GetData(), long_options, &long_options_index);
+    val = OptionParser::Parse(GetArgumentCount(), GetArgumentVector(),
+                              sstr.GetString(), long_options,
+                              &long_options_index);
 
     if (val == -1)
       break;
@@ -1088,7 +1082,8 @@ std::string Args::ParseAliasOptions(Options &options,
     }
     if (!option_arg)
       option_arg = "<no-argument>";
-    option_arg_vector->emplace_back(option_str.GetData(), has_arg, option_arg);
+    option_arg_vector->emplace_back(option_str.GetString(), has_arg,
+                                    option_arg);
 
     // Find option in the argument list; also see if it was supposed to take
     // an argument and if one was supplied.  Remove option (and argument, if
@@ -1099,23 +1094,22 @@ std::string Args::ParseAliasOptions(Options &options,
       continue;
 
     if (!result_string.empty()) {
-      const char *tmp_arg = GetArgumentAtIndex(idx);
+      auto tmp_arg = m_entries[idx].ref;
       size_t pos = result_string.find(tmp_arg);
       if (pos != std::string::npos)
-        result_string.erase(pos, strlen(tmp_arg));
+        result_string.erase(pos, tmp_arg.size());
     }
     ReplaceArgumentAtIndex(idx, llvm::StringRef());
     if ((long_options[long_options_index].definition->option_has_arg !=
          OptionParser::eNoArgument) &&
         (OptionParser::GetOptionArgument() != nullptr) &&
         (idx + 1 < GetArgumentCount()) &&
-        (strcmp(OptionParser::GetOptionArgument(),
-                GetArgumentAtIndex(idx + 1)) == 0)) {
+        (m_entries[idx + 1].ref == OptionParser::GetOptionArgument())) {
       if (result_string.size() > 0) {
-        const char *tmp_arg = GetArgumentAtIndex(idx + 1);
+        auto tmp_arg = m_entries[idx + 1].ref;
         size_t pos = result_string.find(tmp_arg);
         if (pos != std::string::npos)
-          result_string.erase(pos, strlen(tmp_arg));
+          result_string.erase(pos, tmp_arg.size());
       }
       ReplaceArgumentAtIndex(idx + 1, llvm::StringRef());
     }
@@ -1175,9 +1169,9 @@ void Args::ParseArgsForCompletion(Options &options,
     bool missing_argument = false;
     int long_options_index = -1;
 
-    val =
-        OptionParser::Parse(dummy_vec.size() - 1, &dummy_vec[0], sstr.GetData(),
-                            long_options, &long_options_index);
+    val = OptionParser::Parse(dummy_vec.size() - 1, &dummy_vec[0],
+                              sstr.GetString(), long_options,
+                              &long_options_index);
 
     if (val == -1) {
       // When we're completing a "--" which is the last option on line,

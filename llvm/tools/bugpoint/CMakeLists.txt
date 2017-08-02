@@ -1,4 +1,5 @@
 set(LLVM_LINK_COMPONENTS
+  ${LLVM_TARGETS_TO_BUILD}
   Analysis
   BitWriter
   CodeGen
@@ -29,6 +30,9 @@ add_llvm_tool(bugpoint
   OptimizerDriver.cpp
   ToolRunner.cpp
   bugpoint.cpp
+
+  DEPENDS
+  intrinsics_gen
   )
 export_executable_symbols(bugpoint)
 

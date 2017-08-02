@@ -59,12 +59,12 @@ public:
     int outstanding_new;
     int new_called;
     int delete_called;
-    int last_new_size;
+    std::size_t last_new_size;
 
     int outstanding_array_new;
     int new_array_called;
     int delete_array_called;
-    int last_new_array_size;
+    std::size_t last_new_array_size;
 
 public:
     void newCalled(std::size_t s)
@@ -174,12 +174,12 @@ public:
         return disable_checking || n != delete_called;
     }
 
-    bool checkLastNewSizeEq(int n) const
+    bool checkLastNewSizeEq(std::size_t n) const
     {
         return disable_checking || n == last_new_size;
     }
 
-    bool checkLastNewSizeNotEq(int n) const
+    bool checkLastNewSizeNotEq(std::size_t n) const
     {
         return disable_checking || n != last_new_size;
     }
@@ -214,12 +214,12 @@ public:
         return disable_checking || n != delete_array_called;
     }
 
-    bool checkLastNewArraySizeEq(int n) const
+    bool checkLastNewArraySizeEq(std::size_t n) const
     {
         return disable_checking || n == last_new_array_size;
     }
 
-    bool checkLastNewArraySizeNotEq(int n) const
+    bool checkLastNewArraySizeNotEq(std::size_t n) const
     {
         return disable_checking || n != last_new_array_size;
     }
@@ -231,35 +231,40 @@ public:
   const bool MemCounter::disable_checking = false;
 #endif
 
-MemCounter globalMemCounter((MemCounter::MemCounterCtorArg_()));
+inline MemCounter* getGlobalMemCounter() {
+  static MemCounter counter((MemCounter::MemCounterCtorArg_()));
+  return &counter;
+}
+
+MemCounter &globalMemCounter = *getGlobalMemCounter();
 
 #ifndef DISABLE_NEW_COUNT
-void* operator new(std::size_t s) throw(std::bad_alloc)
+void* operator new(std::size_t s) TEST_THROW_SPEC(std::bad_alloc)
 {
-    globalMemCounter.newCalled(s);
+    getGlobalMemCounter()->newCalled(s);
     void* ret = std::malloc(s);
     if (ret == nullptr)
         detail::throw_bad_alloc_helper();
     return ret;
 }
 
-void  operator delete(void* p) throw()
+void  operator delete(void* p) TEST_NOEXCEPT
 {
-    globalMemCounter.deleteCalled(p);
+    getGlobalMemCounter()->deleteCalled(p);
     std::free(p);
 }
 
 
-void* operator new[](std::size_t s) throw(std::bad_alloc)
+void* operator new[](std::size_t s) TEST_THROW_SPEC(std::bad_alloc)
 {
-    globalMemCounter.newArrayCalled(s);
+    getGlobalMemCounter()->newArrayCalled(s);
     return operator new(s);
 }
 
 
-void operator delete[](void* p) throw()
+void operator delete[](void* p) TEST_NOEXCEPT
 {
-    globalMemCounter.deleteArrayCalled(p);
+    getGlobalMemCounter()->deleteArrayCalled(p);
     operator delete(p);
 }
 
@@ -304,10 +309,10 @@ struct RequireAllocationGuard {
     void requireExactly(std::size_t N) { m_req_alloc = N; m_exactly = true; }
 
     ~RequireAllocationGuard() {
-        assert(globalMemCounter.checkOutstandingNewEq(m_outstanding_new_on_init));
+        assert(globalMemCounter.checkOutstandingNewEq(static_cast<int>(m_outstanding_new_on_init)));
         std::size_t Expect = m_new_count_on_init + m_req_alloc;
-        assert(globalMemCounter.checkNewCalledEq(Expect) ||
-               (!m_exactly && globalMemCounter.checkNewCalledGreaterThan(Expect)));
+        assert(globalMemCounter.checkNewCalledEq(static_cast<int>(Expect)) ||
+               (!m_exactly && globalMemCounter.checkNewCalledGreaterThan(static_cast<int>(Expect))));
     }
 
 private:

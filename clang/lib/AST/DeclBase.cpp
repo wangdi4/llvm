@@ -75,7 +75,7 @@ void *Decl::operator new(std::size_t Size, const ASTContext &Ctx,
   assert(!Parent || &Parent->getParentASTContext() == &Ctx);
   // With local visibility enabled, we track the owning module even for local
   // declarations.
-  if (Ctx.getLangOpts().ModulesLocalVisibility) {
+  if (Ctx.getLangOpts().trackLocalOwningModule()) {
     // Ensure required alignment of the resulting object by adding extra
     // padding at the start if required.
     size_t ExtraAlign =
@@ -83,7 +83,9 @@ void *Decl::operator new(std::size_t Size, const ASTContext &Ctx,
     char *Buffer = reinterpret_cast<char *>(
         ::operator new(ExtraAlign + sizeof(Module *) + Size + Extra, Ctx));
     Buffer += ExtraAlign;
-    return new (Buffer) Module*(nullptr) + 1;
+    auto *ParentModule =
+        Parent ? cast<Decl>(Parent)->getOwningModule() : nullptr;
+    return new (Buffer) Module*(ParentModule) + 1;
   }
   return ::operator new(Size + Extra, Ctx);
 }
@@ -94,7 +96,7 @@ Module *Decl::getOwningModuleSlow() const {
 }
 
 bool Decl::hasLocalOwningModuleStorage() const {
-  return getASTContext().getLangOpts().ModulesLocalVisibility;
+  return getASTContext().getLangOpts().trackLocalOwningModule();
 }
 
 const char *Decl::getDeclKindName() const {
@@ -109,11 +111,23 @@ const char *Decl::getDeclKindName() const {
 void Decl::setInvalidDecl(bool Invalid) {
   InvalidDecl = Invalid;
   assert(!isa<TagDecl>(this) || !cast<TagDecl>(this)->isCompleteDefinition());
-  if (Invalid && !isa<ParmVarDecl>(this)) {
+  if (!Invalid) {
+    return;
+  }
+
+  if (!isa<ParmVarDecl>(this)) {
     // Defensive maneuver for ill-formed code: we're likely not to make it to
     // a point where we set the access specifier, so default it to "public"
     // to avoid triggering asserts elsewhere in the front end. 
     setAccess(AS_public);
+  }
+
+  // Marking a DecompositionDecl as invalid implies all the child BindingDecl's
+  // are invalid too.
+  if (DecompositionDecl *DD = dyn_cast<DecompositionDecl>(this)) {
+    for (BindingDecl *Binding : DD->bindings()) {
+      Binding->setInvalidDecl();
+    }
   }
 }
 
@@ -260,7 +274,19 @@ void Decl::setLexicalDeclContext(DeclContext *DC) {
   } else {
     getMultipleDC()->LexicalDC = DC;
   }
-  Hidden = cast<Decl>(DC)->Hidden;
+
+  // FIXME: We shouldn't be changing the lexical context of declarations
+  // imported from AST files.
+  if (!isFromASTFile()) {
+    setModuleOwnershipKind(getModuleOwnershipKindForChildOf(DC));
+    if (hasOwningModule())
+      setLocalOwningModule(cast<Decl>(DC)->getOwningModule());
+  }
+
+  assert(
+      (getModuleOwnershipKind() != ModuleOwnershipKind::VisibleWhenImported ||
+       getOwningModule()) &&
+      "hidden declaration has no owning module");
 }
 
 void Decl::setDeclContextsImpl(DeclContext *SemaDC, DeclContext *LexicalDC,
@@ -391,6 +417,27 @@ bool Decl::isExported() const {
   return false;
 }
 
+ExternalSourceSymbolAttr *Decl::getExternalSourceSymbolAttr() const {
+  const Decl *Definition = nullptr;
+  if (auto ID = dyn_cast<ObjCInterfaceDecl>(this)) {
+    Definition = ID->getDefinition();
+  } else if (auto PD = dyn_cast<ObjCProtocolDecl>(this)) {
+    Definition = PD->getDefinition();
+  } else if (auto TD = dyn_cast<TagDecl>(this)) {
+    Definition = TD->getDefinition();
+  }
+  if (!Definition)
+    Definition = this;
+
+  if (auto *attr = Definition->getAttr<ExternalSourceSymbolAttr>())
+    return attr;
+  if (auto *dcd = dyn_cast<Decl>(getDeclContext())) {
+    return dcd->getAttr<ExternalSourceSymbolAttr>();
+  }
+
+  return nullptr;
+}
+
 bool Decl::hasDefiningAttr() const {
   return hasAttr<AliasAttr>() || hasAttr<IFuncAttr>();
 }
@@ -401,6 +448,19 @@ const Attr *Decl::getDefiningAttr() const {
   if (IFuncAttr *IFA = getAttr<IFuncAttr>())
     return IFA;
   return nullptr;
+}
+
+static StringRef getRealizedPlatform(const AvailabilityAttr *A,
+                                     const ASTContext &Context) {
+  // Check if this is an App Extension "platform", and if so chop off
+  // the suffix for matching with the actual platform.
+  StringRef RealizedPlatform = A->getPlatform()->getName();
+  if (!Context.getLangOpts().AppExt)
+    return RealizedPlatform;
+  size_t suffix = RealizedPlatform.rfind("_app_extension");
+  if (suffix != StringRef::npos)
+    return RealizedPlatform.slice(0, suffix);
+  return RealizedPlatform;
 }
 
 /// \brief Determine the availability of the given declaration based on
@@ -422,20 +482,11 @@ static AvailabilityResult CheckAvailability(ASTContext &Context,
   if (EnclosingVersion.empty())
     return AR_Available;
 
-  // Check if this is an App Extension "platform", and if so chop off
-  // the suffix for matching with the actual platform.
   StringRef ActualPlatform = A->getPlatform()->getName();
-  StringRef RealizedPlatform = ActualPlatform;
-  if (Context.getLangOpts().AppExt) {
-    size_t suffix = RealizedPlatform.rfind("_app_extension");
-    if (suffix != StringRef::npos)
-      RealizedPlatform = RealizedPlatform.slice(0, suffix);
-  }
-
   StringRef TargetPlatform = Context.getTargetInfo().getPlatformName();
 
   // Match the platform name.
-  if (RealizedPlatform != TargetPlatform)
+  if (getRealizedPlatform(A, Context) != TargetPlatform)
     return AR_Available;
 
   StringRef PrettyPlatformName
@@ -555,6 +606,20 @@ AvailabilityResult Decl::getAvailability(std::string *Message,
   return Result;
 }
 
+VersionTuple Decl::getVersionIntroduced() const {
+  const ASTContext &Context = getASTContext();
+  StringRef TargetPlatform = Context.getTargetInfo().getPlatformName();
+  for (const auto *A : attrs()) {
+    if (const auto *Availability = dyn_cast<AvailabilityAttr>(A)) {
+      if (getRealizedPlatform(Availability, Context) != TargetPlatform)
+        continue;
+      if (!Availability->getIntroduced().empty())
+        return Availability->getIntroduced();
+    }
+  }
+  return VersionTuple();
+}
+
 bool Decl::canBeWeakImported(bool &IsDefinition) const {
   IsDefinition = false;
 
@@ -607,6 +672,7 @@ bool Decl::isWeakImported() const {
 unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
   switch (DeclKind) {
     case Function:
+    case CXXDeductionGuide:
     case CXXMethod:
     case CXXConstructor:
     case ConstructorUsingShadow:
@@ -639,10 +705,12 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
     case Typedef:
     case TypeAlias:
     case TypeAliasTemplate:
-    case UnresolvedUsingTypename:
     case TemplateTypeParm:
     case ObjCTypeParam:
       return IDNS_Ordinary | IDNS_Type;
+
+    case UnresolvedUsingTypename:
+      return IDNS_Ordinary | IDNS_Type | IDNS_Using;
 
     case UsingShadow:
       return 0; // we'll actually overwrite this later
@@ -651,6 +719,7 @@ unsigned Decl::getIdentifierNamespaceForKind(Kind DeclKind) {
       return IDNS_Ordinary | IDNS_Using;
 
     case Using:
+    case UsingPack:
       return IDNS_Using;
 
     case ObjCProtocol:
@@ -1285,7 +1354,7 @@ void DeclContext::removeDecl(Decl *D) {
     // Remove only decls that have a name
     if (!ND->getDeclName()) return;
 
-    auto *DC = this;
+    auto *DC = D->getDeclContext();
     do {
       StoredDeclsMap *Map = DC->getPrimaryContext()->LookupPtr;
       if (Map) {

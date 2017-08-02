@@ -26,15 +26,15 @@
 
 using namespace llvm;
 
-#define DEBUG_TYPE "misched"
+#define DEBUG_TYPE "machine-scheduler"
 
 // This is the limit of processor resource usage at which the
 // scheduler should try to look for other instructions (not using the
 // critical resource).
-cl::opt<int> ProcResCostLim("procres-cost-lim", cl::Hidden,
-                            cl::desc("The OOO window for processor "
-                                     "resources during scheduling."),
-                            cl::init(8));
+static cl::opt<int> ProcResCostLim("procres-cost-lim", cl::Hidden,
+                                   cl::desc("The OOO window for processor "
+                                            "resources during scheduling."),
+                                   cl::init(8));
 
 SystemZHazardRecognizer::
 SystemZHazardRecognizer(const MachineSchedContext *C) : DAG(nullptr),

@@ -221,6 +221,7 @@ void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
     case llvm::Triple::Win32:
       if (triple.getEnvironment() != llvm::Triple::Cygnus)
         break;
+      LLVM_FALLTHROUGH;
     default:
       // FIXME: temporary hack: hard-coded paths.
       AddPath("/usr/local/include", System, false);
@@ -343,6 +344,7 @@ void InitHeaderSearch::AddDefaultCIncludePaths(const llvm::Triple &triple,
     AddPath(BaseSDKPath + "/target/include", System, false);
     if (triple.isPS4CPU())
       AddPath(BaseSDKPath + "/target/include_common", System, false);
+    LLVM_FALLTHROUGH;
   }
   default:
     AddPath("/usr/include", ExternCSystem, false);
@@ -526,7 +528,7 @@ static unsigned RemoveDuplicates(std::vector<DirectoryLookup> &SearchList,
     if (CurEntry.getDirCharacteristic() != SrcMgr::C_User) {
       // Find the dir that this is the same of.
       unsigned FirstDir;
-      for (FirstDir = 0; ; ++FirstDir) {
+      for (FirstDir = First;; ++FirstDir) {
         assert(FirstDir != i && "Didn't find dupe?");
 
         const DirectoryLookup &SearchEntry = SearchList[FirstDir];

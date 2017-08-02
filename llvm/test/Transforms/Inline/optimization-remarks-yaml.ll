@@ -1,8 +1,21 @@
-; RUN: opt < %s -S -inline -pass-remarks-missed=inline -pass-remarks-with-hotness \
+; RUN: opt < %s -S -inline -pass-remarks-missed=inline \
+; RUN:     -pass-remarks-with-hotness -pass-remarks-hotness-threshold 15 \
 ; RUN:     -pass-remarks-output=%t 2>&1 | FileCheck %s
 ; RUN: cat %t | FileCheck -check-prefix=YAML %s
 ; RUN: opt < %s -S -inline -pass-remarks-with-hotness -pass-remarks-output=%t
 ; RUN: cat %t | FileCheck -check-prefix=YAML %s
+;
+; Verify that remarks that don't meet the hotness threshold are not output.
+; RUN: opt < %s -S -inline -pass-remarks-missed=inline \
+; RUN:     -pass-remarks-with-hotness -pass-remarks-hotness-threshold 100 \
+; RUN:     -pass-remarks-output=%t.threshold 2>&1 | \
+; RUN:     FileCheck -check-prefix=THRESHOLD %s
+; RUN: test ! -s %t.threshold
+; RUN: opt < %s -S -inline \
+; RUN:     -pass-remarks-with-hotness -pass-remarks-hotness-threshold 100 \
+; RUN:     -pass-remarks-output=%t.threshold
+; The remarks output file should be empty.
+; RUN: test ! -s %t.threshold
 
 ; Check the YAML file generated for inliner remarks for this program:
 ;
@@ -43,13 +56,16 @@
 ; YAML-NEXT:   - String: ' because its definition is unavailable'
 ; YAML-NEXT: ...
 
+; No remarks should be output, since none meet the threshold.
+; THRESHOLD-NOT: remark
+
 ; ModuleID = '/tmp/s.c'
 source_filename = "/tmp/s.c"
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
 
 ; Function Attrs: nounwind ssp uwtable
-define i32 @baz() !dbg !7 !prof !14 {
+define i32 @"\01baz"() !dbg !7 !prof !14 {
 entry:
   %call = call i32 (...) @foo(), !dbg !9
   %call1 = call i32 (...) @"\01bar"(), !dbg !10

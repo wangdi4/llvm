@@ -32,7 +32,6 @@ add_llvm_target(CSACodeGen
   CSAStatistics.cpp
   CSASubtarget.cpp
   CSATargetMachine.cpp
-  CSATargetTransformInfo.cpp
   MachineCDG.cpp
   CSAExpandInlineAsm.cpp
   CSAMemopOrdering.cpp

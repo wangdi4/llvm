@@ -39,7 +39,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vaddubm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %2 = load <16 x i8>, <16 x i8>* @sca, align 16
   %3 = load <16 x i8>, <16 x i8>* @scb, align 16
@@ -48,7 +48,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vaddubm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %4 = load <8 x i16>, <8 x i16>* @usa, align 16
   %5 = load <8 x i16>, <8 x i16>* @usb, align 16
@@ -57,7 +57,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduhm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %6 = load <8 x i16>, <8 x i16>* @ssa, align 16
   %7 = load <8 x i16>, <8 x i16>* @ssb, align 16
@@ -66,7 +66,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduhm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %8 = load <4 x i32>, <4 x i32>* @uia, align 16
   %9 = load <4 x i32>, <4 x i32>* @uib, align 16
@@ -75,7 +75,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduwm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %10 = load <4 x i32>, <4 x i32>* @sia, align 16
   %11 = load <4 x i32>, <4 x i32>* @sib, align 16
@@ -84,7 +84,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduwm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %12 = load <2 x i64>, <2 x i64>* @ulla, align 16
   %13 = load <2 x i64>, <2 x i64>* @ullb, align 16
@@ -93,7 +93,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vaddudm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %14 = load <2 x i64>, <2 x i64>* @slla, align 16
   %15 = load <2 x i64>, <2 x i64>* @sllb, align 16
@@ -102,7 +102,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vaddudm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %16 = load <1 x i128>, <1 x i128>* @uxa, align 16
   %17 = load <1 x i128>, <1 x i128>* @uxb, align 16
@@ -111,7 +111,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduqm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %18 = load <1 x i128>, <1 x i128>* @sxa, align 16
   %19 = load <1 x i128>, <1 x i128>* @sxb, align 16
@@ -120,7 +120,7 @@ entry:
 ; CHECK: lxvx 34, 0, 3
 ; CHECK: lxvx 35, 0, 4
 ; CHECK: vadduqm 2, 3, 2
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %20 = load <4 x float>, <4 x float>* @vfa, align 16
   %21 = load <4 x float>, <4 x float>* @vfb, align 16
@@ -129,7 +129,7 @@ entry:
 ; CHECK: lxvx 0, 0, 3
 ; CHECK: lxvx 1, 0, 4
 ; CHECK: xvaddsp 34, 0, 1
-; CHECK: stxvx 34,
+; CHECK: stxv 34,
 ; CHECK: bl sink
   %22 = load <2 x double>, <2 x double>* @vda, align 16
   %23 = load <2 x double>, <2 x double>* @vdb, align 16
@@ -138,7 +138,7 @@ entry:
 ; CHECK: lxvx 0, 0, 3
 ; CHECK: lxvx 1, 0, 4
 ; CHECK: xvadddp 0, 0, 1
-; CHECK: stxvx 0,
+; CHECK: stxv 0,
 ; CHECK: bl sink
   ret void
 }
@@ -189,5 +189,225 @@ entry:
 }
 ; Function Attrs: nounwind readnone
 declare <16 x i8> @llvm.ppc.altivec.vsrv(<16 x i8>, <16 x i8>)
+
+; Function Attrs: nounwind readnone
+define <8 x i16> @testXVCVSPHP(<4 x float> %a) {
+entry:
+; CHECK-LABEL: testXVCVSPHP
+; CHECK: xvcvsphp 34, 34
+; CHECK: blr
+  %0 = tail call <4 x float> @llvm.ppc.vsx.xvcvsphp(<4 x float> %a)
+  %1 = bitcast <4 x float> %0 to <8 x i16>
+  ret <8 x i16> %1
+}
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testVRLWMI(<4 x i32> %a, <4 x i32> %b, <4 x i32> %c) {
+entry:
+; CHECK-LABEL: testVRLWMI
+; CHECK: vrlwmi 3, 2, 4
+; CHECK: blr
+  %0 = tail call <4 x i32> @llvm.ppc.altivec.vrlwmi(<4 x i32> %a, <4 x i32> %c, <4 x i32> %b)
+  ret <4 x i32> %0
+}
+
+; Function Attrs: nounwind readnone
+define <2 x i64> @testVRLDMI(<2 x i64> %a, <2 x i64> %b, <2 x i64> %c) {
+entry:
+; CHECK-LABEL: testVRLDMI
+; CHECK: vrldmi 3, 2, 4
+; CHECK: blr
+  %0 = tail call <2 x i64> @llvm.ppc.altivec.vrldmi(<2 x i64> %a, <2 x i64> %c, <2 x i64> %b)
+  ret <2 x i64> %0
+}
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testVRLWNM(<4 x i32> %a, <4 x i32> %b, <4 x i32> %c) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.altivec.vrlwnm(<4 x i32> %a, <4 x i32> %b)
+  %and.i = and <4 x i32> %0, %c
+  ret <4 x i32> %and.i
+; CHECK-LABEL: testVRLWNM
+; CHECK: vrlwnm 2, 2, 3
+; CHECK: xxland 34, 34, 36
+; CHECK: blr
+}
+
+; Function Attrs: nounwind readnone
+define <2 x i64> @testVRLDNM(<2 x i64> %a, <2 x i64> %b, <2 x i64> %c) {
+entry:
+  %0 = tail call <2 x i64> @llvm.ppc.altivec.vrldnm(<2 x i64> %a, <2 x i64> %b)
+  %and.i = and <2 x i64> %0, %c
+  ret <2 x i64> %and.i
+; CHECK-LABEL: testVRLDNM
+; CHECK: vrldnm 2, 2, 3
+; CHECK: xxland 34, 34, 36
+; CHECK: blr
+}
+
+; Function Attrs: nounwind readnone
+declare <4 x float> @llvm.ppc.vsx.xvcvsphp(<4 x float>)
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.altivec.vrlwmi(<4 x i32>, <4 x i32>, <4 x i32>)
+
+; Function Attrs: nounwind readnone
+declare <2 x i64> @llvm.ppc.altivec.vrldmi(<2 x i64>, <2 x i64>, <2 x i64>)
+
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.altivec.vrlwnm(<4 x i32>, <4 x i32>)
+
+; Function Attrs: nounwind readnone
+declare <2 x i64> @llvm.ppc.altivec.vrldnm(<2 x i64>, <2 x i64>)
+
+define <4 x i32> @testXVXEXPSP(<4 x float> %a) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.vsx.xvxexpsp(<4 x float> %a)
+  ret <4 x i32> %0
+; CHECK-LABEL: testXVXEXPSP
+; CHECK: xvxexpsp 34, 34
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.vsx.xvxexpsp(<4 x float>)
+
+; Function Attrs: nounwind readnone
+define <2 x i64> @testXVXEXPDP(<2 x double> %a) {
+entry:
+  %0 = tail call <2 x i64> @llvm.ppc.vsx.xvxexpdp(<2 x double> %a)
+  ret <2 x i64> %0
+; CHECK-LABEL: testXVXEXPDP
+; CHECK: xvxexpdp 34, 34
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <2 x i64>@llvm.ppc.vsx.xvxexpdp(<2 x double>)
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testXVXSIGSP(<4 x float> %a) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.vsx.xvxsigsp(<4 x float> %a)
+  ret <4 x i32> %0
+; CHECK-LABEL: testXVXSIGSP
+; CHECK: xvxsigsp 34, 34
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.vsx.xvxsigsp(<4 x float>)
+
+; Function Attrs: nounwind readnone
+define <2 x i64> @testXVXSIGDP(<2 x double> %a) {
+entry:
+  %0 = tail call <2 x i64> @llvm.ppc.vsx.xvxsigdp(<2 x double> %a)
+  ret <2 x i64> %0
+; CHECK-LABEL: testXVXSIGDP
+; CHECK: xvxsigdp 34, 34
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <2 x i64> @llvm.ppc.vsx.xvxsigdp(<2 x double>)
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testXVTSTDCSP(<4 x float> %a) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.vsx.xvtstdcsp(<4 x float> %a, i32 127)
+  ret <4 x i32> %0
+; CHECK-LABEL: testXVTSTDCSP
+; CHECK: xvtstdcsp 34, 34, 127
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.vsx.xvtstdcsp(<4 x float> %a, i32 %b)
+
+; Function Attrs: nounwind readnone
+define <2 x i64> @testXVTSTDCDP(<2 x double> %a) {
+entry:
+  %0 = tail call <2 x i64> @llvm.ppc.vsx.xvtstdcdp(<2 x double> %a, i32 127)
+  ret <2 x i64> %0
+; CHECK-LABEL: testXVTSTDCDP
+; CHECK: xvtstdcdp 34, 34, 127
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <2 x i64> @llvm.ppc.vsx.xvtstdcdp(<2 x double> %a, i32 %b)
+
+define <4 x float> @testXVCVHPSP(<8 x i16> %a) {
+entry:
+  %0 = tail call <4 x float>@llvm.ppc.vsx.xvcvhpsp(<8 x i16> %a)
+  ret <4 x float> %0
+; CHECK-LABEL: testXVCVHPSP
+; CHECK: xvcvhpsp 34, 34
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x float>@llvm.ppc.vsx.xvcvhpsp(<8 x i16>)
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testLXVL(i8* %a, i64 %b) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.vsx.lxvl(i8* %a, i64 %b)
+  ret <4 x i32> %0
+; CHECK-LABEL: testLXVL
+; CHECK: lxvl 34, 3, 4
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.vsx.lxvl(i8*, i64)
+
+define void @testSTXVL(<4 x i32> %a, i8* %b, i64 %c) {
+entry:
+  tail call void @llvm.ppc.vsx.stxvl(<4 x i32> %a, i8* %b, i64 %c)
+  ret void
+; CHECK-LABEL: testSTXVL
+; CHECK: stxvl 34, 5, 6
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare void @llvm.ppc.vsx.stxvl(<4 x i32>, i8*, i64)
+
+; Function Attrs: nounwind readnone
+define <4 x i32> @testLXVLL(i8* %a, i64 %b) {
+entry:
+  %0 = tail call <4 x i32> @llvm.ppc.vsx.lxvll(i8* %a, i64 %b)
+  ret <4 x i32> %0
+; CHECK-LABEL: testLXVLL
+; CHECK: lxvll 34, 3, 4
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare <4 x i32> @llvm.ppc.vsx.lxvll(i8*, i64)
+
+define void @testSTXVLL(<4 x i32> %a, i8* %b, i64 %c) {
+entry:
+  tail call void @llvm.ppc.vsx.stxvll(<4 x i32> %a, i8* %b, i64 %c)
+  ret void
+; CHECK-LABEL: testSTXVLL
+; CHECK: stxvll 34, 5, 6
+; CHECK: blr
+}
+; Function Attrs: nounwind readnone
+declare void @llvm.ppc.vsx.stxvll(<4 x i32>, i8*, i64)
+
+define <4 x i32> @test0(<4 x i32> %a) local_unnamed_addr #0 {
+entry:
+  %sub.i = sub <4 x i32> zeroinitializer, %a
+  ret <4 x i32> %sub.i
+
+; CHECK-LABEL: @test0
+; CHECK: vnegw 2, 2
+; CHECK: blr
+
+}
+
+define <2 x i64> @test1(<2 x i64> %a) local_unnamed_addr #0 {
+entry:
+  %sub.i = sub <2 x i64> zeroinitializer, %a
+  ret <2 x i64> %sub.i
+
+; CHECK-LABEL: @test1
+; CHECK: vnegd 2, 2
+; CHECK: blr
+
+}
 
 declare void @sink(...)

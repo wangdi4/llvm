@@ -25,6 +25,7 @@ append_list_if(COMPILER_RT_HAS_WGLOBAL_CONSTRUCTORS_FLAG -Wglobal-constructors
 set(TSAN_SOURCES
   rtl/tsan_clock.cc
   rtl/tsan_debugging.cc
+  rtl/tsan_external.cc
   rtl/tsan_fd.cc
   rtl/tsan_flags.cc
   rtl/tsan_ignoreset.cc
@@ -99,7 +100,7 @@ set(TSAN_RUNTIME_LIBRARIES)
 add_compiler_rt_component(tsan)
 
 if(APPLE)
-  set(TSAN_ASM_SOURCES rtl/tsan_rtl_amd64.S)
+  set(TSAN_ASM_SOURCES rtl/tsan_rtl_amd64.S rtl/tsan_rtl_aarch64.S)
   # Xcode will try to compile this file as C ('clang -x c'), and that will fail.
   if (${CMAKE_GENERATOR} STREQUAL "Xcode")
     enable_language(ASM)
@@ -107,6 +108,10 @@ if(APPLE)
     # Pass ASM file directly to the C++ compiler.
     set_source_files_properties(${TSAN_ASM_SOURCES} PROPERTIES LANGUAGE C)
   endif()
+
+  add_weak_symbols("ubsan" WEAK_SYMBOL_LINK_FLAGS)
+  add_weak_symbols("sanitizer_common" WEAK_SYMBOL_LINK_FLAGS)
+
   add_compiler_rt_runtime(clang_rt.tsan
     SHARED
     OS ${TSAN_SUPPORTED_OS}
@@ -117,6 +122,7 @@ if(APPLE)
                 RTSanitizerCommonLibc
                 RTUbsan
     CFLAGS ${TSAN_RTL_CFLAGS}
+    LINK_FLAGS ${WEAK_SYMBOL_LINK_FLAGS}
     PARENT_TARGET tsan)
   add_compiler_rt_object_libraries(RTTsan_dynamic
     OS ${TSAN_SUPPORTED_OS}

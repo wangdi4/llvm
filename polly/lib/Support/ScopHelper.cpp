@@ -30,14 +30,10 @@ using namespace polly;
 
 #define DEBUG_TYPE "polly-scop-helper"
 
-bool polly::hasInvokeEdge(const PHINode *PN) {
-  for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i)
-    if (InvokeInst *II = dyn_cast<InvokeInst>(PN->getIncomingValue(i)))
-      if (II->getParent() == PN->getIncomingBlock(i))
-        return true;
-
-  return false;
-}
+static cl::opt<bool> PollyAllowErrorBlocks(
+    "polly-allow-error-blocks",
+    cl::desc("Allow to speculate on the execution of 'error blocks'."),
+    cl::Hidden, cl::init(true), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 // Ensures that there is just one predecessor to the entry node from outside the
 // region.
@@ -199,7 +195,7 @@ static BasicBlock *splitBlock(BasicBlock *Old, Instruction *SplitPt,
 }
 
 void polly::splitEntryBlockForAlloca(BasicBlock *EntryBlock, Pass *P) {
-  // Find first non-alloca instruction. Every basic block has a non-alloc
+  // Find first non-alloca instruction. Every basic block has a non-alloca
   // instruction, as every well formed basic block has a terminator.
   BasicBlock::iterator I = EntryBlock->begin();
   while (isa<AllocaInst>(I))
@@ -372,6 +368,8 @@ Value *polly::expandCodeFor(Scop &S, ScalarEvolution &SE, const DataLayout &DL,
 
 bool polly::isErrorBlock(BasicBlock &BB, const Region &R, LoopInfo &LI,
                          const DominatorTree &DT) {
+  if (!PollyAllowErrorBlocks)
+    return false;
 
   if (isa<UnreachableInst>(BB.getTerminator()))
     return true;
@@ -382,9 +380,15 @@ bool polly::isErrorBlock(BasicBlock &BB, const Region &R, LoopInfo &LI,
   // Basic blocks that are always executed are not considered error blocks,
   // as their execution can not be a rare event.
   bool DominatesAllPredecessors = true;
-  for (auto Pred : predecessors(R.getExit()))
-    if (R.contains(Pred) && !DT.dominates(&BB, Pred))
-      DominatesAllPredecessors = false;
+  if (R.isTopLevelRegion()) {
+    for (BasicBlock &I : *R.getEntry()->getParent())
+      if (isa<ReturnInst>(I.getTerminator()) && !DT.dominates(&BB, &I))
+        DominatesAllPredecessors = false;
+  } else {
+    for (auto Pred : predecessors(R.getExit()))
+      if (R.contains(Pred) && !DT.dominates(&BB, Pred))
+        DominatesAllPredecessors = false;
+  }
 
   if (DominatesAllPredecessors)
     return false;
@@ -429,13 +433,36 @@ Value *polly::getConditionFromTerminator(TerminatorInst *TI) {
 }
 
 bool polly::isHoistableLoad(LoadInst *LInst, Region &R, LoopInfo &LI,
-                            ScalarEvolution &SE) {
+                            ScalarEvolution &SE, const DominatorTree &DT) {
   Loop *L = LI.getLoopFor(LInst->getParent());
-  const SCEV *PtrSCEV = SE.getSCEVAtScope(LInst->getPointerOperand(), L);
+  auto *Ptr = LInst->getPointerOperand();
+  const SCEV *PtrSCEV = SE.getSCEVAtScope(Ptr, L);
   while (L && R.contains(L)) {
     if (!SE.isLoopInvariant(PtrSCEV, L))
       return false;
     L = L->getParentLoop();
+  }
+
+  for (auto *User : Ptr->users()) {
+    auto *UserI = dyn_cast<Instruction>(User);
+    if (!UserI || !R.contains(UserI))
+      continue;
+    if (!UserI->mayWriteToMemory())
+      continue;
+
+    auto &BB = *UserI->getParent();
+    if (DT.dominates(&BB, LInst->getParent()))
+      return false;
+
+    bool DominatesAllPredecessors = true;
+    for (auto Pred : predecessors(R.getExit()))
+      if (R.contains(Pred) && !DT.dominates(&BB, Pred))
+        DominatesAllPredecessors = false;
+
+    if (!DominatesAllPredecessors)
+      continue;
+
+    return false;
   }
 
   return true;
@@ -456,8 +483,7 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
     case llvm::Intrinsic::annotation:
     case llvm::Intrinsic::donothing:
     case llvm::Intrinsic::assume:
-    case llvm::Intrinsic::expect:
-    // Some debug info intrisics are supported/ignored.
+    // Some debug info intrinsics are supported/ignored.
     case llvm::Intrinsic::dbg_value:
     case llvm::Intrinsic::dbg_declare:
       return true;
@@ -468,21 +494,21 @@ bool polly::isIgnoredIntrinsic(const Value *V) {
   return false;
 }
 
-bool polly::canSynthesize(const Value *V, const Scop &S,
-                          const llvm::LoopInfo *LI, ScalarEvolution *SE,
+bool polly::canSynthesize(const Value *V, const Scop &S, ScalarEvolution *SE,
                           Loop *Scope) {
   if (!V || !SE->isSCEVable(V->getType()))
     return false;
 
+  const InvariantLoadsSetTy &ILS = S.getRequiredInvariantLoads();
   if (const SCEV *Scev = SE->getSCEVAtScope(const_cast<Value *>(V), Scope))
     if (!isa<SCEVCouldNotCompute>(Scev))
-      if (!hasScalarDepsInsideRegion(Scev, &S.getRegion(), Scope, false))
+      if (!hasScalarDepsInsideRegion(Scev, &S.getRegion(), Scope, false, ILS))
         return true;
 
   return false;
 }
 
-llvm::BasicBlock *polly::getUseBlock(llvm::Use &U) {
+llvm::BasicBlock *polly::getUseBlock(const llvm::Use &U) {
   Instruction *UI = dyn_cast<Instruction>(U.getUser());
   if (!UI)
     return nullptr;
@@ -540,4 +566,18 @@ polly::getIndexExpressionsFromGEP(GetElementPtrInst *GEP, ScalarEvolution &SE) {
   }
 
   return std::make_tuple(Subscripts, Sizes);
+}
+
+llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::Loop *L, llvm::LoopInfo &LI,
+                                           const BoxedLoopsSetTy &BoxedLoops) {
+  while (BoxedLoops.count(L))
+    L = L->getParentLoop();
+  return L;
+}
+
+llvm::Loop *polly::getFirstNonBoxedLoopFor(llvm::BasicBlock *BB,
+                                           llvm::LoopInfo &LI,
+                                           const BoxedLoopsSetTy &BoxedLoops) {
+  Loop *L = LI.getLoopFor(BB);
+  return getFirstNonBoxedLoopFor(L, LI, BoxedLoops);
 }

@@ -25,6 +25,7 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Analysis/OptimizationDiagnosticInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Value.h"
@@ -59,46 +60,48 @@ class RejectLog;
 /// Remember to at least track failures (-polly-detect-track-failures).
 /// @param P The region delimiters (entry & exit) we emit remarks for.
 /// @param Log The error log containing all messages being emitted as remark.
-void emitRejectionRemarks(const BBPair &P, const RejectLog &Log);
+void emitRejectionRemarks(const BBPair &P, const RejectLog &Log,
+                          OptimizationRemarkEmitter &ORE);
 
 // Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
-enum RejectReasonKind {
+enum class RejectReasonKind {
   // CFG Category
-  rrkCFG,
-  rrkInvalidTerminator,
-  rrkCondition,
-  rrkLastCFG,
-  rrkIrreducibleRegion,
+  CFG,
+  InvalidTerminator,
+  IrreducibleRegion,
+  UnreachableInExit,
+  LastCFG,
 
   // Non-Affinity
-  rrkAffFunc,
-  rrkUndefCond,
-  rrkInvalidCond,
-  rrkUndefOperand,
-  rrkNonAffBranch,
-  rrkNoBasePtr,
-  rrkUndefBasePtr,
-  rrkVariantBasePtr,
-  rrkNonAffineAccess,
-  rrkDifferentElementSize,
-  rrkLastAffFunc,
+  AffFunc,
+  UndefCond,
+  InvalidCond,
+  UndefOperand,
+  NonAffBranch,
+  NoBasePtr,
+  UndefBasePtr,
+  VariantBasePtr,
+  NonAffineAccess,
+  DifferentElementSize,
+  LastAffFunc,
 
-  rrkLoopBound,
-  rrkLoopHasNoExit,
+  LoopBound,
+  LoopHasNoExit,
+  LoopOnlySomeLatches,
 
-  rrkFuncCall,
-  rrkNonSimpleMemoryAccess,
+  FuncCall,
+  NonSimpleMemoryAccess,
 
-  rrkAlias,
+  Alias,
 
   // Other
-  rrkOther,
-  rrkIntToPtr,
-  rrkAlloca,
-  rrkUnknownInst,
-  rrkEntry,
-  rrkUnprofitable,
-  rrkLastOther
+  Other,
+  IntToPtr,
+  Alloca,
+  UnknownInst,
+  Entry,
+  Unprofitable,
+  LastOther
 };
 
 //===----------------------------------------------------------------------===//
@@ -118,9 +121,19 @@ protected:
 public:
   RejectReasonKind getKind() const { return Kind; }
 
-  RejectReason(RejectReasonKind K) : Kind(K) {}
+  RejectReason(RejectReasonKind K);
 
   virtual ~RejectReason() {}
+
+  /// Generate the remark name to identify this remark.
+  ///
+  /// @return A short string that identifies the error.
+  virtual std::string getRemarkName() const = 0;
+
+  /// Get the Basic Block containing this remark.
+  ///
+  /// @return The Basic Block containing this remark.
+  virtual const Value *getRemarkBB() const = 0;
 
   /// Generate a reasonable diagnostic message describing this error.
   ///
@@ -145,7 +158,7 @@ public:
 
 typedef std::shared_ptr<RejectReason> RejectReasonPtr;
 
-/// Stores all errors that ocurred during the detection.
+/// Stores all errors that occurred during the detection.
 class RejectLog {
   Region *R;
   llvm::SmallVector<RejectReasonPtr, 1> ErrorReports;
@@ -193,7 +206,7 @@ class ReportInvalidTerminator : public ReportCFG {
 
 public:
   ReportInvalidTerminator(BasicBlock *BB)
-      : ReportCFG(rrkInvalidTerminator), BB(BB) {}
+      : ReportCFG(RejectReasonKind::InvalidTerminator), BB(BB) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -202,6 +215,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   //@}
@@ -215,7 +230,7 @@ class ReportIrreducibleRegion : public ReportCFG {
 
 public:
   ReportIrreducibleRegion(Region *R, DebugLoc DbgLoc)
-      : ReportCFG(rrkIrreducibleRegion), R(R), DbgLoc(DbgLoc) {}
+      : ReportCFG(RejectReasonKind::IrreducibleRegion), R(R), DbgLoc(DbgLoc) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -224,6 +239,34 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
+  virtual std::string getMessage() const override;
+  virtual std::string getEndUserMessage() const override;
+  virtual const DebugLoc &getDebugLoc() const override;
+  //@}
+};
+
+//===----------------------------------------------------------------------===//
+/// Captures regions with an unreachable in the exit block.
+class ReportUnreachableInExit : public ReportCFG {
+  BasicBlock *BB;
+  DebugLoc DbgLoc;
+
+public:
+  ReportUnreachableInExit(BasicBlock *BB, DebugLoc DbgLoc)
+      : ReportCFG(RejectReasonKind::UnreachableInExit), BB(BB), DbgLoc(DbgLoc) {
+  }
+
+  /// @name LLVM-RTTI interface
+  //@{
+  static bool classof(const RejectReason *RR);
+  //@}
+
+  /// @name RejectReason interface
+  //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
@@ -238,6 +281,7 @@ public:
 class ReportAffFunc : public RejectReason {
   //===--------------------------------------------------------------------===//
 
+protected:
   // The instruction that caused non-affinity to occur.
   const Instruction *Inst;
 
@@ -267,7 +311,7 @@ class ReportUndefCond : public ReportAffFunc {
 
 public:
   ReportUndefCond(const Instruction *Inst, BasicBlock *BB)
-      : ReportAffFunc(rrkUndefCond, Inst), BB(BB) {}
+      : ReportAffFunc(RejectReasonKind::UndefCond, Inst), BB(BB) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -276,6 +320,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -292,7 +338,7 @@ class ReportInvalidCond : public ReportAffFunc {
 
 public:
   ReportInvalidCond(const Instruction *Inst, BasicBlock *BB)
-      : ReportAffFunc(rrkInvalidCond, Inst), BB(BB) {}
+      : ReportAffFunc(RejectReasonKind::InvalidCond, Inst), BB(BB) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -301,6 +347,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -315,7 +363,7 @@ class ReportUndefOperand : public ReportAffFunc {
 
 public:
   ReportUndefOperand(BasicBlock *BB, const Instruction *Inst)
-      : ReportAffFunc(rrkUndefOperand, Inst), BB(BB) {}
+      : ReportAffFunc(RejectReasonKind::UndefOperand, Inst), BB(BB) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -324,6 +372,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -345,7 +395,8 @@ class ReportNonAffBranch : public ReportAffFunc {
 public:
   ReportNonAffBranch(BasicBlock *BB, const SCEV *LHS, const SCEV *RHS,
                      const Instruction *Inst)
-      : ReportAffFunc(rrkNonAffBranch, Inst), BB(BB), LHS(LHS), RHS(RHS) {}
+      : ReportAffFunc(RejectReasonKind::NonAffBranch, Inst), BB(BB), LHS(LHS),
+        RHS(RHS) {}
 
   const SCEV *lhs() { return LHS; }
   const SCEV *rhs() { return RHS; }
@@ -357,6 +408,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -367,7 +420,7 @@ class ReportNoBasePtr : public ReportAffFunc {
   //===--------------------------------------------------------------------===//
 public:
   ReportNoBasePtr(const Instruction *Inst)
-      : ReportAffFunc(rrkNoBasePtr, Inst) {}
+      : ReportAffFunc(RejectReasonKind::NoBasePtr, Inst) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -376,6 +429,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -386,7 +441,7 @@ class ReportUndefBasePtr : public ReportAffFunc {
   //===--------------------------------------------------------------------===//
 public:
   ReportUndefBasePtr(const Instruction *Inst)
-      : ReportAffFunc(rrkUndefBasePtr, Inst) {}
+      : ReportAffFunc(RejectReasonKind::UndefBasePtr, Inst) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -395,6 +450,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -409,7 +466,8 @@ class ReportVariantBasePtr : public ReportAffFunc {
 
 public:
   ReportVariantBasePtr(Value *BaseValue, const Instruction *Inst)
-      : ReportAffFunc(rrkVariantBasePtr, Inst), BaseValue(BaseValue) {}
+      : ReportAffFunc(RejectReasonKind::VariantBasePtr, Inst),
+        BaseValue(BaseValue) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -418,6 +476,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   //@}
@@ -437,8 +497,8 @@ class ReportNonAffineAccess : public ReportAffFunc {
 public:
   ReportNonAffineAccess(const SCEV *AccessFunction, const Instruction *Inst,
                         const Value *V)
-      : ReportAffFunc(rrkNonAffineAccess, Inst), AccessFunction(AccessFunction),
-        BaseValue(V) {}
+      : ReportAffFunc(RejectReasonKind::NonAffineAccess, Inst),
+        AccessFunction(AccessFunction), BaseValue(V) {}
 
   const SCEV *get() { return AccessFunction; }
 
@@ -449,6 +509,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   //@}
@@ -464,7 +526,8 @@ class ReportDifferentArrayElementSize : public ReportAffFunc {
 
 public:
   ReportDifferentArrayElementSize(const Instruction *Inst, const Value *V)
-      : ReportAffFunc(rrkDifferentElementSize, Inst), BaseValue(V) {}
+      : ReportAffFunc(RejectReasonKind::DifferentElementSize, Inst),
+        BaseValue(V) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -473,6 +536,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   //@}
@@ -504,6 +569,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   virtual std::string getEndUserMessage() const override;
@@ -522,7 +589,8 @@ class ReportLoopHasNoExit : public RejectReason {
 
 public:
   ReportLoopHasNoExit(Loop *L)
-      : RejectReason(rrkLoopHasNoExit), L(L), Loc(L->getStartLoc()) {}
+      : RejectReason(RejectReasonKind::LoopHasNoExit), L(L),
+        Loc(L->getStartLoc()) {}
 
   /// @name LLVM-RTTI interface
   //@{
@@ -531,6 +599,38 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
+  virtual std::string getMessage() const override;
+  virtual const DebugLoc &getDebugLoc() const override;
+  virtual std::string getEndUserMessage() const override;
+  //@}
+};
+
+//===----------------------------------------------------------------------===//
+/// Captures errors when not all loop latches are part of the scop.
+class ReportLoopOnlySomeLatches : public RejectReason {
+  //===--------------------------------------------------------------------===//
+
+  /// The loop for which not all loop latches are part of the scop.
+  Loop *L;
+
+  const DebugLoc Loc;
+
+public:
+  ReportLoopOnlySomeLatches(Loop *L)
+      : RejectReason(RejectReasonKind::LoopOnlySomeLatches), L(L),
+        Loc(L->getStartLoc()) {}
+
+  /// @name LLVM-RTTI interface
+  //@{
+  static bool classof(const RejectReason *RR);
+  //@}
+
+  /// @name RejectReason interface
+  //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   virtual std::string getEndUserMessage() const override;
@@ -555,6 +655,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   virtual std::string getEndUserMessage() const override;
@@ -593,6 +695,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   virtual std::string getEndUserMessage() const override;
@@ -613,6 +717,7 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
   virtual std::string getMessage() const override;
   //@}
 };
@@ -635,6 +740,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   //@}
@@ -656,6 +763,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   //@}
@@ -677,6 +786,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   //@}
@@ -698,7 +809,10 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
+  virtual std::string getEndUserMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   //@}
 };
@@ -719,6 +833,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
@@ -743,6 +859,8 @@ public:
 
   /// @name RejectReason interface
   //@{
+  virtual std::string getRemarkName() const override;
+  virtual const Value *getRemarkBB() const override;
   virtual std::string getMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
   virtual std::string getEndUserMessage() const override;

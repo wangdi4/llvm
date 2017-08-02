@@ -1,4 +1,4 @@
-//===-- DWARFDebugFrame.h - Parsing of .debug_frame -------------*- C++ -*-===//
+//===- DWARFDebugFrame.h - Parsing of .debug_frame ------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,14 +11,14 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataExtractor.h"
-#include "llvm/Support/Dwarf.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
@@ -37,11 +37,11 @@ using namespace dwarf;
 class llvm::FrameEntry {
 public:
   enum FrameKind {FK_CIE, FK_FDE};
+
   FrameEntry(FrameKind K, uint64_t Offset, uint64_t Length)
       : Kind(K), Offset(Offset), Length(Length) {}
 
-  virtual ~FrameEntry() {
-  }
+  virtual ~FrameEntry() = default;
 
   FrameKind getKind() const { return Kind; }
   virtual uint64_t getOffset() const { return Offset; }
@@ -70,7 +70,7 @@ protected:
 
   /// An entry may contain CFI instructions. An instruction consists of an
   /// opcode and an optional sequence of operands.
-  typedef std::vector<uint64_t> Operands;
+  using Operands = std::vector<uint64_t>;
   struct Instruction {
     Instruction(uint8_t Opcode)
       : Opcode(Opcode)
@@ -220,7 +220,7 @@ public:
         FDEPointerEncoding(FDEPointerEncoding),
         LSDAPointerEncoding(LSDAPointerEncoding) {}
 
-  ~CIE() override {}
+  ~CIE() override = default;
 
   StringRef getAugmentationString() const { return Augmentation; }
   uint64_t getCodeAlignmentFactor() const { return CodeAlignmentFactor; }
@@ -294,7 +294,7 @@ public:
         InitialLocation(InitialLocation), AddressRange(AddressRange),
         LinkedCIE(Cie) {}
 
-  ~FDE() override {}
+  ~FDE() override = default;
 
   CIE *getLinkedCIE() const { return LinkedCIE; }
 
@@ -465,11 +465,9 @@ void FrameEntry::dumpInstructions(raw_ostream &OS) const {
   }
 }
 
-DWARFDebugFrame::DWARFDebugFrame(bool IsEH) : IsEH(IsEH) {
-}
+DWARFDebugFrame::DWARFDebugFrame(bool IsEH) : IsEH(IsEH) {}
 
-DWARFDebugFrame::~DWARFDebugFrame() {
-}
+DWARFDebugFrame::~DWARFDebugFrame() = default;
 
 static void LLVM_ATTRIBUTE_UNUSED dumpDataAux(DataExtractor Data,
                                               uint32_t Offset, int Length) {
@@ -486,17 +484,17 @@ static unsigned getSizeForEncoding(const DataExtractor &Data,
   unsigned format = symbolEncoding & 0x0f;
   switch (format) {
     default: llvm_unreachable("Unknown Encoding");
-    case dwarf::DW_EH_PE_absptr:
-    case dwarf::DW_EH_PE_signed:
+    case DW_EH_PE_absptr:
+    case DW_EH_PE_signed:
       return Data.getAddressSize();
-    case dwarf::DW_EH_PE_udata2:
-    case dwarf::DW_EH_PE_sdata2:
+    case DW_EH_PE_udata2:
+    case DW_EH_PE_sdata2:
       return 2;
-    case dwarf::DW_EH_PE_udata4:
-    case dwarf::DW_EH_PE_sdata4:
+    case DW_EH_PE_udata4:
+    case DW_EH_PE_sdata4:
       return 4;
-    case dwarf::DW_EH_PE_udata8:
-    case dwarf::DW_EH_PE_sdata8:
+    case DW_EH_PE_udata8:
+    case DW_EH_PE_sdata8:
       return 8;
   }
 }
@@ -515,20 +513,25 @@ static uint64_t readPointer(const DataExtractor &Data, uint32_t &Offset,
   }
 }
 
+// This is a workaround for old compilers which do not allow
+// noreturn attribute usage in lambdas. Once the support for those
+// compilers are phased out, we can remove this and return back to
+// a ReportError lambda: [StartOffset](const char *ErrorMsg).
+static void LLVM_ATTRIBUTE_NORETURN ReportError(uint32_t StartOffset,
+                                                const char *ErrorMsg) {
+  std::string Str;
+  raw_string_ostream OS(Str);
+  OS << format(ErrorMsg, StartOffset);
+  OS.flush();
+  report_fatal_error(Str);
+}
+
 void DWARFDebugFrame::parse(DataExtractor Data) {
   uint32_t Offset = 0;
   DenseMap<uint32_t, CIE *> CIEs;
 
   while (Data.isValidOffset(Offset)) {
     uint32_t StartOffset = Offset;
-
-    auto ReportError = [StartOffset](const char *ErrorMsg) {
-      std::string Str;
-      raw_string_ostream OS(Str);
-      OS << format(ErrorMsg, StartOffset);
-      OS.flush();
-      report_fatal_error(Str);
-    };
 
     bool IsDWARF64 = false;
     uint64_t Length = Data.getU32(&Offset);
@@ -585,13 +588,15 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
         for (unsigned i = 0, e = AugmentationString.size(); i != e; ++i) {
           switch (AugmentationString[i]) {
             default:
-              ReportError("Unknown augmentation character in entry at %lx");
+              ReportError(StartOffset,
+                          "Unknown augmentation character in entry at %lx");
             case 'L':
               LSDAPointerEncoding = Data.getU8(&Offset);
               break;
             case 'P': {
               if (Personality)
-                ReportError("Duplicate personality in entry at %lx");
+                ReportError(StartOffset,
+                            "Duplicate personality in entry at %lx");
               PersonalityEncoding = Data.getU8(&Offset);
               Personality = readPointer(Data, Offset, *PersonalityEncoding);
               break;
@@ -601,7 +606,8 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
               break;
             case 'z':
               if (i)
-                ReportError("'z' must be the first character at %lx");
+                ReportError(StartOffset,
+                            "'z' must be the first character at %lx");
               // Parse the augmentation length first.  We only parse it if
               // the string contains a 'z'.
               AugmentationLength = Data.getULEB128(&Offset);
@@ -613,19 +619,21 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
 
         if (AugmentationLength.hasValue()) {
           if (Offset != EndAugmentationOffset)
-            ReportError("Parsing augmentation data at %lx failed");
+            ReportError(StartOffset, "Parsing augmentation data at %lx failed");
 
           AugmentationData = Data.getData().slice(StartAugmentationOffset,
                                                   EndAugmentationOffset);
         }
       }
 
-      auto Cie = make_unique<CIE>(StartOffset, Length, Version,
-                                  AugmentationString, AddressSize,
-                                  SegmentDescriptorSize, CodeAlignmentFactor,
-                                  DataAlignmentFactor, ReturnAddressRegister,
-                                  AugmentationData, FDEPointerEncoding,
-                                  LSDAPointerEncoding);
+      auto Cie = llvm::make_unique<CIE>(StartOffset, Length, Version,
+                                        AugmentationString, AddressSize,
+                                        SegmentDescriptorSize,
+                                        CodeAlignmentFactor,
+                                        DataAlignmentFactor,
+                                        ReturnAddressRegister,
+                                        AugmentationData, FDEPointerEncoding,
+                                        LSDAPointerEncoding);
       CIEs[StartOffset] = Cie.get();
       Entries.emplace_back(std::move(Cie));
     } else {
@@ -638,7 +646,8 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
       if (IsEH) {
         // The address size is encoded in the CIE we reference.
         if (!Cie)
-          ReportError("Parsing FDE data at %lx failed due to missing CIE");
+          ReportError(StartOffset,
+                      "Parsing FDE data at %lx failed due to missing CIE");
 
         InitialLocation = readPointer(Data, Offset,
                                       Cie->getFDEPointerEncoding());
@@ -658,7 +667,7 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
             readPointer(Data, Offset, Cie->getLSDAPointerEncoding());
 
           if (Offset != EndAugmentationOffset)
-            ReportError("Parsing augmentation data at %lx failed");
+            ReportError(StartOffset, "Parsing augmentation data at %lx failed");
         }
       } else {
         InitialLocation = Data.getAddress(&Offset);
@@ -673,7 +682,7 @@ void DWARFDebugFrame::parse(DataExtractor Data) {
     Entries.back()->parseInstructions(Data, &Offset, EndStructureOffset);
 
     if (Offset != EndStructureOffset)
-      ReportError("Parsing entry instructions at %lx failed");
+      ReportError(StartOffset, "Parsing entry instructions at %lx failed");
   }
 }
 

@@ -17,6 +17,7 @@
 #include "MCTargetDesc/X86BaseInfo.h"
 #include "X86InstrInfo.h"
 #include "X86MachineFunctionInfo.h"
+#include "llvm/BinaryFormat/COFF.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 #include "llvm/CodeGen/MachineValueType.h"
@@ -34,7 +35,6 @@
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
-#include "llvm/Support/COFF.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -70,7 +70,7 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   EmitFunctionBody();
 
   // Emit the XRay table for this function.
-  EmitXRayTable();
+  emitXRayTable();
 
   // We didn't modify anything.
   return false;

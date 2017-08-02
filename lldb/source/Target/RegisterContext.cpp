@@ -12,18 +12,18 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Target/RegisterContext.h"
-#include "lldb/Core/DataExtractor.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/DWARFExpression.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Endian.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -53,20 +53,19 @@ void RegisterContext::InvalidateIfNeeded(bool force) {
   }
 }
 
-const RegisterInfo *RegisterContext::GetRegisterInfoByName(const char *reg_name,
-                                                           uint32_t start_idx) {
-  if (reg_name && reg_name[0]) {
-    const uint32_t num_registers = GetRegisterCount();
-    for (uint32_t reg = start_idx; reg < num_registers; ++reg) {
-      const RegisterInfo *reg_info = GetRegisterInfoAtIndex(reg);
+const RegisterInfo *
+RegisterContext::GetRegisterInfoByName(llvm::StringRef reg_name,
+                                       uint32_t start_idx) {
+  if (reg_name.empty())
+    return nullptr;
 
-      if ((reg_info->name != nullptr &&
-           ::strcasecmp(reg_info->name, reg_name) == 0) ||
-          (reg_info->alt_name != nullptr &&
-           ::strcasecmp(reg_info->alt_name, reg_name) == 0)) {
-        return reg_info;
-      }
-    }
+  const uint32_t num_registers = GetRegisterCount();
+  for (uint32_t reg = start_idx; reg < num_registers; ++reg) {
+    const RegisterInfo *reg_info = GetRegisterInfoAtIndex(reg);
+
+    if (reg_name.equals_lower(reg_info->name) ||
+        reg_name.equals_lower(reg_info->alt_name))
+      return reg_info;
   }
   return nullptr;
 }
@@ -92,7 +91,7 @@ RegisterContext::UpdateDynamicRegisterSize(const lldb_private::ArchSpec &arch,
   DWARFExpression dwarf_expr(opcode_ctx, dwarf_data, nullptr, 0,
                              dwarf_opcode_len);
   Value result;
-  Error error;
+  Status error;
   const lldb::offset_t offset = 0;
   if (dwarf_expr.Evaluate(&exe_ctx, nullptr, nullptr, this, opcode_ctx,
                           dwarf_data, nullptr, offset, dwarf_opcode_len,
@@ -300,11 +299,10 @@ bool RegisterContext::ClearHardwareWatchpoint(uint32_t hw_index) {
 
 bool RegisterContext::HardwareSingleStep(bool enable) { return false; }
 
-Error RegisterContext::ReadRegisterValueFromMemory(const RegisterInfo *reg_info,
-                                                   lldb::addr_t src_addr,
-                                                   uint32_t src_len,
-                                                   RegisterValue &reg_value) {
-  Error error;
+Status RegisterContext::ReadRegisterValueFromMemory(
+    const RegisterInfo *reg_info, lldb::addr_t src_addr, uint32_t src_len,
+    RegisterValue &reg_value) {
+  Status error;
   if (reg_info == nullptr) {
     error.SetErrorString("invalid register info argument.");
     return error;
@@ -319,7 +317,7 @@ Error RegisterContext::ReadRegisterValueFromMemory(const RegisterInfo *reg_info,
   //
   // Case 2: src_len > dst_len
   //
-  //   Error!  (The register should always be big enough to hold the data)
+  //   Status!  (The register should always be big enough to hold the data)
   //
   // Case 3: src_len < dst_len
   //
@@ -372,12 +370,12 @@ Error RegisterContext::ReadRegisterValueFromMemory(const RegisterInfo *reg_info,
   return error;
 }
 
-Error RegisterContext::WriteRegisterValueToMemory(
+Status RegisterContext::WriteRegisterValueToMemory(
     const RegisterInfo *reg_info, lldb::addr_t dst_addr, uint32_t dst_len,
     const RegisterValue &reg_value) {
   uint8_t dst[RegisterValue::kMaxRegisterByteSize];
 
-  Error error;
+  Status error;
 
   ProcessSP process_sp(m_thread.GetProcess());
   if (process_sp) {

@@ -1,4 +1,4 @@
-//===- MSFCommon.cpp - Common types and functions for MSF files -*- C++ -*-===//
+//===- MSFCommon.cpp - Common types and functions for MSF files -----------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -9,6 +9,10 @@
 
 #include "llvm/DebugInfo/MSF/MSFCommon.h"
 #include "llvm/DebugInfo/MSF/MSFError.h"
+#include "llvm/Support/Endian.h"
+#include "llvm/Support/Error.h"
+#include <cstdint>
+#include <cstring>
 
 using namespace llvm;
 using namespace llvm::msf;
@@ -43,6 +47,15 @@ Error llvm::msf::validateSuperBlock(const SuperBlock &SB) {
   if (SB.BlockMapAddr == 0)
     return make_error<MSFError>(msf_error_code::invalid_format,
                                 "Block 0 is reserved");
+
+  if (SB.BlockMapAddr >= SB.NumBlocks)
+    return make_error<MSFError>(msf_error_code::invalid_format,
+                                "Block map address is invalid.");
+
+  if (SB.FreeBlockMapBlock != 1 && SB.FreeBlockMapBlock != 2)
+    return make_error<MSFError>(
+        msf_error_code::invalid_format,
+        "The free block map isn't at block 1 or block 2.");
 
   return Error::success();
 }

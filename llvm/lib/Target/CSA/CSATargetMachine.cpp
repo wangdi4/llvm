@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "CSATargetMachine.h"
-#include "CSATargetTransformInfo.h"
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
 #include "CSA.h"
@@ -107,21 +106,13 @@ CSATargetMachine::CSATargetMachine(const Target &T, const Triple &TT,
 }
 
 
-TargetIRAnalysis CSATargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis([this](const Function &F) {
-    return TargetTransformInfo(CSATTIImpl(this, F));
-  });
-}
-
-
-
 CSATargetMachine::~CSATargetMachine() {}
 
 namespace {
 /// CSA Code Generator Pass Configuration Options.
 class CSAPassConfig : public TargetPassConfig {
 public:
-  CSAPassConfig(CSATargetMachine *TM, legacy::PassManagerBase &PM)
+  CSAPassConfig(CSATargetMachine &TM, legacy::PassManagerBase &PM)
     : TargetPassConfig(TM, PM) {}
 
   CSATargetMachine &getCSATargetMachine() const {
@@ -233,6 +224,6 @@ public:
 } // namespace
 
 TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
-  CSAPassConfig *PassConfig = new CSAPassConfig(this, PM);
+  CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
 }

@@ -23,7 +23,6 @@ namespace llvm {
   class FunctionPass;
   class MachineFunctionPass;
 
-  //ImmutablePass *createCSATargetTransformInfoPass(const CSATargetMachine *TM);
   FunctionPass *createCSAISelDag(CSATargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
   MachineFunctionPass *createCSAConvertControlPass();
@@ -39,8 +38,6 @@ namespace llvm {
   MachineFunctionPass *createCSAExpandInlineAsmPass();
   MachineFunctionPass *createCSAMemopOrderingPass();
   MachineFunctionPass *createCSANormalizeDebugPass();
-  /// \brief Creates an CSA-specific Target Transformation Info pass.
-  ImmutablePass *createCSATargetTransformInfoPass(const CSATargetMachine *TM);
   //FunctionPass *createCSALowerStructArgsPass();
 
 } // end namespace llvm;

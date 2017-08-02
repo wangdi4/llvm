@@ -1,5 +1,5 @@
 =======================================
-Clang 4.0.0 (In-Progress) Release Notes
+Clang 6.0.0 (In-Progress) Release Notes
 =======================================
 
 .. contents::
@@ -10,15 +10,15 @@ Written by the `LLVM Team <http://llvm.org/>`_
 
 .. warning::
 
-   These are in-progress notes for the upcoming Clang 4.0.0 release. You may
-   prefer the `Clang 3.8 Release Notes
-   <http://llvm.org/releases/3.8.0/tools/clang/docs/ReleaseNotes.html>`_.
+   These are in-progress notes for the upcoming Clang 6 release.
+   Release notes for previous releases can be found on
+   `the Download Page <http://releases.llvm.org/download.html>`_.
 
 Introduction
 ============
 
 This document contains the release notes for the Clang C/C++/Objective-C
-frontend, part of the LLVM Compiler Infrastructure, release 4.0.0. Here we
+frontend, part of the LLVM Compiler Infrastructure, release 6.0.0. Here we
 describe the status of Clang in some detail, including major
 improvements from the previous release and new feature work. For the
 general LLVM release notes, see `the LLVM
@@ -36,7 +36,7 @@ main Clang web page, this document applies to the *next* release, not
 the current one. To see the release notes for a specific release, please
 see the `releases page <http://llvm.org/releases/>`_.
 
-What's New in Clang 4.0.0?
+What's New in Clang 6.0.0?
 ==========================
 
 Some of the major new features and improvements to Clang are listed
@@ -59,6 +59,13 @@ New Compiler Flags
 
 The option ....
 
+Deprecated Compiler Flags
+-------------------------
+
+The following options are deprecated and ignored. They will be removed in
+future versions of Clang.
+
+- ...
 
 New Pragmas in Clang
 -----------------------
@@ -69,7 +76,7 @@ Clang now supports the ...
 Attribute Changes in Clang
 --------------------------
 
--  ...
+- ...
 
 Windows Support
 ---------------
@@ -117,7 +124,7 @@ OpenMP Support in Clang
 Internal API Changes
 --------------------
 
-These are major API changes that have happened since the 3.8 release of
+These are major API changes that have happened since the 4.0.0 release of
 Clang. If upgrading an external codebase that uses Clang as a library,
 this section should help get you past the largest hurdles of upgrading.
 
@@ -128,17 +135,25 @@ AST Matchers
 
 ...
 
+
+clang-format
+------------
+
+...
+
 libclang
 --------
 
 ...
 
-With the option --show-description, scan-build's list of defects will also
-show the description of the defects.
-
 
 Static Analyzer
 ---------------
+
+...
+
+Undefined Behavior Sanitizer (UBSan)
+------------------------------------
 
 ...
 

@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "XCore.h"
 #include "InstPrinter/XCoreInstPrinter.h"
+#include "XCore.h"
 #include "XCoreInstrInfo.h"
 #include "XCoreMCInstLower.h"
 #include "XCoreSubtarget.h"
@@ -153,8 +153,7 @@ void XCoreAsmPrinter::EmitGlobalVariable(const GlobalVariable *GV) {
   unsigned Size = DL.getTypeAllocSize(C->getType());
   if (MAI->hasDotTypeDotSizeDirective()) {
     OutStreamer->EmitSymbolAttribute(GVSym, MCSA_ELF_TypeObject);
-    OutStreamer->emitELFSize(cast<MCSymbolELF>(GVSym),
-                             MCConstantExpr::create(Size, OutContext));
+    OutStreamer->emitELFSize(GVSym, MCConstantExpr::create(Size, OutContext));
   }
   OutStreamer->EmitLabel(GVSym);
 

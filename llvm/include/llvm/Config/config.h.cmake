@@ -16,11 +16,13 @@
 /* Define to 1 if you have the `backtrace' function. */
 #cmakedefine HAVE_BACKTRACE ${HAVE_BACKTRACE}
 
+#define BACKTRACE_HEADER <${BACKTRACE_HEADER}>
+
 /* Define to 1 if you have the <CrashReporterClient.h> header file. */
-#undef HAVE_CRASHREPORTERCLIENT_H
+#cmakedefine HAVE_CRASHREPORTERCLIENT_H
 
 /* can use __crashreporter_info__ */
-#undef HAVE_CRASHREPORTER_INFO
+#cmakedefine01 HAVE_CRASHREPORTER_INFO
 
 /* Define to 1 if you have the declaration of `arc4random', and to 0 if you
    don't. */
@@ -39,7 +41,7 @@
 #cmakedefine01 HAVE_DECL_STRERROR_S
 
 /* Define to 1 if you have the DIA SDK installed, and to 0 if you don't. */
-#cmakedefine01 HAVE_DIA_SDK
+#cmakedefine01 LLVM_ENABLE_DIA_SDK
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -51,11 +53,11 @@
 /* Define if dlopen() is available on this platform. */
 #cmakedefine HAVE_DLOPEN ${HAVE_DLOPEN}
 
+/* Define if dladdr() is available on this platform. */
+#cmakedefine HAVE_DLADDR ${HAVE_DLADDR}
+
 /* Define to 1 if you have the <errno.h> header file. */
 #cmakedefine HAVE_ERRNO_H ${HAVE_ERRNO_H}
-
-/* Define to 1 if you have the <execinfo.h> header file. */
-#cmakedefine HAVE_EXECINFO_H ${HAVE_EXECINFO_H}
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #cmakedefine HAVE_FCNTL_H ${HAVE_FCNTL_H}
@@ -119,6 +121,9 @@
 
 /* Define to 1 if you have the <link.h> header file. */
 #cmakedefine HAVE_LINK_H ${HAVE_LINK_H}
+
+/* Define to 1 if you have the `lseek64' function. */
+#cmakedefine HAVE_LSEEK64 ${HAVE_LSEEK64}
 
 /* Define to 1 if you have the <mach/mach.h> header file. */
 #cmakedefine HAVE_MACH_MACH_H ${HAVE_MACH_MACH_H}
@@ -333,9 +338,6 @@
 /* Doesn't use `cmakedefine` because it is allowed to be empty. */
 #define LLVM_DEFAULT_TARGET_TRIPLE "${LLVM_DEFAULT_TARGET_TRIPLE}"
 
-/* Define to enable checks that alter the LLVM C++ ABI */
-#cmakedefine01 LLVM_ENABLE_ABI_BREAKING_CHECKS
-
 /* Define if threads enabled */
 #cmakedefine01 LLVM_ENABLE_THREADS
 
@@ -348,35 +350,14 @@
 /* Host triple LLVM will be executed on */
 #cmakedefine LLVM_HOST_TRIPLE "${LLVM_HOST_TRIPLE}"
 
-/* LLVM architecture name for the native architecture, if available */
-#cmakedefine LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH}
-
-/* LLVM name for the native AsmParser init function, if available */
-#cmakedefine LLVM_NATIVE_ASMPARSER LLVMInitialize${LLVM_NATIVE_ARCH}AsmParser
-
-/* LLVM name for the native AsmPrinter init function, if available */
-#cmakedefine LLVM_NATIVE_ASMPRINTER LLVMInitialize${LLVM_NATIVE_ARCH}AsmPrinter
-
-/* LLVM name for the native Disassembler init function, if available */
-#cmakedefine LLVM_NATIVE_DISASSEMBLER LLVMInitialize${LLVM_NATIVE_ARCH}Disassembler
-
-/* LLVM name for the native Target init function, if available */
-#cmakedefine LLVM_NATIVE_TARGET LLVMInitialize${LLVM_NATIVE_ARCH}Target
-
-/* LLVM name for the native TargetInfo init function, if available */
-#cmakedefine LLVM_NATIVE_TARGETINFO LLVMInitialize${LLVM_NATIVE_ARCH}TargetInfo
-
-/* LLVM name for the native target MC init function, if available */
-#cmakedefine LLVM_NATIVE_TARGETMC LLVMInitialize${LLVM_NATIVE_ARCH}TargetMC
-
 /* Define if this is Unixish platform */
 #cmakedefine LLVM_ON_UNIX ${LLVM_ON_UNIX}
 
 /* Define if this is Win32ish platform */
 #cmakedefine LLVM_ON_WIN32 ${LLVM_ON_WIN32}
 
-/* Installation prefix directory */
-#cmakedefine LLVM_PREFIX "${LLVM_PREFIX}"
+/* Define if overriding target triple is enabled */
+#cmakedefine LLVM_TARGET_TRIPLE_ENV "${LLVM_TARGET_TRIPLE_ENV}"
 
 /* Define if we have the Intel JIT API runtime support library */
 #cmakedefine01 LLVM_USE_INTEL_JITEVENTS
@@ -386,6 +367,9 @@
 
 /* LLVM version information */
 #cmakedefine LLVM_VERSION_INFO "${LLVM_VERSION_INFO}"
+
+/* Whether tools show host and target info when invoked with --version */
+#cmakedefine01 LLVM_VERSION_PRINTER_SHOW_HOST_TARGET_INFO
 
 /* Major version of the LLVM API */
 #define LLVM_VERSION_MAJOR ${LLVM_VERSION_MAJOR}

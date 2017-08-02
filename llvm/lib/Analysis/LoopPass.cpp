@@ -14,7 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Analysis/LoopPassManager.h"
+#include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/LLVMContext.h"
@@ -32,13 +32,14 @@ namespace {
 /// PrintLoopPass - Print a Function corresponding to a Loop.
 ///
 class PrintLoopPassWrapper : public LoopPass {
-  PrintLoopPass P;
+  raw_ostream &OS;
+  std::string Banner;
 
 public:
   static char ID;
-  PrintLoopPassWrapper() : LoopPass(ID) {}
+  PrintLoopPassWrapper() : LoopPass(ID), OS(dbgs()) {}
   PrintLoopPassWrapper(raw_ostream &OS, const std::string &Banner)
-      : LoopPass(ID), P(OS, Banner) {}
+      : LoopPass(ID), OS(OS), Banner(Banner) {}
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
@@ -49,11 +50,12 @@ public:
                        [](BasicBlock *BB) { return BB; });
     if (BBI != L->blocks().end() &&
         isFunctionInPrintList((*BBI)->getParent()->getName())) {
-      LoopAnalysisManager DummyLAM;
-      P.run(*L, DummyLAM);
+      printLoop(*L, OS, Banner);
     }
     return false;
   }
+
+  StringRef getPassName() const override { return "Print Loop IR"; }
 };
 
 char PrintLoopPassWrapper::ID = 0;
@@ -71,30 +73,23 @@ LPPassManager::LPPassManager()
   CurrentLoop = nullptr;
 }
 
-// Inset loop into loop nest (LoopInfo) and loop queue (LQ).
-Loop &LPPassManager::addLoop(Loop *ParentLoop) {
-  // Create a new loop. LI will take ownership.
-  Loop *L = new Loop();
-
-  // Insert into the loop nest and the loop queue.
-  if (!ParentLoop) {
+// Insert loop into loop nest (LoopInfo) and loop queue (LQ).
+void LPPassManager::addLoop(Loop &L) {
+  if (!L.getParentLoop()) {
     // This is the top level loop.
-    LI->addTopLevelLoop(L);
-    LQ.push_front(L);
-    return *L;
+    LQ.push_front(&L);
+    return;
   }
 
-  ParentLoop->addChildLoop(L);
   // Insert L into the loop queue after the parent loop.
   for (auto I = LQ.begin(), E = LQ.end(); I != E; ++I) {
-    if (*I == L->getParentLoop()) {
+    if (*I == L.getParentLoop()) {
       // deque does not support insert after.
       ++I;
-      LQ.insert(I, 1, L);
-      break;
+      LQ.insert(I, 1, &L);
+      return;
     }
   }
-  return *L;
 }
 
 /// cloneBasicBlockSimpleAnalysis - Invoke cloneBasicBlockAnalysis hook for

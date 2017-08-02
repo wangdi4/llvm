@@ -77,11 +77,11 @@ TargetInfo::TargetInfo(const llvm::Triple &T) : TargetOpts(), Triple(T) {
   UseZeroLengthBitfieldAlignment = false;
   UseExplicitBitFieldAlignment = true;
   ZeroLengthBitfieldBoundary = 0;
-  HalfFormat = &llvm::APFloat::IEEEhalf;
-  FloatFormat = &llvm::APFloat::IEEEsingle;
-  DoubleFormat = &llvm::APFloat::IEEEdouble;
-  LongDoubleFormat = &llvm::APFloat::IEEEdouble;
-  Float128Format = &llvm::APFloat::IEEEquad;
+  HalfFormat = &llvm::APFloat::IEEEhalf();
+  FloatFormat = &llvm::APFloat::IEEEsingle();
+  DoubleFormat = &llvm::APFloat::IEEEdouble();
+  LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+  Float128Format = &llvm::APFloat::IEEEquad();
   MCountName = "mcount";
   RegParmMax = 0;
   SSERegParmMax = 0;
@@ -143,9 +143,11 @@ const char *TargetInfo::getTypeConstantSuffix(IntType T) const {
   case UnsignedChar:
     if (getCharWidth() < getIntWidth())
       return "";
+    LLVM_FALLTHROUGH;
   case UnsignedShort:
     if (getShortWidth() < getIntWidth())
       return "";
+    LLVM_FALLTHROUGH;
   case UnsignedInt:      return "U";
   case UnsignedLong:     return "UL";
   case UnsignedLongLong: return "ULL";
@@ -227,12 +229,12 @@ TargetInfo::RealType TargetInfo::getRealTypeByWidth(unsigned BitWidth) const {
 
   switch (BitWidth) {
   case 96:
-    if (&getLongDoubleFormat() == &llvm::APFloat::x87DoubleExtended)
+    if (&getLongDoubleFormat() == &llvm::APFloat::x87DoubleExtended())
       return LongDouble;
     break;
   case 128:
-    if (&getLongDoubleFormat() == &llvm::APFloat::PPCDoubleDouble ||
-        &getLongDoubleFormat() == &llvm::APFloat::IEEEquad)
+    if (&getLongDoubleFormat() == &llvm::APFloat::PPCDoubleDouble() ||
+        &getLongDoubleFormat() == &llvm::APFloat::IEEEquad())
       return LongDouble;
     if (hasFloat128Type())
       return Float128;
@@ -282,8 +284,9 @@ bool TargetInfo::isTypeSigned(IntType T) {
 
 /// adjust - Set forced language options.
 /// Apply changes to the target information with respect to certain
-/// language options which change the target configuration.
-void TargetInfo::adjust(const LangOptions &Opts) {
+/// language options which change the target configuration and adjust
+/// the language based on the target options where applicable.
+void TargetInfo::adjust(LangOptions &Opts) {
   if (Opts.NoBitFieldTypeAlign)
     UseBitFieldTypeAlignment = false;
   if (Opts.ShortWChar)
@@ -309,7 +312,7 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     // to generating illegal code that uses 64bit doubles.
     if (DoubleWidth != FloatWidth) {
       DoubleWidth = DoubleAlign = 64;
-      DoubleFormat = &llvm::APFloat::IEEEdouble;
+      DoubleFormat = &llvm::APFloat::IEEEdouble();
     }
     LongDoubleWidth = LongDoubleAlign = 128;
 
@@ -323,9 +326,9 @@ void TargetInfo::adjust(const LangOptions &Opts) {
     IntMaxType = SignedLongLong;
     Int64Type = SignedLong;
 
-    HalfFormat = &llvm::APFloat::IEEEhalf;
-    FloatFormat = &llvm::APFloat::IEEEsingle;
-    LongDoubleFormat = &llvm::APFloat::IEEEquad;
+    HalfFormat = &llvm::APFloat::IEEEhalf();
+    FloatFormat = &llvm::APFloat::IEEEsingle();
+    LongDoubleFormat = &llvm::APFloat::IEEEquad();
   }
 
   if (Opts.NewAlignOverride)
@@ -410,8 +413,8 @@ bool TargetInfo::isValidGCCRegisterName(StringRef Name) const {
   return false;
 }
 
-StringRef
-TargetInfo::getNormalizedGCCRegisterName(StringRef Name) const {
+StringRef TargetInfo::getNormalizedGCCRegisterName(StringRef Name,
+                                                   bool ReturnCanonical) const {
   assert(isValidGCCRegisterName(Name) && "Invalid register passed in");
 
   // Get rid of any register prefix.
@@ -436,7 +439,7 @@ TargetInfo::getNormalizedGCCRegisterName(StringRef Name) const {
       // Make sure the register that the additional name is for is within
       // the bounds of the register names from above.
       if (AN == Name && ARN.RegNum < Names.size())
-        return Name;
+        return ReturnCanonical ? Names[ARN.RegNum] : Name;
     }
 
   // Now check aliases.
@@ -504,6 +507,11 @@ bool TargetInfo::validateOutputConstraint(ConstraintInfo &Info) const {
     case '?': // Disparage slightly code.
     case '!': // Disparage severely.
     case '*': // Ignore for choosing register preferences.
+    case 'i': // Ignore i,n,E,F as output constraints (match from the other
+              // chars)
+    case 'n':
+    case 'E':
+    case 'F':
       break;  // Pass them.
     }
 

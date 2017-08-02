@@ -28,12 +28,12 @@
 // CHECK-NEXT:   SHF_ALLOC
 // CHECK-NEXT:   SHF_EXECINSTR
 // CHECK-NEXT: ]
-// CHECK-NEXT: Address: 0x11000
+// CHECK-NEXT: Address: 0x201000
 
 // CHECK:      Relocations [
 // CHECK-NEXT:   Section ({{.*}}) .rela.plt {
 // CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x13018
+// CHECK-NEXT:       Offset: 0x202018
 // CHECK-NEXT:       Type: R_X86_64_JUMP_SLOT
 // CHECK-NEXT:       Symbol: bar
 // CHECK-NEXT:       Addend: 0x0
@@ -43,7 +43,7 @@
 
 // CHECK: DynamicSection [
 // CHECK-NEXT:  Tag                Type                 Name/Value
-// CHECK-NEXT:  0x0000000000000001 NEEDED               SharedLibrary ({{.*}}2.so)
+// CHECK-NEXT:  0x0000000000000001 NEEDED               Shared library: [{{.*}}2.so]
 // CHECK-NEXT:  0x0000000000000015 DEBUG                0x0
 // CHECK-NEXT:  0x0000000000000017 JMPREL
 // CHECK-NEXT:  0x0000000000000002 PLTRELSZ             24 (bytes)

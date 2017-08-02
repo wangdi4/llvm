@@ -617,9 +617,11 @@ def skipIfHostIncompatibleWithRemote(func):
                 'i386') and host_arch != target_arch:
             return "skipping because target %s is not compatible with host architecture %s" % (
                 target_arch, host_arch)
-        elif target_platform != host_platform:
+        if target_platform != host_platform:
             return "skipping because target is %s but host is %s" % (
                 target_platform, host_platform)
+        if lldbplatformutil.match_android_device(target_arch):
+            return "skipping because target is android"
         return None
     return skipTestIfFn(is_host_incompatible_with_remote)(func)
 
@@ -656,31 +658,6 @@ def skipIfTargetAndroid(api_levels=None, archs=None):
             archs))
 
 
-def skipUnlessCompilerRt(func):
-    """Decorate the item to skip tests if testing remotely."""
-    def is_compiler_rt_missing():
-        compilerRtPath = os.path.join(
-            os.environ["LLDB_SRC"],
-            "..",
-            "..",
-            "..",
-            "llvm",
-            "projects",
-            "compiler-rt")
-        if not os.path.exists(compilerRtPath):
-            compilerRtPath = os.path.join(
-            os.environ["LLDB_SRC"],
-            "..",
-            "..",
-            "..",
-            "llvm",
-            "runtimes",
-            "compiler-rt")
-        return "compiler-rt not found" if not os.path.exists(
-            compilerRtPath) else None
-    return skipTestIfFn(is_compiler_rt_missing)(func)
-
-
 def skipUnlessThreadSanitizer(func):
     """Decorate the item to skip test unless Clang -fsanitize=thread is supported."""
 
@@ -689,6 +666,8 @@ def skipUnlessThreadSanitizer(func):
         compiler = os.path.basename(compiler_path)
         if not compiler.startswith("clang"):
             return "Test requires clang as compiler"
+        if lldbplatformutil.getPlatform() == 'windows':
+            return "TSAN tests not compatible with 'windows'"
         # rdar://28659145 - TSAN tests don't look like they're supported on i386
         if self.getArchitecture() == 'i386' and platform.system() == 'Darwin':
             return "TSAN tests not compatible with i386 targets"
@@ -701,3 +680,68 @@ def skipUnlessThreadSanitizer(func):
             return "Compiler cannot compile with -fsanitize=thread"
         return None
     return skipTestIfFn(is_compiler_clang_with_thread_sanitizer)(func)
+
+def skipUnlessUndefinedBehaviorSanitizer(func):
+    """Decorate the item to skip test unless -fsanitize=undefined is supported."""
+
+    def is_compiler_clang_with_ubsan(self):
+        # Write out a temp file which exhibits UB.
+        inputf = tempfile.NamedTemporaryFile(suffix='.c')
+        inputf.write('int main() { int x = 0; return x / x; }\n')
+        inputf.flush()
+
+        # We need to write out the object into a named temp file for inspection.
+        outputf = tempfile.NamedTemporaryFile()
+
+        # Try to compile with ubsan turned on.
+        cmd = '%s -fsanitize=undefined %s -o %s' % (self.getCompiler(), inputf.name, outputf.name)
+        if os.popen(cmd).close() is not None:
+            return "Compiler cannot compile with -fsanitize=undefined"
+
+        # Check that we actually see ubsan instrumentation in the binary.
+        cmd = 'nm %s' % outputf.name
+        with os.popen(cmd) as nm_output:
+            if '___ubsan_handle_divrem_overflow' not in nm_output.read():
+                return "Division by zero instrumentation is missing"
+
+        # Find the ubsan dylib.
+        # FIXME: This check should go away once compiler-rt gains support for __ubsan_on_report.
+        cmd = '%s -fsanitize=undefined -x c - -o - -### 2>&1' % self.getCompiler()
+        with os.popen(cmd) as cc_output:
+            driver_jobs = cc_output.read()
+            m = re.search(r'"([^"]+libclang_rt.ubsan_osx_dynamic.dylib)"', driver_jobs)
+            if not m:
+                return "Could not find the ubsan dylib used by the driver"
+            ubsan_dylib = m.group(1)
+
+        # Check that the ubsan dylib has special monitor hooks.
+        cmd = 'nm -gU %s' % ubsan_dylib
+        with os.popen(cmd) as nm_output:
+            syms = nm_output.read()
+            if '___ubsan_on_report' not in syms:
+                return "Missing ___ubsan_on_report"
+            if '___ubsan_get_current_report_data' not in syms:
+                return "Missing ___ubsan_get_current_report_data"
+
+        # OK, this dylib + compiler works for us.
+        return None
+
+    return skipTestIfFn(is_compiler_clang_with_ubsan)(func)
+
+def skipUnlessAddressSanitizer(func):
+    """Decorate the item to skip test unless Clang -fsanitize=thread is supported."""
+
+    def is_compiler_with_address_sanitizer(self):
+        compiler_path = self.getCompiler()
+        compiler = os.path.basename(compiler_path)
+        f = tempfile.NamedTemporaryFile()
+        if lldbplatformutil.getPlatform() == 'windows':
+            return "ASAN tests not compatible with 'windows'"
+        cmd = "echo 'int main() {}' | %s -x c -o %s -" % (compiler_path, f.name)
+        if os.popen(cmd).close() is not None:
+            return None  # The compiler cannot compile at all, let's *not* skip the test
+        cmd = "echo 'int main() {}' | %s -fsanitize=address -x c -o %s -" % (compiler_path, f.name)
+        if os.popen(cmd).close() is not None:
+            return "Compiler cannot compile with -fsanitize=address"
+        return None
+    return skipTestIfFn(is_compiler_with_address_sanitizer)(func)

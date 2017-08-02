@@ -20,19 +20,19 @@
 ///                    | Atoms |
 ///                    +-------+
 
-#include "MachONormalizedFile.h"
 #include "ArchHandler.h"
 #include "DebugInfo.h"
+#include "MachONormalizedFile.h"
 #include "MachONormalizedFileBinaryUtils.h"
 #include "lld/Core/Error.h"
 #include "lld/Core/LLVM.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/MachO.h"
 #include <map>
 #include <system_error>
 #include <unordered_set>
@@ -515,6 +515,7 @@ void Util::organizeSections() {
       // Main executables, need a zero-page segment
       segmentForName("__PAGEZERO");
       // Fall into next case.
+      LLVM_FALLTHROUGH;
     case llvm::MachO::MH_DYLIB:
     case llvm::MachO::MH_BUNDLE:
       // All dynamic code needs TEXT segment to hold the load commands.
@@ -985,7 +986,7 @@ llvm::Error Util::getSymbolTableRegion(const DefinedAtom* atom,
   case Atom::scopeTranslationUnit:
     scope = 0;
     inGlobalsRegion = false;
-    return llvm::Error();
+    return llvm::Error::success();
   case Atom::scopeLinkageUnit:
     if ((_ctx.exportMode() == MachOLinkingContext::ExportMode::whiteList) &&
         _ctx.exportSymbolNamed(atom->name())) {
@@ -997,28 +998,28 @@ llvm::Error Util::getSymbolTableRegion(const DefinedAtom* atom,
         // -keep_private_externs means keep in globals region as N_PEXT.
         scope = N_PEXT | N_EXT;
         inGlobalsRegion = true;
-        return llvm::Error();
+        return llvm::Error::success();
       }
     }
     // scopeLinkageUnit symbols are no longer global once linked.
     scope = N_PEXT;
     inGlobalsRegion = false;
-    return llvm::Error();
+    return llvm::Error::success();
   case Atom::scopeGlobal:
     if (_ctx.exportRestrictMode()) {
       if (_ctx.exportSymbolNamed(atom->name())) {
         scope = N_EXT;
         inGlobalsRegion = true;
-        return llvm::Error();
+        return llvm::Error::success();
       } else {
         scope = N_PEXT;
         inGlobalsRegion = false;
-        return llvm::Error();
+        return llvm::Error::success();
       }
     } else {
       scope = N_EXT;
       inGlobalsRegion = true;
-      return llvm::Error();
+      return llvm::Error::success();
     }
     break;
   }
@@ -1139,7 +1140,7 @@ llvm::Error Util::addSymbols(const lld::File &atomFile,
     file.undefinedSymbols.push_back(sym);
   }
 
-  return llvm::Error();
+  return llvm::Error::success();
 }
 
 const Atom *Util::targetOfLazyPointer(const DefinedAtom *lpAtom) {

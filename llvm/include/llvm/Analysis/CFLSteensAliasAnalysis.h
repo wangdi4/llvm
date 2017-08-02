@@ -19,6 +19,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/CFLAliasAnalysisUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/ValueHandle.h"
@@ -45,7 +46,10 @@ public:
   /// Handle invalidation events from the new pass manager.
   ///
   /// By definition, this result is stateless and so remains valid.
-  bool invalidate(Function &, const PreservedAnalyses &) { return false; }
+  bool invalidate(Function &, const PreservedAnalyses &,
+                  FunctionAnalysisManager::Invalidator &) {
+    return false;
+  }
 
   /// \brief Inserts the given Function into the cache.
   void scan(Function *Fn);
@@ -82,27 +86,6 @@ public:
   }
 
 private:
-  struct FunctionHandle final : public CallbackVH {
-    FunctionHandle(Function *Fn, CFLSteensAAResult *Result)
-        : CallbackVH(Fn), Result(Result) {
-      assert(Fn != nullptr);
-      assert(Result != nullptr);
-    }
-
-    void deleted() override { removeSelfFromCache(); }
-    void allUsesReplacedWith(Value *) override { removeSelfFromCache(); }
-
-  private:
-    CFLSteensAAResult *Result;
-
-    void removeSelfFromCache() {
-      assert(Result != nullptr);
-      auto *Val = getValPtr();
-      Result->evict(cast<Function>(Val));
-      setValPtr(nullptr);
-    }
-  };
-
   const TargetLibraryInfo &TLI;
 
   /// \brief Cached mapping of Functions to their StratifiedSets.
@@ -111,7 +94,7 @@ private:
   /// have any kind of recursion, it is discernable from a function
   /// that simply has empty sets.
   DenseMap<Function *, Optional<FunctionInfo>> Cache;
-  std::forward_list<FunctionHandle> Handles;
+  std::forward_list<cflaa::FunctionHandle<CFLSteensAAResult>> Handles;
 
   FunctionInfo buildSetsFrom(Function *F);
 };
@@ -122,7 +105,7 @@ private:
 /// in particular to leverage invalidation to trigger re-computation of sets.
 class CFLSteensAA : public AnalysisInfoMixin<CFLSteensAA> {
   friend AnalysisInfoMixin<CFLSteensAA>;
-  static char PassID;
+  static AnalysisKey Key;
 
 public:
   typedef CFLSteensAAResult Result;

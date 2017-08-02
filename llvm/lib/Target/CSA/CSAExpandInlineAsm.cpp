@@ -62,7 +62,7 @@ namespace {
       void EmitGPRel32Value(const MCExpr *Value) override {}
 
       void EmitInstruction(const MCInst &Inst,
-          const MCSubtargetInfo &STI) override {
+          const MCSubtargetInfo &STI, bool PrintSchedInfo = false) override {
         // Just stash the MCInst for retrieval later. The list of parsedInsts
         // should correspond to only a single INLINEASM MI.
         parsedInsts.push_back(Inst);
@@ -352,7 +352,7 @@ void CSAExpandInlineAsm::buildMachineInstrFromMCInst(MachineInstr* MI, MCInst *p
         // to the INLINEASM psuedo-instruction. Go find it and steal it.
         unsigned dollarNum = regNo - CSA::NUM_TARGET_REGS;
         MachineOperand &mOp = getDollarAsmOperand(MI, dollarNum);
-        builder.addOperand(mOp);
+        builder.add(mOp);
       } else {
         // This is a regular register. This actually seems to be the slightly
         // trickier case, since we have to build our own MachineOperand.

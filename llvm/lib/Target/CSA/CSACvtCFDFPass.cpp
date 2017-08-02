@@ -320,7 +320,7 @@ bool CSACvtCFDFPass::runOnMachineFunction(MachineFunction &MF) {
   createFIEntryDefs();
 
   replaceUndefWithIgn();
-  //handleAllConstantInputs();
+  handleAllConstantInputs();
 #if 0
   {
     errs() << "CSACvtCFDFPass after memoryop order" << ":\n";
@@ -512,7 +512,7 @@ void CSACvtCFDFPass::insertSWITCHForConstant(MachineInstr* MI, MachineBasicBlock
       switchFalse).
       addReg(switchTrue, RegState::Define).
       addReg(bi->getOperand(0).getReg()).
-      addOperand(MI->getOperand(1));
+      add(MI->getOperand(1));
     switchInst->setFlag(MachineInstr::NonSequential);
 
     if (upnode->isFalseChild(unode)) {
@@ -1239,13 +1239,13 @@ void CSACvtCFDFPass::replaceCanonicalLoopHdrPhi(MachineBasicBlock* mbb) {
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addReg(pickFalse->getReg()).addOperand(*pickTrue);
+        addReg(pickFalse->getReg()).add(*pickTrue);
     } else if (pickTrue->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addReg(pickTrue->getReg());
+        add(*pickFalse).addReg(pickTrue->getReg());
     } else {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addOperand(*pickTrue);
+        add(*pickFalse).add(*pickTrue);
     }
 
     pickInst->setFlag(MachineInstr::NonSequential);
@@ -1381,13 +1381,13 @@ void CSACvtCFDFPass::replaceStraightExitingsLoopHdrPhi(MachineBasicBlock* mbb) {
         addReg(pickFalse->getReg()).addReg(pickTrue->getReg());
     } else if (pickFalse->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addReg(pickFalse->getReg()).addOperand(*pickTrue);
+        addReg(pickFalse->getReg()).add(*pickTrue);
     } else if (pickTrue->isReg()) {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addReg(pickTrue->getReg());
+        add(*pickFalse).addReg(pickTrue->getReg());
     } else {
       pickInst = BuildMI(*mbb, MI, MI->getDebugLoc(), TII->get(pickOpcode), dst).addReg(predReg).
-        addOperand(*pickFalse).addOperand(*pickTrue);
+        add(*pickFalse).add(*pickTrue);
     }
 
     pickInst->setFlag(MachineInstr::NonSequential);
@@ -1654,6 +1654,21 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
   MachineBasicBlock* entry = &*thisMF->begin();
   for (MachineFunction::iterator BB = thisMF->begin(), E = thisMF->end(); BB != E; ++BB) {
     MachineBasicBlock* mbb = &*BB;
+    ControlDependenceNode* unode = CDG->getNode(mbb);
+    unsigned domIf = 0;
+    for (ControlDependenceNode::node_iterator uparent = unode->parent_begin(), uparent_end = unode->parent_end();
+      uparent != uparent_end; ++uparent) {
+      ControlDependenceNode *upnode = *uparent;
+      MachineBasicBlock *upbb = upnode->getBlock();
+      if (!upbb) {
+        //this is typical define inside loop, used outside loop on the main execution path
+        continue;
+      }
+      if (bb2rpo[upbb] >= bb2rpo[mbb]) {
+        continue;
+      }
+      domIf++;
+    }
     MachineBasicBlock::iterator iterMI = BB->begin();
     while(iterMI != BB->end()) {
       MachineInstr* MI = &*iterMI;
@@ -1664,11 +1679,11 @@ void CSACvtCFDFPass::handleAllConstantInputs() {
       for (MIOperands MO(*MI); MO.isValid(); ++MO) {
         if (MO->isReg() && MO->isDef()) continue;
         if (!MO->isImm() && !MO->isCImm() && !MO->isFPImm()) {
-            allConst = false;
-            break;
+          allConst = false;
+          break;
         }
       }
-      if (allConst && mbb != entry) {
+      if (allConst && mbb != entry && !domIf) {
         MI->removeFromParent();
         entry->insertAfter(entry->begin(), MI);
       }
@@ -2558,7 +2573,7 @@ void CSACvtCFDFPass::generateDynamicPreds(MachineLoop* L) {
 
 void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initInst, unsigned backedgePred) {
   unsigned predReg = 0;
-  unsigned rptPred = 0;
+  bool flipBackedgePred = false;
   unsigned predConst = initInst->getOperand(1).getImm();
   MachineBasicBlock* lphdr = mloop->getHeader();
   MachineBasicBlock* latchBB = mloop->getLoopLatch();
@@ -2600,12 +2615,8 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
 
             if (!predReg) {
               predReg = initInst->getOperand(0).getReg();
-              rptPred = backedgePred;
               if (predConst) {
-                //flip backedgePred
-                unsigned notBackedgePred = MRI->createVirtualRegister(&CSA::I1RegClass);
-                BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(CSA::NOT1), notBackedgePred).addReg(backedgePred);
-                rptPred = notBackedgePred;
+                flipBackedgePred = true;
               }
             }
 
@@ -2630,11 +2641,21 @@ void CSACvtCFDFPass::repeatOperandInLoop(MachineLoop* mloop, MachineInstr* initI
             repeats.insert(pickInst);
 
             const unsigned switchOpcode = TII->getPickSwitchOpcode(TRC, false /*not pick op*/);
-            MachineInstr *switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
-              CSA::IGN).
-              addReg(rptIReg, RegState::Define).
-              addReg(rptPred).
-              addReg(rptOReg);
+            MachineInstr *switchInst;
+            if (flipBackedgePred) {
+              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+                  rptIReg).
+                addReg(CSA::IGN).
+                addReg(backedgePred).
+                addReg(rptOReg);
+              switchInst->getOperand(0).setIsDef();
+            } else {
+              switchInst = BuildMI(*latchBB, latchBB->getFirstTerminator(), DebugLoc(), TII->get(switchOpcode),
+                  CSA::IGN).
+                addReg(rptIReg, RegState::Define).
+                addReg(backedgePred).
+                addReg(rptOReg);
+            }
             switchInst->setFlag(MachineInstr::NonSequential);
             repeats.insert(switchInst);
             MachineRegisterInfo::use_iterator UI = MRI->use_begin(Reg);
@@ -2994,8 +3015,8 @@ void CSACvtCFDFPass::generateDynamicPickTreeForFooter(MachineBasicBlock* mbb) {
         else {
           MachineOperand edgeOp = MachineOperand::CreateReg(pred2value->first, true);
           MachineOperand valueOp = MachineOperand::CreateReg(pred2value->second, true);
-          xphi->addOperand(edgeOp);
-          xphi->addOperand(valueOp);
+          xphi->add(edgeOp);
+          xphi->add(valueOp);
         }
       }
 #else 

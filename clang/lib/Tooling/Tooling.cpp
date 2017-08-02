@@ -100,7 +100,6 @@ clang::CompilerInvocation *newInvocation(
       *Diagnostics);
   Invocation->getFrontendOpts().DisableFree = false;
   Invocation->getCodeGenOpts().DisableFree = false;
-  Invocation->getDependencyOutputOpts() = DependencyOutputOptions();
   return Invocation;
 }
 
@@ -140,9 +139,11 @@ bool runToolOnCodeWithArgs(
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
   llvm::IntrusiveRefCntPtr<FileManager> Files(
       new FileManager(FileSystemOptions(), OverlayFileSystem));
-  ToolInvocation Invocation(getSyntaxOnlyToolArgs(ToolName, Args, FileNameRef),
-                            ToolAction, Files.get(),
-                            std::move(PCHContainerOps));
+  ArgumentsAdjuster Adjuster = getClangStripDependencyFileAdjuster();
+  ToolInvocation Invocation(
+      getSyntaxOnlyToolArgs(ToolName, Adjuster(Args, FileNameRef), FileNameRef),
+      ToolAction, Files.get(),
+      std::move(PCHContainerOps));
 
   SmallString<1024> CodeStorage;
   InMemoryFileSystem->addFile(FileNameRef, 0,
@@ -244,7 +245,7 @@ bool ToolInvocation::run() {
   const char *const BinaryName = Argv[0];
   IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
   unsigned MissingArgIndex, MissingArgCount;
-  std::unique_ptr<llvm::opt::OptTable> Opts(driver::createDriverOptTable());
+  std::unique_ptr<llvm::opt::OptTable> Opts = driver::createDriverOptTable();
   llvm::opt::InputArgList ParsedArgs = Opts->ParseArgs(
       ArrayRef<const char *>(Argv).slice(1), MissingArgIndex, MissingArgCount);
   ParseDiagnosticArgs(*DiagOpts, ParsedArgs);
@@ -260,6 +261,8 @@ bool ToolInvocation::run() {
   Driver->setCheckInputsExist(false);
   const std::unique_ptr<clang::driver::Compilation> Compilation(
       Driver->BuildCompilation(llvm::makeArrayRef(Argv)));
+  if (!Compilation)
+    return false;
   const llvm::opt::ArgStringList *const CC1Args = getCC1Arguments(
       &Diagnostics, Compilation.get());
   if (!CC1Args) {
@@ -275,13 +278,13 @@ bool ToolInvocation::run() {
     Invocation->getPreprocessorOpts().addRemappedFile(It.getKey(),
                                                       Input.release());
   }
-  return runInvocation(BinaryName, Compilation.get(), Invocation.release(),
+  return runInvocation(BinaryName, Compilation.get(), std::move(Invocation),
                        std::move(PCHContainerOps));
 }
 
 bool ToolInvocation::runInvocation(
     const char *BinaryName, clang::driver::Compilation *Compilation,
-    clang::CompilerInvocation *Invocation,
+    std::shared_ptr<clang::CompilerInvocation> Invocation,
     std::shared_ptr<PCHContainerOperations> PCHContainerOps) {
   // Show the invocation, with -v.
   if (Invocation->getHeaderSearchOpts().Verbose) {
@@ -290,17 +293,17 @@ bool ToolInvocation::runInvocation(
     llvm::errs() << "\n";
   }
 
-  return Action->runInvocation(Invocation, Files, std::move(PCHContainerOps),
-                               DiagConsumer);
+  return Action->runInvocation(std::move(Invocation), Files,
+                               std::move(PCHContainerOps), DiagConsumer);
 }
 
 bool FrontendActionFactory::runInvocation(
-    CompilerInvocation *Invocation, FileManager *Files,
+    std::shared_ptr<CompilerInvocation> Invocation, FileManager *Files,
     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     DiagnosticConsumer *DiagConsumer) {
   // Create a compiler instance to handle the actual work.
   clang::CompilerInstance Compiler(std::move(PCHContainerOps));
-  Compiler.setInvocation(Invocation);
+  Compiler.setInvocation(std::move(Invocation));
   Compiler.setFileManager(Files);
 
   // The FrontendAction can have lifetime requirements for Compiler or its
@@ -333,6 +336,7 @@ ClangTool::ClangTool(const CompilationDatabase &Compilations,
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
   appendArgumentsAdjuster(getClangStripOutputAdjuster());
   appendArgumentsAdjuster(getClangSyntaxOnlyAdjuster());
+  appendArgumentsAdjuster(getClangStripDependencyFileAdjuster());
 }
 
 ClangTool::~ClangTool() {}
@@ -474,7 +478,8 @@ class ASTBuilderAction : public ToolAction {
 public:
   ASTBuilderAction(std::vector<std::unique_ptr<ASTUnit>> &ASTs) : ASTs(ASTs) {}
 
-  bool runInvocation(CompilerInvocation *Invocation, FileManager *Files,
+  bool runInvocation(std::shared_ptr<CompilerInvocation> Invocation,
+                     FileManager *Files,
                      std::shared_ptr<PCHContainerOperations> PCHContainerOps,
                      DiagnosticConsumer *DiagConsumer) override {
     std::unique_ptr<ASTUnit> AST = ASTUnit::LoadFromCompilerInvocation(
@@ -507,7 +512,8 @@ buildASTFromCode(const Twine &Code, const Twine &FileName,
 std::unique_ptr<ASTUnit> buildASTFromCodeWithArgs(
     const Twine &Code, const std::vector<std::string> &Args,
     const Twine &FileName, const Twine &ToolName,
-    std::shared_ptr<PCHContainerOperations> PCHContainerOps) {
+    std::shared_ptr<PCHContainerOperations> PCHContainerOps,
+    ArgumentsAdjuster Adjuster) {
   SmallString<16> FileNameStorage;
   StringRef FileNameRef = FileName.toNullTerminatedStringRef(FileNameStorage);
 
@@ -520,8 +526,10 @@ std::unique_ptr<ASTUnit> buildASTFromCodeWithArgs(
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
   llvm::IntrusiveRefCntPtr<FileManager> Files(
       new FileManager(FileSystemOptions(), OverlayFileSystem));
-  ToolInvocation Invocation(getSyntaxOnlyToolArgs(ToolName, Args, FileNameRef),
-                            &Action, Files.get(), std::move(PCHContainerOps));
+
+  ToolInvocation Invocation(
+      getSyntaxOnlyToolArgs(ToolName, Adjuster(Args, FileNameRef), FileNameRef),
+      &Action, Files.get(), std::move(PCHContainerOps));
 
   SmallString<1024> CodeStorage;
   InMemoryFileSystem->addFile(FileNameRef, 0,

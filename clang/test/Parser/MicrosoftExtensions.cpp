@@ -60,10 +60,16 @@ struct struct_without_uuid { };
 struct __declspec(uuid("000000A0-0000-0000-C000-000000000049"))
 struct_with_uuid2;
 
-[uuid("000000A0-0000-0000-C000-000000000049")] struct struct_with_uuid3;
+[uuid("000000A0-0000-0000-C000-000000000049")] struct struct_with_uuid3; // expected-warning{{specifying 'uuid' as an ATL attribute is deprecated; use __declspec instead}}
 
 struct
 struct_with_uuid2 {} ;
+
+enum __declspec(uuid("000000A0-0000-0000-C000-000000000046"))
+enum_with_uuid { };
+enum enum_without_uuid { };
+
+int __declspec(uuid("000000A0-0000-0000-C000-000000000046")) inappropriate_uuid; // expected-warning {{'uuid' attribute only applies to classes and enumerations}}
 
 int uuid_sema_test()
 {
@@ -80,6 +86,15 @@ int uuid_sema_test()
    __uuidof(struct_with_uuid*[1]); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
    __uuidof(const struct_with_uuid[1][1]);
    __uuidof(const struct_with_uuid*[1][1]); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
+
+   __uuidof(enum_with_uuid);
+   __uuidof(enum_without_uuid); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
+   __uuidof(enum_with_uuid*);
+   __uuidof(enum_without_uuid*); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
+   __uuidof(enum_with_uuid[1]);
+   __uuidof(enum_with_uuid*[1]); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
+   __uuidof(const enum_with_uuid[1][1]);
+   __uuidof(const enum_with_uuid*[1][1]); // expected-error {{cannot call operator __uuidof on a type with no GUID}}
 
    __uuidof(var_with_uuid);
    __uuidof(var_without_uuid);// expected-error {{cannot call operator __uuidof on a type with no GUID}}
@@ -246,9 +261,7 @@ int __identifier(else} = __identifier(for); // expected-error {{missing ')' afte
 #define identifier_weird(x) __identifier(x
 int k = identifier_weird(if)); // expected-error {{use of undeclared identifier 'if'}}
 
-// This is a bit weird, but the alternative tokens aren't keywords, and this
-// behavior matches MSVC. FIXME: Consider supporting this anyway.
-extern int __identifier(and) r; // expected-error {{cannot convert '&&' token to an identifier}}
+extern int __identifier(and);
 
 void f() {
   __identifier(() // expected-error {{cannot convert '(' token to an identifier}}

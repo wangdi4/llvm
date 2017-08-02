@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
-#include "RAIIObjectsForParser.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/Parse/ParseDiagnostic.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/Scope.h"
 using namespace clang;
@@ -319,7 +319,8 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
     // Introduce the parameter into scope.
     bool HasUnparsed = Param->hasUnparsedDefaultArg();
     Actions.ActOnDelayedCXXMethodParameter(getCurScope(), Param);
-    if (CachedTokens *Toks = LM.DefaultArgs[I].Toks) {
+    std::unique_ptr<CachedTokens> Toks = std::move(LM.DefaultArgs[I].Toks);
+    if (Toks) {
       // Mark the end of the default argument so that we know when to stop when
       // we parse it later on.
       Token LastDefaultArgToken = Toks->back();
@@ -343,9 +344,9 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
 
       // The argument isn't actually potentially evaluated unless it is
       // used.
-      EnterExpressionEvaluationContext Eval(Actions,
-                                            Sema::PotentiallyEvaluatedIfUsed,
-                                            Param);
+      EnterExpressionEvaluationContext Eval(
+          Actions,
+          Sema::ExpressionEvaluationContext::PotentiallyEvaluatedIfUsed, Param);
 
       ExprResult DefArgResult;
       if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
@@ -377,9 +378,6 @@ void Parser::ParseLexedMethodDeclaration(LateParsedMethodDeclaration &LM) {
 
       if (Tok.is(tok::eof) && Tok.getEofData() == Param)
         ConsumeAnyToken();
-
-      delete Toks;
-      LM.DefaultArgs[I].Toks = nullptr;
     } else if (HasUnparsed) {
       assert(Param->hasInheritedDefaultArg());
       FunctionDecl *Old = cast<FunctionDecl>(LM.Method)->getPreviousDecl();
@@ -733,19 +731,6 @@ bool Parser::ConsumeAndStoreUntil(tok::TokenKind T1, tok::TokenKind T2,
       ConsumeBrace();
       break;
 
-    case tok::code_completion:
-      Toks.push_back(Tok);
-      ConsumeCodeCompletionToken();
-      break;
-
-    case tok::string_literal:
-    case tok::wide_string_literal:
-    case tok::utf8_string_literal:
-    case tok::utf16_string_literal:
-    case tok::utf32_string_literal:
-      Toks.push_back(Tok);
-      ConsumeStringToken();
-      break;
     case tok::semi:
       if (StopAtSemi)
         return false;
@@ -753,7 +738,7 @@ bool Parser::ConsumeAndStoreUntil(tok::TokenKind T1, tok::TokenKind T2,
     default:
       // consume this token.
       Toks.push_back(Tok);
-      ConsumeToken();
+      ConsumeAnyToken(/*ConsumeCodeCompletionTok*/true);
       break;
     }
     isFirstTokenConsumed = false;
@@ -904,7 +889,7 @@ bool Parser::ConsumeAndStoreFunctionPrologue(CachedTokens &Toks) {
         // If the opening brace is not preceded by one of these tokens, we are
         // missing the mem-initializer-id. In order to recover better, we need
         // to use heuristics to determine if this '{' is most likely the
-        // begining of a brace-init-list or the function body.
+        // beginning of a brace-init-list or the function body.
         // Check the token after the corresponding '}'.
         TentativeParsingAction PA(*this);
         if (SkipUntil(tok::r_brace) &&

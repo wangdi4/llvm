@@ -2,7 +2,6 @@
 #
 # RUN: lld-link /out:%t.dll /dll %t.obj /export:exportfn1 /export:exportfn2
 # RUN: llvm-objdump -p %t.dll | FileCheck -check-prefix=CHECK1 %s
-# REQUIRES: winlib
 
 # CHECK1:      Export Table:
 # CHECK1:      DLL name: export32.test.tmp.dll
@@ -73,6 +72,16 @@
 
 # CHECK6:     duplicate /export option: _exportfn2
 # CHECK6-NOT: duplicate /export option: _exportfn1
+
+# RUN: lld-link /out:%t.dll /dll %t.obj /export:foo=mangled
+# RUN: llvm-objdump -p %t.dll | FileCheck -check-prefix=CHECK7 %s
+
+# CHECK7:      Export Table:
+# CHECK7:      DLL name: export32.test.tmp.dll
+# CHECK7:      Ordinal      RVA  Name
+# CHECK7-NEXT:       0        0
+# CHECK7-NEXT:       1        0
+# CHECK7-NEXT:       2   0x1010  foo
 
 --- !COFF
 header:

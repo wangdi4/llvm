@@ -37,6 +37,7 @@ namespace CSA {
   namespace FUNCUNIT {
     enum FuncUnit {
       None,
+      Auto, // Automatic unit assignment
       VIR, // Virtual unit - doesn't really exist
       ALU, // Integer arithmetic and logical
       SHF, // Shift unit
@@ -98,7 +99,7 @@ public:
   */
 
   // ifConversion 
-  bool isPredicable(MachineInstr &MI) const override {
+  bool isPredicable(const MachineInstr &MI) const override {
     return true;
   }
 

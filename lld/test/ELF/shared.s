@@ -14,7 +14,7 @@
 // SO-NEXT: Flags [
 // SO-NEXT: ]
 // SO-NEXT: Address:
-// SO-NEXT: Offset: 0x1030
+// SO-NEXT: Offset: 0x1038
 // SO-NEXT: Size:
 // SO-NEXT: Link:
 // SO-NEXT: Info:
@@ -254,7 +254,7 @@
 // CHECK:      DynamicSection [
 // CHECK-NEXT:   Tag        Type                 Name/Value
 // CHECK-NEXT:   0x0000001D RUNPATH              foo:bar
-// CHECK-NEXT:   0x00000001 NEEDED               SharedLibrary ({{.*}}2.so)
+// CHECK-NEXT:   0x00000001 NEEDED               Shared library: [{{.*}}2.so]
 // CHECK-NEXT:   0x00000015 DEBUG                0x0
 // CHECK-NEXT:   0x00000011 REL                  [[RELADDR]]
 // CHECK-NEXT:   0x00000012 RELSZ                [[RELSIZE]] (bytes)

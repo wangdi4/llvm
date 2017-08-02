@@ -48,7 +48,7 @@ class MemoryAccess;
 /// query only specific parts.
 struct Dependences {
   // Granularities of the current dependence analysis
-  enum AnalyisLevel {
+  enum AnalysisLevel {
     AL_Statement = 0,
     // Distinguish accessed memory references in the same statement
     AL_Reference,
@@ -131,7 +131,7 @@ struct Dependences {
   /// @param S             The current SCoP.
   /// @param NewSchedules  The new schedules
   ///
-  /// @return True if the new schedule is valid, false it it reverses
+  /// @return True if the new schedule is valid, false if it reverses
   ///         dependences.
   bool isValidSchedule(Scop &S, StatementToIslMapTy *NewSchedules) const;
 
@@ -142,12 +142,14 @@ struct Dependences {
   void dump() const;
 
   /// Return the granularity of this dependence analysis.
-  AnalyisLevel getDependenceLevel() { return Level; }
+  AnalysisLevel getDependenceLevel() { return Level; }
 
   /// Allow the DependenceInfo access to private members and methods.
   ///
   /// To restrict access to the internal state, only the DependenceInfo class
   /// is able to call or modify a Dependences struct.
+  friend struct DependenceAnalysis;
+  friend struct DependenceInfoPrinterPass;
   friend class DependenceInfo;
   friend class DependenceInfoWrapperPass;
 
@@ -157,7 +159,7 @@ struct Dependences {
 private:
   /// Create an empty dependences struct.
   explicit Dependences(const std::shared_ptr<isl_ctx> &IslCtx,
-                       AnalyisLevel Level)
+                       AnalysisLevel Level)
       : RAW(nullptr), WAR(nullptr), WAW(nullptr), RED(nullptr), TC_RED(nullptr),
         IslCtx(IslCtx), Level(Level) {}
 
@@ -193,7 +195,38 @@ private:
   std::shared_ptr<isl_ctx> IslCtx;
 
   /// Granularity of this dependence analysis.
-  const AnalyisLevel Level;
+  const AnalysisLevel Level;
+};
+
+struct DependenceAnalysis : public AnalysisInfoMixin<DependenceAnalysis> {
+  static AnalysisKey Key;
+  struct Result {
+    Scop &S;
+    std::unique_ptr<Dependences> D[Dependences::NumAnalysisLevels];
+
+    /// Return the dependence information for the current SCoP.
+    ///
+    /// @param Level The granularity of dependence analysis result.
+    ///
+    /// @return The dependence analysis result
+    ///
+    const Dependences &getDependences(Dependences::AnalysisLevel Level);
+
+    /// Recompute dependences from schedule and memory accesses.
+    const Dependences &recomputeDependences(Dependences::AnalysisLevel Level);
+  };
+  Result run(Scop &S, ScopAnalysisManager &SAM,
+             ScopStandardAnalysisResults &SAR);
+};
+
+struct DependenceInfoPrinterPass
+    : public PassInfoMixin<DependenceInfoPrinterPass> {
+  DependenceInfoPrinterPass(raw_ostream &OS) : OS(OS) {}
+
+  PreservedAnalyses run(Scop &S, ScopAnalysisManager &,
+                        ScopStandardAnalysisResults &, SPMUpdater &);
+
+  raw_ostream &OS;
 };
 
 class DependenceInfo : public ScopPass {
@@ -209,10 +242,10 @@ public:
   ///
   /// @return The dependence analysis result
   ///
-  const Dependences &getDependences(Dependences::AnalyisLevel Level);
+  const Dependences &getDependences(Dependences::AnalysisLevel Level);
 
   /// Recompute dependences from schedule and memory accesses.
-  const Dependences &recomputeDependences(Dependences::AnalyisLevel Level);
+  const Dependences &recomputeDependences(Dependences::AnalysisLevel Level);
 
   /// Compute the dependence information for the SCoP @p S.
   bool runOnScop(Scop &S) override;
@@ -251,11 +284,11 @@ public:
   ///
   /// @return The dependence analysis result
   ///
-  const Dependences &getDependences(Scop *S, Dependences::AnalyisLevel Level);
+  const Dependences &getDependences(Scop *S, Dependences::AnalysisLevel Level);
 
   /// Recompute dependences from schedule and memory accesses.
   const Dependences &recomputeDependences(Scop *S,
-                                          Dependences::AnalyisLevel Level);
+                                          Dependences::AnalysisLevel Level);
 
   /// Compute the dependence information on-the-fly for the function.
   bool runOnFunction(Function &F) override;

@@ -1,4 +1,4 @@
-//===----- llvm/Support/Error.h - Recoverable error handling ----*- C++ -*-===//
+//===- llvm/Support/Error.h - Recoverable error handling --------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,25 +14,39 @@
 #ifndef LLVM_SUPPORT_ERROR_H
 #define LLVM_SUPPORT_ERROR_H
 
-#include "llvm/ADT/PointerIntPair.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Config/abi-breaking.h"
+#include "llvm/Support/AlignOf.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
+#include <memory>
+#include <new>
+#include <string>
+#include <system_error>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace llvm {
 
-class Error;
-class ErrorList;
+class ErrorSuccess;
 
 /// Base class for error info classes. Do not extend this directly: Extend
 /// the ErrorInfo template subclass instead.
 class ErrorInfoBase {
 public:
-  virtual ~ErrorInfoBase() {}
+  virtual ~ErrorInfoBase() = default;
 
   /// Print an error message to an output stream.
   virtual void log(raw_ostream &OS) const = 0;
@@ -51,6 +65,12 @@ public:
   /// using std::error_code. It will be removed in the future.
   virtual std::error_code convertToErrorCode() const = 0;
 
+  // Returns the class ID for this type.
+  static const void *classID() { return &ID; }
+
+  // Returns the class ID for the dynamic type of this ErrorInfoBase instance.
+  virtual const void *dynamicClassID() const = 0;
+
   // Check whether this instance is a subclass of the class identified by
   // ClassID.
   virtual bool isA(const void *const ClassID) const {
@@ -62,11 +82,9 @@ public:
     return isA(ErrorInfoT::classID());
   }
 
-  // Returns the class ID for this type.
-  static const void *classID() { return &ID; }
-
 private:
   virtual void anchor();
+
   static char ID;
 };
 
@@ -136,7 +154,6 @@ private:
 /// they're moved-assigned or constructed from Success values that have already
 /// been checked. This enforces checking through all levels of the call stack.
 class LLVM_NODISCARD Error {
-
   // ErrorList needs to be able to yank ErrorInfoBase pointers out of this
   // class to add to the error list.
   friend class ErrorList;
@@ -149,17 +166,16 @@ class LLVM_NODISCARD Error {
   // error.
   template <typename T> friend class Expected;
 
-public:
+protected:
   /// Create a success value. Prefer using 'Error::success()' for readability
-  /// where possible.
-  Error() : Payload(nullptr) {
+  Error() {
     setPtr(nullptr);
     setChecked(false);
   }
 
-  /// Create a success value. This is equivalent to calling the default
-  /// constructor, but should be preferred for readability where possible.
-  static Error success() { return Error(); }
+public:
+  /// Create a success value.
+  static ErrorSuccess success();
 
   // Errors are not copy-constructable.
   Error(const Error &Other) = delete;
@@ -167,7 +183,7 @@ public:
   /// Move-construct an error value. The newly constructed error is considered
   /// unchecked, even if the source error had been checked. The original error
   /// becomes a checked Success value, regardless of its original state.
-  Error(Error &&Other) : Payload(nullptr) {
+  Error(Error &&Other) {
     setChecked(true);
     *this = std::move(Other);
   }
@@ -221,9 +237,17 @@ public:
     return getPtr() && getPtr()->isA(ErrT::classID());
   }
 
+  /// Returns the dynamic class id of this error, or null if this is a success
+  /// value.
+  const void* dynamicClassID() const {
+    if (!getPtr())
+      return nullptr;
+    return getPtr()->dynamicClassID();
+  }
+
 private:
   void assertIsChecked() {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     if (!getChecked() || getPtr()) {
       dbgs() << "Program aborted due to an unhandled Error:\n";
       if (getPtr())
@@ -244,7 +268,7 @@ private:
   }
 
   void setPtr(ErrorInfoBase *EI) {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     Payload = reinterpret_cast<ErrorInfoBase*>(
                 (reinterpret_cast<uintptr_t>(EI) &
                  ~static_cast<uintptr_t>(0x1)) |
@@ -255,7 +279,7 @@ private:
   }
 
   bool getChecked() const {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     return (reinterpret_cast<uintptr_t>(Payload) & 0x1) == 0;
 #else
     return true;
@@ -276,8 +300,15 @@ private:
     return Tmp;
   }
 
-  ErrorInfoBase *Payload;
+  ErrorInfoBase *Payload = nullptr;
 };
+
+/// Subclass of Error for the sole purpose of identifying the success path in
+/// the type system. This allows to catch invalid conversion to Expected<T> at
+/// compile time.
+class ErrorSuccess : public Error {};
+
+inline ErrorSuccess Error::success() { return ErrorSuccess(); }
 
 /// Make a Error instance representing failure using the given error info
 /// type.
@@ -297,17 +328,18 @@ template <typename ErrT, typename... ArgTs> Error make_error(ArgTs &&... Args) {
 template <typename ThisErrT, typename ParentErrT = ErrorInfoBase>
 class ErrorInfo : public ParentErrT {
 public:
+  static const void *classID() { return &ThisErrT::ID; }
+
+  const void *dynamicClassID() const override { return &ThisErrT::ID; }
+
   bool isA(const void *const ClassID) const override {
     return ClassID == classID() || ParentErrT::isA(ClassID);
   }
-
-  static const void *classID() { return &ThisErrT::ID; }
 };
 
 /// Special ErrorInfo subclass representing a list of ErrorInfos.
 /// Instances of this class are constructed by joinError.
 class ErrorList final : public ErrorInfo<ErrorList> {
-
   // handleErrors needs to be able to iterate the payload list of an
   // ErrorList.
   template <typename... HandlerTs>
@@ -593,6 +625,7 @@ public:
     if (Err)
       (void)!!*Err;
   }
+
   ~ErrorAsOutParameter() {
     // Clear the checked bit.
     if (Err && !*Err)
@@ -610,40 +643,42 @@ private:
 /// takeError(). It also adds an bool errorIsA<ErrT>() method for testing the
 /// error class type.
 template <class T> class LLVM_NODISCARD Expected {
+  template <class T1> friend class ExpectedAsOutParameter;
   template <class OtherT> friend class Expected;
-  static const bool isRef = std::is_reference<T>::value;
-  typedef ReferenceStorage<typename std::remove_reference<T>::type> wrap;
 
-  typedef std::unique_ptr<ErrorInfoBase> error_type;
+  static const bool isRef = std::is_reference<T>::value;
+
+  using wrap = ReferenceStorage<typename std::remove_reference<T>::type>;
+
+  using error_type = std::unique_ptr<ErrorInfoBase>;
 
 public:
-  typedef typename std::conditional<isRef, wrap, T>::type storage_type;
-  typedef T value_type;
+  using storage_type = typename std::conditional<isRef, wrap, T>::type;
+  using value_type = T;
 
 private:
-  typedef typename std::remove_reference<T>::type &reference;
-  typedef const typename std::remove_reference<T>::type &const_reference;
-  typedef typename std::remove_reference<T>::type *pointer;
-  typedef const typename std::remove_reference<T>::type *const_pointer;
+  using reference = typename std::remove_reference<T>::type &;
+  using const_reference = const typename std::remove_reference<T>::type &;
+  using pointer = typename std::remove_reference<T>::type *;
+  using const_pointer = const typename std::remove_reference<T>::type *;
 
 public:
   /// Create an Expected<T> error value from the given Error.
   Expected(Error Err)
-      : HasError(true),
-#ifndef NDEBUG
+      : HasError(true)
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
         // Expected is unchecked upon construction in Debug builds.
-        Unchecked(true)
-#else
-        // Expected's unchecked flag is set to false in Release builds. This
-        // allows Expected values constructed in a Release build library to be
-        // consumed by a Debug build application.
-        Unchecked(false)
+        , Unchecked(true)
 #endif
-
   {
     assert(Err && "Cannot create Expected<T> from Error success value.");
     new (getErrorStorage()) error_type(Err.takePayload());
   }
+
+  /// Forbid to convert from Error::success() implicitly, this avoids having
+  /// Expected<T> foo() { return Error::success(); } which compiles otherwise
+  /// but triggers the assertion above.
+  Expected(ErrorSuccess) = delete;
 
   /// Create an Expected<T> success value from the given OtherT value, which
   /// must be convertible to T.
@@ -651,15 +686,10 @@ public:
   Expected(OtherT &&Val,
            typename std::enable_if<std::is_convertible<OtherT, T>::value>::type
                * = nullptr)
-      : HasError(false),
-#ifndef NDEBUG
+      : HasError(false)
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
         // Expected is unchecked upon construction in Debug builds.
-        Unchecked(true)
-#else
-        // Expected's 'unchecked' flag is set to false in Release builds. This
-        // allows Expected values constructed in a Release build library to be
-        // consumed by a Debug build application.
-        Unchecked(false)
+        , Unchecked(true)
 #endif
   {
     new (getStorage()) storage_type(std::forward<OtherT>(Val));
@@ -704,7 +734,7 @@ public:
 
   /// \brief Return false if there is an error.
   explicit operator bool() {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     Unchecked = HasError;
 #endif
     return !HasError;
@@ -724,7 +754,7 @@ public:
 
   /// \brief Check that this Expected<T> is an error of type ErrT.
   template <typename ErrT> bool errorIsA() const {
-    return HasError && getErrorStorage()->template isA<ErrT>();
+    return HasError && (*getErrorStorage())->template isA<ErrT>();
   }
 
   /// \brief Take ownership of the stored error.
@@ -732,7 +762,7 @@ public:
   /// only be safely destructed. No further calls (beside the destructor) should
   /// be made on the Expected<T> vaule.
   Error takeError() {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     Unchecked = false;
 #endif
     return HasError ? Error(std::move(*getErrorStorage())) : Error::success();
@@ -775,8 +805,10 @@ private:
 
   template <class OtherT> void moveConstruct(Expected<OtherT> &&Other) {
     HasError = Other.HasError;
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     Unchecked = true;
     Other.Unchecked = false;
+#endif
 
     if (!HasError)
       new (getStorage()) storage_type(std::move(*Other.getStorage()));
@@ -817,8 +849,20 @@ private:
     return reinterpret_cast<error_type *>(ErrorStorage.buffer);
   }
 
+  const error_type *getErrorStorage() const {
+    assert(HasError && "Cannot get error when a value exists!");
+    return reinterpret_cast<const error_type *>(ErrorStorage.buffer);
+  }
+
+  // Used by ExpectedAsOutParameter to reset the checked flag.
+  void setUnchecked() {
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
+    Unchecked = true;
+#endif
+  }
+
   void assertIsChecked() {
-#ifndef NDEBUG
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
     if (Unchecked) {
       dbgs() << "Expected<T> must be checked before access or destruction.\n";
       if (HasError) {
@@ -838,7 +882,30 @@ private:
     AlignedCharArrayUnion<error_type> ErrorStorage;
   };
   bool HasError : 1;
+#if LLVM_ENABLE_ABI_BREAKING_CHECKS
   bool Unchecked : 1;
+#endif
+};
+
+/// Helper for Expected<T>s used as out-parameters.
+///
+/// See ErrorAsOutParameter.
+template <typename T>
+class ExpectedAsOutParameter {
+public:
+  ExpectedAsOutParameter(Expected<T> *ValOrErr)
+    : ValOrErr(ValOrErr) {
+    if (ValOrErr)
+      (void)!!*ValOrErr;
+  }
+
+  ~ExpectedAsOutParameter() {
+    if (ValOrErr)
+      ValOrErr->setUnchecked();
+  }
+
+private:
+  Expected<T> *ValOrErr;
 };
 
 /// This class wraps a std::error_code in a Error.
@@ -848,6 +915,7 @@ private:
 /// std::error_codes.
 class ECError : public ErrorInfo<ECError> {
   friend Error errorCodeToError(std::error_code);
+
 public:
   void setErrorCode(std::error_code EC) { this->EC = EC; }
   std::error_code convertToErrorCode() const override { return EC; }
@@ -859,6 +927,7 @@ public:
 protected:
   ECError() = default;
   ECError(std::error_code EC) : EC(EC) {}
+
   std::error_code EC;
 };
 
@@ -901,9 +970,14 @@ template <typename T> ErrorOr<T> expectedToErrorOr(Expected<T> &&E) {
 class StringError : public ErrorInfo<StringError> {
 public:
   static char ID;
+
   StringError(const Twine &S, std::error_code EC);
+
   void log(raw_ostream &OS) const override;
   std::error_code convertToErrorCode() const override;
+
+  const std::string &getMessage() const { return Msg; }
+
 private:
   std::string Msg;
   std::error_code EC;
@@ -963,6 +1037,66 @@ private:
 LLVM_ATTRIBUTE_NORETURN void report_fatal_error(Error Err,
                                                 bool gen_crash_diag = true);
 
-} // namespace llvm
+/// Report a fatal error if Err is a failure value.
+///
+/// This function can be used to wrap calls to fallible functions ONLY when it
+/// is known that the Error will always be a success value. E.g.
+///
+///   @code{.cpp}
+///   // foo only attempts the fallible operation if DoFallibleOperation is
+///   // true. If DoFallibleOperation is false then foo always returns
+///   // Error::success().
+///   Error foo(bool DoFallibleOperation);
+///
+///   cantFail(foo(false));
+///   @endcode
+inline void cantFail(Error Err) {
+  if (Err)
+    llvm_unreachable("Failure value returned from cantFail wrapped call");
+}
+
+/// Report a fatal error if ValOrErr is a failure value, otherwise unwraps and
+/// returns the contained value.
+///
+/// This function can be used to wrap calls to fallible functions ONLY when it
+/// is known that the Error will always be a success value. E.g.
+///
+///   @code{.cpp}
+///   // foo only attempts the fallible operation if DoFallibleOperation is
+///   // true. If DoFallibleOperation is false then foo always returns an int.
+///   Expected<int> foo(bool DoFallibleOperation);
+///
+///   int X = cantFail(foo(false));
+///   @endcode
+template <typename T>
+T cantFail(Expected<T> ValOrErr) {
+  if (ValOrErr)
+    return std::move(*ValOrErr);
+  else
+    llvm_unreachable("Failure value returned from cantFail wrapped call");
+}
+
+/// Report a fatal error if ValOrErr is a failure value, otherwise unwraps and
+/// returns the contained reference.
+///
+/// This function can be used to wrap calls to fallible functions ONLY when it
+/// is known that the Error will always be a success value. E.g.
+///
+///   @code{.cpp}
+///   // foo only attempts the fallible operation if DoFallibleOperation is
+///   // true. If DoFallibleOperation is false then foo always returns a Bar&.
+///   Expected<Bar&> foo(bool DoFallibleOperation);
+///
+///   Bar &X = cantFail(foo(false));
+///   @endcode
+template <typename T>
+T& cantFail(Expected<T&> ValOrErr) {
+  if (ValOrErr)
+    return *ValOrErr;
+  else
+    llvm_unreachable("Failure value returned from cantFail wrapped call");
+}
+
+} // end namespace llvm
 
 #endif // LLVM_SUPPORT_ERROR_H

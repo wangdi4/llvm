@@ -55,12 +55,7 @@
 #include <string.h>
 #endif
 
-namespace __cxxabiv1
-{
-
-#pragma GCC visibility push(hidden)
-
-inline
+static inline
 bool
 is_equal(const std::type_info* x, const std::type_info* y, bool use_strcmp)
 {
@@ -73,6 +68,8 @@ is_equal(const std::type_info* x, const std::type_info* y, bool use_strcmp)
 #endif
 }
 
+namespace __cxxabiv1
+{
 
 // __shim_type_info
 
@@ -103,45 +100,6 @@ __array_type_info::~__array_type_info()
 
 __function_type_info::~__function_type_info()
 {
-}
-
-// __qualified_function_type_info
-
-__qualified_function_type_info::~__qualified_function_type_info()
-{
-}
-
-// Determine if a function pointer conversion can convert a pointer (or pointer
-// to member) to type x into a pointer (or pointer to member) to type y.
-static bool is_function_pointer_conversion(const std::type_info* x,
-                                           const std::type_info* y)
-{
-    const unsigned int discardable_quals =
-        __qualified_function_type_info::__noexcept_mask |
-        __qualified_function_type_info::__transaction_safe_mask |
-        __qualified_function_type_info::__noreturn_mask;
-
-    // If x has only discardable qualifiers and y is unqualified, then
-    // conversion is permitted.
-    const __qualified_function_type_info* qual_x =
-        dynamic_cast<const __qualified_function_type_info *>(x);
-    if (!qual_x)
-        return false;
-    if ((qual_x->__qualifiers & ~discardable_quals) == 0 &&
-        is_equal(qual_x->__base_type, y, false))
-        return true;
-
-    // Otherwise, x's qualifiers must be the same as y's, plus some discardable
-    // ones.
-    const __qualified_function_type_info* qual_y =
-        dynamic_cast<const __qualified_function_type_info *>(y);
-    if (!qual_y)
-        return false;
-    if (qual_y->__qualifiers & ~qual_x->__qualifiers)
-        return false;
-    if (qual_x->__qualifiers & ~qual_y->__qualifiers & ~discardable_quals)
-        return false;
-    return is_equal(qual_x->__base_type, qual_y->__base_type, false);
 }
 
 // __enum_type_info
@@ -271,7 +229,7 @@ __class_type_info::can_catch(const __shim_type_info* thrown_type,
     if (thrown_class_type == 0)
         return false;
     // bullet 2
-    __dynamic_cast_info info = {thrown_class_type, 0, this, -1, 0};
+    __dynamic_cast_info info = {thrown_class_type, 0, this, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
@@ -429,15 +387,13 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
     // Do the dereference adjustment
     if (adjustedPtr != NULL)
         adjustedPtr = *static_cast<void**>(adjustedPtr);
-    // bullet 3B
-    if (thrown_pointer_type->__flags & ~__flags)
+    // bullet 3B and 3C
+    if (thrown_pointer_type->__flags & ~__flags & __no_remove_flags_mask)
+        return false;
+    if (__flags & ~thrown_pointer_type->__flags & __no_add_flags_mask)
         return false;
     if (is_equal(__pointee, thrown_pointer_type->__pointee, false))
         return true;
-    // bullet 3C
-    if (is_function_pointer_conversion(thrown_pointer_type->__pointee,
-                                       __pointee))
-      return true;
     // bullet 3A
     if (is_equal(__pointee, &typeid(void), false)) {
         // pointers to functions cannot be converted to void*.
@@ -471,7 +427,7 @@ __pointer_type_info::can_catch(const __shim_type_info* thrown_type,
         dynamic_cast<const __class_type_info*>(thrown_pointer_type->__pointee);
     if (thrown_class_type == 0)
         return false;
-    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, -1, 0};
+    __dynamic_cast_info info = {thrown_class_type, 0, catch_class_type, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
     info.number_of_dst_type = 1;
     thrown_class_type->has_unambiguous_public_base(&info, adjustedPtr, public_path);
     if (info.path_dst_ptr_to_static_ptr == public_path)
@@ -543,11 +499,11 @@ bool __pointer_to_member_type_info::can_catch(
         dynamic_cast<const __pointer_to_member_type_info*>(thrown_type);
     if (thrown_pointer_type == 0)
         return false;
-    if (thrown_pointer_type->__flags & ~__flags)
+    if (thrown_pointer_type->__flags & ~__flags & __no_remove_flags_mask)
         return false;
-    if (!is_equal(__pointee, thrown_pointer_type->__pointee, false) &&
-        !is_function_pointer_conversion(thrown_pointer_type->__pointee,
-                                        __pointee))
+    if (__flags & ~thrown_pointer_type->__flags & __no_add_flags_mask)
+        return false;
+    if (!is_equal(__pointee, thrown_pointer_type->__pointee, false))
         return false;
     if (is_equal(__context, thrown_pointer_type->__context, false))
         return true;
@@ -578,9 +534,6 @@ bool __pointer_to_member_type_info::can_catch_nested(
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-
-#pragma GCC visibility pop
-#pragma GCC visibility push(default)
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -680,7 +633,7 @@ __dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
     //    be returned.
     const void* dst_ptr = 0;
     // Initialize info struct for this search.
-    __dynamic_cast_info info = {dst_type, static_ptr, static_type, src2dst_offset, 0};
+    __dynamic_cast_info info = {dst_type, static_ptr, static_type, src2dst_offset, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,};
 
     // Find out if we can use a giant short cut in the search
     if (is_equal(dynamic_type, dst_type, false))
@@ -755,9 +708,6 @@ __dynamic_cast(const void *static_ptr, const __class_type_info *static_type,
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
-
-#pragma GCC visibility pop
-#pragma GCC visibility push(hidden)
 
 // Call this function when you hit a static_type which is a base (above) a dst_type.
 // Let caller know you hit a static_type.  But only start recording details if
@@ -1340,7 +1290,5 @@ __base_class_type_info::search_below_dst(__dynamic_cast_info* info,
                                       not_public_path,
                                   use_strcmp);
 }
-
-#pragma GCC visibility pop
 
 }  // __cxxabiv1

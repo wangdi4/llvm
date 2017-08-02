@@ -24,6 +24,7 @@
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/BitVector.h"
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/IndexedMap.h"
 #include "llvm/CodeGen/LiveInterval.h"
 
@@ -65,7 +66,8 @@ class LiveRangeCalc {
   /// registers do not overlap), but the defined/undefined information must
   /// be kept separate for each individual range.
   /// By convention, EntryInfoMap[&LR] = { Defined, Undefined }.
-  std::map<LiveRange*,std::pair<BitVector,BitVector>> EntryInfoMap;
+  typedef DenseMap<LiveRange*,std::pair<BitVector,BitVector>> EntryInfoMap;
+  EntryInfoMap EntryInfos;
 
   /// Map each basic block where a live range is live out to the live-out value
   /// and its defining block.
@@ -160,7 +162,8 @@ class LiveRangeCalc {
   /// all uses must be jointly dominated by the definitions from @p LR
   /// together with definitions of other lanes where @p LR becomes undefined
   /// (via <def,read-undef> operands).
-  /// If @p LR is a main range, the @p LaneMask should be set to ~0.
+  /// If @p LR is a main range, the @p LaneMask should be set to ~0, i.e.
+  /// LaneBitmask::getAll().
   void extendToUses(LiveRange &LR, unsigned Reg, LaneBitmask LaneMask,
                     LiveInterval *LI = nullptr);
 
@@ -215,7 +218,7 @@ public:
   /// All uses must be jointly dominated by existing liveness.  PHI-defs are
   /// inserted as needed to preserve SSA form.
   void extendToUses(LiveRange &LR, unsigned PhysReg) {
-    extendToUses(LR, PhysReg, ~0u);
+    extendToUses(LR, PhysReg, LaneBitmask::getAll());
   }
 
   /// Calculates liveness for the register specified in live interval @p LI.

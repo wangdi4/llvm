@@ -20,6 +20,7 @@
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Config/config.h"
 #include "clang/Lex/Lexer.h"
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "llvm/ADT/DenseSet.h"
@@ -2992,7 +2993,7 @@ Stmt *RewriteObjC::SynthMessageExpr(ObjCMessageExpr *Exp,
     BinaryOperator *lessThanExpr = 
       new (Context) BinaryOperator(sizeofExpr, limit, BO_LE, Context->IntTy,
                                    VK_RValue, OK_Ordinary, SourceLocation(),
-                                   false);
+                                   FPOptions());
     // (sizeof(returnType) <= 8 ? objc_msgSend(...) : objc_msgSend_stret(...))
     ConditionalOperator *CondExpr =
       new (Context) ConditionalOperator(lessThanExpr,
@@ -3629,7 +3630,7 @@ static void BuildUniqueMethodName(std::string &Name,
   Name += "__" + MD->getSelector().getAsString();
   // Convert colons to underscores.
   std::string::size_type loc = 0;
-  while ((loc = Name.find(":", loc)) != std::string::npos)
+  while ((loc = Name.find(':', loc)) != std::string::npos)
     Name.replace(loc, 1, "_");
 }
 
@@ -4261,7 +4262,7 @@ void RewriteObjC::RewriteByRefVar(VarDecl *ND) {
     }
     ByrefType += "};\n";
     unsigned nameSize = Name.size();
-    // for block or function pointer declaration. Name is aleady
+    // for block or function pointer declaration. Name is already
     // part of the declaration.
     if (Ty->isBlockPointerType() || Ty->isFunctionPointerType())
       nameSize = 1;
@@ -5052,7 +5053,7 @@ void RewriteObjCFragileABI::Initialize(ASTContext &context) {
   Preamble += "\n#define __OFFSETOFIVAR__(TYPE, MEMBER) ((long long) &((TYPE *)0)->MEMBER)\n";
 }
 
-/// RewriteIvarOffsetComputation - This rutine synthesizes computation of
+/// RewriteIvarOffsetComputation - This routine synthesizes computation of
 /// ivar offset.
 void RewriteObjCFragileABI::RewriteIvarOffsetComputation(ObjCIvarDecl *ivar,
                                                          std::string &Result) {
@@ -5124,8 +5125,7 @@ void RewriteObjCFragileABI::RewriteObjCProtocolMetaData(
       else
         Result += "\t  ,{(struct objc_selector *)\"";
       Result += (*I)->getSelector().getAsString();
-      std::string MethodTypeString;
-      Context->getObjCEncodingForMethodDecl((*I), MethodTypeString);
+      std::string MethodTypeString = Context->getObjCEncodingForMethodDecl(*I);
       Result += "\", \"";
       Result += MethodTypeString;
       Result += "\"}\n";
@@ -5162,8 +5162,7 @@ void RewriteObjCFragileABI::RewriteObjCProtocolMetaData(
       else
         Result += "\t  ,{(struct objc_selector *)\"";
       Result += (*I)->getSelector().getAsString();
-      std::string MethodTypeString;
-      Context->getObjCEncodingForMethodDecl((*I), MethodTypeString);
+      std::string MethodTypeString = Context->getObjCEncodingForMethodDecl(*I);
       Result += "\", \"";
       Result += MethodTypeString;
       Result += "\"}\n";
@@ -5773,8 +5772,8 @@ void RewriteObjCFragileABI::RewriteObjCMethodsMetaData(MethodIterator MethodBegi
   
   Result += "\t,{{(SEL)\"";
   Result += (*MethodBegin)->getSelector().getAsString();
-  std::string MethodTypeString;
-  Context->getObjCEncodingForMethodDecl(*MethodBegin, MethodTypeString);
+  std::string MethodTypeString =
+    Context->getObjCEncodingForMethodDecl(*MethodBegin);
   Result += "\", \"";
   Result += MethodTypeString;
   Result += "\", (void *)";
@@ -5783,8 +5782,8 @@ void RewriteObjCFragileABI::RewriteObjCMethodsMetaData(MethodIterator MethodBegi
   for (++MethodBegin; MethodBegin != MethodEnd; ++MethodBegin) {
     Result += "\t  ,{(SEL)\"";
     Result += (*MethodBegin)->getSelector().getAsString();
-    std::string MethodTypeString;
-    Context->getObjCEncodingForMethodDecl(*MethodBegin, MethodTypeString);
+    std::string MethodTypeString =
+      Context->getObjCEncodingForMethodDecl(*MethodBegin);
     Result += "\", \"";
     Result += MethodTypeString;
     Result += "\", (void *)";

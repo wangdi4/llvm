@@ -9,6 +9,8 @@
 
 #include "X86TargetObjectFile.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/BinaryFormat/COFF.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/MC/MCContext.h"
@@ -16,8 +18,6 @@
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCValue.h"
-#include "llvm/Support/COFF.h"
-#include "llvm/Support/Dwarf.h"
 #include "llvm/Target/TargetLowering.h"
 
 using namespace llvm;
@@ -30,7 +30,7 @@ const MCExpr *X86_64MachoTargetObjectFile::getTTypeGlobalReference(
   // On Darwin/X86-64, we can reference dwarf symbols with foo@GOTPCREL+4, which
   // is an indirect pc-relative reference.
   if ((Encoding & DW_EH_PE_indirect) && (Encoding & DW_EH_PE_pcrel)) {
-    const MCSymbol *Sym = TM.getSymbol(GV, getMangler());
+    const MCSymbol *Sym = TM.getSymbol(GV);
     const MCExpr *Res =
       MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_GOTPCREL, getContext());
     const MCExpr *Four = MCConstantExpr::create(4, getContext());
@@ -44,7 +44,7 @@ const MCExpr *X86_64MachoTargetObjectFile::getTTypeGlobalReference(
 MCSymbol *X86_64MachoTargetObjectFile::getCFIPersonalitySymbol(
     const GlobalValue *GV, const TargetMachine &TM,
     MachineModuleInfo *MMI) const {
-  return TM.getSymbol(GV, getMangler());
+  return TM.getSymbol(GV);
 }
 
 const MCExpr *X86_64MachoTargetObjectFile::getIndirectSymViaGOTPCRel(
@@ -86,6 +86,12 @@ X86LinuxNaClTargetObjectFile::Initialize(MCContext &Ctx,
   InitializeELF(TM.Options.UseInitArray);
 }
 
+void X86SolarisTargetObjectFile::Initialize(MCContext &Ctx,
+                                            const TargetMachine &TM) {
+  TargetLoweringObjectFileELF::Initialize(Ctx, TM);
+  InitializeELF(TM.Options.UseInitArray);
+}
+
 const MCExpr *X86WindowsTargetObjectFile::lowerRelativeReference(
     const GlobalValue *LHS, const GlobalValue *RHS,
     const TargetMachine &TM) const {
@@ -108,7 +114,7 @@ const MCExpr *X86WindowsTargetObjectFile::lowerRelativeReference(
       cast<GlobalVariable>(RHS)->hasInitializer() || RHS->hasSection())
     return nullptr;
 
-  return MCSymbolRefExpr::create(TM.getSymbol(LHS, getMangler()),
+  return MCSymbolRefExpr::create(TM.getSymbol(LHS),
                                  MCSymbolRefExpr::VK_COFF_IMGREL32,
                                  getContext());
 }

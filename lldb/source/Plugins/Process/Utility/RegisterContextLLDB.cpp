@@ -9,8 +9,6 @@
 
 #include "lldb/Core/Address.h"
 #include "lldb/Core/AddressRange.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/Value.h"
@@ -31,6 +29,8 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Log.h"
 #include "lldb/lldb-private.h"
 
 #include "RegisterContextLLDB.h"
@@ -218,7 +218,7 @@ void RegisterContextLLDB::InitializeZerothFrame() {
       StreamString active_row_strm;
       active_row->Dump(active_row_strm, m_full_unwind_plan_sp.get(), &m_thread,
                        m_start_pc.GetLoadAddress(exe_ctx.GetTargetPtr()));
-      UnwindLogMsg("%s", active_row_strm.GetString().c_str());
+      UnwindLogMsg("%s", active_row_strm.GetData());
     }
   }
 
@@ -297,6 +297,14 @@ void RegisterContextLLDB::InitializeNonZerothFrame() {
     return;
   }
 
+  ExecutionContext exe_ctx(m_thread.shared_from_this());
+  Process *process = exe_ctx.GetProcessPtr();
+  // Let ABIs fixup code addresses to make sure they are valid. In ARM ABIs
+  // this will strip bit zero in case we read a PC from memory or from the LR.
+  ABI *abi = process->GetABI().get();
+  if (abi)
+    pc = abi->FixCodeAddress(pc);
+
   if (log) {
     UnwindLogMsg("pc = 0x%" PRIx64, pc);
     addr_t reg_val;
@@ -321,15 +329,8 @@ void RegisterContextLLDB::InitializeNonZerothFrame() {
     }
   }
 
-  ExecutionContext exe_ctx(m_thread.shared_from_this());
-  Process *process = exe_ctx.GetProcessPtr();
-  // Let ABIs fixup code addresses to make sure they are valid. In ARM ABIs
-  // this will strip bit zero in case we read a PC from memory or from the LR.
-  ABI *abi = process->GetABI().get();
-  if (abi)
-    pc = abi->FixCodeAddress(pc);
-
-  m_current_pc.SetLoadAddress(pc, &process->GetTarget());
+  const bool allow_section_end = true;
+  m_current_pc.SetLoadAddress(pc, &process->GetTarget(), allow_section_end);
 
   // If we don't have a Module for some reason, we're not going to find
   // symbol/function information - just
@@ -477,11 +478,12 @@ void RegisterContextLLDB::InitializeNonZerothFrame() {
   // Or if we're in the middle of the stack (and not "above" an asynchronous
   // event like sigtramp),
   // and our "current" pc is the start of a function...
-  if (m_sym_ctx_valid && GetNextFrame()->m_frame_type != eTrapHandlerFrame &&
+  if (GetNextFrame()->m_frame_type != eTrapHandlerFrame &&
       GetNextFrame()->m_frame_type != eDebuggerFrame &&
-      addr_range.GetBaseAddress().IsValid() &&
-      addr_range.GetBaseAddress().GetSection() == m_current_pc.GetSection() &&
-      addr_range.GetBaseAddress().GetOffset() == m_current_pc.GetOffset()) {
+      (!m_sym_ctx_valid ||
+       (addr_range.GetBaseAddress().IsValid() &&
+        addr_range.GetBaseAddress().GetSection() == m_current_pc.GetSection() &&
+        addr_range.GetBaseAddress().GetOffset() == m_current_pc.GetOffset()))) {
     decr_pc_and_recompute_addr_range = true;
   }
 
@@ -564,7 +566,7 @@ void RegisterContextLLDB::InitializeNonZerothFrame() {
       StreamString active_row_strm;
       active_row->Dump(active_row_strm, m_fast_unwind_plan_sp.get(), &m_thread,
                        m_start_pc.GetLoadAddress(exe_ctx.GetTargetPtr()));
-      UnwindLogMsg("active row: %s", active_row_strm.GetString().c_str());
+      UnwindLogMsg("active row: %s", active_row_strm.GetData());
     }
   } else {
     m_full_unwind_plan_sp = GetFullUnwindPlanForFrame();
@@ -577,7 +579,7 @@ void RegisterContextLLDB::InitializeNonZerothFrame() {
         active_row->Dump(active_row_strm, m_full_unwind_plan_sp.get(),
                          &m_thread,
                          m_start_pc.GetLoadAddress(exe_ctx.GetTargetPtr()));
-        UnwindLogMsg("active row: %s", active_row_strm.GetString().c_str());
+        UnwindLogMsg("active row: %s", active_row_strm.GetData());
       }
     }
   }
@@ -1053,17 +1055,15 @@ bool RegisterContextLLDB::ReadRegisterValueFromRegisterLocation(
   case UnwindLLDB::RegisterLocation::eRegisterNotSaved:
     break;
   case UnwindLLDB::RegisterLocation::eRegisterSavedAtHostMemoryLocation:
-    assert("FIXME debugger inferior function call unwind");
-    break;
+    llvm_unreachable("FIXME debugger inferior function call unwind");
   case UnwindLLDB::RegisterLocation::eRegisterSavedAtMemoryLocation: {
-    Error error(ReadRegisterValueFromMemory(
+    Status error(ReadRegisterValueFromMemory(
         reg_info, regloc.location.target_memory_location, reg_info->byte_size,
         value));
     success = error.Success();
   } break;
   default:
-    assert("Unknown RegisterLocation type.");
-    break;
+    llvm_unreachable("Unknown RegisterLocation type.");
   }
   return success;
 }
@@ -1097,17 +1097,15 @@ bool RegisterContextLLDB::WriteRegisterValueToRegisterLocation(
   case UnwindLLDB::RegisterLocation::eRegisterNotSaved:
     break;
   case UnwindLLDB::RegisterLocation::eRegisterSavedAtHostMemoryLocation:
-    assert("FIXME debugger inferior function call unwind");
-    break;
+    llvm_unreachable("FIXME debugger inferior function call unwind");
   case UnwindLLDB::RegisterLocation::eRegisterSavedAtMemoryLocation: {
-    Error error(WriteRegisterValueToMemory(
+    Status error(WriteRegisterValueToMemory(
         reg_info, regloc.location.target_memory_location, reg_info->byte_size,
         value));
     success = error.Success();
   } break;
   default:
-    assert("Unknown RegisterLocation type.");
-    break;
+    llvm_unreachable("Unknown RegisterLocation type.");
   }
   return success;
 }
@@ -1518,7 +1516,7 @@ RegisterContextLLDB::SavedLocationForRegister(
                               unwindplan_regloc.GetDWARFExpressionLength());
     dwarfexpr.SetRegisterKind(unwindplan_registerkind);
     Value result;
-    Error error;
+    Status error;
     if (dwarfexpr.Evaluate(&exe_ctx, nullptr, nullptr, this, 0, nullptr,
                            nullptr, result, &error)) {
       addr_t val;
@@ -1773,7 +1771,7 @@ bool RegisterContextLLDB::ReadCFAValueForRow(
           GetRegisterInfoAtIndex(cfa_reg.GetAsKind(eRegisterKindLLDB));
       RegisterValue reg_value;
       if (reg_info) {
-        Error error = ReadRegisterValueFromMemory(
+        Status error = ReadRegisterValueFromMemory(
             reg_info, cfa_reg_contents, reg_info->byte_size, reg_value);
         if (error.Success()) {
           cfa_value = reg_value.GetAsUInt64();
@@ -1828,7 +1826,7 @@ bool RegisterContextLLDB::ReadCFAValueForRow(
                               row->GetCFAValue().GetDWARFExpressionLength());
     dwarfexpr.SetRegisterKind(row_register_kind);
     Value result;
-    Error error;
+    Status error;
     if (dwarfexpr.Evaluate(&exe_ctx, nullptr, nullptr, this, 0, nullptr,
                            nullptr, result, &error)) {
       cfa_value = result.GetScalar().ULongLong();
@@ -2019,7 +2017,18 @@ bool RegisterContextLLDB::GetStartPC(addr_t &start_pc) {
     return false;
 
   if (!m_start_pc.IsValid()) {
-    return ReadPC(start_pc);
+        bool read_successfully = ReadPC (start_pc);
+        if (read_successfully)
+        {
+            ProcessSP process_sp (m_thread.GetProcess());
+            if (process_sp)
+            {
+                ABI *abi = process_sp->GetABI().get();
+                if (abi)
+                    start_pc = abi->FixCodeAddress(start_pc);
+            }
+        }
+        return read_successfully;
   }
   start_pc = m_start_pc.GetLoadAddress(CalculateTarget().get());
   return true;
@@ -2045,12 +2054,20 @@ bool RegisterContextLLDB::ReadPC(addr_t &pc) {
     // unwind past that frame to help
     // find the bug.
 
+    ProcessSP process_sp (m_thread.GetProcess());
+    if (process_sp)
+    {
+        ABI *abi = process_sp->GetABI().get();
+        if (abi)
+            pc = abi->FixCodeAddress(pc);
+    }
+
     if (m_all_registers_available == false && above_trap_handler == false &&
         (pc == 0 || pc == 1)) {
       return false;
-    } else {
-      return true;
     }
+
+    return true;
   } else {
     return false;
   }

@@ -16,8 +16,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "WebAssembly.h"
 #include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
+#include "WebAssembly.h"
 #include "WebAssemblyMachineFunctionInfo.h"
 #include "WebAssemblySubtarget.h"
 #include "WebAssemblyTargetMachine.h"
@@ -63,12 +63,16 @@ class WebAssemblyFastISel final : public FastISel {
   public:
     // Innocuous defaults for our address.
     Address() : Kind(RegBase), Offset(0), GV(0) { Base.Reg = 0; }
-    void setKind(BaseKind K) { Kind = K; }
+    void setKind(BaseKind K) {
+      assert(!isSet() && "Can't change kind with non-zero base");
+      Kind = K;
+    }
     BaseKind getKind() const { return Kind; }
     bool isRegBase() const { return Kind == RegBase; }
     bool isFIBase() const { return Kind == FrameIndexBase; }
     void setReg(unsigned Reg) {
       assert(isRegBase() && "Invalid base register access!");
+      assert(Base.Reg == 0 && "Overwriting non-zero register");
       Base.Reg = Reg;
     }
     unsigned getReg() const {
@@ -77,6 +81,7 @@ class WebAssemblyFastISel final : public FastISel {
     }
     void setFI(unsigned FI) {
       assert(isFIBase() && "Invalid base frame index access!");
+      assert(Base.FI == 0 && "Overwriting non-zero frame index");
       Base.FI = FI;
     }
     unsigned getFI() const {
@@ -84,10 +89,20 @@ class WebAssemblyFastISel final : public FastISel {
       return Base.FI;
     }
 
-    void setOffset(int64_t Offset_) { Offset = Offset_; }
+    void setOffset(int64_t Offset_) {
+      assert(Offset_ >= 0 && "Offsets must be non-negative");
+      Offset = Offset_;
+    }
     int64_t getOffset() const { return Offset; }
     void setGlobalValue(const GlobalValue *G) { GV = G; }
     const GlobalValue *getGlobalValue() const { return GV; }
+    bool isSet() const {
+      if (isRegBase()) {
+        return Base.Reg != 0;
+      } else {
+        return Base.FI != 0;
+      }
+    }
   };
 
   /// Keep a pointer to the WebAssemblySubtarget around so that we can make the
@@ -113,6 +128,8 @@ private:
     case MVT::f32:
     case MVT::f64:
       return VT;
+    case MVT::f16:
+      return MVT::f32;
     case MVT::v16i8:
     case MVT::v8i16:
     case MVT::v4i32:
@@ -236,12 +253,15 @@ bool WebAssemblyFastISel::computeAddress(const Value *Obj, Address &Addr) {
   case Instruction::GetElementPtr: {
     Address SavedAddr = Addr;
     uint64_t TmpOffset = Addr.getOffset();
+    // Non-inbounds geps can wrap; wasm's offsets can't.
+    if (!cast<GEPOperator>(U)->isInBounds())
+      goto unsupported_gep;
     // Iterate through the GEP folding the constants into offsets where
     // we can.
     for (gep_type_iterator GTI = gep_type_begin(U), E = gep_type_end(U);
          GTI != E; ++GTI) {
       const Value *Op = GTI.getOperand();
-      if (StructType *STy = dyn_cast<StructType>(*GTI)) {
+      if (StructType *STy = GTI.getStructTypeOrNull()) {
         const StructLayout *SL = DL.getStructLayout(STy);
         unsigned Idx = cast<ConstantInt>(Op)->getZExtValue();
         TmpOffset += SL->getElementOffset(Idx);
@@ -272,10 +292,13 @@ bool WebAssemblyFastISel::computeAddress(const Value *Obj, Address &Addr) {
         }
       }
     }
-    // Try to grab the base operand now.
-    Addr.setOffset(TmpOffset);
-    if (computeAddress(U->getOperand(0), Addr))
-      return true;
+    // Don't fold in negative offsets.
+    if (int64_t(TmpOffset) >= 0) {
+      // Try to grab the base operand now.
+      Addr.setOffset(TmpOffset);
+      if (computeAddress(U->getOperand(0), Addr))
+        return true;
+    }
     // We failed, restore everything and try the other options.
     Addr = SavedAddr;
   unsupported_gep:
@@ -286,6 +309,9 @@ bool WebAssemblyFastISel::computeAddress(const Value *Obj, Address &Addr) {
     DenseMap<const AllocaInst *, int>::iterator SI =
         FuncInfo.StaticAllocaMap.find(AI);
     if (SI != FuncInfo.StaticAllocaMap.end()) {
+      if (Addr.isSet()) {
+        return false;
+      }
       Addr.setKind(Address::FrameIndexBase);
       Addr.setFI(SI->second);
       return true;
@@ -301,8 +327,11 @@ bool WebAssemblyFastISel::computeAddress(const Value *Obj, Address &Addr) {
       std::swap(LHS, RHS);
 
     if (const ConstantInt *CI = dyn_cast<ConstantInt>(RHS)) {
-      Addr.setOffset(Addr.getOffset() + CI->getSExtValue());
-      return computeAddress(LHS, Addr);
+      uint64_t TmpOffset = Addr.getOffset() + CI->getSExtValue();
+      if (int64_t(TmpOffset) >= 0) {
+        Addr.setOffset(TmpOffset);
+        return computeAddress(LHS, Addr);
+      }
     }
 
     Address Backup = Addr;
@@ -318,11 +347,17 @@ bool WebAssemblyFastISel::computeAddress(const Value *Obj, Address &Addr) {
     const Value *RHS = U->getOperand(1);
 
     if (const ConstantInt *CI = dyn_cast<ConstantInt>(RHS)) {
-      Addr.setOffset(Addr.getOffset() - CI->getSExtValue());
-      return computeAddress(LHS, Addr);
+      int64_t TmpOffset = Addr.getOffset() - CI->getSExtValue();
+      if (TmpOffset >= 0) {
+        Addr.setOffset(TmpOffset);
+        return computeAddress(LHS, Addr);
+      }
     }
     break;
   }
+  }
+  if (Addr.isSet()) {
+    return false;
   }
   Addr.setReg(getRegForValue(Obj));
   return Addr.getReg() != 0;
@@ -579,12 +614,12 @@ bool WebAssemblyFastISel::fastLowerArguments() {
 
   unsigned i = 0;
   for (auto const &Arg : F->args()) {
-    const AttributeSet &Attrs = F->getAttributes();
-    if (Attrs.hasAttribute(i+1, Attribute::ByVal) ||
-        Attrs.hasAttribute(i+1, Attribute::SwiftSelf) ||
-        Attrs.hasAttribute(i+1, Attribute::SwiftError) ||
-        Attrs.hasAttribute(i+1, Attribute::InAlloca) ||
-        Attrs.hasAttribute(i+1, Attribute::Nest))
+    const AttributeList &Attrs = F->getAttributes();
+    if (Attrs.hasParamAttribute(i, Attribute::ByVal) ||
+        Attrs.hasParamAttribute(i, Attribute::SwiftSelf) ||
+        Attrs.hasParamAttribute(i, Attribute::SwiftError) ||
+        Attrs.hasParamAttribute(i, Attribute::InAlloca) ||
+        Attrs.hasParamAttribute(i, Attribute::Nest))
       return false;
 
     Type *ArgTy = Arg.getType();
@@ -647,6 +682,9 @@ bool WebAssemblyFastISel::fastLowerArguments() {
   auto *MFI = MF->getInfo<WebAssemblyFunctionInfo>();
   for (auto const &Arg : F->args())
     MFI->addParam(getLegalType(getSimpleType(Arg.getType())));
+
+  if (!F->getReturnType()->isVoidTy())
+    MFI->addResult(getLegalType(getSimpleType(F->getReturnType())));
 
   return true;
 }
@@ -726,19 +764,19 @@ bool WebAssemblyFastISel::selectCall(const Instruction *I) {
     if (ArgTy == MVT::INVALID_SIMPLE_VALUE_TYPE)
       return false;
 
-    const AttributeSet &Attrs = Call->getAttributes();
-    if (Attrs.hasAttribute(i+1, Attribute::ByVal) ||
-        Attrs.hasAttribute(i+1, Attribute::SwiftSelf) ||
-        Attrs.hasAttribute(i+1, Attribute::SwiftError) ||
-        Attrs.hasAttribute(i+1, Attribute::InAlloca) ||
-        Attrs.hasAttribute(i+1, Attribute::Nest))
+    const AttributeList &Attrs = Call->getAttributes();
+    if (Attrs.hasParamAttribute(i, Attribute::ByVal) ||
+        Attrs.hasParamAttribute(i, Attribute::SwiftSelf) ||
+        Attrs.hasParamAttribute(i, Attribute::SwiftError) ||
+        Attrs.hasParamAttribute(i, Attribute::InAlloca) ||
+        Attrs.hasParamAttribute(i, Attribute::Nest))
       return false;
 
     unsigned Reg;
 
-    if (Attrs.hasAttribute(i+1, Attribute::SExt))
+    if (Attrs.hasParamAttribute(i, Attribute::SExt))
       Reg = getRegForSignedValue(V);
-    else if (Attrs.hasAttribute(i+1, Attribute::ZExt))
+    else if (Attrs.hasParamAttribute(i, Attribute::ZExt))
       Reg = getRegForUnsignedValue(V);
     else
       Reg = getRegForValue(V);

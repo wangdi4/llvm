@@ -19,7 +19,7 @@ using namespace llvm;
 void CSAMCAsmInfo::anchor() { }
 
 CSAMCAsmInfo::CSAMCAsmInfo(const Triple &T) {
-  PointerSize = CalleeSaveStackSlotSize = 8;
+  CodePointerSize = CalleeSaveStackSlotSize = 8;
   // For now
   HasDotTypeDotSizeDirective = false;
   HasSingleParameterDotFile = false;

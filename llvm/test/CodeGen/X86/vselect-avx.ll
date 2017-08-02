@@ -18,13 +18,10 @@ target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 define void @test(<4 x i16>* %a, <4 x i16>* %b) {
 ; AVX-LABEL: test:
 ; AVX:       ## BB#0: ## %body
-; AVX-NEXT:    vmovdqa {{.*#+}} xmm0 = [0,1,4,5,8,9,12,13,8,9,12,13,12,13,14,15]
-; AVX-NEXT:    vmovdqa {{.*#+}} xmm1 = [65533,124,125,14807]
-; AVX-NEXT:    vpshufb %xmm0, %xmm1, %xmm1
-; AVX-NEXT:    vmovq %xmm1, (%rdi)
-; AVX-NEXT:    vmovdqa {{.*#+}} xmm1 = [65535,0,0,65535]
-; AVX-NEXT:    vpshufb %xmm0, %xmm1, %xmm0
-; AVX-NEXT:    vmovq %xmm0, (%rsi)
+; AVX-NEXT:    movq {{.*}}(%rip), %rax
+; AVX-NEXT:    movq %rax, (%rdi)
+; AVX-NEXT:    movq {{.*}}(%rip), %rax
+; AVX-NEXT:    movq %rax, (%rsi)
 ; AVX-NEXT:    retq
 body:
   %predphi = select <4 x i1> <i1 true, i1 false, i1 false, i1 true>, <4 x i16> <i16 -3, i16 545, i16 4385, i16 14807>, <4 x i16> <i16 123, i16 124, i16 125, i16 127>
@@ -61,8 +58,8 @@ define void @test2(double** %call1559, i64 %indvars.iv4198, <4 x i1> %tmp1895) {
 ; AVX2-NEXT:    vpslld $31, %xmm0, %xmm0
 ; AVX2-NEXT:    vpmovsxdq %xmm0, %ymm0
 ; AVX2-NEXT:    movq (%rdi,%rsi,8), %rax
-; AVX2-NEXT:    vbroadcastsd {{.*}}(%rip), %ymm1
-; AVX2-NEXT:    vbroadcastsd {{.*}}(%rip), %ymm2
+; AVX2-NEXT:    vbroadcastsd {{.*#+}} ymm1 = [-0.5,-0.5,-0.5,-0.5]
+; AVX2-NEXT:    vbroadcastsd {{.*#+}} ymm2 = [0.5,0.5,0.5,0.5]
 ; AVX2-NEXT:    vblendvpd %ymm0, %ymm1, %ymm2, %ymm0
 ; AVX2-NEXT:    vmovupd %ymm0, (%rax)
 ; AVX2-NEXT:    vzeroupper
@@ -111,7 +108,7 @@ define void @test3(<4 x i32> %induction30, <4 x i16>* %tmp16, <4 x i16>* %tmp17,
 ;
 ; AVX2-LABEL: test3:
 ; AVX2:       ## BB#0:
-; AVX2-NEXT:    vpbroadcastd {{.*}}(%rip), %xmm3
+; AVX2-NEXT:    vpbroadcastd {{.*#+}} xmm3 = [1431655766,1431655766,1431655766,1431655766]
 ; AVX2-NEXT:    vpshufd {{.*#+}} xmm4 = xmm3[1,1,3,3]
 ; AVX2-NEXT:    vpshufd {{.*#+}} xmm5 = xmm0[1,1,3,3]
 ; AVX2-NEXT:    vpmuldq %xmm4, %xmm5, %xmm4
@@ -120,7 +117,7 @@ define void @test3(<4 x i32> %induction30, <4 x i16>* %tmp16, <4 x i16>* %tmp17,
 ; AVX2-NEXT:    vpblendd {{.*#+}} xmm3 = xmm3[0],xmm4[1],xmm3[2],xmm4[3]
 ; AVX2-NEXT:    vpsrld $31, %xmm3, %xmm4
 ; AVX2-NEXT:    vpaddd %xmm4, %xmm3, %xmm3
-; AVX2-NEXT:    vpbroadcastd {{.*}}(%rip), %xmm4
+; AVX2-NEXT:    vpbroadcastd {{.*#+}} xmm4 = [3,3,3,3]
 ; AVX2-NEXT:    vpmulld %xmm4, %xmm3, %xmm3
 ; AVX2-NEXT:    vpsubd %xmm3, %xmm0, %xmm0
 ; AVX2-NEXT:    vpxor %xmm3, %xmm3, %xmm3

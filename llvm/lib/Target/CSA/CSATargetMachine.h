@@ -35,8 +35,6 @@ public:
   const CSASubtarget *getSubtargetImpl() const {
     return &Subtarget;
   }
-  /// \brief Register CSA analysis passes with a pass manager.
-  TargetIRAnalysis getTargetIRAnalysis() override;
 
   TargetPassConfig *createPassConfig(legacy::PassManagerBase &PM) override;
 

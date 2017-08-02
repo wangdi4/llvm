@@ -80,6 +80,7 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
 
     for (unsigned i = 0, e = Node.getNumValues(); i != e; ++i) {
       SDValue Res(&Node, i);
+      EVT VT = Res.getValueType();
       bool Failed = false;
 
       unsigned Mapped = 0;
@@ -117,6 +118,8 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
         Mapped |= 64;
       if (WidenedVectors.find(Res) != WidenedVectors.end())
         Mapped |= 128;
+      if (PromotedFloats.find(Res) != PromotedFloats.end())
+        Mapped |= 256;
 
       if (Node.getNodeId() != Processed) {
         // Since we allow ReplacedValues to map deleted nodes, it may map nodes
@@ -127,13 +130,17 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
           dbgs() << "Unprocessed value in a map!";
           Failed = true;
         }
-      } else if (isTypeLegal(Res.getValueType()) || IgnoreNodeResults(&Node)) {
+      } else if (isTypeLegal(VT) || IgnoreNodeResults(&Node)) {
         if (Mapped > 1) {
           dbgs() << "Value with legal type was transformed!";
           Failed = true;
         }
       } else {
-        if (Mapped == 0) {
+        // If the value can be kept in HW registers, softening machinery can
+        // leave it unchanged and don't put it to any map.
+        if (Mapped == 0 &&
+            !(getTypeAction(VT) == TargetLowering::TypeSoftenFloat &&
+              isLegalInHWReg(VT))) {
           dbgs() << "Processed value not in any map!";
           Failed = true;
         } else if (Mapped & (Mapped - 1)) {
@@ -159,6 +166,8 @@ void DAGTypeLegalizer::PerformExpensiveChecks() {
           dbgs() << " SplitVectors";
         if (Mapped & 128)
           dbgs() << " WidenedVectors";
+        if (Mapped & 256)
+          dbgs() << " PromotedFloats";
         dbgs() << "\n";
         llvm_unreachable(nullptr);
       }
@@ -195,8 +204,7 @@ bool DAGTypeLegalizer::run() {
   // non-leaves.
   for (SDNode &Node : DAG.allnodes()) {
     if (Node.getNumOperands() == 0) {
-      Node.setNodeId(ReadyToProcess);
-      Worklist.push_back(&Node);
+      AddToWorklist(&Node);
     } else {
       Node.setNodeId(Unanalyzed);
     }
@@ -327,6 +335,7 @@ ScanOperands:
     // to the worklist etc.
     if (NeedsReanalyzing) {
       assert(N->getNodeId() == ReadyToProcess && "Node ID recalculated?");
+
       N->setNodeId(NewNode);
       // Recompute the NodeId and correct processed operands, adding the node to
       // the worklist if ready.
@@ -484,7 +493,7 @@ SDNode *DAGTypeLegalizer::AnalyzeNewNode(SDNode *N) {
   // updated after all operands have been analyzed.  Since this is rare,
   // the code tries to minimize overhead in the non-morphing case.
 
-  SmallVector<SDValue, 8> NewOps;
+  std::vector<SDValue> NewOps;
   unsigned NumProcessed = 0;
   for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
     SDValue OrigOp = N->getOperand(i);
@@ -500,7 +509,7 @@ SDNode *DAGTypeLegalizer::AnalyzeNewNode(SDNode *N) {
       NewOps.push_back(Op);
     } else if (Op != OrigOp) {
       // This is the first operand to change - add all operands so far.
-      NewOps.append(N->op_begin(), N->op_begin() + i);
+      NewOps.insert(NewOps.end(), N->op_begin(), N->op_begin() + i);
       NewOps.push_back(Op);
     }
   }
@@ -914,9 +923,9 @@ SDValue DAGTypeLegalizer::BitConvertVectorToIntegerVector(SDValue Op) {
   assert(Op.getValueType().isVector() && "Only applies to vectors!");
   unsigned EltWidth = Op.getScalarValueSizeInBits();
   EVT EltNVT = EVT::getIntegerVT(*DAG.getContext(), EltWidth);
-  unsigned NumElts = Op.getValueType().getVectorNumElements();
+  auto EltCnt = Op.getValueType().getVectorElementCount();
   return DAG.getNode(ISD::BITCAST, SDLoc(Op),
-                     EVT::getVectorVT(*DAG.getContext(), EltNVT, NumElts), Op);
+                     EVT::getVectorVT(*DAG.getContext(), EltNVT, EltCnt), Op);
 }
 
 SDValue DAGTypeLegalizer::CreateStackStoreLoad(SDValue Op,
@@ -1017,22 +1026,6 @@ void DAGTypeLegalizer::GetPairElements(SDValue Pair,
                    DAG.getIntPtrConstant(1, dl));
 }
 
-SDValue DAGTypeLegalizer::GetVectorElementPointer(SDValue VecPtr, EVT EltVT,
-                                                  SDValue Index) {
-  SDLoc dl(Index);
-  // Make sure the index type is big enough to compute in.
-  Index = DAG.getZExtOrTrunc(Index, dl, TLI.getPointerTy(DAG.getDataLayout()));
-
-  // Calculate the element offset and add it to the pointer.
-  unsigned EltSize = EltVT.getSizeInBits() / 8; // FIXME: should be ABI size.
-  assert(EltSize * 8 == EltVT.getSizeInBits() &&
-         "Converting bits to bytes lost precision");
-
-  Index = DAG.getNode(ISD::MUL, dl, Index.getValueType(), Index,
-                      DAG.getConstant(EltSize, dl, Index.getValueType()));
-  return DAG.getNode(ISD::ADD, dl, Index.getValueType(), Index, VecPtr);
-}
-
 /// Build an integer with low bits Lo and high bits Hi.
 SDValue DAGTypeLegalizer::JoinIntegers(SDValue Lo, SDValue Hi) {
   // Arbitrarily use dlHi for result SDLoc
@@ -1089,8 +1082,8 @@ DAGTypeLegalizer::ExpandChainLibCall(RTLIB::Libcall LC, SDNode *Node,
     Type *ArgTy = ArgVT.getTypeForEVT(*DAG.getContext());
     Entry.Node = Node->getOperand(i);
     Entry.Ty = ArgTy;
-    Entry.isSExt = isSigned;
-    Entry.isZExt = !isSigned;
+    Entry.IsSExt = isSigned;
+    Entry.IsZExt = !isSigned;
     Args.push_back(Entry);
   }
   SDValue Callee = DAG.getExternalSymbol(TLI.getLibcallName(LC),
@@ -1099,9 +1092,12 @@ DAGTypeLegalizer::ExpandChainLibCall(RTLIB::Libcall LC, SDNode *Node,
   Type *RetTy = Node->getValueType(0).getTypeForEVT(*DAG.getContext());
 
   TargetLowering::CallLoweringInfo CLI(DAG);
-  CLI.setDebugLoc(SDLoc(Node)).setChain(InChain)
-    .setCallee(TLI.getLibcallCallingConv(LC), RetTy, Callee, std::move(Args))
-    .setSExtResult(isSigned).setZExtResult(!isSigned);
+  CLI.setDebugLoc(SDLoc(Node))
+      .setChain(InChain)
+      .setLibCallee(TLI.getLibcallCallingConv(LC), RetTy, Callee,
+                    std::move(Args))
+      .setSExtResult(isSigned)
+      .setZExtResult(!isSigned);
 
   std::pair<SDValue, SDValue> CallInfo = TLI.LowerCallTo(CLI);
 

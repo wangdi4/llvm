@@ -280,10 +280,18 @@ void InitializeInterceptors();
 
 void MsanAllocatorInit();
 void MsanAllocatorThreadFinish();
-void *MsanCalloc(StackTrace *stack, uptr nmemb, uptr size);
-void *MsanReallocate(StackTrace *stack, void *oldp, uptr size,
-                     uptr alignment, bool zeroise);
 void MsanDeallocate(StackTrace *stack, void *ptr);
+
+void *msan_malloc(uptr size, StackTrace *stack);
+void *msan_calloc(uptr nmemb, uptr size, StackTrace *stack);
+void *msan_realloc(void *ptr, uptr size, StackTrace *stack);
+void *msan_valloc(uptr size, StackTrace *stack);
+void *msan_pvalloc(uptr size, StackTrace *stack);
+void *msan_aligned_alloc(uptr alignment, uptr size, StackTrace *stack);
+void *msan_memalign(uptr alignment, uptr size, StackTrace *stack);
+int msan_posix_memalign(void **memptr, uptr alignment, uptr size,
+                        StackTrace *stack);
+
 void InstallTrapHandler();
 void InstallAtExitHandler();
 
@@ -329,11 +337,20 @@ const int STACK_TRACE_TAG_POISON = StackTrace::TAG_CUSTOM + 1;
                 StackTrace::GetCurrentPc(), GET_CURRENT_FRAME(),               \
                 common_flags()->fast_unwind_on_malloc)
 
+// For platforms which support slow unwinder only, we restrict the store context
+// size to 1, basically only storing the current pc. We do this because the slow
+// unwinder which is based on libunwind is not async signal safe and causes
+// random freezes in forking applications as well as in signal handlers.
 #define GET_STORE_STACK_TRACE_PC_BP(pc, bp)                                    \
   BufferedStackTrace stack;                                                    \
-  if (__msan_get_track_origins() > 1 && msan_inited)                           \
-  GetStackTrace(&stack, flags()->store_context_size, pc, bp,                   \
-                common_flags()->fast_unwind_on_malloc)
+  if (__msan_get_track_origins() > 1 && msan_inited) {                         \
+    if (!SANITIZER_CAN_FAST_UNWIND)                                            \
+      GetStackTrace(&stack, Min(1, flags()->store_context_size), pc, bp,       \
+                    false);                                                    \
+    else                                                                       \
+      GetStackTrace(&stack, flags()->store_context_size, pc, bp,               \
+                    common_flags()->fast_unwind_on_malloc);                    \
+  }
 
 #define GET_FATAL_STACK_TRACE_PC_BP(pc, bp)                                    \
   BufferedStackTrace stack;                                                    \

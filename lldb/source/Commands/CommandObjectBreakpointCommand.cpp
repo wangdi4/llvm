@@ -19,6 +19,7 @@
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
 #include "lldb/Core/IOHandler.h"
 #include "lldb/Core/State.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
 #include "lldb/Target/Target.h"
@@ -280,11 +281,10 @@ are no syntax errors may indicate that a function was declared but never called.
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
-      auto option_strref = llvm::StringRef::withNullAsEmpty(option_arg);
 
       switch (short_option) {
       case 'o':
@@ -294,8 +294,7 @@ are no syntax errors may indicate that a function was declared but never called.
 
       case 's':
         m_script_language = (lldb::ScriptLanguage)Args::StringToOptionEnum(
-            llvm::StringRef::withNullAsEmpty(option_arg),
-            g_breakpoint_add_options[option_idx].enum_values,
+            option_arg, g_breakpoint_add_options[option_idx].enum_values,
             eScriptLanguageNone, error);
 
         if (m_script_language == eScriptLanguagePython ||
@@ -308,10 +307,11 @@ are no syntax errors may indicate that a function was declared but never called.
 
       case 'e': {
         bool success = false;
-        m_stop_on_error = Args::StringToBoolean(option_strref, false, &success);
+        m_stop_on_error = Args::StringToBoolean(option_arg, false, &success);
         if (!success)
           error.SetErrorStringWithFormat(
-              "invalid value for stop-on-error: \"%s\"", option_arg);
+              "invalid value for stop-on-error: \"%s\"",
+              option_arg.str().c_str());
       } break;
 
       case 'F':
@@ -511,9 +511,9 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
-                         ExecutionContext *execution_context) override {
-      Error error;
+    Status SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
+                          ExecutionContext *execution_context) override {
+      Status error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {

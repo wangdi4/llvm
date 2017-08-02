@@ -1,5 +1,4 @@
-//===-- TypeCategory.cpp -------------------------------------------*- C++
-//-*-===//
+//===-- TypeCategory.cpp -----------------------------------------*- C++-*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -37,23 +36,8 @@ TypeCategoryImpl::TypeCategoryImpl(
 static bool IsApplicable(lldb::LanguageType category_lang,
                          lldb::LanguageType valobj_lang) {
   switch (category_lang) {
-  // these are not languages that LLDB would ordinarily deal with
-  // only allow an exact equality here, since we really don't know
-  // any better
-  case eLanguageTypeAda83:
-  case eLanguageTypeCobol74:
-  case eLanguageTypeCobol85:
-  case eLanguageTypeFortran77:
-  case eLanguageTypeFortran90:
-  case eLanguageTypePascal83:
-  case eLanguageTypeModula2:
-  case eLanguageTypeJava:
-  case eLanguageTypeAda95:
-  case eLanguageTypeFortran95:
-  case eLanguageTypePLI:
-  case eLanguageTypeUPC:
-  case eLanguageTypeD:
-  case eLanguageTypePython:
+  // Unless we know better, allow only exact equality.
+  default:
     return category_lang == valobj_lang;
 
   // the C family, we consider it as one
@@ -81,7 +65,7 @@ static bool IsApplicable(lldb::LanguageType category_lang,
            valobj_lang == eLanguageTypeC_plus_plus ||
            valobj_lang == eLanguageTypeObjC;
 
-  default:
+  // Categories with unspecified language match everything.
   case eLanguageTypeUnknown:
     return true;
   }
@@ -638,7 +622,7 @@ std::string TypeCategoryImpl::GetDescription() {
                        idx + 1 < GetNumLanguages() ? ", " : "");
   }
   if (print_lang)
-    stream.Printf("%s", lang_stream.GetData());
+    stream.PutCString(lang_stream.GetString());
   stream.PutChar(')');
-  return stream.GetData();
+  return stream.GetString();
 }

@@ -35,7 +35,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/ELF.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Bitcode/CSASaveRawBC.h"
 #include <fstream>
 #include <sstream>

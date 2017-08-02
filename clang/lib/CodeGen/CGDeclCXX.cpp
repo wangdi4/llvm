@@ -237,7 +237,8 @@ void CodeGenFunction::registerGlobalDtorWithAtExit(const VarDecl &VD,
     llvm::FunctionType::get(IntTy, dtorStub->getType(), false);
 
   llvm::Constant *atexit =
-    CGM.CreateRuntimeFunction(atexitTy, "atexit");
+      CGM.CreateRuntimeFunction(atexitTy, "atexit", llvm::AttributeList(),
+                                /*Local=*/true);
   if (llvm::Function *atexitFn = dyn_cast<llvm::Function>(atexit))
     atexitFn->setDoesNotThrow();
 
@@ -352,9 +353,6 @@ CodeGenModule::EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
 
   if (D->getTLSKind()) {
     // FIXME: Should we support init_priority for thread_local?
-    // FIXME: Ideally, initialization of instantiated thread_local static data
-    // members of class templates should not trigger initialization of other
-    // entities in the TU.
     // FIXME: We only need to register one __cxa_thread_atexit function for the
     // entire TU.
     CXXThreadLocalInits.push_back(Fn);
@@ -573,9 +571,10 @@ CodeGenFunction::GenerateCXXGlobalInitFunc(llvm::Function *Fn,
   FinishFunction();
 }
 
-void CodeGenFunction::GenerateCXXGlobalDtorsFunc(llvm::Function *Fn,
-                  const std::vector<std::pair<llvm::WeakVH, llvm::Constant*> >
-                                                &DtorsAndObjects) {
+void CodeGenFunction::GenerateCXXGlobalDtorsFunc(
+    llvm::Function *Fn,
+    const std::vector<std::pair<llvm::WeakTrackingVH, llvm::Constant *>>
+        &DtorsAndObjects) {
   {
     auto NL = ApplyDebugLocation::CreateEmpty(*this);
     StartFunction(GlobalDecl(), getContext().VoidTy, Fn,
@@ -604,9 +603,9 @@ llvm::Function *CodeGenFunction::generateDestroyHelper(
     Address addr, QualType type, Destroyer *destroyer,
     bool useEHCleanupForArray, const VarDecl *VD) {
   FunctionArgList args;
-  ImplicitParamDecl dst(getContext(), nullptr, SourceLocation(), nullptr,
-                        getContext().VoidPtrTy);
-  args.push_back(&dst);
+  ImplicitParamDecl Dst(getContext(), getContext().VoidPtrTy,
+                        ImplicitParamDecl::Other);
+  args.push_back(&Dst);
 
   const CGFunctionInfo &FI =
     CGM.getTypes().arrangeBuiltinFunctionDeclaration(getContext().VoidTy, args);

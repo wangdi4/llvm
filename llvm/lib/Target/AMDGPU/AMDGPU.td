@@ -61,10 +61,40 @@ def FeatureFlatAddressSpace : SubtargetFeature<"flat-address-space",
   "Support flat address space"
 >;
 
+def FeatureFlatInstOffsets : SubtargetFeature<"flat-inst-offsets",
+  "FlatInstOffsets",
+  "true",
+  "Flat instructions have immediate offset addressing mode"
+>;
+
+def FeatureFlatGlobalInsts : SubtargetFeature<"flat-global-insts",
+  "FlatGlobalInsts",
+  "true",
+  "Have global_* flat memory instructions"
+>;
+
+def FeatureFlatScratchInsts : SubtargetFeature<"flat-scratch-insts",
+  "FlatScratchInsts",
+  "true",
+  "Have scratch_* flat memory instructions"
+>;
+
+def FeatureAddNoCarryInsts : SubtargetFeature<"add-no-carry-insts",
+  "AddNoCarryInsts",
+  "true",
+  "Have VALU add/sub instructions without carry out"
+>;
+
 def FeatureUnalignedBufferAccess : SubtargetFeature<"unaligned-buffer-access",
   "UnalignedBufferAccess",
   "true",
   "Support unaligned global loads and stores"
+>;
+
+def FeatureTrapHandler: SubtargetFeature<"trap-handler",
+  "TrapHandler",
+  "true",
+  "Trap handler support"
 >;
 
 def FeatureUnalignedScratchAccess : SubtargetFeature<"unaligned-scratch-access",
@@ -73,6 +103,19 @@ def FeatureUnalignedScratchAccess : SubtargetFeature<"unaligned-scratch-access",
   "Support unaligned scratch loads and stores"
 >;
 
+def FeatureApertureRegs : SubtargetFeature<"aperture-regs",
+  "HasApertureRegs",
+  "true",
+  "Has Memory Aperture Base and Size Registers"
+>;
+
+// XNACK is disabled if SH_MEM_CONFIG.ADDRESS_MODE = GPUVM on chips that support
+// XNACK. The current default kernel driver setting is:
+// - graphics ring: XNACK disabled
+// - compute ring: XNACK enabled
+//
+// If XNACK is enabled, the VMEM latency can be worse.
+// If XNACK is disabled, the 2 SGPRs can be used for general purposes.
 def FeatureXNACK : SubtargetFeature<"xnack",
   "EnableXNACK",
   "true",
@@ -147,6 +190,12 @@ def FeatureCIInsts : SubtargetFeature<"ci-insts",
   "Additional intstructions for CI+"
 >;
 
+def FeatureGFX9Insts : SubtargetFeature<"gfx9-insts",
+  "GFX9Insts",
+  "true",
+  "Additional intstructions for GFX9+"
+>;
+
 def FeatureSMemRealTime : SubtargetFeature<"s-memrealtime",
   "HasSMemRealTime",
   "true",
@@ -163,6 +212,12 @@ def Feature16BitInsts : SubtargetFeature<"16-bit-insts",
   "Has16BitInsts",
   "true",
   "Has i16/f16 instructions"
+>;
+
+def FeatureVOP3P : SubtargetFeature<"vop3p",
+  "HasVOP3PInsts",
+  "true",
+  "Has VOP3P packed instructions"
 >;
 
 def FeatureMovrel : SubtargetFeature<"movrel",
@@ -183,6 +238,48 @@ def FeatureScalarStores : SubtargetFeature<"scalar-stores",
   "Has store scalar memory instructions"
 >;
 
+def FeatureSDWA : SubtargetFeature<"sdwa",
+  "HasSDWA",
+  "true",
+  "Support SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureSDWAOmod : SubtargetFeature<"sdwa-omod",
+  "HasSDWAOmod",
+  "true",
+  "Support OMod with SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureSDWAScalar : SubtargetFeature<"sdwa-scalar",
+  "HasSDWAScalar",
+  "true",
+  "Support scalar register with SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureSDWASdst : SubtargetFeature<"sdwa-sdst",
+  "HasSDWASdst",
+  "true",
+  "Support scalar dst for VOPC with SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureSDWAMac : SubtargetFeature<"sdwa-mav",
+  "HasSDWAMac",
+  "true",
+  "Support v_mac_f32/f16 with SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureSDWAOutModsVOPC : SubtargetFeature<"sdwa-out-mods-vopc",
+  "HasSDWAOutModsVOPC",
+  "true",
+  "Support clamp for VOPC with SDWA (Sub-DWORD Addressing) extension"
+>;
+
+def FeatureDPP : SubtargetFeature<"dpp",
+  "HasDPP",
+  "true",
+  "Support DPP (Data Parallel Primitives) extension"
+>;
+
 //===------------------------------------------------------------===//
 // Subtarget Features (options and debugging)
 //===------------------------------------------------------------===//
@@ -196,11 +293,34 @@ def FeatureFP32Denormals : SubtargetFeature<"fp32-denormals",
   "Enable single precision denormal handling"
 >;
 
-def FeatureFP64Denormals : SubtargetFeature<"fp64-denormals",
-  "FP64Denormals",
+// Denormal handling for fp64 and fp16 is controlled by the same
+// config register when fp16 supported.
+// TODO: Do we need a separate f16 setting when not legal?
+def FeatureFP64FP16Denormals : SubtargetFeature<"fp64-fp16-denormals",
+  "FP64FP16Denormals",
   "true",
-  "Enable double precision denormal handling",
+  "Enable double and half precision denormal handling",
   [FeatureFP64]
+>;
+
+def FeatureFP64Denormals : SubtargetFeature<"fp64-denormals",
+  "FP64FP16Denormals",
+  "true",
+  "Enable double and half precision denormal handling",
+  [FeatureFP64, FeatureFP64FP16Denormals]
+>;
+
+def FeatureFP16Denormals : SubtargetFeature<"fp16-denormals",
+  "FP64FP16Denormals",
+  "true",
+  "Enable half precision denormal handling",
+  [FeatureFP64FP16Denormals]
+>;
+
+def FeatureDX10Clamp : SubtargetFeature<"dx10-clamp",
+  "DX10Clamp",
+  "true",
+  "clamp modifier clamps NaNs to 0.0"
 >;
 
 def FeatureFPExceptions : SubtargetFeature<"fp-exceptions",
@@ -269,10 +389,23 @@ def FeatureEnableSIScheduler : SubtargetFeature<"si-scheduler",
   "Enable SI Machine Scheduler"
 >;
 
+// Unless +-flat-for-global is specified, turn on FlatForGlobal for
+// all OS-es on VI and newer hardware to avoid assertion failures due
+// to missing ADDR64 variants of MUBUF instructions.
+// FIXME: moveToVALU should be able to handle converting addr64 MUBUF
+// instructions.
+
 def FeatureFlatForGlobal : SubtargetFeature<"flat-for-global",
   "FlatForGlobal",
   "true",
   "Force to generate flat instruction for global"
+>;
+
+def FeatureAutoWaitcntBeforeBarrier : SubtargetFeature <
+  "auto-waitcnt-before-barrier",
+  "AutoWaitcntBeforeBarrier",
+  "true",
+  "Hardware automatically inserts waitcnt before barrier"
 >;
 
 // Dummy feature used to disable assembler instructions.
@@ -324,7 +457,21 @@ def FeatureVolcanicIslands : SubtargetFeatureGeneration<"VOLCANIC_ISLANDS",
    FeatureWavefrontSize64, FeatureFlatAddressSpace, FeatureGCN,
    FeatureGCN3Encoding, FeatureCIInsts, Feature16BitInsts,
    FeatureSMemRealTime, FeatureVGPRIndexMode, FeatureMovrel,
-   FeatureScalarStores, FeatureInv2PiInlineImm
+   FeatureScalarStores, FeatureInv2PiInlineImm,
+   FeatureSDWA, FeatureSDWAOutModsVOPC, FeatureSDWAMac, FeatureDPP
+  ]
+>;
+
+def FeatureGFX9 : SubtargetFeatureGeneration<"GFX9",
+  [FeatureFP64, FeatureLocalMemorySize65536,
+   FeatureWavefrontSize64, FeatureFlatAddressSpace, FeatureGCN,
+   FeatureGCN3Encoding, FeatureCIInsts, Feature16BitInsts,
+   FeatureSMemRealTime, FeatureScalarStores, FeatureInv2PiInlineImm,
+   FeatureApertureRegs, FeatureGFX9Insts, FeatureVOP3P, FeatureVGPRIndexMode,
+   FeatureFastFMAF32, FeatureDPP,
+   FeatureSDWA, FeatureSDWAOmod, FeatureSDWAScalar, FeatureSDWASdst,
+   FeatureFlatInstOffsets, FeatureFlatGlobalInsts, FeatureFlatScratchInsts,
+   FeatureAddNoCarryInsts
   ]
 >;
 
@@ -338,6 +485,16 @@ class SubtargetFeatureISAVersion <int Major, int Minor, int Stepping,
   Implies
 >;
 
+def FeatureISAVersion6_0_0 : SubtargetFeatureISAVersion <6,0,0,
+  [FeatureSouthernIslands,
+   FeatureFastFMAF32,
+   HalfRate64Ops,
+   FeatureLDSBankCount32]>;
+
+def FeatureISAVersion6_0_1 : SubtargetFeatureISAVersion <6,0,1,
+  [FeatureSouthernIslands,
+   FeatureLDSBankCount32]>;
+
 def FeatureISAVersion7_0_0 : SubtargetFeatureISAVersion <7,0,0,
   [FeatureSeaIslands,
    FeatureLDSBankCount32]>;
@@ -350,8 +507,11 @@ def FeatureISAVersion7_0_1 : SubtargetFeatureISAVersion <7,0,1,
 
 def FeatureISAVersion7_0_2 : SubtargetFeatureISAVersion <7,0,2,
   [FeatureSeaIslands,
-   FeatureLDSBankCount16,
-   FeatureXNACK]>;
+   FeatureLDSBankCount16]>;
+
+def FeatureISAVersion7_0_3 : SubtargetFeatureISAVersion <7,0,3,
+  [FeatureSeaIslands,
+   FeatureLDSBankCount16]>;
 
 def FeatureISAVersion8_0_0 : SubtargetFeatureISAVersion <8,0,0,
   [FeatureVolcanicIslands,
@@ -379,6 +539,24 @@ def FeatureISAVersion8_0_4 : SubtargetFeatureISAVersion <8,0,4,
 def FeatureISAVersion8_1_0 : SubtargetFeatureISAVersion <8,1,0,
   [FeatureVolcanicIslands,
    FeatureLDSBankCount16,
+   FeatureXNACK]>;
+
+def FeatureISAVersion9_0_0 : SubtargetFeatureISAVersion <9,0,0,
+  [FeatureGFX9,
+   FeatureLDSBankCount32]>;
+
+def FeatureISAVersion9_0_1 : SubtargetFeatureISAVersion <9,0,1,
+  [FeatureGFX9,
+   FeatureLDSBankCount32,
+   FeatureXNACK]>;
+
+def FeatureISAVersion9_0_2 : SubtargetFeatureISAVersion <9,0,2,
+  [FeatureGFX9,
+   FeatureLDSBankCount32]>;
+
+def FeatureISAVersion9_0_3 : SubtargetFeatureISAVersion <9,0,3,
+  [FeatureGFX9,
+   FeatureLDSBankCount32,
    FeatureXNACK]>;
 
 //===----------------------------------------------------------------------===//
@@ -430,10 +608,12 @@ def AMDGPUAsmVariants {
   int VOP3_ID = 1;
   string SDWA = "SDWA";
   int SDWA_ID = 2;
+  string SDWA9 = "SDWA9";
+  int SDWA9_ID = 3;
   string DPP = "DPP";
-  int DPP_ID = 3;
+  int DPP_ID = 4;
   string Disable = "Disable";
-  int Disable_ID = 4;
+  int Disable_ID = 5;
 }
 
 def DefaultAMDGPUAsmParserVariant : AsmParserVariant {
@@ -451,6 +631,12 @@ def SDWAAsmParserVariant : AsmParserVariant {
   let Name = AMDGPUAsmVariants.SDWA;
 }
 
+def SDWA9AsmParserVariant : AsmParserVariant {
+  let Variant = AMDGPUAsmVariants.SDWA9_ID;
+  let Name = AMDGPUAsmVariants.SDWA9;
+}
+
+
 def DPPAsmParserVariant : AsmParserVariant {
   let Variant = AMDGPUAsmVariants.DPP_ID;
   let Name = AMDGPUAsmVariants.DPP;
@@ -463,6 +649,7 @@ def AMDGPU : Target {
   let AssemblyParserVariants = [DefaultAMDGPUAsmParserVariant,
                                 VOP3AsmParserVariant,
                                 SDWAAsmParserVariant,
+                                SDWA9AsmParserVariant,
                                 DPPAsmParserVariant];
   let AssemblyWriters = [AMDGPUAsmWriter];
 }
@@ -486,12 +673,40 @@ def isVI : Predicate <
   "Subtarget->getGeneration() >= AMDGPUSubtarget::VOLCANIC_ISLANDS">,
   AssemblerPredicate<"FeatureGCN3Encoding">;
 
-def isCIVI : Predicate <
-  "Subtarget->getGeneration() == AMDGPUSubtarget::SEA_ISLANDS || "
-  "Subtarget->getGeneration() == AMDGPUSubtarget::VOLCANIC_ISLANDS"
->, AssemblerPredicate<"FeatureCIInsts">;
+def isGFX9 : Predicate <
+  "Subtarget->getGeneration() >= AMDGPUSubtarget::GFX9">,
+  AssemblerPredicate<"FeatureGFX9Insts">;
 
-def HasFlatAddressSpace : Predicate<"Subtarget->hasFlatAddressSpace()">;
+// TODO: Either the name to be changed or we simply use IsCI!
+def isCIVI : Predicate <
+  "Subtarget->getGeneration() >= AMDGPUSubtarget::SEA_ISLANDS">,
+  AssemblerPredicate<"FeatureCIInsts">;
+
+def HasFlatAddressSpace : Predicate<"Subtarget->hasFlatAddressSpace()">,
+  AssemblerPredicate<"FeatureFlatAddressSpace">;
+
+def HasFlatGlobalInsts : Predicate<"Subtarget->hasFlatGlobalInsts()">,
+  AssemblerPredicate<"FeatureFlatGlobalInsts">;
+
+def HasAddNoCarryInsts : Predicate<"Subtarget->hasAddNoCarryInsts()">,
+  AssemblerPredicate<"FeatureAddNoCarryInsts">;
+
+def NotHasAddNoCarryInsts : Predicate<"!Subtarget->hasAddNoCarryInsts()">,
+  AssemblerPredicate<"!FeatureAddNoCarryInsts">;
+
+def Has16BitInsts : Predicate<"Subtarget->has16BitInsts()">,
+  AssemblerPredicate<"Feature16BitInsts">;
+def HasVOP3PInsts : Predicate<"Subtarget->hasVOP3PInsts()">,
+  AssemblerPredicate<"FeatureVOP3P">;
+
+def HasSDWA : Predicate<"Subtarget->hasSDWA()">,
+  AssemblerPredicate<"FeatureSDWA,FeatureVolcanicIslands">;
+
+def HasSDWA9 : Predicate<"Subtarget->hasSDWA()">,
+  AssemblerPredicate<"FeatureSDWA,FeatureGFX9">;
+
+def HasDPP : Predicate<"Subtarget->hasDPP()">,
+  AssemblerPredicate<"FeatureDPP">;
 
 class PredicateControl {
   Predicate SubtargetPredicate;
@@ -512,5 +727,6 @@ include "Processors.td"
 include "AMDGPUInstrInfo.td"
 include "AMDGPUIntrinsics.td"
 include "AMDGPURegisterInfo.td"
+include "AMDGPURegisterBanks.td"
 include "AMDGPUInstructions.td"
 include "AMDGPUCallingConv.td"

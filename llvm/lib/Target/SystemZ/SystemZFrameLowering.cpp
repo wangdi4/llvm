@@ -82,7 +82,7 @@ void SystemZFrameLowering::determineCalleeSaves(MachineFunction &MF,
       SavedRegs.set(SystemZ::ArgGPRs[I]);
 
   // If there are any landing pads, entering them will modify r6/r7.
-  if (!MF.getMMI().getLandingPads().empty()) {
+  if (!MF.getLandingPads().empty()) {
     SavedRegs.set(SystemZ::R6D);
     SavedRegs.set(SystemZ::R7D);
   }
@@ -277,8 +277,21 @@ void SystemZFrameLowering::
 processFunctionBeforeFrameFinalized(MachineFunction &MF,
                                     RegScavenger *RS) const {
   MachineFrameInfo &MFFrame = MF.getFrameInfo();
-  uint64_t MaxReach = (MFFrame.estimateStackSize(MF) +
-                       SystemZMC::CallFrameSize * 2);
+  // Get the size of our stack frame to be allocated ...
+  uint64_t StackSize = (MFFrame.estimateStackSize(MF) +
+                        SystemZMC::CallFrameSize);
+  // ... and the maximum offset we may need to reach into the
+  // caller's frame to access the save area or stack arguments.
+  int64_t MaxArgOffset = SystemZMC::CallFrameSize;
+  for (int I = MFFrame.getObjectIndexBegin(); I != 0; ++I)
+    if (MFFrame.getObjectOffset(I) >= 0) {
+      int64_t ArgOffset = SystemZMC::CallFrameSize +
+                          MFFrame.getObjectOffset(I) +
+                          MFFrame.getObjectSize(I);
+      MaxArgOffset = std::max(MaxArgOffset, ArgOffset);
+    }
+
+  uint64_t MaxReach = StackSize + MaxArgOffset;
   if (!isUInt<12>(MaxReach)) {
     // We may need register scavenging slots if some parts of the frame
     // are outside the reach of an unsigned 12-bit displacement.
@@ -350,7 +363,7 @@ void SystemZFrameLowering::emitPrologue(MachineFunction &MF,
       unsigned Reg = Save.getReg();
       if (SystemZ::GR64BitRegClass.contains(Reg)) {
         int64_t Offset = SPOffsetFromCFA + RegSpillOffsets[Reg];
-        unsigned CFIIndex = MMI.addFrameInst(MCCFIInstruction::createOffset(
+        unsigned CFIIndex = MF.addFrameInst(MCCFIInstruction::createOffset(
             nullptr, MRI->getDwarfRegNum(Reg, true), Offset));
         BuildMI(MBB, MBBI, DL, ZII->get(TargetOpcode::CFI_INSTRUCTION))
             .addCFIIndex(CFIIndex);
@@ -374,7 +387,7 @@ void SystemZFrameLowering::emitPrologue(MachineFunction &MF,
     emitIncrement(MBB, MBBI, DL, SystemZ::R15D, Delta, ZII);
 
     // Add CFI for the allocation.
-    unsigned CFIIndex = MMI.addFrameInst(
+    unsigned CFIIndex = MF.addFrameInst(
         MCCFIInstruction::createDefCfaOffset(nullptr, SPOffsetFromCFA + Delta));
     BuildMI(MBB, MBBI, DL, ZII->get(TargetOpcode::CFI_INSTRUCTION))
         .addCFIIndex(CFIIndex);
@@ -392,7 +405,7 @@ void SystemZFrameLowering::emitPrologue(MachineFunction &MF,
 
     // Add CFI for the new frame location.
     unsigned HardFP = MRI->getDwarfRegNum(SystemZ::R11D, true);
-    unsigned CFIIndex = MMI.addFrameInst(
+    unsigned CFIIndex = MF.addFrameInst(
         MCCFIInstruction::createDefCfaRegister(nullptr, HardFP));
     BuildMI(MBB, MBBI, DL, ZII->get(TargetOpcode::CFI_INSTRUCTION))
         .addCFIIndex(CFIIndex);
@@ -422,7 +435,7 @@ void SystemZFrameLowering::emitPrologue(MachineFunction &MF,
       int64_t Offset =
           getFrameIndexReference(MF, Save.getFrameIdx(), IgnoredFrameReg);
 
-      unsigned CFIIndex = MMI.addFrameInst(MCCFIInstruction::createOffset(
+      unsigned CFIIndex = MF.addFrameInst(MCCFIInstruction::createOffset(
           nullptr, DwarfReg, SPOffsetFromCFA + Offset));
       CFIIndexes.push_back(CFIIndex);
     }

@@ -25,7 +25,7 @@ using namespace lldb;
 using namespace lldb_private;
 
 ABISP
-ABI::FindPlugin(const ArchSpec &arch) {
+ABI::FindPlugin(lldb::ProcessSP process_sp, const ArchSpec &arch) {
   ABISP abi_sp;
   ABICreateInstance create_callback;
 
@@ -33,7 +33,7 @@ ABI::FindPlugin(const ArchSpec &arch) {
        (create_callback = PluginManager::GetABICreateCallbackAtIndex(idx)) !=
        nullptr;
        ++idx) {
-    abi_sp = create_callback(arch);
+    abi_sp = create_callback(process_sp, arch);
 
     if (abi_sp)
       return abi_sp;
@@ -41,8 +41,6 @@ ABI::FindPlugin(const ArchSpec &arch) {
   abi_sp.reset();
   return abi_sp;
 }
-
-ABI::ABI() = default;
 
 ABI::~ABI() = default;
 
@@ -189,8 +187,7 @@ bool ABI::PrepareTrivialCall(Thread &thread, lldb::addr_t sp,
                              lldb::addr_t returnAddress, llvm::Type &returntype,
                              llvm::ArrayRef<ABI::CallArgument> args) const {
   // dummy prepare trivial call
-  assert(!"Should never get here!");
-  return false;
+  llvm_unreachable("Should never get here!");
 }
 
 bool ABI::GetFallbackRegisterLocation(

@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "ARMInstPrinter.h"
+#include "Utils/ARMBaseInfo.h"
+#include "ARMBaseRegisterInfo.h"
+#include "ARMBaseRegisterInfo.h"
 #include "MCTargetDesc/ARMAddressingModes.h"
 #include "MCTargetDesc/ARMBaseInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -20,7 +23,15 @@
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+
 using namespace llvm;
 
 #define DEBUG_TYPE "asm-printer"
@@ -73,7 +84,6 @@ void ARMInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
   unsigned Opcode = MI->getOpcode();
 
   switch (Opcode) {
-
   // Check for MOVs and print canonical forms, instead.
   case ARM::MOVsr: {
     // FIXME: Thumb variants?
@@ -726,6 +736,12 @@ void ARMInstPrinter::printPKHASRShiftImm(const MCInst *MI, unsigned OpNum,
 void ARMInstPrinter::printRegisterList(const MCInst *MI, unsigned OpNum,
                                        const MCSubtargetInfo &STI,
                                        raw_ostream &O) {
+  assert(std::is_sorted(MI->begin() + OpNum, MI->end(),
+                        [&](const MCOperand &LHS, const MCOperand &RHS) {
+                          return MRI.getEncodingValue(LHS.getReg()) <
+                                 MRI.getEncodingValue(RHS.getReg());
+                        }));
+
   O << "{";
   for (unsigned i = OpNum, e = MI->getNumOperands(); i != e; ++i) {
     if (i != OpNum)
@@ -776,152 +792,48 @@ void ARMInstPrinter::printMSRMaskOperand(const MCInst *MI, unsigned OpNum,
                                          const MCSubtargetInfo &STI,
                                          raw_ostream &O) {
   const MCOperand &Op = MI->getOperand(OpNum);
-  unsigned SpecRegRBit = Op.getImm() >> 4;
-  unsigned Mask = Op.getImm() & 0xf;
   const FeatureBitset &FeatureBits = STI.getFeatureBits();
-
   if (FeatureBits[ARM::FeatureMClass]) {
-    unsigned SYSm = Op.getImm();
+
+    unsigned SYSm = Op.getImm() & 0xFFF; // 12-bit SYSm
     unsigned Opcode = MI->getOpcode();
 
     // For writes, handle extended mask bits if the DSP extension is present.
     if (Opcode == ARM::t2MSR_M && FeatureBits[ARM::FeatureDSP]) {
-      switch (SYSm) {
-      case 0x400:
-        O << "apsr_g";
-        return;
-      case 0xc00:
-        O << "apsr_nzcvqg";
-        return;
-      case 0x401:
-        O << "iapsr_g";
-        return;
-      case 0xc01:
-        O << "iapsr_nzcvqg";
-        return;
-      case 0x402:
-        O << "eapsr_g";
-        return;
-      case 0xc02:
-        O << "eapsr_nzcvqg";
-        return;
-      case 0x403:
-        O << "xpsr_g";
-        return;
-      case 0xc03:
-        O << "xpsr_nzcvqg";
-        return;
+      auto TheReg =ARMSysReg::lookupMClassSysRegBy12bitSYSmValue(SYSm);
+      if (TheReg && TheReg->isInRequiredFeatures({ARM::FeatureDSP})) {
+          O << TheReg->Name;
+          return;
       }
     }
 
     // Handle the basic 8-bit mask.
     SYSm &= 0xff;
-
     if (Opcode == ARM::t2MSR_M && FeatureBits [ARM::HasV7Ops]) {
       // ARMv7-M deprecates using MSR APSR without a _<bits> qualifier as an
       // alias for MSR APSR_nzcvq.
-      switch (SYSm) {
-      case 0:
-        O << "apsr_nzcvq";
-        return;
-      case 1:
-        O << "iapsr_nzcvq";
-        return;
-      case 2:
-        O << "eapsr_nzcvq";
-        return;
-      case 3:
-        O << "xpsr_nzcvq";
-        return;
+      auto TheReg = ARMSysReg::lookupMClassSysRegAPSRNonDeprecated(SYSm);
+      if (TheReg) {
+          O << TheReg->Name;
+          return;
       }
     }
 
-    switch (SYSm) {
-    default:
-      llvm_unreachable("Unexpected mask value!");
-    case 0:
-      O << "apsr";
-      return;
-    case 1:
-      O << "iapsr";
-      return;
-    case 2:
-      O << "eapsr";
-      return;
-    case 3:
-      O << "xpsr";
-      return;
-    case 5:
-      O << "ipsr";
-      return;
-    case 6:
-      O << "epsr";
-      return;
-    case 7:
-      O << "iepsr";
-      return;
-    case 8:
-      O << "msp";
-      return;
-    case 9:
-      O << "psp";
-      return;
-    case 16:
-      O << "primask";
-      return;
-    case 17:
-      O << "basepri";
-      return;
-    case 18:
-      O << "basepri_max";
-      return;
-    case 19:
-      O << "faultmask";
-      return;
-    case 20:
-      O << "control";
-      return;
-    case 10:
-      O << "msplim";
-      return;
-    case 11:
-      O << "psplim";
-      return;
-    case 0x88:
-      O << "msp_ns";
-      return;
-    case 0x89:
-      O << "psp_ns";
-      return;
-    case 0x8a:
-      O << "msplim_ns";
-      return;
-    case 0x8b:
-      O << "psplim_ns";
-      return;
-    case 0x90:
-      O << "primask_ns";
-      return;
-    case 0x91:
-      O << "basepri_ns";
-      return;
-    case 0x92:
-      O << "basepri_max_ns";
-      return;
-    case 0x93:
-      O << "faultmask_ns";
-      return;
-    case 0x94:
-      O << "control_ns";
-      return;
-    case 0x98:
-      O << "sp_ns";
+    auto TheReg = ARMSysReg::lookupMClassSysRegBy8bitSYSmValue(SYSm);
+    if (TheReg) {
+      O << TheReg->Name;
       return;
     }
+
+    llvm_unreachable("Unexpected mask value!");
+    return;
   }
 
   // As special cases, CPSR_f, CPSR_s and CPSR_fs prefer printing as
   // APSR_nzcvq, APSR_g and APSRnzcvqg, respectively.
+  unsigned SpecRegRBit = Op.getImm() >> 4;
+  unsigned Mask = Op.getImm() & 0xf;
+
   if (!SpecRegRBit && (Mask == 8 || Mask == 4 || Mask == 12)) {
     O << "APSR_";
     switch (Mask) {

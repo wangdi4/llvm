@@ -2,14 +2,14 @@
 // REQUIRES: asan
 // RUN: LSAN_BASE="report_objects=1:use_stacks=0:use_registers=0"
 // RUN: %clangxx_lsan %s -o %t
-// RUN: LSAN_OPTIONS=$LSAN_BASE:"use_poisoned=0" not %run %t 2>&1 | FileCheck %s
-// RUN: LSAN_OPTIONS=$LSAN_BASE:"use_poisoned=1" %run %t 2>&1
+// RUN: %env_lsan_opts=$LSAN_BASE:"use_poisoned=0" not %run %t 2>&1 | FileCheck %s
+// RUN: %env_lsan_opts=$LSAN_BASE:"use_poisoned=1" %run %t 2>&1
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sanitizer/asan_interface.h>
 #include <assert.h>
-#include "../../tsan/test.h"
+#include "sanitizer_common/print_address.h"
 
 void **p;
 

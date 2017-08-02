@@ -25,11 +25,12 @@
 #include "MachONormalizedFileBinaryUtils.h"
 #include "lld/Core/Error.h"
 #include "lld/Core/LLVM.h"
-#include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/ilist.h"
+#include "llvm/ADT/ilist_node.h"
+#include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Errc.h"
@@ -37,7 +38,6 @@
 #include "llvm/Support/FileOutputBuffer.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/Host.h"
-#include "llvm/Support/MachO.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 #include <functional>
@@ -657,7 +657,7 @@ llvm::Error MachOFileLayout::writeSingleSegmentLoadCommand(uint8_t *&lc) {
     ++sout;
   }
   lc = next;
-  return llvm::Error();
+  return llvm::Error::success();
 }
 
 template <typename T>
@@ -727,7 +727,7 @@ llvm::Error MachOFileLayout::writeSegmentLoadCommands(uint8_t *&lc) {
     }
     lc = reinterpret_cast<uint8_t*>(next);
   }
-  return llvm::Error();
+  return llvm::Error::success();
 }
 
 static void writeVersionMinLoadCommand(const NormalizedFile &_file,
@@ -1007,7 +1007,7 @@ llvm::Error MachOFileLayout::writeLoadCommands() {
       lc += sizeof(linkedit_data_command);
     }
   }
-  return llvm::Error();
+  return llvm::Error::success();
 }
 
 void MachOFileLayout::writeSectionContent() {
@@ -1537,7 +1537,7 @@ llvm::Error MachOFileLayout::writeBinary(StringRef path) {
   writeLinkEditContent();
   fob->commit();
 
-  return llvm::Error();
+  return llvm::Error::success();
 }
 
 /// Takes in-memory normalized view and writes a mach-o object file.
