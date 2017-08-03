@@ -561,6 +561,16 @@ private:
   /// \brief Returns `true` if Val is a UIToFP CastInst, `false` otherwise.
   static bool isUIToFPCast(const Value &Val);
 
+  /// \brief Removes duplicate Instructions from \p Insts.
+  static void
+  removeDuplicateInstsFromList(SmallVectorImpl<Instruction *> &Insts);
+
+  /// \returns `true` if any Instruction in \p Insts is used outside the
+  /// BasicBlock \p BB, `false` otherwise.
+  static bool
+  instructionsAreUsedOutsideBB(SmallVectorImpl<Instruction *> &Insts,
+                               BasicBlock *&BB);
+
   /// \brief Delete all Instructions in the SmallVector \p InstsToDelete.
   static void
   deleteInstructionsInList(SmallVectorImpl<Instruction *> &InstsToDelete);

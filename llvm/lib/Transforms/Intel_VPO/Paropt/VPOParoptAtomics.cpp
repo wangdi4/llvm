@@ -45,26 +45,34 @@ bool VPOParoptAtomics::handleAtomic(WRNAtomicNode *AtomicNode,
   bool handled;
   assert(AtomicNode != nullptr && "AtomicNode is null.");
 
-  assert(AtomicNode->isBBSetEmpty() && 
+  assert(AtomicNode->isBBSetEmpty() &&
          "handleAtomic: BBSET should start empty");
 
   AtomicNode->populateBBSet();
 
-  switch (AtomicNode->getAtomicKind()) {
-  case WRNAtomicRead:
-    handled = handleAtomicRW<WRNAtomicRead>(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicWrite:
-    handled = handleAtomicRW<WRNAtomicWrite>(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicUpdate:
-    handled = handleAtomicUpdate(AtomicNode, IdentTy, TidPtr);
-    break;
-  case WRNAtomicCapture:
-    handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr);
-    break;
-  default:
-    llvm_unreachable("Unexpected Atomic Kind");
+  if (AtomicNode->getBBSetSize() < 3) {
+    // It's possible that the middle BBlock is empty, in which case,
+    // we don't need to do anything.
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode has less than 3 BBlocks. Skipping...\n");
+    handled = true;
+  } else {
+    switch (AtomicNode->getAtomicKind()) {
+    case WRNAtomicRead:
+      handled = handleAtomicRW<WRNAtomicRead>(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicWrite:
+      handled = handleAtomicRW<WRNAtomicWrite>(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicUpdate:
+      handled = handleAtomicUpdate(AtomicNode, IdentTy, TidPtr);
+      break;
+    case WRNAtomicCapture:
+      handled = handleAtomicCapture(AtomicNode, IdentTy, TidPtr);
+      break;
+    default:
+      llvm_unreachable("Unexpected Atomic Kind");
+    }
   }
 
   if (!handled)
@@ -95,8 +103,12 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Read/Write is expected to have 3 BBlocks.");
+
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Read/Write does not have 3 BBlocks.\n");
+    return false;
+  }
 
   bool AtomicRead = (AtomicKind == WRNAtomicRead);
 
@@ -108,17 +120,26 @@ bool VPOParoptAtomics::handleAtomicRW(WRNAtomicNode *AtomicNode,
   // branch to the next BBlock. We're concerned with the first one.
   if (BB->size() != 2) {
     DEBUG(dbgs() << __FUNCTION__ << ": Atomic Read/Write BBlock has more than"
-                                    " 2 Instructions. Returning.\n");
+                                    " 2 Instructions. Returning...\n");
     return false; // Handle using critical section.
   }
 
   Instruction *Inst = &(*(BB->begin()));
 
   assert(Inst != nullptr && "Inst is null.");
-  assert(((AtomicKind == WRNAtomicRead) ==  isa<LoadInst>(Inst)) &&
-         "Unexpected Instruction Type for AtomicRead");
-  assert(((AtomicKind == WRNAtomicWrite) == isa<StoreInst>(Inst)) &&
-         "Unexpected Instruction Type for AtomicWrite");
+
+  if ((AtomicKind == WRNAtomicRead) && !isa<LoadInst>(Inst)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a load "
+                 << "for AtomicRead. Returning...\n");
+    return false; // Handle using critical section.
+  };
+
+  if ((AtomicKind == WRNAtomicWrite) && !isa<StoreInst>(Inst)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": First instruction is not a store "
+                 << "for AtomicWrite. Returning...\n");
+    return false; // Handle using critical section.
+  };
+
   DEBUG(dbgs() << __FUNCTION__ << ": Source Instruction: " << *Inst << "\n");
 
   // Now that we have the load/store instruction, we need to extract the
@@ -167,8 +188,11 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Atomic Update is expected to have 3 BBlocks.");
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Update does not have 3 BBlocks.\n");
+    return false;
+  }
 
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
@@ -216,6 +240,11 @@ bool VPOParoptAtomics::handleAtomicUpdate(WRNAtomicNode *AtomicNode,
 
   if (!UpdateOpFound)
     return false; // Handle using critical sections.
+
+  removeDuplicateInstsFromList(InstsToDelete);
+
+  if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
+    return false; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
   // the types of AtomicOpnd and ValueOpnd are not the same.
@@ -268,8 +297,12 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
   assert(AtomicNode != nullptr && "AtomicNode is null.");
   assert(IdentTy != nullptr && "IdentTy is null.");
   assert(TidPtr != nullptr && "TidPtr is null.");
-  assert(AtomicNode->getBBSetSize() == 3 &&
-         "AtomicNode for Atomic Capture is expected to have 3 BBlocks.");
+
+  if (AtomicNode->getBBSetSize() != 3) {
+    DEBUG(dbgs() << __FUNCTION__
+                 << ": AtomicNode for Capture does not have 3 BBlocks.\n");
+    return false;
+  }
 
   // The first and last BasicBlocks contain directive intrinsic calls.
   // We're interested in only the middle one here.
@@ -316,6 +349,11 @@ bool VPOParoptAtomics::handleAtomicCapture(WRNAtomicNode *AtomicNode,
                              InstsToDelete); // In, Out
 
   if (CaptureKind == CaptureUnknown)
+    return false; // Handle using critical section.
+
+  removeDuplicateInstsFromList(InstsToDelete);
+
+  if (instructionsAreUsedOutsideBB(InstsToDelete, BB))
     return false; // Handle using critical section.
 
   // At this point, we may need to generate a CastInst for ValueOpnd, in case
@@ -451,8 +489,8 @@ bool VPOParoptAtomics::extractAtomicUpdateOp(
 
   Op = dyn_cast<Instruction>(OpResult);
 
-  if (!isa<BinaryOperator>(Op)) {
-    DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *Op << "\n");
+  if (Op == nullptr || !isa<BinaryOperator>(Op)) {
+    DEBUG(dbgs() << __FUNCTION__ << ": Unexpected update Op:" << *OpResult << "\n");
     InstsToDelete.clear();
     return false;
   }
@@ -974,17 +1012,45 @@ bool VPOParoptAtomics::isUIToFPCast(const Value &Val) {
   return false;
 }
 
+// Remove duplicate Instructions from the input SmallVector.
+void VPOParoptAtomics::removeDuplicateInstsFromList(
+    SmallVectorImpl<Instruction *> &Insts) {
+
+  if (Insts.empty())
+    return;
+
+  std::sort(Insts.begin(), Insts.end());
+  auto last = std::unique(Insts.begin(), Insts.end());
+  Insts.erase(last, Insts.end());
+}
+
+// Check if any instruction in the list is used outside the given BB.
+bool VPOParoptAtomics::instructionsAreUsedOutsideBB(
+    SmallVectorImpl<Instruction *> &Insts, BasicBlock* &BB) {
+  for (auto *Inst : Insts) {
+    for (Use &Use : Inst->uses()) {
+      User *User = Use.getUser();
+      Instruction *UserInst = dyn_cast<Instruction>(User);
+      if (UserInst != nullptr && UserInst->getParent() != BB) {
+
+#ifndef NDEBUG
+        DEBUG(dbgs() << __FUNCTION__ << ": Instruction '" << *Inst
+                     << "' is used in '" << *UserInst
+                     << "', which is outside the given BB.\n");
+#endif
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Delete the Instructions in the vecor InstsToDelete.
 void VPOParoptAtomics::deleteInstructionsInList(
     SmallVectorImpl<Instruction *> &InstsToDelete) {
 
   if (InstsToDelete.empty())
     return;
-
-  // Remove duplicate instructions first.
-  std::sort(InstsToDelete.begin(), InstsToDelete.end());
-  auto last = std::unique(InstsToDelete.begin(), InstsToDelete.end());
-  InstsToDelete.erase(last, InstsToDelete.end());
 
 #ifndef NDEBUG
   DEBUG(dbgs() << __FUNCTION__ << ": Instructions to be deleted:\n");
