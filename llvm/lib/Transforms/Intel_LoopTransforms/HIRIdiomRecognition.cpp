@@ -26,17 +26,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-idiom"
 #define OPT_DESC "HIR Loop Idiom Recognition"
@@ -333,9 +333,8 @@ bool HIRIdiomRecognition::isUnitStrideRef(const RegDDRef *Ref,
   }
 
   int64_t Stride;
-  std::unique_ptr<CanonExpr> StrideCE(
-      Ref->getStrideAtLevel(Loop->getNestingLevel()));
-  if (StrideCE == nullptr || !StrideCE->isIntConstant(&Stride)) {
+  
+  if (!Ref->getConstStrideAtLevel(Loop->getNestingLevel(), &Stride)) {
     return false;
   }
 
@@ -499,10 +498,6 @@ RegDDRef *HIRIdiomRecognition::createFakeDDRef(const RegDDRef *Ref,
 
   assert(UndefIndex != InvalidBlobIndex && "There should be at least one IV");
 
-  // Attach undef BlobDDRef.
-  BlobDDRef *UndefBlobDDRef = Ref->getDDRefUtils().createBlobDDRef(UndefIndex);
-  FakeRef->addBlobDDRef(UndefBlobDDRef);
-
   // Fake DDRef will be attached to the pre-header of the i*Level* loop.
   FakeRef->updateDefLevel(Level - 1);
 
@@ -564,7 +559,7 @@ bool HIRIdiomRecognition::genMemset(HLLoop *Loop, MemOpCandidate &Candidate,
                                     IsVolatile};
 
   HLInst *MemsetInst = HNU.createCall(Memset, Ops);
-  MemsetInst->addFakeDDRef(
+  MemsetInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
 
   HNU.insertAsLastPreheaderNode(Loop, MemsetInst);
@@ -636,9 +631,9 @@ bool HIRIdiomRecognition::processMemcpy(HLLoop *Loop,
                                     Align, IsVolatile};
 
   HLInst *MemcpyInst = HNU.createCall(Memcpy, Ops);
-  MemcpyInst->addFakeDDRef(
+  MemcpyInst->addFakeLvalDDRef(
       createFakeDDRef(Candidate.StoreRef, Loop->getNestingLevel()));
-  MemcpyInst->addFakeDDRef(
+  MemcpyInst->addFakeRvalDDRef(
       createFakeDDRef(Candidate.RHS, Loop->getNestingLevel()));
 
   HNU.insertAsLastPreheaderNode(Loop, MemcpyInst);
@@ -717,7 +712,7 @@ bool HIRIdiomRecognition::runOnLoop(HLLoop *Loop) {
   if (Changed) {
     // The transformation could hoist everything to the pre-header, making the
     // loop empty.
-    HLNodeUtils::removeEmptyNodes(Loop);
+    HLNodeUtils::removeEmptyNodes(Loop, false);
   }
 
   return Changed;

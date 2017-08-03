@@ -230,6 +230,8 @@ AVRValueHIR::AVRValueHIR(RegDDRef *DDRef, HLNode *Node, AVR *Parent,
       this->setConstant(Const);
     } else if (DDRef->isNull()) {
       this->setConstant(ConstantPointerNull::get(cast<PointerType>(DataType)));
+    } else if (DDRef->isStandAloneUndefBlob()) {
+      this->setConstant(UndefValue::get(DataType));
     } else {
       llvm_unreachable("CanonExpr has an unexpected constant value!");
     }

@@ -1,15 +1,10 @@
 ; Check HIR parsing of IF instruction with undefined predicate
-; |   if (0 #UNDEF# 0)
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 
-; CHECK:      if ({{.*}}#UNDEF#{{.*}})
-; CHECK:      <RVAL-REG>{{.*}}{undefined}
-; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}
+; CHECK:      if (undef #UNDEF# undef)
 
 ; ModuleID = 'if-undef.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

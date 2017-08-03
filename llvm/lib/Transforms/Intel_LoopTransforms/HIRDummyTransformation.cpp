@@ -26,12 +26,12 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/Utils/VPOAnalysisUtils.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 
 #define DEBUG_TYPE "hir-dummy"
 

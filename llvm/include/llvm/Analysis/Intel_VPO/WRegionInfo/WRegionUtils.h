@@ -20,7 +20,7 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 

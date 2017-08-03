@@ -18,7 +18,7 @@
 
 #include "llvm/IR/Function.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 using namespace llvm;

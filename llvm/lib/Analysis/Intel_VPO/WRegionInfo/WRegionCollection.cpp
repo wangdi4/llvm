@@ -25,7 +25,7 @@
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionCollection.h"
