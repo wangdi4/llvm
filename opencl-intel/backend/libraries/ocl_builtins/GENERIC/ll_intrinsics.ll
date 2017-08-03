@@ -609,6 +609,106 @@ define i64 @__ocl_helper_clz_v1u64(i64 %x) {
   ret i64 %1
 }
 
+declare <2 x i8> @llvm.ctlz.v2i8(<2 x i8>, i1) nounwind readonly
+declare <2 x i16> @llvm.ctlz.v2i16(<2 x i16>, i1) nounwind readonly
+declare <2 x i32> @llvm.ctlz.v2i32(<2 x i32>, i1) nounwind readonly
+declare <2 x i64> @llvm.ctlz.v2i64(<2 x i64>, i1) nounwind readonly
+
+define <2 x i8> @__ocl_helper_clz_v2u8(<2 x i8> %x) {
+  %1 = tail call <2 x i8> @llvm.ctlz.v2i8(<2 x i8> %x, i1 false)
+  ret <2 x i8> %1
+}
+
+define <2 x i16> @__ocl_helper_clz_v2u16(<2 x i16> %x) {
+  %1 = tail call <2 x i16> @llvm.ctlz.v2i16(<2 x i16> %x, i1 false)
+  ret <2 x i16> %1
+}
+
+define <2 x i32> @__ocl_helper_clz_v2u32(<2 x i32> %x) {
+  %1 = tail call <2 x i32> @llvm.ctlz.v2i32(<2 x i32> %x, i1 false)
+  ret <2 x i32> %1
+}
+
+define <2 x i64> @__ocl_helper_clz_v2u64(<2 x i64> %x) {
+  %1 = tail call <2 x i64> @llvm.ctlz.v2i64(<2 x i64> %x, i1 false)
+  ret <2 x i64> %1
+}
+
+declare <4 x i8> @llvm.ctlz.v4i8(<4 x i8>, i1) nounwind readonly
+declare <4 x i16> @llvm.ctlz.v4i16(<4 x i16>, i1) nounwind readonly
+declare <4 x i32> @llvm.ctlz.v4i32(<4 x i32>, i1) nounwind readonly
+declare <4 x i64> @llvm.ctlz.v4i64(<4 x i64>, i1) nounwind readonly
+
+define <4 x i8> @__ocl_helper_clz_v4u8(<4 x i8> %x) {
+  %1 = tail call <4 x i8> @llvm.ctlz.v4i8(<4 x i8> %x, i1 false)
+  ret <4 x i8> %1
+}
+
+define <4 x i16> @__ocl_helper_clz_v4u16(<4 x i16> %x) {
+  %1 = tail call <4 x i16> @llvm.ctlz.v4i16(<4 x i16> %x, i1 false)
+  ret <4 x i16> %1
+}
+
+define <4 x i32> @__ocl_helper_clz_v4u32(<4 x i32> %x) {
+  %1 = tail call <4 x i32> @llvm.ctlz.v4i32(<4 x i32> %x, i1 false)
+  ret <4 x i32> %1
+}
+
+define <4 x i64> @__ocl_helper_clz_v4u64(<4 x i64> %x) {
+  %1 = tail call <4 x i64> @llvm.ctlz.v4i64(<4 x i64> %x, i1 false)
+  ret <4 x i64> %1
+}
+
+declare <8 x i8> @llvm.ctlz.v8i8(<8 x i8>, i1) nounwind readonly
+declare <8 x i16> @llvm.ctlz.v8i16(<8 x i16>, i1) nounwind readonly
+declare <8 x i32> @llvm.ctlz.v8i32(<8 x i32>, i1) nounwind readonly
+declare <8 x i64> @llvm.ctlz.v8i64(<8 x i64>, i1) nounwind readonly
+
+define <8 x i8> @__ocl_helper_clz_v8u8(<8 x i8> %x) {
+  %1 = tail call <8 x i8> @llvm.ctlz.v8i8(<8 x i8> %x, i1 false)
+  ret <8 x i8> %1
+}
+
+define <8 x i16> @__ocl_helper_clz_v8u16(<8 x i16> %x) {
+  %1 = tail call <8 x i16> @llvm.ctlz.v8i16(<8 x i16> %x, i1 false)
+  ret <8 x i16> %1
+}
+
+define <8 x i32> @__ocl_helper_clz_v8u32(<8 x i32> %x) {
+  %1 = tail call <8 x i32> @llvm.ctlz.v8i32(<8 x i32> %x, i1 false)
+  ret <8 x i32> %1
+}
+
+define <8 x i64> @__ocl_helper_clz_v8u64(<8 x i64> %x) {
+  %1 = tail call <8 x i64> @llvm.ctlz.v8i64(<8 x i64> %x, i1 false)
+  ret <8 x i64> %1
+}
+
+declare <16 x i8> @llvm.ctlz.v16i8(<16 x i8>, i1) nounwind readonly
+declare <16 x i16> @llvm.ctlz.v16i16(<16 x i16>, i1) nounwind readonly
+declare <16 x i32> @llvm.ctlz.v16i32(<16 x i32>, i1) nounwind readonly
+declare <16 x i64> @llvm.ctlz.v16i64(<16 x i64>, i1) nounwind readonly
+
+define <16 x i8> @__ocl_helper_clz_v16u8(<16 x i8> %x) {
+  %1 = tail call <16 x i8> @llvm.ctlz.v16i8(<16 x i8> %x, i1 false)
+  ret <16 x i8> %1
+}
+
+define <16 x i16> @__ocl_helper_clz_v16u16(<16 x i16> %x) {
+  %1 = tail call <16 x i16> @llvm.ctlz.v16i16(<16 x i16> %x, i1 false)
+  ret <16 x i16> %1
+}
+
+define <16 x i32> @__ocl_helper_clz_v16u32(<16 x i32> %x) {
+  %1 = tail call <16 x i32> @llvm.ctlz.v16i32(<16 x i32> %x, i1 false)
+  ret <16 x i32> %1
+}
+
+define <16 x i64> @__ocl_helper_clz_v16u64(<16 x i64> %x) {
+  %1 = tail call <16 x i64> @llvm.ctlz.v16i64(<16 x i64> %x, i1 false)
+  ret <16 x i64> %1
+}
+
 declare i8 @llvm.cttz.i8(i8, i1) nounwind readonly
 declare i16 @llvm.cttz.i16(i16, i1) nounwind readonly
 declare i32 @llvm.cttz.i32(i32, i1) nounwind readonly
@@ -632,6 +732,106 @@ define i32 @__ocl_helper_ctz_v1u32(i32 %x) {
 define i64 @__ocl_helper_ctz_v1u64(i64 %x) {
   %1 = tail call i64 @llvm.cttz.i64(i64 %x, i1 false)
   ret i64 %1
+}
+
+declare <2 x i8> @llvm.cttz.v2i8(<2 x i8>, i1) nounwind readonly
+declare <2 x i16> @llvm.cttz.v2i16(<2 x i16>, i1) nounwind readonly
+declare <2 x i32> @llvm.cttz.v2i32(<2 x i32>, i1) nounwind readonly
+declare <2 x i64> @llvm.cttz.v2i64(<2 x i64>, i1) nounwind readonly
+
+define <2 x i8> @__ocl_helper_ctz_v2u8(<2 x i8> %x) {
+  %1 = tail call <2 x i8> @llvm.cttz.v2i8(<2 x i8> %x, i1 false)
+  ret <2 x i8> %1
+}
+
+define <2 x i16> @__ocl_helper_ctz_v2u16(<2 x i16> %x) {
+  %1 = tail call <2 x i16> @llvm.cttz.v2i16(<2 x i16> %x, i1 false)
+  ret <2 x i16> %1
+}
+
+define <2 x i32> @__ocl_helper_ctz_v2u32(<2 x i32> %x) {
+  %1 = tail call <2 x i32> @llvm.cttz.v2i32(<2 x i32> %x, i1 false)
+  ret <2 x i32> %1
+}
+
+define <2 x i64> @__ocl_helper_ctz_v2u64(<2 x i64> %x) {
+  %1 = tail call <2 x i64> @llvm.cttz.v2i64(<2 x i64> %x, i1 false)
+  ret <2 x i64> %1
+}
+
+declare <4 x i8> @llvm.cttz.v4i8(<4 x i8>, i1) nounwind readonly
+declare <4 x i16> @llvm.cttz.v4i16(<4 x i16>, i1) nounwind readonly
+declare <4 x i32> @llvm.cttz.v4i32(<4 x i32>, i1) nounwind readonly
+declare <4 x i64> @llvm.cttz.v4i64(<4 x i64>, i1) nounwind readonly
+
+define <4 x i8> @__ocl_helper_ctz_v4u8(<4 x i8> %x) {
+  %1 = tail call <4 x i8> @llvm.cttz.v4i8(<4 x i8> %x, i1 false)
+  ret <4 x i8> %1
+}
+
+define <4 x i16> @__ocl_helper_ctz_v4u16(<4 x i16> %x) {
+  %1 = tail call <4 x i16> @llvm.cttz.v4i16(<4 x i16> %x, i1 false)
+  ret <4 x i16> %1
+}
+
+define <4 x i32> @__ocl_helper_ctz_v4u32(<4 x i32> %x) {
+  %1 = tail call <4 x i32> @llvm.cttz.v4i32(<4 x i32> %x, i1 false)
+  ret <4 x i32> %1
+}
+
+define <4 x i64> @__ocl_helper_ctz_v4u64(<4 x i64> %x) {
+  %1 = tail call <4 x i64> @llvm.cttz.v4i64(<4 x i64> %x, i1 false)
+  ret <4 x i64> %1
+}
+
+declare <8 x i8> @llvm.cttz.v8i8(<8 x i8>, i1) nounwind readonly
+declare <8 x i16> @llvm.cttz.v8i16(<8 x i16>, i1) nounwind readonly
+declare <8 x i32> @llvm.cttz.v8i32(<8 x i32>, i1) nounwind readonly
+declare <8 x i64> @llvm.cttz.v8i64(<8 x i64>, i1) nounwind readonly
+
+define <8 x i8> @__ocl_helper_ctz_v8u8(<8 x i8> %x) {
+  %1 = tail call <8 x i8> @llvm.cttz.v8i8(<8 x i8> %x, i1 false)
+  ret <8 x i8> %1
+}
+
+define <8 x i16> @__ocl_helper_ctz_v8u16(<8 x i16> %x) {
+  %1 = tail call <8 x i16> @llvm.cttz.v8i16(<8 x i16> %x, i1 false)
+  ret <8 x i16> %1
+}
+
+define <8 x i32> @__ocl_helper_ctz_v8u32(<8 x i32> %x) {
+  %1 = tail call <8 x i32> @llvm.cttz.v8i32(<8 x i32> %x, i1 false)
+  ret <8 x i32> %1
+}
+
+define <8 x i64> @__ocl_helper_ctz_v8u64(<8 x i64> %x) {
+  %1 = tail call <8 x i64> @llvm.cttz.v8i64(<8 x i64> %x, i1 false)
+  ret <8 x i64> %1
+}
+
+declare <16 x i8> @llvm.cttz.v16i8(<16 x i8>, i1) nounwind readonly
+declare <16 x i16> @llvm.cttz.v16i16(<16 x i16>, i1) nounwind readonly
+declare <16 x i32> @llvm.cttz.v16i32(<16 x i32>, i1) nounwind readonly
+declare <16 x i64> @llvm.cttz.v16i64(<16 x i64>, i1) nounwind readonly
+
+define <16 x i8> @__ocl_helper_ctz_v16u8(<16 x i8> %x) {
+  %1 = tail call <16 x i8> @llvm.cttz.v16i8(<16 x i8> %x, i1 false)
+  ret <16 x i8> %1
+}
+
+define <16 x i16> @__ocl_helper_ctz_v16u16(<16 x i16> %x) {
+  %1 = tail call <16 x i16> @llvm.cttz.v16i16(<16 x i16> %x, i1 false)
+  ret <16 x i16> %1
+}
+
+define <16 x i32> @__ocl_helper_ctz_v16u32(<16 x i32> %x) {
+  %1 = tail call <16 x i32> @llvm.cttz.v16i32(<16 x i32> %x, i1 false)
+  ret <16 x i32> %1
+}
+
+define <16 x i64> @__ocl_helper_ctz_v16u64(<16 x i64> %x) {
+  %1 = tail call <16 x i64> @llvm.cttz.v16i64(<16 x i64> %x, i1 false)
+  ret <16 x i64> %1
 }
 
 define void @__ocl_expand_mask_4x16(i16 %mask, i16* %mask0, i16* %mask1,

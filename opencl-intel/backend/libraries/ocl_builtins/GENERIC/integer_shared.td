@@ -135,27 +135,15 @@ OclBuiltinImpl clz_igeneric = OclBuiltinImpl<clz, [ v1i8,  v2i8,  v3i8,  v4i8,  
                                                    v1i64, v2i64, v3i64, v4i64, v8i64, v16i64], 0, [{
     return as_$ReturnType(clz(as_u$Arg0Type($Arg0VarName)));
   }]>;
-// clz on scalar uchar
-OclBuiltinImpl clz_v1char = OclBuiltinImpl<clz, [v1u8], 0, [{
+// clz on unsigned integer for all vectors but 3 demensional
+OclBuiltinImpl clz_ugeneric = OclBuiltinImpl<clz, [ v1u8,  v2u8,  v4u8,  v8u8,  v16u8,
+                                                   v1u16, v2u16, v4u16, v8u16, v16u16,
+                                                   v1u32, v2u32, v4u32, v8u32, v16u32,
+                                                   v1u64, v2u64, v4u64, v8u64, v16u64], 0, [{
     return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
   }]>;
-// clz on scalar ushort
-OclBuiltinImpl clz_v1short = OclBuiltinImpl<clz, [v1u16], 0, [{
-    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
-  }]>;
-// clz on scalar uint
-OclBuiltinImpl clz_v1int = OclBuiltinImpl<clz, [v1u32], 0, [{
-    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
-  }]>;
-// clz on scalar ulong
-OclBuiltinImpl clz_v1long = OclBuiltinImpl<clz, [v1u64], 0, [{
-    return __ocl_helper_clz_$Arg0Symgentype($Arg0VarName);
-  }]>;
-// clz expand unsigned vectors to scalar
-OclBuiltinImpl clz_expand = OclBuiltinImpl<clz, [v2u8,  v3u8,  v4u8,  v8u8,  v16u8,
-                                                 v2u16, v3u16, v4u16, v8u16, v16u16,
-                                                 v2u32, v3u32, v4u32, v8u32, v16u32,
-                                                 v2u64, v3u64, v4u64, v8u64, v16u64], 0, Expand1>;
+// clz on unsigned 3 demensional vector promoted to 4 demensional
+OclBuiltinImpl clz_promote = OclBuiltinImpl<clz, [v3u8, v3u16, v3u32, v3u64], 0, Promote1_v3_to_v4>;
 
 
 /*****************************************************************\
