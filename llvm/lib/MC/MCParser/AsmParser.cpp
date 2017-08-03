@@ -287,7 +287,11 @@ public:
   /// }
 
 private:
+<<<<<<< HEAD
   bool isAltmacroString(SMLoc &StrLoc, SMLoc &EndLoc);// INTEL
+=======
+  bool isAltmacroString(SMLoc &StrLoc, SMLoc &EndLoc);
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
   bool parseStatement(ParseStatementInfo &Info,
                       MCAsmParserSemaCallback *SI);
   bool parseCurlyBlockScope(SmallVectorImpl<AsmRewrite>& AsmStrRewrites);
@@ -1193,7 +1197,10 @@ AsmParser::applyModifierToExpr(const MCExpr *E,
   llvm_unreachable("Invalid expression kind!");
 }
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
 /// This function checks if the next token is <string> type or arithmetic.
 /// string that begin with character '<' must end with character '>'.
 /// otherwise it is arithmetics.
@@ -1218,7 +1225,10 @@ bool AsmParser::isAltmacroString(SMLoc &StrLoc, SMLoc &EndLoc) {
   }
   return false;
 }
+<<<<<<< HEAD
 #endif //INTEL_CUSTOMIZATION
+=======
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
 
 /// \brief Parse an expression and return it.
 ///
@@ -2493,11 +2503,16 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
     SMLoc EndLoc;
 #endif // INTEL_CUSTOMIZATION
 
+    SMLoc StrLoc = Lexer.getLoc();
+    SMLoc EndLoc;
     if (Lexer.IsaAltMacroMode() && Lexer.is(AsmToken::Percent)) {
+<<<<<<< HEAD
 #if !INTEL_CUSTOMIZATION
         SMLoc StrLoc = Lexer.getLoc();
         SMLoc EndLoc;
 #endif // !INTEL_CUSTOMIZATION
+=======
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
         const MCExpr *AbsoluteExp;
         int64_t Value;
         /// Eat '%'
@@ -2510,7 +2525,10 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
         const char *EndChar = EndLoc.getPointer();
         AsmToken newToken(AsmToken::Integer, StringRef(StrChar , EndChar - StrChar), Value);
         FA.Value.push_back(newToken);
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
     } else if (Lexer.IsaAltMacroMode() && Lexer.is(AsmToken::Less) &&
                isAltmacroString(StrLoc, EndLoc)) {
         const char *StrChar = StrLoc.getPointer();
@@ -2520,9 +2538,13 @@ bool AsmParser::parseMacroArguments(const MCAsmMacro *M,
         Lex();
         AsmToken newToken(AsmToken::String, StringRef(StrChar, EndChar - StrChar));
         FA.Value.push_back(newToken);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
     }
     else if(parseMacroArgument(FA.Value, Vararg))
+=======
+    } else if(parseMacroArgument(FA.Value, Vararg))
+>>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
         return true;
 
     unsigned PI = Parameter;
