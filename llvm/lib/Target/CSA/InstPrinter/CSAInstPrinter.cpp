@@ -31,6 +31,7 @@ WrapAsmOpt("csa-wrap-asm", cl::Hidden,
 
 static std::map<int,const char*> FUName;
 static std::map<int,const char*> RMName;
+static std::map<int,const char*> MLName;
 
 // Pin the vtable to this file
 void CSAInstPrinter::anchor() {}
@@ -58,6 +59,12 @@ CSAInstPrinter::CSAInstPrinter(const MCAsmInfo &MAI, const MCInstrInfo &MII,
   RMName[CSA::ROUND_DOWNWARD]   = "ROUND_DOWNWARD";
   RMName[CSA::ROUND_UPWARD]     = "ROUND_UPWARD";
   RMName[CSA::ROUND_TOWARDZERO] = "ROUND_TOWARDZERO";
+
+  // Should also match the names in CSAInstrInfo.h and the simulator.
+  MLName[CSA::MEMLEVEL_NTA] = "MEMLEVEL_NTA";
+  MLName[CSA::MEMLEVEL_T2]  = "MEMLEVEL_T2";
+  MLName[CSA::MEMLEVEL_T1]  = "MEMLEVEL_T1";
+  MLName[CSA::MEMLEVEL_T0]  = "MEMLEVEL_T0";
 }
 
 bool CSAInstPrinter::WrapCsaAsm() {
@@ -147,6 +154,18 @@ void CSAInstPrinter::printRModeOperand(const MCInst *MI, unsigned OpNo,
   auto it = RMName.find(immV);
   if (it != RMName.end())
     O << RMName[immV];
+  else
+    printOperand(MI, OpNo, O, Modifier);
+}
+
+void CSAInstPrinter::printMemLvlOperand(const MCInst *MI, unsigned OpNo,
+                                     raw_ostream &O, const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+
+  int64_t immV = MI->getOperand(OpNo).getImm();
+  auto it = MLName.find(immV);
+  if (it != MLName.end())
+    O << it->second;
   else
     printOperand(MI, OpNo, O, Modifier);
 }
