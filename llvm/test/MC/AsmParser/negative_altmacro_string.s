@@ -1,7 +1,3 @@
-<<<<<<< HEAD
-# INTEL_CUSTOMIZATION 
-=======
->>>>>>> e11b0c62e8f7bf10a4348907aebc59bc6bae2785
 # RUN: not llvm-mc -triple i386-linux-gnu %s 2>&1 | FileCheck %s
 
 # This test checks the altmacro string delimiter '<' and '>'.
