@@ -796,8 +796,10 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
 
   BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskLoopRedInit);
 
-  if (DT)
-    DT->recalculate(*FnTaskLoopRedInit);
+  // Since the function RedInit is created from scratch, the compiler
+  // needs to declare a new DominatorTree.
+  DominatorTree DT;
+  DT.recalculate(*FnTaskLoopRedInit);
 
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();
@@ -835,8 +837,8 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
 
   BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskLoopRedComb);
 
-  if (DT)
-    DT->recalculate(*FnTaskLoopRedComb);
+  DominatorTree DT;
+  DT.recalculate(*FnTaskLoopRedComb);
 
   IRBuilder<> Builder(EntryBB);
   Builder.CreateRetVoid();

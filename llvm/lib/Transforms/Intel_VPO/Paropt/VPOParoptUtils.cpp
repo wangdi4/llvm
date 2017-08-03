@@ -1613,6 +1613,52 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
   Value *Res = RightValue;
   IRBuilder<> Builder(InsertPt);
 
+  BasicBlock *LatchBB = L->getLoopLatch();
+  BasicBlock *HeaderBB = L->getHeader();
+  BranchInst *BR = dyn_cast<BranchInst>(LatchBB->getTerminator());
+
+  // -------------------------------+----------------------------------
+  // Non-Reversed Branch            | Reversed Branch
+  // -------------------------------+----------------------------------
+  //  for ( i = 0; i < 10; i++) {...}
+  // -------------------------------+----------------------------------
+  // (A)                            | (B)
+  //                                |
+  //  L1:                     <loop header>   L1:
+  //                                |
+  //  i < 10 ? goto L1: goto L2;    |         i > 9 ? goto L2: goto L1;
+  //                                |
+  //  L2:                      <loop exit>    L2:
+  //                                |
+  // -------------------------------+----------------------------------
+  //  No need to swap               | Need to swap and invert the predicate
+  // -------------------------------+----------------------------------
+  //
+  //  for ( i = 10; i > 0; i--) {...}
+  // -------------------------------+----------------------------------
+  // (C)                            | (D)
+  //                                |
+  //  L3:                     <loop header>   L3:
+  //                                |
+  //  i > 0 ? goto L3: goto L4;     |         i < 1 ? goto L4: goto L3;
+  //                                |
+  //  L4:                      <loop exit>    L4:
+  // -------------------------------+----------------------------------
+  //  No need to swap               | Need to swap and invert the predicate
+  // -------------------------------+----------------------------------
+  //
+  // The compiler transforms the loop as follows.
+  //   If the first edge is not a back edge, swap the edges and
+  //   invert the predicate.
+  assert(BR && "computeOmpUpperBound: Expect non-empty branch instruction");
+  if (BR->getSuccessor(0) != HeaderBB) {
+    BR->swapSuccessors();
+    ICmpInst *Cond = dyn_cast<ICmpInst>(BR->getCondition());
+    assert(Cond && "computeOmpUpperBound: Expect non-empty cmp instruction");
+    Cond->setPredicate(ICmpInst::getInversePredicate(PD));
+    PD = WRegionUtils::getOmpPredicate(L, IsLeft);
+  }
+
   if (PD == ICmpInst::ICMP_SLT ||
       PD == ICmpInst::ICMP_ULT) {
     if (IsLeft)
@@ -1627,6 +1673,7 @@ Value *VPOParoptUtils::computeOmpUpperBound(WRegionNode *W,
     else
       Res = Builder.CreateSub(RightValue, ValueOne);
   }
+
   return Res;
    
 }
@@ -1680,8 +1727,9 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
   assert(BR &&
       "updateOmpPredicateAndUpperBound: Expect non-empty branch instruction");
 
-  if (BR->getSuccessor(0) != HeaderBB)
-    BR->swapSuccessors();
+  assert(BR->getSuccessor(0) == HeaderBB &&
+         "updateOmpPredicateAndUpperBound: Expect the first target of the \
+      branch instruction is the loop header");
 }
 
 static Value *findChainToLoad(Value *V,
