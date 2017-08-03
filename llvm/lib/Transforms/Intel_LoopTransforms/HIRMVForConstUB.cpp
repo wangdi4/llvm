@@ -24,9 +24,9 @@
 #include "llvm/Support/raw_ostream.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define OPT_SWITCH "hir-mv-const-ub"
 #define OPT_DESCR "HIR Multiversioning for constant UB"
@@ -162,8 +162,10 @@ static bool isProfitable(const CanonExpr *UpperBound, int64_t Constant) {
 
 void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
                                     int64_t Constant) {
+  unsigned Level = Loop->getNestingLevel();
+
   RegDDRef *LHS =
-      DRU->createSelfBlobRef(TempIndex, Loop->getNestingLevel() - 1);
+      DRU->createSelfBlobRef(TempIndex, Level - 1);
   RegDDRef *RHS = DRU->createConstDDRef(LHS->getDestType(), Constant);
 
   HLIf *If = HNU->createHLIf(PredicateTy::ICMP_EQ, LHS, RHS);
@@ -175,7 +177,7 @@ void HIRMVForConstUB::transformLoop(HLLoop *Loop, unsigned TempIndex,
   propagateConstant(Loop, TempIndex, Constant);
 
   SmallVector<const RegDDRef *, 1> Aux = {Loop->getUpperDDRef()};
-  LHS->makeConsistent(&Aux);
+  LHS->makeConsistent(&Aux, Level - 1);
 
   HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(If);
 

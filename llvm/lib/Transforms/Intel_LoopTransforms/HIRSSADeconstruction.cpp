@@ -35,7 +35,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Metadata.h"
 
-#include "llvm/IR/Intel_LoopIR/IRRegion.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -44,8 +44,8 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRRegionIdentification.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSCCFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRSCCFormation.h"
 
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 

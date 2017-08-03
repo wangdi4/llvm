@@ -17,7 +17,7 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/VectorUtils.h"
@@ -26,7 +26,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 
@@ -89,8 +89,8 @@ public:
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
 };
-} // End vpo namespace
-} // End loopopt namespace
+} // namespace vpo
+} // namespace llvm
 
 void AVRCGVisit::visit(AVRValueHIR *AVal) {
   if (ACG->findWideAvrRef(AVal->getNumber()))
@@ -991,10 +991,20 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // type mismatch for range values.
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
-    if (WideRef->isAddressOf())
+    if (WideRef->isAddressOf()) {
       WideRef->setBaseDestType(VecRefDestTy);
-    else
+
+      auto StructElemTy =
+          dyn_cast<StructType>(PtrType->getPointerElementType());
+
+      // There is nothing more to do for opaque types as they can only occur in
+      // this form: &p[0].
+      if (StructElemTy && StructElemTy->isOpaque()) {
+        return WideRef;
+      }
+    } else {
       WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+    }
   }
 
   // For unit stride ref, nothing else to do
@@ -1272,9 +1282,8 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
 
     AttrBuilder AttrList;
     int64_t ByteStride;
-    CanonExpr *CE = Args[I]->getStrideAtLevel(LoopLevel);
 
-    if (CE->isLinearAtLevel() && CE->isIntConstant(&ByteStride)) {
+    if (Args[I]->getConstStrideAtLevel(LoopLevel, &ByteStride)) {
       // Type of the argument will be something like <4 x double*>
       // The following code will yield a type of double. This type is used
       // to determine the stride in elements.

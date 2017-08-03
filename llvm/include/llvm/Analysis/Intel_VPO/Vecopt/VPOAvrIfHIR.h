@@ -19,7 +19,7 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
-#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLIf.h"
 
 using namespace llvm::loopopt;
 

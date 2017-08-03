@@ -80,15 +80,15 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLMM.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-lmm"
 
@@ -345,7 +345,7 @@ bool HIRLMM::doLoopPreliminaryChecks(const HLLoop *Lp) {
 
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
   // DEBUG(LS.dump(););
-  if (LS.hasCalls()) {
+  if (LS.hasCallsWithUnsafeSideEffects()) {
     return false;
   }
 
@@ -754,7 +754,7 @@ HLInst *HIRLMM::findOrCreateLoadInPreheader(HLLoop *Lp, RegDDRef *Ref) const {
     Lp->addLiveInTemp(TmpRef->getSymbase());
 
     // Call updateDefLevel() for the newly-created load
-    RvalRef->updateDefLevel();
+    RvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
   }
   assert(LoadInPrehdr && "LoadInPrehdr can't be null\n");
 
@@ -793,7 +793,7 @@ void HIRLMM::findOrCreateStoreInPostexit(HLLoop *Lp, RegDDRef *Ref,
     HNU->insertAsFirstPostexitNode(Lp, StoreInPostexit);
 
     // Call updateDefLevel() for the newly-created store
-    LvalRef->updateDefLevel();
+    LvalRef->updateDefLevel(Lp->getNestingLevel() - 1);
   }
 
   // Debug: Examine the Loop, notice the tmp in postexit
