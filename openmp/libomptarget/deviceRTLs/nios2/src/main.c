@@ -13,7 +13,9 @@
 //===----------------------------------------------------------------------===//
 
 #include <fpga_mc_dispatcher.h>
+extern void __kmpc_omp_init();
 
 int main(void) {
+  __kmpc_omp_init();
   return fpga_mc_main();
 }
