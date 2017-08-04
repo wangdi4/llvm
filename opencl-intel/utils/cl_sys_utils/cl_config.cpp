@@ -107,13 +107,13 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 
     if(CPUDetect::GetInstance()->isCannonlake() ||
        CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
+       CPUDetect::GetInstance()->isSkylake() ||
        CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_1;
     }
 
     if(CPUDetect::GetInstance()->isBroadwell() ||
-       CPUDetect::GetInstance()->isSkylake() ||
        CPUDetect::GetInstance()->isGeminilake()
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
     //   CPUDetect::GetInstance()->isBroxton()   ||
@@ -147,7 +147,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
        CPUDetect::GetInstance()->isCannonlake() ||
        CPUDetect::GetInstance()->isIcelake())
     {
-        return OPENCL_VERSION_2_0;
+        return OPENCL_VERSION_2_1;
     }
 
     return OPENCL_VERSION_1_2;
