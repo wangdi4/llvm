@@ -61,6 +61,14 @@ namespace CSA {
     ROUND_UPWARD,
     ROUND_TOWARDZERO,
   };
+
+  // This is reversed from the simulator's convention to match the intrinsic.
+  enum MemLvl {
+    MEMLEVEL_NTA,
+    MEMLEVEL_T2,
+    MEMLEVEL_T1,
+    MEMLEVEL_T0
+  };
 }
 
 class CSASubtarget;

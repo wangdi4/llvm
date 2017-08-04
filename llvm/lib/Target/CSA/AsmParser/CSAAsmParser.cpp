@@ -35,6 +35,7 @@ class CSAAsmParser : public MCTargetAsmParser {
   std::unique_ptr<CSAOperand> parseImmediate();
 
   std::unique_ptr<CSAOperand> defaultOptionalRegOperands();
+  std::unique_ptr<CSAOperand> defaultMemLvlOperands();
 
   bool parsePrePost(StringRef Type, int *OffsetValue);
 
@@ -162,6 +163,8 @@ public:
 
   bool isOptionalReg() const { return isReg(); }
 
+  bool isMemLvl() const { return isImm(); }
+
   bool isMem() const { llvm_unreachable("No isMem"); }
 
   void print(raw_ostream &OS) const override {
@@ -241,6 +244,11 @@ public:
   void addOptionalRegOperands(MCInst& Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands!");
     Inst.addOperand(MCOperand::createReg(getReg()));
+  }
+
+  void addMemLvlOperands(MCInst& Inst, unsigned N) const {
+    assert(N == 1 && "Invalid number of operands!");
+    addExpr(Inst, getImm());
   }
 
 };
@@ -342,6 +350,15 @@ static int roundingModeToInt(StringRef T) {
     .Default(-1);
 }
 
+static int memLvlToInt(StringRef T) {
+  return StringSwitch<int>(T)
+    .Case("MEMLEVEL_NTA", CSA::MEMLEVEL_NTA)
+    .Case("MEMLEVEL_T2",  CSA::MEMLEVEL_T2)
+    .Case("MEMLEVEL_T1",  CSA::MEMLEVEL_T1)
+    .Case("MEMLEVEL_T0",  CSA::MEMLEVEL_T0)
+    .Default(-1);
+}
+
 std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   SMLoc Start = Parser.getTok().getLoc();
   SMLoc End = SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
@@ -350,7 +367,7 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
   switch (Lexer.getKind()) {
   case AsmToken::Identifier:
     {
-      int rm;
+      int rm, memlvl;
       StringRef Identifier;
       if (Parser.parseIdentifier(Identifier))
         return 0;
@@ -358,6 +375,11 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
       if (rm >= 0) {
         const MCConstantExpr *rmExp = MCConstantExpr::create(rm, getContext());
         return CSAOperand::createImm(rmExp, Start, End);
+      }
+      memlvl = memLvlToInt(Identifier);
+      if (memlvl >= 0) {
+        const MCConstantExpr *mlExp = MCConstantExpr::create(memlvl, getContext());
+        return CSAOperand::createImm(mlExp, Start, End);
       }
       MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
       const MCExpr *Res = MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_None,
@@ -378,6 +400,14 @@ std::unique_ptr<CSAOperand> CSAAsmParser::parseImmediate() {
 std::unique_ptr<CSAOperand> CSAAsmParser::defaultOptionalRegOperands() {
   SMLoc loc = Parser.getTok().getLoc();
   return CSAOperand::createReg(CSA::IGN, loc, loc);
+}
+
+std::unique_ptr<CSAOperand> CSAAsmParser::defaultMemLvlOperands() {
+  SMLoc loc = Parser.getTok().getLoc();
+  return CSAOperand::createImm(
+    MCConstantExpr::create(CSA::MEMLEVEL_T0, getContext()),
+    loc, loc
+  );
 }
 
 static int SizeForSuffix(StringRef T) {
