@@ -105,12 +105,8 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
         return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
     }
 
-    if (CPUDetect::GetInstance()->isCannonlake())
-    {
-        return OPENCL_VERSION_2_2;
-    }
-
-    if(CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
+    if(CPUDetect::GetInstance()->isCannonlake() ||
+       CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
        CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_1;
