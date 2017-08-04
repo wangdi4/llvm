@@ -651,41 +651,6 @@ public:
   VPBasicBlock *splitBlock(VPBlockBase *Block, VPLoopInfo *VPLInfo,
                            VPDominatorTree &DomTree,
                            VPDominatorTree &PostDomTree);
-
-  /// Verify that HCFG is well-formed starting from TopRegion. If \p VPLInfo and
-  /// \p LI are not nullptr, it also checks that loop related information in
-  /// HCFG is consistent with information in VPLInfo and LoopInfo. The
-  /// verification process comprises two main phases:
-  ///
-  /// 1. verifyLoops: An first global verification step checks that the number
-  /// of VPLoopRegion's (HCFG), VPLoop's (VPLoopInfo) and Loop's (LoopInfo)
-  /// match. In a second step, it checks that the following invariants are met
-  /// in every VPLoopRegion:
-  ///   - VPLoopRegion has VPLoop attached.
-  ///   - Entry is loop preheader
-  ///   - Loop preheader has a single successor (loop header)
-  ///   - VPLoopInfo returns the expected VPLoop from loop preheader/header
-  ///   - VPLoop preheader and exits are contained in VPLoopRegion's parent
-  ///     VPLoop (if any)
-  ///   - Blocks in loop SCC are contained in VPLoop
-  ///
-  /// 2. verifyRegions: It checks that the following invariants are met in
-  /// every VPRegionBlock:
-  ///   - Entry/Exit is not another region.
-  ///   - Entry/Exit has no predecessors/successors, repectively.
-  ///   - Non-loop region's Entry (Exit) must have more than two successors
-  ///     (predecessors).
-  ///   - Size is correct.
-  ///   - Blocks' parent is correct.
-  ///   - Blocks with multiple successors have a ConditionBitRecipe set.
-  ///   - Linked blocks have a bi-directional link (successor/predecessor).
-  ///   - All predecessors/successors are inside the region.
-  ///   - Blocks have no duplicated successor/predecessor (TODO: switch)
-  ///
-  void verifyHierarchicalCFG(const VPRegionBlock *TopRegion,
-                             const Loop *TheLoop = nullptr,
-                             const VPLoopInfo *VPLInfo = nullptr,
-                             const LoopInfo *LI = nullptr) const;
 };
 
 } // End VPO Vectorizer Namespace 

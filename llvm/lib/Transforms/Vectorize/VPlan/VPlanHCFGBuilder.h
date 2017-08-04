@@ -20,6 +20,7 @@
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
 
 #include "IntelVPlan.h"
+#include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
 #include "LoopVectorizationCodeGen.h" //Only for Legal.
                                       //TODO: Move Legal to an independent file
@@ -85,6 +86,9 @@ private:
   // Similarly, we create a new latch condition when setting up the structure
   // of the new loop, so the old one can become dead.
   //SmallPtrSet<Instruction *, 4> DeadInstructions;
+
+  /// VPlan verifier utility.
+  VPlanVerifier Verifier;
 
   VPRegionBlock *buildPlainCFG(HCFGState &State);
 
