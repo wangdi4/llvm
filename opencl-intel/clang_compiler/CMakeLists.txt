@@ -27,8 +27,6 @@ set(TARGET_INCLUDE_FILES
     clang_driver.h
     SPIRMaterializer.h
     resource.h
-    stdafx.h
-    targetver.h
 )
 
 set(TARGET_SOURCE_FILES
@@ -36,7 +34,6 @@ set(TARGET_SOURCE_FILES
     clang_compiler.rc
     clang_driver.cpp
     SPIRMaterializer.cpp
-    stdafx.cpp
 )
 
 #

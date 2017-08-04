@@ -8,31 +8,30 @@
 //
 // ===--------------------------------------------------------------------===
 
-#include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
 #include "common_clang.h"
 
 #include <Logger.h>
-#include <cl_sys_defines.h>
 #include <cl_device_api.h>
 #include <cl_shutdown.h>
+#include <cl_sys_defines.h>
 
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
 
-#if defined (_WIN32)
-#include<windows.h>
+#if defined(_WIN32)
+#include <windows.h>
 #endif
-#include <string.h>
+#include <ctime>
 #include <memory>
 #include <sstream>
-#include <ctime>
+#include <string.h>
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #define DLL_EXPORT _declspec(dllexport)
 #else
 #define DLL_EXPORT
@@ -110,8 +109,8 @@ int ClangFECompiler::MaterializeSPIR(FESPIRProgramDescriptor *pProgDesc,
   assert(nullptr != pProgDesc && "Program description can't be null");
   assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
-  return ClangFECompilerMaterializeSPIRTask(pProgDesc)
-      .MaterializeSPIR(pBinaryResult);
+  return ClangFECompilerMaterializeSPIRTask(pProgDesc).MaterializeSPIR(
+      pBinaryResult);
 }
 
 int ClangFECompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
@@ -143,7 +142,9 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 FrameworkUserLogger *g_pUserLogger = nullptr;
-}}}
+}
+}
+}
 
 extern "C" DLL_EXPORT int
 CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,

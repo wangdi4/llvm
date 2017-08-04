@@ -14,12 +14,11 @@ Agreement between Intel and Apple dated August 26, 2005; under the Category 2 In
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
 
-
 #ifndef __SPIR_MATERIALIZER_H__
 #define __SPIR_MATERIALIZER_H__
 
 namespace llvm {
-  class Module;
+class Module;
 }
 
 namespace intel {

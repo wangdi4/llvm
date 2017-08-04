@@ -161,4 +161,6 @@ private:
   std::string m_IRName;
   Intel::OpenCL::ClangFE::IR_TYPE m_type;
 };
-}}}
+}
+}
+}

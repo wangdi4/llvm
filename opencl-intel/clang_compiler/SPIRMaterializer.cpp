@@ -32,7 +32,8 @@ namespace intel {
 
 static void updateMetadata(llvm::Module &M) {
   llvm::NamedMDNode *Kernels = M.getNamedMetadata("opencl.kernels");
-  if (!Kernels) return;
+  if (!Kernels)
+    return;
   for (auto *Kernel : Kernels->operands()) {
     auto I = Kernel->op_begin();
     auto Func = llvm::mdconst::dyn_extract<llvm::Function>(*I);
@@ -40,7 +41,7 @@ static void updateMetadata(llvm::Module &M) {
       auto *KernelAttr = cast<MDNode>(*I);
       auto AttrIt = KernelAttr->op_begin();
       MDString *AttrName = cast<MDString>(*AttrIt);
-      std::vector<Metadata*> Operands;
+      std::vector<Metadata *> Operands;
       for (++AttrIt; AttrIt != KernelAttr->op_end(); ++AttrIt)
         Operands.push_back(*AttrIt);
       if (AttrName->getString() == "vec_type_hint" ||
@@ -79,8 +80,8 @@ enum SPIRAddressSpace {
   SPIRAS_Count,
 };
 
-static PointerType *getOrCreateOpaquePtrType(Module *M,
-  const std::string &Name, const SPIRAddressSpace AS) {
+static PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
+                                             const SPIRAddressSpace AS) {
   auto OpaqueType = M->getTypeByName(Name);
   if (!OpaqueType)
     OpaqueType = StructType::create(M->getContext(), Name);
@@ -100,36 +101,37 @@ static bool isPointerToOpaqueStructType(llvm::Type *Ty) {
 static reflection::TypePrimitiveEnum getPrimitiveType(Type *T) {
   assert(isPointerToOpaqueStructType(T) && "Invalid type");
   auto Name = T->getPointerElementType()->getStructName();
-#define CASE(X, Y) StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
+#define CASE(X, Y)                                                             \
+  StartsWith("opencl.image" #X, reflection::PRIMITIVE_IMAGE_##Y)
   return StringSwitch<reflection::TypePrimitiveEnum>(Name)
-    .CASE(1d_ro_t, 1D_RO_T)
-    .CASE(1d_wo_t, 1D_WO_T)
-    .CASE(1d_rw_t, 1D_RW_T)
-    .CASE(2d_ro_t, 2D_RO_T)
-    .CASE(2d_wo_t, 2D_WO_T)
-    .CASE(2d_rw_t, 2D_RW_T)
-    .CASE(3d_ro_t, 3D_RO_T)
-    .CASE(3d_wo_t, 3D_WO_T)
-    .CASE(3d_rw_t, 3D_RW_T)
-    .CASE(1d_array_ro_t, 1D_ARRAY_RO_T)
-    .CASE(1d_array_wo_t, 1D_ARRAY_WO_T)
-    .CASE(1d_array_rw_t, 1D_ARRAY_RW_T)
-    .CASE(1d_buffer_ro_t, 1D_BUFFER_RO_T)
-    .CASE(1d_buffer_wo_t, 1D_BUFFER_WO_T)
-    .CASE(1d_buffer_rw_t, 1D_BUFFER_RW_T)
-    .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
-    .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
-    .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
-    .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
-    .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
-    .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
-    .CASE(2d_array_ro_t, 2D_ARRAY_RO_T)
-    .CASE(2d_array_wo_t, 2D_ARRAY_WO_T)
-    .CASE(2d_array_rw_t, 2D_ARRAY_RW_T)
-    .CASE(2d_depth_ro_t, 2D_DEPTH_RO_T)
-    .CASE(2d_depth_wo_t, 2D_DEPTH_WO_T)
-    .CASE(2d_depth_rw_t, 2D_DEPTH_RW_T)
-    .Default(reflection::PRIMITIVE_NONE);
+      .CASE(1d_ro_t, 1D_RO_T)
+      .CASE(1d_wo_t, 1D_WO_T)
+      .CASE(1d_rw_t, 1D_RW_T)
+      .CASE(2d_ro_t, 2D_RO_T)
+      .CASE(2d_wo_t, 2D_WO_T)
+      .CASE(2d_rw_t, 2D_RW_T)
+      .CASE(3d_ro_t, 3D_RO_T)
+      .CASE(3d_wo_t, 3D_WO_T)
+      .CASE(3d_rw_t, 3D_RW_T)
+      .CASE(1d_array_ro_t, 1D_ARRAY_RO_T)
+      .CASE(1d_array_wo_t, 1D_ARRAY_WO_T)
+      .CASE(1d_array_rw_t, 1D_ARRAY_RW_T)
+      .CASE(1d_buffer_ro_t, 1D_BUFFER_RO_T)
+      .CASE(1d_buffer_wo_t, 1D_BUFFER_WO_T)
+      .CASE(1d_buffer_rw_t, 1D_BUFFER_RW_T)
+      .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
+      .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
+      .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
+      .CASE(2d_array_depth_ro_t, 2D_ARRAY_DEPTH_RO_T)
+      .CASE(2d_array_depth_wo_t, 2D_ARRAY_DEPTH_WO_T)
+      .CASE(2d_array_depth_rw_t, 2D_ARRAY_DEPTH_RW_T)
+      .CASE(2d_array_ro_t, 2D_ARRAY_RO_T)
+      .CASE(2d_array_wo_t, 2D_ARRAY_WO_T)
+      .CASE(2d_array_rw_t, 2D_ARRAY_RW_T)
+      .CASE(2d_depth_ro_t, 2D_DEPTH_RO_T)
+      .CASE(2d_depth_wo_t, 2D_DEPTH_WO_T)
+      .CASE(2d_depth_rw_t, 2D_DEPTH_RW_T)
+      .Default(reflection::PRIMITIVE_NONE);
 }
 
 static void
@@ -171,14 +173,13 @@ changeImageCall(llvm::CallInst *CI,
       BitCastInst::CreatePointerCast(CI->getArgOperand(0), ArgTys[0], "", CI));
   for (unsigned i = 1; i < CI->getNumArgOperands(); ++i) {
     // Cast old sampler type(i32) with new(opaque*) before passing to builtin
-    if(auto primitiveType = dyn_cast<reflection::PrimitiveType>(
-                                (reflection::ParamType *)FD.parameters[i])) {
+    if (auto primitiveType = dyn_cast<reflection::PrimitiveType>(
+            (reflection::ParamType *)FD.parameters[i])) {
       if (primitiveType->getPrimitive() == reflection::PRIMITIVE_SAMPLER_T) {
-        auto SamplerTy = getOrCreateOpaquePtrType(CI->getParent()->getModule(),
-                                                  "opencl.sampler_t",
-                                                   SPIRAS_Constant);
-        auto IntToPtr = new IntToPtrInst(CI->getArgOperand(i),
-                                         SamplerTy, "", CI);
+        auto SamplerTy = getOrCreateOpaquePtrType(
+            CI->getParent()->getModule(), "opencl.sampler_t", SPIRAS_Constant);
+        auto IntToPtr =
+            new IntToPtrInst(CI->getArgOperand(i), SamplerTy, "", CI);
         Args.push_back(IntToPtr);
         ArgTys.push_back(IntToPtr->getType());
         continue;
@@ -304,5 +305,4 @@ int MaterializeSPIR(llvm::Module &M) {
 
   return 0;
 }
-
 }

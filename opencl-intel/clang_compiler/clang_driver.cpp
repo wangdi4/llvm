@@ -7,12 +7,10 @@
 // whole or in part without explicit written authorization from the company.
 //
 // ===--------------------------------------------------------------------===
-#include "stdafx.h"
-
 #include "clang_driver.h"
 
-#include "cache_binary_handler.h"
 #include "SPIRMaterializer.h"
+#include "cache_binary_handler.h"
 #include "common_clang.h"
 #include "elf_binary.h"
 #include "mic_dev_limits.h"
@@ -70,11 +68,12 @@ DECLARE_LOGGER_CLIENT;
 Intel::OpenCL::PluginManager g_pluginManager;
 
 //
-//Creates a source file object from a given contents string, and a serial identifier.
+// Creates a source file object from a given contents string, and a serial
+// identifier.
 //
-static Intel::OpenCL::Frontend::SourceFile
-createSourceFile(const char *contents, const char *options, unsigned serial,
-                 Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = nullptr) {
+static Intel::OpenCL::Frontend::SourceFile createSourceFile(
+    const char *contents, const char *options, unsigned serial,
+    Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = nullptr) {
   // composing a file name based on the current time
   std::stringstream fileName;
   std::string strContents(contents);
@@ -95,7 +94,7 @@ createSourceFile(const char *contents, const char *options, unsigned serial,
   }
   return ret;
 }
-#endif //OCLFRONTEND_PLUGINS
+#endif // OCLFRONTEND_PLUGINS
 
 const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
   switch (ver) {
@@ -364,8 +363,10 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported() const {
 //
 // ClangFECompilerParseSPIRVTask call implementation.
 // Description:
-// Implements conversion from a SPIR-V 1.0 program (incapsulated in ClangFECompilerParseSPIRVTask)
-// to a llvm::Module, converts build options to LLVM metadata according to SPIR specification.
+// Implements conversion from a SPIR-V 1.0 program (incapsulated in
+// ClangFECompilerParseSPIRVTask)
+// to a llvm::Module, converts build options to LLVM metadata according to SPIR
+// specification.
 int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     IOCLFEBinaryResult **pBinaryResult) {
   std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
@@ -496,7 +497,6 @@ int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
 
   pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
   pResult->setIRName(pModule->getName());
-
 
   if (pBinaryResult) {
     *pBinaryResult = pResult.release();
