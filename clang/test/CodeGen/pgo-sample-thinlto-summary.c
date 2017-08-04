@@ -1,7 +1,9 @@
 // INTEL -- xmain inlining logic prefers cloning foo() to inlining, so this test
 //          fails.  To work around that, disable xmain-specific inlining logic.
-// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -o - 2>&1 | FileCheck %s -check-prefix=O2
-// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
+// INTEL -- loopopt significantly changes the pass pipeline and makes the test
+//          fail so we disable it.
+// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -o - 2>&1 | FileCheck %s -check-prefix=O2
+// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -mllvm -loopopt=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
 
