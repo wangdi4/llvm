@@ -416,11 +416,17 @@ void AdvisorAnalysis::find_recursive_functions(Module &M) {
 // Return: nothing
 // Modifies recursiveFunctionList vector
 void AdvisorAnalysis::does_function_recurse(Function *func, CallGraphNode *CGN, std::vector<Function *> &stack) {
-        DEBUG(*outputLog << "does_function_recurse: " << CGN->getFunction()->getName() << "\n");
+        if (CGN->getFunction())
+            DEBUG(*outputLog << "does_function_recurse: " << CGN->getFunction()->getName() << "\n");
+        else 
+            DEBUG(*outputLog << "does_function_recurse: " << "indirect call"  << "\n");
         DEBUG(*outputLog << "stack size: " << stack.size() << "\n");
 	// if this function exists within the stack, function recurses and add to list
 	if ((stack.size() > 0) && (std::find(stack.begin(), stack.end(), CGN->getFunction()) != stack.end())) {
+        if (CGN->getFunction())
           DEBUG(*outputLog << "Function recurses: " << CGN->getFunction()->getName() << "\n");
+        else 
+            DEBUG(*outputLog << "does_function_recurse: " << "indirect call"  << "\n");
 		
 		// delete functions off "stack"
 		//while (stack[stack.size()-1] != CGN->getFunction()) {
@@ -443,13 +449,19 @@ void AdvisorAnalysis::does_function_recurse(Function *func, CallGraphNode *CGN, 
 	stack.push_back(CGN->getFunction());
 	for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
 		CallGraphNode *calledGraphNode = it->second;
-		DEBUG(*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n");
+                if(!calledGraphNode->getFunction()) {
+                  errs() << __func__ << " is being ignored, it is an indirect call.\n";
+                  continue;
+                }
+
+                DEBUG(*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n");
 		//stack.push_back(calledGraphNode->getFunction());
 		// ignore this function if its primary definition is outside current module
+                
 		if (! calledGraphNode->getFunction()->isDeclaration()) {
 			does_function_recurse(func, calledGraphNode, stack);
 		} else { // print a warning
-			errs() << __func__ << " is being ignored, it is declared outside of this translational unit.\n";
+                    DEBUG(errs() << calledGraphNode->getFunction()->getName() << " is being ignored, it is declared outside of this translational unit.\n");
 		}
 		DEBUG(*outputLog << "Returned from call to function: " << calledGraphNode->getFunction()->getName() << "\n");
 	}
@@ -476,11 +488,17 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 	unsigned fpgaOnlyLatency = UINT_MAX;
 	unsigned fpgaOnlyArea = 0;
 
+        // We may have an indirect call.
+        if(!F) {
+            *outputLog << "Found an indirect call, moving on.\n";
+            return false;
+        }
+        
 	if (AreaConstraint > 0) {
 		areaConstraint = AreaConstraint;
 	}
 
-	*outputLog << "Examine function: " << F->getName() << "\n";
+      	std::cerr << "Examine function: " << F->getName().str() << "\n";
 	// Find constructs that are not supported by HLS
 	if (has_unsynthesizable_construct(F)) {
 		*outputLog << "Function contains unsynthesizable constructs, moving on.\n";
@@ -606,7 +624,13 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 //	- Arbitrary pointer accesses
 // 	- Some tools do not support pthread/openmp but LegUp does (so we will ignore it)
 bool AdvisorAnalysis::has_unsynthesizable_construct(Function *F) {
-	// no recursion
+        // is defined externally, which we test by looking to see if there are any basic blocks
+        if(F->getBasicBlockList().begin() == F->getBasicBlockList().end()) {
+                *outputLog << "Function is external.\n";
+		return true;
+        }
+        
+        // no recursion
 	if (has_recursive_call(F)) {
 		*outputLog << "Function has recursive call.\n";
 		return true;
@@ -645,6 +669,8 @@ bool AdvisorAnalysis::has_recursive_call(Function *F) {
 
 	// look through the CallGraph for this function to see if this function makes calls to 
 	// recursive functions either directly or indirectly
+        // F->dump();
+        //callGraph->dump();
 	if (! F->isDeclaration()) {
 		result = does_function_call_recursive_function(callGraph->getOrInsertFunction(F));
 	} else {
@@ -659,20 +685,30 @@ bool AdvisorAnalysis::has_recursive_call(Function *F) {
 // This function should not recurse infinitely since it will stop at a recursive function
 // and therefore not get stuck in a loop in the call graph
 bool AdvisorAnalysis::does_function_call_recursive_function(CallGraphNode *CGN) {
-	if (is_recursive_function(CGN->getFunction())) {
-		return true;
+    if (CGN->getFunction() && (is_recursive_function(CGN->getFunction()))) 
+    {
+		    return true;
 	}
+         
 
 	bool result = false;
 
 	for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
 		CallGraphNode *calledGraphNode = it->second;
-		*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
-		if (! calledGraphNode->getFunction()->isDeclaration()) {
-			result |= does_function_call_recursive_function(calledGraphNode);
-		} else {
-			//errs() << __func__ << " is being ignored, it is declared outside of this translational unit.\n";
-		}
+        if(calledGraphNode->getFunction())
+        {
+		    *outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
+		    if (! calledGraphNode->getFunction()->isDeclaration()) {
+			    result |= does_function_call_recursive_function(calledGraphNode);
+		    } else {
+			    //errs() << __func__ << " is being ignored, it is declared outside of this translational unit.\n";
+		    }
+	    } 
+        else 
+        {
+		    *outputLog << "Found an indirect call, assuming there is no recursion involved.\n";
+			result = false;
+        }
 	}
 	return result;
 }
@@ -694,7 +730,7 @@ bool AdvisorAnalysis::has_external_call(Function *F) {
 // Return: true if function contain a call to a function which is extenal to the module
 // Always beware of recursive functions when dealing with the call graph
 bool AdvisorAnalysis::does_function_call_external_function(CallGraphNode *CGN) {
-	if (CGN->getFunction()->isDeclaration()) {
+    if (CGN->getFunction() && (CGN->getFunction()->isDeclaration())) {
 		return true;
 	}
 
@@ -702,13 +738,21 @@ bool AdvisorAnalysis::does_function_call_external_function(CallGraphNode *CGN) {
 	
 	for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
 		CallGraphNode *calledGraphNode = it->second;
-		*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
-		if (std::find(recursiveFunctionList.begin(), recursiveFunctionList.end(), calledGraphNode->getFunction()) 
-			== recursiveFunctionList.end()) {
+        if(calledGraphNode->getFunction())
+        {
+		    *outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n";
+		    if (std::find(recursiveFunctionList.begin(), recursiveFunctionList.end(), calledGraphNode->getFunction()) 
+			    == recursiveFunctionList.end()) {
 			result |= does_function_call_external_function(calledGraphNode);
-		} else {
-			//errs() << __func__ << " is being ignored, it is recursive.\n";
-		}
+		    } else {
+			    //errs() << __func__ << " is being ignored, it is recursive.\n";
+		    }
+	    } 
+        else 
+        {
+		    *outputLog << "Found an indirect call, assuming there is no external call involved.\n";
+			result = false;
+        }
 	}
 	return result;
 }
@@ -1183,7 +1227,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 	int ID = 0;
 
 	// for keeping track of which function and execution graph to insert into
-	TraceGraph_vertex_descriptor lastVertex;
+	TraceGraph_vertex_descriptor lastVertex = UINT_MAX;
 	TraceGraphList_iterator latestTraceGraph;
 	Function *latestFunction = NULL;
 	ExecutionOrderList_iterator latestExecutionOrder;
@@ -1250,7 +1294,8 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 		// 4. Store at address: <addr start> size in bytes: <size>
 		// 5. Load from address: <addr start> size in bytes: <size>
                if (std::regex_match(line, std::regex("(B: )(.*)( F: )(.*)"))) {
-			if (!process_basic_block_entry(line, ID, latestTraceGraph, lastVertex, latestExecutionOrder)) {
+                lastVertex = UINT_MAX; // may be changed in process_basic_block_entry
+			if (!process_basic_block_entry(line, latestFunction, ID, latestTraceGraph, lastVertex, latestExecutionOrder)) {
 				*outputLog << "process basic block entry: FAILED.\n";
 				return false;
 			}
@@ -1278,16 +1323,26 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 			if (!process_function_entry(line, &latestFunction, latestTraceGraph, lastVertex, latestExecutionOrder, funcStack)) {
 				*outputLog << "process function entry: FAILED.\n";
 				return false;
-			}	        
+			} else {
+                DEBUG(*outputLog << "returned from process_function_entry()\n");
+                DEBUG(print_execution_order(latestExecutionOrder));
+            }
 		} else if (std::regex_match(line, std::regex("(Return from: )(.*)"))) {
 			if (!process_function_return(line, &latestFunction, funcStack, latestTraceGraph, lastVertex, latestExecutionOrder)) {
-				*outputLog << "process function return: FAILED.\n";
-				return false;
-			}
+                // With ROI, we could see a function return without a 
+                // matching entry to the function.
+				*outputLog << "IGNORING process function return: FAILED.\n";
+                DEBUG(print_execution_order(latestExecutionOrder));
+			} else {
+                DEBUG(*outputLog << "returned from process_function_return()\n");
+                DEBUG(print_execution_order(latestExecutionOrder));
+            }
 		} else {
 			// ignore, probably program output
 		}
 	}
+    DEBUG(*outputLog << "End of " << __func__ << " " << "\n");
+	DEBUG(print_execution_order(latestExecutionOrder));
 	return true;
 }
 
@@ -1327,10 +1382,11 @@ bool AdvisorAnalysis::process_time(const std::string &line, TraceGraphList_itera
 		startTime.pop_back();
 		
 		// update the graph
-		(*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
+        if(lastVertex != UINT_MAX)
+		    (*latestTraceGraph)[lastVertex].cpuCycles = (cycle - start);
 	}
 
-	DEBUG(*outputLog << (*latestTraceGraph)[lastVertex].name << "\n");
+	DEBUG(if(lastVertex != UINT_MAX) *outputLog << (*latestTraceGraph)[lastVertex].name << "\n");
 
 	return true;
 }
@@ -1359,9 +1415,12 @@ bool AdvisorAnalysis::process_function_return(const std::string &line, Function 
 
 	// update current function after returning
 	if (*function == NULL) {
+		DEBUG(*outputLog << "NULL function returning false\n");
+		lastVertex = UINT_MAX;
 		return false;
 	} else if (*function != NULL && stack.size() == 0) {
 		*function = NULL;
+		lastVertex = UINT_MAX;
 		return true;
 	} else {
 		*function = stack.top().function;
@@ -1411,14 +1470,17 @@ bool AdvisorAnalysis::process_load(const std::string &line, Function *function, 
 	TraceGraph &latestGraph = *lastTraceGraph;
 	//std::pair<uint64_t, uint64_t> addrWidthTuple = std::make_pair(addrStart, width);
 	DEBUG(*outputLog << "after pair\n");
-	try {
-		//latestGraph[latestVertex].memoryReadTuples.push_back(std::make_pair(addrStart, width));
+	if(lastVertex != UINT_MAX)
+    {
+	    try {
+		    //latestGraph[latestVertex].memoryReadTuples.push_back(std::make_pair(addrStart, width));
                 DEBUG(*outputLog << "before push_back read tuples " << latestGraph[lastVertex].memoryReadTuples.size() << "\n");
-		//latestGraph[latestVertex].memoryReadTuples.push_back(addrWidthTuple);
-		latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
-		DEBUG(*outputLog << "after push_back read tuples\n");
-	} catch (std::exception &e) {
-		std::cerr << "An error occured." << e.what() << "\n";
+		    //latestGraph[latestVertex].memoryReadTuples.push_back(addrWidthTuple);
+		    latestGraph[lastVertex].memoryReadTuples.emplace_back(addrStart, width);
+		    DEBUG(*outputLog << "after push_back read tuples\n");
+	    } catch (std::exception &e) {
+		    std::cerr << "An error occured." << e.what() << "\n";
+	    }
 	}
 	DEBUG(*outputLog << "after load\n");
 
@@ -1460,10 +1522,13 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
 
 	//TraceGraph &latestGraph = executionGraph[function].back();
 	TraceGraph &latestGraph = *lastTraceGraph;
-	try {
-		latestGraph[lastVertex].memoryWriteTuples.push_back(std::make_pair(addrStart, width));
-	} catch (std::exception &e) {
-		std::cerr << "An error occured." << e.what() << "\n";
+	if(lastVertex != UINT_MAX)
+    {
+        try {
+		    latestGraph[lastVertex].memoryWriteTuples.push_back(std::make_pair(addrStart, width));
+	    } catch (std::exception &e) {
+		    std::cerr << "An error occured." << e.what() << "\n";
+	    }
 	}
 
 	return true;
@@ -1472,7 +1537,7 @@ bool AdvisorAnalysis::process_store(const std::string &line, Function *function,
 
 
 // process one line of trace containing basic block entry
-bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, int &ID, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator lastExecutionOrder) {
+bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Function *latestFunction, int &ID, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator lastExecutionOrder) {
         DEBUG(*outputLog << __func__ << " " << line << "\n");
 	const char *delimiter = " ";
 
@@ -1496,6 +1561,13 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, int &ID
 	// funcName
 	std::string funcString(pch);
 	//=----------------------------=//
+
+	if (latestFunction == NULL) {
+        // With ROI, there could be 'dangling' basic blocks without
+        // any function entry seen. Ignore such basic blocks.
+	    DEBUG(*outputLog << "No latestFunction to attach the basic block, ignoring \n");
+		return true;
+	}
 
 	BasicBlock *BB = find_basicblock_by_name(funcString, bbString);
 	if (!BB) {
@@ -1538,6 +1610,7 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, int &ID
 	ExecutionOrder_iterator search = currOrder->find(BB);
 	if (search == currOrder->end()) {
 		// insert BB into order
+	    DEBUG(*outputLog << "Inserting BB "+BB->getName()+" into execution order\n");
 		std::vector<TraceGraph_vertex_descriptor> newVector;
 		newVector.clear();
 		try {
@@ -1550,6 +1623,7 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, int &ID
 	} else {
 		// append to order
 		try {
+	        DEBUG(*outputLog << "Appending BB "+BB->getName()+" to execution order\n");
 			search->second.second.push_back(currVertex);
 		} catch (std::exception &e) {
 			std::cerr << "An error occured." << e.what() << "\n";
@@ -1852,6 +1926,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(Function *F, unsi
 
   int lastCycle = -1;
 
+  int callcount=0;
   for (fIt = executionGraph[F].begin(),
          eoIt = executionOrderListMap[F].begin(); 
        fIt != executionGraph[F].end(),
@@ -1860,6 +1935,9 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(Function *F, unsi
     std::vector<TraceGraph_vertex_descriptor> rootVertices;
     rootVertices.clear();
 
+    callcount++;
+    DEBUG( *outputLog << " Processing call number " << callcount << "\n");
+    
     // This function really seems to annotate the graph with dependencies    
     scheduled |= find_maximal_configuration_for_call(F, fIt, eoIt, rootVertices);
     //scheduled |= find_maximal_configuration_for_call(F, fIt, rootVertices);
@@ -1869,7 +1947,6 @@ bool AdvisorAnalysis::find_maximal_configuration_for_all_calls(Function *F, unsi
     
     // find root vertices
     TraceGraph graph = *fIt;
-    *outputLog << "root vertices are: ";
 	
                         
     // Schedule graph.  
@@ -1943,6 +2020,15 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 		TraceGraph_vertex_descriptor self = *vi;
 		BasicBlock *selfBB = (*graph)[self].basicblock;
 		DEBUG(*outputLog << "Inspecting vertex (" << self << "/" << totalNumVertices << ") " << selfBB->getName() << "\n");
+		BasicBlock *BB = find_basicblock_by_name(F->getName(), selfBB->getName());
+        if(BB == NULL)
+        {
+            // now that we are ignoring 'dangling' basic blocks in
+           // process_basic_block(), this case should not occur
+		    DEBUG(*outputLog << "WARNING bb " << selfBB->getName() << " does not belong to "  << F->getName() << "\n");
+		    assert(0);
+            //continue;
+        }
 
 		// staticDeps vector keeps track of basic blocks that this basic block is 
 		// dependent on
@@ -3776,6 +3862,16 @@ uint64_t AdvisorAnalysis::schedule_with_resource_constraints(TraceGraphList_iter
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
             graph[*vi].set_start(0, tid);
+            BasicBlock *thisBB = graph[*vi].basicblock;
+		    BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+            if(BB == NULL)
+            {
+                // now that we are ignoring 'dangling' basic blocks in
+                // process_basic_block(), this case should not occur
+		        DEBUG(*outputLog << "WARNING bb " << thisBB->getName() << " does not belong to "  << F->getName() << "\n");
+		        assert(0);
+                //continue;
+            }
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -3948,6 +4044,16 @@ uint64_t AdvisorAnalysis::schedule_without_resource_constraints(TraceGraphList_i
           auto degree = boost::in_degree(*vi, graph);
           if (degree == 0) { 
             graph[*vi].set_start(0, SINGLE_THREAD_TID);
+            BasicBlock *thisBB = graph[*vi].basicblock;
+		    BasicBlock *BB = find_basicblock_by_name(F->getName(), thisBB->getName());
+            if(BB == NULL)
+            {
+                // now that we are ignoring 'dangling' basic blocks in
+                // process_basic_block(), this case should not occur
+		        DEBUG(*outputLog << "WARNING bb " << thisBB->getName() << " does not belong to "  << F->getName() << "\n");
+		        assert(0);
+                //continue;
+            }
             schedulableBB.push(*vi);
           } else {
             // Is this in the graph?
@@ -4146,6 +4252,15 @@ uint64_t AdvisorAnalysis::schedule_cpu(TraceGraphList_iterator graph_it, Functio
           //std::cerr << "deps ready: " << start << "\n";    
 
           BasicBlock *BB = graph[v].basicblock;
+		  BasicBlock *searchBB = find_basicblock_by_name(F->getName(), BB->getName());
+          if(searchBB == NULL)
+          {
+                // now that we are ignoring 'dangling' basic blocks in
+                // process_basic_block(), this case should not occur
+		        DEBUG(*outputLog << "WARNING bb " << BB->getName() << " does not belong to "  << F->getName() << "\n");
+		        assert(0);
+                //continue;
+          }
   
           start = std::max(cpuCycle, start);
 
@@ -4583,6 +4698,15 @@ void AdvisorAnalysis::dumpBlockCounts(Function *F, unsigned cpuLatency = 0) {
     // set the vertices up with zero values for this tid. 
     for (boost::tie(vi, ve) = vertices(graph); vi != ve; vi++) {
       auto BB = graph[*vi].basicblock;
+	  BasicBlock *searchBB = find_basicblock_by_name(F->getName(), BB->getName());
+      if(searchBB == NULL)
+      {
+         // now that we are ignoring 'dangling' basic blocks in
+         // process_basic_block(), this case should not occur
+	     DEBUG(*outputLog << "WARNING bb " << BB->getName() << " does not belong to "  << F->getName() << "\n");
+		   assert(0);
+          //continue;
+      }
       if (blockCounts.find(BB) != blockCounts.end()) {
         blockCounts[BB] = blockCounts[BB] + 1;
       } else {

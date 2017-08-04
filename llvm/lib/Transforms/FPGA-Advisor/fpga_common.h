@@ -793,7 +793,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		bool process_function_return(const std::string &line, Function **function, std::stack<FunctionExecutionRecord> &stack, TraceGraphList_iterator &lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator &lastExecutionOrder);
 		bool process_load(const std::string &line, Function *function, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor lastVertex);
 		bool process_store(const std::string &line, Function *function, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor lastVertex);
-		bool process_basic_block_entry(const std::string &line, int &ID, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator lastExecutionOrder);
+		bool process_basic_block_entry(const std::string &line, Function *latestFunction, int &ID, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator lastExecutionOrder);
 		bool process_function_entry(const std::string &line, Function **function, TraceGraphList_iterator &latestTraceGraph, TraceGraph_vertex_descriptor &latestVertex, ExecutionOrderList_iterator &latestExecutinoOrder, std::stack<FunctionExecutionRecord> &stack);
 		void getCPULatencyTable(Function *F, std::map<BasicBlock *, LatencyStruct> *LT, ExecutionOrderList &executionOrderList, TraceGraphList &executionGraphList);
 

@@ -47,6 +47,9 @@ namespace llvm {
     void printRModeOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
                            const char* Modifier = nullptr);
 
+    void printMemLvlOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+                            const char* Modifier = nullptr);
+
     //    void printPCRelImmOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
     //    void printSrcMemOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O,
     //                            const char *Modifier = nullptr);

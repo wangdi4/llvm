@@ -8,14 +8,8 @@ if [ ! -e $SRC.opt.bc ]; then
     exit
 fi
 
-# Check the gnuplot version. Default on Hudson EC systems is 4.2 which doesn't
-# work...
 gnuplot_ver=$( gnuplot --version | cut -d' ' -f2 )
-gnuplot_major=$( $gnuplot_ver | cut -d. -f1 )
-if [ $gnuplot_major -lt "5" ]; then
-    echo "This tool requires gnuplot 5.0 or newer. $gnuplot_ver found"
-    exit
-fi
+gnuplot_major=$( echo $gnuplot_ver | cut -d. -f1 )
 
 echo "# Area Latency" > values.dat
 for i in $( seq 100 100 2000 ); do
@@ -28,7 +22,12 @@ echo "set xlabel 'Area'" > plot.plt
 echo "set ylabel 'Latency'" >> plot.plt
 echo "set title '$SRC'" >> plot.plt
 echo "plot 'values.dat' with linespoints" >> plot.plt
-gnuplot -p plot.plt &
+if [ $gnuplot_major -lt "5" ]; then
+    echo "pause -1 'Hit any key to continue'" >> plot.plt
+    gnuplot plot.plt
+else
+    gnuplot -p plot.plt &
+fi
 
 
 

@@ -329,6 +329,8 @@ CSATargetLowering::CSATargetLowering(const TargetMachine &TM, const CSASubtarget
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
 
   //setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
+
+  setOperationAction(ISD::PREFETCH,         MVT::Other, Legal);
 }
 
 EVT CSATargetLowering::getSetCCResultType(const DataLayout &DL, LLVMContext &Context, EVT VT) const {

@@ -89,7 +89,8 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
     }
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D)).addReg(CSA::IGN, ISSUED_REGSTATE)
-      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::RA).addReg(CSA::IGN);
+      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::RA).addImm(CSA::MEMLEVEL_T0)
+      .addReg(CSA::IGN);
   }
 
   if (hasFP(MF)) {
@@ -110,7 +111,8 @@ void CSAFrameLowering::emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB)
     }
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::ST64D)).addReg(CSA::IGN, ISSUED_REGSTATE)
-      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::FP).addReg(CSA::IGN);
+      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::FP).addImm(CSA::MEMLEVEL_T0)
+      .addReg(CSA::IGN);
 
     // move $fp, $sp
     BuildMI(MBB, MBBI, dl, TII.get(CSA::MOV64), CSA::FP)
@@ -157,7 +159,7 @@ void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::FP)
       .addReg(CSA::IGN, ISSUED_REGSTATE)
-      .addReg(CSA::SP).addImm(FPOffset).addReg(CSA::IGN);
+      .addReg(CSA::SP).addImm(FPOffset).addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
   }
 
   if (MFI.hasCalls()) {
@@ -171,7 +173,7 @@ void CSAFrameLowering::emitEpilogue(MachineFunction &MF,
 
     BuildMI(MBB, MBBI, dl, TII.get(CSA::LD64D), CSA::RA)
       .addReg(CSA::IGN, ISSUED_REGSTATE)
-      .addReg(CSA::SP).addImm(RAOffset).addReg(CSA::IGN);
+      .addReg(CSA::SP).addImm(RAOffset).addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
   }
 
   // Adjust stack : add sp, sp, imm

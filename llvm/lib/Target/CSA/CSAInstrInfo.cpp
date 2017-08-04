@@ -113,7 +113,7 @@ void CSAInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
 
   BuildMI(MBB, MI, DL, get(opc)).addReg(CSA::IGN, ISSUED_REGSTATE)
     .addFrameIndex(FrameIdx).addImm(0).addReg(SrcReg, getKillRegState(isKill))
-    .addReg(CSA::IGN);
+    .addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
 
 }
 
@@ -141,7 +141,7 @@ void CSAInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   }
 
   BuildMI(MBB, MI, DL, get(opc), DestReg).addReg(CSA::IGN, ISSUED_REGSTATE)
-    .addFrameIndex(FrameIdx).addImm(0).addReg(CSA::IGN);
+    .addFrameIndex(FrameIdx).addImm(0).addImm(CSA::MEMLEVEL_T0).addReg(CSA::IGN);
 }
 
 unsigned CSAInstrInfo::removeBranch(MachineBasicBlock &MBB, int *BytesAdded) const {

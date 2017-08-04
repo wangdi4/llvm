@@ -133,7 +133,7 @@ void AdvisorInstr::instrument_function(Function *F) {
 		instrument_basic_block(&*BB);
 	}
 
-	*outputLog << "Inserting printf call for function: " << F->getName() << "\n";
+	DEBUG(*outputLog << "Inserting printf call for function: " << F->getName() << "\n");
 
 	// get the entry basic block
 	BasicBlock *entry = &(F->getEntryBlock());
@@ -167,7 +167,7 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 		return;
 	}
 
-	*outputLog << "Inserting printf call for basic block: " << BB->getName() << "\n";
+	DEBUG(*outputLog << "Inserting printf call for basic block: " << BB->getName() << "\n");
 
 	instrument_rdtsc_before_instruction(BB->getFirstNonPHI(), true);
 	instrument_rdtsc_before_instruction(BB->getTerminator(), false);
@@ -194,13 +194,13 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 			// only add for function calls that are defined
 			Function *calledFunc = dyn_cast<CallInst>(I)->getCalledFunction();
 			if (!calledFunc) {
-				*outputLog << "I haven't dealt with this yet, indirect call. Fix it.\n";
-				assert(0);
-			}
-			if (calledFunc->isDeclaration()) {
+				DEBUG(*outputLog << "WARNING: I haven't dealt with this yet, indirect call. Fix it.\n");
+				//assert(0);
+                // continue;                               
+			} else if (calledFunc->isDeclaration()) {
 				continue;
 			}
-			instrument_rdtsc_for_call(&*I);
+			instrument_rdtsc_for_call(&*I, calledFunc?calledFunc->getName():"indirect_call");
 		}
 	}
 
@@ -308,9 +308,9 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 	//===---------------------------------------------------===//
 	// if this basicblock returns from a function, print that message
 	if (isa<ReturnInst>(BB->getTerminator())) {
-		*outputLog << "Inserting printf call for return: ";
-		BB->getTerminator()->print(*outputLog);
-		*outputLog << "\n";
+		DEBUG(*outputLog << "Inserting printf call for return: ");
+		DEBUG(BB->getTerminator()->print(*outputLog));
+		DEBUG(*outputLog << "\n");
 
 		StringRef retMsgString = StringRef("\nReturn from: %s\n");
 		Value *retMsg = endBuilder.CreateGlobalStringPtr(retMsgString, "ret_msg_string");
@@ -327,9 +327,9 @@ void AdvisorInstr::instrument_basic_block(BasicBlock *BB) {
 // Function: instrument_rdtsc_before_instruction
 // inserts call to get_rdtsc instruction and printf of result before instruction I
 void AdvisorInstr::instrument_rdtsc_before_instruction(Instruction *I, bool start) {
-	*outputLog << "Inserting get_rdtsc call before instruction ";
-	I->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "Inserting get_rdtsc call before instruction ");
+	DEBUG(I->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// insert a call to get_rdtsc function - will be linked later
 	CallInst *CI = CallInst::Create(get_rdtscFunc, llvm::Twine("get_rdtsc"), I);	
@@ -361,9 +361,9 @@ void AdvisorInstr::instrument_rdtsc_before_instruction(Instruction *I, bool star
 // Function: instrument_rdtsc_after_instruction
 // inserts call to get_rdtsc instruction and printf of result after instruction I
 void AdvisorInstr::instrument_rdtsc_after_instruction(Instruction *I, bool start) {
-	*outputLog << "Inserting get_rdtsc call after instruction ";
-	I->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "Inserting get_rdtsc call after instruction ");
+	DEBUG(I->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	IRBuilder<> builder(I);
 
@@ -375,9 +375,11 @@ void AdvisorInstr::instrument_rdtsc_after_instruction(Instruction *I, bool start
 
 	StringRef rdtscMsgString;
 	if (start) {
-		rdtscMsgString = StringRef("\nBasicBlock Clock get time start: %llu\n");
+		//rdtscMsgString = StringRef("\nBasicBlock Clock get time start: %llu\n");
+		rdtscMsgString = StringRef("\nBSTR: %llu\n");
 	} else {
-		rdtscMsgString = StringRef("\nBasicBlock Clock get time stop: %llu\n");
+		// rdtscMsgString = StringRef("\nBasicBlock Clock get time stop: %llu\n");
+		rdtscMsgString = StringRef("\nBSTP: %llu\n");
 	}
 
 	Value *rdtscMsg = builder.CreateGlobalStringPtr(rdtscMsgString, "rdtsc_msg_string");
@@ -393,13 +395,24 @@ void AdvisorInstr::instrument_rdtsc_after_instruction(Instruction *I, bool start
 // Function: instrument_rdtsc_for_call
 // insert timer stop before call
 // inser timer start after call
-void AdvisorInstr::instrument_rdtsc_for_call(Instruction *I) {
-	*outputLog << "Inserting rdtsc for call instruction: ";
-	I->print(*outputLog);
-	*outputLog << "\n";
+void AdvisorInstr::instrument_rdtsc_for_call(Instruction *I, std::string funcname) {
+	DEBUG(*outputLog << "Inserting rdtsc for call instruction: ");
+	DEBUG(I->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	instrument_rdtsc_before_instruction(I, false);
 	instrument_rdtsc_after_instruction(I, true);
+
+	// print function
+	std::vector<Value *> printfArgs;
+
+	// print right after the call
+	IRBuilder<> builder(I);
+	StringRef callMsgString = StringRef("\n# Function call: "+funcname+" \n");
+	Value *callMsg = builder.CreateGlobalStringPtr(callMsgString, "call_msg_string");
+	printfArgs.push_back(callMsg);
+
+	builder.CreateCall(printfFunc, printfArgs, llvm::Twine(printfFuncName));
 }
 
 
@@ -407,19 +420,19 @@ void AdvisorInstr::instrument_rdtsc_for_call(Instruction *I) {
 // insert timer stop before call
 // insert timer start after call
 void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
-	*outputLog << "Inserting printf call for call instruction: ";
-	I->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "Inserting printf call for call instruction: ");
+	DEBUG(I->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// insertion point after call inst
 	IRBuilder<> builder(I);
-  const DataLayout &DL = I->getParent()->getParent()->getParent()->getDataLayout();
+    const DataLayout &DL = I->getParent()->getParent()->getParent()->getDataLayout();
 
 	//===--------------------------------------------------------------------------------------===//
 	// Add stop timer before call
 	//===--------------------------------------------------------------------------------------===//
 	//Value *tp = builder.CreateAlloca(timespecType, NULL, llvm::Twine("timespec"));
-	Value *tp = new AllocaInst(timespecType, DL.getAllocaAddrSpace(), NULL, llvm::Twine("timespec"), I);
+	Value *tp = new AllocaInst(timespecType, DL.getAllocaAddrSpace(), llvm::Twine("timespec"), I);
 
 	std::vector<Value *> clock_gettimeArgs;
 	//clock_gettimeArgs.push_back(Constant::getNullValue(Type::getInt32Ty(getGlobalContext()))); // null - CLOCK_REALTIME
@@ -471,19 +484,19 @@ void AdvisorInstr::instrument_timer_for_call(Instruction *I) {
 
 // Function: instrument_load
 void AdvisorInstr::instrument_load(LoadInst *LI) {
-	*outputLog << "Inserting printf call for load instruction: ";
-	LI->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "Inserting printf call for load instruction: ");
+	DEBUG(LI->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// get the arguments for address
 	Value *pointer = LI->getPointerOperand();
-	*outputLog << "the pointer operand ";
-	pointer->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "the pointer operand ");
+	DEBUG(pointer->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// get the argument for read size
 	std::string sizeString = std::to_string(get_load_size_in_bytes(LI));
-	*outputLog << "the memory access size " << sizeString << "\n";
+	DEBUG(*outputLog << "the memory access size " << sizeString << "\n");
 
 	// print function
 	std::vector<Value *> printfArgs;
@@ -506,19 +519,19 @@ void AdvisorInstr::instrument_load(LoadInst *LI) {
 // Function: instrument_store
 // Instruments each store instruction to print the starting address and the number of bytes it accesses
 void AdvisorInstr::instrument_store(StoreInst *SI) {
-	*outputLog << "Inserting printf call for store instruction: ";
-	SI->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "Inserting printf call for store instruction: ");
+	DEBUG(SI->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// get the arguments for address
 	Value *pointer = SI->getPointerOperand();
-	*outputLog << "the pointer operand ";
-	pointer->print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(*outputLog << "the pointer operand ");
+	DEBUG(pointer->print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	// get the argument for address size
 	std::string sizeString = std::to_string(get_store_size_in_bytes(SI));
-	*outputLog << "the memory access size " << sizeString << "\n";
+	DEBUG(*outputLog << "the memory access size " << sizeString << "\n");
 
 	// print function
 	std::vector<Value *> printfArgs;
@@ -545,7 +558,7 @@ uint64_t AdvisorInstr::get_store_size_in_bytes(StoreInst *SI) {
 	const DataLayout &DL = SI->getParent()->getParent()->getParent()->getDataLayout();
 	uint64_t numBytes = DL.getTypeStoreSize(SI->getValueOperand()->getType());
 
-	*outputLog << "Store width in bytes: " << numBytes << "\n";
+	DEBUG(*outputLog << "Store width in bytes: " << numBytes << "\n");
 
 	return numBytes;
 }
@@ -562,7 +575,7 @@ uint64_t AdvisorInstr::get_load_size_in_bytes(LoadInst *LI) {
 	uint64_t numBytes = DL.getTypeSizeInBits(pointerType->getContainedType(0));
 	numBytes >>= 3;
 
-	*outputLog << "Load width in bytes: " << numBytes << "\n";
+	DEBUG(*outputLog << "Load width in bytes: " << numBytes << "\n");
 
 	return numBytes;
 }
