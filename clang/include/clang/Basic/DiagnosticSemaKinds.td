@@ -2088,7 +2088,7 @@ def err_enum_invalid_underlying : Error<
   "non-integral type %0 is an invalid underlying type">;
 def err_enumerator_too_large : Error<
   "enumerator value is not representable in the underlying type %0">;
-def ext_enumerator_too_large : ExtWarn<
+def ext_enumerator_too_large : Extension<
   "enumerator value is not representable in the underlying type %0">,
   InGroup<MicrosoftEnumValue>;
 def err_enumerator_wrapped : Error<
@@ -7920,7 +7920,11 @@ def warn_empty_switch_body : Warning<
 def note_empty_body_on_separate_line : Note<
   "put the semicolon on a separate line to silence this warning">;
 
-def err_va_start_used_in_non_variadic_function : Error<
+def err_va_start_captured_stmt : Error<
+  "'va_start' cannot be used in a captured statement">;
+def err_va_start_outside_function : Error<
+  "'va_start' cannot be used outside a function">;
+def err_va_start_fixed_function : Error<
   "'va_start' used in function with fixed args">;
 def err_va_start_used_in_wrong_abi_function : Error<
   "'va_start' used in %select{System V|Win64}0 ABI function">;
