@@ -20,6 +20,9 @@
 #endif
 
 #include <stddef.h> // size_t
+#ifdef __cplusplus
+#include <new> // for placement new
+#endif // __cplusplus
 
 #if defined(_WIN32) || defined(WIN32)
   #ifdef LIBDATABLOCK_EXPORTS
@@ -41,8 +44,12 @@
 
 // debug print is enabled only on X86/X64 in debug builds
 #if defined(__cplusplus) && (defined(_DEBUG) || defined(DEBUG))
-#define ENABLE_DEBUG_PRINT
+#define DATABLOCK_DEBUG
 #endif
+
+#define DATABLOCK_MAX_PAR_DEPTH 1
+#define DATABLOCK_MAX_SEQ_DEPTH 8
+#define DATABLOCK_MAX_NEST_DEPTH (DATABLOCK_MAX_PAR_DEPTH+DATABLOCK_MAX_SEQ_DEPTH)
 
 //-----------------------------------------------------------------------------
 // Data type declatations
@@ -61,10 +68,10 @@ struct IntVector {
   // Subtraction operation over given slice of vector components
   void sub(IntVector v, int start, int len);
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int n, int tab);
-#endif // ENABLE_DEBUG_PRINT
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Loop nest iteration space
@@ -75,17 +82,21 @@ struct IterSpace {
   // component 0 corresponds to the outermost loop
   IntVector lb; // upper bounds
   IntVector ub; // lower bounds
-  // TODO(nios) Stride is assumed 1 - support other strides
+  IntVector st; // strides
 
 #ifdef __cplusplus
-  IterSpace(int n_par, int n_seq, int* _lb, int *_ub) :
-    nPar(n_par), nSeq(n_seq), lb(_lb), ub(_ub)
+  IterSpace(int n_par, int n_seq, int* _lb, int* _ub, int* _st) :
+    nPar(n_par), nSeq(n_seq), lb(_lb), ub(_ub), st(_st)
   {}
 
-#ifdef ENABLE_DEBUG_PRINT
+  int getDepth() {
+    return nPar + nSeq;
+  }
+
+#ifdef DATABLOCK_DEBUG
   void print(int tab);
-#endif // ENABLE_DEBUG_PRINT
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // One-dimensional data and loop partition parameters for current chunk of
@@ -102,10 +113,10 @@ struct PartitionData1D {
 
   int getNumParIters() { return parIndUp - parIndLo + 1; }
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int n_arrs, int tab);
-#endif // ENABLE_DEBUG_PRINT
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Linear array index function depending on indices of a loop nest.
@@ -119,31 +130,39 @@ struct ArrayIndFunc {
   {}
 
   // Returns the offset member in the linear expression
-  int getOffset() {
-    return coeffs.comps[ispace->nPar + ispace->nSeq];
+  int getAddend() {
+    return coeffs.comps[ispace->getDepth()];
   }
 
-  // Calculates two points in the sequential part of the iteration space
-  // corresponding to minimal and maximal array index function value
-  void getSeqMinMaxPoints(IntVector minp, IntVector maxp);
+  // Selects two points in the iteration sub-space corresponding to minimal
+  // and maximal array index function value with all other indices (beyond the
+  // sub-space) being constant. start and len define the sub-space.
+  void getIspaceMinMaxPoints(
+    IntVector minp, IntVector maxp, int start, int len);
+
+  // Does the same as the getIspaceMinMaxPoints function, but subspace points
+  // are taken from given vectors. Effectively, swaps corresponding components
+  // between minp and maxp where needed.
+  void adjIspaceMinMaxPoints(
+    IntVector minp, IntVector maxp, int start, int len);
 
   // Calculates the value of the function on given vector slice
   size_t calc(IntVector ind, int start, int len) {
     return coeffs.dotProduct(ind, start, len);
   }
 
-  size_t calcSeqPart(IntVector ind) {
-    return calc(ind, ispace->nPar, ispace->nSeq) + getOffset();
+  size_t calc(IntVector ind) {
+    return coeffs.dotProduct(ind, 0, ispace->getDepth()) + getAddend();
   }
 
-  size_t calcParPart(IntVector ind) {
-    return calc(ind, 0, ispace->nPar);
+  int getDepth() {
+    return ispace->getDepth();
   }
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int tab);
-#endif // ENABLE_DEBUG_PRINT
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Array access one-dimensional workset characteristics
@@ -152,7 +171,7 @@ struct Workset1D {
   size_t extent1;   // the extent of the workset (single parallel iteration)
   size_t extentN;   // the extent of the workset (n parallel iterations)
   int nParIters; // the number of parellel iterations extentN is calculated for
-  int offset;    // the value of the seq part of ind func over minimal point
+  int offset;    // minimal value of all array's index functions
   int overlap;   // overlap between two adjacent parallel iterations
   int align;     // how the local array holding the workset must be aligned
 
@@ -162,14 +181,14 @@ struct Workset1D {
     overlap(_overlap), align(_align)
   {}
 
-  Workset1D() :
-    Workset1D(0, 0, 0, 0)
-  {}
+  Workset1D() {
+    new (this) Workset1D(0, 0, 0, 0);
+  }
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int tab);
-#endif // ENABLE_DEBUG_PRINT
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // An aggregate of all accesses to a single array within a parallel loop
@@ -200,9 +219,9 @@ struct ArrayAccess {
   // be the same for all accesses to this array. This function asserts that.
   void checkParCoeffs();
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int tab);
-#endif
+#endif // DATABLOCK_DEBUG
 #endif
 };
 
@@ -224,6 +243,7 @@ struct ParLoopNestDataAccess {
   int getNumArrays() { return n; }
 
   int getParLoopUpperBound(int loop_num);
+  int getParLoopLowerBound(int loop_num);
 
   ArrayIndFunc* getArrayIndFunc(int arr_id, int acc_id) {
     return accs[arr_id]->indFuncs[acc_id];
@@ -247,10 +267,10 @@ struct ParLoopNestDataAccess {
   // big_arr[i] partitioned array correponds to loc_arrs[i] local window.
   void setArrayMap(void** big_arrs, void** loc_arrs);
 
-#ifdef ENABLE_DEBUG_PRINT
+#ifdef DATABLOCK_DEBUG
   void print(int tab);
-#endif
-#endif
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 //-----------------------------------------------------------------------------
