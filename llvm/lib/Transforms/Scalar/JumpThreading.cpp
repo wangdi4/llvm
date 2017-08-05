@@ -762,30 +762,10 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 
       // Try to find a constant value for the LHS of a comparison,
       // and evaluate it statically if we can.
-<<<<<<< HEAD
-      if (Constant *CmpConst = dyn_cast<Constant>(Cmp->getOperand(1))) {
-        PredValueInfoTy LHSVals;
-        ThreadRegionInfoTy RegionInfoOp0;                               // INTEL
-        ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
-                                        RegionInfoOp0,                  // INTEL
-                                        WantInteger, CxtI);
-
-        for (const auto &LHSVal : LHSVals) {
-          Constant *V = LHSVal.first;
-          Constant *Folded = ConstantExpr::getCompare(Cmp->getPredicate(),
-                                                      V, CmpConst);
-          if (Constant *KC = getKnownConstant(Folded, WantInteger))
-            Result.push_back(std::make_pair(KC, LHSVal.second));
-        }
-
-        if (!Result.empty())                                            // INTEL
-          RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),    // INTEL
-                            RegionInfoOp0.end());                       // INTEL
-
-        return !Result.empty();
-=======
       PredValueInfoTy LHSVals;
+      ThreadRegionInfoTy RegionInfoOp0;                                 // INTEL
       ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
+                                      RegionInfoOp0,                    // INTEL
                                       WantInteger, CxtI);
 
       for (const auto &LHSVal : LHSVals) {
@@ -794,8 +774,11 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
                                                     V, CmpConst);
         if (Constant *KC = getKnownConstant(Folded, WantInteger))
           Result.push_back(std::make_pair(KC, LHSVal.second));
->>>>>>> 0e59845978fb3235f5871d1fd94d71d56e9fbda3
       }
+
+      if (!Result.empty())                                              // INTEL
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
+                          RegionInfoOp0.end());                         // INTEL
 
       return !Result.empty();
     }
