@@ -1176,6 +1176,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1) == SizeTTy && FTy.getParamType(2) == SizeTTy);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
@@ -1204,6 +1205,11 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
+=======
+  case LibFunc_wcslen:
+    return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
+            FTy.getReturnType()->isIntegerTy());
+>>>>>>> 738a26c4e23e6af7160a78a713ccc68a9e70e62c
 
   case LibFunc::NumLibFuncs:
     break;
