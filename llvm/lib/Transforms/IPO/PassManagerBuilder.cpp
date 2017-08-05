@@ -1063,7 +1063,7 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
   PM.add(createCFGSimplificationPass());
   PM.add(createPromoteMemoryToRegisterPass());
   PM.add(createGVNPass(DisableGVNLoadPRE));
-  PM.add(createInstructionCombiningPass());
+  addInstructionCombiningPass(PM);
 }
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
