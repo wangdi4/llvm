@@ -7753,7 +7753,6 @@ SolveQuadraticEquation(const SCEVAddRecExpr *AddRec, ScalarEvolution &SE) {
   const APInt &M = MC->getAPInt();
   const APInt &N = NC->getAPInt();
   APInt Two(BitWidth, 2);
-  APInt Four(BitWidth, 4);
 
   {
     using namespace APIntOps;
@@ -7769,7 +7768,7 @@ SolveQuadraticEquation(const SCEVAddRecExpr *AddRec, ScalarEvolution &SE) {
     // Compute the B^2-4ac term.
     APInt SqrtTerm(B);
     SqrtTerm *= B;
-    SqrtTerm -= Four * (A * C);
+    SqrtTerm -= 4 * (A * C);
 
     if (SqrtTerm.isNegative()) {
       // The loop is provably infinite.
