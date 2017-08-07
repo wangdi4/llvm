@@ -35,6 +35,14 @@ set(modified_files
   fxsrintrin.h
   ia32intrin.h
   immintrin.h
+<<<<<<< HEAD
+=======
+  intrin.h
+  inttypes.h
+  iso646.h
+  limits.h
+  lwpintrin.h
+>>>>>>> a7c6c642e3ce7d594bd6e571bf59cbc7507e9d5b
   lzcntintrin.h
   mmintrin.h
   mm_malloc.h

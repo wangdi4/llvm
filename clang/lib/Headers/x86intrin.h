@@ -76,6 +76,10 @@
 #endif
 #endif /* __INTEL_COMPILER */
 
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LWP__)
+#include <lwpintrin.h>
+#endif
+
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__F16C__)
 #include <f16cintrin.h>
 #endif
