@@ -5129,7 +5129,7 @@ MDNode *ScalarEvolution::getHIRMetadata(const Instruction *Inst,
 // from StartRange and then is changed by Step up to MaxBECount times. Signed
 // argument defines if we treat Step as signed or unsigned.
 static ConstantRange getRangeForAffineARHelper(APInt Step,
-                                               ConstantRange StartRange,
+                                               const ConstantRange &StartRange,
                                                const APInt &MaxBECount,
                                                unsigned BitWidth, bool Signed) {
   // If either Step or MaxBECount is 0, then the expression won't change, and we
