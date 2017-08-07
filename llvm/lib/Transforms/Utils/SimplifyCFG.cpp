@@ -621,7 +621,7 @@ private:
       Span = Span.inverse();
 
     // If there are a ton of values, we don't want to make a ginormous switch.
-    if (Span.getSetSize().ugt(8) || Span.isEmptySet()) {
+    if (Span.isSizeLargerThan(8) || Span.isEmptySet()) {
       return false;
     }
 
