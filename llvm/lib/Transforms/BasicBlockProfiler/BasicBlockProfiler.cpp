@@ -126,9 +126,33 @@ bool BasicBlockProfiler::runOnBasicBlock(BasicBlock &BB)
     return true;
 }
 
+void BasicBlockProfiler::scan_for_indirect_and_pthread_call(Function *func, CallGraphNode *CGN)
+{
+    for (auto it = CGN->begin(), et = CGN->end(); it != et; it++) {
+        CallGraphNode *calledGraphNode = it->second;
+        if(!calledGraphNode->getFunction()) {
+            cerr << " Indirect call seen in " << func->getName().str() << "\n";
+            continue;
+        }
+        if(calledGraphNode->getFunction()->getName().find("pthread_create")
+                !=std::string::npos)
+        {
+            std::cerr << "WARNING: call to pthread_create() found in " << CGN->getFunction()->getName().str() << "\n";
+        }
+    }
+}
+
 bool BasicBlockProfiler::runOnModule(Module &M) {
     mod = &M;
     bool modified = false;
+    
+    callGraph = &getAnalysis<CallGraphWrapperPass>().getCallGraph();
+    for (auto &F : M) {
+        if (!F.isDeclaration()) {
+            scan_for_indirect_and_pthread_call(&F,
+                 callGraph->getOrInsertFunction(&F));
+       }
+    }
     runOnModuleBegin();
 
     for(Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
@@ -142,6 +166,7 @@ bool BasicBlockProfiler::runOnModule(Module &M) {
 
 void BasicBlockProfiler::getAnalysisUsage(AnalysisUsage &AU) const{
     AU.setPreservesCFG(); // Adds calls but they do not break BBs
+    AU.addRequired<CallGraphWrapperPass>();
     //AU.addRequired<BasicBlockNumberer>();
 }
 

@@ -455,10 +455,6 @@ void AdvisorAnalysis::does_function_recurse(Function *func, CallGraphNode *CGN, 
                 }
 
                 DEBUG(*outputLog << "Found a call to function: " << calledGraphNode->getFunction()->getName() << "\n");
-                if(calledGraphNode->getFunction()->getName().find("pthread_create")!=std::string::npos)
-                {
-      	            std::cerr << "WARNING: call to pthread_create() found in " << CGN->getFunction()->getName().str() << "\n";
-                }
 		//stack.push_back(calledGraphNode->getFunction());
 		// ignore this function if its primary definition is outside current module
                 

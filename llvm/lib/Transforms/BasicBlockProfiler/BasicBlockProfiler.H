@@ -59,6 +59,9 @@ class BasicBlockProfiler : public ModulePass {
         bool runOnModuleBegin();
         bool runOnModuleEnd();
         void getAnalysisUsage(AnalysisUsage &AU) const override;
+        void scan_for_indirect_and_pthread_call(Function *func,
+             CallGraphNode *CGN);
     private:
         Module *mod;
+        CallGraph *callGraph;
 };
