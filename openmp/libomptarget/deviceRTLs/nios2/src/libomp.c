@@ -400,7 +400,6 @@ static void omp_not_implemented_for_nios(const char* api)
 
 void omp_set_num_threads(int num_threads)
 {
-    __kmpc_omp_init();
     if (num_threads < 0)
     {
         return;
