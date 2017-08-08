@@ -1536,7 +1536,7 @@ static Value *simplifyAndOrOfICmpsWithConstants(ICmpInst *Cmp0, ICmpInst *Cmp1,
   auto Range0 = ConstantRange::makeExactICmpRegion(Cmp0->getPredicate(), *C0);
   auto Range1 = ConstantRange::makeExactICmpRegion(Cmp1->getPredicate(), *C1);
 
-  // For and-of-comapares, check if the intersection is empty:
+  // For and-of-compares, check if the intersection is empty:
   // (icmp X, C0) && (icmp X, C1) --> empty set --> false
   if (IsAnd && Range0.intersectWith(Range1).isEmptySet())
     return getFalse(Cmp0->getType());
@@ -2535,6 +2535,9 @@ static Value *simplifyICmpWithConstant(CmpInst::Predicate Pred, Value *LHS,
   return nullptr;
 }
 
+/// TODO: A large part of this logic is duplicated in InstCombine's
+/// foldICmpBinOp(). We should be able to share that and avoid the code
+/// duplication.
 static Value *simplifyICmpWithBinOp(CmpInst::Predicate Pred, Value *LHS,
                                     Value *RHS, const SimplifyQuery &Q,
                                     unsigned MaxRecurse) {
