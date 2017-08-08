@@ -86,6 +86,9 @@
 // is run
 #define ENV_DUMP_STATS "CSA_DUMP_STATS"
 
+// If defined, leave the temporary files on disk
+#define ENV_SAVE_TEMPS "CSA_SAVE_TEMPS"
+
 // Bitcode bounds struct built by the compiler. WARNING! This struct MUST
 // match the struct written to the .csa.bc.bounds section in CSAAsmPrinter.cpp!
 struct BitcodeBounds {
@@ -102,6 +105,8 @@ struct DynLibTy {
   char *FileName;
   void *Handle;
 };
+
+std::list<std::string> filesToDelete;
 
 /// Account the memory allocated per device.
 struct AllocMemEntryTy {
@@ -277,11 +282,36 @@ int32_t __tgt_rtl_number_of_devices() { return NUMBER_OF_DEVICES; }
 int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
 
 static
-int32_t checkForExitOnError(int32_t error) {
+void deleteTempFiles() {
+  // If we've been asked to save the temporaries, don't delete them
+  if (getenv("ENV_SAVE_TEMP_FILES")) {
+    return;
+  }
+
+  // Delete any temporary files we've created
+  while (! filesToDelete.empty()) {
+    std::string& tmpFile = filesToDelete.front();
+    remove (tmpFile.c_str());
+    filesToDelete.pop_front();
+  }
+}
+
+static
+void dumpTempFiles() {
+  fprintf(stderr, "%zd files in list:\n");
+  for (std::string file: filesToDelete) {
+    fprintf (stderr, "   %s\n", file.c_str());
+  }
+}
+
+static
+int32_t checkForExitOnError(int32_t error, const char* errorText) {
   if (NULL == getenv(ENV_EXIT_ON_ERROR)) {
     return error;
   }
-
+  if (errorText) {
+    fprintf(stderr, "%s\n", errorText);
+  }
   exit(error);
 }
 
@@ -328,7 +358,7 @@ std::string find_csa_clang() {
 static
 std::string find_gold_plugin() {
 
-  // If the user defined an envirionment variable to point to the gold
+  // If the user defined an environment variable to point to the gold
   // plugin use it
   const char *gold_plugin_env = getenv(ENV_GOLD_PLUGIN);
   if (NULL != gold_plugin_env) {
@@ -361,6 +391,49 @@ std::string find_gold_plugin() {
   // string
   if (found_gold_plugin) {
     return gold_plugin_path;
+  } else {
+    return "";
+  }
+}
+
+
+static
+std::string find_fixup_pass() {
+#if 0
+  // If the user defined an envirionment variable to point to the gold
+  // plugin use it
+  const char *gold_plugin_env = getenv(ENV_GOLD_PLUGIN);
+  if (NULL != gold_plugin_env) {
+    return gold_plugin_env;
+  }
+#endif
+
+  std::string fixup_pass_path;
+
+  // Get the LD_LIBRARY_PATH environment variable and make a copy I can muck
+  // with.
+  const char *ld_library_path = getenv("LD_LIBRARY_PATH");
+  char *myPath = strdup(ld_library_path);
+  bool found_fixup_pass = false;
+
+  // Scan LD_LIBRARY_PATH looking for a directory that contains an executable
+  // copy of LLVMCSAFixupOmpEntries.so
+  for (const char *dir = strtok(myPath, ":"); dir; dir = strtok(NULL, ":")) {
+    fixup_pass_path = dir;
+    fixup_pass_path += "/LLVMCSAFixupOmpEntries.so";
+    if (0 == access(fixup_pass_path.c_str(), X_OK)) {
+      found_fixup_pass = true;
+      break;
+    }
+  }
+
+  // Free the allocated memory before I forget.
+  free(myPath);
+
+  // If we found a copy of LLVMgold.so return it. Otherwise return an empty
+  // string
+  if (found_fixup_pass) {
+    return fixup_pass_path;
   } else {
     return "";
   }
@@ -408,6 +481,27 @@ std::string find_llvm_link(const std::string &csa_clang) {
   // Trust, but verify
   if (0 == access(llvm_link.c_str(), X_OK)) {
     return llvm_link;
+  } else {
+    return "";
+  }
+}
+
+static
+std::string find_opt(const std::string &csa_clang) {
+  // Find the root of the path for csa-clang
+  std::string::size_type pos = csa_clang.find_last_of('/');
+  if (std::string::npos == pos) {
+    return "";
+  }
+
+  // Assume that we can find csa-opt in the same directory that
+  // has csa-clang
+  std::string opt = csa_clang.substr(0, pos);
+  opt += "/csa-opt";
+
+  // Trust, but verify
+  if (0 == access(opt.c_str(), X_OK)) {
+    return opt;
   } else {
     return "";
   }
@@ -509,6 +603,7 @@ bool extract_bc_file(const char *tmp_name,
     }
     fwrite(data, bitcode_data->d_size, 1, fBC);
     fclose(fBC);
+    filesToDelete.push_back(bcFile);
     return true;
   }
 
@@ -523,6 +618,8 @@ bool extract_bc_file(const char *tmp_name,
 
   llvmLinkCommand += " -o ";
   llvmLinkCommand += bcFile;
+
+  filesToDelete.push_back(bcFile);
 
   // Save each of the the bitcode files to disk so we can concatenate them
   BitcodeBounds *bounds = (BitcodeBounds *)bitcode_bounds->d_buf;
@@ -544,6 +641,8 @@ bool extract_bc_file(const char *tmp_name,
     fwrite(data, len, 1, fBC);
     fclose(fBC);
 
+    filesToDelete.push_back(tmpBcFile);
+
     data += len;
 
     llvmLinkCommand += " ";
@@ -556,28 +655,18 @@ bool extract_bc_file(const char *tmp_name,
   // Now execute the llvm-link command to concatenate the bitcode files
   int result = execute_command(llvmLinkCommand.c_str());
   
-  // Cleanup the temporary files before we forget
-  for (unsigned i = 0; i < bitcodeCount; i++) {
-    std::string tmpBcFile(tmp_name);
-    tmpBcFile += "_";
-    char buf[16];
-    sprintf(buf, "%u", i);
-    tmpBcFile += buf;
-    tmpBcFile += ".bc";
-    remove(tmpBcFile.c_str());
-  }
-
   if (0 == result) {
     return true;
   }
 
-  DP("Failed to concatenate bitcode files extracted from the image\n");
+  fprintf(stderr,
+          "Failed to concatenate bitcode files extracted from the image\n");
   return false;
 }
 
 static
 bool link_bc_file(const char *tmp_name,
-                  const std::string &bcFile,
+                  std::string &bcFile,
                   const std::string &ldGold,
                   const std::string &goldPlugin,
                   const std::string &goldOptions) {
@@ -589,10 +678,6 @@ bool link_bc_file(const char *tmp_name,
 
   // Start building the command string
   std::string linkCommand(ldGold);
-
-  // Make sure that the linker understands that .omp_offloading.entry must be
-  // exported. Yeah, this is a hack
-  linkCommand += " --entry=.omp_offloading.entry";
 
   // Tell ld.gold to use the LLVM gold plugin since it understands how to
   // handle bitcode (.bc) files
@@ -619,17 +704,67 @@ bool link_bc_file(const char *tmp_name,
   linkCommand += goldOptions;
 
   // Now execute the linker command
-  if (0 == execute_command(linkCommand.c_str())) {
-    // Remove the original bitcode file and replace it with what we just
-    // created
-    remove(bcFile.c_str());
-    rename(linkResult.c_str(), bcFile.c_str());
-    return true;
+  int result = execute_command(linkCommand.c_str());
+  if (0 != result) {
+    fprintf(stderr, "Failed to create process to link Bitcode file\n");
+    return false;
   }
 
-  DP("Failed to create process to link Bitcode file\n");
-  remove(linkResult.c_str());
-  return false;
+  // Remove the original bitcode file and replace it with what we just
+  // created
+  bcFile = linkResult;
+  filesToDelete.push_back(linkResult);
+
+  return true;
+}
+
+static
+bool fixup_bc_file(const char* tmp_name,
+                   std::string& bcFile,
+                   std::string& csa_clang) {
+
+  // The gold plugin is making the .omp_offloading.entry globals into internal
+  // symbols. We need to convert them back to global symbols so they're
+  // not thrown away by clang as dead code. Use opt and a special pass
+  // to fix this. opt should be in the same directory as csa-clang
+  std::string optCommand = find_opt(csa_clang);
+  if (optCommand.empty()) {
+    fprintf(stderr, "Failed to find csa-opt.\n");
+    return false;
+  }
+
+  std::string fixupPass = find_fixup_pass();
+  if (fixupPass.empty()) {
+    fprintf(stderr, "Failed to find LLVMCSAFixupOmpEntries.so.\n");
+    return false;
+  }
+
+  optCommand += " -load=";
+  optCommand += fixupPass;
+  optCommand += " -csa-fixup-omp-entries ";
+  optCommand += bcFile;
+  optCommand += " -o ";
+
+  bcFile = tmp_name;
+  bcFile += "-fixed.bc";
+
+  optCommand += bcFile;
+
+  filesToDelete.push_back(bcFile);
+
+  // Now execute the opt command to execute the pass that will fixup the
+  // OpenMP entries so they won't get deleted by the dead code elimination
+  // pass. It would be nice if we could get this into the compiler *really*
+  // early, but since we can use opt to do it for us, it's not worth fighting
+  // with llvm over.
+  int result = execute_command(optCommand.c_str());
+  if (0 != result) {
+    fprintf(stderr,
+            "Pass to fixup OpenMP entries failed\n");
+    return false;
+  }
+
+  return true;
 }
 
 static
@@ -686,7 +821,10 @@ bool build_csa_assembly(const char *tmp_name,
   // .bc file
   if (! ldGold.empty()) {
     if (! link_bc_file(tmp_name, bcFile, ldGold, goldPlugin, goldOptions)) {
-      remove(bcFile.c_str());
+      return false;
+    }
+
+    if (! fixup_bc_file(tmp_name, bcFile, csa_clang)) {
       return false;
     }
   }
@@ -716,8 +854,6 @@ bool build_csa_assembly(const char *tmp_name,
     return true;
   }
   else {
-    remove(csaAsmFile.c_str());
-    remove(bcFile.c_str());
     return false;
   }
 }
@@ -741,8 +877,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   // Is the library version incompatible with the header file?
   if (elf_version(EV_CURRENT) == EV_NONE) {
-    DP("Incompatible ELF library!\n");
-    checkForExitOnError(1);
+    checkForExitOnError(1, "Incompatible ELF library!");
     return NULL;
   }
 
@@ -750,14 +885,13 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   Elf *e = elf_memory((char *)image->ImageStart, ImageSize);
   if (!e) {
     DP("Unable to get ELF handle: %s!\n", elf_errmsg(-1));
-    checkForExitOnError(1);
+    checkForExitOnError(1, NULL);
     return NULL;
   }
 
   if (elf_kind(e) != ELF_K_ELF) {
-    DP("Invalid Elf kind!\n");
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, "Invalid Elf kind!");
     return NULL;
   }
 
@@ -771,9 +905,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   size_t shstrndx;
 
   if (elf_getshdrstrndx(e, &shstrndx)) {
-    DP("Unable to get ELF strings index!\n");
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, "Unable to get ELF strings index!");
     return NULL;
   }
 
@@ -802,21 +935,20 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   if (!entries_offset) {
     DP("Entries Section Offset Not Found\n");
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, NULL);
     return NULL;
   }
 
   if (!bitcode_bounds) {
-    DP("CSA bitcode bounds section Not Found\n");
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, "CSA bitcode bounds section Not Found");
     return NULL;
   }
 
   if (!bitcode_data) {
-    DP("CSA bitcode data section Not Found\n");
+    DP();
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, "CSA bitcode data section Not Found");
     return NULL;
   }
 
@@ -831,7 +963,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   if (tmp_fd == -1) {
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, NULL);
     return NULL;
   }
 
@@ -839,7 +971,7 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
 
   if (!ftmp) {
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, NULL);
     return NULL;
   }
 
@@ -849,9 +981,10 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   DynLibTy Lib = {tmp_name, dlopen(tmp_name, RTLD_LAZY)};
 
   if (!Lib.Handle) {
-    DP("target library loading error: %s\n", dlerror());
+    std::string err("target library loading error: ");
+    err += dlerror();
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, err.c_str());
     return NULL;
   }
 
@@ -859,10 +992,14 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   std::string csaAsmFile;
   if (! build_csa_assembly(tmp_name, bitcode_bounds, bitcode_data, csaAsmFile)) {
     elf_end(e);
+    deleteTempFiles();
     remove(tmp_name);
-    checkForExitOnError(1);
+    checkForExitOnError(1, NULL);
     return NULL;
   }
+
+  // Delete the temp files create to build the .s file
+  deleteTempFiles();
 
   struct link_map *libInfo = (struct link_map *)Lib.Handle;
 
@@ -879,9 +1016,8 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   __tgt_offload_entry *entries_end = entries_begin + NumEntries;
 
   if (!entries_begin) {
-    DP("Can't obtain entries begin\n");
     elf_end(e);
-    checkForExitOnError(1);
+    checkForExitOnError(1, "Can't obtain entries begin");
     return NULL;
   }
 
@@ -950,29 +1086,29 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
   }
 
   if (NULL == assemblyFile) {
-    DP("Failed to find assembly file\n");
-    return checkForExitOnError(OFFLOAD_FAIL);
+    return checkForExitOnError(OFFLOAD_FAIL, "Failed to find assembly file");
   }
 
   // Allocate an CSA
   csa_processor *processor = csa_alloc("autounit");
   if (NULL == processor) {
-    DP("Failed to allocate CSA processor\n");
-    status = checkForExitOnError(OFFLOAD_FAIL);
+    status = checkForExitOnError(OFFLOAD_FAIL,
+                                 "Failed to allocate CSA processor");
   } else {
 
     // Load the assembly file into the simulator
     csa_module *mod = csa_assemble(assemblyFile, processor);
     if (NULL == mod) {
-      DP("Failed to load module\n");
-      status = checkForExitOnError(OFFLOAD_FAIL);
+      status = checkForExitOnError(OFFLOAD_FAIL, "Failed to load module");
     } else {
 
       // Find the function
       csa_entry *entry = csa_lookup(mod, functionName);
       if (NULL == entry) {
-        DP("Failed to find entrypoint \"%s\"\n", functionName);
-        status = checkForExitOnError(OFFLOAD_FAIL);
+        std::string err("Failed to find entrypoint \"");
+        err += functionName;
+        err += "\"";
+        status = checkForExitOnError(OFFLOAD_FAIL, err.c_str());
       } else {
         if (verbosity) {
           fprintf(stderr, "\nRunning %s on the CSA simulator..\n", functionName);
@@ -986,7 +1122,9 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
         // Execute the CSA code. target() is adding an "omp handle" to the
         // arguments array which we don't care about. So ignore it
         assert(sizeof(csa_arg) == sizeof(ptrs[0]));
+        unsigned long long start = csa_cycle_counter(processor);
         csa_call(entry, arg_num-1, (csa_arg *)&ptrs[0]);
+        unsigned long long cycles = csa_cycle_counter(processor) - start;
 
         // Dump the statistics, if requested
         if (getenv (ENV_DUMP_STATS)) {
@@ -994,7 +1132,8 @@ int32_t __tgt_rtl_run_target_team_region(int32_t device_id, void *tgt_entry_ptr,
         }
 
         if (verbosity) {
-          fprintf(stderr, "\n%s ran on the CSA simulator\n\n", functionName);
+          fprintf(stderr, "\n%s ran on the CSA simulator in %llu cycles\n\n",
+                  functionName, cycles);
         }
       }
     }
