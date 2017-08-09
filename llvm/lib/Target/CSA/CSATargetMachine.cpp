@@ -15,6 +15,7 @@
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
 #include "CSALoopIntrinsicExpander.h"
+#include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -237,6 +238,7 @@ void CSATargetMachine::adjustPassManager(PassManagerBuilder& PMB) {
       PM.add(createFortranIntrinsics());
 
       // Add the pass to expand loop intrinsics
+      PM.add(createCSAOMPAllocaTypeFixerPass());
       PM.add(createPromoteMemoryToRegisterPass());
       PM.add(createLoopSimplifyPass());
       PM.add(createCSALoopIntrinsicExpanderPass());
