@@ -73,10 +73,6 @@ private:
             SmallVectorImpl<BasicBlock *> &BBSet,
             SmallVectorImpl<Instruction *> &LiveOut);
 
-    /// \brief Adds ignore_for_intel_feature_outlining metadata attribute to
-    /// the call instruction specified in \p Call.
-    static void addNoFeatureOutline(CallInst *Call);
-
 public:
     /// Constructor and destructor
     VPOUtils() {}
