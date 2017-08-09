@@ -230,6 +230,9 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case AMDOpenCL: return "amdopencl";
   case CoreCLR: return "coreclr";
   case OpenCL: return "opencl";
+#ifdef INTEL_OPENCL
+  case IntelFPGA: return "intelfpga";
+#endif // INTEL_OPENCL
   }
 
   llvm_unreachable("Invalid EnvironmentType!");
@@ -509,6 +512,9 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("amdopencl", Triple::AMDOpenCL)
     .StartsWith("coreclr", Triple::CoreCLR)
     .StartsWith("opencl", Triple::OpenCL)
+#ifdef INTEL_OPENCL
+    .StartsWith("intelfpga", Triple::IntelFPGA)
+#endif // INTEL_OPENCL
     .Default(Triple::UnknownEnvironment);
 }
 
