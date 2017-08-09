@@ -94,6 +94,4 @@
 #include <clzerointrin.h>
 #endif
 
-/* FIXME: LWP */
-
 #endif /* __X86INTRIN_H */
