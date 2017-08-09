@@ -473,9 +473,9 @@ ARMTargetLowering::ARMTargetLowering(const TargetMachine &TM,
   }
 
   // Use divmod compiler-rt calls for iOS 5.0 and later.
-  if (Subtarget->isTargetWatchOS() ||
-      (Subtarget->isTargetIOS() &&
-       !Subtarget->getTargetTriple().isOSVersionLT(5, 0))) {
+  if (Subtarget->isTargetMachO() &&
+      !(Subtarget->isTargetIOS() &&
+        Subtarget->getTargetTriple().isOSVersionLT(5, 0))) {
     setLibcallName(RTLIB::SDIVREM_I32, "__divmodsi4");
     setLibcallName(RTLIB::UDIVREM_I32, "__udivmodsi4");
   }
@@ -1817,8 +1817,7 @@ ARMTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // Adjust the stack pointer for the new arguments...
   // These operations are automatically eliminated by the prolog/epilog pass
   if (!isSibCall)
-    Chain = DAG.getCALLSEQ_START(Chain,
-                                 DAG.getIntPtrConstant(NumBytes, dl, true), dl);
+    Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, dl);
 
   SDValue StackPtr =
       DAG.getCopyFromReg(Chain, dl, ARM::SP, getPointerTy(DAG.getDataLayout()));
