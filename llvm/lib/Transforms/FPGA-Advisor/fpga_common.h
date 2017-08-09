@@ -61,6 +61,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/IR/DebugInfo.h"
 
 // include tbb components 
 #include "tbb/task.h"
@@ -91,40 +92,6 @@ using namespace llvm;
 
 namespace fpga {
 
-// Common helper functions
-// Function: get_basic_block_instance_count
-// Return: the number of instances of this basic block from metadata
-/*static int get_basic_block_instance_count_meta(BasicBlock *BB) {
-	assert(BB);
-	std::string MDName = "FPGA_ADVISOR_REPLICATION_FACTOR_";
-	MDName += BB->getName().str();
-	MDNode *M = BB->getTerminator()->getMetadata(MDName);
-
-	int repFactor = -1;
-
-	assert(M);
-	assert(M->getOperand(0));
-
-	std::string repFactorStr = cast<MDString>(M->getOperand(0))->getString().str();
-	repFactor = stoi(repFactorStr);
-
-	//*outputLog << __func__ << " metadata: ";
-	//BB->getTerminator()->print(*outputLog);
-	//*outputLog << " replication factor: " << repFactor << "\n";
-
-        std::cerr << "Basic block" << BB << " replication factor: " << repFactor << "\n";
-
-	return repFactor;
-}
-
-static void set_basic_block_instance_count_meta(BasicBlock *BB, int value) {
-	std::string MDName = "FPGA_ADVISOR_REPLICATION_FACTOR_";
-	MDName += BB->getName().str();
-	LLVMContext &C = BB->getContext();
-	MDNode *N = MDNode::get(C, MDString::get(C, std::to_string(value)));
-	BB->getTerminator()->setMetadata(MDName, N);
-}
-*/
 // Dependence Graph type:
 // STL list container for OutEdge list
 // STL vector container for vertices
@@ -147,23 +114,21 @@ typedef DepGraph::in_edge_iterator DepGraph_in_edge_iterator;
 typedef DepGraph::edge_iterator DepGraph_edge_iterator;
 typedef DepGraph::edge_descriptor DepGraph_edge_descriptor;
 
-//BOOKMARK change this to module pass...
-class DependenceGraph : public FunctionPass {
+class DependenceGraph : public ModulePass {
 
 	public:
 		static char ID;
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
-			AU.setPreservesAll();
 			AU.addRequired<DominatorTreeWrapperPass>();
+			AU.addRequired<MemoryDependenceWrapperPass>();
 			AU.addRequiredTransitive<AAResultsWrapperPass>();
-			//AU.addPreserved<MemoryDependenceAnalysis>();
-			AU.addRequiredTransitive<MemoryDependenceWrapperPass>();
+			AU.setPreservesAll();
+			//AU.addRequiredTransitive<MemoryDependenceWrapperPass>();
 		}
-		DependenceGraph() : FunctionPass(ID) {
-			//initializeDependenceGraph(*PassRegistry::getPassRegistry());
-      initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
+		DependenceGraph() : ModulePass(ID) {
+            initializeBasicAAWrapperPassPass(*PassRegistry::getPassRegistry());
 		}
-		bool runOnFunction(Function &F);
+		bool runOnModule(Module &M);
 		DepGraph &getDepGraph() {
 			return DG;
 		}
@@ -180,6 +145,7 @@ class DependenceGraph : public FunctionPass {
 		void insert_dependent_basic_block_all_memory(std::vector<std::pair<BasicBlock *, bool> > &list, bool trueDep);
 		bool unsupported_memory_instruction(Instruction *I);
 		void output_graph_to_file(raw_ostream *outputFile);
+		bool dg_run_on_function(Function &F);
 
 		Function *func;
 		MemoryDependenceResults *MDA;
@@ -291,7 +257,7 @@ typedef struct {
 } LatencyStruct;
 
 
-class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionScheduler> {
+class ModuleScheduler : public ModulePass , public InstVisitor<ModuleScheduler> {
 	public:
 		static char ID;
                 static void *analyzerLibHandle;
@@ -299,7 +265,7 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
                 static int (*getBlockII)      (BasicBlock *BB);
                 static bool useDefault;
 
-		FunctionScheduler() : FunctionPass(ID) {
+		ModuleScheduler() : ModulePass(ID) {
                   char * analyzerLib;
 
                   if ((analyzerLib = getenv("FPGA_ADVISOR_USE_DYNAMIC_ANALYZER"))) {
@@ -337,8 +303,12 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
 			//AU.addPreserved<DependenceGraph>();
 			AU.setPreservesAll();
 		}
-		bool runOnFunction(Function &F) {
-			visit(F);
+
+		bool runOnModule(Module &M) {
+            std::cerr << "ModuleScheduler:" << __func__ << "\n";
+	        for (auto &F : M) {
+			    visit(F);
+	        }
 			return true;
 		}
 
@@ -478,24 +448,24 @@ class FunctionScheduler : public FunctionPass , public InstVisitor<FunctionSched
 	
 		std::map<BasicBlock *, LatencyStruct> latencyTableFPGA;
 	
-}; // end class FunctionScheduler
+}; // end class ModuleScheduler
 
 
-// The FunctionAreaEstimator class performs crude area estimation for the basic blocks
+// The ModuleAreaEstimator class performs crude area estimation for the basic blocks
 // in a function
 // The main goal of this class is not to determine the exact area/resources required to
 // implement the design on an FPGA, the main motivation is to discourage the tool to
 // suggest putting portions of designs onto the FPGA where there are limited resources
 // such as operations requiring DSPs, a lot of long routes which may decrease the
 // clock speed of the design, memory... ?
-class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAreaEstimator> {
+class ModuleAreaEstimator : public ModulePass, public InstVisitor<ModuleAreaEstimator> {
 	public:
 		static char ID;
                 static void *analyzerLibHandle;
                 static int (*getBlockArea)(BasicBlock *BB);
                 static bool useDefault;
 
-                FunctionAreaEstimator() : FunctionPass(ID) {
+                ModuleAreaEstimator() : ModulePass(ID) {
                   char * analyzerLib;
 
                   if ((analyzerLib = getenv("FPGA_ADVISOR_USE_DYNAMIC_ANALYZER"))) {
@@ -523,11 +493,14 @@ class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAr
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
 			AU.addPreserved<AAResultsWrapperPass>();
 			AU.addPreserved<MemoryDependenceWrapperPass>();
-			AU.addPreserved<DependenceGraph>();
+			//AU.addPreserved<DependenceGraph>();
 			AU.setPreservesAll();
 		}
-		bool runOnFunction(Function &F) {
-			visit(F);
+		bool runOnModule(Module &M) {
+            std::cerr << "ModuleAreaEstimator:" << __func__ << "\n";
+	        for (auto &F : M) {
+			    visit(F);
+	        }
 			return true;
 		}
 		static int get_basic_block_area(std::map<BasicBlock *, int> &AT, BasicBlock *BB) {
@@ -667,7 +640,7 @@ class FunctionAreaEstimator : public FunctionPass, public InstVisitor<FunctionAr
 
 		std::map<BasicBlock *, int> areaTable;
 
-}; // end class FunctionAreaEstimator
+}; // end class ModuleAreaEstimator
 
 class AdvisorAnalysis;
 
@@ -732,14 +705,13 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
                 const bool useThreading = true;
 		void getAnalysisUsage(AnalysisUsage &AU) const override {
 			AU.addPreserved<AAResultsWrapperPass>();
-			AU.setPreservesAll();
 			AU.addRequired<CallGraphWrapperPass>();
 			AU.addRequired<LoopInfoWrapperPass>();
 			AU.addRequired<DominatorTreeWrapperPass>();
-			AU.addPreserved<DependenceGraph>();
-			AU.addRequired<DependenceGraph>();
-			AU.addRequired<FunctionScheduler>();
-			AU.addRequired<FunctionAreaEstimator>();
+			//AU.addRequired<DependenceGraph>();
+			AU.addRequired<ModuleScheduler>();
+			AU.addRequired<ModuleAreaEstimator>();
+			AU.setPreservesAll();
 		}
                 AdvisorAnalysis();
 		bool runOnModule(Module &M);
@@ -777,6 +749,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		void does_function_recurse(Function *func, CallGraphNode *CGN, std::vector<Function *> &stack);
 		void print_recursive_functions();
 		bool run_on_function(Function *F);
+        bool run_on_module(Module &M);
 		bool has_unsynthesizable_construct(Function *F);
 		bool is_recursive_function(Function *F);
 		bool has_recursive_call(Function *F);
@@ -796,6 +769,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		bool process_basic_block_entry(const std::string &line, Function *latestFunction, int &ID, TraceGraphList_iterator lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator lastExecutionOrder);
 		bool process_function_entry(const std::string &line, Function **function, TraceGraphList_iterator &latestTraceGraph, TraceGraph_vertex_descriptor &latestVertex, ExecutionOrderList_iterator &latestExecutinoOrder, std::stack<FunctionExecutionRecord> &stack);
 		void getCPULatencyTable(Function *F, std::map<BasicBlock *, LatencyStruct> *LT, ExecutionOrderList &executionOrderList, TraceGraphList &executionGraphList);
+        void getGlobalCPULatencyTable(Module &M,std::map<BasicBlock *, LatencyStruct> *LT, ExecutionOrder executionOrder, TraceGraph executionGraph);
 
 		bool check_trace_sanity();
 		BasicBlock *find_basicblock_by_name(std::string funcName, std::string bbName);
@@ -803,9 +777,13 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 
 		// functions that do analysis on trace
 		bool find_maximal_configuration_for_all_calls(Function *F, unsigned &fpgaOnlyLatency, unsigned &fpgaOnlyArea);
+        bool find_maximal_configuration_for_module(Module &M, unsigned &fpgaOnlyLatency, unsigned &fpgaOnlyArea);
 		bool find_maximal_configuration_for_call(Function *F, TraceGraphList_iterator graph, ExecutionOrderList_iterator execOrder, std::vector<TraceGraph_vertex_descriptor> &rootVertices);
-                bool prune_basic_block_configuration_to_device_area(Function *F);
-                int  get_total_basic_block_instances(Function *F);
+        bool find_maximal_configuration_global(TraceGraphList_iterator graph, ExecutionOrderList_iterator execOrder, std::vector<TraceGraph_vertex_descriptor> &rootVertices);
+        bool prune_basic_block_configuration_to_device_area(Function *F);
+        bool prune_basic_block_configuration_to_device_area_global(Module &M);
+        int  get_total_basic_block_instances(Function *F);
+        int get_total_basic_block_instances_global(Module &M);
 
 		//bool find_maximal_configuration_for_call(Function *F, TraceGraphList_iterator graph_it, std::vector<TraceGraph_vertex_descriptor> &rootVertices);
 		bool basicblock_is_dependent(BasicBlock *child, BasicBlock *parent, TraceGraph &graph);
@@ -818,8 +796,11 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		bool latest_parent(TraceGraph_out_edge_iterator edge, TraceGraphList_iterator graph);
 		void modify_resource_requirement(Function *F, TraceGraphList_iterator graph_it);
 		void find_optimal_configuration_for_all_calls(Function *F, unsigned &cpuOnlyLatency, unsigned fpgaOnlyLatency, unsigned fpgaOnlyArea);
+   void find_optimal_configuration_for_module(Module &M, unsigned &cpuOnlyLatency, unsigned fpgaOnlyLatency, unsigned fpgaOnlyArea);
   bool incremental_gradient_descent(Function *F, std::unordered_map<BasicBlock *, double> &gradient, std::unordered_map<BasicBlock*, int> &removeBBs, int64_t &deltaDelay, unsigned cpuOnlyLatency, unsigned fpgaOnlyLatency, unsigned fpgaOnlyArea, int64_t &initialLatency);
+  bool incremental_gradient_descent_global(Module &M, std::unordered_map<BasicBlock *, double> &gradient, std::unordered_map<BasicBlock *, int> &removeBBs, int64_t &deltaDelay, unsigned cpuOnlyLatency, unsigned fpgaOnlyLatency, unsigned fpgaOnlyArea, int64_t &initialLatency);
 		void initialize_basic_block_instance_count(Function *F);
+        void initialize_basic_block_instance_count_global(Module &M);
 		bool decrement_basic_block_instance_count(BasicBlock *BB);
 		bool decrement_thread_pool_basic_block_instance_count(BasicBlock *BB);
 		bool increment_basic_block_instance_count(BasicBlock *BB);
@@ -829,15 +810,23 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
                 bool decrease_basic_block_instance_count_and_update_transition(std::unordered_map<BasicBlock *, int > &removeBBs);
 		bool increment_basic_block_instance_count_and_update_transition(BasicBlock *BB);
 		void decrement_all_basic_block_instance_count_and_update_transition(Function *F);
+        void decrement_all_basic_block_instance_count_and_update_transition_global(Module &M); 
 		void find_root_vertices(std::vector<TraceGraph_vertex_descriptor> &roots, TraceGraphList_iterator graph_it);
   void dumpImplementationCounts(Function *F);
   void dumpBlockCounts(Function *F, unsigned cpuLatency);
+  void dumpBlockCountsGlobal(unsigned cpuLatency); 
   uint64_t schedule_with_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid);
+ uint64_t schedule_with_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *,  std::vector<unsigned> > *resourceTable, int tid);
   uint64_t schedule_without_resource_constraints(TraceGraphList_iterator graph_it, Function *F, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable);
+  uint64_t schedule_without_resource_constraints_global(TraceGraphList_iterator graph_it, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable);
   uint64_t schedule_cpu(TraceGraphList_iterator graph_it, Function *F);
+  uint64_t schedule_cpu_global(TraceGraphList_iterator graph_it);
 		void initialize_resource_table(Function *F, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable, bool cpuOnly); 
+        void initialize_resource_table_global(Module &M, std::unordered_map<BasicBlock *, std::vector<unsigned> > *resourceTable, bool cpuOnly);
 		unsigned get_cpu_only_latency(Function *F);
+        unsigned get_cpu_only_latency_global(Module &M);
 		unsigned get_area_requirement(Function *F);
+        unsigned get_area_requirement_global(Module &M);
 		void update_transition_delay(TraceGraphList_iterator graph);
 		unsigned get_transition_delay(BasicBlock *source, BasicBlock *target, bool CPUToHW);
 		void remove_redundant_dynamic_dependencies(TraceGraphList_iterator graph, std::vector<TraceGraph_vertex_descriptor> &dynamicDeps);
@@ -851,7 +840,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		void print_execution_order(ExecutionOrderList_iterator execOrder);
 
 		// dependence graph construction
-		bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph, std::string funcName);
+		bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph, std::string funcName, bool is_global);
 
 		// define some data structures for collecting statistics
 		std::vector<Function *> functionList;
@@ -863,6 +852,8 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 	
 		Module *mod;
 		CallGraph *callGraph;
+	    ExecutionOrderList_iterator globalExecutionOrder;
+	    TraceGraphList_iterator globalTraceGraph;
 
 		raw_ostream *outputLog;
 

@@ -71,9 +71,7 @@ static cl::opt<std::string> GraphName("dg-name", cl::desc("Dependence graph name
 //===----------------------------------------------------------------------===//
 
 // Function: runOnFunction
-bool DependenceGraph::runOnFunction(Function &F) {
-	//std::cerr << "runOnFunction: " << F.getName().str() << "\n";
-	// create output log
+bool DependenceGraph::dg_run_on_function(Function &F) {
 	std::string fileName = "dg." + F.getName().str() + ".log";
 	raw_fd_ostream OL("dependence-graph.log", DEC, sys::fs::F_RW);
 	outputLog = &OL;
@@ -92,8 +90,8 @@ bool DependenceGraph::runOnFunction(Function &F) {
 	MemoryBBs.clear();
 
 	// get analyses
-	MDA = &getAnalysis<MemoryDependenceWrapperPass>().getMemDep();
-	DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+	MDA = &getAnalysis<MemoryDependenceWrapperPass>(F).getMemDep();
+	DT = &getAnalysis<DominatorTreeWrapperPass>(F).getDomTree();
 
 	// add each BB into DG
 	add_vertices(F);
@@ -117,6 +115,14 @@ bool DependenceGraph::runOnFunction(Function &F) {
 	raw_ostream *outputFile = &OF;
 	output_graph_to_file(outputFile);
 
+	return true;
+}
+
+bool DependenceGraph::runOnModule(Module &M) {
+    std::cerr << "DependenceGraph:" << __func__ << "\n";
+	for (auto &F : M) {
+		dg_run_on_function(F);
+	}
 	return true;
 }
 
@@ -408,4 +414,3 @@ void DependenceGraph::get_all_basic_block_dependencies(DepGraph &depGraph, Basic
 
 char DependenceGraph::ID = 0;
 static RegisterPass<DependenceGraph> X("depgraph", "FPGA-Advisor dependence graph generator", false, false);
-
