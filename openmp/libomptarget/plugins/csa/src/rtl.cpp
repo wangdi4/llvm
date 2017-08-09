@@ -42,7 +42,18 @@
 
 #define GETNAME2(name) #name
 #define GETNAME(name) GETNAME2(name)
-#define DP(...) DEBUGP("Target " GETNAME(TARGET_NAME) " RTL", __VA_ARGS__)
+
+#ifdef OMPTARGET_DEBUG
+#define DP(...)                                                            \
+  {                                                                        \
+    fprintf(stderr, "CSA  (HOST) --> ");                                   \
+    fprintf(stderr, __VA_ARGS__);                                          \
+    fflush(nullptr);                                                       \
+  }
+#else
+#define DP(...)                                                            \
+  {}
+#endif
 
 #define NUMBER_OF_DEVICES 4
 #define OFFLOADSECTIONNAME ".omp_offloading.entries"
@@ -296,13 +307,16 @@ void deleteTempFiles() {
   }
 }
 
+// The compiler is whining about functions declared but not used
+#if 0
 static
 void dumpTempFiles() {
-  fprintf(stderr, "%zd files in list:\n");
+  fprintf(stderr, "%zd files in list:\n", filesToDelete.size());
   for (std::string file: filesToDelete) {
     fprintf (stderr, "   %s\n", file.c_str());
   }
 }
+#endif
 
 static
 int32_t checkForExitOnError(int32_t error, const char* errorText) {
@@ -946,7 +960,6 @@ __tgt_target_table *__tgt_rtl_load_binary(int32_t device_id,
   }
 
   if (!bitcode_data) {
-    DP();
     elf_end(e);
     checkForExitOnError(1, "CSA bitcode data section Not Found");
     return NULL;

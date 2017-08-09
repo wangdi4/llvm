@@ -38,6 +38,9 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
           # Define macro with the ELF ID for this target.
           add_definitions("-DTARGET_ELF_ID=${elf_machine_id}")
     
+          # Defining OMPTARGET_DEBUG defines DP so it displays debugging info
+#          add_definitions("-DOMPTARGET_DEBUG")
+
           add_library("omptarget.rtl.${tmachine_libname}" SHARED 
             ${CMAKE_CURRENT_SOURCE_DIR}/src/rtl.cpp)
         
