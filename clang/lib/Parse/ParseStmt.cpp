@@ -124,7 +124,7 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts,
     auto StClass = Res.get()->getStmtClass();
     if (StClass == Stmt::DoStmtClass || StClass == Stmt::WhileStmtClass ||
         StClass == Stmt::ForStmtClass || StClass == Stmt::CXXForRangeStmtClass)
-      Attrs.takeAllFrom(PendingPragmaUnroll);
+      Attrs.takeAllFrom(*getPendingUnrollAttr());
   }
 #endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -1550,6 +1550,10 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
   SourceLocation WhileLoc = Tok.getLocation();
   ConsumeToken();  // eat the 'while'.
 
+#if INTEL_CUSTOMIZATION
+  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
+#endif // INTEL_CUSTOMIZATION
+
   if (Tok.isNot(tok::l_paren)) {
     Diag(Tok, diag::err_expected_lparen_after) << "while";
     SkipUntil(tok::semi);
@@ -1617,6 +1621,10 @@ StmtResult Parser::ParseWhileStatement(SourceLocation *TrailingElseLoc) {
 StmtResult Parser::ParseDoStatement() {
   assert(Tok.is(tok::kw_do) && "Not a do stmt!");
   SourceLocation DoLoc = ConsumeToken();  // eat the 'do'.
+
+#if INTEL_CUSTOMIZATION
+  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
+#endif // INTEL_CUSTOMIZATION
 
   // C99 6.8.5p5 - In C99, the do statement is a block.  This is not
   // the case for C90.  Start the loop scope.
@@ -1723,6 +1731,10 @@ bool Parser::isForRangeIdentifier() {
 StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   assert(Tok.is(tok::kw_for) && "Not a for stmt!");
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
+
+#if INTEL_CUSTOMIZATION
+  PendingPragmaUnrollRAII PendingPragmaUnrollRAIIObject(*this);
+#endif // INTEL_CUSTOMIZATION
 
   SourceLocation CoawaitLoc;
   if (Tok.is(tok::kw_co_await))
@@ -2138,8 +2150,9 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts,
     auto PragmaName = Hint.PragmaNameLoc->Ident->getName();
     if (getLangOpts().IntelCompat &&
         (PragmaName == "unroll" || PragmaName == "nounroll")) {
-      PendingPragmaUnroll.clear();
-      PendingPragmaUnroll.takeAllFrom(TempAttrs);
+      auto *PendingAttr = getPendingUnrollAttr();
+      PendingAttr->clear();
+      PendingAttr->takeAllFrom(TempAttrs);
     }
 #endif // INTEL_CUSTOMIZATION
   }
