@@ -23,11 +23,8 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Constants.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-=======
 #include "llvm/IR/IRBuilder.h"
->>>>>>> 8f1f7ce9d1817231ea4a3d7ecd625bb06ca69d21
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
