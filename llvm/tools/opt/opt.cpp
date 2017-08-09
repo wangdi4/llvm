@@ -397,6 +397,7 @@ int main(int argc, char **argv) {
   initializeInterleavedAccessPass(Registry);
   initializeCountingFunctionInserterPass(Registry);
   initializeUnreachableBlockElimLegacyPassPass(Registry);
+  initializeExpandReductionsPass(Registry);
 
 #if INTEL_CUSTOMIZATION
   initializeIntel_LoopAnalysis(Registry);

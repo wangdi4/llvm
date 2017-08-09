@@ -526,6 +526,9 @@ bool TargetTransformInfo::useReductionIntrinsic(unsigned Opcode,
   return TTIImpl->useReductionIntrinsic(Opcode, Ty, Flags);
 }
 
+bool TargetTransformInfo::shouldExpandReduction(const IntrinsicInst *II) const {
+  return TTIImpl->shouldExpandReduction(II);
+}
 
 TargetTransformInfo::Concept::~Concept() {}
 
