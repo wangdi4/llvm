@@ -48,8 +48,12 @@ using namespace lld::elf;
 LinkerScript *elf::Script;
 
 uint64_t ExprValue::getValue() const {
-  if (Sec)
-    return Sec->getOffset(Val) + Sec->getOutputSection()->Addr;
+  if (Sec) {
+    if (Sec->getOutputSection())
+      return Sec->getOffset(Val) + Sec->getOutputSection()->Addr;
+    error("unable to evaluate expression: input section " + Sec->Name +
+          " has no output section assigned");
+  }
   return Val;
 }
 
@@ -824,7 +828,7 @@ void LinkerScript::placeOrphanSections() {
     // representations agree on which input sections to use.
     auto Pos = std::find_if(CmdIter, E, [&](BaseCommand *Base) {
       auto *Cmd = dyn_cast<OutputSectionCommand>(Base);
-      return Cmd && Cmd->Name == Name;
+      return Cmd && Cmd->Sec == Sec;
     });
     if (Pos == E) {
       auto *Cmd = make<OutputSectionCommand>(Name);
@@ -1000,7 +1004,7 @@ std::vector<PhdrEntry> LinkerScript::createPhdrs() {
       break;
 
     // Assign headers specified by linker script
-    for (size_t Id : getPhdrIndices(Sec->Name)) {
+    for (size_t Id : getPhdrIndices(Sec)) {
       Ret[Id].add(Sec);
       if (Opt.PhdrsCommands[Id].Flags == UINT_MAX)
         Ret[Id].p_flags |= Sec->getPhdrFlags();
@@ -1020,10 +1024,10 @@ bool LinkerScript::ignoreInterpSection() {
   return true;
 }
 
-Optional<uint32_t> LinkerScript::getFiller(StringRef Name) {
+Optional<uint32_t> LinkerScript::getFiller(OutputSection *Sec) {
   for (BaseCommand *Base : Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
-      if (Cmd->Name == Name)
+      if (Cmd->Sec == Sec)
         return Cmd->Filler;
   return None;
 }
@@ -1057,10 +1061,10 @@ void LinkerScript::writeDataBytes(OutputSection *Sec, uint8_t *Buf) {
       writeInt(Buf + Data->Offset, Data->Expression().getValue(), Data->Size);
 }
 
-bool LinkerScript::hasLMA(StringRef Name) {
+bool LinkerScript::hasLMA(OutputSection *Sec) {
   for (BaseCommand *Base : Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
-      if (Cmd->LMAExpr && Cmd->Name == Name)
+      if (Cmd->LMAExpr && Cmd->Sec == Sec)
         return true;
   return false;
 }
@@ -1080,13 +1084,12 @@ ExprValue LinkerScript::getSymbolValue(const Twine &Loc, StringRef S) {
 
 bool LinkerScript::isDefined(StringRef S) { return findSymbol(S) != nullptr; }
 
-// Returns indices of ELF headers containing specific section, identified
-// by Name. Each index is a zero based number of ELF header listed within
-// PHDRS {} script block.
-std::vector<size_t> LinkerScript::getPhdrIndices(StringRef SectionName) {
+// Returns indices of ELF headers containing specific section. Each index is a
+// zero based number of ELF header listed within PHDRS {} script block.
+std::vector<size_t> LinkerScript::getPhdrIndices(OutputSection *Sec) {
   for (BaseCommand *Base : Opt.Commands) {
     auto *Cmd = dyn_cast<OutputSectionCommand>(Base);
-    if (!Cmd || Cmd->Name != SectionName)
+    if (!Cmd || Cmd->Sec != Sec)
       continue;
 
     std::vector<size_t> Ret;

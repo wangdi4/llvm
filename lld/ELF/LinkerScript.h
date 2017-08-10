@@ -222,7 +222,7 @@ protected:
   std::vector<InputSectionBase *>
   createInputSectionList(OutputSectionCommand &Cmd);
 
-  std::vector<size_t> getPhdrIndices(StringRef SectionName);
+  std::vector<size_t> getPhdrIndices(OutputSection *Sec);
   size_t getPhdrIndex(const Twine &Loc, StringRef PhdrName);
 
   MemoryRegion *findMemoryRegion(OutputSectionCommand *Cmd);
@@ -262,8 +262,8 @@ public:
   std::vector<PhdrEntry> createPhdrs();
   bool ignoreInterpSection();
 
-  llvm::Optional<uint32_t> getFiller(StringRef Name);
-  bool hasLMA(StringRef Name);
+  llvm::Optional<uint32_t> getFiller(OutputSection *Sec);
+  bool hasLMA(OutputSection *Sec);
   bool shouldKeep(InputSectionBase *S);
   void assignOffsets(OutputSectionCommand *Cmd);
   void placeOrphanSections();
