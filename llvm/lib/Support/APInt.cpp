@@ -1138,10 +1138,13 @@ APInt APInt::multiplicativeInverse(const APInt& modulo) const {
     return APInt(BitWidth, 0);
 
   // The next-to-last t is the multiplicative inverse.  However, we are
-  // interested in a positive inverse. Calcuate a positive one from a negative
+  // interested in a positive inverse. Calculate a positive one from a negative
   // one if necessary. A simple addition of the modulo suffices because
   // abs(t[i]) is known to be less than *this/2 (see the link above).
-  return t[i].isNegative() ? t[i] + modulo : t[i];
+  if (t[i].isNegative())
+    t[i] += modulo;
+
+  return std::move(t[i]);
 }
 
 /// Calculate the magic numbers required to implement a signed integer division
