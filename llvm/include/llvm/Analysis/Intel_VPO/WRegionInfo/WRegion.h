@@ -723,7 +723,12 @@ public:
                                              unsigned Verbosity=1) const;
 
   void printHIR(formatted_raw_ostream &OS, unsigned Depth,
-                                             unsigned Verbosity=1) const;
+                                           unsigned Verbosity=1) const;
+
+  template <class LoopType> LoopType *getTheLoop() const {
+    llvm_unreachable("Unsupported LoopType");
+  }
+
   /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
   static bool classof(const WRegionNode *W) {
     return W->getWRegionKindID() == WRegionNode::WRNVecLoop;

@@ -17,14 +17,14 @@ private:
   ScalarEvolution *SE;
   LoopInfo *LI;
   VPLoopInfo *VPLI;
-  VPDominatorTree *DT;
-  VPPostDominatorTree *PDT;
+  VPDominatorTree &DT;
+  VPPostDominatorTree &PDT;
   const VPLoop *VecLoop;
   
-public: 
+public:
   VPLoopCFU(IntelVPlan *Plan, IntelVPlanUtils &PlanUtils, ScalarEvolution *SE,
-            LoopInfo *LI, VPLoopInfo *VPLInfo, VPDominatorTree *DomTree,
-            VPPostDominatorTree *PostDomTree) :
+            LoopInfo *LI, VPLoopInfo *VPLInfo, VPDominatorTree &DomTree,
+            VPPostDominatorTree &PostDomTree) :
             Plan(Plan), PlanUtils(PlanUtils), SE(SE), LI(LI), VPLI(VPLInfo),
             DT(DomTree), PDT(PostDomTree) {}
 

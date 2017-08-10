@@ -10,8 +10,8 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file implements LoopVectorizationPlannerBase and
-/// LoopVectorizationPlanner.
+/// This file implements LoopVectorizationPlannerBase, LoopVectorizationPlanner
+/// and LoopVectorizationPlannerHIR
 ///
 //===----------------------------------------------------------------------===//
 
@@ -110,32 +110,29 @@ void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
-  // TODO: StartRangeVF and EndRangeVF are not being used by now
-
   // Create new empty VPlan
   std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
   IntelVPlan *Plan = SharedPlan.get();
-  IntelVPlanUtils PlanUtils(Plan);
 
   // Build hierarchical CFG
-  VPlanHCFGBuilder HCFGBuilder(LI, SE, Legal);
-  HCFGBuilder.buildHierarchicalCFG(TheLoop, WRLoop, Plan);
+  VPlanHCFGBuilder HCFGBuilder(WRLp, TheLoop, Plan, LI, SE, Legal);
+  HCFGBuilder.buildHierarchicalCFG();
 
   return SharedPlan;
 }
 
 // Feed explicit data, saved in WRNVecLoopNode to the CodeGen.
-void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
-                                                 VPOVectorizationLegality& LVL) {
+void LoopVectorizationPlanner::EnterExplicitData(
+    WRNVecLoopNode *WRLp, VPOVectorizationLegality &LVL) {
   // Collect any SIMD loop private information
-  if (WRLoop) {
-    LastprivateClause &LastPrivateClause = WRLoop->getLpriv();
+  if (WRLp) {
+    LastprivateClause &LastPrivateClause = WRLp->getLpriv();
     for (LastprivateItem *PrivItem : LastPrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
         LVL.addLoopPrivate(PrivVal, true, PrivItem->getIsConditional());
     }
-    PrivateClause &PrivateClause = WRLoop->getPriv();
+    PrivateClause &PrivateClause = WRLp->getPriv();
     for (PrivateItem *PrivItem : PrivateClause.items()) {
       auto PrivVal = PrivItem->getOrig();
       if (isa<AllocaInst>(PrivVal))
@@ -143,7 +140,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
     }
 
     // Add information about loop linears to Legality
-    LinearClause &LinearClause = WRLoop->getLinear();
+    LinearClause &LinearClause = WRLp->getLinear();
     for (LinearItem *LinItem : LinearClause.items()) {
       auto LinVal = LinItem->getOrig();
 
@@ -153,7 +150,7 @@ void LoopVectorizationPlanner::EnterExplicitData(WRNVecLoopNode *WRLoop,
         LVL.addLinear(LinVal, LinItem->getStep());
     }
 
-    ReductionClause &RedClause = WRLoop->getRed();
+    ReductionClause &RedClause = WRLp->getRed();
     for (ReductionItem *RedItem : RedClause.items()) {
       Value *V = RedItem->getOrig();
       ReductionItem::WRNReductionKind Type = RedItem->getType();
@@ -196,7 +193,7 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, &Legal);
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
@@ -210,6 +207,21 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
 }
 
 void LoopVectorizationPlanner::collectDeadInstructions() {
-  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, &Legal,
+  VPOCodeGen::collectTriviallyDeadInstructions(TheLoop, Legal,
                                                DeadInstructions);
 }
+
+std::shared_ptr<IntelVPlan>
+LoopVectorizationPlannerHIR::buildInitialVPlan(unsigned StartRangeVF,
+                                               unsigned &EndRangeVF) {
+  // Create new empty VPlan
+  std::shared_ptr<IntelVPlan> SharedPlan = std::make_shared<IntelVPlan>();
+  IntelVPlan *Plan = SharedPlan.get();
+
+  // Build hierarchical CFG
+  VPlanHCFGBuilderHIR HCFGBuilder(WRLp, TheLoop, Plan, Legal);
+  HCFGBuilder.buildHierarchicalCFG();
+
+  return SharedPlan;
+}
+

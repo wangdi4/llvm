@@ -145,9 +145,15 @@ Pass *createLoadStoreVectorizerPass();
 #if INTEL_CUSTOMIZATION
 //===----------------------------------------------------------------------===//
 //
-// VPlanDriverVectorizer - Create a VPlan Driver pass.
+// VPlan LLVM-IR Vectorizer - Create a VPlan Driver pass for LLVM-IR.
 //
 Pass *createVPlanDriverPass();
+
+//===----------------------------------------------------------------------===//
+//
+// VPlan HIR Vectorizer - Create a VPlan Driver pass for HIR.
+//
+Pass *createVPlanDriverHIRPass();
 #endif // INTEL_CUSTOMIZATION
 
 } // End llvm namespace

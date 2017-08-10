@@ -490,6 +490,7 @@ void initializeVectorGraphPredicatorPass(PassRegistry&);
 void initializeWholeProgramWrapperPassPass(PassRegistry&);
 // VPO VPlan Vectorizer Passes
 void initializeVPlanDriverPass(PassRegistry&);
+void initializeVPlanDriverHIRPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 } // end namespace llvm

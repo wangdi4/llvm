@@ -8,6 +8,13 @@
 #include "llvm/Support/GenericDomTreeConstruction.h"
 
 namespace llvm {
+
+namespace loopopt {
+class HLLoop;
+}
+
+using namespace loopopt;
+
 namespace vpo {
 
 class VPOneByOneIRRecipeBase : public VPRecipeBase {
@@ -216,24 +223,51 @@ class VPLoopRegion : public VPRegionBlock {
   
 private: 
   // Pointer to VPLoopInfo analysis information for this loop region
-  VPLoop *VPL;
+  VPLoop *VPLp;
+
+protected:
+  VPLoopRegion(const unsigned char SC, const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(SC, Name), VPLp(Lp) {}
 
 public: 
+  VPLoopRegion(const std::string &Name, VPLoop *Lp)
+      : VPRegionBlock(VPLoopRegionSC, Name), VPLp(Lp) {}
 
-  VPLoopRegion(const std::string &Name, VPLoop *L)
-      : VPRegionBlock(VPLoopRegionSC, Name), VPL(L) {}
-
-  const VPLoop *getVPLoop() const { return VPL; }
-  VPLoop *getVPLoop() { return VPL; }
-
-  //TODO: print as LoopBase or print as VPBlockBase
-  //void print(raw_ostream &OS, unsigned Depth = 0) const {
-  //  VPBlocLoopBase::print(OS, Depth);
-  //}
+  const VPLoop *getVPLoop() const { return VPLp; }
+  VPLoop *getVPLoop() { return VPLp; }
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *B) {
-    return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionSC ||
+           B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+  }
+};
+
+/// \brief Specialization of VPLoopRegion that holds HIR-specific loop
+/// representation (HLLoop).
+///
+/// Design Principle: new public member functions are not allowed. This class is
+/// meant to be used only by VPlan construction and code generation (and
+/// their utilities). For that reason, its interface must be private and be only
+/// accessible from well-justified friendship relationships.
+class VPLoopRegionHIR : private VPLoopRegion {
+  friend class IntelVPlanUtils; 
+  friend class VPlanVerifierHIR; 
+  
+private: 
+  // Pointer to the underlying HLLoop.
+  HLLoop *HLLp;
+
+  VPLoopRegionHIR(const std::string &Name, VPLoop *VPLp, HLLoop *HLLp)
+      : VPLoopRegion(VPLoopRegionHIRSC, Name, VPLp), HLLp(HLLp) {}
+
+  const HLLoop *getHLLoop() const { return HLLp; }
+
+
+public:
+  /// Method to support type inquiry through isa, cast, and dyn_cast.
+  static inline bool classof(const VPBlockBase *B) {
+    return B->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
   }
 }; 
 
@@ -549,7 +583,7 @@ public:
   VPUniformConditionBitRecipe *createUniformConditionBitRecipe(Value *Cond) {
     VPUniformConditionBitRecipe *newRecipe =
         new VPUniformConditionBitRecipe(Cond);
-    newRecipe->setName(createUniqueName("UniformCBR"));
+    newRecipe->setName(createUniqueName("UCBR"));
     return newRecipe;
   }
 
@@ -628,9 +662,19 @@ public:
     return (ToBlock == ToLoop->getHeader() && ToLoop->isLoopLatch(FromBlock));
   }
 
-  /// Create a new, empty VPLoop, with no blocks.
-  VPLoopRegion *createLoop(VPLoop *VPL) {
+  /// Create a new and empty VPLoopRegion.
+  VPLoopRegion *createLoopRegion(VPLoop *VPL) {
+    assert (VPL && "Expected a valid VPLoop.");
     VPLoopRegion *Loop = new VPLoopRegion(createUniqueName("loop"), VPL);
+    setReplicator(Loop, false /*IsReplicator*/);
+    return Loop;
+  }
+
+  /// Create a new and empty VPLoopRegionHIR.
+  VPLoopRegion *createLoopRegionHIR(VPLoop *VPL, HLLoop *HLLp) {
+    assert (VPL && HLLp && "Expected a valid VPLoop and HLLoop.");
+    VPLoopRegion *Loop =
+        new VPLoopRegionHIR(createUniqueName("loop"), VPL, HLLp);
     setReplicator(Loop, false /*IsReplicator*/);
     return Loop;
   }
@@ -651,7 +695,7 @@ public:
                            VPPostDominatorTree &PostDomTree);
 };
 
-} // End VPO Vectorizer Namespace 
+} // namespace vpo
 
 // From HIR POC
    

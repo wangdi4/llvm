@@ -9,25 +9,27 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines VPlanVerifier class that is used to verify that several
-// aspect of a VPlan are correct.
+// This file defines VPlanVerifierBase, VPlanVerifier and VPlanVerifierHIR
+// classes that are used to verify that several aspect of a VPlan are correct.
 //
 //===----------------------------------------------------------------------===//
 
 #include "VPlanVerifier.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vplan-verifier"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-static cl::opt<bool> DisableHCFGVerification(
-    "vplan-disable-verification", cl::init(false),
-    cl::desc("Disable VPlan HCFG verification"));
+static cl::opt<bool>
+    DisableHCFGVerification("vplan-disable-verification", cl::init(false),
+                            cl::desc("Disable VPlan H-CFG verification"));
 
 // Verify that Block is contained in the right VPLoop.
-void VPlanVerifier::verifyContainerLoop(const VPBlockBase *Block,
-                                        const VPLoopRegion *ParentLoopR) const {
+void VPlanVerifierBase::verifyContainerLoop(
+    const VPBlockBase *Block, const VPLoopRegion *ParentLoopR) const {
   const VPLoop *ContainerLoop = nullptr;
 
   if (ParentLoopR) {
@@ -50,7 +52,7 @@ void VPlanVerifier::verifyContainerLoop(const VPBlockBase *Block,
 }
 
 // Verify VPLoop information in \p LoopRegion.
-void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
+void VPlanVerifierBase::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
 
   const VPLoop *Loop = LoopRegion->getVPLoop();
   assert(LoopRegion && "Missing VPLoop for VPLoopRegion");
@@ -70,7 +72,8 @@ void VPlanVerifier::verifyVPLoopInfo(const VPLoopRegion *LoopRegion) const {
 }
 
 // Verify information of LoopRegions nested in \p Region.
-void VPlanVerifier::verifyLoopRegions(const VPRegionBlock *TopRegion) const {
+void VPlanVerifierBase::verifyLoopRegions(
+    const VPRegionBlock *TopRegion) const {
 
   // VerifyLoopRegions implementation.
   typedef std::function<void(const VPRegionBlock *, const VPLoopRegion *)> RT;
@@ -79,10 +82,13 @@ void VPlanVerifier::verifyLoopRegions(const VPRegionBlock *TopRegion) const {
 
     assert(Region && "Region cannot be null");
 
-    // If Region is a LoopRegion, Region is the new ParentLoopR.
-
-    if (const auto *LoopR = dyn_cast<VPLoopRegion>(Region))
+    if (const auto *LoopR = dyn_cast<VPLoopRegion>(Region)) {
+      // If Region is a LoopRegion, Region is the new ParentLoopR.
       ParentLoopR = LoopR;
+ 
+      // Checks for underlying-IR-specific information.
+      verifyIRSpecificLoopRegion(LoopR);
+    }
 
     // Visit Region's CFG
     for (const VPBlockBase *VPB :
@@ -130,11 +136,11 @@ static unsigned countLoopRegionsInRegion(const VPRegionBlock *Region) {
   return NumLoops;
 }
 
-// Count the number of VPLoop's nested in Loop \p Lp.
+// Count the number of VPLoop's in \p Lp, including itself.
 template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
 
   const std::vector<LoopT *> &SubLoops = Lp->getSubLoops();
-  unsigned NumLoops = SubLoops.size();
+  unsigned NumLoops = 1;
 
   for (const LoopT *SL : SubLoops)
     NumLoops += countLoopsInLoop(SL);
@@ -144,41 +150,32 @@ template <class LoopT> static unsigned countLoopsInLoop(const LoopT *Lp) {
 
 // Verify that TopRegion contains the same number of loops (VPLoopRegion) as
 // VPLoopInfo and LoopInfo.
-void VPlanVerifier::verifyNumLoops(const VPRegionBlock *TopRegion) const {
+void VPlanVerifierBase::verifyNumLoops(const VPRegionBlock *TopRegion) const {
 
-  // Compare number of loops in HCFG with loops in VPLoopInfo and LoopInfo
+  // Compare number of loops in H-CFG with loops in VPLoopInfo and LoopInfo
   unsigned NumLoopsInCFG = countLoopRegionsInRegion(TopRegion);
 
   assert(VPLInfo->size() && "More than one top loop is not expected");
-  unsigned NumLoopsInVPLoopInfo =
-      1 /*TopLoop*/ + countLoopsInLoop<VPLoop>(*VPLInfo->begin());
-  unsigned NumLoopsInLoopInfo = 1 /*TopLoop*/ + countLoopsInLoop<Loop>(TheLoop);
-
-  // dbgs().indent(2) << "Verify Loops:\n";
-  // dbgs().indent(4) << "NumLoopsInCFG: " << NumLoopsInCFG << "\n";
-  // dbgs().indent(4) << "NumLoopsInVPLoopInfo: " << NumLoopsInVPLoopInfo <<
-  // "\n";
-  // dbgs().indent(4) << "NumLoopsInLoopInfo: " << NumLoopsInLoopInfo << "\n";
+  unsigned NumLoopsInVPLoopInfo = countLoopsInLoop<VPLoop>(*VPLInfo->begin());
+  unsigned NumLoopsInIR = countLoopsInUnderlyingIR();
 
   assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
-         NumLoopsInVPLoopInfo == NumLoopsInLoopInfo &&
-         "Number of loops in HCFG, VPLoopInfo and LoopInfo don't match");
+         NumLoopsInVPLoopInfo == NumLoopsInIR &&
+         "Number of loops in H-CFG, VPLoopInfo and underlying IR don't match");
 
-  (void) NumLoopsInCFG;
-  (void) NumLoopsInVPLoopInfo;
-  (void) NumLoopsInLoopInfo;
+  (void)NumLoopsInCFG;
+  (void)NumLoopsInVPLoopInfo;
+  (void)NumLoopsInIR;
 }
 
 // Main class to verify loop information.
-void VPlanVerifier::verifyLoops(const VPRegionBlock *TopRegion) const {
-  assert(TheLoop && VPLInfo && LInfo && "Loop information is null.");
-
+void VPlanVerifierBase::verifyLoops(const VPRegionBlock *TopRegion) const {
   verifyNumLoops(TopRegion);
   verifyLoopRegions(TopRegion);
 }
 
 // Main function for VPRegionBlock verification.
-void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
+void VPlanVerifierBase::verifyRegions(const VPRegionBlock *Region) const {
 
   const VPBlockBase *Entry = Region->getEntry();
   const VPBlockBase *Exit = Region->getExit();
@@ -271,19 +268,35 @@ void VPlanVerifier::verifyRegions(const VPRegionBlock *Region) const {
 }
 
 // Public interface to verify the hierarchical CFG.
-void VPlanVerifier::verifyHierarchicalCFG(
+void VPlanVerifierBase::verifyHierarchicalCFG(
     const VPRegionBlock *TopRegion) const {
 
   if (DisableHCFGVerification)
     return;
 
-  assert(((!VPLInfo && !LInfo && !TheLoop) || (VPLInfo && LInfo && TheLoop)) &&
-         "TheLoop, VPLInfo and LInfo must be all set (or not)");
+  DEBUG(dbgs() << "Verifying Hierarchical CFG.\n");
 
-  // dbgs() << "Verifying Hierarchical CFG:\n";
-
-  if (VPLInfo && LInfo && TheLoop)
+  if (VPLInfo)
     verifyLoops(TopRegion);
 
   verifyRegions(TopRegion);
 }
+
+unsigned VPlanVerifier::countLoopsInUnderlyingIR() const {
+  return countLoopsInLoop<Loop>(TheLoop);
+}
+
+unsigned VPlanVerifierHIR::countLoopsInUnderlyingIR() const {
+  SmallVector<const HLLoop *, 8> Loops;
+  TheLoop->getHLNodeUtils().gatherAllLoops(TheLoop, Loops);
+  return Loops.size();
+}
+
+void VPlanVerifierHIR::verifyIRSpecificLoopRegion(
+    const VPRegionBlock *Region) const {
+
+  if (const auto *LoopRHIR = dyn_cast<VPLoopRegionHIR>(Region))
+    assert(LoopRHIR->getHLLoop() &&
+           "VPLoopRegionHIR must have a valid HLLoop.");
+}
+

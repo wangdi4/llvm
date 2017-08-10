@@ -20,57 +20,44 @@
 #define LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
 
 #include "IntelVPlan.h"
+#include "LoopVectorizationCodeGen.h" //Only for Legal.
 #include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
-#include "LoopVectorizationCodeGen.h" //Only for Legal.
-                                      //TODO: Move Legal to an independent file
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
+
 
 namespace llvm {
 class ScalarEvolution;
 class Loop;
 
+using namespace loopopt;
+
 namespace vpo {
 
-class WRNVecLoopNode;
+class VPlanHCFGBuilderBase {
 
-class VPlanHCFGBuilder {
+protected:
+  /// Hold WRegion information for TheLoop, if available.
+  const WRNVecLoopNode *const WRLp;
 
-public:
-  VPlanHCFGBuilder(LoopInfo *LI, ScalarEvolution *SE,
-                   VPOVectorizationLegality &L)
-      : LI(LI), SE(SE), Legal(L) {}
+  // Dominator/Post-Dominator analyses for VPlan Plan CFG to be used in the
+  // construction of the H-CFG. These analyses are no longer valid once regions
+  // are introduced.
+  VPDominatorTree VPDomTree;
+  VPPostDominatorTree VPPostDomTree;
 
-  /// Build hierarchical CFG for \p TheLoop using its WRegion analysis
-  /// information (if available). \p Plan is updated with the resulting
-  /// hierarhical CFG.
-  void buildHierarchicalCFG(Loop *TheLoop, const WRNVecLoopNode *WRL,
-                            IntelVPlan *Plan);
+  IntelVPlanUtils PlanUtils;
 
-private:
-  // It holds the state associated to the HCFG during its construction. This
-  // state is alive only during the HCFG construction and must be destroy at the
-  // end of the HCFG construction.
-  struct HCFGState {
-    Loop *const TheLoop;
-    const WRNVecLoopNode *const WRLoop;
-    VPDominatorTree VPDomTree;
-    VPPostDominatorTree VPPostDomTree;
-    IntelVPlanUtils PlanUtils;
+  /// VPlan verifier utility.
+  VPlanVerifierBase *Verifier = nullptr;
 
-    HCFGState(Loop *Lp, const WRNVecLoopNode *WRL, IntelVPlan *Plan)
-        : TheLoop(Lp), WRLoop(WRL), VPDomTree(), VPPostDomTree(),
-          PlanUtils(Plan) {}
-  };
-
-  /// Loop Info analysis.
-  LoopInfo *LI;
-
-  /// Scalar Evolution analysis.
-  ScalarEvolution *SE;
-
-  // VPO legality information. Only used to determine if a condition is uniform.
-  // TODO: Temporal solution.
-  VPOVectorizationLegality &Legal;
+  // TODO: Only used to determine if a condition is uniform. Decouple from
+  // Legality.
+  // TODO: This must be a reference. Using pointer to support temporal nullptr
+  // from HIR.
+  /// The legality analysis.
+  VPOVectorizationLegality *Legal;
 
   // Holds instructions from the original loop that we predicated. Such
   // instructions reside in their own conditioned VPBasicBlock and represent
@@ -84,24 +71,94 @@ private:
   // separately emit induction "steps" when generating code for the new loop.
   // Similarly, we create a new latch condition when setting up the structure
   // of the new loop, so the old one can become dead.
-  //SmallPtrSet<Instruction *, 4> DeadInstructions;
+  // SmallPtrSet<Instruction *, 4> DeadInstructions;
 
-  /// VPlan verifier utility.
-  VPlanVerifier Verifier;
+  VPlanHCFGBuilderBase(const WRNVecLoopNode *WRL, IntelVPlan *Plan,
+                       VPOVectorizationLegality *Legal)
+      : WRLp(WRL), PlanUtils(Plan), Legal(Legal) {}
 
-  VPRegionBlock *buildPlainCFG(HCFGState &State);
+  virtual VPRegionBlock *buildPlainCFG() = 0;
 
-  void simplifyPlainCFG(HCFGState &State);
-  void splitLoopsPreheader(VPLoop *VPL, HCFGState &State);
-  void mergeLoopExits(VPLoop *VPL, HCFGState &State);
-  void splitLoopsExit(VPLoop *VPL, HCFGState &State);
-  void simplifyNonLoopRegions(HCFGState &State);
+  void simplifyPlainCFG();
+  void splitLoopsPreheader(VPLoop *VPLp);
+  void mergeLoopExits(VPLoop *VPLp);
+  void splitLoopsExit(VPLoop *VPLp);
+  void simplifyNonLoopRegions();
 
-  void buildLoopRegions(HCFGState &State);
-  void buildNonLoopRegions(VPRegionBlock *ParentRegion, HCFGState &State);
+  void buildLoopRegions();
+  void buildNonLoopRegions(VPRegionBlock *ParentRegion);
+
+  // Utility functions.
+  bool isNonLoopRegion(VPBlockBase *Entry, VPRegionBlock *ParentRegion,
+                       VPBlockBase *&Exit);
+  bool regionIsBackEdgeCompliant(const VPBlockBase *Entry,
+                                 const VPBlockBase *Exit,
+                                 VPRegionBlock *ParentRegion);
+  bool isDivergentBlock(VPBlockBase *Block);
+
+  virtual VPLoopRegion *createLoopRegion(VPLoop *VPLp) = 0;
+
+public:
+  /// Build hierarchical CFG for TheLoop. Update Plan with the resulting H-CFG.
+  void buildHierarchicalCFG();
+};
+
+class VPlanHCFGBuilder : public VPlanHCFGBuilderBase {
+
+private:
+  /// The outermost loop to be vectorized.
+  Loop *TheLoop;
+
+  /// Loop Info analysis.
+  LoopInfo *LI;
+
+  /// Scalar Evolution analysis.
+  ScalarEvolution *SE;
+
+  VPRegionBlock *buildPlainCFG() override;
+
+public:
+  VPlanHCFGBuilder(const WRNVecLoopNode *WRL, Loop *Lp, IntelVPlan *Plan,
+                   LoopInfo *LI, ScalarEvolution *SE,
+                   VPOVectorizationLegality *Legal)
+      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp), LI(LI), SE(SE) {
+
+    Verifier = new VPlanVerifier(Lp, LI);
+    assert((!WRLp || WRLp->getTheLoop<Loop>() == TheLoop) &&
+           "Inconsistent Loop information");
+  }
+
+  VPLoopRegion *createLoopRegion(VPLoop *VPLp) override {
+    return PlanUtils.createLoopRegion(VPLp);
+  }
+};
+
+class VPlanHCFGBuilderHIR : public VPlanHCFGBuilderBase {
+
+private:
+  /// The outermost loop to be vectorized.
+  HLLoop *TheLoop;
+
+  /// Loop header VPBasicBlock to HLLoop map. To be used when building loop
+  /// regions.
+  SmallDenseMap<VPBasicBlock *, HLLoop *, 4> Header2HLLoop;
+
+  VPRegionBlock *buildPlainCFG() override;
+
+public:
+  VPlanHCFGBuilderHIR(const WRNVecLoopNode *WRL, HLLoop *Lp, IntelVPlan *Plan,
+                      VPOVectorizationLegality *Legal)
+      : VPlanHCFGBuilderBase(WRL, Plan, Legal), TheLoop(Lp) {
+
+    Verifier = new VPlanVerifierHIR(Lp);
+    assert((!WRLp || WRLp->getTheLoop<HLLoop>() == TheLoop) &&
+           "Inconsistent Loop information");
+  }
+
+  VPLoopRegion *createLoopRegion(VPLoop *VPLp) override;
 };
 
 } // End vpo namespace
 } // end llvm namespace
 
-#endif //LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H
+#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_VPLANHCFGBUILDER_H

@@ -33,11 +33,11 @@ namespace vpo {
 
 class VPOVectorizationLegality {
 public:
-  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution& PSE,
+  VPOVectorizationLegality(Loop *L, PredicatedScalarEvolution &PSE,
                            TargetLibraryInfo *TLI, TargetTransformInfo *TTI,
                            Function *F, LoopInfo *LI, DominatorTree *DT)
-    : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI), DT(DT),
-    Induction(nullptr), WidestIndTy(nullptr) {}
+      : TheLoop(L), PSE(PSE), TLI(TLI), TTI(TTI), LI(LI), DT(DT),
+        Induction(nullptr), WidestIndTy(nullptr) {}
 
   /// Returns true if it is legal to vectorize this loop.
   bool canVectorize();

@@ -29,7 +29,6 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-#include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/FormattedStream.h"
@@ -42,6 +41,7 @@ namespace llvm {
 // namespace {
 class InnerLoopVectorizer;
 class LoopVectorizationLegality;
+class LoopInfo;
 //}
 
 namespace vpo {
@@ -699,7 +699,11 @@ public:
   /// that is actually instantiated. Values of this enumeration are kept in the
   /// VPBlockBase classes VBID field. They are used for concrete type
   /// identification.
-  typedef enum { VPBasicBlockSC, VPRegionBlockSC, VPLoopRegionSC } VPBlockTy;
+#if INTEL_CUSTOMIZATION
+  typedef enum { VPBasicBlockSC, VPRegionBlockSC, VPLoopRegionSC, VPLoopRegionHIRSC } VPBlockTy;
+#else
+  typedef enum { VPBasicBlockSC, VPRegionBlockSC } VPBlockTy;
+#endif
   virtual ~VPBlockBase() {}
 
   const std::string &getName() const { return Name; }
@@ -1171,8 +1175,13 @@ public:
 
   /// Method to support type inquiry through isa, cast, and dyn_cast.
   static inline bool classof(const VPBlockBase *V) {
+#if INTEL_CUSTOMIZATION
     return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC ||
-           V->getVPBlockID() == VPBlockBase::VPLoopRegionSC;
+           V->getVPBlockID() == VPBlockBase::VPLoopRegionSC ||
+           V->getVPBlockID() == VPBlockBase::VPLoopRegionHIRSC;
+#else
+    return V->getVPBlockID() == VPBlockBase::VPRegionBlockSC;
+#endif
   }
 
   VPBlockBase *getEntry() { return Entry; }
@@ -1591,8 +1600,15 @@ public:
     }
   }
 
+  /// \brief Set the parent of this block.
   void setBlockParent(VPBlockBase *Block, VPRegionBlock *Parent) {
     Block->Parent = Parent;
+  }
+
+  /// \brief Set the ConditionBitRecipe of this block.
+  void setBlockConditionBitRecipe(VPBlockBase *Block,
+                                  VPConditionBitRecipeBase *CBRecipe) {
+    Block->setConditionBitRecipe(CBRecipe, Plan);
   }
 
   /// \brief Remove all the predecessor of this block.

@@ -1141,7 +1141,13 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIROptPredicatePass());
       if (RunVPOOpt) {
         PM.add(createHIRVecDirInsertPass(OptLevel == 3));
-        PM.add(createVPODriverHIRPass());
+        if (EnableVPlanDriver) {
+          // Enable VPlan HIR Vectorizer
+          PM.add(createVPlanDriverHIRPass());
+        } else {
+          // Enable AVR HIR Vectorizer
+          PM.add(createVPODriverHIRPass());
+        }
       }
       PM.add(createHIRPostVecCompleteUnrollPass(OptLevel));
       PM.add(createHIRGeneralUnrollPass());

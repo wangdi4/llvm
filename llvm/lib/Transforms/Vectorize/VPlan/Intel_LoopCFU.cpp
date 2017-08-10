@@ -265,7 +265,7 @@ void VPLoopCFU::createBlockAndRecipeForTruePath(
 
   // Create a new VPBasicBlock and OneByOneRecipe for the instructions that will
   // be executed when the mask is true.
-  VPBasicBlock *TrueBlock = PlanUtils.splitBlock(EntryBlock, VPLI, *DT, *PDT);
+  VPBasicBlock *TrueBlock = PlanUtils.splitBlock(EntryBlock, VPLI, DT, PDT);
 
   // Find the last phi instruction in the original OneByOneRecipe for the loop
   // entry block. This is the point where the original recipe and the mask true
@@ -435,7 +435,7 @@ void VPLoopCFU::createBlockAndRecipesForFalsePath(
   // Create a VPBasicBlock and corresponding OneByOneRecipe for the mask false
   // path. 
   VPBasicBlock *FalseBlock =
-    PlanUtils.splitBlock(LastTrueBlock, VPLI, *DT, *PDT);
+    PlanUtils.splitBlock(LastTrueBlock, VPLI, DT, PDT);
 
   VPInstructionIR *BeginVPInst = cast<VPInstructionIR>(SplitPtIt);
   Instruction *BeginInst = BeginVPInst->getInstruction();
