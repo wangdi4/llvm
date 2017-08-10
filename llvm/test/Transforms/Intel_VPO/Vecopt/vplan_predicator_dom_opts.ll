@@ -1,5 +1,5 @@
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
-; RUN: opt %s -VPlanDriver -vplan-predicator-report -vplan-driver -S -o /dev/null | FileCheck %s -check-prefix=OPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -disable-predicator-opts -S -o /dev/null | FileCheck %s -check-prefix=NOOPT
+; RUN: opt %s -VPlanDriver -vplan-predicator-report -S -o /dev/null | FileCheck %s -check-prefix=OPT
 
 ; region1
 ; -------

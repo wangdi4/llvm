@@ -1,4 +1,5 @@
 ; RUN: opt -S -VPlanDriver < %s | FileCheck %s
+
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store

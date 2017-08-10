@@ -14,12 +14,12 @@
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
-; CHECK: %wide.load = load <4 x i32>, <4 x i32>* 
+; CHECK: %wide.load = load <4 x i32>, <4 x i32>*
 ; CHECK: %[[MASK:.*]] = icmp eq <4 x i32> %wide.load, zeroinitializer
 ; CHECK: %[[MASK_NOT:.*]] = xor <4 x i1> %[[MASK]], <i1 true, i1 true, i1 true, i1 true>
 ; CHECK: %[[WIDE_MASK_LOAD1:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK_NOT]]
 ; CHECK: %[[WIDE_MASK_LOAD2:.*]] = call <4 x i32> @llvm.masked.load.v4i32.p0v4i32{{.*}}, <4 x i1> %[[MASK]]
-; CHECK: %[[PRED_PFI:.*]] = select <4 x i1> %[[MASK]], <4 x i32> 
+; CHECK: %[[PRED_PFI:.*]] = select <4 x i1> %[[MASK]], <4 x i32>
 ; CHECK: store <4 x i32> %[[PRED_PFI]], <4 x i32>*
 
 define void @foo(i32* nocapture %arr1, i32* noalias nocapture %arr2, i32* noalias nocapture %arr3) {
@@ -63,7 +63,7 @@ for.end:                                          ; preds = %if.end
   call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %DIR.QUAL.LIST.END.2
 
-DIR.QUAL.LIST.END.2:     
+DIR.QUAL.LIST.END.2:
   ret void
 }
 
