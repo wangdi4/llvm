@@ -1009,17 +1009,41 @@ void CSAMemopOrdering::findParallelRegions(MachineFunction *MF){
 }
 
 void CSAMemopOrdering::eraseParallelIntrinsics(MachineFunction *MF){
+  bool needDeadPHIRemoval = false;
   std::set<MachineInstr*> toErase;
   for(MachineBasicBlock &mbb : *MF)
     for(MachineInstr &mi : mbb)
       if (mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_ENTRY ||
           mi.getOpcode() == CSA::CSA_PARALLEL_SECTION_EXIT  ||
           mi.getOpcode() == CSA::CSA_PARALLEL_REGION_ENTRY  ||
-          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT)
+          mi.getOpcode() == CSA::CSA_PARALLEL_REGION_EXIT) {
         toErase.insert(&mi);
+        // Any token users should also go away.
+        for (MachineInstr &tokenUser :
+            MRI->use_nodbg_instructions(mi.getOperand(0).getReg()))
+          toErase.insert(&tokenUser);
+      }
 
-  for(MachineInstr* mi : toErase)
+  for(MachineInstr* mi : toErase) {
     mi->eraseFromParentAndMarkDBGValuesForRemoval();
+    needDeadPHIRemoval = true;
+  }
+
+  // We've removed all of the intrinsics, but their tokens may have been
+  // flowing through PHI nodes. Look for dead PHI nodes and remove them.
+  while (needDeadPHIRemoval) {
+    needDeadPHIRemoval= false;
+    toErase.clear();
+    for(MachineBasicBlock &mbb: *MF)
+      for(MachineInstr &mi : mbb)
+        if (mi.isPHI() && mi.getOperand(0).isReg() &&
+            MRI->use_nodbg_empty(mi.getOperand(0).getReg()))
+          toErase.insert(&mi);
+    for(MachineInstr *mi : toErase) {
+      mi->eraseFromParentAndMarkDBGValuesForRemoval();
+      needDeadPHIRemoval = true;
+    }
+  }
 }
 
 const MachineInstr* CSAMemopOrdering::isInstrPostDomByIntrinsic(MachineInstr* entryInst, unsigned op,
