@@ -2131,17 +2131,17 @@ SDValue DAGCombiner::visitADDCARRY(SDNode *N) {
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
   SDValue CarryIn = N->getOperand(2);
+  SDLoc DL(N);
 
   // canonicalize constant to RHS
   ConstantSDNode *N0C = dyn_cast<ConstantSDNode>(N0);
   ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1);
   if (N0C && !N1C)
-    return DAG.getNode(ISD::ADDCARRY, SDLoc(N), N->getVTList(),
-                       N1, N0, CarryIn);
+    return DAG.getNode(ISD::ADDCARRY, DL, N->getVTList(), N1, N0, CarryIn);
 
   // fold (addcarry x, y, false) -> (uaddo x, y)
   if (isNullConstant(CarryIn))
-    return DAG.getNode(ISD::UADDO, SDLoc(N), N->getVTList(), N0, N1);
+    return DAG.getNode(ISD::UADDO, DL, N->getVTList(), N0, N1);
 
   if (SDValue Combined = visitADDCARRYLike(N0, N1, CarryIn, N))
     return Combined;
@@ -7361,14 +7361,8 @@ SDValue DAGCombiner::visitZERO_EXTEND(SDNode *N) {
                         N0.getValueSizeInBits(),
                         std::min(Op.getValueSizeInBits(),
                                  VT.getSizeInBits()));
-    if (TruncatedBits.isSubsetOf(Known.Zero)) {
-      if (VT.bitsGT(Op.getValueType()))
-        return DAG.getNode(ISD::ZERO_EXTEND, SDLoc(N), VT, Op);
-      if (VT.bitsLT(Op.getValueType()))
-        return DAG.getNode(ISD::TRUNCATE, SDLoc(N), VT, Op);
-
-      return Op;
-    }
+    if (TruncatedBits.isSubsetOf(Known.Zero))
+      return DAG.getZExtOrTrunc(Op, SDLoc(N), VT);
   }
 
   // fold (zext (truncate (load x))) -> (zext (smaller load x))
@@ -7415,14 +7409,8 @@ SDValue DAGCombiner::visitZERO_EXTEND(SDNode *N) {
     }
 
     if (!LegalOperations || TLI.isOperationLegal(ISD::AND, VT)) {
-      SDValue Op = N0.getOperand(0);
-      if (SrcVT.bitsLT(VT)) {
-        Op = DAG.getNode(ISD::ANY_EXTEND, SDLoc(N), VT, Op);
-        AddToWorklist(Op.getNode());
-      } else if (SrcVT.bitsGT(VT)) {
-        Op = DAG.getNode(ISD::TRUNCATE, SDLoc(N), VT, Op);
-        AddToWorklist(Op.getNode());
-      }
+      SDValue Op = DAG.getAnyExtOrTrunc(N0.getOperand(0), SDLoc(N), VT);
+      AddToWorklist(Op.getNode());
       return DAG.getZeroExtendInReg(Op, SDLoc(N), MinVT.getScalarType());
     }
   }
@@ -7436,11 +7424,7 @@ SDValue DAGCombiner::visitZERO_EXTEND(SDNode *N) {
                            N0.getValueType()) ||
        !TLI.isZExtFree(N0.getValueType(), VT))) {
     SDValue X = N0.getOperand(0).getOperand(0);
-    if (X.getValueType().bitsLT(VT)) {
-      X = DAG.getNode(ISD::ANY_EXTEND, SDLoc(X), VT, X);
-    } else if (X.getValueType().bitsGT(VT)) {
-      X = DAG.getNode(ISD::TRUNCATE, SDLoc(X), VT, X);
-    }
+    X = DAG.getAnyExtOrTrunc(X, SDLoc(X), VT);
     APInt Mask = cast<ConstantSDNode>(N0.getOperand(1))->getAPIntValue();
     Mask = Mask.zext(VT.getSizeInBits());
     SDLoc DL(N);
@@ -7665,14 +7649,8 @@ SDValue DAGCombiner::visitANY_EXTEND(SDNode *N) {
   }
 
   // fold (aext (truncate x))
-  if (N0.getOpcode() == ISD::TRUNCATE) {
-    SDValue TruncOp = N0.getOperand(0);
-    if (TruncOp.getValueType() == VT)
-      return TruncOp; // x iff x size == zext size.
-    if (TruncOp.getValueType().bitsGT(VT))
-      return DAG.getNode(ISD::TRUNCATE, SDLoc(N), VT, TruncOp);
-    return DAG.getNode(ISD::ANY_EXTEND, SDLoc(N), VT, TruncOp);
-  }
+  if (N0.getOpcode() == ISD::TRUNCATE)
+    return DAG.getAnyExtOrTrunc(N0.getOperand(0), SDLoc(N), VT);
 
   // Fold (aext (and (trunc x), cst)) -> (and x, cst)
   // if the trunc is not free.
@@ -7683,11 +7661,7 @@ SDValue DAGCombiner::visitANY_EXTEND(SDNode *N) {
                           N0.getValueType())) {
     SDLoc DL(N);
     SDValue X = N0.getOperand(0).getOperand(0);
-    if (X.getValueType().bitsLT(VT)) {
-      X = DAG.getNode(ISD::ANY_EXTEND, DL, VT, X);
-    } else if (X.getValueType().bitsGT(VT)) {
-      X = DAG.getNode(ISD::TRUNCATE, DL, VT, X);
-    }
+    X = DAG.getAnyExtOrTrunc(X, DL, VT);
     APInt Mask = cast<ConstantSDNode>(N0.getOperand(1))->getAPIntValue();
     Mask = Mask.zext(VT.getSizeInBits());
     return DAG.getNode(ISD::AND, DL, VT,

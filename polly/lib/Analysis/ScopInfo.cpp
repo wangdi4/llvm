@@ -1039,8 +1039,8 @@ void MemoryAccess::setFortranArrayDescriptor(GlobalValue *FAD) {
 
 // TODO: write checks to make sure it looks _exactly_ like a Fortran array
 // descriptor
-#ifdef NDEBUG
-  StructType *ty = dyn_cast<StructType>(Descriptor->getValueType());
+#ifndef NDEBUG
+  StructType *ty = dyn_cast<StructType>(FAD->getValueType());
   assert(ty && "expected value of type Fortran array descriptor");
   assert(ty->hasName() && ty->getName().startswith("struct.array") &&
          "expected global to follow Fortran array descriptor type naming "
@@ -1283,6 +1283,19 @@ void ScopStmt::buildAccessRelations() {
                                            ElementType, Access->Sizes, Ty);
     Access->buildAccessRelation(SAI);
   }
+}
+
+MemoryAccess *ScopStmt::lookupPHIReadOf(PHINode *PHI) const {
+  for (auto *MA : *this) {
+    if (!MA->isRead())
+      continue;
+    if (!MA->isLatestAnyPHIKind())
+      continue;
+
+    if (MA->getAccessInstruction() == PHI)
+      return MA;
+  }
+  return nullptr;
 }
 
 void ScopStmt::addAccess(MemoryAccess *Access) {
@@ -1858,6 +1871,24 @@ void ScopStmt::print(raw_ostream &OS) const {
 
 void ScopStmt::dump() const { print(dbgs()); }
 
+void ScopStmt::removeAccessData(MemoryAccess *MA) {
+  if (MA->isRead() && MA->isOriginalValueKind()) {
+    bool Found = ValueReads.erase(MA->getAccessValue());
+    (void)Found;
+    assert(Found && "Expected access data not found");
+  }
+  if (MA->isWrite() && MA->isOriginalValueKind()) {
+    bool Found = ValueWrites.erase(cast<Instruction>(MA->getAccessValue()));
+    (void)Found;
+    assert(Found && "Expected access data not found");
+  }
+  if (MA->isWrite() && MA->isOriginalAnyPHIKind()) {
+    bool Found = PHIWrites.erase(cast<PHINode>(MA->getAccessInstruction()));
+    (void)Found;
+    assert(Found && "Expected access data not found");
+  }
+}
+
 void ScopStmt::removeMemoryAccess(MemoryAccess *MA) {
   // Remove the memory accesses from this statement together with all scalar
   // accesses that were caused by it. MemoryKind::Value READs have no access
@@ -1868,6 +1899,10 @@ void ScopStmt::removeMemoryAccess(MemoryAccess *MA) {
   auto Predicate = [&](MemoryAccess *Acc) {
     return Acc->getAccessInstruction() == MA->getAccessInstruction();
   };
+  for (auto *MA : MemAccs) {
+    if (Predicate(MA))
+      removeAccessData(MA);
+  }
   MemAccs.erase(std::remove_if(MemAccs.begin(), MemAccs.end(), Predicate),
                 MemAccs.end());
   InstructionToAccess.erase(MA->getAccessInstruction());
@@ -1877,6 +1912,8 @@ void ScopStmt::removeSingleMemoryAccess(MemoryAccess *MA) {
   auto MAIt = std::find(MemAccs.begin(), MemAccs.end(), MA);
   assert(MAIt != MemAccs.end());
   MemAccs.erase(MAIt);
+
+  removeAccessData(MA);
 
   auto It = InstructionToAccess.find(MA->getAccessInstruction());
   if (It != InstructionToAccess.end()) {
@@ -4710,7 +4747,7 @@ void ScopInfoRegionPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<RegionInfoPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<ScopDetection>();
+  AU.addRequiredTransitive<ScopDetectionWrapperPass>();
   AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<AssumptionCacheTracker>();
   AU.setPreservesAll();
@@ -4736,7 +4773,7 @@ void updateLoopCountStatistic(ScopDetection::LoopStats Stats) {
 }
 
 bool ScopInfoRegionPass::runOnRegion(Region *R, RGPassManager &RGM) {
-  auto &SD = getAnalysis<ScopDetection>();
+  auto &SD = getAnalysis<ScopDetectionWrapperPass>().getSD();
 
   if (!SD.isMaxRegionInScop(*R))
     return false;
@@ -4780,7 +4817,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker);
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(RegionInfoPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(ScopDetection);
+INITIALIZE_PASS_DEPENDENCY(ScopDetectionWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
 INITIALIZE_PASS_END(ScopInfoRegionPass, "polly-scops",
                     "Polly - Create polyhedral description of Scops", false,
@@ -4792,14 +4829,14 @@ void ScopInfoWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<RegionInfoPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<ScopDetection>();
+  AU.addRequiredTransitive<ScopDetectionWrapperPass>();
   AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<AssumptionCacheTracker>();
   AU.setPreservesAll();
 }
 
 bool ScopInfoWrapperPass::runOnFunction(Function &F) {
-  auto &SD = getAnalysis<ScopDetection>();
+  auto &SD = getAnalysis<ScopDetectionWrapperPass>().getSD();
 
   auto &SE = getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   auto &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -4851,7 +4888,7 @@ INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker);
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(RegionInfoPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass);
-INITIALIZE_PASS_DEPENDENCY(ScopDetection);
+INITIALIZE_PASS_DEPENDENCY(ScopDetectionWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass);
 INITIALIZE_PASS_END(
     ScopInfoWrapperPass, "polly-function-scops",

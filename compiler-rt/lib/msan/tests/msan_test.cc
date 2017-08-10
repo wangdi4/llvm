@@ -1581,7 +1581,8 @@ TEST(MemorySanitizer, strdup) {
 TEST(MemorySanitizer, strndup) {
   char buf[4] = "abc";
   __msan_poison(buf + 2, sizeof(*buf));
-  char *x = strndup(buf, 3);
+  char *x;
+  EXPECT_UMR(x = strndup(buf, 3));
   EXPECT_NOT_POISONED(x[0]);
   EXPECT_NOT_POISONED(x[1]);
   EXPECT_POISONED(x[2]);
@@ -1593,7 +1594,8 @@ TEST(MemorySanitizer, strndup_short) {
   char buf[4] = "abc";
   __msan_poison(buf + 1, sizeof(*buf));
   __msan_poison(buf + 2, sizeof(*buf));
-  char *x = strndup(buf, 2);
+  char *x;
+  EXPECT_UMR(x = strndup(buf, 2));
   EXPECT_NOT_POISONED(x[0]);
   EXPECT_POISONED(x[1]);
   EXPECT_NOT_POISONED(x[2]);
@@ -3722,8 +3724,10 @@ TEST(MemorySanitizer, ICmpRelational) {
 
   EXPECT_POISONED(poisoned(6, 0xF) > poisoned(7, 0));
   EXPECT_POISONED(poisoned(0xF, 0xF) > poisoned(7, 0));
-
-  EXPECT_NOT_POISONED(poisoned(-1, 0x80000000U) >= poisoned(-1, 0U));
+  // Note that "icmp op X, Y" is approximated with "or shadow(X), shadow(Y)"
+  // and therefore may generate false positives in some cases, e.g. the
+  // following one:
+  // EXPECT_NOT_POISONED(poisoned(-1, 0x80000000U) >= poisoned(-1, 0U));
 }
 
 #if MSAN_HAS_M128
