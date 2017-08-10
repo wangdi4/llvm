@@ -2131,17 +2131,17 @@ SDValue DAGCombiner::visitADDCARRY(SDNode *N) {
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
   SDValue CarryIn = N->getOperand(2);
+  SDLoc DL(N);
 
   // canonicalize constant to RHS
   ConstantSDNode *N0C = dyn_cast<ConstantSDNode>(N0);
   ConstantSDNode *N1C = dyn_cast<ConstantSDNode>(N1);
   if (N0C && !N1C)
-    return DAG.getNode(ISD::ADDCARRY, SDLoc(N), N->getVTList(),
-                       N1, N0, CarryIn);
+    return DAG.getNode(ISD::ADDCARRY, DL, N->getVTList(), N1, N0, CarryIn);
 
   // fold (addcarry x, y, false) -> (uaddo x, y)
   if (isNullConstant(CarryIn))
-    return DAG.getNode(ISD::UADDO, SDLoc(N), N->getVTList(), N0, N1);
+    return DAG.getNode(ISD::UADDO, DL, N->getVTList(), N0, N1);
 
   if (SDValue Combined = visitADDCARRYLike(N0, N1, CarryIn, N))
     return Combined;
@@ -12783,20 +12783,12 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
     LoadSDNode *Ld = dyn_cast<LoadSDNode>(St->getValue());
     if (!Ld) break;
 
-    // Loads must only have one use.
-    if (!Ld->hasNUsesOfValue(1, 0))
-      break;
-
     // The memory operands must not be volatile.
     if (Ld->isVolatile() || Ld->isIndexed())
       break;
 
     // We do not accept ext loads.
     if (Ld->getExtensionType() != ISD::NON_EXTLOAD)
-      break;
-
-    // The stored memory type must be the same.
-    if (Ld->getMemoryVT() != MemVT)
       break;
 
     BaseIndexOffset LdPtr = BaseIndexOffset::match(Ld->getBasePtr(), DAG);
@@ -12930,8 +12922,28 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
   // Transfer chain users from old loads to the new load.
   for (unsigned i = 0; i < NumElem; ++i) {
     LoadSDNode *Ld = cast<LoadSDNode>(LoadNodes[i].MemNode);
-    DAG.ReplaceAllUsesOfValueWith(SDValue(Ld, 1),
-                                  SDValue(NewLoad.getNode(), 1));
+    if (SDValue(Ld, 0).hasOneUse()) {
+      // Only the original store used value so just replace chain.
+      DAG.ReplaceAllUsesOfValueWith(SDValue(Ld, 1),
+                                    SDValue(NewLoad.getNode(), 1));
+    } else {
+      // Multiple uses exist. Keep the old load in line with the new
+      // load, i.e. Replace chains using Ld's chain with a
+      // TokenFactor. Create a temporary node to serve as a placer so
+      // we do not replace the reference to original Load's chain in
+      // the TokenFactor.
+      SDValue TokenDummy = DAG.getNode(ISD::DummyNode, SDLoc(Ld), MVT::Other);
+
+      // Replace all references to Load's output chain to TokenDummy
+      CombineTo(Ld, SDValue(Ld, 0), TokenDummy, false);
+      SDValue Token =
+          DAG.getNode(ISD::TokenFactor, SDLoc(Ld), MVT::Other, SDValue(Ld, 1),
+                      SDValue(NewLoad.getNode(), 1));
+      // Replace all uses of TokenDummy from itself to Ld's output chain.
+      CombineTo(TokenDummy.getNode(), Token);
+      assert(TokenDummy.use_empty() && "TokenDummy should be unused");
+      AddToWorklist(Ld);
+    }
   }
 
   // Replace the all stores with the new store.
