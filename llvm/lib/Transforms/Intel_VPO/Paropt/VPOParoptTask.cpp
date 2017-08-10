@@ -88,6 +88,24 @@ bool VPOParoptTransform::genRedCodeForTaskLoop(WRegionNode *W) {
   return Changed;
 }
 
+// Generate the code to update the last privates for taskloop.
+void VPOParoptTransform::genLprivFiniForTaskLoop(Value *Dst, Value *Src,
+                                                 Instruction *InsertPt) {
+  GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(Src);
+  Type *ScalarTy = Gep->getResultElementType();
+  const DataLayout &DL = InsertPt->getModule()->getDataLayout();
+
+  IRBuilder<> Builder(InsertPt);
+  if (!DL.isLegalInteger(DL.getTypeSizeInBits(ScalarTy)) ||
+      DL.getTypeSizeInBits(ScalarTy) % 8 != 0) {
+    VPOParoptUtils::genMemcpy(Dst, Src, DL, DL.getABITypeAlignment(ScalarTy),
+                              InsertPt->getParent());
+  } else {
+    LoadInst *Load = Builder.CreateLoad(Src);
+    Builder.CreateStore(Load, Dst);
+  }
+}
+
 // Replace the shared variable reference with the thunk field
 // derefernce
 bool VPOParoptTransform::genSharedCodeForTaskLoop(WRegionNode *W) {
@@ -283,7 +301,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 
   KmpPrivatesTy = StructType::create(
       C, makeArrayRef(KmpPrivatesIndices.begin(), KmpPrivatesIndices.end()),
-      "struct..kmp_privates.t", false);
+      "struct.kmp_privates.t", false);
 
   KmpSharedTy = StructType::create(
       C, makeArrayRef(SharedIndices.begin(), SharedIndices.end()),
@@ -303,7 +321,8 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
-    StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr) {
+    StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr,
+    Value *&LastIterGep) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
 
@@ -372,14 +391,13 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   Value *StrideGep =
       Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
   Value *StrideLd = Builder.CreateLoad(StrideGep);
+  */
 
   Indices.clear();
   Indices.push_back(Builder.getInt32(0));
   Indices.push_back(Builder.getInt32(8));
-  Value *LastIterGep =
-      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
-  Value *LastIterLd = Builder.CreateLoad(LastIterGep);
-  */
+  LastIterGep = Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+
   Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
                        ->getIncomingValue(0)
                        ->getType();
@@ -430,7 +448,13 @@ bool VPOParoptTransform::genTaskLoopInitCode(
       Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
       Value *ThunkPrivatesGep =
           Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+      Value *ThunkSharedGep =
+          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
+      Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+      // Parm is used to record the address of last private in the compiler
+      // shared variables in the thunk.
       LprivI->setNew(ThunkPrivatesGep);
+      LprivI->setParm(ThunkSharedVal);
     }
   }
 
@@ -788,7 +812,7 @@ Function *VPOParoptTransform::genTaskLoopRedInitFunc(WRegionNode *W,
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
   Function *FnTaskLoopRedInit = Function::Create(
-      TaskLoopRedInitFnTy, GlobalValue::ExternalLinkage,
+      TaskLoopRedInitFnTy, GlobalValue::InternalLinkage,
       F->getName() + "_task_red_init_" + Twine(W->getNumber()), M);
   FnTaskLoopRedInit->setCallingConv(CallingConv::C);
 
@@ -826,7 +850,7 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
       FunctionType::get(Type::getVoidTy(C), TaskLoopRedInitParams, false);
 
   Function *FnTaskLoopRedComb = Function::Create(
-      TaskLoopRedInitFnTy, GlobalValue::ExternalLinkage,
+      TaskLoopRedInitFnTy, GlobalValue::InternalLinkage,
       F->getName() + "_task_red_comb_" + Twine(W->getNumber()), M);
   FnTaskLoopRedComb->setCallingConv(CallingConv::C);
 
@@ -852,6 +876,64 @@ Function *VPOParoptTransform::genTaskLoopRedCombFunc(WRegionNode *W,
   cast<AllocaInst>(NewRedInst)->eraseFromParent();
 
   return FnTaskLoopRedComb;
+}
+
+// Generate the function for the last private so that the runtime can call it to
+// set the last iteration flag.
+Function *
+VPOParoptTransform::genLastPrivateTaskDup(WRegionNode *W,
+                                          StructType *KmpTaskTTWithPrivatesTy) {
+
+  LastprivateClause &LprivClause = W->getLpriv();
+  if (LprivClause.empty())
+    return nullptr;
+
+  LLVMContext &C = F->getContext();
+  Module *M = F->getParent();
+
+  Type *TaskDupParams[] = {PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
+                           PointerType::getUnqual(KmpTaskTTWithPrivatesTy),
+                           Type::getInt32Ty(C)};
+  FunctionType *TaskDupFnTy =
+      FunctionType::get(Type::getVoidTy(C), TaskDupParams, false);
+
+  Function *FnTaskDup =
+      Function::Create(TaskDupFnTy, GlobalValue::InternalLinkage,
+                       F->getName() + "_task_dup_" + Twine(W->getNumber()), M);
+  FnTaskDup->setCallingConv(CallingConv::C);
+
+  auto I = FnTaskDup->arg_begin();
+  Value *Arg1 = &*I;
+  I++;
+  I++;
+  Value *Arg3 = &*I;
+
+  BasicBlock *EntryBB = BasicBlock::Create(C, "entry", FnTaskDup);
+
+  DominatorTree DT;
+  DT.recalculate(*FnTaskDup);
+
+  IRBuilder<> Builder(EntryBB);
+
+  SmallVector<Value *, 4> Indices;
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(0));
+  Value *BaseTaskTGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTWithPrivatesTy, Arg1, Indices);
+
+  StructType *KmpTaskTTy =
+      dyn_cast<StructType>(KmpTaskTTWithPrivatesTy->getElementType(0));
+
+  Indices.clear();
+  Indices.push_back(Builder.getInt32(0));
+  Indices.push_back(Builder.getInt32(8));
+  Value *LastIterGep =
+      Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
+
+  Builder.CreateStore(Arg3, LastIterGep);
+  Builder.CreateRetVoid();
+
+  return FnTaskDup;
 }
 
 // Generate the call __kmpc_task_reduction_init and the corresponding
@@ -1022,10 +1104,10 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
                              KmpTaskTTWithPrivatesTy, NewCall);
-
-    VPOParoptUtils::genKmpcTaskLoop(W, IdentTy, TidPtr, TaskAllocCI, LBPtr,
-                                    UBPtr, STPtr, KmpTaskTTWithPrivatesTy,
-                                    NewCall, Mode & OmpTbb);
+    VPOParoptUtils::genKmpcTaskLoop(
+        W, IdentTy, TidPtr, TaskAllocCI, LBPtr, UBPtr, STPtr,
+        KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
+        genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
 
     NewCall->eraseFromParent();
 

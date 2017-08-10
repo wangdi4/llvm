@@ -147,7 +147,7 @@ private:
   bool genFirstPrivatizationCode(WRegionNode *W);
 
   /// \brief Generate code for lastprivate variables
-  bool genLastPrivatizationCode(WRegionNode *W, AllocaInst *IsLastVal);
+  bool genLastPrivatizationCode(WRegionNode *W, Value *IsLastVal);
 
   /// \brief A utility to privatize a variable within the region.
   /// It creates and returns an AllocaInst for \p PrivValue.
@@ -207,6 +207,7 @@ private:
 
   /// \brief Generate the lastprivate update code.
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+  void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
 
   /// \brief Generate loop schdudeling code.
   /// \p IsLastVal is an output from this routine and is used to emit
@@ -217,7 +218,7 @@ private:
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                            StructType *&KmpSharedTy, Value *&LBPtr,
-                           Value *&UBPtr, Value *&STPtr);
+                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep);
 
   /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
@@ -265,6 +266,11 @@ private:
 
   /// \brief Generate the outline function for the reduction update
   Function *genTaskLoopRedCombFunc(WRegionNode *W, ReductionItem *RedI);
+
+  /// \brief Generate the outline function to set the last iteration
+  //  flag at runtime.
+  Function *genLastPrivateTaskDup(WRegionNode *W,
+                                  StructType *KmpTaskTTWithPrivatesTy);
 
   /// \brief Annotate the alias scope data for the references of the
   /// firstprivate, lastprivate, private shared, reduction variables

@@ -279,11 +279,12 @@ bool VPOParoptTransform::paroptTransforms() {
         if ((Mode & OmpPar) && (Mode & ParTrans)) {
           StructType *KmpTaskTTWithPrivatesTy;
           StructType *KmpSharedTy;
-          Value *LBPtr, *UBPtr, *STPtr;
+          Value *LBPtr, *UBPtr, *STPtr, *LastIterGep;
           Changed = genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
-                                        LBPtr, UBPtr, STPtr);
+                                        LBPtr, UBPtr, STPtr, LastIterGep);
           Changed |= genPrivatizationCode(W);
           Changed |= genFirstPrivatizationCode(W);
+          Changed |= genLastPrivatizationCode(W, LastIterGep);
           Changed |= genSharedCodeForTaskLoop(W);
           Changed |= genRedCodeForTaskLoop(W);
           Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
@@ -1215,7 +1216,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
             Builder.CreateStore(Builder.CreateLoad(NewPrivInst),
                                 FprivI->getNew());
           }
-        } else
+        } else 
           FprivI->setNew(LprivI->getNew());
       } else {
         NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
@@ -1249,7 +1250,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
 }
 
 bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
-                                                  AllocaInst *IsLastVal) {
+                                                  Value *IsLastVal) {
   bool Changed = false;
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genLastPrivatizationCode\n");
@@ -1294,8 +1295,12 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
       else
         NewPrivInst = LprivI->getNew();
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
-      LprivI->setNew(NewPrivInst);
-      genLprivFini(LprivI, BeginBB->getTerminator());
+      if (!ForTaskLoop) {
+        LprivI->setNew(NewPrivInst);
+        genLprivFini(LprivI, BeginBB->getTerminator());
+      } else
+        genLprivFiniForTaskLoop(LprivI->getParm(), LprivI->getNew(),
+                                BeginBB->getTerminator());
     }
     Changed = true;
     W->resetBBSet(); // Invalidate BBSet

@@ -434,7 +434,8 @@ public:
                                      Value *TidPtr, Value *TaskAlloc,
                                      Value *LBPtr, Value *UBPtr, Value *STPtr,
                                      StructType *KmpTaskTTWithPrivatesTy,
-                                     Instruction *InsertPt, bool UseTbb);
+                                     Instruction *InsertPt, bool UseTbb,
+                                     Function *FnTaskDup);
 
     /// \brief This function generates a call as follows.
     ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)

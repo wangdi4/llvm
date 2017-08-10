@@ -332,7 +332,8 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
                                           Value *LBPtr, Value *UBPtr,
                                           Value *STPtr,
                                           StructType *KmpTaskTTWithPrivatesTy,
-                                          Instruction *InsertPt, bool UseTbb) {
+                                          Instruction *InsertPt, bool UseTbb,
+                                          Function *FnTaskDup) {
   IRBuilder<> Builder(InsertPt);
   BasicBlock *B = W->getEntryBBlock();
   BasicBlock *E = W->getExitBBlock();
@@ -398,17 +399,13 @@ CallInst *VPOParoptUtils::genKmpcTaskLoop(WRegionNode *W, StructType *IdentTy,
     llvm_unreachable("genKmpcTaskLoop: unexpected SchedCode");
   }
 
-  Value *TaskLoopArgs[] = {Loc,
-                           Builder.CreateLoad(TidPtr),
-                           TaskAlloc,
-                           Builder.getInt32(1),
-                           LBGep,
-                           UBGep,
-                           STLoad,
-                           Builder.getInt32(0),
-                           Builder.getInt32(W->getSchedCode()),
-                           GrainSizeV,
-                           ConstantPointerNull::get(Type::getInt8PtrTy(C))};
+  Value *TaskLoopArgs[] = {
+      Loc, Builder.CreateLoad(TidPtr), TaskAlloc, Builder.getInt32(1), LBGep,
+      UBGep, STLoad, Builder.getInt32(0), Builder.getInt32(W->getSchedCode()),
+      GrainSizeV,
+      (FnTaskDup == nullptr)
+          ? ConstantPointerNull::get(Type::getInt8PtrTy(C))
+          : Builder.CreateBitCast(FnTaskDup, Type::getInt8PtrTy(C))};
   Type *TypeParams[] = {Loc->getType(),
                         Type::getInt32Ty(C),
                         Type::getInt8PtrTy(C),
