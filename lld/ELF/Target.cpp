@@ -124,8 +124,6 @@ public:
   int64_t getImplicitAddend(const uint8_t *Buf, uint32_t Type) const override;
   void writeGotPltHeader(uint8_t *Buf) const override;
   uint32_t getDynRel(uint32_t Type) const override;
-  bool isTlsLocalDynamicRel(uint32_t Type) const override;
-  bool isTlsInitialExecRel(uint32_t Type) const override;
   void writeGotPlt(uint8_t *Buf, const SymbolBody &S) const override;
   void writeIgotPlt(uint8_t *Buf, const SymbolBody &S) const override;
   void writePltHeader(uint8_t *Buf) const override;
@@ -147,8 +145,6 @@ public:
   RelExpr getRelExpr(uint32_t Type, const SymbolBody &S,
                      const uint8_t *Loc) const override;
   bool isPicRel(uint32_t Type) const override;
-  bool isTlsLocalDynamicRel(uint32_t Type) const override;
-  bool isTlsInitialExecRel(uint32_t Type) const override;
   void writeGotPltHeader(uint8_t *Buf) const override;
   void writeGotPlt(uint8_t *Buf, const SymbolBody &S) const override;
   void writePltHeader(uint8_t *Buf) const override;
@@ -193,7 +189,6 @@ public:
   RelExpr getRelExpr(uint32_t Type, const SymbolBody &S,
                      const uint8_t *Loc) const override;
   bool isPicRel(uint32_t Type) const override;
-  bool isTlsInitialExecRel(uint32_t Type) const override;
   void writeGotPlt(uint8_t *Buf, const SymbolBody &S) const override;
   void writePltHeader(uint8_t *Buf) const override;
   void writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr, uint64_t PltEntryAddr,
@@ -303,10 +298,6 @@ bool TargetInfo::needsThunk(RelExpr Expr, uint32_t RelocType,
   return false;
 }
 
-bool TargetInfo::isTlsInitialExecRel(uint32_t Type) const { return false; }
-
-bool TargetInfo::isTlsLocalDynamicRel(uint32_t Type) const { return false; }
-
 void TargetInfo::writeIgotPlt(uint8_t *Buf, const SymbolBody &S) const {
   writeGotPlt(Buf, S);
 }
@@ -360,6 +351,15 @@ X86TargetInfo::X86TargetInfo() {
 
 RelExpr X86TargetInfo::getRelExpr(uint32_t Type, const SymbolBody &S,
                                   const uint8_t *Loc) const {
+  // There are 4 different TLS variable models with varying degrees of
+  // flexibility and performance. LocalExec and InitialExec models are fast but
+  // less-flexible models. They cannot be used for dlopen(). If they are in use,
+  // we set DF_STATIC_TLS in the ELF header so that the runtime can reject such
+  // DSOs.
+  if (Type == R_386_TLS_LE || Type == R_386_TLS_LE_32 || Type == R_386_TLS_IE ||
+      Type == R_386_TLS_GOTIE)
+    Config->HasStaticTlsModel = true;
+
   switch (Type) {
   case R_386_8:
   case R_386_16:
@@ -449,14 +449,6 @@ uint32_t X86TargetInfo::getDynRel(uint32_t Type) const {
   if (Type == R_386_TLS_LE_32)
     return R_386_TLS_TPOFF32;
   return Type;
-}
-
-bool X86TargetInfo::isTlsLocalDynamicRel(uint32_t Type) const {
-  return Type == R_386_TLS_LDO_32 || Type == R_386_TLS_LDM;
-}
-
-bool X86TargetInfo::isTlsInitialExecRel(uint32_t Type) const {
-  return Type == R_386_TLS_IE || Type == R_386_TLS_GOTIE;
 }
 
 void X86TargetInfo::writePltHeader(uint8_t *Buf) const {
@@ -769,17 +761,6 @@ void X86_64TargetInfo<ELFT>::writePlt(uint8_t *Buf, uint64_t GotPltEntryAddr,
 template <class ELFT>
 bool X86_64TargetInfo<ELFT>::isPicRel(uint32_t Type) const {
   return Type != R_X86_64_PC32 && Type != R_X86_64_32;
-}
-
-template <class ELFT>
-bool X86_64TargetInfo<ELFT>::isTlsInitialExecRel(uint32_t Type) const {
-  return Type == R_X86_64_GOTTPOFF;
-}
-
-template <class ELFT>
-bool X86_64TargetInfo<ELFT>::isTlsLocalDynamicRel(uint32_t Type) const {
-  return Type == R_X86_64_DTPOFF32 || Type == R_X86_64_DTPOFF64 ||
-         Type == R_X86_64_TLSLD;
 }
 
 template <class ELFT>
@@ -1324,8 +1305,8 @@ RelExpr AArch64TargetInfo::getRelExpr(uint32_t Type, const SymbolBody &S,
     return R_ABS;
   case R_AARCH64_TLSDESC_ADR_PAGE21:
     return R_TLSDESC_PAGE;
-  case R_AARCH64_TLSDESC_LD64_LO12_NC:
-  case R_AARCH64_TLSDESC_ADD_LO12_NC:
+  case R_AARCH64_TLSDESC_LD64_LO12:
+  case R_AARCH64_TLSDESC_ADD_LO12:
     return R_TLSDESC;
   case R_AARCH64_TLSDESC_CALL:
     return R_TLSDESC_CALL;
@@ -1376,16 +1357,11 @@ bool AArch64TargetInfo::usesOnlyLowPageBits(uint32_t Type) const {
   case R_AARCH64_LDST32_ABS_LO12_NC:
   case R_AARCH64_LDST64_ABS_LO12_NC:
   case R_AARCH64_LDST8_ABS_LO12_NC:
-  case R_AARCH64_TLSDESC_ADD_LO12_NC:
-  case R_AARCH64_TLSDESC_LD64_LO12_NC:
+  case R_AARCH64_TLSDESC_ADD_LO12:
+  case R_AARCH64_TLSDESC_LD64_LO12:
   case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
     return true;
   }
-}
-
-bool AArch64TargetInfo::isTlsInitialExecRel(uint32_t Type) const {
-  return Type == R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21 ||
-         Type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC;
 }
 
 bool AArch64TargetInfo::isPicRel(uint32_t Type) const {
@@ -1503,7 +1479,7 @@ void AArch64TargetInfo::relocateOne(uint8_t *Loc, uint32_t Type,
     break;
   case R_AARCH64_LD64_GOT_LO12_NC:
   case R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
-  case R_AARCH64_TLSDESC_LD64_LO12_NC:
+  case R_AARCH64_TLSDESC_LD64_LO12:
     checkAlignment<8>(Loc, Val, Type);
     or32le(Loc, (Val & 0xFF8) << 7);
     break;
@@ -1543,7 +1519,7 @@ void AArch64TargetInfo::relocateOne(uint8_t *Loc, uint32_t Type,
     or32AArch64Imm(Loc, Val >> 12);
     break;
   case R_AARCH64_TLSLE_ADD_TPREL_LO12_NC:
-  case R_AARCH64_TLSDESC_ADD_LO12_NC:
+  case R_AARCH64_TLSDESC_ADD_LO12:
     or32AArch64Imm(Loc, Val);
     break;
   default:
@@ -1555,8 +1531,8 @@ void AArch64TargetInfo::relaxTlsGdToLe(uint8_t *Loc, uint32_t Type,
                                        uint64_t Val) const {
   // TLSDESC Global-Dynamic relocation are in the form:
   //   adrp    x0, :tlsdesc:v             [R_AARCH64_TLSDESC_ADR_PAGE21]
-  //   ldr     x1, [x0, #:tlsdesc_lo12:v  [R_AARCH64_TLSDESC_LD64_LO12_NC]
-  //   add     x0, x0, :tlsdesc_los:v     [_AARCH64_TLSDESC_ADD_LO12_NC]
+  //   ldr     x1, [x0, #:tlsdesc_lo12:v  [R_AARCH64_TLSDESC_LD64_LO12]
+  //   add     x0, x0, :tlsdesc_los:v     [R_AARCH64_TLSDESC_ADD_LO12]
   //   .tlsdesccall                       [R_AARCH64_TLSDESC_CALL]
   //   blr     x1
   // And it can optimized to:
@@ -1567,14 +1543,14 @@ void AArch64TargetInfo::relaxTlsGdToLe(uint8_t *Loc, uint32_t Type,
   checkUInt<32>(Loc, Val, Type);
 
   switch (Type) {
-  case R_AARCH64_TLSDESC_ADD_LO12_NC:
+  case R_AARCH64_TLSDESC_ADD_LO12:
   case R_AARCH64_TLSDESC_CALL:
     write32le(Loc, 0xd503201f); // nop
     return;
   case R_AARCH64_TLSDESC_ADR_PAGE21:
     write32le(Loc, 0xd2a00000 | (((Val >> 16) & 0xffff) << 5)); // movz
     return;
-  case R_AARCH64_TLSDESC_LD64_LO12_NC:
+  case R_AARCH64_TLSDESC_LD64_LO12:
     write32le(Loc, 0xf2800000 | ((Val & 0xffff) << 5)); // movk
     return;
   default:
@@ -1586,8 +1562,8 @@ void AArch64TargetInfo::relaxTlsGdToIe(uint8_t *Loc, uint32_t Type,
                                        uint64_t Val) const {
   // TLSDESC Global-Dynamic relocation are in the form:
   //   adrp    x0, :tlsdesc:v             [R_AARCH64_TLSDESC_ADR_PAGE21]
-  //   ldr     x1, [x0, #:tlsdesc_lo12:v  [R_AARCH64_TLSDESC_LD64_LO12_NC]
-  //   add     x0, x0, :tlsdesc_los:v     [_AARCH64_TLSDESC_ADD_LO12_NC]
+  //   ldr     x1, [x0, #:tlsdesc_lo12:v  [R_AARCH64_TLSDESC_LD64_LO12]
+  //   add     x0, x0, :tlsdesc_los:v     [R_AARCH64_TLSDESC_ADD_LO12]
   //   .tlsdesccall                       [R_AARCH64_TLSDESC_CALL]
   //   blr     x1
   // And it can optimized to:
@@ -1597,7 +1573,7 @@ void AArch64TargetInfo::relaxTlsGdToIe(uint8_t *Loc, uint32_t Type,
   //   nop
 
   switch (Type) {
-  case R_AARCH64_TLSDESC_ADD_LO12_NC:
+  case R_AARCH64_TLSDESC_ADD_LO12:
   case R_AARCH64_TLSDESC_CALL:
     write32le(Loc, 0xd503201f); // nop
     break;
@@ -1605,7 +1581,7 @@ void AArch64TargetInfo::relaxTlsGdToIe(uint8_t *Loc, uint32_t Type,
     write32le(Loc, 0x90000000); // adrp
     relocateOne(Loc, R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21, Val);
     break;
-  case R_AARCH64_TLSDESC_LD64_LO12_NC:
+  case R_AARCH64_TLSDESC_LD64_LO12:
     write32le(Loc, 0xf9400000); // ldr
     relocateOne(Loc, R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC, Val);
     break;

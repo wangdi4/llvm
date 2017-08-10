@@ -1,11 +1,5 @@
 set(LLVM_NO_RTTI 1)
 
-set(POLLY_JSON_FILES
-    External/JSON/json_reader.cpp
-    External/JSON/json_value.cpp
-    External/JSON/json_writer.cpp
-)
-
 set(ISL_CODEGEN_FILES
     CodeGen/IslAst.cpp
     CodeGen/IslExprBuilder.cpp
@@ -56,6 +50,7 @@ add_library(PollyCore OBJECT
   Support/ScopLocation.cpp
   Support/ISLTools.cpp
   Support/DumpModulePass.cpp
+  Support/VirtualInstruction.cpp
   ${POLLY_JSON_FILES}
   Transform/Canonicalization.cpp
   Transform/CodePreparation.cpp
@@ -67,6 +62,7 @@ add_library(PollyCore OBJECT
   Transform/Simplify.cpp
   ${POLLY_HEADER_FILES}
   )
+set_target_properties(PollyCore PROPERTIES FOLDER "Polly")
 
 # Create the library that can be linked into LLVM's tools and Polly's unittests.
 # It depends on all library it needs, such that with
@@ -75,6 +71,7 @@ add_library(PollyCore OBJECT
 add_polly_library(Polly $<TARGET_OBJECTS:PollyCore>)
 target_link_libraries(Polly
   ${ISL_TARGET}
+  ${JSONCPP_LIBRARIES}
 )
 
 # Additional dependencies for Polly-ACC.
@@ -156,7 +153,7 @@ else ()
   # hosts. This is not the case for bugpoint. Use LLVM_POLLY_LINK_INTO_TOOLS=ON
   # instead which will automatically resolve the additional dependencies by
   # Polly.
-  target_link_libraries(LLVMPolly ${ISL_TARGET})
+  target_link_libraries(LLVMPolly ${ISL_TARGET} ${JSONCPP_LIBRARIES})
   if (GPU_CODEGEN)
     target_link_libraries(LLVMPolly PollyPPCG)
   endif ()
@@ -169,6 +166,6 @@ endif ()
 
 if (TARGET intrinsics_gen)
   # Check if we are building as part of an LLVM build
-  add_dependencies(Polly intrinsics_gen)
+  add_dependencies(PollyCore intrinsics_gen)
 endif()
 

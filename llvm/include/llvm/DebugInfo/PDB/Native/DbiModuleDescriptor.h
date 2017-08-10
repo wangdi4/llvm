@@ -36,7 +36,7 @@ public:
   uint16_t getTypeServerIndex() const;
   uint16_t getModuleStreamIndex() const;
   uint32_t getSymbolDebugInfoByteSize() const;
-  uint32_t getLineInfoByteSize() const;
+  uint32_t getC11LineInfoByteSize() const;
   uint32_t getC13LineInfoByteSize() const;
   uint32_t getNumberOfFiles() const;
   uint32_t getSourceFileNameIndex() const;
@@ -53,20 +53,12 @@ private:
   const ModuleInfoHeader *Layout = nullptr;
 };
 
-struct ModuleInfoEx {
-  ModuleInfoEx(const DbiModuleDescriptor &Info) : Info(Info) {}
-  ModuleInfoEx(const ModuleInfoEx &Ex) = default;
-
-  DbiModuleDescriptor Info;
-  std::vector<StringRef> SourceFiles;
-};
-
 } // end namespace pdb
 
 template <> struct VarStreamArrayExtractor<pdb::DbiModuleDescriptor> {
   typedef void ContextType;
   static Error extract(BinaryStreamRef Stream, uint32_t &Length,
-                       pdb::DbiModuleDescriptor &Info, void *Ctx) {
+                       pdb::DbiModuleDescriptor &Info) {
     if (auto EC = pdb::DbiModuleDescriptor::initialize(Stream, Info))
       return EC;
     Length = Info.getRecordLength();

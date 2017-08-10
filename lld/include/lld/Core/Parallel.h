@@ -10,16 +10,13 @@
 #ifndef LLD_CORE_PARALLEL_H
 #define LLD_CORE_PARALLEL_H
 
-#include "lld/Core/Instrumentation.h"
 #include "lld/Core/LLVM.h"
+#include "lld/Core/TaskGroup.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Config/llvm-config.h"
 #include "llvm/Support/MathExtras.h"
-#include "llvm/Support/thread.h"
 
 #include <algorithm>
-#include <atomic>
-#include <condition_variable>
-#include <mutex>
-#include <stack>
 
 #if defined(_MSC_VER) && LLVM_ENABLE_THREADS
 #include <concrt.h>
@@ -27,271 +24,90 @@
 #endif
 
 namespace lld {
-/// \brief Allows one or more threads to wait on a potentially unknown number of
-///   events.
-///
-/// A latch starts at \p count. inc() increments this, and dec() decrements it.
-/// All calls to sync() will block while the count is not 0.
-///
-/// Calling dec() on a Latch with a count of 0 has undefined behaivor.
-class Latch {
-  uint32_t _count;
-  mutable std::mutex _condMut;
-  mutable std::condition_variable _cond;
 
-public:
-  explicit Latch(uint32_t count = 0) : _count(count) {}
-  ~Latch() { sync(); }
+namespace parallel {
+struct sequential_execution_policy {};
+struct parallel_execution_policy {};
 
-  void inc() {
-    std::unique_lock<std::mutex> lock(_condMut);
-    ++_count;
-  }
+template <typename T>
+struct is_execution_policy
+    : public std::integral_constant<
+          bool, llvm::is_one_of<T, sequential_execution_policy,
+                                parallel_execution_policy>::value> {};
 
-  void dec() {
-    std::unique_lock<std::mutex> lock(_condMut);
-    if (--_count == 0)
-      _cond.notify_all();
-  }
+constexpr sequential_execution_policy seq{};
+constexpr parallel_execution_policy par{};
 
-  void sync() const {
-    std::unique_lock<std::mutex> lock(_condMut);
-    _cond.wait(lock, [&] {
-      return _count == 0;
-    });
-  }
-};
+#if LLVM_ENABLE_THREADS
 
-// Classes in this namespace are implementation details of this header.
-namespace internal {
-
-/// \brief An abstract class that takes closures and runs them asynchronously.
-class Executor {
-public:
-  virtual ~Executor() = default;
-  virtual void add(std::function<void()> func) = 0;
-};
-
-#if !defined(LLVM_ENABLE_THREADS) || LLVM_ENABLE_THREADS == 0
-class SyncExecutor : public Executor {
-public:
-  virtual void add(std::function<void()> func) {
-    func();
-  }
-};
-
-inline Executor *getDefaultExecutor() {
-  static SyncExecutor exec;
-  return &exec;
-}
-#elif defined(_MSC_VER)
-/// \brief An Executor that runs tasks via ConcRT.
-class ConcRTExecutor : public Executor {
-  struct Taskish {
-    Taskish(std::function<void()> task) : _task(task) {}
-
-    std::function<void()> _task;
-
-    static void run(void *p) {
-      Taskish *self = static_cast<Taskish *>(p);
-      self->_task();
-      concurrency::Free(self);
-    }
-  };
-
-public:
-  virtual void add(std::function<void()> func) {
-    Concurrency::CurrentScheduler::ScheduleTask(Taskish::run,
-        new (concurrency::Alloc(sizeof(Taskish))) Taskish(func));
-  }
-};
-
-inline Executor *getDefaultExecutor() {
-  static ConcRTExecutor exec;
-  return &exec;
-}
-#else
-/// \brief An implementation of an Executor that runs closures on a thread pool
-///   in filo order.
-class ThreadPoolExecutor : public Executor {
-public:
-  explicit ThreadPoolExecutor(unsigned threadCount =
-                                  std::thread::hardware_concurrency())
-      : _stop(false), _done(threadCount) {
-    // Spawn all but one of the threads in another thread as spawning threads
-    // can take a while.
-    std::thread([&, threadCount] {
-      for (size_t i = 1; i < threadCount; ++i) {
-        std::thread([=] {
-          work();
-        }).detach();
-      }
-      work();
-    }).detach();
-  }
-
-  ~ThreadPoolExecutor() override {
-    std::unique_lock<std::mutex> lock(_mutex);
-    _stop = true;
-    lock.unlock();
-    _cond.notify_all();
-    // Wait for ~Latch.
-  }
-
-  void add(std::function<void()> f) override {
-    std::unique_lock<std::mutex> lock(_mutex);
-    _workStack.push(f);
-    lock.unlock();
-    _cond.notify_one();
-  }
-
-private:
-  void work() {
-    while (true) {
-      std::unique_lock<std::mutex> lock(_mutex);
-      _cond.wait(lock, [&] {
-        return _stop || !_workStack.empty();
-      });
-      if (_stop)
-        break;
-      auto task = _workStack.top();
-      _workStack.pop();
-      lock.unlock();
-      task();
-    }
-    _done.dec();
-  }
-
-  std::atomic<bool> _stop;
-  std::stack<std::function<void()>> _workStack;
-  std::mutex _mutex;
-  std::condition_variable _cond;
-  Latch _done;
-};
-
-inline Executor *getDefaultExecutor() {
-  static ThreadPoolExecutor exec;
-  return &exec;
-}
-#endif
-
-}  // namespace internal
-
-/// \brief Allows launching a number of tasks and waiting for them to finish
-///   either explicitly via sync() or implicitly on destruction.
-class TaskGroup {
-  Latch _latch;
-
-public:
-  void spawn(std::function<void()> f) {
-    _latch.inc();
-    internal::getDefaultExecutor()->add([&, f] {
-      f();
-      _latch.dec();
-    });
-  }
-
-  void sync() const { _latch.sync(); }
-};
-
-#if !defined(LLVM_ENABLE_THREADS) || LLVM_ENABLE_THREADS == 0
-template <class RandomAccessIterator, class Comp>
-void parallel_sort(
-    RandomAccessIterator start, RandomAccessIterator end,
-    const Comp &comp = std::less<
-        typename std::iterator_traits<RandomAccessIterator>::value_type>()) {
-  std::sort(start, end, comp);
-}
-#elif defined(_MSC_VER)
-// Use ppl parallel_sort on Windows.
-template <class RandomAccessIterator, class Comp>
-void parallel_sort(
-    RandomAccessIterator start, RandomAccessIterator end,
-    const Comp &comp = std::less<
-        typename std::iterator_traits<RandomAccessIterator>::value_type>()) {
-  concurrency::parallel_sort(start, end, comp);
-}
-#else
 namespace detail {
-const ptrdiff_t minParallelSize = 1024;
 
-/// \brief Inclusive median.
-template <class RandomAccessIterator, class Comp>
-RandomAccessIterator medianOf3(RandomAccessIterator start,
-                               RandomAccessIterator end, const Comp &comp) {
-  RandomAccessIterator mid = start + (std::distance(start, end) / 2);
-  return comp(*start, *(end - 1))
-         ? (comp(*mid, *(end - 1)) ? (comp(*start, *mid) ? mid : start)
-                                   : end - 1)
-         : (comp(*mid, *start) ? (comp(*(end - 1), *mid) ? mid : end - 1)
-                               : start);
+#if defined(_MSC_VER)
+template <class RandomAccessIterator, class Comparator>
+void parallel_sort(RandomAccessIterator Start, RandomAccessIterator End,
+                   const Comparator &Comp) {
+  concurrency::parallel_sort(Start, End, Comp);
 }
-
-template <class RandomAccessIterator, class Comp>
-void parallel_quick_sort(RandomAccessIterator start, RandomAccessIterator end,
-                         const Comp &comp, TaskGroup &tg, size_t depth) {
-  // Do a sequential sort for small inputs.
-  if (std::distance(start, end) < detail::minParallelSize || depth == 0) {
-    std::sort(start, end, comp);
-    return;
-  }
-
-  // Partition.
-  auto pivot = medianOf3(start, end, comp);
-  // Move pivot to end.
-  std::swap(*(end - 1), *pivot);
-  pivot = std::partition(start, end - 1, [&comp, end](decltype(*start) v) {
-    return comp(v, *(end - 1));
-  });
-  // Move pivot to middle of partition.
-  std::swap(*pivot, *(end - 1));
-
-  // Recurse.
-  tg.spawn([=, &comp, &tg] {
-    parallel_quick_sort(start, pivot, comp, tg, depth - 1);
-  });
-  parallel_quick_sort(pivot + 1, end, comp, tg, depth - 1);
-}
-}
-
-template <class RandomAccessIterator, class Comp>
-void parallel_sort(
-    RandomAccessIterator start, RandomAccessIterator end,
-    const Comp &comp = std::less<
-        typename std::iterator_traits<RandomAccessIterator>::value_type>()) {
-  TaskGroup tg;
-  detail::parallel_quick_sort(start, end, comp, tg,
-                              llvm::Log2_64(std::distance(start, end)) + 1);
-}
-#endif
-
-template <class T> void parallel_sort(T *start, T *end) {
-  parallel_sort(start, end, std::less<T>());
-}
-
-#if !defined(LLVM_ENABLE_THREADS) || LLVM_ENABLE_THREADS == 0
-template <class IterTy, class FuncTy>
-void parallel_for_each(IterTy Begin, IterTy End, FuncTy Fn) {
-  std::for_each(Begin, End, Fn);
-}
-
-template <class IndexTy, class FuncTy>
-void parallel_for(IndexTy Begin, IndexTy End, FuncTy Fn) {
-  for (IndexTy I = Begin; I != End; ++I)
-    Fn(I);
-}
-#elif defined(_MSC_VER)
-// Use ppl parallel_for_each on Windows.
 template <class IterTy, class FuncTy>
 void parallel_for_each(IterTy Begin, IterTy End, FuncTy Fn) {
   concurrency::parallel_for_each(Begin, End, Fn);
 }
 
 template <class IndexTy, class FuncTy>
-void parallel_for(IndexTy Begin, IndexTy End, FuncTy Fn) {
+void parallel_for_each_n(IndexTy Begin, IndexTy End, FuncTy Fn) {
   concurrency::parallel_for(Begin, End, Fn);
 }
+
 #else
+const ptrdiff_t MinParallelSize = 1024;
+
+/// \brief Inclusive median.
+template <class RandomAccessIterator, class Comparator>
+RandomAccessIterator medianOf3(RandomAccessIterator Start,
+                               RandomAccessIterator End,
+                               const Comparator &Comp) {
+  RandomAccessIterator Mid = Start + (std::distance(Start, End) / 2);
+  return Comp(*Start, *(End - 1))
+             ? (Comp(*Mid, *(End - 1)) ? (Comp(*Start, *Mid) ? Mid : Start)
+                                       : End - 1)
+             : (Comp(*Mid, *Start) ? (Comp(*(End - 1), *Mid) ? Mid : End - 1)
+                                   : Start);
+}
+
+template <class RandomAccessIterator, class Comparator>
+void parallel_quick_sort(RandomAccessIterator Start, RandomAccessIterator End,
+                         const Comparator &Comp, TaskGroup &TG, size_t Depth) {
+  // Do a sequential sort for small inputs.
+  if (std::distance(Start, End) < detail::MinParallelSize || Depth == 0) {
+    std::sort(Start, End, Comp);
+    return;
+  }
+
+  // Partition.
+  auto Pivot = medianOf3(Start, End, Comp);
+  // Move Pivot to End.
+  std::swap(*(End - 1), *Pivot);
+  Pivot = std::partition(Start, End - 1, [&Comp, End](decltype(*Start) V) {
+    return Comp(V, *(End - 1));
+  });
+  // Move Pivot to middle of partition.
+  std::swap(*Pivot, *(End - 1));
+
+  // Recurse.
+  TG.spawn([=, &Comp, &TG] {
+    parallel_quick_sort(Start, Pivot, Comp, TG, Depth - 1);
+  });
+  parallel_quick_sort(Pivot + 1, End, Comp, TG, Depth - 1);
+}
+
+template <class RandomAccessIterator, class Comparator>
+void parallel_sort(RandomAccessIterator Start, RandomAccessIterator End,
+                   const Comparator &Comp) {
+  TaskGroup TG;
+  parallel_quick_sort(Start, End, Comp, TG,
+                      llvm::Log2_64(std::distance(Start, End)) + 1);
+}
+
 template <class IterTy, class FuncTy>
 void parallel_for_each(IterTy Begin, IterTy End, FuncTy Fn) {
   // TaskGroup has a relatively high overhead, so we want to reduce
@@ -302,34 +118,92 @@ void parallel_for_each(IterTy Begin, IterTy End, FuncTy Fn) {
   if (TaskSize == 0)
     TaskSize = 1;
 
-  TaskGroup Tg;
+  TaskGroup TG;
   while (TaskSize <= std::distance(Begin, End)) {
-    Tg.spawn([=, &Fn] { std::for_each(Begin, Begin + TaskSize, Fn); });
+    TG.spawn([=, &Fn] { std::for_each(Begin, Begin + TaskSize, Fn); });
     Begin += TaskSize;
   }
-  Tg.spawn([=, &Fn] { std::for_each(Begin, End, Fn); });
+  TG.spawn([=, &Fn] { std::for_each(Begin, End, Fn); });
 }
 
 template <class IndexTy, class FuncTy>
-void parallel_for(IndexTy Begin, IndexTy End, FuncTy Fn) {
+void parallel_for_each_n(IndexTy Begin, IndexTy End, FuncTy Fn) {
   ptrdiff_t TaskSize = (End - Begin) / 1024;
   if (TaskSize == 0)
     TaskSize = 1;
 
-  TaskGroup Tg;
+  TaskGroup TG;
   IndexTy I = Begin;
   for (; I + TaskSize < End; I += TaskSize) {
-    Tg.spawn([=, &Fn] {
+    TG.spawn([=, &Fn] {
       for (IndexTy J = I, E = I + TaskSize; J != E; ++J)
         Fn(J);
     });
   }
-  Tg.spawn([=, &Fn] {
+  TG.spawn([=, &Fn] {
     for (IndexTy J = I; J < End; ++J)
       Fn(J);
   });
 }
+
 #endif
-} // end namespace lld
+
+template <typename Iter>
+using DefComparator =
+    std::less<typename std::iterator_traits<Iter>::value_type>;
+
+} // namespace detail
+#endif
+
+// sequential algorithm implementations.
+template <class Policy, class RandomAccessIterator,
+          class Comparator = detail::DefComparator<RandomAccessIterator>>
+void sort(Policy policy, RandomAccessIterator Start, RandomAccessIterator End,
+          const Comparator &Comp = Comparator()) {
+  static_assert(is_execution_policy<Policy>::value,
+                "Invalid execution policy!");
+  std::sort(Start, End, Comp);
+}
+
+template <class Policy, class IterTy, class FuncTy>
+void for_each(Policy policy, IterTy Begin, IterTy End, FuncTy Fn) {
+  static_assert(is_execution_policy<Policy>::value,
+                "Invalid execution policy!");
+  std::for_each(Begin, End, Fn);
+}
+
+template <class Policy, class IndexTy, class FuncTy>
+void for_each_n(Policy policy, IndexTy Begin, IndexTy End, FuncTy Fn) {
+  static_assert(is_execution_policy<Policy>::value,
+                "Invalid execution policy!");
+  for (IndexTy I = Begin; I != End; ++I)
+    Fn(I);
+}
+
+// Parallel algorithm implementations, only available when LLVM_ENABLE_THREADS
+// is true.
+#if defined(LLVM_ENABLE_THREADS)
+template <class RandomAccessIterator,
+          class Comparator = detail::DefComparator<RandomAccessIterator>>
+void sort(parallel_execution_policy policy, RandomAccessIterator Start,
+          RandomAccessIterator End, const Comparator &Comp = Comparator()) {
+  detail::parallel_sort(Start, End, Comp);
+}
+
+template <class IterTy, class FuncTy>
+void for_each(parallel_execution_policy policy, IterTy Begin, IterTy End,
+              FuncTy Fn) {
+  detail::parallel_for_each(Begin, End, Fn);
+}
+
+template <class IndexTy, class FuncTy>
+void for_each_n(parallel_execution_policy policy, IndexTy Begin, IndexTy End,
+                FuncTy Fn) {
+  detail::parallel_for_each_n(Begin, End, Fn);
+}
+#endif
+
+} // namespace parallel
+} // End namespace lld
 
 #endif // LLD_CORE_PARALLEL_H

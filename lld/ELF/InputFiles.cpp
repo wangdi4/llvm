@@ -123,10 +123,10 @@ std::string elf::ObjectFile<ELFT>::getLineInfo(InputSectionBase *S,
   return "";
 }
 
-// Returns "(internal)", "foo.a(bar.o)" or "baz.o".
+// Returns "<internal>", "foo.a(bar.o)" or "baz.o".
 std::string lld::toString(const InputFile *F) {
   if (!F)
-    return "(internal)";
+    return "<internal>";
 
   if (F->ToStringCache.empty()) {
     if (F->ArchiveName.empty())
@@ -361,6 +361,15 @@ InputSectionBase *elf::ObjectFile<ELFT>::getRelocTarget(const Elf_Shdr &Sec) {
   return Target;
 }
 
+// Create a regular InputSection class that has the same contents
+// as a given section.
+InputSectionBase *toRegularSection(MergeInputSection *Sec) {
+  auto *Ret = make<InputSection>(Sec->Flags, Sec->Type, Sec->Alignment,
+                                 Sec->Data, Sec->Name);
+  Ret->File = Sec->File;
+  return Ret;
+}
+
 template <class ELFT>
 InputSectionBase *
 elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
@@ -398,9 +407,18 @@ elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
     if (Target->FirstRelocation)
       fatal(toString(this) +
             ": multiple relocation sections to one section are not supported");
-    if (isa<MergeInputSection>(Target))
-      fatal(toString(this) +
-            ": relocations pointing to SHF_MERGE are not supported");
+
+    // Mergeable sections with relocations are tricky because relocations
+    // need to be taken into account when comparing section contents for
+    // merging. It's not worth supporting such mergeable sections because
+    // they are rare and it'd complicates the internal design (we usually
+    // have to determine if two sections are mergeable early in the link
+    // process much before applying relocations). We simply handle mergeable
+    // sections with relocations as non-mergeable.
+    if (auto *MS = dyn_cast<MergeInputSection>(Target)) {
+      Target = toRegularSection(MS);
+      this->Sections[Sec.sh_info] = Target;
+    }
 
     size_t NumRelocations;
     if (Sec.sh_type == SHT_RELA) {
@@ -459,6 +477,15 @@ elf::ObjectFile<ELFT>::createInputSection(const Elf_Shdr &Sec,
   }
 
   if (Config->Strip != StripPolicy::None && Name.startswith(".debug"))
+    return &InputSection::Discarded;
+
+  // If -gdb-index is given, LLD creates .gdb_index section, and that
+  // section serves the same purpose as .debug_gnu_pub{names,types} sections.
+  // If that's the case, we want to eliminate .debug_gnu_pub{names,types}
+  // because they are redundant and can waste large amount of disk space
+  // (for example, they are about 400 MiB in total for a clang debug build.)
+  if (Config->GdbIndex &&
+      (Name == ".debug_gnu_pubnames" || Name == ".debug_gnu_pubtypes"))
     return &InputSection::Discarded;
 
   // The linkonce feature is a sort of proto-comdat. Some glibc i386 object
@@ -569,17 +596,13 @@ SymbolBody *elf::ObjectFile<ELFT>::createSymbolBody(const Elf_Sym *Sym) {
   }
 }
 
+ArchiveFile::ArchiveFile(std::unique_ptr<Archive> &&File)
+    : InputFile(ArchiveKind, File->getMemoryBufferRef()),
+      File(std::move(File)) {}
+
 template <class ELFT> void ArchiveFile::parse() {
-  File = check(Archive::create(MB),
-               MB.getBufferIdentifier() + ": failed to parse archive");
-
-  // Read the symbol table to construct Lazy objects.
-  for (const Archive::Symbol &Sym : File->symbols()) {
+  for (const Archive::Symbol &Sym : File->symbols())
     Symtab<ELFT>::X->addLazyArchive(this, Sym);
-  }
-
-  if (File->symbols().begin() == File->symbols().end())
-    Config->ArchiveWithoutSymbolsSeen = true;
 }
 
 // Returns a buffer pointing to a member file containing a given symbol.
@@ -952,6 +975,13 @@ MemoryBufferRef LazyObjectFile::getBuffer() {
     return MemoryBufferRef();
   Seen = true;
   return MB;
+}
+
+InputFile *LazyObjectFile::fetch() {
+  MemoryBufferRef MBRef = getBuffer();
+  if (MBRef.getBuffer().empty())
+    return nullptr;
+  return createObjectFile(MBRef, ArchiveName, OffsetInArchive);
 }
 
 template <class ELFT> void LazyObjectFile::parse() {

@@ -541,6 +541,13 @@ template <class ELFT> void EhFrameSection<ELFT>::finalizeContents() {
       Off += alignTo(Fde->size(), Config->Wordsize);
     }
   }
+
+  // The LSB standard does not allow a .eh_frame section with zero
+  // Call Frame Information records. Therefore add a CIE record length
+  // 0 as a terminator if this .eh_frame section is empty.
+  if (Off == 0)
+    Off = 4;
+
   this->Size = Off;
 }
 
@@ -1022,14 +1029,23 @@ template <class ELFT> void DynamicSection<ELFT>::addEntries() {
   // fixed early.
   for (StringRef S : Config->AuxiliaryList)
     add({DT_AUXILIARY, In<ELFT>::DynStrTab->addString(S)});
-  if (!Config->RPath.empty())
+  if (!Config->Rpath.empty())
     add({Config->EnableNewDtags ? DT_RUNPATH : DT_RPATH,
-         In<ELFT>::DynStrTab->addString(Config->RPath)});
+         In<ELFT>::DynStrTab->addString(Config->Rpath)});
   for (SharedFile<ELFT> *F : Symtab<ELFT>::X->getSharedFiles())
     if (F->isNeeded())
       add({DT_NEEDED, In<ELFT>::DynStrTab->addString(F->SoName)});
   if (!Config->SoName.empty())
     add({DT_SONAME, In<ELFT>::DynStrTab->addString(Config->SoName)});
+
+  if (!Config->Shared && !Config->Relocatable)
+    add({DT_DEBUG, (uint64_t)0});
+}
+
+// Add remaining entries to complete .dynamic contents.
+template <class ELFT> void DynamicSection<ELFT>::finalizeContents() {
+  if (this->Size)
+    return; // Already finalized.
 
   // Set DT_FLAGS and DT_FLAGS_1.
   uint32_t DtFlags = 0;
@@ -1048,20 +1064,13 @@ template <class ELFT> void DynamicSection<ELFT>::addEntries() {
     DtFlags |= DF_ORIGIN;
     DtFlags1 |= DF_1_ORIGIN;
   }
+  if (Config->HasStaticTlsModel)
+    DtFlags |= DF_STATIC_TLS;
 
   if (DtFlags)
     add({DT_FLAGS, DtFlags});
   if (DtFlags1)
     add({DT_FLAGS_1, DtFlags1});
-
-  if (!Config->Shared && !Config->Relocatable)
-    add({DT_DEBUG, (uint64_t)0});
-}
-
-// Add remaining entries to complete .dynamic contents.
-template <class ELFT> void DynamicSection<ELFT>::finalizeContents() {
-  if (this->Size)
-    return; // Already finalized.
 
   this->Link = In<ELFT>::DynStrTab->OutSec->SectionIndex;
   if (In<ELFT>::RelaDyn->OutSec->Size > 0) {
@@ -2178,7 +2187,7 @@ MipsRldMapSection::MipsRldMapSection()
 
 void MipsRldMapSection::writeTo(uint8_t *Buf) {
   // Apply filler from linker script.
-  Optional<uint32_t> Fill = Script->getFiller(this->Name);
+  Optional<uint32_t> Fill = Script->getFiller(this->OutSec);
   if (!Fill || *Fill == 0)
     return;
 

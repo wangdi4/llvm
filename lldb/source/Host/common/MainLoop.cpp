@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Config/config.h"
+#include "llvm/Config/llvm-config.h"
 
 #include "lldb/Host/MainLoop.h"
 #include "lldb/Utility/Error.h"
@@ -17,6 +17,11 @@
 #include <csignal>
 #include <vector>
 #include <time.h>
+
+// Multiplexing is implemented using kqueue on systems that support it (BSD
+// variants including OSX). On linux we use ppoll, while android uses pselect
+// (ppoll is present but not implemented properly). On windows we use WSApoll
+// (which does not support signals).
 
 #if HAVE_SYS_EVENT_H
 #include <sys/event.h>
@@ -30,6 +35,10 @@
 #define POLL WSAPoll
 #else
 #define POLL poll
+#endif
+
+#ifdef __ANDROID__
+#define FORCE_PSELECT
 #endif
 
 #if SIGNAL_POLLING_UNSUPPORTED
@@ -59,7 +68,168 @@ static void SignalHandler(int signo, siginfo_t *info, void *) {
   g_signal_flags[signo] = 1;
 }
 
+class MainLoop::RunImpl {
+public:
+  RunImpl(MainLoop &loop);
+  ~RunImpl() = default;
+
+  Error Poll();
+  void ProcessEvents();
+
+private:
+  MainLoop &loop;
+
+#if HAVE_SYS_EVENT_H
+  std::vector<struct kevent> in_events;
+  struct kevent out_events[4];
+  int num_events = -1;
+
+#else
+#ifdef FORCE_PSELECT
+  fd_set read_fd_set;
+#else
+  std::vector<struct pollfd> read_fds;
+#endif
+
+  sigset_t get_sigmask();
+#endif
+};
+
+#if HAVE_SYS_EVENT_H
+MainLoop::RunImpl::RunImpl(MainLoop &loop) : loop(loop) {
+  in_events.reserve(loop.m_read_fds.size());
+}
+
+Error MainLoop::RunImpl::Poll() {
+  in_events.resize(loop.m_read_fds.size());
+  unsigned i = 0;
+  for (auto &fd : loop.m_read_fds)
+    EV_SET(&in_events[i++], fd.first, EVFILT_READ, EV_ADD, 0, 0, 0);
+
+  num_events = kevent(loop.m_kqueue, in_events.data(), in_events.size(),
+                      out_events, llvm::array_lengthof(out_events), nullptr);
+
+  if (num_events < 0)
+    return Error("kevent() failed with error %d\n", num_events);
+  return Error();
+}
+
+void MainLoop::RunImpl::ProcessEvents() {
+  assert(num_events >= 0);
+  for (int i = 0; i < num_events; ++i) {
+    if (loop.m_terminate_request)
+      return;
+    switch (out_events[i].filter) {
+    case EVFILT_READ:
+      loop.ProcessReadObject(out_events[i].ident);
+      break;
+    case EVFILT_SIGNAL:
+      loop.ProcessSignal(out_events[i].ident);
+      break;
+    default:
+      llvm_unreachable("Unknown event");
+    }
+  }
+}
+#else
+MainLoop::RunImpl::RunImpl(MainLoop &loop) : loop(loop) {
+#ifndef FORCE_PSELECT
+  read_fds.reserve(loop.m_read_fds.size());
+#endif
+}
+
+sigset_t MainLoop::RunImpl::get_sigmask() {
+#if SIGNAL_POLLING_UNSUPPORTED
+  return 0;
+#else
+  sigset_t sigmask;
+  int ret = pthread_sigmask(SIG_SETMASK, nullptr, &sigmask);
+  assert(ret == 0);
+  (void) ret;
+
+  for (const auto &sig : loop.m_signals)
+    sigdelset(&sigmask, sig.first);
+  return sigmask;
+#endif
+}
+
+#ifdef FORCE_PSELECT
+Error MainLoop::RunImpl::Poll() {
+  FD_ZERO(&read_fd_set);
+  int nfds = 0;
+  for (const auto &fd : loop.m_read_fds) {
+    FD_SET(fd.first, &read_fd_set);
+    nfds = std::max(nfds, fd.first + 1);
+  }
+
+  sigset_t sigmask = get_sigmask();
+  if (pselect(nfds, &read_fd_set, nullptr, nullptr, nullptr, &sigmask) == -1 &&
+      errno != EINTR)
+    return Error(errno, eErrorTypePOSIX);
+
+  return Error();
+}
+#else
+Error MainLoop::RunImpl::Poll() {
+  read_fds.clear();
+
+  sigset_t sigmask = get_sigmask();
+
+  for (const auto &fd : loop.m_read_fds) {
+    struct pollfd pfd;
+    pfd.fd = fd.first;
+    pfd.events = POLLIN;
+    pfd.revents = 0;
+    read_fds.push_back(pfd);
+  }
+
+  if (ppoll(read_fds.data(), read_fds.size(), nullptr, &sigmask) == -1 &&
+      errno != EINTR)
+    return Error(errno, eErrorTypePOSIX);
+
+  return Error();
+}
+#endif
+
+void MainLoop::RunImpl::ProcessEvents() {
+#ifdef FORCE_PSELECT
+  for (const auto &fd : loop.m_read_fds) {
+    if (!FD_ISSET(fd.first, &read_fd_set))
+      continue;
+    IOObject::WaitableHandle handle = fd.first;
+#else
+  for (const auto &fd : read_fds) {
+    if ((fd.revents & POLLIN) == 0)
+      continue;
+    IOObject::WaitableHandle handle = fd.fd;
+#endif
+    if (loop.m_terminate_request)
+      return;
+
+    loop.ProcessReadObject(handle);
+  }
+
+  for (const auto &entry : loop.m_signals) {
+    if (loop.m_terminate_request)
+      return;
+    if (g_signal_flags[entry.first] == 0)
+      continue; // No signal
+    g_signal_flags[entry.first] = 0;
+    loop.ProcessSignal(entry.first);
+  }
+}
+#endif
+
+MainLoop::MainLoop() {
+#if HAVE_SYS_EVENT_H
+  m_kqueue = kqueue();
+  assert(m_kqueue >= 0);
+#endif
+}
 MainLoop::~MainLoop() {
+#if HAVE_SYS_EVENT_H
+  close(m_kqueue);
+#endif
   assert(m_read_fds.size() == 0);
   assert(m_signals.size() == 0);
 }
@@ -111,24 +281,30 @@ MainLoop::RegisterSignal(int signo, const Callback &callback,
   new_action.sa_flags = SA_SIGINFO;
   sigemptyset(&new_action.sa_mask);
   sigaddset(&new_action.sa_mask, signo);
-
   sigset_t old_set;
-  if (int ret = pthread_sigmask(SIG_BLOCK, &new_action.sa_mask, &old_set)) {
-    error.SetErrorStringWithFormat("pthread_sigmask failed with error %d\n",
-                                   ret);
-    return nullptr;
-  }
 
-  info.was_blocked = sigismember(&old_set, signo);
-  if (sigaction(signo, &new_action, &info.old_action) == -1) {
-    error.SetErrorToErrno();
-    if (!info.was_blocked)
-      pthread_sigmask(SIG_UNBLOCK, &new_action.sa_mask, nullptr);
-    return nullptr;
-  }
-
-  m_signals.insert({signo, info});
   g_signal_flags[signo] = 0;
+
+  // Even if using kqueue, the signal handler will still be invoked, so it's
+  // important to replace it with our "bening" handler.
+  int ret = sigaction(signo, &new_action, &info.old_action);
+  assert(ret == 0 && "sigaction failed");
+
+#if HAVE_SYS_EVENT_H
+  struct kevent ev;
+  EV_SET(&ev, signo, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
+  ret = kevent(m_kqueue, &ev, 1, nullptr, 0, nullptr);
+  assert(ret == 0);
+#endif
+
+  // If we're using kqueue, the signal needs to be unblocked in order to recieve
+  // it. If using pselect/ppoll, we need to block it, and later unblock it as a
+  // part of the system call.
+  ret = pthread_sigmask(HAVE_SYS_EVENT_H ? SIG_UNBLOCK : SIG_BLOCK,
+                        &new_action.sa_mask, &old_set);
+  assert(ret == 0 && "pthread_sigmask failed");
+  info.was_blocked = sigismember(&old_set, signo);
+  m_signals.insert({signo, info});
 
   return SignalHandleUP(new SignalHandle(*this, signo));
 #endif
@@ -144,7 +320,6 @@ void MainLoop::UnregisterSignal(int signo) {
 #if SIGNAL_POLLING_UNSUPPORTED
   Error("Signal polling is not supported on this platform.");
 #else
-  // We undo the actions of RegisterSignal on a best-effort basis.
   auto it = m_signals.find(signo);
   assert(it != m_signals.end());
 
@@ -153,116 +328,51 @@ void MainLoop::UnregisterSignal(int signo) {
   sigset_t set;
   sigemptyset(&set);
   sigaddset(&set, signo);
-  pthread_sigmask(it->second.was_blocked ? SIG_BLOCK : SIG_UNBLOCK, &set,
-                  nullptr);
+  int ret = pthread_sigmask(it->second.was_blocked ? SIG_BLOCK : SIG_UNBLOCK,
+                            &set, nullptr);
+  assert(ret == 0);
+  (void)ret;
+
+#if HAVE_SYS_EVENT_H
+  struct kevent ev;
+  EV_SET(&ev, signo, EVFILT_SIGNAL, EV_DELETE, 0, 0, 0);
+  ret = kevent(m_kqueue, &ev, 1, nullptr, 0, nullptr);
+  assert(ret == 0);
+#endif
 
   m_signals.erase(it);
 #endif
 }
 
 Error MainLoop::Run() {
-  std::vector<int> signals;
   m_terminate_request = false;
-  signals.reserve(m_signals.size());
   
-#if HAVE_SYS_EVENT_H
-  int queue_id = kqueue();
-  if (queue_id < 0)
-    Error("kqueue failed with error %d\n", queue_id);
-
-  std::vector<struct kevent> events;
-  events.reserve(m_read_fds.size() + m_signals.size());
-#else
-  sigset_t sigmask;
-  std::vector<struct pollfd> read_fds;
-  read_fds.reserve(m_read_fds.size());
-#endif
+  Error error;
+  RunImpl impl(*this);
 
   // run until termination or until we run out of things to listen to
   while (!m_terminate_request && (!m_read_fds.empty() || !m_signals.empty())) {
-    // To avoid problems with callbacks changing the things we're supposed to
-    // listen to, we
-    // will store the *real* list of events separately.
-    signals.clear();
 
-#if HAVE_SYS_EVENT_H
-    events.resize(m_read_fds.size() + m_signals.size());
-    int i = 0;
-    for (auto &fd: m_read_fds) {
-      EV_SET(&events[i++], fd.first, EVFILT_READ, EV_ADD, 0, 0, 0);
-    }
+    error = impl.Poll();
+    if (error.Fail())
+      return error;
 
-    for (const auto &sig : m_signals) {
-      signals.push_back(sig.first);
-      EV_SET(&events[i++], sig.first, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
-    }
+    impl.ProcessEvents();
 
-    struct kevent event_list[4];
-    int num_events =
-        kevent(queue_id, events.data(), events.size(), event_list, 4, NULL);
-
-    if (num_events < 0)
-      return Error("kevent() failed with error %d\n", num_events);
-
-#else
-    read_fds.clear();
-
-#if !SIGNAL_POLLING_UNSUPPORTED
-    if (int ret = pthread_sigmask(SIG_SETMASK, nullptr, &sigmask))
-      return Error("pthread_sigmask failed with error %d\n", ret);
-
-    for (const auto &sig : m_signals) {
-      signals.push_back(sig.first);
-      sigdelset(&sigmask, sig.first);
-    }
-#endif
-
-    for (const auto &fd : m_read_fds) {
-      struct pollfd pfd;
-      pfd.fd = fd.first;
-      pfd.events = POLLIN;
-      pfd.revents = 0;
-      read_fds.push_back(pfd);
-    }
-
-    if (ppoll(read_fds.data(), read_fds.size(), nullptr, &sigmask) == -1 &&
-        errno != EINTR)
-      return Error(errno, eErrorTypePOSIX);
-#endif
-
-    for (int sig : signals) {
-      if (g_signal_flags[sig] == 0)
-        continue; // No signal
-      g_signal_flags[sig] = 0;
-
-      auto it = m_signals.find(sig);
-      if (it == m_signals.end())
-        continue; // Signal must have gotten unregistered in the meantime
-
-      it->second.callback(*this); // Do the work
-
-      if (m_terminate_request)
-        return Error();
-    }
-
-#if HAVE_SYS_EVENT_H
-    for (int i = 0; i < num_events; ++i) {
-      auto it = m_read_fds.find(event_list[i].ident);
-#else
-    for (auto fd : read_fds) {
-      if ((fd.revents & POLLIN) == 0)
-        continue;
-
-      auto it = m_read_fds.find(fd.fd);
-#endif
-      if (it == m_read_fds.end())
-        continue; // File descriptor must have gotten unregistered in the
-                  // meantime
-      it->second(*this); // Do the work
-
-      if (m_terminate_request)
-        return Error();
-    }
+    if (m_terminate_request)
+      return Error();
   }
   return Error();
+}
+
+void MainLoop::ProcessSignal(int signo) {
+  auto it = m_signals.find(signo);
+  if (it != m_signals.end())
+    it->second.callback(*this); // Do the work
+}
+
+void MainLoop::ProcessReadObject(IOObject::WaitableHandle handle) {
+  auto it = m_read_fds.find(handle);
+  if (it != m_read_fds.end())
+    it->second(*this); // Do the work
 }

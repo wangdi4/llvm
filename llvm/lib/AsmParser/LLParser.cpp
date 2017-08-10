@@ -1095,6 +1095,7 @@ bool LLParser::ParseFnAttributeValuePairs(AttrBuilder &B,
     case lltok::kw_readonly: B.addAttribute(Attribute::ReadOnly); break;
     case lltok::kw_returns_twice:
       B.addAttribute(Attribute::ReturnsTwice); break;
+    case lltok::kw_speculatable: B.addAttribute(Attribute::Speculatable); break;
     case lltok::kw_ssp: B.addAttribute(Attribute::StackProtect); break;
     case lltok::kw_sspreq: B.addAttribute(Attribute::StackProtectReq); break;
     case lltok::kw_sspstrong:
@@ -1667,8 +1668,7 @@ void LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
 ///   ::= 'hhvm_ccc'
 ///   ::= 'cxx_fast_tlscc'
 ///   ::= 'amdgpu_vs'
-///   ::= 'amdgpu_tcs'
-///   ::= 'amdgpu_tes'
+///   ::= 'amdgpu_hs'
 ///   ::= 'amdgpu_gs'
 ///   ::= 'amdgpu_ps'
 ///   ::= 'amdgpu_cs'
@@ -1710,6 +1710,7 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_hhvm_ccc:       CC = CallingConv::HHVM_C; break;
   case lltok::kw_cxx_fast_tlscc: CC = CallingConv::CXX_FAST_TLS; break;
   case lltok::kw_amdgpu_vs:      CC = CallingConv::AMDGPU_VS; break;
+  case lltok::kw_amdgpu_hs:      CC = CallingConv::AMDGPU_HS; break;
   case lltok::kw_amdgpu_gs:      CC = CallingConv::AMDGPU_GS; break;
   case lltok::kw_amdgpu_ps:      CC = CallingConv::AMDGPU_PS; break;
   case lltok::kw_amdgpu_cs:      CC = CallingConv::AMDGPU_CS; break;
@@ -4149,15 +4150,13 @@ bool LLParser::ParseDILexicalBlockFile(MDNode *&Result, bool IsDistinct) {
 bool LLParser::ParseDINamespace(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(scope, MDField, );                                                  \
-  OPTIONAL(file, MDField, );                                                   \
   OPTIONAL(name, MDStringField, );                                             \
-  OPTIONAL(line, LineField, );                                                 \
   OPTIONAL(exportSymbols, MDBoolField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
   Result = GET_OR_DISTINCT(DINamespace,
-  (Context, scope.Val, file.Val, name.Val, line.Val, exportSymbols.Val));
+                           (Context, scope.Val, name.Val, exportSymbols.Val));
   return false;
 }
 

@@ -70,13 +70,13 @@ static cl::opt<bool> DisableICP("disable-icp", cl::init(false), cl::Hidden,
 // For debug use only.
 static cl::opt<unsigned>
     ICPCutOff("icp-cutoff", cl::init(0), cl::Hidden, cl::ZeroOrMore,
-              cl::desc("Max number of promotions for this compilaiton"));
+              cl::desc("Max number of promotions for this compilation"));
 
 // If ICPCSSkip is non zero, the first ICPCSSkip callsites will be skipped.
 // For debug use only.
 static cl::opt<unsigned>
     ICPCSSkip("icp-csskip", cl::init(0), cl::Hidden, cl::ZeroOrMore,
-              cl::desc("Skip Callsite up to this number for this compilaiton"));
+              cl::desc("Skip Callsite up to this number for this compilation"));
 
 // Set if the pass is called in LTO optimization. The difference for LTO mode
 // is the pass won't prefix the source module name to the internal linkage
@@ -871,6 +871,10 @@ bool MemOPSizeOpt::perform(MemIntrinsic *MI) {
            : VDs) { dbgs() << "  (" << VD.Value << "," << VD.Count << ")\n"; });
 
   if (ActualCount < MemOPCountThreshold)
+    return false;
+  // Skip if the total value profiled count is 0, in which case we can't
+  // scale up the counts properly (and there is no profitable transformation).
+  if (TotalCount == 0)
     return false;
 
   TotalCount = ActualCount;

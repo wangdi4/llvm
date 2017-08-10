@@ -537,7 +537,7 @@ static bool isZero(Value *V, const DataLayout &DL, DominatorTree *DT,
     unsigned BitWidth = V->getType()->getIntegerBitWidth();
     KnownBits Known(BitWidth);
     computeKnownBits(V, Known, DL, 0, AC, dyn_cast<Instruction>(V), DT);
-    return Known.Zero.isAllOnesValue();
+    return Known.isZero();
   }
 
   // Per-component check doesn't work with zeroinitializer
@@ -558,7 +558,7 @@ static bool isZero(Value *V, const DataLayout &DL, DominatorTree *DT,
 
     KnownBits Known(BitWidth);
     computeKnownBits(Elem, Known, DL);
-    if (Known.Zero.isAllOnesValue())
+    if (Known.isZero())
       return true;
   }
 
@@ -699,7 +699,7 @@ Value *Lint::findValueImpl(Value *V, bool OffsetOk,
 
   // As a last resort, try SimplifyInstruction or constant folding.
   if (Instruction *Inst = dyn_cast<Instruction>(V)) {
-    if (Value *W = SimplifyInstruction(Inst, *DL, TLI, DT, AC))
+    if (Value *W = SimplifyInstruction(Inst, {*DL, TLI, DT, AC}))
       return findValueImpl(W, OffsetOk, Visited);
   } else if (auto *C = dyn_cast<Constant>(V)) {
     if (Value *W = ConstantFoldConstant(C, *DL, TLI))
