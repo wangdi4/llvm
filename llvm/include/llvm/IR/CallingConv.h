@@ -201,10 +201,16 @@ namespace CallingConv {
     /// shaders)
     AMDGPU_HS = 93,
 
+<<<<<<< HEAD
 #ifdef INTEL_CUSTOMIZATION
     /// \brief SVML for intel compiler
     SVML = 94,
 #endif  // INTEL_CUSTOMIZATION
+=======
+    /// Calling convention used for special MSP430 rtlib functions
+    /// which have an "optimized" convention using additional registers.
+    MSP430_BUILTIN = 94,
+>>>>>>> 29165da1cd5a932c256812656cf797e2c1a32367
 
     /// The highest possible calling convention ID. Must be some 2^k - 1.
     MaxID = 1023
