@@ -404,8 +404,8 @@ template <class ELFT> void Writer<ELFT>::createSyntheticSections() {
     InX::MipsGot = make<MipsGotSection>();
     Add(InX::MipsGot);
   } else {
-    In<ELFT>::Got = make<GotSection<ELFT>>();
-    Add(In<ELFT>::Got);
+    InX::Got = make<GotSection<ELFT>>();
+    Add(InX::Got);
   }
 
   InX::GotPlt = make<GotPltSection>();
@@ -578,7 +578,7 @@ static int getMipsSectionRank(const OutputSection *S) {
 //
 // This function returns true if a section needs to be put into a
 // PT_GNU_RELRO segment.
-template <class ELFT> bool elf::isRelroSection(const OutputSection *Sec) {
+bool elf::isRelroSection(const OutputSection *Sec) {
   if (!Config->ZRelro)
     return false;
 
@@ -613,7 +613,7 @@ template <class ELFT> bool elf::isRelroSection(const OutputSection *Sec) {
   // .got contains pointers to external symbols. They are resolved by
   // the dynamic linker when a module is loaded into memory, and after
   // that they are not expected to change. So, it can be in RELRO.
-  if (In<ELFT>::Got && Sec == In<ELFT>::Got->OutSec)
+  if (InX::Got && Sec == InX::Got->OutSec)
     return true;
 
   // .got.plt contains pointers to external function symbols. They are
@@ -645,7 +645,6 @@ template <class ELFT> bool elf::isRelroSection(const OutputSection *Sec) {
          S == ".eh_frame" || S == ".openbsd.randomdata";
 }
 
-template <class ELFT>
 static bool compareSectionsNonScript(const OutputSection *A,
                                      const OutputSection *B) {
   // Put .interp first because some loaders want to see that section
@@ -715,8 +714,8 @@ static bool compareSectionsNonScript(const OutputSection *A,
 
   // We place nobits RelRo sections before plain r/w ones, and non-nobits RelRo
   // sections after r/w ones, so that the RelRo sections are contiguous.
-  bool AIsRelRo = isRelroSection<ELFT>(A);
-  bool BIsRelRo = isRelroSection<ELFT>(B);
+  bool AIsRelRo = isRelroSection(A);
+  bool BIsRelRo = isRelroSection(B);
   if (AIsRelRo != BIsRelRo)
     return AIsNonTlsNoBits ? AIsRelRo : BIsRelRo;
 
@@ -743,7 +742,6 @@ static bool compareSectionsNonScript(const OutputSection *A,
 }
 
 // Output section ordering is determined by this function.
-template <class ELFT>
 static bool compareSections(const OutputSection *A, const OutputSection *B) {
   // For now, put sections mentioned in a linker script
   // first. Sections not on linker script will have a SectionIndex of
@@ -1001,9 +999,8 @@ findOrphanPos(std::vector<OutputSection *>::iterator B,
   }
 
   // Find the fist position that Sec compares less to.
-  return std::find_if(B, E, [=](OutputSection *S) {
-    return compareSectionsNonScript<ELFT>(Sec, S);
-  });
+  return std::find_if(
+      B, E, [=](OutputSection *S) { return compareSectionsNonScript(Sec, S); });
 }
 
 template <class ELFT> void Writer<ELFT>::sortSections() {
@@ -1013,7 +1010,7 @@ template <class ELFT> void Writer<ELFT>::sortSections() {
     return;
   if (!Script->Opt.HasSections) {
     std::stable_sort(OutputSections.begin(), OutputSections.end(),
-                     compareSectionsNonScript<ELFT>);
+                     compareSectionsNonScript);
     return;
   }
   Script->adjustSectionsBeforeSorting();
@@ -1042,7 +1039,7 @@ template <class ELFT> void Writer<ELFT>::sortSections() {
   //    a PT_LOAD.
 
   std::stable_sort(OutputSections.begin(), OutputSections.end(),
-                   compareSections<ELFT>);
+                   compareSections);
 
   auto I = OutputSections.begin();
   auto E = OutputSections.end();
@@ -1184,7 +1181,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   applySynthetic({In<ELFT>::DynSymTab,  InX::Bss,           InX::BssRelRo,
                   In<ELFT>::GnuHashTab, In<ELFT>::HashTab,  In<ELFT>::SymTab,
                   InX::ShStrTab,        InX::StrTab,        In<ELFT>::VerDef,
-                  InX::DynStrTab,       InX::GdbIndex,      In<ELFT>::Got,
+                  InX::DynStrTab,       InX::GdbIndex,      InX::Got,
                   InX::MipsGot,         InX::IgotPlt,       InX::GotPlt,
                   In<ELFT>::RelaDyn,    In<ELFT>::RelaIplt, In<ELFT>::RelaPlt,
                   InX::Plt,             InX::Iplt,          In<ELFT>::EhFrameHdr,
@@ -1362,7 +1359,7 @@ template <class ELFT> std::vector<PhdrEntry> Writer<ELFT>::createPhdrs() {
   // read-only by dynamic linker after proccessing relocations.
   PhdrEntry RelRo(PT_GNU_RELRO, PF_R);
   for (OutputSection *Sec : OutputSections)
-    if (needsPtLoad(Sec) && isRelroSection<ELFT>(Sec))
+    if (needsPtLoad(Sec) && isRelroSection(Sec))
       RelRo.add(Sec);
   if (RelRo.First)
     Ret.push_back(std::move(RelRo));
@@ -1761,8 +1758,3 @@ template void elf::writeResult<ELF32LE>();
 template void elf::writeResult<ELF32BE>();
 template void elf::writeResult<ELF64LE>();
 template void elf::writeResult<ELF64BE>();
-
-template bool elf::isRelroSection<ELF32LE>(const OutputSection *);
-template bool elf::isRelroSection<ELF32BE>(const OutputSection *);
-template bool elf::isRelroSection<ELF64LE>(const OutputSection *);
-template bool elf::isRelroSection<ELF64BE>(const OutputSection *);
