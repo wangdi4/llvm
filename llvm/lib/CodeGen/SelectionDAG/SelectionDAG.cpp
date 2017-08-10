@@ -7648,7 +7648,7 @@ bool BuildVectorSDNode::isConstantSplat(APInt &SplatValue, APInt &SplatUndef,
     return false;
 
   // FIXME: The widths are based on this node's type, but build vectors can
-  // truncate their operands. 
+  // truncate their operands.
   SplatValue = APInt(VecWidth, 0);
   SplatUndef = APInt(VecWidth, 0);
 
