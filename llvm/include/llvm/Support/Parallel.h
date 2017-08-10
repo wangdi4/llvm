@@ -1,29 +1,70 @@
-//===- lld/Core/Parallel.h - Parallel utilities ---------------------------===//
+//===- llvm/Support/Parallel.h - Parallel algorithms ----------------------===//
 //
-//                             The LLVM Linker
+//                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLD_CORE_PARALLEL_H
-#define LLD_CORE_PARALLEL_H
+#ifndef LLVM_SUPPORT_PARALLEL_H
+#define LLVM_SUPPORT_PARALLEL_H
 
-#include "lld/Core/LLVM.h"
-#include "lld/Core/TaskGroup.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/Support/MathExtras.h"
 
 #include <algorithm>
+#include <condition_variable>
+#include <functional>
+#include <mutex>
 
 #if defined(_MSC_VER) && LLVM_ENABLE_THREADS
+#pragma warning(push)
+#pragma warning(disable : 4530)
 #include <concrt.h>
 #include <ppl.h>
+#pragma warning(pop)
 #endif
 
-namespace lld {
+namespace llvm {
+
+namespace detail {
+class Latch {
+  uint32_t Count;
+  mutable std::mutex Mutex;
+  mutable std::condition_variable Cond;
+
+public:
+  explicit Latch(uint32_t Count = 0) : Count(Count) {}
+  ~Latch() { sync(); }
+
+  void inc() {
+    std::unique_lock<std::mutex> lock(Mutex);
+    ++Count;
+  }
+
+  void dec() {
+    std::unique_lock<std::mutex> lock(Mutex);
+    if (--Count == 0)
+      Cond.notify_all();
+  }
+
+  void sync() const {
+    std::unique_lock<std::mutex> lock(Mutex);
+    Cond.wait(lock, [&] { return Count == 0; });
+  }
+};
+
+class TaskGroup {
+  Latch L;
+
+public:
+  void spawn(std::function<void()> f);
+
+  void sync() const { L.sync(); }
+};
+}
 
 namespace parallel {
 struct sequential_execution_policy {};
@@ -76,7 +117,8 @@ RandomAccessIterator medianOf3(RandomAccessIterator Start,
 
 template <class RandomAccessIterator, class Comparator>
 void parallel_quick_sort(RandomAccessIterator Start, RandomAccessIterator End,
-                         const Comparator &Comp, TaskGroup &TG, size_t Depth) {
+                         const Comparator &Comp, detail::TaskGroup &TG,
+                         size_t Depth) {
   // Do a sequential sort for small inputs.
   if (std::distance(Start, End) < detail::MinParallelSize || Depth == 0) {
     std::sort(Start, End, Comp);
@@ -103,7 +145,7 @@ void parallel_quick_sort(RandomAccessIterator Start, RandomAccessIterator End,
 template <class RandomAccessIterator, class Comparator>
 void parallel_sort(RandomAccessIterator Start, RandomAccessIterator End,
                    const Comparator &Comp) {
-  TaskGroup TG;
+  detail::TaskGroup TG;
   parallel_quick_sort(Start, End, Comp, TG,
                       llvm::Log2_64(std::distance(Start, End)) + 1);
 }
@@ -118,7 +160,7 @@ void parallel_for_each(IterTy Begin, IterTy End, FuncTy Fn) {
   if (TaskSize == 0)
     TaskSize = 1;
 
-  TaskGroup TG;
+  detail::TaskGroup TG;
   while (TaskSize <= std::distance(Begin, End)) {
     TG.spawn([=, &Fn] { std::for_each(Begin, Begin + TaskSize, Fn); });
     Begin += TaskSize;
@@ -132,7 +174,7 @@ void parallel_for_each_n(IndexTy Begin, IndexTy End, FuncTy Fn) {
   if (TaskSize == 0)
     TaskSize = 1;
 
-  TaskGroup TG;
+  detail::TaskGroup TG;
   IndexTy I = Begin;
   for (; I + TaskSize < End; I += TaskSize) {
     TG.spawn([=, &Fn] {
@@ -205,6 +247,6 @@ void for_each_n(parallel_execution_policy policy, IndexTy Begin, IndexTy End,
 #endif
 
 } // namespace parallel
-} // End namespace lld
+} // namespace llvm
 
-#endif // LLD_CORE_PARALLEL_H
+#endif // LLVM_SUPPORT_PARALLEL_H
