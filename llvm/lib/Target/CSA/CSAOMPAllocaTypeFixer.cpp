@@ -76,8 +76,8 @@ bool CSAOMPAllocaTypeFixer::runOnFunction(Function& F) {
       cast_ptr_type->getElementType(), nullptr, "omp_fixup"
     );
 
-    // Update all of the uses of the bitcast to point to the new alloca instead
-    bitcast->replaceAllUsesWith(new_alloca);
+    // Update all of the post-entry uses of the bitcast to point to the new alloca instead.
+    bitcast->replaceUsesOutsideBlock(new_alloca, &F.getEntryBlock());
 
     // Copy the value from the original alloca in there.
     LoadInst*const orig_val = builder.CreateLoad(
