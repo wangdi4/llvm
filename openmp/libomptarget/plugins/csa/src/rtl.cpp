@@ -295,7 +295,7 @@ int32_t __tgt_rtl_init_device(int32_t device_id) { return OFFLOAD_SUCCESS; }
 static
 void deleteTempFiles() {
   // If we've been asked to save the temporaries, don't delete them
-  if (getenv("ENV_SAVE_TEMP_FILES")) {
+  if (getenv(ENV_SAVE_TEMPS)) {
     return;
   }
 
