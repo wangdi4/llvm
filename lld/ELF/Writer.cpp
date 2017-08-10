@@ -401,15 +401,15 @@ template <class ELFT> void Writer<ELFT>::createSyntheticSections() {
   // Add .got. MIPS' .got is so different from the other archs,
   // it has its own class.
   if (Config->EMachine == EM_MIPS) {
-    In<ELFT>::MipsGot = make<MipsGotSection>();
-    Add(In<ELFT>::MipsGot);
+    InX::MipsGot = make<MipsGotSection>();
+    Add(InX::MipsGot);
   } else {
     In<ELFT>::Got = make<GotSection<ELFT>>();
     Add(In<ELFT>::Got);
   }
 
-  In<ELFT>::GotPlt = make<GotPltSection>();
-  Add(In<ELFT>::GotPlt);
+  InX::GotPlt = make<GotPltSection>();
+  Add(InX::GotPlt);
   In<ELFT>::IgotPlt = make<IgotPltSection>();
   Add(In<ELFT>::IgotPlt);
 
@@ -620,7 +620,7 @@ template <class ELFT> bool elf::isRelroSection(const OutputSection *Sec) {
   // by default resolved lazily, so we usually cannot put it into RELRO.
   // However, if "-z now" is given, the lazy symbol resolution is
   // disabled, which enables us to put it into RELRO.
-  if (Sec == In<ELFT>::GotPlt->OutSec)
+  if (Sec == InX::GotPlt->OutSec)
     return Config->ZNow;
 
   // .dynamic section contains data for the dynamic linker, and
@@ -1185,7 +1185,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
                   In<ELFT>::GnuHashTab, In<ELFT>::HashTab,  In<ELFT>::SymTab,
                   In<ELFT>::ShStrTab,   In<ELFT>::StrTab,   In<ELFT>::VerDef,
                   In<ELFT>::DynStrTab,  In<ELFT>::GdbIndex, In<ELFT>::Got,
-                  In<ELFT>::MipsGot,    In<ELFT>::IgotPlt,  In<ELFT>::GotPlt,
+                  InX::MipsGot,         In<ELFT>::IgotPlt,  InX::GotPlt,
                   In<ELFT>::RelaDyn,    In<ELFT>::RelaIplt, In<ELFT>::RelaPlt,
                   In<ELFT>::Plt,        In<ELFT>::Iplt,     In<ELFT>::Plt,
                   In<ELFT>::EhFrameHdr, In<ELFT>::VerSym,   In<ELFT>::VerNeed,
@@ -1204,7 +1204,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     // when no more Thunks are added
     ThunkCreator<ELFT> TC;
     if (TC.createThunks(OutputSections))
-      applySynthetic({In<ELFT>::MipsGot},
+      applySynthetic({InX::MipsGot},
                      [](SyntheticSection *SS) { SS->updateAllocSize(); });
   }
   // Fill other section headers. The dynamic table is finalized
