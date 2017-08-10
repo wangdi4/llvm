@@ -2147,7 +2147,6 @@ bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
       !OldType->isDependentType() &&
       !NewType->isDependentType() &&
       !Context.hasSameType(OldType, NewType)) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
     // CQ#377518 - allow integer typedef redefinition in IntelMSCompat mode.
     const LangOptions &Opts = Context.getLangOpts();
@@ -2172,18 +2171,9 @@ bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
       New->setInvalidDecl();
     }
     if (OldLocation.isValid())
-      Diag(OldLocation, diag::note_previous_definition);
+      notePreviousDefinition(Old->getLocation(), New->getLocation());
     return !AllowedAsIntelExtInC;
 #endif // INTEL_CUSTOMIZATION
-=======
-    int Kind = isa<TypeAliasDecl>(Old) ? 1 : 0;
-    Diag(New->getLocation(), diag::err_redefinition_different_typedef)
-      << Kind << NewType << OldType;
-    if (Old->getLocation().isValid())
-      notePreviousDefinition(Old->getLocation(), New->getLocation());
-    New->setInvalidDecl();
-    return true;
->>>>>>> ffeec21d4455a1f5fb5b2f85120dc14accd76125
   }
   return false;
 }
