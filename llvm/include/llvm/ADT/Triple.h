@@ -196,9 +196,9 @@ public:
     MuslEABI,
     MuslEABIHF,
 
-#ifdef INTEL_OPENCL
+#if INTEL_CUSTOMIZATION
     IntelFPGA,
-#endif // INTEL_OPENCL
+#endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
     Cygnus,
@@ -533,11 +533,11 @@ public:
     return getOS() == Triple::Win32 && getEnvironment() == Triple::GNU;
   }
 
-#ifdef INTEL_OPENCL
+#if INTEL_CUSTOMIZATION
   bool isINTELFPGAEnvironment() const {
     return getEnvironment() == Triple::IntelFPGA;
   }
-#endif // INTEL_OPENCL
+#endif // INTEL_CUSTOMIZATION
 
   /// Tests for either Cygwin or MinGW OS
   bool isOSCygMing() const {
