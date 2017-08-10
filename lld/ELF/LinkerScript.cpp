@@ -48,8 +48,12 @@ using namespace lld::elf;
 LinkerScript *elf::Script;
 
 uint64_t ExprValue::getValue() const {
-  if (Sec)
-    return Sec->getOffset(Val) + Sec->getOutputSection()->Addr;
+  if (Sec) {
+    if (Sec->getOutputSection())
+      return Sec->getOffset(Val) + Sec->getOutputSection()->Addr;
+    error("unable to evaluate expression: input section " + Sec->Name +
+          " has no output section assigned");
+  }
   return Val;
 }
 
@@ -1020,10 +1024,10 @@ bool LinkerScript::ignoreInterpSection() {
   return true;
 }
 
-Optional<uint32_t> LinkerScript::getFiller(StringRef Name) {
+Optional<uint32_t> LinkerScript::getFiller(OutputSection *Sec) {
   for (BaseCommand *Base : Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
-      if (Cmd->Name == Name)
+      if (Cmd->Sec == Sec)
         return Cmd->Filler;
   return None;
 }
@@ -1057,10 +1061,10 @@ void LinkerScript::writeDataBytes(OutputSection *Sec, uint8_t *Buf) {
       writeInt(Buf + Data->Offset, Data->Expression().getValue(), Data->Size);
 }
 
-bool LinkerScript::hasLMA(StringRef Name) {
+bool LinkerScript::hasLMA(OutputSection *Sec) {
   for (BaseCommand *Base : Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
-      if (Cmd->LMAExpr && Cmd->Name == Name)
+      if (Cmd->LMAExpr && Cmd->Sec == Sec)
         return true;
   return false;
 }
