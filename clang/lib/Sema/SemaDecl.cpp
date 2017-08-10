@@ -2264,7 +2264,7 @@ void Sema::MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,
         New->setTypeSourceInfo(OldTD->getTypeSourceInfo());
 
       // Make the old tag definition visible.
-      makeMergedDefinitionVisible(Hidden, NewTag->getLocation());
+      makeMergedDefinitionVisible(Hidden);
 
       // If this was an unscoped enumeration, yank all of its enumerators
       // out of the scope.
@@ -4184,8 +4184,8 @@ bool Sema::checkVarDeclRedefinition(VarDecl *Old, VarDecl *New) {
 
     // Make the canonical definition visible.
     if (auto *OldTD = Old->getDescribedVarTemplate())
-      makeMergedDefinitionVisible(OldTD, New->getLocation());
-    makeMergedDefinitionVisible(Old, New->getLocation());
+      makeMergedDefinitionVisible(OldTD);
+    makeMergedDefinitionVisible(Old);
     return false;
   } else {
     Diag(New->getLocation(), diag::err_redefinition) << New;
@@ -12342,9 +12342,8 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
        Definition->getNumTemplateParameterLists())) {
     SkipBody->ShouldSkip = true;
     if (auto *TD = Definition->getDescribedFunctionTemplate())
-      makeMergedDefinitionVisible(TD, FD->getLocation());
-    makeMergedDefinitionVisible(const_cast<FunctionDecl*>(Definition),
-                                FD->getLocation());
+      makeMergedDefinitionVisible(TD);
+    makeMergedDefinitionVisible(const_cast<FunctionDecl*>(Definition));
     return;
   }
 
@@ -14062,7 +14061,7 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
                 // we already have. Make the existing definition visible and
                 // use it in place of this one.
                 SkipBody->ShouldSkip = true;
-                makeMergedDefinitionVisible(Hidden, KWLoc);
+                makeMergedDefinitionVisible(Hidden);
                 return Def;
               } else if (!IsExplicitSpecializationAfterInstantiation) {
                 // A redeclaration in function prototype scope in C isn't

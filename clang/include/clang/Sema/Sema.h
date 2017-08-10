@@ -1507,6 +1507,11 @@ private:
   /// The modules we're currently parsing.
   llvm::SmallVector<ModuleScope, 16> ModuleScopes;
 
+  /// Get the module whose scope we are currently within.
+  Module *getCurrentModule() const {
+    return ModuleScopes.empty() ? nullptr : ModuleScopes.back().Module;
+  }
+
   VisibleModuleSet VisibleModules;
 
   Module *CachedFakeTopLevelModule;
@@ -1517,7 +1522,7 @@ public:
 
   /// \brief Make a merged definition of an existing hidden definition \p ND
   /// visible at the specified location.
-  void makeMergedDefinitionVisible(NamedDecl *ND, SourceLocation Loc);
+  void makeMergedDefinitionVisible(NamedDecl *ND);
 
   bool isModuleVisible(Module *M) { return VisibleModules.isVisible(M); }
 
