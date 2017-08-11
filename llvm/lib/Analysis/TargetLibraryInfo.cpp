@@ -446,6 +446,7 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
   if (!T.isOSLinux()) {
     TLI.setUnavailable(LibFunc_dunder_strdup);
     TLI.setUnavailable(LibFunc_dunder_strtok_r);
+    TLI.setUnavailable(LibFunc_dunder_isoc99_fscanf);                   // INTEL
     TLI.setUnavailable(LibFunc_dunder_isoc99_scanf);
     TLI.setUnavailable(LibFunc_dunder_isoc99_sscanf);
     TLI.setUnavailable(LibFunc_under_IO_getc);
