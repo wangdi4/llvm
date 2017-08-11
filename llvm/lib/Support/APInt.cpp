@@ -1565,14 +1565,18 @@ APInt APInt::udiv(const APInt& RHS) const {
   }
 
   // Get some facts about the LHS and RHS number of bits and words
-  unsigned rhsWords = getNumWords(RHS.getActiveBits());
-  assert(rhsWords && "Divided by zero???");
   unsigned lhsWords = getNumWords(getActiveBits());
+  unsigned rhsBits  = RHS.getActiveBits();
+  unsigned rhsWords = getNumWords(rhsBits);
+  assert(rhsWords && "Divided by zero???");
 
   // Deal with some degenerate cases
   if (!lhsWords)
     // 0 / X ===> 0
     return APInt(BitWidth, 0);
+  if (rhsBits == 1)
+    // X / 1 ===> X
+    return *this;
   if (lhsWords < rhsWords || this->ult(RHS))
     // X / Y ===> 0, iff X < Y
     return APInt(BitWidth, 0);
@@ -1611,12 +1615,16 @@ APInt APInt::urem(const APInt& RHS) const {
   unsigned lhsWords = getNumWords(getActiveBits());
 
   // Get some facts about the RHS
-  unsigned rhsWords = getNumWords(RHS.getActiveBits());
+  unsigned rhsBits = RHS.getActiveBits();
+  unsigned rhsWords = getNumWords(rhsBits);
   assert(rhsWords && "Performing remainder operation by zero ???");
 
   // Check the degenerate cases
   if (lhsWords == 0)
     // 0 % Y ===> 0
+    return APInt(BitWidth, 0);
+  if (rhsBits == 1)
+    // X % 1 ===> 0
     return APInt(BitWidth, 0);
   if (lhsWords < rhsWords || this->ult(RHS))
     // X % Y ===> X, iff X < Y
@@ -1648,20 +1656,22 @@ APInt APInt::srem(const APInt &RHS) const {
 void APInt::udivrem(const APInt &LHS, const APInt &RHS,
                     APInt &Quotient, APInt &Remainder) {
   assert(LHS.BitWidth == RHS.BitWidth && "Bit widths must be the same");
+  unsigned BitWidth = LHS.BitWidth;
 
   // First, deal with the easy case
   if (LHS.isSingleWord()) {
     assert(RHS.U.VAL != 0 && "Divide by zero?");
     uint64_t QuotVal = LHS.U.VAL / RHS.U.VAL;
     uint64_t RemVal = LHS.U.VAL % RHS.U.VAL;
-    Quotient = APInt(LHS.BitWidth, QuotVal);
-    Remainder = APInt(LHS.BitWidth, RemVal);
+    Quotient = APInt(BitWidth, QuotVal);
+    Remainder = APInt(BitWidth, RemVal);
     return;
   }
 
   // Get some size facts about the dividend and divisor
   unsigned lhsWords = getNumWords(LHS.getActiveBits());
-  unsigned rhsWords = getNumWords(RHS.getActiveBits());
+  unsigned rhsBits  = RHS.getActiveBits();
+  unsigned rhsWords = getNumWords(rhsBits);
   assert(rhsWords && "Performing divrem operation by zero ???");
 
   // Check the degenerate cases
@@ -1669,6 +1679,11 @@ void APInt::udivrem(const APInt &LHS, const APInt &RHS,
     Quotient = 0;                // 0 / Y ===> 0
     Remainder = 0;               // 0 % Y ===> 0
     return;
+  }
+
+  if (rhsBits == 1) {
+    Quotient = LHS;             // X / 1 ===> X
+    Remainder = 0;              // X % 1 ===> 0
   }
 
   if (lhsWords < rhsWords || LHS.ult(RHS)) {
@@ -1688,8 +1703,8 @@ void APInt::udivrem(const APInt &LHS, const APInt &RHS,
     uint64_t lhsValue = LHS.U.pVal[0];
     uint64_t rhsValue = RHS.U.pVal[0];
     // Make sure there is enough space to hold the results.
-    Quotient.reallocate(LHS.BitWidth);
-    Remainder.reallocate(LHS.BitWidth);
+    Quotient.reallocate(BitWidth);
+    Remainder.reallocate(BitWidth);
     Quotient = lhsValue / rhsValue;
     Remainder = lhsValue % rhsValue;
     return;
