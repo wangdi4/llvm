@@ -16590,7 +16590,7 @@ void Sema::ActOnModuleBegin(SourceLocation DirectiveLoc, Module *Mod) {
   // The enclosing context is now part of this module.
   // FIXME: Consider creating a child DeclContext to hold the entities
   // lexically within the module.
-  if (getLangOpts().ModulesLocalVisibility) {
+  if (getLangOpts().trackLocalOwningModule()) {
     cast<Decl>(CurContext)->setHidden(true);
     cast<Decl>(CurContext)->setLocalOwningModule(Mod);
   }
@@ -16624,7 +16624,7 @@ void Sema::ActOnModuleEnd(SourceLocation EomLoc, Module *Mod) {
   BuildModuleInclude(DirectiveLoc, Mod);
 
   // Any further declarations are in whatever module we returned to.
-  if (getLangOpts().ModulesLocalVisibility) {
+  if (getLangOpts().trackLocalOwningModule()) {
     cast<Decl>(CurContext)->setLocalOwningModule(getCurrentModule());
     if (!getCurrentModule())
       cast<Decl>(CurContext)->setHidden(false);
