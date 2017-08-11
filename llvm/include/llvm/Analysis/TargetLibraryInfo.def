@@ -234,7 +234,6 @@ TLI_DEFINE_STRING_INTERNAL("__cxa_guard_acquire")
 /// void __cxa_guard_release(guard_t *guard);
 TLI_DEFINE_ENUM_INTERNAL(cxa_guard_release)
 TLI_DEFINE_STRING_INTERNAL("__cxa_guard_release")
-<<<<<<< HEAD
 
 #if INTEL_CUSTOMIZATION
 /// int __isoc99_fscanf(FILE *stream, const char *format, ... );
@@ -242,7 +241,6 @@ TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_fscanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_fscanf")
 #endif // INTEL_CUSTOMIZATION
 
-=======
 /// double __exp10_finite(double x);
 TLI_DEFINE_ENUM_INTERNAL(exp10_finite)
 TLI_DEFINE_STRING_INTERNAL("__exp10_finite")
@@ -270,7 +268,6 @@ TLI_DEFINE_STRING_INTERNAL("__expf_finite")
 /// long double __expl_finite(long double x);
 TLI_DEFINE_ENUM_INTERNAL(expl_finite)
 TLI_DEFINE_STRING_INTERNAL("__expl_finite")
->>>>>>> 8731f0c094afd62ba75d109ce70b241ba4f15faa
 /// int __isoc99_scanf (const char *format, ...)
 TLI_DEFINE_ENUM_INTERNAL(dunder_isoc99_scanf)
 TLI_DEFINE_STRING_INTERNAL("__isoc99_scanf")
