@@ -172,13 +172,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
 /// EmitVarDecl - This method handles emission of any variable declaration
 /// inside a function, including static vars etc.
 void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   if (CapturedStmtInfo)
     CapturedStmtInfo->recordVariableDefinition(&D);
 #endif  // INTEL_CUSTOMIZATION
-  if (D.isStaticLocal()) {
-=======
   if (D.hasExternalStorage())
     // Don't emit it now, allow it to be emitted lazily on its first use.
     return;
@@ -187,7 +184,6 @@ void CodeGenFunction::EmitVarDecl(const VarDecl &D) {
   // needs to be emitted like a static variable, e.g. a function-scope
   // variable in constant address space in OpenCL.
   if (D.getStorageDuration() != SD_Automatic) {
->>>>>>> 6e34f0e735bc955840f3b90b53a7be1b64186f90
     llvm::GlobalValue::LinkageTypes Linkage =
         CGM.getLLVMLinkageVarDefinition(&D, /*isConstant=*/false);
 
