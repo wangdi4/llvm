@@ -93,6 +93,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ValueWithBytesObjCTypeMethod(nullptr), NSArrayDecl(nullptr),
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
+<<<<<<< HEAD
       TUKind(TUKind), NumSFINAEErrors(0),
     // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
@@ -101,6 +102,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     // members.
     BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
+=======
+      TUKind(TUKind), NumSFINAEErrors(0), CachedFakeTopLevelModule(nullptr),
+>>>>>>> ffd03c81d3b17bd25a9f3c6b22fc1b650f65a505
       AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
       NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
       CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
