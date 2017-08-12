@@ -93,8 +93,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ValueWithBytesObjCTypeMethod(nullptr), NSArrayDecl(nullptr),
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
-<<<<<<< HEAD
-      TUKind(TUKind), NumSFINAEErrors(0), CachedFakeTopLevelModule(nullptr),
+      TUKind(TUKind), NumSFINAEErrors(0),
     // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
     SuppressQualifiersOnTypeSubst(true),
@@ -106,12 +105,6 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
       CurrentInstantiationScope(nullptr), DisableTypoCorrection(false),
       TyposCorrected(0), AnalysisWarnings(*this),
-=======
-      TUKind(TUKind), NumSFINAEErrors(0), AccessCheckingSFINAE(false),
-      InNonInstantiationSFINAEContext(false), NonInstantiationEntries(0),
-      ArgumentPackSubstitutionIndex(-1), CurrentInstantiationScope(nullptr),
-      DisableTypoCorrection(false), TyposCorrected(0), AnalysisWarnings(*this),
->>>>>>> c9a4074665759d11149bd1f7a59def506b9147c6
       ThreadSafetyDeclCache(nullptr), VarDataSharingAttributesStack(nullptr),
       CurScope(nullptr), Ident_super(nullptr), Ident___float128(nullptr) 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
