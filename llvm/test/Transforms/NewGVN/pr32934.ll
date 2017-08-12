@@ -1,3 +1,4 @@
+; REQUIRES: disabled
 ; RUN: opt -S -newgvn %s | FileCheck %s
 
 ; CHECK: define void @tinkywinky() {
