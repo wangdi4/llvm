@@ -14,6 +14,8 @@
 #include "CSATargetMachine.h"
 #include "CSALowerAggrCopies.h"
 #include "CSAFortranIntrinsics.h"
+#include "CSALoopIntrinsicExpander.h"
+#include "CSAOMPAllocaTypeFixer.h"
 #include "CSA.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/CodeGen/AsmPrinter.h"
@@ -40,7 +42,10 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 #include "llvm/Transforms/Scalar.h"
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include "llvm/Transforms/Utils/Mem2Reg.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 
 
@@ -123,9 +128,6 @@ public:
 
     // Add the pass to lower memset/memmove/memcpy
     addPass(createLowerAggrCopies());
-
-    // Add the pass to convert Fortran "builtin" calls
-    addPass(createFortranIntrinsics());
 
     // Install an instruction selector.
     addPass(createCSAISelDag(getCSATargetMachine(), getOptLevel()));
@@ -226,4 +228,20 @@ public:
 TargetPassConfig *CSATargetMachine::createPassConfig(legacy::PassManagerBase &PM) {
   CSAPassConfig *PassConfig = new CSAPassConfig(*this, PM);
   return PassConfig;
+}
+
+void CSATargetMachine::adjustPassManager(PassManagerBuilder& PMB) {
+  PMB.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+    [](const PassManagerBuilder&, legacy::PassManagerBase& PM) {
+
+      // Add the pass to convert Fortran "builtin" calls
+      PM.add(createFortranIntrinsics());
+
+      // Add the pass to expand loop intrinsics
+      PM.add(createCSAOMPAllocaTypeFixerPass());
+      PM.add(createPromoteMemoryToRegisterPass());
+      PM.add(createLoopSimplifyPass());
+      PM.add(createCSALoopIntrinsicExpanderPass());
+    }
+  );
 }

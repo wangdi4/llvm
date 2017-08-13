@@ -25,4 +25,20 @@ def int_csa_directive : GCCBuiltin<"__builtin_csa_directive">,
 def int_csa_parallel_loop : GCCBuiltin<"__builtin_csa_parallel_loop">,
     Intrinsic<[], [], [IntrArgMemOnly] /* , "llvm.csa.parallel_loop" */>;
 
+
+def int_csa_parallel_region_entry : GCCBuiltin<"__builtin_csa_parallel_region_entry">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.parallel_region_entry" */>;
+
+def int_csa_parallel_region_exit : GCCBuiltin<"__builtin_csa_parallel_region_exit">,
+    Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.parallel_region_exit" */>;
+
+def int_csa_parallel_section_entry : GCCBuiltin<"__builtin_csa_parallel_section_entry">,
+    Intrinsic<[llvm_i32_ty], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.parallel_section_entry" */>;
+
+def int_csa_parallel_section_exit : GCCBuiltin<"__builtin_csa_parallel_section_exit">,
+    Intrinsic<[], [llvm_i32_ty], [IntrArgMemOnly] /* , "llvm.csa.parallel_section_exit" */>;
+
 }
+
+
+
