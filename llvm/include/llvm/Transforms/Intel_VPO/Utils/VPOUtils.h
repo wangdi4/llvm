@@ -208,9 +208,8 @@ public:
                                             Value *PassThru = nullptr);
 
     /// \brief Return a call to the llvm.masked.load intrinsic. It uses the
-    /// interface provided by IRBuilder and then marks the generated call
-    /// instruction with no-feature-outlining metadata. A null PassThru value
-    /// uses undef value for pass through value.
+    /// interface provided by IRBuilder. A null PassThru value uses undef value
+    /// for pass through value.
     static CallInst* createMaskedLoadCall(Value *VecPtr,
                                           IRBuilder<> &Builder,
                                           unsigned Alignment,
@@ -226,8 +225,7 @@ public:
                                              Value *Mask = nullptr);
 
     /// \brief Return a call to the llvm.masked.store intrinsic. It uses the
-    /// interface provided by IRBuilder and then marks the generated call
-    /// instruction with no-feature-outlining metadata.
+    /// interface provided by IRBuilder.
     static CallInst* createMaskedStoreCall(Value *VecPtr,
                                            Value *VecData,
                                            IRBuilder<> &Builder,
