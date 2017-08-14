@@ -100,7 +100,6 @@ bool clGetPlatformInfoTest()
         {
             switch (GetOpenclVerByCpuModel())
             {
-                #ifdef _WIN32
                 case OPENCL_VERSION_2_2:
                     expectedString += "2.2 ";
                     break;
@@ -108,13 +107,10 @@ bool clGetPlatformInfoTest()
                 case OPENCL_VERSION_2_1:
                     expectedString += "2.1 ";
                     break;
-                #endif //_WIN32
 
-                #if defined (_WIN32) || defined (__linux__)
                 case OPENCL_VERSION_2_0:
                     expectedString += "2.0 ";
                     break;
-                #endif // defined (_WIN32) || defined (__linux__)
 
                 case OPENCL_VERSION_1_2:
                 default:
