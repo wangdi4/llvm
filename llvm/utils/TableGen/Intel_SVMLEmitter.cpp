@@ -191,14 +191,6 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
   OS << "{\"_Z3maxff\", \"_Z3maxDv8_fS_\", 8, false},\n";
   OS << "{\"_Z3maxff\", \"_Z3maxDv16_fS_\", 16, false},\n";
 
-  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v4f32\", 4, false},\n";
-  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v8f32\", 8, false},\n";
-  OS << "{\"__read_pipe_2_bl_intel\", \"__read_pipe_2_bl_intel_v16f32\", 16, false},\n";
-
-  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v4f32\", 4, false},\n";
-  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v8f32\", 8, false},\n";
-  OS << "{\"__write_pipe_2_bl_intel\", \"__write_pipe_2_bl_intel_v16f32\", 16, false},\n";
-
   OS << "#endif // GET_SVML_VARIANTS\n\n";
 }
 

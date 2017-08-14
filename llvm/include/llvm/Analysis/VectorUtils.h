@@ -176,8 +176,11 @@ bool isOpenCLReadChannelDest(StringRef FnName, unsigned Idx);
 /// OpenCL write channel call.
 bool isOpenCLWriteChannelSrc(StringRef FnName, unsigned Idx);
 
-/// \brief Returns the alloca associated with an OpenCL read channel call.
-Value* getOpenCLReadChannelDestAlloc(const CallInst *Call);
+/// \brief Returns the alloca associated with an OpenCL read/write channel call.
+Value* getOpenCLReadWriteChannelAlloc(const CallInst *Call);
+
+/// \brief Returns a string representation of Type \p Ty.
+std::string typeToString(Type *Ty);
 #endif // INTEL_OPENCL
     
 /// Specifically, let Kinds = [MD_tbaa, MD_alias_scope, MD_noalias, MD_fpmath,

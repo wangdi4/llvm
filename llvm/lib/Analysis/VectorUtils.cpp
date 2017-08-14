@@ -627,19 +627,41 @@ bool llvm::isOpenCLWriteChannelSrc(StringRef FnName, unsigned i) {
   return (isOpenCLWriteChannel(FnName) && i == 1);
 }
 
-Value* llvm::getOpenCLReadChannelDestAlloc(const CallInst *Call) {
+Value* llvm::getOpenCLReadWriteChannelAlloc(const CallInst *Call) {
 
   AddrSpaceCastInst *Arg = dyn_cast<AddrSpaceCastInst>(Call->getArgOperand(1));
 
   assert(Arg && "Expected addrspacecast in traceback of __read_pipe argument");
 
   BitCastInst *ArgCast = dyn_cast<BitCastInst>(Arg->getOperand(0));
-  assert(ArgCast && "Expected bitcast in traceback of __read_pipe argument");
+  AllocaInst *ReadDst = nullptr;
 
-  AllocaInst *ReadDst = dyn_cast<AllocaInst>(ArgCast->getOperand(0));
+  if (!ArgCast) {
+    ReadDst = dyn_cast<AllocaInst>(Arg->getOperand(0));
+  } else {
+    ReadDst = dyn_cast<AllocaInst>(ArgCast->getOperand(0));
+  }
+
   assert(ReadDst && "Expected alloca in traceback of __read_pipe argument");
-
   return ReadDst;
+}
+
+std::string llvm::typeToString(Type *Ty) {
+  if (Ty->isFloatTy())
+    // need to return "f32" instead of "float"
+    return "f32";
+  if (Ty->isDoubleTy())
+    // need to return "f64" instead of "double"
+    return "f64";
+  if (Ty->isIntegerTy() && Ty->getPrimitiveSizeInBits() >= 8 &&
+      Ty->getPrimitiveSizeInBits() <= 64) {
+    // return i8, i16, i32, i64
+    std::string typeStr;
+    raw_string_ostream OS(typeStr);
+    Ty->print(OS);
+    return OS.str();
+  }
+  llvm_unreachable("Unsupported type for converting type to string");
 }
 #endif // INTEL_OPENCL
 
@@ -656,9 +678,12 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
   Function *OrigF = Call->getCalledFunction();
   assert(OrigF && "Function not found for call instruction");
   StringRef FnName = OrigF->getName();
-  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant) {
+  if (!TLI->isFunctionVectorizable(FnName, VL) && !ID && !VecVariant
+#if INTEL_OPENCL
+      && !isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName)
+#endif
+     )
     return nullptr;
-  }
 
   Module *M = OrigF->getParent();
   Function *VectorF = nullptr;
@@ -692,6 +717,44 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
     SmallVector<Type*, 1> TysForDecl;
     TysForDecl.push_back(VecRetTy);
     VectorF = Intrinsic::getDeclaration(M, ID, TysForDecl);
+#if INTEL_OPENCL
+  } else if (isOpenCLReadChannel(FnName) || isOpenCLWriteChannel(FnName)) {
+      Value *Alloca = getOpenCLReadWriteChannelAlloc(Call);
+      std::string VLStr = APInt(32, VL).toString(10, false);
+      std::string TyStr =
+        typeToString(Alloca->getType()->getPointerElementType());
+      std::string VFnName = FnName.str() + "_v" + VLStr + TyStr;
+
+      if (isOpenCLReadChannel(FnName)) {
+        // The return type of the vector read channel call is a vector of the
+        // pointer element type of the read destination pointer alloca. The
+        // function call below traces back through bitcast instructions to
+        // find the alloca.
+        VecRetTy =
+          VectorType::get(Alloca->getType()->getPointerElementType(), VL);
+      }
+      if (isOpenCLWriteChannel(FnName)) {
+        VecRetTy = RetTy;
+      }
+
+      VectorF = M->getFunction(VFnName);
+      if (!VectorF) {
+        FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
+        VectorF =
+          Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
+      }
+      // Note: The function signature is different for the vector version of
+      // these functions. E.g., in the case of __read_pipe the 2nd parameter
+      // is dropped, and for __write_pipe the 2nd parameter becomes a vector
+      // of instead of a pointer. Thus, the attributes cannot blindly be
+      // copied because some attributes for the parameters on the original
+      // scalar call will be incompatible with the vector parameter types.
+      // Or, in the case of __read_pipe, the attribute for the 2nd parameter
+      // will still be copied to the vector call site and will result in an
+      // assert in the verifier because there is no longer a 2nd parameter.
+      // TODO: determine if attributes really need to be copied for those
+      // parameters that still match the scalar version.
+#endif // INTEL_OPENCL
   } else {
     // Generate a vector library call.
     StringRef VFnName = TLI->getVectorizedFunction(FnName, VL, Masked);
@@ -700,35 +763,9 @@ Function* llvm::getOrInsertVectorFunction(const CallInst *Call, unsigned VL,
       // isFunctionVectorizable() returned true, so it is guaranteed that
       // the svml function exists and the call is legal. Generate a declaration
       // for it if one does not already exist.
-#if INTEL_OPENCL
-      if (isOpenCLReadChannel(FnName)) {
-        // The return type of the vector read channel call is a vector of the
-        // pointer element type of the read destination pointer alloca. The
-        // function call below traces back through bitcast instructions to
-        // find the alloca.
-        Value *ReadDst = getOpenCLReadChannelDestAlloc(Call);
-        VecRetTy =
-          VectorType::get(ReadDst->getType()->getPointerElementType(), VL);
-      }
-      if (isOpenCLWriteChannel(FnName)) {
-        VecRetTy = RetTy;
-      }
-#endif // INTEL_OPENCL
       FunctionType *FTy = FunctionType::get(VecRetTy, ArgTys, false);
       VectorF = Function::Create(FTy, Function::ExternalLinkage, VFnName, M);
-      // Note: The function signature is different for the vector version of
-      // these functions. E.g., in the case of __read_pipe the 2nd parameter
-      // is dropped, and for __write_pipe the 2nd parameter becomes vector of
-      // float instead of a pointer. Thus, the attributes cannot blindly be
-      // copied because some attributes for the parameters on the original
-      // scalar call will be incompatible with the vector parameter types.
-      // Or, in the case of __read_pipe, the attribute for the 2nd parameter
-      // will still be copied to the vector call site and will result in an
-      // assert in the verifier because there is no longer a 2nd parameter.
-#if INTEL_OPENCL
-      if (!isOpenCLReadChannel(FnName) && !isOpenCLWriteChannel(FnName))
-#endif
-        VectorF->copyAttributesFrom(OrigF);
+      VectorF->copyAttributesFrom(OrigF);
     }
   }
 

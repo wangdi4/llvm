@@ -2675,7 +2675,8 @@ bool VPOCodeGen::isScalarArgument(StringRef FnName, unsigned Idx) {
   return false;
 }
 
-Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
+Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(CallInst *Call,
+                                                  unsigned ArgNum) {
   // For the vector version of __write_pipe we need to get a vector for the
   // source of the write. Since the argument to the scalar version is a pointer
   // to the scalar alloca designated for the write source, we must trace back
@@ -2684,10 +2685,7 @@ Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
   // call.
 
   Value *VecWriteSrc = nullptr;
-
-  AddrSpaceCastInst *Arg = cast<AddrSpaceCastInst>(CallOp);
-  BitCastInst *ArgCast = cast<BitCastInst>(Arg->getOperand(0));
-  AllocaInst *WriteSrc = cast<AllocaInst>(ArgCast->getOperand(0));
+  Value *WriteSrc = getOpenCLReadWriteChannelAlloc(Call);
   unsigned NumStoresToWriteSrc = 0;
 
   // In scalar code, before the call to __write_pipe, there will be a store of
@@ -2756,15 +2754,6 @@ Value* VPOCodeGen::vectorizeOpenCLWriteChannelSrc(Value *CallOp) {
   assert(VecWriteSrc && NumStoresToWriteSrc == 1 &&
          "Assumed single store to write src location");
 
-  VectorType *VTy = cast<VectorType>(VecWriteSrc->getType());
-  Type *ElemTy = VTy->getVectorElementType();
-  if (!ElemTy->isFloatTy()) {
-    assert(ElemTy->isIntegerTy(32) && "Expected i32 type for conversion");
-    VectorType *VecToTy =
-      VectorType::get(Type::getFloatTy(ElemTy->getContext()), VF);
-    VecWriteSrc = Builder.CreateBitCast(VecWriteSrc, VecToTy, "cast");
-  }
-
   return VecWriteSrc;
 }
 
@@ -2772,7 +2761,7 @@ void VPOCodeGen::vectorizeOpenCLReadChannelDest(CallInst *Call,
                                                 CallInst *VecCall,
                                                 Value *CallOp) {
 
-  Value *ReadDst = getOpenCLReadChannelDestAlloc(Call);
+  Value *ReadDst = getOpenCLReadWriteChannelAlloc(Call);
   DEBUG(dbgs() << "ReadDst: " << *ReadDst << "\n");
 
   // Write the return value from the vector call to the widened private pointer
@@ -2808,7 +2797,7 @@ void VPOCodeGen::vectorizeCallArgs(CallInst *Call, VectorVariant *VecVariant,
 
     if (isOpenCLWriteChannelSrc(FnName, i)) {
       Value *VecWriteSrc =
-        vectorizeOpenCLWriteChannelSrc(Call->getArgOperand(i));
+        vectorizeOpenCLWriteChannelSrc(Call, i);
       assert(VecWriteSrc && "Vector value for channel write source not found");
       VecArgs.push_back(VecWriteSrc);
       VecArgTys.push_back(VecWriteSrc->getType());
@@ -2965,9 +2954,14 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   Function *CalledFunc = Call->getCalledFunction();
   bool isMasked = (MaskValue != nullptr) ? true : false;
 
-  // Don't attempt vector function matching for SVML.
+  // Don't attempt vector function matching for SVML or built-in functions.
   VectorVariant *MatchedVariant = nullptr;
-  if (!TLI->isFunctionVectorizable(CalledFunc->getName())) {
+  if (!TLI->isFunctionVectorizable(CalledFunc->getName())
+#if INTEL_OPENCL
+      && !isOpenCLReadChannel(CalledFunc->getName())
+      && !isOpenCLWriteChannel(CalledFunc->getName())
+#endif
+     ) {
     // TLI is not used to check for SIMD functions for two reasons:
     // 1) A more sophisticated interface is needed to determine the most
     //    appropriate match.
@@ -2992,7 +2986,7 @@ void VPOCodeGen::vectorizeCallInstruction(CallInst *Call) {
   // fails. For now, just don't do the copy.
   if (isa<FPMathOperator>(VecCall)
 #if INTEL_OPENCL
-      && !isOpenCLReadChannel(Call->getCalledFunction()->getName())
+      && !isOpenCLReadChannel(CalledFunc->getName())
 #endif
   )
     VecCall->copyFastMathFlags(Call);
@@ -3197,16 +3191,14 @@ void VPOCodeGen::vectorizeInstruction(Instruction *Inst) {
     Function *F = Call->getCalledFunction();
     StringRef CalledFunc = F->getName();
     if (TLI->isFunctionVectorizable(CalledFunc, VF) ||
-        F->hasFnAttribute("vector-variants"))
+        F->hasFnAttribute("vector-variants")
 #if INTEL_OPENCL
-      if ((isOpenCLReadChannel(CalledFunc) ||
+      || ((isOpenCLReadChannel(CalledFunc) ||
            isOpenCLWriteChannel(CalledFunc)) &&
-          !UseSimdChannels) {
-        DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
-        serializeWithPredication(Call);
-      } else
+          UseSimdChannels)
 #endif // INTEL_OPENCL
-        vectorizeCallInstruction(Call);
+    )
+      vectorizeCallInstruction(Call);
     else {
       DEBUG(dbgs() << "Function " << CalledFunc << " is serialized\n");
       serializeWithPredication(Call);
