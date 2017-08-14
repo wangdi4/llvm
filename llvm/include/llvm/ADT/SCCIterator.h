@@ -1,4 +1,4 @@
-//===---- ADT/SCCIterator.h - Strongly Connected Comp. Iter. ----*- C++ -*-===//
+//===- ADT/SCCIterator.h - Strongly Connected Comp. Iter. -------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -43,11 +43,18 @@ template <class GraphT, class GT = GraphTraits<GraphT>>
 class scc_iterator : public iterator_facade_base<
                          scc_iterator<GraphT, GT>, std::forward_iterator_tag,
                          const std::vector<typename GT::NodeRef>, ptrdiff_t> {
+<<<<<<< HEAD
 protected: // INTEL
   typedef typename GT::NodeRef NodeRef;
   typedef typename GT::ChildIteratorType ChildItTy;
   typedef std::vector<NodeRef> SccTy;
   typedef typename scc_iterator::reference reference;
+=======
+  using NodeRef = typename GT::NodeRef;
+  using ChildItTy = typename GT::ChildIteratorType;
+  using SccTy = std::vector<NodeRef>;
+  using reference = typename scc_iterator::reference;
+>>>>>>> 6f42331357504f6cd7765b56cccd49c5a3cc4166
 
   /// Element of VisitStack during DFS.
   struct StackElement {
