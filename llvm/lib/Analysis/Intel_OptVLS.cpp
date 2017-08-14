@@ -322,9 +322,9 @@ public:
   // Update the value of its instruction. It asserts if it's not a store
   // instruction. Here the value is computed from the incoming node.
   void updateStoredValue() {
-    std::set<GraphNode *> UniqueSources;
+    OVLSVector<GraphNode *> UniqueSources;
     assert(getNumUniqueSources(UniqueSources) == 1 && "Unexpected sources!!!");
-    std::set<GraphNode *>::iterator It = UniqueSources.begin();
+    OVLSVector<GraphNode *>::iterator It = UniqueSources.begin();
     OVLSStore *StoreInst = dyn_cast<OVLSStore>(Inst);
     assert(StoreInst && "Expected Store Inst!");
     StoreInst->updateValue(((*It)->getInstruction()));
@@ -408,9 +408,17 @@ public:
   /// A node can have multiple edges coming from the same source node.
   /// Therefore, the size of IncomingEdges will not be equal to the number of
   /// unique source nodes.
-  uint32_t getNumUniqueSources(std::set<GraphNode *> &UniqueSources) const {
-    for (Edge *E : IncomingEdges)
-      UniqueSources.insert(E->getSource());
+  uint32_t getNumUniqueSources(OVLSVector<GraphNode *> &UniqueSources) const {
+    std::set<GraphNode *> VisitedSources;
+    for (Edge *E : IncomingEdges) {
+      GraphNode *Src = E->getSource();
+
+      if (VisitedSources.find(Src) != VisitedSources.end())
+        continue;
+
+      UniqueSources.push_back(Src);
+      VisitedSources.insert(Src);
+    }
     return UniqueSources.size();
   }
 
@@ -456,7 +464,7 @@ public:
   /// src1(0, 1, 2, 3) src2(4, 5, 6, 7)
   /// dst could be dst(0, 3, 6) but not dst(0, 6, 3)
   bool splitSourceNodes(GraphNodeList &NewNodes) {
-    std::set<GraphNode *> UniqueSources;
+    OVLSVector<GraphNode *> UniqueSources;
     uint32_t NumUniqueSources = getNumUniqueSources(UniqueSources);
 
     if (NumUniqueSources <= 2)
@@ -764,13 +772,13 @@ public:
   OVLSVector<int> getPossibleIncomingMask(const GraphNode &N1,
                                           const GraphNode &N2) const {
     OVLSVector<int> Mask;
-    std::set<GraphNode *> UniqueSources;
+    OVLSVector<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
     (void)NumUniqueSources;
     assert(NumUniqueSources <= 2 && "Invalid total sources!");
 
-    std::set<GraphNode *>::iterator It = UniqueSources.begin();
+    OVLSVector<GraphNode *>::iterator It = UniqueSources.begin();
     GraphNode *Src1 = *It;
 
     OVLSType SrcType = Src1->type();
@@ -931,14 +939,14 @@ public:
         N1.size() + N2.size() > VectorLength * BYTE)
       return false;
 
-    std::set<GraphNode *> UniqueSources;
+    OVLSVector<GraphNode *> UniqueSources;
     N1.getNumUniqueSources(UniqueSources);
     uint32_t NumUniqueSources = N2.getNumUniqueSources(UniqueSources);
 
     if (NumUniqueSources > 2)
       return false;
 
-    std::set<GraphNode *>::iterator It = UniqueSources.begin();
+    OVLSVector<GraphNode *>::iterator It = UniqueSources.begin();
     GraphNode *Src = *It;
 
     OVLSType SrcType = Src->type();
@@ -1083,7 +1091,7 @@ public:
 
   // Returns false if a node in the graph has more than two source nodes.
   bool verifyGraph() {
-    std::set<GraphNode *> UniqueSources;
+    OVLSVector<GraphNode *> UniqueSources;
     for (GraphNode *N : Nodes) {
       if (N->getNumUniqueSources(UniqueSources) > 2)
         return false;
