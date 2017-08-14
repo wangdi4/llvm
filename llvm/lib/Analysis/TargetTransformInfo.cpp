@@ -284,6 +284,10 @@ unsigned TargetTransformInfo::getRegisterBitWidth(bool Vector) const {
   return TTIImpl->getRegisterBitWidth(Vector);
 }
 
+unsigned TargetTransformInfo::getMinVectorRegisterBitWidth() const {
+  return TTIImpl->getMinVectorRegisterBitWidth();
+}
+
 bool TargetTransformInfo::shouldConsiderAddressTypePromotion(
     const Instruction &I, bool &AllowPromotionWithoutCommonHeader) const {
   return TTIImpl->shouldConsiderAddressTypePromotion(
