@@ -4,19 +4,22 @@ Subject to the terms and conditions of the Master Development License
 Agreement between Intel and Apple dated August 26, 2005; under the Category 2 Intel
 OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #58744
 ==================================================================================*/
+
 #include "GenericAddressResolution.h"
+
 #include <FunctionDescriptor.h>
 #include <CompilationUtils.h>
-#include <MetaDataApi.h>
 #include <NameMangleAPI.h>
 #include <ParameterType.h>
 
 #include <llvm/ADT/StringSwitch.h>
+#include "llvm/IR/Constants.h"
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/Type.h>
+
 #include <llvm/Support/Debug.h>
 #include <llvm/Support/raw_ostream.h>
 
@@ -320,16 +323,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   }
 
   void emitWarning(std::string warning, Instruction *pInstr,
-                   Module *pModule, LLVMContext *pLLVMContext) {
-
-    assert(pModule && pLLVMContext && "emitWarning parameters are invalid!");
-    Intel::MetaDataUtils mdUtils(pModule);
-
-    if (mdUtils.empty_ModuleInfoList()) {
-        mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
-    }
-
-    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
+                   llvm::SmallVectorImpl<int> &GASWarnings, LLVMContext *pLLVMContext) {
 
     // Print-out the message ...
     DEBUG(
@@ -338,14 +332,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
         unsigned lineNo = pInstr->getDebugLoc().getLine();
         dbgs() << lineNo << "\n";
         // ... and record to metadata
-        handle->addGASwarningsItem(lineNo);
+        GASWarnings.push_back(lineNo);
       }
       else {
         dbgs() << "unknown" << "\n";
       }
     );
-
-    mdUtils.save(*pLLVMContext);
   }
 
   bool isSinglePtr(const Type *pPtrType) {

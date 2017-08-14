@@ -35,11 +35,5 @@ declare i32 @_Z13get_global_idj(i32)
 declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
-!opencl.compiler.options = !{}
 
-!0 = !{void (i32)* @main, !1, !1, !"", !"int", !"opencl_main_locals_anchor", !2, !3, !4, !5, !""}
-!1 = !{i32 0, i32 0, i32 0}
-!2 = !{i32 0}
-!3 = !{i32 3}
-!4 = !{!"int"}
-!5 = !{!"x"}
+!0 = !{void (i32)* @main}

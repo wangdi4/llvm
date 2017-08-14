@@ -196,6 +196,7 @@ private:
                        F->getLinkage(), F->getName(), m_M);
       }
       curF->copyAttributesFrom(F);
+      curF->copyMetadata(F, 0);
       m_VMap[F] = curF;
     }
   }

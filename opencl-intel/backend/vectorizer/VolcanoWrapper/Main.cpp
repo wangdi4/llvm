@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "Main.h"
 #include "VectorizerCore.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OclTune.h"
 
 #include "llvm/Pass.h"
@@ -16,24 +16,20 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/InitializePasses.h"
 
-// Placeholders for debug log files
-FILE * prtFile;
-FILE * moduleDmp;
-
 using namespace llvm;
+using namespace Intel::MetadataAPI;
 
 char intel::Vectorizer::ID = 0;
 
 extern "C" Pass* createSpecialCaseBuiltinResolverPass();
 extern "C" FunctionPass* createVectorizerCorePass(const intel::OptimizerConfig*);
-extern "C" Pass* createBuiltinLibInfoPass(llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
+extern "C" Pass* createBuiltinLibInfoPass(
+  llvm::SmallVector<llvm::Module*, 2> pRtlModuleList, std::string type);
 
 namespace intel {
 
   Vectorizer::Vectorizer(llvm::SmallVector<llvm::Module*, 2> rtList, const OptimizerConfig* pConfig) :
   ModulePass(ID),
-  m_numOfKernels(0),
-  m_isModuleVectorized(false),
   m_pConfig(pConfig)
 {
   m_runtimeModuleList = rtList;
@@ -52,20 +48,26 @@ Vectorizer::~Vectorizer()
 bool Vectorizer::runOnModule(Module &M)
 {
   V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
-  // set isVectorized and proper number of kernels to zero, in case vectorization fails
-  m_numOfKernels = 0;
-  m_isModuleVectorized = true;
 
-  Intel::MetaDataUtils mdUtils(&M);
+  // holds all the "original" (scalar) functions
+  SmallVector<Function*, ESTIMATED_NUM_OF_FUNCTIONS> scalarFuncsList;
+
+  // set isModuleVectorized and proper number of kernels to zero, in case vectorization fails
+  // number of kernels in current module
+  unsigned numOfKernels = 0;
+  // was current module vectorized
+  bool isModuleVectorized = true;
+
+  auto Kernels = KernelList(&M).getList();
 
   // check for some common module errors, before actually diving in
-  if (mdUtils.empty_Kernels())
+  if (Kernels.empty())
   {
     V_PRINT(wrapper, "Failed to find annotation. Aborting!\n");
     return false;
   }
-  m_numOfKernels = mdUtils.size_Kernels();
-  if (m_numOfKernels == 0)
+  numOfKernels = Kernels.size();
+  if (numOfKernels == 0)
   {
     V_PRINT(wrapper, "Num of kernels is 0. Aborting!\n");
     return false;
@@ -77,14 +79,13 @@ bool Vectorizer::runOnModule(Module &M)
   }
 
 
-  for (Intel::MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i) {
-    Intel::KernelMetaDataHandle kmd = (*i);
-    Function *F = kmd->getFunction();
+  for (auto* pFunc : Kernels) {
+    auto VecTypeHint = KernelMetadataAPI(pFunc).VecTypeHint;
     bool disableVect = false;
 
-    //look for vector type hint metadata
-    if (kmd->isVecTypeHintHasValue()) {
-      Type* VTHTy = kmd->getVecTypeHint()->getType();
+    // look for vector type hint metadata
+    if (VecTypeHint.hasValue()) {
+      Type* VTHTy = VecTypeHint.getType();
       if (!VTHTy->isFloatTy()     &&
           !VTHTy->isDoubleTy()    &&
           !VTHTy->isIntegerTy(8)  &&
@@ -97,9 +98,7 @@ bool Vectorizer::runOnModule(Module &M)
 
     // Only add kernels to list, if they have scalar vec-type hint (or none)
     if (!disableVect)
-      m_scalarFuncsList.push_back(F);
-    else
-      m_scalarFuncsList.push_back(NULL);
+      scalarFuncsList.push_back(pFunc);
   }
 
 
@@ -109,10 +108,7 @@ bool Vectorizer::runOnModule(Module &M)
   vectPM.add(createBuiltinLibInfoPass(getAnalysis<BuiltinLibInfo>().getBuiltinModules(), ""));
   vectPM.add(vectCore);
 
-
-  funcsVector::iterator fi = m_scalarFuncsList.begin();
-  funcsVector::iterator fe = m_scalarFuncsList.end();
-  for (; fi != fe; ++fi)
+  for (auto *F : scalarFuncsList)
   {
     // default values for non vectorized kernels.
     Function *vectFunc = 0;
@@ -120,67 +116,55 @@ bool Vectorizer::runOnModule(Module &M)
     unsigned int vectDim = 0;
     bool canUniteWorkgroups = false;
 
-    if (*fi) {
-      // Clone the kernel
-      ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi, vmap, nullptr);
-      // [LLVM 3.6 UPGRADE] Set the vectorized function name manually at least until fix isn't done in LLVM
-      // or solved in another way.
-      clone->setName("__Vectorized_." + (*fi)->getName());
+    assert(F && "scalarFuncsList should not contain nullptrs!");
 
-      // Todo: due to a bug in the metadata we can't save changes more than once
-      // (even if we reinstantiate the metadata object after saving).
-      // Until this is fixed, we send the scalar function directly to the vectorizer core.
-      //Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(clone);
-      //vkimd->setVectorizedKernel(NULL);
-      //vkimd->setScalarizedKernel(*fi);
-      //Save Metadata to the module
-      //mdUtils.save(M.getContext());
+    // Clone the kernel
+    ValueToValueMapTy vmap;
+    Function *clone = CloneFunction(F, vmap, nullptr);
+    clone->setName("__Vectorized_." + F->getName());
 
-      vectCore->setScalarFunc(*fi);
+    auto vkimd = KernelInternalMetadataAPI(clone);
+    vkimd.VectorizedKernel.set(nullptr);
+    vkimd.ScalarizedKernel.set(F);
 
-      vectPM.run(*clone);
-      if (vectCore->isFunctionVectorized()) {
-        // if the function is successfully vectorized update vectFunc and width.
-        vectFunc = clone;
-        vectFuncWidth = vectCore->getPacketWidth();
-        vectDim = vectCore->getVectorizationDim();
-        canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
-        // copy stats from the original function to the new one
-        intel::Statistic::copyFunctionStats(**fi, *clone);
-      } else {
-        // We can't or choose not to vectorize the kernel, erase the clone from the module.
-        // but first copy the vectorizer stats back to the original function
-        intel::Statistic::copyFunctionStats(*clone, **fi);
-        intel::Statistic::removeFunctionStats(*clone);
-        clone->eraseFromParent();
-      }
-      V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
-      //Initialize scalar kernel information, which contains:
-      // * pointer to vectorized kernel
-      // * vectorized width of 1 (as it is the scalar version)
-      // * NULL as pointer to scalar version (as there is no scalar version for scalar kernel)
-      Intel::KernelInfoMetaDataHandle skimd = mdUtils.getOrInsertKernelsInfoItem(*fi);
-      skimd->setVectorizedKernel(vectFunc);
-      skimd->setVectorizedWidth(1);
-      skimd->setScalarizedKernel(NULL);
-      if (vectFunc) {
-        //Initialize vector kernel information
-        // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
-        // * vectorized width
-        // * pointer to scalar version
-        Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getOrInsertKernelsInfoItem(vectFunc);
-        vkimd->setVectorizedKernel(NULL);
-        vkimd->setVectorizedWidth(vectFuncWidth);
-        vkimd->setScalarizedKernel(*fi);
-        vkimd->setVectorizationDimension(vectDim);
-        vkimd->setCanUniteWorkgroups(canUniteWorkgroups);
-      }
+    vectPM.run(*clone);
+    if (vectCore->isFunctionVectorized()) {
+      // if the function is successfully vectorized update vectFunc and width.
+      vectFunc = clone;
+      vectFuncWidth = vectCore->getPacketWidth();
+      vectDim = vectCore->getVectorizationDim();
+      canUniteWorkgroups = vectCore->getCanUniteWorkgroups();
+      // copy stats from the original function to the new one
+      intel::Statistic::copyFunctionStats(*F, *clone);
+    } else {
+      // We can't or choose not to vectorize the kernel, erase the clone from the module.
+      // but first copy the vectorizer stats back to the original function
+      intel::Statistic::copyFunctionStats(*clone, *F);
+      intel::Statistic::removeFunctionStats(*clone);
+      clone->eraseFromParent();
+    }
+    V_ASSERT(vectFuncWidth > 0 && "vect width for non vectoized kernels should be 1");
+    //Initialize scalar kernel information, which contains:
+    // * pointer to vectorized kernel
+    // * vectorized width of 1 (as it is the scalar version)
+    // * NULL as pointer to scalar version (as there is no scalar version for scalar kernel)
+    auto skimd = KernelInternalMetadataAPI(F);
+    skimd.VectorizedKernel.set(vectFunc);
+    skimd.VectorizedWidth.set(1);
+    skimd.ScalarizedKernel.set(nullptr);
+    if (vectFunc) {
+      //Initialize vector kernel information
+      // * NULL pointer to vectorized kernel (as there is no vectorized version for vectroized kernel)
+      // * vectorized width
+      // * pointer to scalar version
+      auto vkimd = KernelInternalMetadataAPI(vectFunc);
+      vkimd.VectorizedKernel.set(nullptr);
+      vkimd.VectorizedWidth.set(vectFuncWidth);
+      vkimd.ScalarizedKernel.set(F);
+      vkimd.VectorizationDimension.set(vectDim);
+      vkimd.CanUniteWorkgroups.set(canUniteWorkgroups);
     }
   }
-
-  //Save Metadata to the module
-  mdUtils.save(M.getContext());
 
   {
     legacy::PassManager mpm;
@@ -194,7 +178,7 @@ bool Vectorizer::runOnModule(Module &M)
   //////////////////////////////////////////////
   V_PRINT(wrapper, "\nCompleted Vectorizer Wrapper!\n");
 
-  return m_isModuleVectorized;
+  return isModuleVectorized;
 }
 
 } // Namespace intel

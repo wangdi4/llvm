@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "OCLPassSupport.h"
 #include "OCLAddressSpace.h"
+#include "MetadataAPI.h"
 #include <NameMangleAPI.h>
 
 #include "llvm/ADT/SmallVector.h"
@@ -172,41 +173,22 @@ private:
   BuiltinLibInfo &BLI;
 };
 
-static void WarpFunctionMetadata(Module &M) {
-  if (M.getNamedMetadata("opencl.kernels") != NULL)
-    return;
+static void FormOpenCLKernelsMetadata(Module &M) {
+  assert(!M.getNamedMetadata("opencl.kernels") &&
+    "Do not expect opencl.kernels Metadata");
 
-  auto OpenCLKernels = M.getOrInsertNamedMetadata("opencl.kernels");
+  using namespace Intel::MetadataAPI;
+
+  KernelList::KernelVectorTy kernels;
+
   for (auto &Func : M) {
-    if (Func.getCallingConv() == CallingConv::SPIR_KERNEL) {
-
-      llvm::SmallVector<StringRef, 7> Names = {
-          "kernel_arg_addr_space", "kernel_arg_access_qual",
-          "kernel_arg_type",       "kernel_arg_base_type",
-          "kernel_arg_type_qual",  "kernel_arg_name",
-          "vec_type_hint",         "work_group_size_hint",
-          "reqd_work_group_size"};
-
-      llvm::SmallVector<Metadata *, 7> Args;
-      Args.push_back(ConstantAsMetadata::get(&Func));
-
-      for (const auto &I : Names) {
-        auto First = MDString::get(M.getContext(), I);
-        auto Second = Func.getMetadata(I);
-        if (!Second)
-          continue; // No such metadata.
-
-        llvm::SmallVector<Metadata *, 2> Mdvector;
-        Mdvector.push_back(First);
-        for (auto &O : Second->operands()) {
-          Mdvector.push_back(O);
-        }
-        Args.push_back(MDTuple::get(M.getContext(), Mdvector));
-      }
-
-      OpenCLKernels->addOperand(MDTuple::get(M.getContext(), Args));
+    if ((Func.getCallingConv() == CallingConv::SPIR_KERNEL)
+        && (!Func.isDeclaration())) {
+      kernels.push_back(&Func);
     }
   }
+
+  KernelList(&M).set(kernels);
 }
 
 // SpirMaterializer
@@ -225,10 +207,11 @@ SpirMaterializer::SpirMaterializer() : ModulePass(ID) {}
 
 bool SpirMaterializer::runOnModule(llvm::Module &Module) {
   bool Ret = false;
-  WarpFunctionMetadata(Module);
 
   BuiltinLibInfo &BLI = getAnalysis<BuiltinLibInfo>();
 
+  // form kernel list in the module.
+  FormOpenCLKernelsMetadata(Module);
   MaterializeFunctionFunctor fMaterializer(BLI);
   // Take care of calling conventions
   std::for_each(Module.begin(), Module.end(), fMaterializer);

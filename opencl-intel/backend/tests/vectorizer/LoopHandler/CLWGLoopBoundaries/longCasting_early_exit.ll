@@ -53,12 +53,6 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (i64, i64 addrspace(1)*)* @test, !1, !2, !3, !4, !5, !6}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"long", !"long*"}
-!4 = !{!"kernel_arg_type_qual", !"", !""}
-!5 = !{!"kernel_arg_base_type", !"long", !"long*"}
-!6 = !{!"kernel_arg_name", !"l", !"gl"}
+!0 = !{void (i64, i64 addrspace(1)*)* @test}
 !7 = !{i32 1, i32 2}
 !8 = !{}

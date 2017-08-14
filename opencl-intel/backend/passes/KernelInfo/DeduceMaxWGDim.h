@@ -20,9 +20,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 using namespace llvm;
 
-namespace Intel {
-class MetaDataUtils;
-}
 using namespace Intel::OpenCL::DeviceBackend;
 namespace intel {
 
@@ -45,7 +42,7 @@ public:
   virtual llvm::StringRef getPassName() const { return "DeduceMaxWGDim"; }
 
   bool runOnModule(Module &M);
-  bool runOnFunction(Function &F, Intel::MetaDataUtils &MDU);
+  bool runOnFunction(Function &F);
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     // Only modifies metadata

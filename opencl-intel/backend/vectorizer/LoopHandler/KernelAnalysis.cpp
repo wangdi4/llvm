@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OpenclRuntime.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OCLPassSupport.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "CompilationUtils.h"
 
 #include "llvm/IR/Instructions.h"
@@ -18,6 +18,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <string.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -109,36 +110,27 @@ bool KernelAnalysis::runOnModule(Module& M) {
   m_M = &M;
   m_unsupportedFunc.clear();
   m_kernels.clear();
-  LoopUtils::GetOCLKernel(M, m_kernels);
-
-  Intel::MetaDataUtils mdUtils(m_M);
+  m_kernels = KernelList(&M).getList();
 
   fillKernelCallers();
   fillSyncUsersFuncs();
   fillUnsupportedTIDFuncs();
 
-  for (FVec::iterator fit = m_kernels.begin(), fe = m_kernels.end();
-       fit != fe; ++fit) {
-    Function *F = *fit;
-    if (!F) {
-      assert(false && "Kernel Metadata contains NULL kernel");
-      continue;
-    }
-    if(m_unsupportedFunc.count(F)) {
-      mdUtils.getOrInsertKernelsInfoItem(F)->setNoBarrierPath(false);
+  for (auto *pFunc : m_kernels) {
+    assert(pFunc && "nullptr is not expected in KernelList!");
+    auto kimd = KernelInternalMetadataAPI(pFunc);
+    if(m_unsupportedFunc.count(pFunc)) {
+      kimd.NoBarrierPath.set(false);
     } else {
-      mdUtils.getOrInsertKernelsInfoItem(F)->setNoBarrierPath(true);
+      kimd.NoBarrierPath.set(true);
     }
   }
 
-  //Save Metadata to the module
-  mdUtils.save(m_M->getContext());
   return (m_kernels.size() != 0);
 }
 
 void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
   if ( !M ) return;
-  Intel::MetaDataUtils mdUtils(const_cast<Module*>(M));
 
   OS << "\nKernelAnalysis\n";
 
@@ -147,8 +139,8 @@ void KernelAnalysis::print(raw_ostream &OS, const Module *M) const {
     if (!F) continue;
 
     std::string funcName = F->getName().str();
-    Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(F);
-    if (kimd->getNoBarrierPath()) {
+    auto kimd = KernelInternalMetadataAPI(F);
+    if (kimd.NoBarrierPath.get()) {
       OS << funcName << " yes\n";
     } else {
       OS << funcName << " no\n";

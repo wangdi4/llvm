@@ -21,10 +21,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 using namespace llvm;
 using namespace intel;
 
-namespace Intel {
-  class MetaDataUtils;
-}
-
 namespace intel {
   /// @brief  PrepareKernelArgs changes the way arguments are passed to kernels.
   ///         It changes the kernel to receive as arguments a single buffer
@@ -101,8 +97,6 @@ namespace intel {
     /// @brief The llvm context
     LLVMContext           *m_pLLVMContext;
 
-    /// @brief holds Meta Data utils
-    Intel::MetaDataUtils  *m_mdUtils;
     intel::ImplicitArgsAnalysis *m_IAA;
 
     /// @brief Size of Moudle pointer in bits

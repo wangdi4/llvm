@@ -2,7 +2,8 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind {
+; CHECK: @A{{.*}}!max_wg_dimensions ![[WG_DIM:[0-9]+]]
+define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !5 !kernel_arg_type_qual !4 !kernel_arg_name !6 !kernel_execution_length !14 !kernel_has_barrier !16 !no_barrier_path !17 !vectorized_kernel !18 !vectorized_width !19 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 1) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
@@ -16,7 +17,7 @@ entry:
 
 declare i64 @_Z12get_local_idj(i32) nounwind readnone
 
-define void @__Vectorized_.A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind {
+define void @__Vectorized_.A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !vectorized_width !26 !scalarized_kernel !27 {
 entry:
   %call = tail call i64 @_Z12get_local_idj(i32 1) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %call
@@ -35,36 +36,26 @@ entry:
 !opencl.used.extensions = !{!9}
 !opencl.used.optional.core.features = !{!9}
 !opencl.compiler.options = !{!9}
-!opencl.kernel_info = !{!10, !22}
-!opencl.module_info_list = !{}
 !llvm.functions_info = !{}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A, !1, !2, !3, !4, !5, !6}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"int*", !"int*"}
-!4 = !{!"kernel_arg_type_qual", !"", !""}
-!5 = !{!"kernel_arg_base_type", !"int*", !"int*"}
-!6 = !{!"kernel_arg_name", !"A", !"B"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A}
+
+!1 = !{i32 1, i32 1}
+!2 = !{!"none", !"none"}
+!3 = !{!"int*", !"int*"}
+!4 = !{!"", !""}
+!5 = !{!"int*", !"int*"}
+!6 = !{!"A", !"B"}
 !7 = !{i32 1, i32 0}
 !8 = !{i32 0, i32 0}
 !9 = !{}
-!10 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A, !11}
-!11 = !{!12, !13, !14, !15, !16, !17, !18, !19, !20, !21}
-!12 = !{!"local_buffer_size", null}
-!13 = !{!"barrier_buffer_size", null}
-!14 = !{!"kernel_execution_length", i32 8}
-!15 = !{!"max_wg_dimensions", null}
-; CHECK: !15 = !{!"max_wg_dimensions", i32 2}
-!16 = !{!"kernel_has_barrier", i1 false}
-!17 = !{!"no_barrier_path", i1 true}
-!18 = !{!"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.A}
-!19 = !{!"vectorized_width", i32 1}
-!20 = !{!"kernel_wrapper", null}
-!21 = !{!"scalarized_kernel", null}
-!22 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.A, !23}
-!23 = !{!12, !13, !14, !15, !16, !24, !25, !26, !20, !27}
-!24 = !{!"no_barrier_path", null}
-!25 = !{!"vectorized_kernel", null}
-!26 = !{!"vectorized_width", i32 4}
-!27 = !{!"scalarized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @A}
+
+!14 = !{i32 8}
+; CHECK: ![[WG_DIM]] = !{i32 2}
+!16 = !{i1 false}
+!17 = !{i1 true}
+!18 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.A}
+!19 = !{i32 1}
+
+!26 = !{i32 4}
+!27 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A}

@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGBoundDecoder.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "CompilationUtils.h"
 #include "OclTune.h"
 
@@ -45,9 +45,10 @@ CLWGLoopCreator::~CLWGLoopCreator()
 }
 
 bool CLWGLoopCreator::runOnModule(Module &M) {
+  using namespace Intel::MetadataAPI;
+
   bool changed = false;
-  Intel::MetaDataUtils mdUtils(&M);
-  if ( !mdUtils.isKernelsInfoHasValue() ) {
+  if (KernelList(&M).empty() ) {
     //Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
@@ -55,17 +56,12 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
   m_rtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   assert(m_rtServices && "expected to have openCL runtime");
 
-  // First obtain original scalar kernels from metadata.
-  SmallVector<Function *, 8> kernels;
-  LoopUtils::GetOCLKernel(M, kernels);
-
-  for (unsigned i=0, e = kernels.size(); i < e; ++i) {
-    Function *F = kernels[i];
-    if (!F) continue;
-    Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(F);
+  for (auto *pFunc : KernelList(&M)) {
+    assert(pFunc && "nullptr is not expected in KernelList!");
+    auto skimd = KernelInternalMetadataAPI(pFunc);
     //No need to check if NoBarrierPath Value exists, it is guaranteed that
     //KernelAnalysisPass ran before CLWGLoopCreator pass.
-    if (!skimd->getNoBarrierPath()) {
+    if (!skimd.NoBarrierPath.get()) {
       //Kernel that should be handled in barrier path, skip it.
       continue;
     }
@@ -73,59 +69,51 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
     Function *vectKernel = NULL;
     //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
     //Vectorized is running in all scenarios.
-    if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel()) {
+    if (skimd.VectorizedKernel.hasValue() && skimd.VectorizedKernel.get()) {
       //Set the vectorized function
-      vectKernel = skimd->getVectorizedKernel();
-      Intel::MetaDataUtils::KernelsInfoMap::iterator itrVecKernelInfo = mdUtils.findKernelsInfoItem(vectKernel);
-      assert(itrVecKernelInfo != mdUtils.end_KernelsInfo() &&
-        itrVecKernelInfo->second.get() && "Failed finding vectorized kernel info");
+      vectKernel = skimd.VectorizedKernel.get();
+      auto vectkimd = KernelInternalMetadataAPI(vectKernel);
       //Set the vectorized width
-      vectWidth = itrVecKernelInfo->second->getVectorizedWidth();
+      vectWidth = vectkimd.VectorizedWidth.get();
 
       //save the relevant information from the vectorized kernel in skimd
       //prior to erasing this information
-      unsigned int vectorizeOnDim = itrVecKernelInfo->second->getVectorizationDimension();
-      unsigned int canUniteWG = itrVecKernelInfo->second->getCanUniteWorkgroups();
-      skimd->setVectorizationDimension(vectorizeOnDim);
-      skimd->setCanUniteWorkgroups(canUniteWG);
+      unsigned int vectorizeOnDim = vectkimd.VectorizationDimension.get();
+      unsigned int canUniteWG = vectkimd.CanUniteWorkgroups.get();
+      skimd.VectorizationDimension.set(vectorizeOnDim);
+      skimd.CanUniteWorkgroups.set(canUniteWG);
 
-      //Erase vectorized kernel info and update scalaized kernel info
-      mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
-      skimd->setVectorizedKernel(NULL);
-      skimd->setVectorizedWidth(vectWidth);
+      skimd.VectorizedKernel.set(nullptr);
+      skimd.VectorizedWidth.set(vectWidth);
     }
 
     // We can create loops for this kernel - runOnFunction on it!!
-    changed |= runOnFunction(*F, vectKernel, vectWidth);
+    changed |= runOnFunction(*pFunc, vectKernel, vectWidth);
   }
 
-  //Save Metadata to the module
-  mdUtils.save(M.getContext());
   return changed;
 }
 
 unsigned CLWGLoopCreator::computeNumDim() {
-  Intel::MetaDataUtils mdUtils(m_F->getParent());
-  if (!mdUtils.isKernelsInfoHasValue())
+  using namespace Intel::MetadataAPI;
+
+  if (KernelList(m_F->getParent()).empty())
     return m_rtServices->getNumJitDimensions();
-  Intel::KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(m_F);
-  if (skimd->isMaxWGDimensionsHasValue())
-    return skimd->getMaxWGDimensions();
+  auto skimd = KernelInternalMetadataAPI(m_F);
+  if (skimd.MaxWGDimensions.hasValue())
+    return skimd.MaxWGDimensions.get();
   return m_rtServices->getNumJitDimensions();
 }
 
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
                                     unsigned packetWidth) {
+  using namespace Intel::MetadataAPI;
+
   m_vectorizedDim = 0;
   if (vectorFunc != NULL) {
-    Intel::MetaDataUtils mdUtils((vectorFunc->getParent()));
-    if(mdUtils.isKernelsInfoHasValue()) {
-      if (mdUtils.findKernelsInfoItem(vectorFunc) != mdUtils.end_KernelsInfo()) {
-        Intel::KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(vectorFunc);
-        if (vkimd->isVectorizationDimensionHasValue()) {
-           m_vectorizedDim = vkimd->getVectorizationDimension();
-        }
-      }
+    auto vkimd = KernelInternalMetadataAPI(vectorFunc);
+    if (vkimd.VectorizationDimension.hasValue()) {
+       m_vectorizedDim = vkimd.VectorizationDimension.get();
     }
   }
 
@@ -500,7 +488,12 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   SmallVector<ReturnInst*, 2> returns;
 
   // Do actual cloning work
-  // Set 'ModuleLevelChanges' to 'true' to update the debug metadata as well
+  // Set 'ModuleLevelChanges' to 'true' to update the debug metadata as well.
+  // To prevent Metadata merge, drop all old Metadata (they were cloned anyway before Vec)
+  SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+  m_F->getAllMetadata(MDs);
+  for (const auto &MD : MDs)
+    m_F->setMetadata(MD.first, nullptr);
   CloneFunctionInto(m_F, m_vectorFunc, valueMap, true, returns, "vector_func");
   for(Function::iterator bbit = m_vectorFunc->begin(),
       bbe = m_vectorFunc->end(); bbit != bbe; ++bbit){

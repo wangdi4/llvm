@@ -3,7 +3,7 @@
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-f80:32:32-n8:16:32-S32"
 
 ; CHECK: @t1
-define void @t1(i16 %arg1, i8* %arg2, i8 %arg3, i32 %arg4, float %arg5, i64 %arg6, double %arg7 ) nounwind {
+define void @t1(i16 %arg1, i8* %arg2, i8 %arg3, i32 %arg4, float %arg5, i64 %arg6, double %arg7 ) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 entry:
   ret void
 }
@@ -47,7 +47,6 @@ entry:
 ; CHECK: call void @__t1_separated_args(i16 %explicit_0, i8* %explicit_1, i8 %explicit_2, i32 %explicit_3, float %explicit_4, i64 %explicit_5, double %explicit_6, [[IMPLICIT_ARGS:[a-zA-Z0-9]+]]
 ; CHECK-NEXT: ret void
 
-
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!6}
@@ -56,12 +55,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (i16, i8*, i8, i32, float, i64, double)* @t1, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"short", !"char*", !"char", !"int", !"float", !"long", !"double"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !"", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6", !"arg7"}
+!0 = !{void (i16, i8*, i8,i32, float, i64, double)* @t1}
+!1 = !{i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
+!2 = !{!"none", !"none", !"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"short", !"char*", !"char", !"int", !"float", !"long", !"double"}
+!4 = !{!"", !"", !"", !"", !"", !"", !""}
+!5 = !{!"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6", !"arg7"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}

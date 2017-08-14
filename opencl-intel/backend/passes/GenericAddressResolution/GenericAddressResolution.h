@@ -97,7 +97,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @param  pInstr   - instruction of the warning, or NULL
   /// @param  pModule  - module whose metadata should be created/appended
   /// @param  pContext - current context
-  void emitWarning(std::string warning, Instruction *pInstr, Module *pModule,
+  void emitWarning(std::string warning, Instruction *pInstr, llvm::SmallVectorImpl<int> &GASWarnings,
                    LLVMContext *pContext);
 
   /// @brief  Helper for check of pointer array case

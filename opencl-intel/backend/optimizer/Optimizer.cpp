@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CPUDetect.h"
 #include "debuggingservicetype.h"
 #include "CompilationUtils.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OclTune.h"
 
 #include "PrintIRPass.h"
@@ -652,31 +652,24 @@ bool Optimizer::hasFunctionPtrCalls() { return !GetFuncNames(true).empty(); }
 bool Optimizer::hasRecursion() { return !GetFuncNames(false).empty(); }
 
 std::vector<std::string> Optimizer::GetFuncNames(bool funcsWithFuncPtrCalls) {
+  using namespace Intel::MetadataAPI;
+
   bool returnFunc = false;
   assert(m_pModule && "Module is NULL");
   std::vector<std::string> res;
-  MetaDataUtils mdUtils(m_pModule);
 
-  // check FunctionInfo exists
-  if (mdUtils.empty_FunctionsInfo()) {
-    return std::vector<std::string>();
-  }
-
-  MetaDataUtils::FunctionsInfoMap::iterator i = mdUtils.begin_FunctionsInfo();
-  MetaDataUtils::FunctionsInfoMap::iterator e = mdUtils.end_FunctionsInfo();
-  for (; i != e; ++i) {
-    llvm::Function *pFunc = i->first;
-    Intel::FunctionInfoMetaDataHandle kimd = i->second;
+  for (auto &F : *m_pModule) {
+    auto kimd = FunctionMetadataAPI(&F);
     // If additional else-ifs are needed in order to examine other function
     // properties, better change the "bool callingFunc" to an enum and use
     // switch-case.
     if (funcsWithFuncPtrCalls == true) { // if calling func = hasFunctionPtrCall
-      returnFunc = kimd->isFuncPtrCallHasValue() && kimd->getFuncPtrCall();
+      returnFunc = kimd.FuncPtrCall.hasValue() && kimd.FuncPtrCall.get();
     } else { // if calling func = hasRecursion
-      returnFunc = kimd->isHasRecursionHasValue() && kimd->getHasRecursion();
+      returnFunc = kimd.RecursiveCall.hasValue() && kimd.RecursiveCall.get();
     }
     if (returnFunc) {
-      res.push_back(pFunc->getName());
+      res.push_back(F.getName());
       returnFunc = false;
     }
   }

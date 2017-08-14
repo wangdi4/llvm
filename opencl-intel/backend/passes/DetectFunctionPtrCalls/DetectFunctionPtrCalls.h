@@ -49,7 +49,7 @@ namespace intel {
 
     /// @brief obtain functions names with function pointer calls detected
     /// @return true is there are >0 function pointer calls in Module
-    const std::vector<std::string>& getFunctionPtrCalls() const{
+    const std::vector<std::string>& getFunctionPtrCalls() const {
       return m_funcWithFuncPtrCall;
     }
 

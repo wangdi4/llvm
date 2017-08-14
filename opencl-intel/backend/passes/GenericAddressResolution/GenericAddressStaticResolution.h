@@ -109,6 +109,9 @@ namespace intel {
     /// @brief  counter of pointers which the pass was unable to resolve
     unsigned m_failCount;
 
+    /// @brief line numbers with GAS warning for storage in Metadata
+    llvm::SmallVector<int, 8> m_GASWarningLinesList;
+
   private:
 
     /// @brief  Prepares collection of GAS pointers' usages from a function and

@@ -422,6 +422,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
         throw Exceptions::CompilerException(std::string("Failed to retrieve the target for given module during dump operation:") + err);
     }
 
+    // ToDo: Should this be put to MetadataAPI?
     TargetOptions Options;
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT")) {
         Options.AllowFPOpFusion = llvm::FPOpFusion::Fast;

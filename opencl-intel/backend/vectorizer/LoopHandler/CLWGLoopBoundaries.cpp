@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CLWGLoopBoundaries.h"
 #include "CLWGBoundDecoder.h"
 #include "LoopUtils/LoopUtils.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "CompilationUtils.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
@@ -54,10 +54,11 @@ CLWGLoopBoundaries::~CLWGLoopBoundaries()
 }
 
 bool CLWGLoopBoundaries::runOnModule(Module &M) {
+  using namespace Intel::MetadataAPI;
+
   bool changed = false;
 
-  Intel::MetaDataUtils mdUtils(&M);
-  if ( !mdUtils.isKernelsHasValue() ) {
+  if (KernelList(&M).empty() ) {
     // Module contains no MetaData information, thus it contains no kernels
     return changed;
   }
@@ -65,19 +66,16 @@ bool CLWGLoopBoundaries::runOnModule(Module &M) {
   m_clRtServices = static_cast<OpenclRuntime *>(getAnalysis<BuiltinLibInfo>().getRuntimeServices());
   assert(m_clRtServices && "expected to have openCL runtime");
 
-  // Obtain OpenCL C version from this  module
+  // Obtain OpenCL C version from this module
   m_oclVersion = CompilationUtils::getCLVersionFromModuleOrDefault(M);
   // Collect all users of atomic/pipe built-ins
   collectWIUniqueFuncUsers(M);
   // Get the kernels using the barrier for work group loops.
-  Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-  Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-  for (; itr != end; ++itr) {
-    Function *pFunc = (*itr)->getFunction();
-    Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+  for (auto *pFunc : KernelList(&M)) {
+    auto kimd = KernelInternalMetadataAPI(pFunc);
     // No need to check if NoBarrierPath Value exists, it is guaranteed that
     // KernelAnalysisPass ran before CLWGLoopBoundries pass.
-    if (kimd->getNoBarrierPath()) {
+    if (kimd.NoBarrierPath.get()) {
       // Kernel that should not be handled in Barrier path.
       changed |= runOnFunction(*pFunc);
     }

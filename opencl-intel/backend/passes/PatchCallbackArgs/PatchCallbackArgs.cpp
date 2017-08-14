@@ -10,7 +10,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLAddressSpace.h"
 #include "common_dev_limits.h"
 #include "OCLPassSupport.h"
-#include "MetaDataApi.h"
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/DataLayout.h"

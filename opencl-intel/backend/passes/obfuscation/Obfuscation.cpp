@@ -7,12 +7,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "Obfuscation.h"
 
-#include "llvm/InitializePasses.h"
-#include "llvm/IR/Type.h"
-
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "CompilationUtils.h"
+
+#include "llvm/InitializePasses.h"
+#include "llvm/IR/Type.h"
 
 #include <algorithm>
 
@@ -37,10 +37,9 @@ public:
   virtual void operator ()(llvm::BasicBlock& BB) {
     BB.setName(llvm::Twine(""));
 
-    for(llvm::BasicBlock::iterator it = BB.begin(), e = BB.end(); it != e;
-        ++it) {
-      if (!it->getType()->isVoidTy())
-        it->setName(llvm::Twine(""));
+    for (auto &I : BB) {
+      if (!I.getType()->isVoidTy())
+        I.setName(llvm::Twine(""));
     }
   }
 };
@@ -49,33 +48,30 @@ struct TrivialFunctionFunctor: public FunctionFunctor {
   virtual void operator ()(llvm::Function& F) {
     ObfuscationBlockFunctor bFunctor;
     // Changing the name of the arguments of the function.
-    llvm::Function::ArgumentListType &ArgList = F.getArgumentList();
-    typedef llvm::Function::ArgumentListType::iterator ArgIter;
     int counter = 0;
 
-    for (ArgIter it = ArgList.begin(), e=ArgList.end(); it != e; it++)
-      it->setName(llvm::Twine(counter++));
+    for (auto &Arg : F.args())
+      Arg.setName(llvm::Twine(counter++));
 
     std::for_each(F.begin(), F.end(), bFunctor);
   }
 };
 
 bool Obfuscation::runOnModule(llvm::Module& M) {
+  using namespace Intel::MetadataAPI;
+
   // Setting the metadata with the argument name to empty string (if exists).
-  Intel::MetaDataUtils mdUtils(&M);
-  for (Intel::MetaDataUtils::KernelsList::iterator it = mdUtils.begin_Kernels(),
-                                                    e = mdUtils.end_Kernels();
-      it != e;
-      it++) {
-      Intel::KernelMetaData *KM = it->get();
-      for (size_t i=0; i<KM->size_ArgName(); i++)
-        KM->setArgNameItem(i, "");
+  for (auto Kernel : KernelList(&M)) {
+    auto KMD = KernelMetadataAPI(Kernel);
+    auto ArgNames = KMD.ArgNameList.getList();
+    for (auto &Name : ArgNames)
+      Name = "";
+    KMD.ArgNameList.set(ArgNames);
   }
 
   TrivialFunctionFunctor fFunctor;
   std::for_each(M.begin(), M.end(), fFunctor);
 
-  mdUtils.save(M.getContext());
   return true;
 }
 

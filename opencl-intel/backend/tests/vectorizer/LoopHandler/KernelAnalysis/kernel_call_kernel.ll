@@ -35,9 +35,6 @@ define void @test_function_to_call() nounwind {
 }
 
 
-!opencl.kernels = !{!0, !1, !2}
+!opencl.kernels = !{!0}
 
-
-!0 = !{void ()* @test_kernel_to_call}
-!1 = !{void ()* @test_kernel_call_kernel}
-!2 = !{void ()* @test_kernel_call_function}
+!0 = !{void ()* @test_kernel_to_call, void ()* @test_kernel_call_kernel, void ()* @test_kernel_call_function}

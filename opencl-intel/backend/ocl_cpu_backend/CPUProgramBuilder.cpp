@@ -22,7 +22,7 @@ File Name:  CPUProgramBuilder.cpp
 #include "CompilationUtils.h"
 #include "Kernel.h"
 #include "KernelProperties.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "Program.h"
 #include "StaticObjectLoader.h"
 
@@ -47,40 +47,6 @@ File Name:  CPUProgramBuilder.cpp
 #include <vector>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
-namespace Utils
-{
-/**
- * Returns the true if the given function name is a kernel function in the given module
- */
-bool IsKernel(llvm::Module* pModule, const char* szFuncName)
-{
-    MetaDataUtils mdUtils(pModule);
-
-    for( MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels(), e = mdUtils.end_Kernels(); i != e; ++i )
-    {
-        llvm::Function *pFuncVal = NULL;
-        // Obtain kernel function from annotation
-        if( (*i)->isFunctionHasValue() )
-        {
-            pFuncVal = (*i)->getFunction();
-        }
-
-        //TODO: check stripPointerCasts()
-        if ( NULL == pFuncVal )
-        {
-            continue;   // Not a function pointer
-        }
-
-        if ( !pFuncVal->getName().compare(szFuncName) )
-        {
-            return true;
-        }
-    }
-
-    // Function not found
-    return false;
-}
-}
 
 using namespace Intel::OpenCL::ELFUtils;
 
@@ -248,32 +214,30 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                                     llvm::Module* pModule,
                                     ProgramBuildResult& buildResult) const
 {
-    std::auto_ptr<KernelSet> spKernels( new KernelSet );
-    MetaDataUtils mdUtils(pModule);
+    using namespace Intel::MetadataAPI;
 
-    MetaDataUtils::KernelsList::const_iterator i = mdUtils.begin_Kernels();
-    MetaDataUtils::KernelsList::const_iterator e = mdUtils.end_Kernels();
+    std::unique_ptr<KernelSet> spKernels(new KernelSet);
 
-    for ( ; i != e; ++i)
+    for (auto pFunc : KernelList(pModule))
     {
         // Obtain kernel function from annotation
-        llvm::Function *pFunc = (*i)->getFunction(); // TODO: stripPointerCasts());
-        KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+        auto kimd = KernelInternalMetadataAPI(pFunc);
         // Obtain kernel wrapper function from metadata info
-        llvm::Function *pWrapperFunc = kimd->getKernelWrapper(); //TODO: stripPointerCasts());
+        assert(kimd.KernelWrapper.hasValue() && "Always expect a kernel wrapper to be present");
+        llvm::Function *pWrapperFunc = kimd.KernelWrapper.get(); //TODO: stripPointerCasts());
 
         // Create a kernel and kernel JIT properties
-        std::auto_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
+        std::unique_ptr<KernelProperties> spKernelProps( CreateKernelProperties( pProgram,
                                                                                pFunc,
                                                                                buildResult));
 
         // get the vector size used to generate the function
-        unsigned int vecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+        unsigned int vecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
         spKernelProps->SetMinGroupSizeFactorial(vecSize);
 
-        std::auto_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
+        std::unique_ptr<KernelJITProperties> spKernelJITProps( CreateKernelJITProperties( vecSize ));
 
-        std::auto_ptr<Kernel> spKernel( CreateKernel( pFunc,
+        std::unique_ptr<Kernel> spKernel( CreateKernel( pFunc,
                                                       pWrapperFunc->getName().str(),
                                                       spKernelProps.get()));
 
@@ -301,19 +265,19 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
 
         //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
         //Vectorized is running in all scenarios.
-        if (kimd->isVectorizedKernelHasValue())
+        if (kimd.VectorizedKernel.hasValue())
         {
-            Function *pVecFunc = kimd->getVectorizedKernel();
+            Function *pVecFunc = kimd.VectorizedKernel.get();
             assert(!(spKernelProps->IsVectorizedWithTail() && pVecFunc) &&
                    "if the vector kernel is inlined the entry of the vector "
                    "kernel should be NULL");
             if(NULL != pVecFunc && !dontVectorize)
             {
-                KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
+                auto vkimd = KernelInternalMetadataAPI(pVecFunc);
                 // Obtain kernel wrapper function from metadata info
-                llvm::Function *pWrapperVecFunc = vkimd->getKernelWrapper(); //TODO: stripPointerCasts());
+                llvm::Function *pWrapperVecFunc = vkimd.KernelWrapper.get(); //TODO: stripPointerCasts());
                 //Update vecSize according to vectorWidth of vectorized function
-                vecSize = vkimd->getVectorizedWidth();
+                vecSize = vkimd.VectorizedWidth.get();
                 // Create the vectorized kernel - no need to pass argument list here
                 std::auto_ptr<KernelJITProperties> spVKernelJITProps(CreateKernelJITProperties(vecSize));
                 spKernelProps->SetMinGroupSizeFactorial(vecSize);

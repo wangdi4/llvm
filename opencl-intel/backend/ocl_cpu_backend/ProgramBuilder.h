@@ -1,6 +1,6 @@
 /*****************************************************************************\
 
-Copyright (c) Intel Corporation (2010-2012).
+Copyright (c) Intel Corporation (2010-2017).
 
     INTEL MAKES NO WARRANTY OF ANY KIND REGARDING THE CODE.  THIS CODE IS
     LICENSED ON AN "AS IS" BASIS AND INTEL WILL NOT PROVIDE ANY SUPPORT,
@@ -21,7 +21,7 @@ File Name:  ProgramBuilder.h
 #include "IAbstractBackendFactory.h"
 #include "ICompilerConfig.h"
 
-#include "Program.h"
+#include "RuntimeService.h"
 
 namespace llvm {
     class Module;
@@ -38,8 +38,6 @@ class Compiler;
 class ObjectCodeCache;
 
 namespace Utils {
-/// @returns the memory buffer of the Program object bytecode
-llvm::MemoryBuffer* GetProgramMemoryBuffer(Program* pProgram);
 /// @brief helper funtion to set RuntimeService in Kernel objects from KernelSet
 void UpdateKernelsWithRuntimeService( const RuntimeServiceSharedPtr& rs, KernelSet * pKernels);
 }
@@ -56,7 +54,6 @@ public:
     ProgramBuilder(IAbstractBackendFactory* pBackendFactory, const ICompilerConfig& config);
     virtual ~ProgramBuilder();
 
-public:
     /**
      * Build the given program using the supplied build options
      */
@@ -84,8 +81,6 @@ protected:
                                              llvm::Function *func,
                                              const ProgramBuildResult& buildResult) const;
 
-    // checks if the given program has an object binary to be loaded from
-    virtual bool CheckIfProgramHasCachedExecutable(Program* pProgram) const;
     // reloads the program from his object binary
     virtual bool ReloadProgramFromCachedExecutable(Program* pProgram) = 0;
     // builds object binary for the built program
@@ -106,20 +101,14 @@ protected:
     virtual void PostBuildProgramStep(Program* pProgram, llvm::Module* pModule,
       const ICLDevBackendOptions* pOptions) const = 0;
 
-protected:
-
     // pointer to the containers factory (not owned by this class)
     IAbstractBackendFactory* m_pBackendFactory;
     bool m_useVTune;
 
 private:
-    /// @brief Update the size of the variables in global adress space used by the program.
-    void updateGlobalVariableTotalSize(Program* pProgram, llvm::Module* pModule);
-
     /// @brief Dump stats collected for module if requested
     void DumpModuleStats(llvm::Module* pModule);
 
-private:
     // base file name for stats
     std::string m_statFileBaseName;
     // Workload name for the stats

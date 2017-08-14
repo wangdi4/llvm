@@ -871,6 +871,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     ReadInputBuffer(pKernelConfig, &input,
         runConfig->GetValue<uint64_t>(RC_COMMON_RANDOM_DG_SEED, 0));
 
+    assert(m_pModule->getNamedMetadata("opencl.kernels") && "There is no \"opencl.kernels\" metadata.");
     DataVersion::ConvertData (&input, m_pModule->getNamedMetadata("opencl.kernels"), pKernelConfig->GetKernelName());
 
     // memory for storing kernel data marked with local addr space

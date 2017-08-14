@@ -136,7 +136,7 @@ namespace intel {
 
     /// @brief Find all kernel functions in the module
     /// @returns TFunctionVector container with found functions
-    TFunctionVector& getAllKernelFunctions();
+    TFunctionVector& getAllKernelsWithBarrier();
 
     unsigned getKernelVectorizationWidth(const Function *F) const;
 

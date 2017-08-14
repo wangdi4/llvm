@@ -19,10 +19,10 @@ File Name:  OclTune.h
 #ifndef __OCL_TUNE_H__
 #define __OCL_TUNE_H__
 
+#include "llvm/IR/Function.h"
+
 #include <string>
 #include <vector>
-#include "MetaDataApi.h"
-#include "llvm/IR/Function.h"
 
 #ifdef OCLT
 

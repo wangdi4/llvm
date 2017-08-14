@@ -54,5 +54,5 @@ set( CREATE_DIR_NAME tests/tbb_native_test_type)
 # Copy generated executable to appropriate test directory in 'Release' area.
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 

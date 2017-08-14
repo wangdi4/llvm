@@ -198,7 +198,7 @@ namespace intel {
       if (pDestType && pNewType->getAddressSpace() != pDestType->getAddressSpace()) {
         // Conflict between addr-space types of source and destination - report
         emitWarning("Illegal conversion from generic address space pointer",
-                     pInstr, m_pModule, m_pLLVMContext);
+                     pInstr, m_GASWarningLinesList, m_pLLVMContext);
       }
       pNewInstr = CastInst::CreatePointerCast(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
     } else if (!pDestType || !IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
@@ -540,7 +540,7 @@ namespace intel {
       if (hasMismatch) {
         // Conflict between add-space names of different parameters - report
         emitWarning("Built-in or Intrinsic call with parameters of different address spaces",
-                    pCallInstr, m_pModule, m_pLLVMContext);
+                    pCallInstr, m_GASWarningLinesList, m_pLLVMContext);
       }
     }
 

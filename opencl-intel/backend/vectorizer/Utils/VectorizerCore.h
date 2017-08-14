@@ -56,11 +56,6 @@ public:
     /// @brief Function for querying whether it is ok to unite workgroups.
     bool getCanUniteWorkgroups();
 
-    /// @brief set the scalar function of the function that is to
-    /// be vectorized. This is a temporary hack since a bug in the
-    /// metadata prevents passing this info through the MD.
-    void setScalarFunc(llvm::Function* func);
-
 private:
     /// @brief packetization width
     unsigned m_packetWidth;
@@ -76,9 +71,6 @@ private:
 
     /// Weight of the post vectoprized kernel.
     float m_postWeight;
-
-    /// The scalar function of the function we vectorize.
-    llvm::Function* m_scalarFunc;
 
     /// The vectorized dimension
     unsigned int m_vectorizationDim;
