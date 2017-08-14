@@ -360,7 +360,6 @@ namespace CGIntelOpenMP {
       ArraySectionTy AS;
       Address Base = emitOMPArraySectionExpr(
           cast<OMPArraySectionExpr>(E->IgnoreParenImpCasts()), AS);
-      if (0) addArg("QUAL.OPND.ARRSECT");
       addArg(Base.getPointer());
       addArg(llvm::ConstantInt::get(CGF.SizeTy, AS.size()));
       // If VLASize of the first element is not nullptr, we have sizes for all
@@ -992,6 +991,34 @@ namespace CGIntelOpenMP {
     emitSimpleClause();
   }
 
+  void OpenMPCodeOutliner::emitOMPDependClause(const OMPDependClause *Cl) {
+    auto DepKind = Cl->getDependencyKind();
+    if (DepKind == OMPC_DEPEND_source || DepKind == OMPC_DEPEND_sink) {
+      assert(false && "source/sink not yet implemented");
+    }
+    SmallString<64> Op;
+    for (auto *E : Cl->varlists()) {
+      switch (DepKind) {
+      case OMPC_DEPEND_in:
+        Op = "QUAL.OMP.DEPEND.IN";
+        break;
+      case OMPC_DEPEND_out:
+        Op = "QUAL.OMP.DEPEND.OUT";
+        break;
+      case OMPC_DEPEND_inout:
+        Op = "QUAL.OMP.DEPEND.INOUT";
+        break;
+      default:
+        llvm_unreachable("Unknown depend clause");
+      }
+      if (E->getType()->isSpecificPlaceholderType(BuiltinType::OMPArraySection))
+        Op += ":ARRSECT";
+      addArg(Op);
+      addArg(E);
+      emitListClause();
+    }
+  }
+
   void OpenMPCodeOutliner::emitOMPCopyprivateClause(
                                         const OMPCopyprivateClause *) {}
   void OpenMPCodeOutliner::emitOMPNowaitClause(const OMPNowaitClause *) {}
@@ -1001,7 +1028,6 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPUpdateClause(const OMPUpdateClause *) {}
   void OpenMPCodeOutliner::emitOMPCaptureClause(const OMPCaptureClause *) {}
   void OpenMPCodeOutliner::emitOMPSeqCstClause(const OMPSeqCstClause *) {}
-  void OpenMPCodeOutliner::emitOMPDependClause(const OMPDependClause *) {}
   void OpenMPCodeOutliner::emitOMPDeviceClause(const OMPDeviceClause *) {}
   void OpenMPCodeOutliner::emitOMPThreadsClause(const OMPThreadsClause *) {}
   void OpenMPCodeOutliner::emitOMPSIMDClause(const OMPSIMDClause *) {}
@@ -1210,6 +1236,18 @@ namespace CGIntelOpenMP {
   void OpenMPCodeOutliner::emitOMPTargetDirective() {
     startDirectiveIntrinsicSet("DIR.OMP.TARGET", "DIR.OMP.END.TARGET");
   }
+  void OpenMPCodeOutliner::emitOMPTaskDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASK", "DIR.OMP.END.TASK");
+  }
+  void OpenMPCodeOutliner::emitOMPTaskGroupDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASKGROUP", "DIR.OMP.END.TASKGROUP");
+  }
+  void OpenMPCodeOutliner::emitOMPTaskWaitDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASKWAIT", "DIR.OMP.END.TASKWAIT");
+  }
+  void OpenMPCodeOutliner::emitOMPTaskYieldDirective() {
+    startDirectiveIntrinsicSet("DIR.OMP.TASKYIELD", "DIR.OMP.END.TASKYIELD");
+  }
   OpenMPCodeOutliner &OpenMPCodeOutliner::operator<<(
                                          ArrayRef<OMPClause *> Clauses) {
     for (auto *C : Clauses) {
@@ -1379,12 +1417,20 @@ void CodeGenFunction::EmitIntelOpenMPDirective(
     Outliner.emitOMPTargetDirective();
     break;
   case OMPD_task:
+    Outliner.emitOMPTaskDirective();
+    break;
+  case OMPD_taskgroup:
+    Outliner.emitOMPTaskGroupDirective();
+    break;
+  case OMPD_taskwait:
+    Outliner.emitOMPTaskWaitDirective();
+    break;
+  case OMPD_taskyield:
+    Outliner.emitOMPTaskYieldDirective();
+    break;
   case OMPD_sections:
   case OMPD_section:
-  case OMPD_taskyield:
   case OMPD_barrier:
-  case OMPD_taskwait:
-  case OMPD_taskgroup:
   case OMPD_flush:
   case OMPD_teams:
   case OMPD_teams_distribute:

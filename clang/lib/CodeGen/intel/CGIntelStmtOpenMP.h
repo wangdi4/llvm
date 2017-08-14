@@ -172,6 +172,10 @@ public:
   void emitOMPTargetDirective();
   void emitOMPTaskLoopDirective();
   void emitOMPTaskLoopSimdDirective();
+  void emitOMPTaskDirective();
+  void emitOMPTaskGroupDirective();
+  void emitOMPTaskWaitDirective();
+  void emitOMPTaskYieldDirective();
   OpenMPCodeOutliner &operator<<(ArrayRef<OMPClause *> Clauses);
   void emitImplicit(Expr *E, OpenMPClauseKind K);
   void emitImplicit(const VarDecl *VD, OpenMPClauseKind K);
