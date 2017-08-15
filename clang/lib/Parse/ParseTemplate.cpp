@@ -1239,7 +1239,7 @@ bool Parser::IsTemplateArgumentList(unsigned Skip) {
   } Tentative(*this);
   
   while (Skip) {
-    ConsumeToken();
+    ConsumeAnyToken();
     --Skip;
   }
   
@@ -1253,7 +1253,7 @@ bool Parser::IsTemplateArgumentList(unsigned Skip) {
   
   // See whether we have declaration specifiers, which indicate a type.
   while (isCXXDeclarationSpecifier() == TPResult::True)
-    ConsumeToken();
+    ConsumeAnyToken();
   
   // If we have a '>' or a ',' then this is a template argument list.
   return Tok.isOneOf(tok::greater, tok::comma);

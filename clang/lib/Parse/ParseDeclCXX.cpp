@@ -901,7 +901,7 @@ SourceLocation Parser::ParseDecltypeSpecifier(DeclSpec &DS) {
   if (Tok.is(tok::annot_decltype)) {
     Result = getExprAnnotation(Tok);
     EndLoc = Tok.getAnnotationEndLoc();
-    ConsumeToken();
+    ConsumeAnnotationToken();
     if (Result.isInvalid()) {
       DS.SetTypeSpecError();
       return EndLoc;
@@ -1165,7 +1165,7 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
       assert(Tok.is(tok::annot_typename) && "template-id -> type failed");
       ParsedType Type = getTypeAnnotation(Tok);
       EndLocation = Tok.getAnnotationEndLoc();
-      ConsumeToken();
+      ConsumeAnnotationToken();
 
       if (Type)
         return Type;
@@ -1222,7 +1222,7 @@ TypeResult Parser::ParseBaseTypeSpecifier(SourceLocation &BaseLoc,
     // return.
     EndLocation = Tok.getAnnotationEndLoc();
     ParsedType Type = getTypeAnnotation(Tok);
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return Type;
   }
 
@@ -1625,7 +1625,7 @@ void Parser::ParseClassSpecifier(tok::TokenKind TagTokKind,
     }
   } else if (Tok.is(tok::annot_template_id)) {
     TemplateId = takeTemplateIdAnnotation(Tok);
-    NameLoc = ConsumeToken();
+    NameLoc = ConsumeAnnotationToken();
 
     if (TemplateId->Kind != TNK_Type_template &&
         TemplateId->Kind != TNK_Dependent_template_name) {
@@ -3565,6 +3565,7 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
   // parse '::'[opt] nested-name-specifier[opt]
   CXXScopeSpec SS;
   ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false);
+<<<<<<< HEAD
   ParsedType TemplateTypeTy;
   bool TFound = false; // INTEL
   if (Tok.is(tok::annot_template_id)) {
@@ -3614,21 +3615,51 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
     Diag(Tok, diag::err_expected_member_or_base_name);
     return true;
   }
+=======
+>>>>>>> 00ba534163277c871bd74e91b86aa5f079d6d0af
 
+  // : identifier
   IdentifierInfo *II = nullptr;
-  DeclSpec DS(AttrFactory);
   SourceLocation IdLoc = Tok.getLocation();
-  if (Tok.is(tok::annot_decltype)) {
+  // : declype(...)
+  DeclSpec DS(AttrFactory);
+  // : template_name<...>
+  ParsedType TemplateTypeTy;
+
+  if (Tok.is(tok::identifier)) {
+    // Get the identifier. This may be a member name or a class name,
+    // but we'll let the semantic analysis determine which it is.
+    II = Tok.getIdentifierInfo();
+    ConsumeToken();
+  } else if (Tok.is(tok::annot_decltype)) {
     // Get the decltype expression, if there is one.
+    // Uses of decltype will already have been converted to annot_decltype by
+    // ParseOptionalCXXScopeSpecifier at this point.
+    // FIXME: Can we get here with a scope specifier?
     ParseDecltypeSpecifier(DS);
   } else {
+<<<<<<< HEAD
     if (Tok.is(tok::identifier) && !TFound) // INTEL
       // Get the identifier. This may be a member name or a class name,
       // but we'll let the semantic analysis determine which it is.
       II = Tok.getIdentifierInfo();
     ConsumeToken();
+=======
+    TemplateIdAnnotation *TemplateId = Tok.is(tok::annot_template_id)
+                                           ? takeTemplateIdAnnotation(Tok)
+                                           : nullptr;
+    if (TemplateId && (TemplateId->Kind == TNK_Type_template ||
+                       TemplateId->Kind == TNK_Dependent_template_name)) {
+      AnnotateTemplateIdTokenAsType(/*IsClassName*/true);
+      assert(Tok.is(tok::annot_typename) && "template-id -> type failed");
+      TemplateTypeTy = getTypeAnnotation(Tok);
+      ConsumeAnnotationToken();
+    } else {
+      Diag(Tok, diag::err_expected_member_or_base_name);
+      return true;
+    }
+>>>>>>> 00ba534163277c871bd74e91b86aa5f079d6d0af
   }
-
 
   // Parse the '('.
   if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {

@@ -3144,7 +3144,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         }
 
         DS.getTypeSpecScope() = SS;
-        ConsumeToken(); // The C++ scope.
+        ConsumeAnnotationToken(); // The C++ scope.
         assert(Tok.is(tok::annot_template_id) &&
                "ParseOptionalCXXScopeSpecifier not working");
         AnnotateTemplateIdTokenAsType();
@@ -3153,7 +3153,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
 
       if (Next.is(tok::annot_typename)) {
         DS.getTypeSpecScope() = SS;
-        ConsumeToken(); // The C++ scope.
+        ConsumeAnnotationToken(); // The C++ scope.
         if (Tok.getAnnotationValue()) {
           ParsedType T = getTypeAnnotation(Tok);
           isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename,
@@ -3165,7 +3165,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         else
           DS.SetTypeSpecError();
         DS.SetRangeEnd(Tok.getAnnotationEndLoc());
-        ConsumeToken(); // The typename
+        ConsumeAnnotationToken(); // The typename
       }
 
       if (Next.isNot(tok::identifier))
@@ -3192,7 +3192,8 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       // C++ doesn't have implicit int.  Diagnose it as a typo w.r.t. to the
       // typename.
       if (!TypeRep) {
-        ConsumeToken();   // Eat the scope spec so the identifier is current.
+        // Eat the scope spec so the identifier is current.
+        ConsumeAnnotationToken();
         ParsedAttributesWithRange Attrs(AttrFactory);
         if (ParseImplicitInt(DS, &SS, TemplateInfo, AS, DSContext, Attrs)) {
           if (!Attrs.empty()) {
@@ -3205,7 +3206,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       }
 
       DS.getTypeSpecScope() = SS;
-      ConsumeToken(); // The C++ scope.
+      ConsumeAnnotationToken(); // The C++ scope.
 
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_typename, Loc, PrevSpec,
                                      DiagID, TypeRep, Policy);
@@ -3235,7 +3236,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         break;
 
       DS.SetRangeEnd(Tok.getAnnotationEndLoc());
-      ConsumeToken(); // The typename
+      ConsumeAnnotationToken(); // The typename
 
       continue;
     }
@@ -5049,10 +5050,12 @@ bool Parser::isConstructorDeclarator(bool IsUnqualified, bool DeductionGuide) {
   }
 
   // Parse the constructor name.
-  if (Tok.isOneOf(tok::identifier, tok::annot_template_id)) {
+  if (Tok.is(tok::identifier)) {
     // We already know that we have a constructor name; just consume
     // the token.
     ConsumeToken();
+  } else if (Tok.is(tok::annot_template_id)) {
+    ConsumeAnnotationToken();
   } else {
     TPA.Revert();
     return false;
@@ -5108,7 +5111,7 @@ bool Parser::isConstructorDeclarator(bool IsUnqualified, bool DeductionGuide) {
     // be a constructor declaration with an invalid argument type. Keep
     // looking.
     if (Tok.is(tok::annot_cxxscope))
-      ConsumeToken();
+      ConsumeAnnotationToken();
     ConsumeToken();
 
     // If this is not a constructor, we must be parsing a declarator,
