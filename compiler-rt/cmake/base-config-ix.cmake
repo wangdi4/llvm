@@ -55,6 +55,21 @@ else()
   set(COMPILER_RT_TEST_CXX_COMPILER ${CMAKE_CXX_COMPILER} CACHE PATH "C++ Compiler to use for testing")
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  # Need to override the -Werror setting for some warnings when building the
+  # runtime library with the GNU compiler because g++ will produce warnings
+  # which are not produced by LLVM for these sources. There are not good
+  # source changes that can be done to correct these errors. For example,
+  # casting a void* returned by the dlsym library to a function pointer
+  # triggers the error: "ISO C++ forbids casting between pointer-to-function
+  # and pointer-to-object [-Werror=pedantic]"
+
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    append_if(LLVM_ENABLE_WERROR -Wno-error=pedantic CMAKE_CXX_FLAGS)
+    append_if(LLVM_ENABLE_WERROR -Wno-error=strict-aliasing CMAKE_CXX_FLAGS)
+   endif()
+endif()
+
 if("${COMPILER_RT_TEST_COMPILER}" MATCHES "clang[+]*$")
   set(COMPILER_RT_TEST_COMPILER_ID Clang)
 elseif("${COMPILER_RT_TEST_COMPILER}" MATCHES "clang.*.exe$")

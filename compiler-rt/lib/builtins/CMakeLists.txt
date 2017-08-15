@@ -25,6 +25,17 @@ endif()
 
 include(builtin-config-ix)
 
+if(INTEL_CUSTOMIZATION)
+  # Need to override the -Werror setting when building this library with the GNU
+  # compiler because this is building components that have the same name as
+  # the builtin functions of gcc, and -Werror will report name conflicts
+  # otherwise.
+
+  if ("${CMAKE_C_COMPILER_ID}" STREQUAL "GNU")
+    append_if(LLVM_ENABLE_WERROR -Wno-error CMAKE_C_FLAGS)
+  endif()
+endif()
+
 # TODO: Need to add a mechanism for logging errors when builtin source files are
 # added to a sub-directory and not this CMakeLists file.
 set(GENERIC_SOURCES
