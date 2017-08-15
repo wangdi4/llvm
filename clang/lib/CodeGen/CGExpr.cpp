@@ -2352,14 +2352,10 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
         bool MayAlias = CapLVal.getBaseInfo().getMayAlias();
         return MakeAddrLValue(
             Address(CapLVal.getPointer(), getContext().getDeclAlign(VD)),
-<<<<<<< HEAD
-            CapLVal.getType(), AlignmentSource::Decl);
+            CapLVal.getType(), LValueBaseInfo(AlignmentSource::Decl, MayAlias));
 #if INTEL_SPECIFIC_CILKPLUS
         }
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
-            CapLVal.getType(), LValueBaseInfo(AlignmentSource::Decl, MayAlias));
->>>>>>> e593e0f4671cd626b208f7340725005118192e8d
       }
 
 #if INTEL_CUSTOMIZATION
@@ -2367,8 +2363,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
 #endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
-<<<<<<< HEAD
-      return MakeAddrLValue(addr, T, AlignmentSource::Decl);
+      LValueBaseInfo BaseInfo(AlignmentSource::Decl, false);
+      return MakeAddrLValue(addr, T, BaseInfo);
 #if INTEL_CUSTOMIZATION
       }
 #endif  // INTEL_CUSTOMIZATION
@@ -2383,10 +2379,6 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
              CapturedStmtInfo->lookup(VD)) {
       return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                      CapturedStmtInfo->getContextValue());
-=======
-      LValueBaseInfo BaseInfo(AlignmentSource::Decl, false);
-      return MakeAddrLValue(addr, T, BaseInfo);
->>>>>>> e593e0f4671cd626b208f7340725005118192e8d
     }
 #endif // INTEL_SPECIFIC_CILKPLUS
 
@@ -3330,8 +3322,7 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
                                  {CGM.getSize(CharUnits::Zero()), Idx},
                                  E->getType(),
                                  !getLangOpts().isSignedOverflowDefined());
-<<<<<<< HEAD
-    AlignSource = ArrayLV.getAlignmentSource();
+    BaseInfo = ArrayLV.getBaseInfo();
 #if INTEL_CUSTOMIZATION
     // CQ#379144 TBAA for arrays
     if (getLangOpts().IntelCompat && CGM.getCodeGenOpts().StructPathTBAA &&
@@ -3344,9 +3335,6 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
       TBAAOffset = ArrayLV.getTBAAOffset();
     }
 #endif // INTEL_CUSTOMIZATION
-=======
-    BaseInfo = ArrayLV.getBaseInfo();
->>>>>>> e593e0f4671cd626b208f7340725005118192e8d
   } else {
     // The base must be a pointer; emit it with an estimate of its alignment.
     Addr = EmitPointerWithAlignment(E->getBase(), &BaseInfo);
