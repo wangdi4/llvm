@@ -1583,7 +1583,7 @@ Value *ReassociatePass::OptimizeAdd(Instruction *I,
     }
 
     // No need for extra uses anymore.
-    delete DummyInst;
+    DummyInst->deleteValue();
 
     unsigned NumAddedValues = NewMulOps.size();
     Value *V = EmitAddTreeOfValues(I, NewMulOps);

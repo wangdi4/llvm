@@ -2181,7 +2181,7 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
     if (!performScalarPREInsertion(PREInstr, PREPred, ValNo)) {
       // If we failed insertion, make sure we remove the instruction.
       DEBUG(verifyRemoved(PREInstr));
-      delete PREInstr;
+      PREInstr->deleteValue();
       return false;
     }
   }

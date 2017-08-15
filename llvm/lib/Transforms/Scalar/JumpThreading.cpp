@@ -2512,7 +2512,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
             {BB->getModule()->getDataLayout(), TLI, nullptr, nullptr, New})) {
       ValueMapping[&*BI] = IV;
       if (!New->mayHaveSideEffects()) {
-        delete New;
+        New->deleteValue();
         New = nullptr;
       }
     } else {
