@@ -14,11 +14,11 @@
 
 // Null ternminated array of host environment variables. Initial value is
 // patched by plugin before offloading target image to device.
-const char **__nios2_environ = 0xffffffff;
+const char **__nios2_environ = (const char**) 0xffffffff;
 
 // Returns host environment variable value for the given name.
 const char* __nios2_get_host_env(const char *Name) {
-  if (__nios2_environ != 0xffffffff) {
+  if (__nios2_environ != (const char**) 0xffffffff) {
     for (const char **Env = __nios2_environ; *Env != 0; ++Env) {
       const char *N = Name;
       const char *V = *Env;
