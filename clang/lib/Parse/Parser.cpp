@@ -52,7 +52,7 @@ Parser::Parser(Preprocessor &pp, Sema &actions, bool skipFunctionBodies)
     GreaterThanIsOperator(true), ColonIsSacred(false), 
     InMessageExpression(false), TemplateParameterDepth(0),
     ParsingInObjCContainer(false), // INTEL
-    PendingPragmaUnroll(AttrFactory) { // INTEL
+    PendingPragmaUnrollRAIIObject(*this) { // INTEL
   SkipFunctionBodies = pp.isCodeCompletionEnabled() || skipFunctionBodies;
   Tok.startToken();
   Tok.setKind(tok::eof);
