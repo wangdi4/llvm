@@ -14,7 +14,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGrouping.h"
 
 namespace llvm {
 class Function;

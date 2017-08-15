@@ -49,10 +49,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
@@ -632,7 +632,7 @@ void TempSubstituter::substituteTemps(HLRegion *Reg) {
   // Parents can become recursively empty when we remove nodes so it is better
   // to scan the whole region.
   if (HasEmptyNodes) {
-    HLNodeUtils::removeEmptyNodes(Reg);
+    HLNodeUtils::removeEmptyNodes(Reg, false);
   }
 
   // Restore flags.

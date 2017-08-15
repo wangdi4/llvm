@@ -3,6 +3,11 @@
 ; Provide legal integer types.
 target datalayout = "n8:16:32:64"
 
+; INTEL - we have sext due to change in behavior
+; CHECK-NOT: sext
+; CHECK: sext i32 %count to i64
+; CHECK-NOT: sext
+; CHECK: sext i16 %N to i64
 ; CHECK-NOT: sext
 
 define i64 @test(i64* nocapture %first, i32 %count) nounwind readonly {

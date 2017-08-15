@@ -13,13 +13,13 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPODefUse.h"
-#include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/BlobDDRef.h"
 
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassSupport.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "vpo-def-use"
 

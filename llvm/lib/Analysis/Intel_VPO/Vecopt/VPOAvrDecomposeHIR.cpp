@@ -18,7 +18,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 
 #define DEBUG_TYPE "avr-decomposition"
 

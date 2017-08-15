@@ -74,14 +74,13 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/ForEach.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/ForEach.h"
 
 #define OPT_SWITCH "hir-opt-var-predicate"
 #define OPT_DESC "HIR Var OptPredicate"
@@ -399,7 +398,7 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
-    HLNodeUtils::removeEmptyNodes(Node);
+    HLNodeUtils::removeEmptyNodes(Node, false);
   }
 
   return false;
@@ -436,7 +435,7 @@ void HIROptVarPredicate::setSelfBlobDDRef(RegDDRef *Ref, BlobTy Blob,
     if (BlobUtils::isTempBlob(Blob)) {
       Ref->setSymbase(BlobUtilsObj->findTempBlobSymbase(Blob));
     } else {
-      Ref->setSymbase(Ref->getDDRefUtils().getGenericRvalSymbase());
+      Ref->setSymbase(GenericRvalSymbase);
     }
   }
 }
@@ -563,6 +562,8 @@ void HIROptVarPredicate::splitLoop(
     removeThenElseChildren(Candidate, &ElseContainer, &ThenContainer);
   }
 
+  unsigned Level = Loop->getNestingLevel();
+
   // Split loop into two loops
   auto CloneMapper = HLNodeLambdaMapper::mapper([Candidate](
       const HLNode *Node) { return Node == Candidate || isa<HLLabel>(Node); });
@@ -594,14 +595,15 @@ void HIROptVarPredicate::splitLoop(
   // %LB
   BlobTy LowerBlob = BlobUtilsObj->getBlob(LowerCE->getSingleBlobIndex());
 
-  SmallVector<const RegDDRef*, 2> Aux { LHS, RHS };
+  SmallVector<const RegDDRef *, 4> Aux {LHS, RHS, Loop->getLowerDDRef(),
+                                        Loop->getUpperDDRef()};
 
   // Special case ==, != predicates..
   if (Pred == PredicateTy::ICMP_EQ || Pred == PredicateTy::ICMP_NE) {
     HLLoop *ThirdLoop = Loop->clone();
 
     updateLoopUpperBound(SecondLoop, UpperBlob, SplitPointBlob, IsSigned);
-    SecondLoop->getUpperDDRef()->makeConsistent(&Aux);
+    SecondLoop->getUpperDDRef()->makeConsistent(&Aux, Level);
 
     // %b + 1
     BlobTy SplitPointPlusBlob = BlobUtilsObj->createAddBlob(
@@ -612,7 +614,7 @@ void HIROptVarPredicate::splitLoop(
 
     if (!isLoopRedundant(ThirdLoop)) {
       HLNodeUtilsObj->insertAfter(SecondLoop, ThirdLoop);
-      ThirdLoop->getLowerDDRef()->makeConsistent(&Aux);
+      ThirdLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
 
       ThirdLoop->createZtt(false, true);
       ThirdLoop->normalize();
@@ -627,7 +629,7 @@ void HIROptVarPredicate::splitLoop(
   updateLoopLowerBound(SecondLoop, LowerBlob, SplitPointBlob, IsSigned);
 
   if (!isLoopRedundant(Loop)) {
-    Loop->getUpperDDRef()->makeConsistent(&Aux);
+    Loop->getUpperDDRef()->makeConsistent(&Aux, Level);
     Loop->createZtt(false, true);
 
     HIRInvalidationUtils::invalidateBounds(Loop);
@@ -640,7 +642,7 @@ void HIROptVarPredicate::splitLoop(
   }
 
   if (!isLoopRedundant(SecondLoop)) {
-    SecondLoop->getLowerDDRef()->makeConsistent(&Aux);
+    SecondLoop->getLowerDDRef()->makeConsistent(&Aux, Level);
     SecondLoop->createZtt(false, true);
     SecondLoop->normalize();
   } else {

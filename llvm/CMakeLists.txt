@@ -804,6 +804,10 @@ else()
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_CUSTOMIZATION=0")
 endif()
 
+if(INTEL_OPENCL)
+  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_OPENCL=1")
+endif()
+
 if(INTEL_SPECIFIC_OPENMP)
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DINTEL_SPECIFIC_OPENMP=1")
 else()
@@ -824,7 +828,7 @@ set(LLVM_PROFDATA_FILE "" CACHE FILEPATH
   "Profiling data file to use when compiling in order to improve runtime performance.")
 
 if(LLVM_PROFDATA_FILE AND EXISTS ${LLVM_PROFDATA_FILE})
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" )
+  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "(Clang)|(Intel)" )
     add_definitions("-fprofile-instr-use=${LLVM_PROFDATA_FILE}")
   else()
     message(FATAL_ERROR "LLVM_PROFDATA_FILE can only be specified when compiling with clang")

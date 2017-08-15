@@ -196,6 +196,9 @@ public:
     MuslEABI,
     MuslEABIHF,
 
+#if INTEL_CUSTOMIZATION
+    IntelFPGA,
+#endif // INTEL_CUSTOMIZATION
     MSVC,
     Itanium,
     Cygnus,
@@ -529,6 +532,12 @@ public:
   bool isWindowsGNUEnvironment() const {
     return getOS() == Triple::Win32 && getEnvironment() == Triple::GNU;
   }
+
+#if INTEL_CUSTOMIZATION
+  bool isINTELFPGAEnvironment() const {
+    return getEnvironment() == Triple::IntelFPGA;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// Tests for either Cygwin or MinGW OS
   bool isOSCygMing() const {
