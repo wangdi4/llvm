@@ -18,8 +18,8 @@
 #ifndef LLVM_ANALISYS_VPO_VPOSCENARIOEVALUATION_H
 #define LLVM_ANALISYS_VPO_VPOSCENARIOEVALUATION_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVLSClient.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/Intel_OptVLS.h"
 #include "llvm/Analysis/Intel_OptVLSClientUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"

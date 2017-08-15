@@ -21,8 +21,8 @@ using namespace llvm::loopopt;
 
 cl::opt<bool>
     DisablePostVecUnroll("disable-hir-post-vec-complete-unroll",
-                      cl::desc("Disables post vec complete unroll"),
-                      cl::Hidden, cl::init(false));
+                         cl::desc("Disables post vec complete unroll"),
+                         cl::Hidden, cl::init(false));
 
 namespace {
 
@@ -31,7 +31,8 @@ class HIRPostVecCompleteUnroll : public HIRCompleteUnroll {
 public:
   static char ID;
 
-  HIRPostVecCompleteUnroll() : HIRCompleteUnroll(ID, false) {
+  HIRPostVecCompleteUnroll(unsigned OptLevel = 0)
+      : HIRCompleteUnroll(ID, OptLevel, false) {
     initializeHIRPostVecCompleteUnrollPass(*PassRegistry::getPassRegistry());
   }
 
@@ -45,14 +46,13 @@ public:
 }
 
 char HIRPostVecCompleteUnroll::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRPostVecCompleteUnroll,
-                      "hir-post-vec-complete-unroll",
+INITIALIZE_PASS_BEGIN(HIRPostVecCompleteUnroll, "hir-post-vec-complete-unroll",
                       "HIR PostVec Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRPostVecCompleteUnroll, "hir-post-vec-complete-unroll",
                     "HIR PostVec Complete Unroll", false, false)
 
-FunctionPass *llvm::createHIRPostVecCompleteUnrollPass() {
-  return new HIRPostVecCompleteUnroll();
+FunctionPass *llvm::createHIRPostVecCompleteUnrollPass(unsigned OptLevel) {
+  return new HIRPostVecCompleteUnroll(OptLevel);
 }

@@ -46,14 +46,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -86,6 +86,7 @@ public:
     AU.addRequiredTransitive<HIRDDAnalysis>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<HIRSafeReductionAnalysis>();
+    AU.addRequiredTransitive<HIRLoopStatistics>();
   }
 
 private:
@@ -93,6 +94,7 @@ private:
   HIRDDAnalysis *DDA;
   HIRLocalityAnalysis *LA;
   HIRSafeReductionAnalysis *SRA;
+  HIRLoopStatistics *HLS;
   bool AnyLoopInterchanged;
   unsigned OutmostNestingLevel;
   unsigned InnermostNestingLevel;
@@ -124,7 +126,7 @@ private:
   void transformLoop(HLLoop *Loop);
   void updateLoopBody(HLLoop *Loop);
   void printOptReport(HLLoop *Loop);
-  bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests);
+  bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
 }
 
@@ -135,6 +137,7 @@ INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(HIRDDAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(HIRSafeReductionAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRLoopStatistics)
 INITIALIZE_PASS_END(HIRLoopInterchange, "hir-loop-interchange",
                     "HIR Loop Interchange", false, false)
 
@@ -174,6 +177,13 @@ struct HIRLoopInterchange::CollectCandidateLoops final
     bool IsNearPerfectLoop = false;
     if (HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false, true,
                                        &IsNearPerfectLoop)) {
+
+      if (LIP->HLS->getSelfLoopStatistics(InnermostLoop)
+              .hasCallsWithUnsafeSideEffects()) {
+        DEBUG(dbgs() << "Skipping loop with calls that have side effects\n");
+        SkipNode = Loop;
+        return;
+      }
 
       DEBUG(dbgs() << "Is  Perfect loopnest\n");
 
@@ -234,6 +244,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   DDA = &getAnalysis<HIRDDAnalysis>();
   LA = &getAnalysis<HIRLocalityAnalysis>();
   SRA = &getAnalysis<HIRSafeReductionAnalysis>();
+  HLS = &getAnalysis<HIRLoopStatistics>();
 
   AnyLoopInterchanged = false;
 
@@ -691,7 +702,7 @@ bool HIRLoopInterchange::isLegalForPermutation(unsigned DstLevel,
 
 ///  No need to interchange if suggested Permutation is same as present order
 bool HIRLoopInterchange::isInPresentOrder(
-    SmallVectorImpl<const HLLoop *> &LoopNests) {
+    SmallVectorImpl<const HLLoop *> &LoopNests) const {
 
   unsigned PrevLevel = 1;
 

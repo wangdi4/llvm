@@ -21,7 +21,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLNode.h"
 
 #include <stdint.h>
 

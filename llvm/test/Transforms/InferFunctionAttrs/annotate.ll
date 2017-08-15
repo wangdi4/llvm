@@ -3,6 +3,7 @@
 ; RUN: opt < %s -mtriple=x86_64-apple-macosx10.8.0 -inferattrs -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-DARWIN %s
 ; RUN: opt < %s -mtriple=x86_64-unknown-linux -inferattrs -S | FileCheck -check-prefix=CHECK -check-prefix=CHECK-LINUX %s
 ; RUN: opt < %s -mtriple=nvptx -inferattrs -S | FileCheck -check-prefix=CHECK-NVPTX %s
+; XFAIL: intel_opencl
 
 ; operator new routines
 declare i8* @_Znwj(i64)

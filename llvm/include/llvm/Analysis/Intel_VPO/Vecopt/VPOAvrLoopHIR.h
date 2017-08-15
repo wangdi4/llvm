@@ -17,7 +17,7 @@
 #define LLVM_ANALYSIS_VPO_AVR_LOOP_HIR_H
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
-#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
 
 using namespace llvm::loopopt;
 

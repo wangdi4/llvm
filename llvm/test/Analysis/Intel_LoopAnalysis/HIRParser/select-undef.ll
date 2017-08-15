@@ -1,17 +1,13 @@
 ; Check HIR parsing of select instruction with undef predicate
 ; |   %sel = (0 UNDEF 0) ? i1 : 1;
 ; |   <LVAL-REG> NON-LINEAR i32 %sel {sb:6}
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
 ; |   <RVAL-REG> LINEAR i32 i1 {sb:3}
 
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: NSW: Yes
 
-; CHECK:      = ({{.*}}#UNDEF#{{.*}})
-; CHECK:      <RVAL-REG>{{.*}}{undefined}
-; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}
+; CHECK:      = (undef #UNDEF# undef) ? i1 : 1
 
 ; ModuleID = 'select-undef.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

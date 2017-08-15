@@ -28,7 +28,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/GenericDomTreeConstruction.h"
 #include "llvm/Support/GraphWriter.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 
 #define DEBUG_TYPE "vpo-simd-lane-evolution"
 
