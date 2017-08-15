@@ -566,6 +566,14 @@ void TargetPassConfig::addISelPrepare() {
     addPass(createVerifierPass());
 }
 
+/// -regalloc=... command line option.
+static FunctionPass *useDefaultRegisterAllocator() { return nullptr; }
+static cl::opt<RegisterRegAlloc::FunctionPassCtor, false,
+               RegisterPassParser<RegisterRegAlloc> >
+RegAlloc("regalloc",
+         cl::init(&useDefaultRegisterAllocator),
+         cl::desc("Register allocator to use"));
+
 /// Add the complete set of target-independent postISel code generator passes.
 ///
 /// This can be read as the standard order of major LLVM CodeGen stages. Stages
@@ -627,8 +635,12 @@ void TargetPassConfig::addMachinePasses() {
   // including phi elimination and scheduling.
   if (getOptimizeRegAlloc())
     addOptimizedRegAlloc(createRegAllocPass(true));
-  else
+  else {
+    if (RegAlloc != &useDefaultRegisterAllocator &&
+        RegAlloc != &createFastRegisterAllocator)
+      report_fatal_error("Must use fast (default) register allocator for unoptimized regalloc.");
     addFastRegAlloc(createRegAllocPass(false));
+  }
 
   // Run post-ra passes.
   addPostRegAlloc();
@@ -767,18 +779,11 @@ MachinePassRegistry RegisterRegAlloc::Registry;
 /// A dummy default pass factory indicates whether the register allocator is
 /// overridden on the command line.
 static llvm::once_flag InitializeDefaultRegisterAllocatorFlag;
-static FunctionPass *useDefaultRegisterAllocator() { return nullptr; }
+
 static RegisterRegAlloc
 defaultRegAlloc("default",
                 "pick register allocator based on -O option",
                 useDefaultRegisterAllocator);
-
-/// -regalloc=... command line option.
-static cl::opt<RegisterRegAlloc::FunctionPassCtor, false,
-               RegisterPassParser<RegisterRegAlloc> >
-RegAlloc("regalloc",
-         cl::init(&useDefaultRegisterAllocator),
-         cl::desc("Register allocator to use"));
 
 static void initializeDefaultRegisterAllocatorOnce() {
   RegisterRegAlloc::FunctionPassCtor Ctor = RegisterRegAlloc::getDefault();
@@ -788,7 +793,6 @@ static void initializeDefaultRegisterAllocatorOnce() {
     RegisterRegAlloc::setDefault(RegAlloc);
   }
 }
-
 
 /// Instantiate the default register allocator pass for this target for either
 /// the optimized or unoptimized allocation path. This will be added to the pass
