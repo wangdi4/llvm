@@ -3565,21 +3565,19 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
   // parse '::'[opt] nested-name-specifier[opt]
   CXXScopeSpec SS;
   ParseOptionalCXXScopeSpecifier(SS, nullptr, /*EnteringContext=*/false);
-<<<<<<< HEAD
+
+  // : identifier
+  IdentifierInfo *II = nullptr;
+  SourceLocation IdLoc = Tok.getLocation();
+  // : declype(...)
+  DeclSpec DS(AttrFactory);
+  // : template_name<...>
   ParsedType TemplateTypeTy;
-  bool TFound = false; // INTEL
-  if (Tok.is(tok::annot_template_id)) {
-    TemplateIdAnnotation *TemplateId = takeTemplateIdAnnotation(Tok);
-    if (TemplateId->Kind == TNK_Type_template ||
-        TemplateId->Kind == TNK_Dependent_template_name) {
-      AnnotateTemplateIdTokenAsType(/*IsClassName*/true);
-      assert(Tok.is(tok::annot_typename) && "template-id -> type failed");
-      TemplateTypeTy = getTypeAnnotation(Tok);
-    }
+
 #if INTEL_CUSTOMIZATION
   // CQ408231: Check the identifier is a template base class.
-  } else if (getLangOpts().IntelCompat && Tok.is(tok::identifier) &&
-             !(SS.isSet() && Actions.isDependentScopeSpecifier(SS))) {
+  if (getLangOpts().IntelCompat && Tok.is(tok::identifier) &&
+      !(SS.isSet() && Actions.isDependentScopeSpecifier(SS))) {
     if (auto *CD = dyn_cast<CXXConstructorDecl>(ConstructorDecl)) {
       auto II = Tok.getIdentifierInfo();
       const auto Name = II->getName();
@@ -3599,33 +3597,14 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
               if (auto const BDecl =
                       BType->getTemplateName().getAsTemplateDecl())
                 if (BDecl->getName() == Name) {
-                  TFound = true;
                   Diag(diag::warn_missing_template_parameters) << Name;
                   TemplateTypeTy = clang::ParsedType::make(
                       BType->getCanonicalTypeInternal());
                   break;
                 }
     }
+  } 
 #endif // INTEL_CUSTOMIZATION
-  }
-  // Uses of decltype will already have been converted to annot_decltype by
-  // ParseOptionalCXXScopeSpecifier at this point.
-  if (!TemplateTypeTy && Tok.isNot(tok::identifier)
-      && Tok.isNot(tok::annot_decltype) && !TFound) { // INTEL
-    Diag(Tok, diag::err_expected_member_or_base_name);
-    return true;
-  }
-=======
->>>>>>> 00ba534163277c871bd74e91b86aa5f079d6d0af
-
-  // : identifier
-  IdentifierInfo *II = nullptr;
-  SourceLocation IdLoc = Tok.getLocation();
-  // : declype(...)
-  DeclSpec DS(AttrFactory);
-  // : template_name<...>
-  ParsedType TemplateTypeTy;
-
   if (Tok.is(tok::identifier)) {
     // Get the identifier. This may be a member name or a class name,
     // but we'll let the semantic analysis determine which it is.
@@ -3638,13 +3617,6 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
     // FIXME: Can we get here with a scope specifier?
     ParseDecltypeSpecifier(DS);
   } else {
-<<<<<<< HEAD
-    if (Tok.is(tok::identifier) && !TFound) // INTEL
-      // Get the identifier. This may be a member name or a class name,
-      // but we'll let the semantic analysis determine which it is.
-      II = Tok.getIdentifierInfo();
-    ConsumeToken();
-=======
     TemplateIdAnnotation *TemplateId = Tok.is(tok::annot_template_id)
                                            ? takeTemplateIdAnnotation(Tok)
                                            : nullptr;
@@ -3658,7 +3630,6 @@ MemInitResult Parser::ParseMemInitializer(Decl *ConstructorDecl) {
       Diag(Tok, diag::err_expected_member_or_base_name);
       return true;
     }
->>>>>>> 00ba534163277c871bd74e91b86aa5f079d6d0af
   }
 
   // Parse the '('.
