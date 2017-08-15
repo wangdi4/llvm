@@ -1,7 +1,12 @@
+<<<<<<< HEAD
 // INTEL -- TBAAPROP causes SROA to run late and SROA removes nonnull attributes
 //          which breaks this test.  Disable TBAAPROP until this is fixed.
 // RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -mllvm -enable-tbaa-prop=0 -emit-llvm -o - | FileCheck %s
 // RUN: %clang_cc1 %s -O0 -cl-std=CL2.0 -include opencl-c.h -triple amdgcn -mllvm -enable-tbaa-prop=0 -emit-llvm -o - | FileCheck --check-prefix=NOOPT %s
+=======
+// RUN: %clang_cc1 %s -cl-std=CL2.0 -include opencl-c.h -triple amdgcn---opencl -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 %s -O0 -cl-std=CL2.0 -include opencl-c.h -triple amdgcn---opencl -emit-llvm -o - | FileCheck --check-prefix=NOOPT %s
+>>>>>>> 3022dac388832e0bb669821e6677abd5cb8a8784
 
 typedef struct {
   private char *p1;
