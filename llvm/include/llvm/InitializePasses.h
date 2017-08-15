@@ -209,7 +209,6 @@ void initializeLintPass(PassRegistry&);
 void initializeLiveDebugValuesPass(PassRegistry&);
 void initializeLiveDebugVariablesPass(PassRegistry&);
 void initializeLiveIntervalsPass(PassRegistry&);
-void initializeLiveRangeShrinkPass(PassRegistry&);
 void initializeLiveRegMatrixPass(PassRegistry&);
 void initializeLiveStacksPass(PassRegistry&);
 void initializeLiveVariablesPass(PassRegistry&);
