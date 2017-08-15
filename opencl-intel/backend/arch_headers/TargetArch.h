@@ -107,7 +107,7 @@ public:
         }
         llvm_unreachable("Unknown CPU!");
     }
-    const char*         GetCPUPrefix() const {
+    const char* GetCPUPrefix() const {
       if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
         // Use SSE4 if AVX1 is not supported
         return GetCPUPrefix(Intel::CPU_COREI7, m_is64BitOS != 0);
@@ -115,7 +115,7 @@ public:
         return GetCPUPrefix(m_CPU, m_is64BitOS != 0);
       }
     }
-    static const char*  GetCPUPrefix(ECPU CPU, bool is64BitOS) {
+    static const char* GetCPUPrefix(ECPU CPU, bool is64BitOS) {
         if (!is64BitOS) {
             switch(CPU) {
             default:
