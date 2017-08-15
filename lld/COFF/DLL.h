@@ -36,10 +36,9 @@ private:
 
   std::vector<DefinedImportData *> Imports;
   std::vector<Chunk *> Dirs;
-  std::vector<Chunk *> Lookups;
   std::vector<Chunk *> Addresses;
   std::vector<Chunk *> Hints;
-  std::map<StringRef, Chunk *> DLLNames;
+  std::vector<Chunk *> DLLNames;
 };
 
 // Windows-specific.
@@ -67,7 +66,7 @@ private:
   std::vector<Chunk *> Names;
   std::vector<Chunk *> HintNames;
   std::vector<Chunk *> Thunks;
-  std::map<StringRef, Chunk *> DLLNames;
+  std::vector<Chunk *> DLLNames;
 };
 
 // Windows-specific.
