@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <cstring>
 #include <forward_list>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -1141,7 +1142,7 @@ public:
 
 private:
   // Class representing an instance of a target program. We may have more
-  // than one target program associated with the host porcess.
+  // than one target program associated with the host process.
   class ProgramTy {
   public:
     // We can have multiple target programs, thus we need to keep program
@@ -1158,7 +1159,7 @@ private:
       }
     }
 
-    __tgt_target_table* load(const __tgt_device_image *TgtImage) {
+    bool load(const __tgt_device_image *TgtImage) {
       Nios2Elf Obj;
 
       // Image start and end
@@ -1167,10 +1168,10 @@ private:
 
       DP("Parsing device ELF %p...\n", ImageStart);
       if (!Obj.readFromMemory(ImageStart, ImageSize)) {
-        return nullptr;
+        return false;
       }
 
-      // Relocate program segments which occupy L3 and L4 memrory types. Find all
+      // Relocate program segments which occupy L3 and L4 memory types. Find all
       // such program segments, allocate memory for them from appropriate space
       // and relocate them to new address.
       // TODO: optimize memory allocation if multiple segments occupy a contiguous
@@ -1190,7 +1191,7 @@ private:
             }
           }
           else {
-            return nullptr;
+            return false;
           }
           continue;
         }
@@ -1205,7 +1206,7 @@ private:
             }
           }
           else {
-            return nullptr;
+            return false;
           }
           continue;
         }
@@ -1255,9 +1256,9 @@ private:
         }
       }
       else {
-        // No not expect to have target binary with no entry table section
+        // Do not expect to have target binary with no entry table section
         DP("No entry table section in the target image\n");
-        return nullptr;
+        return false;
       }
 
       // Patch pointer to the environment block in the target image if it is
@@ -1278,12 +1279,17 @@ private:
       Image.resize(ImageSize);
       Obj.writeToMemory(Image.data(), ImageSize);
 
-      return &ET.Table;
+      return true;
     }
 
-    // Return relocated program image
+    // Return relocated program image.
     const std::vector<char>& getImage() const {
       return Image;
+    }
+
+    // Return program's entry table.
+    __tgt_target_table* getEntryTable() {
+      return &ET.Table;
     }
 
   private:
@@ -1414,12 +1420,21 @@ public:
   }
 
   __tgt_target_table* loadProgram(const __tgt_device_image *Image) {
-    std::unique_ptr<ProgramTy> Program(new ProgramTy(*this));
-    if (auto *Table = Program->load(Image)) {
-      Programs.emplace_front(Program.release());
-      return Table;
+    std::lock_guard<std::mutex> Guard(ProgramsLock);
+
+    auto Res = Programs.emplace(Image, nullptr);
+    if (Res.second) {
+      // This image is being loaded for the first time.
+      Res.first->second.reset(new ProgramTy(*this));
+
+      // Load the target image. It will parse target ELF, relocate ELF segments
+      // allocated in the shared memory area and construct target entry table.
+      if (!Res.first->second->load(Image)) {
+        Programs.erase(Res.first);
+        return nullptr;
+      }
     }
-    return nullptr;
+    return Res.first->second->getEntryTable();
   }
 
   PtrTy allocMem(msof_mem_type_t Type, SizeTy Size, void *HostPtr) const {
@@ -1603,8 +1618,11 @@ private:
   // Maximum number of columns
   uint32_t MaxColumns = 0u;
 
-  // Target programs
-  std::forward_list<std::unique_ptr<ProgramTy>> Programs;
+  // Target programs. Maintain a map between the image and the parsed program
+  // to prevent programs from being loaded multiple times for different columns
+  // when each columns is treated as a separate device.
+  std::map<const __tgt_device_image*, std::unique_ptr<ProgramTy>> Programs;
+  std::mutex ProgramsLock;
 
   // Target memory for the target environment array
   std::once_flag TgtEnvsInitFlag;
