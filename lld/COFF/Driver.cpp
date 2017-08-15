@@ -97,12 +97,11 @@ static std::future<MBErrPair> createFutureForFile(std::string Path) {
 
 MemoryBufferRef LinkerDriver::takeBuffer(std::unique_ptr<MemoryBuffer> MB) {
   MemoryBufferRef MBRef = *MB;
-  OwningMBs.push_back(std::move(MB));
+  make<std::unique_ptr<MemoryBuffer>>(std::move(MB)); // take ownership
 
   if (Driver->Tar)
     Driver->Tar->append(relativeToRoot(MBRef.getBufferIdentifier()),
                         MBRef.getBuffer());
-
   return MBRef;
 }
 
@@ -834,7 +833,6 @@ void LinkerDriver::link(ArrayRef<const char *> ArgsArr) {
   if (Args.hasArg(OPT_nosymtab))
     Config->WriteSymtab = false;
   Config->DumpPdb = Args.hasArg(OPT_dumppdb);
-  Config->DebugPdb = Args.hasArg(OPT_debugpdb);
 
   Config->MapFile = getMapFile(Args);
 
