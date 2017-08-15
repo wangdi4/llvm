@@ -137,8 +137,7 @@ public:
             case CPU_KNL:
                 return "d3";
             case CPU_SKX:
-                llvm_unreachable("SKX on 32-bit OS is not supported so far!");
-                return 0;
+                return "x0";
             case MIC_KNC:
                 llvm_unreachable("No MIC SVML lib for 32-bit OS!");
                 return 0;
