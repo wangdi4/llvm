@@ -326,22 +326,18 @@ void ScopArrayInfo::applyAndSetFAD(Value *FAD) {
   assert(!this->FAD);
   this->FAD = FAD;
 
-  isl_space *Space = isl_space_set_alloc(S.getIslCtx(), 1, 0);
+  isl::space Space(S.getIslCtx(), 1, 0);
 
   std::string param_name = getName();
   param_name += "_fortranarr_size";
   // TODO: see if we need to add `this` as the id user pointer
-  isl_id *IdPwAff = isl_id_alloc(S.getIslCtx(), param_name.c_str(), nullptr);
+  isl::id IdPwAff = isl::id::alloc(S.getIslCtx(), param_name.c_str(), nullptr);
 
-  Space = isl_space_set_dim_id(Space, isl_dim_param, 0, IdPwAff);
-  isl_basic_set *Identity = isl_basic_set_universe(Space);
-  isl_local_space *LocalSpace = isl_basic_set_get_local_space(Identity);
-  isl_basic_set_free(Identity);
+  Space = Space.set_dim_id(isl::dim::param, 0, IdPwAff);
+  isl::pw_aff PwAff =
+      isl::aff::var_on_domain(isl::local_space(Space), isl::dim::param, 0);
 
-  isl_pw_aff *PwAff =
-      isl_pw_aff_from_aff(isl_aff_var_on_domain(LocalSpace, isl_dim_param, 0));
-
-  DimensionSizesPw[0] = PwAff;
+  DimensionSizesPw[0] = PwAff.release();
 }
 
 bool ScopArrayInfo::updateSizes(ArrayRef<const SCEV *> NewSizes,
@@ -739,71 +735,64 @@ void MemoryAccess::assumeNoOutOfBound() {
   if (PollyIgnoreInbounds)
     return;
   auto *SAI = getScopArrayInfo();
-  isl_space *Space = isl_space_range(getOriginalAccessRelationSpace());
-  isl_set *Outside = isl_set_empty(isl_space_copy(Space));
-  for (int i = 1, Size = isl_space_dim(Space, isl_dim_set); i < Size; ++i) {
-    isl_local_space *LS = isl_local_space_from_space(isl_space_copy(Space));
-    isl_pw_aff *Var =
-        isl_pw_aff_var_on_domain(isl_local_space_copy(LS), isl_dim_set, i);
-    isl_pw_aff *Zero = isl_pw_aff_zero_on_domain(LS);
+  isl::space Space = give(getOriginalAccessRelationSpace()).range();
+  isl::set Outside = isl::set::empty(Space);
+  for (int i = 1, Size = Space.dim(isl::dim::set); i < Size; ++i) {
+    isl::local_space LS(Space);
+    isl::pw_aff Var = isl::pw_aff::var_on_domain(LS, isl::dim::set, i);
+    isl::pw_aff Zero = isl::pw_aff(LS);
 
-    isl_set *DimOutside;
+    isl::set DimOutside = Var.lt_set(Zero);
+    isl::pw_aff SizeE = give(SAI->getDimensionSizePw(i));
+    SizeE = SizeE.add_dims(isl::dim::in, Space.dim(isl::dim::set));
+    SizeE = SizeE.set_tuple_id(isl::dim::in, Space.get_tuple_id(isl::dim::set));
+    DimOutside = DimOutside.unite(SizeE.le_set(Var));
 
-    DimOutside = isl_pw_aff_lt_set(isl_pw_aff_copy(Var), Zero);
-    isl_pw_aff *SizeE = SAI->getDimensionSizePw(i);
-    SizeE = isl_pw_aff_add_dims(SizeE, isl_dim_in,
-                                isl_space_dim(Space, isl_dim_set));
-    SizeE = isl_pw_aff_set_tuple_id(SizeE, isl_dim_in,
-                                    isl_space_get_tuple_id(Space, isl_dim_set));
-
-    DimOutside = isl_set_union(DimOutside, isl_pw_aff_le_set(SizeE, Var));
-
-    Outside = isl_set_union(Outside, DimOutside);
+    Outside = Outside.unite(DimOutside);
   }
 
-  Outside = isl_set_apply(Outside, isl_map_reverse(getAccessRelation()));
-  Outside = isl_set_intersect(Outside, Statement->getDomain());
-  Outside = isl_set_params(Outside);
+  Outside = Outside.apply(give(getAccessRelation()).reverse());
+  Outside = Outside.intersect(give(Statement->getDomain()));
+  Outside = Outside.params();
 
   // Remove divs to avoid the construction of overly complicated assumptions.
   // Doing so increases the set of parameter combinations that are assumed to
   // not appear. This is always save, but may make the resulting run-time check
   // bail out more often than strictly necessary.
-  Outside = isl_set_remove_divs(Outside);
-  Outside = isl_set_complement(Outside);
+  Outside = Outside.remove_divs();
+  Outside = Outside.complement();
   const auto &Loc = getAccessInstruction()
                         ? getAccessInstruction()->getDebugLoc()
                         : DebugLoc();
   if (!PollyPreciseInbounds)
-    Outside = isl_set_gist(Outside, isl_set_params(Statement->getDomain()));
-  Statement->getParent()->recordAssumption(INBOUNDS, Outside, Loc,
+    Outside = Outside.gist_params(give(Statement->getDomain()).params());
+  Statement->getParent()->recordAssumption(INBOUNDS, Outside.release(), Loc,
                                            AS_ASSUMPTION);
-  isl_space_free(Space);
 }
 
 void MemoryAccess::buildMemIntrinsicAccessRelation() {
   assert(isMemoryIntrinsic());
   assert(Subscripts.size() == 2 && Sizes.size() == 1);
 
-  auto *SubscriptPWA = getPwAff(Subscripts[0]);
-  auto *SubscriptMap = isl_map_from_pw_aff(SubscriptPWA);
+  isl::pw_aff SubscriptPWA = give(getPwAff(Subscripts[0]));
+  isl::map SubscriptMap = isl::map::from_pw_aff(SubscriptPWA);
 
-  isl_map *LengthMap;
+  isl::map LengthMap;
   if (Subscripts[1] == nullptr) {
-    LengthMap = isl_map_universe(isl_map_get_space(SubscriptMap));
+    LengthMap = isl::map::universe(SubscriptMap.get_space());
   } else {
-    auto *LengthPWA = getPwAff(Subscripts[1]);
-    LengthMap = isl_map_from_pw_aff(LengthPWA);
-    auto *RangeSpace = isl_space_range(isl_map_get_space(LengthMap));
-    LengthMap = isl_map_apply_range(LengthMap, isl_map_lex_gt(RangeSpace));
+    isl::pw_aff LengthPWA = give(getPwAff(Subscripts[1]));
+    LengthMap = isl::map::from_pw_aff(LengthPWA);
+    isl::space RangeSpace = LengthMap.get_space().range();
+    LengthMap = LengthMap.apply_range(isl::map::lex_gt(RangeSpace));
   }
-  LengthMap = isl_map_lower_bound_si(LengthMap, isl_dim_out, 0, 0);
-  LengthMap = isl_map_align_params(LengthMap, isl_map_get_space(SubscriptMap));
-  SubscriptMap =
-      isl_map_align_params(SubscriptMap, isl_map_get_space(LengthMap));
-  LengthMap = isl_map_sum(LengthMap, SubscriptMap);
-  AccessRelation = isl_map_set_tuple_id(LengthMap, isl_dim_in,
-                                        getStatement()->getDomainId());
+  LengthMap = LengthMap.lower_bound_si(isl::dim::out, 0, 0);
+  LengthMap = LengthMap.align_params(SubscriptMap.get_space());
+  SubscriptMap = SubscriptMap.align_params(LengthMap.get_space());
+  LengthMap = LengthMap.sum(SubscriptMap);
+  AccessRelation =
+      LengthMap.set_tuple_id(isl::dim::in, give(getStatement()->getDomainId()))
+          .release();
 }
 
 void MemoryAccess::computeBoundsOnAccessRelation(unsigned ElementSize) {
