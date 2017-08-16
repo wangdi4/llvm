@@ -1186,18 +1186,26 @@ void Preprocessor::HandleLineDirective() {
     CheckEndOfDirective("line", true);
   }
 
-  SourceMgr.AddLineNote(DigitTok.getLocation(), LineNo, FilenameID);
+  // Take the file kind of the file containing the #line directive. #line
+  // directives are often used for generated sources from the same codebase, so
+  // the new file should generally be classified the same way as the current
+  // file. This is visible in GCC's pre-processed output, which rewrites #line
+  // to GNU line markers.
+  SrcMgr::CharacteristicKind FileKind =
+      SourceMgr.getFileCharacteristic(DigitTok.getLocation());
+
+  SourceMgr.AddLineNote(DigitTok.getLocation(), LineNo, FilenameID, false,
+                        false, FileKind);
 
   if (Callbacks)
     Callbacks->FileChanged(CurPPLexer->getSourceLocation(),
-                           PPCallbacks::RenameFile,
-                           SrcMgr::C_User);
+                           PPCallbacks::RenameFile, FileKind);
 }
 
 /// ReadLineMarkerFlags - Parse and validate any flags at the end of a GNU line
 /// marker directive.
 static bool ReadLineMarkerFlags(bool &IsFileEntry, bool &IsFileExit,
-                                bool &IsSystemHeader, bool &IsExternCHeader,
+                                SrcMgr::CharacteristicKind &FileKind,
                                 Preprocessor &PP) {
   unsigned FlagVal;
   Token FlagTok;
@@ -1252,7 +1260,7 @@ static bool ReadLineMarkerFlags(bool &IsFileEntry, bool &IsFileExit,
     return true;
   }
 
-  IsSystemHeader = true;
+  FileKind = SrcMgr::C_System;
 
   PP.Lex(FlagTok);
   if (FlagTok.is(tok::eod)) return false;
@@ -1266,7 +1274,7 @@ static bool ReadLineMarkerFlags(bool &IsFileEntry, bool &IsFileExit,
     return true;
   }
 
-  IsExternCHeader = true;
+  FileKind = SrcMgr::C_ExternCSystem;
 
   PP.Lex(FlagTok);
   if (FlagTok.is(tok::eod)) return false;
@@ -1296,11 +1304,12 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
   Lex(StrTok);
 
   bool IsFileEntry = false, IsFileExit = false;
-  bool IsSystemHeader = false, IsExternCHeader = false;
   int FilenameID = -1;
+  SrcMgr::CharacteristicKind FileKind = SrcMgr::C_User;
 
   // If the StrTok is "eod", then it wasn't present.  Otherwise, it must be a
   // string followed by eod.
+<<<<<<< HEAD
   if (StrTok.is(tok::eod))
     ; // ok
   else if (StrTok.isNot(tok::string_literal)) {
@@ -1310,6 +1319,12 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
       Diag(StrTok, diag::warn_pp_line_invalid_filename);
     } else
 #endif // INTEL_CUSTOMIZATION
+=======
+  if (StrTok.is(tok::eod)) {
+    // Treat this like "#line NN", which doesn't change file characteristics.
+    FileKind = SourceMgr.getFileCharacteristic(DigitTok.getLocation());
+  } else if (StrTok.isNot(tok::string_literal)) {
+>>>>>>> ecac99cbb4fc1411a821718d6c254333641c1198
     Diag(StrTok, diag::err_pp_linemarker_invalid_filename);
     return DiscardUntilEndOfDirective();
   } else if (StrTok.hasUDSuffix()) {
@@ -1328,15 +1343,13 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
     FilenameID = SourceMgr.getLineTableFilenameID(Literal.GetString());
 
     // If a filename was present, read any flags that are present.
-    if (ReadLineMarkerFlags(IsFileEntry, IsFileExit,
-                            IsSystemHeader, IsExternCHeader, *this))
+    if (ReadLineMarkerFlags(IsFileEntry, IsFileExit, FileKind, *this))
       return;
   }
 
   // Create a line note with this information.
-  SourceMgr.AddLineNote(DigitTok.getLocation(), LineNo, FilenameID,
-                        IsFileEntry, IsFileExit,
-                        IsSystemHeader, IsExternCHeader);
+  SourceMgr.AddLineNote(DigitTok.getLocation(), LineNo, FilenameID, IsFileEntry,
+                        IsFileExit, FileKind);
 
   // If the preprocessor has callbacks installed, notify them of the #line
   // change.  This is used so that the line marker comes out in -E mode for
@@ -1347,11 +1360,6 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
       Reason = PPCallbacks::EnterFile;
     else if (IsFileExit)
       Reason = PPCallbacks::ExitFile;
-    SrcMgr::CharacteristicKind FileKind = SrcMgr::C_User;
-    if (IsExternCHeader)
-      FileKind = SrcMgr::C_ExternCSystem;
-    else if (IsSystemHeader)
-      FileKind = SrcMgr::C_System;
 
     Callbacks->FileChanged(CurPPLexer->getSourceLocation(), Reason, FileKind);
   }
