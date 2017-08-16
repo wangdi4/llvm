@@ -2154,7 +2154,7 @@ bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
         Opts.IntelMSCompat && !Opts.CPlusPlus && !Opts.ObjC1 && !Opts.ObjC2 &&
         OldTypedef && areCompatibleTypedefs(OldTypedef, New, Context);
 
-    SourceLocation OldLocation = Old->getLocation();
+    TypeDecl *OldDecl = Old;
     if (AllowedAsIntelExtInC) {
       Diag(New->getLocation(), diag::warn_int_typedef_redefinition_ignored)
           << NewType << OldType;
@@ -2163,15 +2163,15 @@ bool Sema::isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New) {
                                     OldTypedef->getUnderlyingType());
       else
         New->setTypeSourceInfo(OldTypedef->getTypeSourceInfo());
-      OldLocation = OldTypedef->getFirstDecl()->getLocation();
+      OldDecl = OldTypedef->getFirstDecl();
     } else {
       int Kind = isa<TypeAliasDecl>(Old) ? 1 : 0;
       Diag(New->getLocation(), diag::err_redefinition_different_typedef)
         << Kind << NewType << OldType;
       New->setInvalidDecl();
     }
-    if (OldLocation.isValid())
-      notePreviousDefinition(Old, New->getLocation());
+    if (OldDecl->getLocation().isValid())
+      notePreviousDefinition(OldDecl, New->getLocation());
     return !AllowedAsIntelExtInC;
 #endif // INTEL_CUSTOMIZATION
   }

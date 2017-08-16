@@ -780,6 +780,11 @@ private:
   /// for-statement
   /// {code}
   StmtResult ParseSIMDDirective();
+  /// \brief Dispatch function to parse a SIMD clause.
+  bool ParseSIMDClauses(Sema &S, SourceLocation BeginLoc,
+                        SmallVectorImpl<Attr *> &AttrList);
+  /// \brief helper function to cleanup for Pragma SIMD.
+  void FinishPragmaSIMD(SourceLocation BeginLoc);
 #endif // INTEL_CUSTOMIZATION
   /// \brief Handle the annotation token produced for
   /// #pragma clang loop and #pragma unroll.
