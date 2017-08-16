@@ -184,37 +184,35 @@ combineInSequence(__isl_take isl_schedule *Prev,
   return isl_schedule_sequence(Prev, Succ);
 }
 
-static __isl_give isl_set *addRangeBoundsToSet(__isl_take isl_set *S,
-                                               const ConstantRange &Range,
-                                               int dim,
-                                               enum isl_dim_type type) {
-  isl_val *V;
-  isl_ctx *Ctx = isl_set_get_ctx(S);
+static isl::set addRangeBoundsToSet(isl::set S, const ConstantRange &Range,
+                                    int dim, isl::dim type) {
+  isl::val V;
+  isl::ctx Ctx = S.get_ctx();
 
   // The upper and lower bound for a parameter value is derived either from
   // the data type of the parameter or from the - possibly more restrictive -
   // range metadata.
-  V = isl_valFromAPInt(Ctx, Range.getSignedMin(), true);
-  S = isl_set_lower_bound_val(S, type, dim, V);
-  V = isl_valFromAPInt(Ctx, Range.getSignedMax(), true);
-  S = isl_set_upper_bound_val(S, type, dim, V);
+  V = valFromAPInt(Ctx.get(), Range.getSignedMin(), true);
+  S = S.lower_bound_val(type, dim, V);
+  V = valFromAPInt(Ctx.get(), Range.getSignedMax(), true);
+  S = S.upper_bound_val(type, dim, V);
 
   if (Range.isFullSet())
     return S;
 
-  if (isl_set_n_basic_set(S) > MaxDisjunctsInContext)
+  if (isl_set_n_basic_set(S.get()) > MaxDisjunctsInContext)
     return S;
 
   // In case of signed wrapping, we can refine the set of valid values by
   // excluding the part not covered by the wrapping range.
   if (Range.isSignWrappedSet()) {
-    V = isl_valFromAPInt(Ctx, Range.getLower(), true);
-    isl_set *SLB = isl_set_lower_bound_val(isl_set_copy(S), type, dim, V);
+    V = valFromAPInt(Ctx.get(), Range.getLower(), true);
+    isl::set SLB = S.lower_bound_val(type, dim, V);
 
-    V = isl_valFromAPInt(Ctx, Range.getUpper(), true);
-    V = isl_val_sub_ui(V, 1);
-    isl_set *SUB = isl_set_upper_bound_val(S, type, dim, V);
-    S = isl_set_union(SLB, SUB);
+    V = valFromAPInt(Ctx.get(), Range.getUpper(), true);
+    V = V.sub_ui(1);
+    isl::set SUB = S.upper_bound_val(type, dim, V);
+    S = SLB.unite(SUB);
   }
 
   return S;
@@ -453,13 +451,13 @@ const ScopArrayInfo *ScopArrayInfo::getFromId(__isl_take isl_id *Id) {
 
 void MemoryAccess::wrapConstantDimensions() {
   auto *SAI = getScopArrayInfo();
-  auto *ArraySpace = SAI->getSpace();
-  auto *Ctx = isl_space_get_ctx(ArraySpace);
+  isl::space ArraySpace = give(SAI->getSpace());
+  isl::ctx Ctx = ArraySpace.get_ctx();
   unsigned DimsArray = SAI->getNumberOfDimensions();
 
-  auto *DivModAff = isl_multi_aff_identity(isl_space_map_from_domain_and_range(
-      isl_space_copy(ArraySpace), isl_space_copy(ArraySpace)));
-  auto *LArraySpace = isl_local_space_from_space(ArraySpace);
+  isl::multi_aff DivModAff = isl::multi_aff::identity(
+      ArraySpace.map_from_domain_and_range(ArraySpace));
+  isl::local_space LArraySpace = isl::local_space(ArraySpace);
 
   // Begin with last dimension, to iteratively carry into higher dimensions.
   for (int i = DimsArray - 1; i > 0; i--) {
@@ -474,37 +472,33 @@ void MemoryAccess::wrapConstantDimensions() {
     if (DimSize->isZero())
       continue;
 
-    auto *DimSizeVal = isl_valFromAPInt(Ctx, DimSizeCst->getAPInt(), false);
-    auto *Var = isl_aff_var_on_domain(isl_local_space_copy(LArraySpace),
-                                      isl_dim_set, i);
-    auto *PrevVar = isl_aff_var_on_domain(isl_local_space_copy(LArraySpace),
-                                          isl_dim_set, i - 1);
+    isl::val DimSizeVal =
+        valFromAPInt(Ctx.get(), DimSizeCst->getAPInt(), false);
+    isl::aff Var = isl::aff::var_on_domain(LArraySpace, isl::dim::set, i);
+    isl::aff PrevVar =
+        isl::aff::var_on_domain(LArraySpace, isl::dim::set, i - 1);
 
     // Compute: index % size
     // Modulo must apply in the divide of the previous iteration, if any.
-    auto *Modulo = isl_aff_copy(Var);
-    Modulo = isl_aff_mod_val(Modulo, isl_val_copy(DimSizeVal));
-    Modulo = isl_aff_pullback_multi_aff(Modulo, isl_multi_aff_copy(DivModAff));
+    isl::aff Modulo = Var.mod_val(DimSizeVal);
+    Modulo = Modulo.pullback(DivModAff);
 
     // Compute: floor(index / size)
-    auto *Divide = Var;
-    Divide = isl_aff_div(
-        Divide,
-        isl_aff_val_on_domain(isl_local_space_copy(LArraySpace), DimSizeVal));
-    Divide = isl_aff_floor(Divide);
-    Divide = isl_aff_add(Divide, PrevVar);
-    Divide = isl_aff_pullback_multi_aff(Divide, isl_multi_aff_copy(DivModAff));
+    isl::aff Divide = Var.div(isl::aff(LArraySpace, DimSizeVal));
+    Divide = Divide.floor();
+    Divide = Divide.add(PrevVar);
+    Divide = Divide.pullback(DivModAff);
 
     // Apply Modulo and Divide.
-    DivModAff = isl_multi_aff_set_aff(DivModAff, i, Modulo);
-    DivModAff = isl_multi_aff_set_aff(DivModAff, i - 1, Divide);
+    DivModAff = DivModAff.set_aff(i, Modulo);
+    DivModAff = DivModAff.set_aff(i - 1, Divide);
   }
 
   // Apply all modulo/divides on the accesses.
-  AccessRelation =
-      isl_map_apply_range(AccessRelation, isl_map_from_multi_aff(DivModAff));
-  AccessRelation = isl_map_detect_equalities(AccessRelation);
-  isl_local_space_free(LArraySpace);
+  isl::map Relation = give(AccessRelation);
+  Relation = Relation.apply_range(isl::map::from_multi_aff(DivModAff));
+  Relation = Relation.detect_equalities();
+  AccessRelation = Relation.release();
 }
 
 void MemoryAccess::updateDimensionality() {
@@ -858,10 +852,11 @@ void MemoryAccess::computeBoundsOnAccessRelation(unsigned ElementSize) {
 
   assert(Min.sle(Max) && "Minimum expected to be less or equal than max");
 
-  isl_set *AccessRange = isl_map_range(isl_map_copy(AccessRelation));
-  AccessRange =
-      addRangeBoundsToSet(AccessRange, ConstantRange(Min, Max), 0, isl_dim_set);
-  AccessRelation = isl_map_intersect_range(AccessRelation, AccessRange);
+  isl::map Relation = give(AccessRelation);
+  isl::set AccessRange = Relation.range();
+  AccessRange = addRangeBoundsToSet(AccessRange, ConstantRange(Min, Max), 0,
+                                    isl::dim::set);
+  AccessRelation = Relation.intersect_range(AccessRange).release();
 }
 
 void MemoryAccess::foldAccessRelation() {
@@ -2208,7 +2203,9 @@ void Scop::addParameterBounds() {
   unsigned PDim = 0;
   for (auto *Parameter : Parameters) {
     ConstantRange SRange = SE->getSignedRange(Parameter);
-    Context = addRangeBoundsToSet(Context, SRange, PDim++, isl_dim_param);
+    Context =
+        addRangeBoundsToSet(give(Context), SRange, PDim++, isl::dim::param)
+            .release();
   }
 }
 
