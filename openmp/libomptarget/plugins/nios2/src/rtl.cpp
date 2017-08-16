@@ -1141,7 +1141,7 @@ public:
 
 private:
   // Class representing an instance of a target program. We may have more
-  // than one target program associated with the host porcess.
+  // than one target program associated with the host process.
   class ProgramTy {
   public:
     // We can have multiple target programs, thus we need to keep program
@@ -1170,7 +1170,7 @@ private:
         return nullptr;
       }
 
-      // Relocate program segments which occupy L3 and L4 memrory types. Find all
+      // Relocate program segments which occupy L3 and L4 memory types. Find all
       // such program segments, allocate memory for them from appropriate space
       // and relocate them to new address.
       // TODO: optimize memory allocation if multiple segments occupy a contiguous
@@ -1255,7 +1255,7 @@ private:
         }
       }
       else {
-        // No not expect to have target binary with no entry table section
+        // Do not expect to have target binary with no entry table section
         DP("No entry table section in the target image\n");
         return nullptr;
       }
@@ -1416,6 +1416,7 @@ public:
   __tgt_target_table* loadProgram(const __tgt_device_image *Image) {
     std::unique_ptr<ProgramTy> Program(new ProgramTy(*this));
     if (auto *Table = Program->load(Image)) {
+      std::lock_guard<std::mutex> Guard(ProgramsLock);
       Programs.emplace_front(Program.release());
       return Table;
     }
@@ -1439,11 +1440,13 @@ public:
     };
 #endif // OMPTARGET_DEBUG
 
-    DP("Allocating %d bytes from %s\n", Size, getTypeStr(Type));
     auto Ptr = msof_mem_alloc(Device, Type, Size, 1, HostPtr);
     if (Ptr == NullPtr) {
-      DP("Faled to allocate %d bytes from %s\n", Size, getTypeStr(Type));
+      DP("Failed to allocate %d bytes from %s\n", Size, getTypeStr(Type));
+      return NullPtr;
     }
+
+    DP("Allocated %d bytes from %s: address %x\n", Size, getTypeStr(Type), Ptr);
     return Ptr;
   }
 
@@ -1605,6 +1608,7 @@ private:
 
   // Target programs
   std::forward_list<std::unique_ptr<ProgramTy>> Programs;
+  std::mutex ProgramsLock;
 
   // Target memory for the target environment array
   std::once_flag TgtEnvsInitFlag;
