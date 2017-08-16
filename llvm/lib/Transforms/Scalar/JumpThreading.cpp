@@ -281,16 +281,6 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   return EverChanged;
 }
 
-<<<<<<< HEAD
-#if INTEL_CUSTOMIZATION
-/// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
-/// thread across it. Stop scanning the region when passing the threshold.
-static unsigned getJumpThreadDuplicationCost(
-  const SmallVectorImpl<BasicBlock*> &RegionBlocks,
-  const BasicBlock *RegionBottom,
-  unsigned Threshold) {
-  const TerminatorInst *BBTerm = RegionBottom->getTerminator();
-=======
 // Replace uses of Cond with ToVal when safe to do so. If all uses are
 // replaced, we can remove Cond. We cannot blindly replace all uses of Cond
 // because we may incorrectly replace uses when guards/assumes are uses of
@@ -320,19 +310,14 @@ static void ReplaceFoldableUses(Instruction *Cond, Value *ToVal) {
     Cond->eraseFromParent();
 }
 
-/// Return the cost of duplicating a piece of this block from first non-phi
-/// and before StopAt instruction to thread across it. Stop scanning the block
-/// when exceeding the threshold. If duplication is impossible, returns ~0U.
-static unsigned getJumpThreadDuplicationCost(BasicBlock *BB,
-                                             Instruction *StopAt,
-                                             unsigned Threshold) {
-  assert(StopAt->getParent() == BB && "Not an instruction from proper BB?");
-  /// Ignore PHI nodes, these will be flattened when duplication happens.
-  BasicBlock::const_iterator I(BB->getFirstNonPHI());
-
-  // FIXME: THREADING will delete values that are just used to compute the
-  // branch, so they shouldn't count against the duplication cost.
->>>>>>> 0dae0619be05d846fac03553775f252750a7946a
+#if INTEL_CUSTOMIZATION
+/// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
+/// thread across it. Stop scanning the region when passing the threshold.
+static unsigned getJumpThreadDuplicationCost(
+  const SmallVectorImpl<BasicBlock*> &RegionBlocks,
+  const BasicBlock *RegionBottom,
+  unsigned Threshold) {
+  const TerminatorInst *BBTerm = RegionBottom->getTerminator();
 
   unsigned Bonus = 0;
   // Threading through a switch statement is particularly profitable.  If this
