@@ -649,10 +649,12 @@ void VPOCodeGen::emitResume(Value *CountRoundDown) {
                         LoopScalarPreHeader->getTerminator());
     Value *&EndValue = IVEndValues[OrigPhi];
     if (OrigPhi == Legal->getInduction()) {
-      // We know what the end value is.
-      EndValue = CountRoundDown;
-
+      // We already know what the end value is.
+      IRBuilder<> B(LoopMiddleBlock->getTerminator());
+      EndValue = B.CreateZExtOrTrunc(CountRoundDown, OrigPhi->getType(),
+                                     "cast.endval");
     } else {
+      // We must compute what the end value is.
       IRBuilder<> B(LoopBypassBlocks.back()->getTerminator());
       Type *StepType = II.getStep()->getType();
       Instruction::CastOps CastOp =
