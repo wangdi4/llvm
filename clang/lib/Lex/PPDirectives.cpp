@@ -1309,22 +1309,16 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
 
   // If the StrTok is "eod", then it wasn't present.  Otherwise, it must be a
   // string followed by eod.
-<<<<<<< HEAD
-  if (StrTok.is(tok::eod))
-    ; // ok
-  else if (StrTok.isNot(tok::string_literal)) {
+  if (StrTok.is(tok::eod)) {
+    // Treat this like "#line NN", which doesn't change file characteristics.
+    FileKind = SourceMgr.getFileCharacteristic(DigitTok.getLocation());
+  } else if (StrTok.isNot(tok::string_literal)) {
 #if INTEL_CUSTOMIZATION
     // CQ#375723. Emit warning instead of error.
     if (getLangOpts().IntelCompat) {
       Diag(StrTok, diag::warn_pp_line_invalid_filename);
     } else
 #endif // INTEL_CUSTOMIZATION
-=======
-  if (StrTok.is(tok::eod)) {
-    // Treat this like "#line NN", which doesn't change file characteristics.
-    FileKind = SourceMgr.getFileCharacteristic(DigitTok.getLocation());
-  } else if (StrTok.isNot(tok::string_literal)) {
->>>>>>> ecac99cbb4fc1411a821718d6c254333641c1198
     Diag(StrTok, diag::err_pp_linemarker_invalid_filename);
     return DiscardUntilEndOfDirective();
   } else if (StrTok.hasUDSuffix()) {
