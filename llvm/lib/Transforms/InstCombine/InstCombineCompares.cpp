@@ -3630,7 +3630,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
     // We can strength reduce this signed add into a regular add if we can prove
     // that it will never overflow.
     if (OCF == OCF_SIGNED_ADD)
-      if (WillNotOverflowSignedAdd(LHS, RHS, OrigI))
+      if (willNotOverflowSignedAdd(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWAdd(LHS, RHS), Builder->getFalse(),
                          true);
     break;
@@ -3643,11 +3643,11 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(LHS, Builder->getFalse(), false);
 
     if (OCF == OCF_SIGNED_SUB) {
-      if (WillNotOverflowSignedSub(LHS, RHS, OrigI))
+      if (willNotOverflowSignedSub(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWSub(LHS, RHS), Builder->getFalse(),
                          true);
     } else {
-      if (WillNotOverflowUnsignedSub(LHS, RHS, OrigI))
+      if (willNotOverflowUnsignedSub(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNUWSub(LHS, RHS), Builder->getFalse(),
                          true);
     }
@@ -3677,7 +3677,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(LHS, Builder->getFalse(), false);
 
     if (OCF == OCF_SIGNED_MUL)
-      if (WillNotOverflowSignedMul(LHS, RHS, OrigI))
+      if (willNotOverflowSignedMul(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWMul(LHS, RHS), Builder->getFalse(),
                          true);
     break;
