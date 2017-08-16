@@ -354,9 +354,6 @@ static void initialize(TargetLibraryInfoImpl &TLI, const Triple &T,
     TLI.setUnavailable(LibFunc_atoll);
     TLI.setUnavailable(LibFunc_frexpf);
     TLI.setUnavailable(LibFunc_llabs);
-
-    // Win32 does *not* provide pthread_self.
-    TLI.setUnavailable(LibFunc_pthread_self);
   }
 
   switch (T.getOS()) {
@@ -1272,6 +1269,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1) == SizeTTy && FTy.getParamType(2) == SizeTTy);
 
+<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
@@ -1307,6 +1305,8 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_pthread_self:
     return NumParams == 0;
 
+=======
+>>>>>>> a9ee0160e601dae7d7a705b32636dfc291afd59c
   case LibFunc_wcslen:
     return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
             FTy.getReturnType()->isIntegerTy());
