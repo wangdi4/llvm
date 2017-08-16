@@ -936,6 +936,19 @@ public:
     return { nullptr, 0 };
   }
 
+  AddrTy getSymbolAddress(const std::string &Name) const {
+    for (auto *Sec : getSections()) {
+      if (auto *SymTab = Sec->toSymtab()) {
+        for (auto Sym : *SymTab) {
+          if (Sym.getName() == Name) {
+            return Sym.getValue();
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
 private:
   // ELF header
   EhdrTy Header;
@@ -1274,9 +1287,18 @@ private:
         }
       }
 
-      // And finally construct relocated ELF for MSOF loader.
+      // Construct relocated ELF for MSOF loader.
       Image.resize(ImageSize);
       Obj.writeToMemory(Image.data(), ImageSize);
+
+      // Initialize OpenMP runtime on the device. Initialization routine should
+      // be executed on any arbitrary column once per program instance.
+      if (auto OMPInit = Obj.getSymbolAddress("__kmpc_omp_init")) {
+        DP("Initializing OpenMP runtime on the device\n");
+        if (!Device.runFunction(this, OMPInit, {}, 1)) {
+          return nullptr;
+        }
+      }
 
       return &ET.Table;
     }
@@ -1478,6 +1500,17 @@ public:
   bool runFunction(const void *Func, const std::vector<PtrTy> &Args) const {
     auto Entry = static_cast<const ProgramTy::TableEntryTy*>(Func);
 
+    // Depending on the multi-column support mode we reserve either one column
+    // per run function (if each column is treated as a separate offload
+    // device) or all available columns (if all columns compose a single
+    // logical device).
+    size_t NumColumns = MultiColumnDeviceMode ? MaxColumns : 1u;
+
+    return runFunction(Entry->first, Entry->second, Args, NumColumns);
+  }
+
+  bool runFunction(const ProgramTy *Prog, PtrTy Func,
+                   const std::vector<PtrTy> &Args, size_t NumColumns) const {
     class AutoContext {
     public:
       ~AutoContext() {
@@ -1505,11 +1538,6 @@ public:
     }
 
     DP("Reserving columns\n");
-    // Depending on the multi-column support mode we reserve either one column
-    // per run function (if each column is treated as a separate offload
-    // device) or all available columns (if all columns compose a single
-    // logical device).
-    size_t NumColumns = MultiColumnDeviceMode ? MaxColumns : 1u;
     std::vector<msof_column_t> Columns(NumColumns);
     Res = msof_column_reserve(Context, MSOF_COLUMN_MAX, &NumColumns,
       Columns.data(), 0, nullptr, nullptr);
@@ -1544,7 +1572,7 @@ public:
 #endif // OMPTARGET_DEBUG
 
     DP("Loading program to context\n");
-    const auto &Image = Entry->first->getImage();
+    const auto &Image = Prog->getImage();
     msof_program_t Program = nullptr;
     Res = msof_load_program(Context, Image.data(), Image.size(), &Program);
     if (Res != MSOF_SUCCESS) {
@@ -1560,8 +1588,8 @@ public:
       Refs[II] = &Args[II];
     }
 
-    DP("Executing function (%x) on device\n", Entry->second);
-    Res = msof_run_function(Context, Program, Entry->second,
+    DP("Executing function (%x) on device\n", Func);
+    Res = msof_run_function(Context, Program, Func,
       NumArgs, Refs.data(), Sizes.data(), nullptr);
     if (Res != MSOF_SUCCESS) {
       DP("Error running function on device, error code %d\n", Res);
