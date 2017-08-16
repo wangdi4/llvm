@@ -65,10 +65,10 @@ inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 #else
 inline void* ALIGNED_MALLOC( size_t size, size_t alignment )
 {
-    void* t = nullptr;
+    void* t = NULL;
     if (0 != posix_memalign(&t, alignment < sizeof(void*) ? sizeof(void*) : alignment, size))
     {
-        t = nullptr;
+        t = NULL;
     }
     return t;
 }
@@ -304,7 +304,7 @@ public:
     {
         AutoLock lock(m_mutex);
         typename std::map<TKEY,TVAL>::iterator itr = m_map.find(key);
-        TVAL val = (itr != m_map.end()) ? itr->second : nullptr;
+        TVAL val = (itr != m_map.end()) ? itr->second : NULL;
         return val;
     }
 
@@ -327,7 +327,7 @@ public:
         typename std::map<TKEY, TVAL>::const_iterator iter = m_map.upper_bound( key );
         if (iter == m_map.begin())
         {
-            return nullptr;
+            return NULL;
         }
         --iter;
 
@@ -337,7 +337,7 @@ public:
             return iter->first;
         }
         
-        return nullptr;
+        return NULL;
     }
     
 private:
@@ -373,12 +373,12 @@ public:
     // Used whenever the device cannot share memory with host
     virtual cl_event SynchronizeFromDeviceToHost(
         CrtDeviceInfo*  sourceDevice,
-        CrtContext*     context) {  return nullptr; }
+        CrtContext*     context) {  return NULL; }
 
     virtual cl_event SynchronizeToDeviceFromHost(
         CrtDeviceInfo*  targetDevice,
         CrtContext*     context,
-        cl_event* eventWaitList) {  return nullptr; }
+        cl_event* eventWaitList) {  return NULL; }
 
     virtual cl_int Create(CrtMemObject** memObj) { return CL_SUCCESS; };
 
@@ -490,7 +490,7 @@ public:
 
     cl_int Create(CrtMemObject** memObj);
 
-    void*  GetMapPointer(const size_t* origin, const size_t* region){ return nullptr; };
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; };
     cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
 
     cl_bool             m_isRenderBuffer;
@@ -516,7 +516,7 @@ public:
 
     cl_int Create(CrtMemObject** memObj);
 
-    void*  GetMapPointer(const size_t* origin, const size_t* region){ return nullptr; };
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; };
     cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
 
     IDirect3DSurface9*      m_resource;
@@ -595,7 +595,7 @@ public:
     virtual ~CrtGLImage();
 
     cl_bool isInteropObject(){ return CL_TRUE; };
-    void*  GetMapPointer(const size_t* origin, const size_t* region){ return nullptr; }
+    void*  GetMapPointer(const size_t* origin, const size_t* region){ return NULL; }
     cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
 
     CrtObjectType getObjectType() const {  return CrtMemObject::CL_IMAGE; }
@@ -623,7 +623,7 @@ public:
     void*  GetMapPointer(const size_t* origin, const size_t* region)
     {
         assert( 0 && "GetMapPointer is not supported for Pipes!" );
-        return nullptr;
+        return NULL;
     }
     cl_int CheckParamsAndBounds(const size_t* origin, const size_t* region){ return CL_SUCCESS; }
 

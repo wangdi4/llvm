@@ -201,7 +201,7 @@ m_contextInfoGuard(m_contextInfo),
 m_CrtPlatformVersion(OPENCL_INVALID)
 {
     m_initializeState      = NOT_INITIALIZED;
-    m_crtPlatformId        = nullptr;
+    m_crtPlatformId        = NULL;
     m_defaultDeviceType    = 0;
     m_availableDeviceTypes = 0;
 }
@@ -231,7 +231,7 @@ crt_err_code CrtModule::PatchClContextID(cl_context& inContextId, KHRicdVendorDi
 bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_uint num_devices, const cl_device_id *devices)
 {
     // Check for unsupported context properties
-    if( properties != nullptr )
+    if( properties != NULL )
     {
         while( properties[ 0 ] != 0 )
         {
@@ -308,7 +308,7 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_
     for( cl_uint i = 0; i < num_devices; i++)
     {
         cl_device_type deviceType;
-        cl_int error = clGetDeviceInfo(devices[i], CL_DEVICE_TYPE, sizeof(deviceType), &deviceType, nullptr);
+        cl_int error = clGetDeviceInfo(devices[i], CL_DEVICE_TYPE, sizeof(deviceType), &deviceType, NULL);
         if( CL_SUCCESS != error ||
             ( CL_DEVICE_TYPE_CPU != deviceType && CL_DEVICE_TYPE_GPU != deviceType ))
         {
@@ -366,13 +366,13 @@ crt_err_code CrtModule::Initialize()
             }
 
             KHRpfn_clGetExtensionFunctionAddress clGetExtFuncAddr = (KHRpfn_clGetExtensionFunctionAddress)pCrtPlatform->m_lib.GetFunctionPtrByName("clGetExtensionFunctionAddress");
-            if( nullptr == clGetExtFuncAddr )
+            if( NULL == clGetExtFuncAddr )
             {
                 res = CRT_FAIL;
                 break;
             }
             KHRpfn_clGetPlatformIDs pfn_clGetPlatformIDs =  (KHRpfn_clGetPlatformIDs)(ptrdiff_t)clGetExtFuncAddr("clIcdGetPlatformIDsKHR");
-            if (nullptr == pfn_clGetPlatformIDs || !(CL_SUCCESS == pfn_clGetPlatformIDs(1, &pCrtPlatform->m_platformIdDEV, NULL)))
+            if (NULL == pfn_clGetPlatformIDs || !(CL_SUCCESS == pfn_clGetPlatformIDs(1, &pCrtPlatform->m_platformIdDEV, NULL)))
             {
                 delete pCrtPlatform;
                 continue;
@@ -386,7 +386,7 @@ crt_err_code CrtModule::Initialize()
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_EXTENSIONS,
                 0,
-                nullptr,
+                NULL,
                 &extSize) )
             {
                 res = CRT_FAIL;
@@ -405,7 +405,7 @@ crt_err_code CrtModule::Initialize()
                 CL_PLATFORM_EXTENSIONS,
                 extSize,
                 pCrtPlatform->m_supportedExtensionsStr,
-                nullptr) )
+                NULL) )
             {
                 res = CRT_FAIL;
                 break;
@@ -417,7 +417,7 @@ crt_err_code CrtModule::Initialize()
                 pCrtPlatform->m_platformIdDEV,
                 CL_PLATFORM_ICD_SUFFIX_KHR,
                 0,
-                nullptr,
+                NULL,
                 &extSize) )
             {
                 res = CRT_FAIL;
@@ -436,7 +436,7 @@ crt_err_code CrtModule::Initialize()
                 CL_PLATFORM_ICD_SUFFIX_KHR,
                 extSize,
                 pCrtPlatform->m_icdSuffix,
-                nullptr) )
+                NULL) )
             {
                 res = CRT_FAIL;
                 break;
@@ -448,7 +448,7 @@ crt_err_code CrtModule::Initialize()
                                     CL_PLATFORM_VERSION,
                                     MAX_STRLEN,
                                     platformVersionStr,
-                                    nullptr ) )
+                                    NULL ) )
             {
                 res = CRT_FAIL;
                 break;
@@ -471,7 +471,7 @@ crt_err_code CrtModule::Initialize()
                                     pCrtPlatform->m_platformIdDEV,
                                     CL_DEVICE_TYPE_ALL,
                                     0,
-                                    nullptr,
+                                    NULL,
                                     &num_devices);
             if( num_devices == 0 )
             {
@@ -484,7 +484,7 @@ crt_err_code CrtModule::Initialize()
                                     CL_DEVICE_TYPE_ALL,
                                     num_devices,
                                     pDevices,
-                                    nullptr)) )
+                                    NULL)) )
             {
                 res = CRT_FAIL;
                 break;
@@ -493,7 +493,7 @@ crt_err_code CrtModule::Initialize()
             for( cl_uint j=0; j < num_devices; j++ )
             {
                 CrtDeviceInfo* pDevInfo = new CrtDeviceInfo;
-                if (nullptr == pDevInfo)
+                if (NULL == pDevInfo)
                 {
                     res = CRT_FAIL;
                     break;
@@ -514,7 +514,7 @@ crt_err_code CrtModule::Initialize()
                                     CL_DEVICE_TYPE,
                                     sizeof (cl_device_type ),
                                     &pDevInfo->m_devType,
-                                    nullptr ) )
+                                    NULL ) )
                 {
                     res = CRT_FAIL;
                     break;
@@ -562,7 +562,7 @@ crt_err_code CrtModule::Initialize()
 
 cl_device_id CrtModule::GetDeviceByType( cl_device_type device_type )
 {
-    cl_device_id device = nullptr;
+    cl_device_id device = NULL;
 
     m_deviceInfoMapGuard.Lock();
 
@@ -604,7 +604,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 #endif
 #endif
 
-    if( properties != nullptr )
+    if( properties != NULL )
     {
         while( *properties != 0 )
         {
@@ -729,16 +729,16 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
     {
         if( props )
         {
-            *props = nullptr;
+            *props = NULL;
         }
         return CRT_SUCCESS;
     }
 
-    cl_context_properties* clProperties = nullptr;
+    cl_context_properties* clProperties = NULL;
     cl_uint num_entries = 0;
     if (dup)
     {
-        while (nullptr != *p)
+        while (NULL != *p)
         {
             p+=2;
             num_entries+=2;
@@ -746,7 +746,7 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
         // We create a new props to be passed to the underlying
         // platform. this is deleted by the calling function.
         *props = new cl_context_properties[num_entries+1];
-        if (*props == nullptr)
+        if (*props == NULL)
         {
             return CRT_FAIL;
         }
@@ -789,16 +789,16 @@ void CrtModule::Shutdown()
         {
             p->m_lib.Close();
 
-            if( p->m_supportedExtensionsStr != nullptr )
+            if( p->m_supportedExtensionsStr != NULL )
             {
                 delete[] p->m_supportedExtensionsStr;
-                p->m_supportedExtensionsStr = nullptr;
+                p->m_supportedExtensionsStr = NULL;
             }
 
-            if( p->m_icdSuffix != nullptr )
+            if( p->m_icdSuffix != NULL )
             {
                 delete[] p->m_icdSuffix;
-                p->m_icdSuffix = nullptr;
+                p->m_icdSuffix = NULL;
             }
 
             delete p;
@@ -811,19 +811,19 @@ void CrtModule::Shutdown()
         if (itr->second)
         {
             delete itr->second;
-            itr->second = nullptr;
+            itr->second = NULL;
         }
     }
 
-    if( m_common_extensions != nullptr )
+    if( m_common_extensions != NULL )
     {
         delete[] m_common_extensions;
-        m_common_extensions = nullptr;
+        m_common_extensions = NULL;
     }
-    if( m_crtPlatformId != nullptr )
+    if( m_crtPlatformId != NULL )
     {
         delete m_crtPlatformId;
-        m_crtPlatformId = nullptr;
+        m_crtPlatformId = NULL;
     }
 
 

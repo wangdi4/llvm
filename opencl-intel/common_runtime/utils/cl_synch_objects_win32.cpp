@@ -49,7 +49,7 @@ OclMutex::~OclMutex()
 {
     DeleteCriticalSection( (LPCRITICAL_SECTION)m_mutexHndl );
     delete m_mutexHndl;
-    m_mutexHndl = nullptr;
+    m_mutexHndl = NULL;
 }
 
 // Take the lock on this critical section.
@@ -83,7 +83,7 @@ OclAutoMutex::~OclAutoMutex()
 // OclBinarySemaphore
 OclBinarySemaphore::OclBinarySemaphore()
 {
-    m_semaphore = CreateEvent( nullptr, false, false, nullptr );
+    m_semaphore = CreateEvent( NULL, false, false, NULL );
 }
 OclBinarySemaphore::~OclBinarySemaphore()
 {
