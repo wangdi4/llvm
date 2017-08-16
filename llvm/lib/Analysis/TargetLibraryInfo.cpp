@@ -1271,7 +1271,7 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
     return (NumParams == 3 && FTy.getReturnType()->isIntegerTy(32) &&
             FTy.getParamType(0)->isPointerTy() &&
             FTy.getParamType(1) == SizeTTy && FTy.getParamType(2) == SizeTTy);
-<<<<<<< HEAD
+
 #if INTEL_CUSTOMIZATION
   case LibFunc_dunder_isoc99_fscanf:
     // int __isoc99_fscanf(FILE *stream, const char *format, ... );
@@ -1300,7 +1300,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
             FTy.getParamType(1)->isPointerTy() &&
             FTy.getParamType(2)->isPointerTy());
 #endif // INTEL_CUSTOMIZATION
-=======
 
   // We do not attempt to match the return value here. i.e. thread identifiers
   // should be considered opaque, for example, representation using either an
@@ -1308,7 +1307,6 @@ bool TargetLibraryInfoImpl::isValidProtoForLibFunc(const FunctionType &FTy,
   case LibFunc_pthread_self:
     return NumParams == 0;
 
->>>>>>> 143d7445b5dfa2f6d6c45bdbe0433d9fc531be21
   case LibFunc_wcslen:
     return (NumParams == 1 && FTy.getParamType(0)->isPointerTy() &&
             FTy.getReturnType()->isIntegerTy());
