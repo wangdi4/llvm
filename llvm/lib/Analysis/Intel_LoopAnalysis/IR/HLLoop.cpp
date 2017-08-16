@@ -597,8 +597,7 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
 }
 
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
-
-  if (isUnknown() || !getStrideDDRef()->isIntConstant()) {
+  if (isUnknown()) {
     return nullptr;
   }
 
@@ -625,7 +624,6 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 }
 
 RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
-
   SmallVector<const RegDDRef *, 4> LoopRefs;
 
   CanonExpr *TripCE = getTripCountCanonExpr();
@@ -736,6 +734,10 @@ bool HLLoop::isNormalized() const {
 }
 
 bool HLLoop::isConstTripLoop(uint64_t *TripCnt, bool AllowZeroTripCnt) const {
+  if (isUnknown()) {
+    return false;
+  }
+
   bool ConstantTripLoop = false;
   int64_t TC;
 

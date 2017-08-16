@@ -60,8 +60,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define OPT_SWITCH "hir-opt-predicate"
 #define OPT_DESC "HIR OptPredicate"
@@ -157,10 +157,6 @@ private:
   /// for HLIf candidates. If all conditions are met, it will transform
   /// the loop. Returns true if transformation happened.
   bool processOptPredicate();
-
-  /// This routine involves checking if the loop is supported by this
-  /// transformation.
-  bool isLoopSupported(const HLLoop *Loop) const;
 
   /// Returns the deepest level at which any of the If operands is defined.
   static unsigned getDefinedAtLevel(const HLIf *If);
@@ -365,9 +361,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
   bool TransformLoop = true;
-  if (!Pass.isLoopSupported(Loop)) {
-    TransformLoop = false;
-  }
 
   if (!DisableCostModel && !Loop->isInnermost()) {
     TransformLoop = false;
@@ -533,15 +526,6 @@ bool HIROptPredicate::processOptPredicate() {
   }
 
   return !ParentLoopsToInvalidate.empty();
-}
-
-bool HIROptPredicate::isLoopSupported(const HLLoop *Loop) const {
-
-  if (!Loop->isDo()) {
-    return false;
-  }
-
-  return true;
 }
 
 // transformLoop - Perform the OptPredicate transformation for the given loop.
