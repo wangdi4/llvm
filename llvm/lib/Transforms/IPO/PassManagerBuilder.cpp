@@ -65,8 +65,12 @@ EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
-RunLoopVectorization("vectorize-loops", cl::Hidden,
-                     cl::desc("Run the Loop vectorization passes"));
+    RunPartialInlining("enable-partial-inlining", cl::init(false), cl::Hidden,
+                       cl::ZeroOrMore, cl::desc("Run Partial inlinining pass"));
+
+static cl::opt<bool>
+    RunLoopVectorization("vectorize-loops", cl::Hidden,
+                         cl::desc("Run the Loop vectorization passes"));
 
 static cl::opt<bool>
 RunSLPVectorization("vectorize-slp", cl::Hidden,
@@ -640,6 +644,8 @@ void PassManagerBuilder::populateModulePassManager(
   // pass manager that we are specifically trying to avoid. To prevent this
   // we must insert a no-op module pass to reset the pass manager.
   MPM.add(createBarrierNoopPass());
+  if (RunPartialInlining)
+    MPM.add(createPartialInliningPass());
 
 #if INTEL_CUSTOMIZATION
   if (EnableStdContainerOpt) 
