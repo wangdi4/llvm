@@ -2727,7 +2727,7 @@ public:
   /// of a function.
   ///
   /// Returns true if any errors were emitted.
-  bool diagnoseArgIndependentDiagnoseIfAttrs(const FunctionDecl *Function,
+  bool diagnoseArgIndependentDiagnoseIfAttrs(const NamedDecl *ND,
                                              SourceLocation Loc);
 
   /// Returns whether the given function's address can be taken or not,
@@ -2946,6 +2946,8 @@ public:
   enum LiteralOperatorLookupResult {
     /// \brief The lookup resulted in an error.
     LOLR_Error,
+    /// \brief The lookup found no match but no diagnostic was issued.
+    LOLR_ErrorNoDiagnostic,
     /// \brief The lookup found a single 'cooked' literal operator, which
     /// expects a normal literal to be built and passed to it.
     LOLR_Cooked,
@@ -3070,7 +3072,8 @@ public:
                                                     ArrayRef<QualType> ArgTys,
                                                     bool AllowRaw,
                                                     bool AllowTemplate,
-                                                    bool AllowStringTemplate);
+                                                    bool AllowStringTemplate,
+                                                    bool DiagnoseMissing);
   bool isKnownName(StringRef name);
 
   void ArgumentDependentLookup(DeclarationName Name, SourceLocation Loc,
