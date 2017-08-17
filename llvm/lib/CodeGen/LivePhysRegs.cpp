@@ -214,10 +214,8 @@ void LivePhysRegs::addLiveIns(const MachineBasicBlock &MBB) {
   addBlockLiveIns(MBB);
 }
 
-void llvm::computeLiveIns(LivePhysRegs &LiveRegs,
-                          const MachineRegisterInfo &MRI,
+void llvm::computeLiveIns(LivePhysRegs &LiveRegs, const TargetRegisterInfo &TRI,
                           MachineBasicBlock &MBB) {
-  const TargetRegisterInfo &TRI = *MRI.getTargetRegisterInfo();
   assert(MBB.livein_empty());
   LiveRegs.init(TRI);
   LiveRegs.addLiveOutsNoPristines(MBB);
@@ -225,8 +223,6 @@ void llvm::computeLiveIns(LivePhysRegs &LiveRegs,
     LiveRegs.stepBackward(MI);
 
   for (unsigned Reg : LiveRegs) {
-    if (MRI.isReserved(Reg))
-      continue;
     // Skip the register if we are about to add one of its super registers.
     bool ContainsSuperReg = false;
     for (MCSuperRegIterator SReg(Reg, &TRI); SReg.isValid(); ++SReg) {
