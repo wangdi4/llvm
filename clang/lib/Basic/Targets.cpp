@@ -3537,7 +3537,6 @@ void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
       Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] =
       Features["avx512vl"] = Features["avx512vbmi"] =
       Features["avx512ifma"] = false;
-    LLVM_FALLTHROUGH;
   }
 }
 
@@ -3604,7 +3603,6 @@ void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
     LLVM_FALLTHROUGH;
   case XOP:
     Features["xop"] = false;
-    LLVM_FALLTHROUGH;
   }
 }
 
