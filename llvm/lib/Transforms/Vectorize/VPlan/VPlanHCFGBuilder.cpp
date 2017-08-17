@@ -762,6 +762,39 @@ bool VPlanHCFGBuilderBase::isDivergentBlock(VPBlockBase *Block) {
   return false;
 }
 
+// Build plain CFG from incomming IR using only VPBasicBlock's that contain
+// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
+// encloses all the VPBasicBlock's of the plain CFG.
+class PlainCFGBuilder {
+private:
+  /// Outermost loop of the input loop nest.
+  Loop *TheLoop;
+
+  LoopInfo *LI;
+
+  /// Output TopRegion.
+  VPRegionBlock *TopRegion = nullptr;
+  /// Number of VPBasicBlocks in TopRegion.
+  unsigned TopRegionSize = 0;
+
+  IntelVPlanUtils &PlanUtils;
+
+  DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
+  DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
+
+  // Auxiliary functions
+  bool isConditionForUniformBranch(Instruction *I);
+  void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
+  VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
+  void createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
+
+public:
+  PlainCFGBuilder(Loop *Lp, LoopInfo *LI, IntelVPlanUtils &Utils)
+      : TheLoop(Lp), LI(LI), PlanUtils(Utils) {}
+
+  VPRegionBlock *buildPlainCFG();
+};
+
 static bool isInstructionToIgnore(Instruction *I) {
   // DeadInstructions are not taken into account at this point. IV update and
   // loop latch condition need to be part of HCFG to constitute a
@@ -772,7 +805,7 @@ static bool isInstructionToIgnore(Instruction *I) {
          isa<DbgInfoIntrinsic>(I);
 }
 
-static bool isConditionForUniformBranch(Instruction *I, const Loop *TheLoop) {
+bool PlainCFGBuilder::isConditionForUniformBranch(Instruction *I) {
   auto isBranchInst = [&](User *U) -> bool {
     return isa<BranchInst>(U) && TheLoop->contains(cast<Instruction>(U));
   };
@@ -780,14 +813,43 @@ static bool isConditionForUniformBranch(Instruction *I, const Loop *TheLoop) {
          any_of(I->users(), isBranchInst);
 }
 
+// Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
+void PlainCFGBuilder::setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB) {
+
+  for (BasicBlock *Pred : predecessors(BB)) {
+    VPBasicBlock *PredVPBB = createOrGetVPBB(Pred);
+    PlanUtils.appendBlockPredecessor(VPBB, PredVPBB);
+  }
+}
+
+// Create a new empty VPBasicBlock for an incomming BasicBlock or retrieve an
+// existing one if it was already created.
+VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
+
+  VPBasicBlock *VPBB;
+  auto BlockIt = BB2VPBB.find(BB);
+
+  if (BlockIt == BB2VPBB.end()) {
+    // New VPBB
+    DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
+    VPBB = PlanUtils.createBasicBlock();
+    BB2VPBB[BB] = VPBB;
+    VPBB->setOriginalBB(BB);
+    PlanUtils.setBlockParent(VPBB, TopRegion);
+    ++TopRegionSize;
+  } else {
+    // Retrieve existing VPBB
+    VPBB = BlockIt->second;
+  }
+
+  return VPBB;
+}
+
 // Create new OnyByOneRecipes and ConditionBitRecipes in a VPBasicBlock, given
 // its BasicBlock counterpart. This function must be invoked in RPO because
 // creation of UniformConditionBitRecipe assumes that all predecessors have
 // been visited.
-static void createRecipesForVPBB(
-    BasicBlock *BB, VPBasicBlock *VPBB, const Loop *TheLoop,
-    IntelVPlanUtils &PlanUtils,
-    DenseMap<Value *, VPConditionBitRecipeBase *> &BranchCondMap) {
+void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
 
   BasicBlock::iterator I = BB->begin();
   BasicBlock::iterator E = BB->end();
@@ -804,7 +866,7 @@ static void createRecipesForVPBB(
     // Note that we don't have to add the recipe as successor selector at
     // this point. The branch using this conditiong might not be necessarily
     // in this VPBB.
-    if (isConditionForUniformBranch(&*I, TheLoop)) {
+    if (isConditionForUniformBranch(&*I)) {
       Instruction *Instr = &*I;
       VPUniformConditionBitRecipe *Recipe =
           PlanUtils.createUniformConditionBitRecipe(Instr);
@@ -828,8 +890,7 @@ static void createRecipesForVPBB(
     BasicBlock::iterator J = I;
     for (++J; J != E; ++J) {
       Instruction *Instr = &*J;
-      if (isInstructionToIgnore(Instr) ||
-          isConditionForUniformBranch(Instr, TheLoop))
+      if (isInstructionToIgnore(Instr) || isConditionForUniformBranch(Instr))
         break; // Sequence of instructions not to ignore ended.
     }
 
@@ -841,58 +902,11 @@ static void createRecipesForVPBB(
   }
 }
 
-// Create a new empty VPBasicBlock for an incomming BasicBlock or retrieve an
-// existing one if it was already created.
-static VPBasicBlock *
-createOrGetVPBB(BasicBlock *BB, VPRegionBlock *TopRegion,
-                DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                IntelVPlanUtils &PlanUtils, unsigned &TopRegionSize) {
-
-  VPBasicBlock *VPBB;
-  auto BlockIt = BB2VPBB.find(BB);
-
-  if (BlockIt == BB2VPBB.end()) {
-    // New VPBB
-    DEBUG(dbgs() << "Creating VPBasicBlock for " << BB->getName() << "\n");
-    VPBB = PlanUtils.createBasicBlock();
-    BB2VPBB[BB] = VPBB;
-    VPBB->setOriginalBB(BB);
-    PlanUtils.setBlockParent(VPBB, TopRegion);
-    ++TopRegionSize;
-  } else {
-    // Retrieve existing VPBB
-    VPBB = BlockIt->second;
-  }
-
-  return VPBB;
-}
-
-// Set predecessors of \p VPBB in the same order as they are in LLVM \p BB.
-static void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB,
-                               VPRegionBlock *TopRegion,
-                               DenseMap<BasicBlock *, VPBasicBlock *> &BB2VPBB,
-                               unsigned &TopRegionSize,
-                               IntelVPlanUtils &PlanUtils) {
-
-  for (BasicBlock *Pred : predecessors(BB)) {
-    VPBasicBlock *PredVPBB =
-        createOrGetVPBB(Pred, TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
-    PlanUtils.appendBlockPredecessor(VPBB, PredVPBB);
-  }
-}
-
-// Build plain CFG from incomming IR using only VPBasicBlock's that contain
-// OneByOneRecipe's and ConditionBitRecipe's. Return VPRegionBlock that
-// encloses all the VPBasicBlock's of the plain CFG.
-VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
-
-  // Temporal maps for this VPlan's CFG
-  DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
-  DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
+VPRegionBlock *PlainCFGBuilder::buildPlainCFG() {
 
   // Create Top Region. It will be parent of all VPBBs
-  VPRegionBlock *TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
-  unsigned TopRegionSize = 0;
+  TopRegion = PlanUtils.createRegion(false /*isReplicator*/);
+  TopRegionSize = 0;
 
   // Scan the body of the loop in a topological order to visit each basic block
   // after having visited its predecessor basic blocks.
@@ -902,9 +916,8 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
   for (BasicBlock *BB : make_range(DFS.beginRPO(), DFS.endRPO())) {
 
     // Create new VPBasicBlock and its recipes
-    VPBasicBlock *VPBB =
-        createOrGetVPBB(BB, TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
-    createRecipesForVPBB(BB, VPBB, TheLoop, PlanUtils, BranchCondMap);
+    VPBasicBlock *VPBB = createOrGetVPBB(BB);
+    createRecipesForVPBB(VPBB, BB);
 
     // Add successors and predecessors
     TerminatorInst *TI = BB->getTerminator();
@@ -914,8 +927,7 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
     // Note: we are not invoking createRecipesForVPBB for successor blocks at
     // this point because we would be breaking the RPO traversal
     if (NumSuccs == 1) {
-      VPBasicBlock *SuccVPBB = createOrGetVPBB(
-          TI->getSuccessor(0), TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
+      VPBasicBlock *SuccVPBB = createOrGetVPBB(TI->getSuccessor(0));
       assert(SuccVPBB && "VPBB Successor not found");
 
       PlanUtils.setBlockSuccessor(VPBB, SuccVPBB);
@@ -923,11 +935,9 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
       VPBB->setTBlock(TI->getSuccessor(0));
 
     } else if (NumSuccs == 2) {
-      VPBasicBlock *SuccVPBB0 = createOrGetVPBB(
-          TI->getSuccessor(0), TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
+      VPBasicBlock *SuccVPBB0 = createOrGetVPBB(TI->getSuccessor(0));
       assert(SuccVPBB0 && "Successor 0 not found");
-      VPBasicBlock *SuccVPBB1 = createOrGetVPBB(
-          TI->getSuccessor(1), TopRegion, BB2VPBB, PlanUtils, TopRegionSize);
+      VPBasicBlock *SuccVPBB1 = createOrGetVPBB(TI->getSuccessor(1));
       assert(SuccVPBB1 && "Successor 1 not found");
 
       // Add ConditionBitRecipe to VPBB
@@ -954,7 +964,7 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
     }
 
     // Set predecessors in the same order as they are in LLVM basic block.
-    setVPBBPredsFromBB(VPBB, BB, TopRegion, BB2VPBB, TopRegionSize, PlanUtils);
+    setVPBBPredsFromBB(VPBB, BB);
   }
 
   // Add outermost loop preheader to plain CFG. It needs explicit treatment
@@ -963,10 +973,8 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
   assert((PreheaderBB->getTerminator()->getNumSuccessors() == 1) &&
          "Unexpected loop preheader");
 
-  VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB, TopRegion, BB2VPBB,
-                                                PlanUtils, TopRegionSize);
-  createRecipesForVPBB(PreheaderBB, PreheaderVPBB, TheLoop, PlanUtils,
-                       BranchCondMap);
+  VPBasicBlock *PreheaderVPBB = createOrGetVPBB(PreheaderBB);
+  createRecipesForVPBB(PreheaderVPBB, PreheaderBB);
   VPBlockBase *HeaderVPBB = BB2VPBB[TheLoop->getHeader()];
   // Preheader's predecessors have already been set in RPO traversal.
   PlanUtils.setBlockSuccessor(PreheaderVPBB, HeaderVPBB);
@@ -978,8 +986,8 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
   TheLoop->getUniqueExitBlocks(LoopExits);
   for (BasicBlock *BB : LoopExits) {
     VPBasicBlock *VPBB = BB2VPBB[BB];
-    createRecipesForVPBB(BB, VPBB, TheLoop, PlanUtils, BranchCondMap);
-    setVPBBPredsFromBB(VPBB, BB, TopRegion, BB2VPBB, TopRegionSize, PlanUtils);
+    createRecipesForVPBB(VPBB, BB);
+    setVPBBPredsFromBB(VPBB, BB);
   }
 
   // Top Region setup
@@ -1022,6 +1030,12 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
   PlanUtils.setRegionExit(TopRegion, RegionExit);
   PlanUtils.setRegionSize(TopRegion, TopRegionSize);
 
+  return TopRegion;
+}
+
+VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
+  PlainCFGBuilder PCFGBuilder(TheLoop, LI, PlanUtils);
+  VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   return TopRegion;
 }
 
@@ -1369,7 +1383,6 @@ VPRegionBlock *PlainCFGBuilderHIR::buildPlainCFG() {
 }
 
 VPRegionBlock *VPlanHCFGBuilderHIR::buildPlainCFG() {
-
   PlainCFGBuilderHIR PCFGBuilder(TheLoop, Header2HLLoop, PlanUtils);
   VPRegionBlock *TopRegion = PCFGBuilder.buildPlainCFG();
   return TopRegion;
