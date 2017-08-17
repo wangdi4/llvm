@@ -1152,8 +1152,8 @@ static bool detectPopcountIdiom(Loop *CurLoop, BasicBlock *PreCondBB,
       if (!Inc || !Inc->isOne())
         continue;
 
-      PHINode *Phi = dyn_cast<PHINode>(Inst->getOperand(0));
-      if (!Phi || Phi->getParent() != LoopEntry)
+      PHINode *Phi = getRecurrenceVar(Inst->getOperand(0), Inst, LoopEntry);
+      if (!Phi)
         continue;
 
       // Check if the result of the instruction is live of the loop.
@@ -1268,8 +1268,8 @@ static bool detectCTLZIdiom(Loop *CurLoop, PHINode *&PhiX,
     if (!Inc || !Inc->isOne())
       continue;
 
-    PHINode *Phi = dyn_cast<PHINode>(Inst->getOperand(0));
-    if (!Phi || Phi->getParent() != LoopEntry)
+    PHINode *Phi = getRecurrenceVar(Inst->getOperand(0), Inst, LoopEntry);
+    if (!Phi)
       continue;
 
     CntInst = Inst;
