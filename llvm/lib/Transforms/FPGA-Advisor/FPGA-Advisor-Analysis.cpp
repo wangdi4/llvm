@@ -128,7 +128,7 @@ using std::ifstream;
 std::error_code AEC;
 MemoryDependenceResults *MDA;
 DominatorTree *DT;
-DepGraph *depGraph;
+DepGraph *functionDepGraph;
 DepGraph *globalDepGraph;
 // latency tables
 std::map<BasicBlock *, LatencyStruct> *LT; // filled in by ModuleScheduler - simple visitation of instructions
@@ -621,11 +621,13 @@ bool AdvisorAnalysis::run_on_module(Module &M) {
         }
 	    *outputFile << "===-------------------------------------===\n";
 
+#if 0
 	    if (!HideGraph) {
 	        for (auto &F : M) {
 		        print_optimal_configuration_for_all_calls(&F);
             }
 	    }
+#endif
 	return true;
 }
 
@@ -674,7 +676,7 @@ bool AdvisorAnalysis::run_on_function(Function *F) {
 	// get the dependence graph for the function
 	//depGraph = &getAnalysis<DependenceGraph>().getDepGraph();
 	std::string dgFileName = "dg." + F->getName().str() + ".log";
-	if (!get_dependence_graph_from_file(dgFileName, &depGraph, F->getName().str(), false /*is_global*/)) {
+	if (!get_dependence_graph_from_file(dgFileName, &functionDepGraph, F->getName().str(), false /*is_global*/)) {
 		std::cerr << "Could not get the dependence graph! Error opening file " << dgFileName << "\n";
 		assert(0);
 	}
@@ -984,7 +986,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 			
 		}
 
-		*outputLog << "PROCESSING LINE: " << line << " (" << lineNum << ")\n";
+		DEBUG(*outputLog << "PROCESSING LINE: " << line << " (" << lineNum << ")\n");
                 lineNum++;
 		//*outputLog << "latestTraceGraph iterator: " << latestTraceGraph << "\n";
                 DEBUG(*outputLog << "lastVertex: " << lastVertex << "\n");
@@ -1097,6 +1099,10 @@ bool AdvisorAnalysis::process_time(const std::string &line, TraceGraphList_itera
 bool AdvisorAnalysis::process_function_return(const std::string &line, Function **function, std::stack<FunctionExecutionRecord> &stack, TraceGraphList_iterator &lastTraceGraph, TraceGraph_vertex_descriptor &lastVertex, ExecutionOrderList_iterator &lastExecutionOrder) {
         DEBUG(*outputLog << __func__ << " " << line << "\n");
 	
+	if (!PerFunction) {
+        // nothing to do here for global scheduling
+        return true;
+	}
 	const char *delimiter = " ";
 
 	// make non-const copy of line
@@ -1263,11 +1269,13 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Functio
 	std::string funcString(pch);
 	//=----------------------------=//
 
-	if (latestFunction == NULL) {
-        // With ROI, there could be 'dangling' basic blocks without
-        // any function entry seen. Ignore such basic blocks.
-	    DEBUG(*outputLog << "No latestFunction to attach the basic block, ignoring \n");
-		return true;
+	if (PerFunction) {
+	    if (latestFunction == NULL) {
+            // With ROI, there could be 'dangling' basic blocks without
+            // any function entry seen. Ignore such basic blocks.
+	        DEBUG(*outputLog << "No latestFunction to attach the basic block, ignoring \n");
+		    return true;
+	    }
 	}
 
 	BasicBlock *BB = find_basicblock_by_name(funcString, bbString);
@@ -1292,78 +1300,67 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Functio
 	//==----------------------------------------------------------------==//
 	//TraceGraph::vertex_descriptor currVertex = boost::add_vertex(executionGraph[BB->getParent()].back());
 	//TraceGraph &currGraph = executionGraph[BB->getParent()].back();
-	TraceGraph::vertex_descriptor currVertex = boost::add_vertex(*lastTraceGraph);
-	TraceGraph &currGraph = *lastTraceGraph;
-	currGraph[currVertex].basicblock = BB;
-	currGraph[currVertex].ID = ID;
-	currGraph[currVertex].minCycStart = -1;
-	currGraph[currVertex].minCycEnd = -1;
-	currGraph[currVertex].cpuCycles = 0;
-	currGraph[currVertex].name = BB->getName().str();
-	currGraph[currVertex].memoryWriteTuples.clear();
-	currGraph[currVertex].memoryReadTuples.clear();
-	TraceGraph::vertex_descriptor globalCurrVertex = boost::add_vertex(*globalTraceGraph);
-	TraceGraph &globalCurrGraph = *globalTraceGraph;
-	globalCurrGraph[globalCurrVertex].basicblock = BB;
-	globalCurrGraph[globalCurrVertex].ID = ID;
-	globalCurrGraph[globalCurrVertex].minCycStart = -1;
-	globalCurrGraph[globalCurrVertex].minCycEnd = -1;
-	globalCurrGraph[globalCurrVertex].cpuCycles = 0;
-	globalCurrGraph[globalCurrVertex].name = BB->getName().str();
-	globalCurrGraph[globalCurrVertex].memoryWriteTuples.clear();
-	globalCurrGraph[globalCurrVertex].memoryReadTuples.clear();
+	TraceGraph::vertex_descriptor currVertex; 
+	TraceGraphList_iterator currGraph;
+	if (PerFunction) {
+	    currVertex = boost::add_vertex(*lastTraceGraph);
+	    currGraph = lastTraceGraph;
+	} else {
+	    currVertex = boost::add_vertex(*globalTraceGraph);
+	    currGraph = globalTraceGraph;
+	}
+	(*currGraph)[currVertex].basicblock = BB;
+	(*currGraph)[currVertex].ID = ID;
+	(*currGraph)[currVertex].minCycStart = -1;
+	(*currGraph)[currVertex].minCycEnd = -1;
+	(*currGraph)[currVertex].cpuCycles = 0;
+	(*currGraph)[currVertex].name = BB->getName().str();
+	(*currGraph)[currVertex].memoryWriteTuples.clear();
+	(*currGraph)[currVertex].memoryReadTuples.clear();
 	//==----------------------------------------------------------------==//
 
 	// add to execution order
-	// check if BB exists
-	//ExecutionOrder &currOrder = executionOrderListMap[BB->getParent()].back();
-	ExecutionOrderList_iterator currOrder = lastExecutionOrder;
+	ExecutionOrderList_iterator currOrder;
+	if (PerFunction) {
+	    currOrder = lastExecutionOrder;
+    } else {
+	    currOrder = globalExecutionOrder;
+    }
 	ExecutionOrder_iterator search = currOrder->find(BB);
-	TraceGraph::vertex_descriptor tempCurrVertex = currVertex;
-    int count=2; 
-    // count 2 process lastExecutionOrder
-    // count 1 process globalExecutionOrder
-    while(count)
-    {
-        std::string ordername = ((count==1)?"global ": "local ");
-	    if (search == currOrder->end()) {
-		    // insert BB into order
-	        DEBUG(*outputLog << "Inserting BB "+BB->getName()+" into " << ordername << "execution order\n");
-		    std::vector<TraceGraph_vertex_descriptor> newVector;
-		    newVector.clear();
-		    try {
-			    newVector.push_back(tempCurrVertex);
-			    currOrder->insert(std::make_pair(BB, std::make_pair(-1, newVector)));
-		    } catch (std::exception &e) {
-			    std::cerr << "An error occured." << e.what() << "\n";
-		    }
-
-	    } else {
-		    // append to order
-		    try {
-	            DEBUG(*outputLog << "Appending BB "+BB->getName()+" to " << ordername << " execution order\n");
-			    search->second.second.push_back(tempCurrVertex);
-		    } catch (std::exception &e) {
-			    std::cerr << "An error occured." << e.what() << "\n";
-		    }
-	    }
-        count--;
-        if(count == 1)
-        {
-	        currOrder = globalExecutionOrder;
-	        search = currOrder->find(BB);
-	        tempCurrVertex = globalCurrVertex;
-        }
-    } 
+    std::string ordername = ((PerFunction)?"local ": "global ");
+	if (search == currOrder->end()) {
+	 // insert BB into order
+	    DEBUG(*outputLog << "Inserting BB "+BB->getName()+" into " << ordername << "execution order\n");
+	    std::vector<TraceGraph_vertex_descriptor> newVector;
+	    newVector.clear();
+		try {
+		    newVector.push_back(currVertex);
+		    currOrder->insert(std::make_pair(BB, std::make_pair(-1, newVector)));
+		} catch (std::exception &e) {
+		    std::cerr << "An error occured." << e.what() << "\n";
+	   }
+	} else {
+	    // append to order
+	    try {
+	           DEBUG(*outputLog << "Appending BB "+BB->getName()+" to " << ordername << " execution order\n");
+               search->second.second.push_back(currVertex);
+		 } catch (std::exception &e) {
+		    std::cerr << "An error occured." << e.what() << "\n";
+		 }
+	}
 	// increment the node ID
 	ID++;
 
-	// set the latest added vertex
-	lastVertex = currVertex;
+	if (PerFunction) {
+	    // set the latest added vertex
+	    lastVertex = currVertex;
+	}
 
-	DEBUG(*outputLog << "lululululu\n");
+	if (PerFunction) {
+	    DEBUG(*outputLog << "lululululu\n");
         DEBUG(*outputLog << (*lastTraceGraph)[lastVertex].name << "\n");
         DEBUG(*outputLog << "huhuhuhuhu\n");
+	}
 
 	return true;
 }
@@ -1371,19 +1368,21 @@ bool AdvisorAnalysis::process_basic_block_entry(const std::string &line, Functio
 
 // processes one line of input from trace of entering a function
 bool AdvisorAnalysis::process_function_entry(const std::string &line, Function **function, TraceGraphList_iterator &latestTraceGraph, TraceGraph_vertex_descriptor &latestVertex, ExecutionOrderList_iterator &latestExecutionOrder, std::stack<FunctionExecutionRecord> &stack) {
-        DEBUG(*outputLog << __func__ << " " << line << "\n");
+    DEBUG(*outputLog << __func__ << " " << line << "\n");
 	const char *delimiter = " ";
 
 	// append to stack when entering a function from another calling function
-	if (*function != NULL) {
-		// keep track of caller
-		FunctionExecutionRecord newRecord;
-		newRecord.function = *function;
-		newRecord.graph = latestTraceGraph;
-		newRecord.vertex = latestVertex;
-		newRecord.executionOrder = latestExecutionOrder;
-		stack.emplace(newRecord);
-	}
+	if (!PerFunction) {
+	    if (*function != NULL) {
+		    // keep track of caller
+		    FunctionExecutionRecord newRecord;
+		    newRecord.function = *function;
+		    newRecord.graph = latestTraceGraph;
+		    newRecord.vertex = latestVertex;
+		    newRecord.executionOrder = latestExecutionOrder;
+		    stack.emplace(newRecord);
+	    }
+    }
 
 	// make a non-const copy of line
 	std::vector<char> lineCopy(line.begin(), line.end());
@@ -1407,6 +1406,11 @@ bool AdvisorAnalysis::process_function_entry(const std::string &line, Function *
 		return false;
 	}
 	*function = F;
+    functionsSeen.insert(F);
+	if (!PerFunction) {
+        // nothing much to do here for global scheduling
+        return true;
+	}
 
 	// append to stack when entering function
 	//stack.push(F);
@@ -1886,7 +1890,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 		// dependent on
 		std::vector<BasicBlock *> staticDeps;
 		staticDeps.clear();
-		DependenceGraph::get_all_basic_block_dependencies(*depGraph, selfBB, staticDeps);
+		DependenceGraph::get_all_basic_block_dependencies(*functionDepGraph, selfBB, staticDeps);
 
 		// print out the static deps
 		DEBUG(*outputLog << "Found number of static dependences: " << staticDeps.size() << "\n");
@@ -1924,7 +1928,7 @@ bool AdvisorAnalysis::find_maximal_configuration_for_call(Function *F, TraceGrap
 
 				if (!StaticDepsOnly) {
 					bool dynamicDepExists = dynamic_memory_dependence_exists(self, dynDep, graph);
-					bool trueDepExists = DependenceGraph::is_basic_block_dependence_true((*graph)[self].basicblock, (*graph)[dynDep].basicblock, *depGraph);
+					bool trueDepExists = DependenceGraph::is_basic_block_dependence_true((*graph)[self].basicblock, (*graph)[dynDep].basicblock, *functionDepGraph);
 					DEBUG(*outputLog << "dynamicDepExists: " << dynamicDepExists << "\n");
                                         DEBUG(*outputLog << "trueDepExists: " << trueDepExists << "\n");
 					if (!dynamicDepExists && !trueDepExists) {
@@ -2485,7 +2489,7 @@ void AdvisorAnalysis::find_new_parents(std::vector<TraceGraph_vertex_descriptor>
 	// then childBB can be moved up in the graph to inherit the parents of the parentBB
 	// this is done recursively until we find the final parents of the childBB whose execution
 	// the childBB *must* follow
-	if (DependenceGraph::is_basic_block_dependent(childBB, parentBB, *depGraph)) {
+	if (DependenceGraph::is_basic_block_dependent(childBB, parentBB, *functionDepGraph)) {
                 DEBUG(*outputLog << "Must come after parent: " << parentBB->getName() << "\n");
 		if (std::find(newParents.begin(), newParents.end(), parent) == newParents.end()) {
 			newParents.push_back(parent);
@@ -4119,10 +4123,16 @@ void AdvisorAnalysis::handle_basic_block_gradient(BasicBlock * BB, std::unordere
     }
   }
   
-  for (TraceGraphList_iterator fIt = executionGraph[F].begin();
-       fIt != executionGraph[F].end(); fIt++) {
-    latency += schedule_with_resource_constraints(fIt, F, resourceTable, tid);
-  }
+	if (PerFunction) {
+        for (TraceGraphList_iterator fIt = executionGraph[F].begin();
+            fIt != executionGraph[F].end(); fIt++) {
+            latency += schedule_with_resource_constraints(fIt, F, resourceTable, tid);
+        }
+    } else {
+	    TraceGraphList_iterator fIt = globalTraceGraph;
+		latency += schedule_with_resource_constraints_global(fIt, resourceTable, tid);
+    }
+
 
   tidPool.push(tid);
 
@@ -5228,14 +5238,18 @@ bool AdvisorAnalysis::increment_thread_pool_basic_block_instance_count(BasicBloc
 // Function: update_transition
 void AdvisorAnalysis::update_transition(BasicBlock *BB) {
 
-	Function *F = BB->getParent();
 
 	// if successful, update the transition
 	// this is dumb and inefficient, but just do this for now
-	for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+	if (PerFunction) {
+	    Function *F = BB->getParent();
+	    for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+		    update_transition_delay(fIt);
+	    }
+    } else {
+	    TraceGraphList_iterator fIt = globalTraceGraph;
 		update_transition_delay(fIt);
-	}
-
+    }
 }
 
 
@@ -5247,11 +5261,16 @@ bool AdvisorAnalysis::decrement_basic_block_instance_count_and_update_transition
 		return false;
 	}
 
-	Function *F = BB->getParent();
 
 	// if successful, update the transition
 	// this is dumb and inefficient, but just do this for now
-	for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+	if (PerFunction) {
+	    Function *F = BB->getParent();
+	    for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+		    update_transition_delay(fIt);
+	    }
+    } else {
+	    TraceGraphList_iterator fIt = globalTraceGraph;
 		update_transition_delay(fIt);
 	}
 
@@ -5299,11 +5318,16 @@ bool AdvisorAnalysis::increment_basic_block_instance_count_and_update_transition
 		return false;
 	}
 
-	Function *F = BB->getParent();
 
 	// if successful, update the transition
 	// this is dumb and inefficient, but just do this for now
-	for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+	if (PerFunction) {
+	    Function *F = BB->getParent();
+	    for (TraceGraphList_iterator fIt = executionGraph[F].begin(); fIt != executionGraph[F].end(); fIt++) {
+		    update_transition_delay(fIt);
+	    }
+    } else {
+	    TraceGraphList_iterator fIt = globalTraceGraph;
 		update_transition_delay(fIt);
 	}
 
@@ -5324,9 +5348,9 @@ void AdvisorAnalysis::decrement_all_basic_block_instance_count_and_update_transi
 
 void AdvisorAnalysis::decrement_all_basic_block_instance_count_and_update_transition_global(Module &M) {
 	for (auto &F : M) {
-	for (auto &BB : F) {
+	  for (auto &BB : F) {
 		while(decrement_basic_block_instance_count(&BB));
-	}
+	  }
    }
 
 	TraceGraphList_iterator fIt = globalTraceGraph;
@@ -5578,6 +5602,12 @@ bool AdvisorAnalysis::prune_basic_block_configuration_to_device_area(Function *F
 bool AdvisorAnalysis::prune_basic_block_configuration_to_device_area_global(Module &M) {
   int total = 0;
   for (auto &F : M) {
+#if 0 // FIXME bring this back
+          if(!functionInTrace(&F)) {
+               // "Function not seen in the incoming trace"
+               continue;
+          }    
+#endif
     for (auto &BB : F) {
      int areaBB = ModuleAreaEstimator::get_basic_block_area(*AT, &BB);
      int repFactor = get_basic_block_instance_count(&BB);
@@ -5744,7 +5774,6 @@ bool AdvisorAnalysis::get_dependence_graph_from_file(std::string fileName, DepGr
 			DepGraph_descriptor currVertex = boost::add_vertex(*depGraph);
 			(*depGraph)[currVertex] = BB;
 
-			std::cerr << "found basic block for dep graph: " << BB->getName().str() << "\n";
 		} else if (std::regex_match(line, std::regex("(edge )(.*)( )(.*)()(.*)"))) {
 			//===================================//
 			// parse line - begin

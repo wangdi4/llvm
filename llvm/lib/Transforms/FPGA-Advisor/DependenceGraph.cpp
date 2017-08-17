@@ -81,8 +81,8 @@ bool DependenceGraph::dg_run_on_function(Function &F) {
 
 	if (F.isDeclaration()) return false;
 
-	F.print(*outputLog);
-	*outputLog << "\n";
+	DEBUG(F.print(*outputLog));
+	DEBUG(*outputLog << "\n");
 
 	func = &F;
 	DG.clear();
@@ -131,7 +131,7 @@ void DependenceGraph::output_graph_to_file(raw_ostream *outputFile) {
 	// first print all the vertices
 	DepGraph_iterator vi, ve;
 	for (boost::tie(vi, ve) = boost::vertices(DG); vi != ve; vi++) {
-		*outputLog << "print vertex: " << (uint64_t) *vi << "\n";
+		DEBUG(*outputLog << "print vertex: " << (uint64_t) *vi << "\n");
 
 		DepGraph_descriptor self = *vi;
 		*outputFile << "vertex " << DG[self]->getName() << " " << self << "\n";
@@ -152,7 +152,7 @@ void DependenceGraph::output_graph_to_file(raw_ostream *outputFile) {
 
 void DependenceGraph::add_vertices(Function &F) {
 	for (auto &BB : F) {
-		*outputLog << __func__ << " ADD VERTEX FOR BB: " << BB.getName() << "\n";
+		DEBUG(*outputLog << __func__ << " ADD VERTEX FOR BB: " << BB.getName() << "\n");
 		//bool memoryInst = false;
 		for (auto &I : BB) {
 			if (I.mayReadOrWriteMemory()) {
@@ -176,8 +176,8 @@ void DependenceGraph::add_edges() {
 	for (boost::tie(vi, ve) = vertices(DG); vi != ve; vi++) {
 		BasicBlock *currBB = DG[*vi];
 		std::vector<std::pair<BasicBlock *, bool> > depBBs;
-		*outputLog << "******************************************************************************************************\n";
-		*outputLog << "Examining dependencies for basic block: " << currBB->getName() << "\n";
+		DEBUG(*outputLog << "******************************************************************************************************\n");
+		DEBUG(*outputLog << "Examining dependencies for basic block: " << currBB->getName() << "\n");
 		// analyze each instruction within the basic block
 		// for each operand, find the originating definition
 		// for each load/store operator, analyze the memory
@@ -186,10 +186,10 @@ void DependenceGraph::add_edges() {
 		//	the instructions that caused the dependence
 		// Here we only consider true dependences
 		for (auto I = currBB->begin(); I != currBB->end(); I++) {
-			*outputLog << "===------------------------------------------------------------------------------------------------===\n";
-			*outputLog << "Looking at dependencies for instruction: ";
-			I->print(*outputLog);
-			*outputLog << "\tfrom basic block " << currBB->getName() << "\n";
+			DEBUG(*outputLog << "===------------------------------------------------------------------------------------------------===\n");
+			DEBUG(*outputLog << "Looking at dependencies for instruction: ");
+			DEBUG(I->print(*outputLog));
+			DEBUG(*outputLog << "\tfrom basic block " << currBB->getName() << "\n");
 
 			// operands
 			// true dependence
@@ -200,23 +200,23 @@ void DependenceGraph::add_edges() {
 					if (depBB == currBB) {
 						continue; // don't add self
 					}
-					*outputLog << "True dependence on instruction: ";
-					dep->print(*outputLog);
-					*outputLog << "\tfrom basic block: " << depBB->getName() << "\n";
+					DEBUG(*outputLog << "True dependence on instruction: ");
+					DEBUG(dep->print(*outputLog));
+					DEBUG(*outputLog << "\tfrom basic block: " << depBB->getName() << "\n");
 					insert_dependent_basic_block(depBBs, depBB, true);
 				}
 			}
 
 			// if store or load
 			if (I->mayReadOrWriteMemory()) {
-				*outputLog << "> This instruction may read/modify memory, do memory dependence analysis.\n";
+				DEBUG(*outputLog << "> This instruction may read/modify memory, do memory dependence analysis.\n");
 				//I->print(*outputLog);
 				//*outputLog << "\tfrom basic block " << I->getParent()->getName() << "\n";
 
 				// we cannot analyze function call instructions
 				if (unsupported_memory_instruction(&*I)) {
 					// do something
-					*outputLog << "Not a supported memory instruction but may read or write memory. Adding dependence to all basic blocks.\n";
+					DEBUG(*outputLog << "Not a supported memory instruction but may read or write memory. Adding dependence to all basic blocks.\n");
 					insert_dependent_basic_block_all_memory(depBBs, false);
 					continue;
 				}
@@ -230,9 +230,9 @@ void DependenceGraph::add_edges() {
 				// but for now we can restrict these, or inline the functions
 				MemDepResult MDR = MDA->getDependency(&*I);
 				if (MDR.isNonFuncLocal()) {
-					*outputLog << "> Not handling non function local memory dependencies.\n";
+					DEBUG(*outputLog << "> Not handling non function local memory dependencies.\n");
 				} else if (MDR.isNonLocal()) {
-					*outputLog << "> Non-local dependence.\n";
+					DEBUG(*outputLog << "> Non-local dependence.\n");
 					
 					SmallVector<NonLocalDepResult, 0> queryResult;
 					MDA->getNonLocalPointerDependency(&*I, queryResult);
@@ -242,29 +242,29 @@ void DependenceGraph::add_edges() {
 						const MemDepResult nonLocalMDR = NLDR.getResult();
 						Instruction *dep = nonLocalMDR.getInst();
 						if (nonLocalMDR.isUnknown() || dep == NULL) {
-							*outputLog << "Unknown/Other type dependence!!! Adding dependence to all basic blocks.\n";
+							DEBUG(*outputLog << "Unknown/Other type dependence!!! Adding dependence to all basic blocks.\n");
 							insert_dependent_basic_block_all_memory(depBBs, false);
 							break;
 						}
 						BasicBlock *depBB = dep->getParent();
 						insert_dependent_basic_block(depBBs, depBB, false);
 
-						*outputLog << "Memory instruction dependent on: ";
-						dep->print(*outputLog);
-						*outputLog << "\tfrom basic block: " << depBB->getName() << "\n";
+						DEBUG(*outputLog << "Memory instruction dependent on: ");
+						DEBUG(dep->print(*outputLog));
+						DEBUG(*outputLog << "\tfrom basic block: " << depBB->getName() << "\n");
 					}
 				} else if (MDR.isUnknown()) {
 					// we will have to mark every basic block (including self) as dependent
-					*outputLog << "Unknown dependence!!! Adding dependence to all basic blocks.\n";
+					DEBUG(*outputLog << "Unknown dependence!!! Adding dependence to all basic blocks.\n");
 					insert_dependent_basic_block_all_memory(depBBs, false);
 				} else {
-					*outputLog << "> Local dependence.\n";
+					DEBUG(*outputLog << "> Local dependence.\n");
 					Instruction *dep = MDR.getInst();
 					// should be same as I->getParent()
 					BasicBlock *depBB = dep->getParent();
-					*outputLog << "Memory instruction dependent on: ";
-					dep->print(*outputLog);
-					*outputLog << "\tfrom basic block: " << depBB->getName() << "\n";
+					DEBUG(*outputLog << "Memory instruction dependent on: ");
+					DEBUG(dep->print(*outputLog));
+					DEBUG(*outputLog << "\tfrom basic block: " << depBB->getName() << "\n");
 					insert_dependent_basic_block(depBBs, depBB, false);
 				}
 			}

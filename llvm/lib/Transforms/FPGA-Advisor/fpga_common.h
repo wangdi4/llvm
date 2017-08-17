@@ -79,6 +79,7 @@
 #include <algorithm>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <map>
 #include <list>
 #include <string>
@@ -838,6 +839,12 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		void print_basic_block_configuration(Function *F, raw_ostream *out);
 		void print_optimal_configuration_for_all_calls(Function *F);
 		void print_execution_order(ExecutionOrderList_iterator execOrder);
+        bool functionInTrace(Function * F)
+        {
+            std::unordered_set<Function *>::const_iterator funcIter = 
+                functionsSeen.find (F);
+            return (funcIter != functionsSeen.end());
+        }
 
 		// dependence graph construction
 		bool get_dependence_graph_from_file(std::string fileName, DepGraph **depGraph, std::string funcName, bool is_global);
@@ -854,6 +861,7 @@ class AdvisorAnalysis : public ModulePass, public InstVisitor<AdvisorAnalysis> {
 		CallGraph *callGraph;
 	    ExecutionOrderList_iterator globalExecutionOrder;
 	    TraceGraphList_iterator globalTraceGraph;
+        std::unordered_set<Function *> functionsSeen;
 
 		raw_ostream *outputLog;
 
