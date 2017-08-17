@@ -1966,6 +1966,7 @@ static bool isAllocSiteRemovable(Instruction *AI,
         // Give up the moment we see something we can't handle.
         return false;
 
+      case Instruction::AddrSpaceCast:
       case Instruction::BitCast:
       case Instruction::GetElementPtr:
         Users.emplace_back(I);
@@ -2067,7 +2068,8 @@ Instruction *InstCombiner::visitAllocSite(Instruction &MI) {
         replaceInstUsesWith(*C,
                             ConstantInt::get(Type::getInt1Ty(C->getContext()),
                                              C->isFalseWhenEqual()));
-      } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I)) {
+      } else if (isa<BitCastInst>(I) || isa<GetElementPtrInst>(I) ||
+                 isa<AddrSpaceCastInst>(I)) {
         replaceInstUsesWith(*I, UndefValue::get(I->getType()));
       }
       eraseInstFromFunction(*I);
