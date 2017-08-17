@@ -967,10 +967,12 @@ void CSACvtCFDFPass::renameAcrossLoopForRepeat(MachineLoop* L) {
           MachineInstr *DefMI = MRI->getVRegDef(Reg);
           MachineBasicBlock *dmbb = DefMI->getParent();
           MachineLoop* dmloop = MLI->getLoopFor(dmbb);
+#if 0
           if (hasAllConstantInputs(DefMI)) {
             //DefMI->setFlag(MachineInstr::NonSequential);
             continue;
           }
+#endif 
           //def is in immediate nesting level, this including def not in any loop at all
           if (mloop->getParentLoop() == dmloop || mloop == dmloop) continue;
 
