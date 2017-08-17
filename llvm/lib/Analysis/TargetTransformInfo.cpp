@@ -154,6 +154,10 @@ bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType) const {
   return TTIImpl->isLegalMaskedGather(DataType);
 }
 
+bool TargetTransformInfo::prefersVectorizedAddressing() const {
+  return TTIImpl->prefersVectorizedAddressing();
+}
+
 int TargetTransformInfo::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                               int64_t BaseOffset,
                                               bool HasBaseReg,
