@@ -9,19 +9,25 @@
 // ---------------
 // The predicate recipes contain all the information needed to generate the
 // mask conditions during code generation.
-// The edge predicates point to the condition and denote whether the mask
-// should be an IfTrue or IfFalse.
-// Operations onto the masks are performed by the Block Predicate
-// (VPBlockPredicateRecipe) which operates on one or more input edge predicates
-// appended to it.
+// 1. The edge predicates (VPEdgePredicateRecipe, VPIfTruePredicateRecipe,
+//    VPIfFalsePredicateRecipe) point to the condition and denote whether
+//    the mask should be an IfTrue or IfFalse.
+// 2. Operations onto the masks are performed by the VPBlockPredicateRecipe
+//    which operates on one or more input edge predicates appended to it.
 //
-// VPBlockPredicateRecipe (Block Predicate)
-// ----------------------------------------
-// All blocks (VPBBs or VPRegions) carry a Block Predicate which is the
-// input/output mask for the whole SESE block.
+// VPBlockPredicateRecipeBase (Block Predicate)
+// --------------------------------------------
+// Both VPBBs or VPRegions carry a VPBlockPredicateRecipeBase derived predicate
+// which is the input/output mask for the whole SESE block.
 // It can be retrieved with Block->getPredicateRecipe().
-// VPBasicBlocks also contain the Block Predicate recipe within their recipe
-// list, in order for the code generator to emit code for it.
+// 
+// o VPBasicBlocks point to a VPBlockPredicate and *not* to a
+//   VPEdgePredicateRecipeBase derived class.
+//   VPBasicBlocks also contain the Block Predicate recipe within their recipe
+//   list, in order for the code generator to emit code for it.
+//
+// o VPRegions, on the other hand, point to either a VPBlockPredicate
+//   or a VPEdgePredicateRecipeBase derived class.
 //
 // Connecting Predicates within a Region
 // -------------------------------------
@@ -206,6 +212,7 @@ static void appendPredicateToBlock(VPBlockBase *Block,
         cast<VPBlockPredicateRecipe>(Block->getPredicateRecipe());
     PlanUtils.appendIncomingToBlockPred(BP, Recipe);
   } else {
+    // Regions accept any Block Predicate (not just VPBlockPredicateRecipe)
     assert(isa<VPRegionBlock>(Block) && "Expected VPRegionBlock.");
     assert(!Block->getPredicateRecipe() && "Overwriting ?");
     // TODO: PlanUtils
@@ -455,10 +462,6 @@ static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region,
               assert((!BBPred || ChildBBPredBase) &&
                      "Propagating non all-ones to all-ones!");
 
-              assert(isa<VPBlockPredicateRecipe>(ChildBBPredBase) &&
-                     "Expected VPBlockPredicateRecipe");
-              VPBlockPredicateRecipe *ChildBBPred =
-                  cast<VPBlockPredicateRecipe>(ChildBBPredBase);
               // Regions need special treatment. The reason is that their BP
               // is the actual BP of a predecessor block. Therefore editing
               // the region's BP (e.g., by appendIncoming()) will cause the
@@ -466,6 +469,10 @@ static void optimizeImmediatePostdomBlocks(VPRegionBlock *Region,
               if (isa<VPRegionBlock>(ChildBB)) {
                 ChildBB->setPredicateRecipe(BBPred);
               } else {
+                assert(isa<VPBlockPredicateRecipe>(ChildBBPredBase) &&
+                       "Expected VPBlockPredicateRecipe");
+                VPBlockPredicateRecipe *ChildBBPred =
+                    cast<VPBlockPredicateRecipe>(ChildBBPredBase);
                 PlanUtils.clearIncomingsFromBlockPred(ChildBBPred);
                 PlanUtils.appendIncomingToBlockPred(ChildBBPred, BBPred);
               }
