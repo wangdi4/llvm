@@ -164,6 +164,7 @@ void initializeGCMachineCodeAnalysisPass(PassRegistry&);
 void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGCOVProfilerLegacyPassPass(PassRegistry&);
 void initializeGVNHoistLegacyPassPass(PassRegistry&);
+void initializeGVNSinkLegacyPassPass(PassRegistry&);
 void initializeGVNLegacyPassPass(PassRegistry&);
 void initializeGlobalDCELegacyPassPass(PassRegistry&);
 void initializeGlobalMergePass(PassRegistry&);
