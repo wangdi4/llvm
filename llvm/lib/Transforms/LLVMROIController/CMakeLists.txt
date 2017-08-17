@@ -1,9 +1,6 @@
 if(NOT LLVM_SPATIAL_ADVISOR)
-  message("-- Not building the Spatial Advisor")
-  message("   Define the environment variable ENABLE_SPATIAL_ADVISOR to build.")
   return()
 endif()
-message("-- Building the Spatial Advisor")
 
 if(WIN32 OR CYGWIN)
   set(LLVM_LINK_COMPONENTS Core Support)

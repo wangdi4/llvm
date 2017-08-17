@@ -1213,6 +1213,12 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
       // Generate a MERGE1 tree joining the parallel sections' chains back into
       // a a single chain for exiting the parallel region.
       MachineInstr* insertBefore = pl.aliasSetReleases[aliasSet];
+      // If we are not already merging the original outgoing edge, arrange for
+      // it to be added to the merge tree tool. Otherwise, it may be left as a
+      // disconnected LIC.
+      unsigned outgoingChainVReg = insertBefore->getOperand(1).getReg();
+      if (!waveSet.count(outgoingChainVReg))
+        wave.push_back(outgoingChainVReg);
       assert(insertBefore && "missing region release" );
       SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;
       unsigned merged = merge_dependency_signals(*insertBefore->getParent(), insertBefore, &wave, chEntering, &newOps);
@@ -1223,7 +1229,7 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
         unsigned mergeIn = mop->getReg();
         MachineInstr *inDef = MRI->getUniqueVRegDef(mergeIn);
         assert(inDef && mergeDef);
-        assert(waveSet.count(mergeIn));
+        assert(waveSet.count(mergeIn) || mergeIn == outgoingChainVReg);
         if (!DT->dominates(inDef, mergeDef)) {
           MachineSSAUpdater mergeUpdater(*thisMF);
           mergeUpdater.Initialize(chEntering);
