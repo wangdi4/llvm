@@ -136,6 +136,24 @@ review.
 
      $ git diff HEAD^1^2 HEAD^1 <file>
 
+Commits to ``xmain-web``
+------------------------
+Once you have a patch to resolve a conflict or fix a build you should pass a
+component ownwer(s) review. Normally you'll be allowed to commit only after a
+review. However there are several exceptions when you can review after a commit:
+
+#. Trivial merge conflict - when a conflict could be resolved by deleting git
+   merge support messages and/or line reordering:
+
+   \<\<\<\<\<\<\< HEAD
+
+   \=\=\=\=\=\=\=
+
+   >>>>>>> [commit id]
+
+#. Merge conflict caused by reverted commit (the merge conflict of which was
+   previously resolved).
+
 .. _xmain-web-stabilization:
 
 Stabilizing and Promoting ``xmain-web``
