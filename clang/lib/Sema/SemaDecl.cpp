@@ -12641,7 +12641,6 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
   sema::AnalysisBasedWarnings::Policy WP = AnalysisWarnings.getDefaultPolicy();
   sema::AnalysisBasedWarnings::Policy *ActivePolicy = nullptr;
 
-<<<<<<< HEAD
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Body && !CommonFunctionOptions.empty()) {
     SmallVector<Stmt *, 4> Stmts;
@@ -12673,10 +12672,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
     CommonFunctionOptions.erase("CHECK_STACK");
   }
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-  if (getLangOpts().CoroutinesTS && getCurFunction()->CoroutinePromise)
-=======
   if (getLangOpts().CoroutinesTS && getCurFunction()->isCoroutine())
->>>>>>> 28be04dd8e51399b1955d413777003f80e81136f
     CheckCompletedCoroutineBody(FD, Body);
 
   if (FD) {
