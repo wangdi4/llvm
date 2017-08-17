@@ -45,7 +45,7 @@ ClangdUnit::ClangdUnit(PathRef FileName, StringRef Contents,
       ArgP, ArgP + ArgStrs.size(), PCHs, Diags, ResourceDir,
       /*OnlyLocalDecls=*/false, /*CaptureDiagnostics=*/true, RemappedSource,
       /*RemappedFilesKeepOriginalName=*/true,
-      /*PrecompilePreambleAfterNParses=*/1, /*TUKind=*/TU_Complete,
+      /*PrecompilePreambleAfterNParses=*/1, /*TUKind=*/TU_Prefix,
       /*CacheCodeCompletionResults=*/true,
       /*IncludeBriefCommentsInCodeCompletion=*/true,
       /*AllowPCHWithCompilerErrors=*/true));
@@ -221,4 +221,8 @@ std::vector<DiagWithFixIts> ClangdUnit::getLocalDiagnostics() const {
     Result.push_back({Diag, std::move(FixItsForDiagnostic)});
   }
   return Result;
+}
+
+void ClangdUnit::dumpAST(llvm::raw_ostream &OS) const {
+  Unit->getASTContext().getTranslationUnitDecl()->dump(OS, true);
 }

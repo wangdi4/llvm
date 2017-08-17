@@ -3030,18 +3030,21 @@ Instruction *InstCombiner::foldICmpBinOp(ICmpInst &I) {
       break;
     case Instruction::Add:
     case Instruction::Sub:
-    case Instruction::Xor:
+    case Instruction::Xor: {
       if (I.isEquality()) // a+x icmp eq/ne b+x --> a icmp b
         return new ICmpInst(Pred, BO0->getOperand(0), BO1->getOperand(0));
-      // icmp u/s (a ^ signmask), (b ^ signmask) --> icmp s/u a, b
-      if (ConstantInt *CI = dyn_cast<ConstantInt>(BO0->getOperand(1))) {
-        if (CI->getValue().isSignMask()) {
+
+      const APInt *C;
+      if (match(BO0->getOperand(1), m_APInt(C))) {
+        // icmp u/s (a ^ signmask), (b ^ signmask) --> icmp s/u a, b
+        if (C->isSignMask()) {
           ICmpInst::Predicate NewPred =
               I.isSigned() ? I.getUnsignedPredicate() : I.getSignedPredicate();
           return new ICmpInst(NewPred, BO0->getOperand(0), BO1->getOperand(0));
         }
 
-        if (BO0->getOpcode() == Instruction::Xor && CI->isMaxValue(true)) {
+        // icmp u/s (a ^ maxsignval), (b ^ maxsignval) --> icmp s/u' a, b
+        if (BO0->getOpcode() == Instruction::Xor && C->isMaxSignedValue()) {
           ICmpInst::Predicate NewPred =
               I.isSigned() ? I.getUnsignedPredicate() : I.getSignedPredicate();
           NewPred = I.getSwappedPredicate(NewPred);
@@ -3049,6 +3052,7 @@ Instruction *InstCombiner::foldICmpBinOp(ICmpInst &I) {
         }
       }
       break;
+    }
     case Instruction::Mul:
       if (!I.isEquality())
         break;
@@ -3506,7 +3510,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
     // We can strength reduce this signed add into a regular add if we can prove
     // that it will never overflow.
     if (OCF == OCF_SIGNED_ADD)
-      if (WillNotOverflowSignedAdd(LHS, RHS, OrigI))
+      if (willNotOverflowSignedAdd(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWAdd(LHS, RHS), Builder->getFalse(),
                          true);
     break;
@@ -3519,11 +3523,11 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(LHS, Builder->getFalse(), false);
 
     if (OCF == OCF_SIGNED_SUB) {
-      if (WillNotOverflowSignedSub(LHS, RHS, OrigI))
+      if (willNotOverflowSignedSub(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWSub(LHS, RHS), Builder->getFalse(),
                          true);
     } else {
-      if (WillNotOverflowUnsignedSub(LHS, RHS, OrigI))
+      if (willNotOverflowUnsignedSub(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNUWSub(LHS, RHS), Builder->getFalse(),
                          true);
     }
@@ -3553,7 +3557,7 @@ bool InstCombiner::OptimizeOverflowCheck(OverflowCheckFlavor OCF, Value *LHS,
       return SetResult(LHS, Builder->getFalse(), false);
 
     if (OCF == OCF_SIGNED_MUL)
-      if (WillNotOverflowSignedMul(LHS, RHS, OrigI))
+      if (willNotOverflowSignedMul(LHS, RHS, OrigI))
         return SetResult(Builder->CreateNSWMul(LHS, RHS), Builder->getFalse(),
                          true);
     break;
