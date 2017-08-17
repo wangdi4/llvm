@@ -54,7 +54,7 @@ crt_err_code OclDynamicLib::Load( const char* pLibName )
     }
 
     // Load library
-    if((strstr(pLibName, "\\") != NULL) || (strstr(pLibName, "/") != NULL))
+    if((strstr(pLibName, "\\") != nullptr) || (strstr(pLibName, "/") != nullptr))
     {
         // pLibName is a full path to the lib (assuming it's not available in standard search path)
         m_hLibrary = LoadLibraryEx( pLibName, NULL, LOAD_WITH_ALTERED_SEARCH_PATH );

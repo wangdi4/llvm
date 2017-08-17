@@ -4305,8 +4305,8 @@ CL_API_ENTRY cl_kernel CL_API_CALL clCloneKernel(
     {
         errcode_ret = &errCode;
     }
-    _cl_kernel_crt *clonedKernel = NULL;
-    CrtKernel* crtKernel = NULL;
+    _cl_kernel_crt *clonedKernel = nullptr;
+    CrtKernel* crtKernel = nullptr;
     std::unique_ptr<CrtKernel> copyCrtKernel;
     CTX_KRN_MAP copiedContextToKernel;
 
@@ -4329,14 +4329,14 @@ CL_API_ENTRY cl_kernel CL_API_CALL clCloneKernel(
     }
 
     copyCrtKernel.reset(new (std::nothrow) CrtKernel(crtKernel->m_programCRT));
-    if (copyCrtKernel.get() == NULL)
+    if (copyCrtKernel.get() == nullptr)
     {
         *errcode_ret = CL_OUT_OF_HOST_MEMORY;
         goto FINISH;
     }
     copyCrtKernel->m_ContextToKernel = copiedContextToKernel;
     clonedKernel = new (std::nothrow) _cl_kernel_crt;
-    if (clonedKernel != NULL)
+    if (clonedKernel != nullptr)
     {
         clonedKernel->object = (void *)copyCrtKernel.release();
     }
