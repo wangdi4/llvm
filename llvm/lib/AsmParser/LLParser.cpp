@@ -1096,6 +1096,12 @@ bool LLParser::ParseFnAttributeValuePairs(AttrBuilder &B,
     case lltok::kw_noimplicitfloat:
       B.addAttribute(Attribute::NoImplicitFloat); break;
     case lltok::kw_noinline: B.addAttribute(Attribute::NoInline); break;
+#if INTEL_CUSTOMIZATION
+    case lltok::kw_inlinehint_recursive:
+      B.addAttribute(Attribute::InlineHintRecursive); break;
+    case lltok::kw_alwaysinline_recursive:
+      B.addAttribute(Attribute::AlwaysInlineRecursive); break;
+#endif //INTEL_CUSTOMIZATION
     case lltok::kw_nonlazybind: B.addAttribute(Attribute::NonLazyBind); break;
     case lltok::kw_noredzone: B.addAttribute(Attribute::NoRedZone); break;
     case lltok::kw_noreturn: B.addAttribute(Attribute::NoReturn); break;
@@ -1440,6 +1446,10 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
     case lltok::kw_noduplicate:
     case lltok::kw_noimplicitfloat:
     case lltok::kw_noinline:
+#ifdef INTEL_CUSTOMIZATION
+    case lltok::kw_inlinehint_recursive:
+    case lltok::kw_alwaysinline_recursive:
+#endif INTEL_CUSTOMIZATION
     case lltok::kw_nonlazybind:
     case lltok::kw_noredzone:
     case lltok::kw_noreturn:
@@ -1531,6 +1541,10 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
     case lltok::kw_noduplicate:
     case lltok::kw_noimplicitfloat:
     case lltok::kw_noinline:
+#ifdef INTEL_CUSTOMIZATION
+    case lltok::kw_inlinehint_recursive:
+    case lltok::kw_alwaysinline_recursive:
+#endif INTEL_CUSTOMIZATION
     case lltok::kw_nonlazybind:
     case lltok::kw_noredzone:
     case lltok::kw_noreturn:
