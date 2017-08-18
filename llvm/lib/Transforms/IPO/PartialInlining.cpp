@@ -568,17 +568,17 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
   std::vector<User *> Users(DuplicateFunction->user_begin(),
                             DuplicateFunction->user_end());
   Function *CurrentCaller = nullptr;
+  std::unique_ptr<BlockFrequencyInfo> TempBFI;
   BlockFrequencyInfo *CurrentCallerBFI = nullptr;
 
   auto ComputeCurrBFI = [&,this](Function *Caller) {
       // For the old pass manager:
       if (!GetBFI) {
-        if (CurrentCallerBFI)
-          delete CurrentCallerBFI;
         DominatorTree DT(*Caller);
         LoopInfo LI(DT);
         BranchProbabilityInfo BPI(*Caller, LI);
-        CurrentCallerBFI = new BlockFrequencyInfo(*Caller, BPI, LI);
+        TempBFI.reset(new BlockFrequencyInfo(*Caller, BPI, LI));
+        CurrentCallerBFI = TempBFI.get();
       } else {
         // New pass manager:
         CurrentCallerBFI = &(*GetBFI)(*Caller);
@@ -600,10 +600,6 @@ void PartialInlinerImpl::computeCallsiteToProfCountMap(
       CallSiteToProfCountMap[User] = *Count;
     else
       CallSiteToProfCountMap[User] = 0;
-  }
-  if (!GetBFI) {
-    if (CurrentCallerBFI)
-      delete CurrentCallerBFI;
   }
 }
 
