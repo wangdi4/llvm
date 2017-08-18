@@ -44,11 +44,11 @@ struct ManualMapEntry {
 class IsMatch;
 
 // List of instructions requiring explicitly aligned memory.
-const char *ExplicitAlign[] = {"MOVDQA",  "MOVAPS",  "MOVAPD",  "MOVNTPS",
+const char *const ExplicitAlign[] = {"MOVDQA",  "MOVAPS",  "MOVAPD",  "MOVNTPS",
                                "MOVNTPD", "MOVNTDQ", "MOVNTDQA"};
 
 // List of instructions NOT requiring explicit memory alignment.
-const char *ExplicitUnalign[] = {"MOVDQU", "MOVUPS", "MOVUPD"};
+const char *const ExplicitUnalign[] = {"MOVDQU", "MOVUPS", "MOVUPD"};
 
 // For manually mapping instructions that do not match by their encoding.
 const ManualMapEntry ManualMapSet[] = {
@@ -73,7 +73,7 @@ const ManualMapEntry ManualMapSet[] = {
 };
 
 // Do not add these instructions to any of the folding tables.
-const std::vector<const char *> NoFoldSet = {
+const char *const NoFoldSet[] = {
     "TCRETURNri64",
     "TCRETURNmi64", // Special dealing (in X86InstrCompiler.td under
     "TCRETURNri",   // "tailcall stuff" section).
@@ -162,8 +162,8 @@ class X86FoldTablesEmitter {
 
     friend raw_ostream &operator<<(raw_ostream &OS,
                                    const X86FoldTableEntry &E) {
-      OS << "{ X86::" << E.RegInst->TheDef->getName().str()
-         << ", X86::" << E.MemInst->TheDef->getName().str() << ", ";
+      OS << "{ X86::" << E.RegInst->TheDef->getName()
+         << ", X86::" << E.MemInst->TheDef->getName() << ", ";
 
       if (E.IsLoad)
         OS << "TB_FOLDED_LOAD | ";
@@ -172,7 +172,7 @@ class X86FoldTablesEmitter {
       if (E.CannotUnfold)
         OS << "TB_NO_REVERSE | ";
       if (E.IsAligned)
-        OS << "TB_ALIGN_" + std::to_string(E.Alignment) + " | ";
+        OS << "TB_ALIGN_" << E.Alignment << " | ";
 
       OS << "0 },\n";
 
@@ -215,11 +215,11 @@ private:
   // X86MemoryFoldTableEntry.
   void printTable(const FoldTable &Table, std::string TableName,
                   raw_ostream &OS) {
-    OS << "static const X86MemoryFoldTableEntry MemoryFold" << TableName
+    OS << "\nstatic const X86MemoryFoldTableEntry MemoryFold" << TableName
        << "[] = {\n";
 
     for (const X86FoldTableEntry &E : Table)
-      OS << E;
+      OS.indent(2) << E;
 
     OS << "};\n";
   }
@@ -241,7 +241,8 @@ static bool hasPtrTailcallRegClass(const CodeGenInstruction *Inst) {
 
 // Calculates the integer value representing the BitsInit object
 static inline uint64_t getValueFromBitsInit(const BitsInit *B) {
-  assert(B->getNumBits() <= sizeof(uint64_t) * 8 && "BitInits' too long!");
+  assert(B->getNumBits() <= sizeof(uint64_t) * CHAR_BIT &&
+         "BitInits' too long!");
 
   uint64_t Value = 0;
   for (unsigned i = 0, e = B->getNumBits(); i != e; ++i) {
@@ -585,6 +586,7 @@ void X86FoldTablesEmitter::updateTables(const CodeGenInstruction *RegInstr,
       Record *MemOpRec = MemInstr->Operands[i].Rec;
       if (isRegisterOperand(RegOpRec) && isMemoryOperand(MemOpRec)) {
         switch (i) {
+        default: llvm_unreachable("Unexpected operand count!");
         case 0:
           addEntryWithFlags(Table0, RegInstr, MemInstr, S, 0);
           return;
@@ -645,7 +647,7 @@ void X86FoldTablesEmitter::run(raw_ostream &OS) {
     //   class ptr_rc_tailcall, which can be of a size 32 or 64, to ensure
     //   safe mapping of these instruction we manually map them and exclude
     //   them from the automation.
-    if (find(NoFoldSet, Rec->getName().str()) != NoFoldSet.end() ||
+    if (find(NoFoldSet, Rec->getName()) != std::end(NoFoldSet) ||
         hasRSTRegClass(Inst) || hasPtrTailcallRegClass(Inst))
       continue;
 
