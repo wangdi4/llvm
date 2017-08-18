@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2.td - Describe the Nios2 Target Machine ---------*- tablegen -*-===//
+=======
+//===-- Nios2.td - Describe the Nios2 Target Machine -------*- tablegen -*-===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -8,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 //===----------------------------------------------------------------------===//
+<<<<<<< HEAD
 // Calling Conv, Instruction Descriptions
 //===----------------------------------------------------------------------===//
 
@@ -68,3 +73,24 @@ def Nios2 : Target {
   let AssemblyParsers = [Nios2AsmParser];
   let AssemblyParserVariants = [Nios2AsmParserVariant];
 }
+=======
+// Target-independent interfaces
+//===----------------------------------------------------------------------===//
+
+include "llvm/Target/Target.td"
+
+//===----------------------------------------------------------------------===//
+// Target-dependent interfaces
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Calling Conv, Instruction Descriptions
+//===----------------------------------------------------------------------===//
+
+include "Nios2RegisterInfo.td"
+include "Nios2InstrInfo.td"
+
+def Nios2InstrInfo : InstrInfo;
+
+def Nios2 : Target { let InstructionSet = Nios2InstrInfo; }
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076

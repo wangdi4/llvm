@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===- Nios2InstrInfo.td - Target Description for Nios2 Target -*- tablegen -*-=//
+=======
+//===- Nios2InstrInfo.td - Target Description for Nios2 ------*- tablegen -*-=//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,6 +15,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 //===----------------------------------
 // Nios2 Instruction predicates
 //===----------------------------------
@@ -95,6 +100,8 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_Nios2CallSeqEnd,
 def Nios2Wrapper : SDNode<"Nios2ISD::Wrapper", SDTIntBinOp>;
 def Nios2Sync : SDNode<"Nios2ISD::Sync", SDTNone, [SDNPHasChain,SDNPSideEffect]>;
 
+=======
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //===----------------------------------------------------------------------===//
 // Instruction format superclass
 //===----------------------------------------------------------------------===//
@@ -105,6 +112,7 @@ include "Nios2InstrFormats.td"
 // Nios2 Operand, Complex Patterns and Transformations Definitions.
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 // Instruction operand types
 def jmptarget   : Operand<OtherVT> {
   let EncoderMethod = "getJumpTargetOpValue";
@@ -185,11 +193,17 @@ def IMMPLUS1 : SDNodeXForm<imm, [{
 def ICTLREG : SDNodeXForm<imm, [{
   return getRegister(Nios2::CTL0 + N->getZExtValue(), MVT::i32);
 }]>;
+=======
+def simm16      : Operand<i32> {
+  let DecoderMethod= "DecodeSimm16";
+}
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 
 // Node immediate fits as 16-bit sign extended on target immediate.
 // e.g. addi, andi
 def immSExt16  : PatLeaf<(imm), [{ return isInt<16>(N->getSExtValue()); }]>;
 
+<<<<<<< HEAD
 // Node immediate fits as 16-bit zero extended on target immediate.
 // The LO16 param means that only the lower 16 bits of the node
 // immediate are caught.
@@ -218,10 +232,13 @@ def addr :
 def addrCdx :
   ComplexPattern<iPTR, 2, "SelectAddrCDX", [frameindex], [SDNPWantParent]>;
 
+=======
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //===----------------------------------------------------------------------===//
 // Instructions specific format
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 // Arithmetic and logical instructions with 3 register operands.
 multiclass ArithLogicReg<bits<6> opx, string mnemonic,
                          SDNode opNode, InstrItinClass itin>:
@@ -1006,3 +1023,20 @@ let Predicates = [isNios2r2] in {
   def : Pat<(int_nios2_stsex i32:$a, i32:$v), (STSEX_R2 i32:$a, mem:$v)>;
 }
 
+=======
+// Arithmetic and logical instructions with 2 register operands.
+class ArithLogicI<bits<6> op, string instr_asm, SDNode OpNode,
+                  Operand Od, PatLeaf imm_type, RegisterClass RC> :
+  FI<op, (outs RC:$rB), (ins RC:$rA, Od:$imm16),
+     !strconcat(instr_asm, "\t$rB, $rA, $imm16"),
+     [(set RC:$rB, (OpNode RC:$rA, imm_type:$imm16))]> {
+  let isReMaterializable = 1;
+}
+
+//===----------------------------------------------------------------------===//
+// Nios2 R1 Instructions
+//===----------------------------------------------------------------------===//
+
+/// Arithmetic Instructions (ALU Immediate)
+def ADDi : ArithLogicI<0x04, "addi", add, simm16, immSExt16, CPURegs>;
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076

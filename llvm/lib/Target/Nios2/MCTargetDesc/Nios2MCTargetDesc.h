@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2MCTargetDesc.h - Nios2 Target Descriptions -----------*- C++ -*-===//
+=======
+//===-- Nios2MCTargetDesc.h - Nios2 Target Descriptions ---------*- C++ -*-===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,6 +18,7 @@
 #ifndef LLVM_LIB_TARGET_NIOS2_MCTARGETDESC_NIOS2MCTARGETDESC_H
 #define LLVM_LIB_TARGET_NIOS2_MCTARGETDESC_NIOS2MCTARGETDESC_H
 
+<<<<<<< HEAD
 #include "llvm/Support/DataTypes.h"
 
 namespace llvm {
@@ -47,6 +52,15 @@ MCObjectWriter *createNios2ELFObjectWriter(raw_pwrite_stream &OS,
                                           uint8_t OSABI,
                                           bool IsLittleEndian);
 } // End llvm namespace
+=======
+namespace llvm {
+class Target;
+class Triple;
+
+Target &getTheNios2Target();
+
+} // namespace llvm
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 
 // Defines symbolic names for Nios2 registers.  This defines a mapping from
 // register name to register number.
@@ -57,7 +71,10 @@ MCObjectWriter *createNios2ELFObjectWriter(raw_pwrite_stream &OS,
 #define GET_INSTRINFO_ENUM
 #include "Nios2GenInstrInfo.inc"
 
+<<<<<<< HEAD
 #define GET_SUBTARGETINFO_ENUM
 #include "Nios2GenSubtargetInfo.inc"
 
+=======
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 #endif

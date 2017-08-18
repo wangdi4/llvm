@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2.h - Top-level interface for Nios2 representation ----*- C++ -*-===//
+=======
+//===-- Nios2.h - Top-level interface for Nios2 representation --*- C++ -*-===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,6 +19,7 @@
 #ifndef LLVM_LIB_TARGET_NIOS2_NIOS2_H
 #define LLVM_LIB_TARGET_NIOS2_NIOS2_H
 
+<<<<<<< HEAD
 #include "llvm/IR/Function.h"
 #include "MCTargetDesc/Nios2MCTargetDesc.h"
 #include "llvm/Target/TargetMachine.h"
@@ -61,5 +66,13 @@ namespace nios2 {
 } // end namespace nios2;
 
 } // end namespace llvm;
+=======
+#include "MCTargetDesc/Nios2MCTargetDesc.h"
+#include "llvm/Target/TargetMachine.h"
+
+namespace llvm {
+class Nios2TargetMachine;
+} // namespace llvm
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 
 #endif

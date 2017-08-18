@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2TargetMachine.h - Define TargetMachine for Nios2 -----*- C++ -*-===//
+=======
+//===-- Nios2TargetMachine.h - Define TargetMachine for Nios2 ---*- C++ -*-===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,6 +18,7 @@
 #ifndef LLVM_LIB_TARGET_NIOS2_NIOS2TARGETMACHINE_H
 #define LLVM_LIB_TARGET_NIOS2_NIOS2TARGETMACHINE_H
 
+<<<<<<< HEAD
 #include "MCTargetDesc/Nios2ABIInfo.h"
 #include "Nios2Subtarget.h"
 #include "llvm/CodeGen/Passes.h"
@@ -67,5 +72,19 @@ public:
                       CodeGenOpt::Level OL);
 };
 } // End llvm namespace
+=======
+#include "llvm/Target/TargetMachine.h"
+
+namespace llvm {
+class Nios2TargetMachine : public LLVMTargetMachine {
+public:
+  Nios2TargetMachine(const Target &T, const Triple &TT, StringRef CPU,
+                     StringRef FS, const TargetOptions &Options,
+                     Optional<Reloc::Model> RM, CodeModel::Model CM,
+                     CodeGenOpt::Level OL);
+  ~Nios2TargetMachine() override;
+};
+} // namespace llvm
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 
 #endif

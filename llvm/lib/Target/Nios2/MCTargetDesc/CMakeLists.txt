@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # MCTargetDesc/CMakeLists.txt
 add_llvm_library(LLVMNios2Desc
   Nios2ABIInfo.cpp
@@ -9,3 +10,7 @@ add_llvm_library(LLVMNios2Desc
   Nios2TargetStreamer.cpp
   Nios2MCTargetDesc.cpp
   )
+=======
+#MCTargetDesc / CMakeLists.txt
+add_llvm_library(LLVMNios2Desc Nios2MCTargetDesc.cpp)
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076

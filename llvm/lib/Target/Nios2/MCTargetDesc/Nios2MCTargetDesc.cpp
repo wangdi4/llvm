@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2MCTargetDesc.cpp - Nios2 Target Descriptions -------------------===//
+=======
+//===-- Nios2MCTargetDesc.cpp - Nios2 Target Descriptions -----------------===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,6 +16,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Nios2MCTargetDesc.h"
+<<<<<<< HEAD
 #include "InstPrinter/Nios2InstPrinter.h"
 #include "Nios2MCAsmInfo.h"
 #include "Nios2TargetStreamer.h"
@@ -27,12 +32,16 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/TargetRegistry.h"
+=======
+#include "llvm/MC/MCInstrInfo.h"
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 
 using namespace llvm;
 
 #define GET_INSTRINFO_MC_DESC
 #include "Nios2GenInstrInfo.inc"
 
+<<<<<<< HEAD
 #define GET_SUBTARGETINFO_MC_DESC
 #include "Nios2GenSubtargetInfo.inc"
 
@@ -162,3 +171,9 @@ extern "C" void LLVMInitializeNios2TargetMC() {
   TargetRegistry::RegisterMCAsmBackend(getTheNios2Target(),
                                        createNios2AsmBackendEL32);
 }
+=======
+#define GET_REGINFO_MC_DESC
+#include "Nios2GenRegisterInfo.inc"
+
+extern "C" void LLVMInitializeNios2TargetMC() {}
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2TargetMachine.cpp - Define TargetMachine for Nios2 -------------===//
+=======
+//===-- Nios2TargetMachine.cpp - Define TargetMachine for Nios2 -----------===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -14,6 +18,7 @@
 #include "Nios2TargetMachine.h"
 #include "Nios2.h"
 
+<<<<<<< HEAD
 #include "Nios2SEISelDAGToDAG.h"
 #include "Nios2Subtarget.h"
 #include "Nios2TargetObjectFile.h"
@@ -33,12 +38,15 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Support/TargetRegistry.h"
+=======
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 using namespace llvm;
 
 #define DEBUG_TYPE "nios2"
 
 extern "C" void LLVMInitializeNios2Target() {
   // Register the target.
+<<<<<<< HEAD
   RegisterTargetMachine<Nios2elTargetMachine> X(getTheNios2Target());
   auto PR = PassRegistry::getPassRegistry();
   initializeNios2LowerAllocaPass(*PR);
@@ -58,6 +66,13 @@ static std::string computeDataLayout(const Triple &TT, StringRef CPU,
   Ret += "-p:32:32:32-i8:8:32-i16:16:32-n32";
 
   return Ret;
+=======
+}
+
+static std::string computeDataLayout(const Triple &TT, StringRef CPU,
+                                     const TargetOptions &Options) {
+  return "e-p:32:32:32-i8:8:32-i16:16:32-n32";
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 }
 
 static Reloc::Model getEffectiveRelocModel(CodeModel::Model CM,
@@ -67,6 +82,7 @@ static Reloc::Model getEffectiveRelocModel(CodeModel::Model CM,
   return *RM;
 }
 
+<<<<<<< HEAD
 // DataLayout --> Big-endian, 32-bit pointer/ABI/alignment
 // The stack is always 8 byte aligned
 // On function prologue, the stack is created by decrementing
@@ -260,3 +276,15 @@ void Nios2PassConfig::addPreEmitPass() {
   addPass(createNios2DelaySlotFillerPass(TM));
   return;
 }
+=======
+Nios2TargetMachine::Nios2TargetMachine(const Target &T, const Triple &TT,
+                                       StringRef CPU, StringRef FS,
+                                       const TargetOptions &Options,
+                                       Optional<Reloc::Model> RM,
+                                       CodeModel::Model CM,
+                                       CodeGenOpt::Level OL)
+    : LLVMTargetMachine(T, computeDataLayout(TT, CPU, Options), TT, CPU, FS,
+                        Options, getEffectiveRelocModel(CM, RM), CM, OL) {}
+
+Nios2TargetMachine::~Nios2TargetMachine() {}
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076

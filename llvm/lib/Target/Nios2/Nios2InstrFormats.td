@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===-- Nios2InstrFormats.td - Nios2 Instruction Formats -----*- tablegen -*-===//
+=======
+//===-- Nios2InstrFormats.td - Nios2 Instruction Formats ---*- tablegen -*-===//
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -16,6 +20,7 @@
 // Format specifies the encoding used by the instruction.  This is part of the
 // ad-hoc solution used to emit machine instruction encodings by our machine
 // code emitter.
+<<<<<<< HEAD
 //TODO: is this needed? format seems to be encoded currently in instruction definitions
 class Format<bits<5> val> { 
   bits<5> Value = val;
@@ -62,15 +67,35 @@ def isNios2r2 : Predicate<"Subtarget->isNios2r2()">;
 
 class Nios2Inst32<dag outs, dag ins, string asmstr, list<dag> pattern,
                   InstrItinClass itin, Format f>: Instruction {
+=======
+class Format<bits<3> val> {
+  bits<3> Value = val;
+}
+
+def Pseudo : Format<0>;
+def FrmI : Format<1>;
+def FrmR : Format<2>;
+def FrmJ : Format<3>;
+def FrmOther : Format<4>; // Instruction w/ a custom format
+
+// Generic Nios2 Format
+class Nios2Inst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
+    : Instruction {
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
   field bits<32> Inst;
   Format Form = f;
 
   let Namespace = "Nios2";
+<<<<<<< HEAD
+=======
+
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
   let Size = 4;
 
   bits<6> Opcode = 0;
 
   // Bottom 6 bits are the 'opcode' field
+<<<<<<< HEAD
   let Inst{5-0} = Opcode;
 
   let OutOperandList = outs;
@@ -162,26 +187,72 @@ class FI<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern,
 
   bits<5>  rA;
   bits<5>  rB;
+=======
+  let Inst{5 - 0} = Opcode;
+
+  let OutOperandList = outs;
+  let InOperandList = ins;
+
+  let AsmString = asmstr;
+  let Pattern = pattern;
+
+  //
+  // Attributes specific to Nios2 instructions:
+  //
+  bits<3> FormBits = Form.Value;
+
+  // TSFlags layout should be kept in sync with Nios2InstrInfo.h.
+  let TSFlags{2 - 0} = FormBits;
+
+  let DecoderNamespace = "Nios2";
+}
+
+// Nios2 Instruction Format
+class InstSE<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
+    : Nios2Inst<outs, ins, asmstr, pattern, f> {
+}
+
+//===----------------------------------------------------------------------===//
+// Format I instruction class in Nios2 : <|A|B|immediate|opcode|>
+//===----------------------------------------------------------------------===//
+
+class FI<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>
+    : InstSE<outs, ins, asmstr, pattern, FrmI> {
+  bits<5> rA;
+  bits<5> rB;
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
   bits<16> imm;
 
   let Opcode = op;
 
+<<<<<<< HEAD
   let Inst{31-27} = rA;
   let Inst{26-22} = rB;
   let Inst{21-6} = imm;
+=======
+  let Inst{31 - 27} = rA;
+  let Inst{26 - 22} = rB;
+  let Inst{21 - 6} = imm;
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
 }
 
 //===----------------------------------------------------------------------===//
 // Format R instruction : <|A|B|C|opx|imm|opcode|>
 //===----------------------------------------------------------------------===//
 
+<<<<<<< HEAD
 class FR<bits<6> opx, dag outs, dag ins, string asmstr, list<dag> pattern,
          InstrItinClass itin>: Nios2R1Inst32<outs, ins, asmstr, pattern, itin, FrmR> {
+=======
+class FR<bits<6> opx, dag outs, dag ins, string asmstr, list<dag> pattern>
+    : InstSE<outs, ins, asmstr, pattern, FrmR> {
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
   bits<5> rA;
   bits<5> rB;
   bits<5> rC;
   bits<5> imm = 0;
 
+<<<<<<< HEAD
   let Opcode = 0x3a; /* opcode is always 0x3a for R instr. */
 
   let Inst{31-27} = rA;
@@ -630,3 +701,29 @@ multiclass CommonInstr_I_F2I16<bits<6> op, dag outs, dag ins, string asmstr,
                                list<dag> pattern, InstrItinClass itin> :
   CommonInstr_I_F2I16_op<op, op, outs, ins, asmstr, pattern, itin>;
 
+=======
+  // opcode is always 0x3a for R instr.
+  let Opcode = 0x3a;
+
+  let Inst{31 - 27} = rA;
+  let Inst{26 - 22} = rB;
+  let Inst{21 - 17} = rC;
+  // opx stands for opcode extension
+  let Inst{16 - 11} = opx;
+  // optional 5-bit immediate value
+  let Inst{10 - 6}  = imm;
+}
+
+//===----------------------------------------------------------------------===//
+// Format J instruction class in Nios2 : <|address|opcode|>
+//===----------------------------------------------------------------------===//
+
+class FJ<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>
+    : InstSE<outs, ins, asmstr, pattern, FrmJ> {
+  bits<26> addr;
+
+  let Opcode = op;
+
+  let Inst{31 - 6} = addr;
+}
+>>>>>>> 404324ef9b1f6c22852df722fd2ad228c4d74076
