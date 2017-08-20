@@ -88,7 +88,7 @@ void GlobalCompilerConfig::LoadConfig()
 
 void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
-    if( NULL == pBackendOptions)
+    if( nullptr == pBackendOptions)
     {
         return;
     }
@@ -151,7 +151,7 @@ void CompilerConfig::LoadConfig()
 
 void CompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBackendOptions)
 {
-    if( NULL == pBackendOptions)
+    if( nullptr == pBackendOptions)
     {
         return;
     }

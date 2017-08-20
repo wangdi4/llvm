@@ -76,7 +76,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     class AtomicPointer
     {
     public:
-        AtomicPointer(T* ptr = NULL) : m_ptr(ptr) {}
+        AtomicPointer(T* ptr = nullptr) : m_ptr(ptr) {}
         ~AtomicPointer() {}
 
         T* test_and_set(T* comparand, T* exchange)
@@ -460,7 +460,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
     public:
         OclAutoReader(OclReaderWriterLock* mutexObj, bool bAutoLock = true) : m_mutexObj(mutexObj)
         {
-            assert( (NULL!=m_mutexObj) && "Got invalid object");
+            assert( (nullptr!=m_mutexObj) && "Got invalid object");
             if (bAutoLock)
             {
                 m_mutexObj->EnterRead();

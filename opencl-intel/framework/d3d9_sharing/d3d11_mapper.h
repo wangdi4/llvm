@@ -238,7 +238,7 @@ private:
 
 template<typename RESOURCE_TYPE, typename DESC_TYPE>
 D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::D3d11Mapper(RESOURCE_TYPE* pResource, D3D11_MAP mapType, UINT uiSubresource = 0) :
-m_resource(*pResource), m_mapType(mapType), m_uiSubresource(uiSubresource), m_pDevice(NULL), m_pImmediateContext(NULL), m_pStagingResource(NULL)
+m_resource(*pResource), m_mapType(mapType), m_uiSubresource(uiSubresource), m_pDevice(nullptr), m_pImmediateContext(nullptr), m_pStagingResource(nullptr)
 {
     INIT_LOGGER_CLIENT("D3d11Mapper", Intel::OpenCL::Utils::LL_ERROR);
     m_mappedSubresource.RowPitch = m_mappedSubresource.DepthPitch = 0;
@@ -289,7 +289,7 @@ void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map()
     {
         if (!CopyToStagingResource())
         {
-            return NULL;
+            return nullptr;
         }
         return Map(*m_pStagingResource, 0);
     }    
@@ -310,14 +310,14 @@ void D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Unmap()
         m_pImmediateContext->Unmap(m_pStagingResource, 0);
         /* This action is asynchronous and we can't wait for its completion. If the user tries to read from the resource after this, the driver detects the read-after-write
             hazard and takes care of the synchronization. */
-        m_pImmediateContext->CopySubresourceRegion(&m_resource, m_uiSubresource, 0, 0, 0, m_pStagingResource, 0, NULL);
+        m_pImmediateContext->CopySubresourceRegion(&m_resource, m_uiSubresource, 0, 0, 0, m_pStagingResource, 0, nullptr);
         m_pStagingResource->Release();
-        m_pStagingResource = NULL;
+        m_pStagingResource = nullptr;
     }
     m_pImmediateContext->Release();
-    m_pImmediateContext = NULL;
+    m_pImmediateContext = nullptr;
     m_pDevice->Release();
-    m_pDevice = NULL;
+    m_pDevice = nullptr;
 }
 
 template<typename RESOURCE_TYPE, typename DESC_TYPE>
@@ -328,7 +328,7 @@ void* D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::Map(RESOURCE_TYPE& resource, UINT u
     if (DXGI_ERROR_DEVICE_REMOVED == res)
     {
         LOG_ERROR(TEXT("the video card has been removed"));
-        return NULL;
+        return nullptr;
     }
     assert(S_OK == res);
     return m_mappedSubresource.pData;
@@ -359,13 +359,13 @@ bool D3d11Mapper<RESOURCE_TYPE, DESC_TYPE>::CopyToStagingResource()
 
     assert(!m_pStagingResource);
     m_pStagingResource = CreateResource(stagingResourceDesc);
-    if (NULL == m_pStagingResource)
+    if (nullptr == m_pStagingResource)
     {
         LOG_ERROR(TEXT("cannot create staging resource to copy from default one"));
         return false;
     }
     // this action is asynchronous, but the map we do after it will wait for it to complete
-    m_pImmediateContext->CopySubresourceRegion(m_pStagingResource, 0, 0, 0, 0, &m_resource, m_uiSubresource, NULL);
+    m_pImmediateContext->CopySubresourceRegion(m_pStagingResource, 0, 0, 0, 0, &m_resource, m_uiSubresource, nullptr);
     return true;
 }
 

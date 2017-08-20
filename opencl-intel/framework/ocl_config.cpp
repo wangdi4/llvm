@@ -86,7 +86,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
 
 #ifdef __ANROID__
     
-    FrameworkUserLogger* g_pUserLogger = NULL;
+    FrameworkUserLogger* g_pUserLogger = nullptr;
 #else        
     FrameworkUserLogger* g_pUserLogger = &FrameworkUserLogger::Instance();
 #endif

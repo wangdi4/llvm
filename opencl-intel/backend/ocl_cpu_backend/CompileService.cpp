@@ -57,7 +57,7 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
         const char* pBinaryData = (const char*)pBinary;
         size_t uiBinaryDataSize = uiBinarySize;
 
-        if(NULL == pBinary || uiBinarySize == 0 || NULL == ppProgram)
+        if(nullptr == pBinary || uiBinarySize == 0 || nullptr == ppProgram)
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -117,7 +117,7 @@ cl_dev_err_code CompileService::BuildProgram( ICLDevBackendProgram_* pProgram,
 {
     try
     {
-        if(NULL == pProgram)
+        if(nullptr == pProgram)
         {
             return CL_DEV_INVALID_VALUE;
         }

@@ -142,7 +142,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm1.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_scalarizer"));
     fpm1.add(createDeadCodeEliminationPass());
 
-    WeightedInstCounter* preCounter = NULL;
+    WeightedInstCounter* preCounter = nullptr;
     if (autoVec) {
       preCounter = (WeightedInstCounter*)createWeightedInstCounter(true, m_pConfig->GetCpuId());
       fpm1.add(preCounter);
@@ -263,7 +263,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
       fpm2.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
 
     //We only need the "post" run if there's doubt about what to do.
-    WeightedInstCounter* postCounter = NULL;
+    WeightedInstCounter* postCounter = nullptr;
     if (autoVec) {
       postCounter = (WeightedInstCounter*) createWeightedInstCounter(false,  m_pConfig->GetCpuId());
       fpm2.add(postCounter);
@@ -330,7 +330,7 @@ bool VectorizerCore::runOnFunction(Function &F) {
 } //namespace intel
 
 extern "C"
-intel::VectorizerCore *createVectorizerCorePass(const intel::OptimizerConfig* pConfig=NULL)
+intel::VectorizerCore *createVectorizerCorePass(const intel::OptimizerConfig* pConfig=nullptr)
 {
   return new intel::VectorizerCore(pConfig);
 }

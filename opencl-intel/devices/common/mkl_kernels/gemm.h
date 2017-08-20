@@ -40,11 +40,11 @@ public:
         pCBuffer("pC", type_string<datatype>::ptr().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_NONE, CL_KRNL_ARG_PTR_GLOBAL,this),
         alpha("alpha", type_string<datatype>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, cl_kernel_arg_type_of<datatype>::get_type(), this),
         beta("beta", type_string<datatype>::type().c_str(), CL_KERNEL_ARG_ACCESS_NONE, CL_KERNEL_ARG_TYPE_CONST, cl_kernel_arg_type_of<datatype>::get_type(), this),
-        pArgDescriptor(NULL), pArgInfoDescriptor(NULL)
+        pArgDescriptor(nullptr), pArgInfoDescriptor(nullptr)
         {
             size_t paramCount = GetParamCount();
             pArgDescriptor = new cl_kernel_argument[paramCount];
-            if ( NULL != pArgDescriptor )
+            if ( nullptr != pArgDescriptor )
             {
                 for(size_t i=0; i<paramCount; ++i)
                 {
@@ -53,7 +53,7 @@ public:
                 }
             }
             pArgInfoDescriptor = new cl_kernel_argument_info[paramCount];
-            if ( NULL != pArgInfoDescriptor )
+            if ( nullptr != pArgInfoDescriptor )
             {
                 for(size_t i=0; i<paramCount; ++i)
                 {
@@ -65,11 +65,11 @@ public:
 
     ~MKL_GEMM_Parameters()
     {
-        if ( NULL != pArgDescriptor )
+        if ( nullptr != pArgDescriptor )
         {
             delete[] pArgDescriptor;
         }
-        if ( NULL != pArgInfoDescriptor )
+        if ( nullptr != pArgInfoDescriptor )
         {
             delete[] pArgInfoDescriptor;
         }
@@ -82,7 +82,7 @@ public:
     static const cl_kernel_argument_info* GetKernelArgInfo() {return s_Params.pArgInfoDescriptor;}
 
     static unsigned int GetMemoryObjectArgumentCount() { return s_Params.m_lstMemArgs.size();}
-    static const unsigned int* GetMemoryObjectArgumentIndexes() {return s_Params.m_lstMemArgs.size() > 0 ? &s_Params.m_lstMemArgs[0] : NULL;}
+    static const unsigned int* GetMemoryObjectArgumentIndexes() {return s_Params.m_lstMemArgs.size() > 0 ? &s_Params.m_lstMemArgs[0] : nullptr;}
 
     static const MKLParam<CBLAS_ORDER>& GetOrder() { return s_Params.order; }
     static const MKLParam<CBLAS_TRANSPOSE>& GetTransA() { return s_Params.transA; }

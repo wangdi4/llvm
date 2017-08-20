@@ -162,7 +162,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
 
-        KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
+        KernelArg() : m_pValueLocation(nullptr), m_bValid(false) {}
         
         void Init( char* baseAddress, const cl_kernel_argument& clKernelArgType );
 
@@ -180,7 +180,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void                SetSvmObject( const SharedPtr<ReferenceCountedObject>& svmMemObj ) { m_pSvmPtrArg = svmMemObj; }
 
         size_t              GetLocalBufferSize() const
-            { assert( IsLocalPtr() && (NULL!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
+            { assert( IsLocalPtr() && (nullptr!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
 
         bool                IsMemObject() const { return (CL_KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.type); }
         bool                IsBuffer()    const { return ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type) || 

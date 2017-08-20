@@ -107,9 +107,9 @@ OclListIterator<T> OclList<T>::end()
 template <class T>
 OclListIterator<T>::OclListIterator() 
 {
-	m_position = NULL;
+	m_position = nullptr;
 #ifdef _DEBUG
-	m_end = NULL;
+	m_end = nullptr;
 #endif
 }
 

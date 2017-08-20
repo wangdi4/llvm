@@ -65,7 +65,7 @@ namespace intel {
   bool PreLegalizeBools::testSExt(Instruction * pInst) {
 
     SExtInst * pSExt = dyn_cast<SExtInst>(pInst);
-    if(NULL != pSExt &&
+    if(nullptr != pSExt &&
        pSExt->getSrcTy()->isVectorTy() &&
        pSExt->getSrcTy()->getScalarType()->isIntegerTy(1) &&
        pSExt->getDestTy()->isVectorTy()) {
@@ -106,7 +106,7 @@ namespace intel {
     pOldInst->replaceAllUsesWith(pEdgeTrunc);
     // Update the cache of extended values
     std::map<Value *, Value *> & typedSExtCache = m_sextCache[pNewInst->getType()];
-    typedSExtCache[pOldInst] = NULL; // another Value might be allocated later at this address
+    typedSExtCache[pOldInst] = nullptr; // another Value might be allocated later at this address
     typedSExtCache[pEdgeTrunc] = pNewInst;
     // And erase the old instruction
     pOldInst->eraseFromParent();
@@ -120,7 +120,7 @@ namespace intel {
 
     // Note the reference to pointer
     Value *& pNewVal = m_sextCache[pNewTy][pVal];
-    if(NULL != pNewVal) return pNewVal;
+    if(nullptr != pNewVal) return pNewVal;
 
     // Handle constants
     if(ConstantVector * pConstVec = dyn_cast<ConstantVector>(pVal)) {
@@ -187,7 +187,7 @@ namespace intel {
                                  pArg->getParent()->getEntryBlock().getFirstNonPHI());
     }
 
-    assert(NULL != pNewVal && "unrecognized pattern!");
+    assert(nullptr != pNewVal && "unrecognized pattern!");
     return pNewVal;
   }
 
@@ -260,7 +260,7 @@ namespace intel {
       Value * pOldOp = pOldSExt->getOperand(0);
       m_workSet.erase(workIter);
 
-      Value *  pNewVal = NULL;
+      Value *  pNewVal = nullptr;
       Type * pNewTy = pOldSExt->getType();
 
       if(PHINode * pOldPHI = dyn_cast<PHINode>(pOldOp)) {
@@ -273,7 +273,7 @@ namespace intel {
           if(!pNewIncVal) {
             // give up here to avoid crashes in release
             pNewPHI->eraseFromParent();
-            pNewPHI = NULL;
+            pNewPHI = nullptr;
             break;
           }
           pNewPHI->addIncoming(pNewIncVal, pOldPHI->getIncomingBlock(incN));
@@ -333,7 +333,7 @@ namespace intel {
         pNewVal = m_sextCache[pNewTy][pOldOp] = pEdgeTrunc->getOperand(0);
       }
 
-      assert(NULL != pNewVal && "unrecognized pattern!");
+      assert(nullptr != pNewVal && "unrecognized pattern!");
       pOldSExt->replaceAllUsesWith(pNewVal);
       pOldSExt->eraseFromParent();
     }

@@ -62,7 +62,7 @@ public:
     bool	        Execute() { m_bFired = true; return true;}
     long	        Release() { return 0; }	//Persistent member, don't release
     TASK_PRIORITY	GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
 protected:
     SyncTask() {m_bFired = false;}
@@ -175,7 +175,7 @@ protected:
     base_command_list( TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bProfilingEnabled = false);
 
     virtual unsigned int LaunchExecutorTask(bool blocking,
-                                              const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL) = 0;
+                                              const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr) = 0;
 
     unsigned int InternalFlush(bool blocking);
 
@@ -243,14 +243,14 @@ public:
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL );
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr );
 
 private:
 
     SharedPtr<IThreadLibTaskGroup>			 m_ndrangeChildrenTaskGroup;
 
     in_order_command_list(TBBTaskExecutor& pTBBExec, const Intel::OpenCL::Utils::SharedPtr<TEDevice>& device, const CommandListCreationParam& param, bool bIsDebugList) :
-        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(bIsDebugList ? SharedPtr<TbbTaskGroup>(NULL) : TbbTaskGroup::Allocate())  {}
+        base_command_list(pTBBExec, device, param), m_ndrangeChildrenTaskGroup(bIsDebugList ? SharedPtr<TbbTaskGroup>(nullptr) : TbbTaskGroup::Allocate())  {}
 
 };
 
@@ -301,7 +301,7 @@ public:
     void Spawn(const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask, IThreadLibTaskGroup& taskGroup);
 
 private:
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr);
 
     SharedPtr<SpawningTaskGroup> m_oooTaskGroup;
 
@@ -360,7 +360,7 @@ public:
 
 protected:
 
-    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = NULL);
+    virtual unsigned int LaunchExecutorTask(bool blocking, const Intel::OpenCL::Utils::SharedPtr<ITaskBase>& pTask = nullptr);
 
 private:
     tbb::affinity_partitioner m_ap;

@@ -42,7 +42,7 @@ bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue)
     return false;
   // Entry is found in VCM
   VCMEntry * foundEntry = m_VCM[origValue];
-  if (foundEntry->vectorValue != NULL)
+  if (foundEntry->vectorValue != nullptr)
   {
     // Vectored value is found (pre-prepared)
     return false;
@@ -65,7 +65,7 @@ bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue)
   //   %temp.vect.1 = insertelement <4 x type> %indx.vect.0, type %scalar.1, i32 1
   //   %temp.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
   //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
-  V_ASSERT(NULL != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
+  V_ASSERT(nullptr != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
 
   // If we are going to use many insert elemenets to create this vector,
   // then if the vector is a PHI-Node, perhaps it is better
@@ -87,7 +87,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
     {
       // Entry is found in VCM
       VCMEntry * foundEntry = m_VCM[origValue];
-      if (foundEntry->vectorValue != NULL)
+      if (foundEntry->vectorValue != nullptr)
       {
         // Vectored value is found (pre-prepared)
         *retValue = foundEntry->vectorValue;
@@ -114,7 +114,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
           //   %temp.vect.1 = insertelement <4 x type> %indx.vect.0, type %scalar.1, i32 1
           //   %temp.vect.2 = insertelement <4 x type> %indx.vect.1, type %scalar.2, i32 2
           //   %temp.vect.3 = insertelement <4 x type> %indx.vect.2, type %scalar.3, i32 3
-          V_ASSERT(NULL != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
+          V_ASSERT(nullptr != foundEntry->multiScalarValues[0] && "expected to find multi-scalar");
           UndefValue *undefVect =
             UndefValue::get(VectorType::get(origValue->getType(), m_packetWidth));
 
@@ -222,7 +222,7 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
           //       of this SExt/ZExt are non-packetiziable
 
           SmallVector<Value *, 16> nonExtValues(m_packetWidth);
-          obtainMultiScalarValues(nonExtValues.data(), origInst->getOperand(0), NULL);
+          obtainMultiScalarValues(nonExtValues.data(), origInst->getOperand(0), nullptr);
 
           Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
           for (unsigned index = 0; index < m_packetWidth; ++index) {
@@ -316,8 +316,8 @@ PacketizeFunction::VCMEntry* PacketizeFunction::allocateNewVCMEntry()
   }
   VCMEntry * newEntry = &(m_VCMAllocationArray[m_VCMArrayLocation++]);
   // Make sure the entry is clean
-  newEntry->vectorValue = NULL;
-  newEntry->multiScalarValues[0] = NULL;
+  newEntry->vectorValue = nullptr;
+  newEntry->multiScalarValues[0] = nullptr;
   return newEntry;
 }
 
@@ -346,7 +346,7 @@ void PacketizeFunction::createDummyVectorVal(Value *origValue, Value **vectorVal
   if (m_deferredResMap.count(origValue))
   {
     dummyEntry = m_deferredResMap[origValue];
-    if (NULL != dummyEntry->vectorValue)
+    if (nullptr != dummyEntry->vectorValue)
     {
       // Dummy values already exist. use them
       V_PRINT(packetizer, "\t\tFound existing Dummy Vector value/s \n");
@@ -385,7 +385,7 @@ void PacketizeFunction::createDummyMultiScalarVals(Value *origValue, Value *mult
   if (m_deferredResMap.count(origValue))
   {
     dummyEntry = m_deferredResMap[origValue];
-    if (dummyEntry->multiScalarValues[0] != NULL)
+    if (dummyEntry->multiScalarValues[0] != nullptr)
     {
       // Dummy values already exist. use them..
       V_PRINT(packetizer, "\t\tFound existing Dummy Multi-scalar value/s \n");
@@ -434,12 +434,12 @@ bool PacketizeFunction::resolveDeferredInstructions()
     }
 
     // check (in the dummy values) if vectorized values are required
-    if (NULL != dummyEntry->vectorValue)
+    if (nullptr != dummyEntry->vectorValue)
     {
       Value *resolvedVal;
       // Plcing "NULL" as the "origInst" value in obtainVectorizedValues
       // should be safe, as long as we know there is a VCM entry...
-      obtainVectorizedValue(&resolvedVal, origVal, NULL);
+      obtainVectorizedValue(&resolvedVal, origVal, nullptr);
 
       // Replace dummy value with proper value
       dummyEntry->vectorValue->replaceAllUsesWith(resolvedVal);
@@ -448,12 +448,12 @@ bool PacketizeFunction::resolveDeferredInstructions()
     }
 
     // check (in the dummy values) if multi scalar values are required
-    if (NULL != dummyEntry->multiScalarValues[0])
+    if (nullptr != dummyEntry->multiScalarValues[0])
     {
       Value * resolvedVals[MAX_PACKET_WIDTH];
       // Placing "NULL" as the "origInst" value in obtainMultiScalarValues should be safe,
       // as long as we know there is a VCM entry...
-      obtainMultiScalarValues(resolvedVals, origVal, NULL);
+      obtainMultiScalarValues(resolvedVals, origVal, nullptr);
 
       // Replace dummy values with proper values
       for (unsigned i = 0; i < m_packetWidth; ++i)

@@ -50,7 +50,7 @@ DebuggingServiceWrapper DebuggingServiceWrapper::instance;
 
 DebuggingServiceWrapper::DebuggingServiceWrapper()
     : m_dll_loaded(false), 
-    m_init_func(NULL), m_terminate_func(NULL), m_instance_func(NULL)    
+    m_init_func(nullptr), m_terminate_func(nullptr), m_instance_func(nullptr)
 {
 }
 
@@ -92,9 +92,9 @@ void DebuggingServiceWrapper::Terminate()
     if (m_dll_loaded) {
         m_terminate_func();
         
-        m_init_func = NULL;
-        m_terminate_func = NULL;
-        m_instance_func = NULL;
+        m_init_func = nullptr;
+        m_terminate_func = nullptr;
+        m_instance_func = nullptr;
         m_dll_loaded = false;
     }
 }
@@ -105,7 +105,7 @@ ICLDebuggingService* DebuggingServiceWrapper::GetDebuggingService()
     if (m_dll_loaded)
         return m_instance_func();
     else
-        return NULL;
+        return nullptr;
 }
 
 

@@ -55,7 +55,7 @@ static cl_dev_err_code s_init_result = CL_DEV_SUCCESS;
 bool s_ignore_termination = false;
 
 // include shutdown protocol support for runtime
-USE_SHUTDOWN_HANDLER(NULL);
+USE_SHUTDOWN_HANDLER(nullptr);
 
 #if defined(_WIN32)
 

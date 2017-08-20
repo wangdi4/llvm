@@ -341,13 +341,13 @@ struct TypeComp {
     VectorType *VTypeLeft = dyn_cast<VectorType>(Left);
     VectorType *VTypeRight= dyn_cast<VectorType>(Right);
 
-    if( NULL != VTypeRight && NULL == VTypeLeft )
+    if( nullptr != VTypeRight && nullptr == VTypeLeft )
         return true;
 
-    if( NULL == VTypeRight && NULL != VTypeLeft )
+    if( nullptr == VTypeRight && nullptr != VTypeLeft )
         return false;
 
-    if( NULL != VTypeLeft && NULL != VTypeRight)
+    if( nullptr != VTypeLeft && nullptr != VTypeRight)
       if (VTypeLeft->getNumElements() != VTypeRight->getNumElements())
         return (VTypeLeft->getNumElements() < VTypeRight->getNumElements());
 
@@ -1142,7 +1142,7 @@ void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* pr
   // this method is just for statistical purposes.
   OCLSTAT_GATHER_CHECK(
   Statistic::ActiveStatsT kernelStats;
-  Function* F = NULL;
+  Function* F = nullptr;
   int vectorizedVersionIsBetter = 0;
   int scalarVersionIsBetter = 0;
   for (std::map<BasicBlock*, int>::iterator it = preCosts->begin(),
@@ -1265,7 +1265,7 @@ bool CanVectorizeImpl::isReducibleControlFlow(Function& F, DominatorTree& DT) {
   toProcess.insert(&F.getEntryBlock());
 
   while (!toProcess.empty()) {
-    BasicBlock* next = NULL;
+    BasicBlock* next = nullptr;
     // Find a free node
     llvm::SmallSet<BasicBlock*, 16>::iterator bb(toProcess.begin());
     llvm::SmallSet<BasicBlock*, 16>::iterator bbe(toProcess.end());

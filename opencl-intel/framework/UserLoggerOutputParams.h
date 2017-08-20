@@ -51,7 +51,7 @@ public:
      * @param apiLogger the ApiLogger that collects log data in the current API call function
      * @param specialPrinter an optinal SpecialOutputParamPrinter to use
      */
-    OutputParamsValueProvider(Intel::OpenCL::Utils::ApiLogger& apiLogger, const SpecialOutputParamPrinter* specialPrinter = NULL) :
+    OutputParamsValueProvider(Intel::OpenCL::Utils::ApiLogger& apiLogger, const SpecialOutputParamPrinter* specialPrinter = nullptr) :
         m_apiLogger(apiLogger), m_specialPrinter(specialPrinter) { }
 
     /**

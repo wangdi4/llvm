@@ -96,7 +96,7 @@ bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     pProgram->SetModule(pModule);
 
     // deserialize the management objects
-    std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
+    std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(nullptr));
      pMICSerializationService->ReloadProgram(
        SERIALIZE_OFFLOAD_IMAGE,
        pProgram,
@@ -116,7 +116,7 @@ bool MICProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     Utils::UpdateKernelsWithRuntimeService( lRuntimeService, pProgram->GetKernelSet() );
 
     // update kernel mapper (OCL2.0) and run global ctors
-    PostBuildProgramStep( pProgram, pModule, NULL );
+    PostBuildProgramStep( pProgram, pModule, nullptr );
     return true;
 }
 
@@ -126,7 +126,7 @@ void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
 
     // calculate the required buffer size
     size_t serializationSize = 0;
-     std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(NULL));
+     std::auto_ptr<MICSerializationService> pMICSerializationService(new MICSerializationService(nullptr));
      pMICSerializationService->GetSerializationBlobSize(
         SERIALIZE_OFFLOAD_IMAGE, pProgram, &serializationSize);
 
@@ -155,7 +155,7 @@ void MICProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     }
     else
     {
-        pProgram->SetObjectCodeContainer(NULL);
+        pProgram->SetObjectCodeContainer(nullptr);
     }
 }
 
@@ -202,15 +202,15 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
                       spKernelJITProps.release());
 
         //TODO (AABOUD): is this redundant code?
-        const llvm::Type *vTypeHint = NULL; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
+        const llvm::Type *vTypeHint = nullptr; //pFunc->getVectTypeHint(); //TODO: R namespace micead from metadata (Guy)
         bool dontVectorize = false;
 
-        if( NULL != vTypeHint)
+        if( nullptr != vTypeHint)
         {
             //currently if the vector_type_hint attribute is set
             //we types that vector length is below 4, vectorizer restriction
             const llvm::VectorType* pVect = llvm::dyn_cast<llvm::VectorType>(vTypeHint);
-            if( ( NULL != pVect) && pVect->getNumElements() >= 4)
+            if( ( nullptr != pVect) && pVect->getNumElements() >= 4)
             {
                 dontVectorize = true;
             }
@@ -225,7 +225,7 @@ KernelSet* MICProgramBuilder::CreateKernels(Program* pProgram,
                    "if the vector kernel is inlined the entry of the vector "
                    "kernel should be NULL");
 
-            if(NULL != pVecFunc && !dontVectorize)
+            if(nullptr != pVecFunc && !dontVectorize)
             {
                 KernelInfoMetaDataHandle vkimd = mdUtils.getKernelsInfoItem(pVecFunc);
                 // Obtain kernel wrapper function from metadata info
@@ -282,7 +282,7 @@ void MICProgramBuilder::PostOptimizationProcessing(Program* pProgram, llvm::Modu
     assert(spModule && "Invalid module for post optimization processing.");
 
     std::string dumpAsm("");
-    if(NULL != pOptions)
+    if(nullptr != pOptions)
     {
       dumpAsm = pOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DUMPFILE, "");
     }
@@ -374,6 +374,6 @@ IBlockToKernelMapper * MICProgramBuilder::CreateBlockToKernelMapper(Program* pPr
 {
   assert(0 && "CreateBlockToKernelMapper not implemented");
   abort();
-  return NULL;
+  return nullptr;
 }
 }}} // namespace

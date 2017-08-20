@@ -82,7 +82,7 @@ bool getIRFileNames(const char *dirName, vector<string> &fileList)
 {
   DIR *dirp = opendir(dirName);
   // report if the given directory is not found
-  if (dirp == NULL) {
+  if (dirp == nullptr) {
     cout << "Error: Can't find directory " << dirName <<"\n";
     return false;
   }
@@ -96,7 +96,7 @@ bool getIRFileNames(const char *dirName, vector<string> &fileList)
   // traverse all files in a directory.
   // if a file ends with .ll and this is a regular file
   // keep it in the file list
-  while ((dp = readdir(dirp)) != NULL) {
+  while ((dp = readdir(dirp)) != nullptr) {
     fileName.resize(size);
     fileName.append(dp->d_name);
     if (isIRFileName(fileName.c_str()) &&

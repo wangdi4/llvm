@@ -53,10 +53,10 @@ using namespace Intel::OpenCL::MICDevice;
 
 USE_SHUTDOWN_HANDLER( MICDevice::unloadRelease );
 
-HostTracer* MICDevice::m_tracer = NULL;
+HostTracer* MICDevice::m_tracer = nullptr;
 
-set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = NULL;
-OclMutex*              MICDevice::m_mic_instancies_mutex = NULL;
+set<IOCLDeviceAgent*>* MICDevice::m_mic_instancies = nullptr;
+OclMutex*              MICDevice::m_mic_instancies_mutex = nullptr;
 Intel::OpenCL::Utils::OclDynamicLib	MICDevice::m_sDllCOILib;
 
 typedef struct _cl_dev_internal_cmd_list
@@ -65,15 +65,15 @@ typedef struct _cl_dev_internal_cmd_list
     cl_dev_subdevice_id subdevice_id;
 } cl_dev_internal_cmd_list;
 
-static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {NULL,0,1,0};
+static struct Intel::OpenCL::ClangFE::CLANG_DEV_INFO MICDevInfo = {nullptr,0,1,0};
 
 #ifdef USE_ITT
-ocl_gpa_data* MICDevice::g_pGPAData = NULL;
+ocl_gpa_data* MICDevice::g_pGPAData = nullptr;
 #endif
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
-FrameworkUserLogger* g_pUserLogger = NULL;
+FrameworkUserLogger* g_pUserLogger = nullptr;
 
 }}}
 
@@ -147,7 +147,7 @@ MICDevice::TMicsSet MICDevice::FilterMicDevices( size_t count, const IOCLDeviceA
 
 MICDevice::MICDevice(cl_uint uiMicId, IOCLFrameworkCallbacks *devCallbacks, IOCLDevLogDescriptor *logDesc)
     : m_pFrameworkCallBacks(devCallbacks), m_uiMicId(uiMicId),
-    m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(NULL), m_pDeviceServiceComm(NULL)
+    m_pLogDescriptor(logDesc), m_iLogHandle (0), m_defaultCommandList(nullptr), m_pDeviceServiceComm(nullptr)
 {
 #if 0 // this is infrastructure for the future
     try
@@ -165,7 +165,7 @@ cl_dev_err_code MICDevice::Init()
 {
     CommandList::initializeBatchMode();
     m_tracer = HostTracer::getHostTracerInstace();
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, "MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -189,7 +189,7 @@ cl_dev_err_code MICDevice::Init()
 
     // initialize the notificationPort mechanism.
     m_pNotificationPort = NotificationPort::notificationPortFactory(NOTIFICATION_PORT_MAX_BARRIERS, g_pGPAData);
-    if (NULL == m_pNotificationPort)
+    if (nullptr == m_pNotificationPort)
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -197,7 +197,7 @@ cl_dev_err_code MICDevice::Init()
     m_pProgramService = new ProgramService( m_uiMicId, m_pFrameworkCallBacks, m_pLogDescriptor,
                                            *m_pDeviceServiceComm);
 
-    if (NULL == m_pProgramService)
+    if (nullptr == m_pProgramService)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -205,13 +205,13 @@ cl_dev_err_code MICDevice::Init()
     if (!m_pProgramService->Init())
     {
         delete m_pProgramService;
-        m_pProgramService = NULL;
+        m_pProgramService = nullptr;
         return CL_DEV_ERROR_FAIL;
     }
 
     m_pMemoryAllocator = MemoryAllocator::getMemoryAllocator( m_uiMicId, m_pLogDescriptor, MIC_MAX_BUFFER_ALLOC_SIZE(m_uiMicId) );
 
-    if (NULL == m_pMemoryAllocator)
+    if (nullptr == m_pMemoryAllocator)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -255,18 +255,18 @@ void MICDevice::unloadRelease()
     assert(GetActiveMicDevices().size() == 0);
 
 #ifdef USE_ITT
-    if ( NULL != g_pGPAData )
+    if ( nullptr != g_pGPAData )
     {
         delete g_pGPAData;
-        g_pGPAData = NULL;
+        g_pGPAData = nullptr;
     }
 #endif
 
     delete m_mic_instancies;
-    m_mic_instancies = NULL;
+    m_mic_instancies = nullptr;
 
     delete m_mic_instancies_mutex;
-    m_mic_instancies_mutex = NULL;
+    m_mic_instancies_mutex = nullptr;
 }
 
 
@@ -280,14 +280,14 @@ cl_dev_err_code clDevCreateDeviceInstance(  cl_uint        dev_id,
                                    FrameworkUserLogger* pUserLogger
                                    )
 {
-    if(NULL == pDevCallBacks || NULL == pDevice)
+    if(nullptr == pDevCallBacks || nullptr == pDevice)
     {
         return CL_DEV_INVALID_OPERATION;
     }
 
     g_pUserLogger = pUserLogger;
     MICDevice *pNewDevice = new MICDevice(dev_id, pDevCallBacks, pLogDesc);
-    if ( NULL == pNewDevice )
+    if ( nullptr == pNewDevice )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -323,7 +323,7 @@ const char* MICDevice::clDevFEModuleName() const
 
 const void* MICDevice::clDevFEDeviceInfo() const
 {
-  if ( NULL == MICDevInfo.sExtensionStrings)
+  if ( nullptr == MICDevInfo.sExtensionStrings)
   {
     MICDevInfo.sExtensionStrings =
       MICSysInfo::getInstance().getSupportedOclExtensions( m_uiMicId );
@@ -425,7 +425,7 @@ cl_dev_err_code MICDevice::clDevFlushCommandList( cl_dev_cmd_list IN list)
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevFlushCommandList Function enter");
     CommandList* pList = (CommandList*)list;
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -444,7 +444,7 @@ cl_dev_err_code MICDevice::clDevRetainCommandList( cl_dev_cmd_list IN list)
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevRetainCommandList Function enter");
     CommandList* pList = (CommandList*)list;
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -463,7 +463,7 @@ cl_dev_err_code MICDevice::clDevReleaseCommandList( cl_dev_cmd_list IN list )
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevReleaseCommandList Function enter");
     CommandList* pList = (CommandList*)list;
-    if (NULL == pList)
+    if (nullptr == pList)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -490,10 +490,10 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
     }
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCommandListExecute Function enter");
-    if (NULL != list)
+    if (nullptr != list)
     {
         CommandList* pList = (CommandList*)list;
-        if (NULL == pList)
+        if (nullptr == pList)
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -504,7 +504,7 @@ cl_dev_err_code MICDevice::clDevCommandListExecute( cl_dev_cmd_list IN list, cl_
         // default list was requested for out-of-bound actions
         cl_dev_err_code err;
 
-        if (NULL == m_defaultCommandList)
+        if (nullptr == m_defaultCommandList)
         {
 
             err = CreateCommandList( false, CL_DEV_LIST_ENABLE_OOO, 0, (cl_dev_cmd_list*)&m_defaultCommandList );
@@ -537,10 +537,10 @@ cl_dev_err_code MICDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, "%s", "clDevCommandListWaitCompletion Function enter");
 
-    if (NULL != list)
+    if (nullptr != list)
     {
         CommandList* pList = (CommandList*)list;
-        if (NULL == pList)
+        if (nullptr == pList)
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -561,10 +561,10 @@ cl_dev_err_code MICDevice::clDevCommandListCancel(cl_dev_cmd_list IN list)
 
     MicInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevCommandListCancel Function enter"));
 
-    if (NULL != list)
+    if (nullptr != list)
     {
         CommandList* pList = (CommandList*)list;
-        if (NULL == pList)
+        if (nullptr == pList)
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -593,7 +593,7 @@ cl_dev_err_code MICDevice::clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease)
     {
         Command* pCmd = (Command*)cmdToRelease->device_agent_data;
 
-        cmdToRelease->device_agent_data = NULL;
+        cmdToRelease->device_agent_data = nullptr;
 
         if (pCmd)
         {
@@ -859,12 +859,12 @@ cl_dev_err_code MICDevice::clDevSetLogger(IOCLDevLogDescriptor *pLogDescriptor)
         return CL_DEV_ERROR_FAIL;
     }
 
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
     m_pLogDescriptor = pLogDescriptor;
-    if ( NULL != m_pLogDescriptor )
+    if ( nullptr != m_pLogDescriptor )
     {
         cl_dev_err_code ret = (cl_dev_err_code)m_pLogDescriptor->clLogCreateClient(m_uiMicId, "MIC Device", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -896,16 +896,16 @@ void MICDevice::clDevCloseDevice(void)
 void MICDevice::clDevCloseDeviceInt(bool preserve_object)
 {
     // release notification port
-    if (NULL != m_pNotificationPort)
+    if (nullptr != m_pNotificationPort)
     {
         m_pNotificationPort->release();
-        m_pNotificationPort = NULL;
+        m_pNotificationPort = nullptr;
     }
 
-    if (NULL != m_defaultCommandList)
+    if (nullptr != m_defaultCommandList)
     {
         clDevReleaseCommandList((cl_dev_cmd_list*)m_defaultCommandList);
-        m_defaultCommandList = NULL;
+        m_defaultCommandList = nullptr;
     }
 
     if ( 0 != m_iLogHandle)
@@ -914,16 +914,16 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
         m_iLogHandle = 0;
     }
 
-    if ( NULL != m_pProgramService )
+    if ( nullptr != m_pProgramService )
     {
         delete m_pProgramService;
-        m_pProgramService = NULL;
+        m_pProgramService = nullptr;
     }
 
-    if ( NULL != m_pMemoryAllocator )
+    if ( nullptr != m_pMemoryAllocator )
     {
         m_pMemoryAllocator->Release();
-        m_pMemoryAllocator = NULL;
+        m_pMemoryAllocator = nullptr;
     }
 
     // delete commandList objects (If not released by the client)
@@ -937,7 +937,7 @@ void MICDevice::clDevCloseDeviceInt(bool preserve_object)
     if (m_pDeviceServiceComm)
     {
         delete(m_pDeviceServiceComm);
-        m_pDeviceServiceComm = NULL;
+        m_pDeviceServiceComm = nullptr;
     }
 
     if (! preserve_object)

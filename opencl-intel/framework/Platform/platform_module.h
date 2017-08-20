@@ -160,7 +160,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code clRetainDevice(cl_device_id device);
 
         bool CheckPlatformId(cl_platform_id clPlatform) const { return (clPlatform == &m_clPlatformId ) ||
-            (clPlatform==NULL); }
+            (clPlatform==nullptr); }
 
         //
         // Utilities

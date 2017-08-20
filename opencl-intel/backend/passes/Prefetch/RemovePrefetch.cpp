@@ -62,7 +62,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   bool RemovePrefetch::runOnModule(Module &M) {
 
-    bool removePF = getenv("DISMPF") != NULL;
+    bool removePF = getenv("DISMPF") != nullptr;
 
     // do not execute this pass unless the user asked to remove manual
     // prefetches or the user is collecting stats for this pass
@@ -85,7 +85,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
              ++II) {
           Instruction *I = &*II;
           CallInst* pCallInst;
-          if ((pCallInst = dyn_cast<CallInst>(I)) != NULL &&
+          if ((pCallInst = dyn_cast<CallInst>(I)) != nullptr &&
               pCallInst->getCalledFunction()) {
             StringRef Name = pCallInst->getCalledFunction()->getName();
             if (Name.size() >= m_prefetchBuiltinPrefix.size() &&

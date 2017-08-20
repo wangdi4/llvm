@@ -29,11 +29,11 @@ namespace Intel { namespace OpenCL { namespace Framework
 
 D3D9Surface::~D3D9Surface()
 {
-    if (GetResourceInfo() != NULL)
+    if (GetResourceInfo() != nullptr)
     {
         IDirect3DSurface9* const pSurface = static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
         D3D9Context& context = *m_pContext.DynamicCast<D3D9Context>();
-        if (NULL != context.GetSurfaceLocker(pSurface))
+        if (nullptr != context.GetSurfaceLocker(pSurface))
         {
             context.ReleaseSurfaceLocker(pSurface);
         }        
@@ -65,7 +65,7 @@ void* D3D9Surface::Lock()
     const D3DFORMAT format = GetDesc(*GetResourceInfo()).Format;
     if (MAKEFOURCC('N', 'V', '1', '2') != format && MAKEFOURCC('Y', 'V', '1', '2') != format)
     {
-        res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());            
+        res = pSurface->LockRect(&lockedRect, nullptr, GetD3D9Flags());            
         assert(D3D_OK == res);
         return lockedRect.pBits;
     }
@@ -85,10 +85,10 @@ void* D3D9Surface::Lock()
     const UINT plane = dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane;
     SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
     void* const pData = pSurfaceLocker->Lock();
-	assert(NULL != pData);
-	if (NULL == pData)
+	assert(nullptr != pData);
+	if (nullptr == pData)
 	{
-		return NULL;
+		return nullptr;
 	}
     assert(0 == plane || 1 == plane || 2 == plane);
     if (0 == plane)
@@ -109,7 +109,7 @@ bool D3D9Surface::ObtainPitch(size_t& szPitch)
     IDirect3DSurface9* const pSurface =
         static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
     const SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
-    if (NULL != pSurfaceLocker)
+    if (nullptr != pSurfaceLocker)
     {
         if (MAKEFOURCC('Y', 'V', '1', '2') != GetDesc(*GetResourceInfo()).Format ||
             0 == dynamic_cast<const D3D9SurfaceResourceInfo*>(GetResourceInfo())->m_plane)
@@ -124,7 +124,7 @@ bool D3D9Surface::ObtainPitch(size_t& szPitch)
         return true;
     }
     D3DLOCKED_RECT lockedRect;
-    HRESULT res = pSurface->LockRect(&lockedRect, NULL, GetD3D9Flags());
+    HRESULT res = pSurface->LockRect(&lockedRect, nullptr, GetD3D9Flags());
     if (D3D_OK != res)
     {
         return false;
@@ -140,7 +140,7 @@ void D3D9Surface::Unlock()
     IDirect3DSurface9* const pSurface =
         static_cast<IDirect3DSurface9*>(GetResourceInfo()->m_pResource);
     SurfaceLocker* const pSurfaceLocker = m_pContext.DynamicCast<D3D9Context>()->GetSurfaceLocker(pSurface);
-    if (NULL != pSurfaceLocker)
+    if (nullptr != pSurfaceLocker)
     {
         pSurfaceLocker->Unlock();
     }
@@ -220,7 +220,7 @@ cl_err_code D3D9Surface::GetImageInfoInternal(const cl_image_info clParamName, s
             return D3DImage2D<IDirect3DResource9, IDirect3DDevice9, D3DSURFACE_DESC>::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
         }            
     }
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
@@ -346,7 +346,7 @@ cl_err_code D3D11Buffer::Initialize(cl_mem_flags clMemFlags, const cl_image_form
     ID3D11Buffer* const pBuffer = static_cast<ID3D11Buffer*>(resourceInfo.m_pResource);
     
     m_pBufferMapper = new D3d11BufferMapper(pBuffer, D3d11BufferMapper::GetD3d11Map(clMemFlags));
-    if (NULL == m_pBufferMapper)
+    if (nullptr == m_pBufferMapper)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -395,7 +395,7 @@ cl_err_code D3D11Texture2D::GetImageInfoInternal(const cl_image_info clParamName
     default:
         return D3DImage2D<ID3D11Resource, ID3D11Device, D3D11_TEXTURE2D_DESC>::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
     }
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
@@ -609,7 +609,7 @@ cl_err_code D3D11Texture3D::GetImageInfoInternal(const cl_image_info clParamName
     default:
         return D3DResource::GetImageInfoInternal(clParamName, szSize, pParamValue, szParamValueSize);
     }
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }

@@ -118,7 +118,7 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 
 	size_t szSize = 0;
 	volatile cl_context clContext = 0;
-	const void * pValue = NULL;
+	const void * pValue = nullptr;
 	
 	cl_err_code clErrRet = CL_SUCCESS;
 	switch ( (cl_mem_info)iParamName )
@@ -155,19 +155,19 @@ cl_err_code	Sampler::GetInfo(cl_int iParamName, size_t szParamValueSize, void * 
 	}
 
 	// if param_value_size < actual value size return CL_INVALID_VALUE
-	if (NULL != pParamValue && szParamValueSize < szSize)
+	if (nullptr != pParamValue && szParamValueSize < szSize)
 	{
 		LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize, szSize);
 		return CL_INVALID_VALUE;
 	}
 
 	// return param value size
-	if (NULL != pszParamValueSizeRet)
+	if (nullptr != pszParamValueSizeRet)
 	{
 		*pszParamValueSizeRet = szSize;
 	}
 
-	if (NULL != pParamValue && szSize > 0)
+	if (nullptr != pParamValue && szSize > 0)
 	{
 		MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
 	}

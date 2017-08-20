@@ -22,7 +22,7 @@ namespace intel {
     assert(!Builtins.empty() && "No builtin module");
 
     for (SmallVector<Module*, 2>::iterator it = Builtins.begin(); it != Builtins.end(); ++it) {
-        assert(*it != NULL && "UndefExternalFuncs::runOnModule has null ptr in Bltns");
+        assert(*it != nullptr && "UndefExternalFuncs::runOnModule has null ptr in Bltns");
         m_RuntimeModules.push_back(*it);
     }
 
@@ -57,7 +57,7 @@ namespace intel {
       // body might not be materialized yet and is reported
       // as declaration in that case. (This behaviour was fixed in LLVM 3.6)
       // We report a function as found iff it is already materialized or is materialazible.
-      if(pFunc != NULL &&
+      if(pFunc != nullptr &&
         (pFunc->isMaterializable() || !pFunc->isDeclaration())) {
         return true;
       }
@@ -114,7 +114,7 @@ namespace intel {
     // Some builtin functions supplied by the backend itself, need to check if the LLVM
     // knows the implementation of the required function
     void* ptr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(name);
-    return (ptr != NULL);
+    return (ptr != nullptr);
   }
 
 

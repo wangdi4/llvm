@@ -48,7 +48,7 @@ static volatile LONG			g_plFragmentsWaiting[MAX_WORKING_THREADS_COUNT] = {0};
 static volatile LONG			g_plFragmentsNotFinished[MAX_WORKING_THREADS_COUNT] = {0};
 
 // events that will be use to notify on task sets
-static HANDLE		g_pevTaskSetEvents[MAX_WORKING_THREADS_COUNT] = {NULL};
+static HANDLE		g_pevTaskSetEvents[MAX_WORKING_THREADS_COUNT] = {nullptr};
 
 // When new fragments are ready for execution in thread i, the relevant bit will be set to 1
 static volatile LONG			g_lNotifyMask = 0;
@@ -69,7 +69,7 @@ WorkerThread::WorkerThread(int iQueueId, bool bUseTaskalyzer)
 	m_iNumTasks		 = 0;
 	m_hEventComplete = 0;
 	m_iQueueId       = iQueueId;
-	m_pCurrentTaskSet = NULL;
+	m_pCurrentTaskSet = nullptr;
 	m_bUseTaskalyzer = bUseTaskalyzer;
 
 	InitializeCriticalSectionAndSpinCount(&m_QueueLock, 4000);
@@ -111,7 +111,7 @@ WorkerThread::~WorkerThread()
 	// and then waits for it to complete
 	if ( m_hThread ) 
 	{
-		EnqueueTask(NULL);
+		EnqueueTask(nullptr);
 		//m_pTaskQueue->Enqueue(NULL);
 
 		// Wait on the thread, until it completes
@@ -148,7 +148,7 @@ void WorkerThread::EnqueueTask(ITaskWrapper * pTaskWrapper)
 
 bool WorkerThread::ExecutionRoutine()
 {
-	ITaskWrapper *pTaskBase = NULL;
+	ITaskWrapper *pTaskBase = nullptr;
 	long lNumTasks = 0;
 	lNumTasks = ::InterlockedCompareExchange(&m_iNumTasks, 0, 0);
 	while (lNumTasks)
@@ -162,7 +162,7 @@ bool WorkerThread::ExecutionRoutine()
 		}
 		::LeaveCriticalSection( &m_QueueLock );
 
-		if (NULL == pTaskBase)
+		if (nullptr == pTaskBase)
 		{
 			return true;
 		}
@@ -194,8 +194,8 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 		// Signal the pool manager that we are ready ...
 		SetEvent( pWorkerThread->m_hEvent );
 
-		ITaskWrapper * pTaskBase = NULL;
-		CTaskSetFragment * pFragment = NULL;
+		ITaskWrapper * pTaskBase = nullptr;
+		CTaskSetFragment * pFragment = nullptr;
 
 		DWORD dwNotifyIndex = 0;
 		bool bExitLoop = false;
@@ -239,7 +239,7 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 						// Detach from thread executed inside execution when no additional Fragment exists
 						pFragment = pFragment->ExecuteAndGetNext(pWorkerThread->m_iQueueId);
 					} 
-					while (pFragment!= NULL);
+					while (pFragment!= nullptr);
 				}
 			}
 
@@ -263,7 +263,7 @@ unsigned int WorkerThread::ThreadFunc( LPVOID lpvThreadParam )
 							do {
 								// Detach from thread executed inside execution when no additional Fragment exists
 								pFragment = pFragment->ExecuteAndGetNext(pWorkerThread->m_iQueueId);
-							} while (pFragment != NULL);
+							} while (pFragment != nullptr);
 						}
 					}
 					lNotifyMask <<= 1;
@@ -295,7 +295,7 @@ int WorkerThread::WaitForCompletion()
 	::WaitForSingleObject( m_hEventComplete, INFINITE );
 
 	::CloseHandle( m_hEventComplete );
-	m_hEventComplete = NULL;
+	m_hEventComplete = nullptr;
 
 	return 0;
 }
@@ -305,7 +305,7 @@ CTaskSetFragment * WorkerThread::GetNextFragment()
 	long lWaitingCount = InterlockedDecrement(&g_plFragmentsWaiting[m_iQueueId]);
 	if ( lWaitingCount < 0 )
 	{
-		return NULL;
+		return nullptr;
 	}
 #ifdef _DEBUG
 	long lInit = InterlockedCompareExchange( &g_lTaskSetInit[m_iQueueId], 0, 0);
@@ -317,14 +317,14 @@ CTaskSetFragment * WorkerThread::GetNextFragment()
 	long lCount = ::InterlockedCompareExchange(&g_plFragmentsNotFinished[m_iQueueId], 0, 0);
 	assert(lCount>0);
 #endif
-	CTaskSet* pTaskSet = (CTaskSet*)InterlockedCompareExchangePointer((void**)&m_pCurrentTaskSet, NULL, NULL);
-	if ( NULL != pTaskSet )
+	CTaskSet* pTaskSet = (CTaskSet*)InterlockedCompareExchangePointer((void**)&m_pCurrentTaskSet, nullptr, nullptr);
+	if ( nullptr != pTaskSet )
 	{
 		return pTaskSet->GetFragment(lWaitingCount);
 	}
 
 	printf("--->>>> !!!! Error: m_pCurrentTaskSet=NULL, lWaitingCount=%d\n", lWaitingCount);
-	return  NULL;
+	return  nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -468,7 +468,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 		pFragment->getFirstWGID(firstWGID);
 		pFragment->getLastWGID(lastWGID);
         // TODO: pass something meaningful to AttachTo/DetachFromThread
-		m_pTaskSet->AttachToThread(NULL, pFragment->Size(), firstWGID, lastWGID);
+		m_pTaskSet->AttachToThread(nullptr, pFragment->Size(), firstWGID, lastWGID);
 		bExecuted = true;
 	}
 	while(pFragment) 
@@ -479,7 +479,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 
 	if ( bExecuted )
 	{
-		m_pTaskSet->DetachFromThread(NULL);
+		m_pTaskSet->DetachFromThread(nullptr);
 	}
 
 	// the job has been finished, we need to modify the global notification flag
@@ -497,7 +497,7 @@ void CTaskSet::Execute(void** pCurrentSet)
 	InterlockedExchange(&g_lTaskSetExecute[m_iQueueId], 0);
 #endif
 
-	InterlockedExchangePointer(pCurrentSet, NULL);
+	InterlockedExchangePointer(pCurrentSet, nullptr);
 
 	// The job has finished!
 	m_pTaskSet->Finish(FINISH_COMPLETED);
@@ -508,7 +508,7 @@ CTaskSetFragment * CTaskSet::GetNext()
 	long lWaitingCount = InterlockedDecrement(&g_plFragmentsWaiting[m_iQueueId]);
 	if ( lWaitingCount < 0 )
 	{
-		return NULL;
+		return nullptr;
 	}
 
 #ifdef _DEBUG
@@ -542,17 +542,17 @@ CTaskSetFragment* CTaskSetFragment::ExecuteAndGetNext(unsigned int uiWorkerId)
 			for(int k=m_iStartX; k<m_iEndX; ++k)
 			{
                 // TODO: pass real WGContext
-				m_pTaskSet->ExecuteIteration(k, j, i, NULL);
+				m_pTaskSet->ExecuteIteration(k, j, i, nullptr);
 			}
 		}
 	}
 	CTaskSetFragment* pNext = g_obThreadPool[m_iQueueId]->GetNextFragment();
 
-	if ( NULL == pNext )
+	if ( nullptr == pNext )
 	{
 		// This thread finished execution
         // TODO: pass real WGContext
-		m_pTaskSet->DetachFromThread(NULL);
+		m_pTaskSet->DetachFromThread(nullptr);
 	}
 
 	// modify the relevant queue's fragments counter
@@ -578,7 +578,7 @@ void CTaskSetFragment::Execute(unsigned int uiWorkerId)
 			for(int k=m_iStartX; k<m_iEndX; ++k)
 			{
                 // TODO: pass real WGContext
-				m_pTaskSet->ExecuteIteration(k, j, i, NULL);
+				m_pTaskSet->ExecuteIteration(k, j, i, nullptr);
 			}
 		}
 	}
@@ -601,7 +601,7 @@ int	CTaskSetFragment::AttachToThread(unsigned int uiWorkerId)
 	getFirstWGID(firstWGID);
 	getLastWGID(lastWGID);
     // TODO: pass real WGContext
-	return m_pTaskSet->AttachToThread(NULL, Size(), firstWGID, lastWGID);
+	return m_pTaskSet->AttachToThread(nullptr, Size(), firstWGID, lastWGID);
 }
 
 size_t CTaskSetFragment::Size() const
@@ -630,7 +630,7 @@ void CTaskSetFragment::getLastWGID(size_t lastWGID[3]) const
 // ThreadTaskListOrderedImpl implementation
 unsigned int ThreadTaskListOrderedImpl::Enqueue(const SharedPtr<ITaskBase>& pTaskBase)
 {
-	if (NULL == m_pSelectedWorkerThread)
+	if (nullptr == m_pSelectedWorkerThread)
 	{
 		// find the list 
 		m_pSelectedWorkerThread = g_obThreadPool.front();
@@ -763,7 +763,7 @@ ITaskList* ThreadTaskExecutor::CreateTaskList(bool OOO)
 }
 unsigned int ThreadTaskExecutor::Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData)
 {
-    assert(pSubdevTaskExecData != NULL);    // executing on a sub-device isn't yet implemented
+    assert(pSubdevTaskExecData != nullptr);    // executing on a sub-device isn't yet implemented
 	int ret = m_MyList.Enqueue(pTask);
 	m_MyList.Flush();
 	return ret;
@@ -786,7 +786,7 @@ bool ThreadTaskExecutor::ClearThreadPool()
 	for ( int i = 0; i < g_iThreadPoolSize; i ++ ) 
 	{
 		delete g_obThreadPool[i];
-		g_obThreadPool[i] = NULL;
+		g_obThreadPool[i] = nullptr;
 	}
 	g_obThreadPool.clear();
 

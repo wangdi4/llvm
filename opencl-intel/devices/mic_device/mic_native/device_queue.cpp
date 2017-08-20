@@ -55,22 +55,22 @@ void init_commands_queue(uint32_t         in_BufferCount,
                          uint16_t         in_ReturnValueLength)
 {
     assert( sizeof(INIT_QUEUE_ON_DEVICE_STRUCT) == in_MiscDataLength );
-    assert( NULL != in_pMiscData );
+    assert( nullptr != in_pMiscData );
     assert( sizeof(INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT) == in_ReturnValueLength );
-    assert( NULL != in_pReturnValue );
+    assert( nullptr != in_pReturnValue );
 
     INIT_QUEUE_ON_DEVICE_STRUCT*        data     = (INIT_QUEUE_ON_DEVICE_STRUCT*)in_pMiscData;
     INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT* data_out = (INIT_QUEUE_ON_DEVICE_OUTPUT_STRUCT*)in_pReturnValue;
 
-    data_out->device_queue_addresses.device_sync_queue_address = NULL;
-    data_out->device_queue_addresses.device_async_queue_address = NULL;
+    data_out->device_queue_addresses.device_sync_queue_address = nullptr;
+    data_out->device_queue_addresses.device_async_queue_address = nullptr;
 
-    QueueOnDevice* pAsyncQueue = NULL;
-    QueueOnDevice* pSyncQueue = NULL;
+    QueueOnDevice* pAsyncQueue = nullptr;
+    QueueOnDevice* pSyncQueue = nullptr;
     
     ThreadPool* thread_pool = ThreadPool::getInstance();
-    assert( (NULL != thread_pool) && "Thread pool not exists" );
-    if ( NULL == thread_pool )
+    assert( (nullptr != thread_pool) && "Thread pool not exists" );
+    if ( nullptr == thread_pool )
     {
         data_out->ret_code = CL_DEV_INVALID_OPERATION;
         return;
@@ -86,7 +86,7 @@ void init_commands_queue(uint32_t         in_BufferCount,
 #endif
 
     pAsyncQueue = new QueueOnDevice( *thread_pool );
-    if (NULL == pAsyncQueue)
+    if (nullptr == pAsyncQueue)
     {
         data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
         return;
@@ -101,7 +101,7 @@ void init_commands_queue(uint32_t         in_BufferCount,
     if (data->is_in_order_queue)
     {
         pSyncQueue = new SyncQueueOnDevice( *thread_pool );
-        if (NULL == pSyncQueue)
+        if (nullptr == pSyncQueue)
         {
             data_out->ret_code = CL_DEV_OUT_OF_MEMORY;
             return;
@@ -137,18 +137,18 @@ void release_commands_queue(uint32_t         in_BufferCount,
                             void*            in_pReturnValue,
                             uint16_t         in_ReturnValueLength)
 {
-    assert( (NULL!=in_pMiscData) &&  sizeof(DEVICE_QUEUE_STRUCT) == in_MiscDataLength        && "Expected queue pointer in function parameters");
-    assert( (NULL!=in_pReturnValue) &&  sizeof(cl_dev_err_code) == in_ReturnValueLength && "Expected return argument");
+    assert( (nullptr!=in_pMiscData) &&  sizeof(DEVICE_QUEUE_STRUCT) == in_MiscDataLength        && "Expected queue pointer in function parameters");
+    assert( (nullptr!=in_pReturnValue) &&  sizeof(cl_dev_err_code) == in_ReturnValueLength && "Expected return argument");
 
     DEVICE_QUEUE_STRUCT* pDeviceQueueAddresses = (DEVICE_QUEUE_STRUCT*)in_pMiscData;
     QueueOnDevice* pAsyncQueue = (QueueOnDevice*)pDeviceQueueAddresses->device_async_queue_address;
     QueueOnDevice* pSyncQueue = (QueueOnDevice*)pDeviceQueueAddresses->device_sync_queue_address;
 
-    if ( NULL != pAsyncQueue )
+    if ( nullptr != pAsyncQueue )
     {
         delete pAsyncQueue;
     }
-    if ( NULL != pSyncQueue )
+    if ( nullptr != pSyncQueue )
     {
         delete pSyncQueue;
     }
@@ -187,7 +187,7 @@ bool QueueOnDevice::initInt( TE_CMD_LIST_TYPE cmdListType )
     m_task_list = m_thread_pool.getRootDevice()->CreateTaskList(
                              CommandListCreationParam( cmdListType, gMicExecEnvOptions.tbb_scheduler ));
 
-    if (NULL == m_task_list)
+    if (nullptr == m_task_list)
     {
         //Report Error
         NATIVE_PRINTF("Cannot create out-of-order TaskList\n");
@@ -209,7 +209,7 @@ cl_dev_err_code QueueOnDevice::executeInt( TaskHandlerBase* task_handler )
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 SyncQueueOnDevice::~SyncQueueOnDevice()
 {
-    m_task_list = NULL;
+    m_task_list = nullptr;
     m_thread_pool.DeactivateCurrentMasterThread();
 }
 

@@ -54,14 +54,14 @@ struct TaskLoopBody3D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
         TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
-        if (NULL == tls)
+        if (nullptr == tls)
         {
-            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+            assert( (nullptr != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
             return;
         }
 
         void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
-        if ( NULL == user_local )
+        if ( nullptr == user_local )
         {
             assert( 0 && "Thread local execution environment is NULL" );
             return;
@@ -103,14 +103,14 @@ struct TaskLoopBody2D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
         TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
-        if (NULL == tls)
+        if (nullptr == tls)
         {
-            assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+            assert( (nullptr != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
             return;
         }
 
         void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
-        if ( NULL == user_local )
+        if ( nullptr == user_local )
         {
             assert( 0 && "Thread local execution environment is NULL" );
             return;
@@ -150,14 +150,14 @@ struct TaskLoopBody1D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
         
         TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
-        assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
-        if (NULL == tls)
+        assert( (nullptr != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+        if (nullptr == tls)
         {
             return;
         }
 
         void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
-        if ( NULL == user_local )
+        if ( nullptr == user_local )
         {
             assert( 0 && "Thread local execution environment is NULL" );
             return;
@@ -219,14 +219,14 @@ struct TaskLoopBody2D_1D : public TaskLoopBody {
         assert(uiNumberOfWorkGroups <= CL_MAX_INT32);
 
         TBB_PerActiveThreadData* tls = TBB_ThreadManager<TBB_PerActiveThreadData>::GetCurrentThreadDescriptor();
-        assert( (NULL != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
-        if (NULL == tls)
+        assert( (nullptr != tls) && "Task executes after thread disconnected from TEDevice or thread is connected after TEDevice shutdown" );
+        if (nullptr == tls)
         {
             return;
         }
 
         void* user_local = m_task->AttachToThread(tls->user_tls, uiNumberOfWorkGroups, firstWGID, lastWGID);
-        if ( NULL == user_local )
+        if ( nullptr == user_local )
         {
             assert( 0 && "Thread local execution environment is NULL" );
             return;

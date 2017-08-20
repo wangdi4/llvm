@@ -100,9 +100,9 @@ namespace intel{
     }
 
     // Get function operands, depending on shuffle type
-    Value *firstVec = NULL;
-    Value *secondVec = NULL;
-    Value *mask = NULL;
+    Value *firstVec = nullptr;
+    Value *secondVec = nullptr;
+    Value *mask = nullptr;
     switch (shuffleType) {
     case SHUFFLE2:
       // First vector operand
@@ -142,7 +142,7 @@ namespace intel{
     assert(isa<VectorType>(mask->getType()) && "mask is not vector type");
 
     // Convert mask type to vector of i32, shuffflevector mask scalar size is always 32
-    Constant* newMask = NULL;
+    Constant* newMask = nullptr;
     unsigned int maskVecSize = cast<VectorType>(mask->getType())->getNumElements();
     Type *maskType = VectorType::get(Type::getInt32Ty(shuffleCall->getContext()), maskVecSize);
 

@@ -39,7 +39,7 @@ using namespace Intel::OpenCL::Utils;
 
 #ifndef DEVICE_NATIVE
 	// use only global handler - do not use local one
-	USE_SHUTDOWN_HANDLER(NULL); 
+	USE_SHUTDOWN_HANDLER(nullptr); 
 #endif
 
 void Logger::RegisterGlobalAtExitNotification( IAtExitCentralPoint* fn )
@@ -84,7 +84,7 @@ struct LoggerSingletonHandler
     static Logger*    pLogger;
 };
 
-Logger* LoggerSingletonHandler::pLogger = NULL;
+Logger* LoggerSingletonHandler::pLogger = nullptr;
 
 LoggerSingletonHandler    logger;
 
@@ -107,7 +107,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
         {
             return CL_ERR_LOGGER_FAILED;
         }
-        if (m_logHandlers[i] == NULL)
+        if (m_logHandlers[i] == nullptr)
         {
             m_logHandlers[i] = logHandler;
             return CL_SUCCESS;
@@ -134,7 +134,7 @@ LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
     m_logLevel = loglevel;
     m_eLogConfig =    (ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
                                         LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
-    m_handle = NULL;
+    m_handle = nullptr;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////

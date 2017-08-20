@@ -159,7 +159,7 @@ public:
 	    assert(m_pDispatcherData && "m_dispatcherData shuoldn't be NULL pointer");
         if (m_releaseDispatcherData)
         {
-            Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pDispatcherData);        }        m_pDispatcherData = NULL;
+            Intel::OpenCL::TaskExecutor::ScalableMemAllocator::scalableAlignedFree(m_pDispatcherData);        }        m_pDispatcherData = nullptr;
 	};
 
     virtual bool FinishSyncTask()
@@ -175,8 +175,8 @@ public:
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
         if ( gMicGPAData.bUseGPA )
         {
-          static __thread __itt_string_handle* pTaskName = NULL;
-          if ( NULL == pTaskName )
+          static __thread __itt_string_handle* pTaskName = nullptr;
+          if ( nullptr == pTaskName )
           {
             pTaskName = __itt_string_handle_create("Finish->m_releasehandler->addTask(this)");
           }
@@ -281,7 +281,7 @@ public:
 	static TaskReleaseHandler* getInstance()
 	{
 		// Assume that only one thread will initiate the singleton
-		if (NULL == m_singleton)
+		if (nullptr == m_singleton)
 		{
 			m_singleton = new TaskReleaseHandler();
 			m_singleton->Start();
@@ -298,7 +298,7 @@ public:
 	{ 
 		// Assume that only one thread will destruct the singleton
 		delete m_singleton;
-		m_singleton = NULL;
+		m_singleton = nullptr;
 	}
 
 	void addTask(const Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase >& task);
@@ -310,7 +310,7 @@ private:
 	public:
 		// TODO: maybe create new dummy constructor to TaskHandlerBase and call it instead.
 		DummyTask() :
-            TaskHandlerBase( 1, &m_dummyBuffer, NULL
+            TaskHandlerBase( 1, &m_dummyBuffer, nullptr
 #ifdef ENABLE_MIC_TRACER
             , &m_dummyBufferSize
 #endif
@@ -319,7 +319,7 @@ private:
 		}
 	private:
 
-        virtual Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return NULL; };
+        virtual Intel::OpenCL::TaskExecutor::ITaskBase* GetAsITaskBase() { return nullptr; };
         virtual bool PrepareTask() { return true; };
         virtual bool releaseResourcesAndSignal() { return true; };
         virtual bool FinishSyncTask() { return true; };

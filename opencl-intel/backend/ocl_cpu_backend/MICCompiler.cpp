@@ -75,8 +75,8 @@ void MICCompiler::SelectMICConfiguration(const ICompilerConfig& config)
 
 MICCompiler::MICCompiler(const IMICCompilerConfig& config):
     Compiler(config),
-    m_pBuiltinModule(NULL),
-    m_pCGEngine(NULL)
+    m_pBuiltinModule(nullptr),
+    m_pCGEngine(nullptr)
 {
     SelectMICConfiguration(config);
 
@@ -136,7 +136,7 @@ llvm::MICCodeGenerationEngine* MICCompiler::CreateMICCodeGenerationEngine( llvm:
     }
 
     const char* pMcpu    = m_CpuId.GetCPUName();
-    if( NULL == pMcpu )
+    if( nullptr == pMcpu )
     {
         throw Exceptions::CompilerException("Failed to create m-cpu object");
     }
@@ -157,7 +157,7 @@ llvm::Module* MICCompiler::GetRtlModule() const
         return m_pBuiltinModule->GetRtlModule();
     }
     assert(m_pBuiltinModule && "MIC Builtin Module not initialized");
-    return NULL;
+    return nullptr;
 }
 
 }}}

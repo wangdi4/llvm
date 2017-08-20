@@ -50,7 +50,7 @@ void Intel::OpenCL::Utils::InnerSpinloopImpl()
 OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiSpinCount), m_bRecursive(recursive)
 {
     pthread_mutexattr_t     attr;
-    pthread_mutexattr_t*    p_attr = NULL;
+    pthread_mutexattr_t*    p_attr = nullptr;
 
     if (m_bRecursive)
     {
@@ -63,7 +63,7 @@ OclMutex::OclMutex(unsigned int uiSpinCount, bool recursive) : m_uiSpinCount(uiS
     {
         assert(0 && "Failed initialize pthread mutex");
     }
-    if (NULL != p_attr)
+    if (nullptr != p_attr)
     {
         pthread_mutexattr_destroy(p_attr);
     }
@@ -126,7 +126,7 @@ void OclMutex::spinCountMutexLock()
 OclCondition::OclCondition()
 {
 	int err = 0;
-	err = pthread_cond_init(&m_condVar, NULL);
+	err = pthread_cond_init(&m_condVar, nullptr);
 	assert(0 == err && "pthread_cond_init failed");
 }
 
@@ -148,7 +148,7 @@ OclCondition::~OclCondition()
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
 	assert( mutexObj && "mutexObj must be valid object");
-	if ( NULL == mutexObj )
+	if ( nullptr == mutexObj )
     {
         return COND_RESULT_FAIL;
     }
@@ -193,11 +193,11 @@ bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
 {
 	m_eventRepresentation.bAutoReset = bAutoReset;
 	m_eventRepresentation.isFired = false;
-	if (0 != pthread_mutex_init(&m_eventRepresentation.mutex, NULL))
+	if (0 != pthread_mutex_init(&m_eventRepresentation.mutex, nullptr))
 	{
 		return false;
 	}
-	if (0 != pthread_cond_init(&m_eventRepresentation.condition, NULL))
+	if (0 != pthread_cond_init(&m_eventRepresentation.condition, nullptr))
 	{
 	    pthread_mutex_destroy(&m_eventRepresentation.mutex);
 		return false;
@@ -281,7 +281,7 @@ long AtomicCounter::exchange(long val)
  ************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
-    m_bitField = NULL;
+    m_bitField = nullptr;
     m_eventLock.Init(false);
 }
  
@@ -311,7 +311,7 @@ void AtomicBitField::init(unsigned int size, bool initVal)
     }
     m_size = size;
     m_bitField = (long*)malloc(sizeof(long) * m_size);
-    if (NULL == m_bitField)
+    if (nullptr == m_bitField)
     {
         assert(0 && "Error occured while trying to create bit field array, malloc failed");
     }
@@ -329,7 +329,7 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
-    if ((NULL == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
+    if ((nullptr == m_bitField) || ((int)bitNum < 0) || (bitNum >= m_size))
     {
         return -1;
     }
@@ -363,7 +363,7 @@ void OclBinarySemaphore::Wait()
 ************************************************************************/
 OclReaderWriterLock::OclReaderWriterLock()
 {
-    pthread_rwlock_init(&m_rwLock, NULL);
+    pthread_rwlock_init(&m_rwLock, nullptr);
 #ifdef _DEBUG
     readEnter = 0;
     writeEnter = 0;

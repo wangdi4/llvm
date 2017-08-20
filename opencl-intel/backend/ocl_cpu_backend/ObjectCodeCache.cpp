@@ -68,7 +68,7 @@ std::unique_ptr<llvm::MemoryBuffer> ObjectCodeCache::getObject(const llvm::Modul
     return std::unique_ptr<llvm::MemoryBuffer>(std::move(m_pObjectBuffer));
   }
 
-  return NULL;
+  return nullptr;
 }
 
 const std::string& ObjectCodeCache::getCachedModule() {

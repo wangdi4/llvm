@@ -36,7 +36,7 @@ OCL_INITIALIZE_PASS_BEGIN(CLWGLoopCreator, "cl-loop-creator", "create loops open
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLWGLoopCreator, "cl-loop-creator", "create loops opencl kernels", false, false)
 
-CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID), m_rtServices(NULL) {
+CLWGLoopCreator::CLWGLoopCreator() : ModulePass(ID), m_rtServices(nullptr) {
   initializeCLWGLoopCreatorPass(*PassRegistry::getPassRegistry());
 }
 
@@ -70,7 +70,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
       continue;
     }
     unsigned int vectWidth = 0;
-    Function *vectKernel = NULL;
+    Function *vectKernel = nullptr;
     //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
     //Vectorized is running in all scenarios.
     if (skimd->isVectorizedKernelHasValue() && skimd->getVectorizedKernel()) {
@@ -91,7 +91,7 @@ bool CLWGLoopCreator::runOnModule(Module &M) {
 
       //Erase vectorized kernel info and update scalaized kernel info
       mdUtils.eraseKernelsInfoItem(itrVecKernelInfo);
-      skimd->setVectorizedKernel(NULL);
+      skimd->setVectorizedKernel(nullptr);
       skimd->setVectorizedWidth(vectWidth);
     }
 
@@ -117,7 +117,7 @@ unsigned CLWGLoopCreator::computeNumDim() {
 bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
                                     unsigned packetWidth) {
   m_vectorizedDim = 0;
-  if (vectorFunc != NULL) {
+  if (vectorFunc != nullptr) {
     Intel::MetaDataUtils mdUtils((vectorFunc->getParent()));
     if(mdUtils.isKernelsInfoHasValue()) {
       if (mdUtils.findKernelsInfoItem(vectorFunc) != mdUtils.end_KernelsInfo()) {
@@ -135,7 +135,7 @@ bool CLWGLoopCreator::runOnFunction(Function& F, Function *vectorFunc,
   m_vectorFunc = vectorFunc;
   m_packetWidth = packetWidth;
   m_context = &F.getContext();
-  m_baseGids.assign(MAX_OCL_NUM_DIM, NULL);
+  m_baseGids.assign(MAX_OCL_NUM_DIM, nullptr);
   generateConstants();
 
   // Collect get**id and return instructions from the kernels.

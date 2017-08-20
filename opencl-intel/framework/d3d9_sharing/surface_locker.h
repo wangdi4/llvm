@@ -109,7 +109,7 @@ namespace Intel { namespace OpenCL { namespace Framework
         bool Invariant() const
         {
             return 0 <= m_objRefCnt && m_objRefCnt >= m_lockRefCnt &&
-                (0 == m_lockRefCnt || NULL != m_data);
+                (0 == m_lockRefCnt || nullptr != m_data);
         }
 
     };

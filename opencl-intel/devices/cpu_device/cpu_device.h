@@ -158,7 +158,7 @@ public:
     cl_dev_err_code clDevReleaseCommand(cl_dev_cmd_desc* IN cmdToRelease);
 
     const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return this; };
-    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return NULL; };
+    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return nullptr; };
 
     // IOCLDeviceFECompilerDescription
     const char* clDevFEModuleName() const;

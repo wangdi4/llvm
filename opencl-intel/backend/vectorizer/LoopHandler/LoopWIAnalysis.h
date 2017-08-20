@@ -64,7 +64,7 @@ public:
   /// @brief set v as strided value.
   /// @param v - value to set dependency.
   /// @param constStride - stride of v.
-  void setValStrided(Value *v, Constant *constStride=NULL);
+  void setValStrided(Value *v, Constant *constStride=nullptr);
 
 
   enum ValDependancy {

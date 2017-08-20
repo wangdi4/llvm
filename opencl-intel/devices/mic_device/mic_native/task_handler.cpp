@@ -44,8 +44,8 @@ TaskHandlerBase::TaskHandlerBase(
     m_bufferSizes(pLockBufferSizes),
 #endif
     m_errorCode(CL_DEV_SUCCESS),
-    m_releasehandler(NULL),
-    m_nextTaskToRelease(NULL)
+    m_releasehandler(nullptr),
+    m_nextTaskToRelease(nullptr)
 {
 #ifdef ENABLE_MIC_TRACER
   // Set arrival time to device for the tracer
@@ -62,13 +62,13 @@ TaskHandlerBase::TaskHandlerBase(
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
-void* TaskReleaseHandler::DummyTask::m_dummyBuffer = NULL;
+void* TaskReleaseHandler::DummyTask::m_dummyBuffer = nullptr;
 size_t TaskReleaseHandler::DummyTask::m_dummyBufferSize = 0;
-TaskReleaseHandler* TaskReleaseHandler::m_singleton = NULL;
+TaskReleaseHandler* TaskReleaseHandler::m_singleton = nullptr;
 
-TaskReleaseHandler::TaskReleaseHandler() : OclThread(), m_head(NULL), m_tail(NULL), m_event(true), m_finish(false), m_initDone(0)
+TaskReleaseHandler::TaskReleaseHandler() : OclThread(), m_head(nullptr), m_tail(nullptr), m_event(true), m_finish(false), m_initDone(0)
 #ifdef USE_ITT
-    ,m_pIttTaskReleaseName(NULL), m_pIttTaskReleaseDomain(NULL)
+    ,m_pIttTaskReleaseName(nullptr), m_pIttTaskReleaseDomain(nullptr)
 #endif
 {
 }
@@ -89,7 +89,7 @@ void TaskReleaseHandler::addTask(const Intel::OpenCL::Utils::SharedPtr< TaskHand
 	    OclAutoMutex lock(&m_mutex);
 	    m_tail->m_nextTaskToRelease = task;
 	    m_tail = m_tail->m_nextTaskToRelease;
-	    if (NULL == m_head)
+	    if (nullptr == m_head)
 	    {
 		    signal = true;
 		    m_head = m_tail;
@@ -112,7 +112,7 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
         __itt_thread_set_name("MIC Device ReleaseTasks thread");
 	    m_pIttTaskReleaseDomain = __itt_domain_create("com.intel.opencl.device.mic.release_task_handler");
 		// Use fillBuffer specific domain if possible, if not available switch to global domain
-        if ( NULL == m_pIttTaskReleaseDomain )
+        if ( nullptr == m_pIttTaskReleaseDomain )
         {
             m_pIttTaskReleaseDomain = gMicGPAData.pDeviceDomain;
         }
@@ -129,14 +129,14 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 	// spin 0.1 sec before waiting on condition variable.
 	const uint64_t cyclesToSpin = freq / 10;
 	unsigned long long spin_up_to = 0;
-	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > nextTask = NULL;
+	Intel::OpenCL::Utils::SharedPtr< TaskHandlerBase > nextTask = nullptr;
 
 	// In this point the initialization completed
 	TAS(&m_initDone, 1);
 
-    while ((!m_finish) || (NULL != m_head))
+    while ((!m_finish) || (nullptr != m_head))
     {
-        if (NULL == m_head)
+        if (nullptr == m_head)
         {
             m_event.Wait();
         }
@@ -145,14 +145,14 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 #if defined(USE_ITT)
             if ( gMicGPAData.bUseGPA )
             {
-                __itt_frame_begin_v3(m_pIttTaskReleaseDomain, NULL);
+                __itt_frame_begin_v3(m_pIttTaskReleaseDomain, nullptr);
             }
 #endif
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
             if ( gMicGPAData.bUseGPA )
             {
-              static __thread __itt_string_handle* pTaskName = NULL;
-              if ( NULL == pTaskName )
+              static __thread __itt_string_handle* pTaskName = nullptr;
+              if ( nullptr == pTaskName )
               {
                 pTaskName = __itt_string_handle_create("TaskReleaseHandler::Run() releaseResourcesAndSignal()");
               }
@@ -170,8 +170,8 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
             if ( gMicGPAData.bUseGPA )
             {
-              static __thread __itt_string_handle* pTaskName = NULL;
-              if ( NULL == pTaskName )
+              static __thread __itt_string_handle* pTaskName = nullptr;
+              if ( nullptr == pTaskName )
               {
                 pTaskName = __itt_string_handle_create("TaskReleaseHandler::Run() search new job");
               }
@@ -180,7 +180,7 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 #endif
             nextTask = m_head->m_nextTaskToRelease;
             spin_up_to = RDTSC() + cyclesToSpin;
-            while ((NULL == nextTask) && (RDTSC() < spin_up_to) && (!m_finish))
+            while ((nullptr == nextTask) && (RDTSC() < spin_up_to) && (!m_finish))
             {
                 Intel::OpenCL::Utils::InnerSpinloopImpl();
                 nextTask = m_head->m_nextTaskToRelease;
@@ -201,11 +201,11 @@ RETURN_TYPE_ENTRY_POINT TaskReleaseHandler::Run()
 #ifdef USE_ITT
             if ( gMicGPAData.bUseGPA)
             {
-                __itt_frame_end_v3(m_pIttTaskReleaseDomain, NULL);
+                __itt_frame_end_v3(m_pIttTaskReleaseDomain, nullptr);
             }
 #endif
         }
     }
     ThreadPool::getInstance()->ReturnAffinitizationResource();
-    return (RETURN_TYPE_ENTRY_POINT)NULL;
+    return (RETURN_TYPE_ENTRY_POINT)nullptr;
 }

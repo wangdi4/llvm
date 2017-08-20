@@ -35,7 +35,7 @@ cl_err_code Intel::OpenCL::Utils::GetEnvVar(std::string & strVarValue, const std
 {
 	char * pBuffer;
 	pBuffer = getenv(strVarName.c_str());
-	if (pBuffer == NULL)
+	if (pBuffer == nullptr)
 	{
         strVarValue = std::string("");
 		return CL_ERR_FAILURE;

@@ -101,8 +101,8 @@ public:
 protected:
     CPUDevMemoryObject(cl_int iLogHandle, IOCLDevLogDescriptor* pLogDescriptor) :
             m_pLogDescriptor(pLogDescriptor), m_iLogHandle(iLogHandle),
-            m_nodeId(NULL), m_memFlags(0),
-            m_pRTMemObjService(NULL), m_pBackingStore(NULL), m_pImageService(NULL) {}
+            m_nodeId(nullptr), m_memFlags(0),
+            m_pRTMemObjService(nullptr), m_pBackingStore(nullptr), m_pImageService(nullptr) {}
 
     IOCLDevLogDescriptor*       m_pLogDescriptor;
     cl_int                      m_iLogHandle;

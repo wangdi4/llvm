@@ -70,11 +70,11 @@ static void AddDriverStorePathToLibrarySearchPath()
 #endif // _WIN32
 
 FrontEndCompiler::FrontEndCompiler() : 
-        OCLObject<_cl_object>(NULL, "FrontEndCompiler"),
-        m_pfnCreateInstance(NULL),
-        m_pszModuleName(NULL),
-        m_pFECompiler(NULL),
-        m_pLoggerClient(NULL)
+        OCLObject<_cl_object>(nullptr, "FrontEndCompiler"),
+        m_pfnCreateInstance(nullptr),
+        m_pszModuleName(nullptr),
+        m_pFECompiler(nullptr),
+        m_pLoggerClient(nullptr)
 {
 }
 
@@ -100,7 +100,7 @@ cl_err_code FrontEndCompiler::Initialize(const char * psModuleName, const void *
     }
 
     m_pfnCreateInstance = (fnCreateFECompilerInstance*)m_dlModule.GetFunctionPtrByName("CreateFrontEndInstance");
-    if ( NULL == m_pfnCreateInstance )
+    if ( nullptr == m_pfnCreateInstance )
     {
         LOG_ERROR(TEXT("%s"), TEXT("Can't find entry function"));
         return CL_COMPILER_NOT_AVAILABLE;
@@ -121,21 +121,21 @@ void FrontEndCompiler::FreeResources()
 {
     RELEASE_LOGGER_CLIENT;
 
-    if ( NULL != m_pFECompiler )
+    if ( nullptr != m_pFECompiler )
     {
         if (!m_bTerminate)
         {
             m_pFECompiler->Release();
         }
-        m_pFECompiler = NULL;
+        m_pFECompiler = nullptr;
     }
 
-    if ( NULL != m_pszModuleName )
+    if ( nullptr != m_pszModuleName )
     {
         free((void*)m_pszModuleName);
-        m_pszModuleName = NULL;
+        m_pszModuleName = nullptr;
         m_dlModule.Close();
-        m_pfnCreateInstance = NULL;
+        m_pfnCreateInstance = nullptr;
     }
 }
 
@@ -166,7 +166,7 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
     if (CL_OUT_OF_HOST_MEMORY == err)
     {
         LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
-        if (NULL != pResult)
+        if (nullptr != pResult)
         {
             pResult->Release();
         }
@@ -176,10 +176,10 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
 
     const char* errLog = pResult->GetErrorLog();
 
-    if (NULL != errLog)
+    if (nullptr != errLog)
     {
         *pszCompileLog = new char[strlen(errLog) + 1];
-        if (NULL != *pszCompileLog)
+        if (nullptr != *pszCompileLog)
         {
             MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
         }
@@ -196,7 +196,7 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
     {
         assert(pResult->GetIR() != 0);
         *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
+        if (nullptr != *ppBinary)
         {
             MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
         }
@@ -242,7 +242,7 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
         LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
         if (CL_OUT_OF_HOST_MEMORY == err) 
         {
-            if (NULL != pResult) 
+            if (nullptr != pResult) 
             {
                 pResult->Release();
             }
@@ -253,10 +253,10 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
 
     const char* errLog = pResult->GetErrorLog();
 
-    if (NULL != errLog)
+    if (nullptr != errLog)
     {
         *pszCompileLog = new char[strlen(errLog) + 1];
-        if (NULL != *pszCompileLog)
+        if (nullptr != *pszCompileLog)
         {
             MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
         }
@@ -273,7 +273,7 @@ cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource,
     {
         assert(pResult->GetIR() != 0);
         *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
+        if (nullptr != *ppBinary)
         {
             MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
         }
@@ -316,7 +316,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
         LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
         if (CL_OUT_OF_HOST_MEMORY == err) 
         {
-            if (NULL != pResult) 
+            if (nullptr != pResult) 
             {
                 pResult->Release();
             }
@@ -327,7 +327,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
 
     const char* errLog = pResult->GetErrorLog();
 
-    if (NULL != errLog)
+    if (nullptr != errLog)
     {
         linkLog.resize(strlen(errLog) + 1);       
         MEMCPY_S(&linkLog[0], strlen(errLog) + 1, errLog, strlen(errLog) + 1);
@@ -339,7 +339,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
     {
         assert(pResult->GetIR() != 0);
         *ppBinary = new char[*puiBinarySize];
-        if (NULL != *ppBinary)
+        if (nullptr != *ppBinary)
         {
             MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
         }
@@ -350,7 +350,7 @@ cl_err_code FrontEndCompiler::LinkProgram(const void**  ppBinaries,
         }
     }
 
-    if (NULL != pbIsLibrary)
+    if (nullptr != pbIsLibrary)
     {
         *pbIsLibrary = pResult->GetIRType() == Intel::OpenCL::ClangFE::IR_TYPE_LIBRARY;
     }
@@ -377,7 +377,7 @@ cl_err_code FrontEndCompiler::GetKernelArgInfo(const void*        pBin,
 {
     LOG_DEBUG(TEXT("Enter GetKernelArgInfo(pBin=%p, szKernelName=<%s>, ppArgInfo=%p)"), (void*)pBin, szKernelName, (void*)ppArgInfo);
 
-    if ( (NULL == pBin) || (NULL == szKernelName) || (NULL==ppArgInfo) )
+    if ( (nullptr == pBin) || (nullptr == szKernelName) || (nullptr==ppArgInfo) )
     {
         return CL_INVALID_VALUE;
     }

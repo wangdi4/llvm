@@ -73,9 +73,9 @@ static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemF
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevices, cl_uint uiNumRootDevices, SharedPtr<FissionableDevice>*ppDevices, logging_fn pfnNotify,
                  void *pUserData, cl_err_code * pclErr, ocl_entry_points * pOclEntryPoints, ocl_gpa_data * pGPAData, ContextModule& contextModule)
-    : OCLObject<_cl_context_int>(NULL, "Context"), // Context doesn't have conext to belong
-    m_bTEActivated(false),m_ppExplicitRootDevices(NULL),m_ppAllDevices(NULL),m_pDeviceIds(NULL), m_pOriginalDeviceIds(NULL),
-    m_devTypeMask(0), m_pclContextProperties(NULL), m_pfnNotify(NULL), m_pUserData(NULL), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(NULL), m_contextModule(contextModule)
+    : OCLObject<_cl_context_int>(nullptr, "Context"), // Context doesn't have conext to belong
+    m_bTEActivated(false),m_ppExplicitRootDevices(nullptr),m_ppAllDevices(nullptr),m_pDeviceIds(nullptr), m_pOriginalDeviceIds(nullptr),
+    m_devTypeMask(0), m_pclContextProperties(nullptr), m_pfnNotify(nullptr), m_pUserData(nullptr), m_ulMaxMemAllocSize(0),m_MemObjectsHeap(nullptr), m_contextModule(contextModule)
 {
 
     INIT_LOGGER_CLIENT(TEXT("Context"), LL_DEBUG);
@@ -102,29 +102,29 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
 
     m_bSupportsSvmSystem = false;
 
-    m_ppAllDevices = NULL;
-    m_ppExplicitRootDevices = NULL;
-    m_pDeviceIds = NULL;
-    m_pOriginalDeviceIds = NULL;
+    m_ppAllDevices = nullptr;
+    m_ppExplicitRootDevices = nullptr;
+    m_pDeviceIds = nullptr;
+    m_pOriginalDeviceIds = nullptr;
     m_pGPAData = pGPAData;
 
-    if ((0 != clCreateHeap( 0, 0, &m_MemObjectsHeap )) || (NULL == m_MemObjectsHeap))
+    if ((0 != clCreateHeap( 0, 0, &m_MemObjectsHeap )) || (nullptr == m_MemObjectsHeap))
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         return;
     }
 
-    assert ((NULL != ppDevices) && (uiNumDevices > 0));
+    assert ((nullptr != ppDevices) && (uiNumDevices > 0));
     m_uiNumRootDevices = uiNumRootDevices;
 
     m_ppAllDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-    if (NULL == m_ppAllDevices)
+    if (nullptr == m_ppAllDevices)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         return;
     }
     m_ppExplicitRootDevices = new SharedPtr<Device>[m_uiNumRootDevices];
-    if (NULL == m_ppExplicitRootDevices)
+    if (nullptr == m_ppExplicitRootDevices)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_ppAllDevices;
@@ -132,7 +132,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     }
 
     m_pDeviceIds = new cl_device_id[uiNumDevices];
-    if (NULL == m_pDeviceIds)
+    if (nullptr == m_pDeviceIds)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_ppAllDevices;
@@ -140,7 +140,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         return;
     }
     m_pOriginalDeviceIds = new cl_device_id[uiNumDevices];
-    if (NULL == m_pDeviceIds)
+    if (nullptr == m_pDeviceIds)
     {
         *pclErr = CL_OUT_OF_HOST_MEMORY;
         delete[] m_pDeviceIds;
@@ -178,11 +178,11 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     m_pOriginalNumDevices = uiNumDevices;
 
     m_uiContextPropCount = 0;
-    m_pclContextProperties = NULL;
-    if (NULL == clProperties)
+    m_pclContextProperties = nullptr;
+    if (nullptr == clProperties)
     {
         m_pclContextProperties = new cl_context_properties[1];
-        if (NULL != m_pclContextProperties)
+        if (nullptr != m_pclContextProperties)
         {
             m_pclContextProperties[0] = 0;
         }
@@ -198,7 +198,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         m_uiContextPropCount++; // last property = NULL;
         // allocate new buffer for context's properties
         m_pclContextProperties = new cl_context_properties[m_uiContextPropCount];
-        if (NULL != m_pclContextProperties)
+        if (nullptr != m_pclContextProperties)
         {
             MEMCPY_S(m_pclContextProperties, m_uiContextPropCount * sizeof(cl_context_properties), clProperties, m_uiContextPropCount * sizeof(cl_context_properties));
         }
@@ -252,7 +252,7 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     for (tSetOfDevices::const_iterator iter = pDevices->begin(); iter != pDevices->end(); iter++)
     {
         cl_device_svm_capabilities svmCaps;
-        const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, NULL);
+        const cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(svmCaps), &svmCaps, nullptr);
         if (CL_SUCCEEDED(err) && (svmCaps & CL_DEVICE_SVM_FINE_GRAIN_SYSTEM))
         {
             m_bSupportsSvmSystem = true;
@@ -308,7 +308,7 @@ Context::~Context()
     // Free private resources
     //
 
-    if (NULL != m_MemObjectsHeap)
+    if (nullptr != m_MemObjectsHeap)
     {
         clDeleteHeap( m_MemObjectsHeap );
     }
@@ -319,33 +319,33 @@ Context::~Context()
 
     m_mapDevices.Clear();
  
-    if (NULL != m_ppAllDevices)
+    if (nullptr != m_ppAllDevices)
     {
         delete[] m_ppAllDevices;
-        m_ppAllDevices = NULL;
+        m_ppAllDevices = nullptr;
     }
-    if (NULL != m_ppExplicitRootDevices)
+    if (nullptr != m_ppExplicitRootDevices)
     {
         delete[] m_ppExplicitRootDevices;
-        m_ppExplicitRootDevices = NULL;
+        m_ppExplicitRootDevices = nullptr;
     }
-    if (NULL != m_pDeviceIds)
+    if (nullptr != m_pDeviceIds)
     {
         delete[] m_pDeviceIds;
-        m_pDeviceIds = NULL;
+        m_pDeviceIds = nullptr;
     }
-    if (NULL != m_pOriginalDeviceIds)
+    if (nullptr != m_pOriginalDeviceIds)
     {
         delete[] m_pOriginalDeviceIds;
-        m_pOriginalDeviceIds = NULL;
+        m_pOriginalDeviceIds = nullptr;
     }
     m_mapMemObjects.Clear();
     m_mapSamplers.Clear();
 
-    if (NULL != m_pclContextProperties)
+    if (nullptr != m_pclContextProperties)
     {
         delete []m_pclContextProperties;
-        m_pclContextProperties = NULL;
+        m_pclContextProperties = nullptr;
     }
 
 #if OCL_EVENT_WAIT_STRATEGY == OCL_EVENT_WAIT_OS_DEPENDENT
@@ -364,7 +364,7 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
     size_t szParamValueSize = 0;
     cl_uint uiVal;
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
 
     cl_err_code clErrRet = CL_SUCCESS;
     switch ( (cl_context_info)param_name )
@@ -398,19 +398,19 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
     }
 
     // if param_value_size < actual value size return CL_INVALID_VALUE
-    if (NULL != param_value && param_value_size < szParamValueSize)
+    if (nullptr != param_value && param_value_size < szParamValueSize)
     {
         LOG_ERROR(TEXT("param_value_size (=%d) < szParamValueSize (=%d)"), param_value_size, szParamValueSize);
         return CL_INVALID_VALUE;
     }
 
     // return param value size
-    if (NULL != param_value_size_ret)
+    if (nullptr != param_value_size_ret)
     {
         *param_value_size_ret = szParamValueSize;
     }
 
-    if (NULL != param_value && szParamValueSize > 0)
+    if (nullptr != param_value && szParamValueSize > 0)
     {
         MEMCPY_S(param_value, param_value_size, pValue, szParamValueSize);
     }
@@ -426,7 +426,7 @@ cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t 
     LOG_DEBUG(TEXT("CreateProgramWithSource enter. pIL=%d, length=%d, ppProgram=%d"), pIL, length, ppProgram);
 
     // check input parameters
-    if (NULL == ppProgram)
+    if (nullptr == ppProgram)
     {
         LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
         return CL_INVALID_VALUE;
@@ -458,7 +458,7 @@ cl_err_code Context::CreateProgramWithSource(cl_uint uiCount, const char ** ppcS
     LOG_DEBUG(TEXT("CreateProgramWithSource enter. uiCount=%d, ppcStrings=%d, szLengths=%d, ppProgram=%d"), uiCount, ppcStrings, szLengths, ppProgram);
 
     // check input parameters
-    if (NULL == ppProgram)
+    if (nullptr == ppProgram)
     {
         LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
         return CL_INVALID_VALUE;
@@ -494,13 +494,13 @@ cl_err_code Context::CreateProgramForLink(cl_uint                IN  uiNumDevice
     cl_err_code clErrRet = CL_SUCCESS;
 
     // check input parameters
-    if (NULL == ppProgram)
+    if (nullptr == ppProgram)
     {
         LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
         return CL_INVALID_VALUE;
     }
 
-    if (NULL == pclDeviceList || 0 == uiNumDevices)
+    if (nullptr == pclDeviceList || 0 == uiNumDevices)
     {
         // invalid input args
         LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices"));
@@ -509,7 +509,7 @@ cl_err_code Context::CreateProgramForLink(cl_uint                IN  uiNumDevice
 
     // get devices
     SharedPtr<FissionableDevice>* ppDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-    if (NULL == ppDevices)
+    if (nullptr == ppDevices)
     {
         // can't allocate memory for devices
         LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
@@ -561,13 +561,13 @@ cl_err_code Context::CompileProgram(cl_program    IN  clProgram,
         return CL_INVALID_PROGRAM;
     }
 
-    SharedPtr<Program>* ppHeaders = NULL;
+    SharedPtr<Program>* ppHeaders = nullptr;
 
     if (0 < uiNumHeaders)
     {
         // This array will be freed by the program service
         ppHeaders = new SharedPtr<Program>[uiNumHeaders];
-        if (NULL == ppHeaders)
+        if (nullptr == ppHeaders)
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
@@ -609,13 +609,13 @@ cl_err_code Context::LinkProgram(cl_program                IN  clProgram,
         return CL_INVALID_PROGRAM;
     }
 
-    SharedPtr<Program>* ppBinaries = NULL;
+    SharedPtr<Program>* ppBinaries = nullptr;
 
     if (0 < uiNumBinaries)
     {
         // This array will be freed by the program service
         ppBinaries = new SharedPtr<Program>[uiNumBinaries];
-        if (NULL == ppBinaries)
+        if (nullptr == ppBinaries)
         {
             return CL_OUT_OF_HOST_MEMORY;
         }
@@ -623,7 +623,7 @@ cl_err_code Context::LinkProgram(cl_program                IN  clProgram,
         for (unsigned int i = 0; i < uiNumBinaries; ++i)
         {
             ppBinaries[i] = m_mapPrograms.GetOCLObject((_cl_program_int*)pclBinaries[i]).DynamicCast<Program>();
-            if (NULL == ppBinaries[i])
+            if (NULL== ppBinaries[i])
             {
                 delete[] ppBinaries;
                 LOG_ERROR(TEXT("One of the binaries programs %d isn't valid program"), clProgram);
@@ -673,7 +673,7 @@ SharedPtr<FissionableDevice> Context::GetDeviceByIndex(cl_uint uiDeviceIndex)
 bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices)
 {
     LOG_DEBUG(TEXT("CheckDevices enter. uiNumDevices=%d, pclDevices=%d"), uiNumDevices, pclDevices);
-    if (0 == uiNumDevices || NULL == pclDevices)
+    if (0 == uiNumDevices || nullptr == pclDevices)
     {
         // invalid inputs
         LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
@@ -697,7 +697,7 @@ bool Context::CheckDevices(cl_uint uiNumDevices, const cl_device_id * pclDevices
 bool Context::GetDevicesFromList(cl_uint uiNumDevices, const cl_device_id * pclDevices, SharedPtr<FissionableDevice>* ppDevices)
 {
     LOG_DEBUG(TEXT("GetDeviceFromList enter. uiNumDevices=%d, pclDevices=%d"), uiNumDevices, pclDevices);
-    if (0 == uiNumDevices || NULL == pclDevices)
+    if (0 == uiNumDevices || nullptr == pclDevices)
     {
         // invalid inputs
         LOG_ERROR(TEXT("%s"), TEXT("0 == uiNumDevices || NULL == pclDevices"));
@@ -734,7 +734,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 
     cl_err_code clErrRet = CL_SUCCESS;
 
-    if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries)
+    if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == pszLengths || nullptr == ppBinaries)
     {
         // invalid input args
         LOG_ERROR(TEXT("%s"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == pszLengths || NULL == ppBinaries"));
@@ -743,10 +743,10 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
     // check items in pszLengths and in ppBinaries
     for (cl_uint ui=0; ui<uiNumDevices; ++ui)
     {
-        if (0 == pszLengths[ui] || NULL == ppBinaries[ui])
+        if (0 == pszLengths[ui] || nullptr == ppBinaries[ui])
         {
             LOG_ERROR(TEXT("0 == pszLengths[%d] || NULL == ppBinaries[%d]"), ui, ui);
-            if (NULL != piBinaryStatus)
+            if (nullptr != piBinaryStatus)
             {
                 piBinaryStatus[ui] = CL_INVALID_VALUE;
             }
@@ -756,7 +756,7 @@ cl_err_code Context::CreateProgramWithBinary(cl_uint uiNumDevices, const cl_devi
 
     // get devices
     SharedPtr<FissionableDevice>* ppDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-    if (NULL == ppDevices)
+    if (nullptr == ppDevices)
     {
         // can't allocate memory for devices
         LOG_ERROR(TEXT("%s"), TEXT("Can't allocated memory for devices"));
@@ -801,7 +801,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
 
     cl_err_code clErrRet = CL_SUCCESS;
 
-    if (NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames || NULL == ppProgram)
+    if (nullptr == pclDeviceList || 0 == uiNumDevices || nullptr == szKernelNames || nullptr == ppProgram)
     {
         // invalid input args
         LOG_ERROR(TEXT("%S"), TEXT("NULL == pclDeviceList || 0 == uiNumDevices || NULL == szKernelNames || NULL == ppProgram"));
@@ -810,7 +810,7 @@ cl_err_code Context::CreateProgramWithBuiltInKernels(cl_uint IN uiNumDevices,
 
     // get devices
     SharedPtr<FissionableDevice>* ppDevices = new SharedPtr<FissionableDevice>[uiNumDevices];
-    if (NULL == ppDevices)
+    if (nullptr == ppDevices)
     {
         // can't allocate memory for devices
         LOG_ERROR(TEXT("%S"), TEXT("Can't allocated memory for devices"));
@@ -877,7 +877,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
     LOG_DEBUG(TEXT("Enter CreateBuffer (cl_mem_flags=%llu, szSize=%u, pHostPtr=%d, ppBuffer=%d)"),
         (unsigned long long) clFlags, szSize, pHostPtr, ppBuffer);
 
-    assert ( NULL != ppBuffer );
+    assert ( nullptr != ppBuffer );
 
     cl_ulong ulMaxMemAllocSize = GetMaxMemAllocSize();
     LOG_DEBUG(TEXT("GetMaxMemAllocSize() = %d"), ulMaxMemAllocSize);
@@ -897,7 +897,7 @@ cl_err_code Context::CreateBuffer(cl_mem_flags clFlags, size_t szSize, void * pH
         return clErr;
     }
 
-    clErr = (*ppBuffer)->Initialize(clFlags, NULL, 1, &szSize, NULL, pHostPtr, 0);
+    clErr = (*ppBuffer)->Initialize(clFlags, nullptr, 1, &szSize, nullptr, pHostPtr, 0);
     if (CL_FAILED(clErr))
     {
         LOG_ERROR(TEXT("Error Initialize new buffer, returned: %s"), ClErrTxt(clErr));
@@ -918,7 +918,7 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
     LOG_DEBUG(TEXT("Enter CreateSubBuffer (cl_mem_flags=%d, buffer_create_type=%d, ppBuffer=%d)"),
         (unsigned long long) clFlags, buffer_create_type, ppBuffer);
 
-    assert ( NULL != ppBuffer );
+    assert ( nullptr != ppBuffer );
 
 
     // Parameters check
@@ -927,7 +927,7 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
         return CL_INVALID_VALUE;
     }
 
-    if ( NULL == buffer_create_info )
+    if ( nullptr == buffer_create_info )
     {
         return CL_INVALID_VALUE;
     }
@@ -982,7 +982,7 @@ cl_err_code Context::CreateSubBuffer(SharedPtr<MemoryObject> pBuffer, cl_mem_fla
 cl_err_code Context::CreateImageArray(cl_mem_flags clFlags, const cl_image_format* pclImageFormat, void* pHostPtr, const cl_image_desc* pClImageDesc,
                                       SharedPtr<MemoryObject>* ppImageArr)
 {
-    assert(NULL != ppImageArr);
+    assert(nullptr != ppImageArr);
     assert(CL_MEM_OBJECT_IMAGE1D_ARRAY == pClImageDesc->image_type || CL_MEM_OBJECT_IMAGE2D_ARRAY == pClImageDesc->image_type);
     
     if (pClImageDesc->image_array_size < 1 || pClImageDesc->image_array_size > m_szArraySize || pClImageDesc->image_width < 1 || pClImageDesc->image_width > m_sz2dWidth ||
@@ -1057,7 +1057,7 @@ cl_err_code Context::GetSupportedImageFormats(cl_mem_flags clFlags,
     LOG_DEBUG(TEXT("Enter GetSupportedImageFormats(clFlags=%d, clType=%d, uiNumEntries=%d, pclImageFormats=%d, puiNumImageFormats=%d"),
         clFlags, clType, uiNumEntries, pclImageFormats, puiNumImageFormats);
 
-    if ( (uiNumEntries == 0 && pclImageFormats != NULL) )
+    if ( (uiNumEntries == 0 && pclImageFormats != nullptr) )
     {
         LOG_ERROR(TEXT("%s"), TEXT("uiNumEntries == 0 && pclImageFormats != NULL"));
         return CL_INVALID_VALUE;
@@ -1119,7 +1119,7 @@ cl_ulong Context::GetMaxMemAllocSize()
 
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
-        cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, NULL);
+        cl_err_code clErr = m_ppAllDevices[ui]->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &ulMemAllocSize, nullptr);
         if (CL_FAILED(clErr))
         {
             continue;
@@ -1142,7 +1142,7 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
                                            size_t * pszArraySize,
                                            size_t * psz1dImgBufSize)
 {
-    assert ( "wrong input params" && ((psz2dWidth != NULL) || (psz2dHeight != NULL) || (psz3dWidth != NULL) || (psz3dHeight != NULL) || (psz3dDepth != NULL)) );
+    assert ( "wrong input params" && ((psz2dWidth != nullptr) || (psz2dHeight != nullptr) || (psz3dWidth != nullptr) || (psz3dHeight != nullptr) || (psz3dDepth != nullptr)) );
 
     LOG_DEBUG(TEXT("%s"), TEXT("Enter GetMaxAllowedImageWidth"));
 
@@ -1159,57 +1159,57 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
         {
             continue;
         }
-        if (NULL != psz2dWidth)
+        if (nullptr != psz2dWidth)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz2dWith, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_WIDTH, sizeof(size_t), &sz2dWith, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax2dWith = ((0 == ui) || (sz2dWith < szMax2dWith)) ? sz2dWith : szMax2dWith;
             }
         }
-        if (NULL != psz2dHeight)
+        if (nullptr != psz2dHeight)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz2dHeight, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE2D_MAX_HEIGHT, sizeof(size_t), &sz2dHeight, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax2dHeight = ((0 == ui) || (sz2dHeight < szMax2dHeight)) ? sz2dHeight : szMax2dHeight;
             }
         }
-        if (NULL != psz3dWidth)
+        if (nullptr != psz3dWidth)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz3dWith, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_WIDTH, sizeof(size_t), &sz3dWith, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax3dWith = ((0 == ui) || (sz3dWith < szMax3dWith)) ? sz3dWith : szMax3dWith;
             }
         }
-        if (NULL != psz3dHeight)
+        if (nullptr != psz3dHeight)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz3dHeight, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_HEIGHT, sizeof(size_t), &sz3dHeight, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax3dHeight = ((0 == ui) || (sz3dHeight < szMax3dHeight)) ? sz3dHeight : szMax3dHeight;
             }
         }
-        if (NULL != psz3dDepth)
+        if (nullptr != psz3dDepth)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz3dDepth, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE3D_MAX_DEPTH, sizeof(size_t), &sz3dDepth, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax3dDepth = ((0 == ui) || (sz3dDepth < szMax3dDepth)) ? sz3dDepth : szMax3dDepth;
             }
         }
-        if (NULL != pszArraySize)
+        if (nullptr != pszArraySize)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &szArraySize, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_ARRAY_SIZE, sizeof(size_t), &szArraySize, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMaxArraySize = ((0 == ui) || (szArraySize < szMaxArraySize)) ? szArraySize : szMaxArraySize;
             }
         }
-        if (NULL != psz1dImgBufSize)
+        if (nullptr != psz1dImgBufSize)
         {
-            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz1dImgBufSize, NULL);
+            clErr = pDevice->GetInfo(CL_DEVICE_IMAGE_MAX_BUFFER_SIZE, sizeof(size_t), &sz1dImgBufSize, nullptr);
             if (CL_SUCCEEDED(clErr))
             {
                 szMax1dImgBufSize = 0 == ui || sz1dImgBufSize < szMax1dImgBufSize ? sz1dImgBufSize : szMax1dImgBufSize;
@@ -1217,31 +1217,31 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
         }
     }
 
-    if (NULL != psz2dWidth)
+    if (nullptr != psz2dWidth)
     {
         *psz2dWidth = szMax2dWith;
     }
-    if (NULL != psz2dHeight)
+    if (nullptr != psz2dHeight)
     {
         *psz2dHeight = szMax2dHeight;
     }
-    if (NULL != psz3dWidth)
+    if (nullptr != psz3dWidth)
     {
         *psz3dWidth = szMax3dWith;
     }
-    if (NULL != psz3dHeight)
+    if (nullptr != psz3dHeight)
     {
         *psz3dHeight = szMax3dHeight;
     }
-    if (NULL != psz3dDepth)
+    if (nullptr != psz3dDepth)
     {
         *psz3dDepth = szMax3dDepth;
     }
-    if (NULL != pszArraySize)
+    if (nullptr != pszArraySize)
     {
         *pszArraySize = szMaxArraySize;
     }
-    if (NULL != psz1dImgBufSize)
+    if (nullptr != psz1dImgBufSize)
     {
         *psz1dImgBufSize = szMax1dImgBufSize;
     }
@@ -1252,9 +1252,9 @@ cl_err_code Context::GetMaxImageDimensions(size_t * psz2dWidth,
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, size_t szCb)
 {
-    if (NULL != m_pfnNotify)
+    if (nullptr != m_pfnNotify)
     {        
-        if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+        if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
         {
             std::stringstream stream;
             stream << "clCreateContext callback(" << pcErrInfo << ", " << pPrivateInfo << ", " << szCb << ")" << std::endl;
@@ -1268,12 +1268,12 @@ void Context::NotifyError(const char * pcErrInfo, const void * pPrivateInfo, siz
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_err_code Context::CreateSampler(cl_bool bNormalizedCoords, cl_addressing_mode clAddressingMode, cl_filter_mode clFilterMode, SharedPtr<Sampler>* ppSampler)
 {
-    assert ( NULL != ppSampler );
+    assert ( nullptr != ppSampler );
     LOG_DEBUG(TEXT("Enter CreateSampler (bNormalizedCoords=%d, clAddressingMode=%d, clFilterMode=%d, ppSampler=%d)"),
         bNormalizedCoords, clAddressingMode, clFilterMode, ppSampler);
 
 #ifdef _DEBUG
-    assert ( NULL != ppSampler );
+    assert ( nullptr != ppSampler );
 #endif
 
     SharedPtr<Sampler> pSampler = Sampler::Allocate(&m_handle);
@@ -1299,7 +1299,7 @@ SharedPtr<Sampler> Context::GetSampler(cl_sampler clSamplerId)
 }
 SharedPtr<FissionableDevice>* Context::GetDevices(cl_uint * puiNumDevices)
 {
-    if (NULL != puiNumDevices)
+    if (nullptr != puiNumDevices)
     {
         *puiNumDevices = m_mapDevices.Count();
     }
@@ -1308,7 +1308,7 @@ SharedPtr<FissionableDevice>* Context::GetDevices(cl_uint * puiNumDevices)
 
 SharedPtr<Device>* Context::GetExplicitlyAssociatedRootDevices(cl_uint* puiNumDevices)
 {
-    if (NULL != puiNumDevices)
+    if (nullptr != puiNumDevices)
     {
         *puiNumDevices = m_uiNumRootDevices;
     }
@@ -1322,7 +1322,7 @@ const tSetOfDevices *Context::GetAllRootDevices() const
 
 cl_device_id * Context::GetDeviceIds(cl_uint * puiNumDevices)
 {
-    if (NULL != puiNumDevices)
+    if (nullptr != puiNumDevices)
     {
         *puiNumDevices = m_mapDevices.Count();
     }
@@ -1352,7 +1352,7 @@ cl_dev_subdevice_id Context::GetSubdeviceId(cl_device_id id)
 cl_err_code Context::CheckSupportedImageFormat( const cl_image_format* pclImageFormat, cl_mem_flags clMemFlags, cl_mem_object_type clObjType)
 {
     // Check for invalid format
-    if (NULL == pclImageFormat || (0 == clGetPixelBytesCount(pclImageFormat)) )
+    if (nullptr == pclImageFormat || (0 == clGetPixelBytesCount(pclImageFormat)) )
     {
         return CL_INVALID_IMAGE_FORMAT_DESCRIPTOR;
     }
@@ -1415,7 +1415,7 @@ size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, c
 
     cl_err_code          clErr = CL_SUCCESS;
     cl_uint              maxFormatCount = 0;
-    cl_image_format*     pFormats = NULL;
+    cl_image_format*     pFormats = nullptr;
     tImageFormatList     imageFormatsList;
     const tSetOfDevices *rDevSet = GetAllRootDevices();
     bool                 exitWithErr = false;
@@ -1429,7 +1429,7 @@ size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, c
 
         // find number of formats to expect.
         clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType,
-                0, NULL, &devSpecificFormatsCount);
+                0, nullptr, &devSpecificFormatsCount);
         if (CL_FAILED(clErr))
         {
             exitWithErr = true;
@@ -1445,7 +1445,7 @@ size_t Context::CalculateSupportedImageFormats( const cl_mem_flags clMemFlags, c
 
         // get formats
         clErr = (*rDev)->GetDeviceAgent()->clDevGetSupportedImageFormats(clMemFlags, clObjType,
-                devSpecificFormatsCount, pFormats, NULL);
+                devSpecificFormatsCount, pFormats, nullptr);
         if (CL_FAILED(clErr))
         {
             exitWithErr = true;
@@ -1519,12 +1519,12 @@ static cl_ulong getFormatsKey(cl_mem_object_type clObjType , cl_mem_flags clMemF
 
 Intel::OpenCL::Utils::OclOsDependentEvent* Context::GetOSEvent()
 {
-    Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent = NULL;
+    Intel::OpenCL::Utils::OclOsDependentEvent* pOsEvent = nullptr;
     bool exists = m_OsEventPool.TryPop(pOsEvent);
     if (!exists)
     {
         pOsEvent = new Intel::OpenCL::Utils::OclOsDependentEvent();
-        if ( NULL != pOsEvent )
+        if ( nullptr != pOsEvent )
         {
             bool UNUSED_ATTR initOK = pOsEvent->Init();
             assert(initOK && "OclEvent Failed to setup OS_DEPENDENT event");
@@ -1624,29 +1624,29 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
     if (oldMemFlags != 0 && oldMemFlags != CL_MEM_READ_WRITE && oldMemFlags != CL_MEM_WRITE_ONLY && oldMemFlags != CL_MEM_READ_ONLY)
     {
         LOG_ERROR(TEXT("CL_MEM_READ_WRITE or CL_MEM_WRITE_ONLY and CL_MEM_READ_ONLY are mutually exclusive"), "");
-        return NULL;
+        return nullptr;
     }
 
     const tSetOfDevices& devices = *GetAllRootDevices();
     for (tSetOfDevices::const_iterator iter = devices.begin(); iter != devices.end(); iter++)
     {
         cl_device_svm_capabilities devSvmCapabilities;
-        cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(devSvmCapabilities), &devSvmCapabilities, NULL);
-        ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_SVM_CAPABILITIES query", NULL);
+        cl_err_code err = (*iter)->GetInfo(CL_DEVICE_SVM_CAPABILITIES, sizeof(devSvmCapabilities), &devSvmCapabilities, nullptr);
+        ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_SVM_CAPABILITIES query", nullptr);
         if (((flags & CL_MEM_SVM_FINE_GRAIN_BUFFER) && !(devSvmCapabilities & CL_DEVICE_SVM_FINE_GRAIN_BUFFER)) ||
             ((flags & CL_MEM_SVM_ATOMICS) && !(devSvmCapabilities & CL_DEVICE_SVM_ATOMICS)))
         {
             LOG_ERROR(TEXT("CL_MEM_SVM_FINE_GRAIN_BUFFER or CL_MEM_SVM_ATOMICS is specified in flags and these are not supported by all devices in context"), "");
-            return NULL;
+            return nullptr;
         }
 
         cl_ulong ulDevMaxAllocSize;
-        err = (*iter)->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, NULL);
-        ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_MAX_MEM_ALLOC_SIZE query", NULL);
+        err = (*iter)->GetInfo(CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(ulDevMaxAllocSize), &ulDevMaxAllocSize, nullptr);
+        ASSERT_RET_VAL(CL_SUCCEEDED(err), "device can't handle CL_DEVICE_MAX_MEM_ALLOC_SIZE query", nullptr);
         if (size > ulDevMaxAllocSize)
         {
             LOG_ERROR(TEXT("size is > CL_DEVICE_MAX_ALLOC_SIZE value for a device in context"), "");
-            return NULL;
+            return nullptr;
         }
     }
 
@@ -1663,15 +1663,15 @@ void* Context::SVMAlloc(cl_svm_mem_flags flags, size_t size, unsigned int uiAlig
     SharedPtr<SVMBuffer> pSvmBuf = SVMBuffer::Allocate(this);
     if (NULL == pSvmBuf)
     {
-        return NULL;
+        return nullptr;
     }
     // these flags aren't needed anymore
-    pSvmBuf->Initialize(flags & ~(CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS), NULL, 1, &size, NULL, NULL, 0);
+    pSvmBuf->Initialize(flags & ~(CL_MEM_SVM_FINE_GRAIN_BUFFER | CL_MEM_SVM_ATOMICS), nullptr, 1, &size, nullptr, nullptr, 0);
 
     OclAutoWriter mu(&m_svmBuffersRwlock);
     void* pSvmPtr = pSvmBuf->GetBackingStoreData();
     m_svmBuffers[pSvmPtr] = pSvmBuf;
-    ASSERT_RET_VAL(IS_ALIGNED_ON(pSvmPtr, uiAlignment), "pSvmPtr isn't aligned as user requested", NULL);
+    ASSERT_RET_VAL(IS_ALIGNED_ON(pSvmPtr, uiAlignment), "pSvmPtr isn't aligned as user requested", nullptr);
     return pSvmPtr;
 }
 
@@ -1692,7 +1692,7 @@ SharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(void* ptr)
     std::map<void*, SharedPtr<SVMBuffer> >::iterator iter = m_svmBuffers.upper_bound(ptr);
     if (iter == m_svmBuffers.begin())
     {
-        return NULL;
+        return nullptr;
     }
     const SharedPtr<SVMBuffer>& pSvmBuffer = (--iter)->second;
 
@@ -1701,7 +1701,7 @@ SharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(void* ptr)
     {
         return pSvmBuffer;
     }
-    return NULL;
+    return nullptr;
 }
 
 ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) const
@@ -1711,7 +1711,7 @@ ConstSharedPtr<SVMBuffer> Context::GetSVMBufferContainingAddr(const void* ptr) c
 
 bool Context::IsSVMPointer(const void* ptr) const
 {
-    if (NULL != ptr &&
+    if (nullptr != ptr &&
         NULL != GetSVMBufferContainingAddr(ptr))
     {
         return true;

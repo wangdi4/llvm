@@ -76,7 +76,7 @@ unsigned long long Timer::GetTimeInUsecs()
     return time.QuadPart * 1000000 / GetFrequency();
 #else
     struct timeval tv;
-    gettimeofday(&tv, NULL);
+    gettimeofday(&tv, nullptr);
     return tv.tv_sec * 1000000 + tv.tv_usec;
 #endif
 }
@@ -91,7 +91,7 @@ void Timer::Start()
 #ifdef _WIN32
     m_timeStart = GetTimeInUsecs();
 #else
-    gettimeofday(&m_TvStart, NULL);
+    gettimeofday(&m_TvStart, nullptr);
 #endif
 }
 

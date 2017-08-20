@@ -85,7 +85,7 @@ LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
       // get process name
       const char *name = getenv("_");
       // find the base name by searching for the last '/' in the name
-      if (name != NULL) {
+      if (name != nullptr) {
         const char *p = name;
         while (*p) {
           if (*p == '/')
@@ -94,7 +94,7 @@ LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
         }
       }
       // if still no meaningful name just use "Program" as module name
-      if (name == NULL || *name == 0)
+      if (name == nullptr || *name == 0)
         name = "Program";
 
       // if a process generates more than one module use sequential number to
@@ -130,7 +130,7 @@ LLVMModuleJITHolder* MICCodeGenerationEngine::getModuleHolder(
   // module to code generation
   std::auto_ptr<Module> M;
   char *useir_name = getenv("USEIR");
-  if (useir_name != NULL) {
+  if (useir_name != nullptr) {
     SMDiagnostic Err;
     M.reset(ParseIRFile(useir_name, Err, mod.getContext()));
     if (M.get() == 0) {

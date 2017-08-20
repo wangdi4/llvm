@@ -156,7 +156,7 @@ public:
     cl_ulong    clDevGetPerformanceCounter();
     cl_dev_err_code    clDevSetLogger(IOCLDevLogDescriptor *);
     const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return this; };
-    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return NULL; };
+    IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return nullptr; };
     void        clDevCloseDevice(void);
 
     static bool loadingInit();

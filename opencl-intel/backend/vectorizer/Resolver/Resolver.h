@@ -32,7 +32,7 @@ public:
     m_unresolvedLoadCtr = 0;
     m_unresolvedStoreCtr = 0;
     m_unresolvedCallCtr = 0;
-    m_rtServices = NULL;
+    m_rtServices = nullptr;
   }
 
   /// @brief LLVM Function pass entry

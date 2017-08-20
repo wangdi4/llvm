@@ -56,7 +56,7 @@ struct SSectionNode
     {
         Type     = SH_TYPE_NULL;
         Flags    = 0;
-        pData    = NULL;
+        pData    = nullptr;
         DataSize = 0;
     }
 

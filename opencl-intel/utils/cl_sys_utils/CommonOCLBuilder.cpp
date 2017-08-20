@@ -70,24 +70,24 @@ void CommonOCLBuilder::close(){
   m_dynamicLoader.Close();
   if (m_pCompiler)
     m_pCompiler->Release();
-  m_pCompiler = NULL;
+  m_pCompiler = nullptr;
 }
 
 IOCLFEBinaryResult* CommonOCLBuilder::build(){
-  if (NULL == m_pCompiler)
+  if (nullptr == m_pCompiler)
     throw ocl_string_exception("loader wasn't assigned");
   if (m_source.empty())
     throw ocl_string_exception("OCL source wasn't assigned");
   FECompileProgramDescriptor programDescriptor;
   programDescriptor.pProgramSource = m_source.c_str();
   programDescriptor.uiNumInputHeaders = 0;
-  programDescriptor.pInputHeaders = NULL;
-  programDescriptor.pszInputHeadersNames = NULL;
+  programDescriptor.pInputHeaders = nullptr;
+  programDescriptor.pszInputHeadersNames = nullptr;
   programDescriptor.pszOptions = m_options.c_str();
   programDescriptor.bFpgaEmulator = m_bFpgaEmulator;
   IOCLFEBinaryResult* res;
   int rc = m_pCompiler->CompileProgram(&programDescriptor, &res);
-  if (rc || NULL == res){
+  if (rc || nullptr == res){
     std::string errorMessage = "compilation failed: ";
     if (res)
       errorMessage.append (res->GetErrorLog());
@@ -98,7 +98,7 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   //
   //Linking
   //
-  IOCLFEBinaryResult* executableResult = NULL;
+  IOCLFEBinaryResult* executableResult = nullptr;
   FELinkProgramsDescriptor linkDescriptor;
   linkDescriptor.uiNumBinaries = 1;
   linkDescriptor.pszOptions = "";
@@ -107,13 +107,13 @@ IOCLFEBinaryResult* CommonOCLBuilder::build(){
   size_t execsize = res->GetIRSize();
   linkDescriptor.puiBinariesSizes = &execsize;
   rc = m_pCompiler->LinkPrograms(&linkDescriptor, &executableResult);
-  if (rc || NULL == executableResult)
+  if (rc || nullptr == executableResult)
     throw ocl_string_exception("linkage failed");
   return executableResult;
 }
 
 CommonOCLBuilder::CommonOCLBuilder():
-  m_pCompiler(NULL),
+  m_pCompiler(nullptr),
   m_bSupportFP64(true),
   m_bSupportImages(true),
   m_bFpgaEmulator(false){
@@ -138,8 +138,8 @@ IOCLFECompiler* CommonOCLBuilder::createCompiler(const char* lib){
   m_dynamicLoader.Load(lib);
   fnCreateFECompilerInstance* factoryMethod =
     (fnCreateFECompilerInstance*)(intptr_t)m_dynamicLoader.GetFunctionPtrByName(fnFactoryName);
-  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret, NULL);
-  if (rc || NULL == ret)
+  int rc = factoryMethod(&sDeviceInfo, sizeof(sDeviceInfo), &ret, nullptr);
+  if (rc || nullptr == ret)
     throw ocl_string_exception("factory method failed");
   return ret;
 }

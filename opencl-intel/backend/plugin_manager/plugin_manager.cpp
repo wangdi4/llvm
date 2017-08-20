@@ -92,12 +92,12 @@ void PluginManager::LoadPlugins()
     const char *dlls = buffer;
     int len = GetEnvironmentVariable("OCLBACKEND_PLUGINS", buffer, MAX_PATH);
     if (len == 0 || len >= MAX_PATH) {
-        dlls = NULL;
+        dlls = nullptr;
     }
 #else
     const char *dlls = getenv("OCLBACKEND_PLUGINS");
 #endif
-    if (NULL == dlls || (std::string)dlls == "")
+    if (nullptr == dlls || (std::string)dlls == "")
         return;
     DllNamesVector namesVector;
     std::string namesEnv(dlls);
@@ -202,9 +202,9 @@ PluginInfo::PluginInfo(const std::string& dllName)
 {
     m_dll.Load(dllName.c_str());
     PLUGIN_CREATE_FUNCPTR factory = (PLUGIN_CREATE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("CreatePlugin");
-    if (NULL == factory)
+    if (nullptr == factory)
     {
-        m_pPlugin = NULL;
+        m_pPlugin = nullptr;
         throw DeviceBackend::Exceptions::DynamicLibException(dllName);
     }
     m_pPlugin = factory();
@@ -212,7 +212,7 @@ PluginInfo::PluginInfo(const std::string& dllName)
 
 PluginInfo::~PluginInfo()
 {
-    if (NULL != m_pPlugin)
+    if (nullptr != m_pPlugin)
     {
         PLUGIN_RELEASE_FUNCPTR cleanup = (PLUGIN_RELEASE_FUNCPTR)(intptr_t)m_dll.GetFuncPtr("ReleasePlugin");
         {
@@ -220,7 +220,7 @@ PluginInfo::~PluginInfo()
             Utils::OclAutoMutex cleanlock(&m_lock);
             cleanup(m_pPlugin);
         }
-        m_pPlugin = NULL;
+        m_pPlugin = nullptr;
         m_dll.Close();
     }
 }

@@ -90,7 +90,7 @@ GLint GLTextureArray::CalculateTextureDimensions()
 cl_err_code GLTextureArray::GetDimensionSizes(size_t* pszRegion) const
 {
     assert(pszRegion);
-    if (NULL == pszRegion)
+    if (nullptr == pszRegion)
     {
         return CL_INVALID_VALUE;
     }

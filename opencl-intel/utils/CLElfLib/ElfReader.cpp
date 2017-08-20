@@ -38,7 +38,7 @@ CElfReader::CElfReader(
     const char* pElfBinary,
     const size_t elfBinarySize )
 {
-    m_pNameTable = NULL;
+    m_pNameTable = nullptr;
     m_nameTableSize = 0;
     m_pElfHeader = (SElf64Header*)pElfBinary;
     m_pBinary = pElfBinary;
@@ -66,7 +66,7 @@ CElfReader* CElfReader::Create(
     const char* pElfBinary,
     const size_t elfBinarySize )
 {
-    CElfReader* pNewReader = NULL;
+    CElfReader* pNewReader = nullptr;
 
     if( IsValidElf64( pElfBinary, elfBinarySize ) )
     {
@@ -85,7 +85,7 @@ void CElfReader::Delete(
     if( pElfReader )
     {
         delete pElfReader;
-        pElfReader = NULL;
+        pElfReader = nullptr;
     }
 }
 
@@ -99,10 +99,10 @@ bool CElfReader::IsValidElf64(
     const size_t binarySize )
 {
     bool retVal = false;
-    SElf64Header* pElf64Header = NULL;
-    SElf64SectionHeader* pSectionHeader = NULL;
-    char* pNameTable = NULL;
-    char* pEnd = NULL;
+    SElf64Header* pElf64Header = nullptr;
+    SElf64SectionHeader* pSectionHeader = nullptr;
+    char* pNameTable = nullptr;
+    char* pEnd = nullptr;
     size_t ourSize = 0;
     size_t entrySize = 0;
     size_t indexedSectionHeaderOffset = 0;
@@ -204,7 +204,7 @@ const SElf64Header* CElfReader::GetElfHeader()
 const SElf64SectionHeader* CElfReader::GetSectionHeader( 
     unsigned int sectionIndex )
 {
-    SElf64SectionHeader* pSectionHeader = NULL;
+    SElf64SectionHeader* pSectionHeader = nullptr;
     size_t indexedSectionHeaderOffset = 0;
     size_t entrySize = m_pElfHeader->SectionHeaderEntrySize;
 
@@ -254,7 +254,7 @@ E_RETVAL CElfReader::GetSectionData(
     size_t &dataSize )
 {
     E_RETVAL retVal = FAILURE;
-    const char* pSectionName = NULL;
+    const char* pSectionName = nullptr;
 
     for( unsigned int i = 1; i < m_pElfHeader->NumSectionHeaderEntries; i++ )
     {
@@ -278,7 +278,7 @@ E_RETVAL CElfReader::GetSectionData(
 const char* CElfReader::GetSectionName( 
     unsigned int sectionIndex )
 {
-    char* pName = NULL;
+    char* pName = nullptr;
     const SElf64SectionHeader* pSectionHeader = GetSectionHeader( sectionIndex );
 
     if( pSectionHeader )

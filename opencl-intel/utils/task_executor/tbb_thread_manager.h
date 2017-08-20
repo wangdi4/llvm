@@ -60,14 +60,14 @@ public:
     static Data* GetCurrentThreadDescriptor()
     {
         TBB_ThreadDescriptor<Data>* cached = m_CurrentThreadGlobalID;
-        return (NULL != cached) ? &(cached->m_data) : NULL; 
+        return (nullptr != cached) ? &(cached->m_data) : nullptr; 
     }
 
     // register thread of still integistered
     Data* RegisterAndGetCurrentThreadDescriptor() 
     {
         Data* d = GetCurrentThreadDescriptor();
-        return (NULL != d) ? d : RegisterCurrentThread(); 
+        return (nullptr != d) ? d : RegisterCurrentThread(); 
     }
 
 private:

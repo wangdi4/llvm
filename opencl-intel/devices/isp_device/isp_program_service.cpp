@@ -50,9 +50,9 @@ using namespace Intel::OpenCL::ISPDevice;
 #define ISP_FIRMWARE_FILE_EXTENSION "bin"
 
 ISPProgramService::ISPProgramService(cl_int devId, IOCLDevLogDescriptor *logDesc, CameraShim* pCameraShim) :
-    m_iDevId(devId), m_pLogDescriptor(logDesc), m_pCameraShim(pCameraShim), m_pBuiltInKernelRegistry(NULL)
+    m_iDevId(devId), m_pLogDescriptor(logDesc), m_pCameraShim(pCameraShim), m_pBuiltInKernelRegistry(nullptr)
 {
-    if (NULL != logDesc)
+    if (nullptr != logDesc)
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "ISP Device: Program Service", &m_iLogHandle);
         if (CL_DEV_FAILED(ret))
@@ -73,7 +73,7 @@ ISPProgramService::~ISPProgramService()
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
 
-    if (NULL != m_pBuiltInKernelRegistry)
+    if (nullptr != m_pBuiltInKernelRegistry)
     {
         delete m_pBuiltInKernelRegistry;
     }
@@ -82,7 +82,7 @@ ISPProgramService::~ISPProgramService()
 cl_dev_err_code ISPProgramService::Init()
 {
     m_pBuiltInKernelRegistry = new BuiltInKernelRegistry(m_pCameraShim);
-    if (NULL == m_pBuiltInKernelRegistry)
+    if (nullptr == m_pBuiltInKernelRegistry)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -161,7 +161,7 @@ cl_dev_err_code ISPProgramService::FindFirmwares(std::string dir)
 
         // allocate memory for the file
         char * fileContent = new char[fileSize];
-        if (NULL == fileContent)
+        if (nullptr == fileContent)
         {
             IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s%s"), TEXT("Cannot allocate memory for file - skipping: "), filename->c_str());
             file.close();
@@ -286,13 +286,13 @@ cl_dev_err_code ISPProgramService::CreateProgram(size_t IN binSize,
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateProgram enter"));
 
     // Input parameters validation
-    if (0 == binSize || NULL == bin)
+    if (0 == binSize || nullptr == bin)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid binSize or bin parameters"));
         return CL_DEV_INVALID_VALUE;
     }
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid prog parameter"));
         return CL_DEV_INVALID_VALUE;
@@ -306,7 +306,7 @@ cl_dev_err_code ISPProgramService::CreateProgram(size_t IN binSize,
     }
 
     ISPProgram* pIspProgram = new ISPProgram(bin, binSize);
-    if (NULL == pIspProgram)
+    if (nullptr == pIspProgram)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Can't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -345,7 +345,7 @@ cl_dev_err_code ISPProgramService::CreateBuiltInKernelProgram(const char* IN szB
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CreateBuiltInKernelProgram enter"));
 
     ISPProgram* pIspProgram = new ISPProgram(m_pBuiltInKernelRegistry, szBuiltInNames);
-    if(NULL == pIspProgram)
+    if(nullptr == pIspProgram)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Can't allocate program entry"));
         return CL_DEV_OUT_OF_MEMORY;
@@ -397,7 +397,7 @@ cl_dev_err_code ISPProgramService::BuildProgram(cl_dev_program OUT prog,
 
     // TODO: options is ignored
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
@@ -447,7 +447,7 @@ cl_dev_err_code ISPProgramService::BuildProgram(cl_dev_program OUT prog,
         pIspProgram->SetBuildStatus(CL_BUILD_SUCCESS);
     }
 
-    if(NULL != buildStatus)
+    if(nullptr != buildStatus)
     {
         *buildStatus = pIspProgram->GetBuildStatus();
     }
@@ -471,7 +471,7 @@ cl_dev_err_code ISPProgramService::ReleaseProgram(cl_dev_program IN prog)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("ReleaseProgram enter"));
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
@@ -509,7 +509,7 @@ cl_dev_err_code ISPProgramService::GetProgramBinary(cl_dev_program IN prog,
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramBinary enter"));
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
@@ -517,24 +517,24 @@ cl_dev_err_code ISPProgramService::GetProgramBinary(cl_dev_program IN prog,
 
     ISPProgram* pIspProgram = (ISPProgram*) prog;
     fw_info blobInfo = pIspProgram->GetBlob();
-    if (NULL == blobInfo.data)
+    if (nullptr == blobInfo.data)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Program doesn't contain any binary"));
         return CL_DEV_INVALID_VALUE;
     }
 
-    if (NULL != sizeRet)
+    if (nullptr != sizeRet)
     {
         *sizeRet = blobInfo.size;
     }
 
-    if ((0 == size) && (NULL == binary))
+    if ((0 == size) && (nullptr == binary))
     {
         IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Size of the actual binary is returned. No binary copy was required"));
         return CL_DEV_SUCCESS;
     }
 
-    assert((size > 0 && NULL != binary) && "Invalid size or binary pointer was specifed, framework should have cought this");
+    assert((size > 0 && nullptr != binary) && "Invalid size or binary pointer was specifed, framework should have cought this");
 
     if (size < blobInfo.size)
     {
@@ -567,7 +567,7 @@ cl_dev_err_code ISPProgramService::GetBuildLog(cl_dev_program IN prog, size_t IN
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetBuildLog enter"));
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
@@ -586,12 +586,12 @@ cl_dev_err_code ISPProgramService::GetBuildLog(cl_dev_program IN prog, size_t IN
     const char* pLog = pIspProgram->GetBuildLog();
     size_t stLogSize = pIspProgram->GetBuildLogSize();
 
-    if (NULL != sizeRet)
+    if (nullptr != sizeRet)
     {
         *sizeRet = stLogSize;
     }
 
-    if ((NULL == log) || (size < stLogSize))
+    if ((nullptr == log) || (size < stLogSize))
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid input buffer or buffer size is not enough"));
         return CL_DEV_INVALID_VALUE;
@@ -632,12 +632,12 @@ cl_dev_err_code ISPProgramService::GetSupportedBinaries(size_t IN count, cl_prog
     cl_prog_binary_desc* pSupportedBinaries = &supportedBinType;
     size_t stSupportedBinariesSize = sizeof(supportedBinType);
 
-    if (NULL != sizeRet)
+    if (nullptr != sizeRet)
     {
         *sizeRet = stSupportedBinariesSize;
     }
 
-    if ((NULL == types) || (count < stSupportedBinariesSize))
+    if ((nullptr == types) || (count < stSupportedBinariesSize))
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid input buffer or buffer size is not enough"));
         return CL_DEV_INVALID_VALUE;
@@ -668,13 +668,13 @@ cl_dev_err_code ISPProgramService::GetKernelId(cl_dev_program IN prog, const cha
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelId enter"));
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
     }
 
-    if((NULL == name) || (NULL == kernelId))
+    if((nullptr == name) || (nullptr == kernelId))
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid kernel name or output parameter"));
         return CL_DEV_INVALID_VALUE;
@@ -689,7 +689,7 @@ cl_dev_err_code ISPProgramService::GetKernelId(cl_dev_program IN prog, const cha
     }
 
     ISPKernel* pKernel = pIspProgram->GetKernel(name);
-    if(NULL == pKernel)
+    if(nullptr == pKernel)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s%s"), TEXT("Invalid kernel name "), name);
         return CL_DEV_INVALID_KERNEL_NAME;
@@ -721,7 +721,7 @@ cl_dev_err_code ISPProgramService::GetProgramKernels(cl_dev_program IN prog, cl_
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetProgramKernels enter"));
 
-    if (NULL == prog)
+    if (nullptr == prog)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid program parameter"));
         return CL_DEV_INVALID_PROGRAM;
@@ -737,12 +737,12 @@ cl_dev_err_code ISPProgramService::GetProgramKernels(cl_dev_program IN prog, cl_
 
     cl_uint numAvailableKernels = pIspProgram->GetKernelsCount();
 
-    if (NULL != num_kernels_ret)
+    if (nullptr != num_kernels_ret)
     {
         *num_kernels_ret = numAvailableKernels;
     }
 
-    if (NULL != kernels)
+    if (nullptr != kernels)
     {
         if (num_kernels < numAvailableKernels)
         {
@@ -782,7 +782,7 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetKernelInfo enter"));
 
-    if (NULL == kernel)
+    if (nullptr == kernel)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid kernel parameter"));
         return CL_DEV_INVALID_KERNEL;
@@ -795,7 +795,7 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
     cl_ulong ulValue;
     cl_dev_dispatch_buffer_prop dispatchProperties;
 
-    const void* pValue = NULL;
+    const void* pValue = nullptr;
     size_t stValueSize = 0;
 
     // TODO: verify these values
@@ -868,18 +868,18 @@ cl_dev_err_code ISPProgramService::GetKernelInfo(cl_dev_kernel IN kernel, cl_dev
             return CL_DEV_INVALID_VALUE;
     }
 
-    if (NULL != valueSizeRet)
+    if (nullptr != valueSizeRet)
     {
         *valueSizeRet = stValueSize;
     }
 
-    if (NULL != value && valueSize < stValueSize)
+    if (nullptr != value && valueSize < stValueSize)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Invalid input buffer or buffer size is not enough"));
         return CL_DEV_INVALID_VALUE;
     }
 
-    if (NULL != value && 0 != stValueSize)
+    if (nullptr != value && 0 != stValueSize)
     {
         MEMCPY_S(value, valueSize, pValue, stValueSize);
     }
@@ -907,7 +907,7 @@ cl_dev_err_code ISPProgramService::GetSupportedImageFormats(cl_mem_flags IN flag
                 cl_uint IN numEntries, cl_image_format* OUT formats, cl_uint* OUT numEntriesRet)
 {
     IspInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("GetSupportedImageFormats enter"));
-    if (NULL != numEntriesRet)
+    if (nullptr != numEntriesRet)
     {
         numEntriesRet = 0; // Currently, no images are supported
     }
@@ -929,14 +929,14 @@ ISPKernel::ISPKernel(const char* kernelName, fw_info blob) :
 ISPKernel::ISPKernel(enum cameraCommand cmd) :
     m_command(cmd), m_argsBufferSize(0)
 {
-    m_blob.data = NULL;
+    m_blob.data = nullptr;
     m_blob.size = 0;
 }
 
 cl_dev_err_code ISPKernel::Build(std::string& log)
 {
-    if (((NULL == m_blob.data || 0 == m_blob.size) && CAMERA_NO_COMMAND == m_command) ||
-        ((NULL != m_blob.data || 0 != m_blob.size) && CAMERA_NO_COMMAND != m_command))
+    if (((nullptr == m_blob.data || 0 == m_blob.size) && CAMERA_NO_COMMAND == m_command) ||
+        ((nullptr != m_blob.data || 0 != m_blob.size) && CAMERA_NO_COMMAND != m_command))
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -960,7 +960,7 @@ cl_dev_err_code ISPKernel::Build(std::string& log)
 
 cl_dev_err_code ISPKernel::BuildFromBinary(std::string& log)
 {
-    if (NULL == m_blob.data || 0 == m_blob.size)
+    if (nullptr == m_blob.data || 0 == m_blob.size)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1020,7 +1020,7 @@ cl_dev_err_code ISPKernel::BuildFromBinary(std::string& log)
 cl_dev_err_code ISPKernel::BuildFromCommand(std::string& log)
 {
     const char * name = CommandToString(m_command);
-    if (NULL == name)
+    if (nullptr == name)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1105,7 +1105,7 @@ const cl_kernel_argument* ISPKernel::GetKernelArgsPrototype() const
 {
     if (m_argsPrototype.empty())
     {
-        return NULL;
+        return nullptr;
     }
 
     return &(m_argsPrototype[0]);
@@ -1115,7 +1115,7 @@ const cl_uint* ISPKernel::GetKernelMemoryObjArgsIndices() const
 {
     if (m_memObjArgsIndices.empty())
     {
-        return NULL;
+        return nullptr;
     }
 
     return &(m_memObjArgsIndices[0]);
@@ -1140,7 +1140,7 @@ const char* ISPKernel::CommandToString(enum cameraCommand cmd)
 
         default:
             // Unknown command
-            return NULL;
+            return nullptr;
     }
 }
 
@@ -1220,7 +1220,7 @@ cl_dev_err_code BuiltInKernelRegistry::AddCameraCommands()
     for (int i = CAMERA_NO_COMMAND+1; i < LAST_CAMERA_COMMAND; i++)
     {
         ISPKernel* pKernel = new ISPKernel(static_cast<enum cameraCommand>(i));
-        if(NULL == pKernel)
+        if(nullptr == pKernel)
         {
             return CL_DEV_OUT_OF_MEMORY;
         }
@@ -1256,7 +1256,7 @@ cl_dev_err_code BuiltInKernelRegistry::AddFirmware(const void* pBinary, size_t s
     }
 
     fw_info blob;
-    blob.data = NULL;
+    blob.data = nullptr;
     blob.size = 0;
 
     cl_uint numKernels = program.GetKernelsCount();
@@ -1266,7 +1266,7 @@ cl_dev_err_code BuiltInKernelRegistry::AddFirmware(const void* pBinary, size_t s
     }
 
     ISPKernel** ppKernels = new ISPKernel*[numKernels];
-    if (NULL == ppKernels)
+    if (nullptr == ppKernels)
     {
         return CL_DEV_ERROR_FAIL;
     }
@@ -1290,7 +1290,7 @@ cl_dev_err_code BuiltInKernelRegistry::AddFirmware(const void* pBinary, size_t s
 
 cl_dev_err_code BuiltInKernelRegistry::GetBuiltInKernel(std::string& builtinName, ISPKernel** pKernel_ret)
 {
-    if (builtinName.empty() || NULL == pKernel_ret)
+    if (builtinName.empty() || nullptr == pKernel_ret)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1312,23 +1312,23 @@ cl_dev_err_code BuiltInKernelRegistry::GetBuiltInKernel(std::string& builtinName
 // Construct ISP program from binary
 ISPProgram::ISPProgram(const void* pBinary, size_t size) :
     m_binary(pBinary), m_binarySize(size),
-    m_isBuiltIn(false), m_pBuiltInKernelRegistry(NULL),
+    m_isBuiltIn(false), m_pBuiltInKernelRegistry(nullptr),
     m_buildStatus(CL_BUILD_NONE)
 {
     m_blob.size = 0;
-    m_blob.data = NULL;
+    m_blob.data = nullptr;
 }
 
 // Construct ISP program from built-in kernels
 ISPProgram::ISPProgram(BuiltInKernelRegistry* registry, const char* szBuiltInKernelList) :
-    m_binary(NULL), m_binarySize(0),
+    m_binary(nullptr), m_binarySize(0),
     m_isBuiltIn(true), m_pBuiltInKernelRegistry(registry),
     m_buildStatus(CL_BUILD_NONE)
 {
     m_blob.size = 0;
-    m_blob.data = NULL;
+    m_blob.data = nullptr;
 
-    if (NULL != szBuiltInKernelList)
+    if (nullptr != szBuiltInKernelList)
     {
         m_strBuiltInsList = szBuiltInKernelList;
     }
@@ -1344,7 +1344,7 @@ ISPProgram::~ISPProgram()
     }
 
     // release the fw info from ISP
-    if (NULL != m_blob.data)
+    if (nullptr != m_blob.data)
     {
         assert(0 == m_blob.size && "Binary size should be larger than zero when we have a valid binary pointer!");
         m_pCameraShim->host_free(m_blob.data);
@@ -1354,7 +1354,7 @@ ISPProgram::~ISPProgram()
 // Allocate and copy the program binary to ISP address space
 cl_dev_err_code ISPProgram::AllocateOnISP(CameraShim* shim)
 {
-    if (0 == m_binary || 0 == m_binarySize || m_isBuiltIn || NULL == shim)
+    if (0 == m_binary || 0 == m_binarySize || m_isBuiltIn || nullptr == shim)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1364,7 +1364,7 @@ cl_dev_err_code ISPProgram::AllocateOnISP(CameraShim* shim)
     fw_info blob;
     blob.size = m_binarySize;
     blob.data = m_pCameraShim->host_alloc(blob.size);
-    if (NULL == blob.data ||
+    if (nullptr == blob.data ||
         0 != MEMCPY_S(blob.data, blob.size, m_binary, m_binarySize))
     {
         return CL_DEV_ERROR_FAIL;
@@ -1390,7 +1390,7 @@ cl_dev_err_code ISPProgram::BuildFromBinary()
 {
     //--------------------------------
     // TODO: Currently only one kernel per program
-    if (NULL == m_binary || m_isBuiltIn)
+    if (nullptr == m_binary || m_isBuiltIn)
     {
         return CL_DEV_INVALID_VALUE;
     }
@@ -1409,7 +1409,7 @@ cl_dev_err_code ISPProgram::BuildFromBinary()
     m_buildLog.append("Found kernel " + std::string(kernelName) + "\n");
 
     ISPKernel* pKernel = new ISPKernel(kernelName, m_blob);
-    if (NULL == pKernel)
+    if (nullptr == pKernel)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1434,7 +1434,7 @@ cl_dev_err_code ISPProgram::BuildFromBinary()
 
 cl_dev_err_code ISPProgram::BuildFromBuiltIns()
 {
-    if (m_strBuiltInsList.empty() || !m_isBuiltIn || NULL == m_pBuiltInKernelRegistry)
+    if (m_strBuiltInsList.empty() || !m_isBuiltIn || nullptr == m_pBuiltInKernelRegistry)
     {
         return CL_DEV_INVALID_OPERATION;
     }
@@ -1451,7 +1451,7 @@ cl_dev_err_code ISPProgram::BuildFromBuiltIns()
     //       check if this cause issues elsewhere
     while (std::getline(stream, builtInName, delim))
     {
-        ISPKernel* pBuiltinKernel = NULL;
+        ISPKernel* pBuiltinKernel = nullptr;
         ret = m_pBuiltInKernelRegistry->GetBuiltInKernel(builtInName, &pBuiltinKernel);
         if (CL_DEV_FAILED(ret))
         {
@@ -1459,11 +1459,11 @@ cl_dev_err_code ISPProgram::BuildFromBuiltIns()
             m_buildLog.append("Build failed\n");
             return ret;
         }
-        assert(NULL != pBuiltinKernel && "GetBuiltInKernel returned NULL kernel even in success!");
+        assert(nullptr != pBuiltinKernel && "GetBuiltInKernel returned NULL kernel even in success!");
 
         // ISPKernel is not the owner of any internal pointer so copy c'tor is enough
         ISPKernel* pKernel = new ISPKernel(*pBuiltinKernel);
-        if (NULL == pKernel)
+        if (nullptr == pKernel)
         {
             return CL_DEV_OUT_OF_MEMORY;
         }
@@ -1481,18 +1481,18 @@ cl_dev_err_code ISPProgram::BuildFromBuiltIns()
 
 cl_dev_err_code ISPProgram::TakeBlobAndKernels(fw_info* blob_ret, cl_uint numKernels, ISPKernel** kernels_ret)
 {
-    if (NULL == blob_ret || NULL == m_blob.data || 0 == m_blob.size)
+    if (nullptr == blob_ret || nullptr == m_blob.data || 0 == m_blob.size)
     {
         return CL_DEV_INVALID_VALUE;
     }
-    if (NULL == kernels_ret || numKernels != GetKernelsCount())
+    if (nullptr == kernels_ret || numKernels != GetKernelsCount())
     {
         return CL_DEV_INVALID_VALUE;
     }
 
     // take the blob
     *blob_ret = m_blob;
-    m_blob.data = NULL;
+    m_blob.data = nullptr;
     m_blob.size = 0;
 
     // take the kernels
@@ -1513,14 +1513,14 @@ ISPKernel* ISPProgram::GetKernel(const char * name) const
 {
     if(m_mapKernels.size() == 0)
     {
-        return NULL;
+        return nullptr;
     }
 
     KernelMap_t::const_iterator iter;
     iter = m_mapKernels.find(name);
     if(m_mapKernels.end() == iter)
     {
-        return NULL;
+        return nullptr;
     }
 
     return iter->second;
@@ -1530,7 +1530,7 @@ ISPKernel* ISPProgram::GetKernel(int id) const
 {
     if(m_vecKernels.size() <= id)
     {
-        return NULL;
+        return nullptr;
     }
 
     return m_vecKernels[id];

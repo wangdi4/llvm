@@ -27,10 +27,10 @@ Function* DXRuntime::findInRuntimeModule(StringRef Name) const {
     it != m_runtimeModulesList.end(); ++it)
   {
     Function* ret_function = (*it)->getFunction(Name);
-    if (ret_function != NULL)
+    if (ret_function != nullptr)
         return ret_function;
   }
-  return NULL;
+  return nullptr;
 }
 
 std::auto_ptr<VectorizerFunction>

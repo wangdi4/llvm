@@ -29,13 +29,13 @@ using namespace Intel::OpenCL::Framework;
 cl_int Intel::OpenCL::Framework::ParseGLContextOptions(const cl_context_properties * properties, cl_context_properties *hGL,  cl_context_properties *hDC,
                                                        bool* pbGLSharingSupported)
 {
-    if (NULL != pbGLSharingSupported)
+    if (nullptr != pbGLSharingSupported)
     {
         *pbGLSharingSupported = false;
     }    
 	*hGL = NULL;
 	*hDC = NULL;
-	if ( NULL == properties)
+	if ( nullptr == properties)
 	{
 		return CL_SUCCESS;
 	}
@@ -45,14 +45,14 @@ cl_int Intel::OpenCL::Framework::ParseGLContextOptions(const cl_context_properti
 		{
 		case CL_GL_CONTEXT_KHR:
 			*hGL = *(properties+1);
-            if (NULL != pbGLSharingSupported)
+            if (nullptr != pbGLSharingSupported)
             {
                 *pbGLSharingSupported = true;
             }            
 			break;
 		case  CL_WGL_HDC_KHR:
 			*hDC = *(properties+1);
-            if (NULL != pbGLSharingSupported)
+            if (nullptr != pbGLSharingSupported)
             {
                 *pbGLSharingSupported = true;
             }            

@@ -84,7 +84,7 @@ namespace intel {
     } else {
       // CSSD100016517: workaround
       // a function has no synchronize instruction but it still needs to calculate its private memory size
-      m_pSyncInstructions = NULL;
+      m_pSyncInstructions = nullptr;
     }
 
     //run over all the values of the function and Cluster into 3 groups
@@ -499,7 +499,7 @@ namespace intel {
     }
     if (hasReturnValue && argsFunction[numOfArgs]) {
       // Return value is marked for handling, get new offset for this function.
-      m_valueToOffsetMap[&F] = getValueOffset(NULL, F.getFunctionType()->getReturnType(), 0, bufferData);
+      m_valueToOffsetMap[&F] = getValueOffset(nullptr, F.getFunctionType()->getReturnType(), 0, bufferData);
     }
   }
 

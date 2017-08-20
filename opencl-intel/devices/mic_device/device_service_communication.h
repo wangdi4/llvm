@@ -83,7 +83,7 @@ public:
                             size_t output_data_size, void* output_data,
                             unsigned int numBuffers, const COIBUFFER* buffers, 
                             const COI_ACCESS_FLAGS* bufferAccessFlags,
-                            COIPIPELINE use_pipeline = NULL );
+                            COIPIPELINE use_pipeline = nullptr );
 
     unsigned int GetNumActiveThreads() const { return m_uiNumActiveThreads;}
 private:

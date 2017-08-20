@@ -282,14 +282,14 @@ private:
   Function *getNewFunc(std::unique_ptr<Module> &newM, Function *F) {
     FunctionType *FTy = F->getFunctionType();
     Function *newF = newM->getFunction(F->getName());
-    if (!newF) return NULL;
-    if (newF->arg_size() != F->arg_size()) return NULL;
+    if (!newF) return nullptr;
+    if (newF->arg_size() != F->arg_size()) return nullptr;
 
     FunctionType *newFTy = newF->getFunctionType();
     for (unsigned j=0; j<FTy->getNumParams(); j++) {
       Type *Ty = FTy->getParamType(j);
       Type *newTy = newFTy->getParamType(j);
-      if (!VectorizerUtils::isOpaquePtrPair(Ty, newTy) && Ty != newTy) return NULL;
+      if (!VectorizerUtils::isOpaquePtrPair(Ty, newTy) && Ty != newTy) return nullptr;
     }
     return newF;
   }

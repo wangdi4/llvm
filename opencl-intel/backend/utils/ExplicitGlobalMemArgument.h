@@ -45,9 +45,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       // When running on MIC we should take the provided pointer
       const void* pGlobalData = *(void**)pValue;
 #else
-      const void* pGlobalData = NULL;
-      cl_mem_obj_descriptor* pMemObj =  !pValue ? NULL : (*(cl_mem_obj_descriptor**)pValue);
-      if ( NULL != pMemObj )
+      const void* pGlobalData = nullptr;
+      cl_mem_obj_descriptor* pMemObj =  !pValue ? nullptr : (*(cl_mem_obj_descriptor**)pValue);
+      if ( nullptr != pMemObj )
       {
         if (pMemObj->memObjType == CL_MEM_OBJECT_BUFFER)
           pGlobalData = pMemObj->pData;

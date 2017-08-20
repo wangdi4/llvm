@@ -44,7 +44,7 @@ using namespace Intel::OpenCL::Framework;
 GenericMemObject::GenericMemObject(const SharedPtr<Context>& pContext, cl_mem_object_type clObjType) :    
     MemoryObject(pContext),
     m_active_groups_count(0),
-    m_BS(NULL),
+    m_BS(nullptr),
     m_hierarchicalMemoryMode(MEMORY_MODE_NORMAL)    
 {
     INIT_LOGGER_CLIENT(TEXT("GenericMemObject"), LL_DEBUG);
@@ -61,12 +61,12 @@ GenericMemObject::~GenericMemObject()
 
     remove_device_objects();
 
-    if ( NULL != m_pBackingStore )
+    if ( nullptr != m_pBackingStore )
     {
         m_pBackingStore->RemovePendency();
     }
 
-    if ( NULL != m_BS )
+    if ( nullptr != m_BS )
     {
         m_BS->RemovePendency();
     }
@@ -84,10 +84,10 @@ void GenericMemObject::remove_device_objects(void)
         {
             SharingGroup& group = m_sharing_groups[i];
 
-            if (NULL != group.m_dev_mem_obj)
+            if (nullptr != group.m_dev_mem_obj)
             {
                 group.m_dev_mem_obj->clDevMemObjRelease();
-                group.m_dev_mem_obj = NULL;
+                group.m_dev_mem_obj = nullptr;
             }
         }
 
@@ -150,7 +150,7 @@ cl_err_code GenericMemObject::Initialize(
         return CL_INVALID_VALUE;
     }
 
-    if (NULL == dimension)
+    if (nullptr == dimension)
     {
         return CL_INVALID_VALUE;
     }
@@ -159,9 +159,9 @@ cl_err_code GenericMemObject::Initialize(
     cl_uint             dev_count = 0;
     SharedPtr<FissionableDevice> *pDevices  = m_pContext->GetDevices(&dev_count);
 
-    assert( (0 != dev_count) && (NULL != pDevices) );
+    assert( (0 != dev_count) && (nullptr != pDevices) );
 
-    IOCLDevRawMemoryAllocator* pDeviceRawMemAllocator = NULL;
+    IOCLDevRawMemoryAllocator* pDeviceRawMemAllocator = nullptr;
 
     bool   used_by_DMA = false;
     size_t alignment = 1; // no alignment
@@ -229,7 +229,7 @@ cl_err_code GenericMemObject::Initialize(
         {
             // device must allocate raw memory for BS for zero-copy sharing between RT and device
 
-            if (NULL != pDeviceRawMemAllocator)
+            if (nullptr != pDeviceRawMemAllocator)
             {
                 // more than one device must allocate the raw memory
                 // we dont support this case - skip this device
@@ -237,8 +237,8 @@ cl_err_code GenericMemObject::Initialize(
             }
 
             pDeviceRawMemAllocator = dev->GetDeviceAgent()->clDevGetRawMemoryAllocator();
-            assert(NULL != pDeviceRawMemAllocator && "Device should return valid allocator when its mustAllocRawMemory is true");
-            if (NULL == pDeviceRawMemAllocator)
+            assert(nullptr != pDeviceRawMemAllocator && "Device should return valid allocator when its mustAllocRawMemory is true");
+            if (nullptr == pDeviceRawMemAllocator)
             {
                 continue;
             }
@@ -276,7 +276,7 @@ cl_err_code GenericMemObject::Initialize(
                                                creation_flags,
                                                pDeviceRawMemAllocator);
 
-    if (NULL == m_BS)
+    if (nullptr == m_BS)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -337,7 +337,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
     m_clFlags   = clMemFlags;
 
     // Create Backing Store
-    assert( (NULL != parent.m_pBackingStore->GetRawData()) &&
+    assert( (nullptr != parent.m_pBackingStore->GetRawData()) &&
             "Parent Memory Object Backing Store must be finalized during SubObject creation" );
 
     m_BS = new GenericMemObjectBackingStore( clMemFlags,
@@ -346,7 +346,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
                                              region,
                                              *(parent.m_BS));
 
-    if (NULL == m_BS)
+    if (nullptr == m_BS)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -449,7 +449,7 @@ cl_err_code GenericMemObject::UpdateHostPtr(cl_mem_flags clMemFlags, void* pHost
 const GenericMemObject::DeviceDescriptor* GenericMemObject::get_device( const FissionableDevice* dev ) const
 {
     TDevice2DescPtrMap::const_iterator found = m_device_2_descriptor_map.find( dev );
-    return (found != m_device_2_descriptor_map.end()) ? found->second : NULL;
+    return (found != m_device_2_descriptor_map.end()) ? found->second : nullptr;
 }
 
 cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int group_id )
@@ -458,7 +458,7 @@ cl_err_code GenericMemObject::allocate_object_for_sharing_group( unsigned int gr
     SharingGroup& group      = m_sharing_groups[group_id];
     IOCLDevMemoryObject* obj = device_object(group);
 
-    if (NULL != obj)
+    if (nullptr != obj)
     {
         return CL_SUCCESS;
     }
@@ -504,7 +504,7 @@ cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDe
 {
     DeviceDescriptor* desc = get_device( pDevice.GetPtr() );
 
-    if (NULL == desc)
+    if (nullptr == desc)
     {
         return CL_INVALID_DEVICE;
     }
@@ -520,17 +520,17 @@ cl_err_code GenericMemObject::CreateDeviceResource(const SharedPtr<FissionableDe
 
 cl_err_code GenericMemObject::GetDeviceDescriptor(const SharedPtr<FissionableDevice>& pDevice, IOCLDevMemoryObject* *ppDevObject, SharedPtr<OclEvent>* ppEvent)
 {
-    assert(NULL != ppDevObject);
+    assert(nullptr != ppDevObject);
 
     DeviceDescriptor* desc = get_device( pDevice.GetPtr() );
 
-    if (NULL == desc)
+    if (nullptr == desc)
     {
         return CL_INVALID_DEVICE;
     }
 
     *ppDevObject = device_object( *desc );
-    assert(NULL != *ppDevObject);
+    assert(nullptr != *ppDevObject);
 
     return CL_SUCCESS;
 }
@@ -549,7 +549,7 @@ cl_err_code    GenericMemObject::MemObjCreateDevMappedRegion(
     IOCLDevMemoryObject* dev_object;
     cl_err_code          err;
 
-    err = GetDeviceDescriptor(pDevice, &dev_object, NULL);
+    err = GetDeviceDescriptor(pDevice, &dev_object, nullptr);
 
     if (CL_FAILED(err))
     {
@@ -562,7 +562,7 @@ cl_err_code    GenericMemObject::MemObjCreateDevMappedRegion(
     {
         *pHostMapDataPtr = cmd_param_map->ptr;
         void* user_provided_ptr = m_BS->GetUserProvidedHostMapPtr();
-        if (NULL != user_provided_ptr)
+        if (nullptr != user_provided_ptr)
         {
             // if user provided Host Map pointer all mappings should be returned in this area.
             *pHostMapDataPtr = (cl_uchar*)user_provided_ptr + m_BS->GetRawDataOffset( cmd_param_map->origin );
@@ -582,7 +582,7 @@ cl_err_code    GenericMemObject::MemObjReleaseDevMappedRegion(
     IOCLDevMemoryObject* dev_object;
     cl_err_code          err;
 
-    err = GetDeviceDescriptor(pDevice, &dev_object, NULL );
+    err = GetDeviceDescriptor(pDevice, &dev_object, nullptr );
 
     if (CL_FAILED(err))
     {
@@ -637,8 +637,8 @@ cl_err_code GenericMemObject::NotifyDeviceFissioned(const SharedPtr<FissionableD
 // IOCLDevRTMemObjectService Methods
 cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, IOCLDevBackingStore* *ppBS)
 {
-    assert(NULL!= ppBS);
-    assert(NULL!= m_pBackingStore);
+    assert(nullptr!= ppBS);
+    assert(nullptr!= m_pBackingStore);
 
     *ppBS = m_pBackingStore;
     return CL_DEV_SUCCESS;
@@ -647,8 +647,8 @@ cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, IOCLDev
 // IOCLDevRTMemObjectService Methods
 cl_dev_err_code GenericMemObject::GetBackingStore(cl_dev_bs_flags flags, const IOCLDevBackingStore* *ppBS) const
 {
-    assert(NULL!= ppBS);
-    assert(NULL!= m_pBackingStore);
+    assert(nullptr!= ppBS);
+    assert(nullptr!= m_pBackingStore);
 
     *ppBS = m_pBackingStore;
     return CL_DEV_SUCCESS;
@@ -658,7 +658,7 @@ cl_dev_err_code GenericMemObject::SetBackingStore(IOCLDevBackingStore* pBS)
 {
     pBS->AddPendency();
     IOCLDevBackingStore* pOldBS = m_pBackingStore.exchange(pBS);
-    if ( NULL != pOldBS )
+    if ( nullptr != pOldBS )
     {
         pOldBS->RemovePendency();
     }
@@ -817,7 +817,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
     LOG_DEBUG(TEXT("%s"), TEXT("Enter:(clParamName=%d, szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
         clParamName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 
-    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    if (nullptr == pParamValue && nullptr == pszParamValueSizeRet)
     {
         return CL_INVALID_VALUE;
     }
@@ -834,7 +834,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
     const size_t szRowPitch = pits[0] != 0 ? pits[0] : elem_size * dims[0];
     const size_t szSlicePitch = pits[1] != 0 ? pits[1] : szRowPitch * dims[1];
     size_t  szSize = 0;
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
     size_t    stZero = 0;
     cl_uint uiZero = 0;
     cl_mem imageBuffer = GetParent() != 0 ? const_cast<_cl_mem_int*>(GetParent()->GetHandle()) : CL_INVALID_HANDLE;
@@ -933,17 +933,17 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pParamValue && szParamValueSize < szSize)
+    if (nullptr != pParamValue && szParamValueSize < szSize)
     {
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = szSize;
     }
 
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
@@ -983,7 +983,7 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
     }
 
     GenericMemObjectSubBuffer* pSubBuffer = new GenericMemObjectSubBuffer( m_pContext, m_clMemObjectType, *this);
-    if ( NULL == pSubBuffer )
+    if ( nullptr == pSubBuffer )
     {
         return CL_OUT_OF_HOST_MEMORY;
     }
@@ -1003,14 +1003,14 @@ cl_err_code GenericMemObject::CreateSubBuffer(cl_mem_flags clFlags, cl_buffer_cr
         addSubBuffer(pSubBuffer);
     }
 
-    assert(NULL != ppBuffer);
+    assert(nullptr != ppBuffer);
     *ppBuffer = pSubBuffer;
     return CL_SUCCESS;
 }
 
 void GenericMemObject::addSubBuffer(GenericMemObjectSubBuffer* pSubBuffer)
 {
-    assert(NULL != pSubBuffer && "pSubBuffer must be valid pointer");
+    assert(nullptr != pSubBuffer && "pSubBuffer must be valid pointer");
     acquireBufferSyncLock();
     TSubBufferList* pSubBuffersList = getSubBuffersListPtr();
     // If MEMORY_MODE_NORMAL mode check if the new sub-buffer is overlap with other sub-buffer.
@@ -1099,11 +1099,11 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
                                ClHeap                       heap,
                                cl_rt_memobj_creation_flags  creation_flags,
                                IOCLDevRawMemoryAllocator*   pRawMemoryAllocator) :
-    m_ptr(NULL), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
-    m_data_valid(NULL != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
-    m_raw_data_size(0), m_heap(heap), m_pRawMemoryAllocator(pRawMemoryAllocator), m_parent(NULL), m_refCount(1)
+    m_ptr(nullptr), m_dim_count(dim_count), m_pHostPtr(pHostPtr), m_user_flags(clMemFlags),
+    m_data_valid(nullptr != pHostPtr), m_used_by_DMA( used_by_DMA), m_alignment(alignment), m_preferred_alignment(preferred_alignment),
+    m_raw_data_size(0), m_heap(heap), m_pRawMemoryAllocator(pRawMemoryAllocator), m_parent(nullptr), m_refCount(1)
 {
-    if (NULL != pclImageFormat)
+    if (nullptr != pclImageFormat)
     {
         m_format       = *pclImageFormat;
     }
@@ -1116,7 +1116,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
 
 
     // caclulate pitches and dimensions
-    assert( NULL != dimensions );
+    assert( nullptr != dimensions );
     calculate_pitches_and_dimentions( m_element_size, dim_count, dimensions, pitches, m_dimensions, m_pitches );
 
     // calc raw data size
@@ -1126,7 +1126,7 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
     assert( IS_ALIGNED_ON(m_preferred_alignment, m_preferred_alignment) && "Preferred alignment is not power of 2" );
 
     // can user data be used?
-    if (NULL != pHostPtr)                              // user provided some pointer
+    if (nullptr != pHostPtr)                              // user provided some pointer
     {
         assert( (m_user_flags & (CL_MEM_USE_HOST_PTR | CL_MEM_COPY_HOST_PTR)) ||
                 (CL_RT_MEMOBJ_FORCE_BS & creation_flags) );
@@ -1145,8 +1145,8 @@ GenericMemObjectBackingStore::GenericMemObjectBackingStore(
                                const size_t*            origin,
                                const size_t*            region,
                                GenericMemObjectBackingStore&  copy_setting_from ):
-    m_ptr(NULL), m_dim_count(0), m_pHostPtr(NULL), m_user_flags(clMemFlags),
-    m_data_valid(true), m_alignment(0), m_preferred_alignment(0), m_heap(NULL),
+    m_ptr(nullptr), m_dim_count(0), m_pHostPtr(nullptr), m_user_flags(clMemFlags),
+    m_data_valid(true), m_alignment(0), m_preferred_alignment(0), m_heap(nullptr),
     m_parent(parent_ps), m_refCount(1)
 {
     size_t raw_data_offset = copy_setting_from.GetRawDataOffset(origin);
@@ -1181,7 +1181,7 @@ GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
         // subobject
         m_parent->RemovePendency();
     }
-    else if (NULL != m_ptr)
+    else if (nullptr != m_ptr)
     {
         if (m_used_by_DMA)
         {
@@ -1189,7 +1189,7 @@ GenericMemObjectBackingStore::~GenericMemObjectBackingStore()
         }
         if (m_ptr != m_pHostPtr)
         {
-            if (NULL != m_pRawMemoryAllocator)
+            if (nullptr != m_pRawMemoryAllocator)
             {
                 // de-allocate from device
                 m_pRawMemoryAllocator->clDevFreeRawMemory( m_ptr );
@@ -1218,7 +1218,7 @@ int GenericMemObjectBackingStore::RemovePendency()
 }
 size_t GenericMemObjectBackingStore::get_element_size(const cl_image_format* format)
 {
-    if (NULL == format)
+    if (nullptr == format)
     {
         return 1;
     }
@@ -1295,7 +1295,7 @@ void GenericMemObjectBackingStore::calculate_pitches_and_dimentions(
                                        const size_t user_dims[], const size_t user_pitches[],
                                        size_t  dimensions[], size_t  pitches[] )
 {
-    assert( NULL != user_dims );
+    assert( nullptr != user_dims );
 
     memset( dimensions, 0, sizeof(dimensions[0]) * MAX_WORK_DIM );
     memset( pitches, 0, sizeof(pitches[0]) * (MAX_WORK_DIM - 1) );
@@ -1308,7 +1308,7 @@ void GenericMemObjectBackingStore::calculate_pitches_and_dimentions(
         dimensions[i]     = user_dims[i];
         size_t next_pitch = dimensions[i-1] * prev_pitch;
 
-        if ((NULL != user_pitches) && (user_pitches[i-1] > next_pitch))
+        if ((nullptr != user_pitches) && (user_pitches[i-1] > next_pitch))
         {
             next_pitch = user_pitches[i-1];
         }
@@ -1327,7 +1327,7 @@ size_t GenericMemObjectBackingStore::calculate_size( size_t elem_size, unsigned 
     const size_t* working_dims    = dimensions;
     const size_t* working_pitches = pitches;
 
-    if ((NULL == pitches) || ((dim_count > 1) && (0 == pitches[0])))
+    if ((nullptr == pitches) || ((dim_count > 1) && (0 == pitches[0])))
     {
         calculate_pitches_and_dimentions( elem_size, dim_count, dimensions, pitches, tmp_dims, tmp_pitches );
         working_dims    = tmp_dims;
@@ -1347,7 +1347,7 @@ size_t GenericMemObjectBackingStore::GetRawDataOffset( const size_t* origin ) co
 bool GenericMemObjectBackingStore::AllocateData( void )
 {
     // check if data already allocated
-    if (NULL != m_ptr)
+    if (nullptr != m_ptr)
     {
         if (m_used_by_DMA)
         {
@@ -1359,7 +1359,7 @@ bool GenericMemObjectBackingStore::AllocateData( void )
         return true;
     }
 
-    if (NULL != m_pRawMemoryAllocator)
+    if (nullptr != m_pRawMemoryAllocator)
     {
         m_ptr = m_pRawMemoryAllocator->clDevAllocateRawMemory( m_raw_data_size, m_preferred_alignment );
     }
@@ -1368,27 +1368,27 @@ bool GenericMemObjectBackingStore::AllocateData( void )
         m_ptr = clAllocateFromHeap( m_heap, m_raw_data_size, m_preferred_alignment, m_used_by_DMA );
     }
 
-    if (NULL != m_ptr && m_used_by_DMA)
+    if (nullptr != m_ptr && m_used_by_DMA)
     {
         if (0 != clHeapMarkSafeForDMA( m_ptr, m_raw_data_size ))
         {
             clFreeHeapPointer( m_heap, m_ptr );
-            m_ptr = NULL;
+            m_ptr = nullptr;
         }
     }
 
-    if (NULL != m_ptr && NULL != m_pHostPtr)
+    if (nullptr != m_ptr && nullptr != m_pHostPtr)
     {
         MEMCPY_S( m_ptr, m_raw_data_size, m_pHostPtr, m_raw_data_size );
 
         if (0 == (m_user_flags & CL_MEM_USE_HOST_PTR))
         {
             // user provided host pointer may be used only for one-time init and not for mapping
-            m_pHostPtr = NULL;
+            m_pHostPtr = nullptr;
         }
     }
 
-    return NULL != m_ptr;
+    return nullptr != m_ptr;
 }
 
 
@@ -1431,7 +1431,7 @@ cl_err_code GenericMemObjectSubBuffer::create_device_object(
                                                     IOCLDevMemoryObject** dev_object )
 {
     // get parent device object for this device
-    IOCLDevMemoryObject* parent_MemObject = NULL;
+    IOCLDevMemoryObject* parent_MemObject = nullptr;
 
     cl_err_code err = m_pParentObject->CreateDeviceResource( dev );
     if (CL_FAILED(err))
@@ -1439,7 +1439,7 @@ cl_err_code GenericMemObjectSubBuffer::create_device_object(
         return CL_OUT_OF_RESOURCES;
     }
 
-    err = m_pParentObject->GetDeviceDescriptor( dev, &parent_MemObject, NULL );
+    err = m_pParentObject->GetDeviceDescriptor( dev, &parent_MemObject, nullptr );
 
     if (CL_FAILED(err))
     {
@@ -1477,7 +1477,7 @@ cl_err_code    GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szPa
 {
     if (CL_MEM_HOST_PTR == iParamName && (m_rBuffer.GetFlags() & CL_MEM_USE_HOST_PTR))
     {
-        const void* pHostPtr = NULL;
+        const void* pHostPtr = nullptr;
         size_t szSize = sizeof(void*);
         const void* pValue = &pHostPtr;
 
@@ -1486,22 +1486,22 @@ cl_err_code    GenericMemObjectSubBuffer::GetInfo(cl_int iParamName, size_t szPa
         cl_dev_err_code err = m_rBuffer.GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBufBackingStore);
         assert(CL_SUCCEEDED(err));
         const void* const pUserHostPtr = pBufBackingStore->GetUserProvidedHostMapPtr();
-        assert(NULL != pUserHostPtr);
+        assert(nullptr != pUserHostPtr);
         err = GetBackingStore(CL_DEV_BS_GET_IF_AVAILABLE, &pBackingStore);
         assert(CL_SUCCEEDED(err));
         pHostPtr = (char*)pUserHostPtr + pBackingStore->GetDimentions()[0];
 
-        if (NULL != pParamValue && szParamValueSize < szSize)
+        if (nullptr != pParamValue && szParamValueSize < szSize)
         {
             LOG_ERROR(TEXT("szParamValueSize (=%d) < szSize (=%d)"), szParamValueSize, szSize);
             return CL_INVALID_VALUE;
         }
         // return param value size
-        if (NULL != pszParamValueSizeRet)
+        if (nullptr != pszParamValueSizeRet)
         {
             *pszParamValueSizeRet = szSize;
         }
-        if (NULL != pParamValue && szSize > 0 && pValue)
+        if (nullptr != pParamValue && szSize > 0 && pValue)
         {
             MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
         }

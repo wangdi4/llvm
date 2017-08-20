@@ -87,15 +87,15 @@ namespace Intel { namespace OpenCL { namespace Utils {
 #define GET_LOGGER_CLIENT	m_pLoggerClient
 
 #define INIT_LOGGER_CLIENT(NAME, LEVEL)											\
-  m_pLoggerClient = NULL;														\
-  if (Logger::GetInstance().IsActive() || (Intel::OpenCL::Utils::g_pUserLogger != NULL && Intel::OpenCL::Utils::g_pUserLogger->IsErrorLoggingEnabled())){										\
+  m_pLoggerClient = nullptr;														\
+  if (Logger::GetInstance().IsActive() || (Intel::OpenCL::Utils::g_pUserLogger != nullptr && Intel::OpenCL::Utils::g_pUserLogger->IsErrorLoggingEnabled())){										\
 		m_pLoggerClient = new Intel::OpenCL::Utils::LoggerClient(NAME, LEVEL);	\
 	}
 
 #define RELEASE_LOGGER_CLIENT			\
-	if (NULL != m_pLoggerClient){		\
+	if (nullptr != m_pLoggerClient){		\
 		delete m_pLoggerClient;			\
-		m_pLoggerClient = NULL;			\
+		m_pLoggerClient = nullptr;			\
 	}
 
 #ifdef _DEBUG

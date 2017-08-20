@@ -132,7 +132,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void GetLayout( OUT size_t* dimensions, OUT size_t* rowPitch, OUT size_t* slicePitch ) const;
         cl_err_code CheckBounds( const size_t* pszOrigin, const size_t* pszRegion) const;
         cl_err_code CheckBoundsRect( const size_t* pszOrigin, const size_t* pszRegion, size_t szRowPitch, size_t szSlicePitch) const;
-        void * GetBackingStoreData( const size_t * pszOrigin = NULL ) const;
+        void * GetBackingStoreData( const size_t * pszOrigin = nullptr ) const;
 
         cl_err_code GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const;
 
@@ -395,7 +395,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                 if (EVENT_STATE_DONE == GetEventState())
                 {
                     // we are done, no more callbacks from Devices possible
-                    m_pOutEvent = NULL;
+                    m_pOutEvent = nullptr;
                 }
             }
 
@@ -483,17 +483,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
             unsigned int                    m_data_copy_used_by_others_count;  // user use me for copy
             bool                            m_data_copy_invalidate_asap;  // invalidation is required after copy ends
             
-            SharingGroup() : m_dev_mem_obj(NULL), 
+            SharingGroup() : m_dev_mem_obj(nullptr), 
                              m_active_users_count(0),
                              m_active_writers_count(0),
-                             m_data_copy_in_process_event(NULL), 
+                             m_data_copy_in_process_event(nullptr), 
                              m_data_copy_state(DATA_COPY_STATE_INVALID),
                              m_data_copy_from_group(MAX_DEVICE_SHARING_GROUP_ID),
                              m_data_copy_used_by_others_count(0),
                              m_data_copy_invalidate_asap(false) {};
 
             // is this Sharing Group in use for this particular Memory Object?
-            bool is_activated( void ) const { return (NULL != m_dev_mem_obj); };
+            bool is_activated( void ) const { return (nullptr != m_dev_mem_obj); };
 
             // is data ready to be used?
             bool is_data_copy_valid( void ) const { return( DATA_COPY_STATE_VALID == m_data_copy_state ); };
@@ -554,7 +554,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         struct DataCopyEventWrapper
         {
-            DataCopyEventWrapper() : ev(NULL), completionReq(false) {};
+            DataCopyEventWrapper() : ev(nullptr), completionReq(false) {};
             SharedPtr<DataCopyEvent> ev;
             bool completionReq;
         };

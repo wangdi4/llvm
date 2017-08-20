@@ -55,10 +55,10 @@ InOrderCommandQueue::~InOrderCommandQueue()
 cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
           pTaskName = __itt_string_handle_create("InOrderCommandQueue::Enqueue()");
       }
@@ -86,7 +86,7 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
       __itt_task_end(GetGPAData()->pAPIDomain);
     }
@@ -98,10 +98,10 @@ cl_err_code InOrderCommandQueue::Enqueue(Command* cmd)
 cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("InOrderCommandQueue::Flush()");
         }
@@ -110,7 +110,7 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 #endif
     SendCommandsToDevice();
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
       __itt_task_end(GetGPAData()->pAPIDomain);
     }
@@ -121,10 +121,10 @@ cl_err_code InOrderCommandQueue::Flush(bool bBlocking)
 cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>& pEvent, OclEventState prevColor, OclEventState newColor )
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
-        static __thread __itt_string_handle* pTaskName = NULL;
-        if ( NULL == pTaskName )
+        static __thread __itt_string_handle* pTaskName = nullptr;
+        if ( nullptr == pTaskName )
         {
             pTaskName = __itt_string_handle_create("InOrderCommandQueue::NotifyStateChange()");
         }
@@ -151,7 +151,7 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>&
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
         __itt_task_end(GetGPAData()->pAPIDomain);
     }
@@ -162,10 +162,10 @@ cl_err_code InOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEvent>&
 cl_err_code InOrderCommandQueue::SendCommandsToDevice()
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("InOrderCommandQueue::SendCommandsToDevice()");
       }
@@ -276,7 +276,7 @@ cl_err_code InOrderCommandQueue::SendCommandsToDevice()
     }
     //else return immediately
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != GetGPAData()) && GetGPAData()->bUseGPA )
+    if ( (nullptr != GetGPAData()) && GetGPAData()->bUseGPA )
     {
       __itt_task_end(GetGPAData()->pAPIDomain);
     }

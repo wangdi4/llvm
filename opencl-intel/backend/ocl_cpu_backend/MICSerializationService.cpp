@@ -31,7 +31,7 @@ File Name:  MICSerializationService.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-DefaultJITMemoryManager* DefaultJITMemoryManager::s_pInstance = NULL;
+DefaultJITMemoryManager* DefaultJITMemoryManager::s_pInstance = nullptr;
 
 void DefaultJITMemoryManager::Init()
 {
@@ -41,10 +41,10 @@ void DefaultJITMemoryManager::Init()
 
 void DefaultJITMemoryManager::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 
@@ -64,7 +64,7 @@ void* DefaultJITMemoryManager::AllocateExecutable(size_t size, size_t alignment)
         sizeof(void*) +    // for the free ptr
         sizeof(size_t);    // to save the original size (for mprotect)
     void* pMem = malloc(aligned_size);
-    if(NULL == pMem) return NULL;
+    if(nullptr == pMem) return nullptr;
     
     char* pAligned = ((char*)pMem) + aligned_size - required_size;
     pAligned = (char*)(((size_t)pAligned) & ~(alignment - 1));
@@ -77,7 +77,7 @@ void* DefaultJITMemoryManager::AllocateExecutable(size_t size, size_t alignment)
     if (0 != ret)
     {
         free(pMem);
-        return NULL;
+        return nullptr;
     }
 #else
     assert(false && "Not implemented");
@@ -171,14 +171,14 @@ private:
 MICSerializationService::MICSerializationService(const ICLDevBackendOptions* pBackendOptions)
 {
     DefaultJITMemoryManager* pJITMemManager = DefaultJITMemoryManager::GetInstance();
-    m_pJITAllocator = NULL;
+    m_pJITAllocator = nullptr;
 
-    void* pCallBack = NULL;
+    void* pCallBack = nullptr;
     size_t size = 0;
-    if(NULL != pBackendOptions && 
+    if(nullptr != pBackendOptions && 
        pBackendOptions->GetValue(CL_DEV_BACKEND_OPTION_JIT_ALLOCATOR, &pCallBack, &size))
     {
-        if(NULL == pCallBack)
+        if(nullptr == pCallBack)
         {
             throw Exceptions::DeviceBackendExceptionBase("JIT Allocator pointer in the options is NULL", CL_DEV_INVALID_VALUE);
         }
@@ -234,7 +234,7 @@ cl_dev_err_code MICSerializationService::GetTargetDescriptionBlobSize(
 {
     CountingOutputStream cs;
 
-    pTargetDescription->Serialize(cs, NULL);
+    pTargetDescription->Serialize(cs, nullptr);
     *pSize = cs.GetCount();
 
     return CL_DEV_SUCCESS;
@@ -247,7 +247,7 @@ cl_dev_err_code MICSerializationService::SerializeTargetDescription(
 {
     OutputBufferStream obs((char*)pBlob, blobSize);
 
-    pTargetDescription->Serialize(obs, NULL);
+    pTargetDescription->Serialize(obs, nullptr);
 
     return CL_DEV_SUCCESS;
 }
@@ -262,7 +262,7 @@ cl_dev_err_code MICSerializationService::DeSerializeTargetDescription(
         InputBufferStream ibs((const char*)pBlob, blobSize);
         *pTargetDescription = new TargetDescription();
         
-        (*pTargetDescription)->Deserialize(ibs, NULL);
+        (*pTargetDescription)->Deserialize(ibs, nullptr);
 
         return CL_DEV_SUCCESS;
     }

@@ -138,7 +138,7 @@ cl_err_code GLTextureBuffer::AcquireGLObject()
     void* pData = m_pGLContext->glMapBuffer(GL_ARRAY_BUFFER, m_glMemFlags);
     glErr |= glGetError();
 
-    if (GL_NO_ERROR != glErr || NULL == pData)
+    if (GL_NO_ERROR != glErr || nullptr == pData)
     {
         m_pGLContext->glBindBuffer(GL_ARRAY_BUFFER, curArrayBuf);
         m_itCurrentAcquriedObject->second = CL_GFX_OBJECT_FAIL_IN_ACQUIRE;
@@ -156,13 +156,13 @@ cl_err_code GLTextureBuffer::AcquireGLObject()
         return res;
     }
 
-    const cl_image_format* pCLFormat = NULL;
+    const cl_image_format* pCLFormat = nullptr;
     if ( CL_GL_OBJECT_TEXTURE_BUFFER == m_clglObjectType )
     {
         pCLFormat = &m_clImageFormat;
     }
 
-    res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, NULL, pData, CL_RT_MEMOBJ_FORCE_BS);
+    res = pChild->Initialize(m_clFlags, pCLFormat, 1, &m_stMemObjSize, nullptr, pData, CL_RT_MEMOBJ_FORCE_BS);
     if (CL_FAILED(res))
     {
         m_pGLContext->glUnmapBuffer(GL_ARRAY_BUFFER);
@@ -232,7 +232,7 @@ cl_err_code GLTextureBuffer::CheckBounds(const size_t* pszOrigin, const size_t* 
 cl_err_code GLTextureBuffer::GetDimensionSizes(size_t* pszRegion) const
 {
     assert(pszRegion);
-    if (NULL == pszRegion)
+    if (nullptr == pszRegion)
     {
         return CL_INVALID_VALUE;
     }
@@ -242,7 +242,7 @@ cl_err_code GLTextureBuffer::GetDimensionSizes(size_t* pszRegion) const
 
 void GLTextureBuffer::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* slicePitch) const
 {
-    if (NULL != dimensions)
+    if (nullptr != dimensions)
     {
         GetDimensionSizes(dimensions);
     }
@@ -250,12 +250,12 @@ void GLTextureBuffer::GetLayout(size_t* dimensions, size_t* rowPitch, size_t* sl
 
 cl_err_code GLTextureBuffer::GetImageInfo(cl_image_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet) const
 {
-    if (NULL == pParamValue && NULL == pszParamValueSizeRet)
+    if (nullptr == pParamValue && nullptr == pszParamValueSizeRet)
     {
         return CL_INVALID_VALUE;
     }
     size_t  szSize = 0;
-    const void * pValue = NULL;
+    const void * pValue = nullptr;
     cl_uint uiZero = 0;
     switch (clParamName)
     {
@@ -271,17 +271,17 @@ cl_err_code GLTextureBuffer::GetImageInfo(cl_image_info clParamName, size_t szPa
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pParamValue && szParamValueSize < szSize)
+    if (nullptr != pParamValue && szParamValueSize < szSize)
     {
         return CL_INVALID_VALUE;
     }
 
-    if (NULL != pszParamValueSizeRet)
+    if (nullptr != pszParamValueSizeRet)
     {
         *pszParamValueSizeRet = szSize;
     }
 
-    if (NULL != pParamValue && szSize > 0)
+    if (nullptr != pParamValue && szSize > 0)
     {
         MEMCPY_S(pParamValue, szParamValueSize, pValue, szSize);
     }
@@ -309,7 +309,7 @@ cl_err_code GLTextureBuffer::GetGLTextureInfo(cl_gl_texture_info glTextInfo, siz
         return CL_INVALID_VALUE;
     }
 
-    if ( NULL != pRetSize )
+    if ( nullptr != pRetSize )
     {
         *pRetSize = valSize;
         return CL_SUCCESS;
@@ -320,7 +320,7 @@ cl_err_code GLTextureBuffer::GetGLTextureInfo(cl_gl_texture_info glTextInfo, siz
         return CL_INVALID_VALUE;
     }
 
-    if ( NULL != pVal)
+    if ( nullptr != pVal)
     {
         MEMCPY_S(pVal, valSize, pIntVal, valSize);
     }

@@ -124,8 +124,8 @@ public:
        That means that We must call to 'process_finish()' as the last command in order to execute the last chunk. */
     virtual void process_chunk( CommonMemoryChunk::Chunk& chunk );
 
-    ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = NULL ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
-        m_readyToFireChunk(false), m_memObjOfHostPtr(NULL), m_processOfTarget(processOfTarget) {};
+    ProcessCommonMemoryChunk( const COIEVENT* external_dependency, COIPROCESS processOfTarget = nullptr ) : ProcessMemoryChunk<CommonMemoryChunk::Chunk>(external_dependency), 
+        m_readyToFireChunk(false), m_memObjOfHostPtr(nullptr), m_processOfTarget(processOfTarget) {};
 
     /* return the hostPtr of the memobj that we use in order to execute Copy instead of read / write */
     MICDevMemoryObject* getUsedMemObjOfHostPtr() { return m_memObjOfHostPtr; };
@@ -154,13 +154,13 @@ namespace UnmapMemoryChunkStruct
     {
         COIMAPINSTANCE coi_map_instance;
 
-        Chunk() : coi_map_instance(NULL) {};
+        Chunk() : coi_map_instance(nullptr) {};
 
         Chunk(COIMAPINSTANCE map_instamce) : coi_map_instance(map_instamce) {};
 
-        bool isReadyToFire() { return (NULL != coi_map_instance); };
+        bool isReadyToFire() { return (nullptr != coi_map_instance); };
 
-        void reset() { coi_map_instance = NULL; };
+        void reset() { coi_map_instance = nullptr; };
 
         size_t getSize() { return 0; };
     };

@@ -60,10 +60,10 @@ void Command::notifyCommandStatusChanged(unsigned uStatus, cl_ulong timer)
 cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bool otherErr)
 {
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
-      static __thread __itt_string_handle* pTaskName = NULL;
-      if ( NULL == pTaskName )
+      static __thread __itt_string_handle* pTaskName = nullptr;
+      if ( nullptr == pTaskName )
       {
         pTaskName = __itt_string_handle_create("Command::executePostDispatchProcess");
       }
@@ -78,7 +78,7 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
         // Set this Command as the last command in the queue.
         m_pCommandList->setLastCommand(this);
         // Register m_completionBarrier.cmdEvent to NotificationPort
-        m_pCommandList->getNotificationPort()->addBarrier(m_endEvent.cmdEvent, this, NULL);
+        m_pCommandList->getNotificationPort()->addBarrier(m_endEvent.cmdEvent, this, nullptr);
     }
     else
     {
@@ -87,7 +87,7 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
     }
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-    if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+    if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
     {
       __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
     }
@@ -99,7 +99,7 @@ cl_dev_err_code Command::executePostDispatchProcess(bool lastCmdWasExecution, bo
 void Command::registerProfilingContext(bool mayReplaceByUserEvent)
 {
     // If it is command that does not control by user events than set this command as the context otherwise set NULL as the context.
-    (false == mayReplaceByUserEvent) ? COINotificationCallbackSetContext(this) : COINotificationCallbackSetContext(NULL);
+    (false == mayReplaceByUserEvent) ? COINotificationCallbackSetContext(this) : COINotificationCallbackSetContext(nullptr);
 }
 
 void Command::fireCallBack(void* arg)
@@ -133,10 +133,10 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
     {
     case RUN_FUNCTION_START:
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
-          static __thread __itt_string_handle* pTaskName = NULL;
-          if ( NULL == pTaskName )
+          static __thread __itt_string_handle* pTaskName = nullptr;
+          if ( nullptr == pTaskName )
           {
             pTaskName = __itt_string_handle_create("Command::eventProfilingCall(RUN_FUNCTION_START)");
           }
@@ -153,7 +153,7 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
             m_cmdRunningTime = HostTime();
         }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
           __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
         }
@@ -176,10 +176,10 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
         {
             assert(0 == m_cmdCompletionTime && "When proiling is enabled and RUNNING == 0, COMPLETED time must be not set");
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-            if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+            if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
             {
-              static __thread __itt_string_handle* pTaskName = NULL;
-              if ( NULL == pTaskName )
+              static __thread __itt_string_handle* pTaskName = nullptr;
+              if ( nullptr == pTaskName )
               {
                 pTaskName = __itt_string_handle_create("Command::eventProfilingCall(USER_EVENT_SIGNALED->RUN_FUNCTION_START)");
               }
@@ -197,7 +197,7 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-            if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+            if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
             {
               __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
             }
@@ -207,10 +207,10 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
         // Continue to RUN_FUNCTION_COMPLETE functionality if 0 != m_cmdRunningTime
     case RUN_FUNCTION_COMPLETE:
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
-            static __thread __itt_string_handle* pTaskName = NULL;
-            if ( NULL == pTaskName )
+            static __thread __itt_string_handle* pTaskName = nullptr;
+            if ( nullptr == pTaskName )
             {
                 pTaskName = __itt_string_handle_create("Command::eventProfilingCall(RUN_FUNCTION_COMPLETE)");
             }
@@ -227,7 +227,7 @@ void Command::eventProfilingCall(COI_NOTIFICATIONS& type)
             m_cmdCompletionTime = HostTime();
         }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
+        if ( (nullptr != m_pCommandList->GetGPAInfo()) && m_pCommandList->GetGPAInfo()->bUseGPA )
         {
             __itt_task_end(m_pCommandList->GetGPAInfo()->pDeviceDomain);
         }
@@ -260,7 +260,7 @@ COIEVENT* Command::registerBarrier(command_event_struct& completionBarrier)
         unregisterProfilingContext();
         completionBarrier.isRegistered = true;
     }
-    return NULL;
+    return nullptr;
 }
 
 void Command::unregisterBarrier(command_event_struct& completionBarrier)
@@ -274,7 +274,7 @@ void Command::unregisterBarrier(command_event_struct& completionBarrier)
 }
 
 //////////////////////////////////////////////////////////////////////////////////
-FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode) : Command(NULL, pFrameworkCallBacks, pCmd)
+FailureNotification::FailureNotification(IOCLFrameworkCallbacks* pFrameworkCallBacks, cl_dev_cmd_desc* pCmd, cl_dev_err_code returnCode) : Command(nullptr, pFrameworkCallBacks, pCmd)
 {
     m_lastError = returnCode;
 }
@@ -288,11 +288,11 @@ cl_dev_err_code FailureNotification::execute()
     // If OOO or first command fireCallBack in order to complete, otherwise add the last dependent barrier as my callback.
     if (0 == numDependecies)
     {
-        fireCallBack(NULL);
+        fireCallBack(nullptr);
     }
     else
     {
-        m_pCommandList->getNotificationPort()->addBarrier(*pBarrier, this, NULL);
+        m_pCommandList->getNotificationPort()->addBarrier(*pBarrier, this, nullptr);
     }
     return CL_DEV_SUCCESS;
 }

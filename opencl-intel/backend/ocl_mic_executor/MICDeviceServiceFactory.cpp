@@ -22,7 +22,7 @@ File Name:  MICDeviceServiceFactory.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-MICDeviceServiceFactory* MICDeviceServiceFactory::s_pInstance = NULL;
+MICDeviceServiceFactory* MICDeviceServiceFactory::s_pInstance = nullptr;
 
 MICDeviceServiceFactory::MICDeviceServiceFactory()
 {}
@@ -38,10 +38,10 @@ void MICDeviceServiceFactory::Init()
 
 void MICDeviceServiceFactory::Terminate() 
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 
@@ -56,7 +56,7 @@ cl_dev_err_code MICDeviceServiceFactory::GetCompilationService(
     ICLDevBackendCompilationService** pBackendCompilationService)
 {
     assert(false && "Compilation Service Not Supported in the Device");
-    *pBackendCompilationService = NULL;
+    *pBackendCompilationService = nullptr;
     return CL_DEV_ERROR_FAIL;
 }
 

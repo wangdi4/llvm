@@ -19,7 +19,7 @@ OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
 
-CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(NULL) {
+CLBuiltinLICM::CLBuiltinLICM() : LoopPass(ID), m_rtServices(nullptr) {
   initializeCLBuiltinLICMPass(*PassRegistry::getPassRegistry());
 }
 

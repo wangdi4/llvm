@@ -39,7 +39,7 @@ namespace intel{
         /// @brief Get the singleton instance of PassesWrappersSupporter
         static PassesWrappersSupporter* getInstance()
         {
-            if (NULL == m_instance) {
+            if (nullptr == m_instance) {
                 m_instance = new PassesWrappersSupporter();
             }
             return m_instance;
@@ -51,7 +51,7 @@ namespace intel{
         static PassesWrappersSupporter * m_instance;
         llvm::SmallVector<llvm::Function*, 16> m_vectFunctions;
     };
-    PassesWrappersSupporter * PassesWrappersSupporter::m_instance = NULL;
+    PassesWrappersSupporter * PassesWrappersSupporter::m_instance = nullptr;
 
 
     class LocalBuffersWrapper : public LocalBuffers

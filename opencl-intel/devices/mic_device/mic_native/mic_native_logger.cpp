@@ -9,22 +9,22 @@ using namespace Intel::OpenCL::MICDeviceNative;
 using namespace Intel::OpenCL::Utils;
 using namespace std;
 
-IOCLDevLogDescriptor* MicNativeLogDescriptor::m_pLogDescriptor = NULL;
+IOCLDevLogDescriptor* MicNativeLogDescriptor::m_pLogDescriptor = nullptr;
 cl_int MicNativeLogDescriptor::m_clientId = 0;
 
 bool MicNativeLogDescriptor::createLogDescriptor()
 {
-	if (NULL == m_pLogDescriptor)
+	if (nullptr == m_pLogDescriptor)
 	{
 		m_pLogDescriptor = new MicNativeLogDescriptor;
-		if (NULL == m_pLogDescriptor)
+		if (nullptr == m_pLogDescriptor)
 		{
 			return false;
 		}
 		if (!((MicNativeLogDescriptor*)m_pLogDescriptor)->init())
 		{
 			delete m_pLogDescriptor;
-			m_pLogDescriptor = NULL;
+			m_pLogDescriptor = nullptr;
 			return false;
 		}
 	}
@@ -36,7 +36,7 @@ void MicNativeLogDescriptor::releaseLogDescriptor()
 	if (m_pLogDescriptor)
 	{
 		delete m_pLogDescriptor;
-		m_pLogDescriptor = NULL;
+		m_pLogDescriptor = nullptr;
 	}
 	m_clientId = 0;
 }
@@ -53,7 +53,7 @@ cl_int MicNativeLogDescriptor::clLogAddLine( cl_int IN client_id, cl_int IN log_
 	return (COI_SUCCESS == coiErr) ? CL_DEV_SUCCESS : CL_DEV_ERROR_FAIL;
 }
 
-MicNativeLogDescriptor::MicNativeLogDescriptor() : m_pLogHandler(NULL), m_pLoggerClient(NULL)
+MicNativeLogDescriptor::MicNativeLogDescriptor() : m_pLogHandler(nullptr), m_pLoggerClient(nullptr)
 {
 }
 
@@ -62,12 +62,12 @@ MicNativeLogDescriptor::~MicNativeLogDescriptor()
 	if (m_pLogHandler)
 	{
 		delete m_pLogHandler;
-		m_pLogHandler = NULL;
+		m_pLogHandler = nullptr;
 	}
 	if (m_pLoggerClient)
 	{
 		delete m_pLoggerClient;
-		m_pLoggerClient = NULL;
+		m_pLoggerClient = nullptr;
 	}
 }
 
@@ -85,18 +85,18 @@ bool MicNativeLogDescriptor::init()
 		devTitleStream << "\n" << "----- MIC-" << out_pIndex << " -----\n";
 
 	    m_pLogHandler = new FileDescriptorLogHandler(devTitleStream.str().c_str());
-		if (NULL == m_pLogHandler)
+		if (nullptr == m_pLogHandler)
 		{
 			ret = false;
 			break;
 		}
 	    m_pLoggerClient = new LoggerClient(devTitleStream.str().c_str(),LL_DEBUG);
-		if (NULL == m_pLoggerClient)
+		if (nullptr == m_pLoggerClient)
 		{
 			ret = false;
 			break;
 		}
-		cl_err_code clErrRet = m_pLogHandler->Init(LL_DEBUG, NULL, devTitleStream.str().c_str(), stderr);
+		cl_err_code clErrRet = m_pLogHandler->Init(LL_DEBUG, nullptr, devTitleStream.str().c_str(), stderr);
         if (CL_FAILED(clErrRet))
         {
             ret = false;
@@ -116,12 +116,12 @@ bool MicNativeLogDescriptor::init()
 		if (m_pLogHandler)
 		{
 			delete m_pLogHandler;
-			m_pLogHandler = NULL;
+			m_pLogHandler = nullptr;
 		}
 		if (m_pLoggerClient)
 		{
 			delete m_pLoggerClient;
-			m_pLoggerClient = NULL;
+			m_pLoggerClient = nullptr;
 		}
 	}
 	return ret;

@@ -30,7 +30,7 @@ void RegisterCPUBIFunctions(void);
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
-BuiltinModuleManager* BuiltinModuleManager::s_pInstance = NULL;
+BuiltinModuleManager* BuiltinModuleManager::s_pInstance = nullptr;
 
 BuiltinModuleManager::BuiltinModuleManager()
 {}
@@ -53,10 +53,10 @@ void BuiltinModuleManager::Init()
 
 void BuiltinModuleManager::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 

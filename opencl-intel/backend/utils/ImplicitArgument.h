@@ -22,7 +22,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     : FunctionArgument(pValue, implicitArgProps.m_size, implicitArgProps.m_alignment) { }
 
     /// @brief Empty Constructor
-    ImplicitArgument() : FunctionArgument(NULL, 0, 0) {}
+    ImplicitArgument() : FunctionArgument(nullptr, 0, 0) {}
   };
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

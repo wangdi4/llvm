@@ -26,49 +26,49 @@ namespace reflection {
     TypeInfo varName = {token, strlen(token), id, typeInfoMap}
 
   #define INIT_TYPE_INFO_TOKEN(varName, token) \
-    TypeInfo varName = {token, strlen(token), PRIMITIVE_NONE, NULL}
+    TypeInfo varName = {token, strlen(token), PRIMITIVE_NONE, nullptr}
 
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_b,  "b", PRIMITIVE_BOOL,   NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_h,  "h", PRIMITIVE_UCHAR,  NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_c,  "c", PRIMITIVE_CHAR,   NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_t,  "t", PRIMITIVE_USHORT, NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_s,  "s", PRIMITIVE_SHORT,  NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_j,  "j", PRIMITIVE_UINT,   NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_i,  "i", PRIMITIVE_INT,    NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_m,  "m", PRIMITIVE_ULONG,  NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_l,  "l", PRIMITIVE_LONG,   NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_f,  "f", PRIMITIVE_FLOAT,  NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_d,  "d", PRIMITIVE_DOUBLE, NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_v,  "v", PRIMITIVE_VOID,   NULL);
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_z,  "z", PRIMITIVE_VAR_ARG,NULL);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_b,  "b", PRIMITIVE_BOOL,   nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_h,  "h", PRIMITIVE_UCHAR,  nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_c,  "c", PRIMITIVE_CHAR,   nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_t,  "t", PRIMITIVE_USHORT, nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_s,  "s", PRIMITIVE_SHORT,  nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_j,  "j", PRIMITIVE_UINT,   nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_i,  "i", PRIMITIVE_INT,    nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_m,  "m", PRIMITIVE_ULONG,  nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_l,  "l", PRIMITIVE_LONG,   nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_f,  "f", PRIMITIVE_FLOAT,  nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_d,  "d", PRIMITIVE_DOUBLE, nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_v,  "v", PRIMITIVE_VOID,   nullptr);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_z,  "z", PRIMITIVE_VAR_ARG,nullptr);
 
-  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_Dh, "h", PRIMITIVE_HALF,   NULL);
+  INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_Dh, "h", PRIMITIVE_HALF,   nullptr);
 
   //This maps letters from 'a' to 'z'
   static TypeInfo* g_primitiveTypeInfoMapLower_D[] = {
-    NULL /*'a'*/, NULL  /*'b'*/, NULL /*'c'*/, NULL /*'d'*/, NULL /*'e'*/, NULL /*'f'*/,
-    NULL /*'g'*/, &g_Dh /*'h'*/, NULL /*'i'*/, NULL /*'j'*/, NULL /*'k'*/, NULL /*'l'*/,
-    NULL /*'m'*/, NULL  /*'n'*/, NULL /*'o'*/, NULL /*'p'*/, NULL /*'q'*/, NULL /*'r'*/,
-    NULL /*'s'*/, NULL  /*'t'*/, NULL /*'u'*/, NULL /*'v'*/, NULL /*'w'*/, NULL /*'x'*/,
-    NULL /*'y'*/, NULL  /*'z'*/};
+    nullptr /*'a'*/, nullptr  /*'b'*/, nullptr /*'c'*/, nullptr /*'d'*/, nullptr /*'e'*/, nullptr /*'f'*/,
+    nullptr /*'g'*/, &g_Dh /*'h'*/, nullptr /*'i'*/, nullptr /*'j'*/, nullptr /*'k'*/, nullptr /*'l'*/,
+    nullptr /*'m'*/, nullptr  /*'n'*/, nullptr /*'o'*/, nullptr /*'p'*/, nullptr /*'q'*/, nullptr /*'r'*/,
+    nullptr /*'s'*/, nullptr  /*'t'*/, nullptr /*'u'*/, nullptr /*'v'*/, nullptr /*'w'*/, nullptr /*'x'*/,
+    nullptr /*'y'*/, nullptr  /*'z'*/};
 
   INIT_PRIMITIVE_TYPE_INFO_TOKEN(g_D,  "D", PRIMITIVE_NONE,   g_primitiveTypeInfoMapLower_D);
 
   //This maps letters from 'a' to 'z'
   static TypeInfo* g_primitiveTypeInfoMapLower[] = {
-    NULL /*'a'*/, &g_b /*'b'*/, &g_c /*'c'*/, &g_d /*'d'*/, NULL /*'e'*/, &g_f /*'f'*/,
-    NULL /*'g'*/, &g_h /*'h'*/, &g_i /*'i'*/, &g_j /*'j'*/, NULL /*'k'*/, &g_l /*'l'*/,
-    &g_m /*'m'*/, NULL /*'n'*/, NULL /*'o'*/, NULL /*'p'*/, NULL /*'q'*/, NULL /*'r'*/,
-    &g_s /*'s'*/, &g_t /*'t'*/, NULL /*'u'*/, &g_v /*'v'*/, NULL /*'w'*/, NULL /*'x'*/,
-    NULL /*'y'*/, &g_z /*'z'*/};
+    nullptr /*'a'*/, &g_b /*'b'*/, &g_c /*'c'*/, &g_d /*'d'*/, nullptr /*'e'*/, &g_f /*'f'*/,
+    nullptr /*'g'*/, &g_h /*'h'*/, &g_i /*'i'*/, &g_j /*'j'*/, nullptr /*'k'*/, &g_l /*'l'*/,
+    &g_m /*'m'*/, nullptr /*'n'*/, nullptr /*'o'*/, nullptr /*'p'*/, nullptr /*'q'*/, nullptr /*'r'*/,
+    &g_s /*'s'*/, &g_t /*'t'*/, nullptr /*'u'*/, &g_v /*'v'*/, nullptr /*'w'*/, nullptr /*'x'*/,
+    nullptr /*'y'*/, &g_z /*'z'*/};
 
   //This maps letters from 'A' to 'Z'
   static TypeInfo* g_primitiveTypeInfoMapUpper[] = {
-    NULL /*'A'*/, NULL /*'B'*/, NULL /*'C'*/, &g_D /*'D'*/, NULL /*'E'*/, NULL /*'F'*/,
-    NULL /*'G'*/, NULL /*'H'*/, NULL /*'I'*/, NULL /*'J'*/, NULL /*'K'*/, NULL /*'L'*/,
-    NULL /*'M'*/, NULL /*'N'*/, NULL /*'O'*/, NULL /*'P'*/, NULL /*'Q'*/, NULL /*'R'*/,
-    NULL /*'S'*/, NULL /*'T'*/, NULL /*'U'*/, NULL /*'V'*/, NULL /*'W'*/, NULL /*'X'*/,
-    NULL /*'Y'*/, NULL /*'Z'*/};
+    nullptr /*'A'*/, nullptr /*'B'*/, nullptr /*'C'*/, &g_D /*'D'*/, nullptr /*'E'*/, nullptr /*'F'*/,
+    nullptr /*'G'*/, nullptr /*'H'*/, nullptr /*'I'*/, nullptr /*'J'*/, nullptr /*'K'*/, nullptr /*'L'*/,
+    nullptr /*'M'*/, nullptr /*'N'*/, nullptr /*'O'*/, nullptr /*'P'*/, nullptr /*'Q'*/, nullptr /*'R'*/,
+    nullptr /*'S'*/, nullptr /*'T'*/, nullptr /*'U'*/, nullptr /*'V'*/, nullptr /*'W'*/, nullptr /*'X'*/,
+    nullptr /*'Y'*/, nullptr /*'Z'*/};
 
 
   struct QualifierInfo {
@@ -174,7 +174,7 @@ namespace reflection {
     if(pTypeInfo->m_pTypeInfoMap) {
       //We only match a prefix of the type, need to check the suffix
       const char ch = m_pMangledString[m_currentIndex];
-      TypeInfo* pSuffixTypeInfo = NULL;
+      TypeInfo* pSuffixTypeInfo = nullptr;
       if (ch >= 'a' && ch <= 'z') {
         //Currently assume only lower case letters as suffix
         pSuffixTypeInfo = pTypeInfo->m_pTypeInfoMap[(int)(ch - 'a')];

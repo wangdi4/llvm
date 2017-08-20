@@ -33,7 +33,7 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
 
     // TODO: Use tbb::scalable_allocator
     CommandToExecuteList_t* pNewKernel = new CommandToExecuteList_t; 
-    if ( NULL == pNewKernel )
+    if ( nullptr == pNewKernel )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -46,10 +46,10 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
         // Add kernels to the head, saves one memory write
         pNewKernel->next = pChildLists->waitingChildrenForKernelLocalHead;
         pChildLists->waitingChildrenForKernelLocalHead = pNewKernel;
-        if ( NULL == pChildLists->waitingChildrenForKernelLocalTail )
+        if ( nullptr == pChildLists->waitingChildrenForKernelLocalTail )
         {
             pChildLists->waitingChildrenForKernelLocalTail = pNewKernel;
-            pNewKernel->next = NULL;
+            pNewKernel->next = nullptr;
         }
         break;
     case CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP:
@@ -66,7 +66,7 @@ cl_dev_err_code KernelCommand::AddChildKernelToLists(const SharedPtr<KernelComma
 
 void KernelCommand::WaitForChildrenCompletion()
 { 
-    while ( NULL != m_waitingChildrenForKernelGlobal )
+    while ( nullptr != m_waitingChildrenForKernelGlobal )
     {
         CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(m_waitingChildrenForKernelGlobal->next);
         m_waitingChildrenForKernelGlobal->command->NotifyCommandFinished(GetError());
@@ -86,7 +86,7 @@ void KernelCommand::WaitForChildrenCompletion()
 void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)
 {
 	// Submit children waiting to work-group completiom
-    while ( NULL != pNewCommands->waitingChildrenForWorkGroup )
+    while ( nullptr != pNewCommands->waitingChildrenForWorkGroup )
     {
         CommandToExecuteList_t* pNextCommand = reinterpret_cast<CommandToExecuteList_t*>(pNewCommands->waitingChildrenForWorkGroup->next);
         pNewCommands->waitingChildrenForWorkGroup->command->NotifyCommandFinished(GetError());
@@ -96,15 +96,15 @@ void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)
     }
 
     // move waiting children for parent from WG list to the global list
-	if ( NULL != pNewCommands->waitingChildrenForKernelLocalHead )
+	if ( nullptr != pNewCommands->waitingChildrenForKernelLocalHead )
 	{
         // Make current local list as kernel global list
         CommandToExecuteList_t* prev_start = m_waitingChildrenForKernelGlobal.exchange(pNewCommands->waitingChildrenForKernelLocalHead);
         // Move previous global list to the end of current local list
         pNewCommands->waitingChildrenForKernelLocalTail->next = prev_start;
 		// Reset local list
-		pNewCommands->waitingChildrenForKernelLocalHead = NULL;
-		pNewCommands->waitingChildrenForKernelLocalTail = NULL;
+		pNewCommands->waitingChildrenForKernelLocalHead = nullptr;
+		pNewCommands->waitingChildrenForKernelLocalTail = nullptr;
 	}
 }
 
@@ -120,8 +120,8 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
         const _ndrange_t* pNDRange, const void* pHandle)
 {    
     // verify parameterss
-    ASSERT_RET_VAL(pKernel != NULL, "Trying to enqueue with NULL kernel", CL_INVALID_KERNEL);
-    if (NULL == queue || (NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList) ||
+    ASSERT_RET_VAL(pKernel != nullptr, "Trying to enqueue with NULL kernel", CL_INVALID_KERNEL);
+    if (nullptr == queue || (nullptr == pEventWaitList && uiNumEventsInWaitList > 0) || (nullptr != pEventWaitList && 0 == uiNumEventsInWaitList) ||
         (flags != CLK_ENQUEUE_FLAGS_NO_WAIT && flags != CLK_ENQUEUE_FLAGS_WAIT_KERNEL && flags != CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP))
     {
         return CL_ENQUEUE_FAILURE;
@@ -144,7 +144,7 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     }
     // debug mode: make sure all child kernels start after the parent ends its execution and then run in-order    
     ITaskList* const pDebugList = pList->GetDebugInOrderDeviceQueue();
-    assert(pDebugList != NULL);
+    assert(pDebugList != nullptr);
     m_bIsDebugMode = pKernel->GetKernelProporties()->HasDebugInfo();
     if (m_bIsDebugMode)
     {
@@ -180,7 +180,7 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
     }
 
     // update pEventRet
-    if (pEventRet != NULL)
+    if (pEventRet != nullptr)
     {
         *pEventRet = pChild.GetPtr();
         pChild.IncRefCnt();    // it will be decremented in release_event
@@ -190,7 +190,7 @@ int KernelCommand::EnqueueKernel(queue_t queue, kernel_enqueue_flags_t flags, cl
 
 int KernelCommand::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, const clk_event_t* pEventWaitList, clk_event_t* pEventRet)
 {
-    if (NULL == queue || NULL == pEventWaitList || 0 == uiNumEventsInWaitList)
+    if (nullptr == queue || nullptr == pEventWaitList || 0 == uiNumEventsInWaitList)
     {
         return CL_ENQUEUE_FAILURE;
     }
@@ -206,7 +206,7 @@ int KernelCommand::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, c
     {
         marker->Launch();
     }
-    if (pEventRet != NULL)
+    if (pEventRet != nullptr)
     {
         *pEventRet = marker.GetPtr();
         marker.IncRefCnt();    // it will decremeneted in release_event
@@ -216,7 +216,7 @@ int KernelCommand::EnqueueMarker(queue_t queue, cl_uint uiNumEventsInWaitList, c
 
 int KernelCommand::RetainEvent(clk_event_t event)
 {
-    if (NULL == event)
+    if (nullptr == event)
     {
         return CL_INVALID_EVENT;
     }
@@ -227,7 +227,7 @@ int KernelCommand::RetainEvent(clk_event_t event)
 
 int KernelCommand::ReleaseEvent(clk_event_t event)
 {
-    if (NULL == event)
+    if (nullptr == event)
     {
         return CL_INVALID_EVENT;
     }
@@ -243,13 +243,13 @@ int KernelCommand::ReleaseEvent(clk_event_t event)
 clk_event_t KernelCommand::CreateUserEvent(int* piErrcodeRet)
 {
     UserEvent* pUserEvent = UserEvent::Allocate();
-    if (NULL != pUserEvent)
+    if (nullptr != pUserEvent)
     {
         pUserEvent->IncRefCnt();
     }
-    if (NULL != piErrcodeRet)
+    if (nullptr != piErrcodeRet)
     {
-       *piErrcodeRet = (NULL != pUserEvent) ? CL_SUCCESS : CL_EVENT_ALLOCATION_FAILURE;
+       *piErrcodeRet = (nullptr != pUserEvent) ? CL_SUCCESS : CL_EVENT_ALLOCATION_FAILURE;
     }
     return (clk_event_t)(pUserEvent);
 }
@@ -257,7 +257,7 @@ clk_event_t KernelCommand::CreateUserEvent(int* piErrcodeRet)
 int KernelCommand::SetEventStatus(clk_event_t event, int iStatus)
 {
     UserEvent* pEvent = reinterpret_cast<UserEvent*>(event);
-    if ( (NULL == pEvent) || !pEvent->IsUserCommand() )
+    if ( (nullptr == pEvent) || !pEvent->IsUserCommand() )
     {
         return CL_INVALID_EVENT;
     }
@@ -272,7 +272,7 @@ int KernelCommand::SetEventStatus(clk_event_t event, int iStatus)
 
 void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_info name, volatile void* pValue)
 {
-    if (NULL == event || name != CLK_PROFILING_COMMAND_EXEC_TIME || NULL == pValue)
+    if (nullptr == event || name != CLK_PROFILING_COMMAND_EXEC_TIME || nullptr == pValue)
     {
         return;
     }    
@@ -295,7 +295,7 @@ queue_t KernelCommand::GetDefaultQueueForDevice() const
     // Redirect to parenet
     if ( 0 == m_parent )
     {
-        return NULL;
+        return nullptr;
     }
     return m_parent->GetDefaultQueueForDevice();
 }
@@ -303,7 +303,7 @@ queue_t KernelCommand::GetDefaultQueueForDevice() const
 bool KernelCommand::IsValidEvent(clk_event_t event) const
 {
     DeviceCommand* pEvent = reinterpret_cast<DeviceCommand*>(event);
-    if (NULL == pEvent)
+    if (nullptr == pEvent)
     {
         return false;
     }

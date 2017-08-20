@@ -59,12 +59,12 @@ static string get_last_socket_error()
                 FORMAT_MESSAGE_ALLOCATE_BUFFER |
                 FORMAT_MESSAGE_FROM_SYSTEM |
                 FORMAT_MESSAGE_IGNORE_INSERTS,
-                NULL,
+                nullptr,
                 last_error_code,
                 MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
                 (LPSTR) &s_buf,
                 0,
-                NULL);
+                nullptr);
 
     if (len == 0 || s_buf == 0) {
         stringstream numstr;

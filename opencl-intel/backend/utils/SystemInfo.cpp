@@ -101,7 +101,7 @@ void SystemInfo::GetModuleDirectory( char* szModuleDir, size_t strLen)
    assert( szModuleDir && strLen > 0);
 
 #if defined(_WIN32)
-  HMODULE hModule = NULL;
+  HMODULE hModule = nullptr;
   // GetModuleHandleExA receives an address in the module (the GetModuleDirectory 
   // method) and return the handler of the module
   GetModuleHandleExA(
@@ -111,7 +111,7 @@ void SystemInfo::GetModuleDirectory( char* szModuleDir, size_t strLen)
 
   GetModuleFileNameA( hModule, szModuleDir, MAX_PATH);
   char* pLastDelimiter = strrchr( szModuleDir, '\\');
-  if ( NULL != pLastDelimiter )
+  if ( nullptr != pLastDelimiter )
   {
     *(pLastDelimiter+1) = 0;
   } else
@@ -181,7 +181,7 @@ void SystemInfo::GetModuleDirectory( char* szModuleDir, size_t strLen)
             szModuleDir[counter] = 0;
           }
           char* pLastDelimiter = strrchr( szModuleDir, '/');
-          if (NULL != pLastDelimiter) {
+          if (nullptr != pLastDelimiter) {
             *(pLastDelimiter+1) = 0;
           } else {
             szModuleDir[0] = 0;

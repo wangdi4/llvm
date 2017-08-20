@@ -261,7 +261,7 @@ OclBuiltinImpl fmin_impl = OclBuiltinImpl<fmin, fmin.Types, 0, [{
     $Arg0Type res = min($Arg1VarName, $Arg0VarName);
     res = select(res, $Arg1VarName, nan);
     return res;
-  }]>;
+   }]>;
 
 // fmin_common
 OclBuiltinImpl fmin_common_impl = OclBuiltinImpl<fmin_common, fmin_common.Types, 0, [{

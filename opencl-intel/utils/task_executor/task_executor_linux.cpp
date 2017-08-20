@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
-ITaskExecutor* g_pTaskExecutor = NULL;
+ITaskExecutor* g_pTaskExecutor = nullptr;
 pthread_key_t thkShedMaster;
 
 static void thread_cleanup_callback(void* _NULL)
@@ -82,10 +82,10 @@ void dll_init(void)
 
 void dll_fini(void)
 {
-	if ( NULL != g_pTaskExecutor)
+	if ( nullptr != g_pTaskExecutor)
 	{
 		delete ((PTR_CAST*)g_pTaskExecutor);
-		g_pTaskExecutor = NULL;
+		g_pTaskExecutor = nullptr;
 	}
 	if ( thkShedMaster )
 	{
@@ -105,7 +105,7 @@ TASK_EXECUTOR_API ITaskExecutor* GetTaskExecutor()
 
 void RegisterReleaseSchedulerForMasterThread()
 {
-	pthread_setspecific(thkShedMaster, NULL);
+	pthread_setspecific(thkShedMaster, nullptr);
 }
 
 }}}

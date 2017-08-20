@@ -202,7 +202,7 @@ private:
         virtual task* execute()
         {
             m_func();
-            return NULL;
+            return nullptr;
         }
 
     private:

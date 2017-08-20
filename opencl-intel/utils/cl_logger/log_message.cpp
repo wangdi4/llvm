@@ -63,7 +63,7 @@ LogMessage::LogMessage(ELogLevel eLevel,
     m_psFunctionName   = psFunctionName;
     VA_COPY(m_va, va);
 	m_psClientName	   = psClientName;
-	m_psFormattedMsg   = NULL;
+	m_psFormattedMsg   = nullptr;
 
     CreateFormattedMessage();
 }
@@ -122,7 +122,7 @@ void LogMessage::CreateFormattedMessage()
 	}
 
 	// write client name
-	if ( (m_eLogConfig & LCF_LINE_CLIENT_NAME) && m_psClientName != NULL && strlen(m_psClientName) > 0)
+	if ( (m_eLogConfig & LCF_LINE_CLIENT_NAME) && m_psClientName != nullptr && strlen(m_psClientName) > 0)
 	{
 		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psClientName);
 	}
@@ -130,7 +130,7 @@ void LogMessage::CreateFormattedMessage()
 	// get time and date
 	time_t tNow =0;
     tm tmNow;
-	tNow = time( NULL );
+	tNow = time( nullptr );
     GMTIME( tmNow, tNow );
 
 	// date
@@ -159,7 +159,7 @@ void LogMessage::CreateFormattedMessage()
 	}
 
 	// write source file name
-	if (NULL != m_psSourceFile && strlen(m_psSourceFile) > 0)
+	if (nullptr != m_psSourceFile && strlen(m_psSourceFile) > 0)
 	{
 		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psSourceFile);
 	}
@@ -171,7 +171,7 @@ void LogMessage::CreateFormattedMessage()
 	}
 
 	// write function name
-	if (NULL != m_psFunctionName && strlen(m_psFunctionName) > 0)
+	if (nullptr != m_psFunctionName && strlen(m_psFunctionName) > 0)
 	{
 		SPRINTF_S( &(szLine[strlen( szLine )]), MAX_LOG_STRING_LENGTH - strlen( szLine ), "%s\t", m_psFunctionName);
 	}

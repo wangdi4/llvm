@@ -34,8 +34,8 @@ using namespace Intel::OpenCL::MICDevice;
 #define CALL_BACKS_ARRAY_RESIZE_AMOUNT 1024
 #define MAX_WAITING_EVENTS 16384
 
-NotificationPort::THREAD_SET* NotificationPort::m_NotificationThreadsSet   = NULL;
-OclMutex*                     NotificationPort::m_notificationThreadsMutex = NULL;
+NotificationPort::THREAD_SET* NotificationPort::m_NotificationThreadsSet   = nullptr;
+OclMutex*                     NotificationPort::m_notificationThreadsMutex = nullptr;
 
 //
 // Helper class
@@ -51,13 +51,13 @@ public:
 
     void Release()
     {
-        if (NULL != m_notificationThreadsMutex)
+        if (nullptr != m_notificationThreadsMutex)
         {
             delete m_notificationThreadsMutex;
-            m_notificationThreadsMutex = NULL;
+            m_notificationThreadsMutex = nullptr;
 
             delete m_NotificationThreadsSet;
-            m_NotificationThreadsSet = NULL;
+            m_NotificationThreadsSet = nullptr;
         }
     };
 };
@@ -83,7 +83,7 @@ void NotificationPort::waitForAllNotificationPortThreads()
 {
     vector<THREAD_HANDLE> liveThreadsSnapshot;
 
-    if (NULL == m_notificationThreadsMutex)
+    if (nullptr == m_notificationThreadsMutex)
     {
         return;
     }
@@ -115,7 +115,7 @@ void NotificationPort::waitForAllNotificationPortThreads()
 }
 
 NotificationPort::NotificationPort(const ocl_gpa_data* pGPAData) :
-    m_barriers(NULL), m_notificationsPackages(NULL), m_maxBarriers(0),
+    m_barriers(nullptr), m_notificationsPackages(nullptr), m_maxBarriers(0),
     m_waitingSize(0), m_lastCallBackAge(0), m_workerState(CREATED),
     m_pGPAData(pGPAData)
 {
@@ -128,9 +128,9 @@ NotificationPort::~NotificationPort(void)
 SharedPtr<NotificationPort> NotificationPort::notificationPortFactory(uint16_t maxBarriers, const ocl_gpa_data* pGPAData)
 {
     NotificationPort* retNotificationPort = new NotificationPort(pGPAData);
-    if (NULL == retNotificationPort)
+    if (nullptr == retNotificationPort)
     {
-        return NULL;
+        return nullptr;
     }
 
     int err = retNotificationPort->initialize(maxBarriers);
@@ -143,7 +143,7 @@ SharedPtr<NotificationPort> NotificationPort::notificationPortFactory(uint16_t m
     else
     {
         delete retNotificationPort;
-        retNotificationPort = NULL;
+        retNotificationPort = nullptr;
     }
 
     return retNotificationPort;
@@ -163,8 +163,8 @@ int NotificationPort::initialize(uint16_t maxBarriers)
     // Add 1 barrier for the main barrier (The first barrier)
     m_maxBarriers = maxBarriers + 1;
 
-    m_barriers = NULL;
-    m_notificationsPackages = NULL;
+    m_barriers = nullptr;
+    m_notificationsPackages = nullptr;
 
     m_barriers = (COIEVENT*)malloc(m_maxBarriers * sizeof(COIEVENT));
     if (!m_barriers)
@@ -311,10 +311,10 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
         workerThreadSigaled = false;
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        if ( (nullptr != m_pGPAData) && m_pGPAData->bUseGPA )
         {
-            static __thread __itt_string_handle* pTaskName = NULL;
-            if ( NULL == pTaskName )
+            static __thread __itt_string_handle* pTaskName = nullptr;
+            if ( nullptr == pTaskName )
             {
                 pTaskName = __itt_string_handle_create("NotificationPort::Run()->COIEventWait()");
             }
@@ -325,17 +325,17 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
         result = COIEventWait(m_waitingSize, m_barriers, -1, false, &firedAmount, firedIndicesArr);
         assert(result == COI_SUCCESS && "COIBarrierWait failed for some reason");
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        if ( (nullptr != m_pGPAData) && m_pGPAData->bUseGPA )
         {
             __itt_task_end(m_pGPAData->pDeviceDomain);
         }
 #endif
 
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        if ( (nullptr != m_pGPAData) && m_pGPAData->bUseGPA )
         {
-            static __thread __itt_string_handle* pTaskName = NULL;
-            if ( NULL == pTaskName )
+            static __thread __itt_string_handle* pTaskName = nullptr;
+            if ( nullptr == pTaskName )
             {
                 pTaskName = __itt_string_handle_create("NotificationPort::Run()->ProcessNotification...");
             } 
@@ -393,7 +393,7 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
             fireCallBacksArr[i].callBack->fireCallBack(fireCallBacksArr[i].arg);
         }
 #if defined(USE_ITT) && defined(USE_ITT_INTERNAL)
-        if ( (NULL != m_pGPAData) && m_pGPAData->bUseGPA )
+        if ( (nullptr != m_pGPAData) && m_pGPAData->bUseGPA )
         {
             __itt_task_end(m_pGPAData->pDeviceDomain);
         }
@@ -414,7 +414,7 @@ RETURN_TYPE_ENTRY_POINT NotificationPort::Run()
     unregisterNotificationPortThread(myHandle);
 
     // AdirD - TODO change the selfTerminate to static function
-    RETURN_TYPE_ENTRY_POINT exitCode = NULL;
+    RETURN_TYPE_ENTRY_POINT exitCode = nullptr;
     SelfTerminate(exitCode);
 
     return exitCode;
@@ -437,7 +437,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
         callBacksRet[index] = m_notificationsPackages[signaledIndices[i]];
         index ++;
         // signature which give hint that the barrier signaled. (hint for the swaps in the next loop)
-        m_notificationsPackages[signaledIndices[i]].callBack = NULL;
+        m_notificationsPackages[signaledIndices[i]].callBack = nullptr;
     }
 
     // swap signaled barriers with non-signaled
@@ -449,7 +449,7 @@ void NotificationPort::getFiredCallBacks(unsigned int numSignaled, unsigned int*
             continue;
         }
         // while barrier in location notSignaledIndex is fired and notSignaledIndex >= current barrier index
-        while ((notSignaledIndex >= signaledIndices[i]) && (m_notificationsPackages[notSignaledIndex].callBack == NULL))
+        while ((notSignaledIndex >= signaledIndices[i]) && (m_notificationsPackages[notSignaledIndex].callBack == nullptr))
         {
             notSignaledIndex --;
         }
@@ -534,12 +534,12 @@ void NotificationPort::releaseResources()
         result = COIEventUnregisterUserEvent(m_barriers[0]);
         assert(result == COI_SUCCESS && "Unregister main barrier failed");
         free(m_barriers);
-        m_barriers = NULL;
+        m_barriers = nullptr;
     }
     if (m_notificationsPackages)
     {
         free(m_notificationsPackages);
-        m_notificationsPackages = NULL;
+        m_notificationsPackages = nullptr;
     }
     m_waitingSize = 0;
 

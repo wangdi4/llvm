@@ -34,7 +34,7 @@ public:
 
   /// @brief Empty Constructor
   ///   Should not be called, exists only to be able to register it to opt.
-  BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(NULL) {
+  BuiltinLibInfo() : ImmutablePass(ID), m_pRuntimeServices(nullptr) {
     assert(false && "Default constructor is not supported");
   }
 

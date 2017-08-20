@@ -75,8 +75,8 @@ public:
     virtual bool            CanMasterJoin() const { return true;}
     virtual int             GetDeviceConcurency() const { return 1;}
 
-    virtual SharedPtr<ITEDevice> GetDevice() { return NULL; }
-    virtual ConstSharedPtr<ITEDevice> GetDevice() const { return NULL; }
+    virtual SharedPtr<ITEDevice> GetDevice() { return nullptr; }
+    virtual ConstSharedPtr<ITEDevice> GetDevice() const { return nullptr; }
 
     virtual SharedPtr<IThreadLibTaskGroup> GetNDRangeChildrenTaskGroup() { return m_ndrangeChildrenTaskGroup; }
 
@@ -154,7 +154,7 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
         void* local = pTaskSet->AttachToThread(this, dim[0] * dim[1] * dim[2], firstWGID, dim);
-        if (NULL == local)
+        if (nullptr == local)
         {
             pTaskSet->Finish(FINISH_INIT_FAILED);
         }
@@ -182,7 +182,7 @@ void InPlaceTaskList::ExecuteInPlace(const SharedPtr<Intel::OpenCL::TaskExecutor
 
 fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
 {
-    NULL,
+    nullptr,
     &ReadWriteMemObject::Create,    //     CL_DEV_CMD_READ = 1,
     &ReadWriteMemObject::Create,    //    CL_DEV_CMD_WRITE,
     &CopyMemObject::Create,         //    CL_DEV_CMD_COPY,
@@ -205,11 +205,11 @@ TaskDispatcher::TaskDispatcher(cl_int devId, IOCLFrameworkCallbacks *devCallback
         m_pCPUDeviceConfig(cpuDeviceConfig), m_uiNumThreads(0),
         m_bTEActivated(false), m_pObserver(pObserver)
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
-        ,m_pOMPExecutionThread(NULL)
+        ,m_pOMPExecutionThread(nullptr)
 #endif
 {
     // Set Callbacks into the framework: Logger + Info
-    if ( NULL != logDesc )
+    if ( nullptr != logDesc )
     {
         cl_int ret = m_pLogDescriptor->clLogCreateClient(m_iDevId, "CPU Device: TaskDispatcher", &m_iLogHandle);
         if(CL_DEV_SUCCESS != ret)
@@ -241,7 +241,7 @@ TaskDispatcher::~TaskDispatcher()
         {
             m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
-            m_pRootDevice = NULL;
+            m_pRootDevice = nullptr;
             m_pTaskExecutor->DestroyDebugDeviceQueue();
         }
     }
@@ -262,7 +262,7 @@ cl_dev_err_code TaskDispatcher::init()
     // one reserved position for master in device
     m_pRootDevice = m_pTaskExecutor->CreateRootDevice( 
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, numMasters), 
-                    NULL, this );
+                    nullptr, this );
 
     m_bTEActivated = (0 != m_pRootDevice);
     if ( !m_bTEActivated )
@@ -280,7 +280,7 @@ cl_dev_err_code TaskDispatcher::init()
 
 #if defined(__INCLUDE_MKL__) && !defined(__OMP2TBB__)
     m_pOMPExecutionThread = Intel::OpenCL::BuiltInKernels::OMPExecutorThread::Create(m_uiNumThreads);
-    if ( NULL == m_pOMPExecutionThread )
+    if ( nullptr == m_pOMPExecutionThread )
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -314,7 +314,7 @@ cl_dev_err_code TaskDispatcher::init()
     }
     pTaskList->Enqueue(pAffinitizeThreads);
     pTaskList->Flush();
-    pTaskList->WaitForCompletion(NULL);
+    pTaskList->WaitForCompletion(nullptr);
  //  pAffinitizeThreads->WaitForEndOfTask();   
 
     return CL_DEV_SUCCESS;
@@ -357,10 +357,10 @@ cl_dev_err_code TaskDispatcher::createCommandList( cl_dev_cmd_list_props IN prop
 {
     CpuDbgLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Enter"));
 
-    assert(NULL != list && "Called with null pointer as output");
+    assert(nullptr != list && "Called with null pointer as output");
 
     // NULL device, meaning submit to Root device
-    if (NULL == pDevice)
+    if (nullptr == pDevice)
     {
         pDevice = m_pRootDevice.GetPtr();
     }
@@ -435,7 +435,7 @@ cl_dev_err_code TaskDispatcher::commandListExecute( const SharedPtr<ITaskList>& 
 
     cl_dev_err_code ret = CL_DEV_SUCCESS;
     // If list id is 0, submit tasks directly to execution
-    if ( NULL != pList )
+    if ( nullptr != pList )
     {
         ret = SubmitTaskArray(pList, cmds, count);
     }
@@ -489,7 +489,7 @@ cl_dev_err_code TaskDispatcher::SubmitTaskArray(ITaskList* pList, cl_dev_cmd_des
         else
         {
             // Try to notify about the error in the same list
-            cmds[i]->device_agent_data = NULL;
+            cmds[i]->device_agent_data = nullptr;
             rc = NotifyFailure(pList, cmds[i], rc);
             if ( CL_DEV_FAILED(rc) )
             {
@@ -542,14 +542,14 @@ void* TaskDispatcher::OnThreadEntry()
             bool bNeedToNotify = false;
             //We notify only for sub-devices by NAMES - in other cases, the user is not interested which cores to use
             cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
-            if (NULL != pSubDevID)
+            if (nullptr != pSubDevID)
             {
-                bNeedToNotify = (NULL != pSubDevID->legal_core_ids);
+                bNeedToNotify = (nullptr != pSubDevID->legal_core_ids);
             }
 
             if (bNeedToNotify)
             {
-                assert((NULL != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
+                assert((nullptr != pSubDevID->legal_core_ids) && "For BY NAMES there should be an allocated array of legal core indices");
                 m_pObserver->NotifyAffinity( clMyThreadId(), pSubDevID->legal_core_ids[position_in_device] );
             }
         }
@@ -567,7 +567,7 @@ TE_BOOLEAN_ANSWER TaskDispatcher::MayThreadLeaveDevice( void* currentThreadData 
 {
 #ifdef __SOFT_TRAPPING__ // Moving to "hard" trapping
     cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
-    if ( (NULL!=pSubDevID) && (NULL!=pSubDevID->legal_core_ids) )
+    if ( (nullptr!=pSubDevID) && (nullptr!=pSubDevID->legal_core_ids) )
     {
         return pSubDevID->is_acquired ? TE_NO : TE_YES;
     }

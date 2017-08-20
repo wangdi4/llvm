@@ -54,14 +54,14 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		static Intel::OpenCL::Utils::SharedPtr<OMPTEDevice> Allocate(
 											const RootDeviceCreationParam& device_desc, void* user_data, ITaskExecutorObserver* observer, 
-											OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = NULL )
+											OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = nullptr )
 		{
 			return new OMPTEDevice(device_desc, user_data, observer, taskExecutor, parent );
 		}
 
-		virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = NULL ) { return NULL; };
+		virtual Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateSubDevice( unsigned int uiNumSubdevComputeUnits, void* user_handle = nullptr ) { return nullptr; };
 
-		virtual void ResetObserver() { m_observer = NULL; };
+		virtual void ResetObserver() { m_observer = nullptr; };
 
 		virtual void SetObserver(ITaskExecutorObserver* pObserver) { m_observer = pObserver; };
 
@@ -75,11 +75,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		
 		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> CreateTaskList(const CommandListCreationParam& param );
 
-		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) { return NULL; };
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskList> AllocateDefaultQueue(bool bIsProfilingEnabled) { return nullptr; };
 
 		virtual void ReleaseDefaultQueue() {};
 
-		virtual queue_t GetDefaultQueue() { return NULL; };
+		virtual queue_t GetDefaultQueue() { return nullptr; };
 
 		ITaskExecutorObserver* getObserver() { return m_observer; };
 
@@ -92,7 +92,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		
 	private:
 		OMPTEDevice(const RootDeviceCreationParam device_desc, void* user_data, ITaskExecutorObserver* observer, 
-					OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = NULL );
+					OMPTaskExecutor& taskExecutor, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& parent = nullptr );
 
 		OMPTEDevice(OMPTEDevice&);
 	};
@@ -104,11 +104,11 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		
 		void reset()
 		{
-			device = NULL;
-			user_tls = NULL;
+			device = nullptr;
+			user_tls = nullptr;
 		}
 		
-		OMP_PerActiveThreadData() : device(NULL), user_tls(NULL) {}
+		OMP_PerActiveThreadData() : device(nullptr), user_tls(nullptr) {}
 	};
 
 	class OMP_TlsManager
@@ -151,9 +151,9 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		void Finalize();
 		
 		Intel::OpenCL::Utils::SharedPtr<ITEDevice> CreateRootDevice( const RootDeviceCreationParam& device_desc = RootDeviceCreationParam(),  
-			void* user_data = NULL, ITaskExecutorObserver* my_observer = NULL );
+			void* user_data = nullptr, ITaskExecutorObserver* my_observer = nullptr );
 
-		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) { return NULL; };
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> CreateTaskGroup(const Intel::OpenCL::Utils::SharedPtr<ITEDevice>& device) { return nullptr; };
 
 		ocl_gpa_data* GetGPAData() const { return m_pGPAData; };
 
@@ -185,7 +185,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		static SharedPtr<omp_command_list> Allocate( OMPTaskExecutor& pOMPExec,
 													const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, 
-													const CommandListCreationParam* param = NULL )
+													const CommandListCreationParam* param = nullptr )
 		{
 			return new omp_command_list(pOMPExec, device, param );
 		}
@@ -212,13 +212,13 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
 		virtual bool IsDefaultQueue() const { return false; };
 
-		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return NULL; };
+		virtual Intel::OpenCL::Utils::SharedPtr<ITaskGroup> GetNDRangeChildrenTaskGroup() { return nullptr; };
 
 	private:
 
 		omp_command_list(const omp_command_list& l);
 		omp_command_list();
-		omp_command_list(OMPTaskExecutor& pOMPExec, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, const CommandListCreationParam* param = NULL); 
+		omp_command_list(OMPTaskExecutor& pOMPExec, const Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>& device, const CommandListCreationParam* param = nullptr); 
 	
 		OMPTaskExecutor&										m_pOMPExecutor;
 		Intel::OpenCL::Utils::SharedPtr<OMPTEDevice>			m_pDevice;

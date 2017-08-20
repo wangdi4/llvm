@@ -170,10 +170,10 @@ Function* DebugInfoPass::findFunctionsInModule(StringRef funcName) const {
         it != m_RtlModuleList.end();
         ++it) {
         Function* pRetFunction = (*it)->getFunction(funcName);
-        if (pRetFunction != NULL)
+        if (pRetFunction != nullptr)
             return pRetFunction;
     }
-    return NULL;
+    return nullptr;
 }
 
 bool DebugInfoPass::runOnModule(Module& M)

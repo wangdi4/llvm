@@ -23,7 +23,7 @@ namespace Intel { namespace OpenCL { namespace Frontend {
   //
   //BinaryBuffer
   //
-  BinaryBuffer::BinaryBuffer(): binary(NULL), size(-1){
+  BinaryBuffer::BinaryBuffer(): binary(nullptr), size(-1){
   }
 
   BinaryBuffer::BinaryBuffer(const void* _binary, size_t _size):

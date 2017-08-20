@@ -36,53 +36,53 @@ namespace Intel { namespace OpenCL { namespace Framework
 cl_err_code ParseD3DContextOptions(const std::map<cl_context_properties, cl_context_properties>& propertyMap,
     IUnknown*& device, cl_context_properties& iDevType, const ID3DSharingDefinitions*& pD3dDefs)
 {
-    device = NULL;
+    device = nullptr;
     for (std::map<cl_context_properties, cl_context_properties>::const_iterator iter = propertyMap.begin(); iter != propertyMap.end(); iter++)
     {
         if (CL_CONTEXT_D3D9_DEVICE_INTEL == iter->first || CL_CONTEXT_D3D9EX_DEVICE_INTEL == iter->first || CL_CONTEXT_DXVA_DEVICE_INTEL == iter->first)
         {
-            if (NULL != device)
+            if (nullptr != device)
             {
-                device = NULL;
+                device = nullptr;
                 delete pD3dDefs;
                 return CL_INVALID_DX9_DEVICE_INTEL;
             }
             iDevType = iter->first;
             device = (IUnknown*)iter->second;
             pD3dDefs = new IntelD3D9Definitions(); // this will be deleted by the context when it is destroyed
-            if (NULL == pD3dDefs)
+            if (nullptr == pD3dDefs)
             {
                 return CL_OUT_OF_HOST_MEMORY;
             }
         }
         else if (CL_CONTEXT_ADAPTER_D3D9_KHR == iter->first || CL_CONTEXT_ADAPTER_D3D9EX_KHR == iter->first || CL_CONTEXT_ADAPTER_DXVA_KHR == iter->first)
         {
-            if (NULL != device)
+            if (nullptr != device)
             {
-                device = NULL;
+                device = nullptr;
                 delete pD3dDefs;
                 return CL_INVALID_DX9_MEDIA_ADAPTER_KHR;
             }
             iDevType = iter->first;
             device = (IUnknown*)iter->second;
             pD3dDefs = new KhrD3D9Definitions(); // this will be deleted by the context when it is destroyed
-            if (NULL == pD3dDefs)
+            if (nullptr == pD3dDefs)
             {
                 return CL_OUT_OF_HOST_MEMORY;
             }
         }
         else if (CL_CONTEXT_D3D11_DEVICE_KHR == iter->first)
         {
-            if (NULL != device)
+            if (nullptr != device)
             {
-                device = NULL;
+                device = nullptr;
                 delete pD3dDefs;
                 return CL_INVALID_D3D11_DEVICE_KHR;
             }
             iDevType = iter->first;
             device = (IUnknown*)iter->second;
             pD3dDefs = new D3D11Definitions(); // this will be deleted by the context when it is destroyed
-            if (NULL == pD3dDefs)
+            if (nullptr == pD3dDefs)
             {
                 return CL_OUT_OF_HOST_MEMORY;
             }
@@ -246,7 +246,7 @@ IDirect3DDevice9* D3D9Context::GetDevice(IDirect3DResource9* pResource) const
     HRESULT res = pResource->GetDevice(&pResourceDevice);
     if (D3D_OK != res)
     {
-        return NULL;            
+        return nullptr;            
     }        
     return pResourceDevice;
 }
@@ -268,7 +268,7 @@ cl_err_code D3D9Context::HandlePlanarSurface(D3DResourceInfo<IDirect3DResource9>
     else
     {
         pSurfaceLocker = new SurfaceLocker(pSurface, D3D9Surface::GetD3D9Flags(clFlags));
-        if (NULL == pSurfaceLocker)
+        if (nullptr == pSurfaceLocker)
         {                
             return CL_OUT_OF_HOST_MEMORY;
         }
@@ -303,15 +303,15 @@ cl_err_code	D3D11Context::GetInfo(cl_int param_name, size_t param_value_size, vo
 {
     if (CL_CONTEXT_D3D11_PREFER_SHARED_RESOURCES_KHR == (cl_context_info)param_name)
     {
-        if (param_value != NULL && param_value_size < sizeof(cl_bool))
+        if (param_value != nullptr && param_value_size < sizeof(cl_bool))
         {
             return CL_INVALID_VALUE;
         }
-        if (param_value != NULL)
+        if (param_value != nullptr)
         {
             *(cl_bool*)param_value = CL_FALSE;
         }            
-        if (param_value_size_ret != NULL)
+        if (param_value_size_ret != nullptr)
         {
             *param_value_size_ret = sizeof(cl_bool);
         }

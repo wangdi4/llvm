@@ -37,7 +37,7 @@ extern FILE * moduleDmp;
 {                                                       \
     std::string tmpStr;                                 \
     llvm::raw_string_ostream strstr(tmpStr);            \
-    ptr->print(strstr, NULL);                           \
+    ptr->print(strstr, nullptr);                        \
     fprintf(prtFile, "%s", strstr.str().c_str());       \
     fflush(prtFile);                                    \
 }
@@ -45,7 +45,7 @@ extern FILE * moduleDmp;
 {                                                       \
     std::string tmpStr;                                 \
     llvm::raw_string_ostream strstr(tmpStr);            \
-    ptr->print(strstr, NULL);                           \
+    ptr->print(strstr, nullptr);                        \
     fprintf(moduleDmp, "%s", strstr.str().c_str());     \
     fflush(moduleDmp);                                  \
 }

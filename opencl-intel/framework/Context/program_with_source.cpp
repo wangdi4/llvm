@@ -13,7 +13,7 @@ ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext,
                                      cl_int*            piRet) :
 	Program(pContext)
 {
-    if ((0 == uiNumStrings) || (NULL == pSources))
+    if ((0 == uiNumStrings) || (nullptr == pSources))
     {
         if (piRet)
 	    {
@@ -24,7 +24,7 @@ ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext,
 
     for ( unsigned int i = 0; i < uiNumStrings; ++i)
     {
-        if (NULL == pSources[i])
+        if (nullptr == pSources[i])
         {
             if (piRet)
 	        {
@@ -85,7 +85,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int  param_name,
 		{
 			szParamValueSize = m_SourceString.size();
 
-			if (NULL != param_value)
+			if (nullptr != param_value)
 			{
 				if (param_value_size < szParamValueSize)
 				{
@@ -116,7 +116,7 @@ bool ProgramWithSource::CopySourceStrings(cl_uint       uiNumStrings,
 
 	for(cl_uint ui = 0; ui < uiNumStrings; ++ui)
 	{
-		if ( (NULL == pszLengths) || (0 == pszLengths[ui]) )
+		if ( (nullptr == pszLengths) || (0 == pszLengths[ui]) )
 		{
             puiStringLengths[ui] = strlen(pSources[ui]);
 		}

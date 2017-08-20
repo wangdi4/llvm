@@ -64,7 +64,7 @@ D3DContext<RESOURCE_TYPE, DEV_TYPE>::~D3DContext()
 
     for (cl_uint i = 0; i < m_pOriginalNumDevices; i++)
     {
-        m_ppAllDevices[i]->SetD3DDevice(NULL, 0);
+        m_ppAllDevices[i]->SetD3DDevice(nullptr, 0);
     }
     delete m_pd3dDefinitions;
 }
@@ -81,7 +81,7 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
         delete pResourceInfo;
         return m_pd3dDefinitions->GetInvalidResource();    // Khronos DX9 Media Sharing doesn't say anything about this, but the other 2 spec do.
     }
-    assert(NULL != ppMemObj);
+    assert(nullptr != ppMemObj);
     SharedPtr<MemoryObject> pMemObj;
 
     cl_err_code clErr = MemoryObjectFactory::GetInstance()->CreateMemoryObject(m_devTypeMask, clObjType, m_pd3dDefinitions->GetGfxSysSharing(), this, &pMemObj);
@@ -131,11 +131,11 @@ cl_err_code D3DContext<RESOURCE_TYPE, DEV_TYPE>::CreateD3DResource(cl_mem_flags 
             d3d9Resource.Release();
             return clErr;
         }
-        clErr = d3d9Resource.Initialize(clFlags, &clFormat, uiDimCnt, dims, NULL, pResourceInfo, 0);
+        clErr = d3d9Resource.Initialize(clFlags, &clFormat, uiDimCnt, dims, nullptr, pResourceInfo, 0);
     }
     else
     {
-        clErr = d3d9Resource.Initialize(clFlags, NULL, uiDimCnt, dims, NULL, pResourceInfo, 0);
+        clErr = d3d9Resource.Initialize(clFlags, nullptr, uiDimCnt, dims, nullptr, pResourceInfo, 0);
     }
     // resourceInfo will be deleted in pD3D9Resource's destructor    
     if (CL_FAILED(clErr))

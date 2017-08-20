@@ -143,9 +143,9 @@ ocl20_enqueue_kernel_basic(queue_t queue, kernel_enqueue_flags_t flags,
                << " globalWorkOffset0 " << ndrange->globalWorkOffset[0]
                << "\n");
 
-  int res = enqueue_kernel_common(queue, flags, ndrange, block, 0, NULL,
-                                  NULL,    // events
-                                  NULL, 0, // local buffers
+  int res = enqueue_kernel_common(queue, flags, ndrange, block, 0, nullptr,
+                                  nullptr,    // events
+                                  nullptr, 0, // local buffers
                                   DCM, Mapper, RuntimeHandle);
   DEBUG(dbgs() << "ocl20_enqueue_kernel_basic. Return value " << res << "\n");
   return res;
@@ -159,7 +159,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_localmem(
   DEBUG(dbgs() << "ocl20_enqueue_kernel_localmem. Entry point \n");
   int res = 
     enqueue_kernel_common(queue, flags, ndrange, block,
-                          0, NULL, NULL, // events
+                          0, nullptr, nullptr, // events
                           localbuf_size, localbuf_size_len, // local buffers
                           DCM, Mapper, RuntimeHandle);
   return res;
@@ -175,7 +175,7 @@ extern "C" LLVM_BACKEND_API int ocl20_enqueue_kernel_events(
       enqueue_kernel_common(queue, flags, ndrange, block,
                             num_events_in_wait_list, in_wait_list, // events
                             event_ret,                             // event ret
-                            NULL, 0, // local buffers
+                            nullptr, 0, // local buffers
                             DCM, Mapper, RuntimeHandle);
   return res;
 }

@@ -85,7 +85,7 @@ StreamOutputAccumulator::StreamOutputAccumulator(FILE* stream)
     : stream(stream), count(0)
 {
     #if (defined(_WIN32) || defined(_WIN64)) 
-        hStdout=NULL;
+        hStdout=nullptr;
     #endif
 }
 
@@ -96,12 +96,12 @@ void StreamOutputAccumulator::append(char c)
     if (!hStdout){
         hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
         if (INVALID_HANDLE_VALUE == hStdout){
-            hStdout = NULL;
+            hStdout = nullptr;
             return;
         }
     }
     DWORD d;
-    WriteFile(hStdout, &c, 1, &d, NULL);
+    WriteFile(hStdout, &c, 1, &d, nullptr);
 #else 
     fputc(c, stream);
 #endif

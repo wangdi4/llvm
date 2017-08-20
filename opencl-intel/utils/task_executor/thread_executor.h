@@ -198,7 +198,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		}
 		void Release()
 		{ 
-			m_pWorkerThread = NULL;
+			m_pWorkerThread = nullptr;
 			delete this; 
 		}
 	private:
@@ -212,7 +212,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 	public:
 		ThreadTaskListOrderedImpl()
 		{
-			m_pSelectedWorkerThread = NULL;
+			m_pSelectedWorkerThread = nullptr;
             m_refCount = 1;
 		}
 
@@ -295,7 +295,7 @@ namespace Intel { namespace OpenCL { namespace TaskExecutor {
 		unsigned int GetMaxNumOfConcurrentThreads() const
 						{return m_uiNumWorkingThreads;}
 		ITaskList* CreateTaskList(bool OOO = false);
-		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = NULL);
+		unsigned int	Execute(const SharedPtr<ITaskBase>& pTask, void* pSubdevTaskExecData = nullptr);
 		te_wait_result WaitForCompletion() {return TE_WAIT_NOT_SUPPORTED;}		
 		void Close(bool bCancel);
 		ocl_gpa_data* GetGPAData() const;

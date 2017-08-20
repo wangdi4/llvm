@@ -45,7 +45,7 @@ m_hashEntry(he), m_width(width){
 }
 
 funcEntry::funcEntry():
-m_hashEntry(NULL), m_width(0){
+m_hashEntry(nullptr), m_width(0){
 }
 
 unsigned funcEntry::getWidth()const{
@@ -73,7 +73,7 @@ std::string funcEntry::getVersion(unsigned v)const{
 }
 
 bool funcEntry::isNull()const{
-  return (m_hashEntry == NULL);
+  return (m_hashEntry == nullptr);
 }
 
 int funcEntry::getIndex()const{

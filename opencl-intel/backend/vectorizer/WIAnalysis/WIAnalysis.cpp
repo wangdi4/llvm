@@ -106,13 +106,13 @@ gep_conversion_for_indirection[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
   /* RND */  {RND, RND, RND, RND, RND}
 };
 
-WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
+WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(nullptr) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
     m_vectorizedDim = 0;
 }
 
 WIAnalysis::WIAnalysis(unsigned int vectorizationDimension) :
-  FunctionPass(ID), m_rtServices(NULL) {
+  FunctionPass(ID), m_rtServices(nullptr) {
   initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   m_vectorizedDim = vectorizationDimension;
 }
@@ -510,9 +510,9 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         assert(br && "br cannot be null");
 
         // allones and allzeroes branches are uniform.
-        bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != NULL);
+        bool branchIsAllOnes = (Predicator::getAllOnesBranch(br->getParent()) != nullptr);
         CallInst* callInst =
-          br->isConditional() ? dyn_cast<CallInst>(br->getCondition()) : NULL;
+          br->isConditional() ? dyn_cast<CallInst>(br->getCondition()) : nullptr;
         bool branchIsAllZeroes = callInst &&
           callInst->getCalledFunction() &&
           Mangler::isAllZero(callInst->getCalledFunction()->getName());

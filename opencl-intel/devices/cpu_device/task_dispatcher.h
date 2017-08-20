@@ -99,7 +99,7 @@ public:
     bool                    isPredictablePartitioningAllowed()
     {
         cl_dev_internal_subdevice_id* pSubDevID = reinterpret_cast<cl_dev_internal_subdevice_id*>(m_pTaskExecutor->GetCurrentDevice().user_handle);
-        return ( (NULL!=pSubDevID) && pSubDevID->is_by_names );
+        return ( (nullptr!=pSubDevID) && pSubDevID->is_by_names );
     }
 
     void                    waitUntilEmpty(ITEDevice* pSubdev);
@@ -166,7 +166,7 @@ protected:
         void            Cancel()  { Shoot( CL_DEV_COMMAND_CANCELLED ); }
         long	        Release() { return 0; }
         TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
-        Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+        Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
     protected:
         TaskDispatcher*			m_pTaskDispatcher;
         const cl_dev_cmd_desc*	m_pCmd;
@@ -213,7 +213,7 @@ public:
     bool	  Finish(FINISH_REASON reason) { ++m_endBarrier; return false;}
     long    Release() { return 0;}
     void    Cancel() { Finish(FINISH_EXECUTION_FAILED); };
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
     TASK_PRIORITY	        GetPriority()                       const	{ return TASK_PRIORITY_MEDIUM;}
     TASK_SET_OPTIMIZATION OptimizeBy()                        const { return TASK_SET_OPTIMIZE_DEFAULT; }

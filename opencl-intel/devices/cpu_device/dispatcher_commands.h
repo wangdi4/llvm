@@ -110,7 +110,7 @@ public:
     TASK_PRIORITY   GetPriority() const { return TASK_PRIORITY_MEDIUM;}
 
     void    Cancel() { NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, cl_int(CL_DEV_COMMAND_CANCELLED)); }
-    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+    Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
 protected:
 

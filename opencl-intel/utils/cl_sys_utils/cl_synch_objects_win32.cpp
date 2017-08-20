@@ -104,8 +104,8 @@ OclCondition::~OclCondition()
 /************************************************************************/
 COND_RESULT OclCondition::Wait(OclMutex* mutexObj)
 {
-	assert( NULL!=mutexObj && "mutexObj must be valid object");
-	if ( NULL == mutexObj )
+	assert( nullptr!=mutexObj && "mutexObj must be valid object");
+	if ( nullptr == mutexObj )
     {
         return COND_RESULT_FAIL;
     }
@@ -128,11 +128,11 @@ COND_RESULT OclCondition::Signal()
 /************************************************************************
 * OclOsDependentEvent implementation
 /************************************************************************/
-OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(NULL)
+OclOsDependentEvent::OclOsDependentEvent() : m_eventRepresentation(nullptr)
 {
 }
 
-OclOsDependentEvent::OclOsDependentEvent(bool bAutoReset) : m_eventRepresentation(NULL)
+OclOsDependentEvent::OclOsDependentEvent(bool bAutoReset) : m_eventRepresentation(nullptr)
 {
 	Init(bAutoReset);
 }
@@ -143,23 +143,23 @@ OclOsDependentEvent::~OclOsDependentEvent()
 	{
 		CloseHandle((HANDLE)m_eventRepresentation);
 	}
-	m_eventRepresentation = NULL;
+	m_eventRepresentation = nullptr;
 }
 
 bool OclOsDependentEvent::Init(bool bAutoReset /* = false */)
 {
-	if (m_eventRepresentation != NULL) //event already initialized
+	if (m_eventRepresentation != nullptr) //event already initialized
 	{
 		//Todo: raise error?
 		return true;
 	}
-	m_eventRepresentation = CreateEvent(NULL, !bAutoReset, FALSE, NULL);
-	return m_eventRepresentation != NULL;
+	m_eventRepresentation = CreateEvent(nullptr, !bAutoReset, FALSE, nullptr);
+	return m_eventRepresentation != nullptr;
 }
 
 bool OclOsDependentEvent::Wait()
 {
-	if (NULL == m_eventRepresentation)
+	if (nullptr == m_eventRepresentation)
 	{
 		//event not initialized
 		return false;
@@ -169,7 +169,7 @@ bool OclOsDependentEvent::Wait()
 
 void OclOsDependentEvent::Signal()
 {
-	if (m_eventRepresentation != NULL)
+	if (m_eventRepresentation != nullptr)
 	{
 		SetEvent(m_eventRepresentation);
 	}
@@ -181,7 +181,7 @@ void OclOsDependentEvent::Signal()
 
 void OclOsDependentEvent::Reset()
 {
-	if (m_eventRepresentation != NULL)
+	if (m_eventRepresentation != nullptr)
 	{
 		ResetEvent(m_eventRepresentation);
 	}
@@ -196,7 +196,7 @@ void OclOsDependentEvent::Reset()
 /************************************************************************/
 OclBinarySemaphore::OclBinarySemaphore()
 {
-    m_semaphore = CreateEvent(NULL, false, false, NULL);
+    m_semaphore = CreateEvent(nullptr, false, false, nullptr);
 }
 
 OclBinarySemaphore::~OclBinarySemaphore()
@@ -262,7 +262,7 @@ long AtomicCounter::exchange(long val)
 /************************************************************************/
 AtomicBitField::AtomicBitField() : m_size(0), m_oneTimeFlag(0), m_isInitialize(false), m_eventLock()
 {
-	m_bitField = NULL;
+	m_bitField = nullptr;
 	m_eventLock.Init(false);
 }
 
@@ -298,7 +298,7 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 	}
 	m_size = size;
 	m_bitField = (long*)malloc(sizeof(long) * m_size);
-	if (NULL == m_bitField)
+	if (nullptr == m_bitField)
 	{
 		assert(0 && "Error occurred while trying to create bit field array, malloc failed");
 		m_eventLock.Signal();
@@ -322,7 +322,7 @@ void AtomicBitField::init(unsigned int size, bool initVal)
 
 long AtomicBitField::bitTestAndSet(unsigned int bitNum)
 {
-	if ((NULL == m_bitField) || (bitNum < 0) || (bitNum >= m_size))
+	if ((nullptr == m_bitField) || (bitNum < 0) || (bitNum >= m_size))
 	{
 		return -1;
 	}

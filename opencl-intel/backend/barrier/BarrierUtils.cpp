@@ -78,7 +78,7 @@ namespace intel {
     }
     //Usage is a PHINode, find previous basic block according to pVal
     PHINode *pPhiNode = cast<PHINode>(pUserInst);
-    BasicBlock *pPrevBB = NULL;
+    BasicBlock *pPrevBB = nullptr;
     for ( pred_iterator bi = pred_begin(pPhiNode->getParent()),
       be = pred_end(pPhiNode->getParent()); bi != be; ++bi ) {
         BasicBlock *pBB = *bi;
@@ -317,7 +317,7 @@ namespace intel {
     FunctionType *pFuncTy = FunctionType::get(pResult, funcTyArgs, false);
     Constant *pNewFunc = m_pModule->getOrInsertFunction("llvm.x86.sse2.mfence", pFuncTy);
     return CallInst::Create(pNewFunc, "", pAtEnd);*/
-    return NULL;
+    return nullptr;
   }
 
   Instruction* BarrierUtils::createGetSpecialBuffer(Instruction *pInsertBefore){

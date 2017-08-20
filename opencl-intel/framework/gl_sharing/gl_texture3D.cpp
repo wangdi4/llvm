@@ -76,7 +76,7 @@ GLint GLTexture3D::CalculateTextureDimensions()
 cl_err_code GLTexture3D::GetDimensionSizes(size_t* pszRegion) const
 {
     assert(pszRegion);
-    if (NULL == pszRegion)
+    if (nullptr == pszRegion)
     {
         return CL_INVALID_VALUE;
     }
@@ -97,7 +97,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
         return res;
     }
 
-    res = pChild->Initialize(m_clFlags, &m_clFormat.clType, m_uiNumDim, m_stDimensions, NULL, NULL, 0);
+    res = pChild->Initialize(m_clFlags, &m_clFormat.clType, m_uiNumDim, m_stDimensions, nullptr, nullptr, 0);
     if (CL_FAILED(res))
     {
         pChild->Release();
@@ -105,7 +105,7 @@ cl_err_code GLTexture3D::AcquireGLObject()
         return CL_OUT_OF_RESOURCES;
     }
 
-    m_pMemObjData = pChild->GetBackingStoreData(NULL);
+    m_pMemObjData = pChild->GetBackingStoreData(nullptr);
 
     // Now read image data
     GLint currTexture;
@@ -146,7 +146,7 @@ cl_err_code GLTexture3D::ReleaseGLObject()
 		glBindTexture(glBaseTarget, currTexture);
 	}
 
-	m_pMemObjData = NULL;
+	m_pMemObjData = nullptr;
 
     // block until all GL operations are completed
     glFinish();

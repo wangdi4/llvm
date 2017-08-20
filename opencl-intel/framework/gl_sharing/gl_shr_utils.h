@@ -45,7 +45,7 @@ GLenum GetGLType(cl_channel_type clType);
 GLenum GetGLFormat(cl_channel_type clType, bool isExt);
 
 cl_int ParseGLContextOptions(const cl_context_properties * properties, cl_context_properties *hGL,  cl_context_properties *hDC,
-                             bool* pbGLSharingSupported = NULL);
+                             bool* pbGLSharingSupported = nullptr);
 
 
 }}}

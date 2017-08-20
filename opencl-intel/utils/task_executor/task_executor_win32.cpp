@@ -65,12 +65,12 @@ struct ExecutorSingletonHandler
 		// Open shared memory, we are looking for previously allocated executor
 		hMapFile = CreateFileMapping(
 			INVALID_HANDLE_VALUE,    // use paging file
-			NULL,                    // default security 
+			nullptr,                    // default security 
 			PAGE_READWRITE,          // read/write access
 			0,                       // max. object size 
 			sizeof(void*),           // buffer size  
 			szName);         // name of mapping object
-		if (hMapFile == NULL) 
+		if (hMapFile == nullptr) 
 		{ 
 			return;
 		}
@@ -81,7 +81,7 @@ struct ExecutorSingletonHandler
 			0,                   
 			0,                   
 			sizeof(void*));           
-		if (pSharedBuf == NULL) 
+		if (pSharedBuf == nullptr) 
 		{ 
 			CloseHandle(hMapFile);
 			return;
@@ -89,8 +89,8 @@ struct ExecutorSingletonHandler
 
 		// Test for singleton existence
 		sprintf_s(szName, sizeof(szName), g_szMutexNameTemplate, GetCurrentProcessId());
-		hMutex = CreateMutex(NULL, TRUE, szName);
-		if ( NULL == hMutex)
+		hMutex = CreateMutex(nullptr, TRUE, szName);
+		if ( nullptr == hMutex)
 		{
 			UnmapViewOfFile(pSharedBuf);
 			CloseHandle(hMapFile);
@@ -141,7 +141,7 @@ struct ExecutorSingletonHandler
 	LPVOID					pSharedBuf;
 	HANDLE					hMutex;
 };
-ITaskExecutor* ExecutorSingletonHandler::pTaskExecutor = NULL;
+ITaskExecutor* ExecutorSingletonHandler::pTaskExecutor = nullptr;
 
 ExecutorSingletonHandler	executor;
 
@@ -151,7 +151,7 @@ ITaskExecutor* Intel::OpenCL::TaskExecutor::GetTaskExecutor()
 }
 #else
 
-ITaskExecutor* g_pTaskExecutor = NULL;
+ITaskExecutor* g_pTaskExecutor = nullptr;
 
 BOOL APIENTRY DllMain( HMODULE hModule,
 					  DWORD  ul_reason_for_call,
@@ -178,14 +178,14 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 		if (g_pTaskExecutor) 
 		{
 			delete ((PTR_CAST*)g_pTaskExecutor);
-			g_pTaskExecutor = NULL;						
+			g_pTaskExecutor = nullptr;						
 		}
 #ifdef _DEBUG
         FiniSharedPts();
 #endif
 		return TRUE;
 	}
-	return g_pTaskExecutor != NULL;
+	return g_pTaskExecutor != nullptr;
 }
 
 TASK_EXECUTOR_API ITaskExecutor* Intel::OpenCL::TaskExecutor::GetTaskExecutor()

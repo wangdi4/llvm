@@ -240,7 +240,7 @@ private:
     template<typename T>
     void PrintIntegerOutputParam(const void* ptr)
     {
-        if (NULL != ptr)
+        if (nullptr != ptr)
         {
             m_stream << *reinterpret_cast<const T*>(ptr);
         }

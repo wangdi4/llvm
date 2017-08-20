@@ -45,7 +45,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 #endif
 
 bool OMP_TlsManager::m_object_exists = false;
-THREAD_LOCAL OMP_PerActiveThreadData* Intel::OpenCL::TaskExecutor::OMP_TlsManager::m_CurrentThreadGlobalID = NULL;
+THREAD_LOCAL OMP_PerActiveThreadData* Intel::OpenCL::TaskExecutor::OMP_TlsManager::m_CurrentThreadGlobalID = nullptr;
 
 namespace Intel { namespace OpenCL { namespace TaskExecutor {
 
@@ -86,7 +86,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i = 0; i < workers; i++)
 				{
@@ -113,7 +113,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i = 0; i < workers; i++)
 				{
@@ -151,7 +151,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i = 0; i < workers; i++)
 				{
@@ -202,7 +202,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i = 0; i < dims[0]; i++)
 				{
@@ -219,7 +219,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i=0; i<dims[0]*dims[1]; i++)
 				{
@@ -237,7 +237,7 @@ static void parallel_execute(	omp_command_list& cmdList,
 				OMP_PerActiveThreadData* tls = te.GetTlsManager().GetCurrentThreadDescriptor(pObserver);
 				assert(tls);
 				assert(tls->user_tls);
-				void* user_local = task.AttachToThread(tls->user_tls, 1, NULL, NULL);
+				void* user_local = task.AttachToThread(tls->user_tls, 1, nullptr, nullptr);
 				#pragma omp for 
 				for (unsigned int i=0; i<dims[0]*dims[1]*dims[2]; i++)
 				{
@@ -345,13 +345,13 @@ OMPTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     if (1 != device.uiNumOfLevels)
     {
 		assert(0 && "Currently Only one level device can create with OMP");
-        return NULL;
+        return nullptr;
     }
 	
     if ((device.uiThreadsPerLevel[0] == 0) || (device.uiThreadsPerLevel[0] > gOMPWorker_threads))
     {
         assert(0 && "Too many threads requested - above maximum configured" );
-        return NULL;
+        return nullptr;
     }
 
     // Create root device
@@ -369,13 +369,13 @@ ITaskExecutor::DeviceHandleStruct OMPTaskExecutor::GetCurrentDevice() const
 {
 	OMP_PerActiveThreadData* tls = m_TlsManager.GetCurrentThreadDescriptor();
     
-    if (NULL == tls)
+    if (nullptr == tls)
     {
         return DeviceHandleStruct();
     }
     else
     {
-		return DeviceHandleStruct( tls->device, (NULL != tls->device) ? tls->device->GetUserData() : NULL );
+		return DeviceHandleStruct( tls->device, (nullptr != tls->device) ? tls->device->GetUserData() : nullptr );
 	}
 }
 
@@ -391,14 +391,14 @@ void OMPTaskExecutor::InitialOMP()
 
 /////////////// TlsManager //////////////////////
 
-OMP_TlsManager::OMP_TlsManager() : m_uiNumberOfStaticEntries(0), m_ThreadDataArray(NULL)
+OMP_TlsManager::OMP_TlsManager() : m_uiNumberOfStaticEntries(0), m_ThreadDataArray(nullptr)
 {
 }
 
 OMP_TlsManager::~OMP_TlsManager()
 {
 	m_object_exists = false;
-	if (NULL != m_ThreadDataArray)
+	if (nullptr != m_ThreadDataArray)
 	{
 		delete[] m_ThreadDataArray;
 	}
@@ -427,19 +427,19 @@ bool OMP_TlsManager::Init( unsigned int uiNumberOfThreads )
 OMP_PerActiveThreadData* OMP_TlsManager::RegisterCurrentThread() const
 {
 	assert( m_object_exists );
-	OMP_PerActiveThreadData* tThreadData = NULL;
+	OMP_PerActiveThreadData* tThreadData = nullptr;
 	if (!m_object_exists)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	unsigned int threadId = omp_get_thread_num();
 	if (threadId >= m_uiNumberOfStaticEntries)
 	{
 		tThreadData = new OMP_PerActiveThreadData;
-		if (NULL == tThreadData)
+		if (nullptr == tThreadData)
 		{
-			return NULL;
+			return nullptr;
 		}
 	}
 	else
@@ -460,12 +460,12 @@ OMP_PerActiveThreadData* OMP_TlsManager::GetCurrentThreadDescriptor() const
 OMP_PerActiveThreadData* OMP_TlsManager::GetCurrentThreadDescriptor(ITaskExecutorObserver* pObserver) const
 {
 	assert(pObserver);
-	if (NULL == m_CurrentThreadGlobalID)
+	if (nullptr == m_CurrentThreadGlobalID)
 	{
 		RegisterCurrentThread();
 		m_CurrentThreadGlobalID->user_tls = pObserver->OnThreadEntry();
 	}
-	else if (NULL == m_CurrentThreadGlobalID->user_tls)
+	else if (nullptr == m_CurrentThreadGlobalID->user_tls)
 	{
 		m_CurrentThreadGlobalID->user_tls = pObserver->OnThreadEntry();
 	}
@@ -483,7 +483,7 @@ OMPTEDevice::OMPTEDevice(const RootDeviceCreationParam device_desc, void* user_d
 
 SharedPtr<ITaskList> OMPTEDevice::CreateTaskList(const CommandListCreationParam& param )
 {
-	SharedPtr<ITaskList> pList = NULL;
+	SharedPtr<ITaskList> pList = nullptr;
 	// Support only TE_CMD_LIST_IMMEDIATE (which is the in order queue of MIC device)
 	assert(TE_CMD_LIST_IMMEDIATE == param.cmdListType && "OMPTEDevice::CreateTaskList support only TE_CMD_LIST_IMMEDIATE (which is the in order queue of MIC device)");
 	pList = omp_command_list::Allocate(m_taskExecutor, this, &param);

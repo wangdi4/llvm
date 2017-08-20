@@ -458,7 +458,7 @@ T GetRegistryValue(HKEY key, const string& valName, const T& defaultVal)
 {
     T regVal;
     DWORD regValSize = sizeof(regVal);
-    LONG res = RegQueryValueExA(key, valName.c_str(), NULL, NULL, (BYTE*)&regVal, &regValSize);
+    LONG res = RegQueryValueExA(key, valName.c_str(), nullptr, nullptr, (BYTE*)&regVal, &regValSize);
     if (ERROR_SUCCESS != res)
     {
         return defaultVal;
@@ -469,7 +469,7 @@ T GetRegistryValue(HKEY key, const string& valName, const T& defaultVal)
 template<typename T>
 T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal)
 {
-    HKEY key = NULL;
+    HKEY key = nullptr;
 	LONG res = RegOpenKeyEx(HKEY_LOCAL_MACHINE, keyName.c_str(), 0, KEY_QUERY_VALUE | KEY_WOW64_64KEY, &key);
 
     if (ERROR_SUCCESS != res)
@@ -527,7 +527,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
     {
     public:
         BasicCLConfigWrapper()
-            : m_pConfigFile(NULL)
+            : m_pConfigFile(nullptr)
         {}
 
         ~BasicCLConfigWrapper()
@@ -543,10 +543,10 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
 
         void Release()
         {
-	        if (NULL != m_pConfigFile)
+	        if (nullptr != m_pConfigFile)
 	        {
 		        delete m_pConfigFile;
-		        m_pConfigFile = NULL;
+		        m_pConfigFile = nullptr;
 	        }
         }
 

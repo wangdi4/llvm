@@ -48,7 +48,7 @@ const dotProdInlineData dotInlineTable [] = {
   {"_Z3dotDv3_dS_",3},
   {"_Z3dotDv4_fS_",4},
   {"_Z3dotDv4_dS_",4},
-  {NULL,0}
+  {nullptr,0}
 };
 
 const char* BuiltinReturnByPtr[] = {
@@ -90,12 +90,12 @@ Function * OpenclRuntime::findInRuntimeModule(StringRef Name) const {
       it != m_runtimeModulesList.end();
       ++it)
   {
-    assert(*it != NULL && "OpenclRuntime::findInRuntimeModule Encountered NULL ptr in m_runtimeModulesList");
+    assert(*it != nullptr && "OpenclRuntime::findInRuntimeModule Encountered NULL ptr in m_runtimeModulesList");
     Function* ret_function = (*it)->getFunction(Name);
-    if (ret_function != NULL)
+    if (ret_function != nullptr)
        return ret_function;
   }
-  return NULL;
+  return nullptr;
 }
 
 std::auto_ptr<VectorizerFunction>
@@ -318,7 +318,7 @@ bool OpenclRuntime::isFakedFunction(StringRef fname)const{
   Function* pMaskedFunction = findInRuntimeModule(fname);
   //Since not all faked builtins can be discovered by name, we need to make
   //the function resides within the runtime module.
-  return (pMaskedFunction == NULL);
+  return (pMaskedFunction == nullptr);
 }
 
 unsigned OpenclRuntime::isInlineDot(const std::string &funcName) const{

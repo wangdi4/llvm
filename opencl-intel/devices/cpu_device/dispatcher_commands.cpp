@@ -84,12 +84,12 @@ DispatcherCommand::DispatcherCommand(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd)
 m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
 {
     assert(pTD && "Expected non NULL TaskDispatcher");
-    assert(pCmd && "Expected non NLL command descriptor");
+    assert(pCmd && "Expected non NULL command descriptor");
     m_pLogDescriptor = pTD->m_pLogDescriptor;
     m_iLogHandle = pTD->m_iLogHandle;
     m_pGPAData = pTD->m_pGPAData;
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         // unique ID to pass all tasks, and markers.
         m_ittID = __itt_id_make(&m_ittID, (unsigned long long)this);
@@ -101,7 +101,7 @@ m_pTaskDispatcher(pTD), m_pCmd(pCmd), m_bCompleted(false)
 DispatcherCommand::~DispatcherCommand()
 {
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         __itt_id_destroy(m_pGPAData->pDeviceDomain, m_ittID);
     }
@@ -115,7 +115,7 @@ void DispatcherCommand::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigne
         void* pTaskPtr = cmd->device_agent_data;
         // If the ITask pointer still exists we need reduce reference count
         // and release ITask object
-        if ( NULL != pTaskPtr )
+        if ( nullptr != pTaskPtr )
         {
             ITaskBase* pTask = static_cast<ITaskBase*>(pTaskPtr);
             pTask->Release();
@@ -148,8 +148,8 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
         size_t                      stOffset    = param.offset_in_bytes;
         IOCLDevMemoryObject*        memObj     = *(IOCLDevMemoryObject**)(pLockedParams+stOffset);
 
-        assert( ((CL_KRNL_ARG_PTR_CONST == param.type) || (CL_KRNL_ARG_PTR_GLOBAL == param.type) || (NULL != memObj)) && "NULL is not allowed for non buffer arguments");
-        if (NULL != memObj)
+        assert( ((CL_KRNL_ARG_PTR_CONST == param.type) || (CL_KRNL_ARG_PTR_GLOBAL == param.type) || (nullptr != memObj)) && "NULL is not allowed for non buffer arguments");
+        if (nullptr != memObj)
         {
             char* loc = pLockedParams+stOffset;
             cl_mem_obj_descriptor* objHandle;
@@ -166,7 +166,7 @@ cl_dev_err_code DispatcherCommand::ExtractNDRangeParams(void* pTargetTaskParam,
             {
                 *(void**)loc = objHandle->imageAuxData;
             }
-            if ( NULL != devMemObjects )
+            if ( nullptr != devMemObjects )
             {
                 devMemObjects->push_back(objHandle);
             }
@@ -201,7 +201,7 @@ template <class ITaskClass>
 cl_dev_err_code ReadWriteMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     ReadWriteMemObject* pCommand = new ReadWriteMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -296,11 +296,11 @@ bool ReadWriteMemObject::Execute()
 
     // Execute copy routine
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, ( CL_DEV_CMD_READ == m_pCmd->type ? m_pGPAData->pReadHandle : m_pGPAData->pWriteHandle ));
 
@@ -321,10 +321,10 @@ bool ReadWriteMemObject::Execute()
     clCopyMemoryRegion(&sCpyParam);
 
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_end(m_pGPAData->pDeviceDomain);
     }
@@ -343,7 +343,7 @@ bool ReadWriteMemObject::Execute()
 cl_dev_err_code CopyMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     CopyMemObject* pCommand = new CopyMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -448,10 +448,10 @@ bool CopyMemObject::Execute()
 
 #if defined(USE_ITT)
     // Execute copy routine
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pCopyHandle);
 #if defined(USE_GPA)
@@ -472,10 +472,10 @@ bool CopyMemObject::Execute()
     clCopyMemoryRegion(&sCpyParam);
 
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_end(m_pGPAData->pDeviceDomain);
     } 
@@ -494,7 +494,7 @@ bool CopyMemObject::Execute()
 cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     NativeFunction* pCommand = new NativeFunction(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -512,7 +512,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 
     // Create temporal buffer for execution
     char*    pArgV = new char[cmdParams->args];
-    if ( NULL == pArgV )
+    if ( nullptr == pArgV )
     {
 #ifdef _DEBUG
         CpuErrLog(pCommand->m_pLogDescriptor, pCommand->m_iLogHandle, TEXT("%s"), TEXT("Can't allocate memory for parameters"));
@@ -530,7 +530,7 @@ cl_dev_err_code NativeFunction::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCm
 
 NativeFunction::NativeFunction(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd) :
     CommandBaseClass<ITask>(pTD, pCmd),
-    m_pArgV(NULL)
+    m_pArgV(nullptr)
 {
 }
 
@@ -548,7 +548,7 @@ cl_dev_err_code    NativeFunction::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
     cl_dev_cmd_param_native *cmdParams = (cl_dev_cmd_param_native*)(cmd->params);
 
-    if( NULL == cmdParams->func_ptr )
+    if( nullptr == cmdParams->func_ptr )
     {
         return CL_DEV_INVALID_COMMAND_PARAM;
     }
@@ -593,7 +593,7 @@ bool NativeFunction::Execute()
 cl_dev_err_code MapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     MapMemObject* pCommand = new MapMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -642,10 +642,10 @@ bool MapMemObject::Execute()
 
 #if defined(USE_ITT)
     // Write Map task to ITT trace
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, m_pGPAData->pMapHandle);
 #if defined(USE_GPA)
@@ -653,10 +653,10 @@ bool MapMemObject::Execute()
 #endif
     }
 
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_end(m_pGPAData->pDeviceDomain);
     } 
@@ -677,7 +677,7 @@ bool MapMemObject::Execute()
 cl_dev_err_code UnmapMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     UnmapMemObject* pCommand = new UnmapMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -746,7 +746,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
 
     const ICLDevBackendKernelProporties* pProperties = pKernel->GetKernelProporties();
     
-    assert( NULL != pProperties && "Kernel properties always shall exist");
+    assert( nullptr != pProperties && "Kernel properties always shall exist");
 
     // Built-in kernel currently returns -1 for Execution lenght properties.
     if ( (size_t)-1 == pProperties->GetKernelExecutionLength() )
@@ -755,7 +755,7 @@ cl_dev_err_code NDRange::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, Shar
     }
 #endif
     pCmd->id = (cl_dev_cmd_id)((long)pCmd->id & ~(1L << (sizeof(long) * 8 - 1)));    // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
-    NDRange* pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), NULL);
+    NDRange* pCommand = new NDRange(pTD, pCmd, pList.GetPtr(), nullptr);
 
     assert(pTask && "Invalid task parameter");
     *pTask = static_cast<ITaskBase*>(pCommand);
@@ -802,7 +802,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
 
 #ifdef USE_ITT
     // Start execution task
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         cl_dev_cmd_param_kernel *cmdParams = (cl_dev_cmd_param_kernel*)m_pCmd->params;
 
@@ -859,10 +859,10 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     m_pRunner = pKernel->GetKernelRunner();
 #ifdef OCLDEVICE_PLUGINS
     unsigned int memObjCount = (unsigned int)kernelParamsVec.size();
-    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&kernelParamsVec[0] : NULL;
+    const cl_mem_obj_descriptor** memArgs = memObjCount > 0 ? (const cl_mem_obj_descriptor**)&kernelParamsVec[0] : nullptr;
 #else
     unsigned int memObjCount = 0;
-    const cl_mem_obj_descriptor** memArgs = NULL;
+    const cl_mem_obj_descriptor** memArgs = nullptr;
 #endif
     bool zero_enqueue = false;
     for (unsigned int i = 0; i < cmdParams->work_dim; ++i)
@@ -879,7 +879,7 @@ int NDRange::Init(size_t region[], unsigned int &dimCount, size_t numberOfThread
     }
 
     // if logger is enabled, always print local work size from BE
-    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     {
         vector<size_t> dims(m_pImplicitArgs->LocalSize[0], &m_pImplicitArgs->LocalSize[0][cmdParams->work_dim]);                       
         g_pUserLogger->SetLocalWorkSize4ArgValues(m_pCmd->id, dims);
@@ -959,7 +959,7 @@ bool NDRange::Finish(FINISH_REASON reason)
 #endif
 
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         __itt_task_end(m_pGPAData->pDeviceDomain);
     }
@@ -987,7 +987,7 @@ void* NDRange::AttachToThread(void* pWgContextBase, size_t uiNumberOfWorkGroups,
 
 #ifdef USE_ITT
     // Start execution task
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         unsigned int uiWorkGroupSize = 1;
         const size_t*    pWGSize = m_pImplicitArgs->WGCount;
@@ -1031,7 +1031,7 @@ void NDRange::DetachFromThread(void* pWgContext)
 {
     // End execution task
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
         __itt_task_end(m_pGPAData->pDeviceDomain);
     }
@@ -1095,7 +1095,7 @@ bool NDRange::ExecuteIteration(size_t x, size_t y, size_t z, void* pWgCtx)
 
     m_pRunner->RunGroup(m_pKernelArgs, groupId, &childKernelsForWG);
 
-    if ( (NULL != childKernelsForWG.waitingChildrenForWorkGroup) || (NULL != childKernelsForWG.waitingChildrenForKernelLocalHead) )
+    if ( (nullptr != childKernelsForWG.waitingChildrenForWorkGroup) || (nullptr != childKernelsForWG.waitingChildrenForKernelLocalHead) )
     {
         SubmitCommands(&childKernelsForWG);
     }
@@ -1117,9 +1117,9 @@ KernelCommand* NDRange::AllocateChildCommand(ITaskList* pList, const Intel::Open
 
 queue_t NDRange::GetDefaultQueueForDevice() const
 {
-    if ( NULL == m_pTaskDispatcher )
+    if ( nullptr == m_pTaskDispatcher )
     {
-        return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : NULL;
+        return 0 != m_parent ? m_parent->GetDefaultQueueForDevice() : nullptr;
     }
     return m_pTaskDispatcher->GetDefaultQueue();
 }
@@ -1130,7 +1130,7 @@ queue_t NDRange::GetDefaultQueueForDevice() const
 cl_dev_err_code FillMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     FillMemObject* pCommand = new FillMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1213,7 +1213,7 @@ bool FillMemObject::Execute()
 
     // prepare copy buffer:
     char* fillBuf = (char*)malloc(width);
-    if (NULL == fillBuf) return false;
+    if (nullptr == fillBuf) return false;
 
     CopyPattern(cmdParams->pattern, cmdParams->pattern_size, fillBuf, width);
 
@@ -1257,7 +1257,7 @@ bool FillMemObject::Execute()
 cl_dev_err_code MigrateMemObject::Create(TaskDispatcher* pTD, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask, const SharedPtr<ITaskList>& pList)
 {
     MigrateMemObject* pCommand = new MigrateMemObject(pTD, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1294,7 +1294,7 @@ cl_dev_err_code MigrateMemObject::CheckCommandParams(cl_dev_cmd_desc* cmd)
 
     for (unsigned int i=0; i< cmdParams->mem_num; ++i)
     {
-        if(NULL == cmdParams->memObjs[i])
+        if(nullptr == cmdParams->memObjs[i])
         {
             return CL_DEV_INVALID_VALUE;
         }
@@ -1331,7 +1331,7 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
 {    
     m_kernelMapEntry.pBEKernel = pKernel;
 #ifdef USE_ITT
-    m_kernelMapEntry.ittTaskNameHandle = NULL; //TODO: Need to see how to integrate ITT task here
+    m_kernelMapEntry.ittTaskNameHandle = nullptr; //TODO: Need to see how to integrate ITT task here
 #endif
     m_paramKernel.kernel = &m_kernelMapEntry;
     m_paramKernel.work_dim = pNDRange->workDimension;
@@ -1375,7 +1375,7 @@ void DeviceNDRange::InitBlockCmdDesc(const Intel::OpenCL::DeviceBackend::ICLDevB
     // device NDRange IDs have their MSB set, while in host NDRange IDs they're reset
     m_cmdDesc.id = (cl_dev_cmd_id)(DeviceNDRange::GetNextCmdId() | (1L << (sizeof(long) * 8 - 1)));
     m_cmdDesc.data = this;
-    m_cmdDesc.device_agent_data = NULL;
+    m_cmdDesc.device_agent_data = nullptr;
     m_cmdDesc.profiling = GetList()->IsProfilingEnabled();
     m_cmdDesc.params = &m_paramKernel;
     m_cmdDesc.param_size = sizeof(m_paramKernel);
@@ -1407,7 +1407,7 @@ void DeviceNDRange::NotifyCommandStatusChanged(cl_dev_cmd_desc* cmd, unsigned uS
 cl_dev_err_code NativeKernelTask::Create(TaskDispatcher* pTD, const SharedPtr<ITaskList>& pList, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* pTask)
 {
     NativeKernelTask* pCommand = new NativeKernelTask(pTD, pList, pCmd);
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1444,10 +1444,10 @@ bool NativeKernelTask::Execute()
 
 #if defined(USE_ITT)
     // Start execution task
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
 
         __itt_task_begin(m_pGPAData->pDeviceDomain, m_ittID, __itt_null, pEntry->ittTaskNameHandle);
@@ -1457,7 +1457,7 @@ bool NativeKernelTask::Execute()
     cl_dev_err_code err = ExtractNDRangeParams(pCmd_params->arg_values, pParams,
                                                    pKernel->GetMemoryObjectArgumentIndexes(),
                                                    pKernel->GetMemoryObjectArgumentCount(),
-                                                   NULL);
+                                                   nullptr);
     if ( CL_DEV_FAILED(err) )
     {
         NotifyCommandStatusChanged(m_pCmd, CL_COMPLETE, err);
@@ -1474,10 +1474,10 @@ bool NativeKernelTask::Execute()
 #endif
 
 #if defined(USE_ITT)
-    if ((NULL != m_pGPAData) && (m_pGPAData->bUseGPA))
+    if ((nullptr != m_pGPAData) && (m_pGPAData->bUseGPA))
     {
 #if defined(USE_GPA)
-        __itt_set_track(NULL);
+        __itt_set_track(nullptr);
 #endif
         __itt_task_end(m_pGPAData->pDeviceDomain);
     }

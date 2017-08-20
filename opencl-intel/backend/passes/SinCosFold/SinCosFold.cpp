@@ -56,7 +56,7 @@ namespace intel {
   }
 
   bool SinCosFold::replaceAllInst(InstructionData * iData,llvm::Module &M) {
-    assert(iData != NULL && "SinCosFold::replaceAllInst iData == null");
+    assert(iData != nullptr && "SinCosFold::replaceAllInst iData == null");
     if (!iData->cosInst || !iData->sinInst) {
       return false;
     }
@@ -163,7 +163,7 @@ namespace intel {
       firstCallInst = inst;
     }
     if (isSin) {
-      if (sinInst!=NULL) {
+      if (sinInst!=nullptr) {
         return false;
       }
       else{
@@ -171,7 +171,7 @@ namespace intel {
       }
     }
     else {
-      if (cosInst!=NULL) {
+      if (cosInst!=nullptr) {
         return false;
       }
       else {

@@ -2780,7 +2780,7 @@ inline ::std::string* ClientToServerMessage_RunMsg::mutable_info() {
 inline ::std::string* ClientToServerMessage_RunMsg::release_info() {
   clear_has_info();
   if (info_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = info_;
     info_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -2899,21 +2899,21 @@ inline void ClientToServerMessage::clear_has_start_session_msg() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void ClientToServerMessage::clear_start_session_msg() {
-  if (start_session_msg_ != NULL) start_session_msg_->::debugservermessages::ClientToServerMessage_StartSessionMsg::Clear();
+  if (start_session_msg_ != nullptr) start_session_msg_->::debugservermessages::ClientToServerMessage_StartSessionMsg::Clear();
   clear_has_start_session_msg();
 }
 inline const ::debugservermessages::ClientToServerMessage_StartSessionMsg& ClientToServerMessage::start_session_msg() const {
-  return start_session_msg_ != NULL ? *start_session_msg_ : *default_instance_->start_session_msg_;
+  return start_session_msg_ != nullptr ? *start_session_msg_ : *default_instance_->start_session_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_StartSessionMsg* ClientToServerMessage::mutable_start_session_msg() {
   set_has_start_session_msg();
-  if (start_session_msg_ == NULL) start_session_msg_ = new ::debugservermessages::ClientToServerMessage_StartSessionMsg;
+  if (start_session_msg_ == nullptr) start_session_msg_ = new ::debugservermessages::ClientToServerMessage_StartSessionMsg;
   return start_session_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_StartSessionMsg* ClientToServerMessage::release_start_session_msg() {
   clear_has_start_session_msg();
   ::debugservermessages::ClientToServerMessage_StartSessionMsg* temp = start_session_msg_;
-  start_session_msg_ = NULL;
+  start_session_msg_ = nullptr;
   return temp;
 }
 
@@ -2928,21 +2928,21 @@ inline void ClientToServerMessage::clear_has_run_msg() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void ClientToServerMessage::clear_run_msg() {
-  if (run_msg_ != NULL) run_msg_->::debugservermessages::ClientToServerMessage_RunMsg::Clear();
+  if (run_msg_ != nullptr) run_msg_->::debugservermessages::ClientToServerMessage_RunMsg::Clear();
   clear_has_run_msg();
 }
 inline const ::debugservermessages::ClientToServerMessage_RunMsg& ClientToServerMessage::run_msg() const {
-  return run_msg_ != NULL ? *run_msg_ : *default_instance_->run_msg_;
+  return run_msg_ != nullptr ? *run_msg_ : *default_instance_->run_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_RunMsg* ClientToServerMessage::mutable_run_msg() {
   set_has_run_msg();
-  if (run_msg_ == NULL) run_msg_ = new ::debugservermessages::ClientToServerMessage_RunMsg;
+  if (run_msg_ == nullptr) run_msg_ = new ::debugservermessages::ClientToServerMessage_RunMsg;
   return run_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_RunMsg* ClientToServerMessage::release_run_msg() {
   clear_has_run_msg();
   ::debugservermessages::ClientToServerMessage_RunMsg* temp = run_msg_;
-  run_msg_ = NULL;
+  run_msg_ = nullptr;
   return temp;
 }
 
@@ -2957,21 +2957,21 @@ inline void ClientToServerMessage::clear_has_get_memory_range_msg() {
   _has_bits_[0] &= ~0x00000008u;
 }
 inline void ClientToServerMessage::clear_get_memory_range_msg() {
-  if (get_memory_range_msg_ != NULL) get_memory_range_msg_->::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg::Clear();
+  if (get_memory_range_msg_ != nullptr) get_memory_range_msg_->::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg::Clear();
   clear_has_get_memory_range_msg();
 }
 inline const ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg& ClientToServerMessage::get_memory_range_msg() const {
-  return get_memory_range_msg_ != NULL ? *get_memory_range_msg_ : *default_instance_->get_memory_range_msg_;
+  return get_memory_range_msg_ != nullptr ? *get_memory_range_msg_ : *default_instance_->get_memory_range_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg* ClientToServerMessage::mutable_get_memory_range_msg() {
   set_has_get_memory_range_msg();
-  if (get_memory_range_msg_ == NULL) get_memory_range_msg_ = new ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg;
+  if (get_memory_range_msg_ == nullptr) get_memory_range_msg_ = new ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg;
   return get_memory_range_msg_;
 }
 inline ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg* ClientToServerMessage::release_get_memory_range_msg() {
   clear_has_get_memory_range_msg();
   ::debugservermessages::ClientToServerMessage_GetMemoryRangeMsg* temp = get_memory_range_msg_;
-  get_memory_range_msg_ = NULL;
+  get_memory_range_msg_ = nullptr;
   return temp;
 }
 
@@ -3029,7 +3029,7 @@ inline ::std::string* ServerToClientMessage_CmdErrorMsg::mutable_description() {
 inline ::std::string* ServerToClientMessage_CmdErrorMsg::release_description() {
   clear_has_description();
   if (description_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = description_;
     description_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3117,7 +3117,7 @@ inline ::std::string* ServerToClientMessage_VarInfo::mutable_name() {
 inline ::std::string* ServerToClientMessage_VarInfo::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3175,7 +3175,7 @@ inline ::std::string* ServerToClientMessage_VarInfo::mutable_value() {
 inline ::std::string* ServerToClientMessage_VarInfo::release_value() {
   clear_has_value();
   if (value_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = value_;
     value_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3233,7 +3233,7 @@ inline ::std::string* ServerToClientMessage_VarInfo::mutable_type() {
 inline ::std::string* ServerToClientMessage_VarInfo::release_type() {
   clear_has_type();
   if (type_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = type_;
     type_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3274,21 +3274,21 @@ inline void ServerToClientMessage_VarInfo::clear_has_type_descriptor() {
   _has_bits_[0] &= ~0x00000010u;
 }
 inline void ServerToClientMessage_VarInfo::clear_type_descriptor() {
-  if (type_descriptor_ != NULL) type_descriptor_->::debugservermessages::VarTypeDescriptor::Clear();
+  if (type_descriptor_ != nullptr) type_descriptor_->::debugservermessages::VarTypeDescriptor::Clear();
   clear_has_type_descriptor();
 }
 inline const ::debugservermessages::VarTypeDescriptor& ServerToClientMessage_VarInfo::type_descriptor() const {
-  return type_descriptor_ != NULL ? *type_descriptor_ : *default_instance_->type_descriptor_;
+  return type_descriptor_ != nullptr ? *type_descriptor_ : *default_instance_->type_descriptor_;
 }
 inline ::debugservermessages::VarTypeDescriptor* ServerToClientMessage_VarInfo::mutable_type_descriptor() {
   set_has_type_descriptor();
-  if (type_descriptor_ == NULL) type_descriptor_ = new ::debugservermessages::VarTypeDescriptor;
+  if (type_descriptor_ == nullptr) type_descriptor_ = new ::debugservermessages::VarTypeDescriptor;
   return type_descriptor_;
 }
 inline ::debugservermessages::VarTypeDescriptor* ServerToClientMessage_VarInfo::release_type_descriptor() {
   clear_has_type_descriptor();
   ::debugservermessages::VarTypeDescriptor* temp = type_descriptor_;
-  type_descriptor_ = NULL;
+  type_descriptor_ = nullptr;
   return temp;
 }
 
@@ -3346,7 +3346,7 @@ inline ::std::string* ServerToClientMessage_StackFrameInfo::mutable_func_name() 
 inline ::std::string* ServerToClientMessage_StackFrameInfo::release_func_name() {
   clear_has_func_name();
   if (func_name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = func_name_;
     func_name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3365,21 +3365,21 @@ inline void ServerToClientMessage_StackFrameInfo::clear_has_call_line() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void ServerToClientMessage_StackFrameInfo::clear_call_line() {
-  if (call_line_ != NULL) call_line_->::debugservermessages::LineInfo::Clear();
+  if (call_line_ != nullptr) call_line_->::debugservermessages::LineInfo::Clear();
   clear_has_call_line();
 }
 inline const ::debugservermessages::LineInfo& ServerToClientMessage_StackFrameInfo::call_line() const {
-  return call_line_ != NULL ? *call_line_ : *default_instance_->call_line_;
+  return call_line_ != nullptr ? *call_line_ : *default_instance_->call_line_;
 }
 inline ::debugservermessages::LineInfo* ServerToClientMessage_StackFrameInfo::mutable_call_line() {
   set_has_call_line();
-  if (call_line_ == NULL) call_line_ = new ::debugservermessages::LineInfo;
+  if (call_line_ == nullptr) call_line_ = new ::debugservermessages::LineInfo;
   return call_line_;
 }
 inline ::debugservermessages::LineInfo* ServerToClientMessage_StackFrameInfo::release_call_line() {
   clear_has_call_line();
   ::debugservermessages::LineInfo* temp = call_line_;
-  call_line_ = NULL;
+  call_line_ = nullptr;
   return temp;
 }
 
@@ -3423,21 +3423,21 @@ inline void ServerToClientMessage_BPHitMsg::clear_has_breakpoint() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void ServerToClientMessage_BPHitMsg::clear_breakpoint() {
-  if (breakpoint_ != NULL) breakpoint_->::debugservermessages::LineInfo::Clear();
+  if (breakpoint_ != nullptr) breakpoint_->::debugservermessages::LineInfo::Clear();
   clear_has_breakpoint();
 }
 inline const ::debugservermessages::LineInfo& ServerToClientMessage_BPHitMsg::breakpoint() const {
-  return breakpoint_ != NULL ? *breakpoint_ : *default_instance_->breakpoint_;
+  return breakpoint_ != nullptr ? *breakpoint_ : *default_instance_->breakpoint_;
 }
 inline ::debugservermessages::LineInfo* ServerToClientMessage_BPHitMsg::mutable_breakpoint() {
   set_has_breakpoint();
-  if (breakpoint_ == NULL) breakpoint_ = new ::debugservermessages::LineInfo;
+  if (breakpoint_ == nullptr) breakpoint_ = new ::debugservermessages::LineInfo;
   return breakpoint_;
 }
 inline ::debugservermessages::LineInfo* ServerToClientMessage_BPHitMsg::release_breakpoint() {
   clear_has_breakpoint();
   ::debugservermessages::LineInfo* temp = breakpoint_;
-  breakpoint_ = NULL;
+  breakpoint_ = nullptr;
   return temp;
 }
 
@@ -3549,7 +3549,7 @@ inline ::std::string* ServerToClientMessage_MemoryRangeInfoMsg::mutable_buf() {
 inline ::std::string* ServerToClientMessage_MemoryRangeInfoMsg::release_buf() {
   clear_has_buf();
   if (buf_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = buf_;
     buf_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3595,21 +3595,21 @@ inline void ServerToClientMessage::clear_has_cmd_error_msg() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void ServerToClientMessage::clear_cmd_error_msg() {
-  if (cmd_error_msg_ != NULL) cmd_error_msg_->::debugservermessages::ServerToClientMessage_CmdErrorMsg::Clear();
+  if (cmd_error_msg_ != nullptr) cmd_error_msg_->::debugservermessages::ServerToClientMessage_CmdErrorMsg::Clear();
   clear_has_cmd_error_msg();
 }
 inline const ::debugservermessages::ServerToClientMessage_CmdErrorMsg& ServerToClientMessage::cmd_error_msg() const {
-  return cmd_error_msg_ != NULL ? *cmd_error_msg_ : *default_instance_->cmd_error_msg_;
+  return cmd_error_msg_ != nullptr ? *cmd_error_msg_ : *default_instance_->cmd_error_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_CmdErrorMsg* ServerToClientMessage::mutable_cmd_error_msg() {
   set_has_cmd_error_msg();
-  if (cmd_error_msg_ == NULL) cmd_error_msg_ = new ::debugservermessages::ServerToClientMessage_CmdErrorMsg;
+  if (cmd_error_msg_ == nullptr) cmd_error_msg_ = new ::debugservermessages::ServerToClientMessage_CmdErrorMsg;
   return cmd_error_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_CmdErrorMsg* ServerToClientMessage::release_cmd_error_msg() {
   clear_has_cmd_error_msg();
   ::debugservermessages::ServerToClientMessage_CmdErrorMsg* temp = cmd_error_msg_;
-  cmd_error_msg_ = NULL;
+  cmd_error_msg_ = nullptr;
   return temp;
 }
 
@@ -3624,21 +3624,21 @@ inline void ServerToClientMessage::clear_has_start_session_ack_msg() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void ServerToClientMessage::clear_start_session_ack_msg() {
-  if (start_session_ack_msg_ != NULL) start_session_ack_msg_->::debugservermessages::ServerToClientMessage_StartSessionAckMsg::Clear();
+  if (start_session_ack_msg_ != nullptr) start_session_ack_msg_->::debugservermessages::ServerToClientMessage_StartSessionAckMsg::Clear();
   clear_has_start_session_ack_msg();
 }
 inline const ::debugservermessages::ServerToClientMessage_StartSessionAckMsg& ServerToClientMessage::start_session_ack_msg() const {
-  return start_session_ack_msg_ != NULL ? *start_session_ack_msg_ : *default_instance_->start_session_ack_msg_;
+  return start_session_ack_msg_ != nullptr ? *start_session_ack_msg_ : *default_instance_->start_session_ack_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_StartSessionAckMsg* ServerToClientMessage::mutable_start_session_ack_msg() {
   set_has_start_session_ack_msg();
-  if (start_session_ack_msg_ == NULL) start_session_ack_msg_ = new ::debugservermessages::ServerToClientMessage_StartSessionAckMsg;
+  if (start_session_ack_msg_ == nullptr) start_session_ack_msg_ = new ::debugservermessages::ServerToClientMessage_StartSessionAckMsg;
   return start_session_ack_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_StartSessionAckMsg* ServerToClientMessage::release_start_session_ack_msg() {
   clear_has_start_session_ack_msg();
   ::debugservermessages::ServerToClientMessage_StartSessionAckMsg* temp = start_session_ack_msg_;
-  start_session_ack_msg_ = NULL;
+  start_session_ack_msg_ = nullptr;
   return temp;
 }
 
@@ -3653,21 +3653,21 @@ inline void ServerToClientMessage::clear_has_bphit_msg() {
   _has_bits_[0] &= ~0x00000008u;
 }
 inline void ServerToClientMessage::clear_bphit_msg() {
-  if (bphit_msg_ != NULL) bphit_msg_->::debugservermessages::ServerToClientMessage_BPHitMsg::Clear();
+  if (bphit_msg_ != nullptr) bphit_msg_->::debugservermessages::ServerToClientMessage_BPHitMsg::Clear();
   clear_has_bphit_msg();
 }
 inline const ::debugservermessages::ServerToClientMessage_BPHitMsg& ServerToClientMessage::bphit_msg() const {
-  return bphit_msg_ != NULL ? *bphit_msg_ : *default_instance_->bphit_msg_;
+  return bphit_msg_ != nullptr ? *bphit_msg_ : *default_instance_->bphit_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_BPHitMsg* ServerToClientMessage::mutable_bphit_msg() {
   set_has_bphit_msg();
-  if (bphit_msg_ == NULL) bphit_msg_ = new ::debugservermessages::ServerToClientMessage_BPHitMsg;
+  if (bphit_msg_ == nullptr) bphit_msg_ = new ::debugservermessages::ServerToClientMessage_BPHitMsg;
   return bphit_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_BPHitMsg* ServerToClientMessage::release_bphit_msg() {
   clear_has_bphit_msg();
   ::debugservermessages::ServerToClientMessage_BPHitMsg* temp = bphit_msg_;
-  bphit_msg_ = NULL;
+  bphit_msg_ = nullptr;
   return temp;
 }
 
@@ -3682,21 +3682,21 @@ inline void ServerToClientMessage::clear_has_stack_trace_info_msg() {
   _has_bits_[0] &= ~0x00000010u;
 }
 inline void ServerToClientMessage::clear_stack_trace_info_msg() {
-  if (stack_trace_info_msg_ != NULL) stack_trace_info_msg_->::debugservermessages::ServerToClientMessage_StackTraceInfoMsg::Clear();
+  if (stack_trace_info_msg_ != nullptr) stack_trace_info_msg_->::debugservermessages::ServerToClientMessage_StackTraceInfoMsg::Clear();
   clear_has_stack_trace_info_msg();
 }
 inline const ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg& ServerToClientMessage::stack_trace_info_msg() const {
-  return stack_trace_info_msg_ != NULL ? *stack_trace_info_msg_ : *default_instance_->stack_trace_info_msg_;
+  return stack_trace_info_msg_ != nullptr ? *stack_trace_info_msg_ : *default_instance_->stack_trace_info_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg* ServerToClientMessage::mutable_stack_trace_info_msg() {
   set_has_stack_trace_info_msg();
-  if (stack_trace_info_msg_ == NULL) stack_trace_info_msg_ = new ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg;
+  if (stack_trace_info_msg_ == nullptr) stack_trace_info_msg_ = new ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg;
   return stack_trace_info_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg* ServerToClientMessage::release_stack_trace_info_msg() {
   clear_has_stack_trace_info_msg();
   ::debugservermessages::ServerToClientMessage_StackTraceInfoMsg* temp = stack_trace_info_msg_;
-  stack_trace_info_msg_ = NULL;
+  stack_trace_info_msg_ = nullptr;
   return temp;
 }
 
@@ -3711,21 +3711,21 @@ inline void ServerToClientMessage::clear_has_memory_range_info_msg() {
   _has_bits_[0] &= ~0x00000020u;
 }
 inline void ServerToClientMessage::clear_memory_range_info_msg() {
-  if (memory_range_info_msg_ != NULL) memory_range_info_msg_->::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg::Clear();
+  if (memory_range_info_msg_ != nullptr) memory_range_info_msg_->::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg::Clear();
   clear_has_memory_range_info_msg();
 }
 inline const ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg& ServerToClientMessage::memory_range_info_msg() const {
-  return memory_range_info_msg_ != NULL ? *memory_range_info_msg_ : *default_instance_->memory_range_info_msg_;
+  return memory_range_info_msg_ != nullptr ? *memory_range_info_msg_ : *default_instance_->memory_range_info_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg* ServerToClientMessage::mutable_memory_range_info_msg() {
   set_has_memory_range_info_msg();
-  if (memory_range_info_msg_ == NULL) memory_range_info_msg_ = new ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg;
+  if (memory_range_info_msg_ == nullptr) memory_range_info_msg_ = new ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg;
   return memory_range_info_msg_;
 }
 inline ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg* ServerToClientMessage::release_memory_range_info_msg() {
   clear_has_memory_range_info_msg();
   ::debugservermessages::ServerToClientMessage_MemoryRangeInfoMsg* temp = memory_range_info_msg_;
-  memory_range_info_msg_ = NULL;
+  memory_range_info_msg_ = nullptr;
   return temp;
 }
 
@@ -3783,7 +3783,7 @@ inline ::std::string* LineInfo::mutable_file() {
 inline ::std::string* LineInfo::release_file() {
   clear_has_file();
   if (file_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = file_;
     file_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -3851,21 +3851,21 @@ inline void VarTypeDescriptor::clear_has_type_basic() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void VarTypeDescriptor::clear_type_basic() {
-  if (type_basic_ != NULL) type_basic_->::debugservermessages::VarTypeBasic::Clear();
+  if (type_basic_ != nullptr) type_basic_->::debugservermessages::VarTypeBasic::Clear();
   clear_has_type_basic();
 }
 inline const ::debugservermessages::VarTypeBasic& VarTypeDescriptor::type_basic() const {
-  return type_basic_ != NULL ? *type_basic_ : *default_instance_->type_basic_;
+  return type_basic_ != nullptr ? *type_basic_ : *default_instance_->type_basic_;
 }
 inline ::debugservermessages::VarTypeBasic* VarTypeDescriptor::mutable_type_basic() {
   set_has_type_basic();
-  if (type_basic_ == NULL) type_basic_ = new ::debugservermessages::VarTypeBasic;
+  if (type_basic_ == nullptr) type_basic_ = new ::debugservermessages::VarTypeBasic;
   return type_basic_;
 }
 inline ::debugservermessages::VarTypeBasic* VarTypeDescriptor::release_type_basic() {
   clear_has_type_basic();
   ::debugservermessages::VarTypeBasic* temp = type_basic_;
-  type_basic_ = NULL;
+  type_basic_ = nullptr;
   return temp;
 }
 
@@ -3880,21 +3880,21 @@ inline void VarTypeDescriptor::clear_has_type_pointer() {
   _has_bits_[0] &= ~0x00000004u;
 }
 inline void VarTypeDescriptor::clear_type_pointer() {
-  if (type_pointer_ != NULL) type_pointer_->::debugservermessages::VarTypePointer::Clear();
+  if (type_pointer_ != nullptr) type_pointer_->::debugservermessages::VarTypePointer::Clear();
   clear_has_type_pointer();
 }
 inline const ::debugservermessages::VarTypePointer& VarTypeDescriptor::type_pointer() const {
-  return type_pointer_ != NULL ? *type_pointer_ : *default_instance_->type_pointer_;
+  return type_pointer_ != nullptr ? *type_pointer_ : *default_instance_->type_pointer_;
 }
 inline ::debugservermessages::VarTypePointer* VarTypeDescriptor::mutable_type_pointer() {
   set_has_type_pointer();
-  if (type_pointer_ == NULL) type_pointer_ = new ::debugservermessages::VarTypePointer;
+  if (type_pointer_ == nullptr) type_pointer_ = new ::debugservermessages::VarTypePointer;
   return type_pointer_;
 }
 inline ::debugservermessages::VarTypePointer* VarTypeDescriptor::release_type_pointer() {
   clear_has_type_pointer();
   ::debugservermessages::VarTypePointer* temp = type_pointer_;
-  type_pointer_ = NULL;
+  type_pointer_ = nullptr;
   return temp;
 }
 
@@ -3909,21 +3909,21 @@ inline void VarTypeDescriptor::clear_has_type_array() {
   _has_bits_[0] &= ~0x00000008u;
 }
 inline void VarTypeDescriptor::clear_type_array() {
-  if (type_array_ != NULL) type_array_->::debugservermessages::VarTypeArray::Clear();
+  if (type_array_ != nullptr) type_array_->::debugservermessages::VarTypeArray::Clear();
   clear_has_type_array();
 }
 inline const ::debugservermessages::VarTypeArray& VarTypeDescriptor::type_array() const {
-  return type_array_ != NULL ? *type_array_ : *default_instance_->type_array_;
+  return type_array_ != nullptr ? *type_array_ : *default_instance_->type_array_;
 }
 inline ::debugservermessages::VarTypeArray* VarTypeDescriptor::mutable_type_array() {
   set_has_type_array();
-  if (type_array_ == NULL) type_array_ = new ::debugservermessages::VarTypeArray;
+  if (type_array_ == nullptr) type_array_ = new ::debugservermessages::VarTypeArray;
   return type_array_;
 }
 inline ::debugservermessages::VarTypeArray* VarTypeDescriptor::release_type_array() {
   clear_has_type_array();
   ::debugservermessages::VarTypeArray* temp = type_array_;
-  type_array_ = NULL;
+  type_array_ = nullptr;
   return temp;
 }
 
@@ -3938,21 +3938,21 @@ inline void VarTypeDescriptor::clear_has_type_vector() {
   _has_bits_[0] &= ~0x00000010u;
 }
 inline void VarTypeDescriptor::clear_type_vector() {
-  if (type_vector_ != NULL) type_vector_->::debugservermessages::VarTypeVector::Clear();
+  if (type_vector_ != nullptr) type_vector_->::debugservermessages::VarTypeVector::Clear();
   clear_has_type_vector();
 }
 inline const ::debugservermessages::VarTypeVector& VarTypeDescriptor::type_vector() const {
-  return type_vector_ != NULL ? *type_vector_ : *default_instance_->type_vector_;
+  return type_vector_ != nullptr ? *type_vector_ : *default_instance_->type_vector_;
 }
 inline ::debugservermessages::VarTypeVector* VarTypeDescriptor::mutable_type_vector() {
   set_has_type_vector();
-  if (type_vector_ == NULL) type_vector_ = new ::debugservermessages::VarTypeVector;
+  if (type_vector_ == nullptr) type_vector_ = new ::debugservermessages::VarTypeVector;
   return type_vector_;
 }
 inline ::debugservermessages::VarTypeVector* VarTypeDescriptor::release_type_vector() {
   clear_has_type_vector();
   ::debugservermessages::VarTypeVector* temp = type_vector_;
-  type_vector_ = NULL;
+  type_vector_ = nullptr;
   return temp;
 }
 
@@ -3967,21 +3967,21 @@ inline void VarTypeDescriptor::clear_has_type_typedef() {
   _has_bits_[0] &= ~0x00000020u;
 }
 inline void VarTypeDescriptor::clear_type_typedef() {
-  if (type_typedef_ != NULL) type_typedef_->::debugservermessages::VarTypeTypedef::Clear();
+  if (type_typedef_ != nullptr) type_typedef_->::debugservermessages::VarTypeTypedef::Clear();
   clear_has_type_typedef();
 }
 inline const ::debugservermessages::VarTypeTypedef& VarTypeDescriptor::type_typedef() const {
-  return type_typedef_ != NULL ? *type_typedef_ : *default_instance_->type_typedef_;
+  return type_typedef_ != nullptr ? *type_typedef_ : *default_instance_->type_typedef_;
 }
 inline ::debugservermessages::VarTypeTypedef* VarTypeDescriptor::mutable_type_typedef() {
   set_has_type_typedef();
-  if (type_typedef_ == NULL) type_typedef_ = new ::debugservermessages::VarTypeTypedef;
+  if (type_typedef_ == nullptr) type_typedef_ = new ::debugservermessages::VarTypeTypedef;
   return type_typedef_;
 }
 inline ::debugservermessages::VarTypeTypedef* VarTypeDescriptor::release_type_typedef() {
   clear_has_type_typedef();
   ::debugservermessages::VarTypeTypedef* temp = type_typedef_;
-  type_typedef_ = NULL;
+  type_typedef_ = nullptr;
   return temp;
 }
 
@@ -3996,21 +3996,21 @@ inline void VarTypeDescriptor::clear_has_type_enum() {
   _has_bits_[0] &= ~0x00000040u;
 }
 inline void VarTypeDescriptor::clear_type_enum() {
-  if (type_enum_ != NULL) type_enum_->::debugservermessages::VarTypeEnum::Clear();
+  if (type_enum_ != nullptr) type_enum_->::debugservermessages::VarTypeEnum::Clear();
   clear_has_type_enum();
 }
 inline const ::debugservermessages::VarTypeEnum& VarTypeDescriptor::type_enum() const {
-  return type_enum_ != NULL ? *type_enum_ : *default_instance_->type_enum_;
+  return type_enum_ != nullptr ? *type_enum_ : *default_instance_->type_enum_;
 }
 inline ::debugservermessages::VarTypeEnum* VarTypeDescriptor::mutable_type_enum() {
   set_has_type_enum();
-  if (type_enum_ == NULL) type_enum_ = new ::debugservermessages::VarTypeEnum;
+  if (type_enum_ == nullptr) type_enum_ = new ::debugservermessages::VarTypeEnum;
   return type_enum_;
 }
 inline ::debugservermessages::VarTypeEnum* VarTypeDescriptor::release_type_enum() {
   clear_has_type_enum();
   ::debugservermessages::VarTypeEnum* temp = type_enum_;
-  type_enum_ = NULL;
+  type_enum_ = nullptr;
   return temp;
 }
 
@@ -4025,21 +4025,21 @@ inline void VarTypeDescriptor::clear_has_type_struct() {
   _has_bits_[0] &= ~0x00000080u;
 }
 inline void VarTypeDescriptor::clear_type_struct() {
-  if (type_struct_ != NULL) type_struct_->::debugservermessages::VarTypeStruct::Clear();
+  if (type_struct_ != nullptr) type_struct_->::debugservermessages::VarTypeStruct::Clear();
   clear_has_type_struct();
 }
 inline const ::debugservermessages::VarTypeStruct& VarTypeDescriptor::type_struct() const {
-  return type_struct_ != NULL ? *type_struct_ : *default_instance_->type_struct_;
+  return type_struct_ != nullptr ? *type_struct_ : *default_instance_->type_struct_;
 }
 inline ::debugservermessages::VarTypeStruct* VarTypeDescriptor::mutable_type_struct() {
   set_has_type_struct();
-  if (type_struct_ == NULL) type_struct_ = new ::debugservermessages::VarTypeStruct;
+  if (type_struct_ == nullptr) type_struct_ = new ::debugservermessages::VarTypeStruct;
   return type_struct_;
 }
 inline ::debugservermessages::VarTypeStruct* VarTypeDescriptor::release_type_struct() {
   clear_has_type_struct();
   ::debugservermessages::VarTypeStruct* temp = type_struct_;
-  type_struct_ = NULL;
+  type_struct_ = nullptr;
   return temp;
 }
 
@@ -4142,7 +4142,7 @@ inline ::std::string* VarTypeBasic::mutable_name() {
 inline ::std::string* VarTypeBasic::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4165,21 +4165,21 @@ inline void VarTypePointer::clear_has_pointee() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void VarTypePointer::clear_pointee() {
-  if (pointee_ != NULL) pointee_->::debugservermessages::VarTypeDescriptor::Clear();
+  if (pointee_ != nullptr) pointee_->::debugservermessages::VarTypeDescriptor::Clear();
   clear_has_pointee();
 }
 inline const ::debugservermessages::VarTypeDescriptor& VarTypePointer::pointee() const {
-  return pointee_ != NULL ? *pointee_ : *default_instance_->pointee_;
+  return pointee_ != nullptr ? *pointee_ : *default_instance_->pointee_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypePointer::mutable_pointee() {
   set_has_pointee();
-  if (pointee_ == NULL) pointee_ = new ::debugservermessages::VarTypeDescriptor;
+  if (pointee_ == nullptr) pointee_ = new ::debugservermessages::VarTypeDescriptor;
   return pointee_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypePointer::release_pointee() {
   clear_has_pointee();
   ::debugservermessages::VarTypeDescriptor* temp = pointee_;
-  pointee_ = NULL;
+  pointee_ = nullptr;
   return temp;
 }
 
@@ -4198,21 +4198,21 @@ inline void VarTypeArray::clear_has_element() {
   _has_bits_[0] &= ~0x00000001u;
 }
 inline void VarTypeArray::clear_element() {
-  if (element_ != NULL) element_->::debugservermessages::VarTypeDescriptor::Clear();
+  if (element_ != nullptr) element_->::debugservermessages::VarTypeDescriptor::Clear();
   clear_has_element();
 }
 inline const ::debugservermessages::VarTypeDescriptor& VarTypeArray::element() const {
-  return element_ != NULL ? *element_ : *default_instance_->element_;
+  return element_ != nullptr ? *element_ : *default_instance_->element_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeArray::mutable_element() {
   set_has_element();
-  if (element_ == NULL) element_ = new ::debugservermessages::VarTypeDescriptor;
+  if (element_ == nullptr) element_ = new ::debugservermessages::VarTypeDescriptor;
   return element_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeArray::release_element() {
   clear_has_element();
   ::debugservermessages::VarTypeDescriptor* temp = element_;
-  element_ = NULL;
+  element_ = nullptr;
   return temp;
 }
 
@@ -4295,7 +4295,7 @@ inline ::std::string* VarTypeEnum_EnumEntry::mutable_name() {
 inline ::std::string* VarTypeEnum_EnumEntry::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4379,7 +4379,7 @@ inline ::std::string* VarTypeEnum::mutable_name() {
 inline ::std::string* VarTypeEnum::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4466,7 +4466,7 @@ inline ::std::string* VarTypeStruct_StructMember::mutable_name() {
 inline ::std::string* VarTypeStruct_StructMember::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4551,21 +4551,21 @@ inline void VarTypeStruct_StructMember::clear_has_type() {
   _has_bits_[0] &= ~0x00000010u;
 }
 inline void VarTypeStruct_StructMember::clear_type() {
-  if (type_ != NULL) type_->::debugservermessages::VarTypeDescriptor::Clear();
+  if (type_ != nullptr) type_->::debugservermessages::VarTypeDescriptor::Clear();
   clear_has_type();
 }
 inline const ::debugservermessages::VarTypeDescriptor& VarTypeStruct_StructMember::type() const {
-  return type_ != NULL ? *type_ : *default_instance_->type_;
+  return type_ != nullptr ? *type_ : *default_instance_->type_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeStruct_StructMember::mutable_type() {
   set_has_type();
-  if (type_ == NULL) type_ = new ::debugservermessages::VarTypeDescriptor;
+  if (type_ == nullptr) type_ = new ::debugservermessages::VarTypeDescriptor;
   return type_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeStruct_StructMember::release_type() {
   clear_has_type();
   ::debugservermessages::VarTypeDescriptor* temp = type_;
-  type_ = NULL;
+  type_ = nullptr;
   return temp;
 }
 
@@ -4623,7 +4623,7 @@ inline ::std::string* VarTypeStruct::mutable_name() {
 inline ::std::string* VarTypeStruct::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4710,7 +4710,7 @@ inline ::std::string* VarTypeVector::mutable_name() {
 inline ::std::string* VarTypeVector::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4772,7 +4772,7 @@ inline ::std::string* VarTypeTypedef::mutable_name() {
 inline ::std::string* VarTypeTypedef::release_name() {
   clear_has_name();
   if (name_ == &::google::protobuf::internal::kEmptyString) {
-    return NULL;
+    return nullptr;
   } else {
     ::std::string* temp = name_;
     name_ = const_cast< ::std::string*>(&::google::protobuf::internal::kEmptyString);
@@ -4791,21 +4791,21 @@ inline void VarTypeTypedef::clear_has_original_type() {
   _has_bits_[0] &= ~0x00000002u;
 }
 inline void VarTypeTypedef::clear_original_type() {
-  if (original_type_ != NULL) original_type_->::debugservermessages::VarTypeDescriptor::Clear();
+  if (original_type_ != nullptr) original_type_->::debugservermessages::VarTypeDescriptor::Clear();
   clear_has_original_type();
 }
 inline const ::debugservermessages::VarTypeDescriptor& VarTypeTypedef::original_type() const {
-  return original_type_ != NULL ? *original_type_ : *default_instance_->original_type_;
+  return original_type_ != nullptr ? *original_type_ : *default_instance_->original_type_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeTypedef::mutable_original_type() {
   set_has_original_type();
-  if (original_type_ == NULL) original_type_ = new ::debugservermessages::VarTypeDescriptor;
+  if (original_type_ == nullptr) original_type_ = new ::debugservermessages::VarTypeDescriptor;
   return original_type_;
 }
 inline ::debugservermessages::VarTypeDescriptor* VarTypeTypedef::release_original_type() {
   clear_has_original_type();
   ::debugservermessages::VarTypeDescriptor* temp = original_type_;
-  original_type_ = NULL;
+  original_type_ = nullptr;
   return temp;
 }
 

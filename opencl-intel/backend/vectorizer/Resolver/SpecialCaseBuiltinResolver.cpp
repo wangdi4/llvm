@@ -212,7 +212,7 @@ void SpecialCaseBuiltinResolver::fillWrapper(Function *F, std::string& funcName)
   CallInst *newCall = CallInst::Create(resolvedFunc, ArrayRef<Value*>(resolvedArgs), "" , fakeRet);
 
   // obtaining return value
-  Value *retVal = NULL; // this capture case of void return
+  Value *retVal = nullptr; // this capture case of void return
   if (retByPtr) // incase return is by pointer load from them
     retVal = obtainReturnValueArgsPtr(resolvedArgs, fakeRet);
   else if (retByGatheredVec) // incase return is by big gatherd break it to the actual transposed values
@@ -247,7 +247,7 @@ void SpecialCaseBuiltinResolver::obtainRetAttrs(Type *theType) {
 
   // check if multiple return (array of vectors)
   ArrayType *arrType = dyn_cast<ArrayType>(theType);
-  VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : NULL;
+  VectorType *vecType =  arrType ? dyn_cast<VectorType>(arrType->getElementType()) : nullptr;
   if (vecType) {
     m_wrraperRetAttr.isArrayOfVec = true;
     m_wrraperRetAttr.arrType = arrType;

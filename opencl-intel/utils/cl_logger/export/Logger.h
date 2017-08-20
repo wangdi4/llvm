@@ -164,14 +164,14 @@ namespace Intel { namespace OpenCL { namespace Utils {
     void Log(ELogLevel level, ELogConfigField config, const char* psClientName, const char* sourceFile, const char* functionName, __int32 sourceLine, const char* message,  va_list va)
     {
         LogMessage	logMessage(level, config, psClientName, sourceFile, functionName, sourceLine, message, va);
-        if (NULL != g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled() && (LL_ERROR == level || LL_CRITICAL == level))
+        if (nullptr != g_pUserLogger && g_pUserLogger->IsErrorLoggingEnabled() && (LL_ERROR == level || LL_CRITICAL == level))
         {
             g_pUserLogger->PrintError(logMessage.GetFormattedMessage());
         }
         
         for (int i = 0; i < MAX_LOG_HANDLERS && m_logHandlers[i]; i++)
         {
-            if (m_logHandlers[i] != NULL)
+            if (m_logHandlers[i] != nullptr)
             {
                 m_logHandlers[i]->Log(logMessage);
             }

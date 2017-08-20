@@ -114,7 +114,7 @@ Predicator::Predicator() :
     m_kernelStats)
 {
   initializePredicatorPass(*llvm::PassRegistry::getPassRegistry());
-  m_rtServices = NULL;
+  m_rtServices = nullptr;
 }
 
 bool Predicator::doFunctionArgumentsContainLocalMem(Function* F) {
@@ -444,7 +444,7 @@ void Predicator::addDivergentBranchesSchedConstraints(SchedulingScope& main_scop
        ++itr) {
     assert(itr->second.size() > 1 && "Constraint size should be larger than 1.");
 
-    SchedulingScope *scp = new SchedulingScope(NULL);
+    SchedulingScope *scp = new SchedulingScope(nullptr);
     for (std::vector<BasicBlock*>::iterator bbIt = itr->second.begin();
          bbIt !=  itr->second.end();
          ++bbIt) {
@@ -467,7 +467,7 @@ void Predicator::linearizeFunction(Function* F,
 
   // global scope which contains the entire function
   // When this scope is destroyed, all sub-scopes will be deleted.
-  SchedulingScope main_scope(NULL, true);
+  SchedulingScope main_scope(nullptr, true);
 
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   // register the scheduling constraints which are derived from loops
@@ -501,7 +501,7 @@ void Predicator::linearizeFunction(Function* F,
     } else {
       // This means BB isn't inside a loop or the entire loop is inside UCF region
       // which should not be linearized
-      loop = NULL;
+      loop = nullptr;
     }
     // Preserve control flow inside UCF regions
     if(isUCFInter(current) || isUCFEntry(current))
@@ -522,18 +522,18 @@ Value* Predicator::getPhiCond(PHINode* phi, bool& switchValuesOrder) {
   DomTreeNode* idom = node->getIDom();
   if (!idom) {
     V_ASSERT(false && "cannot find immediate dominator");
-    return NULL;
+    return nullptr;
   }
   BasicBlock* idomBB = idom->getBlock();
   if (!idomBB) {
     V_ASSERT(false && "cannot find immedaite dominator");
-    return NULL;
+    return nullptr;
   }
   // note that the terminator of idomBB may have changed
   // since we started to run the predicator, so we use
   // m_branchesInfo to find the original data.
   if (m_branchesInfo.find(idomBB) == m_branchesInfo.end())
-    return NULL;
+    return nullptr;
   Value *cond = m_branchesInfo[idomBB].m_cond;
 
   // find which side of the branch belongs to which incoming phi value.
@@ -559,7 +559,7 @@ Value* Predicator::getPhiCond(PHINode* phi, bool& switchValuesOrder) {
   }
   // couldn't determine which side of the condition leads to which value
   // of the phi.
-  return NULL;
+  return nullptr;
 
 }
 
@@ -868,7 +868,7 @@ Instruction* Predicator::predicateInstruction(Instruction *inst, Value* pred) {
   }
 
   // Nothing to do for this instruction
-  return NULL;
+  return nullptr;
 }
 
 static bool isInstructionABeforeB(BasicBlock* BB, Instruction* A, Instruction* B) {
@@ -1219,7 +1219,7 @@ void Predicator::maskOutgoing_loopexit(BasicBlock *BB) {
   }
 
   /// Update loop masks for all the loops that BB is exiting (possible parent loops).
-  Value *curLoopMask = NULL;
+  Value *curLoopMask = nullptr;
   bool mostInnerLoop = true;
   do {
     V_ASSERT(m_inMask.count(L->getHeader()) && "header has no in-mask");
@@ -1410,7 +1410,7 @@ BasicBlock * Predicator::getUCFExit(BasicBlock* BB) {
     return BB;
   // Otherwise try to find UCF entry
   BasicBlock * ucfEntryBB = getUCFEntry(BB);
-  if(!ucfEntryBB) return NULL;
+  if(!ucfEntryBB) return nullptr;
   // And map it to UCF exit
   BasicBlock * ucfExitBB = m_ucfEntry2Exit[ucfEntryBB];
   V_ASSERT(ucfExitBB && "corrupted UCF data");
@@ -1430,11 +1430,11 @@ BasicBlock * Predicator::getUCFEntry(BasicBlock* BB) {
   if(findExitIt != m_ucfExit2Entry.end())
     return findExitIt->second;
 
-  return NULL;
+  return nullptr;
 }
 
 static bool isInsideEntryLoop(Loop const * entryLoop, Loop const * interLoop) {
-  if(entryLoop == NULL)
+  if(entryLoop == nullptr)
     return true;
 
   while(interLoop) {
@@ -1495,7 +1495,7 @@ void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
       BasicBlock * entryBB = *bbIt;
       // Skip NULL references to BBs which might be received from the WIAnalysis under some specific
       // circumstances
-      if(NULL == entryBB) continue;
+      if(nullptr == entryBB) continue;
 
       Loop* loop = LI->getLoopFor(entryBB);
       // For simplicity handle loops with one exit block only
@@ -1601,7 +1601,7 @@ void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
     while(!isUCFExit(prevExitBB)) {
       BasicBlock * predBB = prevExitBB->getUniquePredecessor();
       if(!predBB || predBB->getTerminator()->getNumSuccessors() != 1) {
-        prevExitBB = NULL;
+        prevExitBB = nullptr;
         break;
       }
       prevExitBB = predBB;
@@ -1688,7 +1688,7 @@ void Predicator::registerUCFSchedulingScopes(SchedulingScope& main_scope) {
        itr != m_ucfSchedulingConstraints.end(); ++itr) {
     V_ASSERT(itr->second.size() >= 2 && "UCF scope must contain at least two BBs, entry and exit");
 
-    SchedulingScope *scp = new SchedulingScope(NULL, true);
+    SchedulingScope *scp = new SchedulingScope(nullptr, true);
     for (std::vector<BasicBlock*>::iterator bbIt = itr->second.begin(), itrEnd = itr->second.end();
          bbIt != itrEnd; ++bbIt) {
       scp->addBasicBlock(*bbIt);
@@ -2088,12 +2088,12 @@ void Predicator::predicateFunction(Function *F) {
 Value* Predicator::getEdgeMask(BasicBlock* A, BasicBlock* B) {
   CFGEdge edge = std::make_pair(A, B);
   if (m_outMask.find(edge) != m_outMask.end()) return m_outMask[edge];
-  return NULL;
+  return nullptr;
 }
 
 Value* Predicator::getInMask(BasicBlock* block) {
   if (m_inMask.find(block) != m_inMask.end()) return m_inMask[block];
-  return NULL;
+  return nullptr;
 }
 
 // Used to unpredicate a masked store or load instructions
@@ -2205,7 +2205,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   ValueToValueMapTy clonesMap;
   // Choose an instruction which the first predicated instruction
   // in this BB or it's terminator. This is crutial for the correct mask handling.
-  Instruction * firstPredOrTerm = NULL;
+  Instruction * firstPredOrTerm = nullptr;
   for(BasicBlock::iterator bbIt = ucfEntryBB->begin(), bbEnd = ucfEntryBB->end();
         bbIt != bbEnd; ++bbIt) {
     firstPredOrTerm = &*bbIt;
@@ -2544,7 +2544,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
     ii != e2; ++ii) {
       Instruction* I = &*ii;
-      PHINode* predicationPhi = NULL;
+      PHINode* predicationPhi = nullptr;
       // changing users, so we need to iterate on copy.
       std::vector<Value*> users(I->user_begin(), I->user_end());
       for (Value * user : users) {
@@ -2568,7 +2568,7 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
   }
 
   // 11. change terminator  in original and put terminator in exit.
-  BasicBlock* originalSuccessor = NULL;
+  BasicBlock* originalSuccessor = nullptr;
   TerminatorInst* originalTerm = original->getTerminator();
   BranchInst* originalBr = dyn_cast<BranchInst>(originalTerm);
   V_ASSERT(originalBr && originalBr->getNumSuccessors() == 2 && "expected conditional branch");
@@ -2623,7 +2623,7 @@ void Predicator::insertAllOnesBypasses() {
 
       // preliminaries:
       // find last predicated instruction in the block.
-      Instruction* lastPredicatedInst = NULL;
+      Instruction* lastPredicatedInst = nullptr;
       for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
         ii != e2; ++ii) {
           Instruction* I = &*ii;
@@ -2807,7 +2807,7 @@ void Predicator::insertAllOnesBypasses() {
       for (BasicBlock::iterator ii = original->begin(), e2 = original->end();
         ii != e2; ++ii) {
           Instruction* I = &*ii;
-          PHINode* predicationPhi = NULL;
+          PHINode* predicationPhi = nullptr;
           // changing users, so we need to iterate on copy.
           std::vector<Value*> users(I->user_begin(), I->user_end());
           for (Value * user : users) {
@@ -2877,7 +2877,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
   TerminatorInst* term = BB->getTerminator();
   V_ASSERT(term && "terminator cannot be null");
   BranchInst* br = dyn_cast<BranchInst>(term);
-  if (!br) return NULL;
+  if (!br) return nullptr;
 
   if (br->isConditional()) {
     Value* cond = br->getCondition();
@@ -2888,7 +2888,7 @@ BranchInst* Predicator::getAllOnesBranch(BasicBlock* BB) {
         return br;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 // recursively (by checking type of predecessors) gets the allones block type.

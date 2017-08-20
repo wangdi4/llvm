@@ -195,7 +195,7 @@ cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjCreateSu
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
-    if (NULL != m_pSvmBufDevMemObj)
+    if (nullptr != m_pSvmBufDevMemObj)
     {
         return m_pSvmBufDevMemObj->clDevMemObjUpdateBackingStore(operation_handle, pUpdateState);
     }
@@ -204,7 +204,7 @@ cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateBa
     
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateFromBackingStore(void* operation_handle, cl_dev_bs_update_state* pUpdateState)
 {
-    if (NULL != m_pSvmBufDevMemObj)
+    if (nullptr != m_pSvmBufDevMemObj)
     {
         return m_pSvmBufDevMemObj->clDevMemObjUpdateFromBackingStore(operation_handle, pUpdateState);
     }
@@ -213,7 +213,7 @@ cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjUpdateFr
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjInvalidateData()
 {
-    if (NULL != m_pSvmBufDevMemObj)
+    if (nullptr != m_pSvmBufDevMemObj)
     {
         return m_pSvmBufDevMemObj->clDevMemObjInvalidateData();
     }
@@ -222,7 +222,7 @@ cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjInvalida
 
 cl_dev_err_code SVMPointerArg::SVMPointerArgDevMemoryObject::clDevMemObjRelease()
 {
-    if (NULL != m_pSvmBufDevMemObj)
+    if (nullptr != m_pSvmBufDevMemObj)
     {
         return m_pSvmBufDevMemObj->clDevMemObjRelease();
     }

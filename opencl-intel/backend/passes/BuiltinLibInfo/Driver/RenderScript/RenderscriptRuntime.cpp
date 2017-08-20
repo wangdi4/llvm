@@ -48,7 +48,7 @@ const dotProdInlineData g_rs_dotInlineTable [] = {
   {"_Z3dotDv3_dS_",3},
   {"_Z3dotDv4_fS_",4},
   {"_Z3dotDv4_dS_",4},
-  {NULL,0}
+  {nullptr,0}
 };
   
 const char* g_rs_BuiltinReturnByPtr[] = {
@@ -60,7 +60,7 @@ const size_t g_rs_BuiltinReturnByPtrLength = sizeof(g_rs_BuiltinReturnByPtr) / s
   
 // TODO[MA]: need to modify the content to match RS
 const char *g_rs_scalarSelects[] = {
-  NULL
+  nullptr
 };
 
 /// @brief Constructor which get arbitraty table as input
@@ -92,10 +92,10 @@ Function * RenderscriptRuntime::findInRuntimeModule(StringRef Name) const {
       ++it)
   {
     Function* ret_function = (*it)->getFunction(Name);
-    if (ret_function != NULL)
+    if (ret_function != nullptr)
       return ret_function;
   }
-  return NULL;
+  return nullptr;
 }
 
 bool RenderscriptRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
@@ -119,11 +119,11 @@ bool RenderscriptRuntime::isTransposedWriteImg(const std::string &func_name) con
 }
 
 Function *RenderscriptRuntime::getReadStream() const {
-  return NULL;
+  return nullptr;
 }
 
 Function *RenderscriptRuntime::getWriteStream() const {
-  return NULL;
+  return nullptr;
 }
 
 bool RenderscriptRuntime::isStreamFunc(const std::string &funcName) const {
@@ -277,7 +277,7 @@ bool RenderscriptRuntime::isFakedFunction(StringRef fname)const{
   Function* pMaskedFunction = findInRuntimeModule(fname);
   //Since not all faked builtins can be discovered by name, we need to make
   //the function resides within the runtime module.
-  return (pMaskedFunction == NULL);
+  return (pMaskedFunction == nullptr);
 }
   
 unsigned RenderscriptRuntime::isInlineDot(const std::string &funcName) const{

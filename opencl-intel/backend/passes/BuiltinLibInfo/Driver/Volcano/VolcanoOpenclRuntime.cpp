@@ -16,7 +16,7 @@ namespace intel {
     "_Z6selectlll", "_Z6selectllm", "_Z6selectmml", "_Z6selectmmm",
     "_Z6selectffi", "_Z6selectffj",
     "_Z6selectddl", "_Z6selectddm",
-    NULL
+    nullptr
   };
   
   bool VolcanoOpenclRuntime::needPreVectorizationFakeFunction(const std::string &funcName) const{
@@ -42,7 +42,7 @@ namespace intel {
   }
   
   Function *VolcanoOpenclRuntime::getWriteStream(bool isPointer64Bit) const {
-    return NULL;
+    return nullptr;
   }
   
   bool VolcanoOpenclRuntime::isTransposedWriteImg(const std::string &func_name) const {
@@ -50,7 +50,7 @@ namespace intel {
   }
   
   Function *VolcanoOpenclRuntime::getReadStream(bool isPointer64Bit) const {
-    return NULL;
+    return nullptr;
   }
   
   bool VolcanoOpenclRuntime::isStreamFunc(const std::string &funcName) const {

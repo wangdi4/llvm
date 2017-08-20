@@ -78,12 +78,12 @@ struct LoggerSingletonHandler
 		// Open shared memory, we are looking for previously allocated executor
 		hMapFile = CreateFileMapping(
 			INVALID_HANDLE_VALUE,    // use paging file
-			NULL,                    // default security
+			nullptr,                 // default security
 			PAGE_READWRITE,          // read/write access
 			0,                       // max. object size
 			sizeof(void*),           // buffer size
 			szName);         // name of mapping object
-		if (hMapFile == NULL)
+		if (hMapFile == nullptr)
 		{
 			return;
 		}
@@ -94,7 +94,7 @@ struct LoggerSingletonHandler
 			0,
 			0,
 			sizeof(void*));
-		if (pSharedBuf == NULL)
+		if (pSharedBuf == nullptr)
 		{
 			CloseHandle(hMapFile);
 			return;
@@ -102,8 +102,8 @@ struct LoggerSingletonHandler
 
 		// Test for singleton existence
 		sprintf_s(szName, sizeof(szName)/sizeof(char), g_szMutexNameTemplate, GetCurrentProcessId());
-		hMutex = CreateMutex(NULL, TRUE, szName);
-		if ( NULL == hMutex)
+		hMutex = CreateMutex(nullptr, TRUE, szName);
+		if ( nullptr == hMutex)
 		{
 			UnmapViewOfFile(pSharedBuf);
 			CloseHandle(hMapFile);
@@ -149,7 +149,7 @@ struct LoggerSingletonHandler
 	HANDLE			hMutex;
 };
 
-Logger* LoggerSingletonHandler::pLogger = NULL;
+Logger* LoggerSingletonHandler::pLogger = nullptr;
 
 LoggerSingletonHandler	logger;
 
@@ -172,7 +172,7 @@ cl_err_code Logger::AddLogHandler(LogHandler* logHandler)
         {
             return CL_ERR_LOGGER_FAILED;
         }
-        if (m_logHandlers[i] == NULL)
+        if (m_logHandlers[i] == nullptr)
         {
             m_logHandlers[i] = logHandler;
 			return CL_SUCCESS;
@@ -199,7 +199,7 @@ LoggerClient::LoggerClient(const char* clientHandle, ELogLevel loglevel)
     m_logLevel = loglevel;
 	m_eLogConfig =	(ELogConfigField)(LCF_LINE_TID | LCF_LINE_TIME |
 										LCF_LINE_CLIENT_NAME | LCF_LINE_LOG_LEVEL);
-	m_handle = NULL;
+	m_handle = nullptr;
 }
 
 

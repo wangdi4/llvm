@@ -143,7 +143,7 @@ PacketizeFunction::PacketizeFunction(Intel::ECPU Cpu,
   UseScatterGather = Intel::CPUId::HasGatherScatter(m_Cpu) || EnableScatterGather;
   UseScatterGatherPrefetch = UseScatterGather && (Intel::CPUId::HasGatherScatterPrefetch(m_Cpu) || EnableScatterGatherPrefetch);
   m_vectorizedDim = vectorizationDimension;
-  m_rtServices = NULL;
+  m_rtServices = nullptr;
 
   // VCM buffer allocation
   m_VCMAllocationArray = new VCMEntry[ESTIMATED_INST_NUM];
@@ -356,7 +356,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
               SmallVector<PHINode *, 16> newPHIs;
               for (unsigned int i = 0; i < extracts.size(); i++) {
                 if (!extracts[i]) {
-                  newPHIs.push_back(NULL);
+                  newPHIs.push_back(nullptr);
                   continue;
                 }
                 PHINode* newPhi = PHINode::Create(extracts[i]->getType(),
@@ -372,7 +372,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
                 Value* incoming = phi->getIncomingValue(i);
                 Instruction* instIncoming = dyn_cast<Instruction>(incoming);
                 BasicBlock* incomingBlock = phi->getIncomingBlock(i);
-                Instruction* loc = NULL;
+                Instruction* loc = nullptr;
                 if (instIncoming) {
                   loc = &*(++BasicBlock::iterator(instIncoming));
                 }
@@ -504,7 +504,7 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
 
   // Check if the inserts sequence can be replaced by transpose + store
   SmallVector<InsertElementInst *, MAX_INPUT_VECTOR_WIDTH> inserts;
-  inserts.assign(MAX_INPUT_VECTOR_WIDTH, NULL);
+  inserts.assign(MAX_INPUT_VECTOR_WIDTH, nullptr);
   unsigned int n;
   Instruction* insertToBeStored;
   bool canObtaindInserts = obtainInsertElts(prevIEI, &inserts[0], n, insertToBeStored, true) ;
@@ -551,7 +551,7 @@ void PacketizeFunction::obtainTranspose() {
   for (inst_iterator vI = inst_begin(m_currFunc), vE = inst_end(m_currFunc); vI != vE; ++vI) {
     Instruction *I = &*vI;
 
-    Value *Address = NULL, *Val = NULL;
+    Value *Address = nullptr, *Val = nullptr;
     bool isTranspose = false, isMasked = false, isStore = false;
     // First, compute the parameters of the relevant transpose
     if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
@@ -725,7 +725,7 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
 void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 {
   V_PRINT(packetizer, "\t\tNon-Packetizable Instruction\n");
-  Instruction *duplicateInsts[MAX_PACKET_WIDTH] = {NULL};
+  Instruction *duplicateInsts[MAX_PACKET_WIDTH] = {nullptr};
 
   // Clone instruction
   cloneNonPacketizableInst(I, &duplicateInsts[0]);
@@ -774,7 +774,7 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
 }
 
 void PacketizeFunction::cloneNonPacketizableInst(Instruction *I, Instruction **duplicateInsts) {
-  duplicateInsts[0] = NULL;
+  duplicateInsts[0] = nullptr;
   // Check if need special handling for clone
   if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
     // In case of GEP/Bitcast instructions that are related to SOA-alloca
@@ -990,7 +990,7 @@ bool PacketizeFunction::isGatherScatterType(bool masked,
   Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
   if (!gatherScatterFunc)
     V_PRINT(packetizer, "Can't find %s, " << gatherScatterName.c_str() << "\n");
-  return (gatherScatterFunc != NULL);
+  return (gatherScatterFunc != nullptr);
 }
 
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
@@ -1038,7 +1038,7 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
   if (!isGatherScatterType(MO.Mask, type, VecElemTy)) {
     // No proper gather/scatter function for this load and packet width
     V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
-    return NULL;
+    return nullptr;
   }
 
   Type *i1Ty = Type::getInt1Ty(MO.Orig->getContext());
@@ -1335,7 +1335,7 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
     m_depAnalysis->whichDepend(MO.Index) == WIAnalysis::CONSECUTIVE && // index consecutive
     m_depAnalysis->whichDepend(MO.Base) == WIAnalysis::UNIFORM && // base uniform
     MO.Index->getType()->getPrimitiveSizeInBits() > MaxLogBufferSize; // index is at least 32 bit
-  if (!indexConsecutive) return NULL;
+  if (!indexConsecutive) return nullptr;
 
   if (MO.Mask) {
     if(m_depAnalysis->whichDepend(MO.Mask) == WIAnalysis::UNIFORM) {
@@ -1350,7 +1350,7 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
     Wide_Unmasked_Memory_Operation_Created++; // statistics
     return Wide;
   }
-  return NULL;
+  return nullptr;
 }
 
 void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
@@ -1436,7 +1436,7 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
     ConstantInt* fieldConstantInt = dyn_cast<ConstantInt>(field);
     PointerType* basePointerType = dyn_cast<PointerType>(Base->getType());
     StructType* structType =
-      basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): NULL;
+      basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): nullptr;
     if (structType &&
         depBase == WIAnalysis::UNIFORM &&
         gepArg1Dep == WIAnalysis::CONSECUTIVE &&
@@ -1493,7 +1493,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   obtainBaseIndex(MO);
 
   // Find the data type;
-  Type *DT = NULL;
+  Type *DT = nullptr;
   switch (MO.type) {
   case STORE:
     DT = MO.Data->getType();
@@ -1956,7 +1956,7 @@ bool PacketizeFunction::obtainInsertElement(Value* val,
      SmallVectorImpl<Value *> &roots, unsigned nElts, Instruction* place) {
   V_ASSERT(val && "bad value");
   // initialize the roots with NULL values.
-  roots.assign(nElts, NULL);
+  roots.assign(nElts, nullptr);
   // For each of the items we are trying to fetch
   for (unsigned i=0; i < nElts; ++i) {
     // Make sure our chain is made of fake insert elements.
@@ -2063,7 +2063,7 @@ Value *PacketizeFunction::handleParamSOA(CallInst* CI, Value *scalarParam){
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> multiOperands;
   if (! obtainInsertElement(scalarParam, multiOperands, soaType->getNumElements(), CI)) {
     V_ASSERT(false && "Store operations must be preceded by insertvalue insts");
-    return NULL;
+    return nullptr;
   }
 
   // Create array of vectors with the previously obtained vectors.
@@ -2158,7 +2158,7 @@ bool PacketizeFunction::obtainInsertElts(InsertElementInst *IEI, InsertElementIn
       // TODO:: need to find better solution for DRL entries.
       if (!m_VCM.count(insertedValue)) return false;
       VCMEntry * foundEntry = m_VCM[insertedValue];
-      if (foundEntry->vectorValue == NULL) return false;
+      if (foundEntry->vectorValue == nullptr) return false;
     } else {
       // The previous code path only works for post-vectorization obtain calls.
       // For the other case, we use a heuristic solution.
@@ -2385,7 +2385,7 @@ bool PacketizeFunction::obtainExtracts(Value  *vectorValue,
   unsigned inputVectorWidth = VT->getNumElements();
   if (inputVectorWidth < 2) return false;
 
-  extracts.assign(inputVectorWidth, NULL);
+  extracts.assign(inputVectorWidth, nullptr);
   allUsersExtract = true;
   for (Value::user_iterator useIt = vectorValue->user_begin(),
        useE = vectorValue->user_end(); useIt != useE; ++useIt) {
@@ -2528,7 +2528,7 @@ void PacketizeFunction::packetizeInstruction(ExtractElementInst *EI)
   }
   // Obtain the packetized version of the vector input (actually multiple vectors)
   SmallVector<Value *, MAX_INPUT_VECTOR_WIDTH> inputOperands;
-  inputOperands.assign(MAX_INPUT_VECTOR_WIDTH, NULL);
+  inputOperands.assign(MAX_INPUT_VECTOR_WIDTH, nullptr);
   obtainMultiScalarValues(&(inputOperands[0]), vectorValue, location);
   V_ASSERT(inputOperands[0]->getType() == vectorValue->getType() && "input type error");
 
@@ -2733,7 +2733,7 @@ void PacketizeFunction::createLoadAndTranspose(Instruction* I, Value* loadPtrVal
   unsigned int numDestVectElems = m_packetWidth;
   Type* destVecType = VectorType::get(origVecType->getElementType(), numDestVectElems);
   bool isScatterGather = isScatterGatherAddr(loadPtrVal);
-  bool isMasked = (Mask != NULL);
+  bool isMasked = (Mask != nullptr);
 
   // Obtain load address
   Value* inAddr[MAX_PACKET_WIDTH];
@@ -2828,7 +2828,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   VectorType *origVecType = cast<VectorType>(storeType);
   unsigned int numOrigVectors = origVecType->getNumElements();
   bool isScatterGather = isScatterGatherAddr(storePtrVal);
-  bool isMasked = (Mask != NULL);
+  bool isMasked = (Mask != nullptr);
 
   // Obtain store address
   Value *inAddr[MAX_PACKET_WIDTH];
@@ -2837,7 +2837,7 @@ void PacketizeFunction::createTransposeAndStore(Instruction* I, Value* storePtrV
   // Obtain the vectorized version of the values need to be transposed and stored
   SmallVector<InsertElementInst *, 16>& inserts = m_storeTranspMap[I];
   SmallVector<Value *, MAX_PACKET_WIDTH> vectorizedInputs;
-  vectorizedInputs.assign(numOrigVectors, NULL);
+  vectorizedInputs.assign(numOrigVectors, nullptr);
   for (unsigned int i = 0; i < numOrigVectors; ++i) {
     obtainVectorizedValue(&vectorizedInputs[i], inserts[i]->getOperand(1), I);
   }
@@ -2900,14 +2900,14 @@ void PacketizeFunction::packetizeInstruction(LoadInst *LI) {
 
   // Check if we can create load + transpose
   if (m_loadTranspMap.count(LI)) {
-    createLoadAndTranspose(LI, LI->getPointerOperand(), LI->getType(), NULL);
+    createLoadAndTranspose(LI, LI->getPointerOperand(), LI->getType(), nullptr);
     return;
   }
 
   MemoryOperation MO;
   MO.Mask = 0;
   MO.Ptr = LI->getPointerOperand();
-  MO.Data = NULL;
+  MO.Data = nullptr;
   MO.Alignment = LI->getAlignment();
   MO.Base = 0;
   MO.Index = 0;
@@ -2920,7 +2920,7 @@ void PacketizeFunction::packetizeInstruction(StoreInst *SI) {
 
   // Check if we can create transpose + store
   if (m_storeTranspMap.count(SI)) {
-    createTransposeAndStore(SI, SI->getPointerOperand(), SI->getValueOperand()->getType(), NULL);
+    createTransposeAndStore(SI, SI->getPointerOperand(), SI->getValueOperand()->getType(), nullptr);
     return;
   }
 
@@ -3052,7 +3052,7 @@ void PacketizeFunction::packetizeInstruction(ReturnInst *RI)
 {
   V_PRINT(packetizer, "\t\tRet Instruction\n");
   V_ASSERT(RI && "instruction type dynamic cast failed");
-  V_ASSERT(NULL == RI->getReturnValue());
+  V_ASSERT(nullptr == RI->getReturnValue());
   // Just use the existing instruction
   return useOriginalConstantInstruction(RI);
 }

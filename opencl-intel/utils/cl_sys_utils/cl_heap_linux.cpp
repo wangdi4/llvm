@@ -72,8 +72,8 @@ struct ClHeapInfo_t
 // 4K page alinged
 inline void* LargeAlloc( size_t size )
 {
-	void* ptr = mmap( NULL, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0 );
-	return (MAP_FAILED == ptr) ? NULL : ptr;
+	void* ptr = mmap( nullptr, size, PROT_READ|PROT_WRITE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0 );
+	return (MAP_FAILED == ptr) ? nullptr : ptr;
 }
 
 inline void LargeFree( void* ptr, size_t size )
@@ -84,7 +84,7 @@ inline void LargeFree( void* ptr, size_t size )
 // remove all entrys 
 static void RemoveAll( ClHeapInfo_t* phHeap )
 {
-	assert( NULL != phHeap );
+	assert( nullptr != phHeap );
 
 	EntryMap_t::const_iterator it     = phHeap->entryMap.begin();
 	EntryMap_t::const_iterator it_end = phHeap->entryMap.end();
@@ -149,7 +149,7 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 
 	if (heapInfo->maxSize < heapInfo->userAllocatedSpace + allocSize)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	bool   used_large_alloc;
@@ -173,9 +173,9 @@ void* clAllocateFromHeap(ClHeap hHeap, size_t allocSize, size_t alignment, bool 
 		ptr = ALIGNED_MALLOC( real_allocated_size, alignment );
 	}
 
-	if (NULL == ptr)
+	if (nullptr == ptr)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	// Fill meta-data.
@@ -234,7 +234,7 @@ int	clFreeHeapPointer(ClHeap hHeap, void* ptr)
 ////////////////////////////////////////////////////////////////////
 int clHeapMarkSafeForDMA( void* start, size_t size )
 {
-	assert( NULL != start );
+	assert( nullptr != start );
 
 	char* end = (char*)start + size;
 	char* begin = (char*)ALIGN_DOWN( start, PAGE_4K_SIZE );
@@ -246,7 +246,7 @@ int clHeapMarkSafeForDMA( void* start, size_t size )
 
 int clHeapUnmarkSafeForDMA( void* start, size_t size )
 {
-	assert( NULL != start );
+	assert( nullptr != start );
 
 	char* end = (char*)start + size;
 	char* begin = (char*)ALIGN_DOWN( start, PAGE_4K_SIZE );

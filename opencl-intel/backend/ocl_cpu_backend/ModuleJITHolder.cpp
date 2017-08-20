@@ -35,15 +35,15 @@ class IInputStream;
 class IOutputStream;
 
 ModuleJITHolder::ModuleJITHolder():
-    m_pJITCode(NULL),
+    m_pJITCode(nullptr),
     m_JITCodeSize(0),
     m_alignment(0),
-    m_pJITAllocator(NULL)
+    m_pJITAllocator(nullptr)
 {}
 
 ModuleJITHolder::~ModuleJITHolder()
 {
-    if(NULL != m_pJITAllocator && NULL != m_pJITCode)
+    if(nullptr != m_pJITAllocator && nullptr != m_pJITCode)
     {
         m_pJITAllocator->FreeExecutable(m_pJITCode);
     }
@@ -195,17 +195,17 @@ void ModuleJITHolder::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
     // Deserialize the JIT code itself
     ICLDevBackendJITAllocator* pAllocator = stats->GetJITAllocator();
-    if(NULL == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
+    if(nullptr == pAllocator) throw Exceptions::SerializationException("Cannot Get JIT Allocator");
 
-    if(NULL != m_pJITCode)
+    if(nullptr != m_pJITCode)
     {
         m_pJITAllocator->FreeExecutable(m_pJITCode); // free by the old allocator
-        m_pJITCode = NULL;
+        m_pJITCode = nullptr;
     }
 
     m_pJITAllocator = pAllocator;
     m_pJITCode = (char*)(m_pJITAllocator->AllocateExecutable(sizeof(char) * m_JITCodeSize, m_alignment));
-    if(NULL == m_pJITCode) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
+    if(nullptr == m_pJITCode) throw Exceptions::SerializationException("JIT Allocator Failed Allocating Memory");
 
     for(size_t i = 0; i < m_JITCodeSize; i++)
     {
@@ -364,7 +364,7 @@ const LineNumberTable* ModuleJITHolder::GetKernelLineNumberTable(KernelID kernel
     if ( m_KernelsMap.end() == it )
     {
         assert( false && "Kernel not found");
-        return NULL;
+        return nullptr;
     }
     return &(it->second.lineNumberTable);
 }
@@ -374,7 +374,7 @@ const char * ModuleJITHolder::GetKernelFilename(KernelID kernelId) const {
     if ( m_KernelsMap.end() == it )
     {
         assert( false && "Kernel not found");
-        return NULL;
+        return nullptr;
     }
     return it->second.filename.c_str();
 }
@@ -385,7 +385,7 @@ const InlinedFunctions* ModuleJITHolder::GetKernelInlinedFunctions(KernelID kern
     if ( m_KernelsMap.end() == it )
     {
         assert( false && "Kernel not found");
-        return NULL;
+        return nullptr;
     }
     return &(it->second.inlinedFunctions);
 }

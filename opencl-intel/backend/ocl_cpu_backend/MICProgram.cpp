@@ -25,7 +25,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 MICProgram::MICProgram():
     Program(),
-    m_pModuleJITHolder(NULL)
+    m_pModuleJITHolder(nullptr)
 {
 }
 
@@ -65,7 +65,7 @@ void MICProgram::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     // NOTICE: NO Need to serialize the LLVM bit code to the device
 
     Serializer::SerialPointerHint((const void**)&m_pModuleJITHolder, ost); 
-    if(NULL != m_pModuleJITHolder.get())
+    if(nullptr != m_pModuleJITHolder.get())
     {
         m_pModuleJITHolder->Serialize(ost, stats);
     }
@@ -79,7 +79,7 @@ void MICProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)
 
     int* ptrHint;
     Serializer::DeserialPointerHint((void**)(&ptrHint), ist); 
-    if(NULL != ptrHint)
+    if(nullptr != ptrHint)
     {
         m_pModuleJITHolder.reset(new ModuleJITHolder());
         m_pModuleJITHolder->Deserialize(ist, stats);

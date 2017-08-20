@@ -53,7 +53,7 @@ void UserEvent::SetComplete(cl_int returnCode)
 cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void *paramValue, size_t *szParamValueSizeRet) const
 {
 	cl_err_code res = CL_SUCCESS;
-	const void* localParamValue = NULL;
+	const void* localParamValue = nullptr;
 	size_t outputValueSize = 0;
 	cl_int eventStatus;
 	cl_command_type cmd_type;
@@ -63,7 +63,7 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	switch (iParamName)
 	{
 	case CL_EVENT_COMMAND_QUEUE:
-		cmd_queue = (cl_command_queue)NULL;
+		cmd_queue = (cl_command_queue)nullptr;
 		localParamValue = (void*)(&cmd_queue);
 		outputValueSize = sizeof(cl_command_queue);
 		break;
@@ -99,17 +99,17 @@ cl_err_code UserEvent::GetInfo(cl_int iParamName, size_t szParamValueSize, void 
 	}
 
 	// check param_value_size
-	if ( (NULL != paramValue) && (szParamValueSize < outputValueSize))
+	if ( (nullptr != paramValue) && (szParamValueSize < outputValueSize))
 	{
 		res = CL_INVALID_VALUE;
 	}
 	else
 	{
-		if ( NULL != paramValue )
+		if ( nullptr != paramValue )
 		{
 			MEMCPY_S(paramValue, szParamValueSize, localParamValue, outputValueSize);
 		}
-		if ( NULL != szParamValueSizeRet )
+		if ( nullptr != szParamValueSizeRet )
 		{
 			*szParamValueSizeRet = outputValueSize;
 		}

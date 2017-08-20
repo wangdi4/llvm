@@ -351,7 +351,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
     funcName = isMangledName(funcNameStr)? stripName(funcNameStr) : funcName;
 
     // Generating bitcast instruction or constant value
-    Value *pFolded = NULL;
+    Value *pFolded = nullptr;
     if (funcName == "get_fence") {
       // get_fence - always generates CLK_GLOBAL_MEM_FENCE for CPU
       pFolded = ConstantInt::get(pCallee->getReturnType(), CLK_GLOBAL_MEM_FENCE);

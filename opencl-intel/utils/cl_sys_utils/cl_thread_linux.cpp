@@ -39,7 +39,7 @@ const unsigned int MAX_UINT = 0xffffffff;
  * Creates thread object. Doesn't create
  ************************************************************************/
 OclThread::OclThread(string name, bool bAutoDelete ):
-m_threadHandle(NULL),
+m_threadHandle(nullptr),
 m_threadId(MAX_UINT),
 m_running(false),
 m_bAutoDelete(bAutoDelete),
@@ -69,11 +69,11 @@ OclThread::~OclThread()
 void OclThread::Clean()
 {
     // m_running = false;	-- thread still can run when cleaning
-    if (NULL != m_threadHandle)
+    if (nullptr != m_threadHandle)
     {
         // delete handle
         delete((pthread_t *)m_threadHandle);
-        m_threadHandle = NULL;
+        m_threadHandle = nullptr;
     }
     m_threadId = MAX_UINT;
     m_join.exchange(0);
@@ -118,14 +118,14 @@ int OclThread::Start()
     m_running = true;
 
     // Check if the previous start call ended naturally or by Joined/Terminated
-    if(NULL != m_threadHandle)
+    if(nullptr != m_threadHandle)
     {
         Clean();
     }
 
     // Create the thread and run it immediately
     m_threadHandle = new pthread_t;
-    int err = pthread_create((pthread_t*)m_threadHandle, NULL, ThreadEntryPoint, (void*) this);
+    int err = pthread_create((pthread_t*)m_threadHandle, nullptr, ThreadEntryPoint, (void*) this);
     if (0 != err)
     {
        Clean();
@@ -164,7 +164,7 @@ int OclThread::Join()
 int OclThread::WaitForCompletion()
 {
     // If threadHandle already released or I try to wait for myself, return error.
-	if ((NULL == m_threadHandle) || (isSelf()))
+	if ((nullptr == m_threadHandle) || (isSelf()))
     {
         return THREAD_RESULT_FAIL;
     }
@@ -172,7 +172,7 @@ int OclThread::WaitForCompletion()
 	// (If multiple threads simultaneously try to join with the same thread, the results are undefined)
 	if (0 == m_numWaiters.test_and_set(0, 1))
 	{
-		pthread_join((*(pthread_t*)m_threadHandle), NULL);
+		pthread_join((*(pthread_t*)m_threadHandle), nullptr);
 	}
 	else
 	{
@@ -195,7 +195,7 @@ int OclThread::WaitForCompletion()
  ************************************************************************/
 void OclThread::Terminate(RETURN_TYPE_ENTRY_POINT exitCode)
 {
-	if ( NULL != m_threadHandle )
+	if ( nullptr != m_threadHandle )
 	{
 		// The exitCode doesn't exist in Linux
 		pthread_cancel((*(pthread_t*)m_threadHandle));
@@ -222,7 +222,7 @@ bool OclThread::isSelf()
 
 THREAD_HANDLE  OclThread::GetThreadHandle() const
 {
-    return (NULL != m_threadHandle) ? *(pthread_t*)m_threadHandle : (pthread_t)NULL;
+    return (nullptr != m_threadHandle) ? *(pthread_t*)m_threadHandle : (pthread_t)nullptr;
 }
 
 

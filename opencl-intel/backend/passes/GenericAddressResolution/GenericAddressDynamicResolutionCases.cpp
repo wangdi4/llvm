@@ -102,7 +102,7 @@ namespace intel {
     }
 
     // Then - get or create target function object
-    Function *pNewFunc = NULL;
+    Function *pNewFunc = nullptr;
     if (category == CallIntrinsic) {
       SmallVector<Type*, 8> overloadableArgTypes;
       getIntrinsicOverload(pCallee, argTypes, overloadableArgTypes);

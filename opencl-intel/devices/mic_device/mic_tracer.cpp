@@ -16,11 +16,11 @@ CommandTracer::~CommandTracer()
 	Tracer::getTracerInstace()->insert(*this);
 }
 
-Tracer* Tracer::m_active = NULL;
+Tracer* Tracer::m_active = nullptr;
 
 Tracer::Tracer()
 {
-	pthread_mutex_init(&m_mutex, NULL);
+	pthread_mutex_init(&m_mutex, nullptr);
 }
 
 Tracer::~Tracer()
@@ -34,7 +34,7 @@ Tracer::~Tracer()
 
 Tracer* Tracer::createTracerInstance(Tracer* pNewTracer)
 {
-	if (false == __sync_bool_compare_and_swap(&m_active, NULL, pNewTracer))
+	if (false == __sync_bool_compare_and_swap(&m_active, nullptr, pNewTracer))
 	{
 		delete pNewTracer;
 	}

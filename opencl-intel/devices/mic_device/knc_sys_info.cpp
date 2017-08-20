@@ -136,8 +136,8 @@ static MICSysInfo::SYS_INFO_ENTRY knc_info[] =
     SCAL_VALUE( CL_DEVICE_PREFERRED_VECTOR_WIDTH_DOUBLE,cl_uint,                        0                               ),
 #endif
 
-    SCAL_VALUE( CL_DEVICE_PARTITION_PROPERTIES,         cl_device_partition_property,   NULL                            ),    // Undefined in HLD
-    SCAL_VALUE( CL_DEVICE_PARTITION_AFFINITY_DOMAIN,    cl_device_partition_property,   NULL                            ),    // Undefined in HLD
+    SCAL_VALUE( CL_DEVICE_PARTITION_PROPERTIES,         cl_device_partition_property,   nullptr                            ),    // Undefined in HLD
+    SCAL_VALUE( CL_DEVICE_PARTITION_AFFINITY_DOMAIN,    cl_device_partition_property,   nullptr                            ),    // Undefined in HLD
     //Replace the above 2 definitions with the next 2 definitions when implementing fission.
 //    STRG_VALUE( CL_DEVICE_PARTITION_PROPERTIES,                                         MIC_SUPPORTED_FISSION_MODES     ),    // Undefined in HLD
 //    SCAL_VALUE( CL_DEVICE_PARTITION_AFFINITY_DOMAIN,    cl_device_partition_property,   CL_DEVICE_AFFINITY_DOMAIN_L2_CACHE),    // Undefined in HLD

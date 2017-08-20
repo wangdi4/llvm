@@ -25,15 +25,15 @@ File Name:  Program.cpp
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 Program::Program():
-    m_pObjectCodeContainer(NULL),
-    m_pIRCodeContainer(NULL),
-    m_kernels(NULL),
+    m_pObjectCodeContainer(nullptr),
+    m_pIRCodeContainer(nullptr),
+    m_kernels(nullptr),
     m_globalVariableTotalSize(0)
 {}
 
 Program::~Program()
 {
-    m_kernels.reset(NULL);
+    m_kernels.reset(nullptr);
 
     delete m_pObjectCodeContainer;
     delete m_pIRCodeContainer;
@@ -63,7 +63,7 @@ const ICLDevBackendCodeContainer* Program::GetProgramCodeContainer() const
 const ICLDevBackendProgramJITCodeProperties* Program::GetProgramJITCodeProperties() const
 {
     assert(false && "NotImplemented");
-    return NULL;
+    return nullptr;
 }
 
 cl_dev_err_code Program::GetKernelByName(const char* IN pKernelName,
@@ -177,7 +177,7 @@ void Program::Serialize(IOutputStream& ost, SerializationStatus* stats) const
     {
         Kernel* currentKernel = m_kernels->GetKernel(i);
         Serializer::SerialPointerHint((const void**)&currentKernel, ost);
-        if(NULL != currentKernel)
+        if(nullptr != currentKernel)
         {
             currentKernel->Serialize(ost, stats);
         }
@@ -195,9 +195,9 @@ void Program::Deserialize(IInputStream& ist, SerializationStatus* stats)
     m_kernels.reset(new KernelSet());
     for(unsigned int i = 0; i < kernelsCount; ++i)
     {
-        Kernel* currentKernel = NULL;
+        Kernel* currentKernel = nullptr;
         Serializer::DeserialPointerHint((void**)(&currentKernel), ist);
-        if(NULL != currentKernel)
+        if(nullptr != currentKernel)
         {
             currentKernel = stats->GetBackendFactory()->CreateKernel();
             currentKernel->Deserialize(ist, stats);

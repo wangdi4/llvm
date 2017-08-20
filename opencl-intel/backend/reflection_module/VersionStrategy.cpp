@@ -68,7 +68,7 @@ NullDescriptorStrategy::~NullDescriptorStrategy(){}
 //SoaDescriptorStrategy
 //
 
-SoaDescriptorStrategy::SoaDescriptorStrategy(): m_pTypeMap(NULL){
+SoaDescriptorStrategy::SoaDescriptorStrategy(): m_pTypeMap(nullptr){
 }
 
 void SoaDescriptorStrategy::setTypeMap(const ReturnTypeMap* pMap){

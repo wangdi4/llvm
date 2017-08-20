@@ -43,9 +43,9 @@ OutOfOrderCommandQueue::OutOfOrderCommandQueue(
     EventsManager*              pEventManager
     ) :
     IOclCommandQueueBase(pContext, clDefaultDeviceID, clProperties, pEventManager),
-    m_depOnAll(NULL),
+    m_depOnAll(nullptr),
     m_commandsInExecution(0),
-    m_lastBarrier(NULL),
+    m_lastBarrier(nullptr),
     m_unflushedCommands(0)
 {        
 }
@@ -65,7 +65,7 @@ cl_err_code OutOfOrderCommandQueue::Initialize()
      }
 
      Command* pDepOnAll = new MarkerCommand(this, 0);
-     if (NULL == pDepOnAll)
+     if (nullptr == pDepOnAll)
      {
          return CL_OUT_OF_HOST_MEMORY;
      }
@@ -82,7 +82,7 @@ long OutOfOrderCommandQueue::Release()
     if (0 == ref && m_depOnAll)
     {
         m_depOnAll->GetEvent()->RemoveFloatingDependence();
-        m_depOnAll = NULL;
+        m_depOnAll = nullptr;
     }
     return ref;
 }
@@ -203,7 +203,7 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEven
                 OclAutoMutex mu(&m_muLastBarrer);
                 if (pEvent == m_lastBarrier)
                 {
-                    m_lastBarrier = NULL;
+                    m_lastBarrier = nullptr;
                 }
             }
         }
@@ -219,10 +219,10 @@ cl_err_code OutOfOrderCommandQueue::NotifyStateChange( const SharedPtr<QueueEven
 
 cl_err_code OutOfOrderCommandQueue::AddDependentOnAll(Command* cmd)
 {
-    assert(NULL != cmd);
+    assert(nullptr != cmd);
 
     Command* pNewDepOnAll = new MarkerCommand(this, 0);
-    if (NULL == pNewDepOnAll)
+    if (nullptr == pNewDepOnAll)
     {
         return CL_OUT_OF_HOST_MEMORY;
     }

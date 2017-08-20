@@ -32,7 +32,7 @@ using namespace Intel::OpenCL::Utils;
 namespace Intel{ namespace OpenCL { namespace DeviceBackend { namespace Utils{
 
 BE_DynamicLib::BE_DynamicLib(void) :
-m_hLibrary(NULL)
+m_hLibrary(nullptr)
 {
 }
 

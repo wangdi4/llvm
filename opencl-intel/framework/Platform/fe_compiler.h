@@ -53,7 +53,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:       Guy Benyei
         * Date:         June 2012
         ******************************************************************************************/
-        FrontEndCompiler(const FrontEndCompiler&): OCLObject<_cl_object>(NULL, "") {};  
+        FrontEndCompiler(const FrontEndCompiler&): OCLObject<_cl_object>(nullptr, "") {};  
 
         /******************************************************************************************
         * Function:     FECompiler

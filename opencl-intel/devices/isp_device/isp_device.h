@@ -99,7 +99,7 @@ public:
 
     void            clDevCloseDevice(void);
 
-    const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return NULL; };
+    const IOCLDeviceFECompilerDescription* clDevGetFECompilerDecription() const { return nullptr; };
     IOCLDevRawMemoryAllocator* clDevGetRawMemoryAllocator() { return this; };
 
     /// --- IOCLDevRawMemoryAllocator interfaces ---

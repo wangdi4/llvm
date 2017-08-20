@@ -165,32 +165,32 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       // Retrieve all the implicit arguments which are not NULL
 
-      if ( NULL != ppLocalMem ) {
+      if ( nullptr != ppLocalMem ) {
           *ppLocalMem = &*DestI;
       }
       ++DestI;
 
-      if ( NULL != ppWorkDim ) {
+      if ( nullptr != ppWorkDim ) {
           *ppWorkDim = &*DestI;
       }
       ++DestI;
 
-      if ( NULL != ppWGId ) {
+      if ( nullptr != ppWGId ) {
           *ppWGId = &*DestI;
       }
       ++DestI;
 
-      if ( NULL != ppBaseGlbId ) {
+      if ( nullptr != ppBaseGlbId ) {
           *ppBaseGlbId = &*DestI;
       }
       ++DestI;
 
-      if ( NULL != ppSpecialBuf ) {
+      if ( nullptr != ppSpecialBuf ) {
           *ppSpecialBuf = &*DestI;
       }
       ++DestI;
 
-      if ( NULL != ppRunTimeHandle ) {
+      if ( nullptr != ppRunTimeHandle ) {
           *ppRunTimeHandle = &*DestI;
       }
       ++DestI;
@@ -239,7 +239,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pSclFunc);
       //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
       //Vectorized is running in all scenarios.
-      if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != NULL) {
+      if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != nullptr) {
         functionSet.insert(kimd->getVectorizedKernel());
       }
     }
@@ -298,7 +298,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
     }
 
-    if( NULL == kmd.get() ) {
+    if( nullptr == kmd.get() ) {
       assert(false && "Intenal error: can't find the function info for the scalarized function");
       // workaround to overcome klockwork issue
       return;
@@ -306,7 +306,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 #ifdef __APPLE__
       NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-  if( NULL == MDArgInfo )
+  if( nullptr == MDArgInfo )
   {
       assert(false && "Internal Error: opencl.kernels metadata is missing");
       // workaround to overcome klockwork issue
@@ -320,7 +320,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     pFunc=pFunc->getParent()->getFunction("__" + scalarFuncName);
   }
 
-  MDNode *FuncInfo = NULL;
+  MDNode *FuncInfo = nullptr;
   for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
     FuncInfo = MDArgInfo->getOperand(i);
     Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
@@ -329,7 +329,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       break;
   }
 
-  if( NULL == FuncInfo )
+  if( nullptr == FuncInfo )
   {
       assert(false && "Intenal error: can't find the function info for the scalarized function");
       // workaround to overcome klockwork issue
@@ -339,7 +339,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
      " Are you running a workload recorded using old meta data format?");
 
-    MDNode *MDImgAccess = NULL;
+    MDNode *MDImgAccess = nullptr;
     //look for image access metadata
     for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
       MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));

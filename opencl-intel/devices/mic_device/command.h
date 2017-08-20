@@ -64,7 +64,7 @@ public:
     void registerProfilingContext(bool mayReplaceByUserEvent = false);
 
     /* Unregister COIContext */
-    static void unregisterProfilingContext() { COINotificationCallbackSetContext(NULL); };
+    static void unregisterProfilingContext() { COINotificationCallbackSetContext(nullptr); };
 
     COIEVENT* registerBarrier(command_event_struct& completionBarrier);
     void      unregisterBarrier(command_event_struct& completionBarrier);
@@ -80,7 +80,7 @@ protected:
     /* static function for Command creation */
     static inline cl_dev_err_code verifyCreation(Command* pInCommand, SharedPtr<Command>& ppOutCommand)
     {
-        if (NULL == pInCommand)
+        if (nullptr == pInCommand)
         {
             return CL_DEV_OUT_OF_MEMORY;
         }

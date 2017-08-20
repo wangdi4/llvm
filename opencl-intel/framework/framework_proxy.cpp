@@ -51,7 +51,7 @@ using namespace Intel::OpenCL::TaskExecutor;
 
 
 // no local atexit handler - only global
-USE_SHUTDOWN_HANDLER(NULL);
+USE_SHUTDOWN_HANDLER(nullptr);
 
 cl_monitor_init
 
@@ -60,7 +60,7 @@ SOCLCRTDispatchTable        FrameworkProxy::CRTDispatchTable;
 ocl_entry_points            FrameworkProxy::OclEntryPoints;
 
 
-FrameworkProxy * FrameworkProxy::m_pInstance = NULL;
+FrameworkProxy * FrameworkProxy::m_pInstance = nullptr;
 OclSpinMutex FrameworkProxy::m_initializationMutex;
 
 volatile FrameworkProxy::GLOBAL_STATE FrameworkProxy::gGlobalState = FrameworkProxy::WORKING;
@@ -73,14 +73,14 @@ std::set<Intel::OpenCL::Utils::at_exit_dll_callback_fn>   FrameworkProxy::m_at_e
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy::FrameworkProxy()
 {    
-    m_pPlatformModule = NULL;
-    m_pContextModule = NULL;
-    m_pExecutionModule = NULL;
-    m_pFileLogHandler = NULL;
-    m_pConfig = NULL;
-    m_pLoggerClient = NULL;
-	m_pTaskExecutor = NULL;
-	m_pTaskList     = NULL;
+    m_pPlatformModule = nullptr;
+    m_pContextModule = nullptr;
+    m_pExecutionModule = nullptr;
+    m_pFileLogHandler = nullptr;
+    m_pConfig = nullptr;
+    m_pLoggerClient = nullptr;
+	m_pTaskExecutor = nullptr;
+	m_pTaskList     = nullptr;
 	m_uiTEActivationCount = 0;
     
     RegisterGlobalAtExitNotification        ( this );
@@ -119,7 +119,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clRetainCommandQueue = (KHRpfn_clRetainCommandQueue)GET_ALIAS(clRetainCommandQueue);
     ICDDispatchTable.clReleaseCommandQueue = (KHRpfn_clReleaseCommandQueue)GET_ALIAS(clReleaseCommandQueue);
     ICDDispatchTable.clGetCommandQueueInfo = (KHRpfn_clGetCommandQueueInfo)GET_ALIAS(clGetCommandQueueInfo);
-    ICDDispatchTable.clSetCommandQueueProperty = NULL;
+    ICDDispatchTable.clSetCommandQueueProperty = nullptr;
     ICDDispatchTable.clCreateBuffer = (KHRpfn_clCreateBuffer)GET_ALIAS(clCreateBuffer);
     ICDDispatchTable.clCreateImage = (KHRpfn_clCreateImage)GET_ALIAS(clCreateImage);
     ICDDispatchTable.clCreateImage2D = (KHRpfn_clCreateImage2D)GET_ALIAS(clCreateImage2D);
@@ -201,23 +201,23 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueReleaseGLObjects = (KHRpfn_clEnqueueReleaseGLObjects)GET_ALIAS(clEnqueueReleaseGLObjects);
     ICDDispatchTable.clGetGLContextInfoKHR = (KHRpfn_clGetGLContextInfoKHR)GET_ALIAS(clGetGLContextInfoKHR);
 #else
-    ICDDispatchTable.clCreateFromGLBuffer = NULL;
-    ICDDispatchTable.clCreateFromGLTexture = NULL;
-    ICDDispatchTable.clCreateFromGLTexture2D = NULL;
-    ICDDispatchTable.clCreateFromGLTexture3D = NULL;
-    ICDDispatchTable.clCreateFromGLRenderbuffer = NULL;
-    ICDDispatchTable.clGetGLObjectInfo = NULL;
-    ICDDispatchTable.clGetGLTextureInfo = NULL;
-    ICDDispatchTable.clEnqueueAcquireGLObjects = NULL;
-    ICDDispatchTable.clEnqueueReleaseGLObjects = NULL;
-    ICDDispatchTable.clGetGLContextInfoKHR = NULL;
+    ICDDispatchTable.clCreateFromGLBuffer = nullptr;
+    ICDDispatchTable.clCreateFromGLTexture = nullptr;
+    ICDDispatchTable.clCreateFromGLTexture2D = nullptr;
+    ICDDispatchTable.clCreateFromGLTexture3D = nullptr;
+    ICDDispatchTable.clCreateFromGLRenderbuffer = nullptr;
+    ICDDispatchTable.clGetGLObjectInfo = nullptr;
+    ICDDispatchTable.clGetGLTextureInfo = nullptr;
+    ICDDispatchTable.clEnqueueAcquireGLObjects = nullptr;
+    ICDDispatchTable.clEnqueueReleaseGLObjects = nullptr;
+    ICDDispatchTable.clGetGLContextInfoKHR = nullptr;
 #endif
-    ICDDispatchTable.clGetDeviceIDsFromD3D10KHR = NULL;
-    ICDDispatchTable.clCreateFromD3D10BufferKHR = NULL;
-    ICDDispatchTable.clCreateFromD3D10Texture2DKHR = NULL;
-    ICDDispatchTable.clCreateFromD3D10Texture3DKHR = NULL;
-    ICDDispatchTable.clEnqueueAcquireD3D10ObjectsKHR = NULL;
-    ICDDispatchTable.clEnqueueReleaseD3D10ObjectsKHR = NULL;
+    ICDDispatchTable.clGetDeviceIDsFromD3D10KHR = nullptr;
+    ICDDispatchTable.clCreateFromD3D10BufferKHR = nullptr;
+    ICDDispatchTable.clCreateFromD3D10Texture2DKHR = nullptr;
+    ICDDispatchTable.clCreateFromD3D10Texture3DKHR = nullptr;
+    ICDDispatchTable.clEnqueueAcquireD3D10ObjectsKHR = nullptr;
+    ICDDispatchTable.clEnqueueReleaseD3D10ObjectsKHR = nullptr;
     ICDDispatchTable.clSetEventCallback = (KHRpfn_clSetEventCallback)GET_ALIAS(clSetEventCallback);
     ICDDispatchTable.clCreateSubBuffer = (KHRpfn_clCreateSubBuffer)GET_ALIAS(clCreateSubBuffer);
     ICDDispatchTable.clSetMemObjectDestructorCallback = (KHRpfn_clSetMemObjectDestructorCallback)GET_ALIAS(clSetMemObjectDestructorCallback);
@@ -272,39 +272,39 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR = (KHRpfn_clEnqueueAcquireD3D11ObjectsKHR)GET_ALIAS(clEnqueueAcquireD3D11ObjectsKHR);
     ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR = (KHRpfn_clEnqueueReleaseD3D11ObjectsKHR)GET_ALIAS(clEnqueueReleaseD3D11ObjectsKHR);
 #else
-    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = NULL;
-    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = NULL;
-    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = NULL;
-    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = NULL;
+    CRTDispatchTable.clGetDeviceIDsFromDX9INTEL = nullptr;
+    CRTDispatchTable.clCreateFromDX9MediaSurfaceINTEL = nullptr;
+    CRTDispatchTable.clEnqueueAcquireDX9ObjectsINTEL = nullptr;
+    CRTDispatchTable.clEnqueueReleaseDX9ObjectsINTEL = nullptr;
 
-    ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = NULL; 
-    ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR       = NULL;
-    ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR  = NULL;
-    ICDDispatchTable.clEnqueueReleaseDX9MediaSurfacesKHR  = NULL;
+    ICDDispatchTable.clGetDeviceIDsFromDX9MediaAdapterKHR = nullptr; 
+    ICDDispatchTable.clCreateFromDX9MediaSurfaceKHR       = nullptr;
+    ICDDispatchTable.clEnqueueAcquireDX9MediaSurfacesKHR  = nullptr;
+    ICDDispatchTable.clEnqueueReleaseDX9MediaSurfacesKHR  = nullptr;
 
-    ICDDispatchTable.clGetDeviceIDsFromD3D11KHR           = NULL;
-    ICDDispatchTable.clCreateFromD3D11BufferKHR           = NULL;
-    ICDDispatchTable.clCreateFromD3D11Texture2DKHR        = NULL;
-    ICDDispatchTable.clCreateFromD3D11Texture3DKHR        = NULL;
-    ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR      = NULL;
-    ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR      = NULL;
+    ICDDispatchTable.clGetDeviceIDsFromD3D11KHR           = nullptr;
+    ICDDispatchTable.clCreateFromD3D11BufferKHR           = nullptr;
+    ICDDispatchTable.clCreateFromD3D11Texture2DKHR        = nullptr;
+    ICDDispatchTable.clCreateFromD3D11Texture3DKHR        = nullptr;
+    ICDDispatchTable.clEnqueueAcquireD3D11ObjectsKHR      = nullptr;
+    ICDDispatchTable.clEnqueueReleaseD3D11ObjectsKHR      = nullptr;
 #endif
     // Nullify entries which are not relevant for CPU
-    CRTDispatchTable.clGetImageParamsINTEL = NULL;
-    CRTDispatchTable.clCreatePerfCountersCommandQueueINTEL = NULL;
-    CRTDispatchTable.clCreateAcceleratorINTEL = NULL;
-    CRTDispatchTable.clGetAcceleratorInfoINTEL = NULL;
-    CRTDispatchTable.clRetainAcceleratorINTEL = NULL;
-    CRTDispatchTable.clReleaseAcceleratorINTEL = NULL;
-    CRTDispatchTable.clCreateProfiledProgramWithSourceINTEL = NULL;
-    CRTDispatchTable.clCreateKernelProfilingJournalINTEL = NULL;
-    CRTDispatchTable.clCreateFromVAMediaSurfaceINTEL = NULL;
-    CRTDispatchTable.clGetDeviceIDsFromVAMediaAdapterINTEL = NULL;
-    CRTDispatchTable.clEnqueueReleaseVAMediaSurfacesINTEL = NULL;
-    CRTDispatchTable.clEnqueueAcquireVAMediaSurfacesINTEL = NULL;
+    CRTDispatchTable.clGetImageParamsINTEL = nullptr;
+    CRTDispatchTable.clCreatePerfCountersCommandQueueINTEL = nullptr;
+    CRTDispatchTable.clCreateAcceleratorINTEL = nullptr;
+    CRTDispatchTable.clGetAcceleratorInfoINTEL = nullptr;
+    CRTDispatchTable.clRetainAcceleratorINTEL = nullptr;
+    CRTDispatchTable.clReleaseAcceleratorINTEL = nullptr;
+    CRTDispatchTable.clCreateProfiledProgramWithSourceINTEL = nullptr;
+    CRTDispatchTable.clCreateKernelProfilingJournalINTEL = nullptr;
+    CRTDispatchTable.clCreateFromVAMediaSurfaceINTEL = nullptr;
+    CRTDispatchTable.clGetDeviceIDsFromVAMediaAdapterINTEL = nullptr;
+    CRTDispatchTable.clEnqueueReleaseVAMediaSurfacesINTEL = nullptr;
+    CRTDispatchTable.clEnqueueAcquireVAMediaSurfacesINTEL = nullptr;
     CRTDispatchTable.clCreatePipeINTEL = (INTELpfn_clCreatePipeINTEL)GET_ALIAS(clCreatePipeINTEL);
-    CRTDispatchTable.clSetDebugVariableINTEL = NULL;
-    CRTDispatchTable.clSetAcceleratorInfoINTEL = NULL;
+    CRTDispatchTable.clSetDebugVariableINTEL = nullptr;
+    CRTDispatchTable.clSetAcceleratorInfoINTEL = nullptr;
 
     /// Extra CPU specific functions
 }
@@ -320,7 +320,7 @@ void FrameworkProxy::Initialize()
 
     // initialize configuration file
     m_pConfig = new OCLConfig();
-    if (NULL == m_pConfig)
+    if (nullptr == m_pConfig)
     {
         //Todo: terrible crash imminent
         return;
@@ -452,7 +452,7 @@ void FrameworkProxy::Initialize()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::Destroy()
 {
-    if (NULL != m_pInstance)
+    if (nullptr != m_pInstance)
     {
 #ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
         // If this function is called during process shutdown AND we should just disable external APIs
@@ -465,7 +465,7 @@ void FrameworkProxy::Destroy()
 #ifdef JUST_DISABLE_APIS_AT_SHUTDOWN
         }
 #endif
-        m_pInstance = NULL;
+        m_pInstance = nullptr;
     }
 }
 
@@ -483,25 +483,25 @@ void FrameworkProxy::Release(bool bTerminate)
         m_pInstance->m_pContextModule->ShutDown(true);
     }
 
-    if (NULL != m_pExecutionModule)
+    if (nullptr != m_pExecutionModule)
     {
         m_pExecutionModule->Release(bTerminate);
         delete m_pExecutionModule;
     }
 
-    if (NULL != m_pContextModule)
+    if (nullptr != m_pContextModule)
     {
         m_pContextModule->Release(bTerminate);
         delete m_pContextModule;
     }
     
-    if (NULL != m_pPlatformModule)
+    if (nullptr != m_pPlatformModule)
     {
         m_pPlatformModule->Release(bTerminate);
         delete m_pPlatformModule;
     }
 
-    if (!bTerminate && (NULL != m_pTaskList))
+    if (!bTerminate && (nullptr != m_pTaskList))
     {
         // looks like this is the normal deletion - force root device deletion
         m_uiTEActivationCount = 1;
@@ -511,21 +511,21 @@ void FrameworkProxy::Release(bool bTerminate)
     {
         // TaskExecutor is managed inside it's own DLL and may be already deleted at this point
         // we should avoid deletion of root device here - leave one extra counter
-        m_pTaskList     = NULL;
+        m_pTaskList     = nullptr;
     }
-    m_pTaskExecutor = NULL;
+    m_pTaskExecutor = nullptr;
     
-    if (NULL != m_pFileLogHandler)
+    if (nullptr != m_pFileLogHandler)
     {
         m_pFileLogHandler->Flush();
         delete m_pFileLogHandler;
-        m_pFileLogHandler = NULL;
+        m_pFileLogHandler = nullptr;
     }
-    if (NULL != m_pConfig)
+    if (nullptr != m_pConfig)
     {
         m_pConfig->Release();
         delete m_pConfig;
-        m_pConfig = NULL;
+        m_pConfig = nullptr;
     }
     cl_monitor_summary;
 }
@@ -534,7 +534,7 @@ void FrameworkProxy::Release(bool bTerminate)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void FrameworkProxy::RegisterDllCallback( at_exit_dll_callback_fn cb )
 {
-    if (NULL != cb)
+    if (nullptr != cb)
     {
         OclAutoMutex cs(&m_initializationMutex);
         m_at_exit_cbs.insert(cb);
@@ -543,7 +543,7 @@ void FrameworkProxy::RegisterDllCallback( at_exit_dll_callback_fn cb )
 
 void FrameworkProxy::UnregisterDllCallback( at_exit_dll_callback_fn cb )
 {
-    if (NULL != cb)
+    if (nullptr != cb)
     {
         OclAutoMutex cs(&m_initializationMutex);
         m_at_exit_cbs.erase(cb);
@@ -594,7 +594,7 @@ void FrameworkProxy::TerminateProcess()
     }
 
 #ifndef JUST_DISABLE_APIS_AT_SHUTDOWN
-    if (NULL != m_pInstance)
+    if (nullptr != m_pInstance)
     {
         m_pInstance->m_pContextModule->ShutDown(true);
     }
@@ -624,10 +624,10 @@ void FrameworkProxy::TerminateProcess()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 FrameworkProxy* FrameworkProxy::Instance()
 {
-    if (NULL == m_pInstance)
+    if (nullptr == m_pInstance)
     {
         OclAutoMutex cs(&m_initializationMutex);
-        if (NULL == m_pInstance)
+        if (nullptr == m_pInstance)
         {
             m_pInstance = new FrameworkProxy();            
         }
@@ -640,11 +640,11 @@ FrameworkProxy* FrameworkProxy::Instance()
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 Intel::OpenCL::TaskExecutor::ITaskExecutor*  FrameworkProxy::GetTaskExecutor() const
 {
-    if (NULL == m_pTaskExecutor)
+    if (nullptr == m_pTaskExecutor)
     {
         // Initialize TaskExecutor
         OclAutoMutex cs(&m_initializationMutex);
-        if (NULL == m_pTaskExecutor)
+        if (nullptr == m_pTaskExecutor)
         {
             LOG_INFO(TEXT("%s"), "Initialize Executor");
             m_pTaskExecutor = TaskExecutor::GetTaskExecutor();
@@ -667,7 +667,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
 
     OclAutoMutex cs(&m_initializationMutex);
 
-    if (NULL == m_pTaskList)
+    if (nullptr == m_pTaskList)
     {
         // During shutdown task_executor dll may finish before current dll and destroy all internal objects
         // We can discover this case but we cannot access any task_executor object at that time point because
@@ -698,7 +698,7 @@ bool FrameworkProxy::ActivateTaskExecutor() const
         }
     }
 
-    if (NULL != m_pTaskList && NULL != m_pTaskList_immediate)
+    if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate)
     {
         ++m_uiTEActivationCount;
         return true;
@@ -719,7 +719,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const
     
     OclAutoMutex cs(&m_initializationMutex);
 
-    if (NULL != m_pTaskList && NULL != m_pTaskList_immediate)
+    if (nullptr != m_pTaskList && nullptr != m_pTaskList_immediate)
     {
         --m_uiTEActivationCount;
 
@@ -731,14 +731,14 @@ void FrameworkProxy::DeactivateTaskExecutor() const
             {
                 m_pTaskList->Cleanup();
             }
-            m_pTaskList = NULL;
+            m_pTaskList = nullptr;
 
             ref = m_pTaskList_immediate->DecRefCnt();
             if ( 0 == ref )
             {
                 m_pTaskList_immediate->Cleanup();
             }
-            m_pTaskList_immediate = NULL;
+            m_pTaskList_immediate = nullptr;
         }
     }
 }
@@ -750,7 +750,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const
 bool FrameworkProxy::ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const
 {
     assert(m_pTaskList_immediate);
-    if (NULL == m_pTaskList_immediate)
+    if (nullptr == m_pTaskList_immediate)
     {
         return false;
     }
@@ -764,7 +764,7 @@ bool FrameworkProxy::ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<Inte
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool FrameworkProxy::Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const
 {
-    if (NULL == m_pTaskList)
+    if (nullptr == m_pTaskList)
     {
         return false;
     }
@@ -788,7 +788,7 @@ void  FrameworkProxy::CancelAllTasks(bool wait_for_finish) const
         tmpTaskList->Cancel();
         if (wait_for_finish)
         {
-            tmpTaskList->WaitForCompletion(NULL);
+            tmpTaskList->WaitForCompletion(nullptr);
         }
     }
 }

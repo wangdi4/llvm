@@ -73,9 +73,9 @@ m_pIspExtensionManager(pIspExtensionManager)
 // NDRange Command
 cl_dev_err_code NDRange::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     NDRange* pCommand = new NDRange(
                                 pDeviceQueue->GetLogDescriptor(),
@@ -84,7 +84,7 @@ cl_dev_err_code NDRange::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* p
                                 pDeviceQueue->GetFrameworkCallbacks(),
                                 pDeviceQueue->GetCameraHandle(),
                                 pDeviceQueue->GetExtensionManager());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -261,11 +261,11 @@ bool NDRange::ExecuteTakePicture(bool withAutoFocus)
     assert(1 == m_vArgs.size() && "Invalid number of arguments for command");
 
     IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(m_vArgs[0]));
-    assert(NULL != pMemObj && "Invalid handle to memory object");
+    assert(nullptr != pMemObj && "Invalid handle to memory object");
 
-    cl_mem_obj_descriptor* pMemObjDesc = NULL;
+    cl_mem_obj_descriptor* pMemObjDesc = nullptr;
     pMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObjDesc);
-    assert(NULL != pMemObjDesc && "Couldn't get the memory object descriptor");
+    assert(nullptr != pMemObjDesc && "Couldn't get the memory object descriptor");
 
     ret = m_pCameraShim->take_picture(pMemObjDesc->pData, pMemObjDesc->dimensions.buffer_size, withAutoFocus);
     if (0 != ret)
@@ -320,11 +320,11 @@ bool NDRange::ExecuteCopyPreviewBuffer()
     assert(1 == m_vArgs.size() && "Invalid number of arguments for command");
 
     IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(m_vArgs[0]));
-    assert(NULL != pMemObj && "Invalid handle to memory object");
+    assert(nullptr != pMemObj && "Invalid handle to memory object");
 
-    cl_mem_obj_descriptor* pMemObjDesc = NULL;
+    cl_mem_obj_descriptor* pMemObjDesc = nullptr;
     pMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObjDesc);
-    assert(NULL != pMemObjDesc && "Couldn't get the memory object descriptor");
+    assert(nullptr != pMemObjDesc && "Couldn't get the memory object descriptor");
 
     if (pMemObjDesc->dimensions.buffer_size < bytesToCopy)
     {
@@ -362,8 +362,8 @@ bool NDRange::ExecuteStandaloneCustomKernel()
     //    5.c - Free the allocated buffer on ISP
     //  6 - Unload the firmware from ISP
 
-    void* pAllocatedArgsBuffer = NULL;
-    isp_ptr pMappedArgsBuffer = NULL;
+    void* pAllocatedArgsBuffer = nullptr;
+    isp_ptr pMappedArgsBuffer = nullptr;
 
     // firmware is already allocated on ISP, just need to upload it
     fw_info firmwareInfo = m_pIspKernel->GetBlob();
@@ -386,7 +386,7 @@ bool NDRange::ExecuteStandaloneCustomKernel()
 
     // allocate required buffer on ISP
     pAllocatedArgsBuffer = m_pCameraShim->host_alloc(stArgsBufferSizeActual);
-    if (NULL == pAllocatedArgsBuffer)
+    if (nullptr == pAllocatedArgsBuffer)
     {
         IspErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("Could not allocate arguments buffer on ISP"));
         return false;
@@ -479,7 +479,7 @@ bool NDRange::MapArgumentsToISP(void* pArgsBuffer)
         case CL_KRNL_ARG_PTR_CONST:
             {
                 IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(m_vArgs[i]));
-                if (NULL == pMemObj)
+                if (nullptr == pMemObj)
                 {
                     continue;
                 }
@@ -492,9 +492,9 @@ bool NDRange::MapArgumentsToISP(void* pArgsBuffer)
                     return false;
                 }
 
-                assert(NULL != pMemObjDesc->pData && "Passing NULL data object for execution");
+                assert(nullptr != pMemObjDesc->pData && "Passing NULL data object for execution");
 
-                isp_ptr pMappedData = NULL;
+                isp_ptr pMappedData = nullptr;
                 status_t ret = m_pCameraShim->acc_map(pMemObjDesc->pData, pMappedData);
                 if (0 != ret)
                 {
@@ -553,7 +553,7 @@ bool NDRange::UnmapArgumentsFromISP(void* pMappedArgsBuffer)
         case CL_KRNL_ARG_PTR_CONST:
             {
                 isp_ptr pMappedData = *(isp_ptr*)(pArgsBufferBase + argsPrototype[i].offset_in_bytes);
-                if (NULL == pMappedData)
+                if (nullptr == pMappedData)
                 {
                     continue;
                 }
@@ -603,16 +603,16 @@ bool NDRange::UnmapArgumentsFromISP(void* pMappedArgsBuffer)
 // ReadWriteMemoryObject Command
 cl_dev_err_code ReadWriteMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     ReadWriteMemoryObject* pCommand = new ReadWriteMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -630,9 +630,9 @@ bool ReadWriteMemoryObject::Execute()
 
     cl_dev_cmd_param_rw* cmdParams = reinterpret_cast<cl_dev_cmd_param_rw*>(m_pCmdDesc->params);
 
-    cl_mem_obj_descriptor* pMemObj = NULL;
+    cl_mem_obj_descriptor* pMemObj = nullptr;
     cl_dev_err_code ret = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObj);
-    assert(CL_DEV_SUCCEEDED(ret) && NULL != pMemObj && "Failed to get memory object descriptor");
+    assert(CL_DEV_SUCCEEDED(ret) && nullptr != pMemObj && "Failed to get memory object descriptor");
 
     // Memory object pointer
     void* pMemObjPtr = CalculateOffsetPointer(pMemObj->pData, cmdParams->dim_count, cmdParams->origin, cmdParams->memobj_pitch, pMemObj->uiElementSize);
@@ -683,16 +683,16 @@ bool ReadWriteMemoryObject::Execute()
 // CopyMemoryObject Command
 cl_dev_err_code CopyMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     CopyMemoryObject* pCommand = new CopyMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -714,9 +714,9 @@ bool CopyMemoryObject::Execute()
 
     cl_dev_err_code ret;
     ret = cmdParams->srcMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pSrcMemObj);
-    assert(CL_DEV_SUCCEEDED(ret) && NULL != pSrcMemObj && "Failed to get source memory object descriptor");
+    assert(CL_DEV_SUCCEEDED(ret) && nullptr != pSrcMemObj && "Failed to get source memory object descriptor");
     ret = cmdParams->dstMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pDstMemObj);
-    assert(CL_DEV_SUCCEEDED(ret) && NULL != pDstMemObj && "Failed to get destination memory object descriptor");
+    assert(CL_DEV_SUCCEEDED(ret) && nullptr != pDstMemObj && "Failed to get destination memory object descriptor");
 
     size_t stSrcElementSize = pSrcMemObj->uiElementSize;
     size_t stDstElementSize = pDstMemObj->uiElementSize;
@@ -798,16 +798,16 @@ bool CopyMemoryObject::Execute()
 // MapMemoryObject Command
 cl_dev_err_code MapMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     MapMemoryObject* pCommand = new MapMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -835,16 +835,16 @@ bool MapMemoryObject::Execute()
 // UnmapMemoryObject Command
 cl_dev_err_code UnmapMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     UnmapMemoryObject* pCommand = new UnmapMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -872,16 +872,16 @@ bool UnmapMemoryObject::Execute()
 // FillMemoryObject Command
 cl_dev_err_code FillMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     FillMemoryObject* pCommand = new FillMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -901,7 +901,7 @@ bool FillMemoryObject::Execute()
 
     cl_dev_err_code ret;
     ret = cmdParams->memObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObj);
-    assert(CL_DEV_SUCCEEDED(ret) && NULL != pMemObj && "Failed to get memory object descriptor");
+    assert(CL_DEV_SUCCEEDED(ret) && nullptr != pMemObj && "Failed to get memory object descriptor");
 
     // we will fill the requested region row by row
 
@@ -926,7 +926,7 @@ bool FillMemoryObject::Execute()
 
     // create one requested row and fill it with pattern/color
     cl_uchar* tempFilledRow = new cl_uchar[ rowSize ];
-    if (NULL == tempFilledRow)
+    if (nullptr == tempFilledRow)
     {
         NotifyCommandStatusChanged(CL_COMPLETE, CL_DEV_OUT_OF_MEMORY);
         return false;
@@ -962,16 +962,16 @@ bool FillMemoryObject::Execute()
 // MigrateMemoryObject Command
 cl_dev_err_code MigrateMemoryObject::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     MigrateMemoryObject* pCommand = new MigrateMemoryObject(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -998,16 +998,16 @@ bool MigrateMemoryObject::Execute()
 // CommandFailureNotification
 cl_dev_err_code CommandFailureNotification::Create(ISPDeviceQueue* pDeviceQueue, cl_dev_cmd_desc* pCmd, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != pCmd && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != pCmd && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     CommandFailureNotification* pCommand = new CommandFailureNotification(
                                 pDeviceQueue->GetLogDescriptor(),
                                 pDeviceQueue->GetLogHandle(),
                                 pCmd,
                                 pDeviceQueue->GetFrameworkCallbacks());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1022,8 +1022,8 @@ cl_dev_err_code CommandFailureNotification::Create(ISPDeviceQueue* pDeviceQueue,
 // PipeLineNDRange
 cl_dev_err_code PipelineNDRange::Create(ISPDeviceQueue* pDeviceQueue, std::vector<cl_dev_cmd_desc*>& commands, SharedPtr<ITaskBase>* ppTask)
 {
-    assert(NULL != pDeviceQueue && "Invalid create command parameter");
-    assert(NULL != ppTask && "Invalid create command parameter");
+    assert(nullptr != pDeviceQueue && "Invalid create command parameter");
+    assert(nullptr != ppTask && "Invalid create command parameter");
 
     PipelineNDRange* pCommand = new PipelineNDRange(
                                 pDeviceQueue->GetLogDescriptor(),
@@ -1032,7 +1032,7 @@ cl_dev_err_code PipelineNDRange::Create(ISPDeviceQueue* pDeviceQueue, std::vecto
                                 pDeviceQueue->GetFrameworkCallbacks(),
                                 pDeviceQueue->GetCameraHandle(),
                                 pDeviceQueue->GetExtensionManager());
-    if (NULL == pCommand)
+    if (nullptr == pCommand)
     {
         return CL_DEV_OUT_OF_MEMORY;
     }
@@ -1044,7 +1044,7 @@ cl_dev_err_code PipelineNDRange::Create(ISPDeviceQueue* pDeviceQueue, std::vecto
 
 PipelineNDRange::PipelineNDRange(IOCLDevLogDescriptor* logDesc, cl_int logHandle, std::vector<cl_dev_cmd_desc*>& commands,
                 IOCLFrameworkCallbacks* frameworkCallbacks, CameraShim* pCameraShim, ISPExtensionManager* pIspExtensionManager)  :
-                ISPCommandBase(logDesc, logHandle, NULL, frameworkCallbacks), m_vCommandsDesc(commands),
+                ISPCommandBase(logDesc, logHandle, nullptr, frameworkCallbacks), m_vCommandsDesc(commands),
                 m_pCameraShim(pCameraShim), m_pIspExtensionManager(pIspExtensionManager)
 {
     assert(m_vCommandsDesc.size() >= 2 && "Pipeline command should at least contain BEGIN_PIPELINE and END_PIPELINE");
@@ -1101,14 +1101,14 @@ bool PipelineNDRange::Execute()
     cl_dev_cmd_param_kernel* cmdParams = reinterpret_cast<cl_dev_cmd_param_kernel*>((*m_itrBeginPipelineCmdDesc)->params);
 
     IOCLDevMemoryObject* pMemObj = *((IOCLDevMemoryObject**)(cmdParams->arg_values));
-    if (NULL == pMemObj)
+    if (nullptr == pMemObj)
     {
         //TODO: fail
     }
 
-    cl_mem_obj_descriptor* pMemObjDesc = NULL;
+    cl_mem_obj_descriptor* pMemObjDesc = nullptr;
     pMemObj->clDevMemObjGetDescriptor(CL_DEVICE_TYPE_CUSTOM, 0, (cl_dev_memobj_handle*) &pMemObjDesc);
-    assert(NULL != pMemObjDesc && "Couldn't get the memory object descriptor");
+    assert(nullptr != pMemObjDesc && "Couldn't get the memory object descriptor");
 
     //TODO
     m_pCameraShim->preview_start();

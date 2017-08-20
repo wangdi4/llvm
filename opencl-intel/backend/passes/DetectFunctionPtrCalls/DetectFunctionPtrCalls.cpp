@@ -86,7 +86,7 @@ namespace intel {
       // detect call instruction  
       if (const CallInst* CI = dyn_cast<CallInst>(&*I)){
         // null if this is an indirect function invocation
-        if(NULL == CI->getCalledFunction()){
+        if(nullptr == CI->getCalledFunction()){
           return true;
         }
       }

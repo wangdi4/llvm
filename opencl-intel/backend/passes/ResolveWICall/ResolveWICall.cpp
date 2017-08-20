@@ -58,7 +58,7 @@ namespace intel {
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
       m_bPrefetchDecl = false;
-      m_pStructNDRangeType = NULL;
+      m_pStructNDRangeType = nullptr;
 
       // extended execution flags
       m_ExtExecDecls.clear();
@@ -88,7 +88,7 @@ namespace intel {
 
   Function* ResolveWICall::runOnFunction(Function *pFunc) {
     // Getting the implicit arguments
-    CompilationUtils::getImplicitArgs(pFunc, NULL, &m_pWorkInfo, &m_pWGId,
+    CompilationUtils::getImplicitArgs(pFunc, nullptr, &m_pWorkInfo, &m_pWGId,
                                       &m_pBaseGlbId, &m_pSpecialBuf,
                                       &m_pRuntimeHandle);
 
@@ -114,7 +114,7 @@ namespace intel {
         std::string calledFuncName = pCall->getCalledFunction()->getName().str();
         TInternalCallType calledFuncType = getCallFunctionType(calledFuncName);
 
-        Value *pNewRes = NULL;
+        Value *pNewRes = nullptr;
         switch ( calledFuncType ) {
 
         case ICT_GET_SPECIAL_BUFFER:
@@ -203,7 +203,7 @@ namespace intel {
       return m_IAA->GenerateGetFromWorkInfo(NDInfo::WORK_DIM, m_pWorkInfo, B);
     }
     BasicBlock *pBlock = pCall->getParent();
-    Value *pResult = NULL;  // Object that holds the resolved value
+    Value *pResult = nullptr;  // Object that holds the resolved value
 
 
     uint64_t overflowValue = 0;
@@ -227,7 +227,7 @@ namespace intel {
     Constant *const_overflow = ConstantInt::get(pCall->getType(), overflowValue);
     ConstantInt *pVal = dyn_cast<ConstantInt>(pCall->getArgOperand(0));
 
-    if ( NULL != pVal ) {
+    if ( nullptr != pVal ) {
       // in case of constant argument we can check it "offline" if it's inbound
       unsigned int indexValue = (unsigned int)*pVal->getValue().getRawData();
 

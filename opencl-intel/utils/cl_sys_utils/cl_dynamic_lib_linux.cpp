@@ -34,7 +34,7 @@
 
 using namespace Intel::OpenCL::Utils;
 
-IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = NULL;
+IAtExitCentralPoint* OclDynamicLib::m_atexit_fn = nullptr;
 
 // Get function pointer from library handle
 ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const char* szFuncName)
@@ -51,7 +51,7 @@ ptrdiff_t OclDynamicLib::GetFuntionPtrByNameFromHandle(void* hLibrary, const cha
 }
 
 OclDynamicLib::OclDynamicLib(bool bUnloadOnDestructor) :
-    m_hLibrary(NULL), m_bUnloadOnDestructor(bUnloadOnDestructor)
+    m_hLibrary(nullptr), m_bUnloadOnDestructor(bUnloadOnDestructor)
 {
 }
 
@@ -79,7 +79,7 @@ bool OclDynamicLib::IsExists(const char* pLibName)
 // Loads a dynamically link library into process address space
 bool OclDynamicLib::Load(const char* pLibName)
 {
-    if ( NULL != m_hLibrary )
+    if ( nullptr != m_hLibrary )
     {
         return false;
     }
@@ -87,7 +87,7 @@ bool OclDynamicLib::Load(const char* pLibName)
     // Load library
     m_hLibrary = dlopen(pLibName, RTLD_LAZY);
 
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
 #ifdef _DEBUG
         const char* e = dlerror();
@@ -99,7 +99,7 @@ bool OclDynamicLib::Load(const char* pLibName)
     RegisterAtExitNotification_Func AtExitFunc = 
         (RegisterAtExitNotification_Func)GetFunctionPtrByName(OclDynamicLib_AT_EXIT_REGISTER_FUNC_NAME);
 
-    if (NULL != AtExitFunc)
+    if (nullptr != AtExitFunc)
     {
         AtExitFunc( m_atexit_fn );
     }
@@ -110,7 +110,7 @@ bool OclDynamicLib::Load(const char* pLibName)
 // Loads a dynamically link library into process address space
 void OclDynamicLib::Close()
 {
-    if ( NULL == m_hLibrary )
+    if ( nullptr == m_hLibrary )
     {
         return;
     }
@@ -121,14 +121,14 @@ void OclDynamicLib::Close()
     }
 
     m_uiFuncCount = 0;
-    m_pOffsetNames = NULL;
-    m_pOffsetFunc = NULL;
+    m_pOffsetNames = nullptr;
+    m_pOffsetFunc = nullptr;
 
     UseShutdownHandler::UnloadingDll(true);
     dlclose(m_hLibrary);
     UseShutdownHandler::UnloadingDll(false);
 
-    m_hLibrary = NULL;
+    m_hLibrary = nullptr;
 }
 
 // Returns a number of named functions found in the library
@@ -142,14 +142,14 @@ unsigned int OclDynamicLib::GetNumberOfFunctions() const
 const char* OclDynamicLib::GetFunctionName(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-    return NULL;
+    return nullptr;
 }
 
 // Returns a function pointer
 const void* OclDynamicLib::GetFunctionPtr(unsigned int uiFuncId) const
 {
     assert(0 && "Not implemented on Linux");
-    return NULL;
+    return nullptr;
 }
 
 // Returns a function pointer

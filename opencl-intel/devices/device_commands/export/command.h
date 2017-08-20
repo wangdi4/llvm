@@ -131,8 +131,8 @@ protected:
 	 */
 	DeviceCommand(ITaskList* list, ITaskBase* pMyTaskBase) :
 	    m_err(CL_DEV_SUCCESS), m_bCompleted(false), m_ulStartExecTime(0), m_ulExecTime(0),
-	    m_pExecTimeUserPtr(NULL), m_list(list),
-		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(NULL != list ? list->IsProfilingEnabled() : false),
+	    m_pExecTimeUserPtr(nullptr), m_list(list),
+		m_pMyTaskBase(pMyTaskBase), m_bIsProfilingEnabled(nullptr != list ? list->IsProfilingEnabled() : false),
     m_CMD_STAMP(CMD_STAMP)
   { }
 
@@ -221,7 +221,7 @@ public:
 
 	void Cancel() { SetError(CL_DEV_COMMAND_CANCELLED); }
 
-	virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return NULL; }
+	virtual Intel::OpenCL::TaskExecutor::IThreadLibTaskGroup* GetNDRangeChildrenTaskGroup() { return nullptr; }
 
     virtual void Launch() { Execute(); }
 
@@ -270,7 +270,7 @@ public:
 
   
 protected:
-	UserEvent() : DeviceCommand(NULL, NULL) { }
+	UserEvent() : DeviceCommand(nullptr, nullptr) { }
 };
 
 }}}

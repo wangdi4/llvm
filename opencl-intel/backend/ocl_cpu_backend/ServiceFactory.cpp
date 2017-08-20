@@ -76,7 +76,7 @@ namespace Utils
     }
 }
 
-ServiceFactory* ServiceFactory::s_pInstance = NULL;
+ServiceFactory* ServiceFactory::s_pInstance = nullptr;
 
 ServiceFactory::ServiceFactory()
 {}
@@ -92,10 +92,10 @@ void ServiceFactory::Init()
 
 void ServiceFactory::Terminate()
 {
-    if( NULL != s_pInstance)
+    if( nullptr != s_pInstance)
     {
         delete s_pInstance;
-        s_pInstance = NULL;
+        s_pInstance = nullptr;
     }
 }
 
@@ -117,14 +117,14 @@ cl_dev_err_code ServiceFactory::GetCompilationService(
 {
     try
     {
-        if(NULL == ppBackendCompilationService)
+        if(nullptr == ppBackendCompilationService)
         {
             return CL_DEV_INVALID_VALUE;
         }
 
         // TODO: (later) need to remove these lines select operation mode should get the operation from the options
         DEVICE_TYPE mode = CPU_MODE;
-        if(NULL != pBackendOptions)
+        if(nullptr != pBackendOptions)
         {
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());
@@ -162,14 +162,14 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
 {
     try
     {
-        if(NULL == ppBackendExecutionService)
+        if(nullptr == ppBackendExecutionService)
         {
             return CL_DEV_INVALID_VALUE;
         }
 
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         DEVICE_TYPE mode = CPU_MODE;
-        if(NULL != pBackendOptions)
+        if(nullptr != pBackendOptions)
         {
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());
@@ -185,7 +185,7 @@ cl_dev_err_code ServiceFactory::GetExecutionService(
             *ppBackendExecutionService = new MICExecutionService(pBackendOptions, cpuId);
             return CL_DEV_SUCCESS;
         #else
-            *ppBackendExecutionService = NULL;
+            *ppBackendExecutionService = nullptr;
             //assert(false && "Execution Service Not Implemented for MIC Device on Host Lib");
             return CL_DEV_NOT_SUPPORTED;
         #endif
@@ -210,14 +210,14 @@ cl_dev_err_code ServiceFactory::GetSerializationService(
 {
     try
     {
-        if(NULL == pBackendSerializationService)
+        if(nullptr == pBackendSerializationService)
         {
             return CL_DEV_INVALID_VALUE;
         }
 
         // TODO: maybe need to remove these lines select operation mode should get the operation from the options
         DEVICE_TYPE mode = CPU_MODE;
-        if(NULL != pBackendOptions)
+        if(nullptr != pBackendOptions)
         {
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());
@@ -248,7 +248,7 @@ cl_dev_err_code ServiceFactory::GetDebuggingService(
     ICLDebuggingService* instance =
         DebuggingServiceWrapper::GetInstance().GetDebuggingService();
     *pDebuggingService = instance;
-    return instance == NULL ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
+    return instance == nullptr ? CL_DEV_ERROR_FAIL : CL_DEV_SUCCESS;
 }
 
 cl_dev_err_code ServiceFactory::GetImageService(
@@ -260,7 +260,7 @@ cl_dev_err_code ServiceFactory::GetImageService(
         //TODO:vlad
         DEVICE_TYPE mode = CPU_MODE;
 
-        if(NULL != pBackendOptions)
+        if(nullptr != pBackendOptions)
         {
             std::string device = pBackendOptions->GetStringValue((int)CL_DEV_BACKEND_OPTION_DEVICE, CPU_DEVICE);
             mode = Utils::SelectDevice(device.c_str());

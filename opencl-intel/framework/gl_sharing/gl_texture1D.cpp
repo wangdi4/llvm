@@ -105,5 +105,5 @@ void GLTexture1D::BindFramebuffer2Texture()
 
 void GLTexture1D::TexSubImage()
 {
-	glTexSubImage1D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, 0, (GLsizei)m_stDimensions[0], m_glReadBackFormat, m_glReadBackType, NULL);
+	glTexSubImage1D(m_txtDescriptor.glTextureTarget, m_txtDescriptor.glMipLevel, 0, (GLsizei)m_stDimensions[0], m_glReadBackFormat, m_glReadBackType, nullptr);
 }

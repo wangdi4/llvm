@@ -19,7 +19,7 @@ cl_err_code EventCallback::ObservedEventStateChanged(const SharedPtr<OclEvent>& 
     {
         retCode = GetExpectedExecState();
     }
-    if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
+    if (nullptr != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())
     {
         std::stringstream stream;
         stream << "EventCallback(" << pEvent->GetHandle() << ", " << m_pUserData << ")" << std::endl;
