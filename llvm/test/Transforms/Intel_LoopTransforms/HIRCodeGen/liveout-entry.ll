@@ -15,7 +15,7 @@ entry:
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
-for.body:                                         ; preds = %for.body.preheader, %for.inc
+for.body:                                         ; preds = %for.inc, %for.body.preheader
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4
@@ -39,9 +39,11 @@ for.inc:                                          ; preds = %if.else, %if.then
   br i1 %exitcond, label %for.end.loopexit, label %for.body
 
 for.end.loopexit:                                 ; preds = %for.inc
+  %cmp3.lcssa = phi i1 [ %cmp3, %for.inc ]
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
-  %small.0.lcssa = phi i1 [ undef, %entry ], [ %cmp3, %for.end.loopexit ]
+  %small.0.lcssa = phi i1 [ undef, %entry ], [ %cmp3.lcssa, %for.end.loopexit ]
   ret i1 %small.0.lcssa
 }
+

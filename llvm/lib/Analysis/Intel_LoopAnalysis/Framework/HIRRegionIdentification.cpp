@@ -449,17 +449,20 @@ bool HIRRegionIdentification::CostModelAnalyzer::visitBranchInst(
     return false;
   }
 
+  // Skip goto check for multi-exit loops.
+  if (!Lp.getExitingBlock()) {
+    return true;
+  }
+
   auto Succ0 = BI.getSuccessor(0);
   auto Succ1 = BI.getSuccessor(1);
 
   // Within the same loop, conditional branches not dominating its successor and
   // the successor not post-dominating the branch indicates presence of a goto
   // in HLLoop.
-  if (((RI.LI->getLoopFor(Succ0) == &Lp) &&
-       !RI.DT->dominates(ParentBB, Succ0) &&
+  if ((!RI.DT->dominates(ParentBB, Succ0) &&
        !RI.PDT->dominates(Succ0, ParentBB)) ||
-      ((RI.LI->getLoopFor(Succ1) == &Lp) &&
-       !RI.DT->dominates(ParentBB, Succ1) &&
+      (!RI.DT->dominates(ParentBB, Succ1) &&
        !RI.PDT->dominates(Succ1, ParentBB))) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Loop throttled due to presence of goto.\n");
@@ -479,6 +482,13 @@ bool HIRRegionIdentification::shouldThrottleLoop(const Loop &Lp,
   // SIMD loops should not be throttled.
   if (isSIMDLoop(Lp)) {
     return false;
+  }
+
+  // Only allow innermost multi-exit loops for now.
+  if (!Lp.getExitingBlock() && !Lp.empty()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: outer multi-exit loop throttled for "
+                    "compile time reasons.\n");
+    return true;
   }
 
   // Only handle standalone single bblock unknown loops for now. We don't do
@@ -698,6 +708,18 @@ bool HIRRegionIdentification::areBBlocksGenerable(const Loop &Lp) const {
   return true;
 }
 
+const Loop *HIRRegionIdentification::getOutermostParentLoop(const Loop *Lp) {
+  const Loop *ParLp, *TmpLp;
+
+  ParLp = Lp;
+
+  while ((TmpLp = ParLp->getParentLoop())) {
+    ParLp = TmpLp;
+  }
+
+  return ParLp;
+}
+
 bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
                                               unsigned LoopnestDepth,
                                               bool IsFunctionRegionMode) const {
@@ -716,13 +738,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Don't handle multi-exit loops for now.
-  if (!Lp.getExitingBlock()) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Multi-exit loops currently not supported.\n");
-    return false;
-  }
-
   // Skip loop with vectorize/unroll pragmas for now so that tests checking for
   // these are not affected. Allow SIMD loops and dbg metadata.
   MDNode *LoopID = Lp.getLoopID();
@@ -731,26 +746,6 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
     DEBUG(
         dbgs()
         << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
-    return false;
-  }
-
-  auto BECount = SE->getBackedgeTakenCount(&Lp);
-
-  auto UndefBECount = dyn_cast<SCEVUnknown>(BECount);
-
-  if (UndefBECount && isa<UndefValue>(UndefBECount->getValue())) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with undef backedge taken count "
-                    "currently not supported.\n");
-    return false;
-  }
-
-  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
-
-  // This represents a trip count of 2^n while we can only handle a trip count
-  // up to 2^n-1.
-  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
-                    "IV range currently not supported.\n");
     return false;
   }
 
@@ -786,6 +781,23 @@ bool HIRRegionIdentification::isSelfGenerable(const Loop &Lp,
   if (!LatchCmpInst) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-instruction latch condition "
                     "currently not supported.\n");
+    return false;
+  }
+
+  // Use the outermost LLVM loop to evaluate the trip count as we do not know
+  // the outermost HIR parent loop. This is okay for the initial analysis. If we
+  // are not able to compute trip count of the loop after suppressing some
+  // parent loops, the loop will be handled as an unknown loop.
+  auto BECount =
+      SE->getBackedgeTakenCountForHIR(&Lp, getOutermostParentLoop(&Lp));
+
+  auto ConstBECount = dyn_cast<SCEVConstant>(BECount);
+
+  // This represents a trip count of 2^n while we can only handle a trip count
+  // up to 2^n-1.
+  if (ConstBECount && ConstBECount->getValue()->isMinusOne()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loops with trip count greater than the "
+                    "IV range currently not supported.\n");
     return false;
   }
 
@@ -944,36 +956,6 @@ void HIRRegionIdentification::createRegion(const Loop &Lp) {
   RegionCount++;
 }
 
-bool HIRRegionIdentification::canHandleInnerLoopnest(
-    const Loop *CurLp, const Loop *OutermostLp) const {
-
-  // Clear existing HIR cache before processing a new loopnest/region as the
-  // cache is contextual.
-  if (CurLp == OutermostLp) {
-    SE->clearHIRCache();
-  }
-
-  // Check whether countable loop turns into non-countable loop due to inner
-  // loopnest construction. This happens when the trip count of this loop
-  // depends on an outer loop IV which has been suppressed making
-  // ScalarEvolution's analysis conservative.
-  if (SE->hasLoopInvariantBackedgeTakenCount(CurLp)) {
-    auto HIRBECount = SE->getBackedgeTakenCountForHIR(CurLp, OutermostLp);
-
-    if (isa<SCEVCouldNotCompute>(HIRBECount)) {
-      return false;
-    }
-  }
-
-  for (auto I = CurLp->begin(), E = CurLp->end(); I != E; ++I) {
-    if (!canHandleInnerLoopnest(*I, OutermostLp)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
                                                 unsigned *LoopnestDepth) {
   SmallVector<Loop *, 8> GenerableLoops;
@@ -1008,12 +990,7 @@ bool HIRRegionIdentification::formRegionForLoop(const Loop &Lp,
     for (auto I = GenerableLoops.begin(), E = GenerableLoops.end(); I != E;
          ++I) {
       auto &Lp = **I;
-
-      if (canHandleInnerLoopnest(&Lp, &Lp)) {
-        createRegion(Lp);
-      } else {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Cannot handle inner loopnest.\n");
-      }
+      createRegion(Lp);
     }
   }
 

@@ -35,6 +35,7 @@ class SwitchInst;
 class DominatorTree;
 struct PostDominatorTree;
 class LoopInfo;
+class Loop;
 
 namespace loopopt {
 
@@ -92,6 +93,9 @@ private:
 
   /// Switches - HLSwitches map to be used by later passes.
   SmallDenseMap<HLSwitch *, const BasicBlock *, 8> Switches;
+
+  /// Maps loops to their early exits.
+  SmallDenseMap<Loop *, SmallVector<BasicBlock *, 4>, 16> EarlyExits;
 
   /// \brief Creates HLNodes corresponding to the terminator of the basic block.
   HLNode *populateTerminator(BasicBlock *BB, HLNode *InsertionPos);

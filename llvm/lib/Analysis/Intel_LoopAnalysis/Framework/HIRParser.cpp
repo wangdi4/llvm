@@ -2151,8 +2151,8 @@ void HIRParser::parse(HLLoop *HLoop) {
     CurOutermostLoop = Lp;
   }
 
-  if (SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
-    auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
+  auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
+  if (!isa<SCEVCouldNotCompute>(BETC)) {
 
     // Initialize Lower to 0.
     auto LowerRef = createLowerDDRef(IVType);

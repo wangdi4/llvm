@@ -18,10 +18,10 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCleanup.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRLoopFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRRegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -74,7 +74,7 @@ struct LoopCompareEqual {
     return LP1.first == LP2.first;
   }
 };
-}
+} // namespace
 
 HLLoop *HIRLoopFormation::findOrInsertHLLoopImpl(const Loop *Lp, HLLoop *HLoop,
                                                  bool Insert) {
@@ -112,8 +112,10 @@ HLLoop *HIRLoopFormation::findHLLoop(const Loop *Lp) {
   return findOrInsertHLLoopImpl(Lp, nullptr, false);
 }
 
-bool HIRLoopFormation::isNonNegativeNSWIV(const Instruction *Inst) const {
-  auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
+                                          const Instruction *Inst) const {
+  auto SC = SE->getSCEVForHIR(const_cast<Instruction *>(Inst),
+                              getOutermostHIRParentLoop(Lp));
 
   auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
 
@@ -135,7 +137,7 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
   auto IVType = IVPhi->getType();
 
   if (IVType->isIntegerTy()) {
-    if (isNonNegativeNSWIV(IVPhi)) {
+    if (isNonNegativeNSWIV(Lp, IVPhi)) {
       return true;
     }
 
@@ -164,7 +166,7 @@ bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
         continue;
       }
 
-      if (isNonNegativeNSWIV(&PhiInst)) {
+      if (isNonNegativeNSWIV(Lp, &PhiInst)) {
         return true;
       }
     }
@@ -273,7 +275,8 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   auto IfBB = HIR->getSrcBBlock(IfParent);
   auto IfBrInst = cast<BranchInst>(IfBB->getTerminator());
 
-  if (!SE->isLoopZtt(Lp, IfBrInst, PredicateInversion)) {
+  if (!SE->isLoopZtt(Lp, getOutermostHIRParentLoop(Lp), IfBrInst,
+                     PredicateInversion)) {
     return;
   }
 
@@ -299,32 +302,60 @@ void HIRLoopFormation::setZtt(HLLoop *HLoop) {
   }
 }
 
+const Loop *HIRLoopFormation::getOutermostHIRParentLoop(const Loop *Lp) const {
+  const Loop *ParLp, *TmpLp;
+
+  ParLp = Lp;
+
+  while ((TmpLp = ParLp->getParentLoop()) &&
+         CurRegion->containsBBlock(TmpLp->getHeader())) {
+    ParLp = TmpLp;
+  }
+
+  return ParLp;
+}
+
 void HIRLoopFormation::formLoops() {
+
+  HLRegion *PrevRegion = nullptr;
 
   // Traverse RequiredLabels set computed by HIRCleanup phase to form loops.
   for (auto I = HIRC->getRequiredLabels().begin(),
             E = HIRC->getRequiredLabels().end();
        I != E; ++I) {
-    BasicBlock *HeaderBB = (*I)->getSrcBBlock();
+    auto Label = *I;
+    BasicBlock *HeaderBB = Label->getSrcBBlock();
 
     if (!LI->isLoopHeader(HeaderBB)) {
       continue;
     }
 
+    CurRegion = Label->getParentRegion();
+
+    if (PrevRegion != CurRegion) {
+      // Since RequiredLabels is sorted by node number, this should work like
+      // lexical traversal of regions so we shouldn't be consuming extra compile
+      // time by unnecessarily switching between regions.
+      PrevRegion = CurRegion;
+      SE->clearHIRCache();
+    }
+
     // Found a loop
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
-    auto BECount = SE->getBackedgeTakenCount(Lp);
+    auto BECount =
+        SE->getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+
     bool IsUnknownLoop = isa<SCEVCouldNotCompute>(BECount);
     bool IsConstTripLoop = isa<SCEVConstant>(BECount);
 
     // Find HIR hook for the loop latch.
     auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
-    assert(((*I)->getParent() == LatchHook->getParent()) &&
+    assert((Label->getParent() == LatchHook->getParent()) &&
            "Wrong lexical links built!");
 
-    HLContainerTy::iterator LabelIter(*I);
+    HLContainerTy::iterator LabelIter(Label);
     HLContainerTy::iterator BottomTestIter(LatchHook);
 
     // Look for the bottom test.
@@ -334,7 +365,6 @@ void HIRLoopFormation::formLoops() {
 
     // Create a new loop and move its children inside.
     HLLoop *HLoop = HIR->getHLNodeUtils().createHLLoop(Lp);
-    setIVType(HLoop);
     HLoop->setLoopMetadata(Lp->getLoopID());
 
     HLIf *BottomTest = cast<HLIf>(&*BottomTestIter);
@@ -349,6 +379,8 @@ void HIRLoopFormation::formLoops() {
     auto EndIter = IsUnknownLoop ? std::next(BottomTestIter) : BottomTestIter;
 
     HIR->getHLNodeUtils().moveAsFirstChildren(HLoop, FirstChildIter, EndIter);
+
+    setIVType(HLoop);
 
     if (!IsUnknownLoop) {
       // Remove label and bottom test.

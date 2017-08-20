@@ -180,7 +180,7 @@ private:
 
   /// Returns a new external HLGoto that branches outside of HLRegion.
   /// Only used by framework.
-  HLGoto *createHLGoto(BasicBlock *TargetBB);
+  HLGoto *createHLGoto(BasicBlock *SrcBB, BasicBlock *TargetBB);
 
   /// Returns a new HLInst. Only used by framework.
   HLInst *createHLInst(Instruction *In);

@@ -105,9 +105,7 @@ struct HoistCandidate {
 
   HoistCandidate() : Level(0) {}
 
-  HLIf *getPilotIf() const {
-    return PilotIf;
-  }
+  HLIf *getPilotIf() const { return PilotIf; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD
@@ -263,7 +261,7 @@ struct HIROptPredicate::CandidateLookup final : public HLNodeVisitorBase {
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
 };
-}
+} // namespace
 
 bool HIROptPredicate::CandidateLookup::isCandidate(const RegDDRef *Ref) const {
   // Only handle scalar references.
@@ -362,6 +360,12 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
 
   bool TransformLoop = true;
 
+  // TODO : Enable pred-opt for multi-exit loops when we can properly clean up
+  // unconditional loop exit gotos.
+  if (Loop->getNumExits() > 1) {
+    TransformLoop = false;
+  }
+
   if (!DisableCostModel && !Loop->isInnermost()) {
     TransformLoop = false;
   }
@@ -379,18 +383,19 @@ INITIALIZE_PASS_END(HIROptPredicate, OPT_SWITCH, OPT_DESC, false, false)
 FunctionPass *llvm::createHIROptPredicatePass() { return new HIROptPredicate; }
 
 void HIROptPredicate::sortCandidates() {
-  std::sort(Candidates.begin(), Candidates.end(), [](const HoistCandidate &A,
-                                                     const HoistCandidate &B) {
-    auto SizeA = A.Ifs.size();
-    auto SizeB = B.Ifs.size();
+  std::sort(Candidates.begin(), Candidates.end(),
+            [](const HoistCandidate &A, const HoistCandidate &B) {
+              auto SizeA = A.Ifs.size();
+              auto SizeB = B.Ifs.size();
 
-    // Candidates with more If statements would be transformed first.
-    if (SizeA != SizeB) {
-      return SizeB < SizeA;
-    } else {
-      return B.getPilotIf()->getTopSortNum() < A.getPilotIf()->getTopSortNum();
-    }
-  });
+              // Candidates with more If statements would be transformed first.
+              if (SizeA != SizeB) {
+                return SizeB < SizeA;
+              } else {
+                return B.getPilotIf()->getTopSortNum() <
+                       A.getPilotIf()->getTopSortNum();
+              }
+            });
 }
 
 bool HIROptPredicate::runOnFunction(Function &F) {

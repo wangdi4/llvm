@@ -1102,6 +1102,11 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
   // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
 
+  // This lets us generate code for HIR regions independently without concern
+  // for livouts from one reigon being livein to another region. It also
+  // considerably simplifies handling of liveout values for multi-exit regions.
+  PM.add(createLCSSAPass());
+
   if (PrintModuleBeforeLoopopt)
     PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
 

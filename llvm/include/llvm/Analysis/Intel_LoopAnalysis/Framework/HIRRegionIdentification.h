@@ -141,11 +141,6 @@ private:
   /// Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 
-  /// Performs checks to see if we can handle the inner loopnest represented by
-  /// \p OutermostLp. This is only applicable when \p OutermostLp has parent
-  /// loops which have been suppressed.
-  bool canHandleInnerLoopnest(const Loop *CurLp, const Loop *OutermostLp) const;
-
   /// Returns true if we can form a region around this loop. Returns the max
   /// loopnest depth in LoopnestDepth.
   bool formRegionForLoop(const Loop &Lp, unsigned *LoopnestDepth);
@@ -193,6 +188,9 @@ public:
   /// Returns true if this type is supported. Currently returns false for
   /// structure and function types.
   static bool isSupported(Type *Ty);
+
+  /// Returns the outermost parent loop of \p Lp.
+  static const Loop *getOutermostParentLoop(const Loop *Lp);
 
   // NOTE: Following functions were moved here so they can be shared between
   // HIRParser and SSADeconstruction. Is there a better way?

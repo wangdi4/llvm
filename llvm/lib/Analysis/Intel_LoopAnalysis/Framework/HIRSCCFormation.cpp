@@ -15,9 +15,9 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/IRRegion.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -219,6 +219,28 @@ bool HIRSCCFormation::dependsOnSameBasicBlockPhi(const PHINode *Phi) const {
   return false;
 }
 
+bool HIRSCCFormation::hasEarlyExitPredecessor(const PHINode *Phi) const {
+
+  // Phis in innermost loops cannot have early exit predecessors.
+  if (CurLoop->empty()) {
+    return false;
+  }
+
+  auto PhiLp = LI->getLoopFor(Phi->getParent());
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I < E; ++I) {
+    auto PredBB = Phi->getIncomingBlock(I);
+
+    auto PredLp = LI->getLoopFor(PredBB);
+
+    if ((PredLp != PhiLp) && (PredBB != PredLp->getLoopLatch())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Use is outside the loop bring processed.
@@ -276,7 +298,10 @@ bool HIRSCCFormation::isCandidateNode(const NodeTy *Node) const {
     return (!isLoopLiveOut(Phi) || !dependsOnSameBasicBlockPhi(Phi));
   }
 
-  return usedInHeaderPhi(Phi);
+  // If phi has a predecessor which is an early exit from an inner loop, then it
+  // gets complicated to preserve loop simplify form if we want to split this
+  // edge during SSA deconstruction so we suppress the SCC formation.
+  return (usedInHeaderPhi(Phi) && !hasEarlyExitPredecessor(Phi));
 }
 
 HIRSCCFormation::NodeTy::user_iterator

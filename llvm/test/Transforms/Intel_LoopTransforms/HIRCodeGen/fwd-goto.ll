@@ -54,7 +54,8 @@ entry:
   br label %for.body
 
 for.cond.cleanup:                                 ; preds = %alter
-  ret i32 %dec
+  %dec.lcssa = phi i32 [ %dec, %alter ]
+  ret i32 %dec.lcssa
 
 for.body:                                         ; preds = %alter, %entry
   %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %alter ]

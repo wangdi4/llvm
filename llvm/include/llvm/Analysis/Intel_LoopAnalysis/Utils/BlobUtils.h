@@ -16,9 +16,11 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_BLOBUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_BLOBUTILS_H
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Compiler.h"
 
 namespace llvm {
+class raw_ostream;
 class Value;
 class Type;
 class SCEV;
@@ -29,6 +31,7 @@ class Function;
 class Module;
 class LLVMContext;
 class DataLayout;
+class MetadataAsValue;
 
 namespace loopopt {
 

@@ -297,6 +297,11 @@ bool HIRGeneralUnroll::isApplicable(const HLLoop *Loop) const {
     return false;
   }
 
+  // TODO: Enable unroll for multi-exit loops with perf tuning.
+  if (Loop->getNumExits() > 1) {
+    return false;
+  }
+
   uint64_t TripCount;
 
   if (((!IsUnknown && Loop->isConstTripLoop(&TripCount)) ||

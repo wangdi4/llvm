@@ -85,8 +85,8 @@ HLLabel *HLNodeUtils::createHLLabel(const Twine &Name) {
   return new HLLabel(*this, Name);
 }
 
-HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB) {
-  return new HLGoto(*this, TargetBB);
+HLGoto *HLNodeUtils::createHLGoto(BasicBlock *SrcBB, BasicBlock *TargetBB) {
+  return new HLGoto(*this, SrcBB, TargetBB);
 }
 
 HLGoto *HLNodeUtils::createHLGoto(HLLabel *TargetL) {

@@ -140,6 +140,10 @@ private:
   /// another phi defined in the same bblock as itself.
   bool dependsOnSameBasicBlockPhi(const PHINode *Phi) const;
 
+  /// Returns true if \p Phi has a predecessor which is an early exit from an
+  /// inner loop.
+  bool hasEarlyExitPredecessor(const PHINode *Phi) const;
+
   /// Returns true if this is a node of the graph.
   bool isCandidateNode(const NodeTy *Node) const;
 
