@@ -398,7 +398,9 @@ bool HIROptVarPredicate::runOnFunction(Function &F) {
     } else {
       HIRInvalidationUtils::invalidateNonLoopRegion(cast<HLRegion>(Node));
     }
-    HLNodeUtils::removeEmptyNodes(Node, false);
+    HLNodeUtils::removeRedundantNodes(Node, false);
+    // TODO: update exits for multiexit loops
+    // HLNodeUtils::updateNumLoopExits(Node);
   }
 
   return false;
@@ -654,7 +656,7 @@ bool HIROptVarPredicate::processLoop(HLLoop *Loop) {
   DEBUG(dbgs() << "Processing loop #" << Loop->getNumber() << "\n");
 
   if (!Loop->isDo()) {
-    DEBUG(dbgs() << "Non-DO loop found\n");
+    DEBUG(dbgs() << "Unknown/Multiexit loop skipped.\n");
     return false;
   }
 

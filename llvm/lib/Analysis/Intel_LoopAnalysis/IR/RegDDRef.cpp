@@ -1229,3 +1229,15 @@ void RegDDRef::shift(unsigned LoopLevel, int64_t Amount) {
     CE->shift(LoopLevel, Amount);
   }
 }
+
+void RegDDRef::demoteIVs(unsigned StartLevel) {
+  unsigned Dim = getNumDimensions();
+
+  // Examine every Dimension
+  for (unsigned I = 1; I <= Dim; ++I) {
+    CanonExpr *CE = getDimensionIndex(I);
+
+    // Shift to create target CE
+    CE->demoteIVs(StartLevel);
+  }
+}

@@ -2035,7 +2035,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, CanonExprUpdater &CEUpdater,
   }
 
   if (ZttHasBlob) {
-    HNU.visit<false>(CEUpdater, Loop->extractZtt(CEUpdater.TopLoopLevel + 1));
+    HNU.visit<false>(CEUpdater, Loop->extractZtt(CEUpdater.TopLoopLevel));
   } else {
     Loop->removeZtt();
   }

@@ -401,10 +401,13 @@ public:
   }
 
   /// Returns true if this is a do loop.
-  bool isDo() const { return ((NumExits == 1) && !isUnknown()); }
+  bool isDo() const { return (!isMultiExit() && !isUnknown()); }
 
   /// Returns true if this is a do multi-exit loop.
-  bool isDoMultiExit() const { return ((NumExits > 1) && !isUnknown()); }
+  bool isDoMultiExit() const { return (isMultiExit() && !isUnknown()); }
+
+  /// Returns true if this is a multi-exit loop.
+  bool isMultiExit() const { return NumExits > 1; }
 
   /// Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
@@ -516,6 +519,9 @@ public:
 
   /// Removes loop postexit nodes.
   void removePostexit();
+
+  /// Replaces the loop with its body and IVs with the lower bound.
+  void replaceByFirstIteration();
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }

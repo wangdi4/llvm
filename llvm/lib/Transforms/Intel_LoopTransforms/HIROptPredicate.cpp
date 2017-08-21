@@ -99,7 +99,8 @@ struct HoistCandidate {
   unsigned Level;
   SmallVector<HLIf *, 8> Clones;
 
-  HoistCandidate(HLIf *If, unsigned Level) : PilotIf(If), Level(Level) {
+  HoistCandidate(HLIf *If, unsigned Level)
+      : PilotIf(If), Level(Level) {
     Ifs.insert(If);
   }
 
@@ -154,7 +155,7 @@ private:
   /// \brief This routine will loop through the candidate loop to look
   /// for HLIf candidates. If all conditions are met, it will transform
   /// the loop. Returns true if transformation happened.
-  bool processOptPredicate();
+  bool processOptPredicate(bool &HasMultiexitLoop);
 
   /// Returns the deepest level at which any of the If operands is defined.
   static unsigned getDefinedAtLevel(const HLIf *If);
@@ -317,6 +318,7 @@ void HIROptPredicate::CandidateLookup::visit(HLIf *If) {
   CandidateLookup Lookup(Pass, IsCandidate, Level);
   If->getHLNodeUtils().visitRange(Lookup, If->then_begin(), If->then_end());
   If->getHLNodeUtils().visitRange(Lookup, If->else_begin(), If->else_end());
+
   if (!IsCandidate || Lookup.HasLabel) {
     return;
   }
@@ -359,12 +361,6 @@ void HIROptPredicate::CandidateLookup::visit(HLLoop *Loop) {
   SkipNode = Loop;
 
   bool TransformLoop = true;
-
-  // TODO : Enable pred-opt for multi-exit loops when we can properly clean up
-  // unconditional loop exit gotos.
-  if (Loop->getNumExits() > 1) {
-    TransformLoop = false;
-  }
 
   if (!DisableCostModel && !Loop->isInnermost()) {
     TransformLoop = false;
@@ -418,9 +414,14 @@ bool HIROptPredicate::runOnFunction(Function &F) {
     DEBUG(dbgs() << "Candidates:\n");
     DEBUG(dumpCandidates());
 
-    if (processOptPredicate()) {
+    bool HasMultiexitLoop;
+    if (processOptPredicate(HasMultiexitLoop)) {
       Region->setGenCode();
       HLNodeUtils::removeRedundantNodes(Region, false);
+
+      if (HasMultiexitLoop) {
+        HLNodeUtils::updateNumLoopExits(Region);
+      }
     }
 
     Candidates.clear();
@@ -462,7 +463,7 @@ unsigned HIROptPredicate::getDefinedAtLevel(const HLIf *If) {
 }
 
 /// processOptPredicate - Main routine to perform opt predicate transformation.
-bool HIROptPredicate::processOptPredicate() {
+bool HIROptPredicate::processOptPredicate(bool &HasMultiexitLoop) {
   SmallPtrSet<HLLoop *, 8> ParentLoopsToInvalidate;
   SmallPtrSet<HLLoop *, 8> TargetLoopsToInvalidate;
 
@@ -522,8 +523,15 @@ bool HIROptPredicate::processOptPredicate() {
     DEBUG(dumpCandidates());
   }
 
+  HasMultiexitLoop = false;
+
   // Mark loop as modified in all the analysis.
   for (HLLoop *Loop : ParentLoopsToInvalidate) {
+    if (Loop->isMultiExit()) {
+      // It will be used in the caller to update exit counts.
+      HasMultiexitLoop = true;
+    }
+
     HIRInvalidationUtils::invalidateBody(Loop);
   }
   for (HLLoop *Loop : TargetLoopsToInvalidate) {
@@ -566,7 +574,7 @@ void HIROptPredicate::transformCandidate(HLLoop *TargetLoop,
       HNU.insertAfter(If, &ThenContainer);
     }
 
-    // Insert else-case afther the cloned HLIf
+    // Insert else-case after the cloned HLIf
     if (!ElseContainer.empty()) {
       // Update HLGotos to new cloned targets
       HIRTransformUtils::remapLabelsRange(CloneMapper, &ElseContainer.front(),

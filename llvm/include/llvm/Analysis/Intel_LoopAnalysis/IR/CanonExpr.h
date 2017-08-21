@@ -662,8 +662,15 @@ public:
   /// For example, if CE = 2 * i1, call to shift(1, 1) will result in
   /// CE = 2 * (i1 + 1) => 2 * i1 + 2.
   void shift(unsigned Lvl, int64_t Val);
+
   /// Iterator version of shift.
   void shift(iv_iterator IVI, int64_t Val);
+
+  /// Demotes the nesting level of all canon expr IVs starting from \p
+  /// StartLevel.
+  /// E.g.
+  /// i2 -> i1, i3 -> i2, ...
+  void demoteIVs(unsigned StartLevel);
 
   /// Populates Indices with all the blobs contained in the CanonExpr
   /// (including blob IV coeffs). The blobs are sorted and uniqued if

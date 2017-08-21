@@ -233,19 +233,24 @@ public:
   /// Return: bool
   /// - true: if replacIVByCanonExpr() succeeds on each loop-level IV in Ref
   /// -false: otherwise
+  ///
+  /// See Also: CanonExprUtils::canReplaceIVByCanonExpr()
   static bool canReplaceIVByCanonExpr(const RegDDRef *Ref, unsigned LoopLevel,
                                       const CanonExpr *CE,
-                                      bool RelaxedMode = true);
+                                      bool RelaxedMode = true,
+                                      bool CastToBlob = false);
 
   /// Replace any IV in the Ref with a given CanonExpr*.
-  ///(e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
+  /// (e.g. A[i]->A[CE], A[i+2]->A[CE+2] )
   ///
   /// Note: The function asserts if the replacement fails as the Ref may be in
   /// an inconsistent state. Caller should call canReplaceIVByCanonExpr() first
   /// to make sure this is safe to do.
+  ///
+  /// See Also: CanonExprUtils::replaceIVByCanonExpr().
   static void replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                   const CanonExpr *CE,
-                                   bool RelaxedMode = true);
+                                   const CanonExpr *CE, bool RelaxedMode = true,
+                                   bool CastToBlob = false);
 };
 
 } // End namespace loopopt

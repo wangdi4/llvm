@@ -1344,6 +1344,9 @@ public:
   static bool removeRedundantNodesRange(HLContainerTy::iterator Begin,
                                         HLContainerTy::iterator End,
                                         bool RemoveEmptyParentNodes = true);
+
+  // Recompute loop exits in the subtree starting from \p Node.
+  static void updateNumLoopExits(HLNode *Node);
 };
 
 } // End namespace loopopt

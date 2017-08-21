@@ -3459,6 +3459,8 @@ STATISTIC(RedundantPredicates,
           "Number of redundant predicates removed by utility");
 STATISTIC(RedundantInstructions,
           "Number of redundant instructions removed by utility");
+STATISTIC(RedundantEarlyExitLoops,
+          "Number of loops with unconditional exit removed by the utility");
 
 class EmptyNodeRemoverVisitorImpl : public HLNodeVisitorBase {
 protected:
@@ -3564,7 +3566,7 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   HLNode *LastNodeToRemove;
 
   // The goto candidates to be removed.
-  SmallVector<HLGoto *, 4> GotosToRemove;
+  SmallPtrSet<HLGoto *, 4> GotosToRemove;
 
   // Flag that enables HLLabel removal logic.
   HLNode *LabelSafeContainer;
@@ -3575,10 +3577,14 @@ class RedundantNodeRemoverVisitor final : public EmptyNodeRemoverVisitorImpl {
   // Number of jumps for each label.
   SmallDenseMap<HLLabel *, unsigned, 8> LabelJumps;
 
+  // Indicates that the current node is in the junction point of multiple
+  // blocks.
+  bool IsJoinNode;
+
 public:
   RedundantNodeRemoverVisitor()
       : SkipNode(nullptr), LastNodeToRemove(nullptr),
-        LabelSafeContainer(nullptr) {}
+        LabelSafeContainer(nullptr), IsJoinNode(false) {}
 
   void visit(HLRegion *Region) {
     assert(LabelSafeContainer == nullptr &&
@@ -3661,20 +3667,26 @@ public:
     visit(static_cast<HLDDNode *>(Switch));
   }
 
-  void removeGotosIfPointTo(HLNode *Node) {
+  void removeSiblingGotosWithTarget(HLNode *Node) {
     SmallVector<HLGoto *, 4> FoundGotos;
 
-    std::for_each(GotosToRemove.begin(), GotosToRemove.end(),
-                  [Node, &FoundGotos](HLGoto *Goto) {
-                    if (Goto->getTargetLabel() == Node) {
-                      FoundGotos.push_back(Goto);
-                    }
-                  });
+    // Collect all gotos pointing to Node which are either a direct siblings to
+    // the target label or a last node in their parent containers.
+    std::for_each(
+        GotosToRemove.begin(), GotosToRemove.end(),
+        [Node, &FoundGotos](HLGoto *Goto) {
+          if (Goto->getTargetLabel() == Node &&
+              (Goto->getNextNode() == Node ||
+               HLNodeUtils::getLastLexicalChild(Goto->getParent()) == Goto)) {
+            FoundGotos.push_back(Goto);
+          }
+        });
 
     for (HLGoto *Goto : FoundGotos) {
       RedundantInstructions++;
       HLNodeUtils::remove(Goto);
       LabelJumps[Goto->getTargetLabel()]--;
+      GotosToRemove.erase(Goto);
     }
   }
 
@@ -3693,9 +3705,9 @@ public:
     HLNode *ContainerLastNode =
         HLNodeUtils::getLastLexicalChild(Goto->getParent(), Goto);
 
-    if (!Goto->isExternal()) {
-      GotosToRemove.push_back(Goto);
+    GotosToRemove.insert(Goto);
 
+    if (!Goto->isExternal()) {
       if (LabelSafeContainer) {
         LabelJumps[Goto->getTargetLabel()]++;
       }
@@ -3721,9 +3733,8 @@ public:
       return;
     }
 
-    if (LastNodeToRemove == Label) {
-      removeGotosIfPointTo(Label);
-      GotosToRemove.clear();
+    if (LastNodeToRemove == Label || IsJoinNode) {
+      removeSiblingGotosWithTarget(Label);
     }
 
     auto MayRemoveLabel = [this](HLLabel *Label) {
@@ -3751,7 +3762,31 @@ public:
       LabelSafeContainer = nullptr;
     }
 
-    postVisitImpl(Loop);
+    HLGoto *LastGoto =  dyn_cast_or_null<HLGoto>(Loop->getLastChild());
+    if (LastGoto) {
+      // If there is a goto left at the end of the loop we have to convert loop
+      // to a straight line code.
+
+      // Stop removing nodes.
+      LastNodeToRemove = nullptr;
+
+      assert((LastGoto->isExternal() ||
+              (LastGoto->getTargetLabel()->getTopSortNum() >
+               Loop->getMaxTopSortNum())) &&
+             "Non exit goto found at the end of the loop.");
+
+      Loop->replaceByFirstIteration();
+      RedundantEarlyExitLoops++;
+
+      // Have to handle the label again in the context of parent loop.
+      // But do not take into account previous jump;
+      LabelJumps[LastGoto->getTargetLabel()]--;
+
+      visit(LastGoto);
+    } else {
+      // The loop will stay attached - handle as regular node.
+      postVisitImpl(Loop);
+    }
   }
 
   template <typename NodeTy> void postVisit(NodeTy *Node) {
@@ -3759,10 +3794,7 @@ public:
   }
 
   template <typename NodeTy> void postVisitImpl(NodeTy *Node) {
-    if (HLNode *NextNode = Node->getNextNode()) {
-      removeGotosIfPointTo(NextNode);
-      GotosToRemove.clear();
-    }
+    IsJoinNode = true;
 
     LastNodeToRemove = nullptr;
 
@@ -3780,6 +3812,13 @@ public:
       if (Node == LastNodeToRemove) {
         LastNodeToRemove = nullptr;
       }
+    } else {
+      // Clear gotos as we are not able to remove any of them because there's a
+      // node between gotos and a label.
+      GotosToRemove.clear();
+
+      // Unable to remove node means this is not a join point now.
+      IsJoinNode = false;
     }
 
     EmptyNodeRemoverVisitorImpl::visit(Node);
@@ -3847,4 +3886,49 @@ bool HLNodeUtils::removeRedundantNodesRange(HLContainerTy::iterator Begin,
                                             bool RemoveEmptyParentNodes) {
   return removeNodesRangeImpl<RedundantNodeRemoverVisitor>(
       Begin, End, RemoveEmptyParentNodes);
+}
+
+struct UpdateLoopExitsVisitor final : public HLNodeVisitorBase {
+  SmallVector<HLLoop *, MaxLoopNestLevel> Loops;
+
+  void visit(HLLoop *Loop) {
+    Loop->setNumExits(1);
+
+    assert(Loop->hasChildren() && "Empty loops are unexpected.");
+
+    Loops.push_back(Loop);
+  }
+
+  void postVisit(HLLoop *Loop) {
+    assert(Loops.back() == Loop &&
+           "Current loop is expected to be on top of the stack");
+    Loops.pop_back();
+  }
+
+  void visit(HLGoto *Goto) {
+    // Skip region level gotos.
+    if (Loops.empty()) {
+      return;
+    }
+
+    unsigned TargetTopsortNum =
+        Goto->isExternal() ? -1 : Goto->getTargetLabel()->getTopSortNum();
+
+    for(auto I = Loops.rbegin(), E = Loops.rend(); I != E; ++I) {
+      HLLoop *Loop = *I;
+      if (TargetTopsortNum > Loop->getMaxTopSortNum()) {
+        Loop->setNumExits(Loop->getNumExits() + 1);
+      } else {
+        break;
+      }
+    }
+  }
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+};
+
+void HLNodeUtils::updateNumLoopExits(HLNode *Node) {
+  UpdateLoopExitsVisitor V;
+  HLNodeUtils::visit(V, Node);
 }

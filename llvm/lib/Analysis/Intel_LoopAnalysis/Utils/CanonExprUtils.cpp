@@ -512,20 +512,22 @@ bool CanonExprUtils::hasNonLinearSemantics(unsigned DefLevel,
 bool CanonExprUtils::canReplaceIVByCanonExpr(const CanonExpr *CE1,
                                              unsigned Level,
                                              const CanonExpr *CE2,
-                                             bool RelaxedMode) {
+                                             bool RelaxedMode,
+                                             bool CastToBlob) {
   // Perform cheap checks here to avoid allocating memory.
-  if (!CE1->hasIV(Level) || CE2->isZero()) {
+  if (!CE1->hasIV(Level) || CE2->isIntConstant()) {
     return true;
   }
 
   std::unique_ptr<CanonExpr> CE1Clone(CE1->clone());
 
-  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode);
+  return replaceIVByCanonExpr(CE1Clone.get(), Level, CE2, RelaxedMode,
+                              CastToBlob);
 }
 
 bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
                                           const CanonExpr *CE2,
-                                          bool RelaxedMode) {
+                                          bool RelaxedMode, bool CastToBlob) {
 
   // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
   // CE2 = C2*B2
@@ -535,17 +537,32 @@ bool CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
     return true;
   }
 
-  // If CE2 is zero - just remove the IV
-  if (CE2->isZero()) {
-    CE1->removeIV(Level);
+  int64_t CE2Value;
+  if (CE2->isIntConstant(&CE2Value)) {
+    CE1->replaceIVByConstant(Level, CE2Value);
     return true;
   }
 
-  if (!mergeable(CE1, CE2, RelaxedMode)) {
-    return false;
+  // Try to merge first
+  bool Mergeable = mergeable(CE1, CE2, RelaxedMode);
+  if (!Mergeable) {
+    if (!CastToBlob) {
+      // If cast is not allowed.
+      return false;
+    }
+
+    if (!CE2->canConvertToStandAloneBlob()) {
+      // If can not be casted
+      return false;
+    }
   }
 
   std::unique_ptr<CanonExpr> Term(CE2->clone());
+
+  if (!Mergeable) {
+    // Not meargeable but could be casted to a blob with a correspondent type.
+    Term->castStandAloneBlob(CE1->getSrcType(), false);
+  }
 
   // It's safe to change the Term type as CE1 and CE2 are mergeable.
   Term->setSrcAndDestType(CE1->getSrcType());

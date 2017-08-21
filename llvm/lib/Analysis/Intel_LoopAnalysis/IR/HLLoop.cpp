@@ -839,7 +839,7 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
   getHLNodeUtils().moveAsFirstChild(Ztt, this, true);
 
   if (NewLevel == NonLinearLevel) {
-    NewLevel = getNestingLevel();
+    NewLevel = getNestingLevel() - 1;
   }
 
   assert(CanonExprUtils::isValidLinearDefLevel(NewLevel) &&
@@ -847,7 +847,7 @@ HLIf *HLLoop::extractZtt(unsigned NewLevel) {
 
   std::for_each(
       Ztt->ddref_begin(), Ztt->ddref_end(),
-      [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel - 1); });
+      [NewLevel](RegDDRef *Ref) { Ref->updateDefLevel(NewLevel); });
 
   return Ztt;
 }
@@ -885,6 +885,62 @@ void HLLoop::removePreheader() {
 
 void HLLoop::removePostexit() {
   getHLNodeUtils().remove(post_begin(), post_end());
+}
+
+void HLLoop::replaceByFirstIteration() {
+  unsigned Level = getNestingLevel();
+  extractZtt(Level - 1);
+  extractPreheader();
+
+  bool IsInnermost = isInnermost();
+
+  const RegDDRef *LB = getLowerDDRef();
+  SmallVector<const RegDDRef*, 4> Aux = {LB};
+
+  auto &HNU = getHLNodeUtils();
+
+  RegDDRef *ExplicitLB = nullptr;
+
+  ForEach<RegDDRef>::visitRange(
+      child_begin(), child_end(),
+      [this, &HNU, Level, &Aux, LB, &ExplicitLB, IsInnermost](RegDDRef *Ref) {
+
+        const CanonExpr *IVReplacement = nullptr;
+
+        if (DDRefUtils::canReplaceIVByCanonExpr(Ref, Level,
+                                                LB->getSingleCanonExpr())) {
+          IVReplacement = LB->getSingleCanonExpr();
+        } else {
+          if (!ExplicitLB) {
+            // Create explicit copy statement
+            HLInst *LBCopy = HNU.createCopyInst(getLowerDDRef()->clone(), "lb");
+            HNU.insertBefore(this, LBCopy);
+            ExplicitLB = LBCopy->getLvalDDRef();
+            Aux.push_back(ExplicitLB);
+          }
+
+          IVReplacement = ExplicitLB->getSingleCanonExpr();
+        }
+
+        // Expected to be always successful.
+        DDRefUtils::replaceIVByCanonExpr(Ref, Level, IVReplacement, false,
+                                         true);
+
+        if (!IsInnermost) {
+          // Innermost loops doesn't contain IVs deeper than Level.
+          Ref->demoteIVs(Level + 1);
+        }
+
+        Ref->makeConsistent(&Aux, Level - 1);
+      });
+
+  // To minimize the possibility of topsort numbers re-computation, detach the
+  // loop before moving the body nodes.
+  HLNode *Marker = HNU.getOrCreateMarkerNode();
+  HNU.replace(this, Marker);
+
+  HNU.moveAfter(Marker, child_begin(), child_end());
+  HNU.remove(Marker);
 }
 
 void HLLoop::verify() const {
@@ -1055,7 +1111,7 @@ void HLLoop::markDoNotVectorize() {
 }
 
 bool HLLoop::canNormalize() const {
-  if (!isDo()) {
+  if (isUnknown()) {
     return false;
   }
 
@@ -1095,6 +1151,8 @@ bool HLLoop::normalize() {
   }
 
   if (!canNormalize()) {
+    DEBUG_NORMALIZE(dbgs() << "[HIR-NORMALIZE] Can not normalize loop "
+                           << getNumber() << "\n");
     return false;
   }
 

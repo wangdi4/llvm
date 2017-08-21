@@ -469,14 +469,14 @@ bool DDRefUtils::compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2) {
 
 bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
                                          unsigned LoopLevel,
-                                         const CanonExpr *CE,
-                                         bool RelaxedMode) {
+                                         const CanonExpr *CE, bool RelaxedMode,
+                                         bool CastToBlob) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
     CanonExpr *CurCE = (*I);
 
     if (!CanonExprUtils::canReplaceIVByCanonExpr(CurCE, LoopLevel, CE,
-                                                 RelaxedMode)) {
+                                                 RelaxedMode, CastToBlob)) {
       return false;
     }
   }
@@ -485,13 +485,14 @@ bool DDRefUtils::canReplaceIVByCanonExpr(const RegDDRef *Ref,
 }
 
 void DDRefUtils::replaceIVByCanonExpr(RegDDRef *Ref, unsigned LoopLevel,
-                                      const CanonExpr *CE, bool RelaxedMode) {
+                                      const CanonExpr *CE, bool RelaxedMode,
+                                      bool CastToBlob) {
 
   for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
     CanonExpr *CurCE = (*I);
 
-    auto Res =
-        CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE, RelaxedMode);
+    auto Res = CanonExprUtils::replaceIVByCanonExpr(CurCE, LoopLevel, CE,
+                                                    RelaxedMode, CastToBlob);
     (void)Res;
     assert(Res && "Replacement failed, caller should call "
                   "DDRefUtils::canReplaceIVByCanonExpr() first!");
