@@ -229,12 +229,23 @@ namespace intel {
       // store i8*
       //    bitcast (i32 (i8*, i32)* @__kernel_scope_block_invoke to i8*), i8** %block.invoke
       else if(ConstantExpr *CE = dyn_cast<ConstantExpr>(I)) {
-        if (!CE->getOpcode() == Instruction::BitCast && !CE->getOpcode() == Instruction::AddrSpaceCast)
+        if (CE->getOpcode() == Instruction::GetElementPtr) {
+          // create a temporary mirror of ConstantExpr GEP just for sake of checking if that's the GEP we're looking for.
+          auto *GEP = cast<GetElementPtrInst>(CE->getAsInstruction());
+          if (IsGEPBlockInvokeAccess(GEP)) {
+            I = CE->getOperand(0);
+            GEP->dropAllReferences();
+            continue;
+          }
+        }
+        else if ((CE->getOpcode() == Instruction::BitCast) || (CE->getOpcode() == Instruction::AddrSpaceCast)) {
           // expected bitcast in constant expression
           // observations from clang's generated code
+          I = CE->getOperand(0);
+          continue;
+        } else {
           break;
-        I = CE->getOperand(0);
-        continue;
+        }
       }
       // define internal i32 @__kernel_scope_block_invoke(i8* %.block_descriptor, i32 %num) nounwind
       else if(Function *F = dyn_cast<Function>(I)) {
