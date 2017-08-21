@@ -207,6 +207,8 @@ private:
 
   /// \brief Generate the lastprivate update code.
   void genLprivFini(LastprivateItem *LprivI, Instruction *InsertPt);
+
+  /// \brief Generate the lastprivate update code for taskloop
   void genLprivFiniForTaskLoop(Value *Dst, Value *Src, Instruction *InsertPt);
 
   /// \brief Generate loop schdudeling code.
@@ -218,13 +220,24 @@ private:
   /// the thunk field dereferences
   bool genTaskLoopInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
                            StructType *&KmpSharedTy, Value *&LBPtr,
-                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep);
+                           Value *&UBPtr, Value *&STPtr, Value *&LastIterGep,
+                           bool isLoop = true);
+  bool genTaskInitCode(WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
+                       StructType *&KmpSharedTy, Value *&LastIterGep);
 
   /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
   /// corresponding outlined function
   bool genTaskLoopCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
                        StructType *KmpSharedTy, Value *LBPtr, Value *UBPtr,
-                       Value *STPtr);
+                       Value *STPtr, bool isLoop = true);
+
+  /// \brief Generate the call __kmpc_omp_task_alloc, __kmpc_omp_task and the
+  /// corresponding outlined function.
+  bool genTaskCode(WRegionNode *W, StructType *KmpTaskTTWithPrivatesTy,
+                   StructType *KmpSharedTy);
+
+  /// \brief Generate the call __kmpc_omp_taskwait.
+  bool genTaskWaitCode(WRegionNode *W);
 
   /// \brief Replace the shared variable reference with the thunk field
   /// derefernce
@@ -257,10 +270,6 @@ private:
   void genLoopInitCodeForTaskLoop(WRegionNode *W, Value *&LBPtr, Value *&UBPtr,
                                   Value *&STPtr);
 
-  /// \brief Prepare the scope alias metadata for the references of the
-  /// firstprivate, lastprivate, private shared, reduction variables
-  void prepareNoAliasMetadataInTaskLoop(WRegionNode *W);
-
   /// \brief Generate the outline function of reduction initilaization
   Function *genTaskLoopRedInitFunc(WRegionNode *W, ReductionItem *RedI);
 
@@ -271,10 +280,6 @@ private:
   //  flag at runtime.
   Function *genLastPrivateTaskDup(WRegionNode *W,
                                   StructType *KmpTaskTTWithPrivatesTy);
-
-  /// \brief Annotate the alias scope data for the references of the
-  /// firstprivate, lastprivate, private shared, reduction variables
-  void annotateInstWithNoAlias(Instruction *ItemInst, Item *IT);
 
   /// \brief Generate the function type void @routine_entry(i32 %tid, i8*)
   void genKmpRoutineEntryT();
@@ -333,7 +338,7 @@ private:
   /// \brief Cleans up the generated __kmpc_global_thread_num() in the
   /// outlined function. It also cleans the genererated bid alloca 
   /// instruction in the outline function.
-  void finiCodeExtractorPrepare(Function *F, bool ForTaskLoop = false);
+  void finiCodeExtractorPrepare(Function *F, bool ForTask = false);
 
   /// \brief Collects the bid alloca instructions used by the outline functions.
   void collectTidAndBidInstructionsForBB(BasicBlock *BB);
@@ -349,7 +354,7 @@ private:
   /// \brief Replaces the use of tid/bid with the outlined function arguments.
   void finiCodeExtractorPrepareTransform(Function *F, bool IsTid,
                                          BasicBlock *NextBB,
-                                         bool ForTaskLoop = false);
+                                         bool ForTask = false);
 
   /// \brief Generate multithreaded for a given WRegion
   bool genMultiThreadedCode(WRegionNode *W);

@@ -246,16 +246,18 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
     }
   }
 
-  LastprivateClause &LprivClause = W->getLpriv();
-  if (!LprivClause.empty()) {
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      Value *Orig = LprivI->getOrig();
-      auto PT = dyn_cast<PointerType>(Orig->getType());
-      assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
-                   "pionter argument");
-      KmpPrivatesIndices.push_back(PT->getElementType());
-      SharedIndices.push_back(PT);
-      LprivI->setThunkIdx(Count++);
+  if (W->hasLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    if (!LprivClause.empty()) {
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        Value *Orig = LprivI->getOrig();
+        auto PT = dyn_cast<PointerType>(Orig->getType());
+        assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
+                     "pionter argument");
+        KmpPrivatesIndices.push_back(PT->getElementType());
+        SharedIndices.push_back(PT);
+        LprivI->setThunkIdx(Count++);
+      }
     }
   }
 
@@ -317,18 +319,32 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
   return KmpTaskTTWithPrivatesTy;
 }
 
+bool VPOParoptTransform::genTaskInitCode(WRegionNode *W,
+                                         StructType *&KmpTaskTTWithPrivatesTy,
+                                         StructType *&KmpSharedTy,
+                                         Value *&LastIterGep) {
+
+  Value *LBPtr, *UBPtr, *STPtr;
+
+  return genTaskLoopInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy, LBPtr,
+                             UBPtr, STPtr, LastIterGep, false);
+}
+
 // Generate the code to replace the variables in the task loop with
 // the thunk field dereferences
 bool VPOParoptTransform::genTaskLoopInitCode(
     WRegionNode *W, StructType *&KmpTaskTTWithPrivatesTy,
     StructType *&KmpSharedTy, Value *&LBPtr, Value *&UBPtr, Value *&STPtr,
-    Value *&LastIterGep) {
+    Value *&LastIterGep, bool isLoop) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopInitCode\n");
 
-  Loop *L = W->getLoop();
-  assert(L && "genTaskLoopInitCode: Loop not found");
-  genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
+  Loop *L;
+  if (isLoop) {
+    L = W->getLoop();
+    assert(L && "genTaskLoopInitCode: Loop not found");
+    genLoopInitCodeForTaskLoop(W, LBPtr, UBPtr, STPtr);
+  }
 
   // Build type kmp_task_t
   genKmpRoutineEntryT();
@@ -398,24 +414,26 @@ bool VPOParoptTransform::genTaskLoopInitCode(
   Indices.push_back(Builder.getInt32(8));
   LastIterGep = Builder.CreateInBoundsGEP(KmpTaskTTy, BaseTaskTGep, Indices);
 
-  Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
-                       ->getIncomingValue(0)
-                       ->getType();
+  if (isLoop) {
+    Type *IndValTy = WRegionUtils::getOmpCanonicalInductionVariable(L)
+                         ->getIncomingValue(0)
+                         ->getType();
 
-  PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
-  PN->removeIncomingValue(L->getLoopPreheader());
+    PHINode *PN = WRegionUtils::getOmpCanonicalInductionVariable(L);
+    PN->removeIncomingValue(L->getLoopPreheader());
 
-  if (LowerBoundLd->getType()->getIntegerBitWidth() !=
-      IndValTy->getIntegerBitWidth())
-    LowerBoundLd = Builder.CreateSExtOrTrunc(LowerBoundLd, IndValTy);
+    if (LowerBoundLd->getType()->getIntegerBitWidth() !=
+        IndValTy->getIntegerBitWidth())
+      LowerBoundLd = Builder.CreateSExtOrTrunc(LowerBoundLd, IndValTy);
 
-  PN->addIncoming(LowerBoundLd, L->getLoopPreheader());
+    PN->addIncoming(LowerBoundLd, L->getLoopPreheader());
 
-  if (UpperBoundLd->getType()->getIntegerBitWidth() !=
-      IndValTy->getIntegerBitWidth())
-    UpperBoundLd = Builder.CreateSExtOrTrunc(UpperBoundLd, IndValTy);
-  VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
-                                                  &*Builder.GetInsertPoint());
+    if (UpperBoundLd->getType()->getIntegerBitWidth() !=
+        IndValTy->getIntegerBitWidth())
+      UpperBoundLd = Builder.CreateSExtOrTrunc(UpperBoundLd, IndValTy);
+    VPOParoptUtils::updateOmpPredicateAndUpperBound(W, UpperBoundLd,
+                                                    &*Builder.GetInsertPoint());
+  }
   PrivateClause &PrivClause = W->getPriv();
   if (!PrivClause.empty()) {
     for (PrivateItem *PrivI : PrivClause.items()) {
@@ -440,21 +458,23 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  LastprivateClause &LprivClause = W->getLpriv();
-  if (!LprivClause.empty()) {
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
-      Value *ThunkPrivatesGep =
-          Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
-      Value *ThunkSharedGep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
-      Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
-      // Parm is used to record the address of last private in the compiler
-      // shared variables in the thunk.
-      LprivI->setNew(ThunkPrivatesGep);
-      LprivI->setParm(ThunkSharedVal);
+  if (W->hasLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    if (!LprivClause.empty()) {
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        Indices.clear();
+        Indices.push_back(Builder.getInt32(0));
+        Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
+        Value *ThunkPrivatesGep =
+            Builder.CreateInBoundsGEP(KmpPrivatesTy, PrivatesGep, Indices);
+        Value *ThunkSharedGep =
+            Builder.CreateInBoundsGEP(KmpSharedTy, SharedCast, Indices);
+        Value *ThunkSharedVal = Builder.CreateLoad(ThunkSharedGep);
+        // Parm is used to record the address of last private in the compiler
+        // shared variables in the thunk.
+        LprivI->setNew(ThunkPrivatesGep);
+        LprivI->setParm(ThunkSharedVal);
+      }
     }
   }
 
@@ -485,126 +505,9 @@ bool VPOParoptTransform::genTaskLoopInitCode(
     }
   }
 
-  prepareNoAliasMetadataInTaskLoop(W);
-
   W->resetBBSet();
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopInitCode\n");
   return true;
-}
-
-// Prepare the scope alias metadata for the references of the
-// firstprivate, lastprivate, private shared, reduction variables
-void VPOParoptTransform::prepareNoAliasMetadataInTaskLoop(WRegionNode *W) {
-  LLVMContext &Context = F->getContext();
-  MDBuilder MDB(Context);
-  MDNode *Domain = MDB.createAnonymousAliasScopeDomain("ParoptDomain");
-  SmallVector<Metadata *, 4> AllScopes;
-  SmallVector<Metadata *, 4> NonAliasingScopes;
-
-  PrivateClause &PrivClause = W->getPriv();
-  if (!PrivClause.empty()) {
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      auto MD = MDB.createAnonymousAliasScope(Domain);
-      PrivI->setAliasScope(MD);
-      AllScopes.push_back(MD);
-    }
-  }
-
-  FirstprivateClause &FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      auto MD = MDB.createAnonymousAliasScope(Domain);
-      FprivI->setAliasScope(MD);
-      AllScopes.push_back(MD);
-    }
-  }
-
-  LastprivateClause &LprivClause = W->getLpriv();
-  if (!LprivClause.empty()) {
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      auto MD = MDB.createAnonymousAliasScope(Domain);
-      LprivI->setAliasScope(MD);
-      AllScopes.push_back(MD);
-    }
-  }
-
-  ReductionClause &RedClause = W->getRed();
-  if (!RedClause.empty()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      auto MD = MDB.createAnonymousAliasScope(Domain);
-      RedI->setAliasScope(MD);
-      AllScopes.push_back(MD);
-    }
-  }
-
-  SharedClause &ShaClause = W->getShared();
-  if (!ShaClause.empty()) {
-    for (SharedItem *ShaI : ShaClause.items()) {
-      auto MD = MDB.createAnonymousAliasScope(Domain);
-      ShaI->setAliasScope(MD);
-      AllScopes.push_back(MD);
-    }
-  }
-
-  PrivClause = W->getPriv();
-  if (!PrivClause.empty()) {
-    for (PrivateItem *PrivI : PrivClause.items()) {
-      NonAliasingScopes.clear();
-      for (auto *MD : AllScopes) {
-        if (MD != PrivI->getAliasScope())
-          NonAliasingScopes.push_back(MD);
-      }
-      PrivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
-    }
-  }
-
-  FprivClause = W->getFpriv();
-  if (!FprivClause.empty()) {
-    for (FirstprivateItem *FprivI : FprivClause.items()) {
-      NonAliasingScopes.clear();
-      for (auto *MD : AllScopes) {
-        if (MD != FprivI->getAliasScope())
-          NonAliasingScopes.push_back(MD);
-      }
-      FprivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
-    }
-  }
-
-  LprivClause = W->getLpriv();
-  if (!LprivClause.empty()) {
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      NonAliasingScopes.clear();
-      for (auto *MD : AllScopes) {
-        if (MD != LprivI->getAliasScope())
-          NonAliasingScopes.push_back(MD);
-      }
-      LprivI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
-    }
-  }
-
-  RedClause = W->getRed();
-  if (!RedClause.empty()) {
-    for (ReductionItem *RedI : RedClause.items()) {
-      NonAliasingScopes.clear();
-      for (auto *MD : AllScopes) {
-        if (MD != RedI->getAliasScope())
-          NonAliasingScopes.push_back(MD);
-      }
-      RedI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
-    }
-  }
-
-  ShaClause = W->getShared();
-  if (!ShaClause.empty()) {
-    for (SharedItem *ShaI : ShaClause.items()) {
-      NonAliasingScopes.clear();
-      for (auto *MD : AllScopes) {
-        if (MD != ShaI->getAliasScope())
-          NonAliasingScopes.push_back(MD);
-      }
-      ShaI->setNoAlias(MDNode::get(Context, NonAliasingScopes));
-    }
-  }
 }
 
 // Set up the mapping between the variables (firstprivate,
@@ -631,15 +534,17 @@ AllocaInst *VPOParoptTransform::genTaskPrivateMapping(WRegionNode *W,
     }
   }
 
-  LastprivateClause &LprivClause = W->getLpriv();
-  if (!LprivClause.empty()) {
-    for (LastprivateItem *LprivI : LprivClause.items()) {
-      Indices.clear();
-      Indices.push_back(Builder.getInt32(0));
-      Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
-      Value *Gep =
-          Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
-      Builder.CreateStore(LprivI->getOrig(), Gep);
+  if (W->hasLastprivate()) {
+    LastprivateClause &LprivClause = W->getLpriv();
+    if (!LprivClause.empty()) {
+      for (LastprivateItem *LprivI : LprivClause.items()) {
+        Indices.clear();
+        Indices.push_back(Builder.getInt32(0));
+        Indices.push_back(Builder.getInt32(LprivI->getThunkIdx()));
+        Value *Gep =
+            Builder.CreateInBoundsGEP(KmpSharedTy, TaskSharedBase, Indices);
+        Builder.CreateStore(LprivI->getOrig(), Gep);
+      }
     }
   }
 
@@ -1010,12 +915,20 @@ void VPOParoptTransform::genRedInitForTaskLoop(WRegionNode *W,
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genRedInitForTaskLoop\n");
 }
 
+bool VPOParoptTransform::genTaskCode(WRegionNode *W,
+                                     StructType *KmpTaskTTWithPrivatesTy,
+                                     StructType *KmpSharedTy) {
+  return genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy, nullptr,
+                         nullptr, nullptr, false);
+}
+
 // Generate the call __kmpc_omp_task_alloc, __kmpc_taskloop and the
 // corresponding outlined function
 bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
                                          StructType *KmpTaskTTWithPrivatesTy,
                                          StructType *KmpSharedTy, Value *LBPtr,
-                                         Value *UBPtr, Value *STPtr) {
+                                         Value *UBPtr, Value *STPtr,
+                                         bool isLoop) {
 
   DEBUG(dbgs() << "\nEnter VPOParoptTransform::genTaskLoopCode\n");
 
@@ -1104,10 +1017,13 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
 
     genSharedInitForTaskLoop(W, PrivateBase, TaskAllocCI, KmpSharedTy,
                              KmpTaskTTWithPrivatesTy, NewCall);
-    VPOParoptUtils::genKmpcTaskLoop(
-        W, IdentTy, TidPtr, TaskAllocCI, LBPtr, UBPtr, STPtr,
-        KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
-        genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
+    if (isLoop)
+      VPOParoptUtils::genKmpcTaskLoop(
+          W, IdentTy, TidPtr, TaskAllocCI, LBPtr, UBPtr, STPtr,
+          KmpTaskTTWithPrivatesTy, NewCall, Mode & OmpTbb,
+          genLastPrivateTaskDup(W, KmpTaskTTWithPrivatesTy));
+    else
+      VPOParoptUtils::genKmpcTask(W, IdentTy, TidPtr, TaskAllocCI, NewCall);
 
     NewCall->eraseFromParent();
 
@@ -1121,4 +1037,10 @@ bool VPOParoptTransform::genTaskLoopCode(WRegionNode *W,
   }
   DEBUG(dbgs() << "\nExit VPOParoptTransform::genTaskLoopCode\n");
   return Changed;
+}
+
+bool VPOParoptTransform::genTaskWaitCode(WRegionNode *W) {
+  VPOParoptUtils::genKmpcTaskWait(W, IdentTy, TidPtr,
+                                  W->getEntryBBlock()->getTerminator());
+  return true;
 }

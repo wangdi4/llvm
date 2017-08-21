@@ -438,6 +438,17 @@ public:
                                      Function *FnTaskDup);
 
     /// \brief This function generates a call as follows.
+    ///    void @__kmpc_task({ i32, i32, i32, i32, i8* }*, i32, i8*)
+    static CallInst *genKmpcTask(WRegionNode *W, StructType *IdentTy,
+                                 Value *TidPtr, Value *TaskAlloc,
+                                 Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
+    ///    void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)
+    static CallInst *genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
+                                     Value *TidPtr, Instruction *InsertPt);
+
+    /// \brief This function generates a call as follows.
     ///    i8* @__kmpc_task_reduction_get_th_data(i32, i8*, i8*)
     static CallInst *genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
                                           Value *SharedGep,

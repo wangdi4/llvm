@@ -323,6 +323,76 @@ CallInst *VPOParoptUtils::genKmpcRedGetNthData(WRegionNode *W, Value *TidPtr,
 }
 
 // This function generates a call as follows.
+//   void @__kmpc_omp_taskwait({ i32, i32, i32, i32, i8* }*, i32)
+CallInst *VPOParoptUtils::genKmpcTaskWait(WRegionNode *W, StructType *IdentTy,
+                                          Value *TidPtr,
+                                          Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  int Flags = KMP_IDENT_KMPC;
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr)};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C)};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+  std::string FnName = "__kmpc_omp_taskwait";
+  Function *FnTaskWait = M->getFunction(FnName);
+
+  if (!FnTaskWait) {
+    FnTaskWait =
+        Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTaskWait->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskWaitCall = CallInst::Create(FnTaskWait, TaskArgs, "", InsertPt);
+  TaskWaitCall->setCallingConv(CallingConv::C);
+  TaskWaitCall->setTailCall(false);
+
+  return TaskWaitCall;
+}
+
+// This function generates a call as follows.
+//    void @__kmpc_task({ i32, i32, i32, i32, i8* }*, i32, i8*)
+CallInst *VPOParoptUtils::genKmpcTask(WRegionNode *W, StructType *IdentTy,
+                                      Value *TidPtr, Value *TaskAlloc,
+                                      Instruction *InsertPt) {
+  IRBuilder<> Builder(InsertPt);
+  BasicBlock *B = W->getEntryBBlock();
+  BasicBlock *E = W->getExitBBlock();
+  Function *F = B->getParent();
+  Module *M = F->getParent();
+  LLVMContext &C = F->getContext();
+  int Flags = KMP_IDENT_KMPC;
+  GlobalVariable *Loc =
+      genKmpcLocfromDebugLoc(F, InsertPt, IdentTy, Flags, B, E);
+
+  Value *TaskArgs[] = {Loc, Builder.CreateLoad(TidPtr), TaskAlloc};
+  Type *TypeParams[] = {Loc->getType(), Type::getInt32Ty(C),
+                        Type::getInt8PtrTy(C)};
+  FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), TypeParams, false);
+
+  std::string FnName = "__kmpc_omp_task";
+  Function *FnTask = M->getFunction(FnName);
+
+  if (!FnTask) {
+    FnTask = Function::Create(FnTy, GlobalValue::ExternalLinkage, FnName, M);
+    FnTask->setCallingConv(CallingConv::C);
+  }
+
+  CallInst *TaskCall = CallInst::Create(FnTask, TaskArgs, "", InsertPt);
+  TaskCall->setCallingConv(CallingConv::C);
+  TaskCall->setTailCall(false);
+
+  return TaskCall;
+}
+
+// This function generates a call as follows.
 //    void @__kmpc_taskloop({ i32, i32, i32, i32, i8* }*, i32, i8*, i32,
 //    i64*, i64*, i64, i32, i32, i64, i8*)
 // The generated code is based on the assumption that the loop is normalized
