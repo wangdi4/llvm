@@ -393,7 +393,7 @@ namespace {
     // said edges.
     void relaxSectionOrderingEdges(MachineFunction *thisMF);
 
-    MachineOperand* isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2);
+    std::pair<MachineOperand*,MachineOperand*> isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2);
 
   };
 }
@@ -1098,7 +1098,7 @@ unsigned CSAMemopOrdering::isParallelRegion(MachineInstr* regionEntry, const Mac
   return 0;
 }
 
-MachineOperand*
+std::pair<MachineOperand*,MachineOperand*>
 CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* i1, MachineInstr* i2) {
   // All def -> use pairs to define a potential dependence "edge".
   MachineOperand *def = std::prev(std::end(i1->defs()));
@@ -1108,14 +1108,14 @@ CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* 
   // Is there a connecting edge?
   if (!isRegDerivedFromReg(use, def, false, &flow))
     // No edge. Uninteresting.
-    return nullptr;
+    return {nullptr,nullptr};
 
   // Consider pairs of instructions which are both in this region.
   const parSectionInfo* sA = region->containsInstr(i1, DT, PDT);
   const parSectionInfo* sB = region->containsInstr(i2, DT, PDT);
   if (!sA || !sB)
     // One or both of these is not in the parallel region.
-    return nullptr;
+    return {nullptr,nullptr};
 
   // Both are in a section in the region. (I.e., they're both in the same
   // or two different sections in the region.)
@@ -1133,22 +1133,23 @@ CSAMemopOrdering::isCrossSectionDependence(parRegionInfo* region, MachineInstr* 
   flow.push_back(use);
   for(MachineOperand* fuser : flow) {
     if (!outgoing && !sA->containsInstr(fuser->getParent(), DT, PDT)) {
-      outgoing = fuser;
+      assert(MRI->hasOneDef(fuser->getReg()) && "cannot understand dataflow with multiple/no defs");
+      outgoing = &*std::begin(MRI->def_operands(fuser->getReg()));
     }
     if (outgoing && sB->containsInstr(fuser->getParent(), DT, PDT)) {
       incoming = fuser;
-      return incoming;
+      return {incoming,outgoing};
     }
   }
 
   assert(!incoming && !outgoing && "discovered section exit but not re-entry?");
   assert(sA==sB && "section-to-section edge must be a dependency");
-  return nullptr;
+  return {nullptr,nullptr};
 }
 
 void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
 
-  std::map<parRegionInfo*, std::set< std::pair<MachineInstr*, MachineOperand*> > > edgesToRelax;
+  std::map<parRegionInfo*, std::set< std::pair<MachineInstr*, std::pair<MachineOperand*,MachineOperand*> > > > edgesToRelax;
 
   for (parRegionInfo &pl : parRegions) {
     DEBUG(errs() << "Looking for section-ordering edges in region " << *pl.entry);
@@ -1158,12 +1159,15 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
     for(MachineInstr *iA : orderedMemops) {
       for(MachineInstr *iB : orderedMemops) {
 
-        MachineOperand* inOp = isCrossSectionDependence(&pl, iA, iB);
+        MachineOperand *inOp, *outOp;
+        std::tie(inOp,outOp) = isCrossSectionDependence(&pl, iA, iB);
         if (inOp) {
-         DEBUG(errs() << "\tSection-ordering edge from " << *iA <<
-                    "\t      to ---->    " << *iB);
-          std::pair<MachineInstr*, MachineOperand*> edge = {iA, inOp};
-          edgesToRelax[&pl].insert(edge);
+          assert(inOp && outOp && "Found only one of edge exiting/entering operands?");
+          DEBUG(errs() << "\tSection-ordering edge from " << *iA <<
+              "\t      to ---->    " << *iB);
+          DEBUG(errs() << "\t edge section inOp: " << *inOp << "; outOp: " << *outOp << "\n");
+
+          edgesToRelax[&pl].insert({iA, {inOp,outOp}});
         }
       }
     }
@@ -1177,12 +1181,14 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
     // to be merged together for this alias set.
     for (auto edge : edgesToRelax[&pl]) {
       MachineInstr *iA = edge.first;
-      MachineOperand *incoming = edge.second;
+      MachineOperand *incoming, *outgoing;
+      std::tie(incoming,outgoing) = edge.second;
       unsigned def = std::prev(std::end(iA->defs()))->getReg();
 
 
       unsigned aliasSet = AS->getAliasSetNumForMemop(*iA->memoperands_begin());
       unsigned chV = pl.aliasSetCaptures[aliasSet]->getOperand(0).getReg();
+      unsigned incomingReg = incoming->getReg();
 
       // Replace the incoming value with a use of the value when crossing
       // the region entry intrinsic, as was determined by the appropriate
@@ -1194,7 +1200,12 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
       // separate step, since we'll want to merge all of the
       // section-exiting chain edges together at once. (We don't
       // necessarily know all of them yet.)
-      sectionMergees[aliasSet].insert(def);
+      sectionMergees[aliasSet].insert(outgoing->getReg());
+
+      // Also arrange to reconnect the incoming edge to the implicit dataflow
+      // graph by adding it to the region join merge.
+      sectionMergees[aliasSet].insert(incomingReg);
+
     }
 
     // Finally, merge all of the outputs for each alias set. (This is the
@@ -1219,6 +1230,12 @@ void CSAMemopOrdering::relaxSectionOrderingEdges(MachineFunction *thisMF) {
       unsigned outgoingChainVReg = insertBefore->getOperand(1).getReg();
       if (!waveSet.count(outgoingChainVReg))
         wave.push_back(outgoingChainVReg);
+
+      DEBUG(errs() << "Merging " << wave.size() << " for this alias set:\n");
+      for (unsigned wE : wave) {
+        DEBUG(errs() << "\t" << PrintReg(wE) << "\n");
+        (void)wE;
+      }
       assert(insertBefore && "missing region release" );
       SmallVector<MachineOperand*, MEMDEP_VEC_WIDTH> newOps;
       unsigned merged = merge_dependency_signals(*insertBefore->getParent(), insertBefore, &wave, chEntering, &newOps);
