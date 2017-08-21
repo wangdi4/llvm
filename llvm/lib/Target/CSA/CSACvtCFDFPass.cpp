@@ -581,13 +581,13 @@ void CSACvtCFDFPass::insertSWITCHForOperand(MachineOperand& MO, MachineBasicBloc
             //this is typical define inside loop, used outside loop on the main execution path
             continue;
           }
+#if 1
           if (bb2rpo[upbb] >= bb2rpo[mbb]) {
-            if (!phiIn || 
-                !MLI->getLoopFor(phiIn->getParent()) ||
-                MLI->getLoopFor(phiIn->getParent())->getHeader() != phiIn->getParent())
               //don't look back if not a loop hdr phi for mbb's loop
               continue;
+            //loop hdr init input don't need to look back
           }
+#endif
           if (DT->dominates(dmbb, upbb)) { //including dmbb itself
             assert((MLI->getLoopFor(dmbb) == NULL ||
               MLI->getLoopFor(dmbb) != MLI->getLoopFor(upbb) ||
