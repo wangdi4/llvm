@@ -7,7 +7,7 @@
 ;<9>          + END LOOP
 ;          END REGION
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: {{loop.[0-9]+:}}
 
 ; CG for RHS, &((%add.ptr)[i1]);

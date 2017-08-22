@@ -25,7 +25,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Transforms/IPO.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 
 using namespace llvm;
 
@@ -38,16 +38,17 @@ namespace {
 /// The common implementation of the inlining logic is shared between this
 /// inliner pass and the always inliner pass. The two passes use different cost
 /// analyses to determine when to inline.
-class SimpleInliner : public Inliner {
+class SimpleInliner : public LegacyInlinerBase {
 
   InlineParams Params;
 
 public:
-  SimpleInliner() : Inliner(ID), Params(llvm::getInlineParams()) {
+  SimpleInliner() : LegacyInlinerBase(ID), Params(llvm::getInlineParams()) {
     initializeSimpleInlinerPass(*PassRegistry::getPassRegistry());
   }
 
-  explicit SimpleInliner(InlineParams Params) : Inliner(ID), Params(Params) {
+  explicit SimpleInliner(InlineParams Params)
+      : LegacyInlinerBase(ID), Params(std::move(Params)) {
     initializeSimpleInlinerPass(*PassRegistry::getPassRegistry());
   }
 
@@ -66,8 +67,8 @@ public:
     InlineAggressiveInfo *AggI = Agg ? &Agg->getResult() : nullptr;
 #endif // INTEL_CUSTOMIZATION
 
-    return llvm::getInlineCost(CS, Params, TTI,
-                               GetAssumptionCache, ILIC, PSI, AggI); // INTEL 
+    return llvm::getInlineCost(CS, Params, TTI, GetAssumptionCache, 
+                               /*GetBFI=*/None, ILIC, AggI, PSI); // INTEL 
   }
 
   bool runOnSCC(CallGraphSCC &SCC) override;
@@ -98,10 +99,18 @@ Pass *llvm::createFunctionInliningPass(int Threshold) {
   return new SimpleInliner(llvm::getInlineParams(Threshold));
 }
 
+#if INTEL_CUSTOMIZATION
 Pass *llvm::createFunctionInliningPass(unsigned OptLevel,
-                                       unsigned SizeOptLevel) {
-  return new SimpleInliner(llvm::getInlineParams(OptLevel, SizeOptLevel));
+                                       unsigned SizeOptLevel,
+                                       bool DisableInlineHotCallSite,
+                                       bool PrepareForLTO)
+{
+  auto Param = llvm::getInlineParams(OptLevel, SizeOptLevel, PrepareForLTO);
+  if (DisableInlineHotCallSite)
+    Param.HotCallSiteThreshold = 0;
+  return new SimpleInliner(Param);
 }
+#endif // INTEL_CUSTOMIZATION
 
 Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
   return new SimpleInliner(Params);
@@ -109,11 +118,11 @@ Pass *llvm::createFunctionInliningPass(InlineParams &Params) {
 
 bool SimpleInliner::runOnSCC(CallGraphSCC &SCC) {
   TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
-  return Inliner::runOnSCC(SCC);
+  return LegacyInlinerBase::runOnSCC(SCC);
 }
 
 void SimpleInliner::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetTransformInfoWrapperPass>();
   AU.addUsedIfAvailable<InlineAggressiveWrapperPass>();        // INTEL
-  Inliner::getAnalysisUsage(AU);
+  LegacyInlinerBase::getAnalysisUsage(AU);
 }

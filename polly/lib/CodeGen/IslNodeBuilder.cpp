@@ -31,7 +31,6 @@
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -64,6 +63,20 @@ static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
     cl::desc("Emit code that prints the runtime check result dynamically."),
     cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+// If this option is set we always use the isl AST generator to regenerate
+// memory accesses. Without this option set we regenerate expressions using the
+// original SCEV expressions and only generate new expressions in case the
+// access relation has been changed and consequently must be regenerated.
+static cl::opt<bool> PollyGenerateExpressions(
+    "polly-codegen-generate-expressions",
+    cl::desc("Generate AST expressions for unmodified and modified accesses"),
+    cl::Hidden, cl::init(false), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
+    "polly-target-first-level-cache-line-size",
+    cl::desc("The size of the first level cache line size specified in bytes."),
+    cl::Hidden, cl::init(64), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 __isl_give isl_ast_expr *
 IslNodeBuilder::getUpperBound(__isl_keep isl_ast_node *For,
@@ -194,8 +207,7 @@ static int findReferencesInBlock(struct SubtreeReferences &References,
   for (const Instruction &Inst : *BB)
     for (Value *SrcVal : Inst.operands()) {
       auto *Scope = References.LI.getLoopFor(BB);
-      if (canSynthesize(SrcVal, References.S, &References.LI, &References.SE,
-                        Scope)) {
+      if (canSynthesize(SrcVal, References.S, &References.SE, Scope)) {
         References.SCEVs.insert(References.SE.getSCEVAtScope(SrcVal, Scope));
         continue;
       } else if (Value *NewVal = References.GlobalMap.lookup(SrcVal))
@@ -369,6 +381,10 @@ void IslNodeBuilder::createMark(__isl_take isl_ast_node *Node) {
     isl_id_free(Id);
     return;
   }
+  if (!strcmp(isl_id_get_name(Id), "Inter iteration alias-free")) {
+    auto *BasePtr = static_cast<Value *>(isl_id_get_user(Id));
+    Annotator.addInterIterationAliasFreeBasePtr(BasePtr);
+  }
   create(Child);
   isl_id_free(Id);
 }
@@ -482,7 +498,7 @@ void IslNodeBuilder::createForSequential(__isl_take isl_ast_node *For,
   // omit the GuardBB in front of the loop.
   bool UseGuardBB =
       !SE.isKnownPredicate(Predicate, SE.getSCEV(ValueLB), SE.getSCEV(ValueUB));
-  IV = createLoop(ValueLB, ValueUB, ValueInc, Builder, P, LI, DT, ExitBlock,
+  IV = createLoop(ValueLB, ValueUB, ValueInc, Builder, LI, DT, ExitBlock,
                   Predicate, &Annotator, Parallel, UseGuardBB);
   IDToValue[IteratorID] = IV;
 
@@ -609,7 +625,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   }
 
   ValueMapT NewValues;
-  ParallelLoopGenerator ParallelLoopGen(Builder, P, LI, DT, DL);
+  ParallelLoopGenerator ParallelLoopGen(Builder, LI, DT, DL);
 
   IV = ParallelLoopGen.createParallelLoop(ValueLB, ValueUB, ValueInc,
                                           SubtreeValues, NewValues, &LoopBody);
@@ -728,11 +744,23 @@ IslNodeBuilder::createNewAccesses(ScopStmt *Stmt,
   Stmt->setAstBuild(Build);
 
   for (auto *MA : *Stmt) {
-    if (!MA->hasNewAccessRelation())
-      continue;
+    if (!MA->hasNewAccessRelation()) {
+      if (PollyGenerateExpressions) {
+        if (!MA->isAffine())
+          continue;
+        if (MA->getLatestScopArrayInfo()->getBasePtrOriginSAI())
+          continue;
 
-    assert(!MA->getLatestScopArrayInfo()->getBasePtrOriginSAI() &&
-           "Generating new index expressions to indirect arrays not working");
+        auto *BasePtr =
+            dyn_cast<Instruction>(MA->getLatestScopArrayInfo()->getBasePtr());
+        if (BasePtr && Stmt->getParent()->getRegion().contains(BasePtr))
+          continue;
+      } else {
+        continue;
+      }
+    }
+    assert(MA->isAffine() &&
+           "Only affine memory accesses can be code generated");
 
     auto Schedule = isl_ast_build_get_schedule(Build);
 
@@ -907,9 +935,8 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
           // there is a statement or the domain is not empty Inst is not dead.
           auto MemInst = MemAccInst::dyn_cast(Inst);
           auto Address = MemInst ? MemInst.getPointerOperand() : nullptr;
-          if (Address &&
-              SE.getUnknown(UndefValue::get(Address->getType())) ==
-                  SE.getPointerBase(SE.getSCEV(Address))) {
+          if (Address && SE.getUnknown(UndefValue::get(Address->getType())) ==
+                             SE.getPointerBase(SE.getSCEV(Address))) {
           } else if (S.getStmtFor(Inst)) {
             IsDead = false;
           } else {
@@ -948,11 +975,20 @@ bool IslNodeBuilder::materializeValue(isl_id *Id) {
   return true;
 }
 
-bool IslNodeBuilder::materializeParameters(isl_set *Set, bool All) {
+bool IslNodeBuilder::materializeParameters(isl_set *Set) {
   for (unsigned i = 0, e = isl_set_dim(Set, isl_dim_param); i < e; ++i) {
-    if (!All && !isl_set_involves_dims(Set, isl_dim_param, i, 1))
+    if (!isl_set_involves_dims(Set, isl_dim_param, i, 1))
       continue;
     isl_id *Id = isl_set_get_dim_id(Set, isl_dim_param, i);
+    if (!materializeValue(Id))
+      return false;
+  }
+  return true;
+}
+
+bool IslNodeBuilder::materializeParameters() {
+  for (const SCEV *Param : S.parameters()) {
+    isl_id *Id = S.getIdForParam(Param);
     if (!materializeValue(Id))
       return false;
   }
@@ -1011,7 +1047,7 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
   isl_set *AccessRange = isl_map_range(MA.getAddressFunction());
   AccessRange = isl_set_gist_params(AccessRange, S.getContext());
 
-  if (!materializeParameters(AccessRange, false)) {
+  if (!materializeParameters(AccessRange)) {
     isl_set_free(AccessRange);
     isl_set_free(Domain);
     return nullptr;
@@ -1033,7 +1069,7 @@ Value *IslNodeBuilder::preloadInvariantLoad(const MemoryAccess &MA,
     return PreloadVal;
   }
 
-  if (!materializeParameters(Domain, false)) {
+  if (!materializeParameters(Domain)) {
     isl_ast_build_free(Build);
     isl_set_free(AccessRange);
     isl_set_free(Domain);
@@ -1176,9 +1212,13 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
   }
 
   BasicBlock *EntryBB = &Builder.GetInsertBlock()->getParent()->getEntryBlock();
-  auto *Alloca = new AllocaInst(AccInstTy, AccInst->getName() + ".preload.s2a");
+  auto *Alloca = new AllocaInst(AccInstTy, DL.getAllocaAddrSpace(),
+                                AccInst->getName() + ".preload.s2a");
   Alloca->insertBefore(&*EntryBB->getFirstInsertionPt());
   Builder.CreateStore(PreloadVal, Alloca);
+  ValueMapT PreloadedPointer;
+  PreloadedPointer[PreloadVal] = AccInst;
+  Annotator.addAlternativeAliasBases(PreloadedPointer);
 
   for (auto *DerivedSAI : SAI->getDerivedSAIs()) {
     Value *BasePtr = DerivedSAI->getBasePtr();
@@ -1194,12 +1234,8 @@ bool IslNodeBuilder::preloadInvariantEquivClass(
       }
 
       // For scalar derived SAIs we remap the alloca used for the derived value.
-      if (BasePtr == MA->getAccessInstruction()) {
-        if (DerivedSAI->isPHIKind())
-          PHIOpMap[BasePtr] = Alloca;
-        else
-          ScalarMap[BasePtr] = Alloca;
-      }
+      if (BasePtr == MA->getAccessInstruction())
+        ScalarMap[DerivedSAI] = Alloca;
     }
   }
 
@@ -1247,8 +1283,9 @@ void IslNodeBuilder::allocateNewArrays() {
 
     auto InstIt =
         Builder.GetInsertBlock()->getParent()->getEntryBlock().getTerminator();
-    Value *CreatedArray =
-        new AllocaInst(NewArrayType, SAI->getName(), &*InstIt);
+    auto *CreatedArray = new AllocaInst(NewArrayType, DL.getAllocaAddrSpace(),
+                                        SAI->getName(), &*InstIt);
+    CreatedArray->setAlignment(PollyTargetFirstLevelCacheLineSize);
     SAI->setBasePtr(CreatedArray);
   }
 }
@@ -1272,9 +1309,8 @@ bool IslNodeBuilder::preloadInvariantLoads() {
 }
 
 void IslNodeBuilder::addParameters(__isl_take isl_set *Context) {
-
   // Materialize values for the parameters of the SCoP.
-  materializeParameters(Context, /* all */ true);
+  materializeParameters();
 
   // Generate values for the current loop iteration for all surrounding loops.
   //
@@ -1335,9 +1371,10 @@ Value *IslNodeBuilder::createRTC(isl_ast_expr *Condition) {
   if (PollyGenerateRTCPrint) {
     auto *F = Builder.GetInsertBlock()->getParent();
     RuntimeDebugBuilder::createCPUPrinter(
-        Builder, "F: " + F->getName().str() + " R: " +
-                     S.getRegion().getNameStr() + " __RTC: ",
-        RTC, " Overflow: ", OverflowHappened);
+        Builder,
+        "F: " + F->getName().str() + " R: " + S.getRegion().getNameStr() +
+            " __RTC: ",
+        RTC, " Overflow: ", OverflowHappened, "\n");
   }
 
   RTC = Builder.CreateAnd(RTC, OverflowHappened, "polly.rtc.result");

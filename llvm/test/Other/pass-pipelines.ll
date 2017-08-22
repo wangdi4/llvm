@@ -6,11 +6,8 @@
 ; INTEL - Disabled Intel Andersen's Alias Analysis and loopopt so as to not
 ; INTEL - break the pass pipeline this is trying to check for.
 ; INTEL - Disabled svml translation pass to prevent this test from breaking
-; INTEL - Disabled the std container optimization pass to prevent 
-; INTEL - this test from breaking.
-; INTEL - Disabled the tbaa propagation pass to prevent this test from breaking
 ; RUN: opt -disable-output -disable-verify -debug-pass=Structure \
-; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -enable-std-container-opt=false -enable-tbaa-prop=false  -O2 %s 2>&1 \
+; RUN:     -enable-andersen=false -enable-iml-trans=false -loopopt=false -O2 %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-O2
 ;
 ; In the first pipeline there should just be a function pass manager, no other
@@ -61,6 +58,11 @@
 ; Next we break out of the main Function passes inside the CGSCC pipeline with
 ; a barrier pass.
 ; CHECK-O2: A No-Op Barrier Pass
+; INTEL -- StdContainerOpt and CleanupFakeLoads insert a function pass manager
+; CHECK-O2: FunctionPass Manager
+; CHECK-O2: StdContainerOpt
+; CHECK-O2: Cleanup fake loads 
+; End INTEL
 ; Reduce the size of the IR ASAP after the inliner.
 ; CHECK-O2-NEXT: Eliminate Available Externally
 ; Inferring function attribute should be right after the CGSCC pipeline, before

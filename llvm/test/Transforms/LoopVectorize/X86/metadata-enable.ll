@@ -1,14 +1,15 @@
 ; INTEL - Disabling loopopt as it affects pass pipeline.
-; RUN: opt < %s -mcpu=corei7 -O1 -loopopt=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1
-; RUN: opt < %s -mcpu=corei7 -O2 -loopopt=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O2
-; RUN: opt < %s -mcpu=corei7 -O3 -loopopt=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3
-; RUN: opt < %s -mcpu=corei7 -Os -loopopt=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Os
-; RUN: opt < %s -mcpu=corei7 -Oz -loopopt=false -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Oz
-; RUN: opt < %s -mcpu=corei7 -O1 -loopopt=false -vectorize-loops -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC
-; RUN: opt < %s -mcpu=corei7 -Oz -loopopt=false -vectorize-loops -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC
-; RUN: opt < %s -mcpu=corei7 -O1 -loopopt=false -loop-vectorize -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC2
-; RUN: opt < %s -mcpu=corei7 -Oz -loopopt=false -loop-vectorize -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC2
-; RUN: opt < %s -mcpu=corei7 -O3 -loopopt=false -disable-loop-vectorization -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DIS
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O1 -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O2 -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O2
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O3 -S -unroll-threshold=150 -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O3 -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DEFAULT
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -Os -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Os
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -Oz -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=Oz
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O1 -vectorize-loops -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -Oz -vectorize-loops -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O1 -loop-vectorize -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O1VEC2
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -Oz -loop-vectorize -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=OzVEC2
+; RUN: opt < %s -mcpu=corei7 -loopopt=false -O3 -unroll-threshold=150 -disable-loop-vectorization -S -unroll-allow-partial=0 | FileCheck %s --check-prefix=O3DIS
 
 ; This file tests the llvm.loop.vectorize.enable metadata forcing
 ; vectorization even when optimization levels are too low, or when
@@ -26,6 +27,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; O3-LABEL: @enabled(
 ; O3: store <4 x i32>
 ; O3: ret i32
+; O3DEFAULT-LABEL: @enabled(
+; O3DEFAULT: store <4 x i32>
+; O3DEFAULT: ret i32
 ; Pragma always wins!
 ; O3DIS-LABEL: @enabled(
 ; O3DIS: store <4 x i32>
@@ -78,6 +82,9 @@ for.end:                                          ; preds = %for.body
 ; O3-LABEL: @nopragma(
 ; O3: store <4 x i32>
 ; O3: ret i32
+; O3DEFAULT-LABEL: @nopragma(
+; O3DEFAULT: store <4 x i32>
+; O3DEFAULT: ret i32
 ; O3DIS-LABEL: @nopragma(
 ; O3DIS-NOT: store <4 x i32>
 ; O3DIS: ret i32
@@ -129,6 +136,9 @@ for.end:                                          ; preds = %for.body
 ; O3-LABEL: @disabled(
 ; O3-NOT: store <4 x i32>
 ; O3: ret i32
+; O3DEFAULT-LABEL: @disabled(
+; O3DEFAULT: store <4 x i32>
+; O3DEFAULT: ret i32
 ; O3DIS-LABEL: @disabled(
 ; O3DIS-NOT: store <4 x i32>
 ; O3DIS: ret i32

@@ -21,9 +21,7 @@
 #include "UniqueDWARFASTType.h"
 
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Interpreter/Args.h"
@@ -38,6 +36,8 @@
 #include "lldb/Symbol/TypeMap.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -1473,8 +1473,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                         }
 
                         if (add_method) {
-                          // REMOVE THE CRASH DESCRIPTION BELOW
-                          Host::SetCrashDescriptionWithFormat(
+                          llvm::PrettyStackTraceFormat stack_trace(
                               "SymbolFileDWARF::ParseType() is adding a method "
                               "%s to class %s in DIE 0x%8.8" PRIx64 " from %s",
                               type_name_cstr,
@@ -1492,12 +1491,12 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                           if (accessibility == eAccessNone)
                             accessibility = eAccessPublic;
 
-                          clang::CXXMethodDecl *cxx_method_decl;
-                          cxx_method_decl = m_ast.AddMethodToCXXRecordType(
-                              class_opaque_type.GetOpaqueQualType(),
-                              type_name_cstr, clang_type, accessibility,
-                              is_virtual, is_static, is_inline, is_explicit,
-                              is_attr_used, is_artificial);
+                          clang::CXXMethodDecl *cxx_method_decl =
+                              m_ast.AddMethodToCXXRecordType(
+                                  class_opaque_type.GetOpaqueQualType(),
+                                  type_name_cstr, clang_type, accessibility,
+                                  is_virtual, is_static, is_inline, is_explicit,
+                                  is_attr_used, is_artificial);
 
                           type_handled = cxx_method_decl != NULL;
 
@@ -1506,8 +1505,6 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                                 ClangASTContext::GetAsDeclContext(
                                     cxx_method_decl),
                                 die);
-
-                            Host::SetCrashDescription(NULL);
 
                             ClangASTMetadata metadata;
                             metadata.SetUserID(die.GetID());
@@ -2650,7 +2647,7 @@ bool DWARFASTParserClang::ParseChildMembers(
 
   // Get the parent byte size so we can verify any members will fit
   const uint64_t parent_byte_size =
-      parent_die.GetAttributeValueAsUnsigned(DW_AT_byte_size, UINT64_MAX) * 8;
+      parent_die.GetAttributeValueAsUnsigned(DW_AT_byte_size, UINT64_MAX);
   const uint64_t parent_bit_size =
       parent_byte_size == UINT64_MAX ? UINT64_MAX : parent_byte_size * 8;
 
@@ -3685,7 +3682,7 @@ DWARFASTParserClang::GetClangDeclContextForDIE(const DWARFDIE &die) {
       break;
 
     case DW_TAG_lexical_block:
-      decl_ctx = (clang::DeclContext *)ResolveBlockDIE(die);
+      decl_ctx = GetDeclContextForBlock(die);
       try_parsing_type = false;
       break;
 
@@ -3705,6 +3702,69 @@ DWARFASTParserClang::GetClangDeclContextForDIE(const DWARFDIE &die) {
     }
   }
   return nullptr;
+}
+
+static bool IsSubroutine(const DWARFDIE &die) {
+  switch (die.Tag()) {
+  case DW_TAG_subprogram:
+  case DW_TAG_inlined_subroutine:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static DWARFDIE GetContainingFunctionWithAbstractOrigin(const DWARFDIE &die) {
+  for (DWARFDIE candidate = die; candidate; candidate = candidate.GetParent()) {
+    if (IsSubroutine(candidate)) {
+      if (candidate.GetReferencedDIE(DW_AT_abstract_origin)) {
+        return candidate;
+      } else {
+        return DWARFDIE();
+      }
+    }
+  }
+  assert(!"Shouldn't call GetContainingFunctionWithAbstractOrigin on something "
+          "not in a function");
+  return DWARFDIE();
+}
+
+static DWARFDIE FindAnyChildWithAbstractOrigin(const DWARFDIE &context) {
+  for (DWARFDIE candidate = context.GetFirstChild(); candidate.IsValid();
+       candidate = candidate.GetSibling()) {
+    if (candidate.GetReferencedDIE(DW_AT_abstract_origin)) {
+      return candidate;
+    }
+  }
+  return DWARFDIE();
+}
+
+static DWARFDIE FindFirstChildWithAbstractOrigin(const DWARFDIE &block,
+                                                 const DWARFDIE &function) {
+  assert(IsSubroutine(function));
+  for (DWARFDIE context = block; context != function.GetParent();
+       context = context.GetParent()) {
+    assert(!IsSubroutine(context) || context == function);
+    if (DWARFDIE child = FindAnyChildWithAbstractOrigin(context)) {
+      return child;
+    }
+  }
+  return DWARFDIE();
+}
+
+clang::DeclContext *
+DWARFASTParserClang::GetDeclContextForBlock(const DWARFDIE &die) {
+  assert(die.Tag() == DW_TAG_lexical_block);
+  DWARFDIE containing_function_with_abstract_origin =
+      GetContainingFunctionWithAbstractOrigin(die);
+  if (!containing_function_with_abstract_origin) {
+    return (clang::DeclContext *)ResolveBlockDIE(die);
+  }
+  DWARFDIE child = FindFirstChildWithAbstractOrigin(
+      die, containing_function_with_abstract_origin);
+  CompilerDeclContext decl_context =
+      GetDeclContextContainingUIDFromDWARF(child);
+  return (clang::DeclContext *)decl_context.GetOpaqueDeclContext();
 }
 
 clang::BlockDecl *DWARFASTParserClang::ResolveBlockDIE(const DWARFDIE &die) {

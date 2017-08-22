@@ -1,5 +1,4 @@
-//===-- RegisterContextCorePOSIX_powerpc.cpp ---------------------*- C++
-//-*-===//
+//===-- RegisterContextPOSIXCore_powerpc.cpp --------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -10,9 +9,9 @@
 
 #include "RegisterContextPOSIXCore_powerpc.h"
 
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/RegisterValue.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/DataBufferHeap.h"
 
 using namespace lldb_private;
 

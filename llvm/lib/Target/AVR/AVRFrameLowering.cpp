@@ -239,7 +239,7 @@ bool AVRFrameLowering::spillCalleeSavedRegisters(
     unsigned Reg = CSI[i - 1].getReg();
     bool IsNotLiveIn = !MBB.isLiveIn(Reg);
 
-    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 1 &&
+    assert(TRI->getRegSizeInBits(*TRI->getMinimalPhysRegClass(Reg)) == 8 &&
            "Invalid register size");
 
     // Add the callee-saved register as live-in only if it is not already a
@@ -277,7 +277,7 @@ bool AVRFrameLowering::restoreCalleeSavedRegisters(
   for (const CalleeSavedInfo &CCSI : CSI) {
     unsigned Reg = CCSI.getReg();
 
-    assert(TRI->getMinimalPhysRegClass(Reg)->getSize() == 1 &&
+    assert(TRI->getRegSizeInBits(*TRI->getMinimalPhysRegClass(Reg)) == 8 &&
            "Invalid register size");
 
     BuildMI(MBB, MI, DL, TII.get(AVR::POPRd), Reg);
@@ -338,7 +338,6 @@ static void fixStackStores(MachineBasicBlock &MBB,
     // pointer since it is guaranteed to contain a copy of SP.
     unsigned STOpc =
         (Opcode == AVR::STDWSPQRr) ? AVR::STDWPtrQRr : AVR::STDPtrQRr;
-    assert(isUInt<6>(MI.getOperand(1).getImm()) && "Offset is out of range");
 
     MI.setDesc(TII.get(STOpc));
     MI.getOperand(0).setReg(AVR::R29R28);

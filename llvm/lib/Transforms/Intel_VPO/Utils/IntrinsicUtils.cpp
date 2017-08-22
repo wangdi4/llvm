@@ -28,7 +28,6 @@
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "VPOIntrinsicUtils"
-#define IGNORE_FEATURE_OUTLINING_STRING "ignore_for_intel_feature_outlining"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -124,11 +123,6 @@ bool VPOUtils::stripPrivateClauses(BasicBlock &BB) {
   return Idx > 0;
 }
 
-void VPOUtils::addNoFeatureOutline(CallInst *Call) {
-  Call->setMetadata(IGNORE_FEATURE_OUTLINING_STRING,
-                    MDNode::get(Call->getContext(), {}));
-}
-
 CallInst *VPOUtils::createMaskedGatherCall(Module *M,
                                                    Value *VecPtr,
                                                    IRBuilder<> &Builder,
@@ -177,8 +171,6 @@ CallInst *VPOUtils::createMaskedGatherCall(Module *M,
   Arguments.push_back(PassThru);
 
   NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
-  addNoFeatureOutline(NewCallInst);
-
   return NewCallInst;
 }
 
@@ -225,8 +217,6 @@ CallInst *VPOUtils::createMaskedScatterCall(Module *M,
   Arguments.push_back(Mask);
 
   NewCallInst = Builder.CreateCall(Intrinsic, Arguments);
-  addNoFeatureOutline(NewCallInst);
-
   return NewCallInst;
 }
 
@@ -237,7 +227,6 @@ CallInst *VPOUtils::createMaskedLoadCall(Value *VecPtr,
                                          Value *PassThru) {
   auto NewCallInst = Builder.CreateMaskedLoad(VecPtr, Alignment, Mask,
                                                PassThru);
-  addNoFeatureOutline(NewCallInst);
   return NewCallInst;
 }
 
@@ -248,6 +237,5 @@ CallInst *VPOUtils::createMaskedStoreCall(Value *VecPtr,
                                           Value *Mask) {
   auto NewCallInst = Builder.CreateMaskedStore(VecData, VecPtr, Alignment,
                                                 Mask);
-  addNoFeatureOutline(NewCallInst);
   return NewCallInst;
 }

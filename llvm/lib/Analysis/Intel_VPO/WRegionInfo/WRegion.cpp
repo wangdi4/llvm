@@ -347,7 +347,6 @@ WRNBarrierNode::WRNBarrierNode(BasicBlock *BB)
   DEBUG(dbgs() << "\nCreated WRNBarrierNode <" << getNumber() << ">\n");
 }
 
-
 //
 // Methods for WRNCancelNode
 //

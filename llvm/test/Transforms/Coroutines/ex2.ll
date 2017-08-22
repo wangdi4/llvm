@@ -1,9 +1,5 @@
 ; Second example from Doc/Coroutines.rst (custom alloc and free functions)
 ; RUN: opt < %s -O2 -enable-coroutines -S | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 define i8* @f(i32 %n) {
 entry:
@@ -33,7 +29,7 @@ dyn.free:
   call void @CustomFree(i8* %mem)
   br label %suspend
 suspend:
-  call void @llvm.coro.end(i8* %hdl, i1 false)
+  call i1 @llvm.coro.end(i8* %hdl, i1 false)
   ret i8* %hdl
 }
 
@@ -61,7 +57,7 @@ declare i32 @llvm.coro.size.i32()
 declare i8* @llvm.coro.begin(token, i8*)
 declare i8 @llvm.coro.suspend(token, i1)
 declare i8* @llvm.coro.free(token, i8*)
-declare void @llvm.coro.end(i8*, i1)
+declare i1 @llvm.coro.end(i8*, i1)
 
 declare void @llvm.coro.resume(i8*)
 declare void @llvm.coro.destroy(i8*)

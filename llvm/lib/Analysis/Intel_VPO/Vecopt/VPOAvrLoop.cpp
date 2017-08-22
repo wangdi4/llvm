@@ -110,6 +110,7 @@ AVRIf *removeZeroTripTest() { return nullptr; }
 
 void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                     VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -148,12 +149,15 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     Itr->print(OS, Depth - 1, VLevel);
 
   OS << Indent << "}\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRLoop::shallowPrint(formatted_raw_ostream &OS) const {
+#if !INTEL_PRODUCT_RELEASE
 
   OS << "(" << getNumber() << ") " << getAvrTypeName()
      << "( IV )"; // TODO: Add IV Info
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRLoop::getAvrTypeName() const { return StringRef("LOOP"); }

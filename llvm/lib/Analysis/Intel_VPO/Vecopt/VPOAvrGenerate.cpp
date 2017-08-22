@@ -683,6 +683,7 @@ void AVRGenerateBase::removeAvrNOPs() {
 
 void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
                             VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   formatted_raw_ostream FOS(OS);
 
@@ -694,10 +695,13 @@ void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
   for (auto I = begin(), E = end(); I != E; ++I) {
     I->print(FOS, Depth, VLevel);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRGenerateBase::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
   this->print(OS, 1, PrintBase);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 void AVRGenerateBase::dump(VerbosityLevel VLevel) const {
@@ -773,7 +777,7 @@ bool AVRGenerate::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
     return false;
 
   for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
-    if (!PDT->dominates(BB, I.getCaseSuccessor()))
+    if (!PDT->dominates(BB, I->getCaseSuccessor()))
       return false;
   }
 
@@ -868,7 +872,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
         bool IsCaseChild = false;
         for (auto Itr = SI->case_begin(), End = SI->case_end(); Itr != End;
              ++Itr, ++Count) {
-          if (DomChildBB == Itr.getCaseSuccessor()) {
+          if (DomChildBB == Itr->getCaseSuccessor()) {
             preorderTravAvrBuild(DomChildBB,
                                  AvrItr(ASwitchIR->getCaseLastChild(Count)));
             IsCaseChild = true;
@@ -1407,7 +1411,7 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L) {
   // Visit loop children
   for (auto It = L->child_begin(), End = L->child_end(); It != End; ++It) {
     DEBUG(formatted_raw_ostream FOS(dbgs()); FOS << "LOOP CHILD:\n";
-          It->print(FOS, 0, PrintNumber);
+          It->print(FOS, 0, true);
           FOS << "\n-----------------------------------------------\n");
     ChildAVR = visit(*It);
 

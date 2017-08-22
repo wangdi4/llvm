@@ -14,7 +14,7 @@
 #if INTEL_CUSTOMIZATION
 
 #include "llvm/Transforms/IPO/InlineReport.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#include "llvm/Transforms/IPO/Inliner.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -159,6 +159,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Microsoft EH prevents inlining",
   // NinlrSEH,
   InlPrtSimple, "Structured EH prevents inlining",
+  // NinlrPreferCloning,
+  InlPrtSimple, "Callsite preferred for cloning",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 
@@ -582,8 +584,7 @@ void InlineReport::setReasonIsInlined(const CallSite& CS,
   if (Level == 0) { 
     return; 
   } 
-  InlineReason Reason = IC.getInlineReason(); 
-  assert(IsInlinedReason(Reason)); 
+  assert(IsInlinedReason(IC.getInlineReason())); 
   Instruction* NI = CS.getInstruction(); 
   InlineReportInstructionCallSiteMap::const_iterator
     MapIt = IRInstructionCallSiteMap.find(NI);
@@ -630,8 +631,7 @@ void InlineReport::setReasonNotInlined(const CallSite& CS,
   if (Level == 0) { 
     return; 
   } 
-  InlineReason Reason = IC.getInlineReason();
-  assert(Reason == NinlrOuterInlining); 
+  assert(IC.getInlineReason() == NinlrOuterInlining); 
   setReasonNotInlined(CS, IC); 
   Instruction* NI = CS.getInstruction(); 
   InlineReportInstructionCallSiteMap::const_iterator
@@ -833,6 +833,7 @@ void InlineReport::replaceFunctionWithFunction(Function* OldFunction,
   } 
   InlineReportFunction* IRF = IrfIt->second; 
   int count = IRFunctionMap.erase(OldFunction); 
+  (void)count;
   assert(count == 1); 
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF)); 
   IRF->setLinkageChar(NewFunction); 

@@ -34,6 +34,7 @@ using namespace llvm::legacy;
 
 // See PassManagers.h for Pass Manager infrastructure overview.
 
+#if !INTEL_PRODUCT_RELEASE
 //===----------------------------------------------------------------------===//
 // Pass debugging information.  Often it is useful to find out what pass is
 // running when a crash occurs in a utility.  When this library is compiled with
@@ -115,16 +116,25 @@ static bool ShouldPrintBeforePass(const PassInfo *PI) {
 static bool ShouldPrintAfterPass(const PassInfo *PI) {
   return PrintAfterAll || ShouldPrintBeforeOrAfterPass(PI, PrintAfter);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 bool llvm::isFunctionInPrintList(StringRef FunctionName) {
+#if INTEL_PRODUCT_RELEASE
+  return false;
+#else // !INTEL_PRODUCT_RELEASE
   static std::unordered_set<std::string> PrintFuncNames(PrintFuncsList.begin(),
                                                         PrintFuncsList.end());
   return PrintFuncNames.empty() || PrintFuncNames.count(FunctionName);
+#endif // !INTEL_PRODUCT_RELEASE
 }
 /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
 /// or higher is specified.
 bool PMDataManager::isPassDebuggingExecutionsOrMore() const {
+#if INTEL_PRODUCT_RELEASE
+  return false;
+#else // !INTEL_PRODUCT_RELEASE
   return PassDebugging >= Executions;
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 
@@ -194,6 +204,7 @@ public:
 
   StringRef getPassName() const override { return "BasicBlock Pass Manager"; }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override {
     dbgs().indent(Offset*2) << "BasicBlockPass Manager\n";
@@ -203,6 +214,7 @@ public:
       dumpLastUses(BP, Offset+1);
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   BasicBlockPass *getContainedPass(unsigned N) {
     assert(N < PassVector.size() && "Pass number out of range!");
@@ -241,11 +253,13 @@ public:
     schedulePass(P);
   }
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a function printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintFunctionPass(O, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   // Prepare for running an on the fly pass, freeing memory if needed
   // from a previous run.
@@ -309,11 +323,13 @@ public:
     }
   }
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintModulePass(O, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// run - Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.
@@ -342,6 +358,7 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
+#if !INTEL_PRODUCT_RELEASE
   // Print passes managed by this manager
   void dumpPassStructure(unsigned Offset) override {
     dbgs().indent(Offset*2) << "ModulePass Manager\n";
@@ -355,6 +372,7 @@ public:
       dumpLastUses(MP, Offset+1);
     }
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   ModulePass *getContainedPass(unsigned N) {
     assert(N < PassVector.size() && "Pass number out of range!");
@@ -397,11 +415,13 @@ public:
     schedulePass(P);
   }
 
+#if !INTEL_PRODUCT_RELEASE
   /// createPrinterPass - Get a module printer pass.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override {
     return createPrintModulePass(O, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// run - Execute all of the passes scheduled for execution.  Keep track of
   /// whether any of the passes modifies the module, and if so, return true.
@@ -678,20 +698,24 @@ void PMTopLevelManager::schedulePass(Pass *P) {
     return;
   }
 
+#if !INTEL_PRODUCT_RELEASE
   if (PI && !PI->isAnalysis() && ShouldPrintBeforePass(PI)) {
     Pass *PP = P->createPrinterPass(
         dbgs(), ("*** IR Dump Before " + P->getPassName() + " ***").str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   // Add the requested pass to the best available pass manager.
   P->assignPassManager(activeStack, getTopLevelPassManagerType());
 
+#if !INTEL_PRODUCT_RELEASE
   if (PI && !PI->isAnalysis() && ShouldPrintAfterPass(PI)) {
     Pass *PP = P->createPrinterPass(
         dbgs(), ("*** IR Dump After " + P->getPassName() + " ***").str());
     PP->assignPassManager(activeStack, getTopLevelPassManagerType());
   }
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 /// Find the pass that implements Analysis AID. Search immutable
@@ -745,6 +769,7 @@ void PMTopLevelManager::addImmutablePass(ImmutablePass *P) {
     ImmutablePassMap[ImmPI->getTypeInfo()] = P;
 }
 
+#if !INTEL_PRODUCT_RELEASE
 // Print passes managed by this top level manager.
 void PMTopLevelManager::dumpPasses() const {
 
@@ -780,6 +805,7 @@ void PMTopLevelManager::dumpArguments() const {
     PM->dumpPassArguments();
   dbgs() << "\n";
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 void PMTopLevelManager::initializeAllAnalysisInfo() {
   for (PMDataManager *PM : PassManagers)
@@ -895,12 +921,14 @@ void PMDataManager::removeNotPreservedAnalysis(Pass *P) {
     DenseMap<AnalysisID, Pass*>::iterator Info = I++;
     if (Info->second->getAsImmutablePass() == nullptr &&
         !is_contained(PreservedSet, Info->first)) {
+#if !INTEL_PRODUCT_RELEASE
       // Remove this analysis
       if (PassDebugging >= Details) {
         Pass *S = Info->second;
         dbgs() << " -- '" <<  P->getPassName() << "' is not preserving '";
         dbgs() << S->getPassName() << "'\n";
       }
+#endif // !INTEL_PRODUCT_RELEASE
       AvailableAnalysis.erase(Info);
     }
   }
@@ -918,12 +946,14 @@ void PMDataManager::removeNotPreservedAnalysis(Pass *P) {
       DenseMap<AnalysisID, Pass *>::iterator Info = I++;
       if (Info->second->getAsImmutablePass() == nullptr &&
           !is_contained(PreservedSet, Info->first)) {
+#if !INTEL_PRODUCT_RELEASE
         // Remove this analysis
         if (PassDebugging >= Details) {
           Pass *S = Info->second;
           dbgs() << " -- '" <<  P->getPassName() << "' is not preserving '";
           dbgs() << S->getPassName() << "'\n";
         }
+#endif // !INTEL_PRODUCT_RELEASE
         InheritedAnalysis[Index]->erase(Info);
       }
     }
@@ -942,11 +972,13 @@ void PMDataManager::removeDeadPasses(Pass *P, StringRef Msg,
 
   TPM->collectLastUses(DeadPasses, P);
 
+#if !INTEL_PRODUCT_RELEASE
   if (PassDebugging >= Details && !DeadPasses.empty()) {
     dbgs() << " -*- '" <<  P->getPassName();
     dbgs() << "' is the last user of following pass instances.";
     dbgs() << " Free these instances\n";
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (Pass *P : DeadPasses)
     freePass(P, Msg, DBG_STR);
@@ -954,7 +986,9 @@ void PMDataManager::removeDeadPasses(Pass *P, StringRef Msg,
 
 void PMDataManager::freePass(Pass *P, StringRef Msg,
                              enum PassDebuggingString DBG_STR) {
+#if !INTEL_PRODUCT_RELEASE
   dumpPassInfo(P, FREEING_MSG, DBG_STR, Msg);
+#endif // !INTEL_PRODUCT_RELEASE
 
   {
     // If the pass crashes releasing memory, remember this.
@@ -1119,6 +1153,7 @@ Pass *PMDataManager::findAnalysisPass(AnalysisID AID, bool SearchParent) {
   return nullptr;
 }
 
+#if !INTEL_PRODUCT_RELEASE
 // Print list of passes that are last used by P.
 void PMDataManager::dumpLastUses(Pass *P, unsigned Offset) const{
 
@@ -1240,16 +1275,19 @@ void PMDataManager::dumpAnalysisUsage(StringRef Msg, const Pass *P,
   }
   dbgs() << '\n';
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 /// Add RequiredPass into list of lower level passes required by pass P.
 /// RequiredPass is run on the fly by Pass Manager when P requests it
 /// through getAnalysis interface.
 /// This should be handled by specific pass manager.
 void PMDataManager::addLowerLevelRequiredPass(Pass *P, Pass *RequiredPass) {
+#if !INTEL_PRODUCT_RELEASE
   if (TPM) {
     TPM->dumpArguments();
     TPM->dumpPasses();
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   // Module Level pass may required Function Level analysis info
   // (e.g. dominator info). Pass manager uses on the fly function pass manager
@@ -1307,8 +1345,10 @@ bool BBPassManager::runOnFunction(Function &F) {
       BasicBlockPass *BP = getContainedPass(Index);
       bool LocalChanged = false;
 
+#if !INTEL_PRODUCT_RELEASE
       dumpPassInfo(BP, EXECUTION_MSG, ON_BASICBLOCK_MSG, I->getName());
       dumpRequiredSet(BP);
+#endif // !INTEL_PRODUCT_RELEASE
 
       initializeAnalysisImpl(BP);
 
@@ -1321,11 +1361,13 @@ bool BBPassManager::runOnFunction(Function &F) {
       }
 
       Changed |= LocalChanged;
+#if !INTEL_PRODUCT_RELEASE
       if (LocalChanged)
         dumpPassInfo(BP, MODIFICATION_MSG, ON_BASICBLOCK_MSG,
                      I->getName());
       dumpPreservedSet(BP);
       dumpUsedSet(BP);
+#endif // !INTEL_PRODUCT_RELEASE
 
       verifyPreservedAnalysis(BP);
       removeNotPreservedAnalysis(BP);
@@ -1429,8 +1471,10 @@ bool FunctionPassManager::doFinalization() {
 bool FunctionPassManagerImpl::doInitialization(Module &M) {
   bool Changed = false;
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
@@ -1498,6 +1542,7 @@ bool FunctionPassManagerImpl::run(Function &F) {
 // FPPassManager implementation
 
 char FPPassManager::ID = 0;
+#if !INTEL_PRODUCT_RELEASE
 /// Print passes managed by this manager
 void FPPassManager::dumpPassStructure(unsigned Offset) {
   dbgs().indent(Offset*2) << "FunctionPass Manager\n";
@@ -1507,6 +1552,7 @@ void FPPassManager::dumpPassStructure(unsigned Offset) {
     dumpLastUses(FP, Offset+1);
   }
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 
 /// Execute all of the passes scheduled for execution by invoking
@@ -1525,8 +1571,10 @@ bool FPPassManager::runOnFunction(Function &F) {
     FunctionPass *FP = getContainedPass(Index);
     bool LocalChanged = false;
 
+#if !INTEL_PRODUCT_RELEASE
     dumpPassInfo(FP, EXECUTION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpRequiredSet(FP);
+#endif // !INTEL_PRODUCT_RELEASE
 
     initializeAnalysisImpl(FP);
 
@@ -1538,10 +1586,12 @@ bool FPPassManager::runOnFunction(Function &F) {
     }
 
     Changed |= LocalChanged;
+#if !INTEL_PRODUCT_RELEASE
     if (LocalChanged)
       dumpPassInfo(FP, MODIFICATION_MSG, ON_FUNCTION_MSG, F.getName());
     dumpPreservedSet(FP);
     dumpUsedSet(FP);
+#endif // !INTEL_PRODUCT_RELEASE
 
     verifyPreservedAnalysis(FP);
     removeNotPreservedAnalysis(FP);
@@ -1602,8 +1652,10 @@ MPPassManager::runOnModule(Module &M) {
     ModulePass *MP = getContainedPass(Index);
     bool LocalChanged = false;
 
+#if !INTEL_PRODUCT_RELEASE
     dumpPassInfo(MP, EXECUTION_MSG, ON_MODULE_MSG, M.getModuleIdentifier());
     dumpRequiredSet(MP);
+#endif // !INTEL_PRODUCT_RELEASE
 
     initializeAnalysisImpl(MP);
 
@@ -1615,11 +1667,13 @@ MPPassManager::runOnModule(Module &M) {
     }
 
     Changed |= LocalChanged;
+#if !INTEL_PRODUCT_RELEASE
     if (LocalChanged)
       dumpPassInfo(MP, MODIFICATION_MSG, ON_MODULE_MSG,
                    M.getModuleIdentifier());
     dumpPreservedSet(MP);
     dumpUsedSet(MP);
+#endif // !INTEL_PRODUCT_RELEASE
 
     verifyPreservedAnalysis(MP);
     removeNotPreservedAnalysis(MP);
@@ -1706,8 +1760,10 @@ bool PassManagerImpl::run(Module &M) {
   bool Changed = false;
   TimingInfo::createTheTimeInfo();
 
+#if !INTEL_PRODUCT_RELEASE
   dumpArguments();
   dumpPasses();
+#endif // !INTEL_PRODUCT_RELEASE
 
   for (ImmutablePass *ImPass : getImmutablePasses())
     Changed |= ImPass->doInitialization(M);
@@ -1813,6 +1869,7 @@ void PMStack::push(PMDataManager *PM) {
   S.push_back(PM);
 }
 
+#if !INTEL_PRODUCT_RELEASE
 // Dump content of the pass manager stack.
 LLVM_DUMP_METHOD void PMStack::dump() const {
   for (PMDataManager *Manager : S)
@@ -1821,6 +1878,7 @@ LLVM_DUMP_METHOD void PMStack::dump() const {
   if (!S.empty())
     dbgs() << '\n';
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 /// Find appropriate Module Pass Manager in the PM Stack and
 /// add self into that manager.

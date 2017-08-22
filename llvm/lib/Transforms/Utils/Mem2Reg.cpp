@@ -51,7 +51,7 @@ static bool promoteMemoryToRegister(Function &F, DominatorTree &DT,
     if (Allocas.empty())
       break;
 
-    PromoteMemToReg(Allocas, DT, nullptr, &AC);
+    PromoteMemToReg(Allocas, DT, &AC);
     NumPromoted += Allocas.size();
     Changed = true;
   }
@@ -64,12 +64,12 @@ PreservedAnalyses PromotePass::run(Function &F, FunctionAnalysisManager &AM) {
   if (!promoteMemoryToRegister(F, DT, AC))
     return PreservedAnalyses::all();
 
-  // FIXME: This should also 'preserve the CFG'.
   auto PA = PreservedAnalyses();        // INTEL
   PA.preserve<WholeProgramAnalysis>();  // INTEL
   PA.preserve<GlobalsAA>();             // INTEL
 
-  return PA;                            // INTEL
+  PA.preserveSet<CFGAnalyses>();
+  return PA;
 }
 
 namespace {

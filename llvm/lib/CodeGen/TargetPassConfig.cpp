@@ -39,8 +39,8 @@
 
 using namespace llvm;
 
-static cl::opt<bool> DisablePostRA("disable-post-ra", cl::Hidden,
-    cl::desc("Disable Post Regalloc"));
+static cl::opt<bool> DisablePostRASched("disable-post-ra", cl::Hidden,
+    cl::desc("Disable Post Regalloc Scheduler"));
 static cl::opt<bool> DisableBranchFold("disable-branch-fold", cl::Hidden,
     cl::desc("Disable branch folding"));
 static cl::opt<bool> DisableTailDuplicate("disable-tail-duplicate", cl::Hidden,
@@ -93,6 +93,9 @@ static cl::opt<bool> VerifyMachineCode("verify-machineinstrs", cl::Hidden,
     cl::desc("Verify generated machine code"),
     cl::init(false),
     cl::ZeroOrMore);
+static cl::opt<bool> EnableMachineOutliner("enable-machine-outliner",
+    cl::Hidden,
+    cl::desc("Enable machine outliner"));
 
 static cl::opt<std::string>
 PrintMachineInstrs("print-machineinstrs", cl::ValueOptional,
@@ -158,7 +161,7 @@ static IdentifyingPassPtr applyDisable(IdentifyingPassPtr PassID,
 static IdentifyingPassPtr overridePass(AnalysisID StandardID,
                                        IdentifyingPassPtr TargetID) {
   if (StandardID == &PostRASchedulerID)
-    return applyDisable(TargetID, DisablePostRA);
+    return applyDisable(TargetID, DisablePostRASched);
 
   if (StandardID == &BranchFolderPassID)
     return applyDisable(TargetID, DisableBranchFold);
@@ -262,7 +265,8 @@ TargetPassConfig::~TargetPassConfig() {
 TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
     : ImmutablePass(ID), PM(&pm), Started(true), Stopped(false),
       AddingMachinePasses(false), TM(tm), Impl(nullptr), Initialized(false),
-      DisableVerify(false), EnableTailMerge(true) {
+      DisableVerify(false), EnableTailMerge(true),
+      RequireCodeGenSCCOrder(false) {
 
   Impl = new PassConfigImpl();
 
@@ -280,6 +284,9 @@ TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
 
   if (StringRef(PrintMachineInstrs.getValue()).equals(""))
     TM->Options.PrintMachineCode = true;
+
+  if (TM->Options.EnableIPRA)
+    setRequiresCodeGenSCCOrder();
 }
 
 CodeGenOpt::Level TargetPassConfig::getOptLevel() const {
@@ -533,7 +540,7 @@ void TargetPassConfig::addISelPrepare() {
   addPreISel();
 
   // Force codegen to run according to the callgraph.
-  if (TM->Options.EnableIPRA)
+  if (requiresCodeGenSCCOrder())
     addPass(new DummyCGSCCPass);
 
   // Add both the safe stack and the stack protection passes: each of them will
@@ -670,8 +677,14 @@ void TargetPassConfig::addMachinePasses() {
   addPass(&StackMapLivenessID, false);
   addPass(&LiveDebugValuesID, false);
 
+  // Insert before XRay Instrumentation.
+  addPass(&FEntryInserterID, false);
+
   addPass(&XRayInstrumentationID, false);
   addPass(&PatchableFunctionID, false);
+
+  if (EnableMachineOutliner)
+    PM->add(createMachineOutlinerPass());
 
   AddingMachinePasses = false;
 }
@@ -706,6 +719,10 @@ void TargetPassConfig::addMachineSSAOptimization() {
 
   addPass(&MachineLICMID, false);
   addPass(&MachineCSEID, false);
+
+  // Coalesce basic blocks with the same branch condition
+  addPass(&BranchCoalescingID);
+
   addPass(&MachineSinkingID);
 
 #if INTEL_CUSTOMIZATION
@@ -738,7 +755,7 @@ MachinePassRegistry RegisterRegAlloc::Registry;
 
 /// A dummy default pass factory indicates whether the register allocator is
 /// overridden on the command line.
-LLVM_DEFINE_ONCE_FLAG(InitializeDefaultRegisterAllocatorFlag);
+static llvm::once_flag InitializeDefaultRegisterAllocatorFlag;
 static FunctionPass *useDefaultRegisterAllocator() { return nullptr; }
 static RegisterRegAlloc
 defaultRegAlloc("default",
@@ -911,6 +928,11 @@ void TargetPassConfig::addBlockPlacement() {
 //===---------------------------------------------------------------------===//
 /// GlobalISel Configuration
 //===---------------------------------------------------------------------===//
+
+bool TargetPassConfig::isGlobalISelEnabled() const {
+  return false;
+}
+
 bool TargetPassConfig::isGlobalISelAbortEnabled() const {
   return EnableGlobalISelAbort == 1;
 }

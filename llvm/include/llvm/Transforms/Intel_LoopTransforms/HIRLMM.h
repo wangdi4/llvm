@@ -151,7 +151,7 @@ private:
   MemRefCollection MRC;
   HLNodeUtils *HNU;
 
-  struct CollectMemRefs;
+  class CollectMemRefs;
   unsigned LoopLevel = 0;
 
 public:

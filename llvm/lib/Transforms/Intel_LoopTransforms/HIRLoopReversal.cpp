@@ -82,6 +82,7 @@
 // 2. Allow simple forward gotos in the same iteration
 // 3.
 //
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/LLVMContext.h"
@@ -90,17 +91,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopReversal.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-loop-reversal"
 
@@ -503,7 +504,7 @@ bool HIRLoopReversal::doLoopPreliminaryChecks(const HLLoop *Lp) {
   const LoopStatistics &LS = HLS->getSelfLoopStatistics(Lp);
 
   // DEBUG(LS.dump(););
-  if (LS.hasCalls() || LS.hasGotos() || LS.hasLabels()) {
+  if (LS.hasCallsWithUnsafeSideEffects() || LS.hasGotos() || LS.hasLabels()) {
     return false;
   }
 
@@ -783,14 +784,15 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     // Handle merge-able case: Merge directly
     if (MergeableCase) {
       // Update: CE' = UB - IV; (LB is always 0)
-      CEPrime = CEU.add(CEPrime, UBCE, true);
-      assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
+      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCE, true);
+      (void)CEPrimeRet;
+      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "CEPrime, Expect: CE' = UB - IV"));
 
       // Replace original IV with CE' = UB - IV;
       // DEBUG(::dump(CE, "CE [BEFORE replaceIVByCanonExpr(.)]\n"););
       bool ReplaceIVByCE =
-          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       (void)ReplaceIVByCE;
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       // DEBUG(::dump(CE, "CE [AFTER replaceIVByCanonExpr(.)]\n"););
@@ -821,13 +823,14 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
       (void)CastToStandaloneBlob;
 
       // Build: CE' = UBCEClone - iv;
-      CEPrime = CEU.add(CEPrime, UBCEClone, true);
-      assert(CEPrime && "CanonExprUtils::add(.) failed on UBCE\n ");
+      bool CEPrimeRet = CanonExprUtils::add(CEPrime, UBCEClone, true);
+      (void)CEPrimeRet;
+      assert(CEPrimeRet && "CanonExprUtils::add(.) failed on UBCE\n ");
       // DEBUG(::dump(CEPrime, "Expect: CE' = UB - iv"));
 
       // Replace CE's original IV with the CE' = UB - IV;
       bool ReplaceIVByCE =
-          CEU.replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
+          CanonExprUtils::replaceIVByCanonExpr(CE, LoopLevel, CEPrime, true);
       assert(ReplaceIVByCE && "replaceIVByCanonExpr(.) failed\n");
       (void)ReplaceIVByCE;
       // DEBUG(::dump(CE, "CE After replaceIVByCanonExpr(.)\n"););
@@ -839,7 +842,7 @@ bool HIRLoopReversal::doHIRReversalTransform(HLLoop *Lp) {
     // Make the corresponding RegDDRef consistent with the new CE
     const SmallVector<const RegDDRef *, 3> AuxRefs = {Lp->getUpperDDRef()};
     RegDDRef *MemRef = MCE.getDDRef();
-    MemRef->makeConsistent(&AuxRefs, Lp->getNestingLevel() - 1);
+    MemRef->makeConsistent(&AuxRefs, Lp->getNestingLevel());
   }
   // end_loop: MCE
 

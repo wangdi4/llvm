@@ -15,6 +15,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/GlobalValue.h"
@@ -23,11 +24,23 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "LLVMContextImpl.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
 //                            GlobalValue Class
 //===----------------------------------------------------------------------===//
+
+// GlobalValue should be a Constant, plus a type, a module, some flags, and an
+// intrinsic ID. Add an assert to prevent people from accidentally growing
+// GlobalValue while adding flags.
+static_assert(sizeof(GlobalValue) ==
+                  sizeof(Constant) + 2 * sizeof(void *) + 2 * sizeof(unsigned),
+              "unexpected GlobalValue size growth");
+
+// GlobalObject adds a comdat.
+static_assert(sizeof(GlobalObject) == sizeof(GlobalValue) + sizeof(void *),
+              "unexpected GlobalObject size growth");
 
 bool GlobalValue::isMaterializable() const {
   if (const Function *F = dyn_cast<Function>(this))
@@ -80,18 +93,6 @@ void GlobalObject::setAlignment(unsigned Align) {
   assert(getAlignment() == Align && "Alignment representation error!");
 }
 
-unsigned GlobalObject::getGlobalObjectSubClassData() const {
-  unsigned ValueData = getGlobalValueSubClassData();
-  return ValueData >> GlobalObjectBits;
-}
-
-void GlobalObject::setGlobalObjectSubClassData(unsigned Val) {
-  unsigned OldData = getGlobalValueSubClassData();
-  setGlobalValueSubClassData((OldData & GlobalObjectMask) |
-                             (Val << GlobalObjectBits));
-  assert(getGlobalObjectSubClassData() == Val && "representation error");
-}
-
 void GlobalObject::copyAttributesFrom(const GlobalValue *Src) {
   GlobalValue::copyAttributesFrom(Src);
   if (const auto *GV = dyn_cast<GlobalObject>(Src)) {
@@ -139,7 +140,7 @@ StringRef GlobalValue::getSection() const {
   return cast<GlobalObject>(this)->getSection();
 }
 
-Comdat *GlobalValue::getComdat() {
+const Comdat *GlobalValue::getComdat() const {
   if (auto *GA = dyn_cast<GlobalAlias>(this)) {
     // In general we cannot compute this at the IR level, but we try.
     if (const GlobalObject *GO = GA->getBaseObject())
@@ -152,11 +153,26 @@ Comdat *GlobalValue::getComdat() {
   return cast<GlobalObject>(this)->getComdat();
 }
 
-void GlobalObject::setSection(StringRef S) {
-  Section = S;
+StringRef GlobalObject::getSectionImpl() const {
+  assert(hasSection());
+  return getContext().pImpl->GlobalObjectSections[this];
+}
 
-  // The C api requires this to be null terminated.
-  Section.c_str();
+void GlobalObject::setSection(StringRef S) {
+  // Do nothing if we're clearing the section and it is already empty.
+  if (!hasSection() && S.empty())
+    return;
+
+  // Get or create a stable section name string and put it in the table in the
+  // context.
+  if (!S.empty()) {
+    S = getContext().pImpl->SectionStrings.insert(S).first->first();
+  }
+  getContext().pImpl->GlobalObjectSections[this] = S;
+
+  // Update the HasSectionHashEntryBit. Setting the section to the empty string
+  // means this global no longer has a section.
+  setGlobalObjectFlag(HasSectionHashEntryBit, !S.empty());
 }
 
 bool GlobalValue::isDeclaration() const {
@@ -214,12 +230,32 @@ bool GlobalValue::canIncreaseAlignment() const {
   return true;
 }
 
-GlobalObject *GlobalValue::getBaseObject() {
+const GlobalObject *GlobalValue::getBaseObject() const {
   if (auto *GO = dyn_cast<GlobalObject>(this))
     return GO;
   if (auto *GA = dyn_cast<GlobalAlias>(this))
     return GA->getBaseObject();
   return nullptr;
+}
+
+bool GlobalValue::isAbsoluteSymbolRef() const {
+  auto *GO = dyn_cast<GlobalObject>(this);
+  if (!GO)
+    return false;
+
+  return GO->getMetadata(LLVMContext::MD_absolute_symbol);
+}
+
+Optional<ConstantRange> GlobalValue::getAbsoluteSymbolRange() const {
+  auto *GO = dyn_cast<GlobalObject>(this);
+  if (!GO)
+    return None;
+
+  MDNode *MD = GO->getMetadata(LLVMContext::MD_absolute_symbol);
+  if (!MD)
+    return None;
+
+  return getConstantRangeFromMetadata(*MD);
 }
 
 //===----------------------------------------------------------------------===//

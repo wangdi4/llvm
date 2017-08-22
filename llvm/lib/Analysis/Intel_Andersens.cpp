@@ -518,13 +518,52 @@ void AndersensAAResult::CreateConstraint(Constraint::ConstraintType Ty,
   Constraints.push_back(Constraint(Ty, D, S, O));
 }
 
+// Returns false if 'Target' is unsafe possible target for 'CS', which is
+// indirect call with 'FP' as function pointer.
+//
+static bool safePossibleTarget(Value *FP, Value* Target, CallSite CS) {
+
+  // Go conservative for now when possible target is non-function
+  if (!isa<Function>(Target)) return false;
+
+  FunctionType *CalleeTy = cast<Function>(Target)->getFunctionType();
+  FunctionType *FTy = CS.getFunctionType();
+  // Treat varargs as unsafe targets for now. If required, it can be
+  // allowed as safe target later by checking number of actual arguments
+  // at CallSite, number of formals of possible targets, argument types
+  // of CallSite, and formal param types of possible target.
+  if (FTy->isVarArg() || CalleeTy->isVarArg()) return false;
+
+  if (FP->getType() == Target->getType()) {
+    // If signatures of call and possible target are same, makes sure
+    // args and formals do match. Treat the target as unsafe if they
+    // don't match.
+    if (CS.arg_size() != FTy->getNumParams()) return false;
+
+    // Not sure whether we need to check for some of Function/Parameter
+    // attributes to treat target as unsafe. Skipping those checks for
+    // now.
+    //
+    for (unsigned I = 0, E = FTy->getNumParams(); I != E; ++I) {
+      // Check types of param and arg
+      if (CS.getArgument(I)->getType() != FTy->getParamType(I)) return false;
+    }
+
+    // This check may not be needed.
+    if (CS.getCallingConv() != cast<Function>(Target)->getCallingConv())
+      return false;
+  }
+
+  return true;
+}
+
 // Interface routine to get possible targets of given function pointer 'FP'.
 // It computes all possible targets of 'FP' using points-to info and adds
 // valid targets to 'Targets' vector. Skips adding unknown/invalid targets
 // to 'Targets' vector and return false if there is any noticed.
 //
 bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
-                                      std::vector<llvm::Value*>& Targets) {
+                 std::vector<llvm::Value*>& Targets, CallSite CS, bool Trace) {
 
   Targets.clear();
   if (ValueNodes.size() == 0) {
@@ -551,15 +590,32 @@ bool AndersensAAResult::GetFuncPointerPossibleTargets(Value *FP,
     }
     Value *V = N->getValue();
   
-    // Go conservative for now when possible target is non-function or
-    // signatures of call and possible target don't match.
-    // TODO: Need to skip these targets to improve this transformation
-    // after understanding more about vararg, MS_CDECLS, NOSTATE etc.
-    if (!isa<Function>(V) || FP->getType() != V->getType()) {
+    // Set IsComplete to false if V is unsafe target.
+    if (!safePossibleTarget(FP, V, CS)) {
+      if (Trace) {
+        if (Function *Fn = dyn_cast<Function>(V)) {
+          errs() << "    Unsafe target: Skipping  " << Fn->getName() << "\n";
+        }
+        else {
+          errs() << "    Unsafe target: Skipping  " << *V << "\n";
+        }
+      }
       IsComplete = false;
       continue;
     }
-    Targets.push_back(V);
+    // Add it to the Target list only if signatures of call and possible
+    // target do match. This behavior is different from icc. For icc, unsafe
+    // possible targets(i.e MS_CDELS, varargs, NOSTATE etc) are also added
+    // to the Target list. 
+    if (FP->getType() == V->getType()) {
+      Targets.push_back(V);
+    }
+    else {
+      if (Trace)
+        errs() << "    Args mismatch: Ignoring " <<
+                        cast<Function>(V)->getName() << "\n";
+    }
+
   }
   return IsComplete;
 }
@@ -711,15 +767,13 @@ AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
   return Result;
 }
 
+AnalysisKey AndersensAA::Key;
 
 AndersensAAResult AndersensAA::run(Module &M, AnalysisManager<Module> *AM) {
   return AndersensAAResult::analyzeModule(M,
                                       AM->getResult<TargetLibraryAnalysis>(M),
                                       AM->getResult<CallGraphAnalysis>(M));
 }
-
-
-char AndersensAA::PassID;
 
 char AndersensAAWrapperPass::ID = 0;
 
@@ -1377,6 +1431,7 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
     case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
+    case Instruction::AddrSpaceCast:
       return getNodeForConstantPointer(CE->getOperand(0));
     default:
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
@@ -1425,6 +1480,7 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
+    case Instruction::AddrSpaceCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     default:
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
@@ -2474,14 +2530,14 @@ void AndersensAAResult::HVNValNum(unsigned NodeIndex) {
           N->PredEdges = new SparseBitVector<>;
         *(N->PredEdges) |= CycleNode->PredEdges;
         delete CycleNode->PredEdges;
-        CycleNode->PredEdges = NULL;
+        CycleNode->PredEdges = nullptr;
       }
       if (CycleNode->ImplicitPredEdges) {
         if (!N->ImplicitPredEdges)
           N->ImplicitPredEdges = new SparseBitVector<>;
         *(N->ImplicitPredEdges) |= CycleNode->ImplicitPredEdges;
         delete CycleNode->ImplicitPredEdges;
-        CycleNode->ImplicitPredEdges = NULL;
+        CycleNode->ImplicitPredEdges = nullptr;
       }
 
       SCCStack.pop();
@@ -2680,20 +2736,20 @@ void AndersensAAResult::Condense(unsigned NodeIndex) {
 
       *(N->PointsTo) |= CycleNode->PointsTo;
       delete CycleNode->PointsTo;
-      CycleNode->PointsTo = NULL;
+      CycleNode->PointsTo = nullptr;
       if (CycleNode->PredEdges) {
         if (!N->PredEdges)
           N->PredEdges = new SparseBitVector<>;
         *(N->PredEdges) |= CycleNode->PredEdges;
         delete CycleNode->PredEdges;
-        CycleNode->PredEdges = NULL;
+        CycleNode->PredEdges = nullptr;
       }
       if (CycleNode->ImplicitPredEdges) {
         if (!N->ImplicitPredEdges)
           N->ImplicitPredEdges = new SparseBitVector<>;
         *(N->ImplicitPredEdges) |= CycleNode->ImplicitPredEdges;
         delete CycleNode->ImplicitPredEdges;
-        CycleNode->ImplicitPredEdges = NULL;
+        CycleNode->ImplicitPredEdges = nullptr;
       }
       SCCStack.pop();
     }
@@ -2756,7 +2812,7 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
       --GraphNodes[j].NumInEdges;
       if (!GraphNodes[j].NumInEdges && !GraphNodes[j].StoredInHash) {
         delete GraphNodes[j].PointsTo;
-        GraphNodes[j].PointsTo = NULL;
+        GraphNodes[j].PointsTo = nullptr;
       }
     }
   // If this isn't a direct node, generate a fresh variable.
@@ -2768,7 +2824,7 @@ void AndersensAAResult::HUValNum(unsigned NodeIndex) {
   // equivalence class.
   if (N->PointsTo->empty()) {
     delete N->PointsTo;
-    N->PointsTo = NULL;
+    N->PointsTo = nullptr;
   } else {
     if (N->Direct) {
       N->PointerEquivLabel = Set2PEClass[N->PointsTo];
@@ -2926,9 +2982,9 @@ void AndersensAAResult::HCD() {
   }
 
   for (unsigned i = 0; i < GraphNodes.size(); ++i)
-    if (GraphNodes[i].Edges != NULL) {
+    if (GraphNodes[i].Edges != nullptr) {
       delete GraphNodes[i].Edges;
-      GraphNodes[i].Edges = NULL;
+      GraphNodes[i].Edges = nullptr;
     }
 
   while( !SCCStack.empty() )
@@ -3041,9 +3097,9 @@ void AndersensAAResult::OptimizeConstraints() {
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     Node *N = &GraphNodes[i];
     delete N->PredEdges;
-    N->PredEdges = NULL;
+    N->PredEdges = nullptr;
     delete N->ImplicitPredEdges;
-    N->ImplicitPredEdges = NULL;
+    N->ImplicitPredEdges = nullptr;
   }
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
@@ -3076,13 +3132,13 @@ void AndersensAAResult::OptimizeConstraints() {
     if (FindNode(i) == i) {
       Node *N = &GraphNodes[i];
       delete N->PointsTo;
-      N->PointsTo = NULL;
+      N->PointsTo = nullptr;
       delete N->PredEdges;
-      N->PredEdges = NULL;
+      N->PredEdges = nullptr;
       delete N->ImplicitPredEdges;
-      N->ImplicitPredEdges = NULL;
+      N->ImplicitPredEdges = nullptr;
       delete N->PointedToBy;
-      N->PointedToBy = NULL;
+      N->PointedToBy = nullptr;
     }
   }
 
@@ -3185,7 +3241,9 @@ bool AndersensAAResult::QueryNode(unsigned Node) {
   // worklist to be processed.
   if (OurDFS == Tarjan2DFS[Node]) {
     while (!SCCStack.empty() && Tarjan2DFS[SCCStack.top()] >= OurDFS) {
-      Node = UniteNodes(Node, SCCStack.top());
+      // CQ415669: SCCStack.top() node may have been collapsed by HCD.
+      // So, get Rep of SCCStack.top().
+      Node = UniteNodes(Node, FindNode(SCCStack.top()));
 
       SCCStack.pop();
       Merged = true;
@@ -3431,7 +3489,7 @@ void AndersensAAResult::SolveConstraints() {
     
     // Add to work list if it's a representative and can contribute to the
     // calculation right now.
-    while( (CurrNode = CurrWL->pop()) != NULL ) {
+    while( (CurrNode = CurrWL->pop()) != nullptr ) {
       CurrNodeIndex = CurrNode - &GraphNodes[0];
       CurrNode->Stamp();
       
@@ -3725,9 +3783,9 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
   delete SecondNode->OldPointsTo;
   delete SecondNode->Edges;
   delete SecondNode->PointsTo;
-  SecondNode->Edges = NULL;
-  SecondNode->PointsTo = NULL;
-  SecondNode->OldPointsTo = NULL;
+  SecondNode->Edges = nullptr;
+  SecondNode->PointsTo = nullptr;
+  SecondNode->OldPointsTo = nullptr;
 
   NumUnified++;
   //errs() << "Unified Node ";
@@ -4849,6 +4907,7 @@ void IntelModRefImpl::propagate(Module &M)
 {
     auto G = buildPropagationSCC(M);
     unsigned sccNum = 0;
+    (void)sccNum;
 
     for (auto I = scc_begin(G.get()); !I.isAtEnd(); ++I) {
         const std::vector<CallGraphNode *> &SCC = *I;

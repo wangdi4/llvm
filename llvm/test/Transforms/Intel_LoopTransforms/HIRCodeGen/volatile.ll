@@ -1,7 +1,7 @@
 ; RUN: opt -hir-ssa-deconstruction -hir-cost-model-throttling=0 -hir-cg -force-hir-cg -S < %s | FileCheck %s
 
 ; Check that CG retains volatile attribute of store.
-; CHECK: region:
+; CHECK: region.0:
 
 ; CHECK: [[GEP:%.*]] = getelementptr {{.*}} %p
 ; CHECK: store volatile i32 {{.*}} [[GEP]]

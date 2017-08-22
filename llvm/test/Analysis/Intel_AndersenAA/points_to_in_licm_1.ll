@@ -1,5 +1,6 @@
 ; It checks anders-aa helps LICM to hoist invariant load out of loop
 ; RUN: opt < %s  -anders-aa -licm  -disable-output  -stats -S 2>&1 | grep "1 licm"
+; REQUIRES: asserts
 
 @p = internal unnamed_addr global i32* null, align 8
 @A = common global [100 x i32] zeroinitializer, align 16

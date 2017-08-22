@@ -313,16 +313,29 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   DirectRefA = DirectRefB = false;
   const Value *Ptr1 = LocA.Ptr;
   const Value *Ptr2 = LocB.Ptr;
-  if (Ptr1 && isa<GlobalValue>(Ptr1)) {
-    DirectRefA = true;
+
+  // Consider ptr as a direct reference if ptr is a Select node and one of the
+  // arms of it is a global value.
+  if (Ptr1) {
+    if (isa<GlobalValue>(Ptr1))
+      DirectRefA = true;
+    else if (const SelectInst *S1 = dyn_cast<SelectInst>(Ptr1))
+      if (isa<GlobalValue>(S1->getTrueValue()) ||
+          isa<GlobalValue>(S1->getFalseValue()))
+        DirectRefA = true;
   }
-  if (Ptr2 && isa<GlobalValue>(Ptr2)) {
-    DirectRefB = true;
+  if (Ptr2) {
+    if (isa<GlobalValue>(Ptr2))
+      DirectRefB = true;
+    else if (const SelectInst *S2 = dyn_cast<SelectInst>(Ptr2))
+      if (isa<GlobalValue>(S2->getTrueValue()) ||
+          isa<GlobalValue>(S2->getFalseValue()))
+        DirectRefB = true;
   }
 #endif // INTEL_CUSTOMIZATION
 
   // If they may alias, chain to the next AliasAnalysis.
-  if (Aliases(AM, BM, DirectRefA, DirectRefB)) // INTEL 
+  if (Aliases(AM, BM, DirectRefA, DirectRefB)) // INTEL
     return AAResultBase::alias(LocA, LocB);
 
   // Otherwise return a definitive result.
@@ -470,8 +483,12 @@ MDNode *MDNode::getMostGenericTBAA(MDNode *A, MDNode *B) {
     --IB;
   }
 
-  if (!Ret)
+  // We either did not find a match, or the only common base "type" is
+  // the root node.  In either case, we don't have any useful TBAA
+  // metadata to attach.
+  if (!Ret || Ret->getNumOperands() < 2)
     return nullptr;
+
   // We need to convert from a type node to a tag node.
   Type *Int64 = IntegerType::get(A->getContext(), 64);
   Metadata *Ops[3] = {Ret, Ret,
@@ -510,15 +527,15 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
 bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
                                 bool DirectRefA, bool DirectRefB) const {
 #if INTEL_CUSTOMIZATION
-  // 
-  // Given two memory references a and b, the type aliaser before the 
+  //
+  // Given two memory references a and b, the type aliaser before the
   // following fix checks the following cases:
   //  1) whether a's type can be descendants of b's type
-  //  2) whether b's type can be descendants of a's type in the type tree. 
-  // 
-  // The fix refines the rules as follows. 
-  //   If one of the references is global scalar variable, the compiler only 
-  //   needs to check one case, since the global scalar variable cannot be 
+  //  2) whether b's type can be descendants of a's type in the type tree.
+  //
+  // The fix refines the rules as follows.
+  //   If one of the references is global scalar variable, the compiler only
+  //   needs to check one case, since the global scalar variable cannot be
   //   aliased by an access to an enclosing (descendant) type.
   //
   // Here is one running example.
@@ -529,7 +546,7 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   //   a = 12;
   //   return *s;
   // }
-  // 
+  //
   // LLVM TBAA
   //
   //  store i8 12, i8* @a, align 1, !tbaa !5
@@ -550,8 +567,8 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   // Step 5: (!3,0, !3,0) match successful means that they are aliased.
   //
   //
-  // With the fix, the compiler can skip step 4 and 5 since the type of store 
-  // for global variable a can not be descendant of another type tree 
+  // With the fix, the compiler can skip step 4 and 5 since the type of store
+  // for global variable a can not be descendant of another type tree
   // unless they are annotated with the same metadata.
   //
   // Proposed type based alias analysis for !5 and !1
@@ -559,7 +576,12 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   // Step 2: (!3, 0, !2, 0)
   // Step 3: (!4,0, !2,0) match fails
 
-  auto Mask = DirectRefA?CheckA:(DirectRefB?CheckB:CheckBoth);
+  CheckKind Mask;
+  if (DirectRefA && !DirectRefB)
+    Mask = CheckA;
+  else if (!DirectRefA && DirectRefB)
+    Mask = CheckB;
+  else Mask = CheckBoth;
 #endif // INTEL_CUSTOMIZATION
 
   // Verify that both input nodes are struct-path aware.  Auto-upgrade should
@@ -625,7 +647,7 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
   return false;
 }
 
-char TypeBasedAA::PassID;
+AnalysisKey TypeBasedAA::Key;
 
 TypeBasedAAResult TypeBasedAA::run(Function &F, FunctionAnalysisManager &AM) {
   return TypeBasedAAResult();

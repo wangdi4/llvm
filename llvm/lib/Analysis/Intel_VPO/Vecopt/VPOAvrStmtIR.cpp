@@ -140,6 +140,7 @@ AVRValueIR *AVRValueIR::clone() const { return nullptr; }
 
 void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   // Print AVR Value Node.
   switch (VLevel) {
@@ -164,6 +165,7 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRValueIR::getAvrValueName() const { return ""; }
@@ -176,6 +178,7 @@ AVRLabelIR *AVRLabelIR::clone() const { return nullptr; }
 
 void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -201,6 +204,7 @@ void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRLabelIR::getAvrValueName() const {
@@ -217,6 +221,7 @@ AVRPhiIR *AVRPhiIR::clone() const { return nullptr; }
 
 void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   if (LHS) {
 
@@ -251,6 +256,7 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRPhiIR::getAvrValueName() const {
@@ -284,6 +290,7 @@ AVRCallIR *AVRCallIR::clone() const { return nullptr; }
 
 void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
                       VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -310,6 +317,7 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRCallIR::getAvrValueName() const {
@@ -356,6 +364,7 @@ AVRBranchIR *AVRBranchIR::clone() const { return nullptr; }
 
 void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -383,6 +392,7 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRBranchIR::getAvrValueName() const {
@@ -416,6 +426,7 @@ AVRBackEdgeIR *AVRBackEdgeIR::clone() const { return nullptr; }
 
 void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
                           VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -439,6 +450,7 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRBackEdgeIR::getAvrValueName() const {
@@ -470,6 +482,7 @@ AVREntryIR *AVREntryIR::clone() const { return nullptr; }
 
 void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -493,6 +506,7 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVREntryIR::getAvrValueName() const {
@@ -526,6 +540,7 @@ AVRReturnIR *AVRReturnIR::clone() const { return nullptr; }
 
 void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -551,6 +566,7 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRReturnIR::getAvrValueName() const {
@@ -590,6 +606,7 @@ AVRSelectIR *AVRSelectIR::clone() const { return nullptr; }
 
 void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -615,6 +632,7 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRSelectIR::getAvrValueName() const {
@@ -653,6 +671,7 @@ AVRCompareIR *AVRCompareIR::clone() const { return nullptr; }
 
 void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
                          VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
@@ -679,6 +698,7 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 
   OS << "\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 std::string AVRCompareIR::getAvrValueName() const {

@@ -1,4 +1,4 @@
-//===-- StreamBroadcast.cpp -------------------------------------*- C++ -*-===//
+//===-- StreamAsynchronousIO.cpp --------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -10,7 +10,7 @@
 #include "lldb/Core/StreamAsynchronousIO.h"
 
 #include "lldb/Core/Debugger.h"
-#include "lldb/lldb-private.h"
+#include "lldb/lldb-enumerations.h" // for ByteOrder::eByteOrderBig
 
 using namespace lldb;
 using namespace lldb_private;

@@ -17,8 +17,8 @@
 #include <algorithm>
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOScenarioEvaluation.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOPredicator.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVLSClient.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRAnalysisPass.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVLSClient.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
@@ -149,7 +149,7 @@ VPOVecContextBase VPOScenarioEvaluationBase::getBestCandidate(AVRWrn *AWrn) {
       // Decomposition of AVRValueHIRs happens here
       prepareLoop(AvrLoop);
 
-      int BestCostForALoop = 0;
+      uint64_t BestCostForALoop = 0;
       // Get the scalar cost for this loop.
       // (No need to compute the cost if ForceVF is set to a VF forced by the 
       // user).
@@ -249,13 +249,16 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
   StringRef VFRange = MinVF == MaxVF ? MinVFStr :
                                        MinVFStr + " - " + MaxVFStr;
   DEBUG(errs() << "VF Candidates are: " << VFRange << "\n");
+  assert(MinVF && MaxVF && "Unexpected zero min/max VF");
+
   for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {
     VFCandidates.push_back(VF);
   }
 }
 
 VPOVecContextBase
-VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
+VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop,
+                                       uint64_t *BestCostForALoop) {
   DEBUG(errs() << "Process Loop\n");
 
   // Place holder for loop-level, VF-agnostic passes.
@@ -298,7 +301,7 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
     // required for some of the analyses in processCandidates (namely, for VLS
     // grouping).
     VPOVecContextBase VC = setVecContext(VF);
-    int Cost = processCandidate(ALoop, VF, VC);
+    uint64_t Cost = processCandidate(ALoop, VF, VC);
 
     if (Cost < *BestCostForALoop || VF == ForceVF) {
       *BestCostForALoop = Cost;
@@ -317,8 +320,9 @@ VPOScenarioEvaluationBase::processLoop(AVRLoop *ALoop, int *BestCostForALoop) {
 
 // TODO: Ideally we have very few VF sensitive adjusments to make.
 // ProcessCandidate will be as much as possible just a getCost call.
-int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
-                                                VPOVecContextBase &VC) {
+uint64_t VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop,
+                                                     unsigned int VF,
+                                                     VPOVecContextBase &VC) {
 
   // Place holder for VF-specific passes.
   //
@@ -384,7 +388,7 @@ int VPOScenarioEvaluationBase::processCandidate(AVRLoop *ALoop, unsigned int VF,
   // Calculate the cost of the current candidate
   // (No need to calculate cost if the user forced a specific VF).
   //
-  int Cost = 0; 
+  uint64_t Cost = 0; 
   if (ForceVF == 0) { 
     HIRSafeReductionAnalysis *SRA = nullptr;
     if (VPOScenarioEvaluationHIR *HIRSE =
@@ -432,14 +436,14 @@ int64_t getConsecutiveStride(AVR *PtrOp) {
   assert((isa<AVRValue>(PtrOp) || isa<AVRExpression>(PtrOp)) &&
          "Unexpected AVR node");
 
-  Type *PtrType;
   // TODO: Move type to AVR. This pattern is very common
   if (AVRValue *ValOp = dyn_cast<AVRValue>(PtrOp)) {
-    PtrType = ValOp->getType();
+    (void)ValOp;
+    assert(ValOp->getType()->isPointerTy() && "Unexpected non-ptr");
   } else if (AVRExpression *ExprOp = dyn_cast<AVRExpression>(PtrOp)) {
-    PtrType = ExprOp->getType();
+    (void)ExprOp;
+    assert(ExprOp->getType()->isPointerTy() && "Unexpected non-ptr");
   }
-  assert(PtrType->isPointerTy() && "Unexpected non-ptr");
 
 #ifdef USE_EXPERIMENTAL_CODE
   // TODO: Use instead IsPointerConsecutive, once available
@@ -1007,7 +1011,7 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     // FIXME: There has to be some interface to get the basic type of a
     // recursive SequentialType. Example: 'pointer to multidimensional array of
     // floats' would return 'float'
-    Type *DataTy = PtrType->getSequentialElementType();
+    Type *DataTy = PtrType->getPointerElementType();
     while (isa<SequentialType>(DataTy))
       DataTy = DataTy->getSequentialElementType();
 
@@ -1079,7 +1083,6 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
     bool GapInElemSize = false; // FIXME
     if ((!ConsecutiveStride && !UseGatherOrScatter) || GapInElemSize) {
       DEBUG(errs() << "Case 2: Non-consecutive access Scalarization Cost.\n");
-      bool IsComplexComputation = isLikelyComplexAddressComputation(Op);
       Cost = 0;
       // The cost of extracting from the value vector and pointer vector.
       Type *PtrsVecTy = ToVectorTy(PtrType, VF);
@@ -1095,8 +1098,9 @@ void VPOCostGathererBase::visit(AVRExpression *Expr) {
       }
 
       // The cost of the scalar loads/stores.
+      // TODO - see if we need to account for complex address computation.
       Cost +=
-          VF * TTI.getAddressComputationCost(PtrsVecTy, IsComplexComputation);
+          VF * TTI.getAddressComputationCost(PtrsVecTy);
       Cost += VF *
               TTI.getMemoryOpCost(Expr->getOperation(), ValTy->getScalarType(),
                                   Alignment, AS);
@@ -1232,7 +1236,7 @@ int VPOCostModelBase::getCost(AVRLoop *ALoop, unsigned int VF,
                               VPOVLSInfoBase *VLSInfo,
                               HIRSafeReductionAnalysis *SRA) {
   DEBUG(errs() << "\nEvaluating Loop Cost for VF = " << VF << "\n");
-  unsigned int Cost;
+  uint64_t Cost;
 
   // Calculate LoopBody Cost
   if (AVRLoopHIR *ALoopHIR = dyn_cast<AVRLoopHIR>(ALoop)) {

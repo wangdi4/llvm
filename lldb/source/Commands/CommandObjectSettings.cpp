@@ -15,6 +15,7 @@
 #include "llvm/ADT/StringRef.h"
 
 // Project includes
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -293,15 +294,10 @@ protected:
   bool DoExecute(Args &args, CommandReturnObject &result) override {
     result.SetStatus(eReturnStatusSuccessFinishResult);
 
-    const size_t argc = args.GetArgumentCount();
     if (!args.empty()) {
-      // TODO: Convert this to StringRef based enumeration.  Requires converting
-      // DumpPropertyValue first.
-      for (size_t i = 0; i < argc; ++i) {
-        const char *property_path = args.GetArgumentAtIndex(i);
-
+      for (const auto &arg : args) {
         Error error(m_interpreter.GetDebugger().DumpPropertyValue(
-            &m_exe_ctx, result.GetOutputStream(), property_path,
+            &m_exe_ctx, result.GetOutputStream(), arg.ref,
             OptionValue::eDumpGroupValue));
         if (error.Success()) {
           result.GetOutputStream().EOL();

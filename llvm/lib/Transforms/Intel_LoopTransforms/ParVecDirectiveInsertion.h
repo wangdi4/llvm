@@ -19,10 +19,10 @@
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_PARVECDIRECTIVEINSERTION_H
 
 #include "llvm/Analysis/Intel_Directives.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParVecAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRParVecAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 namespace llvm {
 namespace loopopt {
@@ -39,6 +39,7 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     ParVecInfo::AnalysisMode Mode;
     /// \brief Status flag to indicate whether we modified the HIR or not.
     bool Inserted;
+    HLNode *SkipNode;
 
     /// \brief Insert auto-vec directives to the loop.
     void insertVecDirectives(HLLoop *L, const ParVecInfo *Info);
@@ -62,6 +63,10 @@ class ParVecDirectiveInsertion : public HIRTransformPass {
     void visit(HLLoop *L);
     /// \brief Returns true if directive is inserted for at least one loop.
     bool getInserted() { return Inserted; }
+
+    bool skipRecursion(const HLNode *Node) const override {
+      return Node == SkipNode;
+    }
   };
 
 public:

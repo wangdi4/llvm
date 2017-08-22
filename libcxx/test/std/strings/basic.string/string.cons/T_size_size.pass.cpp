@@ -10,7 +10,7 @@
 // <string>
 
 // template<class _Tp>
-//   basic_string(const _Tp& __t, size_type __pos, size_type __n, 
+//   basic_string(const _Tp& __t, size_type __pos, size_type __n,
 //                const allocator_type& __a = allocator_type());
 //
 //  Mostly we're testing string_view here
@@ -63,7 +63,6 @@ void
 test(SV sv, unsigned pos, unsigned n, const typename S::allocator_type& a)
 {
     typedef typename S::traits_type T;
-    typedef typename S::allocator_type A;
     if (pos <= sv.size())
     {
         S s2(sv, pos, n, a);

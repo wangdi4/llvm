@@ -374,14 +374,14 @@ static bool IsUserOfGlobalSafeForSRA(User *U, GlobalValue *GV) {
   ++GEPI;  // Skip over the pointer index.
 
   // If this is a use of an array allocation, do a bit more checking for sanity.
-  if (ArrayType *AT = dyn_cast<ArrayType>(*GEPI)) {
-    uint64_t NumElements = AT->getNumElements();
+  if (GEPI.isSequential()) {
     ConstantInt *Idx = cast<ConstantInt>(U->getOperand(2));
 
     // Check to make sure that index falls within the array.  If not,
     // something funny is going on, so we won't do the optimization.
     //
-    if (Idx->getZExtValue() >= NumElements)
+    if (GEPI.isBoundedSequential() &&
+        Idx->getZExtValue() >= GEPI.getSequentialNumElements())
       return false;
 
     // We cannot scalar repl this level of the array unless any array
@@ -394,19 +394,13 @@ static bool IsUserOfGlobalSafeForSRA(User *U, GlobalValue *GV) {
     for (++GEPI; // Skip array index.
          GEPI != E;
          ++GEPI) {
-      uint64_t NumElements;
-      if (ArrayType *SubArrayTy = dyn_cast<ArrayType>(*GEPI))
-        NumElements = SubArrayTy->getNumElements();
-      else if (VectorType *SubVectorTy = dyn_cast<VectorType>(*GEPI))
-        NumElements = SubVectorTy->getNumElements();
-      else {
-        assert((*GEPI)->isStructTy() &&
-               "Indexed GEP type is not array, vector, or struct!");
+      if (GEPI.isStruct())
         continue;
-      }
 
       ConstantInt *IdxVal = dyn_cast<ConstantInt>(GEPI.getOperand());
-      if (!IdxVal || IdxVal->getZExtValue() >= NumElements)
+      if (!IdxVal ||
+          (GEPI.isBoundedSequential() &&
+           IdxVal->getZExtValue() >= GEPI.getSequentialNumElements()))
         return false;
     }
   }
@@ -476,12 +470,7 @@ static GlobalVariable *SRAGlobal(GlobalVariable *GV, const DataLayout &DL) {
         NGV->setAlignment(NewAlign);
     }
   } else if (SequentialType *STy = dyn_cast<SequentialType>(Ty)) {
-    unsigned NumElements = 0;
-    if (ArrayType *ATy = dyn_cast<ArrayType>(STy))
-      NumElements = ATy->getNumElements();
-    else
-      NumElements = cast<VectorType>(STy)->getNumElements();
-
+    unsigned NumElements = STy->getNumElements();
     if (NumElements > 16 && GV->hasNUsesOrMore(16))
       return nullptr; // It's not worth it.
     NewGlobals.reserve(NumElements);
@@ -1810,6 +1799,84 @@ static void makeAllConstantUsesInstructions(Constant *C) {
   }
 }
 
+#if INTEL_CUSTOMIZATION
+// Replace all uses of "GV" with "StoredOnceVal" in "F" if all uses of
+// GV are dominated by store to GV using "LookupDomTree".
+// It allows only Float and Int types for now.
+//
+static bool isStoredOnceValueUsedByAllUsesInFunction(
+    const Function *F, GlobalValue *GV, Value *StoredOnceVal,
+    function_ref<DominatorTree &(Function &)> LookupDomTree) {
+
+  // Make sure stored value is constant
+  Constant *SOVConstant = dyn_cast<Constant>(StoredOnceVal);
+  if (!SOVConstant) return false;
+
+  // For now, allow only Integer and float types.
+  if (!StoredOnceVal->getType()->isIntegerTy() &&
+      !StoredOnceVal->getType()->isFloatingPointTy())
+    return false;
+
+  // Collect all uses of GV. Returns false if any use of GV is other
+  // than Load/Store/BitCast instructions.
+  StoreInst* StoreI = nullptr;
+  const DataLayout &DL = GV->getParent()->getDataLayout();
+  SmallVector<LoadInst *, 8> Loads;
+  for (auto *U : GV->users()) {
+    // Get actual uses of GV by ignoring BitCast.
+    if (Operator::getOpcode(U) == Instruction::BitCast) {
+      for (auto *UU : U->users()) {
+        if (auto *LI = dyn_cast<LoadInst>(UU))
+          Loads.push_back(LI);
+        else if (auto *SI = dyn_cast<StoreInst>(UU)) {
+          // Returns false if more than one Store is found. 
+          if (StoreI != nullptr) return false;
+          StoreI = SI;
+        } else
+          return false;
+      }
+      continue;
+    }
+
+    Instruction *I = dyn_cast<Instruction>(U);
+    if (!I) return false;
+    assert(I->getParent()->getParent() == F);
+
+    if (auto *LI = dyn_cast<LoadInst>(I))
+      Loads.push_back(LI);
+    else if (auto *SI = dyn_cast<StoreInst>(I)) {
+      // Returns false if more than one Store is found. 
+      if (StoreI != nullptr) return false;
+      StoreI = SI;
+    } else {
+      return false;
+    }
+  }
+  if (Loads.size() == 0 || StoreI == nullptr) return false;
+
+  auto &DT = LookupDomTree(*const_cast<Function *>(F));
+
+  // Check all Load Instructions  are dominated by Store Instruction
+  // and size of store is less than or equal to size of any loads.
+  auto *STy = StoreI->getValueOperand()->getType();
+  for (auto *L : Loads) {
+    auto *LTy = L->getType();
+    if (!DT.dominates(StoreI, L) ||
+        (DL.getTypeStoreSize(LTy) > DL.getTypeStoreSize(STy)))
+      return false;
+  }
+
+  // Replace all uses of Loads with constant and remove Loads. 
+  for (auto *L : Loads) {
+    L->replaceAllUsesWith(SOVConstant);
+    L->eraseFromParent();
+  }
+  // Remove Store.
+  StoreI->eraseFromParent();
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Analyze the specified global variable and optimize
 /// it if possible.  If we make a change, return true.
 static bool processInternalGlobal(
@@ -1834,12 +1901,14 @@ static bool processInternalGlobal(
       !GS.AccessingFunction->callsFunctionThatReturnsTwice() && // INTEL
       isPointerValueDeadOnEntryToFunction(GS.AccessingFunction, GV,
                                           LookupDomTree)) {
+    const DataLayout &DL = GV->getParent()->getDataLayout();
+
     DEBUG(dbgs() << "LOCALIZING GLOBAL: " << *GV << "\n");
     Instruction &FirstI = const_cast<Instruction&>(*GS.AccessingFunction
                                                    ->getEntryBlock().begin());
     Type *ElemTy = GV->getValueType();
     // FIXME: Pass Global's alignment when globals have alignment
-    AllocaInst *Alloca = new AllocaInst(ElemTy, nullptr,
+    AllocaInst *Alloca = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
                                         GV->getName(), &FirstI);
     if (!isa<UndefValue>(GV->getInitializer()))
       new StoreInst(GV->getInitializer(), Alloca, &FirstI);
@@ -1928,6 +1997,23 @@ static bool processInternalGlobal(
     if (optimizeOnceStoredGlobal(GV, GS.StoredOnceValue, GS.Ordering, DL, TLI))
       return true;
 
+#if INTEL_CUSTOMIZATION
+  // If a global variable is accessed only in one routine and all uses
+  // of the global variable is dominated by single store with a constant
+  // value, Replace all uses of the global variable with the constant value.
+  if (!GS.HasMultipleAccessingFunctions &&
+      GS.AccessingFunction &&
+      GV->getValueType()->isSingleValueType() &&
+      GV->getType()->getAddressSpace() == 0 &&
+      !GV->isExternallyInitialized() &&
+      allNonInstructionUsersCanBeMadeInstructions(GV) &&
+      isStoredOnceValueUsedByAllUsesInFunction(GS.AccessingFunction, GV,
+                                     GS.StoredOnceValue, LookupDomTree)) {
+      DEBUG(dbgs() << "GLOBAL REPLACED WITH CONSTANT: " << *GV << "\n");
+      return true;
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // Otherwise, if the global was not a boolean, we can shrink it to be a
     // boolean.
     if (Constant *SOVConstant = dyn_cast<Constant>(GS.StoredOnceValue)) {
@@ -1992,16 +2078,11 @@ static void ChangeCalleesToFastCall(Function *F) {
   }
 }
 
-static AttributeSet StripNest(LLVMContext &C, const AttributeSet &Attrs) {
-  for (unsigned i = 0, e = Attrs.getNumSlots(); i != e; ++i) {
-    unsigned Index = Attrs.getSlotIndex(i);
-    if (!Attrs.getSlotAttributes(i).hasAttribute(Index, Attribute::Nest))
-      continue;
-
-    // There can be only one.
-    return Attrs.removeAttribute(C, Index, Attribute::Nest);
-  }
-
+static AttributeList StripNest(LLVMContext &C, AttributeList Attrs) {
+  // There can be at most one attribute set with a nest attribute.
+  unsigned NestIndex;
+  if (Attrs.hasAttrSomewhere(Attribute::Nest, &NestIndex))
+    return Attrs.removeAttribute(C, NestIndex, Attribute::Nest);
   return Attrs;
 }
 
@@ -2129,12 +2210,7 @@ static Constant *EvaluateStoreInto(Constant *Init, Constant *Val,
 
   ConstantInt *CI = cast<ConstantInt>(Addr->getOperand(OpNo));
   SequentialType *InitTy = cast<SequentialType>(Init->getType());
-
-  uint64_t NumElts;
-  if (ArrayType *ATy = dyn_cast<ArrayType>(InitTy))
-    NumElts = ATy->getNumElements();
-  else
-    NumElts = InitTy->getVectorNumElements();
+  uint64_t NumElts = InitTy->getNumElements();
 
   // Break up the array into elements.
   for (uint64_t i = 0, e = NumElts; i != e; ++i)
@@ -2407,7 +2483,7 @@ OptimizeGlobalAliases(Module &M,
 }
 
 static Function *FindCXAAtExit(Module &M, TargetLibraryInfo *TLI) {
-  LibFunc::Func F = LibFunc::cxa_atexit;
+  LibFunc F = LibFunc_cxa_atexit;
   if (!TLI->has(F))
     return nullptr;
 
@@ -2416,7 +2492,7 @@ static Function *FindCXAAtExit(Module &M, TargetLibraryInfo *TLI) {
     return nullptr;
 
   // Make sure that the function has the correct prototype.
-  if (!TLI->getLibFunc(*Fn, F) || F != LibFunc::cxa_atexit)
+  if (!TLI->getLibFunc(*Fn, F) || F != LibFunc_cxa_atexit)
     return nullptr;
 
   return Fn;

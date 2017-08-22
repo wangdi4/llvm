@@ -25,6 +25,8 @@
 #include <type_traits>
 #include <cassert>
 
+#include "test_macros.h"
+
 template <class _Tp>
 void where(const _Tp &) {}
 
@@ -72,7 +74,7 @@ test()
     test1<T, 0, 0, 0>();
     test1<T, 0, 1, 2>();
     test1<T, 1, 1, 2>();
-    const T M(~0);
+    const T M(static_cast<T>(-1));
     test1<T, 0, 0, M>();
     test1<T, 0, M-2, M>();
     test1<T, 0, M-1, M>();

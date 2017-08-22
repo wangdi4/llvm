@@ -81,6 +81,7 @@ namespace {
       (void) llvm::createAndersensAAWrapperPass(); 
       (void) llvm::createNonLTOGlobalOptimizerPass(); 
       (void) llvm::createTbaaMDPropagationPass();    
+      (void) llvm::createCleanupFakeLoadsPass();
       (void) llvm::createStdContainerOptPass();      
       (void) llvm::createStdContainerAAWrapperPass();  
 #endif // INTEL_CUSTOMIZATION
@@ -93,6 +94,7 @@ namespace {
       (void) llvm::createCallGraphDOTPrinterPass();
       (void) llvm::createCallGraphViewerPass();
       (void) llvm::createCFGSimplificationPass();
+      (void) llvm::createLateCFGSimplificationPass();
       (void) llvm::createCFLAndersAAWrapperPass();
       (void) llvm::createCFLSteensAAWrapperPass();
       (void) llvm::createStructurizeCFGPass();
@@ -114,6 +116,7 @@ namespace {
       (void) llvm::createPGOInstrumentationGenLegacyPass();
       (void) llvm::createPGOInstrumentationUseLegacyPass();
       (void) llvm::createPGOIndirectCallPromotionLegacyPass();
+      (void) llvm::createPGOMemOPSizeOptLegacyPass();
       (void) llvm::createInstrProfilingLegacyPass();
       (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
@@ -135,6 +138,7 @@ namespace {
       (void) llvm::createLazyValueInfoPass();
       (void) llvm::createLoopExtractorPass();
       (void) llvm::createLoopInterchangePass();
+      (void) llvm::createLoopPredicationPass();
       (void) llvm::createLoopSimplifyPass();
       (void) llvm::createLoopSimplifyCFGPass();
       (void) llvm::createLoopStrengthReducePass();
@@ -186,6 +190,7 @@ namespace {
       (void) llvm::createGVNHoistPass();
       (void) llvm::createMergedLoadStoreMotionPass();
       (void) llvm::createGVNPass();
+      (void) llvm::createNewGVNPass();
       (void) llvm::createMemCpyOptPass();
       (void) llvm::createLoopDeletionPass();
       (void) llvm::createPostDomTree();
@@ -262,14 +267,17 @@ namespace {
       (void) llvm::createHIROptVarPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRUnrollAndJamPass();
-      (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRPreVecCompleteUnrollPass();
+      (void) llvm::createHIRPostVecCompleteUnrollPass();
       (void) llvm::createHIRParDirInsertPass();
       (void) llvm::createHIRVecDirInsertPass();
       (void) llvm::createHIRLoopDistributionForMemRecPass();
       (void) llvm::createHIRLoopDistributionForLoopNestPass();
       (void) llvm::createHIRLoopReversalPass();
       (void) llvm::createHIRLMMPass();
+      (void) llvm::createHIRScalarReplArrayPass();
       (void) llvm::createHIRIdiomRecognitionPass();
+      (void) llvm::createHIRMVForConstUBPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
 

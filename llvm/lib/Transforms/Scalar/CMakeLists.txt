@@ -13,8 +13,10 @@ add_llvm_library(LLVMScalarOpts
   GuardWidening.cpp
   GVN.cpp
   GVNHoist.cpp
+  IVUsersPrinter.cpp
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
+  InferAddressSpaces.cpp
 #ifdef INTEL_CUSTOMIZATION
   Intel_AggInlAA.cpp
   Intel_GlobalOpt.cpp
@@ -25,6 +27,7 @@ add_llvm_library(LLVMScalarOpts
 #endif     // INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
+  LoopAccessAnalysisPrinter.cpp
   LoopSink.cpp
   LoadCombine.cpp
   LoopDeletion.cpp
@@ -34,6 +37,8 @@ add_llvm_library(LLVMScalarOpts
   LoopInstSimplify.cpp
   LoopInterchange.cpp
   LoopLoadElimination.cpp
+  LoopPassManager.cpp
+  LoopPredication.cpp
   LoopRerollPass.cpp
   LoopRotation.cpp
   LoopSimplifyCFG.cpp
@@ -47,6 +52,7 @@ add_llvm_library(LLVMScalarOpts
   MemCpyOptimizer.cpp
   MergedLoadStoreMotion.cpp
   NaryReassociate.cpp
+  NewGVN.cpp
   PartiallyInlineLibCalls.cpp
   PlaceSafepoints.cpp
   Reassociate.cpp

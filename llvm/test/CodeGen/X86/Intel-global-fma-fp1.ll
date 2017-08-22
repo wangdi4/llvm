@@ -99,7 +99,7 @@ define <4 x float> @test_ps(<4 x float> %a32, <4 x float> %b32, <4 x float> %c32
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ;
 ; AVX2OTHER-NEXT: vmovd %eax, %xmm4
-; AVX2OTHER-NEXT: vbroadcastss %xmm4, %xmm4
+; AVX2OTHER-NEXT: vpbroadcastd %xmm4, %xmm4
 ; SKXOTHER-NEXT:  vpbroadcastd %eax, %xmm4
 ;
 ; OTHER-NEXT:    vfmadd213ps %xmm4, %xmm2, %xmm0
@@ -164,8 +164,8 @@ define <8 x float> @test_ps256(<8 x float> %a32, <8 x float> %b32, <8 x float> %
 ; OTHER:       # BB#0: # %entry
 ; OTHER-NEXT:    movl $1065353216, %eax # imm = 0x3F800000
 ;
-; AVX2OTHER-NEXT:    vmovd %eax, %xmm4
-; AVX2OTHER-NEXT:    vbroadcastss %xmm4, %ymm4
+; AVX2OTHER-NEXT:   vmovd %eax, %xmm4
+; AVX2OTHER-NEXT:   vpbroadcastd %xmm4, %ymm4
 ; SKXOTHER-NEXT:    vpbroadcastd %eax, %ymm4
 ;
 ; OTHER-NEXT:    vfmadd213ps %ymm4, %ymm2, %ymm0
@@ -198,7 +198,7 @@ define <4 x double> @test_pd256(<4 x double> %a32, <4 x double> %b32, <4 x doubl
 ; OTHER-NEXT:    movabsq $4607182418800017408, %rax # imm = 0x3FF0000000000000
 ;
 ; AVX2OTHER-NEXT: vmovd %rax, %xmm4
-; AVX2OTHER-NEXT: vbroadcastsd %xmm4, %ymm4
+; AVX2OTHER-NEXT: vpbroadcastq %xmm4, %ymm4
 ; SKXOTHER-NEXT:  vpbroadcastq %rax, %ymm4
 ;
 ; OTHER-NEXT:    vfmadd213pd %ymm4, %ymm2, %ymm0

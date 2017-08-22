@@ -19,7 +19,7 @@
 ;<29>         + END LOOP
 ;          END REGION
 ;
-;CHECK: region:
+;CHECK: region.0:
 ;CHECK: {{loop.[0-9]+:}}
 ;CHECK: [[A_ADDR:%.*]] = getelementptr inbounds i32, i32* %A
 ;CHECK: [[A_LOAD:%.*]] = load i32, i32* [[A_ADDR]]

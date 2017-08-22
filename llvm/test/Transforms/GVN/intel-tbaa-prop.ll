@@ -1,4 +1,4 @@
-; RUN: opt -tbaa -inline -sroa -basiccg -tbaa-prop -basicaa -aa -instcombine -gvn -S < %s | FileCheck %s
+; RUN: opt -tbaa -inline -tbaa-prop -sroa -basicaa -aa -instcombine -gvn -S < %s | FileCheck %s
 ;
 ; The compiler should recover the tbaa information for the expression
 ; s.geta(i) and s.getb(j) so that these two expressions can be determined
@@ -87,6 +87,8 @@ entry:
   %1 = call i32* @llvm.intel.fakeload.p0i32(i32* %arrayidx, metadata !11) 
   ret i32* %1
 }
+
+; CHECK-NOT: call i32* @llvm.intel.fakeload
 
 ; Function Attrs: nounwind
 declare i32* @llvm.intel.fakeload.p0i32(i32*, metadata) 

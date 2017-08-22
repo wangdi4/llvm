@@ -44,12 +44,14 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeDSELegacyPassPass(Registry);
   initializeGuardWideningLegacyPassPass(Registry);
   initializeGVNLegacyPassPass(Registry);
+  initializeNewGVNLegacyPassPass(Registry);
   initializeEarlyCSELegacyPassPass(Registry);
   initializeEarlyCSEMemSSALegacyPassPass(Registry);
   initializeGVNHoistLegacyPassPass(Registry);
   initializeFlattenCFGPassPass(Registry);
   initializeInductiveRangeCheckEliminationPass(Registry);
   initializeIndVarSimplifyLegacyPassPass(Registry);
+  initializeInferAddressSpacesPass(Registry);
   initializeJumpThreadingPass(Registry);
   initializeLegacyLICMPassPass(Registry);
   initializeLegacyLoopSinkPassPass(Registry);
@@ -58,6 +60,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeLoopAccessLegacyAnalysisPass(Registry);
   initializeLoopInstSimplifyLegacyPassPass(Registry);
   initializeLoopInterchangePass(Registry);
+  initializeLoopPredicationLegacyPassPass(Registry);
   initializeLoopRotateLegacyPassPass(Registry);
   initializeLoopStrengthReducePass(Registry);
   initializeLoopRerollPass(Registry);
@@ -79,6 +82,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeIPSCCPLegacyPassPass(Registry);
   initializeSROALegacyPassPass(Registry);
   initializeCFGSimplifyPassPass(Registry);
+  initializeLateCFGSimplifyPassPass(Registry);
   initializeStructurizeCFGPass(Registry);
   initializeSinkingLegacyPassPass(Registry);
   initializeTailCallElimPass(Registry);
@@ -95,6 +99,8 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
   initializeIndirectCallConvPass(Registry);
   initializeStdContainerOptPass(Registry);
   initializeTbaaMDPropagationPass(Registry); 
+  initializeCleanupFakeLoadsPass(Registry); 
+  initializeLoopOptMarkerPass(Registry);
 #endif // INTEL_CUSTOMIZATION
   initializeAggInlAALegacyPassPass(Registry); // INTEL
   initializeLoopLoadEliminationPass(Registry);
@@ -122,6 +128,10 @@ void LLVMAddCFGSimplificationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createCFGSimplificationPass());
 }
 
+void LLVMAddLateCFGSimplificationPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createLateCFGSimplificationPass());
+}
+
 void LLVMAddDeadStoreEliminationPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createDeadStoreEliminationPass());
 }
@@ -132,6 +142,10 @@ void LLVMAddScalarizerPass(LLVMPassManagerRef PM) {
 
 void LLVMAddGVNPass(LLVMPassManagerRef PM) {
   unwrap(PM)->add(createGVNPass());
+}
+
+void LLVMAddNewGVNPass(LLVMPassManagerRef PM) {
+  unwrap(PM)->add(createNewGVNPass());
 }
 
 void LLVMAddMergedLoadStoreMotionPass(LLVMPassManagerRef PM) {

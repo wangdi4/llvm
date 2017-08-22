@@ -8,7 +8,7 @@
 ; CHECK: add nuw nsw i32 %c.05
 
 ; CHECK: IR Dump After
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: !fpmath
 ; CHECK: exact
 ; CHECK: add nuw nsw i32 

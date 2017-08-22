@@ -27,6 +27,11 @@ class TbaaMDPropagationPass : public PassInfoMixin<TbaaMDPropagationPass> {
 public:
   PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
 };
+/// Removes extra intel.fakeload intrinsics after all inlining is finished.
+class CleanupFakeLoadsPass : public PassInfoMixin<CleanupFakeLoadsPass> {
+public:
+  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
 } // end namespace llvm
 
 #endif // LLVM_TRANSFORMS_SCALAR_TBAAMDPROPAGATION_H

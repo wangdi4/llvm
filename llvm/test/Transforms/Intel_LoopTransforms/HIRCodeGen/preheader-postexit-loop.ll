@@ -19,7 +19,7 @@
 
 
 ; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
-; CHECK: region:
+; CHECK: region.0:
 ; Check outer loop begin
 ; CHECK: store i64 0, i64* %i1.i64
 ; CHECK: loop.{{[0-9]+}}:
@@ -35,8 +35,7 @@
 ; CHECK-NEXT: [[AGEP:%.*]] = getelementptr inbounds i32*, i32** %A, i64 [[I1LOAD1]]
 ; CHECK-NEXT: [[ALOAD:%.*]] = load i32*, i32** [[AGEP]]
 ; CHECK-NEXT: store i32* [[ALOAD]], i32** [[STORE0:%.*]]
-; CHECK: [[BGEP1:%.*]] = getelementptr inbounds i32*, i32** %B, i64 0
-; CHECK-NEXT: [[BLOAD:%.*]] = load i32*, i32** [[BGEP1]]
+; CHECK-NEXT: [[BLOAD:%.*]] = load i32*, i32** 
 ; CHECK-NEXT: store i32* [[BLOAD]], i32** [[STORE1:%.*]]
 ; CHECK: br label %[[I2LOOP:.*]]
 

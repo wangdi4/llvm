@@ -8,12 +8,12 @@
 ; CHECK: |   %ll.addr.034.out = %ll.addr.034;
 ; CHECK: |   %lp.addr.036.out1 = &((%lp.addr.036)[0]);
 ; CHECK: |   %1 = (%rnp)[i1];
-; CHECK: |   %sub = %ll.addr.034.out  -  -1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034.out))) + -1;
-; CHECK: |   if (-1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034.out))) + -1 > 0)
+; CHECK: |   %sub = %ll.addr.034.out  -  -1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + -1;
+; CHECK: |   if (-1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + -1 > 0)
 ; CHECK: |   {
 ; CHECK: |      %2 = (%rpp)[i1];
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034.out))) + smax(-2, (-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034.out))), 1   <DO_LOOP>
+; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))), 1   <DO_LOOP>
 ; CHECK: |      |   %3 = (%2)[i2];
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036.out1)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036.out1)[i2] = %3;
@@ -22,7 +22,7 @@
 ; CHECK: |      %lp.addr.036 = &((%incdec.ptr5)[0]);
 ; CHECK: |   }
 ; CHECK: |   %lp.addr.036.out = &((%lp.addr.036)[0]);
-; CHECK: |   %ll.addr.034 = %ll.addr.034.out + smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034.out))) + 1;
+; CHECK: |   %ll.addr.034 = %ll.addr.034.out + smax((-1 + (-1 * %ll.addr.034.out)), (-1 + (-1 * %1))) + 1;
 ; CHECK: + END LOOP
 
 
@@ -30,19 +30,19 @@
 
 ; CHECK: + DO i1 = 0, %0 + -1, 1   <DO_LOOP>
 ; CHECK: |   %1 = (%rnp)[i1];
-; CHECK: |   %sub = %ll.addr.034  -  -1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034))) + -1;
-; CHECK: |   if (-1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034))) + -1 > 0)
+; CHECK: |   %sub = %ll.addr.034  -  -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + -1;
+; CHECK: |   if (-1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + -1 > 0)
 ; CHECK: |   {
 ; CHECK: |      %2 = (%rpp)[i1];
 ; CHECK: |
-; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034))) + smax(-2, (-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034))), 1   <DO_LOOP>
+; CHECK: |      + DO i2 = 0, -1 * smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + smax(-2, (-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))), 1   <DO_LOOP>
 ; CHECK: |      |   %incdec.ptr5 = &((%lp.addr.036)[i2 + 1]);
 ; CHECK: |      |   (%lp.addr.036)[i2] = (%2)[i2];
 ; CHECK: |      + END LOOP
 ; CHECK: |
 ; CHECK: |      %lp.addr.036 = &((%incdec.ptr5)[0]);
 ; CHECK: |   }
-; CHECK: |   %ll.addr.034 = %ll.addr.034 + smax((-1 + (-1 * %1)), (-1 + (-1 * %ll.addr.034))) + 1;
+; CHECK: |   %ll.addr.034 = %ll.addr.034 + smax((-1 + (-1 * %ll.addr.034)), (-1 + (-1 * %1))) + 1;
 ; CHECK: + END LOOP
 
 

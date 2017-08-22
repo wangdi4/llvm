@@ -1,9 +1,5 @@
 ; Verify that we correctly handle suspend when the coro.end block contains phi
 ; RUN: opt < %s -O2 -enable-coroutines -S | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 define i8* @f(i32 %n) {
 entry:
@@ -21,7 +17,7 @@ cleanup:
 
 suspend:
   %r = phi i32 [%n, %entry], [1, %cleanup]
-  call void @llvm.coro.end(i8* %hdl, i1 false)  
+  call i1 @llvm.coro.end(i8* %hdl, i1 false)  
   call void @print(i32 %r)
   ret i8* %hdl
 }
@@ -45,7 +41,7 @@ declare void @llvm.coro.destroy(i8*)
   
 declare token @llvm.coro.id(i32, i8*, i8*, i8*)
 declare i8* @llvm.coro.begin(token, i8*)
-declare void @llvm.coro.end(i8*, i1) 
+declare i1 @llvm.coro.end(i8*, i1) 
 
 declare noalias i8* @malloc(i32)
 declare void @print(i32)

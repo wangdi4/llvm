@@ -28,8 +28,10 @@ FunctionPass *createHIRSSADeconstructionPass();
 /// Creates a pass which cleans up unnecessary temps in HIR.
 FunctionPass *createHIRTempCleanupPass();
 
+#if !INTEL_PRODUCT_RELEASE
 /// createHIRPrinterPass - This creates a pass that prints HIR.
 FunctionPass *createHIRPrinterPass(raw_ostream &OS, const std::string &Banner);
+#endif // !INTEL_PRODUCT_RELEASE
 
 /// createHIRCodeGenPass - This creates a pass that generates LLVM IR from HIR.
 FunctionPass *createHIRCodeGenPass();
@@ -38,10 +40,13 @@ FunctionPass *createHIRCodeGenPass();
 /// transformation on HIR.
 FunctionPass *createHIROptPredicatePass();
 
-/// createHIRCompleteUnrollPass - This creates a pass that performs complete
-/// unrolling on small trip count HIR loops.
-FunctionPass *createHIRCompleteUnrollPass();
+/// createHIRPreVecCompleteUnrollPass - This creates a pass that performs complete
+/// unrolling before vectorizer.
+FunctionPass *createHIRPreVecCompleteUnrollPass(unsigned OptLevel = 0);
 
+/// createHIRPostVecCompleteUnrollPass - This creates a pass that performs complete
+/// unrolling after vectorizer.
+FunctionPass *createHIRPostVecCompleteUnrollPass(unsigned OptLevel = 0);
 
 /// createHIRDistributionForMemRecPass - This creates a pass that performs Loop
 /// Distribution for breaking memory recurrences
@@ -88,11 +93,18 @@ FunctionPass *createHIRParDirInsertPass();
 /// directives for auto vectorization candidate loops.
 FunctionPass *createHIRVecDirInsertPass(bool OuterVec = true);
 
+/// createHIRScalarReplArrayPass - This creates a HIR Loop pass that performs 
+/// Scalar Replacement over Array access 
+FunctionPass *createHIRScalarReplArrayPass();
+
 /// Creates pass that splits loops based on variant predicates.
 FunctionPass *createHIROptVarPredicatePass();
 
 /// Creates pass that replaces loads and stores with memsets and memcpys.
 FunctionPass *createHIRIdiomRecognitionPass();
+
+/// Creates pass that multiversions loop for the probable trip count value.
+FunctionPass *createHIRMVForConstUBPass();
 }
 
 #endif

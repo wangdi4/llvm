@@ -1,9 +1,5 @@
 ; Tests that a coroutine is split, inlined into the caller and devirtualized.
 ; RUN: opt < %s -S -enable-coroutines -O2 | FileCheck %s
-; INTEL - This test is marked XFAIL due to cq415116,cq415117. Once those
-; problems are fixed, we can restore this test to the community version.
-; XFAIL: *
-; END INTEL
 
 define i8* @f() {
 entry:
@@ -30,7 +26,7 @@ cleanup:
   call void @free(i8* %mem)
   br label %suspend
 suspend:
-  call void @llvm.coro.end(i8* %hdl, i1 0)  
+  call i1 @llvm.coro.end(i8* %hdl, i1 0)  
   ret i8* %hdl
 }
 define i32 @main() {
@@ -53,7 +49,7 @@ declare void @llvm.coro.destroy(i8*)
 declare token @llvm.coro.id(i32, i8*, i8*, i8*)
 declare i1 @llvm.coro.alloc(token)
 declare i8* @llvm.coro.begin(token, i8*)
-declare void @llvm.coro.end(i8*, i1) 
+declare i1 @llvm.coro.end(i8*, i1) 
 
 declare noalias i8* @malloc(i32)
 declare void @print(i32)

@@ -218,11 +218,8 @@ void VPOUtils::singleRegionMultiVersioning(
   assert(EntryBB && "no entry basic block for the region");
   assert(ExitBB && "no exit basic block for the region");
 
-  BasicBlock *OldHead = EntryBB->getSinglePredecessor();
-  BasicBlock *OldTail = ExitBB->getSingleSuccessor();
-
-  assert(OldHead && "Not a single-entry region");
-  assert(OldTail && "Not a single-exit region");
+  assert(EntryBB->getSinglePredecessor() && "Not a single-entry region");
+  assert(ExitBB->getSingleSuccessor() && "Not a single-exit region");
 
   // 1) Add NewHead and NewTail
   // 

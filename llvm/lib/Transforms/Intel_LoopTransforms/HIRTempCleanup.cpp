@@ -49,10 +49,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
@@ -238,7 +238,7 @@ void TempInfo::processInnerLoopUses(HLLoop *InvalidatingLoop) {
     auto TempLoop = getLoop();
 
     for (auto UseRef : InnerLoopUses) {
-      auto LCALoop = DefInst->getHLNodeUtils().getLowestCommonAncestorLoop(
+      auto LCALoop = HLNodeUtils::getLowestCommonAncestorLoop(
           InvalidatingLoop, UseRef->getLexicalParentLoop());
 
       if (LCALoop == TempLoop) {
@@ -266,18 +266,11 @@ class TempSubstituter final : public HLNodeVisitorBase {
   HIRFramework *HIRF;
   SmallVector<TempInfo, 32> CandidateTemps;
   bool SIMDDirSeen;
+  bool HasEmptyNodes;
 
-public:
-  TempSubstituter(HIRFramework *HIRF) : HIRF(HIRF), SIMDDirSeen(false) {}
-
-  /// Adds/updates temp candidates.
-  void visit(HLInst *Inst);
-  /// Processes node by performing substitution and/or invalidating candidate
-  /// temps.
-  void visit(HLDDNode *Node);
-
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *Node) {}
+private:
+  // Returns true if the parent node is empty due to node removal.
+  bool isNodeEmpty(HLNode *Parent) const;
 
   /// Returns true if the instruction is either of the form t1 = t2 (where both
   /// lval/rval are self blobs) or t1 = &t2[0] (for pointer types).
@@ -296,6 +289,19 @@ public:
 
   /// Eliminates temps which have been successfully substituted.
   void eliminateSubstitutedTemps(HLRegion *Reg);
+
+public:
+  TempSubstituter(HIRFramework *HIRF)
+      : HIRF(HIRF), SIMDDirSeen(false), HasEmptyNodes(false) {}
+
+  /// Adds/updates temp candidates.
+  void visit(HLInst *Inst);
+  /// Processes node by performing substitution and/or invalidating candidate
+  /// temps.
+  void visit(HLDDNode *Node);
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
 
   /// Main driver function to find and substitutes unnecessary temps.
   void substituteTemps(HLRegion *Reg);
@@ -456,8 +462,8 @@ void TempSubstituter::updateTempCandidates(HLInst *HInst) {
 
         if (auto LastUseLoop = Temp.getLastUseLoop()) {
           auto TempLoop = Temp.getLoop();
-          auto LCALoop = HInst->getHLNodeUtils().getLowestCommonAncestorLoop(
-              LastUseLoop, TempLoop);
+          auto LCALoop =
+              HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, TempLoop);
 
           auto NewSymbase = Temp.getRvalSymbase();
 
@@ -532,6 +538,19 @@ void TempSubstituter::visit(HLInst *HInst) {
   }
 }
 
+bool TempSubstituter::isNodeEmpty(HLNode *Node) const {
+  if (auto Loop = dyn_cast<HLLoop>(Node)) {
+    return !Loop->hasChildren();
+
+  } else if (auto If = dyn_cast<HLIf>(Node)) {
+    return (!If->hasThenChildren() && !If->hasElseChildren());
+  }
+
+  // No-op for empty region.
+  // I don't think switches can become empty due to temp removal.
+  return false;
+}
+
 void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
   for (auto &Temp : CandidateTemps) {
     if (!Temp.isValid()) {
@@ -557,46 +576,68 @@ void TempSubstituter::eliminateSubstitutedTemps(HLRegion *Reg) {
       Temp.processInnerLoopUses(nullptr);
 
       unsigned Symbase = Temp.getSymbase();
-
-      // Temp may have been substituted in some places. We need to remove it
-      // from loop liveouts based on performed substitutions.
+      unsigned NewSymbase = Temp.getRvalSymbase();
       HLLoop *ParentLoop = Temp.getLoop();
-      if (auto LastUseLoop = Temp.getLastUseLoop()) {
-        auto LCALoop = Reg->getHLNodeUtils().getLowestCommonAncestorLoop(
-            LastUseLoop, ParentLoop);
+      HLLoop *LCALoop = nullptr;
+      bool SkipLiveouts = false;
 
+      // Temp may have been substituted in some places. We need to replace it in
+      // loop liveouts by its rval symbase.
+      if (Reg->isLiveOut(Symbase)) {
+        assert(Temp.isSubstitutable() && "Temp is live out of region and "
+                                         "non-subtitutable but wat not marked "
+                                         "invalid!");
+        // LCALoop is null in this path as the region liveout temp should be
+        // replaced as loop liveout in all the parent loops.
+        Reg->replaceLiveOutTemp(Symbase, NewSymbase);
+
+      } else if (!Temp.getLastUseRef()) {
+        // Under rare cases, it is possible for SSA deconstruction to create
+        // copies which do not have any uses. We should skip liveout processing
+        // for them.
+        SkipLiveouts = true;
+
+      } else if (auto LastUseLoop = Temp.getLastUseLoop()) {
+        // If the last use was outside the outermost loop, LastUseLoop will be
+        // null.
+        LCALoop =
+            HLNodeUtils::getLowestCommonAncestorLoop(LastUseLoop, ParentLoop);
+      }
+
+      if (!SkipLiveouts) {
         while (ParentLoop != LCALoop) {
-          ParentLoop->removeLiveOutTemp(Symbase);
+          ParentLoop->replaceLiveOutTemp(Symbase, NewSymbase);
           ParentLoop = ParentLoop->getParentLoop();
         }
       }
-
-      // TODO: The following loop is more like a workaround. Please check if
-      // there is a proper fix required.
-      // https://ir-codecollab.intel.com/ui#review:id=56154
-      // If no substitutions were done, we still need to update loop liveout
-      // in the parent loops.
-      while (ParentLoop && ParentLoop->isLiveOut(Symbase)) {
-        ParentLoop->replaceLiveOutTemp(Symbase, Temp.getRvalSymbase());
-        ParentLoop = ParentLoop->getParentLoop();
-      }
-
-      // Update region liveout.
-      if (Reg->isLiveOut(Symbase)) {
-        Reg->replaceLiveOutTemp(Symbase, Temp.getRvalSymbase());
-      }
     }
+
+    auto Parent = Temp.getDefInst()->getParent();
 
     // Temp is deemed unnecessary.
     Reg->getHLNodeUtils().remove(Temp.getDefInst());
+
+    if (isNodeEmpty(Parent)) {
+      HasEmptyNodes = true;
+    }
   }
 
   CandidateTemps.clear();
 }
 
 void TempSubstituter::substituteTemps(HLRegion *Reg) {
-  Reg->getHLNodeUtils().visitRange(*this, Reg->child_begin(), Reg->child_end());
+  HLNodeUtils::visitRange(*this, Reg->child_begin(), Reg->child_end());
   eliminateSubstitutedTemps(Reg);
+
+  // Parents can become recursively empty when we remove nodes so it is better
+  // to scan the whole region.
+  if (HasEmptyNodes) {
+    HLNodeUtils::removeEmptyNodes(Reg, false);
+  }
+
+  // Restore flags.
+  SIMDDirSeen = false;
+  HasEmptyNodes = false;
 }
 
 bool HIRTempCleanup::runOnFunction(Function &F) {

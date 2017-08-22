@@ -17,17 +17,17 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrDecomposeHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
-#include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/HIRVisitor.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
@@ -349,8 +349,6 @@ Constant *ReductionHIRMngr::getRecurrenceIdentity(ReductionItem *RedItem,
   return RecurrenceDescriptor::getRecurrenceIdentity(RDKind, Ty);
 }
 
-// TBD - once we update to the latest loopopt sources, make use of
-// getStrideAtLevel utility
 bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
                                      int64_t *CoeffPtr) {
   if (Ref->isTerminalRef())
@@ -359,24 +357,12 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
   if (Ref->isAddressOf())
     return false;
 
-  const CanonExpr *FirstCE = nullptr;
-
   // Return false for cases where the lowest dimension has trailing struct
   // field offsets.
   if (Ref->hasTrailingStructOffsets(1))
     return false;
 
-  // Check that canon exprs for dimensions other than the first are
-  // invariant.
-  for (auto I = Ref->canon_begin(), E = Ref->canon_end(); I != E; ++I) {
-    if (!FirstCE) {
-      FirstCE = *I;
-      continue;
-    }
-
-    if (!(*I)->isInvariantAtLevel(NestingLevel))
-      return false;
-  }
+  const CanonExpr *FirstCE = *(Ref->canon_begin());
 
   // Consider a[(i1 + 1) & 3], this is changed to a[zext.i2.i64(i1 + 1)] - we
   // do not want to treat this reference as unit stride.
@@ -409,18 +395,22 @@ bool AVRCodeGenHIR::isConstStrideRef(const RegDDRef *Ref, unsigned NestingLevel,
       return false;
   }
 
-  if (FirstCE->isNonLinear() || FirstCE->getDefinedAtLevel() >= NestingLevel)
+  auto Stride = Ref->getStrideAtLevel(NestingLevel);
+  if (!Stride)
     return false;
 
-  if (FirstCE->hasIVBlobCoeff(NestingLevel))
+  int64_t ConstStride;
+  if (Stride->isIntConstant(&ConstStride) && !ConstStride) {
+    Stride->getCanonExprUtils().destroy(Stride);
     return false;
+  }
 
-  auto IVConstCoeff = FirstCE->getIVConstCoeff(NestingLevel);
-  if (IVConstCoeff == 0)
-    return false;
-
+  // Compute stride in terms of number of elements
+  auto DL = Ref->getDDRefUtils().getDataLayout();
+  auto RefSizeInBytes = DL.getTypeSizeInBits(Ref->getDestType()) >> 3;
+  ConstStride /= RefSizeInBytes;
   if (CoeffPtr)
-    *CoeffPtr = IVConstCoeff;
+    *CoeffPtr = ConstStride;
 
   return true;
 }
@@ -1017,7 +1007,7 @@ void AVRCodeGenHIR::replaceLibCallsInRemainderLoop(HLInst *HInst) {
         AttrList.addAttribute("stride", "indirect");
         VecCall->setAttributes(VecCall->getAttributes().addAttributes(
           VecCall->getContext(), I + 1,
-          AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+          AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
       }
       //analyzeCallArgMemoryReferences(HInst, WideCall, CallArgs);
     }
@@ -1208,10 +1198,20 @@ RegDDRef *AVRCodeGenHIR::widenRef(const RegDDRef *Ref) {
     // type mismatch for range values.
     WideRef->setMetadata(LLVMContext::MD_range, nullptr);
 
-    if (WideRef->isAddressOf())
+    if (WideRef->isAddressOf()) {
       WideRef->setBaseDestType(VecRefDestTy);
-    else
+
+      auto StructElemTy =
+          dyn_cast<StructType>(PtrType->getPointerElementType());
+
+      // There is nothing more to do for opaque types as they can only occur in
+      // this form: &p[0].
+      if (StructElemTy && StructElemTy->isOpaque()) {
+        return WideRef;
+      }
+    } else {
       WideRef->setBaseDestType(PointerType::get(VecRefDestTy, AddressSpace));
+    }
   }
 
   // For unit stride ref, nothing else to do
@@ -1406,6 +1406,7 @@ void ReductionHIRMngr::mapHLNodes(const HLLoop *OrigLoop) {
           Success = true;
           break;
         }
+    (void)Success;
     assert(Success && "Can't find HIR initializer for reduction item");
   }
 }
@@ -1516,7 +1517,7 @@ void AVRCodeGenHIR::analyzeCallArgMemoryReferences(
       if (AttrList.hasAttributes()) {
         VecCall->setAttributes(VecCall->getAttributes().addAttributes(
             VecCall->getContext(), I + 1,
-            AttributeSet::get(VecCall->getContext(), I + 1, AttrList)));
+            AttributeList::get(VecCall->getContext(), I + 1, AttrList)));
       }
     }
   }
@@ -1574,11 +1575,11 @@ HLInst *AVRCodeGenHIR::widenNode(AVRAssignHIR *AvrNode, RegDDRef *Mask) {
   } else if (isa<SelectInst>(CurInst)) {
     WideInst = Node->getHLNodeUtils().createSelect(
         INode->getPredicate(), WideOps[1], WideOps[2], WideOps[3], WideOps[4],
-        CurInst->getName() + ".vec", WideOps[0], INode->getPredicateFMF());
+        CurInst->getName() + ".vec", WideOps[0]);
   } else if (isa<CmpInst>(CurInst)) {
     WideInst = Node->getHLNodeUtils().createCmp(
         INode->getPredicate(), WideOps[1], WideOps[2],
-        CurInst->getName() + ".vec", WideOps[0], INode->getPredicateFMF());
+        CurInst->getName() + ".vec", WideOps[0]);
   } else if (isa<GetElementPtrInst>(CurInst)) {
     // Gep Instructions in LLVM may have any number of operands but the HIR
     // representation for them is always a single rhs ddref - copy rval to

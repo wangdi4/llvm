@@ -18,7 +18,7 @@
 #ifndef LLVM_ANALISYS_VPO_VPOVECCONTEXT_H
 #define LLVM_ANALISYS_VPO_VPOVECCONTEXT_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 
 namespace llvm {
 namespace vpo {

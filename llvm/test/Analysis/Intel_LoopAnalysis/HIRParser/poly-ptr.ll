@@ -1,12 +1,11 @@
 ; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
-; RUN: opt < %s -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll 2>&1 | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -hir-post-vec-complete-unroll -print-before=hir-post-vec-complete-unroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that polynomial phi pase is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %p.addr.07.out = &((%p.addr.07)[0])
-; CHECK-NEXT: (%p.addr.07.out)[0] = i1
+; CHECK-NEXT: (%p.addr.07)[0] = i1
 ; CHECK-NEXT: %p.addr.07 = &((%p.addr.07)[i1])
 ; CHECK-NEXT: END LOOP
 

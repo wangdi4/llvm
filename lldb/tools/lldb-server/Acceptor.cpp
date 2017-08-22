@@ -12,11 +12,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/ScopedPrinter.h"
 
-#include "lldb/Core/StreamString.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/common/TCPSocket.h"
-
-#include "Utility/UriParser.h"
+#include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/UriParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -90,7 +89,7 @@ std::unique_ptr<Acceptor> Acceptor::Create(StringRef name,
   int port;
   StringRef scheme, host, path;
   // Try to match socket name as URL - e.g., tcp://localhost:5555
-  if (UriParser::Parse(name.str(), scheme, host, port, path)) {
+  if (UriParser::Parse(name, scheme, host, port, path)) {
     if (!FindProtocolByScheme(scheme.str().c_str(), socket_protocol))
       error.SetErrorStringWithFormat("Unknown protocol scheme \"%s\"",
                                      scheme.str().c_str());

@@ -13,21 +13,23 @@
 
 #include "CodeViewDebug.h"
 #include "llvm/ADT/TinyPtrVector.h"
+#include "llvm/DebugInfo/CodeView/CVTypeDumper.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/Line.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
-#include "llvm/DebugInfo/CodeView/TypeDumper.h"
+#include "llvm/DebugInfo/CodeView/TypeDatabase.h"
+#include "llvm/DebugInfo/CodeView/TypeDumpVisitor.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
 #include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
-#include "llvm/DebugInfo/MSF/ByteStream.h"
-#include "llvm/DebugInfo/MSF/StreamReader.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSectionCOFF.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/BinaryByteStream.h"
+#include "llvm/Support/BinaryStreamReader.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Target/TargetFrameLowering.h"
@@ -36,7 +38,6 @@
 
 using namespace llvm;
 using namespace llvm::codeview;
-using namespace llvm::msf;
 
 CodeViewDebug::CodeViewDebug(AsmPrinter *AP)
     : DebugHandlerBase(AP), OS(*Asm->OutStreamer), Allocator(),
@@ -467,7 +468,8 @@ void CodeViewDebug::emitTypeInformation() {
     CommentPrefix += ' ';
   }
 
-  CVTypeDumper CVTD(nullptr, /*PrintRecordBytes=*/false);
+  TypeDatabase TypeDB;
+  CVTypeDumper CVTD(TypeDB);
   TypeTable.ForEachRecord([&](TypeIndex Index, ArrayRef<uint8_t> Record) {
     if (OS.isVerboseAsm()) {
       // Emit a block comment describing the type record for readability.
@@ -475,8 +477,8 @@ void CodeViewDebug::emitTypeInformation() {
       raw_svector_ostream CommentOS(CommentBlock);
       ScopedPrinter SP(CommentOS);
       SP.setPrefix(CommentPrefix);
-      CVTD.setPrinter(&SP);
-      Error E = CVTD.dump(Record);
+      TypeDumpVisitor TDV(TypeDB, &SP, false);
+      Error E = CVTD.dump(Record, TDV);
       if (E) {
         logAllUnhandledErrors(std::move(E), errs(), "error: ");
         llvm_unreachable("produced malformed type record");
@@ -492,9 +494,9 @@ void CodeViewDebug::emitTypeInformation() {
       // comments. The MSVC linker doesn't do much type record validation,
       // so the first link of an invalid type record can succeed while
       // subsequent links will fail with LNK1285.
-      ByteStream Stream(Record);
+      BinaryByteStream Stream(Record, llvm::support::little);
       CVTypeArray Types;
-      StreamReader Reader(Stream);
+      BinaryStreamReader Reader(Stream);
       Error E = Reader.readArray(Types, Reader.getLength());
       if (!E) {
         TypeVisitorCallbacks C;
@@ -801,7 +803,7 @@ void CodeViewDebug::emitDebugInfoForFunction(const Function *GV,
     OS.AddComment("Function type index");
     OS.EmitIntValue(getFuncIdForSubprogram(GV->getSubprogram()).getIndex(), 4);
     OS.AddComment("Function section relative address");
-    OS.EmitCOFFSecRel32(Fn);
+    OS.EmitCOFFSecRel32(Fn, /*Offset=*/0);
     OS.AddComment("Function section index");
     OS.EmitCOFFSectionIndex(Fn);
     OS.AddComment("Flags");
@@ -864,14 +866,14 @@ CodeViewDebug::createDefRangeGeneral(uint16_t CVRegister, bool InMemory,
   return DR;
 }
 
-void CodeViewDebug::collectVariableInfoFromMMITable(
+void CodeViewDebug::collectVariableInfoFromMFTable(
     DenseSet<InlinedVariable> &Processed) {
-  const TargetSubtargetInfo &TSI = Asm->MF->getSubtarget();
+  const MachineFunction &MF = *Asm->MF;
+  const TargetSubtargetInfo &TSI = MF.getSubtarget();
   const TargetFrameLowering *TFI = TSI.getFrameLowering();
   const TargetRegisterInfo *TRI = TSI.getRegisterInfo();
 
-  for (const MachineModuleInfo::VariableDbgInfo &VI :
-       MMI->getVariableDbgInfo()) {
+  for (const MachineFunction::VariableDbgInfo &VI : MF.getVariableDbgInfo()) {
     if (!VI.Var)
       continue;
     assert(VI.Var->isValidLocationForIntrinsic(VI.Loc) &&
@@ -908,7 +910,7 @@ void CodeViewDebug::collectVariableInfoFromMMITable(
 void CodeViewDebug::collectVariableInfo(const DISubprogram *SP) {
   DenseSet<InlinedVariable> Processed;
   // Grab the variable info that was squirreled away in the MMI side-table.
-  collectVariableInfoFromMMITable(Processed);
+  collectVariableInfoFromMFTable(Processed);
 
   const TargetRegisterInfo *TRI = Asm->MF->getSubtarget().getRegisterInfo();
 
@@ -943,11 +945,12 @@ void CodeViewDebug::collectVariableInfo(const DISubprogram *SP) {
       bool IsSubfield = false;
       unsigned StructOffset = 0;
 
-      // Handle bitpieces.
-      if (DIExpr && DIExpr->isBitPiece()) {
+      // Handle fragments.
+      auto Fragment = DIExpr->getFragmentInfo();
+      if (Fragment) {
         IsSubfield = true;
-        StructOffset = DIExpr->getBitPieceOffset() / 8;
-      } else if (DIExpr && DIExpr->getNumElements() > 0) {
+        StructOffset = Fragment->OffsetInBits / 8;
+      } else if (DIExpr->getNumElements() > 0) {
         continue; // Ignore unrecognized exprs.
       }
 
@@ -985,7 +988,8 @@ void CodeViewDebug::collectVariableInfo(const DISubprogram *SP) {
         // This range is valid until the next overlapping bitpiece. In the
         // common case, ranges will not be bitpieces, so they will overlap.
         auto J = std::next(I);
-        while (J != E && !piecesOverlap(DIExpr, J->first->getDebugExpression()))
+        while (J != E &&
+               !fragmentsOverlap(DIExpr, J->first->getDebugExpression()))
           ++J;
         if (J != E)
           End = getLabelBeforeInsn(J->first);
@@ -1009,14 +1013,7 @@ void CodeViewDebug::collectVariableInfo(const DISubprogram *SP) {
   }
 }
 
-void CodeViewDebug::beginFunction(const MachineFunction *MF) {
-  assert(!CurFn && "Can't process two functions at once!");
-
-  if (!Asm || !MMI->hasDebugInfo() || !MF->getFunction()->getSubprogram())
-    return;
-
-  DebugHandlerBase::beginFunction(MF);
-
+void CodeViewDebug::beginFunctionImpl(const MachineFunction *MF) {
   const Function *GV = MF->getFunction();
   assert(FnDebugInfo.count(GV) == false);
   CurFn = &FnDebugInfo[GV];
@@ -1139,32 +1136,11 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
   DITypeRef ElementTypeRef = Ty->getBaseType();
   TypeIndex ElementTypeIndex = getTypeIndex(ElementTypeRef);
   // IndexType is size_t, which depends on the bitness of the target.
-  TypeIndex IndexType = Asm->MAI->getPointerSize() == 8
+  TypeIndex IndexType = Asm->TM.getPointerSize() == 8
                             ? TypeIndex(SimpleTypeKind::UInt64Quad)
                             : TypeIndex(SimpleTypeKind::UInt32Long);
 
   uint64_t ElementSize = getBaseTypeSize(ElementTypeRef) / 8;
-
-
-  // We want to assert that the element type multiplied by the array lengths
-  // match the size of the overall array. However, if we don't have complete
-  // type information for the base type, we can't make this assertion. This
-  // happens if limited debug info is enabled in this case:
-  //   struct VTableOptzn { VTableOptzn(); virtual ~VTableOptzn(); };
-  //   VTableOptzn array[3];
-  // The DICompositeType of VTableOptzn will have size zero, and the array will
-  // have size 3 * sizeof(void*), and we should avoid asserting.
-  //
-  // There is a related bug in the front-end where an array of a structure,
-  // which was declared as incomplete structure first, ends up not getting a
-  // size assigned to it. (PR28303)
-  // Example:
-  //   struct A(*p)[3];
-  //   struct A { int f; } a[3];
-  bool PartiallyIncomplete = false;
-  if (Ty->getSizeInBits() == 0 || ElementSize == 0) {
-    PartiallyIncomplete = true;
-  }
 
   // Add subranges to array type.
   DINodeArray Elements = Ty->getElements();
@@ -1180,16 +1156,14 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
     // Variable Length Array (VLA) has Count equal to '-1'.
     // Replace with Count '1', assume it is the minimum VLA length.
     // FIXME: Make front-end support VLA subrange and emit LF_DIMVARLU.
-    if (Count == -1) {
+    if (Count == -1)
       Count = 1;
-      PartiallyIncomplete = true;
-    }
 
     // Update the element size and element type index for subsequent subranges.
     ElementSize *= Count;
 
     // If this is the outermost array, use the size from the array. It will be
-    // more accurate if PartiallyIncomplete is true.
+    // more accurate if we had a VLA or an incomplete element type size.
     uint64_t ArraySize =
         (i == 0 && ElementSize == 0) ? Ty->getSizeInBits() / 8 : ElementSize;
 
@@ -1197,9 +1171,6 @@ TypeIndex CodeViewDebug::lowerTypeArray(const DICompositeType *Ty) {
     ArrayRecord AR(ElementTypeIndex, IndexType, ArraySize, Name);
     ElementTypeIndex = TypeTable.writeKnownType(AR);
   }
-
-  (void)PartiallyIncomplete;
-  assert(PartiallyIncomplete || ElementSize == (Ty->getSizeInBits() / 8));
 
   return ElementTypeIndex;
 }
@@ -1371,8 +1342,8 @@ TypeIndex CodeViewDebug::lowerTypeMemberPointer(const DIDerivedType *Ty) {
   assert(Ty->getTag() == dwarf::DW_TAG_ptr_to_member_type);
   TypeIndex ClassTI = getTypeIndex(Ty->getClassType());
   TypeIndex PointeeTI = getTypeIndex(Ty->getBaseType(), Ty->getClassType());
-  PointerKind PK = Asm->MAI->getPointerSize() == 8 ? PointerKind::Near64
-                                                   : PointerKind::Near32;
+  PointerKind PK = Asm->TM.getPointerSize() == 8 ? PointerKind::Near64
+                                                 : PointerKind::Near32;
   bool IsPMF = isa<DISubroutineType>(Ty->getBaseType());
   PointerMode PM = IsPMF ? PointerMode::PointerToMemberFunction
                          : PointerMode::PointerToDataMember;
@@ -1487,7 +1458,8 @@ TypeIndex CodeViewDebug::lowerTypeMemberFunction(const DISubroutineType *Ty,
 }
 
 TypeIndex CodeViewDebug::lowerTypeVFTableShape(const DIDerivedType *Ty) {
-  unsigned VSlotCount = Ty->getSizeInBits() / (8 * Asm->MAI->getPointerSize());
+  unsigned VSlotCount =
+      Ty->getSizeInBits() / (8 * Asm->MAI->getCodePointerSize());
   SmallVector<VFTableSlotKind, 4> Slots(VSlotCount, VFTableSlotKind::Near);
 
   VFTableShapeRecord VFTSR(Slots);
@@ -2071,52 +2043,51 @@ void CodeViewDebug::emitLocalVariable(const LocalVariable &Var) {
                       (DefRange.StructOffset
                        << DefRangeRegisterRelSym::OffsetInParentShift);
       }
-      DefRangeRegisterRelSym Sym(DefRange.CVRegister, RegRelFlags,
-                                 DefRange.DataOffset, None);
+      DefRangeRegisterRelSym Sym(S_DEFRANGE_REGISTER_REL);
+      Sym.Hdr.Register = DefRange.CVRegister;
+      Sym.Hdr.Flags = RegRelFlags;
+      Sym.Hdr.BasePointerOffset = DefRange.DataOffset;
       ulittle16_t SymKind = ulittle16_t(S_DEFRANGE_REGISTER_REL);
       BytePrefix +=
           StringRef(reinterpret_cast<const char *>(&SymKind), sizeof(SymKind));
       BytePrefix +=
-          StringRef(reinterpret_cast<const char *>(&Sym.Header),
-                    sizeof(Sym.Header) - sizeof(LocalVariableAddrRange));
+          StringRef(reinterpret_cast<const char *>(&Sym.Hdr), sizeof(Sym.Hdr));
     } else {
       assert(DefRange.DataOffset == 0 && "unexpected offset into register");
       if (DefRange.IsSubfield) {
         // Unclear what matters here.
-        DefRangeSubfieldRegisterSym Sym(DefRange.CVRegister, 0,
-                                        DefRange.StructOffset, None);
+        DefRangeSubfieldRegisterSym Sym(S_DEFRANGE_SUBFIELD_REGISTER);
+        Sym.Hdr.Register = DefRange.CVRegister;
+        Sym.Hdr.MayHaveNoName = 0;
+        Sym.Hdr.OffsetInParent = DefRange.StructOffset;
+
         ulittle16_t SymKind = ulittle16_t(S_DEFRANGE_SUBFIELD_REGISTER);
         BytePrefix += StringRef(reinterpret_cast<const char *>(&SymKind),
                                 sizeof(SymKind));
-        BytePrefix +=
-            StringRef(reinterpret_cast<const char *>(&Sym.Header),
-                      sizeof(Sym.Header) - sizeof(LocalVariableAddrRange));
+        BytePrefix += StringRef(reinterpret_cast<const char *>(&Sym.Hdr),
+                                sizeof(Sym.Hdr));
       } else {
         // Unclear what matters here.
-        DefRangeRegisterSym Sym(DefRange.CVRegister, 0, None);
+        DefRangeRegisterSym Sym(S_DEFRANGE_REGISTER);
+        Sym.Hdr.Register = DefRange.CVRegister;
+        Sym.Hdr.MayHaveNoName = 0;
         ulittle16_t SymKind = ulittle16_t(S_DEFRANGE_REGISTER);
         BytePrefix += StringRef(reinterpret_cast<const char *>(&SymKind),
                                 sizeof(SymKind));
-        BytePrefix +=
-            StringRef(reinterpret_cast<const char *>(&Sym.Header),
-                      sizeof(Sym.Header) - sizeof(LocalVariableAddrRange));
+        BytePrefix += StringRef(reinterpret_cast<const char *>(&Sym.Hdr),
+                                sizeof(Sym.Hdr));
       }
     }
     OS.EmitCVDefRangeDirective(DefRange.Ranges, BytePrefix);
   }
 }
 
-void CodeViewDebug::endFunction(const MachineFunction *MF) {
-  if (!Asm || !CurFn)  // We haven't created any debug info for this function.
-    return;
-
+void CodeViewDebug::endFunctionImpl(const MachineFunction *MF) {
   const Function *GV = MF->getFunction();
   assert(FnDebugInfo.count(GV));
   assert(CurFn == &FnDebugInfo[GV]);
 
   collectVariableInfo(GV->getSubprogram());
-
-  DebugHandlerBase::endFunction(MF);
 
   // Don't emit anything if we don't have any line tables.
   if (!CurFn->HaveLineInfo) {
@@ -2180,12 +2151,13 @@ void CodeViewDebug::emitDebugInfoForUDTs(
 }
 
 void CodeViewDebug::emitDebugInfoForGlobals() {
-  DenseMap<const DIGlobalVariable *, const GlobalVariable *> GlobalMap;
+  DenseMap<const DIGlobalVariableExpression *, const GlobalVariable *>
+      GlobalMap;
   for (const GlobalVariable &GV : MMI->getModule()->globals()) {
-    SmallVector<MDNode *, 1> MDs;
-    GV.getMetadata(LLVMContext::MD_dbg, MDs);
-    for (MDNode *MD : MDs)
-      GlobalMap[cast<DIGlobalVariable>(MD)] = &GV;
+    SmallVector<DIGlobalVariableExpression *, 1> GVEs;
+    GV.getDebugInfo(GVEs);
+    for (const auto *GVE : GVEs)
+      GlobalMap[GVE] = &GV;
   }
 
   NamedMDNode *CUs = MMI->getModule()->getNamedMetadata("llvm.dbg.cu");
@@ -2197,14 +2169,15 @@ void CodeViewDebug::emitDebugInfoForGlobals() {
     // it if we have at least one global to emit.
     switchToDebugSectionForSymbol(nullptr);
     MCSymbol *EndLabel = nullptr;
-    for (const DIGlobalVariable *G : CU->getGlobalVariables()) {
-      if (const auto *GV = GlobalMap.lookup(G))
+    for (const auto *GVE : CU->getGlobalVariables()) {
+      if (const auto *GV = GlobalMap.lookup(GVE))
         if (!GV->hasComdat() && !GV->isDeclarationForLinker()) {
           if (!EndLabel) {
             OS.AddComment("Symbol subsection for globals");
             EndLabel = beginCVSubsection(ModuleSubstreamKind::Symbols);
           }
-          emitDebugInfoForGlobal(G, GV, Asm->getSymbol(GV));
+          // FIXME: emitDebugInfoForGlobal() doesn't handle DIExpressions.
+          emitDebugInfoForGlobal(GVE->getVariable(), GV, Asm->getSymbol(GV));
         }
     }
     if (EndLabel)
@@ -2212,15 +2185,16 @@ void CodeViewDebug::emitDebugInfoForGlobals() {
 
     // Second, emit each global that is in a comdat into its own .debug$S
     // section along with its own symbol substream.
-    for (const DIGlobalVariable *G : CU->getGlobalVariables()) {
-      if (const auto *GV = GlobalMap.lookup(G)) {
+    for (const auto *GVE : CU->getGlobalVariables()) {
+      if (const auto *GV = GlobalMap.lookup(GVE)) {
         if (GV->hasComdat()) {
           MCSymbol *GVSym = Asm->getSymbol(GV);
           OS.AddComment("Symbol subsection for " +
                         Twine(GlobalValue::getRealLinkageName(GV->getName())));
           switchToDebugSectionForSymbol(GVSym);
           EndLabel = beginCVSubsection(ModuleSubstreamKind::Symbols);
-          emitDebugInfoForGlobal(G, GV, GVSym);
+          // FIXME: emitDebugInfoForGlobal() doesn't handle DIExpressions.
+          emitDebugInfoForGlobal(GVE->getVariable(), GV, GVSym);
           endCVSubsection(EndLabel);
         }
       }
@@ -2270,7 +2244,7 @@ void CodeViewDebug::emitDebugInfoForGlobal(const DIGlobalVariable *DIGV,
   OS.AddComment("Type");
   OS.EmitIntValue(getCompleteTypeIndex(DIGV->getType()).getIndex(), 4);
   OS.AddComment("DataOffset");
-  OS.EmitCOFFSecRel32(GVSym);
+  OS.EmitCOFFSecRel32(GVSym, /*Offset=*/0);
   OS.AddComment("Segment");
   OS.EmitCOFFSectionIndex(GVSym);
   OS.AddComment("Name");

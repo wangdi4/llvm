@@ -5,6 +5,7 @@ define void @test_void_return() {
 ; CHECK-LABEL: name:            test_void_return
 ; CHECK:      alignment:       4
 ; CHECK-NEXT: exposesReturnsTwice: false
+; CHECK-NEXT: noVRegs:         false
 ; CHECK-NEXT: legalized:       false
 ; CHECK-NEXT: regBankSelected: false
 ; CHECK-NEXT: selected:        false
@@ -24,7 +25,7 @@ define void @test_void_return() {
 ; CHECK-NEXT:   hasVAStart:      false
 ; CHECK-NEXT:   hasMustTailInVarArgFunc: false
 ; CHECK-NEXT: body:
-; CHECK-NEXT:   bb.0:
+; CHECK-NEXT:   bb.1.entry:
 ; CHECK-NEXT:     RET 0
 entry:
   ret void

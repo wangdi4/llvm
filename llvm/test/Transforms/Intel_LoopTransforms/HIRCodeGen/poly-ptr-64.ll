@@ -4,8 +4,7 @@
 
 ;          BEGIN REGION { }
 ;<10>         + DO i1 = 0, %n + -1, 1   <DO_LOOP>
-;<2>          |   %add.ptr.out = %add.ptr;
-;<3>          |   (%add.ptr.out)[0] = i1;
+;<3>          |   (%add.ptr)[0] = i1;
 ;<4>          |   %add.ptr = &((%add.ptr)[i1]);
 ;<10>         + END LOOP
 ;          END REGION
@@ -14,13 +13,10 @@
 
 ; Check that CG leaves HIR metadata in the old region as they become unreachable and will be removed later by simplifycfg. 
 ; CHECK: in.de.ssa
-; CHECK: out.de.ssa
 
 
-; CHECK: region:
+; CHECK: region.0:
 ; CHECK: {{loop.[0-9]+:}}
-;First gep is uninteresting, it is for the lhs of <3>
-; CHECK: getelementptr
 ; IV is for rhs of <3>
 ; CHECK: load i64, i64* %i1.i64
 

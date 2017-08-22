@@ -12,10 +12,7 @@
 
 #include "Plugins/Platform/MacOSX/PlatformDarwinKernel.h"
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
-#include "lldb/Core/DataBuffer.h"
-#include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
@@ -25,11 +22,15 @@
 #include "lldb/Host/Symbols.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Target/OperatingSystem.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
+#include "lldb/Utility/DataBuffer.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Log.h"
 
 #include "DynamicLoaderDarwinKernel.h"
 
@@ -244,7 +245,9 @@ DynamicLoaderDarwinKernel::SearchForKernelWithDebugHints(Process *process) {
       0xffffff8000004010ULL, // 2014-2015-ish arm64 devices
       0xffffff8000002010ULL, // oldest arm64 devices
       LLDB_INVALID_ADDRESS};
-  addr_t kernel_addresses_32[] = {0xffff0110, LLDB_INVALID_ADDRESS};
+  addr_t kernel_addresses_32[] = {0xffff0110, // 2016 and earlier armv7 devices
+                                  0xffff1010, 
+                                  LLDB_INVALID_ADDRESS};
 
   uint8_t uval[8];
   if (process->GetAddressByteSize() == 8) {
@@ -400,7 +403,7 @@ DynamicLoaderDarwinKernel::CheckForKernelImageAtAddress(lldb::addr_t addr,
   const uint32_t magicks[] = { llvm::MachO::MH_MAGIC_64, llvm::MachO::MH_MAGIC, llvm::MachO::MH_CIGAM, llvm::MachO::MH_CIGAM_64};
 
   bool found_matching_pattern = false;
-  for (int i = 0; i < llvm::array_lengthof (magicks); i++)
+  for (size_t i = 0; i < llvm::array_lengthof (magicks); i++)
     if (::memcmp (magicbuf, &magicks[i], sizeof (magicbuf)) == 0)
         found_matching_pattern = true;
 
@@ -1024,6 +1027,12 @@ void DynamicLoaderDarwinKernel::LoadKernelModuleIfNeeded() {
         m_kernel.LoadImageAtFileAddress(m_process);
       }
     }
+    
+    // The operating system plugin gets loaded and initialized in 
+    // LoadImageUsingMemoryModule when we discover the kernel dSYM.  For a
+    // core file in particular, that's the wrong place to do this, since 
+    // we haven't fixed up the section addresses yet.  So let's redo it here.
+    LoadOperatingSystemPlugin(false);
 
     if (m_kernel.IsLoaded() && m_kernel.GetModule()) {
       static ConstString kext_summary_symbol("gLoadedKextSummaries");

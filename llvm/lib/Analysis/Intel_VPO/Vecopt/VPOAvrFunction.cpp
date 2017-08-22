@@ -47,6 +47,7 @@ AVR *AVRFunction::getLastChild() {
 
 void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
+#if !INTEL_PRODUCT_RELEASE
 
   std::string Indent((Depth * TabLength), ' ');
 
@@ -64,12 +65,10 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << getAvrValueName() << "(";
 
     // Print Function Arguments
-    Function::ArgumentListType &ArgList = OriginalFunction->getArgumentList();
+    if (!OriginalFunction->arg_empty()) {
 
-    if (!ArgList.empty()) {
-
-      Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-      Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+      Function::arg_iterator ArgListIt = OriginalFunction->arg_begin();
+      Function::arg_iterator ArgListEnd = OriginalFunction->arg_end();
 
       OS << *ArgListIt;
       ++ArgListIt;
@@ -92,6 +91,7 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   OS << Indent << "}\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 StringRef AVRFunction::getAvrTypeName() const { return StringRef("FUNCTION "); }

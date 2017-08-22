@@ -144,9 +144,9 @@ MemoryLocation MemoryLocation::getForArgument(ImmutableCallSite CS,
   // for memcpy/memset.  This is particularly important because the
   // LoopIdiomRecognizer likes to turn loops into calls to memset_pattern16
   // whenever possible.
-  LibFunc::Func F;
+  LibFunc F;
   if (CS.getCalledFunction() && TLI.getLibFunc(*CS.getCalledFunction(), F) &&
-      F == LibFunc::memset_pattern16 && TLI.has(F)) {
+      F == LibFunc_memset_pattern16 && TLI.has(F)) {
     assert((ArgIdx == 0 || ArgIdx == 1) &&
            "Invalid argument index for memset_pattern16");
     if (ArgIdx == 1)
@@ -171,7 +171,8 @@ static bool isMemLocResolved(const MemoryLocation &Loc) {
 static void getMemLocsForPtrVec(const Value *PtrVec,
                                 SmallVectorImpl<MemoryLocation> &Results,
                                 bool &Resolved, int Depth) {
-  assert(PtrVec->getType()->isVectorTy());
+  if (!PtrVec->getType()->isVectorTy())
+    return;
 
   // Stop if search reaches depth or we already have what we need.
   if (Depth == 0 || Resolved)
@@ -210,6 +211,9 @@ static void getMemLocsForPtrVec(const Value *PtrVec,
   }
 
   const auto *Op = dyn_cast<Operator>(PtrVec);
+  if (!Op)
+    return;
+
   switch (Op->getOpcode()) {
   // Currently only examine the following instructions for simplicity
   // and safety.

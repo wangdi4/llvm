@@ -211,8 +211,8 @@ void VPOParoptTpvLegacy::genTpvRef(Value *V,
   //     %7 = call i8* @__kmpc_threadprivate_cached(...)
   //     store i8* %7, i8** %0
   //
-  AllocaInst *TpvPtrRef = new AllocaInst(Int8PtrTy, "", 
-          &*(B->begin()));
+  AllocaInst *TpvPtrRef = new AllocaInst(Int8PtrTy, DL.getAllocaAddrSpace(),
+                                         "", &*(B->begin()));
   TpvAcc[std::make_pair(V, F)]= TpvPtrRef;
 
 

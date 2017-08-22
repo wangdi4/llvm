@@ -1,7 +1,7 @@
 //===- StdContainerAA.cpp - Std Cotnainer Alias Alias Analysis
 //---------------===//
 //
-// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -82,6 +82,9 @@ ModRefInfo StdContainerAAResult::getModRefInfo(ImmutableCallSite CS1,
 }
 
 char StdContainerAA::PassID;
+
+// Provide a definition for the static class member used to identify passes.
+AnalysisKey StdContainerAA::Key;
 
 StdContainerAAResult StdContainerAA::run(Function &F,
                                          AnalysisManager<Function> &AM) {

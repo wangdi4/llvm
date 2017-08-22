@@ -121,22 +121,18 @@ void LLParser::restoreParsingState(const SlotMapping *Slots) {
 /// module.
 bool LLParser::ValidateEndOfModule() {
   // Handle any function attribute group forward references.
-  for (std::map<Value*, std::vector<unsigned> >::iterator
-         I = ForwardRefAttrGroups.begin(), E = ForwardRefAttrGroups.end();
-         I != E; ++I) {
-    Value *V = I->first;
-    std::vector<unsigned> &Vec = I->second;
+  for (const auto &RAG : ForwardRefAttrGroups) {
+    Value *V = RAG.first;
+    const std::vector<unsigned> &Attrs = RAG.second;
     AttrBuilder B;
 
-    for (std::vector<unsigned>::iterator VI = Vec.begin(), VE = Vec.end();
-         VI != VE; ++VI)
-      B.merge(NumberedAttrBuilders[*VI]);
+    for (const auto &Attr : Attrs)
+      B.merge(NumberedAttrBuilders[Attr]);
 
     if (Function *Fn = dyn_cast<Function>(V)) {
-      AttributeSet AS = Fn->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes(), AttributeSet::FunctionIndex);
-      AS = AS.removeAttributes(Context, AttributeSet::FunctionIndex,
-                               AS.getFnAttributes());
+      AttributeList AS = Fn->getAttributes();
+      AttrBuilder FnAttrs(AS.getFnAttributes());
+      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
 
       FnAttrs.merge(B);
 
@@ -147,32 +143,24 @@ bool LLParser::ValidateEndOfModule() {
         FnAttrs.removeAttribute(Attribute::Alignment);
       }
 
-      AS = AS.addAttributes(Context, AttributeSet::FunctionIndex,
-                            AttributeSet::get(Context,
-                                              AttributeSet::FunctionIndex,
-                                              FnAttrs));
+      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
+                            AttributeSet::get(Context, FnAttrs));
       Fn->setAttributes(AS);
     } else if (CallInst *CI = dyn_cast<CallInst>(V)) {
-      AttributeSet AS = CI->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes(), AttributeSet::FunctionIndex);
-      AS = AS.removeAttributes(Context, AttributeSet::FunctionIndex,
-                               AS.getFnAttributes());
+      AttributeList AS = CI->getAttributes();
+      AttrBuilder FnAttrs(AS.getFnAttributes());
+      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
       FnAttrs.merge(B);
-      AS = AS.addAttributes(Context, AttributeSet::FunctionIndex,
-                            AttributeSet::get(Context,
-                                              AttributeSet::FunctionIndex,
-                                              FnAttrs));
+      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
+                            AttributeSet::get(Context, FnAttrs));
       CI->setAttributes(AS);
     } else if (InvokeInst *II = dyn_cast<InvokeInst>(V)) {
-      AttributeSet AS = II->getAttributes();
-      AttrBuilder FnAttrs(AS.getFnAttributes(), AttributeSet::FunctionIndex);
-      AS = AS.removeAttributes(Context, AttributeSet::FunctionIndex,
-                               AS.getFnAttributes());
+      AttributeList AS = II->getAttributes();
+      AttrBuilder FnAttrs(AS.getFnAttributes());
+      AS = AS.removeAttributes(Context, AttributeList::FunctionIndex);
       FnAttrs.merge(B);
-      AS = AS.addAttributes(Context, AttributeSet::FunctionIndex,
-                            AttributeSet::get(Context,
-                                              AttributeSet::FunctionIndex,
-                                              FnAttrs));
+      AS = AS.addAttributes(Context, AttributeList::FunctionIndex,
+                            AttributeSet::get(Context, FnAttrs));
       II->setAttributes(AS);
     } else {
       llvm_unreachable("invalid object with forward attribute group reference");
@@ -1885,6 +1873,34 @@ bool LLParser::ParseOptionalCommaAlign(unsigned &Alignment,
   return false;
 }
 
+/// ParseOptionalCommaAddrSpace
+///   ::=
+///   ::= ',' addrspace(1)
+///
+/// This returns with AteExtraComma set to true if it ate an excess comma at the
+/// end.
+bool LLParser::ParseOptionalCommaAddrSpace(unsigned &AddrSpace,
+                                           LocTy &Loc,
+                                           bool &AteExtraComma) {
+  AteExtraComma = false;
+  while (EatIfPresent(lltok::comma)) {
+    // Metadata at the end is an early exit.
+    if (Lex.getKind() == lltok::MetadataVar) {
+      AteExtraComma = true;
+      return false;
+    }
+
+    Loc = Lex.getLoc();
+    if (Lex.getKind() != lltok::kw_addrspace)
+      return Error(Lex.getLoc(), "expected metadata or 'addrspace'");
+
+    if (ParseOptionalAddrSpace(AddrSpace))
+      return true;
+  }
+
+  return false;
+}
+
 bool LLParser::parseAllocSizeArguments(unsigned &BaseSizeArg,
                                        Optional<unsigned> &HowManyArg) {
   Lex.Lex();
@@ -2128,7 +2144,6 @@ bool LLParser::ParseParameterList(SmallVectorImpl<ParamInfo> &ArgList,
   if (ParseToken(lltok::lparen, "expected '(' in call"))
     return true;
 
-  unsigned AttrIndex = 1;
   while (Lex.getKind() != lltok::rparen) {
     // If this isn't the first argument, we need a comma.
     if (!ArgList.empty() &&
@@ -2162,9 +2177,8 @@ bool LLParser::ParseParameterList(SmallVectorImpl<ParamInfo> &ArgList,
       if (ParseOptionalParamAttrs(ArgAttrs) || ParseValue(ArgTy, V, PFS))
         return true;
     }
-    ArgList.push_back(ParamInfo(ArgLoc, V, AttributeSet::get(V->getContext(),
-                                                             AttrIndex++,
-                                                             ArgAttrs)));
+    ArgList.push_back(ParamInfo(
+        ArgLoc, V, AttributeSet::get(V->getContext(), ArgAttrs)));
   }
 
   if (IsMustTailCall && InVarArgsFunc)
@@ -2269,9 +2283,8 @@ bool LLParser::ParseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
     if (!FunctionType::isValidArgumentType(ArgTy))
       return Error(TypeLoc, "invalid type for function argument");
 
-    unsigned AttrIndex = 1;
-    ArgList.emplace_back(TypeLoc, ArgTy, AttributeSet::get(ArgTy->getContext(),
-                                                           AttrIndex++, Attrs),
+    ArgList.emplace_back(TypeLoc, ArgTy,
+                         AttributeSet::get(ArgTy->getContext(), Attrs),
                          std::move(Name));
 
     while (EatIfPresent(lltok::comma)) {
@@ -2298,10 +2311,9 @@ bool LLParser::ParseArgumentList(SmallVectorImpl<ArgInfo> &ArgList,
       if (!ArgTy->isFirstClassType())
         return Error(TypeLoc, "invalid type for function argument");
 
-      ArgList.emplace_back(
-          TypeLoc, ArgTy,
-          AttributeSet::get(ArgTy->getContext(), AttrIndex++, Attrs),
-          std::move(Name));
+      ArgList.emplace_back(TypeLoc, ArgTy,
+                           AttributeSet::get(ArgTy->getContext(), Attrs),
+                           std::move(Name));
     }
   }
 
@@ -2325,7 +2337,7 @@ bool LLParser::ParseFunctionType(Type *&Result) {
   for (unsigned i = 0, e = ArgList.size(); i != e; ++i) {
     if (!ArgList[i].Name.empty())
       return Error(ArgList[i].Loc, "argument name invalid in function type");
-    if (ArgList[i].Attrs.hasAttributes(i + 1))
+    if (ArgList[i].Attrs.hasAttributes())
       return Error(ArgList[i].Loc,
                    "argument attributes invalid in function type");
   }
@@ -3220,20 +3232,23 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
             ExplicitTypeLoc,
             "explicit pointee type doesn't match operand's pointee type");
 
+      unsigned GEPWidth =
+          BaseType->isVectorTy() ? BaseType->getVectorNumElements() : 0;
+
       ArrayRef<Constant *> Indices(Elts.begin() + 1, Elts.end());
       for (Constant *Val : Indices) {
         Type *ValTy = Val->getType();
         if (!ValTy->getScalarType()->isIntegerTy())
           return Error(ID.Loc, "getelementptr index must be an integer");
-        if (ValTy->isVectorTy() != BaseType->isVectorTy())
-          return Error(ID.Loc, "getelementptr index type missmatch");
         if (ValTy->isVectorTy()) {
           unsigned ValNumEl = ValTy->getVectorNumElements();
-          unsigned PtrNumEl = BaseType->getVectorNumElements();
-          if (ValNumEl != PtrNumEl)
+          if (GEPWidth && (ValNumEl != GEPWidth))
             return Error(
                 ID.Loc,
                 "getelementptr vector index has a wrong number of elements");
+          // GEPWidth may have been unknown because the base is a scalar,
+          // but it is known now.
+          GEPWidth = ValNumEl;
         }
       }
 
@@ -3487,6 +3502,11 @@ struct MDStringField : public MDFieldImpl<MDString *> {
 
 struct MDFieldList : public MDFieldImpl<SmallVector<Metadata *, 4>> {
   MDFieldList() : ImplTy(SmallVector<Metadata *, 4>()) {}
+};
+
+struct ChecksumKindField : public MDFieldImpl<DIFile::ChecksumKind> {
+  ChecksumKindField() : ImplTy(DIFile::CSK_None) {}
+  ChecksumKindField(DIFile::ChecksumKind CSKind) : ImplTy(CSKind) {}
 };
 
 } // end anonymous namespace
@@ -3766,6 +3786,20 @@ bool LLParser::ParseMDField(LocTy Loc, StringRef Name, MDFieldList &Result) {
   return false;
 }
 
+template <>
+bool LLParser::ParseMDField(LocTy Loc, StringRef Name,
+                            ChecksumKindField &Result) {
+  if (Lex.getKind() != lltok::ChecksumKind)
+    return TokError(
+        "invalid checksum kind" + Twine(" '") + Lex.getStrVal() + "'");
+
+  DIFile::ChecksumKind CSKind = DIFile::getChecksumKind(Lex.getStrVal());
+
+  Result.assign(CSKind);
+  Lex.Lex();
+  return false;
+}
+
 } // end namespace llvm
 
 template <class ParserTy>
@@ -3916,7 +3950,8 @@ bool LLParser::ParseDIBasicType(MDNode *&Result, bool IsDistinct) {
 /// ParseDIDerivedType:
 ///   ::= !DIDerivedType(tag: DW_TAG_pointer_type, name: "int", file: !0,
 ///                      line: 7, scope: !1, baseType: !2, size: 32,
-///                      align: 32, offset: 0, flags: 0, extraData: !3)
+///                      align: 32, offset: 0, flags: 0, extraData: !3,
+///                      dwarfAddressSpace: 3)
 bool LLParser::ParseDIDerivedType(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(tag, DwarfTagField, );                                              \
@@ -3929,14 +3964,20 @@ bool LLParser::ParseDIDerivedType(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));                           \
   OPTIONAL(offset, MDUnsignedField, (0, UINT64_MAX));                          \
   OPTIONAL(flags, DIFlagField, );                                              \
-  OPTIONAL(extraData, MDField, );
+  OPTIONAL(extraData, MDField, );                                              \
+  OPTIONAL(dwarfAddressSpace, MDUnsignedField, (UINT32_MAX, UINT32_MAX));
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
+
+  Optional<unsigned> DWARFAddressSpace;
+  if (dwarfAddressSpace.Val != UINT32_MAX)
+    DWARFAddressSpace = dwarfAddressSpace.Val;
 
   Result = GET_OR_DISTINCT(DIDerivedType,
                            (Context, tag.Val, name.Val, file.Val, line.Val,
                             scope.Val, baseType.Val, size.Val, align.Val,
-                            offset.Val, flags.Val, extraData.Val));
+                            offset.Val, DWARFAddressSpace, flags.Val,
+                            extraData.Val));
   return false;
 }
 
@@ -3995,15 +4036,20 @@ bool LLParser::ParseDISubroutineType(MDNode *&Result, bool IsDistinct) {
 }
 
 /// ParseDIFileType:
-///   ::= !DIFileType(filename: "path/to/file", directory: "/path/to/dir")
+///   ::= !DIFileType(filename: "path/to/file", directory: "/path/to/dir"
+///                   checksumkind: CSK_MD5,
+///                   checksum: "000102030405060708090a0b0c0d0e0f")
 bool LLParser::ParseDIFile(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(filename, MDStringField, );                                         \
-  REQUIRED(directory, MDStringField, );
+  REQUIRED(directory, MDStringField, );                                        \
+  OPTIONAL(checksumkind, ChecksumKindField, );                                 \
+  OPTIONAL(checksum, MDStringField, );
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
-  Result = GET_OR_DISTINCT(DIFile, (Context, filename.Val, directory.Val));
+  Result = GET_OR_DISTINCT(DIFile, (Context, filename.Val, directory.Val,
+                                    checksumkind.Val, checksum.Val));
   return false;
 }
 
@@ -4032,7 +4078,8 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(imports, MDField, );                                                \
   OPTIONAL(macros, MDField, );                                                 \
   OPTIONAL(dwoId, MDUnsignedField, );                                          \
-  OPTIONAL(splitDebugInlining, MDBoolField, = true);
+  OPTIONAL(splitDebugInlining, MDBoolField, = true);                           \
+  OPTIONAL(debugInfoForProfiling, MDBoolField, = false);
   PARSE_MD_FIELDS();
 #undef VISIT_MD_FIELDS
 
@@ -4040,7 +4087,7 @@ bool LLParser::ParseDICompileUnit(MDNode *&Result, bool IsDistinct) {
       Context, language.Val, file.Val, producer.Val, isOptimized.Val, flags.Val,
       runtimeVersion.Val, splitDebugFilename.Val, emissionKind.Val, enums.Val,
       retainedTypes.Val, globals.Val, imports.Val, macros.Val, dwoId.Val,
-      splitDebugInlining.Val);
+      splitDebugInlining.Val, debugInfoForProfiling.Val);
   return false;
 }
 
@@ -4145,7 +4192,7 @@ bool LLParser::ParseDINamespace(MDNode *&Result, bool IsDistinct) {
 bool LLParser::ParseDIMacro(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(type, DwarfMacinfoTypeField, );                                     \
-  REQUIRED(line, LineField, );                                                 \
+  OPTIONAL(line, LineField, );                                                 \
   REQUIRED(name, MDStringField, );                                             \
   OPTIONAL(value, MDStringField, );
   PARSE_MD_FIELDS();
@@ -4161,7 +4208,7 @@ bool LLParser::ParseDIMacro(MDNode *&Result, bool IsDistinct) {
 bool LLParser::ParseDIMacroFile(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   OPTIONAL(type, DwarfMacinfoTypeField, (dwarf::DW_MACINFO_start_file));       \
-  REQUIRED(line, LineField, );                                                 \
+  OPTIONAL(line, LineField, );                                                 \
   REQUIRED(file, MDField, );                                                   \
   OPTIONAL(nodes, MDField, );
   PARSE_MD_FIELDS();
@@ -4224,8 +4271,7 @@ bool LLParser::ParseDITemplateValueParameter(MDNode *&Result, bool IsDistinct) {
 /// ParseDIGlobalVariable:
 ///   ::= !DIGlobalVariable(scope: !0, name: "foo", linkageName: "foo",
 ///                         file: !1, line: 7, type: !2, isLocal: false,
-///                         isDefinition: true, variable: i32* @foo,
-///                         declaration: !3, align: 8)
+///                         isDefinition: true, declaration: !3, align: 8)
 bool LLParser::ParseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
 #define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
   REQUIRED(name, MDStringField, (/* AllowEmpty */ false));                     \
@@ -4236,7 +4282,6 @@ bool LLParser::ParseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
   OPTIONAL(type, MDField, );                                                   \
   OPTIONAL(isLocal, MDBoolField, );                                            \
   OPTIONAL(isDefinition, MDBoolField, (true));                                 \
-  OPTIONAL(expr, MDField, );                                                   \
   OPTIONAL(declaration, MDField, );                                            \
   OPTIONAL(align, MDUnsignedField, (0, UINT32_MAX));
   PARSE_MD_FIELDS();
@@ -4245,8 +4290,7 @@ bool LLParser::ParseDIGlobalVariable(MDNode *&Result, bool IsDistinct) {
   Result = GET_OR_DISTINCT(DIGlobalVariable,
                            (Context, scope.Val, name.Val, linkageName.Val,
                             file.Val, line.Val, type.Val, isLocal.Val,
-                            isDefinition.Val, expr.Val, declaration.Val,
-                            align.Val));
+                            isDefinition.Val, declaration.Val, align.Val));
   return false;
 }
 
@@ -4311,6 +4355,21 @@ bool LLParser::ParseDIExpression(MDNode *&Result, bool IsDistinct) {
     return true;
 
   Result = GET_OR_DISTINCT(DIExpression, (Context, Elements));
+  return false;
+}
+
+/// ParseDIGlobalVariableExpression:
+///   ::= !DIGlobalVariableExpression(var: !0, expr: !1)
+bool LLParser::ParseDIGlobalVariableExpression(MDNode *&Result,
+                                               bool IsDistinct) {
+#define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
+  REQUIRED(var, MDField, );                                                    \
+  OPTIONAL(expr, MDField, );
+  PARSE_MD_FIELDS();
+#undef VISIT_MD_FIELDS
+
+  Result =
+      GET_OR_DISTINCT(DIGlobalVariableExpression, (Context, var.Val, expr.Val));
   return false;
 }
 
@@ -4487,13 +4546,13 @@ bool LLParser::ConvertValIDToValue(Type *Ty, ValID &ID, Value *&V,
 
     // The lexer has no type info, so builds all half, float, and double FP
     // constants as double.  Fix this here.  Long double does not need this.
-    if (&ID.APFloatVal.getSemantics() == &APFloat::IEEEdouble) {
+    if (&ID.APFloatVal.getSemantics() == &APFloat::IEEEdouble()) {
       bool Ignored;
       if (Ty->isHalfTy())
-        ID.APFloatVal.convert(APFloat::IEEEhalf, APFloat::rmNearestTiesToEven,
+        ID.APFloatVal.convert(APFloat::IEEEhalf(), APFloat::rmNearestTiesToEven,
                               &Ignored);
       else if (Ty->isFloatTy())
-        ID.APFloatVal.convert(APFloat::IEEEsingle, APFloat::rmNearestTiesToEven,
+        ID.APFloatVal.convert(APFloat::IEEEsingle(), APFloat::rmNearestTiesToEven,
                               &Ignored);
     }
     V = ConstantFP::get(Context, ID.APFloatVal);
@@ -4580,6 +4639,9 @@ bool LLParser::parseConstantValue(Type *Ty, Constant *&C) {
     C = cast<Constant>(V);
     return false;
   }
+  case ValID::t_Null:
+    C = Constant::getNullValue(Ty);
+    return false;
   default:
     return Error(Loc, "expected a constant value");
   }
@@ -4726,25 +4788,14 @@ bool LLParser::ParseFunctionHeader(Function *&Fn, bool isDefine) {
   std::vector<Type*> ParamTypeList;
   SmallVector<AttributeSet, 8> Attrs;
 
-  if (RetAttrs.hasAttributes())
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::ReturnIndex,
-                                      RetAttrs));
-
   for (unsigned i = 0, e = ArgList.size(); i != e; ++i) {
     ParamTypeList.push_back(ArgList[i].Ty);
-    if (ArgList[i].Attrs.hasAttributes(i + 1)) {
-      AttrBuilder B(ArgList[i].Attrs, i + 1);
-      Attrs.push_back(AttributeSet::get(RetType->getContext(), i + 1, B));
-    }
+    Attrs.push_back(ArgList[i].Attrs);
   }
 
-  if (FuncAttrs.hasAttributes())
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::FunctionIndex,
-                                      FuncAttrs));
-
-  AttributeSet PAL = AttributeSet::get(Context, Attrs);
+  AttributeList PAL =
+      AttributeList::get(Context, AttributeSet::get(Context, FuncAttrs),
+                         AttributeSet::get(Context, RetAttrs), Attrs);
 
   if (PAL.hasAttribute(1, Attribute::StructRet) && !RetType->isVoidTy())
     return Error(RetTypeLoc, "functions with 'sret' argument must return void");
@@ -5354,13 +5405,8 @@ bool LLParser::ParseInvoke(Instruction *&Inst, PerFunctionState &PFS) {
     return true;
 
   // Set up the Attribute for the function.
-  SmallVector<AttributeSet, 8> Attrs;
-  if (RetAttrs.hasAttributes())
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::ReturnIndex,
-                                      RetAttrs));
-
-  SmallVector<Value*, 8> Args;
+  SmallVector<Value *, 8> Args;
+  SmallVector<AttributeSet, 8> ArgAttrs;
 
   // Loop through FunctionType's arguments and ensure they are specified
   // correctly.  Also, gather any parameter attributes.
@@ -5378,26 +5424,19 @@ bool LLParser::ParseInvoke(Instruction *&Inst, PerFunctionState &PFS) {
       return Error(ArgList[i].Loc, "argument is not of expected type '" +
                    getTypeString(ExpectedTy) + "'");
     Args.push_back(ArgList[i].V);
-    if (ArgList[i].Attrs.hasAttributes(i + 1)) {
-      AttrBuilder B(ArgList[i].Attrs, i + 1);
-      Attrs.push_back(AttributeSet::get(RetType->getContext(), i + 1, B));
-    }
+    ArgAttrs.push_back(ArgList[i].Attrs);
   }
 
   if (I != E)
     return Error(CallLoc, "not enough parameters specified for call");
 
-  if (FnAttrs.hasAttributes()) {
-    if (FnAttrs.hasAlignmentAttr())
-      return Error(CallLoc, "invoke instructions may not have an alignment");
-
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::FunctionIndex,
-                                      FnAttrs));
-  }
+  if (FnAttrs.hasAlignmentAttr())
+    return Error(CallLoc, "invoke instructions may not have an alignment");
 
   // Finish off the Attribute and check them
-  AttributeSet PAL = AttributeSet::get(Context, Attrs);
+  AttributeList PAL =
+      AttributeList::get(Context, AttributeSet::get(Context, FnAttrs),
+                         AttributeSet::get(Context, RetAttrs), ArgAttrs);
 
   InvokeInst *II =
       InvokeInst::Create(Ty, Callee, NormalBB, UnwindBB, Args, BundleList);
@@ -5959,10 +5998,6 @@ bool LLParser::ParseCall(Instruction *&Inst, PerFunctionState &PFS,
 
   // Set up the Attribute for the function.
   SmallVector<AttributeSet, 8> Attrs;
-  if (RetAttrs.hasAttributes())
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::ReturnIndex,
-                                      RetAttrs));
 
   SmallVector<Value*, 8> Args;
 
@@ -5982,26 +6017,19 @@ bool LLParser::ParseCall(Instruction *&Inst, PerFunctionState &PFS,
       return Error(ArgList[i].Loc, "argument is not of expected type '" +
                    getTypeString(ExpectedTy) + "'");
     Args.push_back(ArgList[i].V);
-    if (ArgList[i].Attrs.hasAttributes(i + 1)) {
-      AttrBuilder B(ArgList[i].Attrs, i + 1);
-      Attrs.push_back(AttributeSet::get(RetType->getContext(), i + 1, B));
-    }
+    Attrs.push_back(ArgList[i].Attrs);
   }
 
   if (I != E)
     return Error(CallLoc, "not enough parameters specified for call");
 
-  if (FnAttrs.hasAttributes()) {
-    if (FnAttrs.hasAlignmentAttr())
-      return Error(CallLoc, "call instructions may not have an alignment");
-
-    Attrs.push_back(AttributeSet::get(RetType->getContext(),
-                                      AttributeSet::FunctionIndex,
-                                      FnAttrs));
-  }
+  if (FnAttrs.hasAlignmentAttr())
+    return Error(CallLoc, "call instructions may not have an alignment");
 
   // Finish off the Attribute and check them
-  AttributeSet PAL = AttributeSet::get(Context, Attrs);
+  AttributeList PAL =
+      AttributeList::get(Context, AttributeSet::get(Context, FnAttrs),
+                         AttributeSet::get(Context, RetAttrs), Attrs);
 
   CallInst *CI = CallInst::Create(Ty, Callee, Args, BundleList);
   CI->setTailCallKind(TCK);
@@ -6023,8 +6051,9 @@ bool LLParser::ParseCall(Instruction *&Inst, PerFunctionState &PFS,
 ///       (',' 'align' i32)?
 int LLParser::ParseAlloc(Instruction *&Inst, PerFunctionState &PFS) {
   Value *Size = nullptr;
-  LocTy SizeLoc, TyLoc;
+  LocTy SizeLoc, TyLoc, ASLoc;
   unsigned Alignment = 0;
+  unsigned AddrSpace = 0;
   Type *Ty = nullptr;
 
   bool IsInAlloca = EatIfPresent(lltok::kw_inalloca);
@@ -6038,12 +6067,21 @@ int LLParser::ParseAlloc(Instruction *&Inst, PerFunctionState &PFS) {
   bool AteExtraComma = false;
   if (EatIfPresent(lltok::comma)) {
     if (Lex.getKind() == lltok::kw_align) {
-      if (ParseOptionalAlignment(Alignment)) return true;
+      if (ParseOptionalAlignment(Alignment))
+        return true;
+      if (ParseOptionalCommaAddrSpace(AddrSpace, ASLoc, AteExtraComma))
+        return true;
+    } else if (Lex.getKind() == lltok::kw_addrspace) {
+      ASLoc = Lex.getLoc();
+      if (ParseOptionalAddrSpace(AddrSpace))
+        return true;
     } else if (Lex.getKind() == lltok::MetadataVar) {
       AteExtraComma = true;
     } else {
       if (ParseTypeAndValue(Size, SizeLoc, PFS) ||
-          ParseOptionalCommaAlign(Alignment, AteExtraComma))
+          ParseOptionalCommaAlign(Alignment, AteExtraComma) ||
+          (!AteExtraComma &&
+           ParseOptionalCommaAddrSpace(AddrSpace, ASLoc, AteExtraComma)))
         return true;
     }
   }
@@ -6051,7 +6089,14 @@ int LLParser::ParseAlloc(Instruction *&Inst, PerFunctionState &PFS) {
   if (Size && !Size->getType()->isIntegerTy())
     return Error(SizeLoc, "element count must have integer type");
 
-  AllocaInst *AI = new AllocaInst(Ty, Size, Alignment);
+  const DataLayout &DL = M->getDataLayout();
+  unsigned AS = DL.getAllocaAddrSpace();
+  if (AS != AddrSpace) {
+    // TODO: In the future it should be possible to specify addrspace per-alloca.
+    return Error(ASLoc, "address space must match datalayout");
+  }
+
+  AllocaInst *AI = new AllocaInst(Ty, AS, Size, Alignment);
   AI->setUsedWithInAlloca(IsInAlloca);
   AI->setSwiftError(IsSwiftError);
   Inst = AI;

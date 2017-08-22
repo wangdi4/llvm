@@ -63,6 +63,7 @@ bool VectorGraphInfo::runOnFunction(Function &F) {
 }
 
 void VectorGraphInfo::print(raw_ostream &OS, const Module *M) const {
+#if !INTEL_PRODUCT_RELEASE
 
   formatted_raw_ostream FOS(OS);
 
@@ -75,6 +76,7 @@ void VectorGraphInfo::print(raw_ostream &OS, const Module *M) const {
   }
   else
     FOS << "No Vector Graph Generated\n";
+#endif // !INTEL_PRODUCT_RELEASE
 }
 
 //TODO: Make sure we are removing all the VGBlocks, including the

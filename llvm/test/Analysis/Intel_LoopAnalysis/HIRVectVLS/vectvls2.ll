@@ -13,8 +13,9 @@
 ; }
 
 ; TODO: Only runs in debug mode
+; TODO: Not use O2 for testing.
 ; REQUIRES: asserts
-; RUN: opt < %s -O2 -S -loopopt -debug -enable-vect-vls=1 2>&1 | FileCheck %s
+; RUN: opt < %s -O2 -S -loopopt -disable-hir-complete-unroll -debug -enable-vect-vls=1 2>&1 | FileCheck %s
 ;
 ; CHECK: Printing Groups- Total Groups 2
 ; CHECK-DAG: AccessMask(per byte, R to L): 111111111111

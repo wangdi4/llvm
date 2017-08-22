@@ -49,6 +49,7 @@ public:
   /// @return True if the pass modifies this Region.
   virtual bool runOnRegion(Region *R, RGPassManager &RGM) = 0;
 
+#if !INTEL_PRODUCT_RELEASE
   /// @brief Get a pass to print the LLVM IR in the region.
   ///
   /// @param O      The output stream to print the Region.
@@ -57,6 +58,7 @@ public:
   /// @return The pass to print the LLVM IR in the region.
   Pass *createPrinterPass(raw_ostream &O,
                           const std::string &Banner) const override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   using llvm::Pass::doInitialization;
   using llvm::Pass::doFinalization;
@@ -106,8 +108,10 @@ public:
   PMDataManager *getAsPMDataManager() override { return this; }
   Pass *getAsPass() override { return this; }
 
+#if !INTEL_PRODUCT_RELEASE
   /// @brief Print passes managed by this manager.
   void dumpPassStructure(unsigned Offset) override;
+#endif // !INTEL_PRODUCT_RELEASE
 
   /// @brief Get passes contained by this manager.
   Pass *getContainedPass(unsigned N) {

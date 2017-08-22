@@ -38,7 +38,8 @@
 #ifdef BUILD_TIED_TASK_STACK
 #define TASK_STACK_EMPTY         0  // entries when the stack is empty
 
-#define TASK_STACK_BLOCK_BITS    5  // Used to define TASK_STACK_SIZE and TASK_STACK_MASK
+// Used to define TASK_STACK_SIZE and TASK_STACK_MASK
+#define TASK_STACK_BLOCK_BITS    5
 #define TASK_STACK_BLOCK_SIZE    ( 1 << TASK_STACK_BLOCK_BITS ) // Number of entries in each task stack array
 #define TASK_STACK_INDEX_MASK    ( TASK_STACK_BLOCK_SIZE - 1 )  // Mask for determining index into stack block
 #endif // BUILD_TIED_TASK_STACK
@@ -629,6 +630,8 @@ public:
     };
     void* operator new(size_t n);
     void operator delete(void* p);
+    // Need virtual destructor
+    virtual ~KMPAffinity() = default;
     // Determine if affinity is capable
     virtual void determine_capable(const char* env_var) {}
     // Bind the current thread to os proc
@@ -771,11 +774,19 @@ typedef enum kmp_cancel_kind_t {
 } kmp_cancel_kind_t;
 #endif // OMP_40_ENABLED
 
-extern int __kmp_place_num_sockets;
-extern int __kmp_place_socket_offset;
-extern int __kmp_place_num_cores;
-extern int __kmp_place_core_offset;
-extern int __kmp_place_num_threads_per_core;
+// KMP_HW_SUBSET support:
+typedef struct kmp_hws_item {
+    int num;
+    int offset;
+} kmp_hws_item_t;
+
+extern kmp_hws_item_t __kmp_hws_socket;
+extern kmp_hws_item_t __kmp_hws_node;
+extern kmp_hws_item_t __kmp_hws_tile;
+extern kmp_hws_item_t __kmp_hws_core;
+extern kmp_hws_item_t __kmp_hws_proc;
+extern int __kmp_hws_requested;
+extern int __kmp_hws_abs_flag; // absolute or per-item number requested
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -889,6 +900,28 @@ extern int __kmp_place_num_threads_per_core;
 #define KMP_INTERVALS_FROM_BLOCKTIME(blocktime, monitor_wakeups)  \
                                  ( ( (blocktime) + (KMP_BLOCKTIME_MULTIPLIER / (monitor_wakeups)) - 1 ) /  \
                                    (KMP_BLOCKTIME_MULTIPLIER / (monitor_wakeups)) )
+#else
+# if KMP_OS_UNIX && (KMP_ARCH_X86 || KMP_ARCH_X86_64)
+   // HW TSC is used to reduce overhead (clock tick instead of nanosecond).
+   extern kmp_uint64 __kmp_ticks_per_msec;
+#  if KMP_COMPILER_ICC
+#   define KMP_NOW() _rdtsc()
+#  else
+#   define KMP_NOW() __kmp_hardware_timestamp()
+#  endif
+#  define KMP_NOW_MSEC() (KMP_NOW()/__kmp_ticks_per_msec)
+#  define KMP_BLOCKTIME_INTERVAL() (__kmp_dflt_blocktime * __kmp_ticks_per_msec)
+#  define KMP_BLOCKING(goal, count) ((goal) > KMP_NOW())
+# else
+   // System time is retrieved sporadically while blocking.
+   extern kmp_uint64 __kmp_now_nsec();
+#  define KMP_NOW() __kmp_now_nsec()
+#  define KMP_NOW_MSEC() (KMP_NOW()/KMP_USEC_PER_SEC)
+#  define KMP_BLOCKTIME_INTERVAL() (__kmp_dflt_blocktime * KMP_USEC_PER_SEC)
+#  define KMP_BLOCKING(goal, count) ((count) % 1000 != 0 || (goal) > KMP_NOW())
+# endif
+# define KMP_YIELD_NOW() (KMP_NOW_MSEC() / KMP_MAX(__kmp_dflt_blocktime, 1)  \
+                         % (__kmp_yield_on_count + __kmp_yield_off_count) < (kmp_uint32)__kmp_yield_on_count)
 #endif // KMP_USE_MONITOR
 
 #define KMP_MIN_STATSCOLS       40
@@ -1611,6 +1644,9 @@ typedef struct kmp_disp {
 #define KMP_BARRIER_SWITCH_TO_OWN_FLAG 3  // Special state; tells worker to shift from parent to own b_go
 #define KMP_BARRIER_SWITCHING          4  // Special state; worker resets appropriate flag on wake-up
 
+#define KMP_NOT_SAFE_TO_REAP 0  // Thread th_reap_state: not safe to reap (tasking)
+#define KMP_SAFE_TO_REAP 1      // Thread th_reap_state: safe to reap (not tasking)
+
 enum barrier_type {
     bs_plain_barrier = 0,       /* 0, All non-fork/join barriers (except reduction barriers if enabled) */
     bs_forkjoin_barrier,        /* 1, All fork/join (parallel region) barriers */
@@ -1958,8 +1994,13 @@ typedef struct kmp_taskgroup {
     kmp_uint32            count;   // number of allocated and not yet complete tasks
     kmp_int32             cancel_request; // request for cancellation of this taskgroup
     struct kmp_taskgroup *parent;  // parent taskgroup
+// TODO: change to OMP_50_ENABLED, need to change build tools for this to work
+#if OMP_45_ENABLED
+    // Block of data to perform task reduction
+    void                 *reduce_data; // reduction related info
+    kmp_int32             reduce_num_data; // number of data items to reduce
+#endif
 } kmp_taskgroup_t;
-
 
 // forward declarations
 typedef union kmp_depnode       kmp_depnode_t;
@@ -2220,8 +2261,10 @@ typedef struct KMP_ALIGN_CACHE kmp_base_info {
     /* to exist (from the POV of worker threads).                            */
 #if KMP_USE_MONITOR
     int               th_team_bt_intervals;
-#endif
     int               th_team_bt_set;
+#else
+    kmp_uint64        th_team_bt_intervals;
+#endif
 
 
 #if KMP_AFFINITY_SUPPORTED
@@ -2285,6 +2328,8 @@ typedef struct KMP_ALIGN_CACHE kmp_base_info {
     kmp_uint8          * th_task_state_memo_stack;  // Stack holding memos of th_task_state at nested levels
     kmp_uint32           th_task_state_top;         // Top element of th_task_state_memo_stack
     kmp_uint32           th_task_state_stack_sz;    // Size of th_task_state_memo_stack
+    kmp_uint32           th_reap_state;  // Non-zero indicates thread is not
+                                         // tasking, thus safe to reap
 
     /*
      * More stuff for keeping track of active/sleeping threads
@@ -2653,10 +2698,10 @@ extern kmp_uint32 __kmp_yield_next;
 
 #if KMP_USE_MONITOR
 extern kmp_uint32 __kmp_yielding_on;
+#endif
 extern kmp_uint32 __kmp_yield_cycle;
 extern kmp_int32  __kmp_yield_on_count;
 extern kmp_int32  __kmp_yield_off_count;
-#endif
 
 /* ------------------------------------------------------------------------- */
 extern int        __kmp_allThreadsSpecified;
@@ -3183,7 +3228,7 @@ extern void __kmp_aux_set_stacksize( size_t arg);
 extern void __kmp_aux_set_blocktime (int arg, kmp_info_t *thread, int tid);
 extern void __kmp_aux_set_defaults( char const * str, int len );
 
-/* Functions below put here to call them from __kmp_aux_env_initialize() in kmp_settings.c */
+/* Functions called from __kmp_aux_env_initialize() in kmp_settings.cpp */
 void kmpc_set_blocktime (int arg);
 void ompc_set_nested( int flag );
 void ompc_set_dynamic( int flag );
@@ -3396,6 +3441,11 @@ KMP_EXPORT void __kmpc_taskloop(ident_t *loc, kmp_int32 gtid, kmp_task_t *task, 
                 kmp_uint64 *lb, kmp_uint64 *ub, kmp_int64 st,
                 kmp_int32 nogroup, kmp_int32 sched, kmp_uint64 grainsize, void * task_dup );
 #endif
+// TODO: change to OMP_50_ENABLED, need to change build tools for this to work
+#if OMP_45_ENABLED
+KMP_EXPORT void* __kmpc_task_reduction_init(int gtid, int num_data, void *data);
+KMP_EXPORT void* __kmpc_task_reduction_get_th_data(int gtid, void *tg, void *d);
+#endif
 
 #endif
 
@@ -3451,9 +3501,6 @@ KMP_EXPORT kmp_int32 __kmp_get_reduce_method( void );
 
 KMP_EXPORT kmp_uint64 __kmpc_get_taskid();
 KMP_EXPORT kmp_uint64 __kmpc_get_parent_taskid();
-
-// this function exported for testing of KMP_PLACE_THREADS functionality
-KMP_EXPORT void __kmpc_place_threads(int,int,int,int,int);
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */

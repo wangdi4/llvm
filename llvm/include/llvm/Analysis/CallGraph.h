@@ -303,7 +303,7 @@ public:
 private:
   friend class CallGraph;
 
-  AssertingVH<Function> F;
+  Function *F;
 
   std::vector<CallRecord> CalledFunctions;
 
@@ -328,7 +328,7 @@ private:
 /// resulting data.
 class CallGraphAnalysis : public AnalysisInfoMixin<CallGraphAnalysis> {
   friend AnalysisInfoMixin<CallGraphAnalysis>;
-  static char PassID;
+  static AnalysisKey Key;
 
 public:
   /// \brief A formulaic typedef to inform clients of the result type.

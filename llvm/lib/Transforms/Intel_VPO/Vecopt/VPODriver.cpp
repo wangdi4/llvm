@@ -36,10 +36,10 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRVectVLSAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRVectVLSAnalysis.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -113,12 +113,14 @@ public:
   }
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
+#if !INTEL_PRODUCT_RELEASE
   /// \brief Overrides FunctionPass's printer pass to return one which prints
   /// HIR instead of LLVM IR.
   FunctionPass *createPrinterPass(raw_ostream &OS,
                                   const std::string &Banner) const override {
     return createHIRPrinterPass(OS, Banner);
   }
+#endif // !INTEL_PRODUCT_RELEASE
 
   VPOScenarioEvaluationBase &getScenariosEngine(AVRWrn *AvrWrn,
                                                 Function &F) override {
@@ -199,6 +201,11 @@ bool VPODriverBase::runOnFunction(Function &Fn) {
   TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(Fn);
   TLI = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
   DL = &Fn.getParent()->getDataLayout();
+
+  // TODO - driver should not invoke VPODriver for non-vector target
+  // Until then - bail out. This should be changed to an assert later.
+  if (TTI->getRegisterBitWidth(true) == 0)
+    return false;
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = &*I;

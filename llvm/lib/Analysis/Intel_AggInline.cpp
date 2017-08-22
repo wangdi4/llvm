@@ -1,6 +1,6 @@
 //===------- Intel_AggInline.cpp - Aggressive Inline Analysis -*------===//
 //
-// Copyright (C) 2016 Intel Corporation. All rights reserved.
+// Copyright (C) 2016-2017 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive property
 // of Intel Corporation and may not be disclosed, examined or reproduced in
@@ -637,6 +637,9 @@ void InlineAggressiveWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 char InlineAggAnalysis::PassID;
+
+// Provide a definition for the static class member used to identify passes. 
+AnalysisKey InlineAggAnalysis::Key;
 
 InlineAggressiveInfo InlineAggAnalysis::run(Module &M,
                                 AnalysisManager<Module> &AM) {

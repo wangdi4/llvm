@@ -117,6 +117,7 @@ bool VPOParoptTransform::paroptTransforms() {
 
   LLVMContext &C = F->getContext();
   bool RoutineChanged = false;
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   BasicBlock::iterator I = F->getEntryBlock().begin();
 
@@ -185,7 +186,7 @@ bool VPOParoptTransform::paroptTransforms() {
   Type *Int32Ty = Type::getInt32Ty(C);
 
   if (NeedTID) {
-    TidPtr = new AllocaInst(Int32Ty, "tid.addr", AI);
+    TidPtr = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "tid.addr", AI);
     TidPtr->setAlignment(4);
 
     CallInst *RI;
@@ -200,7 +201,7 @@ bool VPOParoptTransform::paroptTransforms() {
   }
 
   if (NeedBID && (Mode & OmpPar) && (Mode & ParTrans)) {
-    BidPtr = new AllocaInst(Int32Ty, "bid.addr", AI);
+    BidPtr = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "bid.addr", AI);
     BidPtr->setAlignment(4);
 
     ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
@@ -1098,7 +1099,9 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
     NewPrivInst->insertBefore(InsertPt);
   } else if (GlobalVariable *GV = dyn_cast<GlobalVariable>(PrivValue)){
     Type *ElemTy = GV->getValueType();
-    NewPrivInst = new AllocaInst(ElemTy, nullptr, GV->getName());
+    const DataLayout &DL = F->getParent()->getDataLayout();
+    NewPrivInst = new AllocaInst(ElemTy, DL.getAllocaAddrSpace(), nullptr,
+                                 GV->getName());
     NewPrivInst->insertBefore(InsertPt);
     SmallVector<Instruction *, 8> RewriteCons;
     for (auto IB = GV->user_begin(), IE = GV->user_end(); IB != IE; ++IB) {
@@ -1415,6 +1418,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   //
   LLVMContext &C = F->getContext();
   IntegerType *Int32Ty = Type::getInt32Ty(C);
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   Type *LoopIndexType =
           WRegionUtils::getOmpCanonicalInductionVariable(L)->
@@ -1432,20 +1436,25 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  IsLastVal =
-      new AllocaInst(Int32Ty, "is.last", W->getEntryBBlock()->getTerminator());
+  IsLastVal = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(), "is.last",
+                             InsertPt);
   IsLastVal->setAlignment(4);
-  AllocaInst *LowerBnd = new AllocaInst(IndValTy, "lower.bnd", InsertPt);
+
+  AllocaInst *LowerBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                        "lower.bnd", InsertPt);
   LowerBnd->setAlignment(4);
 
-  AllocaInst *UpperBnd = new AllocaInst(IndValTy, "upper.bnd", InsertPt);
+  AllocaInst *UpperBnd = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                        "upper.bnd", InsertPt);
   UpperBnd->setAlignment(4);
 
-  AllocaInst *Stride = new AllocaInst(IndValTy, "stride", InsertPt);
+  AllocaInst *Stride = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                      "stride", InsertPt);
   Stride->setAlignment(4);
 
-  // UpperD is for distribute loop
-  AllocaInst *UpperD = new AllocaInst(IndValTy, "upperD", InsertPt);
+  // UpperD is for distribtue loop
+  AllocaInst *UpperD = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(),
+                                      "upperD", InsertPt);
   UpperD->setAlignment(4);
 
   // Constant Definitions
@@ -1827,6 +1836,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
   CallInst *NewTid = nullptr;
   BasicBlock *WREntryBB = W->getEntryBBlock();
   Instruction *InsertBefore = nullptr;
+  const DataLayout &DL = F->getParent()->getDataLayout();
 
   for (Instruction &I : *WREntryBB) {
     if (!VPOAnalysisUtils::isIntelDirectiveOrClause(&I)) {
@@ -1846,6 +1856,7 @@ void VPOParoptTransform::codeExtractorPrepareTransform(WRegionNode *W,
       if (!NewAI) {
         if (isa<AllocaInst>(I.first)) {
           NewAI = new AllocaInst(Type::getInt32Ty(F->getContext()),
+                                 DL.getAllocaAddrSpace(),
                                  IsTid ? "new.tid.addr" : "new.bid.addr",
                                  InsertBefore);
           NewAI->setAlignment(4);
@@ -2330,15 +2341,15 @@ CallInst* VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
-  AttributeSet ForkCallFnAttr;
-  SmallVector<AttributeSet, 4> Attrs;
+  AttributeList ForkCallFnAttr;
+  SmallVector<AttributeList, 4> Attrs;
 
-  AttributeSet FnAttrSet;
+  AttributeList FnAttrSet;
   AttrBuilder B;
-  FnAttrSet = AttributeSet::get(C, ~0U, B);
+  FnAttrSet = AttributeList::get(C, ~0U, B);
 
   Attrs.push_back(FnAttrSet);
-  ForkCallFnAttr = AttributeSet::get(C, Attrs);
+  ForkCallFnAttr = AttributeList::get(C, Attrs);
 
   ForkCallFn->setAttributes(ForkCallFnAttr);
 
@@ -2439,7 +2450,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
     Function::arg_iterator NewArgI = NFn->arg_begin();
     ++NewArgI;
     ++NewArgI;
-    const DataLayout DL=NFn->getParent()->getDataLayout();
+    const DataLayout NDL=NFn->getParent()->getDataLayout();
     bool FirstArg = true;
 
     for (auto C : CP.items()) {
@@ -2453,10 +2464,10 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
         // The instruction to cast the tpv pointer to int for later comparison
         // instruction. One example is as follows.
         //   %0 = ptrtoint i32* %tpv_a to i64
-        Value *TpvArg = 
-                 Builder.CreatePtrToInt(&*NewArgI,Builder.getIntPtrTy(DL));
-        Value *OldTpv = 
-                 Builder.CreatePtrToInt(C->getOrig(),Builder.getIntPtrTy(DL));
+        Value *TpvArg = Builder.CreatePtrToInt(
+                                        &*NewArgI,Builder.getIntPtrTy(NDL));
+        Value *OldTpv = Builder.CreatePtrToInt(
+                                        C->getOrig(),Builder.getIntPtrTy(NDL));
 
         // The instruction to compare between the address of tpv formal
         // arugment and the tpv accessed in the outlined function. 
@@ -2473,7 +2484,7 @@ void VPOParoptTransform::genTpvCopyIn(WRegionNode *W,
             ->getSuccessor(1)->setName("copyin.not.master.end");
       }
       VPOParoptUtils::genMemcpy(
-          C->getOrig(), &*NewArgI, DL,
+          C->getOrig(), &*NewArgI, NDL,
           dyn_cast<GlobalVariable>(C->getOrig())->getAlignment(),
           Term->getParent());
 

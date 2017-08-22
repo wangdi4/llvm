@@ -30,10 +30,12 @@
 
 using namespace llvm;
 
+#if !INTEL_PRODUCT_RELEASE
 Pass *MachineFunctionPass::createPrinterPass(raw_ostream &O,
                                              const std::string &Banner) const {
   return createMachineFunctionPrinterPass(O, Banner);
 }
+#endif // !INTEL_PRODUCT_RELEASE
 
 bool MachineFunctionPass::runOnFunction(Function &F) {
   // Do not codegen any 'available_externally' functions at all, they have

@@ -19,11 +19,14 @@
 #include "RawStringLiteralCheck.h"
 #include "RedundantVoidArgCheck.h"
 #include "ReplaceAutoPtrCheck.h"
+#include "ReplaceRandomShuffleCheck.h"
+#include "ReturnBracedInitListCheck.h"
 #include "ShrinkToFitCheck.h"
 #include "UseAutoCheck.h"
 #include "UseBoolLiteralsCheck.h"
-#include "UseDefaultCheck.h"
+#include "UseDefaultMemberInitCheck.h"
 #include "UseEmplaceCheck.h"
+#include "UseEqualsDefaultCheck.h"
 #include "UseEqualsDeleteCheck.h"
 #include "UseNullptrCheck.h"
 #include "UseOverrideCheck.h"
@@ -52,12 +55,18 @@ public:
         "modernize-redundant-void-arg");
     CheckFactories.registerCheck<ReplaceAutoPtrCheck>(
         "modernize-replace-auto-ptr");
+    CheckFactories.registerCheck<ReplaceRandomShuffleCheck>(
+        "modernize-replace-random-shuffle");
+    CheckFactories.registerCheck<ReturnBracedInitListCheck>(
+        "modernize-return-braced-init-list");
     CheckFactories.registerCheck<ShrinkToFitCheck>("modernize-shrink-to-fit");
     CheckFactories.registerCheck<UseAutoCheck>("modernize-use-auto");
     CheckFactories.registerCheck<UseBoolLiteralsCheck>(
         "modernize-use-bool-literals");
-    CheckFactories.registerCheck<UseDefaultCheck>("modernize-use-default");
+    CheckFactories.registerCheck<UseDefaultMemberInitCheck>(
+        "modernize-use-default-member-init");
     CheckFactories.registerCheck<UseEmplaceCheck>("modernize-use-emplace");
+    CheckFactories.registerCheck<UseEqualsDefaultCheck>("modernize-use-equals-default");
     CheckFactories.registerCheck<UseEqualsDeleteCheck>(
         "modernize-use-equals-delete");
     CheckFactories.registerCheck<UseNullptrCheck>("modernize-use-nullptr");

@@ -60,17 +60,13 @@ namespace llvm {
   /// as if it was just created.
   /// If EmitFallbackDiag is true, the pass will emit a
   /// DiagnosticInfoISelFallback for every MachineFunction it resets.
-  MachineFunctionPass *createResetMachineFunctionPass(bool EmitFallbackDiag);
+  /// If AbortOnFailedISel is true, abort compilation instead of resetting.
+  MachineFunctionPass *createResetMachineFunctionPass(bool EmitFallbackDiag,
+                                                      bool AbortOnFailedISel);
 
   /// createCodeGenPreparePass - Transform the code to expose more pattern
   /// matching during instruction selection.
   FunctionPass *createCodeGenPreparePass(const TargetMachine *TM = nullptr);
-
-#ifdef INTEL_CUSTOMIZATION
-  // createFeatureOutlinerPass - This pass outlines basic blocks that use
-  // subtarget features not available on the default subtarget
-  ModulePass *createFeatureOutlinerPass(const TargetMachine *TM = nullptr);
-#endif  // INTEL_CUSTOMIZATION
   
   /// AtomicExpandID -- Lowers atomic operations in terms of either cmpxchg
   /// load-linked/store-conditional loops.
@@ -84,6 +80,9 @@ namespace llvm {
 
 /// MachineDominanaceFrontier - This pass is a machine dominators analysis pass.
   extern char &MachineDominanceFrontierID;
+
+  /// MachineRegionInfo - This pass computes SESE regions for machine functions.
+  extern char &MachineRegionInfoPassID;
 
   /// EdgeBundles analysis - Bundle machine CFG edges.
   extern char &EdgeBundlesID;
@@ -290,6 +289,9 @@ namespace llvm {
   /// the target platform.
   extern char &XRayInstrumentationID;
 
+  /// This pass inserts FEntry calls
+  extern char &FEntryInserterID;
+
   /// \brief This pass implements the "patchable-function" attribute.
   extern char &PatchableFunctionID;
 
@@ -323,14 +325,6 @@ namespace llvm {
 
   /// ExpandISelPseudos - This pass expands pseudo-instructions.
   extern char &ExpandISelPseudosID;
-
-  /// createExecutionDependencyFixPass - This pass fixes execution time
-  /// problems with dependent instructions, such as switching execution
-  /// domains to match.
-  ///
-  /// The pass will examine instructions using and defining registers in RC.
-  ///
-  FunctionPass *createExecutionDependencyFixPass(const TargetRegisterClass *RC);
 
   /// UnpackMachineBundles - This pass unpack machine instruction bundles.
   extern char &UnpackMachineBundlesID;
@@ -403,6 +397,14 @@ namespace llvm {
 
   /// This pass frees the memory occupied by the MachineFunction.
   FunctionPass *createFreeMachineFunctionPass();
+
+  /// This pass combine basic blocks guarded by the same branch.
+  extern char &BranchCoalescingID;
+
+  /// This pass performs outlining on machine instructions directly before
+  /// printing assembly.
+  ModulePass *createMachineOutlinerPass();
+
 } // End llvm namespace
 
 /// Target machine pass initializer for passes with dependencies. Use with
@@ -419,7 +421,7 @@ namespace llvm {
   Registry.registerPass(*PI, true);                                            \
   return PI;                                                                   \
   }                                                                            \
-  LLVM_DEFINE_ONCE_FLAG(Initialize##passName##PassFlag);                       \
+  static llvm::once_flag Initialize##passName##PassFlag;                       \
   void llvm::initialize##passName##Pass(PassRegistry &Registry) {              \
     llvm::call_once(Initialize##passName##PassFlag,                            \
                     initialize##passName##PassOnce, std::ref(Registry));       \

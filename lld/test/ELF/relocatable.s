@@ -30,7 +30,7 @@
 # CHECK-NEXT:  Version: 1
 # CHECK-NEXT:  Entry: 0x0
 # CHECK-NEXT:  ProgramHeaderOffset: 0x0
-# CHECK-NEXT:  SectionHeaderOffset: 0x2C0
+# CHECK-NEXT:  SectionHeaderOffset:
 # CHECK-NEXT:  Flags [
 # CHECK-NEXT:  ]
 # CHECK-NEXT:  HeaderSize: 64
@@ -79,7 +79,7 @@
 # CHECKEXE-NEXT:    Type: Executable
 # CHECKEXE-NEXT:    Machine: EM_X86_64
 # CHECKEXE-NEXT:    Version: 1
-# CHECKEXE-NEXT:    Entry: 0x11000
+# CHECKEXE-NEXT:    Entry: 0x201000
 # CHECKEXE-NEXT:    ProgramHeaderOffset: 0x40
 # CHECKEXE-NEXT:    SectionHeaderOffset: 0x11F8
 # CHECKEXE-NEXT:    Flags [
