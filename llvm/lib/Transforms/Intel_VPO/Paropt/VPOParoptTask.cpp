@@ -239,7 +239,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       Value *Orig = FprivI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
       assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect first private "
-                   "pionter argument");
+                   "pointer argument");
       KmpPrivatesIndices.push_back(PT->getElementType());
       SharedIndices.push_back(PT->getElementType());
       FprivI->setThunkIdx(Count++);
@@ -253,7 +253,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
         Value *Orig = LprivI->getOrig();
         auto PT = dyn_cast<PointerType>(Orig->getType());
         assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect last private "
-                     "pionter argument");
+                     "pointer argument");
         KmpPrivatesIndices.push_back(PT->getElementType());
         SharedIndices.push_back(PT);
         LprivI->setThunkIdx(Count++);
@@ -269,7 +269,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       auto PT = dyn_cast<PointerType>(Orig->getType());
       assert(
           PT &&
-          "genKmpTaskTWithPrivatesRecordDecl: Expect private pionter argument");
+          "genKmpTaskTWithPrivatesRecordDecl: Expect private pointer argument");
       KmpPrivatesIndices.push_back(PT->getElementType());
       PrivI->setThunkIdx(Count++);
     }
@@ -283,7 +283,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       Value *Orig = RedI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
       assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect reduction "
-                   "pionter argument");
+                   "pointer argument");
       SharedIndices.push_back(PT);
       RedI->setThunkIdx(Count++);
     }
@@ -295,7 +295,7 @@ StructType *VPOParoptTransform::genKmpTaskTWithPrivatesRecordDecl(
       Value *Orig = ShaI->getOrig();
       auto PT = dyn_cast<PointerType>(Orig->getType());
       assert(PT && "genKmpTaskTWithPrivatesRecordDecl: Expect shared "
-                   "pionter argument");
+                   "pointer argument");
       SharedIndices.push_back(PT);
       ShaI->setThunkIdx(Count++);
     }
