@@ -438,3 +438,10 @@ def NumSimdWorkItems : InheritableAttr {
 // FIXME: Add documentation
   let Documentation = [Undocumented];
 }
+
+def VecLenHint : InheritableAttr {
+  let Spellings = [GNU<"intel_vec_len_hint">];
+  let Args = [UnsignedArgument<"VecLen">];
+  let Subjects = SubjectList<[Function], ErrorDiag>;
+  let Documentation = [VecLenHintDocs];
+}

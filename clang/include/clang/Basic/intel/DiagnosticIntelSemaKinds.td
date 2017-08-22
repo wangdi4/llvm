@@ -157,6 +157,8 @@ def warn_arg_invalid_range_low_assumed : Warning<
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
+def err_attribute_argument_is_not_in_range : Error<
+  "invalid attribute value, possible values are: %0">;
 // endif INTEL_CUSTOMIZATION
 
 // if INTEL_SPECIFIC_CILKPLUS
