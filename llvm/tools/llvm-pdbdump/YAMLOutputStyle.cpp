@@ -13,13 +13,13 @@
 #include "PdbYaml.h"
 #include "llvm-pdbdump.h"
 
+#include "llvm/DebugInfo/CodeView/DebugChecksumsSubsection.h"
+#include "llvm/DebugInfo/CodeView/DebugInlineeLinesSubsection.h"
+#include "llvm/DebugInfo/CodeView/DebugLinesSubsection.h"
+#include "llvm/DebugInfo/CodeView/DebugSubsection.h"
+#include "llvm/DebugInfo/CodeView/DebugSubsectionVisitor.h"
+#include "llvm/DebugInfo/CodeView/DebugUnknownSubsection.h"
 #include "llvm/DebugInfo/CodeView/Line.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugFileChecksumFragment.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugFragment.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugFragmentVisitor.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugInlineeLinesFragment.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugLineFragment.h"
-#include "llvm/DebugInfo/CodeView/ModuleDebugUnknownFragment.h"
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
 #include "llvm/DebugInfo/PDB/Native/DbiStream.h"
 #include "llvm/DebugInfo/PDB/Native/InfoStream.h"
@@ -39,6 +39,20 @@ YAMLOutputStyle::YAMLOutputStyle(PDBFile &File)
 }
 
 Error YAMLOutputStyle::dump() {
+  if (opts::pdb2yaml::All) {
+    opts::pdb2yaml::StreamMetadata = true;
+    opts::pdb2yaml::StreamDirectory = true;
+    opts::pdb2yaml::PdbStream = true;
+    opts::pdb2yaml::StringTable = true;
+    opts::pdb2yaml::DbiStream = true;
+    opts::pdb2yaml::DbiModuleInfo = true;
+    opts::pdb2yaml::DbiModuleSyms = true;
+    opts::pdb2yaml::DbiModuleSourceFileInfo = true;
+    opts::pdb2yaml::DbiModuleSourceLineInfo = true;
+    opts::pdb2yaml::TpiStream = true;
+    opts::pdb2yaml::IpiStream = true;
+  }
+
   if (opts::pdb2yaml::StreamDirectory)
     opts::pdb2yaml::StreamMetadata = true;
   if (opts::pdb2yaml::DbiModuleSyms)
@@ -193,8 +207,8 @@ YAMLOutputStyle::getFileLineInfo(const pdb::ModuleDebugStreamRef &ModS) {
 
   yaml::PdbSourceFileInfo Info;
   C13YamlVisitor Visitor(Info, File);
-  if (auto EC = codeview::visitModuleDebugFragments(ModS.linesAndChecksums(),
-                                                    Visitor))
+  if (auto EC =
+          codeview::visitDebugSubsections(ModS.linesAndChecksums(), Visitor))
     return std::move(EC);
 
   return Info;
