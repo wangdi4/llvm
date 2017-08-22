@@ -351,9 +351,9 @@ class X86VMemOperand<RegisterClass RC, string printMethod,
 def anymem : X86MemOperand<"printanymem">;
 
 //#if INTEL_CUSTOMIZATION
-def anyi16mem : X86MemOperand<"printi16mem">;
-def anyi32mem : X86MemOperand<"printi32mem">;
-def anyi64mem : X86MemOperand<"printi64mem">;
+def anyi16mem : X86MemOperand<"printi16mem", X86Mem16AsmOperand>;
+def anyi32mem : X86MemOperand<"printi32mem", X86Mem32AsmOperand>;
+def anyi64mem : X86MemOperand<"printi64mem", X86Mem64AsmOperand>;
 //#endif // INTEL_CUSTOMIZATION
 
 def opaque32mem : X86MemOperand<"printopaquemem">;
