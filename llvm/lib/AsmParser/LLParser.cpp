@@ -1449,7 +1449,7 @@ bool LLParser::ParseOptionalParamAttrs(AttrBuilder &B) {
 #ifdef INTEL_CUSTOMIZATION
     case lltok::kw_inlinehint_recursive:
     case lltok::kw_alwaysinline_recursive:
-#endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     case lltok::kw_nonlazybind:
     case lltok::kw_noredzone:
     case lltok::kw_noreturn:
@@ -1544,7 +1544,7 @@ bool LLParser::ParseOptionalReturnAttrs(AttrBuilder &B) {
 #ifdef INTEL_CUSTOMIZATION
     case lltok::kw_inlinehint_recursive:
     case lltok::kw_alwaysinline_recursive:
-#endif INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     case lltok::kw_nonlazybind:
     case lltok::kw_noredzone:
     case lltok::kw_noreturn:
