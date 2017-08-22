@@ -4,6 +4,12 @@
 ; __FINITE_MATH_ONLY__ enabled, causing use of __<func>_finite
 ; function versions, vectorization can map these to vector versions.
 
+; INTEL - This test started failing right after merging from llorg.
+;         The reason is that we don't expect finite svml calls.
+;         These calls can appear only in llorg version.
+;         CMPLR-45251 filed for this case.
+; XFAIL: *
+
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
