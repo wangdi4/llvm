@@ -64,7 +64,9 @@ bool fission_by_names_test()
 	cl_device_id                     subdevice_id;
 	cl_uint                          num_entries  = 1;
 	cl_uint                          num_devices  = 1;
-	cl_device_partition_property properties[] = {CL_DEVICE_PARTITION_BY_NAMES_INTEL, 0, CL_PARTITION_BY_NAMES_LIST_END_INTEL, 0};
+	cl_device_partition_property properties[] = {
+            (cl_device_partition_property) CL_DEVICE_PARTITION_BY_NAMES_INTEL, 0,
+            (cl_device_partition_property) CL_PARTITION_BY_NAMES_LIST_END_INTEL, 0};
 
 	err = clCreateSubDevices(device, properties, num_entries, &subdevice_id, &num_devices);
 	bResult = SilentCheck(L"clCreateSubDevices",CL_SUCCESS,err);
