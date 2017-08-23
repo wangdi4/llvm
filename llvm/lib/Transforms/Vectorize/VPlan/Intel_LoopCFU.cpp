@@ -115,6 +115,7 @@ void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
   assert(Incoming && "Could not find incoming block to loop");
   assert(NumBackedges == 1 && "Loop expected to have a single backedge");
   assert(NumIncoming == 1 && "Loop expected to have a single incoming block");
+  (void) Incoming;
 
   const VPBasicBlock::RecipeListTy &BackedgeRecipeList = Backedge->getRecipes();
   const VPRecipeBase *BackedgeRecipe = &BackedgeRecipeList.back();

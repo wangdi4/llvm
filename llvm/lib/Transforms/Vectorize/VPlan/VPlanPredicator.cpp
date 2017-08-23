@@ -387,6 +387,7 @@ void VPlanPredicator::predicateRegionRec(VPRegionBlock *Region) {
       assert(!SubRegion->getPredicateRecipe() && "Region predicate must be "
                                                  "nullptr. Input predicate "
                                                  "hasn't been propagated yet.");
+      (void) SubRegion;
     } else {
       llvm_unreachable(
           "VPBlockBase is neither a VPBasicBlock nor a VPRegionBlock.");

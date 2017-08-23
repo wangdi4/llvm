@@ -190,6 +190,7 @@ void IntelVPlan::vectorize(VPTransformState *State) {
   // Merge LastBB with Latch.
   bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
   assert(merged && "Could not merge last basic block with latch.");
+  (void) merged;
   VectorLatchBB = LastBB;
 
   // Do no try to update dominator tree as we may be generating vector loops
@@ -334,6 +335,9 @@ static void verifyNumLoops(const VPRegionBlock *TopRegion, const Loop *TheLoop,
   assert(NumLoopsInCFG == NumLoopsInVPLoopInfo &&
          NumLoopsInVPLoopInfo == NumLoopsInLoopInfo &&
          "Number of loops in HCFG, VPLoopInfo and LoopInfo don't match");
+  (void) NumLoopsInCFG;
+  (void) NumLoopsInVPLoopInfo;
+  (void) NumLoopsInLoopInfo;
 }
 
 // Verify loop information for blocks inside a loop region
@@ -401,6 +405,7 @@ static void verifyLoopRegions(const VPRegionBlock *TopRegion,
 
       assert((VPLInfo->getLoopFor(Header) == ParentLoop) &&
              "Unexpected loop from loop header");
+      (void) Header;
     }
 
     // Traverse blocks in Region
@@ -460,6 +465,8 @@ static void verifyRegions(const VPRegionBlock *Region) {
   // Entry and Exit shouldn't have any predecessor/successor, respectively
   assert(Entry->getNumPredecessors() == 0 && "Region entry has predecessors");
   assert(Exit->getNumSuccessors() == 0 && "Region exit has successors");
+  (void) Entry;
+  (void) Exit;
 
   // We are not creating all possible SESE regions. At this point, Entry must
   // have more than two successors and Exit more than two predecessors. This
@@ -503,6 +510,7 @@ static void verifyRegions(const VPRegionBlock *Region) {
       assert(std::find(SuccPreds.begin(), SuccPreds.end(), VPB) !=
                  SuccPreds.end() &&
              "Missing predecessor link");
+      (void) SuccPreds;
     }
 
     // Check block's predecessors
@@ -523,6 +531,7 @@ static void verifyRegions(const VPRegionBlock *Region) {
       assert(std::find(PredSuccs.begin(), PredSuccs.end(), VPB) !=
                  PredSuccs.end() &&
              "Missing successor link");
+      (void) PredSuccs;
     }
 
     // Collect subregions for later visit

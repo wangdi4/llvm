@@ -427,6 +427,7 @@ ICmpInst *WRegionUtils::getOmpLoopZeroTripTest(Loop *L) {
 ICmpInst *WRegionUtils::getOmpLoopBottomTest(Loop *L) {
   PHINode *PN = getOmpCanonicalInductionVariable(L);
   assert(PN != nullptr && "Omp loop must have induction variable!");
+  (void) PN;
   assert(L->isLoopExiting(L->getLoopLatch()) &&
          "Omp loop must have been rotated!");
 

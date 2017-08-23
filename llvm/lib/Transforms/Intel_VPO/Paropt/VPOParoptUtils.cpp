@@ -1168,6 +1168,7 @@ bool VPOParoptUtils::genKmpcCriticalSection(WRegionNode *W, StructType *IdentTy,
                     2 : 3;
   assert(EntryBB->size() >= BBsize && "Entry BBlock has invalid size.");
   assert(ExitBB->size() >= BBsize && "Exit BBlock has invalid size.");
+  (void) BBsize;
 
   // BeginInst: `br label %BB1` (EntryBB) in the above example.
   Instruction *BeginInst = &(*(EntryBB->rbegin()));
@@ -1726,6 +1727,8 @@ void VPOParoptUtils::updateOmpPredicateAndUpperBound(WRegionNode *W,
   assert(BR->getSuccessor(0) == HeaderBB &&
          "updateOmpPredicateAndUpperBound: Expect the first target of the \
       branch instruction is the loop header");
+  (void) HeaderBB;
+  (void) BR;
 }
 
 static Value *findChainToLoad(Value *V,

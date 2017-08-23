@@ -332,6 +332,7 @@ void VPlan::vectorize(VPTransformState *State) {
   // Merge LastBB with Latch.
   bool merged = MergeBlockIntoPredecessor(VectorLatchBB, nullptr, State->LI);
   assert(merged && "Could not merge last basic block with latch.");
+  (void) merged;
   VectorLatchBB = LastBB;
 
   updateDominatorTree(State->DT, VectorPreHeaderBB, VectorLatchBB);

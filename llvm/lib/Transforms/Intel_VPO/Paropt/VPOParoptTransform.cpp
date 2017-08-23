@@ -398,6 +398,7 @@ bool VPOParoptTransform::paroptTransforms() {
     if (RemoveDirectives) {
       bool DirRemoved = VPOUtils::stripDirectives(W);
       assert(DirRemoved && "Directive intrinsics not removed for WRN.\n");
+      (void) DirRemoved;
     } else if (RemovePrivateClauses) {
       VPOUtils::stripPrivateClauses(W);
     }
@@ -1436,7 +1437,7 @@ bool VPOParoptTransform::genLoopSchedulingCode(WRegionNode *W,
   LoadInst *LoadTid = new LoadInst(TidPtr, "my.tid", InsertPt);
   LoadTid->setAlignment(4);
 
-  IsLastVal = new AllocaInst(IndValTy, DL.getAllocaAddrSpace(), "is.last",
+  IsLastVal = new AllocaInst(Int32Ty, DL.getAllocaAddrSpace(), "is.last",
                              InsertPt);
   IsLastVal->setAlignment(4);
 

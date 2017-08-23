@@ -249,6 +249,7 @@ void VPOScenarioEvaluationBase::findVFCandidates(VFsVector &VFCandidates) {
   StringRef VFRange = MinVF == MaxVF ? MinVFStr :
                                        MinVFStr + " - " + MaxVFStr;
   DEBUG(errs() << "VF Candidates are: " << VFRange << "\n");
+  (void) VFRange;
   assert(MinVF && MaxVF && "Unexpected zero min/max VF");
 
   for (unsigned int VF = MinVF; VF <= MaxVF; VF *= 2) {

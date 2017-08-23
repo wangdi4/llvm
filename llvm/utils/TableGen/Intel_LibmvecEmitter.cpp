@@ -106,6 +106,7 @@ void LibmvecVariantsEmitter::emitLibmvecVariants(raw_ostream &OS) {
   VLToISAMapDouble[8] = {'e'};
 
   Record *LibmvecVariantClass = Records.getClass("LibmvecVariant");
+  (void) LibmvecVariantClass;
   assert(LibmvecVariantClass &&
          "LibmvecVariant class not found in target description file!");
 

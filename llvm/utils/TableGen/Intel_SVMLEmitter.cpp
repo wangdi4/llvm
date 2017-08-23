@@ -73,6 +73,7 @@ void SVMLVariantsEmitter::emitSVMLVariants(raw_ostream &OS) {
 #endif // INTEL_CUSTOMIZATION
 
   Record *SvmlVariantsClass = Records.getClass("SvmlVariants");
+  (void) SvmlVariantsClass;
   assert(SvmlVariantsClass &&
          "SvmlVariants class not found in target description file!");
 

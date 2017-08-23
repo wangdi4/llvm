@@ -207,6 +207,7 @@ void topSortBasicBlocks(
   if (DoVerifyBB) {
     bool PassedVerify = VPOAnalysisUtils::verifyBB(*BB, true);
     assert(PassedVerify && "Malformed directives in BBlock");
+    (void) PassedVerify;
   }
 
   // Mark BB as "visited".

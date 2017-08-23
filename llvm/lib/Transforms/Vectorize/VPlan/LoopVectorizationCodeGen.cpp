@@ -2638,6 +2638,7 @@ VectorVariant* VPOCodeGen::matchVectorVariant(Function *CalledFunc,
         VectorVariant::ISAClassMaxRegisterWidth(VariantIsaClass);
       DEBUG(dbgs() << "Isa Class Max Vector Register Width: "
                    << IsaClassMaxRegWidth << "\n");
+      (void) IsaClassMaxRegWidth;
       unsigned FuncVF = Variant->getVlen();
       DEBUG(dbgs() << "Func VF: " << FuncVF << "\n\n");
 
