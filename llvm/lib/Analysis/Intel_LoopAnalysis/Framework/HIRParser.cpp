@@ -2845,28 +2845,40 @@ void HIRParser::restructureOnePastTheEndRef(RegDDRef *Ref) const {
 RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
                                     bool IsUse) {
   const PHINode *BasePhi = nullptr;
-  const GEPOperator *GEPOp = nullptr;
   const Value *OrigGEPVal = GEPVal;
   RegDDRef *Ref = nullptr;
-  Type *DestTy = nullptr;
+
+  // Incoming IR may be bitcasting the GEP before loading/storing into it. If so
+  // we store the type of the GEP in BaseCE src type and the eventual load/store
+  // type in BaseCE dest type.
+  Type *DestTy = GEPVal->getType();
+  bool HasDestTy = false;
 
   clearTempBlobLevelMap();
 
   ParsingScalarLval = false;
 
-  // In some cases float* is converted into i32* before loading/storing. This
-  // info is propagated into the BaseCE dest type.
-  if (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
-    if ((!isa<Instruction>(BCOp) ||
-         !SE->getHIRMetadata(cast<Instruction>(BCOp),
-                             ScalarEvolution::HIRLiveKind::LiveOut)) &&
-        RI->isSupported(BCOp->getOperand(0)->getType())) {
-      GEPVal = BCOp->getOperand(0);
-      DestTy = BCOp->getDestTy();
+  // Trace though consecutive bitcast operators until we hit something else.
+  while (auto BCOp = dyn_cast<BitCastOperator>(GEPVal)) {
+
+    if (auto BCInst = dyn_cast<Instruction>(BCOp)) {
+      if (SE->getHIRMetadata(BCInst, ScalarEvolution::HIRLiveKind::LiveOut)) {
+        break;
+      }
     }
+
+    auto Opnd = BCOp->getOperand(0);
+
+    if (!RI->isSupported(Opnd->getType())) {
+      break;
+    }
+
+    HasDestTy = true;
+    GEPVal = Opnd;
   }
 
   auto GEPInst = dyn_cast<Instruction>(GEPVal);
+  const GEPOperator *GEPOp = nullptr;
 
   // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
@@ -2888,7 +2900,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     Ref = createSingleElementGEPDDRef(GEPVal, Level);
   }
 
-  if (DestTy) {
+  if (HasDestTy) {
     Ref->setBaseDestType(DestTy);
   }
 
