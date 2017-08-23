@@ -68,7 +68,7 @@ TransposeSize("tsize",
          clEnumValN(TRANSPOSE_SIZE_4,    "4",    "Vector4"),
          clEnumValN(TRANSPOSE_SIZE_8,    "8",    "Vector8"),
          clEnumValN(TRANSPOSE_SIZE_16,   "16",   "Vector16")),
-         llvm::cl::init(TRANSPOSE_SIZE_AUTO)
+         llvm::cl::init(TRANSPOSE_SIZE_NOT_SET)
          );
 
 llvm::cl::opt<std::string>

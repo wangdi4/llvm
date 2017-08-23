@@ -288,6 +288,21 @@ KernelSet* CPUProgramBuilder::CreateKernels(Program* pProgram,
                               spVKernelJITProps.release());
             }
         }
+
+        {
+          auto kimd = KernelMetadataAPI(pFunc);
+          if (kimd.VecLenHint.hasValue() &&
+              SUPPORTED !=
+                  m_compiler.GetCpuId().isTransposeSizeSupported(
+                      (ETransposeSize)kimd.VecLenHint.get())) {
+            buildResult.LogS() << "Warning! Specified vectorization width "
+                                  "for kernel <"
+                               << spKernel->GetKernelName()
+                               << "> is not supported by the architecture. "
+                                  "Fall back to autovectorization mode.\n";
+          }
+        }
+
         if ( dontVectorize )
         {
             buildResult.LogS() << "Vectorization of kernel <" << spKernel->GetKernelName() << "> was disabled by the developer\n";

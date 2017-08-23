@@ -27,6 +27,8 @@ public:
     bool IsGLSupported()                { return IsExtSupported("cl_khr_gl_sharing"); }
 
     bool IsLocalThreadSupported_INTEL() { return IsExtSupported("cl_intel_exec_by_local_thread"); }
+
+    bool IsVecLenHintSupported()        { return IsExtSupported("cl_intel_vec_len_hint"); }
 };
 
 void CL::CheckExtensions()
@@ -58,14 +60,35 @@ void CL::CheckExtensions()
                              &ret_size);
     ASSERT_EQ(CL_SUCCESS, iRet) << " clGetPlatformInfo failed. ";
 
-    Extensions extensions(ext_string);
+    iRet = clGetDeviceInfo(m_device,
+                           CL_DEVICE_EXTENSIONS,
+                           /*param_value_size*/0,
+                           /*param_value*/nullptr,
+                           &ret_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetPlatformInfo failed. ";
 
+    std::string device_ext_string(ret_size, '\0');
+
+    iRet = clGetDeviceInfo(m_device,
+                           CL_DEVICE_EXTENSIONS,
+                           device_ext_string.size(),
+                           &device_ext_string[0],
+                           &ret_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetPlatformInfo failed. ";
+
+    ASSERT_TRUE(ext_string == device_ext_string)
+        << " Expected that platform and device extensions are equal!";
+
+    Extensions extensions(ext_string);
 
     ASSERT_TRUE(extensions.IsSpirSupported())
         << " Expected that cl_khr_spir is not supported on " << os;
 
     ASSERT_TRUE(extensions.IsICDSupported())
         << " Expected that cl_khr_icd  is not supported on " << os;
+
+    ASSERT_TRUE(extensions.IsVecLenHintSupported())
+        << " Expected that cl_intel_vec_len_hint  is supported on " << os;
 
 #if defined (__ANDROID__)
     ASSERT_TRUE(extensions.IsLocalThreadSupported_INTEL())

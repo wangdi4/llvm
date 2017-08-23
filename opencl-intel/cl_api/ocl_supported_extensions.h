@@ -24,6 +24,7 @@
 // each device may build it's supported extension list from these defines
 
 #define OCL_EXT_KHR_ICD                     "cl_khr_icd"
+#define OCL_INTEL_VEC_LEN_HINT              "cl_intel_vec_len_hint"
 #define OCL_EXT_KHR_GLOBAL_BASE_ATOMICS     "cl_khr_global_int32_base_atomics"
 #define OCL_EXT_KHR_GLOBAL_EXTENDED_ATOMICS "cl_khr_global_int32_extended_atomics"
 #define OCL_EXT_KHR_LOCAL_BASE_ATOMICS      "cl_khr_local_int32_base_atomics"
