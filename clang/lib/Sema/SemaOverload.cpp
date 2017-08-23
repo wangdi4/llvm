@@ -1420,14 +1420,9 @@ Sema::TryImplicitConversion(Expr *From, QualType ToType,
                             bool AllowExplicit,
                             bool InOverloadResolution,
                             bool CStyle,
-<<<<<<< HEAD
                             bool AllowObjCWritebackConversion, // INTEL
                             bool AllowGnuPermissive) {  // INTEL
-  return ::TryImplicitConversion(*this, From, ToType, 
-=======
-                            bool AllowObjCWritebackConversion) {
   return ::TryImplicitConversion(*this, From, ToType,
->>>>>>> 7fac438f2983a1bef6a1982d93ccb63a7dce5275
                                  SuppressUserConversions, AllowExplicit,
                                  InOverloadResolution, CStyle,
                                  AllowObjCWritebackConversion,
