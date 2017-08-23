@@ -84,29 +84,28 @@ template <class ELFT> static SymbolBody *addRegular(SymbolAssignment *Cmd) {
   return Sym->body();
 }
 
-OutputSection *LinkerScript::getOutputSection(const Twine &Loc,
-                                              StringRef Name) {
-  for (OutputSection *Sec : *OutputSections)
-    if (Sec->Name == Name)
-      return Sec;
-
-  static OutputSection Dummy("", 0, 0);
-  if (ErrorOnMissingSection)
-    error(Loc + ": undefined section " + Name);
-  return &Dummy;
+OutputSectionCommand *
+LinkerScript::createOutputSectionCommand(StringRef Name, StringRef Location) {
+  OutputSectionCommand *&CmdRef = NameToOutputSectionCommand[Name];
+  OutputSectionCommand *Cmd;
+  if (CmdRef && CmdRef->Location.empty()) {
+    // There was a forward reference.
+    Cmd = CmdRef;
+  } else {
+    Cmd = make<OutputSectionCommand>(Name);
+    if (!CmdRef)
+      CmdRef = Cmd;
+  }
+  Cmd->Location = Location;
+  return Cmd;
 }
 
-// This function is essentially the same as getOutputSection(Name)->Size,
-// but it won't print out an error message if a given section is not found.
-//
-// Linker script does not create an output section if its content is empty.
-// We want to allow SIZEOF(.foo) where .foo is a section which happened to
-// be empty. That is why this function is different from getOutputSection().
-uint64_t LinkerScript::getOutputSectionSize(StringRef Name) {
-  for (OutputSection *Sec : *OutputSections)
-    if (Sec->Name == Name)
-      return Sec->Size;
-  return 0;
+OutputSectionCommand *
+LinkerScript::getOrCreateOutputSectionCommand(StringRef Name) {
+  OutputSectionCommand *&CmdRef = NameToOutputSectionCommand[Name];
+  if (!CmdRef)
+    CmdRef = make<OutputSectionCommand>(Name);
+  return CmdRef;
 }
 
 void LinkerScript::setDot(Expr E, const Twine &Loc, bool InSec) {
@@ -456,7 +455,7 @@ void LinkerScript::fabricateDefaultCommands() {
   // For each OutputSection that needs a VA fabricate an OutputSectionCommand
   // with an InputSectionDescription describing the InputSections
   for (OutputSection *Sec : *OutputSections) {
-    auto *OSCmd = make<OutputSectionCommand>(Sec->Name);
+    auto *OSCmd = createOutputSectionCommand(Sec->Name, "<internal>");
     OSCmd->Sec = Sec;
     SecToCommand[Sec] = OSCmd;
 
@@ -843,7 +842,7 @@ void LinkerScript::placeOrphanSections() {
     // representations agree on which input sections to use.
     OutputSectionCommand *Cmd = getCmd(Sec);
     if (!Cmd) {
-      Cmd = make<OutputSectionCommand>(Name);
+      Cmd = createOutputSectionCommand(Name, "<internal>");
       Opt.Commands.insert(CmdIter, Cmd);
       ++CmdIndex;
 
@@ -920,9 +919,10 @@ void LinkerScript::synchronize() {
   }
 }
 
-static bool allocateHeaders(std::vector<PhdrEntry> &Phdrs,
-                            ArrayRef<OutputSection *> OutputSections,
-                            uint64_t Min) {
+static bool
+allocateHeaders(std::vector<PhdrEntry> &Phdrs,
+                ArrayRef<OutputSectionCommand *> OutputSectionCommands,
+                uint64_t Min) {
   auto FirstPTLoad =
       std::find_if(Phdrs.begin(), Phdrs.end(),
                    [](const PhdrEntry &E) { return E.p_type == PT_LOAD; });
@@ -939,16 +939,19 @@ static bool allocateHeaders(std::vector<PhdrEntry> &Phdrs,
 
   assert(FirstPTLoad->First == Out::ElfHeader);
   OutputSection *ActualFirst = nullptr;
-  for (OutputSection *Sec : OutputSections) {
+  for (OutputSectionCommand *Cmd : OutputSectionCommands) {
+    OutputSection *Sec = Cmd->Sec;
     if (Sec->FirstInPtLoad == Out::ElfHeader) {
       ActualFirst = Sec;
       break;
     }
   }
   if (ActualFirst) {
-    for (OutputSection *Sec : OutputSections)
+    for (OutputSectionCommand *Cmd : OutputSectionCommands) {
+      OutputSection *Sec = Cmd->Sec;
       if (Sec->FirstInPtLoad == Out::ElfHeader)
         Sec->FirstInPtLoad = ActualFirst;
+    }
     FirstPTLoad->First = ActualFirst;
   } else {
     Phdrs.erase(FirstPTLoad);
@@ -962,7 +965,9 @@ static bool allocateHeaders(std::vector<PhdrEntry> &Phdrs,
   return false;
 }
 
-void LinkerScript::assignAddresses(std::vector<PhdrEntry> &Phdrs) {
+void LinkerScript::assignAddresses(
+    std::vector<PhdrEntry> &Phdrs,
+    ArrayRef<OutputSectionCommand *> OutputSectionCommands) {
   // Assign addresses as instructed by linker script SECTIONS sub-commands.
   Dot = 0;
   ErrorOnMissingSection = true;
@@ -984,14 +989,15 @@ void LinkerScript::assignAddresses(std::vector<PhdrEntry> &Phdrs) {
   }
 
   uint64_t MinVA = std::numeric_limits<uint64_t>::max();
-  for (OutputSection *Sec : *OutputSections) {
+  for (OutputSectionCommand *Cmd : OutputSectionCommands) {
+    OutputSection *Sec = Cmd->Sec;
     if (Sec->Flags & SHF_ALLOC)
       MinVA = std::min<uint64_t>(MinVA, Sec->Addr);
     else
       Sec->Addr = 0;
   }
 
-  allocateHeaders(Phdrs, *OutputSections, MinVA);
+  allocateHeaders(Phdrs, OutputSectionCommands, MinVA);
 }
 
 // Creates program headers as instructed by PHDRS linker script command.
