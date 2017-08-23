@@ -149,6 +149,10 @@ bool TargetTransformInfo::isLegalMaskedScatter(Type *DataType) const {
   return TTIImpl->isLegalMaskedGather(DataType);
 }
 
+bool TargetTransformInfo::prefersVectorizedAddressing() const {
+  return TTIImpl->prefersVectorizedAddressing();
+}
+
 int TargetTransformInfo::getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                               int64_t BaseOffset,
                                               bool HasBaseReg,
@@ -209,6 +213,10 @@ bool TargetTransformInfo::supportsEfficientVectorElementLoadStore() const {
 
 bool TargetTransformInfo::enableAggressiveInterleaving(bool LoopHasReductions) const {
   return TTIImpl->enableAggressiveInterleaving(LoopHasReductions);
+}
+
+bool TargetTransformInfo::expandMemCmp(Instruction *I, unsigned &MaxLoadSize) const {
+  return TTIImpl->expandMemCmp(I, MaxLoadSize);
 }
 
 bool TargetTransformInfo::enableInterleavedAccessVectorization() const {
@@ -277,6 +285,10 @@ unsigned TargetTransformInfo::getNumberOfRegisters(bool Vector) const {
 
 unsigned TargetTransformInfo::getRegisterBitWidth(bool Vector) const {
   return TTIImpl->getRegisterBitWidth(Vector);
+}
+
+unsigned TargetTransformInfo::getMinVectorRegisterBitWidth() const {
+  return TTIImpl->getMinVectorRegisterBitWidth();
 }
 
 bool TargetTransformInfo::shouldConsiderAddressTypePromotion(

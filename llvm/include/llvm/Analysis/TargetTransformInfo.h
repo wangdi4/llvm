@@ -396,6 +396,9 @@ public:
   bool isLegalMaskedScatter(Type *DataType) const;
   bool isLegalMaskedGather(Type *DataType) const;
 
+  /// Return true if target doesn't mind addresses in vectors.
+  bool prefersVectorizedAddressing() const;
+
   /// \brief Return the cost of the scaling factor used in the addressing
   /// mode represented by AM for this target, for a load/store
   /// of the specified type.
@@ -450,6 +453,9 @@ public:
 
   /// \brief Don't restrict interleaved unrolling to small loops.
   bool enableAggressiveInterleaving(bool LoopHasReductions) const;
+
+  /// \brief Enable inline expansion of memcmp
+  bool expandMemCmp(Instruction *I, unsigned &MaxLoadSize) const;
 
   /// \brief Enable matching of interleaved access groups.
   bool enableInterleavedAccessVectorization() const;
@@ -536,6 +542,9 @@ public:
 
   /// \return The width of the largest scalar or vector register type.
   unsigned getRegisterBitWidth(bool Vector) const;
+
+  /// \return The width of the smallest vector register type.
+  unsigned getMinVectorRegisterBitWidth() const;
 
   /// \return True if it should be considered for address type promotion.
   /// \p AllowPromotionWithoutCommonHeader Set true if promoting \p I is
@@ -804,6 +813,7 @@ public:
   virtual bool isLegalMaskedLoad(Type *DataType) = 0;
   virtual bool isLegalMaskedScatter(Type *DataType) = 0;
   virtual bool isLegalMaskedGather(Type *DataType) = 0;
+  virtual bool prefersVectorizedAddressing() = 0;
   virtual int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV,
                                    int64_t BaseOffset, bool HasBaseReg,
                                    int64_t Scale, unsigned AddrSpace) = 0;
@@ -821,6 +831,7 @@ public:
                                                     unsigned VF) = 0;
   virtual bool supportsEfficientVectorElementLoadStore() = 0;
   virtual bool enableAggressiveInterleaving(bool LoopHasReductions) = 0;
+  virtual bool expandMemCmp(Instruction *I, unsigned &MaxLoadSize) = 0;
   virtual bool enableInterleavedAccessVectorization() = 0;
   virtual bool isFPVectorizationPotentiallyUnsafe() = 0;
   virtual bool allowsMisalignedMemoryAccesses(LLVMContext &Context,
@@ -840,6 +851,7 @@ public:
                             Type *Ty) = 0;
   virtual unsigned getNumberOfRegisters(bool Vector) = 0;
   virtual unsigned getRegisterBitWidth(bool Vector) = 0;
+  virtual unsigned getMinVectorRegisterBitWidth() = 0;
   virtual bool shouldConsiderAddressTypePromotion(
       const Instruction &I, bool &AllowPromotionWithoutCommonHeader) = 0;
   virtual unsigned getCacheLineSize() = 0;
@@ -996,6 +1008,9 @@ public:
   bool isLegalMaskedGather(Type *DataType) override {
     return Impl.isLegalMaskedGather(DataType);
   }
+  bool prefersVectorizedAddressing() override {
+    return Impl.prefersVectorizedAddressing();
+  }
   int getScalingFactorCost(Type *Ty, GlobalValue *BaseGV, int64_t BaseOffset,
                            bool HasBaseReg, int64_t Scale,
                            unsigned AddrSpace) override {
@@ -1036,6 +1051,9 @@ public:
   bool enableAggressiveInterleaving(bool LoopHasReductions) override {
     return Impl.enableAggressiveInterleaving(LoopHasReductions);
   }
+  bool expandMemCmp(Instruction *I, unsigned &MaxLoadSize) override {
+    return Impl.expandMemCmp(I, MaxLoadSize);
+  }
   bool enableInterleavedAccessVectorization() override {
     return Impl.enableInterleavedAccessVectorization();
   }
@@ -1075,6 +1093,9 @@ public:
   }
   unsigned getRegisterBitWidth(bool Vector) override {
     return Impl.getRegisterBitWidth(Vector);
+  }
+  unsigned getMinVectorRegisterBitWidth() override {
+    return Impl.getMinVectorRegisterBitWidth();
   }
   bool shouldConsiderAddressTypePromotion(
       const Instruction &I, bool &AllowPromotionWithoutCommonHeader) override {
