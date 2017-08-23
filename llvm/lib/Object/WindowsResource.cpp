@@ -13,6 +13,7 @@
 
 #include "llvm/Object/WindowsResource.h"
 #include "llvm/Support/COFF.h"
+#include <sstream>
 #include <system_error>
 
 namespace llvm {
@@ -186,8 +187,8 @@ WindowsResourceParser::TreeNode &
 WindowsResourceParser::TreeNode::addChild(ArrayRef<UTF16> NameRef) {
   std::string NameString;
   ArrayRef<UTF16> CorrectedName;
+  std::vector<UTF16> EndianCorrectedName;
   if (llvm::sys::IsBigEndianHost) {
-    std::vector<UTF16> EndianCorrectedName;
     EndianCorrectedName.resize(NameRef.size() + 1);
     std::copy(NameRef.begin(), NameRef.end(), EndianCorrectedName.begin() + 1);
     EndianCorrectedName[0] = UNI_UTF16_BYTE_ORDER_MARK_SWAPPED;
@@ -213,7 +214,7 @@ void WindowsResourceParser::TreeNode::print(ScopedPrinter &Writer,
     Child.second->print(Writer, Child.first);
   }
   for (auto const &Child : IDChildren) {
-    Child.second->print(Writer, std::to_string(Child.first));
+    Child.second->print(Writer, to_string(Child.first));
   }
 }
 
