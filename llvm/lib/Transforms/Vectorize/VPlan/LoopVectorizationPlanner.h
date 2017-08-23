@@ -69,8 +69,6 @@ public:
 
   IntelVPlan *getVPlanForVF(unsigned VF) { return VPlans[VF].get(); }
 
-  void printCurrentPlans(const std::string &Title, raw_ostream &O);
-
 protected:
   LoopVectorizationPlannerBase(WRNVecLoopNode *WRL,
                                const TargetLibraryInfo *TLI,
@@ -102,6 +100,18 @@ protected:
   // TODO: Turn into a reference when supported for HIR.
   LoopVectorizationLegality *Legal;
 
+  /// This class is copied from open-source LoopVectorize.cpp and it's supposed
+  /// to be temporal. VPO doesn't need it but we have it to minimize divergency
+  /// with TransformState.
+  struct VPCallbackILV : public VPCallback {
+
+    ~VPCallbackILV() override {}
+
+    Value *getOrCreateVectorValues(Value *V, unsigned Part) override {
+      llvm_unreachable("Not implemented");
+      return nullptr;
+    }
+  };
 
 private:
   /// Determine whether \p I will be scalarized in a given range of VFs.

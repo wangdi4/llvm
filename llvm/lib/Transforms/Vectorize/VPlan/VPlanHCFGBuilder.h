@@ -23,9 +23,8 @@
 #include "LoopVectorizationCodeGen.h" //Only for Legal.
 #include "VPlanVerifier.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/HLLoop.h"
-
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
 namespace llvm {
 class ScalarEvolution;

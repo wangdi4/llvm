@@ -340,7 +340,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
         if (const VPPredicateRecipeBase *Predicate =
                 dyn_cast<VPPredicateRecipeBase>(&Recipe)) {
           OS << "    ";
-          Predicate->print(OS);
+          Predicate->print(OS, Twine()); // TODO: Twine
           OS << "\n";
         }
       }
@@ -351,7 +351,7 @@ void VPlanPredicator::genLitReport(VPRegionBlock *Region) {
       VPPredicateRecipeBase *Predicate = Region->getPredicateRecipe();
       if (Predicate) {
         OS << "    ";
-        Predicate->print(OS);
+        Predicate->print(OS, Twine()); // TODO: Twine
         OS << "\n";
       }
     } else {
@@ -631,8 +631,7 @@ static void dumpVplanDot(IntelVPlan *Plan,
   if (DumpVPlanDot) {
     std::error_code EC;
     raw_fd_ostream file(dotFile, EC, sys::fs::F_RW);
-    VPlanPrinter printer(file, *Plan);
-    printer.dump();
+    file << *Plan;
     file.close();
   }
 }

@@ -9,6 +9,8 @@
 namespace llvm {
 namespace vpo {
 
+//TODO: Temporarily disabling all this code
+#if 0
 class VPLoopCFU { 
   
 private: 
@@ -54,8 +56,8 @@ public:
     VPBasicBlock *EntryBlock,
     Value *Cond);
 };
+#endif
 
 } // end vpo namespace
 } // end llvm namespace
-
 #endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_INTEL_LOOPCFU_H 

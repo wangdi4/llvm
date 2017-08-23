@@ -61,52 +61,6 @@ void LoopVectorizationPlannerBase::setBestPlan(unsigned VF, unsigned UF) {
   }
 }
 
-void LoopVectorizationPlannerBase::printCurrentPlans(const std::string &Title,
-                                                     raw_ostream &O) {
-  auto printPlan = [&](IntelVPlan *Plan, const SmallVectorImpl<unsigned> &VFs,
-                       const std::string &Prefix) {
-    std::string Title;
-    raw_string_ostream RSO(Title);
-    RSO << Prefix << " for VF=";
-    if (VFs.size() == 1)
-      RSO << VFs[0];
-    else {
-      RSO << "{";
-      bool First = true;
-      for (unsigned VF : VFs) {
-        if (!First)
-          RSO << ",";
-        RSO << VF;
-        First = false;
-      }
-      RSO << "}";
-    }
-    VPlanPrinter PlanPrinter(O, *Plan);
-    PlanPrinter.dump(RSO.str());
-  };
-
-  if (VPlans.empty())
-    return;
-
-  IntelVPlan *Current = VPlans.begin()->second.get();
-
-  SmallVector<unsigned, 4> VFs;
-  for (auto &Entry : VPlans) {
-    IntelVPlan *Plan = Entry.second.get();
-    if (Plan != Current) {
-      // Hit another VPlan. Print the current VPlan for the VFs it served thus
-      // far and move on to the VPlan we just encountered.
-      printPlan(Current, VFs, Title);
-      Current = Plan;
-      VFs.clear();
-    }
-    // Add VF to the list of VFs served by current VPlan.
-    VFs.push_back(Entry.first);
-  }
-  // Print the current VPlan.
-  printPlan(Current, VFs, Title);
-}
-
 std::shared_ptr<IntelVPlan>
 LoopVectorizationPlanner::buildInitialVPlan(unsigned StartRangeVF,
                                             unsigned &EndRangeVF) {
@@ -192,15 +146,19 @@ void LoopVectorizationPlanner::executeBestPlan(VPOCodeGen &LB) {
   ILV->createEmptyLoop();
 
   // 2. Widen each instruction in the old loop to a new one in the new loop.
+  VPCallbackILV CallbackILV;
+  /*TODO: Necessary in VPO?*/
+  VectorizerValueMap ValMap(BestVF, 1 /*UF*/);
 
-  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ILV, Legal);
+  VPTransformState State(BestVF, BestUF, LI, DT, ILV->getBuilder(), ValMap, ILV,
+                         CallbackILV, Legal);
   State.CFG.PrevBB = ILV->getLoopVectorPH();
 
   VPlan *Plan = getVPlanForVF(BestVF);
 
   ILV->collectUniformsAndScalars(BestVF);
 
-  Plan->vectorize(&State);
+  Plan->execute(&State);
 
   // 3. Take care of phi's to fix: reduction, 1st-order-recurrence, loop-closed.
   ILV->finalizeLoop();

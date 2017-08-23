@@ -1,36 +1,14 @@
 
-#include "IntelVPlan.h"
 #include "LoopVectorizationCodeGen.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include "IntelVPlan.h"
 
 #define DEBUG_TYPE "intel-vplan"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-//Replicated from LoopVectorize.cpp
-
-void VPVectorizeOneByOneIRRecipe::transformIRInstruction(
-    Instruction *I, VPTransformState &State) {
-  assert(I && "No instruction to vectorize.");
-  State.ILV->vectorizeInstruction(I);
-  // if (willAlsoPackOrUnpack(I)) { // Unpack instruction
-  //  for (unsigned Part = 0; Part < State.UF; ++Part)
-  //    for (unsigned Lane = 0; Lane < State.VF; ++Lane)
-  //      State.ILV->getScalarValue(I, Part, Lane);
-  // }
-}
-
-VPOneByOneIRRecipeBase *
-IntelVPlanUtils::createOneByOneRecipe(const BasicBlock::iterator B,
-                                      const BasicBlock::iterator E,
-                                      // VPlan *Plan,
-                                      bool isScalarizing) {
-  // TODO
-  // if (isScalarizing)
-  //  return new VPScalarizeOneByOneRecipe(B, E, Plan);
-  return new VPVectorizeOneByOneIRRecipe(B, E, Plan);
-}
+#define DEBUG_TYPE "intel-vplan"
 
 VPBranchIfNotAllZeroRecipe *
 IntelVPlanUtils::createBranchIfNotAllZeroRecipe(Instruction *Cond) {
@@ -45,7 +23,7 @@ IntelVPlanUtils::createMaskGenerationRecipe(const Value *Pred,
 
 VPNonUniformConditionBitRecipe *
 IntelVPlanUtils::createNonUniformConditionBitRecipe(
-  const VPMaskGenerationRecipe *MaskRecipe) {
+    const VPMaskGenerationRecipe *MaskRecipe) {
   return new VPNonUniformConditionBitRecipe(MaskRecipe);
 }
 
@@ -116,7 +94,7 @@ VPBasicBlock *IntelVPlanUtils::splitBlock(VPBlockBase *Block,
 /// Generate the code inside the body of the vectorized loop. Assumes a single
 /// LoopVectorBody basic block was created for this; introduces additional
 /// basic blocks as needed, and fills them all.
-void IntelVPlan::vectorize(VPTransformState *State) {
+void IntelVPlan::execute(VPTransformState *State) {
 
   BasicBlock *VectorPreHeaderBB = State->CFG.PrevBB;
   BasicBlock *VectorHeaderBB = VectorPreHeaderBB->getSingleSuccessor();
@@ -148,7 +126,7 @@ void IntelVPlan::vectorize(VPTransformState *State) {
        CurrentBlock = CurrentBlock->getSingleSuccessor()) {
     assert(CurrentBlock->getSuccessors().size() <= 1 &&
            "Multiple successors at top level.");
-    CurrentBlock->vectorize(State);
+    CurrentBlock->execute(State);
   }
 
   // 3. Fix the back edges
@@ -196,7 +174,7 @@ void IntelVPlan::vectorize(VPTransformState *State) {
   State->Builder.restoreIP(CurrIP);
 }
 
-void VPBasicBlock::vectorize(VPTransformState *State) {
+void VPBasicBlock::execute(VPTransformState *State) {
 
   // Loop PH and Loop Exit VPBasicBlocks are part of VPLoopRegion but they are
   // actually ouside of the loop and they shouldn't be vectorized. We decided to
@@ -205,8 +183,8 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   if (!isInsideLoop())
     return;
 
-  VPIterationInstance *I = State->Instance;
-  bool Replica = I && !(I->Part == 0 && I->Lane == 0);
+  bool Replica = State->Instance &&
+                 !(State->Instance->Part == 0 && State->Instance->Lane == 0);
   VPBasicBlock *PrevVPBB = State->CFG.PrevVPBB;
   VPBlockBase *SingleHPred = nullptr;
   BasicBlock *NewBB = State->CFG.PrevBB; // Reuse it if possible.
@@ -261,7 +239,7 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   State->CFG.PrevVPBB = this;
 
   for (VPRecipeBase &Recipe : Recipes)
-    Recipe.vectorize(*State);
+    Recipe.execute(*State);
 
   // ILV's MaskValue is set when we find a BlockPredicateRecipe in
   // VPBasicBlock's list of recipes. After generating code for all the
@@ -272,7 +250,7 @@ void VPBasicBlock::vectorize(VPTransformState *State) {
   DEBUG(dbgs() << "LV: filled BB:" << *NewBB);
 }
 
-void VPUniformConditionBitRecipe::vectorize(VPTransformState &State) {
+void VPUniformConditionBitRecipe::execute(VPTransformState &State) {
   if (isa<Instruction>(ScConditionBit)) {
     State.ILV->serializeInstruction(cast<Instruction>(ScConditionBit));
     ConditionBit = State.ILV->getScalarValue(ScConditionBit, 0);

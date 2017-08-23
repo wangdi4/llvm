@@ -1,4 +1,5 @@
 #include "VPlanHCFGBuilder.h"
+#include "../VPlanBuilder.h"
 #include "Intel_LoopCFU.h"
 #include "VPLoopInfo.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
@@ -155,7 +156,8 @@ void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
 
     if (ExitID == 1) {
       PhiRecipe = new VPPhiValueRecipe();
-      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID), ExittingBlock);
+      PhiRecipe->addIncomingValue(VPConstantRecipe(ExitID),
+                                  ExittingBlock);
       ExittingBlocks.clear();
       ExittingBlocks.push_back(ExittingBlock);
       return ExitBlock;
@@ -244,8 +246,8 @@ void VPlanHCFGBuilderBase::mergeLoopExits(VPLoop *VPL) {
   }
   // FixDominance(CascadedExit);
 
-  DEBUG(VPlanPrinter PlanPrinter(dbgs(), *PlanUtils.getVPlan());
-        PlanPrinter.dump("LVP: Plain CFG for VF=4"));
+  DEBUG(VPlan *Plan = PlanUtils.getVPlan();
+        Plan->setName("LVP: Plain CFG for VF=4\n"); dbgs() << *Plan);
   FixDominance(CascadedExit);
 }
 
@@ -582,8 +584,7 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
 
   // Set Top Region as VPlan Entry
   Plan->setEntry(TopRegion);
-  DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("HCFGBuilder: Plain CFG"));
+  DEBUG(Plan->setName("HCFGBuilder: Plain CFG\n"); dbgs() << *Plan);
 
   DEBUG(Verifier->verifyHierarchicalCFG(TopRegion));
 
@@ -609,8 +610,8 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   // Prepare/simplify CFG for hierarchical CFG construction
   simplifyPlainCFG();
 
-  DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("LVP: After simplifyPlainCFG"));
+  DEBUG(Plan->setName("HCFGBuilder: After simplifyPlainCFG\n");
+        dbgs() << *Plan);
   DEBUG(dbgs() << "Dominator Tree After simplifyPlainCFG\n";
         VPDomTree.print(dbgs()));
   DEBUG(dbgs() << "PostDominator Tree After simplifyPlainCFG:\n";
@@ -633,8 +634,7 @@ void VPlanHCFGBuilderBase::buildHierarchicalCFG() {
   buildLoopRegions();
   buildNonLoopRegions(TopRegion);
 
-  DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
-        PlanPrinter.dump("LVP: After building HCFG"));
+  DEBUG(Plan->setName("HCFGBuilder: After building HCFG\n"); dbgs() << *Plan;);
 
   DEBUG(Verifier->setVPLoopInfo(VPLInfo);
         Verifier->verifyHierarchicalCFG(TopRegion));
@@ -778,15 +778,22 @@ private:
   unsigned TopRegionSize = 0;
 
   IntelVPlanUtils &PlanUtils;
+  VPBuilderIR VPIRBuilder;
 
   DenseMap<Value *, VPConditionBitRecipeBase *> BranchCondMap;
   DenseMap<BasicBlock *, VPBasicBlock *> BB2VPBB;
+  DenseMap<Value *, VPValue *> Value2VPValue;
 
   // Auxiliary functions
   bool isConditionForUniformBranch(Instruction *I);
   void setVPBBPredsFromBB(VPBasicBlock *VPBB, BasicBlock *BB);
   VPBasicBlock *createOrGetVPBB(BasicBlock *BB);
   void createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB);
+  bool isExternalDef(Instruction *Inst);
+  VPValue *createOrGetVPOperand(Value *IROp);
+  void createVPInstructionsForRange(BasicBlock::iterator I,
+                                    BasicBlock::iterator J,
+                                    VPBasicBlock *InsertionPoint);
 
 public:
   PlainCFGBuilder(Loop *Lp, LoopInfo *LI, IntelVPlanUtils &Utils)
@@ -845,6 +852,122 @@ VPBasicBlock *PlainCFGBuilder::createOrGetVPBB(BasicBlock *BB) {
   return VPBB;
 }
 
+// Return true if instruction is not defined either inside the loop nest or
+// outermost loop PH or outermost loop exits. External definition applies only
+// to Instruction since Constant and other Values will have a different
+// representation.
+bool PlainCFGBuilder::isExternalDef(Instruction *Inst) {
+
+  BasicBlock *InstParent = Inst->getParent();
+  assert(InstParent && "Expected instruction parent.");
+
+  // - Check whether Instruction definition is in loop PH -
+  BasicBlock *PH = TheLoop->getLoopPreheader();
+  assert(PH && "Expected loop pre-header.");
+
+  if (InstParent == PH) {
+    // Instruction definition is in outermost loop PH.
+    return false;
+  }
+
+  // - Check whether Instruction definition is in loop exits -
+  SmallVector<BasicBlock *, 2> LoopExits;
+  TheLoop->getUniqueExitBlocks(LoopExits);
+  for (BasicBlock *Exit : LoopExits) {
+    if (InstParent == Exit) {
+      // Instruction definition is in outermost loop exit.
+      return false;
+    }
+  }
+
+  // - Check whether Instruction definition is in loop body -
+  return TheLoop->isLoopInvariant(Inst);
+}
+
+// Helper function that creates a new VPValue or retrieves an existing one for
+// IROp. This function must only be used to create/retrieve *operands* for a
+// VPInstruction and not to create regular VPInstruction's.
+VPValue *PlainCFGBuilder::createOrGetVPOperand(Value *IROp) {
+  auto VPValIt = Value2VPValue.find(IROp);
+
+  VPValue *VPVal;
+  if (VPValIt != Value2VPValue.end()) {
+    VPVal = VPValIt->second;
+  } else {
+    // There is no VPValue generated for IROp. This means that IROp is:
+    //   A) a definition external to VPlan,
+    //   B) a use whose definition hasnt't been visited yet,
+    //   C) a Constant
+    //   D) any other Value without specific representation in VPlan.
+
+    // TODO: Memory deallocation of new VPValue.
+    if (auto *InstOperand = dyn_cast<Instruction>(IROp)) {
+      if (isExternalDef(InstOperand)) // A
+        VPVal = new VPValue();
+      else {
+        // B: Create instruction without operands and do not insert it. It will
+        // be fixed when the definition is processed.
+        // TODO: Assert for PhiInst?
+        VPBasicBlock *PrevInsertPoint = VPIRBuilder.getInsertBlock();
+        VPIRBuilder.clearInsertionPoint();
+        VPVal =
+            VPIRBuilder.createNaryOp(InstOperand->getOpcode(), {}, InstOperand);
+        VPIRBuilder.setInsertPoint(PrevInsertPoint);
+      }
+    } else if (isa<Constant>(IROp)) { // C
+      // TODO: Introduce VPCconstant
+      VPVal = new VPValue();
+    } else { // D
+      // TODO: Add VPRaw? Specific representation for metadata?.
+      VPVal = new VPValue();
+    }
+
+    Value2VPValue[IROp] = VPVal;
+  }
+
+  return VPVal;
+}
+
+// Helper function that creates VPInstruction's for a range of Instructions in a
+// BasicBlock. VPInstruction's are created using a VPBuilder so new
+// VPInstructionRangeRecipe's are created automatically when necessary.
+void PlainCFGBuilder::createVPInstructionsForRange(
+    BasicBlock::iterator I, BasicBlock::iterator J,
+    VPBasicBlock *InsertionPoint) {
+
+  VPIRBuilder.setInsertPoint(InsertionPoint);
+  for (Instruction &InstRef : make_range(I, J)) {
+    Instruction *Inst = &InstRef;
+    auto VPValIt = Value2VPValue.find(Inst);
+
+    VPInstruction *NewVPInst;
+    if (VPValIt != Value2VPValue.end()) {
+      // Inst is a definition with a user that has been previosly visited. We
+      // have to set its operands properly and insert it into the
+      // VPBasicBlock/Recipe.
+      assert(isa<VPInstruction>(VPValIt->second) &&
+             "Unexpected VPValue. Expected a VPInstruction");
+      NewVPInst = cast<VPInstruction>(VPValIt->second);
+
+      VPIRBuilder.insert(NewVPInst);
+    } else {
+      // Create new VPInstruction.
+      // NOTE: We set operands later to factorize code in 'if' and 'else'
+      // branches.
+      NewVPInst = cast<VPInstruction>(VPIRBuilder.createNaryOp(
+          Inst->getOpcode(), {} /*No operands*/, Inst));
+
+      Value2VPValue[Inst] = NewVPInst;
+    }
+
+    // Translate LLVM-IR operands to VPValue operands and set them in the new
+    // VPInstruction.
+    for (Value *Op : Inst->operands()) {
+      NewVPInst->addOperand(createOrGetVPOperand(Op));
+    }
+  }
+}
+
 // Create new OnyByOneRecipes and ConditionBitRecipes in a VPBasicBlock, given
 // its BasicBlock counterpart. This function must be invoked in RPO because
 // creation of UniformConditionBitRecipe assumes that all predecessors have
@@ -884,7 +1007,7 @@ void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
       continue;
     }
 
-    // Create new OnebyOneRecipe and add it to VPBB
+    // - Create new VPInstructions add add them to VPBB. -
 
     // Search for last live Instruction to close VPBB.
     BasicBlock::iterator J = I;
@@ -894,9 +1017,7 @@ void PlainCFGBuilder::createRecipesForVPBB(VPBasicBlock *VPBB, BasicBlock *BB) {
         break; // Sequence of instructions not to ignore ended.
     }
 
-    bool Scalarized = false;
-    VPRecipeBase *Recipe = PlanUtils.createOneByOneRecipe(I, J, Scalarized);
-    PlanUtils.appendRecipeToBasicBlock(Recipe, VPBB);
+    createVPInstructionsForRange(I, J, VPBB);
 
     I = J;
   }
@@ -1039,9 +1160,9 @@ VPRegionBlock *VPlanHCFGBuilder::buildPlainCFG() {
   return TopRegion;
 }
 
-//#####################
-//# HIR Specific Code #
-//#####################
+//===-------------===//
+// HIR Specific Code //
+//===-------------===//
 
 /// \brief Visitor that traverses HLNode's (lexical links) in topological order
 /// and build a plain CFG out of them. It returns a region (TopRegion)

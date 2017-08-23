@@ -70,6 +70,8 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+namespace llvm {
+#if 0
 void VPLoopCFU::getLoopProperties(VPLoop *Lp, Value **LoopIdx,
                                   Value **LoopIdxInc, Value **LoopLB,
                                   Value **LoopUB, Value **BackedgeCond) {
@@ -560,3 +562,5 @@ void VPLoopCFU::makeInnerLoopControlFlowUniform() {
     }
   }
 }
+#endif
+} // end llvm namespace

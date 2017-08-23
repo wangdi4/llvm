@@ -446,10 +446,10 @@ bool VPlanDriver::processLoop(Loop *Lp, unsigned VF, Function &Fn,
 
   LVP.setBestPlan(VF, 1);
 
-  DEBUG(VPlan *Plan = LVP.getVPlanForVF(VF);
-        VPlanPrinter PlanPrinter(dbgs(), *Plan); std::string TitleString;
-        raw_string_ostream RSO(TitleString);
-        RSO << "VD: Initial VPlan for VF=" << VF; PlanPrinter.dump(RSO.str()));
+  DEBUG(std::string PlanName; raw_string_ostream RSO(PlanName);
+        RSO << "VD: Initial VPlan for VF=" << VF; RSO.flush();
+        VPlan *Plan = LVP.getVPlanForVF(VF); Plan->setName(PlanName);
+        dbgs() << *Plan);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {
@@ -633,10 +633,15 @@ bool VPlanDriverHIR::processLoop(HLLoop *Lp, unsigned VF, Function &Fn,
 
   LVP.setBestPlan(VF, 1);
 
-  DEBUG(VPlan *Plan = LVP.getVPlanForVF(VF);
-        VPlanPrinter PlanPrinter(dbgs(), *Plan); std::string TitleString;
-        raw_string_ostream RSO(TitleString);
-        RSO << "VD: Initial VPlan for VF=" << VF; PlanPrinter.dump(RSO.str()));
+  // Set the final name for this initial VPlan.
+  std::string PlanName;
+  raw_string_ostream RSO(PlanName);
+  RSO << "Initial VPlan for VF=" << VF;
+  RSO.flush();
+  VPlan *Plan = LVP.getVPlanForVF(VF);
+  Plan->setName(PlanName);
+
+  DEBUG(dbgs() << "VD:\n" << *Plan);
 
   bool ModifiedLoop = false;
   if (!DisableCodeGen) {

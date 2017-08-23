@@ -1,0 +1,126 @@
+//===- VPlanBuilder.h - A VPlan utility for constructing VPInstructions ---===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file provides a VPlan-based builder utility analogous to IRBuilder.
+/// It provides an instruction-level API for generating VPInstructions while
+/// abstracting away the Recipe manipulation details.
+//===----------------------------------------------------------------------===//
+
+#ifndef LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
+#define LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
+
+#if INTEL_CUSTOMIZATION
+#include "VPlan/VPlanInstructionData.h"
+#endif
+#include "VPlan.h"
+
+namespace llvm {
+namespace vpo {    
+
+class VPBuilder {
+#if INTEL_CUSTOMIZATION
+protected:
+#else
+private:
+#endif
+  VPBasicBlock *BB = nullptr;
+  VPBasicBlock::iterator InsertPt = VPBasicBlock::iterator();
+
+#if INTEL_CUSTOMIZATION
+  // TODO: Ideally, we should make the next createInstruction invoke this one.
+  // Replicating the code to minimize conflicts with open-source.
+  VPInstruction *createInstruction(unsigned Opcode,
+                                   ArrayRef<VPValue *> Operands) {
+    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
+    if (BB)
+      BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+#endif
+
+  VPInstruction *createInstruction(unsigned Opcode,
+                                   std::initializer_list<VPValue *> Operands) {
+    VPInstruction *Instr = new VPInstruction(Opcode, Operands);
+#if INTEL_CUSTOMIZATION
+    if (BB)
+#endif
+    BB->insert(Instr, InsertPt);
+    return Instr;
+  }
+
+public:
+  VPBuilder() {}
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Clear the insertion point: created instructions will not be
+  /// inserted into a block.
+  void clearInsertionPoint() {
+    BB = nullptr;
+    InsertPt = VPBasicBlock::iterator();
+  }
+
+  VPBasicBlock *getInsertBlock() const { return BB; }
+
+  /// \brief Insert and return the specified instruction.
+  VPInstruction *insert(VPInstruction *I) const {
+    BB->insert(I, InsertPt);
+    return I;
+  }
+#endif
+
+  /// \brief This specifies that created VPInstructions should be appended to
+  /// the end of the specified block.
+  void setInsertPoint(VPBasicBlock *TheBB) {
+    assert(TheBB && "Attempting to set a null insert point");
+    BB = TheBB;
+    InsertPt = BB->end();
+  }
+
+  VPValue *createNot(VPValue *Operand) {
+    return createInstruction(VPInstruction::Not, {Operand});
+  }
+
+  VPValue *createAnd(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::And, {LHS, RHS});
+  }
+
+  VPValue *createOr(VPValue *LHS, VPValue *RHS) {
+    return createInstruction(Instruction::BinaryOps::Or, {LHS, RHS});
+  }
+};
+
+#if INTEL_CUSTOMIZATION
+//==========================//
+//== VPO-specific changes ==//
+//==========================//
+using namespace llvm::vpo;
+
+class VPBuilderIR : public VPBuilder {
+public:
+  // Create an N-ary operation with \p Opcode and \p Operands and set \p Inst as
+  // its VPInstructionData.
+  VPValue *createNaryOp(unsigned Opcode, ArrayRef<VPValue *> Operands,
+                        Instruction *Inst) {
+    VPInstruction *NewVPInst = createInstruction(Opcode, Operands);
+    NewVPInst->setInstructionData(new VPInstructionDataIR(Inst));
+    return NewVPInst;
+  }
+  VPValue *createNaryOp(unsigned Opcode,
+                        std::initializer_list<VPValue *> Operands,
+                        Instruction *Inst) {
+    return createNaryOp(Opcode, ArrayRef<VPValue *>(Operands), Inst);
+  }
+};
+#endif
+
+} // namespace vpo
+} // namespace vpo
+
+#endif // LLVM_TRANSFORMS_VECTORIZE_VPLAN_BUILDER_H
