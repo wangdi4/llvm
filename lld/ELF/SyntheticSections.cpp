@@ -698,8 +698,7 @@ void MipsGotSection::addEntry(SymbolBody &Sym, int64_t Addend, RelExpr Expr) {
     // sections referenced by GOT relocations. Then later in the `finalize`
     // method calculate number of "pages" required to cover all saved output
     // section and allocate appropriate number of GOT entries.
-    auto *DefSym = cast<DefinedRegular>(&Sym);
-    PageIndexMap.insert({DefSym->Section->getOutputSection(), 0});
+    PageIndexMap.insert({Sym.getOutputSection(), 0});
     return;
   }
   if (Sym.isTls()) {
@@ -2200,7 +2199,7 @@ void ARMExidxSentinelSection::writeTo(uint8_t *Buf) {
                           });
   auto L = cast<InputSectionDescription>(*ISD);
   InputSection *Highest = L->Sections[L->Sections.size() - 2];
-  InputSection *LS = cast<InputSection>(Highest->getLinkOrderDep());
+  InputSection *LS = Highest->getLinkOrderDep();
   uint64_t S = LS->OutSec->Addr + LS->getOffset(LS->getSize());
   uint64_t P = getVA();
   Target->relocateOne(Buf, R_ARM_PREL31, S - P);
