@@ -316,6 +316,10 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Catch trivial redundancies
   FPM.addPass(EarlyCSEPass());
 
+  // Hoisting of scalars and load expressions.
+  if (EnableGVNHoist)
+    FPM.addPass(GVNHoistPass());
+
   // Speculative execution if the target has divergent branches; otherwise nop.
   FPM.addPass(SpeculativeExecutionPass());
 
@@ -479,8 +483,6 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   EarlyFPM.addPass(SROA());
   EarlyFPM.addPass(EarlyCSEPass());
   EarlyFPM.addPass(LowerExpectIntrinsicPass());
-  if (EnableGVNHoist)
-    EarlyFPM.addPass(GVNHoistPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(EarlyFPM)));
 
   // Interprocedural constant propagation now that basic cleanup has occured
