@@ -288,9 +288,7 @@ Pass *RegionPass::createPrinterPass(raw_ostream &O,
                                   const std::string &Banner) const {
   return new PrintRegionPass(Banner, O);
 }
-<<<<<<< HEAD
 #endif // !INTEL_PRODUCT_RELEASE
-=======
 
 bool RegionPass::skipRegion(Region &R) const {
   Function &F = *R.getEntry()->getParent();
@@ -306,4 +304,3 @@ bool RegionPass::skipRegion(Region &R) const {
   }
   return false;
 }
->>>>>>> dca42389f7415a003e06aa48861202eee31dce3f
