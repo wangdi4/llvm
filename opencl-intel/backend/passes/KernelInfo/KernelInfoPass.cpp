@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "KernelInfoPass.h"
 #include "CompilationUtils.h"
 #include "OCLAddressSpace.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -16,15 +16,17 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <math.h>
 
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
   char KernelInfoPass::ID = 0;
 
   bool KernelInfoPass::runOnFunction(Function &Func) {
-    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelExecutionLength(getExecutionLength(&Func));
-    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasBarrier(containsBarrier(&Func));
-    m_mdUtils->getOrInsertKernelsInfoItem(&Func)->setKernelHasGlobalSync(containsGlobalSync(&Func));
+    auto kernelInfo = KernelInternalMetadataAPI(&Func);
+    kernelInfo.KernelExecutionLength.set(getExecutionLength(&Func));
+    kernelInfo.KernelHasBarrier.set(containsBarrier(&Func));
+    kernelInfo.KernelHasGlobalSync.set(containsGlobalSync(&Func));
     return false;
   }
 
@@ -124,8 +126,7 @@ namespace intel {
   }
 
   bool KernelInfoWrapper::runOnModule(Module& M) {
-    Intel::MetaDataUtils mdUtils(&M);
-    KernelInfoPass* pKernelInfoPass = new KernelInfoPass(&mdUtils);
+    KernelInfoPass* pKernelInfoPass = new KernelInfoPass();
 
     llvm::legacy::FunctionPassManager FPM(&M);
     FPM.add(pKernelInfoPass);
@@ -142,14 +143,9 @@ namespace intel {
         FPM.run(*pFunc);
     }
 
-    if (mdUtils.empty_ModuleInfoList()) {
-      mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
-    }
-    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-    handle->setGlobalVariableTotalSize(getProgramGlobalVariableTotalSize(M));
+    auto handle = ModuleInternalMetadataAPI(&M).GlobalVariableTotalSize;
+    handle.set(getProgramGlobalVariableTotalSize(M));
 
-    //Save Metadata to the module
-    mdUtils.save(M.getContext());
     return false;
   }
 

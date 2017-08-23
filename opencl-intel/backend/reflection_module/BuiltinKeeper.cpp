@@ -229,11 +229,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //fmin/fmax
   //
   {
-#ifdef __APPLE__
-    llvm::StringRef names[] = {"__cl_fmin", "__cl_fmax"};
-#else
     llvm::StringRef names[] = {"fmin", "fmax"};
-#endif
     StringArray arrNames (names);
     reflection::TypePrimitiveEnum singleFloat[] = {PRIMITIVE_FLOAT};
     reflection::TypePrimitiveEnum singleDouble[] = {PRIMITIVE_DOUBLE};
@@ -254,11 +250,7 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //ldexp
   //
   {
-#ifdef __APPLE__
-    llvm::StringRef names[] = {"__cl_ldexp"};
-#else
     llvm::StringRef names[] = {"ldexp"};
-#endif
     StringArray arrLdexp(names);
     addConversionGroup(arrLdexp, arrReals, PRIMITIVE_INT, createDescriptorVP_P);
   }
@@ -309,13 +301,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //values
   //
   {
-#ifdef __APPLE__
-    llvm::StringRef names[] = {"_Z5fract*", "_Z10__cl_frexp*", "_Z13__cl_lgamma_r*",
-      "_Z9__cl_modf*", "_Z11__cl_remquo*", "_Z6sincos*"};
-#else
     llvm::StringRef names[] = {"_Z5fract*", "_Z5frexp*", "_Z8lgamma_r*",
       "_Z4modf*", "_Z6remquo*", "_Z6sincos*"};
-#endif
     StringArray pointeredBuiltins(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(pointeredBuiltins,
@@ -328,13 +315,8 @@ void BuiltinKeeper::initNullStrategyEntries(){
   //this function cluster cannot be versioned due the relationals difference in
   //prototype between the scalar versions and the vectorized ones.
   {
-#ifdef __APPLE__
-    llvm::StringRef names[] = {"_Z12__cl_signbit*", "_Z13__cl_isfinite*","_Z10__cl_isinf*",
-      "_Z10__cl_isnan*","_Z13__cl_isnormal*","_Z9isordered*", "_Z16__cl_isunordered*"};
-#else
     llvm::StringRef names[] = {"_Z7signbit*", "_Z8isfinite*","_Z5isinf*",
       "_Z5isnan*","_Z8isnormal*","_Z9isordered*", "_Z11isunordered*"};
-#endif
     StringArray relationals(names);
     VWidthArray allWidths(vwidths);
     Cartesian<llvm::ArrayRef,llvm::StringRef,width::V> pairs(relationals,
@@ -463,13 +445,7 @@ void BuiltinKeeper::addTransposGroup(const FunctionDescriptor& aosDescriptor){
   std::string strAos = mangle(aosDescriptor);
   for(size_t i=0 ; i<(sizeof(aosWidth)/sizeof(width::V)) ; ++i){
     PairSW exceptionsKey = std::make_pair(strAos, aosWidth[i]);
-    //TODO: Apple currently doesn't have builtins appropriate for the soa strategy
-    //Change this after we replace the builtins.
-#ifndef __APPLE__
     m_exceptionsMap[exceptionsKey] = &m_soaStrategy;
-#else
-    m_exceptionsMap[exceptionsKey] = &m_nullStrategy;
-#endif
   }
 }
 

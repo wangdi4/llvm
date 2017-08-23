@@ -17,7 +17,8 @@ bool isMangledName(const char *rawString);
 /// Converts the given string to function descriptor, that represents the
 /// function's prototype.
 /// In case of failures, an exception is thrown.
-reflection::FunctionDescriptor demangle(const char *rawstring);
+reflection::FunctionDescriptor demangle(const char *rawstring,
+                                        bool isSpir12Name = false);
 
 /// \returns the stripped function name, of the function mangled by the given
 /// string. If the given string is not the mangled name of a builtin, an

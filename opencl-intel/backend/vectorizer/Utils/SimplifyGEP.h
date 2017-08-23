@@ -30,7 +30,7 @@ namespace intel {
     SimplifyGEP();
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "SimplifyGEP";
     }
 

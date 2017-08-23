@@ -135,6 +135,7 @@ namespace {
           auto *FT = FunctionType::get(F.getReturnType(), NewParTys, F.isVarArg());
           NewF = Function::Create(FT, F.getLinkage(), F.getName());
           NewF->copyAttributesFrom(&F);
+          NewF->copyMetadata(&F, 0);
           SrcFs.push_back(&F);
           DstFs.push_back(NewF);
         }

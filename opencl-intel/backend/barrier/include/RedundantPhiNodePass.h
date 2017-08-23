@@ -28,7 +28,7 @@ namespace intel {
     ~RedundantPhiNode() {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "Intel OpenCL RedundantPhiNode";
     }
 

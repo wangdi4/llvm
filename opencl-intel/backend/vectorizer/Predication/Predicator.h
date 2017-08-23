@@ -44,7 +44,7 @@ public:
   Predicator();
 
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "Predicator";
   }
 
@@ -250,7 +250,7 @@ private:
   /// @param DT Dominator info
   void collectOptimizedMasks(Function* F,
                              PostDominatorTree* PDT,
-                             DominatorTree*  DT);
+                             DominatorTree* DT);
   /// @brief Test if a given region do not have divergent control flow inside
   /// @param entryBB entry basic block
   /// @param exitBB exit basic block
@@ -415,7 +415,7 @@ public:
     // We need dominance frontier to estimate
     // the dominance for specialization
     AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<PostDominatorTree>();
+    AU.addRequired<PostDominatorTreeWrapperPass>();
     // we preserve nothing. really.
     AU.addRequired<WIAnalysis>();
     // for bypasses usage

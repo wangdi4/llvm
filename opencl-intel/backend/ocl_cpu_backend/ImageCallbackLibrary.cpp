@@ -25,7 +25,6 @@ File Name:  ImageCallbackLibrary.cpp
 #include "ServiceFactory.h"
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/DynamicLibrary.h"

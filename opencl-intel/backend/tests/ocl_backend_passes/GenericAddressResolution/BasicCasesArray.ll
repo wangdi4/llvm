@@ -18,9 +18,8 @@
 ; CHECK: %call28 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr27)
 ; CHECK: ret
 
-; CHECK: !{{[0-9]+}} = !{!{{[0-9]+}}, ![[GASCount:[0-9]+]], ![[GASWarnings:[0-9]+]]}
-; CHECK: ![[GASCount]] = !{!"gen_addr_space_pointer_counter", i32 0}
-; CHECK: ![[GASWarnings]] = !{!"gen_addr_space_pointer_warnings"}
+; CHECK: !opencl.gen_addr_space_pointer_counter = !{![[GASCount:[0-9]+]]}
+; CHECK: ![[GASCount]] = !{i32 0}
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
@@ -155,7 +154,6 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 !opencl.enable.FP_CONTRACT = !{}
 
 !0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
-!1 = !{!"argument_attribute", i32 0, i32 0, i32 0}
 !2 = !{!"-cl-std=CL2.0"}
 
 ;;  -----  BasicCasesArray.cl   -------

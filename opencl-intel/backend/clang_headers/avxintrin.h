@@ -31,6 +31,7 @@ typedef long long __v4di __attribute__ ((__vector_size__ (32)));
 typedef int __v8si __attribute__ ((__vector_size__ (32)));
 typedef short __v16hi __attribute__ ((__vector_size__ (32)));
 typedef char __v32qi __attribute__ ((__vector_size__ (32)));
+typedef unsigned int __v8su __attribute__ ((__vector_size__ (32)));
 
 /* We need an explicitly signed variant for char. Note that this shouldn't
  * appear in the interface though. */
@@ -556,7 +557,7 @@ _mm256_insert_epi64(__m256i a, int b, int const imm)
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtepi32_pd(__m128i a)
 {
-  return (__m256d)__builtin_ia32_cvtdq2pd256((__v4si) a);
+  return (__m256d)__builtin_convertvector((__v4si)a, __v4df);
 }
 
 static __inline __m256 __attribute__((__always_inline__, __nodebug__))
@@ -580,7 +581,7 @@ _mm256_cvtps_epi32(__m256 a)
 static __inline __m256d __attribute__((__always_inline__, __nodebug__))
 _mm256_cvtps_pd(__m128 a)
 {
-  return (__m256d)__builtin_ia32_cvtps2pd256((__v4sf) a);
+  return (__m256d)__builtin_convertvector((__v4sf)a, __v4df);
 }
 
 static __inline __m128i __attribute__((__always_inline__, __nodebug__))
@@ -853,13 +854,19 @@ _mm256_store_ps(float *p, __m256 a)
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_pd(double *p, __m256d a)
 {
-  __builtin_ia32_storeupd256(__OCL_CAST_TO_PRIVATE(double *)p, (__v4df)a);
+  struct __storeu_pd {
+    __m256d v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_pd*)p)->v = a;
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_ps(float *p, __m256 a)
 {
-  __builtin_ia32_storeups256(__OCL_CAST_TO_PRIVATE(float *)p, (__v8sf)a);
+  struct __storeu_ps {
+    __m256 v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ps*)p)->v = a;
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
@@ -871,7 +878,10 @@ _mm256_store_si256(__m256i *p, __m256i a)
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_storeu_si256(__m256i *p, __m256i a)
 {
-  __builtin_ia32_storedqu256(__OCL_CAST_TO_PRIVATE(char *)(char *)p, (__v32qi)a);
+  struct __storeu_si256 {
+    __m256i v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_si256*)p)->v = a;
 }
 
 __m256d __attribute__((__always_inline__, __nodebug__))
@@ -908,13 +918,13 @@ _mm_maskstore_ps(float *p, __m128i m, __m128 a)
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_stream_pd(double *a, __m256d b)
 {
-  __builtin_ia32_movntpd256(__OCL_CAST_TO_PRIVATE(double*)a, (__v4df)b);
+  __builtin_nontemporal_store((__v4df)b, __OCL_CAST_TO_PRIVATE(__v4df*)(__v4df*)a);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
 _mm256_stream_ps(float *p, __m256 a)
 {
-  __builtin_ia32_movntps256(__OCL_CAST_TO_PRIVATE(float*)p, (__v8sf)a);
+  __builtin_nontemporal_store((__v8sf)a, __OCL_CAST_TO_PRIVATE(__v8sf*)(__v8sf*)p);
 }
 
 /* Create vectors */
@@ -1146,7 +1156,7 @@ _mm256_loadu2_m128d(double const *addr_hi, double const *addr_lo)
   struct __loadu_pd {
     __m128d v;
   } __attribute__((__packed__, __may_alias__));
-  
+
   __m256d v256 = _mm256_castpd128_pd256(((struct __loadu_pd*)addr_lo)->v);
   return _mm256_insertf128_pd(v256, ((struct __loadu_pd*)addr_hi)->v, 1);
 }
@@ -1158,9 +1168,9 @@ _mm256_storeu2_m128(float *addr_hi, float *addr_lo, __m256 a)
   __m128 v128;
 
   v128 = _mm256_castps256_ps128(a);
-  __builtin_ia32_storeups(__OCL_CAST_TO_PRIVATE( float*)addr_lo, v128);
+  _mm_storeu_ps(__OCL_CAST_TO_PRIVATE(float*)addr_lo, v128);
   v128 = _mm256_extractf128_ps(a, 1);
-  __builtin_ia32_storeups(__OCL_CAST_TO_PRIVATE( float*)addr_hi, v128);
+  _mm_storeu_ps(__OCL_CAST_TO_PRIVATE(float*)addr_hi, v128);
 }
 
 static __inline void __attribute__((__always_inline__, __nodebug__))
@@ -1169,8 +1179,8 @@ _mm256_storeu2_m128d(double *addr_hi, double *addr_lo, __m256d a)
   __m128d v128;
 
   v128 = _mm256_castpd256_pd128(a);
-  __builtin_ia32_storeupd(__OCL_CAST_TO_PRIVATE(double *)addr_lo, v128);
+  _mm_storeu_pd(__OCL_CAST_TO_PRIVATE(double*)addr_lo, v128);
   v128 = _mm256_extractf128_pd(a, 1);
-  __builtin_ia32_storeupd(__OCL_CAST_TO_PRIVATE(double *)addr_hi, v128);
+  _mm_storeu_pd(__OCL_CAST_TO_PRIVATE(double*)addr_hi, v128);
 }
 

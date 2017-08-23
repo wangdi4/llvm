@@ -10,7 +10,6 @@ Copyright(c) 2011 - 2013 Intel Corporation. All Rights Reserved.
 
 #include "RenderscriptDriver.h"
 #include "VectorizerCore.h"
-#include "MetaDataApi.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
@@ -182,9 +181,8 @@ bool RenderscriptVectorizer::runOnModule(Module &M)
     if (*fi) {
       // Clone the kernel
       ValueToValueMapTy vmap;
-      Function *clone = CloneFunction(*fi,vmap, false, NULL);
+      Function *clone = CloneFunction(*fi, vmap, nullptr);
       clone->setName("__Vectorized_." + (*fi)->getName());
-      M.getFunctionList().push_back(clone);
       vectPM.run(*clone);
       if (vectCore->isFunctionVectorized()) {
         // if the function is successfully vectorized update vectFunc and width.

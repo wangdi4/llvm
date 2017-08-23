@@ -18,10 +18,10 @@
 ;;
 ; The test checks that GenericAddressStaticResolution pass copies debug info along with resolved func.
 ;
-; CHECK: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "func".*]])
-; CHECK: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
-; CHECK: !DILocation({{.*}} scope: [[SRCDIPL]])
-; CHECK: !DILocation({{.*}} scope: [[CLONDIPL]])
+; CHECK-DAG: [[SRCDIPL:.*]] = distinct !DISubprogram([[SRCDI:name: "func".*]])
+; CHECK-DAG: [[CLONDIPL:.*]] = distinct !DISubprogram([[SRCDI]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[SRCDIPL]])
+; CHECK-DAG: !DILocation({{.*}} scope: [[CLONDIPL]])
 
 ; ModuleID = '/tmp/ker.cl'
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
@@ -67,17 +67,17 @@ attributes #1 = { nounwind readnone }
 !opencl.spir.version = !{!22, !22}
 !opencl.ocl.version = !{!22, !22}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 5e5f31ff4099022445ddc9519bdd4c03b14193bd) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 6fe444928badc9c60eafb8d750910014ec4a8ece)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-clang 5e5f31ff4099022445ddc9519bdd4c03b14193bd) (ssh://nnopencl-git-01.inn.intel.com/home/git/repo/opencl_qa-llvm 6fe444928badc9c60eafb8d750910014ec4a8ece)", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2)
 !1 = !DIFile(filename: "D:\5Ctemp\5C<stdin>", directory: "D:\5Cetyurin\5Copencl\5Csrc\5Cbackend\5Ctests\5Cocl_backend_passes\5CDebugInfo")
 !2 = !{}
 !3 = !{!4, !10}
-!4 = distinct !DISubprogram(name: "func", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!4 = distinct !DISubprogram(name: "func", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !5 = !DIFile(filename: "D:\5Ctemp\5CdebugInfoWithGASResolving.cl", directory: "D:\5Cetyurin\5Copencl\5Csrc\5Cbackend\5Ctests\5Cocl_backend_passes\5CDebugInfo")
 !6 = !DISubroutineType(types: !7)
 !7 = !{!8, !9}
 !8 = !DIBasicType(name: "int", size: 32, align: 32, encoding: DW_ATE_signed)
 !9 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !8, size: 64, align: 64)
-!10 = distinct !DISubprogram(name: "invoke_func", scope: !5, file: !5, line: 5, type: !11, isLocal: false, isDefinition: true, scopeLine: 6, isOptimized: false, variables: !2)
+!10 = distinct !DISubprogram(name: "invoke_func", scope: !5, file: !5, line: 5, type: !11, isLocal: false, isDefinition: true, scopeLine: 6, isOptimized: false, unit: !0, variables: !2)
 !11 = !DISubroutineType(types: !12)
 !12 = !{null}
 !13 = !{void ()* @invoke_func, !14, !15, !16, !17, !18}

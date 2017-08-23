@@ -3,7 +3,7 @@
 
 ; no functions should be removed
 
-define void @thisIsKernel() nounwind {
+define void @thisIsKernel() nounwind !kernel_wrapper !0 {
 entry:
   %x = call i32 @thisIsNotKernel()
   ret void
@@ -15,11 +15,7 @@ entry:
   ret i32 %x
 }
 
-!opencl.kernel_info = !{!0}
-
-!0 = !{void ()* @thisIsKernel, !1}
-!1 = !{!2}
-!2 = !{!"kernel_wrapper", void ()* @thisIsKernel}
+!0 = !{void ()* @thisIsKernel}
 
 ; CHECK:        define void @thisIsKernel()
 ; CHECK:        %x = call i32 @thisIsNotKernel()

@@ -11,9 +11,6 @@ target triple = "spir64-unknown-unknown"
 
 %opencl.image2d_wo_t = type opaque
 
-; CHECK_4-DAG-NOT:    @_Z12read_imageui14ocl_image2d_wo11ocl_samplerDv2_i
-; CHECK_8-DAG-NOT:    @_Z12read_imageui14ocl_image2d_wo11ocl_samplerDv2_i
-
 ; Function Attrs: nounwind
 define spir_kernel void @soa_read_imageui(%opencl.image2d_wo_t addrspace(1)* %img, <4 x i32> addrspace(1)* nocapture readonly %in, i32 %randomId) #0 {
 entry:
@@ -30,8 +27,16 @@ entry:
   %0 = load <4 x i32>, <4 x i32> addrspace(1)* %arrayidx, align 16, !tbaa !9
   %vecinit = insertelement <2 x i32> undef, i32 %conv, i32 0
   %vecinit6 = insertelement <2 x i32> %vecinit, i32 %conv2, i32 1
-; CHECK_4:    call void @_Z18soa4_write_imageui14ocl_image2d_woDv4_iS_Dv4_jS0_S0_S0_
-; CHECK_8:    call void @_Z18soa8_write_imageui14ocl_image2d_woDv8_iS_Dv8_jS0_S0_S0_
+
+; CHECK_4-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+; CHECK_8-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+
+; CHECK_4:        call void @_Z18soa4_write_imageui14ocl_image2d_woDv4_iS0_Dv4_jS1_S1_S1_
+; CHECK_8:        call void @_Z18soa8_write_imageui14ocl_image2d_woDv8_iS0_Dv8_jS1_S1_S1_
+
+; CHECK_4-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+; CHECK_8-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+
   tail call spir_func void @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j(%opencl.image2d_wo_t addrspace(1)* %img, <2 x i32> %vecinit6, <4 x i32> %0) #4
   %rem = urem i32 %conv, %randomId
   %cmp = icmp eq i32 %rem, 0
@@ -39,8 +44,16 @@ entry:
 
 if.then:                                          ; preds = %entry
   %mul11 = shl <4 x i32> %0, <i32 1, i32 1, i32 1, i32 1>
-; CHECK_4:    call void @_Z23mask_soa4_write_imageuiDv4_i14ocl_image2d_woS_S_Dv4_jS0_S0_S0_
-; CHECK_8:    call void @_Z23mask_soa8_write_imageuiDv8_i14ocl_image2d_woS_S_Dv8_jS0_S0_S0_
+
+; CHECK_4-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+; CHECK_8-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+
+; CHECK_4:        call void @_Z23mask_soa4_write_imageuiDv4_i14ocl_image2d_woS_S_Dv4_jS1_S1_S1_
+; CHECK_8:        call void @_Z23mask_soa8_write_imageuiDv8_i14ocl_image2d_woS_S_Dv8_jS1_S1_S1_
+
+; CHECK_4-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+; CHECK_8-NOT:    call {{.*}} @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j
+
   tail call spir_func void @_Z13write_imageui14ocl_image2d_woDv2_iDv4_j(%opencl.image2d_wo_t addrspace(1)* %img, <2 x i32> %vecinit6, <4 x i32> %mul11) #4
   br label %if.end
 

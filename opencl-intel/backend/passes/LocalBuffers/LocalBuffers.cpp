@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "InitializePasses.h"
 #include "common_dev_limits.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DataLayout.h"
@@ -31,20 +31,20 @@ namespace intel{
   }
 
   bool LocalBuffers::runOnModule(Module &M) {
+    using namespace Intel::MetadataAPI;
 
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
-    Intel::MetaDataUtils mdUtils(&M);
 
     // Get all kernels
-    Intel::OpenCL::DeviceBackend::CompilationUtils::FunctionSet  kernelsFunctionSet;
+    Intel::OpenCL::DeviceBackend::CompilationUtils::FunctionSet kernelsFunctionSet;
     Intel::OpenCL::DeviceBackend::CompilationUtils::getAllKernels(kernelsFunctionSet, &M);
 
     m_localBuffersAnalysis = &getAnalysis<LocalBuffAnalysis>();
 
     // Run on all defined function in the module
-    for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
-      Function *pFunc = dyn_cast<Function>(&*fi);
+    for ( auto &F : M ) {
+      Function *pFunc = &F;
       if ( !pFunc || pFunc->isDeclaration () ) {
         // Function is not defined inside module
         continue;
@@ -57,11 +57,10 @@ namespace intel{
       runOnFunction(pFunc);
       if (kernelsFunctionSet.count(pFunc) ) {
         //We have a kernel, update metadata
-        mdUtils.getOrInsertKernelsInfoItem(pFunc)->setLocalBufferSize(m_localBuffersAnalysis->getLocalsSize(pFunc));
+        KernelInternalMetadataAPI(pFunc).LocalBufferSize.set(m_localBuffersAnalysis->getLocalsSize(pFunc));
       }
     }
-    //Save Metadata to the module
-    mdUtils.save(*m_pLLVMContext);
+
     return true;
   }
 

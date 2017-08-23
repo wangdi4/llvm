@@ -12,6 +12,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
+
+#include <set>
 using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel {

@@ -409,10 +409,6 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                     }
                 }
 
-                if (arg.ptrType.isPointsToConst) {
-                    pPointerType->addAttribute(reflection::ATTR_CONST);
-                }
-
                 if (arg.ptrType.isAddrSpace) {
                     switch(arg.ptrType.AddrSpace) {
                     case PRIVATE:
@@ -433,6 +429,10 @@ bool OCLBuiltinParser::GetOCLMangledName( const std::string& in_funcName,
                     default:
                         throw Validation::Exception::InvalidArgument("Unknown address space!");
                     }
+                }
+
+                if (arg.ptrType.isPointsToConst) {
+                    pPointerType->addAttribute(reflection::ATTR_CONST);
                 }
 
                 break;

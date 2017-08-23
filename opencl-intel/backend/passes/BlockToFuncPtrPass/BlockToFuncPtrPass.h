@@ -33,7 +33,7 @@ namespace intel {
     BlockToFuncPtr() : ModulePass(ID) {}
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "BlockToFuncPtr";
     }
 

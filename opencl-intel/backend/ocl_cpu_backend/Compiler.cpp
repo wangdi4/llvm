@@ -26,8 +26,7 @@ File Name:  Compiler.cpp
 #include "exceptions.h"
 #include "BuiltinModuleManager.h"
 #include "CompilationUtils.h"
-#include "MetaDataApi.h"
-#include "common_clang.h"
+#include "MetadataAPI.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
@@ -35,7 +34,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Argument.h"
@@ -172,9 +171,9 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     m_fpgaEmulator(false),
     m_APFLevel(0)
 {
-    assert(pModule);
+    using namespace Intel::MetadataAPI;
 
-    NamedMDNode* metadata = pModule->getNamedMetadata("opencl.compiler.options");
+    assert(pModule && "pModule is nullptr!");
 
     llvm::Triple triple(pModule->getTargetTriple());
     if(triple.isINTELFPGAEnvironment())
@@ -182,44 +181,34 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
         m_fpgaEmulator = true;
     }
 
-    if(nullptr == metadata)
+    auto compilerOptionsMetadata = ModuleMetadataAPI(pModule).CompilerOptionsList;
+
+    if(!compilerOptionsMetadata.hasValue())
     {
         return;
     }
 
-    if(metadata->getNumOperands() == 0)
-    {
-        return;
-    }
-
-    MDNode* flag = metadata->getOperand(0);
-    for(uint32_t i =0; flag && (i < flag->getNumOperands()); ++i)
-    {
-        MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
-
-        assert(flagName &&
-            "opencl.compiler.options is expected to have a node inside!");
-
-        if(flagName->getString() == "-g")
-            m_debugInfo = true;
-        if(flagName->getString() == "-profiling")
-            m_profiling = true;
-        if(flagName->getString() == "-cl-opt-disable")
-            m_disableOpt = true;
-        if(flagName->getString() == "-cl-fast-relaxed-math")
-            m_relaxedMath = true;
-        if(flagName->getString() == "-create-library")
-            m_libraryModule = true;
-        if(flagName->getString() == "-cl-denorms-are-zero")
-            m_denormalsZero = true;
-        if(flagName->getString() == "-auto-prefetch-level=0")
-            m_APFLevel = 0;
-        if(flagName->getString() == "-auto-prefetch-level=1")
-            m_APFLevel = 1;
-        if(flagName->getString() == "-auto-prefetch-level=2")
-            m_APFLevel = 2;
-        if(flagName->getString() == "-auto-prefetch-level=3")
-            m_APFLevel = 3;
+    for (const auto &parameter : compilerOptionsMetadata) {
+      if (parameter == "-g")
+        m_debugInfo = true;
+      if (parameter == "-profiling")
+        m_profiling = true;
+      if (parameter == "-cl-opt-disable")
+        m_disableOpt = true;
+      if (parameter == "-cl-fast-relaxed-math")
+        m_relaxedMath = true;
+      if (parameter == "-create-library")
+        m_libraryModule = true;
+      if (parameter == "-cl-denorms-are-zero")
+        m_denormalsZero = true;
+      if (parameter == "-auto-prefetch-level=0")
+        m_APFLevel = 0;
+      if (parameter == "-auto-prefetch-level=1")
+        m_APFLevel = 1;
+      if (parameter == "-auto-prefetch-level=2")
+        m_APFLevel = 2;
+      if (parameter == "-auto-prefetch-level=3")
+        m_APFLevel = 3;
     }
 }
 
@@ -263,6 +252,13 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
+#ifndef NDEBUG
+    if (getenv("VOLCANO_COMPILER_DEBUG")) {
+      args.push_back("-print-after-all");
+      args.push_back("-print-before-all");
+      args.push_back("-debug");
+    }
+#endif
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {
@@ -423,33 +419,42 @@ bool Compiler::FindFunctionBodyInModules(std::string &FName,
 
 llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
 {
-    //
     // Parse the module IR
-    //
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr = llvm::parseBitcodeFile( pIRBuffer->getMemBufferRef(), *m_pLLVMContext );
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> pModuleOrErr =
+      expectedToErrorOrAndEmitErrors(*m_pLLVMContext, llvm::parseBitcodeFile(
+                               pIRBuffer->getMemBufferRef(), *m_pLLVMContext));
     if ( !pModuleOrErr )
     {
-        throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
+        throw Exceptions::CompilerException(std::string("Failed to parse IR: ")
+              + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
     return pModuleOrErr.get().release();
 }
 
-// RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
+// RTL builtin modules consist of two libraries.
+// The first is shared across all HW architectures and the second one
+// is optimized for a specific HW architecture.
 // NOTE: There is no shared library for KNC so it has the optimized one only.
-void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
+void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary,
+                   llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
-    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
+    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(
+                                        pLibrary->GetRtlBuffer()));
     assert(rtlBuffer && "pRtlBuffer is NULL pointer");
-    llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
+    llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleOrErr =
+      expectedToErrorOrAndEmitErrors(*m_pLLVMContext,
+               llvm::getOwningLazyBitcodeModule(std::move(rtlBuffer), *m_pLLVMContext));
 
     if ( !spModuleOrErr )
     {
         // Failed to load runtime library
         spModuleOrErr = llvm::ErrorOr<std::unique_ptr<llvm::Module>>(
-                std::unique_ptr<llvm::Module>(new llvm::Module("dummy", *m_pLLVMContext)));
+                std::unique_ptr<llvm::Module>(
+                  new llvm::Module("dummy", *m_pLLVMContext)));
         if ( !spModuleOrErr )
         {
-            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+            throw Exceptions::CompilerException(
+              "Failed to allocate/parse buitin module");
         }
     }
     else
@@ -463,13 +468,15 @@ void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<ll
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        llvm::ErrorOr<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
-            llvm::getLazyBitcodeModule(
-                std::move(pLibrary->GetRtlBufferSvmlShared()),
+        std::unique_ptr<llvm::MemoryBuffer> RtlBufferSvmlShared(std::move(
+                                          pLibrary->GetRtlBufferSvmlShared()));
+        llvm::Expected<std::unique_ptr<llvm::Module>> spModuleSvmlSharedOrErr(
+            llvm::getOwningLazyBitcodeModule(std::move(RtlBufferSvmlShared),
                 *m_pLLVMContext));
 
         if ( !spModuleSvmlSharedOrErr ) {
-            throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
+            throw Exceptions::CompilerException(
+              "Failed to allocate/parse buitin module");
         }
 
         llvm::Module* pModuleSvmlShared = spModuleSvmlSharedOrErr.get().release();
@@ -573,13 +580,18 @@ const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
                                                     size_t uiBinarySize ) const
 {
 
-    std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
-    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext);
-    if (strTargetTriple == "") {
-      throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
+    std::unique_ptr<MemoryBuffer> spIRBuffer(
+      MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary),
+                                           uiBinarySize), "", false));
+    llvm::Expected<std::string> strTargetTriple =
+                   llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef());
+    if (!strTargetTriple || *strTargetTriple == "") {
+      throw Exceptions::CompilerException(
+                     std::string("Failed to get target triple from bitcode!"),
+                     CL_DEV_INVALID_BINARY);
     }
 
-    return strTargetTriple;
+    return *strTargetTriple;
 }
 
 }}}

@@ -34,19 +34,16 @@ _mm512_and_ps (__m512 __A, __m512 __B) {
 
 static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_and_ps (__m512 __W, __mmask16 __U, __m512 __A, __m512 __B) {
-  return (__m512) __builtin_ia32_andps512_mask ((__v16sf) __A,
-            (__v16sf) __B,
-            (__v16sf) __W,
-            (__mmask16) __U);
+  return (__m512)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_and_ps(__A, __B),
+                                             (__v16sf)__W);
 }
 
 static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_and_ps (__mmask16 __U, __m512 __A, __m512 __B) {
-  return (__m512) __builtin_ia32_andps512_mask ((__v16sf) __A,
-            (__v16sf) __B,
-            (__v16sf)
-            _mm512_setzero_ps (),
-            (__mmask16) __U);
+  return (__m512)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_and_ps(__A, __B),
+                                             (__v16sf)_mm512_setzero_ps());
 }
 
 static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
@@ -56,19 +53,16 @@ _mm512_or_ps (__m512 __A, __m512 __B) {
 
 static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_or_ps (__m512 __W, __mmask16 __U, __m512 __A, __m512 __B) {
-  return (__m512) __builtin_ia32_orps512_mask ((__v16sf) __A,
-                 (__v16sf) __B,
-                 (__v16sf) __W,
-                 (__mmask16) __U);
+  return (__m512)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_or_ps(__A, __B),
+                                             (__v16sf)__W);
 }
 
 static __inline__ __m512 __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_or_ps (__mmask16 __U, __m512 __A, __m512 __B) {
-  return (__m512) __builtin_ia32_orps512_mask ((__v16sf) __A,
-                 (__v16sf) __B,
-                 (__v16sf)
-                 _mm512_setzero_ps (),
-                 (__mmask16) __U);
+  return (__m512)__builtin_ia32_selectps_512((__mmask16)__U,
+                                             (__v16sf)_mm512_or_ps(__A, __B),
+                                             (__v16sf)_mm512_setzero_ps());
 }
 
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
@@ -78,19 +72,16 @@ _mm512_and_pd (__m512d __A, __m512d __B) {
 
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_and_pd (__m512d __W, __mmask8 __U, __m512d __A, __m512d __B) {
-  return (__m512d) __builtin_ia32_andpd512_mask ((__v8df) __A,
-             (__v8df) __B,
-             (__v8df) __W,
-             (__mmask8) __U);
+  return (__m512d)__builtin_ia32_selectpd_512((__mmask8)__U,
+                                              (__v8df)_mm512_and_pd(__A, __B),
+                                              (__v8df)__W);
 }
 
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_and_pd (__mmask8 __U, __m512d __A, __m512d __B) {
-  return (__m512d) __builtin_ia32_andpd512_mask ((__v8df) __A,
-             (__v8df) __B,
-             (__v8df)
-             _mm512_setzero_pd (),
-             (__mmask8) __U);
+  return (__m512d)__builtin_ia32_selectpd_512((__mmask8)__U,
+                                              (__v8df)_mm512_and_pd(__A, __B),
+                                              (__v8df)_mm512_setzero_pd());
 }
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_or_pd (__m512d __A, __m512d __B) {
@@ -99,19 +90,16 @@ _mm512_or_pd (__m512d __A, __m512d __B) {
 
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_mask_or_pd (__m512d __W, __mmask8 __U, __m512d __A, __m512d __B) {
-  return (__m512d) __builtin_ia32_orpd512_mask ((__v8df) __A,
-            (__v8df) __B,
-            (__v8df) __W,
-            (__mmask8) __U);
+  return (__m512d)__builtin_ia32_selectpd_512((__mmask8)__U,
+                                              (__v8df)_mm512_or_pd(__A, __B),
+                                              (__v8df)__W);
 }
 
 static __inline__ __m512d __attribute__ ((__always_inline__, __nodebug__))
 _mm512_maskz_or_pd (__mmask8 __U, __m512d __A, __m512d __B) {
-  return (__m512d) __builtin_ia32_orpd512_mask ((__v8df) __A,
-            (__v8df) __B,
-            (__v8df)
-            _mm512_setzero_pd (),
-            (__mmask8) __U);
+  return (__m512d)__builtin_ia32_selectpd_512((__mmask8)__U,
+                                              (__v8df)_mm512_or_pd(__A, __B),
+                                              (__v8df)_mm512_setzero_pd());
 }
 
 #endif // __AVX512DQINTRIN_H

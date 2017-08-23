@@ -25,7 +25,7 @@ void * align_malloc(size_t size, size_t alignment)
     void * ptr = NULL;
 #if defined(_WIN32) && defined(_MSC_VER)
     ptr = _aligned_malloc(size, alignment);
-#elif  defined(__linux__) || defined (linux) || defined(__APPLE__)
+#elif  defined(__linux__) || defined (linux)
    // The value of alignment shall be a multiple of sizeof(void*)
    {
       size_t linuxAlignment;
@@ -59,7 +59,7 @@ void   align_free(void * ptr)
 {
 #if defined(_WIN32) && defined(_MSC_VER)
     _aligned_free(ptr);
-#elif  defined(__linux__) || defined (linux) || defined(__APPLE__)
+#elif  defined(__linux__) || defined (linux)
     return  free(ptr);
 #elif defined(__MINGW32__)
     return __mingw_aligned_free(ptr); 

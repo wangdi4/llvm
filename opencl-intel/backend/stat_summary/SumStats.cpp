@@ -18,7 +18,7 @@
 // Intel Corporation is the author of the Materials, and requests that all
 // problem reports or change requests be submitted to it directly
 
-#include "MetaDataApi.h"
+#include "MetadataStatsAPI.h"
 
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/IR/LLVMContext.h"
@@ -34,6 +34,9 @@
 
 using namespace llvm;
 using namespace Intel;
+using namespace MetadataAPI;
+
+extern "C" LLVMContextRef LLVMGetGlobalContext(void);
 
 enum DumpLevel {
   S=1, W=2, M=3, F=4
@@ -48,8 +51,7 @@ static cl::opt<DumpLevel> dumpLevel("l", cl::desc("Set dump detail level:"),
         clEnumVal(S, "Dump summary of all counters"),
         clEnumVal(W, "Dump counter summary per workload"),
         clEnumVal(M, "Dump counter summary per workload & module"),
-        clEnumVal(F, "Dump counter summary per workload, module & function"),
-        clEnumValEnd),
+        clEnumVal(F, "Dump counter summary per workload, module & function")),
         cl::init(W));
 
 static cl::opt<string> outFileName("o", cl::desc("Output file name"),
@@ -73,67 +75,53 @@ bool getFlist (vector<string> &flist)
 
 bool readStatFiles (vector<string> &flist, ExperimentInfo & expr)
 {
-  LLVMContext &C = getGlobalContext();
+  LLVMContext Ctx;
   // for each file
   for (unsigned i = 0; i < flist.size(); i++) {
     SMDiagnostic err;
     // parse the IR
-    std::unique_ptr<Module> M = llvm::parseIRFile(flist[i], err, C);
+    auto M = llvm::parseIRFile(flist[i], err, Ctx).release();
     if (!M)
       continue;
 
-    // get handle to module stat info metadata
-    MetaDataUtils mdUtils(M.release());
-    if (mdUtils.size_ModuleStatInfoC() == 0) {
+    // check module stat info metadata presence
+    auto msimd = ModuleStatMetadataAPI(M);
+    if (!msimd.StatType.hasValue()) {
       cout << "IR file " << flist[i] << " contains no stats\n";
       continue;
     }
 
-    ModuleStatInfoMetaDataHandle *ModuleStatInfo =
-        &*mdUtils.begin_ModuleStatInfoC();
-
-    string workloadName((*ModuleStatInfo)->getWorkloadName());
+    assert(msimd.WorkloadName.hasValue() && "No Workload Name Stat Metadata!");
+    string workloadName(msimd.WorkloadName.get());
 
     // compose unique workload id
     WorkloadInfo& WI = expr.getWorkloadInfo(
         WorkloadInfo::getWorkloadID(flist[i], workloadName));
 
     // copy module data to stat class
-    ModuleStats &moduleStats = WI.addModule((*ModuleStatInfo)->getRunTimeVersion(),
-        (*ModuleStatInfo)->getExecTime(),
+    assert(msimd.RunTimeVersion.hasValue() && "No Runtime Version Metadata!");
+    assert(msimd.ExecTime.hasValue() && "No Ecec Time Metadata!");
+    assert(msimd.ModuleName.hasValue() && "No Module Name Metadata!");
+    ModuleStats &moduleStats = WI.addModule(msimd.RunTimeVersion.get(),
+        msimd.ExecTime.get(),
         workloadName,
-        (*ModuleStatInfo)->getModuleName());
+        msimd.ModuleName.get());
 
     // add stat descriptions to map common to all modules
-    for (MetaDataUtils::StatDescriptionsMap::iterator it =
-        mdUtils.begin_StatDescriptions();
-         it != mdUtils.end_StatDescriptions(); it++) {
-      expr.addStatDescription(it->first, it->second->getstr());
+    FunctionStatMetadataAPI::DescriptionListTy descriptionList;
+    FunctionStatMetadataAPI::readDescription(*M, descriptionList);
+    for (auto &desc : descriptionList) {
+      expr.addStatDescription(desc.Name, desc.Description);
     }
 
     // add stat values to function stats and module stats
     // iterate over all functions
-    for (MetaDataUtils::FunctionsStatsMap::iterator it =
-        mdUtils.begin_FunctionsStats();
-         it != mdUtils.end_FunctionsStats(); it++) {
-
-      if (it->first == nullptr) {
-        cout << "Warning: found null function in file " << flist[i] << ".\n";
-        continue;
-      }
-
+    for (const auto &func : *M) {
       // get function name
-      const string funcName(it->first->getName().data());
-      StatValueMap &funcStatMap = moduleStats.getFunctionStats(funcName);
-      // get list of stats for this function
-      StatValueListContainerMetaData *funcStatList = &*it->second;
       // iterate over stat entries in the list
       // accumulate stat values per function and module
-      for(StatValueListContainerMetaData::StatValueListList::iterator its =
-          funcStatList->begin_StatValueList();
-          its != funcStatList->end_StatValueList(); its++) {
-        moduleStats.addStatValue(funcStatMap, (*its)->getName(),
-            (*its)->getValue());
+      for (const auto &stat : FunctionStatMetadataAPI(func)) {
+        moduleStats.addStatValue(stat.Name, stat.Value);
       }
     }
   }

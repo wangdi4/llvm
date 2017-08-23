@@ -21,7 +21,7 @@ entry:
   %call = tail call spir_func i64 @_Z13get_global_idj(i32 0) #3
   %mul = mul i64 %call, %conv
   %add.ptr = getelementptr inbounds <8 x float>, <8 x float> addrspace(1)* %src, i64 %mul
-  tail call spir_func void @_Z8prefetchPKU3AS1Dv8_fm(<8 x float> addrspace(1)* %add.ptr, i64 %conv) #4
+  tail call spir_func void @_Z8prefetchPU3AS1KDv8_fm(<8 x float> addrspace(1)* %add.ptr, i64 %conv) #4
   %cmp22 = icmp sgt i32 %copiesPerWorkItem, 0
   br i1 %cmp22, label %for.body.preheader, label %for.end
 
@@ -47,7 +47,7 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret void
 }
 
-declare spir_func void @_Z8prefetchPKU3AS1Dv8_fm(<8 x float> addrspace(1)*, i64) #1
+declare spir_func void @_Z8prefetchPU3AS1KDv8_fm(<8 x float> addrspace(1)*, i64) #1
 
 ; Function Attrs: nounwind readnone
 declare spir_func i64 @_Z13get_global_idj(i32) #2

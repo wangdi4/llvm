@@ -20,15 +20,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace reflection {
 
-  const char* mangledPrimitiveString(TypePrimitiveEnum primitive);
-  const char* readablePrimitiveString(TypePrimitiveEnum primitive);
-  std::string llvmPrimitiveString(TypePrimitiveEnum primitive);
+const char *mangledPrimitiveString(TypePrimitiveEnum primitive);
+const char *readablePrimitiveString(TypePrimitiveEnum primitive);
+std::string llvmPrimitiveString(TypePrimitiveEnum primitive);
 
-  std::string getMangledAttribute(TypeAttributeEnum attribute);
-  std::string getReadableAttribute(TypeAttributeEnum attribute);
+std::string getMangledAttribute(TypeAttributeEnum attribute);
+std::string getReadableAttribute(TypeAttributeEnum attribute);
 
-  std::string getDuplicateString(int index);
-
+std::string getDuplicateString(int index);
 }
 
 #endif //__MANGLING_UTILS_H__

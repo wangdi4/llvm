@@ -70,7 +70,7 @@ extern "C" void LLVMLinkInInterpreterPluggable() {
 ///
 ExecutionEngine *InterpreterPluggable::create(std::unique_ptr<Module> M, std::string* ErrStr) {
     // Tell this Module to materialize everything and release the GVMaterializer.
-    if (std::error_code err = M->materializeAll()) {
+    if (Error err = M->materializeAll()) {
         // We got an error, just return 0
         return nullptr;
     }

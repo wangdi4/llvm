@@ -7,14 +7,14 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "DeduceMaxWGDim.h"
 #include "CompilationUtils.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "LoopUtils/LoopUtils.h"
 #include "OpenclRuntime.h"
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "llvm/IR/InstIterator.h"
 
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -24,7 +24,7 @@ namespace intel {
   OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
   OCL_INITIALIZE_PASS_END(DeduceMaxWGDim, "deduce-max-dim", "Deduce the maximum WG dimemsion that needs to be executed", false, false)
 
-  bool DeduceMaxWGDim::runOnFunction(Function &F, Intel::MetaDataUtils& MDU) {
+  bool DeduceMaxWGDim::runOnFunction(Function &F) {
     // If kernel calls any forbidden functions, fail
     if (ForbiddenFuncUsers.count(&F)) {
       return false;
@@ -41,10 +41,13 @@ namespace intel {
         return false;
       MaxDim = std::max(MaxDim, int(Dim->getZExtValue()));
     }
+
     // No point in saying that kernel needs 3D
     if (MaxDim == 2)
       return false;
-    MDU.getOrInsertKernelsInfoItem(&F)->setMaxWGDimensions(MaxDim + 1);
+
+    KernelInternalMetadataAPI(&F).MaxWGDimensions.set(MaxDim + 1);
+
     return true;
   }
 
@@ -54,11 +57,11 @@ namespace intel {
     ForbiddenFuncUsers.clear();
     LoopUtils::fillAtomicBuiltinUsers(M, RT, ForbiddenFuncUsers);
     LoopUtils::fillInternalFuncUsers(M, RT, ForbiddenFuncUsers);
+
     // OpenCL 2.0 handling
     if(OclVersion::CL_VER_2_0 <= CompilationUtils::getCLVersionFromModuleOrDefault(M)) {
       LoopUtils::fillWorkItemPipeBuiltinUsers(M, RT, ForbiddenFuncUsers);
     }
-    Intel::MetaDataUtils MDU(&M);
 
     // Get all kernels
     CompilationUtils::FunctionSet kernelsFunctionSet;
@@ -69,12 +72,9 @@ namespace intel {
     for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
       fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
         Function *pFunc = cast<Function>(*fi);
-        Changed = runOnFunction(*pFunc, MDU) || Changed;
+        Changed = runOnFunction(*pFunc) || Changed;
     }
 
-    //Save Metadata to the module
-    if (Changed)
-      MDU.save(M.getContext());
     return Changed;
   }
 

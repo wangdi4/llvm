@@ -33,7 +33,7 @@ public:
 
   SubGroupAdaptation() : ModulePass(ID){};
 
-  virtual const char *getPassName() const { return "SubGroupAdaptation"; }
+  virtual llvm::StringRef getPassName() const { return "SubGroupAdaptation"; }
 
   virtual bool runOnModule(llvm::Module &M);
 

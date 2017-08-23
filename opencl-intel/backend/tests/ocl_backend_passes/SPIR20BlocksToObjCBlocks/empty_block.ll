@@ -27,7 +27,7 @@ entry:
   %call = call %opencl.queue_t.1* @_Z17get_default_queuev() #0
   call void @_Z10ndrange_1Dmmm(%struct.ndrange_t.2* %ndrange, i64 0, i64 1, i64 0)
   %block = call %opencl.block* @spir_block_bind(i8* bitcast (void (i8*)* @__block_empty_block_invoke to i8*), i32 0, i32 0, i8* null)
-  %call1 = call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t.1* %call, i32 1, %struct.ndrange_t.2* %ndrange, i32 0, %opencl.clk_event_t.3* addrspace(4)* null, %opencl.clk_event_t.3* addrspace(4)* null, %opencl.block* %block)
+  %call1 = call i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPS1_U13block_pointerFvvE(%opencl.queue_t.1* %call, i32 1, %struct.ndrange_t.2* %ndrange, i32 0, %opencl.clk_event_t.3* addrspace(4)* null, %opencl.clk_event_t.3* addrspace(4)* null, %opencl.block* %block)
   ret void
 }
 
@@ -47,7 +47,7 @@ declare void @_Z10ndrange_1Dmmm(%struct.ndrange_t.2*, i64, i64, i64)
 
 declare %opencl.block* @spir_block_bind(i8*, i32, i32, i8*)
 
-declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t.1*, i32, %struct.ndrange_t.2*, i32, %opencl.clk_event_t.3* addrspace(4)*, %opencl.clk_event_t.3* addrspace(4)*, %opencl.block*)
+declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPS1_U13block_pointerFvvE(%opencl.queue_t.1*, i32, %struct.ndrange_t.2*, i32, %opencl.clk_event_t.3* addrspace(4)*, %opencl.clk_event_t.3* addrspace(4)*, %opencl.block*)
 
 attributes #0 = { nounwind }
 

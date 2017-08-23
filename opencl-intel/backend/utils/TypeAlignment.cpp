@@ -6,11 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 
 #include "TypeAlignment.h"
-#if defined(__APPLE__)
-  #include "OpenCL/cl.h"
-#else
-  #include "CL/cl.h"
-#endif
+#include "CL/cl.h"
 
 #include <assert.h>
 
@@ -60,6 +56,7 @@ size_t TypeAlignment::getSize(const cl_kernel_argument& arg) {
   case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
   case CL_KRNL_ARG_PTR_BLOCK_LITERAL:
   case CL_KRNL_ARG_PTR_QUEUE_T:
+  case CL_KRNL_ARG_PTR_SAMPLER_T:
   case CL_KRNL_ARG_PTR_PIPE_T:
   case CL_KRNL_ARG_PTR_CLK_EVENT_T:
     return arg.size_in_bytes;

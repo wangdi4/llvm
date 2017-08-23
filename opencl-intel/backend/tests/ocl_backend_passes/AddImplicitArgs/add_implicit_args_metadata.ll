@@ -11,10 +11,9 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{!0, !1}
+!opencl.kernels = !{!0}
 
-!0 = !{void (i32)* @functionWithBody}
-!1 = !{void (i32, i32)* @functionWithoutBody}
+!0 = !{void (i32)* @functionWithBody, void (i32, i32)* @functionWithoutBody}
 
 
 ; CHECK:        declare void @functionWithoutBody(i32, i32)
@@ -29,6 +28,5 @@ entry:
 ; CHECK-NEXT:   %res = add i32 100, 10
 ; CHECK-NEXT:   ret void
 
-; CHECK:        !opencl.kernels = !{!0, !1}
-; CHECK:        !0 = !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody}
-; CHECK-NEXT:   !1 = !{void (i32, i32)* @functionWithoutBody}
+; CHECK:        !opencl.kernels = !{!0}
+; CHECK:        !0 = !{void (i32, i8 addrspace(3)*, { i32, [3 x i32], [3 x i32], [2 x [3 x i32]], [3 x i32], {}*, {}* }*, i32*, [4 x i32], i8*, {}*)* @functionWithBody, void (i32, i32)* @functionWithoutBody}

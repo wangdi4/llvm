@@ -55,9 +55,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     ICT_GET_GLOBAL_OFFSET,
     ICT_PRINTF,
     ICT_PREFETCH,
-    // int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags, const ndrange_t ndrange, void (^block)(local void *, ?), uint size0, ?)
+    // int enqueue_kernel_vaargs()
     ICT_ENQUEUE_KERNEL_LOCALMEM,
-    // int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t ndrange, uint num_events_in_wait_list, const clk_event_t *event_wait_list, clk_event_t *event_ret, void (^block)(local void *, ?), uint size0, ?)
+    // int enqueue_kernel_events_vaargs()
     ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM,
     ICT_NUMBER
  };
@@ -114,7 +114,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// @brief Destructor
     ~ImplicitArgsUtils() {}
 
-#ifndef __APPLE__
     /// @brief Creates implicit arguments based on the implicit arguments properties
     /// @param pDest          A buffer that should hold the values of the implicit arguments
     void createImplicitArgs(char* pDest);
@@ -123,7 +122,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   
     /// @brief Initialized the work item local IDs
     static void initWILocalIds(size_t dim, const size_t* pLocalSizes, const unsigned int packetWidth, size_t* pWIids);
-#endif //#ifndef __APPLE__
     // getAdjustedAlignemnt - Returns a value which is >= 'offset' for the offset
     // of the implicit args from the start of the kernel uniform args. Used to
     // ensure the implicit args is located at a  correctly aligned address.

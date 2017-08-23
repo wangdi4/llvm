@@ -10,7 +10,7 @@
 ; CHECK: call void @llvm.memcpy.p0i8.p0i8.i32(i8* %AddrSpace, i8* %AddrSpace1, i32 1000, i32 1, i1 false)
 ; CHECK: ret
 
-; CHECK: declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture readonly, i32, i32, i1)
+; CHECK: declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture writeonly, i8* nocapture readonly, i32, i32, i1)
 
 declare void @llvm.memcpy.p4i8.p4i8.i32(i8 addrspace(4)*, i8 addrspace(4)*, i32, i32, i1)
 

@@ -116,12 +116,13 @@ def half_tan      : OclBuiltin<"half_tan",      (outs gentype:$ret), (ins gentyp
 }
 
 // OpenCL 1.2 rev 15, Table 6.9
-let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
-             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
 // native
 // Spec requires Data type to be ONLY float(f32) (not-double)
 // Double support is not in OpenCL 1.2 spec. It is Intel defined extension of spec
+let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
+             v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
+    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 def native_cos    : OclBuiltin<"native_cos",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_divide : OclBuiltin<"native_divide", (outs gentype:$ret), (ins gentype:$x, gentype:$y), [], [], 0, 0>;
 def native_exp    : OclBuiltin<"native_exp",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -136,7 +137,6 @@ def native_rsqrt  : OclBuiltin<"native_rsqrt",  (outs gentype:$ret), (ins gentyp
 def native_sin    : OclBuiltin<"native_sin",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_sqrt   : OclBuiltin<"native_sqrt",   (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_tan    : OclBuiltin<"native_tan",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
-let NeedForwardDecl = 1 in { /* work around the missing prototype in opencl.h */
 // extened native
 def native_acos          : OclBuiltin<"native_acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
 def native_acosh         : OclBuiltin<"native_acosh",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;

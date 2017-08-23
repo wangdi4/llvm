@@ -107,7 +107,7 @@ public:
         }
         llvm_unreachable("Unknown CPU!");
     }
-    const char*         GetCPUPrefix() const {
+    const char* GetCPUPrefix() const {
       if( Intel::CPU_SANDYBRIDGE == GetCPU() && !HasAVX1()) {
         // Use SSE4 if AVX1 is not supported
         return GetCPUPrefix(Intel::CPU_COREI7, m_is64BitOS != 0);
@@ -115,7 +115,7 @@ public:
         return GetCPUPrefix(m_CPU, m_is64BitOS != 0);
       }
     }
-    static const char*  GetCPUPrefix(ECPU CPU, bool is64BitOS) {
+    static const char* GetCPUPrefix(ECPU CPU, bool is64BitOS) {
         if (!is64BitOS) {
             switch(CPU) {
             default:
@@ -137,8 +137,7 @@ public:
             case CPU_KNL:
                 return "d3";
             case CPU_SKX:
-                llvm_unreachable("SKX on 32-bit OS is not supported so far!");
-                return 0;
+                return "x0";
             case MIC_KNC:
                 llvm_unreachable("No MIC SVML lib for 32-bit OS!");
                 return 0;

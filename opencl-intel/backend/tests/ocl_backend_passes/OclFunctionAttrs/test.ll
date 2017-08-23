@@ -29,26 +29,26 @@ define void @NonKernelFunc4(i32 addrspace(4)* noalias %X, i32 addrspace(1)* %G, 
 }
 
 ; kernel function is called by KernelFunc and more than one local-mem argument, so we cannot set NoAlias
-define void @KernelFuncCallee1(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2) nounwind {
+define void @KernelFuncCallee1(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 ; CHECK: define void @KernelFuncCallee1(i32 addrspace(1)* noalias %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2)
   ret void
 }
 
 ; kernel function is called by KernelFunc and has one local-mem argument, so we can set NoAlias
-define void @KernelFuncCallee2(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1) nounwind {
+define void @KernelFuncCallee2(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1) nounwind !kernel_arg_addr_space !7 !kernel_arg_access_qual !8 !kernel_arg_type !9 !kernel_arg_type_qual !10 !kernel_arg_name !11 {
 ; CHECK: define void @KernelFuncCallee2(i32 addrspace(1)* noalias %G, i32 %val, i32 addrspace(3)* noalias %L1)
   ret void
 }
 
 ; Kernel function has local-mem arguments and is not called by other functions, so we can set NoAlias
-define void @KernelFunc(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2) nounwind {
+define void @KernelFunc(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L2) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 ; CHECK: define void @KernelFunc(i32 addrspace(1)* noalias %G, i32 %val, i32 addrspace(3)* noalias %L1, i32 addrspace(3)* noalias %L2)
   call void @KernelFuncCallee1(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i32 addrspace(3)* %L1)
   call void @KernelFuncCallee2(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L2)
   ret void
 }
 
-!opencl.kernels = !{!0, !6, !12}
+!opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.spir.version = !{!13}
 !opencl.ocl.version = !{!14}
@@ -56,19 +56,17 @@ define void @KernelFunc(i32 addrspace(1)* %G, i32 %val, i32 addrspace(3)* %L1, i
 !opencl.used.optional.core.features = !{!15}
 !opencl.compiler.options = !{!15}
 
-!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*, i32 addrspace(3)*)* @KernelFuncCallee1, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 2, i32 0, i32 3, i32 3}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"int*", !"int*", !"int", !"int*", !"int*"}
-!4 = !{!"kernel_arg_type_qual", !"", !"const", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"G", !"C", !"val", !"L1", !"L2"}
-!6 = !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @KernelFuncCallee2, !7, !8, !9, !10, !11}
-!7 = !{!"kernel_arg_addr_space", i32 1, i32 2, i32 0, i32 3}
-!8 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none"}
-!9 = !{!"kernel_arg_type", !"int*", !"int*", !"int", !"int*"}
-!10 = !{!"kernel_arg_type_qual", !"", !"const", !"", !""}
-!11 = !{!"kernel_arg_name", !"G", !"C", !"val", !"L1"}
-!12 = !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*, i32 addrspace(3)*)* @KernelFunc, !1, !2, !3, !4, !5}
+!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*, i32 addrspace(3)*)* @KernelFuncCallee1, void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @KernelFuncCallee2, void (i32 addrspace(1)*, i32, i32 addrspace(3)*, i32 addrspace(3)*)* @KernelFunc}
+!1 = !{i32 1, i32 2, i32 0, i32 3, i32 3}
+!2 = !{!"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"int*", !"int*", !"int", !"int*", !"int*"}
+!4 = !{!"", !"const", !"", !"", !""}
+!5 = !{!"G", !"C", !"val", !"L1", !"L2"}
+!7 = !{i32 1, i32 2, i32 0, i32 3}
+!8 = !{!"none", !"none", !"none", !"none"}
+!9 = !{!"int*", !"int*", !"int", !"int*"}
+!10 = !{!"", !"const", !"", !""}
+!11 = !{!"G", !"C", !"val", !"L1"}
 !13 = !{i32 1, i32 0}
 !14 = !{i32 0, i32 0}
 !15 = !{}

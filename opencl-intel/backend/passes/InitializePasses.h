@@ -31,7 +31,6 @@ void initializeMICResolverPass(llvm::PassRegistry&);
 void initializeAVX512ResolverPass(llvm::PassRegistry&);
 void initializeOCLBuiltinPreVectorizationPassPass(llvm::PassRegistry&);
 void initializeSpecialCaseBuiltinResolverPass(llvm::PassRegistry&);
-void initializeAppleWIDepPrePacketizationPassPass(llvm::PassRegistry&);
 void initializeCLWGLoopBoundariesPass(llvm::PassRegistry&);
 void initializeCLWGLoopCreatorPass(llvm::PassRegistry&);
 void initializeCLStreamSamplerPass(llvm::PassRegistry&);
@@ -92,6 +91,7 @@ void initializePrintfArgumentsPromotionPass(llvm::PassRegistry&);
 void initializeBlockToFuncPtrPass(llvm::PassRegistry&);
 void initializeChannelPipeTransformationPass(llvm::PassRegistry&);
 void initializePipeSupportPass(llvm::PassRegistry&);
+void initializeFMASplitterPass(llvm::PassRegistry&);
 }
 
 #endif

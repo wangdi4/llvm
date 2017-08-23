@@ -49,7 +49,7 @@ public:
     WIAnalysis(unsigned int vectorizationDimension);
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "WIAnalysis";
     }
 
@@ -178,7 +178,7 @@ private:
       AU.setPreservesAll();
       AU.addRequired<SoaAllocaAnalysis>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<PostDominatorTree>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }

@@ -45,7 +45,7 @@ namespace {
                 isVar=1;
                 continue;
             }
-            if(!isVar==1||input[i]==',')//if input[i] is not letter
+            if(!(isVar==1)||input[i]==',')//if input[i] is not letter
             {
                 output+=input[i];
             }

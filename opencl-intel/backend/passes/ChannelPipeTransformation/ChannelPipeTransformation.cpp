@@ -82,6 +82,9 @@ ChannelPipeTransformation::ChannelPipeTransformation() : ModulePass(ID) {
 static void getPipesMetadata(const Module &M,
                              ValueToValueMap &ChannelToPipeMap,
                              PipeMetadataMap &PipesMD) {
+  // ToDo: Use MetadataAPI for collecting the data,
+  // once clang emits 4.0-style of Metadata for channels (attached to global objects),
+  // this all will turn into a dozen of lines of well-supported code.
   auto *MDs = M.getNamedMetadata("opencl.channels");
   if (!MDs) {
     llvm_unreachable("'opencl.channels' metadata not found.");

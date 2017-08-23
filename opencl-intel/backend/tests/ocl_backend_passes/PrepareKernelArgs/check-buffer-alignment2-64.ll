@@ -5,7 +5,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %struct.struct1 = type <{i8, i8, i8}>
 
 ; CHECK: @t1
-define void @t1(%struct.struct1* %arg1, <2 x i8> %arg2, i32 %arg3, <8 x i16> %arg4, i8 %arg5, i32* %arg6 ) nounwind {
+define void @t1(%struct.struct1* %arg1, <2 x i8> %arg2, i32 %arg3, <8 x i16> %arg4, i8 %arg5, i32* %arg6 ) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 {
 entry:
   ret void
 }
@@ -52,12 +52,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"My_struct1", !"char2", !"int", !"short8", !"char", !"int*"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !"", !"", !""}
-!5 = !{!"kernel_arg_name", !"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6"}
+!0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1}
+!1 = !{i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
+!2 = !{!"none", !"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"My_struct1", !"char2", !"int", !"short8", !"char", !"int*"}
+!4 = !{!"", !"", !"", !"", !"", !""}
+!5 = !{!"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}

@@ -14,5 +14,5 @@ install( FILES
     pipe_tests.cl
     DESTINATION ${INSTALL_DIR} )
 
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 install( TARGETS ${TARGET} DESTINATION ${INSTALL_DIR} )
-

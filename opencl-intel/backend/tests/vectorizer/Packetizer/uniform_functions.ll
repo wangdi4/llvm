@@ -10,10 +10,10 @@ target triple = "i686-pc-win32"
 declare i32 @_Z13get_global_idj(i32) nounwind readnone
 declare i32 @async_work_group_copy(float addrspace(3)*, float addrspace(1)*, i32, i32)
 declare i32 @async_work_group_strided_copy(float addrspace(3)*, float addrspace(1)*, i32, i32, i32)
-declare i32 @_Z21async_work_group_copyPU3AS3fPKU3AS1fjj(float addrspace(3)*, float addrspace(1)*, i32, i32)
-declare i32 @_Z21async_work_group_copyPU3AS1fPKU3AS3fjj(float addrspace(1)*, float addrspace(3)*, i32, i32)
-declare i32 @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjjj(float addrspace(3)*, float addrspace(1)*, i32, i32, i32)
-declare i32 @_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj(float addrspace(1)*, float addrspace(3)*, i32, i32, i32)
+declare i32 @_Z21async_work_group_copyPU3AS3fPU3AS1Kfjj(float addrspace(3)*, float addrspace(1)*, i32, i32)
+declare i32 @_Z21async_work_group_copyPU3AS1fPU3AS3Kfjj(float addrspace(1)*, float addrspace(3)*, i32, i32)
+declare i32 @_Z29async_work_group_strided_copyPU3AS3fPU3AS1Kfjjj(float addrspace(3)*, float addrspace(1)*, i32, i32, i32)
+declare i32 @_Z29async_work_group_strided_copyPU3AS1fPU3AS3Kfjjj(float addrspace(1)*, float addrspace(3)*, i32, i32, i32)
 declare void @_Z17wait_group_eventsiPj(i32, i32*)
 declare void @mem_fence(i32)
 declare void @read_mem_fence(i32)
@@ -43,7 +43,7 @@ entry:
 }
 
 ; CHECK: @test_async_global2local
-; CHECK:      @_Z21async_work_group_copyPU3AS3fPKU3AS1fjj
+; CHECK:      @_Z21async_work_group_copyPU3AS3fPU3AS1Kfjj
 ; CHECK-NEXT: @_Z17wait_group_eventsiPj
 ; CHECK-NEXT: ret
 
@@ -58,13 +58,13 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
-  %call3 = tail call i32 @_Z21async_work_group_copyPU3AS3fPKU3AS1fjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 0) nounwind
+  %call3 = tail call i32 @_Z21async_work_group_copyPU3AS3fPU3AS1Kfjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }
 
 ; CHECK: @test_async_local2global
-; CHECK:      @_Z21async_work_group_copyPU3AS1fPKU3AS3fjj
+; CHECK:      @_Z21async_work_group_copyPU3AS1fPU3AS3Kfjj
 ; CHECK-NEXT: @_Z17wait_group_eventsiPj
 ; CHECK-NEXT: ret
 
@@ -79,7 +79,7 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
   store float %add, float addrspace(1)* %arrayidx2, align 4
-  %call3 = tail call i32 @_Z21async_work_group_copyPU3AS1fPKU3AS3fjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 0) nounwind
+  %call3 = tail call i32 @_Z21async_work_group_copyPU3AS1fPU3AS3Kfjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }
@@ -100,7 +100,7 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
-  @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjj9ocl_event(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
+  @_Z29async_work_group_strided_copyPU3AS3fPU3AS1Kfjj9ocl_event(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }
@@ -116,13 +116,13 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float, float addrspace(3)* %memC, i32 %call
   store float %add, float addrspace(3)* %arrayidx2, align 4
-  %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS3fPKU3AS1fjjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
+  %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS3fPU3AS1Kfjjj(float addrspace(3)* %memC, float addrspace(1)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }
 
 ; CHECK: @test_async_strided_local2global
-; CHECK:      @_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj
+; CHECK:      @_Z29async_work_group_strided_copyPU3AS1fPU3AS3Kfjjj
 ; CHECK-NEXT: @_Z17wait_group_eventsiPj
 ; CHECK-NEXT: ret
 
@@ -137,7 +137,7 @@ entry:
   %add = fadd float %0, %mul
   %arrayidx2 = getelementptr inbounds float, float addrspace(1)* %memC, i32 %call
   store float %add, float addrspace(1)* %arrayidx2, align 4
-  %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS1fPKU3AS3fjjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 1, i32 0) nounwind
+  %call3 = tail call i32 @_Z29async_work_group_strided_copyPU3AS1fPU3AS3Kfjjj(float addrspace(1)* %memC, float addrspace(3)* %memA, i32 1, i32 1, i32 0) nounwind
   tail call void @_Z17wait_group_eventsiPj(i32 1, i32* null) nounwind
   ret void
 }

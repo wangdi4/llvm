@@ -15,11 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <list>
 #include <string>
 
-#if defined(__APPLE__)
-  #include <OpenCL/cl.h>
-#else
-  #include <CL/cl.h>
-#endif
+#include <CL/cl.h>
 
 #define CLK_LOCAL_MEM_FENCE (CL_LOCAL)
 #define CLK_GLOBAL_MEM_FENCE (CL_GLOBAL)
@@ -47,6 +43,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @param  pFunc - function to be checked
   /// @returns  true if the check is successful or false otherwise
   bool isGenericAddrBI(const Function *pFunc);
+
+  /// @brief  Checks if a function really need to be processed by GAS resolution
+  /// @param  pFunc - function to be checked
+  /// @returns  true if the check is successful or false otherwise
+  bool needToSkipResolution(const Function *pFunc);
 
   /// @brief  Sorts all functions defined in the module in the call-graph order
   /// @param  pModule        - module whose functions are to be sorted
@@ -96,7 +97,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend { namespace Passes 
   /// @param  pInstr   - instruction of the warning, or NULL
   /// @param  pModule  - module whose metadata should be created/appended
   /// @param  pContext - current context
-  void emitWarning(std::string warning, Instruction *pInstr, Module *pModule,
+  void emitWarning(std::string warning, Instruction *pInstr, llvm::SmallVectorImpl<int> &GASWarnings,
                    LLVMContext *pContext);
 
   /// @brief  Helper for check of pointer array case

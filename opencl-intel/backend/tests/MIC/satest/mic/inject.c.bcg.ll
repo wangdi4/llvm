@@ -85,7 +85,7 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
 !10 = !{!"kernel_wrapper", void (i8*)* @zero_imm}
 !11 = !{!"float", !12}
 !12 = !{!"omnipotent char", !13}
-!13 = !{!"Simple C/C++ TBAA", null}
+!13 = !{!"Simple C/C++ TBAA"}
 !14 = !{!"double", !12}
 
 !15 = !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, !16}

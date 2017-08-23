@@ -162,7 +162,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     {
     public:        
 
-        KernelArg() : m_pValueLocation(nullptr), m_bValid(false) {}
+        KernelArg() : m_pValueLocation(NULL), m_bValid(false) {}
         
         void Init( char* baseAddress, const cl_kernel_argument& clKernelArgType );
 
@@ -180,22 +180,26 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void                SetSvmObject( const SharedPtr<ReferenceCountedObject>& svmMemObj ) { m_pSvmPtrArg = svmMemObj; }
 
         size_t              GetLocalBufferSize() const
-            { assert( IsLocalPtr() && (nullptr!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
+            { assert( IsLocalPtr() && (NULL!=m_pValueLocation) && "Not a local PTR or value location is not set"); return *(size_t*)m_pValueLocation; }
 
-        bool                IsMemObject() const { return (CL_KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.type); }
-        bool                IsBuffer()    const { return ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type) || 
-                                                          (CL_KRNL_ARG_PTR_CONST  == m_clKernelArgType.type)); }
-        bool                IsImage()     const { return ((CL_KRNL_ARG_PTR_IMG_2D <= m_clKernelArgType.type) && 
-                                                          (CL_KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.type)); }
-        bool                IsSampler()   const { return (CL_KRNL_ARG_SAMPLER == m_clKernelArgType.type); }
-        bool                IsLocalPtr()  const { return (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type); }
+        bool                IsMemObject()     const { return (CL_KRNL_ARG_PTR_GLOBAL  <= m_clKernelArgType.type); }
+        bool                IsBuffer()        const { return ((CL_KRNL_ARG_PTR_GLOBAL == m_clKernelArgType.type) ||
+                                                              (CL_KRNL_ARG_PTR_CONST  == m_clKernelArgType.type)); }
+        bool                IsImage()         const { return ((CL_KRNL_ARG_PTR_IMG_2D     <= m_clKernelArgType.type) &&
+                                                              (CL_KRNL_ARG_PTR_IMG_1D_BUF >= m_clKernelArgType.type)); }
+        bool                IsSampler()       const { return (IsOpaqueSampler() || IsInt32Sampler()); }
+
+        bool                IsOpaqueSampler() const { return (CL_KRNL_ARG_PTR_SAMPLER_T == m_clKernelArgType.type); }
+        bool                IsInt32Sampler()  const { return (   CL_KRNL_ARG_SAMPLER    == m_clKernelArgType.type); }
+
+        bool                IsLocalPtr()      const { return (CL_KRNL_ARG_PTR_LOCAL == m_clKernelArgType.type); }
         
 
-        bool                IsValid()     const { return m_bValid; }
+        bool                IsValid()         const { return m_bValid; }
 
-        bool                IsSvmPtr()    const { return (0 != m_pSvmPtrArg); }
+        bool                IsSvmPtr()        const { return (0 != m_pSvmPtrArg); }
 
-        bool                IsQueueId()   const { return CL_KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.type; }
+        bool                IsQueueId()       const { return CL_KRNL_ARG_PTR_QUEUE_T == m_clKernelArgType.type; }
 
     private:
         void SetValuePlaceHolder( void * pValuePlaceHolder, size_t offset );

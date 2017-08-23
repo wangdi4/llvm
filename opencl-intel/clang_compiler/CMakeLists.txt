@@ -25,16 +25,15 @@ set(TARGET_INCLUDE_FILES
     clang_compiler.h
     clang_device_info.h
     clang_driver.h
+    SPIRMaterializer.h
     resource.h
-    stdafx.h
-    targetver.h
 )
 
 set(TARGET_SOURCE_FILES
     clang_compiler.cpp
     clang_compiler.rc
     clang_driver.cpp
-    stdafx.cpp
+    SPIRMaterializer.cpp
 )
 
 #
@@ -53,7 +52,7 @@ endif(NOT WIN32)
 include_directories( AFTER
             ${LLVM_INCLUDE_DIRS}
             ${LLVM_INCLUDE_DIRS}/cclang
-            ${CMAKE_SOURCE_DIR}/backend/metadata_api
+            ${CMAKE_SOURCE_DIR}/backend/name_mangling
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
             ${CMAKE_SOURCE_DIR}/backend/ocl_cpu_backend/export
             ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
@@ -88,7 +87,7 @@ target_link_libraries( ${TARGET_NAME}
                         OclPluginManager
                         CacheBinaryHandler
                         CLElfLib
-                        metadataapi
+                        name_mangle
                         dynamic_load
                         cl_logger${EXPERIMENTAL_POSTFIX}
                         cl_sys_utils

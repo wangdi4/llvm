@@ -21,7 +21,7 @@ struct CPUID_PARAMS {
     unsigned long long   m_rdx;
 } __attribute__ ((packed));
 
-#if !defined(_M_X64) && !defined(__LP64__) && !defined(__APPLE__)
+#if !defined(_M_X64) && !defined(__LP64__)
 // we have a inline assembler implementation for non windows 32 bit platforms
 #define SAVE_EBX     "mov  %%ebx, %%edi\n\r"
 #define RESTORE_EBX  "xchg %%edi, %%ebx\n\r"
@@ -82,7 +82,7 @@ extern "C" void  hw_cpuid(CPUID_PARAMS *params)
 }
 #endif
 
-#if defined(_M_X64) || defined(__LP64__) || defined(__APPLE__)
+#if defined(_M_X64) || defined(__LP64__)
 
 #if defined(_M_X64)
   #pragma pack (1)

@@ -5,7 +5,7 @@ target triple = "x86_64-pc-linux"
 @.str = private unnamed_addr constant [4 x i8] c"%d\0A\00", align 1
 
 ; Function Attrs: nounwind
-define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b, float addrspace(1)* nocapture %c, i32 %iNumElements) #0 {
+define void @A(float addrspace(1)* nocapture %a, float addrspace(1)* nocapture %b, float addrspace(1)* nocapture %c, i32 %iNumElements) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !barrier_buffer_size !12 !kernel_execution_length !13 !kernel_has_barrier !14 !no_barrier_path !15 !vectorized_width !17 {
 ; CHECK: define void @A
 ; CHECK: %temp_arg_buf = alloca [4 x i8]
 ; CHECK: [[GEP0:%[a-zA-Z0-9_]+]] = getelementptr inbounds [4 x i8], [4 x i8]* %temp_arg_buf, i32 0, i32 0
@@ -29,26 +29,19 @@ attributes #0 = { nounwind }
 !opencl.used.extensions = !{!8}
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
-!opencl.kernel_info = !{!9}
 !llvm.functions_info = !{}
 
-!0 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @A, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 1, i32 1, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"float*", !"float*", !"float*", !"int"}
-!4 = !{!"kernel_arg_type_qual", !"const", !"const", !"", !""}
-!5 = !{!"kernel_arg_name", !"a", !"b", !"c", !"iNumElements"}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @A}
+!1 = !{i32 1, i32 1, i32 1, i32 0}
+!2 = !{!"none", !"none", !"none", !"none"}
+!3 = !{!"float*", !"float*", !"float*", !"int"}
+!4 = !{!"const", !"const", !"", !""}
+!5 = !{!"a", !"b", !"c", !"iNumElements"}
 !6 = !{i32 1, i32 0}
 !7 = !{i32 0, i32 0}
 !8 = !{}
-!9 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*, i32)* @A, !10}
-!10 = !{!11, !12, !13, !14, !15, !16, !17, !18, !19}
-!11 = !{!"local_buffer_size", null}
-!12 = !{!"barrier_buffer_size", i32 0}
-!13 = !{!"kernel_execution_length", i32 2}
-!14 = !{!"kernel_has_barrier", i1 false}
-!15 = !{!"no_barrier_path", i1 true}
-!16 = !{!"vectorized_kernel", null}
-!17 = !{!"vectorized_width", i32 4}
-!18 = !{!"kernel_wrapper", null}
-!19 = !{!"scalarized_kernel", null}
+!12 = !{i32 0}
+!13 = !{i32 2}
+!14 = !{i1 false}
+!15 = !{i1 true}
+!17 = !{i32 4}

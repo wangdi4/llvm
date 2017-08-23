@@ -9,7 +9,8 @@ entry:
   ret i32 %X
 }
 
-define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind {
+; CHECK-NOT: max_wg_dimensions
+define void @A(i32 addrspace(1)* nocapture %A, i32 addrspace(1)* nocapture %B) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 !kernel_execution_length !14 !kernel_has_barrier !16 !no_barrier_path !17 !vectorized_width !19 {
 entry:
   %gid = tail call i64 @_Z13get_global_idj(i32 0) nounwind readnone
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %B, i64 %gid
@@ -28,31 +29,19 @@ declare i64 @_Z13get_global_idj(i32) nounwind readnone
 !opencl.used.extensions = !{!9}
 !opencl.used.optional.core.features = !{!9}
 !opencl.compiler.options = !{!9}
-!opencl.kernel_info = !{!10}
-!opencl.module_info_list = !{}
 !llvm.functions_info = !{}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A, !1, !2, !3, !4, !5, !6}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 1}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"int*", !"int*"}
-!4 = !{!"kernel_arg_type_qual", !"", !""}
-!5 = !{!"kernel_arg_base_type", !"int*", !"int*"}
-!6 = !{!"kernel_arg_name", !"A", !"B"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A}
+!1 = !{i32 1, i32 1}
+!2 = !{!"none", !"none"}
+!3 = !{!"int*", !"int*"}
+!4 = !{!"", !""}
+!5 = !{!"int*", !"int*"}
+!6 = !{!"A", !"B"}
 !7 = !{i32 1, i32 0}
 !8 = !{i32 0, i32 0}
 !9 = !{}
-!10 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @A, !11}
-!11 = !{!12, !13, !14, !15, !16, !17, !18, !19, !20, !21}
-; CHECK: !11 = !{!12, !13, !14, !15, !16, !17, !18, !19, !20, !21}
-!12 = !{!"local_buffer_size", null}
-!13 = !{!"barrier_buffer_size", null}
-!14 = !{!"kernel_execution_length", i32 2}
-!15 = !{!"max_wg_dimensions", null}
-; CHECK: !15 = !{!"max_wg_dimensions", null}
-!16 = !{!"kernel_has_barrier", i1 false}
-!17 = !{!"no_barrier_path", i1 true}
-!18 = !{!"vectorized_kernel", null}
-!19 = !{!"vectorized_width", i32 1}
-!20 = !{!"kernel_wrapper", null}
-!21 = !{!"scalarized_kernel", null}
+!14 = !{i32 2}
+!16 = !{i1 false}
+!17 = !{i1 true}
+!19 = !{i32 1}

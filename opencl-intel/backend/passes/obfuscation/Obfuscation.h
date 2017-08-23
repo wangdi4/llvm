@@ -23,7 +23,9 @@ public:
 
   Obfuscation();
 
-  const char* getPassName()const;
+  virtual llvm::StringRef getPassName() const {
+    return "Module Obfuscator";
+}
 
   bool runOnModule(llvm::Module&);
 }; //End class Obfuscation

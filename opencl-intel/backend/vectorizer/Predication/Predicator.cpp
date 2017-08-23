@@ -60,9 +60,9 @@ const int MAX_NUMBER_OF_BLOCKS_IN_AN_ALLONES_BYPASS = 6;
 
 OCL_INITIALIZE_PASS_BEGIN(Predicator, "predicate", "Predicate Function", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontier)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominanceFrontierWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(OCLBranchProbability)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -995,7 +995,8 @@ void Predicator::collectInstructionsToPredicate(BasicBlock *BB) {
   // For each BB
   // Obtain loop analysis (are we inside a loop ?)
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTreeWrapperPass &PDTPass = getAnalysis<PostDominatorTreeWrapperPass>();
+  PostDominatorTree *PDT = &PDTPass.getPostDomTree();
 
   V_ASSERT(LI && "Unable to get loop analysis");
   Loop* loop = LI->getLoopFor(BB);
@@ -1480,7 +1481,7 @@ bool Predicator::isUCFRegion(BasicBlock * const entryBB, BasicBlock * const exit
 
 void Predicator::collectUCFRegions(Function* F, LoopInfo * LI,
                                    PostDominatorTree * PDT,
-                                   DominatorTree *  DT) {
+                                   DominatorTree * DT) {
   // Go over divergent regions identified by WIAnalysys and collect largest UCF regions
   // nested inside divergent regions.
   SchdConstMap & predSched = m_WIA->getSchedulingConstraints();
@@ -1897,7 +1898,7 @@ bool Predicator::checkCanonicalForm(Function *F, LoopInfo *LI) {
 }
 
 void Predicator::markLoopsThatBeginsWithFullMaskAsZeroBypassed() {
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   for (LoopInfo::iterator it = LI->begin(), e = LI->end();
@@ -1945,7 +1946,7 @@ void Predicator::predicateFunction(Function *F) {
   m_ucfSchedulingConstraints.clear();
 
   // Get Dominator and Post-Dominator analysis passes
-  PostDominatorTree* PDT = &getAnalysis<PostDominatorTree>();
+  PostDominatorTree* PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
   DominatorTree* DT      = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_DT = DT; // save the dominator tree.
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -2279,7 +2280,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
         bbIt != bbEnd; ++bbIt) {
     BasicBlock * cloneBB = *bbIt;
     for (BasicBlock::iterator ii = cloneBB->begin(); ii != cloneBB->end(); ++ii)
-      RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingEntries);
+      RemapInstruction(&*ii, clonesMap, RF_IgnoreMissingLocals);
   }
 
   // Create conditional branch to the original and cloned UCF entry BBs
@@ -2307,7 +2308,7 @@ void Predicator::insertAllOnesBypassesUCFRegion(BasicBlock * const ucfEntryBB) {
   // Update refereneces in the outside users
   for(SmallVector<Instruction *, 16>::iterator userIt = outsideUsers.begin(), userEnd = outsideUsers.end();
         userIt != userEnd; ++userIt) {
-    RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingEntries);
+    RemapInstruction(*userIt, outsidersMap, RF_IgnoreMissingLocals);
   }
   // Unpredicate the cloned UCF region
   for(std::set<BasicBlock *>::iterator ucfIt = originalUCF.begin(), ucfEnd = originalUCF.end();
@@ -2358,7 +2359,6 @@ void Predicator::insertAllOnesBypassesSingleBlockLoopCase(BasicBlock* original) 
  BasicBlock* entry2 = BasicBlock::Create(original->getContext(),
     "predicated_entry_"+original->getName(), original->getParent(), original);
 
-  V_ASSERT(original->getNextNode() && "expecting a next node");
   BasicBlock* exit = BasicBlock::Create(original->getContext(),
     "post_"+original->getName(), original->getParent(), original->getNextNode());
 
@@ -2703,7 +2703,6 @@ void Predicator::insertAllOnesBypasses() {
 
       BasicBlock* entry = BasicBlock::Create(original->getContext(),
         "pre_"+original->getName(), original->getParent(), allOnes);
-      V_ASSERT(original->getNextNode() && "expecting a next node");
       BasicBlock* exit = BasicBlock::Create(original->getContext(),
         "post_"+original->getName(), original->getParent(), original->getNextNode());
 

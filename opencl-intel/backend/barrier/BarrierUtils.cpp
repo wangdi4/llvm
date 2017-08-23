@@ -6,7 +6,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "BarrierUtils.h"
 #include "CompilationUtils.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
@@ -207,44 +207,36 @@ namespace intel {
     return m_syncFunctions;
   }
 
-  TFunctionVector& BarrierUtils::getAllKernelFunctions() {
+  TFunctionVector& BarrierUtils::getAllKernelsWithBarrier() {
+    using namespace Intel::MetadataAPI;
+
+    auto Kernels = KernelList(m_pModule);
+
     //Clear old collected data!
     m_kernelFunctions.clear();
-    Intel::MetaDataUtils mdUtils(m_pModule);
-    if ( !mdUtils.isKernelsHasValue() ) {
-      //Module contains no kernels, thus it contains no kernels
+    if (Kernels.empty()) {
       return m_kernelFunctions;
     }
 
     // Get the kernels using the barrier for work group loops.
-    Intel::MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    Intel::MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      Function *pFunc = (*itr)->getFunction();
-      if (mdUtils.isKernelsInfoHasValue()) {
-        if (mdUtils.findKernelsInfoItem(pFunc) != mdUtils.end_KernelsInfo()) {
-          Intel::KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
-          //Need to check if NoBarrierPath Value exists, it is not guaranteed that
-          //KernelAnalysisPass is running in all scenarios.
-          if (kimd->isNoBarrierPathHasValue() && kimd->getNoBarrierPath()) {
-            //Kernel that should not be handled in Barrier path, skip it.
-            continue;
-          }
-        }
+    for (auto pFunc : Kernels) {
+      auto kimd = KernelInternalMetadataAPI(pFunc);
+      //Need to check if NoBarrierPath Value exists, it is not guaranteed that
+      //KernelAnalysisPass is running in all scenarios.
+      if (kimd.NoBarrierPath.hasValue() && kimd.NoBarrierPath.get()) {
+        //Kernel that should not be handled in Barrier path, skip it.
+        continue;
       }
       //Add kernel to the list
       //Currently no check if kernel already added to the list!
       m_kernelFunctions.push_back(pFunc);
     }
 
-    for (Intel::MetaDataUtils::KernelsInfoMap::const_iterator
-             itr = mdUtils.begin_KernelsInfo(),
-             end = mdUtils.end_KernelsInfo();
-         itr != end; ++itr) {
-      const Function *pFunc = itr->first;
-      Intel::KernelInfoMetaDataHandle kimd = itr->second;
-      m_kernelVectorizationWidths[pFunc] = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+    for (auto pFunc : Kernels) {
+      auto kimd = KernelInternalMetadataAPI(pFunc);
+      m_kernelVectorizationWidths[pFunc] = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
     }
+
     return m_kernelFunctions;
   }
 

@@ -23,7 +23,7 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown"
 
-@mykernel.x = internal addrspace(3) global [100 x i8] undef, align 1
+@mykernel.x = internal addrspace(3) global [100 x i8] undef, align 1, !dbg !14
 
 ; Function Attrs: nounwind
 define spir_func void @f1(i8 addrspace(3)* %a) #0 !dbg !4 {
@@ -58,21 +58,21 @@ attributes #1 = { nounwind readnone }
 !opencl.compiler.options = !{!2}
 !llvm.ident = !{!27}
 
-!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, subprograms: !3, globals: !13)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.8.1 ", isOptimized: false, runtimeVersion: 0, emissionKind: 1, enums: !2, globals: !13)
 !1 = !DIFile(filename: "../<stdin>", directory: "/home/chbessonova/repos/src")
 !2 = !{}
 !3 = !{!4, !10}
-!4 = distinct !DISubprogram(name: "f1", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, variables: !2)
+!4 = distinct !DISubprogram(name: "f1", scope: !5, file: !5, line: 1, type: !6, isLocal: false, isDefinition: true, scopeLine: 1, flags: DIFlagPrototyped, isOptimized: false, unit: !0, variables: !2)
 !5 = !DIFile(filename: "../debugInfo.cl", directory: "/home/chbessonova/repos/src")
 !6 = !DISubroutineType(types: !7)
 !7 = !{null, !8}
 !8 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !9, size: 64, align: 64)
 !9 = !DIBasicType(name: "char", size: 8, align: 8, encoding: DW_ATE_signed_char)
-!10 = distinct !DISubprogram(name: "mykernel", scope: !5, file: !5, line: 4, type: !11, isLocal: false, isDefinition: true, scopeLine: 4, isOptimized: false, variables: !2)
+!10 = distinct !DISubprogram(name: "mykernel", scope: !5, file: !5, line: 4, type: !11, isLocal: false, isDefinition: true, scopeLine: 4, isOptimized: false, unit: !0, variables: !2)
 !11 = !DISubroutineType(types: !12)
 !12 = !{null}
 !13 = !{!14}
-!14 = !DIGlobalVariable(name: "x", scope: !10, file: !5, line: 5, type: !15, isLocal: true, isDefinition: true, variable: [100 x i8] addrspace(3)* @mykernel.x)
+!14 = distinct !DIGlobalVariableExpression(var: !34)
 !15 = !DICompositeType(tag: DW_TAG_array_type, baseType: !9, size: 800, align: 8, elements: !16)
 !16 = !{!17}
 !17 = !DISubrange(count: 100)
@@ -92,3 +92,4 @@ attributes #1 = { nounwind readnone }
 !31 = !DILocation(line: 2, scope: !4)
 !32 = !DILocation(line: 6, scope: !10)
 !33 = !DILocation(line: 7, scope: !10)
+!34 = !DIGlobalVariable(name: "x", scope: !10, file: !5, line: 5, type: !15, isLocal: true, isDefinition: true)

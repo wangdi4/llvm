@@ -5,7 +5,7 @@
 ; for device execution builtins.
 ;***************************************************************************************
 ;
-; RUN: opt -S -block-to-func-ptr -runtimelib=%S/extended_execution_functions.rtl --verify < %s | FileCheck %s
+; RUN: opt -S -block-to-func-ptr -runtimelib=%S/extended_execution_functions.bc --verify < %s | FileCheck %s
 
 ; CHECK: declare {{.*}} @_Z14enqueue_kernel{{.*}}, void ()*)
 ; CHECK: [[TOFUNCPTR:.*]] = bitcast %opencl.block* {{.*}} to  void ()*
@@ -55,7 +55,7 @@ entry:
   %0 = bitcast %0* %captured to i8*
   %AddrSpace = addrspacecast %opencl.clk_event_t* addrspace(4)* null to %opencl.clk_event_t* addrspace(1)*
   %AddrSpace1 = addrspacecast %opencl.clk_event_t* addrspace(4)* null to %opencl.clk_event_t* addrspace(1)*
-  %1 = call spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvvE(%opencl.queue_t* %call, i32 1, %struct.ndrange_t* %agg.tmp, i32 0, %opencl.clk_event_t* addrspace(1)* %AddrSpace, %opencl.clk_event_t* addrspace(1)* %AddrSpace1, %opencl.block* %objc.to.spir.cast)
+  %1 = call spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS1K12ocl_clkeventPU3AS1S2_U13block_pointerFvvE(%opencl.queue_t* %call, i32 1, %struct.ndrange_t* %agg.tmp, i32 0, %opencl.clk_event_t* addrspace(1)* %AddrSpace, %opencl.clk_event_t* addrspace(1)* %AddrSpace1, %opencl.block* %objc.to.spir.cast)
   ret void
 }
 
@@ -74,9 +74,9 @@ entry:
 
 declare spir_func void @_Z10ndrange_1Dmmm(%struct.ndrange_t*, i64, i64, i64)
 
-declare spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS412ocl_clkeventPU3AS412ocl_clkeventU13block_pointerFvvE(%opencl.queue_t*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, %opencl.block*)
+declare spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS4K12ocl_clkeventPU3AS4S2_U13block_pointerFvvE(%opencl.queue_t*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, %opencl.block*)
 
-declare spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvvE(%opencl.queue_t*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(1)*, %opencl.clk_event_t* addrspace(1)*, %opencl.block*)
+declare spir_func i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tjPU3AS1K12ocl_clkeventPU3AS1S2_U13block_pointerFvvE(%opencl.queue_t*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(1)*, %opencl.clk_event_t* addrspace(1)*, %opencl.block*)
 
 attributes #0 = { nounwind }
 

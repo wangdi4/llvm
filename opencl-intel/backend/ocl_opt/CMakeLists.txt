@@ -55,6 +55,7 @@ set(OCL_BE_PASSES
     OCLAliasAnalysis
     SPIR20BlocksToObjCBlocks
     PrintfArgumentsPromotion
+    FMASplitter
 )
 
 # Dependencies of the passes

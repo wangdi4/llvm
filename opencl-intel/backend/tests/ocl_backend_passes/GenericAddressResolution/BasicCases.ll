@@ -44,9 +44,8 @@
 
 ; CHECK: declare float @_Z5fractfPU3AS1f(float, float addrspace(1)*)
 
-; CHECK: !{{[0-9]+}} = !{!{{[0-9]+}}, ![[GASCount:[0-9]+]], ![[GASWarnings:[0-9]+]]}
-; CHECK: ![[GASCount]] = !{!"gen_addr_space_pointer_counter", i32 3}
-; CHECK: ![[GASWarnings]] = !{!"gen_addr_space_pointer_warnings"}
+; CHECK: !opencl.gen_addr_space_pointer_counter = !{![[GASCount:[0-9]+]]}
+; CHECK: ![[GASCount]] = !{i32 3}
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
@@ -152,8 +151,7 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
-!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @test, !1}
-!1 = !{!"argument_attribute", i32 0, i32 0, i32 0}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @test}
 !2 = !{!"-cl-std=CL2.0"}
 
 ;;  -----  BasicCases.cl   -------

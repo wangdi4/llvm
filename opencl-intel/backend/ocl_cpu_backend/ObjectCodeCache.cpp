@@ -24,7 +24,7 @@ File Name:  ObjectCodeCache.cpp
 #include "llvm/IR/Module.h"
 #include "llvm/Support/MemoryBuffer.h"
 
-#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 

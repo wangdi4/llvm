@@ -46,24 +46,6 @@ define void @foo(i32 %x) nounwind {
 declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
-!opencl.compiler.options = !{}
-!opencl.kernel_info = !{!6}
 !opencl.disabled.FP_CONTRACT = !{}
 
-!0 = !{void (i32)* @main, !1, !1, !"", !"int", !"opencl_main_locals_anchor", !2, !3, !4, !5, !""}
-!1 = !{i32 0, i32 0, i32 0}
-!2 = !{i32 0}
-!3 = !{i32 3}
-!4 = !{!"int"}
-!5 = !{!"x"}
-!6 = !{void (i32)* @main, !7}
-!7 = !{!8, !9, !10, !11, !12, !13, !14, !15, !16}
-!8 = !{!"local_buffer_size", null}
-!9 = !{!"barrier_buffer_size", null}
-!10 = !{!"kernel_execution_length", null}
-!11 = !{!"kernel_has_barrier", null}
-!12 = !{!"no_barrier_path", i1 false}
-!13 = !{!"vectorized_kernel", null}
-!14 = !{!"vectorized_width", null}
-!15 = !{!"kernel_wrapper", null}
-!16 = !{!"scalarized_kernel", null}
+!0 = !{void (i32)* @main}

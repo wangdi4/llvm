@@ -116,6 +116,6 @@ set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} PROPERTIE
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE} DESTINATION ${CREATE_DIR_NAME})
 install(FILES cpu_device_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 
 add_dependencies( ${TARGET} clang_compiler${BUILD_PLATFORM} )
