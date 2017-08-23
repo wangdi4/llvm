@@ -53,6 +53,7 @@ struct KernelMetadataAPI {
   typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> ReqdWorkGroupSizeTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> ReqdNumSubGroupsTy;
   typedef NamedHeteroTupleMDList<llvm::Type, int32_t> VecTypeHintTy;
+  typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VecLenHintTy;
 
   KernelMetadataAPI(llvm::Function *Func)
       : ArgAddressSpaceList(Func, "kernel_arg_addr_space"),
@@ -65,7 +66,8 @@ struct KernelMetadataAPI {
         WorkGroupSizeHint(Func, "work_group_size_hint"),
         ReqdWorkGroupSize(Func, "reqd_work_group_size"),
         ReqdNumSubGroups(Func, "required_num_sub_groups"),
-        VecTypeHint(Func, "vec_type_hint") {}
+        VecTypeHint(Func, "vec_type_hint"),
+        VecLenHint(Func, "intel_vec_len_hint") {}
 
   // required attributes
   ArgAddressSpaceListTy ArgAddressSpaceList;
@@ -80,6 +82,7 @@ struct KernelMetadataAPI {
   WorkgroupSizeMDAccessor<ReqdWorkGroupSizeTy> ReqdWorkGroupSize;
   NamedMDValueAccessor<ReqdNumSubGroupsTy> ReqdNumSubGroups;
   VecTypeHintTupleMDListAccessor<VecTypeHintTy> VecTypeHint;
+  NamedMDValueAccessor<VecLenHintTy> VecLenHint;
 };
 
 // internal attributes

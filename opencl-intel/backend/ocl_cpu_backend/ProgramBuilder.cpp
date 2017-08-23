@@ -384,6 +384,11 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributes << "required_num_sub_groups(" << reqdNumSG << ") ";
   }
 
+  if (kmd.VecLenHint.hasValue()) {
+    int32_t VecLen = kmd.VecLenHint.get();
+    kernelAttributes << "intel_vec_len_hint(" << VecLen << ") ";
+  }
+
   if (kmd.VecTypeHint.hasValue()) {
     Type *VTHTy = kmd.VecTypeHint.getType();
 

@@ -74,7 +74,7 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
 {
     using namespace Intel::OpenCL::DeviceBackend;
     return m_pConfigFile->Read(CL_CONFIG_CPU_VECTORIZER_MODE,
-                               static_cast<cl_int>(TRANSPOSE_SIZE_AUTO));
+                               static_cast<uint32_t>(TRANSPOSE_SIZE_NOT_SET));
 }
 
 bool CPUDeviceConfig::IsSpirSupported() const
@@ -181,6 +181,8 @@ const char* CPUDeviceConfig::GetExtensions() const
         {
             m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
         }
+
+        m_extensions += OCL_INTEL_VEC_LEN_HINT " ";
     }
 
     return m_extensions.c_str();

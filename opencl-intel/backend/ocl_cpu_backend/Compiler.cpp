@@ -526,51 +526,20 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
 {
     // Validate if the vectorized mode valid and supported by the target arch.
     // If not then issue an error and interrupt the build.
-    enum {
-      VALID,
-      INVALID,
-      UNSUPPORTED
-    } validity = VALID;
 
-    switch(m_transposeSize) {
-      default:
-        validity = INVALID;
-        break;
+    switch (m_CpuId.isTransposeSizeSupported(m_transposeSize)) {
+    case SUPPORTED:
+      return;
 
-      case TRANSPOSE_SIZE_AUTO:
-      case TRANSPOSE_SIZE_1:
-        validity = VALID;
-        break;
+    case INVALID:
+      log << "The specified vectorizer mode (" << m_transposeSize
+          << ") is invalid.\n";
+      break;
 
-      case TRANSPOSE_SIZE_4:
-        if(!m_CpuId.HasSSE41())
-          validity = UNSUPPORTED;
-        break;
-
-      case TRANSPOSE_SIZE_8:
-        if(!m_CpuId.HasAVX1())
-          validity = UNSUPPORTED;
-        break;
-
-      case TRANSPOSE_SIZE_16:
-        if(!m_CpuId.HasGatherScatter())
-          validity = UNSUPPORTED;
-        break;
-    }
-
-    switch(validity) {
-      case VALID:
-        return;
-
-      case INVALID:
-        log << "The specified vectorizer mode (" << m_transposeSize
-             << ") is invalid.\n";
-        break;
-
-      case UNSUPPORTED:
-        log << "The specified vectorizer mode (" << m_transposeSize
-             << ") is not supported by the target architecture.\n";
-        break;
+    case UNSUPPORTED:
+      log << "The specified vectorizer mode (" << m_transposeSize
+          << ") is not supported by the target architecture.\n";
+      break;
     }
     throw Exceptions::CompilerException("Failed to apply the vectorizer mode.",
                                         CL_DEV_INVALID_BUILD_OPTIONS);

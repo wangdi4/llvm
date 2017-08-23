@@ -1,11 +1,14 @@
 #ifndef __TARGET_HEADERS_H__
 #define __TARGET_HEADERS_H__
 
+#include "ICLDevBackendOptions.h"
 #include "llvm/Support/ErrorHandling.h"
 
 #include <cassert>
 #include <string>
 #include <utility>
+
+using namespace Intel::OpenCL::DeviceBackend;
 
 namespace Intel {
 // CPU enumeration
@@ -46,6 +49,9 @@ enum ECPUFeatureSupport {
     CFS_AVX512DQ = 1 << 15, // SKX
     CFS_AVX512VL = 1 << 16, // SKX
 };
+
+enum TransposeSizeSupport { SUPPORTED, UNSUPPORTED, INVALID };
+
 class CPUId {
 public:
     CPUId(): m_CPU(DEVICE_INVALID), m_CPUFeatures(0), m_is64BitOS(0) {}
@@ -63,7 +69,30 @@ public:
     unsigned GetCPUFeatureSupport() const {
         return m_CPUFeatures;
     }
-    static ECPU GetCPUByName(const char *CPUName) {
+
+    TransposeSizeSupport
+    isTransposeSizeSupported(ETransposeSize transposeSize) const {
+      switch (transposeSize) {
+      default:
+        return INVALID;
+
+      case TRANSPOSE_SIZE_NOT_SET:
+      case TRANSPOSE_SIZE_AUTO:
+      case TRANSPOSE_SIZE_1:
+        return SUPPORTED;
+
+      case TRANSPOSE_SIZE_4:
+        return HasSSE41() ? SUPPORTED : UNSUPPORTED;
+
+      case TRANSPOSE_SIZE_8:
+        return HasAVX1() ? SUPPORTED : UNSUPPORTED;
+
+      case TRANSPOSE_SIZE_16:
+        return HasGatherScatter() ? SUPPORTED : UNSUPPORTED;
+      }
+    }
+
+      static ECPU GetCPUByName(const char *CPUName) {
         std::string Name(CPUName);
         if (Name == "knl") return CPU_KNL;
         if (Name == "skx") return CPU_SKX;

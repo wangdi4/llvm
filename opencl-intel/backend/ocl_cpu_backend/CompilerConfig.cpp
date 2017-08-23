@@ -100,7 +100,7 @@ void GlobalCompilerConfig::ApplyRuntimeOptions(const ICLDevBackendOptions* pBack
 void CompilerConfig::LoadDefaults()
 {
     m_cpuArch = CPU_ARCH_AUTO;
-    m_transposeSize = TRANSPOSE_SIZE_AUTO;
+    m_transposeSize = TRANSPOSE_SIZE_NOT_SET;
     m_rtLoopUnrollFactor = 1;
     m_cpuFeatures = "";
     m_useVTune = true;

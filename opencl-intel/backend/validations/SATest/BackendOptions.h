@@ -92,7 +92,7 @@ public:
 
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
-        m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO);
+        m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET);
         m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "auto");
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);
@@ -189,7 +189,7 @@ class MICBackendOptions: public ICLDevBackendOptions
 public:
     void InitFromRunConfiguration(const BERunOptions& runConfig)
     {
-        m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_AUTO);
+        m_transposeSize = runConfig.GetValue<Intel::OpenCL::DeviceBackend::ETransposeSize>(RC_BR_TRANSPOSE_SIZE, TRANSPOSE_SIZE_NOT_SET);
         m_cpu           = runConfig.GetValue<std::string>(RC_BR_CPU_ARCHITECTURE, "knc");
         m_cpuFeatures   = runConfig.GetValue<std::string>(RC_BR_CPU_FEATURES, "");
         m_useVTune      = runConfig.GetValue<bool>(RC_BR_USE_VTUNE, false);

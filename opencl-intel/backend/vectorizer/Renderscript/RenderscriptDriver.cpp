@@ -96,7 +96,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
   initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   m_pCPUId = new Intel::CPUId();
   m_pConfig = new OptimizerConfig(*m_pCPUId,
-            0,
+            ETransposeSize::TRANSPOSE_SIZE_NOT_SET,
             std::vector<int>(),
             std::vector<int>(),
             "",
@@ -243,7 +243,7 @@ extern "C" intel::OptimizerConfig* createRenderscriptConfiguration(int width)
   Intel::CPUId cpuId(Intel::CPU_COREI7, Intel::CFS_SSE42, false);
 
   return new intel::OptimizerConfig(cpuId,
-            width,
+            ETransposeSize(width),
             dumpIROptionAfter,
             dumpIROptionBefore,
             dumpIRDir,
