@@ -308,11 +308,6 @@ RefParamType DemangleParser::createPointerType() {
     return RefParamType();
   }
   PointerType *pPointer = new PointerType(pType);
-  // Push pointer type to end of sign list
-  // It is important to do this after parsing the pointee type
-  // in case the pointee is a non-primitive type, it should
-  // be pushed first to the sign list.
-  m_signList.push_back(new PointerType(*pPointer));
 
   assert(AttrAddressSpace != ATTR_NONE && "No addr space.");
   if (AttrAddressSpace != ATTR_PRIVATE)
@@ -322,8 +317,24 @@ RefParamType DemangleParser::createPointerType() {
     pPointer->addAttribute(Attr);
 
   RefParamType refPointer(pPointer);
+  // Add pointer to substitution list *after* parsing a pointee type
   if (!AttrQualifiers.empty() || AttrAddressSpace != ATTR_PRIVATE)
-    m_signList.push_back(new PointerType(*pPointer));
+    // Add dummy value to preserve correct substitution order
+    //
+    // TODO: implement correct way to handle substitutions with qualifiers
+    // When we mangle/demangle a type like "const clk_event_t *"
+    // we should treat as substitution candidates 3 types:
+    // clk_event_t : base type
+    // const clk_event_t : qualified base type (all qualifiers should be here)
+    // const clk_event_t * : full pointer type
+    // Now we can't properly handle "const clk_event_t" type due to only
+    // object of PointerType keeps qualifiers. To preserve correct substitution
+    // order we add dummy value to substitution list because we don't have any
+    // cases in OpenCL now when "const clk_event_t" can be used, but it is still
+    // wrong way to handle this situation
+    m_signList.push_back(RefParamType());
+
+  m_signList.push_back(new PointerType(*pPointer));
   return refPointer;
 }
 

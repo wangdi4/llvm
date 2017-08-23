@@ -55,7 +55,6 @@ llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
 llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
-llvm::ModulePass *createBlockToFuncPtrPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
@@ -98,7 +97,6 @@ llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass *createOCLAliasAnalysisPass();
-llvm::ModulePass *createSPIR20BlocksToObjCBlocks();
 llvm::ModulePass *createPrintfArgumentsPromotionPass();
 }
 
@@ -226,8 +224,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   PM.add(createOclSyncFunctionAttrsPass());
   PM.add(createPrintfArgumentsPromotionPass());
   if (isOcl20) {
-    // Convert SPIR 2.0 blocks to Objective-C blocks
-    PM.add(createSPIR20BlocksToObjCBlocks());
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
     // clone block_invoke functions to kernels
@@ -488,11 +484,6 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
   PM.add(createUndifinedExternalFunctionsPass(UndefinedExternals));
 
   if (!pRtlModuleList.empty()) {
-    // Replace pointers to %opencl.block opaque type to function pointer casts
-    // The right place to run this pass in or after SPIR20BlockToObjCBlock Pass,
-    // but it is impossible in current design since functions in user and RTL modules
-    // doesn't match by names there (need to run passes like GAS resolution before).
-    PM.add(createBlockToFuncPtrPass());
     // Inline BI function
     PM.add(createBuiltInImportPass(pConfig->GetCpuId().GetCPUPrefix()));
     // Need to convert shuffle calls to shuffle IR before running inline pass

@@ -30,6 +30,8 @@ std::string PrimitiveType::toString() const {
 }
 
 bool PrimitiveType::equals(const ParamType *type) const {
+  if (!type)
+    return false;
   const PrimitiveType *p = reflection::dyn_cast<PrimitiveType>(type);
   return p && (m_primitive == p->m_primitive);
 }
@@ -59,6 +61,8 @@ std::string PointerType::toString() const {
 }
 
 bool PointerType::equals(const ParamType *type) const {
+  if (!type)
+    return false;
   const PointerType *p = reflection::dyn_cast<PointerType>(type);
   if (!p || p->getAttributes().size() != getAttributes().size()) {
     return false;
@@ -105,6 +109,8 @@ std::string VectorType::toString() const {
 }
 
 bool VectorType::equals(const ParamType *type) const {
+  if (!type)
+    return false;
   const VectorType *pVec = reflection::dyn_cast<VectorType>(type);
   return pVec && (m_len == pVec->m_len) &&
          (*getScalarType()).equals(&*(pVec->getScalarType()));
@@ -126,6 +132,8 @@ std::string AtomicType::toString() const {
 }
 
 bool AtomicType::equals(const ParamType *type) const {
+  if (!type)
+    return false;
   const AtomicType *a = reflection::dyn_cast<AtomicType>(type);
   return (a && (*getBaseType()).equals(&*(a->getBaseType())));
 }
@@ -151,6 +159,8 @@ std::string BlockType::toString() const {
 }
 
 bool BlockType::equals(const ParamType *type) const {
+  if (!type)
+    return false;
   const BlockType *pBlock = reflection::dyn_cast<BlockType>(type);
   if (!pBlock || getNumOfParams() != pBlock->getNumOfParams()) {
     return false;
@@ -181,6 +191,8 @@ std::string UserDefinedType::toString() const {
 }
 
 bool UserDefinedType::equals(const ParamType *pType) const {
+  if (!pType)
+    return false;
   const UserDefinedType *pTy = reflection::dyn_cast<UserDefinedType>(pType);
   return pTy && (m_name == pTy->m_name);
 }
