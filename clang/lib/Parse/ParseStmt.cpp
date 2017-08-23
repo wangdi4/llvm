@@ -242,6 +242,7 @@ Retry:
     }
 
     // Fall through
+    LLVM_FALLTHROUGH;
   }
 
   default: {
