@@ -2449,6 +2449,7 @@ bool llvm::ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
   case Instruction::SExt:
     if (!LookThroughSExt) return false;
     // otherwise fall through to ZExt
+    LLVM_FALLTHROUGH;
   case Instruction::ZExt:
     return ComputeMultiple(I->getOperand(0), Base, Multiple,
                            LookThroughSExt, Depth+1);
