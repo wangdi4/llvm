@@ -162,7 +162,7 @@ if (MSVC)
     list(APPEND install_headers ${install_file})
   endforeach( f )
 else()
-  set(install_headers out_files)
+  set(install_headers ${out_files})
 endif()
 
 install(
