@@ -841,12 +841,9 @@ Function *CodeExtractor::extractCodeRegion() {
                                                "newFuncRoot");
   newFuncRoot->getInstList().push_back(BranchInst::Create(header));
 
-<<<<<<< HEAD
 #ifndef INTEL_CUSTOMIZATION
-=======
   findAllocas(SinkingCands);
 
->>>>>>> cbd4ff93102479238e293f6ddb688df3c6e9ba47
   // Find inputs to, outputs from the code region.
   findInputsOutputs(inputs, outputs, SinkingCands);
 
@@ -950,7 +947,7 @@ Function *CodeExtractor::extractCodeRegion() {
   NumExitBlocks = ExitBlocks.size();
 
   // Find inputs to, outputs from the code region.
-  findInputsOutputs(inputs, outputs);
+  findInputsOutputs(inputs, outputs, SinkingCands);
 #endif //INTEL_CUSTOMIZATION
   // Construct new function based on inputs/outputs & add allocas for all defs.
   Function *newFunction = constructFunction(inputs, outputs, header,
