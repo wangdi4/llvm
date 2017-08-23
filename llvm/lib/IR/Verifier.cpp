@@ -1326,6 +1326,10 @@ static bool isFuncOnlyAttr(Attribute::AttrKind Kind) {
   case Attribute::NoImplicitFloat:
   case Attribute::Naked:
   case Attribute::InlineHint:
+#if INTEL_CUSTOMIZATION
+  case Attribute::InlineHintRecursive:
+  case Attribute::AlwaysInlineRecursive:
+#endif // INTEL_CUSTOMIZATION
   case Attribute::StackAlignment:
   case Attribute::UWTable:
   case Attribute::NonLazyBind:

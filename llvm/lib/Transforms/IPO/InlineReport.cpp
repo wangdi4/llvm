@@ -73,6 +73,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtNone, nullptr,
   // InlrAlwaysInline,
   InlPrtSimple, "Callee is always inline",
+  // InlrAlwaysInlineRecursive,
+  InlPrtSimple, "Callee is always inline (recursive)",
   // InlrSingleLocalCall,
   InlPrtCost, "Callee has single callsite and local linkage",
   // InlrSingleBasicBlock,
