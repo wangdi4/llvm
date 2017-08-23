@@ -330,7 +330,7 @@ cl_err_code GenericMemObject::InitializeSubObject(
     // sub-buffer related - used by internal functions call later in this function
     SharedPtr<GenericMemObject> pParent = &parent;
     m_pParentObject = &parent;
-    MEMCPY_S( m_stOrigin, sizeof(m_stOrigin), origin, sizeof(origin) );
+    MEMCPY_S( m_stOrigin, sizeof(m_stOrigin), origin, sizeof(size_t[MAX_WORK_DIM]) );
 
     // copy everything from GenericMemObject class only excluding parent classes
 
