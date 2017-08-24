@@ -1028,6 +1028,9 @@ TEST_F(SparseInstrProfTest, preserve_no_records) {
 // warning about an empty ... list.
 INSTANTIATE_TEST_CASE_P(MaybeSparse, MaybeSparseInstrProfTest,
                         ::testing::Bool(),);
+<<<<<<< HEAD
 #endif // INTEL_CUSTOMIZATION
+=======
+>>>>>>> 34d05a52b5a49309ff1c0bcf15aedf5c183a6646
 
 } // end anonymous namespace
