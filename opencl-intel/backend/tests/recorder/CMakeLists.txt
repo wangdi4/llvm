@@ -52,7 +52,7 @@ endif (WIN32)
 #linking
 link_directories( ${TBB_LIB_DIR} ${CMAKE_INSTALL_PREFIX}/bin/ )
 
-target_link_libraries( ${TARGET_NAME} googletest cl_logger${EXPERIMENTAL_POSTFIX} OpenCL )
+target_link_libraries( ${TARGET_NAME} googletest cl_logger${OPENCL_BINARIES_POSTFIX} OpenCL )
 
 if (NOT WIN32)
   if( ANDROID )
@@ -63,8 +63,8 @@ if (NOT WIN32)
 else (NOT WIN32)
   target_link_libraries( ${TARGET_NAME}  delayimp)
   set_target_properties(${TARGET_NAME} PROPERTIES
-    LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${EXPERIMENTAL_POSTFIX}.dll"
-    LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG}   /DELAYLOAD:tbb_debug${EXPERIMENTAL_POSTFIX}.dll"
+    LINK_FLAGS_RELEASE  "${LINK_FLAGS_RELEASE} /DELAYLOAD:tbb${TBB_BINARIES_POSTFIX}.dll"
+    LINK_FLAGS_DEBUG    "${LINK_FLAGS_DEBUG}   /DELAYLOAD:tbb_debug${TBB_BINARIES_POSTFIX}.dll"
   )
 endif (NOT WIN32)
 

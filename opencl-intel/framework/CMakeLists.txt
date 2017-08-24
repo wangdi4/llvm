@@ -178,9 +178,9 @@ target_link_libraries( ${TARGET_NAME} Context
                                       Execution
                                       Platform
 									  MemoryAllocator
-                                      cl_logger${EXPERIMENTAL_POSTFIX}
+                                      cl_logger${OPENCL_BINARIES_POSTFIX}
                                       cl_sys_utils
-                                      task_executor${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX}
+                                      task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
                                       CLElfLib
                                       ${LINK_LIBS} )
 

@@ -6,14 +6,21 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 
 if( BUILD_EXPERIMENTAL_21 )
-    set( EXPERIMENTAL_POSTFIX "_2_1" )
+    set( OPENCL_BINARIES_POSTFIX "_2_1" )
+    set( TBB_BINARIES_POSTFIX "_2_1" )
+
     add_definitions( -DBUILD_EXPERIMENTAL_21 )
-    add_definitions( -DEXPERIMENTAL_POSTFIX="_2_1" )
 endif( BUILD_EXPERIMENTAL_21 )
 
 if( BUILD_FPGA_EMULATOR )
+    set( OPENCL_BINARIES_POSTFIX "_emu" )
+
     add_definitions( -DBUILD_FPGA_EMULATOR  )
 endif( BUILD_FPGA_EMULATOR )
+
+add_definitions( -DOPENCL_BINARIES_POSTFIX="${OPENCL_BINARIES_POSTFIX}" )
+add_definitions( -DTBB_BINARIES_POSTFIX="${TBB_BINARIES_POSTFIX}" )
+
 # CMAKE variables
 set(CMAKE_MODULE_PATH
     ${CMAKE_MODULE_PATH}

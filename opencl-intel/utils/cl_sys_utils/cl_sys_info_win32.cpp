@@ -216,6 +216,7 @@ void Intel::OpenCL::Utils::GetModuleDirectoryImp(const void* addr, char* szModul
 		szModuleDir[0] = 0;
 	}
 }
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 // Specific module full path name intended for loaded library full path.
 // On Win32 - it asks for the module handle then calls GetModuleFileNameA method.  (modulePtr must be address of method belongs to the loaded library)

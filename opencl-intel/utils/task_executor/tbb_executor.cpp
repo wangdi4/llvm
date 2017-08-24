@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <cassert>
+#include <string>
 #ifdef WIN32
 #include <stdafx.h>
 #include <Windows.h>
@@ -418,25 +419,21 @@ bool TBBTaskExecutor::LoadTBBLibrary()
 #ifdef WIN32
     // The loading on tbb.dll was delayed,
     // Need to load manually before defualt dll is loaded
-    char tbbPath[MAX_PATH];
 
-    Intel::OpenCL::Utils::GetModuleDirectory(tbbPath, MAX_PATH);
+    std::string tbbPath(MAX_PATH, '\0');
+
+    Intel::OpenCL::Utils::GetModuleDirectory(&tbbPath[0], MAX_PATH);
+    tbbPath.resize(tbbPath.find_first_of('\0'));
+    tbbPath += "tbb\\tbb";
 
 #ifdef _DEBUG
-#ifdef BUILD_EXPERIMENTAL_21
-        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug_2_1.dll");
-#else // BUILD_EXPERIMENTAL_21
-        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_debug.dll");
-#endif // BUILD_EXPERIMENTAL_21
-#else
-#ifdef BUILD_EXPERIMENTAL_21
-        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb_2_1.dll");
-#else // BUILD_EXPERIMENTAL_21
-        STRCAT_S(tbbPath, MAX_PATH, "tbb\\tbb.dll");
-#endif // BUILD_EXPERIMENTAL_21
-#endif
+    tbbPath += "_debug";
+#endif // _DEBUG
 
-    bLoadRes = m_dllTBBLib.Load(tbbPath);
+    tbbPath += TBB_BINARIES_POSTFIX;
+    tbbPath += ".dll";
+
+    bLoadRes = m_dllTBBLib.Load(tbbPath.c_str());
     if ( !bLoadRes )
     {
         LOG_ERROR(TEXT("Failed to load TBB from %s"), tbbPath);
