@@ -1502,6 +1502,10 @@ public:
   Scop *getParent() { return &Parent; }
   const Scop *getParent() const { return &Parent; }
 
+  const std::vector<Instruction *> &getInstructions() const {
+    return Instructions;
+  }
+
   const char *getBaseName() const;
 
   /// Set the isl AST build.
@@ -2324,6 +2328,14 @@ public:
 
   /// Check if the SCoP has been optimized by the scheduler.
   bool isOptimized() const { return IsOptimized; }
+
+  /// Get the name of the entry and exit blocks of this Scop.
+  ///
+  /// These along with the function name can uniquely identify a Scop.
+  ///
+  /// @return std::pair whose first element is the entry name & second element
+  ///         is the exit name.
+  std::pair<std::string, std::string> getEntryExitStr() const;
 
   /// Get the name of this Scop.
   std::string getNameStr() const;

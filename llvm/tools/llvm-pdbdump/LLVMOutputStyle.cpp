@@ -804,7 +804,8 @@ Error LLVMOutputStyle::dumpDbiStream() {
           auto &Types = *ExpectedTypes;
 
           ListScope SS(P, "Symbols");
-          codeview::CVSymbolDumper SD(P, Types, nullptr, false);
+          codeview::CVSymbolDumper SD(P, Types, CodeViewContainer::Pdb, nullptr,
+                                      false);
           bool HadError = false;
           for (auto S : ModS.symbols(&HadError)) {
             DictScope LL(P, "");
@@ -830,8 +831,7 @@ Error LLVMOutputStyle::dumpDbiStream() {
             return ExpectedTypes.takeError();
           auto &IpiItems = *ExpectedTypes;
           C13RawVisitor V(P, File, IpiItems);
-          if (auto EC =
-                  codeview::visitDebugSubsections(ModS.linesAndChecksums(), V))
+          if (auto EC = codeview::visitDebugSubsections(ModS.subsections(), V))
             return EC;
         }
       }
@@ -952,7 +952,7 @@ Error LLVMOutputStyle::dumpPublicsStream() {
     return ExpectedTypes.takeError();
   auto &Tpi = *ExpectedTypes;
 
-  codeview::CVSymbolDumper SD(P, Tpi, nullptr, false);
+  codeview::CVSymbolDumper SD(P, Tpi, CodeViewContainer::Pdb, nullptr, false);
   bool HadError = false;
   for (auto S : Publics->getSymbols(&HadError)) {
     DictScope DD(P, "");
