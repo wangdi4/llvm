@@ -1564,68 +1564,11 @@ namespace {
   };  // end class DeclMatcher
 #if INTEL_CUSTOMIZATION
 }
-
-void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third,
-                                                          Stmt *Body) {
-  // Condition is empty
-  if (!Second) return;
-
-  if (Diags.isIgnored(diag::warn_variables_not_in_loop_body,
-                          Second->getLocStart()))
-      return;
-
-  PartialDiagnostic PD = PDiag(diag::warn_variables_not_in_loop_body);
-  llvm::SmallPtrSet<VarDecl*, 8> Decls;
-  SmallVector<SourceRange, 10> Ranges;
-  DeclExtractor DE(*this, Decls, Ranges);
-  DE.Visit(Second);
-
-  // Don't analyze complex conditionals.
-  if (!DE.isSimple()) return;
-
-  // No decls found.
-  if (Decls.size() == 0) return;
-
-  // Don't warn on volatile, static, or global variables.
-  for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
-                                                 E = Decls.end();
-        I != E; ++I)
-    if ((*I)->getType().isVolatileQualified() ||
-        (*I)->hasGlobalStorage()) return;
-
-  if (DeclMatcher(*this, Decls, Second).FoundDeclInUse() ||
-      DeclMatcher(*this, Decls, Third).FoundDeclInUse() ||
-      DeclMatcher(*this, Decls, Body).FoundDeclInUse())
-    return;
-
-  // Load decl names into diagnostic.
-  if (Decls.size() > 4)
-    PD << 0;
-  else {
-    PD << Decls.size();
-    for (llvm::SmallPtrSetImpl<VarDecl*>::iterator I = Decls.begin(),
-                                                   E = Decls.end();
-         I != E; ++I)
-      PD << (*I)->getDeclName();
-  }
-
-  // Load SourceRanges into diagnostic if there is room.
-  // Otherwise, load the SourceRange of the conditional expression.
-  if (Ranges.size() <= PartialDiagnostic::MaxArguments)
-    for (SmallVectorImpl<SourceRange>::iterator I = Ranges.begin(),
-                                                E = Ranges.end();
-         I != E; ++I)
-      PD << *I;
-  else
-    PD << Second->getSourceRange();
-
-  Diag(Ranges.begin()->getBegin(), PD);
-}
-
-namespace {
-#else
-  void CheckForLoopConditionalStatement(Sema &S, Expr *Second,
+void Sema::CheckForLoopConditionalStatement(Expr *Second,
                                         Expr *Third, Stmt *Body) {
+    Sema &S = *this;
+#endif // INTEL_CUTOMIZATION
+
     // Condition is empty
     if (!Second) return;
 
@@ -1669,6 +1612,8 @@ namespace {
 
     S.Diag(Ranges.begin()->getBegin(), PDiag);
   }
+#if INTEL_CUSTOMIZATION
+namespace {
 #endif // INTEL_CUTOMIZATION
   // If Statement is an incemement or decrement, return true and sets the
   // variables Increment and DRE.
