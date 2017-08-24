@@ -673,9 +673,6 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
   case tok::annot_pragma_distribute_point:
     HandlePragmaDistributeDecl();
     return DeclGroupPtrTy();
-  case tok::annot_pragma_inline:
-    HandlePragmaInlineDecl();
-    return DeclGroupPtrTy();
   case tok::annot_pragma_loop_count:
     HandlePragmaLoopCountDecl();
     return DeclGroupPtrTy();

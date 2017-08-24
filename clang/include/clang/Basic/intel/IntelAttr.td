@@ -347,3 +347,26 @@ def Leaf : IgnoredAttr {
   let Spellings = [GNU<"leaf">];
   let Subjects = SubjectList<[Function]>;
 }
+
+def IntelInline : Attr {
+  let Spellings = [Pragma<"", "inline">, Pragma<"", "forceinline">,
+                   Pragma<"", "noinline">];
+  let Args =  [EnumArgument<"Option", "OptionType",
+                           ["recursive", "<unspecified>"],
+                           ["Recursive", "NotRecursive"]>];
+  let AdditionalMembers = [{
+  void printPrettyPragma(raw_ostream &OS, const PrintingPolicy &Policy) const {
+    OS << getDiagnosticName(Policy);
+  }
+  std::string getDiagnosticName(const PrintingPolicy &Policy) const {
+    unsigned SpellingIndex = getSpellingListIndex();
+    if (SpellingIndex == Pragma_inline)
+      return "#pragma inline";
+    else if (SpellingIndex == Pragma_forceinline)
+      return "#pragma forceinline";
+    else
+      return "#pragma noinline";
+  }
+  }];
+  let Documentation = [Undocumented];
+}
