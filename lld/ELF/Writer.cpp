@@ -93,6 +93,11 @@ private:
 } // anonymous namespace
 
 StringRef elf::getOutputSectionName(StringRef Name) {
+  // ".zdebug_" is a prefix for ZLIB-compressed sections.
+  // Because we decompressed input sections, we want to remove 'z'.
+  if (Name.startswith(".zdebug_"))
+    return Saver.save("." + Name.substr(2));
+
   if (Config->Relocatable)
     return Name;
 
@@ -122,10 +127,6 @@ StringRef elf::getOutputSectionName(StringRef Name) {
   if (Name == "COMMON")
     return ".bss";
 
-  // ".zdebug_" is a prefix for ZLIB-compressed sections.
-  // Because we decompressed input sections, we want to remove 'z'.
-  if (Name.startswith(".zdebug_"))
-    return Saver.save("." + Name.substr(2));
   return Name;
 }
 
@@ -256,11 +257,6 @@ template <class ELFT> void Writer<ELFT>::run() {
   finalizeSections();
   if (ErrorCount)
     return;
-
-  if (!Script->Opt.HasSections)
-    Script->fabricateDefaultCommands();
-  else
-    Script->synchronize();
 
   for (BaseCommand *Base : Script->Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
@@ -1261,6 +1257,12 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
       applySynthetic({InX::MipsGot},
                      [](SyntheticSection *SS) { SS->updateAllocSize(); });
   }
+
+  if (!Script->Opt.HasSections)
+    Script->fabricateDefaultCommands();
+  else
+    Script->synchronize();
+
   // Fill other section headers. The dynamic table is finalized
   // at the end because some tags like RELSZ depend on result
   // of finalizing other sections.
