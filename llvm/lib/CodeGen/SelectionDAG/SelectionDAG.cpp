@@ -25,11 +25,8 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Analysis/ValueTracking.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
-=======
 #include "llvm/CodeGen/ISDOpcodes.h"
->>>>>>> 5067e6a434e7884d6ddc4fff7ff0d3236aca530d
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"

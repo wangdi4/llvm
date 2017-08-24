@@ -208,9 +208,8 @@ void checkForCycles(const SelectionDAG *DAG, bool force = false);
 ///
 class SelectionDAG {
   const TargetMachine &TM;
-<<<<<<< HEAD
-  const SelectionDAGTargetInfo *TSI;
-  const TargetLowering *TLI;
+  const SelectionDAGTargetInfo *TSI = nullptr;
+  const TargetLowering *TLI = nullptr;
 
 #if INTEL_CUSTOMIZATION
   /// The Intel compiler uses libirc implementations of library functions
@@ -220,10 +219,6 @@ class SelectionDAG {
   const TargetLibraryInfo *TLibI;
 #endif // INTEL_CUSTOMIZATION
 
-=======
-  const SelectionDAGTargetInfo *TSI = nullptr;
-  const TargetLowering *TLI = nullptr;
->>>>>>> 5067e6a434e7884d6ddc4fff7ff0d3236aca530d
   MachineFunction *MF;
   LLVMContext *Context;
   CodeGenOpt::Level OptLevel;
