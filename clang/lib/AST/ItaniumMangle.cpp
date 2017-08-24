@@ -3931,6 +3931,7 @@ recurse:
     Out << "v1U" << Kind.size() << Kind;
   }
   // Fall through to mangle the cast itself.
+  LLVM_FALLTHROUGH;
       
   case Expr::CStyleCastExprClass:
     mangleCastExpression(E, "cv");
