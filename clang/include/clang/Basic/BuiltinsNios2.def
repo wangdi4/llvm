@@ -51,6 +51,7 @@ BUILTIN(__builtin_flushd, "vvD*", "")
 // void __builtin_flushda(volatile void *);
 BUILTIN(__builtin_flushda, "vvD*", "")
 
+<<<<<<< HEAD
 // void* nios2_memcpy_l4_to_device(void *dev_dst, void *l4_src, size_t n);
 // copies data from L4 memory to L3/L2
 // - returns: the destination pointer
@@ -80,6 +81,8 @@ BUILTIN(__builtin_nios2_unsafe_malloc_l2, "v*zi", "")
 // void nios2_unsafe_free_l2 (void * ptr);
 BUILTIN(__builtin_nios2_unsafe_free_l2, "vv*", "")
 
+=======
+>>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
 // Nios2 R2 builtins:
 
 // int __builtin_wrpie(int);
