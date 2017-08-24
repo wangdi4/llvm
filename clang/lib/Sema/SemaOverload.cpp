@@ -7243,8 +7243,7 @@ void Sema::AddMemberOperatorCandidates(OverloadedOperatorKind Op,
 /// operator. NumContextualBoolArguments is the number of arguments
 /// (at the beginning of the argument list) that will be contextually
 /// converted to bool.
-void Sema::AddBuiltinCandidate(QualType ResultTy, QualType *ParamTys,
-                               ArrayRef<Expr *> Args,
+void Sema::AddBuiltinCandidate(QualType *ParamTys, ArrayRef<Expr *> Args,
                                OverloadCandidateSet& CandidateSet,
                                bool IsAssignmentOperator,
                                unsigned NumContextualBoolArguments) {
@@ -7258,7 +7257,6 @@ void Sema::AddBuiltinCandidate(QualType ResultTy, QualType *ParamTys,
   Candidate.Function = nullptr;
   Candidate.IsSurrogate = false;
   Candidate.IgnoreObjectArgument = false;
-  Candidate.BuiltinTypes.ResultTy = ResultTy;
   for (unsigned ArgIdx = 0, N = Args.size(); ArgIdx != N; ++ArgIdx)
     Candidate.BuiltinTypes.ParamTypes[ArgIdx] = ParamTys[ArgIdx];
 
@@ -7599,7 +7597,7 @@ static void AddBuiltinAssignmentOperatorCandidates(Sema &S,
   // T& operator=(T&, T)
   ParamTypes[0] = S.Context.getLValueReferenceType(T);
   ParamTypes[1] = T;
-  S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+  S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                         /*IsAssignmentOperator=*/true);
 
   if (!S.Context.getCanonicalType(T).isVolatileQualified()) {
@@ -7607,7 +7605,7 @@ static void AddBuiltinAssignmentOperatorCandidates(Sema &S,
     ParamTypes[0]
       = S.Context.getLValueReferenceType(S.Context.getVolatileType(T));
     ParamTypes[1] = T;
-    S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+    S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                           /*IsAssignmentOperator=*/true);
   }
 }
@@ -7728,6 +7726,7 @@ class BuiltinOperatorOverloadBuilder {
     return S.Context.*ArithmeticTypes[index];
   }
 
+<<<<<<< HEAD
   /// \brief Gets the canonical type resulting from the usual arithemetic
   /// converions for the given arithmetic types.
   CanQualType getUsualArithmeticConversions(unsigned L, unsigned R) {
@@ -7822,6 +7821,8 @@ class BuiltinOperatorOverloadBuilder {
     return S.Context.UnsignedLongLongTy;
   }
 
+=======
+>>>>>>> 25e64000cc4350d4bbd2dfc779baf1578b3bea19
   /// \brief Helper method to factor out the common pattern of adding overloads
   /// for '++' and '--' builtin operators.
   void addPlusPlusMinusMinusStyleOverloads(QualType CandidateTy,
@@ -7833,10 +7834,7 @@ class BuiltinOperatorOverloadBuilder {
     };
 
     // Non-volatile version.
-    if (Args.size() == 1)
-      S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
-    else
-      S.AddBuiltinCandidate(CandidateTy, ParamTypes, Args, CandidateSet);
+    S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
 
     // Use a heuristic to reduce number of builtin candidates in the set:
     // add volatile version only if there are conversions to a volatile type.
@@ -7844,10 +7842,7 @@ class BuiltinOperatorOverloadBuilder {
       ParamTypes[0] =
         S.Context.getLValueReferenceType(
           S.Context.getVolatileType(CandidateTy));
-      if (Args.size() == 1)
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
-      else
-        S.AddBuiltinCandidate(CandidateTy, ParamTypes, Args, CandidateSet);
+      S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
     }
 
     // Add restrict version only if there are conversions to a restrict type
@@ -7857,10 +7852,7 @@ class BuiltinOperatorOverloadBuilder {
       ParamTypes[0]
         = S.Context.getLValueReferenceType(
             S.Context.getCVRQualifiedType(CandidateTy, Qualifiers::Restrict));
-      if (Args.size() == 1)
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
-      else
-        S.AddBuiltinCandidate(CandidateTy, ParamTypes, Args, CandidateSet);
+      S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
 
       if (HasVolatile) {
         ParamTypes[0]
@@ -7868,10 +7860,7 @@ class BuiltinOperatorOverloadBuilder {
               S.Context.getCVRQualifiedType(CandidateTy,
                                             (Qualifiers::Volatile |
                                              Qualifiers::Restrict)));
-        if (Args.size() == 1)
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
-        else
-          S.AddBuiltinCandidate(CandidateTy, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
     }
 
@@ -7985,8 +7974,7 @@ public:
         if (Proto->getTypeQuals() || Proto->getRefQualifier())
           continue;
 
-      S.AddBuiltinCandidate(S.Context.getLValueReferenceType(PointeeTy),
-                            &ParamTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&ParamTy, Args, CandidateSet);
     }
   }
 
@@ -8003,7 +7991,7 @@ public:
     for (unsigned Arith = FirstPromotedArithmeticType;
          Arith < LastPromotedArithmeticType; ++Arith) {
       QualType ArithTy = getArithmeticType(Arith);
-      S.AddBuiltinCandidate(ArithTy, &ArithTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&ArithTy, Args, CandidateSet);
     }
 
     // Extension: We also add these operators for vector types.
@@ -8012,7 +8000,7 @@ public:
            VecEnd = CandidateTypes[0].vector_end();
          Vec != VecEnd; ++Vec) {
       QualType VecTy = *Vec;
-      S.AddBuiltinCandidate(VecTy, &VecTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&VecTy, Args, CandidateSet);
     }
   }
 
@@ -8027,7 +8015,7 @@ public:
            PtrEnd = CandidateTypes[0].pointer_end();
          Ptr != PtrEnd; ++Ptr) {
       QualType ParamTy = *Ptr;
-      S.AddBuiltinCandidate(ParamTy, &ParamTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&ParamTy, Args, CandidateSet);
     }
   }
 
@@ -8043,7 +8031,7 @@ public:
     for (unsigned Int = FirstPromotedIntegralType;
          Int < LastPromotedIntegralType; ++Int) {
       QualType IntTy = getArithmeticType(Int);
-      S.AddBuiltinCandidate(IntTy, &IntTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&IntTy, Args, CandidateSet);
     }
 
     // Extension: We also add this operator for vector types.
@@ -8052,7 +8040,7 @@ public:
            VecEnd = CandidateTypes[0].vector_end();
          Vec != VecEnd; ++Vec) {
       QualType VecTy = *Vec;
-      S.AddBuiltinCandidate(VecTy, &VecTy, Args, CandidateSet);
+      S.AddBuiltinCandidate(&VecTy, Args, CandidateSet);
     }
   }
 
@@ -8077,15 +8065,14 @@ public:
           continue;
 
         QualType ParamTypes[2] = { *MemPtr, *MemPtr };
-        S.AddBuiltinCandidate(S.Context.BoolTy, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
 
       if (CandidateTypes[ArgIdx].hasNullPtrType()) {
         CanQualType NullPtrTy = S.Context.getCanonicalType(S.Context.NullPtrTy);
         if (AddedTypes.insert(NullPtrTy).second) {
           QualType ParamTypes[2] = { NullPtrTy, NullPtrTy };
-          S.AddBuiltinCandidate(S.Context.BoolTy, ParamTypes, Args,
-                                CandidateSet);
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
         }
       }
     }
@@ -8161,7 +8148,7 @@ public:
           continue;
 
         QualType ParamTypes[2] = { *Ptr, *Ptr };
-        S.AddBuiltinCandidate(S.Context.BoolTy, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
       for (BuiltinCandidateTypeSet::iterator
                 Enum = CandidateTypes[ArgIdx].enumeration_begin(),
@@ -8177,7 +8164,7 @@ public:
           continue;
 
         QualType ParamTypes[2] = { *Enum, *Enum };
-        S.AddBuiltinCandidate(S.Context.BoolTy, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
     }
   }
@@ -8220,7 +8207,7 @@ public:
         if (Arg == 0 || Op == OO_Plus) {
           // operator+(T*, ptrdiff_t) or operator-(T*, ptrdiff_t)
           // T* operator+(ptrdiff_t, T*);
-          S.AddBuiltinCandidate(*Ptr, AsymmetricParamTypes, Args, CandidateSet);
+          S.AddBuiltinCandidate(AsymmetricParamTypes, Args, CandidateSet);
         }
         if (Op == OO_Minus) {
           // ptrdiff_t operator-(T, T);
@@ -8228,8 +8215,7 @@ public:
             continue;
 
           QualType ParamTypes[2] = { *Ptr, *Ptr };
-          S.AddBuiltinCandidate(S.Context.getPointerDiffType(), ParamTypes,
-                                Args, CandidateSet);
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
         }
       }
     }
@@ -8264,7 +8250,7 @@ public:
   //   where LR is the result of the usual arithmetic conversions
   //   between types L and R.
   // Our candidates ignore the first parameter.
-  void addGenericBinaryArithmeticOverloads(bool isComparison) {
+  void addGenericBinaryArithmeticOverloads() {
     if (!HasArithmeticOrEnumeralCandidateType)
       return;
 
@@ -8274,10 +8260,7 @@ public:
            Right < LastPromotedArithmeticType; ++Right) {
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
-        QualType Result =
-          isComparison ? S.Context.BoolTy
-                       : getUsualArithmeticConversions(Left, Right);
-        S.AddBuiltinCandidate(Result, LandR, Args, CandidateSet);
+        S.AddBuiltinCandidate(LandR, Args, CandidateSet);
       }
     }
 
@@ -8292,15 +8275,7 @@ public:
              Vec2End = CandidateTypes[1].vector_end();
            Vec2 != Vec2End; ++Vec2) {
         QualType LandR[2] = { *Vec1, *Vec2 };
-        QualType Result = S.Context.BoolTy;
-        if (!isComparison) {
-          if ((*Vec1)->isExtVectorType() || !(*Vec2)->isExtVectorType())
-            Result = *Vec1;
-          else
-            Result = *Vec2;
-        }
-
-        S.AddBuiltinCandidate(Result, LandR, Args, CandidateSet);
+        S.AddBuiltinCandidate(LandR, Args, CandidateSet);
       }
     }
   }
@@ -8329,10 +8304,7 @@ public:
            Right < LastPromotedIntegralType; ++Right) {
         QualType LandR[2] = { getArithmeticType(Left),
                               getArithmeticType(Right) };
-        QualType Result = (Op == OO_LessLess || Op == OO_GreaterGreater)
-            ? LandR[0]
-            : getUsualArithmeticConversions(Left, Right);
-        S.AddBuiltinCandidate(Result, LandR, Args, CandidateSet);
+        S.AddBuiltinCandidate(LandR, Args, CandidateSet);
       }
     }
   }
@@ -8406,7 +8378,7 @@ public:
         S.Context.getLValueReferenceType(*Ptr),
         isEqualOp ? *Ptr : S.Context.getPointerDiffType(),
       };
-      S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+      S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                             /*IsAssigmentOperator=*/ isEqualOp);
 
       bool NeedVolatile = !(*Ptr).isVolatileQualified() &&
@@ -8415,7 +8387,7 @@ public:
         // volatile version
         ParamTypes[0] =
           S.Context.getLValueReferenceType(S.Context.getVolatileType(*Ptr));
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                               /*IsAssigmentOperator=*/isEqualOp);
       }
 
@@ -8424,7 +8396,7 @@ public:
         // restrict version
         ParamTypes[0]
           = S.Context.getLValueReferenceType(S.Context.getRestrictType(*Ptr));
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                               /*IsAssigmentOperator=*/isEqualOp);
 
         if (NeedVolatile) {
@@ -8434,7 +8406,7 @@ public:
                 S.Context.getCVRQualifiedType(*Ptr,
                                               (Qualifiers::Volatile |
                                                Qualifiers::Restrict)));
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                 /*IsAssigmentOperator=*/isEqualOp);
         }
       }
@@ -8455,7 +8427,7 @@ public:
         };
 
         // non-volatile version
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                               /*IsAssigmentOperator=*/true);
 
         bool NeedVolatile = !(*Ptr).isVolatileQualified() &&
@@ -8464,7 +8436,7 @@ public:
           // volatile version
           ParamTypes[0] =
             S.Context.getLValueReferenceType(S.Context.getVolatileType(*Ptr));
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                 /*IsAssigmentOperator=*/true);
         }
 
@@ -8473,7 +8445,7 @@ public:
           // restrict version
           ParamTypes[0]
             = S.Context.getLValueReferenceType(S.Context.getRestrictType(*Ptr));
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                 /*IsAssigmentOperator=*/true);
 
           if (NeedVolatile) {
@@ -8483,7 +8455,7 @@ public:
                   S.Context.getCVRQualifiedType(*Ptr,
                                                 (Qualifiers::Volatile |
                                                  Qualifiers::Restrict)));
-            S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+            S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                   /*IsAssigmentOperator=*/true);
           }
         }
@@ -8516,7 +8488,7 @@ public:
         // Add this built-in operator as a candidate (VQ is empty).
         ParamTypes[0] =
           S.Context.getLValueReferenceType(getArithmeticType(Left));
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                               /*IsAssigmentOperator=*/isEqualOp);
 
         // Add this built-in operator as a candidate (VQ is 'volatile').
@@ -8524,7 +8496,7 @@ public:
           ParamTypes[0] =
             S.Context.getVolatileType(getArithmeticType(Left));
           ParamTypes[0] = S.Context.getLValueReferenceType(ParamTypes[0]);
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                 /*IsAssigmentOperator=*/isEqualOp);
         }
       }
@@ -8543,14 +8515,14 @@ public:
         ParamTypes[1] = *Vec2;
         // Add this built-in operator as a candidate (VQ is empty).
         ParamTypes[0] = S.Context.getLValueReferenceType(*Vec1);
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                               /*IsAssigmentOperator=*/isEqualOp);
 
         // Add this built-in operator as a candidate (VQ is 'volatile').
         if (VisibleTypeConversionsQuals.hasVolatile()) {
           ParamTypes[0] = S.Context.getVolatileType(*Vec1);
           ParamTypes[0] = S.Context.getLValueReferenceType(ParamTypes[0]);
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet,
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                                 /*IsAssigmentOperator=*/isEqualOp);
         }
       }
@@ -8582,13 +8554,13 @@ public:
         // Add this built-in operator as a candidate (VQ is empty).
         ParamTypes[0] =
           S.Context.getLValueReferenceType(getArithmeticType(Left));
-        S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
         if (VisibleTypeConversionsQuals.hasVolatile()) {
           // Add this built-in operator as a candidate (VQ is 'volatile').
           ParamTypes[0] = getArithmeticType(Left);
           ParamTypes[0] = S.Context.getVolatileType(ParamTypes[0]);
           ParamTypes[0] = S.Context.getLValueReferenceType(ParamTypes[0]);
-          S.AddBuiltinCandidate(ParamTypes[0], ParamTypes, Args, CandidateSet);
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
         }
       }
     }
@@ -8603,13 +8575,13 @@ public:
   //        bool        operator||(bool, bool);
   void addExclaimOverload() {
     QualType ParamTy = S.Context.BoolTy;
-    S.AddBuiltinCandidate(ParamTy, &ParamTy, Args, CandidateSet,
+    S.AddBuiltinCandidate(&ParamTy, Args, CandidateSet,
                           /*IsAssignmentOperator=*/false,
                           /*NumContextualBoolArguments=*/1);
   }
   void addAmpAmpOrPipePipeOverload() {
     QualType ParamTypes[2] = { S.Context.BoolTy, S.Context.BoolTy };
-    S.AddBuiltinCandidate(S.Context.BoolTy, ParamTypes, Args, CandidateSet,
+    S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet,
                           /*IsAssignmentOperator=*/false,
                           /*NumContextualBoolArguments=*/2);
   }
@@ -8634,10 +8606,8 @@ public:
       if (!PointeeType->isObjectType())
         continue;
 
-      QualType ResultTy = S.Context.getLValueReferenceType(PointeeType);
-
       // T& operator[](T*, ptrdiff_t)
-      S.AddBuiltinCandidate(ResultTy, ParamTypes, Args, CandidateSet);
+      S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
     }
 
     for (BuiltinCandidateTypeSet::iterator
@@ -8649,10 +8619,8 @@ public:
       if (!PointeeType->isObjectType())
         continue;
 
-      QualType ResultTy = S.Context.getLValueReferenceType(PointeeType);
-
       // T& operator[](ptrdiff_t, T*)
-      S.AddBuiltinCandidate(ResultTy, ParamTypes, Args, CandidateSet);
+      S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
     }
   }
 
@@ -8702,8 +8670,7 @@ public:
             T.isRestrictQualified())
           continue;
         T = Q1.apply(S.Context, T);
-        QualType ResultTy = S.Context.getLValueReferenceType(T);
-        S.AddBuiltinCandidate(ResultTy, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
     }
   }
@@ -8731,7 +8698,7 @@ public:
           continue;
 
         QualType ParamTypes[2] = { *Ptr, *Ptr };
-        S.AddBuiltinCandidate(*Ptr, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
 
       for (BuiltinCandidateTypeSet::iterator
@@ -8742,7 +8709,7 @@ public:
           continue;
 
         QualType ParamTypes[2] = { *MemPtr, *MemPtr };
-        S.AddBuiltinCandidate(*MemPtr, ParamTypes, Args, CandidateSet);
+        S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
       }
 
       if (S.getLangOpts().CPlusPlus11) {
@@ -8757,7 +8724,7 @@ public:
             continue;
 
           QualType ParamTypes[2] = { *Enum, *Enum };
-          S.AddBuiltinCandidate(*Enum, ParamTypes, Args, CandidateSet);
+          S.AddBuiltinCandidate(ParamTypes, Args, CandidateSet);
         }
       }
     }
@@ -8851,7 +8818,7 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
       OpBuilder.addUnaryPlusOrMinusArithmeticOverloads();
     } else {
       OpBuilder.addBinaryPlusOrMinusPointerOverloads(Op);
-      OpBuilder.addGenericBinaryArithmeticOverloads(/*isComparison=*/false);
+      OpBuilder.addGenericBinaryArithmeticOverloads();
     }
     break;
 
@@ -8859,11 +8826,11 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
     if (Args.size() == 1)
       OpBuilder.addUnaryStarPointerOverloads();
     else
-      OpBuilder.addGenericBinaryArithmeticOverloads(/*isComparison=*/false);
+      OpBuilder.addGenericBinaryArithmeticOverloads();
     break;
 
   case OO_Slash:
-    OpBuilder.addGenericBinaryArithmeticOverloads(/*isComparison=*/false);
+    OpBuilder.addGenericBinaryArithmeticOverloads();
     break;
 
   case OO_PlusPlus:
@@ -8882,7 +8849,7 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
   case OO_LessEqual:
   case OO_GreaterEqual:
     OpBuilder.addRelationalPointerOrEnumeralOverloads();
-    OpBuilder.addGenericBinaryArithmeticOverloads(/*isComparison=*/true);
+    OpBuilder.addGenericBinaryArithmeticOverloads();
     break;
 
   case OO_Percent:
@@ -8949,7 +8916,7 @@ void Sema::AddBuiltinOperatorCandidates(OverloadedOperatorKind Op,
 
   case OO_Conditional:
     OpBuilder.addConditionalOperatorOverloads();
-    OpBuilder.addGenericBinaryArithmeticOverloads(/*isComparison=*/false);
+    OpBuilder.addGenericBinaryArithmeticOverloads();
     break;
   }
 }
