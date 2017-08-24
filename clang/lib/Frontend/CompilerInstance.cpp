@@ -1730,6 +1730,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
                                 diag::warn_module_config_mismatch)
             << ModuleFileName;
       // Fall through to error out.
+      LLVM_FALLTHROUGH;
     case ASTReader::VersionMismatch:
     case ASTReader::HadErrors:
       ModuleLoader::HadFatalFailure = true;
