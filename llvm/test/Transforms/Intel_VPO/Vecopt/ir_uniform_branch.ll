@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-build-stress-test -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-subregions -disable-vplan-predicator < %s | FileCheck %s
 
 ; CHECK-LABEL: foo
 ; CHECK: vector.body
@@ -24,6 +24,11 @@
 ;}
 define void @foo(i32* noalias nocapture %A, i32* noalias nocapture readonly %B, i32 %N, i32 %c) local_unnamed_addr #0 {
 entry:
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %L1
+
+L1:
   %cmp16 = icmp sgt i32 %N, 1
   br i1 %cmp16, label %for.body.lr.ph, label %for.cond.cleanup
 
@@ -36,6 +41,8 @@ for.cond.cleanup.loopexit:                        ; preds = %if.end
   br label %for.cond.cleanup
 
 for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   ret void
 
 for.body:                                         ; preds = %if.end, %for.body.lr.ph
@@ -60,5 +67,4 @@ if.end:                                           ; preds = %for.body, %if.then
 
 ; Function Attrs: argmemonly nounwind
 declare void @llvm.intel.directive(metadata)
-declare void @llvm.intel.directive.qual.opnd.i32(metadata, i32)
 

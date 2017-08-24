@@ -1,4 +1,4 @@
-; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -vplan-build-stress-test -instcombine < %s | FileCheck %s
+; RUN: opt -S -VPlanDriver -disable-vplan-predicator -disable-vplan-subregions -instcombine < %s | FileCheck %s
 
 ;int inc_x;
 ;int foo(int * __restrict__ A, int N, int init) {
@@ -27,6 +27,11 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 define i32 @foo(i32* noalias nocapture %A, i32 %N, i32 %init)  {
 entry:
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %L1
+
+L1:
   %cmp7 = icmp sgt i32 %N, 0
   br i1 %cmp7, label %for.body.lr.ph, label %for.cond.cleanup
 
@@ -35,14 +40,6 @@ for.body.lr.ph:                                   ; preds = %entry
   %1 = mul i32 %0, %N
   %wide.trip.count = zext i32 %N to i64
   br label %for.body
-
-for.cond.cleanup.loopexit:                        ; preds = %for.body
-  %2 = add i32 %1, %init
-  br label %for.cond.cleanup
-
-for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
-  %x.0.lcssa = phi i32 [ %init, %entry ], [ %2, %for.cond.cleanup.loopexit ]
-  ret i32 %x.0.lcssa
 
 for.body:                                         ; preds = %for.body, %for.body.lr.ph
   %indvars.iv = phi i64 [ 0, %for.body.lr.ph ], [ %indvars.iv.next, %for.body ]
@@ -53,4 +50,22 @@ for.body:                                         ; preds = %for.body, %for.body
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %exitcond = icmp eq i64 %indvars.iv.next, %wide.trip.count
   br i1 %exitcond, label %for.cond.cleanup.loopexit, label %for.body
+
+for.cond.cleanup.loopexit:                        ; preds = %for.body
+  %2 = add i32 %1, %init
+  br label %for.cond.cleanup
+
+for.cond.cleanup:                                 ; preds = %for.cond.cleanup.loopexit, %entry
+  %x.0.lcssa = phi i32 [ %init, %L1 ], [ %2, %for.cond.cleanup.loopexit ]
+  br label %DIR.OMP.END.SIMD.1
+
+DIR.OMP.END.SIMD.1:                               ; preds = %for.cond.cleanup
+  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %DIR.QUAL.LIST.END.2
+
+DIR.QUAL.LIST.END.2:                              ; preds = %DIR.OMP.END.SIMD.1
+  ret i32 %x.0.lcssa
 }
+
+declare void @llvm.intel.directive(metadata)

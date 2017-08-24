@@ -1,4 +1,4 @@
-; RUN: opt -S -O2 -loopopt=0 -vplan-build-stress-test -vplan-driver -vplan-build-vect-candidates=100000 %s > /dev/null
+; RUN: opt -S -O2 -loopopt=0 -VPlanDriver -vplan-build-vect-candidates=100000 %s > /dev/null
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
@@ -19,6 +19,8 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @read_net(i8* nocapture readnone %net_file) local_unnamed_addr #0 {
 entry:
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   br label %for.body
 
 for.body:                                         ; preds = %init_parse.exit, %entry
@@ -217,6 +219,8 @@ init_parse.exit:                                  ; preds = %init_parse.exit.loo
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %init_parse.exit
+  call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
   ret void
 
 if.then.i.1:                                      ; preds = %for.inc31.i
@@ -256,6 +260,8 @@ for.inc31.i.3:                                    ; preds = %if.then.i.3, %for.i
   %exitcond16.3 = icmp eq i64 %indvars.iv.next14.3, %13
   br i1 %exitcond16.3, label %init_parse.exit.loopexit.unr-lcssa, label %for.body24.i
 }
+
+declare void @llvm.intel.directive(metadata)
 
 declare i8* @my_malloc(i64) local_unnamed_addr #1
 

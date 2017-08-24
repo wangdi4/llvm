@@ -1,5 +1,4 @@
-; RUN: opt -S -VPlanDriver -vplan-build-stress-test < %s | FileCheck %s
-
+; RUN: opt -S -VPlanDriver < %s | FileCheck %s
 ; CHECK: vector.body:
 ; CHECK:  %wide.masked.load = call {{.*}} @llvm.masked.load
 ; CHECK:  call {{.*}} @llvm.masked.store
@@ -17,10 +16,15 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: norecurse nounwind uwtable
 define void @foo() local_unnamed_addr #0 {
 entry:
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %for.body.preheader
+  
+for.body.preheader:
   br label %for.body
 
-for.body:                                         ; preds = %for.inc, %entry
-  %indvars.iv = phi i64 [ 0, %entry ], [ %indvars.iv.next, %for.inc ]
+for.body:                                         ; preds = %for.inc, %for.body.preheader
+  %indvars.iv = phi i64 [ 0, %for.body.preheader ], [ %indvars.iv.next, %for.inc ]
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @arr1, i64 0, i64 %indvars.iv
   %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
   %tobool = icmp eq i32 %0, 0
@@ -46,8 +50,15 @@ for.inc:                                          ; preds = %if.then, %for.body,
   br i1 %exitcond, label %for.end, label %for.body
 
 for.end:                                          ; preds = %for.inc
+  tail call void @llvm.intel.directive(metadata !"DIR.OMP.END.SIMD")
+  tail call void @llvm.intel.directive(metadata !"DIR.QUAL.LIST.END")
+  br label %for.cleanup
+
+for.cleanup:                              ; preds = %for.end
   ret void
 }
+
+declare void @llvm.intel.directive(metadata)
 
 attributes #0 = { norecurse nounwind uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
