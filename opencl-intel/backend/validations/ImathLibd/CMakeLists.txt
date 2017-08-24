@@ -46,12 +46,13 @@ if (WIN32)
 
 else (WIN32)
      # search for the icc cpu compiler
-    set( ICC_DIR "/opt/intel/composerxe/bin")
+    set( ICC_DIR2015 "/opt/intel/composerxe/bin/")
+    set( ICC_DIR2017 "/opt/intel/compilers_and_libraries/linux/bin/intel64/")
 
     set (ICC_CPU_CL icpc)
     set (ICC_CPU_LD icpc)
 
-    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} ${ICC_DIR} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
+    find_program (ICC_CPU_COMPILER_PROGRAM ${ICC_CPU_CL} PATHS ${ICC_DIR2015} ${ICC_DIR2017} NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NO_CMAKE_FIND_ROOT_PATH)
     if (${ICC_CPU_COMPILER_PROGRAM} STREQUAL "ICC_CPU_COMPILER_PROGRAM-NOTFOUND")
         message (FATAL_ERROR "ICC(CPU) ${ICC_CPU_COMPILER_PROGRAM} is not installed in the system")
     endif()

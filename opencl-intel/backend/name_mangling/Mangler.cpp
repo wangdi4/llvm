@@ -21,13 +21,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 // More concretly, it is designed to match clang 3.0 itanium mangling.
 //
 
-// Array of constants used by clang to duplicate parameters
-// S_  is used to duplicate the 1st parameter
-// S0_ is used to duplicate the 2nd parameter (within the same string)
-// Note!: theoretically, we need "S1_, S2_,....), but those two are enough for
-// all the builtin functions in openCL, so that will do until proven otherwise.
-const char *DUPLICANT_STR[2] = {"S_", "S0_"};
-
 typedef std::vector<reflection::TypeAttributeEnum> TypeAttrVec;
 static bool hasQualifiersForSubstitution(const TypeAttrVec &attrs) {
   if (attrs.size() == 0) {
@@ -48,8 +41,11 @@ public:
 
   // visit methods
   void visit(const reflection::PrimitiveType *t) {
-    // NOTE! we don't use  DUPLICANT_STR here, since primitive strings are
-    // shorter or less then the DUPLICANT_STR itself.
+    int typeIndex = getTypeIndex(t);
+    if (-1 != typeIndex) {
+      m_stream << reflection::getDuplicateString(typeIndex);
+      return;
+    }
     m_stream << reflection::mangledPrimitiveString(t->getPrimitive());
 #ifdef SUBSTITUTE_OPENCL_TYPES
     if (t->getPrimitive() >= reflection::PRIMITIVE_STRUCT_FIRST &&
@@ -71,8 +67,10 @@ public:
     p->getPointee()->accept(this);
 
     if (hasQualifiersForSubstitution(p->getAttributes())) {
-      m_dupList.push_back((reflection::ParamType *)new reflection::PointerType(
-          p->getPointee()));
+      // Add dummy type to preserve substitutions order
+      // TODO: implement correct way to handle substitutions with qualifiers
+      // See more details in DemangleParser.cpp
+      m_dupList.push_back(reflection::RefParamType());
     }
     m_dupList.push_back((reflection::ParamType *)p);
   }

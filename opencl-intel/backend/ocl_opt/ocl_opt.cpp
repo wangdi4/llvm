@@ -91,9 +91,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSinCosFoldPass(Registry);
     intel::initializePreLegalizeBoolsPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
-    intel::initializeSPIR20BlocksToObjCBlocksPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
-    intel::initializeBlockToFuncPtrPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);
     intel::initializeFMASplitterPass(Registry);
