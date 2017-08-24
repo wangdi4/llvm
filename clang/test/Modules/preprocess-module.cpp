@@ -28,6 +28,9 @@
 // RUN: %clang_cc1 -fmodules -fmodule-file=%t/no-rewrite.pcm %s -I%t -verify -fno-modules-error-recovery
 // RUN: %clang_cc1 -fmodules -fmodule-file=%t/rewrite.pcm %s -I%t -verify -fno-modules-error-recovery -DREWRITE
 
+// INTEL
+// Should be fixed in future llorg commit: 226dedc0e25135833753e80f96fcee8ba58fbad5
+// XFAIL: win32, cygwin
 
 // == module map
 // CHECK: # 1 "{{.*}}module.modulemap"
