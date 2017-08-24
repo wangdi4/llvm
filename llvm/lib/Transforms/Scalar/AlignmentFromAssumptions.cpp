@@ -23,11 +23,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
-<<<<<<< HEAD
-#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
-=======
 #include "llvm/Analysis/GlobalsModRef.h"
->>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
+#include "llvm/Analysis/Intel_Andersens.h"           // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"

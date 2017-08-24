@@ -8,11 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_WP.h"                 // INTEL
-#include "llvm/Analysis/TargetLibraryInfo.h"
-=======
->>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/Function.h"

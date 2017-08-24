@@ -14,6 +14,7 @@
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Analysis/DemandedBits.h"
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -24,12 +25,6 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
-<<<<<<< HEAD
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
-=======
->>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
 
 using namespace llvm;
 using namespace llvm::PatternMatch;

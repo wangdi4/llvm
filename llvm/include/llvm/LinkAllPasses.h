@@ -54,15 +54,11 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
-<<<<<<< HEAD
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
-#include "llvm/Support/Valgrind.h"
-=======
->>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
 #include <cstdlib>
 
 namespace {
