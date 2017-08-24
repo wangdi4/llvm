@@ -998,9 +998,6 @@ template <class ELFT> void Writer<ELFT>::createSections() {
   sortInitFini(findSection(".fini_array"));
   sortCtorsDtors(findSection(".ctors"));
   sortCtorsDtors(findSection(".dtors"));
-
-  for (OutputSection *Sec : OutputSections)
-    Sec->assignOffsets();
 }
 
 // We want to find how similar two ranks are.
@@ -1230,6 +1227,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   for (BaseCommand *Base : Script->Opt.Commands)
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
       OutputSectionCommands.push_back(Cmd);
+  clearOutputSections();
 
   // Dynamic section must be the last one in this list and dynamic
   // symbol table section (DynSymTab) must be the first one.
@@ -1254,12 +1252,10 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     // are out of range. This will need to turn into a loop that converges
     // when no more Thunks are added
     ThunkCreator TC;
-    if (TC.createThunks(OutputSections))
+    if (TC.createThunks(OutputSectionCommands))
       applySynthetic({InX::MipsGot},
                      [](SyntheticSection *SS) { SS->updateAllocSize(); });
   }
-
-  clearOutputSections();
 
   // Fill other section headers. The dynamic table is finalized
   // at the end because some tags like RELSZ depend on result
