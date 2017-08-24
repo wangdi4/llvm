@@ -152,21 +152,12 @@ namespace clang {
 
   /// \brief Nios2 builtins
   namespace Nios2 {
-<<<<<<< HEAD
-      enum {
-        LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
-#define BUILTIN(ID, TYPE, ATTRS) BI##ID,
-#include "clang/Basic/BuiltinsNios2.def"
-        LastTSBuiltin
-      };
-=======
   enum {
     LastTIBuiltin = clang::Builtin::FirstTSBuiltin - 1,
 #define BUILTIN(ID, TYPE, ATTRS) BI##ID,
 #include "clang/Basic/BuiltinsNios2.def"
     LastTSBuiltin
   };
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
   }
 
   /// \brief MIPS builtins

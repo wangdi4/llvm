@@ -7739,19 +7739,10 @@ public:
 
 class Nios2TargetInfo : public TargetInfo {
   void setDataLayout() {
-<<<<<<< HEAD
-    StringRef Layout = "p:32:32:32-i8:8:32-i16:16:32-n32";
-    if (BigEndian) {
-      resetDataLayout(("E-" + Layout).str());
-    } else {
-      resetDataLayout(("e-" + Layout).str());
-    }
-=======
     if (BigEndian)
       resetDataLayout("E-p:32:32:32-i8:8:32-i16:16:32-n32");
     else
       resetDataLayout("e-p:32:32:32-i8:8:32-i16:16:32-n32");
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
   }
 
   static const Builtin::Info BuiltinInfo[];
@@ -7769,11 +7760,7 @@ public:
 
   StringRef getABI() const override { return ABI; }
   bool setABI(const std::string &Name) override {
-<<<<<<< HEAD
-    if ((Name == "o32") || (Name == "eabi")) {
-=======
     if (Name == "o32" || Name == "eabi") {
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
       ABI = Name;
       return true;
     }
@@ -7781,11 +7768,7 @@ public:
   }
 
   bool setCPU(const std::string &Name) override {
-<<<<<<< HEAD
-    if ((Name == "nios2r1") || (Name == "nios2r2")) {
-=======
     if (Name == "nios2r1" || Name == "nios2r2") {
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
       CPU = Name;
       return true;
     }
@@ -7797,15 +7780,10 @@ public:
     DefineStd(Builder, "nios2", Opts);
     DefineStd(Builder, "NIOS2", Opts);
 
-<<<<<<< HEAD
-    Builder.defineMacro("_NIOS2_ARCH", "\"" + CPU + "\"");
-    Builder.defineMacro("_NIOS2_ARCH_" + StringRef(CPU).upper());
-=======
     Builder.defineMacro("__nios2");
     Builder.defineMacro("__NIOS2");
     Builder.defineMacro("__nios2__");
     Builder.defineMacro("__NIOS2__");
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
   }
 
   ArrayRef<Builtin::Info> getTargetBuiltins() const override {
@@ -7830,21 +7808,13 @@ public:
       "nios2r2mandatory", "nios2r2bmx", "nios2r2mpx", "nios2r2cdx"
     };
     for (const char *feature : allFeatures) {
-<<<<<<< HEAD
-        Features[feature] = isFeatureSupportedByCPU(feature, CPU);
-=======
       Features[feature] = isFeatureSupportedByCPU(feature, CPU);
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
     }
     return true;
   }
 
   bool hasFeature(StringRef Feature) const override {
-<<<<<<< HEAD
-      return isFeatureSupportedByCPU(Feature, CPU);
-=======
     return isFeatureSupportedByCPU(Feature, CPU);
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
   }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
@@ -7853,17 +7823,6 @@ public:
 
   ArrayRef<const char *> getGCCRegNames() const override {
     static const char *const GCCRegNames[] = {
-<<<<<<< HEAD
-        // CPU register names
-        // Must match second column of GCCRegAliases
-        "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
-        "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19", "r20",
-        "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30",
-        "r31",
-        // Floating point register names
-        "ctl0", "ctl1", "ctl2", "ctl3", "ctl4", "ctl5", "ctl6", "ctl7", "ctl8",
-        "ctl9", "ctl10", "ctl11", "ctl12", "ctl13", "ctl14", "ctl15"};
-=======
       // CPU register names
       // Must match second column of GCCRegAliases
       "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
@@ -7874,7 +7833,6 @@ public:
       "ctl0", "ctl1", "ctl2", "ctl3", "ctl4", "ctl5", "ctl6", "ctl7", "ctl8",
       "ctl9", "ctl10", "ctl11", "ctl12", "ctl13", "ctl14", "ctl15"
     };
->>>>>>> e1dfc7c6f661ae396e5e1f95987e680a3e964a88
     return llvm::makeArrayRef(GCCRegNames);
   }
 
