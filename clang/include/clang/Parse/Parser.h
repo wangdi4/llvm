@@ -215,16 +215,6 @@ class Parser : public CodeCompletionHandler {
   clang::StmtResult HandlePragmaDistribute();
   void HandlePragmaDistributeDecl();
 
-  // Pragma inline
-  std::unique_ptr<PragmaHandler> InlineHandler;
-  // Pragma forceinline
-  std::unique_ptr<PragmaHandler> ForceInlineHandler;
-  // Pragma noinline
-  std::unique_ptr<PragmaHandler> NoInlineHandler;
-
-  clang::StmtResult HandlePragmaInline();
-  void HandlePragmaInlineDecl();
-
   // Pragma loop_count
   std::unique_ptr<PragmaHandler> LoopCountHandler;
   std::unique_ptr<PragmaHandler> LoopCountHandler1;
@@ -2043,6 +2033,21 @@ private:  //***INTEL
   /// \brief Check Intel-pragma statements
   void CheckIntelStmt(StmtVector& Stmts);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_CUSTOMIZATION
+  // Pragma inline
+  std::unique_ptr<PragmaHandler> InlineHandler;
+  // Pragma forceinline
+  std::unique_ptr<PragmaHandler> ForceInlineHandler;
+  // Pragma noinline
+  std::unique_ptr<PragmaHandler> NoInlineHandler;
+  bool HandlePragmaIntelInline(SourceRange &Range,
+                               IdentifierLoc* &KindLoc,
+                               IdentifierLoc* &OptionsLoc);
+  StmtResult ParsePragmaInline(StmtVector &Stmts,
+                               AllowedConstructsKind Allowed,
+                               SourceLocation *TrailingElseLoc,
+                               ParsedAttributesWithRange &Attrs);
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
   StmtResult ParseCilkForStmt();
   /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.

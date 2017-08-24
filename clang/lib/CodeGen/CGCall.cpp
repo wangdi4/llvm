@@ -4260,6 +4260,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   llvm::Instruction *CI = CS.getInstruction();
   if (callOrInvoke)
     *callOrInvoke = CI;
+ 
+#if INTEL_CUSTOMIZATION
+  if (CurrentPragmaInlineState) {
+    auto A = CurrentPragmaInlineState->getPragmaInlineAttribute();
+    Attrs = Attrs.addAttribute(getLLVMContext(),
+                               llvm::AttributeList::FunctionIndex, A);
+}
+#endif // INTEL_CUSTOMIZATION
 
   // Apply the attributes and calling convention.
   CS.setAttributes(Attrs);
