@@ -16,8 +16,8 @@
 #define LLVM_LINKALLPASSES_H
 
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/AliasAnalysisEvaluator.h"
+#include "llvm/Analysis/AliasSetTracker.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
@@ -43,6 +43,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/Support/Valgrind.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/AlwaysInliner.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
@@ -53,12 +54,15 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+<<<<<<< HEAD
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"         // INTEL - HIR
 #include "llvm/Transforms/Intel_MapIntrinToIml/MapIntrinToIml.h" // INTEL
 #include "llvm/Transforms/Utils/Intel_VecClone.h"                // INTEL
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"                 // INTEL
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"       // INTEL
 #include "llvm/Support/Valgrind.h"
+=======
+>>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
 #include <cstdlib>
 
 namespace {

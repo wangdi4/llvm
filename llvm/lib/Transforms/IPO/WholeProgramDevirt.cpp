@@ -46,10 +46,10 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/Intel_WP.h"      // INTEL
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/TypeMetadataUtils.h"

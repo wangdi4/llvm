@@ -12,16 +12,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Scalar/JumpThreading.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/BlockFrequencyInfoImpl.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/ConstantFolding.h"
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/Intel_AggInline.h"          // INTEL
 #include "llvm/Analysis/Intel_Andersens.h"          // INTEL
@@ -38,6 +37,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"

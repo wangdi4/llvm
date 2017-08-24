@@ -19,13 +19,15 @@
 #define AA_NAME "alignment-from-assumptions"
 #define DEBUG_TYPE AA_NAME
 #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
-#include "llvm/Transforms/Scalar.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/AssumptionCache.h"
+<<<<<<< HEAD
 #include "llvm/Analysis/Intel_Andersens.h"           // INTEL
+=======
+#include "llvm/Analysis/GlobalsModRef.h"
+>>>>>>> e3e43d9d574cf0a829e9a58525372ba0868a3292
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -36,6 +38,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar.h"
 using namespace llvm;
 
 STATISTIC(NumLoadAlignChanged,

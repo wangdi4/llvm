@@ -33,7 +33,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "InstCombineInternal.h"
 #include "llvm-c/Initialization.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -65,6 +64,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/KnownBits.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
 #include <algorithm>
