@@ -1701,7 +1701,8 @@ public:
   };
 
   ExprResult ParseExpression(TypeCastState isTypeCast = NotTypeCast);
-  ExprResult ParseConstantExpressionInExprEvalContext(TypeCastState isTypeCast);
+  ExprResult ParseConstantExpressionInExprEvalContext(
+      TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstantExpression(TypeCastState isTypeCast = NotTypeCast);
   ExprResult ParseConstraintExpression();
   // Expr that doesn't include commas.
