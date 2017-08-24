@@ -448,6 +448,7 @@ ArgType PrintfSpecifier::getArgType(ASTContext &Ctx,
       case LengthModifier::AsShort:
         if (Ctx.getTargetInfo().getTriple().isOSMSVCRT())
           return Ctx.IntTy;
+        LLVM_FALLTHROUGH;
       default:
         return ArgType::Invalid();
     }
