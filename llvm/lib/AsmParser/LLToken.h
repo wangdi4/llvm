@@ -188,6 +188,8 @@ enum Kind {
   kw_noduplicate,
   kw_noimplicitfloat,
   kw_noinline,
+  kw_inlinehint_recursive, // INTEL
+  kw_alwaysinline_recursive, // INTEL
   kw_norecurse,
   kw_nonlazybind,
   kw_nonnull,

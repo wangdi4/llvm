@@ -1332,6 +1332,15 @@ example:
     This attribute indicates that the inliner should attempt to inline
     this function into callers whenever possible, ignoring any active
     inlining size threshold for this caller.
+.. INTEL_CUSTOMIZATION
+``alwaysinline_recursive``
+    This attribute indicates that the inliner should attempt to inline
+    the current called function and its callees whenever possible,
+    ignoring any active inlining size threshold for this caller. This attribute
+    is propagated down the call chain, until either a call site marked by a
+    noinline attibute, or a function declared with a noinline attribute. A
+    callee marked with a noinline attribute, is not inlined.
+.. END INTEL_CUSTOMIZATION
 ``builtin``
     This indicates that the callee function at a call site should be
     recognized as a built-in function, even though the function's declaration
@@ -1377,6 +1386,19 @@ example:
     inlining this function is desirable (such as the "inline" keyword in
     C/C++). It is just a hint; it imposes no requirements on the
     inliner.
+.. INTEL_CUSTOMIZATION
+``inlinehint_recursive``
+    This attribute indicates that the source code contained a hint that
+    inlining the current called function and its callees is desirable (such
+    as the "inline" keyword in C/C++). It is just a hint; it imposes no
+    requirements on the inliner. This attribute is propagated down the call
+    chain, until, either a call site marked by a noinline attibute, or a
+    function declared with a noinline attribute. A callee marked with a
+    noinline attribute, is not inlined. This attribute has a weaker
+    precedence than the alwaysinline attribute. Meaning if it encounters a
+    callsite with alwaysinline attribute, the alwaysinline attribute will
+    override the inlinehint attribute.
+.. END INTEL_CUSTOMIZATION
 ``jumptable``
     This attribute indicates that the function should be added to a
     jump-instruction table at code-generation time, and that all address-taken

@@ -694,7 +694,9 @@ void CallAnalyzer::updateThreshold(CallSite CS, Function &Callee) {
   // Adjust the threshold based on inlinehint attribute and profile based
   // hotness information if the caller does not have MinSize attribute.
   if (!Caller->optForMinSize()) {
-    if (Callee.hasFnAttribute(Attribute::InlineHint))
+    if (Callee.hasFnAttribute(Attribute::InlineHint) ||    // INTEL
+        CS.hasFnAttr(Attribute::InlineHint) ||             // INTEL
+        CS.hasFnAttr(Attribute::InlineHintRecursive))      // INTEL
       Threshold = MaxIfValid(Threshold, Params.HintThreshold);
     if (PSI) {
       BlockFrequencyInfo *CallerBFI = GetBFI ? &((*GetBFI)(*Caller)) : nullptr;
@@ -2062,8 +2064,15 @@ InlineCost llvm::getInlineCost(
       return llvm::InlineCost::getAlways(InlrAlwaysInline);
     assert(IsNotInlinedReason(Reason));
     return llvm::InlineCost::getNever(Reason);
-#endif // INTEL_CUSTOMIZATION
   }
+  if (CS.hasFnAttr(Attribute::AlwaysInlineRecursive)) {
+    InlineReason Reason = InlrNoReason;
+    if (isInlineViable(*Callee, Reason))
+      return llvm::InlineCost::getAlways(InlrAlwaysInlineRecursive);
+    assert(IsNotInlinedReason(Reason));
+    return llvm::InlineCost::getNever(Reason);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).

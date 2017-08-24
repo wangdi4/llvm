@@ -640,6 +640,10 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(noduplicate);
   KEYWORD(noimplicitfloat);
   KEYWORD(noinline);
+#if INTEL_CUSTOMIZATION
+  KEYWORD(inlinehint_recursive);
+  KEYWORD(alwaysinline_recursive);
+#endif // INTEL_CUSTOMIZATION
   KEYWORD(norecurse);
   KEYWORD(nonlazybind);
   KEYWORD(nonnull);
