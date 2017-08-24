@@ -2664,7 +2664,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, KnownBits &Known,
       if (DemandedElts[EltIdx]) {
         computeKnownBits(InVal, Known2, Depth + 1);
         Known.One &= Known2.One.zextOrTrunc(Known.One.getBitWidth());
-        Known.Zero &= Known2.Zero.zextOrTrunc(Known.Zero.getBitWidth());;
+        Known.Zero &= Known2.Zero.zextOrTrunc(Known.Zero.getBitWidth());
       }
 
       // If we demand the source vector then add its common known bits, ensuring
@@ -2680,7 +2680,7 @@ void SelectionDAG::computeKnownBits(SDValue Op, KnownBits &Known,
       computeKnownBits(InVec, Known, Depth + 1);
       computeKnownBits(InVal, Known2, Depth + 1);
       Known.One &= Known2.One.zextOrTrunc(Known.One.getBitWidth());
-      Known.Zero &= Known2.Zero.zextOrTrunc(Known.Zero.getBitWidth());;
+      Known.Zero &= Known2.Zero.zextOrTrunc(Known.Zero.getBitWidth());
     }
     break;
   }
