@@ -23,6 +23,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/MachineValueType.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
@@ -40,7 +41,6 @@
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/ELF.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SMLoc.h"
@@ -2849,6 +2849,7 @@ bool AMDGPUAsmParser::parseCnt(int64_t &IntVal) {
   if (getLexer().isNot(AsmToken::Integer))
     return true;
 
+  SMLoc ValLoc = Parser.getTok().getLoc();
   if (getParser().parseAbsoluteExpression(CntVal))
     return true;
 
@@ -2866,21 +2867,24 @@ bool AMDGPUAsmParser::parseCnt(int64_t &IntVal) {
     Failed = encodeCnt(ISA, IntVal, CntVal, Sat, encodeLgkmcnt, decodeLgkmcnt);
   }
 
-  // To improve diagnostics, do not skip delimiters on errors
-  if (!Failed) {
-    if (getLexer().isNot(AsmToken::RParen)) {
-      return true;
-    }
-    Parser.Lex();
-    if (getLexer().is(AsmToken::Amp) || getLexer().is(AsmToken::Comma)) {
-      const AsmToken NextToken = getLexer().peekTok();
-      if (NextToken.is(AsmToken::Identifier)) {
-        Parser.Lex();
-      }
+  if (Failed) {
+    Error(ValLoc, "too large value for " + CntName);
+    return true;
+  }
+
+  if (getLexer().isNot(AsmToken::RParen)) {
+    return true;
+  }
+
+  Parser.Lex();
+  if (getLexer().is(AsmToken::Amp) || getLexer().is(AsmToken::Comma)) {
+    const AsmToken NextToken = getLexer().peekTok();
+    if (NextToken.is(AsmToken::Identifier)) {
+      Parser.Lex();
     }
   }
 
-  return Failed;
+  return false;
 }
 
 OperandMatchResultTy

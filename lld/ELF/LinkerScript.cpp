@@ -25,9 +25,9 @@
 #include "Writer.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compression.h"
-#include "llvm/Support/ELF.h"
 #include "llvm/Support/Endian.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
@@ -54,7 +54,7 @@ uint64_t ExprValue::getValue() const {
   if (Sec) {
     if (OutputSection *OS = Sec->getOutputSection())
       return alignTo(Sec->getOffset(Val) + OS->Addr, Alignment);
-    error("unable to evaluate expression: input section " + Sec->Name +
+    error(Loc + ": unable to evaluate expression: input section " + Sec->Name +
           " has no output section assigned");
   }
   return alignTo(Val, Alignment);
@@ -431,6 +431,8 @@ void LinkerScript::processCommands(OutputSectionFactory &Factory) {
       if (OutputSection *Sec = Cmd->Sec) {
         assert(Sec->SectionIndex == INT_MAX);
         Sec->SectionIndex = I;
+        if (Cmd->Noload)
+          Sec->Type = SHT_NOBITS;
         SecToCommand[Sec] = Cmd;
       }
     }
@@ -442,7 +444,7 @@ void LinkerScript::fabricateDefaultCommands() {
   std::vector<BaseCommand *> Commands;
 
   // Define start address
-  uint64_t StartAddr = Config->ImageBase + elf::getHeaderSize();
+  uint64_t StartAddr = -1;
 
   // The Sections with -T<section> have been sorted in order of ascending
   // address. We must lower StartAddr if the lowest -T<section address> as
@@ -450,8 +452,12 @@ void LinkerScript::fabricateDefaultCommands() {
   for (auto& KV : Config->SectionStartMap)
     StartAddr = std::min(StartAddr, KV.second);
 
-  Commands.push_back(
-      make<SymbolAssignment>(".", [=] { return StartAddr; }, ""));
+  Commands.push_back(make<SymbolAssignment>(
+      ".",
+      [=] {
+        return std::min(StartAddr, Config->ImageBase + elf::getHeaderSize());
+      },
+      ""));
 
   // For each OutputSection that needs a VA fabricate an OutputSectionCommand
   // with an InputSectionDescription describing the InputSections
@@ -870,51 +876,6 @@ void LinkerScript::processNonSectionCommands() {
   }
 }
 
-// Do a last effort at synchronizing the linker script "AST" and the section
-// list. This is needed to account for last minute changes, like adding a
-// .ARM.exidx terminator and sorting SHF_LINK_ORDER sections.
-//
-// FIXME: We should instead create the "AST" earlier and the above changes would
-// be done directly in the "AST".
-//
-// This can only handle new sections being added and sections being reordered.
-void LinkerScript::synchronize() {
-  for (BaseCommand *Base : Opt.Commands) {
-    auto *Cmd = dyn_cast<OutputSectionCommand>(Base);
-    if (!Cmd)
-      continue;
-    ArrayRef<InputSection *> Sections = Cmd->Sec->Sections;
-    std::vector<InputSection **> ScriptSections;
-    DenseSet<InputSection *> ScriptSectionsSet;
-    for (BaseCommand *Base : Cmd->Commands) {
-      auto *ISD = dyn_cast<InputSectionDescription>(Base);
-      if (!ISD)
-        continue;
-      for (InputSection *&IS : ISD->Sections) {
-        if (IS->Live) {
-          ScriptSections.push_back(&IS);
-          ScriptSectionsSet.insert(IS);
-        }
-      }
-    }
-    std::vector<InputSection *> Missing;
-    for (InputSection *IS : Sections)
-      if (!ScriptSectionsSet.count(IS))
-        Missing.push_back(IS);
-    if (!Missing.empty()) {
-      auto ISD = make<InputSectionDescription>("");
-      ISD->Sections = Missing;
-      Cmd->Commands.push_back(ISD);
-      for (InputSection *&IS : ISD->Sections)
-        if (IS->Live)
-          ScriptSections.push_back(&IS);
-    }
-    assert(ScriptSections.size() == Sections.size());
-    for (int I = 0, N = Sections.size(); I < N; ++I)
-      *ScriptSections[I] = Sections[I];
-  }
-}
-
 static bool
 allocateHeaders(std::vector<PhdrEntry> &Phdrs,
                 ArrayRef<OutputSectionCommand *> OutputSectionCommands,
@@ -1231,12 +1192,12 @@ bool LinkerScript::hasLMA(OutputSection *Sec) {
 
 ExprValue LinkerScript::getSymbolValue(const Twine &Loc, StringRef S) {
   if (S == ".")
-    return {CurOutSec, Dot - CurOutSec->Addr};
+    return {CurOutSec, Dot - CurOutSec->Addr, Loc};
   if (SymbolBody *B = findSymbol(S)) {
     if (auto *D = dyn_cast<DefinedRegular>(B))
-      return {D->Section, D->Value};
+      return {D->Section, D->Value, Loc};
     if (auto *C = dyn_cast<DefinedCommon>(B))
-      return {InX::Common, C->Offset};
+      return {InX::Common, C->Offset, Loc};
   }
   error(Loc + ": symbol not found: " + S);
   return 0;

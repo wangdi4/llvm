@@ -36,6 +36,9 @@
 #include <vector>
 
 namespace llvm {
+
+struct BitcodeFileContents;
+
 namespace irsymtab {
 
 namespace storage {
@@ -313,6 +316,16 @@ inline Reader::symbol_range Reader::module_symbols(unsigned I) const {
   return {SymbolRef(MBegin, MEnd, Uncommons.begin() + M.UncBegin, this),
           SymbolRef(MEnd, MEnd, nullptr, this)};
 }
+
+/// The contents of the irsymtab in a bitcode file. Any underlying data for the
+/// irsymtab are owned by Symtab and Strtab.
+struct FileContents {
+  SmallVector<char, 0> Symtab, Strtab;
+  Reader TheReader;
+};
+
+/// Reads the contents of a bitcode file, creating its irsymtab if necessary.
+Expected<FileContents> readBitcode(const BitcodeFileContents &BFC);
 
 } // end namespace irsymtab
 } // end namespace llvm

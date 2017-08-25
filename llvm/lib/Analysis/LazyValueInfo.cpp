@@ -302,7 +302,7 @@ static bool hasSingleValue(const LVILatticeVal &Val) {
 ///   contradictory.  If this happens, we return some valid lattice value so as
 ///   not confuse the rest of LVI.  Ideally, we'd always return Undefined, but
 ///   we do not make this guarantee.  TODO: This would be a useful enhancement.
-static LVILatticeVal intersect(LVILatticeVal A, LVILatticeVal B) {
+static LVILatticeVal intersect(const LVILatticeVal &A, const LVILatticeVal &B) {
   // Undefined is the strongest state.  It means the value is known to be along
   // an unreachable path.
   if (A.isUndefined())
@@ -1684,23 +1684,23 @@ static LazyValueInfo::Tristate getPredicateResult(unsigned Pred, Constant *C,
       if (!CR.contains(CI->getValue()))
         return LazyValueInfo::False;
 
-      if (CR.isSingleElement() && CR.contains(CI->getValue()))
+      if (CR.isSingleElement())
         return LazyValueInfo::True;
     } else if (Pred == ICmpInst::ICMP_NE) {
       if (!CR.contains(CI->getValue()))
         return LazyValueInfo::True;
 
-      if (CR.isSingleElement() && CR.contains(CI->getValue()))
+      if (CR.isSingleElement())
+        return LazyValueInfo::False;
+    } else {
+      // Handle more complex predicates.
+      ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(
+          (ICmpInst::Predicate)Pred, CI->getValue());
+      if (TrueValues.contains(CR))
+        return LazyValueInfo::True;
+      if (TrueValues.inverse().contains(CR))
         return LazyValueInfo::False;
     }
-
-    // Handle more complex predicates.
-    ConstantRange TrueValues = ConstantRange::makeExactICmpRegion(
-        (ICmpInst::Predicate)Pred, CI->getValue());
-    if (TrueValues.contains(CR))
-      return LazyValueInfo::True;
-    if (TrueValues.inverse().contains(CR))
-      return LazyValueInfo::False;
     return LazyValueInfo::Unknown;
   }
 
