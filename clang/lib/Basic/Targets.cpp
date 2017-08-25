@@ -8584,8 +8584,11 @@ public:
       : TargetInfo(Triple) {
     assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
            "SPIR target must use unknown OS");
-    assert(getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment &&
+#if INTEL_CUSTOMIZATION
+    assert((getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment ||
+            getTriple().getEnvironment() == llvm::Triple::IntelFPGA) &&
            "SPIR target must use unknown environment type");
+#endif // INTEL_CUSTOMIZATION
     TLSSupported = false;
     LongWidth = LongAlign = 64;
     AddrSpaceMap = &SPIRAddrSpaceMap;
@@ -8663,6 +8666,22 @@ public:
     DefineStd(Builder, "SPIR64", Opts);
   }
 };
+
+#if INTEL_CUSTOMIZATION
+class SPIR32INTELFpgaTargetInfo : public SPIR32TargetInfo {
+public:
+  SPIR32INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                            const TargetOptions &Opts)
+      : SPIR32TargetInfo(Triple, Opts) {}
+};
+
+class SPIR64INTELFpgaTargetInfo : public SPIR64TargetInfo {
+public:
+  SPIR64INTELFpgaTargetInfo(const llvm::Triple &Triple,
+                            const TargetOptions &Opts)
+      : SPIR64TargetInfo(Triple, Opts) {}
+};
+#endif // INTEL_CUSTOMIZATION
 
 class XCoreTargetInfo : public TargetInfo {
   static const Builtin::Info BuiltinInfo[];
@@ -9657,18 +9676,32 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new X86_64TargetInfo(Triple, Opts);
     }
 
+#if INTEL_CUSTOMIZATION
   case llvm::Triple::spir: {
-    if (Triple.getOS() != llvm::Triple::UnknownOS ||
-        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+    if (Triple.getOS() != llvm::Triple::UnknownOS)
       return nullptr;
-    return new SPIR32TargetInfo(Triple, Opts);
+    switch (Triple.getEnvironment()) {
+    case llvm::Triple::IntelFPGA:
+      return new SPIR32INTELFpgaTargetInfo(Triple, Opts);
+    case llvm::Triple::UnknownEnvironment:
+      return new SPIR32TargetInfo(Triple, Opts);
+    default:
+      return nullptr;
+    }
   }
   case llvm::Triple::spir64: {
-    if (Triple.getOS() != llvm::Triple::UnknownOS ||
-        Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+    if (Triple.getOS() != llvm::Triple::UnknownOS)
       return nullptr;
-    return new SPIR64TargetInfo(Triple, Opts);
+    switch (Triple.getEnvironment()) {
+    case llvm::Triple::IntelFPGA:
+      return new SPIR64INTELFpgaTargetInfo(Triple, Opts);
+    case llvm::Triple::UnknownEnvironment:
+      return new SPIR64TargetInfo(Triple, Opts);
+    default:
+      return nullptr;
+    }
   }
+#endif // INTEL_CUSTOMIZATION
   case llvm::Triple::wasm32:
     if (Triple.getSubArch() != llvm::Triple::NoSubArch ||
         Triple.getVendor() != llvm::Triple::UnknownVendor ||
