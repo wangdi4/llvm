@@ -167,11 +167,11 @@ StmtResult Parser::ParsePragmaInline(StmtVector &Stmts,
                      AttributeList::AS_Pragma);
 
     assert(Tok.is(tok::annot_pragma_inline));
-    ConsumeToken();  // annot_pragma_inline
+    ConsumeAnnotationToken();  // annot_pragma_inline
     while (Tok.isNot(tok::annot_pragma_end))
       ConsumeToken();
     assert(Tok.is(tok::annot_pragma_end));
-    ConsumeToken(); // annot_pragma_end
+    ConsumeAnnotationToken(); // annot_pragma_end
   }
 
   // Get the next statement.
