@@ -86,6 +86,8 @@ def ext_intel_redefinition_extern_inline : ExtWarn<
   "redefinition of a 'extern inline' function %0 in "
   "C++ mode is an Intel extension">,
   InGroup<IntelCompat>;
+def err_recursive_attribute_expected : Error<
+  "recursive keyword expected after a pragma inline directive">;
 // CQ#369830 - static declaration of functions is treated differently.
 def ext_intel_static_non_static : Extension<
   "redeclaring non-static %0 as static is an Intel extension">,
