@@ -1020,13 +1020,9 @@ Function *CodeExtractor::extractCodeRegion() {
                                                "newFuncRoot");
   newFuncRoot->getInstList().push_back(BranchInst::Create(header));
 
-<<<<<<< HEAD
 #ifndef INTEL_CUSTOMIZATION
-  findAllocas(SinkingCands);
-=======
   findAllocas(SinkingCands, HoistingCands, CommonExit);
   assert(HoistingCands.empty() || CommonExit);
->>>>>>> 165d46dd6ed9348093dcbb9513c15e881dd2097f
 
   // Find inputs to, outputs from the code region.
   findInputsOutputs(inputs, outputs, SinkingCands);
@@ -1137,6 +1133,7 @@ Function *CodeExtractor::extractCodeRegion() {
 
   NumExitBlocks = ExitBlocks.size();
 
+  (void)CommonExit;
   // Find inputs to, outputs from the code region.
   findInputsOutputs(inputs, outputs, SinkingCands);
 #endif //INTEL_CUSTOMIZATION
