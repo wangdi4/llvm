@@ -79,8 +79,6 @@ entry:
 !opencl.used.extensions = !{!29}
 !opencl.used.optional.core.features = !{!29}
 !opencl.compiler.options = !{!29}
-!opencl.kernel_info = !{}
-!opencl.module_info_list = !{}
 !llvm.functions_info = !{}
 
 !0 = !{i32 786449, i32 0, i32 12, !"3", !"C:\5Cocl\5Ctmp", !"clang version 3.2 (tags/RELEASE_32/final 78244)", i1 true, i1 false, !"", i32 0, !1, !1, !3, !15} ; [ DW_TAG_compile_unit ] [C:\ocl\tmp/3] [DW_LANG_C99]
@@ -104,12 +102,7 @@ entry:
 !18 = !{i32 786433, null, !"", null, i32 0, i64 800, i64 8, i32 0, i32 0, !10, !19, i32 0, i32 0} ; [ DW_TAG_array_type ] [line 0, size 800, align 8, offset 0] [from uchar]
 !19 = !{!20}
 !20 = !{i32 786465, i64 0, i64 99}       ; [ DW_TAG_subrange_type ] [0, 99]
-!21 = !{void (i8 addrspace(3)*)* @mykernel, !22, !23, !24, !25, !26}
-!22 = !{!"kernel_arg_addr_space"}
-!23 = !{!"kernel_arg_access_qual"}
-!24 = !{!"kernel_arg_type"}
-!25 = !{!"kernel_arg_type_qual"}
-!26 = !{!"kernel_arg_name"}
+!21 = !{void (i8 addrspace(3)*)* @mykernel}
 !27 = !{i32 1, i32 0}
 !28 = !{i32 0, i32 0}
 !29 = !{}

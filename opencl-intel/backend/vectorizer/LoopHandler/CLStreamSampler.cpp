@@ -19,14 +19,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 
-// On apple the MAX_LOOP_SIZE should be set, In volcano set it to 128
-//#if defined(__APPLE__)
-//  #if !defined(MAX_LOOP_SIZE)
-//    Error! Target max loop size not defined!
-//  #endif
-//#else
-  #define MAX_LOOP_SIZE 1024
-//#endif
+#define MAX_LOOP_SIZE 1024
 
 #define FLOAT_X_WIDTH__ALIGNMENT 16
 

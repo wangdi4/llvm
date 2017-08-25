@@ -57,8 +57,6 @@ endif ()
 
 if (WIN32)
   set (PLATFORM Win${PLATFORM})
-elseif (APPLE)
-  set (PLATFORM Mac${PLATFORM})
 elseif (ANDROID)
   set (PLATFORM Android${PLATFORM})
 else ()
@@ -104,10 +102,6 @@ if (NOT EXISTS ${SVML_DLL_DIR})
 endif()
 set (SVML_NAME_PREFIX __ocl_svml_)
 set (SDE_NAME_PREFIX __sde_svml_)
-
-if(APPLE)
-  set(OCL_HOST_CLANG /System/Library/Frameworks/OpenCL.framework/Libraries/openclc)
-endif()
 
 if( CMAKE_CROSSCOMPILING OR LLVM_USE_NATIVE )
   set(TOOL_BINARY_DIR "${BE_LLVM_BINARY_DIR}/../native/bin")
@@ -229,7 +223,7 @@ set (CLANG_CL20_COMPILER_PARAMS
   )
   
 # llvm-opt
-set (LLVM_OPT_PARAMS -verify -scalarrepl -functionattrs)
+set (LLVM_OPT_PARAMS -verify -sroa -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -verify -builtin-import -builtin-call-to-inst -verify -O3)

@@ -28,6 +28,7 @@ File Name:  DebugInfoPass.cpp
 #include <llvm/IR/DerivedTypes.h>
 #include <llvm/IR/DebugInfo.h>
 #include <llvm/IR/IntrinsicInst.h>
+#include "llvm/IR/Metadata.h"
 
 #include <list>
 #include <vector>
@@ -456,41 +457,46 @@ void DebugInfoPass::insertDbgEnterFunctionCall(Function* pFunc, const FunctionCo
 
 void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionContext& fContext)
 {
-    Function* declare_global_func = m_pModule->getFunction(BUILTIN_DBG_DECLARE_GLOBAL_NAME);
-    assert(declare_global_func);
+    Function* declare_global_func =
+        m_pModule->getFunction(BUILTIN_DBG_DECLARE_GLOBAL_NAME);
+    assert(declare_global_func && "opencl_dbg_declare_global not found!");
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
+    Type* int_i1     = IntegerType::getInt1Ty(*m_llvm_context);
 
     // Generate the builtin call for each global var in the module
-    //
-    for (auto diGlobalVar : m_DbgInfoFinder.global_variables()) {
+    for (auto& globalVar : pFunc->getParent()->getGlobalList())
+    {
+        // Get debug info for variable
+        SmallVector<DIGlobalVariableExpression*, 1> DIGVExpr;
+        globalVar.getDebugInfo(DIGVExpr);
 
-        // Take the var address from the metadata as a Value, and bitcast it
-        // to i8*.
-        Value* var_ref = diGlobalVar->getVariable();
-
-        // Some special globals are inserted by clang with a non-pointer value
-        // (for example samplers). We currently don't know how to handle them.
-        //
-        if (!var_ref->getType()->isPointerTy())
+        // Continue if there is no debug info for global var
+        if(0 == DIGVExpr.size())
             continue;
 
-        CastInst* var_addr = CastInst::CreatePointerCast(var_ref, pointer_i8, "var_addr",
-            fContext.original_first_instr);
+        assert(DIGVExpr.size() < 2 &&
+                "Exprected no more than 1 DIGlobalVariableExpression metadata");
 
-        MDNode *mdn = MDNode::get(*m_llvm_context, 
-            ConstantAsMetadata::get(ConstantInt::getAllOnesValue(IntegerType::getInt1Ty(*m_llvm_context))));
+        Value* GVAsValue = dyn_cast<Value>(&globalVar);
+        assert(GVAsValue && "GlobalVariable is not Value!");
+        CastInst* var_addr =
+            CastInst::CreatePointerCast(GVAsValue, pointer_i8, "var_addr",
+                                        fContext.original_first_instr);
+
+        MDNode *mdn = MDNode::get(*m_llvm_context,
+                ConstantAsMetadata::get( ConstantInt::getAllOnesValue(int_i1)));
         var_addr->setMetadata("dbg_declare_inst", mdn);
 
+        // Take GlobalVariable from GlobalVariableExpression
+        auto GVMetadata = DIGVExpr.front()->getVariable();
         // The metadata itself is passed as an address
-        Value* metadata_addr = makeAddressValueFromPointer(diGlobalVar);
+        Value* metadata_addr = makeAddressValueFromPointer(GVMetadata);
 
         vector<Value*> params;
         params.push_back(var_addr);
         params.push_back(metadata_addr);
         for (int i = 0; i <= 2; ++i)
             params.push_back(fContext.gids[i]);
-        // [LLVM 3.6 UPGRADE] FIXME: Most likely the new call site mist be additionally handled somewhere else
-        // to properly handle the Metadata/Value split.
         CallInst::Create(declare_global_func, params, "",
             fContext.original_first_instr);
     }

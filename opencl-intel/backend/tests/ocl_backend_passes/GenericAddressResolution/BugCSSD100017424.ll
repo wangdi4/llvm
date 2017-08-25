@@ -4,7 +4,7 @@
 
 ; CHECK:  @copy
 ; CHECK:  %0 = load i32, i32 addrspace(1)* %arrayidx
-; CHECK-NEXT:  call void @_Z12atomic_storePVU3AS3ii(i32 addrspace(3)* %add.ptr, i32 %0)
+; CHECK-NEXT:  call void @_Z12atomic_storePU3AS3Vii(i32 addrspace(3)* %add.ptr, i32 %0)
 
 ; This test checks that genericAddressSpaceDynamicResolution pass does not consider function pointer address space when resolving the common address space of a built-in.
 
@@ -18,13 +18,13 @@ entry:
   %add.ptr = getelementptr inbounds i32, i32 addrspace(3)* %destMemory, i64 %call
   %arrayidx = getelementptr inbounds i32, i32 addrspace(1)* %oldValues, i64 %call
   %0 = load i32, i32 addrspace(1)* %arrayidx, align 4, !tbaa !1
-  tail call void @_Z12atomic_storePVU3AS3ii(i32 addrspace(3)* %add.ptr, i32 %0) nounwind
+  tail call void @_Z12atomic_storePU3AS3Vii(i32 addrspace(3)* %add.ptr, i32 %0) nounwind
   ret void
 }
 
 declare i64 @_Z12get_local_idj(i32) nounwind readnone
 
-declare void @_Z12atomic_storePVU3AS3ii(i32 addrspace(3)*, i32)
+declare void @_Z12atomic_storePU3AS3Vii(i32 addrspace(3)*, i32)
 
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}

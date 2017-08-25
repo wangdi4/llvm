@@ -1397,22 +1397,6 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
 
         // Section 8.2
         if( sampler->addressing_mode == CL_ADDRESS_REPEAT || sampler->addressing_mode == CL_ADDRESS_MIRRORED_REPEAT || sampler->filter_mode != CL_FILTER_NEAREST || sampler->normalized_coords )
-#if defined( __APPLE__ )
-        {
-            if( sampler->filter_mode != CL_FILTER_NEAREST )
-            {
-                extern cl_device_type	gDeviceType;                
-                // The maximum 
-                if( gDeviceType == CL_DEVICE_TYPE_GPU )
-                    maxError += MAKE_HEX_FLOAT(0x1.0p-4f, 0x1L, -4);              // Some GPUs ain't so accurate
-                else
-                    // The standard method of 2d linear filtering delivers 4.0 ulps of error in round to nearest (8 in rtz). 
-                    maxError += 4.0f * FLT_EPSILON;      
-            }
-            else
-                maxError += 4.0f * FLT_EPSILON;    // normalized coordinates will introduce some error into the fractional part of the address, affecting results
-        }
-#else
         {
 #if !defined(_WIN32)
 //#warning Implementations will likely wish to pick a max allowable sampling error policy here that is better than the spec
@@ -1428,7 +1412,6 @@ FloatPixel sample_image_pixel_float_offset( void *imageData, image_descriptor *i
             // maxError = INFINITY;
             // Please feel free to pick any positive number. (NaN wont work.)
         }
-#endif
 
         // The error calculation itself can introduce error
         maxError += FLT_EPSILON * 2;

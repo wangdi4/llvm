@@ -19,7 +19,6 @@ File Name:  PrintIRPass.cpp
 #include "PrintIRPass.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/FileSystem.h"
-#include "llvm/Bitcode/ReaderWriter.h"
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 char PrintIRPass::ID=0;

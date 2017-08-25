@@ -19,7 +19,7 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 target triple = "x86_64-pc-linux"
 
 ; Function Attrs: nounwind
-define void @test(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %res, i32 %n, i64 %l) #0 {
+define void @test(float addrspace(1)* nocapture %input, float addrspace(1)* nocapture %res, i32 %n, i64 %l) #0 !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_base_type !4 !kernel_arg_type_qual !5 !kernel_arg_name !6 {
 entry:
   %call = tail call i64 @_Z13get_global_idj(i32 0) #2
   %sub = sub i64 %call, %l
@@ -56,12 +56,12 @@ attributes #2 = { nounwind readnone }
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (float addrspace(1)*, float addrspace(1)*, i32, i64)* @test, !1, !2, !3, !4, !5, !6}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 1, i32 0, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"float*", !"float*", !"int", !"long"}
-!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !""}
-!5 = !{!"kernel_arg_base_type", !"float*", !"float*", !"int", !"long"}
-!6 = !{!"kernel_arg_name", !"input", !"res", !"n", !"l"}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*, i32, i64)* @test}
+!1 = !{i32 1, i32 1, i32 0, i32 0}
+!2 = !{!"none", !"none", !"none", !"none"}
+!3 = !{!"float*", !"float*", !"int", !"long"}
+!4 = !{!"", !"", !"", !""}
+!5 = !{!"float*", !"float*", !"int", !"long"}
+!6 = !{!"input", !"res", !"n", !"l"}
 !7 = !{i32 1, i32 2}
 !8 = !{}

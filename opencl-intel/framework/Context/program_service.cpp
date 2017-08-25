@@ -107,6 +107,10 @@ void BuildTask::SetComplete(cl_int returnCode)
     BuildEvent::SetComplete(returnCode);
 }
 
+Intel::OpenCL::Utils::OclMutex CompileTask::m_compileMtx;
+Intel::OpenCL::Utils::OclMutex LinkTask::m_linkMtx;
+Intel::OpenCL::Utils::OclMutex DeviceBuildTask::m_deviceBuildMtx;
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -140,7 +144,6 @@ bool CompileTask::Execute()
 
     // check if program contains already compiled data
     if (m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_COMPILED_OBJECT ||
-        m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_INTERMEDIATE ||
         m_pDeviceProgram->GetBinaryTypeInternal() == CL_PROGRAM_BINARY_TYPE_LIBRARY)
     {
         // we have spir binary, no need for FE compilation
@@ -149,8 +152,10 @@ bool CompileTask::Execute()
         return true;
     }
 
+    bool IsSPIR = m_pDeviceProgram->GetBinaryTypeInternal() ==
+                  CL_PROGRAM_BINARY_TYPE_INTERMEDIATE;
     const char* szSource = m_pProg->GetSourceInternal();
-    if (NULL == szSource)
+    if (NULL == szSource && !IsSPIR)
     {
         // not spir and no source
         m_pDeviceProgram->SetBuildLogInternal("Compilation failed\n");
@@ -160,28 +165,43 @@ bool CompileTask::Execute()
     }
 
     SharedPtr<ProgramWithIL> pIL = m_pProg.DynamicCast<ProgramWithIL>();
-    if(pIL)
-    {
-        unsigned int binarySize = pIL->GetSize();
 
-        m_pFECompiler->ParseSpirv(szSource,
-                                  binarySize,
-                                  m_sOptions.c_str(),
-                                  pOutBinary.getOutPtr(),
-                                  &uiOutBinarySize,
-                                  szOutCompileLog.getOutPtr());
-    }
-    else
     {
-        m_pFECompiler->CompileProgram(szSource,
-                                      m_uiNumHeaders,
-                                      m_pszHeaders,
-                                      m_pszHeadersNames,
+        // The frontend compiler is not thread safe
+        OclAutoMutex lockCompile(&m_compileMtx);
+        if(pIL)
+        {
+            unsigned int binarySize = pIL->GetSize();
+
+            m_pFECompiler->ParseSpirv(szSource,
+                                      binarySize,
                                       m_sOptions.c_str(),
-                                      m_pProg->GetContext()->IsFPGAEmulator(),
                                       pOutBinary.getOutPtr(),
                                       &uiOutBinarySize,
                                       szOutCompileLog.getOutPtr());
+        }
+        else
+        {
+            if (IsSPIR)
+            {
+                m_pFECompiler->MaterializeSPIR(
+                    m_pDeviceProgram->GetBinaryInternal(),
+                    m_pDeviceProgram->GetBinarySizeInternal(), pOutBinary.getOutPtr(),
+                    &uiOutBinarySize, szOutCompileLog.getOutPtr());
+            }
+            else
+            {
+                m_pFECompiler->CompileProgram(szSource,
+                                              m_uiNumHeaders,
+                                              m_pszHeaders,
+                                              m_pszHeadersNames,
+                                              m_sOptions.c_str(),
+                                              m_pProg->GetContext()->IsFPGAEmulator(),
+                                              pOutBinary.getOutPtr(),
+                                              &uiOutBinarySize,
+                                              szOutCompileLog.getOutPtr());
+            }
+        }
     }
 
     if (NULL != szOutCompileLog.get())
@@ -321,14 +341,19 @@ bool LinkTask::Execute()
         arrBinariesSizes[0] = m_pDeviceProgram->GetBinarySizeInternal();
     }
 
-    m_pFECompiler->LinkProgram(arrBinaries,
-                               m_uiNumPrograms,
-                               arrBinariesSizes,
-                               m_sOptions.c_str(),
-                               pOutBinary.getOutPtr(),
-                               &uiOutBinarySize,
-                               linkLog,
-                               &bIsLibrary);
+    {
+        // The frontend compiler is not thread safe
+        OclAutoMutex lockLink(&m_linkMtx);
+
+        m_pFECompiler->LinkProgram(arrBinaries,
+                                   m_uiNumPrograms,
+                                   arrBinariesSizes,
+                                   m_sOptions.c_str(),
+                                   pOutBinary.getOutPtr(),
+                                   &uiOutBinarySize,
+                                   linkLog,
+                                   &bIsLibrary);
+    }
 
     if (0 == uiOutBinarySize)
     {
@@ -432,12 +457,8 @@ DeviceBuildTask::~DeviceBuildTask()
 {
 }
 
-// Mutex that provide exclusive access to BE due to BE build works always in the same LLVMContext.
-Intel::OpenCL::Utils::OclMutex device_build_mtx;
 bool DeviceBuildTask::Execute()
 {
-    OclAutoMutex lockBuild(&device_build_mtx);
-
     const char*         pBinary         = NULL;
     size_t              uiBinarySize    = 0;
     cl_dev_program      programHandle   = NULL;
@@ -476,25 +497,33 @@ bool DeviceBuildTask::Execute()
         return true;
     }
 
-    err = pDeviceAgent->clDevCreateProgram(uiBinarySize, pBinary, CL_DEV_BINARY_COMPILER, &programHandle);
-    if (CL_DEV_SUCCESS != err)
     {
-        //Build failed
-        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
-        m_pDeviceProgram->SetBuildLogInternal("Failed to create device program\n");
-        SetComplete(CL_BUILD_SUCCESS);
-        return true;
-    }
+        // The backend compiler is not thread safe, furthermore we need
+        // to guard not only clDevBuildProgram but clDevCreatePRogram also.
+        // Likely they shared some internal state.
+        // Sporadic assertions in vectorizer happens without the lock.
+        OclAutoMutex lockBuild(&m_deviceBuildMtx);
 
-    m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
+        err = pDeviceAgent->clDevCreateProgram(uiBinarySize, pBinary, CL_DEV_BINARY_COMPILER, &programHandle);
+        if (CL_DEV_SUCCESS != err)
+        {
+            //Build failed
+            m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+            m_pDeviceProgram->SetBuildLogInternal("Failed to create device program\n");
+            SetComplete(CL_BUILD_SUCCESS);
+            return true;
+        }
 
-    err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
-    if (CL_DEV_SUCCESS != err)
-    {
-        m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
-        m_pDeviceProgram->SetBuildLogInternal("Failed to build device program\n");
-        SetComplete(CL_BUILD_SUCCESS);
-        return true;
+        m_pDeviceProgram->SetDeviceHandleInternal(programHandle);
+
+        err = pDeviceAgent->clDevBuildProgram(programHandle, m_sOptions.c_str(), &build_status);
+        if (CL_DEV_SUCCESS != err)
+        {
+            m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+            m_pDeviceProgram->SetBuildLogInternal("Failed to build device program\n");
+            SetComplete(CL_BUILD_SUCCESS);
+            return true;
+        }
     }
 
     assert( (CL_BUILD_ERROR == build_status || CL_BUILD_SUCCESS == build_status) && "Unknown build status returned by the device agent" );
@@ -1380,6 +1409,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 }
                 //Intentional fall through.
             }
+        case DEVICE_PROGRAM_LOADED_IR:
         case DEVICE_PROGRAM_SOURCE:
         case DEVICE_PROGRAM_SPIRV:
             {
@@ -1396,7 +1426,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 //Intentional fall through.
             }
         case DEVICE_PROGRAM_COMPILED:
-        case DEVICE_PROGRAM_LOADED_IR:
             {
                 // Building from compiled object
                 bNeedToBuild = true;

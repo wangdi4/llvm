@@ -445,7 +445,7 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
                     BufDesc.SetNumOfElements(1);
                     ListOfArguments.push_back(BufDesc);
                     break;
-                } 
+                }
             case Type::DoubleTyID:
                 {
                     TypeDesc ElemDesc(TDOUBLE);

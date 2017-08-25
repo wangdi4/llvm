@@ -1,9 +1,0 @@
-if [ $# -eq 1 ]
-then
-cp -f ./Vectorizer.dylib.$1 Vectorizer.dylib
-fi
-
-
-sudo cp Vectorizer.dylib /System/Library/Frameworks/OpenCL.framework/Libraries
-sudo kill -9 `ps -u root | grep cvmsServ | cut -c 7-11`
-echo Done

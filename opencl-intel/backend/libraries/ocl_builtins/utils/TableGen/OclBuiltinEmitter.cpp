@@ -362,7 +362,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
 
     for (unsigned i = 0, e = Outs->getNumArgs(); i != e; ++i) {
       const OclType* ArgTy = m_DB.getOclType(dyn_cast<DefInit>(Outs->getArg(i))->getDef()->getName());
-      const std::string& ArgName = Outs->getArgName(i);
+      const std::string& ArgName = Outs->getArgNameStr(i);
       m_Outputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -380,7 +380,7 @@ OclBuiltin::OclBuiltin(const OclBuiltinDB& DB, const Record* R)
       assert(DI && "Invalid built-in 'ins' argument.");
 
       const OclType* ArgTy = m_DB.getOclType(DI->getDef()->getName());
-      const std::string& ArgName = Ins->getArgName(i);
+      const std::string& ArgName = Ins->getArgNameStr(i);
       m_Inputs.push_back(std::pair<const OclType*, std::string>(ArgTy, ArgName));
     }
   }
@@ -991,8 +991,12 @@ OclBuiltinImpl::appendImpl(const Record* R)
     const RecordVal* RV = R->getValue("Impl");
     if (VarInit* FI = dyn_cast<VarInit>(RV->getValue())) {
       const RecordVal* IV = m_DB.getRecord()->getValue(FI->getName());
-      assert(dyn_cast<StringInit>(IV->getValue()) && "Invalid OclBuiltinImpl record.");
-      impl->m_Code = dyn_cast<StringInit>(IV->getValue())->getValue();
+      if (StringInit *SI = dyn_cast<StringInit>(IV->getValue()))
+        impl->m_Code = SI->getValue();
+      else if(CodeInit *CI = dyn_cast<CodeInit>(IV->getValue()))
+        impl->m_Code = CI->getValue();
+      else
+        llvm_unreachable("Invalid OclBuiltinImpl record.");
     } else
       impl->m_Code = R->getValueAsString("Impl");
   }
@@ -1088,9 +1092,10 @@ OclBuiltinDB::OclBuiltinDB(RecordKeeper& R)
       }
 
       // Check its super classes.
-      const std::vector<Record*>& SCs = Rec->getSuperClasses();
-      for (std::vector<Record*>::const_reverse_iterator I = SCs.rbegin(), E = SCs.rend(); I != E; ++I) {
-        const Record* Rec = *I;
+      ArrayRef<std::pair<Record *, SMRange>> SCs = Rec->getSuperClasses();
+      for (ArrayRef<std::pair<Record *, SMRange>>::reverse_iterator
+             I = SCs.rbegin(), E = SCs.rend(); I != E; ++I) {
+        const Record* Rec = I->first;
         const std::vector<RecordVal>& Values = Rec->getValues();
         for (size_t i = 0, e = Values.size(); i !=e ; ++i) {
           const RecordVal& RV = Values[i];

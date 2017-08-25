@@ -19,7 +19,6 @@ set(OCL_BE_PASSES
     BuiltInFuncImport
     BuiltinCallToInst
     BuiltinLibInfo
-    BlockToFuncPtr
     ChannelPipeTransformation
     CloneBlockInvokeFuncToKernel
     DebugInfoPass
@@ -53,8 +52,8 @@ set(OCL_BE_PASSES
     SinCosFold
     PreLegalizeBools
     OCLAliasAnalysis
-    SPIR20BlocksToObjCBlocks
     PrintfArgumentsPromotion
+    FMASplitter
 )
 
 # Dependencies of the passes

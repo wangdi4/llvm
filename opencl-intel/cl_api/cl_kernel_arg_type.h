@@ -40,6 +40,7 @@ enum cl_kernel_arg_type
     CL_KRNL_ARG_PTR_IMG_1D_BUF,       //!< Argument is a pointer to 1D image buffer
     CL_KRNL_ARG_PTR_BLOCK_LITERAL,    //!< Argument is a pointer to Block Literal structure
     CL_KRNL_ARG_PTR_QUEUE_T,          //!< Argument is a pointer to device execution queue
+    CL_KRNL_ARG_PTR_SAMPLER_T,        //!< Argument is a pointer to a sampler object
     CL_KRNL_ARG_PTR_PIPE_T,           //!< Argument is a pointer to a pipe
     CL_KRNL_ARG_PTR_CLK_EVENT_T,      //!< Argument is a pointer to a device side event
 };

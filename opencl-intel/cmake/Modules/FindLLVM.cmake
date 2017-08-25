@@ -31,14 +31,14 @@ else(BUILD_LLVM_FROM_SOURCE )
 
     # detect where the LLVMConfig should be found
     if( DEFINED CMAKE_BUILD_TYPE )
-      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH}/share/llvm/cmake)
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH}/lib/cmake/llvm)
     else()
       # we need to include some file from LLVM share, the problem is
       # that for VS the LLVM_PATH is not full but contain the ${CMAKE_CFG_INTDIR} macro
       # we need to explicitly check for existence of either release or debug cmake then
       string( REPLACE  \${CMAKE_CFG_INTDIR} Debug LLVM_PATH_DEBUG "${LLVM_PATH}" )
       string( REPLACE  \${CMAKE_CFG_INTDIR} Release LLVM_PATH_RELEASE "${LLVM_PATH}" )
-      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/share/llvm/cmake ${LLVM_PATH_RELEASE}/share/llvm/cmake)
+      set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${LLVM_PATH_DEBUG}/lib/cmake/llvm ${LLVM_PATH_RELEASE}/lib/cmake/llvm)
     endif()
     set( CMAKE_MODULE_PATH_SAVE ${CMAKE_MODULE_PATH})
     include( LLVMConfig )

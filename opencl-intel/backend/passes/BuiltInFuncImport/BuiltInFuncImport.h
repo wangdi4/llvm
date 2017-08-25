@@ -9,6 +9,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define __BUILT_IN_FUNCTION_IMPORT_H__
 
 #include "BuiltinLibInfo.h"
+
+#include <llvm/ADT/DenseSet.h>
 #include <llvm/Pass.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
@@ -36,7 +38,7 @@ namespace intel {
     BIImport(const char *CPUPrefix = "");
 
     /// @brief Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "BIImport";
     }
 

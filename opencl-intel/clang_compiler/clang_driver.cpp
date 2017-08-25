@@ -7,10 +7,10 @@
 // whole or in part without explicit written authorization from the company.
 //
 // ===--------------------------------------------------------------------===
-#include "stdafx.h"
-
-#include "cache_binary_handler.h"
 #include "clang_driver.h"
+
+#include "SPIRMaterializer.h"
+#include "cache_binary_handler.h"
 #include "common_clang.h"
 #include "elf_binary.h"
 #include "mic_dev_limits.h"
@@ -22,10 +22,13 @@
 
 #include <spirv/1.0/spirv.hpp>
 
-#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/ADT/StringRef.h>
+#include <llvm/Bitcode/BitcodeReader.h>
+#include <llvm/Bitcode/BitcodeWriter.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Verifier.h>
+#include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/SPIRV.h>
 #include <llvm/Support/SwapByteOrder.h>
 #include <llvm/Support/raw_ostream.h>
@@ -66,11 +69,12 @@ DECLARE_LOGGER_CLIENT;
 Intel::OpenCL::PluginManager g_pluginManager;
 
 //
-//Creates a source file object from a given contents string, and a serial identifier.
+// Creates a source file object from a given contents string, and a serial
+// identifier.
 //
-static Intel::OpenCL::Frontend::SourceFile
-createSourceFile(const char *contents, const char *options, unsigned serial,
-                 Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = nullptr) {
+static Intel::OpenCL::Frontend::SourceFile createSourceFile(
+    const char *contents, const char *options, unsigned serial,
+    Intel::OpenCL::ClangFE::IOCLFEBinaryResult *pResult = nullptr) {
   // composing a file name based on the current time
   std::stringstream fileName;
   std::string strContents(contents);
@@ -91,7 +95,7 @@ createSourceFile(const char *contents, const char *options, unsigned serial,
   }
   return ret;
 }
-#endif //OCLFRONTEND_PLUGINS
+#endif // OCLFRONTEND_PLUGINS
 
 const char *GetOpenCLVersionStr(OPENCL_VERSION ver) {
   switch (ver) {
@@ -121,8 +125,6 @@ std::string GetCurrentDir() {
 }
 
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
-  LOG_INFO(TEXT("%s"), TEXT("enter"));
-
   bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") !=
                     std::string::npos;
   bool bRelaxedMath =
@@ -151,8 +153,18 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   optionsEx << " -mstackrealign";
   optionsEx << " -D__ENDIAN_LITTLE__=1";
 
-  std::stringstream supportedExtensions;
-  supportedExtensions << m_sDeviceInfo.sExtensionStrings;
+  // Triple spir assumes that all extensions should be supported.
+  // To tell to compiler which extensions are actually supported by this
+  // particular device we pass supported extensions via -cl-ext option.
+  // Order of extensions matters! Later overwrites former.
+  // First of all we disable *all* extension and then we enable extension
+  // per the device info.
+  llvm::StringRef ExtStr(m_sDeviceInfo.sExtensionStrings);
+  llvm::SmallVector<llvm::StringRef, 16> ExtVec;
+  ExtStr.split(ExtVec, ' ', -1, false);
+  optionsEx << " -cl-ext=-all";
+  for (auto Ext : ExtVec)
+    optionsEx << ",+" << Ext.str();
 
   // If working as fpga emulator, pass special triple.
   if (m_pProgDesc->bFpgaEmulator) {
@@ -166,7 +178,22 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
 #error "Can't define target triple: unknown architecture."
 #endif
 
-    supportedExtensions << " cl_altera_channels";
+    // For now we can enable FPGA emulation only for the whole OpenCL context.
+    // It is deemed that a better approach would be to have FPGA emulator as
+    // another device. Then cl_altera_channels extension should be in
+    // m_sDeviceInfo.sExtensionStrings and can be handled uniformly with other
+    // extensions supported by the device. But according to Andrew Savonichev,
+    // the device based approach has several flaws:
+    // 1. We have a single BE instance for all devices, it would be equally
+    //    difficult to implement a check for FPGA in the BE.
+    // 2. ATM we can link against libintelocl.so to avoid device selection.
+    //    If libintelocl.so provides 2 devices, we would need to patch all
+    //    benchmarks/samples with a device selection code.
+    // 3. I think we only used 'experimental 2.x' as a separate platform
+    //    (not a device). Having 2 devices seems to be an overkill for this
+    //    purpose.
+    optionsEx << " -cl-ext=+cl_altera_channels";
+
   }
 
   if (m_sDeviceInfo.bImageSupport) {
@@ -180,7 +207,6 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
                       m_pProgDesc->pszInputHeadersNames, 0, 0,
                       options.str().c_str(),   // pszOptions
                       optionsEx.str().c_str(), // pszOptionsEx
-                      supportedExtensions.str().c_str(),
                       GetOpenCLVersionStr(m_config.GetOpenCLVersion()),
                       spBinaryResult.getOutPtr());
 
@@ -364,8 +390,10 @@ bool ClangFECompilerParseSPIRVTask::isSPIRVSupported() const {
 //
 // ClangFECompilerParseSPIRVTask call implementation.
 // Description:
-// Implements conversion from a SPIR-V 1.0 program (incapsulated in ClangFECompilerParseSPIRVTask)
-// to a llvm::Module, converts build options to LLVM metadata according to SPIR specification.
+// Implements conversion from a SPIR-V 1.0 program (incapsulated in
+// ClangFECompilerParseSPIRVTask)
+// to a llvm::Module, converts build options to LLVM metadata according to SPIR
+// specification.
 int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     IOCLFEBinaryResult **pBinaryResult) {
   std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
@@ -410,14 +438,14 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
                   m_pProgDesc->uiSPIRVContainerSize),
       std::ios_base::in);
 
-  bool isParsed = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+  bool success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
 
   // Respect build options.
   // Compiler options layout in llvm metadata is defined by SPIR spec.
   // For example:
   // !opencl.compiler.options = !{!11}
   // !11 = !{!"-cl-fast-relaxed-math", !""-cl-mad-enable"}
-  if (isParsed) {
+  if (success) {
     llvm::NamedMDNode *OCLCompOptsMD =
         pModule->getOrInsertNamedMetadata("opencl.compiler.options");
     // we do not expect spir-v parser to handle build options
@@ -444,6 +472,15 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
   assert(!verifyModule(*pModule) &&
          "SPIR-V consumer returned a broken module!");
 
+  if (success) {
+    // Currently SPIR-V consumer returns SPIR-like LLVM IR, so we need to
+    // convert it to the current LLVM IR version style.
+    // MaterializeSPIR returns 0 on success.
+    success = !intel::MaterializeSPIR(*pModule);
+
+    assert(!verifyModule(*pModule) && "SPIR Materializer broke the module!");
+  }
+
   // setting the result in both sucessful an uncussessful cases
   // to pass the error log.
 
@@ -459,7 +496,39 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(
     *pBinaryResult = pResult.release();
   }
 
-  return isParsed ? CL_SUCCESS : CL_INVALID_PROGRAM;
+  return success ? CL_SUCCESS : CL_INVALID_PROGRAM;
+}
+
+int ClangFECompilerMaterializeSPIRTask::MaterializeSPIR(
+    IOCLFEBinaryResult **pBinaryResult) {
+  std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
+
+  std::unique_ptr<llvm::LLVMContext> C(new llvm::LLVMContext());
+  auto MemBuff = llvm::MemoryBuffer::getMemBuffer(
+      llvm::StringRef((const char *)m_pProgDesc->pSPIRContainer,
+                      (size_t)m_pProgDesc->uiSPIRContainerSize),
+      "", false);
+  auto ModuleOrErr = parseBitcodeFile(*MemBuff.get(), *C.get());
+  if (!ModuleOrErr) {
+    if (pBinaryResult) {
+      pResult->setLog("Can't parse SPIR 1.2 module\n");
+      *pBinaryResult = pResult.release();
+    }
+    return CL_INVALID_PROGRAM;
+  }
+  llvm::Module *pModule = ModuleOrErr.get().get();
+  int res = intel::MaterializeSPIR(*pModule);
+
+  llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+  llvm::WriteBitcodeToFile(pModule, ir_ostream);
+
+  pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
+  pResult->setIRName(pModule->getName());
+
+  if (pBinaryResult) {
+    *pBinaryResult = pResult.release();
+  }
+  return res;
 }
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(

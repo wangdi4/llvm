@@ -49,7 +49,7 @@ namespace intel {
     ~GenericAddressStaticResolution();
 
     /// @brief  Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "GenericAddressStaticResolution";
     }
 
@@ -108,6 +108,9 @@ namespace intel {
 
     /// @brief  counter of pointers which the pass was unable to resolve
     unsigned m_failCount;
+
+    /// @brief line numbers with GAS warning for storage in Metadata
+    llvm::SmallVector<int, 8> m_GASWarningLinesList;
 
   private:
 

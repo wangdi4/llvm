@@ -7,15 +7,25 @@ target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f3
 %opencl.queue_t = type opaque
 %opencl.clk_event_t = type opaque
 
+define void @enqueue_kernel_localmem(%opencl.queue_t addrspace(1)* %q, %struct.ndrange_t* %nd, %opencl.clk_event_t* addrspace(4)* %event1, %opencl.clk_event_t* addrspace(4)* %event2, i8 addrspace(4)* %b, i32 %localMem1, i32 %localMem2) nounwind {
 
-define void @enqueue_kernel_localmem(%opencl.queue_t addrspace(1)* %q, %struct.ndrange_t* %nd, void (i8 addrspace(3)*, ...)* %b, i32 %localMem1, i32 %localMem2) nounwind {
-; CHECK: call i32 @ocl20_enqueue_kernel_localmem
-  %call = call i32 (%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, void (i8 addrspace(3)*, ...)*, i32, ...) @_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz(%opencl.queue_t addrspace(1)* %q, i32 0, %struct.ndrange_t* %nd, void (i8 addrspace(3)*, ...)* %b, i32 %localMem1, i32 %localMem2)
+; CHECK:     call i32 @ocl20_enqueue_kernel_localmem
+; CHECK-NOT: call i32 @__enqueue_kernel_vaargs
+
+  %call1 = call i32 (%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, i8 addrspace(4)*, i32, ...) @__enqueue_kernel_vaargs(%opencl.queue_t addrspace(1)* %q, i32 0, %struct.ndrange_t* %nd, i8 addrspace(4)* %b, i32 %localMem1, i32 %localMem2)
+
+; CHECK:     call i32 @ocl20_enqueue_kernel_events_localmem
+; CHECK-NOT: call i32 @__enqueue_kernel_events_vaargs
+
+  %call2 = call i32 (%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, i8 addrspace(4)*, i32, ...) @__enqueue_kernel_events_vaargs(%opencl.queue_t addrspace(1)* %q, i32 0, %struct.ndrange_t* %nd, i32 2, %opencl.clk_event_t* addrspace(4)* %event1, %opencl.clk_event_t* addrspace(4)* %event2, i8 addrspace(4)* %b, i32 %localMem1, i32 %localMem2)
   ret void
 }
 
 ; CHECK: declare i32 @ocl20_enqueue_kernel_localmem
-declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t* byval, void (i8 addrspace(3)*, ...)*, i32, ...)
+; CHECK: declare i32 @ocl20_enqueue_kernel_events_localmem
+
+declare i32 @__enqueue_kernel_vaargs(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t* byval, i8 addrspace(4)*, i32, ...)
+declare i32 @__enqueue_kernel_events_vaargs(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t*, i32, %opencl.clk_event_t* addrspace(4)*, %opencl.clk_event_t* addrspace(4)*, i8 addrspace(4)*, i32, ...)
 
 !opencl.compiler.options = !{!2}
 !2 = !{!"-cl-std=CL2.0"}

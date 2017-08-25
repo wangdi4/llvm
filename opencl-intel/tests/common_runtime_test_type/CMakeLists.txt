@@ -102,7 +102,7 @@ install(FILES ../GeneralScripts/cmk_test_type_runner.py ../GeneralScripts/cmk_xm
 # Copy generated executable to appropriate test directory in 'Release' area.
 install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 
-set_target_properties( ${TARGET} PROPERTIES FOLDER "validation/workloads" )
+set_target_properties( ${TARGET} PROPERTIES FOLDER "validation" )
 
 install(FILES ${CRT_KERNELS} DESTINATION tests/common_runtime_test_type)
 install(FILES common_runtime_test_type.pm DESTINATION tests/common_runtime_test_type)

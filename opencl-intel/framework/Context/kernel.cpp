@@ -1030,8 +1030,23 @@ cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pV
         {
             return CL_INVALID_SAMPLER;
         }
-        cl_uint  value       = pSampler->GetValue();
-        clArg.SetValue(clArg.GetSize(), &value);
+        //Support for new(opaque ptr) and old(int32) sampler.
+        if (clArg.IsInt32Sampler())
+        {
+            assert(clArg.GetSize() == sizeof(cl_uint) &&
+                "Mismatch between sampler representation on host and device!");
+            cl_uint  value = pSampler->GetValue();
+            clArg.SetValue(clArg.GetSize(), &value);
+        }
+        else if (clArg.IsOpaqueSampler())
+        {
+            assert(clArg.GetSize() == sizeof(size_t) &&
+                "Mismatch between sampler representation on host and device!");
+            size_t value = (size_t)pSampler->GetValue();
+            clArg.SetValue(clArg.GetSize(), &value);
+        }
+        else
+            assert(0 && "Unknown type of sampler.");
     }
     else if (clArg.IsQueueId())
     {

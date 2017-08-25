@@ -18,13 +18,15 @@ File Name:  OpenCLCompilationFlags.cpp
 #include "OpenCLCompilationFlags.h"
 #include "llvm/IR/Metadata.h"
 
-namespace llvm{
+namespace llvm {
 
+    // ToDo: Is this used anywhere?
     CompilationFlagsList GetCompilationFlags(llvm::Module* module)
     {
         CompilationFlagsList flags;
 
         assert(module && "Module is not set");
+        // ToDo: use MetadataAPI for collecting the data.
         NamedMDNode* metadata = module->getNamedMetadata("opencl.compiler.options");
         if(metadata != NULL)
         {

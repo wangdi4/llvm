@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <llvm/IR/Module.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Bitcode/BitcodeReader.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include "llvm/Transforms/Utils/GlobalStatus.h"
 #include <llvm/IR/Instruction.h>
@@ -176,9 +176,9 @@ namespace intel {
       return;
     }
 
-    if (Root->isMaterializable()) {
-      Root->materialize();
-    }
+    if (Root->isMaterializable())
+     if (llvm::Error EC = Root->materialize())
+      report_fatal_error("Error materializing function: " + Root->getName());
 
     FunctionsVec CalledFuncs;
     GetCalledFunctions(Root, CalledFuncs);
@@ -284,10 +284,10 @@ namespace intel {
       if (!F.isDeclaration())
         UserModuleFunctions.insert(&F);
 
-    const int EST_FUNCTIONS_NUM = 64;
-    const int EST_GLOBALS_NUM = 64;
-    SmallPtrSet<GlobalValue*, EST_FUNCTIONS_NUM> UsedFunctions;
-    SmallPtrSet<GlobalVariable*, EST_GLOBALS_NUM> UsedGlobals;
+    const int EST_FUNCTIONS_NUM = 32;
+    const int EST_GLOBALS_NUM = 32;
+    SmallPtrSet<GlobalValue*, EST_GLOBALS_NUM> UsedFunctions;
+    SmallPtrSet<GlobalVariable*, EST_FUNCTIONS_NUM> UsedGlobals;
 
     for (auto &F : M) {
       ExploreUses(&F, m_runtimeModuleList, UsedFunctions, UsedGlobals);
@@ -319,9 +319,9 @@ namespace intel {
         CloneModuleOnlyRequired(RTL, VMap, UsedFunctions, UsedGlobals));
     }
 
-    for (const auto &RTL : ClonedRtlModules) {
-      RTL->materializeAll();
-    }
+    for (const auto &RTL : ClonedRtlModules)
+     if (llvm::Error EC = RTL->materializeAll())
+      report_fatal_error("Error matializing module: " + RTL->getName());
 
     // Workaround: save StructType names to restore them later after
     // Linker::linkInModule().
@@ -367,7 +367,8 @@ namespace intel {
     Linker LD(M);
 
     for (auto &RTL : ClonedRtlModules) {
-      RTL->materializeAll();
+      if (llvm::Error EC = RTL->materializeAll())
+        report_fatal_error("Error matializing module: " + RTL->getName());
 
       // Copy target triple from dst module to avoid linker warnings
       // FIXME: remove x86_64-pc-windows-gnu-elf triple on Linux

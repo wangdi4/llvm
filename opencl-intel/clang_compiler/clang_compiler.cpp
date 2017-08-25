@@ -8,31 +8,30 @@
 //
 // ===--------------------------------------------------------------------===
 
-#include "stdafx.h"
 #include "clang_compiler.h"
 #include "clang_driver.h"
 #include "common_clang.h"
 
 #include <Logger.h>
-#include <cl_sys_defines.h>
 #include <cl_device_api.h>
 #include <cl_shutdown.h>
+#include <cl_sys_defines.h>
 
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Mutex.h"
 
-#if defined (_WIN32)
-#include<windows.h>
+#if defined(_WIN32)
+#include <windows.h>
 #endif
-#include <string.h>
+#include <ctime>
 #include <memory>
 #include <sstream>
-#include <ctime>
+#include <string.h>
 
 using namespace Intel::OpenCL::ClangFE;
 using namespace Intel::OpenCL::Utils;
 
-#if defined (_WIN32)
+#if defined(_WIN32)
 #define DLL_EXPORT _declspec(dllexport)
 #else
 #define DLL_EXPORT
@@ -80,8 +79,8 @@ ClangFECompiler::~ClangFECompiler() {
 
 int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
                                     IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerCompileTask(pProgDesc, m_sDeviceInfo, m_config)
       .Compile(pBinaryResult);
@@ -90,27 +89,36 @@ int ClangFECompiler::CompileProgram(FECompileProgramDescriptor *pProgDesc,
 int ClangFECompiler::LinkPrograms(
     Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor *pProgDesc,
     IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
 }
 
 int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor *pProgDesc,
                                 IOCLFEBinaryResult **pBinaryResult) {
-  assert(nullptr != pProgDesc);
-  assert(nullptr != pBinaryResult);
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
 
   return ClangFECompilerParseSPIRVTask(pProgDesc, m_sDeviceInfo)
       .ParseSPIRV(pBinaryResult);
 }
 
+int ClangFECompiler::MaterializeSPIR(FESPIRProgramDescriptor *pProgDesc,
+                                     IOCLFEBinaryResult **pBinaryResult) {
+  assert(nullptr != pProgDesc && "Program description can't be null");
+  assert(nullptr != pBinaryResult && "Result parameter can't be null");
+
+  return ClangFECompilerMaterializeSPIRTask(pProgDesc).MaterializeSPIR(
+      pBinaryResult);
+}
+
 int ClangFECompiler::GetKernelArgInfo(const void *pBin, size_t uiBinarySize,
                                       const char *szKernelName,
                                       IOCLFEKernelArgInfo **pArgInfo) {
-  assert(nullptr != pBin);
-  assert(nullptr != szKernelName);
-  assert(nullptr != pArgInfo);
+  assert(nullptr != pBin && "Binary can't be null");
+  assert(nullptr != szKernelName && "Kernel name is required");
+  assert(nullptr != pArgInfo && "Result parameter can't be null");
 
   return ClangFECompilerGetKernelArgInfoTask().GetKernelArgInfo(
       pBin, uiBinarySize, szKernelName, pArgInfo);
@@ -134,7 +142,9 @@ namespace Intel {
 namespace OpenCL {
 namespace Utils {
 FrameworkUserLogger *g_pUserLogger = nullptr;
-}}}
+}
+}
+}
 
 extern "C" DLL_EXPORT int
 CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
@@ -143,8 +153,8 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
   // Lazy initialization
   ClangCompilerInitialize();
 
-  assert(nullptr != pFECompiler);
-  assert(devInfoSize == sizeof(CLANG_DEV_INFO));
+  assert(nullptr != pFECompiler && "Front-end compiler can't be null");
+  assert(devInfoSize == sizeof(CLANG_DEV_INFO) && "Ivalid device information");
 
   g_pUserLogger = pUserLogger;
 
@@ -152,7 +162,7 @@ CreateFrontEndInstance(const void *pDeviceInfo, size_t devInfoSize,
     *pFECompiler = new ClangFECompiler(pDeviceInfo);
     return CL_SUCCESS;
   } catch (std::bad_alloc &) {
-    LOG_ERROR(TEXT("%S"), TEXT("Can't allocate compiler instance"));
+    LogErrorA("%S", "Can't allocate compiler instance");
     return CL_OUT_OF_HOST_MEMORY;
   }
 }

@@ -237,12 +237,12 @@ bool PacketizeFunction::runOnFunction(Function &F)
   resolveDeferredInstructions();
 
   // Iterate over removed instructions and delete them
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator iterStart = m_removedInsts.begin();
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator iterEnd = m_removedInsts.end();
-  SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator index = iterStart;
-  for (index = iterStart; index != iterEnd; ++index)
+  auto iterStart = m_removedInsts.begin();
+  auto iterEnd = m_removedInsts.end();
+  auto indexIter = iterStart;
+  for (indexIter = iterStart; indexIter != iterEnd; ++indexIter)
   {
-    Instruction *curInst = *index;
+    Instruction *curInst = *indexIter;
     m_depAnalysis->invalidateDepend(curInst);
     curInst->replaceAllUsesWith(UndefValue::get(curInst->getType()));
     curInst->eraseFromParent();

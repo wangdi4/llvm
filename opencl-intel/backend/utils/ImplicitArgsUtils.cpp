@@ -8,9 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ImplicitArgsUtils.h"
 #include "CompilationUtils.h"
 
-#ifndef __APPLE__
 #include "ExecutionContext.h"
-#endif
 
 #include <assert.h>
 
@@ -26,12 +24,7 @@ const ArgData impArgs[ImplicitArgsUtils::IA_NUMBER] = {
   {"pWorkDim",        false}, //IA_WORK_GROUP_INFO
   {"pWGId",           true},  //IA_WORK_GROUP_ID
   {"BaseGlbId",       true},  //IA_GLOBAL_BASE_ID
-  //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
-#ifndef __APPLE__
   {"pSpecialBuf",     true },
-#else
-  {"pSpecialBuf",     false },
-#endif
   {"RuntimeHandle",  true}}; //IA_RUNTIME_HANDLE
 
 const char* ImplicitArgsUtils::getArgName(unsigned Idx) {
@@ -68,7 +61,6 @@ void ImplicitArgsUtils::initImplicitArgProps(unsigned int SizeT) {
   m_initialized = true;
 }
 
-#ifndef __APPLE__
 void ImplicitArgsUtils::createImplicitArgs(char* pDest) {
   
   // Start from the beginning of the given dest buffer
@@ -92,6 +84,5 @@ size_t ImplicitArgsUtils::getAdjustedAlignment(size_t offset, size_t ST) {
   // Implicit args will be aligned to size_t to allow KNC VBROADCAST's on size_t values
   return ((offset + ST - 1) / ST) * ST;
 }
-#endif
 
 }}} // namespace Intel { namespace OpenCL { namespace DeviceBackend {

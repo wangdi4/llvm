@@ -14,45 +14,42 @@
   File Name: TestRefCount.cpp
 \****************************************************************************/
 
-#include "gtest/gtest.h"
-#include <vector>
-#include <algorithm>
 #include "Refcount.h"
+#include "gtest/gtest.h"
+#include <algorithm>
+#include <vector>
 
 using namespace intel;
 
 //
-//On top of being functional tests, the test below tests the RefCounter for
-//memory-leask. As for now they should be ran with cmd line tools such as
-//valgrind: valgrind --tool=memcheck --leak-check=full ./NameManglingTest
+// On top of being functional tests, the test below tests the RefCounter for
+// memory-leask. As for now they should be ran with cmd line tools such as
+// valgrind: valgrind --tool=memcheck --leak-check=full ./NameManglingTest
 //
 
-class A{
+class A {
   int num;
+
 public:
-  A(int n): num(n){}
-  int getNum()const {return num;}
+  A(int n) : num(n) {}
+  int getNum() const { return num; }
 };
 
-std::ostream& operator << (std::ostream& o, const A& a){
+std::ostream &operator<<(std::ostream &o, const A &a) {
   o << a.getNum();
   return o;
 }
 
-static void printRef(const RefCount<A>& a){
-  std::cout << *a << std::endl; 
-}
+static void printRef(const RefCount<A> &a) { std::cout << *a << std::endl; }
 
-static void printA(const A* a){
-  std::cout << *a << std::endl;
-}
+static void printA(const A *a) { std::cout << *a << std::endl; }
 
-TEST(ReferenceCounter, l1){
+TEST(ReferenceCounter, l1) {
   RefCount<A> aref(new A(2));
   printRef(aref);
 }
 
-TEST(ReferenceCounter, sharedref){
+TEST(ReferenceCounter, sharedref) {
   RefCount<A> aref(new A(2));
   {
     RefCount<A> bref = aref;
@@ -61,36 +58,36 @@ TEST(ReferenceCounter, sharedref){
   printRef(aref);
 }
 
-TEST(ReferenceCounter, NullInitialization){
+TEST(ReferenceCounter, NullInitialization) {
   RefCount<A> refa;
   refa.init(new A(3));
   printRef(refa);
 }
 
-TEST(ReferenceCounter, inVector){
-  std::vector<RefCount<A> > vec;
-  vec.push_back( new A(0));
-  vec.push_back( new A(1));
-  vec.push_back( new A(2));
+TEST(ReferenceCounter, inVector) {
+  std::vector<RefCount<A>> vec;
+  vec.push_back(new A(0));
+  vec.push_back(new A(1));
+  vec.push_back(new A(2));
   std::for_each(vec.begin(), vec.end(), printRef);
   std::for_each(vec.begin(), vec.end(), printA);
 }
 
-//Tricky case, in which we use the = operator, to which the previous object is
-//already initialized
-TEST(ReferenceCounter, vectorSwap){
-  std::vector<RefCount<A> > vec;
+// Tricky case, in which we use the = operator, to which the previous object is
+// already initialized
+TEST(ReferenceCounter, vectorSwap) {
+  std::vector<RefCount<A>> vec;
   vec.push_back(new A(0));
   vec[0] = RefCount<A>(new A(1));
 }
 
-TEST(ReferenceCounter, pointer){
+TEST(ReferenceCounter, pointer) {
   RefCount<A> refa(new A(0));
   ASSERT_EQ(0, refa->getNum());
 }
 
-TEST(ReferenceCounter, vectorChanges){
-  std::vector<RefCount<A> > vec;
+TEST(ReferenceCounter, vectorChanges) {
+  std::vector<RefCount<A>> vec;
   vec.push_back(new A(0));
   vec.push_back(new A(1));
   vec.resize(1);

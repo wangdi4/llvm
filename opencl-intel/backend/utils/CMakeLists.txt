@@ -1,12 +1,6 @@
 set(TARGET_NAME OclBackendUtils)
 
 add_subdirectory(LoopUtils)
-if(APPLE)
-set(TARGET_EXTRA_SOURCE_FILES 
-)
-set(TARGET_EXTRA_INCLUDE_FILES 
-)
-else(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
   SystemInfo.cpp
 )
@@ -18,7 +12,6 @@ set(TARGET_EXTRA_INCLUDE_FILES
   ExplicitBlockLiteralArgument.h
   SystemInfo.h
 )
-endif(APPLE)
 
 set (TARGET_INCLUDE_FILES
   CompilationUtils.h
@@ -68,15 +61,9 @@ include_directories(
   ${CMAKE_BINARY_DIR}
 )
 
-if (APPLE)
-include_directories(
-    ${BACKEND_ROOT_DIR}/arch_headers/Apple
-)
-else (APPLE)
 include_directories(
     ${BACKEND_ROOT_DIR}/arch_headers
 )
-endif (APPLE)
 
 # Include the ASM sources
 if(BUILD_X64)
@@ -86,9 +73,6 @@ if(BUILD_X64)
         set (UTILS_ASM_ADD_TO_SOURCES_LIST ../ocl_cpu_backend/linux64_utils.s)
     endif ()
 endif(BUILD_X64)
-if(APPLE)
-    set(UTILS_ASM_ADD_TO_SOURCES_LIST mac_utils.s)
-endif(APPLE)
 
 add_library(${TARGET_NAME} STATIC
     ${TARGET_INCLUDE_FILES}
@@ -99,11 +83,3 @@ add_library(${TARGET_NAME} STATIC
 add_dependencies(${TARGET_NAME} metadataapi)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_FOLDER_NAME} )
-
-if(APPLE)
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  message(STATUS "Utils relative dir:" ${SOURCE_RELATIVE_DIR})
-  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES} ${UTILS_ASM_ADD_TO_SOURCES_LIST}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)

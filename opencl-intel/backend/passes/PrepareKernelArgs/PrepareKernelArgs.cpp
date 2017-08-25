@@ -9,18 +9,19 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "TypeAlignment.h"
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "OCLPassSupport.h"
 #include "OclTune.h"
 
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 
 #include <sstream>
 #include <memory>
 
-#define STACK_PADDING_BUFFER DEV_MAXIMUM_ALIGN*1
+#define STACK_PADDING_BUFFER (DEV_MAXIMUM_ALIGN*1)
 
 extern "C"{
   /// @brief Creates new PrepareKernelArgs module pass
@@ -31,6 +32,7 @@ extern "C"{
 
 }
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel{
 
@@ -47,25 +49,22 @@ namespace intel{
     m_DL = &M.getDataLayout();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
-    Intel::MetaDataUtils mdUtils(&M);
-    m_mdUtils = &mdUtils;
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
     m_PtrSizeInBytes = M.getDataLayout().getPointerSize(0);
     m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
     m_I8Ty = Type::getInt8Ty(*m_pLLVMContext);
+
     // Get all kernels (original scalar kernels and vectorized kernels)
     CompilationUtils::FunctionSet kernelsFunctionSet;
     CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
 
     // Run on all kernels for handling and handle them
-    for ( CompilationUtils::FunctionSet::iterator fi = kernelsFunctionSet.begin(),
-      fe = kernelsFunctionSet.end(); fi != fe; ++fi ) {
-        runOnFunction(*fi);
+    for (auto *F : kernelsFunctionSet) {
+      runOnFunction(F);
     }
-    //Save Metadata to the module
-    m_mdUtils->save(*m_pLLVMContext);
+
     return true;
   }
 
@@ -85,6 +84,7 @@ namespace intel{
     // Create a new function
     Function *pNewF = Function::Create(FTy, pFunc->getLinkage(), pFunc->getName());
     pNewF->setCallingConv(pFunc->getCallingConv());
+    pNewF->copyMetadata(pFunc, 0);
 
     // Set DISubprogram as an original function has
     pNewF->setSubprogram(pFunc->getSubprogram());
@@ -95,14 +95,12 @@ namespace intel{
   std::vector<Value *> PrepareKernelArgs::createArgumentLoads(
       IRBuilder<> &builder, Function *WrappedKernel, Argument *pArgsBuffer,
       Argument *pArgGID, Argument *RuntimeContext) {
-
     // Get old function's arguments list in the OpenCL level from its metadata
     std::vector<cl_kernel_argument> arguments;
     std::vector<unsigned int>       memoryArguments;
     CompilationUtils::parseKernelArguments(m_pModule, WrappedKernel, arguments, memoryArguments);
 
-    Intel::KernelInfoMetaDataHandle kimd = m_mdUtils->getKernelsInfoItem(WrappedKernel);
-    assert(kimd.get() && "Function info should be available at this point");
+    auto kimd = KernelInternalMetadataAPI(WrappedKernel);
     std::vector<Value*> params;
     llvm::Function::arg_iterator callIt = WrappedKernel->arg_begin();
 
@@ -128,8 +126,6 @@ namespace intel{
 
         Value* pPointerCast = builder.CreatePointerCast(pGEP, callIt->getType());
         pArg = pPointerCast;
-        //TODO: Remove this #ifndef when apple pass local memory buffer size instead of pointer to buffer
-#ifndef __APPLE__
       } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
         // The argument is actually the size of the buffer
         Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
@@ -142,16 +138,15 @@ namespace intel{
           Type* EltTy = callIt->getType()->getPointerElementType();
           // If the kernel was vectorized, choose an alignment that is good for the *vectorized* type. This can
           // be good for unaligned loads on targets that support instructions such as MOVUPS
-          unsigned VecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
+          unsigned VecSize = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
           if (VecSize != 1 && VectorType::isValidElementType(EltTy))
             EltTy = VectorType::get(EltTy, VecSize);
           Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
         }
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
-#endif
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
-          pArg = pGEP;
+          pArg = builder.CreateAddrSpaceCast(pGEP, callIt->getType());
       } else {
         // Otherwise this is some other type, lets say int4, then int4 itself is passed by value inside pArgsBuffer
         // and the original kernel signature was:
@@ -214,7 +209,7 @@ namespace intel{
              "Mismatch in arg found in function and expected arg type");
       switch(i) {
       case ImplicitArgsUtils::IA_SLM_BUFFER: {
-          uint64_t slmSizeInBytes = kimd->getLocalBufferSize();
+          uint64_t slmSizeInBytes = kimd.LocalBufferSize.get();
           // TODO: when slmSizeInBytes equal 0, we might want to set dummy
           // address for debugging!
         if (slmSizeInBytes == 0) { // no need to create of pad this buffer.
@@ -283,13 +278,11 @@ namespace intel{
         }
         pArg = U;
         } break;
-        //TODO: Remove this #ifndef when apple no longer pass barrier memory buffer
-#ifndef __APPLE__
       case ImplicitArgsUtils::IA_BARRIER_BUFFER:
         {
           // We obtain the number of bytes needed per item from the Metadata
           // which is set by the Barrier pass
-          uint64_t SizeInBytes = kimd->getBarrierBufferSize();
+          uint64_t SizeInBytes = kimd.BarrierBufferSize.get();
           // BarrierBufferSize := BytesNeededPerWI*GroupSize(0)*GroupSize(1)*GroupSize(2)
           Value *BarrierBufferSize = ConstantInt::get(m_SizetTy, SizeInBytes);
           assert(WGInfo && "Work Group Info was not initialized");
@@ -304,7 +297,6 @@ namespace intel{
           pArg = BarrierBuffer;
         }
         break;
-#endif
       case ImplicitArgsUtils::IA_WORK_GROUP_INFO: {
         // These values are pointers that just need to be loaded from the
         // UniformKernelArgs structure and passed on to the kernel
@@ -353,12 +345,17 @@ namespace intel{
     std::vector<Value*> params = createArgumentLoads(builder, WrappedKernel, pArgsBuffer, pArgGID, RuntimeContext);
 
     CallInst* call = builder.CreateCall(WrappedKernel, ArrayRef<Value*>(params));
+    // inlinable function call in a function with debug info
+    // must have a !dbg location
+    if(DISubprogram *SP = WrappedKernel->getSubprogram())
+        call->setDebugLoc(DebugLoc::get(SP->getScopeLine(), 0, SP));
     call->setCallingConv(WrappedKernel->getCallingConv());
 
     builder.CreateRetVoid();
   }
 
   bool PrepareKernelArgs::runOnFunction(Function *pFunc) {
+    using namespace Intel::MetadataAPI;
 
     // Create wrapper function
     Function *pWrapper = createWrapper(pFunc);
@@ -368,6 +365,7 @@ namespace intel{
 
     // Make sure old function always inlined
     // We want to do inlining pass after PrepareKernelArgs pass to gain performance
+    pFunc->removeFnAttr(llvm::Attribute::NoInline);
     pFunc->addFnAttr(llvm::Attribute::AlwaysInline);
 
     createWrapperBody(pWrapper, pFunc);
@@ -375,7 +373,8 @@ namespace intel{
     // Add declaration of original function with its signature
     m_pModule->getFunctionList().push_back(pWrapper);
 
-    m_mdUtils->getOrInsertKernelsInfoItem(pFunc)->setKernelWrapper(pWrapper);
+    auto kernelWrapperMetadata = KernelInternalMetadataAPI(pFunc).KernelWrapper;
+    kernelWrapperMetadata.set(pWrapper);
 
     // move stats from original kernel to the wrapper
     intel::Statistic::moveFunctionStats(*pFunc, *pWrapper);

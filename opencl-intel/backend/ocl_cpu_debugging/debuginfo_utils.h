@@ -38,10 +38,8 @@ namespace llvm {
     class DIType;
 }
 
-std::string DescribeVarType(const llvm::DIType* di_type,
-                            const llvm::DITypeIdentifierMap & typeIdentifierMap);
+std::string DescribeVarType(const llvm::DIType* di_type);
 std::string DescribeVarValue(const llvm::DIType* di_type, void* addr,
-                             const llvm::DITypeIdentifierMap & typeIdentifierMap,
                              std::string type_name = "");
 
 
@@ -49,7 +47,7 @@ std::string DescribeVarValue(const llvm::DIType* di_type, void* addr,
 // transmission to the client.
 //
 debugservermessages::VarTypeDescriptor GenerateVarTypeDescriptor(
-    const llvm::DIType& di_type, const llvm::DITypeIdentifierMap& typeIdentifierMap);
+                                       const llvm::DIType& di_type);
 
 
 #endif // DEBUGINFO_UTILS_H

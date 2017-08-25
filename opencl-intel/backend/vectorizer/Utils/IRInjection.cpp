@@ -78,7 +78,7 @@ public:
   /// @brief D'tor
   ~IRInjectModule(){}
   /// @brief Provides name of pass
-  virtual const char *getPassName() const {
+  virtual llvm::StringRef getPassName() const {
     return "IRInjectModule";
   }
 
@@ -196,6 +196,7 @@ private:
                        F->getLinkage(), F->getName(), m_M);
       }
       curF->copyAttributesFrom(F);
+      curF->copyMetadata(F, 0);
       m_VMap[F] = curF;
     }
   }

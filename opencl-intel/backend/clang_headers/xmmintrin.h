@@ -182,7 +182,7 @@ _mm_cmpeq_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpeq_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 0);
+  return (__m128)__builtin_ia32_cmpeqps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -194,7 +194,7 @@ _mm_cmplt_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmplt_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 1);
+  return (__m128)__builtin_ia32_cmpltps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -206,7 +206,7 @@ _mm_cmple_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmple_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 2);
+  return (__m128)__builtin_ia32_cmpleps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -218,7 +218,7 @@ _mm_cmpgt_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpgt_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(b, a, 1);
+  return (__m128)__builtin_ia32_cmpltps((__v4sf)b, (__v4sf)a);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -230,7 +230,7 @@ _mm_cmpge_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpge_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(b, a, 2);
+  return (__m128)__builtin_ia32_cmpleps((__v4sf)b, (__v4sf)a);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -242,7 +242,7 @@ _mm_cmpneq_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpneq_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 4);
+  return (__m128)__builtin_ia32_cmpneqps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -302,7 +302,7 @@ _mm_cmpord_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpord_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 7);
+  return (__m128)__builtin_ia32_cmpordps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -314,7 +314,7 @@ _mm_cmpunord_ss(__m128 a, __m128 b)
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_cmpunord_ps(__m128 a, __m128 b)
 {
-  return (__m128)__builtin_ia32_cmpps(a, b, 3);
+  return (__m128)__builtin_ia32_cmpunordps((__v4sf)a, (__v4sf)b);
 }
 
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
@@ -624,7 +624,10 @@ _mm_store_ss(float *p, __m128 a)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storeu_ps(__OCL_PRIVATE_ADDR_SPACE float *p, __m128 a)
 {
-  __builtin_ia32_storeups(p, a);
+  struct __storeu_ps {
+    __m128 v;
+  } __attribute__((__packed__, __may_alias__));
+  ((struct __storeu_ps*)p)->v = a;
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
@@ -666,14 +669,10 @@ _mm_storer_ps(float *p, __m128 a)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_stream_ps(float *p, __m128 a)
 {
-  __builtin_ia32_movntps(p, a);
+  __builtin_nontemporal_store((__v4sf)a, (__v4sf*)p);
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_sfence(void)
-{
-  __builtin_ia32_sfence();
-}
+void _mm_sfence(void);
 
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _mm_extract_pi16(__m64 a, int n)
@@ -754,17 +753,8 @@ _mm_sad_pu8(__m64 a, __m64 b)
   return (__m64)__builtin_ia32_psadbw((__v8qi)a, (__v8qi)b);
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
-_mm_getcsr(void)
-{
-  return __builtin_ia32_stmxcsr();
-}
-
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_setcsr(unsigned int i)
-{
-  __builtin_ia32_ldmxcsr(i);
-}
+unsigned int _mm_getcsr(void);
+void _mm_setcsr(unsigned int i);
 
 #define _mm_shuffle_ps(a, b, mask) __extension__ ({ \
   __m128 __a = (a); \

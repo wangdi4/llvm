@@ -18,5 +18,5 @@ entry:
   ret void
 }
 
-!opencl.kernels = !{}
-; CHECK: !{!"block_literal_size", i32 36}
+; CHECK: !block_literal_size ![[SIZE:[0-9]+]]
+; CHECK: ![[SIZE]] = !{i32 36}

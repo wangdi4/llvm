@@ -19,10 +19,8 @@ struct VarArgsCallbackDesc {
 
 // The array below must be sorted by the key which is FuncCallType!!!
 static const VarArgsCallbackDesc VarArgsCallbackLookup[] = {
-  { ICT_ENQUEUE_KERNEL_LOCALMEM, "ocl20_enqueue_kernel_localmem", 4 },
-  { ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM, "ocl20_enqueue_kernel_events_localmem", 7 },
-//  { ICT_GET_KERNEL_WORK_GROUP_SIZE_LOCAL, "ocl20_get_kernel_wg_size_local", 0, false, false },
-//  { ICT_GET_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE_LOCAL, "ocl20_get_kernel_preferred_wg_size_multiple_local", 0, false, false }
+  { ICT_ENQUEUE_KERNEL_LOCALMEM, "ocl20_enqueue_kernel_localmem", 5 },
+  { ICT_ENQUEUE_KERNEL_EVENTS_LOCALMEM, "ocl20_enqueue_kernel_events_localmem", 8 },
 };
 static const VarArgsCallbackDesc *getVarArgsCallbackDesc(unsigned FuncCallType) {
   size_t CallbackLookupCount = sizeof(VarArgsCallbackLookup) / sizeof(VarArgsCallbackLookup[0]);

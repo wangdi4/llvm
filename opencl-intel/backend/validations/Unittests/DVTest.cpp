@@ -186,6 +186,7 @@ static void  testFindSamplers(std::string sourceIn, std::vector<unsigned int >& 
     pBinary->Release();
 
     llvm::NamedMDNode* metadata = pModule->getNamedMetadata("opencl.kernels");
+    assert(metadata && "There is no \"opencl.kernels\" metadata.");
 
     // this function is tested
     samplerIndxs = FindSamplers(metadata,kernelName);
@@ -361,6 +362,7 @@ TEST(DataVersionTest, DISABLED_ConvertData) /* CSSD100018373 */ {
     pBinary->Release();
 
     llvm::NamedMDNode* metadata = pModule.get()->getNamedMetadata("opencl.kernels");
+    assert(metadata && "There is no \"opencl.kernels\" metadata.");
 
     for( unsigned int j = 0; j < metadata->getNumOperands(); j++ ) {
 

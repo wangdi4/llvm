@@ -327,7 +327,6 @@ set( BACKEND_PASSES
     OclFunctionAttrs
     BuiltInFuncImport
     BuiltinLibInfo
-    BlockToFuncPtr
     DebugInfoPass
     DetectRecursion
     InstToFuncCall
@@ -358,8 +357,8 @@ set( BACKEND_PASSES
     SinCosFold
     PreLegalizeBools
     OCLAliasAnalysis
-    SPIR20BlocksToObjCBlocks
     PrintfArgumentsPromotion
+    FMASplitter
 )
 
 set(UTILS_LIBS

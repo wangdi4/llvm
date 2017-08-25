@@ -13,7 +13,7 @@ define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> 
   %sext = shl i64 %1, 32
   %2 = ashr exact i64 %sext, 32
   %3 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %A, i64 %2
-  tail call void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)* %3, i64 1) nounwind
+  tail call void @_Z8prefetchPU3AS1KDv4_im(<4 x i32> addrspace(1)* %3, i64 1) nounwind
   %4 = load <4 x i32>, <4 x i32> addrspace(1)* %3, align 16
   %5 = getelementptr inbounds <4 x i32>, <4 x i32> addrspace(1)* %B, i64 %2
   store <4 x i32> %4, <4 x i32> addrspace(1)* %5, align 16
@@ -21,7 +21,7 @@ define void @vector_prefetch_test(<4 x i32> addrspace(1)* noalias %A, <4 x i32> 
 }
 
 declare i64 @_Z13get_global_idj(i32) nounwind readnone
-declare void @_Z8prefetchPKU3AS1Dv4_im(<4 x i32> addrspace(1)*, i64)
+declare void @_Z8prefetchPU3AS1KDv4_im(<4 x i32> addrspace(1)*, i64)
 
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}

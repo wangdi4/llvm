@@ -22,7 +22,7 @@ RuntimeLib(cl::CommaSeparated, "runtimelib",
 
 static cl::opt<std::string>
 RuntimeServices("runtime",
-                  cl::desc("Runtime services type (ocl/dx/apple/rs)"),
+                  cl::desc("Runtime services type (ocl/dx/rs)"),
                   cl::value_desc("runtime_type"), cl::init("ocl"));
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
@@ -40,7 +40,6 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeAVX512ResolverPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeSpecialCaseBuiltinResolverPass(Registry);
-    intel::initializeAppleWIDepPrePacketizationPassPass(Registry);
     intel::initializeOCLBuiltinPreVectorizationPassPass(Registry);
     intel::initializeCLWGLoopCreatorPass(Registry);
     intel::initializeCLWGLoopBoundariesPass(Registry);
@@ -92,11 +91,10 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeSinCosFoldPass(Registry);
     intel::initializePreLegalizeBoolsPass(Registry);
     intel::initializeOCLAliasAnalysisPass(Registry);
-    intel::initializeSPIR20BlocksToObjCBlocksPass(Registry);
     intel::initializePrintfArgumentsPromotionPass(Registry);
-    intel::initializeBlockToFuncPtrPass(Registry);
     intel::initializeChannelPipeTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);
+    intel::initializeFMASplitterPass(Registry);
 }
 
 

@@ -59,20 +59,20 @@ entry:
 ; CHECK:          {}* noalias %RuntimeHandle) {
 ; CHECK-NEXT:   entry:
 ; CHECK-NEXT:   %pLocalMem_functionWithoutArgs = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
-; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* %pLocalMem_functionWithoutArgs,
-; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim,
-; CHECK:          i64* %pWGId,
+; CHECK-NEXT:   call void @functionWithoutArgs(i8 addrspace(3)* noalias %pLocalMem_functionWithoutArgs,
+; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
-; CHECK:          i8* %pSpecialBuf,
-; CHECK:          {}* %RuntimeHandle)
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          {}* noalias %RuntimeHandle)
 ; CHECK-NEXT:   %pLocalMem_functionWithArgs = getelementptr i8, i8 addrspace(3)* %pLocalMemBase, i32 0
 ; CHECK-NEXT:   [[VAR2:%[a-zA-Z0-9]+]] = call i32 @functionWithArgs(i32 %x, i32 %y,
-; CHECK:          i8 addrspace(3)* %pLocalMem_functionWithArgs,
-; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* %pWorkDim,
-; CHECK:          i64* %pWGId,
+; CHECK:          i8 addrspace(3)* noalias %pLocalMem_functionWithArgs,
+; CHECK:          { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }* noalias %pWorkDim,
+; CHECK:          i64* noalias %pWGId,
 ; CHECK:          [4 x i64] %BaseGlbId,
-; CHECK:          i8* %pSpecialBuf,
-; CHECK:          {}* %RuntimeHandle)
+; CHECK:          i8* noalias %pSpecialBuf,
+; CHECK:          {}* noalias %RuntimeHandle)
 ; CHECK-NEXT:   ret i32 [[VAR2]]
 
 ; CHECK: attributes #0 = { nounwind }

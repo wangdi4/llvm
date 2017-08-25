@@ -67,8 +67,7 @@ TransposeSize("tsize",
          clEnumValN(TRANSPOSE_SIZE_1,    "1",    "Scalar"),
          clEnumValN(TRANSPOSE_SIZE_4,    "4",    "Vector4"),
          clEnumValN(TRANSPOSE_SIZE_8,    "8",    "Vector8"),
-         clEnumValN(TRANSPOSE_SIZE_16,   "16",   "Vector16"),
-         clEnumValEnd),
+         clEnumValN(TRANSPOSE_SIZE_16,   "16",   "Vector16")),
          llvm::cl::init(TRANSPOSE_SIZE_AUTO)
          );
 
@@ -134,8 +133,7 @@ TestMode(llvm::cl::desc("Test mode:"),
          clEnumValN(VALIDATION,  "VAL",     "Validation mode"),
          clEnumValN(REFERENCE,   "REF",     "Reference mode"),
          clEnumValN(PERFORMANCE, "PERF",    "Performance mode"),
-         clEnumValN(BUILD,       "BUILD",   "Build only mode"),
-         clEnumValEnd));
+         clEnumValN(BUILD,       "BUILD",   "Build only mode")));
 
 llvm::cl::opt<std::string>
 PerformanceLog("csv-out",
@@ -196,9 +194,7 @@ PrintIRAfter("dump-IR-after",
          llvm::cl::values(
          clEnumValN(DUMP_IR_ALL,            "all",          "Print IR after each optimization"),
          clEnumValN(DUMP_IR_TARGERT_DATA,   "target_data",  "Print IR after target data pass"),
-         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR after vectorizer pass"),
-         clEnumValEnd)
-         );
+         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR after vectorizer pass")));
 
 // turn on printing bytecode instructions before
 llvm::cl::list<IRDumpOptions>
@@ -208,9 +204,7 @@ PrintIRBefore("dump-IR-before",
          llvm::cl::values(
          clEnumValN(DUMP_IR_ALL,            "all",          "Print IR before each optimization"),
          clEnumValN(DUMP_IR_TARGERT_DATA,   "target_data",  "Print IR before target data pass"),
-         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR before vectorizer pass"),
-         clEnumValEnd)
-         );
+         clEnumValN(DUMP_IR_VECTORIZER,     "vectorizer",   "Print IR before vectorizer pass")));
 
 llvm::cl::opt<std::string>
 DumpIRDir("dump-IR-dir",

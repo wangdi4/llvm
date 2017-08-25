@@ -8,16 +8,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "CompilationUtils.h"
 #include "ImplicitArgsUtils.h"
 #include "NameMangleAPI.h"
-#include "MetaDataApi.h"
+#include "MetadataAPI.h"
 #include "ParameterType.h"
 #include "TypeAlignment.h"
 #include "cl_types.h"
 
-#if defined(__APPLE__)
-  #include "OpenCL/cl.h"
-#else
-  #include "CL/cl.h"
-#endif
+#include "CL/cl.h"
 
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Instructions.h"
@@ -27,6 +23,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "BlockUtils.h"
+
+using namespace Intel::MetadataAPI;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -220,149 +218,79 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   }
 
   void CompilationUtils::getAllKernels(FunctionSet &functionSet, Module *pModule) {
-    //Clear old collected data!
+    // Clear old collected data!
     functionSet.clear();
 
-    //List all kernels in module
-    MetaDataUtils mdUtils(pModule);
-    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      Function *pSclFunc = (*itr)->getFunction();
+    // List all kernels in module
+    for (auto* pSclFunc : KernelList(pModule)) {
       functionSet.insert(pSclFunc);
-      if(mdUtils.findKernelsInfoItem(pSclFunc) == mdUtils.end_KernelsInfo()) {
-        //No kernel info for this scalar kernel, in this case there is no vector
-        //version for this kernel, just skip to next kernel.
-        continue;
-      }
       //Check if there is a vectorized version
-      KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pSclFunc);
-      //Need to check if Vectorized Kernel Value exists, it is not guaranteed that
-      //Vectorized is running in all scenarios.
-      if (kimd->isVectorizedKernelHasValue() && kimd->getVectorizedKernel() != nullptr) {
-        functionSet.insert(kimd->getVectorizedKernel());
+      auto kimd = KernelInternalMetadataAPI(pSclFunc);
+      // Need to check if Vectorized Kernel Value exists, it is not guaranteed that
+      // Vectorized is running in all scenarios.
+      if (kimd.VectorizedKernel.hasValue() && kimd.VectorizedKernel.get()) {
+        functionSet.insert(kimd.VectorizedKernel.get());
       }
     }
   }
 
   void CompilationUtils::getAllKernelWrappers(FunctionSet &functionSet, Module *pModule) {
-    //Clear old collected data!
+    // Clear old collected data!
     functionSet.clear();
 
-    //List all kernels in module
-    Intel::MetaDataUtils mdUtils(pModule);
-    MetaDataUtils::KernelsInfoMap::const_iterator itr = mdUtils.begin_KernelsInfo();
-    MetaDataUtils::KernelsInfoMap::const_iterator end = mdUtils.end_KernelsInfo();
-    for (; itr != end; ++itr) {
-      KernelInfoMetaDataHandle kimd = itr->second;
-      if(kimd->isKernelWrapperHasValue()) {
-        functionSet.insert(kimd->getKernelWrapper());
+    for (auto &F : *pModule) {
+      auto kimd = KernelInternalMetadataAPI(&F);
+      if(kimd.KernelWrapper.hasValue()) {
+        assert(kimd.KernelWrapper.get() && "Encountered nullptr kernel wrapper!");
+        functionSet.insert(kimd.KernelWrapper.get());
       }
     }
   }
 
-  void CompilationUtils::parseKernelArguments(  Module* pModule,
-                                                Function* pFunc,
-                                                std::vector<cl_kernel_argument>& /* OUT */ arguments,
-                                                std::vector<unsigned int>&       /* OUT */ memoryArguments) {
+  void CompilationUtils::parseKernelArguments(Module* pModule,
+                                              Function* pFunc,
+                                              std::vector<cl_kernel_argument>& /* OUT */ arguments,
+                                              std::vector<unsigned int>&       /* OUT */ memoryArguments) {
     // Check maximum number of arguments to kernel
-    MetaDataUtils mdUtils(pModule);
-    if (!mdUtils.isKernelsHasValue()) {
+
+    if (KernelList(pModule).empty()) {
       assert(false && "Internal Error: kernels metadata is missing");
       // workaround to overcome klockwork issue
       return;
     }
-    KernelInfoMetaDataHandle kimd = mdUtils.getKernelsInfoItem(pFunc);
+    auto kimd = KernelInternalMetadataAPI(pFunc);
     Function *pOriginalFunc = pFunc;
     //Check if this is a vectorized version of the kernel
-    if (kimd->isScalarizedKernelHasValue() && kimd->getScalarizedKernel()) {
+    if (kimd.ScalarizedKernel.hasValue() && kimd.ScalarizedKernel.get()) {
       //Get the scalarized version of the vectorized kernel
-      pOriginalFunc = kimd->getScalarizedKernel();
+      pOriginalFunc = kimd.ScalarizedKernel.get();
     }
     // Check is this is a block kernel (i.e. a kernel that is invoked from a
     // NDRange from an other kernel), and if so what is the size of the block
     // literal. This information exists only in metadata of the scalar version.
     unsigned BlockLiteralSize = 0;
-    KernelInfoMetaDataHandle skimd = mdUtils.getKernelsInfoItem(pOriginalFunc);
-    if (skimd->isBlockLiteralSizeHasValue()) {
-      BlockLiteralSize = skimd->getBlockLiteralSize();
+    auto skimd = KernelInternalMetadataAPI(pOriginalFunc);
+    if (skimd.BlockLiteralSize.hasValue()) {
+      BlockLiteralSize = skimd.BlockLiteralSize.get();
     }
 
-    KernelMetaDataHandle kmd;
-    MetaDataUtils::KernelsList::const_iterator itr = mdUtils.begin_Kernels();
-    MetaDataUtils::KernelsList::const_iterator end = mdUtils.end_Kernels();
-    for (; itr != end; ++itr) {
-      if (pOriginalFunc == (*itr)->getFunction()) {
-        kmd = *itr;
-        break;
-      }
-    }
-
-    if( nullptr == kmd.get() ) {
+    auto kernels = KernelList(pModule);
+    if (std::find(kernels.begin(), kernels.end(), pOriginalFunc) == kernels.end()) {
       assert(false && "Intenal error: can't find the function info for the scalarized function");
       // workaround to overcome klockwork issue
       return;
     }
+    auto kmd = KernelMetadataAPI(pOriginalFunc);
 
-#ifdef __APPLE__
-      NamedMDNode *MDArgInfo = pModule->getNamedMetadata("opencl.kernels");
-  if( nullptr == MDArgInfo )
-  {
-      assert(false && "Internal Error: opencl.kernels metadata is missing");
-      // workaround to overcome klockwork issue
-      return;
-  }
-
-  // TODO: this hack is ugly, need to find the right way to get arg info
-  // for the vectorized functions (Guy)
-  if (pFunc->getName().startswith("____Vectorized_.")) {
-    std::string scalarFuncName = pFunc->getName().slice(16,llvm::StringRef::npos).str();
-    pFunc=pFunc->getParent()->getFunction("__" + scalarFuncName);
-  }
-
-  MDNode *FuncInfo = nullptr;
-  for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
-    FuncInfo = MDArgInfo->getOperand(i);
-    Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
-
-    if(pFunc == dyn_cast<Function>(field0))
-      break;
-  }
-
-  if( nullptr == FuncInfo )
-  {
-      assert(false && "Intenal error: can't find the function info for the scalarized function");
-      // workaround to overcome klockwork issue
-      return;
-  }
-
-  assert(FuncInfo->getNumOperands() > 1 && "Invalid number of kernel properties."
-     " Are you running a workload recorded using old meta data format?");
-
-    MDNode *MDImgAccess = nullptr;
-    //look for image access metadata
-    for (int i = 1, e = FuncInfo->getNumOperands(); i < e; i++) {
-      MDNode *tmpMD = dyn_cast<MDNode>(FuncInfo->getOperand(i));
-      MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-      if (tag->getString() == "apple.cl.arg_metadata") {
-        MDImgAccess = tmpMD;
-        break;
-      }
-    }
-#endif
     size_t argsCount = pFunc->getArgumentList().size() - ImplicitArgsUtils::NUMBER_IMPLICIT_ARGS;
 
     unsigned int localMemCount = 0;
-#ifndef __APPLE__
     unsigned int current_offset = 0;
-#endif
     llvm::Function::arg_iterator arg_it = pFunc->arg_begin();
     for (unsigned i=0; i<argsCount; ++i)
     {
       cl_kernel_argument curArg;
-#ifndef __APPLE__
       bool               isMemoryObject = false;
-#endif
       curArg.access = CL_KERNEL_ARG_ACCESS_NONE;
 
       llvm::Argument* pArg = &*arg_it;
@@ -443,6 +371,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                   curArg.type = CL_KRNL_ARG_PTR_QUEUE_T;
               else if (structName.startswith("clk_event_t"))
                   curArg.type = CL_KRNL_ARG_PTR_CLK_EVENT_T;
+              else if (structName.startswith("sampler_t"))
+                  curArg.type = CL_KRNL_ARG_PTR_SAMPLER_T;
               else {
                   assert(false && "did you forget to handle a new special OpenCL C opaque type?");
                   // TODO: Why default type is INTEGER????
@@ -459,29 +389,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                 case CL_KRNL_ARG_PTR_IMG_2D_ARR_DEPTH:
                 case CL_KRNL_ARG_PTR_IMG_3D:
                 // Setup image pointer
-#ifdef __APPLE__
-                  MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-                  assert((tmpMD->getNumOperands() > 0) && "image MD arg type is empty");
-                  MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-                  assert(tag->getString() == "image" && "image MD arg type is not 'image'");
-                  tag = dyn_cast<MDString>(tmpMD->getOperand(1));
-                  curArg.access = (tag->getString() == "read") ? CL_KERNEL_ARG_ACCESS_READ_ONLY :
-                                  CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-#else
                   isMemoryObject = true;
-                  curArg.access = (kmd->getArgAccessQualifierItem(i) == READ_ONLY) ?
+                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == READ_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_READ_ONLY : CL_KERNEL_ARG_ACCESS_READ_WRITE;    // Set RW/WR flag
-#endif
                   break;
                 // FIXME: what about Apple?
                 case CL_KRNL_ARG_PTR_PIPE_T:
                   // The default access qualifier for pipes is read_only.
-                  curArg.access = (kmd->getArgAccessQualifierItem(i) == WRITE_ONLY) ?
+                  curArg.access = (kmd.ArgAccessQualifierList.getItem(i) == WRITE_ONLY) ?
                                   CL_KERNEL_ARG_ACCESS_WRITE_ONLY : CL_KERNEL_ARG_ACCESS_READ_ONLY;
                   isMemoryObject = true;
                   break;
                 case CL_KRNL_ARG_PTR_QUEUE_T:
                 case CL_KRNL_ARG_PTR_CLK_EVENT_T:
+                case CL_KRNL_ARG_PTR_SAMPLER_T:
                   isMemoryObject = false;
                   break;
 
@@ -519,15 +440,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
           {
           case 0: case 1: // Global Address space
             curArg.type = CL_KRNL_ARG_PTR_GLOBAL;
-#ifndef __APPLE__
             isMemoryObject = true;
-#endif
             break;
           case 2:
             curArg.type = CL_KRNL_ARG_PTR_CONST;
-#ifndef __APPLE__
             isMemoryObject = true;
-#endif
             break;
           case 3: // Local Address space
             curArg.type = CL_KRNL_ARG_PTR_LOCAL;
@@ -542,18 +459,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
       case llvm::Type::IntegerTyID:
           {
-  #ifdef __APPLE__
-            MDNode *tmpMD = dyn_cast<MDNode>(MDImgAccess->getOperand(i+1));
-            bool isSampler = false;
-            if(tmpMD->getNumOperands() > 0) {
-              MDString *tag = dyn_cast<MDString>(tmpMD->getOperand(0));
-              if(tag->getString() == "sampler") //sampler_t
-                  isSampler = true;
-            }
-            if(isSampler)
-  #else
-            if (kmd->getArgTypesItem(i) == SAMPLER)
-  #endif
+            if (kmd.ArgTypeList.getItem(i) == SAMPLER)
             {
               curArg.type = CL_KRNL_ARG_SAMPLER;
               curArg.size_in_bytes = sizeof(_sampler_t);
@@ -586,7 +492,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       }
 
       // update offset
-#ifndef __APPLE__
       assert( 0 != curArg.size_in_bytes && "argument size must be set");
       // Align current location to meet type's requirements
       current_offset = TypeAlignment::align(TypeAlignment::getAlignment(curArg), current_offset);
@@ -597,7 +502,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       if ( isMemoryObject ) {
         memoryArguments.push_back(i);
       }
-#endif
       arguments.push_back(curArg);
       ++arg_it;
     }
@@ -619,48 +523,35 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     !opencl.ocl.version = !{!6}
     !6 = !{i32 2, i32 0}
     */
-    NamedMDNode* namedMD = M.getNamedMetadata("opencl.ocl.version");
-    // Metadata API uitls creates whole set of empty named metadata even if they are initially
-    // absent in a module. That is why the 'if' statement below checks if MDNode has operands.
-    if(!namedMD || namedMD->getNumOperands() == 0) return false;
 
-    MDNode * versionMD = cast<MDNode>(namedMD->getOperand(0));
-    assert(versionMD && versionMD->getNumOperands() == 2 && "this MDNode must have 2 operands");
+    auto oclVersion = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).OpenCLVersionList;
+    if (!oclVersion.hasValue())
+      return false;
 
-    Metadata * majorMD = versionMD->getOperand(0);
-    Metadata * minorMD = versionMD->getOperand(1);
-    assert(majorMD && minorMD && "expected non-null metadata values");
+    Result = OclVersion::CLVersionToVal(oclVersion.getItem(0), oclVersion.getItem(1));
 
-    uint64_t major = mdconst::extract<ConstantInt>(majorMD)->getZExtValue();;
-    uint64_t minor = mdconst::extract<ConstantInt>(minorMD)->getZExtValue();
-    Result = OclVersion::CLVersionToVal(major, minor);
     return true;
   }
 
   StringRef CompilationUtils::fetchCompilerOption(const Module &M, char const* prefix) {
     /*
-    Example of the metadata:
+    Examples of the metadata:
+
     !opencl.compiler.options = !{!0}
-    !0 = metadata !{metadata !"-cl-std=CL2.0"}
+    !0 = !{!"-cl-std=CL2.0"}
 
     !opencl.compiler.options = !{!9}
-    !9 = metadata !{metadata !"-cl-fast-relaxed-math", metadata !"-cl-std=CL2.0"}
+    !9 = !{!"-cl-fast-relaxed-math", !"-cl-std=CL2.0"}
     */
-    NamedMDNode* namedMetadata = M.getNamedMetadata("opencl.compiler.options");
 
-    if(!namedMetadata || namedMetadata->getNumOperands() < 1)
-      return StringRef();
-    MDNode* metadata = namedMetadata->getOperand(0);
-    if(!metadata)
-      return StringRef();
+    auto options = ModuleMetadataAPI(const_cast<llvm::Module*>(&M)).CompilerOptionsList;
 
-    for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k) {
-      Metadata * pSubNode = metadata->getOperand(k);
-      if (!isa<MDString>(pSubNode))
-        continue;
-      StringRef value = cast<MDString>(pSubNode)->getString();
-      if(value.startswith(prefix)) return value;
+    if(options.hasValue()) {
+      for (StringRef option : options) {
+        if(option.startswith(prefix)) return option;
+      }
     }
+
     return StringRef();
   }
 
@@ -685,6 +576,7 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   Function *NewF = Function::Create(NewFTy, F->getLinkage(), Name, F->getParent());
   // Copy old function attributes (including attributes on original arguments) to new function.
   NewF->copyAttributesFrom(F);
+  NewF->copyMetadata(F, 0);
   if (IsKernel) {
     // Only those who are kernel functions need to get this calling convention
     NewF->setCallingConv(CallingConv::C);
@@ -754,10 +646,6 @@ CallInst *CompilationUtils::AddMoreArgsToCall(CallInst *OldC,
 
 template <reflection::TypePrimitiveEnum Ty>
 static std::string optionalMangleWithParam(const char*const N){
-#ifdef __APPLE__
-  //Do not mangle
-  return std::string(N);
-#else
   reflection::FunctionDescriptor FD;
   FD.name = N;
   reflection::ParamType *pTy =
@@ -765,7 +653,6 @@ static std::string optionalMangleWithParam(const char*const N){
   reflection::RefParamType UI(pTy);
   FD.parameters.push_back(UI);
   return mangle(FD);
-#endif
 }
 
 template <reflection::TypePrimitiveEnum Ty>
@@ -848,16 +735,11 @@ std::string CompilationUtils::mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType) {
 }
 
 static bool isOptionalMangleOf(const std::string& LHS, const std::string& RHS) {
-#ifdef __APPLE__
-  //LHS should not be mangled
-  return LHS == RHS;
-#else
   //LHS should be mangled
   const char*const LC = LHS.c_str();
   if (!isMangledName(LC))
     return false;
   return stripName(LC) == RHS;
-#endif
 }
 
 static bool isMangleOf(const std::string& LHS, const std::string& RHS) {
@@ -995,31 +877,12 @@ bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
-static bool isBlockWithArgs(const std::string& S, unsigned idx) {
-  reflection::FunctionDescriptor fd = demangle(S.c_str());
-  if(fd.parameters.size() <= idx) return false;
-  reflection::ParamType * paramTy = fd.parameters[idx];
-
-  if(paramTy->getTypeId() != reflection::TYPE_ID_BLOCK)
-    return false;
-
-  reflection::BlockType * blockTy = static_cast<reflection::BlockType*>(paramTy);
-  if(blockTy->getNumOfParams() == 0) return false;
-  // Blocks have 'void' argument only when they don't have local memory arguments
-  const reflection::ParamType *tmp = blockTy->getParam(0);
-  const reflection::PrimitiveType * blockArgTy =
-    static_cast<const reflection::PrimitiveType*>(tmp);
-  return blockArgTy->getPrimitive() != reflection::PRIMITIVE_VOID;
-}
-
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
-  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
-  return isBlockWithArgs(S, 3);
+  return S == "__enqueue_kernel_vaargs";
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
-  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
-  return isBlockWithArgs(S, 6);
+  return S == "__enqueue_kernel_events_vaargs";
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {

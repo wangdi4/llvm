@@ -10,30 +10,24 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <assert.h>
 
-namespace intel{
+namespace intel {
 
-template <typename T>
-class RefCount{
+template <typename T> class RefCount {
 public:
-//Forge
-  RefCount(): m_refCount(0), m_ptr(0){
-  }
+  // Forge
+  RefCount() : m_refCount(0), m_ptr(0) {}
 
-  RefCount(T* ptr): m_ptr(ptr){
-    m_refCount = new int(1);
-  }
+  RefCount(T *ptr) : m_ptr(ptr) { m_refCount = new int(1); }
 
-  RefCount(const RefCount<T>& other){
-    cpy(other);
-  }
+  RefCount(const RefCount<T> &other) { cpy(other); }
 
-  ~RefCount(){
+  ~RefCount() {
     if (m_refCount)
       dispose();
   }
 
-  RefCount& operator=(const RefCount<T>& other){
-    if(this == &other)
+  RefCount &operator=(const RefCount<T> &other) {
+    if (this == &other)
       return *this;
     if (m_refCount)
       dispose();
@@ -41,59 +35,51 @@ public:
     return *this;
   }
 
-  void init(T* ptr){
+  void init(T *ptr) {
     assert(!m_ptr && "overrunning non NULL pointer");
     assert(!m_refCount && "overrunning non NULL pointer");
     m_refCount = new int(1);
     m_ptr = ptr;
   }
 
-  bool isNull() const {
-    return (!m_ptr);
-  }
+  bool isNull() const { return (!m_ptr); }
 
-//Pointer access
-  const T& operator*()const{
+  // Pointer access
+  const T &operator*() const {
     sanity();
     return *m_ptr;
   }
 
-  T& operator*(){
+  T &operator*() {
     sanity();
     return *m_ptr;
   }
 
-  operator T*(){
-    return m_ptr;
-  }
-  
-  operator const T*()const{
-    return m_ptr;
-  }
+  operator T *() { return m_ptr; }
 
-  T* operator->(){
-    return m_ptr;
-  }
+  operator const T *() const { return m_ptr; }
 
-  const T* operator->()const{
-    return m_ptr;
-  }
+  T *operator->() { return m_ptr; }
+
+  const T *operator->() const { return m_ptr; }
+
 private:
-  void sanity()const{
+  void sanity() const {
     assert(m_ptr && "NULL pointer");
     assert(m_refCount && "NULL ref counter");
     assert(*m_refCount && "zero ref counter");
   }
 
-  void cpy(const RefCount<T>& other){
+  void cpy(const RefCount<T> &other) {
     m_refCount = other.m_refCount;
     m_ptr = other.m_ptr;
-    if (m_refCount) ++*m_refCount;
+    if (m_refCount)
+      ++*m_refCount;
   }
 
-  void dispose(){
+  void dispose() {
     sanity();
-    if (0 == --*m_refCount){
+    if (0 == --*m_refCount) {
       delete m_refCount;
       delete m_ptr;
       m_ptr = 0;
@@ -101,10 +87,10 @@ private:
     }
   }
 
-  int* m_refCount;
-  T* m_ptr;
-};//End RefCount
+  int *m_refCount;
+  T *m_ptr;
+}; // End RefCount
 
-}//end namepace
+} // end namepace
 
 #endif//__REF_COUNT_H__

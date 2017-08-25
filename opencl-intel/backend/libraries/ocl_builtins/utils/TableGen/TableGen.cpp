@@ -62,8 +62,7 @@ Action(cl::desc("Action to perform:"),
                   clEnumValN(GenOCLBuiltisnHeader, "gen-ocl-biheader",
                             "Generates a header with builtins mangled names"),
                   clEnumValN(GenVectorizerMap, "gen-vectorizer-map",
-                            "Generates an exeption map for the vecorizer's table"),
-                  clEnumValEnd),
+                            "Generates an exeption map for the vecorizer's table")),
        cl::init(PrintRecords));
 
 cl::opt<std::string>
@@ -105,7 +104,7 @@ bool OCLTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
 int
 main(int argc, char** argv)
 {
-  sys::PrintStackTraceOnErrorSignal();
+  sys::PrintStackTraceOnErrorSignal(argv[0]);
   PrettyStackTraceProgram X(argc, argv);
   cl::ParseCommandLineOptions(argc, argv);
 

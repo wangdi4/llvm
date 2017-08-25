@@ -4,7 +4,6 @@
 #include <time.h>
 #include <math.h>
 #include "FrameworkTest.h"
-#include <emmintrin.h>
 
 #define BUFFER_SIZE 128
 

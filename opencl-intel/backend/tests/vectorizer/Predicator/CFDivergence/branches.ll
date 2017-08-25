@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -presucf=false -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
+; RUN: opt -presucf=false -O0 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'branches.cl'
@@ -209,4 +209,4 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
 !6 = !{!"-cl-std=CL1.2"}
 !7 = !{!"int", !8}
 !8 = !{!"omnipotent char", !9}
-!9 = !{!"Simple C/C++ TBAA", null}
+!9 = !{!"Simple C/C++ TBAA"}

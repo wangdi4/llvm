@@ -9,7 +9,6 @@ add_subdirectory(PipeSupport)
 add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)
 add_subdirectory(BuiltinLibInfo)
-add_subdirectory(BlockToFuncPtrPass)
 add_subdirectory(CloneBlockInvokeFuncToKernel)
 add_subdirectory(DetectFunctionPtrCalls)
 add_subdirectory(ImplicitArgsAnalysis)
@@ -34,34 +33,14 @@ add_subdirectory(ResolveBlockToStaticCall)
 add_subdirectory(PatchCallbackArgs)
 add_subdirectory(PreLegalizeBools)
 add_subdirectory(OCLAliasAnalysis)
-add_subdirectory(SPIR20BlocksToObjCBlocks)
 add_subdirectory(PrintfArgumentsPromotion)
-
-if(APPLE)
-  add_subdirectory(ClangCompatFixer)
-else(APPLE)
-  add_subdirectory(spir)
-  add_subdirectory(ProfilingInfoPass)
-  add_subdirectory(DebugInfoPass)
-  add_subdirectory(Prefetch)
-  add_subdirectory(BackendPassesWrappers)
-  add_subdirectory(PrintIRPass)
-  add_subdirectory(ReduceAlignment)
-  add_subdirectory(obfuscation)
-  add_subdirectory(SmartGVN)
-endif(APPLE)
-
-if(APPLE)
-  set(TARGET_INCLUDE_FILES
-      InitializePasses.h
-      OCLPassSupport.h
-  )
-
-  set(TARGET_SOURCE_FILES
-  )
-
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)
+add_subdirectory(FMASplitter)
+add_subdirectory(spir)
+add_subdirectory(ProfilingInfoPass)
+add_subdirectory(DebugInfoPass)
+add_subdirectory(Prefetch)
+add_subdirectory(BackendPassesWrappers)
+add_subdirectory(PrintIRPass)
+add_subdirectory(ReduceAlignment)
+add_subdirectory(obfuscation)
+add_subdirectory(SmartGVN)

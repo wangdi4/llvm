@@ -23,7 +23,7 @@
 ; CHECK: %ToNamedPtr1 = addrspacecast i8 addrspace(4)* %15 to i8 addrspace(3)*
 ; CHECK-NOT: %call2 = call i8* @__to_private(i8 addrspace(4)* %21)
 ; CHECK: %ToNamedPtr2 = addrspacecast i8 addrspace(4)* %21 to i8*
-; CHECK-NOT: %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %28)
+; CHECK-NOT: %call3 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %28)
 ; CHECK-NOT: store i32 %call3, i32* %foo, align 4
 ; CHECK: store i32 2, i32* %foo, align 4
 ; CHECK-NOT: %call12 = call float @_Z5fractfPU3AS4f(float %44, float addrspace(4)* %add.ptr)
@@ -164,7 +164,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 addrspace(4)* %26, i32 addrspace(4)** %pGen3, align 4
   %27 = load i32 addrspace(4)*, i32 addrspace(4)** %pGen3, align 4
   %28 = bitcast i32 addrspace(4)* %27 to i8 addrspace(4)*
-  %call3 = call i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)* %28)
+  %call3 = call i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)* %28)
   store i32 %call3, i32* %foo, align 4
   %29 = load i32 addrspace(1)*, i32 addrspace(1)** %pGlobal.addr, align 4
   %30 = addrspacecast i32 addrspace(1)* %29 to i32 addrspace(4)*
@@ -213,7 +213,7 @@ if.end11:                                         ; preds = %if.then9, %if.end8
 
 declare i8* @__to_private(i8 addrspace(4)*)
 
-declare i32 @_Z9get_fencePKU3AS4v(i8 addrspace(4)*)
+declare i32 @_Z9get_fencePU3AS4Kv(i8 addrspace(4)*)
 
 declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 

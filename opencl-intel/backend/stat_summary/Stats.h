@@ -83,10 +83,8 @@ public:
     return moduleStats;
   }
 
-  void addStatValue (StatValueMap &funcStatMap, const string statName,
-      unsigned value) {
+  void addStatValue (const string statName, unsigned value) {
     moduleStats[statName] += value;
-    funcStatMap[statName] += value;
   }
 
   unsigned getStatValue (const string &name) {

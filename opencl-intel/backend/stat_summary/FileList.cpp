@@ -37,28 +37,25 @@ static bool isIRFileName(const string &name)
 
 
 #if defined (WIN32)
-
 #include <windows.h>
-#include <tchar.h>
 
 namespace Intel {
 
 bool getIRFileNames(const char *dirName, vector<string> &fileList)
 {
-   WIN32_FIND_DATA FindFileData;
-   HANDLE hFind;
+   LPWIN32_FIND_DATAA FindFileData = 0;
 
-   hFind = FindFirstFile(dirName, &FindFileData);
+   HANDLE hFind = FindFirstFileA(dirName, FindFileData);
    if (hFind == INVALID_HANDLE_VALUE) {
      cout << "Error: Can't find directory " << dirName << "\n";
      return false;
    }
 
    do {
-     if (isIRFileName(FindFileData.cFileName) &&
-         GetFileAttributes(FindFileData.cFileName) == FILE_ATTRIBUTE_ARCHIVE)
-       fileList.push_back(FindFileData.cFileName);
-   } while (FindNextFile(hFind, &FindFileData));
+     if (isIRFileName(FindFileData->cFileName) &&
+         GetFileAttributesA(FindFileData->cFileName) == FILE_ATTRIBUTE_ARCHIVE)
+       fileList.push_back(FindFileData->cFileName);
+   } while (FindNextFileA(hFind, FindFileData));
 
    FindClose(hFind);
    // report if this directory doesn't contain any IR file

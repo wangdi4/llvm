@@ -50,7 +50,7 @@ namespace intel {
 
     bool runOnModule(llvm::Module &) final;
 
-    const char * getPassName () const final {
+    virtual llvm::StringRef getPassName () const final {
       return "intel::PrintfArgumentsPromotion";
     }
   };

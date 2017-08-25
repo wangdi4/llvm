@@ -23,7 +23,7 @@ namespace intel {
     m_util.init(&M);
 
     //Find all the kernel functions
-    TFunctionVector& kernelFunctions = m_util.getAllKernelFunctions();
+    TFunctionVector& kernelFunctions = m_util.getAllKernelsWithBarrier();
 
     //Find all functions that call synchronize instructions
     TFunctionSet& functionsWithSync = m_util.getAllFunctionsWithSynchronization();

@@ -15,7 +15,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace reflection {
 
-namespace width{
+namespace width {
 
 enum V {
   NONE = 0,
@@ -33,7 +33,7 @@ const size_t OCL_VERSIONS = 6;
 
 typedef std::vector<intel::RefCount<ParamType>> TypeVector;
 
-struct FunctionDescriptor{
+struct FunctionDescriptor {
   //
   // returns: a human readable string representation of the function's
   // prototype.

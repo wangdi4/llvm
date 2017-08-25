@@ -111,11 +111,5 @@ declare i64 @_Z12get_local_idj(i32)
 declare void @dummybarrier.()
 
 !opencl.kernels = !{!0}
-!opencl.compiler.options = !{}
 
-!0 = !{void (i64)* @main, !1, !1, !"", !"int", !"opencl_main_locals_anchor", !2, !3, !4, !5, !""}
-!1 = !{i32 0, i32 0, i32 0}
-!2 = !{i32 0}
-!3 = !{i32 3}
-!4 = !{!"int"}
-!5 = !{!"x"}
+!0 = !{void (i64)* @main}

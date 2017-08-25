@@ -2,11 +2,11 @@
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-linux"
 
-define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a) nounwind {
+define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocapture %a) nounwind !kernel_arg_addr_space !1 !kernel_arg_access_qual !2 !kernel_arg_type !3 !kernel_arg_type_qual !4 !kernel_arg_name !5 !local_buffer_size !15 !barrier_buffer_size !16 !kernel_execution_length !17 !kernel_has_barrier !18 !no_barrier_path !19 {
   ret void
 }
 
-; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {
+; CHECK: define void @A(i8* noalias %pUniformArgs, i64* noalias %pWGId, {}* noalias %RuntimeHandle) {{.*}} {
 ; CHECK: %0 = getelementptr i8, i8* %pUniformArgs, i32 0
 ; CHECK: %1 = bitcast i8* %0 to i32 addrspace(1)**
 ; CHECK: %explicit_0 = load i32 addrspace(1)*, i32 addrspace(1)** %1, align 8
@@ -60,27 +60,19 @@ define void @A(i32 addrspace(1)* nocapture %out, i32 %b, i32 addrspace(1)* nocap
 !opencl.used.extensions = !{!12}
 !opencl.used.optional.core.features = !{!12}
 !opencl.compiler.options = !{!12}
-!opencl.kernel_info = !{!13}
-!opencl.module_info_list = !{}
 !llvm.functions_info = !{}
 
-!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*)* @A, !1, !2, !3, !4, !5}
-!1 = !{!"kernel_arg_addr_space", i32 1, i32 1, i32 0}
-!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none"}
-!3 = !{!"kernel_arg_type", !"uint*", !"uint*", !"uint"}
-!4 = !{!"kernel_arg_type_qual", !"", !"const", !""}
-!5 = !{!"kernel_arg_name", !"out", !"a", !"b"}
+!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*)* @A}
+!1 = !{i32 1, i32 1, i32 0}
+!2 = !{!"none", !"none", !"none"}
+!3 = !{!"uint*", !"uint*", !"uint"}
+!4 = !{!"", !"const", !""}
+!5 = !{!"out", !"a", !"b"}
 !10 = !{i32 1, i32 0}
 !11 = !{i32 0, i32 0}
 !12 = !{}
-!13 = !{void (i32 addrspace(1)*, i32, i32 addrspace(1)*)* @A, !14}
-!14 = !{!15, !16, !17, !18, !19, !20, !21, !22, !23}
-!15 = !{!"local_buffer_size", i32 0}
-!16 = !{!"barrier_buffer_size", i32 0}
-!17 = !{!"kernel_execution_length", i32 12}
-!18 = !{!"kernel_has_barrier", i1 false}
-!19 = !{!"no_barrier_path", i1 true}
-!20 = !{!"vectorized_kernel", null}
-!21 = !{!"vectorized_width", null}
-!22 = !{!"kernel_wrapper", null}
-!23 = !{!"scalarized_kernel", null}
+!15 = !{i32 0}
+!16 = !{i32 0}
+!17 = !{i32 12}
+!18 = !{i1 false}
+!19 = !{i1 true}

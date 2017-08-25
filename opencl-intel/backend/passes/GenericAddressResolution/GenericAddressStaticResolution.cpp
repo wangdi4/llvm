@@ -6,19 +6,21 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 ==================================================================================*/
 #include "GenericAddressStaticResolution.h"
 
-#include <CompilationUtils.h>
-#include <OCLPassSupport.h>
-#include <MetaDataApi.h>
+#include "CompilationUtils.h"
+#include "OCLPassSupport.h"
+#include "MetadataAPI.h"
+
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IntrinsicInst.h>
-#include <llvm/IR/GlobalValue.h>
 #include <llvm/IR/InstIterator.h>
-#include <llvm/Support/raw_ostream.h>
 #include <llvm/IR/ValueMap.h>
-#include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Support/Debug.h>
+#include <llvm/Support/raw_ostream.h>
+#include <llvm/Transforms/Utils/Cloning.h>
+
 #include <assert.h>
 
 #define DEBUG_TYPE "GenericAddressStaticResolution"
@@ -47,6 +49,7 @@ namespace intel {
   }
 
   bool GenericAddressStaticResolution::runOnModule(Module &M) {
+    using namespace Intel::MetadataAPI;
     bool changed = false;
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
@@ -64,6 +67,7 @@ namespace intel {
       m_GASEstimate.clear();
       m_replaceMap.clear();
       m_replaceVector.clear();
+      m_GASWarningLinesList.clear();
       // Prepare per-function elements of the collection
       analyzeGASPointers(func_it);
       // Static resolution of the collected instructions
@@ -71,13 +75,10 @@ namespace intel {
     }
 
     // Create metadata about remaining GAS pointers
-    Intel::MetaDataUtils mdUtils(m_pModule);
-    if (mdUtils.empty_ModuleInfoList()) {
-      mdUtils.addModuleInfoListItem(Intel::ModuleInfoMetaDataHandle(Intel::ModuleInfoMetaData::get()));
-    }
-    Intel::ModuleInfoMetaDataHandle handle = mdUtils.getModuleInfoListItem(0);
-    handle->setGAScounter(m_failCount);
-    mdUtils.save(*m_pLLVMContext);
+    auto moduleInfoMetadataAPI = ModuleInternalMetadataAPI(m_pModule);
+    moduleInfoMetadataAPI.GASCounter.set(m_failCount);
+    if (!m_GASWarningLinesList.empty())
+      moduleInfoMetadataAPI.GASWarningsList.set(m_GASWarningLinesList);
 
     return changed;
   }
@@ -304,15 +305,11 @@ namespace intel {
         space = OCLAddressSpace::Generic;
       }
     }
-    // Special case: pipe built-in call which is not overloadable.
-    // In such case we should preserve GAS pointer as is.
-    if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr)) {
-      using namespace Intel::OpenCL::DeviceBackend;
-      if (CompilationUtils::isPipeBuiltin(
-              pCallInstr->getCalledFunction()->getName())) {
+    // Special case: we should preserve GAS pointer on not overloadable BIs.
+    if (CallInst *pCallInstr = dyn_cast<CallInst>(pInstr))
+      if (needToSkipResolution(pCallInstr->getCalledFunction()))
         space = OCLAddressSpace::Generic;
-      }
-    }
+
     TPointerMap::iterator ptr_it = m_GASEstimate.find(pInstr);
     if (ptr_it == m_GASEstimate.end()) {
       // For first-seen instruction - record it

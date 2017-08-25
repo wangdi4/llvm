@@ -31,7 +31,7 @@ namespace intel {
       WeightedInstCounter(bool preVec = true, Intel::CPUId cpuId = Intel::CPUId());
 
     // Provides name of pass
-    virtual const char *getPassName() const {
+    virtual llvm::StringRef getPassName() const {
       return "WeightedInstCounter";
     }
 
@@ -41,7 +41,7 @@ namespace intel {
       AU.addRequired<ScalarEvolutionWrapperPass>();
       AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<DominatorTreeWrapperPass>();
-      AU.addRequired<PostDominatorTree>();
+      AU.addRequired<PostDominatorTreeWrapperPass>();
       AU.addRequired<PostDominanceFrontier>();
       AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesAll();

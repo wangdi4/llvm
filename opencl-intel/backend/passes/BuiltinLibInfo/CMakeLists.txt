@@ -14,18 +14,8 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/cl_api
 )
 
-if(APPLE)
-set(TARGET_EXTRA_SOURCE_FILES 
-  Driver/Apple/AppleOCLRuntime.cpp
-)
-set(TARGET_EXTRA_INCLUDE_FILES 
-  Driver/Apple/AppleOCLRuntime.h
-)
-else(APPLE)
 set(TARGET_EXTRA_SOURCE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.cpp
-#These files are needed only for building opt
-  Driver/Apple/AppleOCLRuntime.cpp
 #These files are needed only for building opt (to run dx LIT tests)
   Driver/DX/DXData.cpp
   Driver/DX/DXRuntime.cpp
@@ -35,15 +25,12 @@ set(TARGET_EXTRA_SOURCE_FILES
 )
 set(TARGET_EXTRA_INCLUDE_FILES 
   Driver/Volcano/VolcanoOpenclRuntime.h
-#These files are needed only for building opt
-  Driver/Apple/AppleOCLRuntime.h
 #These files are needed only for building opt (to run dx LIT tests)
   Driver/DX/DXRuntime.h
   Driver/DX/DXWrapperParamsCheck.h
   Driver/Functions.h
   Driver/RenderScript/RenderscriptRuntime.h
 )
-endif(APPLE)
 
 set(TARGET_INCLUDE_FILES
   BuiltinLibInfo.h
@@ -61,17 +48,9 @@ set(TARGET_SOURCE_FILES
   ${TARGET_EXTRA_SOURCE_FILES}
 )
 
-
 add_library(${TARGET_NAME}
     ${TARGET_INCLUDE_FILES}
     ${TARGET_SOURCE_FILES}
 )
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})
-
-if(APPLE)
-  file(RELATIVE_PATH SOURCE_RELATIVE_DIR ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-  install( FILES ${TARGET_INCLUDE_FILES} ${TARGET_SOURCE_FILES}
-           DESTINATION src/${SOURCE_RELATIVE_DIR}
-         )
-endif(APPLE)
