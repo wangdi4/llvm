@@ -566,8 +566,19 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       Function *Callee = CS.getCalledFunction();
 
       // We can only inline direct calls to non-declarations.
-      if (!Callee || Callee->isDeclaration())
-        continue;
+      if (!Callee || Callee->isDeclaration()) { // INTEL
+#if INTEL_CUSTOMIZATION
+        if (!Callee) {
+          IR.setReasonNotInlined(CS, NinlrIndirect);
+          continue;
+        }
+        if (Callee->isDeclaration()) {
+          IR.setReasonNotInlined(CS, NinlrExtern);
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
+        continue; // INTEL
+      }
 
       // If this call site is dead and it is to a readonly function, we should
       // just delete the call instead of trying to inline it, regardless of
@@ -582,24 +593,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         CS.getInstruction()->eraseFromParent();
         ++NumCallsDeleted;
       } else {
-<<<<<<< HEAD
-        // We can only inline direct calls to non-declarations.
-        if (!Callee || Callee->isDeclaration()) { // INTEL
-#if INTEL_CUSTOMIZATION
-          if (!Callee) {
-            IR.setReasonNotInlined(CS, NinlrIndirect);
-            continue;
-          }
-          if (Callee->isDeclaration()) {
-            IR.setReasonNotInlined(CS, NinlrExtern);
-            continue;
-          }
-#endif // INTEL_CUSTOMIZATION
-          continue; // INTEL
-        }
-
-=======
->>>>>>> d38ff399246e4986e8864c391cc6b0b566de782c
         // If this call site was obtained by inlining another function, verify
         // that the include path for the function did not include the callee
         // itself.  If so, we'd be recursively inlining the same function,
