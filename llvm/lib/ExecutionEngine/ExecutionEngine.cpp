@@ -626,6 +626,20 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         }
       }
       break;
+#if INTEL_CUSTOMIZATION
+    case Type::ArrayTyID: {
+        // if the whole array is 'undef'
+        const ArrayType* ATy = dyn_cast<ArrayType>(C->getType());
+        unsigned elemNum = ATy->getNumElements();
+        Result.AggregateVal.resize(elemNum);
+        // Go over all a elements and get 'undef'
+        // constant value for each of them independently.
+        for (unsigned i = 0; i < elemNum; ++i)
+          Result.AggregateVal[i] =
+            getConstantValue(UndefValue::get(ATy->getElementType()));
+      }
+      break;
+#endif // INTEL_CUSTOMIZATION
     case Type::VectorTyID:
       // if the whole vector is 'undef' just reserve memory for the value.
       auto* VTy = dyn_cast<VectorType>(C->getType());
@@ -1007,7 +1021,51 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     llvm_unreachable("Unknown constant pointer type!");
   }
   break;
+#if INTEL_CUSTOMIZATION
+  case Type::StructTyID: {
+    assert((isa<ConstantStruct>(C) || isa<ConstantAggregateZero>(C)) &&
+           "Invalid constant type.");
+    const ConstantStruct *CS = dyn_cast<ConstantStruct>(C);
+    const StructType* CSTy = dyn_cast<StructType>(C->getType());
 
+    Result.AggregateVal.resize(CSTy->getNumElements());
+    for (unsigned int i = 0; i < CSTy->getNumElements(); ++i) {
+      // if we have 'zero' constant then we have to create 'zero'
+      // constant of element type and run getConstantValue recursively
+      const Constant *opConst =
+        dyn_cast<ConstantAggregateZero>(C) != 0 ?
+          Constant::getNullValue(CSTy->getElementType(i)) :
+          CS->getOperand(i);
+      Result.AggregateVal[i] = getConstantValue(opConst);
+    }
+  }
+  break;
+  case Type::ArrayTyID: {
+    assert((isa<ConstantArray>(C) || isa<ConstantDataArray>(C) ||
+            isa<ConstantAggregateZero>(C)) &&
+           "Invalid constant type.");
+    const ConstantArray *CA = dyn_cast<ConstantArray>(C);
+    const ConstantDataArray *CDA = dyn_cast<ConstantDataArray>(C);
+    const ConstantAggregateZero *CAZ = dyn_cast<ConstantAggregateZero>(C);
+
+    const ArrayType* CATy = dyn_cast<ArrayType>(C->getType());
+    auto NumElements = CATy->getNumElements();
+    Result.AggregateVal.resize(NumElements);
+    if (CA)
+      for (unsigned int i = 0; i < NumElements; ++i)
+        Result.AggregateVal[i] = getConstantValue(CA->getOperand(i));
+    else if (CDA)
+      for (unsigned int i = 0; i < NumElements; ++i)
+        Result.AggregateVal[i] = getConstantValue(CDA->getElementAsConstant(i));
+    else if (CAZ)
+      for (unsigned int i = 0; i < NumElements; ++i)
+        Result.AggregateVal[i] =
+            getConstantValue(Constant::getNullValue(CATy->getElementType()));
+    else
+      llvm_unreachable("Unknown constant array type!");
+  }
+  break;
+#endif // INTEL_CUSTOMIZATION
   default:
     SmallString<256> Msg;
     raw_svector_ostream OS(Msg);
@@ -1078,12 +1136,45 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
       if (cast<VectorType>(Ty)->getElementType()->isFloatTy())
         *(((float*)Ptr)+i) = Val.AggregateVal[i].FloatVal;
       if (cast<VectorType>(Ty)->getElementType()->isIntegerTy()) {
+#if INTEL_CUSTOMIZATION
+        // getBitWidth() returns number of bits for integer value, but memory
+        // is allocated in bytes i.e. 8-bit pieces. So if integer type is i5
+        // (5-bit), we allocate 8-bit to store values of that type anyway.
+        // To calculate the size of integer value in bytes we use the
+        // trick with integer division. Thus we get the minimum number of
+        // bytes capable to hold getBitWidth() bits.
+#endif // INTEL_CUSTOMIZATION
         unsigned numOfBytes =(Val.AggregateVal[i].IntVal.getBitWidth()+7)/8;
         StoreIntToMemory(Val.AggregateVal[i].IntVal,
           (uint8_t*)Ptr + numOfBytes*i, numOfBytes);
       }
     }
     break;
+#if INTEL_CUSTOMIZATION
+  case Type::StructTyID: {
+      StructType* STy = dyn_cast<StructType>(Ty);
+      const StructLayout *SLO = getDataLayout().getStructLayout(STy);
+
+      for (unsigned i = 0; i < Val.AggregateVal.size(); ++i) {
+        // calculate offset for the current element
+        unsigned int offset = SLO->getElementOffset(i);
+        StoreValueToMemory(Val.AggregateVal[i],
+          (GenericValue*)((uint8_t*)Ptr+offset), STy->getElementType(i));
+      }
+    }
+    break;
+  case Type::ArrayTyID: {
+      const ArrayType* ATy = dyn_cast<ArrayType>(Ty);
+
+      for (unsigned i = 0; i < Val.AggregateVal.size(); ++i) {
+        // calculate offset for the current element
+        unsigned int offset = getDataLayout().getTypeStoreSize(ATy->getElementType())*i;
+        StoreValueToMemory(Val.AggregateVal[i],
+          (GenericValue*)((uint8_t*)Ptr+offset), ATy->getElementType());
+      }
+    }
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (sys::IsLittleEndianHost != getDataLayout().isLittleEndian())
@@ -1168,11 +1259,46 @@ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
       intZero.IntVal = APInt(elemBitWidth, 0);
       Result.AggregateVal.resize(numElems, intZero);
       for (unsigned i = 0; i < numElems; ++i)
+#if INTEL_CUSTOMIZATION
+        // getBitWidth() returns number of bits for integer value, but memory
+        // is allocated in bytes i.e. 8-bit pieces. So if integer type is i5
+        // (5-bit), we allocate 8-bit to store values of that type anyway.
+        // To calculate the size of integer value in bytes we use the
+        // trick with integer division. Thus we get the minimum number of
+        // bytes capable to hold getBitWidth() bits.
+#endif // INTEL_CUSTOMIZATION
         LoadIntFromMemory(Result.AggregateVal[i].IntVal,
           (uint8_t*)Ptr+((elemBitWidth+7)/8)*i, (elemBitWidth+7)/8);
     }
   break;
   }
+#if INTEL_CUSTOMIZATION
+  case Type::StructTyID: {
+      StructType* STy = dyn_cast<StructType>(Ty);
+      const StructLayout *SLO = getDataLayout().getStructLayout(STy);
+
+      Result.AggregateVal.resize(STy->getNumElements());
+      for (unsigned i = 0; i < Result.AggregateVal.size(); ++i) {
+        // calculate offset for the current element
+        unsigned int offset = SLO->getElementOffset(i);
+        LoadValueFromMemory(Result.AggregateVal[i],
+          (GenericValue*)((uint8_t*)Ptr+offset), STy->getElementType(i));
+      }
+    }
+  break;
+  case Type::ArrayTyID: {
+      const ArrayType* ATy = dyn_cast<ArrayType>(Ty);
+
+      Result.AggregateVal.resize(ATy->getNumElements());
+      for (unsigned i = 0; i < Result.AggregateVal.size(); ++i) {
+        // calculate offset for the current element
+        unsigned int offset = getDataLayout().getTypeStoreSize(ATy->getElementType())*i;
+        LoadValueFromMemory(Result.AggregateVal[i],
+          (GenericValue*)((uint8_t*)Ptr+offset), ATy->getElementType());
+      }
+    }
+  break;
+#endif // INTEL_CUSTOMIZATION
   default:
     SmallString<256> Msg;
     raw_svector_ostream OS(Msg);

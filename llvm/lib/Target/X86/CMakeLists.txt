@@ -66,7 +66,6 @@ set(sources
   X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
   X86WinAllocaExpander.cpp
-  X86FixupBWInsts.cpp     # INTEL
   X86WinEHState.cpp
   X86CallingConv.cpp
   ${GLOBAL_ISEL_BUILD_FILES}
