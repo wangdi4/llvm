@@ -67,7 +67,7 @@ class FileSystem;
 
 /// \brief Utility class for loading a ASTContext from an AST file.
 ///
-class ASTUnit : public ModuleLoader {
+class ASTUnit {
 public:
   struct StandaloneFixIt {
     std::pair<unsigned, unsigned> RemoveRange;
@@ -119,10 +119,13 @@ private:
   /// LoadFromCommandLine available.
   std::shared_ptr<CompilerInvocation> Invocation;
 
+  /// Fake module loader: the AST unit doesn't need to load any modules.
+  TrivialModuleLoader ModuleLoader;
+
   // OnlyLocalDecls - when true, walking this AST should only visit declarations
   // that come from the AST itself, not from included precompiled headers.
   // FIXME: This is temporary; eventually, CIndex will always do this.
-  bool                              OnlyLocalDecls;
+  bool OnlyLocalDecls;
 
   /// \brief Whether to capture any diagnostics produced.
   bool CaptureDiagnostics;
@@ -187,6 +190,14 @@ private:
   /// building the precompiled preamble fails, we won't try again for
   /// some number of calls.
   unsigned PreambleRebuildCounter;
+
+  /// \brief Cache pairs "filename - source location"
+  ///
+  /// Cache contains only source locations from preamble so it is
+  /// guaranteed that they stay valid when the SourceManager is recreated.
+  /// This cache is used when loading preambule to increase performance
+  /// of that loading. It must be cleared when preamble is recreated.
+  llvm::StringMap<SourceLocation> PreambleSrcLocCache;
 
 public:
   class PreambleData {
@@ -488,7 +499,7 @@ public:
   };
   friend class ConcurrencyCheck;
 
-  ~ASTUnit() override;
+  ~ASTUnit();
 
   bool isMainFileAST() const { return MainFileIsAST; }
 
@@ -937,21 +948,6 @@ public:
   ///
   /// \returns True if an error occurred, false otherwise.
   bool serialize(raw_ostream &OS);
-
-  ModuleLoadResult loadModule(SourceLocation ImportLoc, ModuleIdPath Path,
-                              Module::NameVisibilityKind Visibility,
-                              bool IsInclusionDirective) override {
-    // ASTUnit doesn't know how to load modules (not that this matters).
-    return ModuleLoadResult();
-  }
-
-  void makeModuleVisible(Module *Mod, Module::NameVisibilityKind Visibility,
-                         SourceLocation ImportLoc) override {}
-
-  GlobalModuleIndex *loadGlobalModuleIndex(SourceLocation TriggerLoc) override
-    { return nullptr; }
-  bool lookupMissingImports(StringRef Name, SourceLocation TriggerLoc) override
-    { return 0; }
 };
 
 } // namespace clang

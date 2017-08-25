@@ -716,7 +716,7 @@ std::unique_ptr<ASTUnit> ASTUnit::LoadFromASTFile(
 
   AST->PP = std::make_shared<Preprocessor>(
       AST->PPOpts, AST->getDiagnostics(), *AST->LangOpts,
-      AST->getSourceManager(), *AST->PCMCache, HeaderInfo, *AST,
+      AST->getSourceManager(), *AST->PCMCache, HeaderInfo, AST->ModuleLoader,
       /*IILookup=*/nullptr,
       /*OwnsHeaderSearch=*/false);
   Preprocessor &PP = *AST->PP;
@@ -1159,6 +1159,8 @@ bool ASTUnit::Parse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
   if (SavedMainFileBuffer)
     TranslateStoredDiagnostics(getFileManager(), getSourceManager(),
                                PreambleDiagnostics, StoredDiagnostics);
+  else
+    PreambleSrcLocCache.clear();
 
   if (!Act->Execute())
     goto error;
@@ -2602,11 +2604,9 @@ void ASTUnit::TranslateStoredDiagnostics(
   // remap all the locations to the new view. This includes the diag location,
   // any associated source ranges, and the source ranges of associated fix-its.
   // FIXME: There should be a cleaner way to do this.
-
   SmallVector<StoredDiagnostic, 4> Result;
   Result.reserve(Diags.size());
-  const FileEntry *PreviousFE = nullptr;
-  FileID FID;
+
   for (const StandaloneDiagnostic &SD : Diags) {
     // Rebuild the StoredDiagnostic.
     if (SD.Filename.empty())
@@ -2614,11 +2614,16 @@ void ASTUnit::TranslateStoredDiagnostics(
     const FileEntry *FE = FileMgr.getFile(SD.Filename);
     if (!FE)
       continue;
-    if (FE != PreviousFE) {
-      FID = SrcMgr.translateFile(FE);
-      PreviousFE = FE;
+    SourceLocation FileLoc;
+    auto ItFileID = PreambleSrcLocCache.find(SD.Filename);
+    if (ItFileID == PreambleSrcLocCache.end()) {
+      FileID FID = SrcMgr.translateFile(FE);
+      FileLoc = SrcMgr.getLocForStartOfFile(FID);
+      PreambleSrcLocCache[SD.Filename] = FileLoc;
+    } else {
+      FileLoc = ItFileID->getValue();
     }
-    SourceLocation FileLoc = SrcMgr.getLocForStartOfFile(FID);
+
     if (FileLoc.isInvalid())
       continue;
     SourceLocation L = FileLoc.getLocWithOffset(SD.LocOffset);
