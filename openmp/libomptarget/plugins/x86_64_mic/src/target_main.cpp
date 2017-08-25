@@ -106,7 +106,7 @@ void __tgt_device_get_table(
   MiscPos = fetch(MiscData, MiscPos, &VAddr);
   const char* LibName = MiscData + MiscPos;
 
-  DP("Reading table for %s, addr %lx, size %lu\n", LibName, VAddr, NEntries);
+  DP("Reading table for %s, addr %lx, entries %lu\n", LibName, VAddr, NEntries);
 
   // Callback data for the dl_iterate_phdr call below
   struct CallBackDataTy {
@@ -140,7 +140,8 @@ void __tgt_device_get_table(
          "Not enough space in return buffer");
   for (size_t II = 0; II < NEntries; ++II) {
     const auto &E = ETab[II];
-    DP("Entry[%lu] addr=%p\tsize=%lu\tname=%s\n", II, E.addr, E.size, E.name);
+    DP("Entry[%lu] addr=%p\tsize=0x%lx\tflags=0x%x\tname=%s\n", II,
+      E.addr, E.size, E.flags, E.name);
     TargetAddrs[II] = E.addr;
   }
 }

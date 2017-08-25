@@ -8,138 +8,48 @@
 //===----------------------------------------------------------------------===//
 /// \file Interface of a runtime library used by the compiler to implement
 ///  automatic data partitioning and loop blocking.
-//===----------------------------------------------------------------------===//
-//
-// 
-// Given the outlined offload block code (in a form of IR) below:
-// |  void omp_outlined(int *a, int *b, int glob_up_i, ...) {
-// |    int tid = get_tid();
-// |    int lo_i = 0;
-// |    int up_i = glob_up_i;
-// |
-// |    __kmpc_static_init(tid, &lo_i, &up_i);
-// |
-// |    for (int i = lo_i; i < up_i; i++) {
-// |      for (int j = 0; j < up_j; j++) {
-// |        for (int k = 0; k < up_k; k++) {
-// |          a[a1i*i + a1j*j + a1k*k + a1_];
-// |          a[a2i*i + a2j*j + a2k*k + a2_];
-// |          b[b1i*i + b1j*j + b1k*k + b1_];
-// |          b[b2i*i + b2j*j + b2k*k + b2_];
-// |        }
-// |      }
-// |      for (int l = 0; l < up_l; l++) {
-// |        a[a3i*i + a3l*l + a3_];
-// |        a[a4i*i + a4l*l + a4_];
-// |        b[b3i*i + b3l*l + b3_];
-// |        b[b4i*i + b4l*l + b4_];
-// |      }
-// |    }
-// |  }
-// |
-// |  void omp_offloading(int *a, int *b, ...) {
-// |    __kmpc_fork_call(omp_outlined, a, b, up_i, ...);
-// |  }
-// 
-// the compiler will transform it into
-// 
-// |  void omp_outlined(int *a, int *b, PartitionData1D *block, ...)
-// |  {
-// |    int tid = get_tid();
-// |    int lo_i = block->lo_ind;
-// |    int up_i = block->up_ind;
-// |
-// |    __kmpc_static_init(tid, &lo_i, &up_i);
-// |
-// |    int a_off = block->arrIndOffsets[0];
-// |    int b_off = block->arrIndOffsets[1];
-// |
-// |    for (int i = lo_i; i < up_i; i++) {
-// |      for (int j = 0; j < up_j; j++) {
-// |        for (int k = 0; k < up_k; k++) {
-// |          a[a1i*i + a1j*j + a1k*k + a1_ - a_off];
-// |          a[a2i*i + a2j*j + a2k*k + a2_ - a_off];
-// |          b[b1i*i + b1j*j + b1k*k + b1_ - b_off];
-// |          b[b2i*i + b2j*j + b2k*k + b2_ - b_off];
-// |        }
-// |      }
-// |      for (int l = 0; l < up_l; l++) {
-// |        a[a3i*i + a3k*l + a3_ - a_off];
-// |        a[a4i*i + a4k*l + a4_ - a_off];
-// |        b[b3i*i + b3k*l + b3_ - b_off];
-// |        b[b4i*i + b4k*l + b4_ - b_off];
-// |      }
-// |    }
-// |  }
-// |
-// |  void omp_offloading(int *a, int *b, ...) {
-// |    int lb1[] = { 0,    0,    0    };
-// |    int ub1[] = { up_i, up_j, up_k };
-// |    int lb2[] = { 0,    0          };
-// |    int ub2[] = { up_i, up_l       };
-// |    IterSpace ispace1(1, 2, lb1, ub1);
-// |    IterSpace ispace2(1, 1, lb2, ub2);
-// |    ArrayIndFunc a1({ a1i, a1j, a1k, a1_ }, &ispace1);
-// |    ArrayIndFunc a2({ a2i, a2j, a2k, a2_ }, &ispace1);
-// |    ArrayIndFunc b1({ b1i, b1j, b1k, b1_ }, &ispace1);
-// |    ArrayIndFunc b2({ b2i, b2j, b2k, b2_ }, &ispace1);
-// |    ArrayIndFunc a3({ a3i, a3l, a3_ }, &ispace2);
-// |    ArrayIndFunc a4({ a4i, a4l, a4_ }, &ispace2);
-// |    ArrayIndFunc b3({ b3i, b3l, b3_ }, &ispace2);
-// |    ArrayIndFunc b4({ b4i, b4l, b4_ }, &ispace2);
-// |
-// |    const int el_size = sizeof(int);
-// |    const int loc_arr_align = 8; /*TODO(nios) what ABI says?*/
-// |
-// |    ArrayAccess acc_a(4, { &a1, &a2, &a3, &a4 }, el_size, loc_arr_align);
-// |    ArrayAccess acc_b(4, { &b1, &b2, &b3, &b4 }, el_size, loc_arr_align);
-// |
-// |    // TODO(nios) for now allocate only in l2
-// |    ArrayAccess accs[] = { &acc_a, &acc_b };
-// |    const int num_arrs = sizeof(accs) / sizeof(accs[0]);
-// |    ParLoopNestDataAccess l2data(num_arrs, accs);
-// |    size_t *offsets = (size_t)alloca(num_arrs * sizeof(size_t));
-// |    PartitionData1D block(offsets);
-// |    size_t l2_mem = nios_get_free_l2_mem_size();
-// |
-// |    data_block_ParLoopNestDataAccess_partition(&l2data, l2_mem);
-// |
-// |    size_t a_ws = acc_a.wset.extent;
-// |    size_t b_ws = acc_b.wset.extent;
-// |    int *loc_a = (int*)alloca_l2(a_ws, loc_arr_align);
-// |    int *loc_b = (int*)alloca_l2(b_ws, loc_arr_align);
-// |    int **big_arrs = {a,     b    };
-// |    int **loc_arrs = {loc_a, loc_b};
-// |    data_block_ParLoopNestDataAccess_setArrayMap(&l2data, big_arrs, loc_arrs);
-// |
-// |    for (int i1 = 0; i1 < n_chunks; i1++) {
-// |      data_block_ParLoopNestDataAccess_setupBlockIterationAndCopyIn(
-// |        &l2data, i1, &block);
-// |      __kmpc_fork_call(omp_outlined, loc_a, loc_b, &block, ...);
-// |      data_block_ParLoopNestDataAccess_copyOut(&l2data, i1, block);
-// |    }
-// |  }
-// |
-//
-// Limitations of current implementation:
-// - the number of parallel loops is 1 (1-dimensional partitioning only)
-// - for each array, the coefficient at the parallel array index shouls be the
-//     same over all accesses to that array
-// - only single memory level hierarchy is supported (either L2 or L3)
-
+///  See comments in llvm/lib/Target/Nios2/LoopAndDataBlockPass.cpp
 //===----------------------------------------------------------------------===//
 
 #ifndef DATA_BLOCK_H
 #define DATA_BLOCK_H
 
-#include <stddef.h> // size_t
-#include <limits.h> // INT_MIN/MAX
-
-#ifndef __cplusplus
-#define EXPORT extern "C"
-#else
-#define EXPORT
+#if (defined(i386) || defined(_M_IX86) || \
+     defined(__x86_64__) || defined(_M_X64))
+#define X86_TARGET
 #endif
+
+#include <stddef.h> // size_t
+#ifdef __cplusplus
+#include <new> // for placement new
+#endif // __cplusplus
+
+#if defined(_WIN32) || defined(WIN32)
+  #ifdef LIBDATABLOCK_EXPORTS
+    #define DLL_INTERFACE __declspec(dllexport)
+  #else
+    #define DLL_INTERFACE __declspec(dllimport)
+  #endif // LIBDATABLOCK_EXPORTS
+#else
+  #define DLL_INTERFACE
+#endif // defined(_WIN32) || defined(WIN32)
+
+#ifdef __cplusplus
+  #define EXTERN_C extern "C"
+#else
+  #define EXTERN_C
+#endif // __cplusplus
+
+#define EXPORT EXTERN_C DLL_INTERFACE
+
+// debug print is enabled only on X86/X64 in debug builds
+#if defined(__cplusplus) && (defined(_DEBUG) || defined(DEBUG))
+#define DATABLOCK_DEBUG
+#endif
+
+#define DATABLOCK_MAX_PAR_DEPTH 1
+#define DATABLOCK_MAX_SEQ_DEPTH 8
+#define DATABLOCK_MAX_NEST_DEPTH (DATABLOCK_MAX_PAR_DEPTH+DATABLOCK_MAX_SEQ_DEPTH)
 
 //-----------------------------------------------------------------------------
 // Data type declatations
@@ -151,13 +61,17 @@ struct IntVector {
 
 #ifdef __cplusplus
   IntVector(int *mem) : comps(mem) {}
-  
+
   // Dot product operation over given slice of vector components
   int dotProduct(IntVector v, int start, int len);
 
   // Subtraction operation over given slice of vector components
   void sub(IntVector v, int start, int len);
-#endif
+
+#ifdef DATABLOCK_DEBUG
+  void print(int n, int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Loop nest iteration space
@@ -168,12 +82,21 @@ struct IterSpace {
   // component 0 corresponds to the outermost loop
   IntVector lb; // upper bounds
   IntVector ub; // lower bounds
+  IntVector st; // strides
 
 #ifdef __cplusplus
-  IterSpace(int n_par, int n_seq, int* _lb, int *_ub) :
-    nPar(n_par), nSeq(n_seq), lb(_lb), ub(_ub)
+  IterSpace(int n_par, int n_seq, int* _lb, int* _ub, int* _st) :
+    nPar(n_par), nSeq(n_seq), lb(_lb), ub(_ub), st(_st)
   {}
-#endif
+
+  int getDepth() {
+    return nPar + nSeq;
+  }
+
+#ifdef DATABLOCK_DEBUG
+  void print(int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // One-dimensional data and loop partition parameters for current chunk of
@@ -187,7 +110,13 @@ struct PartitionData1D {
   PartitionData1D(size_t *offs) :
     parIndLo(0), parIndUp(0), arrIndOffsets(offs)
   {}
-#endif
+
+  int getNumParIters() { return parIndUp - parIndLo + 1; }
+
+#ifdef DATABLOCK_DEBUG
+  void print(int n_arrs, int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Linear array index function depending on indices of a loop nest.
@@ -201,42 +130,65 @@ struct ArrayIndFunc {
   {}
 
   // Returns the offset member in the linear expression
-  int getOffset() {
-    return coeffs.comps[ispace->nPar + ispace->nSeq];
+  int getAddend() {
+    return coeffs.comps[ispace->getDepth()];
   }
 
-  // Calculates two points in the sequential part of the iteration space
-  // corresponding to minimal and maximal array index function value
-  void getSeqMinMaxPoints(IntVector minp, IntVector maxp);
+  // Selects two points in the iteration sub-space corresponding to minimal
+  // and maximal array index function value with all other indices (beyond the
+  // sub-space) being constant. start and len define the sub-space.
+  void getIspaceMinMaxPoints(
+    IntVector minp, IntVector maxp, int start, int len);
+
+  // Does the same as the getIspaceMinMaxPoints function, but subspace points
+  // are taken from given vectors. Effectively, swaps corresponding components
+  // between minp and maxp where needed.
+  void adjIspaceMinMaxPoints(
+    IntVector minp, IntVector maxp, int start, int len);
 
   // Calculates the value of the function on given vector slice
   size_t calc(IntVector ind, int start, int len) {
     return coeffs.dotProduct(ind, start, len);
   }
 
-  size_t calcSeqPart(IntVector ind) {
-    return calc(ind, ispace->nPar, ispace->nSeq) + getOffset();
+  size_t calc(IntVector ind) {
+    return coeffs.dotProduct(ind, 0, ispace->getDepth()) + getAddend();
   }
 
-  size_t calcParPart(IntVector ind) {
-    return calc(ind, 0, ispace->nPar);
+  int getDepth() {
+    return ispace->getDepth();
   }
-#endif
+
+#ifdef DATABLOCK_DEBUG
+  void print(int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // Array access one-dimensional workset characteristics
 struct Workset1D {
   // 1D for now
-  int extent;  // the extent of the workset
-  int offset;  // the value of the seq part of ind func over minimal point
-  int overlap; // overlap between two adjacent parallel iterations
-  int align;   // how the local array holding the workset must be aligned
+  size_t extent1;   // the extent of the workset (single parallel iteration)
+  size_t extentN;   // the extent of the workset (n parallel iterations)
+  int nParIters; // the number of parellel iterations extentN is calculated for
+  int offset;    // minimal value of all array's index functions
+  int overlap;   // overlap between two adjacent parallel iterations
+  int align;     // how the local array holding the workset must be aligned
 
 #ifdef __cplusplus
   Workset1D(int _extent, int _offset, int _overlap, int _align) :
-    extent(_extent), offset(_offset), overlap(_overlap), align(_align)
+    extent1(_extent), extentN(_extent), nParIters(1), offset(_offset),
+    overlap(_overlap), align(_align)
   {}
-#endif
+
+  Workset1D() {
+    new (this) Workset1D(0, 0, 0, 0);
+  }
+
+#ifdef DATABLOCK_DEBUG
+  void print(int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 // An aggregate of all accesses to a single array within a parallel loop
@@ -244,26 +196,32 @@ struct ArrayAccess {
   int n;                   // the number of accesses
   ArrayIndFunc** indFuncs; // index function for each
   int elemSize;            // array element size
-  Workset1D wset;          // workset of all accesses, valid after calcWorkset()
+  Workset1D wset;          // workset of all accesses, valid after calcSingleParIterWorkset()
 
 #ifdef __cplusplus
   ArrayAccess(int _n, ArrayIndFunc** ind_funcs, int el_size, int ws_align) :
     n(_n), indFuncs(ind_funcs), elemSize(el_size), wset(0, 0, 0, ws_align)
   {}
 
-  void calcWorkset();
+  void calcSingleParIterWorkset();
+  void updateWorkset(int n_par_iters);
 
   // Returns the coefficient at the parallel loop index in the index function.
   int getSingleCommonParLoopIndexCoeff();
 
-  size_t getWorksetOverlap()   { return wset.overlap; }
-  size_t getWorksetSize()      { return wset.extent;  }
-  size_t getWorksetOffset()    { return wset.offset;  }
-  size_t getWorksetAlignment() { return wset.align;   }
+  size_t getWorksetOverlap()              { return wset.overlap; }
+  size_t getWorksetSize()                 { return wset.extent1; }
+  size_t getWorksetSize(int n_par_iters);
+  size_t getWorksetOffset()               { return wset.offset;  }
+  size_t getWorksetAlignment()            { return wset.align;   }
 
   // In current implementation the coefficient at the parallel loop index must
   // be the same for all accesses to this array. This function asserts that.
   void checkParCoeffs();
+
+#ifdef DATABLOCK_DEBUG
+  void print(int tab);
+#endif // DATABLOCK_DEBUG
 #endif
 };
 
@@ -273,7 +231,7 @@ struct ParLoopNestDataAccess {
   ArrayAccess** accs; // data for each array
   void** bigArrs;     // the big<->local array map,
   void** locArrs;     //   valid after setArrayMap
-  int iChunk;         // the max par i-space chunk with data fitting into memory 
+  int iChunk;         // the max par i-space chunk with data fitting into memory
   int nChunks;        // the number of such chunks
 
 #ifdef __cplusplus
@@ -285,6 +243,7 @@ struct ParLoopNestDataAccess {
   int getNumArrays() { return n; }
 
   int getParLoopUpperBound(int loop_num);
+  int getParLoopLowerBound(int loop_num);
 
   ArrayIndFunc* getArrayIndFunc(int arr_id, int acc_id) {
     return accs[arr_id]->indFuncs[acc_id];
@@ -306,11 +265,12 @@ struct ParLoopNestDataAccess {
   // Tells the actual addresses of the partitioned arrays and their
   // corresponding local windows and establishes a mapping between them.
   // big_arr[i] partitioned array correponds to loc_arrs[i] local window.
-  void setArrayMap(void** big_arrs, void** loc_arrs) {
-    bigArrs = big_arrs;
-    locArrs = loc_arrs;
-  }
-#endif
+  void setArrayMap(void** big_arrs, void** loc_arrs);
+
+#ifdef DATABLOCK_DEBUG
+  void print(int tab);
+#endif // DATABLOCK_DEBUG
+#endif // __cplusplus
 };
 
 //-----------------------------------------------------------------------------
@@ -332,5 +292,7 @@ EXPORT void data_block_ParLoopNestDataAccess_setupBlockIterationAndCopyIn(
 // C interface for ParLoopNestDataAccess::copyOut
 EXPORT void data_block_ParLoopNestDataAccess_copyOut(
   struct ParLoopNestDataAccess* obj, PartitionData1D *block);
+
+EXPORT unsigned char* data_block_device_alloc_l2(size_t n, int align);
 
 #endif // DATA_BLOCK_H
