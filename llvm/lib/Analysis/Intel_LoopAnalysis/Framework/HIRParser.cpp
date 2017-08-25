@@ -2868,8 +2868,13 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     }
 
     auto Opnd = BCOp->getOperand(0);
+    auto OpTy = Opnd->getType();
+    if (!RI->isSupported(OpTy)) {
+      break;
+    }
 
-    if (!RI->isSupported(Opnd->getType())) {
+    // Suppress tracing back to a function pointer type.
+    if (OpTy->getPointerElementType()->isFunctionTy()) {
       break;
     }
 
@@ -2970,8 +2975,14 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                                      unsigned Level) {
   RegDDRef *Ref;
   auto OpVal = Inst->getOperand(OpNum);
+  auto OpTy = OpVal->getType();
 
-  if (auto LInst = dyn_cast<LoadInst>(Inst)) {
+  // Parse function pointer rvals as scalars. Pointer arithemetic (GEP) is not
+  // expected on them.
+  if (OpTy->isPointerTy() && OpTy->getPointerElementType()->isFunctionTy()) {
+    Ref = createScalarDDRef(OpVal, Level);
+
+  } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
     Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
 
     Ref->setVolatile(LInst->isVolatile());
@@ -2985,8 +2996,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 
     parseMetadata(Inst, Ref);
 
-  } else if (OpVal->getType()->isPointerTy() &&
-             !isa<ConstantPointerNull>(OpVal)) {
+  } else if (OpTy->isPointerTy() && !isa<ConstantPointerNull>(OpVal)) {
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 
@@ -3027,18 +3037,24 @@ bool HIRParser::isLiveoutCopy(const HLInst *HInst) {
                             ScalarEvolution::HIRLiveKind::LiveOut);
 }
 
-unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
-  unsigned NumRvalOp = HInst->getNumOperands();
+unsigned HIRParser::getNumRvalOperands(const Instruction *Inst) {
+  unsigned NumOp;
 
-  if (HInst->hasLval()) {
-    NumRvalOp--;
+  if (isa<GetElementPtrInst>(Inst)) {
+    // GEP is represented as an assignment of address: %t = &A[i];
+    NumOp = 1;
+  } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
+    NumOp = CInst->getNumArgOperands();
+  } else {
+    NumOp = Inst->getNumOperands();
+
+    // One of the operands of store is an lval in HIR.
+    if (isa<StoreInst>(Inst)) {
+      --NumOp;
+    }
   }
 
-  if (isa<SelectInst>(HInst->getLLVMInstruction())) {
-    NumRvalOp--;
-  }
-
-  return NumRvalOp;
+  return NumOp;
 }
 
 FastMathFlags HIRParser::parseFMF(const CmpInst *Cmp) {
@@ -3143,7 +3159,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     HInst->setLvalDDRef(createLvalDDRef(Inst, Level));
   }
 
-  unsigned NumRvalOp = getNumRvalOperands(HInst);
+  unsigned NumRvalOp = getNumRvalOperands(Inst);
   auto Call = dyn_cast<CallInst>(Inst);
 
   bool FakeDDRefsRequired = (Call && !Call->doesNotAccessMemory());
@@ -3179,6 +3195,12 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
       addFakeRef(HInst, Ref,
                  (IsReadOnly || Call->paramHasAttr(I, Attribute::ReadOnly)));
     }
+  }
+
+  // For indirect calls, set the function pointer as the last operand.
+  if (Call && !Call->getCalledFunction()) {
+    RegDDRef *Ref = createRvalDDRef(Call, Call->getNumOperands() - 1, Level);
+    HInst->setOperandDDRef(Ref, NumRvalOp + HasLval);
   }
 
   if (auto CInst = dyn_cast<CmpInst>(Inst)) {

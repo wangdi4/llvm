@@ -166,7 +166,12 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       OS << "(";
     }
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
-    FInst->getCalledValue()->printAsOperand(OS, false);
+    if (isIndirectCallInst()) {
+      // Use the last operand which is the function pointer.
+      (*op_ddref_rbegin())->print(OS, false);
+    } else {
+      FInst->getCalledValue()->printAsOperand(OS, false);
+    }
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";
@@ -199,7 +204,14 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     return;
   }
 
-  for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; ++I, ++Count) {
+  auto E = op_ddref_end();
+
+  // Do not print function pointer value of an indirect call as an argument. 
+  if (isIndirectCallInst()) {
+    --E;
+  }
+
+  for (auto I = op_ddref_begin(); I != E; ++I, ++Count) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
       checkSeparator(OS, true);
     }
@@ -347,21 +359,24 @@ unsigned HLInst::getNumOperandsInternal() const {
 
   if (isa<GetElementPtrInst>(Inst)) {
     // GEP is represented as an assignment of address: %t = &A[i];
-    // TODO: GEP accessing structure elements
     NumOp = 1;
   } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
     NumOp = CInst->getNumArgOperands();
+    // For indirect calls, we add function pointer as an operand.
+    if (!CInst->getCalledFunction()) {
+      ++NumOp;
+    }
   } else {
     NumOp = Inst->getNumOperands();
   }
 
   if (hasLval() && !isa<StoreInst>(Inst)) {
-    NumOp++;
+    ++NumOp;
   }
   // Select instruction gains an extra operand due to inclusion of the
   // predicate.
   if (isa<SelectInst>(Inst)) {
-    NumOp++;
+    ++NumOp;
   }
 
   return NumOp;

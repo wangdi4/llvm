@@ -588,12 +588,17 @@ Value *HIRCodeGen::CGVisitor::getBlobValue(int BlobIdx, Type *Ty) {
   Type *BType = Blob->getType();
   if (BType->isPointerTy() && BType != Ty) {
     // A version of this should be in verifier, but we want to test CG'd
-    // type
-    assert(
-        Ty->getScalarSizeInBits() ==
-            F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType) &&
-        "Pointer size and CE size mismatch");
-    Blob = Builder->CreatePtrToInt(Blob, Ty->getScalarType());
+    // type.
+    auto ScalarTy = Ty->getScalarType();
+    if (ScalarTy->isPointerTy()) {
+      assert((ScalarTy == BType) && "Pointer blob type mismatch!");
+    } else {
+      assert(
+          (ScalarTy->getPrimitiveSizeInBits() ==
+           F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType)) &&
+          "Pointer size and CE size mismatch");
+      Blob = Builder->CreatePtrToInt(Blob, ScalarTy);
+    }
   }
   return Blob;
 }
@@ -1593,9 +1598,14 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
       Ops.erase(Ops.begin());
     }
 
-    // TODO twine for call?
-    CallInst *ResCall =
-        Builder->CreateCall(const_cast<Value *>(Call->getCalledValue()), Ops);
+    Value *FuncVal = Call->getCalledFunction();
+
+    if (!FuncVal) {
+      // For indirect calls, function pointer is stored in last operand.
+      FuncVal = Ops.pop_back_val();
+    }
+
+    CallInst *ResCall = Builder->CreateCall(FuncVal, Ops);
 
     // TODO: Copy parameter attributes as well.
     ResCall->setCallingConv(Call->getCallingConv());

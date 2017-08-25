@@ -136,12 +136,6 @@ bool HIRRegionIdentification::isSupported(Type *Ty) {
     }
   }
 
-  if (Ty->isFunctionTy()) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: function pointer types currently not "
-                    "supported.\n");
-    return false;
-  }
-
   auto IntType = dyn_cast<IntegerType>(Ty);
   // Integer type greater than 64 bits not supported.This is mainly to throttle
   // 128 bit integers.

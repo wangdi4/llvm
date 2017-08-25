@@ -50,9 +50,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/BlobUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Function.h"
@@ -323,7 +323,7 @@ public:
     AU.addRequiredTransitive<HIRFramework>();
   }
 };
-}
+} // namespace
 
 char HIRTempCleanup::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRTempCleanup, "hir-temp-cleanup", "HIR Temp Cleanup",
@@ -511,6 +511,14 @@ bool TempSubstituter::isLoad(HLInst *HInst) const {
 
   if ((HInst->getLexicalParentLoop() && LvalRef->isLiveOutOfParentLoop()) ||
       LvalRef->isLiveOutOfRegion()) {
+    return false;
+  }
+
+  auto LvalTy = LvalRef->getDestType();
+
+  // Do not substitute function pointer temps.
+  if (LvalTy->isPointerTy() &&
+      LvalTy->getPointerElementType()->isFunctionTy()) {
     return false;
   }
 

@@ -220,8 +220,8 @@ private:
   /// Implements phase2 of parsing.
   void phase2Parse();
 
-  /// Returns the number of rval operands of HInst.
-  static unsigned getNumRvalOperands(HLInst *HInst);
+  /// Returns the number of rval operands of Inst w.r.t HIR setup.
+  static unsigned getNumRvalOperands(const Instruction *Inst);
 
   /// Returns true if this instruction has a user outside the region.
   bool isRegionLiveOut(const Instruction *Inst) const;
