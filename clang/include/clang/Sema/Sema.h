@@ -2727,8 +2727,7 @@ public:
                                    SourceLocation OpLoc, ArrayRef<Expr *> Args,
                                    OverloadCandidateSet& CandidateSet,
                                    SourceRange OpRange = SourceRange());
-  void AddBuiltinCandidate(QualType ResultTy, QualType *ParamTys,
-                           ArrayRef<Expr *> Args,
+  void AddBuiltinCandidate(QualType *ParamTys, ArrayRef<Expr *> Args,
                            OverloadCandidateSet& CandidateSet,
                            bool IsAssignmentOperator = false,
                            unsigned NumContextualBoolArguments = 0);
@@ -7555,6 +7554,10 @@ public:
                                         unsigned ThisTypeQuals);
   void SubstExceptionSpec(FunctionDecl *New, const FunctionProtoType *Proto,
                           const MultiLevelTemplateArgumentList &Args);
+  bool SubstExceptionSpec(SourceLocation Loc,
+                          FunctionProtoType::ExceptionSpecInfo &ESI,
+                          SmallVectorImpl<QualType> &ExceptionStorage,
+                          const MultiLevelTemplateArgumentList &Args);
   ParmVarDecl *SubstParmVarDecl(ParmVarDecl *D,
                             const MultiLevelTemplateArgumentList &TemplateArgs,
                                 int indexAdjustment,
@@ -7717,7 +7720,8 @@ public:
                             const MultiLevelTemplateArgumentList &TemplateArgs);
 
   NamedDecl *FindInstantiatedDecl(SourceLocation Loc, NamedDecl *D,
-                          const MultiLevelTemplateArgumentList &TemplateArgs);
+                          const MultiLevelTemplateArgumentList &TemplateArgs,
+                          bool FindingInstantiatedContext = false);
   DeclContext *FindInstantiatedContext(SourceLocation Loc, DeclContext *DC,
                           const MultiLevelTemplateArgumentList &TemplateArgs);
 
