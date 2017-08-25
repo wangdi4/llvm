@@ -514,7 +514,7 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag, //***INTEL
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag,  //***INTEL
                              "ExpectedFunctionOrGlobalVar">;
   let Documentation = [Undocumented];
 }
