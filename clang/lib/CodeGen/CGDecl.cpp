@@ -1191,7 +1191,8 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
       FunctionArgList Args2;
       ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
-                            /*Id=*/nullptr, CGM.getContext().VoidPtrTy);
+                            /*Id=*/nullptr, CGM.getContext().VoidPtrTy,
+                            ImplicitParamDecl::Other);
       Args2.push_back(&Dst);
 
       const CGFunctionInfo &FI = CGM.getTypes().
