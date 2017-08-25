@@ -117,7 +117,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                                        ArrayRef<const char *> NewNames,
                                        ArrayRef<AttributeSet> NewAttrs,
-                                       StringRef Prefix, bool IsKernel = false);
+                                       StringRef Prefix);
     // AddMoreArgsToCall - Replaces a CallInst with a new CallInst which has the
     // same arguments as orignal plus more args appeneded.
     // Returns the new CallInst

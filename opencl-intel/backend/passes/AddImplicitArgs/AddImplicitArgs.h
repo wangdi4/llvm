@@ -39,7 +39,7 @@ namespace intel {
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief LLVM Interface
     /// @param AU Analysis
@@ -55,9 +55,8 @@ namespace intel {
     ///        the given funciton and need to add implicit arguments to its
     ///        original arguments, i.e. calls to functions define in module.
     /// @param pFunc The function to create a copy of
-    /// @param isAKernel true is the gevin function is a kernel
     /// @returns The new function that receives the implicit arguemnts
-    Function* runOnFunction(Function *pFunc, bool isAKernel);
+    Function* runOnFunction(Function *pFunc);
 
     /// @brief Updates metadata nodes with new Function signature
     /// @param pMetadata The current metadata node

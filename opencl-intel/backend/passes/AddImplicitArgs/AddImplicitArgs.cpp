@@ -25,7 +25,6 @@ extern "C"{
   ModulePass* createAddImplicitArgsPass() {
     return new intel::AddImplicitArgs();
   }
-
 }
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -52,9 +51,6 @@ namespace intel{
     // Clear call instruction to fix container
     m_fixupCalls.clear();
 
-    CompilationUtils::FunctionSet kernelsFunctionSet;
-    CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
-
     // Collect all module functions that are not declarations into for handling
     std::vector<Function*> toHandleFunctions;
     for ( Module::iterator fi = M.begin(), fe = M.end(); fi != fe; ++fi ) {
@@ -76,8 +72,7 @@ namespace intel{
     for ( std::vector<Function*>::iterator fi = toHandleFunctions.begin(),
       fe = toHandleFunctions.end(); fi != fe; ++fi ) {
         Function *pFunc = dyn_cast<Function>(*fi);
-        bool isAKernel = (kernelsFunctionSet.count(pFunc) > 0);
-        runOnFunction(pFunc, isAKernel);
+        runOnFunction(pFunc);
     }
 
     // Go over all call instructions that need to be changed
@@ -123,7 +118,7 @@ namespace intel{
     return true;
   }
 
-  Function* AddImplicitArgs::runOnFunction(Function *pFunc, bool isAKernel) {
+  Function* AddImplicitArgs::runOnFunction(Function *pFunc) {
 
     SmallVector<llvm::Type *, 16> NewTypes;
     SmallVector<const char *, 16> NewNames;
@@ -149,7 +144,7 @@ namespace intel{
     }
     // Create the new function with appended implicit attributes
     Function *pNewF = CompilationUtils::AddMoreArgsToFunc(
-        pFunc, NewTypes, NewNames, NewAttrs, "AddImplicitArgs", isAKernel);
+        pFunc, NewTypes, NewNames, NewAttrs, "AddImplicitArgs");
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters
