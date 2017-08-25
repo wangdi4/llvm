@@ -31,6 +31,30 @@ using namespace Intel::OpenCL::DeviceBackend;
 
 namespace intel{
 
+  /// @brief Updates metadata nodes with new Function signature
+  /// @param pMetadata The current metadata node
+  /// @param visited set with metadata we alreay visit.
+  static void iterateMDTree(MDNode* pMDNode, llvm::Function* pFunc, llvm::Function* pNewF, std::set<MDNode*> &visited) {
+    // Avoid inifinite loops due to possible cycles in metadata
+    if (visited.count(pMDNode)) return;
+    visited.insert(pMDNode);
+
+    for (int i = 0, e = pMDNode->getNumOperands(); i < e; ++i) {
+      Metadata * mdOp = pMDNode->getOperand(i);
+      if (mdOp) {
+        if (MDNode * mdOpNode = dyn_cast<MDNode>(mdOp)) {
+          iterateMDTree(mdOpNode, pFunc, pNewF, visited);
+        }
+        else if (ConstantAsMetadata * funcAsMet = dyn_cast<ConstantAsMetadata>(mdOp)) {
+          if (pFunc == mdconst::dyn_extract<Function>(funcAsMet))
+            pMDNode->replaceOperandWith(i, ConstantAsMetadata::get(pNewF));
+          // TODO: Check if the old metadata has to bee deleted manually to avoid
+          //       memory leaks.
+        }
+      }
+    }
+  }
+
   char AddImplicitArgs::ID = 0;
 
   /// Register pass to for opt
@@ -69,10 +93,8 @@ namespace intel{
     }
 
     // Run on all collected functions for handlin and handle them
-    for ( std::vector<Function*>::iterator fi = toHandleFunctions.begin(),
-      fe = toHandleFunctions.end(); fi != fe; ++fi ) {
-        Function *pFunc = dyn_cast<Function>(*fi);
-        runOnFunction(pFunc);
+    for (auto *pFunc : toHandleFunctions) {
+      runOnFunction(pFunc);
     }
 
     // Go over all call instructions that need to be changed
@@ -145,6 +167,9 @@ namespace intel{
     // Create the new function with appended implicit attributes
     Function *pNewF = CompilationUtils::AddMoreArgsToFunc(
         pFunc, NewTypes, NewNames, NewAttrs, "AddImplicitArgs");
+
+    // maintain this map to preserve original/modified relation for functions.
+    m_fixupFunctionsRefs[pFunc] = pNewF;
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters
@@ -228,11 +253,29 @@ namespace intel{
       }
     }
 
+    // Now update the references in Function Metadata.
+    // All the Metadata we are interested in is flat by design
+    // (no trees, just leaves, see Metadata API).
+    for (const auto &F : *pFunc->getParent()) {
+      SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+      F.getAllMetadata(MDs);
+
+      for (const auto &MD : MDs) {
+        auto pMDNode = MD.second;
+        if (pMDNode->getNumOperands() > 0) {
+          Metadata *mdOp = pMDNode->getOperand(0);
+          if (auto *funcAsMet = dyn_cast_or_null<ConstantAsMetadata>(mdOp))
+            if (pFunc == mdconst::dyn_extract<Function>(funcAsMet)) {
+              pMDNode->replaceOperandWith(0, ConstantAsMetadata::get(pNewF));
+            }
+        }
+      }
+    }
+
+    // Now respect Module-level Metadata.
     Module *pModule = pFunc->getParent();
     Module::named_metadata_iterator MDIter = pModule->named_metadata_begin();
     Module::named_metadata_iterator EndMDIter = pModule->named_metadata_end();
-    m_pFunc = pFunc;
-    m_pNewF = pNewF;
 
     // FIXME:
     // This is suboptimal since the loop iterates over all named metadata again and
@@ -243,32 +286,15 @@ namespace intel{
         // Replace metadata with metada containing information about the wrapper
         MDNode* pMDNode = MDIter->getOperand(ui);
         std::set<MDNode *> visited;
-        iterateMDTree(pMDNode, visited);
+        iterateMDTree(pMDNode, pFunc, pNewF, visited);
       }
     }
 
     return pNewF;
   }
 
-  void AddImplicitArgs::iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited) {
-    // Avoid inifinite loops due to possible cycles in metadata
-    if (visited.count(pMDNode)) return;
-    visited.insert(pMDNode);
+  void AddImplicitArgs::updateMetadata(Function* pFunc) {
 
-    for (int i = 0, e = pMDNode->getNumOperands(); i < e; ++i) {
-      Metadata * mdOp = pMDNode->getOperand(i);
-      if (mdOp) {
-        if (MDNode * mdOpNode = dyn_cast<MDNode>(mdOp)) {
-          iterateMDTree(mdOpNode, visited);
-        }
-        else if(ConstantAsMetadata * funcAsMet = dyn_cast<ConstantAsMetadata>(mdOp)) {
-          if (m_pFunc == mdconst::dyn_extract<Function>(funcAsMet))
-            pMDNode->replaceOperandWith(i, ConstantAsMetadata::get(m_pNewF));
-          // TODO: Check if the old metadata has to bee deleted manually to avoid
-          //       memory leaks.
-        }
-      }
-    }
   }
 
   void AddImplicitArgs::replaceCallInst(CallInst *CI, ArrayRef<Type *> implicitArgsTypes, Function * pNewF) {

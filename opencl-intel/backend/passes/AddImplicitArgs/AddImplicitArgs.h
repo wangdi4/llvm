@@ -58,17 +58,15 @@ namespace intel {
     /// @returns The new function that receives the implicit arguemnts
     Function* runOnFunction(Function *pFunc);
 
-    /// @brief Updates metadata nodes with new Function signature
-    /// @param pMetadata The current metadata node
-    /// @param visited set with metadata we alreay visit.
-    void iterateMDTree(MDNode* pMetadata, std::set<MDNode *> &visited);
-
     /// @brief helper function. replaces call instruction with call instruction
     ///        that receives implicit arguments
     /// @param CI pointer to CallInst
     /// @param newArgsVec arguments of new function with implicit arguments added
     /// @param pNewF function with implicit arguments added
     void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
+
+    /// @brief Update Metadata after transformations were made.
+    void updateMetadata(llvm::Function*);
 
   private:
     /// @brief The llvm module this pass needs to update
@@ -84,10 +82,10 @@ namespace intel {
     /// @brief Maps call instructions to the implicit arguments needed to patch up the call
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
 
-    Type* m_struct_WorkDim;
+    /// @brief Maps the original and modified Function with implicit args
+    std::map<llvm::Function *, llvm::Function *> m_fixupFunctionsRefs;
 
-    Function* m_pFunc;
-    Function* m_pNewF;
+    Type* m_struct_WorkDim;
   };
 
 } // namespace intel
