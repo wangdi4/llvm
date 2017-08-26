@@ -553,7 +553,7 @@ static bool runImpl(Function &F, LazyValueInfo *LVI, const SimplifyQuery &SQ) {
         BBChanged = true;        
       }
     }
-    };
+    }
 
     FnChanged |= BBChanged;
   }
