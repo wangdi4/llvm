@@ -560,7 +560,7 @@ DIE *DwarfCompileUnit::constructVariableDIEImpl(const DbgVariable &DV,
     int Offset = TFI->getFrameIndexReference(*Asm->MF, Fragment.FI, FrameReg);
     DwarfExpr.addFragmentOffset(Expr);
     SmallVector<uint64_t, 8> Ops;
-    Ops.push_back(dwarf::DW_OP_plus);
+    Ops.push_back(dwarf::DW_OP_plus_uconst);
     Ops.push_back(Offset);
     Ops.append(Expr->elements_begin(), Expr->elements_end());
     DIExpressionCursor Cursor(Ops);
@@ -829,7 +829,7 @@ void DwarfCompileUnit::addAddress(DIE &Die, dwarf::Attribute Attribute,
 
   SmallVector<uint64_t, 8> Ops;
   if (Location.isIndirect() && Location.getOffset()) {
-    Ops.push_back(dwarf::DW_OP_plus);
+    Ops.push_back(dwarf::DW_OP_plus_uconst);
     Ops.push_back(Location.getOffset());
   }
   DIExpressionCursor Cursor(Ops);
@@ -858,7 +858,7 @@ void DwarfCompileUnit::addComplexAddress(const DbgVariable &DV, DIE &Die,
 
   SmallVector<uint64_t, 8> Ops;
   if (Location.isIndirect() && Location.getOffset()) {
-    Ops.push_back(dwarf::DW_OP_plus);
+    Ops.push_back(dwarf::DW_OP_plus_uconst);
     Ops.push_back(Location.getOffset());
   }
   Ops.append(DIExpr->elements_begin(), DIExpr->elements_end());
