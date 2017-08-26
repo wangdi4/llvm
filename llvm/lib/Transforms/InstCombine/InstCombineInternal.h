@@ -729,7 +729,8 @@ private:
   Instruction *MatchBSwap(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
 
-  Instruction *SimplifyElementAtomicMemCpy(ElementAtomicMemCpyInst *AMI);
+  Instruction *
+  SimplifyElementUnorderedAtomicMemCpy(ElementUnorderedAtomicMemCpyInst *AMI);
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
