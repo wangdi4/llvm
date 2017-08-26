@@ -10715,6 +10715,20 @@ public:
     return NumArgs > NumParams;
   }
 
+#if INTEL_CUSTOMIZATION
+  enum IntelPragmaInlineOption {
+    IntelPragmaInlineOptionNone,
+    IntelPragmaInlineOptionRecursive
+  };
+  enum IntelPragmaInlineKind {
+    IntelPragmaSimpleInline,
+    IntelPragmaNoInline,
+    IntelPragmaForceInline
+  };
+  StmtResult ActOnPragmaOptionsInline(SourceLocation KindLoc,
+                                      IntelPragmaInlineKind PragmaKind,
+                                      IntelPragmaInlineOption Option);
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   void SetMac68kAlignment();
 
@@ -10752,21 +10766,6 @@ public:
   // ActOnPragmaOptionsDistribute - Called on #pragma distribute_point
   StmtResult ActOnPragmaOptionsDistribute(SourceLocation KindLoc);
 
-  // inline, forceinline and noinline pragmas
-
-  // ActOnPragmaOptionsInline - Called on #pragma inline, forceinline, noinline
-  enum IntelPragmaInlineOption {
-    IntelPragmaInlineOptionNone,
-    IntelPragmaInlineOptionRecursive
-  };
-  enum IntelPragmaInlineKind {
-    IntelPragmaSimpleInline,
-    IntelPragmaNoInline,
-    IntelPragmaForceInline
-  };
-  StmtResult ActOnPragmaOptionsInline(SourceLocation KindLoc,
-                                      IntelPragmaInlineKind PragmaKind,
-                                      IntelPragmaInlineOption Option);
   StmtResult ActOnPragmaOptionsEndInline(SourceLocation KindLoc);
 
   // loop_count pragma

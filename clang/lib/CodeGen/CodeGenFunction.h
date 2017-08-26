@@ -321,6 +321,20 @@ public:
     FieldDecl *CXXThisFieldDecl;
   };
   CGCapturedStmtInfo *CapturedStmtInfo;
+#if INTEL_CUSTOMIZATION
+  class IntelPragmaInlineState {
+  public:
+    IntelPragmaInlineState(CodeGenFunction &CGF, ArrayRef<const Attr *> Attrs);
+    ~IntelPragmaInlineState();
+    llvm::Attribute::AttrKind getPragmaInlineAttribute();
+  private:
+    CodeGenFunction &CGF;
+    const IntelInlineAttr *CurrentAttr;
+    IntelPragmaInlineState *PreviousState;
+  };
+  IntelPragmaInlineState *CurrentPragmaInlineState;
+#endif // INTEL_CUSTOMIZATION
+
 #if INTEL_SPECIFIC_CILKPLUS
   llvm::AllocaInst *CurCilkStackFrame;
   class CGSIMDForStmtInfo; // Defined below, after simd wrappers.
@@ -2852,6 +2866,9 @@ public:
   /// \return True if the statement was handled.
   bool EmitSimpleStmt(const Stmt *S);
 
+#if INTEL_CUSTOMIZATION
+  void EmitInlineCallStmt(const Stmt *S, ArrayRef<const Attr *> Attrs = None);
+#endif // INTEL_CUSTOMIZATION
   Address EmitCompoundStmt(const CompoundStmt &S, bool GetLast = false,
                            AggValueSlot AVS = AggValueSlot::ignored());
   Address EmitCompoundStmtWithoutScope(const CompoundStmt &S,

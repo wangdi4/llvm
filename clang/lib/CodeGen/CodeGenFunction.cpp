@@ -66,7 +66,10 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       Builder(cgm, cgm.getModule().getContext(), llvm::ConstantFolder(),
               CGBuilderInserterTy(this)),
       CurFn(nullptr), ReturnValue(Address::invalid()),
-      CapturedStmtInfo(nullptr), // INTEL
+#if INTEL_CUSTOMIZATION
+      CapturedStmtInfo(nullptr),
+      CurrentPragmaInlineState(nullptr),
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
       CurCilkStackFrame(nullptr),
       CurCGCilkImplicitSyncInfo(nullptr),
