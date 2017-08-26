@@ -39,17 +39,10 @@ static bool shouldScheduleAdjacent(const TargetInstrInfo &TII,
     FuseInc
   } FuseKind;
 
-<<<<<<< HEAD
-  unsigned FirstOpcode =
-      First ? First->getOpcode() : (unsigned)X86::INSTRUCTION_LIST_END;
-  unsigned SecondOpcode =
-      Second ? Second->getOpcode() : (unsigned)X86::INSTRUCTION_LIST_END;
-=======
   unsigned FirstOpcode = FirstMI
                          ? FirstMI->getOpcode()
                          : static_cast<unsigned>(X86::INSTRUCTION_LIST_END);
   unsigned SecondOpcode = SecondMI.getOpcode();
->>>>>>> 7e1ef2da7859dd278938cdc8b0c3ad2b4f10c00c
 
   switch (SecondOpcode) {
   default:
