@@ -587,7 +587,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
 
       // If the policy determines that we should inline this function,
       // delete the call instead.
-      if (!shouldInline(CS, GetInlineCost, ORE))
+      if (!shouldInline(CS, GetInlineCost, ORE, &IR)) // INTEL
         continue;
 
       // If this call site is dead and it is to a readonly function, we should
@@ -619,18 +619,6 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Get DebugLoc to report. CS will be invalid after Inliner.
         DebugLoc DLoc = CS.getInstruction()->getDebugLoc();
         BasicBlock *Block = CS.getParent();
-<<<<<<< HEAD
-        // FIXME for new PM: because of the old PM we currently generate ORE and
-        // in turn BFI on demand.  With the new PM, the ORE dependency should
-        // just become a regular analysis dependency.
-        OptimizationRemarkEmitter ORE(Caller);
-
-        // If the policy determines that we should inline this function,
-        // try to do so.
-        if (!shouldInline(CS, GetInlineCost, ORE, &IR)) // INTEL
-          continue;
-=======
->>>>>>> 2ed087d09313a52b9fb45d76987de647e2b32692
 
         // Attempt to inline the function.
         using namespace ore;
