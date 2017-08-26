@@ -593,8 +593,11 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // infinitely inline.
         InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
-            InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory))
+            InlineHistoryIncludes(Callee, InlineHistoryID, // INTEL
+                                  InlineHistory)) {        // INTEL
+          IR.setReasonNotInlined(CS, NinlrRecursive);      // INTEL
           continue;
+        }                                                  // INTEL
       }
 
       // FIXME for new PM: because of the old PM we currently generate ORE and
@@ -611,36 +614,14 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
       // just delete the call instead of trying to inline it, regardless of
       // size.  This happens because IPSCCP propagates the result out of the
       // call and then we're left with the dead call.
-<<<<<<< HEAD
-      if (isInstructionTriviallyDead(CS.getInstruction(), &TLI)) {
-        DEBUG(dbgs() << "    -> Deleting dead call: " << *CS.getInstruction()
-                     << "\n");
-        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
-=======
       if (IsTriviallyDead) {
         DEBUG(dbgs() << "    -> Deleting dead call: " << *Instr << "\n");
->>>>>>> b890993f2fbe03f10ff52bd8d518887090c7b8a1
+        IR.setReasonNotInlined(CS, NinlrDeleted); // INTEL
         // Update the call graph by deleting the edge from Callee to Caller.
         CG[Caller]->removeCallEdgeFor(CS);
         Instr->eraseFromParent();
         ++NumCallsDeleted;
       } else {
-<<<<<<< HEAD
-        // If this call site was obtained by inlining another function, verify
-        // that the include path for the function did not include the callee
-        // itself.  If so, we'd be recursively inlining the same function,
-        // which would provide the same callsites, which would cause us to
-        // infinitely inline.
-        int InlineHistoryID = CallSites[CSi].second;
-        if (InlineHistoryID != -1 &&
-            InlineHistoryIncludes(Callee, InlineHistoryID, // INTEL
-            InlineHistory)) { // INTEL
-            IR.setReasonNotInlined(CS, NinlrRecursive); // INTEL
-            continue;
-        } // INTEL
-
-=======
->>>>>>> b890993f2fbe03f10ff52bd8d518887090c7b8a1
         // Get DebugLoc to report. CS will be invalid after Inliner.
         DebugLoc DLoc = Instr->getDebugLoc();
         BasicBlock *Block = CS.getParent();
