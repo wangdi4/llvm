@@ -1200,6 +1200,11 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
 
   case Expr::MaterializeTemporaryExprClass:
     return EmitMaterializeTemporaryExpr(cast<MaterializeTemporaryExpr>(E));
+
+  case Expr::CoawaitExprClass:
+    return EmitCoawaitLValue(cast<CoawaitExpr>(E));
+  case Expr::CoyieldExprClass:
+    return EmitCoyieldLValue(cast<CoyieldExpr>(E));
   }
 }
 
