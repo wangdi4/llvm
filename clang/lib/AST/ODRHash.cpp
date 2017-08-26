@@ -140,7 +140,33 @@ void ODRHash::AddTemplateName(TemplateName Name) {
   }
 }
 
-void ODRHash::AddTemplateArgument(TemplateArgument TA) {}
+void ODRHash::AddTemplateArgument(TemplateArgument TA) {
+  const auto Kind = TA.getKind();
+  ID.AddInteger(Kind);
+
+  switch (Kind) {
+    case TemplateArgument::Null:
+    case TemplateArgument::Type:
+    case TemplateArgument::Declaration:
+    case TemplateArgument::NullPtr:
+    case TemplateArgument::Integral:
+      break;
+    case TemplateArgument::Template:
+    case TemplateArgument::TemplateExpansion:
+      AddTemplateName(TA.getAsTemplateOrTemplatePattern());
+      break;
+    case TemplateArgument::Expression:
+      AddStmt(TA.getAsExpr());
+      break;
+    case TemplateArgument::Pack:
+      ID.AddInteger(TA.pack_size());
+      for (auto SubTA : TA.pack_elements()) {
+        AddTemplateArgument(SubTA);
+      }
+      break;
+  }
+}
+
 void ODRHash::AddTemplateParameterList(const TemplateParameterList *TPL) {}
 
 void ODRHash::clear() {
@@ -526,6 +552,13 @@ public:
     }
     Hash.AddTemplateName(T->getTemplateName());
     VisitType(T);
+  }
+
+  void VisitTemplateTypeParmType(const TemplateTypeParmType *T) {
+    ID.AddInteger(T->getDepth());
+    ID.AddInteger(T->getIndex());
+    Hash.AddBoolean(T->isParameterPack());
+    AddDecl(T->getDecl());
   }
 };
 

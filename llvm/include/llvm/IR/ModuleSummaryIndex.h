@@ -567,6 +567,7 @@ public:
   bool isGlobalValueLive(const GlobalValueSummary *GVS) const {
     return !WithGlobalValueDeadStripping || GVS->isLive();
   }
+  bool isGUIDLive(GlobalValue::GUID GUID) const;
 
   /// Return a ValueInfo for GUID if it exists, otherwise return ValueInfo().
   ValueInfo getValueInfo(GlobalValue::GUID GUID) const {
@@ -691,14 +692,13 @@ public:
     return Pair.first;
   }
 
-  /// Add a new module path with the given \p Hash, mapped to the given \p
-  /// ModID, and return an iterator to the entry in the index.
-  ModulePathStringTableTy::iterator
-  addModulePath(StringRef ModPath, uint64_t ModId,
-                ModuleHash Hash = ModuleHash{{0}}) {
-    return ModulePathStringTable.insert(std::make_pair(
-                                            ModPath,
-                                            std::make_pair(ModId, Hash))).first;
+  typedef ModulePathStringTableTy::value_type ModuleInfo;
+
+  /// Add a new module with the given \p Hash, mapped to the given \p
+  /// ModID, and return a reference to the module.
+  ModuleInfo *addModule(StringRef ModPath, uint64_t ModId,
+                        ModuleHash Hash = ModuleHash{{0}}) {
+    return &*ModulePathStringTable.insert({ModPath, {ModId, Hash}}).first;
   }
 
   /// Check if the given Module has any functions available for exporting

@@ -136,7 +136,7 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
     addRegisterClass(MVT::f64, &PPC::F8RCRegClass);
   }
 
-  // PowerPC has an i16 but no i8 (or i1) SEXTLOAD
+  // PowerPC has an i16 but no i8 (or i1) SEXTLOAD.
   for (MVT VT : MVT::integer_valuetypes()) {
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i1, Promote);
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i8, Expand);
@@ -175,7 +175,7 @@ PPCTargetLowering::PPCTargetLowering(const PPCTargetMachine &TM,
       setOperationAction(ISD::UINT_TO_FP, MVT::i1, Custom);
     }
 
-    // PowerPC does not support direct load / store of condition registers
+    // PowerPC does not support direct load/store of condition registers.
     setOperationAction(ISD::LOAD, MVT::i1, Custom);
     setOperationAction(ISD::STORE, MVT::i1, Custom);
 
