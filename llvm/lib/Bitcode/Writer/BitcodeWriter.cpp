@@ -500,6 +500,12 @@ static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
     return bitc::ATTR_KIND_ALLOC_SIZE;
   case Attribute::AlwaysInline:
     return bitc::ATTR_KIND_ALWAYS_INLINE;
+#if INTEL_CUSTOMIZATION
+  case Attribute::AlwaysInlineRecursive:
+    return bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE;
+  case Attribute::InlineHintRecursive:
+    return bitc::ATTR_KIND_INLINE_HINT_RECURSIVE;
+#endif //INTEL_CUSTOMIZATION
   case Attribute::ArgMemOnly:
     return bitc::ATTR_KIND_ARGMEMONLY;
   case Attribute::Builtin:

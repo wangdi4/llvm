@@ -379,8 +379,8 @@ static bool shouldInline(CallSite CS,
     ORE.emit(OptimizationRemarkAnalysis(DEBUG_TYPE, "AlwaysInline", Call)
              << NV("Callee", Callee)
              << " should always be inlined (cost=always)");
-    if (IR != nullptr)                             // INTEL 
-      IR->setReasonIsInlined(CS, InlrAlwaysInline); // INTEL
+    if (IR != nullptr)                                  // INTEL
+      IR->setReasonIsInlined(CS, IC.getInlineReason()); // INTEL
     return true;
   }
 
@@ -622,12 +622,16 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
         // Attempt to inline the function.
         using namespace ore;
 #if INTEL_CUSTOMIZATION
-        IR.beginUpdate(CS); 
-        InlineReason Reason = NinlrNoReason; 
+        IR.beginUpdate(CS);
+        InlineReason Reason = NinlrNoReason;
+        bool IsAlwaysInlineRecursive =
+            CS.hasFnAttr(Attribute::AlwaysInlineRecursive);
+        bool IsInlineHintRecursive =
+            CS.hasFnAttr(Attribute::InlineHintRecursive);
         if (!InlineCallIfPossible(CS, InlineInfo, InlinedArrayAllocas,
                                   InlineHistoryID, InsertLifetime, AARGetter,
                                   ImportedFunctionsStats, &Reason)) {
-          IR.endUpdate(); 
+          IR.endUpdate();
           IR.setReasonNotInlined(CS, Reason);
 #endif // INTEL_CUSTOMIZATION
           ORE.emit(
@@ -645,7 +649,7 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
                  << NV("Caller", Caller));
 
         IR.inlineCallSite(InlineInfo); // INTEL
-        IR.endUpdate();                // INTEL 
+        IR.endUpdate();                // INTEL
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
@@ -654,8 +658,18 @@ inlineCallsImpl(CallGraphSCC &SCC, CallGraph &CG,
           int NewHistoryID = InlineHistory.size();
           InlineHistory.push_back(std::make_pair(Callee, InlineHistoryID));
 
-          for (Value *Ptr : InlineInfo.InlinedCalls)
-            CallSites.push_back(std::make_pair(CallSite(Ptr), NewHistoryID));
+#if INTEL_CUSTOMIZATION
+          for (Value *Ptr : InlineInfo.InlinedCalls) {
+            CallSite NewCS(Ptr);
+            if (IsAlwaysInlineRecursive)
+                NewCS.addAttribute(AttributeList::FunctionIndex,
+                    Attribute::AlwaysInlineRecursive);
+            if (IsInlineHintRecursive)
+                NewCS.addAttribute(AttributeList::FunctionIndex,
+                    Attribute::InlineHintRecursive);
+            CallSites.push_back(std::make_pair(NewCS, NewHistoryID));
+          }
+#endif // INTEL_CUSTOMIZATION
         }
       }
 

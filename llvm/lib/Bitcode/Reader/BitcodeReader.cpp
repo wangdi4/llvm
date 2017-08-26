@@ -1131,7 +1131,14 @@ static uint64_t getRawAttributeMask(Attribute::AttrKind Val) {
   case Attribute::SwiftSelf:       return 1ULL << 51;
   case Attribute::SwiftError:      return 1ULL << 52;
   case Attribute::WriteOnly:       return 1ULL << 53;
+<<<<<<< HEAD
   case Attribute::Speculatable:    return 1ULL << 54;
+=======
+#if INTEL_CUSTOMIZATION
+  case Attribute::AlwaysInlineRecursive: return 1ULL << 54;
+  case Attribute::InlineHintRecursive:   return 1ULL << 55;
+#endif // INTEL_CUSTOMIZATION
+>>>>>>> xmain
   case Attribute::Dereferenceable:
     llvm_unreachable("dereferenceable attribute not supported in raw format");
     break;
@@ -1358,6 +1365,12 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::WriteOnly;
   case bitc::ATTR_KIND_Z_EXT:
     return Attribute::ZExt;
+#if INTEL_CUSTOMIZATION
+  case bitc::ATTR_KIND_ALWAYS_INLINE_RECURSIVE:
+    return Attribute::AlwaysInlineRecursive;
+  case bitc::ATTR_KIND_INLINE_HINT_RECURSIVE:
+    return Attribute::InlineHintRecursive;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

@@ -289,6 +289,12 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "noimplicitfloat";
   if (hasAttribute(Attribute::NoInline))
     return "noinline";
+#if INTEL_CUSTOMIZATION
+  if (hasAttribute(Attribute::AlwaysInlineRecursive))
+    return "alwaysinline_recursive";
+  if (hasAttribute(Attribute::InlineHintRecursive))
+    return "inlinehint_recursive";
+#endif  // INTEL_CUSTOMIZATION
   if (hasAttribute(Attribute::NonLazyBind))
     return "nonlazybind";
   if (hasAttribute(Attribute::NonNull))
