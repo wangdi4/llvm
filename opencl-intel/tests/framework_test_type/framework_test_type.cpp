@@ -532,6 +532,11 @@ TEST_F(CL, Test_ZeroLocalSize)
     ZeroLocalSize();
 }
 
+TEST_F(CL, Test_CPUSignatureDefine)
+{
+    CPUSignatureDefine();
+}
+
 TEST_F(CL, Test_QueryInvalidParamNameFromCQueue_Negative)
 {
     QueryInvalidParamNameFromCQueue_Negative();

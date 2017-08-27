@@ -99,89 +99,65 @@ bool CPUDetect::IsGenuineIntel()
     return m_bIsGenuineIntel;
 }
 
+
+
 // INTEL CORE.
 bool CPUDetect::isWestmere()
 {
-    if ((0x2065 == m_i16ProcessorSignature) ||  // Arrandale/Clarksdale
-        (0x206C == m_i16ProcessorSignature) ||  // Gulftown/Westmere-EP
-        (0x206F == m_i16ProcessorSignature))    // Westmere-EX (Xeon)
-        return true;
-
-    return false;
+    return m_cpuArch == WST || m_cpuArch == WST_XEON;
 }
+
+bool CPUDetect::isSandyBridge()
+{
+    return m_cpuArch == SNB || m_cpuArch == SNB_XEON;
+}
+
+bool CPUDetect::isIvyBridge()
+{
+    return m_cpuArch == IVB || m_cpuArch == IVB_XEON;
+}
+
+bool CPUDetect::isHaswell()
+{
+    return m_cpuArch == HSW || m_cpuArch == HSW_XEON;
+}
+
 
 bool CPUDetect::isBroadwell()
 {
-    if(0x306D == m_i16ProcessorSignature || // Broadwell ULT Client.
-       0x4067 == m_i16ProcessorSignature || // Broadwell Client Halo.
-       0x406F == m_i16ProcessorSignature)   // Broadwell Server
-        return true;
-
-    return false;
+    return m_cpuArch == BDW || m_cpuArch == BDW_XEON;
 }
 
 bool CPUDetect::isSkylake()
 {
-    if(0x406E == m_i16ProcessorSignature || // Skylake ULT/ULX.
-       0x506E == m_i16ProcessorSignature || // Skylake DT/HALO.
-       0x5065 == m_i16ProcessorSignature)   // Skylake Server
-        return true;
-
-    return false;
+    return m_cpuArch == SKL || m_cpuArch == SKX;
 }
 
 //Check if Kabylake or Coffeelake since CFL is reusing KBL
 bool CPUDetect::isKabylakeOrCoffeelake()
 {
-    if(0x506E == m_i16ProcessorSignature && // Early Kabylake DT/HALO.
-         0x8  == m_ucStepping)
-       return true;
-    if(0x406E == m_i16ProcessorSignature && // Early Kabylake ULT/ULX.
-         0x8  == m_ucStepping)
-       return true;
-    if(0x806E == m_i16ProcessorSignature || // Kabylake ULT/ULX or Coffeelake-U.
-       0x906E == m_i16ProcessorSignature)   // Kabylake DT/HALO or Coffeelake-S.
-        return true;
+    return m_cpuArch == KBL;
+}
 
-    return false;
+bool CPUDetect::isGeminilake()
+{
+    return m_cpuArch == GLK;
 }
 
 bool CPUDetect::isCannonlake()
 {
-    if(0x6066 == m_i16ProcessorSignature || // CNL Basic SKU which includes ULT (MCP)
-       0x6067 == m_i16ProcessorSignature)   // CNL Halo/DT
-       return true;
-
-    return false;
+    return m_cpuArch == CNL;
 }
 
 bool CPUDetect::isIcelake()
 {
-    if(0x606A == m_i16ProcessorSignature || // ICX-SP
-       0x606C == m_i16ProcessorSignature || // ICX-G
-       0x706D == m_i16ProcessorSignature || // ICL DT-Halo
-       0x706E == m_i16ProcessorSignature)   // ICL Mobile
-       return true;
-
-    return false;
+    return m_cpuArch == ICL;
 }
 
 // INTEL ATOM.
 bool CPUDetect::isBroxton()
 {
-    // TODO. There shoud be more signatures.
-    if (0x506C == m_i16ProcessorSignature)// BXT A stepping?
-        return true;
-
-    return false;
-}
-
-bool CPUDetect::isGeminilake()
-{
-    if (0x706A == m_i16ProcessorSignature) // GLK Soc with Goldmont Plus CPU
-        return true;
-
-    return false;
+    return m_cpuArch == BXT;
 }
 
 bool CPUDetect::IsFeatureSupported(ECPUFeatureSupport featureType)
@@ -227,6 +203,77 @@ CPUDetect::CPUDetect(void) :
 {
     m_bBypassCPUDetect = ShouldBypassCPUCheck();
     GetCPUInfo();
+
+    switch(m_i16ProcessorSignature)
+    {
+        case 0x2065: // Arrandale/Clarksdale
+        case 0x206C: // Gulftown/Westmere-EP
+            m_cpuArch = WST;
+            break;
+        case 0x206F: // Westmere-EX (Xeon)
+            m_cpuArch = WST_XEON;
+            break;
+        case 0x206A: // SandyBridge DT
+            m_cpuArch = SNB;
+            break;
+        case 0x206D: // SandyBridge Server
+            m_cpuArch = SNB_XEON;
+            break;
+        case 0x306A:// IvyBridge DT
+            m_cpuArch = IVB;
+            break;
+        case 0x306E:  // IvyBridge Server
+            m_cpuArch = IVB_XEON;
+            break;
+        case 0x306C:// Haswell DT
+        case 0x4065:// Haswell U
+            m_cpuArch = HSW;
+            break;
+        case 0x306F:// Haswell Server
+            m_cpuArch = HSW_XEON;
+            break;
+        case 0x306D:// Broadwell ULT Client.
+        case 0x4067:// Broadwell Client Halo.
+            m_cpuArch = BDW;
+            break;
+        case 0x406F:// Broadwell Server
+            m_cpuArch = BDW_XEON;
+            break;
+        case 0x406E:// Skylake ULT/ULX.
+        case 0x506E:// Skylake DT/HALO.
+            if(0x8 == m_ucStepping) //Early Kabylake
+            {
+                m_cpuArch = KBL;
+                break;
+            }
+            m_cpuArch = SKL;
+            break;
+        case 0x5065:// SkylakeX
+            m_cpuArch = SKX;
+            break;
+        case 0x806E:// Kabylake ULT/ULX or Coffeelake-U.
+        case 0x906E:// Kabylake DT/HALO or Coffeelake-S.
+            m_cpuArch = KBL;
+            break;
+        case 0x706A:// GLK Soc with Goldmont Plus CPU
+            m_cpuArch = GLK;
+            break;
+        case 0x6066:// CNL Basic SKU which includes ULT (MCP)
+        case 0x6067:// CNL Halo/DT
+            m_cpuArch = CNL;
+            break;
+        case 0x606A:// ICX-SP
+        case 0x606C:// ICX-G
+        case 0x706D:// ICL DT-Halo
+        case 0x706E:// ICL Mobile
+            m_cpuArch = ICL;
+            break;
+        case 0x506C:// BXT A stepping?
+            m_cpuArch = BXT;
+            break;
+        default:
+            m_cpuArch = UNKNOWN;
+    }
 }
 
 CPUDetect::~CPUDetect(void)

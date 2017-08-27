@@ -24,7 +24,8 @@
 // or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#pragma once
+#ifndef __CL_CPU_DETECT_H__
+#define __CL_CPU_DETECT_H__
 
 #include "cl_types.h"
 #include "cl_env.h"
@@ -73,10 +74,48 @@ namespace Intel { namespace OpenCL { namespace Utils {
     {
     public:
 
+#define CPU_ARCHS(modificator) \
+      modificator(WST)         \
+      modificator(WST_XEON)    \
+      modificator(SNB)         \
+      modificator(SNB_XEON)    \
+      modificator(IVB)         \
+      modificator(IVB_XEON)    \
+      modificator(HSW)         \
+      modificator(HSW_XEON)    \
+      modificator(BDW)         \
+      modificator(BDW_XEON)    \
+      modificator(BXT)         \
+      modificator(SKL)         \
+      modificator(SKX)         \
+      modificator(KBL)         \
+      modificator(GLK)         \
+      modificator(CNL)         \
+      modificator(ICL)
+
+    enum CPUArch {
+        UNKNOWN = 0,
+        #define CREATE_ENUM(name) name,
+        CPU_ARCHS(CREATE_ENUM)
+        #undef CREATE_ENUM
+    };
+
+   const std::vector<std::string> CPUArchStr = {
+        "UNKNOWN",
+        #define CREATE_STRINGS(name) #name,
+        CPU_ARCHS(CREATE_STRINGS)
+        #undef CREATE_STRINGS
+   };
+
+#undef CPU_ARCHS
+
         static CPUDetect * GetInstance();
 
         bool IsGenuineIntel();
         bool isWestmere();
+        bool isSandyBridge();
+        bool isIvyBridge();
+        bool isHaswell();
         bool isBroadwell();
         bool isBroxton();
         bool isSkylake();
@@ -93,6 +132,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         const char *  GetCPUBrandString() { return m_szCPUBrandString; }
         unsigned int  GetCPUFeatureSupport() { return m_uiCPUFeatures; }
         unsigned int  GetCoreCount() { return m_uiCoreCount; }
+        std::string   GetCPUArchShortName() { return CPUArchStr[m_cpuArch]; }
         ECPUBrandFamily GetCPUBrandFamily() { return m_eCPUBrand; }
 
     private:
@@ -111,6 +151,7 @@ namespace Intel { namespace OpenCL { namespace Utils {
         unsigned int m_uiCoreCount;
         unsigned short  m_i16ProcessorSignature;
         ECPUBrandFamily m_eCPUBrand;
+        CPUArch         m_cpuArch;
 
         void GetCPUInfo();
         bool ShouldBypassCPUCheck();
@@ -118,3 +159,4 @@ namespace Intel { namespace OpenCL { namespace Utils {
     };
 
 }}}
+#endif //__CL_CPU_DETECT_H__
