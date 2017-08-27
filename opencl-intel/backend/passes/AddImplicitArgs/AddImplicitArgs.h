@@ -65,8 +65,13 @@ namespace intel {
     /// @param pNewF function with implicit arguments added
     void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
 
+    /// @brief Updates metadata nodes with new Function signature
+    /// @param pMetadata The current metadata node
+    /// @param visited set with metadata we alreay visit.
+    void iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited);
+
     /// @brief Update Metadata after transformations were made.
-    void updateMetadata(llvm::Function*);
+    void updateMetadata();
 
   private:
     /// @brief The llvm module this pass needs to update
@@ -83,7 +88,7 @@ namespace intel {
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
 
     /// @brief Maps the original and modified Function with implicit args
-    std::map<llvm::Function *, llvm::Function *> m_fixupFunctionsRefs;
+    llvm::DenseMap<llvm::Function *, llvm::Function *> m_fixupFunctionsRefs;
 
     Type* m_struct_WorkDim;
   };
