@@ -1202,18 +1202,12 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     } else {
 #endif // INTEL_SPECIFIC_CILKPLUS
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
-    // Allocate memory for the array.
-<<<<<<< HEAD
-    llvm::AllocaInst *vla = Builder.CreateAlloca(llvmTy, elementCount, "vla");
-    vla->setAlignment(alignment.getQuantity());
 
-    address = Address(vla, alignment);
+    // Allocate memory for the array.
+    address = CreateTempAlloca(llvmTy, alignment, "vla", elementCount);
 #if INTEL_SPECIFIC_CILKPLUS
     }
 #endif // INTEL_SPECIFIC_CILKPLUS
-=======
-    address = CreateTempAlloca(llvmTy, alignment, "vla", elementCount);
->>>>>>> 1b12bf4092573db0add5649e9fbe9925a141c328
   }
 
   setAddrOfLocalVar(&D, address);
