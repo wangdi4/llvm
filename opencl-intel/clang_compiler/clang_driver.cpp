@@ -124,6 +124,15 @@ std::string GetCurrentDir() {
   return ss.str();
 }
 
+static std::string getCPUSignatureMacro() {
+  const std::string ArchName = CPUDetect::GetInstance()->GetCPUArchShortName();
+  assert(!ArchName.empty() && "Arch name is empty!!!");
+
+  std::string CPUSignature(" -D__INTEL_OPENCL_CPU_");
+  CPUSignature += ArchName + "__=1";
+  return CPUSignature;
+}
+
 int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   bool bProfiling = std::string(m_pProgDesc->pszOptions).find("-profiling") !=
                     std::string::npos;
@@ -152,6 +161,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult **pBinaryResult) {
   optionsEx << " -I" << GetCurrentDir();
   optionsEx << " -mstackrealign";
   optionsEx << " -D__ENDIAN_LITTLE__=1";
+  optionsEx << getCPUSignatureMacro();
 
   // Triple spir assumes that all extensions should be supported.
   // To tell to compiler which extensions are actually supported by this
