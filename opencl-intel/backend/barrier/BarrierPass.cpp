@@ -1174,12 +1174,17 @@ namespace intel {
   }
 
   void Barrier::updateStructureStride(Module & M) {
-    if (KernelList(&M).empty()) {
-      // Module contains no kernels
-      return;
+    // collect functions to process, initialize with kernels
+    SmallVector<Function *, 8> TodoList = KernelList(&M).getList();
+    // add vectorized counterparts, if present
+    for (auto *F : KernelList(&M)) {
+      auto VectorizedKernelMetadata =
+          KernelInternalMetadataAPI(F).VectorizedKernel;
+      if (VectorizedKernelMetadata.hasValue() && VectorizedKernelMetadata.get())
+        TodoList.push_back(VectorizedKernelMetadata.get());
     }
     // Get the kernels using the barrier for work group loops.
-    for (auto pFunc : KernelList(&M)) {
+    for (auto pFunc : TodoList) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
       //Need to check if Vectorized Width Value exists, it is not guaranteed that
       //Vectorized is running in all scenarios.

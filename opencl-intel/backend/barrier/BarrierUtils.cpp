@@ -232,7 +232,16 @@ namespace intel {
       m_kernelFunctions.push_back(pFunc);
     }
 
-    for (auto pFunc : Kernels) {
+    // collect functions to process, initialize with kernels
+    SmallVector<Function *, 8> TodoList = Kernels.getList();
+    // add vectorized counterparts, if present
+    for (auto *F : Kernels) {
+      auto VectorizedKernelMetadata =
+        KernelInternalMetadataAPI(F).VectorizedKernel;
+      if (VectorizedKernelMetadata.hasValue() && VectorizedKernelMetadata.get())
+        TodoList.push_back(VectorizedKernelMetadata.get());
+    }
+    for (auto pFunc : TodoList) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
       m_kernelVectorizationWidths[pFunc] = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
     }
