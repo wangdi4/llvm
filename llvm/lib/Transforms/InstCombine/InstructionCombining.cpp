@@ -3015,6 +3015,7 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
         ++NumDeadInst;
         DEBUG(dbgs() << "IC: DCE: " << *Inst << '\n');
         Inst->eraseFromParent();
+        MadeIRChange = true;
         continue;
       }
 
@@ -3028,6 +3029,7 @@ static bool AddReachableCodeToWorklist(BasicBlock *BB, const DataLayout &DL,
           ++NumConstProp;
           if (isInstructionTriviallyDead(Inst, TLI))
             Inst->eraseFromParent();
+          MadeIRChange = true;
           continue;
         }
 
