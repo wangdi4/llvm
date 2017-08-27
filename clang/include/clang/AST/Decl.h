@@ -1657,9 +1657,14 @@ private:
   unsigned HasImplicitReturnZero : 1;
   unsigned IsLateTemplateParsed : 1;
   unsigned IsConstexpr : 1;
+<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
   bool IsSpawning: 1;
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+  unsigned InstantiationIsPending:1;
+
+>>>>>>> 5fe13167ad3f78e00849faebda2a29bfd901c617
   /// \brief Indicates if the function uses __try.
   unsigned UsesSEHTry : 1;
 
@@ -1754,9 +1759,13 @@ protected:
         IsDeleted(false), IsTrivial(false), IsDefaulted(false),
         IsExplicitlyDefaulted(false), HasImplicitReturnZero(false),
         IsLateTemplateParsed(false), IsConstexpr(isConstexprSpecified),
+<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
         IsSpawning(false),
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+        InstantiationIsPending(false),
+>>>>>>> 5fe13167ad3f78e00849faebda2a29bfd901c617
         UsesSEHTry(false), HasSkippedBody(false), WillHaveBody(false),
         EndRangeLoc(NameInfo.getEndLoc()), TemplateOrSpecialization(),
         DNLoc(NameInfo.getInfo()) {}
@@ -1948,11 +1957,24 @@ public:
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool isConstexpr() const { return IsConstexpr; }
   void setConstexpr(bool IC) { IsConstexpr = IC; }
+<<<<<<< HEAD
 #if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether this function is a Cilk spawning function.
   bool isSpawning() const { return IsSpawning; }
   void setSpawning() { IsSpawning = true; }
 #endif // INTEL_SPECIFIC_CILKPLUS
+=======
+
+  /// \brief Whether the instantiation of this function is pending.
+  /// This bit is set when the decision to instantiate this function is made
+  /// and unset if and when the function body is created. That leaves out
+  /// cases where instantiation did not happen because the template definition
+  /// was not seen in this TU. This bit remains set in those cases, under the
+  /// assumption that the instantiation will happen in some other TU.
+  bool instantiationIsPending() const { return InstantiationIsPending; }
+  void setInstantiationIsPending(bool IC) { InstantiationIsPending = IC; }
+
+>>>>>>> 5fe13167ad3f78e00849faebda2a29bfd901c617
   /// \brief Indicates the function uses __try.
   bool usesSEHTry() const { return UsesSEHTry; }
   void setUsesSEHTry(bool UST) { UsesSEHTry = UST; }
