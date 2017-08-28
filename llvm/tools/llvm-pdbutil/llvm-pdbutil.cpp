@@ -270,6 +270,8 @@ namespace bytes {
 cl::OptionCategory MsfBytes("MSF File Options");
 cl::OptionCategory DbiBytes("Dbi Stream Options");
 cl::OptionCategory PdbBytes("PDB Stream Options");
+cl::OptionCategory Types("Type Options");
+cl::OptionCategory ModuleCategory("Module Options");
 
 llvm::Optional<NumberRange> DumpBlockRange;
 llvm::Optional<NumberRange> DumpByteRange;
@@ -305,6 +307,29 @@ cl::opt<bool> TypeServerMap("type-server", cl::desc("Dump type server map"),
                             cl::sub(BytesSubcommand), cl::cat(DbiBytes));
 cl::opt<bool> ECData("ec", cl::desc("Dump edit and continue map"),
                      cl::sub(BytesSubcommand), cl::cat(DbiBytes));
+
+cl::list<uint32_t>
+    TypeIndex("type",
+              cl::desc("Dump the type record with the given type index"),
+              cl::ZeroOrMore, cl::CommaSeparated, cl::sub(BytesSubcommand),
+              cl::cat(TypeCategory));
+cl::list<uint32_t>
+    IdIndex("id", cl::desc("Dump the id record with the given type index"),
+            cl::ZeroOrMore, cl::CommaSeparated, cl::sub(BytesSubcommand),
+            cl::cat(TypeCategory));
+
+cl::opt<uint32_t> ModuleIndex(
+    "mod",
+    cl::desc(
+        "Limit options in the Modules category to the specified module index"),
+    cl::Optional, cl::sub(BytesSubcommand), cl::cat(ModuleCategory));
+cl::opt<bool> ModuleSyms("syms", cl::desc("Dump symbol record substream"),
+                         cl::sub(BytesSubcommand), cl::cat(ModuleCategory));
+cl::opt<bool> ModuleC11("c11-chunks", cl::Hidden,
+                        cl::desc("Dump C11 CodeView debug chunks"),
+                        cl::sub(BytesSubcommand), cl::cat(ModuleCategory));
+cl::opt<bool> ModuleC13("chunks", cl::desc("Dump C13 CodeView debug chunks"),
+                        cl::sub(BytesSubcommand), cl::cat(ModuleCategory));
 
 cl::list<std::string> InputFilenames(cl::Positional,
                                      cl::desc("<input PDB files>"),
