@@ -113,8 +113,9 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
         return OPENCL_VERSION_2_1;
     }
 
-    if(CPUDetect::GetInstance()->isBroadwell() ||
-       CPUDetect::GetInstance()->isGeminilake()
+    if(CPUDetect::GetInstance()->isBroadwell()
+       //Downgrade OpenCL version on GLK according to VPG targets
+       //CPUDetect::GetInstance()->isGeminilake()
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
     //   CPUDetect::GetInstance()->isBroxton()   ||
        )
@@ -139,8 +140,7 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
-    if(CPUDetect::GetInstance()->isBroadwell() ||
-       CPUDetect::GetInstance()->isSkylake()   ||
+    if(CPUDetect::GetInstance()->isSkylake()   ||
        //TODO. Uncomment next line as soon as VPG support OpenCL 2.0.
        //CPUDetect::GetInstance()->isBroxton()  ||
        CPUDetect::GetInstance()->isKabylakeOrCoffeelake() ||
@@ -148,6 +148,11 @@ OPENCL_VERSION GetOpenclVerByCpuModel()
        CPUDetect::GetInstance()->isIcelake())
     {
         return OPENCL_VERSION_2_1;
+    }
+
+    if(CPUDetect::GetInstance()->isBroadwell())
+    {
+        return OPENCL_VERSION_2_0;
     }
 
     return OPENCL_VERSION_1_2;
