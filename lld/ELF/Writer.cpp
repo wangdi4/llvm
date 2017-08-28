@@ -87,6 +87,8 @@ private:
 
   uint64_t FileSize;
   uint64_t SectionHeaderOff;
+
+  bool HasGotBaseSym = false;
 };
 } // anonymous namespace
 
@@ -815,19 +817,13 @@ template <class ELFT> void Writer<ELFT>::addReservedSymbols() {
           Symtab<ELFT>::X->addAbsolute("__gnu_local_gp", STV_HIDDEN, STB_LOCAL);
   }
 
-  // In the assembly for 32 bit x86 the _GLOBAL_OFFSET_TABLE_ symbol
-  // is magical and is used to produce a R_386_GOTPC relocation.
-  // The R_386_GOTPC relocation value doesn't actually depend on the
-  // symbol value, so it could use an index of STN_UNDEF which, according
-  // to the spec, means the symbol value is 0.
-  // Unfortunately both gas and MC keep the _GLOBAL_OFFSET_TABLE_ symbol in
-  // the object file.
-  // The situation is even stranger on x86_64 where the assembly doesn't
-  // need the magical symbol, but gas still puts _GLOBAL_OFFSET_TABLE_ as
-  // an undefined symbol in the .o files.
-  // Given that the symbol is effectively unused, we just create a dummy
-  // hidden one to avoid the undefined symbol error.
-  Symtab<ELFT>::X->addIgnored("_GLOBAL_OFFSET_TABLE_");
+  // The _GLOBAL_OFFSET_TABLE_ symbol is defined by target convention to
+  // be at some offset from the base of the .got section, usually 0 or the end
+  // of the .got
+  InputSection *GotSection = InX::MipsGot ? cast<InputSection>(InX::MipsGot)
+                                          : cast<InputSection>(InX::Got);
+  ElfSym::GlobalOffsetTable = addOptionalRegular<ELFT>(
+      "_GLOBAL_OFFSET_TABLE_", GotSection, Target->GotBaseSymOff);
 
   // __tls_get_addr is defined by the dynamic linker for dynamic ELFs. For
   // static linking the linker is required to optimize away any references to
@@ -1009,7 +1005,7 @@ findOrphanPos(std::vector<BaseCommand *>::iterator B,
       break;
   }
   auto J = std::find_if(
-      make_reverse_iterator(I), make_reverse_iterator(B),
+      llvm::make_reverse_iterator(I), llvm::make_reverse_iterator(B),
       [](BaseCommand *Cmd) { return isa<OutputSectionCommand>(Cmd); });
   I = J.base();
   while (I != E && shouldSkip(*I))
@@ -1040,8 +1036,8 @@ template <class ELFT> void Writer<ELFT>::sortSections() {
       return isa<OutputSectionCommand>(Base);
     };
     I = std::find_if(I, E, IsSection);
-    E = std::find_if(make_reverse_iterator(E), make_reverse_iterator(I),
-                     IsSection)
+    E = std::find_if(llvm::make_reverse_iterator(E),
+                     llvm::make_reverse_iterator(I), IsSection)
             .base();
     std::stable_sort(I, E, compareSections);
     return;
@@ -1147,6 +1143,8 @@ static void removeUnusedSyntheticSections(std::vector<OutputSection *> &V) {
     OutputSection *OS = SS->getParent();
     if (!SS->empty() || !OS)
       continue;
+    if ((SS == InX::Got || SS == InX::MipsGot) && ElfSym::GlobalOffsetTable)
+      continue;
     OS->Sections.erase(std::find(OS->Sections.begin(), OS->Sections.end(), SS));
     SS->Live = false;
     // If there are no other sections in the output section, remove it from the
@@ -1231,6 +1229,13 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     if (auto *Cmd = dyn_cast<OutputSectionCommand>(Base))
       OutputSectionCommands.push_back(Cmd);
 
+  // Prefer command line supplied address over other constraints.
+  for (OutputSectionCommand *Cmd : OutputSectionCommands) {
+    auto I = Config->SectionStartMap.find(Cmd->Name);
+    if (I != Config->SectionStartMap.end())
+      Cmd->AddrExpr = [=] { return I->second; };
+  }
+
   // This is a bit of a hack. A value of 0 means undef, so we set it
   // to 1 t make __ehdr_start defined. The section number is not
   // particularly relevant.
@@ -1281,9 +1286,12 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     // are out of range. This will need to turn into a loop that converges
     // when no more Thunks are added
     ThunkCreator TC;
-    if (TC.createThunks(OutputSectionCommands))
+    if (TC.createThunks(OutputSectionCommands)) {
       applySynthetic({InX::MipsGot},
                      [](SyntheticSection *SS) { SS->updateAllocSize(); });
+      if (TC.createThunks(OutputSectionCommands))
+        fatal("All non-range thunks should be created in first call");
+    }
   }
 
   // Fill other section headers. The dynamic table is finalized

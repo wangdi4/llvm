@@ -162,7 +162,6 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
   assert(!R->isTopLevelRegion() && "Top level regions are not supported");
 
   ScopAnnotator Annotator;
-  Annotator.buildAliasScopes(S);
 
   simplifyRegion(R, &DT, &LI, &RI);
   assert(R->isSimple());
@@ -176,12 +175,19 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
   // the SCEVExpander may introduce while code generating the parameters and
   // which may introduce scalar dependences that prevent us from correctly
   // code generating this scop.
-  BasicBlock *StartBlock =
+  BBPair StartExitBlocks =
       executeScopConditionally(S, Builder.getTrue(), DT, RI, LI);
+  BasicBlock *StartBlock = std::get<0>(StartExitBlocks);
+
   removeLifetimeMarkers(R);
   auto *SplitBlock = StartBlock->getSinglePredecessor();
 
   IslNodeBuilder NodeBuilder(Builder, Annotator, DL, LI, SE, DT, S, StartBlock);
+
+  // All arrays must have their base pointers known before
+  // ScopAnnotator::buildAliasScopes.
+  NodeBuilder.allocateNewArrays();
+  Annotator.buildAliasScopes(S);
 
   if (PerfMonitoring) {
     PerfMonitor P(S, EnteringBB->getParent()->getParent());
@@ -224,7 +230,6 @@ static bool CodeGen(Scop &S, IslAstInfo &AI, LoopInfo &LI, DominatorTree &DT,
 
     isl_ast_node_free(AstRoot);
   } else {
-    NodeBuilder.allocateNewArrays();
     NodeBuilder.addParameters(S.getContext());
     Value *RTC = NodeBuilder.createRTC(AI.getRunCondition());
 
