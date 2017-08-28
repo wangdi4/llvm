@@ -76,6 +76,43 @@ static inline std::string toHex(StringRef Input) {
   return Output;
 }
 
+static inline uint8_t hexFromNibbles(char MSB, char LSB) {
+  unsigned U1 = hexDigitValue(MSB);
+  unsigned U2 = hexDigitValue(LSB);
+  assert(U1 != -1U && U2 != -1U);
+
+  return static_cast<uint8_t>((U1 << 4) | U2);
+}
+
+/// Convert hexadecimal string \p Input to its binary representation.
+/// The return string is half the size of \p Input.
+static inline std::string fromHex(StringRef Input) {
+  if (Input.empty())
+    return std::string();
+
+  std::string Output;
+  Output.reserve((Input.size() + 1) / 2);
+  if (Input.size() % 2 == 1) {
+    Output.push_back(hexFromNibbles('0', Input.front()));
+    Input = Input.drop_front();
+  }
+
+  assert(Input.size() % 2 == 0);
+  while (!Input.empty()) {
+    uint8_t Hex = hexFromNibbles(Input[0], Input[1]);
+    Output.push_back(Hex);
+    Input = Input.drop_front(2);
+  }
+  return Output;
+}
+
+/// \brief Convert the string \p S to an integer of the specified type using
+/// the radix \p Base.  If \p Base is 0, auto-detects the radix.
+/// Returns true if the number was successfully converted, false otherwise.
+template <typename N> bool to_integer(StringRef S, N &Num, unsigned Base = 0) {
+  return !S.getAsInteger(Base, Num);
+}
+
 static inline std::string utostr(uint64_t X, bool isNeg = false) {
   char Buffer[21];
   char *BufPtr = std::end(Buffer);

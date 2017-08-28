@@ -83,8 +83,8 @@ unsigned GCNRegPressure::getRegKind(unsigned Reg,
   const auto RC = MRI.getRegClass(Reg);
   auto STI = static_cast<const SIRegisterInfo*>(MRI.getTargetRegisterInfo());
   return STI->isSGPRClass(RC) ?
-    (RC->getSize() == 4 ? SGPR32 : SGPR_TUPLE) :
-    (RC->getSize() == 4 ? VGPR32 : VGPR_TUPLE);
+    (STI->getRegSizeInBits(*RC) == 32 ? SGPR32 : SGPR_TUPLE) :
+    (STI->getRegSizeInBits(*RC) == 32 ? VGPR32 : VGPR_TUPLE);
 }
 
 void GCNRegPressure::inc(unsigned Reg,
@@ -131,13 +131,13 @@ bool GCNRegPressure::less(const SISubtarget &ST,
                           const GCNRegPressure& O,
                           unsigned MaxOccupancy) const {
   const auto SGPROcc = std::min(MaxOccupancy,
-                                ST.getOccupancyWithNumSGPRs(getSGRPNum()));
+                                ST.getOccupancyWithNumSGPRs(getSGPRNum()));
   const auto VGPROcc = std::min(MaxOccupancy,
-                                ST.getOccupancyWithNumVGPRs(getVGRPNum()));
+                                ST.getOccupancyWithNumVGPRs(getVGPRNum()));
   const auto OtherSGPROcc = std::min(MaxOccupancy,
-                                ST.getOccupancyWithNumSGPRs(O.getSGRPNum()));
+                                ST.getOccupancyWithNumSGPRs(O.getSGPRNum()));
   const auto OtherVGPROcc = std::min(MaxOccupancy,
-                                ST.getOccupancyWithNumVGPRs(O.getVGRPNum()));
+                                ST.getOccupancyWithNumVGPRs(O.getVGPRNum()));
 
   const auto Occ = std::min(SGPROcc, VGPROcc);
   const auto OtherOcc = std::min(OtherSGPROcc, OtherVGPROcc);
@@ -167,17 +167,17 @@ bool GCNRegPressure::less(const SISubtarget &ST,
         return VW < OtherVW;
     }
   }
-  return SGPRImportant ? (getSGRPNum() < O.getSGRPNum()):
-                         (getVGRPNum() < O.getVGRPNum());
+  return SGPRImportant ? (getSGPRNum() < O.getSGPRNum()):
+                         (getVGPRNum() < O.getVGPRNum());
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 LLVM_DUMP_METHOD
 void GCNRegPressure::print(raw_ostream &OS, const SISubtarget *ST) const {
-  OS << "VGPRs: " << getVGRPNum();
-  if (ST) OS << "(O" << ST->getOccupancyWithNumVGPRs(getVGRPNum()) << ')';
-  OS << ", SGPRs: " << getSGRPNum();
-  if (ST) OS << "(O" << ST->getOccupancyWithNumSGPRs(getSGRPNum()) << ')';
+  OS << "VGPRs: " << getVGPRNum();
+  if (ST) OS << "(O" << ST->getOccupancyWithNumVGPRs(getVGPRNum()) << ')';
+  OS << ", SGPRs: " << getSGPRNum();
+  if (ST) OS << "(O" << ST->getOccupancyWithNumSGPRs(getSGPRNum()) << ')';
   OS << ", LVGPR WT: " << getVGPRTuplesWeight()
      << ", LSGPR WT: " << getSGPRTuplesWeight();
   if (ST) OS << " -> Occ: " << getOccupancy(*ST);

@@ -9,6 +9,7 @@ def MyTarget : Target { let InstructionSet = MyTargetISA; }
 
 def R0 : Register<"r0"> { let Namespace = "MyTarget"; }
 def GPR32 : RegisterClass<"MyTarget", [i32], 32, (add R0)>;
+def GPR32Op : RegisterOperand<GPR32>;
 
 class I<dag OOps, dag IOps, list<dag> Pat>
   : Instruction {
@@ -22,7 +23,7 @@ def complex : Operand<i32>, ComplexPattern<i32, 2, "SelectComplexPattern", []> {
   let MIOperandInfo = (ops i32imm, i32imm);
 }
 def gi_complex :
-    GIComplexOperandMatcher<s32, (ops i32imm, i32imm), "selectComplexPattern">,
+    GIComplexOperandMatcher<s32, "selectComplexPattern">,
     GIComplexPatternEquiv<complex>;
 
 def m1 : OperandWithDefaultOps <i32, (ops (i32 -1))>;
@@ -31,27 +32,31 @@ def m1Z : OperandWithDefaultOps <i32, (ops (i32 -1), R0)>;
 
 def HasA : Predicate<"Subtarget->hasA()">;
 def HasB : Predicate<"Subtarget->hasB()">;
+def HasC : Predicate<"Subtarget->hasC()"> { let RecomputePerFunction = 1; }
 
 //===- Test the function boilerplate. -------------------------------------===//
 
 // CHECK-LABEL: enum SubtargetFeatureBits : uint8_t {
 // CHECK-NEXT:    Feature_HasABit = 0,
 // CHECK-NEXT:    Feature_HasBBit = 1,
-// CHECK-NEXT:  };
-
-// CHECK-LABEL: static const char *SubtargetFeatureNames[] = {
-// CHECK-NEXT:    "Feature_HasA",
-// CHECK-NEXT:    "Feature_HasB",
-// CHECK-NEXT:    nullptr
+// CHECK-NEXT:    Feature_HasCBit = 2,
 // CHECK-NEXT:  };
 
 // CHECK-LABEL: PredicateBitset MyTargetInstructionSelector::
-// CHECK-NEXT:  computeAvailableFeatures(const MachineFunction *MF, const MyTargetSubtarget *Subtarget) const {
+// CHECK-NEXT:  computeAvailableModuleFeatures(const MyTargetSubtarget *Subtarget) const {
 // CHECK-NEXT:    PredicateBitset Features;
 // CHECK-NEXT:    if (Subtarget->hasA())
 // CHECK-NEXT:      Features[Feature_HasABit] = 1;
 // CHECK-NEXT:    if (Subtarget->hasB())
 // CHECK-NEXT:      Features[Feature_HasBBit] = 1;
+// CHECK-NEXT:    return Features;
+// CHECK-NEXT:  }
+
+// CHECK-LABEL: PredicateBitset MyTargetInstructionSelector::
+// CHECK-NEXT:  computeAvailableFunctionFeatures(const MyTargetSubtarget *Subtarget, const MachineFunction *MF) const {
+// CHECK-NEXT:    PredicateBitset Features;
+// CHECK-NEXT:    if (Subtarget->hasC())
+// CHECK-NEXT:      Features[Feature_HasCBit] = 1;
 // CHECK-NEXT:    return Features;
 // CHECK-NEXT:  }
 
@@ -72,17 +77,15 @@ def HasB : Predicate<"Subtarget->hasB()">;
 // CHECK-NEXT:        ((/* src1 */ (MRI.getType(MI0.getOperand(1).getReg()) == (LLT::scalar(32))) &&
 // CHECK-NEXT:         ((&RBI.getRegBankFromRegClass(MyTarget::GPR32RegClass) == RBI.getRegBank(MI0.getOperand(1).getReg(), MRI, TRI))))) &&
 // CHECK-NEXT:        ((/* src2 */ (MRI.getType(MI0.getOperand(2).getReg()) == (LLT::scalar(32))) &&
-// CHECK-NEXT:        (selectComplexPattern(MI0.getOperand(2), TempOp0, TempOp1)))) &&
+// CHECK-NEXT:        ((Renderer0 = selectComplexPattern(MI0.getOperand(2)))))) &&
 // CHECK-NEXT:        ((/* src3 */ (MRI.getType(MI0.getOperand(3).getReg()) == (LLT::scalar(32))) &&
-// CHECK-NEXT:        (selectComplexPattern(MI0.getOperand(3), TempOp2, TempOp3))))) {
+// CHECK-NEXT:        ((Renderer1 = selectComplexPattern(MI0.getOperand(3))))))) {
 // CHECK-NEXT:          // (select:i32 GPR32:i32:$src1, complex:i32:$src2, complex:i32:$src3) => (INSN2:i32 GPR32:i32:$src1, complex:i32:$src3, complex:i32:$src2)
 // CHECK-NEXT:          MachineInstrBuilder MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(MyTarget::INSN2));
 // CHECK-NEXT:          MIB.add(MI0.getOperand(0)/*dst*/);
 // CHECK-NEXT:          MIB.add(MI0.getOperand(1)/*src1*/);
-// CHECK-NEXT:          MIB.add(TempOp2);
-// CHECK-NEXT:          MIB.add(TempOp3);
-// CHECK-NEXT:          MIB.add(TempOp0);
-// CHECK-NEXT:          MIB.add(TempOp1);
+// CHECK-NEXT:          Renderer1(MIB);
+// CHECK-NEXT:          Renderer0(MIB);
 // CHECK-NEXT:          for (const auto *FromMI : {&MI0, })
 // CHECK-NEXT:            for (const auto &MMO : FromMI->memoperands())
 // CHECK-NEXT:              MIB.addMemOperand(MMO);
@@ -93,7 +96,7 @@ def HasB : Predicate<"Subtarget->hasB()">;
 // CHECK-NEXT:        }
 
 def : GINodeEquiv<G_SELECT, select>;
-def INSN2 : I<(outs GPR32:$dst), (ins GPR32:$src1, complex:$src2, complex:$src3), []>;
+def INSN2 : I<(outs GPR32:$dst), (ins GPR32Op:$src1, complex:$src2, complex:$src3), []>;
 def : Pat<(select GPR32:$src1, complex:$src2, complex:$src3),
           (INSN2 GPR32:$src1, complex:$src3, complex:$src2)>;
 
@@ -217,7 +220,7 @@ def MULADD : I<(outs GPR32:$dst), (ins GPR32:$src1, GPR32:$src2, GPR32:$src3),
 //===- Test another simple pattern with regclass operands. ----------------===//
 
 // CHECK-LABEL: if ([&]() {
-// CHECK-NEXT:    PredicateBitset ExpectedFeatures = {Feature_HasABit, Feature_HasBBit};
+// CHECK-NEXT:    PredicateBitset ExpectedFeatures = {Feature_HasABit, Feature_HasBBit, Feature_HasCBit};
 // CHECK-NEXT:    if ((AvailableFeatures & ExpectedFeatures) != ExpectedFeatures)
 // CHECK-NEXT:      return false;
 // CHECK-NEXT:    MachineInstr &MI0 = I;
@@ -248,7 +251,7 @@ def MULADD : I<(outs GPR32:$dst), (ins GPR32:$src1, GPR32:$src2, GPR32:$src3),
 
 def MUL : I<(outs GPR32:$dst), (ins GPR32:$src2, GPR32:$src1),
              [(set GPR32:$dst, (mul GPR32:$src1, GPR32:$src2))]>,
-          Requires<[HasA, HasB]>;
+          Requires<[HasA, HasB, HasC]>;
 
 //===- Test a pattern with ComplexPattern operands. -----------------------===//
 //
@@ -263,13 +266,12 @@ def MUL : I<(outs GPR32:$dst), (ins GPR32:$src2, GPR32:$src1),
 // CHECK-NEXT:        ((/* src1 */ (MRI.getType(MI0.getOperand(1).getReg()) == (LLT::scalar(32))) &&
 // CHECK-NEXT:         ((&RBI.getRegBankFromRegClass(MyTarget::GPR32RegClass) == RBI.getRegBank(MI0.getOperand(1).getReg(), MRI, TRI))))) &&
 // CHECK-NEXT:        ((/* src2 */ (MRI.getType(MI0.getOperand(2).getReg()) == (LLT::scalar(32))) &&
-// CHECK-NEXT:        (selectComplexPattern(MI0.getOperand(2), TempOp0, TempOp1))))) {
+// CHECK-NEXT:        ((Renderer0 = selectComplexPattern(MI0.getOperand(2))))))) {
 // CHECK-NEXT:          // (sub:i32 GPR32:i32:$src1, complex:i32:$src2) => (INSN1:i32 GPR32:i32:$src1, complex:i32:$src2)
 // CHECK-NEXT:          MachineInstrBuilder MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(MyTarget::INSN1));
 // CHECK-NEXT:          MIB.add(MI0.getOperand(0)/*dst*/);
 // CHECK-NEXT:          MIB.add(MI0.getOperand(1)/*src1*/);
-// CHECK-NEXT:          MIB.add(TempOp0);
-// CHECK-NEXT:          MIB.add(TempOp1);
+// CHECK-NEXT:          Renderer0(MIB);
 // CHECK-NEXT:          for (const auto *FromMI : {&MI0, })
 // CHECK-NEXT:            for (const auto &MMO : FromMI->memoperands())
 // CHECK-NEXT:              MIB.addMemOperand(MMO);

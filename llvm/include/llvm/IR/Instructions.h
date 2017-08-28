@@ -1658,11 +1658,17 @@ public:
   /// adds the attribute to the list of attributes.
   void addAttribute(unsigned i, Attribute Attr);
 
+  /// Adds the attribute to the indicated argument
+  void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
+
   /// removes the attribute from the list of attributes.
   void removeAttribute(unsigned i, Attribute::AttrKind Kind);
 
   /// removes the attribute from the list of attributes.
   void removeAttribute(unsigned i, StringRef Kind);
+
+  /// Removes the attribute from the given argument
+  void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
 
   /// adds the dereferenceable attribute to the list of attributes.
   void addDereferenceableAttr(unsigned i, uint64_t Bytes);
@@ -1714,9 +1720,12 @@ public:
   ///     (\p i - 1) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const;
 
+  /// Extract the alignment of the return value.
+  unsigned getRetAlignment() const { return Attrs.getRetAlignment(); }
+
   /// Extract the alignment for a call or parameter (0=unknown).
-  unsigned getParamAlignment(unsigned i) const {
-    return Attrs.getParamAlignment(i);
+  unsigned getParamAlignment(unsigned ArgNo) const {
+    return Attrs.getParamAlignment(ArgNo);
   }
 
   /// Extract the number of dereferenceable bytes for a call or
@@ -1731,11 +1740,9 @@ public:
     return Attrs.getDereferenceableOrNullBytes(i);
   }
 
-  /// @brief Determine if the parameter or return value is marked with NoAlias
-  /// attribute.
-  /// @param n The parameter to check. 1 is the first parameter, 0 is the return
-  bool doesNotAlias(unsigned n) const {
-    return Attrs.hasAttribute(n, Attribute::NoAlias);
+  /// @brief Determine if the return value is marked with NoAlias attribute.
+  bool returnDoesNotAlias() const {
+    return Attrs.hasAttribute(AttributeList::ReturnIndex, Attribute::NoAlias);
   }
 
   /// Return true if the call should not be treated as a call to a
@@ -2252,6 +2259,19 @@ public:
     SmallVector<int, 16> Mask;
     getShuffleMask(Mask);
     return Mask;
+  }
+
+  /// Change values in a shuffle permute mask assuming the two vector operands
+  /// of length InVecNumElts have swapped position.
+  static void commuteShuffleMask(MutableArrayRef<int> Mask,
+                                 unsigned InVecNumElts) {
+    for (int &Idx : Mask) {
+      if (Idx == -1)
+        continue;
+      Idx = Idx < (int)InVecNumElts ? Idx + InVecNumElts : Idx - InVecNumElts;
+      assert(Idx >= 0 && Idx < (int)InVecNumElts * 2 &&
+             "shufflevector mask index out of range");
+    }
   }
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -2930,9 +2950,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 template <>
@@ -3040,9 +3061,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 template <>
@@ -3404,9 +3426,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 template <>
@@ -3509,9 +3532,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 template <>
@@ -3747,11 +3771,17 @@ public:
   /// adds the attribute to the list of attributes.
   void addAttribute(unsigned i, Attribute Attr);
 
+  /// Adds the attribute to the indicated argument
+  void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
+
   /// removes the attribute from the list of attributes.
   void removeAttribute(unsigned i, Attribute::AttrKind Kind);
 
   /// removes the attribute from the list of attributes.
   void removeAttribute(unsigned i, StringRef Kind);
+
+  /// Removes the attribute from the given argument
+  void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind);
 
   /// adds the dereferenceable attribute to the list of attributes.
   void addDereferenceableAttr(unsigned i, uint64_t Bytes);
@@ -3804,9 +3834,12 @@ public:
   ///     (\p i - 1) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const;
 
+  /// Extract the alignment of the return value.
+  unsigned getRetAlignment() const { return Attrs.getRetAlignment(); }
+
   /// Extract the alignment for a call or parameter (0=unknown).
-  unsigned getParamAlignment(unsigned i) const {
-    return Attrs.getParamAlignment(i);
+  unsigned getParamAlignment(unsigned ArgNo) const {
+    return Attrs.getParamAlignment(ArgNo);
   }
 
   /// Extract the number of dereferenceable bytes for a call or
@@ -3821,11 +3854,9 @@ public:
     return Attrs.getDereferenceableOrNullBytes(i);
   }
 
-  /// @brief Determine if the parameter or return value is marked with NoAlias
-  /// attribute.
-  /// @param n The parameter to check. 1 is the first parameter, 0 is the return
-  bool doesNotAlias(unsigned n) const {
-    return Attrs.hasAttribute(n, Attribute::NoAlias);
+  /// @brief Determine if the return value is marked with NoAlias attribute.
+  bool returnDoesNotAlias() const {
+    return Attrs.hasAttribute(AttributeList::ReturnIndex, Attribute::NoAlias);
   }
 
   /// Return true if the call should not be treated as a call to a
@@ -3982,9 +4013,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 
   template <typename AttrKind> bool hasFnAttrImpl(AttrKind Kind) const {
     if (Attrs.hasAttribute(AttributeList::FunctionIndex, Kind))
@@ -4081,9 +4113,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 template <>
@@ -4264,9 +4297,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned Idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned Idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned Idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned Idx, BasicBlock *B);
 };
 
 template <>
@@ -4429,9 +4463,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned Idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned Idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned Idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned Idx, BasicBlock *B);
 };
 
 template <>
@@ -4517,9 +4552,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned Idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned Idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned Idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned Idx, BasicBlock *B);
 
   // Shadow Instruction::setInstructionSubclassData with a private forwarding
   // method so that subclasses cannot accidentally use it.
@@ -4572,9 +4608,10 @@ public:
   }
 
 private:
-  BasicBlock *getSuccessorV(unsigned idx) const override;
-  unsigned getNumSuccessorsV() const override;
-  void setSuccessorV(unsigned idx, BasicBlock *B) override;
+  friend TerminatorInst;
+  BasicBlock *getSuccessorV(unsigned idx) const;
+  unsigned getNumSuccessorsV() const;
+  void setSuccessorV(unsigned idx, BasicBlock *B);
 };
 
 //===----------------------------------------------------------------------===//

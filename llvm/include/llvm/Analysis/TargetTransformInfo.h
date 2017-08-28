@@ -197,6 +197,12 @@ public:
   int getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
                        ArrayRef<const Value *> Arguments) const;
 
+  /// \return The estimated number of case clusters when lowering \p 'SI'.
+  /// \p JTSize Set a jump table size only when \p SI is suitable for a jump
+  /// table.
+  unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,
+                                            unsigned &JTSize) const;
+
   /// \brief Estimate the cost of a given IR user when lowered.
   ///
   /// This can estimate the cost of either a ConstantExpr or Instruction when
@@ -734,6 +740,22 @@ public:
                                 unsigned ChainSizeInBytes,
                                 VectorType *VecTy) const;
 
+  /// Flags describing the kind of vector reduction.
+  struct ReductionFlags {
+    ReductionFlags() : IsMaxOp(false), IsSigned(false), NoNaN(false) {}
+    bool IsMaxOp;  ///< If the op a min/max kind, true if it's a max operation.
+    bool IsSigned; ///< Whether the operation is a signed int reduction.
+    bool NoNaN;    ///< If op is an fp min/max, whether NaNs may be present.
+  };
+
+  /// \returns True if the target wants to handle the given reduction idiom in
+  /// the intrinsics form instead of the shuffle form.
+  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
+                             ReductionFlags Flags) const;
+
+  /// \returns True if the target wants to expand the given reduction intrinsic
+  /// into a shuffle sequence.
+  bool shouldExpandReduction(const IntrinsicInst *II) const;
   /// @}
 
 private:
@@ -764,6 +786,8 @@ public:
                                ArrayRef<Type *> ParamTys) = 0;
   virtual int getIntrinsicCost(Intrinsic::ID IID, Type *RetTy,
                                ArrayRef<const Value *> Arguments) = 0;
+  virtual unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,
+                                                    unsigned &JTSize) = 0;
   virtual int getUserCost(const User *U) = 0;
   virtual bool hasBranchDivergence() = 0;
   virtual bool isSourceOfDivergence(const Value *V) = 0;
@@ -887,6 +911,9 @@ public:
   virtual unsigned getStoreVectorFactor(unsigned VF, unsigned StoreSize,
                                         unsigned ChainSizeInBytes,
                                         VectorType *VecTy) const = 0;
+  virtual bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
+                                     ReductionFlags) const = 0;
+  virtual bool shouldExpandReduction(const IntrinsicInst *II) const = 0;
 };
 
 template <typename T>
@@ -1067,6 +1094,10 @@ public:
   unsigned getMaxInterleaveFactor(unsigned VF) override {
     return Impl.getMaxInterleaveFactor(VF);
   }
+  unsigned getEstimatedNumberOfCaseClusters(const SwitchInst &SI,
+                                            unsigned &JTSize) override {
+    return Impl.getEstimatedNumberOfCaseClusters(SI, JTSize);
+  }
   unsigned
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
@@ -1187,6 +1218,13 @@ public:
                                 unsigned ChainSizeInBytes,
                                 VectorType *VecTy) const override {
     return Impl.getStoreVectorFactor(VF, StoreSize, ChainSizeInBytes, VecTy);
+  }
+  bool useReductionIntrinsic(unsigned Opcode, Type *Ty,
+                             ReductionFlags Flags) const override {
+    return Impl.useReductionIntrinsic(Opcode, Ty, Flags);
+  }
+  bool shouldExpandReduction(const IntrinsicInst *II) const override {
+    return Impl.shouldExpandReduction(II);
   }
 };
 
