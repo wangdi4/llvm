@@ -29,6 +29,7 @@
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/Support/KnownBits.h"
 #include "SIInstrInfo.h"
 using namespace llvm;
 
@@ -69,6 +70,45 @@ static bool allocateSGPRTuple(unsigned ValNo, MVT ValVT, MVT LocVT,
     // Up to SGPR0-SGPR39
     return allocateCCRegs(ValNo, ValVT, LocVT, LocInfo, ArgFlags, State,
                           &AMDGPU::SGPR_64RegClass, 20);
+  }
+  default:
+    return false;
+  }
+}
+
+// Allocate up to VGPR31.
+//
+// TODO: Since there are no VGPR alignent requirements would it be better to
+// split into individual scalar registers?
+static bool allocateVGPRTuple(unsigned ValNo, MVT ValVT, MVT LocVT,
+                              CCValAssign::LocInfo LocInfo,
+                              ISD::ArgFlagsTy ArgFlags, CCState &State) {
+  switch (LocVT.SimpleTy) {
+  case MVT::i64:
+  case MVT::f64:
+  case MVT::v2i32:
+  case MVT::v2f32: {
+    return allocateCCRegs(ValNo, ValVT, LocVT, LocInfo, ArgFlags, State,
+                          &AMDGPU::VReg_64RegClass, 31);
+  }
+  case MVT::v4i32:
+  case MVT::v4f32:
+  case MVT::v2i64:
+  case MVT::v2f64: {
+    return allocateCCRegs(ValNo, ValVT, LocVT, LocInfo, ArgFlags, State,
+                          &AMDGPU::VReg_128RegClass, 29);
+  }
+  case MVT::v8i32:
+  case MVT::v8f32: {
+    return allocateCCRegs(ValNo, ValVT, LocVT, LocInfo, ArgFlags, State,
+                          &AMDGPU::VReg_256RegClass, 25);
+
+  }
+  case MVT::v16i32:
+  case MVT::v16f32: {
+    return allocateCCRegs(ValNo, ValVT, LocVT, LocInfo, ArgFlags, State,
+                          &AMDGPU::VReg_512RegClass, 17);
+
   }
   default:
     return false;
@@ -566,13 +606,19 @@ static bool hasSourceMods(const SDNode *N) {
   case AMDGPUISD::INTERP_P1:
   case AMDGPUISD::INTERP_P2:
   case AMDGPUISD::DIV_SCALE:
+
+  // TODO: Should really be looking at the users of the bitcast. These are
+  // problematic because bitcasts are used to legalize all stores to integer
+  // types.
+  case ISD::BITCAST:
     return false;
   default:
     return true;
   }
 }
 
-static bool allUsesHaveSourceMods(const SDNode *N, unsigned CostThreshold = 4) {
+bool AMDGPUTargetLowering::allUsesHaveSourceMods(const SDNode *N,
+                                                 unsigned CostThreshold) {
   // Some users (such as 3-operand FMA/MAD) must use a VOP3 encoding, and thus
   // it is truly free to use a source modifier in all cases. If there are
   // multiple users but for each one will necessitate using VOP3, there will be
@@ -766,8 +812,43 @@ bool AMDGPUTargetLowering::isNarrowingProfitable(EVT SrcVT, EVT DestVT) const {
 //===---------------------------------------------------------------------===//
 
 CCAssignFn *AMDGPUCallLowering::CCAssignFnForCall(CallingConv::ID CC,
-                                                  bool IsVarArg) const {
-  return CC_AMDGPU;
+                                                  bool IsVarArg) {
+  switch (CC) {
+  case CallingConv::AMDGPU_KERNEL:
+  case CallingConv::SPIR_KERNEL:
+    return CC_AMDGPU_Kernel;
+  case CallingConv::AMDGPU_VS:
+  case CallingConv::AMDGPU_GS:
+  case CallingConv::AMDGPU_PS:
+  case CallingConv::AMDGPU_CS:
+  case CallingConv::AMDGPU_HS:
+    return CC_AMDGPU;
+  case CallingConv::C:
+  case CallingConv::Fast:
+    return CC_AMDGPU_Func;
+  default:
+    report_fatal_error("Unsupported calling convention.");
+  }
+}
+
+CCAssignFn *AMDGPUCallLowering::CCAssignFnForReturn(CallingConv::ID CC,
+                                                    bool IsVarArg) {
+  switch (CC) {
+  case CallingConv::AMDGPU_KERNEL:
+  case CallingConv::SPIR_KERNEL:
+    return CC_AMDGPU_Kernel;
+  case CallingConv::AMDGPU_VS:
+  case CallingConv::AMDGPU_GS:
+  case CallingConv::AMDGPU_PS:
+  case CallingConv::AMDGPU_CS:
+  case CallingConv::AMDGPU_HS:
+    return RetCC_SI_Shader;
+  case CallingConv::C:
+  case CallingConv::Fast:
+    return RetCC_AMDGPU_Func;
+  default:
+    report_fatal_error("Unsupported calling convention.");
+  }
 }
 
 /// The SelectionDAGBuilder will automatically promote function arguments
@@ -867,18 +948,15 @@ void AMDGPUTargetLowering::analyzeFormalArgumentsCompute(CCState &State,
   }
 }
 
-void AMDGPUTargetLowering::AnalyzeReturn(CCState &State,
-                           const SmallVectorImpl<ISD::OutputArg> &Outs) const {
-
-  State.AnalyzeReturn(Outs, RetCC_SI);
-}
-
-SDValue
-AMDGPUTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
-                                  bool isVarArg,
-                                  const SmallVectorImpl<ISD::OutputArg> &Outs,
-                                  const SmallVectorImpl<SDValue> &OutVals,
-                                  const SDLoc &DL, SelectionDAG &DAG) const {
+SDValue AMDGPUTargetLowering::LowerReturn(
+  SDValue Chain, CallingConv::ID CallConv,
+  bool isVarArg,
+  const SmallVectorImpl<ISD::OutputArg> &Outs,
+  const SmallVectorImpl<SDValue> &OutVals,
+  const SDLoc &DL, SelectionDAG &DAG) const {
+  // FIXME: Fails for r600 tests
+  //assert(!isVarArg && Outs.empty() && OutVals.empty() &&
+  // "wave terminate should not have return values");
   return DAG.getNode(AMDGPUISD::ENDPGM, DL, MVT::Other, Chain);
 }
 
@@ -889,19 +967,12 @@ AMDGPUTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 /// Selects the correct CCAssignFn for a given CallingConvention value.
 CCAssignFn *AMDGPUTargetLowering::CCAssignFnForCall(CallingConv::ID CC,
                                                     bool IsVarArg) {
-  switch (CC) {
-  case CallingConv::C:
-  case CallingConv::AMDGPU_KERNEL:
-  case CallingConv::SPIR_KERNEL:
-    return CC_AMDGPU_Kernel;
-  case CallingConv::AMDGPU_VS:
-  case CallingConv::AMDGPU_GS:
-  case CallingConv::AMDGPU_PS:
-  case CallingConv::AMDGPU_CS:
-    return CC_AMDGPU;
-  default:
-    report_fatal_error("Unsupported calling convention.");
-  }
+  return AMDGPUCallLowering::CCAssignFnForCall(CC, IsVarArg);
+}
+
+CCAssignFn *AMDGPUTargetLowering::CCAssignFnForReturn(CallingConv::ID CC,
+                                                      bool IsVarArg) {
+  return AMDGPUCallLowering::CCAssignFnForReturn(CC, IsVarArg);
 }
 
 SDValue AMDGPUTargetLowering::LowerCall(CallLoweringInfo &CLI,
@@ -2293,11 +2364,11 @@ SDValue AMDGPUTargetLowering::LowerSIGN_EXTEND_INREG(SDValue Op,
 //===----------------------------------------------------------------------===//
 
 static bool isU24(SDValue Op, SelectionDAG &DAG) {
-  APInt KnownZero, KnownOne;
+  KnownBits Known;
   EVT VT = Op.getValueType();
-  DAG.computeKnownBits(Op, KnownZero, KnownOne);
+  DAG.computeKnownBits(Op, Known);
 
-  return (VT.getSizeInBits() - KnownZero.countLeadingOnes()) <= 24;
+  return (VT.getSizeInBits() - Known.countMinLeadingZeros()) <= 24;
 }
 
 static bool isI24(SDValue Op, SelectionDAG &DAG) {
@@ -2524,26 +2595,48 @@ SDValue AMDGPUTargetLowering::splitBinaryBitConstantOpImpl(
 
 SDValue AMDGPUTargetLowering::performShlCombine(SDNode *N,
                                                 DAGCombinerInfo &DCI) const {
-  if (N->getValueType(0) != MVT::i64)
+  EVT VT = N->getValueType(0);
+  if (VT != MVT::i64)
     return SDValue();
+
+  ConstantSDNode *RHS = dyn_cast<ConstantSDNode>(N->getOperand(1));
+  if (!RHS)
+    return SDValue();
+
+  SDValue LHS = N->getOperand(0);
+  unsigned RHSVal = RHS->getZExtValue();
+  if (!RHSVal)
+    return LHS;
+
+  SDLoc SL(N);
+  SelectionDAG &DAG = DCI.DAG;
+
+  switch (LHS->getOpcode()) {
+  default:
+    break;
+  case ISD::ZERO_EXTEND:
+  case ISD::SIGN_EXTEND:
+  case ISD::ANY_EXTEND: {
+    // shl (ext x) => zext (shl x), if shift does not overflow int
+    KnownBits Known;
+    SDValue X = LHS->getOperand(0);
+    DAG.computeKnownBits(X, Known);
+    unsigned LZ = Known.countMinLeadingZeros();
+    if (LZ < RHSVal)
+      break;
+    EVT XVT = X.getValueType();
+    SDValue Shl = DAG.getNode(ISD::SHL, SL, XVT, X, SDValue(RHS, 0));
+    return DAG.getZExtOrTrunc(Shl, SL, VT);
+  }
+  }
 
   // i64 (shl x, C) -> (build_pair 0, (shl x, C -32))
 
   // On some subtargets, 64-bit shift is a quarter rate instruction. In the
   // common case, splitting this into a move and a 32-bit shift is faster and
   // the same code size.
-  const ConstantSDNode *RHS = dyn_cast<ConstantSDNode>(N->getOperand(1));
-  if (!RHS)
-    return SDValue();
-
-  unsigned RHSVal = RHS->getZExtValue();
   if (RHSVal < 32)
     return SDValue();
-
-  SDValue LHS = N->getOperand(0);
-
-  SDLoc SL(N);
-  SelectionDAG &DAG = DCI.DAG;
 
   SDValue ShiftAmt = DAG.getConstant(RHSVal - 32, SL, MVT::i32);
 
@@ -3358,13 +3451,12 @@ SDValue AMDGPUTargetLowering::PerformDAGCombine(SDNode *N,
                                          OffsetVal,
                                          OffsetVal + WidthVal);
 
-      APInt KnownZero, KnownOne;
+      KnownBits Known;
       TargetLowering::TargetLoweringOpt TLO(DAG, !DCI.isBeforeLegalize(),
                                             !DCI.isBeforeLegalizeOps());
       const TargetLowering &TLI = DAG.getTargetLoweringInfo();
       if (TLI.ShrinkDemandedConstant(BitsFrom, Demanded, TLO) ||
-          TLI.SimplifyDemandedBits(BitsFrom, Demanded,
-                                   KnownZero, KnownOne, TLO)) {
+          TLI.SimplifyDemandedBits(BitsFrom, Demanded, Known, TLO)) {
         DCI.CommitTargetLoweringOpt(TLO);
       }
     }
@@ -3516,6 +3608,8 @@ const char* AMDGPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   NODE_NAME_CASE(KILL)
   NODE_NAME_CASE(DUMMY_CHAIN)
   case AMDGPUISD::FIRST_MEM_OPCODE_NUMBER: break;
+  NODE_NAME_CASE(INIT_EXEC)
+  NODE_NAME_CASE(INIT_EXEC_FROM_INPUT)
   NODE_NAME_CASE(SENDMSG)
   NODE_NAME_CASE(SENDMSGHALT)
   NODE_NAME_CASE(INTERP_MOV)
@@ -3574,14 +3668,12 @@ SDValue AMDGPUTargetLowering::getRecipEstimate(SDValue Operand,
 }
 
 void AMDGPUTargetLowering::computeKnownBitsForTargetNode(
-    const SDValue Op, APInt &KnownZero, APInt &KnownOne,
+    const SDValue Op, KnownBits &Known,
     const APInt &DemandedElts, const SelectionDAG &DAG, unsigned Depth) const {
 
-  unsigned BitWidth = KnownZero.getBitWidth();
-  KnownZero = KnownOne = APInt(BitWidth, 0); // Don't know anything.
+  Known.resetAll(); // Don't know anything.
 
-  APInt KnownZero2;
-  APInt KnownOne2;
+  KnownBits Known2;
   unsigned Opc = Op.getOpcode();
 
   switch (Opc) {
@@ -3589,7 +3681,7 @@ void AMDGPUTargetLowering::computeKnownBitsForTargetNode(
     break;
   case AMDGPUISD::CARRY:
   case AMDGPUISD::BORROW: {
-    KnownZero = APInt::getHighBitsSet(32, 31);
+    Known.Zero = APInt::getHighBitsSet(32, 31);
     break;
   }
 
@@ -3602,16 +3694,16 @@ void AMDGPUTargetLowering::computeKnownBitsForTargetNode(
     uint32_t Width = CWidth->getZExtValue() & 0x1f;
 
     if (Opc == AMDGPUISD::BFE_U32)
-      KnownZero = APInt::getHighBitsSet(32, 32 - Width);
+      Known.Zero = APInt::getHighBitsSet(32, 32 - Width);
 
     break;
   }
   case AMDGPUISD::FP_TO_FP16:
   case AMDGPUISD::FP16_ZEXT: {
-    unsigned BitWidth = KnownZero.getBitWidth();
+    unsigned BitWidth = Known.getBitWidth();
 
     // High bits are zero.
-    KnownZero = APInt::getHighBitsSet(BitWidth, BitWidth - 16);
+    Known.Zero = APInt::getHighBitsSet(BitWidth, BitWidth - 16);
     break;
   }
   }

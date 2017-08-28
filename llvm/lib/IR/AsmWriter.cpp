@@ -332,6 +332,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::HHVM:          Out << "hhvmcc"; break;
   case CallingConv::HHVM_C:        Out << "hhvm_ccc"; break;
   case CallingConv::AMDGPU_VS:     Out << "amdgpu_vs"; break;
+  case CallingConv::AMDGPU_HS:     Out << "amdgpu_hs"; break;
   case CallingConv::AMDGPU_GS:     Out << "amdgpu_gs"; break;
   case CallingConv::AMDGPU_PS:     Out << "amdgpu_ps"; break;
   case CallingConv::AMDGPU_CS:     Out << "amdgpu_cs"; break;
@@ -804,6 +805,9 @@ void SlotTracker::processModule() {
     if (!Var.hasName())
       CreateModuleSlot(&Var);
     processGlobalObjectMetadata(Var);
+    auto Attrs = Var.getAttributes();
+    if (Attrs.hasAttributes())
+      CreateAttributeSetSlot(Attrs);
   }
 
   for (const GlobalAlias &A : TheModule->aliases()) {
@@ -1719,6 +1723,7 @@ static void writeDISubprogram(raw_ostream &Out, const DISubprogram *N,
   Printer.printMetadata("templateParams", N->getRawTemplateParams());
   Printer.printMetadata("declaration", N->getRawDeclaration());
   Printer.printMetadata("variables", N->getRawVariables());
+  Printer.printMetadata("thrownTypes", N->getRawThrownTypes());
   Out << ")";
 }
 
@@ -1755,8 +1760,6 @@ static void writeDINamespace(raw_ostream &Out, const DINamespace *N,
   MDFieldPrinter Printer(Out, TypePrinter, Machine, Context);
   Printer.printString("name", N->getName());
   Printer.printMetadata("scope", N->getRawScope(), /* ShouldSkipNull */ false);
-  Printer.printMetadata("file", N->getRawFile());
-  Printer.printInt("line", N->getLine());
   Printer.printBool("exportSymbols", N->getExportSymbols(), false);
   Out << ")";
 }
@@ -2084,8 +2087,7 @@ public:
   void printModule(const Module *M);
 
   void writeOperand(const Value *Op, bool PrintType);
-  void writeParamOperand(const Value *Operand, AttributeList Attrs,
-                         unsigned Idx);
+  void writeParamOperand(const Value *Operand, AttributeSet Attrs);
   void writeOperandBundles(ImmutableCallSite CS);
   void writeAtomic(AtomicOrdering Ordering, SynchronizationScope SynchScope);
   void writeAtomicCmpXchg(AtomicOrdering SuccessOrdering,
@@ -2101,7 +2103,7 @@ public:
   void printIndirectSymbol(const GlobalIndirectSymbol *GIS);
   void printComdat(const Comdat *C);
   void printFunction(const Function *F);
-  void printArgument(const Argument *FA, AttributeList Attrs, unsigned Idx);
+  void printArgument(const Argument *FA, AttributeSet Attrs);
   void printBasicBlock(const BasicBlock *BB);
   void printInstructionLine(const Instruction &I);
   void printInstruction(const Instruction &I);
@@ -2180,7 +2182,7 @@ void AssemblyWriter::writeAtomicCmpXchg(AtomicOrdering SuccessOrdering,
 }
 
 void AssemblyWriter::writeParamOperand(const Value *Operand,
-                                       AttributeList Attrs, unsigned Idx) {
+                                       AttributeSet Attrs) {
   if (!Operand) {
     Out << "<null operand!>";
     return;
@@ -2189,8 +2191,8 @@ void AssemblyWriter::writeParamOperand(const Value *Operand,
   // Print the type
   TypePrinter.print(Operand->getType(), Out);
   // Print parameter attributes list
-  if (Attrs.hasAttributes(Idx))
-    Out << ' ' << Attrs.getAsString(Idx);
+  if (Attrs.hasAttributes())
+    Out << ' ' << Attrs.getAsString();
   Out << ' ';
   // Print the operand
   WriteAsOperandInternal(Out, Operand, &TypePrinter, &Machine, TheModule);
@@ -2503,6 +2505,10 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
   GV->getAllMetadata(MDs);
   printMetadataAttachments(MDs, ", ");
 
+  auto Attrs = GV->getAttributes();
+  if (Attrs.hasAttributes())
+    Out << " #" << Machine.getAttributeGroupSlot(Attrs);
+
   printInfoComment(*GV);
 }
 
@@ -2653,17 +2659,17 @@ void AssemblyWriter::printFunction(const Function *F) {
       // Output type...
       TypePrinter.print(FT->getParamType(I), Out);
 
-      if (Attrs.hasAttributes(I + 1))
-        Out << ' ' << Attrs.getAsString(I + 1);
+      AttributeSet ArgAttrs = Attrs.getParamAttributes(I);
+      if (ArgAttrs.hasAttributes())
+        Out << ' ' << ArgAttrs.getAsString();
     }
   } else {
     // The arguments are meaningful here, print them in detail.
-    unsigned Idx = 1;
     for (const Argument &Arg : F->args()) {
       // Insert commas as we go... the first arg doesn't get a comma
-      if (Idx != 1)
+      if (Arg.getArgNo() != 0)
         Out << ", ";
-      printArgument(&Arg, Attrs, Idx++);
+      printArgument(&Arg, Attrs.getParamAttributes(Arg.getArgNo()));
     }
   }
 
@@ -2725,14 +2731,13 @@ void AssemblyWriter::printFunction(const Function *F) {
 /// printArgument - This member is called for every argument that is passed into
 /// the function.  Simply print it out
 ///
-void AssemblyWriter::printArgument(const Argument *Arg, AttributeList Attrs,
-                                   unsigned Idx) {
+void AssemblyWriter::printArgument(const Argument *Arg, AttributeSet Attrs) {
   // Output type...
   TypePrinter.print(Arg->getType(), Out);
 
   // Output parameter attributes list
-  if (Attrs.hasAttributes(Idx))
-    Out << ' ' << Attrs.getAsString(Idx);
+  if (Attrs.hasAttributes())
+    Out << ' ' << Attrs.getAsString();
 
   // Output name, if available...
   if (Arg->hasName()) {
@@ -3026,7 +3031,7 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
     for (unsigned op = 0, Eop = CI->getNumArgOperands(); op < Eop; ++op) {
       if (op > 0)
         Out << ", ";
-      writeParamOperand(CI->getArgOperand(op), PAL, op + 1);
+      writeParamOperand(CI->getArgOperand(op), PAL.getParamAttributes(op));
     }
 
     // Emit an ellipsis if this is a musttail call in a vararg function.  This
@@ -3069,7 +3074,7 @@ void AssemblyWriter::printInstruction(const Instruction &I) {
     for (unsigned op = 0, Eop = II->getNumArgOperands(); op < Eop; ++op) {
       if (op)
         Out << ", ";
-      writeParamOperand(II->getArgOperand(op), PAL, op + 1);
+      writeParamOperand(II->getArgOperand(op), PAL.getParamAttributes(op));
     }
 
     Out << ')';

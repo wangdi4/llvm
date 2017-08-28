@@ -202,6 +202,11 @@ public:
     return getCompilingModule() != CMK_None;
   }
 
+  /// Do we need to track the owning module for a local declaration?
+  bool trackLocalOwningModule() const {
+    return isCompilingModule() || ModulesLocalVisibility || ModulesTS;
+  }
+
   bool isSignedOverflowDefined() const {
     return getSignedOverflowBehavior() == SOB_Defined;
   }

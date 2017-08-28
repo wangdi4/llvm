@@ -121,6 +121,7 @@ static void getDarwinDefines(MacroBuilder &Builder, const LangOptions &Opts,
 #endif
   Builder.defineMacro("__APPLE_CC__", "6000");
   Builder.defineMacro("__APPLE__");
+  Builder.defineMacro("__STDC_NO_THREADS__");
   Builder.defineMacro("OBJC_NEW_PROPERTIES");
   // AddressSanitizer doesn't play well with source fortification, which is on
   // by default on Darwin.
@@ -2041,25 +2042,45 @@ ArrayRef<const char *> NVPTXTargetInfo::getGCCRegNames() const {
   return llvm::makeArrayRef(GCCRegNames);
 }
 
-static const LangAS::Map AMDGPUPrivateIsZeroMap = {
-    4,  // Default
-    1,  // opencl_global
-    3,  // opencl_local
-    2,  // opencl_constant
-    4,  // opencl_generic
-    1,  // cuda_device
-    2,  // cuda_constant
-    3   // cuda_shared
+static const LangAS::Map AMDGPUNonOpenCLPrivateIsZeroMap = {
+    4, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    4, // opencl_generic
+    1, // cuda_device
+    2, // cuda_constant
+    3  // cuda_shared
 };
-static const LangAS::Map AMDGPUGenericIsZeroMap = {
-    0,  // Default
-    1,  // opencl_global
-    3,  // opencl_local
-    2,  // opencl_constant
-    0,  // opencl_generic
-    1,  // cuda_device
-    2,  // cuda_constant
-    3   // cuda_shared
+static const LangAS::Map AMDGPUNonOpenCLGenericIsZeroMap = {
+    0, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    0, // opencl_generic
+    1, // cuda_device
+    2, // cuda_constant
+    3  // cuda_shared
+};
+static const LangAS::Map AMDGPUOpenCLPrivateIsZeroMap = {
+    0, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    4, // opencl_generic
+    1, // cuda_device
+    2, // cuda_constant
+    3  // cuda_shared
+};
+static const LangAS::Map AMDGPUOpenCLGenericIsZeroMap = {
+    5, // Default
+    1, // opencl_global
+    3, // opencl_local
+    2, // opencl_constant
+    0, // opencl_generic
+    1, // cuda_device
+    2, // cuda_constant
+    3  // cuda_shared
 };
 
 // If you edit the description strings, make sure you update
@@ -2156,8 +2177,12 @@ public:
                     : DataLayoutStringR600);
     assert(DataLayout->getAllocaAddrSpace() == AS.Private);
 
-    AddrSpaceMap = IsGenericZero ? &AMDGPUGenericIsZeroMap :
-        &AMDGPUPrivateIsZeroMap;
+    AddrSpaceMap =
+        llvm::StringSwitch<const LangAS::Map *>(Triple.getEnvironmentName())
+            .Case("opencl", &AMDGPUOpenCLPrivateIsZeroMap)
+            .Case("amdgiz", &AMDGPUNonOpenCLGenericIsZeroMap)
+            .Case("amdgizcl", &AMDGPUOpenCLGenericIsZeroMap)
+            .Default(&AMDGPUNonOpenCLPrivateIsZeroMap);
     UseAddrSpaceMapMangling = true;
   }
 
@@ -2598,6 +2623,7 @@ class X86TargetInfo : public TargetInfo {
   bool HasRDSEED = false;
   bool HasADX = false;
   bool HasTBM = false;
+  bool HasLWP = false;
   bool HasFMA = false;
   bool HasF16C = false;
   bool HasAVX512CD = false;
@@ -3392,6 +3418,7 @@ bool X86TargetInfo::initFeatureMap(
   case CK_BDVER1:
     // xop implies avx, sse4a and fma4.
     setFeatureEnabledImpl(Features, "xop", true);
+    setFeatureEnabledImpl(Features, "lwp", true);
     setFeatureEnabledImpl(Features, "lzcnt", true);
     setFeatureEnabledImpl(Features, "aes", true);
     setFeatureEnabledImpl(Features, "pclmul", true);
@@ -3663,6 +3690,8 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasADX = true;
     } else if (Feature == "+tbm") {
       HasTBM = true;
+    } else if (Feature == "+lwp") {
+      HasLWP = true;
     } else if (Feature == "+fma") {
       HasFMA = true;
     } else if (Feature == "+f16c") {
@@ -3983,6 +4012,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasTBM)
     Builder.defineMacro("__TBM__");
 
+  if (HasLWP)
+    Builder.defineMacro("__LWP__");
+
   if (HasMWAITX)
     Builder.defineMacro("__MWAITX__");
 
@@ -4166,6 +4198,7 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4.2", SSELevel >= SSE42)
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
+      .Case("lwp", HasLWP)
       .Case("x86", true)
       .Case("x86_32", getTriple().getArch() == llvm::Triple::x86)
       .Case("x86_64", getTriple().getArch() == llvm::Triple::x86_64)
@@ -5477,6 +5510,7 @@ public:
         .Case("softfloat", SoftFloat)
         .Case("thumb", isThumb())
         .Case("neon", (FPU & NeonFPU) && !SoftFloat)
+        .Case("vfp", FPU && !SoftFloat)
         .Case("hwdiv", HWDiv & HWDivThumb)
         .Case("hwdiv-arm", HWDiv & HWDivARM)
         .Default(false);
@@ -6886,6 +6920,11 @@ public:
     case 'M': // A constant in the range supported by movrcc (19-bit signed imm)
     case 'N': // Same as 'K' but zext (required for SIMode)
     case 'O': // The constant 4096
+      return true;
+
+    case 'f':
+    case 'e':
+      info.setAllowsRegister();
       return true;
     }
     return false;

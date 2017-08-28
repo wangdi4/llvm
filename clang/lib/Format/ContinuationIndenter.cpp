@@ -207,7 +207,7 @@ bool ContinuationIndenter::mustBreak(const LineState &State) {
       //     ...
       //   }.bind(...));
       // FIXME: We should find a more generic solution to this problem.
-      !(State.Column <= NewLineColumn &&
+      !(State.Column <= NewLineColumn && Previous.isNot(tok::r_paren) &&
         Style.Language == FormatStyle::LK_JavaScript))
     return true;
 
@@ -587,8 +587,10 @@ unsigned ContinuationIndenter::addTokenOnNewLine(LineState &State,
   if (!DryRun) {
     unsigned Newlines = std::max(
         1u, std::min(Current.NewlinesBefore, Style.MaxEmptyLinesToKeep + 1));
+    bool ContinuePPDirective =
+        State.Line->InPPDirective && State.Line->Type != LT_ImportStatement;
     Whitespaces.replaceWhitespace(Current, Newlines, State.Column, State.Column,
-                                  State.Line->InPPDirective);
+                                  ContinuePPDirective);
   }
 
   if (!Current.isTrailingComment())
@@ -674,6 +676,8 @@ unsigned ContinuationIndenter::getNewLineColumn(const LineState &State) {
       return State.Stack[State.Stack.size() - 2].LastSpace;
     return State.FirstIndent;
   }
+  if (Current.is(tok::r_paren) && State.Stack.size() > 1)
+    return State.Stack[State.Stack.size() - 2].LastSpace;
   if (NextNonComment->is(TT_TemplateString) && NextNonComment->closesScope())
     return State.Stack[State.Stack.size() - 2].LastSpace;
   if (Current.is(tok::identifier) && Current.Next &&
@@ -920,6 +924,10 @@ void ContinuationIndenter::moveStatePastFakeLParens(LineState &State,
     NewParenState.NoLineBreak =
         NewParenState.NoLineBreak || State.Stack.back().NoLineBreakInOperand;
 
+    // Don't propagate AvoidBinPacking into subexpressions of arg/param lists.
+    if (*I > prec::Comma)
+      NewParenState.AvoidBinPacking = false;
+
     // Indent from 'LastSpace' unless these are fake parentheses encapsulating
     // a builder type call after 'return' or, if the alignment after opening
     // brackets is disabled.
@@ -1034,13 +1042,20 @@ void ContinuationIndenter::moveStatePastScopeOpener(LineState &State,
       NestedBlockIndent = Column;
     }
 
+    bool EndsInComma =
+        Current.MatchingParen &&
+        Current.MatchingParen->getPreviousNonComment() &&
+        Current.MatchingParen->getPreviousNonComment()->is(tok::comma);
+
     AvoidBinPacking =
+        (Style.Language == FormatStyle::LK_JavaScript && EndsInComma) ||
         (State.Line->MustBeDeclaration && !Style.BinPackParameters) ||
         (!State.Line->MustBeDeclaration && !Style.BinPackArguments) ||
         (Style.ExperimentalAutoDetectBinPacking &&
          (Current.PackingKind == PPK_OnePerLine ||
           (!BinPackInconclusiveFunctions &&
            Current.PackingKind == PPK_Inconclusive)));
+
     if (Current.is(TT_ObjCMethodExpr) && Current.MatchingParen) {
       if (Style.ColumnLimit) {
         // If this '[' opens an ObjC call, determine whether all parameters fit
@@ -1061,6 +1076,9 @@ void ContinuationIndenter::moveStatePastScopeOpener(LineState &State,
         }
       }
     }
+
+    if (Style.Language == FormatStyle::LK_JavaScript && EndsInComma)
+      BreakBeforeParameter = true;
   }
   // Generally inherit NoLineBreak from the current scope to nested scope.
   // However, don't do this for non-empty nested blocks, dict literals and

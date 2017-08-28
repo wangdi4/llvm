@@ -93,7 +93,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       ValueWithBytesObjCTypeMethod(nullptr), NSArrayDecl(nullptr),
       ArrayWithObjectsMethod(nullptr), NSDictionaryDecl(nullptr),
       DictionaryWithObjectsMethod(nullptr), GlobalNewDeleteDeclared(false),
-      TUKind(TUKind), NumSFINAEErrors(0), CachedFakeTopLevelModule(nullptr),
+      TUKind(TUKind), NumSFINAEErrors(0),
     // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
     SuppressQualifiersOnTypeSubst(true),
@@ -437,6 +437,19 @@ void Sema::diagnoseNullableToNonnullConversion(QualType DstType,
   Diag(Loc, diag::warn_nullability_lost) << SrcType << DstType;
 }
 
+void Sema::diagnoseZeroToNullptrConversion(CastKind Kind, const Expr* E) {
+  if (Kind != CK_NullToPointer && Kind != CK_NullToMemberPointer)
+    return;
+  if (E->getType()->isNullPtrType())
+    return;
+  // nullptr only exists from C++11 on, so don't warn on its absence earlier.
+  if (!getLangOpts().CPlusPlus11)
+    return;
+
+  Diag(E->getLocStart(), diag::warn_zero_as_null_pointer_constant)
+      << FixItHint::CreateReplacement(E->getSourceRange(), "nullptr");
+}
+
 /// ImpCastExprToType - If Expr is not of type 'Type', insert an implicit cast.
 /// If there is already an implicit cast, merge into the existing one.
 /// The result is of the given category.
@@ -461,6 +474,7 @@ ExprResult Sema::ImpCastExprToType(Expr *E, QualType Ty,
 #endif
 
   diagnoseNullableToNonnullConversion(Ty, E->getType(), E->getLocStart());
+  diagnoseZeroToNullptrConversion(Kind, E);
 
   QualType ExprTy = Context.getCanonicalType(E->getType());
   QualType TypeTy = Context.getCanonicalType(Ty);
@@ -517,6 +531,13 @@ static bool ShouldRemoveFromUnused(Sema *SemaRef, const DeclaratorDecl *D) {
     return true;
 
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    // If this is a function template and none of its specializations is used,
+    // we should warn.
+    if (FunctionTemplateDecl *Template = FD->getDescribedFunctionTemplate())
+      for (const auto *Spec : Template->specializations())
+        if (ShouldRemoveFromUnused(SemaRef, Spec))
+          return true;
+
     // UnusedFileScopedDecls stores the first declaration.
     // The declaration may have become definition so check again.
     const FunctionDecl *DeclToCheck;
@@ -539,6 +560,13 @@ static bool ShouldRemoveFromUnused(Sema *SemaRef, const DeclaratorDecl *D) {
     if (VD->isReferenced() &&
         VD->isUsableInConstantExpressions(SemaRef->Context))
       return true;
+
+    if (VarTemplateDecl *Template = VD->getDescribedVarTemplate())
+      // If this is a variable template and none of its specializations is used,
+      // we should warn.
+      for (const auto *Spec : Template->specializations())
+        if (ShouldRemoveFromUnused(SemaRef, Spec))
+          return true;
 
     // UnusedFileScopedDecls stores the first declaration.
     // The declaration may have become definition so check again.
@@ -1003,10 +1031,14 @@ if (!optLevelDecls.empty()) {
                    << /*function*/0 << DiagD->getDeclName();
           }
         } else {
-          Diag(DiagD->getLocation(),
-               isa<CXXMethodDecl>(DiagD) ? diag::warn_unused_member_function
-                                         : diag::warn_unused_function)
-                << DiagD->getDeclName();
+          if (FD->getDescribedFunctionTemplate())
+            Diag(DiagD->getLocation(), diag::warn_unused_template)
+              << /*function*/0 << DiagD->getDeclName();
+          else
+            Diag(DiagD->getLocation(),
+                 isa<CXXMethodDecl>(DiagD) ? diag::warn_unused_member_function
+                                           : diag::warn_unused_function)
+              << DiagD->getDeclName();
         }
       } else {
         const VarDecl *DiagD = cast<VarDecl>(*I)->getDefinition();
@@ -1022,7 +1054,11 @@ if (!optLevelDecls.empty()) {
             Diag(DiagD->getLocation(), diag::warn_unused_const_variable)
                 << DiagD->getDeclName();
         } else {
-          Diag(DiagD->getLocation(), diag::warn_unused_variable)
+          if (DiagD->getDescribedVarTemplate())
+            Diag(DiagD->getLocation(), diag::warn_unused_template)
+              << /*variable*/1 << DiagD->getDeclName();
+          else
+            Diag(DiagD->getLocation(), diag::warn_unused_variable)
               << DiagD->getDeclName();
         }
       }
@@ -1273,10 +1309,14 @@ void Sema::PushFunctionScope() {
     // memory for a new scope.
     FunctionScopes.back()->Clear();
     FunctionScopes.push_back(FunctionScopes.back());
+    if (LangOpts.OpenMP)
+      pushOpenMPFunctionRegion();
     return;
   }
 
   FunctionScopes.push_back(new FunctionScopeInfo(getDiagnostics()));
+  if (LangOpts.OpenMP)
+    pushOpenMPFunctionRegion();
 }
 
 void Sema::PushBlockScope(Scope *BlockScope, BlockDecl *Block) {
@@ -1325,6 +1365,9 @@ void Sema::PopFunctionScopeInfo(const AnalysisBasedWarnings::Policy *WP,
                                 const Decl *D, const BlockExpr *blkExpr) {
   FunctionScopeInfo *Scope = FunctionScopes.pop_back_val();
   assert(!FunctionScopes.empty() && "mismatched push/pop!");
+
+  if (LangOpts.OpenMP)
+    popOpenMPFunctionRegion(Scope);
 
   // Issue any analysis-based warnings.
   if (WP && D)

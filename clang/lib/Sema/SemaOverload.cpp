@@ -11403,12 +11403,12 @@ Sema::resolveAddressOfOnlyViableOverloadCandidate(Expr *E,
 /// \brief Given an overloaded function, tries to turn it into a non-overloaded
 /// function reference using resolveAddressOfOnlyViableOverloadCandidate. This
 /// will perform access checks, diagnose the use of the resultant decl, and, if
-/// necessary, perform a function-to-pointer decay.
+/// requested, potentially perform a function-to-pointer decay.
 ///
 /// Returns false if resolveAddressOfOnlyViableOverloadCandidate fails.
 /// Otherwise, returns true. This may emit diagnostics and return true.
 bool Sema::resolveAndFixAddressOfOnlyViableOverloadCandidate(
-    ExprResult &SrcExpr) {
+    ExprResult &SrcExpr, bool DoFunctionPointerConverion) {
   Expr *E = SrcExpr.get();
   assert(E->getType() == Context.OverloadTy && "SrcExpr must be an overload");
 
@@ -11423,7 +11423,7 @@ bool Sema::resolveAndFixAddressOfOnlyViableOverloadCandidate(
   DiagnoseUseOfDecl(Found, E->getExprLoc());
   CheckAddressOfMemberAccess(E, DAP);
   Expr *Fixed = FixOverloadedFunctionReference(E, DAP, Found);
-  if (Fixed->getType()->isFunctionType())
+  if (DoFunctionPointerConverion && Fixed->getType()->isFunctionType())
     SrcExpr = DefaultFunctionArrayConversion(Fixed, /*Diagnose=*/false);
   else
     SrcExpr = Fixed;
@@ -11619,6 +11619,10 @@ static void AddOverloadedCallCandidate(Sema &S,
       assert(!KnownValid && "Explicit template arguments?");
       return;
     }
+    // Prevent ill-formed function decls to be added as overload candidates.
+    if (!dyn_cast<FunctionProtoType>(Func->getType()->getAs<FunctionType>()))
+      return;
+
     S.AddOverloadCandidate(Func, FoundDecl, Args, CandidateSet,
                            /*SuppressUsedConversions=*/false,
                            PartialOverloading);
