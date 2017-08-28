@@ -807,7 +807,7 @@ public:
   }
 
   /// getTypeAnnotation - Read a parsed type out of an annotation token.
-  static ParsedType getTypeAnnotation(Token &Tok) {
+  static ParsedType getTypeAnnotation(const Token &Tok) {
     return ParsedType::getFromOpaquePtr(Tok.getAnnotationValue());
   }
 
@@ -818,7 +818,7 @@ private:
 
   /// \brief Read an already-translated primary expression out of an annotation
   /// token.
-  static ExprResult getExprAnnotation(Token &Tok) {
+  static ExprResult getExprAnnotation(const Token &Tok) {
     return ExprResult::getFromOpaquePointer(Tok.getAnnotationValue());
   }
 
