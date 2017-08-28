@@ -1230,42 +1230,10 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
       // after parsing the preamble.
       getDiagnostics().Reset();
       ProcessWarningOptions(getDiagnostics(),
-                            PreambleInvocationIn.getDiagnosticOpts());
+                              PreambleInvocationIn.getDiagnosticOpts(), // INTEL
+                              LangOpts ? LangOpts->IntelCompat : true); // INTEL
       getDiagnostics().setNumWarnings(NumWarningsInPreamble);
 
-<<<<<<< HEAD
-        std::map<llvm::sys::fs::UniqueID, PreambleFileHash>::iterator Overridden
-          = OverriddenFiles.find(Status.getUniqueID());
-        if (Overridden != OverriddenFiles.end()) {
-          // This file was remapped; check whether the newly-mapped file 
-          // matches up with the previous mapping.
-          if (Overridden->second != F->second)
-            AnyFileChanged = true;
-          continue;
-        }
-        
-        // The file was not remapped; check whether it has changed on disk.
-        if (Status.getSize() != uint64_t(F->second.Size) ||
-            llvm::sys::toTimeT(Status.getLastModificationTime()) !=
-                F->second.ModTime)
-          AnyFileChanged = true;
-      }
-          
-      if (!AnyFileChanged) {
-        // Okay! We can re-use the precompiled preamble.
-
-        // Set the state of the diagnostic object to mimic its state
-        // after parsing the preamble.
-        getDiagnostics().Reset();
-        ProcessWarningOptions(getDiagnostics(), 
-                              PreambleInvocation->getDiagnosticOpts(), // INTEL
-                              LangOpts ? LangOpts->IntelCompat : true); // INTEL
-        getDiagnostics().setNumWarnings(NumWarningsInPreamble);
-
-        return llvm::MemoryBuffer::getMemBufferCopy(
-            NewPreamble.Buffer->getBuffer(), FrontendOpts.Inputs[0].getFile());
-      }
-=======
       PreambleRebuildCounter = 1;
       return MainFileBuffer;
     } else {
@@ -1273,7 +1241,6 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
       PreambleDiagnostics.clear();
       TopLevelDeclsInPreamble.clear();
       PreambleRebuildCounter = 1;
->>>>>>> 864bf1d491d904c009254e31be643a3af8122ef7
     }
   }
 
@@ -1291,76 +1258,6 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
   if (!AllowRebuild)
     return nullptr;
 
-<<<<<<< HEAD
-  // Recover resources if we crash before exiting this method.
-  llvm::CrashRecoveryContextCleanupRegistrar<CompilerInstance>
-    CICleanup(Clang.get());
-
-  Clang->setInvocation(std::move(PreambleInvocation));
-  OriginalSourceFile = Clang->getFrontendOpts().Inputs[0].getFile();
-  
-  // Set up diagnostics, capturing all of the diagnostics produced.
-  Clang->setDiagnostics(&getDiagnostics());
-  
-  // Create the target instance.
-  Clang->setTarget(TargetInfo::CreateTargetInfo(
-      Clang->getDiagnostics(), Clang->getInvocation().TargetOpts));
-  if (!Clang->hasTarget()) {
-    llvm::sys::fs::remove(FrontendOpts.OutputFile);
-    Preamble.clear();
-    PreambleRebuildCounter = DefaultPreambleRebuildInterval;
-    PreprocessorOpts.RemappedFileBuffers.pop_back();
-    return nullptr;
-  }
-  
-  // Inform the target of the language options.
-  //
-  // FIXME: We shouldn't need to do this, the target should be immutable once
-  // created. This complexity should be lifted elsewhere.
-  Clang->getTarget().adjust(Clang->getLangOpts());
-  
-  assert(Clang->getFrontendOpts().Inputs.size() == 1 &&
-         "Invocation must have exactly one source file!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind().getFormat() ==
-             InputKind::Source &&
-         "FIXME: AST inputs not yet supported here!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind().getLanguage() !=
-             InputKind::LLVM_IR &&
-         "IR inputs not support here!");
-  
-  // Clear out old caches and data.
-  getDiagnostics().Reset();
-  ProcessWarningOptions(getDiagnostics(), Clang->getDiagnosticOpts(), // INTEL
-                        LangOpts ? LangOpts->IntelCompat : true);     // INTEL
-  checkAndRemoveNonDriverDiags(StoredDiagnostics);
-  TopLevelDecls.clear();
-  TopLevelDeclsInPreamble.clear();
-  PreambleDiagnostics.clear();
-
-  VFS = createVFSFromCompilerInvocation(Clang->getInvocation(),
-                                        getDiagnostics(), VFS);
-  if (!VFS)
-    return nullptr;
-
-  // Create a file manager object to provide access to and cache the filesystem.
-  Clang->setFileManager(new FileManager(Clang->getFileSystemOpts(), VFS));
-
-  // Create the source manager.
-  Clang->setSourceManager(new SourceManager(getDiagnostics(),
-                                            Clang->getFileManager()));
-
-  auto PreambleDepCollector = std::make_shared<DependencyCollector>();
-  Clang->addDependencyCollector(PreambleDepCollector);
-
-  std::unique_ptr<PrecompilePreambleAction> Act;
-  Act.reset(new PrecompilePreambleAction(*this));
-  if (!Act->BeginSourceFile(*Clang.get(), Clang->getFrontendOpts().Inputs[0])) {
-    llvm::sys::fs::remove(FrontendOpts.OutputFile);
-    Preamble.clear();
-    PreambleRebuildCounter = DefaultPreambleRebuildInterval;
-    PreprocessorOpts.RemappedFileBuffers.pop_back();
-    return nullptr;
-=======
   SmallVector<StandaloneDiagnostic, 4> NewPreambleDiagsStandalone;
   SmallVector<StoredDiagnostic, 4> NewPreambleDiags;
   ASTUnitPreambleCallbacks Callbacks(NewPreambleDiags);
@@ -1399,7 +1296,6 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
       }
       return nullptr;
     }
->>>>>>> 864bf1d491d904c009254e31be643a3af8122ef7
   }
 
   assert(Preamble && "Preamble wasn't built");
@@ -2187,16 +2083,10 @@ void ASTUnit::CodeComplete(
   Clang->setDiagnostics(&Diag);
   CaptureDroppedDiagnostics Capture(true, 
                                     Clang->getDiagnostics(), 
-<<<<<<< HEAD
-                                    StoredDiagnostics);
+                                    &StoredDiagnostics, nullptr);
   ProcessWarningOptions(Diag, Inv.getDiagnosticOpts(), // INTEL
                         LangOpts.IntelCompat); // INTEL
   
-=======
-                                    &StoredDiagnostics, nullptr);
-  ProcessWarningOptions(Diag, Inv.getDiagnosticOpts());
-
->>>>>>> 864bf1d491d904c009254e31be643a3af8122ef7
   // Create the target instance.
   Clang->setTarget(TargetInfo::CreateTargetInfo(
       Clang->getDiagnostics(), Clang->getInvocation().TargetOpts));
