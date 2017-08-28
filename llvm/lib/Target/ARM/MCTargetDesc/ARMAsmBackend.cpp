@@ -739,11 +739,8 @@ unsigned ARMAsmBackend::adjustFixupValue(const MCAssembler &Asm,
 }
 
 void ARMAsmBackend::processFixupValue(const MCAssembler &Asm,
-                                      const MCAsmLayout &Layout,
                                       const MCFixup &Fixup,
-                                      const MCFragment *DF,
-                                      const MCValue &Target, uint64_t &Value,
-                                      bool &IsResolved) {
+                                      const MCValue &Target, bool &IsResolved) {
   const MCSymbolRefExpr *A = Target.getSymA();
   const MCSymbol *Sym = A ? &A->getSymbol() : nullptr;
   const unsigned FixupKind = Fixup.getKind() ;
@@ -887,8 +884,9 @@ static unsigned getFixupKindContainerSizeBytes(unsigned Kind) {
 void ARMAsmBackend::applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                                const MCValue &Target,
                                MutableArrayRef<char> Data, uint64_t Value,
-                               bool IsPCRel, MCContext &Ctx) const {
+                               bool IsPCRel) const {
   unsigned NumBytes = getFixupKindNumBytes(Fixup.getKind());
+  MCContext &Ctx = Asm.getContext();
   Value = adjustFixupValue(Asm, Fixup, Target, Value, IsPCRel, Ctx,
                            IsLittleEndian, true);
   if (!Value)

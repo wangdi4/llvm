@@ -115,7 +115,7 @@ public:
 
   void applyFixup(const MCAssembler &Asm, const MCFixup &Fixup,
                   const MCValue &Target, MutableArrayRef<char> Data,
-                  uint64_t Value, bool IsPCRel, MCContext &Ctx) const override {
+                  uint64_t Value, bool IsPCRel) const override {
     Value = adjustFixupValue(Fixup.getKind(), Value);
     if (!Value) return;           // Doesn't change encoding.
 
@@ -131,10 +131,8 @@ public:
     }
   }
 
-  void processFixupValue(const MCAssembler &Asm, const MCAsmLayout &Layout,
-                         const MCFixup &Fixup, const MCFragment *DF,
-                         const MCValue &Target, uint64_t &Value,
-                         bool &IsResolved) override {
+  void processFixupValue(const MCAssembler &Asm, const MCFixup &Fixup,
+                         const MCValue &Target, bool &IsResolved) override {
     switch ((PPC::Fixups)Fixup.getKind()) {
     default: break;
     case PPC::fixup_ppc_br24:
