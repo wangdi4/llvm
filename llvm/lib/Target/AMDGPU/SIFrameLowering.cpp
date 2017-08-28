@@ -143,7 +143,10 @@ unsigned SIFrameLowering::getReservedPrivateSegmentBufferReg(
   return ScratchRsrcReg;
 }
 
-unsigned SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
+// Shift down registers reserved for the scratch wave offset and stack pointer
+// SGPRs.
+std::pair<unsigned, unsigned>
+SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
   const SISubtarget &ST,
   const SIInstrInfo *TII,
   const SIRegisterInfo *TRI,
@@ -154,18 +157,20 @@ unsigned SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
 
   // No replacement necessary.
   if (ScratchWaveOffsetReg == AMDGPU::NoRegister ||
-      !MRI.isPhysRegUsed(ScratchWaveOffsetReg))
-    return AMDGPU::NoRegister;
+      !MRI.isPhysRegUsed(ScratchWaveOffsetReg)) {
+    assert(MFI->getStackPtrOffsetReg() == AMDGPU::NoRegister);
+    return std::make_pair(AMDGPU::NoRegister, AMDGPU::NoRegister);
+  }
 
-  if (ST.hasSGPRInitBug() ||
-      ScratchWaveOffsetReg != TRI->reservedPrivateSegmentWaveByteOffsetReg(MF))
-    return ScratchWaveOffsetReg;
+  unsigned SPReg = MFI->getStackPtrOffsetReg();
+  if (ST.hasSGPRInitBug())
+    return std::make_pair(ScratchWaveOffsetReg, SPReg);
 
   unsigned NumPreloaded = MFI->getNumPreloadedSGPRs();
 
   ArrayRef<MCPhysReg> AllSGPRs = getAllSGPRs(ST, MF);
   if (NumPreloaded > AllSGPRs.size())
-    return ScratchWaveOffsetReg;
+    return std::make_pair(ScratchWaveOffsetReg, SPReg);
 
   AllSGPRs = AllSGPRs.slice(NumPreloaded);
 
@@ -180,26 +185,37 @@ unsigned SIFrameLowering::getReservedPrivateSegmentWaveByteOffsetReg(
   //     register from the list to consider, it means that when this
   //     register is being used for the scratch wave offset and there
   //     are no other free SGPRs, then the value will stay in this register.
+  // + 1 if stack pointer is used.
   // ----
-  //  13
-  if (AllSGPRs.size() < 13)
-    return ScratchWaveOffsetReg;
+  //  13 (+1)
+  unsigned ReservedRegCount = 13;
 
-  for (MCPhysReg Reg : AllSGPRs.drop_back(13)) {
+  if (AllSGPRs.size() < ReservedRegCount)
+    return std::make_pair(ScratchWaveOffsetReg, SPReg);
+
+  bool HandledScratchWaveOffsetReg =
+    ScratchWaveOffsetReg != TRI->reservedPrivateSegmentWaveByteOffsetReg(MF);
+
+  for (MCPhysReg Reg : AllSGPRs.drop_back(ReservedRegCount)) {
     // Pick the first unallocated SGPR. Be careful not to pick an alias of the
     // scratch descriptor, since we haven’t added its uses yet.
     if (!MRI.isPhysRegUsed(Reg) && MRI.isAllocatable(Reg)) {
-      MRI.replaceRegWith(ScratchWaveOffsetReg, Reg);
-      MFI->setScratchWaveOffsetReg(Reg);
-      return Reg;
+      if (!HandledScratchWaveOffsetReg) {
+        HandledScratchWaveOffsetReg = true;
+
+        MRI.replaceRegWith(ScratchWaveOffsetReg, Reg);
+        MFI->setScratchWaveOffsetReg(Reg);
+        ScratchWaveOffsetReg = Reg;
+        break;
+      }
     }
   }
 
-  return ScratchWaveOffsetReg;
+  return std::make_pair(ScratchWaveOffsetReg, SPReg);
 }
 
-void SIFrameLowering::emitPrologue(MachineFunction &MF,
-                                   MachineBasicBlock &MBB) const {
+void SIFrameLowering::emitEntryFunctionPrologue(MachineFunction &MF,
+                                                MachineBasicBlock &MBB) const {
   // Emit debugger prologue if "amdgpu-debugger-emit-prologue" attribute was
   // specified.
   const SISubtarget &ST = MF.getSubtarget<SISubtarget>();
@@ -233,9 +249,26 @@ void SIFrameLowering::emitPrologue(MachineFunction &MF,
   if (MF.getFrameInfo().hasStackObjects() && MFI->hasFlatScratchInit())
     emitFlatScratchInit(ST, MF, MBB);
 
+  unsigned SPReg = MFI->getStackPtrOffsetReg();
+  if (SPReg != AMDGPU::NoRegister) {
+    DebugLoc DL;
+    int64_t StackSize = MF.getFrameInfo().getStackSize();
+
+    if (StackSize == 0) {
+      BuildMI(MBB, MBB.begin(), DL, TII->get(AMDGPU::COPY), SPReg)
+        .addReg(MFI->getScratchWaveOffsetReg());
+    } else {
+      BuildMI(MBB, MBB.begin(), DL, TII->get(AMDGPU::S_ADD_U32), SPReg)
+        .addReg(MFI->getScratchWaveOffsetReg())
+        .addImm(StackSize * ST.getWavefrontSize());
+    }
+  }
+
   unsigned ScratchRsrcReg
     = getReservedPrivateSegmentBufferReg(ST, TII, TRI, MFI, MF);
-  unsigned ScratchWaveOffsetReg
+
+  unsigned ScratchWaveOffsetReg;
+  std::tie(ScratchWaveOffsetReg, SPReg)
     = getReservedPrivateSegmentWaveByteOffsetReg(ST, TII, TRI, MFI, MF);
 
   // It's possible to have uses of only ScratchWaveOffsetReg without
@@ -311,7 +344,8 @@ void SIFrameLowering::emitPrologue(MachineFunction &MF,
   if (OffsetRegUsed &&
       PreloadedScratchWaveOffsetReg != ScratchWaveOffsetReg) {
     BuildMI(MBB, I, DL, TII->get(AMDGPU::COPY), ScratchWaveOffsetReg)
-      .addReg(PreloadedScratchWaveOffsetReg, RegState::Kill);
+      .addReg(PreloadedScratchWaveOffsetReg,
+              MRI.isPhysRegUsed(ScratchWaveOffsetReg) ? 0 : RegState::Kill);
   }
 
   if (CopyBuffer && !CopyBufferFirst) {
@@ -379,6 +413,13 @@ void SIFrameLowering::emitPrologue(MachineFunction &MF,
       .addImm(Rsrc23 >> 32)
       .addReg(ScratchRsrcReg, RegState::ImplicitDefine);
   }
+}
+
+void SIFrameLowering::emitPrologue(MachineFunction &MF,
+                                   MachineBasicBlock &MBB) const {
+  const SIMachineFunctionInfo *MFI = MF.getInfo<SIMachineFunctionInfo>();
+  if (MFI->isEntryFunction())
+    emitEntryFunctionPrologue(MF, MBB);
 }
 
 void SIFrameLowering::emitEpilogue(MachineFunction &MF,

@@ -115,9 +115,6 @@ protected:
                                     SmallVectorImpl<SDValue> &Results) const;
   void analyzeFormalArgumentsCompute(CCState &State,
                               const SmallVectorImpl<ISD::InputArg> &Ins) const;
-  void AnalyzeReturn(CCState &State,
-                     const SmallVectorImpl<ISD::OutputArg> &Outs) const;
-
 public:
   AMDGPUTargetLowering(const TargetMachine &TM, const AMDGPUSubtarget &STI);
 
@@ -125,12 +122,15 @@ public:
     if (getTargetMachine().Options.NoSignedZerosFPMath)
       return true;
 
-    if (const auto *BO = dyn_cast<BinaryWithFlagsSDNode>(Op))
-      return BO->Flags.hasNoSignedZeros();
+    const auto Flags = Op.getNode()->getFlags();
+    if (Flags.isDefined())
+      return Flags.hasNoSignedZeros();
 
     return false;
   }
 
+  static bool allUsesHaveSourceMods(const SDNode *N,
+                                    unsigned CostThreshold = 4);
   bool isFAbsFree(EVT VT) const override;
   bool isFNegFree(EVT VT) const override;
   bool isTruncateFree(EVT Src, EVT Dest) const override;
@@ -161,6 +161,8 @@ public:
   bool isCheapToSpeculateCtlz() const override;
 
   static CCAssignFn *CCAssignFnForCall(CallingConv::ID CC, bool IsVarArg);
+  static CCAssignFn *CCAssignFnForReturn(CallingConv::ID CC, bool IsVarArg);
+
   SDValue LowerReturn(SDValue Chain, CallingConv::ID CallConv, bool isVarArg,
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
                       const SmallVectorImpl<SDValue> &OutVals, const SDLoc &DL,
@@ -199,8 +201,7 @@ public:
   /// either zero or one and return them in the \p KnownZero and \p KnownOne
   /// bitsets.
   void computeKnownBitsForTargetNode(const SDValue Op,
-                                     APInt &KnownZero,
-                                     APInt &KnownOne,
+                                     KnownBits &Known,
                                      const APInt &DemandedElts,
                                      const SelectionDAG &DAG,
                                      unsigned Depth = 0) const override;
@@ -370,6 +371,8 @@ enum NodeType : unsigned {
   BUILD_VERTICAL_VECTOR,
   /// Pointer to the start of the shader's constant data.
   CONST_DATA_PTR,
+  INIT_EXEC,
+  INIT_EXEC_FROM_INPUT,
   SENDMSG,
   SENDMSGHALT,
   INTERP_MOV,

@@ -84,13 +84,6 @@ namespace {
     /// \brief The file in which the precompiled preamble is stored.
     std::string PreambleFile;
 
-    /// \brief Temporary files that should be removed when the ASTUnit is
-    /// destroyed.
-    SmallVector<std::string, 4> TemporaryFiles;
-
-    /// \brief Erase temporary files.
-    void CleanTemporaryFiles();
-
     /// \brief Erase the preamble file.
     void CleanPreambleFile();
 
@@ -163,12 +156,6 @@ static const std::string &getPreambleFile(const ASTUnit *AU) {
   return getOnDiskData(AU).PreambleFile;  
 }
 
-void OnDiskData::CleanTemporaryFiles() {
-  for (StringRef File : TemporaryFiles)
-    llvm::sys::fs::remove(File);
-  TemporaryFiles.clear();
-}
-
 void OnDiskData::CleanPreambleFile() {
   if (!PreambleFile.empty()) {
     llvm::sys::fs::remove(PreambleFile);
@@ -177,7 +164,6 @@ void OnDiskData::CleanPreambleFile() {
 }
 
 void OnDiskData::Cleanup() {
-  CleanTemporaryFiles();
   CleanPreambleFile();
 }
 
@@ -192,14 +178,6 @@ struct ASTUnit::ASTWriterData {
 
 void ASTUnit::clearFileLevelDecls() {
   llvm::DeleteContainerSeconds(FileDecls);
-}
-
-void ASTUnit::CleanTemporaryFiles() {
-  getOnDiskData(this).CleanTemporaryFiles();
-}
-
-void ASTUnit::addTemporaryFile(StringRef TempFile) {
-  getOnDiskData(this).TemporaryFiles.push_back(TempFile);
 }
 
 /// \brief After failing to build a precompiled preamble (due to
@@ -1076,9 +1054,11 @@ bool ASTUnit::Parse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
   
   assert(Clang->getFrontendOpts().Inputs.size() == 1 &&
          "Invocation must have exactly one source file!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_AST &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getFormat() ==
+             InputKind::Source &&
          "FIXME: AST inputs not yet supported here!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_LLVM_IR &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getLanguage() !=
+             InputKind::LLVM_IR &&
          "IR inputs not support here!");
 
   // Configure the various subsystems.
@@ -1098,7 +1078,6 @@ bool ASTUnit::Parse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
   // Clear out old caches and data.
   TopLevelDecls.clear();
   clearFileLevelDecls();
-  CleanTemporaryFiles();
 
   if (!OverrideMainBuffer) {
     checkAndRemoveNonDriverDiags(StoredDiagnostics);
@@ -1552,9 +1531,11 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
   
   assert(Clang->getFrontendOpts().Inputs.size() == 1 &&
          "Invocation must have exactly one source file!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_AST &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getFormat() ==
+             InputKind::Source &&
          "FIXME: AST inputs not yet supported here!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_LLVM_IR &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getLanguage() !=
+             InputKind::LLVM_IR &&
          "IR inputs not support here!");
   
   // Clear out old caches and data.
@@ -1810,10 +1791,12 @@ ASTUnit *ASTUnit::LoadFromCompilerInvocationAction(
   
   assert(Clang->getFrontendOpts().Inputs.size() == 1 &&
          "Invocation must have exactly one source file!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_AST &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getFormat() ==
+             InputKind::Source &&
          "FIXME: AST inputs not yet supported here!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_LLVM_IR &&
-         "IR inputs not supported here!");
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getLanguage() !=
+             InputKind::LLVM_IR &&
+         "IR inputs not support here!");
 
   // Configure the various subsystems.
   AST->TheSema.reset();
@@ -2399,11 +2382,12 @@ void ASTUnit::CodeComplete(
   
   assert(Clang->getFrontendOpts().Inputs.size() == 1 &&
          "Invocation must have exactly one source file!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_AST &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getFormat() ==
+             InputKind::Source &&
          "FIXME: AST inputs not yet supported here!");
-  assert(Clang->getFrontendOpts().Inputs[0].getKind() != IK_LLVM_IR &&
+  assert(Clang->getFrontendOpts().Inputs[0].getKind().getLanguage() !=
+             InputKind::LLVM_IR &&
          "IR inputs not support here!");
-
   
   // Use the source and file managers that we were given.
   Clang->setFileManager(&FileMgr);

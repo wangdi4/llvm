@@ -32,6 +32,7 @@ namespace llvm {
 namespace object {
 
 StringRef getELFRelocationTypeName(uint32_t Machine, uint32_t Type);
+StringRef getELFSectionTypeName(uint32_t Machine, uint32_t Type);
 
 // Subclasses of ELFFile may need this for template instantiation
 inline std::pair<unsigned char, unsigned char>
@@ -234,10 +235,7 @@ ELFFile<ELFT>::getSection(const Elf_Sym *Sym, Elf_Sym_Range Symbols,
   uint32_t Index = *IndexOrErr;
   if (Index == 0)
     return nullptr;
-  auto SectionsOrErr = sections();
-  if (!SectionsOrErr)
-    return SectionsOrErr.takeError();
-  return object::getSection<ELFT>(*SectionsOrErr, Index);
+  return getSection(Index);
 }
 
 template <class ELFT>

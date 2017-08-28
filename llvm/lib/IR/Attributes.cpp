@@ -34,6 +34,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
+#include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <map>
@@ -315,6 +317,8 @@ std::string Attribute::getAsString(bool InAttrGrp) const {
     return "returns_twice";
   if (hasAttribute(Attribute::SExt))
     return "signext";
+  if (hasAttribute(Attribute::Speculatable))
+    return "speculatable";
   if (hasAttribute(Attribute::StackProtect))
     return "ssp";
   if (hasAttribute(Attribute::StackProtectReq))
@@ -502,16 +506,74 @@ AttributeSet AttributeSet::get(LLVMContext &C, ArrayRef<Attribute> Attrs) {
   return AttributeSet(AttributeSetNode::get(C, Attrs));
 }
 
+AttributeSet AttributeSet::addAttribute(LLVMContext &C,
+                          Attribute::AttrKind Kind) const {
+  if (hasAttribute(Kind)) return *this;
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return addAttributes(C, AttributeSet::get(C, B));
+}
+
+AttributeSet AttributeSet::addAttribute(LLVMContext &C, StringRef Kind,
+                          StringRef Value) const {
+  AttrBuilder B;
+  B.addAttribute(Kind, Value);
+  return addAttributes(C, AttributeSet::get(C, B));
+}
+
+AttributeSet AttributeSet::addAttributes(LLVMContext &C,
+                                         const AttributeSet AS) const {
+  if (!hasAttributes())
+    return AS;
+
+  if (!AS.hasAttributes())
+    return *this;
+
+  AttrBuilder B(AS);
+  for (Attribute I : *this)
+    B.addAttribute(I);
+
+ return get(C, B);
+}
+
+AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
+                                             Attribute::AttrKind Kind) const {
+  if (!hasAttribute(Kind)) return *this;
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return removeAttributes(C, B);
+}
+
+AttributeSet AttributeSet::removeAttribute(LLVMContext &C,
+                                             StringRef Kind) const {
+  if (!hasAttribute(Kind)) return *this;
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return removeAttributes(C, B);
+}
+
+AttributeSet AttributeSet::removeAttributes(LLVMContext &C,
+                                              const AttrBuilder &Attrs) const {
+
+  // FIXME it is not obvious how this should work for alignment.
+  // For now, say we can't pass in alignment, which no current use does.
+  assert(!Attrs.hasAlignmentAttr() && "Attempt to change alignment!");
+
+  AttrBuilder B(*this);
+  B.remove(Attrs);
+  return get(C, B);
+}
+
 unsigned AttributeSet::getNumAttributes() const {
   return SetNode ? SetNode->getNumAttributes() : 0;
 }
 
 bool AttributeSet::hasAttribute(Attribute::AttrKind Kind) const {
-  return SetNode ? SetNode->hasAttribute(Kind) : 0;
+  return SetNode ? SetNode->hasAttribute(Kind) : false;
 }
 
 bool AttributeSet::hasAttribute(StringRef Kind) const {
-  return SetNode ? SetNode->hasAttribute(Kind) : 0;
+  return SetNode ? SetNode->hasAttribute(Kind) : false;
 }
 
 Attribute AttributeSet::getAttribute(Attribute::AttrKind Kind) const {
@@ -554,6 +616,14 @@ AttributeSet::iterator AttributeSet::begin() const {
 AttributeSet::iterator AttributeSet::end() const {
   return SetNode ? SetNode->end() : nullptr;
 }
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+LLVM_DUMP_METHOD void AttributeSet::dump() const {
+  dbgs() << "AS =\n";
+    dbgs() << "  { ";
+    dbgs() << getAsString(true) << " }\n";
+}
+#endif
 
 //===----------------------------------------------------------------------===//
 // AttributeSetNode Definition
@@ -934,7 +1004,9 @@ AttributeList AttributeList::get(LLVMContext &C,
 AttributeList AttributeList::addAttribute(LLVMContext &C, unsigned Index,
                                           Attribute::AttrKind Kind) const {
   if (hasAttribute(Index, Kind)) return *this;
-  return addAttributes(C, Index, AttributeList::get(C, Index, Kind));
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return addAttributes(C, Index, B);
 }
 
 AttributeList AttributeList::addAttribute(LLVMContext &C, unsigned Index,
@@ -942,7 +1014,7 @@ AttributeList AttributeList::addAttribute(LLVMContext &C, unsigned Index,
                                           StringRef Value) const {
   AttrBuilder B;
   B.addAttribute(Kind, Value);
-  return addAttributes(C, Index, AttributeList::get(C, Index, B));
+  return addAttributes(C, Index, B);
 }
 
 AttributeList AttributeList::addAttribute(LLVMContext &C,
@@ -976,14 +1048,6 @@ AttributeList AttributeList::addAttribute(LLVMContext &C,
 }
 
 AttributeList AttributeList::addAttributes(LLVMContext &C, unsigned Index,
-                                           AttributeList Attrs) const {
-  if (!pImpl) return Attrs;
-  if (!Attrs.pImpl) return *this;
-
-  return addAttributes(C, Index, Attrs.getAttributes(Index));
-}
-
-AttributeList AttributeList::addAttributes(LLVMContext &C, unsigned Index,
                                            const AttrBuilder &B) const {
   if (!B.hasAttributes())
     return *this;
@@ -994,7 +1058,7 @@ AttributeList AttributeList::addAttributes(LLVMContext &C, unsigned Index,
 #ifndef NDEBUG
   // FIXME it is not obvious how this should work for alignment. For now, say
   // we can't change a known alignment.
-  unsigned OldAlign = getParamAlignment(Index);
+  unsigned OldAlign = getAttributes(Index).getAlignment();
   unsigned NewAlign = B.getAlignment();
   assert((!OldAlign || !NewAlign || OldAlign == NewAlign) &&
          "Attempt to change alignment!");
@@ -1032,18 +1096,17 @@ AttributeList AttributeList::addAttributes(LLVMContext &C, unsigned Index,
 AttributeList AttributeList::removeAttribute(LLVMContext &C, unsigned Index,
                                              Attribute::AttrKind Kind) const {
   if (!hasAttribute(Index, Kind)) return *this;
-  return removeAttributes(C, Index, AttributeList::get(C, Index, Kind));
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return removeAttributes(C, Index, B);
 }
 
 AttributeList AttributeList::removeAttribute(LLVMContext &C, unsigned Index,
                                              StringRef Kind) const {
   if (!hasAttribute(Index, Kind)) return *this;
-  return removeAttributes(C, Index, AttributeList::get(C, Index, Kind));
-}
-
-AttributeList AttributeList::removeAttributes(LLVMContext &C, unsigned Index,
-                                              AttributeList Attrs) const {
-  return removeAttributes(C, Index, AttrBuilder(Attrs.getAttributes(Index)));
+  AttrBuilder B;
+  B.addAttribute(Kind);
+  return removeAttributes(C, Index, B);
 }
 
 AttributeList AttributeList::removeAttributes(LLVMContext &C, unsigned Index,
@@ -1101,7 +1164,7 @@ AttributeList AttributeList::addDereferenceableAttr(LLVMContext &C,
                                                     uint64_t Bytes) const {
   AttrBuilder B;
   B.addDereferenceableAttr(Bytes);
-  return addAttributes(C, Index, AttributeList::get(C, Index, B));
+  return addAttributes(C, Index, B);
 }
 
 AttributeList
@@ -1109,7 +1172,7 @@ AttributeList::addDereferenceableOrNullAttr(LLVMContext &C, unsigned Index,
                                             uint64_t Bytes) const {
   AttrBuilder B;
   B.addDereferenceableOrNullAttr(Bytes);
-  return addAttributes(C, Index, AttributeList::get(C, Index, B));
+  return addAttributes(C, Index, B);
 }
 
 AttributeList
@@ -1118,7 +1181,7 @@ AttributeList::addAllocSizeAttr(LLVMContext &C, unsigned Index,
                                 const Optional<unsigned> &NumElemsArg) {
   AttrBuilder B;
   B.addAllocSizeAttr(ElemSizeArg, NumElemsArg);
-  return addAttributes(C, Index, AttributeList::get(C, Index, B));
+  return addAttributes(C, Index, B);
 }
 
 //===----------------------------------------------------------------------===//
@@ -1128,7 +1191,7 @@ AttributeList::addAllocSizeAttr(LLVMContext &C, unsigned Index,
 LLVMContext &AttributeList::getContext() const { return pImpl->getContext(); }
 
 AttributeSet AttributeList::getParamAttributes(unsigned ArgNo) const {
-  return getAttributes(ArgNo + 1);
+  return getAttributes(ArgNo + FirstArgIndex);
 }
 
 AttributeSet AttributeList::getRetAttributes() const {
@@ -1189,8 +1252,12 @@ Attribute AttributeList::getAttribute(unsigned Index, StringRef Kind) const {
   return getAttributes(Index).getAttribute(Kind);
 }
 
-unsigned AttributeList::getParamAlignment(unsigned Index) const {
-  return getAttributes(Index).getAlignment();
+unsigned AttributeList::getRetAlignment() const {
+  return getAttributes(ReturnIndex).getAlignment();
+}
+
+unsigned AttributeList::getParamAlignment(unsigned ArgNo) const {
+  return getAttributes(ArgNo + FirstArgIndex).getAlignment();
 }
 
 unsigned AttributeList::getStackAlignment(unsigned Index) const {
@@ -1363,15 +1430,7 @@ AttrBuilder &AttrBuilder::removeAttribute(Attribute::AttrKind Val) {
 }
 
 AttrBuilder &AttrBuilder::removeAttributes(AttributeList A, uint64_t Index) {
-  for (Attribute Attr : A.getAttributes(Index)) {
-    if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
-      removeAttribute(Attr.getKindAsEnum());
-    } else {
-      assert(Attr.isStringAttribute() && "Invalid attribute type!");
-      removeAttribute(Attr.getKindAsString());
-    }
-  }
-
+  remove(A.getAttributes(Index));
   return *this;
 }
 
@@ -1513,25 +1572,16 @@ bool AttrBuilder::hasAttributes() const {
   return !Attrs.none() || !TargetDepAttrs.empty();
 }
 
-bool AttrBuilder::hasAttributes(AttributeList A, uint64_t Index) const {
-  unsigned Slot = ~0U;
-  for (unsigned I = 0, E = A.getNumSlots(); I != E; ++I)
-    if (A.getSlotIndex(I) == Index) {
-      Slot = I;
-      break;
-    }
+bool AttrBuilder::hasAttributes(AttributeList AL, uint64_t Index) const {
+  AttributeSet AS = AL.getAttributes(Index);
 
-  assert(Slot != ~0U && "Couldn't find the index!");
-
-  for (AttributeList::iterator I = A.begin(Slot), E = A.end(Slot); I != E;
-       ++I) {
-    Attribute Attr = *I;
+  for (Attribute Attr : AS) {
     if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
-      if (Attrs[I->getKindAsEnum()])
+      if (contains(Attr.getKindAsEnum()))
         return true;
     } else {
       assert(Attr.isStringAttribute() && "Invalid attribute kind!");
-      return TargetDepAttrs.find(Attr.getKindAsString())!=TargetDepAttrs.end();
+      return contains(Attr.getKindAsString());
     }
   }
 
@@ -1621,12 +1671,10 @@ static void adjustCallerSSPLevel(Function &Caller, const Function &Callee) {
   // If upgrading the SSP attribute, clear out the old SSP Attributes first.
   // Having multiple SSP attributes doesn't actually hurt, but it adds useless
   // clutter to the IR.
-  AttrBuilder B;
-  B.addAttribute(Attribute::StackProtect)
-    .addAttribute(Attribute::StackProtectStrong)
-    .addAttribute(Attribute::StackProtectReq);
-  AttributeList OldSSPAttr =
-      AttributeList::get(Caller.getContext(), AttributeList::FunctionIndex, B);
+  AttrBuilder OldSSPAttr;
+  OldSSPAttr.addAttribute(Attribute::StackProtect)
+      .addAttribute(Attribute::StackProtectStrong)
+      .addAttribute(Attribute::StackProtectReq);
 
   if (Callee.hasFnAttribute(Attribute::StackProtectReq)) {
     Caller.removeAttributes(AttributeList::FunctionIndex, OldSSPAttr);

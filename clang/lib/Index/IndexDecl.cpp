@@ -52,6 +52,22 @@ public:
     return MD && !MD->isImplicit() && MD->isThisDeclarationADefinition();
   }
 
+  void handleTemplateArgumentLoc(const TemplateArgumentLoc &TALoc,
+                                 const NamedDecl *Parent,
+                                 const DeclContext *DC) {
+    const TemplateArgumentLocInfo &LocInfo = TALoc.getLocInfo();
+    switch (TALoc.getArgument().getKind()) {
+    case TemplateArgument::Expression:
+      IndexCtx.indexBody(LocInfo.getAsExpr(), Parent, DC);
+      break;
+    case TemplateArgument::Type:
+      IndexCtx.indexTypeSourceInfo(LocInfo.getAsTypeSourceInfo(), Parent, DC);
+      break;
+    default:
+      break;
+    }
+  }
+
   void handleDeclarator(const DeclaratorDecl *D,
                         const NamedDecl *Parent = nullptr,
                         bool isIBType = false) {
@@ -184,9 +200,7 @@ public:
             continue;
         }
         Relations.emplace_back(
-            SymbolRoleSet(SymbolRole::RelationOverrideOf) |
-                SymbolRoleSet(SymbolRole::RelationSpecializationOf),
-            ND);
+            SymbolRoleSet(SymbolRole::RelationSpecializationOf), ND);
       }
     }
   }
@@ -206,6 +220,10 @@ public:
       }
     }
     gatherTemplatePseudoOverrides(D, Relations);
+    if (const auto *Base = D->getPrimaryTemplate())
+      Relations.push_back(
+          SymbolRelation(SymbolRoleSet(SymbolRole::RelationSpecializationOf),
+                         Base->getTemplatedDecl()));
 
     TRY_DECL(D, IndexCtx.handleDecl(D, Roles, Relations));
     handleDeclarator(D);
@@ -230,6 +248,12 @@ public:
                                  TypeNameInfo->getTypeLoc().getLocStart(),
                                  Dtor->getParent(), Dtor->getDeclContext());
       }
+    }
+    // Template specialization arguments.
+    if (const ASTTemplateArgumentListInfo *TemplateArgInfo =
+            D->getTemplateSpecializationArgsAsWritten()) {
+      for (const auto &Arg : TemplateArgInfo->arguments())
+        handleTemplateArgumentLoc(Arg, D, D->getLexicalDeclContext());
     }
 
     if (D->isThisDeclarationADefinition()) {
@@ -477,17 +501,17 @@ public:
       return true;
 
     assert(D->getPropertyImplementation() == ObjCPropertyImplDecl::Synthesize);
+    SymbolRoleSet AccessorMethodRoles =
+      SymbolRoleSet(SymbolRole::Dynamic) | SymbolRoleSet(SymbolRole::Implicit);
     if (ObjCMethodDecl *MD = PD->getGetterMethodDecl()) {
       if (MD->isPropertyAccessor() &&
           !hasUserDefined(MD, Container))
-        IndexCtx.handleDecl(MD, Loc, SymbolRoleSet(SymbolRole::Implicit), {},
-                            Container);
+        IndexCtx.handleDecl(MD, Loc, AccessorMethodRoles, {}, Container);
     }
     if (ObjCMethodDecl *MD = PD->getSetterMethodDecl()) {
       if (MD->isPropertyAccessor() &&
           !hasUserDefined(MD, Container))
-        IndexCtx.handleDecl(MD, Loc, SymbolRoleSet(SymbolRole::Implicit), {},
-                            Container);
+        IndexCtx.handleDecl(MD, Loc, AccessorMethodRoles, {}, Container);
     }
     if (ObjCIvarDecl *IvarD = D->getPropertyIvarDecl()) {
       if (IvarD->getSynthesize()) {
@@ -517,6 +541,14 @@ public:
   bool VisitNamespaceDecl(const NamespaceDecl *D) {
     TRY_DECL(D, IndexCtx.handleDecl(D));
     IndexCtx.indexDeclContext(D);
+    return true;
+  }
+
+  bool VisitNamespaceAliasDecl(const NamespaceAliasDecl *D) {
+    TRY_DECL(D, IndexCtx.handleDecl(D));
+    IndexCtx.indexNestedNameSpecifierLoc(D->getQualifierLoc(), D);
+    IndexCtx.handleReference(D->getAliasedNamespace(), D->getTargetNameLoc(), D,
+                             D->getLexicalDeclContext());
     return true;
   }
 
@@ -560,6 +592,9 @@ public:
           D, SymbolRelation(SymbolRoleSet(SymbolRole::RelationSpecializationOf),
                             SpecializationOf));
     }
+    if (TypeSourceInfo *TSI = D->getTypeAsWritten())
+      IndexCtx.indexTypeSourceInfo(TSI, /*Parent=*/nullptr,
+                                   D->getLexicalDeclContext());
     return true;
   }
 
