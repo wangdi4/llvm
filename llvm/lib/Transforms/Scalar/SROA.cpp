@@ -1291,7 +1291,7 @@ static bool isSafeSelectToSpeculate(SelectInst &SI) {
     if (!LI || !LI->isSimple())
       return false;
 
-    // Both operands to the select need to be dereferencable, either
+    // Both operands to the select need to be dereferenceable, either
     // absolutely (e.g. allocas) or at this point because we can see other
     // accesses to it.
     if (!isSafeToLoadUnconditionally(TValue, LI->getAlignment(), DL, LI))
