@@ -1,5 +1,4 @@
-# INTEL_CUSTOMIZATION 
-# RUN: llvm-mc  -triple i386-linux-gnu %s| FileCheck %s
+# RUN: llvm-mc -triple i386-linux-gnu %s | FileCheck %s
 
 # Checking that the '%' was evaluated as a string first
 # In a fail scenario: The asmprint will print: addl $%(1+4), %eax
@@ -57,9 +56,9 @@ macro_call_1 %(1-1)
 
 .macro multi_args_macro arg1 arg2 arg3
     label\arg1\arg2\arg3:
-   addl $\arg1, %eax
-   addl $\arg2, %eax
-   addl $\arg3, %eax
+	addl $\arg1, %eax
+	addl $\arg2, %eax
+	addl $\arg3, %eax
 .endm
 
 multi_args_macro %(1+4-5) 1 %2+1

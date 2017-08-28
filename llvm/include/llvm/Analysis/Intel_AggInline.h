@@ -37,7 +37,7 @@ struct InlineAggressiveInfo {
 
 private:
   // List of calls that are marked as AggInline. 
-  std::vector<WeakVH> AggInlCalls;
+  std::vector<WeakTrackingVH> AggInlCalls;
 
   bool propagateAggInlineInfo(Function *main_rtn);
   bool propagateAggInlineInfoCall(CallSite CS);

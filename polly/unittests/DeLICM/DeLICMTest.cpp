@@ -250,6 +250,9 @@ TEST(DeLICM, isConflicting) {
                                       {"{ Dom[i] -> [] }", nullptr, "{}"}));
   EXPECT_FALSE(checkIsConflictingKnown({"{ Dom[0] -> Val[] }", nullptr, "{}"},
                                        {nullptr, "{ Dom[0] }", "{}"}));
+  EXPECT_FALSE(checkIsConflictingKnown(
+      {"{ Dom[i] -> Val[]; Dom[i] -> Phi[] }", nullptr, "{}"},
+      {"{ Dom[i] -> Val[] }", nullptr, "{}"}));
 
   // An implementation using subtract would have exponential runtime on patterns
   // such as this one.
@@ -283,6 +286,26 @@ TEST(DeLICM, isConflicting) {
   EXPECT_FALSE(checkIsConflicting({"{ Dom[i] : i != 1 }", nullptr, "{}"},
                                   {"{}", nullptr, "{ Dom[0] }"}));
 
+  // Check occupied vs. written with known values.
+  EXPECT_FALSE(checkIsConflictingKnown({"{ Dom[i] -> Val[] }", nullptr, "{}"},
+                                       {"{}", nullptr, "{ Dom[0] -> Val[] }"}));
+  EXPECT_TRUE(checkIsConflictingKnown({"{ Dom[i] -> ValA[] }", nullptr, "{}"},
+                                      {"{}", nullptr, "{ Dom[0] -> ValB[] }"}));
+  EXPECT_TRUE(checkIsConflictingKnown({"{ Dom[i] -> Val[] }", nullptr, "{}"},
+                                      {"{}", nullptr, "{ Dom[0] -> [] }"}));
+  EXPECT_TRUE(checkIsConflictingKnown({"{ Dom[i] -> [] }", nullptr, "{}"},
+                                      {"{}", nullptr, "{ Dom[0] -> Val[] }"}));
+
+  // The same value can be known under multiple names, for instance a PHINode
+  // has the same value as one of the incoming values. One matching pair
+  // suffices.
+  EXPECT_FALSE(checkIsConflictingKnown(
+      {"{ Dom[i] -> Val[]; Dom[i] -> Phi[] }", nullptr, "{}"},
+      {"{}", nullptr, "{ Dom[0] -> Val[] }"}));
+  EXPECT_FALSE(checkIsConflictingKnown(
+      {"{ Dom[i] -> Val[] }", nullptr, "{}"},
+      {"{}", nullptr, "{ Dom[0] -> Val[]; Dom[0] -> Phi[] }"}));
+
   // Check written vs. written.
   EXPECT_TRUE(checkIsConflicting({"{}", nullptr, "{ Dom[0] }"},
                                  {"{}", nullptr, "{ Dom[0] }"}));
@@ -298,5 +321,8 @@ TEST(DeLICM, isConflicting) {
                                       {"{}", nullptr, "{ Dom[0] -> ValB[] }"}));
   EXPECT_TRUE(checkIsConflictingKnown({"{}", nullptr, "{ Dom[0] -> Val[] }"},
                                       {"{}", nullptr, "{ Dom[0] -> [] }"}));
+  EXPECT_FALSE(checkIsConflictingKnown(
+      {"{}", nullptr, "{ Dom[0] -> Val[]}"},
+      {"{}", nullptr, "{ Dom[0] -> Val[]; Dom[0] -> Phi[] }"}));
 }
 } // anonymous namespace

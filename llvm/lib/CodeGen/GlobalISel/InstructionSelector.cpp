@@ -58,10 +58,11 @@ bool InstructionSelector::constrainSelectedInstRegOperands(
     MO.setReg(constrainOperandRegClass(MF, TRI, MRI, TII, RBI, I, I.getDesc(),
                                        Reg, OpI));
 
-    // Tie uses to defs as indicated in MCInstrDesc.
+    // Tie uses to defs as indicated in MCInstrDesc if this hasn't already been
+    // done.
     if (MO.isUse()) {
       int DefIdx = I.getDesc().getOperandConstraint(OpI, MCOI::TIED_TO);
-      if (DefIdx != -1)
+      if (DefIdx != -1 && !I.isRegTiedToUseOperand(DefIdx))
         I.tieOperands(DefIdx, OpI);
     }
   }
@@ -72,7 +73,7 @@ bool InstructionSelector::isOperandImmEqual(
     const MachineOperand &MO, int64_t Value,
     const MachineRegisterInfo &MRI) const {
 
-  if (MO.getReg())
+  if (MO.isReg() && MO.getReg())
     if (auto VRegVal = getConstantVRegVal(MO.getReg(), MRI))
       return *VRegVal == Value;
   return false;

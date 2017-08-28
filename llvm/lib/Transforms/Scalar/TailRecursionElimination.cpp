@@ -493,11 +493,10 @@ static CallInst *findTRECandidate(Instruction *TI,
   return CI;
 }
 
-static bool eliminateRecursiveTailCall(CallInst *CI, ReturnInst *Ret,
-                                       BasicBlock *&OldEntry,
-                                       bool &TailCallsAreMarkedTail,
-                                       SmallVectorImpl<PHINode *> &ArgumentPHIs,
-                                       bool CannotTailCallElimCallsMarkedTail) {
+static bool
+eliminateRecursiveTailCall(CallInst *CI, ReturnInst *Ret, BasicBlock *&OldEntry,
+                           bool &TailCallsAreMarkedTail,
+                           SmallVectorImpl<PHINode *> &ArgumentPHIs) {
   // If we are introducing accumulator recursion to eliminate operations after
   // the call instruction that are both associative and commutative, the initial
   // value for the accumulator is placed in this variable.  If this value is set
@@ -708,8 +707,7 @@ static bool foldReturnAndProcessPred(BasicBlock *BB, ReturnInst *Ret,
         BB->eraseFromParent();
 
       eliminateRecursiveTailCall(CI, RI, OldEntry, TailCallsAreMarkedTail,
-                                 ArgumentPHIs,
-                                 CannotTailCallElimCallsMarkedTail);
+                                 ArgumentPHIs);
       ++NumRetDuped;
       Change = true;
     }
@@ -728,8 +726,7 @@ static bool processReturningBlock(ReturnInst *Ret, BasicBlock *&OldEntry,
     return false;
 
   return eliminateRecursiveTailCall(CI, Ret, OldEntry, TailCallsAreMarkedTail,
-                                    ArgumentPHIs,
-                                    CannotTailCallElimCallsMarkedTail);
+                                    ArgumentPHIs);
 }
 
 static bool eliminateTailRecursion(Function &F, const TargetTransformInfo *TTI) {

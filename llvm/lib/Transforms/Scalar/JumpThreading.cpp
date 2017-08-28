@@ -281,6 +281,35 @@ bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
   return EverChanged;
 }
 
+// Replace uses of Cond with ToVal when safe to do so. If all uses are
+// replaced, we can remove Cond. We cannot blindly replace all uses of Cond
+// because we may incorrectly replace uses when guards/assumes are uses of
+// of `Cond` and we used the guards/assume to reason about the `Cond` value
+// at the end of block. RAUW unconditionally replaces all uses
+// including the guards/assumes themselves and the uses before the
+// guard/assume.
+static void ReplaceFoldableUses(Instruction *Cond, Value *ToVal) {
+  assert(Cond->getType() == ToVal->getType());
+  auto *BB = Cond->getParent();
+  // We can unconditionally replace all uses in non-local blocks (i.e. uses
+  // strictly dominated by BB), since LVI information is true from the
+  // terminator of BB.
+  replaceNonLocalUsesWith(Cond, ToVal);
+  for (Instruction &I : reverse(*BB)) {
+    // Reached the Cond whose uses we are trying to replace, so there are no
+    // more uses.
+    if (&I == Cond)
+      break;
+    // We only replace uses in instructions that are guaranteed to reach the end
+    // of BB, where we know Cond is ToVal.
+    if (!isGuaranteedToTransferExecutionToSuccessor(&I))
+      break;
+    I.replaceUsesOfWith(Cond, ToVal);
+  }
+  if (Cond->use_empty() && !Cond->mayHaveSideEffects())
+    Cond->eraseFromParent();
+}
+
 #if INTEL_CUSTOMIZATION
 /// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
 /// thread across it. Stop scanning the region when passing the threshold.
@@ -710,7 +739,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
           continue;
 #endif // INTEL_CUSTOMIZATION
 
-        Value *Res = SimplifyCmpInst(Cmp->getPredicate(), LHS, RHS, DL);
+        Value *Res = SimplifyCmpInst(Cmp->getPredicate(), LHS, RHS, {DL});
         if (!Res) {
           if (!isa<Constant>(RHS))
             continue;
@@ -736,17 +765,17 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 
     // If comparing a live-in value against a constant, see if we know the
     // live-in value on any predecessors.
-    if (isa<Constant>(Cmp->getOperand(1)) && Cmp->getType()->isIntegerTy()) {
+    if (isa<Constant>(Cmp->getOperand(1)) && !Cmp->getType()->isVectorTy()) {
+      Constant *CmpConst = cast<Constant>(Cmp->getOperand(1));
+
       if (!isa<Instruction>(Cmp->getOperand(0)) ||
           cast<Instruction>(Cmp->getOperand(0))->getParent() != BB) {
-        Constant *RHSCst = cast<Constant>(Cmp->getOperand(1));
-
         for (BasicBlock *P : predecessors(BB)) {
           // If the value is known by LazyValueInfo to be a constant in a
           // predecessor, use that information to try to thread this block.
           LazyValueInfo::Tristate Res =
             LVI->getPredicateOnEdge(Cmp->getPredicate(), Cmp->getOperand(0),
-                                    RHSCst, P, BB, CxtI ? CxtI : Cmp);
+                                    CmpConst, P, BB, CxtI ? CxtI : Cmp);
           if (Res == LazyValueInfo::Unknown)
             continue;
 
@@ -762,27 +791,25 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
 
       // Try to find a constant value for the LHS of a comparison,
       // and evaluate it statically if we can.
-      if (Constant *CmpConst = dyn_cast<Constant>(Cmp->getOperand(1))) {
-        PredValueInfoTy LHSVals;
-        ThreadRegionInfoTy RegionInfoOp0;                               // INTEL
-        ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
-                                        RegionInfoOp0,                  // INTEL
-                                        WantInteger, CxtI);
+      PredValueInfoTy LHSVals;
+      ThreadRegionInfoTy RegionInfoOp0;                                 // INTEL
+      ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
+                                      RegionInfoOp0,                    // INTEL
+                                      WantInteger, CxtI);
 
-        for (const auto &LHSVal : LHSVals) {
-          Constant *V = LHSVal.first;
-          Constant *Folded = ConstantExpr::getCompare(Cmp->getPredicate(),
-                                                      V, CmpConst);
-          if (Constant *KC = getKnownConstant(Folded, WantInteger))
-            Result.push_back(std::make_pair(KC, LHSVal.second));
-        }
-
-        if (!Result.empty())                                            // INTEL
-          RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),    // INTEL
-                            RegionInfoOp0.end());                       // INTEL
-
-        return !Result.empty();
+      for (const auto &LHSVal : LHSVals) {
+        Constant *V = LHSVal.first;
+        Constant *Folded = ConstantExpr::getCompare(Cmp->getPredicate(),
+                                                    V, CmpConst);
+        if (Constant *KC = getKnownConstant(Folded, WantInteger))
+          Result.push_back(std::make_pair(KC, LHSVal.second));
       }
+
+      if (!Result.empty())                                              // INTEL
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
+                          RegionInfoOp0.end());                         // INTEL
+
+      return !Result.empty();
     }
   }
 
@@ -1010,14 +1037,18 @@ bool JumpThreadingPass::ProcessBlock(BasicBlock *BB) {
         CondBr->eraseFromParent();
         if (CondCmp->use_empty())
           CondCmp->eraseFromParent();
+        // We can safely replace *some* uses of the CondInst if it has
+        // exactly one value as returned by LVI. RAUW is incorrect in the
+        // presence of guards and assumes, that have the `Cond` as the use. This
+        // is because we use the guards/assume to reason about the `Cond` value
+        // at the end of block, but RAUW unconditionally replaces all uses
+        // including the guards/assumes themselves and the uses before the
+        // guard/assume.
         else if (CondCmp->getParent() == BB) {
-          // If the fact we just learned is true for all uses of the
-          // condition, replace it with a constant value
           auto *CI = Ret == LazyValueInfo::True ?
             ConstantInt::getTrue(CondCmp->getType()) :
             ConstantInt::getFalse(CondCmp->getType());
-          CondCmp->replaceAllUsesWith(CI);
-          CondCmp->eraseFromParent();
+          ReplaceFoldableUses(CondCmp, CI);
         }
         return true;
       }
@@ -1442,37 +1473,53 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
 
   BasicBlock *OnlyDest = nullptr;
   BasicBlock *MultipleDestSentinel = (BasicBlock*)(intptr_t)~0ULL;
+  Constant *OnlyVal = nullptr;
+  Constant *MultipleVal = (Constant *)(intptr_t)~0ULL;
 
+  unsigned PredWithKnownDest = 0;
   for (const auto &PredValue : PredValues) {
     BasicBlock *Pred = PredValue.second;
     if (!SeenPreds.insert(Pred).second)
       continue;  // Duplicate predecessor entry.
-
-    // If the predecessor ends with an indirect goto, we can't change its
-    // destination.
-    if (isa<IndirectBrInst>(Pred->getTerminator()))
-      continue;
 
     Constant *Val = PredValue.first;
 
     BasicBlock *DestBB;
     if (isa<UndefValue>(Val))
       DestBB = nullptr;
-    else if (BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator()))
+    else if (BranchInst *BI = dyn_cast<BranchInst>(BB->getTerminator())) {
+      assert(isa<ConstantInt>(Val) && "Expecting a constant integer");
       DestBB = BI->getSuccessor(cast<ConstantInt>(Val)->isZero());
-    else if (SwitchInst *SI = dyn_cast<SwitchInst>(BB->getTerminator())) {
+    } else if (SwitchInst *SI = dyn_cast<SwitchInst>(BB->getTerminator())) {
+      assert(isa<ConstantInt>(Val) && "Expecting a constant integer");
       DestBB = SI->findCaseValue(cast<ConstantInt>(Val))->getCaseSuccessor();
     } else {
       assert(isa<IndirectBrInst>(BB->getTerminator())
               && "Unexpected terminator");
+      assert(isa<BlockAddress>(Val) && "Expecting a constant blockaddress");
       DestBB = cast<BlockAddress>(Val)->getBasicBlock();
     }
 
     // If we have exactly one destination, remember it for efficiency below.
-    if (PredToDestList.empty())
+    if (PredToDestList.empty()) {
       OnlyDest = DestBB;
-    else if (OnlyDest != DestBB)
-      OnlyDest = MultipleDestSentinel;
+      OnlyVal = Val;
+    } else {
+      if (OnlyDest != DestBB)
+        OnlyDest = MultipleDestSentinel;
+      // It possible we have same destination, but different value, e.g. default
+      // case in switchinst.
+      if (Val != OnlyVal)
+        OnlyVal = MultipleVal;
+    }
+
+    // We know where this predecessor is going.
+    ++PredWithKnownDest;
+
+    // If the predecessor ends with an indirect goto, we can't change its
+    // destination.
+    if (isa<IndirectBrInst>(Pred->getTerminator()))
+      continue;
 
     PredToDestList.push_back(std::make_pair(Pred, DestBB));
   }
@@ -1487,7 +1534,7 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   if (OnlyDest && OnlyDest != MultipleDestSentinel &&                  // INTEL
       RegionInfo.size() == 1 &&                                        // INTEL
       RegionInfo.back().first == RegionInfo.back().second) {           // INTEL
-    if (PredToDestList.size() ==
+    if (PredWithKnownDest ==
         (size_t)std::distance(pred_begin(BB), pred_end(BB))) {
       bool SeenFirstBranchToOnlyDest = false;
       for (BasicBlock *SuccBB : successors(BB)) {
@@ -1504,11 +1551,20 @@ bool JumpThreadingPass::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
 
       // If the condition is now dead due to the removal of the old terminator,
       // erase it.
-      auto *CondInst = dyn_cast<Instruction>(Cond);
-      if (CondInst && CondInst->use_empty())
-        CondInst->eraseFromParent();
-      // FIXME: in case this instruction is defined in the current BB and it
-      // resolves to a single value from all predecessors, we can do RAUW.
+      if (auto *CondInst = dyn_cast<Instruction>(Cond)) {
+        if (CondInst->use_empty() && !CondInst->mayHaveSideEffects())
+          CondInst->eraseFromParent();
+        // We can safely replace *some* uses of the CondInst if it has
+        // exactly one value as returned by LVI. RAUW is incorrect in the
+        // presence of guards and assumes, that have the `Cond` as the use. This
+        // is because we use the guards/assume to reason about the `Cond` value
+        // at the end of block, but RAUW unconditionally replaces all uses
+        // including the guards/assumes themselves and the uses before the
+        // guard/assume.
+        else if (OnlyVal && OnlyVal != MultipleVal &&
+                 CondInst->getParent() == BB)
+          ReplaceFoldableUses(CondInst, OnlyVal);
+      }
       return true;
     }
   }
@@ -2489,11 +2545,12 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
     // If this instruction can be simplified after the operands are updated,
     // just use the simplified value instead.  This frequently happens due to
     // phi translation.
-    if (Value *IV =
-            SimplifyInstruction(New, BB->getModule()->getDataLayout())) {
+    if (Value *IV = SimplifyInstruction(
+            New,
+            {BB->getModule()->getDataLayout(), TLI, nullptr, nullptr, New})) {
       ValueMapping[&*BI] = IV;
       if (!New->mayHaveSideEffects()) {
-        delete New;
+        New->deleteValue();
         New = nullptr;
       }
     } else {

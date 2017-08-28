@@ -1,4 +1,4 @@
-//===-- Instructions.cpp - Implement the LLVM instructions ----------------===//
+//===- Instructions.cpp - Implement the LLVM instructions -----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,18 +12,36 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/IR/Instructions.h"
 #include "LLVMContextImpl.h"
+#include "llvm/ADT/None.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Attributes.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CallSite.h"
-#include "llvm/IR/ConstantRange.h"
+#include "llvm/IR/Constant.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Value.h"
+#include "llvm/Support/AtomicOrdering.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <vector>
+
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -41,16 +59,40 @@ User::op_iterator CallSite::getCallee() const {
 //                            TerminatorInst Class
 //===----------------------------------------------------------------------===//
 
-// Out of line virtual method, so the vtable, etc has a home.
-TerminatorInst::~TerminatorInst() {
+unsigned TerminatorInst::getNumSuccessors() const {
+  switch (getOpcode()) {
+#define HANDLE_TERM_INST(N, OPC, CLASS)                                        \
+  case Instruction::OPC:                                                       \
+    return static_cast<const CLASS *>(this)->getNumSuccessorsV();
+#include "llvm/IR/Instruction.def"
+  default:
+    break;
+  }
+  llvm_unreachable("not a terminator");
 }
 
-//===----------------------------------------------------------------------===//
-//                           UnaryInstruction Class
-//===----------------------------------------------------------------------===//
+BasicBlock *TerminatorInst::getSuccessor(unsigned idx) const {
+  switch (getOpcode()) {
+#define HANDLE_TERM_INST(N, OPC, CLASS)                                        \
+  case Instruction::OPC:                                                       \
+    return static_cast<const CLASS *>(this)->getSuccessorV(idx);
+#include "llvm/IR/Instruction.def"
+  default:
+    break;
+  }
+  llvm_unreachable("not a terminator");
+}
 
-// Out of line virtual method, so the vtable, etc has a home.
-UnaryInstruction::~UnaryInstruction() {
+void TerminatorInst::setSuccessor(unsigned idx, BasicBlock *B) {
+  switch (getOpcode()) {
+#define HANDLE_TERM_INST(N, OPC, CLASS)                                        \
+  case Instruction::OPC:                                                       \
+    return static_cast<CLASS *>(this)->setSuccessorV(idx, B);
+#include "llvm/IR/Instruction.def"
+  default:
+    break;
+  }
+  llvm_unreachable("not a terminator");
 }
 
 //===----------------------------------------------------------------------===//
@@ -82,12 +124,9 @@ const char *SelectInst::areInvalidOperands(Value *Op0, Value *Op1, Value *Op2) {
   return nullptr;
 }
 
-
 //===----------------------------------------------------------------------===//
 //                               PHINode Class
 //===----------------------------------------------------------------------===//
-
-void PHINode::anchor() {}
 
 PHINode::PHINode(const PHINode &PN)
     : Instruction(PN.getType(), Instruction::PHI, nullptr, PN.getNumOperands()),
@@ -242,9 +281,6 @@ void LandingPadInst::addClause(Constant *Val) {
 //                        CallInst Implementation
 //===----------------------------------------------------------------------===//
 
-CallInst::~CallInst() {
-}
-
 void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
                     ArrayRef<OperandBundleDef> Bundles, const Twine &NameStr) {
   this->FTy = FTy;
@@ -335,12 +371,12 @@ Value *CallInst::getReturnedArgOperand() const {
   unsigned Index;
 
   if (Attrs.hasAttrSomewhere(Attribute::Returned, &Index) && Index)
-    return getArgOperand(Index-1);
+    return getArgOperand(Index - AttributeList::FirstArgIndex);
   if (const Function *F = getCalledFunction())
     if (F->getAttributes().hasAttrSomewhere(Attribute::Returned, &Index) &&
         Index)
-      return getArgOperand(Index-1);
-      
+      return getArgOperand(Index - AttributeList::FirstArgIndex);
+
   return nullptr;
 }
 
@@ -356,6 +392,10 @@ void CallInst::addAttribute(unsigned i, Attribute Attr) {
   setAttributes(PAL);
 }
 
+void CallInst::addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
+  addAttribute(ArgNo + AttributeList::FirstArgIndex, Kind);
+}
+
 void CallInst::removeAttribute(unsigned i, Attribute::AttrKind Kind) {
   AttributeList PAL = getAttributes();
   PAL = PAL.removeAttribute(getContext(), i, Kind);
@@ -366,6 +406,10 @@ void CallInst::removeAttribute(unsigned i, StringRef Kind) {
   AttributeList PAL = getAttributes();
   PAL = PAL.removeAttribute(getContext(), i, Kind);
   setAttributes(PAL);
+}
+
+void CallInst::removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
+  removeAttribute(ArgNo + AttributeList::FirstArgIndex, Kind);
 }
 
 void CallInst::addDereferenceableAttr(unsigned i, uint64_t Bytes) {
@@ -501,7 +545,8 @@ static Instruction *createMalloc(Instruction *InsertBefore,
   MCall->setTailCall();
   if (Function *F = dyn_cast<Function>(MallocFunc)) {
     MCall->setCallingConv(F->getCallingConv());
-    if (!F->doesNotAlias(0)) F->setDoesNotAlias(0);
+    if (!F->returnDoesNotAlias())
+      F->setReturnDoesNotAlias();
   }
   assert(!MCall->getType()->isVoidTy() && "Malloc has void return type");
 
@@ -531,7 +576,6 @@ Instruction *CallInst::CreateMalloc(Instruction *InsertBefore,
   return createMalloc(InsertBefore, nullptr, IntPtrTy, AllocTy, AllocSize,
                       ArraySize, OpB, MallocF, Name);
 }
-
 
 /// CreateMalloc - Generate the IR for a call to malloc:
 /// 1. Compute the malloc call's argument as the specified type's size,
@@ -683,9 +727,11 @@ InvokeInst *InvokeInst::Create(InvokeInst *II, ArrayRef<OperandBundleDef> OpB,
 BasicBlock *InvokeInst::getSuccessorV(unsigned idx) const {
   return getSuccessor(idx);
 }
+
 unsigned InvokeInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void InvokeInst::setSuccessorV(unsigned idx, BasicBlock *B) {
   return setSuccessor(idx, B);
 }
@@ -694,12 +740,12 @@ Value *InvokeInst::getReturnedArgOperand() const {
   unsigned Index;
 
   if (Attrs.hasAttrSomewhere(Attribute::Returned, &Index) && Index)
-    return getArgOperand(Index-1);
+    return getArgOperand(Index - AttributeList::FirstArgIndex);
   if (const Function *F = getCalledFunction())
     if (F->getAttributes().hasAttrSomewhere(Attribute::Returned, &Index) &&
         Index)
-      return getArgOperand(Index-1);
-      
+      return getArgOperand(Index - AttributeList::FirstArgIndex);
+
   return nullptr;
 }
 
@@ -755,6 +801,10 @@ void InvokeInst::addAttribute(unsigned i, Attribute Attr) {
   setAttributes(PAL);
 }
 
+void InvokeInst::addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
+  addAttribute(ArgNo + AttributeList::FirstArgIndex, Kind);
+}
+
 void InvokeInst::removeAttribute(unsigned i, Attribute::AttrKind Kind) {
   AttributeList PAL = getAttributes();
   PAL = PAL.removeAttribute(getContext(), i, Kind);
@@ -765,6 +815,10 @@ void InvokeInst::removeAttribute(unsigned i, StringRef Kind) {
   AttributeList PAL = getAttributes();
   PAL = PAL.removeAttribute(getContext(), i, Kind);
   setAttributes(PAL);
+}
+
+void InvokeInst::removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
+  removeAttribute(ArgNo + AttributeList::FirstArgIndex, Kind);
 }
 
 void InvokeInst::addDereferenceableAttr(unsigned i, uint64_t Bytes) {
@@ -804,6 +858,7 @@ ReturnInst::ReturnInst(LLVMContext &C, Value *retVal, Instruction *InsertBefore)
   if (retVal)
     Op<0>() = retVal;
 }
+
 ReturnInst::ReturnInst(LLVMContext &C, Value *retVal, BasicBlock *InsertAtEnd)
   : TerminatorInst(Type::getVoidTy(C), Instruction::Ret,
                    OperandTraits<ReturnInst>::op_end(this) - !!retVal, !!retVal,
@@ -811,6 +866,7 @@ ReturnInst::ReturnInst(LLVMContext &C, Value *retVal, BasicBlock *InsertAtEnd)
   if (retVal)
     Op<0>() = retVal;
 }
+
 ReturnInst::ReturnInst(LLVMContext &Context, BasicBlock *InsertAtEnd)
   : TerminatorInst(Type::getVoidTy(Context), Instruction::Ret,
                    OperandTraits<ReturnInst>::op_end(this), 0, InsertAtEnd) {
@@ -828,9 +884,6 @@ void ReturnInst::setSuccessorV(unsigned idx, BasicBlock *NewSucc) {
 
 BasicBlock *ReturnInst::getSuccessorV(unsigned idx) const {
   llvm_unreachable("ReturnInst has no successors!");
-}
-
-ReturnInst::~ReturnInst() {
 }
 
 //===----------------------------------------------------------------------===//
@@ -913,9 +966,11 @@ BasicBlock *CleanupReturnInst::getSuccessorV(unsigned Idx) const {
   assert(Idx == 0);
   return getUnwindDest();
 }
+
 unsigned CleanupReturnInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void CleanupReturnInst::setSuccessorV(unsigned Idx, BasicBlock *B) {
   assert(Idx == 0);
   setUnwindDest(B);
@@ -956,9 +1011,11 @@ BasicBlock *CatchReturnInst::getSuccessorV(unsigned Idx) const {
   assert(Idx < getNumSuccessors() && "Successor # out of range for catchret!");
   return getSuccessor();
 }
+
 unsigned CatchReturnInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void CatchReturnInst::setSuccessorV(unsigned Idx, BasicBlock *B) {
   assert(Idx < getNumSuccessors() && "Successor # out of range for catchret!");
   setSuccessor(B);
@@ -1050,9 +1107,11 @@ void CatchSwitchInst::removeHandler(handler_iterator HI) {
 BasicBlock *CatchSwitchInst::getSuccessorV(unsigned idx) const {
   return getSuccessor(idx);
 }
+
 unsigned CatchSwitchInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void CatchSwitchInst::setSuccessorV(unsigned idx, BasicBlock *B) {
   setSuccessor(idx, B);
 }
@@ -1138,6 +1197,7 @@ BranchInst::BranchInst(BasicBlock *IfTrue, Instruction *InsertBefore)
   assert(IfTrue && "Branch destination may not be null!");
   Op<-1>() = IfTrue;
 }
+
 BranchInst::BranchInst(BasicBlock *IfTrue, BasicBlock *IfFalse, Value *Cond,
                        Instruction *InsertBefore)
   : TerminatorInst(Type::getVoidTy(IfTrue->getContext()), Instruction::Br,
@@ -1172,7 +1232,6 @@ BranchInst::BranchInst(BasicBlock *IfTrue, BasicBlock *IfFalse, Value *Cond,
 #endif
 }
 
-
 BranchInst::BranchInst(const BranchInst &BI) :
   TerminatorInst(Type::getVoidTy(BI.getContext()), Instruction::Br,
                  OperandTraits<BranchInst>::op_end(this) - BI.getNumOperands(),
@@ -1199,13 +1258,14 @@ void BranchInst::swapSuccessors() {
 BasicBlock *BranchInst::getSuccessorV(unsigned idx) const {
   return getSuccessor(idx);
 }
+
 unsigned BranchInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void BranchInst::setSuccessorV(unsigned idx, BasicBlock *B) {
   setSuccessor(idx, B);
 }
-
 
 //===----------------------------------------------------------------------===//
 //                        AllocaInst Implementation
@@ -1259,10 +1319,6 @@ AllocaInst::AllocaInst(Type *Ty, unsigned AddrSpace, Value *ArraySize,
   setAlignment(Align);
   assert(!Ty->isVoidTy() && "Cannot allocate void!");
   setName(Name);
-}
-
-// Out of line virtual method, so the vtable, etc has a home.
-AllocaInst::~AllocaInst() {
 }
 
 void AllocaInst::setAlignment(unsigned Align) {
@@ -1526,8 +1582,7 @@ AtomicCmpXchgInst::AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal,
                                      SynchronizationScope SynchScope,
                                      Instruction *InsertBefore)
     : Instruction(
-          StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext()),
-                          nullptr),
+          StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext())),
           AtomicCmpXchg, OperandTraits<AtomicCmpXchgInst>::op_begin(this),
           OperandTraits<AtomicCmpXchgInst>::operands(this), InsertBefore) {
   Init(Ptr, Cmp, NewVal, SuccessOrdering, FailureOrdering, SynchScope);
@@ -1539,8 +1594,7 @@ AtomicCmpXchgInst::AtomicCmpXchgInst(Value *Ptr, Value *Cmp, Value *NewVal,
                                      SynchronizationScope SynchScope,
                                      BasicBlock *InsertAtEnd)
     : Instruction(
-          StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext()),
-                          nullptr),
+          StructType::get(Cmp->getType(), Type::getInt1Ty(Cmp->getContext())),
           AtomicCmpXchg, OperandTraits<AtomicCmpXchgInst>::op_begin(this),
           OperandTraits<AtomicCmpXchgInst>::operands(this), InsertAtEnd) {
   Init(Ptr, Cmp, NewVal, SuccessOrdering, FailureOrdering, SynchScope);
@@ -1615,8 +1669,6 @@ FenceInst::FenceInst(LLVMContext &C, AtomicOrdering Ordering,
 //===----------------------------------------------------------------------===//
 //                       GetElementPtrInst Implementation
 //===----------------------------------------------------------------------===//
-
-void GetElementPtrInst::anchor() {}
 
 void GetElementPtrInst::init(Value *Ptr, ArrayRef<Value *> IdxList,
                              const Twine &Name) {
@@ -1754,13 +1806,11 @@ ExtractElementInst::ExtractElementInst(Value *Val, Value *Index,
   setName(Name);
 }
 
-
 bool ExtractElementInst::isValidOperands(const Value *Val, const Value *Index) {
   if (!Val->getType()->isVectorTy() || !Index->getType()->isIntegerTy())
     return false;
   return true;
 }
-
 
 //===----------------------------------------------------------------------===//
 //                           InsertElementInst Implementation
@@ -1807,7 +1857,6 @@ bool InsertElementInst::isValidOperands(const Value *Vec, const Value *Elt,
     return false;  // Third operand of insertelement must be i32.
   return true;
 }
-
 
 //===----------------------------------------------------------------------===//
 //                      ShuffleVectorInst Implementation
@@ -1921,7 +1970,6 @@ void ShuffleVectorInst::getShuffleMask(Constant *Mask,
   }
 }
 
-
 //===----------------------------------------------------------------------===//
 //                             InsertValueInst Class
 //===----------------------------------------------------------------------===//
@@ -1934,7 +1982,7 @@ void InsertValueInst::init(Value *Agg, Value *Val, ArrayRef<unsigned> Idxs,
   // (other than weirdness with &*IdxBegin being invalid; see
   // getelementptr's init routine for example). But there's no
   // present need to support it.
-  assert(Idxs.size() > 0 && "InsertValueInst must have at least one index");
+  assert(!Idxs.empty() && "InsertValueInst must have at least one index");
 
   assert(ExtractValueInst::getIndexedType(Agg->getType(), Idxs) ==
          Val->getType() && "Inserted value must match indexed type!");
@@ -1963,7 +2011,7 @@ void ExtractValueInst::init(ArrayRef<unsigned> Idxs, const Twine &Name) {
 
   // There's no fundamental reason why we require at least one index.
   // But there's no present need to support it.
-  assert(Idxs.size() > 0 && "ExtractValueInst must have at least one index");
+  assert(!Idxs.empty() && "ExtractValueInst must have at least one index");
 
   Indices.append(Idxs.begin(), Idxs.end());
   setName(Name);
@@ -2035,7 +2083,6 @@ BinaryOperator::BinaryOperator(BinaryOps iType, Value *S1, Value *S2,
   init(iType);
   setName(Name);
 }
-
 
 void BinaryOperator::init(BinaryOps iType) {
   Value *LHS = getOperand(0), *RHS = getOperand(1);
@@ -2196,7 +2243,6 @@ BinaryOperator *BinaryOperator::CreateNot(Value *Op, const Twine &Name,
                             Op->getType(), Name, InsertAtEnd);
 }
 
-
 // isConstantAllOnes - Helper function for several functions below
 static inline bool isConstantAllOnes(const Value *V) {
   if (const Constant *C = dyn_cast<Constant>(V))
@@ -2262,7 +2308,6 @@ const Value *BinaryOperator::getNotArgument(const Value *BinOp) {
   return getNotArgument(const_cast<Value*>(BinOp));
 }
 
-
 // Exchange the two operands to this instruction. This instruction is safe to
 // use on any binary instruction and does not modify the semantics of the
 // instruction. If the instruction is order-dependent (SetLT f.e.), the opcode
@@ -2273,7 +2318,6 @@ bool BinaryOperator::swapOperands() {
   Op<0>().swap(Op<1>());
   return false;
 }
-
 
 //===----------------------------------------------------------------------===//
 //                             FPMathOperator Class
@@ -2288,12 +2332,9 @@ float FPMathOperator::getFPAccuracy() const {
   return Accuracy->getValueAPF().convertToFloat();
 }
 
-
 //===----------------------------------------------------------------------===//
 //                                CastInst Class
 //===----------------------------------------------------------------------===//
-
-void CastInst::anchor() {}
 
 // Just determine if this cast only deals with integral->integral conversion.
 bool CastInst::isIntegerCast() const {
@@ -2550,13 +2591,12 @@ unsigned CastInst::isEliminableCastPair(
         return Instruction::BitCast;
       return 0;
     }
-    case 12: {
+    case 12:
       // addrspacecast, addrspacecast -> bitcast,       if SrcAS == DstAS
       // addrspacecast, addrspacecast -> addrspacecast, if SrcAS != DstAS
       if (SrcTy->getPointerAddressSpace() != DstTy->getPointerAddressSpace())
         return Instruction::AddrSpaceCast;
       return Instruction::BitCast;
-    }
     case 13:
       // FIXME: this state can be merged with (1), but the following assert
       // is useful to check the correcteness of the sequence due to semantic
@@ -2577,7 +2617,6 @@ unsigned CastInst::isEliminableCastPair(
           DstTy->getScalarType()->getPointerElementType())
         return Instruction::AddrSpaceCast;
       return 0;
-
     case 15:
       // FIXME: this state can be merged with (1), but the following assert
       // is useful to check the correcteness of the sequence due to semantic
@@ -3053,7 +3092,6 @@ CastInst::getCastOpcode(
 /// of the types involved.
 bool 
 CastInst::castIsValid(Instruction::CastOps op, Value *S, Type *DstTy) {
-
   // Check for type sanity on the arguments
   Type *SrcTy = S->getType();
 
@@ -3326,8 +3364,6 @@ AddrSpaceCastInst::AddrSpaceCastInst(
 //                               CmpInst Classes
 //===----------------------------------------------------------------------===//
 
-void CmpInst::anchor() {}
-
 CmpInst::CmpInst(Type *ty, OtherOps op, Predicate predicate, Value *LHS,
                  Value *RHS, const Twine &Name, Instruction *InsertBefore)
   : Instruction(ty, op,
@@ -3402,7 +3438,6 @@ bool CmpInst::isEquality() const {
   return cast<FCmpInst>(this)->isEquality();
 }
 
-
 CmpInst::Predicate CmpInst::getInversePredicate(Predicate pred) {
   switch (pred) {
     default: llvm_unreachable("Unknown cmp predicate!");
@@ -3467,8 +3502,6 @@ StringRef CmpInst::getPredicateName(Predicate Pred) {
   case ICmpInst::ICMP_ULE:   return "ule";
   }
 }
-
-void ICmpInst::anchor() {}
 
 ICmpInst::Predicate ICmpInst::getSignedPredicate(Predicate pred) {
   switch (pred) {
@@ -3726,9 +3759,11 @@ void SwitchInst::growOperands() {
 BasicBlock *SwitchInst::getSuccessorV(unsigned idx) const {
   return getSuccessor(idx);
 }
+
 unsigned SwitchInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void SwitchInst::setSuccessorV(unsigned idx, BasicBlock *B) {
   setSuccessor(idx, B);
 }
@@ -3815,9 +3850,11 @@ void IndirectBrInst::removeDestination(unsigned idx) {
 BasicBlock *IndirectBrInst::getSuccessorV(unsigned idx) const {
   return getSuccessor(idx);
 }
+
 unsigned IndirectBrInst::getNumSuccessorsV() const {
   return getNumSuccessors();
 }
+
 void IndirectBrInst::setSuccessorV(unsigned idx, BasicBlock *B) {
   setSuccessor(idx, B);
 }

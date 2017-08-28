@@ -193,11 +193,8 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   for (auto Attr : getVectorVariantAttributes(F)) {
     AB.addAttribute(Attr);
   }
-  AttributeList AttrsToRemove = AttributeList::get(F.getContext(),
-                                                 AttributeList::FunctionIndex,
-                                                 AB);
 
-  F.removeAttributes(AttributeList::FunctionIndex, AttrsToRemove);
+  F.removeAttributes(AttributeList::FunctionIndex, AB);
 
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
@@ -207,11 +204,14 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   // does not apply to its vector counterpart).
   Function::arg_iterator ArgIt = Clone->arg_begin();
   Function::arg_iterator ArgEnd = Clone->arg_end();
+  // TODO (Dave Kreitzer): Once we pull down the changes that add the
+  //   Function::removeParamAttrs method, we should use it in lieu of
+  //   Function::removeAttributes. We just need to change the Idx
+  //   initialization here to start at 0.
   for (uint64_t Idx = 1; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
     Type* ArgType = (*ArgIt).getType();
     AB = AttributeFuncs::typeIncompatible(ArgType);
-    AttributeList AS = AttributeList::get(Clone->getContext(), Idx, AB);
-    (*ArgIt).removeAttr(AS);
+    Clone->removeAttributes(Idx, AB);
   }
 
   ValueToValueMapTy Vmap;

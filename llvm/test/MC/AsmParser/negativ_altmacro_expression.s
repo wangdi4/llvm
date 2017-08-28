@@ -1,4 +1,3 @@
-# INTEL_CUSTOMIZATION 
 # RUN: not llvm-mc -triple i386-linux-gnu %s 2>&1 | FileCheck %s
 
 # This test is a negative test for the altmacro expression.
