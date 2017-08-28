@@ -16,12 +16,9 @@
 
 #include "X86ISelLowering.h"
 #include "X86TargetMachine.h"
-<<<<<<< HEAD
 #include "X86TargetTransformInfo.h"                // INTEL
 #include "llvm/Analysis/Intel_OptVLSClientUtils.h" // INTEL
-=======
 #include "llvm/Analysis/VectorUtils.h"
->>>>>>> e83d2eccefb764f9b94bd21412edfbf6248133d7
 
 using namespace llvm;
 
@@ -477,8 +474,14 @@ bool X86TargetLowering::lowerInterleavedStore(StoreInst *SI,
 
   // Create an interleaved access group.
   IRBuilder<> Builder(SI);
+#if INTEL_CUSTOMIZATION
+  const TargetMachine &TM = getTargetMachine();
+  const X86TargetMachine *X86TM = static_cast<const X86TargetMachine *>(&TM);
+  const TargetTransformInfo &TTI =
+      TargetTransformInfo(X86TTIImpl(X86TM, *(SI->getFunction())));
   X86InterleavedAccessGroup Grp(SI, Shuffles, Indices, Factor, Subtarget,
-                                Builder);
+                                Builder, TTI);
+#endif // INTEL_CUSTOMIZATION
 
   return Grp.isSupported() && Grp.lowerIntoOptimizedSequence();
 }
