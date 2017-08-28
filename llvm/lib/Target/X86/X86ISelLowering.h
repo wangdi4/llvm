@@ -1075,6 +1075,12 @@ namespace llvm {
                               ArrayRef<unsigned> Indices,
                               unsigned Factor) const override;
 
+    /// \brief Lower interleaved store(s) into target specific
+    /// instructions/intrinsics.
+    bool lowerInterleavedStore(StoreInst *SI, ShuffleVectorInst *SVI,
+                               unsigned Factor) const override;
+
+
     void finalizeLowering(MachineFunction &MF) const override;
 
   protected:
