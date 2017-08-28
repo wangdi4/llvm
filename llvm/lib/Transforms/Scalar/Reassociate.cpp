@@ -957,8 +957,8 @@ static BinaryOperator *ConvertShiftToMul(Instruction *Shl) {
 /// Scan backwards and forwards among values with the same rank as element i
 /// to see if X exists.  If X does not exist, return i.  This is useful when
 /// scanning for 'x' when we see '-x' because they both get the same rank.
-static unsigned FindInOperandList(SmallVectorImpl<ValueEntry> &Ops, unsigned i,
-                                  Value *X) {
+static unsigned FindInOperandList(const SmallVectorImpl<ValueEntry> &Ops,
+                                  unsigned i, Value *X) {
   unsigned XRank = Ops[i].Rank;
   unsigned e = Ops.size();
   for (unsigned j = i+1; j != e && Ops[j].Rank == XRank; ++j) {
@@ -1136,19 +1136,19 @@ static Value *OptimizeAndOrXor(unsigned Opcode,
 /// instruction. There are two special cases: 1) if the constant operand is 0,
 /// it will return NULL. 2) if the constant is ~0, the symbolic operand will
 /// be returned.
-static Value *createAndInstr(Instruction *InsertBefore, Value *Opnd, 
+static Value *createAndInstr(Instruction *InsertBefore, Value *Opnd,
                              const APInt &ConstOpnd) {
-  if (!ConstOpnd.isNullValue()) {
-    if (!ConstOpnd.isAllOnesValue()) {
-      Instruction *I = BinaryOperator::CreateAnd(
-          Opnd, ConstantInt::get(Opnd->getType(), ConstOpnd), "and.ra",
-          InsertBefore);
-      I->setDebugLoc(InsertBefore->getDebugLoc());
-      return I;
-    }
+  if (ConstOpnd.isNullValue())
+    return nullptr;
+
+  if (ConstOpnd.isAllOnesValue())
     return Opnd;
-  }
-  return nullptr;
+
+  Instruction *I = BinaryOperator::CreateAnd(
+      Opnd, ConstantInt::get(Opnd->getType(), ConstOpnd), "and.ra",
+      InsertBefore);
+  I->setDebugLoc(InsertBefore->getDebugLoc());
+  return I;
 }
 
 // Helper function of OptimizeXor(). It tries to simplify "Opnd1 ^ ConstOpnd"
@@ -1164,24 +1164,24 @@ bool ReassociatePass::CombineXorOpnd(Instruction *I, XorOpnd *Opnd1,
   //                       = ((x | c1) ^ c1) ^ (c1 ^ c2)
   //                       = (x & ~c1) ^ (c1 ^ c2)
   // It is useful only when c1 == c2.
-  if (Opnd1->isOrExpr() && !Opnd1->getConstPart().isNullValue()) {
-    if (!Opnd1->getValue()->hasOneUse())
-      return false;
+  if (!Opnd1->isOrExpr() || Opnd1->getConstPart().isNullValue())
+    return false;
 
-    const APInt &C1 = Opnd1->getConstPart();
-    if (C1 != ConstOpnd)
-      return false;
+  if (!Opnd1->getValue()->hasOneUse())
+    return false;
 
-    Value *X = Opnd1->getSymbolicPart();
-    Res = createAndInstr(I, X, ~C1);
-    // ConstOpnd was C2, now C1 ^ C2.
-    ConstOpnd ^= C1;
+  const APInt &C1 = Opnd1->getConstPart();
+  if (C1 != ConstOpnd)
+    return false;
 
-    if (Instruction *T = dyn_cast<Instruction>(Opnd1->getValue()))
-      RedoInsts.insert(T);
-    return true;
-  }
-  return false;
+  Value *X = Opnd1->getSymbolicPart();
+  Res = createAndInstr(I, X, ~C1);
+  // ConstOpnd was C2, now C1 ^ C2.
+  ConstOpnd ^= C1;
+
+  if (Instruction *T = dyn_cast<Instruction>(Opnd1->getValue()))
+    RedoInsts.insert(T);
+  return true;
 }
 
                            
