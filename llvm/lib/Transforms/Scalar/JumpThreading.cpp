@@ -721,7 +721,6 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
         Value *LHS = PN->getIncomingValue(i);
         Value *RHS = CmpRHS->DoPHITranslation(BB, PredBB);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
         // When BB is a loop header, LHS can be derived from a Value, %V,
         // computed in BB during a prior iteration of the loop. We have to be
@@ -745,10 +744,7 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
           continue;
 #endif // INTEL_CUSTOMIZATION
 
-        Value *Res = SimplifyCmpInst(Cmp->getPredicate(), LHS, RHS, {DL});
-=======
         Value *Res = SimplifyCmpInst(Pred, LHS, RHS, {DL});
->>>>>>> d26da70a968a555e4660b39f3913f4293b151203
         if (!Res) {
           if (!isa<Constant>(RHS))
             continue;
