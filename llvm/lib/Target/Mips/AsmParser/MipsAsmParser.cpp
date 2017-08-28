@@ -5107,7 +5107,7 @@ int MipsAsmParser::matchCPURegisterName(StringRef Name) {
 
   CC = StringSwitch<unsigned>(Name)
            .Case("zero", 0)
-           .Case("at", 1)
+           .Cases("at", "AT", 1)
            .Case("a0", 4)
            .Case("a1", 5)
            .Case("a2", 6)
@@ -6962,8 +6962,8 @@ bool MipsAsmParser::parseRSectionDirective(StringRef Section) {
     return false;
   }
 
-  MCSection *ELFSection =
-      getContext().getELFSection(Section, ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
+  MCSection *ELFSection = getContext().getELFSection(
+      Section, ELF::SHT_PROGBITS, ELF::SHF_ALLOC);
   getParser().getStreamer().SwitchSection(ELFSection);
 
   getParser().Lex(); // Eat EndOfStatement token.
