@@ -8634,7 +8634,8 @@ Sema::ActOnExplicitInstantiation(Scope *S,
                         /*ModulePrivateLoc=*/SourceLocation(),
                         MultiTemplateParamsArg(), Owned, IsDependent,
                         SourceLocation(), false, TypeResult(),
-                        /*IsTypeSpecifier*/false);
+                        /*IsTypeSpecifier*/false,
+                        /*IsTemplateParamOrArg*/false);
   assert(!IsDependent && "explicit instantiation of dependent name not yet handled");
 
   if (!TagD)
