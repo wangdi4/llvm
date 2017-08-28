@@ -146,14 +146,6 @@ bool CPUDetect::isKabylakeOrCoffeelake()
     return false;
 }
 
-bool CPUDetect::isGeminilake()
-{
-    if(0x706A == m_i16ProcessorSignature) // GLK Soc with Goldmont Plus CPU
-        return true;
-
-    return false;
-}
-
 bool CPUDetect::isCannonlake()
 {
     if(0x6066 == m_i16ProcessorSignature || // CNL Basic SKU which includes ULT (MCP)
@@ -179,6 +171,14 @@ bool CPUDetect::isBroxton()
 {
     // TODO. There shoud be more signatures.
     if (0x506C == m_i16ProcessorSignature)// BXT A stepping?
+        return true;
+
+    return false;
+}
+
+bool CPUDetect::isGeminilake()
+{
+    if (0x706A == m_i16ProcessorSignature) // GLK Soc with Goldmont Plus CPU
         return true;
 
     return false;
