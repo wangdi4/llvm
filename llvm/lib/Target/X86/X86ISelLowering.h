@@ -1064,6 +1064,8 @@ namespace llvm {
 
     bool supportSwiftError() const override;
 
+    StringRef getStackProbeSymbolName(MachineFunction &MF) const override;
+
     unsigned getMaxSupportedInterleaveFactor() const override { return 4; }
 
     /// \brief Lower interleaved load(s) into target specific
