@@ -13,6 +13,7 @@
 #include "llvm-pdbutil.h"
 
 #include "llvm/DebugInfo/MSF/MappedBlockStream.h"
+#include "llvm/DebugInfo/PDB/Native/InfoStream.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
 #include "llvm/DebugInfo/PDB/Native/RawError.h"
 #include "llvm/Support/BinaryStreamReader.h"
@@ -96,11 +97,43 @@ Error BytesOutputStyle::dump() {
     P.NewLine();
   }
 
+  if (opts::bytes::DumpByteRange.hasValue()) {
+    auto &R = *opts::bytes::DumpByteRange;
+    uint32_t Max = R.Max.getValueOr(File.getFileSize());
+
+    if (Max < R.Min)
+      return make_error<StringError>("Invalid byte range specified.  Max < Min",
+                                     inconvertibleErrorCode());
+    if (Max >= File.getFileSize())
+      return make_error<StringError>(
+          "Invalid byte range specified.  Requested byte larger than file size",
+          inconvertibleErrorCode());
+
+    dumpByteRanges(R.Min, Max);
+    P.NewLine();
+  }
+
   if (!opts::bytes::DumpStreamData.empty()) {
     dumpStreamBytes();
     P.NewLine();
   }
+
+  if (opts::bytes::NameMap) {
+    dumpNameMap();
+    P.NewLine();
+  }
   return Error::success();
+}
+
+void BytesOutputStyle::dumpNameMap() {
+  printHeader(P, "Named Stream Map");
+
+  AutoIndent Indent(P);
+
+  auto &InfoS = Err(File.getPDBInfoStream());
+  BinarySubstreamRef NS = InfoS.getNamedStreamsBuffer();
+  auto Layout = File.getStreamLayout(StreamPDB);
+  P.formatMsfStreamData("Named Stream Map", File, Layout, NS);
 }
 
 void BytesOutputStyle::dumpBlockRanges(uint32_t Min, uint32_t Max) {
@@ -122,6 +155,21 @@ void BytesOutputStyle::dumpBlockRanges(uint32_t Min, uint32_t Max) {
   }
 }
 
+void BytesOutputStyle::dumpByteRanges(uint32_t Min, uint32_t Max) {
+  printHeader(P, "MSF Bytes");
+
+  AutoIndent Indent(P);
+
+  BinaryStreamReader Reader(File.getMsfBuffer());
+  ArrayRef<uint8_t> Data;
+  consumeError(Reader.skip(Min));
+  uint32_t Size = Max - Min + 1;
+  auto EC = Reader.readBytes(Data, Size);
+  assert(!EC);
+  consumeError(std::move(EC));
+  P.formatBinary("Bytes", Data, Min);
+}
+
 void BytesOutputStyle::dumpStreamBytes() {
   if (StreamPurposes.empty())
     discoverStreamPurposes(File, StreamPurposes);
@@ -132,36 +180,12 @@ void BytesOutputStyle::dumpStreamBytes() {
   auto Specs = parseStreamSpecs(P);
 
   for (const auto &Spec : Specs) {
-    uint32_t End = 0;
-
     AutoIndent Indent(P);
-    if (Spec.SI >= File.getNumStreams()) {
+    if (Spec.SI >= StreamPurposes.size()) {
       P.formatLine("Stream {0}: Not present", Spec.SI);
       continue;
     }
-
-    auto S = MappedBlockStream::createIndexedStream(
-        File.getMsfLayout(), File.getMsfBuffer(), Spec.SI, File.getAllocator());
-    if (!S) {
-      P.NewLine();
-      P.formatLine("Stream {0}: Not present", Spec.SI);
-      continue;
-    }
-
-    if (Spec.Size == 0)
-      End = S->getLength();
-    else
-      End = std::min(Spec.Begin + Spec.Size, S->getLength());
-    uint32_t Size = End - Spec.Begin;
-
-    P.formatLine("Stream {0} ({1:N} bytes): {2}", Spec.SI, S->getLength(),
-                 StreamPurposes[Spec.SI]);
-    AutoIndent Indent2(P);
-
-    BinaryStreamReader R(*S);
-    ArrayRef<uint8_t> StreamData;
-    Err(R.readBytes(StreamData, S->getLength()));
-    StreamData = StreamData.slice(Spec.Begin, Size);
-    P.formatBinary("Data", StreamData, Spec.Begin);
+    P.formatMsfStreamData("Data", File, Spec.SI, StreamPurposes[Spec.SI],
+                          Spec.Begin, Spec.Size);
   }
 }
