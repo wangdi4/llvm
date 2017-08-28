@@ -830,6 +830,9 @@ bool JumpThreadingPass::ComputeValueKnownInPredecessors(
               Result.push_back(std::make_pair(ResC, P));
             }
 
+            if (!Result.empty())                                        // INTEL
+              RegionInfo.push_back(std::make_pair(BB, BB));             // INTEL
+
             return !Result.empty();
           }
         }
