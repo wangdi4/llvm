@@ -10,6 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetadataAPI.h"
 #include "LoopUtils/LoopUtils.h"
 #include "CompilationUtils.h"
+#include "BarrierUtils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
@@ -1174,20 +1175,15 @@ namespace intel {
   }
 
   void Barrier::updateStructureStride(Module & M) {
-    // collect functions to process, initialize with kernels
-    SmallVector<Function *, 8> TodoList = KernelList(&M).getList();
-    // add vectorized counterparts, if present
-    for (auto *F : KernelList(&M)) {
-      auto VectorizedKernelMetadata =
-          KernelInternalMetadataAPI(F).VectorizedKernel;
-      if (VectorizedKernelMetadata.hasValue() && VectorizedKernelMetadata.get())
-        TodoList.push_back(VectorizedKernelMetadata.get());
-    }
+    // collect functions to process
+    auto TodoList = BarrierUtils::getAllKernelsAndVectorizedCounterparts(
+        KernelList(&M).getList());
+
     // Get the kernels using the barrier for work group loops.
     for (auto pFunc : TodoList) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
-      //Need to check if Vectorized Width Value exists, it is not guaranteed that
-      //Vectorized is running in all scenarios.
+      // Need to check if Vectorized Width Value exists, it is not guaranteed
+      // that  Vectorized is running in all scenarios.
       int vecWidth =
           kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
       unsigned int strideSize = m_pDataPerValue->getStrideSize(pFunc);

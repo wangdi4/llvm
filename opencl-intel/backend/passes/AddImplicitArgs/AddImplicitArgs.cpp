@@ -50,6 +50,8 @@ namespace intel{
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();
+    // Clear functions refs to fix container
+    m_fixupFunctionsRefs.clear();
 
     // Collect all module functions that are not declarations into for handling
     std::vector<Function*> toHandleFunctions;
@@ -240,63 +242,59 @@ namespace intel{
     // All the function metadata we are interested in is flat by design
     // (see Metadata API).
 
-    // collect the functions we need update metadata for
+    // iterate over the functions we need update metadata for
     // (in other words, all the functions pass have created)
-    SmallVector<const Function *, 8> FuncsToUpdate;
     for (const auto &FuncKV : m_fixupFunctionsRefs) {
-      FuncsToUpdate.push_back(FuncKV.second);
-    }
-
-    for (const auto *F : FuncsToUpdate) {
+      auto F = FuncKV.second;
       SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
       F->getAllMetadata(MDs);
 
       for (const auto &MD : MDs) {
-        auto pMDNode = MD.second;
-        if (pMDNode->getNumOperands() > 0) {
-          Metadata *mdOp = pMDNode->getOperand(0);
-          if (auto *funcAsMet = dyn_cast_or_null<ConstantAsMetadata>(mdOp))
-            if (auto *pFunc = mdconst::dyn_extract<Function>(funcAsMet)) {
-              if (m_fixupFunctionsRefs.count(pFunc) > 0)
-                pMDNode->replaceOperandWith(
-                    0, ConstantAsMetadata::get(m_fixupFunctionsRefs[pFunc]));
+        auto MDNode = MD.second;
+        if (MDNode->getNumOperands() > 0) {
+          Metadata *MDOp = MDNode->getOperand(0);
+          if (auto *FuncAsMD = dyn_cast_or_null<ConstantAsMetadata>(MDOp))
+            if (auto *NodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+              if (m_fixupFunctionsRefs.count(NodeFunc) > 0)
+                MDNode->replaceOperandWith(
+                    0, ConstantAsMetadata::get(m_fixupFunctionsRefs[NodeFunc]));
             }
         }
       }
     }
 
-    // Now respect Module-level metadata.
+    // Now respect the Module-level metadata.
     for (const auto &NamedMDNode : m_pModule->named_metadata()) {
       for (int ui = 0, ue = NamedMDNode.getNumOperands(); ui < ue; ui++) {
-        // Replace metadata with metada containing information about the wrapper
-        MDNode *pMDNode = NamedMDNode.getOperand(ui);
-        std::set<MDNode *> visited;
-        iterateMDTree(pMDNode, visited);
+        // Replace metadata with metadata containing information about the wrapper
+        MDNode *MDNodeOp = NamedMDNode.getOperand(ui);
+        std::set<MDNode *> Visited;
+        iterateMDTree(MDNodeOp, Visited);
       }
     }
   }
 
-  void AddImplicitArgs::iterateMDTree(MDNode *pMDNode,
-                                      std::set<MDNode *> &visited) {
+  void AddImplicitArgs::iterateMDTree(MDNode *MDTreeNode,
+                                      std::set<MDNode *> &Visited) {
     // Avoid inifinite loops due to possible cycles in metadata
-    if (visited.count(pMDNode))
+    if (Visited.count(MDTreeNode))
       return;
-    visited.insert(pMDNode);
+    Visited.insert(MDTreeNode);
 
-    for (int i = 0, e = pMDNode->getNumOperands(); i < e; ++i) {
-      Metadata *mdOp = pMDNode->getOperand(i);
-      if (mdOp) {
-        if (MDNode *mdOpNode = dyn_cast<MDNode>(mdOp)) {
-          iterateMDTree(mdOpNode, visited);
-        } else if (ConstantAsMetadata *funcAsMet =
-                       dyn_cast<ConstantAsMetadata>(mdOp)) {
-          if (auto *pFunc = mdconst::dyn_extract<Function>(funcAsMet)) {
-            if (m_fixupFunctionsRefs.count(pFunc) > 0)
-              pMDNode->replaceOperandWith(
-                  i, ConstantAsMetadata::get(m_fixupFunctionsRefs[pFunc]));
-            // TODO: Check if the old metadata has to bee deleted manually to
-            // avoid memory leaks.
-          }
+    for (int i = 0, e = MDTreeNode->getNumOperands(); i < e; ++i) {
+      Metadata *MDOp = MDTreeNode->getOperand(i);
+      if (!MDOp)
+        continue;
+      if (MDNode *MDOpNode = dyn_cast<MDNode>(MDOp)) {
+        iterateMDTree(MDOpNode, Visited);
+      } else if (ConstantAsMetadata *FuncAsMD =
+                     dyn_cast<ConstantAsMetadata>(MDOp)) {
+        if (auto *MDNodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+          if (m_fixupFunctionsRefs.count(MDNodeFunc) > 0)
+            MDTreeNode->replaceOperandWith(
+                i, ConstantAsMetadata::get(m_fixupFunctionsRefs[MDNodeFunc]));
+          // TODO: Check if the old metadata has to bee deleted manually to
+          // avoid memory leaks.
         }
       }
     }

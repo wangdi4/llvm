@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include <set>
 using namespace Intel::OpenCL::DeviceBackend;
+using namespace Intel::MetadataAPI;
 
 namespace intel {
 
@@ -207,9 +208,23 @@ namespace intel {
     return m_syncFunctions;
   }
 
-  TFunctionVector& BarrierUtils::getAllKernelsWithBarrier() {
-    using namespace Intel::MetadataAPI;
+  TFunctionVector BarrierUtils::getAllKernelsAndVectorizedCounterparts(
+      const SmallVectorImpl<Function *> &KernelList) {
+    TFunctionVector Result;
 
+    for (auto *F : KernelList) {
+      Result.push_back(F);
+      auto VectorizedKernelMetadata =
+          KernelInternalMetadataAPI(F).VectorizedKernel;
+      if (VectorizedKernelMetadata.hasValue() && VectorizedKernelMetadata.get())
+        Result.push_back(VectorizedKernelMetadata.get());
+    }
+
+    // rely on move ctor.
+    return Result;
+  }
+
+  TFunctionVector& BarrierUtils::getAllKernelsWithBarrier() {
     auto Kernels = KernelList(m_pModule);
 
     //Clear old collected data!
@@ -232,18 +247,13 @@ namespace intel {
       m_kernelFunctions.push_back(pFunc);
     }
 
-    // collect functions to process, initialize with kernels
-    SmallVector<Function *, 8> TodoList = Kernels.getList();
-    // add vectorized counterparts, if present
-    for (auto *F : Kernels) {
-      auto VectorizedKernelMetadata =
-        KernelInternalMetadataAPI(F).VectorizedKernel;
-      if (VectorizedKernelMetadata.hasValue() && VectorizedKernelMetadata.get())
-        TodoList.push_back(VectorizedKernelMetadata.get());
-    }
+    // collect functions to process
+    auto TodoList = getAllKernelsAndVectorizedCounterparts(Kernels.getList());
+
     for (auto pFunc : TodoList) {
       auto kimd = KernelInternalMetadataAPI(pFunc);
-      m_kernelVectorizationWidths[pFunc] = kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
+      m_kernelVectorizationWidths[pFunc] =
+          kimd.VectorizedWidth.hasValue() ? kimd.VectorizedWidth.get() : 1;
     }
 
     return m_kernelFunctions;
