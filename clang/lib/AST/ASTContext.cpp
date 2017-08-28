@@ -897,7 +897,7 @@ void ASTContext::mergeDefinitionIntoModule(NamedDecl *ND, Module *M,
   if (getLangOpts().ModulesLocalVisibility)
     MergedDefModules[ND].push_back(M);
   else
-    ND->setHidden(false);
+    ND->setVisibleDespiteOwningModule();
 }
 
 void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {

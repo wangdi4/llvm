@@ -16656,7 +16656,10 @@ void Sema::ActOnModuleBegin(SourceLocation DirectiveLoc, Module *Mod) {
   // lexically within the module.
   if (getLangOpts().trackLocalOwningModule()) {
     for (auto *DC = CurContext; DC; DC = DC->getLexicalParent()) {
-      cast<Decl>(DC)->setHidden(true);
+      cast<Decl>(DC)->setModuleOwnershipKind(
+          getLangOpts().ModulesLocalVisibility
+              ? Decl::ModuleOwnershipKind::VisibleWhenImported
+              : Decl::ModuleOwnershipKind::Visible);
       cast<Decl>(DC)->setLocalOwningModule(Mod);
     }
   }
@@ -16696,7 +16699,8 @@ void Sema::ActOnModuleEnd(SourceLocation EomLoc, Module *Mod) {
     for (auto *DC = CurContext; DC; DC = DC->getLexicalParent()) {
       cast<Decl>(DC)->setLocalOwningModule(getCurrentModule());
       if (!getCurrentModule())
-        cast<Decl>(DC)->setHidden(false);
+        cast<Decl>(DC)->setModuleOwnershipKind(
+            Decl::ModuleOwnershipKind::Unowned);
     }
   }
 }
