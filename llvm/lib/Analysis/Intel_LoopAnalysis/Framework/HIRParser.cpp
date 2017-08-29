@@ -1892,7 +1892,7 @@ public:
   bool isDone() const { return found(); }
 };
 
-bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
+bool HIRParser::containsCastedAddRec(const CastInst *CI, const SCEV *SC) const {
   // If the SCEV of this cast instruction contains an explicit cast for an
   // AddRec (outer loop IV), it is better to parse the cast explicitly otherwise
   // the outer loop IV will be parsed as a blob. Consider this cast-
@@ -1907,8 +1907,6 @@ bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
   // Otherwise it will be parsed as: i2 + sext.i32.i64(%b), where %b represents
   // i1 (outer loop IV).
 
-  auto SC = getSCEV(const_cast<CastInst *>(CI));
-
   CastedAddRecChecker CARC(CI->getSrcTy());
   SCEVTraversal<CastedAddRecChecker> Checker(CARC);
   Checker.visitAll(SC);
@@ -1916,7 +1914,8 @@ bool HIRParser::containsCastedAddRec(const CastInst *CI) const {
   return CARC.found();
 }
 
-bool HIRParser::isCastedFromLoopIVType(const CastInst *CI) const {
+bool HIRParser::isCastedFromLoopIVType(const CastInst *CI,
+                                       const SCEV *SC) const {
   // For cast instructions which cast from loop IV's type to some other
   // type, we want to explicitly hide the cast and parse the value in IV's type.
   // This allows more opportunities for canon expr merging. Consider the
@@ -1928,6 +1927,13 @@ bool HIRParser::isCastedFromLoopIVType(const CastInst *CI) const {
   // {0,+,1}<nuw><nsw><%for.body> (i64 type)
   // We instead want %idxprom to be considered as a cast: sext i32
   // {0,+,1}<nuw><nsw><%for.body> to i64
+
+  // Ignore if SCEV form of CI is already a cast. Top cast can be handled by
+  // parseRecursive().
+  if (isa<SCEVCastExpr>(SC)) {
+    return false;
+  }
+
   auto ParentLoop = getCurNode()->getParentLoop();
   return (ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()));
 }
@@ -1941,7 +1947,9 @@ bool HIRParser::shouldParseWithoutCast(const CastInst *CI, bool IsTop) const {
     return false;
   }
 
-  if (isCastedFromLoopIVType(CI) || containsCastedAddRec(CI)) {
+  auto SC = getSCEV(const_cast<CastInst *>(CI));
+
+  if (isCastedFromLoopIVType(CI, SC) || containsCastedAddRec(CI, SC)) {
     return true;
   }
 

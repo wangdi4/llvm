@@ -313,10 +313,11 @@ private:
 
   /// Returns true if \p CI's SCEV contains a SCEVCastExpr whose operand is an
   /// AddRec with the same type as \p CI's operand.
-  bool containsCastedAddRec(const CastInst *CI) const;
+  bool containsCastedAddRec(const CastInst *CI, const SCEV *SC) const;
 
-  /// Returns true if the src type of \p CI is same as parent loop's IV type.
-  bool isCastedFromLoopIVType(const CastInst *CI) const;
+  /// Returns true if the src type of \p CI is same as parent loop's IV type and
+  /// its SCEV form is not a cast.
+  bool isCastedFromLoopIVType(const CastInst *CI, const SCEV *SC) const;
 
   /// Returns true if we should parse \p CI by explicitly hiding the cast in the
   /// instruction and recursively parsing the cast operand.
