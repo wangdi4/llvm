@@ -181,7 +181,8 @@ bool HIRIdiomRecognition::isBytewiseValue(RegDDRef *Ref, bool DoBitcast) {
   }
 
   auto BitcastRef = [DoBitcast](APInt SplatValue, RegDDRef *Ref) -> bool {
-    bool GoodToCast = SplatValue.isSplat(8);
+    bool GoodToCast =
+        (SplatValue.getBitWidth() % 8 == 0) && SplatValue.isSplat(8);
 
     if (GoodToCast && DoBitcast) {
       CanonExpr *CE = Ref->getSingleCanonExpr();
