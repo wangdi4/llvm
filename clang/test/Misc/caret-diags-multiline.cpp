@@ -1,5 +1,9 @@
 // RUN: not %clang_cc1 -std=c++11 -fcaret-diagnostics-max-lines 5 -Wsometimes-uninitialized %s 2>&1 | FileCheck %s --strict-whitespace
 
+// INTEL
+// Should be fixed in future commit: 58d094a82f7eaa8fc70d6c866fcc9403aa39ad4a
+// XFAIL: win32, cygwin
+
 void line(int);
 
 // Check we expand the range as much as possible within the limit.
