@@ -3465,10 +3465,6 @@ void CodeGenFunction::EmitCallArgs(
     unsigned Idx = LeftToRight ? I : E - I - 1;
     CallExpr::const_arg_iterator Arg = ArgRange.begin() + Idx;
     unsigned InitialArgSize = Args.size();
-<<<<<<< HEAD
-    EmitCallArg(Args, *Arg, ArgTypes[Idx],                              // INTEL
-                IsVariadic && Idx >= AC.getNumParams ()); // INTEL
-=======
     // If *Arg is an ObjCIndirectCopyRestoreExpr, check that either the types of
     // the argument and parameter match or the objc method is parameterized.
     assert((!isa<ObjCIndirectCopyRestoreExpr>(*Arg) ||
@@ -3477,8 +3473,8 @@ void CodeGenFunction::EmitCallArgs(
             (isa<ObjCMethodDecl>(AC.getDecl()) &&
              isObjCMethodWithTypeParams(cast<ObjCMethodDecl>(AC.getDecl())))) &&
            "Argument and parameter types don't match");
-    EmitCallArg(Args, *Arg, ArgTypes[Idx]);
->>>>>>> afd3b93fc835d07303f8880c091dbd5306f5fb9c
+    EmitCallArg(Args, *Arg, ArgTypes[Idx],                              // INTEL
+                IsVariadic && Idx >= AC.getNumParams ()); // INTEL
     // In particular, we depend on it being the last arg in Args, and the
     // objectsize bits depend on there only being one arg if !LeftToRight.
     assert(InitialArgSize + 1 == Args.size() &&
