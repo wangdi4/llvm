@@ -925,6 +925,11 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 		return false; // file not found
 	}
 
+    if (fileIn.length()+25 >= BUFSIZE){
+        std::cerr << "BUFSIZE " << BUFSIZE << " too small to hold trace-file-name: " << fileIn << std::endl;
+		return false; 
+	}
+
 	std::string line;
 
 	// unique ID for each basic block executed
@@ -942,7 +947,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 	bool showProgressBar = true;
 	// get total line number from file using wc command
 	FILE *in;
-	char buf[BUFSIZE]; // need to change hard-coded size
+	char buf[BUFSIZE+1]; // need to change hard-coded size
 	
 	unsigned int fileLineNum;
 	unsigned int traceThreshold = TraceThreshold;
