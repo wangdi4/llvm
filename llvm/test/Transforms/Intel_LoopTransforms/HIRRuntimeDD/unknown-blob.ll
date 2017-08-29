@@ -20,7 +20,7 @@
 ; CHECK:      %mv.test = &((%b)[sext.i32.i64(%n) + -1]) >=u &((%a)[-1 * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))) + (sext.i32.i64(%n) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%stride)))))))]);
 ; CHECK:      %mv.test1 = &((%a)[-1 * smax(0, sext.i32.i64(%stride)) + (sext.i32.i64(%n) * smax(0, sext.i32.i64(%stride)))]) >=u &((%b)[0]);
 ; CHECK:      %mv.and = %mv.test  &&  %mv.test1;
-; CHECK:      if (sext.i32.i64(%n) >=u 16 && %mv.and == 0)
+; CHECK:      if (%mv.and == 0)
 ; CHECK: END REGION
 
 ;Module Before HIR; ModuleID = 'unknown_blob.c'

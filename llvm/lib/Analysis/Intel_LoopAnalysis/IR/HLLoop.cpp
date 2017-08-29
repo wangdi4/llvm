@@ -318,6 +318,10 @@ void HLLoop::printHeader(formatted_raw_ostream &OS, unsigned Depth,
     OS << "  <MAX_TC_EST = " << MaxTripCountEstimate << ">";
   }
 
+  if (getMVTag()) {
+    OS << "  <MVTag: " << getMVTag() << ">";
+  }
+
   OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);

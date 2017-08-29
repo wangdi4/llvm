@@ -36,7 +36,7 @@ typedef DDRefGrouping::RefGroupTy<RegDDRef> RefGroupTy;
 typedef DDRefGrouping::RefGroupVecTy<RegDDRef> RefGroupVecTy;
 
 const unsigned ExpectedNumberOfTests = 8;
-const unsigned SmallTripCountTest = 16;
+const unsigned SmallTripCountTest = 4;
 
 enum RuntimeDDResult {
   OK,
@@ -135,7 +135,6 @@ struct LoopContext {
   HLLoop *Loop;
   RefGroupVecTy Groups;
   llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
-  bool GenTripCountTest;
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {

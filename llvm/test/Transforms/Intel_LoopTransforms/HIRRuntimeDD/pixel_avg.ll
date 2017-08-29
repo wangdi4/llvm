@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -disable-output -hir-runtime-dd -print-after=hir-runtime-dd < %s 2>&1 | FileCheck %s
+; RUN: opt -scoped-noalias -hir-ssa-deconstruction -disable-output -hir-runtime-dd -hir-vec-dir-insert -print-after=hir-vec-dir-insert -hir-details < %s 2>&1 | FileCheck %s
 
 ; HIR:
 ; BEGIN REGION { }
@@ -12,13 +12,31 @@
 ; END REGION
 
 ; CHECK: After
+
 ; CHECK: %mv.test = &((%src1)[sext.i32.i64(%i_width) + (zext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src1_stride))) + -1]) >=u &((%dst)[(zext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_dst_stride)))))))]);
 ; CHECK: %mv.test2 = &((%dst)[sext.i32.i64(%i_width) + (zext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src1)[(zext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_src1_stride)))))))]);
 ; CHECK: %mv.and = %mv.test  &&  %mv.test2;
 ; CHECK: %mv.test3 = &((%dst)[sext.i32.i64(%i_width) + (zext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_dst_stride))) + -1]) >=u &((%src2)[(zext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_src2_stride)))))))]);
 ; CHECK: %mv.test4 = &((%src2)[sext.i32.i64(%i_width) + (zext.i32.i64((-1 + %i_height)) * smax(0, sext.i32.i64(%i_src2_stride))) + -1]) >=u &((%dst)[(zext.i32.i64((-1 + %i_height)) * (-1 + (-1 * smax(-1, (-1 + (-1 * sext.i32.i64(%i_dst_stride)))))))]);
 ; CHECK: %mv.and5 = %mv.test3  &&  %mv.test4;
-; CHECK: if (%i_height >=u 16 && %mv.and == 0 && %mv.and5 == 0)
+; CHECK: if (%mv.and == 0 && %mv.and5 == 0)
+
+; Verify that unmodified loops are marked to do not vectorize
+; CHECK: Loop metadata: No
+; CHECK: DO
+; Verify that the inner loop has vec-directives
+; CHECK: @llvm.intel.directive
+; CHECK: Loop metadata: No
+; CHECK: DO
+; CHECK: END LOOP
+; CHECK: @llvm.intel.directive
+; CHECK: END LOOP
+; CHECK: Loop metadata: !llvm.loop
+; CHECK: DO
+; CHECK: Loop metadata: !llvm.loop
+; CHECK: DO
+; CHECK: END LOOP
+; CHECK: END LOOP
 
 ;Module Before HIR; ModuleID = 'pixel_avg.c'
 source_filename = "pixel_avg.c"

@@ -253,10 +253,8 @@ static unsigned getMinMaxZeroBlob(BlobUtils &BU, unsigned Index,
 
 // The method replaces \p Loop IV with the appropriate bounds depending on
 // \p IsLowerBound value.
-void IVSegment::replaceIVByBound(RegDDRef *Ref,
-                                 const HLLoop *Loop,
-                                 const HLLoop *InnerLoop,
-                                 bool IsLowerBound) {
+void IVSegment::replaceIVByBound(RegDDRef *Ref, const HLLoop *Loop,
+                                 const HLLoop *InnerLoop, bool IsLowerBound) {
   unsigned Level = Loop->getNestingLevel();
 
   for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
@@ -289,9 +287,8 @@ void IVSegment::replaceIVByBound(RegDDRef *Ref,
 
         // For the lower bound we replace an unknown blob %b with min(%b, 0)
         // and with max(%b, 0) for the upper bound.
-        unsigned MinMaxBlobIndex = getMinMaxZeroBlob(CE->getBlobUtils(),
-                                                     IVBlobIndex,
-                                                     IsLowerBound);
+        unsigned MinMaxBlobIndex =
+            getMinMaxZeroBlob(CE->getBlobUtils(), IVBlobIndex, IsLowerBound);
         CE->setIVBlobCoeff(Level, MinMaxBlobIndex);
         Direction = 0;
       }
@@ -407,8 +404,9 @@ IVSegment::isSegmentSupported(const HLLoop *OuterLoop,
 
         IVBlobExpr->addBlob(IVBlobIndex, IVConstCoeff);
 
-        if (!HLNodeUtils::isKnownPositiveOrNegative(
-            IVBlobExpr.get(), InnermostLoop) && !LoopI->isNormalized()) {
+        if (!HLNodeUtils::isKnownPositiveOrNegative(IVBlobExpr.get(),
+                                                    InnermostLoop) &&
+            !LoopI->isNormalized()) {
           return NON_NORMALIZED_BLOB_IV_COEFF;
         }
       }
@@ -579,7 +577,6 @@ unsigned HIRRuntimeDD::findAndGroup(RefGroupVecTy &Groups, RegDDRef *Ref) {
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
   Context.Loop = Loop;
-  Context.GenTripCountTest = true;
 
   if (Loop->getMVTag()) {
     return ALREADY_MV;
@@ -599,8 +596,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     return NON_PERFECT_LOOPNEST;
   }
 
-  // TotalTripCount is used only to decide should we generate runtime small trip
-  // test or not.
   bool ConstantTripCount = true;
   uint64_t TotalTripCount = 1;
 
@@ -610,9 +605,6 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop, LoopContext &Context) {
     if (LoopI->isConstTripLoop(&TripCount)) {
       // TODO: Max trip count estimation could be used for the small trip test.
       TotalTripCount *= TripCount;
-      if (TotalTripCount >= SmallTripCountTest) {
-        Context.GenTripCountTest = false;
-      }
     } else {
       ConstantTripCount = false;
     }
@@ -756,6 +748,16 @@ HLInst *HIRRuntimeDD::createIntersectionCondition(HLNodeUtils &HNU,
   return And;
 }
 
+template <typename FuncTy>
+static void applyForLoopnest(HLLoop *OuterLoop, FuncTy Func) {
+  assert(OuterLoop && "OuterLoop should not be nullptr");
+
+  while (OuterLoop) {
+    Func(OuterLoop);
+    OuterLoop = dyn_cast_or_null<HLLoop>(OuterLoop->getFirstChild());
+  }
+}
+
 void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   Context.Loop->extractZtt();
   Context.Loop->extractPreheaderAndPostexit();
@@ -773,7 +775,7 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //   %cmp-n.2 = <test-n.2>
   //   %and-n = and %cmp-n.1, %cmp-n.2
   //
-  //   if (<low trip test> && %and-0 == F && ... && %and-n == F) {
+  //   if (%and-0 == F && ... && %and-n == F) {
   //     <Modified loop>
   //   } else {
   //     <Original loop>
@@ -782,24 +784,13 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //   <PostExit>
   // }
 
+  auto LoopMapper = HLNodeLambdaMapper::mapper(
+      [](const HLNode *Node) { return isa<HLLoop>(Node); });
+
   HLLoop *ModifiedLoop = Context.Loop;
-  HLLoop *OrigLoop = Context.Loop->clone();
+  HLLoop *OrigLoop = Context.Loop->clone(&LoopMapper);
 
-  HLIf *MemcheckIf = nullptr;
   auto &HNU = OrigLoop->getHLNodeUtils();
-
-  /// Generate tripcount test
-  if (Context.GenTripCountTest) {
-    // TODO: generation of small tripcount tests for a loopnest
-    uint64_t MinTripCount = SmallTripCountTest;
-    RegDDRef *TripCountRef = Context.Loop->getTripCountDDRef();
-    assert(TripCountRef != nullptr &&
-           "getTripCountDDRef() unexpectedly returned nullptr");
-    MemcheckIf = HNU.createHLIf(PredicateTy::ICMP_UGE, TripCountRef,
-                                HNU.getDDRefUtils().createConstDDRef(
-                                    TripCountRef->getDestType(), MinTripCount));
-  }
-  //////////////////////////
 
   HLContainerTy Nodes;
   SmallVector<RegDDRef *, 2 * ExpectedNumberOfTests> TestDDRefs;
@@ -815,13 +806,9 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   HNU.insertBefore(Context.Loop, &Nodes);
 
   Type *Ty = TestDDRefs.front()->getDestType();
-  if (!MemcheckIf) {
-    MemcheckIf = HNU.createHLIf(PredicateTy::ICMP_EQ, TestDDRefs.front(),
-                                HNU.getDDRefUtils().createConstDDRef(Ty, 0));
-  } else {
-    MemcheckIf->addPredicate(PredicateTy::ICMP_EQ, TestDDRefs.front(),
-                             HNU.getDDRefUtils().createConstDDRef(Ty, 0));
-  }
+  HLIf *MemcheckIf =
+      HNU.createHLIf(PredicateTy::ICMP_EQ, TestDDRefs.front(),
+                     HNU.getDDRefUtils().createConstDDRef(Ty, 0));
 
   for (auto I = std::next(TestDDRefs.begin()), E = TestDDRefs.end(); I != E;
        ++I) {
@@ -834,12 +821,6 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   HNU.moveAsFirstChild(MemcheckIf, ModifiedLoop, true);
   HNU.insertAsFirstChild(MemcheckIf, OrigLoop, false);
 
-  unsigned MVTag = ModifiedLoop->getNumber();
-  ModifiedLoop->setMVTag(MVTag);
-  OrigLoop->setMVTag(MVTag);
-
-  OrigLoop->markDoNotVectorize();
-
   // Implementation Note: The transformation adds NoAlias/Scope metadata to the
   // original loop and creates a clone for the unmodified loop.
   // 1) When RTDD will be used on-demand the clients may continue to work
@@ -849,8 +830,19 @@ void HIRRuntimeDD::generateDDTest(LoopContext &Context) {
   //    DDRefs.
   markDDRefsIndep(Context);
 
-  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(ModifiedLoop);
-  HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(ModifiedLoop);
+  HIRInvalidationUtils::invalidateParentLoopBodyOrRegion(MemcheckIf);
+  applyForLoopnest(ModifiedLoop, [&LoopMapper](HLLoop *Loop) {
+    auto MVTag = Loop->getNumber();
+    Loop->setMVTag(MVTag);
+
+    HLLoop *OrigLoop = LoopMapper.getMapped(Loop);
+    OrigLoop->setMVTag(MVTag);
+    OrigLoop->markDoNotVectorize();
+
+    if (Loop->isInnermost()) {
+      HIRInvalidationUtils::invalidateBody<HIRLoopStatistics>(Loop);
+    }
+  });
 }
 
 void HIRRuntimeDD::markDDRefsIndep(LoopContext &Context) {
