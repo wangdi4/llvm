@@ -409,6 +409,9 @@ bool CSAMemopOrdering::runOnMachineFunction(MachineFunction &MF) {
   if (!OrderMemops || (OrderMemopsType <= OrderMemopsMode::none)) {
     return false;
   }
+  parRegions.clear();
+  depchains.clear();
+  orderedMemops.clear();
 
   TII = static_cast<const CSAInstrInfo*>(MF.getSubtarget().getInstrInfo());
   MRI = &MF.getRegInfo();
