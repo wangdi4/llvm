@@ -28,7 +28,6 @@
 // RUN: %clang_cc1 -fmodules -fmodule-file=%t/no-rewrite.pcm %s -I%t -verify -fno-modules-error-recovery -DINCLUDE -I%S/Inputs/preprocess
 // RUN: %clang_cc1 -fmodules -fmodule-file=%t/rewrite.pcm %s -I%t -verify -fno-modules-error-recovery -DREWRITE -DINCLUDE -I%S/Inputs/preprocess
 
-<<<<<<< HEAD
 // Now try building the module when the header files are missing.
 // RUN: cp %S/Inputs/preprocess/fwd.h %S/Inputs/preprocess/file.h %S/Inputs/preprocess/file2.h %S/Inputs/preprocess/module.modulemap %t
 // RUN: %clang_cc1 -fmodules -fmodule-name=file -fmodule-file=%t/fwd.pcm -I%t -x c++-module-map %t/module.modulemap -E -frewrite-includes -o %t/copy.ii
@@ -58,11 +57,6 @@
 // RUN: %clang_cc1 -fmodules -fmodule-name=file -fmodule-file=%t/fwd.pcm -I%S/Inputs/preprocess %t/file.pcm -E -o %t/file.no-rewrite.ii
 // RUN: %clang_cc1 %t/file.pcm -E -o %t/file.no-rewrite.ii.2 -Dstruct=error
 // RUN: cmp %t/file.no-rewrite.ii %t/file.no-rewrite.ii.2
-=======
-// INTEL
-// Should be fixed in future llorg commit: 226dedc0e25135833753e80f96fcee8ba58fbad5
-// XFAIL: win32, cygwin
->>>>>>> xmain
 
 // == module map
 // CHECK: # 1 "{{.*}}module.modulemap"

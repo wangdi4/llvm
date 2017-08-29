@@ -10,15 +10,12 @@
 // header-ness just like GNU line markers that don't have filenames.  This was
 // PR30752.
 
-<<<<<<< HEAD
-=======
 // INTEL
 // Fix is under review https://reviews.llvm.org/D37079
 // XFAIL: win32, cygwin
 
 // expected-no-diagnostics
 
->>>>>>> xmain
 // CHECK: # {{[0-9]+}} "{{.*}}system-header-line-directive.c" 2
 // CHECK: # 1 "{{.*}}noline.h" 1 3
 // CHECK: foo();
