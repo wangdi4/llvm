@@ -18,7 +18,8 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/ValueHandle.h"
 
-using namespace llvm;
+namespace llvm {
+namespace cflaa {
 
 template <typename AAResult> struct FunctionHandle final : public CallbackVH {
   FunctionHandle(Function *Fn, AAResult *Result)
@@ -40,5 +41,18 @@ private:
     setValPtr(nullptr);
   }
 };
+
+static inline const Function *parentFunctionOfValue(const Value *Val) {
+  if (auto *Inst = dyn_cast<Instruction>(Val)) {
+    auto *Bb = Inst->getParent();
+    return Bb->getParent();
+  }
+
+  if (auto *Arg = dyn_cast<Argument>(Val))
+    return Arg->getParent();
+  return nullptr;
+} // namespace cflaa
+} // namespace llvm
+}
 
 #endif // LLVM_ANALYSIS_CFLALIASANALYSISUTILS_H
