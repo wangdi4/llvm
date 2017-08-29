@@ -1699,6 +1699,7 @@ namespace  {
     bool IsSystemFile;
     bool IsTransient;
     bool BufferOverridden;
+    bool IsTopLevelModuleMap;
   };
 
 } // end anonymous namespace
@@ -1717,6 +1718,7 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
   IFAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 32)); // Modification time
   IFAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Overridden
   IFAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Transient
+  IFAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Module map
   IFAbbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob)); // File name
   unsigned IFAbbrevCode = Stream.EmitAbbrev(std::move(IFAbbrev));
 
@@ -1731,7 +1733,8 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
     // We only care about file entries that were not overridden.
     if (!SLoc->isFile())
       continue;
-    const SrcMgr::ContentCache *Cache = SLoc->getFile().getContentCache();
+    const SrcMgr::FileInfo &File = SLoc->getFile();
+    const SrcMgr::ContentCache *Cache = File.getContentCache();
     if (!Cache->OrigEntry)
       continue;
 
@@ -1740,6 +1743,8 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
     Entry.IsSystemFile = Cache->IsSystemFile;
     Entry.IsTransient = Cache->IsTransient;
     Entry.BufferOverridden = Cache->BufferOverridden;
+    Entry.IsTopLevelModuleMap = isModuleMap(File.getFileCharacteristic()) &&
+                                File.getIncludeLoc().isInvalid();
     if (Cache->IsSystemFile)
       SortedFiles.push_back(Entry);
     else
@@ -1770,7 +1775,8 @@ void ASTWriter::WriteInputFiles(SourceManager &SourceMgr,
         (uint64_t)Entry.File->getSize(),
         (uint64_t)getTimestampForOutput(Entry.File),
         Entry.BufferOverridden,
-        Entry.IsTransient};
+        Entry.IsTransient,
+        Entry.IsTopLevelModuleMap};
 
     EmitRecordWithPath(IFAbbrevCode, Record, Entry.File->getName());
   }
@@ -1805,7 +1811,7 @@ static unsigned CreateSLocFileAbbrev(llvm::BitstreamWriter &Stream) {
   Abbrev->Add(BitCodeAbbrevOp(SM_SLOC_FILE_ENTRY));
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Offset
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Include location
-  Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 2)); // Characteristic
+  Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 3)); // Characteristic
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Line directives
   // FileEntry fields.
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 6)); // Input File ID
@@ -1824,7 +1830,7 @@ static unsigned CreateSLocBufferAbbrev(llvm::BitstreamWriter &Stream) {
   Abbrev->Add(BitCodeAbbrevOp(SM_SLOC_BUFFER_ENTRY));
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Offset
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::VBR, 8)); // Include location
-  Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 2)); // Characteristic
+  Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 3)); // Characteristic
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Fixed, 1)); // Line directives
   Abbrev->Add(BitCodeAbbrevOp(BitCodeAbbrevOp::Blob)); // Buffer name blob
   return Stream.EmitAbbrev(std::move(Abbrev));
@@ -1932,8 +1938,8 @@ namespace {
       endian::Writer<little> LE(Out);
       uint64_t Start = Out.tell(); (void)Start;
       
-      unsigned char Flags = (Data.HFI.isImport << 4)
-                          | (Data.HFI.isPragmaOnce << 3)
+      unsigned char Flags = (Data.HFI.isImport << 5)
+                          | (Data.HFI.isPragmaOnce << 4)
                           | (Data.HFI.DirInfo << 1)
                           | Data.HFI.IndexHeaderMapHeader;
       LE.write<uint8_t>(Flags);
