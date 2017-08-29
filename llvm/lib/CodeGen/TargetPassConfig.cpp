@@ -20,11 +20,7 @@
 #include "llvm/Analysis/CFLAndersAliasAnalysis.h"
 #include "llvm/Analysis/CFLSteensAliasAnalysis.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
-<<<<<<< HEAD
 #include "llvm/Analysis/Intel_StdContainerAA.h" // INTEL
-#include "llvm/Analysis/Passes.h"
-=======
->>>>>>> ea42b4f0bdf3bdf0e588fa13fa25dc4968bc34e8
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
