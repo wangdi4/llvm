@@ -37,7 +37,12 @@ def to_string(b):
     if isinstance(b, bytes):
         # In Python2, this branch is never taken ('bytes' is handled as 'str').
         # In Python3, this is true only for 'bytes'.
-        return b.decode('utf-8')
+        try:
+            return b.decode('utf-8')
+        except UnicodeDecodeError:
+            # If the value is not valid Unicode, return the default
+            # repr-line encoding.
+            return str(b)
 
     # By this point, here's what we *don't* have:
     #
