@@ -1895,6 +1895,8 @@ void ReassociatePass::EraseInst(Instruction *I) {
         Op = Op->user_back();
       RedoInsts.insert(Op);
     }
+
+  MadeChange = true;
 }
 
 // Canonicalize expressions of the following form:
