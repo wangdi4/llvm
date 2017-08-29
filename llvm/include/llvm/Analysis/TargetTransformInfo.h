@@ -844,13 +844,10 @@ public:
   virtual bool isAlwaysUniform(const Value *V) = 0;
   virtual unsigned getFlatAddressSpace() = 0;
   virtual bool isLoweredToCall(const Function *F) = 0;
-<<<<<<< HEAD
-  virtual void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) = 0;
-  virtual unsigned getLoopRotationDefaultThreshold(bool OptForSize) const = 0;
-=======
   virtual void getUnrollingPreferences(Loop *L, ScalarEvolution &,
                                        UnrollingPreferences &UP) = 0;
->>>>>>> 28b3f06e1a44fb24aae4b3477663e39631ee531c
+  virtual unsigned                                            // INTEL
+  getLoopRotationDefaultThreshold(bool OptForSize) const = 0; // INTEL
   virtual bool isLegalAddImmediate(int64_t Imm) = 0;
   virtual bool isLegalICmpImmediate(int64_t Imm) = 0;
   virtual bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
