@@ -220,7 +220,8 @@ public:
     return true;
   }
 
-  void getUnrollingPreferences(Loop *, TTI::UnrollingPreferences &) {}
+  void getUnrollingPreferences(Loop *, ScalarEvolution &,
+                               TTI::UnrollingPreferences &) {}
 
   unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
 
