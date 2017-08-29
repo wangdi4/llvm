@@ -1813,9 +1813,7 @@ HIRCompleteUnroll::computeAvgTripCount(const HLLoop *Loop) {
 
       // Set dependence level to the level of the outermost loop which has a
       // IV in UB.
-      if (DepLevel == LoopLevel) {
-        DepLevel = Level;
-      }
+      DepLevel = Level;
     }
 
     ParLoop = ParLoop->getParentLoop();
