@@ -91,6 +91,7 @@
 
 //#define DEBUG_TYPE "fpga-advisor-analysis"
 #define DEBUG_TYPE "fpga-advisor"
+#define BUFSIZE 1024
 
 using namespace llvm;
 using namespace fpga;
@@ -941,7 +942,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 	bool showProgressBar = true;
 	// get total line number from file using wc command
 	FILE *in;
-	char buf[256];
+	char buf[BUFSIZE]; // need to change hard-coded size
 	
 	unsigned int fileLineNum;
 	unsigned int traceThreshold = TraceThreshold;
@@ -955,7 +956,7 @@ bool AdvisorAnalysis::get_program_trace(std::string fileIn) {
 		fileLineNum = UINT_MAX;
 	} else {
           //assert(fgets(buf, sizeof(buf), in) != NULL);
-                while (fgets(buf, 256, in)) {}
+                while (fgets(buf, BUFSIZE, in)) {}
 
 		DEBUG(*outputLog << "WC " << buf << "\n");
 		char *pch = std::strtok(buf, " ");
