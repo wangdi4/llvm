@@ -4992,17 +4992,11 @@ void InnerLoopVectorizer::vectorizeInstruction(Instruction &I) {
       if (isa<FPMathOperator>(V))
         V->copyFastMathFlags(CI);
 
-<<<<<<< HEAD
-      VectorLoopValueMap.setVectorValue(&I, Part, V);
-      addMetadata(V, &I);
-#if INTEL_CUSTOMIZATION
-      analyzeCallArgMemoryReferences(
-          CI, cast<CallInst>(VectorLoopValueMap.getVectorValue(&I, Part)), TLI,
-          PSE.getSE(), OrigLoop);
-#endif // INTEL_CUSTOMIZATION
-=======
       Entry[Part] = V;
->>>>>>> bfc8711de97f7bcc2ac9b4a82400f158ec0aedb1
+#if INTEL_CUSTOMIZATION
+      analyzeCallArgMemoryReferences(CI, cast<CallInst>(Entry[Part]), TLI,
+                                     PSE.getSE(), OrigLoop);
+#endif // INTEL_CUSTOMIZATION
     }
 
     VectorLoopValueMap.initVector(&I, Entry);
