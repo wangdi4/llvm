@@ -2088,8 +2088,7 @@ static void filterNonConflictingPreviousTypedefDecls(Sema &S,
 
       // If both declarations give a tag declaration a typedef name for linkage
       // purposes, then they declare the same entity.
-      if (S.getLangOpts().CPlusPlus &&
-          OldTD->getAnonDeclWithTypedefName(/*AnyRedecl*/true) &&
+      if (OldTD->getAnonDeclWithTypedefName(/*AnyRedecl*/true) &&
           Decl->getAnonDeclWithTypedefName())
         continue;
     }
@@ -2254,7 +2253,7 @@ void Sema::MergeTypedefNameDecl(Scope *S, TypedefNameDecl *New,
     auto *OldTag = OldTD->getAnonDeclWithTypedefName(/*AnyRedecl*/true);
     auto *NewTag = New->getAnonDeclWithTypedefName();
     NamedDecl *Hidden = nullptr;
-    if (getLangOpts().CPlusPlus && OldTag && NewTag &&
+    if (OldTag && NewTag &&
         OldTag->getCanonicalDecl() != NewTag->getCanonicalDecl() &&
         !hasVisibleDefinition(OldTag, &Hidden)) {
       // There is a definition of this tag, but it is not visible. Use it
