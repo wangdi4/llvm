@@ -60,11 +60,7 @@ protected:
   };
 
   enum X86ProcFamilyEnum {
-<<<<<<< HEAD
-    Others, IntelAtom, IntelSLM, IntelGLM //INTEL
-=======
     Others, IntelAtom, IntelSLM, IntelGLM
->>>>>>> 67e5e6bb52e8fbedfdfff8477e7f78c5bbd3535b
   };
 
   /// X86 processor family: Intel Atom, and others
