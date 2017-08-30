@@ -493,7 +493,6 @@ Value *TargetTransformInfo::getOrCreateResultFromMemIntrinsic(
   return TTIImpl->getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
 }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 bool TargetTransformInfo::isAdvancedOptimEnabled() const {
   return TTIImpl->isAdvancedOptimEnabled();
@@ -510,7 +509,6 @@ bool TargetTransformInfo::isTargetSpecificShuffleMask(
 
 #endif // INTEL_CUSTOMIZATION
 
-=======
 Type *TargetTransformInfo::getMemcpyLoopLoweringType(LLVMContext &Context,
                                                      Value *Length,
                                                      unsigned SrcAlign,
@@ -530,7 +528,6 @@ bool TargetTransformInfo::useWideIRMemcpyLoopLowering() const {
   return UseWideMemcpyLoopLowering;
 }
 
->>>>>>> 471398ffea754114315a88743dfc1a3b00a21faf
 bool TargetTransformInfo::areInlineCompatible(const Function *Caller,
                                               const Function *Callee) const {
   return TTIImpl->areInlineCompatible(Caller, Callee);

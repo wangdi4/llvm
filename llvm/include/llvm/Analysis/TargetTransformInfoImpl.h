@@ -449,7 +449,6 @@ public:
     return nullptr;
   }
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptimEnabled() const { return false; }
 
@@ -460,7 +459,6 @@ public:
   }
 
 #endif
-=======
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAlign, unsigned DestAlign) const {
     return Type::getInt8Ty(Context);
@@ -474,7 +472,6 @@ public:
     for (unsigned i = 0; i != RemainingBytes; ++i)
       OpsOut.push_back(Type::getInt8Ty(Context));
   }
->>>>>>> 471398ffea754114315a88743dfc1a3b00a21faf
 
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const {

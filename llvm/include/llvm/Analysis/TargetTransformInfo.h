@@ -757,7 +757,6 @@ public:
   Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                            Type *ExpectedType) const;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   // Returns true if AdvancedOptim is enabled.
   bool isAdvancedOptimEnabled() const;
@@ -768,7 +767,7 @@ public:
   /// instruction, return false otherwise.
   bool isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const;
 #endif // INTEL_CUSTOMIZATION
-=======
+
   /// \returns The type to use in a loop expansion of a memcpy call.
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAlign, unsigned DestAlign) const;
@@ -791,7 +790,6 @@ public:
   /// remove the old.
   bool useWideIRMemcpyLoopLowering() const;
 
->>>>>>> 471398ffea754114315a88743dfc1a3b00a21faf
   /// \returns True if the two functions have compatible attributes for inlining
   /// purposes.
   bool areInlineCompatible(const Function *Caller,
@@ -994,7 +992,6 @@ public:
   virtual unsigned getAtomicMemIntrinsicMaxElementSize() const = 0;
   virtual Value *getOrCreateResultFromMemIntrinsic(IntrinsicInst *Inst,
                                                    Type *ExpectedType) = 0;
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   virtual bool isAdvancedOptimEnabled() const = 0;
   virtual bool adjustCallArgs(CallInst *) = 0;
@@ -1002,14 +999,12 @@ public:
   virtual bool
   isTargetSpecificShuffleMask(SmallVectorImpl<int> &Mask) const = 0;
 #endif // INTEL_CUSTOMIZATION
-=======
   virtual Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                           unsigned SrcAlign,
                                           unsigned DestAlign) const = 0;
   virtual void getMemcpyLoopResidualLoweringType(
       SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
       unsigned RemainingBytes, unsigned SrcAlign, unsigned DestAlign) const = 0;
->>>>>>> 471398ffea754114315a88743dfc1a3b00a21faf
   virtual bool areInlineCompatible(const Function *Caller,
                                    const Function *Callee) const = 0;
   virtual unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const = 0;
@@ -1326,7 +1321,6 @@ public:
                                            Type *ExpectedType) override {
     return Impl.getOrCreateResultFromMemIntrinsic(Inst, ExpectedType);
   }
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   bool isAdvancedOptimEnabled() const override {
     return Impl.isAdvancedOptimEnabled();
@@ -1340,7 +1334,6 @@ public:
     return Impl.isTargetSpecificShuffleMask(Mask);
   }
 #endif // INTEL_CUSTOMIZATION
-=======
   Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
                                   unsigned SrcAlign,
                                   unsigned DestAlign) const override {
@@ -1354,7 +1347,6 @@ public:
     Impl.getMemcpyLoopResidualLoweringType(OpsOut, Context, RemainingBytes,
                                            SrcAlign, DestAlign);
   }
->>>>>>> 471398ffea754114315a88743dfc1a3b00a21faf
   bool areInlineCompatible(const Function *Caller,
                            const Function *Callee) const override {
     return Impl.areInlineCompatible(Caller, Callee);
