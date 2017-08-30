@@ -2745,7 +2745,11 @@ class X86TargetInfo : public TargetInfo {
     //@{
     CK_Bonnell,
     CK_Silvermont,
+<<<<<<< HEAD
     CK_Goldmont, // INTEL
+=======
+    CK_Goldmont,
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
     //@}
 
     /// \name Nehalem
@@ -2887,8 +2891,12 @@ class X86TargetInfo : public TargetInfo {
         .Case("atom", CK_Bonnell) // Legacy name.
         .Case("silvermont", CK_Silvermont)
         .Case("slm", CK_Silvermont) // Legacy name.
+<<<<<<< HEAD
         .Case("goldmont", CK_Goldmont) // INTEL
         .Case("glm", CK_Goldmont)      // INTEL
+=======
+        .Case("goldmont", CK_Goldmont)
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
         .Case("nehalem", CK_Nehalem)
         .Case("corei7", CK_Nehalem) // Legacy name.
         .Case("westmere", CK_Westmere)
@@ -3104,7 +3112,11 @@ public:
     case CK_Penryn:
     case CK_Bonnell:
     case CK_Silvermont:
+<<<<<<< HEAD
     case CK_Goldmont: // INTEL
+=======
+    case CK_Goldmont:
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
     case CK_Nehalem:
     case CK_Westmere:
     case CK_SandyBridge:
@@ -3297,7 +3309,10 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
     break;
+<<<<<<< HEAD
   #if INTEL_CUSTOMIZATION
+=======
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
   case CK_Goldmont:
     setFeatureEnabledImpl(Features, "sha", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
@@ -3312,9 +3327,13 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "sse4.2", true);
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
+<<<<<<< HEAD
     setFeatureEnabledImpl(Features, "fsgsbase", true);
     break;
   #endif
+=======
+  break;
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
   case CK_KNL:
     setFeatureEnabledImpl(Features, "avx512f", true);
     setFeatureEnabledImpl(Features, "avx512cd", true);
@@ -3923,11 +3942,17 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Silvermont:
     defineCPUMacros(Builder, "slm");
     break;
+<<<<<<< HEAD
   #if INTEL_CUSTOMIZATION
   case CK_Goldmont:
     defineCPUMacros(Builder, "glm");
     break;
   #endif
+=======
+  case CK_Goldmont:
+    defineCPUMacros(Builder, "goldmont");
+    break;
+>>>>>>> e3c11765ca248ea8e62227e52e53aa1ec8983a52
   case CK_Nehalem:
   case CK_Westmere:
   case CK_SandyBridge:
