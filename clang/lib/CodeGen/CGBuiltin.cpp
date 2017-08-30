@@ -7620,6 +7620,8 @@ Value *CodeGenFunction::EmitX86BuiltinExpr(unsigned BuiltinID,
       AVX512PF,
       AVX512VBMI,
       AVX512IFMA,
+      AVX5124VNNIW, // TODO implement this fully
+      AVX5124FMAPS, // TODO implement this fully
       AVX512VPOPCNTDQ,
       MAX
     };
