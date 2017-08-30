@@ -163,19 +163,19 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
   for (unsigned int i = 0; i < ElemNum; ++i) {
     Type *ElemTy = STy->getElementType(i);
     SmallVector<Value *, 8> Indices;
-    Indices.push_back(Builder->getInt32(0));
+    Indices.push_back(Builder.getInt32(0));
     // In order to build the GEP instruction correctly, we need to
     // provide the current index of structure field.
-    Indices.push_back(Builder->getInt32(i));
-    GEPSrc = Builder->CreateInBoundsGEP(STy, StrippedSrc, Indices);
-    LDSrc = Builder->CreateLoad(GEPSrc);
+    Indices.push_back(Builder.getInt32(i));
+    GEPSrc = Builder.CreateInBoundsGEP(STy, StrippedSrc, Indices);
+    LDSrc = Builder.CreateLoad(GEPSrc);
     LDSrc->setAlignment(DL.getABITypeAlignment(ElemTy));
     CopyMD = cast<MDNode>(M->getOperand(2 + i * 3));
     assert(CopyMD);
     LDSrc->setMetadata(LLVMContext::MD_tbaa, CopyMD);
-    GEPDest = Builder->CreateInBoundsGEP(STy, StrippedDest, Indices);
+    GEPDest = Builder.CreateInBoundsGEP(STy, StrippedDest, Indices);
 
-    STDest = Builder->CreateStore(LDSrc, GEPDest);
+    STDest = Builder.CreateStore(LDSrc, GEPDest);
     STDest->setMetadata(LLVMContext::MD_tbaa, CopyMD);
     STDest->setAlignment(DL.getABITypeAlignment(ElemTy));
   }

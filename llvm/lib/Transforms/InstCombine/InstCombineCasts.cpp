@@ -1333,10 +1333,10 @@ Instruction *InstCombiner::visitFPTrunc(FPTruncInst &CI) {
       // optimzations will take care of the elimination.
       if (isa<ConstantFP>(RHSOrig) && RHSOrig->getType()->isDoubleTy() &&
           LHSOrig->getType()->isFloatTy())
-        RHSOrig = Builder->CreateFPTrunc(RHSOrig, CI.getType());
+        RHSOrig = Builder.CreateFPTrunc(RHSOrig, CI.getType());
       else if (isa<ConstantFP>(LHSOrig) && LHSOrig->getType()->isDoubleTy() &&
           RHSOrig->getType()->isFloatTy())
-        LHSOrig = Builder->CreateFPTrunc(LHSOrig, CI.getType());
+        LHSOrig = Builder.CreateFPTrunc(LHSOrig, CI.getType());
     }
 #endif // INTEL_CUSTOMIZATION
     unsigned OpWidth = OpI->getType()->getFPMantissaWidth();

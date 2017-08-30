@@ -444,9 +444,9 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
             Op0BO->getOperand(0)->hasOneUse() &&
             match(Op0BO->getOperand(0), m_Shl(m_Value(V1), m_Specific(Op1)))) {
           Value *YS =        // (Y >> C)
-            Builder->CreateLShr(Op0BO->getOperand(1), Op1, Op0BO->getName());
+            Builder.CreateLShr(Op0BO->getOperand(1), Op1, Op0BO->getName());
           // (X + (Y >> C))
-          Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), V1, YS, 
+          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), V1, YS, 
                                           Op0BO->getOperand(0)->getName());
 
           uint32_t Op1Val = Op1C->getLimitedValue(TypeBits);
@@ -501,9 +501,9 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
             Op0BO->getOperand(1)->hasOneUse() &&
             match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
           Value *YS =        // (Y >> C)
-            Builder->CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
+            Builder.CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
           // ((Y >> C) + X)
-          Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), YS, V1, 
+          Value *X = Builder.CreateBinOp(Op0BO->getOpcode(), YS, V1, 
                                           Op0BO->getOperand(0)->getName());
 
           uint32_t Op1Val = Op1C->getLimitedValue(TypeBits);

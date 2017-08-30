@@ -3681,9 +3681,9 @@ bool InstCombiner::ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0,
   if (profit > 0 &&
       isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT) &&
       isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, &AC, &ICI, &DT)) {
-    Value *Trunc0 = Builder->CreateTrunc(Op0, 
+    Value *Trunc0 = Builder.CreateTrunc(Op0, 
                             IntegerType::get(ICI.getContext(), Size));
-    Value *Trunc1 = Builder->CreateTrunc(Op1, 
+    Value *Trunc1 = Builder.CreateTrunc(Op1, 
                             IntegerType::get(ICI.getContext(), Size));
     ICI.replaceUsesOfWith(Op0, Trunc0);
     ICI.replaceUsesOfWith(Op1, Trunc1);
