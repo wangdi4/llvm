@@ -520,6 +520,8 @@ void Parser::Initialize() {
 
   // Prime the lexer look-ahead.
   ConsumeToken();
+
+  PP.replayPreambleConditionalStack();
 }
 
 void Parser::LateTemplateParserCleanupCallback(void *P) {
