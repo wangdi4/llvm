@@ -107,6 +107,21 @@ bool HIRSCCFormation::isCandidateRootNode(const NodeTy *Node) const {
     return false;
   }
 
+  if (Node->getType()->isIntegerTy()) {
+    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+
+    // Do not form SCCs where root nodes have range info. This allows
+    // ScalarEvolution to optimize closed form expressions. For example if a 32
+    // bit value is within i8 range [0,256), zext.i8.i32(trunc.i32.i8(t)) can be
+    // simplified to t. This is problematic for parser which wants to substitute
+    // all occurences of temps in the SCC with the base/root temp. If such
+    // simplification occurs during substitution, we will form incorrect HIR.
+    // TODO: refine this logic?
+    if (!SE->getUnsignedRange(SC).isFullSet()) {
+      return false;
+    }
+  }
+
   return true;
 }
 
