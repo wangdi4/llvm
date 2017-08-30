@@ -14,7 +14,7 @@
 
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/Scope.h"
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 
 using namespace clang;
 
@@ -155,6 +155,7 @@ struct SIMDPrivateItemParser {
                              false, // EnteringContext
                              false, // AllowDestructorName
                              false, // AllowConstructorName,
+                             false, // AllowDeductionGuide
                              ParsedType(), TemplateKWLoc, Name))
       return false;
 
@@ -303,7 +304,7 @@ static bool ParseSIMDClauses(Parser &P, Sema &S, SourceLocation BeginLoc,
     }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
     else {
-      P.Diag(Tok, diag::err_simd_invalid_clause);
+      P.Diag(Tok, diag::warn_simd_invalid_clause);
       return false;
     }
 

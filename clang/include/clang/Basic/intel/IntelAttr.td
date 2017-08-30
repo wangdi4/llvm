@@ -5,15 +5,6 @@ class CheckedExprArgument<string name> : Argument<name, 1>;
 class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
 def CilkPlus : LangOpt<"CilkPlus">;
 
-// CQ#375011 - 'alloc_size' attribute is not recognized.
-def AllocSize : InheritableAttr {
-  let Spellings = [GNU<"alloc_size">];
-  let Args = [AlignedArgument<"Size", 0>, AlignedArgument<"SizeByProduct", 1>];
-  let Subjects = SubjectList<[Function, CXXMethod], WarnDiag,
-                             "ExpectedFunctionOrMethod">;
-  let Documentation = [Undocumented];
-}
-
 def SIMD : InheritableAttr {
   let Spellings = [];
   let Documentation = [Undocumented];
@@ -350,4 +341,9 @@ def SIMDAssert : Attr {
   let Spellings = [CilkKeyword<"assert">];
   let Documentation = [Undocumented];
   int Requires = 6;
+}
+
+def Leaf : IgnoredAttr {
+  let Spellings = [GNU<"leaf">];
+  let Subjects = SubjectList<[Function]>;
 }

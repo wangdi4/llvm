@@ -1,4 +1,8 @@
-// RUN: %clang_cc1 -O1 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only %s -o - | FileCheck %s --check-prefix=CHECK --check-prefix=LIFETIME
+// INTEL -- It is necessary to disable TBAAPROP here to avoid a problem in sroa
+//          wherein it deletes nonnull attributes from arguments when updating
+//          calls to lifetime.start.  This is entirely benign, but it cause
+//          the test to report a failure.
+// RUN: %clang_cc1 -O1 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only -mllvm -enable-tbaa-prop=0  %s -o - | FileCheck %s --check-prefix=CHECK --check-prefix=LIFETIME
 
 // We shouldn't have markers at -O0 or with msan.
 // RUN: %clang_cc1 -O0 -triple x86_64-none-linux-gnu -emit-llvm -debug-info-kind=line-tables-only %s -o - | FileCheck %s
@@ -13,9 +17,9 @@ int test() {
   return *p;
 // CHECK: [[X:%.*]] = alloca i32
 // CHECK: [[P:%.*]] = alloca i32*
-// LIFETIME: call void @llvm.lifetime.start(i64 4, i8* nonnull %{{.*}}){{( #[0-9]+)?}}, !dbg
-// LIFETIME: call void @llvm.lifetime.start(i64 8, i8* nonnull %{{.*}}){{( #[0-9]+)?}}, !dbg
+// LIFETIME: call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %{{.*}}){{( #[0-9]+)?}}, !dbg
+// LIFETIME: call void @llvm.lifetime.start.p0i8(i64 8, i8* nonnull %{{.*}}){{( #[0-9]+)?}}, !dbg
 // CHECK-NOT: store i32 %{{.*}}, i32* %cleanup.dest.slot
-// LIFETIME: call void @llvm.lifetime.end(i64 8, {{.*}}){{( #[0-9]+)?}}, !dbg
-// LIFETIME: call void @llvm.lifetime.end(i64 4, {{.*}}){{( #[0-9]+)?}}, !dbg
+// LIFETIME: call void @llvm.lifetime.end.p0i8(i64 8, {{.*}}){{( #[0-9]+)?}}, !dbg
+// LIFETIME: call void @llvm.lifetime.end.p0i8(i64 4, {{.*}}){{( #[0-9]+)?}}, !dbg
 }

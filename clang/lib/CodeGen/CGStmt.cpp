@@ -182,7 +182,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     EmitCoroutineBody(cast<CoroutineBodyStmt>(*S));
     break;
   case Stmt::CoreturnStmtClass:
-    CGM.ErrorUnsupported(S, "coroutine");
+    EmitCoreturnStmt(cast<CoreturnStmt>(*S));
     break;
   case Stmt::CapturedStmtClass: {
     const CapturedStmt *CS = cast<CapturedStmt>(S);
@@ -357,6 +357,33 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::OMPTeamsDistributeSimdDirectiveClass:
     EmitOMPTeamsDistributeSimdDirective(
         cast<OMPTeamsDistributeSimdDirective>(*S));
+    break;
+  case Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass:
+    EmitOMPTeamsDistributeParallelForSimdDirective(
+        cast<OMPTeamsDistributeParallelForSimdDirective>(*S));
+    break;
+  case Stmt::OMPTeamsDistributeParallelForDirectiveClass:
+    EmitOMPTeamsDistributeParallelForDirective(
+        cast<OMPTeamsDistributeParallelForDirective>(*S));
+    break;
+  case Stmt::OMPTargetTeamsDirectiveClass:
+    EmitOMPTargetTeamsDirective(cast<OMPTargetTeamsDirective>(*S));
+    break;
+  case Stmt::OMPTargetTeamsDistributeDirectiveClass:
+    EmitOMPTargetTeamsDistributeDirective(
+        cast<OMPTargetTeamsDistributeDirective>(*S));
+    break;
+  case Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass:
+    EmitOMPTargetTeamsDistributeParallelForDirective(
+        cast<OMPTargetTeamsDistributeParallelForDirective>(*S));
+    break;
+  case Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass:
+    EmitOMPTargetTeamsDistributeParallelForSimdDirective(
+        cast<OMPTargetTeamsDistributeParallelForSimdDirective>(*S));
+    break;
+  case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
+    EmitOMPTargetTeamsDistributeSimdDirective(
+        cast<OMPTargetTeamsDistributeSimdDirective>(*S));
     break;
   }
 }
@@ -1252,7 +1279,7 @@ void CodeGenFunction::EmitCaseStmtRange(const CaseStmt &S) {
       if (Rem)
         Rem--;
       SwitchInsn->addCase(Builder.getInt(LHS), CaseDest);
-      LHS++;
+      ++LHS;
     }
     return;
   }
@@ -2234,25 +2261,16 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     llvm::InlineAsm::get(FTy, AsmString, Constraints, HasSideEffect,
                          /* IsAlignStack */ false, AsmDialect);
   llvm::CallInst *Result = Builder.CreateCall(IA, Args);
-  Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+  Result->addAttribute(llvm::AttributeList::FunctionIndex,
                        llvm::Attribute::NoUnwind);
-
-  if (isa<MSAsmStmt>(&S)) {
-    // If the assembly contains any labels, mark the call noduplicate to prevent
-    // defining the same ASM label twice (PR23715). This is pretty hacky, but it
-    // works.
-    if (AsmString.find("__MSASMLABEL_") != std::string::npos)
-      Result->addAttribute(llvm::AttributeSet::FunctionIndex,
-                           llvm::Attribute::NoDuplicate);
-  }
 
   // Attach readnone and readonly attributes.
   if (!HasSideEffect) {
     if (ReadNone)
-      Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+      Result->addAttribute(llvm::AttributeList::FunctionIndex,
                            llvm::Attribute::ReadNone);
     else if (ReadOnly)
-      Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+      Result->addAttribute(llvm::AttributeList::FunctionIndex,
                            llvm::Attribute::ReadOnly);
   }
 
@@ -2273,7 +2291,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     // Conservatively, mark all inline asm blocks in CUDA as convergent
     // (meaning, they may call an intrinsically convergent op, such as bar.sync,
     // and so can't have certain optimizations applied around them).
-    Result->addAttribute(llvm::AttributeSet::FunctionIndex,
+    Result->addAttribute(llvm::AttributeList::FunctionIndex,
                          llvm::Attribute::Convergent);
   }
 
@@ -2341,7 +2359,7 @@ LValue CodeGenFunction::InitCapturedStruct(const CapturedStmt &S) {
       auto VAT = CurField->getCapturedVLAType();
       EmitStoreThroughLValue(RValue::get(VLASizeMap[VAT->getSizeExpr()]), LV);
     } else {
-      EmitInitializerForField(*CurField, LV, *I, None);
+      EmitInitializerForField(*CurField, LV, *I);
     }
   }
 

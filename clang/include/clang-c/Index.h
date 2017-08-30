@@ -32,7 +32,7 @@
  * compatible, thus CINDEX_VERSION_MAJOR is expected to remain stable.
  */
 #define CINDEX_VERSION_MAJOR 0
-#define CINDEX_VERSION_MINOR 36
+#define CINDEX_VERSION_MINOR 37
 
 #define CINDEX_VERSION_ENCODE(major, minor) ( \
       ((major) * 10000)                       \
@@ -326,7 +326,7 @@ clang_isFileMultipleIncludeGuarded(CXTranslationUnit tu, CXFile file);
  *
  * \param tu the translation unit
  *
-* \param file_name the name of the file.
+ * \param file_name the name of the file.
  *
  * \returns the file handle for the named file in the translation unit \p tu,
  * or a NULL file handle if the file was not a part of this translation unit.
@@ -478,8 +478,8 @@ CINDEX_LINKAGE void clang_getExpansionLocation(CXSourceLocation location,
                                                unsigned *offset);
 
 /**
- * \brief Retrieve the file, line, column, and offset represented by
- * the given source location, as specified in a # line directive.
+ * \brief Retrieve the file, line and column represented by the given source
+ * location, as specified in a # line directive.
  *
  * Example: given the following source code in a file somefile.c
  *
@@ -2345,8 +2345,37 @@ enum CXCursorKind {
   /** \brief OpenMP teams distribute simd directive.
    */
   CXCursor_OMPTeamsDistributeSimdDirective = 272,
+
+  /** \brief OpenMP teams distribute parallel for simd directive.
+   */
+  CXCursor_OMPTeamsDistributeParallelForSimdDirective = 273,
+
+  /** \brief OpenMP teams distribute parallel for directive.
+   */
+  CXCursor_OMPTeamsDistributeParallelForDirective = 274,
+
+  /** \brief OpenMP target teams directive.
+   */
+  CXCursor_OMPTargetTeamsDirective = 275,
+
+  /** \brief OpenMP target teams distribute directive.
+   */
+  CXCursor_OMPTargetTeamsDistributeDirective = 276,
+
+  /** \brief OpenMP target teams distribute parallel for directive.
+   */
+  CXCursor_OMPTargetTeamsDistributeParallelForDirective = 277,
+
+  /** \brief OpenMP target teams distribute parallel for simd directive.
+   */
+  CXCursor_OMPTargetTeamsDistributeParallelForSimdDirective = 278,
+
+  /** \brief OpenMP target teams distribute simd directive.
+   */
+  CXCursor_OMPTargetTeamsDistributeSimdDirective = 279,
+
 #if INTEL_CUSTOMIZATION
-  CXCursor_CilkRankedStmt                = 273,
+  CXCursor_CilkRankedStmt                = 280,
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
 #endif /* INTEL_CUSTOMIZATION */
 
@@ -2985,8 +3014,10 @@ enum CXTypeKind {
   CXType_ObjCClass = 28,
   CXType_ObjCSel = 29,
   CXType_Float128 = 30,
+  CXType_Half = 31,
   CXType_FirstBuiltin = CXType_Void,
-  CXType_LastBuiltin = CXType_Float128,
+  CXType_LastBuiltin  = CXType_Half,
+
   CXType_Complex = 100,
   CXType_Pointer = 101,
   CXType_BlockPointer = 102,
@@ -3407,6 +3438,16 @@ CINDEX_LINKAGE long long clang_getArraySize(CXType T);
  * If a non-elaborated type is passed in, an invalid type is returned.
  */
 CINDEX_LINKAGE CXType clang_Type_getNamedType(CXType T);
+
+/**
+ * \brief Determine if a typedef is 'transparent' tag.
+ *
+ * A typedef is considered 'transparent' if it shares a name and spelling
+ * location with its underlying tag type, as is the case with the NS_ENUM macro.
+ *
+ * \returns non-zero if transparent and zero otherwise.
+ */
+CINDEX_LINKAGE unsigned clang_Type_isTransparentTagTypedef(CXType T);
 
 /**
  * \brief List the possible error codes for \c clang_Type_getSizeOf,
@@ -3996,8 +4037,8 @@ CINDEX_LINKAGE unsigned clang_Cursor_getObjCDeclQualifiers(CXCursor C);
 
 /**
  * \brief Given a cursor that represents an Objective-C method or property
- * declaration, return non-zero if the declaration was affected by "@optional".
- * Returns zero if the cursor is not such a declaration or it is "@required".
+ * declaration, return non-zero if the declaration was affected by "\@optional".
+ * Returns zero if the cursor is not such a declaration or it is "\@required".
  */
 CINDEX_LINKAGE unsigned clang_Cursor_isObjCOptional(CXCursor C);
 
@@ -4673,7 +4714,7 @@ enum CXCompletionChunkKind {
    */
   CXCompletionChunk_HorizontalSpace,
   /**
-   * Vertical space ('\n'), after which it is generally a good idea to
+   * Vertical space ('\\n'), after which it is generally a good idea to
    * perform indentation.
    */
   CXCompletionChunk_VerticalSpace
@@ -5263,6 +5304,25 @@ CINDEX_LINKAGE CXEvalResultKind clang_EvalResult_getKind(CXEvalResult E);
 CINDEX_LINKAGE int clang_EvalResult_getAsInt(CXEvalResult E);
 
 /**
+ * \brief Returns the evaluation result as a long long integer if the
+ * kind is Int. This prevents overflows that may happen if the result is
+ * returned with clang_EvalResult_getAsInt.
+ */
+CINDEX_LINKAGE long long clang_EvalResult_getAsLongLong(CXEvalResult E);
+
+/**
+ * \brief Returns a non-zero value if the kind is Int and the evaluation
+ * result resulted in an unsigned integer.
+ */
+CINDEX_LINKAGE unsigned clang_EvalResult_isUnsignedInt(CXEvalResult E);
+
+/**
+ * \brief Returns the evaluation result as an unsigned integer if
+ * the kind is Int and clang_EvalResult_isUnsignedInt is non-zero.
+ */
+CINDEX_LINKAGE unsigned long long clang_EvalResult_getAsUnsigned(CXEvalResult E);
+
+/**
  * \brief Returns the evaluation result as double if the
  * kind is double.
  */
@@ -5543,7 +5603,8 @@ typedef enum {
   CXIdxEntityLang_None = 0,
   CXIdxEntityLang_C    = 1,
   CXIdxEntityLang_ObjC = 2,
-  CXIdxEntityLang_CXX  = 3
+  CXIdxEntityLang_CXX  = 3,
+  CXIdxEntityLang_Swift  = 4
 } CXIdxEntityLanguage;
 
 /**

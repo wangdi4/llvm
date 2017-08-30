@@ -92,8 +92,8 @@ def err_simd_for_missing_increment: Error<
 def err_simd_for_missing_semi: Error<
   "expected ';' in simd for">;
 
-def err_simd_invalid_clause: Error<
-  "invalid pragma simd clause">;
+def warn_simd_invalid_clause: Warning<"invalid pragma simd clause">,
+   InGroup<IntelPragma>;
 
 def err_simd_expected_reduction_operator: Error<
   "expected reduction operator">;

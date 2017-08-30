@@ -10,11 +10,12 @@
 #ifndef LLVM_LIB_TARGET_AMDGPU_MCTARGETDESC_AMDGPUTARGETSTREAMER_H
 #define LLVM_LIB_TARGET_AMDGPU_MCTARGETDESC_AMDGPUTARGETSTREAMER_H
 
+#include "AMDGPUCodeObjectMetadataStreamer.h"
 #include "AMDKernelCodeT.h"
 #include "llvm/MC/MCStreamer.h"
 
 namespace llvm {
-#include "AMDGPURuntimeMetadata.h"
+#include "AMDGPUPTNote.h"
 
 class DataLayout;
 class Function;
@@ -25,6 +26,10 @@ class Module;
 class Type;
 
 class AMDGPUTargetStreamer : public MCTargetStreamer {
+protected:
+  AMDGPU::CodeObject::MetadataStreamer CodeObjectMetadataStreamer;
+  MCContext &getContext() const { return Streamer.getContext(); }
+
 public:
   AMDGPUTargetStreamer(MCStreamer &S);
   virtual void EmitDirectiveHSACodeObjectVersion(uint32_t Major,
@@ -43,38 +48,18 @@ public:
 
   virtual void EmitAMDGPUHsaProgramScopeGlobal(StringRef GlobalName) = 0;
 
-  /// Emit runtime metadata as a note element.
-  void emitRuntimeMetadataAsNoteElement(Module &M);
+  virtual void EmitStartOfCodeObjectMetadata(const Module &Mod);
 
-private:
-  void emitRuntimeMetadata(Module &M);
-  void emitStartOfRuntimeMetadata(const Module &M);
+  virtual void EmitKernelCodeObjectMetadata(
+      const Function &Func, const amd_kernel_code_t &KernelCode);
 
-  /// Emit runtime metadata for a kernel function.
-  void emitRuntimeMetadata(const Function &F);
+  virtual void EmitEndOfCodeObjectMetadata();
 
-  // Emit runtime metadata for a kernel argument.
-  void emitRuntimeMetadataForKernelArg(const DataLayout &DL,
-      Type *T, AMDGPU::RuntimeMD::KernelArg::Kind Kind,
-      StringRef BaseTypeName = "", StringRef TypeName = "",
-      StringRef ArgName = "", StringRef TypeQual = "",
-      StringRef AccQual = "");
-
-  /// Emit a key and an integer value for runtime metadata.
-  void emitRuntimeMDIntValue(AMDGPU::RuntimeMD::Key K,
-      uint64_t V, unsigned Size);
-
-  /// Emit a key and a string value for runtime metadata.
-  void emitRuntimeMDStringValue(AMDGPU::RuntimeMD::Key K,
-      StringRef S);
-
-  /// Emit a key and three integer values for runtime metadata.
-  /// The three integer values are obtained from MDNode \p Node;
-  void emitRuntimeMDThreeIntValues(AMDGPU::RuntimeMD::Key K, MDNode *Node,
-                                   unsigned Size);
+  /// \returns True on success, false on failure.
+  virtual bool EmitCodeObjectMetadata(StringRef YamlString) = 0;
 };
 
-class AMDGPUTargetAsmStreamer : public AMDGPUTargetStreamer {
+class AMDGPUTargetAsmStreamer final : public AMDGPUTargetStreamer {
   formatted_raw_ostream &OS;
 public:
   AMDGPUTargetAsmStreamer(MCStreamer &S, formatted_raw_ostream &OS);
@@ -92,10 +77,17 @@ public:
   void EmitAMDGPUHsaModuleScopeGlobal(StringRef GlobalName) override;
 
   void EmitAMDGPUHsaProgramScopeGlobal(StringRef GlobalName) override;
+
+  /// \returns True on success, false on failure.
+  bool EmitCodeObjectMetadata(StringRef YamlString) override;
 };
 
-class AMDGPUTargetELFStreamer : public AMDGPUTargetStreamer {
+class AMDGPUTargetELFStreamer final : public AMDGPUTargetStreamer {
   MCStreamer &Streamer;
+
+  void EmitAMDGPUNote(const MCExpr *DescSize,
+                      AMDGPU::ElfNote::NoteType Type,
+                      function_ref<void(MCELFStreamer &)> EmitDesc);
 
 public:
   AMDGPUTargetELFStreamer(MCStreamer &S);
@@ -116,6 +108,9 @@ public:
   void EmitAMDGPUHsaModuleScopeGlobal(StringRef GlobalName) override;
 
   void EmitAMDGPUHsaProgramScopeGlobal(StringRef GlobalName) override;
+
+  /// \returns True on success, false on failure.
+  bool EmitCodeObjectMetadata(StringRef YamlString) override;
 };
 
 }

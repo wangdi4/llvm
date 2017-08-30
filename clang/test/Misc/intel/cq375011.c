@@ -6,12 +6,8 @@ int *g(int a) __attribute__((__alloc_size__(1)));
 // CHECK: FunctionDecl {{.*}} 'int *(int, unsigned int)'
 // CHECK: |-ParmVarDecl {{.*}} 'int'
 // CHECK: |-ParmVarDecl {{.*}} 'unsigned int'
-// CHECK: `-AllocSizeAttr
-// CHECK: |-IntegerLiteral {{.*}} 'int' 1
-// CHECK: `-IntegerLiteral {{.*}} 'int' 2
+// CHECK: `-AllocSizeAttr {{.*}} 1 2
 
 // CHECK: FunctionDecl {{.*}} 'int *(int)'
 // CHECK: |-ParmVarDecl {{.*}} 'int'
-// CHECK: `-AllocSizeAttr
-// CHECK: |-IntegerLiteral {{.*}} 'int' 1
-// CHECK: `-<<<NULL>>>
+// CHECK: `-AllocSizeAttr {{.*}} 1 0

@@ -107,11 +107,13 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
 
       unsigned OpFlags = MI->getOperand(OpNum - 1).getImm();
       unsigned NumOpRegs = InlineAsm::getNumOperandRegisters(OpFlags);
+      (void)NumOpRegs;
 
       const AVRSubtarget &STI = MF->getSubtarget<AVRSubtarget>();
       const TargetRegisterInfo &TRI = *STI.getRegisterInfo();
 
-      unsigned BytesPerReg = TRI.getMinimalPhysRegClass(Reg)->getSize();
+      const TargetRegisterClass *RC = TRI.getMinimalPhysRegClass(Reg);
+      unsigned BytesPerReg = TRI.getRegSizeInBits(*RC) / 8;
       assert(BytesPerReg <= 2 && "Only 8 and 16 bit regs are supported.");
 
       unsigned RegIdx = ByteNumber / BytesPerReg;
@@ -129,7 +131,8 @@ bool AVRAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNum,
     }
   }
 
-  printOperand(MI, OpNum, O);
+  if (Error)
+    printOperand(MI, OpNum, O);
 
   return false;
 }
@@ -143,6 +146,7 @@ bool AVRAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   }
 
   const MachineOperand &MO = MI->getOperand(OpNum);
+  (void)MO;
   assert(MO.isReg() && "Unexpected inline asm memory operand");
 
   // TODO: We can look up the alternative name for the register if it's given.

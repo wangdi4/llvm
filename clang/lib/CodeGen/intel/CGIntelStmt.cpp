@@ -541,6 +541,9 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
   CGF.enableExceptions();
   // Always inline this function back to the call site.
   BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
+  // Ensure noinline hasn't been attached (happens in O0).  Remove function 
+  // doesn't require the attribute is there, so we always remove it.
+  BodyFunction->removeFnAttr(llvm::Attribute::NoInline);
   return BodyFunction;
 }
 

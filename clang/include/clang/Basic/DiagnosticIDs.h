@@ -32,9 +32,9 @@ namespace clang {
       DIAG_START_FRONTEND      = DIAG_START_DRIVER          +  200,
       DIAG_START_SERIALIZATION = DIAG_START_FRONTEND        +  100,
       DIAG_START_LEX           = DIAG_START_SERIALIZATION   +  120,
-      DIAG_START_PARSE         = DIAG_START_LEX             +  300,
+      DIAG_START_PARSE         = DIAG_START_LEX             +  310, // INTEL
       DIAG_START_AST           = DIAG_START_PARSE           +  500,
-      DIAG_START_COMMENT       = DIAG_START_AST             +  110,
+      DIAG_START_COMMENT       = DIAG_START_AST             +  120, // INTEL
       DIAG_START_SEMA          = DIAG_START_COMMENT         +  100,
       DIAG_START_ANALYSIS      = DIAG_START_SEMA            + 3500,
       DIAG_UPPER_LIMIT         = DIAG_START_ANALYSIS        +  100
@@ -84,6 +84,7 @@ class DiagnosticMapping {
   unsigned IsPragma : 1;
   unsigned HasNoWarningAsError : 1;
   unsigned HasNoErrorAsFatal : 1;
+  unsigned WasUpgradedFromWarning : 1;
 
 public:
   static DiagnosticMapping Make(diag::Severity Severity, bool IsUser,
@@ -94,6 +95,7 @@ public:
     Result.IsPragma = IsPragma;
     Result.HasNoWarningAsError = 0;
     Result.HasNoErrorAsFatal = 0;
+    Result.WasUpgradedFromWarning = 0;
     return Result;
   }
 
@@ -103,11 +105,33 @@ public:
   bool isUser() const { return IsUser; }
   bool isPragma() const { return IsPragma; }
 
+  bool isErrorOrFatal() const {
+    return getSeverity() == diag::Severity::Error ||
+           getSeverity() == diag::Severity::Fatal;
+  }
+
   bool hasNoWarningAsError() const { return HasNoWarningAsError; }
   void setNoWarningAsError(bool Value) { HasNoWarningAsError = Value; }
 
   bool hasNoErrorAsFatal() const { return HasNoErrorAsFatal; }
   void setNoErrorAsFatal(bool Value) { HasNoErrorAsFatal = Value; }
+
+  /// Whether this mapping attempted to map the diagnostic to a warning, but
+  /// was overruled because the diagnostic was already mapped to an error or
+  /// fatal error.
+  bool wasUpgradedFromWarning() const { return WasUpgradedFromWarning; }
+  void setUpgradedFromWarning(bool Value) { WasUpgradedFromWarning = Value; }
+
+  /// Serialize the bits that aren't based on context.
+  unsigned serializeBits() const {
+    return (WasUpgradedFromWarning << 3) | Severity;
+  }
+  static diag::Severity deserializeSeverity(unsigned Bits) {
+    return (diag::Severity)(Bits & 0x7);
+  }
+  static bool deserializeUpgradedFromWarning(unsigned Bits) {
+    return Bits >> 3;
+  }
 };
 
 /// \brief Used for handling and querying diagnostic IDs.

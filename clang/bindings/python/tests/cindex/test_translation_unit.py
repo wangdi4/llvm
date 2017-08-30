@@ -63,7 +63,6 @@ def test_unsaved_files_2():
         from StringIO import StringIO
     except:
         from io import StringIO
-
     tu = TranslationUnit.from_source('fake.c', unsaved_files = [
             ('fake.c', StringIO('int x;'))])
     spellings = [c.spelling for c in tu.cursor.get_children()]

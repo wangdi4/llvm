@@ -822,7 +822,7 @@ StmtResult Sema::ActOnCilkForGrainsizePragma(Expr *GrainsizeExpr, Stmt *CilkFor,
       Context, CurContext, GrainSizeStart, GrainSizeStart, 0, GrainsizeTy,
       Context.getTrivialTypeSourceInfo(GrainsizeTy, GrainSizeStart), SC_None);
 
-  AddInitializerToDecl(Grainsize, GrainsizeExpr, true, false);
+  AddInitializerToDecl(Grainsize, GrainsizeExpr, true);
   if (Grainsize->isInvalidDecl()) {
     Context.Deallocate(reinterpret_cast<void *>(Grainsize));
     Diag(GrainSizeStart, diag::note_cilk_for_grainsize_conversion)
@@ -830,7 +830,9 @@ StmtResult Sema::ActOnCilkForGrainsizePragma(Expr *GrainsizeExpr, Stmt *CilkFor,
     return StmtError();
   }
 
-  GrainsizeExpr = Grainsize->getInit();
+  // Don't pick up the initializer conversion for a template argument
+  if (!GrainsizeExpr->isTypeDependent())
+    GrainsizeExpr = Grainsize->getInit();
   Context.Deallocate(reinterpret_cast<void *>(Grainsize));
   return new (Context) CilkForGrainsizeStmt(GrainsizeExpr, CilkFor, LocStart);
 }
@@ -1039,7 +1041,8 @@ void Sema::ActOnStartOfCilkForStmt(SourceLocation CilkForLoc, Scope *CurScope,
   else
     CurContext = CD;
 
-  PushExpressionEvaluationContext(PotentiallyEvaluated);
+  PushExpressionEvaluationContext(
+    ExpressionEvaluationContext::PotentiallyEvaluated);
 }
 
 namespace {
@@ -1060,6 +1063,8 @@ bool extendsLifetimeOfTemporary(const VarDecl *VD) {
     return false;
   if (const ExprWithCleanups *EWC = dyn_cast<ExprWithCleanups>(Init))
     Init = EWC->getSubExpr();
+  if (const ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(Init))
+    Init = ICE->getSubExpr();
   return isa<MaterializeTemporaryExpr>(Init);
 }
 
@@ -1283,7 +1288,8 @@ static bool CommonActOnForStmt(Sema &S, SourceLocation ForLoc,
     StrideExpr = StrideExpr->getSubExprAsWritten();
 
     // Push an evaluation context in case span needs cleanups.
-    EnterExpressionEvaluationContext EvalContext(S, S.PotentiallyEvaluated);
+    EnterExpressionEvaluationContext EvalContext(
+      S, Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
 
     // Build end - begin
     Expr *Begin = S.BuildDeclRefExpr(
@@ -1558,12 +1564,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // class type, unless the list item is also specified in a firstprivate
   // clause.
   if (Class && (Kind == SIMD_Private || Kind == SIMD_LastPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXDefaultConstructor, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << DefaultConstructor << ElementTy;
@@ -1582,12 +1588,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // clause requires an accessible, unambiguous copy constructor for the
   // class type.
   if (Class && (Kind == SIMD_FirstPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXCopyConstructor, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << CopyConstructor << ElementTy;
@@ -1606,12 +1612,12 @@ ExprResult Sema::ActOnPragmaSIMDPrivateVariable(CXXScopeSpec SS,
   // clause requires an accessible, unambiguous copy assignment operator for the
   // class type.
   if (Class && (Kind == SIMD_LastPrivate)) {
-    SpecialMemberOverloadResult *Result =
+    SpecialMemberOverloadResult Result =
         LookupSpecialMember(Class, CXXCopyAssignment, /*ConstArg=*/false,
                             /*VolatileThis=*/false, /*RValueThis*/ false,
                             /*ConstThis*/ false, /*VolatileThis*/ false);
 
-    switch (Result->getKind()) {
+    switch (Result.getKind()) {
     case SpecialMemberOverloadResult::NoMemberOrDeleted:
       Diag(NameLoc, diag::err_pragma_simd_var_no_member)
           << KindName << CopyAssignment << ElementTy;
@@ -1986,7 +1992,8 @@ void Sema::ActOnStartOfSIMDForStmt(SourceLocation PragmaLoc, Scope *CurScope,
   else
     CurContext = CD;
 
-  PushExpressionEvaluationContext(PotentiallyEvaluated);
+  PushExpressionEvaluationContext(
+    Sema::ExpressionEvaluationContext::PotentiallyEvaluated);
 }
 
 static void ActOnForStmtError(Sema &S, RecordDecl *Record) {
@@ -2376,7 +2383,7 @@ private:
         SemaRef.getASTContext(), SemaRef.CurContext, SourceLocation(),
         SourceLocation(), &SemaRef.getASTContext().Idents.get(".tmp."), VarTy,
         SemaRef.getASTContext().getTrivialTypeSourceInfo(VarTy), SC_Auto);
-    SemaRef.AddInitializerToDecl(TempVD, E, true, true);
+    SemaRef.AddInitializerToDecl(TempVD, E, true);
     StmtResult Res =
         SemaRef.ActOnDeclStmt(Sema::DeclGroupPtrTy::make(DeclGroupRef(TempVD)),
                               SourceLocation(), SourceLocation());
@@ -3330,7 +3337,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
           Context, CurContext, StartLoc, RParenLoc,
           &Context.Idents.get("cean.acc."), ResType,
           Context.getTrivialTypeSourceInfo(ResType, SourceLocation()), SC_Auto);
-      AddInitializerToDecl(VD, InitExpr.get(), true, false);
+      AddInitializerToDecl(VD, InitExpr.get(), true);
       Decl *Vars[2];
       Vars[0] = VD;
       int Size = 1;
@@ -4467,7 +4474,8 @@ StmtResult Sema::BuildCilkForStmt(SourceLocation CilkForLoc,
 
     // Build a full expression "inner_loop_var += stride * low"
     {
-      EnterExpressionEvaluationContext EvalScope(*this, PotentiallyEvaluated);
+      EnterExpressionEvaluationContext EvalScope(*this, 
+                            ExpressionEvaluationContext::PotentiallyEvaluated);
 
       // Both low and stride experssions are of type integral.
       ExprResult LowExpr = BuildDeclRefExpr(Low, Ty, VK_LValue, VarLoc);

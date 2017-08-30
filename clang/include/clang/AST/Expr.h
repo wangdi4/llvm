@@ -115,6 +115,7 @@ protected:
     ExprBits.InstantiationDependent = ID;
     ExprBits.ValueKind = VK;
     ExprBits.ObjectKind = OK;
+    assert(ExprBits.ObjectKind == OK && "truncated kind");
     ExprBits.ContainsUnexpandedParameterPack = ContainsUnexpandedParameterPack;
     ExprBits.IsCondition = 0; // INTEL
     setType(T);
@@ -665,7 +666,8 @@ public:
   /// constant.
   bool EvaluateWithSubstitution(APValue &Value, ASTContext &Ctx,
                                 const FunctionDecl *Callee,
-                                ArrayRef<const Expr*> Args) const;
+                                ArrayRef<const Expr*> Args,
+                                const Expr *This = nullptr) const;
 
   /// \brief If the current Expr is a pointer, this will try to statically
   /// determine the number of bytes available where the pointer is pointing.
@@ -879,6 +881,11 @@ public:
   const Expr *skipRValueSubobjectAdjustments(
       SmallVectorImpl<const Expr *> &CommaLHS,
       SmallVectorImpl<SubobjectAdjustment> &Adjustments) const;
+  const Expr *skipRValueSubobjectAdjustments() const {
+    SmallVector<const Expr *, 8> CommaLHSs;
+    SmallVector<SubobjectAdjustment, 8> Adjustments;
+    return skipRValueSubobjectAdjustments(CommaLHSs, Adjustments);
+  }
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstExprConstant &&
@@ -939,6 +946,10 @@ public:
 
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 
   /// The source expression of an opaque value expression is the
@@ -1201,6 +1212,10 @@ public:
     return child_range(child_iterator(), child_iterator());
   }
 
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
   friend TrailingObjects;
   friend class ASTStmtReader;
   friend class ASTStmtWriter;
@@ -1256,6 +1271,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&FnName, &FnName + 1); }
+  const_child_range children() const {
+    return const_child_range(&FnName, &FnName + 1);
+  }
 
   friend class ASTStmtReader;
 };
@@ -1349,6 +1367,9 @@ public:
   child_range children() {
     return child_range(child_iterator(), child_iterator());
   }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
 };
 
 class CharacterLiteral : public Expr {
@@ -1398,6 +1419,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 
@@ -1463,6 +1487,9 @@ public:
   child_range children() {
     return child_range(child_iterator(), child_iterator());
   }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
 };
 
 /// ImaginaryLiteral - We support imaginary integer and floating point literals,
@@ -1495,6 +1522,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Val, &Val+1); }
+  const_child_range children() const {
+    return const_child_range(&Val, &Val + 1);
+  }
 };
 
 /// StringLiteral - This represents a string literal expression, e.g. "foo"
@@ -1662,6 +1692,9 @@ public:
   child_range children() {
     return child_range(child_iterator(), child_iterator());
   }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
 };
 
 /// ParenExpr - This represents a parethesized expression, e.g. "(1)".  This
@@ -1703,6 +1736,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Val, &Val+1); }
+  const_child_range children() const {
+    return const_child_range(&Val, &Val + 1);
+  }
 };
 
 /// UnaryOperator - This represents the unary-expression's (except sizeof and
@@ -1812,6 +1848,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Val, &Val+1); }
+  const_child_range children() const {
+    return const_child_range(&Val, &Val + 1);
+  }
 };
 
 /// Helper class for OffsetOfExpr.
@@ -2015,6 +2054,11 @@ public:
     Stmt **begin = reinterpret_cast<Stmt **>(getTrailingObjects<Expr *>());
     return child_range(begin, begin + NumExprs);
   }
+  const_child_range children() const {
+    Stmt *const *begin =
+        reinterpret_cast<Stmt *const *>(getTrailingObjects<Expr *>());
+    return const_child_range(begin, begin + NumExprs);
+  }
   friend TrailingObjects;
 };
 
@@ -2103,6 +2147,7 @@ public:
 
   // Iterators
   child_range children();
+  const_child_range children() const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -2186,6 +2231,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
+  }
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + END_EXPR);
   }
 };
 
@@ -2353,6 +2401,11 @@ public:
   child_range children() {
     return child_range(&SubExprs[0],
                        &SubExprs[0]+NumArgs+getNumPreArgs()+PREARGS_START);
+  }
+
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + NumArgs +
+                                               getNumPreArgs() + PREARGS_START);
   }
 };
 
@@ -2608,6 +2661,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Base, &Base+1); }
+  const_child_range children() const {
+    return const_child_range(&Base, &Base + 1);
+  }
 
   friend TrailingObjects;
   friend class ASTReader;
@@ -2680,6 +2736,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Init, &Init+1); }
+  const_child_range children() const {
+    return const_child_range(&Init, &Init + 1);
+  }
 };
 
 /// CastExpr - Base class for type casts, including both implicit
@@ -2766,6 +2825,7 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Op, &Op+1); }
+  const_child_range children() const { return const_child_range(&Op, &Op + 1); }
 };
 
 /// ImplicitCastExpr - Allows us to explicitly represent implicit type
@@ -2958,11 +3018,9 @@ public:
 private:
   unsigned Opc : 6;
 
-  // Records the FP_CONTRACT pragma status at the point that this binary
-  // operator was parsed. This bit is only meaningful for operations on
-  // floating point types. For all other types it should default to
-  // false.
-  unsigned FPContractable : 1;
+  // This is only meaningful for operations on floating point types and 0
+  // otherwise.
+  unsigned FPFeatures : 2;
   SourceLocation OpLoc;
 
   enum { LHS, RHS, END_EXPR };
@@ -2971,7 +3029,7 @@ public:
 
   BinaryOperator(Expr *lhs, Expr *rhs, Opcode opc, QualType ResTy,
                  ExprValueKind VK, ExprObjectKind OK,
-                 SourceLocation opLoc, bool fpContractable)
+                 SourceLocation opLoc, FPOptions FPFeatures)
     : Expr(BinaryOperatorClass, ResTy, VK, OK,
            lhs->isTypeDependent() || rhs->isTypeDependent(),
            lhs->isValueDependent() || rhs->isValueDependent(),
@@ -2979,7 +3037,7 @@ public:
             rhs->isInstantiationDependent()),
            (lhs->containsUnexpandedParameterPack() ||
             rhs->containsUnexpandedParameterPack())),
-      Opc(opc), FPContractable(fpContractable), OpLoc(opLoc) {
+      Opc(opc), FPFeatures(FPFeatures.getInt()), OpLoc(opLoc) {
     SubExprs[LHS] = lhs;
     SubExprs[RHS] = rhs;
     assert(!isCompoundAssignmentOp() &&
@@ -3110,19 +3168,26 @@ public:
   child_range children() {
     return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
   }
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + END_EXPR);
+  }
 
   // Set the FP contractability status of this operator. Only meaningful for
   // operations on floating point types.
-  void setFPContractable(bool FPC) { FPContractable = FPC; }
+  void setFPFeatures(FPOptions F) { FPFeatures = F.getInt(); }
+
+  FPOptions getFPFeatures() const { return FPOptions(FPFeatures); }
 
   // Get the FP contractability status of this operator. Only meaningful for
   // operations on floating point types.
-  bool isFPContractable() const { return FPContractable; }
+  bool isFPContractableWithinStatement() const {
+    return FPOptions(FPFeatures).allowFPContractWithinStatement();
+  }
 
 protected:
   BinaryOperator(Expr *lhs, Expr *rhs, Opcode opc, QualType ResTy,
                  ExprValueKind VK, ExprObjectKind OK,
-                 SourceLocation opLoc, bool fpContractable, bool dead2)
+                 SourceLocation opLoc, FPOptions FPFeatures, bool dead2)
     : Expr(CompoundAssignOperatorClass, ResTy, VK, OK,
            lhs->isTypeDependent() || rhs->isTypeDependent(),
            lhs->isValueDependent() || rhs->isValueDependent(),
@@ -3130,7 +3195,7 @@ protected:
             rhs->isInstantiationDependent()),
            (lhs->containsUnexpandedParameterPack() ||
             rhs->containsUnexpandedParameterPack())),
-      Opc(opc), FPContractable(fpContractable), OpLoc(opLoc) {
+      Opc(opc), FPFeatures(FPFeatures.getInt()), OpLoc(opLoc) {
     SubExprs[LHS] = lhs;
     SubExprs[RHS] = rhs;
   }
@@ -3152,8 +3217,8 @@ public:
   CompoundAssignOperator(Expr *lhs, Expr *rhs, Opcode opc, QualType ResType,
                          ExprValueKind VK, ExprObjectKind OK,
                          QualType CompLHSType, QualType CompResultType,
-                         SourceLocation OpLoc, bool fpContractable)
-    : BinaryOperator(lhs, rhs, opc, ResType, VK, OK, OpLoc, fpContractable,
+                         SourceLocation OpLoc, FPOptions FPFeatures)
+    : BinaryOperator(lhs, rhs, opc, ResType, VK, OK, OpLoc, FPFeatures,
                      true),
       ComputationLHSType(CompLHSType),
       ComputationResultType(CompResultType) {
@@ -3286,6 +3351,9 @@ public:
   child_range children() {
     return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
   }
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + END_EXPR);
+  }
 };
 
 /// BinaryConditionalOperator - The GNU extension to the conditional
@@ -3371,6 +3439,9 @@ public:
   child_range children() {
     return child_range(SubExprs, SubExprs + NUM_SUBEXPRS);
   }
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + NUM_SUBEXPRS);
+  }
 };
 
 inline Expr *AbstractConditionalOperator::getCond() const {
@@ -3425,6 +3496,9 @@ public:
   child_range children() {
     return child_range(child_iterator(), child_iterator());
   }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
 };
 
 /// StmtExpr - This is the GNU Statement Expression extension: ({int X=4; X;}).
@@ -3467,6 +3541,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&SubStmt, &SubStmt+1); }
+  const_child_range children() const {
+    return const_child_range(&SubStmt, &SubStmt + 1);
+  }
 };
 
 /// ShuffleVectorExpr - clang-specific builtin-in function
@@ -3535,6 +3612,9 @@ public:
   child_range children() {
     return child_range(&SubExprs[0], &SubExprs[0]+NumExprs);
   }
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + NumExprs);
+  }
 };
 
 /// ConvertVectorExpr - Clang builtin function __builtin_convertvector
@@ -3589,6 +3669,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&SrcExpr, &SrcExpr+1); }
+  const_child_range children() const {
+    return const_child_range(&SrcExpr, &SrcExpr + 1);
+  }
 };
 
 /// ChooseExpr - GNU builtin-in function __builtin_choose_expr.
@@ -3669,6 +3752,9 @@ public:
   child_range children() {
     return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
   }
+  const_child_range children() const {
+    return const_child_range(&SubExprs[0], &SubExprs[0] + END_EXPR);
+  }
 };
 
 /// GNUNullExpr - Implements the GNU __null extension, which is a name
@@ -3704,6 +3790,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 
@@ -3752,6 +3841,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Val, &Val+1); }
+  const_child_range children() const {
+    return const_child_range(&Val, &Val + 1);
+  }
 };
 
 /// @brief Describes an C or C++ initializer list.
@@ -3827,7 +3919,7 @@ public:
 
   /// \brief Build an empty initializer list.
   explicit InitListExpr(EmptyShell Empty)
-    : Expr(InitListExprClass, Empty) { }
+    : Expr(InitListExprClass, Empty), AltForm(nullptr, true) { }
 
   unsigned getNumInits() const { return InitExprs.size(); }
 
@@ -3935,6 +4027,11 @@ public:
   // literal or an @encode?
   bool isStringLiteralInit() const;
 
+  /// Is this a transparent initializer list (that is, an InitListExpr that is
+  /// purely syntactic, and whose semantics are that of the sole contained
+  /// initializer)?
+  bool isTransparent() const;
+
   SourceLocation getLBraceLoc() const { return LBraceLoc; }
   void setLBraceLoc(SourceLocation Loc) { LBraceLoc = Loc; }
   SourceLocation getRBraceLoc() const { return RBraceLoc; }
@@ -3971,10 +4068,16 @@ public:
 
   // Iterators
   child_range children() {
+    const_child_range CCR = const_cast<const InitListExpr *>(this)->children();
+    return child_range(cast_away_const(CCR.begin()),
+                       cast_away_const(CCR.end()));
+  }
+
+  const_child_range children() const {
     // FIXME: This does not include the array filler expression.
     if (InitExprs.empty())
-      return child_range(child_iterator(), child_iterator());
-    return child_range(&InitExprs[0], &InitExprs[0] + InitExprs.size());
+      return const_child_range(const_child_iterator(), const_child_iterator());
+    return const_child_range(&InitExprs[0], &InitExprs[0] + InitExprs.size());
   }
 
   typedef InitExprsTy::iterator iterator;
@@ -4289,6 +4392,10 @@ public:
     Stmt **begin = getTrailingObjects<Stmt *>();
     return child_range(begin, begin + NumSubExprs);
   }
+  const_child_range children() const {
+    Stmt * const *begin = getTrailingObjects<Stmt *>();
+    return const_child_range(begin, begin + NumSubExprs);
+  }
 
   friend TrailingObjects;
 };
@@ -4321,6 +4428,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 
@@ -4367,6 +4477,108 @@ public:
   child_range children() {
     return child_range(&BaseAndUpdaterExprs[0], &BaseAndUpdaterExprs[0] + 2);
   }
+  const_child_range children() const {
+    return const_child_range(&BaseAndUpdaterExprs[0],
+                             &BaseAndUpdaterExprs[0] + 2);
+  }
+};
+
+/// \brief Represents a loop initializing the elements of an array.
+///
+/// The need to initialize the elements of an array occurs in a number of
+/// contexts:
+///
+///  * in the implicit copy/move constructor for a class with an array member
+///  * when a lambda-expression captures an array by value
+///  * when a decomposition declaration decomposes an array
+///
+/// There are two subexpressions: a common expression (the source array)
+/// that is evaluated once up-front, and a per-element initializer that
+/// runs once for each array element.
+///
+/// Within the per-element initializer, the common expression may be referenced
+/// via an OpaqueValueExpr, and the current index may be obtained via an
+/// ArrayInitIndexExpr.
+class ArrayInitLoopExpr : public Expr {
+  Stmt *SubExprs[2];
+
+  explicit ArrayInitLoopExpr(EmptyShell Empty)
+      : Expr(ArrayInitLoopExprClass, Empty), SubExprs{} {}
+
+public:
+  explicit ArrayInitLoopExpr(QualType T, Expr *CommonInit, Expr *ElementInit)
+      : Expr(ArrayInitLoopExprClass, T, VK_RValue, OK_Ordinary, false,
+             CommonInit->isValueDependent() || ElementInit->isValueDependent(),
+             T->isInstantiationDependentType(),
+             CommonInit->containsUnexpandedParameterPack() ||
+                 ElementInit->containsUnexpandedParameterPack()),
+        SubExprs{CommonInit, ElementInit} {}
+
+  /// Get the common subexpression shared by all initializations (the source
+  /// array).
+  OpaqueValueExpr *getCommonExpr() const {
+    return cast<OpaqueValueExpr>(SubExprs[0]);
+  }
+
+  /// Get the initializer to use for each array element.
+  Expr *getSubExpr() const { return cast<Expr>(SubExprs[1]); }
+
+  llvm::APInt getArraySize() const {
+    return cast<ConstantArrayType>(getType()->castAsArrayTypeUnsafe())
+        ->getSize();
+  }
+
+  static bool classof(const Stmt *S) {
+    return S->getStmtClass() == ArrayInitLoopExprClass;
+  }
+
+  SourceLocation getLocStart() const LLVM_READONLY {
+    return getCommonExpr()->getLocStart();
+  }
+  SourceLocation getLocEnd() const LLVM_READONLY {
+    return getCommonExpr()->getLocEnd();
+  }
+
+  child_range children() {
+    return child_range(SubExprs, SubExprs + 2);
+  }
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + 2);
+  }
+
+  friend class ASTReader;
+  friend class ASTStmtReader;
+  friend class ASTStmtWriter;
+};
+
+/// \brief Represents the index of the current element of an array being
+/// initialized by an ArrayInitLoopExpr. This can only appear within the
+/// subexpression of an ArrayInitLoopExpr.
+class ArrayInitIndexExpr : public Expr {
+  explicit ArrayInitIndexExpr(EmptyShell Empty)
+      : Expr(ArrayInitIndexExprClass, Empty) {}
+
+public:
+  explicit ArrayInitIndexExpr(QualType T)
+      : Expr(ArrayInitIndexExprClass, T, VK_RValue, OK_Ordinary,
+             false, false, false, false) {}
+
+  static bool classof(const Stmt *S) {
+    return S->getStmtClass() == ArrayInitIndexExprClass;
+  }
+
+  SourceLocation getLocStart() const LLVM_READONLY { return SourceLocation(); }
+  SourceLocation getLocEnd() const LLVM_READONLY { return SourceLocation(); }
+
+  child_range children() {
+    return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
+  friend class ASTReader;
+  friend class ASTStmtReader;
 };
 
 /// \brief Represents an implicitly-generated value initialization of
@@ -4397,6 +4609,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 
@@ -4443,6 +4658,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(&Exprs[0], &Exprs[0]+NumExprs);
+  }
+  const_child_range children() const {
+    return const_child_range(&Exprs[0], &Exprs[0] + NumExprs);
   }
 
   friend class ASTStmtReader;
@@ -4564,7 +4782,9 @@ public:
   child_range children() {
     return child_range(SubExprs, SubExprs+END_EXPR+NumAssocs);
   }
-
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + END_EXPR + NumAssocs);
+  }
   friend class ASTStmtReader;
 };
 
@@ -4633,6 +4853,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&Base, &Base+1); }
+  const_child_range children() const {
+    return const_child_range(&Base, &Base + 1);
+  }
 };
 
 /// BlockExpr - Adaptor class for mixing a BlockDecl with expressions.
@@ -4673,6 +4896,9 @@ public:
   // Iterators
   child_range children() {
     return child_range(child_iterator(), child_iterator());
+  }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
   }
 };
 #if INTEL_SPECIFIC_CILKPLUS
@@ -4754,6 +4980,9 @@ public:
 
   // Iterators
   child_range children() { return child_range(&SrcExpr, &SrcExpr+1); }
+  const_child_range children() const {
+    return const_child_range(&SrcExpr, &SrcExpr + 1);
+  }
 };
 
 /// PseudoObjectExpr - An expression which accesses a pseudo-object
@@ -4892,8 +5121,15 @@ public:
   }
 
   child_range children() {
-    Stmt **cs = reinterpret_cast<Stmt**>(getSubExprsBuffer());
-    return child_range(cs, cs + getNumSubExprs());
+    const_child_range CCR =
+        const_cast<const PseudoObjectExpr *>(this)->children();
+    return child_range(cast_away_const(CCR.begin()),
+                       cast_away_const(CCR.end()));
+  }
+  const_child_range children() const {
+    Stmt *const *cs = const_cast<Stmt *const *>(
+        reinterpret_cast<const Stmt *const *>(getSubExprsBuffer()));
+    return const_child_range(cs, cs + getNumSubExprs());
   }
 
   static bool classof(const Stmt *T) {
@@ -5013,6 +5249,9 @@ public:
   child_range children() {
     return child_range(SubExprs, SubExprs+NumSubExprs);
   }
+  const_child_range children() const {
+    return const_child_range(SubExprs, SubExprs + NumSubExprs);
+  }
 };
 
 /// TypoExpr - Internal placeholder for expressions where typo correction
@@ -5031,6 +5270,10 @@ public:
   child_range children() {
     return child_range(child_iterator(), child_iterator());
   }
+  const_child_range children() const {
+    return const_child_range(const_child_iterator(), const_child_iterator());
+  }
+
   SourceLocation getLocStart() const LLVM_READONLY { return SourceLocation(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return SourceLocation(); }
   

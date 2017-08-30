@@ -22,7 +22,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Parse/Parser.h"
-#include "RAIIObjectsForParser.h"
+#include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Sema/DeclSpec.h"
@@ -92,7 +92,7 @@ bool Parser::ParseSecReduceExpressionList(
       SourceLocation TemplateKWLoc;
       UnqualifiedId Name;
       // TentativeParsingAction PA(*this);
-      if (ParseUnqualifiedId(SS, false, false, false, ParsedType(),
+      if (ParseUnqualifiedId(SS, false, false, false, false, ParsedType(),
                              TemplateKWLoc, Name)) {
         PA.Commit();
         return true;

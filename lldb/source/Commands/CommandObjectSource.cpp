@@ -18,8 +18,7 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/SourceManager.h"
-#include "lldb/Host/FileSpec.h"
-#include "lldb/Host/StringConvert.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -31,6 +30,7 @@
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/TargetList.h"
+#include "lldb/Utility/FileSpec.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -774,24 +774,20 @@ public:
   const char *GetRepeatCommand(Args &current_command_args,
                                uint32_t index) override {
     // This is kind of gross, but the command hasn't been parsed yet so we can't
-    // look at the option
-    // values for this invocation...  I have to scan the arguments directly.
-    size_t num_args = current_command_args.GetArgumentCount();
-    bool is_reverse = false;
-    for (size_t i = 0; i < num_args; i++) {
-      const char *arg = current_command_args.GetArgumentAtIndex(i);
-      if (arg && (strcmp(arg, "-r") == 0 || strcmp(arg, "--reverse") == 0)) {
-        is_reverse = true;
-      }
-    }
-    if (is_reverse) {
-      if (m_reverse_name.empty()) {
-        m_reverse_name = m_cmd_name;
-        m_reverse_name.append(" -r");
-      }
-      return m_reverse_name.c_str();
-    } else
+    // look at the option values for this invocation...  I have to scan the
+    // arguments directly.
+    auto iter =
+        llvm::find_if(current_command_args, [](const Args::ArgEntry &e) {
+          return e.ref == "-r" || e.ref == "--reverse";
+        });
+    if (iter == current_command_args.end())
       return m_cmd_name.c_str();
+
+    if (m_reverse_name.empty()) {
+      m_reverse_name = m_cmd_name;
+      m_reverse_name.append(" -r");
+    }
+    return m_reverse_name.c_str();
   }
 
 protected:

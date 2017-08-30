@@ -112,15 +112,15 @@ template <typename T>
 static T PickFP(const llvm::fltSemantics *Sem, T IEEESingleVal,
                 T IEEEDoubleVal, T X87DoubleExtendedVal, T PPCDoubleDoubleVal,
                 T IEEEQuadVal) {
-  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEsingle)
+  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEsingle())
     return IEEESingleVal;
-  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEdouble)
+  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEdouble())
     return IEEEDoubleVal;
-  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::x87DoubleExtended)
+  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::x87DoubleExtended())
     return X87DoubleExtendedVal;
-  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::PPCDoubleDouble)
+  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::PPCDoubleDouble())
     return PPCDoubleDoubleVal;
-  assert(Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEquad);
+  assert(Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEquad());
   return IEEEQuadVal;
 }
 
@@ -374,9 +374,11 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     else if (!LangOpts.GNUMode && LangOpts.Digraphs)
       Builder.defineMacro("__STDC_VERSION__", "199409L");
   } else {
-    // FIXME: Use correct value for C++17.
+    // C++17 [cpp.predefined]p1:
+    //   The name __cplusplus is defined to the value 201703L when compiling a
+    //   C++ translation unit.
     if (LangOpts.CPlusPlus1z)
-      Builder.defineMacro("__cplusplus", "201406L");
+      Builder.defineMacro("__cplusplus", "201703L");
     // C++1y [cpp.predefined]p1:
     //   The name __cplusplus is defined to the value 201402L when compiling a
     //   C++ translation unit.
@@ -475,6 +477,7 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_user_defined_literals", "200809");
     Builder.defineMacro("__cpp_lambdas", "200907");
     Builder.defineMacro("__cpp_constexpr",
+                        LangOpts.CPlusPlus1z ? "201603" : 
                         LangOpts.CPlusPlus14 ? "201304" : "200704");
     Builder.defineMacro("__cpp_range_based_for",
                         LangOpts.CPlusPlus1z ? "201603" : "200907");
@@ -510,16 +513,20 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
   if (LangOpts.CPlusPlus1z) {
     Builder.defineMacro("__cpp_hex_float", "201603");
     Builder.defineMacro("__cpp_inline_variables", "201606");
-    //Builder.defineMacro("__cpp_noexcept_function_type", "201510");
+    Builder.defineMacro("__cpp_noexcept_function_type", "201510");
     Builder.defineMacro("__cpp_capture_star_this", "201603");
     Builder.defineMacro("__cpp_if_constexpr", "201606");
     Builder.defineMacro("__cpp_template_auto", "201606");
     Builder.defineMacro("__cpp_namespace_attributes", "201411");
     Builder.defineMacro("__cpp_enumerator_attributes", "201411");
     Builder.defineMacro("__cpp_nested_namespace_definitions", "201411");
+    Builder.defineMacro("__cpp_variadic_using", "201611");
     Builder.defineMacro("__cpp_aggregate_bases", "201603");
+    Builder.defineMacro("__cpp_structured_bindings", "201606");
     Builder.defineMacro("__cpp_nontype_template_args", "201411");
     Builder.defineMacro("__cpp_fold_expressions", "201603");
+    // FIXME: This is not yet listed in SD-6.
+    Builder.defineMacro("__cpp_deduction_guides", "201611");
   }
   if (LangOpts.AlignedAllocation)
     Builder.defineMacro("__cpp_aligned_new", "201606");
@@ -653,6 +660,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("IBInspectable", "");
     Builder.defineMacro("IB_DESIGNABLE", "");
   }
+
+  // Define a macro that describes the Objective-C boolean type even for C
+  // and C++ since BOOL can be used from non Objective-C code.
+  Builder.defineMacro("__OBJC_BOOL_IS_BOOL",
+                      Twine(TI.useSignedCharForObjCBool() ? "0" : "1"));
 
   if (LangOpts.CPlusPlus)
     InitializeCPlusPlusFeatureTestMacros(LangOpts, Builder);
@@ -917,10 +929,17 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   char UserLabelPrefix[2] = {TI.getDataLayout().getGlobalPrefix(), 0};
   Builder.defineMacro("__USER_LABEL_PREFIX__", UserLabelPrefix);
 
-  if (LangOpts.FastMath || LangOpts.FiniteMathOnly)
+#if INTEL_CUSTOMIZATION
+  // CQ419573 - Always set __FINITE_MATH_ONLY__ to 0 for compatibility
+  // with 'icc' and Intel runtime libraries. If this definition is set
+  // to 1, then several math library function calls will be renamed to
+  // names that do not exist within the Intel math libraries. These
+  // functions would instead by resolved by slower routines within libm.a.
+  if ((LangOpts.FastMath || LangOpts.FiniteMathOnly) && !LangOpts.IntelCompat)
     Builder.defineMacro("__FINITE_MATH_ONLY__", "1");
   else
     Builder.defineMacro("__FINITE_MATH_ONLY__", "0");
+#endif // INTEL_CUSTOMIZATION
 
   if (!LangOpts.MSVCCompat) {
     if (LangOpts.GNUInline || LangOpts.CPlusPlus)
@@ -931,14 +950,16 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     // The value written by __atomic_test_and_set.
     // FIXME: This is target-dependent.
     Builder.defineMacro("__GCC_ATOMIC_TEST_AND_SET_TRUEVAL", "1");
+  }
 
+  auto addLockFreeMacros = [&](const llvm::Twine &Prefix) {
     // Used by libc++ and libstdc++ to implement ATOMIC_<foo>_LOCK_FREE.
     unsigned InlineWidthBits = TI.getMaxAtomicInlineWidth();
-#define DEFINE_LOCK_FREE_MACRO(TYPE, Type) \
-    Builder.defineMacro("__GCC_ATOMIC_" #TYPE "_LOCK_FREE", \
-                        getLockFreeValue(TI.get##Type##Width(), \
-                                         TI.get##Type##Align(), \
-                                         InlineWidthBits));
+#define DEFINE_LOCK_FREE_MACRO(TYPE, Type)                                     \
+  Builder.defineMacro(Prefix + #TYPE "_LOCK_FREE",                             \
+                      getLockFreeValue(TI.get##Type##Width(),                  \
+                                       TI.get##Type##Align(),                  \
+                                       InlineWidthBits));
     DEFINE_LOCK_FREE_MACRO(BOOL, Bool);
     DEFINE_LOCK_FREE_MACRO(CHAR, Char);
     DEFINE_LOCK_FREE_MACRO(CHAR16_T, Char16);
@@ -948,12 +969,15 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     DEFINE_LOCK_FREE_MACRO(INT, Int);
     DEFINE_LOCK_FREE_MACRO(LONG, Long);
     DEFINE_LOCK_FREE_MACRO(LLONG, LongLong);
-    Builder.defineMacro("__GCC_ATOMIC_POINTER_LOCK_FREE",
+    Builder.defineMacro(Prefix + "POINTER_LOCK_FREE",
                         getLockFreeValue(TI.getPointerWidth(0),
                                          TI.getPointerAlign(0),
                                          InlineWidthBits));
 #undef DEFINE_LOCK_FREE_MACRO
-  }
+  };
+  addLockFreeMacros("__CLANG_ATOMIC_");
+  if (!LangOpts.MSVCCompat)
+    addLockFreeMacros("__GCC_ATOMIC_");
 
   if (LangOpts.NoInlineDefine)
     Builder.defineMacro("__NO_INLINE__");
@@ -1045,7 +1069,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // OpenCL definitions.
   if (LangOpts.OpenCL) {
 #define OPENCLEXT(Ext) \
-    if (TI.getSupportedOpenCLOpts().is_##Ext##_supported( \
+    if (TI.getSupportedOpenCLOpts().isSupported(#Ext, \
         LangOpts.OpenCLVersion)) \
       Builder.defineMacro(#Ext);
 #include "clang/Basic/OpenCLExtensions.def"

@@ -9,52 +9,67 @@
 
 #include "lldb/Core/ValueObject.h"
 
-// C Includes
-#include <stdlib.h>
-
-// C++ Includes
-// Other libraries and framework includes
-#include "llvm/Support/raw_ostream.h"
-
-// Project includes
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
+#include "lldb/Core/Address.h" // for Address
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
+#include "lldb/Core/Scalar.h" // for Scalar
 #include "lldb/Core/ValueObjectCast.h"
 #include "lldb/Core/ValueObjectChild.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Core/ValueObjectDynamicValue.h"
-#include "lldb/Core/ValueObjectList.h"
 #include "lldb/Core/ValueObjectMemory.h"
 #include "lldb/Core/ValueObjectSyntheticFilter.h"
-
 #include "lldb/DataFormatters/DataVisualization.h"
+#include "lldb/DataFormatters/FormatManager.h" // for FormatManager
 #include "lldb/DataFormatters/StringPrinter.h"
+#include "lldb/DataFormatters/TypeFormat.h"    // for TypeFormatImpl_F...
+#include "lldb/DataFormatters/TypeSummary.h"   // for TypeSummaryOptions
+#include "lldb/DataFormatters/TypeValidator.h" // for TypeValidatorImp...
 #include "lldb/DataFormatters/ValueObjectPrinter.h"
-
-#include "Plugins/ExpressionParser/Clang/ClangExpressionVariable.h"
-#include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
-
-#include "lldb/Host/Endian.h"
-
-#include "lldb/Interpreter/CommandInterpreter.h"
-
+#include "lldb/Expression/ExpressionVariable.h" // for ExpressionVariable
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/CompilerType.h"
+#include "lldb/Symbol/Declaration.h"   // for Declaration
+#include "lldb/Symbol/SymbolContext.h" // for SymbolContext
 #include "lldb/Symbol/Type.h"
-
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/LanguageRuntime.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Process.h"
-#include "lldb/Target/RegisterContext.h"
-#include "lldb/Target/SectionLoadList.h"
+#include "lldb/Target/StackFrame.h" // for StackFrame
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Target/ThreadList.h"  // for ThreadList
+#include "lldb/Utility/DataBuffer.h" // for DataBuffer
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Flags.h" // for Flags
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Logging.h"    // for GetLogIfAllCateg...
+#include "lldb/Utility/SharingPtr.h" // for SharingPtr
+#include "lldb/Utility/Stream.h"     // for Stream
+#include "lldb/Utility/StreamString.h"
+#include "lldb/lldb-private-types.h" // for RegisterInfo
+
+#include "llvm/Support/Compiler.h" // for LLVM_FALLTHROUGH
+
+#include <algorithm> // for min
+#include <cstdint>   // for uint32_t, uint64_t
+#include <cstdlib>   // for size_t, NULL
+#include <memory>    // for shared_ptr, oper...
+#include <tuple>     // for tie, tuple
+
+#include <assert.h>   // for assert
+#include <inttypes.h> // for PRIu64, PRIx64
+#include <stdio.h>    // for snprintf
+#include <string.h>   // for memcpy, memcmp
+
+namespace lldb_private {
+class ExecutionContextScope;
+}
+namespace lldb_private {
+class SymbolContextScope;
+}
 
 using namespace lldb;
 using namespace lldb_private;
@@ -2889,6 +2904,11 @@ ValueObjectSP ValueObject::Dereference(Error &error) {
           child_is_base_class, child_is_deref_of_parent, eAddressTypeInvalid,
           language_flags);
     }
+  } else if (HasSyntheticValue()) {
+    m_deref_valobj =
+        GetSyntheticValue()
+            ->GetChildMemberWithName(ConstString("$$dereference$$"), true)
+            .get();
   }
 
   if (m_deref_valobj) {
@@ -2955,6 +2975,10 @@ ValueObjectSP ValueObject::AddressOf(Error &error) {
 
 ValueObjectSP ValueObject::Cast(const CompilerType &compiler_type) {
   return ValueObjectCast::Create(*this, GetName(), compiler_type);
+}
+
+lldb::ValueObjectSP ValueObject::Clone(const ConstString &new_name) {
+  return ValueObjectCast::Create(*this, new_name, GetCompilerType());
 }
 
 ValueObjectSP ValueObject::CastPointerType(const char *name,
@@ -3352,3 +3376,98 @@ void ValueObject::SetSyntheticChildrenGenerated(bool b) {
 uint64_t ValueObject::GetLanguageFlags() { return m_language_flags; }
 
 void ValueObject::SetLanguageFlags(uint64_t flags) { m_language_flags = flags; }
+
+ValueObjectManager::ValueObjectManager(lldb::ValueObjectSP in_valobj_sp,
+                                       lldb::DynamicValueType use_dynamic,
+                                       bool use_synthetic) : m_root_valobj_sp(),
+    m_user_valobj_sp(), m_use_dynamic(use_dynamic), m_stop_id(UINT32_MAX),
+    m_use_synthetic(use_synthetic) {
+  if (!in_valobj_sp)
+    return;
+  // If the user passes in a value object that is dynamic or synthetic, then
+  // water it down to the static type.
+  m_root_valobj_sp = in_valobj_sp->GetQualifiedRepresentationIfAvailable(lldb::eNoDynamicValues, false);
+}
+
+bool ValueObjectManager::IsValid() const {
+  if (!m_root_valobj_sp)
+    return false;
+  lldb::TargetSP target_sp = GetTargetSP();
+  if (target_sp)
+    return target_sp->IsValid();
+  return false;
+}
+
+lldb::ValueObjectSP ValueObjectManager::GetSP() {
+  lldb::ProcessSP process_sp = GetProcessSP();
+  if (!process_sp)
+    return lldb::ValueObjectSP();
+  
+  const uint32_t current_stop_id = process_sp->GetLastNaturalStopID();
+  if (current_stop_id == m_stop_id)
+    return m_user_valobj_sp;
+  
+  m_stop_id = current_stop_id;
+  
+  if (!m_root_valobj_sp) {
+    m_user_valobj_sp.reset();
+    return m_root_valobj_sp;
+  }
+  
+  m_user_valobj_sp = m_root_valobj_sp;
+  
+  if (m_use_dynamic != lldb::eNoDynamicValues) {
+    lldb::ValueObjectSP dynamic_sp = m_user_valobj_sp->GetDynamicValue(m_use_dynamic);
+    if (dynamic_sp)
+      m_user_valobj_sp = dynamic_sp;
+  }
+  
+  if (m_use_synthetic) {
+    lldb::ValueObjectSP synthetic_sp = m_user_valobj_sp->GetSyntheticValue(m_use_synthetic);
+    if (synthetic_sp)
+      m_user_valobj_sp = synthetic_sp;
+  }
+  
+  return m_user_valobj_sp;
+}
+
+void ValueObjectManager::SetUseDynamic(lldb::DynamicValueType use_dynamic) {
+  if (use_dynamic != m_use_dynamic) {
+    m_use_dynamic = use_dynamic;
+    m_user_valobj_sp.reset();
+    m_stop_id = UINT32_MAX;
+  }
+}
+
+void ValueObjectManager::SetUseSynthetic(bool use_synthetic) {
+  if (m_use_synthetic != use_synthetic) {
+    m_use_synthetic = use_synthetic;
+    m_user_valobj_sp.reset();
+    m_stop_id = UINT32_MAX;
+  }
+}
+
+lldb::TargetSP ValueObjectManager::GetTargetSP() const {
+  if (!m_root_valobj_sp)
+    return m_root_valobj_sp->GetTargetSP();
+  return lldb::TargetSP();
+}
+
+lldb::ProcessSP ValueObjectManager::GetProcessSP() const {
+  if (m_root_valobj_sp)
+    return m_root_valobj_sp->GetProcessSP();
+  return lldb::ProcessSP();
+}
+
+lldb::ThreadSP ValueObjectManager::GetThreadSP() const {
+  if (m_root_valobj_sp)
+    return m_root_valobj_sp->GetThreadSP();
+  return lldb::ThreadSP();
+}
+
+lldb::StackFrameSP ValueObjectManager::GetFrameSP() const {
+  if (m_root_valobj_sp)
+    return m_root_valobj_sp->GetFrameSP();
+  return lldb::StackFrameSP();
+}
+

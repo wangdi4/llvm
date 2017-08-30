@@ -30,7 +30,6 @@
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Broadcaster.h"
 #include "lldb/Core/Communication.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Core/Event.h"
 #include "lldb/Core/Listener.h"
 #include "lldb/Core/LoadedModuleInfoList.h"
@@ -48,6 +47,8 @@
 #include "lldb/Target/ProcessLaunchInfo.h"
 #include "lldb/Target/QueueList.h"
 #include "lldb/Target/ThreadList.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/NameMatches.h"
 #include "lldb/lldb-private.h"
 
 #include "llvm/ADT/ArrayRef.h"
@@ -305,11 +306,11 @@ public:
 class ProcessInstanceInfoMatch {
 public:
   ProcessInstanceInfoMatch()
-      : m_match_info(), m_name_match_type(eNameMatchIgnore),
+      : m_match_info(), m_name_match_type(NameMatch::Ignore),
         m_match_all_users(false) {}
 
   ProcessInstanceInfoMatch(const char *process_name,
-                           NameMatchType process_name_match_type)
+                           NameMatch process_name_match_type)
       : m_match_info(), m_name_match_type(process_name_match_type),
         m_match_all_users(false) {
     m_match_info.GetExecutableFile().SetFile(process_name, false);
@@ -323,9 +324,9 @@ public:
 
   void SetMatchAllUsers(bool b) { m_match_all_users = b; }
 
-  NameMatchType GetNameMatchType() const { return m_name_match_type; }
+  NameMatch GetNameMatchType() const { return m_name_match_type; }
 
-  void SetNameMatchType(NameMatchType name_match_type) {
+  void SetNameMatchType(NameMatch name_match_type) {
     m_name_match_type = name_match_type;
   }
 
@@ -338,7 +339,7 @@ public:
 
 protected:
   ProcessInstanceInfo m_match_info;
-  NameMatchType m_name_match_type;
+  NameMatch m_name_match_type;
   bool m_match_all_users;
 };
 
@@ -504,6 +505,7 @@ class Process : public std::enable_shared_from_this<Process>,
                 public PluginInterface {
   friend class FunctionCaller; // For WaitForStateChangeEventsPrivate
   friend class Debugger; // For PopProcessIOHandler and ProcessIOHandlerIsActive
+  friend class DynamicLoader; // For LoadOperatingSystemPlugin
   friend class ProcessEventData;
   friend class StopInfo;
   friend class Target;
@@ -2415,7 +2417,7 @@ public:
   // false
   // will avoid this behavior.
   lldb::StateType
-  WaitForProcessToStop(const std::chrono::microseconds &timeout,
+  WaitForProcessToStop(const Timeout<std::micro> &timeout,
                        lldb::EventSP *event_sp_ptr = nullptr,
                        bool wait_always = true,
                        lldb::ListenerSP hijack_listener = lldb::ListenerSP(),
@@ -2436,8 +2438,8 @@ public:
   //--------------------------------------------------------------------------------------
   void SyncIOHandler(uint32_t iohandler_id, uint64_t timeout_msec);
 
-  lldb::StateType WaitForStateChangedEvents(
-      const std::chrono::microseconds &timeout, lldb::EventSP &event_sp,
+  lldb::StateType GetStateChangedEvents(
+      lldb::EventSP &event_sp, const Timeout<std::micro> &timeout,
       lldb::ListenerSP
           hijack_listener); // Pass an empty ListenerSP to use builtin listener
 
@@ -2605,7 +2607,7 @@ public:
   bool RunPreResumeActions();
 
   void ClearPreResumeActions();
-  
+
   void ClearPreResumeAction(PreResumeActionCallback callback, void *baton);
 
   ProcessRunLock &GetRunLock();
@@ -3105,24 +3107,19 @@ protected:
 
   Error HaltPrivate();
 
-  lldb::StateType
-  WaitForProcessStopPrivate(const std::chrono::microseconds &timeout,
-                            lldb::EventSP &event_sp);
+  lldb::StateType WaitForProcessStopPrivate(lldb::EventSP &event_sp,
+                                            const Timeout<std::micro> &timeout);
 
   // This waits for both the state change broadcaster, and the control
   // broadcaster.
   // If control_only, it only waits for the control broadcaster.
 
-  bool WaitForEventsPrivate(const std::chrono::microseconds &timeout,
-                            lldb::EventSP &event_sp, bool control_only);
+  bool GetEventsPrivate(lldb::EventSP &event_sp,
+                        const Timeout<std::micro> &timeout, bool control_only);
 
   lldb::StateType
-  WaitForStateChangedEventsPrivate(const std::chrono::microseconds &timeout,
-                                   lldb::EventSP &event_sp);
-
-  lldb::StateType WaitForState(const std::chrono::microseconds &timeout,
-                               const lldb::StateType *match_states,
-                               const uint32_t num_match_states);
+  GetStateChangedEventsPrivate(lldb::EventSP &event_sp,
+                               const Timeout<std::micro> &timeout);
 
   size_t WriteMemoryPrivate(lldb::addr_t addr, const void *buf, size_t size,
                             Error &error);
@@ -3147,6 +3144,8 @@ protected:
   }
 
   Error StopForDestroyOrDetach(lldb::EventSP &exit_event_sp);
+
+  virtual Error UpdateAutomaticSignalFiltering();
 
   bool StateChangedIsExternallyHijacked();
 

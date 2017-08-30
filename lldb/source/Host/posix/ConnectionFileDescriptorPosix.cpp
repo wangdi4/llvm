@@ -19,7 +19,6 @@
 #include "lldb/Host/IOObject.h"
 #include "lldb/Host/Socket.h"
 #include "lldb/Host/SocketAddress.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Utility/SelectHelper.h"
 
 // C Includes
@@ -43,13 +42,12 @@
 #endif
 // Project includes
 #include "lldb/Core/Communication.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/Socket.h"
 #include "lldb/Host/common/TCPSocket.h"
-#include "lldb/Interpreter/Args.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -369,7 +367,7 @@ ConnectionStatus ConnectionFileDescriptor::Disconnect(Error *error_ptr) {
 }
 
 size_t ConnectionFileDescriptor::Read(void *dst, size_t dst_len,
-                                      uint32_t timeout_usec,
+                                      const Timeout<std::micro> &timeout,
                                       ConnectionStatus &status,
                                       Error *error_ptr) {
   Log *log(lldb_private::GetLogIfAnyCategoriesSet(LIBLLDB_LOG_CONNECTION));
@@ -392,7 +390,7 @@ size_t ConnectionFileDescriptor::Read(void *dst, size_t dst_len,
     return 0;
   }
 
-  status = BytesAvailable(timeout_usec, error_ptr);
+  status = BytesAvailable(timeout, error_ptr);
   if (status != eConnectionStatusSuccess)
     return 0;
 
@@ -553,17 +551,15 @@ std::string ConnectionFileDescriptor::GetURI() { return m_uri; }
 //     be used or a new version of ConnectionFileDescriptor::BytesAvailable()
 //     should be written for the system that is running into the limitations.
 
-ConnectionStatus ConnectionFileDescriptor::BytesAvailable(uint32_t timeout_usec,
-                                                          Error *error_ptr) {
+ConnectionStatus
+ConnectionFileDescriptor::BytesAvailable(const Timeout<std::micro> &timeout,
+                                         Error *error_ptr) {
   // Don't need to take the mutex here separately since we are only called from
   // Read.  If we
   // ever get used more generally we will need to lock here as well.
 
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_CONNECTION));
-  if (log)
-    log->Printf(
-        "%p ConnectionFileDescriptor::BytesAvailable (timeout_usec = %u)",
-        static_cast<void *>(this), timeout_usec);
+  LLDB_LOG(log, "this = {0}, timeout = {1}", this, timeout);
 
   // Make a copy of the file descriptors to make sure we don't
   // have another thread change these values out from under us
@@ -573,8 +569,8 @@ ConnectionStatus ConnectionFileDescriptor::BytesAvailable(uint32_t timeout_usec,
 
   if (handle != IOObject::kInvalidHandleValue) {
     SelectHelper select_helper;
-    if (timeout_usec != UINT32_MAX)
-      select_helper.SetTimeout(std::chrono::microseconds(timeout_usec));
+    if (timeout)
+      select_helper.SetTimeout(*timeout);
 
     select_helper.FDSetRead(handle);
 #if defined(_MSC_VER)
@@ -752,14 +748,12 @@ ConnectionStatus ConnectionFileDescriptor::ConnectTCP(llvm::StringRef s,
 
 ConnectionStatus ConnectionFileDescriptor::ConnectUDP(llvm::StringRef s,
                                                       Error *error_ptr) {
-  Socket *send_socket = nullptr;
-  Socket *recv_socket = nullptr;
-  Error error = Socket::UdpConnect(s, m_child_processes_inherit, send_socket,
-                                   recv_socket);
+  Socket *socket = nullptr;
+  Error error = Socket::UdpConnect(s, m_child_processes_inherit, socket);
   if (error_ptr)
     *error_ptr = error;
-  m_write_sp.reset(send_socket);
-  m_read_sp.reset(recv_socket);
+  m_write_sp.reset(socket);
+  m_read_sp = m_write_sp;
   if (error.Fail()) {
     return eConnectionStatusError;
   }

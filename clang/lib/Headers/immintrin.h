@@ -77,9 +77,44 @@
    Intel documents these as being in immintrin.h, and
    they depend on typedefs from avxintrin.h. */
 
+/// \brief Converts a 256-bit vector of [8 x float] into a 128-bit vector
+///    containing 16-bit half-precision float values.
+///
+/// \headerfile <x86intrin.h>
+///
+/// \code
+/// __m128i _mm256_cvtps_ph(__m256 a, const int imm);
+/// \endcode
+///
+/// This intrinsic corresponds to the <c> VCVTPS2PH </c> instruction.
+///
+/// \param a
+///    A 256-bit vector containing 32-bit single-precision float values to be
+///    converted to 16-bit half-precision float values.
+/// \param imm
+///    An immediate value controlling rounding using bits [2:0]: \n
+///    000: Nearest \n
+///    001: Down \n
+///    010: Up \n
+///    011: Truncate \n
+///    1XX: Use MXCSR.RC for rounding
+/// \returns A 128-bit vector containing the converted 16-bit half-precision
+///    float values.
 #define _mm256_cvtps_ph(a, imm) __extension__ ({ \
  (__m128i)__builtin_ia32_vcvtps2ph256((__v8sf)(__m256)(a), (imm)); })
 
+/// \brief Converts a 128-bit vector containing 16-bit half-precision float
+///    values into a 256-bit vector of [8 x float].
+///
+/// \headerfile <x86intrin.h>
+///
+/// This intrinsic corresponds to the <c> VCVTPH2PS </c> instruction.
+///
+/// \param __a
+///    A 128-bit vector containing 16-bit half-precision float values to be
+///    converted to 32-bit single-precision float values.
+/// \returns A vector of [8 x float] containing the converted 32-bit
+///    single-precision float values.
 static __inline __m256 __attribute__((__always_inline__, __nodebug__, __target__("f16c")))
 _mm256_cvtph_ps(__m128i __a)
 {
@@ -291,5 +326,46 @@ _writegsbase_u64(unsigned long long __V)
 /* Some intrinsics inside adxintrin.h are available only on processors with ADX,
  * whereas others are also available at all times. */
 #include <adxintrin.h>
+
+/* Definitions of feature list to be used by feature select intrinsics */
+#define _FEATURE_GENERIC_IA32        0x00000001ULL
+#define _FEATURE_FPU                 0x00000002ULL
+#define _FEATURE_CMOV                0x00000004ULL
+#define _FEATURE_MMX                 0x00000008ULL
+#define _FEATURE_FXSAVE              0x00000010ULL
+#define _FEATURE_SSE                 0x00000020ULL
+#define _FEATURE_SSE2                0x00000040ULL
+#define _FEATURE_SSE3                0x00000080ULL
+#define _FEATURE_SSSE3               0x00000100ULL
+#define _FEATURE_SSE4_1              0x00000200ULL
+#define _FEATURE_SSE4_2              0x00000400ULL
+#define _FEATURE_MOVBE               0x00000800ULL
+#define _FEATURE_POPCNT              0x00001000ULL
+#define _FEATURE_PCLMULQDQ           0x00002000ULL
+#define _FEATURE_AES                 0x00004000ULL
+#define _FEATURE_F16C                0x00008000ULL
+#define _FEATURE_AVX                 0x00010000ULL
+#define _FEATURE_RDRND               0x00020000ULL
+#define _FEATURE_FMA                 0x00040000ULL
+#define _FEATURE_BMI                 0x00080000ULL
+#define _FEATURE_LZCNT               0x00100000ULL
+#define _FEATURE_HLE                 0x00200000ULL
+#define _FEATURE_RTM                 0x00400000ULL
+#define _FEATURE_AVX2                0x00800000ULL
+#define _FEATURE_AVX512DQ            0x01000000ULL
+#define _FEATURE_KNCNI               0x04000000ULL
+#define _FEATURE_AVX512F             0x08000000ULL
+#define _FEATURE_ADX                 0x10000000ULL
+#define _FEATURE_RDSEED              0x20000000ULL
+#define _FEATURE_AVX512IFMA52        0x40000000ULL
+#define _FEATURE_AVX512ER            0x100000000ULL
+#define _FEATURE_AVX512PF            0x200000000ULL
+#define _FEATURE_AVX512CD            0x400000000ULL
+#define _FEATURE_SHA                 0x800000000ULL
+#define _FEATURE_MPX                 0x1000000000ULL
+#define _FEATURE_AVX512BW            0x2000000000ULL
+#define _FEATURE_AVX512VL            0x4000000000ULL
+#define _FEATURE_AVX512VBMI          0x8000000000ULL
+#define _FEATURE_CLFLUSHOPT          0x10000000000ULL
 
 #endif /* __IMMINTRIN_H */

@@ -20,26 +20,21 @@
 
 // Project includes
 #include "lldb/Core/ClangForward.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/lldb-enumerations.h"
 
 #include "lldb/Core/ClangForward.h"
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
 #include "lldb/Core/Section.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
 #include "lldb/Expression/UtilityFunction.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/CommandObjectMultiword.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -55,6 +50,11 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "AppleObjCClassDescriptorV2.h"
 #include "AppleObjCDeclVendor.h"
@@ -66,7 +66,7 @@ using namespace lldb;
 using namespace lldb_private;
 
 // 2 second timeout when running utility functions
-#define UTILITY_FUNCTION_TIMEOUT_USEC 2 * 1000 * 1000
+static constexpr std::chrono::seconds g_utility_function_timeout(2);
 
 static const char *g_get_dynamic_class_info_name =
     "__lldb_apple_objc_v2_get_dynamic_class_info";
@@ -600,14 +600,12 @@ protected:
             }
             iterator->second->Describe(
                 nullptr,
-                [objc_runtime, &std_out](const char *name,
-                                         const char *type) -> bool {
+                [&std_out](const char *name, const char *type) -> bool {
                   std_out.Printf("  instance method name = %s type = %s\n",
                                  name, type);
                   return false;
                 },
-                [objc_runtime, &std_out](const char *name,
-                                         const char *type) -> bool {
+                [&std_out](const char *name, const char *type) -> bool {
                   std_out.Printf("  class method name = %s type = %s\n", name,
                                  type);
                   return false;
@@ -895,6 +893,7 @@ UtilityFunction *AppleObjCRuntimeV2::CreateObjectChecker(const char *name) {
   }
 
   assert(len < (int)sizeof(check_function_code));
+  UNUSED_IF_ASSERT_DISABLED(len);
 
   Error error;
   return GetTargetRef().GetUtilityFunctionForLanguage(
@@ -1396,8 +1395,13 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapDynamic(
   arguments.GetValueAtIndex(0)->GetScalar() = hash_table.GetTableLoadAddress();
   arguments.GetValueAtIndex(1)->GetScalar() = class_infos_addr;
   arguments.GetValueAtIndex(2)->GetScalar() = class_infos_byte_size;
-  arguments.GetValueAtIndex(3)->GetScalar() =
-      (GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES) == nullptr ? 0 : 1);
+  
+  // Only dump the runtime classes from the expression evaluation if the
+  // log is verbose:
+  Log *type_log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES);
+  bool dump_log = type_log && type_log->GetVerbose();
+  
+  arguments.GetValueAtIndex(3)->GetScalar() = dump_log ? 1 : 0;
 
   bool success = false;
 
@@ -1411,7 +1415,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapDynamic(
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);
@@ -1640,8 +1644,12 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapSharedCache() {
   arguments.GetValueAtIndex(0)->GetScalar() = objc_opt_ptr;
   arguments.GetValueAtIndex(1)->GetScalar() = class_infos_addr;
   arguments.GetValueAtIndex(2)->GetScalar() = class_infos_byte_size;
-  arguments.GetValueAtIndex(3)->GetScalar() =
-      (GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES) == nullptr ? 0 : 1);
+  // Only dump the runtime classes from the expression evaluation if the
+  // log is verbose:
+  Log *type_log = GetLogIfAllCategoriesSet(LIBLLDB_LOG_TYPES);
+  bool dump_log = type_log && type_log->GetVerbose();
+  
+  arguments.GetValueAtIndex(3)->GetScalar() = dump_log ? 1 : 0;
 
   bool success = false;
 
@@ -1656,7 +1664,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapSharedCache() {
     options.SetTryAllThreads(false);
     options.SetStopOthers(true);
     options.SetIgnoreBreakpoints(true);
-    options.SetTimeoutUsec(UTILITY_FUNCTION_TIMEOUT_USEC);
+    options.SetTimeout(g_utility_function_timeout);
 
     Value return_value;
     return_value.SetValueType(Value::eValueTypeScalar);

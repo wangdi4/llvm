@@ -1,4 +1,4 @@
-//===- SymbolicFile.cpp - Interface that only provides symbols --*- C++ -*-===//
+//===- SymbolicFile.cpp - Interface that only provides symbols ------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -11,12 +11,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Object/COFF.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Object/COFFImportFile.h"
+#include "llvm/Object/Error.h"
 #include "llvm/Object/IRObjectFile.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolicFile.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include <algorithm>
+#include <memory>
 
 using namespace llvm;
 using namespace object;
@@ -24,7 +32,7 @@ using namespace object;
 SymbolicFile::SymbolicFile(unsigned int Type, MemoryBufferRef Source)
     : Binary(Type, Source) {}
 
-SymbolicFile::~SymbolicFile() {}
+SymbolicFile::~SymbolicFile() = default;
 
 Expected<std::unique_ptr<SymbolicFile>> SymbolicFile::createSymbolicFile(
     MemoryBufferRef Object, sys::fs::file_magic Type, LLVMContext *Context) {
@@ -58,6 +66,7 @@ Expected<std::unique_ptr<SymbolicFile>> SymbolicFile::createSymbolicFile(
   case sys::fs::file_magic::macho_dsym_companion:
   case sys::fs::file_magic::macho_kext_bundle:
   case sys::fs::file_magic::pecoff_executable:
+  case sys::fs::file_magic::wasm_object:
     return ObjectFile::createObjectFile(Object, Type);
   case sys::fs::file_magic::coff_import_library:
     return std::unique_ptr<SymbolicFile>(new COFFImportFile(Object));
