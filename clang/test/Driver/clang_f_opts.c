@@ -368,6 +368,8 @@
 // RUN: -ftree-vrp                                                            \
 // RUN: -fno-devirtualize                                                     \
 // RUN: -fno-devirtualize-speculatively                                       \
+// RUN: -fslp-vectorize-aggressive                                            \
+// RUN: -fno-slp-vectorize-aggressive                                         \
 // RUN: %s 2>&1 | FileCheck --check-prefix=CHECK-WARNING %s
 // CHECK-WARNING-DAG: optimization flag '-finline-limit=1000' is not supported
 // CHECK-WARNING-DAG: optimization flag '-finline-limit' is not supported
@@ -434,6 +436,8 @@
 // CHECK-WARNING-DAG: optimization flag '-ftree-vrp' is not supported
 // CHECK-WARNING-DAG: optimization flag '-fno-devirtualize' is not supported
 // CHECK-WARNING-DAG: optimization flag '-fno-devirtualize-speculatively' is not supported
+// CHECK-WARNING-DAG: the flag '-fslp-vectorize-aggressive' has been deprecated and will be ignored
+// CHECK-WARNING-DAG: the flag '-fno-slp-vectorize-aggressive' has been deprecated and will be ignored
 
 // Test that we mute the warning on these
 // RUN: %clang -### -finline-limit=1000 -Wno-invalid-command-line-argument              \
