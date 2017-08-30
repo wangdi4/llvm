@@ -25,18 +25,18 @@
 
 #include "clang/AST/ASTContext.h"
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Scalar.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/dwarf.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRInterpreter.h"
-#include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/ClangUtil.h"
 #include "lldb/Symbol/CompilerType.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Endian.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include <map>
 
@@ -73,7 +73,8 @@ IRForTarget::IRForTarget(lldb_private::ClangExpressionDeclMap *decl_map,
                          const char *func_name)
     : ModulePass(ID), m_resolve_vars(resolve_vars), m_func_name(func_name),
       m_module(NULL), m_decl_map(decl_map), m_CFStringCreateWithBytes(NULL),
-      m_sel_registerName(NULL), m_intptr_ty(NULL), m_error_stream(error_stream),
+      m_sel_registerName(NULL), m_objc_getClass(NULL), m_intptr_ty(NULL),
+      m_error_stream(error_stream),
       m_execution_unit(execution_unit), m_result_store(NULL),
       m_result_is_pointer(false), m_reloc_placeholder(NULL),
       m_entry_instruction_finder(FindEntryInstruction) {}
@@ -497,42 +498,58 @@ bool IRForTarget::RewriteObjCConstString(llvm::GlobalVariable *ns_str,
   Constant *bytes_arg = cstr ? ConstantExpr::getBitCast(cstr, i8_ptr_ty)
                              : Constant::getNullValue(i8_ptr_ty);
   Constant *numBytes_arg = ConstantInt::get(
-      m_intptr_ty, cstr ? string_array->getNumElements() - 1 : 0, false);
-  Constant *encoding_arg = ConstantInt::get(
-      i32_ty, 0x0600, false); /* 0x0600 is kCFStringEncodingASCII */
-  Constant *isExternal_arg =
-      ConstantInt::get(i8_ty, 0x0, false); /* 0x0 is false */
+      m_intptr_ty, cstr ? (string_array->getNumElements() - 1) * string_array->getElementByteSize() : 0, false);
+ int encoding_flags = 0;
+ switch (cstr ? string_array->getElementByteSize() : 1) {
+ case 1:
+   encoding_flags = 0x08000100; /* 0x08000100 is kCFStringEncodingUTF8 */
+   break;
+ case 2:
+   encoding_flags = 0x0100; /* 0x0100 is kCFStringEncodingUTF16 */
+   break;
+ case 4:
+   encoding_flags = 0x0c000100; /* 0x0c000100 is kCFStringEncodingUTF32 */
+   break;
+ default:
+   encoding_flags = 0x0600; /* fall back to 0x0600, kCFStringEncodingASCII */
+   LLDB_LOG(log, "Encountered an Objective-C constant string with unusual "
+                 "element size {0}",
+            string_array->getElementByteSize());
+ }
+ Constant *encoding_arg = ConstantInt::get(i32_ty, encoding_flags, false);
+ Constant *isExternal_arg =
+     ConstantInt::get(i8_ty, 0x0, false); /* 0x0 is false */
 
-  Value *argument_array[5];
+ Value *argument_array[5];
 
-  argument_array[0] = alloc_arg;
-  argument_array[1] = bytes_arg;
-  argument_array[2] = numBytes_arg;
-  argument_array[3] = encoding_arg;
-  argument_array[4] = isExternal_arg;
+ argument_array[0] = alloc_arg;
+ argument_array[1] = bytes_arg;
+ argument_array[2] = numBytes_arg;
+ argument_array[3] = encoding_arg;
+ argument_array[4] = isExternal_arg;
 
-  ArrayRef<Value *> CFSCWB_arguments(argument_array, 5);
+ ArrayRef<Value *> CFSCWB_arguments(argument_array, 5);
 
-  FunctionValueCache CFSCWB_Caller(
-      [this, &CFSCWB_arguments](llvm::Function *function) -> llvm::Value * {
-        return CallInst::Create(
-            m_CFStringCreateWithBytes, CFSCWB_arguments,
-            "CFStringCreateWithBytes",
-            llvm::cast<Instruction>(
-                m_entry_instruction_finder.GetValue(function)));
-      });
+ FunctionValueCache CFSCWB_Caller(
+     [this, &CFSCWB_arguments](llvm::Function *function) -> llvm::Value * {
+       return CallInst::Create(
+           m_CFStringCreateWithBytes, CFSCWB_arguments,
+           "CFStringCreateWithBytes",
+           llvm::cast<Instruction>(
+               m_entry_instruction_finder.GetValue(function)));
+     });
 
-  if (!UnfoldConstant(ns_str, nullptr, CFSCWB_Caller,
-                      m_entry_instruction_finder, m_error_stream)) {
-    if (log)
-      log->PutCString(
-          "Couldn't replace the NSString with the result of the call");
+ if (!UnfoldConstant(ns_str, nullptr, CFSCWB_Caller, m_entry_instruction_finder,
+                     m_error_stream)) {
+   if (log)
+     log->PutCString(
+         "Couldn't replace the NSString with the result of the call");
 
-    m_error_stream.Printf("error [IRForTarget internal]: Couldn't replace an "
-                          "Objective-C constant string with a dynamic "
-                          "string\n");
+   m_error_stream.Printf("error [IRForTarget internal]: Couldn't replace an "
+                         "Objective-C constant string with a dynamic "
+                         "string\n");
 
-    return false;
+   return false;
   }
 
   ns_str->eraseFromParent();
@@ -641,31 +658,23 @@ bool IRForTarget::RewriteObjCConstStrings() {
         return false;
       }
 
-      if (nsstring_expr->getOpcode() != Instruction::GetElementPtr) {
-        if (log)
-          log->Printf("NSString initializer's str element is not a "
-                      "GetElementPtr expression, it's a %s",
-                      nsstring_expr->getOpcodeName());
+      GlobalVariable *cstr_global = nullptr;
 
-        m_error_stream.Printf("Internal error [IRForTarget]: An Objective-C "
-                              "constant string's string initializer is not an "
-                              "array\n");
-
-        return false;
+      if (nsstring_expr->getOpcode() == Instruction::GetElementPtr) {
+        Constant *nsstring_cstr = nsstring_expr->getOperand(0);
+        cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
+      } else if (nsstring_expr->getOpcode() == Instruction::BitCast) {
+        Constant *nsstring_cstr = nsstring_expr->getOperand(0);
+        cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
       }
-
-      Constant *nsstring_cstr = nsstring_expr->getOperand(0);
-
-      GlobalVariable *cstr_global = dyn_cast<GlobalVariable>(nsstring_cstr);
 
       if (!cstr_global) {
         if (log)
           log->PutCString(
               "NSString initializer's str element is not a GlobalVariable");
 
-        m_error_stream.Printf("Internal error [IRForTarget]: An Objective-C "
-                              "constant string's string initializer doesn't "
-                              "point to a global\n");
+        m_error_stream.Printf("Internal error [IRForTarget]: Unhandled"
+                              "constant string initializer\n");
 
         return false;
       }
@@ -944,6 +953,172 @@ bool IRForTarget::RewriteObjCSelectors(BasicBlock &basic_block) {
   return true;
 }
 
+static bool IsObjCClassReference(Value *value) {
+  GlobalVariable *global_variable = dyn_cast<GlobalVariable>(value);
+
+  if (!global_variable || !global_variable->hasName() ||
+      !global_variable->getName().startswith("OBJC_CLASS_REFERENCES_"))
+    return false;
+
+  return true;
+}
+
+// This function does not report errors; its callers are responsible.
+bool IRForTarget::RewriteObjCClassReference(Instruction *class_load) {
+  lldb_private::Log *log(
+      lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
+
+  LoadInst *load = dyn_cast<LoadInst>(class_load);
+
+  if (!load)
+    return false;
+
+  // Unpack the class name from the reference.  In LLVM IR, a reference to an
+  // Objective-C class gets represented as
+  //
+  // %tmp     = load %struct._objc_class*,
+  //            %struct._objc_class** @OBJC_CLASS_REFERENCES_, align 4
+  //
+  // @"OBJC_CLASS_REFERENCES_ is a bitcast of a character array called
+  // @OBJC_CLASS_NAME_.
+  // @OBJC_CLASS_NAME contains the string.
+
+  // Find the pointer's initializer (a ConstantExpr with opcode BitCast)
+  // and get the string from its target
+
+  GlobalVariable *_objc_class_references_ =
+      dyn_cast<GlobalVariable>(load->getPointerOperand());
+
+  if (!_objc_class_references_ ||
+      !_objc_class_references_->hasInitializer())
+    return false;
+
+  Constant *ocr_initializer = _objc_class_references_->getInitializer();
+
+  ConstantExpr *ocr_initializer_expr = dyn_cast<ConstantExpr>(ocr_initializer);
+
+  if (!ocr_initializer_expr ||
+      ocr_initializer_expr->getOpcode() != Instruction::BitCast)
+    return false;
+
+  Value *ocr_initializer_base = ocr_initializer_expr->getOperand(0);
+
+  if (!ocr_initializer_base)
+    return false;
+
+  // Find the string's initializer (a ConstantArray) and get the string from it
+
+  GlobalVariable *_objc_class_name_ =
+      dyn_cast<GlobalVariable>(ocr_initializer_base);
+
+  if (!_objc_class_name_ || !_objc_class_name_->hasInitializer())
+    return false;
+
+  Constant *ocn_initializer = _objc_class_name_->getInitializer();
+
+  ConstantDataArray *ocn_initializer_array =
+      dyn_cast<ConstantDataArray>(ocn_initializer);
+
+  if (!ocn_initializer_array->isString())
+    return false;
+
+  std::string ocn_initializer_string = ocn_initializer_array->getAsString();
+
+  if (log)
+    log->Printf("Found Objective-C class reference \"%s\"",
+                ocn_initializer_string.c_str());
+
+  // Construct a call to objc_getClass
+
+  if (!m_objc_getClass) {
+    lldb::addr_t objc_getClass_addr;
+
+    static lldb_private::ConstString g_objc_getClass_str("objc_getClass");
+    objc_getClass_addr = m_execution_unit.FindSymbol(g_objc_getClass_str);
+    if (objc_getClass_addr == LLDB_INVALID_ADDRESS)
+      return false;
+
+    if (log)
+      log->Printf("Found objc_getClass at 0x%" PRIx64,
+                  objc_getClass_addr);
+
+    // Build the function type: %struct._objc_class *objc_getClass(i8*)
+
+    Type *class_type = load->getType();
+    Type *type_array[1];
+    type_array[0] = llvm::Type::getInt8PtrTy(m_module->getContext());
+
+    ArrayRef<Type *> ogC_arg_types(type_array, 1);
+
+    llvm::Type *ogC_type =
+        FunctionType::get(class_type, ogC_arg_types, false);
+
+    // Build the constant containing the pointer to the function
+    PointerType *ogC_ptr_ty = PointerType::getUnqual(ogC_type);
+    Constant *ogC_addr_int =
+        ConstantInt::get(m_intptr_ty, objc_getClass_addr, false);
+    m_objc_getClass = ConstantExpr::getIntToPtr(ogC_addr_int, ogC_ptr_ty);
+  }
+
+  Value *argument_array[1];
+
+  Constant *ocn_pointer = ConstantExpr::getBitCast(
+      _objc_class_name_, Type::getInt8PtrTy(m_module->getContext()));
+
+  argument_array[0] = ocn_pointer;
+
+  ArrayRef<Value *> ogC_arguments(argument_array, 1);
+
+  CallInst *ogC_call = CallInst::Create(m_objc_getClass, ogC_arguments,
+                                        "objc_getClass", class_load);
+
+  // Replace the load with the call in all users
+
+  class_load->replaceAllUsesWith(ogC_call);
+
+  class_load->eraseFromParent();
+
+  return true;
+}
+
+bool IRForTarget::RewriteObjCClassReferences(BasicBlock &basic_block) {
+  lldb_private::Log *log(
+      lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
+
+  BasicBlock::iterator ii;
+
+  typedef SmallVector<Instruction *, 2> InstrList;
+  typedef InstrList::iterator InstrIterator;
+
+  InstrList class_loads;
+
+  for (ii = basic_block.begin(); ii != basic_block.end(); ++ii) {
+    Instruction &inst = *ii;
+
+    if (LoadInst *load = dyn_cast<LoadInst>(&inst))
+      if (IsObjCClassReference(load->getPointerOperand()))
+        class_loads.push_back(&inst);
+  }
+
+  InstrIterator iter;
+
+  for (iter = class_loads.begin(); iter != class_loads.end(); ++iter) {
+    if (!RewriteObjCClassReference(*iter)) {
+      m_error_stream.Printf("Internal error [IRForTarget]: Couldn't change a "
+                            "static reference to an Objective-C class to a "
+                            "dynamic reference\n");
+
+      if (log)
+        log->PutCString(
+            "Couldn't rewrite a reference to an Objective-C class");
+
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // This function does not report errors; its callers are responsible.
 bool IRForTarget::RewritePersistentAlloc(llvm::Instruction *persistent_alloc) {
   lldb_private::Log *log(
@@ -982,7 +1157,7 @@ bool IRForTarget::RewritePersistentAlloc(llvm::Instruction *persistent_alloc) {
   GlobalVariable *persistent_global = new GlobalVariable(
       (*m_module), alloc->getType(), false, /* not constant */
       GlobalValue::ExternalLinkage, NULL,   /* no initializer */
-      alloc->getName().str().c_str());
+      alloc->getName().str());
 
   // What we're going to do here is make believe this was a regular old external
   // variable.  That means we need to make the metadata valid.
@@ -1678,9 +1853,9 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   if (!m_decl_map->GetStructInfo(num_elements, size, alignment))
     return false;
 
-  Function::arg_iterator iter(llvm_function.getArgumentList().begin());
+  Function::arg_iterator iter(llvm_function.arg_begin());
 
-  if (iter == llvm_function.getArgumentList().end()) {
+  if (iter == llvm_function.arg_end()) {
     m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes no "
                           "arguments (should take at least a struct pointer)");
 
@@ -1692,7 +1867,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   if (argument->getName().equals("this")) {
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'this' argument (should take a struct pointer "
                             "too)");
@@ -1704,7 +1879,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
   } else if (argument->getName().equals("self")) {
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'self' argument (should take '_cmd' and a struct "
                             "pointer too)");
@@ -1722,7 +1897,7 @@ bool IRForTarget::ReplaceVariables(Function &llvm_function) {
 
     ++iter;
 
-    if (iter == llvm_function.getArgumentList().end()) {
+    if (iter == llvm_function.arg_end()) {
       m_error_stream.Printf("Internal error [IRForTarget]: Wrapper takes only "
                             "'self' and '_cmd' arguments (should take a struct "
                             "pointer too)");
@@ -2020,6 +2195,15 @@ bool IRForTarget::runOnModule(Module &llvm_module) {
           log->Printf("RewriteObjCSelectors() failed");
 
         // RewriteObjCSelectors() reports its own errors, so we don't do so here
+
+        return false;
+      }
+
+      if (!RewriteObjCClassReferences(*bbi)) {
+        if (log)
+          log->Printf("RewriteObjCClassReferences() failed");
+
+        // RewriteObjCClasses() reports its own errors, so we don't do so here
 
         return false;
       }

@@ -47,7 +47,7 @@ public:
       : SelectionDAGISel(tm, OptLevel), Subtarget(nullptr),
         ForCodeSize(false) {}
 
-  const char *getPassName() const override {
+  StringRef getPassName() const override {
     return "AArch64 Instruction Selection";
   }
 
@@ -328,11 +328,52 @@ static AArch64_AM::ShiftExtendType getShiftTypeForNode(SDValue N) {
   }
 }
 
+/// \brief Determine whether it is worth it to fold SHL into the addressing
+/// mode.
+static bool isWorthFoldingSHL(SDValue V) {
+  assert(V.getOpcode() == ISD::SHL && "invalid opcode");
+  // It is worth folding logical shift of up to three places.
+  auto *CSD = dyn_cast<ConstantSDNode>(V.getOperand(1));
+  if (!CSD)
+    return false;
+  unsigned ShiftVal = CSD->getZExtValue();
+  if (ShiftVal > 3)
+    return false;
+
+  // Check if this particular node is reused in any non-memory related
+  // operation.  If yes, do not try to fold this node into the address
+  // computation, since the computation will be kept.
+  const SDNode *Node = V.getNode();
+  for (SDNode *UI : Node->uses())
+    if (!isa<MemSDNode>(*UI))
+      for (SDNode *UII : UI->uses())
+        if (!isa<MemSDNode>(*UII))
+          return false;
+  return true;
+}
+
 /// \brief Determine whether it is worth to fold V into an extended register.
 bool AArch64DAGToDAGISel::isWorthFolding(SDValue V) const {
-  // it hurts if the value is used at least twice, unless we are optimizing
-  // for code size.
-  return ForCodeSize || V.hasOneUse();
+  // Trivial if we are optimizing for code size or if there is only
+  // one use of the value.
+  if (ForCodeSize || V.hasOneUse())
+    return true;
+  // If a subtarget has a fastpath LSL we can fold a logical shift into
+  // the addressing mode and save a cycle.
+  if (Subtarget->hasLSLFast() && V.getOpcode() == ISD::SHL &&
+      isWorthFoldingSHL(V))
+    return true;
+  if (Subtarget->hasLSLFast() && V.getOpcode() == ISD::ADD) {
+    const SDValue LHS = V.getOperand(0);
+    const SDValue RHS = V.getOperand(1);
+    if (LHS.getOpcode() == ISD::SHL && isWorthFoldingSHL(LHS))
+      return true;
+    if (RHS.getOpcode() == ISD::SHL && isWorthFoldingSHL(RHS))
+      return true;
+  }
+
+  // It hurts otherwise, since the value will be reused.
+  return false;
 }
 
 /// SelectShiftedRegister - Select a "shifted register" operand.  If the value
@@ -586,6 +627,11 @@ bool AArch64DAGToDAGISel::SelectArithExtendedRegister(SDValue N, SDValue &Reg,
       return false;
 
     Reg = N.getOperand(0);
+
+    // Don't match if free 32-bit -> 64-bit zext can be used instead.
+    if (Ext == AArch64_AM::UXTW &&
+        Reg->getValueType(0).getSizeInBits() == 32 && isDef32(*Reg.getNode()))
+      return false;
   }
 
   // AArch64 mandates that the RHS of the operation must use the smallest
@@ -1149,6 +1195,12 @@ void AArch64DAGToDAGISel::SelectLoad(SDNode *N, unsigned NumVecs, unsigned Opc,
         CurDAG->getTargetExtractSubreg(SubRegIdx + i, dl, VT, SuperReg));
 
   ReplaceUses(SDValue(N, NumVecs), SDValue(Ld, 1));
+
+  // Transfer memoperands.
+  MachineSDNode::mmo_iterator MemOp = MF->allocateMemRefsArray(1);
+  MemOp[0] = cast<MemIntrinsicSDNode>(N)->getMemOperand();
+  cast<MachineSDNode>(Ld)->setMemRefs(MemOp, MemOp + 1);
+
   CurDAG->RemoveDeadNode(N);
 }
 
@@ -1196,6 +1248,11 @@ void AArch64DAGToDAGISel::SelectStore(SDNode *N, unsigned NumVecs,
 
   SDValue Ops[] = {RegSeq, N->getOperand(NumVecs + 2), N->getOperand(0)};
   SDNode *St = CurDAG->getMachineNode(Opc, dl, N->getValueType(0), Ops);
+
+  // Transfer memoperands.
+  MachineSDNode::mmo_iterator MemOp = MF->allocateMemRefsArray(1);
+  MemOp[0] = cast<MemIntrinsicSDNode>(N)->getMemOperand();
+  cast<MachineSDNode>(St)->setMemRefs(MemOp, MemOp + 1);
 
   ReplaceNode(N, St);
 }
@@ -1808,7 +1865,7 @@ static void getUsefulBitsFromBitfieldMoveOpd(SDValue Op, APInt &UsefulBits,
     OpUsefulBits = OpUsefulBits.shl(OpUsefulBits.getBitWidth() - Imm);
     getUsefulBits(Op, OpUsefulBits, Depth + 1);
     // The interesting part was at zero in the argument
-    OpUsefulBits = OpUsefulBits.lshr(OpUsefulBits.getBitWidth() - Imm);
+    OpUsefulBits.lshrInPlace(OpUsefulBits.getBitWidth() - Imm);
   }
 
   UsefulBits &= OpUsefulBits;
@@ -1837,13 +1894,13 @@ static void getUsefulBitsFromOrWithShiftedReg(SDValue Op, APInt &UsefulBits,
     uint64_t ShiftAmt = AArch64_AM::getShiftValue(ShiftTypeAndValue);
     Mask = Mask.shl(ShiftAmt);
     getUsefulBits(Op, Mask, Depth + 1);
-    Mask = Mask.lshr(ShiftAmt);
+    Mask.lshrInPlace(ShiftAmt);
   } else if (AArch64_AM::getShiftType(ShiftTypeAndValue) == AArch64_AM::LSR) {
     // Shift Right
     // We do not handle AArch64_AM::ASR, because the sign will change the
     // number of useful bits
     uint64_t ShiftAmt = AArch64_AM::getShiftValue(ShiftTypeAndValue);
-    Mask = Mask.lshr(ShiftAmt);
+    Mask.lshrInPlace(ShiftAmt);
     getUsefulBits(Op, Mask, Depth + 1);
     Mask = Mask.shl(ShiftAmt);
   } else
@@ -1859,23 +1916,52 @@ static void getUsefulBitsFromBFM(SDValue Op, SDValue Orig, APInt &UsefulBits,
   uint64_t MSB =
       cast<const ConstantSDNode>(Op.getOperand(3).getNode())->getZExtValue();
 
-  if (Op.getOperand(1) == Orig)
-    return getUsefulBitsFromBitfieldMoveOpd(Op, UsefulBits, Imm, MSB, Depth);
-
   APInt OpUsefulBits(UsefulBits);
   OpUsefulBits = 1;
 
+  APInt ResultUsefulBits(UsefulBits.getBitWidth(), 0);
+  ResultUsefulBits.flipAllBits();
+  APInt Mask(UsefulBits.getBitWidth(), 0);
+
+  getUsefulBits(Op, ResultUsefulBits, Depth + 1);
+
   if (MSB >= Imm) {
-    OpUsefulBits = OpUsefulBits.shl(MSB - Imm + 1);
+    // The instruction is a BFXIL.
+    uint64_t Width = MSB - Imm + 1;
+    uint64_t LSB = Imm;
+
+    OpUsefulBits = OpUsefulBits.shl(Width);
     --OpUsefulBits;
-    UsefulBits &= ~OpUsefulBits;
-    getUsefulBits(Op, UsefulBits, Depth + 1);
+
+    if (Op.getOperand(1) == Orig) {
+      // Copy the low bits from the result to bits starting from LSB.
+      Mask = ResultUsefulBits & OpUsefulBits;
+      Mask = Mask.shl(LSB);
+    }
+
+    if (Op.getOperand(0) == Orig)
+      // Bits starting from LSB in the input contribute to the result.
+      Mask |= (ResultUsefulBits & ~OpUsefulBits);
   } else {
-    OpUsefulBits = OpUsefulBits.shl(MSB + 1);
+    // The instruction is a BFI.
+    uint64_t Width = MSB + 1;
+    uint64_t LSB = UsefulBits.getBitWidth() - Imm;
+
+    OpUsefulBits = OpUsefulBits.shl(Width);
     --OpUsefulBits;
-    UsefulBits = ~(OpUsefulBits.shl(OpUsefulBits.getBitWidth() - Imm));
-    getUsefulBits(Op, UsefulBits, Depth + 1);
+    OpUsefulBits = OpUsefulBits.shl(LSB);
+
+    if (Op.getOperand(1) == Orig) {
+      // Copy the bits from the result to the zero bits.
+      Mask = ResultUsefulBits & OpUsefulBits;
+      Mask.lshrInPlace(LSB);
+    }
+
+    if (Op.getOperand(0) == Orig)
+      Mask |= (ResultUsefulBits & ~OpUsefulBits);
   }
+
+  UsefulBits &= Mask;
 }
 
 static void getUsefulBitsForUse(SDNode *UserNode, APInt &UsefulBits,

@@ -231,6 +231,7 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::TypeTraitExprClass:
   case Stmt::CoroutineBodyStmtClass:
   case Stmt::CoawaitExprClass:
+  case Stmt::DependentCoawaitExprClass:
   case Stmt::CoreturnStmtClass:
   case Stmt::CoyieldExprClass:
   case Stmt::CXXBindTemporaryExprClass:
@@ -243,6 +244,8 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::ChooseExprClass:
   case Stmt::DesignatedInitExprClass:
   case Stmt::DesignatedInitUpdateExprClass:
+  case Stmt::ArrayInitLoopExprClass:
+  case Stmt::ArrayInitIndexExprClass:
   case Stmt::ExprWithCleanupsClass:
   case Stmt::ExpressionTraitExprClass:
   case Stmt::ExtVectorElementExprClass:
@@ -655,6 +658,30 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPTeamsDistributeDirectiveClass:
     K = CXCursor_OMPTeamsDistributeDirective;
+    break;
+  case Stmt::OMPTeamsDistributeSimdDirectiveClass:
+    K = CXCursor_OMPTeamsDistributeSimdDirective;
+    break;
+  case Stmt::OMPTeamsDistributeParallelForSimdDirectiveClass:
+    K = CXCursor_OMPTeamsDistributeParallelForSimdDirective;
+    break;
+  case Stmt::OMPTeamsDistributeParallelForDirectiveClass:
+    K = CXCursor_OMPTeamsDistributeParallelForDirective;
+    break;
+  case Stmt::OMPTargetTeamsDirectiveClass:
+    K = CXCursor_OMPTargetTeamsDirective;
+    break;
+  case Stmt::OMPTargetTeamsDistributeDirectiveClass:
+    K = CXCursor_OMPTargetTeamsDistributeDirective;
+    break;
+  case Stmt::OMPTargetTeamsDistributeParallelForDirectiveClass:
+    K = CXCursor_OMPTargetTeamsDistributeParallelForDirective;
+    break;
+  case Stmt::OMPTargetTeamsDistributeParallelForSimdDirectiveClass:
+    K = CXCursor_OMPTargetTeamsDistributeParallelForSimdDirective;
+    break;
+  case Stmt::OMPTargetTeamsDistributeSimdDirectiveClass:
+    K = CXCursor_OMPTargetTeamsDistributeSimdDirective;
     break;
   }
 
@@ -1093,8 +1120,6 @@ bool cxcursor::isFirstInDeclGroup(CXCursor C) {
 // libclang CXCursor APIs
 //===----------------------------------------------------------------------===//
 
-extern "C" {
-
 int clang_Cursor_isNull(CXCursor cursor) {
   return clang_equalCursors(cursor, clang_getNullCursor());
 }
@@ -1284,8 +1309,6 @@ unsigned long long clang_Cursor_getTemplateArgumentUnsignedValue(CXCursor C,
   return TA.getAsIntegral().getZExtValue();
 }
 
-} // end: extern "C"
-
 //===----------------------------------------------------------------------===//
 // CXCursorSet.
 //===----------------------------------------------------------------------===//
@@ -1319,7 +1342,6 @@ public:
 };
 }
 
-extern "C" {
 CXCursorSet clang_createCXCursorSet() {
   return packCXCursorSet(new CXCursorSet_Impl());
 }
@@ -1382,7 +1404,6 @@ CXCompletionString clang_getCursorCompletionString(CXCursor cursor) {
   }
   return nullptr;
 }
-} // end: extern C.
 
 namespace {
   struct OverridenCursorsPool {
@@ -1407,7 +1428,6 @@ void cxcursor::disposeOverridenCXCursorsPool(void *pool) {
   delete static_cast<OverridenCursorsPool*>(pool);
 }
  
-extern "C" {
 void clang_getOverriddenCursors(CXCursor cursor,
                                 CXCursor **overridden,
                                 unsigned *num_overridden) {
@@ -1529,5 +1549,3 @@ CXType clang_Cursor_getReceiverType(CXCursor C) {
 
   return cxtype::MakeCXType(QualType(), TU);
 }
-
-} // end: extern "C"

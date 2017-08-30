@@ -17,6 +17,7 @@
 #include "lldb/Core/State.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Host/Host.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
@@ -141,6 +142,14 @@ protected:
 // CommandObjectThreadBacktrace
 //-------------------------------------------------------------------------
 
+static OptionDefinition g_thread_backtrace_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "count",    'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount,      "How many frames to display (-1 for all)" },
+  { LLDB_OPT_SET_1, false, "start",    's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFrameIndex, "Frame in which to start the backtrace" },
+  { LLDB_OPT_SET_1, false, "extended", 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "Show the extended backtrace, if available" }
+    // clang-format on
+};
+
 class CommandObjectThreadBacktrace : public CommandObjectIterateOverThreads {
 public:
   class CommandOptions : public Options {
@@ -153,31 +162,26 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
 
       switch (short_option) {
       case 'c': {
-        bool success;
-        int32_t input_count =
-            StringConvert::ToSInt32(option_arg, -1, 0, &success);
-        if (!success)
-          error.SetErrorStringWithFormat(
-              "invalid integer value for option '%c'", short_option);
-        if (input_count < -1)
+        int32_t input_count = 0;
+        if (option_arg.getAsInteger(0, m_count)) {
           m_count = UINT32_MAX;
-        else
-          m_count = input_count;
-      } break;
-      case 's': {
-        bool success;
-        m_start = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success)
           error.SetErrorStringWithFormat(
               "invalid integer value for option '%c'", short_option);
+        } else if (input_count < 0)
+          m_count = UINT32_MAX;
       } break;
+      case 's':
+        if (option_arg.getAsInteger(0, m_start))
+          error.SetErrorStringWithFormat(
+              "invalid integer value for option '%c'", short_option);
+        break;
       case 'e': {
         bool success;
         m_extended_backtrace =
@@ -200,11 +204,9 @@ public:
       m_extended_backtrace = false;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_backtrace_options);
+    }
 
     // Instance variables to hold the values for command options.
     uint32_t m_count;
@@ -241,9 +243,11 @@ protected:
             thread->shared_from_this(), type);
         if (ext_thread_sp && ext_thread_sp->IsValid()) {
           const uint32_t num_frames_with_source = 0;
+          const bool stop_format = false;
           if (ext_thread_sp->GetStatus(strm, m_options.m_start,
                                        m_options.m_count,
-                                       num_frames_with_source)) {
+                                       num_frames_with_source,
+                                       stop_format)) {
             DoExtendedBacktrace(ext_thread_sp.get(), result);
           }
         }
@@ -268,9 +272,9 @@ protected:
 
     // Don't show source context when doing backtraces.
     const uint32_t num_frames_with_source = 0;
-
+    const bool stop_format = true;
     if (!thread->GetStatus(strm, m_options.m_start, m_options.m_count,
-                           num_frames_with_source)) {
+                           num_frames_with_source, stop_format)) {
       result.AppendErrorWithFormat(
           "error displaying backtrace for thread: \"0x%4.4x\"\n",
           thread->GetIndexID());
@@ -287,17 +291,32 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition
-    CommandObjectThreadBacktrace::CommandOptions::g_option_table[] = {
-        // clang-format off
-  {LLDB_OPT_SET_1, false, "count",    'c', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeCount,      "How many frames to display (-1 for all)"},
-  {LLDB_OPT_SET_1, false, "start",    's', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeFrameIndex, "Frame in which to start the backtrace"},
-  {LLDB_OPT_SET_1, false, "extended", 'e', OptionParser::eRequiredArgument, nullptr, nullptr, 0, eArgTypeBoolean,    "Show the extended backtrace, if available"},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
-};
-
 enum StepScope { eStepScopeSource, eStepScopeInstruction };
+
+static OptionEnumValueElement g_tri_running_mode[] = {
+    {eOnlyThisThread, "this-thread", "Run only this thread"},
+    {eAllThreads, "all-threads", "Run all threads"},
+    {eOnlyDuringStepping, "while-stepping",
+     "Run only this thread while stepping"},
+    {0, nullptr, nullptr}};
+
+static OptionEnumValueElement g_duo_running_mode[] = {
+    {eOnlyThisThread, "this-thread", "Run only this thread"},
+    {eAllThreads, "all-threads", "Run all threads"},
+    {0, nullptr, nullptr}};
+
+static OptionDefinition g_thread_step_scope_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "step-in-avoids-no-debug",   'a', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeBoolean,           "A boolean value that sets whether stepping into functions will step over functions with no debug information." },
+  { LLDB_OPT_SET_1, false, "step-out-avoids-no-debug",  'A', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeBoolean,           "A boolean value, if true stepping out of functions will continue to step out till it hits a function with debug information." },
+  { LLDB_OPT_SET_1, false, "count",                     'c', OptionParser::eRequiredArgument, nullptr, nullptr,            1, eArgTypeCount,             "How many times to perform the stepping operation - currently only supported for step-inst and next-inst." },
+  { LLDB_OPT_SET_1, false, "end-linenumber",            'e', OptionParser::eRequiredArgument, nullptr, nullptr,            1, eArgTypeLineNum,           "The line at which to stop stepping - defaults to the next line and only supported for step-in and step-over.  You can also pass the string 'block' to step to the end of the current block.  This is particularly useful in conjunction with --step-target to step through a complex calling sequence." },
+  { LLDB_OPT_SET_1, false, "run-mode",                  'm', OptionParser::eRequiredArgument, nullptr, g_tri_running_mode, 0, eArgTypeRunMode,           "Determine how to run other threads while stepping the current thread." },
+  { LLDB_OPT_SET_1, false, "step-over-regexp",          'r', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeRegularExpression, "A regular expression that defines function names to not to stop at when stepping in." },
+  { LLDB_OPT_SET_1, false, "step-in-target",            't', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeFunctionName,      "The name of the directly called function step in should stop at when stepping into." },
+  { LLDB_OPT_SET_2, false, "python-class",              'C', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypePythonClass,       "The name of the class that will manage this step - only supported for Scripted Step." }
+    // clang-format on
+};
 
 class CommandObjectThreadStepWithTypeAndScope : public CommandObjectParsed {
 public:
@@ -311,7 +330,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -342,9 +361,9 @@ public:
       } break;
 
       case 'c':
-        m_step_count = StringConvert::ToUInt32(option_arg, UINT32_MAX, 0);
-        if (m_step_count == UINT32_MAX)
-          error.SetErrorStringWithFormat("invalid step count '%s'", option_arg);
+        if (option_arg.getAsInteger(0, m_step_count))
+          error.SetErrorStringWithFormat("invalid step count '%s'",
+                                         option_arg.str().c_str());
         break;
 
       case 'C':
@@ -354,25 +373,20 @@ public:
 
       case 'm': {
         OptionEnumValueElement *enum_values =
-            g_option_table[option_idx].enum_values;
+            GetDefinitions()[option_idx].enum_values;
         m_run_mode = (lldb::RunMode)Args::StringToOptionEnum(
             option_arg, enum_values, eOnlyDuringStepping, error);
       } break;
 
-      case 'e': {
-        if (strcmp(option_arg, "block") == 0) {
+      case 'e':
+        if (option_arg == "block") {
           m_end_line_is_block_end = 1;
           break;
         }
-        uint32_t tmp_end_line =
-            StringConvert::ToUInt32(option_arg, UINT32_MAX, 0);
-        if (tmp_end_line == UINT32_MAX)
+        if (option_arg.getAsInteger(0, m_end_line))
           error.SetErrorStringWithFormat("invalid end line number '%s'",
-                                         option_arg);
-        else
-          m_end_line = tmp_end_line;
+                                         option_arg.str().c_str());
         break;
-      } break;
 
       case 'r':
         m_avoid_regexp.clear();
@@ -411,11 +425,9 @@ public:
       m_end_line_is_block_end = false;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_step_scope_options);
+    }
 
     // Instance variables to hold the values for command options.
     LazyBool m_step_in_avoid_no_debug;
@@ -664,8 +676,8 @@ protected:
       if (synchronous_execution) {
         // If any state changed events had anything to say, add that to the
         // result
-        if (stream.GetData())
-          result.AppendMessage(stream.GetData());
+        if (stream.GetSize() > 0)
+          result.AppendMessage(stream.GetString());
 
         process->GetThreadList().SetSelectedThreadByID(thread->GetID());
         result.SetDidChangeProcessState(true);
@@ -684,33 +696,6 @@ protected:
   StepType m_step_type;
   StepScope m_step_scope;
   CommandOptions m_options;
-};
-
-static OptionEnumValueElement g_tri_running_mode[] = {
-    {eOnlyThisThread, "this-thread", "Run only this thread"},
-    {eAllThreads, "all-threads", "Run all threads"},
-    {eOnlyDuringStepping, "while-stepping",
-     "Run only this thread while stepping"},
-    {0, nullptr, nullptr}};
-
-static OptionEnumValueElement g_duo_running_mode[] = {
-    {eOnlyThisThread, "this-thread", "Run only this thread"},
-    {eAllThreads, "all-threads", "Run all threads"},
-    {0, nullptr, nullptr}};
-
-OptionDefinition CommandObjectThreadStepWithTypeAndScope::CommandOptions::
-    g_option_table[] = {
-        // clang-format off
-  {LLDB_OPT_SET_1, false, "step-in-avoids-no-debug",   'a', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeBoolean,           "A boolean value that sets whether stepping into functions will step over functions with no debug information."},
-  {LLDB_OPT_SET_1, false, "step-out-avoids-no-debug",  'A', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeBoolean,           "A boolean value, if true stepping out of functions will continue to step out till it hits a function with debug information."},
-  {LLDB_OPT_SET_1, false, "count",                     'c', OptionParser::eRequiredArgument, nullptr, nullptr,            1, eArgTypeCount,             "How many times to perform the stepping operation - currently only supported for step-inst and next-inst."},
-  {LLDB_OPT_SET_1, false, "end-linenumber",            'e', OptionParser::eRequiredArgument, nullptr, nullptr,            1, eArgTypeLineNum,           "The line at which to stop stepping - defaults to the next line and only supported for step-in and step-over.  You can also pass the string 'block' to step to the end of the current block.  This is particularly useful in conjunction with --step-target to step through a complex calling sequence."},
-  {LLDB_OPT_SET_1, false, "run-mode",                  'm', OptionParser::eRequiredArgument, nullptr, g_tri_running_mode, 0, eArgTypeRunMode,           "Determine how to run other threads while stepping the current thread."},
-  {LLDB_OPT_SET_1, false, "step-over-regexp",          'r', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeRegularExpression, "A regular expression that defines function names to not to stop at when stepping in."},
-  {LLDB_OPT_SET_1, false, "step-in-target",            't', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeFunctionName,      "The name of the directly called function step in should stop at when stepping into."},
-  {LLDB_OPT_SET_2, false, "python-class",              'C', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypePythonClass,       "The name of the class that will manage this step - only supported for Scripted Step."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -774,28 +759,22 @@ public:
             process->GetThreadList().GetMutex());
         const uint32_t num_threads = process->GetThreadList().GetSize();
         std::vector<Thread *> resume_threads;
-        for (uint32_t i = 0; i < argc; ++i) {
-          bool success;
-          const int base = 0;
-          uint32_t thread_idx =
-              StringConvert::ToUInt32(command.GetArgumentAtIndex(i),
-                                      LLDB_INVALID_INDEX32, base, &success);
-          if (success) {
-            Thread *thread =
-                process->GetThreadList().FindThreadByIndexID(thread_idx).get();
-
-            if (thread) {
-              resume_threads.push_back(thread);
-            } else {
-              result.AppendErrorWithFormat("invalid thread index %u.\n",
-                                           thread_idx);
-              result.SetStatus(eReturnStatusFailed);
-              return false;
-            }
-          } else {
+        for (auto &entry : command.entries()) {
+          uint32_t thread_idx;
+          if (entry.ref.getAsInteger(0, thread_idx)) {
             result.AppendErrorWithFormat(
-                "invalid thread index argument: \"%s\".\n",
-                command.GetArgumentAtIndex(i));
+                "invalid thread index argument: \"%s\".\n", entry.c_str());
+            result.SetStatus(eReturnStatusFailed);
+            return false;
+          }
+          Thread *thread =
+              process->GetThreadList().FindThreadByIndexID(thread_idx).get();
+
+          if (thread) {
+            resume_threads.push_back(thread);
+          } else {
+            result.AppendErrorWithFormat("invalid thread index %u.\n",
+                                         thread_idx);
             result.SetStatus(eReturnStatusFailed);
             return false;
           }
@@ -875,8 +854,8 @@ public:
         if (synchronous_execution) {
           // If any state changed events had anything to say, add that to the
           // result
-          if (stream.GetData())
-            result.AppendMessage(stream.GetData());
+          if (stream.GetSize() > 0)
+            result.AppendMessage(stream.GetString());
 
           result.SetDidChangeProcessState(true);
           result.SetStatus(eReturnStatusSuccessFinishNoResult);
@@ -903,6 +882,15 @@ public:
 // CommandObjectThreadUntil
 //-------------------------------------------------------------------------
 
+static OptionDefinition g_thread_until_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "frame",   'f', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeFrameIndex,          "Frame index for until operation - defaults to 0" },
+  { LLDB_OPT_SET_1, false, "thread",  't', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeThreadIndex,         "Thread index for the thread for until operation" },
+  { LLDB_OPT_SET_1, false, "run-mode",'m', OptionParser::eRequiredArgument, nullptr, g_duo_running_mode, 0, eArgTypeRunMode,             "Determine how to run other threads while stepping this one" },
+  { LLDB_OPT_SET_1, false, "address", 'a', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeAddressOrExpression, "Run until we reach the specified address, or leave the function - can be specified multiple times." }
+    // clang-format on
+};
+
 class CommandObjectThreadUntil : public CommandObjectParsed {
 public:
   class CommandOptions : public Options {
@@ -920,7 +908,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -933,24 +921,22 @@ public:
           m_until_addrs.push_back(tmp_addr);
       } break;
       case 't':
-        m_thread_idx =
-            StringConvert::ToUInt32(option_arg, LLDB_INVALID_INDEX32);
-        if (m_thread_idx == LLDB_INVALID_INDEX32) {
+        if (option_arg.getAsInteger(0, m_thread_idx)) {
+          m_thread_idx = LLDB_INVALID_INDEX32;
           error.SetErrorStringWithFormat("invalid thread index '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         }
         break;
       case 'f':
-        m_frame_idx =
-            StringConvert::ToUInt32(option_arg, LLDB_INVALID_FRAME_ID);
-        if (m_frame_idx == LLDB_INVALID_FRAME_ID) {
+        if (option_arg.getAsInteger(0, m_frame_idx)) {
+          m_frame_idx = LLDB_INVALID_FRAME_ID;
           error.SetErrorStringWithFormat("invalid frame index '%s'",
-                                         option_arg);
+                                         option_arg.str().c_str());
         }
         break;
       case 'm': {
         OptionEnumValueElement *enum_values =
-            g_option_table[option_idx].enum_values;
+            GetDefinitions()[option_idx].enum_values;
         lldb::RunMode run_mode = (lldb::RunMode)Args::StringToOptionEnum(
             option_arg, enum_values, eOnlyDuringStepping, error);
 
@@ -976,15 +962,13 @@ public:
       m_until_addrs.clear();
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_until_options);
+    }
 
     uint32_t m_step_thread_idx;
     bool m_stop_others;
     std::vector<lldb::addr_t> m_until_addrs;
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
 
     // Instance variables to hold the values for command options.
   };
@@ -994,7 +978,9 @@ public:
             interpreter, "thread until",
             "Continue until a line number or address is reached by the "
             "current or specified thread.  Stops when returning from "
-            "the current function as a safety measure.",
+            "the current function as a safety measure.  "
+            "The target line number(s) are given as arguments, and if more than one"
+            " is provided, stepping will stop when the first one is hit.",
             nullptr,
             eCommandRequiresThread | eCommandTryTargetAPILock |
                 eCommandProcessMustBeLaunched | eCommandProcessMustBePaused),
@@ -1042,11 +1028,11 @@ protected:
         size_t num_args = command.GetArgumentCount();
         for (size_t i = 0; i < num_args; i++) {
           uint32_t line_number;
-          line_number = StringConvert::ToUInt32(command.GetArgumentAtIndex(0),
+          line_number = StringConvert::ToUInt32(command.GetArgumentAtIndex(i),
                                                 UINT32_MAX);
           if (line_number == UINT32_MAX) {
             result.AppendErrorWithFormat("invalid line number: '%s'.\n",
-                                         command.GetArgumentAtIndex(0));
+                                         command.GetArgumentAtIndex(i));
             result.SetStatus(eReturnStatusFailed);
             return false;
           } else
@@ -1054,7 +1040,7 @@ protected:
         }
       } else if (m_options.m_until_addrs.empty()) {
         result.AppendErrorWithFormat("No line number or address provided:\n%s",
-                                     GetSyntax());
+                                     GetSyntax().str().c_str());
         result.SetStatus(eReturnStatusFailed);
         return false;
       }
@@ -1200,8 +1186,8 @@ protected:
         if (synchronous_execution) {
           // If any state changed events had anything to say, add that to the
           // result
-          if (stream.GetData())
-            result.AppendMessage(stream.GetData());
+          if (stream.GetSize() > 0)
+            result.AppendMessage(stream.GetString());
 
           result.SetDidChangeProcessState(true);
           result.SetStatus(eReturnStatusSuccessFinishNoResult);
@@ -1218,16 +1204,6 @@ protected:
   }
 
   CommandOptions m_options;
-};
-
-OptionDefinition CommandObjectThreadUntil::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_1, false, "frame",   'f', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeFrameIndex,          "Frame index for until operation - defaults to 0"},
-  {LLDB_OPT_SET_1, false, "thread",  't', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeThreadIndex,         "Thread index for the thread for until operation"},
-  {LLDB_OPT_SET_1, false, "run-mode",'m', OptionParser::eRequiredArgument, nullptr, g_duo_running_mode, 0, eArgTypeRunMode,             "Determine how to run other threads while stepping this one"},
-  {LLDB_OPT_SET_1, false, "address", 'a', OptionParser::eRequiredArgument, nullptr, nullptr,            0, eArgTypeAddressOrExpression, "Run until we reach the specified address, or leave the function - can be specified multiple times."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-    // clang-format on
 };
 
 //-------------------------------------------------------------------------
@@ -1320,7 +1296,7 @@ protected:
     const uint32_t num_frames_with_source = 0;
     process->GetStatus(strm);
     process->GetThreadStatus(strm, only_threads_with_stop_reason, start_frame,
-                             num_frames, num_frames_with_source);
+                             num_frames, num_frames_with_source, false);
     return result.Succeeded();
   }
 };
@@ -1328,6 +1304,13 @@ protected:
 //-------------------------------------------------------------------------
 // CommandObjectThreadInfo
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_thread_info_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "json",      'j', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display the thread info in JSON format." },
+  { LLDB_OPT_SET_ALL, false, "stop-info", 's', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display the extended stop info in JSON format." }
+    // clang-format on
+};
 
 class CommandObjectThreadInfo : public CommandObjectIterateOverThreads {
 public:
@@ -1342,7 +1325,7 @@ public:
       m_json_stopinfo = false;
     }
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       const int short_option = m_getopt_table[option_idx].val;
       Error error;
@@ -1362,12 +1345,12 @@ public:
       return error;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_info_options);
+    }
 
     bool m_json_thread;
     bool m_json_stopinfo;
-
-    static OptionDefinition g_option_table[];
   };
 
   CommandObjectThreadInfo(CommandInterpreter &interpreter)
@@ -1413,17 +1396,15 @@ public:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectThreadInfo::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_ALL, false, "json",      'j', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display the thread info in JSON format."},
-  {LLDB_OPT_SET_ALL, false, "stop-info", 's', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display the extended stop info in JSON format."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-    // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectThreadReturn
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_thread_return_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_ALL, false, "from-expression", 'x', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Return from the innermost expression evaluation." }
+    // clang-format on
+};
 
 class CommandObjectThreadReturn : public CommandObjectRaw {
 public:
@@ -1437,7 +1418,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -1450,7 +1431,8 @@ public:
           m_from_expression = tmp_value;
         else {
           error.SetErrorStringWithFormat(
-              "invalid boolean value '%s' for 'x' option", option_arg);
+              "invalid boolean value '%s' for 'x' option",
+              option_arg.str().c_str());
         }
       } break;
       default:
@@ -1465,13 +1447,11 @@ public:
       m_from_expression = false;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_return_options);
+    }
 
     bool m_from_expression;
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
 
     // Instance variables to hold the values for command options.
   };
@@ -1592,16 +1572,19 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectThreadReturn::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_ALL, false, "from-expression", 'x', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Return from the innermost expression evaluation."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr }
-    // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // CommandObjectThreadJump
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_thread_jump_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1,                                   false, "file",    'f', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSourceFileCompletion, eArgTypeFilename,            "Specifies the source file to jump to." },
+  { LLDB_OPT_SET_1,                                   true,  "line",    'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeLineNum,             "Specifies the line number to jump to." },
+  { LLDB_OPT_SET_2,                                   true,  "by",      'b', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeOffset,              "Jumps by a relative line offset from the current line." },
+  { LLDB_OPT_SET_3,                                   true,  "address", 'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeAddressOrExpression, "Jumps to a specific address." },
+  { LLDB_OPT_SET_1 | LLDB_OPT_SET_2 | LLDB_OPT_SET_3, false, "force",   'r', OptionParser::eNoArgument,       nullptr, nullptr, 0,                                         eArgTypeNone,                "Allows the PC to leave the current function." }
+    // clang-format on
+};
 
 class CommandObjectThreadJump : public CommandObjectParsed {
 public:
@@ -1619,9 +1602,8 @@ public:
       m_force = false;
     }
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
-      bool success;
       const int short_option = m_getopt_table[option_idx].val;
       Error error;
 
@@ -1632,14 +1614,12 @@ public:
           return Error("only one source file expected.");
         break;
       case 'l':
-        m_line_num = StringConvert::ToUInt32(option_arg, 0, 0, &success);
-        if (!success || m_line_num == 0)
-          return Error("invalid line number: '%s'.", option_arg);
+        if (option_arg.getAsInteger(0, m_line_num))
+          return Error("invalid line number: '%s'.", option_arg.str().c_str());
         break;
       case 'b':
-        m_line_offset = StringConvert::ToSInt32(option_arg, 0, 0, &success);
-        if (!success)
-          return Error("invalid line offset: '%s'.", option_arg);
+        if (option_arg.getAsInteger(0, m_line_offset))
+          return Error("invalid line offset: '%s'.", option_arg.str().c_str());
         break;
       case 'a':
         m_load_addr = Args::StringToAddress(execution_context, option_arg,
@@ -1654,15 +1634,15 @@ public:
       return error;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_jump_options);
+    }
 
     FileSpecList m_filenames;
     uint32_t m_line_num;
     int32_t m_line_offset;
     lldb::addr_t m_load_addr;
     bool m_force;
-
-    static OptionDefinition g_option_table[];
   };
 
   CommandObjectThreadJump(CommandInterpreter &interpreter)
@@ -1740,17 +1720,6 @@ protected:
   CommandOptions m_options;
 };
 
-OptionDefinition CommandObjectThreadJump::CommandOptions::g_option_table[] = {
-    // clang-format off
-  {LLDB_OPT_SET_1,                                   false, "file",    'f', OptionParser::eRequiredArgument, nullptr, nullptr, CommandCompletions::eSourceFileCompletion, eArgTypeFilename,            "Specifies the source file to jump to."},
-  {LLDB_OPT_SET_1,                                   true,  "line",    'l', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeLineNum,             "Specifies the line number to jump to."},
-  {LLDB_OPT_SET_2,                                   true,  "by",      'b', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeOffset,              "Jumps by a relative line offset from the current line."},
-  {LLDB_OPT_SET_3,                                   true,  "address", 'a', OptionParser::eRequiredArgument, nullptr, nullptr, 0,                                         eArgTypeAddressOrExpression, "Jumps to a specific address."},
-  {LLDB_OPT_SET_1 | LLDB_OPT_SET_2 | LLDB_OPT_SET_3, false, "force",   'r', OptionParser::eNoArgument,       nullptr, nullptr, 0,                                         eArgTypeNone,                "Allows the PC to leave the current function."},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-    // clang-format on
-};
-
 //-------------------------------------------------------------------------
 // Next are the subcommands of CommandObjectMultiwordThreadPlan
 //-------------------------------------------------------------------------
@@ -1758,6 +1727,13 @@ OptionDefinition CommandObjectThreadJump::CommandOptions::g_option_table[] = {
 //-------------------------------------------------------------------------
 // CommandObjectThreadPlanList
 //-------------------------------------------------------------------------
+
+static OptionDefinition g_thread_plan_list_options[] = {
+    // clang-format off
+  { LLDB_OPT_SET_1, false, "verbose",  'v', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display more information about the thread plans" },
+  { LLDB_OPT_SET_1, false, "internal", 'i', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display internal as well as user thread plans" }
+    // clang-format on
+};
 
 class CommandObjectThreadPlanList : public CommandObjectIterateOverThreads {
 public:
@@ -1771,7 +1747,7 @@ public:
 
     ~CommandOptions() override = default;
 
-    Error SetOptionValue(uint32_t option_idx, const char *option_arg,
+    Error SetOptionValue(uint32_t option_idx, llvm::StringRef option_arg,
                          ExecutionContext *execution_context) override {
       Error error;
       const int short_option = m_getopt_table[option_idx].val;
@@ -1796,11 +1772,9 @@ public:
       m_internal = false;
     }
 
-    const OptionDefinition *GetDefinitions() override { return g_option_table; }
-
-    // Options table: Required for subclasses of Options.
-
-    static OptionDefinition g_option_table[];
+    llvm::ArrayRef<OptionDefinition> GetDefinitions() override {
+      return llvm::makeArrayRef(g_thread_plan_list_options);
+    }
 
     // Instance variables to hold the values for command options.
     bool m_verbose;
@@ -1846,15 +1820,6 @@ protected:
   }
 
   CommandOptions m_options;
-};
-
-OptionDefinition CommandObjectThreadPlanList::CommandOptions::g_option_table[] =
-    {
-        // clang-format off
-  {LLDB_OPT_SET_1, false, "verbose",  'v', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display more information about the thread plans"},
-  {LLDB_OPT_SET_1, false, "internal", 'i', OptionParser::eNoArgument, nullptr, nullptr, 0, eArgTypeNone, "Display internal as well as user thread plans"},
-  {0, false, nullptr, 0, 0, nullptr, nullptr, 0, eArgTypeNone, nullptr}
-        // clang-format on
 };
 
 class CommandObjectThreadPlanDiscard : public CommandObjectParsed {

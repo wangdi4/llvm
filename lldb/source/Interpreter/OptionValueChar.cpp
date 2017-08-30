@@ -13,9 +13,9 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Interpreter/Args.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StringList.h"
 #include "llvm/ADT/STLExtras.h"
 
 using namespace lldb;
@@ -57,7 +57,7 @@ Error OptionValueChar::SetValueFromString(llvm::StringRef value,
   } break;
 
   default:
-    error = OptionValue::SetValueFromString(value.str().c_str(), op);
+    error = OptionValue::SetValueFromString(value, op);
     break;
   }
   return error;

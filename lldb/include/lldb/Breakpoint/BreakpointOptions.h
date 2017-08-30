@@ -17,9 +17,9 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Baton.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Core/StructuredData.h"
+#include "lldb/Utility/Baton.h"
+#include "lldb/Utility/StringList.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -34,7 +34,13 @@ namespace lldb_private {
 class BreakpointOptions {
 public:
   struct CommandData {
-    CommandData() : user_source(), script_source(), stop_on_error(true) {}
+    CommandData()
+        : user_source(), script_source(),
+          interpreter(lldb::eScriptLanguageNone), stop_on_error(true) {}
+
+    CommandData(const StringList &user_source, lldb::ScriptLanguage interp)
+        : user_source(user_source), script_source(), interpreter(interp),
+          stop_on_error(true) {}
 
     ~CommandData() = default;
 
@@ -48,12 +54,14 @@ public:
 
     StringList user_source;
     std::string script_source;
+    enum lldb::ScriptLanguage
+        interpreter; // eScriptLanguageNone means command interpreter.
     bool stop_on_error;
 
   private:
     enum class OptionNames : uint32_t {
       UserSource = 0,
-      ScriptSource,
+      Interpreter,
       StopOnError,
       LastOptionName
     };
@@ -109,7 +117,8 @@ public:
   virtual ~BreakpointOptions();
 
   static std::unique_ptr<BreakpointOptions>
-  CreateFromStructuredData(const StructuredData::Dictionary &data_dict,
+  CreateFromStructuredData(Target &target,
+                           const StructuredData::Dictionary &data_dict,
                            Error &error);
 
   virtual StructuredData::ObjectSP SerializeToStructuredData();
@@ -178,6 +187,18 @@ public:
   void SetCallback(BreakpointHitCallback callback,
                    const BreakpointOptions::CommandBatonSP &command_baton_sp,
                    bool synchronous = false);
+
+  //------------------------------------------------------------------
+  /// Returns the command line commands for the callback on this breakpoint.
+  ///
+  /// @param[out] command_list
+  ///    The commands will be appended to this list.
+  ///
+  /// @return
+  ///    \btrue if the command callback is a command-line callback,
+  ///    \bfalse otherwise.
+  //------------------------------------------------------------------
+  bool GetCommandLineCallbacks(StringList &command_list);
 
   //------------------------------------------------------------------
   /// Remove the callback from this option set.
@@ -335,31 +356,33 @@ public:
   //------------------------------------------------------------------
   /// Set a callback based on BreakpointOptions::CommandData.
   /// @param[in] cmd_data
-  ///     A new'ed CommandData object.  The breakpoint will take ownership
-  ///     of this object.
+  ///     A UP holding the new'ed CommandData object.
+  ///     The breakpoint will take ownership of pointer held by this object.
   //------------------------------------------------------------------
-  void SetCommandDataCallback(std::unique_ptr<CommandData> cmd_data);
+  void SetCommandDataCallback(std::unique_ptr<CommandData> &cmd_data);
 
 protected:
   //------------------------------------------------------------------
   // Classes that inherit from BreakpointOptions can see and modify these
   //------------------------------------------------------------------
-  enum OptionNames {
+  enum class OptionNames {
     ConditionText = 0,
     IgnoreCount,
     EnabledState,
     OneShotState,
     LastOptionName
   };
-  static const char *g_option_names[LastOptionName];
+  static const char *g_option_names[(size_t)OptionNames::LastOptionName];
 
-  static const char *GetKey(enum OptionNames enum_value) {
-    return g_option_names[enum_value];
+  static const char *GetKey(OptionNames enum_value) {
+    return g_option_names[(size_t)enum_value];
   }
 
   static bool BreakpointOptionsCallbackFunction(
       void *baton, StoppointCallbackContext *context, lldb::user_id_t break_id,
       lldb::user_id_t break_loc_id);
+
+  void SetThreadSpec(std::unique_ptr<ThreadSpec> &thread_spec_up);
 
 private:
   //------------------------------------------------------------------

@@ -17,11 +17,14 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/FileSpecList.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/SearchFilter.h"
+#include "lldb/Utility/RegularExpression.h"
 #include "lldb/lldb-private.h"
 
+#include "llvm/ADT/Twine.h"
+
 namespace lldb_private {
+class TildeExpressionResolver;
 class CommandCompletions {
 public:
   //----------------------------------------------------------------------
@@ -32,7 +35,7 @@ public:
   //----------------------------------------------------------------------
   typedef int (*CompletionCallback)(
       CommandInterpreter &interpreter,
-      const char *completion_str, // This is the argument we are completing
+      llvm::StringRef completion_str, // This is the argument we are completing
       int match_start_point,   // This is the point in the list of matches that
                                // you should start returning elements
       int max_return_elements, // This is the number of matches requested.
@@ -64,7 +67,7 @@ public:
 
   static bool InvokeCommonCompletionCallbacks(
       CommandInterpreter &interpreter, uint32_t completion_mask,
-      const char *completion_str, int match_start_point,
+      llvm::StringRef completion_str, int match_start_point,
       int max_return_elements, SearchFilter *searcher, bool &word_complete,
       StringList &matches);
 
@@ -72,53 +75,61 @@ public:
   // These are the generic completer functions:
   //----------------------------------------------------------------------
   static int DiskFiles(CommandInterpreter &interpreter,
-                       const char *partial_file_name, int match_start_point,
+                       llvm::StringRef partial_file_name, int match_start_point,
                        int max_return_elements, SearchFilter *searcher,
                        bool &word_complete, StringList &matches);
 
+  static int DiskFiles(const llvm::Twine &partial_file_name,
+                       StringList &matches, TildeExpressionResolver &Resolver);
+
   static int DiskDirectories(CommandInterpreter &interpreter,
-                             const char *partial_file_name,
+                             llvm::StringRef partial_file_name,
                              int match_start_point, int max_return_elements,
                              SearchFilter *searcher, bool &word_complete,
                              StringList &matches);
 
+  static int DiskDirectories(const llvm::Twine &partial_file_name,
+                             StringList &matches,
+                             TildeExpressionResolver &Resolver);
+
   static int SourceFiles(CommandInterpreter &interpreter,
-                         const char *partial_file_name, int match_start_point,
-                         int max_return_elements, SearchFilter *searcher,
-                         bool &word_complete, StringList &matches);
+                         llvm::StringRef partial_file_name,
+                         int match_start_point, int max_return_elements,
+                         SearchFilter *searcher, bool &word_complete,
+                         StringList &matches);
 
   static int Modules(CommandInterpreter &interpreter,
-                     const char *partial_file_name, int match_start_point,
+                     llvm::StringRef partial_file_name, int match_start_point,
                      int max_return_elements, SearchFilter *searcher,
                      bool &word_complete, lldb_private::StringList &matches);
 
   static int Symbols(CommandInterpreter &interpreter,
-                     const char *partial_file_name, int match_start_point,
+                     llvm::StringRef partial_file_name, int match_start_point,
                      int max_return_elements, SearchFilter *searcher,
                      bool &word_complete, lldb_private::StringList &matches);
 
   static int SettingsNames(CommandInterpreter &interpreter,
-                           const char *partial_file_name, int match_start_point,
-                           int max_return_elements, SearchFilter *searcher,
-                           bool &word_complete,
+                           llvm::StringRef partial_file_name,
+                           int match_start_point, int max_return_elements,
+                           SearchFilter *searcher, bool &word_complete,
                            lldb_private::StringList &matches);
 
   static int PlatformPluginNames(CommandInterpreter &interpreter,
-                                 const char *partial_file_name,
+                                 llvm::StringRef partial_file_name,
                                  int match_start_point, int max_return_elements,
                                  SearchFilter *searcher, bool &word_complete,
                                  lldb_private::StringList &matches);
 
   static int ArchitectureNames(CommandInterpreter &interpreter,
-                               const char *partial_file_name,
+                               llvm::StringRef partial_file_name,
                                int match_start_point, int max_return_elements,
                                SearchFilter *searcher, bool &word_complete,
                                lldb_private::StringList &matches);
 
   static int VariablePath(CommandInterpreter &interpreter,
-                          const char *partial_file_name, int match_start_point,
-                          int max_return_elements, SearchFilter *searcher,
-                          bool &word_complete,
+                          llvm::StringRef partial_file_name,
+                          int match_start_point, int max_return_elements,
+                          SearchFilter *searcher, bool &word_complete,
                           lldb_private::StringList &matches);
 
   //----------------------------------------------------------------------
@@ -128,7 +139,7 @@ public:
   //----------------------------------------------------------------------
   class Completer : public Searcher {
   public:
-    Completer(CommandInterpreter &interpreter, const char *completion_str,
+    Completer(CommandInterpreter &interpreter, llvm::StringRef completion_str,
               int match_start_point, int max_return_elements,
               StringList &matches);
 
@@ -158,9 +169,9 @@ public:
   class SourceFileCompleter : public Completer {
   public:
     SourceFileCompleter(CommandInterpreter &interpreter,
-                        bool include_support_files, const char *completion_str,
-                        int match_start_point, int max_return_elements,
-                        StringList &matches);
+                        bool include_support_files,
+                        llvm::StringRef completion_str, int match_start_point,
+                        int max_return_elements, StringList &matches);
 
     Searcher::Depth GetDepth() override;
 
@@ -185,9 +196,9 @@ public:
   //----------------------------------------------------------------------
   class ModuleCompleter : public Completer {
   public:
-    ModuleCompleter(CommandInterpreter &interpreter, const char *completion_str,
-                    int match_start_point, int max_return_elements,
-                    StringList &matches);
+    ModuleCompleter(CommandInterpreter &interpreter,
+                    llvm::StringRef completion_str, int match_start_point,
+                    int max_return_elements, StringList &matches);
 
     Searcher::Depth GetDepth() override;
 
@@ -210,9 +221,9 @@ public:
   //----------------------------------------------------------------------
   class SymbolCompleter : public Completer {
   public:
-    SymbolCompleter(CommandInterpreter &interpreter, const char *completion_str,
-                    int match_start_point, int max_return_elements,
-                    StringList &matches);
+    SymbolCompleter(CommandInterpreter &interpreter,
+                    llvm::StringRef completion_str, int match_start_point,
+                    int max_return_elements, StringList &matches);
 
     Searcher::Depth GetDepth() override;
 

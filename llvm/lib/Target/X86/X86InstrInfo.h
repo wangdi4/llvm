@@ -182,6 +182,20 @@ public:
   ///
   const X86RegisterInfo &getRegisterInfo() const { return RI; }
 
+  /// Returns the stack pointer adjustment that happens inside the frame
+  /// setup..destroy sequence (e.g. by pushes, or inside the callee).
+  int64_t getFrameAdjustment(const MachineInstr &I) const {
+    assert(isFrameInstr(I));
+    return I.getOperand(1).getImm();
+  }
+
+  /// Sets the stack pointer adjustment made inside the frame made up by this
+  /// instruction.
+  void setFrameAdjustment(MachineInstr &I, int64_t V) const {
+    assert(isFrameInstr(I));
+    I.getOperand(1).setImm(V);
+  }
+
   /// getSPAdjust - This returns the stack pointer adjustment made by
   /// this instruction. For x86, we need to handle more complex call
   /// sequences involving PUSHes.
@@ -378,6 +392,10 @@ public:
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+  /// Check whether the target can fold a load that feeds a subreg operand
+  /// (or a subreg operand that feeds a store).
+  bool isSubregFoldable() const override { return true; }
+
   /// foldMemoryOperand - If this target supports it, fold a load or store of
   /// the specified stack slot into the specified machine instruction for the
   /// specified operand(s).  If this is possible, the target should perform the
@@ -439,10 +457,7 @@ public:
                                int64_t Offset1, int64_t Offset2,
                                unsigned NumLoads) const override;
 
-  bool shouldScheduleAdjacent(MachineInstr &First,
-                              MachineInstr &Second) const override;
-
-  void getNoopForMachoTarget(MCInst &NopInst) const override;
+  void getNoop(MCInst &NopInst) const override;
 
   bool
   reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
@@ -487,14 +502,6 @@ public:
                                       MachineBasicBlock::iterator InsertPt,
                                       unsigned Size, unsigned Alignment,
                                       bool AllowCommute) const;
-
-  void
-  getUnconditionalBranch(MCInst &Branch,
-                         const MCSymbolRefExpr *BranchTarget) const override;
-
-  void getTrap(MCInst &MI) const override;
-
-  unsigned getJumpInstrTableEntryBound() const override;
 
   bool isHighLatencyDef(int opc) const override;
 
@@ -550,8 +557,28 @@ public:
   ArrayRef<std::pair<unsigned, const char *>>
   getSerializableDirectMachineOperandTargetFlags() const override;
 
-  bool isTailCall(const MachineInstr &Inst) const override;
+  unsigned getOutliningBenefit(size_t SequenceSize,
+                               size_t Occurrences,
+                               bool CanBeTailCall) const override;
 
+  bool isFunctionSafeToOutlineFrom(MachineFunction &MF) const override;
+
+  llvm::X86GenInstrInfo::MachineOutlinerInstrType
+  getOutliningType(MachineInstr &MI) const override;
+
+  void insertOutlinerEpilogue(MachineBasicBlock &MBB,
+                              MachineFunction &MF,
+                              bool IsTailCall) const override;
+
+  void insertOutlinerPrologue(MachineBasicBlock &MBB,
+                              MachineFunction &MF,
+                              bool isTailCall) const override;
+
+  MachineBasicBlock::iterator
+  insertOutlinedCall(Module &M, MachineBasicBlock &MBB,
+                     MachineBasicBlock::iterator &It,
+                     MachineFunction &MF,
+                     bool IsTailCall) const override;
 protected:
   /// Commutes the operands in the given instruction by changing the operands
   /// order and/or changing the instruction's opcode and/or the immediate value
@@ -586,6 +613,25 @@ private:
   /// operand and follow operands form a reference to the stack frame.
   bool isFrameOperand(const MachineInstr &MI, unsigned int Op,
                       int &FrameIndex) const;
+
+  /// Returns true iff the routine could find two commutable operands in the
+  /// given machine instruction with 3 vector inputs.
+  /// The 'SrcOpIdx1' and 'SrcOpIdx2' are INPUT and OUTPUT arguments. Their
+  /// input values can be re-defined in this method only if the input values
+  /// are not pre-defined, which is designated by the special value
+  /// 'CommuteAnyOperandIndex' assigned to it.
+  /// If both of indices are pre-defined and refer to some operands, then the
+  /// method simply returns true if the corresponding operands are commutable
+  /// and returns false otherwise.
+  ///
+  /// For example, calling this method this way:
+  ///     unsigned Op1 = 1, Op2 = CommuteAnyOperandIndex;
+  ///     findThreeSrcCommutedOpIndices(MI, Op1, Op2);
+  /// can be interpreted as a query asking to find an operand that would be
+  /// commutable with the operand#1.
+  bool findThreeSrcCommutedOpIndices(const MachineInstr &MI,
+                                     unsigned &SrcOpIdx1,
+                                     unsigned &SrcOpIdx2) const;
 };
 
 } // End llvm namespace

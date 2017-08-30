@@ -34,17 +34,14 @@
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Disassembler.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
-#include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/STLUtils.h"
 #include "lldb/Core/SearchFilter.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Core/ValueObjectList.h"
 #include "lldb/Core/ValueObjectVariable.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Symbol/ClangASTContext.h"
@@ -61,9 +58,13 @@
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/TargetList.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/RegularExpression.h"
 
 #include "../source/Commands/CommandObjectBreakpoint.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
+#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/Regex.h"
 
 using namespace lldb;
@@ -186,7 +187,7 @@ SBProcess SBTarget::LoadCore(const char *core_file) {
   if (target_sp) {
     FileSpec filespec(core_file, true);
     ProcessSP process_sp(target_sp->CreateProcess(
-        target_sp->GetDebugger().GetListener(), NULL, &filespec));
+        target_sp->GetDebugger().GetListener(), "", &filespec));
     if (process_sp) {
       process_sp->LoadCore();
       sb_process.SetSP(process_sp);
@@ -661,6 +662,14 @@ SBTarget::BreakpointCreateByLocation(const SBFileSpec &sb_file_spec,
 SBBreakpoint
 SBTarget::BreakpointCreateByLocation(const SBFileSpec &sb_file_spec,
                                      uint32_t line, lldb::addr_t offset) {
+  SBFileSpecList empty_list;
+  return BreakpointCreateByLocation(sb_file_spec, line, offset, empty_list);
+}
+
+SBBreakpoint
+SBTarget::BreakpointCreateByLocation(const SBFileSpec &sb_file_spec,
+                                     uint32_t line, lldb::addr_t offset,
+                                     SBFileSpecList &sb_module_list) {
   Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_API));
 
   SBBreakpoint sb_bp;
@@ -673,9 +682,13 @@ SBTarget::BreakpointCreateByLocation(const SBFileSpec &sb_file_spec,
     const bool internal = false;
     const bool hardware = false;
     const LazyBool move_to_nearest_code = eLazyBoolCalculate;
-    *sb_bp = target_sp->CreateBreakpoint(NULL, *sb_file_spec, line, offset,
-                                         check_inlines, skip_prologue, internal,
-                                         hardware, move_to_nearest_code);
+    const FileSpecList *module_list = nullptr;
+    if (sb_module_list.GetSize() > 0) {
+      module_list = sb_module_list.get();
+    }
+    sb_bp = target_sp->CreateBreakpoint(
+        module_list, *sb_file_spec, line, offset, check_inlines, skip_prologue,
+        internal, hardware, move_to_nearest_code);
   }
 
   if (log) {
@@ -686,7 +699,7 @@ SBTarget::BreakpointCreateByLocation(const SBFileSpec &sb_file_spec,
     log->Printf("SBTarget(%p)::BreakpointCreateByLocation ( %s:%u ) => "
                 "SBBreakpoint(%p): %s",
                 static_cast<void *>(target_sp.get()), path, line,
-                static_cast<void *>(sb_bp.get()), sstr.GetData());
+                static_cast<void *>(sb_bp.GetSP().get()), sstr.GetData());
   }
 
   return sb_bp;
@@ -708,11 +721,11 @@ SBBreakpoint SBTarget::BreakpointCreateByName(const char *symbol_name,
     if (module_name && module_name[0]) {
       FileSpecList module_spec_list;
       module_spec_list.Append(FileSpec(module_name, false));
-      *sb_bp = target_sp->CreateBreakpoint(
+      sb_bp = target_sp->CreateBreakpoint(
           &module_spec_list, NULL, symbol_name, eFunctionNameTypeAuto,
           eLanguageTypeUnknown, offset, skip_prologue, internal, hardware);
     } else {
-      *sb_bp = target_sp->CreateBreakpoint(
+      sb_bp = target_sp->CreateBreakpoint(
           NULL, NULL, symbol_name, eFunctionNameTypeAuto, eLanguageTypeUnknown,
           offset, skip_prologue, internal, hardware);
     }
@@ -722,7 +735,7 @@ SBBreakpoint SBTarget::BreakpointCreateByName(const char *symbol_name,
     log->Printf("SBTarget(%p)::BreakpointCreateByName (symbol=\"%s\", "
                 "module=\"%s\") => SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()), symbol_name, module_name,
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -758,7 +771,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByName(
     const bool hardware = false;
     const LazyBool skip_prologue = eLazyBoolCalculate;
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
-    *sb_bp = target_sp->CreateBreakpoint(
+    sb_bp = target_sp->CreateBreakpoint(
         module_list.get(), comp_unit_list.get(), symbol_name, name_type_mask,
         symbol_language, 0, skip_prologue, internal, hardware);
   }
@@ -767,7 +780,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByName(
     log->Printf("SBTarget(%p)::BreakpointCreateByName (symbol=\"%s\", "
                 "name_type: %d) => SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()), symbol_name,
-                name_type_mask, static_cast<void *>(sb_bp.get()));
+                name_type_mask, static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -802,7 +815,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByNames(
     const bool internal = false;
     const bool hardware = false;
     const LazyBool skip_prologue = eLazyBoolCalculate;
-    *sb_bp = target_sp->CreateBreakpoint(
+    sb_bp = target_sp->CreateBreakpoint(
         module_list.get(), comp_unit_list.get(), symbol_names, num_names,
         name_type_mask, symbol_language, offset, skip_prologue, internal,
         hardware);
@@ -823,7 +836,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByNames(
         log->Printf("\"<NULL>\"%c ", sep);
     }
     log->Printf("name_type: %d) => SBBreakpoint(%p)", name_type_mask,
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
   }
 
   return sb_bp;
@@ -857,12 +870,12 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByRegex(
   TargetSP target_sp(GetSP());
   if (target_sp && symbol_name_regex && symbol_name_regex[0]) {
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
-    RegularExpression regexp(symbol_name_regex);
+    RegularExpression regexp((llvm::StringRef(symbol_name_regex)));
     const bool internal = false;
     const bool hardware = false;
     const LazyBool skip_prologue = eLazyBoolCalculate;
 
-    *sb_bp = target_sp->CreateFuncRegexBreakpoint(
+    sb_bp = target_sp->CreateFuncRegexBreakpoint(
         module_list.get(), comp_unit_list.get(), regexp, symbol_language,
         skip_prologue, internal, hardware);
   }
@@ -871,7 +884,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateByRegex(
     log->Printf("SBTarget(%p)::BreakpointCreateByRegex (symbol_regex=\"%s\") "
                 "=> SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()), symbol_name_regex,
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -884,7 +897,7 @@ SBBreakpoint SBTarget::BreakpointCreateByAddress(addr_t address) {
   if (target_sp) {
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
     const bool hardware = false;
-    *sb_bp = target_sp->CreateBreakpoint(address, false, hardware);
+    sb_bp = target_sp->CreateBreakpoint(address, false, hardware);
   }
 
   if (log)
@@ -892,7 +905,7 @@ SBBreakpoint SBTarget::BreakpointCreateByAddress(addr_t address) {
                 ") => SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()),
                 static_cast<uint64_t>(address),
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -913,7 +926,7 @@ SBBreakpoint SBTarget::BreakpointCreateBySBAddress(SBAddress &sb_address) {
   if (target_sp) {
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
     const bool hardware = false;
-    *sb_bp = target_sp->CreateBreakpoint(sb_address.ref(), false, hardware);
+    sb_bp = target_sp->CreateBreakpoint(sb_address.ref(), false, hardware);
   }
 
   if (log) {
@@ -922,7 +935,7 @@ SBBreakpoint SBTarget::BreakpointCreateBySBAddress(SBAddress &sb_address) {
     log->Printf("SBTarget(%p)::BreakpointCreateBySBAddress (address=%s) => "
                 "SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()), s.GetData(),
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
   }
 
   return sb_bp;
@@ -966,13 +979,13 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateBySourceRegex(
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
     const bool hardware = false;
     const LazyBool move_to_nearest_code = eLazyBoolCalculate;
-    RegularExpression regexp(source_regex);
+    RegularExpression regexp((llvm::StringRef(source_regex)));
     std::unordered_set<std::string> func_names_set;
     for (size_t i = 0; i < func_names.GetSize(); i++) {
       func_names_set.insert(func_names.GetStringAtIndex(i));
     }
 
-    *sb_bp = target_sp->CreateSourceRegexBreakpoint(
+    sb_bp = target_sp->CreateSourceRegexBreakpoint(
         module_list.get(), source_file_list.get(), func_names_set, regexp,
         false, hardware, move_to_nearest_code);
   }
@@ -981,7 +994,7 @@ lldb::SBBreakpoint SBTarget::BreakpointCreateBySourceRegex(
     log->Printf("SBTarget(%p)::BreakpointCreateByRegex (source_regex=\"%s\") "
                 "=> SBBreakpoint(%p)",
                 static_cast<void *>(target_sp.get()), source_regex,
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -996,7 +1009,7 @@ SBTarget::BreakpointCreateForException(lldb::LanguageType language,
   if (target_sp) {
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
     const bool hardware = false;
-    *sb_bp = target_sp->CreateExceptionBreakpoint(language, catch_bp, throw_bp,
+    sb_bp = target_sp->CreateExceptionBreakpoint(language, catch_bp, throw_bp,
                                                   hardware);
   }
 
@@ -1006,7 +1019,7 @@ SBTarget::BreakpointCreateForException(lldb::LanguageType language,
                 static_cast<void *>(target_sp.get()),
                 Language::GetNameForLanguageType(language),
                 catch_bp ? "on" : "off", throw_bp ? "on" : "off",
-                static_cast<void *>(sb_bp.get()));
+                static_cast<void *>(sb_bp.GetSP().get()));
 
   return sb_bp;
 }
@@ -1025,7 +1038,7 @@ SBBreakpoint SBTarget::GetBreakpointAtIndex(uint32_t idx) const {
   TargetSP target_sp(GetSP());
   if (target_sp) {
     // The breakpoint list is thread safe, no need to lock
-    *sb_breakpoint = target_sp->GetBreakpointList().GetBreakpointAtIndex(idx);
+    sb_breakpoint = target_sp->GetBreakpointList().GetBreakpointAtIndex(idx);
   }
   return sb_breakpoint;
 }
@@ -1055,16 +1068,33 @@ SBBreakpoint SBTarget::FindBreakpointByID(break_id_t bp_id) {
   TargetSP target_sp(GetSP());
   if (target_sp && bp_id != LLDB_INVALID_BREAK_ID) {
     std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
-    *sb_breakpoint = target_sp->GetBreakpointByID(bp_id);
+    sb_breakpoint = target_sp->GetBreakpointByID(bp_id);
   }
 
   if (log)
     log->Printf(
         "SBTarget(%p)::FindBreakpointByID (bp_id=%d) => SBBreakpoint(%p)",
         static_cast<void *>(target_sp.get()), static_cast<uint32_t>(bp_id),
-        static_cast<void *>(sb_breakpoint.get()));
+        static_cast<void *>(sb_breakpoint.GetSP().get()));
 
   return sb_breakpoint;
+}
+
+bool SBTarget::FindBreakpointsByName(const char *name,
+                                     SBBreakpointList &bkpts) {
+  TargetSP target_sp(GetSP());
+  if (target_sp) {
+    std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
+    BreakpointList bkpt_list(false);
+    bool is_valid =
+        target_sp->GetBreakpointList().FindBreakpointsByName(name, bkpt_list);
+    if (!is_valid)
+      return false;
+    for (BreakpointSP bkpt_sp : bkpt_list.Breakpoints()) {
+      bkpts.AppendByID(bkpt_sp->GetID());
+    }
+  }
+  return true;
 }
 
 bool SBTarget::EnableAllBreakpoints() {
@@ -1099,6 +1129,13 @@ bool SBTarget::DeleteAllBreakpoints() {
 
 lldb::SBError SBTarget::BreakpointsCreateFromFile(SBFileSpec &source_file,
                                                   SBBreakpointList &new_bps) {
+  SBStringList empty_name_list;
+  return BreakpointsCreateFromFile(source_file, empty_name_list, new_bps);
+}
+
+lldb::SBError SBTarget::BreakpointsCreateFromFile(SBFileSpec &source_file,
+                                                  SBStringList &matching_names,
+                                                  SBBreakpointList &new_bps) {
   SBError sberr;
   TargetSP target_sp(GetSP());
   if (!target_sp) {
@@ -1109,7 +1146,14 @@ lldb::SBError SBTarget::BreakpointsCreateFromFile(SBFileSpec &source_file,
   std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
 
   BreakpointIDList bp_ids;
-  sberr.ref() = target_sp->CreateBreakpointsFromFile(source_file.ref(), bp_ids);
+
+  std::vector<std::string> name_vector;
+  size_t num_names = matching_names.GetSize();
+  for (size_t i = 0; i < num_names; i++)
+    name_vector.push_back(matching_names.GetStringAtIndex(i));
+
+  sberr.ref() = target_sp->CreateBreakpointsFromFile(source_file.ref(),
+                                                     name_vector, bp_ids);
   if (sberr.Fail())
     return sberr;
 
@@ -1133,7 +1177,8 @@ lldb::SBError SBTarget::BreakpointsWriteToFile(SBFileSpec &dest_file) {
 }
 
 lldb::SBError SBTarget::BreakpointsWriteToFile(SBFileSpec &dest_file,
-                                               SBBreakpointList &bkpt_list) {
+                                               SBBreakpointList &bkpt_list,
+                                               bool append) {
   SBError sberr;
   TargetSP target_sp(GetSP());
   if (!target_sp) {
@@ -1144,8 +1189,8 @@ lldb::SBError SBTarget::BreakpointsWriteToFile(SBFileSpec &dest_file,
   std::lock_guard<std::recursive_mutex> guard(target_sp->GetAPIMutex());
   BreakpointIDList bp_id_list;
   bkpt_list.CopyToBreakpointIDList(bp_id_list);
-  sberr.ref() =
-      target_sp->SerializeBreakpointsToFile(dest_file.ref(), bp_id_list);
+  sberr.ref() = target_sp->SerializeBreakpointsToFile(dest_file.ref(),
+                                                      bp_id_list, append);
   return sberr;
 }
 
@@ -1570,18 +1615,19 @@ lldb::SBSymbolContextList SBTarget::FindGlobalFunctions(const char *name,
                                                         MatchType matchtype) {
   lldb::SBSymbolContextList sb_sc_list;
   if (name && name[0]) {
+    llvm::StringRef name_ref(name);
     TargetSP target_sp(GetSP());
     if (target_sp) {
       std::string regexstr;
       switch (matchtype) {
       case eMatchTypeRegex:
-        target_sp->GetImages().FindFunctions(RegularExpression(name), true,
+        target_sp->GetImages().FindFunctions(RegularExpression(name_ref), true,
                                              true, true, *sb_sc_list);
         break;
       case eMatchTypeStartsWith:
         regexstr = llvm::Regex::escape(name) + ".*";
-        target_sp->GetImages().FindFunctions(
-            RegularExpression(regexstr.c_str()), true, true, true, *sb_sc_list);
+        target_sp->GetImages().FindFunctions(RegularExpression(regexstr), true,
+                                             true, true, *sb_sc_list);
         break;
       default:
         target_sp->GetImages().FindFunctions(ConstString(name),
@@ -1749,6 +1795,7 @@ SBValueList SBTarget::FindGlobalVariables(const char *name,
 
   TargetSP target_sp(GetSP());
   if (name && target_sp) {
+    llvm::StringRef name_ref(name);
     VariableList variable_list;
     const bool append = true;
 
@@ -1761,13 +1808,12 @@ SBValueList SBTarget::FindGlobalVariables(const char *name,
       break;
     case eMatchTypeRegex:
       match_count = target_sp->GetImages().FindGlobalVariables(
-          RegularExpression(name), append, max_matches, variable_list);
+          RegularExpression(name_ref), append, max_matches, variable_list);
       break;
     case eMatchTypeStartsWith:
       regexstr = llvm::Regex::escape(name) + ".*";
       match_count = target_sp->GetImages().FindGlobalVariables(
-          RegularExpression(regexstr.c_str()), append, max_matches,
-          variable_list);
+          RegularExpression(regexstr), append, max_matches, variable_list);
       break;
     }
 
@@ -2084,19 +2130,16 @@ lldb::SBValue SBTarget::EvaluateExpression(const char *expr,
       StreamString frame_description;
       if (frame)
         frame->DumpUsingSettingsFormat(&frame_description);
-      Host::SetCrashDescriptionWithFormat(
+      llvm::PrettyStackTraceFormat stack_trace(
           "SBTarget::EvaluateExpression (expr = \"%s\", fetch_dynamic_value = "
           "%u) %s",
           expr, options.GetFetchDynamicValue(),
-          frame_description.GetString().c_str());
+          frame_description.GetString().str().c_str());
 #endif
       exe_results =
           target->EvaluateExpression(expr, frame, expr_value_sp, options.ref());
 
       expr_result.SetSP(expr_value_sp, options.GetFetchDynamicValue());
-#ifdef LLDB_CONFIGURATION_DEBUG
-      Host::SetCrashDescription(NULL);
-#endif
     } else {
       if (log)
         log->Printf("SBTarget::EvaluateExpression () => error: could not "

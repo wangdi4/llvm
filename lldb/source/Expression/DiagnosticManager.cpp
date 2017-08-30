@@ -11,8 +11,8 @@
 
 #include "llvm/Support/ErrorHandling.h"
 
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StreamString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb_private;
 
@@ -67,15 +67,24 @@ size_t DiagnosticManager::Printf(DiagnosticSeverity severity,
   size_t result = ss.PrintfVarArg(format, args);
   va_end(args);
 
-  AddDiagnostic(ss.GetData(), severity, eDiagnosticOriginLLDB);
+  AddDiagnostic(ss.GetString(), severity, eDiagnosticOriginLLDB);
 
   return result;
 }
 
-size_t DiagnosticManager::PutCString(DiagnosticSeverity severity,
-                                     const char *cstr) {
-  if (!cstr)
+size_t DiagnosticManager::PutString(DiagnosticSeverity severity,
+                                    llvm::StringRef str) {
+  if (str.empty())
     return 0;
-  AddDiagnostic(cstr, severity, eDiagnosticOriginLLDB);
-  return strlen(cstr);
+  AddDiagnostic(str, severity, eDiagnosticOriginLLDB);
+  return str.size();
+}
+
+void DiagnosticManager::CopyDiagnostics(DiagnosticManager &otherDiagnostics) {
+  for (const DiagnosticList::value_type &other_diagnostic:
+       otherDiagnostics.Diagnostics()) {
+    AddDiagnostic(
+        other_diagnostic->GetMessage(), other_diagnostic->GetSeverity(),
+        other_diagnostic->getKind(), other_diagnostic->GetCompilerID());
+  }
 }

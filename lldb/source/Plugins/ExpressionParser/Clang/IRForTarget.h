@@ -11,11 +11,11 @@
 #ifndef liblldb_IRForTarget_h_
 #define liblldb_IRForTarget_h_
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Stream.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Symbol/TaggedASTType.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Stream.h"
+#include "lldb/Utility/StreamString.h"
 #include "lldb/lldb-public.h"
 #include "llvm/Pass.h"
 
@@ -330,6 +330,34 @@ private:
   bool RewriteObjCSelectors(llvm::BasicBlock &basic_block);
 
   //------------------------------------------------------------------
+  /// A basic block-level pass to find all Objective-C class references that
+  /// use the old-style Objective-C runtime and rewrite them to use
+  /// class_getClass instead of statically allocated class references.
+  //------------------------------------------------------------------
+
+  //------------------------------------------------------------------
+  /// Replace a single old-style class reference
+  ///
+  /// @param[in] selector_load
+  ///     The load of the statically-allocated selector.
+  ///
+  /// @return
+  ///     True on success; false otherwise
+  //------------------------------------------------------------------
+  bool RewriteObjCClassReference(llvm::Instruction *class_load);
+
+  //------------------------------------------------------------------
+  /// The top-level pass implementation
+  ///
+  /// @param[in] basic_block
+  ///     The basic block currently being processed.
+  ///
+  /// @return
+  ///     True on success; false otherwise
+  //------------------------------------------------------------------
+  bool RewriteObjCClassReferences(llvm::BasicBlock &basic_block);
+
+  //------------------------------------------------------------------
   /// A basic block-level pass to find all newly-declared persistent
   /// variables and register them with the ClangExprDeclMap.  This
   /// allows them to be materialized and dematerialized like normal
@@ -542,6 +570,10 @@ private:
                                       ///sel_registerName, cast to the
                                       ///appropriate
                                       /// function pointer type
+  llvm::Constant *m_objc_getClass; ///< The address of the function
+                                   ///objc_getClass, cast to the
+                                   ///appropriate
+                                   /// function pointer type
   llvm::IntegerType
       *m_intptr_ty; ///< The type of an integer large enough to hold a pointer.
   lldb_private::Stream

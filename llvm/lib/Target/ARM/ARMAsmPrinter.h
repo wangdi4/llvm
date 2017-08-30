@@ -61,13 +61,17 @@ class LLVM_LIBRARY_VISIBILITY ARMAsmPrinter : public AsmPrinter {
   /// data from every MachineFunction. It is used during doFinalization
   /// when all non-function globals are emitted.
   SmallPtrSet<const GlobalVariable*,2> PromotedGlobals;
+  /// Set of globals in PromotedGlobals that we've emitted labels for.
+  /// We need to emit labels even for promoted globals so that DWARF
+  /// debug info can link properly.
+  SmallPtrSet<const GlobalVariable*,2> EmittedPromotedGlobalLabels;
 
 public:
   explicit ARMAsmPrinter(TargetMachine &TM,
                          std::unique_ptr<MCStreamer> Streamer);
 
-  const char *getPassName() const override {
-    return "ARM Assembly / Object Emitter";
+  StringRef getPassName() const override {
+    return "ARM Assembly Printer";
   }
 
   void printOperand(const MachineInstr *MI, int OpNum, raw_ostream &O);
@@ -108,9 +112,7 @@ public:
   // XRay-specific lowering for ARM.
   void LowerPATCHABLE_FUNCTION_ENTER(const MachineInstr &MI);
   void LowerPATCHABLE_FUNCTION_EXIT(const MachineInstr &MI);
-  // Helper function that emits the XRay sleds we've collected for a particular
-  // function.
-  void EmitXRayTable();
+  void LowerPATCHABLE_TAIL_CALL(const MachineInstr &MI);
 
 private:
   void EmitSled(const MachineInstr &MI, SledKind Kind);

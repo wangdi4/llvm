@@ -15,8 +15,8 @@
 #include <map>
 #include <vector>
 // Other libraries and framework includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
 // Project includes
 
 namespace lldb_private {
@@ -87,7 +87,8 @@ public:
   ///     /b true if \a path was successfully located and \a new_path
   ///     is filled in with a new source path, \b false otherwise.
   //------------------------------------------------------------------
-  bool RemapPath(const char *path, std::string &new_path) const;
+  bool RemapPath(llvm::StringRef path, std::string &new_path) const;
+  bool RemapPath(const char *, std::string &) const = delete;
 
   bool ReverseRemapPath(const ConstString &path, ConstString &new_path) const;
 

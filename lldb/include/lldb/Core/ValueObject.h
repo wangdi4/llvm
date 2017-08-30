@@ -10,32 +10,67 @@
 #ifndef liblldb_ValueObject_h_
 #define liblldb_ValueObject_h_
 
-// C Includes
-// C++ Includes
+#include "lldb/Core/Value.h"
+#include "lldb/DataFormatters/DumpValueObjectOptions.h" // for DumpValueObj...
+#include "lldb/Symbol/CompilerType.h"
+#include "lldb/Symbol/Type.h" // for TypeImpl
+#include "lldb/Target/ExecutionContext.h"
+#include "lldb/Target/Process.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/SharedCluster.h"
+#include "lldb/Utility/UserID.h"
+#include "lldb/lldb-defines.h"              // for LLDB_INVALID...
+#include "lldb/lldb-enumerations.h"         // for DynamicValue...
+#include "lldb/lldb-forward.h"              // for ValueObjectSP
+#include "lldb/lldb-private-enumerations.h" // for AddressType
+#include "lldb/lldb-types.h"                // for addr_t, offs...
+
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h" // for StringRef
+
 #include <functional>
 #include <initializer_list>
 #include <map>
+#include <mutex>   // for recursive_mutex
+#include <string>  // for string
+#include <utility> // for pair
 #include <vector>
 
-// Other libraries and framework includes
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/SmallVector.h"
-
-// Project includes
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Flags.h"
-#include "lldb/Core/UserID.h"
-#include "lldb/Core/Value.h"
-#include "lldb/Symbol/CompilerType.h"
-#include "lldb/Target/ExecutionContext.h"
-#include "lldb/Target/ExecutionContextScope.h"
-#include "lldb/Target/Process.h"
-#include "lldb/Target/StackID.h"
-#include "lldb/Utility/SharedCluster.h"
-#include "lldb/lldb-private.h"
-
+#include <stddef.h> // for size_t
+#include <stdint.h> // for uint32_t
+namespace lldb_private {
+class Declaration;
+}
+namespace lldb_private {
+class EvaluateExpressionOptions;
+}
+namespace lldb_private {
+class ExecutionContextScope;
+}
+namespace lldb_private {
+class Log;
+}
+namespace lldb_private {
+class Scalar;
+}
+namespace lldb_private {
+class Stream;
+}
+namespace lldb_private {
+class SymbolContextScope;
+}
+namespace lldb_private {
+class TypeFormatImpl;
+}
+namespace lldb_private {
+class TypeSummaryImpl;
+}
+namespace lldb_private {
+class TypeSummaryOptions;
+}
 namespace lldb_private {
 
 /// ValueObject:
@@ -394,16 +429,7 @@ public:
       GetExpressionPathFormat = eGetExpressionPathFormatDereferencePointers);
 
   lldb::ValueObjectSP GetValueForExpressionPath(
-      const char *expression, const char **first_unparsed = nullptr,
-      ExpressionPathScanEndReason *reason_to_stop = nullptr,
-      ExpressionPathEndResultType *final_value_type = nullptr,
-      const GetValueForExpressionPathOptions &options =
-          GetValueForExpressionPathOptions::DefaultOptions(),
-      ExpressionPathAftermath *final_task_on_target = nullptr);
-
-  int GetValuesForExpressionPath(
-      const char *expression, lldb::ValueObjectListSP &list,
-      const char **first_unparsed = nullptr,
+      llvm::StringRef expression,
       ExpressionPathScanEndReason *reason_to_stop = nullptr,
       ExpressionPathEndResultType *final_value_type = nullptr,
       const GetValueForExpressionPathOptions &options =
@@ -536,10 +562,9 @@ public:
       ValueObjectRepresentationStyle val_obj_display,
       lldb::Format custom_format);
 
-  enum PrintableRepresentationSpecialCases {
-    ePrintableRepresentationSpecialCasesDisable = 0,
-    ePrintableRepresentationSpecialCasesAllow = 1,
-    ePrintableRepresentationSpecialCasesOnly = 3
+  enum class PrintableRepresentationSpecialCases : bool {
+    eDisable = false,
+    eAllow = true
   };
 
   bool
@@ -548,7 +573,7 @@ public:
                                   eValueObjectRepresentationStyleSummary,
                               lldb::Format custom_format = lldb::eFormatInvalid,
                               PrintableRepresentationSpecialCases special =
-                                  ePrintableRepresentationSpecialCasesAllow,
+                                  PrintableRepresentationSpecialCases::eAllow,
                               bool do_dump_error = true);
   bool GetValueIsValid() const;
 
@@ -562,6 +587,9 @@ public:
 
   lldb::ValueObjectSP GetSP() { return m_manager->GetSharedPointer(this); }
 
+  // Change the name of the current ValueObject. Should *not* be used from a
+  // synthetic child provider as it would change the name of the non synthetic
+  // child as well.
   void SetName(const ConstString &name);
 
   virtual lldb::addr_t GetAddressOf(bool scalar_is_load_address = true,
@@ -610,6 +638,12 @@ public:
 
   virtual lldb::ValueObjectSP Dereference(Error &error);
 
+  // Creates a copy of the ValueObject with a new name and setting the current
+  // ValueObject as its parent. It should be used when we want to change the
+  // name of a ValueObject without modifying the actual ValueObject itself
+  // (e.g. sythetic child provider).
+  virtual lldb::ValueObjectSP Clone(const ConstString &new_name);
+
   virtual lldb::ValueObjectSP AddressOf(Error &error);
 
   virtual lldb::addr_t GetLiveAddress() { return LLDB_INVALID_ADDRESS; }
@@ -651,21 +685,23 @@ public:
   void Dump(Stream &s, const DumpValueObjectOptions &options);
 
   static lldb::ValueObjectSP
-  CreateValueObjectFromExpression(const char *name, const char *expression,
+  CreateValueObjectFromExpression(llvm::StringRef name,
+                                  llvm::StringRef expression,
                                   const ExecutionContext &exe_ctx);
 
   static lldb::ValueObjectSP
-  CreateValueObjectFromExpression(const char *name, const char *expression,
+  CreateValueObjectFromExpression(llvm::StringRef name,
+                                  llvm::StringRef expression,
                                   const ExecutionContext &exe_ctx,
                                   const EvaluateExpressionOptions &options);
 
   static lldb::ValueObjectSP
-  CreateValueObjectFromAddress(const char *name, uint64_t address,
+  CreateValueObjectFromAddress(llvm::StringRef name, uint64_t address,
                                const ExecutionContext &exe_ctx,
                                CompilerType type);
 
   static lldb::ValueObjectSP
-  CreateValueObjectFromData(const char *name, const DataExtractor &data,
+  CreateValueObjectFromData(llvm::StringRef name, const DataExtractor &data,
                             const ExecutionContext &exe_ctx, CompilerType type);
 
   void LogValueObject(Log *log);
@@ -1010,25 +1046,55 @@ private:
   virtual CompilerType MaybeCalculateCompleteType();
 
   lldb::ValueObjectSP GetValueForExpressionPath_Impl(
-      const char *expression_cstr, const char **first_unparsed,
-      ExpressionPathScanEndReason *reason_to_stop,
-      ExpressionPathEndResultType *final_value_type,
-      const GetValueForExpressionPathOptions &options,
-      ExpressionPathAftermath *final_task_on_target);
-
-  // this method will ONLY expand [] expressions into a VOList and return
-  // the number of elements it added to the VOList
-  // it will NOT loop through expanding the follow-up of the expression_cstr
-  // for all objects in the list
-  int ExpandArraySliceExpression(
-      const char *expression_cstr, const char **first_unparsed,
-      lldb::ValueObjectSP root, lldb::ValueObjectListSP &list,
+      llvm::StringRef expression_cstr,
       ExpressionPathScanEndReason *reason_to_stop,
       ExpressionPathEndResultType *final_value_type,
       const GetValueForExpressionPathOptions &options,
       ExpressionPathAftermath *final_task_on_target);
 
   DISALLOW_COPY_AND_ASSIGN(ValueObject);
+};
+
+//------------------------------------------------------------------------------
+// A value object manager class that is seeded with the static variable value
+// and it vends the user facing value object. If the type is dynamic it can
+// vend the dynamic type. If this user type also has a synthetic type associated
+// with it, it will vend the synthetic type. The class watches the process' stop
+// ID and will update the user type when needed.
+//------------------------------------------------------------------------------
+class ValueObjectManager {
+  // The root value object is the static typed variable object.
+  lldb::ValueObjectSP m_root_valobj_sp;
+  // The user value object is the value object the user wants to see.
+  lldb::ValueObjectSP m_user_valobj_sp;
+  lldb::DynamicValueType m_use_dynamic;
+  uint32_t m_stop_id; // The stop ID that m_user_valobj_sp is valid for.
+  bool m_use_synthetic;
+
+public:
+  ValueObjectManager() {}
+  
+  ValueObjectManager(lldb::ValueObjectSP in_valobj_sp,
+                     lldb::DynamicValueType use_dynamic, bool use_synthetic);
+  
+  bool IsValid() const;
+  
+  lldb::ValueObjectSP GetRootSP() const { return m_root_valobj_sp; }
+  
+  // Gets the correct value object from the root object for a given process
+  // stop ID. If dynamic values are enabled, or if synthetic children are
+  // enabled, the value object that the user wants to see might change while
+  // debugging.
+  lldb::ValueObjectSP GetSP();
+  
+  void SetUseDynamic(lldb::DynamicValueType use_dynamic);
+  void SetUseSynthetic(bool use_synthetic);
+  lldb::DynamicValueType GetUseDynamic() const { return m_use_dynamic; }
+  bool GetUseSynthetic() const { return m_use_synthetic; }
+  lldb::TargetSP GetTargetSP() const;
+  lldb::ProcessSP GetProcessSP() const;
+  lldb::ThreadSP GetThreadSP() const;
+  lldb::StackFrameSP GetFrameSP() const;
 };
 
 } // namespace lldb_private

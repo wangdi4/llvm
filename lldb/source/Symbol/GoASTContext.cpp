@@ -11,12 +11,12 @@
 #include <utility>
 #include <vector>
 
+#include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/UniqueCStringMap.h"
 #include "lldb/Core/ValueObject.h"
-#include "lldb/DataFormatters/StringPrinter.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Symbol/GoASTContext.h"
 #include "lldb/Symbol/ObjectFile.h"
@@ -24,6 +24,8 @@
 #include "lldb/Symbol/Type.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Target.h"
+
+#include "llvm/Support/Threading.h"
 
 #include "Plugins/ExpressionParser/Go/GoUserExpression.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserGo.h"
@@ -593,36 +595,36 @@ GoASTContext::GetBasicTypeEnumeration(lldb::opaque_compiler_type_t type) {
   if (name) {
     typedef UniqueCStringMap<lldb::BasicType> TypeNameToBasicTypeMap;
     static TypeNameToBasicTypeMap g_type_map;
-    static std::once_flag g_once_flag;
-    std::call_once(g_once_flag, []() {
+    static llvm::once_flag g_once_flag;
+    llvm::call_once(g_once_flag, []() {
       // "void"
-      g_type_map.Append(ConstString("void").GetCString(), eBasicTypeVoid);
+      g_type_map.Append(ConstString("void").GetStringRef(), eBasicTypeVoid);
       // "int"
-      g_type_map.Append(ConstString("int").GetCString(), eBasicTypeInt);
-      g_type_map.Append(ConstString("uint").GetCString(),
+      g_type_map.Append(ConstString("int").GetStringRef(), eBasicTypeInt);
+      g_type_map.Append(ConstString("uint").GetStringRef(),
                         eBasicTypeUnsignedInt);
 
       // Miscellaneous
-      g_type_map.Append(ConstString("bool").GetCString(), eBasicTypeBool);
+      g_type_map.Append(ConstString("bool").GetStringRef(), eBasicTypeBool);
 
       // Others. Should these map to C types?
-      g_type_map.Append(ConstString("byte").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("uint8").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("uint16").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("uint32").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("uint64").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("int8").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("int16").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("int32").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("int64").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("float32").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("float64").GetCString(), eBasicTypeOther);
-      g_type_map.Append(ConstString("uintptr").GetCString(), eBasicTypeOther);
+      g_type_map.Append(ConstString("byte").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("uint8").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("uint16").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("uint32").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("uint64").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("int8").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("int16").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("int32").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("int64").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("float32").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("float64").GetStringRef(), eBasicTypeOther);
+      g_type_map.Append(ConstString("uintptr").GetStringRef(), eBasicTypeOther);
 
       g_type_map.Sort();
     });
 
-    return g_type_map.Find(name.GetCString(), eBasicTypeInvalid);
+    return g_type_map.Find(name.GetStringRef(), eBasicTypeInvalid);
   }
   return eBasicTypeInvalid;
 }
@@ -1261,9 +1263,9 @@ bool GoASTContext::DumpTypeValue(lldb::opaque_compiler_type_t type, Stream *s,
       byte_size = 4;
       break;
     }
-    return data.Dump(s, byte_offset, format, byte_size, item_count, UINT32_MAX,
-                     LLDB_INVALID_ADDRESS, bitfield_bit_size,
-                     bitfield_bit_offset, exe_scope);
+    return DumpDataExtractor(data, s, byte_offset, format, byte_size,
+                             item_count, UINT32_MAX, LLDB_INVALID_ADDRESS,
+                             bitfield_bit_size, bitfield_bit_offset, exe_scope);
   }
   return 0;
 }
@@ -1435,12 +1437,12 @@ DWARFASTParser *GoASTContext::GetDWARFParser() {
 }
 
 UserExpression *GoASTContextForExpr::GetUserExpression(
-    const char *expr, const char *expr_prefix, lldb::LanguageType language,
+    llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options) {
   TargetSP target = m_target_wp.lock();
   if (target)
-    return new GoUserExpression(*target, expr, expr_prefix, language,
-                                desired_type, options);
+    return new GoUserExpression(*target, expr, prefix, language, desired_type,
+                                options);
   return nullptr;
 }

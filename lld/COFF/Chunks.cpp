@@ -11,6 +11,7 @@
 #include "Error.h"
 #include "InputFiles.h"
 #include "Symbols.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Object/COFF.h"
 #include "llvm/Support/COFF.h"
 #include "llvm/Support/Debug.h"
@@ -28,7 +29,7 @@ namespace lld {
 namespace coff {
 
 SectionChunk::SectionChunk(ObjectFile *F, const coff_section *H)
-    : Chunk(SectionKind), Repl(this), File(F), Header(H),
+    : Chunk(SectionKind), Repl(this), Header(H), File(F),
       Relocs(File->getCOFFObj()->getRelocations(Header)),
       NumRelocs(std::distance(Relocs.begin(), Relocs.end())) {
   // Initialize SectionName.
@@ -61,7 +62,7 @@ void SectionChunk::applyRelX64(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_AMD64_SECTION:  add16(Off, Sym->getSectionIndex()); break;
   case IMAGE_REL_AMD64_SECREL:   add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -76,7 +77,7 @@ void SectionChunk::applyRelX86(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_I386_SECTION:  add16(Off, Sym->getSectionIndex()); break;
   case IMAGE_REL_I386_SECREL:   add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -134,8 +135,9 @@ void SectionChunk::applyRelARM(uint8_t *Off, uint16_t Type, Defined *Sym,
   case IMAGE_REL_ARM_BRANCH20T: applyBranch20T(Off, S - P - 4); break;
   case IMAGE_REL_ARM_BRANCH24T: applyBranch24T(Off, S - P - 4); break;
   case IMAGE_REL_ARM_BLX23T:    applyBranch24T(Off, S - P - 4); break;
+  case IMAGE_REL_ARM_SECREL:    add32(Off, Sym->getSecrel()); break;
   default:
-    fatal("unsupported relocation type");
+    fatal("unsupported relocation type 0x" + Twine::utohexstr(Type));
   }
 }
 
@@ -149,7 +151,7 @@ void SectionChunk::writeTo(uint8_t *Buf) const {
   // Apply relocations.
   for (const coff_relocation &Rel : Relocs) {
     uint8_t *Off = Buf + OutputSectionOff + Rel.VirtualAddress;
-    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex)->repl();
+    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex);
     Defined *Sym = cast<Defined>(Body);
     uint64_t P = RVA + Rel.VirtualAddress;
     switch (Config->Machine) {
@@ -202,7 +204,7 @@ void SectionChunk::getBaserels(std::vector<Baserel> *Res) {
     uint8_t Ty = getBaserelType(Rel);
     if (Ty == IMAGE_REL_BASED_ABSOLUTE)
       continue;
-    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex)->repl();
+    SymbolBody *Body = File->getSymbolBody(Rel.SymbolTableIndex);
     if (isa<DefinedAbsolute>(Body))
       continue;
     Res->emplace_back(RVA + Rel.VirtualAddress, Ty);
@@ -225,7 +227,7 @@ void SectionChunk::printDiscardedMessage() const {
   // Removed by dead-stripping. If it's removed by ICF, ICF already
   // printed out the name, so don't repeat that here.
   if (Sym && this == Repl)
-    llvm::outs() << "Discarded " << Sym->getName() << "\n";
+    message("Discarded " + Sym->getName());
 }
 
 StringRef SectionChunk::getDebugName() {
@@ -248,7 +250,7 @@ void SectionChunk::replace(SectionChunk *Other) {
 CommonChunk::CommonChunk(const COFFSymbolRef S) : Sym(S) {
   // Common symbols are aligned on natural boundaries up to 32 bytes.
   // This is what MSVC link.exe does.
-  Align = std::min(uint64_t(32), NextPowerOf2(Sym.getValue()));
+  Align = std::min(uint64_t(32), PowerOf2Ceil(Sym.getValue()));
 }
 
 uint32_t CommonChunk::getPermissions() const {

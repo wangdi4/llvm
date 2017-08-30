@@ -12,19 +12,20 @@
 
 // C Includes
 // C++ Includes
+#include <mutex>
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/Broadcaster.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Event.h"
 #include "lldb/Core/IOHandler.h"
-#include "lldb/Core/Log.h"
-#include "lldb/Core/StringList.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandAlias.h"
 #include "lldb/Interpreter/CommandHistory.h"
 #include "lldb/Interpreter/CommandObject.h"
 #include "lldb/Interpreter/ScriptInterpreter.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StringList.h"
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-private.h"
 
@@ -195,45 +196,42 @@ public:
 
   void SourceInitFile(bool in_cwd, CommandReturnObject &result);
 
-  bool AddCommand(const char *name, const lldb::CommandObjectSP &cmd_sp,
+  bool AddCommand(llvm::StringRef name, const lldb::CommandObjectSP &cmd_sp,
                   bool can_replace);
 
-  bool AddUserCommand(std::string name, const lldb::CommandObjectSP &cmd_sp,
+  bool AddUserCommand(llvm::StringRef name, const lldb::CommandObjectSP &cmd_sp,
                       bool can_replace);
 
-  lldb::CommandObjectSP GetCommandSPExact(const char *cmd,
-                                          bool include_aliases);
+  lldb::CommandObjectSP GetCommandSPExact(llvm::StringRef cmd,
+                                          bool include_aliases) const;
 
-  CommandObject *GetCommandObjectExact(const char *cmd_cstr,
-                                       bool include_aliases);
+  CommandObject *GetCommandObject(llvm::StringRef cmd,
+                                  StringList *matches = nullptr) const;
 
-  CommandObject *GetCommandObject(const char *cmd,
-                                  StringList *matches = nullptr);
+  bool CommandExists(llvm::StringRef cmd) const;
 
-  bool CommandExists(const char *cmd);
+  bool AliasExists(llvm::StringRef cmd) const;
 
-  bool AliasExists(const char *cmd);
+  bool UserCommandExists(llvm::StringRef cmd) const;
 
-  bool UserCommandExists(const char *cmd);
-
-  CommandAlias *AddAlias(const char *alias_name,
+  CommandAlias *AddAlias(llvm::StringRef alias_name,
                          lldb::CommandObjectSP &command_obj_sp,
-                         const char *args_string = nullptr);
+                         llvm::StringRef args_string = llvm::StringRef());
 
   // Remove a command if it is removable (python or regex command)
-  bool RemoveCommand(const char *cmd);
+  bool RemoveCommand(llvm::StringRef cmd);
 
-  bool RemoveAlias(const char *alias_name);
+  bool RemoveAlias(llvm::StringRef alias_name);
 
-  bool GetAliasFullName(const char *cmd, std::string &full_name);
+  bool GetAliasFullName(llvm::StringRef cmd, std::string &full_name) const;
 
-  bool RemoveUser(const char *alias_name);
+  bool RemoveUser(llvm::StringRef alias_name);
 
   void RemoveAllUser() { m_user_dict.clear(); }
 
-  CommandAlias *GetAlias(const char *alias_name);
+  const CommandAlias *GetAlias(llvm::StringRef alias_name) const;
 
-  CommandObject *BuildAliasResult(const char *alias_name,
+  CommandObject *BuildAliasResult(llvm::StringRef alias_name,
                                   std::string &raw_input_string,
                                   std::string &alias_result,
                                   CommandReturnObject &result);
@@ -290,7 +288,7 @@ public:
                               CommandInterpreterRunOptions &options,
                               CommandReturnObject &result);
 
-  CommandObject *GetCommandObjectForCommand(std::string &command_line);
+  CommandObject *GetCommandObjectForCommand(llvm::StringRef &command_line);
 
   // This handles command line completion.  You are given a pointer to the
   // command string buffer, to the current cursor,
@@ -339,24 +337,21 @@ public:
 
   void GetAliasHelp(const char *alias_name, StreamString &help_string);
 
-  void OutputFormattedHelpText(Stream &strm, const char *prefix,
-                               const char *help_text);
+  void OutputFormattedHelpText(Stream &strm, llvm::StringRef prefix,
+                               llvm::StringRef help_text);
 
-  void OutputFormattedHelpText(Stream &stream, const char *command_word,
-                               const char *separator, const char *help_text,
-                               size_t max_word_len);
+  void OutputFormattedHelpText(Stream &stream, llvm::StringRef command_word,
+                               llvm::StringRef separator,
+                               llvm::StringRef help_text, size_t max_word_len);
 
   // this mimics OutputFormattedHelpText but it does perform a much simpler
   // formatting, basically ensuring line alignment. This is only good if you
-  // have
-  // some complicated layout for your help text and want as little help as
-  // reasonable
-  // in properly displaying it. Most of the times, you simply want to type some
-  // text
-  // and have it printed in a reasonable way on screen. If so, use
-  // OutputFormattedHelpText
-  void OutputHelpText(Stream &stream, const char *command_word,
-                      const char *separator, const char *help_text,
+  // have some complicated layout for your help text and want as little help as
+  // reasonable in properly displaying it. Most of the times, you simply want
+  // to type some text and have it printed in a reasonable way on screen. If
+  // so, use OutputFormattedHelpText
+  void OutputHelpText(Stream &stream, llvm::StringRef command_word,
+                      llvm::StringRef separator, llvm::StringRef help_text,
                       uint32_t max_word_len);
 
   Debugger &GetDebugger() { return m_debugger; }
@@ -372,9 +367,9 @@ public:
 
   const char *ProcessEmbeddedScriptCommands(const char *arg);
 
-  void UpdatePrompt(const char *);
+  void UpdatePrompt(llvm::StringRef prompt);
 
-  bool Confirm(const char *message, bool default_answer);
+  bool Confirm(llvm::StringRef message, bool default_answer);
 
   void LoadCommandDictionary();
 
@@ -384,13 +379,13 @@ public:
 
   void SetScriptLanguage(lldb::ScriptLanguage lang);
 
-  bool HasCommands();
+  bool HasCommands() const;
 
-  bool HasAliases();
+  bool HasAliases() const;
 
-  bool HasUserCommands();
+  bool HasUserCommands() const;
 
-  bool HasAliasOptions();
+  bool HasAliasOptions() const;
 
   void BuildAliasCommandArgs(CommandObject *alias_cmd_obj,
                              const char *alias_name, Args &cmd_args,
@@ -413,7 +408,7 @@ public:
 
   bool GetSynchronous();
 
-  void FindCommandsForApropos(const char *word, StringList &commands_found,
+  void FindCommandsForApropos(llvm::StringRef word, StringList &commands_found,
                               StringList &commands_help,
                               bool search_builtin_commands,
                               bool search_user_commands,
@@ -509,10 +504,10 @@ protected:
 
   void SetSynchronous(bool value);
 
-  lldb::CommandObjectSP GetCommandSP(const char *cmd,
+  lldb::CommandObjectSP GetCommandSP(llvm::StringRef cmd,
                                      bool include_aliases = true,
                                      bool exact = true,
-                                     StringList *matches = nullptr);
+                                     StringList *matches = nullptr) const;
 
 private:
   Error PreprocessCommand(std::string &command);
@@ -523,7 +518,7 @@ private:
   CommandObject *ResolveCommandImpl(std::string &command_line,
                                     CommandReturnObject &result);
 
-  void FindCommandsForApropos(const char *word, StringList &commands_found,
+  void FindCommandsForApropos(llvm::StringRef word, StringList &commands_found,
                               StringList &commands_help,
                               CommandObject::CommandMap &command_map);
 
@@ -544,6 +539,7 @@ private:
   std::string m_repeat_command; // Stores the command that will be executed for
                                 // an empty command string.
   lldb::ScriptInterpreterSP m_script_interpreter_sp;
+  std::mutex m_script_interpreter_mutex;
   lldb::IOHandlerSP m_command_io_handler_sp;
   char m_comment_char;
   bool m_batch_command_mode;

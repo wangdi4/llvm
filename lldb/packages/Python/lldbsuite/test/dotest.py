@@ -25,7 +25,9 @@ from __future__ import print_function
 import atexit
 import os
 import errno
+import logging
 import platform
+import re
 import signal
 import socket
 import subprocess
@@ -202,6 +204,39 @@ o GDB_REMOTE_LOG: if defined, specifies the log file pathname for the
     sys.exit(0)
 
 
+def parseExclusion(exclusion_file):
+    """Parse an exclusion file, of the following format, where
+       'skip files', 'skip methods', 'xfail files', and 'xfail methods'
+       are the possible list heading values:
+
+       skip files
+       <file name>
+       <file name>
+
+       xfail methods
+       <method name>
+    """
+    excl_type = None
+
+    with open(exclusion_file) as f:
+        for line in f:
+            line = line.strip()
+            if not excl_type:
+                excl_type = line
+                continue
+
+            if not line:
+                excl_type = None
+            elif excl_type == 'skip':
+                if not configuration.skip_tests:
+                    configuration.skip_tests = []
+                configuration.skip_tests.append(line)
+            elif excl_type == 'xfail':
+                if not configuration.xfail_tests:
+                    configuration.xfail_tests = []
+                configuration.xfail_tests.append(line)
+
+
 def parseOptionsAndInitTestdirs():
     """Initialize the list of directories containing our unittest scripts.
 
@@ -240,22 +275,28 @@ def parseOptionsAndInitTestdirs():
     if args.h:
         do_help = True
 
-    if args.compilers:
-        configuration.compilers = args.compilers
+    if args.compiler:
+        configuration.compiler = os.path.realpath(args.compiler)
+        if not is_exe(configuration.compiler):
+            configuration.compiler = which(args.compiler)
+        if not is_exe(configuration.compiler):
+            logging.error(
+                    '%s is not a valid compiler executable; aborting...',
+                    args.compiler)
+            sys.exit(-1)
     else:
         # Use a compiler appropriate appropriate for the Apple SDK if one was
         # specified
         if platform_system == 'Darwin' and args.apple_sdk:
-            configuration.compilers = [
-                seven.get_command_output(
-                    'xcrun -sdk "%s" -find clang 2> /dev/null' %
-                    (args.apple_sdk))]
+            configuration.compiler = seven.get_command_output(
+                'xcrun -sdk "%s" -find clang 2> /dev/null' %
+                (args.apple_sdk))
         else:
             # 'clang' on ubuntu 14.04 is 3.4 so we try clang-3.5 first
             candidateCompilers = ['clang-3.5', 'clang', 'gcc']
             for candidate in candidateCompilers:
                 if which(candidate):
-                    configuration.compilers = [candidate]
+                    configuration.compiler = candidate
                     break
 
     if args.channels:
@@ -270,18 +311,17 @@ def parseOptionsAndInitTestdirs():
             'xcrun --sdk "%s" --show-sdk-path 2> /dev/null' %
             (args.apple_sdk))
 
-    if args.archs:
-        configuration.archs = args.archs
-        for arch in configuration.archs:
-            if arch.startswith(
-                    'arm') and platform_system == 'Darwin' and not args.apple_sdk:
+    if args.arch:
+        configuration.arch = args.arch
+        if configuration.arch.startswith(
+                'arm') and platform_system == 'Darwin' and not args.apple_sdk:
+            os.environ['SDKROOT'] = seven.get_command_output(
+                'xcrun --sdk iphoneos.internal --show-sdk-path 2> /dev/null')
+            if not os.path.exists(os.environ['SDKROOT']):
                 os.environ['SDKROOT'] = seven.get_command_output(
-                    'xcrun --sdk iphoneos.internal --show-sdk-path 2> /dev/null')
-                if not os.path.exists(os.environ['SDKROOT']):
-                    os.environ['SDKROOT'] = seven.get_command_output(
-                        'xcrun --sdk iphoneos --show-sdk-path 2> /dev/null')
+                    'xcrun --sdk iphoneos --show-sdk-path 2> /dev/null')
     else:
-        configuration.archs = [platform_machine]
+        configuration.arch = platform_machine
 
     if args.categoriesList:
         configuration.categoriesList = set(
@@ -329,7 +369,22 @@ def parseOptionsAndInitTestdirs():
         configuration.lldbFrameworkPath = args.framework
 
     if args.executable:
+        # lldb executable is passed explicitly
         lldbtest_config.lldbExec = os.path.realpath(args.executable)
+        if not is_exe(lldbtest_config.lldbExec):
+            lldbtest_config.lldbExec = which(args.executable)
+        if not is_exe(lldbtest_config.lldbExec):
+            logging.error(
+                    '%s is not a valid executable to test; aborting...',
+                    args.executable)
+            sys.exit(-1)
+
+    if args.server:
+        os.environ['LLDB_DEBUGSERVER_PATH'] = args.server
+
+    if args.excluded:
+        for excl_file in args.excluded:
+            parseExclusion(excl_file)
 
     if args.p:
         if args.p.startswith('-'):
@@ -442,6 +497,8 @@ def parseOptionsAndInitTestdirs():
             map(lambda x: os.path.realpath(os.path.abspath(x)), args.args))
         # Shut off multiprocessing mode when test directories are specified.
         configuration.no_multiprocess_test_runner = True
+
+    lldbtest_config.codesign_identity = args.codesign_identity
 
     #print("testdirs:", testdirs)
 
@@ -635,19 +692,23 @@ def setupSysPath():
 
     # Assume lldb-mi is in same place as lldb
     # If not found, disable the lldb-mi tests
-    lldbMiExec = None
-    if lldbtest_config.lldbExec and is_exe(lldbtest_config.lldbExec + "-mi"):
-        lldbMiExec = lldbtest_config.lldbExec + "-mi"
-    if not lldbMiExec:
+    # TODO: Append .exe on Windows
+    #   - this will be in a separate commit in case the mi tests fail horribly
+    lldbDir = os.path.dirname(lldbtest_config.lldbExec)
+    lldbMiExec = os.path.join(lldbDir, "lldb-mi")
+    if is_exe(lldbMiExec):
+        os.environ["LLDBMI_EXEC"] = lldbMiExec
+    else:
         if not configuration.shouldSkipBecauseOfCategories(["lldb-mi"]):
             print(
                 "The 'lldb-mi' executable cannot be located.  The lldb-mi tests can not be run as a result.")
             configuration.skipCategories.append("lldb-mi")
-    else:
-        os.environ["LLDBMI_EXEC"] = lldbMiExec
 
     lldbPythonDir = None  # The directory that contains 'lldb/__init__.py'
+    if not configuration.lldbFrameworkPath and os.path.exists(os.path.join(lldbLibDir, "LLDB.framework")):
+        configuration.lldbFrameworkPath = os.path.join(lldbLibDir, "LLDB.framework")
     if configuration.lldbFrameworkPath:
+        lldbtest_config.lldbFrameworkPath = configuration.lldbFrameworkPath
         candidatePath = os.path.join(
             configuration.lldbFrameworkPath, 'Resources', 'Python')
         if os.path.isfile(os.path.join(candidatePath, 'lldb/__init__.py')):
@@ -749,10 +810,14 @@ def setupSysPath():
 def visit_file(dir, name):
     # Try to match the regexp pattern, if specified.
     if configuration.regexp:
-        import re
         if not re.search(configuration.regexp, name):
             # We didn't match the regex, we're done.
             return
+
+    if configuration.skip_tests:
+        for file_regexp in configuration.skip_tests:
+            if re.search(file_regexp, name):
+                return
 
     # We found a match for our test.  Add it to the suite.
 
@@ -977,6 +1042,49 @@ def setDefaultTripleForPlatform():
     return {}
 
 
+def checkCompiler():
+    # Add some intervention here to sanity check that the compiler requested is sane.
+    # If found not to be an executable program, we abort.
+    c = configuration.compiler
+    if which(c):
+        return
+
+    if not sys.platform.startswith("darwin"):
+        raise Exception(c + " is not a valid compiler")
+
+    pipe = subprocess.Popen(
+        ['xcrun', '-find', c], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    cmd_output = pipe.stdout.read()
+    if not cmd_output or "not found" in cmd_output:
+        raise Exception(c + " is not a valid compiler")
+
+    configuration.compiler = cmd_output.split('\n')[0]
+    print("'xcrun -find %s' returning %s" % (c, configuration.compiler))
+
+def canRunLibcxxTests():
+    from lldbsuite.test import lldbplatformutil
+
+    platform = lldbplatformutil.getPlatform()
+
+    if lldbplatformutil.target_is_android() or lldbplatformutil.platformIsDarwin():
+        return True, "libc++ always present"
+
+    if platform == "linux":
+        if not os.path.isdir("/usr/include/c++/v1"):
+            return False, "Unable to find libc++ installation"
+        return True, "Headers found, let's hope they work"
+
+    return False, "Don't know how to build with libc++ on %s" % platform
+
+def checkLibcxxSupport():
+    result, reason = canRunLibcxxTests()
+    if result:
+        return # libc++ supported
+    if "libc++" in configuration.categoriesList:
+        return # libc++ category explicitly requested, let it run.
+    print("Libc++ tests will not be run because: " + reason)
+    configuration.skipCategories.append("libc++")
+
 def run_suite():
     # On MacOS X, check to make sure that domain for com.apple.DebugSymbols defaults
     # does not exist before proceeding to running the test suite.
@@ -1062,8 +1170,15 @@ def run_suite():
     if configuration.lldb_platform_working_dir:
         print("Setting remote platform working directory to '%s'..." %
               (configuration.lldb_platform_working_dir))
-        lldb.remote_platform.SetWorkingDirectory(
-            configuration.lldb_platform_working_dir)
+        error = lldb.remote_platform.MakeDirectory(
+            configuration.lldb_platform_working_dir, 448)  # 448 = 0o700
+        if error.Fail():
+            raise Exception("making remote directory '%s': %s" % (
+                remote_test_dir, error))
+
+        if not lldb.remote_platform.SetWorkingDirectory(
+                configuration.lldb_platform_working_dir):
+            raise Exception("failed to set working directory '%s'" % remote_test_dir)
         lldb.DBG.SetSelectedPlatform(lldb.remote_platform)
     else:
         lldb.remote_platform = None
@@ -1071,6 +1186,8 @@ def run_suite():
         configuration.lldb_platform_url = None
 
     target_platform = lldb.DBG.GetSelectedPlatform().GetTriple().split('-')[2]
+
+    checkLibcxxSupport()
 
     # Don't do debugserver tests on everything except OS X.
     configuration.dont_do_debugserver_test = "linux" in target_platform or "freebsd" in target_platform or "windows" in target_platform
@@ -1126,124 +1243,65 @@ def run_suite():
                 raise
 
     #
-    # Invoke the default TextTestRunner to run the test suite, possibly iterating
-    # over different configurations.
+    # Invoke the default TextTestRunner to run the test suite
     #
-
-    iterArchs = False
-    iterCompilers = False
-
-    if isinstance(configuration.archs, list) and len(configuration.archs) >= 1:
-        iterArchs = True
-
-    #
-    # Add some intervention here to sanity check that the compilers requested are sane.
-    # If found not to be an executable program, the invalid one is dropped
-    # from the list.
-    for i in range(len(configuration.compilers)):
-        c = configuration.compilers[i]
-        if which(c):
-            continue
-        else:
-            if sys.platform.startswith("darwin"):
-                pipe = subprocess.Popen(
-                    ['xcrun', '-find', c], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-                cmd_output = pipe.stdout.read()
-                if cmd_output:
-                    if "not found" in cmd_output:
-                        print("dropping %s from the compilers used" % c)
-                        configuration.compilers.remove(i)
-                    else:
-                        configuration.compilers[i] = cmd_output.split('\n')[0]
-                        print(
-                            "'xcrun -find %s' returning %s" %
-                            (c, configuration.compilers[i]))
+    checkCompiler()
 
     if not configuration.parsable:
-        print("compilers=%s" % str(configuration.compilers))
-
-    if not configuration.compilers or len(configuration.compilers) == 0:
-        print("No eligible compiler found, exiting.")
-        exitTestSuite(1)
-
-    if isinstance(
-        configuration.compilers,
-        list) and len(
-            configuration.compilers) >= 1:
-        iterCompilers = True
-
-    # If we iterate on archs or compilers, there is a chance we want to split
-    # stderr/stdout.
-    if iterArchs or iterCompilers:
-        old_stderr = sys.stderr
-        old_stdout = sys.stdout
-        new_stderr = None
-        new_stdout = None
+        print("compiler=%s" % configuration.compiler)
 
     # Iterating over all possible architecture and compiler combinations.
-    for ia in range(len(configuration.archs) if iterArchs else 1):
-        archConfig = ""
-        if iterArchs:
-            os.environ["ARCH"] = configuration.archs[ia]
-            archConfig = "arch=%s" % configuration.archs[ia]
-        for ic in range(len(configuration.compilers) if iterCompilers else 1):
-            if iterCompilers:
-                os.environ["CC"] = configuration.compilers[ic]
-                configString = "%s compiler=%s" % (
-                    archConfig, configuration.compilers[ic])
-            else:
-                configString = archConfig
+    os.environ["ARCH"] = configuration.arch
+    os.environ["CC"] = configuration.compiler
+    configString = "arch=%s compiler=%s" % (configuration.arch,
+                                            configuration.compiler)
 
-            if iterArchs or iterCompilers:
-                # Translate ' ' to '-' for pathname component.
-                if six.PY2:
-                    import string
-                    tbl = string.maketrans(' ', '-')
-                else:
-                    tbl = str.maketrans(' ', '-')
-                configPostfix = configString.translate(tbl)
+    # Translate ' ' to '-' for pathname component.
+    if six.PY2:
+        import string
+        tbl = string.maketrans(' ', '-')
+    else:
+        tbl = str.maketrans(' ', '-')
+    configPostfix = configString.translate(tbl)
 
-                # Output the configuration.
-                if not configuration.parsable:
-                    sys.stderr.write("\nConfiguration: " + configString + "\n")
+    # Output the configuration.
+    if not configuration.parsable:
+        sys.stderr.write("\nConfiguration: " + configString + "\n")
 
-            #print("sys.stderr name is", sys.stderr.name)
-            #print("sys.stdout name is", sys.stdout.name)
+    # First, write out the number of collected test cases.
+    if not configuration.parsable:
+        sys.stderr.write(configuration.separator + "\n")
+        sys.stderr.write(
+            "Collected %d test%s\n\n" %
+            (configuration.suite.countTestCases(),
+             configuration.suite.countTestCases() != 1 and "s" or ""))
 
-            # First, write out the number of collected test cases.
-            if not configuration.parsable:
-                sys.stderr.write(configuration.separator + "\n")
-                sys.stderr.write(
-                    "Collected %d test%s\n\n" %
-                    (configuration.suite.countTestCases(),
-                     configuration.suite.countTestCases() != 1 and "s" or ""))
+    if configuration.parsable:
+        v = 0
+    else:
+        v = configuration.verbose
 
-            if configuration.parsable:
-                v = 0
-            else:
-                v = configuration.verbose
+    # Invoke the test runner.
+    if configuration.count == 1:
+        result = unittest2.TextTestRunner(
+            stream=sys.stderr,
+            verbosity=v,
+            resultclass=test_result.LLDBTestResult).run(
+            configuration.suite)
+    else:
+        # We are invoking the same test suite more than once.  In this case,
+        # mark __ignore_singleton__ flag as True so the signleton pattern is
+        # not enforced.
+        test_result.LLDBTestResult.__ignore_singleton__ = True
+        for i in range(configuration.count):
 
-            # Invoke the test runner.
-            if configuration.count == 1:
-                result = unittest2.TextTestRunner(
-                    stream=sys.stderr,
-                    verbosity=v,
-                    resultclass=test_result.LLDBTestResult).run(
-                    configuration.suite)
-            else:
-                # We are invoking the same test suite more than once.  In this case,
-                # mark __ignore_singleton__ flag as True so the signleton pattern is
-                # not enforced.
-                test_result.LLDBTestResult.__ignore_singleton__ = True
-                for i in range(configuration.count):
+            result = unittest2.TextTestRunner(
+                stream=sys.stderr,
+                verbosity=v,
+                resultclass=test_result.LLDBTestResult).run(
+                configuration.suite)
 
-                    result = unittest2.TextTestRunner(
-                        stream=sys.stderr,
-                        verbosity=v,
-                        resultclass=test_result.LLDBTestResult).run(
-                        configuration.suite)
-
-            configuration.failed = configuration.failed or not result.wasSuccessful()
+    configuration.failed = not result.wasSuccessful()
 
     if configuration.sdir_has_content and not configuration.parsable:
         sys.stderr.write(

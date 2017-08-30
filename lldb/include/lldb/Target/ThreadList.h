@@ -13,10 +13,10 @@
 #include <mutex>
 #include <vector>
 
-#include "lldb/Core/UserID.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadCollection.h"
 #include "lldb/Utility/Iterable.h"
+#include "lldb/Utility/UserID.h"
 #include "lldb/lldb-private.h"
 
 namespace lldb_private {
@@ -135,7 +135,7 @@ public:
 
   void SetStopID(uint32_t stop_id);
 
-  std::recursive_mutex &GetMutex() override;
+  std::recursive_mutex &GetMutex() const override;
 
   void Update(ThreadList &rhs);
 

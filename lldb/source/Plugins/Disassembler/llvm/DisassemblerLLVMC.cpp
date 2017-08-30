@@ -31,10 +31,7 @@
 #include "DisassemblerLLVMC.h"
 
 #include "lldb/Core/Address.h"
-#include "lldb/Core/DataExtractor.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Process.h"
@@ -42,8 +39,11 @@
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/Stream.h"
 
-#include "lldb/Core/RegularExpression.h"
+#include "lldb/Utility/RegularExpression.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -359,7 +359,7 @@ public:
             }
             break;
           }
-          m_mnemonics.swap(mnemonic_strm.GetString());
+          m_mnemonics = mnemonic_strm.GetString();
           return;
         } else {
           if (m_does_branch == eLazyBoolCalculate) {
@@ -371,11 +371,12 @@ public:
           }
         }
 
-        static RegularExpression s_regex("[ \t]*([^ ^\t]+)[ \t]*([^ ^\t].*)?");
+        static RegularExpression s_regex(
+            llvm::StringRef("[ \t]*([^ ^\t]+)[ \t]*([^ ^\t].*)?"));
 
         RegularExpression::Match matches(3);
 
-        if (s_regex.Execute(out_string.c_str(), &matches)) {
+        if (s_regex.Execute(out_string, &matches)) {
           matches.GetMatchAtIndex(out_string.c_str(), 1, m_opcode_name);
           matches.GetMatchAtIndex(out_string.c_str(), 2, m_mnemonics);
         }
@@ -735,7 +736,7 @@ public:
       if (op.m_negative) {
         s.PutCString("-");
       }
-      s.PutCString(llvm::to_string(op.m_immediate).c_str());
+      s.PutCString(llvm::to_string(op.m_immediate));
       break;
     case Operand::Type::Invalid:
       s.PutCString("Invalid");
@@ -833,7 +834,7 @@ public:
         ss.PutCString("\n");
       }
 
-      log->PutCString(ss.GetData());
+      log->PutString(ss.GetString());
     }
 
     return true;
@@ -1043,8 +1044,7 @@ DisassemblerLLVMC::DisassemblerLLVMC(const ArchSpec &arch,
     } else {
       thumb_arch_name = "thumbv8.2a";
     }
-    thumb_arch.GetTriple().setArchName(
-        llvm::StringRef(thumb_arch_name.c_str()));
+    thumb_arch.GetTriple().setArchName(llvm::StringRef(thumb_arch_name));
   }
 
   // If no sub architecture specified then use the most recent arm architecture
@@ -1351,12 +1351,12 @@ const char *DisassemblerLLVMC::SymbolLookup(uint64_t value, uint64_t *type_ptr,
           // seen when we
           // have multiple levels of inlined functions at an address, only show
           // the first line.
-          std::string &str(ss.GetString());
+          std::string str = ss.GetString();
           size_t first_eol_char = str.find_first_of("\r\n");
           if (first_eol_char != std::string::npos) {
             str.erase(first_eol_char);
           }
-          m_inst->AppendComment(ss.GetString());
+          m_inst->AppendComment(str);
         }
       }
     }

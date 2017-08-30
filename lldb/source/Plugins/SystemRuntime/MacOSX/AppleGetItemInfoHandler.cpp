@@ -15,10 +15,7 @@
 // Other libraries and framework includes
 // Project includes
 
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/FunctionCaller.h"
@@ -29,6 +26,9 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -188,7 +188,7 @@ lldb::addr_t AppleGetItemInfoHandler::SetupGetItemInfoFunction(
       get_item_info_caller = m_get_item_info_impl_code->MakeFunctionCaller(
           get_item_info_return_type, get_item_info_arglist,
           thread.shared_from_this(), error);
-      if (error.Fail()) {
+      if (error.Fail() || get_item_info_caller == nullptr) {
         if (log)
           log->Printf("Error Inserting get-item-info function: \"%s\".",
                       error.AsCString());
@@ -340,7 +340,7 @@ AppleGetItemInfoHandler::GetItemInfo(Thread &thread, uint64_t item,
   options.SetUnwindOnError(true);
   options.SetIgnoreBreakpoints(true);
   options.SetStopOthers(true);
-  options.SetTimeoutUsec(500000);
+  options.SetTimeout(std::chrono::milliseconds(500));
   options.SetTryAllThreads(false);
   thread.CalculateExecutionContext(exe_ctx);
 

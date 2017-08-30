@@ -1,7 +1,10 @@
 # REQUIRES: x86
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t
 
-# RUN: echo "SECTIONS {.foo : { begin = .; *(.foo.*) end = .;} }" > %t.script
+# RUN: echo "SECTIONS { \
+# RUN:   . = SIZEOF_HEADERS; \
+# RUN:   .foo : { begin = .; *(.foo.*) end = .;} \
+# RUN: }" > %t.script
 # RUN: ld.lld -o %t1 --script %t.script %t -shared
 # RUN: llvm-readobj -s -t %t1 | FileCheck %s
 
@@ -12,52 +15,21 @@
 # CHECK-NEXT:     SHF_MERGE
 # CHECK-NEXT:     SHF_STRINGS
 # CHECK-NEXT:   ]
-# CHECK-NEXT:   Address: 0x1C8
-# CHECK-NEXT:   Offset: 0x1C8
-# CHECK-NEXT:   Size: 4
-# CHECK-NEXT:   Link: 0
-# CHECK-NEXT:   Info: 0
-# CHECK-NEXT:   AddressAlignment: 1
-# CHECK-NEXT:   EntrySize: 1
-# CHECK-NEXT: }
-# CHECK-NEXT: Section {
-# CHECK-NEXT:   Index:
-# CHECK-NEXT:   Name: .foo
-# CHECK-NEXT:   Type: SHT_PROGBITS
-# CHECK-NEXT:   Flags [
-# CHECK-NEXT:     SHF_ALLOC
-# CHECK-NEXT:     SHF_MERGE
-# CHECK-NEXT:   ]
-# CHECK-NEXT:   Address: 0x1CC
-# CHECK-NEXT:   Offset: 0x1CC
-# CHECK-NEXT:   Size: 1
-# CHECK-NEXT:   Link: 0
-# CHECK-NEXT:   Info: 0
-# CHECK-NEXT:   AddressAlignment: 1
-# CHECK-NEXT:   EntrySize: 1
-# CHECK-NEXT: }
-# CHECK-NEXT: Section {
-# CHECK-NEXT:   Index:
-# CHECK-NEXT:   Name: .foo
-# CHECK-NEXT:   Type: SHT_PROGBITS
-# CHECK-NEXT:   Flags [
-# CHECK-NEXT:     SHF_ALLOC
-# CHECK-NEXT:     SHF_MERGE
-# CHECK-NEXT:   ]
-# CHECK-NEXT:   Address: 0x1CE
-# CHECK-NEXT:   Offset: 0x1CE
-# CHECK-NEXT:   Size: 2
+# CHECK-NEXT:   Address: 0x[[ADDR1:.*]]
+# CHECK-NEXT:   Offset: 0x[[ADDR1]]
+# CHECK-NEXT:   Size: 14
 # CHECK-NEXT:   Link: 0
 # CHECK-NEXT:   Info: 0
 # CHECK-NEXT:   AddressAlignment: 2
-# CHECK-NEXT:   EntrySize: 2
-
+# CHECK-NEXT:   EntrySize: 0
+# CHECK-NEXT: }
 
 # CHECK:      Name: begin
-# CHECK-NEXT: Value: 0x1C8
+# CHECK-NEXT: Value: 0x[[ADDR1]]
 
 # CHECK:      Name: end
-# CHECK-NEXT: Value: 0x1D0
+# 0x19E = begin + sizeof(.foo) = 0x190 + 0xE
+# CHECK-NEXT: Value: 0x19E
 
 .section        .foo.1a,"aMS",@progbits,1
 .asciz "foo"

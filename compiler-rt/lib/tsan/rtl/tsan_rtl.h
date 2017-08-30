@@ -52,7 +52,7 @@
 
 namespace __tsan {
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 struct MapUnmapCallback;
 #if defined(__mips64) || defined(__aarch64__) || defined(__powerpc__)
 static const uptr kAllocatorSpace = 0;
@@ -341,7 +341,7 @@ struct JmpBuf {
 // A ThreadState must be wired with a Processor to handle events.
 struct Processor {
   ThreadState *thr; // currently wired thread, or nullptr
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   AllocatorCache alloc_cache;
   InternalAllocatorCache internal_alloc_cache;
 #endif
@@ -351,7 +351,7 @@ struct Processor {
   DDPhysicalThread *dd_pt;
 };
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 // ScopedGlobalProcessor temporary setups a global processor for the current
 // thread, if it does not have one. Intended for interceptors that can run
 // at the very thread end, when we already destroyed the thread processor.
@@ -381,8 +381,9 @@ struct ThreadState {
   // for better performance.
   int ignore_reads_and_writes;
   int ignore_sync;
+  int suppress_reports;
   // Go does not support ignores.
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   IgnoreSet mop_ignore_set;
   IgnoreSet sync_ignore_set;
 #endif
@@ -395,7 +396,7 @@ struct ThreadState {
   u64 racy_state[2];
   MutexSet mset;
   ThreadClock clock;
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   Vector<JmpBuf> jmp_bufs;
   int ignore_interceptors;
 #endif
@@ -410,6 +411,7 @@ struct ThreadState {
   bool is_dead;
   bool is_freeing;
   bool is_vptr_access;
+  uptr external_tag;
   const uptr stk_addr;
   const uptr stk_size;
   const uptr tls_addr;
@@ -423,7 +425,7 @@ struct ThreadState {
 
   // Current wired Processor, or nullptr. Required to handle any events.
   Processor *proc1;
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   Processor *proc() { return proc1; }
 #else
   Processor *proc();
@@ -432,7 +434,7 @@ struct ThreadState {
   atomic_uintptr_t in_signal_handler;
   ThreadSignalContext *signal_ctx;
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
   u32 last_sleep_stack_id;
   ThreadClock last_sleep_clock;
 #endif
@@ -449,7 +451,7 @@ struct ThreadState {
                        uptr tls_addr, uptr tls_size);
 };
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 #if SANITIZER_MAC || SANITIZER_ANDROID
 ThreadState *cur_thread();
 void cur_thread_finalize();
@@ -545,15 +547,19 @@ struct Context {
 
 extern Context *ctx;  // The one and the only global runtime context.
 
+ALWAYS_INLINE Flags *flags() {
+  return &ctx->flags;
+}
+
 struct ScopedIgnoreInterceptors {
   ScopedIgnoreInterceptors() {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
     cur_thread()->ignore_interceptors++;
 #endif
   }
 
   ~ScopedIgnoreInterceptors() {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
     cur_thread()->ignore_interceptors--;
 #endif
   }
@@ -564,7 +570,7 @@ class ScopedReport {
   explicit ScopedReport(ReportType typ);
   ~ScopedReport();
 
-  void AddMemoryAccess(uptr addr, Shadow s, StackTrace stack,
+  void AddMemoryAccess(uptr addr, uptr external_tag, Shadow s, StackTrace stack,
                        const MutexSet *mset);
   void AddStack(StackTrace stack, bool suppressable = false);
   void AddThread(const ThreadContext *tctx, bool suppressable = false);
@@ -590,6 +596,7 @@ class ScopedReport {
   void operator = (const ScopedReport&);
 };
 
+ThreadContext *IsThreadStackOrTls(uptr addr, bool *is_stack);
 void RestoreStack(int tid, const u64 epoch, VarSizeStackTrace *stk,
                   MutexSet *mset);
 
@@ -638,6 +645,8 @@ bool OutputReport(ThreadState *thr, const ScopedReport &srep);
 bool IsFiredSuppression(Context *ctx, ReportType type, StackTrace trace);
 bool IsExpectedReport(uptr addr, uptr size);
 void PrintMatchedBenignRaces();
+
+const char *GetObjectTypeFromTag(uptr tag);
 
 #if defined(TSAN_DEBUG_OUTPUT) && TSAN_DEBUG_OUTPUT >= 1
 # define DPrintf Printf
@@ -703,16 +712,16 @@ void MemoryResetRange(ThreadState *thr, uptr pc, uptr addr, uptr size);
 void MemoryRangeFreed(ThreadState *thr, uptr pc, uptr addr, uptr size);
 void MemoryRangeImitateWrite(ThreadState *thr, uptr pc, uptr addr, uptr size);
 
-void ThreadIgnoreBegin(ThreadState *thr, uptr pc);
+void ThreadIgnoreBegin(ThreadState *thr, uptr pc, bool save_stack = true);
 void ThreadIgnoreEnd(ThreadState *thr, uptr pc);
-void ThreadIgnoreSyncBegin(ThreadState *thr, uptr pc);
+void ThreadIgnoreSyncBegin(ThreadState *thr, uptr pc, bool save_stack = true);
 void ThreadIgnoreSyncEnd(ThreadState *thr, uptr pc);
 
 void FuncEntry(ThreadState *thr, uptr pc);
 void FuncExit(ThreadState *thr);
 
 int ThreadCreate(ThreadState *thr, uptr pc, uptr uid, bool detached);
-void ThreadStart(ThreadState *thr, int tid, uptr os_id);
+void ThreadStart(ThreadState *thr, int tid, tid_t os_id, bool workerthread);
 void ThreadFinish(ThreadState *thr);
 int ThreadTid(ThreadState *thr, uptr pc, uptr uid);
 void ThreadJoin(ThreadState *thr, uptr pc, int tid);
@@ -727,13 +736,16 @@ void ProcDestroy(Processor *proc);
 void ProcWire(Processor *proc, ThreadState *thr);
 void ProcUnwire(Processor *proc, ThreadState *thr);
 
-void MutexCreate(ThreadState *thr, uptr pc, uptr addr,
-                 bool rw, bool recursive, bool linker_init);
+// Note: the parameter is called flagz, because flags is already taken
+// by the global function that returns flags.
+void MutexCreate(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0);
 void MutexDestroy(ThreadState *thr, uptr pc, uptr addr);
-void MutexLock(ThreadState *thr, uptr pc, uptr addr, int rec = 1,
-               bool try_lock = false);
-int  MutexUnlock(ThreadState *thr, uptr pc, uptr addr, bool all = false);
-void MutexReadLock(ThreadState *thr, uptr pc, uptr addr, bool try_lock = false);
+void MutexPreLock(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0);
+void MutexPostLock(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0,
+    int rec = 1);
+int  MutexUnlock(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0);
+void MutexPreReadLock(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0);
+void MutexPostReadLock(ThreadState *thr, uptr pc, uptr addr, u32 flagz = 0);
 void MutexReadUnlock(ThreadState *thr, uptr pc, uptr addr);
 void MutexReadOrWriteUnlock(ThreadState *thr, uptr pc, uptr addr);
 void MutexRepair(ThreadState *thr, uptr pc, uptr addr);  // call on EOWNERDEAD
@@ -793,7 +805,7 @@ void ALWAYS_INLINE TraceAddEvent(ThreadState *thr, FastState fs,
   StatInc(thr, StatEvents);
   u64 pos = fs.GetTracePos();
   if (UNLIKELY((pos % kTracePartSize) == 0)) {
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
     HACKY_CALL(__tsan_trace_switch);
 #else
     TraceSwitch(thr);
@@ -805,7 +817,7 @@ void ALWAYS_INLINE TraceAddEvent(ThreadState *thr, FastState fs,
   *evp = ev;
 }
 
-#ifndef SANITIZER_GO
+#if !SANITIZER_GO
 uptr ALWAYS_INLINE HeapEnd() {
   return HeapMemEnd() + PrimaryAllocator::AdditionalSize();
 }

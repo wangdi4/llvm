@@ -11,9 +11,6 @@
 #ifndef _LIBCPP_SUPPORT_WIN32_LOCALE_WIN32_H
 #define _LIBCPP_SUPPORT_WIN32_LOCALE_WIN32_H
 
-// ctype mask table defined in msvcrt.dll
-extern "C" unsigned short  __declspec(dllimport) _ctype[];
-
 #include "support/win32/support.h"
 #include "support/win32/locale_mgmt_win32.h"
 #include <stdio.h>
@@ -43,8 +40,9 @@ decltype(MB_CUR_MAX) MB_CUR_MAX_L( locale_t __l )
 #define mbtowc_l _mbtowc_l
 #define strtoll_l _strtoi64_l
 #define strtoull_l _strtoui64_l
-// FIXME: current msvcrt does not know about long double
-#define strtold_l _strtod_l
+#define strtof_l _strtof_l
+#define strtod_l _strtod_l
+#define strtold_l _strtold_l
 
 inline _LIBCPP_INLINE_VISIBILITY
 int

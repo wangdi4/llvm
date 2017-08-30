@@ -169,12 +169,9 @@ Error NativeRegisterContextLinux::DoReadRegisterValue(uint32_t offset,
 
   if (error.Success())
     // First cast to an unsigned of the same size to avoid sign extension.
-    value.SetUInt64(static_cast<unsigned long>(data));
+    value.SetUInt(static_cast<unsigned long>(data), size);
 
-  if (log)
-    log->Printf("NativeRegisterContextLinux::%s() reg %s: 0x%lx", __FUNCTION__,
-                reg_name, data);
-
+  LLDB_LOG(log, "{0}: {1:x}", reg_name, data);
   return error;
 }
 
@@ -183,10 +180,7 @@ Error NativeRegisterContextLinux::DoWriteRegisterValue(
   Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_REGISTERS));
 
   void *buf = reinterpret_cast<void *>(value.GetAsUInt64());
-
-  if (log)
-    log->Printf("NativeRegisterContextLinux::%s() reg %s: %p", __FUNCTION__,
-                reg_name, buf);
+  LLDB_LOG(log, "{0}: {1}", reg_name, buf);
 
   return NativeProcessLinux::PtraceWrapper(
       PTRACE_POKEUSER, m_thread.GetID(), reinterpret_cast<void *>(offset), buf);

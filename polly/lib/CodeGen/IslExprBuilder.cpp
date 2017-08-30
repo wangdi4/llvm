@@ -10,6 +10,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/CodeGen/IslExprBuilder.h"
+#include "polly/CodeGen/RuntimeDebugBuilder.h"
 #include "polly/Options.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/GICHelper.h"
@@ -35,16 +36,16 @@ static cl::opt<OverflowTrackingChoice> OTMode(
                clEnumValN(OT_REQUEST, "request",
                           "Track the overflow bit if requested."),
                clEnumValN(OT_ALWAYS, "always",
-                          "Always track the overflow bit."),
-               clEnumValEnd),
+                          "Always track the overflow bit.")),
     cl::Hidden, cl::init(OT_REQUEST), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 IslExprBuilder::IslExprBuilder(Scop &S, PollyIRBuilder &Builder,
                                IDToValueTy &IDToValue, ValueMapT &GlobalMap,
                                const DataLayout &DL, ScalarEvolution &SE,
-                               DominatorTree &DT, LoopInfo &LI)
+                               DominatorTree &DT, LoopInfo &LI,
+                               BasicBlock *StartBlock)
     : S(S), Builder(Builder), IDToValue(IDToValue), GlobalMap(GlobalMap),
-      DL(DL), SE(SE), DT(DT), LI(LI) {
+      DL(DL), SE(SE), DT(DT), LI(LI), StartBlock(StartBlock) {
   OverflowState = (OTMode == OT_ALWAYS) ? Builder.getFalse() : nullptr;
 }
 
@@ -225,6 +226,9 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
 
   const ScopArrayInfo *SAI = nullptr;
 
+  if (PollyDebugPrinting)
+    RuntimeDebugBuilder::createCPUPrinter(Builder, isl_id_get_name(BaseId));
+
   if (IDToSAI)
     SAI = (*IDToSAI)[BaseId];
 
@@ -252,6 +256,8 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
 
   if (isl_ast_expr_get_op_n_arg(Expr) == 1) {
     isl_ast_expr_free(Expr);
+    if (PollyDebugPrinting)
+      RuntimeDebugBuilder::createCPUPrinter(Builder, "\n");
     return Base;
   }
 
@@ -260,6 +266,9 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
     Value *NextIndex = create(isl_ast_expr_get_op_arg(Expr, u));
     assert(NextIndex->getType()->isIntegerTy() &&
            "Access index should be an integer");
+
+    if (PollyDebugPrinting)
+      RuntimeDebugBuilder::createCPUPrinter(Builder, "[", NextIndex, "]");
 
     if (!IndexOp) {
       IndexOp = NextIndex;
@@ -285,7 +294,8 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
     DimSCEV = SCEVParameterRewriter::rewrite(DimSCEV, SE, Map);
     Value *DimSize =
         expandCodeFor(S, SE, DL, "polly", DimSCEV, DimSCEV->getType(),
-                      &*Builder.GetInsertPoint());
+                      &*Builder.GetInsertPoint(), nullptr,
+                      StartBlock->getSinglePredecessor());
 
     Type *Ty = getWidestType(DimSize->getType(), IndexOp->getType());
 
@@ -300,6 +310,8 @@ Value *IslExprBuilder::createAccessAddress(isl_ast_expr *Expr) {
 
   Access = Builder.CreateGEP(Base, IndexOp, "polly.access." + BaseName);
 
+  if (PollyDebugPrinting)
+    RuntimeDebugBuilder::createCPUPrinter(Builder, "\n");
   isl_ast_expr_free(Expr);
   return Access;
 }

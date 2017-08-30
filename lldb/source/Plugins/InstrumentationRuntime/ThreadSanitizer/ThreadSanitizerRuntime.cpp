@@ -15,8 +15,6 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginInterface.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/RegularExpression.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Expression/UserExpression.h"
@@ -30,6 +28,8 @@
 #include "lldb/Target/StopInfo.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/RegularExpression.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -59,7 +59,7 @@ lldb::InstrumentationRuntimeType ThreadSanitizerRuntime::GetTypeStatic() {
 
 ThreadSanitizerRuntime::~ThreadSanitizerRuntime() { Deactivate(); }
 
-#define RETRIEVE_REPORT_DATA_FUNCTION_TIMEOUT_USEC 2 * 1000 * 1000
+static constexpr std::chrono::seconds g_retrieve_data_function_timeout(2);
 
 const char *thread_sanitizer_retrieve_report_data_prefix = R"(
 extern "C"
@@ -85,6 +85,10 @@ extern "C"
                                  int *running, const char **name, int *parent_tid,
                                  void **trace, unsigned long trace_size);
     int __tsan_get_report_unique_tid(void *report, unsigned long idx, int *tid);
+  
+    // TODO: dlsym won't work on Windows.
+    void *dlsym(void* handle, const char* symbol);
+    int (*ptr__tsan_get_report_loc_object_type)(void *report, unsigned long idx, const char **object_type);
 }
 
 const int REPORT_TRACE_SIZE = 128;
@@ -125,6 +129,7 @@ struct data {
         int fd;
         int suppressable;
         void *trace[REPORT_TRACE_SIZE];
+        const char *object_type;
     } locs[REPORT_ARRAY_SIZE];
     
     int mutex_count;
@@ -158,6 +163,8 @@ struct data {
 const char *thread_sanitizer_retrieve_report_data_command = R"(
 data t = {0};
 
+ptr__tsan_get_report_loc_object_type = (typeof(ptr__tsan_get_report_loc_object_type))(void *)dlsym((void*)-2 /*RTLD_DEFAULT*/, "__tsan_get_report_loc_object_type");
+
 t.report = __tsan_get_current_report();
 __tsan_get_report_data(t.report, &t.description, &t.report_count, &t.stack_count, &t.mop_count, &t.loc_count, &t.mutex_count, &t.thread_count, &t.unique_tid_count, t.sleep_trace, REPORT_TRACE_SIZE);
 
@@ -177,6 +184,8 @@ if (t.loc_count > REPORT_ARRAY_SIZE) t.loc_count = REPORT_ARRAY_SIZE;
 for (int i = 0; i < t.loc_count; i++) {
     t.locs[i].idx = i;
     __tsan_get_report_loc(t.report, i, &t.locs[i].type, &t.locs[i].addr, &t.locs[i].start, &t.locs[i].size, &t.locs[i].tid, &t.locs[i].fd, &t.locs[i].suppressable, t.locs[i].trace, REPORT_TRACE_SIZE);
+    if (ptr__tsan_get_report_loc_object_type)
+        ptr__tsan_get_report_loc_object_type(t.report, i, &t.locs[i].object_type);
 }
 
 if (t.mutex_count > REPORT_ARRAY_SIZE) t.mutex_count = REPORT_ARRAY_SIZE;
@@ -206,7 +215,8 @@ CreateStackTrace(ValueObjectSP o,
   StructuredData::Array *trace = new StructuredData::Array();
   ValueObjectSP trace_value_object =
       o->GetValueForExpressionPath(trace_item_name.c_str());
-  for (int j = 0; j < 8; j++) {
+  size_t count = trace_value_object->GetNumChildren();
+  for (size_t j = 0; j < count; j++) {
     addr_t trace_addr =
         trace_value_object->GetChildAtIndex(j, true)->GetValueAsUnsigned(0);
     if (trace_addr == 0)
@@ -308,7 +318,7 @@ ThreadSanitizerRuntime::RetrieveReportData(ExecutionContextRef exe_ctx_ref) {
   options.SetTryAllThreads(true);
   options.SetStopOthers(true);
   options.SetIgnoreBreakpoints(true);
-  options.SetTimeoutUsec(RETRIEVE_REPORT_DATA_FUNCTION_TIMEOUT_USEC);
+  options.SetTimeout(g_retrieve_data_function_timeout);
   options.SetPrefix(thread_sanitizer_retrieve_report_data_prefix);
   options.SetAutoApplyFixIts(false);
   options.SetLanguage(eLanguageTypeObjC_plus_plus);
@@ -408,6 +418,8 @@ ThreadSanitizerRuntime::RetrieveReportData(ExecutionContextRef exe_ctx_ref) {
                              o->GetValueForExpressionPath(".suppressable")
                                  ->GetValueAsUnsigned(0));
         dict->AddItem("trace", StructuredData::ObjectSP(CreateStackTrace(o)));
+        dict->AddStringItem("object_type",
+                            RetrieveString(o, process_sp, ".object_type"));
       });
   dict->AddItem("locs", StructuredData::ObjectSP(locs));
 
@@ -510,6 +522,10 @@ ThreadSanitizerRuntime::FormatDescription(StructuredData::ObjectSP report) {
     return "Overwrite of errno in a signal handler";
   } else if (description == "lock-order-inversion") {
     return "Lock order inversion (potential deadlock)";
+  } else if (description == "external-race") {
+    return "Race on a library object";
+  } else if (description == "swift-access-race") {
+    return "Swift access race";
   }
 
   // for unknown report codes just show the code
@@ -567,27 +583,31 @@ static void GetSymbolDeclarationFromAddress(ProcessSP process_sp, addr_t addr,
 }
 
 addr_t ThreadSanitizerRuntime::GetFirstNonInternalFramePc(
-    StructuredData::ObjectSP trace) {
+    StructuredData::ObjectSP trace, bool skip_one_frame) {
   ProcessSP process_sp = GetProcessSP();
   ModuleSP runtime_module_sp = GetRuntimeModuleSP();
 
-  addr_t result = 0;
-  trace->GetAsArray()->ForEach([process_sp, runtime_module_sp,
-                                &result](StructuredData::Object *o) -> bool {
-    addr_t addr = o->GetIntegerValue();
+  StructuredData::Array *trace_array = trace->GetAsArray();
+  for (size_t i = 0; i < trace_array->GetSize(); i++) {
+    if (skip_one_frame && i == 0)
+      continue;
+
+    addr_t addr;
+    if (!trace_array->GetItemAtIndexAsInteger(i, addr))
+      continue;
+
     lldb_private::Address so_addr;
     if (!process_sp->GetTarget().GetSectionLoadList().ResolveLoadAddress(
             addr, so_addr))
-      return true;
+      continue;
 
     if (so_addr.GetModule() == runtime_module_sp)
-      return true;
+      continue;
 
-    result = addr;
-    return false;
-  });
+    return addr;
+  }
 
-  return result;
+  return 0;
 }
 
 std::string
@@ -598,6 +618,10 @@ ThreadSanitizerRuntime::GenerateSummary(StructuredData::ObjectSP report) {
                             ->GetValueForKey("description")
                             ->GetAsString()
                             ->GetValue();
+  bool skip_one_frame =
+      report->GetObjectForDotSeparatedPath("issue_type")->GetStringValue() ==
+      "external-race";
+
   addr_t pc = 0;
   if (report->GetAsDictionary()
           ->GetValueForKey("mops")
@@ -608,7 +632,8 @@ ThreadSanitizerRuntime::GenerateSummary(StructuredData::ObjectSP report) {
                                         ->GetAsArray()
                                         ->GetItemAtIndex(0)
                                         ->GetAsDictionary()
-                                        ->GetValueForKey("trace"));
+                                        ->GetValueForKey("trace"),
+                                    skip_one_frame);
 
   if (report->GetAsDictionary()
           ->GetValueForKey("stacks")
@@ -619,7 +644,8 @@ ThreadSanitizerRuntime::GenerateSummary(StructuredData::ObjectSP report) {
                                         ->GetAsArray()
                                         ->GetItemAtIndex(0)
                                         ->GetAsDictionary()
-                                        ->GetValueForKey("trace"));
+                                        ->GetValueForKey("trace"),
+                                    skip_one_frame);
 
   if (pc != 0) {
     summary = summary + " in " + GetSymbolNameFromAddress(process_sp, pc);
@@ -633,6 +659,13 @@ ThreadSanitizerRuntime::GenerateSummary(StructuredData::ObjectSP report) {
                                        ->GetValueForKey("locs")
                                        ->GetAsArray()
                                        ->GetItemAtIndex(0);
+    std::string object_type = loc->GetAsDictionary()
+                                  ->GetValueForKey("object_type")
+                                  ->GetAsString()
+                                  ->GetValue();
+    if (!object_type.empty()) {
+      summary = "Race on " + object_type + " object";
+    }
     addr_t addr = loc->GetAsDictionary()
                       ->GetValueForKey("address")
                       ->GetAsInteger()
@@ -725,8 +758,17 @@ std::string ThreadSanitizerRuntime::GetLocationDescription(
                       ->GetValueForKey("size")
                       ->GetAsInteger()
                       ->GetValue();
-      result =
-          Sprintf("Location is a %ld-byte heap object at 0x%llx", size, addr);
+      std::string object_type = loc->GetAsDictionary()
+                                    ->GetValueForKey("object_type")
+                                    ->GetAsString()
+                                    ->GetValue();
+      if (!object_type.empty()) {
+        result = Sprintf("Location is a %ld-byte %s object at 0x%llx", size,
+                         object_type.c_str(), addr);
+      } else {
+        result =
+            Sprintf("Location is a %ld-byte heap object at 0x%llx", size, addr);
+      }
     } else if (type == "stack") {
       int tid = loc->GetAsDictionary()
                     ->GetValueForKey("thread_id")
@@ -817,7 +859,7 @@ bool ThreadSanitizerRuntime::NotifyBreakpointHit(
       thread_sp->SetStopInfo(
           InstrumentationRuntimeStopInfo::
               CreateStopReasonWithInstrumentationData(
-                  *thread_sp, stop_reason_description.c_str(), report));
+                  *thread_sp, stop_reason_description, report));
 
     StreamFileSP stream_sp(
         process_sp->GetTarget().GetDebugger().GetOutputFile());
@@ -832,7 +874,7 @@ bool ThreadSanitizerRuntime::NotifyBreakpointHit(
 }
 
 const RegularExpression &ThreadSanitizerRuntime::GetPatternForRuntimeLibrary() {
-  static RegularExpression regex("libclang_rt.tsan_");
+  static RegularExpression regex(llvm::StringRef("libclang_rt.tsan_"));
   return regex;
 }
 
@@ -919,9 +961,18 @@ static std::string GenerateThreadName(const std::string &path,
       addr_string = "";
     }
 
-    result = Sprintf("%s%s of size %d%s by thread %d",
-                     is_atomic ? "atomic " : "", is_write ? "write" : "read",
-                     size, addr_string.c_str(), thread_id);
+    if (main_info->GetObjectForDotSeparatedPath("issue_type")
+            ->GetStringValue() == "external-race") {
+      result = Sprintf("%s access by thread %d",
+                       is_write ? "mutating" : "read-only", thread_id);
+    } else if (main_info->GetObjectForDotSeparatedPath("issue_type")
+                   ->GetStringValue() == "swift-access-race") {
+      result = Sprintf("modifying access by thread %d", thread_id);
+    } else {
+      result = Sprintf("%s%s of size %d%s by thread %d",
+                       is_atomic ? "atomic " : "", is_write ? "write" : "read",
+                       size, addr_string.c_str(), thread_id);
+    }
   }
 
   if (path == "threads") {

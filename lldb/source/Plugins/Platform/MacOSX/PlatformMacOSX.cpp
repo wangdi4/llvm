@@ -17,21 +17,20 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/DataBufferHeap.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/StreamString.h"
-#include "lldb/Host/FileSpec.h"
-#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBufferHeap.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -220,15 +219,15 @@ ConstString PlatformMacOSX::GetSDKDirectory(lldb_private::Target &target) {
                           "SDKs/MacOSX%u.%u.sdk",
                           xcode_contents_path.c_str(), versions[0],
                           versions[1]);
-          fspec.SetFile(sdk_path.GetString().c_str(), false);
+          fspec.SetFile(sdk_path.GetString(), false);
           if (fspec.Exists())
-            return ConstString(sdk_path.GetString().c_str());
+            return ConstString(sdk_path.GetString());
         }
 
         if (!default_xcode_sdk.empty()) {
-          fspec.SetFile(default_xcode_sdk.c_str(), false);
+          fspec.SetFile(default_xcode_sdk, false);
           if (fspec.Exists())
-            return ConstString(default_xcode_sdk.c_str());
+            return ConstString(default_xcode_sdk);
         }
       }
     }
@@ -270,7 +269,7 @@ PlatformMacOSX::GetFileWithUUID(const lldb_private::FileSpec &platform_file,
       std::string cache_path(GetLocalCacheDirectory());
       std::string module_path(platform_file.GetPath());
       cache_path.append(module_path);
-      FileSpec module_cache_spec(cache_path.c_str(), false);
+      FileSpec module_cache_spec(cache_path, false);
       if (module_cache_spec.Exists()) {
         local_file = module_cache_spec;
         return Error();
@@ -279,8 +278,7 @@ PlatformMacOSX::GetFileWithUUID(const lldb_private::FileSpec &platform_file,
       FileSpec module_cache_folder =
           module_cache_spec.CopyByRemovingLastPathComponent();
       // try to make the local directory first
-      Error err = FileSystem::MakeDirectory(module_cache_folder,
-                                            eFilePermissionsDirectoryDefault);
+      Error err(llvm::sys::fs::create_directory(module_cache_folder.GetPath()));
       if (err.Fail())
         return err;
       err = GetFile(platform_file, module_cache_spec);

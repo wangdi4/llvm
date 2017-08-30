@@ -14,8 +14,9 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Core/Stream.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Interpreter/Args.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -114,7 +115,7 @@ Error OptionValueString::SetValueFromString(llvm::StringRef value,
     if (m_options.Test(eOptionEncodeCharacterEscapeSequences)) {
       Args::EncodeEscapeSequences(value_str.c_str(), m_current_value);
     } else {
-      SetCurrentValue(value_str.c_str());
+      SetCurrentValue(value_str);
     }
     NotifyValueChanged();
     break;
@@ -126,16 +127,13 @@ lldb::OptionValueSP OptionValueString::DeepCopy() const {
   return OptionValueSP(new OptionValueString(*this));
 }
 
-Error OptionValueString::SetCurrentValue(const char *value) {
+Error OptionValueString::SetCurrentValue(llvm::StringRef value) {
   if (m_validator) {
-    Error error(m_validator(value, m_validator_baton));
+    Error error(m_validator(value.str().c_str(), m_validator_baton));
     if (error.Fail())
       return error;
   }
-  if (value && value[0])
-    m_current_value.assign(value);
-  else
-    m_current_value.clear();
+  m_current_value.assign(value);
   return Error();
 }
 

@@ -17,8 +17,14 @@
 #include "polly/CodeGen/IslExprBuilder.h"
 #include "polly/CodeGen/LoopGenerators.h"
 #include "polly/ScopInfo.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "isl/ctx.h"
 #include "isl/union_map.h"
+#include <utility>
+#include <vector>
 
 using namespace polly;
 using namespace llvm;
@@ -54,16 +60,18 @@ isl_stat addReferencesFromStmt(const ScopStmt *Stmt, void *UserPtr,
 
 class IslNodeBuilder {
 public:
-  IslNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator, Pass *P,
+  IslNodeBuilder(PollyIRBuilder &Builder, ScopAnnotator &Annotator,
                  const DataLayout &DL, LoopInfo &LI, ScalarEvolution &SE,
-                 DominatorTree &DT, Scop &S)
+                 DominatorTree &DT, Scop &S, BasicBlock *StartBlock)
       : S(S), Builder(Builder), Annotator(Annotator),
-        ExprBuilder(S, Builder, IDToValue, ValueMap, DL, SE, DT, LI),
-        BlockGen(Builder, LI, SE, DT, ScalarMap, PHIOpMap, EscapeMap, ValueMap,
-                 &ExprBuilder),
-        RegionGen(BlockGen), P(P), DL(DL), LI(LI), SE(SE), DT(DT) {}
+        ExprBuilder(S, Builder, IDToValue, ValueMap, DL, SE, DT, LI,
+                    StartBlock),
+        BlockGen(Builder, LI, SE, DT, ScalarMap, EscapeMap, ValueMap,
+                 &ExprBuilder, StartBlock),
+        RegionGen(BlockGen), DL(DL), LI(LI), SE(SE), DT(DT),
+        StartBlock(StartBlock) {}
 
-  virtual ~IslNodeBuilder() {}
+  virtual ~IslNodeBuilder() = default;
 
   void addParameters(__isl_take isl_set *Context);
 
@@ -117,10 +125,7 @@ protected:
   ///@{
 
   /// See BlockGenerator::ScalarMap.
-  BlockGenerator::ScalarAllocaMapTy ScalarMap;
-
-  /// See BlockGenerator::PhiOpMap.
-  BlockGenerator::ScalarAllocaMapTy PHIOpMap;
+  BlockGenerator::AllocaMapTy ScalarMap;
 
   /// See BlockGenerator::EscapeMap.
   BlockGenerator::EscapeUsersAllocaMapTy EscapeMap;
@@ -133,11 +138,11 @@ protected:
   /// The generator used to copy a non-affine region.
   RegionGenerator RegionGen;
 
-  Pass *const P;
   const DataLayout &DL;
   LoopInfo &LI;
   ScalarEvolution &SE;
   DominatorTree &DT;
+  BasicBlock *StartBlock;
 
   /// The current iteration of out-of-scop loops
   ///
@@ -175,11 +180,13 @@ protected:
 
   /// Materialize parameters of @p Set.
   ///
-  /// @param All If not set only parameters referred to by the constraints in
-  ///            @p Set will be materialized, otherwise all.
+  /// @returns False, iff a problem occurred and the value was not materialized.
+  bool materializeParameters(__isl_take isl_set *Set);
+
+  /// Materialize all parameters in the current scop.
   ///
   /// @returns False, iff a problem occurred and the value was not materialized.
-  bool materializeParameters(__isl_take isl_set *Set, bool All);
+  bool materializeParameters();
 
   // Extract the upper bound of this loop
   //
@@ -392,4 +399,4 @@ private:
                         __isl_keep isl_id_to_ast_expr *NewAccesses);
 };
 
-#endif
+#endif // POLLY_ISL_NODE_BUILDER_H

@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/Core/IOHandler.h"
+
 // C Includes
 #ifndef LLDB_DISABLE_CURSES
 #include <curses.h>
@@ -21,35 +23,54 @@
 
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/IOHandler.h"
-#include "lldb/Core/Module.h"
-#include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/ValueObjectRegister.h"
+#include "lldb/Host/File.h"            // for File
+#include "lldb/Host/Predicate.h"       // for Predicate, ::eBroad...
+#include "lldb/Utility/Error.h"        // for Error
+#include "lldb/Utility/StreamString.h" // for StreamString
+#include "lldb/Utility/StringList.h"   // for StringList
+#include "lldb/lldb-forward.h"         // for StreamFileSP
+
 #ifndef LLDB_DISABLE_LIBEDIT
 #include "lldb/Host/Editline.h"
 #endif
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#ifndef LLDB_DISABLE_CURSES
+#include "lldb/Breakpoint/BreakpointLocation.h"
+#include "lldb/Core/Module.h"
+#include "lldb/Core/State.h"
+#include "lldb/Core/ValueObject.h"
+#include "lldb/Core/ValueObjectRegister.h"
 #include "lldb/Symbol/Block.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
-#include "lldb/Target/RegisterContext.h"
-#include "lldb/Target/ThreadPlan.h"
-#ifndef LLDB_DISABLE_CURSES
-#include "lldb/Core/ValueObject.h"
 #include "lldb/Symbol/VariableList.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/StackFrame.h"
+#include "lldb/Target/StopInfo.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #endif
 
+#include "llvm/ADT/StringRef.h" // for StringRef
+
 #ifdef _MSC_VER
-#include <Windows.h>
+#include <windows.h>
 #endif
+
+#include <memory> // for shared_ptr
+#include <mutex>  // for recursive_mutex
+
+#include <assert.h>    // for assert
+#include <ctype.h>     // for isspace
+#include <errno.h>     // for EINTR, errno
+#include <stdint.h>    // for uint32_t, UINT32_MAX
+#include <stdio.h>     // for size_t, fprintf, feof
+#include <string.h>    // for strlen
+#include <type_traits> // for move
 
 using namespace lldb;
 using namespace lldb_private;
@@ -127,15 +148,15 @@ void IOHandlerStack::PrintAsync(Stream *stream, const char *s, size_t len) {
   }
 }
 
-IOHandlerConfirm::IOHandlerConfirm(Debugger &debugger, const char *prompt,
+IOHandlerConfirm::IOHandlerConfirm(Debugger &debugger, llvm::StringRef prompt,
                                    bool default_response)
     : IOHandlerEditline(
           debugger, IOHandler::Type::Confirm,
           nullptr, // nullptr editline_name means no history loaded/saved
-          nullptr, // No prompt
-          nullptr, // No continuation prompt
-          false,   // Multi-line
-          false,   // Don't colorize the prompt (i.e. the confirm message.)
+          llvm::StringRef(), // No prompt
+          llvm::StringRef(), // No continuation prompt
+          false,             // Multi-line
+          false, // Don't colorize the prompt (i.e. the confirm message.)
           0, *this),
       m_default_response(default_response), m_user_response(default_response) {
   StreamString prompt_stream;
@@ -145,7 +166,7 @@ IOHandlerConfirm::IOHandlerConfirm(Debugger &debugger, const char *prompt,
   else
     prompt_stream.Printf(": [y/N] ");
 
-  SetPrompt(prompt_stream.GetString().c_str());
+  SetPrompt(prompt_stream.GetString());
 }
 
 IOHandlerConfirm::~IOHandlerConfirm() = default;
@@ -253,8 +274,9 @@ int IOHandlerDelegate::IOHandlerComplete(IOHandler &io_handler,
 IOHandlerEditline::IOHandlerEditline(
     Debugger &debugger, IOHandler::Type type,
     const char *editline_name, // Used for saving history files
-    const char *prompt, const char *continuation_prompt, bool multi_line,
-    bool color_prompts, uint32_t line_number_start, IOHandlerDelegate &delegate)
+    llvm::StringRef prompt, llvm::StringRef continuation_prompt,
+    bool multi_line, bool color_prompts, uint32_t line_number_start,
+    IOHandlerDelegate &delegate)
     : IOHandlerEditline(debugger, type,
                         StreamFileSP(), // Inherit input from top input reader
                         StreamFileSP(), // Inherit output from top input reader
@@ -269,8 +291,9 @@ IOHandlerEditline::IOHandlerEditline(
     const lldb::StreamFileSP &input_sp, const lldb::StreamFileSP &output_sp,
     const lldb::StreamFileSP &error_sp, uint32_t flags,
     const char *editline_name, // Used for saving history files
-    const char *prompt, const char *continuation_prompt, bool multi_line,
-    bool color_prompts, uint32_t line_number_start, IOHandlerDelegate &delegate)
+    llvm::StringRef prompt, llvm::StringRef continuation_prompt,
+    bool multi_line, bool color_prompts, uint32_t line_number_start,
+    IOHandlerDelegate &delegate)
     : IOHandler(debugger, type, input_sp, output_sp, error_sp, flags),
 #ifndef LLDB_DISABLE_LIBEDIT
       m_editline_ap(),
@@ -305,7 +328,7 @@ IOHandlerEditline::IOHandlerEditline(
   }
 #endif
   SetBaseLineNumber(m_base_line_number);
-  SetPrompt(prompt ? prompt : "");
+  SetPrompt(prompt);
   SetContinuationPrompt(continuation_prompt);
 }
 
@@ -444,11 +467,9 @@ const char *IOHandlerEditline::GetPrompt() {
   return m_prompt.c_str();
 }
 
-bool IOHandlerEditline::SetPrompt(const char *p) {
-  if (p && p[0])
-    m_prompt = p;
-  else
-    m_prompt.clear();
+bool IOHandlerEditline::SetPrompt(llvm::StringRef prompt) {
+  m_prompt = prompt;
+
 #ifndef LLDB_DISABLE_LIBEDIT
   if (m_editline_ap)
     m_editline_ap->SetPrompt(m_prompt.empty() ? nullptr : m_prompt.c_str());
@@ -461,11 +482,8 @@ const char *IOHandlerEditline::GetContinuationPrompt() {
                                         : m_continuation_prompt.c_str());
 }
 
-void IOHandlerEditline::SetContinuationPrompt(const char *p) {
-  if (p && p[0])
-    m_continuation_prompt = p;
-  else
-    m_continuation_prompt.clear();
+void IOHandlerEditline::SetContinuationPrompt(llvm::StringRef prompt) {
+  m_continuation_prompt = prompt;
 
 #ifndef LLDB_DISABLE_LIBEDIT
   if (m_editline_ap)
@@ -593,8 +611,8 @@ void IOHandlerEditline::PrintAsync(Stream *stream, const char *s, size_t len) {
   else
 #endif
   {
-    const char *prompt = GetPrompt();
 #ifdef _MSC_VER
+    const char *prompt = GetPrompt();
     if (prompt) {
       // Back up over previous prompt using Windows API
       CONSOLE_SCREEN_BUFFER_INFO screen_buffer_info;
@@ -608,9 +626,11 @@ void IOHandlerEditline::PrintAsync(Stream *stream, const char *s, size_t len) {
     }
 #endif
     IOHandler::PrintAsync(stream, s, len);
+#ifdef _MSC_VER
     if (prompt)
       IOHandler::PrintAsync(GetOutputStreamFile().get(), prompt,
                             strlen(prompt));
+#endif
   }
 }
 
@@ -1848,7 +1868,7 @@ public:
           // Just a timeout from using halfdelay(), check for events
           EventSP event_sp;
           while (listener_sp->PeekAtNextEvent()) {
-            listener_sp->GetNextEvent(event_sp);
+            listener_sp->GetEvent(event_sp, std::chrono::seconds(0));
 
             if (event_sp) {
               Broadcaster *broadcaster = event_sp->GetBroadcaster();
@@ -1906,8 +1926,10 @@ protected:
 using namespace curses;
 
 struct Row {
-  ValueObjectSP valobj;
+  ValueObjectManager value;
   Row *parent;
+  // The process stop ID when the children were calculated.
+  uint32_t children_stop_id;
   int row_idx;
   int x;
   int y;
@@ -1917,8 +1939,8 @@ struct Row {
   std::vector<Row> children;
 
   Row(const ValueObjectSP &v, Row *p)
-      : valobj(v), parent(p), row_idx(0), x(1), y(1),
-        might_have_children(v ? v->MightHaveChildren() : false),
+      : value(v, lldb::eDynamicDontRunTarget, true), parent(p), row_idx(0),
+        x(1), y(1), might_have_children(v ? v->MightHaveChildren() : false),
         expanded(false), calculated_children(false), children() {}
 
   size_t GetDepth() const {
@@ -1929,8 +1951,19 @@ struct Row {
 
   void Expand() {
     expanded = true;
+  }
+
+  std::vector<Row> &GetChildren() {
+    ProcessSP process_sp = value.GetProcessSP();
+    auto stop_id = process_sp->GetStopID();
+    if (process_sp && stop_id != children_stop_id) {
+      children_stop_id = stop_id;
+      calculated_children = false;
+    }
     if (!calculated_children) {
+      children.clear();
       calculated_children = true;
+      ValueObjectSP valobj = value.GetSP();
       if (valobj) {
         const size_t num_children = valobj->GetNumChildren();
         for (size_t i = 0; i < num_children; ++i) {
@@ -1938,9 +1971,14 @@ struct Row {
         }
       }
     }
+    return children;
   }
 
-  void Unexpand() { expanded = false; }
+  void Unexpand() {
+    expanded = false;
+    calculated_children = false;
+    children.clear();
+  }
 
   void DrawTree(Window &window) {
     if (parent)
@@ -1973,7 +2011,7 @@ struct Row {
     if (parent)
       parent->DrawTreeForChild(window, this, reverse_depth + 1);
 
-    if (&children.back() == child) {
+    if (&GetChildren().back() == child) {
       // Last child
       if (reverse_depth == 0) {
         window.PutChar(ACS_LLCORNER);
@@ -2423,7 +2461,7 @@ public:
         if (FormatEntity::Format(m_format, strm, &sc, &exe_ctx, nullptr,
                                  nullptr, false, false)) {
           int right_pad = 1;
-          window.PutCStringTruncated(strm.GetString().c_str(), right_pad);
+          window.PutCStringTruncated(strm.GetString().str().c_str(), right_pad);
         }
       }
     }
@@ -2482,7 +2520,7 @@ public:
       if (FormatEntity::Format(m_format, strm, nullptr, &exe_ctx, nullptr,
                                nullptr, false, false)) {
         int right_pad = 1;
-        window.PutCStringTruncated(strm.GetString().c_str(), right_pad);
+        window.PutCStringTruncated(strm.GetString().str().c_str(), right_pad);
       }
     }
   }
@@ -2572,7 +2610,7 @@ public:
       if (FormatEntity::Format(m_format, strm, nullptr, &exe_ctx, nullptr,
                                nullptr, false, false)) {
         int right_pad = 1;
-        window.PutCStringTruncated(strm.GetString().c_str(), right_pad);
+        window.PutCStringTruncated(strm.GetString().str().c_str(), right_pad);
       }
     }
   }
@@ -2621,12 +2659,12 @@ protected:
 class ValueObjectListDelegate : public WindowDelegate {
 public:
   ValueObjectListDelegate()
-      : m_valobj_list(), m_rows(), m_selected_row(nullptr),
+      : m_rows(), m_selected_row(nullptr),
         m_selected_row_idx(0), m_first_visible_row(0), m_num_rows(0),
         m_max_x(0), m_max_y(0) {}
 
   ValueObjectListDelegate(ValueObjectList &valobj_list)
-      : m_valobj_list(valobj_list), m_rows(), m_selected_row(nullptr),
+      : m_rows(), m_selected_row(nullptr),
         m_selected_row_idx(0), m_first_visible_row(0), m_num_rows(0),
         m_max_x(0), m_max_y(0) {
     SetValues(valobj_list);
@@ -2640,10 +2678,8 @@ public:
     m_first_visible_row = 0;
     m_num_rows = 0;
     m_rows.clear();
-    m_valobj_list = valobj_list;
-    const size_t num_values = m_valobj_list.GetSize();
-    for (size_t i = 0; i < num_values; ++i)
-      m_rows.push_back(Row(m_valobj_list.GetValueObjectAtIndex(i), nullptr));
+    for (auto &valobj_sp : valobj_list.GetObjects())
+      m_rows.push_back(Row(valobj_sp, nullptr));
   }
 
   bool WindowDelegateDraw(Window &window, bool force) override {
@@ -2734,8 +2770,11 @@ public:
     case 'B':
     case 'f':
       // Change the format for the currently selected item
-      if (m_selected_row)
-        m_selected_row->valobj->SetFormat(FormatForChar(c));
+      if (m_selected_row) {
+        auto valobj_sp = m_selected_row->value.GetSP();
+        if (valobj_sp)
+          valobj_sp->SetFormat(FormatForChar(c));
+      }
       return eKeyHandled;
 
     case 't':
@@ -2813,7 +2852,6 @@ public:
   }
 
 protected:
-  ValueObjectList m_valobj_list;
   std::vector<Row> m_rows;
   Row *m_selected_row;
   uint32_t m_selected_row_idx;
@@ -2860,7 +2898,7 @@ protected:
 
   bool DisplayRowObject(Window &window, Row &row, DisplayOptions &options,
                         bool highlight, bool last_child) {
-    ValueObject *valobj = row.valobj.get();
+    ValueObject *valobj = row.value.GetSP().get();
 
     if (valobj == nullptr)
       return false;
@@ -2942,18 +2980,19 @@ protected:
         ++m_num_rows;
       }
 
-      if (row.expanded && !row.children.empty()) {
-        DisplayRows(window, row.children, options);
+      auto &children = row.GetChildren();
+      if (row.expanded && !children.empty()) {
+        DisplayRows(window, children, options);
       }
     }
   }
 
-  int CalculateTotalNumberRows(const std::vector<Row> &rows) {
+  int CalculateTotalNumberRows(std::vector<Row> &rows) {
     int row_count = 0;
-    for (const auto &row : rows) {
+    for (auto &row : rows) {
       ++row_count;
       if (row.expanded)
-        row_count += CalculateTotalNumberRows(row.children);
+        row_count += CalculateTotalNumberRows(row.GetChildren());
     }
     return row_count;
   }
@@ -2964,8 +3003,9 @@ protected:
         return &row;
       else {
         --row_index;
-        if (row.expanded && !row.children.empty()) {
-          Row *result = GetRowForRowIndexImpl(row.children, row_index);
+        auto &children = row.GetChildren();
+        if (row.expanded && !children.empty()) {
+          Row *result = GetRowForRowIndexImpl(children, row_index);
           if (result)
             return result;
         }
@@ -3313,7 +3353,7 @@ HelpDialogDelegate::HelpDialogDelegate(const char *text,
       StreamString key_description;
       key_description.Printf("%10s - %s", CursesKeyToCString(key->ch),
                              key->description);
-      m_text.AppendString(std::move(key_description.GetString()));
+      m_text.AppendString(key_description.GetString());
     }
   }
 }
@@ -3598,8 +3638,8 @@ public:
               thread_menu_title.Printf(" %s", queue_name);
           }
           menu.AddSubmenu(
-              MenuSP(new Menu(thread_menu_title.GetString().c_str(), nullptr,
-                              menu_char, thread_sp->GetID())));
+              MenuSP(new Menu(thread_menu_title.GetString().str().c_str(),
+                              nullptr, menu_char, thread_sp->GetID())));
         }
       } else if (submenus.size() > 7) {
         // Remove the separator and any other thread submenu items
@@ -3758,7 +3798,7 @@ public:
         if (thread && FormatEntity::Format(m_format, strm, nullptr, &exe_ctx,
                                            nullptr, nullptr, false, false)) {
           window.MoveCursor(40, 0);
-          window.PutCStringTruncated(strm.GetString().c_str(), 1);
+          window.PutCStringTruncated(strm.GetString().str().c_str(), 1);
         }
 
         window.MoveCursor(60, 0);
@@ -3987,7 +4027,7 @@ public:
       window.AttributeOn(A_REVERSE);
       window.MoveCursor(1, 1);
       window.PutChar(' ');
-      window.PutCStringTruncated(m_title.GetString().c_str(), 1);
+      window.PutCStringTruncated(m_title.GetString().str().c_str(), 1);
       int x = window.GetCursorX();
       if (x < window_width - 1) {
         window.Printf("%*s", window_width - x - 1, "");
@@ -4209,7 +4249,7 @@ public:
             strm.Printf("%s", mnemonic);
 
           int right_pad = 1;
-          window.PutCStringTruncated(strm.GetString().c_str(), right_pad);
+          window.PutCStringTruncated(strm.GetData(), right_pad);
 
           if (is_pc_line && frame_sp &&
               frame_sp->GetConcreteFrameIndex() == 0) {

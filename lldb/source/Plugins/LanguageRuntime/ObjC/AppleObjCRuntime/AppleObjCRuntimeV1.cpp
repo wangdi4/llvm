@@ -15,13 +15,9 @@
 #include "clang/AST/Type.h"
 
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/ConstString.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Scalar.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Expression/FunctionCaller.h"
 #include "lldb/Expression/UtilityFunction.h"
 #include "lldb/Symbol/ClangASTContext.h"
@@ -31,6 +27,10 @@
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include <vector>
 
@@ -127,7 +127,7 @@ struct BufStruct {
 UtilityFunction *AppleObjCRuntimeV1::CreateObjectChecker(const char *name) {
   std::unique_ptr<BufStruct> buf(new BufStruct);
 
-  assert(snprintf(&buf->contents[0], sizeof(buf->contents),
+  int strformatsize = snprintf(&buf->contents[0], sizeof(buf->contents),
                   "struct __objc_class                                         "
                   "           \n"
                   "{                                                           "
@@ -162,11 +162,15 @@ UtilityFunction *AppleObjCRuntimeV1::CreateObjectChecker(const char *name) {
                   "           \n"
                   "   struct __objc_object *obj = (struct "
                   "__objc_object*)$__lldb_arg_obj; \n"
+                  "   if ($__lldb_arg_obj == (void *)0)                     "
+                  "                                \n"
+                  "       return; // nil is ok                              "
                   "   (int)strlen(obj->isa->name);                             "
                   "           \n"
                   "}                                                           "
                   "           \n",
-                  name) < (int)sizeof(buf->contents));
+                  name);
+  assert(strformatsize < (int)sizeof(buf->contents));
 
   Error error;
   return GetTargetRef().GetUtilityFunctionForLanguage(
@@ -432,8 +436,5 @@ void AppleObjCRuntimeV1::UpdateISAToDescriptorMapIfNeeded() {
 }
 
 DeclVendor *AppleObjCRuntimeV1::GetDeclVendor() {
-  if (!m_decl_vendor_ap.get())
-    m_decl_vendor_ap.reset(new AppleObjCDeclVendor(*this));
-
-  return m_decl_vendor_ap.get();
+  return nullptr;
 }

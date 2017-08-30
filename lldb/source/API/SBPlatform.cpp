@@ -13,11 +13,13 @@
 #include "lldb/API/SBLaunchInfo.h"
 #include "lldb/API/SBUnixSignals.h"
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Error.h"
 #include "lldb/Host/File.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Error.h"
+
+#include "llvm/Support/FileSystem.h"
 
 #include <functional>
 
@@ -251,7 +253,8 @@ SBError SBPlatform::ConnectRemote(SBPlatformConnectOptions &connect_options) {
   PlatformSP platform_sp(GetSP());
   if (platform_sp && connect_options.GetURL()) {
     Args args;
-    args.AppendArgument(connect_options.GetURL());
+    args.AppendArgument(
+        llvm::StringRef::withNullAsEmpty(connect_options.GetURL()));
     sb_error.ref() = platform_sp->ConnectRemote(args);
   } else {
     sb_error.SetErrorString("invalid platform");
@@ -362,7 +365,7 @@ SBError SBPlatform::Put(SBFileSpec &src, SBFileSpec &dst) {
     if (src.Exists()) {
       uint32_t permissions = src.ref().GetPermissions();
       if (permissions == 0) {
-        if (src.ref().GetFileType() == FileSpec::eFileTypeDirectory)
+        if (llvm::sys::fs::is_directory(src.ref().GetPath()))
           permissions = eFilePermissionsDirectoryDefault;
         else
           permissions = eFilePermissionsFileDefault;

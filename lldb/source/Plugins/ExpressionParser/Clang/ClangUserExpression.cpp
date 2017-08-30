@@ -25,12 +25,9 @@
 #include "ClangModulesDeclVendor.h"
 #include "ClangPersistentVariables.h"
 
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Core/StreamString.h"
 #include "lldb/Core/ValueObjectConstResult.h"
 #include "lldb/Expression/ExpressionSourceCode.h"
 #include "lldb/Expression/IRExecutionUnit.h"
@@ -51,6 +48,9 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlan.h"
 #include "lldb/Target/ThreadPlanCallUserExpression.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
 
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -58,10 +58,10 @@
 using namespace lldb_private;
 
 ClangUserExpression::ClangUserExpression(
-    ExecutionContextScope &exe_scope, const char *expr, const char *expr_prefix,
-    lldb::LanguageType language, ResultType desired_type,
-    const EvaluateExpressionOptions &options)
-    : LLVMUserExpression(exe_scope, expr, expr_prefix, language, desired_type,
+    ExecutionContextScope &exe_scope, llvm::StringRef expr,
+    llvm::StringRef prefix, lldb::LanguageType language,
+    ResultType desired_type, const EvaluateExpressionOptions &options)
+    : LLVMUserExpression(exe_scope, expr, prefix, language, desired_type,
                          options),
       m_type_system_helper(*m_target_wp.lock().get(),
                            options.GetExecutionPolicy() ==
@@ -325,21 +325,21 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
                 lldb::eLanguageTypeC)) {
       m_result_delegate.RegisterPersistentState(persistent_state);
     } else {
-      diagnostic_manager.PutCString(
+      diagnostic_manager.PutString(
           eDiagnosticSeverityError,
           "couldn't start parsing (no persistent data)");
       return false;
     }
   } else {
-    diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                  "error: couldn't start parsing (no target)");
+    diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                 "error: couldn't start parsing (no target)");
     return false;
   }
 
   ScanContext(exe_ctx, err);
 
   if (!err.Success()) {
-    diagnostic_manager.PutCString(eDiagnosticSeverityWarning, err.AsCString());
+    diagnostic_manager.PutString(eDiagnosticSeverityWarning, err.AsCString());
   }
 
   ////////////////////////////////////
@@ -400,8 +400,8 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
 
     if (!source_code->GetText(m_transformed_text, lang_type, m_in_static_method,
                               exe_ctx)) {
-      diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                    "couldn't construct expression body");
+      diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                   "couldn't construct expression body");
       return false;
     }
   }
@@ -416,7 +416,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   Target *target = exe_ctx.GetTargetPtr();
 
   if (!target) {
-    diagnostic_manager.PutCString(eDiagnosticSeverityError, "invalid target");
+    diagnostic_manager.PutString(eDiagnosticSeverityError, "invalid target");
     return false;
   }
 
@@ -443,7 +443,7 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
   OnExit on_exit([this]() { ResetDeclMap(); });
 
   if (!DeclMap()->WillParse(exe_ctx, m_materializer_ap.get())) {
-    diagnostic_manager.PutCString(
+    diagnostic_manager.PutString(
         eDiagnosticSeverityError,
         "current process state is unsuitable for expression parsing");
 
@@ -508,10 +508,10 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
     if (!jit_error.Success()) {
       const char *error_cstr = jit_error.AsCString();
       if (error_cstr && error_cstr[0])
-        diagnostic_manager.PutCString(eDiagnosticSeverityError, error_cstr);
+        diagnostic_manager.PutString(eDiagnosticSeverityError, error_cstr);
       else
-        diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                      "expression can't be interpreted or run");
+        diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                     "expression can't be interpreted or run");
       return false;
     }
   }
@@ -527,8 +527,8 @@ bool ClangUserExpression::Parse(DiagnosticManager &diagnostic_manager,
                                   "couldn't run static initializers: %s\n",
                                   error_cstr);
       else
-        diagnostic_manager.PutCString(eDiagnosticSeverityError,
-                                      "couldn't run static initializers\n");
+        diagnostic_manager.PutString(eDiagnosticSeverityError,
+                                     "couldn't run static initializers\n");
       return false;
     }
   }
@@ -597,7 +597,7 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
     } else if (m_in_objectivec_method) {
       object_name.SetCString("self");
     } else {
-      diagnostic_manager.PutCString(
+      diagnostic_manager.PutString(
           eDiagnosticSeverityError,
           "need object pointer but don't know the language");
       return false;
@@ -609,7 +609,7 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
 
     if (!object_ptr_error.Success()) {
       exe_ctx.GetTargetRef().GetDebugger().GetAsyncOutputStream()->Printf(
-          "warning: `%s' is not accessible (subsituting 0)\n",
+          "warning: `%s' is not accessible (substituting 0)\n",
           object_name.AsCString());
       object_ptr = 0;
     }

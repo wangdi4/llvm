@@ -33,9 +33,12 @@ struct MsanMapUnmapCallback {
 
     // We are about to unmap a chunk of user memory.
     // Mark the corresponding shadow memory as not needed.
-    ReleaseMemoryToOS(MEM_TO_SHADOW(p), size);
-    if (__msan_get_track_origins())
-      ReleaseMemoryToOS(MEM_TO_ORIGIN(p), size);
+    uptr shadow_p = MEM_TO_SHADOW(p);
+    ReleaseMemoryPagesToOS(shadow_p, shadow_p + size);
+    if (__msan_get_track_origins()) {
+      uptr origin_p = MEM_TO_ORIGIN(p);
+      ReleaseMemoryPagesToOS(origin_p, origin_p + size);
+    }
   }
 };
 
@@ -103,7 +106,9 @@ static AllocatorCache fallback_allocator_cache;
 static SpinMutex fallback_mutex;
 
 void MsanAllocatorInit() {
-  allocator.Init(common_flags()->allocator_may_return_null);
+  allocator.Init(
+      common_flags()->allocator_may_return_null,
+      common_flags()->allocator_release_to_os_interval_ms);
 }
 
 AllocatorCache *GetAllocatorCache(MsanThreadLocalMallocStorage *ms) {
@@ -121,7 +126,7 @@ static void *MsanAllocate(StackTrace *stack, uptr size, uptr alignment,
   if (size > kMaxAllowedMallocSize) {
     Report("WARNING: MemorySanitizer failed to allocate %p bytes\n",
            (void *)size);
-    return allocator.ReturnNullOrDie();
+    return allocator.ReturnNullOrDieOnBadRequest();
   }
   MsanThread *t = GetCurrentThread();
   void *allocated;
@@ -179,7 +184,7 @@ void MsanDeallocate(StackTrace *stack, void *p) {
 
 void *MsanCalloc(StackTrace *stack, uptr nmemb, uptr size) {
   if (CallocShouldReturnNullDueToOverflow(size, nmemb))
-    return allocator.ReturnNullOrDie();
+    return allocator.ReturnNullOrDieOnBadRequest();
   return MsanReallocate(stack, nullptr, nmemb * size, sizeof(u64), true);
 }
 

@@ -15,18 +15,20 @@
 // Project includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/StreamString.h"
-#include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/FileSpec.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/StreamString.h"
+
+#include "llvm/Support/FileSystem.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -150,7 +152,7 @@ const char *PlatformAppleTVSimulator::GetDescriptionStatic() {
 /// Default Constructor
 //------------------------------------------------------------------
 PlatformAppleTVSimulator::PlatformAppleTVSimulator()
-    : PlatformDarwin(true), m_sdk_directory() {}
+    : PlatformDarwin(true), m_sdk_dir_mutex(), m_sdk_directory() {}
 
 //------------------------------------------------------------------
 /// Destructor.
@@ -230,7 +232,7 @@ Error PlatformAppleTVSimulator::ResolveExecutable(
         error.SetErrorStringWithFormat(
             "'%s' doesn't contain any '%s' platform architectures: %s",
             resolved_module_spec.GetFileSpec().GetPath().c_str(),
-            GetPluginName().GetCString(), arch_names.GetString().c_str());
+            GetPluginName().GetCString(), arch_names.GetString().str().c_str());
       } else {
         error.SetErrorStringWithFormat(
             "'%s' is not readable",
@@ -246,9 +248,9 @@ Error PlatformAppleTVSimulator::ResolveExecutable(
 }
 
 static FileSpec::EnumerateDirectoryResult
-EnumerateDirectoryCallback(void *baton, FileSpec::FileType file_type,
+EnumerateDirectoryCallback(void *baton, llvm::sys::fs::file_type ft,
                            const FileSpec &file_spec) {
-  if (file_type == FileSpec::eFileTypeDirectory) {
+  if (ft == llvm::sys::fs::file_type::directory_file) {
     const char *filename = file_spec.GetFilename().GetCString();
     if (filename &&
         strncmp(filename, "AppleTVSimulator", strlen("AppleTVSimulator")) ==
@@ -261,7 +263,7 @@ EnumerateDirectoryCallback(void *baton, FileSpec::FileType file_type,
 }
 
 const char *PlatformAppleTVSimulator::GetSDKDirectoryAsCString() {
-  std::lock_guard<std::mutex> guard(m_mutex);
+  std::lock_guard<std::mutex> guard(m_sdk_dir_mutex);
   if (m_sdk_directory.empty()) {
     const char *developer_dir = GetDeveloperDirectory();
     if (developer_dir) {

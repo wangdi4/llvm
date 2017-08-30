@@ -9,13 +9,13 @@
 
 #include "ObjectContainerUniversalMachO.h"
 #include "lldb/Core/ArchSpec.h"
-#include "lldb/Core/DataBuffer.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/Stream.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/DataBuffer.h"
+#include "lldb/Utility/Stream.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -129,7 +129,7 @@ void ObjectContainerUniversalMachO::Dump(Stream *s) const {
   s->Indent();
   const size_t num_archs = GetNumArchitectures();
   const size_t num_objects = GetNumObjects();
-  s->Printf("ObjectContainerUniversalMachO, num_archs = %lu, num_objects = %lu",
+  s->Printf("ObjectContainerUniversalMachO, num_archs = %zu, num_objects = %zu",
             num_archs, num_objects);
   uint32_t i;
   ArchSpec arch;

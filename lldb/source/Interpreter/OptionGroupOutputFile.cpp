@@ -13,7 +13,7 @@
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
-#include "lldb/Utility/Utils.h"
+#include "lldb/Host/OptionParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -34,16 +34,12 @@ static OptionDefinition g_option_table[] = {
      "Append to the file specified with '--outfile <path>'."},
 };
 
-uint32_t OptionGroupOutputFile::GetNumDefinitions() {
-  return llvm::array_lengthof(g_option_table);
-}
-
-const OptionDefinition *OptionGroupOutputFile::GetDefinitions() {
-  return g_option_table;
+llvm::ArrayRef<OptionDefinition> OptionGroupOutputFile::GetDefinitions() {
+  return llvm::makeArrayRef(g_option_table);
 }
 
 Error OptionGroupOutputFile::SetOptionValue(
-    uint32_t option_idx, const char *option_arg,
+    uint32_t option_idx, llvm::StringRef option_arg,
     ExecutionContext *execution_context) {
   Error error;
   const int short_option = g_option_table[option_idx].short_option;

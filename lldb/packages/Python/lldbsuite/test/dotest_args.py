@@ -69,13 +69,12 @@ def create_parser():
         '-A',
         '--arch',
         metavar='arch',
-        action='append',
-        dest='archs',
+        dest='arch',
         help=textwrap.dedent('''Specify the architecture(s) to test. This option can be specified more than once'''))
-    group.add_argument('-C', '--compiler', metavar='compiler', dest='compilers', action='append', help=textwrap.dedent(
+    group.add_argument('-C', '--compiler', metavar='compiler', dest='compiler', help=textwrap.dedent(
         '''Specify the compiler(s) used to build the inferior executables. The compiler path can be an executable basename or a full path to a compiler executable. This option can be specified multiple times.'''))
     if sys.platform == 'darwin':
-        group.add_argument('--apple-sdk', metavar='apple_sdk', dest='apple_sdk', help=textwrap.dedent(
+        group.add_argument('--apple-sdk', metavar='apple_sdk', dest='apple_sdk', default="macosx", help=textwrap.dedent(
             '''Specify the name of the Apple SDK (macosx, macosx.internal, iphoneos, iphoneos.internal, or path to SDK) and use the appropriate tools from that SDK's toolchain.'''))
     # FIXME? This won't work for different extra flags according to each arch.
     group.add_argument(
@@ -96,6 +95,9 @@ def create_parser():
         '-p',
         metavar='pattern',
         help='Specify a regexp filename pattern for inclusion in the test suite')
+    group.add_argument('--excluded', metavar='exclusion-file', action='append', help=textwrap.dedent(
+        '''Specify a file for tests to exclude. File should contain lists of regular expressions for test files or methods,
+                                with each list under a matching header (xfail files, xfail methods, skip files, skip methods)'''))
     group.add_argument(
         '-G',
         '--category',
@@ -120,6 +122,10 @@ def create_parser():
         '--executable',
         metavar='executable-path',
         help='The path to the lldb executable')
+    group.add_argument(
+        '--server',
+        metavar='server-path',
+        help='The path to the debug server executable to use')
     group.add_argument(
         '-s',
         metavar='name',
@@ -148,6 +154,11 @@ def create_parser():
         dest='log_success',
         action='store_true',
         help="Leave logs/traces even for successful test runs (useful for creating reference log files during debugging.)")
+    group.add_argument(
+        '--codesign-identity',
+        metavar='Codesigning identity',
+        default='lldb_codesign',
+        help='The codesigning identity to use')
 
     # Configuration options
     group = parser.add_argument_group('Remote platform options')

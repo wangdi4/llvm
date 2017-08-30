@@ -6,13 +6,6 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-
-#if defined(_MSC_VER) && (_HAS_EXCEPTIONS == 0)
-// Workaround for MSVC standard library bug, which fails to include <thread>
-// when
-// exceptions are disabled.
-#include <eh.h>
-#endif
 #include <future>
 
 #include "GDBRemoteTestUtils.h"
@@ -20,7 +13,7 @@
 #include "Plugins/Process/Utility/LinuxSignals.h"
 #include "Plugins/Process/gdb-remote/GDBRemoteClientBase.h"
 #include "Plugins/Process/gdb-remote/GDBRemoteCommunicationServer.h"
-#include "lldb/Core/StreamGDBRemote.h"
+#include "lldb/Utility/StreamGDBRemote.h"
 
 #include "llvm/ADT/STLExtras.h"
 
@@ -67,9 +60,8 @@ struct ContinueFixture {
 
   void WaitForRunEvent() {
     EventSP event_sp;
-    listener_sp->WaitForEventForBroadcasterWithType(
-        std::chrono::microseconds(0), &client,
-        TestClient::eBroadcastBitRunPacketSent, event_sp);
+    listener_sp->GetEventForBroadcasterWithType(
+        &client, TestClient::eBroadcastBitRunPacketSent, event_sp, llvm::None);
   }
 };
 
@@ -346,7 +338,7 @@ TEST_F(GDBRemoteClientBaseTest, SendContinueDelegateStructuredDataReceipt) {
   ASSERT_EQ(PacketResult::Success, fix.server.SendPacket("T01"));
   ASSERT_EQ(eStateStopped, fix.SendCPacket(response));
   ASSERT_EQ("T01", response.GetStringRef());
-  ASSERT_EQ(1, fix.delegate.structured_data_packets.size());
+  ASSERT_EQ(1ul, fix.delegate.structured_data_packets.size());
 
   // Verify the packet contents.  It should have been unescaped upon packet
   // reception.

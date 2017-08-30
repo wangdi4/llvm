@@ -1,4 +1,4 @@
-//===-- DynamicLoaderPOSIX.h ------------------------------------*- C++ -*-===//
+//===-- DynamicLoaderPOSIXDYLD.cpp ------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -15,7 +15,6 @@
 
 // Other libraries and framework includes
 #include "lldb/Breakpoint/BreakpointLocation.h"
-#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/PluginManager.h"
@@ -27,6 +26,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadPlanRunToAddress.h"
+#include "lldb/Utility/Log.h"
 
 // C++ Includes
 // C Includes
@@ -63,8 +63,9 @@ DynamicLoader *DynamicLoaderPOSIXDYLD::CreateInstance(Process *process,
   if (!create) {
     const llvm::Triple &triple_ref =
         process->GetTarget().GetArchitecture().GetTriple();
-    if (triple_ref.getOS() == llvm::Triple::Linux ||
-        triple_ref.getOS() == llvm::Triple::FreeBSD)
+    if (triple_ref.getOS() == llvm::Triple::FreeBSD ||
+        triple_ref.getOS() == llvm::Triple::Linux ||
+        triple_ref.getOS() == llvm::Triple::NetBSD)
       create = true;
   }
 
@@ -682,7 +683,7 @@ void DynamicLoaderPOSIXDYLD::ResolveExecutableModule(
     if (log)
       log->Printf("DynamicLoaderPOSIXDYLD::%s - failed to resolve executable "
                   "with module spec \"%s\": %s",
-                  __FUNCTION__, stream.GetString().c_str(), error.AsCString());
+                  __FUNCTION__, stream.GetData(), error.AsCString());
     return;
   }
 

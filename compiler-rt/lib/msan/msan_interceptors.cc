@@ -45,6 +45,8 @@ using __sanitizer::atomic_uintptr_t;
 
 DECLARE_REAL(SIZE_T, strlen, const char *s)
 DECLARE_REAL(SIZE_T, strnlen, const char *s, SIZE_T maxlen)
+DECLARE_REAL(void *, memcpy, void *dest, const void *src, uptr n)
+DECLARE_REAL(void *, memset, void *dest, int c, uptr n)
 
 #if SANITIZER_FREEBSD
 #define __errno_location __error
@@ -62,6 +64,23 @@ struct InterceptorScope {
 
 bool IsInInterceptorScope() {
   return in_interceptor_scope;
+}
+
+static uptr allocated_for_dlsym;
+static const uptr kDlsymAllocPoolSize = 1024;
+static uptr alloc_memory_for_dlsym[kDlsymAllocPoolSize];
+
+static bool IsInDlsymAllocPool(const void *ptr) {
+  uptr off = (uptr)ptr - (uptr)alloc_memory_for_dlsym;
+  return off < sizeof(alloc_memory_for_dlsym);
+}
+
+static void *AllocateFromLocalPool(uptr size_in_bytes) {
+  uptr size_in_words = RoundUpTo(size_in_bytes, kWordSize) / kWordSize;
+  void *mem = (void *)&alloc_memory_for_dlsym[allocated_for_dlsym];
+  allocated_for_dlsym += size_in_words;
+  CHECK_LT(allocated_for_dlsym, kDlsymAllocPoolSize);
+  return mem;
 }
 
 #define ENSURE_MSAN_INITED() do { \
@@ -104,14 +123,6 @@ bool IsInInterceptorScope() {
 #define CHECK_UNPOISONED_STRING(x, n)                           \
     CHECK_UNPOISONED_STRING_OF_LEN((x), internal_strlen(x), (n))
 
-INTERCEPTOR(SIZE_T, fread, void *ptr, SIZE_T size, SIZE_T nmemb, void *file) {
-  ENSURE_MSAN_INITED();
-  SIZE_T res = REAL(fread)(ptr, size, nmemb, file);
-  if (res > 0)
-    __msan_unpoison(ptr, res *size);
-  return res;
-}
-
 #if !SANITIZER_FREEBSD
 INTERCEPTOR(SIZE_T, fread_unlocked, void *ptr, SIZE_T size, SIZE_T nmemb,
             void *file) {
@@ -135,10 +146,6 @@ INTERCEPTOR(SSIZE_T, readlink, const char *path, char *buf, SIZE_T bufsiz) {
   return res;
 }
 
-INTERCEPTOR(void *, memcpy, void *dest, const void *src, SIZE_T n) {
-  return __msan_memcpy(dest, src, n);
-}
-
 INTERCEPTOR(void *, mempcpy, void *dest, const void *src, SIZE_T n) {
   return (char *)__msan_memcpy(dest, src, n) + n;
 }
@@ -151,14 +158,6 @@ INTERCEPTOR(void *, memccpy, void *dest, const void *src, int c, SIZE_T n) {
   CHECK_UNPOISONED(src, sz);
   __msan_unpoison(dest, sz);
   return res;
-}
-
-INTERCEPTOR(void *, memmove, void *dest, const void *src, SIZE_T n) {
-  return __msan_memmove(dest, src, n);
-}
-
-INTERCEPTOR(void *, memset, void *s, int c, SIZE_T n) {
-  return __msan_memset(s, c, n);
 }
 
 INTERCEPTOR(void *, bcopy, const void *src, void *dest, SIZE_T n) {
@@ -227,14 +226,14 @@ INTERCEPTOR(void *, pvalloc, SIZE_T size) {
 
 INTERCEPTOR(void, free, void *ptr) {
   GET_MALLOC_STACK_TRACE;
-  if (!ptr) return;
+  if (!ptr || UNLIKELY(IsInDlsymAllocPool(ptr))) return;
   MsanDeallocate(&stack, ptr);
 }
 
 #if !SANITIZER_FREEBSD
 INTERCEPTOR(void, cfree, void *ptr) {
   GET_MALLOC_STACK_TRACE;
-  if (!ptr) return;
+  if (!ptr || UNLIKELY(IsInDlsymAllocPool(ptr))) return;
   MsanDeallocate(&stack, ptr);
 }
 #define MSAN_MAYBE_INTERCEPT_CFREE INTERCEPT_FUNCTION(cfree)
@@ -573,6 +572,13 @@ INTERCEPTOR(SIZE_T, wcslen, const wchar_t *s) {
   return res;
 }
 
+INTERCEPTOR(SIZE_T, wcsnlen, const wchar_t *s, SIZE_T n) {
+  ENSURE_MSAN_INITED();
+  SIZE_T res = REAL(wcsnlen)(s, n);
+  CHECK_UNPOISONED(s, sizeof(wchar_t) * Min(res + 1, n));
+  return res;
+}
+
 // wchar_t *wcschr(const wchar_t *wcs, wchar_t wc);
 INTERCEPTOR(wchar_t *, wcschr, void *s, wchar_t wc, void *ps) {
   ENSURE_MSAN_INITED();
@@ -587,6 +593,18 @@ INTERCEPTOR(wchar_t *, wcscpy, wchar_t *dest, const wchar_t *src) {
   wchar_t *res = REAL(wcscpy)(dest, src);
   CopyShadowAndOrigin(dest, src, sizeof(wchar_t) * (REAL(wcslen)(src) + 1),
                       &stack);
+  return res;
+}
+
+INTERCEPTOR(wchar_t *, wcsncpy, wchar_t *dest, const wchar_t *src,
+            SIZE_T n) {  // NOLINT
+  ENSURE_MSAN_INITED();
+  GET_STORE_STACK_TRACE;
+  SIZE_T copy_size = REAL(wcsnlen)(src, n);
+  if (copy_size < n) copy_size++;           // trailing \0
+  wchar_t *res = REAL(wcsncpy)(dest, src, n);  // NOLINT
+  CopyShadowAndOrigin(dest, src, copy_size * sizeof(wchar_t), &stack);
+  __msan_unpoison(dest + copy_size, (n - copy_size) * sizeof(wchar_t));
   return res;
 }
 
@@ -907,27 +925,35 @@ INTERCEPTOR(int, epoll_pwait, int epfd, void *events, int maxevents,
 
 INTERCEPTOR(void *, calloc, SIZE_T nmemb, SIZE_T size) {
   GET_MALLOC_STACK_TRACE;
-  if (UNLIKELY(!msan_inited)) {
+  if (UNLIKELY(!msan_inited))
     // Hack: dlsym calls calloc before REAL(calloc) is retrieved from dlsym.
-    const SIZE_T kCallocPoolSize = 1024;
-    static uptr calloc_memory_for_dlsym[kCallocPoolSize];
-    static SIZE_T allocated;
-    SIZE_T size_in_words = ((nmemb * size) + kWordSize - 1) / kWordSize;
-    void *mem = (void*)&calloc_memory_for_dlsym[allocated];
-    allocated += size_in_words;
-    CHECK(allocated < kCallocPoolSize);
-    return mem;
-  }
+    return AllocateFromLocalPool(nmemb * size);
   return MsanCalloc(&stack, nmemb, size);
 }
 
 INTERCEPTOR(void *, realloc, void *ptr, SIZE_T size) {
   GET_MALLOC_STACK_TRACE;
+  if (UNLIKELY(IsInDlsymAllocPool(ptr))) {
+    uptr offset = (uptr)ptr - (uptr)alloc_memory_for_dlsym;
+    uptr copy_size = Min(size, kDlsymAllocPoolSize - offset);
+    void *new_ptr;
+    if (UNLIKELY(!msan_inited)) {
+      new_ptr = AllocateFromLocalPool(copy_size);
+    } else {
+      copy_size = size;
+      new_ptr = MsanReallocate(&stack, nullptr, copy_size, sizeof(u64), false);
+    }
+    internal_memcpy(new_ptr, ptr, copy_size);
+    return new_ptr;
+  }
   return MsanReallocate(&stack, ptr, size, sizeof(u64), false);
 }
 
 INTERCEPTOR(void *, malloc, SIZE_T size) {
   GET_MALLOC_STACK_TRACE;
+  if (UNLIKELY(!msan_inited))
+    // Hack: dlsym calls malloc before REAL(malloc) is retrieved from dlsym.
+    return AllocateFromLocalPool(size);
   return MsanReallocate(&stack, nullptr, size, sizeof(u64), false);
 }
 
@@ -1329,11 +1355,23 @@ int OnExit() {
     *begin = *end = 0;                                                         \
   }
 
+#define COMMON_INTERCEPTOR_MEMSET_IMPL(ctx, block, c, size) \
+  {                                                         \
+    (void)ctx;                                              \
+    return __msan_memset(block, c, size);                   \
+  }
+#define COMMON_INTERCEPTOR_MEMMOVE_IMPL(ctx, to, from, size) \
+  {                                                          \
+    (void)ctx;                                               \
+    return __msan_memmove(to, from, size);                   \
+  }
+#define COMMON_INTERCEPTOR_MEMCPY_IMPL(ctx, to, from, size) \
+  {                                                         \
+    (void)ctx;                                              \
+    return __msan_memcpy(to, from, size);                   \
+  }
+
 #include "sanitizer_common/sanitizer_platform_interceptors.h"
-// Msan needs custom handling of these:
-#undef SANITIZER_INTERCEPT_MEMSET
-#undef SANITIZER_INTERCEPT_MEMMOVE
-#undef SANITIZER_INTERCEPT_MEMCPY
 #include "sanitizer_common/sanitizer_common_interceptors.inc"
 
 #define COMMON_SYSCALL_PRE_READ_RANGE(p, s) CHECK_UNPOISONED(p, s)
@@ -1489,11 +1527,8 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(fread);
   MSAN_MAYBE_INTERCEPT_FREAD_UNLOCKED;
   INTERCEPT_FUNCTION(readlink);
-  INTERCEPT_FUNCTION(memcpy);
   INTERCEPT_FUNCTION(memccpy);
   INTERCEPT_FUNCTION(mempcpy);
-  INTERCEPT_FUNCTION(memset);
-  INTERCEPT_FUNCTION(memmove);
   INTERCEPT_FUNCTION(bcopy);
   INTERCEPT_FUNCTION(wmemset);
   INTERCEPT_FUNCTION(wmemcpy);
@@ -1541,8 +1576,10 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(mbtowc);
   INTERCEPT_FUNCTION(mbrtowc);
   INTERCEPT_FUNCTION(wcslen);
+  INTERCEPT_FUNCTION(wcsnlen);
   INTERCEPT_FUNCTION(wcschr);
   INTERCEPT_FUNCTION(wcscpy);
+  INTERCEPT_FUNCTION(wcsncpy);
   INTERCEPT_FUNCTION(wcscmp);
   INTERCEPT_FUNCTION(getenv);
   INTERCEPT_FUNCTION(setenv);
