@@ -213,14 +213,6 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
   }
 }
 
-<<<<<<< HEAD
-/// \brief Normalizes an attribute name by dropping prefixed and suffixed __.
-static StringRef normalizeAttrName(StringRef Name) {
-  if (Name.size() >= 4 && Name.startswith("__") && Name.endswith("__"))
-    Name = Name.drop_front(2).drop_back(2);
-  return Name;
-}
-
 #if INTEL_CUSTOMIZATION
 /// \brief Build full attribute name based in its Syntax, Scope and ID
 static void fillAttrFullName(const IdentifierInfo &II,
@@ -268,8 +260,6 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II,
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
 #else
-=======
->>>>>>> 4683fc76198a9e672cbf3118ddc05b27f0efbc8f
 /// \brief Determine whether the given attribute has an identifier argument.
 static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
 #define CLANG_ATTR_IDENTIFIER_ARG_LIST
