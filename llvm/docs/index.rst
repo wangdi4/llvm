@@ -1,3 +1,12 @@
+.. INTEL_CUSTOMIZATION
+
+.. toctree::
+   :hidden:
+
+   Intel/index
+
+.. // INTEL_CUSTOMIZATION
+
 Overview
 ========
 
@@ -12,6 +21,17 @@ research projects.
 
 Similarly, documentation is broken down into several high-level groupings
 targeted at different audiences:
+
+.. INTEL_CUSTOMIZATION
+
+Xmain and Open Source Guidelines
+================================
+
+:doc:`Intel <Intel/index>`
+   Documentation of the Xmain/LLORG project and guidelines.
+
+.. // INTEL_CUSTOMIZATION
+
 
 LLVM Design & Overview
 ======================
@@ -251,7 +271,6 @@ For API clients and LLVM developers.
    SegmentedStacks
    TableGenFundamentals
    TableGen/index
-   Intel/index
    DebuggingJITedCode
    GoldPlugin
    MarkedUpDisassembly
@@ -297,13 +316,6 @@ For API clients and LLVM developers.
 :doc:`TableGen <TableGen/index>`
    Describes the TableGen tool, which is used heavily by the LLVM code
    generator.
-
-.. INTEL_CUSTOMIZATION
-
-:doc:`Intel <Intel/index>`
-   Documentation of the Xmain project.
-
-.. // INTEL_CUSTOMIZATION
 
 :doc:`AliasAnalysis`
    Information on how to write a new alias analysis implementation or how to
