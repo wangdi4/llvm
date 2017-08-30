@@ -1094,10 +1094,7 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
     // And delete the actual function from the module.
     M.getFunctionList().erase(DeadF);
   }
-<<<<<<< HEAD
-  delete ILIC; // INTEL 
-  return Changed ? PreservedAnalyses::none() : PreservedAnalyses::all();
-=======
+  delete ILIC; // INTEL
 
   if (!Changed)
     return PreservedAnalyses::all();
@@ -1107,5 +1104,4 @@ PreservedAnalyses InlinerPass::run(LazyCallGraph::SCC &InitialC,
   PreservedAnalyses PA;
   PA.preserve<FunctionAnalysisManagerCGSCCProxy>();
   return PA;
->>>>>>> 143ef32e8f37923d606f512ca2922e394f5d6b6c
 }
