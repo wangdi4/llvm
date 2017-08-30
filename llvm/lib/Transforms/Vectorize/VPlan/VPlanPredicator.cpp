@@ -20,7 +20,7 @@
 // Both VPBBs or VPRegions carry a VPBlockPredicateRecipeBase derived predicate
 // which is the input/output mask for the whole SESE block.
 // It can be retrieved with Block->getPredicateRecipe().
-// 
+//
 // o VPBasicBlocks point to a VPBlockPredicate and *not* to a
 //   VPEdgePredicateRecipeBase derived class.
 //   VPBasicBlocks also contain the Block Predicate recipe within their recipe

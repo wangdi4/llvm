@@ -12,6 +12,7 @@ add_llvm_library(LLVMVectorize
   VPlan/VPlanDriver.cpp
   VPlan/VPlanHCFGBuilder.cpp
   VPlan/VPlanPredicator.cpp
+  VPlan/VPlanVerifier.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms

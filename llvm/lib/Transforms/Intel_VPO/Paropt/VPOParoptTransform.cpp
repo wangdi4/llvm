@@ -272,7 +272,21 @@ bool VPOParoptTransform::paroptTransforms() {
         break;
       }
       case WRegionNode::WRNTask:
-        // Task constructs need to perform outlining
+        DEBUG(dbgs() << "\n WRNTask - Transformation \n\n");
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          StructType *KmpTaskTTWithPrivatesTy;
+          StructType *KmpSharedTy;
+          Value *LastIterGep;
+          Changed = genTaskInitCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
+                                    LastIterGep);
+          Changed |= genPrivatizationCode(W);
+          Changed |= genFirstPrivatizationCode(W);
+          Changed |= genLastPrivatizationCode(W, LastIterGep);
+          Changed |= genSharedCodeForTaskLoop(W);
+          Changed |= genRedCodeForTaskLoop(W);
+          Changed |= genTaskCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy);
+          RemoveDirectives = true;
+        }
         break;
 
       case WRegionNode::WRNTaskloop:
@@ -290,6 +304,13 @@ bool VPOParoptTransform::paroptTransforms() {
           Changed |= genRedCodeForTaskLoop(W);
           Changed |= genTaskLoopCode(W, KmpTaskTTWithPrivatesTy, KmpSharedTy,
                                      LBPtr, UBPtr, STPtr);
+          RemoveDirectives = true;
+        }
+        break;
+      case WRegionNode::WRNTaskwait:
+        DEBUG(dbgs() << "\n WRNTaskWait - Transformation \n\n");
+        if ((Mode & OmpPar) && (Mode & ParTrans)) {
+          Changed |= genTaskWaitCode(W);
           RemoveDirectives = true;
         }
         break;
@@ -1127,24 +1148,6 @@ VPOParoptTransform::genPrivatizationAlloca(WRegionNode *W, Value *PrivValue,
   return NewPrivInst;
 }
 
-// Annotate the alias scope data for the references of the
-// firstprivate, lastprivate, private shared, reduction variables
-void VPOParoptTransform::annotateInstWithNoAlias(Instruction *ItemInst,
-                                                 Item *IT) {
-  LLVMContext &Context = F->getContext();
-  if (IT->getAliasScope())
-    ItemInst->setMetadata(
-        LLVMContext::MD_alias_scope,
-        MDNode::concatenate(ItemInst->getMetadata(LLVMContext::MD_alias_scope),
-                            MDNode::get(Context, IT->getAliasScope())));
-
-  if (IT->getNoAlias())
-    ItemInst->setMetadata(
-        LLVMContext::MD_noalias,
-        MDNode::concatenate(ItemInst->getMetadata(LLVMContext::MD_noalias),
-                            IT->getNoAlias()));
-}
-
 // Replace the variable with the privatized variable
 void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
                                                      Value *PrivValue,
@@ -1170,8 +1173,6 @@ void VPOParoptTransform::genPrivatizationReplacement(WRegionNode *W,
       continue;
     }
     UI->replaceUsesOfWith(PrivValue, NewPrivInst);
-    if (isa<LoadInst>(UI) || isa<StoreInst>(UI))
-      annotateInstWithNoAlias(UI, IT);
     // DEBUG(dbgs() << "New Instruction uses PrivItem: " << *UI << "\n");
   }
 }
@@ -1195,7 +1196,8 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
     BasicBlock *ExitBB = W->getExitBBlock();
     BasicBlock *PrivInitEntryBB = nullptr;
     Value *NewPrivInst = nullptr;
-    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
+    bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
+                   W->getWRegionKindID() == WRegionNode::WRNTask;
 
     for (FirstprivateItem *FprivI : FprivClause.items()) {
       Value *Orig = FprivI->getOrig();
@@ -1210,7 +1212,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
           NewPrivInst = genPrivatizationAlloca(
               W, Orig, EntryBB->getFirstNonPHI(), ".fpriv");
           genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-          if (!ForTaskLoop)
+          if (!ForTask)
             FprivI->setNew(NewPrivInst);
           else {
             IRBuilder<> Builder(EntryBB->getTerminator());
@@ -1226,7 +1228,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         NewPrivInst = genPrivatizationAlloca(W, Orig, EntryBB->getFirstNonPHI(),
                                              ".fpriv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, FprivI);
-        if (!ForTaskLoop)
+        if (!ForTask)
           FprivI->setNew(NewPrivInst);
         else {
           IRBuilder<> Builder(EntryBB->getTerminator());
@@ -1238,7 +1240,7 @@ bool VPOParoptTransform::genFirstPrivatizationCode(WRegionNode *W) {
         }
       }
 
-      if (!ForTaskLoop) {
+      if (!ForTask) {
         createEmptyPrvInitBB(W, PrivInitEntryBB);
         genFprivInit(FprivI, PrivInitEntryBB->getTerminator());
       }
@@ -1262,13 +1264,14 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
   assert(W->isBBSetEmpty() &&
          "genLastPrivatizationCode: BBSET should start empty");
 
-  assert(W->hasLastprivate() &&
-         "genLastPrivatizationCode: WRN doesn't take a lastprivate var");
+  if (!W->hasLastprivate())
+    return Changed;
 
   LastprivateClause &LprivClause = W->getLpriv();
   if (!LprivClause.empty()) {
     W->populateBBSet();
-    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
+    bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
+                   W->getWRegionKindID() == WRegionNode::WRNTask;
     BasicBlock *EntryBB = W->getEntryBBlock();
     BasicBlock *BeginBB = nullptr;
     createEmptyPrivFiniBB(W, BeginBB);
@@ -1293,13 +1296,13 @@ bool VPOParoptTransform::genLastPrivatizationCode(WRegionNode *W,
                    "genLastPrivatizationCode: Unexpected lastprivate variable");
       */
       Value *NewPrivInst;
-      if (!ForTaskLoop)
+      if (!ForTask)
         NewPrivInst =
             genPrivatizationAlloca(W, Orig, &EntryBB->front(), ".lpriv");
       else
         NewPrivInst = LprivI->getNew();
       genPrivatizationReplacement(W, Orig, NewPrivInst, LprivI);
-      if (!ForTaskLoop) {
+      if (!ForTask) {
         LprivI->setNew(NewPrivInst);
         genLprivFini(LprivI, BeginBB->getTerminator());
       } else
@@ -1331,7 +1334,8 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
            "genPrivatizationCode: BBSET should start empty");
     W->populateBBSet();
 
-    bool ForTaskLoop = W->getWRegionKindID() == WRegionNode::WRNTaskloop;
+    bool ForTask = W->getWRegionKindID() == WRegionNode::WRNTaskloop ||
+                   W->getWRegionKindID() == WRegionNode::WRNTask;
 
     // Walk through each PrivateItem list in the private clause to perform 
     // privatization for each Value item
@@ -1357,7 +1361,7 @@ bool VPOParoptTransform::genPrivatizationCode(WRegionNode *W) {
         NewPrivInst = genPrivatizationAlloca(W, Orig, AllocaInsertPt, ".priv");
         genPrivatizationReplacement(W, Orig, NewPrivInst, PrivI);
 
-        if (!ForTaskLoop)
+        if (!ForTask)
           PrivI->setNew(NewPrivInst);
         else {
           IRBuilder<> Builder(EntryBB->getTerminator());
@@ -2047,9 +2051,8 @@ void VPOParoptTransform::codeExtractorPrepare(WRegionNode *W) {
 //     @.kmpc_loc.0.0.2, i32 %my.tid, [8 x i32]* @.gomp_critical_user_.var)
 //   br label %DIR.QUAL.LIST.END.5
 //
-void VPOParoptTransform::finiCodeExtractorPrepare(Function *F,
-                                                  bool ForTaskLoop) {
-  if (ForTaskLoop == false) {
+void VPOParoptTransform::finiCodeExtractorPrepare(Function *F, bool ForTask) {
+  if (ForTask == false) {
     // Cleans the genererated bid alloca instruction in the
     // outline function.
     TidAndBidInstructions.clear();
@@ -2057,7 +2060,7 @@ void VPOParoptTransform::finiCodeExtractorPrepare(Function *F,
     for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B)
       collectTidAndBidInstructionsForBB(&*B);
 
-    finiCodeExtractorPrepareTransform(F, false, nullptr, ForTaskLoop);
+    finiCodeExtractorPrepareTransform(F, false, nullptr, ForTask);
   }
   // Cleans up the generated __kmpc_global_thread_num() in the
   // outlined function. Replaces the use of the __kmpc_global_thread_num()
@@ -2081,18 +2084,18 @@ void VPOParoptTransform::finiCodeExtractorPrepare(Function *F,
 
   TidAndBidInstructions.clear();
 
-  if (ForTaskLoop == false)
+  if (ForTask == false)
     getAllocFromTid(Tid);
   TidAndBidInstructions.insert(Tid);
 
-  finiCodeExtractorPrepareTransform(F, true, NextBB, ForTaskLoop);
+  finiCodeExtractorPrepareTransform(F, true, NextBB, ForTask);
 }
 
 // Replaces the use of tid/bid with the outlined function arguments.
 void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
                                                            bool IsTid,
                                                            BasicBlock *NextBB,
-                                                           bool ForTaskLoop) {
+                                                           bool ForTask) {
   Value *NewAI = nullptr;
   Value *NewLoad = nullptr;
   for (Instruction *I : TidAndBidInstructions) {
@@ -2104,7 +2107,7 @@ void VPOParoptTransform::finiCodeExtractorPrepareTransform(Function *F,
         NewAI = &*(IT);
       }
     } else if (IsTid) {
-      if (ForTaskLoop == false) {
+      if (ForTask == false) {
         IRBuilder<> Builder(NextBB);
         Builder.SetInsertPoint(NextBB, NextBB->getFirstInsertionPt());
         NewLoad = Builder.CreateLoad(&*(F->arg_begin()));

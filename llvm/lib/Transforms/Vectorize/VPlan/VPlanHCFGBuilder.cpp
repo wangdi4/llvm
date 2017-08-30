@@ -673,7 +673,7 @@ void VPlanHCFGBuilder::simplifyPlainCFG(HCFGState &State) {
     // DEBUG(dbgs() << "Dominator Tree Before mergeLoopExits\n";
     // State.VPDomTree.print(dbgs()));
     mergeLoopExits(TopLoop, State);
-    PlanUtils.verifyHierarchicalCFG(TopRegion);
+    DEBUG(Verifier.verifyHierarchicalCFG(TopRegion));
     // DEBUG(dbgs() << "Dominator Tree After mergeLoopExits\n";
     // State.VPDomTree.print(dbgs()));
   }
@@ -972,7 +972,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
   // State used only to build this HCFG. It will be destroyed at the end of the
   // building process.
   HCFGState State(TheLoop, WRLoop, Plan);
-  IntelVPlanUtils &PlanUtils = State.PlanUtils;
   VPDominatorTree &VPDomTree = State.VPDomTree;
   VPDominatorTree &VPPostDomTree = State.VPPostDomTree;
 
@@ -984,7 +983,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
   DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
         PlanPrinter.dump("HCFGBuilder: Plain CFG"));
 
-  PlanUtils.verifyHierarchicalCFG(TopRegion);
+  DEBUG(Verifier.verifyHierarchicalCFG(TopRegion));
 
   // Compute dom tree for the plain CFG for VPLInfo. We don't need post-dom tree
   // at this point.
@@ -1017,7 +1016,7 @@ void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
   DEBUG(dbgs() << "VPLoop Info After simplifyPlainCFG:\n";
         VPLInfo->print(dbgs()));
 
-  PlanUtils.verifyHierarchicalCFG(TopRegion);
+  DEBUG(Verifier.verifyHierarchicalCFG(TopRegion));
 
   // Build hierarchical CFG in two step: buildLoopRegions and
   // buildNonLoopRegions. There are two important things to notice:
@@ -1035,5 +1034,6 @@ void VPlanHCFGBuilder::buildHierarchicalCFG(Loop *TheLoop,
   DEBUG(VPlanPrinter PlanPrinter(dbgs(), *Plan);
         PlanPrinter.dump("LVP: After building HCFG"));
 
-  PlanUtils.verifyHierarchicalCFG(TopRegion, TheLoop, VPLInfo, LI);
+  DEBUG(Verifier.setLoopInformation(TheLoop, VPLInfo, LI);
+        Verifier.verifyHierarchicalCFG(TopRegion));
 }
