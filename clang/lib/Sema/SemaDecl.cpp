@@ -12433,7 +12433,7 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
   }
 #endif // INTEL_CUSTOMIZATION
 
-  // Don't emit an error when this is redifinition of a typo-corrected
+  // Don't emit an error when this is redefinition of a typo-corrected
   // definition.
   if (TypoCorrectedFunctionDefinitions.count(Definition))
     return;
