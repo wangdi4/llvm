@@ -134,6 +134,12 @@ namespace intel {
     /// @returns container with calls to WG functions of requested type
     TInstructionVector& getWGCallInstructions(CALL_BI_TYPE type);
 
+    /// @brief Collect all kernels and vectorized counterparts
+    /// @param KernelList - list of kernels
+    /// @param List - out list with collected functions
+    static TFunctionVector getAllKernelsAndVectorizedCounterparts(
+        const SmallVectorImpl<Function *> &KernelList);
+
     /// @brief Find all kernel functions in the module
     /// @returns TFunctionVector container with found functions
     TFunctionVector& getAllKernelsWithBarrier();

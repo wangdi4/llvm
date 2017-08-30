@@ -557,7 +557,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 Function *CompilationUtils::AddMoreArgsToFunc(
     Function *F, ArrayRef<Type *> NewTypes, ArrayRef<const char *> NewNames,
-    ArrayRef<AttributeSet> NewAttrs, StringRef Prefix, bool IsKernel) {
+    ArrayRef<AttributeSet> NewAttrs, StringRef Prefix) {
   assert(NewTypes.size() == NewNames.size());
   assert(NewTypes.size() == NewAttrs.size());
   // Initialize with all original arguments in the function sugnature
@@ -577,10 +577,6 @@ Function *CompilationUtils::AddMoreArgsToFunc(
   // Copy old function attributes (including attributes on original arguments) to new function.
   NewF->copyAttributesFrom(F);
   NewF->copyMetadata(F, 0);
-  if (IsKernel) {
-    // Only those who are kernel functions need to get this calling convention
-    NewF->setCallingConv(CallingConv::C);
-  }
   // Set original arguments' names
   Function::arg_iterator NewI = NewF->arg_begin();
   for (Function::const_arg_iterator I = F->arg_begin(), E = F->arg_end();

@@ -25,7 +25,6 @@ extern "C"{
   ModulePass* createAddImplicitArgsPass() {
     return new intel::AddImplicitArgs();
   }
-
 }
 
 using namespace Intel::OpenCL::DeviceBackend;
@@ -51,9 +50,8 @@ namespace intel{
 
     // Clear call instruction to fix container
     m_fixupCalls.clear();
-
-    CompilationUtils::FunctionSet kernelsFunctionSet;
-    CompilationUtils::getAllKernels(kernelsFunctionSet, m_pModule);
+    // Clear functions refs to fix container
+    m_fixupFunctionsRefs.clear();
 
     // Collect all module functions that are not declarations into for handling
     std::vector<Function*> toHandleFunctions;
@@ -73,12 +71,12 @@ namespace intel{
     }
 
     // Run on all collected functions for handlin and handle them
-    for ( std::vector<Function*>::iterator fi = toHandleFunctions.begin(),
-      fe = toHandleFunctions.end(); fi != fe; ++fi ) {
-        Function *pFunc = dyn_cast<Function>(*fi);
-        bool isAKernel = (kernelsFunctionSet.count(pFunc) > 0);
-        runOnFunction(pFunc, isAKernel);
+    for (auto *pFunc : toHandleFunctions) {
+      runOnFunction(pFunc);
     }
+
+    // update Metadata now
+    updateMetadata();
 
     // Go over all call instructions that need to be changed
     // and add implicit arguments to them
@@ -123,7 +121,7 @@ namespace intel{
     return true;
   }
 
-  Function* AddImplicitArgs::runOnFunction(Function *pFunc, bool isAKernel) {
+  Function* AddImplicitArgs::runOnFunction(Function *pFunc) {
 
     SmallVector<llvm::Type *, 16> NewTypes;
     SmallVector<const char *, 16> NewNames;
@@ -149,7 +147,10 @@ namespace intel{
     }
     // Create the new function with appended implicit attributes
     Function *pNewF = CompilationUtils::AddMoreArgsToFunc(
-        pFunc, NewTypes, NewNames, NewAttrs, "AddImplicitArgs", isAKernel);
+        pFunc, NewTypes, NewNames, NewAttrs, "AddImplicitArgs");
+
+    // maintain this map to preserve original/modified relation for functions.
+    m_fixupFunctionsRefs[pFunc] = pNewF;
 
     // Apple LLVM-IR workaround
     // 1.  Pass WI information structure as the next parameter after given function parameters
@@ -233,44 +234,67 @@ namespace intel{
       }
     }
 
-    Module *pModule = pFunc->getParent();
-    Module::named_metadata_iterator MDIter = pModule->named_metadata_begin();
-    Module::named_metadata_iterator EndMDIter = pModule->named_metadata_end();
-    m_pFunc = pFunc;
-    m_pNewF = pNewF;
-
-    // FIXME:
-    // This is suboptimal since the loop iterates over all named metadata again and
-    // again per each patched function in the module while it can be only done once
-    // after all the functions are patched w\ the implicit arguments.
-    for(; MDIter != EndMDIter; MDIter++) {
-      for(int ui = 0, ue = MDIter->getNumOperands(); ui < ue; ui++) {
-        // Replace metadata with metada containing information about the wrapper
-        MDNode* pMDNode = MDIter->getOperand(ui);
-        std::set<MDNode *> visited;
-        iterateMDTree(pMDNode, visited);
-      }
-    }
-
     return pNewF;
   }
 
-  void AddImplicitArgs::iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited) {
-    // Avoid inifinite loops due to possible cycles in metadata
-    if (visited.count(pMDNode)) return;
-    visited.insert(pMDNode);
+  void AddImplicitArgs::updateMetadata() {
+    // Now update the references in Function metadata.
+    // All the function metadata we are interested in is flat by design
+    // (see Metadata API).
 
-    for (int i = 0, e = pMDNode->getNumOperands(); i < e; ++i) {
-      Metadata * mdOp = pMDNode->getOperand(i);
-      if (mdOp) {
-        if (MDNode * mdOpNode = dyn_cast<MDNode>(mdOp)) {
-          iterateMDTree(mdOpNode, visited);
+    // iterate over the functions we need update metadata for
+    // (in other words, all the functions pass have created)
+    for (const auto &FuncKV : m_fixupFunctionsRefs) {
+      auto F = FuncKV.second;
+      SmallVector<std::pair<unsigned, MDNode *>, 8> MDs;
+      F->getAllMetadata(MDs);
+
+      for (const auto &MD : MDs) {
+        auto MDNode = MD.second;
+        if (MDNode->getNumOperands() > 0) {
+          Metadata *MDOp = MDNode->getOperand(0);
+          if (auto *FuncAsMD = dyn_cast_or_null<ConstantAsMetadata>(MDOp))
+            if (auto *NodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+              if (m_fixupFunctionsRefs.count(NodeFunc) > 0)
+                MDNode->replaceOperandWith(
+                    0, ConstantAsMetadata::get(m_fixupFunctionsRefs[NodeFunc]));
+            }
         }
-        else if(ConstantAsMetadata * funcAsMet = dyn_cast<ConstantAsMetadata>(mdOp)) {
-          if (m_pFunc == mdconst::dyn_extract<Function>(funcAsMet))
-            pMDNode->replaceOperandWith(i, ConstantAsMetadata::get(m_pNewF));
-          // TODO: Check if the old metadata has to bee deleted manually to avoid
-          //       memory leaks.
+      }
+    }
+
+    // Now respect the Module-level metadata.
+    for (const auto &NamedMDNode : m_pModule->named_metadata()) {
+      for (int ui = 0, ue = NamedMDNode.getNumOperands(); ui < ue; ui++) {
+        // Replace metadata with metadata containing information about the wrapper
+        MDNode *MDNodeOp = NamedMDNode.getOperand(ui);
+        std::set<MDNode *> Visited;
+        iterateMDTree(MDNodeOp, Visited);
+      }
+    }
+  }
+
+  void AddImplicitArgs::iterateMDTree(MDNode *MDTreeNode,
+                                      std::set<MDNode *> &Visited) {
+    // Avoid inifinite loops due to possible cycles in metadata
+    if (Visited.count(MDTreeNode))
+      return;
+    Visited.insert(MDTreeNode);
+
+    for (int i = 0, e = MDTreeNode->getNumOperands(); i < e; ++i) {
+      Metadata *MDOp = MDTreeNode->getOperand(i);
+      if (!MDOp)
+        continue;
+      if (MDNode *MDOpNode = dyn_cast<MDNode>(MDOp)) {
+        iterateMDTree(MDOpNode, Visited);
+      } else if (ConstantAsMetadata *FuncAsMD =
+                     dyn_cast<ConstantAsMetadata>(MDOp)) {
+        if (auto *MDNodeFunc = mdconst::dyn_extract<Function>(FuncAsMD)) {
+          if (m_fixupFunctionsRefs.count(MDNodeFunc) > 0)
+            MDTreeNode->replaceOperandWith(
+                i, ConstantAsMetadata::get(m_fixupFunctionsRefs[MDNodeFunc]));
+          // TODO: Check if the old metadata has to bee deleted manually to
+          // avoid memory leaks.
         }
       }
     }

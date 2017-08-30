@@ -39,7 +39,7 @@ namespace intel {
     /// @brief LLVM Module pass entry
     /// @param M Module to transform
     /// @returns true if changed
-    bool runOnModule(Module &M);
+    bool runOnModule(Module &M) override;
 
     /// @brief LLVM Interface
     /// @param AU Analysis
@@ -55,14 +55,8 @@ namespace intel {
     ///        the given funciton and need to add implicit arguments to its
     ///        original arguments, i.e. calls to functions define in module.
     /// @param pFunc The function to create a copy of
-    /// @param isAKernel true is the gevin function is a kernel
     /// @returns The new function that receives the implicit arguemnts
-    Function* runOnFunction(Function *pFunc, bool isAKernel);
-
-    /// @brief Updates metadata nodes with new Function signature
-    /// @param pMetadata The current metadata node
-    /// @param visited set with metadata we alreay visit.
-    void iterateMDTree(MDNode* pMetadata, std::set<MDNode *> &visited);
+    Function* runOnFunction(Function *pFunc);
 
     /// @brief helper function. replaces call instruction with call instruction
     ///        that receives implicit arguments
@@ -70,6 +64,14 @@ namespace intel {
     /// @param newArgsVec arguments of new function with implicit arguments added
     /// @param pNewF function with implicit arguments added
     void replaceCallInst(CallInst *CI, ArrayRef<Type *> newArgs, Function * pNewF);
+
+    /// @brief Updates metadata nodes with new Function signature
+    /// @param pMetadata The current metadata node
+    /// @param visited set with metadata we alreay visit.
+    void iterateMDTree(MDNode* pMDNode, std::set<MDNode*> &visited);
+
+    /// @brief Update Metadata after transformations were made.
+    void updateMetadata();
 
   private:
     /// @brief The llvm module this pass needs to update
@@ -85,10 +87,10 @@ namespace intel {
     /// @brief Maps call instructions to the implicit arguments needed to patch up the call
     std::map<llvm::CallInst *, llvm::Value **> m_fixupCalls;
 
-    Type* m_struct_WorkDim;
+    /// @brief Maps the original and modified Function with implicit args
+    llvm::DenseMap<llvm::Function *, llvm::Function *> m_fixupFunctionsRefs;
 
-    Function* m_pFunc;
-    Function* m_pNewF;
+    Type* m_struct_WorkDim;
   };
 
 } // namespace intel

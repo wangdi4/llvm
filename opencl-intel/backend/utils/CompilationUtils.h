@@ -114,20 +114,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                               std::vector<cl_kernel_argument>& /* OUT */ arguments,
                                               std::vector<unsigned int>&       /* OUT */ memoryArguments);
 
-    /// @brief  maps between kernels (both scalar and vectorized) and their metdata
-    /// @param pModule          The module
-    /// @param pVectFunctions   The vectorized kernels, these kernel should be mapped
-    ///                         to their scalar version metadata
-    /// @param pVectFunctions   OUT param, maps between kernels (both scalar and
-    ///                         vectorized) and their metdata
-    static void getKernelsMetadata( Module* pModule,
-                                    const SmallVectorImpl<Function*>& pVectFunctions,
-                                    std::map<Function*, MDNode*>& /* OUT */ kernelMetadata);
-
     static Function *AddMoreArgsToFunc(Function *F, ArrayRef<Type *> NewTypes,
                                        ArrayRef<const char *> NewNames,
                                        ArrayRef<AttributeSet> NewAttrs,
-                                       StringRef Prefix, bool IsKernel = false);
+                                       StringRef Prefix);
     // AddMoreArgsToCall - Replaces a CallInst with a new CallInst which has the
     // same arguments as orignal plus more args appeneded.
     // Returns the new CallInst
@@ -169,24 +159,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isMemFence(const std::string&);
     static bool isReadMemFence(const std::string&);
     static bool isWriteMemFence(const std::string&);
-    static bool isNDRange_1D(const std::string&);
-    static bool isNDRange_2D(const std::string&);
-    static bool isNDRange_3D(const std::string&);
-    static bool isEnqueueKernelBasic(const std::string&);
     static bool isEnqueueKernelLocalMem(const std::string&);
-    static bool isEnqueueKernelEvents(const std::string&);
     static bool isEnqueueKernelEventsLocalMem(const std::string&);
-    static bool isGetKernelWorkGroupSize(const std::string&);
-    static bool isGetKernelWorkGroupSizeLocal(const std::string&);
-    static bool isGetKernelPreferredWorkGroupSizeMultiple(const std::string&);
-    static bool isGetKernelPreferredWorkGroupSizeMultipleLocal(const std::string&);
-    static bool isEnqueueMarker(const std::string&);
-    static bool isGetDefaultQueue(const std::string&);
-    static bool isRetainEvent(const std::string&);
-    static bool isReleaseEvent(const std::string&);
-    static bool isCreateUserEvent(const std::string&);
-    static bool isSetUserEventStatus(const std::string&);
-    static bool isCaptureEventProfilingInfo(const std::string&);
     static bool isWorkGroupAll(const std::string&);
     static bool isWorkGroupAny(const std::string&);
     static bool isSubGroupAll(const std::string&);
@@ -373,11 +347,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       WG_BARRIER_WITH_SCOPE
     } WG_BARRIER_TYPE;
     static std::string mangledWGBarrier(WG_BARRIER_TYPE wgBarrierType);
-    //////////////////////////////////////////////////////////////////
-    // @brief: returns the name of the argument metadata node for the
-    //given module
-    //////////////////////////////////////////////////////////////////
-    static std::string argumentAttribute(const llvm::Module&);
 
     static const std::string NAME_GET_DEFAULT_QUEUE;
 
@@ -453,10 +422,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       return CompilationUtils::getCLVersionFromModule(M, version) ?
              version : OclVersion::CL_VER_DEFAULT;
     }
-
-    /// type for extended execution context
-    static Type * getExtendedExecContextType(LLVMContext &C);
-    static void CloneDebugInfo(Function *SrcF, Function *DstF);
 
     /// Import a declaration of \p Orig into module \p Dst
     ///
