@@ -1322,7 +1322,7 @@ bool GVN::PerformLoadPRE(LoadInst *LI, AvailValInBlkVect &ValuesPerBlock,
     V->takeName(LI);
   if (Instruction *I = dyn_cast<Instruction>(V))
     I->setDebugLoc(LI->getDebugLoc());
-  if (V->getType()->getScalarType()->isPointerTy())
+  if (V->getType()->isPtrOrPtrVectorTy())
     MD->invalidateCachedPointerInfo(V);
   markInstructionForDeletion(LI);
   ORE->emit(OptimizationRemark(DEBUG_TYPE, "LoadPRE", LI)
@@ -1409,7 +1409,7 @@ bool GVN::processNonLocalLoad(LoadInst *LI) {
       // to propagate LI's DebugLoc because LI may not post-dominate I.
       if (LI->getDebugLoc() && LI->getParent() == I->getParent())
         I->setDebugLoc(LI->getDebugLoc());
-    if (V->getType()->getScalarType()->isPointerTy())
+    if (V->getType()->isPtrOrPtrVectorTy())
       MD->invalidateCachedPointerInfo(V);
     markInstructionForDeletion(LI);
     ++NumGVNLoad;
@@ -1567,7 +1567,7 @@ bool GVN::processLoad(LoadInst *L) {
     reportLoadElim(L, AvailableValue, ORE);
     // Tell MDA to rexamine the reused pointer since we might have more
     // information after forwarding it.
-    if (MD && AvailableValue->getType()->getScalarType()->isPointerTy())
+    if (MD && AvailableValue->getType()->isPtrOrPtrVectorTy())
       MD->invalidateCachedPointerInfo(AvailableValue);
     return true;
   }
@@ -1822,7 +1822,7 @@ bool GVN::processInstruction(Instruction *I) {
       Changed = true;
     }
     if (Changed) {
-      if (MD && V->getType()->getScalarType()->isPointerTy())
+      if (MD && V->getType()->isPtrOrPtrVectorTy())
         MD->invalidateCachedPointerInfo(V);
       ++NumGVNSimpl;
       return true;
@@ -1933,7 +1933,7 @@ bool GVN::processInstruction(Instruction *I) {
 
   // Remove it!
   patchAndReplaceAllUsesWith(I, Repl);
-  if (MD && Repl->getType()->getScalarType()->isPointerTy())
+  if (MD && Repl->getType()->isPtrOrPtrVectorTy())
     MD->invalidateCachedPointerInfo(Repl);
   markInstructionForDeletion(I);
   return true;
@@ -2207,7 +2207,7 @@ bool GVN::performScalarPRE(Instruction *CurInst) {
   addToLeaderTable(ValNo, Phi, CurrentBlock);
   Phi->setDebugLoc(CurInst->getDebugLoc());
   CurInst->replaceAllUsesWith(Phi);
-  if (MD && Phi->getType()->getScalarType()->isPointerTy())
+  if (MD && Phi->getType()->isPtrOrPtrVectorTy())
     MD->invalidateCachedPointerInfo(Phi);
   VN.erase(CurInst);
   removeFromLeaderTable(ValNo, CurInst, CurrentBlock);
