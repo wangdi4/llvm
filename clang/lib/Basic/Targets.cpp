@@ -3296,6 +3296,7 @@ bool X86TargetInfo::initFeatureMap(
     break;
   case CK_Goldmont:
     setFeatureEnabledImpl(Features, "sha", true);
+    setFeatureEnabledImpl(Features, "rdrnd", true);
     setFeatureEnabledImpl(Features, "rdseed", true);
     setFeatureEnabledImpl(Features, "xsave", true);
     setFeatureEnabledImpl(Features, "xsaveopt", true);
@@ -3310,6 +3311,7 @@ bool X86TargetInfo::initFeatureMap(
     setFeatureEnabledImpl(Features, "sse4.2", true);
     LLVM_FALLTHROUGH;
   case CK_Bonnell:
+    setFeatureEnabledImpl(Features, "movbe", true);
     setFeatureEnabledImpl(Features, "ssse3", true);
     setFeatureEnabledImpl(Features, "fxsr", true);
     setFeatureEnabledImpl(Features, "cx16", true);
