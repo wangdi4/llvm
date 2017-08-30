@@ -3053,6 +3053,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     }
 
+    ASTContext &Context = getContext();
     Stmt *S = nullptr;
     bool Finished = false;
     bool IsStmtReference = false;
