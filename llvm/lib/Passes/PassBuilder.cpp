@@ -764,9 +764,6 @@ PassBuilder::buildThinLTOPreLinkDefaultPipeline(OptimizationLevel Level,
   // Reduce the size of the IR as much as possible.
   MPM.addPass(GlobalOptPass());
 
-  // Rename anon globals to be able to export them in the summary.
-  MPM.addPass(NameAnonGlobalPass());
-
   return MPM;
 }
 
