@@ -185,12 +185,6 @@ private:
                        bool SameOperand = false // INTEL
                        );
 
-  AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
-                                       uint64_t V1Size,
-                                       const GEPOperator *GEP2,
-                                       uint64_t V2Size,
-                                       const DataLayout &DL);
-
   AliasResult aliasPHI(const PHINode *PN, uint64_t PNSize,
                        const AAMDNodes &PNAAInfo, const Value *V2,
                        uint64_t V2Size, const AAMDNodes &V2AAInfo,
