@@ -196,6 +196,17 @@ void Kernel::CreateWorkDescription(cl_uniform_kernel_args *UniformImplicitArgs, 
         UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX][i] = GCD(
             UniformImplicitArgs->GlobalSize[i], m_pProps->GetHintWGSize()[i]);
       }
+    }
+    // If we have only one thread for execution
+    else if (1 == numOfComputeUnits) {
+      // Make local size == global size
+      auto GlobalSizeBegin = UniformImplicitArgs->GlobalSize;
+      auto GlobalSizeEnd =
+          UniformImplicitArgs->GlobalSize + UniformImplicitArgs->WorkDim;
+      std::copy(GlobalSizeBegin, GlobalSizeEnd,
+                UniformImplicitArgs->LocalSize[UNIFORM_WG_SIZE_INDEX]);
+      std::copy(GlobalSizeBegin, GlobalSizeEnd,
+                UniformImplicitArgs->LocalSize[NONUNIFORM_WG_SIZE_INDEX]);
     } else {
       // Old Heuristic
       // On the last use optimal size

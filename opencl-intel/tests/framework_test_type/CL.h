@@ -29,5 +29,6 @@ protected:
 
     void QueryInvalidParamNameFromCQueue_Negative();
 
+    void ZeroLocalSize();
 };
 #endif /*__CL_GENERAL__*/
