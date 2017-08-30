@@ -77,10 +77,6 @@ RunSLPVectorization("vectorize-slp", cl::Hidden,
                     cl::desc("Run the SLP vectorization passes"));
 
 static cl::opt<bool>
-RunBBVectorization("vectorize-slp-aggressive", cl::Hidden,
-                    cl::desc("Run the BB vectorization passes"));
-
-static cl::opt<bool>
 UseGVNAfterVectorization("use-gvn-after-vectorization",
   cl::init(false), cl::Hidden,
   cl::desc("Run GVN instead of Early CSE after vectorization passes"));
@@ -257,7 +253,6 @@ PassManagerBuilder::PassManagerBuilder() {
     Inliner = nullptr;
     DisableUnitAtATime = false;
     DisableUnrollLoops = false;
-    BBVectorize = RunBBVectorization;
     SLPVectorize = RunSLPVectorization;
     LoopVectorize = RunLoopVectorization;
     RerollLoops = RunLoopRerolling;
@@ -494,26 +489,8 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
 
   if (RerollLoops)
     MPM.add(createLoopRerollPass());
-  if (!RunSLPAfterLoopVectorization) {
-    if (SLPVectorize)
-      MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
-
-    if (BBVectorize) {
-      MPM.add(createBBVectorizePass());
-      addInstructionCombiningPass(MPM);
-      addExtensionsToPM(EP_Peephole, MPM);
-      if (OptLevel > 1 && UseGVNAfterVectorization)
-        MPM.add(NewGVN
-                    ? createNewGVNPass()
-                    : createGVNPass(DisableGVNLoadPRE)); // Remove redundancies
-      else
-        MPM.add(createEarlyCSEPass());      // Catch trivial redundancies
-
-      // BBVectorize may have significantly shortened a loop body; unroll again.
-      if (!DisableUnrollLoops)
-        MPM.add(createLoopUnrollPass(OptLevel));
-    }
-  }
+  if (!RunSLPAfterLoopVectorization && SLPVectorize)
+    MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
 
   MPM.add(createAggressiveDCEPass());         // Delete dead instructions
   MPM.add(createCFGSimplificationPass()); // Merge & remove BBs
@@ -789,6 +766,7 @@ void PassManagerBuilder::populateModulePassManager(
     MPM.add(createCFGSimplificationPass());
     addInstructionCombiningPass(MPM);
   }
+<<<<<<< HEAD
   if (RunSLPAfterLoopVectorization) {
     if (SLPVectorize) {
       MPM.add(createSLPVectorizerPass());   // Vectorize parallel scalar chains.
@@ -811,6 +789,13 @@ void PassManagerBuilder::populateModulePassManager(
       // BBVectorize may have significantly shortened a loop body; unroll again.
       if (!DisableUnrollLoops)
         MPM.add(createLoopUnrollPass(OptLevel));
+=======
+
+  if (RunSLPAfterLoopVectorization && SLPVectorize) {
+    MPM.add(createSLPVectorizerPass()); // Vectorize parallel scalar chains.
+    if (OptLevel > 1 && ExtraVectorizerPasses) {
+      MPM.add(createEarlyCSEPass());
+>>>>>>> cebf3467bc024833fb77db808218e84026ec9aba
     }
   }
   } // INTEL
