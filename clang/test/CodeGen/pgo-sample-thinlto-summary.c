@@ -1,18 +1,9 @@
-<<<<<<< HEAD
 // INTEL -- xmain inlining logic prefers cloning foo() to inlining, so this test
 //          fails.  To work around that, disable xmain-specific inlining logic.
 // RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
 // RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // RUN: %clang_cc1 -O2 -fexperimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// FIXME: Run the following command once LTOPreLinkDefaultPipeline is
-//        customized.
-// %clang_cc1 -O2 -fexperimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
-=======
-// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -O2 -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
-// RUN: %clang_cc1 -O2 -fexperimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -o - 2>&1 | FileCheck %s -check-prefix=SAMPLEPGO
-// RUN: %clang_cc1 -O2 -fexperimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
->>>>>>> 6cf872658dac590134adbf79d8afefe95eaf1b1b
+// RUN: %clang_cc1 -O2 -fexperimental-new-pass-manager -fprofile-sample-use=%S/Inputs/pgo-sample-thinlto-summary.prof %s -emit-llvm -mllvm -inline-for-xmain=0 -flto=thin -o - 2>&1 | FileCheck %s -check-prefix=THINLTO
 // Checks if hot call is inlined by normal compile, but not inlined by
 // thinlto compile.
 
