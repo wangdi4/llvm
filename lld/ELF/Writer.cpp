@@ -181,7 +181,6 @@ template <class ELFT> void Writer<ELFT>::run() {
     // Linker scripts may have left some input sections unassigned.
     // Assign such sections using the default rule.
     Script->addOrphanSections(Factory);
-    Script->createOrphanCommands();
   } else {
     // If linker script does not contain SECTIONS commands, create
     // output sections by default rules. We still need to give the
@@ -217,7 +216,8 @@ template <class ELFT> void Writer<ELFT>::run() {
       OutputSectionCommands.begin(), OutputSectionCommands.end(),
       [](OutputSectionCommand *Cmd) { Cmd->maybeCompress<ELFT>(); });
 
-  Script->assignAddresses(Phdrs);
+  Script->assignAddresses();
+  Script->allocateHeaders(Phdrs);
 
   // Remove empty PT_LOAD to avoid causing the dynamic linker to try to mmap a
   // 0 sized region. This has to be done late since only after assignAddresses
@@ -872,13 +872,13 @@ template <class ELFT> void Writer<ELFT>::addReservedSymbols() {
 // __attribute__((init_priority(N))).
 static void sortInitFini(OutputSection *S) {
   if (S)
-    reinterpret_cast<OutputSection *>(S)->sortInitFini();
+    S->sortInitFini();
 }
 
 // Sort input sections by the special rule for .ctors and .dtors.
 static void sortCtorsDtors(OutputSection *S) {
   if (S)
-    reinterpret_cast<OutputSection *>(S)->sortCtorsDtors();
+    S->sortCtorsDtors();
 }
 
 // Sort input sections using the list provided by --symbol-ordering-file.

@@ -112,8 +112,73 @@ enum {
   /// - OpIdx - Operand index
   GIM_CheckIsMBB,
 
-  /// A successful match
-  GIM_Accept,
+  /// Check if the specified operand is safe to fold into the current
+  /// instruction.
+  /// - InsnID - Instruction ID
+  GIM_CheckIsSafeToFold,
+
+  //=== Renderers ===
+
+  /// Mutate an instruction
+  /// - NewInsnID - Instruction ID to define
+  /// - OldInsnID - Instruction ID to mutate
+  /// - NewOpcode - The new opcode to use
+  GIR_MutateOpcode,
+  /// Build a new instruction
+  /// - InsnID - Instruction ID to define
+  /// - Opcode - The new opcode to use
+  GIR_BuildMI,
+
+  /// Copy an operand to the specified instruction
+  /// - NewInsnID - Instruction ID to modify
+  /// - OldInsnID - Instruction ID to copy from
+  /// - OpIdx - The operand to copy
+  GIR_Copy,
+  /// Copy an operand to the specified instruction
+  /// - NewInsnID - Instruction ID to modify
+  /// - OldInsnID - Instruction ID to copy from
+  /// - OpIdx - The operand to copy
+  /// - SubRegIdx - The subregister to copy
+  GIR_CopySubReg,
+  /// Add an implicit register def to the specified instruction
+  /// - InsnID - Instruction ID to modify
+  /// - RegNum - The register to add
+  GIR_AddImplicitDef,
+  /// Add an implicit register use to the specified instruction
+  /// - InsnID - Instruction ID to modify
+  /// - RegNum - The register to add
+  GIR_AddImplicitUse,
+  /// Add an register to the specified instruction
+  /// - InsnID - Instruction ID to modify
+  /// - RegNum - The register to add
+  GIR_AddRegister,
+  /// Add an immediate to the specified instruction
+  /// - InsnID - Instruction ID to modify
+  /// - Imm - The immediate to add
+  GIR_AddImm,
+  /// Render complex operands to the specified instruction
+  /// - InsnID - Instruction ID to modify
+  /// - RendererID - The renderer to call
+  GIR_ComplexRenderer,
+
+  /// Constrain an instruction operand to a register class.
+  /// - InsnID - Instruction ID to modify
+  /// - OpIdx - Operand index
+  /// - RCEnum - Register class enumeration value
+  GIR_ConstrainOperandRC,
+  /// Constrain an instructions operands according to the instruction
+  /// description.
+  /// - InsnID - Instruction ID to modify
+  GIR_ConstrainSelectedInstOperands,
+  /// Merge all memory operands into instruction.
+  /// - InsnID - Instruction ID to modify
+  GIR_MergeMemOperands,
+  /// Erase from parent.
+  /// - InsnID - Instruction ID to erase
+  GIR_EraseFromParent,
+
+  /// A successful emission
+  GIR_Done,
 };
 
 /// Provides the logic to select generic machine instructions.
@@ -137,6 +202,7 @@ public:
 protected:
   using ComplexRendererFn = std::function<void(MachineInstrBuilder &)>;
   using RecordedMIVector = SmallVector<MachineInstr *, 4>;
+  using NewMIVector = SmallVector<MachineInstrBuilder, 4>;
 
   struct MatcherState {
     std::vector<ComplexRendererFn> Renderers;
@@ -161,10 +227,11 @@ protected:
   template <class TgtInstructionSelector, class PredicateBitset,
             class ComplexMatcherMemFn>
   bool executeMatchTable(
-      TgtInstructionSelector &ISel, MatcherState &State,
+      TgtInstructionSelector &ISel, NewMIVector &OutMIs, MatcherState &State,
       const MatcherInfoTy<PredicateBitset, ComplexMatcherMemFn> &MatcherInfo,
-      const int64_t *MatchTable, MachineRegisterInfo &MRI,
-      const TargetRegisterInfo &TRI, const RegisterBankInfo &RBI,
+      const int64_t *MatchTable, const TargetInstrInfo &TII,
+      MachineRegisterInfo &MRI, const TargetRegisterInfo &TRI,
+      const RegisterBankInfo &RBI,
       const PredicateBitset &AvailableFeatures) const;
 
   /// Constrain a register operand of an instruction \p I to a specified
