@@ -33,11 +33,7 @@
 #define PTR_CAST	ThreadTaskExecutor
 #endif
 
-#ifdef BUILD_EXPERIMENTAL_21
-    #pragma comment (lib, "cl_logger_2_1.lib")
-#else //BUILD_EXPERIMENTAL_21
-    #pragma comment (lib, "cl_logger.lib")
-#endif //BUILD_EXPERIMENTAL_21
+#pragma comment (lib, "cl_logger" OPENCL_BINARIES_POSTFIX ".lib")
 #pragma comment (lib, "cl_sys_utils.lib")
 
 #include <Windows.h>

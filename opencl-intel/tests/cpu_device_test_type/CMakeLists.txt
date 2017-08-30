@@ -72,12 +72,12 @@ if (NOT WIN32)
     target_link_libraries( ${TARGET} c++ )
     set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
   endif( ANDROID )
-  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX}
-                                    task_executor${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX}
+  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+                                    task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
                                     googletest ${PTHREAD_LIB})
 else (NOT WIN32)
-  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX}
-                                    task_executor${BUILD_PLATFORM}${EXPERIMENTAL_POSTFIX} googletest)
+  target_link_libraries( ${TARGET}  cl_sys_utils cpu_device${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX}
+                                    task_executor${BUILD_PLATFORM}${OPENCL_BINARIES_POSTFIX} googletest)
 endif (NOT WIN32)
 set( CREATE_DIR_NAME tests/cpu_device_test_type)
 
