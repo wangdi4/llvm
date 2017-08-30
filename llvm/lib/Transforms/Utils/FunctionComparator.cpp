@@ -74,14 +74,14 @@ int FunctionComparator::cmpMem(StringRef L, StringRef R) const {
   return L.compare(R);
 }
 
-int FunctionComparator::cmpAttrs(const AttributeSet L,
-                                 const AttributeSet R) const {
+int FunctionComparator::cmpAttrs(const AttributeList L,
+                                 const AttributeList R) const {
   if (int Res = cmpNumbers(L.getNumSlots(), R.getNumSlots()))
     return Res;
 
   for (unsigned i = 0, e = L.getNumSlots(); i != e; ++i) {
-    AttributeSet::iterator LI = L.begin(i), LE = L.end(i), RI = R.begin(i),
-                           RE = R.end(i);
+    AttributeList::iterator LI = L.begin(i), LE = L.end(i), RI = R.begin(i),
+                            RE = R.end(i);
     for (; LI != LE && RI != RE; ++LI, ++RI) {
       Attribute LA = *LI;
       Attribute RA = *RI;
@@ -387,12 +387,6 @@ int FunctionComparator::cmpTypes(Type *TyL, Type *TyR) const {
   case Type::IntegerTyID:
     return cmpNumbers(cast<IntegerType>(TyL)->getBitWidth(),
                       cast<IntegerType>(TyR)->getBitWidth());
-  case Type::VectorTyID: {
-    VectorType *VTyL = cast<VectorType>(TyL), *VTyR = cast<VectorType>(TyR);
-    if (int Res = cmpNumbers(VTyL->getNumElements(), VTyR->getNumElements()))
-      return Res;
-    return cmpTypes(VTyL->getElementType(), VTyR->getElementType());
-  }
   // TyL == TyR would have returned true earlier, because types are uniqued.
   case Type::VoidTyID:
   case Type::FloatTyID:
@@ -445,12 +439,13 @@ int FunctionComparator::cmpTypes(Type *TyL, Type *TyR) const {
     return 0;
   }
 
-  case Type::ArrayTyID: {
-    ArrayType *ATyL = cast<ArrayType>(TyL);
-    ArrayType *ATyR = cast<ArrayType>(TyR);
-    if (ATyL->getNumElements() != ATyR->getNumElements())
-      return cmpNumbers(ATyL->getNumElements(), ATyR->getNumElements());
-    return cmpTypes(ATyL->getElementType(), ATyR->getElementType());
+  case Type::ArrayTyID:
+  case Type::VectorTyID: {
+    auto *STyL = cast<SequentialType>(TyL);
+    auto *STyR = cast<SequentialType>(TyR);
+    if (STyL->getNumElements() != STyR->getNumElements())
+      return cmpNumbers(STyL->getNumElements(), STyR->getNumElements());
+    return cmpTypes(STyL->getElementType(), STyR->getElementType());
   }
   }
 }

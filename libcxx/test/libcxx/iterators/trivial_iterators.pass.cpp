@@ -25,9 +25,10 @@
 #include <vector>
 #include <initializer_list>
 
+#include "test_macros.h"
 #include "test_iterators.h"
 
-#ifndef _LIBCPP_HAS_NO_DELETED_FUNCTIONS
+#if TEST_STD_VER >= 11
 #define DELETE_FUNCTION = delete
 #else
 #define DELETE_FUNCTION
@@ -178,7 +179,7 @@ int main()
     static_assert(( std::__libcpp_is_trivial_iterator<std::basic_string<char>::reverse_iterator>      ::value), "");
     static_assert(( std::__libcpp_is_trivial_iterator<std::basic_string<char>::const_reverse_iterator>::value), "");
 
-#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+#if TEST_STD_VER >= 11
 //  Initializer list  (which has no reverse iterators)
     static_assert(( std::__libcpp_is_trivial_iterator<std::initializer_list<char>::iterator>              ::value), "");
     static_assert(( std::__libcpp_is_trivial_iterator<std::initializer_list<char>::const_iterator>        ::value), "");

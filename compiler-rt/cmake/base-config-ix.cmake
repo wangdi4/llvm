@@ -55,6 +55,21 @@ else()
   set(COMPILER_RT_TEST_CXX_COMPILER ${CMAKE_CXX_COMPILER} CACHE PATH "C++ Compiler to use for testing")
 endif()
 
+if(INTEL_CUSTOMIZATION)
+  # Need to override the -Werror setting for some warnings when building the
+  # runtime library with the GNU compiler because g++ will produce warnings
+  # which are not produced by LLVM for these sources. There are not good
+  # source changes that can be done to correct these errors. For example,
+  # casting a void* returned by the dlsym library to a function pointer
+  # triggers the error: "ISO C++ forbids casting between pointer-to-function
+  # and pointer-to-object [-Werror=pedantic]"
+
+  if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    append_if(LLVM_ENABLE_WERROR -Wno-error=pedantic CMAKE_CXX_FLAGS)
+    append_if(LLVM_ENABLE_WERROR -Wno-error=strict-aliasing CMAKE_CXX_FLAGS)
+   endif()
+endif()
+
 if("${COMPILER_RT_TEST_COMPILER}" MATCHES "clang[+]*$")
   set(COMPILER_RT_TEST_COMPILER_ID Clang)
 elseif("${COMPILER_RT_TEST_COMPILER}" MATCHES "clang.*.exe$")
@@ -84,6 +99,8 @@ if(APPLE)
   option(COMPILER_RT_ENABLE_IOS "Enable building for iOS" On)
   option(COMPILER_RT_ENABLE_WATCHOS "Enable building for watchOS - Experimental" Off)
   option(COMPILER_RT_ENABLE_TVOS "Enable building for tvOS - Experimental" Off)
+else()
+  option(COMPILER_RT_DEFAULT_TARGET_ONLY "Build builtins only for the default target" Off)
 endif()
 
 if(WIN32 AND NOT MINGW AND NOT CYGWIN)
@@ -127,7 +144,9 @@ macro(test_targets)
     detect_target_arch()
     set(COMPILER_RT_OS_SUFFIX "-android")
   elseif(NOT APPLE) # Supported archs for Apple platforms are generated later
-    if("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "i[2-6]86|x86|amd64")
+    if(COMPILER_RT_DEFAULT_TARGET_ONLY)
+      add_default_target_arch(${COMPILER_RT_DEFAULT_TARGET_ARCH})
+    elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "i[2-6]86|x86|amd64")
       if(NOT MSVC)
         test_target_arch(x86_64 "" "-m64")
         # FIXME: We build runtimes for both i686 and i386, as "clang -m32" may
@@ -168,6 +187,7 @@ macro(test_targets)
       else()
         test_target_arch(arm "" "-march=armv7-a" "-mfloat-abi=soft")
         test_target_arch(armhf "" "-march=armv7-a" "-mfloat-abi=hard")
+        test_target_arch(armv6m "" "-march=armv6m" "-mfloat-abi=soft")
       endif()
     elseif("${COMPILER_RT_DEFAULT_TARGET_ARCH}" MATCHES "aarch32")
       test_target_arch(aarch32 "" "-march=armv8-a")

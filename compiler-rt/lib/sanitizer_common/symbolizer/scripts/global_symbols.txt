@@ -37,6 +37,7 @@ clock_gettime U
 cfgetospeed U
 dl_iterate_phdr U
 dlsym U
+dup U
 dup2 U
 environ U
 execv U
@@ -64,6 +65,7 @@ isupper U
 isxdigit U
 log10 U
 lseek U
+lseek64 U
 malloc U
 mbrlen U
 mbrtowc U

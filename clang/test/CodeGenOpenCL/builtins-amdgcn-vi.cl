@@ -55,7 +55,7 @@ void test_frexp_mant_f16(global half* out, half a)
 }
 
 // CHECK-LABEL: @test_frexp_exp_f16
-// CHECK: call i32 @llvm.amdgcn.frexp.exp.f16
+// CHECK: call i16 @llvm.amdgcn.frexp.exp.i16.f16
 void test_frexp_exp_f16(global short* out, half a)
 {
   *out = __builtin_amdgcn_frexp_exph(a);
@@ -81,3 +81,11 @@ void test_s_memrealtime(global ulong* out)
 {
   *out = __builtin_amdgcn_s_memrealtime();
 }
+
+// CHECK-LABEL: @test_mov_dpp
+// CHECK: call i32 @llvm.amdgcn.mov.dpp.i32(i32 %src, i32 0, i32 0, i32 0, i1 false)
+void test_mov_dpp(global int* out, int src)
+{
+  *out = __builtin_amdgcn_mov_dpp(src, 0, 0, 0, false);
+}
+

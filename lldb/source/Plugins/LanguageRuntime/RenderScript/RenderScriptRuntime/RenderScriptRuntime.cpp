@@ -17,15 +17,14 @@
 #include "RenderScriptScriptGroup.h"
 
 #include "lldb/Breakpoint/StoppointCallbackContext.h"
-#include "lldb/Core/ConstString.h"
 #include "lldb/Core/Debugger.h"
-#include "lldb/Core/Error.h"
-#include "lldb/Core/Log.h"
+#include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/PluginManager.h"
-#include "lldb/Core/RegularExpression.h"
+#include "lldb/Core/RegisterValue.h"
 #include "lldb/Core/ValueObjectVariable.h"
 #include "lldb/DataFormatters/DumpValueObjectOptions.h"
 #include "lldb/Expression/UserExpression.h"
+#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Interpreter/Args.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -41,6 +40,11 @@
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
+#include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/DataBufferLLVM.h"
+#include "lldb/Utility/Error.h"
+#include "lldb/Utility/Log.h"
+#include "lldb/Utility/RegularExpression.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -1806,6 +1810,7 @@ enum ExpressionStrings {
 const int jit_max_expr_size = 512;
 
 // Retrieve the string to JIT for the given expression
+#define JIT_TEMPLATE_CONTEXT "void* ctxt = (void*)rsDebugGetContextWrapper(0x%" PRIx64 "); "
 const char *JITTemplate(ExpressionStrings e) {
   // Format strings containing the expressions we may need to evaluate.
   static std::array<const char *, _eExprLast> runtime_expressions = {
@@ -1813,57 +1818,65 @@ const char *JITTemplate(ExpressionStrings e) {
        "(int*)_"
        "Z12GetOffsetPtrPKN7android12renderscript10AllocationEjjjj23RsAllocation"
        "CubemapFace"
-       "(0x%" PRIx64 ", %" PRIu32 ", %" PRIu32 ", %" PRIu32 ", 0, 0)",
+       "(0x%" PRIx64 ", %" PRIu32 ", %" PRIu32 ", %" PRIu32 ", 0, 0)", // eExprGetOffsetPtr
 
        // Type* rsaAllocationGetType(Context*, Allocation*)
-       "(void*)rsaAllocationGetType(0x%" PRIx64 ", 0x%" PRIx64 ")",
+       JIT_TEMPLATE_CONTEXT "(void*)rsaAllocationGetType(ctxt, 0x%" PRIx64 ")", // eExprAllocGetType
 
        // rsaTypeGetNativeData(Context*, Type*, void* typeData, size) Pack the
        // data in the following way mHal.state.dimX; mHal.state.dimY;
        // mHal.state.dimZ; mHal.state.lodCount; mHal.state.faces; mElement; into
        // typeData Need to specify 32 or 64 bit for uint_t since this differs
        // between devices
-       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 6); data[0]", // X dim
-       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 6); data[1]", // Y dim
-       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 6); data[2]", // Z dim
-       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 6); data[5]", // Element ptr
+       JIT_TEMPLATE_CONTEXT
+       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 6); data[0]", // eExprTypeDimX
+       JIT_TEMPLATE_CONTEXT
+       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 6); data[1]", // eExprTypeDimY
+       JIT_TEMPLATE_CONTEXT
+       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 6); data[2]", // eExprTypeDimZ
+       JIT_TEMPLATE_CONTEXT
+       "uint%" PRIu32 "_t data[6]; (void*)rsaTypeGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 6); data[5]", // eExprTypeElemPtr
 
        // rsaElementGetNativeData(Context*, Element*, uint32_t* elemData,size)
        // Pack mType; mKind; mNormalized; mVectorSize; NumSubElements into
        // elemData
-       "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 5); data[0]", // Type
-       "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 5); data[1]", // Kind
-       "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 5); data[3]", // Vector Size
-       "uint32_t data[5]; (void*)rsaElementGetNativeData(0x%" PRIx64
-       ", 0x%" PRIx64 ", data, 5); data[4]", // Field Count
+       JIT_TEMPLATE_CONTEXT
+       "uint32_t data[5]; (void*)rsaElementGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 5); data[0]", // eExprElementType
+       JIT_TEMPLATE_CONTEXT
+       "uint32_t data[5]; (void*)rsaElementGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 5); data[1]", // eExprElementKind
+       JIT_TEMPLATE_CONTEXT
+       "uint32_t data[5]; (void*)rsaElementGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 5); data[3]", // eExprElementVec
+       JIT_TEMPLATE_CONTEXT
+       "uint32_t data[5]; (void*)rsaElementGetNativeData(ctxt"
+       ", 0x%" PRIx64 ", data, 5); data[4]", // eExprElementFieldCount
 
        // rsaElementGetSubElements(RsContext con, RsElement elem, uintptr_t
        // *ids, const char **names, size_t *arraySizes, uint32_t dataSize)
        // Needed for Allocations of structs to gather details about
        // fields/Subelements Element* of field
-       "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
+       JIT_TEMPLATE_CONTEXT "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
        "]; size_t arr_size[%" PRIu32 "];"
-       "(void*)rsaElementGetSubElements(0x%" PRIx64 ", 0x%" PRIx64
-       ", ids, names, arr_size, %" PRIu32 "); ids[%" PRIu32 "]",
+       "(void*)rsaElementGetSubElements(ctxt, 0x%" PRIx64
+       ", ids, names, arr_size, %" PRIu32 "); ids[%" PRIu32 "]", // eExprSubelementsId
 
        // Name of field
-       "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
+       JIT_TEMPLATE_CONTEXT "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
        "]; size_t arr_size[%" PRIu32 "];"
-       "(void*)rsaElementGetSubElements(0x%" PRIx64 ", 0x%" PRIx64
-       ", ids, names, arr_size, %" PRIu32 "); names[%" PRIu32 "]",
+       "(void*)rsaElementGetSubElements(ctxt, 0x%" PRIx64
+       ", ids, names, arr_size, %" PRIu32 "); names[%" PRIu32 "]", // eExprSubelementsName
 
        // Array size of field
-       "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
+       JIT_TEMPLATE_CONTEXT "void* ids[%" PRIu32 "]; const char* names[%" PRIu32
        "]; size_t arr_size[%" PRIu32 "];"
-       "(void*)rsaElementGetSubElements(0x%" PRIx64 ", 0x%" PRIx64
-       ", ids, names, arr_size, %" PRIu32 "); arr_size[%" PRIu32 "]"}};
+       "(void*)rsaElementGetSubElements(ctxt, 0x%" PRIx64
+       ", ids, names, arr_size, %" PRIu32 "); arr_size[%" PRIu32 "]"}}; // eExprSubelementsArrSize
 
   return runtime_expressions[e];
 }
@@ -1975,8 +1988,8 @@ bool RenderScriptRuntime::JITTypePacked(AllocationDetails *alloc,
 
   for (uint32_t i = 0; i < num_exprs; ++i) {
     const char *fmt_str = JITTemplate(ExpressionStrings(eExprTypeDimX + i));
-    int written = snprintf(expr_bufs[i], jit_max_expr_size, fmt_str, bits,
-                           *alloc->context.get(), *alloc->type_ptr.get());
+    int written = snprintf(expr_bufs[i], jit_max_expr_size, fmt_str,
+                           *alloc->context.get(), bits, *alloc->type_ptr.get());
     if (written < 0) {
       if (log)
         log->Printf("%s - encoding error in snprintf().", __FUNCTION__);
@@ -2101,7 +2114,7 @@ bool RenderScriptRuntime::JITSubelements(Element &elem,
       const char *fmt_str =
           JITTemplate(ExpressionStrings(eExprSubelementsId + expr_index));
       int written = snprintf(expr_buffer, jit_max_expr_size, fmt_str,
-                             field_count, field_count, field_count, context,
+                             context, field_count, field_count, field_count,
                              *elem.element_ptr.get(), field_count, field_index);
       if (written < 0) {
         if (log)
@@ -2535,7 +2548,7 @@ bool RenderScriptRuntime::LoadAllocation(Stream &strm, const uint32_t alloc_id,
   }
 
   // Read file into data buffer
-  DataBufferSP data_sp(file.ReadFileContents());
+  auto data_sp = DataBufferLLVM::CreateFromPath(file.GetPath());
 
   // Cast start of buffer to FileHeader and use pointer to read metadata
   void *file_buf = data_sp->GetBytes();
@@ -2854,6 +2867,11 @@ bool RenderScriptRuntime::LoadModule(const lldb::ModuleSP &module_sp) {
       module_desc.reset(new RSModuleDescriptor(module_sp));
       if (module_desc->ParseRSInfo()) {
         m_rsmodules.push_back(module_desc);
+        module_desc->WarnIfVersionMismatch(GetProcess()
+                                               ->GetTarget()
+                                               .GetDebugger()
+                                               .GetAsyncOutputStream()
+                                               .get());
         module_loaded = true;
       }
       if (module_loaded) {
@@ -2920,6 +2938,25 @@ void RenderScriptRuntime::Update() {
     if (!m_initiated) {
       Initiate();
     }
+  }
+}
+
+void RSModuleDescriptor::WarnIfVersionMismatch(lldb_private::Stream *s) const {
+  if (!s)
+    return;
+
+  if (m_slang_version.empty() || m_bcc_version.empty()) {
+    s->PutCString("WARNING: Unknown bcc or slang (llvm-rs-cc) version; debug "
+                  "experience may be unreliable");
+    s->EOL();
+  } else if (m_slang_version != m_bcc_version) {
+    s->Printf("WARNING: The debug info emitted by the slang frontend "
+              "(llvm-rs-cc) used to build this module (%s) does not match the "
+              "version of bcc used to generate the debug information (%s). "
+              "This is an unsupported configuration and may result in a poor "
+              "debugging experience; proceed with caution",
+              m_slang_version.c_str(), m_bcc_version.c_str());
+    s->EOL();
   }
 }
 
@@ -2990,6 +3027,22 @@ bool RSModuleDescriptor::ParseExportReduceCount(llvm::StringRef *lines,
   return true;
 }
 
+bool RSModuleDescriptor::ParseVersionInfo(llvm::StringRef *lines,
+                                          size_t n_lines) {
+  // Skip the versionInfo line
+  ++lines;
+  for (; n_lines--; ++lines) {
+    // We're only interested in bcc and slang versions, and ignore all other
+    // versionInfo lines
+    const auto kv_pair = lines->split(" - ");
+    if (kv_pair.first == "slang")
+      m_slang_version = kv_pair.second.str();
+    else if (kv_pair.first == "bcc")
+      m_bcc_version = kv_pair.second.str();
+  }
+  return true;
+}
+
 bool RSModuleDescriptor::ParseExportForeachCount(llvm::StringRef *lines,
                                                  size_t n_lines) {
   // Skip the exportForeachCount line
@@ -3033,7 +3086,7 @@ bool RSModuleDescriptor::ParseRSInfo() {
   const addr_t size = info_sym->GetByteSize();
   const FileSpec fs = m_module->GetFileSpec();
 
-  const DataBufferSP buffer = fs.ReadFileContents(addr, size);
+  auto buffer = DataBufferLLVM::CreateSliceFromPath(fs.GetPath(), size, addr);
   if (!buffer)
     return false;
 
@@ -3054,7 +3107,8 @@ bool RSModuleDescriptor::ParseRSInfo() {
     eExportReduce,
     ePragma,
     eBuildChecksum,
-    eObjectSlot
+    eObjectSlot,
+    eVersionInfo,
   };
 
   const auto rs_info_handler = [](llvm::StringRef name) -> int {
@@ -3070,6 +3124,7 @@ bool RSModuleDescriptor::ParseRSInfo() {
         // script
         .Case("pragmaCount", ePragma)
         .Case("objectSlotCount", eObjectSlot)
+        .Case("versionInfo", eVersionInfo)
         .Default(-1);
   };
 
@@ -3086,9 +3141,8 @@ bool RSModuleDescriptor::ParseRSInfo() {
     // in numeric fields at the moment
     uint64_t n_lines;
     if (val.getAsInteger(10, n_lines)) {
-      if (log)
-        log->Debug("Failed to parse non-numeric '.rs.info' section %s",
-                   line->str().c_str());
+      LLDB_LOGV(log, "Failed to parse non-numeric '.rs.info' section {0}",
+                line->str());
       continue;
     }
     if (info_lines.end() - (line + 1) < (ptrdiff_t)n_lines)
@@ -3107,6 +3161,9 @@ bool RSModuleDescriptor::ParseRSInfo() {
       break;
     case ePragma:
       success = ParsePragmaCount(line, n_lines);
+      break;
+    case eVersionInfo:
+      success = ParseVersionInfo(line, n_lines);
       break;
     default: {
       if (log)
@@ -3365,8 +3422,9 @@ bool RenderScriptRuntime::DumpAllocation(Stream &strm, StackFrame *frame_ptr,
           // Print the results to our stream.
           expr_result->Dump(strm, expr_options);
         } else {
-          alloc_data.Dump(&strm, offset, format, data_size - padding, 1, 1,
-                          LLDB_INVALID_ADDRESS, 0, 0);
+          DumpDataExtractor(alloc_data, &strm, offset, format,
+                            data_size - padding, 1, 1, LLDB_INVALID_ADDRESS, 0,
+                            0);
         }
         offset += data_size;
       }

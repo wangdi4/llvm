@@ -11,7 +11,7 @@
 #define LLD_ELF_OUTPUT_SECTIONS_H
 
 #include "Config.h"
-#include "GdbIndex.h"
+#include "InputSection.h"
 #include "Relocations.h"
 
 #include "lld/Core/LLVM.h"
@@ -21,55 +21,41 @@
 namespace lld {
 namespace elf {
 
+struct PhdrEntry;
 class SymbolBody;
 struct EhSectionPiece;
-template <class ELFT> class EhInputSection;
-template <class ELFT> class InputSection;
-template <class ELFT> class InputSectionBase;
-template <class ELFT> class MergeInputSection;
-template <class ELFT> class OutputSection;
+class EhInputSection;
+class InputSection;
+class InputSectionBase;
+class MergeInputSection;
+class OutputSection;
 template <class ELFT> class ObjectFile;
 template <class ELFT> class SharedFile;
-template <class ELFT> class SharedSymbol;
-template <class ELFT> class DefinedRegular;
+class SharedSymbol;
+class DefinedRegular;
 
 // This represents a section in an output file.
-// Different sub classes represent different types of sections. Some contain
-// input sections, others are created by the linker.
+// It is composed of multiple InputSections.
 // The writer creates multiple OutputSections and assign them unique,
 // non-overlapping file offsets and VAs.
-class OutputSectionBase {
+class OutputSection final : public SectionBase {
 public:
-  enum Kind {
-    Base,
-    EHFrame,
-    EHFrameHdr,
-    Merge,
-    Regular,
-    VersDef,
-    VersNeed,
-    VersTable
-  };
+  OutputSection(StringRef Name, uint32_t Type, uint64_t Flags);
 
-  OutputSectionBase(StringRef Name, uint32_t Type, uint64_t Flags);
-  void setLMAOffset(uint64_t LMAOff) { LMAOffset = LMAOff; }
+  static bool classof(const SectionBase *S) {
+    return S->kind() == SectionBase::Output;
+  }
+
   uint64_t getLMA() const { return Addr + LMAOffset; }
   template <typename ELFT> void writeHeaderTo(typename ELFT::Shdr *SHdr);
-  StringRef getName() const { return Name; }
-
-  virtual void addSection(InputSectionData *C) {}
-  virtual Kind getKind() const { return Base; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == Base;
-  }
 
   unsigned SectionIndex;
 
   uint32_t getPhdrFlags() const;
 
-  void updateAlignment(uint64_t Alignment) {
-    if (Alignment > Addralign)
-      Addralign = Alignment;
+  void updateAlignment(uint32_t Val) {
+    if (Val > Alignment)
+      Alignment = Val;
   }
 
   // If true, this section will be page aligned on disk.
@@ -82,342 +68,89 @@ public:
   // between their file offsets should be equal to difference between their
   // virtual addresses. To compute some section offset we use the following
   // formula: Off = Off_first + VA - VA_first.
-  OutputSectionBase *FirstInPtLoad = nullptr;
-
-  virtual void finalize() {}
-  virtual void assignOffsets() {}
-  virtual void writeTo(uint8_t *Buf) {}
-  virtual ~OutputSectionBase() = default;
-
-  StringRef Name;
+  OutputSection *FirstInPtLoad = nullptr;
 
   // The following fields correspond to Elf_Shdr members.
   uint64_t Size = 0;
-  uint64_t Entsize = 0;
-  uint64_t Addralign = 0;
   uint64_t Offset = 0;
-  uint64_t Flags = 0;
   uint64_t LMAOffset = 0;
   uint64_t Addr = 0;
   uint32_t ShName = 0;
-  uint32_t Type = 0;
-  uint32_t Info = 0;
-  uint32_t Link = 0;
-};
 
-template <class ELFT> class GdbIndexSection final : public OutputSectionBase {
-  typedef typename ELFT::uint uintX_t;
-
-  const unsigned OffsetTypeSize = 4;
-  const unsigned CuListOffset = 6 * OffsetTypeSize;
-  const unsigned CompilationUnitSize = 16;
-  const unsigned AddressEntrySize = 16 + OffsetTypeSize;
-  const unsigned SymTabEntrySize = 2 * OffsetTypeSize;
-
-public:
-  GdbIndexSection();
-  void finalize() override;
-  void writeTo(uint8_t *Buf) override;
-
-  // Pairs of [CU Offset, CU length].
-  std::vector<std::pair<uintX_t, uintX_t>> CompilationUnits;
-
-private:
-  void parseDebugSections();
-  void readDwarf(InputSection<ELFT> *I);
-
-  uint32_t CuTypesOffset;
-};
-
-// For more information about .gnu.version and .gnu.version_r see:
-// https://www.akkadia.org/drepper/symbol-versioning
-
-// The .gnu.version_d section which has a section type of SHT_GNU_verdef shall
-// contain symbol version definitions. The number of entries in this section
-// shall be contained in the DT_VERDEFNUM entry of the .dynamic section.
-// The section shall contain an array of Elf_Verdef structures, optionally
-// followed by an array of Elf_Verdaux structures.
-template <class ELFT>
-class VersionDefinitionSection final : public OutputSectionBase {
-  typedef typename ELFT::Verdef Elf_Verdef;
-  typedef typename ELFT::Verdaux Elf_Verdaux;
-
-public:
-  VersionDefinitionSection();
-  void finalize() override;
-  void writeTo(uint8_t *Buf) override;
-  Kind getKind() const override { return VersDef; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == VersDef;
-  }
-
-private:
-  void writeOne(uint8_t *Buf, uint32_t Index, StringRef Name, size_t NameOff);
-
-  unsigned FileDefNameOff;
-};
-
-// The .gnu.version section specifies the required version of each symbol in the
-// dynamic symbol table. It contains one Elf_Versym for each dynamic symbol
-// table entry. An Elf_Versym is just a 16-bit integer that refers to a version
-// identifier defined in the either .gnu.version_r or .gnu.version_d section.
-// The values 0 and 1 are reserved. All other values are used for versions in
-// the own object or in any of the dependencies.
-template <class ELFT>
-class VersionTableSection final : public OutputSectionBase {
-  typedef typename ELFT::Versym Elf_Versym;
-
-public:
-  VersionTableSection();
-  void finalize() override;
-  void writeTo(uint8_t *Buf) override;
-  Kind getKind() const override { return VersTable; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == VersTable;
-  }
-};
-
-// The .gnu.version_r section defines the version identifiers used by
-// .gnu.version. It contains a linked list of Elf_Verneed data structures. Each
-// Elf_Verneed specifies the version requirements for a single DSO, and contains
-// a reference to a linked list of Elf_Vernaux data structures which define the
-// mapping from version identifiers to version names.
-template <class ELFT>
-class VersionNeedSection final : public OutputSectionBase {
-  typedef typename ELFT::Verneed Elf_Verneed;
-  typedef typename ELFT::Vernaux Elf_Vernaux;
-
-  // A vector of shared files that need Elf_Verneed data structures and the
-  // string table offsets of their sonames.
-  std::vector<std::pair<SharedFile<ELFT> *, size_t>> Needed;
-
-  // The next available version identifier.
-  unsigned NextIndex;
-
-public:
-  VersionNeedSection();
-  void addSymbol(SharedSymbol<ELFT> *SS);
-  void finalize() override;
-  void writeTo(uint8_t *Buf) override;
-  size_t getNeedNum() const { return Needed.size(); }
-  Kind getKind() const override { return VersNeed; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == VersNeed;
-  }
-};
-
-template <class ELFT> class OutputSection final : public OutputSectionBase {
-
-public:
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::Sym Elf_Sym;
-  typedef typename ELFT::Rel Elf_Rel;
-  typedef typename ELFT::Rela Elf_Rela;
-  typedef typename ELFT::uint uintX_t;
-  OutputSection(StringRef Name, uint32_t Type, uintX_t Flags);
-  void addSection(InputSectionData *C) override;
-  void sort(std::function<unsigned(InputSection<ELFT> *S)> Order);
+  void addSection(InputSection *S);
+  void sort(std::function<int(InputSectionBase *S)> Order);
   void sortInitFini();
   void sortCtorsDtors();
-  void writeTo(uint8_t *Buf) override;
-  void finalize() override;
-  void assignOffsets() override;
-  Kind getKind() const override { return Regular; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == Regular;
-  }
-  std::vector<InputSection<ELFT> *> Sections;
+  uint32_t getFiller();
+  template <class ELFT> void writeTo(uint8_t *Buf);
+  template <class ELFT> void finalize();
+  template <class ELFT> void maybeCompress();
+  void assignOffsets();
+  std::vector<InputSection *> Sections;
+
+  // Used for implementation of --compress-debug-sections option.
+  std::vector<uint8_t> ZDebugHeader;
+  llvm::SmallVector<char, 1> CompressedData;
+
+  // Location in the output buffer.
+  uint8_t *Loc = nullptr;
 };
 
-template <class ELFT>
-class MergeOutputSection final : public OutputSectionBase {
-  typedef typename ELFT::uint uintX_t;
-
-public:
-  MergeOutputSection(StringRef Name, uint32_t Type, uintX_t Flags,
-                     uintX_t Alignment);
-  void addSection(InputSectionData *S) override;
-  void writeTo(uint8_t *Buf) override;
-  void finalize() override;
-  bool shouldTailMerge() const;
-  Kind getKind() const override { return Merge; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == Merge;
-  }
-
-private:
-  llvm::StringTableBuilder Builder;
-  std::vector<MergeInputSection<ELFT> *> Sections;
-};
-
-struct CieRecord {
-  EhSectionPiece *Piece = nullptr;
-  std::vector<EhSectionPiece *> FdePieces;
-};
-
-// Output section for .eh_frame.
-template <class ELFT> class EhOutputSection final : public OutputSectionBase {
-  typedef typename ELFT::uint uintX_t;
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::Rel Elf_Rel;
-  typedef typename ELFT::Rela Elf_Rela;
-
-public:
-  EhOutputSection();
-  void writeTo(uint8_t *Buf) override;
-  void finalize() override;
-  bool empty() const { return Sections.empty(); }
-
-  void addSection(InputSectionData *S) override;
-  Kind getKind() const override { return EHFrame; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == EHFrame;
-  }
-
-  size_t NumFdes = 0;
-
-private:
-  template <class RelTy>
-  void addSectionAux(EhInputSection<ELFT> *S, llvm::ArrayRef<RelTy> Rels);
-
-  template <class RelTy>
-  CieRecord *addCie(EhSectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                    ArrayRef<RelTy> Rels);
-
-  template <class RelTy>
-  bool isFdeLive(EhSectionPiece &Piece, EhInputSection<ELFT> *Sec,
-                 ArrayRef<RelTy> Rels);
-
-  uintX_t getFdePc(uint8_t *Buf, size_t Off, uint8_t Enc);
-
-  std::vector<EhInputSection<ELFT> *> Sections;
-  std::vector<CieRecord *> Cies;
-
-  // CIE records are uniquified by their contents and personality functions.
-  llvm::DenseMap<std::pair<ArrayRef<uint8_t>, SymbolBody *>, CieRecord> CieMap;
-};
-
-// --eh-frame-hdr option tells linker to construct a header for all the
-// .eh_frame sections. This header is placed to a section named .eh_frame_hdr
-// and also to a PT_GNU_EH_FRAME segment.
-// At runtime the unwinder then can find all the PT_GNU_EH_FRAME segments by
-// calling dl_iterate_phdr.
-// This section contains a lookup table for quick binary search of FDEs.
-// Detailed info about internals can be found in Ian Lance Taylor's blog:
-// http://www.airs.com/blog/archives/460 (".eh_frame")
-// http://www.airs.com/blog/archives/462 (".eh_frame_hdr")
-template <class ELFT> class EhFrameHeader final : public OutputSectionBase {
-  typedef typename ELFT::uint uintX_t;
-
-public:
-  EhFrameHeader();
-  void finalize() override;
-  void writeTo(uint8_t *Buf) override;
-  void addFde(uint32_t Pc, uint32_t FdeVA);
-  Kind getKind() const override { return EHFrameHdr; }
-  static bool classof(const OutputSectionBase *B) {
-    return B->getKind() == EHFrameHdr;
-  }
-
-private:
-  struct FdeData {
-    uint32_t Pc;
-    uint32_t FdeVA;
-  };
-
-  std::vector<FdeData> Fdes;
-};
-
-// All output sections that are hadnled by the linker specially are
+// All output sections that are handled by the linker specially are
 // globally accessible. Writer initializes them, so don't use them
 // until Writer is initialized.
-template <class ELFT> struct Out {
-  typedef typename ELFT::uint uintX_t;
-  typedef typename ELFT::Phdr Elf_Phdr;
-
+struct Out {
   static uint8_t First;
-  static EhFrameHeader<ELFT> *EhFrameHdr;
-  static EhOutputSection<ELFT> *EhFrame;
-  static GdbIndexSection<ELFT> *GdbIndex;
-  static OutputSection<ELFT> *Bss;
-  static OutputSection<ELFT> *MipsRldMap;
-  static OutputSectionBase *Opd;
+  static OutputSection *Opd;
   static uint8_t *OpdBuf;
-  static VersionDefinitionSection<ELFT> *VerDef;
-  static VersionTableSection<ELFT> *VerSym;
-  static VersionNeedSection<ELFT> *VerNeed;
-  static Elf_Phdr *TlsPhdr;
-  static OutputSectionBase *DebugInfo;
-  static OutputSectionBase *ElfHeader;
-  static OutputSectionBase *ProgramHeaders;
-  static OutputSectionBase *PreinitArray;
-  static OutputSectionBase *InitArray;
-  static OutputSectionBase *FiniArray;
+  static PhdrEntry *TlsPhdr;
+  static OutputSection *DebugInfo;
+  static OutputSection *ElfHeader;
+  static OutputSection *ProgramHeaders;
+  static OutputSection *PreinitArray;
+  static OutputSection *InitArray;
+  static OutputSection *FiniArray;
 };
 
-template <bool Is64Bits> struct SectionKey {
-  typedef typename std::conditional<Is64Bits, uint64_t, uint32_t>::type uintX_t;
+struct SectionKey {
   StringRef Name;
-  uint32_t Type;
-  uintX_t Flags;
-  uintX_t Alignment;
+  uint64_t Flags;
+  uint32_t Alignment;
 };
+}
+}
+namespace llvm {
+template <> struct DenseMapInfo<lld::elf::SectionKey> {
+  static lld::elf::SectionKey getEmptyKey();
+  static lld::elf::SectionKey getTombstoneKey();
+  static unsigned getHashValue(const lld::elf::SectionKey &Val);
+  static bool isEqual(const lld::elf::SectionKey &LHS,
+                      const lld::elf::SectionKey &RHS);
+};
+}
+namespace lld {
+namespace elf {
 
 // This class knows how to create an output section for a given
 // input section. Output section type is determined by various
 // factors, including input section's sh_flags, sh_type and
 // linker scripts.
-template <class ELFT> class OutputSectionFactory {
-  typedef typename ELFT::Shdr Elf_Shdr;
-  typedef typename ELFT::uint uintX_t;
-  typedef typename elf::SectionKey<ELFT::Is64Bits> Key;
-
+class OutputSectionFactory {
 public:
-  std::pair<OutputSectionBase *, bool> create(InputSectionBase<ELFT> *C,
-                                              StringRef OutsecName);
-  std::pair<OutputSectionBase *, bool>
-  create(const SectionKey<ELFT::Is64Bits> &Key, InputSectionBase<ELFT> *C);
+  OutputSectionFactory(std::vector<OutputSection *> &OutputSections);
+  ~OutputSectionFactory();
+
+  void addInputSec(InputSectionBase *IS, StringRef OutsecName);
 
 private:
-  llvm::SmallDenseMap<Key, OutputSectionBase *> Map;
+  llvm::SmallDenseMap<SectionKey, OutputSection *> Map;
+  std::vector<OutputSection *> &OutputSections;
 };
 
-template <class ELFT> uint64_t getHeaderSize() {
-  if (Config->OFormatBinary)
-    return 0;
-  return Out<ELFT>::ElfHeader->Size + Out<ELFT>::ProgramHeaders->Size;
-}
+uint64_t getHeaderSize();
 
-template <class ELFT> uint8_t Out<ELFT>::First;
-template <class ELFT> EhFrameHeader<ELFT> *Out<ELFT>::EhFrameHdr;
-template <class ELFT> EhOutputSection<ELFT> *Out<ELFT>::EhFrame;
-template <class ELFT> GdbIndexSection<ELFT> *Out<ELFT>::GdbIndex;
-template <class ELFT> OutputSection<ELFT> *Out<ELFT>::Bss;
-template <class ELFT> OutputSection<ELFT> *Out<ELFT>::MipsRldMap;
-template <class ELFT> OutputSectionBase *Out<ELFT>::Opd;
-template <class ELFT> uint8_t *Out<ELFT>::OpdBuf;
-template <class ELFT> VersionDefinitionSection<ELFT> *Out<ELFT>::VerDef;
-template <class ELFT> VersionTableSection<ELFT> *Out<ELFT>::VerSym;
-template <class ELFT> VersionNeedSection<ELFT> *Out<ELFT>::VerNeed;
-template <class ELFT> typename ELFT::Phdr *Out<ELFT>::TlsPhdr;
-template <class ELFT> OutputSectionBase *Out<ELFT>::DebugInfo;
-template <class ELFT> OutputSectionBase *Out<ELFT>::ElfHeader;
-template <class ELFT> OutputSectionBase *Out<ELFT>::ProgramHeaders;
-template <class ELFT> OutputSectionBase *Out<ELFT>::PreinitArray;
-template <class ELFT> OutputSectionBase *Out<ELFT>::InitArray;
-template <class ELFT> OutputSectionBase *Out<ELFT>::FiniArray;
 } // namespace elf
 } // namespace lld
 
-namespace llvm {
-template <bool Is64Bits> struct DenseMapInfo<lld::elf::SectionKey<Is64Bits>> {
-  typedef typename lld::elf::SectionKey<Is64Bits> Key;
-
-  static Key getEmptyKey();
-  static Key getTombstoneKey();
-  static unsigned getHashValue(const Key &Val);
-  static bool isEqual(const Key &LHS, const Key &RHS);
-};
-}
 
 #endif

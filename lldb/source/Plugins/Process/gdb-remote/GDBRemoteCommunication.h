@@ -89,6 +89,10 @@ public:
   private:
     GDBRemoteCommunication &m_gdb_comm;
     std::chrono::seconds m_saved_timeout;
+    // Don't ever reduce the timeout for a packet, only increase it. If the
+    // requested timeout if less than the current timeout, we don't set it
+    // and won't need to restore it.
+    bool m_timeout_modified;
   };
 
   GDBRemoteCommunication(const char *comm_name, const char *listener_name);
@@ -226,16 +230,15 @@ protected:
   PacketResult SendPacketNoLock(llvm::StringRef payload);
 
   PacketResult ReadPacket(StringExtractorGDBRemote &response,
-                          uint32_t timeout_usec, bool sync_on_timeout);
+                          Timeout<std::micro> timeout, bool sync_on_timeout);
 
   // Pop a packet from the queue in a thread safe manner
   PacketResult PopPacketFromQueue(StringExtractorGDBRemote &response,
-                                  uint32_t timeout_usec);
+                                  Timeout<std::micro> timeout);
 
-  PacketResult
-  WaitForPacketWithTimeoutMicroSecondsNoLock(StringExtractorGDBRemote &response,
-                                             uint32_t timeout_usec,
-                                             bool sync_on_timeout);
+  PacketResult WaitForPacketNoLock(StringExtractorGDBRemote &response,
+                                   Timeout<std::micro> timeout,
+                                   bool sync_on_timeout);
 
   bool CompressionIsEnabled() {
     return m_compression_type != CompressionType::None;

@@ -84,12 +84,19 @@ Some important things to remember about fuzz targets:
 * It must be as deterministic as possible. Non-determinism (e.g. random decisions not based on the input bytes) will make fuzzing inefficient.
 * It must be fast. Try avoiding cubic or greater complexity, logging, or excessive memory consumption.
 * Ideally, it should not modify any global state (although that's not strict).
+* Usually, the narrower the target the better. E.g. if your target can parse several data formats, split it into several targets, one per format.
 
 
-Building
---------
+Fuzzer Usage
+------------
 
-Next, build the libFuzzer library as a static archive, without any sanitizer
+Very recent versions of Clang (> April 20 2017) include libFuzzer,
+and no installation is necessary.
+In order to fuzz your binary, use the `-fsanitize=fuzzer` flag during the compilation::
+
+   clang -fsanitize=fuzzer,address mytarget.c
+
+Otherwise, build the libFuzzer library as a static archive, without any sanitizer
 options. Note that the libFuzzer library contains the ``main()`` function:
 
 .. code-block:: console
@@ -340,9 +347,6 @@ possible event codes are:
 ``DONE``
   The fuzzer has completed operation because it has reached the specified
   iteration limit (``-runs``) or time limit (``-max_total_time``).
-``MIN<n>``
-  The fuzzer is minimizing the combination of input corpus directories into
-  a single unified corpus (due to the ``-merge`` command line option).
 ``RELOAD``
   The fuzzer is performing a periodic reload of inputs from the corpus
   directory; this allows it to discover any inputs discovered by other
@@ -730,6 +734,7 @@ to crash on invalid inputs.
 Examples: regular expression matchers, text or binary format parsers, compression,
 network, crypto.
 
+
 Trophies
 ========
 * GLIBC: https://sourceware.org/glibc/wiki/FuzzingLibc
@@ -770,9 +775,11 @@ Trophies
 
 * LLVM: `Clang <https://llvm.org/bugs/show_bug.cgi?id=23057>`_, `Clang-format <https://llvm.org/bugs/show_bug.cgi?id=23052>`_, `libc++ <https://llvm.org/bugs/show_bug.cgi?id=24411>`_, `llvm-as <https://llvm.org/bugs/show_bug.cgi?id=24639>`_, `Demangler <https://bugs.chromium.org/p/chromium/issues/detail?id=606626>`_, Disassembler: http://reviews.llvm.org/rL247405, http://reviews.llvm.org/rL247414, http://reviews.llvm.org/rL247416, http://reviews.llvm.org/rL247417, http://reviews.llvm.org/rL247420, http://reviews.llvm.org/rL247422.
 
-* Tensorflow: `[1] <https://github.com/tensorflow/tensorflow/commit/7231d01fcb2cd9ef9ffbfea03b724892c8a4026e>`__
+* Tensorflow: `[1] <https://da-data.blogspot.com/2017/01/finding-bugs-in-tensorflow-with.html>`__
 
 * Ffmpeg: `[1] <https://github.com/FFmpeg/FFmpeg/commit/c92f55847a3d9cd12db60bfcd0831ff7f089c37c>`__  `[2] <https://github.com/FFmpeg/FFmpeg/commit/25ab1a65f3acb5ec67b53fb7a2463a7368f1ad16>`__  `[3] <https://github.com/FFmpeg/FFmpeg/commit/85d23e5cbc9ad6835eef870a5b4247de78febe56>`__ `[4] <https://github.com/FFmpeg/FFmpeg/commit/04bd1b38ee6b8df410d0ab8d4949546b6c4af26a>`__
+
+* `Wireshark <https://bugs.wireshark.org/bugzilla/buglist.cgi?bug_status=UNCONFIRMED&bug_status=CONFIRMED&bug_status=IN_PROGRESS&bug_status=INCOMPLETE&bug_status=RESOLVED&bug_status=VERIFIED&f0=OP&f1=OP&f2=product&f3=component&f4=alias&f5=short_desc&f7=content&f8=CP&f9=CP&j1=OR&o2=substring&o3=substring&o4=substring&o5=substring&o6=substring&o7=matches&order=bug_id%20DESC&query_format=advanced&v2=libfuzzer&v3=libfuzzer&v4=libfuzzer&v5=libfuzzer&v6=libfuzzer&v7=%22libfuzzer%22>`_
 
 .. _pcre2: http://www.pcre.org/
 .. _AFL: http://lcamtuf.coredump.cx/afl/

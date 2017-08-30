@@ -306,7 +306,7 @@ private:
 };
 
 // On Mingw and Cygwin, an external symbol named '__main' is called from the
-// generated 'main' function to allow static intialization.  To avoid linking
+// generated 'main' function to allow static initialization.  To avoid linking
 // problems with remote targets (because lli's remote target support does not
 // currently handle external linking) we add a secondary module which defines
 // an empty '__main' function.
@@ -606,8 +606,7 @@ int main(int argc, char **argv, char * const *envp) {
     // If the program doesn't explicitly call exit, we will need the Exit
     // function later on to make an explicit call, so get the function now.
     Constant *Exit = Mod->getOrInsertFunction("exit", Type::getVoidTy(Context),
-                                                      Type::getInt32Ty(Context),
-                                                      nullptr);
+                                                      Type::getInt32Ty(Context));
 
     // Run static constructors.
     if (!ForceInterpreter) {

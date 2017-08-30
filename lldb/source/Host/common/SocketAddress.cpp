@@ -89,6 +89,10 @@ SocketAddress::SocketAddress(const struct sockaddr_storage &s) {
   m_socket_addr.sa_storage = s;
 }
 
+SocketAddress::SocketAddress(const struct addrinfo *addr_info) {
+  *this = addr_info;
+}
+
 //----------------------------------------------------------------------
 // SocketAddress copy constructor
 //----------------------------------------------------------------------
@@ -223,6 +227,18 @@ bool SocketAddress::getaddrinfo(const char *host, const char *service,
                                 int ai_flags) {
   Clear();
 
+  auto addresses = GetAddressInfo(host, service, ai_family, ai_socktype, ai_protocol, ai_flags);
+  if (!addresses.empty())
+    *this = addresses[0];
+  return IsValid();
+}
+
+std::vector<SocketAddress>
+SocketAddress::GetAddressInfo(const char *hostname, const char *servname,
+                              int ai_family, int ai_socktype, int ai_protocol,
+                              int ai_flags) {
+  std::vector<SocketAddress> addr_list;
+
   struct addrinfo hints;
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = ai_family;
@@ -230,18 +246,18 @@ bool SocketAddress::getaddrinfo(const char *host, const char *service,
   hints.ai_protocol = ai_protocol;
   hints.ai_flags = ai_flags;
 
-  bool result = false;
   struct addrinfo *service_info_list = NULL;
-  int err = ::getaddrinfo(host, service, &hints, &service_info_list);
+  int err = ::getaddrinfo(hostname, servname, &hints, &service_info_list);
   if (err == 0 && service_info_list) {
-    *this = service_info_list;
-    result = IsValid();
+    for (struct addrinfo *service_ptr = service_info_list; service_ptr != NULL;
+         service_ptr = service_ptr->ai_next) {
+      addr_list.emplace_back(SocketAddress(service_ptr));
+    }
   }
 
   if (service_info_list)
     ::freeaddrinfo(service_info_list);
-
-  return result;
+  return addr_list;
 }
 
 bool SocketAddress::SetToLocalhost(sa_family_t family, uint16_t port) {
@@ -286,4 +302,30 @@ bool SocketAddress::SetToAnyAddress(sa_family_t family, uint16_t port) {
   }
   Clear();
   return false;
+}
+
+bool SocketAddress::IsAnyAddr() const {
+  return (GetFamily() == AF_INET)
+             ? m_socket_addr.sa_ipv4.sin_addr.s_addr == htonl(INADDR_ANY)
+             : 0 == memcmp(&m_socket_addr.sa_ipv6.sin6_addr, &in6addr_any, 16);
+}
+
+bool SocketAddress::operator==(const SocketAddress &rhs) const {
+  if (GetFamily() != rhs.GetFamily())
+    return false;
+  if (GetLength() != rhs.GetLength())
+    return false;
+  switch (GetFamily()) {
+  case AF_INET:
+    return m_socket_addr.sa_ipv4.sin_addr.s_addr ==
+           rhs.m_socket_addr.sa_ipv4.sin_addr.s_addr;
+  case AF_INET6:
+    return 0 == memcmp(&m_socket_addr.sa_ipv6.sin6_addr,
+                       &rhs.m_socket_addr.sa_ipv6.sin6_addr, 16);
+  }
+  return false;
+}
+
+bool SocketAddress::operator!=(const SocketAddress &rhs) const {
+  return !(*this == rhs);
 }

@@ -63,6 +63,10 @@ static cl::opt<bool> DisableLTOVectorization(
     "disable-lto-vectorization", cl::init(false),
     cl::desc("Do not run loop or slp vectorization during LTO"));
 
+static cl::opt<bool> EnableFreestanding(
+    "lto-freestanding", cl::init(false),
+    cl::desc("Enable Freestanding (disable builtins / TLI) during LTO"));
+
 static cl::opt<bool> UseDiagnosticHandler(
     "use-diagnostic-handler", cl::init(false),
     cl::desc("Use a diagnostic handler to test the handler interface"));
@@ -129,6 +133,11 @@ static cl::opt<std::string> ThinLTOSaveTempsPrefix(
     "thinlto-save-temps",
     cl::desc("Save ThinLTO temp files using filenames created by adding "
              "suffixes to the given file path prefix."));
+
+static cl::opt<std::string> ThinLTOGeneratedObjectsDir(
+    "thinlto-save-objects",
+    cl::desc("Save ThinLTO generated object files using filenames created in "
+             "the given directory."));
 
 static cl::opt<bool>
     SaveModuleFile("save-merged-module", cl::init(false),
@@ -242,7 +251,7 @@ static void error(const ErrorOr<T> &V, const Twine &Prefix) {
 }
 
 static void maybeVerifyModule(const Module &Mod) {
-  if (!DisableVerify && verifyModule(Mod))
+  if (!DisableVerify && verifyModule(Mod, &errs()))
     error("Broken Module");
 }
 
@@ -428,6 +437,7 @@ public:
     ThinGenerator.setCodePICModel(getRelocModel());
     ThinGenerator.setTargetOptions(Options);
     ThinGenerator.setCacheDir(ThinLTOCacheDir);
+    ThinGenerator.setFreestanding(EnableFreestanding);
 
     // Add all the exported symbols to the table of symbols to preserve.
     for (unsigned i = 0; i < ExportedSymbols.size(); ++i)
@@ -707,6 +717,13 @@ private:
 
     if (!ThinLTOSaveTempsPrefix.empty())
       ThinGenerator.setSaveTempsDir(ThinLTOSaveTempsPrefix);
+
+    if (!ThinLTOGeneratedObjectsDir.empty()) {
+      ThinGenerator.setGeneratedObjectsDirectory(ThinLTOGeneratedObjectsDir);
+      ThinGenerator.run();
+      return;
+    }
+
     ThinGenerator.run();
 
     auto &Binaries = ThinGenerator.getProducedBinaries();
@@ -797,6 +814,7 @@ int main(int argc, char **argv) {
     CodeGen.setDiagnosticHandler(handleDiagnostics, nullptr);
 
   CodeGen.setCodePICModel(getRelocModel());
+  CodeGen.setFreestanding(EnableFreestanding);
 
   CodeGen.setDebugInfo(LTO_DEBUG_MODEL_DWARF);
   CodeGen.setTargetOptions(Options);
