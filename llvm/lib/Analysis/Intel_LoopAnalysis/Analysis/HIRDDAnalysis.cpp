@@ -26,8 +26,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLoopStatistics.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDRefGatherer.h"
@@ -77,8 +77,8 @@ static cl::opt<bool>
     ForceDDA("force-hir-dd-analysis", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
-typedef DDRefGatherer<DDRef, AllRefs ^
-    (ConstantRefs | GenericRValRefs | IsAddressOfRefs)>
+typedef DDRefGatherer<DDRef, AllRefs ^ (ConstantRefs | GenericRValRefs |
+                                        IsAddressOfRefs)>
     DDARefGatherer;
 
 FunctionPass *llvm::createHIRDDAnalysisPass() { return new HIRDDAnalysis(); }
@@ -430,7 +430,7 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                              unsigned InnermostNestingLevel,
                              unsigned OutermostNestingLevel,
                              DirectionVector &RefinedDV,
-                             DistanceVector &RefinedDistV,
+                             DistanceVector &RefinedDistV, bool ForFusion,
                              bool *IsIndependent) {
 
   bool IsDVRefined = false;
@@ -441,7 +441,7 @@ bool HIRDDAnalysis::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
     DDTest DT(*AAR, RegDDref->getHLDDNode()->getHLNodeUtils(), *HLS);
     DirectionVector InputDV;
     InputDV.setAsInput(InnermostNestingLevel, OutermostNestingLevel);
-    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV);
+    auto Result = DT.depends(SrcDDRef, DstDDRef, InputDV, ForFusion);
     if (Result == nullptr) {
       *IsIndependent = true;
       return true;

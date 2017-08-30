@@ -28,8 +28,8 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRDDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/IR/Diag.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -388,7 +388,7 @@ void DDWalk::analyze(const RegDDRef *SrcRef, const DDEdge *Edge) {
     DistanceVector DistV;
 
     bool IsIndep = false;
-    if (DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, DV, DistV,
+    if (DDA.refineDV(Edge->getSrc(), SinkRef, NestLevel, 1, DV, DistV, false,
                      &IsIndep)) {
       // TODO: Set Type/Loc. Call emitDiag().
       DEBUG(dbgs() << "\tis unsafe to vectorize/parallelize");

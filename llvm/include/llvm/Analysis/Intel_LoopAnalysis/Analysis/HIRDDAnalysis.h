@@ -238,7 +238,7 @@ public:
   bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
                 unsigned InnermostNestingLevel, unsigned OutermostNestingLevel,
                 DirectionVector &RefinedDV, DistanceVector &RefinedDistV,
-                bool *IsIndependent);
+                bool ForFusion, bool *IsIndependent);
 
   // TODO still needed? Call findDependences directly?
   // bool demandDrivenDD(DDRef* SrcRef, DDRef* SinkRef,
@@ -324,7 +324,7 @@ private:
     void postVisit(HLNode *Node) {}
   };
 };
-}
-}
+} // namespace loopopt
+} // namespace llvm
 
 #endif

@@ -60,6 +60,8 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/DDTests.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -70,11 +72,14 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/CanonExprUtils.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+// Next Option is set for unit testing only
+static cl::opt<bool> AssumeLoopFusion(
+    "hir-dd-test-assume-loop-fusion", cl::init(false), cl::Hidden,
+    cl::desc("Demand Driven DD test invoked from Loop Fusion"));
 
 #define DEBUG_TYPE "hir-dd-test"
 #define DEBUG_AA(X) DEBUG_WITH_TYPE("hir-dd-test-aa", X)
@@ -131,6 +136,7 @@ bool Dependences::isScalar(unsigned level) const { return false; }
 FullDependences::FullDependences(DDRef *Source, DDRef *Destination,
                                  unsigned CommonLevels)
     : Dependences(Source, Destination), Levels(CommonLevels) {
+
   Consistent = true;
   LoopIndependent = false;
   DV = CommonLevels ? new DVEntry[CommonLevels] : nullptr;
@@ -976,54 +982,35 @@ Value *getPointerOperand(Instruction *I) {
 //     g - 7 = MaxLevels
 
 void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
-                                    const DDRef *DstDDRef) {
+                                    const DDRef *DstDDRef, bool ForFusion) {
 
-  HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
-  HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
+  HLLoop *SrcLoop = SrcDDRef->getHLDDNode()->getParentLoop();
+  HLLoop *DstLoop = DstDDRef->getHLDDNode()->getParentLoop();
 
-  HLNode *SrcHIR = dyn_cast<HLNode>(SrcDDNode);
-  assert(SrcHIR && "HIR not found for Src DDRef");
-  HLNode *DstHIR = dyn_cast<HLNode>(DstDDNode);
-  assert(DstHIR && "HIR not found for Dst DDRef");
-  HLLoop *SrcParent = SrcHIR->getParentLoop();
-  HLLoop *DstParent = DstHIR->getParentLoop();
-  HLLoop *SrcLoop = nullptr;
-  HLLoop *DstLoop = nullptr;
   unsigned SrcLevel = 0;
   unsigned DstLevel = 0;
 
   DeepestLoop = nullptr;
 
-  if (!SrcParent) {
-    CommonLevels = 0;
-    if (!DstParent) {
-      MaxLevels = 0;
-      return;
+  if (!SrcLoop) {
+    if (!DstLoop) {
+      goto AdjustLevels;
     }
-    DstLoop = DstParent;
-    DstLevel = DstLoop->getNestingLevel();
-    MaxLevels = DstLevel;
-  } else if (!DstParent) {
-    CommonLevels = 0;
-    SrcLoop = SrcParent;
+  } else if (!DstLoop) {
     SrcLevel = SrcLoop->getNestingLevel();
     MaxLevels = SrcLevel;
-    return;
+    goto AdjustLevels;
   }
-
-  SrcLoop = SrcParent;
-  DstLoop = DstParent;
 
   if (SrcLoop) {
     SrcLevel = SrcLoop->getNestingLevel();
   }
 
   DstLevel = DstLoop->getNestingLevel();
-  DeepestLoop = (SrcLevel > DstLevel) ? SrcParent : DstParent;
-
-  // TODO: Need to understand how is MaxLevels consumed
+  DeepestLoop = (SrcLevel > DstLevel) ? SrcLoop : DstLoop;
 
   SrcLevels = SrcLevel;
+  DstLevels = DstLevel;
   MaxLevels = SrcLevel + DstLevel;
   while (SrcLevel > DstLevel) {
     SrcLoop = SrcLoop->getParentLoop();
@@ -1041,6 +1028,23 @@ void DDTest::establishNestingLevels(const DDRef *SrcDDRef,
 
   CommonLevels = SrcLevel;
   MaxLevels -= CommonLevels;
+
+AdjustLevels:
+
+  if (CommonLevels == 0) {
+    // Need DD edge to connect
+    NoCommonNest = true;
+    CommonLevels = 1;
+  }
+
+  // For Fusion set to deepest level
+  if (ForFusion && DeepestLoop) {
+    CommonLevels = DeepestLoop->getNestingLevel();
+  }
+
+  if (MaxLevels == 0) {
+    MaxLevels = 1;
+  }
 }
 
 // Given one of the loops containing the source, return
@@ -3051,6 +3055,7 @@ bool DDTest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 // for the lower bound, NULL denotes -inf.
 //
 // Return true if dependence disproved.
+
 bool DDTest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                              const DirectionVector &InputDV,
                              const SmallBitVector &Loops,
@@ -4028,7 +4033,7 @@ bool DDTest::queryAAIndep(RegDDRef *SrcDDRef, RegDDRef *DstDDRef) {
 
 std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
                                              const DirectionVector &InputDV,
-                                             bool fromFusion) {
+                                             bool ForFusion) {
   //
   //
   // This query is useful for  loop fusion or other loop transformations
@@ -4060,8 +4065,13 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //        Result returned (non nullptr):  (<),  isReversed=true
   //        anti dep can be implied based on the lval/rval
   //
-  // (1) fromFusion will assume the 2 DDRefs are within the same loop (not
-  //     implemented yet)
+  // (1) ForFusion - when invoked from Fusion using Demenad Driven DD,
+  //     it is set as true. DDTest assumes the 2 DDRefs are within
+  //     the same loop nests.
+  //     For compile time saving,  Refs that have no common nests,
+  //     DV (=) is used  if the one of the refs has no enclosing loop,
+  //     otherwise  DV (*) is used.
+  //     Loop Fusion has to invoke the Demand Driven DD for refinement.
   //
   // (2) Current code builds DV up to common levels only.
   //     This would be okay for most practical purposes.
@@ -4069,7 +4079,6 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   //     privatization.
   //     Need some work for refs outside loop - should always has a DV
   //     instead of  empty
-  //
 
   bool IsSrcRval = false;
   bool IsDstRval = false;
@@ -4144,19 +4153,29 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     EqualBaseCE = areCEEqual(SrcBaseCE, DstBaseCE);
   }
 
-  // establish loop nesting levels
-  establishNestingLevels(SrcDDRef, DstDDRef);
+  // Set loop nesting levels, NoCommonNest flag
+  establishNestingLevels(SrcDDRef, DstDDRef, ForFusion);
 
   DEBUG(dbgs() << "\ncommon nesting levels = " << CommonLevels << "\n");
   DEBUG(dbgs() << "\nmaximum nesting levels = " << MaxLevels << "\n");
 
+  if (NoCommonNest && (SrcDDRef == DstDDRef)) {
+    // No edge needed
+    return nullptr;
+  }
+
   FullDependences Result(SrcDDRef, DstDDRef, CommonLevels);
+
+  if (NoCommonNest && !ForFusion && (SrcLevels == 0 || DstLevels == 0)) {
+    Result.setDirection(1, DVKind::EQ);
+  }
+
   ++TotalArrayPairs;
   WorkCE.clear();
 
   //  Number of dimemsion are different or different base: need to bail out
-  if (!EqualBaseCE || NumSrcDim != NumDstDim) {
-    DEBUG(dbgs() << "\nDiff dim or base\n");
+  if (!EqualBaseCE || NumSrcDim != NumDstDim || (NoCommonNest && !ForFusion)) {
+    DEBUG(dbgs() << "\nDiff dim,  base, or no common nests\n");
     auto Final = make_unique<FullDependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
@@ -4198,16 +4217,8 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   const HLLoop *SrcLoop = nullptr;
   const HLLoop *DstLoop = nullptr;
 
-  HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
-  HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
-
-  HLNode *SrcHIR = dyn_cast<HLNode>(SrcDDNode);
-  assert(SrcHIR && "HIR not found for Src DDRef");
-  HLNode *DstHIR = dyn_cast<HLNode>(DstDDNode);
-  assert(DstHIR && "HIR not found for Dst DDRef");
-
-  HLLoop *SrcParent = SrcHIR->getParentLoop();
-  HLLoop *DstParent = DstHIR->getParentLoop();
+  HLLoop *SrcParent = SrcDDRef->getHLDDNode()->getParentLoop();
+  HLLoop *DstParent = DstDDRef->getHLDDNode()->getParentLoop();
 
   if (SrcParent) {
     SrcLoop = SrcParent;
@@ -4338,67 +4349,87 @@ std::unique_ptr<Dependences> DDTest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   NewConstraint.setAny();
 
-  // test separable subscripts
-  for (int SI = Separable.find_first(); SI >= 0; SI = Separable.find_next(SI)) {
-    DEBUG(dbgs() << "testing subscript " << SI);
-    switch (Pair[SI].Classification) {
-    case Subscript::ZIV:
-      DEBUG(dbgs() << ", ZIV\n");
-      if (testZIV(Pair[SI].Src, Pair[SI].Dst, Result))
-        return nullptr;
-      break;
+  if (!ForFusion) {
+    // test separable subscripts
+    for (int SI = Separable.find_first(); SI >= 0;
+         SI = Separable.find_next(SI)) {
+      DEBUG(dbgs() << "testing subscript " << SI);
+      switch (Pair[SI].Classification) {
+      case Subscript::ZIV:
+        DEBUG(dbgs() << ", ZIV\n");
+        if (testZIV(Pair[SI].Src, Pair[SI].Dst, Result))
+          return nullptr;
+        break;
 
-    case Subscript::SIV: {
-      DEBUG(dbgs() << ", SIV\n");
-      unsigned Level;
-      const CanonExpr *SplitIter = nullptr;
-      if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
-                  SplitIter, SrcLoop, DstLoop)) {
-        return nullptr;
+      case Subscript::SIV: {
+        DEBUG(dbgs() << ", SIV\n");
+        unsigned Level;
+        const CanonExpr *SplitIter = nullptr;
+        if (testSIV(Pair[SI].Src, Pair[SI].Dst, Level, Result, NewConstraint,
+                    SplitIter, SrcLoop, DstLoop)) {
+          return nullptr;
+        }
+        break;
       }
-      break;
+
+      case Subscript::RDIV:
+        DEBUG(dbgs() << ", RDIV\n");
+        if (testRDIV(Pair[SI].Src, Pair[SI].Dst, Result, SrcLoop, DstLoop)) {
+          return nullptr;
+        }
+        break;
+      case Subscript::MIV:
+
+        DEBUG(dbgs() << ", MIV\n");
+
+        if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
+                    SrcLoop, DstLoop)) {
+          return nullptr;
+        }
+        break;
+      default:
+        llvm_unreachable("subscript has unexpected classification");
+      }
+
+      // Refine DV based on input DV
+      // result[Level-1].DV already computed for SIV
+      // Take interection of result with input dv for a particular level
+      // if empty, INDEP is obtained
+
+      if (Pair[SI].Classification == Subscript::SIV) {
+
+        const HLLoop *IVLoop = getLoop(Pair[SI].Src, SrcLoop);
+        if (IVLoop == nullptr) {
+          IVLoop = getLoop(Pair[SI].Dst, DstLoop);
+        }
+        assert(IVLoop && "SIV must have an assoicated loop");
+
+        unsigned Level = mapSrcLoop(IVLoop);
+
+        if (Level <= Result.Levels) {
+          // DV is computed up to Common Level of the 2 DDRef
+          Result.setDirection(Level,
+                              Result.getDirection(Level) & InputDV[Level - 1]);
+
+          if (Result.getDirection(Level) == DVKind::NONE) {
+            return nullptr;
+          }
+        }
+      }
     }
-
-    case Subscript::RDIV:
-      DEBUG(dbgs() << ", RDIV\n");
-      if (testRDIV(Pair[SI].Src, Pair[SI].Dst, Result, SrcLoop, DstLoop)) {
-        return nullptr;
-      }
-      break;
-    case Subscript::MIV:
-
-      DEBUG(dbgs() << ", MIV\n");
-
-      if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
-                  SrcLoop, DstLoop)) {
-        return nullptr;
-      }
-      break;
-    default:
-      llvm_unreachable("subscript has unexpected classification");
-    }
-
-    // Refine DV based on input DV
-    // result[Level-1].DV already computed for SIV
-    // Take interection of result with input dv for a particular level
-    // if empty, INDEP is obtained
-
-    if (Pair[SI].Classification == Subscript::SIV) {
-
-      const HLLoop *IVLoop = getLoop(Pair[SI].Src, SrcLoop);
-      if (IVLoop == nullptr) {
-        IVLoop = getLoop(Pair[SI].Dst, DstLoop);
-      }
-      assert(IVLoop && "SIV must have an assoicated loop");
-
-      unsigned Level = mapSrcLoop(IVLoop);
-
-      if (Level <= Result.Levels) {
-        // DV is computed up to Common Level of the 2 DDRef
-        Result.setDirection(Level,
-                            Result.getDirection(Level) & InputDV[Level - 1]);
-
-        if (Result.getDirection(Level) == DVKind::NONE) {
+  } else {
+    //  Note: The other tests - SIV, RDIV - can only be used when the 2 Refs are
+    //  actually within the same  nests
+    for (int SI = Separable.find_first(); SI >= 0;
+         SI = Separable.find_next(SI)) {
+      switch (Pair[SI].Classification) {
+      case Subscript::ZIV:
+        if (testZIV(Pair[SI].Src, Pair[SI].Dst, Result))
+          return nullptr;
+        break;
+      default:
+        if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
+                    SrcLoop, DstLoop)) {
           return nullptr;
         }
       }
@@ -4882,7 +4913,7 @@ bool DDTest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   ForwardDistV.setZero();
   BackwardDistV.setZero();
 
-  auto Result = depends(SrcDDRef, DstDDRef, InputDV);
+  auto Result = depends(SrcDDRef, DstDDRef, InputDV, AssumeLoopFusion);
 
   *IsLoopIndepDepTemp = false;
 

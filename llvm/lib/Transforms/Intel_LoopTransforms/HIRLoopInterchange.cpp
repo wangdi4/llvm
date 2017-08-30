@@ -46,14 +46,14 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Analysis/HIRSafeReductionAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Framework/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/DDUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Utils/HIRInvalidationUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRTransformUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -128,7 +128,7 @@ private:
   void printOptReport(HLLoop *Loop);
   bool isInPresentOrder(SmallVectorImpl<const HLLoop *> &LoopNests) const;
 };
-}
+} // namespace
 
 char HIRLoopInterchange::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopInterchange, "hir-loop-interchange",
@@ -585,9 +585,10 @@ struct HIRLoopInterchange::CollectDDInfo final : public HLNodeVisitorBase {
           DDRef *DstDDRef = DDref;
           DistanceVector RefinedDistV;
           bool IsIndep;
-          bool IsDVRefined = LIP.DDA->refineDV(
-              SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
-              LIP.OutmostNestingLevel, RefinedDV, RefinedDistV, &IsIndep);
+          bool IsDVRefined =
+              LIP.DDA->refineDV(SrcDDRef, DstDDRef, LIP.InnermostNestingLevel,
+                                LIP.OutmostNestingLevel, RefinedDV,
+                                RefinedDistV, false, &IsIndep);
           if (IsIndep) {
             continue;
           }

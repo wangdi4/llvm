@@ -36,11 +36,11 @@
 #define LLVM_ANALYSIS_DDTEST_H
 
 #include "llvm/ADT/SmallBitVector.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/IR/CanonExpr.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
@@ -319,8 +319,7 @@ private:
   unsigned short Levels; // commonLevels
   bool LoopIndependent;
   bool Consistent; // Init to true, then refine.
-
-  /// isReversed
+  /// Reversed
   /// if true, caller should note that the result is reversed
   ///  from DstDDRef to  SrcDDef.
   ///  e.g.  for a[i] = a[i+1]    (SrcDDref , DstDDref).
@@ -351,7 +350,7 @@ class DDTest {
   /// FullDependence) with as much information as can be gleaned.
   std::unique_ptr<Dependences> depends(DDRef *SrcDDRef, DDRef *DstDDRef,
                                        const DirectionVector &InputDV,
-                                       bool fromFusion = false);
+                                       bool ForFusion = false);
 
   /// findDependences  - return true if there is a dependence, otherwise INDEP
   /// for Srce and Dest DDRefs
@@ -579,7 +578,12 @@ class DDTest {
     void dump(raw_ostream &OS) const;
   };
 
-  unsigned CommonLevels, SrcLevels, MaxLevels;
+  unsigned CommonLevels = 0;
+  unsigned SrcLevels = 0;
+  unsigned DstLevels = 0;
+  unsigned MaxLevels = 0;
+  bool NoCommonNest = false;
+
   HLLoop *DeepestLoop;
 
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
@@ -632,7 +636,8 @@ class DDTest {
   ///     e - 5
   ///     f - 6
   ///     g - 7 = MaxLevels
-  void establishNestingLevels(const DDRef *Src, const DDRef *Dst);
+  void establishNestingLevels(const DDRef *Src, const DDRef *Dst,
+                              bool ForFusion);
 
   /// mapSrcLoop - Given one of the loops containing the source, return
   /// its level index in our numbering scheme.
@@ -743,6 +748,7 @@ class DDTest {
   /// testMIV - Tests the MIV subscript pair (Src and Dst) for dependence.
   /// Returns true if dependence disproved.
   /// Can sometimes refine direction vectors.
+
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
                const DirectionVector &InputDV, const SmallBitVector &Loops,
                FullDependences &Result, const HLLoop *SrcParentLoop,
@@ -1056,7 +1062,7 @@ public:
 /// createDDtestPass - This creates an instance of the
 /// DDtest pass.
 FunctionPass *createDDtest();
-}
+} // namespace loopopt
 
 } // namespace llvm
 
