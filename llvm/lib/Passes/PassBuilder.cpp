@@ -287,28 +287,46 @@ AnalysisKey NoOpLoopAnalysis::Key;
 
 } // End anonymous namespace.
 
+void PassBuilder::invokePeepholeEPCallbacks(
+    FunctionPassManager &FPM, PassBuilder::OptimizationLevel Level) {
+  for (auto &C : PeepholeEPCallbacks)
+    C(FPM, Level);
+}
+
 void PassBuilder::registerModuleAnalyses(ModuleAnalysisManager &MAM) {
 #define MODULE_ANALYSIS(NAME, CREATE_PASS)                                     \
   MAM.registerPass([&] { return CREATE_PASS; });
 #include "PassRegistry.def"
+
+  for (auto &C : ModuleAnalysisRegistrationCallbacks)
+    C(MAM);
 }
 
 void PassBuilder::registerCGSCCAnalyses(CGSCCAnalysisManager &CGAM) {
 #define CGSCC_ANALYSIS(NAME, CREATE_PASS)                                      \
   CGAM.registerPass([&] { return CREATE_PASS; });
 #include "PassRegistry.def"
+
+  for (auto &C : CGSCCAnalysisRegistrationCallbacks)
+    C(CGAM);
 }
 
 void PassBuilder::registerFunctionAnalyses(FunctionAnalysisManager &FAM) {
 #define FUNCTION_ANALYSIS(NAME, CREATE_PASS)                                   \
   FAM.registerPass([&] { return CREATE_PASS; });
 #include "PassRegistry.def"
+
+  for (auto &C : FunctionAnalysisRegistrationCallbacks)
+    C(FAM);
 }
 
 void PassBuilder::registerLoopAnalyses(LoopAnalysisManager &LAM) {
 #define LOOP_ANALYSIS(NAME, CREATE_PASS)                                       \
   LAM.registerPass([&] { return CREATE_PASS; });
 #include "PassRegistry.def"
+
+  for (auto &C : LoopAnalysisRegistrationCallbacks)
+    C(LAM);
 }
 
 FunctionPassManager
@@ -347,6 +365,8 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   if (!isOptimizingForSize(Level))
     FPM.addPass(LibCallsShrinkWrapPass());
 
+  invokePeepholeEPCallbacks(FPM, Level);
+
   FPM.addPass(TailCallElimPass());
   FPM.addPass(SimplifyCFGPass());
 
@@ -370,12 +390,19 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   LPM1.addPass(SimpleLoopUnswitchPass());
   LPM2.addPass(IndVarSimplifyPass());
   LPM2.addPass(LoopIdiomRecognizePass());
+
+  for (auto &C : LateLoopOptimizationsEPCallbacks)
+    C(LPM2, Level);
+
   LPM2.addPass(LoopDeletionPass());
   // Do not enable unrolling in PrepareForThinLTO phase during sample PGO
   // because it changes IR to makes profile annotation in back compile
   // inaccurate.
   if (!PrepareForThinLTO || !PGOOpt || PGOOpt->SampleProfileFile.empty())
     LPM2.addPass(LoopUnrollPass::createFull(Level));
+
+  for (auto &C : LoopOptimizerEndEPCallbacks)
+    C(LPM2, Level);
 
   // We provide the opt remark emitter pass for LICM to use. We only need to do
   // this once as it is immutable.
@@ -411,6 +438,7 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   // Run instcombine after redundancy and dead bit elimination to exploit
   // opportunities opened up by them.
   FPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(FPM, Level);
 
   // Re-consider control flow based optimizations after redundancy elimination,
   // redo DCE, etc.
@@ -419,19 +447,24 @@ PassBuilder::buildFunctionSimplificationPipeline(OptimizationLevel Level,
   FPM.addPass(DSEPass());
   FPM.addPass(createFunctionToLoopPassAdaptor(LICMPass()));
 
+  for (auto &C : ScalarOptimizerLateEPCallbacks)
+    C(FPM, Level);
+
   // Finally, do an expensive DCE pass to catch all the dead code exposed by
   // the simplifications and basic cleanup after all the simplifications.
   FPM.addPass(ADCEPass());
   FPM.addPass(SimplifyCFGPass());
   FPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(FPM, Level);
 
   return FPM;
 }
 
-static void addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
-                              PassBuilder::OptimizationLevel Level,
-                              bool RunProfileGen, std::string ProfileGenFile,
-                              std::string ProfileUseFile) {
+void PassBuilder::addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
+                                    PassBuilder::OptimizationLevel Level,
+                                    bool RunProfileGen,
+                                    std::string ProfileGenFile,
+                                    std::string ProfileUseFile) {
   // Generally running simplification passes and the inliner with an high
   // threshold results in smaller executables, but there may be cases where
   // the size grows, so let's be conservative here and skip this simplification
@@ -456,9 +489,8 @@ static void addPGOInstrPasses(ModulePassManager &MPM, bool DebugLogging,
     FPM.addPass(EarlyCSEPass());    // Catch trivial redundancies.
     FPM.addPass(SimplifyCFGPass()); // Merge & remove basic blocks.
     FPM.addPass(InstCombinePass()); // Combine silly sequences.
+    invokePeepholeEPCallbacks(FPM, Level);
 
-    // FIXME: Here the old pass manager inserts peephole extensions.
-    // Add them when they're supported.
     CGPipeline.addPass(createCGSCCToFunctionPassAdaptor(std::move(FPM)));
 
     MPM.addPass(createModuleToPostOrderCGSCCPassAdaptor(std::move(CGPipeline)));
@@ -539,6 +571,8 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
   // optimizations.
   FunctionPassManager GlobalCleanupPM(DebugLogging);
   GlobalCleanupPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(GlobalCleanupPM, Level);
+
   GlobalCleanupPM.addPass(SimplifyCFGPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(GlobalCleanupPM)));
 
@@ -603,6 +637,9 @@ PassBuilder::buildModuleSimplificationPipeline(OptimizationLevel Level,
       buildFunctionSimplificationPipeline(Level, DebugLogging,
                                           PrepareForThinLTO)));
 
+  for (auto &C : CGSCCOptimizerLateEPCallbacks)
+    C(MainCGPipeline, Level);
+
   // We wrap the CGSCC pipeline in a devirtualization repeater. This will try
   // to detect when we devirtualize indirect calls and iterate the SCC passes
   // in that case to try and catch knock-on inlining or function attrs
@@ -660,6 +697,9 @@ PassBuilder::buildModuleOptimizationPipeline(OptimizationLevel Level,
   // Optimize the loop execution. These passes operate on entire loop nests
   // rather than on each loop in an inside-out manner, and so they are actually
   // function passes.
+
+  for (auto &C : VectorizerStartEPCallbacks)
+    C(OptimizePM, Level);
 
   // First rotate loops that may have been un-rotated by prior passes.
   OptimizePM.addPass(createFunctionToLoopPassAdaptor(LoopRotatePass()));
@@ -889,8 +929,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   // simplification opportunities, and both can propagate functions through
   // function pointers.  When this happens, we often have to resolve varargs
   // calls, etc, so let instcombine do this.
-  // FIXME: add peephole extensions here as the legacy PM does.
-  MPM.addPass(createModuleToFunctionPassAdaptor(InstCombinePass()));
+  FunctionPassManager PeepholeFPM(DebugLogging);
+  PeepholeFPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(PeepholeFPM, Level);
+
+  MPM.addPass(createModuleToFunctionPassAdaptor(std::move(PeepholeFPM)));
 
   // Note: historically, the PruneEH pass was run first to deduce nounwind and
   // generally clean up exception handling overhead. It isn't clear this is
@@ -908,10 +951,10 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MPM.addPass(GlobalDCEPass());
 
   FunctionPassManager FPM(DebugLogging);
-
   // The IPO Passes may leave cruft around. Clean up after them.
-  // FIXME: add peephole extensions here as the legacy PM does.
   FPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(FPM, Level);
+
   FPM.addPass(JumpThreadingPass());
 
   // Break up allocas
@@ -958,8 +1001,11 @@ ModulePassManager PassBuilder::buildLTODefaultPipeline(OptimizationLevel Level,
   MainFPM.add(AlignmentFromAssumptionsPass());
 #endif
 
-  // FIXME: add peephole extensions to the PM here.
+  // FIXME: Conditionally run LoadCombine here, after it's ported
+  // (in case we still have this pass, given its questionable usefulness).
+
   MainFPM.addPass(InstCombinePass());
+  invokePeepholeEPCallbacks(MainFPM, Level);
   MainFPM.addPass(JumpThreadingPass());
   MPM.addPass(createModuleToFunctionPassAdaptor(std::move(MainFPM)));
 
@@ -1042,7 +1088,27 @@ static bool startsWithDefaultPipelineAliasPrefix(StringRef Name) {
          Name.startswith("lto");
 }
 
-static bool isModulePassName(StringRef Name) {
+/// Tests whether registered callbacks will accept a given pass name.
+///
+/// When parsing a pipeline text, the type of the outermost pipeline may be
+/// omitted, in which case the type is automatically determined from the first
+/// pass name in the text. This may be a name that is handled through one of the
+/// callbacks. We check this through the oridinary parsing callbacks by setting
+/// up a dummy PassManager in order to not force the client to also handle this
+/// type of query.
+template <typename PassManagerT, typename CallbacksT>
+static bool callbacksAcceptPassName(StringRef Name, CallbacksT &Callbacks) {
+  if (!Callbacks.empty()) {
+    PassManagerT DummyPM;
+    for (auto &CB : Callbacks)
+      if (CB(Name, DummyPM, {}))
+        return true;
+  }
+  return false;
+}
+
+template <typename CallbacksT>
+static bool isModulePassName(StringRef Name, CallbacksT &Callbacks) {
   // Manually handle aliases for pre-configured pipeline fragments.
   if (startsWithDefaultPipelineAliasPrefix(Name))
     return DefaultAliasRegex.match(Name);
@@ -1067,10 +1133,11 @@ static bool isModulePassName(StringRef Name) {
     return true;
 #include "PassRegistry.def"
 
-  return false;
+  return callbacksAcceptPassName<ModulePassManager>(Name, Callbacks);
 }
 
-static bool isCGSCCPassName(StringRef Name) {
+template <typename CallbacksT>
+static bool isCGSCCPassName(StringRef Name, CallbacksT &Callbacks) {
   // Explicitly handle pass manager names.
   if (Name == "cgscc")
     return true;
@@ -1091,10 +1158,11 @@ static bool isCGSCCPassName(StringRef Name) {
     return true;
 #include "PassRegistry.def"
 
-  return false;
+  return callbacksAcceptPassName<CGSCCPassManager>(Name, Callbacks);
 }
 
-static bool isFunctionPassName(StringRef Name) {
+template <typename CallbacksT>
+static bool isFunctionPassName(StringRef Name, CallbacksT &Callbacks) {
   // Explicitly handle pass manager names.
   if (Name == "function")
     return true;
@@ -1113,10 +1181,11 @@ static bool isFunctionPassName(StringRef Name) {
     return true;
 #include "PassRegistry.def"
 
-  return false;
+  return callbacksAcceptPassName<FunctionPassManager>(Name, Callbacks);
 }
 
-static bool isLoopPassName(StringRef Name) {
+template <typename CallbacksT>
+static bool isLoopPassName(StringRef Name, CallbacksT &Callbacks) {
   // Explicitly handle pass manager names.
   if (Name == "loop")
     return true;
@@ -1133,7 +1202,7 @@ static bool isLoopPassName(StringRef Name) {
     return true;
 #include "PassRegistry.def"
 
-  return false;
+  return callbacksAcceptPassName<LoopPassManager>(Name, Callbacks);
 }
 
 Optional<std::vector<PassBuilder::PipelineElement>>
@@ -1234,6 +1303,11 @@ bool PassBuilder::parseModulePass(ModulePassManager &MPM,
       MPM.addPass(createRepeatedPass(*Count, std::move(NestedMPM)));
       return true;
     }
+
+    for (auto &C : ModulePipelineParsingCallbacks)
+      if (C(Name, MPM, InnerPipeline))
+        return true;
+
     // Normal passes can't have pipelines.
     return false;
   }
@@ -1246,12 +1320,12 @@ bool PassBuilder::parseModulePass(ModulePassManager &MPM,
     assert(Matches.size() == 3 && "Must capture two matched strings!");
 
     OptimizationLevel L = StringSwitch<OptimizationLevel>(Matches[2])
-        .Case("O0", O0)
-        .Case("O1", O1)
-        .Case("O2", O2)
-        .Case("O3", O3)
-        .Case("Os", Os)
-        .Case("Oz", Oz);
+                              .Case("O0", O0)
+                              .Case("O1", O1)
+                              .Case("O2", O2)
+                              .Case("O3", O3)
+                              .Case("Os", Os)
+                              .Case("Oz", Oz);
     if (L == O0)
       // At O0 we do nothing at all!
       return true;
@@ -1291,6 +1365,9 @@ bool PassBuilder::parseModulePass(ModulePassManager &MPM,
   }
 #include "PassRegistry.def"
 
+  for (auto &C : ModulePipelineParsingCallbacks)
+    if (C(Name, MPM, InnerPipeline))
+      return true;
   return false;
 }
 
@@ -1338,11 +1415,16 @@ bool PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
                                                *MaxRepetitions, DebugLogging));
       return true;
     }
+
+    for (auto &C : CGSCCPipelineParsingCallbacks)
+      if (C(Name, CGPM, InnerPipeline))
+        return true;
+
     // Normal passes can't have pipelines.
     return false;
   }
 
-  // Now expand the basic registered passes from the .inc file.
+// Now expand the basic registered passes from the .inc file.
 #define CGSCC_PASS(NAME, CREATE_PASS)                                          \
   if (Name == NAME) {                                                          \
     CGPM.addPass(CREATE_PASS);                                                 \
@@ -1363,6 +1445,9 @@ bool PassBuilder::parseCGSCCPass(CGSCCPassManager &CGPM,
   }
 #include "PassRegistry.def"
 
+  for (auto &C : CGSCCPipelineParsingCallbacks)
+    if (C(Name, CGPM, InnerPipeline))
+      return true;
   return false;
 }
 
@@ -1400,11 +1485,16 @@ bool PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
       FPM.addPass(createRepeatedPass(*Count, std::move(NestedFPM)));
       return true;
     }
+
+    for (auto &C : FunctionPipelineParsingCallbacks)
+      if (C(Name, FPM, InnerPipeline))
+        return true;
+
     // Normal passes can't have pipelines.
     return false;
   }
 
-  // Now expand the basic registered passes from the .inc file.
+// Now expand the basic registered passes from the .inc file.
 #define FUNCTION_PASS(NAME, CREATE_PASS)                                       \
   if (Name == NAME) {                                                          \
     FPM.addPass(CREATE_PASS);                                                  \
@@ -1424,6 +1514,9 @@ bool PassBuilder::parseFunctionPass(FunctionPassManager &FPM,
   }
 #include "PassRegistry.def"
 
+  for (auto &C : FunctionPipelineParsingCallbacks)
+    if (C(Name, FPM, InnerPipeline))
+      return true;
   return false;
 }
 
@@ -1451,11 +1544,16 @@ bool PassBuilder::parseLoopPass(LoopPassManager &LPM, const PipelineElement &E,
       LPM.addPass(createRepeatedPass(*Count, std::move(NestedLPM)));
       return true;
     }
+
+    for (auto &C : LoopPipelineParsingCallbacks)
+      if (C(Name, LPM, InnerPipeline))
+        return true;
+
     // Normal passes can't have pipelines.
     return false;
   }
 
-  // Now expand the basic registered passes from the .inc file.
+// Now expand the basic registered passes from the .inc file.
 #define LOOP_PASS(NAME, CREATE_PASS)                                           \
   if (Name == NAME) {                                                          \
     LPM.addPass(CREATE_PASS);                                                  \
@@ -1476,6 +1574,9 @@ bool PassBuilder::parseLoopPass(LoopPassManager &LPM, const PipelineElement &E,
   }
 #include "PassRegistry.def"
 
+  for (auto &C : LoopPipelineParsingCallbacks)
+    if (C(Name, LPM, InnerPipeline))
+      return true;
   return false;
 }
 
@@ -1494,6 +1595,9 @@ bool PassBuilder::parseAAPassName(AAManager &AA, StringRef Name) {
   }
 #include "PassRegistry.def"
 
+  for (auto &C : AAParsingCallbacks)
+    if (C(Name, AA))
+      return true;
   return false;
 }
 
@@ -1560,7 +1664,7 @@ bool PassBuilder::parseModulePassPipeline(ModulePassManager &MPM,
   return true;
 }
 
-// Primary pass pipeline description parsing routine.
+// Primary pass pipeline description parsing routine for a \c ModulePassManager
 // FIXME: Should this routine accept a TargetMachine or require the caller to
 // pre-populate the analysis managers with target-specific stuff?
 bool PassBuilder::parsePassPipeline(ModulePassManager &MPM,
@@ -1574,19 +1678,68 @@ bool PassBuilder::parsePassPipeline(ModulePassManager &MPM,
   // automatically.
   StringRef FirstName = Pipeline->front().Name;
 
-  if (!isModulePassName(FirstName)) {
-    if (isCGSCCPassName(FirstName))
+  if (!isModulePassName(FirstName, ModulePipelineParsingCallbacks)) {
+    if (isCGSCCPassName(FirstName, CGSCCPipelineParsingCallbacks)) {
       Pipeline = {{"cgscc", std::move(*Pipeline)}};
-    else if (isFunctionPassName(FirstName))
+    } else if (isFunctionPassName(FirstName,
+                                  FunctionPipelineParsingCallbacks)) {
       Pipeline = {{"function", std::move(*Pipeline)}};
-    else if (isLoopPassName(FirstName))
+    } else if (isLoopPassName(FirstName, LoopPipelineParsingCallbacks)) {
       Pipeline = {{"function", {{"loop", std::move(*Pipeline)}}}};
-    else
+    } else {
+      for (auto &C : TopLevelPipelineParsingCallbacks)
+        if (C(MPM, *Pipeline, VerifyEachPass, DebugLogging))
+          return true;
+
       // Unknown pass name!
       return false;
+    }
   }
 
   return parseModulePassPipeline(MPM, *Pipeline, VerifyEachPass, DebugLogging);
+}
+
+// Primary pass pipeline description parsing routine for a \c CGSCCPassManager
+bool PassBuilder::parsePassPipeline(CGSCCPassManager &CGPM,
+                                    StringRef PipelineText, bool VerifyEachPass,
+                                    bool DebugLogging) {
+  auto Pipeline = parsePipelineText(PipelineText);
+  if (!Pipeline || Pipeline->empty())
+    return false;
+
+  StringRef FirstName = Pipeline->front().Name;
+  if (!isCGSCCPassName(FirstName, CGSCCPipelineParsingCallbacks))
+    return false;
+
+  return parseCGSCCPassPipeline(CGPM, *Pipeline, VerifyEachPass, DebugLogging);
+}
+
+// Primary pass pipeline description parsing routine for a \c
+// FunctionPassManager
+bool PassBuilder::parsePassPipeline(FunctionPassManager &FPM,
+                                    StringRef PipelineText, bool VerifyEachPass,
+                                    bool DebugLogging) {
+  auto Pipeline = parsePipelineText(PipelineText);
+  if (!Pipeline || Pipeline->empty())
+    return false;
+
+  StringRef FirstName = Pipeline->front().Name;
+  if (!isFunctionPassName(FirstName, FunctionPipelineParsingCallbacks))
+    return false;
+
+  return parseFunctionPassPipeline(FPM, *Pipeline, VerifyEachPass,
+                                   DebugLogging);
+}
+
+// Primary pass pipeline description parsing routine for a \c LoopPassManager
+bool PassBuilder::parsePassPipeline(LoopPassManager &CGPM,
+                                    StringRef PipelineText, bool VerifyEachPass,
+                                    bool DebugLogging) {
+  auto Pipeline = parsePipelineText(PipelineText);
+  if (!Pipeline || Pipeline->empty())
+    return false;
+
+  return parseLoopPassPipeline(CGPM, *Pipeline, VerifyEachPass, DebugLogging);
 }
 
 bool PassBuilder::parseAAPipeline(AAManager &AA, StringRef PipelineText) {
