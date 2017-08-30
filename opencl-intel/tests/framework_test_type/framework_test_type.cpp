@@ -523,6 +523,11 @@ TEST_F(CL, Test_CheckExtensions)
     CheckExtensions();
 }
 
+TEST_F(CL, Test_ZeroLocalSize)
+{
+    ZeroLocalSize();
+}
+
 TEST_F(CL, Test_QueryInvalidParamNameFromCQueue_Negative)
 {
     QueryInvalidParamNameFromCQueue_Negative();
