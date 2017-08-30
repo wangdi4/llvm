@@ -117,18 +117,43 @@ bool HIRLoopFormation::isNonNegativeNSWIV(const Loop *Lp,
   auto SC = SE->getSCEVForHIR(const_cast<Instruction *>(Inst),
                               getOutermostHIRParentLoop(Lp));
 
-  auto AddRec = dyn_cast<SCEVAddRecExpr>(SC);
-
-  if (!AddRec) {
+  if (!isa<SCEVAddRecExpr>(SC)) {
     return false;
   }
 
-  if (AddRec->getNoWrapFlags(SCEV::FlagNSW) &&
-      SE->isKnownNonNegative(AddRec->getStart())) {
+  auto Range = SE->getSignedRange(SC);
+
+  if (!Range.getSignedMin().isNonNegative()) {
+    return false;
+  }
+
+  // We need more checks for multi-exit loops.
+  if (Lp->getExitingBlock()) {
     return true;
   }
 
-  return false;
+  // ScalarEvolution could have used an early exit to compute the range info on
+  // the IV. For example, the loop below has a max trip count of 2 due to the
+  // early exit so 'i' has a range of [5, 8). This doesn't mean we can use a
+  // signed comparison to generate the bottom test as 'N' may be big positive
+  // (negative signed) value.
+  // for(i = 5; i < N; i++) {
+  //   if (i == 7)
+  //     goto exit;
+  // }
+
+  // No range refinement was done for the max value of IV so we can be sure it
+  // remains in non-negative range.
+  if (Range.getSignedMax().isMaxSignedValue()) {
+    return true;
+  }
+
+  // If the max value was refined, we can return true only if the backedge count
+  // is known to be non-negative.
+  auto BECount =
+      SE->getBackedgeTakenCountForHIR(Lp, getOutermostHIRParentLoop(Lp));
+
+  return SE->isKnownNonNegative(BECount);
 }
 
 bool HIRLoopFormation::hasNSWSemantics(const Loop *Lp,
@@ -210,7 +235,6 @@ void HIRLoopFormation::setIVType(HLLoop *HLoop) const {
 
   HLoop->setIVType(IVType);
 
-  // Set NSW flag, if applicable.
   auto IsNSW = hasNSWSemantics(Lp, IVNode);
   HLoop->setNSW(IsNSW);
 }
