@@ -908,9 +908,8 @@ static void sortBySymbolsOrder(ArrayRef<OutputSection *> OutputSections) {
   }
 
   // Sort sections by priority.
-  for (OutputSection *Base : OutputSections)
-    if (auto *Sec = dyn_cast<OutputSection>(Base))
-      Sec->sort([&](InputSectionBase *S) { return SectionOrder.lookup(S); });
+  for (OutputSection *Sec : OutputSections)
+    Sec->sort([&](InputSectionBase *S) { return SectionOrder.lookup(S); });
 }
 
 template <class ELFT>
@@ -1285,12 +1284,6 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
     addPtArmExid(Phdrs);
     Out::ProgramHeaders->Size = sizeof(Elf_Phdr) * Phdrs.size();
   }
-
-  // Compute the size of .rela.dyn and .rela.plt early since we need
-  // them to populate .dynamic.
-  for (SyntheticSection *SS : {In<ELFT>::RelaDyn, In<ELFT>::RelaPlt})
-    if (SS->getParent() && !SS->empty())
-      SS->getParent()->assignOffsets();
 
   // Dynamic section must be the last one in this list and dynamic
   // symbol table section (DynSymTab) must be the first one.
