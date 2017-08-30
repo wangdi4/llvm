@@ -916,7 +916,7 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
   PB.registerLoopAnalyses(LAM);
   PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
 
-  ModulePassManager MPM;
+  ModulePassManager MPM(CodeGenOpts.DebugPassManager);
 
   if (!CodeGenOpts.DisableLLVMPasses) {
     bool IsThinLTO = CodeGenOpts.EmitSummaryIndex;
@@ -934,12 +934,15 @@ void EmitAssemblyHelper::EmitAssemblyWithNewPassManager(
       PassBuilder::OptimizationLevel Level = mapToLevel(CodeGenOpts);
 
       if (IsThinLTO) {
-        MPM = PB.buildThinLTOPreLinkDefaultPipeline(Level);
+        MPM = PB.buildThinLTOPreLinkDefaultPipeline(
+            Level, CodeGenOpts.DebugPassManager);
         MPM.addPass(NameAnonGlobalPass());
       } else if (IsLTO) {
-        MPM = PB.buildLTOPreLinkDefaultPipeline(Level);
+        MPM = PB.buildLTOPreLinkDefaultPipeline(Level,
+                                                CodeGenOpts.DebugPassManager);
       } else {
-        MPM = PB.buildPerModuleDefaultPipeline(Level);
+        MPM = PB.buildPerModuleDefaultPipeline(Level,
+                                               CodeGenOpts.DebugPassManager);
       }
     }
   }
