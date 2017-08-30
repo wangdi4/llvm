@@ -670,7 +670,6 @@ struct AAMDNodes {
   /// \brief The tag specifying the noalias scope.
   MDNode *NoAlias;
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
   /// \brief The tag for std container ptr.
   MDNode *StdContainerPtr;
@@ -678,7 +677,6 @@ struct AAMDNodes {
   /// \brief The tag for std container ptr iterator.
   MDNode *StdContainerPtrIter;
 #endif // INTEL_CUSTOMIZATION
-=======
   /// \brief Given two sets of AAMDNodes that apply to the same pointer,
   /// give the best AAMDNodes that are compatible with both (i.e. a set of
   /// nodes whose allowable aliasing conclusions are a subset of those
@@ -691,7 +689,6 @@ struct AAMDNodes {
     Result.NoAlias = Other.NoAlias == NoAlias ? NoAlias : nullptr;
     return Result;
   }
->>>>>>> cf416dcc40886a3b59dff7736aa4a939e99219f6
 };
 
 // Specialize DenseMapInfo for AAMDNodes.
