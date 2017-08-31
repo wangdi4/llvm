@@ -543,7 +543,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(release);
   KEYWORD(acq_rel);
   KEYWORD(seq_cst);
-  KEYWORD(singlethread);
+  KEYWORD(syncscope);
 
   KEYWORD(nnan);
   KEYWORD(ninf);

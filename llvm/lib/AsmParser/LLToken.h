@@ -94,7 +94,7 @@ enum Kind {
   kw_release,
   kw_acq_rel,
   kw_seq_cst,
-  kw_singlethread,
+  kw_syncscope,
   kw_nnan,
   kw_ninf,
   kw_nsz,
