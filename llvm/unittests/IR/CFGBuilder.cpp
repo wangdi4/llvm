@@ -16,8 +16,6 @@
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
 
-#include <tuple>
-
 #define DEBUG_TYPE "cfg-builder"
 
 using namespace llvm;
@@ -29,10 +27,6 @@ CFGHolder::CFGHolder(StringRef ModuleName, StringRef FunctionName)
   F = cast<Function>(M->getOrInsertFunction(FunctionName, FTy));
 }
 CFGHolder::~CFGHolder() = default;
-
-bool llvm::operator<(const CFGBuilder::Arc &LHS, const CFGBuilder::Arc &RHS) {
-  return std::tie(LHS.From, LHS.To) < std::tie(RHS.From, RHS.To);
-}
 
 CFGBuilder::CFGBuilder(Function *F, const std::vector<Arc> &InitialArcs,
                        std::vector<Update> Updates)
@@ -144,9 +138,9 @@ Optional<CFGBuilder::Update> CFGBuilder::applyUpdate() {
     return None;
   Update NextUpdate = Updates[UpdateIdx++];
   if (NextUpdate.Action == ActionKind::Insert)
-    connect(NextUpdate.Arc);
+    connect(NextUpdate.Edge);
   else
-    disconnect(NextUpdate.Arc);
+    disconnect(NextUpdate.Edge);
 
   return NextUpdate;
 }
@@ -161,8 +155,8 @@ void CFGBuilder::dump(raw_ostream &OS) const {
   i = 0;
   for (const auto &U : Updates) {
     OS << (i + 1 == UpdateIdx ? "->" : "  ") << i
-       << ((U.Action == ActionKind::Insert) ? "\tIns " : "\tDel ") << U.Arc.From
-       << " -> " << U.Arc.To << "\n";
+       << ((U.Action == ActionKind::Insert) ? "\tIns " : "\tDel ")
+       << U.Edge.From << " -> " << U.Edge.To << "\n";
     ++i;
   }
 }
@@ -237,8 +231,8 @@ TEST(CFGBuilder, Deletions) {
 
   EXPECT_TRUE(UpdateC);
   EXPECT_EQ(UpdateC->Action, CFGBuilder::ActionKind::Delete);
-  EXPECT_EQ(UpdateC->Arc.From, "c");
-  EXPECT_EQ(UpdateC->Arc.To, "d");
+  EXPECT_EQ(UpdateC->Edge.From, "c");
+  EXPECT_EQ(UpdateC->Edge.To, "d");
   EXPECT_TRUE(isa<UnreachableInst>(B.getOrAddBlock("c")->getTerminator()));
 
   size_t i = 1;
