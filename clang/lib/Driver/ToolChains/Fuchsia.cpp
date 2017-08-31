@@ -131,7 +131,7 @@ void fuchsia::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
 /// Fuchsia - Fuchsia tool chain which can call as(1) and ld(1) directly.
 
-static std::string computeTriple(llvm::Triple Triple) {
+static std::string normalizeTriple(llvm::Triple Triple) {
   SmallString<64> T;
   T += Triple.getArchName();
   T += "-";
@@ -142,7 +142,7 @@ static std::string computeTriple(llvm::Triple Triple) {
 static std::string getTargetDir(const Driver &D,
                                 llvm::Triple Triple) {
   SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
-  llvm::sys::path::append(P, "lib", computeTriple(Triple));
+  llvm::sys::path::append(P, "lib", normalizeTriple(Triple));
   return P.str();
 }
 
@@ -167,7 +167,7 @@ Fuchsia::Fuchsia(const Driver &D, const llvm::Triple &Triple,
 std::string Fuchsia::ComputeEffectiveClangTriple(const ArgList &Args,
                                                  types::ID InputType) const {
   llvm::Triple Triple(ComputeLLVMTriple(Args, InputType));
-  Triple.setTriple(computeTriple(Triple));
+  Triple.setTriple(normalizeTriple(Triple));
   return Triple.getTriple();
 }
 
