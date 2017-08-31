@@ -48,7 +48,7 @@ static bool functionHasPassObjectSizeParams(const FunctionDecl *FD) {
 /// A convenience routine for creating a decayed reference to a function.
 static ExprResult
 CreateFunctionRefExpr(Sema &S, FunctionDecl *Fn, NamedDecl *FoundDecl,
-                      bool HadMultipleCandidates,
+                      const Expr *Base, bool HadMultipleCandidates,
                       SourceLocation Loc = SourceLocation(),
                       const DeclarationNameLoc &LocInfo = DeclarationNameLoc()){
   if (S.DiagnoseUseOfDecl(FoundDecl, Loc))
@@ -68,7 +68,7 @@ CreateFunctionRefExpr(Sema &S, FunctionDecl *Fn, NamedDecl *FoundDecl,
   if (HadMultipleCandidates)
     DRE->setHadMultipleCandidates(true);
 
-  S.MarkDeclRefReferenced(DRE);
+  S.MarkDeclRefReferenced(DRE, Base);
   return S.ImpCastExprToType(DRE, S.Context.getPointerType(DRE->getType()),
                              CK_FunctionToPointerDecay);
 }
@@ -12103,6 +12103,7 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
     FunctionDecl *FnDecl = Best->Function;
 
     if (FnDecl) {
+      Expr *Base = nullptr;
       // We matched an overloaded operator. Build a call to that
       // operator.
 
@@ -12115,7 +12116,7 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
                                               Best->FoundDecl, Method);
         if (InputRes.isInvalid())
           return ExprError();
-        Input = InputRes.get();
+        Base = Input = InputRes.get();
       } else {
         // Convert the arguments.
         ExprResult InputInit
@@ -12131,7 +12132,8 @@ Sema::CreateOverloadedUnaryOp(SourceLocation OpLoc, UnaryOperatorKind Opc,
 
       // Build the actual expression node.
       ExprResult FnExpr = CreateFunctionRefExpr(*this, FnDecl, Best->FoundDecl,
-                                                HadMultipleCandidates, OpLoc);
+                                                Base, HadMultipleCandidates,
+                                                OpLoc);
       if (FnExpr.isInvalid())
         return ExprError();
 
@@ -12316,6 +12318,7 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
       FunctionDecl *FnDecl = Best->Function;
 
       if (FnDecl) {
+        Expr *Base = nullptr;
         // We matched an overloaded operator. Build a call to that
         // operator.
 
@@ -12337,7 +12340,7 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
                                                 Best->FoundDecl, Method);
           if (Arg0.isInvalid())
             return ExprError();
-          Args[0] = Arg0.getAs<Expr>();
+          Base = Args[0] = Arg0.getAs<Expr>();
           Args[1] = RHS = Arg1.getAs<Expr>();
         } else {
           // Convert the arguments.
@@ -12361,7 +12364,7 @@ Sema::CreateOverloadedBinOp(SourceLocation OpLoc,
 
         // Build the actual expression node.
         ExprResult FnExpr = CreateFunctionRefExpr(*this, FnDecl,
-                                                  Best->FoundDecl,
+                                                  Best->FoundDecl, Base,
                                                   HadMultipleCandidates, OpLoc);
         if (FnExpr.isInvalid())
           return ExprError();
@@ -12583,6 +12586,7 @@ Sema::CreateOverloadedArraySubscriptExpr(SourceLocation LLoc,
         OpLocInfo.setCXXOperatorNameRange(SourceRange(LLoc, RLoc));
         ExprResult FnExpr = CreateFunctionRefExpr(*this, FnDecl,
                                                   Best->FoundDecl,
+                                                  Base,
                                                   HadMultipleCandidates,
                                                   OpLocInfo.getLoc(),
                                                   OpLocInfo.getInfo());
@@ -13141,7 +13145,7 @@ Sema::BuildCallToObjectOfClassType(Scope *S, Expr *Obj,
                Context.DeclarationNames.getCXXOperatorName(OO_Call), LParenLoc);
   OpLocInfo.setCXXOperatorNameRange(SourceRange(LParenLoc, RParenLoc));
   ExprResult NewFn = CreateFunctionRefExpr(*this, Method, Best->FoundDecl,
-                                           HadMultipleCandidates,
+                                           Obj, HadMultipleCandidates,
                                            OpLocInfo.getLoc(),
                                            OpLocInfo.getInfo());
   if (NewFn.isInvalid())
@@ -13332,7 +13336,7 @@ Sema::BuildOverloadedArrowExpr(Scope *S, Expr *Base, SourceLocation OpLoc,
 
   // Build the operator call.
   ExprResult FnExpr = CreateFunctionRefExpr(*this, Method, Best->FoundDecl,
-                                            HadMultipleCandidates, OpLoc);
+                                            Base, HadMultipleCandidates, OpLoc);
   if (FnExpr.isInvalid())
     return ExprError();
 
@@ -13391,7 +13395,7 @@ ExprResult Sema::BuildLiteralOperatorCall(LookupResult &R,
 
   FunctionDecl *FD = Best->Function;
   ExprResult Fn = CreateFunctionRefExpr(*this, FD, Best->FoundDecl,
-                                        HadMultipleCandidates,
+                                        nullptr, HadMultipleCandidates,
                                         SuffixInfo.getLoc(),
                                         SuffixInfo.getInfo());
   if (Fn.isInvalid())
