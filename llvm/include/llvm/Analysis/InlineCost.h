@@ -308,7 +308,6 @@ InlineParams getInlineParams(int Threshold);
 /// the -Oz flag.
 InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel);
 
-<<<<<<< HEAD
 #if INTEL_CUSTOMIZATION
 /// Generate the parameters to tune the inline cost analysis based on command
 /// line options. It does exactly same as what "getInlineParams(unsigned
@@ -318,10 +317,7 @@ InlineParams getInlineParams(unsigned OptLevel, unsigned SizeOptLevel,
                              bool PrepareForLTO);
 #endif // INTEL_CUSTOMIZATION
 
-/// Return the cost associated with a callsite, including paramater passing
-=======
 /// Return the cost associated with a callsite, including parameter passing
->>>>>>> 0eb884f61d07c1e86f2b1db15658abbb3a7732ab
 /// and the call/return instruction.
 int getCallsiteCost(CallSite CS, const DataLayout &DL);
 
