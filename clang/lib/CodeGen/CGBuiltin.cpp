@@ -2138,7 +2138,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   // CQ#377340: __memory_barrier is equivalent of __c11_atomic_thread_fence(5i).
   case Builtin::BI__memory_barrier: {
     Builder.CreateFence(llvm::AtomicOrdering::SequentiallyConsistent,
-                        llvm::SingleThread);
+                        llvm::SyncScope::SingleThread);
     return RValue::get(nullptr);
   }
 #endif // INTEL_CUSTOMIZATION
