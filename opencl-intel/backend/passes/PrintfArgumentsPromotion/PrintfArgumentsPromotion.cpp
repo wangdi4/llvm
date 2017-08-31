@@ -20,11 +20,11 @@
 
 #define DEBUG_TYPE "PrintfArgumentsPromotion"
 
-#include <llvm/IR/Module.h>
-
-#include <OCLPassSupport.h>
-
 #include "PrintfArgumentsPromotion.h"
+#include "OCLPassSupport.h"
+
+#include <llvm/IR/Attributes.h>
+#include <llvm/IR/Module.h>
 
 using namespace llvm;
 
@@ -99,6 +99,11 @@ namespace intel {
     for(User * user: printfFunc->users()) {
       CallInst * printfCI = dyn_cast<CallInst>(user);
       if(!printfCI || printfCI->getNumArgOperands() < 2) continue;
+
+      // Set NoBuiltin attribute to avoid replacements by 'puts'/'putc'.
+      if (!printfCI->isNoBuiltin())
+        printfCI->addAttribute(AttributeSet::FunctionIndex,
+                               Attribute::NoBuiltin);
 
       for(Use & use: printfCI->arg_operands()) {
         Value * argVal = use;

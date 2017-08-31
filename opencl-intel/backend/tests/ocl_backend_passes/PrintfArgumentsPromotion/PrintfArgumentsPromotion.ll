@@ -11,10 +11,11 @@
 ; CHECK:  [[INT16:%[a-z.0-9]+]] = zext <3 x i16> <i16 1, i16 2, i16 3> to <3 x i32>
 ; CHECK:  [[FP16:%[a-z.0-9]+]] = fpext <4 x half> {{.*}} to <4 x double>
 ; CHECK:  [[FP32:%[a-z.0-9]+]] = fpext <8 x float> {{.*}} to <8 x double>
-; CHECK:  call {{.*}} @printf({{.*}}, <2 x i32> [[INT8]], <3 x i32> [[INT16]], <4 x double> [[FP16]], <8 x double> [[FP32]])
+; CHECK:  call {{.*}} @printf({{.*}}, <2 x i32> [[INT8]], <3 x i32> [[INT16]], <4 x double> [[FP16]], <8 x double> [[FP32]]) #[[NOBLT:[0-9]+]]
 
 ; CHECK:  [[FP32SCALAR:%[a-z.0-9]+]] = fpext float {{.*}} to double
-; CHECK:  call {{.*}} @printf({{.*}},  double [[FP32SCALAR]])
+; CHECK:  call {{.*}} @printf({{.*}},  double [[FP32SCALAR]]) #[[NOBLT:[0-9]+]]
+; CHECK:attributes #[[NOBLT]] = { nobuiltin nounwind }
 
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknonw-unknown"
@@ -28,7 +29,7 @@ declare spir_func i32 @printf(i8 addrspace(2)* nocapture readonly, ...) #0
 ; Function Attrs: nounwind
 define spir_func void @printf_test() #0 {
   %1 = tail call spir_func i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([32 x i8], [32 x i8] addrspace(2)* @.str, i64 0, i64 0), <2 x i8> <i8 1, i8 2>, <3 x i16> <i16 1, i16 2, i16 3>, <4 x half> <half 0xH3C00, half 0xH4000, half 0xH4200, half 0xH4400>, <8 x float> <float 1.000000e+00, float 2.000000e+00, float 3.000000e+00, float 4.000000e+00, float 5.000000e+00, float 6.000000e+00, float 7.000000e+00, float 8.000000e+00>) #1
-  %2 = tail call spir_func i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str.1, i32 0, i32 0), float 1.000000e+00)
+  %2 = tail call spir_func i32 (i8 addrspace(2)*, ...) @printf(i8 addrspace(2)* getelementptr inbounds ([4 x i8], [4 x i8] addrspace(2)* @.str.1, i32 0, i32 0), float 1.000000e+00) #1
   ret void
 }
 
