@@ -1346,12 +1346,8 @@ bool BBPassManager::runOnFunction(Function &F) {
       BasicBlockPass *BP = getContainedPass(Index);
       bool LocalChanged = false;
 
-<<<<<<< HEAD
 #if !INTEL_PRODUCT_RELEASE
-      dumpPassInfo(BP, EXECUTION_MSG, ON_BASICBLOCK_MSG, I->getName());
-=======
       dumpPassInfo(BP, EXECUTION_MSG, ON_BASICBLOCK_MSG, BB.getName());
->>>>>>> 91acfe51d798d4be784595557b5e320c3a635d97
       dumpRequiredSet(BP);
 #endif // !INTEL_PRODUCT_RELEASE
 
