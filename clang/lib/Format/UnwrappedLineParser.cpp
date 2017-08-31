@@ -55,13 +55,18 @@ private:
   std::vector<bool> &Stack;
 };
 
+static bool isLineComment(const FormatToken &FormatTok) {
+  return FormatTok.is(tok::comment) &&
+         FormatTok.TokenText.startswith("//");
+}
+
 class ScopedMacroState : public FormatTokenSource {
 public:
   ScopedMacroState(UnwrappedLine &Line, FormatTokenSource *&TokenSource,
                    FormatToken *&ResetToken)
       : Line(Line), TokenSource(TokenSource), ResetToken(ResetToken),
         PreviousLineLevel(Line.Level), PreviousTokenSource(TokenSource),
-        Token(nullptr) {
+        Token(nullptr), PreviousToken(nullptr) {
     TokenSource = this;
     Line.Level = 0;
     Line.InPPDirective = true;
@@ -78,6 +83,7 @@ public:
     // The \c UnwrappedLineParser guards against this by never calling
     // \c getNextToken() after it has encountered the first eof token.
     assert(!eof());
+    PreviousToken = Token;
     Token = PreviousTokenSource->getNextToken();
     if (eof())
       return getFakeEOF();
@@ -87,12 +93,17 @@ public:
   unsigned getPosition() override { return PreviousTokenSource->getPosition(); }
 
   FormatToken *setPosition(unsigned Position) override {
+    PreviousToken = nullptr;
     Token = PreviousTokenSource->setPosition(Position);
     return Token;
   }
 
 private:
-  bool eof() { return Token && Token->HasUnescapedNewline; }
+  bool eof() {
+    return Token && Token->HasUnescapedNewline &&
+           !(PreviousToken && isLineComment(*PreviousToken) &&
+             isLineComment(*Token) && Token->NewlinesBefore == 1);
+  }
 
   FormatToken *getFakeEOF() {
     static bool EOFInitialized = false;
@@ -112,6 +123,7 @@ private:
   FormatTokenSource *PreviousTokenSource;
 
   FormatToken *Token;
+  FormatToken *PreviousToken;
 };
 
 } // end anonymous namespace
@@ -368,9 +380,10 @@ void UnwrappedLineParser::calculateBraceTypes(bool ExpectClassBody) {
               (Style.Language == FormatStyle::LK_JavaScript &&
                NextTok->isOneOf(Keywords.kw_of, Keywords.kw_in,
                                 Keywords.kw_as)) ||
+              (Style.isCpp() && NextTok->is(tok::l_paren)) ||
               NextTok->isOneOf(tok::comma, tok::period, tok::colon,
                                tok::r_paren, tok::r_square, tok::l_brace,
-                               tok::l_square, tok::l_paren, tok::ellipsis) ||
+                               tok::l_square, tok::ellipsis) ||
               (NextTok->is(tok::identifier) &&
                !PrevTok->isOneOf(tok::semi, tok::r_brace, tok::l_brace)) ||
               (NextTok->is(tok::semi) &&
@@ -428,8 +441,9 @@ void UnwrappedLineParser::parseBlock(bool MustBeDeclaration, bool AddLevel,
     parseParens();
 
   addUnwrappedLine();
-  size_t OpeningLineIndex =
-      Lines.empty() ? (UnwrappedLine::kInvalidIndex) : (Lines.size() - 1);
+  size_t OpeningLineIndex = CurrentLines->empty()
+                                ? (UnwrappedLine::kInvalidIndex)
+                                : (CurrentLines->size() - 1);
 
   ScopedDeclarationState DeclarationState(*Line, DeclarationScopeStack,
                                           MustBeDeclaration);
@@ -476,6 +490,24 @@ static bool isGoogScope(const UnwrappedLine &Line) {
   return I->Tok->is(tok::l_paren);
 }
 
+static bool isIIFE(const UnwrappedLine &Line,
+                   const AdditionalKeywords &Keywords) {
+  // Look for the start of an immediately invoked anonymous function.
+  // https://en.wikipedia.org/wiki/Immediately-invoked_function_expression
+  // This is commonly done in JavaScript to create a new, anonymous scope.
+  // Example: (function() { ... })()
+  if (Line.Tokens.size() < 3)
+    return false;
+  auto I = Line.Tokens.begin();
+  if (I->Tok->isNot(tok::l_paren))
+    return false;
+  ++I;
+  if (I->Tok->isNot(Keywords.kw_function))
+    return false;
+  ++I;
+  return I->Tok->is(tok::l_paren);
+}
+
 static bool ShouldBreakBeforeBrace(const FormatStyle &Style,
                                    const FormatToken &InitialToken) {
   if (InitialToken.is(tok::kw_namespace))
@@ -493,15 +525,16 @@ void UnwrappedLineParser::parseChildBlock() {
   FormatTok->BlockKind = BK_Block;
   nextToken();
   {
-    bool GoogScope =
-        Style.Language == FormatStyle::LK_JavaScript && isGoogScope(*Line);
+    bool SkipIndent =
+        (Style.Language == FormatStyle::LK_JavaScript &&
+         (isGoogScope(*Line) || isIIFE(*Line, Keywords)));
     ScopedLineState LineState(*this);
     ScopedDeclarationState DeclarationState(*Line, DeclarationScopeStack,
                                             /*MustBeDeclaration=*/false);
-    Line->Level += GoogScope ? 0 : 1;
+    Line->Level += SkipIndent ? 0 : 1;
     parseLevel(/*HasOpeningBrace=*/true);
     flushComments(isOnNewLine(*FormatTok));
-    Line->Level -= GoogScope ? 0 : 1;
+    Line->Level -= SkipIndent ? 0 : 1;
   }
   nextToken();
 }
@@ -1040,13 +1073,15 @@ void UnwrappedLineParser::parseStructuralElement() {
         return;
       }
 
-      // Parse function literal unless 'function' is the first token in a line
-      // in which case this should be treated as a free-standing function.
+      // Function declarations (as opposed to function expressions) are parsed
+      // on their own unwrapped line by continuing this loop. Function
+      // expressions (functions that are not on their own line) must not create
+      // a new unwrapped line, so they are special cased below.
+      size_t TokenCount = Line->Tokens.size();
       if (Style.Language == FormatStyle::LK_JavaScript &&
-          (FormatTok->is(Keywords.kw_function) ||
-           FormatTok->startsSequence(Keywords.kw_async,
-                                     Keywords.kw_function)) &&
-          Line->Tokens.size() > 0) {
+          FormatTok->is(Keywords.kw_function) &&
+          (TokenCount > 1 || (TokenCount == 1 && !Line->Tokens.front().Tok->is(
+                                                     Keywords.kw_async)))) {
         tryToParseJSFunction();
         break;
       }
@@ -1613,6 +1648,10 @@ void UnwrappedLineParser::parseForOrWhileLoop() {
   assert(FormatTok->isOneOf(tok::kw_for, tok::kw_while, TT_ForEachMacro) &&
          "'for', 'while' or foreach macro expected");
   nextToken();
+  // JS' for await ( ...
+  if (Style.Language == FormatStyle::LK_JavaScript &&
+      FormatTok->is(Keywords.kw_await))
+    nextToken();
   if (FormatTok->Tok.is(tok::l_paren))
     parseParens();
   if (FormatTok->Tok.is(tok::l_brace)) {
@@ -2063,11 +2102,6 @@ bool UnwrappedLineParser::eof() const { return FormatTok->Tok.is(tok::eof); }
 bool UnwrappedLineParser::isOnNewLine(const FormatToken &FormatTok) {
   return (Line->InPPDirective || FormatTok.HasUnescapedNewline) &&
          FormatTok.NewlinesBefore > 0;
-}
-
-static bool isLineComment(const FormatToken &FormatTok) {
-  return FormatTok.is(tok::comment) &&
-         FormatTok.TokenText.startswith("//");
 }
 
 // Checks if \p FormatTok is a line comment that continues the line comment
