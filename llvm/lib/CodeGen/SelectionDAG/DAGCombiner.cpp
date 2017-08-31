@@ -11373,8 +11373,12 @@ SDValue DAGCombiner::visitLOAD(SDNode *N) {
       SDValue Token = DAG.getNode(ISD::TokenFactor, SDLoc(N),
                                   MVT::Other, Chain, ReplLoad.getValue(1));
 
-      // Replace uses with load result and token factor
-      return CombineTo(N, ReplLoad.getValue(0), Token);
+      // Make sure the new and old chains are cleaned up.
+      AddToWorklist(Token.getNode());
+
+      // Replace uses with load result and token factor. Don't add users
+      // to work list.
+      return CombineTo(N, ReplLoad.getValue(0), Token, false);
     }
   }
 
@@ -12712,7 +12716,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
         EVT StoreTy = EVT::getIntegerVT(Context, SizeInBits);
         bool IsFast = false;
         if (TLI.isTypeLegal(StoreTy) &&
-            TLI.canMergeStoresTo(FirstStoreAS, StoreTy) &&
+            TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
             TLI.allowsMemoryAccess(Context, DL, StoreTy, FirstStoreAS,
                                    FirstStoreAlign, &IsFast) &&
             IsFast) {
@@ -12724,7 +12728,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
           EVT LegalizedStoredValueTy =
               TLI.getTypeToTransformTo(Context, StoredVal.getValueType());
           if (TLI.isTruncStoreLegal(LegalizedStoredValueTy, StoreTy) &&
-              TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValueTy) &&
+              TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValueTy, DAG) &&
               TLI.allowsMemoryAccess(Context, DL, LegalizedStoredValueTy,
                                      FirstStoreAS, FirstStoreAlign, &IsFast) &&
               IsFast) {
@@ -12741,7 +12745,8 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
             !NoVectors) {
           // Find a legal type for the vector store.
           EVT Ty = EVT::getVectorVT(Context, MemVT, i + 1);
-          if (TLI.isTypeLegal(Ty) && TLI.canMergeStoresTo(FirstStoreAS, Ty) &&
+          if (TLI.isTypeLegal(Ty) &&
+              TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG) &&
               TLI.allowsMemoryAccess(Context, DL, Ty, FirstStoreAS,
                                      FirstStoreAlign, &IsFast) &&
               IsFast)
@@ -12799,7 +12804,8 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
         EVT Ty =
             EVT::getVectorVT(*DAG.getContext(), MemVT.getScalarType(), Elts);
         bool IsFast;
-        if (TLI.isTypeLegal(Ty) && TLI.canMergeStoresTo(FirstStoreAS, Ty) &&
+        if (TLI.isTypeLegal(Ty) &&
+            TLI.canMergeStoresTo(FirstStoreAS, Ty, DAG) &&
             TLI.allowsMemoryAccess(Context, DL, Ty, FirstStoreAS,
                                    FirstStoreAlign, &IsFast) &&
             IsFast)
@@ -12916,7 +12922,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
       EVT StoreTy = EVT::getVectorVT(Context, MemVT, i + 1);
       bool IsFastSt, IsFastLd;
       if (TLI.isTypeLegal(StoreTy) &&
-          TLI.canMergeStoresTo(FirstStoreAS, StoreTy) &&
+          TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
           TLI.allowsMemoryAccess(Context, DL, StoreTy, FirstStoreAS,
                                  FirstStoreAlign, &IsFastSt) &&
           IsFastSt &&
@@ -12930,7 +12936,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
       unsigned SizeInBits = (i + 1) * ElementSizeBytes * 8;
       StoreTy = EVT::getIntegerVT(Context, SizeInBits);
       if (TLI.isTypeLegal(StoreTy) &&
-          TLI.canMergeStoresTo(FirstStoreAS, StoreTy) &&
+          TLI.canMergeStoresTo(FirstStoreAS, StoreTy, DAG) &&
           TLI.allowsMemoryAccess(Context, DL, StoreTy, FirstStoreAS,
                                  FirstStoreAlign, &IsFastSt) &&
           IsFastSt &&
@@ -12944,7 +12950,7 @@ bool DAGCombiner::MergeConsecutiveStores(StoreSDNode *St) {
                  TargetLowering::TypePromoteInteger) {
         EVT LegalizedStoredValueTy = TLI.getTypeToTransformTo(Context, StoreTy);
         if (TLI.isTruncStoreLegal(LegalizedStoredValueTy, StoreTy) &&
-            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValueTy) &&
+            TLI.canMergeStoresTo(FirstStoreAS, LegalizedStoredValueTy, DAG) &&
             TLI.isLoadExtLegal(ISD::ZEXTLOAD, LegalizedStoredValueTy,
                                StoreTy) &&
             TLI.isLoadExtLegal(ISD::SEXTLOAD, LegalizedStoredValueTy,
@@ -16696,18 +16702,6 @@ bool DAGCombiner::isAlias(LSBaseSDNode *Op0, LSBaseSDNode *Op1) const {
   int64_t PtrDiff;
   if (BasePtr0.equalBaseIndex(BasePtr1, DAG, PtrDiff))
     return !((NumBytes0 <= PtrDiff) || (PtrDiff + NumBytes1 <= 0));
-
-  // If both BasePtr0 and BasePtr1 are FrameIndexes, we will not be
-  // able to calculate their relative offset if at least one arises
-  // from an alloca. However, these allocas cannot overlap and we
-  // can infer there is no alias.
-  if (auto *A = dyn_cast<FrameIndexSDNode>(BasePtr0.getBase()))
-    if (auto *B = dyn_cast<FrameIndexSDNode>(BasePtr1.getBase())) {
-      MachineFrameInfo &MFI = DAG.getMachineFunction().getFrameInfo();
-      if (!MFI.isFixedObjectIndex(A->getIndex()) ||
-          !MFI.isFixedObjectIndex(B->getIndex()))
-        return false;
-    }
 
   // FIXME: findBaseOffset and ConstantValue/GlobalValue/FrameIndex analysis
   // modified to use BaseIndexOffset.
