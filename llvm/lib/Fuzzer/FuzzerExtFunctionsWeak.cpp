@@ -35,9 +35,14 @@ namespace fuzzer {
 ExternalFunctions::ExternalFunctions() {
 #define EXT_FUNC(NAME, RETURN_TYPE, FUNC_SIG, WARN)                            \
   this->NAME = ::NAME;                                                         \
+<<<<<<< HEAD
   if (::NAME == nullptr && WARN) {                                             \
     Printf("WARNING: Failed to find function \"%s\".\n", #NAME);               \
   }
+=======
+  CheckFnPtr(reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(::NAME)),    \
+             #NAME, WARN);
+>>>>>>> 09b7b2c66cd7a683c4cc81ee0042c041b4d11cc9
 
 #include "FuzzerExtFunctions.def"
 
