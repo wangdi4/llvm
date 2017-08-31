@@ -232,14 +232,6 @@ public:
   /// possible.
   virtual bool enableSubRegLiveness() const { return false; }
 
-#if INTEL_CUSTOMIZATION
-  /// Check whether the subtarget has the requested feature.
-  /// Currently implemented only by the x86 target.
-  virtual bool hasFeature(StringRef Feature) const {
-    return false;
-  }
-#endif // INTEL_CUSTOMIZATION
-
   /// Returns string representation of scheduler comment
   std::string getSchedInfoStr(const MachineInstr &MI) const override;
   std::string getSchedInfoStr(MCInst const &MCI) const override;
