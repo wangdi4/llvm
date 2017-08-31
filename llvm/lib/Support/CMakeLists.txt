@@ -81,6 +81,7 @@ add_llvm_library(LLVMSupport
   MD5.cpp
   NativeFormatting.cpp
   Options.cpp
+  Parallel.cpp
   PluginLoader.cpp
   PrettyStackTrace.cpp
   RandomNumberGenerator.cpp
@@ -130,7 +131,6 @@ add_llvm_library(LLVMSupport
   Process.cpp
   Program.cpp
   RWMutex.cpp
-  SearchForAddressOfSpecialSymbol.cpp
   Signals.cpp
   TargetRegistry.cpp
   ThreadLocal.cpp

@@ -25,7 +25,7 @@ macro(build_device_lib variant lib_name)
   set(dst_lib ${dst_dir}/${lib_name})
 
   # CFLAGS for building library
-  set(flags -I${DISPATCHER}/include -O2 ${ARGN})
+  set(flags -I${DISPATCHER}/include -O2 ${ARGN} -mbypass-cache)
 
   # Compile files
   set(obj_files "")
@@ -107,15 +107,6 @@ macro(build_all_device_lib_variants lib_name)
 endmacro()
 
 ##----------------------------------------------------------------------------##
-# Paths
-##----------------------------------------------------------------------------##
-
-# TODO: Should be removed once ics configuration for offload compiler is implemented.
-if (NOT LIBOMPTARGET_DEP_NIOS2_SDK)
-  set(LIBOMPTARGET_DEP_NIOS2_SDK /rdrive/ref/nios2/17.0)
-endif()
-
-##----------------------------------------------------------------------------##
 # Define the set of device libraries and build them
 ##----------------------------------------------------------------------------##
 
@@ -124,7 +115,7 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
 
   # EDS and Dispatcher are located in Nios2 SDK
   set(NIOS2_EDS  ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios2eds)
-  set(DISPATCHER ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios2offload/target)
+  set(DISPATCHER ${LIBOMPTARGET_DEP_NIOS2_SDK}/nios_psl_release/latest/dispatcher)
 
   # Nios2 gcc and ar for buildig target RTL
   set(NIOS2_GCC ${NIOS2_EDS}/bin/gnu/H-x86_64-pc-linux-gnu/bin/nios2-elf-gcc)
@@ -138,9 +129,9 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
   set(lib_name_omp   omp)
 
   # Source files for the target RTL
-  set(src_files_rtl   src/main.c)
+  set(src_files_rtl   src/main.c src/get_host_env.c)
   set(src_files_block src/data_block.cpp)
-  set(src_files_omp   src/libomp.cpp)
+  set(src_files_omp   src/libomp.c)
 
   # Build all libraries
   foreach(lib_id IN LISTS library_ids)
@@ -153,8 +144,8 @@ if (LIBOMPTARGET_DEP_NIOS2_SDK)
 
   # TODO: Temporary copy Dispatcher library to compiler libraries. So far we
   # have only one Dispatcher library variant.
-  set(src_file ${DISPATCHER}/lib/libtt_device_dispatcher.a)
-  set(dst_file ${LIBOMPTARGET_LIBRARY_DIR}/nios2/libtt_device_dispatcher.a)
+  set(src_file ${DISPATCHER}/lib/libfpga_mc_dispatcher.a)
+  set(dst_file ${LIBOMPTARGET_LIBRARY_DIR}/nios2/libfpga_mc_dispatcher.a)
 
   add_custom_target(omptarget.rtl.nios2.dispatcher ALL DEPENDS ${dst_file})
 

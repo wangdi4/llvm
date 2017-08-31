@@ -25,6 +25,7 @@
 
 #include <elf.h>
 #include <msof.h>
+#include <unistd.h>
 
 #include "omptargetplugin.h"
 
@@ -311,6 +312,23 @@ public:
       return &RawSym - reinterpret_cast<SymTy*>(Container.getBits());
     }
 
+    // Returns pointer to the symbol data if it exists (i.e. symbol should
+    // be defined in a section which has data).
+    char* getImage() const {
+      if (isUndefined()) {
+        return nullptr;
+      }
+
+      // Section where the symbol is defined
+      auto Sec = getDefiningSection();
+      if (Sec == nullptr || !Sec->isAlloc() || !Sec->hasBits()) {
+        return nullptr;
+      }
+
+      // Symbol image within section data
+      return Sec->getBits() + getValue() - Sec->getAddr();
+    }
+
   private:
     // Containing symbol table
     Symtab &Container;
@@ -344,7 +362,7 @@ public:
     void apply() const;
 
   private:
-    // Containing symbol table
+    // Containing relocation table
     Reltab &Container;
   };
 
@@ -918,6 +936,19 @@ public:
     return { nullptr, 0 };
   }
 
+  AddrTy getSymbolAddress(const std::string &Name) const {
+    for (auto *Sec : getSections()) {
+      if (auto *SymTab = Sec->toSymtab()) {
+        for (auto Sym : *SymTab) {
+          if (Sym.getName() == Name) {
+            return Sym.getValue();
+          }
+        }
+      }
+    }
+    return 0;
+  }
+
 private:
   // ELF header
   EhdrTy Header;
@@ -1108,6 +1139,11 @@ const char * const EntryTableSectionName = ".omp_offloading.entries";
 // environment variable OMP_TARGET_NIOS2_MEMORY=[L3|L4].
 msof_mem_type_t DeviceMemType = MSOF_MEM_L4;
 
+// A flag controlling plugin mode for supporting multiple columns. When set to
+// false we treat each column as a separate logical offload device. Otherwise,
+// if true, all columns compose a single logical offload device.
+bool MultiColumnDeviceMode = false;
+
 // FPGA device with instantiated Nios II R2 processors.
 class DeviceTy {
 public:
@@ -1118,7 +1154,7 @@ public:
 
 private:
   // Class representing an instance of a target program. We may have more
-  // than one target program associated with the host porcess.
+  // than one target program associated with the host process.
   class ProgramTy {
   public:
     // We can have multiple target programs, thus we need to keep program
@@ -1147,7 +1183,7 @@ private:
         return nullptr;
       }
 
-      // Relocate program segments which occupy L3 and L4 memrory types. Find all
+      // Relocate program segments which occupy L3 and L4 memory types. Find all
       // such program segments, allocate memory for them from appropriate space
       // and relocate them to new address.
       // TODO: optimize memory allocation if multiple segments occupy a contiguous
@@ -1160,9 +1196,11 @@ private:
           assert(L3.contains(SegAddr) && "Partial overlap with L3");
           if (auto Ptr = Device.allocMem(MSOF_MEM_L3, SegAddr.getSize(), nullptr)) {
             Ptrs.push_front(Ptr);
-            DP("Relocating target image segment from %x to %x...\n",
-              Seg->getAddrRange().getStart(), Ptr);
-            Seg->relocate(Ptr);
+            if (Ptr != Seg->getAddrRange().getStart()) {
+              DP("Relocating target image segment from %x to %x...\n",
+                Seg->getAddrRange().getStart(), Ptr);
+              Seg->relocate(Ptr);
+            }
           }
           else {
             return nullptr;
@@ -1173,9 +1211,11 @@ private:
           assert(L4.contains(SegAddr) && "Partial overlap with L4");
           if (auto Ptr = Device.allocMem(MSOF_MEM_L4, SegAddr.getSize(), nullptr)) {
             Ptrs.push_front(Ptr);
-            DP("Relocating target image segment from %x to %x...\n",
-              Seg->getAddrRange().getStart(), Ptr);
-            Seg->relocate(Ptr);
+            if (Ptr != Seg->getAddrRange().getStart()) {
+              DP("Relocating target image segment from %x to %x...\n",
+                Seg->getAddrRange().getStart(), Ptr);
+              Seg->relocate(Ptr);
+            }
           }
           else {
             return nullptr;
@@ -1207,24 +1247,58 @@ private:
 
         ET.resize(NumEntries);
         for (int II = 0; II < NumEntries; ++II) {
+          DP("Entry[%d] addr=0x%x\tsize=0x%x\tflags=0x%x\tname=%s\n", II,
+            TgtEntries[II].Addr, TgtEntries[II].Size, TgtEntries[II].Flags,
+            TgtImage->EntriesBegin[II].name);
+
           // Copy host entry
           ET.Entries[II] = TgtImage->EntriesBegin[II];
 
-          // We can have multiple target programs, thus we need to keep
-          // program pointer in addition to the entry address.
+          // We can have multiple target programs, thus for function entries we
+          // need to keep program pointer in addition to the entry address.
+          // For data entries that is not required because data entries are
+          // unique across all programs.
           ET.Addrs[II] = { this, TgtEntries[II].Addr };
-          ET.Entries[II].addr = &ET.Addrs[II];
+          if (ET.Entries[II].size != 0) {
+            ET.Entries[II].addr = reinterpret_cast<void*>(TgtEntries[II].Addr);
+          }
+          else {
+            ET.Entries[II].addr = &ET.Addrs[II];
+          }
         }
       }
       else {
-        // No not expect to have target binary with no entry table section
+        // Do not expect to have target binary with no entry table section
         DP("No entry table section in the target image\n");
         return nullptr;
       }
 
-      // And finally construct relocated ELF for MSOF loader.
+      // Patch pointer to the environment block in the target image if it is
+      // using __nios2_environ symbol.
+      auto Res = Obj.findSymbol("__nios2_environ");
+      if (Res.first != nullptr) {
+        if (auto TgtEnv = Device.getTgtEnvs()) {
+          auto Sym = Res.first->getSymbol(Res.second);
+          auto Img = reinterpret_cast<PtrTy*>(Sym.getImage());
+
+          // Patch symbol value
+          DP("Replacing __nios2_environ value 0x%x with 0x%x\n", *Img, TgtEnv);
+          *Img = TgtEnv;
+        }
+      }
+
+      // Construct relocated ELF for MSOF loader.
       Image.resize(ImageSize);
       Obj.writeToMemory(Image.data(), ImageSize);
+
+      // Initialize OpenMP runtime on the device. Initialization routine should
+      // be executed on any arbitrary column once per program instance.
+      if (auto OMPInit = Obj.getSymbolAddress("__kmpc_omp_init")) {
+        DP("Initializing OpenMP runtime on the device\n");
+        if (!Device.runFunction(this, OMPInit, {}, 1)) {
+          return nullptr;
+        }
+      }
 
       return &ET.Table;
     }
@@ -1279,8 +1353,8 @@ public:
     }
 
     DP("Max columns: %u\n", MCols);
-    DP("L3: start 0x%x, size %u\n", L3Start, L3Size);
-    DP("L4: start 0x%x, size %u\n", L4Start, L4Size);
+    DP("L3: start 0x%x, size 0x%x\n", L3Start, L3Size);
+    DP("L4: start 0x%x, size 0x%x\n", L4Start, L4Size);
 
     MaxColumns = MCols;
     L3 = Nios2Elf::AddrRangeTy(L3Start, L3Size);
@@ -1291,6 +1365,14 @@ public:
 
   void fini() {
     Programs.clear();
+    if (TgtVars != NullPtr) {
+      freeMem(TgtVars);
+      TgtVars = NullPtr;
+    }
+    if (TgtEnvs != NullPtr) {
+      freeMem(TgtEnvs);
+      TgtEnvs = NullPtr;
+    }
     if (Device != nullptr) {
       DP("Destroying device\n");
       auto Res = msof_device_destroy(Device);
@@ -1313,9 +1395,50 @@ public:
     return L4;
   }
 
+  PtrTy getTgtEnvs() {
+    std::call_once(TgtEnvsInitFlag, [&]() {
+      // Setup environment block for the target process.
+      if (environ != nullptr) {
+        std::vector<char> Vars;
+        std::vector<size_t> Offsets;
+        for (auto Var = environ; *Var != nullptr; ++Var) {
+          Offsets.push_back(Vars.size());
+          std::copy_n(*Var, strlen(*Var) + 1, std::back_inserter(Vars));
+        }
+
+        if (!Offsets.empty()) {
+          // Copy environment variables to L3
+          TgtVars = copyToL3(Vars);
+          if (TgtVars == NullPtr) {
+            return;
+          }
+
+          // Setup array of pointers to environment varaibles.
+          std::vector<PtrTy> Envs;
+          for (const auto Offset : Offsets) {
+            Envs.push_back(TgtVars + Offset);
+          }
+          Envs.push_back(NullPtr);
+
+          // And copy it to the device
+          TgtEnvs = copyToL3(Envs);
+          if (TgtEnvs == NullPtr) {
+            freeMem(TgtVars);
+            TgtVars = NullPtr;
+            return;
+          }
+
+          DP("Created environment for the target 0x%x \n", TgtEnvs);
+        }
+      }
+    });
+    return TgtEnvs;
+  }
+
   __tgt_target_table* loadProgram(const __tgt_device_image *Image) {
     std::unique_ptr<ProgramTy> Program(new ProgramTy(*this));
     if (auto *Table = Program->load(Image)) {
+      std::lock_guard<std::mutex> Guard(ProgramsLock);
       Programs.emplace_front(Program.release());
       return Table;
     }
@@ -1339,11 +1462,13 @@ public:
     };
 #endif // OMPTARGET_DEBUG
 
-    DP("Allocating %d bytes from %s\n", Size, getTypeStr(Type));
     auto Ptr = msof_mem_alloc(Device, Type, Size, 1, HostPtr);
     if (Ptr == NullPtr) {
-      DP("Faled to allocate %d bytes from %s\n", Size, getTypeStr(Type));
+      DP("Failed to allocate %d bytes from %s\n", Size, getTypeStr(Type));
+      return NullPtr;
     }
+
+    DP("Allocated %d bytes from %s: address %x\n", Size, getTypeStr(Type), Ptr);
     return Ptr;
   }
 
@@ -1375,6 +1500,17 @@ public:
   bool runFunction(const void *Func, const std::vector<PtrTy> &Args) const {
     auto Entry = static_cast<const ProgramTy::TableEntryTy*>(Func);
 
+    // Depending on the multi-column support mode we reserve either one column
+    // per run function (if each column is treated as a separate offload
+    // device) or all available columns (if all columns compose a single
+    // logical device).
+    size_t NumColumns = MultiColumnDeviceMode ? MaxColumns : 1u;
+
+    return runFunction(Entry->first, Entry->second, Args, NumColumns);
+  }
+
+  bool runFunction(const ProgramTy *Prog, PtrTy Func,
+                   const std::vector<PtrTy> &Args, size_t NumColumns) const {
     class AutoContext {
     public:
       ~AutoContext() {
@@ -1390,7 +1526,7 @@ public:
       operator msof_context_t() {
         return Context;
       }
-      
+
       msof_context_t Context = nullptr;
     } Context;
 
@@ -1402,8 +1538,6 @@ public:
     }
 
     DP("Reserving columns\n");
-    // TODO: Should update this place once we start supporting multiple columns
-    size_t NumColumns = 1u; // MaxColumns;
     std::vector<msof_column_t> Columns(NumColumns);
     Res = msof_column_reserve(Context, MSOF_COLUMN_MAX, &NumColumns,
       Columns.data(), 0, nullptr, nullptr);
@@ -1417,8 +1551,28 @@ public:
       return false;
     }
 
+#ifdef OMPTARGET_DEBUG
+    for (size_t C = 0u; C < NumColumns; ++C) {
+      DP("Reading column %lu properties...\n", C);
+
+      uint32_t NumCores;
+      if (msof_get_column_info(Columns[C], MSOF_NUM_CORES, sizeof(NumCores),
+                               &NumCores) == MSOF_SUCCESS) {
+        DP("Number of cores: %u\n", NumCores);
+      }
+
+      uint32_t L2Start, L2Size;
+      if (msof_get_column_info(Columns[C], MSOF_L2_START, sizeof(L2Start),
+                               &L2Start) == MSOF_SUCCESS &&
+          msof_get_column_info(Columns[C], MSOF_L2_SIZE, sizeof(L2Size),
+                               &L2Size) == MSOF_SUCCESS) {
+        DP("L2: start 0x%x, size 0x%x\n", L2Start, L2Size);
+      }
+    }
+#endif // OMPTARGET_DEBUG
+
     DP("Loading program to context\n");
-    const auto &Image = Entry->first->getImage();
+    const auto &Image = Prog->getImage();
     msof_program_t Program = nullptr;
     Res = msof_load_program(Context, Image.data(), Image.size(), &Program);
     if (Res != MSOF_SUCCESS) {
@@ -1434,8 +1588,8 @@ public:
       Refs[II] = &Args[II];
     }
 
-    DP("Executing function (%x) on device\n", Entry->second);
-    Res = msof_run_function(Context, Program, Entry->second,
+    DP("Executing function (%x) on device\n", Func);
+    Res = msof_run_function(Context, Program, Func,
       NumArgs, Refs.data(), Sizes.data(), nullptr);
     if (Res != MSOF_SUCCESS) {
       DP("Error running function on device, error code %d\n", Res);
@@ -1456,6 +1610,19 @@ private:
     return true;
   }
 
+  template<typename T>
+  PtrTy copyToL3(const std::vector<T> &Data) {
+    auto Bytes = Data.size() * sizeof(T);
+    if (auto Ptr = allocMem(MSOF_MEM_L3, Bytes, nullptr)) {
+      if (!writeMem(Ptr, Data.data(), Bytes)) {
+        freeMem(Ptr);
+        return NullPtr;
+      }
+      return Ptr;
+    }
+    return NullPtr;
+  }
+
 private:
   // Device handle
   msof_device_t Device = nullptr;
@@ -1469,6 +1636,12 @@ private:
 
   // Target programs
   std::forward_list<std::unique_ptr<ProgramTy>> Programs;
+  std::mutex ProgramsLock;
+
+  // Target memory for the target environment array
+  std::once_flag TgtEnvsInitFlag;
+  PtrTy TgtEnvs = NullPtr;
+  PtrTy TgtVars = NullPtr;
 
   friend DeviceTy& getDevice();
 };
@@ -1480,7 +1653,7 @@ DeviceTy& getDevice() {
   static std::once_flag InitFlag;
 
   std::call_once(InitFlag, [&]() {
-    if (const char *Str = getenv("OMP_TARGET_NIOS2_MEMORY")) {
+    if (const char *Str = getenv("NIOS2_OFFLOAD_MEMORY")) {
       if (strcmp(Str, "L3") == 0) {
         DeviceMemType = MSOF_MEM_L3;
       }
@@ -1491,6 +1664,9 @@ DeviceTy& getDevice() {
         DP("Ignoring unsupported device memory type %s. Should be "
            "either L3 or L4.\n", Str);
       }
+    }
+    if (const char *Str = getenv("NIOS2_OFFLOAD_MULTI_COLUMN_DEVICE")) {
+      MultiColumnDeviceMode = atoi(Str) != 0;
     }
     if (Device.init()) {
       atexit([&]() {
@@ -1522,7 +1698,10 @@ int32_t __tgt_rtl_is_valid_binary(__tgt_device_image *Image) {
 }
 
 int32_t __tgt_rtl_number_of_devices() {
-  return getDevice().getMaxColumns() > 0 ? 1 : 0;
+  if (auto MaxColumns = getDevice().getMaxColumns()) {
+    return MultiColumnDeviceMode ? 1 : MaxColumns;
+  }
+  return 0;
 }
 
 int32_t __tgt_rtl_init_device(int32_t ID) {

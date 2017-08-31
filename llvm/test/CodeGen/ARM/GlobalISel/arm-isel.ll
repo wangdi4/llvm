@@ -7,6 +7,14 @@ entry:
   ret void
 }
 
+define i32 @test_constant_return_i32() {
+; CHECK-LABEL: test_constant_return_i32:
+; CHECK: mov r0, #42
+; CHECK: bx lr
+entry:
+  ret i32 42
+}
+
 define zeroext i1 @test_zext_i1(i1 %x) {
 ; CHECK-LABEL: test_zext_i1
 ; CHECK: and r0, r0, #1
@@ -182,6 +190,17 @@ define i8 @test_stack_args_signext(i32 %p0, i16 %p1, i8 %p2, i1 %p3, i8 signext 
 ; CHECK-LABEL: test_stack_args_signext:
 ; CHECK: mov [[P4ADDR:r[0-9]+]], sp
 ; CHECK: ldr [[P4:r[0-9]+]], {{.*}}[[P4ADDR]]
+; CHECK: add r0, r2, [[P4]]
+; CHECK: bx lr
+entry:
+  %sum = add i8 %p2, %p4
+  ret i8 %sum
+}
+
+define i8 @test_stack_args_noext(i32 %p0, i16 %p1, i8 %p2, i1 %p3, i8 %p4) {
+; CHECK-LABEL: test_stack_args_noext:
+; CHECK: mov [[P4ADDR:r[0-9]+]], sp
+; CHECK: ldrb [[P4:r[0-9]+]], {{.*}}[[P4ADDR]]
 ; CHECK: add r0, r2, [[P4]]
 ; CHECK: bx lr
 entry:

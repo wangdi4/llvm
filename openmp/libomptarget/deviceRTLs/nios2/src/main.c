@@ -12,8 +12,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include <tt_device_dispatcher.h>
+#include <fpga_mc_dispatcher.h>
 
 int main(void) {
-  return tt_device_main();
+  return fpga_mc_main();
 }
