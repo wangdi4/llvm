@@ -43,7 +43,7 @@ public:
 
     // Append a whole NUL-terminated C-string to output.
     //
-    virtual void append(char* cstr)
+    virtual void append(const char* cstr)
     {
         while (*cstr) {
             append(*cstr++);

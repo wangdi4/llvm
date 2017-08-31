@@ -103,6 +103,7 @@ bool VecTypeHintTest();
 bool VectorizerModeTest();
 bool EventCallbackTest();
 bool opencl_printf_test();
+bool opencl_printf_floating_point_test();
 bool MisalignedUseHostPtrTest();
 bool clIntelOfflineCompilerThreadsTest();
 bool clStructTest();
