@@ -427,6 +427,50 @@ CloneLoopBlocks(Loop *L, Value *NewIter, const bool CreateRemainderLoop,
     return nullptr;
 }
 
+/// Returns true if we can safely unroll a multi-exit/exiting loop. OtherExits
+/// is populated with all the loop exit blocks other than the LatchExit block.
+static bool
+canSafelyUnrollMultiExitLoop(Loop *L, SmallVectorImpl<BasicBlock *> &OtherExits,
+                             BasicBlock *LatchExit, bool PreserveLCSSA,
+                             bool UseEpilogRemainder) {
+
+  // Support runtime unrolling for multiple exit blocks and multiple exiting
+  // blocks.
+  if (!UnrollRuntimeMultiExit)
+    return false;
+  // Even if runtime multi exit is enabled, we currently have some correctness
+  // constrains in unrolling a multi-exit loop.
+  // We rely on LCSSA form being preserved when the exit blocks are transformed.
+  if (!PreserveLCSSA)
+    return false;
+  SmallVector<BasicBlock *, 4> Exits;
+  L->getUniqueExitBlocks(Exits);
+  for (auto *BB : Exits)
+    if (BB != LatchExit)
+      OtherExits.push_back(BB);
+
+  // TODO: Support multiple exiting blocks jumping to the `LatchExit` when
+  // UnrollRuntimeMultiExit is true. This will need updating the logic in
+  // connectEpilog/connectProlog.
+  if (!LatchExit->getSinglePredecessor()) {
+    DEBUG(dbgs() << "Bailout for multi-exit handling when latch exit has >1 "
+                    "predecessor.\n");
+    return false;
+  }
+  // FIXME: We bail out of multi-exit unrolling when epilog loop is generated
+  // and L is an inner loop. This is because in presence of multiple exits, the
+  // outer loop is incorrect: we do not add the EpilogPreheader and exit to the
+  // outer loop. This is automatically handled in the prolog case, so we do not
+  // have that bug in prolog generation.
+  if (UseEpilogRemainder && L->getParentLoop())
+    return false;
+
+  // All constraints have been satisfied.
+  return true;
+}
+
+
+
 /// Insert code in the prolog/epilog code when unrolling a loop with a
 /// run-time trip-count.
 ///
@@ -470,60 +514,40 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
                                       bool UseEpilogRemainder,
                                       LoopInfo *LI, ScalarEvolution *SE,
                                       DominatorTree *DT, bool PreserveLCSSA) {
-  bool hasMultipleExitingBlocks = !L->getExitingBlock();
-  // Support only single exiting block unless UnrollRuntimeMultiExit is true.
-  if (!UnrollRuntimeMultiExit && hasMultipleExitingBlocks)
-    return false;
+  DEBUG(dbgs() << "Trying runtime unrolling on Loop: \n");
+  DEBUG(L->dump());
 
   // Make sure the loop is in canonical form.
-  if (!L->isLoopSimplifyForm())
+  if (!L->isLoopSimplifyForm()) {
+    DEBUG(dbgs() << "Not in simplify form!\n");
     return false;
+  }
 
   // Guaranteed by LoopSimplifyForm.
   BasicBlock *Latch = L->getLoopLatch();
   BasicBlock *Header = L->getHeader();
 
-  BasicBlock *LatchExit = L->getUniqueExitBlock(); // successor out of loop
-  if (!LatchExit && !UnrollRuntimeMultiExit)
-    return false;
-  // These are exit blocks other than the target of the latch exiting block.
-  SmallVector<BasicBlock *, 4> OtherExits;
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-  unsigned int ExitIndex = LatchBR->getSuccessor(0) == Header ? 1 : 0;
+  unsigned ExitIndex = LatchBR->getSuccessor(0) == Header ? 1 : 0;
+  BasicBlock *LatchExit = LatchBR->getSuccessor(ExitIndex);
   // Cloning the loop basic blocks (`CloneLoopBlocks`) requires that one of the
   // targets of the Latch be an exit block out of the loop. This needs
   // to be guaranteed by the callers of UnrollRuntimeLoopRemainder.
-  assert(!L->contains(LatchBR->getSuccessor(ExitIndex)) &&
+  assert(!L->contains(LatchExit) &&
          "one of the loop latch successors should be the exit block!");
-  // Support runtime unrolling for multiple exit blocks and multiple exiting
-  // blocks.
-  if (!LatchExit) {
-    LatchExit = LatchBR->getSuccessor(ExitIndex);
-    // We rely on LCSSA form being preserved when the exit blocks are
-    // transformed.
-    if (!PreserveLCSSA)
-      return false;
-    SmallVector<BasicBlock *, 4> Exits;
-    L->getUniqueExitBlocks(Exits);
-    for (auto *BB : Exits)
-      if (BB != LatchExit)
-        OtherExits.push_back(BB);
+  // These are exit blocks other than the target of the latch exiting block.
+  SmallVector<BasicBlock *, 4> OtherExits;
+  bool isMultiExitUnrollingEnabled = canSafelyUnrollMultiExitLoop(
+      L, OtherExits, LatchExit, PreserveLCSSA, UseEpilogRemainder);
+  // Support only single exit and exiting block unless multi-exit loop unrolling is enabled.
+  if (!isMultiExitUnrollingEnabled &&
+      (!L->getExitingBlock() || OtherExits.size())) {
+    DEBUG(
+        dbgs()
+        << "Multiple exit/exiting blocks in loop and multi-exit unrolling not "
+           "enabled!\n");
+    return false;
   }
-
-  assert(LatchExit && "Latch Exit should exist!");
-
-  // TODO: Support multiple exiting blocks jumping to the `LatchExit` when
-  // UnrollRuntimeMultiExit is true. This will need updating the logic in
-  // connectEpilog.
-  if (!LatchExit->getSinglePredecessor())
-    return false;
-  // FIXME: We bail out of multi-exit unrolling when epilog loop is generated
-  // and L is an inner loop. This is because in presence of multiple exits, the
-  // outer loop is incorrect: we do not add the EpilogPreheader and exit to the
-  // outer loop. This is automatically handled in the prolog case, so we do not
-  // have that bug in prolog generation.
-  if (hasMultipleExitingBlocks && UseEpilogRemainder && L->getParentLoop())
-    return false;
   // Use Scalar Evolution to compute the trip count. This allows more loops to
   // be unrolled than relying on induction var simplification.
   if (!SE)
@@ -537,29 +561,38 @@ bool llvm::UnrollRuntimeLoopRemainder(Loop *L, unsigned Count,
   // exiting blocks).
   const SCEV *BECountSC = SE->getExitCount(L, Latch);
   if (isa<SCEVCouldNotCompute>(BECountSC) ||
-      !BECountSC->getType()->isIntegerTy())
+      !BECountSC->getType()->isIntegerTy()) {
+    DEBUG(dbgs() << "Could not compute exit block SCEV\n");
     return false;
+  }
 
   unsigned BEWidth = cast<IntegerType>(BECountSC->getType())->getBitWidth();
 
   // Add 1 since the backedge count doesn't include the first loop iteration.
   const SCEV *TripCountSC =
       SE->getAddExpr(BECountSC, SE->getConstant(BECountSC->getType(), 1));
-  if (isa<SCEVCouldNotCompute>(TripCountSC))
+  if (isa<SCEVCouldNotCompute>(TripCountSC)) {
+    DEBUG(dbgs() << "Could not compute trip count SCEV.\n");
     return false;
+  }
 
   BasicBlock *PreHeader = L->getLoopPreheader();
   BranchInst *PreHeaderBR = cast<BranchInst>(PreHeader->getTerminator());
   const DataLayout &DL = Header->getModule()->getDataLayout();
   SCEVExpander Expander(*SE, DL, "loop-unroll");
   if (!AllowExpensiveTripCount &&
-      Expander.isHighCostExpansion(TripCountSC, L, PreHeaderBR))
+      Expander.isHighCostExpansion(TripCountSC, L, PreHeaderBR)) {
+    DEBUG(dbgs() << "High cost for expanding trip count scev!\n");
     return false;
+  }
 
   // This constraint lets us deal with an overflowing trip count easily; see the
   // comment on ModVal below.
-  if (Log2_32(Count) > BEWidth)
+  if (Log2_32(Count) > BEWidth) {
+    DEBUG(dbgs()
+          << "Count failed constraint on overflow trip count calculation.\n");
     return false;
+  }
 
   // Loop structure is the following:
   //

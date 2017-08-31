@@ -830,13 +830,9 @@ static uptr GetKernelAreaSize() {
   // Firstly check if there are writable segments
   // mapped to top gigabyte (e.g. stack).
   MemoryMappingLayout proc_maps(/*cache_enabled*/true);
-  uptr end, prot;
-  while (proc_maps.Next(/*start*/nullptr, &end,
-                        /*offset*/nullptr, /*filename*/nullptr,
-                        /*filename_size*/0, &prot)) {
-    if ((end >= 3 * gbyte)
-        && (prot & MemoryMappingLayout::kProtectionWrite) != 0)
-      return 0;
+  MemoryMappedSegment segment;
+  while (proc_maps.Next(&segment)) {
+    if ((segment.end >= 3 * gbyte) && segment.IsWritable()) return 0;
   }
 
 #if !SANITIZER_ANDROID
@@ -1675,7 +1671,8 @@ void CheckNoDeepBind(const char *filename, int flag) {
 #endif
 }
 
-uptr FindAvailableMemoryRange(uptr size, uptr alignment, uptr left_padding) {
+uptr FindAvailableMemoryRange(uptr size, uptr alignment, uptr left_padding,
+                              uptr *largest_gap_found) {
   UNREACHABLE("FindAvailableMemoryRange is not available");
   return 0;
 }
