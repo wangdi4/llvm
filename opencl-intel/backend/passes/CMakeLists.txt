@@ -5,6 +5,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
                     ${CL_API_HEADERS} )
 add_subdirectory(AddImplicitArgs)
 add_subdirectory(ChannelPipeTransformation)
+add_subdirectory(PipeOrdering)
 add_subdirectory(PipeSupport)
 add_subdirectory(OclFunctionAttrs)
 add_subdirectory(BuiltInFuncImport)

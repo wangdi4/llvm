@@ -267,6 +267,7 @@ set( BACKEND_PASSES
     LLVMVectorizer
     AddImplicitArgs
     ChannelPipeTransformation
+    PipeOrdering
     PipeSupport
     OclFunctionAttrs
     BuiltInFuncImport

@@ -38,6 +38,7 @@ set(OCL_BE_PASSES
     Obfuscation
     OclFunctionAttrs
     PatchCallbackArgs
+    PipeOrdering
     PipeSupport
     Prefetch
     PrepareKernelArgs

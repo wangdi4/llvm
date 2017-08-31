@@ -157,6 +157,7 @@ void checkFPGAExtension();
 void checkFPGAExtensionNEGATIVE();
 void FPGAWGOrdering();
 void FPGAInfiniteLoopsBasic();
+void FPGAPipeOrdering();
 bool cl_device_local_mem_size_test();
 #ifndef _WIN32
 bool cl_device_local_mem_size_unlimited_stack_test();

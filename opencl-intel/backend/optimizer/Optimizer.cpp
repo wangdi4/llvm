@@ -58,6 +58,7 @@ llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(const char *CPUName);
 llvm::ImmutablePass *createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
 llvm::ModulePass *createChannelPipeTransformationPass();
+llvm::ModulePass *createPipeOrderingPass();
 llvm::ModulePass *createPipeSupportPass();
 llvm::ModulePass *createLocalBuffersPass(bool isNativeDebug);
 llvm::ModulePass *createAddImplicitArgsPass();
@@ -253,6 +254,7 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   if (isFpgaEmulator) {
       PM.add(createChannelPipeTransformationPass());
+      PM.add(createPipeOrderingPass());
   }
 
   // Adding module passes.

@@ -93,6 +93,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeChannelPipeTransformationPass(Registry);
     intel::initializePipeSupportPass(Registry);
     intel::initializeFMASplitterPass(Registry);
+    intel::initializePipeOrderingPass(Registry);
 }
 
 

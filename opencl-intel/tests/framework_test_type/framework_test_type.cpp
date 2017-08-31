@@ -517,6 +517,11 @@ TEST(FPGA, Test_checkInfiniteLoopsBasic)
     FPGAInfiniteLoopsBasic();
 }
 
+TEST(FPGA, Test_FPGAPipeOrdering)
+{
+    FPGAPipeOrdering();
+}
+
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)
