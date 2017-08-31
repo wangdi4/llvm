@@ -38,18 +38,34 @@ namespace intel {
   namespace {
     char const * printfFuncName = "printf";
 
-    // Only scalars and vectors of i8, i16, f16, and f32 are to be promoted.
+    // Only f32 scalars and vectors of i8, i16, f16 and f32 are to be promoted.
     bool isPromotionNeeded(Type * ty) {
       // Scalars are promoted by Clang in accordance with C99 specificaiton.
-      if(!ty->isVectorTy()) return false;
+      // But, following the OpenCL C specification:
+      // "6.12.13.3 Differences between OpenCL C and C99 printf
+      //   The conversion specifiers f, F, e, E, g, G, a, A convert a float
+      //   argument to a double only if the double data type is supported.
+      //   Refer to the description of CL_DEVICE_DOUBLE_FP_CONFIG. If the
+      //   double data type is not supported, the argument will be a float
+      //   instead of a double."
+      // Clang doesn't promote floats if double data type is not supported.
+      //
+      // On the other hand the current implementation of printf reuses
+      // printf-like functions, provided by the host compiler run-time.
+      // Since these functions have ellipsis as the last argument, the default
+      // argument promotion (see C spec 6.5.2.2 Function calls p6, p7) is to be
+      // performed on trailing arguments to match the system ABI for variadic
+      // functions. Therefore we have to promote floats.
+      if(!ty->isVectorTy() && !ty->isFloatTy()) return false;
 
       Type * scaTy = ty->getScalarType();
       return scaTy->isIntegerTy(8) || scaTy->isIntegerTy(16) ||
              scaTy->isHalfTy() || scaTy->isFloatTy();
     }
 
-    VectorType * getPromotedTy(Type * srcTy) {
-      assert(srcTy->isVectorTy() && "vector type are to be promoted only");
+    Type * getPromotedTy(Type * srcTy) {
+      assert((srcTy->isFloatTy() || srcTy->isVectorTy()) &&
+             "scalar float or vector types are to be promoted only");
       Type * scaTy = srcTy->getScalarType();
       Type * scaPromoTy = nullptr;
       LLVMContext & ctx = srcTy->getContext();
@@ -60,8 +76,9 @@ namespace intel {
         scaPromoTy = Type::getDoubleTy(ctx);
       assert(scaPromoTy && "unsupported source type");
 
-      VectorType * srcVecTy = cast<VectorType>(srcTy);
-      return VectorType::get(scaPromoTy, srcVecTy->getNumElements());
+      if (VectorType *srcVecTy = dyn_cast<VectorType>(srcTy))
+        return VectorType::get(scaPromoTy, srcVecTy->getNumElements());
+      return scaPromoTy;
     }
   }
 
@@ -101,7 +118,7 @@ namespace intel {
 
         // It is safe here to use Cast instructions instead of OpenCL built-ins since
         // the resulting type is wider so no need for truncation or rounding.
-        VectorType * promoTy = getPromotedTy(argTy);
+        Type * promoTy = getPromotedTy(argTy);
         Value * promoVal =  promoTy->getScalarType()->isIntegerTy() ?
           CastInst::CreateIntegerCast(argVal, promoTy, false, "printf.promoted", printfCI) :
           CastInst::CreateFPCast(argVal, promoTy, "printf.promoted", printfCI);

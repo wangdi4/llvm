@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 using namespace std;
 
@@ -746,4 +747,20 @@ template<>
 void Print<cl_int>(std::ostream& os, const cl_int& x)
 {
     os << ClErrTxt(x);
+}
+
+// Since kernel output may be in arbitrary order (we can't ensure which work
+// item runs first), to compare it to an expected output we split the output to
+// lines and sort them.
+// Note: this assumes each work-item outputs one or more lines ending with '\n'
+//
+bool compare_kernel_output(const string& expected, const string& actual)
+{
+    vector<string> expected_vec = tokenize(expected, "\n\r");
+    vector<string> actual_vec = tokenize(actual, "\n\r");
+
+    sort(expected_vec.begin(), expected_vec.end());
+    sort(actual_vec.begin(), actual_vec.end());
+
+    return expected_vec == actual_vec;
 }

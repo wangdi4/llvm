@@ -12,7 +12,7 @@
 // suppliers and licensors, and is protected by worldwide copyright and trade 
 // secret laws and treaty provisions. No part of the Material may be used, copied, 
 // reproduced, modified, published, uploaded, posted, transmitted, distributed, 
-// or disclosed in any way without Intel’s prior express written permission. 
+// or disclosed in any way without Intel's prior express written permission.
 //
 // No license under any patent, copyright, trade secret or other intellectual
 // property right is granted to or conferred upon you by disclosure or delivery 
@@ -21,22 +21,16 @@
 // and approved by Intel in writing.
 //
 // Unless otherwise agreed by Intel in writing, you may not remove or alter this notice 
-// or any other notice embedded in Materials by Intel or Intel’s suppliers or licensors 
+// or any other notice embedded in Materials by Intel or Intel's suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
-#include "ICLDevBackendServiceFactory.h"
-#include "ExecutionContext.h"
-#include "exceptions.h"
-#include <stdio.h>
+
+#include <Compiler.h> // LLVM_FALLTHROUGH
+#include "exceptions.h" // LLVM_BACKEND_UNUSED
 #include "opencl_printf_ext.h"
-#include <cstdio>
-#include <cstring>
-#include <cstdarg>
+#include <cstdarg> // va_list
 #include <assert.h>
-#include <cctype>
-#include <climits>
-#include <limits>
-#include <algorithm>
+#include <climits> // INT_MAX
 
 #if defined(_WIN32)
     #include <windows.h>
@@ -363,16 +357,19 @@ union DoubleUtil{
 
 //Purpose: appends a string to the output buffer, with respect to the value of
 //the given double value (d).
-static void purgeDouble(OutputAccumulator& output, const double& d, char* buffer){
+static void purgeDouble(OutputAccumulator& output, const double& d,
+                        char* buffer, bool capitalCase) {
 //window's sprintf does not conform with OpenCL when it comes to NAN and INF values
 #if defined(_WIN32) || defined(_WIN64) || defined (__ANDROID__)
     DoubleUtil dutil(d);
-    if (dutil.isNan()){
-        dutil.isNegative() ? output.append("-nan") : output.append("nan");
+    if (dutil.isNegative() && (dutil.isInf() || dutil.isNan()))
+        output.append('-');
+    if (dutil.isNan()) {
+        output.append(capitalCase ? "NAN" : "nan");
         return;
     }
-    if(dutil.isInf()){
-        dutil.isNegative() ? output.append("-inf") : output.append("inf");
+    if (dutil.isInf()) {
+        output.append(capitalCase ? "INF" : "inf");
         return;
     }
 #endif //WIN || ANDROID
@@ -588,6 +585,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
         double float_val;
         char charbuf[2] LLVM_BACKEND_UNUSED = {0};
         void* voidptr = nullptr;
+        bool capitalCase = false;
 
         // Parse the conversion specifier and perform the actual conversion.
         // Note that some of the conversions manually manipulate the "args"
@@ -725,12 +723,14 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                 // case 'n':// XXX: Should this be supported in OpenCL at all??
                             // it's unsafe and isn't supported by MSVC    
             case 'F': // fall-through
-            case 'f':
             case 'E': 
-            case 'e':
             case 'G': 
-            case 'g':
             case 'A':
+              capitalCase = true;
+              LLVM_FALLTHROUGH
+            case 'f':
+            case 'e':
+            case 'g':
             case 'a':
                 for (unsigned i = 0; i < vector_len; ++i) {
                     // Practically, the LONGDOUBLE modifier is ignored since OpenCL
@@ -742,7 +742,7 @@ static int formatted_output(OutputAccumulator& output, const char* format, const
                         return -1;
                     //in some cases (i.e., inf, nan), values, we need to reformat
                     //the string representation of double values
-                    purgeDouble(output, float_val, cbuf);
+                    purgeDouble(output, float_val, cbuf, capitalCase);
                     if (i < vector_len - 1)
                         output.append(',');
                 }
