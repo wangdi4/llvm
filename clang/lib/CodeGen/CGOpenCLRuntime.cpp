@@ -84,6 +84,42 @@ llvm::PointerType *CGOpenCLRuntime::getSamplerType() {
   return SamplerTy;
 }
 
+#if INTEL_CUSTOMIZATION
+llvm::Type *CGOpenCLRuntime::getChannelType() {
+  if (!ChannelTy){
+    uint32_t ChannelAddrSpc =
+      CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
+    ChannelTy = llvm::PointerType::get(llvm::StructType::create(
+      CGM.getLLVMContext(), "opencl.channel_t"), ChannelAddrSpc);
+  }
+
+  return ChannelTy;
+}
+
+llvm::Value *CGOpenCLRuntime::getChannelElemSize(const Expr *ChannelArg) {
+  QualType QTy = ChannelArg->getType();
+  const ChannelType *ChannelTy = QTy->getAs<ChannelType>();
+  // The type of the last (implicit) argument to be passed.
+  llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
+  unsigned TypeSizeInBits =
+      CGM.getContext().getTypeSize(ChannelTy->getElementType());
+  return llvm::ConstantInt::get(Int32Ty,
+                                TypeSizeInBits / 8, // Size in bytes.
+                                false);
+}
+
+llvm::Value *CGOpenCLRuntime::getChannelElemAlign(const Expr *ChannelArg) {
+  const ChannelType *ChannelTy = ChannelArg->getType()->getAs<ChannelType>();
+  // The type of the last (implicit) argument to be passed.
+  llvm::Type *Int32Ty = llvm::IntegerType::getInt32Ty(CGM.getLLVMContext());
+  unsigned TypeSizeInBits =
+      CGM.getContext().getTypeAlign(ChannelTy->getElementType());
+  return llvm::ConstantInt::get(Int32Ty,
+                                TypeSizeInBits / 8, // Size in bytes.
+                                false);
+}
+#endif // INTEL_CUSTOMIZATION
+
 llvm::Value *CGOpenCLRuntime::getPipeElemSize(const Expr *PipeArg) {
   const PipeType *PipeTy = PipeArg->getType()->getAs<PipeType>();
   // The type of the last (implicit) argument to be passed.

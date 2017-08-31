@@ -106,10 +106,12 @@ public:
     AS_Microsoft,
     /// __ptr16, alignas(...), etc.
     AS_Keyword,
-    /// Context-sensitive version of a keyword attribute.
-    AS_ContextSensitiveKeyword,
+#if INTEL_CUSTOMIZATION
     /// #pragma ...
     AS_Pragma,
+    /// Context-sensitive version of a keyword attribute.
+    AS_ContextSensitiveKeyword,
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_CILKPLUS
     AS_CilkKeyword
 #endif // INTEL_SPECIFIC_CILKPLUS

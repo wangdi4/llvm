@@ -1967,6 +1967,15 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
   }
   break;
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    TypeInfo Info = getTypeInfo(cast<ChannelType>(T)->getElementType());
+    Width = Info.Width;
+    Align = Info.Align;
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case Type::Pipe: {
     TypeInfo Info = getTypeInfo(cast<PipeType>(T)->getElementType());
     Width = Info.Width;
@@ -2807,6 +2816,9 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
   case Type::FunctionProto:
   case Type::BlockPointer:
   case Type::MemberPointer:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return type;
 
@@ -3416,6 +3428,34 @@ QualType ASTContext::getReadPipeType(QualType T) const {
 QualType ASTContext::getWritePipeType(QualType T) const {
   return getPipeType(T, false);
 }
+
+#if INTEL_CUSTOMIZATION
+/// Return channel type for the specified type.
+QualType ASTContext::getChannelType(QualType T) const {
+  llvm::FoldingSetNodeID ID;
+  ChannelType::Profile(ID, T);
+
+  void *InsertPos = 0;
+  if (ChannelType *PT = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(PT, 0);
+
+  // If the channel element type isn't canonical, this won't be a canonical type
+  // either, so fill in the canonical type field.
+  QualType Canonical;
+  if (!T.isCanonical()) {
+    Canonical = getChannelType(getCanonicalType(T));
+
+    // Get the new insert position for the node we care about.
+    ChannelType *NewIP = ChannelTypes.FindNodeOrInsertPos(ID, InsertPos);
+    assert(!NewIP && "Shouldn't be in the map!");
+    (void)NewIP;
+  }
+  ChannelType *New = new (*this, TypeAlignment) ChannelType(T, Canonical);
+  Types.push_back(New);
+  ChannelTypes.InsertNode(New, InsertPos);
+  return QualType(New, 0);
+}
+#endif // INTEL_CUSTOMIZATION
 
 #ifndef NDEBUG
 static bool NeedsInjectedClassNameType(const RecordDecl *D) {
@@ -6420,6 +6460,9 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
   case Type::DeducedTemplateSpecialization:
     return;
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
 #define ABSTRACT_TYPE(KIND, BASE)
 #define TYPE(KIND, BASE)
@@ -8013,6 +8056,8 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
 
   if (lbaseInfo.getProducesResult() != rbaseInfo.getProducesResult())
     return QualType();
+  if (lbaseInfo.getNoCallerSavedRegs() != rbaseInfo.getNoCallerSavedRegs())
+    return QualType();
 
   // FIXME: some uses, e.g. conditional exprs, really want this to be 'both'.
   bool NoReturn = lbaseInfo.getNoReturn() || rbaseInfo.getNoReturn();
@@ -8419,6 +8464,26 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
 
     return QualType();
   }
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+  {
+    // Merge two pointer types, while trying to preserve typedef info
+    QualType LHSValue = LHS->getAs<ChannelType>()->getElementType();
+    QualType RHSValue = RHS->getAs<ChannelType>()->getElementType();
+    if (Unqualified) {
+      LHSValue = LHSValue.getUnqualifiedType();
+      RHSValue = RHSValue.getUnqualifiedType();
+    }
+    QualType ResultType = mergeTypes(LHSValue, RHSValue, false,
+                                     Unqualified);
+    if (ResultType.isNull()) return QualType();
+    if (getCanonicalType(LHSValue) == getCanonicalType(ResultType))
+      return LHS;
+    if (getCanonicalType(RHSValue) == getCanonicalType(ResultType))
+      return RHS;
+    return getChannelType(ResultType);
+  }
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
   {
     assert(LHS != RHS &&
@@ -8830,8 +8895,8 @@ static QualType DecodeTypeFromStr(const char *&Str, const ASTContext &Context,
       char *End;
       unsigned AddrSpace = strtoul(Str, &End, 10);
       if (End != Str && AddrSpace != 0) {
-        Type = Context.getAddrSpaceQualType(Type, AddrSpace +
-            LangAS::Count);
+        Type = Context.getAddrSpaceQualType(
+            Type, AddrSpace + LangAS::FirstTargetAddressSpace);
         Str = End;
       }
       if (c == '*')
@@ -9672,13 +9737,8 @@ uint64_t ASTContext::getTargetNullPointerValue(QualType QT) const {
 }
 
 unsigned ASTContext::getTargetAddressSpace(unsigned AS) const {
-  // For OpenCL, only function local variables are not explicitly marked with
-  // an address space in the AST, and these need to be the address space of
-  // alloca.
-  if (!AS && LangOpts.OpenCL)
-    return getTargetInfo().getDataLayout().getAllocaAddrSpace();
-  if (AS >= LangAS::Count)
-    return AS - LangAS::Count;
+  if (AS >= LangAS::FirstTargetAddressSpace)
+    return AS - LangAS::FirstTargetAddressSpace;
   else
     return (*AddrSpaceMap)[AS];
 }

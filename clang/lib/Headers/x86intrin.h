@@ -74,6 +74,10 @@
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__TBM__)
 #include <tbmintrin.h>
 #endif
+
+#if !defined(_MSC_VER) || __has_feature(modules) || defined(__LWP__)
+#include <lwpintrin.h>
+#endif
 #endif /* __INTEL_COMPILER */
 
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__F16C__)
@@ -89,7 +93,5 @@
 #if !defined(_MSC_VER) || __has_feature(modules) || defined(__CLZERO__)
 #include <clzerointrin.h>
 #endif
-
-/* FIXME: LWP */
 
 #endif /* __X86INTRIN_H */

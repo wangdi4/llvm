@@ -185,6 +185,30 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
                                       ValueExpr, A.getRange());
 }
 
+#if INTEL_CUSTOMIZATION
+static Attr *handleIntelInlineAttr(Sema &S, Stmt *St, const AttributeList &A,
+                                   SourceRange) {
+  IdentifierLoc *OptionLoc = A.getArgAsIdent(1);
+  IntelInlineAttr::OptionType Option;
+  if (OptionLoc) {
+    if (OptionLoc->Ident->getName() != "recursive") {
+      S.Diag(OptionLoc->Loc, diag::err_recursive_attribute_expected);
+      return nullptr;
+    }
+    else {
+      Option = IntelInlineAttr::Recursive;
+    }
+  }
+  else {
+    Option = IntelInlineAttr::NotRecursive;
+  }
+  return IntelInlineAttr::CreateImplicit(
+      S.Context,
+      static_cast<IntelInlineAttr::Spelling>(A.getAttributeSpellingListIndex()),
+      Option, A.getRange());
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void
 CheckForIncompatibleAttributes(Sema &S,
                                const SmallVectorImpl<const Attr *> &Attrs) {
@@ -319,6 +343,10 @@ static Attr *ProcessStmtAttribute(Sema &S, Stmt *St, const AttributeList &A,
            diag::warn_unhandled_ms_attribute_ignored :
            diag::warn_unknown_attribute_ignored) << A.getName();
     return nullptr;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_IntelInline:
+    return handleIntelInlineAttr(S, St, A, Range);
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_FallThrough:
     return handleFallThroughAttr(S, St, A, Range);
   case AttributeList::AT_LoopHint:

@@ -86,6 +86,7 @@ set(orig_files
   inttypes.h
   iso646.h
   limits.h
+  lwpintrin.h
   module.modulemap
   mm3dnow.h  
   opencl-c.h

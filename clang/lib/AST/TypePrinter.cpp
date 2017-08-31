@@ -198,6 +198,9 @@ bool TypePrinter::canPrefixQualifiers(const Type *T,
     case Type::ObjCTypeParam:
     case Type::ObjCInterface:
     case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       CanPrefixQualifiers = true;
       break;
@@ -750,6 +753,8 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
   if (Info.getRegParm())
     OS << " __attribute__((regparm ("
        << Info.getRegParm() << ")))";
+  if (Info.getNoCallerSavedRegs())
+    OS << "__attribute__((no_caller_saved_registers))";
 
   if (unsigned quals = T->getTypeQuals()) {
     OS << ' ';
@@ -943,6 +948,19 @@ void TypePrinter::printAtomicBefore(const AtomicType *T, raw_ostream &OS) {
   spaceBeforePlaceHolder(OS);
 }
 void TypePrinter::printAtomicAfter(const AtomicType *T, raw_ostream &OS) { }
+
+#if INTEL_CUSTOMIZATION
+void TypePrinter::printChannelBefore(const ChannelType *T, raw_ostream &OS) {
+  IncludeStrongLifetimeRAII Strong(Policy);
+
+  OS << "channel ";
+  print(T->getElementType(), OS, StringRef());
+  spaceBeforePlaceHolder(OS);
+}
+
+void TypePrinter::printChannelAfter(const ChannelType *T, raw_ostream &OS) {
+}
+#endif // INTEL_CUSTOMIZATION
 
 void TypePrinter::printPipeBefore(const PipeType *T, raw_ostream &OS) {
   IncludeStrongLifetimeRAII Strong(Policy);
@@ -1686,9 +1704,9 @@ void Qualifiers::print(raw_ostream &OS, const PrintingPolicy& Policy,
         OS << "__shared";
         break;
       default:
-        assert(addrspace >= LangAS::Count);
+        assert(addrspace >= LangAS::FirstTargetAddressSpace);
         OS << "__attribute__((address_space(";
-        OS << addrspace - LangAS::Count;
+        OS << addrspace - LangAS::FirstTargetAddressSpace;
         OS << ")))";
     }
   }

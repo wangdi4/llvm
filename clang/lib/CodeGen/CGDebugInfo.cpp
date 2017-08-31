@@ -216,7 +216,7 @@ llvm::DIScope *CGDebugInfo::getContextDescriptor(const Decl *Context,
 
   // Check namespace.
   if (const auto *NSDecl = dyn_cast<NamespaceDecl>(Context))
-    return getOrCreateNameSpace(NSDecl);
+    return getOrCreateNamespace(NSDecl);
 
   if (const auto *RDecl = dyn_cast<RecordDecl>(Context))
     if (!RDecl->isDependentType())
@@ -2398,6 +2398,12 @@ llvm::DIType* CGDebugInfo::CreateType(const PipeType *Ty,
   return getOrCreateType(Ty->getElementType(), U);
 }
 
+#if INTEL_CUSTOMIZATION
+llvm::DIType *CGDebugInfo::CreateType(const ChannelType *Ty, llvm::DIFile *U) {
+  return getOrCreateType(Ty->getElementType(), U);
+}
+#endif // INTEL_CUSTOMIZATION
+
 llvm::DIType *CGDebugInfo::CreateEnumType(const EnumType *Ty) {
   const EnumDecl *ED = Ty->getDecl();
 
@@ -2625,7 +2631,7 @@ llvm::DIModule *CGDebugInfo::getParentModuleOrNull(const Decl *D) {
     // best to make this behavior a command line or debugger tuning
     // option.
     FullSourceLoc Loc(D->getLocation(), CGM.getContext().getSourceManager());
-    if (Module *M = ClangModuleMap->inferModuleFromLocation(Loc)) {
+    if (Module *M = D->getOwningModule()) {
       // This is a (sub-)module.
       auto Info = ExternalASTSource::ASTSourceDescriptor(*M);
       return getOrCreateModuleRef(Info, /*SkeletonCU=*/false);
@@ -2695,6 +2701,11 @@ llvm::DIType *CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile *Unit) {
 
   case Type::Atomic:
     return CreateType(cast<AtomicType>(Ty), Unit);
+
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return CreateType(cast<ChannelType>(Ty), Unit);
+#endif // INTEL_CUSTOMIZATION
 
   case Type::Pipe:
     return CreateType(cast<PipeType>(Ty), Unit);
@@ -2883,7 +2894,7 @@ void CGDebugInfo::collectFunctionDeclProps(GlobalDecl GD, llvm::DIFile *Unit,
   if (DebugKind >= codegenoptions::LimitedDebugInfo) {
     if (const NamespaceDecl *NSDecl =
         dyn_cast_or_null<NamespaceDecl>(FD->getDeclContext()))
-      FDContext = getOrCreateNameSpace(NSDecl);
+      FDContext = getOrCreateNamespace(NSDecl);
     else if (const RecordDecl *RDecl =
              dyn_cast_or_null<RecordDecl>(FD->getDeclContext())) {
       llvm::DIScope *Mod = getParentModuleOrNull(RDecl);
@@ -3990,7 +4001,7 @@ void CGDebugInfo::EmitUsingDirective(const UsingDirectiveDecl &UD) {
       CGM.getCodeGenOpts().DebugExplicitImport) {
     DBuilder.createImportedModule(
         getCurrentContextDescriptor(cast<Decl>(UD.getDeclContext())),
-        getOrCreateNameSpace(NSDecl),
+        getOrCreateNamespace(NSDecl),
         getLineNumber(UD.getLocation()));
   }
 }
@@ -4050,25 +4061,26 @@ CGDebugInfo::EmitNamespaceAlias(const NamespaceAliasDecl &NA) {
   else
     R = DBuilder.createImportedDeclaration(
         getCurrentContextDescriptor(cast<Decl>(NA.getDeclContext())),
-        getOrCreateNameSpace(cast<NamespaceDecl>(NA.getAliasedNamespace())),
+        getOrCreateNamespace(cast<NamespaceDecl>(NA.getAliasedNamespace())),
         getLineNumber(NA.getLocation()), NA.getName());
   VH.reset(R);
   return R;
 }
 
 llvm::DINamespace *
-CGDebugInfo::getOrCreateNameSpace(const NamespaceDecl *NSDecl) {
-  NSDecl = NSDecl->getCanonicalDecl();
-  auto I = NameSpaceCache.find(NSDecl);
-  if (I != NameSpaceCache.end())
+CGDebugInfo::getOrCreateNamespace(const NamespaceDecl *NSDecl) {
+  // Don't canonicalize the NamespaceDecl here: The DINamespace will be uniqued
+  // if necessary, and this way multiple declarations of the same namespace in
+  // different parent modules stay distinct.
+  auto I = NamespaceCache.find(NSDecl);
+  if (I != NamespaceCache.end())
     return cast<llvm::DINamespace>(I->second);
 
-  unsigned LineNo = getLineNumber(NSDecl->getLocation());
-  llvm::DIFile *FileD = getOrCreateFile(NSDecl->getLocation());
   llvm::DIScope *Context = getDeclContextDescriptor(NSDecl);
-  llvm::DINamespace *NS = DBuilder.createNameSpace(
-      Context, NSDecl->getName(), FileD, LineNo, NSDecl->isInline());
-  NameSpaceCache[NSDecl].reset(NS);
+  // Don't trust the context if it is a DIModule (see comment above).
+  llvm::DINamespace *NS =
+      DBuilder.createNameSpace(Context, NSDecl->getName(), NSDecl->isInline());
+  NamespaceCache[NSDecl].reset(NS);
   return NS;
 }
 

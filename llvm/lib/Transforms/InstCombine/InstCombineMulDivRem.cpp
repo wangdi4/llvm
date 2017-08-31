@@ -132,8 +132,9 @@ static Constant *getLogBase2Vector(ConstantDataVector *CV) {
 
 /// \brief Return true if we can prove that:
 ///    (mul LHS, RHS)  === (mul nsw LHS, RHS)
-bool InstCombiner::WillNotOverflowSignedMul(Value *LHS, Value *RHS,
-                                            Instruction &CxtI) {
+bool InstCombiner::willNotOverflowSignedMul(const Value *LHS,
+                                            const Value *RHS,
+                                            const Instruction &CxtI) const {
   // Multiplying n * m significant bits yields a result of n + m significant
   // bits. If the total number of significant bits does not exceed the
   // result bit width (minus 1), there is no overflow.
@@ -162,11 +163,9 @@ bool InstCombiner::WillNotOverflowSignedMul(Value *LHS, Value *RHS,
     // product is exactly the minimum negative number.
     // E.g. mul i16 with 17 sign bits: 0xff00 * 0xff80 = 0x8000
     // For simplicity we just check if at least one side is not negative.
-    bool LHSNonNegative, LHSNegative;
-    bool RHSNonNegative, RHSNegative;
-    ComputeSignBit(LHS, LHSNonNegative, LHSNegative, /*Depth=*/0, &CxtI);
-    ComputeSignBit(RHS, RHSNonNegative, RHSNegative, /*Depth=*/0, &CxtI);
-    if (LHSNonNegative || RHSNonNegative)
+    KnownBits LHSKnown = computeKnownBits(LHS, /*Depth=*/0, &CxtI);
+    KnownBits RHSKnown = computeKnownBits(RHS, /*Depth=*/0, &CxtI);
+    if (LHSKnown.isNonNegative() || RHSKnown.isNonNegative())
       return true;
   }
   return false;
@@ -179,7 +178,7 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyMulInst(Op0, Op1, DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyMulInst(Op0, Op1, SQ))
     return replaceInstUsesWith(I, V);
 
   if (Value *V = SimplifyUsingDistributiveLaws(I))
@@ -386,7 +385,7 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
         Constant *CI =
             ConstantExpr::getTrunc(Op1C, Op0Conv->getOperand(0)->getType());
         if (ConstantExpr::getSExt(CI, I.getType()) == Op1C &&
-            WillNotOverflowSignedMul(Op0Conv->getOperand(0), CI, I)) {
+            willNotOverflowSignedMul(Op0Conv->getOperand(0), CI, I)) {
           // Insert the new, smaller mul.
           Value *NewMul =
               Builder->CreateNSWMul(Op0Conv->getOperand(0), CI, "mulconv");
@@ -403,7 +402,7 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
       if (Op0Conv->getOperand(0)->getType() ==
               Op1Conv->getOperand(0)->getType() &&
           (Op0Conv->hasOneUse() || Op1Conv->hasOneUse()) &&
-          WillNotOverflowSignedMul(Op0Conv->getOperand(0),
+          willNotOverflowSignedMul(Op0Conv->getOperand(0),
                                    Op1Conv->getOperand(0), I)) {
         // Insert the new integer mul.
         Value *NewMul = Builder->CreateNSWMul(
@@ -422,8 +421,7 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
         Constant *CI =
             ConstantExpr::getTrunc(Op1C, Op0Conv->getOperand(0)->getType());
         if (ConstantExpr::getZExt(CI, I.getType()) == Op1C &&
-            computeOverflowForUnsignedMul(Op0Conv->getOperand(0), CI, &I) ==
-                OverflowResult::NeverOverflows) {
+            willNotOverflowUnsignedMul(Op0Conv->getOperand(0), CI, I)) {
           // Insert the new, smaller mul.
           Value *NewMul =
               Builder->CreateNUWMul(Op0Conv->getOperand(0), CI, "mulconv");
@@ -440,9 +438,8 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
       if (Op0Conv->getOperand(0)->getType() ==
               Op1Conv->getOperand(0)->getType() &&
           (Op0Conv->hasOneUse() || Op1Conv->hasOneUse()) &&
-          computeOverflowForUnsignedMul(Op0Conv->getOperand(0),
-                                        Op1Conv->getOperand(0),
-                                        &I) == OverflowResult::NeverOverflows) {
+          willNotOverflowUnsignedMul(Op0Conv->getOperand(0),
+                                     Op1Conv->getOperand(0), I)) {
         // Insert the new integer mul.
         Value *NewMul = Builder->CreateNUWMul(
             Op0Conv->getOperand(0), Op1Conv->getOperand(0), "mulconv");
@@ -451,14 +448,12 @@ Instruction *InstCombiner::visitMul(BinaryOperator &I) {
     }
   }
 
-  if (!I.hasNoSignedWrap() && WillNotOverflowSignedMul(Op0, Op1, I)) {
+  if (!I.hasNoSignedWrap() && willNotOverflowSignedMul(Op0, Op1, I)) {
     Changed = true;
     I.setHasNoSignedWrap(true);
   }
 
-  if (!I.hasNoUnsignedWrap() &&
-      computeOverflowForUnsignedMul(Op0, Op1, &I) ==
-          OverflowResult::NeverOverflows) {
+  if (!I.hasNoUnsignedWrap() && willNotOverflowUnsignedMul(Op0, Op1, I)) {
     Changed = true;
     I.setHasNoUnsignedWrap(true);
   }
@@ -606,8 +601,7 @@ Instruction *InstCombiner::visitFMul(BinaryOperator &I) {
   if (isa<Constant>(Op0))
     std::swap(Op0, Op1);
 
-  if (Value *V =
-          SimplifyFMulInst(Op0, Op1, I.getFastMathFlags(), DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyFMulInst(Op0, Op1, I.getFastMathFlags(), SQ))
     return replaceInstUsesWith(I, V);
 
   bool AllowReassociate = I.hasUnsafeAlgebra();
@@ -1111,7 +1105,7 @@ Instruction *InstCombiner::visitUDiv(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyUDivInst(Op0, Op1, DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyUDivInst(Op0, Op1, SQ))
     return replaceInstUsesWith(I, V);
 
   // Handle the integer div common cases
@@ -1184,7 +1178,7 @@ Instruction *InstCombiner::visitSDiv(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifySDivInst(Op0, Op1, DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifySDivInst(Op0, Op1, SQ))
     return replaceInstUsesWith(I, V);
 
   // Handle the integer div common cases
@@ -1296,8 +1290,7 @@ Instruction *InstCombiner::visitFDiv(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyFDivInst(Op0, Op1, I.getFastMathFlags(),
-                                  DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyFDivInst(Op0, Op1, I.getFastMathFlags(), SQ))
     return replaceInstUsesWith(I, V);
 
   if (isa<Constant>(Op0))
@@ -1481,7 +1474,7 @@ Instruction *InstCombiner::visitURem(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyURemInst(Op0, Op1, DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyURemInst(Op0, Op1, SQ))
     return replaceInstUsesWith(I, V);
 
   if (Instruction *common = commonIRemTransforms(I))
@@ -1524,7 +1517,7 @@ Instruction *InstCombiner::visitSRem(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifySRemInst(Op0, Op1, DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifySRemInst(Op0, Op1, SQ))
     return replaceInstUsesWith(I, V);
 
   // Handle the integer rem common cases
@@ -1597,8 +1590,7 @@ Instruction *InstCombiner::visitFRem(BinaryOperator &I) {
   if (Value *V = SimplifyVectorOp(I))
     return replaceInstUsesWith(I, V);
 
-  if (Value *V = SimplifyFRemInst(Op0, Op1, I.getFastMathFlags(),
-                                  DL, &TLI, &DT, &AC))
+  if (Value *V = SimplifyFRemInst(Op0, Op1, I.getFastMathFlags(), SQ))
     return replaceInstUsesWith(I, V);
 
   // Handle cases involving: rem X, (select Cond, Y, Z)

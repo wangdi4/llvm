@@ -577,6 +577,9 @@ KEYWORD(vec_step                    , KEYOPENCL|KEYALTIVEC|KEYZVECTOR)
 KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
 KEYWORD(pipe                        , KEYOPENCL)
+#if INTEL_CUSTOMIZATION
+KEYWORD(channel                     , KEYOPENCL)
+#endif // INTEL_CUSTOMIZATION
 
 // Borland Extensions.
 KEYWORD(__pascal                    , KEYALL)
@@ -855,10 +858,16 @@ ANNOTATION(pragma_simd_end)
 #if INTEL_CUSTOMIZATION
 // Alternate spelling for alignof
 ALIAS("__ALIGNOF__" , __alignof , KEYALL)
+
+ANNOTATION(pragma_end)
+
+// Annotation for #pragma inline, forceinline and noinline
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_inline)
 #endif // INTEL_CUSTOMIZATION
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-ANNOTATION(pragma_end)
 
 // Annotation for #pragma ivdep
 // The lexer produces these so that they only take effect when the parser
@@ -874,11 +883,6 @@ ANNOTATION(pragma_novector)
 // The lexer produces these so that they only take effect when the parser
 // handles them.
 ANNOTATION(pragma_distribute_point)
-
-// Annotation for #pragma inline, forceinline and noinline
-// The lexer produces these so that they only take effect when the parser
-// handles them.
-ANNOTATION(pragma_inline)
 
 // Annotation for #pragma loop_count
 // The lexer produces these so that they only take effect when the parser

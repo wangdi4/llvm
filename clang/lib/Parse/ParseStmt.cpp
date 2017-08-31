@@ -462,13 +462,13 @@ Retry:
   case tok::annot_pragma_fp_contract:
     ProhibitAttributes(Attrs);
     Diag(Tok, diag::err_pragma_fp_contract_scope);
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return StmtError();
 
   case tok::annot_pragma_fp:
     ProhibitAttributes(Attrs);
     Diag(Tok, diag::err_pragma_fp_scope);
-    ConsumeToken();
+    ConsumeAnnotationToken();
     return StmtError();
 
   case tok::annot_pragma_opencl_extension:
@@ -505,6 +505,13 @@ Retry:
     ProhibitAttributes(Attrs);
     return ParseSIMDDirective();
 #endif // INTEL_SPECIFIC_CILKPLUS
+
+#if INTEL_CUSTOMIZATION
+  case tok::annot_pragma_inline:
+    ProhibitAttributes(Attrs);
+    return ParsePragmaInline(Stmts, Allowed, TrailingElseLoc, Attrs);
+#endif // INTEL_CUSTOMIZATION
+
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(Allowed);

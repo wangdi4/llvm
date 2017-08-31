@@ -13,6 +13,26 @@ class PragmaCilkGrainsizeHandler : public PragmaHandler {
                               Token &FirstToken);
 };
 #endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
+// #pragma inline
+class PragmaInlineHandler: public PragmaHandler {
+  public:
+    explicit PragmaInlineHandler(const char *name) : PragmaHandler(name) {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
+};
+// #pragma forceinline
+class PragmaForceInlineHandler: public PragmaHandler {
+  public:
+    explicit PragmaForceInlineHandler() : PragmaHandler("forceinline") {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
+};
+// #pragma noinline
+class PragmaNoInlineHandler: public PragmaHandler {
+  public:
+    explicit PragmaNoInlineHandler() : PragmaHandler("noinline") {}
+    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
+};
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_SPECIFIC_IL0_BACKEND
 // #pragma ivdep
 class PragmaIvdepHandler: public PragmaHandler {
@@ -36,24 +56,6 @@ class PragmaDistributeHandler: public PragmaHandler {
 class PragmaDistributeHandler1: public PragmaHandler {
   public:
     explicit PragmaDistributeHandler1() : PragmaHandler("distribute") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
-};
-// #pragma inline
-class PragmaInlineHandler: public PragmaHandler {
-  public:
-    explicit PragmaInlineHandler() : PragmaHandler("inline") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
-};
-// #pragma forceinline
-class PragmaForceInlineHandler: public PragmaHandler {
-  public:
-    explicit PragmaForceInlineHandler() : PragmaHandler("forceinline") {}
-    virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
-};
-// #pragma noinline
-class PragmaNoInlineHandler: public PragmaHandler {
-  public:
-    explicit PragmaNoInlineHandler() : PragmaHandler("noinline") {}
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok);
 };
 // #pragma loop_count
