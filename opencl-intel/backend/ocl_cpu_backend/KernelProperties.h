@@ -161,6 +161,13 @@ public:
      *  false otherwise
      */
     virtual bool IsBlock() const;
+
+    /**
+     * @returns true if the specified kernel is an autorun kernel
+     *  false otherwise
+     */
+    virtual bool IsAutorun() const;
+
     /**
      * @returns true if the specified kernel doesn't support non-unifrom WG size
      *  false otherwise
@@ -187,6 +194,7 @@ public:
     void EnableVectorizedWithTail() { m_isVectorizedWithTail = true; }
     void SetPointerSize(unsigned int value) { m_uiSizeT = value; }
     void SetIsBlock(const bool value) { m_bIsBlock = value; }
+    void SetIsAutorun(const bool value) { m_bIsAutorun = value; }
     void SetIsNonUniformWGSizeSupported(const bool value) { m_bIsNonUniformWGSizeSupported = value; }
     void SetCanUniteWG(const bool value) { m_canUniteWG = value; }
     void SetVerctorizeOnDimention(unsigned int value) { m_verctorizeOnDimention = value; }
@@ -228,6 +236,7 @@ protected:
     bool m_isVectorizedWithTail;
     unsigned int m_uiSizeT;
     bool m_bIsBlock;
+    bool m_bIsAutorun;
     bool m_bIsNonUniformWGSizeSupported;
     bool m_canUniteWG;
     unsigned int m_verctorizeOnDimention;

@@ -820,6 +820,12 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
         stValSize = (nullptr != value)? sizeof(size_t): 0;
         break;
     }
+    case CL_DEV_KERNEL_IS_AUTORUN:
+    {
+        *(cl_bool*)pValue = (cl_bool)pKernelProps->IsAutorun();
+        stValSize = (nullptr != value) ? sizeof(cl_bool) : 0;
+        break;
+    }
 
     default:
         return CL_DEV_INVALID_VALUE;
@@ -923,4 +929,3 @@ void ProgramService::DeleteProgramEntry(TProgramEntry* pEntry)
     pEntry->mapKernels.clear();
     delete pEntry;
 }
-

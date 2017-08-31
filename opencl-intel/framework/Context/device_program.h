@@ -32,6 +32,8 @@
 #include <cl_device_api.h>
 #include <observer.h>
 #include <build_event.h>
+#include <vector>
+#include <string>
 
 namespace Intel { namespace OpenCL { namespace Framework {
     class Device;
@@ -39,21 +41,22 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
     enum EDeviceProgramState
     {
-        DEVICE_PROGRAM_INVALID,         // Object was just created
-        DEVICE_PROGRAM_BUILTIN_KERNELS, // Program based on the built-in kernels
-        DEVICE_PROGRAM_SOURCE,          // Source loaded
-        DEVICE_PROGRAM_FE_COMPILING,    // Currently compiling with FE compiler
-        DEVICE_PROGRAM_COMPILED,        // Compiled IR
-        DEVICE_PROGRAM_COMPILE_FAILED,  // Compilation failed
-        DEVICE_PROGRAM_FE_LINKING,      // Currently linking with FE compiler
-        DEVICE_PROGRAM_LINKED,          // Linked IR
-        DEVICE_PROGRAM_LINK_FAILED,     // Linking failed
-        DEVICE_PROGRAM_LOADED_IR,       // Loaded IR
-        DEVICE_PROGRAM_SPIRV,           // Compiled SPIRV
-        DEVICE_PROGRAM_BE_BUILDING,     // Currently building with BE compiler
-        DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
-        DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary
-        DEVICE_PROGRAM_BUILD_FAILED     // Build failed
+        DEVICE_PROGRAM_INVALID,                 // Object was just created
+        DEVICE_PROGRAM_BUILTIN_KERNELS,         // Program based on the built-in kernels
+        DEVICE_PROGRAM_SOURCE,                  // Source loaded
+        DEVICE_PROGRAM_FE_COMPILING,            // Currently compiling with FE compiler
+        DEVICE_PROGRAM_COMPILED,                // Compiled IR
+        DEVICE_PROGRAM_COMPILE_FAILED,          // Compilation failed
+        DEVICE_PROGRAM_FE_LINKING,              // Currently linking with FE compiler
+        DEVICE_PROGRAM_LINKED,                  // Linked IR
+        DEVICE_PROGRAM_LINK_FAILED,             // Linking failed
+        DEVICE_PROGRAM_LOADED_IR,               // Loaded IR
+        DEVICE_PROGRAM_SPIRV,                   // Compiled SPIRV
+        DEVICE_PROGRAM_BE_BUILDING,             // Currently building with BE compiler
+        DEVICE_PROGRAM_BUILD_DONE,              // Build complete, executable code ready
+        DEVICE_PROGRAM_CUSTOM_BINARY,           // Program contains device specific binary
+        DEVICE_PROGRAM_BUILD_FAILED,            // Build failed
+        DEVICE_PROGRAM_CREATING_AUTORUN         // Currently creating instances of autorun kernels
     };
 
     class DeviceProgram
@@ -93,6 +96,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_err_code GetNumKernels(cl_uint* pszNumKernels);
         // Returns an array of NULL-terminated strings, one for each
         cl_err_code GetKernelNames(char** ppNames, size_t* pszNameSizes, size_t szNumNames);
+        cl_err_code GetAutorunKernelsNames(std::vector<std::string> &vsNames);
 
         // Returns true if the object can be safely worked on and false otherwise
         bool Acquire();

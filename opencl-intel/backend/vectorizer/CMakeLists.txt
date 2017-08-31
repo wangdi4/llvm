@@ -114,7 +114,7 @@ add_library(
   ${TARGET_INCLUDE_FILES}
 )
 
-add_dependencies(${TARGET_NAME} metadataapi LoopUtils)
+add_dependencies(${TARGET_NAME} metadataapi LoopUtils OclBackendUtils)
 
 set( BACKEND_PASSES_FOLDER_NAME  ${BACKEND_FOLDER_NAME}/passes )
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${BACKEND_PASSES_FOLDER_NAME})

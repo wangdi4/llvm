@@ -127,7 +127,6 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
 
     m_sKernelPrototype.m_szKernelAttributes = kernelAttrs;
     delete [] kernelAttrs;
-
     // Get argument buffer size
     clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, 0, nullptr,
                                                                 sizeof(m_sKernelPrototype.m_dispatchBufferProperties), &m_sKernelPrototype.m_dispatchBufferProperties, nullptr);
@@ -659,7 +658,9 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
         // get build status and check that there is a valid binary;
         cl_build_status clBuildStatus = ppDevicePrograms[i]->GetBuildStatus();
         EDeviceProgramState program_state= ppDevicePrograms[i]->GetStateInternal();
-        if ( (CL_BUILD_SUCCESS!=clBuildStatus)  && (DEVICE_PROGRAM_BUILTIN_KERNELS!=program_state) )
+        if ((CL_BUILD_SUCCESS != clBuildStatus) &&
+            (DEVICE_PROGRAM_BUILTIN_KERNELS != program_state) &&
+            (DEVICE_PROGRAM_CREATING_AUTORUN != program_state))
         {
             continue;
         }

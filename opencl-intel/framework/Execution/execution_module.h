@@ -160,6 +160,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
 							 const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 		cl_int EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* pSvmPtr, cl_uint uiNumEventsInWaitList, const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger);
 
+        cl_err_code RunAutorunKernels(const SharedPtr<Program>& program,
+            ApiLogger* apiLogger);
+
         EventsManager*      GetEventsManager() const { return m_pEventsManager; }
         void                ReleaseAllUserEvents( bool preserve_user_handles );
 

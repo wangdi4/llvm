@@ -1938,6 +1938,61 @@ cl_err_code ExecutionModule::EnqueueUnmapMemObject(cl_command_queue clCommandQue
     return  errVal;
 }
 
+cl_err_code ExecutionModule::RunAutorunKernels(
+    const SharedPtr<Program>& program, ApiLogger* apiLogger)
+{
+    std::vector<SharedPtr<Kernel>> kernels;
+    cl_err_code error;
+    error = program->GetAutorunKernels(kernels);
+    if (CL_FAILED(error))
+    {
+        return error;
+    }
+
+    cl_uint numDevices = program->GetNumDevices();
+    // TODO: ask PSG:
+    // is it allowed to have more than one device in a context? which one
+    // should execute autorun kernels?
+    assert(numDevices == 1 && "TODO: clarify details and update the "
+        "implementation");
+    std::vector<cl_device_id> devices(numDevices);
+    error = program->GetDevices(&devices.front());
+    if (CL_FAILED(error))
+    {
+        return error;
+    }
+
+    cl_command_queue_properties properties[] = { CL_QUEUE_PROPERTIES,
+        CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE,
+        (cl_command_queue_properties)0 };
+    cl_command_queue queue = CreateCommandQueue(
+        program->GetContext()->GetHandle(), devices[0], properties, &error);
+    if (CL_FAILED(error))
+    {
+        return error;
+    }
+
+    for (const auto& kernel: kernels)
+    {
+        // TODO: obtain details about which combinations of kernel attributes
+        // related to autorun kernels are allowed and set correct global and
+        // local sizes according to kernel attributes
+        //
+        // Now assume that we support only single work-item kernels
+        error = EnqueueTask(queue, kernel->GetHandle(), 0, nullptr, nullptr,
+            apiLogger);
+        if (CL_FAILED(error))
+        {
+            return error;
+        }
+        LOG_DEBUG(TEXT("Launched autorun kernel: %s"), kernel->GetName());
+    }
+
+    Flush(queue);
+
+    return CL_SUCCESS;
+}
+
 /******************************************************************
  *
  ******************************************************************/
@@ -2011,6 +2066,16 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
     if (pKernel->GetContext()->GetId() != pCommandQueue->GetContextId())
     {
         return CL_INVALID_CONTEXT;
+    }
+
+    if (pKernel->GetContext()->IsFPGAEmulator() &&
+        !pKernel->GetProgram()->TestAndSetAutorunKernelsLaunched())
+    {
+        errVal = RunAutorunKernels(pKernel->GetProgram(), apiLogger);
+        if (CL_FAILED(errVal))
+        {
+            return CL_OUT_OF_RESOURCES;
+        }
     }
 
     const SharedPtr<FissionableDevice>& pDevice = pCommandQueue->GetDefaultDevice();
@@ -2137,6 +2202,16 @@ cl_err_code ExecutionModule::EnqueueTask( cl_command_queue clCommandQueue, cl_ke
     if(!pKernel->IsValidKernelArgs())
     {
         return CL_INVALID_KERNEL_ARGS;
+    }
+
+    if (pKernel->GetContext()->IsFPGAEmulator() &&
+        !pKernel->GetProgram()->TestAndSetAutorunKernelsLaunched())
+    {
+        errVal = RunAutorunKernels(pKernel->GetProgram(), apiLogger);
+        if (CL_FAILED(errVal))
+        {
+            return CL_OUT_OF_RESOURCES;
+        }
     }
 
     // TODO: Handle those error values, probably through the kernel object...

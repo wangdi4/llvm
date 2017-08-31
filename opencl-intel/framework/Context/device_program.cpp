@@ -620,6 +620,76 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     return CL_SUCCESS;
 }
 
+cl_err_code DeviceProgram::GetAutorunKernelsNames(
+    std::vector<std::string> &vsNames)
+{
+    cl_uint        numKernels = 0;
+    cl_err_code    errRet     = CL_SUCCESS;
+
+    try
+    {
+        auto devAgent = m_pDevice->GetDeviceAgent();
+        errRet = devAgent->clDevGetProgramKernels(m_programHandle, 0, nullptr,
+            &numKernels);
+        if (CL_FAILED(errRet))
+        {
+            return errRet;
+        }
+
+        if (numKernels > 0)
+        {
+            std::vector<cl_dev_kernel*> devKernels(numKernels);
+
+            errRet = devAgent->clDevGetProgramKernels(m_programHandle,
+                numKernels, (cl_dev_kernel*)&devKernels.front(), nullptr);
+            if (CL_FAILED(errRet))
+            {
+                return errRet;
+            }
+
+            for (size_t i = 0; i < numKernels; ++i)
+            {
+                cl_bool isAutorun = CL_FALSE;
+                errRet = devAgent->clDevGetKernelInfo(devKernels[i],
+                    CL_DEV_KERNEL_IS_AUTORUN, 0, nullptr, sizeof(cl_bool),
+                    &isAutorun, nullptr);
+                if (CL_FAILED(errRet))
+                {
+                    return errRet;
+                }
+
+                if (isAutorun)
+                {
+                    std::string name;
+                    size_t size;
+                    errRet = devAgent->clDevGetKernelInfo(devKernels[i],
+                        CL_DEV_KERNEL_NAME, 0, nullptr, 0, nullptr, &size);
+                    if (CL_FAILED(errRet))
+                    {
+                        return errRet;
+                    }
+
+                    name.resize(size);
+                    errRet = devAgent->clDevGetKernelInfo(devKernels[i],
+                        CL_DEV_KERNEL_NAME, 0, nullptr, sizeof(char) * size,
+                        &name[0], nullptr);
+                    if (CL_FAILED(errRet))
+                    {
+                        return errRet;
+                    }
+                    vsNames.push_back(name);
+                }
+            }
+        }
+    }
+    catch (const std::bad_alloc &e)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    return CL_SUCCESS;
+}
+
 cl_err_code DeviceProgram::SetDeviceHandleInternal(cl_dev_program programHandle)
 {
     if (m_pDevice)

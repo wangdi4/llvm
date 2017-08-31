@@ -105,6 +105,7 @@ protected:
         bool IsNonUniformWGSizeSupported() const {return false;}
         unsigned int GetMinGroupSizeFactorial() const { return 0;}
         bool IsBlock() const { return false;}
+        bool IsAutorun() const { return false; }
         const char* GetKernelAttributes() const { return attributes; }
     protected:
         static const char* attributes;

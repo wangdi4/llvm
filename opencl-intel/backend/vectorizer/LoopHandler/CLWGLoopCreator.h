@@ -179,9 +179,6 @@ private:
   ///@returns as above.
   CallInst *createEECall();
 
-  ///@brief moves alloca to new entry block.
-  void moveAllocaToEntry(BasicBlock *BB);
-
   ///@brief obtain initial global id, and loop size per dimension.
   void getLoopsBoundaries();
 

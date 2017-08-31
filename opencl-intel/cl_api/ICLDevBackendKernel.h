@@ -146,6 +146,12 @@ public:
     virtual bool IsBlock() const = 0;
 
     /**
+     * @returns true if the specified kernel is an autorun kernel
+     *  false otherwise
+     */
+    virtual bool IsAutorun() const = 0;
+
+    /**
      * @returns true if the specified kernel is compiled with support of non-unifrom WG size
      *  false otherwise
      */

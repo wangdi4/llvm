@@ -25,28 +25,32 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
-#include "framework_proxy.h"
 #include "program.h"
-#include "device_program.h"
 #include "Context.h"
+#include "cl_shared_ptr.hpp"
+#include "device_program.h"
+#include "framework_proxy.h"
 #include "kernel.h"
 #include "sampler.h"
-#include "cl_shared_ptr.hpp"
-#include <string.h>
 #include <Device.h>
-#include <fe_compiler.h>
-#include <cl_utils.h>
+#include <algorithm>
 #include <assert.h>
+#include <cl_utils.h>
+#include <fe_compiler.h>
+#include <string.h>
+#include <string>
+#include <vector>
 
 using namespace std;
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
 
 
-Program::Program(SharedPtr<Context> pContext) :
-	OCLObject<_cl_program_int>((_cl_context_int*)pContext->GetHandle(), "Program"),
-	m_pContext(pContext), m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
+Program::Program(SharedPtr<Context> pContext) : OCLObject<_cl_program_int>(
+    (_cl_context_int*)pContext->GetHandle(), "Program"), m_pContext(pContext),
+    m_ppDevicePrograms(NULL), m_szNumAssociatedDevices(0)
 {
+    m_afAutorunKernelsLaunched.clear();
 }
 
 Program::~Program()
@@ -580,8 +584,11 @@ cl_err_code Program::CreateKernel(const char * psKernelName, SharedPtr<Kernel>* 
 	bool bAnyValid = false;
 	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 	{
-		if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()) ||
-			(DEVICE_PROGRAM_BUILTIN_KERNELS==m_ppDevicePrograms[i]->GetStateInternal()))
+        if ((CL_BUILD_SUCCESS == m_ppDevicePrograms[i]->GetBuildStatus()) ||
+            (DEVICE_PROGRAM_BUILTIN_KERNELS ==
+                m_ppDevicePrograms[i]->GetStateInternal()) ||
+            (DEVICE_PROGRAM_CREATING_AUTORUN ==
+                m_ppDevicePrograms[i]->GetStateInternal()))
 		{
 			bAnyValid = true;
 			break;
@@ -746,6 +753,82 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 	return CL_SUCCESS;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// CreateAutorunKernels
+////////////////////////////////////////////////////////////////////////////////
+cl_err_code Program::CreateAutorunKernels(
+    cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet)
+{
+    LOG_DEBUG(TEXT("Enter CreateAutorunKernels (uiNumKernels=%d, "
+        "pclKernels=%d, puiNumKernelsRet=%d)"), uiNumKernels, pclKernels,
+        puiNumKernelsRet);
+    assert(m_szNumAssociatedDevices > 0);
+    for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
+    {
+        if (CL_BUILD_SUCCESS != m_ppDevicePrograms[i]->GetBuildStatus() &&
+            DEVICE_PROGRAM_CREATING_AUTORUN !=
+                m_ppDevicePrograms[i]->GetStateInternal() &&
+            CL_PROGRAM_BINARY_TYPE_EXECUTABLE !=
+                m_ppDevicePrograms[i]->GetBinaryTypeInternal())
+        {
+            return CL_INVALID_PROGRAM_EXECUTABLE;
+        }
+    }
+
+    try
+    {
+        cl_err_code clErrRet = CL_SUCCESS;
+        std::vector<std::string> vsKernelNames;
+
+        clErrRet = m_ppDevicePrograms[0]->GetAutorunKernelsNames(vsKernelNames);
+        if (CL_FAILED(clErrRet))
+        {
+            return clErrRet;
+        }
+        LOG_DEBUG(TEXT("Found %u autorun kernels"), vsKernelNames.size());
+
+        if (nullptr != puiNumKernelsRet)
+        {
+            assert(vsKernelNames.size() <= CL_MAX_UINT32);
+            *puiNumKernelsRet = (cl_uint)vsKernelNames.size();
+        }
+        if (pclKernels && uiNumKernels < vsKernelNames.size())
+        {
+            return CL_INVALID_VALUE;
+        }
+
+        for (size_t i = 0, end = vsKernelNames.size(); i < end; ++i)
+        {
+            // we cannot just call Program::CreateKernel here due to design of
+            // the runtime
+            cl_kernel handle = GetContext()->GetContextModule().CreateKernel(
+                GetHandle(), &vsKernelNames[i].front(), &clErrRet);
+
+            if (CL_FAILED(clErrRet))
+            {
+                return clErrRet;
+            }
+
+            SharedPtr<OCLObject<_cl_kernel_int>> Kern =
+                m_pKernels.GetOCLObject((_cl_kernel_int*)handle);
+            m_pAutorunKernels.AddObject(Kern.DynamicCast<Kernel>());
+
+            if (pclKernels)
+            {
+                pclKernels[i] = handle;
+            }
+            LOG_DEBUG(TEXT("Created autorun kernel: %s"),
+                vsKernelNames[i].c_str());
+        }
+    }
+    catch (const std::bad_alloc& e)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    return CL_SUCCESS;
+}
+
 
 cl_err_code Program::RemoveKernel(cl_kernel clKernel)
 {
@@ -777,6 +860,46 @@ cl_err_code Program::GetKernels(cl_uint uiNumKernels, SharedPtr<Kernel>* ppKerne
         }
         return CL_SUCCESS;
     }
+}
+
+cl_err_code Program::GetAutorunKernels(
+    std::vector<SharedPtr<Kernel>>& autorunKernels)
+{
+    LOG_DEBUG(TEXT("Enter GetAutorunKernels(%p)"), &autorunKernels);
+
+    cl_uint numKernels;
+    cl_err_code error = m_pAutorunKernels.GetObjects(0, nullptr, &numKernels);
+    if (CL_FAILED(error))
+    {
+        return error;
+    }
+
+    if (numKernels > 0)
+    {
+        try
+        {
+            std::vector<SharedPtr<OCLObject<_cl_kernel_int>>> kernels(numKernels);
+            autorunKernels.resize(numKernels);
+
+            error = m_pAutorunKernels.GetObjects(numKernels, &kernels.front(),
+                nullptr);
+            if (CL_FAILED(error))
+            {
+                return error;
+            }
+
+            std::transform(kernels.begin(), kernels.end(), autorunKernels.begin(),
+                [](SharedPtr<OCLObject<_cl_kernel_int>> item) -> SharedPtr<Kernel>{
+                    return item.DynamicCast<Kernel>();
+                });
+        }
+        catch (const std::bad_alloc& e)
+        {
+            return CL_OUT_OF_RESOURCES;
+        }
+    }
+
+    return CL_SUCCESS;
 }
 
 DeviceProgram* Program::GetDeviceProgram(cl_device_id clDeviceId)

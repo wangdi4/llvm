@@ -266,6 +266,7 @@ set( BACKEND_PASSES
     ImplicitArgsAnalysis
     LLVMVectorizer
     AddImplicitArgs
+    AutorunReplicator
     ChannelPipeTransformation
     PipeOrdering
     PipeSupport
@@ -274,6 +275,7 @@ set( BACKEND_PASSES
     BuiltinLibInfo
     DebugInfoPass
     DetectRecursion
+    InfiniteLoopCreator
     InstToFuncCall
     GenericAddressResolution
     LocalBuffers

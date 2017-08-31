@@ -26,6 +26,7 @@
 //  Original author: ulevy
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
+#include <atomic>
 #include <cl_types.h>
 #include <cl_object.h>
 #include <cl_objects_map.h>
@@ -148,6 +149,17 @@ namespace Intel { namespace OpenCL { namespace Framework {
         std::vector< unique_ptr<DeviceProgram> >& GetProgramsForAllDevices()
         { return m_ppDevicePrograms; }
 
+        virtual cl_err_code GetAutorunKernels(
+            std::vector<SharedPtr<Kernel>>& kernels);
+
+        virtual cl_err_code CreateAutorunKernels(cl_uint uiNumKernels,
+                                                 cl_kernel* pclKernels,
+                                                 cl_uint * puiNumKernelsRet);
+
+        bool TestAndSetAutorunKernelsLaunched() {
+            return m_afAutorunKernelsLaunched.test_and_set();
+        }
+
 	protected:
 		virtual ~Program();
 
@@ -157,9 +169,13 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		std::vector< unique_ptr<DeviceProgram> >     m_ppDevicePrograms;
 		cl_uint             m_szNumAssociatedDevices;
 
-		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
+		OCLObjectsMap<_cl_kernel_int> m_pKernels; // associated 
+		// assiciated autorun kernels
+		OCLObjectsMap<_cl_kernel_int> m_pAutorunKernels;
 
 		tDeviceProgramMap   m_deviceToProgram;
+
+		std::atomic_flag m_afAutorunKernelsLaunched;
 
 	private:
 

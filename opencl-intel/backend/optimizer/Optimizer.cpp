@@ -42,6 +42,8 @@ llvm::Pass *createVectorizerPass(SmallVector<Module *, 2> builtinModules,
                                  const intel::OptimizerConfig *pConfig);
 llvm::Pass *createBarrierMainPass(intel::DebuggingServiceType debugType);
 
+llvm::ModulePass *createInfiniteLoopCreatorPass();
+llvm::ModulePass *createAutorunReplicatorPass();
 llvm::ModulePass *createCLWGLoopCreatorPass();
 llvm::ModulePass *createCLWGLoopBoundariesPass();
 llvm::Pass *createCLBuiltinLICMPass();
@@ -255,6 +257,8 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
   if (isFpgaEmulator) {
       PM.add(createChannelPipeTransformationPass());
       PM.add(createPipeOrderingPass());
+
+      PM.add(createAutorunReplicatorPass());
   }
 
   // Adding module passes.
@@ -275,7 +279,6 @@ static void populatePassesPreFailCheck(llvm::legacy::PassManagerBase &PM,
 
   PM.add(llvm::createBasicAAWrapperPass());
   PM.add(createOCLAliasAnalysisPass());
-
   if (dumpIRAfterConfig.ShouldPrintPass(DUMP_IR_TARGERT_DATA)) {
     PM.add(createPrintIRPass(DUMP_IR_TARGERT_DATA, OPTION_IR_DUMPTYPE_AFTER,
                              pConfig->GetDumpIRDir()));
@@ -444,6 +447,9 @@ populatePassesPostFailCheck(llvm::legacy::PassManagerBase &PM, llvm::Module *M,
     if (debugType == intel::None) {
       PM.add(createDeduceMaxWGDimPass());
       PM.add(createCLWGLoopCreatorPass());
+    }
+    if (isFpgaEmulator) {
+      PM.add(createInfiniteLoopCreatorPass());
     }
     // This is a good time to remove internal functions which are not called
     // TODO: Once we set the linkage of internal functions correctly, we won't

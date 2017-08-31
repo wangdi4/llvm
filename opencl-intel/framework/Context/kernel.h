@@ -358,6 +358,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ConstSharedPtr<Context> GetContext() const { return m_pContext; }
         const SharedPtr<Context>& GetContext()     { return m_pContext; }
 
+        bool IsAutorun() const;
+
         const char *GetAttributes() const { return m_sKernelPrototype.m_szKernelAttributes.c_str(); }
 
         ///////////////////////////////////////////////////////////////////////////////////////////

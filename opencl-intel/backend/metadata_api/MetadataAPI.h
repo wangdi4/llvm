@@ -54,6 +54,8 @@ struct KernelMetadataAPI {
   typedef NamedHeteroTupleMDList<llvm::Type, int32_t> VecTypeHintTy;
   typedef NamedMDValue<int32_t, MDValueGlobalObjectStrategy> VecLenHintTy;
   typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> TaskTy;
+  typedef NamedMDValue<bool, MDValueGlobalObjectStrategy> AutorunTy;
+  typedef NamedMDList<int32_t, MDValueGlobalObjectStrategy> NumComputeUnitsTy;
 
   KernelMetadataAPI(llvm::Function *Func)
       : ArgAddressSpaceList(Func, "kernel_arg_addr_space"),
@@ -68,7 +70,9 @@ struct KernelMetadataAPI {
         ReqdNumSubGroups(Func, "required_num_sub_groups"),
         VecTypeHint(Func, "vec_type_hint"),
         VecLenHint(Func, "intel_vec_len_hint"),
-        Task(Func, "task") {}
+        Task(Func, "task"),
+        Autorun(Func, "autorun"),
+        NumComputeUnits(Func, "num_compute_units") {}
 
   // required attributes
   ArgAddressSpaceListTy ArgAddressSpaceList;
@@ -85,6 +89,8 @@ struct KernelMetadataAPI {
   VecTypeHintTupleMDListAccessor<VecTypeHintTy> VecTypeHint;
   NamedMDValueAccessor<VecLenHintTy> VecLenHint;
   NamedMDValueAccessor<TaskTy> Task;
+  NamedMDValueAccessor<AutorunTy> Autorun;
+  WorkgroupSizeMDAccessor<NumComputeUnitsTy> NumComputeUnits;
 };
 
 // internal attributes

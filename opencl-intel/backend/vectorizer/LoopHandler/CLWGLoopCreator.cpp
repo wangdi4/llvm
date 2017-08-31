@@ -226,14 +226,6 @@ loopRegion CLWGLoopCreator::createVectorAndRemainderLoops() {
   return loopRegion(loopsEntry, retBlock);
 }
 
-void CLWGLoopCreator::moveAllocaToEntry(BasicBlock *BB) {
-  Instruction *loc = m_newEntry->getFirstNonPHI();
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I!=E;) {
-    AllocaInst *AI = dyn_cast<AllocaInst>(I++);
-    if (AI) AI->moveBefore(loc);
-  }
-}
-
 CallInst *CLWGLoopCreator::createEECall() {
   // Obtain early exit function. Function should have the same arguments
   // as the kernel.
@@ -354,7 +346,7 @@ CLWGLoopCreator::AddWGLoops(BasicBlock *kernelEntry, bool isVector,
       VVec &loopSizes) {
   assert(kernelEntry && ret && "uninitialized parameters");
   // Move allocas in the entry kernel entry block to the new entry block.
-  moveAllocaToEntry(kernelEntry);
+  CompilationUtils::moveAlloca(kernelEntry, m_newEntry);
 
   // Inital head and latch are the kernel entry and return block respectively.
   BasicBlock *head = kernelEntry;

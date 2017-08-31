@@ -368,4 +368,28 @@ namespace Intel { namespace OpenCL { namespace Framework {
         PostBuildTask& operator=(const PostBuildTask&);
     };
 
+    class CreateAutorunKernelsTask : public BuildTask
+    {
+    public:
+
+        PREPARE_SHARED_PTR(CreateAutorunKernelsTask)
+
+        static SharedPtr<CreateAutorunKernelsTask> Allocate(
+            _cl_context_int*            context,
+            const SharedPtr<Program>&   pProg)
+        {
+            return new CreateAutorunKernelsTask(context, pProg);
+        }
+
+        virtual bool Execute();
+        virtual void Cancel();
+
+    protected:
+
+        CreateAutorunKernelsTask(_cl_context_int*          context,
+                                 const SharedPtr<Program>& pProg);
+
+        ~CreateAutorunKernelsTask();
+    };
+
 }}} // namespace

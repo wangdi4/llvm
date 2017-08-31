@@ -15,6 +15,7 @@ add_executable(${TARGET_NAME}
 # Backend passes
 set(OCL_BE_PASSES
     AddImplicitArgs
+    AutorunReplicator
     BackendPassesWrappers
     BuiltInFuncImport
     BuiltinCallToInst
@@ -25,6 +26,7 @@ set(OCL_BE_PASSES
     DetectRecursion
     GenericAddressResolution
     ImplicitArgsAnalysis
+    InfiniteLoopCreator
     InstToFuncCall
     KernelInfo
     LLVMBarrier

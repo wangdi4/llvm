@@ -597,6 +597,7 @@ bool PostBuildTask::Execute()
             break;
 
         case DEVICE_PROGRAM_BE_BUILDING:
+        case DEVICE_PROGRAM_CREATING_AUTORUN:
             m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILD_DONE);
             break;
 
@@ -1217,12 +1218,42 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
         return CL_OUT_OF_HOST_MEMORY;
     }
 
+    cl_bool isFPGAEmulator = program->GetContext()->IsFPGAEmulator();
+    SharedPtr<CreateAutorunKernelsTask> pCreateAutorunKernelsTask;
+
+    if (isFPGAEmulator)
+    {
+        try
+        {
+            pCreateAutorunKernelsTask = CreateAutorunKernelsTask::Allocate(
+                context, program);
+        }
+        catch (const std::bad_alloc& e)
+        {
+            delete[] ppDevicePrograms;
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL != arrDeviceBuildTasks[i])
         {
-            pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
+            if (isFPGAEmulator)
+            {
+                pCreateAutorunKernelsTask->AddDependentOn(
+                    arrDeviceBuildTasks[i]);
+            }
+            else
+            {
+                pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
+            }
         }
+    }
+
+    if (isFPGAEmulator)
+    {
+        pPostBuildTask->AddDependentOn(pCreateAutorunKernelsTask);
     }
 
     // launch the required task for each device
@@ -1241,7 +1272,14 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
     // If no build required, launch post build task
     if (!bNeedToBuild)
     {
-        pPostBuildTask->Launch();
+        if (isFPGAEmulator)
+        {
+            pCreateAutorunKernelsTask->Launch();
+        }
+        else
+        {
+            pPostBuildTask->Launch();
+        }
     }
 
     if (NULL == pfn_notify)
@@ -1482,12 +1520,42 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         return CL_OUT_OF_HOST_MEMORY;
     }
 
+    cl_bool isFPGAEmulator = program->GetContext()->IsFPGAEmulator();
+    SharedPtr<CreateAutorunKernelsTask> pCreateAutorunKernelsTask;
+
+    if (isFPGAEmulator)
+    {
+        try
+        {
+            pCreateAutorunKernelsTask = CreateAutorunKernelsTask::Allocate(
+                context, program);
+        }
+        catch (const std::bad_alloc& e)
+        {
+            delete[] ppDevicePrograms;
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
     for (unsigned int i = 0; i < uiNumDevices; ++i)
     {
         if (NULL != arrDeviceBuildTasks[i])
         {
-            pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
+            if (isFPGAEmulator)
+            {
+                pCreateAutorunKernelsTask->AddDependentOn(
+                    arrDeviceBuildTasks[i]);
+            }
+            else
+            {
+                pPostBuildTask->AddDependentOn(arrDeviceBuildTasks[i]);
+            }
         }
+    }
+
+    if (isFPGAEmulator)
+    {
+        pPostBuildTask->AddDependentOn(pCreateAutorunKernelsTask);
     }
 
     // launch the required task for each device
@@ -1510,7 +1578,14 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     // If no build required, launch post build task
     if (!bNeedToBuild)
     {
-        pPostBuildTask->Launch();
+        if (isFPGAEmulator)
+        {
+            pCreateAutorunKernelsTask->Launch();
+        }
+        else
+        {
+            pPostBuildTask->Launch();
+        }
     }
 
     if (NULL == pfn_notify)
@@ -1523,4 +1598,57 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     }
 
     return CL_SUCCESS;
+}
+
+CreateAutorunKernelsTask::CreateAutorunKernelsTask(
+    _cl_context_int* context, const SharedPtr<Program>& pProg)
+    : BuildTask(context, pProg, nullptr)
+{
+}
+
+bool CreateAutorunKernelsTask::Execute()
+{
+    auto& devicePrograms = m_pProg->GetProgramsForAllDevices();
+
+    // used to save original states of device programs
+    for (const auto& program: devicePrograms)
+    {
+        EDeviceProgramState state = program->GetStateInternal();
+        cl_program_binary_type bin_type = program->GetBinaryTypeInternal();
+        // If previous stages failed don't continue execution
+        if ((DEVICE_PROGRAM_COMPILE_FAILED == state) ||
+            (DEVICE_PROGRAM_LINK_FAILED == state) ||
+            (DEVICE_PROGRAM_BUILD_FAILED == state) ||
+            (bin_type != CL_PROGRAM_BINARY_TYPE_EXECUTABLE))
+        {
+            SetComplete(CL_BUILD_SUCCESS);
+            return true;
+        }
+    }
+
+    for (const auto& program: devicePrograms)
+    {
+        program->SetStateInternal(DEVICE_PROGRAM_CREATING_AUTORUN);
+    }
+
+    cl_err_code error = m_pProg->CreateAutorunKernels(0, nullptr, nullptr);
+    if (CL_FAILED(error))
+    {
+        for (const auto& program: devicePrograms)
+        {
+            program->SetStateInternal(DEVICE_PROGRAM_BUILD_FAILED);
+        }
+    }
+
+    SetComplete(CL_BUILD_SUCCESS);
+    return true;
+}
+
+void CreateAutorunKernelsTask::Cancel()
+{
+    SetComplete(CL_BUILD_ERROR);
+}
+
+CreateAutorunKernelsTask::~CreateAutorunKernelsTask()
+{
 }

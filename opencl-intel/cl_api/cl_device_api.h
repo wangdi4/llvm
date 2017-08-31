@@ -333,8 +333,9 @@ enum cl_dev_kernel_info
     CL_DEV_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,   //!< Returns the maximum sub-group size.
     CL_DEV_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,      //!< Returns the number of sub-groups that will be presented.
                                                     //!< in each work-group for a given local work size.
-    CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT    //!< Returns the local size that will generate the
+    CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,   //!< Returns the local size that will generate the
                                                     //!< requested number of sub - groups for the kernel.
+    CL_DEV_KERNEL_IS_AUTORUN
 };
 
 /*! \enum cl_dev_partition_prop

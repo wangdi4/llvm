@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/ADT/SetVector.h"
+
 #include <string>
 #include <vector>
 #include <map>
@@ -115,6 +116,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
                                 Argument **ppWorkDim, Argument **ppWGId,
                                 Argument **ppBaseGlbId, Argument **ppSpecialBuf,
                                 Argument **ppRunTimeHandle);
+
+    /// @brief Moves alloca instructions from FromBB to ToBB
+    static void moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB);
 
     /// @brief collect built-ins declared in the module and force synchronization.
     //         I.e. implemented using barrier built-in.
@@ -321,7 +325,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NONE;
     //kernel type qualifiers
     static const std::string SAMPLER;
-  public:
+
     /// '3' is a magic number for global variables
     /// that were in origin kernel local variable!
     static const unsigned int LOCL_VALUE_ADDRESS_SPACE;

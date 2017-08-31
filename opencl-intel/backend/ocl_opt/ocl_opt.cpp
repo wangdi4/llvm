@@ -94,6 +94,8 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializePipeSupportPass(Registry);
     intel::initializeFMASplitterPass(Registry);
     intel::initializePipeOrderingPass(Registry);
+    intel::initializeInfiniteLoopCreatorPass(Registry);
+    intel::initializeAutorunReplicatorPass(Registry);
 }
 
 

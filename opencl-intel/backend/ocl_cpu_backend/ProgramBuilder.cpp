@@ -385,6 +385,12 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
     kernelAttributes << "required_num_sub_groups(" << reqdNumSG << ") ";
   }
 
+  bool isAutorun = false;
+  if (kmd.Autorun.hasValue()) {
+    isAutorun = true;
+    kernelAttributes << "autorun";
+  }
+
   if (kmd.VecLenHint.hasValue()) {
     int32_t VecLen = kmd.VecLenHint.get();
     kernelAttributes << "intel_vec_len_hint(" << VecLen << ") ";
@@ -478,6 +484,7 @@ KernelProperties *ProgramBuilder::CreateKernelProperties(
   pProps->SetHasBarrier(hasBarrier);
   pProps->SetHasGlobalSync(hasGlobalSync);
   pProps->SetKernelExecutionLength(executionLength);
+  pProps->SetIsAutorun(isAutorun);
   auto kernelAttributesStr = kernelAttributes.str();
   // Remove space at the end
   if (!kernelAttributesStr.empty())

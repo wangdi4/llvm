@@ -522,6 +522,10 @@ TEST(FPGA, Test_FPGAPipeOrdering)
     FPGAPipeOrdering();
 }
 
+TEST(FPGA, Test_FPGAAutorun)
+{
+    FPGAAutorun();
+}
 #endif //BUILD_FPGA_EMULATOR
 
 TEST(FPGA, Test_checkFPGAExtensionNEGATIVE)

@@ -218,6 +218,22 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   }
 
+  void CompilationUtils::moveAlloca(BasicBlock *FromBB, BasicBlock *ToBB) {
+    Instruction *loc = ToBB->getFirstNonPHI();
+    assert(loc && "At least one non-PHI insruction is expected in ToBB");
+    // TODO: refactor using
+    // void Instruction::moveBefore(BasicBlock &BB,
+    //     SymbolTableList< Instruction >::iterator I)
+    // and
+    // iterator BasicBlock::getFirstInsertionPt ()
+    // after an LLVM upgrate
+    for (BasicBlock::iterator I = FromBB->begin(), E = FromBB->end(); I != E;) {
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(I++)) {
+        AI->moveBefore(loc);
+      }
+    }
+  }
+
   void CompilationUtils::getAllSyncBuiltinsDcls(FunctionSet &functionSet, Module *pModule) {
     //Clear old collected data!
     functionSet.clear();
