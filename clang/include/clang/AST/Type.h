@@ -5474,6 +5474,43 @@ public:
   bool isReadOnly() const { return isRead; }
 };
 
+#if INTEL_CUSTOMIZATION
+/// ChannelType - Altera OpenCL extension.
+class ChannelType : public Type, public llvm::FoldingSetNode {
+  QualType ElementType;
+
+  ChannelType(QualType elemType, QualType CanonicalPtr) :
+    Type(Channel, CanonicalPtr, elemType->isDependentType(),
+         elemType->isInstantiationDependentType(),
+         elemType->isVariablyModifiedType(),
+         elemType->containsUnexpandedParameterPack()),
+    ElementType(elemType) {}
+  friend class ASTContext;  // ASTContext creates these.
+
+public:
+
+  QualType getElementType() const { return ElementType; }
+
+  bool isSugared() const { return false; }
+
+  QualType desugar() const { return QualType(this, 0); }
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, getElementType());
+  }
+
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType T) {
+    ID.AddPointer(T.getAsOpaquePtr());
+  }
+
+
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == Channel;
+  }
+
+};
+#endif // INTEL_CUSTOMIZATION
+
 /// A qualifier set is used to build a set of qualifiers.
 class QualifierCollector : public Qualifiers {
 public:

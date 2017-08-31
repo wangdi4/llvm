@@ -846,6 +846,11 @@ namespace clang {
     /// constant describes a record for a specific type class in the
     /// AST. Note that DeclCode values share this code space.
     enum TypeCode {
+#if INTEL_CUSTOMIZATION
+      /// Intel specific type codes
+      /// \brief A ChannelType record.
+      TYPE_CHANNEL               = 1024,
+#endif // INTEL_CUSTOMIZATION
       /// \brief An ExtQualType record.
       TYPE_EXT_QUAL                 = 1,
       /// \brief A ComplexType record.

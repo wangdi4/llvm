@@ -317,6 +317,9 @@ bool Declarator::isDeclarationOfFunction() const {
     case DeclaratorChunk::Array:
     case DeclaratorChunk::BlockPointer:
     case DeclaratorChunk::MemberPointer:
+#if INTEL_CUSTOMIZATION
+    case DeclaratorChunk::Channel:
+#endif // INTEL_CUSTOMIZATION
     case DeclaratorChunk::Pipe:
       return false;
     }
@@ -801,6 +804,23 @@ bool DeclSpec::SetTypePipe(bool isPipe, SourceLocation Loc,
   }
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+bool DeclSpec::SetTypeChannel(bool isChannel, SourceLocation Loc,
+                              const char *&PrevSpec, unsigned &DiagID,
+                              const PrintingPolicy &Policy) {
+
+  if (TypeSpecType != TST_unspecified) {
+    PrevSpec = DeclSpec::getSpecifierName((TST)TypeSpecType, Policy);
+    DiagID = diag::err_invalid_decl_spec_combination;
+    return true;
+  }
+
+  TypeSpecChannel = isChannel;
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool DeclSpec::SetTypeAltiVecPixel(bool isAltiVecPixel, SourceLocation Loc,
                           const char *&PrevSpec, unsigned &DiagID,

@@ -1853,6 +1853,9 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
     case Type::DeducedTemplateSpecialization:
     case Type::DependentTemplateSpecialization:
     case Type::PackExpansion:
+#if INTEL_CUSTOMIZATION
+    case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
     case Type::Pipe:
       // No template argument deduction for these types
       return Sema::TDK_Success;
@@ -5328,6 +5331,9 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
   case Type::ObjCObject:
   case Type::ObjCObjectPointer:
   case Type::UnresolvedUsing:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
 #define TYPE(Class, Base)
 #define ABSTRACT_TYPE(Class, Base)

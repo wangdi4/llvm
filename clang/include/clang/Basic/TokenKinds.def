@@ -577,6 +577,9 @@ KEYWORD(vec_step                    , KEYOPENCL|KEYALTIVEC|KEYZVECTOR)
 KEYWORD(__builtin_omp_required_simd_align, KEYALL)
 
 KEYWORD(pipe                        , KEYOPENCL)
+#if INTEL_CUSTOMIZATION
+KEYWORD(channel                     , KEYOPENCL)
+#endif // INTEL_CUSTOMIZATION
 
 // Borland Extensions.
 KEYWORD(__pascal                    , KEYALL)

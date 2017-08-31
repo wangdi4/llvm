@@ -3421,6 +3421,10 @@ static CachedProperties computeCachedProperties(const Type *T) {
     return Cache::get(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return Cache::get(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return Cache::get(cast<ChannelType>(T)->getElementType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return Cache::get(cast<PipeType>(T)->getElementType());
   }
@@ -3506,6 +3510,10 @@ static LinkageInfo computeLinkageInfo(const Type *T) {
     return computeLinkageInfo(cast<ObjCObjectPointerType>(T)->getPointeeType());
   case Type::Atomic:
     return computeLinkageInfo(cast<AtomicType>(T)->getValueType());
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+    return computeLinkageInfo(cast<ChannelType>(T)->getElementType());
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return computeLinkageInfo(cast<PipeType>(T)->getElementType());
   }
@@ -3656,6 +3664,9 @@ bool Type::canHaveNullability(bool ResultIfUnknown) const {
   case Type::ObjCObject:
   case Type::ObjCInterface:
   case Type::Atomic:
+#if INTEL_CUSTOMIZATION
+  case Type::Channel:
+#endif // INTEL_CUSTOMIZATION
   case Type::Pipe:
     return false;
   }

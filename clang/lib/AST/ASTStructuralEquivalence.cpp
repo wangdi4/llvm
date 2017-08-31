@@ -705,6 +705,16 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
     break;
   }
 
+#if INTEL_CUSTOMIZATION
+  case Type::Channel: {
+    if (!IsStructurallyEquivalent(Context,
+                                  cast<ChannelType>(T1)->getElementType(),
+                                  cast<ChannelType>(T2)->getElementType()))
+      return false;
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   case Type::Pipe: {
     if (!IsStructurallyEquivalent(Context, cast<PipeType>(T1)->getElementType(),
                                   cast<PipeType>(T2)->getElementType()))

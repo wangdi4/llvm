@@ -1160,6 +1160,11 @@ public:
   QualType RebuildPipeType(QualType ValueType, SourceLocation KWLoc,
                            bool isReadPipe);
 
+#if INTEL_CUSTOMIZATION
+  /// \brief Build a new channel type given its value type.
+  QualType RebuildChannelType(QualType ValueType, SourceLocation KWLoc);
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Build a new template name given a nested name specifier, a flag
   /// indicating whether the "template" keyword was provided, and the template
   /// that the template name refers to.
@@ -5906,6 +5911,28 @@ QualType TreeTransform<Derived>::TransformPipeType(TypeLocBuilder &TLB,
 
   return Result;
 }
+
+#if INTEL_CUSTOMIZATION
+template <typename Derived>
+QualType TreeTransform<Derived>::TransformChannelType(TypeLocBuilder &TLB,
+                                                      ChannelTypeLoc TL) {
+  QualType ValueType = getDerived().TransformType(TLB, TL.getValueLoc());
+  if (ValueType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() || ValueType != TL.getValueLoc().getType()) {
+    Result = getDerived().RebuildChannelType(ValueType, TL.getKWLoc());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  ChannelTypeLoc NewTL = TLB.push<ChannelTypeLoc>(Result);
+  NewTL.setKWLoc(TL.getKWLoc());
+
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Simple iterator that traverses the template arguments in a
   /// container that provides a \c getArgLoc() member function.
@@ -12878,6 +12905,14 @@ QualType TreeTransform<Derived>::RebuildPipeType(QualType ValueType,
   return isReadPipe ? SemaRef.BuildReadPipeType(ValueType, KWLoc)
                     : SemaRef.BuildWritePipeType(ValueType, KWLoc);
 }
+
+#if INTEL_CUSTOMIZATION
+template<typename Derived>
+QualType TreeTransform<Derived>::RebuildChannelType(QualType ValueType,
+                                                   SourceLocation KWLoc) {
+  return SemaRef.BuildChannelType(ValueType, KWLoc);
+}
+#endif // INTEL_CUSTOMIZATION
 
 template<typename Derived>
 TemplateName
